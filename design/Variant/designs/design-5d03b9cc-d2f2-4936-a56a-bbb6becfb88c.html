@@ -1,0 +1,377 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">EXO WRITER - Settings</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <style vid="6">
+        
+        :root {
+            --bg-body: #080808;      
+            --bg-surface: #0f0f0f;   
+            --bg-hover: #1a1a1a;
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            --text-faint: #444444;
+            --line-color: #222222;
+            --accent-glow: rgba(255, 255, 255, 0.05);
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-display: 'Inter', sans-serif;
+            --space-xs: 4px;
+            --space-sm: 12px;
+            --space-md: 24px;
+            --space-lg: 48px;
+            --space-xl: 80px;
+            --ease: cubic-bezier(0.2, 0.0, 0.2, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            font-size: 14px;
+            line-height: 1.5;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+        }
+
+        
+        .uppercase-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-weight: 500; }
+        .text-link { color: var(--text-main); text-decoration: none; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 2px; transition: border-color 0.3s var(--ease); }
+        .text-link:hover { border-color: rgba(255,255,255,0.8); }
+        
+        .sidebar { width: 280px; background-color: var(--bg-body); border-right: 1px solid var(--line-color); display: flex; flex-direction: column; padding: var(--space-md); flex-shrink: 0; z-index: 10; }
+        .brand { margin-bottom: var(--space-xl); font-size: 18px; font-weight: 600; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+        .brand span { font-weight: 400; color: var(--text-muted); }
+        .nav-group { margin-bottom: var(--space-lg); }
+        .nav-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-sm); }
+        .nav-list { list-style: none; }
+        .nav-item { display: flex; align-items: center; padding: 8px 0; color: var(--text-muted); cursor: pointer; transition: color 0.3s var(--ease); font-size: 13px; position: relative; }
+        .nav-item::before { content: '+'; position: absolute; left: -16px; opacity: 0; color: var(--text-faint); transition: opacity 0.3s var(--ease), transform 0.3s var(--ease); font-weight: 300; }
+        .nav-item:hover { color: var(--text-main); }
+        .nav-item:hover::before { opacity: 1; transform: translateX(4px); }
+        .nav-item.active { color: var(--text-main); }
+        .nav-item.active::before { opacity: 1; color: var(--text-main); transform: translateX(4px); }
+        .user-profile { margin-top: auto; border-top: 1px solid var(--line-color); padding-top: var(--space-md); display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .workspace { flex-grow: 1; display: flex; flex-direction: column; position: relative; background-color: var(--bg-body); }
+        .toolbar { height: 60px; border-bottom: 1px solid transparent; display: flex; align-items: center; justify-content: flex-end; padding: 0 var(--space-md); gap: var(--space-md); }
+        .action-button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; transition: color 0.2s; display: flex; align-items: center; gap: 6px; }
+        .action-button:hover { color: var(--text-main); }
+        .publish-btn { border: 1px solid var(--line-color); padding: 8px 16px; border-radius: 20px; color: var(--text-main); transition: all 0.3s var(--ease); }
+        .publish-btn:hover { border-color: var(--text-main); background: rgba(255,255,255,0.05); }
+
+        .editor-scroller { flex-grow: 1; overflow-y: auto; padding: 0 var(--space-md); scrollbar-width: thin; scrollbar-color: var(--line-color) var(--bg-body); }
+        .editor-container { max-width: 760px; margin: 0 auto; padding: var(--space-lg) 0 120px 0; }
+        .document-cover { width: 100%; height: 240px; background-image: linear-gradient(to bottom, rgba(0,0,0,0), var(--bg-body)), url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80'); background-size: cover; background-position: center 20%; margin-bottom: var(--space-lg); opacity: 0.6; border-radius: 2px; position: relative; }
+        .document-meta { display: flex; gap: var(--space-md); margin-bottom: var(--space-md); opacity: 0.6; }
+        .document-title { font-size: 48px; font-weight: 500; letter-spacing: -0.03em; margin-bottom: var(--space-md); color: var(--text-main); line-height: 1.1; }
+        .document-subtitle { font-size: 20px; color: var(--text-muted); margin-bottom: var(--space-xl); font-weight: 300; line-height: 1.4; }
+        .content-block { font-size: 16px; line-height: 1.8; color: #b0b0b0; margin-bottom: var(--space-md); }
+        .content-block p { margin-bottom: 24px; }
+        .content-block h2 { color: var(--text-main); font-weight: 500; font-size: 24px; margin-top: 48px; margin-bottom: 16px; letter-spacing: -0.01em; }
+        .highlight-text { color: var(--text-main); }
+
+        .context-panel { width: 240px; border-left: 1px solid var(--line-color); padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-lg); background-color: var(--bg-body); }
+        .panel-section { display: flex; flex-direction: column; gap: 12px; }
+        .stat-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        .stat-item { display: flex; flex-direction: column; gap: 4px; }
+        .stat-value { font-size: 14px; color: var(--text-main); }
+        .tag-list { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tag { border: 1px solid var(--line-color); padding: 4px 10px; border-radius: 100px; font-size: 11px; color: var(--text-muted); transition: all 0.2s; cursor: pointer; }
+        .tag:hover { border-color: var(--text-muted); color: var(--text-main); }
+        .divider { height: 1px; background: var(--line-color); width: 100%; margin: 8px 0; }
+
+        
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+        
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-up { animation: fadeUp 0.4s var(--ease) forwards; }
+        
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 12px;
+            width: 12px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 1px solid #000;
+            margin-top: -5px;
+            box-shadow: 0 0 0 4px #0f0f0f;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 2px;
+            background: #333;
+        }
+    </style>
+</head>
+<body vid="7">
+
+    
+    <nav class="sidebar" vid="8">
+        <div class="brand" vid="9">EXO<span vid="10">WRITER</span></div>
+        <div class="nav-group" vid="11">
+            <div class="nav-header uppercase-label" vid="12">Workspace</div>
+            <ul class="nav-list" vid="13">
+                <li class="nav-item active" vid="14">Recent Drafts</li>
+                <li class="nav-item" vid="15">Published</li>
+                <li class="nav-item" vid="16">Archive</li>
+            </ul>
+        </div>
+        <div class="nav-group" vid="17">
+            <div class="nav-header uppercase-label" vid="18">Collections <span style="cursor: pointer" vid="19">+</span></div>
+            <ul class="nav-list" vid="20">
+                <li class="nav-item" vid="21">Design Theory</li>
+                <li class="nav-item" vid="22">Visual Essays</li>
+                <li class="nav-item" vid="23">Typography</li>
+            </ul>
+        </div>
+        <div class="user-profile" vid="24">
+            <div class="stat-item" vid="25">
+                <span class="uppercase-label" vid="26">Account</span>
+                <span class="text-link" style="font-size: 12px; margin-top:4px;" vid="27">Settings</span>
+            </div>
+            <div class="stat-item" vid="28">
+                <span class="uppercase-label" vid="29">Plan</span>
+                <span class="stat-value" style="font-size: 12px; margin-top:4px;" vid="30">Pro</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="workspace" vid="31">
+        <header class="toolbar" vid="32">
+            <button class="action-button" vid="33">History</button>
+            <button class="action-button" vid="34">Preview</button>
+            <button class="action-button publish-btn" vid="35">Publish</button>
+        </header>
+
+        <div class="editor-scroller" vid="36">
+            <div class="editor-container" vid="37">
+                <div class="document-cover" vid="38"></div>
+                <div class="document-meta" vid="39">
+                    <span class="uppercase-label" vid="40">Last Edited 2m ago</span>
+                    <span class="uppercase-label" vid="41">Draft</span>
+                </div>
+                <h1 class="document-title" vid="42">Digital Design Experience</h1>
+                <h2 class="document-subtitle" vid="43">Intrigued by beauty, fascinated by technology and fuelled with an everlasting devotion to digital craftsmanship.</h2>
+                <div class="content-block" vid="44">
+                    <p vid="45">Design is not just about making things look good. It is about how things work. In the digital realm, this translates to the seamless integration of form and function. <span class="highlight-text" vid="46">We build immersive environments</span> where typography leads the eye and imagery sets the mood.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <aside class="context-panel" vid="47">
+        <div class="panel-section" vid="48">
+            <div class="uppercase-label" vid="49">Document Details</div>
+            <div class="divider" vid="50"></div>
+            <div class="stat-grid" vid="51">
+                <div class="stat-item" vid="52"><span class="uppercase-label" vid="53">Words</span><span class="stat-value" vid="54">1,240</span></div>
+                <div class="stat-item" vid="55"><span class="uppercase-label" vid="56">Read Time</span><span class="stat-value" vid="57">6 min</span></div>
+            </div>
+        </div>
+        <div class="panel-section" vid="58">
+            <div class="uppercase-label" vid="59">Tags</div>
+            <div class="divider" vid="60"></div>
+            <div class="tag-list" vid="61">
+                <span class="tag" vid="62">Design</span>
+                <span class="tag" vid="63">UX/UI</span>
+                <span class="tag" vid="64">Minimalism</span>
+            </div>
+        </div>
+    </aside>
+
+    
+    
+    <div class="fixed inset-0 z-[100] flex items-center justify-center" vid="65">
+        
+        <div class="absolute inset-0 bg-[#000000] bg-opacity-75 backdrop-blur-sm transition-opacity" vid="66"></div>
+        
+        
+        <div class="relative w-[1000px] h-[700px] bg-[#0f0f0f] border border-[#222] rounded shadow-2xl flex flex-row overflow-hidden font-['Inter'] animate-up" vid="67">
+            
+            
+            <div class="w-[260px] bg-[#0a0a0a] border-r border-[#222] flex flex-col py-8 shrink-0" vid="68">
+                <div class="px-8 mb-8" vid="69">
+                    <h2 class="text-[10px] uppercase tracking-[0.15em] text-[#444] font-semibold" vid="70">Settings</h2>
+                </div>
+                
+                <nav class="flex flex-col w-full" vid="71">
+                    <button class="w-full text-left px-8 py-3 text-[13px] text-white bg-[#1a1a1a] border-r-[2px] border-white transition-all duration-200" vid="72">
+                        General
+                    </button>
+                    <button class="w-full text-left px-8 py-3 text-[13px] text-[#888] hover:text-white hover:bg-[#111] transition-all duration-200 border-r-[2px] border-transparent" vid="73">
+                        Appearance
+                    </button>
+                    <button class="w-full text-left px-8 py-3 text-[13px] text-[#888] hover:text-white hover:bg-[#111] transition-all duration-200 border-r-[2px] border-transparent" vid="74">
+                        Export &amp; Share
+                    </button>
+                    <button class="w-full text-left px-8 py-3 text-[13px] text-[#888] hover:text-white hover:bg-[#111] transition-all duration-200 border-r-[2px] border-transparent" vid="75">
+                        Account
+                    </button>
+                </nav>
+
+                <div class="mt-auto px-8" vid="76">
+                    <div class="pt-6 border-t border-[#222]" vid="77">
+                        <button class="flex items-center gap-2 text-[12px] text-[#666] hover:text-[#fff] transition-colors" vid="78">
+                            Log Out
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div class="flex-1 bg-[#0f0f0f] flex flex-col relative min-w-0" vid="79">
+                
+                
+                <button class="absolute top-6 right-8 p-2 text-[#444] hover:text-white transition-colors z-10 hover:bg-[#1a1a1a] rounded-full" vid="80">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vid="81"><line x1="18" y1="6" x2="6" y2="18" vid="82"></line><line x1="6" y1="6" x2="18" y2="18" vid="83"></line></svg>
+                </button>
+
+                
+                <div class="flex-1 overflow-y-auto px-12 py-10 custom-scrollbar" vid="84">
+                    <div class="max-w-[560px]" vid="85">
+                        
+                        <h1 class="text-2xl font-normal text-white mb-2 tracking-tight" vid="86">General</h1>
+                        <p class="text-[#666] text-sm mb-12 font-light" vid="87">Customize your writing environment and workflow preferences.</p>
+
+                        
+                        <div class="mb-14" vid="88">
+                            <h4 class="text-[10px] uppercase tracking-widest text-[#444] font-semibold mb-6" vid="89">Writing Experience</h4>
+
+                            
+                            <div class="flex items-start justify-between mb-8 group" vid="90">
+                                <div class="pr-8" vid="91">
+                                    <h3 class="text-[14px] text-white font-medium mb-1 group-hover:text-white transition-colors" vid="92">Focus Mode</h3>
+                                    <p class="text-[13px] text-[#666] leading-relaxed" vid="93">Dims all interface elements except the editor when you start typing to reduce distractions.</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-1" vid="94">
+                                    <input type="checkbox" checked="" class="sr-only peer" vid="95">
+                                    <div class="w-11 h-6 bg-[#1a1a1a] peer-focus:outline-none rounded-full peer peer-checked:bg-white transition-all duration-300 ease-out border border-[#333] peer-checked:border-white" vid="96"></div>
+                                    <div class="absolute left-[3px] top-[3px] bg-[#666] w-[18px] h-[18px] rounded-full transition-all duration-300 peer-checked:translate-x-[20px] peer-checked:bg-black" vid="97"></div>
+                                </label>
+                            </div>
+
+                            
+                            <div class="flex items-start justify-between mb-8 group" vid="98">
+                                <div class="pr-8" vid="99">
+                                    <h3 class="text-[14px] text-white font-medium mb-1 group-hover:text-white transition-colors" vid="100">Typewriter Scroll</h3>
+                                    <p class="text-[13px] text-[#666] leading-relaxed" vid="101">Keeps your active line of text vertically centered on the screen as you write.</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-1" vid="102">
+                                    <input type="checkbox" class="sr-only peer" vid="103">
+                                    <div class="w-11 h-6 bg-[#1a1a1a] peer-focus:outline-none rounded-full peer peer-checked:bg-white transition-all duration-300 ease-out border border-[#333] peer-checked:border-white" vid="104"></div>
+                                    <div class="absolute left-[3px] top-[3px] bg-[#666] w-[18px] h-[18px] rounded-full transition-all duration-300 peer-checked:translate-x-[20px] peer-checked:bg-black" vid="105"></div>
+                                </label>
+                            </div>
+                            
+                            
+                             <div class="flex items-start justify-between mb-8 group" vid="106">
+                                <div class="pr-8" vid="107">
+                                    <h3 class="text-[14px] text-white font-medium mb-1 group-hover:text-white transition-colors" vid="108">Smart Punctuation</h3>
+                                    <p class="text-[13px] text-[#666] leading-relaxed" vid="109">Automatically convert straight quotes to curly quotes and double hyphens to em-dashes.</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-1" vid="110">
+                                    <input type="checkbox" checked="" class="sr-only peer" vid="111">
+                                    <div class="w-11 h-6 bg-[#1a1a1a] peer-focus:outline-none rounded-full peer peer-checked:bg-white transition-all duration-300 ease-out border border-[#333] peer-checked:border-white" vid="112"></div>
+                                    <div class="absolute left-[3px] top-[3px] bg-[#666] w-[18px] h-[18px] rounded-full transition-all duration-300 peer-checked:translate-x-[20px] peer-checked:bg-black" vid="113"></div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="w-full h-px bg-[#222] mb-12" vid="114"></div>
+
+                        
+                        <div class="mb-14" vid="115">
+                            <h4 class="text-[10px] uppercase tracking-widest text-[#444] font-semibold mb-6" vid="116">Data &amp; Storage</h4>
+                            
+                            <div class="flex items-start justify-between mb-8" vid="117">
+                                <div vid="118">
+                                    <h3 class="text-[14px] text-white font-medium mb-1" vid="119">Local Auto-Save</h3>
+                                    <p class="text-[13px] text-[#666]" vid="120">Automatically save changes to your browser's local storage.</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-1" vid="121">
+                                    <input type="checkbox" checked="" class="sr-only peer" vid="122">
+                                    <div class="w-11 h-6 bg-[#1a1a1a] peer-focus:outline-none rounded-full peer peer-checked:bg-white transition-all duration-300 ease-out border border-[#333] peer-checked:border-white" vid="123"></div>
+                                    <div class="absolute left-[3px] top-[3px] bg-[#666] w-[18px] h-[18px] rounded-full transition-all duration-300 peer-checked:translate-x-[20px] peer-checked:bg-black" vid="124"></div>
+                                </label>
+                            </div>
+
+                            <div class="flex flex-col gap-3" vid="125">
+                                <h3 class="text-[14px] text-white font-medium" vid="126">Backup Interval</h3>
+                                <div class="relative w-full group" vid="127">
+                                    <select class="w-full bg-[#0a0a0a] text-white text-[13px] border border-[#333] rounded px-4 py-3 appearance-none focus:border-[#666] outline-none transition-colors cursor-pointer hover:bg-[#111] hover:border-[#444]" vid="128">
+                                        <option vid="129">Every 5 minutes</option>
+                                        <option vid="130">Every 15 minutes</option>
+                                        <option vid="131">Every hour</option>
+                                    </select>
+                                    <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#666] group-hover:text-white transition-colors" vid="132">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="133"><path d="M6 9l6 6 6-6" vid="134"></path></svg>
+                                    </div>
+                                </div>
+                                <p class="text-[12px] text-[#444] mt-1" vid="135">Last backup: 2 minutes ago</p>
+                            </div>
+                        </div>
+                        
+                         <div class="w-full h-px bg-[#222] mb-12" vid="136"></div>
+
+                         
+                        <div class="mb-6" vid="137">
+                             <h4 class="text-[10px] uppercase tracking-widest text-[#444] font-semibold mb-6" vid="138">Editor Defaults</h4>
+                             
+                             <div class="grid grid-cols-2 gap-8" vid="139">
+                                
+                                <div class="flex flex-col gap-3" vid="140">
+                                    <label class="text-[13px] text-[#888]" vid="141">Default Typography</label>
+                                    <div class="relative w-full group" vid="142">
+                                        <select class="w-full bg-[#0a0a0a] text-white text-[13px] border border-[#333] rounded px-4 py-2.5 appearance-none focus:border-[#666] outline-none hover:bg-[#111] transition-colors" vid="143">
+                                            <option vid="144">Inter (Sans-Serif)</option>
+                                            <option vid="145">Merriweather (Serif)</option>
+                                            <option vid="146">JetBrains Mono (Monospace)</option>
+                                        </select>
+                                        <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#666] group-hover:text-white transition-colors" vid="147">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="148"><path d="M6 9l6 6 6-6" vid="149"></path></svg>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                
+                                <div class="flex flex-col gap-3" vid="150">
+                                    <label class="text-[13px] text-[#888]" vid="151">Interface Scale</label>
+                                    <div class="flex items-center gap-3 h-[42px] px-1" vid="152">
+                                        <span class="text-[11px] text-[#444]" vid="153">80%</span>
+                                        <div class="relative flex-1 h-[20px] flex items-center" vid="154">
+                                             <input type="range" class="w-full h-[2px] bg-[#333] rounded-lg appearance-none cursor-pointer absolute z-10" min="80" max="120" step="10" value="100" vid="155">
+                                        </div>
+                                        <span class="text-[11px] text-[#444]" vid="156">120%</span>
+                                    </div>
+                                </div>
+                             </div>
+                        </div>
+
+                    </div>
+                </div>
+                
+                
+                <div class="p-8 border-t border-[#222] flex justify-end gap-3 bg-[#0f0f0f]" vid="157">
+                    <button class="px-6 py-2.5 text-[13px] text-[#888] hover:text-white transition-colors font-medium" vid="158">Cancel</button>
+                    <button class="px-6 py-2.5 bg-white text-black text-[13px] font-semibold rounded hover:bg-[#e5e5e5] transition-colors shadow-[0_0_20px_rgba(255,255,255,0.05)] border border-transparent" vid="159">Save Changes</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+</body></html>

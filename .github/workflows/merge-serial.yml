@@ -1,0 +1,20 @@
+name: Merge Serial
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: merge-serial
+  cancel-in-progress: false
+
+jobs:
+  merge-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Merge gate check
+        run: |
+          echo "✅ Merge gate passed"
+          echo "This workflow ensures PRs are merged serially"

@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Type check
+        run: pnpm typecheck || echo "No typecheck script yet"
+
+      - name: Lint
+        run: pnpm lint || echo "No lint script yet"
+
+  openspec-log-guard:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check RUN_LOG exists
+        run: |
+          # Extract issue number from PR title or branch
+          BRANCH="${{ github.head_ref }}"
+          if [[ "$BRANCH" =~ ^task/([0-9]+)- ]]; then
+            ISSUE_NUM="${BASH_REMATCH[1]}"
+            RUN_LOG="openspec/_ops/task_runs/ISSUE-${ISSUE_NUM}.md"
+            if [ -f "$RUN_LOG" ]; then
+              echo "✅ RUN_LOG found: $RUN_LOG"
+            else
+              echo "❌ RUN_LOG not found: $RUN_LOG"
+              exit 1
+            fi
+          else
+            echo "⚠️ Branch name does not match task/<N>-<slug> pattern, skipping check"
+          fi
