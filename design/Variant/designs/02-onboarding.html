@@ -1,0 +1,264 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">CreoNow - Onboarding</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="7">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400&amp;family=Lora:ital,wght@0,400;0,500;1,400&amp;display=swap" rel="stylesheet" vid="8">
+    <style vid="9">
+        :root {
+            --bg-body: #080808;
+            --bg-surface: #0f0f0f;
+            --bg-hover: #1a1a1a;
+            
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            --text-faint: #444444;
+            
+            --line-color: #222222;
+            --line-highlight: #444444;
+            
+            --font-ui: 'Inter', sans-serif;
+            --font-body: 'Lora', serif;
+            --font-code: 'JetBrains Mono', monospace;
+            
+            --ease-custom: cubic-bezier(0.2, 0.0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: var(--font-ui);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.6s var(--ease-custom) forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+        .delay-4 { animation-delay: 0.4s; }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo-container {
+            width: 40px;
+            height: 40px;
+            background: var(--text-main);
+            color: var(--bg-body);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 20px;
+        }
+
+        .feature-card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--line-color);
+            border-radius: 24px;
+            padding: 24px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            transition: border-color 0.2s var(--ease-custom), transform 0.2s var(--ease-custom);
+            cursor: default;
+        }
+
+        .feature-card:hover {
+            border-color: var(--line-highlight);
+        }
+
+        .icon-box {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background-color: var(--bg-hover);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--text-main);
+        }
+
+        .btn-primary {
+            height: 48px;
+            border-radius: 100px;
+            padding: 0 40px;
+            background-color: var(--text-main);
+            color: var(--bg-body);
+            font-weight: 600;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s var(--ease-custom), opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            opacity: 0.95;
+        }
+
+        .btn-link {
+            color: var(--text-muted);
+            font-size: 14px;
+            text-decoration: none;
+            transition: color 0.2s;
+            cursor: pointer;
+        }
+
+        .btn-link:hover {
+            color: var(--text-main);
+        }
+
+        .step-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--line-color);
+            transition: background-color 0.3s;
+        }
+        
+        .step-dot.active {
+            background-color: var(--text-main);
+        }
+
+        
+        .font-body { font-family: var(--font-body); }
+        .font-code { font-family: var(--font-code); }
+    </style>
+</head>
+<body vid="10">
+
+    <main class="w-full max-w-[800px] flex flex-col items-center p-8 relative h-full max-h-[900px] justify-center" vid="11">
+        
+        
+        <div class="flex flex-col items-center mb-12 fade-in-up" vid="12">
+            <div class="flex items-center gap-3 mb-6" vid="13">
+                <div class="logo-container" vid="14">C</div>
+                <span class="text-xl font-medium tracking-tight" vid="15">CreoNow</span>
+            </div>
+        </div>
+
+        
+        <div class="text-center mb-16 fade-in-up delay-1" vid="16">
+            <h1 class="text-4xl md:text-5xl font-light mb-4 text-white tracking-tight" vid="17">欢迎使用 CreoNow</h1>
+            <p class="font-body text-xl text-[#888888] italic" vid="18">AI 驱动的文字创作 IDE</p>
+        </div>
+
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full mb-16 fade-in-up delay-2" vid="19">
+            
+            
+            <div class="feature-card group" vid="20">
+                <div class="icon-box" vid="21">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vid="22">
+                        <path d="M21 12a9 9 0 1 1-6.219-8.56" vid="23"></path>
+                        <path d="M9 13h6" vid="24"></path>
+                        <path d="M9 17h3" vid="25"></path>
+                        <path d="M12 3v6" vid="26"></path>
+                        <path d="M12 9l-3.5-3.5" vid="27"></path>
+                        <path d="M12 9l3.5-3.5" vid="28"></path>
+                    </svg>
+                </div>
+                <div class="flex flex-col gap-1" vid="29">
+                    <h3 class="text-white font-medium text-base" vid="30">AI 辅助写作</h3>
+                    <p class="font-body text-sm text-[#888888] leading-relaxed" vid="31">智能续写、润色与灵感激发，让创作不再卡顿。</p>
+                </div>
+            </div>
+
+            
+            <div class="feature-card group" vid="32">
+                <div class="icon-box" vid="33">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vid="34">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" vid="35"></path>
+                        <circle cx="12" cy="7" r="4" vid="36"></circle>
+                    </svg>
+                </div>
+                <div class="flex flex-col gap-1" vid="37">
+                    <h3 class="text-white font-medium text-base" vid="38">角色管理</h3>
+                    <p class="font-body text-sm text-[#888888] leading-relaxed" vid="39">深度构建角色档案与关系网，保持人设一致性。</p>
+                </div>
+            </div>
+
+            
+            <div class="feature-card group" vid="40">
+                <div class="icon-box" vid="41">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vid="42">
+                        <circle cx="18" cy="5" r="3" vid="43"></circle>
+                        <circle cx="6" cy="12" r="3" vid="44"></circle>
+                        <circle cx="18" cy="19" r="3" vid="45"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" vid="46"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" vid="47"></line>
+                    </svg>
+                </div>
+                <div class="flex flex-col gap-1" vid="48">
+                    <h3 class="text-white font-medium text-base" vid="49">知识图谱</h3>
+                    <p class="font-body text-sm text-[#888888] leading-relaxed" vid="50">可视化管理世界观与剧情线索，掌控复杂叙事。</p>
+                </div>
+            </div>
+
+            
+            <div class="feature-card group" vid="51">
+                <div class="icon-box" vid="52">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vid="53">
+                        <path d="M3 3v5h5" vid="54"></path>
+                        <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" vid="55"></path>
+                        <path d="M12 7v5l4 2" vid="56"></path>
+                    </svg>
+                </div>
+                <div class="flex flex-col gap-1" vid="57">
+                    <h3 class="text-white font-medium text-base" vid="58">版本历史</h3>
+                    <p class="font-body text-sm text-[#888888] leading-relaxed" vid="59">全自动保存，随时回溯创作轨迹，安全无忧。</p>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="w-full flex items-center justify-between mt-auto fade-in-up delay-3 pt-8 border-t border-[#1a1a1a] md:border-t-0 md:pt-0" vid="60">
+            <button class="btn-link" vid="61">跳过</button>
+            
+            <div class="flex items-center gap-3 absolute left-1/2 transform -translate-x-1/2" vid="62">
+                <div class="step-dot active" vid="63"></div>
+                <div class="step-dot" vid="64"></div>
+                <div class="step-dot" vid="65"></div>
+            </div>
+
+            <button class="btn-primary" vid="66">
+                下一步
+                <svg class="ml-2 w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="67">
+                    <path d="M5 12h14" vid="68"></path>
+                    <path d="M12 5l7 7-7 7" vid="69"></path>
+                </svg>
+            </button>
+        </div>
+
+    </main>
+
+
+</body></html>

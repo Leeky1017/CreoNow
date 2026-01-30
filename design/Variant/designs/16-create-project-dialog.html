@@ -1,0 +1,374 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">CreoNow - Create New Project</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="7">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet" vid="8">
+    <script vid="9">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        app: {
+                            bg: '#0f0f0f',
+                            surface: '#1a1a1a',
+                            border: '#222222',
+                            text: '#ffffff',
+                            sub: '#888888',
+                            accent: '#5D3FD3',
+                            accentDim: 'rgba(93, 63, 211, 0.1)',
+                            error: '#CF6679'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        'glow': '0 0 20px rgba(93, 63, 211, 0.15)',
+                        'modal': '0 24px 48px -12px rgba(0, 0, 0, 0.8)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style vid="10">
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #000;
+            color: white;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+
+        .radio-card:checked + div {
+            border-color: #5D3FD3;
+            background-color: rgba(93, 63, 211, 0.05);
+            color: white;
+        }
+
+        .radio-card:checked + div .check-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .upload-area.drag-active {
+            border-color: #5D3FD3;
+            background-color: rgba(93, 63, 211, 0.05);
+        }
+
+        .loading-spinner {
+            border: 2px solid rgba(255,255,255,0.1);
+            border-left-color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        textarea:-webkit-autofill,
+        textarea:-webkit-autofill:hover,
+        textarea:-webkit-autofill:focus {
+            -webkit-text-fill-color: white;
+            -webkit-box-shadow: 0 0 0px 1000px #1a1a1a inset;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+    </style>
+</head>
+<body class="relative flex items-center justify-center" vid="11">
+
+    
+    <div class="absolute inset-0 z-0 opacity-40 pointer-events-none overflow-hidden select-none" vid="12">
+        <div class="flex h-full w-full" vid="13">
+            <div class="w-64 border-r border-[#222] h-full bg-[#080808] p-6 flex flex-col gap-6" vid="14">
+                <div class="w-8 h-8 rounded bg-[#222]" vid="15"></div>
+                <div class="space-y-3" vid="16">
+                    <div class="w-3/4 h-3 bg-[#222] rounded" vid="17"></div>
+                    <div class="w-1/2 h-3 bg-[#222] rounded" vid="18"></div>
+                    <div class="w-2/3 h-3 bg-[#222] rounded" vid="19"></div>
+                </div>
+            </div>
+            <div class="flex-1 bg-[#0f0f0f] p-8" vid="20">
+                <div class="flex justify-between mb-8" vid="21">
+                    <div class="w-32 h-6 bg-[#222] rounded" vid="22"></div>
+                    <div class="w-24 h-6 bg-[#222] rounded" vid="23"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-6" vid="24">
+                    <div class="aspect-[4/3] bg-[#1a1a1a] rounded-lg border border-[#222]" vid="25"></div>
+                    <div class="aspect-[4/3] bg-[#1a1a1a] rounded-lg border border-[#222]" vid="26"></div>
+                    <div class="aspect-[4/3] bg-[#1a1a1a] rounded-lg border border-[#222]" vid="27"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-10 transition-opacity duration-300" id="backdrop" vid="28"></div>
+
+    
+    <div class="relative z-20 w-[480px] bg-app-bg border border-app-border rounded-2xl shadow-modal transform transition-all duration-300 scale-100 opacity-100 flex flex-col max-h-[90vh]" id="modal" vid="29">
+        
+        
+        <div class="flex items-center justify-between px-6 py-5 border-b border-app-border" vid="30">
+            <h2 class="text-lg font-semibold text-white tracking-tight" vid="31">Create New Project</h2>
+            <button class="text-app-sub hover:text-white transition-colors p-1 rounded-md hover:bg-white/5" aria-label="Close" vid="32">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="33"><line x1="18" y1="6" x2="6" y2="18" vid="34"></line><line x1="6" y1="6" x2="18" y2="18" vid="35"></line></svg>
+            </button>
+        </div>
+
+        
+        <div class="p-6 overflow-y-auto custom-scrollbar" vid="36">
+            <form id="createProjectForm" class="space-y-6" onsubmit="event.preventDefault();" vid="37">
+                
+                
+                <div class="space-y-2" vid="38">
+                    <label for="projectName" class="block text-sm font-medium text-app-sub" vid="39">Project Name <span class="text-app-accent" vid="40">*</span></label>
+                    <input type="text" id="projectName" placeholder="e.g., The Silent Echo" class="w-full h-12 px-4 bg-app-surface border border-app-border rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-app-accent focus:ring-1 focus:ring-app-accent transition-all" vid="41">
+                    <p class="text-xs text-app-error hidden" id="nameError" vid="42">Project name is required.</p>
+                </div>
+
+                
+                <div class="space-y-2" vid="43">
+                    <label class="block text-sm font-medium text-app-sub" vid="44">Project Type</label>
+                    <div class="grid grid-cols-2 gap-3" vid="45">
+                        
+                        <label class="relative cursor-pointer group" vid="46">
+                            <input type="radio" name="projectType" value="novel" class="peer sr-only radio-card" checked="" vid="47">
+                            <div class="h-10 px-3 flex items-center justify-center border border-app-border rounded-lg text-sm text-app-sub group-hover:border-gray-600 transition-all" vid="48">
+                                Novel
+                                <svg class="check-icon absolute right-2 w-3.5 h-3.5 text-app-accent opacity-0 transform scale-50 transition-all duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vid="49"><polyline points="20 6 9 17 4 12" vid="50"></polyline></svg>
+                            </div>
+                        </label>
+
+                        <label class="relative cursor-pointer group" vid="51">
+                            <input type="radio" name="projectType" value="short" class="peer sr-only radio-card" vid="52">
+                            <div class="h-10 px-3 flex items-center justify-center border border-app-border rounded-lg text-sm text-app-sub group-hover:border-gray-600 transition-all" vid="53">
+                                Short Story
+                                <svg class="check-icon absolute right-2 w-3.5 h-3.5 text-app-accent opacity-0 transform scale-50 transition-all duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vid="54"><polyline points="20 6 9 17 4 12" vid="55"></polyline></svg>
+                            </div>
+                        </label>
+
+                        <label class="relative cursor-pointer group" vid="56">
+                            <input type="radio" name="projectType" value="script" class="peer sr-only radio-card" vid="57">
+                            <div class="h-10 px-3 flex items-center justify-center border border-app-border rounded-lg text-sm text-app-sub group-hover:border-gray-600 transition-all" vid="58">
+                                Screenplay
+                                <svg class="check-icon absolute right-2 w-3.5 h-3.5 text-app-accent opacity-0 transform scale-50 transition-all duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vid="59"><polyline points="20 6 9 17 4 12" vid="60"></polyline></svg>
+                            </div>
+                        </label>
+
+                        <label class="relative cursor-pointer group" vid="61">
+                            <input type="radio" name="projectType" value="other" class="peer sr-only radio-card" vid="62">
+                            <div class="h-10 px-3 flex items-center justify-center border border-app-border rounded-lg text-sm text-app-sub group-hover:border-gray-600 transition-all" vid="63">
+                                Other
+                                <svg class="check-icon absolute right-2 w-3.5 h-3.5 text-app-accent opacity-0 transform scale-50 transition-all duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" vid="64"><polyline points="20 6 9 17 4 12" vid="65"></polyline></svg>
+                            </div>
+                        </label>
+
+                    </div>
+                </div>
+
+                
+                <div class="space-y-2" vid="66">
+                    <label for="projectDesc" class="block text-sm font-medium text-app-sub" vid="67">Description <span class="text-xs font-normal opacity-50 ml-1" vid="68">(Optional)</span></label>
+                    <textarea id="projectDesc" placeholder="Brief synopsis or notes..." class="w-full min-h-[100px] px-4 py-3 bg-app-surface border border-app-border rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-app-accent focus:ring-1 focus:ring-app-accent transition-all resize-y text-sm leading-relaxed" vid="69"></textarea>
+                </div>
+
+                
+                <div class="space-y-2" vid="70">
+                    <label class="block text-sm font-medium text-app-sub" vid="71">Cover Image <span class="text-xs font-normal opacity-50 ml-1" vid="72">(Optional)</span></label>
+                    <div id="uploadArea" class="upload-area relative group cursor-pointer border-2 border-dashed border-app-border rounded-lg p-6 flex flex-col items-center justify-center hover:border-app-sub hover:bg-white/5 transition-all duration-200 min-h-[140px]" vid="73">
+                        
+                        
+                        <div id="uploadPlaceholder" class="flex flex-col items-center gap-3 text-app-sub group-hover:text-white transition-colors" vid="74">
+                            <div class="w-10 h-10 rounded-full bg-app-surface border border-app-border flex items-center justify-center group-hover:border-gray-500 transition-colors" vid="75">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vid="76"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" vid="77"></rect><circle cx="8.5" cy="8.5" r="1.5" vid="78"></circle><polyline points="21 15 16 10 5 21" vid="79"></polyline></svg>
+                            </div>
+                            <div class="text-center" vid="80">
+                                <p class="text-xs font-medium" vid="81">Click or drag image to upload</p>
+                                <p class="text-[10px] text-gray-500 mt-1" vid="82">PNG, JPG up to 5MB</p>
+                            </div>
+                        </div>
+
+                        
+                        <div id="uploadPreview" class="absolute inset-0 hidden w-full h-full rounded-lg overflow-hidden bg-app-surface z-10 group" vid="83">
+                            <img id="previewImage" src="" alt="Cover Preview" class="w-full h-full object-cover opacity-80 group-hover:opacity-40 transition-opacity" vid="84">
+                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" vid="85">
+                                <button type="button" id="removeImage" class="bg-red-500/20 hover:bg-red-500/40 text-red-500 hover:text-red-400 px-3 py-1.5 rounded text-xs font-medium border border-red-500/30 transition-colors backdrop-blur-sm" vid="86">
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <input type="file" id="fileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0" title="" vid="87">
+                    </div>
+                </div>
+
+            </form>
+        </div>
+
+        
+        <div class="px-6 py-5 border-t border-app-border flex items-center justify-end gap-3 rounded-b-2xl bg-app-bg" vid="88">
+            <button class="px-5 h-10 rounded-lg text-sm font-medium text-app-sub hover:text-white hover:bg-white/5 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-700" vid="89">
+                Cancel
+            </button>
+            <button id="createBtn" class="px-6 h-10 rounded-lg text-sm font-medium bg-app-accent text-white hover:bg-opacity-90 active:scale-95 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-app-bg focus:ring-app-accent flex items-center justify-center min-w-[100px] shadow-lg shadow-purple-900/20" vid="90">
+                <span vid="91">Create Project</span>
+                <div class="loading-spinner ml-2 hidden" vid="92"></div>
+            </button>
+        </div>
+
+    </div>
+
+    
+    <script vid="93">
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const uploadPreview = document.getElementById('uploadPreview');
+        const previewImage = document.getElementById('previewImage');
+        const removeImageBtn = document.getElementById('removeImage');
+        const createBtn = document.getElementById('createBtn');
+        const projectNameInput = document.getElementById('projectName');
+        const nameError = document.getElementById('nameError');
+
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.classList.add('drag-active');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.classList.remove('drag-active');
+            }, false);
+        });
+
+        
+        uploadArea.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFiles, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files: files } });
+        }
+
+        function handleFiles(e) {
+            const files = e.target.files;
+            if (files && files[0]) {
+                const file = files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    previewImage.src = e.target.result;
+                    uploadPlaceholder.classList.add('hidden');
+                    uploadPreview.classList.remove('hidden');
+                    
+                    removeImageBtn.style.zIndex = 20;
+                    fileInput.disabled = true; 
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        removeImageBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            fileInput.value = '';
+            fileInput.disabled = false;
+            uploadPreview.classList.add('hidden');
+            uploadPlaceholder.classList.remove('hidden');
+        });
+
+        
+        createBtn.addEventListener('click', () => {
+            
+            if (!projectNameInput.value.trim()) {
+                projectNameInput.classList.add('border-app-error', 'focus:border-app-error', 'focus:ring-app-error');
+                projectNameInput.classList.remove('border-app-border', 'focus:border-app-accent', 'focus:ring-app-accent');
+                nameError.classList.remove('hidden');
+                
+                
+                const form = document.getElementById('modal');
+                form.style.transform = 'translateX(5px)';
+                setTimeout(() => form.style.transform = 'translateX(-5px)', 50);
+                setTimeout(() => form.style.transform = 'translateX(5px)', 100);
+                setTimeout(() => form.style.transform = 'translateX(0)', 150);
+                
+                return;
+            }
+
+            
+            projectNameInput.classList.remove('border-app-error', 'focus:border-app-error', 'focus:ring-app-error');
+            projectNameInput.classList.add('border-app-border', 'focus:border-app-accent', 'focus:ring-app-accent');
+            nameError.classList.add('hidden');
+
+            
+            const btnText = createBtn.querySelector('span');
+            const spinner = createBtn.querySelector('.loading-spinner');
+            
+            btnText.textContent = 'Creating...';
+            spinner.classList.remove('hidden');
+            createBtn.disabled = true;
+            createBtn.classList.add('opacity-75', 'cursor-not-allowed');
+
+            
+            setTimeout(() => {
+                btnText.textContent = 'Created!';
+                spinner.classList.add('hidden');
+                createBtn.classList.remove('bg-app-accent');
+                createBtn.classList.add('bg-green-600');
+                
+                setTimeout(() => {
+                    
+                    
+                    btnText.textContent = 'Create Project';
+                    createBtn.classList.add('bg-app-accent');
+                    createBtn.classList.remove('bg-green-600', 'opacity-75', 'cursor-not-allowed');
+                    createBtn.disabled = false;
+                }, 1500);
+            }, 1500);
+        });
+
+        
+        projectNameInput.addEventListener('input', () => {
+            if (projectNameInput.classList.contains('border-app-error')) {
+                projectNameInput.classList.remove('border-app-error', 'focus:border-app-error', 'focus:ring-app-error');
+                projectNameInput.classList.add('border-app-border', 'focus:border-app-accent', 'focus:ring-app-accent');
+                nameError.classList.add('hidden');
+            }
+        });
+
+    </script>
+
+</body></html>

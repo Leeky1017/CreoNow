@@ -421,7 +421,7 @@
     
     <nav class="sidebar" vid="8">
         <div class="brand" vid="9">
-            WRITE<span vid="10">NOW</span>
+            CREO<span vid="10">NOW</span>
         </div>
 
         <div class="nav-group" vid="11">
@@ -620,193 +620,66 @@
     </main>
 
     
-    <!-- AI Panel - Collapsible -->
-    <aside class="w-[360px] bg-[#0f0f0f] border-l border-[#222222] flex flex-col shadow-2xl z-20 transition-transform duration-300" id="ai-panel" vid="149">
-        
-        <!-- Header -->
-        <div class="h-12 px-4 border-b border-[#222222] flex items-center justify-between bg-[#0f0f0f]" vid="150">
-            <div class="flex items-center gap-2" vid="151">
-                <div class="w-2 h-2 bg-white rounded-full" vid="152"></div>
-                <span class="text-xs font-medium text-white uppercase tracking-wider" vid="153">Chat</span>
+    <aside class="context-panel" vid="149">
+        <div class="nav-group" vid="150">
+            <div class="uppercase-label" vid="151">Weekly Goals</div>
+            <div class="divider" vid="152"></div>
+            <div class="stat-grid" style="margin-top: 16px;" vid="153">
+                <div class="stat-item" vid="154">
+                    <div style="display: flex; justify-content: space-between;" vid="155">
+                        <span class="stat-value" vid="156">5,432</span>
+                        <span class="stat-sub" vid="157">/ 7,000</span>
+                    </div>
+                    <div style="height: 2px; background: var(--line-color); width: 100%; border-radius: 2px; overflow: hidden;" vid="158">
+                        <div style="height: 100%; width: 78%; background: var(--text-main);" vid="159"></div>
+                    </div>
+                    <span class="stat-sub" vid="160">Words written</span>
+                </div>
             </div>
-            <button class="w-6 h-6 flex items-center justify-center text-[#444444] hover:text-white transition-colors" id="collapse-ai" vid="154">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="155">
-                    <path d="M9 18l6-6-6-6" vid="156"></path>
-                </svg>
-            </button>
         </div>
 
-        <!-- Chat Area -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages" vid="157">
-            
-            <!-- User Input -->
-            <div class="bg-[#080808] border border-[#222222] rounded-lg p-3 text-sm text-white leading-relaxed" vid="158">
-                Help me improve the tone consistency in my essay about digital minimalism.
-            </div>
-
-            <!-- AI Response -->
-            <div class="space-y-3" vid="159">
-                <div class="text-sm text-white leading-relaxed" vid="160">
-                    I've analyzed your essay. The tone shifts from analytical to personal in paragraph 3. Here's a suggested revision:
+        <div class="nav-group" vid="161">
+            <div class="uppercase-label" vid="162">Activity</div>
+            <div class="divider" vid="163"></div>
+            <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;" vid="164">
+                <div class="stat-item" vid="165">
+                    <span class="stat-value" style="font-size: 13px;" vid="166">The Aesthetics of Silence</span>
+                    <span class="stat-sub" vid="167">Edited 2h ago</span>
                 </div>
-                
-                <div class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm italic text-[#888888]" vid="161">
-                    "Consider how minimalism shapes not just our interfaces, but our cognitive load. It's a philosophy that extends beyond pixels to affect how we process information."
+                <div class="stat-item" vid="168">
+                    <span class="stat-value" style="font-size: 13px;" vid="169">Digital Craftsmanship</span>
+                    <span class="stat-sub" vid="170">Published yesterday</span>
                 </div>
-                
-                <div class="flex gap-2" vid="162">
-                    <button class="px-3 py-1.5 bg-white text-black text-xs rounded hover:bg-[#e0e0e0] transition-colors font-medium" vid="163">Apply</button>
-                    <button class="px-3 py-1.5 bg-[#222222] text-white text-xs rounded border border-[#444444] hover:border-[#888888] transition-colors font-medium" vid="164">Copy</button>
-                    <button class="px-3 py-1.5 bg-[#222222] text-white text-xs rounded border border-[#444444] hover:border-[#888888] transition-colors font-medium" vid="165">Regenerate</button>
+                <div class="stat-item" vid="171">
+                    <span class="stat-value" style="font-size: 13px;" vid="172">Typographic Rhythm</span>
+                    <span class="stat-sub" vid="173">Commented on by Sarah</span>
                 </div>
             </div>
-
-            <!-- Another User Input -->
-            <div class="bg-[#080808] border border-[#222222] rounded-lg p-3 text-sm text-white leading-relaxed" vid="166">
-                That's better. Can you also suggest a stronger opening sentence?
-            </div>
-
-            <!-- AI Response -->
-            <div class="space-y-3" vid="167">
-                <div class="text-sm text-white leading-relaxed" vid="168">
-                    Here are three alternative opening sentences that establish a more authoritative tone:
-                </div>
-                
-                <div class="space-y-2" vid="169">
-                    <div class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm text-[#ffffff] cursor-pointer hover:border-[#444444] transition-colors" vid="170">
-                        <strong class="text-[#888888] text-xs block mb-1" vid="171">Option 1</strong>
-                        "Digital minimalism isn't merely an aesthetic choice—it's a cognitive necessity in our attention-scarce world."
-                    </div>
-                    <div class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm text-[#ffffff] cursor-pointer hover:border-[#444444] transition-colors" vid="172">
-                        <strong class="text-[#888888] text-xs block mb-1" vid="173">Option 2</strong>
-                        "In a landscape of infinite scroll and endless notifications, silence has become the ultimate luxury."
-                    </div>
-                    <div class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm text-[#ffffff] cursor-pointer hover:border-[#444444] transition-colors" vid="174">
-                        <strong class="text-[#888888] text-xs block mb-1" vid="175">Option 3</strong>
-                        "The most radical act in modern interface design is the conscious decision to subtract."
-                    </div>
-                </div>
-            </div>
-
         </div>
 
-        <!-- Input Section -->
-        <div class="p-4 border-t border-[#222222] bg-[#0f0f0f]" vid="176">
-            <div class="relative" vid="177">
-                <textarea class="w-full bg-[#080808] border border-[#222222] rounded-lg p-4 pb-12 text-sm text-white placeholder-[#444444] focus:outline-none focus:border-[#888888] resize-none transition-all" placeholder="Ask me anything..." rows="3" id="chat-input" vid="178"></textarea>
-                
-                <!-- Model Selectors - Inside Input Box -->
-                <div class="absolute bottom-2 left-4 right-12 flex gap-2" vid="179">
-                    <div class="relative flex-1" vid="180">
-                        <select class="w-full bg-transparent text-[9px] text-[#666666] appearance-none cursor-pointer hover:text-[#888888] transition-colors pr-4" vid="181">
-                            <option vid="182">Claude-3.5</option>
-                            <option vid="183">GPT-4o</option>
-                            <option vid="184">Gemini</option>
-                        </select>
-                        <svg class="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 pointer-events-none" fill="none" stroke="#666666" stroke-width="2" viewBox="0 0 24 24" vid="185">
-                            <path d="M6 9l6 6 6-6" vid="186"></path>
-                        </svg>
-                    </div>
-                    <div class="relative flex-1" vid="187">
-                        <select class="w-full bg-transparent text-[9px] text-[#666666] appearance-none cursor-pointer hover:text-[#888888] transition-colors pr-4" vid="188">
-                            <option vid="189">Sonnet</option>
-                            <option vid="190">Haiku</option>
-                            <option vid="191">Opus</option>
-                        </select>
-                        <svg class="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 pointer-events-none" fill="none" stroke="#666666" stroke-width="2" viewBox="0 0 24 24" vid="192">
-                            <path d="M6 9l6 6 6-6" vid="193"></path>
-                        </svg>
-                    </div>
-                    <div class="relative flex-1" vid="194">
-                        <select class="w-full bg-transparent text-[9px] text-[#666666] appearance-none cursor-pointer hover:text-[#888888] transition-colors pr-4" vid="195">
-                            <option vid="196">Writer</option>
-                            <option vid="197">Editor</option>
-                            <option vid="198">Researcher</option>
-                        </select>
-                        <svg class="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 pointer-events-none" fill="none" stroke="#666666" stroke-width="2" viewBox="0 0 24 24" vid="199">
-                            <path d="M6 9l6 6 6-6" vid="200"></path>
-                        </svg>
-                    </div>
-                </div>
-                
-                <button class="absolute bottom-2 right-2 p-2 bg-white text-black rounded-md hover:bg-[#e0e0e0] transition-colors" id="send-btn" vid="201">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="202">
-                        <line x1="22" y1="2" x2="11" y2="13" vid="203"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2" vid="204"></polygon>
-                    </svg>
-                </button>
+        <div style="margin-top: auto;" vid="174">
+            <div class="uppercase-label" vid="175">Storage</div>
+            <div class="divider" vid="176"></div>
+            <div class="stat-item" style="margin-top: 12px;" vid="177">
+                <span class="stat-value" vid="178">1.2 GB</span>
+                <span class="stat-sub" vid="179">of 5 GB used</span>
             </div>
         </div>
     </aside>
 
-    <!-- Collapsed AI Panel Button -->
-    <button class="fixed right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-[#0f0f0f] border border-[#222222] rounded-full flex items-center justify-center text-[#444444] hover:text-white transition-all shadow-2xl z-10 hidden" id="expand-ai" vid="205">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="206">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" vid="207"></path>
-        </svg>
-    </button>
+    <script vid="180">
+        
+        document.querySelectorAll('.project-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                
+            });
+        });
 
-    <script vid="208">
-        // Navigation items
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', function() {
                 document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
                 this.classList.add('active');
             });
-        });
-
-        // AI Panel Toggle
-        const aiPanel = document.getElementById('ai-panel');
-        const collapseBtn = document.getElementById('collapse-ai');
-        const expandBtn = document.getElementById('expand-ai');
-        const workspace = document.querySelector('.workspace');
-        
-        collapseBtn.addEventListener('click', () => {
-            aiPanel.style.transform = 'translateX(100%)';
-            expandBtn.classList.remove('hidden');
-            workspace.style.marginRight = '0';
-        });
-        
-        expandBtn.addEventListener('click', () => {
-            aiPanel.style.transform = 'translateX(0)';
-            expandBtn.classList.add('hidden');
-            workspace.style.marginRight = '360px';
-        });
-
-        // Chat Input Auto-resize
-        const chatInput = document.getElementById('chat-input');
-        chatInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
-
-        // Send Message
-        const sendBtn = document.getElementById('send-btn');
-        sendBtn.addEventListener('click', () => {
-            const message = chatInput.value.trim();
-            if (message) {
-                // Add user message to chat
-                const chatMessages = document.getElementById('chat-messages');
-                const userMessage = document.createElement('div');
-                userMessage.className = 'bg-[#080808] border border-[#222222] rounded-lg p-3 text-sm text-white leading-relaxed';
-                userMessage.textContent = message;
-                chatMessages.appendChild(userMessage);
-                
-                // Clear input
-                chatInput.value = '';
-                chatInput.style.height = 'auto';
-                
-                // Scroll to bottom
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-        });
-
-        // Enter to send
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendBtn.click();
-            }
         });
     </script>
 

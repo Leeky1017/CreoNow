@@ -1,0 +1,494 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">CreoNow Analytics</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <style vid="6">
+        :root {
+            --bg-body: #080808;      
+            --bg-surface: #0f0f0f;   
+            --bg-hover: #1a1a1a;
+            --text-main: #ffffff;
+            --text-muted: #888888;
+            --text-faint: #444444;
+            --line-color: #222222;
+            --line-highlight: #444444;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --space-xs: 4px;
+            --space-sm: 12px;
+            --space-md: 24px;
+            --space-lg: 48px;
+            --space-xl: 80px;
+            --ease: cubic-bezier(0.2, 0.0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            outline: none;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            font-size: 14px;
+            line-height: 1.5;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+        }
+
+        .uppercase-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-body);
+            border-right: 1px solid var(--line-color);
+            display: flex;
+            flex-direction: column;
+            padding: var(--space-md);
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .brand {
+            margin-bottom: var(--space-xl);
+            font-size: 18px;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            color: var(--text-main);
+        }
+        
+        .brand span {
+            font-weight: 300;
+            color: var(--text-muted);
+        }
+
+        .nav-group {
+            margin-bottom: var(--space-lg);
+        }
+
+        .nav-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-sm);
+        }
+
+        .nav-list {
+            list-style: none;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.3s var(--ease);
+            font-size: 13px;
+            position: relative;
+        }
+
+        .nav-item::before {
+            content: '+';
+            position: absolute;
+            left: -16px;
+            opacity: 0;
+            color: var(--text-faint);
+            transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
+            font-weight: 300;
+        }
+
+        .nav-item:hover {
+            color: var(--text-main);
+        }
+
+        .nav-item:hover::before {
+            opacity: 1;
+            transform: translateX(4px);
+        }
+
+        .nav-item.active {
+            color: var(--text-main);
+        }
+        .nav-item.active::before {
+            opacity: 1;
+            color: var(--text-main);
+            transform: translateX(4px);
+        }
+
+        .workspace {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background-color: var(--bg-body);
+            overflow: hidden;
+        }
+
+        .toolbar {
+            height: 80px;
+            border-bottom: 1px solid var(--line-color); 
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 var(--space-lg);
+            width: 100%;
+        }
+
+        .dashboard-scroller {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: var(--space-lg);
+            scrollbar-width: thin;
+            scrollbar-color: var(--line-color) var(--bg-body);
+        }
+
+        
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            margin-bottom: 48px;
+        }
+
+        .stat-card {
+            border: 1px solid var(--line-color);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 300;
+            letter-spacing: -0.02em;
+        }
+
+        .chart-container {
+            border: 1px solid var(--line-color);
+            padding: 32px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            height: 200px;
+            margin-top: 32px;
+        }
+
+        .bar-item {
+            flex: 1;
+            background: var(--line-color);
+            transition: background 0.3s var(--ease);
+            position: relative;
+            min-width: 20px;
+        }
+
+        .bar-item:hover {
+            background: var(--text-muted);
+        }
+
+        .bar-item.highlight {
+            background: var(--text-main);
+        }
+
+        .line-graph-svg {
+            width: 100%;
+            height: 120px;
+            stroke: var(--text-main);
+            stroke-width: 1.5;
+            fill: none;
+            margin-top: 24px;
+        }
+
+        .grid-dots {
+            background-image: radial-gradient(var(--line-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.8s var(--ease) forwards;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        
+        .delay-1 { animation-delay: 0.1s; }
+        .delay-2 { animation-delay: 0.2s; }
+        .delay-3 { animation-delay: 0.3s; }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .icon {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.5;
+        }
+    </style>
+</head>
+<body vid="7">
+
+    <nav class="sidebar" vid="8">
+        <div class="brand" vid="9">
+            CREO<span vid="10">NOW</span>
+        </div>
+
+        <div class="nav-group" vid="11">
+            <div class="nav-header uppercase-label" vid="12">Overview</div>
+            <ul class="nav-list" vid="13">
+                <li class="nav-item" vid="14" onclick="location.reload()">Dashboard</li>
+                <li class="nav-item active" vid="15">Analytics</li>
+                <li class="nav-item" vid="16">Calendar</li>
+            </ul>
+        </div>
+
+        <div class="nav-group" vid="17">
+            <div class="nav-header uppercase-label" vid="18">Projects</div>
+            <ul class="nav-list" vid="19">
+                <li class="nav-item" vid="20">All Projects</li>
+                <li class="nav-item" vid="21">Drafts</li>
+                <li class="nav-item" vid="22">Published</li>
+            </ul>
+        </div>
+
+        <div class="user-profile mt-auto border-t border-[#222222] pt-6 grid grid-cols-2 gap-3" vid="23">
+            <div class="stat-item" vid="24">
+                <span class="uppercase-label" vid="25">User</span>
+                <span class="block text-xs mt-1" vid="26">Alex M.</span>
+            </div>
+            <div class="stat-item" vid="27">
+                <span class="uppercase-label" vid="28">Tier</span>
+                <span class="block text-xs mt-1 text-[#888888]" vid="29">Pro</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="workspace" vid="30">
+        <header class="toolbar" vid="31">
+            <div class="flex items-center gap-4" vid="32">
+                <h1 class="text-lg font-medium" vid="33">Analytics</h1>
+                <span class="text-[#444444] text-xs" vid="34">/</span>
+                <span class="text-[#888888] text-xs uppercase tracking-widest" vid="35">October 2024</span>
+            </div>
+            
+            <div style="display: flex; gap: 16px; align-items: center;" vid="36">
+                <div class="flex border border-[#222222] rounded-full p-1" vid="37">
+                    <button class="px-4 py-1 text-[10px] uppercase tracking-tighter bg-[#1a1a1a] rounded-full" vid="38">Week</button>
+                    <button class="px-4 py-1 text-[10px] uppercase tracking-tighter text-[#444444]" vid="39">Month</button>
+                    <button class="px-4 py-1 text-[10px] uppercase tracking-tighter text-[#444444]" vid="40">Year</button>
+                </div>
+                <button class="primary-btn border border-[#222222] px-5 py-2 rounded-full text-xs hover:bg-[#1a1a1a] transition-all" vid="41">Export Data</button>
+            </div>
+        </header>
+
+        <div class="dashboard-scroller grid-dots" vid="42">
+            
+            
+            <div class="analytics-grid fade-in" vid="43">
+                <div class="stat-card" vid="44">
+                    <span class="uppercase-label" vid="45">Total Words</span>
+                    <div class="value" vid="46">42,850</div>
+                    <span class="text-[10px] text-green-500" vid="47">+12% from last month</span>
+                </div>
+                <div class="stat-card" vid="48">
+                    <span class="uppercase-label" vid="49">Avg. Velocity</span>
+                    <div class="value" vid="50">840 <span class="text-sm text-[#444444]" vid="51">wph</span></div>
+                    <span class="text-[10px] text-[#444444]" vid="52">Words per hour</span>
+                </div>
+                <div class="stat-card" vid="53">
+                    <span class="uppercase-label" vid="54">Read Time</span>
+                    <div class="value" vid="55">3h 12m</div>
+                    <span class="text-[10px] text-[#444444]" vid="56">Across all active drafts</span>
+                </div>
+                <div class="stat-card" vid="57">
+                    <span class="uppercase-label" vid="58">Streak</span>
+                    <div class="value" vid="59">14 <span class="text-sm text-[#444444]" vid="60">days</span></div>
+                    <span class="text-[10px] text-white" vid="61">Personal Best</span>
+                </div>
+            </div>
+
+            
+            <div class="chart-container fade-in delay-1" vid="62">
+                <div class="flex justify-between items-start" vid="63">
+                    <div vid="64">
+                        <h3 class="text-sm font-medium mb-1" vid="65">Weekly Output</h3>
+                        <p class="text-xs text-[#888888]" vid="66">Distribution of word count across the last 7 days</p>
+                    </div>
+                    <div class="text-right" vid="67">
+                        <span class="uppercase-label" vid="68">Daily Average</span>
+                        <div class="text-lg" vid="69">1,420</div>
+                    </div>
+                </div>
+
+                <div class="bar-chart" vid="70">
+                    <div class="bar-item" style="height: 45%;" vid="71"></div>
+                    <div class="bar-item" style="height: 60%;" vid="72"></div>
+                    <div class="bar-item highlight" style="height: 90%;" vid="73"></div>
+                    <div class="bar-item" style="height: 30%;" vid="74"></div>
+                    <div class="bar-item" style="height: 55%;" vid="75"></div>
+                    <div class="bar-item" style="height: 75%;" vid="76"></div>
+                    <div class="bar-item" style="height: 40%;" vid="77"></div>
+                </div>
+                
+                <div class="flex justify-between mt-4" vid="78">
+                    <span class="text-[10px] text-[#444444]" vid="79">MON</span>
+                    <span class="text-[10px] text-[#444444]" vid="80">TUE</span>
+                    <span class="text-[10px] text-[#444444]" vid="81">WED</span>
+                    <span class="text-[10px] text-[#444444]" vid="82">THU</span>
+                    <span class="text-[10px] text-[#444444]" vid="83">FRI</span>
+                    <span class="text-[10px] text-[#444444]" vid="84">SAT</span>
+                    <span class="text-[10px] text-[#444444]" vid="85">SUN</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6 fade-in delay-2" vid="86">
+                
+                <div class="chart-container" vid="87">
+                    <span class="uppercase-label mb-4 block" vid="88">Focus Session Depth</span>
+                    <svg class="line-graph-svg" viewBox="0 0 400 100" vid="89">
+                        <path d="M0,80 Q50,20 100,50 T200,30 T300,70 T400,40" vid="90"></path>
+                        <circle cx="100" cy="50" r="3" fill="white" vid="91"></circle>
+                    </svg>
+                    <div class="flex justify-between mt-6 pt-4 border-t border-[#222222]" vid="92">
+                        <div class="stat-item" vid="93">
+                            <span class="uppercase-label" vid="94">Peak Focus</span>
+                            <span class="block text-sm" vid="95">45 mins</span>
+                        </div>
+                        <div class="stat-item" vid="96">
+                            <span class="uppercase-label" vid="97">Interruptions</span>
+                            <span class="block text-sm" vid="98">Low</span>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="chart-container" vid="99">
+                    <span class="uppercase-label mb-4 block" vid="100">Category Distribution</span>
+                    <div class="space-y-4 mt-6" vid="101">
+                        <div vid="102">
+                            <div class="flex justify-between text-[11px] mb-1" vid="103">
+                                <span vid="104">Essays &amp; Theory</span>
+                                <span class="text-[#888888]" vid="105">62%</span>
+                            </div>
+                            <div class="h-1 bg-[#222222] w-full" vid="106">
+                                <div class="h-full bg-white" style="width: 62%;" vid="107"></div>
+                            </div>
+                        </div>
+                        <div vid="108">
+                            <div class="flex justify-between text-[11px] mb-1" vid="109">
+                                <span vid="110">Technical Documentation</span>
+                                <span class="text-[#888888]" vid="111">24%</span>
+                            </div>
+                            <div class="h-1 bg-[#222222] w-full" vid="112">
+                                <div class="h-full bg-[#444444]" style="width: 24%;" vid="113"></div>
+                            </div>
+                        </div>
+                        <div vid="114">
+                            <div class="flex justify-between text-[11px] mb-1" vid="115">
+                                <span vid="116">Drafts &amp; Sandbox</span>
+                                <span class="text-[#888888]" vid="117">14%</span>
+                            </div>
+                            <div class="h-1 bg-[#222222] w-full" vid="118">
+                                <div class="h-full bg-[#333333]" style="width: 14%;" vid="119"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div class="mt-12 fade-in delay-3" vid="120">
+                <div class="section-title flex justify-between items-center mb-6" vid="121">
+                    <span class="text-sm font-medium" vid="122">Project Performance</span>
+                    <span class="uppercase-label" vid="123">Sort by Velocity</span>
+                </div>
+                
+                <div class="space-y-px" vid="124">
+                    <div class="grid grid-cols-4 p-4 border border-[#222222] text-xs items-center hover:bg-[#0f0f0f] transition-colors" vid="125">
+                        <span class="text-white" vid="126">The Aesthetics of Silence</span>
+                        <span class="text-[#888888]" vid="127">850 wph</span>
+                        <span class="text-[#888888]" vid="128">12m read</span>
+                        <div class="text-right" vid="129">
+                            <span class="px-2 py-0.5 border border-[#444444] rounded uppercase text-[9px]" vid="130">High Efficiency</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-4 p-4 border border-[#222222] text-xs items-center hover:bg-[#0f0f0f] transition-colors" vid="131">
+                        <span class="text-white" vid="132">Digital Craftsmanship</span>
+                        <span class="text-[#888888]" vid="133">420 wph</span>
+                        <span class="text-[#888888]" vid="134">8m read</span>
+                        <div class="text-right" vid="135">
+                            <span class="px-2 py-0.5 border border-[#222222] text-[#444444] rounded uppercase text-[9px]" vid="136">Steady</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-4 p-4 border border-[#222222] text-xs items-center hover:bg-[#0f0f0f] transition-colors" vid="137">
+                        <span class="text-white" vid="138">Monochromatic Theory</span>
+                        <span class="text-[#888888]" vid="139">1,100 wph</span>
+                        <span class="text-[#888888]" vid="140">5m read</span>
+                        <div class="text-right" vid="141">
+                            <span class="px-2 py-0.5 border border-[#444444] rounded uppercase text-[9px]" vid="142">Sprint</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    
+    <aside class="context-panel w-[300px] border-l border-[#222222] p-6 bg-[#080808] flex flex-col gap-8" vid="143">
+        <div vid="144">
+            <span class="uppercase-label mb-4 block" vid="145">Insights</span>
+            <div class="space-y-6" vid="146">
+                <div class="text-xs leading-relaxed" vid="147">
+                    <p class="text-white mb-2" vid="148">Morning Person</p>
+                    <p class="text-[#888888]" vid="149">You are 40% more productive between 7:00 AM and 9:00 AM. Consider scheduling complex deep-dives then.</p>
+                </div>
+                <div class="divider" vid="150"></div>
+                <div class="text-xs leading-relaxed" vid="151">
+                    <p class="text-white mb-2" vid="152">Reading Time Forecast</p>
+                    <p class="text-[#888888]" vid="153">Current drafts total 45 minutes of content. To reach your "Manifesto" goal, you need approximately 4,000 more words.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-auto" vid="154">
+            <div class="stat-card border-dashed border-[#444444]" vid="155">
+                <span class="uppercase-label" vid="156">Optimization Goal</span>
+                <div class="text-sm mt-2 text-white" vid="157">Reach 50k words</div>
+                <div class="w-full bg-[#222222] h-1 mt-4" vid="158">
+                    <div class="bg-white h-full" style="width: 84%;" vid="159"></div>
+                </div>
+                <div class="flex justify-between mt-2 text-[10px] text-[#444444]" vid="160">
+                    <span vid="161">84%</span>
+                    <span vid="162">7,150 left</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+</body></html>
