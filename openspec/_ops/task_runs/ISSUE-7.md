@@ -40,3 +40,9 @@
 
 - Command: `git commit -m "docs: add CN V1 workbench OpenSpec package (#7)"`
 - Key output: `d2c8b06 docs: add CN V1 workbench OpenSpec package (#7)`
+
+### 2026-01-31 02:22 +0800 amend
+
+- Command: `git commit --amend --no-edit`
+- Key output: `59ed98d docs: add CN V1 workbench OpenSpec package (#7)`
+- Note: supersedes previous commit hash `d2c8b06`
