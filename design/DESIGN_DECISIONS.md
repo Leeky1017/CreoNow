@@ -77,6 +77,7 @@
 - 所有间距 MUST 基于 **4px 网格**
 - 组件尺寸 SHOULD 基于 **8px 网格**（4px 网格的倍数）
 - 禁止使用非 4px 倍数的间距值
+- 例外: 滚动条尺寸 MAY 使用 6px 作为可用性例外（见 §7.4）
 
 ### 2.4 拖拽调整规范
 
@@ -97,7 +98,7 @@
 
 | 面板 | 折叠方式 | 快捷键 |
 |------|----------|--------|
-| 左侧 Sidebar | 点击 Icon Bar 当前图标 | Cmd/Ctrl+B |
+| 左侧 Sidebar | 点击 Icon Bar 当前图标 | `Cmd/Ctrl+\` |
 | 右侧面板 | 点击折叠按钮 | Cmd/Ctrl+L |
 
 折叠后:
@@ -114,109 +115,128 @@
 文件位置: apps/desktop/renderer/src/styles/tokens.css
 Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Variables
 使用方式: MUST 使用 CSS Variable，禁止硬编码颜色值
+主题切换: MUST 在 <html>（document.documentElement）设置 data-theme="dark" | "light"
 ```
 
 ### 3.2 颜色系统 - 背景层级
 
 **深色主题:**
 ```css
-/* 背景层级（从深到浅，数字越大越浅） */
---color-bg-base: #080808;           /* 窗口最底层背景 */
---color-bg-surface: #0f0f0f;        /* 面板/卡片/输入框背景 */
---color-bg-raised: #141414;         /* 浮起元素背景（popover/dropdown） */
---color-bg-disabled: rgba(0, 0, 0, 0.4); /* 禁用状态覆盖层 */
+:root[data-theme="dark"] {
+  /* 背景层级（按 elevation 递增：base → surface → raised） */
+  --color-bg-base: #080808;           /* 最底层：窗口背景 */
+  --color-bg-surface: #0f0f0f;        /* 面板/卡片/输入框背景 */
+  --color-bg-raised: #141414;         /* 浮起元素背景（popover/dropdown） */
+  --color-bg-disabled: rgba(0, 0, 0, 0.4); /* 禁用状态覆盖层 */
 
-/* 交互状态背景 */
---color-bg-hover: #1a1a1a;          /* 悬停状态 */
---color-bg-active: #1f1f1f;         /* 激活/按下状态 */
---color-bg-selected: #222222;       /* 选中项 */
+  /* 交互状态背景 */
+  --color-bg-hover: #1a1a1a;          /* 悬停状态 */
+  --color-bg-active: #1f1f1f;         /* 激活/按下状态 */
+  --color-bg-selected: #222222;       /* 选中项 */
+}
 ```
 
 **浅色主题:**
 ```css
-/* 背景层级（按 elevation 递增，靠阴影区分而非颜色深浅） */
---color-bg-base: #ffffff;           /* 最底层：窗口背景 */
---color-bg-surface: #fafafa;        /* 面板层：面板/卡片/输入框背景 */
---color-bg-raised: #ffffff;         /* 浮起层：popover/dropdown，用阴影区分 */
---color-bg-disabled: rgba(255, 255, 255, 0.5); /* 禁用状态覆盖层 */
+:root[data-theme="light"] {
+  /* 背景层级（按 elevation 递增，靠阴影区分而非颜色深浅） */
+  --color-bg-base: #ffffff;           /* 最底层：窗口背景 */
+  --color-bg-surface: #fafafa;        /* 面板层：面板/卡片/输入框背景 */
+  --color-bg-raised: #ffffff;         /* 浮起层：popover/dropdown，用阴影区分 */
+  --color-bg-disabled: rgba(255, 255, 255, 0.5); /* 禁用状态覆盖层 */
 
-/* 交互状态背景 */
---color-bg-hover: #f5f5f5;
---color-bg-active: #efefef;
---color-bg-selected: #e8e8e8;
+  /* 交互状态背景 */
+  --color-bg-hover: #f5f5f5;
+  --color-bg-active: #efefef;
+  --color-bg-selected: #e8e8e8;
+}
 ```
 
 ### 3.3 颜色系统 - 前景（文字/图标）
 
 **深色主题:**
 ```css
---color-fg-default: #ffffff;        /* 主要文字 */
---color-fg-muted: #888888;          /* 次要文字 */
---color-fg-subtle: #666666;         /* 辅助文字 */
---color-fg-placeholder: #444444;    /* 占位符 */
---color-fg-disabled: #333333;       /* 禁用状态 */
---color-fg-inverse: #080808;        /* 反色（用于 Primary 按钮文字） */
---color-fg-on-accent: #ffffff;      /* 强调色上的文字 */
+:root[data-theme="dark"] {
+  --color-fg-default: #ffffff;        /* 主要文字 */
+  --color-fg-muted: #888888;          /* 次要文字 */
+  --color-fg-subtle: #666666;         /* 辅助文字 */
+  --color-fg-placeholder: #444444;    /* 占位符 */
+  --color-fg-disabled: #333333;       /* 禁用状态 */
+  --color-fg-inverse: #080808;        /* 反色（用于 Primary 按钮文字） */
+  --color-fg-on-accent: #ffffff;      /* 强调色上的文字 */
+}
 ```
 
 **浅色主题:**
 ```css
---color-fg-default: #1a1a1a;
---color-fg-muted: #666666;
---color-fg-subtle: #888888;
---color-fg-placeholder: #999999;
---color-fg-disabled: #cccccc;
---color-fg-inverse: #ffffff;
---color-fg-on-accent: #ffffff;
+:root[data-theme="light"] {
+  --color-fg-default: #1a1a1a;
+  --color-fg-muted: #666666;
+  --color-fg-subtle: #888888;
+  --color-fg-placeholder: #999999;
+  --color-fg-disabled: #cccccc;
+  --color-fg-inverse: #ffffff;
+  --color-fg-on-accent: #ffffff;
+}
 ```
 
 ### 3.4 颜色系统 - 边框与分割线
 
 **深色主题:**
 ```css
---color-border-default: #222222;    /* 默认边框 */
---color-border-hover: #333333;      /* 悬停边框 */
---color-border-focus: #444444;      /* 聚焦边框（非 focus ring） */
---color-separator: rgba(255, 255, 255, 0.06);  /* 1px 细分割线（hairline，低 alpha 防锐利） */
---color-separator-bold: #222222;    /* 粗分割线（组件间分隔） */
---color-scrim: rgba(0, 0, 0, 0.6);  /* 遮罩层（模态框/抽屉背后） */
---color-shadow: rgba(0, 0, 0, 0.5); /* 阴影基色（用于 box-shadow 的颜色部分） */
+:root[data-theme="dark"] {
+  --color-border-default: #222222;    /* 默认边框 */
+  --color-border-hover: #333333;      /* 悬停边框 */
+  --color-border-focus: #444444;      /* 聚焦边框（非 focus ring） */
+  --color-separator: rgba(255, 255, 255, 0.06);  /* 1px 细分割线（hairline，低 alpha 防锐利） */
+  --color-separator-bold: #222222;    /* 粗分割线（组件间分隔） */
+  --color-scrim: rgba(0, 0, 0, 0.6);  /* 遮罩层（模态框/抽屉背后） */
+  --color-shadow: rgba(0, 0, 0, 0.5); /* 阴影基色（用于 box-shadow 的颜色部分） */
+}
 ```
 
 **浅色主题:**
 ```css
---color-border-default: #e0e0e0;
---color-border-hover: #d0d0d0;
---color-border-focus: #c0c0c0;
---color-separator: rgba(0, 0, 0, 0.06);         /* 1px 细分割线 */
---color-separator-bold: #e0e0e0;                /* 粗分割线 */
---color-scrim: rgba(0, 0, 0, 0.3);              /* 遮罩层 */
---color-shadow: rgba(0, 0, 0, 0.1);             /* 阴影基色 */
+:root[data-theme="light"] {
+  --color-border-default: #e0e0e0;
+  --color-border-hover: #d0d0d0;
+  --color-border-focus: #c0c0c0;
+  --color-separator: rgba(0, 0, 0, 0.06);         /* 1px 细分割线 */
+  --color-separator-bold: #e0e0e0;                /* 粗分割线 */
+  --color-scrim: rgba(0, 0, 0, 0.3);              /* 遮罩层 */
+  --color-shadow: rgba(0, 0, 0, 0.1);             /* 阴影基色 */
+}
 ```
 
 ### 3.5 颜色系统 - Focus Ring (MUST 统一使用)
 
 **深色主题:**
 ```css
---color-ring-focus: rgba(255, 255, 255, 0.4);
+:root[data-theme="dark"] {
+  --color-ring-focus: rgba(255, 255, 255, 0.4);
+}
 ```
 
 **浅色主题:**
 ```css
---color-ring-focus: rgba(0, 0, 0, 0.15);
+:root[data-theme="light"] {
+  --color-ring-focus: rgba(0, 0, 0, 0.15);
+}
 ```
 
 **共用变量:**
 ```css
---ring-focus-width: 2px;
---ring-focus-offset: 2px;
+:root {
+  --ring-focus-width: 2px;
+  --ring-focus-offset: 2px;
+}
 ```
 
 **Focus 规则 (MUST):**
 - 使用 `:focus-visible` 而非 `:focus`（浏览器自动区分键盘/鼠标）
 - 键盘导航时 MUST 显示 focus ring
 - 鼠标点击 MUST NOT 显示 focus ring
-- **唯一实现方式**: `outline`（非 box-shadow，因为 box-shadow 会被 overflow:hidden 裁切）
+- **唯一实现方式**: `outline`（避免与 elevation 阴影的 `box-shadow` 叠加造成实现分裂）
 
 ```css
 /* 标准 focus ring 实现 */
@@ -234,7 +254,8 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 **为什么用 outline 而非 box-shadow:**
 - `outline` 不占用布局空间，不影响元素尺寸
 - `outline-offset` 可精确控制与元素边缘的距离
-- `outline` 不会被父元素 `overflow: hidden` 裁切（box-shadow 会）
+- 避免与 `--shadow-*`（elevation）争用 `box-shadow`（否则需要组合多层 shadow，容易导致实现分裂）
+- 注意：若祖先容器开启 overflow 裁切，ring 仍可能被裁切；此时 SHOULD 将 focus ring 绘制在外层 wrapper 上或避免在可聚焦区域使用 overflow 裁切
 
 ### 3.6 颜色系统 - 功能色
 
@@ -259,20 +280,10 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 
 ### 3.7 阴影系统
 
-**主题作用域选择器:**
+**定义:**
 ```css
-/* tokens.css 中使用 data-theme 属性切换 */
-:root,
-[data-theme="dark"] {
-  /* 深色主题阴影 - 使用 --color-shadow 作为基色 */
-  --shadow-sm: 0 1px 2px var(--color-shadow);
-  --shadow-md: 0 4px 8px var(--color-shadow);
-  --shadow-lg: 0 8px 16px var(--color-shadow);
-  --shadow-xl: 0 16px 32px var(--color-shadow);
-}
-
-[data-theme="light"] {
-  /* 浅色主题阴影 - 使用 --color-shadow 作为基色 */
+/* 阴影几何保持一致；颜色来自 --color-shadow（主题变量，见 §3.4） */
+:root {
   --shadow-sm: 0 1px 2px var(--color-shadow);
   --shadow-md: 0 4px 8px var(--color-shadow);
   --shadow-lg: 0 8px 16px var(--color-shadow);
@@ -280,7 +291,7 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 }
 ```
 
-**注意**: 阴影强度通过 `--color-shadow` 的 alpha 值控制（深色 0.5，浅色 0.1），阴影尺寸保持一致。
+**注意**: 阴影强度通过主题内的 `--color-shadow` alpha 值控制（深色 0.5，浅色 0.1），阴影尺寸保持一致。
 
 **阴影使用规则 (MUST 遵守优先级):**
 
@@ -551,7 +562,7 @@ textarea:focus-visible {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-border-default);
-  border-radius: 3px;
+  border-radius: var(--radius-full);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-border-hover);
@@ -648,12 +659,15 @@ textarea:focus-visible {
 |------|-----|---------|------|
 | 命令面板 | Cmd+P | Ctrl+P | 搜索文件和命令 |
 | AI 面板 | Cmd+L | Ctrl+L | 打开/关闭 AI 面板 |
-| 左侧边栏 | Cmd+B | Ctrl+B | 折叠/展开左侧边栏 |
+| 左侧边栏 | `Cmd+\` | `Ctrl+\` | 折叠/展开左侧边栏 |
 | 禅模式 | F11 | F11 | 全屏专注写作 |
 | 设置 | Cmd+, | Ctrl+, | 打开设置 |
 | 新建文件 | Cmd+N | Ctrl+N | 新建文件 |
 | 新建项目 | Cmd+Shift+N | Ctrl+Shift+N | 新建项目 |
 | 保存 | Cmd+S | Ctrl+S | 手动保存 |
+
+说明:
+- `Cmd/Ctrl+B` MUST 保留给编辑器加粗；侧边栏折叠使用 `Cmd/Ctrl+\` 避免快捷键冲突
 
 ### 10.2 编辑器快捷键 (MUST)
 
@@ -819,14 +833,15 @@ toast.error('保存失败', { description: '网络连接超时' });
 
 ```typescript
 interface PreferenceStore {
-  get<T>(key: string): T | null;
-  set<T>(key: string, value: T): void;
-  remove(key: string): void;
+  get<T>(key: PreferenceKey): T | null;
+  set<T>(key: PreferenceKey, value: T): void;
+  remove(key: PreferenceKey): void;
   clear(): void;
 }
 
-// 实现可选: localStorage / IndexedDB / electron-store
-// 默认使用 electron-store（Electron 环境）或 localStorage（Web 环境）
+// 接口 MUST 保持同步（UI 交互/拖拽持久化需要同步读写）
+// 实现可选: electron-store（Electron）/ localStorage（Web）
+// IndexedDB MAY 通过“内存镜像 + 异步 flush”方式接入，但 MUST NOT 直接把接口改成 async
 ```
 
 ### 13.2 命名域与 Key 规范 (MUST)
