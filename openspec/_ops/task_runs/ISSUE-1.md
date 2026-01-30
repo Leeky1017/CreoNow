@@ -2,7 +2,7 @@
 
 - Issue: #1
 - Branch: task/1-design-skeleton
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/2
 
 ## Plan
 
