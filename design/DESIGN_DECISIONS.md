@@ -124,7 +124,7 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 --color-bg-base: #080808;           /* 窗口最底层背景 */
 --color-bg-surface: #0f0f0f;        /* 面板/卡片/输入框背景 */
 --color-bg-raised: #141414;         /* 浮起元素背景（popover/dropdown） */
---color-bg-overlay: rgba(0, 0, 0, 0.6);  /* 遮罩层 */
+--color-bg-disabled: rgba(0, 0, 0, 0.4); /* 禁用状态覆盖层 */
 
 /* 交互状态背景 */
 --color-bg-hover: #1a1a1a;          /* 悬停状态 */
@@ -134,16 +134,16 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 
 **浅色主题:**
 ```css
-/* 背景层级（从浅到深，数字越大越深） */
---color-bg-base: #ffffff;           /* 窗口最底层背景 */
---color-bg-surface: #f8f8f8;        /* 面板/卡片/输入框背景 */
---color-bg-raised: #ffffff;         /* 浮起元素背景 */
---color-bg-overlay: rgba(0, 0, 0, 0.3);  /* 遮罩层 */
+/* 背景层级（按 elevation 递增，靠阴影区分而非颜色深浅） */
+--color-bg-base: #ffffff;           /* 最底层：窗口背景 */
+--color-bg-surface: #fafafa;        /* 面板层：面板/卡片/输入框背景 */
+--color-bg-raised: #ffffff;         /* 浮起层：popover/dropdown，用阴影区分 */
+--color-bg-disabled: rgba(255, 255, 255, 0.5); /* 禁用状态覆盖层 */
 
 /* 交互状态背景 */
---color-bg-hover: #f0f0f0;
---color-bg-active: #e8e8e8;
---color-bg-selected: #e0e0e0;
+--color-bg-hover: #f5f5f5;
+--color-bg-active: #efefef;
+--color-bg-selected: #e8e8e8;
 ```
 
 ### 3.3 颜色系统 - 前景（文字/图标）
@@ -177,8 +177,10 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 --color-border-default: #222222;    /* 默认边框 */
 --color-border-hover: #333333;      /* 悬停边框 */
 --color-border-focus: #444444;      /* 聚焦边框（非 focus ring） */
---color-separator: rgba(255, 255, 255, 0.06);  /* 1px 分割线（低 alpha） */
---color-separator-bold: #222222;    /* 粗分割线 */
+--color-separator: rgba(255, 255, 255, 0.06);  /* 1px 细分割线（hairline，低 alpha 防锐利） */
+--color-separator-bold: #222222;    /* 粗分割线（组件间分隔） */
+--color-scrim: rgba(0, 0, 0, 0.6);  /* 遮罩层（模态框/抽屉背后） */
+--color-shadow: rgba(0, 0, 0, 0.5); /* 阴影基色（用于 box-shadow 的颜色部分） */
 ```
 
 **浅色主题:**
@@ -186,26 +188,43 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 --color-border-default: #e0e0e0;
 --color-border-hover: #d0d0d0;
 --color-border-focus: #c0c0c0;
---color-separator: rgba(0, 0, 0, 0.06);
---color-separator-bold: #e0e0e0;
+--color-separator: rgba(0, 0, 0, 0.06);         /* 1px 细分割线 */
+--color-separator-bold: #e0e0e0;                /* 粗分割线 */
+--color-scrim: rgba(0, 0, 0, 0.3);              /* 遮罩层 */
+--color-shadow: rgba(0, 0, 0, 0.1);             /* 阴影基色 */
 ```
 
 ### 3.5 颜色系统 - Focus Ring (MUST 统一使用)
 
+**深色主题:**
 ```css
-/* Focus ring 专用，区别于 border-focus */
---color-ring-focus: rgba(255, 255, 255, 0.4);  /* 深色主题 */
---color-ring-focus: rgba(0, 0, 0, 0.2);        /* 浅色主题 */
+--color-ring-focus: rgba(255, 255, 255, 0.4);
+```
+
+**浅色主题:**
+```css
+--color-ring-focus: rgba(0, 0, 0, 0.15);
+```
+
+**共用变量:**
+```css
 --ring-focus-width: 2px;
 --ring-focus-offset: 2px;
 ```
 
 **Focus 规则 (MUST):**
-- 使用 `:focus-visible` 而非 `:focus`
+- 使用 `:focus-visible` 而非 `:focus`（浏览器自动区分键盘/鼠标）
 - 键盘导航时 MUST 显示 focus ring
 - 鼠标点击 MUST NOT 显示 focus ring
-- 实现方式: `box-shadow: 0 0 0 var(--ring-focus-width) var(--color-ring-focus);`
-- 偏移: `outline: var(--ring-focus-width) solid transparent; outline-offset: var(--ring-focus-offset);`
+- **唯一实现方式**: `box-shadow`（非 outline，避免被 overflow:hidden 裁切）
+
+```css
+/* 标准 focus ring 实现 */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 var(--ring-focus-width) var(--color-ring-focus);
+}
+```
 
 ### 3.6 颜色系统 - 功能色
 
