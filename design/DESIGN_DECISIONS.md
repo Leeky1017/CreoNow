@@ -216,15 +216,25 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 - 使用 `:focus-visible` 而非 `:focus`（浏览器自动区分键盘/鼠标）
 - 键盘导航时 MUST 显示 focus ring
 - 鼠标点击 MUST NOT 显示 focus ring
-- **唯一实现方式**: `box-shadow`（非 outline，避免被 overflow:hidden 裁切）
+- **唯一实现方式**: `outline`（非 box-shadow，因为 box-shadow 会被 overflow:hidden 裁切）
 
 ```css
 /* 标准 focus ring 实现 */
 :focus-visible {
+  outline: var(--ring-focus-width) solid var(--color-ring-focus);
+  outline-offset: var(--ring-focus-offset);
+}
+
+/* 移除浏览器默认 focus 样式 */
+:focus:not(:focus-visible) {
   outline: none;
-  box-shadow: 0 0 0 var(--ring-focus-width) var(--color-ring-focus);
 }
 ```
+
+**为什么用 outline 而非 box-shadow:**
+- `outline` 不占用布局空间，不影响元素尺寸
+- `outline-offset` 可精确控制与元素边缘的距离
+- `outline` 不会被父元素 `overflow: hidden` 裁切（box-shadow 会）
 
 ### 3.6 颜色系统 - 功能色
 
@@ -249,25 +259,39 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 
 ### 3.7 阴影系统
 
+**主题作用域选择器:**
 ```css
-/* 深色主题 - 阴影较重 */
---shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
---shadow-md: 0 4px 8px rgba(0, 0, 0, 0.5);
---shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.6);
---shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.7);
+/* tokens.css 中使用 data-theme 属性切换 */
+:root,
+[data-theme="dark"] {
+  /* 深色主题阴影 - 使用 --color-shadow 作为基色 */
+  --shadow-sm: 0 1px 2px var(--color-shadow);
+  --shadow-md: 0 4px 8px var(--color-shadow);
+  --shadow-lg: 0 8px 16px var(--color-shadow);
+  --shadow-xl: 0 16px 32px var(--color-shadow);
+}
 
-/* 浅色主题 - 阴影较轻 */
---shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
---shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08);
---shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.1);
---shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.15);
+[data-theme="light"] {
+  /* 浅色主题阴影 - 使用 --color-shadow 作为基色 */
+  --shadow-sm: 0 1px 2px var(--color-shadow);
+  --shadow-md: 0 4px 8px var(--color-shadow);
+  --shadow-lg: 0 8px 16px var(--color-shadow);
+  --shadow-xl: 0 16px 32px var(--color-shadow);
+}
 ```
 
-**阴影使用规则:**
-- 面板/侧边栏: MUST NOT 使用阴影，使用 `--color-separator` 分割
-- 弹出层 (Popover/Dropdown): MUST 使用 `--shadow-md`
-- 模态框 (Dialog): MUST 使用 `--shadow-xl`
-- 卡片: MAY 使用 `--shadow-sm`（默认不用，仅悬停时可选）
+**注意**: 阴影强度通过 `--color-shadow` 的 alpha 值控制（深色 0.5，浅色 0.1），阴影尺寸保持一致。
+
+**阴影使用规则 (MUST 遵守优先级):**
+
+| 优先级 | 组件 | 默认状态 | hover 状态 | 条件 |
+|--------|------|----------|------------|------|
+| P0 | 面板/侧边栏 | 无阴影 | 无阴影 | 始终使用 `--color-separator` 分割 |
+| P0 | 卡片 | 无阴影 | MAY `--shadow-sm` | 仅当卡片可点击且需要强调交互时 |
+| P1 | Popover/Dropdown | `--shadow-md` | - | 浮起即用阴影 |
+| P1 | 模态框 | `--shadow-xl` | - | 浮起即用阴影 |
+| P1 | Toast | `--shadow-lg` | - | 浮起即用阴影 |
+| P1 | Tooltip | `--shadow-sm` | - | 浮起即用阴影 |
 
 ### 3.8 间距系统
 
@@ -361,15 +385,27 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 
 ### 5.2 Elevation 规则
 
-| 组件类型 | 分层方式 | z-index |
-|----------|----------|---------|
-| 面板/侧边栏 | 边框分割 (`--color-separator`) | base |
-| 卡片 | 边框分割，无阴影 | base |
-| 下拉菜单 | 阴影 (`--shadow-md`) | dropdown |
-| Popover | 阴影 (`--shadow-md`) | popover |
-| 模态框 | 阴影 (`--shadow-xl`) + 遮罩 | modal |
-| Toast | 阴影 (`--shadow-lg`) | toast |
-| Tooltip | 阴影 (`--shadow-sm`) | tooltip |
+**分层原则 (MUST):**
+- **静态层 (z-base)**: 使用边框分割，MUST NOT 使用阴影
+- **浮起层 (z-dropdown 及以上)**: MUST 使用阴影，MAY 使用边框
+
+| 组件类型 | 分层方式 | z-index | 阴影 |
+|----------|----------|---------|------|
+| 面板/侧边栏 | 边框分割 | base | MUST NOT |
+| 卡片（默认） | 边框分割 | base | MUST NOT |
+| 卡片（hover，可点击） | 边框分割 | base | MAY `--shadow-sm` |
+| 下拉菜单 | 阴影 | dropdown | MUST `--shadow-md` |
+| Popover | 阴影 | popover | MUST `--shadow-md` |
+| 模态框 | 阴影 + 遮罩 | modal | MUST `--shadow-xl` |
+| Toast | 阴影 | toast | MUST `--shadow-lg` |
+| Tooltip | 阴影 | tooltip | MUST `--shadow-sm` |
+
+**卡片阴影条件形式化:**
+```
+卡片.阴影 = 
+  IF 卡片.可点击 AND 卡片.状态 == hover THEN MAY --shadow-sm
+  ELSE MUST NOT 使用阴影
+```
 
 ---
 
@@ -468,17 +504,26 @@ border-radius: var(--radius-sm);
 
 ### 7.2 Focus 规范 (MUST)
 
+参见 §3.5 Focus Ring 定义。实现代码:
+
 ```css
-/* 统一使用 :focus-visible */
+/* 统一使用 :focus-visible + outline */
 :focus-visible {
+  outline: var(--ring-focus-width) solid var(--color-ring-focus);
+  outline-offset: var(--ring-focus-offset);
+}
+
+/* 移除鼠标点击时的 focus 样式 */
+:focus:not(:focus-visible) {
   outline: none;
-  box-shadow: 0 0 0 var(--ring-focus-width) var(--color-ring-focus);
 }
 
 /* 输入框特殊处理：边框变化 + focus ring */
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible {
   border-color: var(--color-border-focus);
-  box-shadow: 0 0 0 var(--ring-focus-width) var(--color-ring-focus);
+  outline: var(--ring-focus-width) solid var(--color-ring-focus);
+  outline-offset: var(--ring-focus-offset);
 }
 ```
 
@@ -631,15 +676,18 @@ input:focus-visible {
 ### 11.1 Sidebar
 
 ```typescript
+/** 侧边栏面板 ID - 固定集合，MUST NOT 使用其他值 */
+type SidebarPanelId = 'files' | 'outline' | 'characters' | 'media' | 'graph' | 'settings';
+
 interface SidebarProps {
   width: number;                    // 当前宽度
   minWidth?: number;                // 最小宽度，默认 180
   maxWidth?: number;                // 最大宽度，默认 400
   collapsed?: boolean;              // 是否折叠
-  activePanel: 'files' | 'outline' | 'characters' | 'media' | 'graph' | 'settings';
+  activePanel: SidebarPanelId;
   onWidthChange: (width: number) => void;
   onCollapsedChange: (collapsed: boolean) => void;
-  onPanelChange: (panel: string) => void;
+  onPanelChange: (panel: SidebarPanelId) => void;
 }
 ```
 
@@ -781,35 +829,53 @@ interface PreferenceStore {
 // 默认使用 electron-store（Electron 环境）或 localStorage（Web 环境）
 ```
 
-### 13.2 Key 命名规范 (MUST)
+### 13.2 命名域与 Key 规范 (MUST)
 
+**应用命名域:**
+```typescript
+/** 应用唯一标识符 - 用于存储 key 前缀、IPC channel 前缀等 */
+const APP_ID = 'creonow' as const;
+
+/** 
+ * 注意: 本项目代号为 CreoNow，与旧项目 WriteNow 完全独立。
+ * 若未来需要多应用共存或数据迁移，MUST 在迁移脚本中显式处理。
+ */
 ```
-格式: creonow.<category>.<name>
-版本: creonow.version = "1"
 
-示例:
-- creonow.layout.sidebarWidth
-- creonow.layout.panelWidth
-- creonow.layout.sidebarCollapsed
-- creonow.layout.panelCollapsed
-- creonow.layout.activePanel
-- creonow.layout.activePanelTab
-- creonow.editor.fontSize
-- creonow.editor.fontFamily
-- creonow.theme.mode (system | light | dark)
+**Key 格式:**
+```typescript
+type PreferenceCategory = 'layout' | 'editor' | 'theme' | 'recent';
+
+// 格式: ${APP_ID}.${category}.${name}
+// 示例: creonow.layout.sidebarWidth
+
+/** 所有合法的 preference key - 类型约束，防止非法 key 进入 */
+type PreferenceKey =
+  | `${typeof APP_ID}.layout.${'sidebarWidth' | 'panelWidth' | 'sidebarCollapsed' | 'panelCollapsed' | 'activePanel' | 'activePanelTab'}`
+  | `${typeof APP_ID}.editor.${'fontSize' | 'fontFamily' | 'lineHeight'}`
+  | `${typeof APP_ID}.theme.${'mode'}`
+  | `${typeof APP_ID}.version`;
+```
+
+**版本 Key:**
+```
+creonow.version = "1"
 ```
 
 ### 13.3 版本迁移 (MUST)
 
 ```typescript
+const APP_ID = 'creonow' as const;
 const CURRENT_VERSION = '1';
 
 function migratePreferences(): void {
-  const storedVersion = store.get('creonow.version');
+  const versionKey = `${APP_ID}.version` as const;
+  const storedVersion = store.get(versionKey);
+  
   if (storedVersion !== CURRENT_VERSION) {
     // 执行迁移逻辑
     // ...
-    store.set('creonow.version', CURRENT_VERSION);
+    store.set(versionKey, CURRENT_VERSION);
   }
 }
 ```
