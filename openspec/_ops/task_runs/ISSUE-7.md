@@ -2,7 +2,7 @@
 
 - Issue: #7
 - Branch: task/7-cn-v1-workbench-openspec
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/8
 
 ## Plan
 
@@ -46,3 +46,15 @@
 - Command: `git commit --amend --no-edit`
 - Key output: `59ed98d docs: add CN V1 workbench OpenSpec package (#7)`
 - Note: supersedes previous commit hash `d2c8b06`
+
+### 2026-01-31 02:26 +0800 push + pr
+
+- Command: `git push -u origin HEAD`
+- Key output: `task/7-cn-v1-workbench-openspec -> origin/task/7-cn-v1-workbench-openspec`
+- Command: `gh pr create ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/8`
+
+### 2026-01-31 02:26 +0800 preflight (missing script)
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: `python3: can't open file 'scripts/agent_pr_preflight.py'`
