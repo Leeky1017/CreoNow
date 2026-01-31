@@ -1,6 +1,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import prettier from "prettier";
+
 import { ipcContract } from "../apps/desktop/main/src/ipc/contract/ipc-contract";
 import type { IpcSchema } from "../apps/desktop/main/src/ipc/contract/schema";
 
@@ -58,10 +60,21 @@ function renderSchema(schema: IpcSchema): string {
   }
 }
 
+/**
+ * Normalize newlines to `\\n`.
+ *
+ * Why: codegen output must be stable across Windows and POSIX in CI.
+ */
 function normalizeNewlines(s: string): string {
   return s.replaceAll("\r\n", "\n");
 }
 
+/**
+ * Generate `packages/shared/types/ipc-generated.ts` from the IPC SSOT.
+ *
+ * Why: CI must be able to block IPC drift and ensure deterministic output across
+ * Windows/macOS/Linux (newline + formatting normalization).
+ */
 async function main(): Promise<void> {
   const repoRoot = process.cwd();
   const outPath = path.join(repoRoot, "packages/shared/types/ipc-generated.ts");
@@ -133,8 +146,12 @@ export type IpcInvokeResult<C extends IpcChannel> = IpcResponse<IpcResponseData<
 `,
   );
 
+  const formatted = normalizeNewlines(
+    await prettier.format(content, { parser: "typescript" }),
+  );
+
   await fs.mkdir(path.dirname(outPath), { recursive: true });
-  await fs.writeFile(outPath, content, "utf8");
+  await fs.writeFile(outPath, formatted, "utf8");
 }
 
 await main();

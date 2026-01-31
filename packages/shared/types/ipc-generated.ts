@@ -48,9 +48,7 @@ export type IpcErr = {
 
 export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
-export const IPC_CHANNELS = [
-  "app:ping"
-] as const;
+export const IPC_CHANNELS = ["app:ping", "db:debug:tableNames"] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
@@ -59,10 +57,19 @@ export type IpcChannelSpec = {
     request: Record<string, never>;
     response: Record<string, never>;
   };
+  "db:debug:tableNames": {
+    request: Record<string, never>;
+    response: {
+      tableNames: Array<string>;
+    };
+  };
 };
 
 export type IpcRequest<C extends IpcChannel> = IpcChannelSpec[C]["request"];
 
-export type IpcResponseData<C extends IpcChannel> = IpcChannelSpec[C]["response"];
+export type IpcResponseData<C extends IpcChannel> =
+  IpcChannelSpec[C]["response"];
 
-export type IpcInvokeResult<C extends IpcChannel> = IpcResponse<IpcResponseData<C>>;
+export type IpcInvokeResult<C extends IpcChannel> = IpcResponse<
+  IpcResponseData<C>
+>;
