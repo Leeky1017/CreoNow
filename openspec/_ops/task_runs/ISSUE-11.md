@@ -3,7 +3,7 @@
 -
 - Issue: #11
 - Branch: task/11-cn-v1-workbench-openspec-gapfill
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/12
 
 ## Plan
 
