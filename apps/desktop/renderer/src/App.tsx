@@ -11,6 +11,7 @@ import {
 import { createEditorStore, EditorStoreProvider } from "./stores/editorStore";
 import { createFileStore, FileStoreProvider } from "./stores/fileStore";
 import { createLayoutStore, LayoutStoreProvider } from "./stores/layoutStore";
+import { createMemoryStore, MemoryStoreProvider } from "./stores/memoryStore";
 import {
   createProjectStore,
   ProjectStoreProvider,
@@ -45,15 +46,21 @@ export function App(): JSX.Element {
     return createFileStore({ invoke });
   }, []);
 
+  const memoryStore = React.useMemo(() => {
+    return createMemoryStore({ invoke });
+  }, []);
+
   return (
     <AiStoreProvider store={aiStore}>
       <ProjectStoreProvider store={projectStore}>
         <ContextStoreProvider store={contextStore}>
           <EditorStoreProvider store={editorStore}>
             <FileStoreProvider store={fileStore}>
+              <MemoryStoreProvider store={memoryStore}>
               <LayoutStoreProvider store={layoutStore}>
                 <AppShell />
               </LayoutStoreProvider>
+              </MemoryStoreProvider>
             </FileStoreProvider>
           </EditorStoreProvider>
         </ContextStoreProvider>
