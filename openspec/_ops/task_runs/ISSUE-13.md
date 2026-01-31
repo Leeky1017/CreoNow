@@ -3,7 +3,7 @@
 -
 - Issue: #13
 - Branch: task/13-archive-issue-11-rulebook-task
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/14
 
 ## Plan
 
