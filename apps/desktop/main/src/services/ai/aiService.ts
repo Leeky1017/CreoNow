@@ -19,6 +19,7 @@ export type AiService = {
     skillId: string;
     systemPrompt?: string;
     input: string;
+    system?: string;
     context?: { projectId?: string; documentId?: string };
     stream: boolean;
     ts: number;
@@ -73,6 +74,32 @@ function asObject(x: unknown): JsonObject | null {
  */
 function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
   return { ok: false, error: { code, message, details } };
+}
+
+/**
+ * Combine stable + dynamic system prompt parts into a single system text.
+ *
+ * Why: skills provide a stable `systemPrompt` while features like memory injection
+ * add a dynamic `system` overlay; providers expect a single system string.
+ */
+function combineSystemText(args: {
+  systemPrompt?: string;
+  system?: string;
+}): string | null {
+  const parts: string[] = [];
+
+  const stable =
+    typeof args.systemPrompt === "string" ? args.systemPrompt.trim() : "";
+  if (stable.length > 0) {
+    parts.push(stable);
+  }
+
+  const dynamic = typeof args.system === "string" ? args.system.trim() : "";
+  if (dynamic.length > 0) {
+    parts.push(dynamic);
+  }
+
+  return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
 /**
@@ -386,16 +413,20 @@ export function createAiService(deps: {
     cfg: ProviderConfig;
     systemPrompt?: string;
     input: string;
+    system?: string;
   }): Promise<ServiceResult<string>> {
     const url = new URL("/v1/chat/completions", args.cfg.baseUrl).toString();
 
-    const messages =
-      typeof args.systemPrompt === "string" && args.systemPrompt.trim().length
-        ? [
-            { role: "system", content: args.systemPrompt },
-            { role: "user", content: args.input },
-          ]
-        : [{ role: "user", content: args.input }];
+    const systemText = combineSystemText({
+      systemPrompt: args.systemPrompt,
+      system: args.system,
+    });
+    const messages = systemText
+      ? [
+          { role: "system", content: systemText },
+          { role: "user", content: args.input },
+        ]
+      : [{ role: "user", content: args.input }];
 
     const res = await fetch(url, {
       method: "POST",
@@ -439,8 +470,14 @@ export function createAiService(deps: {
     cfg: ProviderConfig;
     systemPrompt?: string;
     input: string;
+    system?: string;
   }): Promise<ServiceResult<string>> {
     const url = new URL("/v1/messages", args.cfg.baseUrl).toString();
+
+    const systemText = combineSystemText({
+      systemPrompt: args.systemPrompt,
+      system: args.system,
+    });
 
     const res = await fetch(url, {
       method: "POST",
@@ -451,10 +488,7 @@ export function createAiService(deps: {
       body: JSON.stringify({
         model: "fake",
         max_tokens: 256,
-        ...(typeof args.systemPrompt === "string" &&
-        args.systemPrompt.trim().length
-          ? { system: args.systemPrompt }
-          : {}),
+        ...(systemText ? { system: systemText } : {}),
         messages: [{ role: "user", content: args.input }],
         stream: false,
       }),
@@ -487,16 +521,20 @@ export function createAiService(deps: {
     cfg: ProviderConfig;
     systemPrompt?: string;
     input: string;
+    system?: string;
   }): Promise<ServiceResult<true>> {
     const url = new URL("/v1/chat/completions", args.cfg.baseUrl).toString();
 
-    const messages =
-      typeof args.systemPrompt === "string" && args.systemPrompt.trim().length
-        ? [
-            { role: "system", content: args.systemPrompt },
-            { role: "user", content: args.input },
-          ]
-        : [{ role: "user", content: args.input }];
+    const systemText = combineSystemText({
+      systemPrompt: args.systemPrompt,
+      system: args.system,
+    });
+    const messages = systemText
+      ? [
+          { role: "system", content: systemText },
+          { role: "user", content: args.input },
+        ]
+      : [{ role: "user", content: args.input }];
 
     const res = await fetch(url, {
       method: "POST",
@@ -566,8 +604,14 @@ export function createAiService(deps: {
     cfg: ProviderConfig;
     systemPrompt?: string;
     input: string;
+    system?: string;
   }): Promise<ServiceResult<true>> {
     const url = new URL("/v1/messages", args.cfg.baseUrl).toString();
+
+    const systemText = combineSystemText({
+      systemPrompt: args.systemPrompt,
+      system: args.system,
+    });
 
     const res = await fetch(url, {
       method: "POST",
@@ -578,10 +622,7 @@ export function createAiService(deps: {
       body: JSON.stringify({
         model: "fake",
         max_tokens: 256,
-        ...(typeof args.systemPrompt === "string" &&
-        args.systemPrompt.trim().length
-          ? { system: args.systemPrompt }
-          : {}),
+        ...(systemText ? { system: systemText } : {}),
         messages: [{ role: "user", content: args.input }],
         stream: true,
       }),
@@ -695,12 +736,14 @@ export function createAiService(deps: {
                   cfg,
                   systemPrompt: args.systemPrompt,
                   input: args.input,
+                  system: args.system,
                 })
               : await runOpenAiStream({
                   entry,
                   cfg,
                   systemPrompt: args.systemPrompt,
                   input: args.input,
+                  system: args.system,
                 });
 
           if (!res.ok) {
@@ -777,12 +820,14 @@ export function createAiService(deps: {
               cfg,
               systemPrompt: args.systemPrompt,
               input: args.input,
+              system: args.system,
             })
           : await runOpenAiNonStream({
               entry,
               cfg,
               systemPrompt: args.systemPrompt,
               input: args.input,
+              system: args.system,
             });
 
       if (!res.ok) {

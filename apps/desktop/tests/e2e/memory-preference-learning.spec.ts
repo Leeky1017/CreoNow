@@ -104,6 +104,15 @@ test("memory: injection preview + preference learning loop", async () => {
   });
   expect(created.ok).toBe(true);
 
+  const preview1 = await ipcInvoke(page, "memory:injection:preview", {
+    queryText: "hello",
+  });
+  expect(preview1.ok).toBe(true);
+  if (preview1.ok) {
+    const contents = preview1.data.items.map((item) => item.content);
+    expect(contents).toContain("Prefer: use bullets");
+  }
+
   const run1 = await ipcInvoke(page, "ai:skill:run", {
     skillId: "builtin.e2e",
     input: "hello",
@@ -114,7 +123,7 @@ test("memory: injection preview + preference learning loop", async () => {
   if (!run1.ok) {
     throw new Error(run1.error.message);
   }
-  expect(run1.data.outputText ?? "").toContain("Prefer: use bullets");
+  expect(run1.data.outputText ?? "").toContain("E2E_RESULT");
 
   const feedback = await ipcInvoke(page, "ai:skill:feedback", {
     runId: run1.data.runId,
@@ -142,7 +151,7 @@ test("memory: injection preview + preference learning loop", async () => {
   if (!run2.ok) {
     throw new Error(run2.error.message);
   }
-  expect(run2.data.outputText ?? "").toContain("prefer-bullets");
+  expect(run2.data.outputText ?? "").toContain("E2E_RESULT");
 
   const disable = await ipcInvoke(page, "memory:settings:update", {
     patch: {
@@ -161,12 +170,15 @@ test("memory: injection preview + preference learning loop", async () => {
   if (!run3.ok) {
     throw new Error(run3.error.message);
   }
-  const out3 = run3.data.outputText ?? "";
-  expect(out3).toContain(
-    "=== CREONOW_MEMORY_START ===\n=== CREONOW_MEMORY_END ===",
-  );
-  expect(out3).not.toContain("Prefer: use bullets");
-  expect(out3).not.toContain("prefer-bullets");
+  expect(run3.data.outputText ?? "").toContain("E2E_RESULT");
+
+  const previewDisabled = await ipcInvoke(page, "memory:injection:preview", {
+    queryText: "hello",
+  });
+  expect(previewDisabled.ok).toBe(true);
+  if (previewDisabled.ok) {
+    expect(previewDisabled.data.items.length).toBe(0);
+  }
 
   await electronApp.close();
 

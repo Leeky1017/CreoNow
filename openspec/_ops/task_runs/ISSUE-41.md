@@ -45,3 +45,9 @@
 - Command: `rulebook task validate issue-41-p0-009-memory-system`
 - Key output: `Task issue-41-p0-009-memory-system is valid`
 - Evidence: `rulebook/tasks/issue-41-p0-009-memory-system/`
+
+### 2026-01-31 20:16 windows-e2e regression fix
+
+- Command: `pnpm desktop:test:e2e`
+- Key output: `15 passed`
+- Evidence: `apps/desktop/tests/e2e/ai-apply.spec.ts`

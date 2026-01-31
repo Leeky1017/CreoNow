@@ -199,11 +199,7 @@ export function registerAiIpcHandlers(deps: {
       });
 
       try {
-        const baseSystemPrompt = resolved.data.skill.prompt?.system ?? "";
-        const systemPrompt =
-          baseSystemPrompt.trim().length > 0
-            ? `${baseSystemPrompt}\n\n${injectionBlock}`
-            : injectionBlock;
+        const systemPrompt = resolved.data.skill.prompt?.system ?? "";
         const userPrompt = renderUserPrompt({
           template: resolved.data.skill.prompt?.user ?? "",
           input: payload.input,
@@ -212,6 +208,7 @@ export function registerAiIpcHandlers(deps: {
         const res = await aiService.runSkill({
           skillId: payload.skillId,
           systemPrompt,
+          system: injectionBlock,
           input: userPrompt,
           context: payload.context,
           stream: payload.stream,
