@@ -2,7 +2,7 @@
 
 - Issue: #33
 - Branch: task/33-p0-006-ai-runtime-fake-provider
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/36
 
 ## Plan
 
@@ -77,3 +77,9 @@
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: exit 0
 - Evidence: prettier/typecheck/lint/contract/unit gates satisfied
+
+### 2026-01-31 17:35 pr
+
+- Command: `gh pr create ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/36`
+- Evidence: PR #36
