@@ -129,7 +129,9 @@ export function MemoryPanel(): JSX.Element {
             type="checkbox"
             checked={settings?.injectionEnabled ?? true}
             onChange={(e) =>
-              void updateSettings({ patch: { injectionEnabled: e.target.checked } })
+              void updateSettings({
+                patch: { injectionEnabled: e.target.checked },
+              })
             }
             disabled={!settings}
           />
@@ -213,7 +215,9 @@ export function MemoryPanel(): JSX.Element {
           gap: 8,
         }}
       >
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>Create</div>
+        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+          Create
+        </div>
 
         <div style={{ display: "flex", gap: 8 }}>
           <select
@@ -469,7 +473,9 @@ export function MemoryPanel(): JSX.Element {
           >
             <div>
               mode:{" "}
-              <span style={{ fontFamily: "var(--font-mono)" }}>{preview.mode}</span>
+              <span style={{ fontFamily: "var(--font-mono)" }}>
+                {preview.mode}
+              </span>
             </div>
             <div style={{ marginTop: 6 }}>
               items:{" "}
@@ -483,4 +489,3 @@ export function MemoryPanel(): JSX.Element {
     </section>
   );
 }
-

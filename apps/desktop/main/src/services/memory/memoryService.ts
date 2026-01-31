@@ -155,7 +155,9 @@ function rowToMemory(row: MemoryRow): ServiceResult<UserMemoryItem> {
     return ipcError("DB_ERROR", "Invalid memory scope", { scope: row.scope });
   }
   if (!isMemoryOrigin(row.origin)) {
-    return ipcError("DB_ERROR", "Invalid memory origin", { origin: row.origin });
+    return ipcError("DB_ERROR", "Invalid memory origin", {
+      origin: row.origin,
+    });
   }
 
   return {
@@ -210,9 +212,10 @@ function getSettingKey(name: keyof MemorySettings): string {
 
 function readSetting(db: Database.Database, key: string): unknown | null {
   const row = db
-    .prepare<[string, string], SettingsRow>(
-      "SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?",
-    )
+    .prepare<
+      [string, string],
+      SettingsRow
+    >("SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?")
     .get(SETTINGS_SCOPE, key);
   if (!row) {
     return null;
@@ -258,9 +261,10 @@ function selectMemoryById(
   memoryId: string,
 ): MemoryRow | undefined {
   return db
-    .prepare<[string], MemoryRow>(
-      "SELECT memory_id as memoryId, type, scope, project_id as projectId, origin, source_ref as sourceRef, content, created_at as createdAt, updated_at as updatedAt, deleted_at as deletedAt FROM user_memory WHERE memory_id = ?",
-    )
+    .prepare<
+      [string],
+      MemoryRow
+    >("SELECT memory_id as memoryId, type, scope, project_id as projectId, origin, source_ref as sourceRef, content, created_at as createdAt, updated_at as updatedAt, deleted_at as deletedAt FROM user_memory WHERE memory_id = ?")
     .get(memoryId);
 }
 
@@ -365,8 +369,14 @@ export function createMemoryService(args: {
       if (content.trim().length === 0) {
         return ipcError("INVALID_ARGUMENT", "content is required");
       }
-      if (scope === "project" && (!projectId || projectId.trim().length === 0)) {
-        return ipcError("INVALID_ARGUMENT", "projectId is required for project scope");
+      if (
+        scope === "project" &&
+        (!projectId || projectId.trim().length === 0)
+      ) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "projectId is required for project scope",
+        );
       }
 
       const memoryId = randomUUID();
@@ -460,9 +470,7 @@ export function createMemoryService(args: {
       const nextScope = patch.scope ?? current.scope;
       const nextContent = patch.content ?? current.content;
       const nextProjectId =
-        nextScope === "project"
-          ? (patch.projectId ?? current.projectId)
-          : null;
+        nextScope === "project" ? (patch.projectId ?? current.projectId) : null;
 
       if (!isMemoryType(nextType)) {
         return ipcError("INVALID_ARGUMENT", "type is invalid");
@@ -473,8 +481,14 @@ export function createMemoryService(args: {
       if (nextContent.trim().length === 0) {
         return ipcError("INVALID_ARGUMENT", "content is required");
       }
-      if (nextScope === "project" && (!nextProjectId || nextProjectId.trim().length === 0)) {
-        return ipcError("INVALID_ARGUMENT", "projectId is required for project scope");
+      if (
+        nextScope === "project" &&
+        (!nextProjectId || nextProjectId.trim().length === 0)
+      ) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "projectId is required for project scope",
+        );
       }
 
       const ts = nowTs();
@@ -520,9 +534,10 @@ export function createMemoryService(args: {
       }
 
       const row = args.db
-        .prepare<[string], { deletedAt: number | null }>(
-          "SELECT deleted_at as deletedAt FROM user_memory WHERE memory_id = ?",
-        )
+        .prepare<
+          [string],
+          { deletedAt: number | null }
+        >("SELECT deleted_at as deletedAt FROM user_memory WHERE memory_id = ?")
         .get(memoryId);
       if (!row) {
         return ipcError("NOT_FOUND", "Memory not found", { memoryId });
@@ -601,14 +616,20 @@ export function createMemoryService(args: {
 
         const diagnostics: MemoryInjectionPreview["diagnostics"] =
           typeof queryText === "string" && queryText.trim().length > 0
-            ? { degradedFrom: "semantic", reason: "semantic_recall_unavailable" }
+            ? {
+                degradedFrom: "semantic",
+                reason: "semantic_recall_unavailable",
+              }
             : undefined;
 
         args.logger.info("memory_injection_preview", {
           mode: "deterministic",
           count: items.length,
         });
-        return { ok: true, data: { items, mode: "deterministic", diagnostics } };
+        return {
+          ok: true,
+          data: { items, mode: "deterministic", diagnostics },
+        };
       } catch (error) {
         args.logger.error("memory_injection_preview_failed", {
           code: "DB_ERROR",

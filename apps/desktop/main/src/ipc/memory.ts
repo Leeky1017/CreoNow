@@ -26,7 +26,9 @@ type MemoryListPayload = {
 
 type MemoryUpdatePayload = {
   memoryId: string;
-  patch: Partial<Pick<UserMemoryItem, "type" | "scope" | "projectId" | "content">>;
+  patch: Partial<
+    Pick<UserMemoryItem, "type" | "scope" | "projectId" | "content">
+  >;
 };
 
 type MemoryDeletePayload = { memoryId: string };
@@ -92,7 +94,10 @@ export function registerMemoryIpcHandlers(deps: {
         };
       }
       const svc = createMemoryService({ db: deps.db, logger: deps.logger });
-      const res = svc.update({ memoryId: payload.memoryId, patch: payload.patch });
+      const res = svc.update({
+        memoryId: payload.memoryId,
+        patch: payload.patch,
+      });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -176,4 +181,3 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 }
-

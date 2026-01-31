@@ -7,11 +7,7 @@ import type {
   IpcErrorCode,
 } from "../../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
-import type {
-  MemoryScope,
-  MemorySettings,
-  MemoryType,
-} from "./memoryService";
+import type { MemoryScope, MemorySettings, MemoryType } from "./memoryService";
 
 export type SkillFeedbackAction = "accept" | "reject" | "partial";
 
@@ -81,7 +77,9 @@ function normalizeEvidenceRef(args: {
   }
 
   const truncated =
-    raw.length > MAX_EVIDENCE_REF_LEN ? raw.slice(0, MAX_EVIDENCE_REF_LEN) : raw;
+    raw.length > MAX_EVIDENCE_REF_LEN
+      ? raw.slice(0, MAX_EVIDENCE_REF_LEN)
+      : raw;
   if (truncated.length < MIN_EVIDENCE_REF_LEN) {
     return { ok: false, reason: "too_short", value: null };
   }
@@ -114,11 +112,15 @@ function insertFeedbackRow(
   );
 }
 
-function countAcceptedSignals(db: Database.Database, evidenceRef: string): number {
+function countAcceptedSignals(
+  db: Database.Database,
+  evidenceRef: string,
+): number {
   const row = db
-    .prepare<[string], { count: number }>(
-      "SELECT COUNT(*) as count FROM skill_feedback WHERE action = 'accept' AND evidence_ref = ? AND ignored = 0",
-    )
+    .prepare<
+      [string],
+      { count: number }
+    >("SELECT COUNT(*) as count FROM skill_feedback WHERE action = 'accept' AND evidence_ref = ? AND ignored = 0")
     .get(evidenceRef);
   return row ? row.count : 0;
 }
@@ -132,16 +134,17 @@ function upsertLearnedPreference(args: {
   ts: number;
 }): LearnedUpsertResult {
   const existing = args.db
-    .prepare<[string], { memoryId: string }>(
-      "SELECT memory_id as memoryId FROM user_memory WHERE origin = 'learned' AND scope = 'global' AND project_id IS NULL AND source_ref = ? LIMIT 1",
-    )
+    .prepare<
+      [string],
+      { memoryId: string }
+    >("SELECT memory_id as memoryId FROM user_memory WHERE origin = 'learned' AND scope = 'global' AND project_id IS NULL AND source_ref = ? LIMIT 1")
     .get(args.sourceRef);
 
   if (existing) {
     args.db
-      .prepare<[string, number, string]>(
-        "UPDATE user_memory SET content = ?, updated_at = ?, deleted_at = NULL WHERE memory_id = ?",
-      )
+      .prepare<
+        [string, number, string]
+      >("UPDATE user_memory SET content = ?, updated_at = ?, deleted_at = NULL WHERE memory_id = ?")
       .run(args.content, args.ts, existing.memoryId);
     return { memoryId: existing.memoryId, created: false };
   }
@@ -357,4 +360,3 @@ export function recordSkillFeedbackAndLearn(args: {
     },
   };
 }
-

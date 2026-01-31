@@ -162,7 +162,9 @@ test("memory: injection preview + preference learning loop", async () => {
     throw new Error(run3.error.message);
   }
   const out3 = run3.data.outputText ?? "";
-  expect(out3).toContain("=== CREONOW_MEMORY_START ===\n=== CREONOW_MEMORY_END ===");
+  expect(out3).toContain(
+    "=== CREONOW_MEMORY_START ===\n=== CREONOW_MEMORY_END ===",
+  );
   expect(out3).not.toContain("Prefer: use bullets");
   expect(out3).not.toContain("prefer-bullets");
 
@@ -173,4 +175,3 @@ test("memory: injection preview + preference learning loop", async () => {
   expect(log).toContain("memory_injection_preview");
   expect(log).toContain("preference_signal_ingested");
 });
-

@@ -218,4 +218,3 @@ const logger = createLogger();
   assert.equal(data.memories[0]?.content, "prefer-bullets");
   assert.equal(data.memories[0]?.sourceRef, "prefer-bullets");
 }
-

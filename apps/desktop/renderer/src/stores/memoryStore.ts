@@ -61,7 +61,9 @@ const MemoryStoreContext = React.createContext<UseMemoryStore | null>(null);
  * and must support deterministic injection preview behavior.
  */
 export function createMemoryStore(deps: { invoke: IpcInvoke }) {
-  async function loadSettings(): Promise<IpcInvokeResult<"memory:settings:get">> {
+  async function loadSettings(): Promise<
+    IpcInvokeResult<"memory:settings:get">
+  > {
     return await deps.invoke("memory:settings:get", {});
   }
 
@@ -84,7 +86,10 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
 
     bootstrapForProject: async (projectId) => {
       const state = get();
-      if (state.bootstrapStatus === "loading" && state.projectId === projectId) {
+      if (
+        state.bootstrapStatus === "loading" &&
+        state.projectId === projectId
+      ) {
         return;
       }
 
