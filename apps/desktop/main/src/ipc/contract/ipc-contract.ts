@@ -34,6 +34,24 @@ const JUDGE_MODEL_STATE_SCHEMA = s.union(
   }),
 );
 
+const SKILL_SCOPE_SCHEMA = s.union(
+  s.literal("builtin"),
+  s.literal("global"),
+  s.literal("project"),
+);
+
+const SKILL_LIST_ITEM_SCHEMA = s.object({
+  id: s.string(),
+  name: s.string(),
+  scope: SKILL_SCOPE_SCHEMA,
+  packageId: s.string(),
+  version: s.string(),
+  enabled: s.boolean(),
+  valid: s.boolean(),
+  error_code: s.optional(IPC_ERROR_CODE_SCHEMA),
+  error_message: s.optional(s.string()),
+});
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -70,6 +88,26 @@ export const ipcContract = {
         comment: s.optional(s.string()),
       }),
       response: s.object({ recorded: s.literal(true) }),
+    },
+    "skill:list": {
+      request: s.object({ includeDisabled: s.optional(s.boolean()) }),
+      response: s.object({ items: s.array(SKILL_LIST_ITEM_SCHEMA) }),
+    },
+    "skill:read": {
+      request: s.object({ id: s.string() }),
+      response: s.object({ id: s.string(), content: s.string() }),
+    },
+    "skill:write": {
+      request: s.object({ id: s.string(), content: s.string() }),
+      response: s.object({
+        id: s.string(),
+        scope: SKILL_SCOPE_SCHEMA,
+        written: s.literal(true),
+      }),
+    },
+    "skill:toggle": {
+      request: s.object({ id: s.string(), enabled: s.boolean() }),
+      response: s.object({ id: s.string(), enabled: s.boolean() }),
     },
     "db:debug:tableNames": {
       request: s.object({}),

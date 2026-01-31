@@ -12,6 +12,7 @@ import { getDbPaths, redactUserDataPath } from "./paths";
 import initSql from "./migrations/0001_init.sql?raw";
 import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
 import judgeSql from "./migrations/0003_judge.sql?raw";
+import skillsSql from "./migrations/0004_skills.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -36,6 +37,7 @@ const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: "0001_init", sql: initSql },
   { version: 2, name: "0002_documents_versioning", sql: documentsSql },
   { version: 3, name: "0003_judge", sql: judgeSql },
+  { version: 4, name: "0004_skills", sql: skillsSql },
 ];
 
 /**

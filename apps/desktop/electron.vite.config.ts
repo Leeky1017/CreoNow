@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -6,9 +7,31 @@ import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * Copy builtin skills into `dist/main/skills` so they ship in packaged builds.
+ *
+ * Why: electron-builder only includes `dist/**`, and skills must be loadable at runtime.
+ */
+function copyBuiltinSkillsPlugin() {
+  return {
+    name: "creonow-copy-builtin-skills",
+    closeBundle() {
+      const src = path.join(__dirname, "main", "skills");
+      const dest = path.join(__dirname, "dist", "main", "skills");
+      if (!fs.existsSync(src)) {
+        return;
+      }
+
+      fs.rmSync(dest, { recursive: true, force: true });
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.cpSync(src, dest, { recursive: true });
+    },
+  } as const;
+}
+
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin(), copyBuiltinSkillsPlugin()],
     build: {
       outDir: "dist/main",
       rollupOptions: {

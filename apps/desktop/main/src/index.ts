@@ -12,6 +12,7 @@ import { registerConstraintsIpcHandlers } from "./ipc/constraints";
 import { registerFileIpcHandlers } from "./ipc/file";
 import { registerJudgeIpcHandlers } from "./ipc/judge";
 import { registerProjectIpcHandlers } from "./ipc/project";
+import { registerSkillIpcHandlers } from "./ipc/skills";
 import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createJudgeService } from "./services/judge/judgeService";
@@ -49,6 +50,29 @@ function resolvePreloadPath(): string {
   }
 
   return path.join(dir, "index.cjs");
+}
+
+/**
+ * Resolve builtin skills directory across dev + build outputs.
+ *
+ * Why: electron-builder packages only `dist/**`, but dev runs from `main/src`.
+ */
+function resolveBuiltinSkillsDir(mainDir: string): string {
+  const candidates = [
+    path.join(mainDir, "skills"), // build: dist/main/skills
+    path.join(mainDir, "../skills"), // dev: main/skills
+  ];
+  for (const p of candidates) {
+    try {
+      const stat = fs.statSync(p);
+      if (stat.isDirectory()) {
+        return p;
+      }
+    } catch {
+      // Ignore.
+    }
+  }
+  return candidates[0];
 }
 
 /**
@@ -90,6 +114,7 @@ function registerIpcHandlers(deps: {
   db: DbInitOk["db"] | null;
   logger: Logger;
   userDataDir: string;
+  builtinSkillsDir: string;
   env: NodeJS.ProcessEnv;
 }): void {
   const judgeService = createJudgeService({
@@ -144,6 +169,9 @@ function registerIpcHandlers(deps: {
 
   registerAiIpcHandlers({
     ipcMain,
+    db: deps.db,
+    userDataDir: deps.userDataDir,
+    builtinSkillsDir: deps.builtinSkillsDir,
     logger: deps.logger,
     env: deps.env,
   });
@@ -178,6 +206,14 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
   });
 
+  registerSkillIpcHandlers({
+    ipcMain,
+    db: deps.db,
+    userDataDir: deps.userDataDir,
+    builtinSkillsDir: deps.builtinSkillsDir,
+    logger: deps.logger,
+  });
+
   registerVersionIpcHandlers({
     ipcMain,
     db: deps.db,
@@ -198,7 +234,13 @@ void app.whenReady().then(() => {
     logger.error("db_init_failed", { code: dbRes.error.code });
   }
 
-  registerIpcHandlers({ db, logger, userDataDir, env: process.env });
+  registerIpcHandlers({
+    db,
+    logger,
+    userDataDir,
+    builtinSkillsDir: resolveBuiltinSkillsDir(__dirname),
+    env: process.env,
+  });
 
   createMainWindow();
 

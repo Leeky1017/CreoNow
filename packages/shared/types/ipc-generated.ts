@@ -73,6 +73,10 @@ export const IPC_CHANNELS = [
   "project:getCurrent",
   "project:list",
   "project:setCurrent",
+  "skill:list",
+  "skill:read",
+  "skill:toggle",
+  "skill:write",
   "version:aiApply:logConflict",
   "version:list",
   "version:restore",
@@ -375,6 +379,69 @@ export type IpcChannelSpec = {
     response: {
       projectId: string;
       rootPath: string;
+    };
+  };
+  "skill:list": {
+    request: {
+      includeDisabled?: boolean;
+    };
+    response: {
+      items: Array<{
+        enabled: boolean;
+        error_code?:
+          | "INVALID_ARGUMENT"
+          | "NOT_FOUND"
+          | "ALREADY_EXISTS"
+          | "CONFLICT"
+          | "PERMISSION_DENIED"
+          | "UNSUPPORTED"
+          | "IO_ERROR"
+          | "DB_ERROR"
+          | "MODEL_NOT_READY"
+          | "ENCODING_FAILED"
+          | "RATE_LIMITED"
+          | "TIMEOUT"
+          | "CANCELED"
+          | "UPSTREAM_ERROR"
+          | "INTERNAL";
+        error_message?: string;
+        id: string;
+        name: string;
+        packageId: string;
+        scope: "builtin" | "global" | "project";
+        valid: boolean;
+        version: string;
+      }>;
+    };
+  };
+  "skill:read": {
+    request: {
+      id: string;
+    };
+    response: {
+      content: string;
+      id: string;
+    };
+  };
+  "skill:toggle": {
+    request: {
+      enabled: boolean;
+      id: string;
+    };
+    response: {
+      enabled: boolean;
+      id: string;
+    };
+  };
+  "skill:write": {
+    request: {
+      content: string;
+      id: string;
+    };
+    response: {
+      id: string;
+      scope: "builtin" | "global" | "project";
+      written: true;
     };
   };
   "version:aiApply:logConflict": {

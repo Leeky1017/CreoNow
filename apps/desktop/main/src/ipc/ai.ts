@@ -1,4 +1,5 @@
 import type { IpcMain } from "electron";
+import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import {
@@ -7,6 +8,7 @@ import {
 } from "../../../../../packages/shared/types/ai";
 import type { Logger } from "../logging/logger";
 import { createAiService } from "../services/ai/aiService";
+import { createSkillService } from "../services/skills/skillService";
 
 type SkillRunPayload = {
   skillId: string;
@@ -22,6 +24,21 @@ type SkillRunResponse = { runId: string; outputText?: string };
  */
 function nowTs(): number {
   return Date.now();
+}
+
+/**
+ * Render a user prompt template with an input string.
+ *
+ * Why: skills are configured as stable prompts; input is injected deterministically.
+ */
+function renderUserPrompt(args: { template: string; input: string }): string {
+  if (args.template.includes("{{input}}")) {
+    return args.template.split("{{input}}").join(args.input);
+  }
+  if (args.template.trim().length === 0) {
+    return args.input;
+  }
+  return `${args.template}\n\n${args.input}`.trim();
 }
 
 /**
@@ -51,6 +68,9 @@ function safeEmitToRenderer(args: {
  */
 export function registerAiIpcHandlers(deps: {
   ipcMain: IpcMain;
+  db: Database.Database | null;
+  userDataDir: string;
+  builtinSkillsDir: string;
   logger: Logger;
   env: NodeJS.ProcessEnv;
 }): void {
@@ -68,15 +88,59 @@ export function registerAiIpcHandlers(deps: {
           error: { code: "INVALID_ARGUMENT", message: "skillId is required" },
         };
       }
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      const skillSvc = createSkillService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        builtinSkillsDir: deps.builtinSkillsDir,
+        logger: deps.logger,
+      });
+      const resolved = skillSvc.resolveForRun({ id: payload.skillId });
+      if (!resolved.ok) {
+        return { ok: false, error: resolved.error };
+      }
+      if (!resolved.data.enabled) {
+        return {
+          ok: false,
+          error: {
+            code: "UNSUPPORTED",
+            message: "Skill is disabled",
+            details: { id: payload.skillId },
+          },
+        };
+      }
+      if (!resolved.data.skill.valid) {
+        return {
+          ok: false,
+          error: {
+            code: resolved.data.skill.error_code ?? "INVALID_ARGUMENT",
+            message: resolved.data.skill.error_message ?? "Skill is invalid",
+            details: { id: payload.skillId },
+          },
+        };
+      }
 
       const emitEvent = (event: AiStreamEvent): void => {
         safeEmitToRenderer({ logger: deps.logger, sender: e.sender, event });
       };
 
       try {
+        const systemPrompt = resolved.data.skill.prompt?.system ?? "";
+        const userPrompt = renderUserPrompt({
+          template: resolved.data.skill.prompt?.user ?? "",
+          input: payload.input,
+        });
+
         const res = await aiService.runSkill({
           skillId: payload.skillId,
-          input: payload.input,
+          systemPrompt,
+          input: userPrompt,
           context: payload.context,
           stream: payload.stream,
           ts: nowTs(),
