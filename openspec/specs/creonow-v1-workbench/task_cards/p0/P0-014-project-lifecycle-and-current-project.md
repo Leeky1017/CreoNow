@@ -1,6 +1,6 @@
 # P0-014: Project lifecycle（create/list/setCurrent/getCurrent/delete + ensure `.creonow`）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -30,27 +30,27 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] `project:create`：
-  - [ ] 返回 `{ projectId, rootPath }`
-  - [ ] `rootPath` 支持空格/中文路径（Windows 常见）
-  - [ ] 创建完成后 `.creonow/` 目录结构已被 ensure（`context:creonow:ensure` 或等价）
-- [ ] `project:list`：
-  - [ ] 返回 deterministic 排序（写死排序规则并可测）
-- [ ] `project:setCurrent/getCurrent`：
-  - [ ] `setCurrent` 成功后 `getCurrent` 返回一致结果
-  - [ ] app 重启后 current project 仍可恢复（settings 持久化）
-- [ ] `project:delete`：
-  - [ ] 删除后 `project:list` 不再返回该项目
-  - [ ] 对已删除 `projectId` 的访问返回 `NOT_FOUND`（不得 silent fallback）
-- [ ] UI（最小可用）：
-  - [ ] 存在 `welcome-screen`，并能打开 `create-project-dialog` 完成创建
+- [x] `project:create`：
+  - [x] 返回 `{ projectId, rootPath }`
+  - [x] `rootPath` 支持空格/中文路径（Windows 常见）
+  - [x] 创建完成后 `.creonow/` 目录结构已被 ensure（`context:creonow:ensure` 或等价）
+- [x] `project:list`：
+  - [x] 返回 deterministic 排序（写死排序规则并可测）
+- [x] `project:setCurrent/getCurrent`：
+  - [x] `setCurrent` 成功后 `getCurrent` 返回一致结果
+  - [x] app 重启后 current project 仍可恢复（settings 持久化）
+- [x] `project:delete`：
+  - [x] 删除后 `project:list` 不再返回该项目
+  - [x] 对已删除 `projectId` 的访问返回 `NOT_FOUND`（不得 silent fallback）
+- [x] UI（最小可用）：
+  - [x] 存在 `welcome-screen`，并能打开 `create-project-dialog` 完成创建
 
 ## Tests
 
-- [ ] E2E（Windows）`project-lifecycle.spec.ts`
-  - [ ] 启动 → 创建 project → `project:getCurrent` 返回 projectId
-  - [ ] 断言 `.creonow/` 已存在（可通过 `context:creonow:status` 或等价可测路径）
-  - [ ] 重启 app → `project:getCurrent` 仍返回同 projectId
+- [x] E2E（Windows）`project-lifecycle.spec.ts`
+  - [x] 启动 → 创建 project → `project:getCurrent` 返回 projectId
+  - [x] 断言 `.creonow/` 已存在（可通过 `context:creonow:status` 或等价可测路径）
+  - [x] 重启 app → `project:getCurrent` 仍返回同 projectId
 
 ## Edge cases & Failure modes
 
@@ -64,3 +64,9 @@ Status: pending
   - `project_created`（projectId, rootPathRelative）
   - `project_set_current`（projectId）
   - `project_deleted`（projectId）
+
+## Completion
+
+- Issue: #25
+- PR: #26
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-25.md`
