@@ -90,4 +90,28 @@ export function registerVersionIpcHandlers(deps: {
         : { ok: false, error: res.error };
     },
   );
+
+  deps.ipcMain.handle(
+    "version:aiApply:logConflict",
+    async (
+      _e,
+      payload: { documentId: string; runId: string },
+    ): Promise<IpcResponse<{ logged: true }>> => {
+      if (payload.documentId.trim().length === 0 || payload.runId.trim().length === 0) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId/runId is required",
+          },
+        };
+      }
+
+      deps.logger.info("ai_apply_conflict", {
+        runId: payload.runId,
+        document_id: payload.documentId,
+      });
+      return { ok: true, data: { logged: true } };
+    },
+  );
 }

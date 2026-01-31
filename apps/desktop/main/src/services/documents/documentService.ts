@@ -58,8 +58,8 @@ export type DocumentService = {
     projectId: string;
     documentId: string;
     contentJson: unknown;
-    actor: "user" | "auto";
-    reason: "manual-save" | "autosave";
+    actor: "user" | "auto" | "ai";
+    reason: "manual-save" | "autosave" | `ai-apply:${string}`;
   }) => ServiceResult<{
     updatedAt: number;
     contentHash: string;
@@ -94,6 +94,7 @@ const EMPTY_DOC = {
 const SETTINGS_SCOPE_PREFIX = "project:" as const;
 const CURRENT_DOCUMENT_ID_KEY = "creonow.document.currentId" as const;
 const MAX_TITLE_LENGTH = 200;
+const AI_APPLY_REASON_PREFIX = "ai-apply:" as const;
 
 function nowTs(): number {
   return Date.now();
@@ -110,6 +111,14 @@ function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
 
 function hashJson(json: string): string {
   return createHash("sha256").update(json, "utf8").digest("hex");
+}
+
+function parseAiApplyRunId(reason: string): string | null {
+  if (!reason.startsWith(AI_APPLY_REASON_PREFIX)) {
+    return null;
+  }
+  const runId = reason.slice(AI_APPLY_REASON_PREFIX.length).trim();
+  return runId.length > 0 ? runId : null;
 }
 
 function serializeJson(value: unknown): ServiceResult<string> {
@@ -384,6 +393,14 @@ export function createDocumentService(args: {
     },
 
     write: ({ projectId, documentId, contentJson, actor, reason }) => {
+      const aiRunId = actor === "ai" ? parseAiApplyRunId(reason) : null;
+      if (actor === "ai" && !aiRunId) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "AI apply reason must be ai-apply:<runId>",
+        );
+      }
+
       const derived = deriveContent({ contentJson });
       if (!derived.ok) {
         return derived;
@@ -396,6 +413,12 @@ export function createDocumentService(args: {
       const contentHash = hashJson(encoded.data);
       const ts = nowTs();
 
+      if (aiRunId) {
+        args.logger.info("ai_apply_started", {
+          runId: aiRunId,
+          document_id: documentId,
+        });
+      }
       args.logger.info("doc_save_started", { document_id: documentId });
 
       try {
@@ -432,7 +455,7 @@ export function createDocumentService(args: {
             .get(documentId);
           const lastHash = last?.contentHash ?? null;
           const shouldInsertVersion =
-            actor === "user" ? true : lastHash !== contentHash;
+            actor === "auto" ? lastHash !== contentHash : true;
 
           if (shouldInsertVersion) {
             const versionId = randomUUID();
@@ -486,6 +509,13 @@ export function createDocumentService(args: {
         document_id: documentId,
         content_hash: contentHash,
       });
+      if (aiRunId) {
+        args.logger.info("ai_apply_succeeded", {
+          runId: aiRunId,
+          document_id: documentId,
+          content_hash: contentHash,
+        });
+      }
       return { ok: true, data: { updatedAt: ts, contentHash } };
     },
 

@@ -5,8 +5,16 @@ import type { IpcResponse } from "../../../../../packages/shared/types/ipc-gener
 import type { Logger } from "../logging/logger";
 import { createDocumentService } from "../services/documents/documentService";
 
-type Actor = "user" | "auto";
-type SaveReason = "manual-save" | "autosave";
+type Actor = "user" | "auto" | "ai";
+type SaveReason = "manual-save" | "autosave" | `ai-apply:${string}`;
+
+function isAiApplyReason(reason: string): reason is `ai-apply:${string}` {
+  const prefix = "ai-apply:";
+  return (
+    reason.startsWith(prefix) &&
+    reason.slice(prefix.length).trim().length > 0
+  );
+}
 
 /**
  * Register `file:document:*` IPC handlers.
@@ -204,6 +212,20 @@ export function registerFileIpcHandlers(deps: {
           error: {
             code: "INVALID_ARGUMENT",
             message: "contentJson must be valid JSON",
+          },
+        };
+      }
+
+      if (
+        (payload.actor === "user" && payload.reason !== "manual-save") ||
+        (payload.actor === "auto" && payload.reason !== "autosave") ||
+        (payload.actor === "ai" && !isAiApplyReason(payload.reason))
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "actor/reason mismatch",
           },
         };
       }

@@ -193,8 +193,8 @@ export const ipcContract = {
         projectId: s.string(),
         documentId: s.string(),
         contentJson: s.string(),
-        actor: s.union(s.literal("user"), s.literal("auto")),
-        reason: s.union(s.literal("manual-save"), s.literal("autosave")),
+        actor: s.union(s.literal("user"), s.literal("auto"), s.literal("ai")),
+        reason: s.string(),
       }),
       response: s.object({ updatedAt: s.number(), contentHash: s.string() }),
     },
@@ -231,6 +231,10 @@ export const ipcContract = {
     "version:restore": {
       request: s.object({ documentId: s.string(), versionId: s.string() }),
       response: s.object({ restored: s.literal(true) }),
+    },
+    "version:aiApply:logConflict": {
+      request: s.object({ documentId: s.string(), runId: s.string() }),
+      response: s.object({ logged: s.literal(true) }),
     },
   },
 } as const;
