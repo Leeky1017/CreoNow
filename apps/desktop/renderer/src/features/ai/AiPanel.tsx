@@ -1,8 +1,11 @@
 import React from "react";
 
 import { useAiStore, type AiStatus } from "../../stores/aiStore";
+import { useContextStore } from "../../stores/contextStore";
 import { useEditorStore } from "../../stores/editorStore";
+import { useProjectStore } from "../../stores/projectStore";
 import { unifiedDiff } from "../../lib/diff/unifiedDiff";
+import { ContextViewer } from "./ContextViewer";
 import { DiffView } from "./DiffView";
 import { applySelection, captureSelectionRef } from "./applySelection";
 import { SkillPicker } from "./SkillPicker";
@@ -58,6 +61,12 @@ export function AiPanel(): JSX.Element {
   const projectId = useEditorStore((s) => s.projectId);
   const documentId = useEditorStore((s) => s.documentId);
 
+  const currentProject = useProjectStore((s) => s.current);
+
+  const viewerOpen = useContextStore((s) => s.viewerOpen);
+  const toggleViewer = useContextStore((s) => s.toggleViewer);
+  const refreshContext = useContextStore((s) => s.refresh);
+
   const [skillsOpen, setSkillsOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -105,6 +114,11 @@ export function AiPanel(): JSX.Element {
     !!documentId &&
     applyStatus !== "applying";
 
+  /**
+   * Assemble context and run the selected skill.
+   *
+   * Why: CNWB-REQ-060 requires prompt injection to be redacted and auditable.
+   */
   async function onRun(): Promise<void> {
     setProposal(null);
     setError(null);
@@ -120,7 +134,12 @@ export function AiPanel(): JSX.Element {
       setSelectionSnapshot(null);
     }
 
-    await run();
+    const assembled = await refreshContext({
+      projectId: currentProject?.projectId ?? projectId ?? null,
+      immediateInput: input,
+    });
+
+    await run({ inputOverride: assembled.promptText });
   }
 
   function onReject(): void {
@@ -172,37 +191,65 @@ export function AiPanel(): JSX.Element {
     >
       <header style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>AI</div>
-        <button
-          data-testid="ai-skills-toggle"
-          type="button"
-          onClick={() => setSkillsOpen((v) => !v)}
+        <div
           style={{
             marginLeft: "auto",
-            border: "1px solid var(--color-separator)",
-            background: "transparent",
-            color: "var(--color-fg-muted)",
-            borderRadius: 8,
-            padding: "4px 8px",
-            fontSize: 12,
-            cursor: "pointer",
-            maxWidth: 220,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-          title={selectedSkillName}
-        >
-          {skillsStatus === "loading" ? "Skills…" : selectedSkillName}
-        </button>
-        <div
-          data-testid="ai-status"
-          style={{
-            marginLeft: 8,
-            fontSize: 11,
-            color: "var(--color-fg-muted)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}
         >
-          {status}
+          <button
+            data-testid="ai-context-toggle"
+            type="button"
+            onClick={() =>
+              void toggleViewer({
+                projectId: currentProject?.projectId ?? projectId ?? null,
+                immediateInput: input,
+              })
+            }
+            style={{
+              border: "1px solid var(--color-separator)",
+              background: viewerOpen ? "var(--color-bg-base)" : "transparent",
+              color: "var(--color-fg-muted)",
+              borderRadius: 8,
+              padding: "4px 8px",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            Context
+          </button>
+          <button
+            data-testid="ai-skills-toggle"
+            type="button"
+            onClick={() => setSkillsOpen((v) => !v)}
+            style={{
+              border: "1px solid var(--color-separator)",
+              background: "transparent",
+              color: "var(--color-fg-muted)",
+              borderRadius: 8,
+              padding: "4px 8px",
+              fontSize: 12,
+              cursor: "pointer",
+              maxWidth: 220,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+            title={selectedSkillName}
+          >
+            {skillsStatus === "loading" ? "Skills…" : selectedSkillName}
+          </button>
+          <div
+            data-testid="ai-status"
+            style={{
+              fontSize: 11,
+              color: "var(--color-fg-muted)",
+            }}
+          >
+            {status}
+          </div>
         </div>
       </header>
 
@@ -354,6 +401,8 @@ export function AiPanel(): JSX.Element {
         </button>
       </div>
 
+      {viewerOpen ? <ContextViewer /> : null}
+
       <div
         style={{
           border: "1px solid var(--color-separator)",
@@ -426,3 +475,4 @@ export function AiPanel(): JSX.Element {
     </section>
   );
 }
+

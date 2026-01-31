@@ -9,7 +9,7 @@ import type {
 } from "../../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 import { redactUserDataPath } from "../../db/paths";
-import { ensureCreonowDirStructure } from "../context/creonowDir";
+import { ensureCreonowDirStructure } from "../context/contextFs";
 
 export type ProjectInfo = {
   projectId: string;

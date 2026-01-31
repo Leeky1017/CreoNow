@@ -56,7 +56,13 @@ export const IPC_CHANNELS = [
   "constraints:get",
   "constraints:set",
   "context:creonow:ensure",
+  "context:creonow:rules:list",
+  "context:creonow:rules:read",
+  "context:creonow:settings:list",
+  "context:creonow:settings:read",
   "context:creonow:status",
+  "context:creonow:watch:start",
+  "context:creonow:watch:stop",
   "db:debug:tableNames",
   "file:document:create",
   "file:document:delete",
@@ -157,6 +163,64 @@ export type IpcChannelSpec = {
       rootPath: string;
     };
   };
+  "context:creonow:rules:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        path: string;
+        sizeBytes: number;
+        updatedAtMs: number;
+      }>;
+    };
+  };
+  "context:creonow:rules:read": {
+    request: {
+      path: string;
+      projectId: string;
+    };
+    response: {
+      content: string;
+      path: string;
+      redactionEvidence: Array<{
+        matchCount: number;
+        patternId: string;
+        sourceRef: string;
+      }>;
+      sizeBytes: number;
+      updatedAtMs: number;
+    };
+  };
+  "context:creonow:settings:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        path: string;
+        sizeBytes: number;
+        updatedAtMs: number;
+      }>;
+    };
+  };
+  "context:creonow:settings:read": {
+    request: {
+      path: string;
+      projectId: string;
+    };
+    response: {
+      content: string;
+      path: string;
+      redactionEvidence: Array<{
+        matchCount: number;
+        patternId: string;
+        sourceRef: string;
+      }>;
+      sizeBytes: number;
+      updatedAtMs: number;
+    };
+  };
   "context:creonow:status": {
     request: {
       projectId: string;
@@ -165,6 +229,22 @@ export type IpcChannelSpec = {
       exists: boolean;
       rootPath?: string;
       watching: boolean;
+    };
+  };
+  "context:creonow:watch:start": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      watching: true;
+    };
+  };
+  "context:creonow:watch:stop": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      watching: false;
     };
   };
   "db:debug:tableNames": {
