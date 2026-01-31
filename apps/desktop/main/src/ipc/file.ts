@@ -11,8 +11,7 @@ type SaveReason = "manual-save" | "autosave" | `ai-apply:${string}`;
 function isAiApplyReason(reason: string): reason is `ai-apply:${string}` {
   const prefix = "ai-apply:";
   return (
-    reason.startsWith(prefix) &&
-    reason.slice(prefix.length).trim().length > 0
+    reason.startsWith(prefix) && reason.slice(prefix.length).trim().length > 0
   );
 }
 

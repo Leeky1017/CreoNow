@@ -55,10 +55,12 @@ export type AiActions = {
   setInput: (input: string) => void;
   clearError: () => void;
   setError: (error: IpcError | null) => void;
-  setSelectionSnapshot: (snapshot: {
-    selectionRef: SelectionRef;
-    selectionText: string;
-  } | null) => void;
+  setSelectionSnapshot: (
+    snapshot: {
+      selectionRef: SelectionRef;
+      selectionText: string;
+    } | null,
+  ) => void;
   setProposal: (proposal: AiProposal | null) => void;
   persistAiApply: (args: {
     projectId: string;
@@ -66,7 +68,10 @@ export type AiActions = {
     contentJson: string;
     runId: string;
   }) => Promise<void>;
-  logAiApplyConflict: (args: { documentId: string; runId: string }) => Promise<void>;
+  logAiApplyConflict: (args: {
+    documentId: string;
+    runId: string;
+  }) => Promise<void>;
   run: () => Promise<void>;
   cancel: () => Promise<void>;
   onStreamEvent: (event: AiStreamEvent) => void;

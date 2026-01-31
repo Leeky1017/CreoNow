@@ -97,7 +97,10 @@ export function registerVersionIpcHandlers(deps: {
       _e,
       payload: { documentId: string; runId: string },
     ): Promise<IpcResponse<{ logged: true }>> => {
-      if (payload.documentId.trim().length === 0 || payload.runId.trim().length === 0) {
+      if (
+        payload.documentId.trim().length === 0 ||
+        payload.runId.trim().length === 0
+      ) {
         return {
           ok: false,
           error: {

@@ -46,4 +46,3 @@ export function unifiedDiff(args: UnifiedDiffArgs): string {
 
   return `${lines.join("\n")}\n`;
 }
-

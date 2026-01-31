@@ -537,8 +537,7 @@ export function createDocumentService(args: {
               SettingsRow
             >("SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?")
             .get(scope, CURRENT_DOCUMENT_ID_KEY);
-          const isDeletingCurrent =
-            currentRow?.valueJson === expectedValueJson;
+          const isDeletingCurrent = currentRow?.valueJson === expectedValueJson;
 
           const res = args.db
             .prepare<

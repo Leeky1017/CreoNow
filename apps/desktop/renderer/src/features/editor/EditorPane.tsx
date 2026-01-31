@@ -63,7 +63,12 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   });
 
   React.useEffect(() => {
-    if (!editor || bootstrapStatus !== "ready" || !documentId || !contentReady) {
+    if (
+      !editor ||
+      bootstrapStatus !== "ready" ||
+      !documentId ||
+      !contentReady
+    ) {
       return;
     }
 
@@ -91,7 +96,14 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [bootstrapStatus, contentReady, documentId, editor, props.projectId, save]);
+  }, [
+    bootstrapStatus,
+    contentReady,
+    documentId,
+    editor,
+    props.projectId,
+    save,
+  ]);
 
   if (bootstrapStatus !== "ready") {
     return (

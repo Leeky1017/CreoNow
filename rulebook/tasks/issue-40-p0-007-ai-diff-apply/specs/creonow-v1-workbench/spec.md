@@ -14,6 +14,7 @@
 ## Scenarios
 
 ### Success path
+
 1. User selects non-empty text in editor.
 2. AI run completes with deterministic replacement text.
 3. Diff view is visible.
@@ -21,8 +22,8 @@
 5. Editor content updates and a new version appears (`actor=ai`, `reason=ai-apply:<runId>`).
 
 ### Conflict path
+
 1. User generates a diff for a selection.
 2. User edits the selection content before applying.
 3. User clicks Apply.
 4. UI shows `CONFLICT`, document content is not overwritten, and no `actor=ai` version is created.
-

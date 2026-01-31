@@ -31,4 +31,3 @@ export function DiffView(props: { diffText: string }): JSX.Element {
     </div>
   );
 }
-

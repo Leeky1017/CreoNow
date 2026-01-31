@@ -14,4 +14,3 @@ assert.ok(diff.includes("-Hello\n"));
 assert.ok(diff.includes("+Hi\n"));
 
 assert.equal(unifiedDiff({ oldText: "same", newText: "same" }), "");
-

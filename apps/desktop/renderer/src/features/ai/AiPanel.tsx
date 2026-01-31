@@ -347,8 +347,7 @@ export function AiPanel(): JSX.Element {
                 borderRadius: 8,
                 padding: "8px 10px",
                 fontSize: 12,
-                cursor:
-                  applyStatus === "applying" ? "not-allowed" : "pointer",
+                cursor: applyStatus === "applying" ? "not-allowed" : "pointer",
               }}
             >
               Reject

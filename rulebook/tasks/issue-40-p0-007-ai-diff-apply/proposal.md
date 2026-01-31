@@ -1,11 +1,13 @@
 # Proposal: issue-40-p0-007-ai-diff-apply
 
 ## Why
+
 CN workbench needs a safe “AI output → human review → apply” loop for editor
 selection replacement, with deterministic conflict detection and observable
 versioning evidence (actor=ai) for Windows E2E reliability gates.
 
 ## What Changes
+
 - Add unified diff generation for selection replacement proposals.
 - Add diff UI + Apply/Reject controls to the AI panel.
 - Add conflict detection (selection text hash) and TipTap transaction apply.
@@ -13,6 +15,7 @@ versioning evidence (actor=ai) for Windows E2E reliability gates.
 - Add Windows E2E to cover success + conflict + main.log evidence.
 
 ## Impact
+
 - Affected specs:
   - `openspec/specs/creonow-v1-workbench/task_cards/p0/P0-007-ai-diff-and-apply-selection-version-ai.md`
   - `openspec/specs/creonow-v1-workbench/design/02-document-model-ssot.md`

@@ -30,7 +30,10 @@ export type EditorState = {
 export type EditorActions = {
   bootstrapForProject: (projectId: string) => Promise<void>;
   openCurrentDocumentForProject: (projectId: string) => Promise<void>;
-  openDocument: (args: { projectId: string; documentId: string }) => Promise<void>;
+  openDocument: (args: {
+    projectId: string;
+    documentId: string;
+  }) => Promise<void>;
   setEditorInstance: (editor: Editor | null) => void;
   save: (args: {
     projectId: string;
