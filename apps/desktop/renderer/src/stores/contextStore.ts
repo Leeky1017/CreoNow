@@ -344,10 +344,44 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
         enabled: knowledgeGraphEnabled,
       });
 
+      const retrievedSources: Array<{ sourceRef: string; text: string }> = [];
+      const retrievedRedactionEvidence: RedactionEvidenceItem[] = [];
+      const retrievedReadErrors: TrimEvidenceItem[] = [];
+
+      if (immediateInput.trim().length > 0) {
+        const ragRes = await deps.invoke("rag:retrieve", {
+          projectId,
+          queryText: immediateInput,
+        });
+
+        if (ragRes.ok) {
+          for (const item of ragRes.data.items) {
+            const redacted = redactText({
+              text: item.snippet,
+              sourceRef: item.sourceRef,
+            });
+            retrievedSources.push({
+              sourceRef: item.sourceRef,
+              text: redacted.redactedText,
+            });
+            retrievedRedactionEvidence.push(...redacted.evidence);
+          }
+        } else {
+          retrievedReadErrors.push({
+            layer: "retrieved",
+            sourceRef: "rag:retrieve",
+            action: "dropped",
+            reason: "read_error",
+            beforeChars: 0,
+            afterChars: 0,
+          });
+        }
+      }
+
       const assembled = assembleContext({
         rules: rules.sources,
         settings: settings.sources,
-        retrieved: knowledgeGraph.sources,
+        retrieved: [...knowledgeGraph.sources, ...retrievedSources],
         immediate: [
           {
             sourceRef: "immediate:ai_panel_input",
@@ -359,6 +393,7 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
           ...rules.redactionEvidence,
           ...settings.redactionEvidence,
           ...knowledgeGraph.redactionEvidence,
+          ...retrievedRedactionEvidence,
           ...immediateRedacted.evidence,
         ],
       });
@@ -367,6 +402,7 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
         ...rules.readErrors,
         ...settings.readErrors,
         ...knowledgeGraph.readErrors,
+        ...retrievedReadErrors,
         ...assembled.trimEvidence,
       ];
 

@@ -46,3 +46,20 @@
 - Key output: `exit 0`
 - Evidence: `apps/desktop/main/src/ipc/search.ts`
 
+### 2026-01-31 23:40 tests (integration)
+
+- Command: `pnpm test:integration`
+- Key output: `exit 0`
+- Evidence: `apps/desktop/tests/integration/fts-invalid-query.test.ts`
+
+### 2026-01-31 23:40 tests (e2e)
+
+- Command: `pnpm desktop:test:e2e`
+- Key output: `18 passed`
+- Evidence: `apps/desktop/tests/e2e/search-rag.spec.ts`
+
+### 2026-01-31 23:40 verification
+
+- Command: `pnpm typecheck && pnpm lint && pnpm test:unit`
+- Key output: `typecheck OK; lint OK; unit OK`
+- Evidence: `apps/desktop/main/src/ipc/rag.ts`

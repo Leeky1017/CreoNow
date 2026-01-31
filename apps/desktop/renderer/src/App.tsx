@@ -13,6 +13,7 @@ import { createFileStore, FileStoreProvider } from "./stores/fileStore";
 import { createKgStore, KgStoreProvider } from "./stores/kgStore";
 import { createLayoutStore, LayoutStoreProvider } from "./stores/layoutStore";
 import { createMemoryStore, MemoryStoreProvider } from "./stores/memoryStore";
+import { createSearchStore, SearchStoreProvider } from "./stores/searchStore";
 import {
   createProjectStore,
   ProjectStoreProvider,
@@ -51,6 +52,10 @@ export function App(): JSX.Element {
     return createKgStore({ invoke });
   }, []);
 
+  const searchStore = React.useMemo(() => {
+    return createSearchStore({ invoke });
+  }, []);
+
   const memoryStore = React.useMemo(() => {
     return createMemoryStore({ invoke });
   }, []);
@@ -62,11 +67,13 @@ export function App(): JSX.Element {
           <EditorStoreProvider store={editorStore}>
             <FileStoreProvider store={fileStore}>
               <KgStoreProvider store={kgStore}>
+                <SearchStoreProvider store={searchStore}>
                 <MemoryStoreProvider store={memoryStore}>
                   <LayoutStoreProvider store={layoutStore}>
                     <AppShell />
                   </LayoutStoreProvider>
                 </MemoryStoreProvider>
+              </SearchStoreProvider>
               </KgStoreProvider>
             </FileStoreProvider>
           </EditorStoreProvider>

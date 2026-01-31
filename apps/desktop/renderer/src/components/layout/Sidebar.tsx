@@ -2,9 +2,10 @@ import React from "react";
 
 import { FileTreePanel } from "../../features/files/FileTreePanel";
 import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
+import { SearchPanel } from "../../features/search/SearchPanel";
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
 
-type SidebarTab = "files" | "kg";
+type SidebarTab = "files" | "search" | "kg";
 
 /**
  * Sidebar is the left panel container (Files/Outline/etc).
@@ -72,6 +73,27 @@ export function Sidebar(props: {
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab("search")}
+          style={{
+            fontSize: 12,
+            padding: "var(--space-1) var(--space-2)",
+            borderRadius: "var(--radius-md)",
+            border:
+              activeTab === "search"
+                ? "1px solid var(--color-border-focus)"
+                : "1px solid var(--color-border-default)",
+            background:
+              activeTab === "search"
+                ? "var(--color-bg-selected)"
+                : "var(--color-bg-surface)",
+            color: "var(--color-fg-default)",
+            cursor: "pointer",
+          }}
+        >
+          Search
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab("kg")}
           style={{
             fontSize: 12,
@@ -94,12 +116,12 @@ export function Sidebar(props: {
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
-        {props.projectId ? (
-          activeTab === "files" ? (
-            <FileTreePanel projectId={props.projectId} />
-          ) : (
-            <KnowledgeGraphPanel projectId={props.projectId} />
-          )
+        {props.projectId && activeTab === "files" ? (
+          <FileTreePanel projectId={props.projectId} />
+        ) : props.projectId && activeTab === "search" ? (
+          <SearchPanel projectId={props.projectId} />
+        ) : props.projectId && activeTab === "kg" ? (
+          <KnowledgeGraphPanel projectId={props.projectId} />
         ) : (
           <div
             style={{

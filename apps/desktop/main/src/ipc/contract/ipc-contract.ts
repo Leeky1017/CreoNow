@@ -72,6 +72,22 @@ const SEARCH_SEMANTIC_ITEM_SCHEMA = s.object({
   score: s.number(),
 });
 
+const RAG_RETRIEVE_ITEM_SCHEMA = s.object({
+  sourceRef: s.string(),
+  snippet: s.string(),
+  score: s.number(),
+});
+
+const RAG_RETRIEVE_DIAGNOSTICS_SCHEMA = s.object({
+  budgetTokens: s.number(),
+  usedTokens: s.number(),
+  droppedCount: s.number(),
+  trimmedCount: s.number(),
+  mode: s.literal("fulltext"),
+  degradedFrom: s.optional(s.literal("semantic")),
+  reason: s.optional(s.string()),
+});
+
 const REDACTION_EVIDENCE_SCHEMA = s.object({
   patternId: s.string(),
   sourceRef: s.string(),
@@ -317,6 +333,18 @@ export const ipcContract = {
         contentHash: s.string(),
       }),
       response: s.object({ accepted: s.literal(true) }),
+    },
+    "rag:retrieve": {
+      request: s.object({
+        projectId: s.string(),
+        queryText: s.string(),
+        limit: s.optional(s.number()),
+        budgetTokens: s.optional(s.number()),
+      }),
+      response: s.object({
+        items: s.array(RAG_RETRIEVE_ITEM_SCHEMA),
+        diagnostics: RAG_RETRIEVE_DIAGNOSTICS_SCHEMA,
+      }),
     },
     "kg:graph:get": {
       request: s.object({

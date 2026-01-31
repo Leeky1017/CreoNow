@@ -97,6 +97,7 @@ export const IPC_CHANNELS = [
   "project:getCurrent",
   "project:list",
   "project:setCurrent",
+  "rag:retrieve",
   "search:fulltext",
   "search:semantic",
   "skill:list",
@@ -794,6 +795,30 @@ export type IpcChannelSpec = {
     response: {
       projectId: string;
       rootPath: string;
+    };
+  };
+  "rag:retrieve": {
+    request: {
+      budgetTokens?: number;
+      limit?: number;
+      projectId: string;
+      queryText: string;
+    };
+    response: {
+      diagnostics: {
+        budgetTokens: number;
+        degradedFrom?: "semantic";
+        droppedCount: number;
+        mode: "fulltext";
+        reason?: string;
+        trimmedCount: number;
+        usedTokens: number;
+      };
+      items: Array<{
+        score: number;
+        snippet: string;
+        sourceRef: string;
+      }>;
     };
   };
   "search:fulltext": {
