@@ -2,7 +2,7 @@
 
 - Issue: #19
 - Branch: task/19-p0-003-renderer-layout-preferences
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/20
 
 ## Plan
 
@@ -31,3 +31,10 @@
 
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: `✅ Task issue-19-p0-003-renderer-layout-preferences is valid`
+
+### 2026-01-31 12:47 pr
+
+- Command: `gh pr create ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/20`
+- Command: `gh pr merge --auto --squash 20`
+- Key output: `auto-merge enabled`
