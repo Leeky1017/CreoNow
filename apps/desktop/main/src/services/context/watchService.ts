@@ -41,6 +41,11 @@ export function createCreonowWatchService(deps: {
   const supportsRecursiveWatch =
     process.platform === "win32" || process.platform === "darwin";
 
+  /**
+   * Close a watcher without throwing.
+   *
+   * Why: shutdown must not crash the app; errors are logged as structured events.
+   */
   const safeClose = (watcher: fs.FSWatcher): void => {
     try {
       watcher.close();

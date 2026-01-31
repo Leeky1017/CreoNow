@@ -122,6 +122,12 @@ export type CreonowListItem = {
   updatedAtMs: number;
 };
 
+/**
+ * Normalize and validate a project-relative `.creonow/**` path.
+ *
+ * Why: IPC inputs must never allow path traversal or platform-specific
+ * separators to escape `.creonow` boundaries.
+ */
 function normalizeCreonowPath(creonowPath: string): ServiceResult<string> {
   const normalized = creonowPath.trim().split("\\").join("/");
   if (!normalized.startsWith(".creonow/")) {
@@ -137,6 +143,12 @@ function normalizeCreonowPath(creonowPath: string): ServiceResult<string> {
   return { ok: true, data: segments.join("/") };
 }
 
+/**
+ * Convert a normalized `.creonow/**` path into an absolute path.
+ *
+ * Why: filesystem reads must be constrained to `.creonow` even if callers pass
+ * tricky inputs that resolve outside the directory.
+ */
 function toAbsoluteCreonowPath(args: {
   projectRootPath: string;
   normalizedCreonowPath: string;
@@ -152,6 +164,12 @@ function toAbsoluteCreonowPath(args: {
   return { ok: true, data: { absPath, creonowRootAbs } };
 }
 
+/**
+ * Read a stable list item from a stat result.
+ *
+ * Why: list output is used by deterministic UI/E2E; include sizes and mtimes but
+ * keep it project-relative.
+ */
 function statToListItem(args: {
   absPath: string;
   relPath: string;
@@ -178,6 +196,12 @@ function statToListItem(args: {
   }
 }
 
+/**
+ * Recursively list files under a `.creonow` directory.
+ *
+ * Why: context layers may live in nested folders (e.g. settings/characters),
+ * and listing must be stable (sorted) for cache/e2e determinism.
+ */
 function listFilesRecursive(args: {
   dirAbs: string;
   prefixRel: string;
