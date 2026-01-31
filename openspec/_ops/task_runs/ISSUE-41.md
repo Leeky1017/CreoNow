@@ -2,7 +2,7 @@
 
 - Issue: #41
 - Branch: task/41-p0-009-memory-system
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/45
 
 ## Plan
 
