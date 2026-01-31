@@ -13,6 +13,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   const documentId = useEditorStore((s) => s.documentId);
   const documentContentJson = useEditorStore((s) => s.documentContentJson);
   const save = useEditorStore((s) => s.save);
+  const setEditorInstance = useEditorStore((s) => s.setEditorInstance);
 
   const suppressAutosaveRef = React.useRef<boolean>(false);
   const [contentReady, setContentReady] = React.useState(false);
@@ -29,6 +30,11 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     },
     content: { type: "doc", content: [{ type: "paragraph" }] },
   });
+
+  React.useEffect(() => {
+    setEditorInstance(editor ?? null);
+    return () => setEditorInstance(null);
+  }, [editor, setEditorInstance]);
 
   React.useEffect(() => {
     if (!editor || !documentId || !documentContentJson) {
@@ -57,7 +63,12 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   });
 
   React.useEffect(() => {
-    if (!editor || bootstrapStatus !== "ready" || !documentId || !contentReady) {
+    if (
+      !editor ||
+      bootstrapStatus !== "ready" ||
+      !documentId ||
+      !contentReady
+    ) {
       return;
     }
 
@@ -85,7 +96,14 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [bootstrapStatus, contentReady, documentId, editor, props.projectId, save]);
+  }, [
+    bootstrapStatus,
+    contentReady,
+    documentId,
+    editor,
+    props.projectId,
+    save,
+  ]);
 
   if (bootstrapStatus !== "ready") {
     return (

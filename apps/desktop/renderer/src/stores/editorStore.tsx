@@ -1,5 +1,6 @@
 import React from "react";
 import { create } from "zustand";
+import type { Editor } from "@tiptap/react";
 
 import type {
   IpcChannel,
@@ -20,6 +21,7 @@ export type EditorState = {
   projectId: string | null;
   documentId: string | null;
   documentContentJson: string | null;
+  editor: Editor | null;
   lastSavedOrQueuedJson: string | null;
   autosaveStatus: AutosaveStatus;
   autosaveError: IpcError | null;
@@ -28,7 +30,11 @@ export type EditorState = {
 export type EditorActions = {
   bootstrapForProject: (projectId: string) => Promise<void>;
   openCurrentDocumentForProject: (projectId: string) => Promise<void>;
-  openDocument: (args: { projectId: string; documentId: string }) => Promise<void>;
+  openDocument: (args: {
+    projectId: string;
+    documentId: string;
+  }) => Promise<void>;
+  setEditorInstance: (editor: Editor | null) => void;
   save: (args: {
     projectId: string;
     documentId: string;
@@ -59,12 +65,14 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
     projectId: null,
     documentId: null,
     documentContentJson: null,
+    editor: null,
     lastSavedOrQueuedJson: null,
     autosaveStatus: "idle",
     autosaveError: null,
 
     setAutosaveStatus: (status) => set({ autosaveStatus: status }),
     clearAutosaveError: () => set({ autosaveError: null }),
+    setEditorInstance: (editor) => set({ editor }),
 
     bootstrapForProject: async (projectId) => {
       set({ bootstrapStatus: "loading" });

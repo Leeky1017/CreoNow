@@ -73,6 +73,7 @@ export const IPC_CHANNELS = [
   "project:getCurrent",
   "project:list",
   "project:setCurrent",
+  "version:aiApply:logConflict",
   "version:list",
   "version:restore",
 ] as const;
@@ -243,11 +244,11 @@ export type IpcChannelSpec = {
   };
   "file:document:write": {
     request: {
-      actor: "user" | "auto";
+      actor: "user" | "auto" | "ai";
       contentJson: string;
       documentId: string;
       projectId: string;
-      reason: "manual-save" | "autosave";
+      reason: string;
     };
     response: {
       contentHash: string;
@@ -374,6 +375,15 @@ export type IpcChannelSpec = {
     response: {
       projectId: string;
       rootPath: string;
+    };
+  };
+  "version:aiApply:logConflict": {
+    request: {
+      documentId: string;
+      runId: string;
+    };
+    response: {
+      logged: true;
     };
   };
   "version:list": {

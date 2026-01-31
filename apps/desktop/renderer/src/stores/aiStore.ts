@@ -17,6 +17,20 @@ export type AiStatus =
   | "timeout"
   | "error";
 
+export type SelectionRef = {
+  range: { from: number; to: number };
+  selectionTextHash: string;
+};
+
+export type AiApplyStatus = "idle" | "applying" | "applied";
+
+export type AiProposal = {
+  runId: string;
+  selectionRef: SelectionRef;
+  selectionText: string;
+  replacementText: string;
+};
+
 export type IpcInvoke = <C extends IpcChannel>(
   channel: C,
   payload: IpcRequest<C>,
@@ -28,13 +42,36 @@ export type AiState = {
   input: string;
   outputText: string;
   activeRunId: string | null;
+  lastRunId: string | null;
   lastError: IpcError | null;
+  selectionRef: SelectionRef | null;
+  selectionText: string;
+  proposal: AiProposal | null;
+  applyStatus: AiApplyStatus;
 };
 
 export type AiActions = {
   setStream: (enabled: boolean) => void;
   setInput: (input: string) => void;
   clearError: () => void;
+  setError: (error: IpcError | null) => void;
+  setSelectionSnapshot: (
+    snapshot: {
+      selectionRef: SelectionRef;
+      selectionText: string;
+    } | null,
+  ) => void;
+  setProposal: (proposal: AiProposal | null) => void;
+  persistAiApply: (args: {
+    projectId: string;
+    documentId: string;
+    contentJson: string;
+    runId: string;
+  }) => Promise<void>;
+  logAiApplyConflict: (args: {
+    documentId: string;
+    runId: string;
+  }) => Promise<void>;
   run: () => Promise<void>;
   cancel: () => Promise<void>;
   onStreamEvent: (event: AiStreamEvent) => void;
@@ -74,13 +111,63 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
     input: "",
     outputText: "",
     activeRunId: null,
+    lastRunId: null,
     lastError: null,
+    selectionRef: null,
+    selectionText: "",
+    proposal: null,
+    applyStatus: "idle",
 
     setStream: (enabled) => set({ stream: enabled }),
 
     setInput: (input) => set({ input }),
 
     clearError: () => set({ lastError: null }),
+    setError: (error) => set({ lastError: error }),
+
+    setSelectionSnapshot: (snapshot) => {
+      set({
+        selectionRef: snapshot?.selectionRef ?? null,
+        selectionText: snapshot?.selectionText ?? "",
+      });
+    },
+
+    setProposal: (proposal) =>
+      set({
+        proposal,
+        applyStatus: "idle",
+      }),
+
+    persistAiApply: async (args) => {
+      set({ applyStatus: "applying", lastError: null });
+
+      const res = await deps.invoke("file:document:write", {
+        projectId: args.projectId,
+        documentId: args.documentId,
+        contentJson: args.contentJson,
+        actor: "ai",
+        reason: `ai-apply:${args.runId}`,
+      });
+
+      if (!res.ok) {
+        set({ applyStatus: "idle", lastError: res.error });
+        return;
+      }
+
+      set({
+        applyStatus: "applied",
+        proposal: null,
+        selectionRef: null,
+        selectionText: "",
+      });
+    },
+
+    logAiApplyConflict: async (args) => {
+      await deps.invoke("version:aiApply:logConflict", {
+        documentId: args.documentId,
+        runId: args.runId,
+      });
+    },
 
     run: async () => {
       const state = get();
@@ -93,6 +180,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         outputText: "",
         lastError: null,
         activeRunId: null,
+        lastRunId: null,
+        proposal: null,
+        applyStatus: "idle",
       });
 
       const res = await deps.invoke("ai:skill:run", {
@@ -107,6 +197,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           status: statusFromError(res.error),
           lastError: res.error,
           activeRunId: null,
+          lastRunId: null,
         });
         return;
       }
@@ -116,6 +207,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           status: "idle",
           outputText: res.data.outputText,
           activeRunId: null,
+          lastRunId: res.data.runId,
         });
         return;
       }
@@ -123,6 +215,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       set({
         status: "running",
         activeRunId: res.data.runId,
+        lastRunId: res.data.runId,
       });
     },
 
@@ -166,12 +259,12 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       }
 
       if (event.type === "run_completed") {
-        set({ status: "idle", activeRunId: null });
+        set({ status: "idle", activeRunId: null, lastRunId: event.runId });
         return;
       }
 
       if (event.type === "run_canceled") {
-        set({ status: "canceled", activeRunId: null });
+        set({ status: "canceled", activeRunId: null, lastRunId: event.runId });
         return;
       }
 
@@ -180,6 +273,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           status: statusFromError(event.error),
           lastError: event.error,
           activeRunId: null,
+          lastRunId: event.runId,
         });
       }
     },
