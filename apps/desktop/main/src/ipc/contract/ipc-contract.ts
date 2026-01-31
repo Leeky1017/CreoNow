@@ -20,6 +20,20 @@ export const IPC_ERROR_CODES = [
 
 export type IpcErrorCode = (typeof IPC_ERROR_CODES)[number];
 
+const IPC_ERROR_CODE_SCHEMA = s.union(
+  ...IPC_ERROR_CODES.map((code) => s.literal(code)),
+);
+
+const JUDGE_MODEL_STATE_SCHEMA = s.union(
+  s.object({ status: s.literal("not_ready") }),
+  s.object({ status: s.literal("downloading") }),
+  s.object({ status: s.literal("ready") }),
+  s.object({
+    status: s.literal("error"),
+    error: s.object({ code: IPC_ERROR_CODE_SCHEMA, message: s.string() }),
+  }),
+);
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -72,6 +86,38 @@ export const ipcContract = {
         watching: s.boolean(),
         rootPath: s.optional(s.string()),
       }),
+    },
+    "constraints:get": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({
+        constraints: s.object({
+          version: s.literal(1),
+          items: s.array(s.string()),
+        }),
+      }),
+    },
+    "constraints:set": {
+      request: s.object({
+        projectId: s.string(),
+        constraints: s.object({
+          version: s.literal(1),
+          items: s.array(s.string()),
+        }),
+      }),
+      response: s.object({
+        constraints: s.object({
+          version: s.literal(1),
+          items: s.array(s.string()),
+        }),
+      }),
+    },
+    "judge:model:getState": {
+      request: s.object({}),
+      response: s.object({ state: JUDGE_MODEL_STATE_SCHEMA }),
+    },
+    "judge:model:ensure": {
+      request: s.object({ timeoutMs: s.optional(s.number()) }),
+      response: s.object({ state: JUDGE_MODEL_STATE_SCHEMA }),
     },
     "file:document:create": {
       request: s.object({

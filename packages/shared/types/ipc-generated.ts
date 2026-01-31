@@ -50,6 +50,8 @@ export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
 export const IPC_CHANNELS = [
   "app:ping",
+  "constraints:get",
+  "constraints:set",
   "context:creonow:ensure",
   "context:creonow:status",
   "db:debug:tableNames",
@@ -58,6 +60,8 @@ export const IPC_CHANNELS = [
   "file:document:list",
   "file:document:read",
   "file:document:write",
+  "judge:model:ensure",
+  "judge:model:getState",
   "project:create",
   "project:delete",
   "project:getCurrent",
@@ -73,6 +77,32 @@ export type IpcChannelSpec = {
   "app:ping": {
     request: Record<string, never>;
     response: Record<string, never>;
+  };
+  "constraints:get": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      constraints: {
+        items: Array<string>;
+        version: 1;
+      };
+    };
+  };
+  "constraints:set": {
+    request: {
+      constraints: {
+        items: Array<string>;
+        version: 1;
+      };
+      projectId: string;
+    };
+    response: {
+      constraints: {
+        items: Array<string>;
+        version: 1;
+      };
+    };
   };
   "context:creonow:ensure": {
     request: {
@@ -156,6 +186,82 @@ export type IpcChannelSpec = {
     response: {
       contentHash: string;
       updatedAt: number;
+    };
+  };
+  "judge:model:ensure": {
+    request: {
+      timeoutMs?: number;
+    };
+    response: {
+      state:
+        | {
+            status: "not_ready";
+          }
+        | {
+            status: "downloading";
+          }
+        | {
+            status: "ready";
+          }
+        | {
+            error: {
+              code:
+                | "INVALID_ARGUMENT"
+                | "NOT_FOUND"
+                | "ALREADY_EXISTS"
+                | "CONFLICT"
+                | "PERMISSION_DENIED"
+                | "UNSUPPORTED"
+                | "IO_ERROR"
+                | "DB_ERROR"
+                | "MODEL_NOT_READY"
+                | "ENCODING_FAILED"
+                | "RATE_LIMITED"
+                | "TIMEOUT"
+                | "CANCELED"
+                | "UPSTREAM_ERROR"
+                | "INTERNAL";
+              message: string;
+            };
+            status: "error";
+          };
+    };
+  };
+  "judge:model:getState": {
+    request: Record<string, never>;
+    response: {
+      state:
+        | {
+            status: "not_ready";
+          }
+        | {
+            status: "downloading";
+          }
+        | {
+            status: "ready";
+          }
+        | {
+            error: {
+              code:
+                | "INVALID_ARGUMENT"
+                | "NOT_FOUND"
+                | "ALREADY_EXISTS"
+                | "CONFLICT"
+                | "PERMISSION_DENIED"
+                | "UNSUPPORTED"
+                | "IO_ERROR"
+                | "DB_ERROR"
+                | "MODEL_NOT_READY"
+                | "ENCODING_FAILED"
+                | "RATE_LIMITED"
+                | "TIMEOUT"
+                | "CANCELED"
+                | "UPSTREAM_ERROR"
+                | "INTERNAL";
+              message: string;
+            };
+            status: "error";
+          };
     };
   };
   "project:create": {

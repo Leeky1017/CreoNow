@@ -1,4 +1,5 @@
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
+import { SettingsPanel } from "../../features/settings/SettingsPanel";
 
 /**
  * RightPanel is the right-side panel container (AI/Info). P0 wires visibility
@@ -27,11 +28,7 @@ export function RightPanel(props: {
         flexDirection: "column",
       }}
     >
-      <div
-        style={{ padding: 12, fontSize: 12, color: "var(--color-fg-muted)" }}
-      >
-        Right panel (placeholder)
-      </div>
+      <SettingsPanel />
     </aside>
   );
 }

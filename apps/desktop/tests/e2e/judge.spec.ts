@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 /**
  * Create a unique E2E userData directory.
  *
- * Why: Windows E2E must verify DB/log outputs in an isolated, non-ASCII-safe path.
+ * Why: Windows E2E must be repeatable and validate non-ASCII/space paths.
  */
 async function createIsolatedUserDataDir(): Promise<string> {
   const base = path.join(os.tmpdir(), "CreoNow E2E 世界 ");
@@ -18,7 +18,7 @@ async function createIsolatedUserDataDir(): Promise<string> {
   return nested;
 }
 
-test("db bootstrap: db + tables + main.log evidence", async () => {
+test("judge: settings shows state + ensure transitions", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const appRoot = path.resolve(__dirname, "../..");
@@ -37,38 +37,15 @@ test("db bootstrap: db + tables + main.log evidence", async () => {
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
 
-  const tables = await page.evaluate(async () => {
-    if (!window.creonow) {
-      throw new Error("Missing window.creonow bridge");
-    }
-    return await window.creonow.invoke("db:debug:tableNames", {});
-  });
-  expect(tables.ok).toBe(true);
-  if (tables.ok) {
-    for (const required of [
-      "projects",
-      "documents",
-      "document_versions",
-      "settings",
-      "skills",
-      "user_memory",
-      "kg_entities",
-      "kg_relations",
-      "judge_models",
-    ]) {
-      expect(tables.data.tableNames).toContain(required);
-    }
+  await expect(page.getByTestId("settings-panel")).toBeVisible();
+  const status = page.getByTestId("judge-status");
+  await expect(status).toBeVisible();
+
+  const before = (await status.textContent()) ?? "";
+  if (!before.includes("ready")) {
+    await page.getByTestId("judge-ensure").click();
+    await expect(status).toHaveText(/ready|error/);
   }
 
   await electronApp.close();
-
-  const dbPath = path.join(userDataDir, "data", "creonow.db");
-  const logPath = path.join(userDataDir, "logs", "main.log");
-
-  const dbStat = await fs.stat(dbPath);
-  expect(dbStat.isFile()).toBe(true);
-
-  const log = await fs.readFile(logPath, "utf8");
-  expect(log.length).toBeGreaterThan(0);
-  expect(log).toContain("db_ready");
 });

@@ -72,3 +72,11 @@ CREATE TABLE IF NOT EXISTS kg_relations (
   FOREIGN KEY(to_entity_id) REFERENCES kg_entities(entity_id) ON DELETE CASCADE
 );
 
+-- P0-013: Judge model metadata (minimal baseline).
+CREATE TABLE IF NOT EXISTS judge_models (
+  model_id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  error_code TEXT,
+  error_message TEXT,
+  updated_at INTEGER NOT NULL
+);
