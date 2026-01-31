@@ -1,7 +1,7 @@
 # ISSUE-51
 - Issue: #51
 - Branch: task/51-p0-011-knowledge-graph
-- PR: <fill>
+- PR: https://github.com/Leeky1017/CreoNow/pull/52
 
 ## Plan
 - Add KG schema + IPC + service with stable errors
