@@ -87,7 +87,10 @@ export function ContextViewer(): JSX.Element {
           <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
             stablePrefixHash
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          <div
+            data-testid="ai-context-stable-prefix-hash"
+            style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+          >
             {assembled.hashes.stablePrefixHash}
           </div>
         </div>
@@ -95,7 +98,10 @@ export function ContextViewer(): JSX.Element {
           <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
             promptHash
           </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          <div
+            data-testid="ai-context-prompt-hash"
+            style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+          >
             {assembled.hashes.promptHash}
           </div>
         </div>

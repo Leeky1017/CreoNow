@@ -1,6 +1,6 @@
 # P0-013: Constraints / Judge（最小可用 + Windows 可测降级）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -29,29 +29,27 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] Constraints：
-  - [ ] SSOT：`.creonow/rules/constraints.json`（见 `design/04-context-engineering.md`）
-  - [ ] `constraints:get` 返回当前配置（含默认值；当文件缺失时行为必须确定）
-  - [ ] `constraints:set` 可更新并持久化到 SSOT 文件（不得写入第二份 DB SSOT）
-  - [ ] 参数校验失败 → `INVALID_ARGUMENT`
-- [ ] Judge：
-  - [ ] `judge:model:getState` 返回稳定状态枚举（至少：`not_ready/downloading/ready/error`）
-  - [ ] `judge:model:ensure` 可触发状态变化：
-    - [ ] 真实下载/加载（若实现）或
-    - [ ] 可测降级：在 E2E 模式下直接进入固定状态（但必须可观测且写入 spec/实现）
-  - [ ] 任意失败必须返回稳定错误码（`MODEL_NOT_READY/IO_ERROR/TIMEOUT/CANCELED/INTERNAL`）
-- [ ] UI：
-  - [ ] Settings 页面可查看 judge 状态并触发 ensure
+- [x] Constraints：
+  - [x] SSOT：`.creonow/rules/constraints.json`（见 `design/04-context-engineering.md`）
+  - [x] `constraints:get` 返回当前配置（含默认值；当文件缺失时行为必须确定）
+  - [x] `constraints:set` 可更新并持久化到 SSOT 文件（不得写入第二份 DB SSOT）
+  - [x] 参数校验失败 → `INVALID_ARGUMENT`
+- [x] Judge：
+  - [x] `judge:model:getState` 返回稳定状态枚举（至少：`not_ready/downloading/ready/error`）
+  - [x] `judge:model:ensure` 可触发状态变化（E2E 可测降级）
+  - [x] 任意失败必须返回稳定错误码（`MODEL_NOT_READY/IO_ERROR/TIMEOUT/CANCELED/INTERNAL`）
+- [x] UI：
+  - [x] Settings 页面可查看 judge 状态并触发 ensure
 
 ## Tests
 
-- [ ] Integration：`constraints-roundtrip.test.ts`
-  - [ ] `constraints:get` 初始返回默认值（文件不存在时行为确定）
-  - [ ] `constraints:set` → 再次 `constraints:get`（roundtrip 一致）
-  - [ ] 非法 schema/参数 → `INVALID_ARGUMENT`
-- [ ] E2E（Windows）`judge.spec.ts`
-  - [ ] 打开 Settings → 断言 judge 状态可见
-  - [ ] 点击 ensure → 断言状态变化或出现可读错误（可测）
+- [x] Integration：`constraints-roundtrip.test.ts`
+  - [x] `constraints:get` 初始返回默认值（文件不存在时行为确定）
+  - [x] `constraints:set` → 再次 `constraints:get`（roundtrip 一致）
+  - [x] 非法 schema/参数 → `INVALID_ARGUMENT`
+- [x] E2E（Windows）`judge.spec.ts`
+  - [x] 打开 Settings → 断言 judge 状态可见
+  - [x] 点击 ensure → 断言状态变化或出现可读错误（可测）
 
 ## Edge cases & Failure modes
 
@@ -68,3 +66,9 @@ Status: pending
   - `constraints_updated`
   - `judge_state`（state + errorCode?）
   - `judge_ensure_started/succeeded/failed`（含 error.code）
+
+## Completion
+
+- Issue: #32
+- PR: #35
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-32.md`

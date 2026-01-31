@@ -15,6 +15,11 @@ import { createLayoutStore, LayoutStoreProvider } from "./stores/layoutStore";
 import { createMemoryStore, MemoryStoreProvider } from "./stores/memoryStore";
 import { createSearchStore, SearchStoreProvider } from "./stores/searchStore";
 import {
+  createThemeStore,
+  ThemeStoreProvider,
+  type ThemeMode,
+} from "./stores/themeStore";
+import {
   createProjectStore,
   ProjectStoreProvider,
 } from "./stores/projectStore";
@@ -23,10 +28,29 @@ import {
  * App bootstraps renderer stores and mounts the Workbench shell.
  */
 export function App(): JSX.Element {
-  const layoutStore = React.useMemo(() => {
-    const preferences = createPreferenceStore(window.localStorage);
-    return createLayoutStore(preferences);
+  const preferences = React.useMemo(() => {
+    return createPreferenceStore(window.localStorage);
   }, []);
+
+  const themeStore = React.useMemo(() => {
+    return createThemeStore(preferences);
+  }, [preferences]);
+
+  React.useLayoutEffect(() => {
+    function apply(mode: ThemeMode): void {
+      document.documentElement.setAttribute("data-theme", mode);
+    }
+
+    apply(themeStore.getState().mode);
+    const unsubscribe = themeStore.subscribe((state) => {
+      apply(state.mode);
+    });
+    return unsubscribe;
+  }, [themeStore]);
+
+  const layoutStore = React.useMemo(() => {
+    return createLayoutStore(preferences);
+  }, [preferences]);
 
   const projectStore = React.useMemo(() => {
     return createProjectStore({ invoke });
@@ -61,24 +85,26 @@ export function App(): JSX.Element {
   }, []);
 
   return (
-    <AiStoreProvider store={aiStore}>
-      <ProjectStoreProvider store={projectStore}>
-        <ContextStoreProvider store={contextStore}>
-          <EditorStoreProvider store={editorStore}>
-            <FileStoreProvider store={fileStore}>
-              <KgStoreProvider store={kgStore}>
-                <SearchStoreProvider store={searchStore}>
-                  <MemoryStoreProvider store={memoryStore}>
-                    <LayoutStoreProvider store={layoutStore}>
-                      <AppShell />
-                    </LayoutStoreProvider>
-                  </MemoryStoreProvider>
-                </SearchStoreProvider>
-              </KgStoreProvider>
-            </FileStoreProvider>
-          </EditorStoreProvider>
-        </ContextStoreProvider>
-      </ProjectStoreProvider>
-    </AiStoreProvider>
+    <ThemeStoreProvider store={themeStore}>
+      <AiStoreProvider store={aiStore}>
+        <ProjectStoreProvider store={projectStore}>
+          <ContextStoreProvider store={contextStore}>
+            <EditorStoreProvider store={editorStore}>
+              <FileStoreProvider store={fileStore}>
+                <KgStoreProvider store={kgStore}>
+                  <SearchStoreProvider store={searchStore}>
+                    <MemoryStoreProvider store={memoryStore}>
+                      <LayoutStoreProvider store={layoutStore}>
+                        <AppShell />
+                      </LayoutStoreProvider>
+                    </MemoryStoreProvider>
+                  </SearchStoreProvider>
+                </KgStoreProvider>
+              </FileStoreProvider>
+            </EditorStoreProvider>
+          </ContextStoreProvider>
+        </ProjectStoreProvider>
+      </AiStoreProvider>
+    </ThemeStoreProvider>
   );
 }

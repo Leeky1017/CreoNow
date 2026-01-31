@@ -33,6 +33,11 @@ export type AiProposal = {
 };
 export type SkillListItem = IpcResponseData<"skill:list">["items"][number];
 
+export type PromptDiagnostics = {
+  stablePrefixHash: string;
+  promptHash: string;
+};
+
 export type IpcInvoke = <C extends IpcChannel>(
   channel: C,
   payload: IpcRequest<C>,
@@ -80,7 +85,11 @@ export type AiActions = {
     documentId: string;
     runId: string;
   }) => Promise<void>;
-  run: (args?: { inputOverride?: string }) => Promise<void>;
+  run: (args?: {
+    inputOverride?: string;
+    context?: { projectId?: string; documentId?: string };
+    promptDiagnostics?: PromptDiagnostics;
+  }) => Promise<void>;
   cancel: () => Promise<void>;
   onStreamEvent: (event: AiStreamEvent) => void;
 };
@@ -251,7 +260,8 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         skillId: state.selectedSkillId,
         input: inputToSend,
         stream: state.stream,
-        context: {},
+        context: args?.context ?? {},
+        promptDiagnostics: args?.promptDiagnostics,
       });
 
       if (!res.ok) {

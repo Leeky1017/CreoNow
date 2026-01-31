@@ -4,6 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CreoNow</title>
+    <script>
+      (() => {
+        const key = "creonow.theme.mode";
+        try {
+          const raw = window.localStorage.getItem(key);
+          if (raw === null) {
+            return;
+          }
+          const parsed = JSON.parse(raw);
+          if (parsed === "dark" || parsed === "light") {
+            document.documentElement.dataset.theme = parsed;
+          }
+        } catch (error) {
+          console.error("theme_bootstrap_failed", { error });
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

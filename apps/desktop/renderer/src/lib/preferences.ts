@@ -11,6 +11,7 @@ export type PreferenceKey =
       | "panelCollapsed"
       | "activePanel"
       | "activePanelTab"}`
+  | `${typeof APP_ID}.theme.${"mode"}`
   | `${typeof APP_ID}.version`;
 
 export interface PreferenceStore {
@@ -37,7 +38,11 @@ export interface PreferenceStore {
 }
 
 function isCreonowKey(key: string): key is PreferenceKey {
-  return key === `${APP_ID}.version` || key.startsWith(`${APP_ID}.layout.`);
+  return (
+    key === `${APP_ID}.version` ||
+    key.startsWith(`${APP_ID}.layout.`) ||
+    key.startsWith(`${APP_ID}.theme.`)
+  );
 }
 
 function parseVersion(raw: string | null): string | null {

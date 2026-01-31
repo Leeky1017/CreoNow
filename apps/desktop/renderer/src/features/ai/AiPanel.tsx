@@ -140,7 +140,14 @@ export function AiPanel(): JSX.Element {
       immediateInput: input,
     });
 
-    await run({ inputOverride: assembled.promptText });
+    await run({
+      inputOverride: assembled.promptText,
+      context: {
+        projectId: currentProject?.projectId ?? projectId ?? undefined,
+        documentId: documentId ?? undefined,
+      },
+      promptDiagnostics: assembled.hashes,
+    });
   }
 
   function onReject(): void {

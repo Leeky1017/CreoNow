@@ -49,6 +49,9 @@ export type IpcErr = {
 export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
 export const IPC_CHANNELS = [
+  "ai:proxy:settings:get",
+  "ai:proxy:settings:update",
+  "ai:proxy:test",
   "ai:skill:cancel",
   "ai:skill:feedback",
   "ai:skill:run",
@@ -66,6 +69,9 @@ export const IPC_CHANNELS = [
   "db:debug:tableNames",
   "embedding:encode",
   "embedding:index",
+  "export:docx",
+  "export:markdown",
+  "export:pdf",
   "file:document:create",
   "file:document:delete",
   "file:document:getCurrent",
@@ -104,6 +110,8 @@ export const IPC_CHANNELS = [
   "skill:read",
   "skill:toggle",
   "skill:write",
+  "stats:getRange",
+  "stats:getToday",
   "version:aiApply:logConflict",
   "version:list",
   "version:restore",
@@ -112,6 +120,54 @@ export const IPC_CHANNELS = [
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
 export type IpcChannelSpec = {
+  "ai:proxy:settings:get": {
+    request: Record<string, never>;
+    response: {
+      apiKeyConfigured: boolean;
+      baseUrl: string;
+      enabled: boolean;
+    };
+  };
+  "ai:proxy:settings:update": {
+    request: {
+      patch: {
+        apiKey?: string;
+        baseUrl?: string;
+        enabled?: boolean;
+      };
+    };
+    response: {
+      apiKeyConfigured: boolean;
+      baseUrl: string;
+      enabled: boolean;
+    };
+  };
+  "ai:proxy:test": {
+    request: Record<string, never>;
+    response: {
+      error?: {
+        code:
+          | "INVALID_ARGUMENT"
+          | "NOT_FOUND"
+          | "ALREADY_EXISTS"
+          | "CONFLICT"
+          | "PERMISSION_DENIED"
+          | "UNSUPPORTED"
+          | "IO_ERROR"
+          | "DB_ERROR"
+          | "MODEL_NOT_READY"
+          | "ENCODING_FAILED"
+          | "RATE_LIMITED"
+          | "TIMEOUT"
+          | "CANCELED"
+          | "UPSTREAM_ERROR"
+          | "INTERNAL";
+        message: string;
+      };
+      latencyMs: number;
+      ok: boolean;
+    };
+  };
   "ai:skill:cancel": {
     request: {
       runId: string;
@@ -145,11 +201,19 @@ export type IpcChannelSpec = {
         projectId?: string;
       };
       input: string;
+      promptDiagnostics?: {
+        promptHash: string;
+        stablePrefixHash: string;
+      };
       skillId: string;
       stream: boolean;
     };
     response: {
       outputText?: string;
+      promptDiagnostics?: {
+        promptHash: string;
+        stablePrefixHash: string;
+      };
       runId: string;
     };
   };
@@ -299,6 +363,36 @@ export type IpcChannelSpec = {
     };
     response: {
       accepted: true;
+    };
+  };
+  "export:docx": {
+    request: {
+      documentId?: string;
+      projectId: string;
+    };
+    response: {
+      bytesWritten: number;
+      relativePath: string;
+    };
+  };
+  "export:markdown": {
+    request: {
+      documentId?: string;
+      projectId: string;
+    };
+    response: {
+      bytesWritten: number;
+      relativePath: string;
+    };
+  };
+  "export:pdf": {
+    request: {
+      documentId?: string;
+      projectId: string;
+    };
+    response: {
+      bytesWritten: number;
+      relativePath: string;
     };
   };
   "file:document:create": {
@@ -912,6 +1006,43 @@ export type IpcChannelSpec = {
       id: string;
       scope: "builtin" | "global" | "project";
       written: true;
+    };
+  };
+  "stats:getRange": {
+    request: {
+      from: string;
+      to: string;
+    };
+    response: {
+      days: Array<{
+        date: string;
+        summary: {
+          documentsCreated: number;
+          skillsUsed: number;
+          wordsWritten: number;
+          writingSeconds: number;
+        };
+      }>;
+      from: string;
+      summary: {
+        documentsCreated: number;
+        skillsUsed: number;
+        wordsWritten: number;
+        writingSeconds: number;
+      };
+      to: string;
+    };
+  };
+  "stats:getToday": {
+    request: Record<string, never>;
+    response: {
+      date: string;
+      summary: {
+        documentsCreated: number;
+        skillsUsed: number;
+        wordsWritten: number;
+        writingSeconds: number;
+      };
     };
   };
   "version:aiApply:logConflict": {

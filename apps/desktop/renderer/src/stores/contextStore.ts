@@ -277,6 +277,39 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
     return { sources, redactionEvidence, readErrors };
   }
 
+  /**
+   * Format memory injection preview results into a retrieved-layer block.
+   *
+   * Why: query-dependent memory recall MUST live in a dynamic layer to preserve
+   * stablePrefixHash semantics and to keep context viewer auditable.
+   */
+  function formatMemoryInjectionContext(args: {
+    items: Array<{
+      scope: string;
+      type: string;
+      origin: string;
+      content: string;
+      reason:
+        | { kind: "deterministic" }
+        | { kind: "semantic"; score: number };
+    }>;
+    mode: "deterministic" | "semantic";
+  }): string {
+    const lines: string[] = [];
+    lines.push(`mode=${args.mode}`);
+
+    for (const item of args.items) {
+      const tag = `${item.scope}/${item.type}/${item.origin}`;
+      const reason =
+        item.reason.kind === "semantic"
+          ? `semantic:${item.reason.score.toFixed(3)}`
+          : "deterministic";
+      lines.push(`- (${tag}; ${reason}) ${item.content}`);
+    }
+
+    return `${lines.join("\n").trimEnd()}\n`;
+  }
+
   return create<ContextStore>((set, get) => ({
     viewerOpen: false,
     status: "idle",
@@ -367,9 +400,40 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
             retrievedRedactionEvidence.push(...redacted.evidence);
           }
         } else {
+            retrievedReadErrors.push({
+              layer: "retrieved",
+              sourceRef: "rag:retrieve",
+              action: "dropped",
+              reason: "read_error",
+              beforeChars: 0,
+              afterChars: 0,
+            });
+        }
+
+        const memoryRes = await deps.invoke("memory:injection:preview", {
+          projectId,
+          queryText: immediateInput,
+        });
+        if (memoryRes.ok) {
+          if (memoryRes.data.items.length > 0) {
+            const formatted = formatMemoryInjectionContext({
+              items: memoryRes.data.items,
+              mode: memoryRes.data.mode,
+            });
+            const redacted = redactText({
+              text: formatted,
+              sourceRef: "retrieved:user_memory",
+            });
+            retrievedSources.push({
+              sourceRef: "retrieved:user_memory",
+              text: redacted.redactedText,
+            });
+            retrievedRedactionEvidence.push(...redacted.evidence);
+          }
+        } else {
           retrievedReadErrors.push({
             layer: "retrieved",
-            sourceRef: "rag:retrieve",
+            sourceRef: "memory:injection:preview",
             action: "dropped",
             reason: "read_error",
             beforeChars: 0,

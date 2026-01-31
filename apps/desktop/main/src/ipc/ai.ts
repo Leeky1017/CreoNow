@@ -8,24 +8,28 @@ import {
 } from "../../../../../packages/shared/types/ai";
 import type { Logger } from "../logging/logger";
 import { createAiService } from "../services/ai/aiService";
-import {
-  createMemoryService,
-  formatMemoryInjectionBlock,
-} from "../services/memory/memoryService";
+import { createAiProxySettingsService } from "../services/ai/aiProxySettingsService";
+import { createMemoryService } from "../services/memory/memoryService";
 import {
   recordSkillFeedbackAndLearn,
   type SkillFeedbackAction,
 } from "../services/memory/preferenceLearning";
+import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
 
 type SkillRunPayload = {
   skillId: string;
   input: string;
   context?: { projectId?: string; documentId?: string };
+  promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
   stream: boolean;
 };
 
-type SkillRunResponse = { runId: string; outputText?: string };
+type SkillRunResponse = {
+  runId: string;
+  outputText?: string;
+  promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
+};
 
 type SkillFeedbackPayload = {
   runId: string;
@@ -64,7 +68,8 @@ function renderUserPrompt(args: { template: string; input: string }): string {
   if (args.template.trim().length === 0) {
     return args.input;
   }
-  return `${args.template}\n\n${args.input}`.trim();
+  // Intentionally preserve bytes: do not trim/normalize prompt content.
+  return `${args.template}\n\n${args.input}`;
 }
 
 /**
@@ -100,7 +105,18 @@ export function registerAiIpcHandlers(deps: {
   logger: Logger;
   env: NodeJS.ProcessEnv;
 }): void {
-  const aiService = createAiService({ logger: deps.logger, env: deps.env });
+  const aiService = createAiService({
+    logger: deps.logger,
+    env: deps.env,
+    getProxySettings: () => {
+      if (!deps.db) {
+        return null;
+      }
+      const svc = createAiProxySettingsService({ db: deps.db, logger: deps.logger });
+      const res = svc.getRaw();
+      return res.ok ? res.data : null;
+    },
+  });
   const runRegistry = new Map<
     string,
     { startedAt: number; context?: SkillRunPayload["context"] }
@@ -179,24 +195,17 @@ export function registerAiIpcHandlers(deps: {
         safeEmitToRenderer({ logger: deps.logger, sender: e.sender, event });
       };
 
-      const preview = createMemoryService({
-        db: deps.db,
-        logger: deps.logger,
-      }).previewInjection({
-        projectId: payload.context?.projectId,
-        queryText: payload.input,
+      const stats = createStatsService({ db: deps.db, logger: deps.logger });
+      const inc = stats.increment({
+        ts: nowTs(),
+        delta: { skillsUsed: 1 },
       });
-
-      if (!preview.ok) {
-        deps.logger.error("ai_memory_injection_preview_failed", {
-          code: preview.error.code,
-          message: preview.error.message,
+      if (!inc.ok) {
+        deps.logger.error("stats_increment_skills_used_failed", {
+          code: inc.error.code,
+          message: inc.error.message,
         });
       }
-
-      const injectionBlock = formatMemoryInjectionBlock({
-        items: preview.ok ? preview.data.items : [],
-      });
 
       try {
         const systemPrompt = resolved.data.skill.prompt?.system ?? "";
@@ -208,7 +217,6 @@ export function registerAiIpcHandlers(deps: {
         const res = await aiService.runSkill({
           skillId: payload.skillId,
           systemPrompt,
-          system: injectionBlock,
           input: userPrompt,
           context: payload.context,
           stream: payload.stream,
@@ -219,7 +227,13 @@ export function registerAiIpcHandlers(deps: {
           rememberRunId({ runId: res.data.runId, context: payload.context });
         }
         return res.ok
-          ? { ok: true, data: res.data }
+          ? {
+              ok: true,
+              data: {
+                ...res.data,
+                promptDiagnostics: payload.promptDiagnostics,
+              },
+            }
           : { ok: false, error: res.error };
       } catch (error) {
         deps.logger.error("ai_run_ipc_failed", {

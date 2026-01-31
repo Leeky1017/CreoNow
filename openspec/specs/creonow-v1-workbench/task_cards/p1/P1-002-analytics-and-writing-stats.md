@@ -1,6 +1,6 @@
 # P1-002: Analytics & Writing Stats（统计与看板）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -25,16 +25,16 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] `stats:getToday` / `stats:getRange` 返回稳定结构（包含 summary）
-- [ ] 编辑器输入与保存会更新统计（字数至少可测）
-- [ ] 运行 skill 会更新 `skillsUsed`
-- [ ] Analytics 页面可展示今日/区间统计（最小）
+- [x] `stats:getToday` / `stats:getRange` 返回稳定结构（包含 summary）
+- [x] 编辑器输入与保存会更新统计（字数至少可测）
+- [x] 运行 skill 会更新 `skillsUsed`
+- [x] Analytics 页面可展示今日/区间统计（最小）
 
 ## Tests
 
-- [ ] E2E（Windows）：
-  - [ ] 创建文档并输入 → 统计字数增长
-  - [ ] 运行 skill → skillsUsed 增长
+- [x] E2E（Windows）：
+  - [x] 创建文档并输入 → 统计字数增长
+  - [x] 运行 skill → skillsUsed 增长
 
 ## Edge cases & Failure modes
 
@@ -43,3 +43,9 @@ Status: pending
 ## Observability
 
 - `main.log`：`stats_increment`（date + increments）
+
+## Completion
+
+- Issue: #54
+- PR: <fill-after-created>
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-54.md`

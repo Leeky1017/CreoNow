@@ -1,6 +1,6 @@
 # P0-007: AI diff + apply（选区替换）+ actor=ai 版本
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -29,24 +29,24 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] diff 展示：
-  - [ ] 当 AI 输出产生“替换选区文本”提案时，UI 显示 diff（`ai-diff` 可见）
-  - [ ] diff 内容 deterministic（同输入同 diff）
-- [ ] Apply（成功路径）：
-  - [ ] 点击 Apply 后，当前选区被替换为新文本
-  - [ ] Apply 成功后必须创建版本：`actor=ai`、`reason=ai-apply:<runId>`
-  - [ ] UI 显示“已应用/已保存”状态（可测）
-- [ ] 冲突检测（失败路径）：
-  - [ ] 若选区文本已变化（hash 不匹配），Apply 必须失败并返回 `CONFLICT`
-  - [ ] 失败时不得修改文档 SSOT，不得落 `actor=ai` 版本
-- [ ] Reject：
-  - [ ] 点击 Reject 清空 diff，不修改文档
+- [x] diff 展示：
+  - [x] 当 AI 输出产生“替换选区文本”提案时，UI 显示 diff（`ai-diff` 可见）
+  - [x] diff 内容 deterministic（同输入同 diff）
+- [x] Apply（成功路径）：
+  - [x] 点击 Apply 后，当前选区被替换为新文本
+  - [x] Apply 成功后必须创建版本：`actor=ai`、`reason=ai-apply:<runId>`
+  - [x] UI 显示“已应用/已保存”状态（可测）
+- [x] 冲突检测（失败路径）：
+  - [x] 若选区文本已变化（hash 不匹配），Apply 必须失败并返回 `CONFLICT`
+  - [x] 失败时不得修改文档 SSOT，不得落 `actor=ai` 版本
+- [x] Reject：
+  - [x] 点击 Reject 清空 diff，不修改文档
 
 ## Tests
 
-- [ ] E2E（Windows）`ai-apply.spec.ts`
-  - [ ] success：fake AI 输出 replacement text → diff 可见 → Apply → editor 内容变化 → 版本新增（actor=ai）
-  - [ ] conflict：生成 diff 后手动修改选区 → Apply → 断言显示 conflict 错误（`CONFLICT`）且内容未被覆盖
+- [x] E2E（Windows）`ai-apply.spec.ts`
+  - [x] success：fake AI 输出 replacement text → diff 可见 → Apply → editor 内容变化 → 版本新增（actor=ai）
+  - [x] conflict：生成 diff 后手动修改选区 → Apply → 断言显示 conflict 错误（`CONFLICT`）且内容未被覆盖
 
 ## Edge cases & Failure modes
 
@@ -58,3 +58,9 @@ Status: pending
 
 - `main.log` 记录：`ai_apply_started/ai_apply_succeeded/ai_apply_conflict`（含 runId/documentId）
 - E2E 必须断言至少一条 apply 相关日志证据
+
+## Completion
+
+- Issue: #40
+- PR: #43
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-40.md`

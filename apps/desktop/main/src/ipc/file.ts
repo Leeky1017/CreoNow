@@ -4,15 +4,33 @@ import type Database from "better-sqlite3";
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { createDocumentService } from "../services/documents/documentService";
+import { deriveContent } from "../services/documents/derive";
+import { createStatsService } from "../services/stats/statsService";
 
 type Actor = "user" | "auto" | "ai";
 type SaveReason = "manual-save" | "autosave" | `ai-apply:${string}`;
+
+const WORDS_PER_SECOND = 3;
 
 function isAiApplyReason(reason: string): reason is `ai-apply:${string}` {
   const prefix = "ai-apply:";
   return (
     reason.startsWith(prefix) && reason.slice(prefix.length).trim().length > 0
   );
+}
+
+function countWords(text: string): number {
+  const tokens = text
+    .trim()
+    .split(/\s+/u)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  return tokens.length;
+}
+
+function estimateWritingSeconds(wordsAdded: number): number {
+  const words = Math.max(0, Math.floor(wordsAdded));
+  return words === 0 ? 0 : Math.max(1, Math.ceil(words / WORDS_PER_SECOND));
 }
 
 /**
@@ -50,6 +68,21 @@ export function registerFileIpcHandlers(deps: {
         projectId: payload.projectId,
         title: payload.title,
       });
+
+      if (res.ok) {
+        const stats = createStatsService({ db: deps.db, logger: deps.logger });
+        const inc = stats.increment({
+          ts: Date.now(),
+          delta: { documentsCreated: 1 },
+        });
+        if (!inc.ok) {
+          deps.logger.error("stats_increment_documents_created_failed", {
+            code: inc.error.code,
+            message: inc.error.message,
+          });
+        }
+      }
+
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -229,6 +262,15 @@ export function registerFileIpcHandlers(deps: {
         };
       }
 
+      type ContentTextRow = { contentText: string };
+      const beforeRow = deps.db
+        .prepare<
+          [string, string],
+          ContentTextRow
+        >("SELECT content_text as contentText FROM documents WHERE project_id = ? AND document_id = ?")
+        .get(payload.projectId, payload.documentId);
+      const beforeWords = beforeRow ? countWords(beforeRow.contentText) : 0;
+
       const svc = createDocumentService({ db: deps.db, logger: deps.logger });
       const res = svc.write({
         projectId: payload.projectId,
@@ -237,6 +279,39 @@ export function registerFileIpcHandlers(deps: {
         actor: payload.actor,
         reason: payload.reason,
       });
+
+      if (res.ok) {
+        const derived = deriveContent({ contentJson: parsed });
+        if (derived.ok) {
+          const afterWords = countWords(derived.data.contentText);
+          const deltaWords = Math.max(0, afterWords - beforeWords);
+          if (deltaWords > 0) {
+            const stats = createStatsService({
+              db: deps.db,
+              logger: deps.logger,
+            });
+            const inc = stats.increment({
+              ts: res.data.updatedAt,
+              delta: {
+                wordsWritten: deltaWords,
+                writingSeconds: estimateWritingSeconds(deltaWords),
+              },
+            });
+            if (!inc.ok) {
+              deps.logger.error("stats_increment_words_failed", {
+                code: inc.error.code,
+                message: inc.error.message,
+              });
+            }
+          }
+        } else {
+          deps.logger.error("stats_derive_failed", {
+            code: derived.error.code,
+            message: derived.error.message,
+          });
+        }
+      }
+
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };

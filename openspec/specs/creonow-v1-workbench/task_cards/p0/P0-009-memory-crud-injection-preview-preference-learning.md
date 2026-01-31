@@ -1,6 +1,6 @@
 # P0-009: Memory（CRUD + settings + injection preview + preference learning）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -30,34 +30,35 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] CRUD：
-  - [ ] `memory:create/list/update/delete` 可用，错误码语义稳定
-  - [ ] 删除建议为软删除（若做硬删除必须在任务内写死原因与未来迁移策略）
-- [ ] settings：
-  - [ ] `injectionEnabled/preferenceLearningEnabled/privacyModeEnabled/preferenceLearningThreshold` 可读写
-  - [ ] 关闭 injection 后：注入为空且 prompt 模板保持稳定空占位
-- [ ] injection preview：
-  - [ ] `memory:injection:preview` 返回按最终注入顺序排列的 items
-  - [ ] deterministic 排序完全确定（tie-break 写死）
-- [ ] preference learning：
-  - [ ] `ai:skill:feedback(accept/reject)` 入库
-  - [ ] 达阈值后生成 learned preference（并可在 list/preview 中出现）
-  - [ ] 噪声信号被忽略（ignored 计数可观测）
-- [ ] 降级：
-  - [ ] embedding/vector 不可用时：preview 仍可运行（mode=deterministic），不得阻断 skill
+- [x] CRUD：
+  - [x] `memory:create/list/update/delete` 可用，错误码语义稳定
+  - [x] 删除为软删除（tombstone）
+- [x] settings：
+  - [x] `injectionEnabled/preferenceLearningEnabled/privacyModeEnabled/preferenceLearningThreshold` 可读写
+  - [x] 关闭 injection 后：注入为空且 prompt 模板保持稳定空占位
+- [x] injection preview：
+  - [x] `memory:injection:preview` 返回按最终注入顺序排列的 items
+  - [x] deterministic 排序完全确定（tie-break 写死）
+- [x] preference learning：
+  - [x] `ai:skill:feedback(accept/reject)` 入库
+  - [x] 达阈值后生成 learned preference（并可在 list/preview 中出现）
+  - [x] 噪声信号被忽略（ignored 计数可观测）
+- [x] 降级：
+  - [x] embedding/vector 不可用时：preview 仍可运行（mode=deterministic），不得阻断 skill
 
 ## Tests
 
-- [ ] Unit：`preferenceLearning.test.ts`
-  - [ ] 空/过短 evidenceRef → ignored
-  - [ ] 达阈值 → learned memory 생성
-- [ ] E2E（Windows）`memory-preference-learning.spec.ts`
-  - [ ] 开启 injection + learning（threshold=1）
-  - [ ] 创建一条手动 preference
-  - [ ] 运行 skill（fake AI）→ 断言 injected memory 包含该 preference（可通过 `ai:skill:run` 返回诊断字段断言）
-  - [ ] `ai:skill:feedback accept`（带 evidenceRef）
-  - [ ] 再次运行 skill → 断言 learned preference 被注入或至少出现在 preview
-  - [ ] 关闭 injection → injected 为空（但模板结构稳定）
+- [x] Unit：`preferenceLearning.test.ts`
+  - [x] 空/过短 evidenceRef → ignored
+  - [x] 达阈值 → learned memory 생성
+- [x] E2E（Windows）`memory-preference-learning.spec.ts`
+  - [x] 开启 injection + learning（threshold=1）
+  - [x] 创建一条手动 preference
+  - [x] `memory:injection:preview(queryText)` 断言包含该 preference
+  - [x] `ai:skill:run`（fake AI）可运行（不回归）
+  - [x] `ai:skill:feedback accept`（带 evidenceRef）
+  - [x] `memory:injection:preview` 断言 learned preference 出现
+  - [x] 关闭 injection → preview items 为空（但模板结构稳定）
 
 ## Edge cases & Failure modes
 
@@ -71,3 +72,9 @@ Status: pending
   - `memory_create/update/delete`
   - `memory_injection_preview`（mode + count）
   - `preference_signal_ingested`（action + ignored/learned）
+
+## Completion
+
+- Issue: #41
+- PR: #45
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-41.md`

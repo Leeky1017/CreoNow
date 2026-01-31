@@ -1,6 +1,6 @@
 # P1-005: LiteLLM Proxy（可选，默认关闭，单链路）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -22,18 +22,18 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] proxy 默认关闭
-- [ ] proxy enabled：
-  - [ ] baseUrl 缺失 → `INVALID_ARGUMENT`（message 可断言包含 “baseUrl”）
-  - [ ] 不需要 provider api key（在 proxy 模式下）
-- [ ] 单链路：同一请求不得同时尝试直连与 proxy
-- [ ] `ai:proxy:test` 返回可诊断结果（ok/err + latencyMs）
+- [x] proxy 默认关闭
+- [x] proxy enabled：
+  - [x] baseUrl 缺失 → `INVALID_ARGUMENT`（message 可断言包含 “baseUrl”）
+  - [x] 不需要 provider api key（在 proxy 模式下）
+- [x] 单链路：同一请求不得同时尝试直连与 proxy
+- [x] `ai:proxy:test` 返回可诊断结果（ok/err + latencyMs）
 
 ## Tests
 
-- [ ] E2E（Windows）`proxy-error-semantics.spec.ts`
-  - [ ] proxy disabled + 无 api key → `INVALID_ARGUMENT`（提示 api key 缺失）
-  - [ ] proxy enabled + baseUrl 为空 → `INVALID_ARGUMENT`（提示 proxy baseUrl）
+- [x] E2E（Windows）`proxy-error-semantics.spec.ts`
+  - [x] proxy disabled + 无 api key → `INVALID_ARGUMENT`（提示 api key 缺失）
+  - [x] proxy enabled + baseUrl 为空 → `INVALID_ARGUMENT`（提示 proxy baseUrl）
 
 ## Edge cases & Failure modes
 
@@ -43,3 +43,9 @@ Status: pending
 ## Observability
 
 - `main.log`：`ai_proxy_enabled` / `ai_proxy_request`（不记录 prompt 明文）
+
+## Completion
+
+- Issue: #54
+- PR: <fill-after-created>
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-54.md`

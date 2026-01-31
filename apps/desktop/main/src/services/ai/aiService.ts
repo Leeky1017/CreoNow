@@ -45,6 +45,12 @@ type ProviderConfig = {
   timeoutMs: number;
 };
 
+type ProxySettings = {
+  enabled: boolean;
+  baseUrl: string | null;
+  apiKey: string | null;
+};
+
 type RunEntry = {
   runId: string;
   controller: AbortController;
@@ -88,14 +94,15 @@ function combineSystemText(args: {
 }): string | null {
   const parts: string[] = [];
 
-  const stable =
-    typeof args.systemPrompt === "string" ? args.systemPrompt.trim() : "";
-  if (stable.length > 0) {
+  const stable = typeof args.systemPrompt === "string" ? args.systemPrompt : "";
+  if (stable.trim().length > 0) {
+    // Intentionally preserve bytes: do not trim/normalize prompt content.
     parts.push(stable);
   }
 
-  const dynamic = typeof args.system === "string" ? args.system.trim() : "";
-  if (dynamic.length > 0) {
+  const dynamic = typeof args.system === "string" ? args.system : "";
+  if (dynamic.trim().length > 0) {
+    // Intentionally preserve bytes: do not trim/normalize prompt content.
     parts.push(dynamic);
   }
 
@@ -243,10 +250,33 @@ function extractAnthropicDelta(json: unknown): string | null {
 /**
  * Create an IpcError for upstream failures without leaking secrets.
  */
+/**
+ * Map upstream HTTP status codes to deterministic IPC error codes.
+ *
+ * Why: tests and UI assertions rely on stable semantics (401/403 → PERMISSION_DENIED,
+ * 429 → RATE_LIMITED) while keeping other upstream failures grouped as UPSTREAM_ERROR.
+ */
+export function mapUpstreamStatusToIpcErrorCode(status: number): IpcErrorCode {
+  if (status === 401 || status === 403) {
+    return "PERMISSION_DENIED";
+  }
+  if (status === 429) {
+    return "RATE_LIMITED";
+  }
+  return "UPSTREAM_ERROR";
+}
+
 function upstreamError(args: { status: number; message: string }): IpcError {
+  const code = mapUpstreamStatusToIpcErrorCode(args.status);
+  const message =
+    code === "PERMISSION_DENIED"
+      ? "AI upstream unauthorized"
+      : code === "RATE_LIMITED"
+        ? "AI upstream rate limited"
+        : args.message;
   return {
-    code: "UPSTREAM_ERROR",
-    message: args.message,
+    code,
+    message,
     details: { status: args.status },
   };
 }
@@ -258,6 +288,7 @@ async function resolveProviderConfig(deps: {
   logger: Logger;
   env: NodeJS.ProcessEnv;
   getFakeServer: () => Promise<FakeAiServer>;
+  getProxySettings?: () => ProxySettings | null;
 }): Promise<ServiceResult<ProviderConfig>> {
   const timeoutMs = parseTimeoutMs(deps.env);
 
@@ -267,7 +298,7 @@ async function resolveProviderConfig(deps: {
     if (typeof baseUrl !== "string" || baseUrl.trim().length === 0) {
       return ipcError(
         "INVALID_ARGUMENT",
-        "CREONOW_AI_PROXY_BASE_URL is required when proxy enabled",
+        "proxy baseUrl is required when proxy enabled (CREONOW_AI_PROXY_BASE_URL)",
       );
     }
     return {
@@ -279,6 +310,30 @@ async function resolveProviderConfig(deps: {
           typeof deps.env.CREONOW_AI_PROXY_API_KEY === "string" &&
           deps.env.CREONOW_AI_PROXY_API_KEY.length > 0
             ? deps.env.CREONOW_AI_PROXY_API_KEY
+            : undefined,
+        timeoutMs,
+      },
+    };
+  }
+
+  const proxyFromSettings = deps.getProxySettings?.() ?? null;
+  if (proxyFromSettings?.enabled) {
+    const baseUrl =
+      typeof proxyFromSettings.baseUrl === "string"
+        ? proxyFromSettings.baseUrl.trim()
+        : "";
+    if (baseUrl.length === 0) {
+      return ipcError("INVALID_ARGUMENT", "proxy baseUrl is required");
+    }
+    return {
+      ok: true,
+      data: {
+        provider: "proxy",
+        baseUrl,
+        apiKey:
+          typeof proxyFromSettings.apiKey === "string" &&
+          proxyFromSettings.apiKey.trim().length > 0
+            ? proxyFromSettings.apiKey
             : undefined,
         timeoutMs,
       },
@@ -309,16 +364,25 @@ async function resolveProviderConfig(deps: {
     );
   }
 
+  const apiKey =
+    typeof deps.env.CREONOW_AI_API_KEY === "string" &&
+    deps.env.CREONOW_AI_API_KEY.length > 0
+      ? deps.env.CREONOW_AI_API_KEY
+      : undefined;
+
+  if (!isE2E(deps.env) && provider !== "proxy" && !apiKey) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "api key is required when proxy disabled (CREONOW_AI_API_KEY)",
+    );
+  }
+
   return {
     ok: true,
     data: {
       provider,
       baseUrl,
-      apiKey:
-        typeof deps.env.CREONOW_AI_API_KEY === "string" &&
-        deps.env.CREONOW_AI_API_KEY.length > 0
-          ? deps.env.CREONOW_AI_API_KEY
-          : undefined,
+      apiKey,
       timeoutMs,
     },
   };
@@ -332,6 +396,7 @@ async function resolveProviderConfig(deps: {
 export function createAiService(deps: {
   logger: Logger;
   env: NodeJS.ProcessEnv;
+  getProxySettings?: () => ProxySettings | null;
 }): AiService {
   const runs = new Map<string, RunEntry>();
   let fakeServerPromise: Promise<FakeAiServer> | null = null;
@@ -679,6 +744,7 @@ export function createAiService(deps: {
       logger: deps.logger,
       env: deps.env,
       getFakeServer,
+      getProxySettings: deps.getProxySettings,
     });
     if (!cfgRes.ok) {
       return cfgRes;

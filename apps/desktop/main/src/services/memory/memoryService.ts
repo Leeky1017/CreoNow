@@ -7,6 +7,7 @@ import type {
   IpcErrorCode,
 } from "../../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
+import { createUserMemoryVecService } from "./userMemoryVec";
 
 export type MemoryType = "preference" | "fact" | "note";
 export type MemoryScope = "global" | "project";
@@ -605,31 +606,98 @@ export function createMemoryService(args: {
         }
 
         const sorted = deterministicMemorySort(parsed);
-        const items: MemoryInjectionItem[] = sorted.map((item) => ({
-          id: item.memoryId,
-          type: item.type,
-          scope: item.scope,
-          origin: item.origin,
-          content: item.content,
-          reason: { kind: "deterministic" },
+
+        const trimmedQueryText =
+          typeof queryText === "string" ? queryText.trim() : "";
+        const wantsSemantic = trimmedQueryText.length > 0;
+
+        if (!wantsSemantic) {
+          const items: MemoryInjectionItem[] = sorted.map((item) => ({
+            id: item.memoryId,
+            type: item.type,
+            scope: item.scope,
+            origin: item.origin,
+            content: item.content,
+            reason: { kind: "deterministic" },
+          }));
+
+          args.logger.info("memory_injection_preview", {
+            mode: "deterministic",
+            count: items.length,
+          });
+          return { ok: true, data: { items, mode: "deterministic" } };
+        }
+
+        const vec = createUserMemoryVecService({ db: args.db, logger: args.logger });
+        const vecRes = vec.topK({
+          sources: sorted.map((m) => ({ memoryId: m.memoryId, content: m.content })),
+          queryText: trimmedQueryText,
+          k: 8,
+          ts: nowTs(),
+        });
+
+        if (!vecRes.ok) {
+          args.logger.info("memory_semantic_recall", {
+            mode: "deterministic",
+            reason: `${vecRes.error.code}:${vecRes.error.message}`,
+          });
+
+          const items: MemoryInjectionItem[] = sorted.map((item) => ({
+            id: item.memoryId,
+            type: item.type,
+            scope: item.scope,
+            origin: item.origin,
+            content: item.content,
+            reason: { kind: "deterministic" },
+          }));
+
+          args.logger.info("memory_injection_preview", {
+            mode: "deterministic",
+            count: items.length,
+          });
+          return {
+            ok: true,
+            data: {
+              items,
+              mode: "deterministic",
+              diagnostics: {
+                degradedFrom: "semantic",
+                reason: vecRes.error.message,
+              },
+            },
+          };
+        }
+
+        const scores = new Map<string, number>();
+        for (const m of vecRes.data.matches) {
+          scores.set(m.memoryId, m.score);
+        }
+
+        const withScores = sorted.map((m) => ({
+          memory: m,
+          score: scores.get(m.memoryId) ?? 0,
+        }));
+        withScores.sort((a, b) => {
+          if (a.score !== b.score) {
+            return b.score - a.score;
+          }
+          return compareDeterministic(a.memory, b.memory);
+        });
+
+        const items: MemoryInjectionItem[] = withScores.map(({ memory, score }) => ({
+          id: memory.memoryId,
+          type: memory.type,
+          scope: memory.scope,
+          origin: memory.origin,
+          content: memory.content,
+          reason: score > 0 ? { kind: "semantic", score } : { kind: "deterministic" },
         }));
 
-        const diagnostics: MemoryInjectionPreview["diagnostics"] =
-          typeof queryText === "string" && queryText.trim().length > 0
-            ? {
-                degradedFrom: "semantic",
-                reason: "semantic_recall_unavailable",
-              }
-            : undefined;
-
         args.logger.info("memory_injection_preview", {
-          mode: "deterministic",
+          mode: "semantic",
           count: items.length,
         });
-        return {
-          ok: true,
-          data: { items, mode: "deterministic", diagnostics },
-        };
+        return { ok: true, data: { items, mode: "semantic" } };
       } catch (error) {
         args.logger.error("memory_injection_preview_failed", {
           code: "DB_ERROR",

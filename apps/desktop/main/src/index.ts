@@ -7,9 +7,11 @@ import { BrowserWindow, app, ipcMain } from "electron";
 import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
 import { initDb, type DbInitOk } from "./db/init";
 import { registerAiIpcHandlers } from "./ipc/ai";
+import { registerAiProxyIpcHandlers } from "./ipc/aiProxy";
 import { registerContextIpcHandlers } from "./ipc/context";
 import { registerConstraintsIpcHandlers } from "./ipc/constraints";
 import { registerFileIpcHandlers } from "./ipc/file";
+import { registerExportIpcHandlers } from "./ipc/export";
 import { registerJudgeIpcHandlers } from "./ipc/judge";
 import { registerKnowledgeGraphIpcHandlers } from "./ipc/knowledgeGraph";
 import { registerEmbeddingIpcHandlers } from "./ipc/embedding";
@@ -18,6 +20,7 @@ import { registerProjectIpcHandlers } from "./ipc/project";
 import { registerRagIpcHandlers } from "./ipc/rag";
 import { registerSearchIpcHandlers } from "./ipc/search";
 import { registerSkillIpcHandlers } from "./ipc/skills";
+import { registerStatsIpcHandlers } from "./ipc/stats";
 import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createJudgeService } from "./services/judge/judgeService";
@@ -183,6 +186,12 @@ function registerIpcHandlers(deps: {
     env: deps.env,
   });
 
+  registerAiProxyIpcHandlers({
+    ipcMain,
+    db: deps.db,
+    logger: deps.logger,
+  });
+
   registerProjectIpcHandlers({
     ipcMain,
     db: deps.db,
@@ -210,6 +219,19 @@ function registerIpcHandlers(deps: {
   });
 
   registerFileIpcHandlers({
+    ipcMain,
+    db: deps.db,
+    logger: deps.logger,
+  });
+
+  registerExportIpcHandlers({
+    ipcMain,
+    db: deps.db,
+    logger: deps.logger,
+    userDataDir: deps.userDataDir,
+  });
+
+  registerStatsIpcHandlers({
     ipcMain,
     db: deps.db,
     logger: deps.logger,
