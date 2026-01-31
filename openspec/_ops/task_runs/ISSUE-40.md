@@ -1,7 +1,7 @@
 # ISSUE-40
 - Issue: #40
 - Branch: task/40-p0-007-ai-diff-apply
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/43
 
 ## Plan
 - Add AI diff view + apply selection flow
