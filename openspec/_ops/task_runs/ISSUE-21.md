@@ -2,7 +2,7 @@
 
 - Issue: #21
 - Branch: task/21-p0-004-sqlite-bootstrap-migrations-logs
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/22
 
 ## Plan
 
@@ -23,3 +23,8 @@
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: `prettier/typecheck/lint/contract:check/test:unit ✅`
 - Evidence: `scripts/agent_pr_preflight.py`
+
+### 2026-01-31 14:03 pr
+
+- Command: `gh pr create --title "P0-004: SQLite bootstrap + migrations + logs (#21)" ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/22`
