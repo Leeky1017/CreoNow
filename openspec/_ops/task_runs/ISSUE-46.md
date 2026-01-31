@@ -1,7 +1,7 @@
 # ISSUE-46
 - Issue: #46
 - Branch: task/46-ai-skill-run-input-order
-- PR: <fill>
+- PR: https://github.com/Leeky1017/CreoNow/pull/49
 
 ## Plan
 - Reproduce E2E failure + root cause
