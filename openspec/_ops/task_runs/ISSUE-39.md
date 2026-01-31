@@ -83,3 +83,33 @@
 - Command: `gh pr create --draft ...`
 - Key output: `https://github.com/Leeky1017/CreoNow/pull/42`
 - Evidence: PR #42
+
+### 2026-01-31 20:06 contract (context list/read)
+
+- Command: `pnpm contract:generate`
+- Key output: updated `packages/shared/types/ipc-generated.ts`
+- Evidence: `packages/shared/types/ipc-generated.ts`
+
+### 2026-01-31 20:08 typecheck
+
+- Command: `pnpm typecheck`
+- Key output: exit 0
+- Evidence: `tsc --noEmit` clean
+
+### 2026-01-31 20:09 lint
+
+- Command: `pnpm lint`
+- Key output: exit 0
+- Evidence: eslint clean
+
+### 2026-01-31 20:12 unit
+
+- Command: `pnpm test:unit`
+- Key output: exit 0
+- Evidence: includes `apps/desktop/tests/unit/context-engineering.test.ts`
+
+### 2026-01-31 20:13 e2e
+
+- Command: `pnpm desktop:test:e2e`
+- Key output: `13 passed`
+- Evidence: includes `apps/desktop/tests/e2e/context-viewer-redaction.spec.ts`

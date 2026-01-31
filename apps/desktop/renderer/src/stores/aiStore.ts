@@ -80,7 +80,7 @@ export type AiActions = {
     documentId: string;
     runId: string;
   }) => Promise<void>;
-  run: () => Promise<void>;
+  run: (args?: { inputOverride?: string }) => Promise<void>;
   cancel: () => Promise<void>;
   onStreamEvent: (event: AiStreamEvent) => void;
 };
@@ -210,7 +210,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       });
     },
 
-    run: async () => {
+    run: async (args) => {
       const state = get();
       if (state.status === "running" || state.status === "streaming") {
         return;
@@ -235,6 +235,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         });
         return;
       }
+      const inputToSend = args?.inputOverride ?? state.input;
 
       set({
         status: "running",
@@ -248,7 +249,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
 
       const res = await deps.invoke("ai:skill:run", {
         skillId: state.selectedSkillId,
-        input: state.input,
+        input: inputToSend,
         stream: state.stream,
         context: {},
       });

@@ -52,6 +52,18 @@ const SKILL_LIST_ITEM_SCHEMA = s.object({
   error_message: s.optional(s.string()),
 });
 
+const CREONOW_LIST_ITEM_SCHEMA = s.object({
+  path: s.string(),
+  sizeBytes: s.number(),
+  updatedAtMs: s.number(),
+});
+
+const REDACTION_EVIDENCE_SCHEMA = s.object({
+  patternId: s.string(),
+  sourceRef: s.string(),
+  matchCount: s.number(),
+});
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -161,6 +173,38 @@ export const ipcContract = {
     "context:creonow:watch:stop": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ watching: s.literal(false) }),
+    },
+    "context:creonow:rules:list": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({
+        items: s.array(CREONOW_LIST_ITEM_SCHEMA),
+      }),
+    },
+    "context:creonow:rules:read": {
+      request: s.object({ projectId: s.string(), path: s.string() }),
+      response: s.object({
+        path: s.string(),
+        content: s.string(),
+        sizeBytes: s.number(),
+        updatedAtMs: s.number(),
+        redactionEvidence: s.array(REDACTION_EVIDENCE_SCHEMA),
+      }),
+    },
+    "context:creonow:settings:list": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({
+        items: s.array(CREONOW_LIST_ITEM_SCHEMA),
+      }),
+    },
+    "context:creonow:settings:read": {
+      request: s.object({ projectId: s.string(), path: s.string() }),
+      response: s.object({
+        path: s.string(),
+        content: s.string(),
+        sizeBytes: s.number(),
+        updatedAtMs: s.number(),
+        redactionEvidence: s.array(REDACTION_EVIDENCE_SCHEMA),
+      }),
     },
     "constraints:get": {
       request: s.object({ projectId: s.string() }),

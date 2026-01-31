@@ -56,6 +56,10 @@ export const IPC_CHANNELS = [
   "constraints:get",
   "constraints:set",
   "context:creonow:ensure",
+  "context:creonow:rules:list",
+  "context:creonow:rules:read",
+  "context:creonow:settings:list",
+  "context:creonow:settings:read",
   "context:creonow:status",
   "context:creonow:watch:start",
   "context:creonow:watch:stop",
@@ -157,6 +161,64 @@ export type IpcChannelSpec = {
     response: {
       ensured: true;
       rootPath: string;
+    };
+  };
+  "context:creonow:rules:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        path: string;
+        sizeBytes: number;
+        updatedAtMs: number;
+      }>;
+    };
+  };
+  "context:creonow:rules:read": {
+    request: {
+      path: string;
+      projectId: string;
+    };
+    response: {
+      content: string;
+      path: string;
+      redactionEvidence: Array<{
+        matchCount: number;
+        patternId: string;
+        sourceRef: string;
+      }>;
+      sizeBytes: number;
+      updatedAtMs: number;
+    };
+  };
+  "context:creonow:settings:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        path: string;
+        sizeBytes: number;
+        updatedAtMs: number;
+      }>;
+    };
+  };
+  "context:creonow:settings:read": {
+    request: {
+      path: string;
+      projectId: string;
+    };
+    response: {
+      content: string;
+      path: string;
+      redactionEvidence: Array<{
+        matchCount: number;
+        patternId: string;
+        sourceRef: string;
+      }>;
+      sizeBytes: number;
+      updatedAtMs: number;
     };
   };
   "context:creonow:status": {

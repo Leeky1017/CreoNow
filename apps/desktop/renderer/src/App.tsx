@@ -4,6 +4,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { invoke } from "./lib/ipcClient";
 import { createPreferenceStore } from "./lib/preferences";
 import { createAiStore, AiStoreProvider } from "./stores/aiStore";
+import { createContextStore, ContextStoreProvider } from "./stores/contextStore";
 import { createEditorStore, EditorStoreProvider } from "./stores/editorStore";
 import { createFileStore, FileStoreProvider } from "./stores/fileStore";
 import { createLayoutStore, LayoutStoreProvider } from "./stores/layoutStore";
@@ -33,6 +34,10 @@ export function App(): JSX.Element {
     return createAiStore({ invoke });
   }, []);
 
+  const contextStore = React.useMemo(() => {
+    return createContextStore({ invoke });
+  }, []);
+
   const fileStore = React.useMemo(() => {
     return createFileStore({ invoke });
   }, []);
@@ -40,13 +45,15 @@ export function App(): JSX.Element {
   return (
     <AiStoreProvider store={aiStore}>
       <ProjectStoreProvider store={projectStore}>
-        <EditorStoreProvider store={editorStore}>
-          <FileStoreProvider store={fileStore}>
-            <LayoutStoreProvider store={layoutStore}>
-              <AppShell />
-            </LayoutStoreProvider>
-          </FileStoreProvider>
-        </EditorStoreProvider>
+        <ContextStoreProvider store={contextStore}>
+          <EditorStoreProvider store={editorStore}>
+            <FileStoreProvider store={fileStore}>
+              <LayoutStoreProvider store={layoutStore}>
+                <AppShell />
+              </LayoutStoreProvider>
+            </FileStoreProvider>
+          </EditorStoreProvider>
+        </ContextStoreProvider>
       </ProjectStoreProvider>
     </AiStoreProvider>
   );
