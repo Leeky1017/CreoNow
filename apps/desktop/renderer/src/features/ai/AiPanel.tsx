@@ -475,4 +475,3 @@ export function AiPanel(): JSX.Element {
     </section>
   );
 }
-
