@@ -65,3 +65,9 @@
 - Command: `pnpm lint`
 - Key output: exit 0
 - Evidence: eslint clean
+
+### 2026-01-31 19:29 contract gate
+
+- Command: `pnpm contract:check`
+- Key output: exit 0
+- Evidence: `packages/shared/types/ipc-generated.ts` matches SSOT
