@@ -9,6 +9,9 @@
     "desktop:build": "pnpm -C apps/desktop build",
     "desktop:test:e2e": "pnpm -C apps/desktop test:e2e",
     "desktop:build:win": "pnpm -C apps/desktop build:win",
+    "contract:generate": "tsx scripts/contract-generate.ts",
+    "contract:check": "pnpm contract:generate && git diff --exit-code packages/shared/types/ipc-generated.ts",
+    "test:unit": "tsx apps/desktop/tests/unit/contract-generate.spec.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
@@ -24,6 +27,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "prettier": "^3.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.3"
   },
   "engines": {

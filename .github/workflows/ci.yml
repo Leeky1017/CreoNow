@@ -30,6 +30,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: IPC contract check
+        run: pnpm contract:check
+
+      - name: Unit tests
+        run: pnpm test:unit
+
   windows-e2e:
     runs-on: windows-latest
     steps:
