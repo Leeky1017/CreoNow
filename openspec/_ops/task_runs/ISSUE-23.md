@@ -25,3 +25,8 @@
 
 - Command: `gh pr create --title "Docs: close P0-001..P0-004 task cards (#23)" ...`
 - Key output: `https://github.com/Leeky1017/CreoNow/pull/24`
+
+### 2026-01-31 14:31 automerge
+
+- Command: `gh pr merge --auto --squash 24`
+- Key output: `auto-merge enabled`
