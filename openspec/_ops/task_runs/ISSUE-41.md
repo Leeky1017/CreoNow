@@ -35,3 +35,8 @@
 - Command: `pnpm desktop:test:e2e`
 - Key output: `13 passed`
 - Evidence: `apps/desktop/tests/e2e/memory-preference-learning.spec.ts`
+
+### 2026-01-31 20:02 rulebook
+- Command: `rulebook task validate issue-41-p0-009-memory-system`
+- Key output: `Task issue-41-p0-009-memory-system is valid`
+- Evidence: `rulebook/tasks/issue-41-p0-009-memory-system/`
