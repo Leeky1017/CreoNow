@@ -58,6 +58,20 @@ const CREONOW_LIST_ITEM_SCHEMA = s.object({
   updatedAtMs: s.number(),
 });
 
+const SEARCH_FTS_ITEM_SCHEMA = s.object({
+  documentId: s.string(),
+  title: s.string(),
+  snippet: s.string(),
+  score: s.number(),
+});
+
+const SEARCH_SEMANTIC_ITEM_SCHEMA = s.object({
+  documentId: s.string(),
+  chunkId: s.optional(s.string()),
+  snippet: s.string(),
+  score: s.number(),
+});
+
 const REDACTION_EVIDENCE_SCHEMA = s.object({
   patternId: s.string(),
   sourceRef: s.string(),
@@ -270,6 +284,39 @@ export const ipcContract = {
           }),
         ),
       }),
+    },
+    "search:fulltext": {
+      request: s.object({
+        projectId: s.string(),
+        query: s.string(),
+        limit: s.optional(s.number()),
+      }),
+      response: s.object({ items: s.array(SEARCH_FTS_ITEM_SCHEMA) }),
+    },
+    "search:semantic": {
+      request: s.object({
+        projectId: s.string(),
+        queryText: s.string(),
+        limit: s.optional(s.number()),
+      }),
+      response: s.object({ items: s.array(SEARCH_SEMANTIC_ITEM_SCHEMA) }),
+    },
+    "embedding:encode": {
+      request: s.object({
+        texts: s.array(s.string()),
+        model: s.optional(s.string()),
+      }),
+      response: s.object({
+        vectors: s.array(s.array(s.number())),
+        dimension: s.number(),
+      }),
+    },
+    "embedding:index": {
+      request: s.object({
+        documentId: s.string(),
+        contentHash: s.string(),
+      }),
+      response: s.object({ accepted: s.literal(true) }),
     },
     "kg:graph:get": {
       request: s.object({

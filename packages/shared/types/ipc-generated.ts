@@ -64,6 +64,8 @@ export const IPC_CHANNELS = [
   "context:creonow:watch:start",
   "context:creonow:watch:stop",
   "db:debug:tableNames",
+  "embedding:encode",
+  "embedding:index",
   "file:document:create",
   "file:document:delete",
   "file:document:getCurrent",
@@ -95,6 +97,8 @@ export const IPC_CHANNELS = [
   "project:getCurrent",
   "project:list",
   "project:setCurrent",
+  "search:fulltext",
+  "search:semantic",
   "skill:list",
   "skill:read",
   "skill:toggle",
@@ -275,6 +279,25 @@ export type IpcChannelSpec = {
     request: Record<string, never>;
     response: {
       tableNames: Array<string>;
+    };
+  };
+  "embedding:encode": {
+    request: {
+      model?: string;
+      texts: Array<string>;
+    };
+    response: {
+      dimension: number;
+      vectors: Array<Array<number>>;
+    };
+  };
+  "embedding:index": {
+    request: {
+      contentHash: string;
+      documentId: string;
+    };
+    response: {
+      accepted: true;
     };
   };
   "file:document:create": {
@@ -771,6 +794,36 @@ export type IpcChannelSpec = {
     response: {
       projectId: string;
       rootPath: string;
+    };
+  };
+  "search:fulltext": {
+    request: {
+      limit?: number;
+      projectId: string;
+      query: string;
+    };
+    response: {
+      items: Array<{
+        documentId: string;
+        score: number;
+        snippet: string;
+        title: string;
+      }>;
+    };
+  };
+  "search:semantic": {
+    request: {
+      limit?: number;
+      projectId: string;
+      queryText: string;
+    };
+    response: {
+      items: Array<{
+        chunkId?: string;
+        documentId: string;
+        score: number;
+        snippet: string;
+      }>;
     };
   };
   "skill:list": {

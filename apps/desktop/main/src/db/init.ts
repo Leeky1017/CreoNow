@@ -14,6 +14,7 @@ import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
 import judgeSql from "./migrations/0003_judge.sql?raw";
 import skillsSql from "./migrations/0004_skills.sql?raw";
 import knowledgeGraphSql from "./migrations/0005_knowledge_graph.sql?raw";
+import searchFtsSql from "./migrations/0006_search_fts.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -40,6 +41,7 @@ const MIGRATIONS: readonly Migration[] = [
   { version: 3, name: "0003_judge", sql: judgeSql },
   { version: 4, name: "0004_skills", sql: skillsSql },
   { version: 5, name: "0005_knowledge_graph", sql: knowledgeGraphSql },
+  { version: 6, name: "0006_search_fts", sql: searchFtsSql },
 ];
 
 /**

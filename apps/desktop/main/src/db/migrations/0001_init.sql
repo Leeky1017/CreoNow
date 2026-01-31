@@ -18,6 +18,32 @@ CREATE TABLE IF NOT EXISTS documents (
   FOREIGN KEY(project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
 
+-- P0-012: Full-text search index (FTS5).
+--
+-- Why: CNWB-REQ-100 requires deterministic full-text search; write-path triggers
+-- keep the index consistent with `documents.content_text` (SSOT derived text).
+CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(
+  title,
+  content_text,
+  document_id UNINDEXED,
+  project_id UNINDEXED
+);
+
+CREATE TRIGGER IF NOT EXISTS documents_ai_fts AFTER INSERT ON documents BEGIN
+  INSERT INTO documents_fts(rowid, title, content_text, document_id, project_id)
+  VALUES (new.rowid, new.title, new.content_text, new.document_id, new.project_id);
+END;
+
+CREATE TRIGGER IF NOT EXISTS documents_au_fts AFTER UPDATE ON documents BEGIN
+  DELETE FROM documents_fts WHERE rowid = old.rowid;
+  INSERT INTO documents_fts(rowid, title, content_text, document_id, project_id)
+  VALUES (new.rowid, new.title, new.content_text, new.document_id, new.project_id);
+END;
+
+CREATE TRIGGER IF NOT EXISTS documents_ad_fts AFTER DELETE ON documents BEGIN
+  DELETE FROM documents_fts WHERE rowid = old.rowid;
+END;
+
 CREATE TABLE IF NOT EXISTS document_versions (
   version_id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
