@@ -28,3 +28,8 @@
 
 - Command: `gh pr create --title "P0-004: SQLite bootstrap + migrations + logs (#21)" ...`
 - Key output: `https://github.com/Leeky1017/CreoNow/pull/22`
+
+### 2026-01-31 14:05 automerge
+
+- Command: `gh pr merge --auto --squash 22`
+- Key output: `auto-merge enabled`
