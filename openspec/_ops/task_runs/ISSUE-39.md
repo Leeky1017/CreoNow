@@ -161,3 +161,15 @@
 - Command: `pnpm contract:check`
 - Key output: exit 0
 - Evidence: `packages/shared/types/ipc-generated.ts` matches SSOT
+
+### 2026-01-31 20:54 format (preflight fix)
+
+- Command: `pnpm exec prettier --write apps/desktop/renderer/src/features/ai/AiPanel.tsx apps/desktop/renderer/src/stores/aiStore.ts`
+- Key output: formatted 2 files (was blocking preflight)
+- Evidence: `apps/desktop/renderer/src/features/ai/AiPanel.tsx` / `apps/desktop/renderer/src/stores/aiStore.ts`
+
+### 2026-01-31 20:54 preflight
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: exit 0
+- Evidence: prettier/typecheck/lint/contract/unit gates satisfied
