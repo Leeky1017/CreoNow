@@ -33,5 +33,17 @@ test("app launches (E2E mode)", async () => {
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
 
+  await page.waitForFunction(
+    () => typeof window.creonow?.invoke === "function",
+  );
+
+  const ping = await page.evaluate(async () => {
+    if (!window.creonow) {
+      throw new Error("Missing window.creonow bridge");
+    }
+    return window.creonow.invoke("app:ping", {});
+  });
+  expect(ping.ok).toBe(true);
+
   await electronApp.close();
 });

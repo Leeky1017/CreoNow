@@ -121,6 +121,8 @@ def main() -> int:
 
         must_run(["pnpm", "typecheck"], cwd=repo)
         must_run(["pnpm", "lint"], cwd=repo)
+        must_run(["pnpm", "contract:check"], cwd=repo)
+        must_run(["pnpm", "test:unit"], cwd=repo)
 
         return 0
     except Exception as e:

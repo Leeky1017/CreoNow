@@ -4,16 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { BrowserWindow, app, ipcMain } from "electron";
 
-type IpcErrorCode = "INTERNAL";
-
-type IpcError = {
-  code: IpcErrorCode;
-  message: string;
-};
-
-type IpcOk<TData> = { ok: true; data: TData };
-type IpcErr = { ok: false; error: IpcError };
-type IpcResponse<TData> = IpcOk<TData> | IpcErr;
+import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -29,7 +20,7 @@ function enableE2EUserDataIsolation(): void {
 
 function resolvePreloadPath(): string {
   const dir = path.join(__dirname, "../preload");
-  const candidates = ["index.mjs", "index.js", "index.cjs"];
+  const candidates = ["index.cjs", "index.js", "index.mjs"];
   for (const fileName of candidates) {
     const p = path.join(dir, fileName);
     if (fs.existsSync(p)) {
@@ -37,7 +28,7 @@ function resolvePreloadPath(): string {
     }
   }
 
-  return path.join(dir, "index.mjs");
+  return path.join(dir, "index.cjs");
 }
 
 function createMainWindow(): BrowserWindow {
@@ -51,6 +42,7 @@ function createMainWindow(): BrowserWindow {
       preload,
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
     },
   });
 
