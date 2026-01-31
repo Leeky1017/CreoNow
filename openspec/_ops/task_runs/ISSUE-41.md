@@ -69,3 +69,25 @@
 - Command: `pnpm desktop:test:e2e`
 - Key output: `16 passed`
 - Evidence: `apps/desktop/tests/e2e/memory-preference-learning.spec.ts`
+
+### 2026-01-31 20:55 rebase(main)+verify
+
+- Command: `pnpm contract:check`
+- Key output: `git diff --exit-code packages/shared/types/ipc-generated.ts`
+- Evidence: `packages/shared/types/ipc-generated.ts`
+
+- Command: `pnpm typecheck`
+- Key output: `tsc --noEmit`
+- Evidence: `<local>`
+
+- Command: `pnpm lint`
+- Key output: `eslint . --ext .ts,.tsx`
+- Evidence: `<local>`
+
+- Command: `pnpm test:unit`
+- Key output: `... context-engineering.test.ts ... preferenceLearning.test.ts`
+- Evidence: `<local>`
+
+- Command: `pnpm desktop:test:e2e`
+- Key output: `17 passed`
+- Evidence: `apps/desktop/tests/e2e/context-viewer-redaction.spec.ts`

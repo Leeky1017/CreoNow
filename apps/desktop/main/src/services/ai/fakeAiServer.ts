@@ -151,6 +151,53 @@ function extractTextBlockPayload(userText: string): string | null {
 }
 
 /**
+ * Extract a markdown block that follows a heading until the next heading.
+ *
+ * Why: context engineering emits deterministic markdown headings (e.g.
+ * `### immediate:ai_panel_input`) while E2E assertions want to focus on the
+ * immediate payload text.
+ */
+function extractMarkdownHeadingBlockPayload(args: {
+  text: string;
+  heading: string;
+}): string | null {
+  const start = args.text.indexOf(args.heading);
+  if (start < 0) {
+    return null;
+  }
+
+  const afterHeading = args.text.slice(start + args.heading.length);
+  const lines = afterHeading.split("\n");
+  // Drop the rest of the heading line (usually empty because heading ends the line).
+  lines.shift();
+
+  while (lines.length > 0 && lines[0].trim().length === 0) {
+    lines.shift();
+  }
+
+  const collected: string[] = [];
+  for (const line of lines) {
+    if (/^#{1,3}\s/.test(line)) {
+      break;
+    }
+    collected.push(line);
+  }
+
+  const payload = collected.join("\n").trim();
+  return payload.length > 0 ? payload : null;
+}
+
+/**
+ * Extract the context-engineering `Immediate` payload if present.
+ */
+function extractContextImmediatePayload(userText: string): string | null {
+  return extractMarkdownHeadingBlockPayload({
+    text: userText,
+    heading: "### immediate:ai_panel_input",
+  });
+}
+
+/**
  * Write an SSE event block.
  */
 function writeSse(args: {
@@ -255,7 +302,11 @@ export async function startFakeAiServer(deps: {
       await sleep(DEFAULT_DELAY_MS);
     }
 
-    const payloadText = extractTextBlockPayload(userText) ?? userText;
+    const payloadText = userText.includes("***REDACTED***")
+      ? userText
+      : extractContextImmediatePayload(userText) ??
+        extractTextBlockPayload(userText) ??
+        userText;
     const resultText = `E2E_RESULT: ${payloadText}`.trim();
 
     if (!stream) {
