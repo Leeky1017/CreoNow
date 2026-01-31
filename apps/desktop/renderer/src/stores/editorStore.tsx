@@ -27,6 +27,8 @@ export type EditorState = {
 
 export type EditorActions = {
   bootstrapForProject: (projectId: string) => Promise<void>;
+  openCurrentDocumentForProject: (projectId: string) => Promise<void>;
+  openDocument: (args: { projectId: string; documentId: string }) => Promise<void>;
   save: (args: {
     projectId: string;
     documentId: string;
@@ -67,22 +69,48 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
     bootstrapForProject: async (projectId) => {
       set({ bootstrapStatus: "loading" });
 
-      const listRes = await deps.invoke("file:document:list", { projectId });
-      if (!listRes.ok) {
+      let documentId: string | null = null;
+
+      const currentRes = await deps.invoke("file:document:getCurrent", {
+        projectId,
+      });
+      if (currentRes.ok) {
+        documentId = currentRes.data.documentId;
+      } else if (currentRes.error.code === "NOT_FOUND") {
+        const listRes = await deps.invoke("file:document:list", { projectId });
+        if (!listRes.ok) {
+          set({ bootstrapStatus: "error" });
+          return;
+        }
+
+        documentId = listRes.data.items[0]?.documentId ?? null;
+        if (!documentId) {
+          const created = await deps.invoke("file:document:create", {
+            projectId,
+          });
+          if (!created.ok) {
+            set({ bootstrapStatus: "error" });
+            return;
+          }
+          documentId = created.data.documentId;
+        }
+
+        const setRes = await deps.invoke("file:document:setCurrent", {
+          projectId,
+          documentId,
+        });
+        if (!setRes.ok) {
+          set({ bootstrapStatus: "error" });
+          return;
+        }
+      } else {
         set({ bootstrapStatus: "error" });
         return;
       }
 
-      let documentId = listRes.data.items[0]?.documentId ?? null;
       if (!documentId) {
-        const created = await deps.invoke("file:document:create", {
-          projectId,
-        });
-        if (!created.ok) {
-          set({ bootstrapStatus: "error" });
-          return;
-        }
-        documentId = created.data.documentId;
+        set({ bootstrapStatus: "ready", projectId, documentId: null });
+        return;
       }
 
       const readRes = await deps.invoke("file:document:read", {
@@ -99,11 +127,75 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
         projectId,
         documentId,
         documentContentJson: readRes.data.contentJson,
+        lastSavedOrQueuedJson: readRes.data.contentJson,
+        autosaveStatus: "idle",
+        autosaveError: null,
       });
     },
 
+    openDocument: async ({ projectId, documentId }) => {
+      set({
+        bootstrapStatus: "loading",
+        projectId,
+        autosaveError: null,
+      });
+
+      const readRes = await deps.invoke("file:document:read", {
+        projectId,
+        documentId,
+      });
+      if (!readRes.ok) {
+        set({ bootstrapStatus: "error" });
+        return;
+      }
+
+      set({
+        bootstrapStatus: "ready",
+        projectId,
+        documentId,
+        documentContentJson: readRes.data.contentJson,
+        lastSavedOrQueuedJson: readRes.data.contentJson,
+        autosaveStatus: "idle",
+        autosaveError: null,
+      });
+    },
+
+    openCurrentDocumentForProject: async (projectId) => {
+      set({ bootstrapStatus: "loading", projectId, autosaveError: null });
+
+      const currentRes = await deps.invoke("file:document:getCurrent", {
+        projectId,
+      });
+      if (currentRes.ok) {
+        await get().openDocument({
+          projectId,
+          documentId: currentRes.data.documentId,
+        });
+        return;
+      }
+
+      if (currentRes.error.code === "NOT_FOUND") {
+        set({
+          bootstrapStatus: "ready",
+          projectId,
+          documentId: null,
+          documentContentJson: null,
+          lastSavedOrQueuedJson: null,
+          autosaveStatus: "idle",
+          autosaveError: null,
+        });
+        return;
+      }
+
+      set({ bootstrapStatus: "error" });
+    },
+
     save: async ({ projectId, documentId, contentJson, actor, reason }) => {
-      set({ autosaveStatus: "saving", lastSavedOrQueuedJson: contentJson });
+      const isCurrent =
+        get().projectId === projectId && get().documentId === documentId;
+      if (isCurrent) {
+        set({ autosaveStatus: "saving", lastSavedOrQueuedJson: contentJson });
+      }
 
       const res = await deps.invoke("file:document:write", {
         projectId,
@@ -113,14 +205,22 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
         reason,
       });
       if (!res.ok) {
-        set({ autosaveStatus: "error", autosaveError: res.error });
+        const stillCurrent =
+          get().projectId === projectId && get().documentId === documentId;
+        if (stillCurrent) {
+          set({ autosaveStatus: "error", autosaveError: res.error });
+        }
         return;
       }
 
-      set({
-        autosaveStatus: "saved",
-        autosaveError: null,
-      });
+      const stillCurrent =
+        get().projectId === projectId && get().documentId === documentId;
+      if (stillCurrent) {
+        set({
+          autosaveStatus: "saved",
+          autosaveError: null,
+        });
+      }
     },
 
     retryLastAutosave: async () => {

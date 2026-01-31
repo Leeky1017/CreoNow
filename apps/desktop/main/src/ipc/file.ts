@@ -128,6 +128,43 @@ export function registerFileIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
+    "file:document:rename",
+    async (
+      _e,
+      payload: { projectId: string; documentId: string; title: string },
+    ): Promise<IpcResponse<{ updated: true }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.projectId.trim().length === 0 ||
+        payload.documentId.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "projectId/documentId is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.rename({
+        projectId: payload.projectId,
+        documentId: payload.documentId,
+        title: payload.title,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
     "file:document:write",
     async (
       _e,
@@ -178,6 +215,69 @@ export function registerFileIpcHandlers(deps: {
         contentJson: parsed,
         actor: payload.actor,
         reason: payload.reason,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "file:document:getCurrent",
+    async (
+      _e,
+      payload: { projectId: string },
+    ): Promise<IpcResponse<{ documentId: string }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (payload.projectId.trim().length === 0) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.getCurrent({ projectId: payload.projectId });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "file:document:setCurrent",
+    async (
+      _e,
+      payload: { projectId: string; documentId: string },
+    ): Promise<IpcResponse<{ documentId: string }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.projectId.trim().length === 0 ||
+        payload.documentId.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "projectId/documentId is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.setCurrent({
+        projectId: payload.projectId,
+        documentId: payload.documentId,
       });
       return res.ok
         ? { ok: true, data: res.data }

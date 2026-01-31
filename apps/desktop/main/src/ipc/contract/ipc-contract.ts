@@ -180,6 +180,14 @@ export const ipcContract = {
         updatedAt: s.number(),
       }),
     },
+    "file:document:rename": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.string(),
+        title: s.string(),
+      }),
+      response: s.object({ updated: s.literal(true) }),
+    },
     "file:document:write": {
       request: s.object({
         projectId: s.string(),
@@ -189,6 +197,14 @@ export const ipcContract = {
         reason: s.union(s.literal("manual-save"), s.literal("autosave")),
       }),
       response: s.object({ updatedAt: s.number(), contentHash: s.string() }),
+    },
+    "file:document:getCurrent": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({ documentId: s.string() }),
+    },
+    "file:document:setCurrent": {
+      request: s.object({ projectId: s.string(), documentId: s.string() }),
+      response: s.object({ documentId: s.string() }),
     },
     "file:document:delete": {
       request: s.object({ projectId: s.string(), documentId: s.string() }),
