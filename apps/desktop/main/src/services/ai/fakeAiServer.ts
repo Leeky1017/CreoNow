@@ -129,6 +129,28 @@ function resolveFakeMode(args: {
 }
 
 /**
+ * Extract the inner text from a `<text>...</text>` block if present.
+ *
+ * Why: built-in skills wrap user input in `<text>` blocks, but E2E assertions
+ * want to treat the input as the "payload" (not the surrounding template).
+ */
+function extractTextBlockPayload(userText: string): string | null {
+  const open = "<text>";
+  const close = "</text>";
+
+  const start = userText.indexOf(open);
+  if (start < 0) {
+    return null;
+  }
+  const end = userText.indexOf(close, start + open.length);
+  if (end < 0) {
+    return null;
+  }
+
+  return userText.slice(start + open.length, end).trim();
+}
+
+/**
  * Write an SSE event block.
  */
 function writeSse(args: {
@@ -233,7 +255,8 @@ export async function startFakeAiServer(deps: {
       await sleep(DEFAULT_DELAY_MS);
     }
 
-    const resultText = `E2E_RESULT: ${userText}`.trim();
+    const payloadText = extractTextBlockPayload(userText) ?? userText;
+    const resultText = `E2E_RESULT: ${payloadText}`.trim();
 
     if (!stream) {
       res.writeHead(200, { "Content-Type": "application/json" });

@@ -51,3 +51,21 @@
 - Command: `pnpm desktop:test:e2e`
 - Key output: `15 passed`
 - Evidence: `apps/desktop/tests/e2e/ai-apply.spec.ts`
+
+### 2026-01-31 20:45 e2e echo + memory loop fix
+
+- Command: `pnpm typecheck`
+- Key output: `tsc --noEmit`
+- Evidence: `<local>`
+
+- Command: `pnpm lint`
+- Key output: `eslint . --ext .ts,.tsx`
+- Evidence: `<local>`
+
+- Command: `pnpm test:unit`
+- Key output: `... preferenceLearning.test.ts`
+- Evidence: `<local>`
+
+- Command: `pnpm desktop:test:e2e`
+- Key output: `16 passed`
+- Evidence: `apps/desktop/tests/e2e/memory-preference-learning.spec.ts`

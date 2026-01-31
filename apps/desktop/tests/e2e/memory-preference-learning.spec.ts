@@ -114,7 +114,7 @@ test("memory: injection preview + preference learning loop", async () => {
   }
 
   const run1 = await ipcInvoke(page, "ai:skill:run", {
-    skillId: "builtin.e2e",
+    skillId: "builtin:polish",
     input: "hello",
     stream: false,
     context: {},
@@ -142,7 +142,7 @@ test("memory: injection preview + preference learning loop", async () => {
   }
 
   const run2 = await ipcInvoke(page, "ai:skill:run", {
-    skillId: "builtin.e2e",
+    skillId: "builtin:polish",
     input: "hello again",
     stream: false,
     context: {},
@@ -161,7 +161,7 @@ test("memory: injection preview + preference learning loop", async () => {
   expect(disable.ok).toBe(true);
 
   const run3 = await ipcInvoke(page, "ai:skill:run", {
-    skillId: "builtin.e2e",
+    skillId: "builtin:polish",
     input: "hello no injection",
     stream: false,
     context: {},
