@@ -6,6 +6,7 @@ import { BrowserWindow, app, ipcMain } from "electron";
 
 import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
 import { initDb, type DbInitOk } from "./db/init";
+import { registerAiIpcHandlers } from "./ipc/ai";
 import { registerCreonowContextIpcHandlers } from "./ipc/contextCreonow";
 import { registerConstraintsIpcHandlers } from "./ipc/constraints";
 import { registerFileIpcHandlers } from "./ipc/file";
@@ -89,6 +90,7 @@ function registerIpcHandlers(deps: {
   db: DbInitOk["db"] | null;
   logger: Logger;
   userDataDir: string;
+  env: NodeJS.ProcessEnv;
 }): void {
   const judgeService = createJudgeService({
     logger: deps.logger,
@@ -140,6 +142,12 @@ function registerIpcHandlers(deps: {
     },
   );
 
+  registerAiIpcHandlers({
+    ipcMain,
+    logger: deps.logger,
+    env: deps.env,
+  });
+
   registerProjectIpcHandlers({
     ipcMain,
     db: deps.db,
@@ -190,7 +198,7 @@ void app.whenReady().then(() => {
     logger.error("db_init_failed", { code: dbRes.error.code });
   }
 
-  registerIpcHandlers({ db, logger, userDataDir });
+  registerIpcHandlers({ db, logger, userDataDir, env: process.env });
 
   createMainWindow();
 
