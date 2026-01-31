@@ -175,7 +175,9 @@ test("context viewer: 4 layers + trim + redaction + main.log evidence", async ()
     "sk-THIS_SHOULD_BE_REDACTED",
   );
   await expect(page.getByTestId("ai-context-panel")).toContainText(".creonow/");
-  await expect(page.getByTestId("ai-context-panel")).not.toContainText(rootPath);
+  await expect(page.getByTestId("ai-context-panel")).not.toContainText(
+    rootPath,
+  );
 
   await electronApp.close();
 
@@ -184,4 +186,3 @@ test("context viewer: 4 layers + trim + redaction + main.log evidence", async ()
   expect(log).toContain("context_watch_started");
   expect(log).toContain("context_redaction_applied");
 });
-

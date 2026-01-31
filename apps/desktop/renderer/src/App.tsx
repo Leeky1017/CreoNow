@@ -4,7 +4,10 @@ import { AppShell } from "./components/layout/AppShell";
 import { invoke } from "./lib/ipcClient";
 import { createPreferenceStore } from "./lib/preferences";
 import { createAiStore, AiStoreProvider } from "./stores/aiStore";
-import { createContextStore, ContextStoreProvider } from "./stores/contextStore";
+import {
+  createContextStore,
+  ContextStoreProvider,
+} from "./stores/contextStore";
 import { createEditorStore, EditorStoreProvider } from "./stores/editorStore";
 import { createFileStore, FileStoreProvider } from "./stores/fileStore";
 import { createLayoutStore, LayoutStoreProvider } from "./stores/layoutStore";

@@ -113,3 +113,15 @@
 - Command: `pnpm desktop:test:e2e`
 - Key output: `13 passed`
 - Evidence: includes `apps/desktop/tests/e2e/context-viewer-redaction.spec.ts`
+
+### 2026-01-31 20:18 format
+
+- Command: `pnpm exec prettier --write <files...>`
+- Key output: updated 12 files
+- Evidence: formatting aligns with `pnpm exec prettier --check`
+
+### 2026-01-31 20:19 preflight
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: exit 0
+- Evidence: prettier/typecheck/lint/contract/unit gates satisfied

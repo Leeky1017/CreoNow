@@ -24,7 +24,10 @@ type ProjectRow = {
  * Why: list/read are exposed over IPC; scope boundaries must be enforced even
  * though the underlying FS helper also validates `.creonow/**`.
  */
-function isReadWithinScope(args: { scope: "rules" | "settings"; p: string }): boolean {
+function isReadWithinScope(args: {
+  scope: "rules" | "settings";
+  p: string;
+}): boolean {
   return args.p.startsWith(`.creonow/${args.scope}/`);
 }
 
@@ -222,7 +225,10 @@ export function registerContextIpcHandlers(deps: {
         });
         return {
           ok: false,
-          error: { code: "IO_ERROR", message: "Failed to start .creonow watch" },
+          error: {
+            code: "IO_ERROR",
+            message: "Failed to start .creonow watch",
+          },
         };
       }
     },
@@ -242,12 +248,16 @@ export function registerContextIpcHandlers(deps: {
       }
 
       try {
-        const stopped = deps.watchService.stop({ projectId: payload.projectId });
+        const stopped = deps.watchService.stop({
+          projectId: payload.projectId,
+        });
         if (!stopped.ok) {
           return { ok: false, error: stopped.error };
         }
 
-        deps.logger.info("context_watch_stopped", { projectId: payload.projectId });
+        deps.logger.info("context_watch_stopped", {
+          projectId: payload.projectId,
+        });
         return { ok: true, data: stopped.data };
       } catch (error) {
         deps.logger.error("context_watch_stop_ipc_failed", {

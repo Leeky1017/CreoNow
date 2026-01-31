@@ -164,7 +164,9 @@ function trimSourcesToTokenBudget(args: {
  *
  * Why: budgets must sum to maxInputTokens and remain stable across runs.
  */
-function deriveLayerBudgets(maxInputTokens: number): Record<ContextLayerId, number> {
+function deriveLayerBudgets(
+  maxInputTokens: number,
+): Record<ContextLayerId, number> {
   const total = Math.max(0, Math.floor(maxInputTokens));
 
   const rulesTokens = Math.floor(total * 0.3);
@@ -219,7 +221,10 @@ export function assembleContext(args: {
   });
 
   const layers: Record<ContextLayerId, string> = {
-    rules: buildLayerText({ sources: rulesTrimmed.sources, emptyLabel: "(none)" }),
+    rules: buildLayerText({
+      sources: rulesTrimmed.sources,
+      emptyLabel: "(none)",
+    }),
     settings: buildLayerText({
       sources: settingsTrimmed.sources,
       emptyLabel: "(none)",

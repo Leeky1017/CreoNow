@@ -154,7 +154,10 @@ function toAbsoluteCreonowPath(args: {
   normalizedCreonowPath: string;
 }): ServiceResult<{ absPath: string; creonowRootAbs: string }> {
   const creonowRootAbs = path.resolve(getCreonowRootPath(args.projectRootPath));
-  const absPath = path.resolve(args.projectRootPath, args.normalizedCreonowPath);
+  const absPath = path.resolve(
+    args.projectRootPath,
+    args.normalizedCreonowPath,
+  );
   const rel = path.relative(creonowRootAbs, absPath);
   const isInside =
     rel.length === 0 || (!rel.startsWith("..") && !path.isAbsolute(rel));

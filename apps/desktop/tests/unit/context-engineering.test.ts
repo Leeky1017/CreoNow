@@ -33,7 +33,10 @@ const immediateChanged = assembleContext({
   redactionEvidence: [],
 });
 
-assert.equal(base.hashes.stablePrefixHash, immediateChanged.hashes.stablePrefixHash);
+assert.equal(
+  base.hashes.stablePrefixHash,
+  immediateChanged.hashes.stablePrefixHash,
+);
 assert.notEqual(base.hashes.promptHash, immediateChanged.hashes.promptHash);
 
 const rulesChanged = assembleContext({
@@ -45,7 +48,10 @@ const rulesChanged = assembleContext({
   redactionEvidence: [],
 });
 
-assert.notEqual(base.hashes.stablePrefixHash, rulesChanged.hashes.stablePrefixHash);
+assert.notEqual(
+  base.hashes.stablePrefixHash,
+  rulesChanged.hashes.stablePrefixHash,
+);
 
 const redaction = redactText({
   text: "apiKey=sk-THIS_SHOULD_BE_REDACTED path=C:\\Users\\Alice\\secret",
@@ -54,6 +60,7 @@ const redaction = redactText({
 assert(!redaction.redactedText.includes("sk-THIS_SHOULD_BE_REDACTED"));
 assert(redaction.redactedText.includes("***REDACTED***"));
 assert(
-  redaction.evidence.some((e) => e.patternId === "openai_api_key_sk" && e.matchCount >= 1),
+  redaction.evidence.some(
+    (e) => e.patternId === "openai_api_key_sk" && e.matchCount >= 1,
+  ),
 );
-

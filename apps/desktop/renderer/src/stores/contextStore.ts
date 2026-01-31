@@ -7,8 +7,15 @@ import type {
   IpcInvokeResult,
   IpcRequest,
 } from "../../../../../packages/shared/types/ipc-generated";
-import { assembleContext, type AssembledContext, type TrimEvidenceItem } from "../lib/ai/contextAssembler";
-import { redactText, type RedactionEvidenceItem } from "../lib/redaction/redact";
+import {
+  assembleContext,
+  type AssembledContext,
+  type TrimEvidenceItem,
+} from "../lib/ai/contextAssembler";
+import {
+  redactText,
+  type RedactionEvidenceItem,
+} from "../lib/redaction/redact";
 
 export type IpcInvoke = <C extends IpcChannel>(
   channel: C,
@@ -75,7 +82,9 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
         ? ("context:creonow:rules:read" as const)
         : ("context:creonow:settings:read" as const);
 
-    const listRes = await deps.invoke(listChannel, { projectId: args.projectId });
+    const listRes = await deps.invoke(listChannel, {
+      projectId: args.projectId,
+    });
     if (!listRes.ok) {
       return {
         sources: [],
@@ -115,7 +124,10 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
         continue;
       }
 
-      sources.push({ sourceRef: readRes.data.path, text: readRes.data.content });
+      sources.push({
+        sourceRef: readRes.data.path,
+        text: readRes.data.content,
+      });
       redactionEvidence.push(...readRes.data.redactionEvidence);
     }
 
@@ -141,14 +153,17 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
     refresh: async ({ projectId, immediateInput }) => {
       const state = get();
       if (state.status === "loading") {
-        return state.assembled ?? assembleContext({
-          rules: [],
-          settings: [],
-          retrieved: [],
-          immediate: [],
-          maxInputTokens: DEFAULT_MAX_INPUT_TOKENS,
-          redactionEvidence: [],
-        });
+        return (
+          state.assembled ??
+          assembleContext({
+            rules: [],
+            settings: [],
+            retrieved: [],
+            immediate: [],
+            maxInputTokens: DEFAULT_MAX_INPUT_TOKENS,
+            redactionEvidence: [],
+          })
+        );
       }
 
       set({ status: "loading", lastError: null });

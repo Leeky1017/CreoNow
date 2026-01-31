@@ -36,7 +36,9 @@ export function ContextViewer(): JSX.Element {
           fontSize: 12,
         }}
       >
-        <div>{status === "loading" ? "Loading context…" : "No context yet"}</div>
+        <div>
+          {status === "loading" ? "Loading context…" : "No context yet"}
+        </div>
       </section>
     );
   }
@@ -63,7 +65,13 @@ export function ContextViewer(): JSX.Element {
         <div style={{ fontSize: 12, color: "var(--color-fg-base)" }}>
           Context
         </div>
-        <div style={{ marginLeft: "auto", fontSize: 11, color: "var(--color-fg-muted)" }}>
+        <div
+          style={{
+            marginLeft: "auto",
+            fontSize: 11,
+            color: "var(--color-fg-muted)",
+          }}
+        >
           {status}
         </div>
       </header>
@@ -141,12 +149,20 @@ export function ContextViewer(): JSX.Element {
             total
           </div>
           <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
-            {assembled.budget.estimate.totalTokens}/{assembled.budget.maxInputTokens}
+            {assembled.budget.estimate.totalTokens}/
+            {assembled.budget.maxInputTokens}
           </div>
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          minHeight: 0,
+        }}
+      >
         {LAYERS.map((layer) => (
           <section key={layer.id} data-testid={layer.testId}>
             <div
@@ -207,8 +223,8 @@ export function ContextViewer(): JSX.Element {
           ) : (
             trimmedOrErrored.map((e, idx) => (
               <div key={`${e.layer}:${e.sourceRef}:${idx}`}>
-                {e.layer} {e.action} {e.reason} {e.sourceRef} ({e.beforeChars}
-                →{e.afterChars})
+                {e.layer} {e.action} {e.reason} {e.sourceRef} ({e.beforeChars}→
+                {e.afterChars})
               </div>
             ))
           )}
@@ -250,4 +266,3 @@ export function ContextViewer(): JSX.Element {
     </section>
   );
 }
-
