@@ -2,7 +2,7 @@
 
 - Issue: #32
 - Branch: task/32-p0-013-constraints-judge
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/35
 
 ## Plan
 
@@ -54,3 +54,11 @@
 
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: `exit 0`
+
+### 2026-01-31 17:35 PR
+
+- Command: `git push -u origin HEAD`
+- Key output: `pushed task/32-p0-013-constraints-judge`
+
+- Command: `gh pr create ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/35`
