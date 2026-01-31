@@ -2,7 +2,7 @@
 
 - Issue: #15
 - Branch: task/15-p0-001-windows-ci-e2e-build
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/16
 
 ## Plan
 
@@ -11,6 +11,7 @@
 - 保证最小 IPC `app:ping` 走 Envelope（禁止异常穿透）
 
 ## Runs
+
 ### 2026-01-31 00:00 +0000 issue
 
 - Command: `gh issue create -t "[CNWB-P0] P0-001: Windows CI + Windows E2E + build artifacts" -b "..."`
@@ -50,3 +51,9 @@
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: `exit 0`
 
+### 2026-01-31 00:00 +0000 push + pr
+
+- Command: `git push -u origin HEAD`
+- Key output: `HEAD -> task/15-p0-001-windows-ci-e2e-build`
+- Command: `gh pr create ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/16`
