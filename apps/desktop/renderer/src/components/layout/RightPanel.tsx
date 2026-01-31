@@ -1,4 +1,5 @@
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
+import { AiPanel } from "../../features/ai/AiPanel";
 import { SettingsPanel } from "../../features/settings/SettingsPanel";
 
 /**
@@ -29,6 +30,8 @@ export function RightPanel(props: {
       }}
     >
       <SettingsPanel />
+      <div style={{ height: 1, background: "var(--color-separator)" }} />
+      <AiPanel />
     </aside>
   );
 }

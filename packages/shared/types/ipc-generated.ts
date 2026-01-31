@@ -49,6 +49,9 @@ export type IpcErr = {
 export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
 export const IPC_CHANNELS = [
+  "ai:skill:cancel",
+  "ai:skill:feedback",
+  "ai:skill:run",
   "app:ping",
   "constraints:get",
   "constraints:set",
@@ -74,6 +77,39 @@ export const IPC_CHANNELS = [
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
 export type IpcChannelSpec = {
+  "ai:skill:cancel": {
+    request: {
+      runId: string;
+    };
+    response: {
+      canceled: true;
+    };
+  };
+  "ai:skill:feedback": {
+    request: {
+      comment?: string;
+      rating: "up" | "down";
+      runId: string;
+    };
+    response: {
+      recorded: true;
+    };
+  };
+  "ai:skill:run": {
+    request: {
+      context?: {
+        documentId?: string;
+        projectId?: string;
+      };
+      input: string;
+      skillId: string;
+      stream: boolean;
+    };
+    response: {
+      outputText?: string;
+      runId: string;
+    };
+  };
   "app:ping": {
     request: Record<string, never>;
     response: Record<string, never>;

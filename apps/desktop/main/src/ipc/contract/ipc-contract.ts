@@ -42,6 +42,35 @@ export const ipcContract = {
       request: s.object({}),
       response: s.object({}),
     },
+    "ai:skill:run": {
+      request: s.object({
+        skillId: s.string(),
+        input: s.string(),
+        context: s.optional(
+          s.object({
+            projectId: s.optional(s.string()),
+            documentId: s.optional(s.string()),
+          }),
+        ),
+        stream: s.boolean(),
+      }),
+      response: s.object({
+        runId: s.string(),
+        outputText: s.optional(s.string()),
+      }),
+    },
+    "ai:skill:cancel": {
+      request: s.object({ runId: s.string() }),
+      response: s.object({ canceled: s.literal(true) }),
+    },
+    "ai:skill:feedback": {
+      request: s.object({
+        runId: s.string(),
+        rating: s.union(s.literal("up"), s.literal("down")),
+        comment: s.optional(s.string()),
+      }),
+      response: s.object({ recorded: s.literal(true) }),
+    },
     "db:debug:tableNames": {
       request: s.object({}),
       response: s.object({ tableNames: s.array(s.string()) }),
