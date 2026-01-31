@@ -125,3 +125,39 @@
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: exit 0
 - Evidence: prettier/typecheck/lint/contract/unit gates satisfied
+
+### 2026-01-31 20:48 windows e2e fix (overlay z-index)
+
+- Command: edit `apps/desktop/renderer/src/styles/globals.css`
+- Key output: `.cn-overlay` now sets `z-index: 1000` so dialogs sit above panels (fixes Windows E2E pointer interception on `create-project-submit`)
+- Evidence: `apps/desktop/renderer/src/styles/globals.css`
+
+### 2026-01-31 20:48 deps
+
+- Command: `pnpm install`
+- Key output: `Packages: +4 -1` (includes `yaml`)
+- Evidence: `node_modules/.pnpm/yaml@2.8.2`
+
+### 2026-01-31 20:49 unit
+
+- Command: `pnpm test:unit`
+- Key output: exit 0
+- Evidence: includes `apps/desktop/tests/unit/context-engineering.test.ts`
+
+### 2026-01-31 20:49 typecheck
+
+- Command: `pnpm typecheck`
+- Key output: exit 0
+- Evidence: `tsc --noEmit` clean
+
+### 2026-01-31 20:49 lint
+
+- Command: `pnpm lint`
+- Key output: exit 0
+- Evidence: eslint clean
+
+### 2026-01-31 20:49 contract gate
+
+- Command: `pnpm contract:check`
+- Key output: exit 0
+- Evidence: `packages/shared/types/ipc-generated.ts` matches SSOT
