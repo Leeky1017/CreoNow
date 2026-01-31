@@ -2,7 +2,7 @@
 
 - Issue: #50
 - Branch: task/50-p0-012-search-embedding-rag
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/53
 
 ## Plan
 
@@ -81,3 +81,9 @@
 - Command: `pnpm desktop:test:e2e`
 - Key output: `19 passed`
 - Evidence: `apps/desktop/tests/e2e/search-rag.spec.ts`
+
+### 2026-01-31 23:54 PR
+
+- Command: `gh pr create ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/53`
+- Evidence: `openspec/_ops/task_runs/ISSUE-50.md`
