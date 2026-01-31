@@ -2,7 +2,7 @@
 
 - Issue: #19
 - Branch: task/19-p0-003-renderer-layout-preferences
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/20
 
 ## Plan
 

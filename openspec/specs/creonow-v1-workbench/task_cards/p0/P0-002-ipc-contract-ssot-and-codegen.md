@@ -1,6 +1,6 @@
 # P0-002: IPC Contract SSOT + types codegen（阻断漂移）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -28,24 +28,24 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] IPC 类型与通道列表由 SSOT 自动生成：
-  - [ ] `packages/shared/types/ipc-generated.ts` 头部包含 `GENERATED FILE - DO NOT EDIT`
-  - [ ] 禁止手改生成文件（CI `contract:check` 阻断）
-- [ ] 所有 invoke 通道返回 Envelope（`ok:true|false`）
-- [ ] 错误码字典至少覆盖（并在生成文件中导出）：
-  - [ ] `INVALID_ARGUMENT/DB_ERROR/MODEL_NOT_READY/TIMEOUT/CANCELED/UPSTREAM_ERROR/INTERNAL`
-- [ ] Preload 仅暴露一个入口：
-  - [ ] `window.creonow.invoke(channel, payload)`
-  - [ ] renderer 不得直接用 `ipcRenderer.invoke`
-- [ ] CI 增加 `pnpm contract:check`：生成后 `git diff --exit-code` 必须为 0
+- [x] IPC 类型与通道列表由 SSOT 自动生成：
+  - [x] `packages/shared/types/ipc-generated.ts` 头部包含 `GENERATED FILE - DO NOT EDIT`
+  - [x] 禁止手改生成文件（CI `contract:check` 阻断）
+- [x] 所有 invoke 通道返回 Envelope（`ok:true|false`）
+- [x] 错误码字典至少覆盖（并在生成文件中导出）：
+  - [x] `INVALID_ARGUMENT/DB_ERROR/MODEL_NOT_READY/TIMEOUT/CANCELED/UPSTREAM_ERROR/INTERNAL`
+- [x] Preload 仅暴露一个入口：
+  - [x] `window.creonow.invoke(channel, payload)`
+  - [x] renderer 不得直接用 `ipcRenderer.invoke`
+- [x] CI 增加 `pnpm contract:check`：生成后 `git diff --exit-code` 必须为 0
 
 ## Tests
 
-- [ ] Unit：
-  - [ ] `contract:generate` 输出 deterministic（重复运行结果一致）
-  - [ ] 未知 channel 被拒绝（返回 `INVALID_ARGUMENT` 或 TS 层不可编译，二选一但必须写死）
-- [ ] E2E（Windows）：
-  - [ ] `window.creonow.invoke('app:ping', {})` 返回 `{ ok: true }`
+- [x] Unit：
+  - [x] `contract:generate` 输出 deterministic（重复运行结果一致）
+  - [x] 未知 channel 被拒绝（返回 `INVALID_ARGUMENT` 或 TS 层不可编译，二选一但必须写死）
+- [x] E2E（Windows）：
+  - [x] `window.creonow.invoke('app:ping', {})` 返回 `{ ok: true }`
 
 ## Edge cases & Failure modes
 
@@ -56,3 +56,9 @@ Status: pending
 
 - `contract:check` 必须在 CI 输出可读错误（diff）以便快速定位漂移
 - 主进程日志必须记录未知 channel 调用（不含敏感 payload）
+
+## Completion
+
+- Issue: #17
+- PR: #18
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-17.md`

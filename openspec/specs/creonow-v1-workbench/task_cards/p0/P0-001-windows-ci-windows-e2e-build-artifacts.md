@@ -1,6 +1,6 @@
 # P0-001: Windows CI + Windows E2E + build artifacts（门禁先行）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -33,19 +33,19 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] Windows CI 新增 job（`windows-latest`）并作为 required check（见 `CNWB-REQ-001`）
-- [ ] Windows job 运行 Playwright Electron E2E：
-  - [ ] 使用 `CREONOW_E2E=1`
-  - [ ] 每个用例使用独立 `CREONOW_USER_DATA_DIR`
-  - [ ] `app-launch.spec.ts` 至少断言 `data-testid="app-shell"` 可见
-- [ ] Windows job 运行 `build:win` 并上传产物：
-  - [ ] NSIS 安装包（或等价 Windows installer）
-  - [ ] zip（可选但推荐）
-- [ ] E2E 失败时必须上传：
-  - [ ] `playwright-report/`
-  - [ ] `test-results/`（含 trace/screenshot）
-- [ ] 最小 IPC ping 通道返回 Envelope（`ok:true|false`），不得 throw 穿透
-- [ ] 禁止真实网络依赖：CI 运行不需要任何真实 AI key
+- [x] Windows CI 新增 job（`windows-latest`）并作为 required check（见 `CNWB-REQ-001`）
+- [x] Windows job 运行 Playwright Electron E2E：
+  - [x] 使用 `CREONOW_E2E=1`
+  - [x] 每个用例使用独立 `CREONOW_USER_DATA_DIR`
+  - [x] `app-launch.spec.ts` 至少断言 `data-testid="app-shell"` 可见
+- [x] Windows job 运行 `build:win` 并上传产物：
+  - [x] NSIS 安装包（或等价 Windows installer）
+  - [x] zip（可选但推荐）
+- [x] E2E 失败时必须上传：
+  - [x] `playwright-report/`
+  - [x] `test-results/`（含 trace/screenshot）
+- [x] 最小 IPC ping 通道返回 Envelope（`ok:true|false`），不得 throw 穿透
+- [x] 禁止真实网络依赖：CI 运行不需要任何真实 AI key
 
 ## Tests
 
@@ -53,7 +53,7 @@ Status: pending
   - `pnpm -C apps/desktop install`（或由根 `pnpm install` 覆盖）
   - `pnpm -C apps/desktop test:e2e`（需在本卡定义脚本）
   - `pnpm -C apps/desktop build:win`
-- [ ] CI（Windows）：
+- [x] CI（Windows）：
   - 断言点：`app-shell` 可见
   - 断言点：失败时 artifacts 上传成功（可在 workflow 中强制 `if: failure()` 上传）
 
@@ -70,3 +70,9 @@ Status: pending
 - E2E 证据：
   - Playwright trace（失败必上传）
   - `main.log` 作为 artifact（建议上传，或在失败时上传）
+
+## Completion
+
+- Issue: #15
+- PR: #16
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-15.md`

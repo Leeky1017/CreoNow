@@ -1,6 +1,6 @@
 # P0-004: SQLite bootstrap + migrations + logs（Windows 可观测）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -26,32 +26,32 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] DB 路径固定且可覆盖：
-  - [ ] 默认：`app.getPath('userData')/data/creonow.db`
-  - [ ] E2E：`CREONOW_USER_DATA_DIR` 覆盖生效
-- [ ] migrations 机制：
-  - [ ] 使用 schema_version（或等价）记录版本
-  - [ ] 迁移失败必须返回可诊断错误（`DB_ERROR`）并写入 main.log
-- [ ] 最小表集合存在（可随实现扩展，但不得少于）：
-  - [ ] `projects`
-  - [ ] `documents`
-  - [ ] `document_versions`
-  - [ ] `settings`
-  - [ ] `skills`
-  - [ ] `user_memory`
-  - [ ] `kg_entities`
-  - [ ] `kg_relations`
-- [ ] main log 存在且可写：
-  - [ ] 路径：`<userData>/logs/main.log`
-  - [ ] 启动成功必须包含关键行：`db_ready`（或等价）
+- [x] DB 路径固定且可覆盖：
+  - [x] 默认：`app.getPath('userData')/data/creonow.db`
+  - [x] E2E：`CREONOW_USER_DATA_DIR` 覆盖生效
+- [x] migrations 机制：
+  - [x] 使用 schema_version（或等价）记录版本
+  - [x] 迁移失败必须返回可诊断错误（`DB_ERROR`）并写入 main.log
+- [x] 最小表集合存在（可随实现扩展，但不得少于）：
+  - [x] `projects`
+  - [x] `documents`
+  - [x] `document_versions`
+  - [x] `settings`
+  - [x] `skills`
+  - [x] `user_memory`
+  - [x] `kg_entities`
+  - [x] `kg_relations`
+- [x] main log 存在且可写：
+  - [x] 路径：`<userData>/logs/main.log`
+  - [x] 启动成功必须包含关键行：`db_ready`（或等价）
 
 ## Tests
 
-- [ ] E2E（Windows）`db-bootstrap.spec.ts`：
-  - [ ] 启动 app → 关闭 app
-  - [ ] 断言：`creonow.db` 文件存在
-  - [ ] 断言：关键表存在（查询 `sqlite_master`）
-  - [ ] 断言：`main.log` 存在且非空
+- [x] E2E（Windows）`db-bootstrap.spec.ts`：
+  - [x] 启动 app → 关闭 app
+  - [x] 断言：`creonow.db` 文件存在
+  - [x] 断言：关键表存在（查询 `sqlite_master`）
+  - [x] 断言：`main.log` 存在且非空
 
 ## Edge cases & Failure modes
 
@@ -65,3 +65,9 @@ Status: pending
   - `schema_version`
   - `migration_applied`（版本号列表）
   - `migration_failed`（错误码 + message）
+
+## Completion
+
+- Issue: #21
+- PR: #22
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-21.md`
