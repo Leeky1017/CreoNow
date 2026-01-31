@@ -7,7 +7,7 @@ import { BrowserWindow, app, ipcMain } from "electron";
 import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
 import { initDb, type DbInitOk } from "./db/init";
 import { registerAiIpcHandlers } from "./ipc/ai";
-import { registerCreonowContextIpcHandlers } from "./ipc/contextCreonow";
+import { registerContextIpcHandlers } from "./ipc/context";
 import { registerConstraintsIpcHandlers } from "./ipc/constraints";
 import { registerFileIpcHandlers } from "./ipc/file";
 import { registerJudgeIpcHandlers } from "./ipc/judge";
@@ -16,6 +16,7 @@ import { registerSkillIpcHandlers } from "./ipc/skills";
 import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createJudgeService } from "./services/judge/judgeService";
+import { createCreonowWatchService } from "./services/context/watchService";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -121,6 +122,7 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     isE2E: process.env.CREONOW_E2E === "1",
   });
+  const watchService = createCreonowWatchService({ logger: deps.logger });
 
   ipcMain.handle(
     "app:ping",
@@ -183,10 +185,12 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
   });
 
-  registerCreonowContextIpcHandlers({
+  registerContextIpcHandlers({
     ipcMain,
     db: deps.db,
     logger: deps.logger,
+    userDataDir: deps.userDataDir,
+    watchService,
   });
 
   registerConstraintsIpcHandlers({

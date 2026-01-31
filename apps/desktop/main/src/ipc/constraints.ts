@@ -9,7 +9,7 @@ import type {
   IpcResponse,
 } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
-import { ensureCreonowDirStructure } from "../services/context/creonowDir";
+import { ensureCreonowDirStructure } from "../services/context/contextFs";
 
 type ConstraintsConfig = {
   version: 1;

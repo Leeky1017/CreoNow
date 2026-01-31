@@ -154,6 +154,14 @@ export const ipcContract = {
         rootPath: s.optional(s.string()),
       }),
     },
+    "context:creonow:watch:start": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({ watching: s.literal(true) }),
+    },
+    "context:creonow:watch:stop": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({ watching: s.literal(false) }),
+    },
     "constraints:get": {
       request: s.object({ projectId: s.string() }),
       response: s.object({

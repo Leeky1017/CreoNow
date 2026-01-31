@@ -57,6 +57,8 @@ export const IPC_CHANNELS = [
   "constraints:set",
   "context:creonow:ensure",
   "context:creonow:status",
+  "context:creonow:watch:start",
+  "context:creonow:watch:stop",
   "db:debug:tableNames",
   "file:document:create",
   "file:document:delete",
@@ -165,6 +167,22 @@ export type IpcChannelSpec = {
       exists: boolean;
       rootPath?: string;
       watching: boolean;
+    };
+  };
+  "context:creonow:watch:start": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      watching: true;
+    };
+  };
+  "context:creonow:watch:stop": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      watching: false;
     };
   };
   "db:debug:tableNames": {
