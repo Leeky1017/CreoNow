@@ -33,7 +33,10 @@ export type RagService = {
     queryText: string;
     limit?: number;
     budgetTokens?: number;
-  }) => ServiceResult<{ items: RagRetrieveItem[]; diagnostics: RagRetrieveDiagnostics }>;
+  }) => ServiceResult<{
+    items: RagRetrieveItem[];
+    diagnostics: RagRetrieveDiagnostics;
+  }>;
 };
 
 const DEFAULT_LIMIT = 8;
@@ -233,4 +236,3 @@ export function createRagService(deps: {
     },
   };
 }
-

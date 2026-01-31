@@ -68,12 +68,12 @@ export function App(): JSX.Element {
             <FileStoreProvider store={fileStore}>
               <KgStoreProvider store={kgStore}>
                 <SearchStoreProvider store={searchStore}>
-                <MemoryStoreProvider store={memoryStore}>
-                  <LayoutStoreProvider store={layoutStore}>
-                    <AppShell />
-                  </LayoutStoreProvider>
-                </MemoryStoreProvider>
-              </SearchStoreProvider>
+                  <MemoryStoreProvider store={memoryStore}>
+                    <LayoutStoreProvider store={layoutStore}>
+                      <AppShell />
+                    </LayoutStoreProvider>
+                  </MemoryStoreProvider>
+                </SearchStoreProvider>
               </KgStoreProvider>
             </FileStoreProvider>
           </EditorStoreProvider>

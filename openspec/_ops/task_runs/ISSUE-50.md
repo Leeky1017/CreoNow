@@ -63,3 +63,21 @@
 - Command: `pnpm typecheck && pnpm lint && pnpm test:unit`
 - Key output: `typecheck OK; lint OK; unit OK`
 - Evidence: `apps/desktop/main/src/ipc/rag.ts`
+
+### 2026-01-31 23:53 preflight (repo gate)
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: `prettier OK; typecheck OK; lint OK; contract:check OK; unit OK`
+- Evidence: `scripts/agent_pr_preflight.py`
+
+### 2026-01-31 23:53 tests (integration)
+
+- Command: `pnpm test:integration`
+- Key output: `exit 0`
+- Evidence: `apps/desktop/tests/integration/fts-invalid-query.test.ts`
+
+### 2026-01-31 23:53 tests (e2e)
+
+- Command: `pnpm desktop:test:e2e`
+- Key output: `19 passed`
+- Evidence: `apps/desktop/tests/e2e/search-rag.spec.ts`

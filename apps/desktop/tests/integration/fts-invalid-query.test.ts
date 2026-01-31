@@ -52,11 +52,16 @@ function createDbStub(): Database.Database {
   const prepare = () => {
     return {
       all: (_projectId: string, query: string, limit: number) => {
-        if (query.startsWith("\"")) {
+        if (query.startsWith('"')) {
           throw new Error('fts5: syntax error near "hello"');
         }
         return [
-          { documentId: "doc_1", title: "Doc One", snippet: "hello world", score: 1 },
+          {
+            documentId: "doc_1",
+            title: "Doc One",
+            snippet: "hello world",
+            score: 1,
+          },
         ].slice(0, limit);
       },
     };
@@ -84,9 +89,10 @@ const okRes = (await handler({}, { projectId: "proj_1", query: "hello" })) as
 assert.ok(okRes, "Missing response");
 assert.equal(okRes.ok, true);
 
-const invalid = (await handler({}, { projectId: "proj_1", query: "\"hello" })) as
-  | IpcResponse<unknown>
-  | undefined;
+const invalid = (await handler(
+  {},
+  { projectId: "proj_1", query: '"hello' },
+)) as IpcResponse<unknown> | undefined;
 assert.ok(invalid, "Missing response");
 assert.equal(invalid.ok, false);
 if (!invalid.ok) {

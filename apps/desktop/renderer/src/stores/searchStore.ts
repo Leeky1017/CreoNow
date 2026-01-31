@@ -104,4 +104,3 @@ export function useSearchStore<T>(selector: (state: SearchStore) => T): T {
   }
   return store(selector);
 }
-

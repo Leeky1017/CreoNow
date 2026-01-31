@@ -67,7 +67,10 @@ export function registerEmbeddingIpcHandlers(deps: {
 
       return {
         ok: false,
-        error: { code: "MODEL_NOT_READY", message: "Embedding model not ready" },
+        error: {
+          code: "MODEL_NOT_READY",
+          message: "Embedding model not ready",
+        },
       };
     },
   );
@@ -117,4 +120,3 @@ export function registerEmbeddingIpcHandlers(deps: {
     },
   );
 }
-

@@ -124,10 +124,7 @@ export function createFtsService(deps: {
 
       try {
         const rows = deps.db
-          .prepare<
-            [string, string, number],
-            FulltextRow
-          >(
+          .prepare<[string, string, number], FulltextRow>(
             `SELECT
               document_id as documentId,
               title as title,

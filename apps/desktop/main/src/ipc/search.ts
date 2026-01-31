@@ -107,7 +107,10 @@ export function registerSearchIpcHandlers(deps: {
 
       return {
         ok: false,
-        error: { code: "MODEL_NOT_READY", message: "Semantic search not ready" },
+        error: {
+          code: "MODEL_NOT_READY",
+          message: "Semantic search not ready",
+        },
       };
     },
   );

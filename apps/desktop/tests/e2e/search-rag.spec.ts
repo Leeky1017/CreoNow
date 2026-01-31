@@ -100,15 +100,18 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
   const projectId = current.data.projectId;
   const keyword = `E2EKEY_${randomUUID().replaceAll("-", "")}`;
 
-  const created = await page.evaluate(async (args) => {
-    if (!window.creonow) {
-      throw new Error("Missing window.creonow bridge");
-    }
-    return await window.creonow.invoke("file:document:create", {
-      projectId: args.projectId,
-      title: "Search Target",
-    });
-  }, { projectId });
+  const created = await page.evaluate(
+    async (args) => {
+      if (!window.creonow) {
+        throw new Error("Missing window.creonow bridge");
+      }
+      return await window.creonow.invoke("file:document:create", {
+        projectId: args.projectId,
+        title: "Search Target",
+      });
+    },
+    { projectId },
+  );
   expect(created.ok).toBe(true);
   if (!created.ok) {
     throw new Error(`Expected ok create doc, got: ${created.error.code}`);
@@ -126,33 +129,39 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
     ],
   });
 
-  const written = await page.evaluate(async (args) => {
-    if (!window.creonow) {
-      throw new Error("Missing window.creonow bridge");
-    }
-    return await window.creonow.invoke("file:document:write", {
-      projectId: args.projectId,
-      documentId: args.documentId,
-      contentJson: args.contentJson,
-      actor: "user",
-      reason: "manual-save",
-    });
-  }, { projectId, documentId, contentJson });
+  const written = await page.evaluate(
+    async (args) => {
+      if (!window.creonow) {
+        throw new Error("Missing window.creonow bridge");
+      }
+      return await window.creonow.invoke("file:document:write", {
+        projectId: args.projectId,
+        documentId: args.documentId,
+        contentJson: args.contentJson,
+        actor: "user",
+        reason: "manual-save",
+      });
+    },
+    { projectId, documentId, contentJson },
+  );
   expect(written.ok).toBe(true);
   if (!written.ok) {
     throw new Error(`Expected ok write, got: ${written.error.code}`);
   }
 
-  const searchRes = await page.evaluate(async (args) => {
-    if (!window.creonow) {
-      throw new Error("Missing window.creonow bridge");
-    }
-    return await window.creonow.invoke("search:fulltext", {
-      projectId: args.projectId,
-      query: args.keyword,
-      limit: 10,
-    });
-  }, { projectId, keyword });
+  const searchRes = await page.evaluate(
+    async (args) => {
+      if (!window.creonow) {
+        throw new Error("Missing window.creonow bridge");
+      }
+      return await window.creonow.invoke("search:fulltext", {
+        projectId: args.projectId,
+        query: args.keyword,
+        limit: 10,
+      });
+    },
+    { projectId, keyword },
+  );
   expect(searchRes.ok).toBe(true);
   if (!searchRes.ok) {
     throw new Error(`Expected ok search, got: ${searchRes.error.code}`);
@@ -160,17 +169,20 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
   expect(searchRes.data.items.length).toBeGreaterThan(0);
   expect(searchRes.data.items[0]?.documentId).toBe(documentId);
 
-  const ragRes = await page.evaluate(async (args) => {
-    if (!window.creonow) {
-      throw new Error("Missing window.creonow bridge");
-    }
-    return await window.creonow.invoke("rag:retrieve", {
-      projectId: args.projectId,
-      queryText: args.keyword,
-      limit: 5,
-      budgetTokens: 300,
-    });
-  }, { projectId, keyword });
+  const ragRes = await page.evaluate(
+    async (args) => {
+      if (!window.creonow) {
+        throw new Error("Missing window.creonow bridge");
+      }
+      return await window.creonow.invoke("rag:retrieve", {
+        projectId: args.projectId,
+        queryText: args.keyword,
+        limit: 5,
+        budgetTokens: 300,
+      });
+    },
+    { projectId, keyword },
+  );
   expect(ragRes.ok).toBe(true);
   if (!ragRes.ok) {
     throw new Error(`Expected ok rag, got: ${ragRes.error.code}`);
@@ -192,4 +204,3 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
 
   await electronApp.close();
 });
-

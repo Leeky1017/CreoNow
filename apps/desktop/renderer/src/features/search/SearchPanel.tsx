@@ -193,4 +193,3 @@ export function SearchPanel(props: { projectId: string }): JSX.Element {
     </section>
   );
 }
-
