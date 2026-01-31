@@ -52,5 +52,5 @@ Status: done
 ## Completion
 
 - Issue: #54
-- PR: <fill-after-created>
+- PR: #55
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-54.md`
