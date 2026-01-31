@@ -60,8 +60,11 @@ export const IPC_CHANNELS = [
   "db:debug:tableNames",
   "file:document:create",
   "file:document:delete",
+  "file:document:getCurrent",
   "file:document:list",
   "file:document:read",
+  "file:document:rename",
+  "file:document:setCurrent",
   "file:document:write",
   "judge:model:ensure",
   "judge:model:getState",
@@ -183,6 +186,14 @@ export type IpcChannelSpec = {
       deleted: true;
     };
   };
+  "file:document:getCurrent": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      documentId: string;
+    };
+  };
   "file:document:list": {
     request: {
       projectId: string;
@@ -209,6 +220,25 @@ export type IpcChannelSpec = {
       projectId: string;
       title: string;
       updatedAt: number;
+    };
+  };
+  "file:document:rename": {
+    request: {
+      documentId: string;
+      projectId: string;
+      title: string;
+    };
+    response: {
+      updated: true;
+    };
+  };
+  "file:document:setCurrent": {
+    request: {
+      documentId: string;
+      projectId: string;
+    };
+    response: {
+      documentId: string;
     };
   };
   "file:document:write": {

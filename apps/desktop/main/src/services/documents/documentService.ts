@@ -49,6 +49,11 @@ export type DocumentService = {
     projectId: string;
     documentId: string;
   }) => ServiceResult<DocumentRead>;
+  rename: (args: {
+    projectId: string;
+    documentId: string;
+    title: string;
+  }) => ServiceResult<{ updated: true }>;
   write: (args: {
     projectId: string;
     documentId: string;
@@ -64,6 +69,14 @@ export type DocumentService = {
     documentId: string;
   }) => ServiceResult<{ deleted: true }>;
 
+  getCurrent: (args: { projectId: string }) => ServiceResult<{
+    documentId: string;
+  }>;
+  setCurrent: (args: {
+    projectId: string;
+    documentId: string;
+  }) => ServiceResult<{ documentId: string }>;
+
   listVersions: (args: { documentId: string }) => ServiceResult<{
     items: VersionListItem[];
   }>;
@@ -77,6 +90,10 @@ const EMPTY_DOC = {
   type: "doc",
   content: [{ type: "paragraph" }],
 } as const;
+
+const SETTINGS_SCOPE_PREFIX = "project:" as const;
+const CURRENT_DOCUMENT_ID_KEY = "creonow.document.currentId" as const;
+const MAX_TITLE_LENGTH = 200;
 
 function nowTs(): number {
   return Date.now();
@@ -107,6 +124,10 @@ function serializeJson(value: unknown): ServiceResult<string> {
   }
 }
 
+type SettingsRow = {
+  valueJson: string;
+};
+
 type DocumentRow = {
   documentId: string;
   projectId: string;
@@ -130,6 +151,103 @@ type VersionRestoreRow = {
   contentMd: string;
   contentHash: string;
 };
+
+/**
+ * Compute a project-scoped settings namespace.
+ *
+ * Why: current document must never leak across projects.
+ */
+function getProjectSettingsScope(projectId: string): string {
+  return `${SETTINGS_SCOPE_PREFIX}${projectId}`;
+}
+
+/**
+ * Read the current documentId for a project from settings.
+ *
+ * Why: current document must persist across restarts for a stable workbench entry.
+ */
+function readCurrentDocumentId(
+  db: Database.Database,
+  projectId: string,
+): ServiceResult<string> {
+  const scope = getProjectSettingsScope(projectId);
+
+  try {
+    const row = db
+      .prepare<
+        [string, string],
+        SettingsRow
+      >("SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?")
+      .get(scope, CURRENT_DOCUMENT_ID_KEY);
+    if (!row) {
+      return ipcError("NOT_FOUND", "No current document");
+    }
+    const parsed: unknown = JSON.parse(row.valueJson);
+    if (typeof parsed !== "string" || parsed.trim().length === 0) {
+      return ipcError("DB_ERROR", "Invalid current document setting");
+    }
+    return { ok: true, data: parsed };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to read current document setting",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Persist the current documentId for a project.
+ *
+ * Why: renderer needs a stable restore point across restarts.
+ */
+function writeCurrentDocumentId(
+  db: Database.Database,
+  projectId: string,
+  documentId: string,
+): ServiceResult<true> {
+  const scope = getProjectSettingsScope(projectId);
+
+  try {
+    const ts = nowTs();
+    db.prepare(
+      "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+    ).run(scope, CURRENT_DOCUMENT_ID_KEY, JSON.stringify(documentId), ts);
+    return { ok: true, data: true };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to persist current document",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Clear the current documentId for a project.
+ *
+ * Why: deleting the last document must leave a deterministic "no current document" state.
+ */
+function clearCurrentDocumentId(
+  db: Database.Database,
+  projectId: string,
+): ServiceResult<true> {
+  const scope = getProjectSettingsScope(projectId);
+
+  try {
+    db.prepare("DELETE FROM settings WHERE scope = ? AND key = ?").run(
+      scope,
+      CURRENT_DOCUMENT_ID_KEY,
+    );
+    return { ok: true, data: true };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to clear current document",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
 
 /**
  * Create a document service backed by SQLite (SSOT).
@@ -224,6 +342,44 @@ export function createDocumentService(args: {
           message: error instanceof Error ? error.message : String(error),
         });
         return ipcError("DB_ERROR", "Failed to read document");
+      }
+    },
+
+    rename: ({ projectId, documentId, title }) => {
+      if (projectId.trim().length === 0 || documentId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
+      }
+
+      const trimmedTitle = title.trim();
+      if (trimmedTitle.length === 0) {
+        return ipcError("INVALID_ARGUMENT", "title is required");
+      }
+      if (trimmedTitle.length > MAX_TITLE_LENGTH) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          `title too long (max ${MAX_TITLE_LENGTH})`,
+        );
+      }
+
+      const ts = nowTs();
+      try {
+        const res = args.db
+          .prepare<
+            [string, number, string, string]
+          >("UPDATE documents SET title = ?, updated_at = ? WHERE project_id = ? AND document_id = ?")
+          .run(trimmedTitle, ts, projectId, documentId);
+        if (res.changes === 0) {
+          return ipcError("NOT_FOUND", "Document not found");
+        }
+
+        args.logger.info("document_renamed", { document_id: documentId });
+        return { ok: true, data: { updated: true } };
+      } catch (error) {
+        args.logger.error("document_rename_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to rename document");
       }
     },
 
@@ -334,25 +490,157 @@ export function createDocumentService(args: {
     },
 
     delete: ({ projectId, documentId }) => {
+      if (projectId.trim().length === 0 || documentId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
+      }
+
+      const scope = getProjectSettingsScope(projectId);
+      const expectedValueJson = JSON.stringify(documentId);
+      const ts = nowTs();
+
+      let switchedTo: string | null = null;
       try {
-        const res = args.db
-          .prepare<
-            [string, string]
-          >("DELETE FROM documents WHERE project_id = ? AND document_id = ?")
-          .run(projectId, documentId);
-        if (res.changes === 0) {
-          return ipcError("NOT_FOUND", "Document not found");
-        }
+        args.db.transaction(() => {
+          const currentRow = args.db
+            .prepare<
+              [string, string],
+              SettingsRow
+            >("SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?")
+            .get(scope, CURRENT_DOCUMENT_ID_KEY);
+          const isDeletingCurrent =
+            currentRow?.valueJson === expectedValueJson;
+
+          const res = args.db
+            .prepare<
+              [string, string]
+            >("DELETE FROM documents WHERE project_id = ? AND document_id = ?")
+            .run(projectId, documentId);
+          if (res.changes === 0) {
+            throw new Error("NOT_FOUND");
+          }
+
+          if (!isDeletingCurrent) {
+            return;
+          }
+
+          const next = args.db
+            .prepare<
+              [string],
+              { documentId: string }
+            >("SELECT document_id as documentId FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC LIMIT 1")
+            .get(projectId);
+
+          if (next) {
+            switchedTo = next.documentId;
+            args.db
+              .prepare(
+                "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+              )
+              .run(
+                scope,
+                CURRENT_DOCUMENT_ID_KEY,
+                JSON.stringify(next.documentId),
+                ts,
+              );
+          } else {
+            args.db
+              .prepare("DELETE FROM settings WHERE scope = ? AND key = ?")
+              .run(scope, CURRENT_DOCUMENT_ID_KEY);
+          }
+        })();
 
         args.logger.info("document_deleted", { document_id: documentId });
+        if (switchedTo) {
+          args.logger.info("document_set_current", {
+            project_id: projectId,
+            document_id: switchedTo,
+          });
+        }
         return { ok: true, data: { deleted: true } };
       } catch (error) {
+        const code =
+          error instanceof Error && error.message === "NOT_FOUND"
+            ? ("NOT_FOUND" as const)
+            : ("DB_ERROR" as const);
         args.logger.error("document_delete_failed", {
+          code,
+          message: error instanceof Error ? error.message : String(error),
+          document_id: documentId,
+        });
+        return ipcError(
+          code,
+          code === "NOT_FOUND"
+            ? "Document not found"
+            : "Failed to delete document",
+        );
+      }
+    },
+
+    getCurrent: ({ projectId }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+
+      const current = readCurrentDocumentId(args.db, projectId);
+      if (!current.ok) {
+        return current;
+      }
+
+      try {
+        const exists = args.db
+          .prepare<
+            [string, string],
+            { documentId: string }
+          >("SELECT document_id as documentId FROM documents WHERE project_id = ? AND document_id = ?")
+          .get(projectId, current.data);
+        if (!exists) {
+          void clearCurrentDocumentId(args.db, projectId);
+          return ipcError("NOT_FOUND", "Current document not found");
+        }
+
+        return { ok: true, data: { documentId: current.data } };
+      } catch (error) {
+        args.logger.error("document_get_current_failed", {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
         });
-        return ipcError("DB_ERROR", "Failed to delete document");
+        return ipcError("DB_ERROR", "Failed to resolve current document");
       }
+    },
+
+    setCurrent: ({ projectId, documentId }) => {
+      if (projectId.trim().length === 0 || documentId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
+      }
+
+      try {
+        const exists = args.db
+          .prepare<
+            [string, string],
+            { documentId: string }
+          >("SELECT document_id as documentId FROM documents WHERE project_id = ? AND document_id = ?")
+          .get(projectId, documentId);
+        if (!exists) {
+          return ipcError("NOT_FOUND", "Document not found");
+        }
+      } catch (error) {
+        args.logger.error("document_set_current_lookup_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to load document");
+      }
+
+      const persisted = writeCurrentDocumentId(args.db, projectId, documentId);
+      if (!persisted.ok) {
+        return persisted;
+      }
+
+      args.logger.info("document_set_current", {
+        project_id: projectId,
+        document_id: documentId,
+      });
+      return { ok: true, data: { documentId } };
     },
 
     listVersions: ({ documentId }) => {
