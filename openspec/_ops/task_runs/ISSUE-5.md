@@ -19,3 +19,8 @@
   - PreferenceStore：`key: string` → `key: PreferenceKey`
   - 滚动条：`border-radius: 3px` → `var(--radius-full)`
 - Evidence: `git diff --stat` shows +91/-76 lines
+
+### 2026-01-30 CI 修复
+- Command: `pnpm install`
+- Key output: CI 失败因缺少 `pnpm-lock.yaml`，执行 `pnpm install` 生成
+- Evidence: `pnpm-lock.yaml` 24KB 生成成功
