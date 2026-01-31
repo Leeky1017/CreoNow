@@ -7,7 +7,9 @@ import { BrowserWindow, app, ipcMain } from "electron";
 import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
 import { initDb, type DbInitOk } from "./db/init";
 import { registerCreonowContextIpcHandlers } from "./ipc/contextCreonow";
+import { registerFileIpcHandlers } from "./ipc/file";
 import { registerProjectIpcHandlers } from "./ipc/project";
+import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -138,6 +140,18 @@ function registerIpcHandlers(deps: {
   });
 
   registerCreonowContextIpcHandlers({
+    ipcMain,
+    db: deps.db,
+    logger: deps.logger,
+  });
+
+  registerFileIpcHandlers({
+    ipcMain,
+    db: deps.db,
+    logger: deps.logger,
+  });
+
+  registerVersionIpcHandlers({
     ipcMain,
     db: deps.db,
     logger: deps.logger,

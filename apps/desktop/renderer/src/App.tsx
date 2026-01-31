@@ -3,6 +3,7 @@ import React from "react";
 import { AppShell } from "./components/layout/AppShell";
 import { invoke } from "./lib/ipcClient";
 import { createPreferenceStore } from "./lib/preferences";
+import { createEditorStore, EditorStoreProvider } from "./stores/editorStore";
 import { createLayoutStore, LayoutStoreProvider } from "./stores/layoutStore";
 import {
   createProjectStore,
@@ -22,11 +23,17 @@ export function App(): JSX.Element {
     return createProjectStore({ invoke });
   }, []);
 
+  const editorStore = React.useMemo(() => {
+    return createEditorStore({ invoke });
+  }, []);
+
   return (
     <ProjectStoreProvider store={projectStore}>
-      <LayoutStoreProvider store={layoutStore}>
-        <AppShell />
-      </LayoutStoreProvider>
+      <EditorStoreProvider store={editorStore}>
+        <LayoutStoreProvider store={layoutStore}>
+          <AppShell />
+        </LayoutStoreProvider>
+      </EditorStoreProvider>
     </ProjectStoreProvider>
   );
 }

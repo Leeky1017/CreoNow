@@ -53,11 +53,18 @@ export const IPC_CHANNELS = [
   "context:creonow:ensure",
   "context:creonow:status",
   "db:debug:tableNames",
+  "file:document:create",
+  "file:document:delete",
+  "file:document:list",
+  "file:document:read",
+  "file:document:write",
   "project:create",
   "project:delete",
   "project:getCurrent",
   "project:list",
   "project:setCurrent",
+  "version:list",
+  "version:restore",
 ] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
@@ -90,6 +97,65 @@ export type IpcChannelSpec = {
     request: Record<string, never>;
     response: {
       tableNames: Array<string>;
+    };
+  };
+  "file:document:create": {
+    request: {
+      projectId: string;
+      title?: string;
+    };
+    response: {
+      documentId: string;
+    };
+  };
+  "file:document:delete": {
+    request: {
+      documentId: string;
+      projectId: string;
+    };
+    response: {
+      deleted: true;
+    };
+  };
+  "file:document:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        documentId: string;
+        title: string;
+        updatedAt: number;
+      }>;
+    };
+  };
+  "file:document:read": {
+    request: {
+      documentId: string;
+      projectId: string;
+    };
+    response: {
+      contentHash: string;
+      contentJson: string;
+      contentMd: string;
+      contentText: string;
+      documentId: string;
+      projectId: string;
+      title: string;
+      updatedAt: number;
+    };
+  };
+  "file:document:write": {
+    request: {
+      actor: "user" | "auto";
+      contentJson: string;
+      documentId: string;
+      projectId: string;
+      reason: "manual-save" | "autosave";
+    };
+    response: {
+      contentHash: string;
+      updatedAt: number;
     };
   };
   "project:create": {
@@ -136,6 +202,29 @@ export type IpcChannelSpec = {
     response: {
       projectId: string;
       rootPath: string;
+    };
+  };
+  "version:list": {
+    request: {
+      documentId: string;
+    };
+    response: {
+      items: Array<{
+        actor: "user" | "auto" | "ai";
+        contentHash: string;
+        createdAt: number;
+        reason: string;
+        versionId: string;
+      }>;
+    };
+  };
+  "version:restore": {
+    request: {
+      documentId: string;
+      versionId: string;
+    };
+    response: {
+      restored: true;
     };
   };
 };

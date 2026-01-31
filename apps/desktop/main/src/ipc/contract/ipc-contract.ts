@@ -73,5 +73,73 @@ export const ipcContract = {
         rootPath: s.optional(s.string()),
       }),
     },
+    "file:document:create": {
+      request: s.object({
+        projectId: s.string(),
+        title: s.optional(s.string()),
+      }),
+      response: s.object({ documentId: s.string() }),
+    },
+    "file:document:list": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({
+        items: s.array(
+          s.object({
+            documentId: s.string(),
+            title: s.string(),
+            updatedAt: s.number(),
+          }),
+        ),
+      }),
+    },
+    "file:document:read": {
+      request: s.object({ projectId: s.string(), documentId: s.string() }),
+      response: s.object({
+        documentId: s.string(),
+        projectId: s.string(),
+        title: s.string(),
+        contentJson: s.string(),
+        contentText: s.string(),
+        contentMd: s.string(),
+        contentHash: s.string(),
+        updatedAt: s.number(),
+      }),
+    },
+    "file:document:write": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.string(),
+        contentJson: s.string(),
+        actor: s.union(s.literal("user"), s.literal("auto")),
+        reason: s.union(s.literal("manual-save"), s.literal("autosave")),
+      }),
+      response: s.object({ updatedAt: s.number(), contentHash: s.string() }),
+    },
+    "file:document:delete": {
+      request: s.object({ projectId: s.string(), documentId: s.string() }),
+      response: s.object({ deleted: s.literal(true) }),
+    },
+    "version:list": {
+      request: s.object({ documentId: s.string() }),
+      response: s.object({
+        items: s.array(
+          s.object({
+            versionId: s.string(),
+            actor: s.union(
+              s.literal("user"),
+              s.literal("auto"),
+              s.literal("ai"),
+            ),
+            reason: s.string(),
+            contentHash: s.string(),
+            createdAt: s.number(),
+          }),
+        ),
+      }),
+    },
+    "version:restore": {
+      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      response: s.object({ restored: s.literal(true) }),
+    },
   },
 } as const;

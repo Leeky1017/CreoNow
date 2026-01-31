@@ -7,7 +7,9 @@ import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
 import { Resizer } from "./Resizer";
 import { CommandPalette } from "../../features/commandPalette/CommandPalette";
+import { EditorPane } from "../../features/editor/EditorPane";
 import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
+import { useProjectStore } from "../../stores/projectStore";
 
 /**
  * Clamp a value between min/max bounds.
@@ -63,6 +65,7 @@ function computePanelMax(
  * + RightPanel) and wires resizing, persistence, and P0 keyboard shortcuts.
  */
 export function AppShell(): JSX.Element {
+  const currentProject = useProjectStore((s) => s.current);
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth);
   const panelWidth = useLayoutStore((s) => s.panelWidth);
   const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
@@ -169,13 +172,17 @@ export function AppShell(): JSX.Element {
               minWidth: LAYOUT_DEFAULTS.mainMinWidth,
               background: "var(--color-bg-base)",
               display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              alignItems: currentProject ? "stretch" : "center",
+              justifyContent: currentProject ? "stretch" : "center",
               color: "var(--color-fg-muted)",
               fontSize: 13,
             }}
           >
-            <WelcomeScreen />
+            {currentProject ? (
+              <EditorPane projectId={currentProject.projectId} />
+            ) : (
+              <WelcomeScreen />
+            )}
           </main>
 
           {!panelCollapsed ? (

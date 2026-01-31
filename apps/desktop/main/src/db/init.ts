@@ -10,6 +10,7 @@ import type { Logger } from "../logging/logger";
 import { getDbPaths, redactUserDataPath } from "./paths";
 
 import initSql from "./migrations/0001_init.sql?raw";
+import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -32,6 +33,7 @@ type Migration = {
 
 const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: "0001_init", sql: initSql },
+  { version: 2, name: "0002_documents_versioning", sql: documentsSql },
 ];
 
 /**
