@@ -1,7 +1,7 @@
 # ISSUE-38
 - Issue: #38
 - Branch: task/38-p0-010-skill-system
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/44
 
 ## Plan
 - Add skill package + loader/validator
@@ -38,3 +38,8 @@
 - Command: `pnpm -C apps/desktop exec playwright test -c tests/e2e/playwright.config.ts tests/e2e/skills.spec.ts tests/e2e/ai-runtime.spec.ts`
 - Key output: `6 passed`
 - Evidence: `apps/desktop/tests/e2e/skills.spec.ts`
+
+### 2026-01-31 20:00 PR
+- Command: `git push -u origin HEAD && gh pr create ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/44`
+- Evidence: `openspec/_ops/task_runs/ISSUE-38.md`
