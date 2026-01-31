@@ -2,7 +2,7 @@
 
 - Issue: #54
 - Branch: task/54-cnwb-p1-batch
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/55
 
 ## Goal
 
@@ -10,13 +10,13 @@
 
 ## Status
 
-- CURRENT: P1 implementation complete; local typecheck/lint/unit/integration/e2e green; preparing docs close-out + PR.
+- CURRENT: MERGED (#55); controlplane synced; worktree cleaned.
 
 ## Next Actions
 
-- [ ] Close out P1 task cards (Status/Acceptance/Completion) + update Rulebook tasks checkboxes.
-- [ ] Commit/push branch + open PR with `Closes #54` and enable auto-merge.
-- [ ] Watch required checks and confirm merge; then backfill PR link into RUN_LOG + task cards.
+- [x] Close out P1 task cards (Status/Acceptance/Completion) + update Rulebook tasks checkboxes.
+- [x] Commit/push branch + open PR with `Closes #54` and enable auto-merge.
+- [x] Watch required checks and confirm merge; then backfill PR link into RUN_LOG + task cards.
 
 ## Decisions Made
 
@@ -108,3 +108,15 @@
 - Command: `pnpm desktop:test:e2e`
 - Key output: `25 passed`
 - Evidence: `apps/desktop/tests/e2e/*.spec.ts`
+
+### 2026-02-01 02:34 contract/check
+
+- Command: `pnpm contract:check`
+- Key output: `exit 0`
+- Evidence: `packages/shared/types/ipc-generated.ts`
+
+### 2026-02-01 02:40 merge verification
+
+- Command: `gh pr view 55 --json number,state,mergedAt --jq '"'"'"#"'"'"'+(.number|tostring)+" "+.state+" "+(.mergedAt // "")'`
+- Key output: `#55 MERGED 2026-01-31T18:39:01Z`
+- Evidence: https://github.com/Leeky1017/CreoNow/pull/55
