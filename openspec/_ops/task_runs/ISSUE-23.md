@@ -2,7 +2,7 @@
 
 - Issue: #23
 - Branch: task/23-docs-p0-task-cards-001-004
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/24
 
 ## Plan
 
@@ -20,3 +20,8 @@
 
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: `prettier/typecheck/lint/contract:check/test:unit ✅`
+
+### 2026-01-31 14:29 pr
+
+- Command: `gh pr create --title "Docs: close P0-001..P0-004 task cards (#23)" ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/24`
