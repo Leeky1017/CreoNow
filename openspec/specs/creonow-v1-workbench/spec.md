@@ -91,6 +91,40 @@ CN V1 的打包、运行与 E2E 测试 MUST 以 Windows 为最高优先级；任
 - **WHEN** E2E 运行
   - **THEN** MUST 使用隔离的 `CREONOW_USER_DATA_DIR`，不得污染真实用户数据
 
+<a id="cnwb-req-005"></a>
+
+### CNWB-REQ-005: Project 生命周期（create/list/setCurrent/delete + rootPath）
+
+系统 MUST 提供 project 生命周期与 “current project” 的稳定语义，用于承载 `.creonow/`（rules/settings/skills/constraints）、documents/filetree 与 Windows E2E 的可重复入口。
+
+#### Scenarios
+
+- **WHEN** 用户创建项目（或 E2E 创建项目）
+  - **THEN** MUST 生成稳定 `projectId`，并返回 `rootPath`
+  - **AND** MUST 确保 `<projectRoot>/.creonow/` 存在（见 `design/04-context-engineering.md`）
+  - **AND** `rootPath` MUST 支持空格/中文路径（Windows 常见）
+- **WHEN** 用户切换当前项目
+  - **THEN** MUST 持久化 `currentProjectId`，并在 app 重启后恢复
+- **WHEN** 用户删除项目
+  - **THEN** MUST 从 `project:list` 消失，且对该 `projectId` 的后续访问 MUST 返回 `NOT_FOUND`（不得 silent fallback）
+
+<a id="cnwb-req-006"></a>
+
+### CNWB-REQ-006: Documents / FileTree（最小闭环：create/open/switch/rename/delete）
+
+系统 MUST 在单个 project 内提供 documents 的最小闭环，并在 UI 提供 Sidebar Files（`12-sidebar-filetree.html`）作为可发现入口；documents 的编辑与保存必须与 `CNWB-REQ-020/030`（SSOT/版本）一致。
+
+#### Scenarios
+
+- **WHEN** 用户创建文档
+  - **THEN** MUST 返回稳定 `documentId`，并在 filetree 列表中可见
+- **WHEN** 用户切换当前文档（点击 filetree 项）
+  - **THEN** editor MUST 切换到对应文档内容，且 `currentDocumentId` MUST 可重启恢复（project 作用域）
+- **WHEN** 用户重命名/删除文档
+  - **THEN** filetree 与后端 list MUST 立刻一致，且错误语义可判定（例如删除不存在文档 → `NOT_FOUND`）
+- **WHEN** E2E 运行
+  - **THEN** MUST 提供稳定 `data-testid`（例如 `sidebar-files`、`file-row-<documentId>`）以断言创建/切换/重命名/删除
+
 <a id="cnwb-req-010"></a>
 
 ### CNWB-REQ-010: 前端必须以 DESIGN_DECISIONS 为 SSOT（深色主题 P0）

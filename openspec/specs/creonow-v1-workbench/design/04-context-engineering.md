@@ -40,6 +40,8 @@ CN V1 的上下文层为 4 层（注入顺序固定）：
       *.md
       *.txt
       *.json
+    skills/
+      **/*  # project scope skills（见 design/06-skill-system.md）
     characters/
       *.md | *.json
     conversations/
@@ -50,8 +52,14 @@ CN V1 的上下文层为 4 层（注入顺序固定）：
 
 约束：
 
-- `.creonow/**` 仅用于规则/设定/对话/缓存（不得把用户文档 SSOT 放进这里）。
+- `.creonow/**` 仅用于“AI 辅助元数据”（rules/settings/skills/characters/conversations/cache 等），不得把用户文档 SSOT 放进这里。
 - 在 prompt/viewer/log 中引用文件路径时 MUST 使用 project-relative 路径（例如 `.creonow/settings/世界观.md`），禁止绝对路径。
+
+### 2.1.1 Constraints SSOT（MUST：写死，禁止双栈）
+
+- `.creonow/rules/constraints.json` MUST 作为 constraints 的 **SSOT**（project 作用域）。`constraints:get/set` 必须读写该文件（或等价的 project-relative 文件），不得再引入第二份 DB SSOT。
+- constraints 的内容属于 `rules` 层：变更必须可解释且可验收（会影响 `stablePrefixHash`，见 §3）。
+- 若文件不存在：`constraints:get` MUST 返回默认值（并可选地在 ensure 时落盘默认文件），但行为必须确定且可测。
 
 ### 2.2 IPC 通道（V1 必须）
 

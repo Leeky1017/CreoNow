@@ -12,6 +12,7 @@ Status: pending
 - Spec: `../spec.md#cnwb-req-030`
 - Design: `../design/02-document-model-ssot.md`
 - Design: `../design/01-frontend-implementation.md`（稳定选择器）
+- P0-014: `./P0-014-project-lifecycle-and-current-project.md`（projectId/rootPath/current project）
 - P0-002: `./P0-002-ipc-contract-ssot-and-codegen.md`
 - P0-003: `./P0-003-renderer-design-tokens-appshell-resizer-preferences.md`
 - P0-004: `./P0-004-sqlite-bootstrap-migrations-logs.md`
@@ -28,8 +29,8 @@ Status: pending
 | Add    | `apps/desktop/main/src/services/documents/documentService.ts`（SSOT 写入 + derived 生成 + 事务）           |
 | Add    | `apps/desktop/main/src/services/documents/derive.ts`（`content_text`/`content_md` 生成）                   |
 | Update | `apps/desktop/main/src/db/migrations/0001_init.sql`（补齐 documents/document_versions 列与索引）           |
-| Add    | `apps/desktop/renderer/src/tests/e2e/editor-autosave.spec.ts`                                              |
-| Add    | `apps/desktop/renderer/src/tests/unit/derive.test.ts`                                                      |
+| Add    | `apps/desktop/tests/e2e/editor-autosave.spec.ts`                                                           |
+| Add    | `apps/desktop/tests/unit/derive.test.ts`                                                                   |
 
 ## Acceptance Criteria
 

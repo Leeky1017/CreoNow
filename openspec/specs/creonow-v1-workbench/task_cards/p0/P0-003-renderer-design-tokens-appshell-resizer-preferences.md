@@ -28,7 +28,7 @@ Status: pending
 | Add    | `apps/desktop/renderer/src/components/layout/Resizer.tsx`              |
 | Add    | `apps/desktop/renderer/src/lib/preferences.ts`（PreferenceStore 实现） |
 | Add    | `apps/desktop/renderer/src/stores/layoutStore.ts`                      |
-| Add    | `apps/desktop/renderer/src/tests/e2e/layout-panels.spec.ts`            |
+| Add    | `apps/desktop/tests/e2e/layout-panels.spec.ts`                         |
 | Update | `apps/desktop/renderer/src/App.tsx`（使用 AppShell）                   |
 
 ## Acceptance Criteria
