@@ -2,7 +2,7 @@
 
 - Issue: #47
 - Branch: task/47-windows-e2e-overlay-zindex
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/48
 
 ## Plan
 
@@ -52,3 +52,21 @@
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: exit 0
 - Evidence: prettier/typecheck/lint/contract/unit gates satisfied
+
+### 2026-01-31 21:02 push
+
+- Command: `git push -u origin HEAD`
+- Key output: pushed `task/47-windows-e2e-overlay-zindex`
+- Evidence: branch `task/47-windows-e2e-overlay-zindex`
+
+### 2026-01-31 21:02 pr
+
+- Command: `gh pr create ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/48`
+- Evidence: PR #48
+
+### 2026-01-31 21:02 auto-merge
+
+- Command: `gh pr merge 48 --auto --squash`
+- Key output: auto-merge enabled
+- Evidence: PR #48
