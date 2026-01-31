@@ -6,6 +6,7 @@ import type {
   IpcError,
   IpcInvokeResult,
   IpcRequest,
+  IpcResponseData,
 } from "../../../../../packages/shared/types/ipc-generated";
 import type { AiStreamEvent } from "../../../../../packages/shared/types/ai";
 
@@ -30,6 +31,7 @@ export type AiProposal = {
   selectionText: string;
   replacementText: string;
 };
+export type SkillListItem = IpcResponseData<"skill:list">["items"][number];
 
 export type IpcInvoke = <C extends IpcChannel>(
   channel: C,
@@ -39,6 +41,10 @@ export type IpcInvoke = <C extends IpcChannel>(
 export type AiState = {
   status: AiStatus;
   stream: boolean;
+  selectedSkillId: string;
+  skills: SkillListItem[];
+  skillsStatus: "idle" | "loading" | "ready" | "error";
+  skillsLastError: IpcError | null;
   input: string;
   outputText: string;
   activeRunId: string | null;
@@ -52,6 +58,8 @@ export type AiState = {
 
 export type AiActions = {
   setStream: (enabled: boolean) => void;
+  setSelectedSkillId: (skillId: string) => void;
+  refreshSkills: () => Promise<void>;
   setInput: (input: string) => void;
   clearError: () => void;
   setError: (error: IpcError | null) => void;
@@ -108,6 +116,10 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
   return create<AiStore>((set, get) => ({
     status: "idle",
     stream: true,
+    selectedSkillId: "builtin:polish",
+    skills: [],
+    skillsStatus: "idle",
+    skillsLastError: null,
     input: "",
     outputText: "",
     activeRunId: null,
@@ -119,6 +131,35 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
     applyStatus: "idle",
 
     setStream: (enabled) => set({ stream: enabled }),
+
+    setSelectedSkillId: (skillId) => set({ selectedSkillId: skillId }),
+
+    refreshSkills: async () => {
+      const state = get();
+      if (state.skillsStatus === "loading") {
+        return;
+      }
+
+      set({ skillsStatus: "loading", skillsLastError: null });
+
+      const res = await deps.invoke("skill:list", { includeDisabled: true });
+      if (!res.ok) {
+        set({ skillsStatus: "error", skillsLastError: res.error });
+        return;
+      }
+
+      const currentSelected = get().selectedSkillId;
+      const selectedExists = res.data.items.some((s) => s.id === currentSelected);
+      const fallback =
+        res.data.items.find((s) => s.enabled && s.valid)?.id ?? currentSelected;
+
+      set({
+        skillsStatus: "ready",
+        skills: res.data.items,
+        skillsLastError: null,
+        selectedSkillId: selectedExists ? currentSelected : fallback,
+      });
+    },
 
     setInput: (input) => set({ input }),
 
@@ -175,6 +216,26 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         return;
       }
 
+      const selectedSkill =
+        state.skills.find((s) => s.id === state.selectedSkillId) ?? null;
+      if (selectedSkill && !selectedSkill.enabled) {
+        set({
+          status: "error",
+          lastError: { code: "UNSUPPORTED", message: "Skill is disabled" },
+        });
+        return;
+      }
+      if (selectedSkill && !selectedSkill.valid) {
+        set({
+          status: "error",
+          lastError: {
+            code: selectedSkill.error_code ?? "INVALID_ARGUMENT",
+            message: selectedSkill.error_message ?? "Skill is invalid",
+          },
+        });
+        return;
+      }
+
       set({
         status: "running",
         outputText: "",
@@ -186,7 +247,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       });
 
       const res = await deps.invoke("ai:skill:run", {
-        skillId: "builtin.e2e",
+        skillId: state.selectedSkillId,
         input: state.input,
         stream: state.stream,
         context: {},

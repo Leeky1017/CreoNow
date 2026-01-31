@@ -5,6 +5,7 @@ import { useEditorStore } from "../../stores/editorStore";
 import { unifiedDiff } from "../../lib/diff/unifiedDiff";
 import { DiffView } from "./DiffView";
 import { applySelection, captureSelectionRef } from "./applySelection";
+import { SkillPicker } from "./SkillPicker";
 import { useAiStream } from "./useAiStream";
 
 /**
@@ -27,6 +28,10 @@ export function AiPanel(): JSX.Element {
 
   const status = useAiStore((s) => s.status);
   const stream = useAiStore((s) => s.stream);
+  const selectedSkillId = useAiStore((s) => s.selectedSkillId);
+  const skills = useAiStore((s) => s.skills);
+  const skillsStatus = useAiStore((s) => s.skillsStatus);
+  const skillsLastError = useAiStore((s) => s.skillsLastError);
   const input = useAiStore((s) => s.input);
   const outputText = useAiStore((s) => s.outputText);
   const lastRunId = useAiStore((s) => s.lastRunId);
@@ -38,6 +43,8 @@ export function AiPanel(): JSX.Element {
 
   const setInput = useAiStore((s) => s.setInput);
   const setStream = useAiStore((s) => s.setStream);
+  const setSelectedSkillId = useAiStore((s) => s.setSelectedSkillId);
+  const refreshSkills = useAiStore((s) => s.refreshSkills);
   const clearError = useAiStore((s) => s.clearError);
   const setError = useAiStore((s) => s.setError);
   const setSelectionSnapshot = useAiStore((s) => s.setSelectionSnapshot);
@@ -50,6 +57,12 @@ export function AiPanel(): JSX.Element {
   const editor = useEditorStore((s) => s.editor);
   const projectId = useEditorStore((s) => s.projectId);
   const documentId = useEditorStore((s) => s.documentId);
+
+  const [skillsOpen, setSkillsOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    void refreshSkills();
+  }, [refreshSkills]);
 
   React.useEffect(() => {
     if (status !== "idle") {
@@ -142,6 +155,9 @@ export function AiPanel(): JSX.Element {
     });
   }
 
+  const selectedSkillName =
+    skills.find((s) => s.id === selectedSkillId)?.name ?? selectedSkillId;
+
   return (
     <section
       data-testid="ai-panel"
@@ -151,14 +167,37 @@ export function AiPanel(): JSX.Element {
         gap: 12,
         padding: 12,
         minHeight: 0,
+        position: "relative",
       }}
     >
       <header style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>AI</div>
+        <button
+          data-testid="ai-skills-toggle"
+          type="button"
+          onClick={() => setSkillsOpen((v) => !v)}
+          style={{
+            marginLeft: "auto",
+            border: "1px solid var(--color-separator)",
+            background: "transparent",
+            color: "var(--color-fg-muted)",
+            borderRadius: 8,
+            padding: "4px 8px",
+            fontSize: 12,
+            cursor: "pointer",
+            maxWidth: 220,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={selectedSkillName}
+        >
+          {skillsStatus === "loading" ? "Skills…" : selectedSkillName}
+        </button>
         <div
           data-testid="ai-status"
           style={{
-            marginLeft: "auto",
+            marginLeft: 8,
             fontSize: 11,
             color: "var(--color-fg-muted)",
           }}
@@ -167,12 +206,41 @@ export function AiPanel(): JSX.Element {
         </div>
       </header>
 
+      <SkillPicker
+        open={skillsOpen}
+        items={skills}
+        selectedSkillId={selectedSkillId}
+        onOpenChange={setSkillsOpen}
+        onSelectSkillId={(skillId) => {
+          setSelectedSkillId(skillId);
+          setSkillsOpen(false);
+        }}
+      />
+
       {applyStatus === "applied" ? (
         <div
           data-testid="ai-apply-status"
           style={{ fontSize: 12, color: "var(--color-fg-muted)" }}
         >
           Applied &amp; saved
+        </div>
+      ) : null}
+
+      {skillsLastError ? (
+        <div
+          style={{
+            border: "1px solid var(--color-separator)",
+            borderRadius: 8,
+            padding: 10,
+            background: "var(--color-bg-base)",
+            color: "var(--color-fg-muted)",
+            fontSize: 12,
+          }}
+        >
+          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+            {skillsLastError.code}
+          </div>
+          <div style={{ marginTop: 6 }}>{skillsLastError.message}</div>
         </div>
       ) : null}
 

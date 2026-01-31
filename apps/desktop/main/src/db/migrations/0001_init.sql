@@ -42,7 +42,9 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE TABLE IF NOT EXISTS skills (
   skill_id TEXT PRIMARY KEY,
   enabled INTEGER NOT NULL,
-  package_json TEXT NOT NULL,
+  valid INTEGER NOT NULL,
+  error_code TEXT,
+  error_message TEXT,
   updated_at INTEGER NOT NULL
 );
 

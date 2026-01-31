@@ -17,6 +17,7 @@ export type AiProvider = "anthropic" | "openai" | "proxy";
 export type AiService = {
   runSkill: (args: {
     skillId: string;
+    systemPrompt?: string;
     input: string;
     context?: { projectId?: string; documentId?: string };
     stream: boolean;
@@ -383,9 +384,18 @@ export function createAiService(deps: {
   async function runOpenAiNonStream(args: {
     entry: RunEntry;
     cfg: ProviderConfig;
+    systemPrompt?: string;
     input: string;
   }): Promise<ServiceResult<string>> {
     const url = new URL("/v1/chat/completions", args.cfg.baseUrl).toString();
+
+    const messages =
+      typeof args.systemPrompt === "string" && args.systemPrompt.trim().length
+        ? [
+            { role: "system", content: args.systemPrompt },
+            { role: "user", content: args.input },
+          ]
+        : [{ role: "user", content: args.input }];
 
     const res = await fetch(url, {
       method: "POST",
@@ -397,7 +407,7 @@ export function createAiService(deps: {
       },
       body: JSON.stringify({
         model: "fake",
-        messages: [{ role: "user", content: args.input }],
+        messages,
         stream: false,
       }),
       signal: args.entry.controller.signal,
@@ -427,6 +437,7 @@ export function createAiService(deps: {
   async function runAnthropicNonStream(args: {
     entry: RunEntry;
     cfg: ProviderConfig;
+    systemPrompt?: string;
     input: string;
   }): Promise<ServiceResult<string>> {
     const url = new URL("/v1/messages", args.cfg.baseUrl).toString();
@@ -440,6 +451,10 @@ export function createAiService(deps: {
       body: JSON.stringify({
         model: "fake",
         max_tokens: 256,
+        ...(typeof args.systemPrompt === "string" &&
+        args.systemPrompt.trim().length
+          ? { system: args.systemPrompt }
+          : {}),
         messages: [{ role: "user", content: args.input }],
         stream: false,
       }),
@@ -470,9 +485,18 @@ export function createAiService(deps: {
   async function runOpenAiStream(args: {
     entry: RunEntry;
     cfg: ProviderConfig;
+    systemPrompt?: string;
     input: string;
   }): Promise<ServiceResult<true>> {
     const url = new URL("/v1/chat/completions", args.cfg.baseUrl).toString();
+
+    const messages =
+      typeof args.systemPrompt === "string" && args.systemPrompt.trim().length
+        ? [
+            { role: "system", content: args.systemPrompt },
+            { role: "user", content: args.input },
+          ]
+        : [{ role: "user", content: args.input }];
 
     const res = await fetch(url, {
       method: "POST",
@@ -484,7 +508,7 @@ export function createAiService(deps: {
       },
       body: JSON.stringify({
         model: "fake",
-        messages: [{ role: "user", content: args.input }],
+        messages,
         stream: true,
       }),
       signal: args.entry.controller.signal,
@@ -540,6 +564,7 @@ export function createAiService(deps: {
   async function runAnthropicStream(args: {
     entry: RunEntry;
     cfg: ProviderConfig;
+    systemPrompt?: string;
     input: string;
   }): Promise<ServiceResult<true>> {
     const url = new URL("/v1/messages", args.cfg.baseUrl).toString();
@@ -553,6 +578,10 @@ export function createAiService(deps: {
       body: JSON.stringify({
         model: "fake",
         max_tokens: 256,
+        ...(typeof args.systemPrompt === "string" &&
+        args.systemPrompt.trim().length
+          ? { system: args.systemPrompt }
+          : {}),
         messages: [{ role: "user", content: args.input }],
         stream: true,
       }),
@@ -661,8 +690,18 @@ export function createAiService(deps: {
         try {
           const res =
             cfg.provider === "anthropic"
-              ? await runAnthropicStream({ entry, cfg, input: args.input })
-              : await runOpenAiStream({ entry, cfg, input: args.input });
+              ? await runAnthropicStream({
+                  entry,
+                  cfg,
+                  systemPrompt: args.systemPrompt,
+                  input: args.input,
+                })
+              : await runOpenAiStream({
+                  entry,
+                  cfg,
+                  systemPrompt: args.systemPrompt,
+                  input: args.input,
+                });
 
           if (!res.ok) {
             setTerminal({
@@ -733,8 +772,18 @@ export function createAiService(deps: {
     try {
       const res =
         cfg.provider === "anthropic"
-          ? await runAnthropicNonStream({ entry, cfg, input: args.input })
-          : await runOpenAiNonStream({ entry, cfg, input: args.input });
+          ? await runAnthropicNonStream({
+              entry,
+              cfg,
+              systemPrompt: args.systemPrompt,
+              input: args.input,
+            })
+          : await runOpenAiNonStream({
+              entry,
+              cfg,
+              systemPrompt: args.systemPrompt,
+              input: args.input,
+            });
 
       if (!res.ok) {
         setTerminal({
