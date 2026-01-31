@@ -1,6 +1,6 @@
 # P0-003: Renderer 基础工程（tokens + AppShell/Resizer + PreferenceStore）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -33,33 +33,33 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] 深色主题 tokens 落地：
-  - [ ] 所有颜色使用 CSS Variables（禁止硬编码色值）
-  - [ ] `<html data-theme="dark">` 生效
-- [ ] AppShell 布局符合 MUST 尺寸：
-  - [ ] IconBar=48px、StatusBar=28px
-  - [ ] Sidebar/Panel 可拖拽且有 min/max（Sidebar 180–400；Panel 280–480）
-  - [ ] 拖拽手柄 hit area=8px；分割线=1px；hover=2px 高亮；cursor 正确
-  - [ ] 双击手柄恢复默认宽度
-- [ ] PreferenceStore（同步接口）：
-  - [ ] `get/set/remove/clear` 同步 API
-  - [ ] key 命名符合 `creonow.layout.*` 与 `creonow.version`
-  - [ ] 释放拖拽后必须持久化 sidebarWidth/panelWidth 等
-- [ ] 稳定选择器（至少）：
-  - [ ] `app-shell`, `layout-sidebar`, `layout-panel`, `layout-statusbar`
-  - [ ] `resize-handle-sidebar`, `resize-handle-panel`
-- [ ] 快捷键（最小，必须可测）：
-  - [ ] `Cmd/Ctrl+P` 打开命令面板（可先空壳，但入口必须存在）
-  - [ ] `Cmd/Ctrl+\\` 折叠左侧 sidebar
-  - [ ] `Cmd/Ctrl+L` 打开/折叠右侧 AI panel（可先占位）
-  - [ ] `F11` 进入/退出禅模式（隐藏 sidebar/panel）
+- [x] 深色主题 tokens 落地：
+  - [x] 所有颜色使用 CSS Variables（禁止硬编码色值）
+  - [x] `<html data-theme="dark">` 生效
+- [x] AppShell 布局符合 MUST 尺寸：
+  - [x] IconBar=48px、StatusBar=28px
+  - [x] Sidebar/Panel 可拖拽且有 min/max（Sidebar 180–400；Panel 280–480）
+  - [x] 拖拽手柄 hit area=8px；分割线=1px；hover=2px 高亮；cursor 正确
+  - [x] 双击手柄恢复默认宽度
+- [x] PreferenceStore（同步接口）：
+  - [x] `get/set/remove/clear` 同步 API
+  - [x] key 命名符合 `creonow.layout.*` 与 `creonow.version`
+  - [x] 释放拖拽后必须持久化 sidebarWidth/panelWidth 等
+- [x] 稳定选择器（至少）：
+  - [x] `app-shell`, `layout-sidebar`, `layout-panel`, `layout-statusbar`
+  - [x] `resize-handle-sidebar`, `resize-handle-panel`
+- [x] 快捷键（最小，必须可测）：
+  - [x] `Cmd/Ctrl+P` 打开命令面板（可先空壳，但入口必须存在）
+  - [x] `Cmd/Ctrl+\\` 折叠左侧 sidebar
+  - [x] `Cmd/Ctrl+L` 打开/折叠右侧 AI panel（可先占位）
+  - [x] `F11` 进入/退出禅模式（隐藏 sidebar/panel）
 
 ## Tests
 
-- [ ] E2E（Windows）`layout-panels.spec.ts`：
-  - [ ] 拖拽 sidebar 宽度到边界 → clamp 生效
-  - [ ] 双击复位 → 宽度回到默认值
-  - [ ] 重启 app → 宽度持久化（PreferenceStore）
+- [x] E2E（Windows）`layout-panels.spec.ts`：
+  - [x] 拖拽 sidebar 宽度到边界 → clamp 生效
+  - [x] 双击复位 → 宽度回到默认值
+  - [x] 重启 app → 宽度持久化（PreferenceStore）
 
 ## Edge cases & Failure modes
 
@@ -70,3 +70,9 @@ Status: pending
 
 - renderer 侧（可选）记录布局变更事件（不含敏感信息）
 - E2E 必须断言 UI 证据（布局宽度/可见性）与持久化证据（重启后保持）
+
+## Completion
+
+- Issue: #19
+- PR: #20
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-19.md`
