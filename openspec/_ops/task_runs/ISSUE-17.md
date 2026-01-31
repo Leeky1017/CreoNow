@@ -2,7 +2,7 @@
 
 - Issue: #17
 - Branch: task/17-p0-002-ipc-contract-codegen
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/18
 
 ## Plan
 
