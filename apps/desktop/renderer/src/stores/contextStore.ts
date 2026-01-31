@@ -1,5 +1,6 @@
 import React from "react";
 import { create } from "zustand";
+import { parseDocument } from "yaml";
 
 import type {
   IpcChannel,
@@ -9,6 +10,7 @@ import type {
 } from "../../../../../packages/shared/types/ipc-generated";
 import {
   assembleContext,
+  formatKnowledgeGraphContext,
   type AssembledContext,
   type TrimEvidenceItem,
 } from "../lib/ai/contextAssembler";
@@ -34,10 +36,12 @@ export type ContextState = {
 export type ContextActions = {
   toggleViewer: (args: {
     projectId: string | null;
+    skillId: string | null;
     immediateInput: string;
   }) => Promise<void>;
   refresh: (args: {
     projectId: string | null;
+    skillId: string | null;
     immediateInput: string;
   }) => Promise<AssembledContext>;
   clearError: () => void;
@@ -58,6 +62,143 @@ const DEFAULT_MAX_INPUT_TOKENS = 4000;
  * while `.creonow` IO remains in the main process behind typed IPC.
  */
 export function createContextStore(deps: { invoke: IpcInvoke }) {
+  type JsonObject = Record<string, unknown>;
+
+  /**
+   * Narrow an unknown value to a JSON object.
+   *
+   * Why: skill YAML parsing must be defensive and must not throw from untrusted content.
+   */
+  function asObject(x: unknown): JsonObject | null {
+    if (typeof x !== "object" || x === null || Array.isArray(x)) {
+      return null;
+    }
+    return x as JsonObject;
+  }
+
+  /**
+   * Split YAML frontmatter from a SKILL.md content string.
+   *
+   * Why: context rules are defined in YAML, but the renderer only needs a small,
+   * deterministic subset to decide what to inject.
+   */
+  function splitFrontmatter(content: string): string | null {
+    const normalized = content.replace(/\r\n/g, "\n");
+    const lines = normalized.split("\n");
+    if (lines.length === 0 || lines[0]?.trim() !== "---") {
+      return null;
+    }
+
+    let endIndex = -1;
+    for (let i = 1; i < lines.length; i += 1) {
+      if (lines[i]?.trim() === "---") {
+        endIndex = i;
+        break;
+      }
+    }
+    if (endIndex === -1) {
+      return null;
+    }
+
+    return lines.slice(1, endIndex).join("\n");
+  }
+
+  /**
+   * Read `context_rules.knowledge_graph` from a skill's YAML frontmatter.
+   *
+   * Why: KG injection must be explicitly enabled by the skill contract to keep
+   * prompt inputs auditable and predictable.
+   */
+  async function isKnowledgeGraphEnabled(skillId: string | null): Promise<boolean> {
+    if (!skillId) {
+      return false;
+    }
+
+    const res = await deps.invoke("skill:read", { id: skillId });
+    if (!res.ok) {
+      return false;
+    }
+
+    const frontmatterText = splitFrontmatter(res.data.content);
+    if (!frontmatterText) {
+      return false;
+    }
+
+    const doc = parseDocument(frontmatterText);
+    if (doc.errors.length > 0) {
+      return false;
+    }
+
+    const parsed: unknown = doc.toJSON();
+    const obj = asObject(parsed);
+    const contextRules = asObject(obj?.context_rules);
+    return contextRules?.knowledge_graph === true;
+  }
+
+  /**
+   * Load and format the KG context block (retrieved layer) when enabled.
+   *
+   * Why: KG is stored in SQLite (main) but must be injected into a deterministic
+   * retrieved layer for context viewer and prompt assembly.
+   */
+  async function loadKnowledgeGraphContext(args: {
+    projectId: string;
+    enabled: boolean;
+  }): Promise<{
+    sources: Array<{ sourceRef: string; text: string }>;
+    redactionEvidence: RedactionEvidenceItem[];
+    readErrors: TrimEvidenceItem[];
+  }> {
+    if (!args.enabled) {
+      return { sources: [], redactionEvidence: [], readErrors: [] };
+    }
+
+    const res = await deps.invoke("kg:graph:get", {
+      projectId: args.projectId,
+      purpose: "context",
+    });
+
+    if (!res.ok) {
+      return {
+        sources: [],
+        redactionEvidence: [],
+        readErrors: [
+          {
+            layer: "retrieved",
+            sourceRef: "kg:graph:get",
+            action: "dropped",
+            reason: "read_error",
+            beforeChars: 0,
+            afterChars: 0,
+          },
+        ],
+      };
+    }
+
+    const formatted = formatKnowledgeGraphContext({
+      entities: res.data.entities,
+      relations: res.data.relations,
+      maxEntities: 50,
+      maxRelations: 50,
+    });
+
+    const redacted = redactText({
+      text: formatted,
+      sourceRef: "retrieved:knowledge_graph",
+    });
+
+    return {
+      sources: [
+        {
+          sourceRef: "retrieved:knowledge_graph",
+          text: redacted.redactedText,
+        },
+      ],
+      redactionEvidence: redacted.evidence,
+      readErrors: [],
+    };
+  }
+
   /**
    * Load `.creonow/<scope>` file contents via IPC.
    *
@@ -142,15 +283,15 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
 
     clearError: () => set({ lastError: null }),
 
-    toggleViewer: async ({ projectId, immediateInput }) => {
+    toggleViewer: async ({ projectId, skillId, immediateInput }) => {
       const next = !get().viewerOpen;
       set({ viewerOpen: next });
       if (next) {
-        await get().refresh({ projectId, immediateInput });
+        await get().refresh({ projectId, skillId, immediateInput });
       }
     },
 
-    refresh: async ({ projectId, immediateInput }) => {
+    refresh: async ({ projectId, skillId, immediateInput }) => {
       const state = get();
       if (state.status === "loading") {
         return (
@@ -192,13 +333,19 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
         return assembled;
       }
 
+      const knowledgeGraphEnabled = await isKnowledgeGraphEnabled(skillId);
+
       const rules = await loadCreonowScope({ projectId, scope: "rules" });
       const settings = await loadCreonowScope({ projectId, scope: "settings" });
+      const knowledgeGraph = await loadKnowledgeGraphContext({
+        projectId,
+        enabled: knowledgeGraphEnabled,
+      });
 
       const assembled = assembleContext({
         rules: rules.sources,
         settings: settings.sources,
-        retrieved: [],
+        retrieved: knowledgeGraph.sources,
         immediate: [
           {
             sourceRef: "immediate:ai_panel_input",
@@ -209,6 +356,7 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
         redactionEvidence: [
           ...rules.redactionEvidence,
           ...settings.redactionEvidence,
+          ...knowledgeGraph.redactionEvidence,
           ...immediateRedacted.evidence,
         ],
       });
@@ -216,6 +364,7 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
       const mergedEvidence: TrimEvidenceItem[] = [
         ...rules.readErrors,
         ...settings.readErrors,
+        ...knowledgeGraph.readErrors,
         ...assembled.trimEvidence,
       ];
 

@@ -74,6 +74,15 @@ export const IPC_CHANNELS = [
   "file:document:write",
   "judge:model:ensure",
   "judge:model:getState",
+  "kg:entity:create",
+  "kg:entity:delete",
+  "kg:entity:list",
+  "kg:entity:update",
+  "kg:graph:get",
+  "kg:relation:create",
+  "kg:relation:delete",
+  "kg:relation:list",
+  "kg:relation:update",
   "memory:create",
   "memory:delete",
   "memory:injection:preview",
@@ -428,6 +437,170 @@ export type IpcChannelSpec = {
             };
             status: "error";
           };
+    };
+  };
+  "kg:entity:create": {
+    request: {
+      description?: string;
+      entityType?: string;
+      metadataJson?: string;
+      name: string;
+      projectId: string;
+    };
+    response: {
+      createdAt: number;
+      description?: string;
+      entityId: string;
+      entityType?: string;
+      metadataJson: string;
+      name: string;
+      projectId: string;
+      updatedAt: number;
+    };
+  };
+  "kg:entity:delete": {
+    request: {
+      entityId: string;
+    };
+    response: {
+      deleted: true;
+    };
+  };
+  "kg:entity:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        createdAt: number;
+        description?: string;
+        entityId: string;
+        entityType?: string;
+        metadataJson: string;
+        name: string;
+        projectId: string;
+        updatedAt: number;
+      }>;
+    };
+  };
+  "kg:entity:update": {
+    request: {
+      entityId: string;
+      patch: {
+        description?: string;
+        entityType?: string;
+        metadataJson?: string;
+        name?: string;
+      };
+    };
+    response: {
+      createdAt: number;
+      description?: string;
+      entityId: string;
+      entityType?: string;
+      metadataJson: string;
+      name: string;
+      projectId: string;
+      updatedAt: number;
+    };
+  };
+  "kg:graph:get": {
+    request: {
+      projectId: string;
+      purpose?: "ui" | "context";
+    };
+    response: {
+      entities: Array<{
+        createdAt: number;
+        description?: string;
+        entityId: string;
+        entityType?: string;
+        metadataJson: string;
+        name: string;
+        projectId: string;
+        updatedAt: number;
+      }>;
+      relations: Array<{
+        createdAt: number;
+        evidenceJson: string;
+        fromEntityId: string;
+        metadataJson: string;
+        projectId: string;
+        relationId: string;
+        relationType: string;
+        toEntityId: string;
+        updatedAt: number;
+      }>;
+    };
+  };
+  "kg:relation:create": {
+    request: {
+      evidenceJson?: string;
+      fromEntityId: string;
+      metadataJson?: string;
+      projectId: string;
+      relationType: string;
+      toEntityId: string;
+    };
+    response: {
+      createdAt: number;
+      evidenceJson: string;
+      fromEntityId: string;
+      metadataJson: string;
+      projectId: string;
+      relationId: string;
+      relationType: string;
+      toEntityId: string;
+      updatedAt: number;
+    };
+  };
+  "kg:relation:delete": {
+    request: {
+      relationId: string;
+    };
+    response: {
+      deleted: true;
+    };
+  };
+  "kg:relation:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        createdAt: number;
+        evidenceJson: string;
+        fromEntityId: string;
+        metadataJson: string;
+        projectId: string;
+        relationId: string;
+        relationType: string;
+        toEntityId: string;
+        updatedAt: number;
+      }>;
+    };
+  };
+  "kg:relation:update": {
+    request: {
+      patch: {
+        evidenceJson?: string;
+        fromEntityId?: string;
+        metadataJson?: string;
+        relationType?: string;
+        toEntityId?: string;
+      };
+      relationId: string;
+    };
+    response: {
+      createdAt: number;
+      evidenceJson: string;
+      fromEntityId: string;
+      metadataJson: string;
+      projectId: string;
+      relationId: string;
+      relationType: string;
+      toEntityId: string;
+      updatedAt: number;
     };
   };
   "memory:create": {

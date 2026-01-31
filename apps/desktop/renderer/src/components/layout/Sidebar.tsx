@@ -1,9 +1,10 @@
 import React from "react";
 
 import { FileTreePanel } from "../../features/files/FileTreePanel";
+import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
 
-type SidebarTab = "files";
+type SidebarTab = "files" | "kg";
 
 /**
  * Sidebar is the left panel container (Files/Outline/etc).
@@ -69,11 +70,36 @@ export function Sidebar(props: {
         >
           Files
         </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("kg")}
+          style={{
+            fontSize: 12,
+            padding: "var(--space-1) var(--space-2)",
+            borderRadius: "var(--radius-md)",
+            border:
+              activeTab === "kg"
+                ? "1px solid var(--color-border-focus)"
+                : "1px solid var(--color-border-default)",
+            background:
+              activeTab === "kg"
+                ? "var(--color-bg-selected)"
+                : "var(--color-bg-surface)",
+            color: "var(--color-fg-default)",
+            cursor: "pointer",
+          }}
+        >
+          KG
+        </button>
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
-        {props.projectId && activeTab === "files" ? (
-          <FileTreePanel projectId={props.projectId} />
+        {props.projectId ? (
+          activeTab === "files" ? (
+            <FileTreePanel projectId={props.projectId} />
+          ) : (
+            <KnowledgeGraphPanel projectId={props.projectId} />
+          )
         ) : (
           <div
             style={{

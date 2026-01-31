@@ -136,6 +136,7 @@ export function AiPanel(): JSX.Element {
 
     const assembled = await refreshContext({
       projectId: currentProject?.projectId ?? projectId ?? null,
+      skillId: selectedSkillId ?? null,
       immediateInput: input,
     });
 
@@ -205,6 +206,7 @@ export function AiPanel(): JSX.Element {
             onClick={() =>
               void toggleViewer({
                 projectId: currentProject?.projectId ?? projectId ?? null,
+                skillId: selectedSkillId ?? null,
                 immediateInput: input,
               })
             }
@@ -475,4 +477,3 @@ export function AiPanel(): JSX.Element {
     </section>
   );
 }
-

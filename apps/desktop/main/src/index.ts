@@ -11,6 +11,7 @@ import { registerContextIpcHandlers } from "./ipc/context";
 import { registerConstraintsIpcHandlers } from "./ipc/constraints";
 import { registerFileIpcHandlers } from "./ipc/file";
 import { registerJudgeIpcHandlers } from "./ipc/judge";
+import { registerKnowledgeGraphIpcHandlers } from "./ipc/knowledgeGraph";
 import { registerMemoryIpcHandlers } from "./ipc/memory";
 import { registerProjectIpcHandlers } from "./ipc/project";
 import { registerSkillIpcHandlers } from "./ipc/skills";
@@ -220,6 +221,12 @@ function registerIpcHandlers(deps: {
   });
 
   registerMemoryIpcHandlers({
+    ipcMain,
+    db: deps.db,
+    logger: deps.logger,
+  });
+
+  registerKnowledgeGraphIpcHandlers({
     ipcMain,
     db: deps.db,
     logger: deps.logger,

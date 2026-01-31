@@ -10,6 +10,7 @@ import {
 } from "./stores/contextStore";
 import { createEditorStore, EditorStoreProvider } from "./stores/editorStore";
 import { createFileStore, FileStoreProvider } from "./stores/fileStore";
+import { createKgStore, KgStoreProvider } from "./stores/kgStore";
 import { createLayoutStore, LayoutStoreProvider } from "./stores/layoutStore";
 import { createMemoryStore, MemoryStoreProvider } from "./stores/memoryStore";
 import {
@@ -46,6 +47,10 @@ export function App(): JSX.Element {
     return createFileStore({ invoke });
   }, []);
 
+  const kgStore = React.useMemo(() => {
+    return createKgStore({ invoke });
+  }, []);
+
   const memoryStore = React.useMemo(() => {
     return createMemoryStore({ invoke });
   }, []);
@@ -56,11 +61,13 @@ export function App(): JSX.Element {
         <ContextStoreProvider store={contextStore}>
           <EditorStoreProvider store={editorStore}>
             <FileStoreProvider store={fileStore}>
-              <MemoryStoreProvider store={memoryStore}>
-              <LayoutStoreProvider store={layoutStore}>
-                <AppShell />
-              </LayoutStoreProvider>
-              </MemoryStoreProvider>
+              <KgStoreProvider store={kgStore}>
+                <MemoryStoreProvider store={memoryStore}>
+                  <LayoutStoreProvider store={layoutStore}>
+                    <AppShell />
+                  </LayoutStoreProvider>
+                </MemoryStoreProvider>
+              </KgStoreProvider>
             </FileStoreProvider>
           </EditorStoreProvider>
         </ContextStoreProvider>
