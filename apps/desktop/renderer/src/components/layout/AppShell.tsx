@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
 import { Resizer } from "./Resizer";
 import { CommandPalette } from "../../features/commandPalette/CommandPalette";
+import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
 
 /**
  * Clamp a value between min/max bounds.
@@ -174,7 +175,7 @@ export function AppShell(): JSX.Element {
               fontSize: 13,
             }}
           >
-            Editor (placeholder)
+            <WelcomeScreen />
           </main>
 
           {!panelCollapsed ? (

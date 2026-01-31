@@ -32,5 +32,46 @@ export const ipcContract = {
       request: s.object({}),
       response: s.object({ tableNames: s.array(s.string()) }),
     },
+    "project:create": {
+      request: s.object({ name: s.optional(s.string()) }),
+      response: s.object({ projectId: s.string(), rootPath: s.string() }),
+    },
+    "project:list": {
+      request: s.object({ includeDeleted: s.optional(s.boolean()) }),
+      response: s.object({
+        items: s.array(
+          s.object({
+            projectId: s.string(),
+            name: s.string(),
+            rootPath: s.string(),
+            updatedAt: s.number(),
+          }),
+        ),
+      }),
+    },
+    "project:getCurrent": {
+      request: s.object({}),
+      response: s.object({ projectId: s.string(), rootPath: s.string() }),
+    },
+    "project:setCurrent": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({ projectId: s.string(), rootPath: s.string() }),
+    },
+    "project:delete": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({ deleted: s.literal(true) }),
+    },
+    "context:creonow:ensure": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({ rootPath: s.string(), ensured: s.literal(true) }),
+    },
+    "context:creonow:status": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({
+        exists: s.boolean(),
+        watching: s.boolean(),
+        rootPath: s.optional(s.string()),
+      }),
+    },
   },
 } as const;

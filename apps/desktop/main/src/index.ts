@@ -6,6 +6,8 @@ import { BrowserWindow, app, ipcMain } from "electron";
 
 import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
 import { initDb, type DbInitOk } from "./db/init";
+import { registerCreonowContextIpcHandlers } from "./ipc/contextCreonow";
+import { registerProjectIpcHandlers } from "./ipc/project";
 import { createMainLogger, type Logger } from "./logging/logger";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -81,6 +83,7 @@ function createMainWindow(): BrowserWindow {
 function registerIpcHandlers(deps: {
   db: DbInitOk["db"] | null;
   logger: Logger;
+  userDataDir: string;
 }): void {
   ipcMain.handle(
     "app:ping",
@@ -126,6 +129,19 @@ function registerIpcHandlers(deps: {
       }
     },
   );
+
+  registerProjectIpcHandlers({
+    ipcMain,
+    db: deps.db,
+    userDataDir: deps.userDataDir,
+    logger: deps.logger,
+  });
+
+  registerCreonowContextIpcHandlers({
+    ipcMain,
+    db: deps.db,
+    logger: deps.logger,
+  });
 }
 
 enableE2EUserDataIsolation();
@@ -141,7 +157,7 @@ void app.whenReady().then(() => {
     logger.error("db_init_failed", { code: dbRes.error.code });
   }
 
-  registerIpcHandlers({ db, logger });
+  registerIpcHandlers({ db, logger, userDataDir });
 
   createMainWindow();
 
