@@ -75,7 +75,9 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
   });
   expect(project.ok).toBe(true);
   if (!project.ok) {
-    throw new Error(`Expected ok project:getCurrent, got: ${project.error.code}`);
+    throw new Error(
+      `Expected ok project:getCurrent, got: ${project.error.code}`,
+    );
   }
   const projectId = project.data.projectId;
 
@@ -169,7 +171,9 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
         relationType: "knows",
       });
       if (!res.ok) {
-        throw new Error(`Expected ok kg:relation:create, got: ${res.error.code}`);
+        throw new Error(
+          `Expected ok kg:relation:create, got: ${res.error.code}`,
+        );
       }
       return res.data;
     },
@@ -218,7 +222,9 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
       `Expected ok skill:list, got: ${skillsAfterWrite.error.code}`,
     );
   }
-  const polish = skillsAfterWrite.data.items.find((s) => s.id === "builtin:polish");
+  const polish = skillsAfterWrite.data.items.find(
+    (s) => s.id === "builtin:polish",
+  );
   if (!polish) {
     throw new Error("Missing builtin:polish after write");
   }

@@ -40,7 +40,9 @@ export type KgActions = {
       Pick<KgEntity, "name" | "entityType" | "description" | "metadataJson">
     >;
   }) => Promise<IpcResponse<IpcResponseData<"kg:entity:update">>>;
-  entityDelete: (args: { entityId: string }) => Promise<IpcResponse<{ deleted: true }>>;
+  entityDelete: (args: {
+    entityId: string;
+  }) => Promise<IpcResponse<{ deleted: true }>>;
   relationCreate: (args: {
     fromEntityId: string;
     toEntityId: string;
@@ -227,7 +229,10 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
     },
 
     relationUpdate: async ({ relationId, patch }) => {
-      const res = await deps.invoke("kg:relation:update", { relationId, patch });
+      const res = await deps.invoke("kg:relation:update", {
+        relationId,
+        patch,
+      });
       if (!res.ok) {
         set({ lastError: res.error });
         return res;
@@ -274,4 +279,3 @@ export function useKgStore<T>(selector: (state: KgStore) => T): T {
   }
   return store(selector);
 }
-

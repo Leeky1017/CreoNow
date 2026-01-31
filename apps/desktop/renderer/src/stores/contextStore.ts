@@ -109,7 +109,9 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
    * Why: KG injection must be explicitly enabled by the skill contract to keep
    * prompt inputs auditable and predictable.
    */
-  async function isKnowledgeGraphEnabled(skillId: string | null): Promise<boolean> {
+  async function isKnowledgeGraphEnabled(
+    skillId: string | null,
+  ): Promise<boolean> {
     if (!skillId) {
       return false;
     }

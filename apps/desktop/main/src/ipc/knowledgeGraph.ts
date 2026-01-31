@@ -81,7 +81,10 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createKnowledgeGraphService({ db: deps.db, logger: deps.logger });
+      const svc = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.graphGet(payload);
       if (payload.purpose === "context" && res.ok) {
         deps.logger.info("kg_injected", {
@@ -98,14 +101,20 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
 
   deps.ipcMain.handle(
     "kg:entity:create",
-    async (_e, payload: EntityCreatePayload): Promise<IpcResponse<KgEntity>> => {
+    async (
+      _e,
+      payload: EntityCreatePayload,
+    ): Promise<IpcResponse<KgEntity>> => {
       if (!deps.db) {
         return {
           ok: false,
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createKnowledgeGraphService({ db: deps.db, logger: deps.logger });
+      const svc = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.entityCreate(payload);
       return res.ok
         ? { ok: true, data: res.data }
@@ -125,7 +134,10 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createKnowledgeGraphService({ db: deps.db, logger: deps.logger });
+      const svc = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.entityList(payload);
       return res.ok
         ? { ok: true, data: res.data }
@@ -135,14 +147,20 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
 
   deps.ipcMain.handle(
     "kg:entity:update",
-    async (_e, payload: EntityUpdatePayload): Promise<IpcResponse<KgEntity>> => {
+    async (
+      _e,
+      payload: EntityUpdatePayload,
+    ): Promise<IpcResponse<KgEntity>> => {
       if (!deps.db) {
         return {
           ok: false,
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createKnowledgeGraphService({ db: deps.db, logger: deps.logger });
+      const svc = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.entityUpdate({
         entityId: payload.entityId,
         patch: payload.patch,
@@ -165,7 +183,10 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createKnowledgeGraphService({ db: deps.db, logger: deps.logger });
+      const svc = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.entityDelete(payload);
       return res.ok
         ? { ok: true, data: res.data }
@@ -185,7 +206,10 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createKnowledgeGraphService({ db: deps.db, logger: deps.logger });
+      const svc = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.relationCreate(payload);
       return res.ok
         ? { ok: true, data: res.data }
@@ -205,7 +229,10 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createKnowledgeGraphService({ db: deps.db, logger: deps.logger });
+      const svc = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.relationList(payload);
       return res.ok
         ? { ok: true, data: res.data }
@@ -225,7 +252,10 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createKnowledgeGraphService({ db: deps.db, logger: deps.logger });
+      const svc = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.relationUpdate({
         relationId: payload.relationId,
         patch: payload.patch,
@@ -248,7 +278,10 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createKnowledgeGraphService({ db: deps.db, logger: deps.logger });
+      const svc = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.relationDelete(payload);
       return res.ok
         ? { ok: true, data: res.data }

@@ -50,7 +50,9 @@ export type KnowledgeGraphService = {
     description?: string;
     metadataJson?: string;
   }) => ServiceResult<KgEntity>;
-  entityList: (args: { projectId: string }) => ServiceResult<{ items: KgEntity[] }>;
+  entityList: (args: {
+    projectId: string;
+  }) => ServiceResult<{ items: KgEntity[] }>;
   entityUpdate: (args: {
     entityId: string;
     patch: {
@@ -60,7 +62,9 @@ export type KnowledgeGraphService = {
       metadataJson?: string;
     };
   }) => ServiceResult<KgEntity>;
-  entityDelete: (args: { entityId: string }) => ServiceResult<{ deleted: true }>;
+  entityDelete: (args: {
+    entityId: string;
+  }) => ServiceResult<{ deleted: true }>;
 
   relationCreate: (args: {
     projectId: string;
@@ -180,7 +184,11 @@ function validateMetadataJson(
  * without relying on implicit parsing failures downstream.
  */
 function validateEvidenceJson(fieldName: string, value: string): Err | null {
-  const metaRes = validateMetadataJson(fieldName, value, MAX_METADATA_JSON_BYTES);
+  const metaRes = validateMetadataJson(
+    fieldName,
+    value,
+    MAX_METADATA_JSON_BYTES,
+  );
   if (metaRes) {
     return metaRes;
   }
@@ -331,9 +339,7 @@ function ensureEntityExistsInProject(
     .prepare<
       [string, string],
       EntityExistsRow
-    >(
-      "SELECT entity_id as entityId FROM kg_entities WHERE project_id = ? AND entity_id = ?",
-    )
+    >("SELECT entity_id as entityId FROM kg_entities WHERE project_id = ? AND entity_id = ?")
     .get(args.projectId, args.entityId);
   if (!row) {
     return ipcError("NOT_FOUND", `${args.fieldName} not found`);
@@ -362,16 +368,18 @@ export function createKnowledgeGraphService(args: {
         }
 
         const entities = args.db
-          .prepare<[string], EntityRow>(
-            "SELECT entity_id as entityId, project_id as projectId, name, entity_type as entityType, description, metadata_json as metadataJson, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, entity_id ASC",
-          )
+          .prepare<
+            [string],
+            EntityRow
+          >("SELECT entity_id as entityId, project_id as projectId, name, entity_type as entityType, description, metadata_json as metadataJson, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, entity_id ASC")
           .all(projectId.trim())
           .map(rowToEntity);
 
         const relations = args.db
-          .prepare<[string], RelationRow>(
-            "SELECT relation_id as relationId, project_id as projectId, from_entity_id as fromEntityId, to_entity_id as toEntityId, relation_type as relationType, metadata_json as metadataJson, evidence_json as evidenceJson, created_at as createdAt, updated_at as updatedAt FROM kg_relations WHERE project_id = ? ORDER BY updated_at DESC, relation_id ASC",
-          )
+          .prepare<
+            [string],
+            RelationRow
+          >("SELECT relation_id as relationId, project_id as projectId, from_entity_id as fromEntityId, to_entity_id as toEntityId, relation_type as relationType, metadata_json as metadataJson, evidence_json as evidenceJson, created_at as createdAt, updated_at as updatedAt FROM kg_relations WHERE project_id = ? ORDER BY updated_at DESC, relation_id ASC")
           .all(projectId.trim())
           .map(rowToRelation);
 
@@ -402,7 +410,10 @@ export function createKnowledgeGraphService(args: {
         return ipcError("INVALID_ARGUMENT", "name is required");
       }
       if (normalizedName.length > MAX_NAME_CHARS) {
-        return ipcError("INVALID_ARGUMENT", `name exceeds ${MAX_NAME_CHARS} chars`);
+        return ipcError(
+          "INVALID_ARGUMENT",
+          `name exceeds ${MAX_NAME_CHARS} chars`,
+        );
       }
 
       const normalizedType = normalizeOptionalText(entityType);
@@ -424,7 +435,8 @@ export function createKnowledgeGraphService(args: {
         );
       }
 
-      const normalizedMetadataJson = normalizeOptionalText(metadataJson) ?? "{}";
+      const normalizedMetadataJson =
+        normalizeOptionalText(metadataJson) ?? "{}";
       const metadataValid = validateMetadataJson(
         "metadataJson",
         normalizedMetadataJson,
@@ -492,9 +504,10 @@ export function createKnowledgeGraphService(args: {
         }
 
         const rows = args.db
-          .prepare<[string], EntityRow>(
-            "SELECT entity_id as entityId, project_id as projectId, name, entity_type as entityType, description, metadata_json as metadataJson, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, entity_id ASC",
-          )
+          .prepare<
+            [string],
+            EntityRow
+          >("SELECT entity_id as entityId, project_id as projectId, name, entity_type as entityType, description, metadata_json as metadataJson, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, entity_id ASC")
           .all(projectId.trim());
         return { ok: true, data: { items: rows.map(rowToEntity) } };
       } catch (error) {
@@ -684,7 +697,8 @@ export function createKnowledgeGraphService(args: {
         );
       }
 
-      const normalizedMetadataJson = normalizeOptionalText(metadataJson) ?? "{}";
+      const normalizedMetadataJson =
+        normalizeOptionalText(metadataJson) ?? "{}";
       const metadataValid = validateMetadataJson(
         "metadataJson",
         normalizedMetadataJson,
@@ -694,7 +708,8 @@ export function createKnowledgeGraphService(args: {
         return metadataValid;
       }
 
-      const normalizedEvidenceJson = normalizeOptionalText(evidenceJson) ?? "[]";
+      const normalizedEvidenceJson =
+        normalizeOptionalText(evidenceJson) ?? "[]";
       const evidenceValid = validateEvidenceJson(
         "evidenceJson",
         normalizedEvidenceJson,
@@ -777,9 +792,10 @@ export function createKnowledgeGraphService(args: {
         }
 
         const rows = args.db
-          .prepare<[string], RelationRow>(
-            "SELECT relation_id as relationId, project_id as projectId, from_entity_id as fromEntityId, to_entity_id as toEntityId, relation_type as relationType, metadata_json as metadataJson, evidence_json as evidenceJson, created_at as createdAt, updated_at as updatedAt FROM kg_relations WHERE project_id = ? ORDER BY updated_at DESC, relation_id ASC",
-          )
+          .prepare<
+            [string],
+            RelationRow
+          >("SELECT relation_id as relationId, project_id as projectId, from_entity_id as fromEntityId, to_entity_id as toEntityId, relation_type as relationType, metadata_json as metadataJson, evidence_json as evidenceJson, created_at as createdAt, updated_at as updatedAt FROM kg_relations WHERE project_id = ? ORDER BY updated_at DESC, relation_id ASC")
           .all(projectId.trim());
         return { ok: true, data: { items: rows.map(rowToRelation) } };
       } catch (error) {
@@ -801,7 +817,9 @@ export function createKnowledgeGraphService(args: {
       }
 
       const normalizedRelationType =
-        typeof patch.relationType === "string" ? patch.relationType.trim() : null;
+        typeof patch.relationType === "string"
+          ? patch.relationType.trim()
+          : null;
       if (typeof patch.relationType === "string") {
         if (!normalizedRelationType || normalizedRelationType.length === 0) {
           return ipcError("INVALID_ARGUMENT", "relationType is required");
@@ -843,10 +861,16 @@ export function createKnowledgeGraphService(args: {
         }
       }
 
-      if (typeof patch.fromEntityId === "string" && patch.fromEntityId.trim().length === 0) {
+      if (
+        typeof patch.fromEntityId === "string" &&
+        patch.fromEntityId.trim().length === 0
+      ) {
         return ipcError("INVALID_ARGUMENT", "fromEntityId is required");
       }
-      if (typeof patch.toEntityId === "string" && patch.toEntityId.trim().length === 0) {
+      if (
+        typeof patch.toEntityId === "string" &&
+        patch.toEntityId.trim().length === 0
+      ) {
         return ipcError("INVALID_ARGUMENT", "toEntityId is required");
       }
 

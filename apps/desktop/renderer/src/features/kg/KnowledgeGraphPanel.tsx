@@ -23,9 +23,7 @@ function entityLabel(args: { name: string; entityType?: string }): string {
  * Why: P0 requires KG discoverability (sidebar entry), CRUD, and predictable
  * data for context injection.
  */
-export function KnowledgeGraphPanel(props: {
-  projectId: string;
-}): JSX.Element {
+export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   const bootstrapStatus = useKgStore((s) => s.bootstrapStatus);
   const entities = useKgStore((s) => s.entities);
   const relations = useKgStore((s) => s.relations);
@@ -383,10 +381,18 @@ export function KnowledgeGraphPanel(props: {
                     ) : (
                       <>
                         <div style={{ fontSize: 12 }}>
-                          {entityLabel({ name: e.name, entityType: e.entityType })}
+                          {entityLabel({
+                            name: e.name,
+                            entityType: e.entityType,
+                          })}
                         </div>
                         {e.description ? (
-                          <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: "var(--color-fg-muted)",
+                            }}
+                          >
                             {e.description}
                           </div>
                         ) : null}
@@ -590,7 +596,8 @@ export function KnowledgeGraphPanel(props: {
               >
                 {relations.map((r) => {
                   const isEditing =
-                    editing.mode === "relation" && editing.relationId === r.relationId;
+                    editing.mode === "relation" &&
+                    editing.relationId === r.relationId;
                   return (
                     <div
                       key={r.relationId}
@@ -690,7 +697,9 @@ export function KnowledgeGraphPanel(props: {
                             <button
                               type="button"
                               onClick={() =>
-                                void relationDelete({ relationId: r.relationId })
+                                void relationDelete({
+                                  relationId: r.relationId,
+                                })
                               }
                               style={{
                                 border: "1px solid var(--color-border-default)",
