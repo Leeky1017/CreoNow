@@ -28,5 +28,9 @@ export const ipcContract = {
       request: s.object({}),
       response: s.object({}),
     },
+    "db:debug:tableNames": {
+      request: s.object({}),
+      response: s.object({ tableNames: s.array(s.string()) }),
+    },
   },
 } as const;
