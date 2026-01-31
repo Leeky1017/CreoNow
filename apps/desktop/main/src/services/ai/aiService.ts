@@ -215,10 +215,7 @@ function extractAnthropicDelta(json: unknown): string | null {
 /**
  * Create an IpcError for upstream failures without leaking secrets.
  */
-function upstreamError(args: {
-  status: number;
-  message: string;
-}): IpcError {
+function upstreamError(args: { status: number; message: string }): IpcError {
   return {
     code: "UPSTREAM_ERROR",
     message: args.message,
@@ -260,7 +257,8 @@ async function resolveProviderConfig(deps: {
     };
   }
 
-  const provider = parseProvider(deps.env) ?? (isE2E(deps.env) ? "anthropic" : null);
+  const provider =
+    parseProvider(deps.env) ?? (isE2E(deps.env) ? "anthropic" : null);
   if (!provider) {
     return ipcError(
       "INVALID_ARGUMENT",
@@ -312,7 +310,10 @@ export function createAiService(deps: {
 
   const getFakeServer = async (): Promise<FakeAiServer> => {
     if (!fakeServerPromise) {
-      fakeServerPromise = startFakeAiServer({ logger: deps.logger, env: deps.env });
+      fakeServerPromise = startFakeAiServer({
+        logger: deps.logger,
+        env: deps.env,
+      });
     }
     return await fakeServerPromise;
   };
@@ -390,7 +391,9 @@ export function createAiService(deps: {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(args.cfg.apiKey ? { Authorization: `Bearer ${args.cfg.apiKey}` } : {}),
+        ...(args.cfg.apiKey
+          ? { Authorization: `Bearer ${args.cfg.apiKey}` }
+          : {}),
       },
       body: JSON.stringify({
         model: "fake",
@@ -401,7 +404,13 @@ export function createAiService(deps: {
     });
 
     if (!res.ok) {
-      return { ok: false, error: upstreamError({ status: res.status, message: "AI upstream request failed" }) };
+      return {
+        ok: false,
+        error: upstreamError({
+          status: res.status,
+          message: "AI upstream request failed",
+        }),
+      };
     }
 
     const json: unknown = await res.json();
@@ -438,7 +447,13 @@ export function createAiService(deps: {
     });
 
     if (!res.ok) {
-      return { ok: false, error: upstreamError({ status: res.status, message: "AI upstream request failed" }) };
+      return {
+        ok: false,
+        error: upstreamError({
+          status: res.status,
+          message: "AI upstream request failed",
+        }),
+      };
     }
 
     const json: unknown = await res.json();
@@ -463,7 +478,9 @@ export function createAiService(deps: {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(args.cfg.apiKey ? { Authorization: `Bearer ${args.cfg.apiKey}` } : {}),
+        ...(args.cfg.apiKey
+          ? { Authorization: `Bearer ${args.cfg.apiKey}` }
+          : {}),
       },
       body: JSON.stringify({
         model: "fake",
@@ -474,7 +491,13 @@ export function createAiService(deps: {
     });
 
     if (!res.ok) {
-      return { ok: false, error: upstreamError({ status: res.status, message: "AI upstream request failed" }) };
+      return {
+        ok: false,
+        error: upstreamError({
+          status: res.status,
+          message: "AI upstream request failed",
+        }),
+      };
     }
 
     if (!res.body) {
@@ -537,7 +560,13 @@ export function createAiService(deps: {
     });
 
     if (!res.ok) {
-      return { ok: false, error: upstreamError({ status: res.status, message: "AI upstream request failed" }) };
+      return {
+        ok: false,
+        error: upstreamError({
+          status: res.status,
+          message: "AI upstream request failed",
+        }),
+      };
     }
 
     if (!res.body) {
@@ -685,7 +714,8 @@ export function createAiService(deps: {
                 code: "INTERNAL",
                 message: "AI request failed",
                 details: {
-                  message: error instanceof Error ? error.message : String(error),
+                  message:
+                    error instanceof Error ? error.message : String(error),
                 },
               },
             },
@@ -781,7 +811,11 @@ export function createAiService(deps: {
     }
     entry.controller.abort();
 
-    emitIfActive(entry, { type: "run_canceled", runId: args.runId, ts: args.ts });
+    emitIfActive(entry, {
+      type: "run_canceled",
+      runId: args.runId,
+      ts: args.ts,
+    });
     deps.logger.info("ai_run_canceled", { runId: args.runId });
 
     return { ok: true, data: { canceled: true } };

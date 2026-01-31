@@ -1,4 +1,9 @@
-import { _electron as electron, expect, test, type Page } from "@playwright/test";
+import {
+  _electron as electron,
+  expect,
+  test,
+  type Page,
+} from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -128,7 +133,9 @@ test("ai runtime: upstream error maps to UPSTREAM_ERROR (non-stream)", async () 
   await setStreamEnabled(page, false);
   await runInput(page, "E2E_UPSTREAM_ERROR");
 
-  await expect(page.getByTestId("ai-error-code")).toContainText("UPSTREAM_ERROR");
+  await expect(page.getByTestId("ai-error-code")).toContainText(
+    "UPSTREAM_ERROR",
+  );
   await expect(page.getByTestId("ai-status")).toContainText("error");
 
   await electronApp.close();

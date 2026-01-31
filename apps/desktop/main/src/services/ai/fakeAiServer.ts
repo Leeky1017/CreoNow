@@ -203,8 +203,9 @@ export async function startFakeAiServer(deps: {
     }
 
     const userText =
-      (isOpenAi ? extractOpenAiUserText(body) : extractAnthropicUserText(body)) ??
-      "";
+      (isOpenAi
+        ? extractOpenAiUserText(body)
+        : extractAnthropicUserText(body)) ?? "";
     const mode = resolveFakeMode({ env: deps.env, userText });
 
     if (mode === "upstream-error") {
@@ -354,4 +355,3 @@ export async function startFakeAiServer(deps: {
     },
   };
 }
-
