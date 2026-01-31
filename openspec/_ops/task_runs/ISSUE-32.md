@@ -49,3 +49,8 @@
 
 - Command: `pnpm -C apps/desktop test:e2e -- judge.spec.ts db-bootstrap.spec.ts`
 - Key output: `2 passed`
+
+### 2026-01-31 17:33 preflight
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: `exit 0`
