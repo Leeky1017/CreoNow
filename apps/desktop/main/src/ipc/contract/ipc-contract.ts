@@ -64,6 +64,37 @@ const REDACTION_EVIDENCE_SCHEMA = s.object({
   matchCount: s.number(),
 });
 
+const MEMORY_TYPE_SCHEMA = s.union(
+  s.literal("preference"),
+  s.literal("fact"),
+  s.literal("note"),
+);
+
+const MEMORY_SCOPE_SCHEMA = s.union(s.literal("global"), s.literal("project"));
+
+const MEMORY_ORIGIN_SCHEMA = s.union(s.literal("manual"), s.literal("learned"));
+
+const MEMORY_SETTINGS_SCHEMA = s.object({
+  injectionEnabled: s.boolean(),
+  preferenceLearningEnabled: s.boolean(),
+  privacyModeEnabled: s.boolean(),
+  preferenceLearningThreshold: s.number(),
+});
+
+const MEMORY_INJECTION_REASON_SCHEMA = s.union(
+  s.object({ kind: s.literal("deterministic") }),
+  s.object({ kind: s.literal("semantic"), score: s.number() }),
+);
+
+const MEMORY_INJECTION_ITEM_SCHEMA = s.object({
+  id: s.string(),
+  type: MEMORY_TYPE_SCHEMA,
+  scope: MEMORY_SCOPE_SCHEMA,
+  origin: MEMORY_ORIGIN_SCHEMA,
+  content: s.string(),
+  reason: MEMORY_INJECTION_REASON_SCHEMA,
+});
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -96,10 +127,126 @@ export const ipcContract = {
     "ai:skill:feedback": {
       request: s.object({
         runId: s.string(),
-        rating: s.union(s.literal("up"), s.literal("down")),
-        comment: s.optional(s.string()),
+        action: s.union(
+          s.literal("accept"),
+          s.literal("reject"),
+          s.literal("partial"),
+        ),
+        evidenceRef: s.string(),
       }),
-      response: s.object({ recorded: s.literal(true) }),
+      response: s.object({
+        recorded: s.literal(true),
+        learning: s.optional(
+          s.object({
+            ignored: s.boolean(),
+            ignoredReason: s.optional(s.string()),
+            learned: s.boolean(),
+            learnedMemoryId: s.optional(s.string()),
+            signalCount: s.optional(s.number()),
+            threshold: s.optional(s.number()),
+          }),
+        ),
+      }),
+    },
+    "memory:create": {
+      request: s.object({
+        type: MEMORY_TYPE_SCHEMA,
+        scope: MEMORY_SCOPE_SCHEMA,
+        projectId: s.optional(s.string()),
+        content: s.string(),
+      }),
+      response: s.object({
+        memoryId: s.string(),
+        type: MEMORY_TYPE_SCHEMA,
+        scope: MEMORY_SCOPE_SCHEMA,
+        projectId: s.optional(s.string()),
+        origin: MEMORY_ORIGIN_SCHEMA,
+        sourceRef: s.optional(s.string()),
+        content: s.string(),
+        createdAt: s.number(),
+        updatedAt: s.number(),
+        deletedAt: s.optional(s.number()),
+      }),
+    },
+    "memory:list": {
+      request: s.object({
+        projectId: s.optional(s.string()),
+        includeDeleted: s.optional(s.boolean()),
+      }),
+      response: s.object({
+        items: s.array(
+          s.object({
+            memoryId: s.string(),
+            type: MEMORY_TYPE_SCHEMA,
+            scope: MEMORY_SCOPE_SCHEMA,
+            projectId: s.optional(s.string()),
+            origin: MEMORY_ORIGIN_SCHEMA,
+            sourceRef: s.optional(s.string()),
+            content: s.string(),
+            createdAt: s.number(),
+            updatedAt: s.number(),
+            deletedAt: s.optional(s.number()),
+          }),
+        ),
+      }),
+    },
+    "memory:update": {
+      request: s.object({
+        memoryId: s.string(),
+        patch: s.object({
+          type: s.optional(MEMORY_TYPE_SCHEMA),
+          scope: s.optional(MEMORY_SCOPE_SCHEMA),
+          projectId: s.optional(s.string()),
+          content: s.optional(s.string()),
+        }),
+      }),
+      response: s.object({
+        memoryId: s.string(),
+        type: MEMORY_TYPE_SCHEMA,
+        scope: MEMORY_SCOPE_SCHEMA,
+        projectId: s.optional(s.string()),
+        origin: MEMORY_ORIGIN_SCHEMA,
+        sourceRef: s.optional(s.string()),
+        content: s.string(),
+        createdAt: s.number(),
+        updatedAt: s.number(),
+        deletedAt: s.optional(s.number()),
+      }),
+    },
+    "memory:delete": {
+      request: s.object({ memoryId: s.string() }),
+      response: s.object({ deleted: s.literal(true) }),
+    },
+    "memory:settings:get": {
+      request: s.object({}),
+      response: MEMORY_SETTINGS_SCHEMA,
+    },
+    "memory:settings:update": {
+      request: s.object({
+        patch: s.object({
+          injectionEnabled: s.optional(s.boolean()),
+          preferenceLearningEnabled: s.optional(s.boolean()),
+          privacyModeEnabled: s.optional(s.boolean()),
+          preferenceLearningThreshold: s.optional(s.number()),
+        }),
+      }),
+      response: MEMORY_SETTINGS_SCHEMA,
+    },
+    "memory:injection:preview": {
+      request: s.object({
+        projectId: s.optional(s.string()),
+        queryText: s.optional(s.string()),
+      }),
+      response: s.object({
+        items: s.array(MEMORY_INJECTION_ITEM_SCHEMA),
+        mode: s.union(s.literal("deterministic"), s.literal("semantic")),
+        diagnostics: s.optional(
+          s.object({
+            degradedFrom: s.literal("semantic"),
+            reason: s.string(),
+          }),
+        ),
+      }),
     },
     "skill:list": {
       request: s.object({ includeDisabled: s.optional(s.boolean()) }),

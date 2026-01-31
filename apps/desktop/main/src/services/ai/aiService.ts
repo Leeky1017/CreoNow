@@ -29,8 +29,8 @@ export type AiService = {
   }>;
   feedback: (args: {
     runId: string;
-    rating: "up" | "down";
-    comment?: string;
+    action: "accept" | "reject" | "partial";
+    evidenceRef: string;
     ts: number;
   }) => ServiceResult<{ recorded: true }>;
 };
@@ -873,8 +873,8 @@ export function createAiService(deps: {
   const feedback: AiService["feedback"] = (args) => {
     deps.logger.info("ai_feedback_received", {
       runId: args.runId,
-      rating: args.rating,
-      commentLen: typeof args.comment === "string" ? args.comment.length : 0,
+      action: args.action,
+      evidenceRefLen: args.evidenceRef.trim().length,
     });
     return { ok: true, data: { recorded: true } };
   };

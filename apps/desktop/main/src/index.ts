@@ -11,6 +11,7 @@ import { registerContextIpcHandlers } from "./ipc/context";
 import { registerConstraintsIpcHandlers } from "./ipc/constraints";
 import { registerFileIpcHandlers } from "./ipc/file";
 import { registerJudgeIpcHandlers } from "./ipc/judge";
+import { registerMemoryIpcHandlers } from "./ipc/memory";
 import { registerProjectIpcHandlers } from "./ipc/project";
 import { registerSkillIpcHandlers } from "./ipc/skills";
 import { registerVersionIpcHandlers } from "./ipc/version";
@@ -215,6 +216,12 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     userDataDir: deps.userDataDir,
     builtinSkillsDir: deps.builtinSkillsDir,
+    logger: deps.logger,
+  });
+
+  registerMemoryIpcHandlers({
+    ipcMain,
+    db: deps.db,
     logger: deps.logger,
   });
 

@@ -8,6 +8,14 @@ import {
 } from "../../../../../packages/shared/types/ai";
 import type { Logger } from "../logging/logger";
 import { createAiService } from "../services/ai/aiService";
+import {
+  createMemoryService,
+  formatMemoryInjectionBlock,
+} from "../services/memory/memoryService";
+import {
+  recordSkillFeedbackAndLearn,
+  type SkillFeedbackAction,
+} from "../services/memory/preferenceLearning";
 import { createSkillService } from "../services/skills/skillService";
 
 type SkillRunPayload = {
@@ -18,6 +26,24 @@ type SkillRunPayload = {
 };
 
 type SkillRunResponse = { runId: string; outputText?: string };
+
+type SkillFeedbackPayload = {
+  runId: string;
+  action: SkillFeedbackAction;
+  evidenceRef: string;
+};
+
+type SkillFeedbackResponse = {
+  recorded: true;
+  learning?: {
+    ignored: boolean;
+    ignoredReason?: string;
+    learned: boolean;
+    learnedMemoryId?: string;
+    signalCount?: number;
+    threshold?: number;
+  };
+};
 
 /**
  * Return an epoch-ms timestamp for AI stream events.
@@ -75,6 +101,29 @@ export function registerAiIpcHandlers(deps: {
   env: NodeJS.ProcessEnv;
 }): void {
   const aiService = createAiService({ logger: deps.logger, env: deps.env });
+  const runRegistry = new Map<
+    string,
+    { startedAt: number; context?: SkillRunPayload["context"] }
+  >();
+
+  /**
+   * Remember a runId for feedback validation.
+   *
+   * Why: feedback can arrive after the underlying in-flight run entry is cleaned up.
+   */
+  function rememberRunId(args: {
+    runId: string;
+    context?: SkillRunPayload["context"];
+  }): void {
+    runRegistry.set(args.runId, { startedAt: nowTs(), context: args.context });
+
+    const cutoff = nowTs() - 24 * 60 * 60 * 1000;
+    for (const [runId, entry] of runRegistry) {
+      if (entry.startedAt < cutoff) {
+        runRegistry.delete(runId);
+      }
+    }
+  }
 
   deps.ipcMain.handle(
     "ai:skill:run",
@@ -130,8 +179,31 @@ export function registerAiIpcHandlers(deps: {
         safeEmitToRenderer({ logger: deps.logger, sender: e.sender, event });
       };
 
+      const preview = createMemoryService({
+        db: deps.db,
+        logger: deps.logger,
+      }).previewInjection({
+        projectId: payload.context?.projectId,
+        queryText: payload.input,
+      });
+
+      if (!preview.ok) {
+        deps.logger.error("ai_memory_injection_preview_failed", {
+          code: preview.error.code,
+          message: preview.error.message,
+        });
+      }
+
+      const injectionBlock = formatMemoryInjectionBlock({
+        items: preview.ok ? preview.data.items : [],
+      });
+
       try {
-        const systemPrompt = resolved.data.skill.prompt?.system ?? "";
+        const baseSystemPrompt = resolved.data.skill.prompt?.system ?? "";
+        const systemPrompt =
+          baseSystemPrompt.trim().length > 0
+            ? `${baseSystemPrompt}\n\n${injectionBlock}`
+            : injectionBlock;
         const userPrompt = renderUserPrompt({
           template: resolved.data.skill.prompt?.user ?? "",
           input: payload.input,
@@ -146,6 +218,9 @@ export function registerAiIpcHandlers(deps: {
           ts: nowTs(),
           emitEvent,
         });
+        if (res.ok) {
+          rememberRunId({ runId: res.data.runId, context: payload.context });
+        }
         return res.ok
           ? { ok: true, data: res.data }
           : { ok: false, error: res.error };
@@ -195,8 +270,8 @@ export function registerAiIpcHandlers(deps: {
     "ai:skill:feedback",
     async (
       _e,
-      payload: { runId: string; rating: "up" | "down"; comment?: string },
-    ): Promise<IpcResponse<{ recorded: true }>> => {
+      payload: SkillFeedbackPayload,
+    ): Promise<IpcResponse<SkillFeedbackResponse>> => {
       if (payload.runId.trim().length === 0) {
         return {
           ok: false,
@@ -204,15 +279,63 @@ export function registerAiIpcHandlers(deps: {
         };
       }
 
+      if (!runRegistry.has(payload.runId)) {
+        return {
+          ok: false,
+          error: { code: "NOT_FOUND", message: "runId not found" },
+        };
+      }
+
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
       try {
+        const memSvc = createMemoryService({
+          db: deps.db,
+          logger: deps.logger,
+        });
+        const settings = memSvc.getSettings();
+        if (!settings.ok) {
+          return { ok: false, error: settings.error };
+        }
+
+        const learning = recordSkillFeedbackAndLearn({
+          db: deps.db,
+          logger: deps.logger,
+          settings: settings.data,
+          runId: payload.runId,
+          action: payload.action,
+          evidenceRef: payload.evidenceRef,
+        });
+        if (!learning.ok) {
+          return { ok: false, error: learning.error };
+        }
+
         const res = aiService.feedback({
           runId: payload.runId,
-          rating: payload.rating,
-          comment: payload.comment,
+          action: payload.action,
+          evidenceRef: payload.evidenceRef,
           ts: nowTs(),
         });
         return res.ok
-          ? { ok: true, data: res.data }
+          ? {
+              ok: true,
+              data: {
+                recorded: true,
+                learning: {
+                  ignored: learning.data.ignored,
+                  ignoredReason: learning.data.ignoredReason,
+                  learned: learning.data.learned,
+                  learnedMemoryId: learning.data.learnedMemoryId,
+                  signalCount: learning.data.signalCount,
+                  threshold: learning.data.threshold,
+                },
+              },
+            }
           : { ok: false, error: res.error };
       } catch (error) {
         deps.logger.error("ai_feedback_ipc_failed", {

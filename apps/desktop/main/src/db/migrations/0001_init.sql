@@ -50,10 +50,40 @@ CREATE TABLE IF NOT EXISTS skills (
 
 CREATE TABLE IF NOT EXISTS user_memory (
   memory_id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  scope TEXT NOT NULL,
+  project_id TEXT,
+  origin TEXT NOT NULL,
+  source_ref TEXT,
   content TEXT NOT NULL,
-  tags_json TEXT NOT NULL,
-  updated_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  deleted_at INTEGER,
+  FOREIGN KEY(project_id) REFERENCES projects(project_id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_user_memory_scope_type_updated
+  ON user_memory(scope, type, updated_at DESC, memory_id ASC);
+
+CREATE INDEX IF NOT EXISTS idx_user_memory_project
+  ON user_memory(project_id, updated_at DESC, memory_id ASC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_memory_learned_source
+  ON user_memory(origin, scope, project_id, source_ref)
+  WHERE origin = 'learned' AND source_ref IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS skill_feedback (
+  feedback_id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  evidence_ref TEXT,
+  ignored INTEGER NOT NULL,
+  ignored_reason TEXT,
+  created_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_skill_feedback_evidence_action
+  ON skill_feedback(evidence_ref, action, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS kg_entities (
   entity_id TEXT PRIMARY KEY,

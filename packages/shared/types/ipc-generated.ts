@@ -74,6 +74,13 @@ export const IPC_CHANNELS = [
   "file:document:write",
   "judge:model:ensure",
   "judge:model:getState",
+  "memory:create",
+  "memory:delete",
+  "memory:injection:preview",
+  "memory:list",
+  "memory:settings:get",
+  "memory:settings:update",
+  "memory:update",
   "project:create",
   "project:delete",
   "project:getCurrent",
@@ -101,11 +108,19 @@ export type IpcChannelSpec = {
   };
   "ai:skill:feedback": {
     request: {
-      comment?: string;
-      rating: "up" | "down";
+      action: "accept" | "reject" | "partial";
+      evidenceRef: string;
       runId: string;
     };
     response: {
+      learning?: {
+        ignored: boolean;
+        ignoredReason?: string;
+        learned: boolean;
+        learnedMemoryId?: string;
+        signalCount?: number;
+        threshold?: number;
+      };
       recorded: true;
     };
   };
@@ -413,6 +428,130 @@ export type IpcChannelSpec = {
             };
             status: "error";
           };
+    };
+  };
+  "memory:create": {
+    request: {
+      content: string;
+      projectId?: string;
+      scope: "global" | "project";
+      type: "preference" | "fact" | "note";
+    };
+    response: {
+      content: string;
+      createdAt: number;
+      deletedAt?: number;
+      memoryId: string;
+      origin: "manual" | "learned";
+      projectId?: string;
+      scope: "global" | "project";
+      sourceRef?: string;
+      type: "preference" | "fact" | "note";
+      updatedAt: number;
+    };
+  };
+  "memory:delete": {
+    request: {
+      memoryId: string;
+    };
+    response: {
+      deleted: true;
+    };
+  };
+  "memory:injection:preview": {
+    request: {
+      projectId?: string;
+      queryText?: string;
+    };
+    response: {
+      diagnostics?: {
+        degradedFrom: "semantic";
+        reason: string;
+      };
+      items: Array<{
+        content: string;
+        id: string;
+        origin: "manual" | "learned";
+        reason:
+          | {
+              kind: "deterministic";
+            }
+          | {
+              kind: "semantic";
+              score: number;
+            };
+        scope: "global" | "project";
+        type: "preference" | "fact" | "note";
+      }>;
+      mode: "deterministic" | "semantic";
+    };
+  };
+  "memory:list": {
+    request: {
+      includeDeleted?: boolean;
+      projectId?: string;
+    };
+    response: {
+      items: Array<{
+        content: string;
+        createdAt: number;
+        deletedAt?: number;
+        memoryId: string;
+        origin: "manual" | "learned";
+        projectId?: string;
+        scope: "global" | "project";
+        sourceRef?: string;
+        type: "preference" | "fact" | "note";
+        updatedAt: number;
+      }>;
+    };
+  };
+  "memory:settings:get": {
+    request: Record<string, never>;
+    response: {
+      injectionEnabled: boolean;
+      preferenceLearningEnabled: boolean;
+      preferenceLearningThreshold: number;
+      privacyModeEnabled: boolean;
+    };
+  };
+  "memory:settings:update": {
+    request: {
+      patch: {
+        injectionEnabled?: boolean;
+        preferenceLearningEnabled?: boolean;
+        preferenceLearningThreshold?: number;
+        privacyModeEnabled?: boolean;
+      };
+    };
+    response: {
+      injectionEnabled: boolean;
+      preferenceLearningEnabled: boolean;
+      preferenceLearningThreshold: number;
+      privacyModeEnabled: boolean;
+    };
+  };
+  "memory:update": {
+    request: {
+      memoryId: string;
+      patch: {
+        content?: string;
+        projectId?: string;
+        scope?: "global" | "project";
+        type?: "preference" | "fact" | "note";
+      };
+    };
+    response: {
+      content: string;
+      createdAt: number;
+      deletedAt?: number;
+      memoryId: string;
+      origin: "manual" | "learned";
+      projectId?: string;
+      scope: "global" | "project";
+      sourceRef?: string;
+      type: "preference" | "fact" | "note";
+      updatedAt: number;
     };
   };
   "project:create": {
