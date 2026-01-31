@@ -2,7 +2,7 @@
 
 - Issue: #31
 - Branch: task/31-p0-015-documents-filetree
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/34
 
 ## Plan
 
@@ -38,3 +38,11 @@
 
 - Command: `pnpm test:unit`
 - Key output: `exit 0`
+
+### 2026-01-31 18:31 pr
+
+- Command: `git push -u origin HEAD`
+- Key output: `new branch: task/31-p0-015-documents-filetree`
+
+- Command: `gh pr create --draft --title "feat: documents rename + current doc IPC (#31)" --body "Closes #31 ..."`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/34`
