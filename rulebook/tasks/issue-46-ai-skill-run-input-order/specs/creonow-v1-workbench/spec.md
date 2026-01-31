@@ -11,4 +11,3 @@
 
 - `pnpm desktop:test:e2e` 通过（包含 `ai-apply.spec.ts`）。
 - raw input 必须是 provider 请求中的最后一条 user message（OpenAI/Anthropic）。
-
