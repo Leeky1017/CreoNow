@@ -88,6 +88,45 @@ const RAG_RETRIEVE_DIAGNOSTICS_SCHEMA = s.object({
   reason: s.optional(s.string()),
 });
 
+const STATS_SUMMARY_SCHEMA = s.object({
+  wordsWritten: s.number(),
+  writingSeconds: s.number(),
+  skillsUsed: s.number(),
+  documentsCreated: s.number(),
+});
+
+const STATS_DAY_SCHEMA = s.object({
+  date: s.string(),
+  summary: STATS_SUMMARY_SCHEMA,
+});
+
+const EXPORT_RESULT_SCHEMA = s.object({
+  relativePath: s.string(),
+  bytesWritten: s.number(),
+});
+
+const AI_PROMPT_DIAGNOSTICS_SCHEMA = s.object({
+  stablePrefixHash: s.string(),
+  promptHash: s.string(),
+});
+
+const AI_PROXY_SETTINGS_SCHEMA = s.object({
+  enabled: s.boolean(),
+  baseUrl: s.string(),
+  apiKeyConfigured: s.boolean(),
+});
+
+const AI_PROXY_TEST_SCHEMA = s.object({
+  ok: s.boolean(),
+  latencyMs: s.number(),
+  error: s.optional(
+    s.object({
+      code: IPC_ERROR_CODE_SCHEMA,
+      message: s.string(),
+    }),
+  ),
+});
+
 const REDACTION_EVIDENCE_SCHEMA = s.object({
   patternId: s.string(),
   sourceRef: s.string(),
@@ -156,6 +195,43 @@ export const ipcContract = {
       request: s.object({}),
       response: s.object({}),
     },
+    "stats:getToday": {
+      request: s.object({}),
+      response: STATS_DAY_SCHEMA,
+    },
+    "stats:getRange": {
+      request: s.object({
+        from: s.string(),
+        to: s.string(),
+      }),
+      response: s.object({
+        from: s.string(),
+        to: s.string(),
+        days: s.array(STATS_DAY_SCHEMA),
+        summary: STATS_SUMMARY_SCHEMA,
+      }),
+    },
+    "export:markdown": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.optional(s.string()),
+      }),
+      response: EXPORT_RESULT_SCHEMA,
+    },
+    "export:pdf": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.optional(s.string()),
+      }),
+      response: EXPORT_RESULT_SCHEMA,
+    },
+    "export:docx": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.optional(s.string()),
+      }),
+      response: EXPORT_RESULT_SCHEMA,
+    },
     "ai:skill:run": {
       request: s.object({
         skillId: s.string(),
@@ -166,12 +242,32 @@ export const ipcContract = {
             documentId: s.optional(s.string()),
           }),
         ),
+        promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
         stream: s.boolean(),
       }),
       response: s.object({
         runId: s.string(),
         outputText: s.optional(s.string()),
+        promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
       }),
+    },
+    "ai:proxy:settings:get": {
+      request: s.object({}),
+      response: AI_PROXY_SETTINGS_SCHEMA,
+    },
+    "ai:proxy:settings:update": {
+      request: s.object({
+        patch: s.object({
+          enabled: s.optional(s.boolean()),
+          baseUrl: s.optional(s.string()),
+          apiKey: s.optional(s.string()),
+        }),
+      }),
+      response: AI_PROXY_SETTINGS_SCHEMA,
+    },
+    "ai:proxy:test": {
+      request: s.object({}),
+      response: AI_PROXY_TEST_SCHEMA,
     },
     "ai:skill:cancel": {
       request: s.object({ runId: s.string() }),

@@ -1,6 +1,6 @@
 # P1-004: User Memory Semantic Recall（`user_memory_vec` + fallback）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -25,20 +25,20 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] `memory:injection:preview` 支持 `queryText?`
-- [ ] 语义召回结果不影响 `stablePrefixHash`（只进入动态层）
-- [ ] sqlite-vec/embedding 不可用时：
-  - [ ] preview 回退 deterministic（mode=deterministic）
-  - [ ] skill 仍可运行
-- [ ] dimension 冲突返回 `CONFLICT`（并给出可恢复建议）
+- [x] `memory:injection:preview` 支持 `queryText?`
+- [x] 语义召回结果不影响 `stablePrefixHash`（只进入动态层）
+- [x] sqlite-vec/embedding 不可用时：
+  - [x] preview 回退 deterministic（mode=deterministic）
+  - [x] skill 仍可运行
+- [x] dimension 冲突返回 `CONFLICT`（并给出可恢复建议）
 
 ## Tests
 
-- [ ] Integration：
-  - [ ] vec0 创建成功 + topK 可用
-  - [ ] dimension 冲突 → `CONFLICT`
-- [ ] E2E（Windows）：
-  - [ ] 改变 queryText → stablePrefixHash 不变（需要 `ai:skill:run` 返回 hash 诊断字段）
+- [x] Integration：
+  - [x] vec0 创建成功 + topK 可用
+  - [x] dimension 冲突 → `CONFLICT`
+- [x] E2E（Windows）：
+  - [x] 改变 queryText → stablePrefixHash 不变（需要 `ai:skill:run` 返回 hash 诊断字段）
 
 ## Edge cases & Failure modes
 
@@ -48,3 +48,9 @@ Status: pending
 ## Observability
 
 - `main.log`：`memory_semantic_recall`（mode + topK + reason?）
+
+## Completion
+
+- Issue: #54
+- PR: <fill-after-created>
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-54.md`

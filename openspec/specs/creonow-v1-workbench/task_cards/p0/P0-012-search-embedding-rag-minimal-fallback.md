@@ -1,6 +1,6 @@
 # P0-012: Search/Embedding/RAG（FTS + retrieve + fallback）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -30,24 +30,24 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] FTS5：
-  - [ ] `search:fulltext(query)` 返回匹配结果（至少包含 documentId/snippet）
-  - [ ] FTS 语法错误必须返回 `INVALID_ARGUMENT`（可断言 message）
-- [ ] RAG：
-  - [ ] `rag:retrieve(queryText)` 返回 `items[]`，每项包含 `sourceRef/snippet/score`
-  - [ ] `sourceRef` 必须为可移植引用（禁止绝对路径；例如 `doc:<id>#chunk:<id>`）
-  - [ ] retrieved layer 可在 context viewer 中可视化（`ai-context-layer-retrieved`）
-- [ ] Semantic/Embedding：
-  - [ ] 若未实现语义检索：必须返回可测降级（`MODEL_NOT_READY` 或回退 FTS），语义写死
-  - [ ] 降级不得阻断技能运行（best-effort）
+- [x] FTS5：
+  - [x] `search:fulltext(query)` 返回匹配结果（至少包含 documentId/snippet）
+  - [x] FTS 语法错误必须返回 `INVALID_ARGUMENT`（可断言 message）
+- [x] RAG：
+  - [x] `rag:retrieve(queryText)` 返回 `items[]`，每项包含 `sourceRef/snippet/score`
+  - [x] `sourceRef` 必须为可移植引用（禁止绝对路径；例如 `doc:<id>#chunk:<id>`）
+  - [x] retrieved layer 可在 context viewer 中可视化（`ai-context-layer-retrieved`）
+- [x] Semantic/Embedding：
+  - [x] 未实现语义检索时返回可测降级（`MODEL_NOT_READY`），语义写死
+  - [x] 降级不得阻断技能运行（best-effort）
 
 ## Tests
 
-- [ ] Integration：`fts-invalid-query.test.ts`
-  - [ ] 传入非法 query → `INVALID_ARGUMENT`
-- [ ] E2E（Windows）`search-rag.spec.ts`
-  - [ ] 创建文档并写入唯一关键字 → `search:fulltext` 命中
-  - [ ] 运行带检索的 skill（或直接调用 `rag:retrieve`）→ 打开 context viewer → 断言 retrieved layer 出现
+- [x] Integration：`fts-invalid-query.test.ts`
+  - [x] 传入非法 query → `INVALID_ARGUMENT`
+- [x] E2E（Windows）`search-rag.spec.ts`
+  - [x] 创建文档并写入唯一关键字 → `search:fulltext` 命中
+  - [x] 运行带检索的 skill（或直接调用 `rag:retrieve`）→ 打开 context viewer → 断言 retrieved layer 出现
 
 ## Edge cases & Failure modes
 
@@ -61,3 +61,9 @@ Status: pending
   - `search_fulltext`（queryLength/resultCount）
   - `rag_retrieve`（queryLength/resultCount/budgetTokens）
   - `semantic_disabled`（reason）
+
+## Completion
+
+- Issue: #50
+- PR: #53
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-50.md`

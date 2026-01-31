@@ -1,6 +1,6 @@
 # P0-011: Knowledge Graph（CRUD + UI + context integration）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -29,25 +29,25 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] DB schema：
-  - [ ] `kg_entities/kg_relations` 表存在
-  - [ ] `metadata_json` 大小限制（建议 <= 32KB）：
-    - [ ] 超限返回 `INVALID_ARGUMENT`（不得 silent truncate）
-- [ ] IPC：
-  - [ ] `kg:graph:get` 返回 entities + relations
-  - [ ] `kg:entity:*` 与 `kg:relation:*` CRUD 可用且错误码稳定
-- [ ] UI：
-  - [ ] Sidebar 存在 KG 入口（稳定选择器：`sidebar-kg`）
-  - [ ] 打开面板会加载图谱并展示（最小：列表即可）
-  - [ ] 支持创建/更新/删除实体与关系（允许先做简化表单）
-- [ ] Context integration：
-  - [ ] 当 skill 声明 `knowledge_graph: true` 时，context viewer 中出现 KG 内容（结构化格式）
+- [x] DB schema：
+  - [x] `kg_entities/kg_relations` 表存在
+  - [x] `metadata_json` 大小限制（建议 <= 32KB）：
+    - [x] 超限返回 `INVALID_ARGUMENT`（不得 silent truncate）
+- [x] IPC：
+  - [x] `kg:graph:get` 返回 entities + relations
+  - [x] `kg:entity:*` 与 `kg:relation:*` CRUD 可用且错误码稳定
+- [x] UI：
+  - [x] Sidebar 存在 KG 入口（稳定选择器：`sidebar-kg`）
+  - [x] 打开面板会加载图谱并展示（最小：列表即可）
+  - [x] 支持创建/更新/删除实体与关系（允许先做简化表单）
+- [x] Context integration：
+  - [x] 当 skill 声明 `knowledge_graph: true` 时，context viewer 中出现 KG 内容（结构化格式）
 
 ## Tests
 
-- [ ] E2E（Windows）`knowledge-graph.spec.ts`
-  - [ ] 打开 KG 面板 → 创建实体 → 列表出现 → 删除后消失
-  - [ ] 运行一个启用 KG 注入的 skill → 打开 context viewer → 断言存在 KG 注入内容或引用
+- [x] E2E（Windows）`knowledge-graph.spec.ts`
+  - [x] 打开 KG 面板 → 创建实体 → 列表出现 → 删除后消失
+  - [x] 运行一个启用 KG 注入的 skill → 打开 context viewer → 断言存在 KG 注入内容或引用
 
 ## Edge cases & Failure modes
 
@@ -60,3 +60,9 @@ Status: pending
   - `kg_entity_created/updated/deleted`
   - `kg_relation_created/updated/deleted`
   - `kg_injected`（count，不含明文）
+
+## Completion
+
+- Issue: #51
+- PR: #52
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-51.md`

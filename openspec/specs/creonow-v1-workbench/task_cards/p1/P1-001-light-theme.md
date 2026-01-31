@@ -1,6 +1,6 @@
 # P1-001: Light Theme（不进入 V1 关键路径）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -23,16 +23,16 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] 支持 `data-theme="light"` 并完整覆盖 tokens（禁止硬编码色值）
-- [ ] 主题切换无闪烁（避免首屏 FOUC）
-- [ ] 主题偏好持久化（PreferenceStore）
-- [ ] 支持跟随系统主题（可选，但若实现必须可测）
+- [x] 支持 `data-theme="light"` 并完整覆盖 tokens（禁止硬编码色值）
+- [x] 主题切换无闪烁（避免首屏 FOUC）
+- [x] 主题偏好持久化（PreferenceStore）
+- [ ] 支持跟随系统主题（可选；本任务不实现）
 
 ## Tests
 
-- [ ] E2E（Windows）：
-  - [ ] 切换到 light → 断言 `<html data-theme="light">`
-  - [ ] 重启 → 主题保持
+- [x] E2E（Windows）：
+  - [x] 切换到 light → 断言 `<html data-theme="light">`
+  - [x] 重启 → 主题保持
 
 ## Edge cases & Failure modes
 
@@ -41,3 +41,9 @@ Status: pending
 ## Observability
 
 - renderer 日志（可选）：记录主题变更（不含用户隐私）
+
+## Completion
+
+- Issue: #54
+- PR: <fill-after-created>
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-54.md`

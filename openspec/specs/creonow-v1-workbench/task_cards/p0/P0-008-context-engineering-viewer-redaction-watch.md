@@ -1,6 +1,6 @@
 # P0-008: Context engineering（layers + viewer + redaction + watch `.creonow`）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -31,38 +31,38 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] `.creonow` 目录语义与 IPC：
-  - [ ] `context:creonow:ensure` 创建并返回 project rootPath
-  - [ ] `context:creonow:watch:start/stop` 可控且幂等
-  - [ ] rules/settings 可 list/read/get（最小集合）
-- [ ] 四层上下文可视化：
-  - [ ] viewer 展示 `rules/settings/retrieved/immediate` 四层（稳定选择器见下）
-  - [ ] viewer 展示 token 估算与裁剪证据（TrimEvidence）
-  - [ ] viewer 展示 redaction evidence
-  - [ ] viewer 展示 `stablePrefixHash` 与 `promptHash`
-- [ ] stablePrefixHash 验收：
-  - [ ] 仅改变选区/指令/检索结果 → `stablePrefixHash` 不变
-  - [ ] 改变 rules/settings → `stablePrefixHash` 改变且可解释
-- [ ] redaction（脱敏）：
-  - [ ] `.creonow/**` 内容命中敏感规则时：viewer/log/prompt 注入均必须替换为 `***REDACTED***`
-  - [ ] 禁止在 viewer/log 中出现原始 token/绝对路径
-- [ ] 稳定选择器（至少）：
-  - [ ] `ai-context-toggle`, `ai-context-panel`
-  - [ ] `ai-context-layer-rules/settings/retrieved/immediate`
-  - [ ] `ai-context-trim`
+- [x] `.creonow` 目录语义与 IPC：
+  - [x] `context:creonow:ensure` 创建并返回 project rootPath
+  - [x] `context:creonow:watch:start/stop` 可控且幂等
+  - [x] rules/settings 可 list/read/get（最小集合）
+- [x] 四层上下文可视化：
+  - [x] viewer 展示 `rules/settings/retrieved/immediate` 四层（稳定选择器见下）
+  - [x] viewer 展示 token 估算与裁剪证据（TrimEvidence）
+  - [x] viewer 展示 redaction evidence
+  - [x] viewer 展示 `stablePrefixHash` 与 `promptHash`
+- [x] stablePrefixHash 验收：
+  - [x] 仅改变选区/指令/检索结果 → `stablePrefixHash` 不变
+  - [x] 改变 rules/settings → `stablePrefixHash` 改变且可解释
+- [x] redaction（脱敏）：
+  - [x] `.creonow/**` 内容命中敏感规则时：viewer/log/prompt 注入均必须替换为 `***REDACTED***`
+  - [x] 禁止在 viewer/log 中出现原始 token/绝对路径
+- [x] 稳定选择器（至少）：
+  - [x] `ai-context-toggle`, `ai-context-panel`
+  - [x] `ai-context-layer-rules/settings/retrieved/immediate`
+  - [x] `ai-context-trim`
 
 ## Tests
 
-- [ ] E2E（Windows）`context-viewer-redaction.spec.ts`
-  - [ ] 创建项目 → `context:creonow:ensure` → `watch:start`
-  - [ ] 写入 `.creonow/rules/style.md`（包含 `sk-THIS_SHOULD_BE_REDACTED`）
-  - [ ] 写入超大 `.creonow/settings/世界观.md`（触发裁剪证据）
-  - [ ] 运行一个 builtin skill（fake AI）
-  - [ ] 打开 context viewer：
-    - [ ] 断言四层存在
-    - [ ] 断言出现 `***REDACTED***` 且不包含原始 token
-    - [ ] 断言存在裁剪证据 UI
-    - [ ] 断言路径引用为 `.creonow/...`（非绝对路径）
+- [x] E2E（Windows）`context-viewer-redaction.spec.ts`
+  - [x] 创建项目 → `context:creonow:ensure` → `watch:start`
+  - [x] 写入 `.creonow/rules/style.md`（包含 `sk-THIS_SHOULD_BE_REDACTED`）
+  - [x] 写入超大 `.creonow/settings/世界观.md`（触发裁剪证据）
+  - [x] 运行一个 builtin skill（fake AI）
+  - [x] 打开 context viewer：
+    - [x] 断言四层存在
+    - [x] 断言出现 `***REDACTED***` 且不包含原始 token
+    - [x] 断言存在裁剪证据 UI
+    - [x] 断言路径引用为 `.creonow/...`（非绝对路径）
 
 ## Edge cases & Failure modes
 
@@ -77,3 +77,9 @@ Status: pending
   - `context_watch_started/stopped`（projectId）
   - `context_watch_error`（error.code）
   - `context_redaction_applied`（patternId/matchCount，不含明文）
+
+## Completion
+
+- Issue: #39
+- PR: #42
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-39.md`

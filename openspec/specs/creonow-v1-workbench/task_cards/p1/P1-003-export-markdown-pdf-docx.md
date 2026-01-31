@@ -1,6 +1,6 @@
 # P1-003: Export（markdown/pdf/docx）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -23,14 +23,14 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] `export:markdown` 输出 deterministic（同内容同输出）
-- [ ] 导出文件写入 project 内或 userData 内固定目录（路径语义写死；禁止绝对路径泄露）
-- [ ] 导出失败返回稳定错误码（`IO_ERROR/ENCODING_FAILED`）
+- [x] `export:markdown` 输出 deterministic（同内容同输出）
+- [x] 导出文件写入 project 内或 userData 内固定目录（路径语义写死；禁止绝对路径泄露）
+- [x] 导出失败返回稳定错误码（`IO_ERROR/ENCODING_FAILED`）
 
 ## Tests
 
-- [ ] E2E（Windows）：
-  - [ ] 创建文档并输入 → 执行 export markdown → 断言导出文件存在且包含预期文本
+- [x] E2E（Windows）：
+  - [x] 创建文档并输入 → 执行 export markdown → 断言导出文件存在且包含预期文本
 
 ## Edge cases & Failure modes
 
@@ -40,3 +40,9 @@ Status: pending
 ## Observability
 
 - `main.log`：`export_started/export_succeeded/export_failed`（含 format + docId）
+
+## Completion
+
+- Issue: #54
+- PR: <fill-after-created>
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-54.md`

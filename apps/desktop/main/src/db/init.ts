@@ -1,6 +1,8 @@
 import fs from "node:fs";
+import path from "node:path";
 
 import Database from "better-sqlite3";
+import { getLoadablePath } from "sqlite-vec";
 
 import type {
   IpcError,
@@ -15,6 +17,8 @@ import judgeSql from "./migrations/0003_judge.sql?raw";
 import skillsSql from "./migrations/0004_skills.sql?raw";
 import knowledgeGraphSql from "./migrations/0005_knowledge_graph.sql?raw";
 import searchFtsSql from "./migrations/0006_search_fts.sql?raw";
+import statsSql from "./migrations/0007_stats.sql?raw";
+import userMemoryVecSql from "./migrations/0008_user_memory_vec.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -35,14 +39,50 @@ type Migration = {
   sql: string;
 };
 
-const MIGRATIONS: readonly Migration[] = [
+const MIGRATIONS_BASE: readonly Migration[] = [
   { version: 1, name: "0001_init", sql: initSql },
   { version: 2, name: "0002_documents_versioning", sql: documentsSql },
   { version: 3, name: "0003_judge", sql: judgeSql },
   { version: 4, name: "0004_skills", sql: skillsSql },
   { version: 5, name: "0005_knowledge_graph", sql: knowledgeGraphSql },
   { version: 6, name: "0006_search_fts", sql: searchFtsSql },
+  { version: 7, name: "0007_stats", sql: statsSql },
 ];
+
+const SQLITE_VEC_MIGRATION: Migration = {
+  version: 8,
+  name: "0008_user_memory_vec",
+  sql: userMemoryVecSql,
+};
+
+/**
+ * Best-effort load sqlite-vec for optional vec0 tables.
+ *
+ * Why: semantic recall should degrade without blocking app startup on platforms
+ * where the extension cannot be loaded.
+ */
+function tryLoadSqliteVec(args: {
+  db: Database.Database;
+  logger: Logger;
+}): boolean {
+  try {
+    const rawPath = getLoadablePath();
+    const unpacked = rawPath.replace(
+      `${path.sep}app.asar${path.sep}`,
+      `${path.sep}app.asar.unpacked${path.sep}`,
+    );
+    const loadPath =
+      rawPath !== unpacked && fs.existsSync(unpacked) ? unpacked : rawPath;
+    args.db.loadExtension(loadPath);
+    args.logger.info("sqlite_vec_loaded", {});
+    return true;
+  } catch (error) {
+    args.logger.info("sqlite_vec_unavailable", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
 
 /**
  * Build a stable IPC error object.
@@ -110,7 +150,11 @@ export function initDb(args: {
     const current = ensureSchemaVersion(conn);
     schemaVersion = current;
 
-    const pending = [...MIGRATIONS]
+    const migrations = tryLoadSqliteVec({ db: conn, logger: args.logger })
+      ? [...MIGRATIONS_BASE, SQLITE_VEC_MIGRATION]
+      : MIGRATIONS_BASE;
+
+    const pending = [...migrations]
       .filter((m) => m.version > current)
       .sort((a, b) => a.version - b.version);
 

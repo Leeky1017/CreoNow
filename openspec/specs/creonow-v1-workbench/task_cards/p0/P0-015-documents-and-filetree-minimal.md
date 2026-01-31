@@ -1,6 +1,6 @@
 # P0-015: Documents + FileTree（create/open/switch/rename/delete + currentDocument）
 
-Status: pending
+Status: done
 
 ## Goal
 
@@ -31,24 +31,24 @@ Status: pending
 
 ## Acceptance Criteria
 
-- [ ] Documents IPC（最小闭环）：
-  - [ ] `file:document:create/list/read/rename/delete` 可用且错误码稳定
-  - [ ] `file:document:setCurrent/getCurrent` 可用，且作用域为 project（不得串 project）
-- [ ] current document：
-  - [ ] 切换文档后 `currentDocumentId` 持久化，重启可恢复
-- [ ] FileTree UI：
-  - [ ] Sidebar 存在 Files 入口并可打开（`data-testid=\"sidebar-files\"`）
-  - [ ] 文档列表条目使用稳定选择器：`file-row-<documentId>`
-  - [ ] 新建文档入口存在：`file-create`
-  - [ ] 点击条目切换文档后，Editor 内容切换且不丢失（与 P0-005 的 autosave 对齐）
+- [x] Documents IPC（最小闭环）：
+  - [x] `file:document:create/list/read/rename/delete` 可用且错误码稳定
+  - [x] `file:document:setCurrent/getCurrent` 可用，且作用域为 project（不得串 project）
+- [x] current document：
+  - [x] 切换文档后 `currentDocumentId` 持久化，重启可恢复
+- [x] FileTree UI：
+  - [x] Sidebar 存在 Files 入口并可打开（`data-testid=\"sidebar-files\"`）
+  - [x] 文档列表条目使用稳定选择器：`file-row-<documentId>`
+  - [x] 新建文档入口存在：`file-create`
+  - [x] 点击条目切换文档后，Editor 内容切换且不丢失（与 P0-005 的 autosave 对齐）
 
 ## Tests
 
-- [ ] E2E（Windows）`documents-filetree.spec.ts`
-  - [ ] 创建 project → 创建 doc A → 输入内容并保存
-  - [ ] 创建 doc B → 切换到 B 输入不同内容
-  - [ ] 来回切换 A/B → 断言内容互不污染
-  - [ ] 重启 app → 断言 `currentDocumentId` 恢复且 filetree 列表可见
+- [x] E2E（Windows）`documents-filetree.spec.ts`
+  - [x] 创建 project → 创建 doc A → 输入内容并保存
+  - [x] 创建 doc B → 切换到 B 输入不同内容
+  - [x] 来回切换 A/B → 断言内容互不污染
+  - [x] 重启 app → 断言 `currentDocumentId` 恢复且 filetree 列表可见
 
 ## Edge cases & Failure modes
 
@@ -66,3 +66,9 @@ Status: pending
   - `document_renamed`（documentId）
   - `document_deleted`（documentId）
   - `document_set_current`（projectId, documentId）
+
+## Completion
+
+- Issue: #31
+- PR: #34
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-31.md`
