@@ -2,7 +2,7 @@
 
 - Issue: #29
 - Branch: task/29-docs-close-p0-005-p0-014
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/30
 
 ## Plan
 
@@ -40,3 +40,8 @@
 
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: `prettier/typecheck/lint/contract:check/test:unit ✅`
+
+### 2026-01-31 16:22 PR
+
+- Command: `gh pr create`
+- Key output: `PR #30`
