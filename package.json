@@ -5,6 +5,10 @@
   "description": "AI 驱动的文字创作 IDE",
   "type": "module",
   "scripts": {
+    "desktop:dev": "pnpm -C apps/desktop dev",
+    "desktop:build": "pnpm -C apps/desktop build",
+    "desktop:test:e2e": "pnpm -C apps/desktop test:e2e",
+    "desktop:build:win": "pnpm -C apps/desktop build:win",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
@@ -13,9 +17,14 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "typescript": "^5.3.3",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
     "eslint": "^8.56.0",
-    "prettier": "^3.2.0"
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "prettier": "^3.2.0",
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=18.0.0",

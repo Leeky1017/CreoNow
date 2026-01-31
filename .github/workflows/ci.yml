@@ -18,17 +18,76 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile || pnpm install
 
       - name: Type check
-        run: pnpm typecheck || echo "No typecheck script yet"
+        run: pnpm typecheck
 
       - name: Lint
-        run: pnpm lint || echo "No lint script yet"
+        run: pnpm lint
+
+  windows-e2e:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Install Playwright browsers
+        run: pnpm -C apps/desktop exec playwright install
+
+      - name: Playwright Electron E2E (Windows)
+        run: pnpm -C apps/desktop test:e2e
+
+      - name: Upload Playwright artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-windows
+          path: |
+            apps/desktop/playwright-report/
+            apps/desktop/test-results/
+
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Build Windows artifacts (NSIS + zip)
+        run: pnpm -C apps/desktop build:win
+
+      - name: Upload Windows build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: creonow-windows-build
+          path: |
+            apps/desktop/dist-electron/
 
   openspec-log-guard:
     runs-on: ubuntu-latest
