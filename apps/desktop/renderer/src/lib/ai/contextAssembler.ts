@@ -43,6 +43,83 @@ export type AssembledContext = {
   redactionEvidence: RedactionEvidenceItem[];
 };
 
+export type KnowledgeGraphEntity = {
+  entityId: string;
+  name: string;
+  entityType?: string;
+  description?: string;
+};
+
+export type KnowledgeGraphRelation = {
+  relationId: string;
+  fromEntityId: string;
+  toEntityId: string;
+  relationType: string;
+};
+
+/**
+ * Format a Knowledge Graph block for prompt injection.
+ *
+ * Why: retrieved sources must be structured, deterministic, and project-relative
+ * so the context viewer and Windows E2E can assert its presence.
+ */
+export function formatKnowledgeGraphContext(args: {
+  entities: KnowledgeGraphEntity[];
+  relations: KnowledgeGraphRelation[];
+  maxEntities: number;
+  maxRelations: number;
+}): string {
+  const maxEntities = Math.max(0, Math.floor(args.maxEntities));
+  const maxRelations = Math.max(0, Math.floor(args.maxRelations));
+
+  const entityById = new Map<string, KnowledgeGraphEntity>();
+  for (const e of args.entities) {
+    entityById.set(e.entityId, e);
+  }
+
+  const entities = args.entities.slice(0, maxEntities);
+  const relations = args.relations.slice(0, maxRelations);
+
+  const lines: string[] = [];
+  lines.push("## Knowledge Graph (project)");
+
+  lines.push(`- Entities (top ${entities.length}):`);
+  if (entities.length === 0) {
+    lines.push("  - (none)");
+  } else {
+    for (const e of entities) {
+      const type = typeof e.entityType === "string" ? e.entityType.trim() : "";
+      const typeSuffix = type.length > 0 ? ` (${type})` : "";
+
+      const rawDesc =
+        typeof e.description === "string" ? e.description.trim() : "";
+      const firstLine = rawDesc.split(/\r?\n/)[0] ?? "";
+      const desc =
+        firstLine.length > 160 ? `${firstLine.slice(0, 157)}...` : firstLine;
+      const descSuffix = desc.length > 0 ? `: ${desc}` : "";
+
+      lines.push(
+        `  - [entity:${e.entityId}] ${e.name}${typeSuffix}${descSuffix}`,
+      );
+    }
+  }
+
+  lines.push(`- Relations (top ${relations.length}):`);
+  if (relations.length === 0) {
+    lines.push("  - (none)");
+  } else {
+    for (const r of relations) {
+      const fromName = entityById.get(r.fromEntityId)?.name ?? r.fromEntityId;
+      const toName = entityById.get(r.toEntityId)?.name ?? r.toEntityId;
+      lines.push(
+        `  - [rel:${r.relationId}] ${fromName} -(${r.relationType})-> ${toName}`,
+      );
+    }
+  }
+
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
 /**
  * Compute an FNV-1a 32-bit hash in hex.
  *
