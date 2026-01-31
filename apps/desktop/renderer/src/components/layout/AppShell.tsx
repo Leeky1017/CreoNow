@@ -10,6 +10,8 @@ import { CommandPalette } from "../../features/commandPalette/CommandPalette";
 import { EditorPane } from "../../features/editor/EditorPane";
 import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
 import { useProjectStore } from "../../stores/projectStore";
+import { useFileStore } from "../../stores/fileStore";
+import { useEditorStore } from "../../stores/editorStore";
 
 /**
  * Clamp a value between min/max bounds.
@@ -66,6 +68,9 @@ function computePanelMax(
  */
 export function AppShell(): JSX.Element {
   const currentProject = useProjectStore((s) => s.current);
+  const currentProjectId = currentProject?.projectId ?? null;
+  const bootstrapFiles = useFileStore((s) => s.bootstrapForProject);
+  const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth);
   const panelWidth = useLayoutStore((s) => s.panelWidth);
   const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
@@ -81,6 +86,17 @@ export function AppShell(): JSX.Element {
   const resetPanelWidth = useLayoutStore((s) => s.resetPanelWidth);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!currentProjectId) {
+      return;
+    }
+
+    void (async () => {
+      await bootstrapFiles(currentProjectId);
+      await bootstrapEditor(currentProjectId);
+    })();
+  }, [bootstrapEditor, bootstrapFiles, currentProjectId]);
 
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent): void {
@@ -146,7 +162,11 @@ export function AppShell(): JSX.Element {
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <div style={{ flex: 1, display: "flex", minWidth: 0 }}>
-          <Sidebar width={effectiveSidebarWidth} collapsed={sidebarCollapsed} />
+          <Sidebar
+            width={effectiveSidebarWidth}
+            collapsed={sidebarCollapsed}
+            projectId={currentProjectId}
+          />
 
           {!sidebarCollapsed ? (
             <Resizer

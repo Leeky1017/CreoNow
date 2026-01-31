@@ -1,13 +1,23 @@
+import React from "react";
+
+import { FileTreePanel } from "../../features/files/FileTreePanel";
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
 
+type SidebarTab = "files";
+
 /**
- * Sidebar is the left panel container. P0 keeps it as a placeholder while
- * exposing stable selectors and correct resize constraints.
+ * Sidebar is the left panel container (Files/Outline/etc).
+ *
+ * Why: P0 wires the Files tab as the minimal documents entry point with stable
+ * selectors for Windows E2E.
  */
 export function Sidebar(props: {
   width: number;
   collapsed: boolean;
+  projectId: string | null;
 }): JSX.Element {
+  const [activeTab, setActiveTab] = React.useState<SidebarTab>("files");
+
   if (props.collapsed) {
     return (
       <aside
@@ -32,12 +42,49 @@ export function Sidebar(props: {
     >
       <div
         style={{
-          padding: 12,
-          fontSize: 12,
-          color: "var(--color-fg-muted)",
+          display: "flex",
+          gap: "var(--space-1)",
+          padding: "var(--space-2)",
+          borderBottom: "1px solid var(--color-separator)",
         }}
       >
-        Sidebar (placeholder)
+        <button
+          type="button"
+          onClick={() => setActiveTab("files")}
+          style={{
+            fontSize: 12,
+            padding: "var(--space-1) var(--space-2)",
+            borderRadius: "var(--radius-md)",
+            border:
+              activeTab === "files"
+                ? "1px solid var(--color-border-focus)"
+                : "1px solid var(--color-border-default)",
+            background:
+              activeTab === "files"
+                ? "var(--color-bg-selected)"
+                : "var(--color-bg-surface)",
+            color: "var(--color-fg-default)",
+            cursor: "pointer",
+          }}
+        >
+          Files
+        </button>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0 }}>
+        {props.projectId && activeTab === "files" ? (
+          <FileTreePanel projectId={props.projectId} />
+        ) : (
+          <div
+            style={{
+              padding: "var(--space-3)",
+              fontSize: 12,
+              color: "var(--color-fg-muted)",
+            }}
+          >
+            Sidebar (no project)
+          </div>
+        )}
       </div>
     </aside>
   );

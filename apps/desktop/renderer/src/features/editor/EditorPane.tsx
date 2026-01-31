@@ -9,13 +9,13 @@ import { useAutosave } from "./useAutosave";
  * EditorPane mounts TipTap editor and wires autosave to the DB SSOT.
  */
 export function EditorPane(props: { projectId: string }): JSX.Element {
-  const bootstrapForProject = useEditorStore((s) => s.bootstrapForProject);
   const bootstrapStatus = useEditorStore((s) => s.bootstrapStatus);
   const documentId = useEditorStore((s) => s.documentId);
   const documentContentJson = useEditorStore((s) => s.documentContentJson);
   const save = useEditorStore((s) => s.save);
 
   const suppressAutosaveRef = React.useRef<boolean>(false);
+  const [contentReady, setContentReady] = React.useState(false);
 
   const editor = useEditor({
     extensions: [StarterKit],
@@ -31,26 +31,25 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   });
 
   React.useEffect(() => {
-    void bootstrapForProject(props.projectId);
-  }, [bootstrapForProject, props.projectId]);
-
-  React.useEffect(() => {
-    if (!editor || !documentContentJson) {
+    if (!editor || !documentId || !documentContentJson) {
+      setContentReady(false);
       return;
     }
 
     try {
+      setContentReady(false);
       suppressAutosaveRef.current = true;
       editor.commands.setContent(JSON.parse(documentContentJson));
     } finally {
       window.setTimeout(() => {
         suppressAutosaveRef.current = false;
+        setContentReady(true);
       }, 0);
     }
-  }, [documentContentJson, editor]);
+  }, [documentContentJson, documentId, editor]);
 
   useAutosave({
-    enabled: bootstrapStatus === "ready" && !!documentId,
+    enabled: bootstrapStatus === "ready" && !!documentId && contentReady,
     projectId: props.projectId,
     documentId: documentId ?? "",
     editor,
@@ -58,7 +57,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   });
 
   React.useEffect(() => {
-    if (!editor || bootstrapStatus !== "ready" || !documentId) {
+    if (!editor || bootstrapStatus !== "ready" || !documentId || !contentReady) {
       return;
     }
 
@@ -86,7 +85,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [bootstrapStatus, documentId, editor, props.projectId, save]);
+  }, [bootstrapStatus, contentReady, documentId, editor, props.projectId, save]);
 
   if (bootstrapStatus !== "ready") {
     return (
@@ -108,8 +107,22 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     );
   }
 
+  if (!contentReady) {
+    return (
+      <div
+        style={{ padding: 16, color: "var(--color-fg-muted)", fontSize: 13 }}
+      >
+        Loading document…
+      </div>
+    );
+  }
+
   return (
-    <div style={{ width: "100%", height: "100%", minWidth: 0 }}>
+    <div
+      data-testid="editor-pane"
+      data-document-id={documentId}
+      style={{ width: "100%", height: "100%", minWidth: 0 }}
+    >
       <EditorContent editor={editor} />
     </div>
   );

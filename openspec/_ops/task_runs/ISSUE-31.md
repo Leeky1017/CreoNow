@@ -46,3 +46,20 @@
 
 - Command: `gh pr create --draft --title "feat: documents rename + current doc IPC (#31)" --body "Closes #31 ..."`
 - Key output: `https://github.com/Leeky1017/CreoNow/pull/34`
+
+### 2026-01-31 17:53 filetree + e2e
+
+- Command: `pnpm -C apps/desktop typecheck`
+- Key output: `exit 0`
+
+- Command: `pnpm -C apps/desktop lint`
+- Key output: `exit 0`
+
+- Command: `pnpm test:unit`
+- Key output: `exit 0`
+
+- Command: `pnpm -C apps/desktop test:e2e -- documents-filetree.spec.ts`
+- Key output: `1 passed`
+
+- Command: `pnpm -C apps/desktop test:e2e -- app-launch.spec.ts project-lifecycle.spec.ts editor-autosave.spec.ts`
+- Key output: `3 passed`

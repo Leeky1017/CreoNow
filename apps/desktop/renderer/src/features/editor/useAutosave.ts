@@ -27,6 +27,8 @@ export function useAutosave(args: {
       return;
     }
 
+    lastQueuedJsonRef.current = null;
+
     function onUpdate(): void {
       if (args.suppressRef.current) {
         return;
@@ -59,8 +61,19 @@ export function useAutosave(args: {
       args.editor?.off("update", onUpdate);
       if (timerRef.current !== null) {
         window.clearTimeout(timerRef.current);
+        timerRef.current = null;
+        const queued = lastQueuedJsonRef.current;
+        if (queued && queued.length > 0) {
+          void save({
+            projectId: args.projectId,
+            documentId: args.documentId,
+            contentJson: queued,
+            actor: "auto",
+            reason: "autosave",
+          });
+        }
       }
-      timerRef.current = null;
+      lastQueuedJsonRef.current = null;
     };
   }, [
     args.documentId,
