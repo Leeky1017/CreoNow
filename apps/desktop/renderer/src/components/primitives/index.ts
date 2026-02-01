@@ -58,11 +58,5 @@ export type { SelectProps, SelectOption, SelectGroup } from "./Select";
 export { Checkbox } from "./Checkbox";
 export type { CheckboxProps } from "./Checkbox";
 
-export {
-  Tabs,
-  TabsRoot,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "./Tabs";
+export { Tabs, TabsRoot, TabsList, TabsTrigger, TabsContent } from "./Tabs";
 export type { TabsProps, TabItem } from "./Tabs";

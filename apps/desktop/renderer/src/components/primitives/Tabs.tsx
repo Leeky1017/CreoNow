@@ -111,10 +111,7 @@ const triggerStyles = [
  * Note: Tab panels use simple opacity transition. Complex slide animations
  * would require additional CSS keyframes.
  */
-const panelStyles = [
-  "mt-4",
-  "focus:outline-none",
-].join(" ");
+const panelStyles = ["mt-4", "focus:outline-none"].join(" ");
 
 /**
  * Tabs component

@@ -54,7 +54,7 @@ export interface SelectProps {
  * Check if options are grouped
  */
 function isGrouped(
-  options: SelectOption[] | SelectGroup[]
+  options: SelectOption[] | SelectGroup[],
 ): options is SelectGroup[] {
   return options.length > 0 && "options" in options[0];
 }
