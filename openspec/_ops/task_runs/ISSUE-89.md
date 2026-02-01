@@ -2,7 +2,7 @@
 
 - Issue: #89
 - Branch: task/89-p1-card-golden-standard
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/90
 
 ## Plan
 
