@@ -126,3 +126,18 @@ textarea:focus-visible {
   align-items: center;
   justify-content: center;
 }
+
+/* === 动画 === */
+
+/* 进度条不确定状态动画（LoadingState §12.2） */
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(200%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
