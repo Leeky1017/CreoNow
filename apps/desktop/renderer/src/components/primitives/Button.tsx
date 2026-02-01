@@ -49,6 +49,9 @@ const baseStyles = [
   "transition-colors",
   "duration-[var(--duration-fast)]",
   "ease-[var(--ease-default)]",
+  // Overflow handling (design spec: 文字过长使用 text-ellipsis 截断)
+  "overflow-hidden",
+  "max-w-full",
   // Focus visible uses outline (design spec §3.5)
   "focus-visible:outline",
   "focus-visible:outline-[length:var(--ring-focus-width)]",
@@ -179,7 +182,7 @@ export function Button({
       {...props}
     >
       {loading && <Spinner />}
-      {children}
+      <span className="truncate">{children}</span>
     </button>
   );
 }

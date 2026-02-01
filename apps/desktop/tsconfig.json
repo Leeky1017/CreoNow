@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client", "@testing-library/jest-dom"]
   },
   "include": [
     "electron.vite.config.ts",
@@ -10,6 +10,8 @@
     "preload/src/**/*.ts",
     "renderer/src/**/*.ts",
     "renderer/src/**/*.tsx",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "vitest.setup.ts",
+    "vitest.config.ts"
   ]
 }
