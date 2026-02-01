@@ -1,4 +1,5 @@
 import type { SkillListItem } from "../../stores/aiStore";
+import { Text } from "../../components/primitives";
 
 /**
  * SkillPicker renders the AI Panel skills popup list.
@@ -18,50 +19,19 @@ export function SkillPicker(props: {
     <div
       role="presentation"
       onClick={() => props.onOpenChange(false)}
-      style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 20,
-      }}
+      className="absolute inset-0 z-20"
     >
       <div
         role="dialog"
         aria-label="Skills"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          position: "absolute",
-          top: 36,
-          right: 0,
-          width: 280,
-          maxWidth: "100%",
-          background: "var(--color-bg-raised)",
-          border: "1px solid var(--color-border-default)",
-          borderRadius: "var(--radius-lg)",
-          padding: 10,
-          boxShadow: "0 18px 48px rgba(0,0,0,0.45)",
-        }}
+        className="absolute top-9 right-0 w-70 max-w-full p-2.5 bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[0_18px_48px_rgba(0,0,0,0.45)]"
       >
-        <div
-          style={{
-            fontSize: 11,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "var(--color-fg-muted)",
-          }}
-        >
+        <Text size="label" color="muted">
           Skills
-        </div>
+        </Text>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            marginTop: 8,
-            gap: 6,
-            maxHeight: 260,
-            overflow: "auto",
-          }}
-        >
+        <div className="flex flex-col mt-2 gap-1.5 max-h-65 overflow-auto">
           {props.items.map((s) => {
             const selected = s.id === props.selectedSkillId;
             const disabled = !s.enabled || !s.valid;
@@ -77,29 +47,27 @@ export function SkillPicker(props: {
                 type="button"
                 disabled={disabled}
                 onClick={() => props.onSelectSkillId(s.id)}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                  textAlign: "left",
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  border: selected
-                    ? "1px solid var(--color-border-accent)"
-                    : "1px solid var(--color-border-default)",
-                  background: selected
-                    ? "var(--color-bg-base)"
-                    : "var(--color-bg-raised)",
-                  color: disabled
-                    ? "var(--color-fg-muted)"
-                    : "var(--color-fg-default)",
-                  cursor: disabled ? "not-allowed" : "pointer",
-                }}
+                className={`
+                  flex flex-col gap-0.5 text-left px-2.5 py-2 rounded-[10px] border
+                  transition-colors duration-[var(--duration-fast)] ease-[var(--ease-default)]
+                  ${
+                    selected
+                      ? "border-[var(--color-border-accent)] bg-[var(--color-bg-base)]"
+                      : "border-[var(--color-border-default)] bg-[var(--color-bg-raised)]"
+                  }
+                  ${
+                    disabled
+                      ? "text-[var(--color-fg-muted)] cursor-not-allowed"
+                      : "text-[var(--color-fg-default)] cursor-pointer hover:border-[var(--color-border-hover)]"
+                  }
+                `}
               >
-                <div style={{ fontSize: 12, fontWeight: 600 }}>{s.name}</div>
-                <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+                <Text size="small" weight="semibold" color={disabled ? "muted" : "default"}>
+                  {s.name}
+                </Text>
+                <Text size="tiny" color="muted">
                   {subtitle}
-                </div>
+                </Text>
               </button>
             );
           })}

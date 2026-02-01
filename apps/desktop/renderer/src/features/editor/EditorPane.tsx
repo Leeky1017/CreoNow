@@ -4,6 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 
 import { useEditorStore } from "../../stores/editorStore";
 import { useAutosave } from "./useAutosave";
+import { Text } from "../../components/primitives";
 
 /**
  * EditorPane mounts TipTap editor and wires autosave to the DB SSOT.
@@ -24,8 +25,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     editorProps: {
       attributes: {
         "data-testid": "tiptap-editor",
-        style:
-          "height:100%; outline:none; padding: 16px; color: var(--color-fg-default);",
+        class: "h-full outline-none p-4 text-[var(--color-fg-default)]",
       },
     },
     content: { type: "doc", content: [{ type: "paragraph" }] },
@@ -107,31 +107,25 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
 
   if (bootstrapStatus !== "ready") {
     return (
-      <div
-        style={{ padding: 16, color: "var(--color-fg-muted)", fontSize: 13 }}
-      >
+      <Text as="div" size="body" color="muted" className="p-4">
         Loading editor…
-      </div>
+      </Text>
     );
   }
 
   if (!documentId) {
     return (
-      <div
-        style={{ padding: 16, color: "var(--color-fg-muted)", fontSize: 13 }}
-      >
+      <Text as="div" size="body" color="muted" className="p-4">
         No document selected.
-      </div>
+      </Text>
     );
   }
 
   if (!contentReady) {
     return (
-      <div
-        style={{ padding: 16, color: "var(--color-fg-muted)", fontSize: 13 }}
-      >
+      <Text as="div" size="body" color="muted" className="p-4">
         Loading document…
-      </div>
+      </Text>
     );
   }
 
@@ -139,7 +133,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     <div
       data-testid="editor-pane"
       data-document-id={documentId}
-      style={{ width: "100%", height: "100%", minWidth: 0 }}
+      className="w-full h-full min-w-0"
     >
       <EditorContent editor={editor} />
     </div>
