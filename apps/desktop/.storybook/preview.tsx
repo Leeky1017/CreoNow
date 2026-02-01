@@ -1,9 +1,25 @@
 import type { Preview } from "@storybook/react";
-import React from "react";
+import React, { useEffect } from "react";
 
 // Import global styles including design tokens
 import "../renderer/src/styles/tokens.css";
 import "../renderer/src/styles/main.css";
+
+/**
+ * Decorator that sets data-theme on documentElement to enable CSS variable theming.
+ * CSS tokens use :root[data-theme="dark"] selector, so data-theme must be on <html>.
+ */
+function ThemeDecorator({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    // Set theme on :root (html element) so CSS variables activate
+    document.documentElement.setAttribute("data-theme", "dark");
+    return () => {
+      document.documentElement.removeAttribute("data-theme");
+    };
+  }, []);
+
+  return <div style={{ padding: "1rem" }}>{children}</div>;
+}
 
 const preview: Preview = {
   parameters: {
@@ -23,9 +39,9 @@ const preview: Preview = {
   },
   decorators: [
     (Story) => (
-      <div data-theme="dark" style={{ padding: "1rem" }}>
+      <ThemeDecorator>
         <Story />
-      </div>
+      </ThemeDecorator>
     ),
   ],
 };
