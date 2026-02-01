@@ -2,7 +2,7 @@
 
 - Issue: #71
 - Branch: task/71-ui-mid-primitives
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/72
 
 ## Plan
 
