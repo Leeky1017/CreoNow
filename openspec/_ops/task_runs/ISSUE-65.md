@@ -2,7 +2,7 @@
 
 - Issue: #65
 - Branch: task/65-patterns
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/66
 
 ## Plan
 
