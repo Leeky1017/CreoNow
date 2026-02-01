@@ -2,7 +2,7 @@
 
 - Issue: #61
 - Branch: task/61-primitives
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/62
 
 ## Plan
 
