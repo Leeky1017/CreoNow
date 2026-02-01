@@ -1,7 +1,7 @@
 # ISSUE-99
 - Issue: #99
 - Branch: task/99-p3-layout-components
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/100
 
 ## Plan
 - 为 6 个布局组件（AppShell/IconBar/Sidebar/RightPanel/Resizer/StatusBar）创建 Story + 测试
