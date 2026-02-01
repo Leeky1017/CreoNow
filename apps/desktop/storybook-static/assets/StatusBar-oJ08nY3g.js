@@ -1,0 +1,4 @@
+import{j as r}from"./jsx-runtime-BLchON5X.js";import{d as i}from"./kgStore-C8isvze5.js";import{u as e}from"./editorStore-ByocGlaq.js";function u(){const t=e(s=>s.autosaveStatus),o=e(s=>s.retryLastAutosave),a=t==="error";return r.jsx("div",{"data-testid":"layout-statusbar",className:"flex items-center px-3 text-[11px] text-[var(--color-fg-muted)] bg-[var(--color-bg-surface)] border-t border-[var(--color-separator)]",style:{height:i.statusBarHeight},children:r.jsx("span",{"data-testid":"editor-autosave-status","data-status":t,onClick:()=>{a&&o()},className:a?"cursor-pointer underline":"cursor-default",children:t})})}u.__docgenInfo={description:`StatusBar is the fixed 28px bottom bar. P0 keeps it minimal but stable for
+layout E2E selectors.
+
+Design spec §5.4: Status bar height is 28px.`,methods:[],displayName:"StatusBar"};export{u as S};
