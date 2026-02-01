@@ -1,7 +1,7 @@
 # ISSUE-87
 - Issue: #87
 - Branch: task/87-p1-input-golden-standard
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/88
 
 ## Plan
 - 更新 Button.md 生成卡片，使 Props 接口与实际实现一致
