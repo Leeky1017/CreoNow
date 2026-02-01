@@ -3,15 +3,19 @@
   --ring-focus-width: 2px;
   --ring-focus-offset: 2px;
 
-  /* Spacing (4px grid) */
+  /* Spacing (4px grid) §3.8 */
   --space-0: 0px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
+  --space-1: 4px;      /* 最小间距 */
+  --space-2: 8px;      /* 紧凑间距 */
+  --space-3: 12px;     /* 常用间距 */
+  --space-4: 16px;     /* 标准间距 */
   --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
+  --space-6: 24px;     /* 区块间距 */
+  --space-8: 32px;     /* 大间距 */
+  --space-10: 40px;
+  --space-12: 48px;    /* 模块间距 */
+  --space-16: 64px;
+  --space-20: 80px;    /* 页面间距 */
 
   /* Radius */
   --radius-none: 0px;
@@ -22,20 +26,27 @@
   --radius-2xl: 24px;
   --radius-full: 9999px;
 
-  /* Motion */
+  /* Motion / Animation §3.10 */
   --ease-default: cubic-bezier(0.2, 0, 0.2, 1);
-  --duration-fast: 100ms;
-  --duration-normal: 200ms;
-  --duration-slow: 300ms;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  --duration-instant: 50ms;   /* 即时反馈 */
+  --duration-fast: 100ms;     /* 微交互（hover 颜色变化） */
+  --duration-normal: 200ms;   /* 标准过渡 */
+  --duration-slow: 300ms;     /* 面板展开/折叠 */
+  --duration-slower: 500ms;   /* 页面切换 */
 
   /* z-index 层级 §5.1 */
-  --z-base: 0;
-  --z-sticky: 100;
-  --z-dropdown: 200;
-  --z-popover: 300;
-  --z-modal: 400;
-  --z-toast: 500;
-  --z-tooltip: 600;
+  --z-base: 0;           /* 默认层 */
+  --z-sticky: 100;       /* 粘性元素（工具栏） */
+  --z-dropdown: 200;     /* 下拉菜单 */
+  --z-popover: 300;      /* 弹出层 */
+  --z-modal: 400;        /* 模态框 */
+  --z-toast: 500;        /* Toast 通知 */
+  --z-tooltip: 600;      /* Tooltip */
+  --z-max: 9999;         /* 紧急覆盖（调试用） */
 
   /* 功能色 §3.6 */
   --color-error: #ef4444;
@@ -53,6 +64,12 @@
   --color-accent-orange: #f97316;
   --color-accent-cyan: #06b6d4;
   --color-accent-purple: #8b5cf6;
+
+  /* 阴影系统 §3.7 - 几何保持一致，颜色来自主题内 --color-shadow */
+  --shadow-sm: 0 1px 2px var(--color-shadow);
+  --shadow-md: 0 4px 8px var(--color-shadow);
+  --shadow-lg: 0 8px 16px var(--color-shadow);
+  --shadow-xl: 0 16px 32px var(--color-shadow);
 }
 
 :root[data-theme="dark"] {
@@ -87,12 +104,8 @@
   /* Focus ring */
   --color-ring-focus: rgba(255, 255, 255, 0.4);
 
-  /* 阴影系统 §3.7 */
+  /* 阴影基色 §3.7 - 几何在 :root 中定义 */
   --color-shadow: rgba(0, 0, 0, 0.5);
-  --shadow-sm: 0 1px 2px var(--color-shadow);
-  --shadow-md: 0 4px 8px var(--color-shadow);
-  --shadow-lg: 0 8px 16px var(--color-shadow);
-  --shadow-xl: 0 16px 32px var(--color-shadow);
 }
 
 :root[data-theme="light"] {
@@ -127,10 +140,6 @@
   /* Focus ring */
   --color-ring-focus: rgba(0, 0, 0, 0.15);
 
-  /* 阴影系统 §3.7 */
+  /* 阴影基色 §3.7 - 几何在 :root 中定义 */
   --color-shadow: rgba(0, 0, 0, 0.1);
-  --shadow-sm: 0 1px 2px var(--color-shadow);
-  --shadow-md: 0 4px 8px var(--color-shadow);
-  --shadow-lg: 0 8px 16px var(--color-shadow);
-  --shadow-xl: 0 16px 32px var(--color-shadow);
 }
