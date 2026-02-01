@@ -91,13 +91,20 @@
 
 ```typescript
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  /** 视觉样式变体 */
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  /** 按钮尺寸 */
   size?: 'sm' | 'md' | 'lg';
+  /** 显示加载状态并禁用交互 */
   loading?: boolean;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  /** 全宽按钮 */
+  fullWidth?: boolean;
+  /** 按钮内容 */
+  children: React.ReactNode;
 }
 ```
+
+> **注意**: leftIcon/rightIcon 功能通过 children 支持 React 节点实现，如 `<Button><Icon /> Text</Button>`
 
 ---
 
