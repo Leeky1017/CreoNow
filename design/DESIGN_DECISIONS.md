@@ -51,6 +51,34 @@
 - **效果**: MUST 隐藏所有面板，仅保留编辑区和最小化工具栏
 - **退出**: MUST 支持再次按 F11 或 Esc
 
+### 1.4 布局高度分配 (MUST)
+
+**核心约束:**
+- 窗口高度 = 100vh（固定视口高度）
+- 左中右三栏 MUST 在固定高度内分配
+- 每个面板的高度 = 窗口高度 - 状态栏高度（28px）
+
+**Flex 布局结构:**
+```
+┌─────────────────────────────────────────┐ ← height: 100vh
+│            flex-direction: column       │
+├─────────────────────────────────────────┤
+│ .main-layout (flex: 1, min-height: 0)   │ ← 关键：min-height: 0
+│ ┌────┬──────────────────┬──────────────┐│
+│ │Left│      Main        │   Right      ││ ← 各自 overflow-y: auto
+│ │ 48+│                  │              ││
+│ │240 │                  │     320      ││
+│ └────┴──────────────────┴──────────────┘│
+├─────────────────────────────────────────┤
+│ .status-bar (height: 28px, flex-shrink: 0)
+└─────────────────────────────────────────┘
+```
+
+**为什么需要 `min-height: 0`:**
+- Flex 子元素默认 `min-height: auto`，会阻止收缩
+- 不设置会导致内容超出时，容器被撑开而非内部滚动
+- 这是"面板随内容无限延伸"问题的根本原因
+
 ---
 
 ## 2. 尺寸与布局规范
@@ -104,6 +132,51 @@
 折叠后:
 - 左侧: 仅保留 Icon Bar (48px)
 - 右侧: 完全隐藏 (0px)
+
+### 2.6 滚动行为 (MUST)
+
+**整体布局高度约束:**
+- 窗口 MUST 为固定视口高度 `height: 100vh`
+- 左侧 Sidebar、主内容区、右侧面板 MUST 各自独立滚动
+- 每个可滚动区域 MUST 设置 `overflow-y: auto`
+- 状态栏 MUST 始终固定在底部，不随内容滚动
+
+**实现要点:**
+```css
+/* 整体布局 */
+html, body, #root { height: 100vh; overflow: hidden; }
+
+/* 主容器 */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* 内容区 */
+.main-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;  /* 关键：允许 flex 子元素收缩 */
+}
+
+/* 各面板 */
+.sidebar, .main-content, .right-panel {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* 状态栏 */
+.status-bar {
+  height: 28px;
+  flex-shrink: 0;
+}
+```
+
+**禁止事项:**
+- MUST NOT 让面板随内容无限延伸
+- MUST NOT 让整个页面滚动（除非是全屏页面如 Login/Onboarding）
+- MUST NOT 忽略 `min-height: 0`（Flex 子元素溢出的常见原因）
 
 ---
 
@@ -441,13 +514,20 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 | md | 36px | 16px | 13px | --radius-md |
 | lg | 44px | 20px | 14px | --radius-md |
 
-**状态 (MUST):**
-- Default: 基础样式
-- Hover: 背景/边框颜色变化（MUST NOT 使用 translateY，避免布局漂移）
-- Active: 背景加深
-- Disabled: opacity: 0.5, cursor: not-allowed
-- Loading: 显示 spinner，禁用点击
-- Focus-visible: 显示 focus ring
+**状态矩阵 (MUST 全部实现):**
+
+| 状态 | 视觉表现 | 行为 | 触发方式 |
+|------|----------|------|----------|
+| default | 正常颜色 | 可点击 | 初始状态 |
+| hover | opacity: 0.9 (Primary) / 边框变化 (Secondary) | cursor: pointer | 鼠标悬停 |
+| active | 背景加深 | 按下反馈 | 鼠标按下 |
+| focus-visible | 显示 focus ring | - | Tab 键聚焦 |
+| disabled | opacity: 0.5 | cursor: not-allowed, 不可点击 | disabled=true |
+| loading | 显示 Spinner，隐藏文字 | 不可点击 | loading=true |
+
+**注意:**
+- Hover 状态 MUST NOT 使用 translateY（避免布局漂移）
+- Loading 状态 MUST 同时禁用点击（disabled 行为）
 
 **特例 - 允许 translateY 的场景 (MAY):**
 - 仅限 Hero 区域的大按钮 (lg + Primary)
@@ -956,7 +1036,8 @@ function migratePreferences(): void {
 
 ### 待补充设计稿
 
-**浅色主题 (P0):** 所有现有设计稿的浅色版本（见 `LIGHT_THEME_PROMPTS.md`）
+**浅色主题 (P1+，V1 明确不做):** 所有现有设计稿的浅色版本（见 `LIGHT_THEME_PROMPTS.md`）
+> 注意：根据 `creonow-v1-workbench/spec.md`，V1 只交付深色主题，浅色主题不作为 P0 阻塞项。
 
 **缺失状态 (P1):**
 - 禅模式界面
