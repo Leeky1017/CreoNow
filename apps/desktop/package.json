@@ -12,7 +12,12 @@
     "test:e2e": "pnpm rebuild:native && pnpm build && playwright test -c tests/e2e/playwright.config.ts",
     "build:win": "pnpm rebuild:native && pnpm build && electron-builder --win nsis zip --config electron-builder.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint . --ext .ts,.tsx",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build -o storybook-static",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.4",
@@ -31,16 +36,29 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
+    "@storybook/addon-essentials": "^8.6.14",
+    "@storybook/addon-links": "^8.6.14",
+    "@storybook/blocks": "^8.6.14",
+    "@storybook/react": "^8.6.14",
+    "@storybook/react-vite": "^8.6.14",
+    "@storybook/test": "^8.6.14",
     "@tailwindcss/vite": "^4.1.18",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^4.0.18",
     "electron": "^40.1.0",
     "electron-builder": "^26.4.0",
     "electron-rebuild": "^3.2.9",
     "electron-vite": "^5.0.0",
+    "jsdom": "^27.4.0",
+    "storybook": "^8.6.14",
     "tailwindcss": "^4.1.18",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
   }
 }
