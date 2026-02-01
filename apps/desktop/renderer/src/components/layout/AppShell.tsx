@@ -152,16 +152,12 @@ export function AppShell(): JSX.Element {
   return (
     <div
       data-testid="app-shell"
-      style={{
-        display: "flex",
-        height: "100%",
-        background: "var(--color-bg-base)",
-      }}
+      className="flex h-full bg-[var(--color-bg-base)]"
     >
       <IconBar />
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-        <div style={{ flex: 1, display: "flex", minWidth: 0 }}>
+      <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 min-w-0">
           <Sidebar
             width={effectiveSidebarWidth}
             collapsed={sidebarCollapsed}
@@ -187,16 +183,12 @@ export function AppShell(): JSX.Element {
           ) : null}
 
           <main
-            style={{
-              flex: 1,
-              minWidth: LAYOUT_DEFAULTS.mainMinWidth,
-              background: "var(--color-bg-base)",
-              display: "flex",
-              alignItems: currentProject ? "stretch" : "center",
-              justifyContent: currentProject ? "stretch" : "center",
-              color: "var(--color-fg-muted)",
-              fontSize: 13,
-            }}
+            className={`flex flex-1 bg-[var(--color-bg-base)] text-[var(--color-fg-muted)] text-[13px] ${
+              currentProject
+                ? "items-stretch justify-stretch"
+                : "items-center justify-center"
+            }`}
+            style={{ minWidth: LAYOUT_DEFAULTS.mainMinWidth }}
           >
             {currentProject ? (
               <EditorPane projectId={currentProject.projectId} />

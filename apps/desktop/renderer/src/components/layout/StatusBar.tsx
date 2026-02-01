@@ -4,36 +4,30 @@ import { useEditorStore } from "../../stores/editorStore";
 /**
  * StatusBar is the fixed 28px bottom bar. P0 keeps it minimal but stable for
  * layout E2E selectors.
+ *
+ * Design spec §5.4: Status bar height is 28px.
  */
 export function StatusBar(): JSX.Element {
   const autosaveStatus = useEditorStore((s) => s.autosaveStatus);
   const retryLastAutosave = useEditorStore((s) => s.retryLastAutosave);
+
+  const isError = autosaveStatus === "error";
+
   return (
     <div
       data-testid="layout-statusbar"
-      style={{
-        height: LAYOUT_DEFAULTS.statusBarHeight,
-        background: "var(--color-bg-surface)",
-        borderTop: "1px solid var(--color-separator)",
-        display: "flex",
-        alignItems: "center",
-        padding: "0 12px",
-        fontSize: 11,
-        color: "var(--color-fg-muted)",
-      }}
+      className="flex items-center px-3 text-[11px] text-[var(--color-fg-muted)] bg-[var(--color-bg-surface)] border-t border-[var(--color-separator)]"
+      style={{ height: LAYOUT_DEFAULTS.statusBarHeight }}
     >
       <span
         data-testid="editor-autosave-status"
         data-status={autosaveStatus}
         onClick={() => {
-          if (autosaveStatus === "error") {
+          if (isError) {
             void retryLastAutosave();
           }
         }}
-        style={{
-          cursor: autosaveStatus === "error" ? "pointer" : "default",
-          textDecoration: autosaveStatus === "error" ? "underline" : "none",
-        }}
+        className={isError ? "cursor-pointer underline" : "cursor-default"}
       >
         {autosaveStatus}
       </span>

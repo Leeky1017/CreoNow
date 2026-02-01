@@ -10,6 +10,9 @@ type ResizerProps = {
 
 /**
  * Resizer implements the 8px hit-area drag handle between panels.
+ *
+ * Design spec §7.3: Resizer has 8px hit area, 1px visual line (2px on hover).
+ * Uses cn-resizer class defined in main.css.
  */
 export function Resizer(props: ResizerProps): JSX.Element {
   const draggingRef = React.useRef(false);

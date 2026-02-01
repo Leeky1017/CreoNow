@@ -6,34 +6,31 @@ import { SettingsPanel } from "../../features/settings/SettingsPanel";
 /**
  * RightPanel is the right-side panel container (AI/Info). P0 wires visibility
  * and resizing; feature content comes in later task cards.
+ *
+ * Design spec §5.3: Right panel default width 320px, min 240px, max 600px.
  */
 export function RightPanel(props: {
   width: number;
   collapsed: boolean;
 }): JSX.Element {
   if (props.collapsed) {
-    return (
-      <aside data-testid="layout-panel" style={{ width: 0, display: "none" }} />
-    );
+    return <aside data-testid="layout-panel" className="hidden w-0" />;
   }
 
   return (
     <aside
       data-testid="layout-panel"
+      className="flex flex-col bg-[var(--color-bg-surface)] border-l border-[var(--color-separator)]"
       style={{
         width: props.width,
         minWidth: LAYOUT_DEFAULTS.panel.min,
         maxWidth: LAYOUT_DEFAULTS.panel.max,
-        background: "var(--color-bg-surface)",
-        borderLeft: "1px solid var(--color-separator)",
-        display: "flex",
-        flexDirection: "column",
       }}
     >
       <SettingsPanel />
-      <div style={{ height: 1, background: "var(--color-separator)" }} />
+      <div className="h-px bg-[var(--color-separator)]" />
       <MemoryPanel />
-      <div style={{ height: 1, background: "var(--color-separator)" }} />
+      <div className="h-px bg-[var(--color-separator)]" />
       <AiPanel />
     </aside>
   );
