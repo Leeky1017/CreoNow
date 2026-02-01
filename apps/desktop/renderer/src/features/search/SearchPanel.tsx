@@ -46,11 +46,7 @@ export function SearchPanel(props: { projectId: string }): JSX.Element {
       {lastError ? (
         <Card className="p-2.5 rounded-[var(--radius-md)]">
           <div className="flex items-center gap-2">
-            <Text
-              data-testid="search-error-code"
-              size="code"
-              color="muted"
-            >
+            <Text data-testid="search-error-code" size="code" color="muted">
               {lastError.code}
             </Text>
             <Button

@@ -103,10 +103,7 @@ export function AnalyticsPage(props: {
       onOpenChange={props.onOpenChange}
       title="Analytics"
     >
-      <div
-        data-testid="analytics-page"
-        className="flex flex-col gap-3.5"
-      >
+      <div data-testid="analytics-page" className="flex flex-col gap-3.5">
         <header className="flex items-baseline gap-2.5">
           <Heading level="h3" className="font-extrabold">
             Statistics
@@ -122,11 +119,7 @@ export function AnalyticsPage(props: {
         </header>
 
         {error ? (
-          <Text
-            data-testid="analytics-error"
-            size="small"
-            color="muted"
-          >
+          <Text data-testid="analytics-error" size="small" color="muted">
             {error.code}: {error.message}
           </Text>
         ) : null}
@@ -157,12 +150,8 @@ export function AnalyticsPage(props: {
             Range (last 7d)
           </Text>
           <div className="flex gap-3 mt-1.5">
-            <Text size="small">
-              words: {rangeSummary?.wordsWritten ?? 0}
-            </Text>
-            <Text size="small">
-              skills: {rangeSummary?.skillsUsed ?? 0}
-            </Text>
+            <Text size="small">words: {rangeSummary?.wordsWritten ?? 0}</Text>
+            <Text size="small">skills: {rangeSummary?.skillsUsed ?? 0}</Text>
           </div>
         </Card>
       </div>

@@ -16,10 +16,7 @@ export function SettingsPanel(): JSX.Element {
   const [analyticsOpen, setAnalyticsOpen] = React.useState(false);
 
   return (
-    <div
-      data-testid="settings-panel"
-      className="flex flex-col gap-3 p-3"
-    >
+    <div data-testid="settings-panel" className="flex flex-col gap-3 p-3">
       <div className="flex items-baseline gap-2.5">
         <Heading level="h3" className="font-extrabold">
           Settings

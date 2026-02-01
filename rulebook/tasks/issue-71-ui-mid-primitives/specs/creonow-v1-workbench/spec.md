@@ -21,4 +21,3 @@ stable `data-testid` for Windows Playwright Electron E2E.
   and keyboard-activatable.
 - WHEN Analytics is opened from Settings THEN `analytics-page` is visible and
   key stats fields are present (`analytics-today-words`, `analytics-today-skills`).
-

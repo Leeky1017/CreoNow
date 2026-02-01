@@ -22,6 +22,7 @@ Renderer 的多个中复杂度面板仍使用大量内联样式，导致样式�
   - `SearchPanel` 搜索结果使用 `button` 渲染以获得天然键盘/焦点行为
 
 ## Impact
+
 - Affected specs: creonow-v1-workbench
 - Affected code:
   - `apps/desktop/renderer/src/features/settings/SettingsPanel.tsx`

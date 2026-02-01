@@ -54,7 +54,11 @@ export function ProxySection(): JSX.Element {
     setErrorText(null);
     setTestResult(null);
 
-    const patch: Partial<{ enabled: boolean; baseUrl: string; apiKey: string }> = {
+    const patch: Partial<{
+      enabled: boolean;
+      baseUrl: string;
+      apiKey: string;
+    }> = {
       enabled,
       baseUrl,
     };
@@ -183,4 +187,3 @@ export function ProxySection(): JSX.Element {
     </Card>
   );
 }
-

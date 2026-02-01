@@ -61,11 +61,7 @@ export function CommandPalette(props: {
         </div>
 
         {errorText ? (
-          <Text
-            data-testid="command-palette-error"
-            size="small"
-            color="muted"
-          >
+          <Text data-testid="command-palette-error" size="small" color="muted">
             {errorText}
           </Text>
         ) : null}
