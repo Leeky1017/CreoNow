@@ -1,4 +1,6 @@
 import { useThemeStore } from "../../stores/themeStore";
+import { Button } from "../../components/primitives";
+import { Heading, Text } from "../../components/primitives";
 
 /**
  * AppearanceSection controls theme preferences.
@@ -13,62 +15,44 @@ export function AppearanceSection(): JSX.Element {
   return (
     <section
       data-testid="settings-appearance-section"
-      style={{
-        padding: 12,
-        borderRadius: "var(--radius-lg)",
-        border: "1px solid var(--color-border-default)",
-        background: "var(--color-bg-raised)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
+      className="flex flex-col gap-2.5 p-3 rounded-[var(--radius-lg)] border border-[var(--color-border-default)] bg-[var(--color-bg-raised)]"
     >
-      <div style={{ fontSize: 13, fontWeight: 700 }}>Appearance</div>
+      <Heading level="h4" className="font-bold">
+        Appearance
+      </Heading>
 
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>Theme</div>
+      <div className="flex items-center gap-2">
+        <Text size="small" color="muted">
+          Theme
+        </Text>
 
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <button
+        <div className="ml-auto flex gap-2">
+          <Button
             data-testid="theme-mode-dark"
-            type="button"
+            variant={mode === "dark" ? "primary" : "secondary"}
+            size="sm"
             onClick={() => setMode("dark")}
-            style={{
-              height: 28,
-              padding: "0 var(--space-3)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-border-default)",
-              background:
-                mode === "dark"
-                  ? "var(--color-bg-selected)"
-                  : "var(--color-bg-surface)",
-              color: "var(--color-fg-default)",
-              cursor: "pointer",
-              fontSize: 12,
-            }}
+            className={
+              mode === "dark"
+                ? "bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]"
+                : ""
+            }
           >
             Dark
-          </button>
-          <button
+          </Button>
+          <Button
             data-testid="theme-mode-light"
-            type="button"
+            variant={mode === "light" ? "primary" : "secondary"}
+            size="sm"
             onClick={() => setMode("light")}
-            style={{
-              height: 28,
-              padding: "0 var(--space-3)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-border-default)",
-              background:
-                mode === "light"
-                  ? "var(--color-bg-selected)"
-                  : "var(--color-bg-surface)",
-              color: "var(--color-fg-default)",
-              cursor: "pointer",
-              fontSize: 12,
-            }}
+            className={
+              mode === "light"
+                ? "bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]"
+                : ""
+            }
           >
             Light
-          </button>
+          </Button>
         </div>
       </div>
     </section>

@@ -2,6 +2,7 @@ import React from "react";
 
 import { CreateProjectDialog } from "../projects/CreateProjectDialog";
 import { useProjectStore } from "../../stores/projectStore";
+import { Button, Card, Heading, Text } from "../../components/primitives";
 
 /**
  * Welcome entry for a fresh profile.
@@ -23,59 +24,37 @@ export function WelcomeScreen(): JSX.Element {
 
   if (current) {
     return (
-      <div
-        style={{
-          width: "100%",
-          padding: "var(--space-6)",
-          color: "var(--color-fg-muted)",
-          fontSize: 13,
-        }}
-      >
+      <Text as="div" size="body" color="muted" className="w-full p-6">
         Current project: {current.projectId}
-      </div>
+      </Text>
     );
   }
 
   return (
     <>
-      <div
+      <Card
         data-testid="welcome-screen"
-        style={{
-          width: "100%",
-          maxWidth: 640,
-          padding: "var(--space-6)",
-          borderRadius: "var(--radius-lg)",
-          border: "1px solid var(--color-border-default)",
-          background: "var(--color-bg-surface)",
-        }}
+        className="w-full max-w-[640px] rounded-[var(--radius-lg)]"
       >
-        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+        <Heading level="h2" className="mb-2 text-lg font-bold">
           Welcome to CreoNow
-        </div>
-        <div style={{ fontSize: 13, color: "var(--color-fg-muted)" }}>
+        </Heading>
+        <Text size="body" color="muted">
           Create a local project to start.
-        </div>
+        </Text>
 
-        <div style={{ marginTop: "var(--space-6)", display: "flex", gap: 8 }}>
-          <button
+        <div className="mt-6 flex gap-2">
+          <Button
             data-testid="welcome-create-project"
-            type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => setDialogOpen(true)}
-            style={{
-              height: 32,
-              padding: "0 var(--space-3)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-border-default)",
-              background: "var(--color-bg-selected)",
-              color: "var(--color-fg-default)",
-              cursor: "pointer",
-              fontSize: 13,
-            }}
+            className="bg-[var(--color-bg-selected)]"
           >
             Create project
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
       <CreateProjectDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </>

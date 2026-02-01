@@ -2,6 +2,7 @@ import React from "react";
 
 import type { IpcChannelSpec } from "../../../../../../packages/shared/types/ipc-generated";
 import { invoke } from "../../lib/ipcClient";
+import { Button, Heading, Text } from "../../components/primitives";
 
 type JudgeModelState =
   IpcChannelSpec["judge:model:getState"]["response"]["state"];
@@ -72,60 +73,35 @@ export function JudgeSection(): JSX.Element {
   return (
     <section
       data-testid="settings-judge-section"
-      style={{
-        padding: 12,
-        borderRadius: "var(--radius-lg)",
-        border: "1px solid var(--color-border-default)",
-        background: "var(--color-bg-raised)",
-      }}
+      className="p-3 rounded-[var(--radius-lg)] border border-[var(--color-border-default)] bg-[var(--color-bg-raised)]"
     >
-      <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
+      <Heading level="h4" className="mb-1.5 font-bold">
         Judge model
-      </div>
-      <div
-        style={{
-          fontSize: 12,
-          color: "var(--color-fg-muted)",
-          marginBottom: 10,
-        }}
-      >
+      </Heading>
+      <Text size="small" color="muted" as="div" className="mb-2.5">
         Status:{" "}
-        <span
-          data-testid="judge-status"
-          style={{ color: "var(--color-fg-default)" }}
-        >
+        <Text data-testid="judge-status" size="small" color="default" as="span">
           {state ? formatState(state) : "loading"}
-        </span>
-      </div>
+        </Text>
+      </Text>
 
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <button
+      <div className="flex items-center gap-2">
+        <Button
           data-testid="judge-ensure"
-          type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => void ensure()}
           disabled={ensureBusy}
-          style={{
-            height: 32,
-            padding: "0 var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border-default)",
-            background: "var(--color-bg-selected)",
-            color: "var(--color-fg-default)",
-            cursor: ensureBusy ? "not-allowed" : "pointer",
-            fontSize: 13,
-            opacity: ensureBusy ? 0.7 : 1,
-          }}
+          loading={ensureBusy}
+          className="bg-[var(--color-bg-selected)]"
         >
           Ensure
-        </button>
+        </Button>
 
         {errorText ? (
-          <div
-            data-testid="judge-error"
-            style={{ fontSize: 12, color: "var(--color-fg-muted)" }}
-          >
+          <Text data-testid="judge-error" size="small" color="muted">
             {errorText}
-          </div>
+          </Text>
         ) : null}
       </div>
     </section>

@@ -1,3 +1,5 @@
+import { Text } from "../../components/primitives";
+
 /**
  * DiffView renders a unified diff text block.
  *
@@ -7,27 +9,15 @@ export function DiffView(props: { diffText: string }): JSX.Element {
   return (
     <div
       data-testid="ai-diff"
-      style={{
-        border: "1px solid var(--color-separator)",
-        borderRadius: 8,
-        background: "var(--color-bg-base)",
-        padding: 10,
-        overflow: "auto",
-      }}
+      className="border border-[var(--color-separator)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] p-2.5 overflow-auto"
     >
-      <pre
-        style={{
-          margin: 0,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          fontSize: 12,
-          lineHeight: "18px",
-          color: "var(--color-fg-base)",
-          fontFamily: "var(--font-mono)",
-        }}
+      <Text
+        as="div"
+        size="code"
+        className="whitespace-pre-wrap break-words leading-[18px]"
       >
         {props.diffText}
-      </pre>
+      </Text>
     </div>
   );
 }
