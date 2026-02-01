@@ -2,7 +2,7 @@
 
 - Issue: #83
 - Branch: task/83-storybook-vitest-setup
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/84
 
 ## Plan
 
