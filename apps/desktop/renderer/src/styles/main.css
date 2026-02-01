@@ -141,3 +141,45 @@ textarea:focus-visible {
     transform: translateX(-100%);
   }
 }
+
+/* Skeleton shimmer 动画 */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 自定义动画类 */
+@utility animate-shimmer {
+  animation: shimmer 1.5s infinite;
+}
+
+/* Accordion 展开/折叠动画 */
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+@utility animate-accordion-down {
+  animation: accordion-down 200ms ease-out;
+}
+
+@utility animate-accordion-up {
+  animation: accordion-up 200ms ease-out;
+}

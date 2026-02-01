@@ -60,3 +60,28 @@ export type { CheckboxProps } from "./Checkbox";
 
 export { Tabs, TabsRoot, TabsList, TabsTrigger, TabsContent } from "./Tabs";
 export type { TabsProps, TabItem } from "./Tabs";
+
+// Feedback & Status
+export { Badge } from "./Badge";
+export type { BadgeProps, BadgeVariant, BadgeSize } from "./Badge";
+
+export { Avatar } from "./Avatar";
+export type { AvatarProps, AvatarSize } from "./Avatar";
+
+export { Spinner } from "./Spinner";
+export type { SpinnerProps, SpinnerSize } from "./Spinner";
+
+export { Skeleton } from "./Skeleton";
+export type { SkeletonProps, SkeletonVariant } from "./Skeleton";
+
+export { Tooltip, TooltipProvider } from "./Tooltip";
+export type { TooltipProps } from "./Tooltip";
+
+export { Toast, ToastProvider, ToastViewport, useToast } from "./Toast";
+export type { ToastProps, ToastVariant, ToastState } from "./Toast";
+
+export { Accordion } from "./Accordion";
+export type { AccordionProps, AccordionItem } from "./Accordion";
+
+export { RadioGroup, Radio, RadioGroupRoot } from "./Radio";
+export type { RadioGroupProps, RadioOption, RadioProps } from "./Radio";
