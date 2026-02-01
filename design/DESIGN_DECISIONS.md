@@ -330,10 +330,33 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 - 避免与 `--shadow-*`（elevation）争用 `box-shadow`（否则需要组合多层 shadow，容易导致实现分裂）
 - 注意：若祖先容器开启 overflow 裁切，ring 仍可能被裁切；此时 SHOULD 将 focus ring 绘制在外层 wrapper 上或避免在可聚焦区域使用 overflow 裁切
 
-### 3.6 颜色系统 - 功能色
+### 3.6 颜色系统 - 强调色与功能色
+
+**强调色（纯白系，极简主义）:**
+
+深色主题下使用纯白作为强调色，让内容成为焦点：
 
 ```css
-/* 功能色（两个主题共用，MAY 微调亮度） */
+:root[data-theme="dark"] {
+  /* 主强调色（纯白系） */
+  --color-accent: #ffffff;
+  --color-accent-hover: rgba(255, 255, 255, 0.9);
+  --color-accent-muted: rgba(255, 255, 255, 0.6);
+  --color-accent-subtle: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="light"] {
+  /* 浅色主题使用深色强调 */
+  --color-accent: #1a1a1a;
+  --color-accent-hover: rgba(26, 26, 26, 0.9);
+  --color-accent-muted: rgba(26, 26, 26, 0.6);
+  --color-accent-subtle: rgba(26, 26, 26, 0.1);
+}
+```
+
+**功能色（两个主题共用，MAY 微调亮度）:**
+
+```css
 --color-error: #ef4444;
 --color-error-subtle: rgba(239, 68, 68, 0.1);
 --color-success: #22c55e;
@@ -342,13 +365,16 @@ Tailwind 映射: tailwind.config.ts 中通过 theme.extend.colors 引用 CSS Var
 --color-warning-subtle: rgba(245, 158, 11, 0.1);
 --color-info: #3b82f6;
 --color-info-subtle: rgba(59, 130, 246, 0.1);
+```
 
-/* 强调色（知识图谱节点） */
---color-accent-blue: #3b82f6;       /* 角色 */
---color-accent-green: #22c55e;      /* 地点 */
---color-accent-orange: #f97316;     /* 事件 */
---color-accent-cyan: #06b6d4;       /* 物品 */
---color-accent-purple: #8b5cf6;     /* 其他 */
+**知识图谱节点色（功能需求，非主强调色）:**
+
+```css
+--color-node-character: #3b82f6;    /* 角色 - 蓝色 */
+--color-node-location: #22c55e;     /* 地点 - 绿色 */
+--color-node-event: #f97316;        /* 事件 - 橙色 */
+--color-node-item: #06b6d4;         /* 物品 - 青色 */
+--color-node-other: #8b5cf6;        /* 其他 - 紫色 */
 ```
 
 ### 3.7 阴影系统
@@ -622,7 +648,7 @@ textarea:focus-visible {
 
 **文件树拖拽:**
 - 拖拽开始: 源项目 opacity: 0.5
-- 拖拽中: 目标位置显示 2px 蓝色指示线
+- 拖拽中: 目标位置显示 2px 指示线（使用 --color-accent）
 - 放置区域: 目标文件夹 background: var(--color-bg-hover)
 
 **面板宽度拖拽:**
@@ -1167,3 +1193,37 @@ export default {
 - MUST 通过 className 添加 Tailwind 类
 - MUST NOT 使用 Radix 的默认主题
 - SHOULD 封装成业务组件，统一样式
+
+---
+
+## 附录 B: Agent 参考说明
+
+### B.1 设计稿与规范的关系
+
+`design/Variant/designs/` 目录下的 HTML 设计稿（包括原有的 01-19 号和后续补充的设计稿）**仅作为布局和交互参考**。
+
+**规范优先级:**
+
+1. **本文档 (DESIGN_DECISIONS.md)** 是前端实现的唯一真相源
+2. 设计稿中的颜色值、间距数值等 **以本文档定义为准**
+3. 设计稿主要参考价值：布局结构、组件组合、交互流程
+
+### B.2 设计稿颜色映射
+
+设计稿中可能存在蓝色（#3b82f6）或紫色（#5E6AD2）强调色，实现时 **MUST 替换为本文档定义的强调色**：
+
+| 设计稿中的颜色 | 实现时使用 |
+|---------------|-----------|
+| #3b82f6（蓝色） | --color-accent（纯白） |
+| #5E6AD2 / #5D3FD3（紫色） | --color-accent（纯白） |
+| rgba(59, 130, 246, ...) | --color-accent-subtle 或 --color-accent-muted |
+| rgba(94, 106, 210, ...) | --color-accent-subtle 或 --color-accent-muted |
+
+**例外:** 知识图谱节点保持多色区分，使用 `--color-node-*` 变量。
+
+### B.3 Agent 开发时的颜色使用原则
+
+1. **强调色场景**（激活状态、选中项、主按钮）→ 使用 `--color-accent`
+2. **功能反馈**（成功/错误/警告/信息）→ 使用对应功能色
+3. **知识图谱节点**→ 使用 `--color-node-*` 变量
+4. **禁止硬编码颜色值**，所有颜色 MUST 使用 CSS Variable

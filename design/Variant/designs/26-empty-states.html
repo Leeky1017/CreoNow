@@ -1,0 +1,252 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">CreoNow - Search Empty State</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web" vid="6"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="7">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="8">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" vid="9">
+    <script vid="10">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        base: '#080808',
+                        panel: '#0f0f0f',
+                        border: 'rgba(255, 255, 255, 0.06)',
+                        divider: 'rgba(255, 255, 255, 0.04)',
+                        surface: '#121212',
+                        primary: '#ffffff',
+                        secondary: '#888888',
+                        tertiary: '#444444',
+                        accent: {
+                            blue: '#3b82f6',
+                            hover: '#2563eb',
+                            surface: 'rgba(59, 130, 246, 0.1)'
+                        }
+                    },
+                    boxShadow: {
+                        'glow': '0 0 20px rgba(0,0,0,0.5)',
+                        'modal': '0 24px 48px -12px rgba(0, 0, 0, 0.7)',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.2s ease-out',
+                        'slide-down': 'slideDown 0.3s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideDown: {
+                            '0%': { transform: 'translateY(-10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style vid="11">
+        body {
+            background-color: #080808;
+            color: #ffffff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .glass-panel {
+            background: #0f0f0f;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+        }
+
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #3b82f6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        .toggle-checkbox {
+            right: 14px; 
+            border-color: #4b5563; 
+            transition: all 0.2s ease;
+        }
+        .toggle-checkbox + .toggle-label {
+            background-color: #27272a; 
+            transition: all 0.2s ease;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex relative font-sans" vid="12">
+
+    
+    <div class="absolute inset-0 z-0 flex pointer-events-none opacity-40 select-none" style="filter: blur(4px);" vid="13">
+        
+        <div class="w-64 h-full border-r border-border flex flex-col pt-12" vid="14">
+            <div class="px-6 py-4 border-b border-border" vid="15">
+                <div class="w-24 h-4 bg-white/10 rounded" vid="16"></div>
+            </div>
+            <div class="p-6 space-y-4" vid="17">
+                <div class="w-full h-8 bg-white/5 rounded" vid="18"></div>
+                <div class="w-3/4 h-8 bg-white/5 rounded" vid="19"></div>
+                <div class="w-5/6 h-8 bg-white/5 rounded" vid="20"></div>
+            </div>
+        </div>
+        
+        <div class="flex-1 bg-base p-12" vid="21">
+            <div class="max-w-3xl mx-auto space-y-8" vid="22">
+                <div class="h-12 w-1/2 bg-white/10 rounded" vid="23"></div>
+                <div class="space-y-4" vid="24">
+                    <div class="h-4 w-full bg-white/5 rounded" vid="25"></div>
+                    <div class="h-4 w-full bg-white/5 rounded" vid="26"></div>
+                    <div class="h-4 w-2/3 bg-white/5 rounded" vid="27"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-8 mt-12" vid="28">
+                    <div class="h-48 bg-white/5 rounded-xl border border-border" vid="29"></div>
+                    <div class="h-48 bg-white/5 rounded-xl border border-border" vid="30"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-start justify-center pt-[10vh]" vid="31">
+        
+        
+        <div class="w-[640px] flex flex-col glass-panel rounded-xl overflow-hidden shadow-modal animate-slide-down max-h-[80vh] relative z-50 min-h-[500px]" vid="32">
+            
+            
+            <div class="flex flex-col border-b border-border bg-panel" vid="33">
+                
+                <div class="flex items-center px-4 py-4 gap-3" vid="34">
+                    <i class="ph ph-magnifying-glass text-xl text-secondary" vid="35"></i>
+                    <input type="text" value="quantum flux" class="flex-1 bg-transparent border-none outline-none text-lg text-primary placeholder-tertiary font-light h-8" placeholder="Search documents, memories, knowledge..." autofocus="" vid="36">
+                    <button class="p-1 rounded-md text-tertiary hover:text-primary hover:bg-white/5 transition-colors" vid="37">
+                        <i class="ph ph-x text-lg" vid="38"></i>
+                    </button>
+                </div>
+
+                
+                <div class="flex items-center gap-2 px-4 pb-4 overflow-x-auto no-scrollbar" vid="39">
+                    <button class="px-3 py-1 text-xs font-medium rounded-full bg-white/5 text-secondary border border-transparent hover:border-white/10 hover:text-primary hover:bg-white/10 transition-all" vid="40">All</button>
+                    <button class="px-3 py-1 text-xs font-medium rounded-full bg-accent-blue text-white shadow-lg shadow-blue-500/20 transition-all" vid="41">Documents</button>
+                    <button class="px-3 py-1 text-xs font-medium rounded-full bg-white/5 text-secondary border border-transparent hover:border-white/10 hover:text-primary hover:bg-white/10 transition-all" vid="42">Memories</button>
+                    <button class="px-3 py-1 text-xs font-medium rounded-full bg-white/5 text-secondary border border-transparent hover:border-white/10 hover:text-primary hover:bg-white/10 transition-all" vid="43">Knowledge</button>
+                    <button class="px-3 py-1 text-xs font-medium rounded-full bg-white/5 text-secondary border border-transparent hover:border-white/10 hover:text-primary hover:bg-white/10 transition-all" vid="44">Assets</button>
+                </div>
+
+                
+                <div class="px-4 py-3 bg-surface border-t border-border flex items-center justify-between" vid="45">
+                    <div class="flex items-center gap-6" vid="46">
+                        <div class="flex items-center gap-2 group cursor-pointer" vid="47">
+                            <div class="relative inline-block w-7 h-4 align-middle select-none" vid="48">
+                                <input type="checkbox" id="semantic-toggle" class="toggle-checkbox absolute block w-3 h-3 rounded-full bg-white border-none appearance-none cursor-pointer top-0.5 left-0.5 peer transition-transform duration-200" vid="49">
+                                <label for="semantic-toggle" class="block overflow-hidden h-4 rounded-full bg-white/10 cursor-pointer peer-checked:bg-accent-blue transition-colors duration-200" vid="50"></label>
+                            </div>
+                            <span class="text-xs text-secondary group-hover:text-primary transition-colors" vid="51">Semantic Search</span>
+                        </div>
+                        <div class="flex items-center gap-2 group cursor-pointer" vid="52">
+                            <div class="relative inline-block w-7 h-4 align-middle select-none" vid="53">
+                                <input type="checkbox" id="archived-toggle" class="toggle-checkbox absolute block w-3 h-3 rounded-full bg-white border-none appearance-none cursor-pointer top-0.5 left-0.5 peer transition-transform duration-200" vid="54">
+                                <label for="archived-toggle" class="block overflow-hidden h-4 rounded-full bg-white/10 cursor-pointer peer-checked:bg-accent-blue transition-colors duration-200" vid="55"></label>
+                            </div>
+                            <span class="text-xs text-secondary group-hover:text-primary transition-colors" vid="56">Include Archived</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2" vid="57">
+                        <span class="text-[10px] text-tertiary uppercase tracking-wider font-medium" vid="58">Scope</span>
+                        <button class="flex items-center gap-1.5 px-2 py-1 rounded bg-white/5 border border-white/5 text-xs text-secondary hover:text-primary hover:border-white/10 transition-all" vid="59">
+                            <span vid="60">Current Project</span>
+                            <i class="ph-bold ph-caret-down text-[10px]" vid="61"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div class="flex-1 bg-panel flex flex-col items-center justify-center p-12 text-center" vid="62">
+                
+                
+                <div class="relative mb-6" vid="63">
+                    <i class="ph ph-magnifying-glass text-[64px] text-tertiary opacity-40" vid="64"></i>
+                    <i class="ph-fill ph-question text-2xl text-tertiary absolute -right-1 -top-1 bg-panel rounded-full border border-panel" vid="65"></i>
+                </div>
+
+                
+                <h3 class="text-base font-medium text-primary mb-1" vid="66">No results found</h3>
+                <p class="text-sm text-secondary font-light italic mb-8" vid="67">for "quantum flux"</p>
+
+                
+                <div class="w-full max-w-[280px] bg-white/[0.02] border border-white/[0.04] rounded-lg p-5 text-left mb-8" vid="68">
+                    <span class="text-xs font-medium text-secondary block mb-3 uppercase tracking-wider" vid="69">Suggestions</span>
+                    <ul class="space-y-2.5" vid="70">
+                        <li class="flex items-start gap-2.5 text-xs text-tertiary" vid="71">
+                            <span class="w-1 h-1 rounded-full bg-tertiary mt-1.5 shrink-0" vid="72"></span>
+                            <span vid="73">Check your spelling</span>
+                        </li>
+                        <li class="flex items-start gap-2.5 text-xs text-tertiary" vid="74">
+                            <span class="w-1 h-1 rounded-full bg-tertiary mt-1.5 shrink-0" vid="75"></span>
+                            <span vid="76">Try different keywords</span>
+                        </li>
+                        <li class="flex items-start gap-2.5 text-xs text-tertiary" vid="77">
+                            <span class="w-1 h-1 rounded-full bg-tertiary mt-1.5 shrink-0" vid="78"></span>
+                            <span vid="79">Broaden your search filters</span>
+                        </li>
+                    </ul>
+                </div>
+
+                
+                <div class="flex flex-col items-center gap-4 w-full max-w-[200px]" vid="80">
+                    <button class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-accent-blue hover:bg-accent-hover text-white text-xs font-medium rounded-md shadow-lg shadow-blue-500/10 transition-all" vid="81">
+                        <i class="ph ph-globe" vid="82"></i>
+                        Search in all projects
+                    </button>
+                    
+                    <button class="text-xs text-secondary hover:text-primary hover:underline transition-colors" vid="83">
+                        Clear search
+                    </button>
+                </div>
+
+            </div>
+
+            
+            <div class="bg-surface border-t border-border px-4 py-3 flex items-center justify-between shrink-0" vid="84">
+                <div class="flex items-center gap-4" vid="85">
+                    <span class="text-xs text-secondary font-medium" vid="86">0 results</span>
+                    <div class="h-3 w-px bg-white/10" vid="87"></div>
+                    <span class="text-[10px] text-tertiary" vid="88">Search took 0.02s</span>
+                </div>
+
+                <div class="flex items-center gap-3" vid="89">
+                    <div class="flex items-center gap-1.5 ml-2" vid="90">
+                        <span class="flex items-center justify-center w-5 h-5 rounded bg-white/10 border border-white/5 text-[10px] text-secondary font-mono" vid="91">esc</span>
+                        <span class="text-[10px] text-tertiary ml-1" vid="92">to close</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</body></html>
