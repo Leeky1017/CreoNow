@@ -2,7 +2,7 @@
 
 - Issue: #77
 - Branch: task/77-design-decisions-layout
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/78
 
 ## Plan
 
