@@ -113,50 +113,52 @@ export const WithAction: Story = {
 
 const variants: ToastVariant[] = ["default", "success", "error", "warning"];
 
+function AllVariantsDemo() {
+  const [openStates, setOpenStates] = React.useState<Record<ToastVariant, boolean>>({
+    default: true,
+    success: true,
+    error: true,
+    warning: true,
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div style={{ display: "flex", gap: "0.5rem" }}>
+        {variants.map((variant) => (
+          <Button
+            key={variant}
+            size="sm"
+            onClick={() =>
+              setOpenStates((prev) => ({ ...prev, [variant]: true }))
+            }
+          >
+            Show {variant}
+          </Button>
+        ))}
+      </div>
+      {variants.map((variant) => (
+        <Toast
+          key={variant}
+          title={`${variant.charAt(0).toUpperCase() + variant.slice(1)} Toast`}
+          description={`This is a ${variant} toast message.`}
+          variant={variant}
+          open={openStates[variant]}
+          onOpenChange={(open) =>
+            setOpenStates((prev) => ({ ...prev, [variant]: open }))
+          }
+        />
+      ))}
+    </div>
+  );
+}
+
 /** 所有 Variants 展示 */
 export const AllVariants: Story = {
   args: {
     title: "Toast",
     open: true,
   },
-  render: () => {
-    const [openStates, setOpenStates] = React.useState<Record<ToastVariant, boolean>>({
-      default: true,
-      success: true,
-      error: true,
-      warning: true,
-    });
-
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
-          {variants.map((variant) => (
-            <Button
-              key={variant}
-              size="sm"
-              onClick={() =>
-                setOpenStates((prev) => ({ ...prev, [variant]: true }))
-              }
-            >
-              Show {variant}
-            </Button>
-          ))}
-        </div>
-        {variants.map((variant) => (
-          <Toast
-            key={variant}
-            title={`${variant.charAt(0).toUpperCase() + variant.slice(1)} Toast`}
-            description={`This is a ${variant} toast message.`}
-            variant={variant}
-            open={openStates[variant]}
-            onOpenChange={(open) =>
-              setOpenStates((prev) => ({ ...prev, [variant]: open }))
-            }
-          />
-        ))}
-      </div>
-    );
-  },
+  render: () => <AllVariantsDemo />,
 };
 
 /** 使用 Hook 触发 */
