@@ -294,7 +294,6 @@ describe("Select", () => {
 
     it("受控模式下应该响应值变化", async () => {
       const handleChange = vi.fn();
-      const user = userEvent.setup();
 
       const { rerender } = render(
         <Select
