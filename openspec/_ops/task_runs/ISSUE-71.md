@@ -28,3 +28,15 @@
 - Command: `pnpm -C apps/desktop run typecheck && pnpm -C apps/desktop run lint && pnpm -C apps/desktop run test:e2e -- tests/e2e/project-lifecycle.spec.ts tests/e2e/export-markdown.spec.ts tests/e2e/analytics.spec.ts tests/e2e/context-viewer-redaction.spec.ts`
 - Key output: `4 passed`
 - Evidence: Electron Playwright specs above
+
+### 2026-02-01 07:33 Preflight (fails on formatting)
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: `PRE-FLIGHT FAILED: ... prettier --check ...`
+- Evidence: fixed by `pnpm exec prettier --write` + follow-up preflight
+
+### 2026-02-01 07:35 Preflight (pass)
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: `All matched files use Prettier code style!` / `pnpm test:unit` OK
+- Evidence: preflight exit 0
