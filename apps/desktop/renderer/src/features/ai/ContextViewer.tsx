@@ -1,3 +1,5 @@
+import { Card } from "../../components/primitives/Card";
+import { Text } from "../../components/primitives/Text";
 import { useContextStore } from "../../stores/contextStore";
 
 type LayerDef = {
@@ -25,21 +27,14 @@ export function ContextViewer(): JSX.Element {
 
   if (!assembled) {
     return (
-      <section
+      <Card
         data-testid="ai-context-panel"
-        style={{
-          border: "1px solid var(--color-separator)",
-          borderRadius: 8,
-          padding: 10,
-          background: "var(--color-bg-base)",
-          color: "var(--color-fg-muted)",
-          fontSize: 12,
-        }}
+        className="p-2.5 rounded-[var(--radius-md)]"
       >
-        <div>
+        <Text size="small" color="muted">
           {status === "loading" ? "Loading context…" : "No context yet"}
-        </div>
-      </section>
+        </Text>
+      </Card>
     );
   }
 
@@ -48,155 +43,97 @@ export function ContextViewer(): JSX.Element {
   );
 
   return (
-    <section
+    <Card
       data-testid="ai-context-panel"
-      style={{
-        border: "1px solid var(--color-separator)",
-        borderRadius: 8,
-        padding: 10,
-        background: "var(--color-bg-base)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-        minHeight: 0,
-      }}
+      className="flex flex-col gap-2.5 p-2.5 rounded-[var(--radius-md)] min-h-0"
     >
-      <header style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-        <div style={{ fontSize: 12, color: "var(--color-fg-base)" }}>
-          Context
-        </div>
-        <div
-          style={{
-            marginLeft: "auto",
-            fontSize: 11,
-            color: "var(--color-fg-muted)",
-          }}
-        >
+      <header className="flex items-baseline gap-2.5">
+        <Text size="small">Context</Text>
+        <Text size="tiny" color="muted" className="ml-auto">
           {status}
-        </div>
+        </Text>
       </header>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 10,
-        }}
-      >
+      <div className="grid grid-cols-2 gap-2.5">
         <div>
-          <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+          <Text size="tiny" color="muted">
             stablePrefixHash
-          </div>
-          <div
+          </Text>
+          <Text
             data-testid="ai-context-stable-prefix-hash"
-            style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+            size="code"
+            as="div"
+            className="text-[11px]"
           >
             {assembled.hashes.stablePrefixHash}
-          </div>
+          </Text>
         </div>
         <div>
-          <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+          <Text size="tiny" color="muted">
             promptHash
-          </div>
-          <div
+          </Text>
+          <Text
             data-testid="ai-context-prompt-hash"
-            style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+            size="code"
+            as="div"
+            className="text-[11px]"
           >
             {assembled.hashes.promptHash}
-          </div>
+          </Text>
         </div>
       </div>
 
-      <div
-        style={{
-          border: "1px solid var(--color-separator)",
-          borderRadius: 8,
-          padding: 10,
-          background: "transparent",
-          display: "grid",
-          gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
-          gap: 10,
-        }}
-      >
+      <div className="grid grid-cols-5 gap-2.5 p-2.5 border border-[var(--color-separator)] rounded-[var(--radius-md)]">
         <div>
-          <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+          <Text size="tiny" color="muted">
             rules
-          </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          </Text>
+          <Text size="code" as="div" className="text-[11px]">
             {assembled.budget.estimate.rulesTokens}
-          </div>
+          </Text>
         </div>
         <div>
-          <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+          <Text size="tiny" color="muted">
             settings
-          </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          </Text>
+          <Text size="code" as="div" className="text-[11px]">
             {assembled.budget.estimate.settingsTokens}
-          </div>
+          </Text>
         </div>
         <div>
-          <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+          <Text size="tiny" color="muted">
             retrieved
-          </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          </Text>
+          <Text size="code" as="div" className="text-[11px]">
             {assembled.budget.estimate.retrievedTokens}
-          </div>
+          </Text>
         </div>
         <div>
-          <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+          <Text size="tiny" color="muted">
             immediate
-          </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          </Text>
+          <Text size="code" as="div" className="text-[11px]">
             {assembled.budget.estimate.immediateTokens}
-          </div>
+          </Text>
         </div>
         <div>
-          <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+          <Text size="tiny" color="muted">
             total
-          </div>
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
+          </Text>
+          <Text size="code" as="div" className="text-[11px]">
             {assembled.budget.estimate.totalTokens}/
             {assembled.budget.maxInputTokens}
-          </div>
+          </Text>
         </div>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          minHeight: 0,
-        }}
-      >
+      <div className="flex flex-col gap-2.5 min-h-0">
         {LAYERS.map((layer) => (
           <section key={layer.id} data-testid={layer.testId}>
-            <div
-              style={{
-                fontSize: 11,
-                color: "var(--color-fg-muted)",
-                marginBottom: 6,
-              }}
-            >
+            <Text size="tiny" color="muted" as="div" className="mb-1.5">
               {layer.label}
-            </div>
-            <pre
-              style={{
-                margin: 0,
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-                fontSize: 12,
-                lineHeight: "18px",
-                color: "var(--color-fg-base)",
-                fontFamily: "var(--font-mono)",
-                border: "1px solid var(--color-separator)",
-                borderRadius: 8,
-                padding: 10,
-                background: "transparent",
-                maxHeight: 180,
-                overflow: "auto",
-              }}
-            >
+            </Text>
+            <pre className="m-0 whitespace-pre-wrap break-words text-xs leading-[18px] text-[var(--color-fg-base)] font-[var(--font-family-mono)] border border-[var(--color-separator)] rounded-[var(--radius-md)] p-2.5 bg-transparent max-h-[180px] overflow-auto">
               {assembled.layers[layer.id]}
             </pre>
           </section>
@@ -204,26 +141,10 @@ export function ContextViewer(): JSX.Element {
       </div>
 
       <section data-testid="ai-context-trim">
-        <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+        <Text size="tiny" color="muted">
           TrimEvidence ({trimmedOrErrored.length})
-        </div>
-        <div
-          style={{
-            marginTop: 6,
-            border: "1px solid var(--color-separator)",
-            borderRadius: 8,
-            padding: 10,
-            background: "transparent",
-            maxHeight: 140,
-            overflow: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--color-fg-muted)",
-          }}
-        >
+        </Text>
+        <div className="mt-1.5 border border-[var(--color-separator)] rounded-[var(--radius-md)] p-2.5 bg-transparent max-h-[140px] overflow-auto flex flex-col gap-1.5 font-[var(--font-family-mono)] text-[11px] text-[var(--color-fg-muted)]">
           {trimmedOrErrored.length === 0 ? (
             <div>(none)</div>
           ) : (
@@ -238,26 +159,10 @@ export function ContextViewer(): JSX.Element {
       </section>
 
       <section>
-        <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
+        <Text size="tiny" color="muted">
           RedactionEvidence ({assembled.redactionEvidence.length})
-        </div>
-        <div
-          style={{
-            marginTop: 6,
-            border: "1px solid var(--color-separator)",
-            borderRadius: 8,
-            padding: 10,
-            background: "transparent",
-            maxHeight: 120,
-            overflow: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            fontFamily: "var(--font-mono)",
-            fontSize: 11,
-            color: "var(--color-fg-muted)",
-          }}
-        >
+        </Text>
+        <div className="mt-1.5 border border-[var(--color-separator)] rounded-[var(--radius-md)] p-2.5 bg-transparent max-h-[120px] overflow-auto flex flex-col gap-1.5 font-[var(--font-family-mono)] text-[11px] text-[var(--color-fg-muted)]">
           {assembled.redactionEvidence.length === 0 ? (
             <div>(none)</div>
           ) : (
@@ -269,6 +174,6 @@ export function ContextViewer(): JSX.Element {
           )}
         </div>
       </section>
-    </section>
+    </Card>
   );
 }

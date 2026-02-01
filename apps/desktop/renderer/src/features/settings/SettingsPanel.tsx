@@ -1,8 +1,10 @@
 import React from "react";
 
+import { Button } from "../../components/primitives/Button";
+import { Heading } from "../../components/primitives/Heading";
 import { AnalyticsPage } from "../analytics/AnalyticsPage";
-import { JudgeSection } from "./JudgeSection";
 import { AppearanceSection } from "./AppearanceSection";
+import { JudgeSection } from "./JudgeSection";
 import { ProxySection } from "./ProxySection";
 
 /**
@@ -16,33 +18,21 @@ export function SettingsPanel(): JSX.Element {
   return (
     <div
       data-testid="settings-panel"
-      style={{
-        padding: 12,
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-      }}
+      className="flex flex-col gap-3 p-3"
     >
-      <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-        <div style={{ fontSize: 14, fontWeight: 800 }}>Settings</div>
-        <button
+      <div className="flex items-baseline gap-2.5">
+        <Heading level="h3" className="font-extrabold">
+          Settings
+        </Heading>
+        <Button
           data-testid="open-analytics"
-          type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => setAnalyticsOpen(true)}
-          style={{
-            marginLeft: "auto",
-            height: 28,
-            padding: "0 var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border-default)",
-            background: "var(--color-bg-surface)",
-            color: "var(--color-fg-default)",
-            cursor: "pointer",
-            fontSize: 12,
-          }}
+          className="ml-auto"
         >
           Analytics
-        </button>
+        </Button>
       </div>
       <AppearanceSection />
       <ProxySection />

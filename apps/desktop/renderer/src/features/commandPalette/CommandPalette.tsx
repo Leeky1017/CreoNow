@@ -3,6 +3,9 @@
  */
 import React from "react";
 
+import { Card } from "../../components/primitives/Card";
+import { ListItem } from "../../components/primitives/ListItem";
+import { Text } from "../../components/primitives/Text";
 import { invoke } from "../../lib/ipcClient";
 import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
@@ -40,60 +43,43 @@ export function CommandPalette(props: {
 
   return (
     <div className="cn-overlay" onClick={() => props.onOpenChange(false)}>
-      <div
+      <Card
         data-testid="command-palette"
         role="dialog"
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 520,
-          maxWidth: "90vw",
-          background: "var(--color-bg-raised)",
-          border: "1px solid var(--color-border-default)",
-          borderRadius: "var(--radius-lg)",
-          padding: 16,
-          color: "var(--color-fg-default)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
+        variant="raised"
+        className="w-[520px] max-w-[90vw] flex flex-col gap-2.5 p-4 rounded-[var(--radius-lg)]"
       >
-        <div style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
-          <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+        <div className="flex items-baseline gap-2.5">
+          <Text size="small" color="muted">
             Command Palette
-          </div>
-          <div style={{ marginLeft: "auto", fontSize: 11, color: "var(--color-fg-subtle)" }}>
+          </Text>
+          <Text size="tiny" color="subtle" className="ml-auto">
             Ctrl/Cmd+P
-          </div>
+          </Text>
         </div>
 
         {errorText ? (
-          <div
+          <Text
             data-testid="command-palette-error"
-            style={{ fontSize: 12, color: "var(--color-fg-muted)" }}
+            size="small"
+            color="muted"
           >
             {errorText}
-          </div>
+          </Text>
         ) : null}
 
-        <button
+        <ListItem
           data-testid="command-item-export-markdown"
-          type="button"
+          interactive
+          compact
           onClick={() => void onExportMarkdown()}
-          style={{
-            height: 32,
-            padding: "0 var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border-default)",
-            background: "var(--color-bg-surface)",
-            color: "var(--color-fg-default)",
-            cursor: "pointer",
-            textAlign: "left",
-          }}
+          className="border border-[var(--color-border-default)] text-left"
         >
           Export Markdown
-        </button>
-      </div>
+        </ListItem>
+      </Card>
     </div>
   );
 }

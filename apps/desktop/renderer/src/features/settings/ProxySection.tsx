@@ -1,5 +1,10 @@
 import React from "react";
 
+import { Button } from "../../components/primitives/Button";
+import { Card } from "../../components/primitives/Card";
+import { Checkbox } from "../../components/primitives/Checkbox";
+import { Input } from "../../components/primitives/Input";
+import { Text } from "../../components/primitives/Text";
 import { invoke } from "../../lib/ipcClient";
 
 type ProxySettings = {
@@ -88,57 +93,40 @@ export function ProxySection(): JSX.Element {
   }
 
   return (
-    <section
+    <Card
       data-testid="settings-proxy-section"
-      style={{
-        padding: 12,
-        borderRadius: "var(--radius-lg)",
-        border: "1px solid var(--color-border-default)",
-        background: "var(--color-bg-raised)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}
+      variant="raised"
+      className="flex flex-col gap-2.5 p-3 rounded-[var(--radius-lg)]"
     >
-      <div style={{ fontSize: 13, fontWeight: 700 }}>Proxy</div>
+      <Text size="body" weight="bold">
+        Proxy
+      </Text>
 
-      <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input
-          data-testid="proxy-enabled"
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => setEnabled(e.currentTarget.checked)}
-        />
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
-          Enable OpenAI-compatible proxy (LiteLLM)
-        </div>
-      </label>
+      <Checkbox
+        data-testid="proxy-enabled"
+        checked={enabled}
+        onCheckedChange={(checked) => setEnabled(checked === true)}
+        label="Enable OpenAI-compatible proxy (LiteLLM)"
+      />
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+      <div className="flex flex-col gap-1.5">
+        <Text size="small" color="muted">
           Base URL
-        </div>
-        <input
+        </Text>
+        <Input
           data-testid="proxy-base-url"
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.currentTarget.value)}
           placeholder="https://your-proxy.example.com"
-          style={{
-            height: 32,
-            padding: "0 var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border-default)",
-            background: "var(--color-bg-surface)",
-            color: "var(--color-fg-default)",
-          }}
+          fullWidth
         />
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+      <div className="flex flex-col gap-1.5">
+        <Text size="small" color="muted">
           API key (optional)
-        </div>
-        <input
+        </Text>
+        <Input
           data-testid="proxy-api-key"
           type="password"
           value={apiKeyDraft}
@@ -146,84 +134,53 @@ export function ProxySection(): JSX.Element {
           placeholder={
             settings?.apiKeyConfigured ? "(configured)" : "(not configured)"
           }
-          style={{
-            height: 32,
-            padding: "0 var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border-default)",
-            background: "var(--color-bg-surface)",
-            color: "var(--color-fg-default)",
-          }}
+          fullWidth
         />
       </div>
 
       {errorText ? (
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+        <Text size="small" color="muted">
           {errorText}
-        </div>
+        </Text>
       ) : null}
 
       {testResult ? (
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+        <Text size="small" color="muted">
           Test: {testResult}
-        </div>
+        </Text>
       ) : null}
 
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
+      <div className="flex gap-2">
+        <Button
           data-testid="proxy-save"
-          type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => void onSave()}
           disabled={status === "loading"}
-          style={{
-            height: 32,
-            padding: "0 var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border-default)",
-            background: "var(--color-bg-surface)",
-            color: "var(--color-fg-default)",
-            cursor: "pointer",
-          }}
         >
           Save
-        </button>
-        <button
+        </Button>
+        <Button
           data-testid="proxy-test"
-          type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => void onTest()}
           disabled={status === "loading"}
-          style={{
-            height: 32,
-            padding: "0 var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border-default)",
-            background: "var(--color-bg-surface)",
-            color: "var(--color-fg-default)",
-            cursor: "pointer",
-          }}
         >
           Test
-        </button>
-        <button
+        </Button>
+        <Button
           data-testid="proxy-refresh"
-          type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => void refresh()}
           disabled={status === "loading"}
-          style={{
-            height: 32,
-            padding: "0 var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border-default)",
-            background: "var(--color-bg-surface)",
-            color: "var(--color-fg-default)",
-            cursor: "pointer",
-            marginLeft: "auto",
-          }}
+          className="ml-auto"
         >
           Refresh
-        </button>
+        </Button>
       </div>
-    </section>
+    </Card>
   );
 }
 

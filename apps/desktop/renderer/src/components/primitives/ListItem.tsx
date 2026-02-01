@@ -92,6 +92,8 @@ export function ListItem({
   disabled = false,
   className = "",
   children,
+  onClick,
+  onKeyDown,
   ...props
 }: ListItemProps): JSX.Element {
   const classes = [
@@ -105,11 +107,27 @@ export function ListItem({
     .filter(Boolean)
     .join(" ");
 
+  function onInteractiveKeyDown(e: React.KeyboardEvent<HTMLDivElement>): void {
+    onKeyDown?.(e);
+    if (e.defaultPrevented) {
+      return;
+    }
+    if (!interactive || disabled) {
+      return;
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      e.currentTarget.click();
+    }
+  }
+
   return (
     <div
       role={interactive ? "button" : undefined}
       tabIndex={interactive && !disabled ? 0 : undefined}
       className={classes}
+      onClick={onClick}
+      onKeyDown={interactive && !disabled ? onInteractiveKeyDown : onKeyDown}
       {...props}
     >
       {children}

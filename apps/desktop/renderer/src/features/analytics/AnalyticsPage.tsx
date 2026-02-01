@@ -1,6 +1,11 @@
 import React from "react";
 
 import type { IpcError } from "../../../../../../packages/shared/types/ipc-generated";
+import { Button } from "../../components/primitives/Button";
+import { Card } from "../../components/primitives/Card";
+import { Dialog } from "../../components/primitives/Dialog";
+import { Heading } from "../../components/primitives/Heading";
+import { Text } from "../../components/primitives/Text";
 import { invoke } from "../../lib/ipcClient";
 
 type StatsSummary = {
@@ -27,6 +32,29 @@ function formatSeconds(seconds: number): string {
 }
 
 /**
+ * StatCard displays a single statistic with label and value.
+ */
+function StatCard(props: {
+  label: string;
+  value: React.ReactNode;
+  testId?: string;
+}): JSX.Element {
+  return (
+    <Card className="p-3 rounded-[var(--radius-md)]">
+      <Text size="tiny" color="muted">
+        {props.label}
+      </Text>
+      <div
+        data-testid={props.testId}
+        className="text-xl font-semibold text-[var(--color-fg-default)]"
+      >
+        {props.value}
+      </div>
+    </Card>
+  );
+}
+
+/**
  * AnalyticsPage shows basic writing and usage stats.
  *
  * Why: P1 requires a minimal, testable surface to validate stats persistence
@@ -35,7 +63,7 @@ function formatSeconds(seconds: number): string {
 export function AnalyticsPage(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}): JSX.Element | null {
+}): JSX.Element {
   const [today, setToday] = React.useState<StatsDay | null>(null);
   const [rangeSummary, setRangeSummary] = React.useState<StatsSummary | null>(
     null,
@@ -69,153 +97,75 @@ export function AnalyticsPage(props: {
     void refresh();
   }, [props.open, refresh]);
 
-  if (!props.open) {
-    return null;
-  }
-
   return (
-    <div className="cn-overlay" onClick={() => props.onOpenChange(false)}>
+    <Dialog
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      title="Analytics"
+    >
       <div
         data-testid="analytics-page"
-        role="dialog"
-        aria-modal="true"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 720,
-          maxWidth: "92vw",
-          maxHeight: "82vh",
-          overflow: "auto",
-          background: "var(--color-bg-raised)",
-          border: "1px solid var(--color-border-default)",
-          borderRadius: "var(--radius-lg)",
-          padding: 16,
-          color: "var(--color-fg-default)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 14,
-        }}
+        className="flex flex-col gap-3.5"
       >
-        <header style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-          <div style={{ fontSize: 14, fontWeight: 800 }}>Analytics</div>
-          <button
-            type="button"
+        <header className="flex items-baseline gap-2.5">
+          <Heading level="h3" className="font-extrabold">
+            Statistics
+          </Heading>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => void refresh()}
-            style={{
-              marginLeft: "auto",
-              height: 28,
-              padding: "0 var(--space-3)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-border-default)",
-              background: "var(--color-bg-surface)",
-              color: "var(--color-fg-default)",
-              cursor: "pointer",
-              fontSize: 12,
-            }}
+            className="ml-auto"
           >
             Refresh
-          </button>
+          </Button>
         </header>
 
         {error ? (
-          <div
+          <Text
             data-testid="analytics-error"
-            style={{ fontSize: 12, color: "var(--color-fg-muted)" }}
+            size="small"
+            color="muted"
           >
             {error.code}: {error.message}
-          </div>
+          </Text>
         ) : null}
 
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              border: "1px solid var(--color-border-default)",
-              borderRadius: "var(--radius-md)",
-              padding: 12,
-            }}
-          >
-            <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
-              Today words
-            </div>
-            <div
-              data-testid="analytics-today-words"
-              style={{ fontSize: 20, fontWeight: 600 }}
-            >
-              {today ? today.summary.wordsWritten : 0}
-            </div>
-          </div>
-          <div
-            style={{
-              border: "1px solid var(--color-border-default)",
-              borderRadius: "var(--radius-md)",
-              padding: 12,
-            }}
-          >
-            <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
-              Today time
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 600 }}>
-              {today ? formatSeconds(today.summary.writingSeconds) : "0s"}
-            </div>
-          </div>
-          <div
-            style={{
-              border: "1px solid var(--color-border-default)",
-              borderRadius: "var(--radius-md)",
-              padding: 12,
-            }}
-          >
-            <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
-              Today skills
-            </div>
-            <div
-              data-testid="analytics-today-skills"
-              style={{ fontSize: 20, fontWeight: 600 }}
-            >
-              {today ? today.summary.skillsUsed : 0}
-            </div>
-          </div>
-          <div
-            style={{
-              border: "1px solid var(--color-border-default)",
-              borderRadius: "var(--radius-md)",
-              padding: 12,
-            }}
-          >
-            <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
-              Today docs
-            </div>
-            <div style={{ fontSize: 20, fontWeight: 600 }}>
-              {today ? today.summary.documentsCreated : 0}
-            </div>
-          </div>
+        <section className="grid grid-cols-4 gap-2.5">
+          <StatCard
+            label="Today words"
+            value={today ? today.summary.wordsWritten : 0}
+            testId="analytics-today-words"
+          />
+          <StatCard
+            label="Today time"
+            value={today ? formatSeconds(today.summary.writingSeconds) : "0s"}
+          />
+          <StatCard
+            label="Today skills"
+            value={today ? today.summary.skillsUsed : 0}
+            testId="analytics-today-skills"
+          />
+          <StatCard
+            label="Today docs"
+            value={today ? today.summary.documentsCreated : 0}
+          />
         </section>
 
-        <section
-          style={{
-            border: "1px solid var(--color-border-default)",
-            borderRadius: "var(--radius-md)",
-            padding: 12,
-          }}
-        >
-          <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+        <Card className="p-3 rounded-[var(--radius-md)]">
+          <Text size="small" color="muted">
             Range (last 7d)
-          </div>
-          <div style={{ display: "flex", gap: 12, marginTop: 6 }}>
-            <div style={{ fontSize: 12 }}>
+          </Text>
+          <div className="flex gap-3 mt-1.5">
+            <Text size="small">
               words: {rangeSummary?.wordsWritten ?? 0}
-            </div>
-            <div style={{ fontSize: 12 }}>
+            </Text>
+            <Text size="small">
               skills: {rangeSummary?.skillsUsed ?? 0}
-            </div>
+            </Text>
           </div>
-        </section>
+        </Card>
       </div>
-    </div>
+    </Dialog>
   );
 }

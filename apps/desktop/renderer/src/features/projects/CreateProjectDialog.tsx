@@ -1,5 +1,9 @@
 import React from "react";
 
+import { Button } from "../../components/primitives/Button";
+import { Dialog } from "../../components/primitives/Dialog";
+import { Input } from "../../components/primitives/Input";
+import { Text } from "../../components/primitives/Text";
 import { useProjectStore } from "../../stores/projectStore";
 
 /**
@@ -11,13 +15,14 @@ import { useProjectStore } from "../../stores/projectStore";
 export function CreateProjectDialog(props: {
   open: boolean;
   onOpenChange: (next: boolean) => void;
-}): JSX.Element | null {
+}): JSX.Element {
   const createAndSetCurrent = useProjectStore((s) => s.createAndSetCurrent);
   const clearError = useProjectStore((s) => s.clearError);
   const lastError = useProjectStore((s) => s.lastError);
 
   const [name, setName] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
+  const formId = "create-project-form";
 
   React.useEffect(() => {
     if (!props.open) {
@@ -26,10 +31,6 @@ export function CreateProjectDialog(props: {
       clearError();
     }
   }, [clearError, props.open]);
-
-  if (!props.open) {
-    return null;
-  }
 
   async function onSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
@@ -48,105 +49,59 @@ export function CreateProjectDialog(props: {
   }
 
   return (
-    <div className="cn-overlay">
-      <div
-        data-testid="create-project-dialog"
-        role="dialog"
-        aria-modal="true"
-        style={{
-          width: 520,
-          borderRadius: "var(--radius-lg)",
-          background: "var(--color-bg-raised)",
-          border: "1px solid var(--color-border-default)",
-          padding: "var(--space-6)",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-        }}
-      >
-        <div style={{ marginBottom: "var(--space-4)" }}>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>Create project</div>
-          <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
-            Creates a local project under your app profile.
-          </div>
-        </div>
-
-        <form onSubmit={onSubmit}>
-          <label
-            style={{
-              display: "block",
-              fontSize: 12,
-              color: "var(--color-fg-muted)",
-              marginBottom: "var(--space-2)",
-            }}
+    <Dialog
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      title="Create project"
+      description="Creates a local project under your app profile."
+      footer={
+        <>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => props.onOpenChange(false)}
           >
+            Cancel
+          </Button>
+          <Button
+            data-testid="create-project-submit"
+            variant="primary"
+            size="sm"
+            loading={submitting}
+            type="submit"
+            form={formId}
+          >
+            {submitting ? "Creating…" : "Create"}
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        data-testid="create-project-dialog"
+        onSubmit={(e) => void onSubmit(e)}
+      >
+        <label className="block mb-2">
+          <Text size="small" color="muted">
             Name (optional)
-          </label>
-          <input
-            data-testid="create-project-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoFocus
-            placeholder="Untitled"
-            style={{
-              width: "100%",
-              height: 36,
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-border-default)",
-              background: "var(--color-bg-surface)",
-              color: "var(--color-fg-default)",
-              padding: "0 var(--space-3)",
-              outline: "none",
-              marginBottom: "var(--space-4)",
-            }}
-          />
+          </Text>
+        </label>
+        <Input
+          data-testid="create-project-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+          placeholder="Untitled"
+          fullWidth
+          className="mb-4"
+        />
 
-          {lastError ? (
-            <div
-              style={{
-                marginBottom: "var(--space-4)",
-                fontSize: 12,
-                color: "var(--color-fg-muted)",
-              }}
-            >
-              {lastError.code}: {lastError.message}
-            </div>
-          ) : null}
-
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => props.onOpenChange(false)}
-              style={{
-                height: 32,
-                padding: "0 var(--space-3)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--color-border-default)",
-                background: "transparent",
-                color: "var(--color-fg-default)",
-                cursor: "pointer",
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              data-testid="create-project-submit"
-              type="submit"
-              disabled={submitting}
-              style={{
-                height: 32,
-                padding: "0 var(--space-3)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--color-border-default)",
-                background: "var(--color-bg-selected)",
-                color: "var(--color-fg-default)",
-                cursor: submitting ? "not-allowed" : "pointer",
-                opacity: submitting ? 0.7 : 1,
-              }}
-            >
-              {submitting ? "Creating…" : "Create"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {lastError ? (
+          <Text size="small" color="muted" as="div" className="mb-4">
+            {lastError.code}: {lastError.message}
+          </Text>
+        ) : null}
+      </form>
+    </Dialog>
   );
 }

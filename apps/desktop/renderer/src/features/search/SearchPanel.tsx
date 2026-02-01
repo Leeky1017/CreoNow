@@ -1,5 +1,9 @@
 import React from "react";
 
+import { Button } from "../../components/primitives/Button";
+import { Card } from "../../components/primitives/Card";
+import { Input } from "../../components/primitives/Input";
+import { Text } from "../../components/primitives/Text";
 import { useFileStore } from "../../stores/fileStore";
 import { useSearchStore } from "../../stores/searchStore";
 
@@ -28,119 +32,66 @@ export function SearchPanel(props: { projectId: string }): JSX.Element {
   return (
     <section
       data-testid="search-panel"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        padding: 12,
-        minHeight: 0,
-      }}
+      className="flex flex-col gap-3 p-3 min-h-0"
     >
-      <header style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+      <header className="flex items-center gap-2">
+        <Text size="small" color="muted">
           Search
-        </div>
-        <div
-          style={{
-            marginLeft: "auto",
-            fontSize: 11,
-            color: "var(--color-fg-muted)",
-          }}
-        >
+        </Text>
+        <Text size="tiny" color="muted" className="ml-auto">
           {status}
-        </div>
+        </Text>
       </header>
 
       {lastError ? (
-        <div
-          style={{
-            border: "1px solid var(--color-separator)",
-            borderRadius: 8,
-            padding: 10,
-            background: "var(--color-bg-base)",
-            color: "var(--color-fg-muted)",
-            fontSize: 12,
-          }}
-        >
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div
+        <Card className="p-2.5 rounded-[var(--radius-md)]">
+          <div className="flex items-center gap-2">
+            <Text
               data-testid="search-error-code"
-              style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+              size="code"
+              color="muted"
             >
               {lastError.code}
-            </div>
-            <button
-              type="button"
+            </Text>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={clearError}
-              style={{
-                marginLeft: "auto",
-                border: "1px solid var(--color-separator)",
-                background: "transparent",
-                color: "var(--color-fg-muted)",
-                borderRadius: 6,
-                padding: "2px 8px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
+              className="ml-auto"
             >
               Dismiss
-            </button>
+            </Button>
           </div>
-          <div style={{ marginTop: 6 }}>{lastError.message}</div>
-        </div>
+          <Text size="small" color="muted" as="div" className="mt-1.5">
+            {lastError.message}
+          </Text>
+        </Card>
       ) : null}
 
-      <form onSubmit={onSubmit} style={{ display: "flex", gap: 8 }}>
-        <input
+      <form onSubmit={onSubmit} className="flex gap-2">
+        <Input
           data-testid="search-input"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search documents…"
-          style={{
-            flex: 1,
-            border: "1px solid var(--color-separator)",
-            borderRadius: 8,
-            padding: "6px 8px",
-            background: "transparent",
-            color: "var(--color-fg-muted)",
-            fontSize: 12,
-          }}
+          className="flex-1"
         />
-        <button
+        <Button
           data-testid="search-run"
           type="submit"
+          variant="secondary"
+          size="sm"
           disabled={status === "loading"}
-          style={{
-            border: "1px solid var(--color-separator)",
-            background: "transparent",
-            color: "var(--color-fg-muted)",
-            borderRadius: 8,
-            padding: "6px 10px",
-            fontSize: 12,
-            cursor: "pointer",
-          }}
         >
           Go
-        </button>
+        </Button>
       </form>
 
-      <div
-        style={{
-          border: "1px solid var(--color-separator)",
-          borderRadius: 8,
-          background: "var(--color-bg-base)",
-          padding: 10,
-          minHeight: 0,
-          overflow: "auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
+      <Card className="p-2.5 rounded-[var(--radius-md)] min-h-0 overflow-auto flex flex-col gap-2.5">
         {items.length === 0 ? (
-          <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+          <Text size="small" color="muted">
             (no results)
-          </div>
+          </Text>
         ) : (
           items.map((item) => (
             <button
@@ -152,44 +103,28 @@ export function SearchPanel(props: { projectId: string }): JSX.Element {
                   documentId: item.documentId,
                 })
               }
-              style={{
-                textAlign: "left",
-                border: "1px solid var(--color-separator)",
-                borderRadius: 8,
-                padding: 10,
-                background: "transparent",
-                color: "var(--color-fg-muted)",
-                cursor: "pointer",
-              }}
+              className="text-left border border-[var(--color-border-default)] rounded-[var(--radius-md)] p-2.5 bg-transparent hover:bg-[var(--color-bg-hover)] active:bg-[var(--color-bg-active)] transition-colors duration-[var(--duration-fast)] ease-[var(--ease-default)] focus-visible:outline focus-visible:outline-[length:var(--ring-focus-width)] focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-ring-focus)]"
             >
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "var(--color-fg-default)",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
+              <Text
+                size="small"
+                as="div"
+                className="overflow-hidden text-ellipsis whitespace-nowrap"
                 title={item.title}
               >
                 {item.title}
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: 11,
-                  color: "var(--color-fg-muted)",
-                  fontFamily: "var(--font-mono)",
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-word",
-                }}
+              </Text>
+              <Text
+                size="code"
+                color="muted"
+                as="div"
+                className="mt-1.5 whitespace-pre-wrap break-words"
               >
                 {item.snippet}
-              </div>
+              </Text>
             </button>
           ))
         )}
-      </div>
+      </Card>
     </section>
   );
 }
