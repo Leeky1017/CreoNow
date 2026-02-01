@@ -2,7 +2,7 @@
 
 - Issue: #73
 - Branch: task/73-migrate-high-complexity-components
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/74
 
 ## Plan
 
