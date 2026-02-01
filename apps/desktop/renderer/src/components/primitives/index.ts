@@ -44,3 +44,19 @@ export type { TextProps, TextSize, TextColor } from "./Text";
 
 export { Heading } from "./Heading";
 export type { HeadingProps, HeadingLevel, HeadingColor } from "./Heading";
+
+// Radix-based components
+export { Dialog, DialogTrigger } from "./Dialog";
+export type { DialogProps } from "./Dialog";
+
+export { Popover, PopoverClose, PopoverAnchor } from "./Popover";
+export type { PopoverProps } from "./Popover";
+
+export { Select } from "./Select";
+export type { SelectProps, SelectOption, SelectGroup } from "./Select";
+
+export { Checkbox } from "./Checkbox";
+export type { CheckboxProps } from "./Checkbox";
+
+export { Tabs, TabsRoot, TabsList, TabsTrigger, TabsContent } from "./Tabs";
+export type { TabsProps, TabItem } from "./Tabs";
