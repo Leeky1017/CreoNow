@@ -2,7 +2,7 @@
 
 - Issue: #91
 - Branch: task/91-p2-story-test
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/92
 
 ## Plan
 
