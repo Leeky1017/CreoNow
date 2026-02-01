@@ -29,7 +29,11 @@ export interface SelectGroup {
  * A dropdown select component built on Radix UI Select primitive.
  * Implements z-index dropdown (200) and shadow-md (§3.7, §5.2).
  */
-export interface SelectProps {
+export interface SelectProps
+  extends Omit<
+    React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>,
+    "children" | "asChild"
+  > {
   /** Current value (controlled) */
   value?: string;
   /** Callback when value changes */
@@ -246,6 +250,7 @@ export function Select({
   name,
   fullWidth = false,
   className = "",
+  ...triggerProps
 }: SelectProps): JSX.Element {
   const triggerClasses = [triggerStyles, fullWidth ? "w-full" : "", className]
     .filter(Boolean)
@@ -259,7 +264,11 @@ export function Select({
       disabled={disabled}
       name={name}
     >
-      <SelectPrimitive.Trigger className={triggerClasses}>
+      <SelectPrimitive.Trigger
+        {...triggerProps}
+        disabled={disabled}
+        className={triggerClasses}
+      >
         <SelectPrimitive.Value placeholder={placeholder} />
         <SelectPrimitive.Icon>
           <ChevronDownIcon className="text-[var(--color-fg-muted)]" />

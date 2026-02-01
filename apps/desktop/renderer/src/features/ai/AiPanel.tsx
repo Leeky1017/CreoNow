@@ -1,5 +1,6 @@
 import React from "react";
 
+import { Button, Card, Text, Textarea } from "../../components/primitives";
 import { useAiStore, type AiStatus } from "../../stores/aiStore";
 import { useContextStore } from "../../stores/contextStore";
 import { useEditorStore } from "../../stores/editorStore";
@@ -188,28 +189,15 @@ export function AiPanel(): JSX.Element {
   return (
     <section
       data-testid="ai-panel"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        padding: 12,
-        minHeight: 0,
-        position: "relative",
-      }}
+      className="flex flex-col gap-3 p-3 min-h-0 relative"
     >
-      <header style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>AI</div>
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          <button
+      <header className="flex items-center gap-2">
+        <Text size="small" color="muted">AI</Text>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
             data-testid="ai-context-toggle"
-            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() =>
               void toggleViewer({
                 projectId: currentProject?.projectId ?? projectId ?? null,
@@ -217,48 +205,23 @@ export function AiPanel(): JSX.Element {
                 immediateInput: input,
               })
             }
-            style={{
-              border: "1px solid var(--color-separator)",
-              background: viewerOpen ? "var(--color-bg-base)" : "transparent",
-              color: "var(--color-fg-muted)",
-              borderRadius: 8,
-              padding: "4px 8px",
-              fontSize: 12,
-              cursor: "pointer",
-            }}
+            className={viewerOpen ? "bg-[var(--color-bg-base)]" : ""}
           >
             Context
-          </button>
-          <button
+          </Button>
+          <Button
             data-testid="ai-skills-toggle"
-            type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setSkillsOpen((v) => !v)}
-            style={{
-              border: "1px solid var(--color-separator)",
-              background: "transparent",
-              color: "var(--color-fg-muted)",
-              borderRadius: 8,
-              padding: "4px 8px",
-              fontSize: 12,
-              cursor: "pointer",
-              maxWidth: 220,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
+            className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap"
             title={selectedSkillName}
           >
             {skillsStatus === "loading" ? "Skills…" : selectedSkillName}
-          </button>
-          <div
-            data-testid="ai-status"
-            style={{
-              fontSize: 11,
-              color: "var(--color-fg-muted)",
-            }}
-          >
+          </Button>
+          <Text data-testid="ai-status" size="tiny" color="muted">
             {status}
-          </div>
+          </Text>
         </div>
       </header>
 
@@ -274,210 +237,120 @@ export function AiPanel(): JSX.Element {
       />
 
       {applyStatus === "applied" ? (
-        <div
-          data-testid="ai-apply-status"
-          style={{ fontSize: 12, color: "var(--color-fg-muted)" }}
-        >
+        <Text data-testid="ai-apply-status" size="small" color="muted">
           Applied &amp; saved
-        </div>
+        </Text>
       ) : null}
 
       {skillsLastError ? (
-        <div
-          style={{
-            border: "1px solid var(--color-separator)",
-            borderRadius: 8,
-            padding: 10,
-            background: "var(--color-bg-base)",
-            color: "var(--color-fg-muted)",
-            fontSize: 12,
-          }}
-        >
-          <div style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>
-            {skillsLastError.code}
-          </div>
-          <div style={{ marginTop: 6 }}>{skillsLastError.message}</div>
-        </div>
+        <Card noPadding className="p-2.5">
+          <Text size="code" color="muted">{skillsLastError.code}</Text>
+          <Text size="small" color="muted" className="mt-1.5 block">
+            {skillsLastError.message}
+          </Text>
+        </Card>
       ) : null}
 
       {lastError ? (
-        <div
-          style={{
-            border: "1px solid var(--color-separator)",
-            borderRadius: 8,
-            padding: 10,
-            background: "var(--color-bg-base)",
-            color: "var(--color-fg-muted)",
-            fontSize: 12,
-          }}
-        >
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div
-              data-testid="ai-error-code"
-              style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
-            >
+        <Card noPadding className="p-2.5">
+          <div className="flex gap-2 items-center">
+            <Text data-testid="ai-error-code" size="code" color="muted">
               {lastError.code}
-            </div>
-            <button
-              type="button"
+            </Text>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={clearError}
-              style={{
-                marginLeft: "auto",
-                border: "1px solid var(--color-separator)",
-                background: "transparent",
-                color: "var(--color-fg-muted)",
-                borderRadius: 6,
-                padding: "2px 8px",
-                fontSize: 12,
-                cursor: "pointer",
-              }}
+              className="ml-auto"
             >
               Dismiss
-            </button>
+            </Button>
           </div>
-          <div style={{ marginTop: 6 }}>{lastError.message}</div>
-        </div>
+          <Text size="small" color="muted" className="mt-1.5 block">
+            {lastError.message}
+          </Text>
+        </Card>
       ) : null}
 
-      <label style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <label className="flex items-center gap-2">
         <input
           data-testid="ai-stream-toggle"
           type="checkbox"
           checked={stream}
           onChange={(e) => setStream(e.target.checked)}
           disabled={isRunning(status)}
+          className="h-4 w-4 accent-[var(--color-fg-default)]"
         />
-        <span style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
+        <Text size="small" color="muted">
           Stream
-        </span>
+        </Text>
       </label>
 
-      <textarea
+      <Textarea
         data-testid="ai-input"
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder="Type E2E_DELAY / E2E_TIMEOUT / E2E_UPSTREAM_ERROR markers to drive fake server."
-        style={{
-          width: "100%",
-          minHeight: 92,
-          resize: "vertical",
-          border: "1px solid var(--color-separator)",
-          borderRadius: 8,
-          padding: 10,
-          background: "var(--color-bg-base)",
-          color: "var(--color-fg-base)",
-          outline: "none",
-          fontSize: 12,
-          lineHeight: "18px",
-        }}
+        fullWidth
+        className="min-h-[92px]"
       />
 
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
+      <div className="flex gap-2">
+        <Button
           data-testid="ai-run"
-          type="button"
+          variant="secondary"
+          size="md"
           onClick={() => void onRun()}
           disabled={isRunning(status)}
-          style={{
-            border: "1px solid var(--color-separator)",
-            background: "var(--color-bg-base)",
-            color: "var(--color-fg-base)",
-            borderRadius: 8,
-            padding: "8px 10px",
-            fontSize: 12,
-            cursor: isRunning(status) ? "not-allowed" : "pointer",
-            flex: 1,
-          }}
+          className="flex-1"
         >
           Run
-        </button>
-        <button
+        </Button>
+        <Button
           data-testid="ai-cancel"
-          type="button"
+          variant="ghost"
+          size="md"
           onClick={() => void cancel()}
           disabled={!isRunning(status)}
-          style={{
-            border: "1px solid var(--color-separator)",
-            background: "transparent",
-            color: "var(--color-fg-muted)",
-            borderRadius: 8,
-            padding: "8px 10px",
-            fontSize: 12,
-            cursor: !isRunning(status) ? "not-allowed" : "pointer",
-          }}
         >
           Cancel
-        </button>
+        </Button>
       </div>
 
       {viewerOpen ? <ContextViewer /> : null}
 
-      <div
-        style={{
-          border: "1px solid var(--color-separator)",
-          borderRadius: 8,
-          background: "var(--color-bg-base)",
-          padding: 10,
-          minHeight: 120,
-          flex: 1,
-          overflow: "auto",
-        }}
-      >
+      <Card noPadding className="p-2.5 min-h-[120px] flex-1 overflow-auto">
         <pre
           data-testid="ai-output"
-          style={{
-            margin: 0,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-word",
-            fontSize: 12,
-            lineHeight: "18px",
-            color: "var(--color-fg-base)",
-            fontFamily: "var(--font-mono)",
-          }}
+          className="m-0 whitespace-pre-wrap break-words text-xs leading-[18px] text-[var(--color-fg-base)] font-[var(--font-family-mono)]"
         >
           {outputText}
         </pre>
-      </div>
+      </Card>
 
       {proposal ? (
         <>
           <DiffView diffText={diffText} />
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
+          <div className="flex gap-2">
+            <Button
               data-testid="ai-apply"
-              type="button"
+              variant="secondary"
+              size="md"
               onClick={() => void onApply()}
               disabled={!canApply}
-              style={{
-                border: "1px solid var(--color-separator)",
-                background: "var(--color-bg-base)",
-                color: "var(--color-fg-base)",
-                borderRadius: 8,
-                padding: "8px 10px",
-                fontSize: 12,
-                cursor: !canApply ? "not-allowed" : "pointer",
-                flex: 1,
-              }}
+              className="flex-1"
             >
               Apply
-            </button>
-            <button
+            </Button>
+            <Button
               data-testid="ai-reject"
-              type="button"
+              variant="ghost"
+              size="md"
               onClick={onReject}
               disabled={applyStatus === "applying"}
-              style={{
-                border: "1px solid var(--color-separator)",
-                background: "transparent",
-                color: "var(--color-fg-muted)",
-                borderRadius: 8,
-                padding: "8px 10px",
-                fontSize: 12,
-                cursor: applyStatus === "applying" ? "not-allowed" : "pointer",
-              }}
             >
               Reject
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

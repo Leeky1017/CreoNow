@@ -7,27 +7,13 @@ import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
  * A checkbox component built on Radix UI Checkbox primitive.
  * Supports checked, unchecked, and indeterminate states.
  */
-export interface CheckboxProps {
-  /** Controlled checked state */
-  checked?: boolean | "indeterminate";
-  /** Callback when checked state changes */
-  onCheckedChange?: (checked: boolean | "indeterminate") => void;
-  /** Default checked state (uncontrolled) */
-  defaultChecked?: boolean;
-  /** Disabled state */
-  disabled?: boolean;
-  /** Required for form validation */
-  required?: boolean;
-  /** Name for form submission */
-  name?: string;
-  /** Value for form submission */
-  value?: string;
-  /** ID for label association */
-  id?: string;
+export interface CheckboxProps
+  extends Omit<
+    React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>,
+    "children" | "asChild"
+  > {
   /** Optional label text */
   label?: string;
-  /** Custom class name */
-  className?: string;
 }
 
 /**
@@ -163,30 +149,18 @@ function MinusIcon() {
  * ```
  */
 export function Checkbox({
-  checked,
-  onCheckedChange,
-  defaultChecked,
-  disabled = false,
-  required = false,
-  name,
-  value,
   id,
   label,
   className = "",
+  ...rootProps
 }: CheckboxProps): JSX.Element {
   const generatedId = React.useId();
   const checkboxId = id ?? generatedId;
 
   const checkboxElement = (
     <CheckboxPrimitive.Root
+      {...rootProps}
       id={checkboxId}
-      checked={checked}
-      onCheckedChange={onCheckedChange}
-      defaultChecked={defaultChecked}
-      disabled={disabled}
-      required={required}
-      name={name}
-      value={value}
       className={`${checkboxStyles} ${className}`}
     >
       <CheckboxPrimitive.Indicator className={indicatorStyles} forceMount>

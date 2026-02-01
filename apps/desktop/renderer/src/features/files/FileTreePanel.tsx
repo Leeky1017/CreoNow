@@ -1,5 +1,6 @@
 import React from "react";
 
+import { Button, Input, ListItem, Text } from "../../components/primitives";
 import { useEditorStore } from "../../stores/editorStore";
 import { useFileStore } from "../../stores/fileStore";
 
@@ -91,135 +92,73 @@ export function FileTreePanel(props: { projectId: string }): JSX.Element {
   return (
     <div
       data-testid="sidebar-files"
-      style={{ display: "flex", flexDirection: "column", minHeight: 0 }}
+      className="flex flex-col min-h-0"
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "var(--space-3)",
-          borderBottom: "1px solid var(--color-separator)",
-        }}
-      >
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
-          Files
-        </div>
-        <button
-          type="button"
+      <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)]">
+        <Text size="small" color="muted">Files</Text>
+        <Button
           data-testid="file-create"
+          variant="secondary"
+          size="sm"
           onClick={() => void onCreate()}
-          style={{
-            fontSize: 12,
-            padding: "var(--space-2) var(--space-3)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid var(--color-border-default)",
-            background: "var(--color-bg-surface)",
-            color: "var(--color-fg-default)",
-            cursor: "pointer",
-          }}
         >
           New
-        </button>
+        </Button>
       </div>
 
       {lastError ? (
         <div
           role="alert"
-          style={{
-            padding: "var(--space-3)",
-            fontSize: 12,
-            color: "var(--color-fg-default)",
-            borderBottom: "1px solid var(--color-separator)",
-          }}
+          className="p-3 border-b border-[var(--color-separator)]"
         >
-          <div style={{ marginBottom: "var(--space-2)" }}>
+          <Text size="small" className="mb-2 block">
             {lastError.code}: {lastError.message}
-          </div>
-          <button
-            type="button"
+          </Text>
+          <Button
+            variant="secondary"
+            size="sm"
             onClick={() => clearError()}
-            style={{
-              fontSize: 12,
-              padding: "var(--space-2) var(--space-3)",
-              borderRadius: "var(--radius-md)",
-              border: "1px solid var(--color-border-default)",
-              background: "var(--color-bg-surface)",
-              color: "var(--color-fg-default)",
-              cursor: "pointer",
-            }}
           >
             Dismiss
-          </button>
+          </Button>
         </div>
       ) : null}
 
-      <div style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
+      <div className="flex-1 overflow-auto min-h-0">
         {bootstrapStatus !== "ready" ? (
-          <div
-            style={{
-              padding: "var(--space-3)",
-              fontSize: 12,
-              color: "var(--color-fg-muted)",
-            }}
-          >
+          <Text size="small" color="muted" className="p-3 block">
             Loading files…
-          </div>
+          </Text>
         ) : items.length === 0 ? (
-          <div
-            style={{
-              padding: "var(--space-3)",
-              fontSize: 12,
-              color: "var(--color-fg-muted)",
-            }}
-          >
+          <Text size="small" color="muted" className="p-3 block">
             No documents yet.
-          </div>
+          </Text>
         ) : (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "var(--space-1)",
-            }}
-          >
+          <div className="flex flex-col gap-1 p-2">
             {items.map((item) => {
               const selected = item.documentId === currentDocumentId;
               const isRenaming =
                 editing.mode === "rename" &&
                 editing.documentId === item.documentId;
               return (
-                <div
+                <ListItem
                   key={item.documentId}
                   data-testid={`file-row-${item.documentId}`}
                   aria-selected={selected}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "var(--space-2)",
-                    padding: "var(--space-2) var(--space-3)",
-                    margin: `0 var(--space-2)`,
-                    borderRadius: "var(--radius-md)",
-                    border: `1px solid ${
-                      selected
-                        ? "var(--color-border-focus)"
-                        : "var(--color-border-default)"
-                    }`,
-                    background: selected
-                      ? "var(--color-bg-selected)"
-                      : "transparent",
-                    cursor: isRenaming ? "default" : "pointer",
-                  }}
+                  selected={selected}
+                  interactive={!isRenaming}
+                  compact
                   onClick={() => {
                     if (isRenaming) {
                       return;
                     }
                     void onSelect(item.documentId);
                   }}
+                  className={`border ${selected ? "border-[var(--color-border-focus)]" : "border-[var(--color-border-default)]"}`}
                 >
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="flex-1 min-w-0">
                     {isRenaming ? (
-                      <input
+                      <Input
                         ref={inputRef}
                         data-testid={`file-rename-input-${item.documentId}`}
                         value={editing.title}
@@ -240,120 +179,73 @@ export function FileTreePanel(props: { projectId: string }): JSX.Element {
                             void onCommitRename();
                           }
                         }}
-                        style={{
-                          width: "100%",
-                          fontSize: 12,
-                          padding: "var(--space-1) var(--space-2)",
-                          borderRadius: "var(--radius-sm)",
-                          border: "1px solid var(--color-border-default)",
-                          background: "var(--color-bg-base)",
-                          color: "var(--color-fg-default)",
-                        }}
+                        fullWidth
+                        className="h-7 text-xs"
                       />
                     ) : (
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "var(--color-fg-default)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
+                      <Text size="small" className="block overflow-hidden text-ellipsis whitespace-nowrap">
                         {item.title}
-                      </div>
+                      </Text>
                     )}
                   </div>
 
-                  <div style={{ display: "flex", gap: "var(--space-1)" }}>
-                      {isRenaming ? (
-                        <>
-                          <button
-                            type="button"
-                            data-testid={`file-rename-confirm-${item.documentId}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void onCommitRename();
-                            }}
-                            style={{
-                              fontSize: 12,
-                              padding: "var(--space-1) var(--space-2)",
-                              borderRadius: "var(--radius-md)",
-                              border: "1px solid var(--color-border-default)",
-                              background: "var(--color-bg-surface)",
-                              color: "var(--color-fg-default)",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditing({ mode: "idle" });
-                            }}
-                            style={{
-                              fontSize: 12,
-                              padding: "var(--space-1) var(--space-2)",
-                              borderRadius: "var(--radius-md)",
-                              border: "1px solid var(--color-border-default)",
-                              background: "var(--color-bg-surface)",
-                              color: "var(--color-fg-default)",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            data-testid={`file-rename-${item.documentId}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditing({
-                                mode: "rename",
-                                documentId: item.documentId,
-                                title: item.title,
-                              });
-                            }}
-                            style={{
-                              fontSize: 12,
-                              padding: "var(--space-1) var(--space-2)",
-                              borderRadius: "var(--radius-md)",
-                              border: "1px solid var(--color-border-default)",
-                              background: "var(--color-bg-surface)",
-                              color: "var(--color-fg-default)",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Rename
-                          </button>
-                          <button
-                            type="button"
-                            data-testid={`file-delete-${item.documentId}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void onDelete(item.documentId);
-                            }}
-                            style={{
-                              fontSize: 12,
-                              padding: "var(--space-1) var(--space-2)",
-                              borderRadius: "var(--radius-md)",
-                              border: "1px solid var(--color-border-default)",
-                              background: "var(--color-bg-surface)",
-                              color: "var(--color-fg-default)",
-                              cursor: "pointer",
-                            }}
+                  <div className="flex gap-1">
+                    {isRenaming ? (
+                      <>
+                        <Button
+                          data-testid={`file-rename-confirm-${item.documentId}`}
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onCommitRename();
+                          }}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing({ mode: "idle" });
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          data-testid={`file-rename-${item.documentId}`}
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing({
+                              mode: "rename",
+                              documentId: item.documentId,
+                              title: item.title,
+                            });
+                          }}
+                        >
+                          Rename
+                        </Button>
+                        <Button
+                          data-testid={`file-delete-${item.documentId}`}
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onDelete(item.documentId);
+                          }}
                         >
                           Delete
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>
-                </div>
+                </ListItem>
               );
             })}
           </div>

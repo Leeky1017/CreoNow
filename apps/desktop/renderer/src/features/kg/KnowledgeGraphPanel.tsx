@@ -1,5 +1,6 @@
 import React from "react";
 
+import { Button, Card, Input, Select, Text } from "../../components/primitives";
 import { useKgStore } from "../../stores/kgStore";
 
 type EditingState =
@@ -149,184 +150,90 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   return (
     <section
       data-testid="sidebar-kg"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        minHeight: 0,
-      }}
+      className="flex flex-col gap-3 min-h-0"
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "var(--space-3)",
-          borderBottom: "1px solid var(--color-separator)",
-        }}
-      >
-        <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
-          Knowledge Graph
-        </div>
-        <div style={{ fontSize: 11, color: "var(--color-fg-muted)" }}>
-          {bootstrapStatus}
-        </div>
+      <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)]">
+        <Text size="small" color="muted">Knowledge Graph</Text>
+        <Text size="tiny" color="muted">{bootstrapStatus}</Text>
       </div>
 
       {lastError ? (
         <div
           role="alert"
-          style={{
-            padding: "var(--space-3)",
-            fontSize: 12,
-            color: "var(--color-fg-default)",
-            borderBottom: "1px solid var(--color-separator)",
-          }}
+          className="p-3 border-b border-[var(--color-separator)]"
         >
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div
-              style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
-              data-testid="kg-error-code"
-            >
+          <div className="flex gap-2 items-center">
+            <Text data-testid="kg-error-code" size="code" color="muted">
               {lastError.code}
-            </div>
-            <button
-              type="button"
+            </Text>
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={clearError}
-              style={{
-                marginLeft: "auto",
-                border: "1px solid var(--color-border-default)",
-                borderRadius: 6,
-                padding: "2px 8px",
-                background: "var(--color-bg-surface)",
-                color: "var(--color-fg-default)",
-                cursor: "pointer",
-                fontSize: 12,
-              }}
+              className="ml-auto"
             >
               Dismiss
-            </button>
+            </Button>
           </div>
-          <div style={{ marginTop: 6 }}>{lastError.message}</div>
+          <Text size="small" className="mt-1.5 block">{lastError.message}</Text>
         </div>
       ) : null}
 
-      <div style={{ flex: 1, overflow: "auto", minHeight: 0 }}>
-        <div style={{ padding: "var(--space-3)" }}>
-          <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
-            Entities
-          </div>
+      <div className="flex-1 overflow-auto min-h-0">
+        <div className="p-3">
+          <Text size="small" color="muted">Entities</Text>
 
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "var(--space-2)",
-              marginTop: "var(--space-2)",
-              paddingBottom: "var(--space-3)",
-              borderBottom: "1px solid var(--color-separator)",
-            }}
-          >
-            <input
+          <div className="flex flex-col gap-2 mt-2 pb-3 border-b border-[var(--color-separator)]">
+            <Input
               data-testid="kg-entity-name"
               placeholder="Name"
               value={createName}
               onChange={(e) => setCreateName(e.target.value)}
-              style={{
-                border: "1px solid var(--color-border-default)",
-                borderRadius: "var(--radius-md)",
-                padding: "var(--space-2) var(--space-3)",
-                background: "var(--color-bg-surface)",
-                color: "var(--color-fg-default)",
-                fontSize: 12,
-              }}
+              fullWidth
             />
-            <input
+            <Input
               placeholder="Type (optional)"
               value={createType}
               onChange={(e) => setCreateType(e.target.value)}
-              style={{
-                border: "1px solid var(--color-border-default)",
-                borderRadius: "var(--radius-md)",
-                padding: "var(--space-2) var(--space-3)",
-                background: "var(--color-bg-surface)",
-                color: "var(--color-fg-default)",
-                fontSize: 12,
-              }}
+              fullWidth
             />
-            <input
+            <Input
               placeholder="Description (optional)"
               value={createDescription}
               onChange={(e) => setCreateDescription(e.target.value)}
-              style={{
-                border: "1px solid var(--color-border-default)",
-                borderRadius: "var(--radius-md)",
-                padding: "var(--space-2) var(--space-3)",
-                background: "var(--color-bg-surface)",
-                color: "var(--color-fg-default)",
-                fontSize: 12,
-              }}
+              fullWidth
             />
-            <button
-              type="button"
+            <Button
               data-testid="kg-entity-create"
+              variant="secondary"
+              size="sm"
               onClick={() => void onCreateEntity()}
               disabled={!isReady}
-              style={{
-                alignSelf: "flex-start",
-                fontSize: 12,
-                padding: "var(--space-2) var(--space-3)",
-                borderRadius: "var(--radius-md)",
-                border: "1px solid var(--color-border-default)",
-                background: "var(--color-bg-surface)",
-                color: "var(--color-fg-default)",
-                cursor: !isReady ? "not-allowed" : "pointer",
-                opacity: !isReady ? 0.6 : 1,
-              }}
+              className="self-start"
             >
               Create entity
-            </button>
+            </Button>
           </div>
 
           {entities.length === 0 ? (
-            <div
-              style={{
-                marginTop: "var(--space-3)",
-                fontSize: 12,
-                color: "var(--color-fg-muted)",
-              }}
-            >
+            <Text size="small" color="muted" className="mt-3 block">
               No entities yet.
-            </div>
+            </Text>
           ) : (
-            <div
-              style={{
-                marginTop: "var(--space-3)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "var(--space-2)",
-              }}
-            >
+            <div className="mt-3 flex flex-col gap-2">
               {entities.map((e) => {
                 const isEditing =
                   editing.mode === "entity" && editing.entityId === e.entityId;
                 return (
-                  <div
+                  <Card
                     key={e.entityId}
                     data-testid={`kg-entity-row-${e.entityId}`}
-                    style={{
-                      border: "1px solid var(--color-separator)",
-                      borderRadius: 8,
-                      padding: 10,
-                      background: "var(--color-bg-base)",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                    }}
+                    noPadding
+                    className="p-2.5 flex flex-col gap-2"
                   >
                     {isEditing ? (
                       <>
-                        <input
+                        <Input
                           value={editing.name}
                           onChange={(evt) =>
                             setEditing({
@@ -334,16 +241,9 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                               name: evt.target.value,
                             })
                           }
-                          style={{
-                            border: "1px solid var(--color-border-default)",
-                            borderRadius: "var(--radius-md)",
-                            padding: "var(--space-2) var(--space-3)",
-                            background: "var(--color-bg-surface)",
-                            color: "var(--color-fg-default)",
-                            fontSize: 12,
-                          }}
+                          fullWidth
                         />
-                        <input
+                        <Input
                           value={editing.entityType}
                           onChange={(evt) =>
                             setEditing({
@@ -351,16 +251,9 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                               entityType: evt.target.value,
                             })
                           }
-                          style={{
-                            border: "1px solid var(--color-border-default)",
-                            borderRadius: "var(--radius-md)",
-                            padding: "var(--space-2) var(--space-3)",
-                            background: "var(--color-bg-surface)",
-                            color: "var(--color-fg-default)",
-                            fontSize: 12,
-                          }}
+                          fullWidth
                         />
-                        <input
+                        <Input
                           value={editing.description}
                           onChange={(evt) =>
                             setEditing({
@@ -368,75 +261,48 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                               description: evt.target.value,
                             })
                           }
-                          style={{
-                            border: "1px solid var(--color-border-default)",
-                            borderRadius: "var(--radius-md)",
-                            padding: "var(--space-2) var(--space-3)",
-                            background: "var(--color-bg-surface)",
-                            color: "var(--color-fg-default)",
-                            fontSize: 12,
-                          }}
+                          fullWidth
                         />
                       </>
                     ) : (
                       <>
-                        <div style={{ fontSize: 12 }}>
+                        <Text size="small">
                           {entityLabel({
                             name: e.name,
                             entityType: e.entityType,
                           })}
-                        </div>
+                        </Text>
                         {e.description ? (
-                          <div
-                            style={{
-                              fontSize: 12,
-                              color: "var(--color-fg-muted)",
-                            }}
-                          >
+                          <Text size="small" color="muted">
                             {e.description}
-                          </div>
+                          </Text>
                         ) : null}
                       </>
                     )}
 
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div className="flex gap-2">
                       {isEditing ? (
                         <>
-                          <button
-                            type="button"
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => void onSaveEdit()}
-                            style={{
-                              border: "1px solid var(--color-border-default)",
-                              borderRadius: 6,
-                              padding: "2px 8px",
-                              background: "var(--color-bg-surface)",
-                              color: "var(--color-fg-default)",
-                              cursor: "pointer",
-                              fontSize: 12,
-                            }}
                           >
                             Save
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setEditing({ mode: "idle" })}
-                            style={{
-                              border: "1px solid var(--color-border-default)",
-                              borderRadius: 6,
-                              padding: "2px 8px",
-                              background: "transparent",
-                              color: "var(--color-fg-muted)",
-                              cursor: "pointer",
-                              fontSize: 12,
-                            }}
                           >
                             Cancel
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() =>
                               setEditing({
                                 mode: "entity",
@@ -446,174 +312,94 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                                 description: e.description ?? "",
                               })
                             }
-                            style={{
-                              border: "1px solid var(--color-border-default)",
-                              borderRadius: 6,
-                              padding: "2px 8px",
-                              background: "transparent",
-                              color: "var(--color-fg-muted)",
-                              cursor: "pointer",
-                              fontSize: 12,
-                            }}
                           >
                             Edit
-                          </button>
-                          <button
-                            type="button"
+                          </Button>
+                          <Button
                             data-testid={`kg-entity-delete-${e.entityId}`}
+                            variant="ghost"
+                            size="sm"
                             onClick={() => void onDeleteEntity(e.entityId)}
-                            style={{
-                              border: "1px solid var(--color-border-default)",
-                              borderRadius: 6,
-                              padding: "2px 8px",
-                              background: "transparent",
-                              color: "var(--color-fg-muted)",
-                              cursor: "pointer",
-                              fontSize: 12,
-                            }}
                           >
                             Delete
-                          </button>
+                          </Button>
                         </>
                       )}
                     </div>
-                  </div>
+                  </Card>
                 );
               })}
             </div>
           )}
 
-          <div style={{ marginTop: "var(--space-4)" }}>
-            <div style={{ fontSize: 12, color: "var(--color-fg-muted)" }}>
-              Relations
-            </div>
+          <div className="mt-4">
+            <Text size="small" color="muted">Relations</Text>
 
-            <div
-              style={{
-                marginTop: "var(--space-2)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "var(--space-2)",
-                paddingBottom: "var(--space-3)",
-                borderBottom: "1px solid var(--color-separator)",
-              }}
-            >
-              <select
+            <div className="mt-2 flex flex-col gap-2 pb-3 border-b border-[var(--color-separator)]">
+              <Select
                 value={relFromId}
-                onChange={(e) => setRelFromId(e.target.value)}
+                onValueChange={(value) => setRelFromId(value)}
                 disabled={!isReady || entities.length === 0}
-                style={{
-                  border: "1px solid var(--color-border-default)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "var(--space-2) var(--space-3)",
-                  background: "var(--color-bg-surface)",
-                  color: "var(--color-fg-default)",
-                  fontSize: 12,
-                }}
-              >
-                {entities.map((e) => (
-                  <option key={e.entityId} value={e.entityId}>
-                    {entityLabel({ name: e.name, entityType: e.entityType })}
-                  </option>
-                ))}
-              </select>
+                options={entities.map((e) => ({
+                  value: e.entityId,
+                  label: entityLabel({ name: e.name, entityType: e.entityType }),
+                }))}
+                placeholder="Select entity..."
+                fullWidth
+              />
 
-              <select
+              <Select
                 value={relToId}
-                onChange={(e) => setRelToId(e.target.value)}
+                onValueChange={(value) => setRelToId(value)}
                 disabled={!isReady || entities.length === 0}
-                style={{
-                  border: "1px solid var(--color-border-default)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "var(--space-2) var(--space-3)",
-                  background: "var(--color-bg-surface)",
-                  color: "var(--color-fg-default)",
-                  fontSize: 12,
-                }}
-              >
-                {entities.map((e) => (
-                  <option key={e.entityId} value={e.entityId}>
-                    {entityLabel({ name: e.name, entityType: e.entityType })}
-                  </option>
-                ))}
-              </select>
+                options={entities.map((e) => ({
+                  value: e.entityId,
+                  label: entityLabel({ name: e.name, entityType: e.entityType }),
+                }))}
+                placeholder="Select entity..."
+                fullWidth
+              />
 
-              <input
+              <Input
                 data-testid="kg-relation-type"
                 placeholder="Relation type (e.g. knows)"
                 value={relType}
                 onChange={(e) => setRelType(e.target.value)}
                 disabled={!isReady}
-                style={{
-                  border: "1px solid var(--color-border-default)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "var(--space-2) var(--space-3)",
-                  background: "var(--color-bg-surface)",
-                  color: "var(--color-fg-default)",
-                  fontSize: 12,
-                }}
+                fullWidth
               />
 
-              <button
-                type="button"
+              <Button
                 data-testid="kg-relation-create"
+                variant="secondary"
+                size="sm"
                 onClick={() => void onCreateRelation()}
                 disabled={!isReady}
-                style={{
-                  alignSelf: "flex-start",
-                  fontSize: 12,
-                  padding: "var(--space-2) var(--space-3)",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--color-border-default)",
-                  background: "var(--color-bg-surface)",
-                  color: "var(--color-fg-default)",
-                  cursor: !isReady ? "not-allowed" : "pointer",
-                  opacity: !isReady ? 0.6 : 1,
-                }}
+                className="self-start"
               >
                 Create relation
-              </button>
+              </Button>
             </div>
 
             {relations.length === 0 ? (
-              <div
-                style={{
-                  marginTop: "var(--space-3)",
-                  fontSize: 12,
-                  color: "var(--color-fg-muted)",
-                }}
-              >
+              <Text size="small" color="muted" className="mt-3 block">
                 No relations yet.
-              </div>
+              </Text>
             ) : (
-              <div
-                style={{
-                  marginTop: "var(--space-3)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "var(--space-2)",
-                }}
-              >
+              <div className="mt-3 flex flex-col gap-2">
                 {relations.map((r) => {
                   const isEditing =
                     editing.mode === "relation" &&
                     editing.relationId === r.relationId;
                   return (
-                    <div
+                    <Card
                       key={r.relationId}
                       data-testid={`kg-relation-row-${r.relationId}`}
-                      style={{
-                        border: "1px solid var(--color-separator)",
-                        borderRadius: 8,
-                        padding: 10,
-                        background: "var(--color-bg-base)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                      }}
+                      noPadding
+                      className="p-2.5 flex flex-col gap-2"
                     >
                       {isEditing ? (
-                        <input
+                        <Input
                           value={editing.relationType}
                           onChange={(evt) =>
                             setEditing({
@@ -621,60 +407,38 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                               relationType: evt.target.value,
                             })
                           }
-                          style={{
-                            border: "1px solid var(--color-border-default)",
-                            borderRadius: "var(--radius-md)",
-                            padding: "var(--space-2) var(--space-3)",
-                            background: "var(--color-bg-surface)",
-                            color: "var(--color-fg-default)",
-                            fontSize: 12,
-                          }}
+                          fullWidth
                         />
                       ) : (
-                        <div style={{ fontSize: 12 }}>
+                        <Text size="small">
                           {getEntityName(r.fromEntityId)} -({r.relationType})→{" "}
                           {getEntityName(r.toEntityId)}
-                        </div>
+                        </Text>
                       )}
 
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div className="flex gap-2">
                         {isEditing ? (
                           <>
-                            <button
-                              type="button"
+                            <Button
+                              variant="secondary"
+                              size="sm"
                               onClick={() => void onSaveEdit()}
-                              style={{
-                                border: "1px solid var(--color-border-default)",
-                                borderRadius: 6,
-                                padding: "2px 8px",
-                                background: "var(--color-bg-surface)",
-                                color: "var(--color-fg-default)",
-                                cursor: "pointer",
-                                fontSize: 12,
-                              }}
                             >
                               Save
-                            </button>
-                            <button
-                              type="button"
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => setEditing({ mode: "idle" })}
-                              style={{
-                                border: "1px solid var(--color-border-default)",
-                                borderRadius: 6,
-                                padding: "2px 8px",
-                                background: "transparent",
-                                color: "var(--color-fg-muted)",
-                                cursor: "pointer",
-                                fontSize: 12,
-                              }}
                             >
                               Cancel
-                            </button>
+                            </Button>
                           </>
                         ) : (
                           <>
-                            <button
-                              type="button"
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() =>
                                 setEditing({
                                   mode: "relation",
@@ -682,41 +446,24 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                                   relationType: r.relationType,
                                 })
                               }
-                              style={{
-                                border: "1px solid var(--color-border-default)",
-                                borderRadius: 6,
-                                padding: "2px 8px",
-                                background: "transparent",
-                                color: "var(--color-fg-muted)",
-                                cursor: "pointer",
-                                fontSize: 12,
-                              }}
                             >
                               Edit
-                            </button>
-                            <button
-                              type="button"
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() =>
                                 void relationDelete({
                                   relationId: r.relationId,
                                 })
                               }
-                              style={{
-                                border: "1px solid var(--color-border-default)",
-                                borderRadius: 6,
-                                padding: "2px 8px",
-                                background: "transparent",
-                                color: "var(--color-fg-muted)",
-                                cursor: "pointer",
-                                fontSize: 12,
-                              }}
                             >
                               Delete
-                            </button>
+                            </Button>
                           </>
                         )}
                       </div>
-                    </div>
+                    </Card>
                   );
                 })}
               </div>

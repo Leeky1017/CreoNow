@@ -56,28 +56,30 @@ const errorStyles = [
  * Input component following design spec §6.2
  *
  * Single-line text input with proper focus and error states.
+ * Supports ref forwarding for focus management.
  *
  * @example
  * ```tsx
  * <Input placeholder="Enter text..." />
  * <Input error placeholder="Invalid input" />
  * <Input disabled value="Disabled" />
+ * <Input ref={inputRef} /> // Ref forwarding
  * ```
  */
-export function Input({
-  error = false,
-  fullWidth = false,
-  className = "",
-  ...props
-}: InputProps): JSX.Element {
-  const classes = [
-    baseStyles,
-    error ? errorStyles : "",
-    fullWidth ? "w-full" : "",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  function Input(
+    { error = false, fullWidth = false, className = "", ...props },
+    ref,
+  ) {
+    const classes = [
+      baseStyles,
+      error ? errorStyles : "",
+      fullWidth ? "w-full" : "",
+      className,
+    ]
+      .filter(Boolean)
+      .join(" ");
 
-  return <input className={classes} {...props} />;
-}
+    return <input ref={ref} className={classes} {...props} />;
+  },
+);
