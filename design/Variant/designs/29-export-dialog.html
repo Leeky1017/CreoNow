@@ -1,0 +1,458 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">CreoNow - Export Dialog</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400&amp;family=Newsreader:ital,wght@0,400;0,500;1,400&amp;display=swap" rel="stylesheet" vid="6">
+    <script vid="7">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#080808',
+                        panel: '#0f0f0f',
+                        hover: '#1a1a1a',
+                        selected: '#222222',
+                        border: 'rgba(255, 255, 255, 0.06)',
+                        primary: '#ffffff',
+                        secondary: '#888888',
+                        tertiary: '#444444',
+                        accent: '#3b82f6', 
+                        'accent-hover': '#2563eb',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                        serif: ['Newsreader', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style vid="8">
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+
+        
+        .custom-checkbox input:checked + div {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        .custom-checkbox input:checked + div svg {
+            display: block;
+        }
+        
+        
+        @keyframes progress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        .animate-progress {
+            animation: progress 2s ease-in-out forwards;
+        }
+
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-background text-primary font-sans h-screen w-screen overflow-hidden flex selection:bg-accent/30 selection:text-white" vid="9">
+
+    
+    
+    <div class="absolute inset-0 flex opacity-40 blur-[2px] pointer-events-none select-none" aria-hidden="true" vid="10">
+        
+        <aside class="w-64 border-r border-border flex flex-col h-full bg-background flex-shrink-0" vid="11">
+            <div class="h-14 px-6 flex items-center mb-6" vid="12">
+                <span class="font-bold tracking-tight text-lg" vid="13">CREO</span><span class="font-thin ml-1 text-secondary" vid="14">NOW</span>
+            </div>
+            <div class="flex-1 px-4 space-y-6" vid="15">
+                <div vid="16">
+                    <h3 class="text-[10px] tracking-widest text-tertiary font-semibold mb-2 px-2 uppercase" vid="17">Workspace</h3>
+                    <div class="flex items-center px-2 py-1.5 text-sm text-primary rounded bg-hover" vid="18">
+                        <span class="w-1.5 h-1.5 rounded-full bg-accent mr-2.5" vid="19"></span>
+                        Recent Drafts
+                    </div>
+                    <div class="flex items-center px-2 py-1.5 text-sm text-secondary" vid="20">Published</div>
+                </div>
+                <div vid="21">
+                    <h3 class="text-[10px] tracking-widest text-tertiary font-semibold mb-2 px-2 uppercase" vid="22">Collections</h3>
+                    <div class="flex items-center px-2 py-1.5 text-sm text-secondary" vid="23">Design Theory</div>
+                    <div class="flex items-center px-2 py-1.5 text-sm text-secondary" vid="24">Visual Essays</div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-border" vid="25">
+                <div class="flex items-center gap-3" vid="26">
+                    <div class="w-8 h-8 rounded bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center text-xs font-medium border border-border" vid="27">AM</div>
+                    <div class="flex flex-col" vid="28">
+                        <span class="text-sm font-medium" vid="29">Alex M.</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        
+        <main class="flex-1 flex flex-col bg-background" vid="30">
+            <header class="h-14 border-b border-border flex items-center justify-between px-6" vid="31">
+                <div class="flex items-center gap-2 text-sm text-secondary" vid="32">
+                    <span vid="33">Drafts</span> <span class="text-tertiary" vid="34">/</span> <span class="text-primary" vid="35">The Architecture of Silence</span>
+                </div>
+            </header>
+            <div class="flex-1 p-12 max-w-4xl mx-auto w-full" vid="36">
+                <h1 class="text-5xl font-serif font-medium mb-8" vid="37">The Architecture of Silence</h1>
+                <p class="text-xl text-secondary font-serif leading-relaxed mb-8" vid="38">
+                    Intrigued by beauty, fascinated by technology and fueled with an everlasting devotion to digital craftsmanship.
+                </p>
+                <p class="text-lg text-secondary/80 font-serif leading-relaxed mb-6" vid="39">
+                    Design is not just about making things look good. It is about how things work. In the digital realm, this translates to the seamless integration of form and function.
+                </p>
+                <div class="w-full h-64 bg-panel border border-border rounded-lg mb-8" vid="40"></div>
+                <p class="text-lg text-secondary/80 font-serif leading-relaxed" vid="41">
+                    We build immersive environments where typography leads the eye and imagery sets the mood.
+                </p>
+            </div>
+        </main>
+    </div>
+
+    
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" vid="42">
+        
+        
+        <div class="w-[480px] bg-panel border border-border rounded-lg shadow-2xl flex flex-col max-h-[90vh] transition-all duration-300 relative overflow-hidden" id="export-modal" vid="43">
+            
+            
+            <div id="view-config" class="flex flex-col h-full fade-in" vid="44">
+                
+                <div class="flex items-start justify-between p-6 pb-4 border-b border-border" vid="45">
+                    <div vid="46">
+                        <h2 class="text-lg font-medium text-primary mb-1" vid="47">Export Document</h2>
+                        <p class="text-sm text-secondary" vid="48">The Architecture of Silence</p>
+                    </div>
+                    <button class="text-secondary hover:text-primary transition-colors p-1 rounded-md hover:bg-hover" vid="49">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="50">
+                            <line x1="18" y1="6" x2="6" y2="18" vid="51"></line>
+                            <line x1="6" y1="6" x2="18" y2="18" vid="52"></line>
+                        </svg>
+                    </button>
+                </div>
+
+                
+                <div class="overflow-y-auto p-6 space-y-6 custom-scrollbar" vid="53">
+                    
+                    
+                    <div vid="54">
+                        <label class="text-xs font-semibold text-tertiary uppercase tracking-wider mb-3 block" vid="55">Format</label>
+                        <div class="grid grid-cols-2 gap-3" vid="56">
+                            
+                            <label class="cursor-pointer group relative" vid="57">
+                                <input type="radio" name="format" value="pdf" class="peer sr-only" checked="" vid="58">
+                                <div class="p-3 rounded-md border border-accent bg-accent/5 peer-checked:border-accent peer-checked:bg-accent/10 hover:bg-hover transition-all h-full" vid="59">
+                                    <div class="flex items-start justify-between mb-2" vid="60">
+                                        <div class="text-accent" vid="61">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" vid="62">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vid="63"></path>
+                                                <polyline points="14 2 14 8 20 8" vid="64"></polyline>
+                                                <path d="M10 13H8v5h2" vid="65"></path>
+                                                <path d="M15 15h-2v3h2" vid="66"></path>
+                                                <path d="M16 13h-3v5" vid="67"></path>
+                                            </svg>
+                                        </div>
+                                        <div class="w-4 h-4 rounded-full border border-accent flex items-center justify-center opacity-100" vid="68">
+                                            <div class="w-2 h-2 rounded-full bg-accent" vid="69"></div>
+                                        </div>
+                                    </div>
+                                    <div class="font-medium text-sm text-primary" vid="70">PDF</div>
+                                    <div class="text-xs text-secondary mt-0.5" vid="71">Portable Document</div>
+                                </div>
+                            </label>
+
+                            
+                            <label class="cursor-pointer group relative" vid="72">
+                                <input type="radio" name="format" value="md" class="peer sr-only" vid="73">
+                                <div class="p-3 rounded-md border border-border peer-checked:border-accent peer-checked:bg-accent/10 hover:bg-hover transition-all h-full bg-background/50" vid="74">
+                                    <div class="flex items-start justify-between mb-2" vid="75">
+                                        <div class="text-secondary group-hover:text-primary transition-colors" vid="76">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" vid="77">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vid="78"></path>
+                                                <polyline points="14 2 14 8 20 8" vid="79"></polyline>
+                                                <path d="M12 18v-6" vid="80"></path>
+                                                <path d="M9 15l3 3 3-3" vid="81"></path>
+                                            </svg>
+                                        </div>
+                                        <div class="w-4 h-4 rounded-full border border-border peer-checked:border-accent flex items-center justify-center opacity-0 peer-checked:opacity-100" vid="82">
+                                            <div class="w-2 h-2 rounded-full bg-accent" vid="83"></div>
+                                        </div>
+                                    </div>
+                                    <div class="font-medium text-sm text-primary" vid="84">Markdown</div>
+                                    <div class="text-xs text-secondary mt-0.5 font-mono" vid="85">.md</div>
+                                </div>
+                            </label>
+
+                            
+                            <label class="cursor-pointer group relative" vid="86">
+                                <input type="radio" name="format" value="docx" class="peer sr-only" vid="87">
+                                <div class="p-3 rounded-md border border-border peer-checked:border-accent peer-checked:bg-accent/10 hover:bg-hover transition-all h-full bg-background/50" vid="88">
+                                    <div class="flex items-start justify-between mb-2" vid="89">
+                                        <div class="text-secondary group-hover:text-primary transition-colors" vid="90">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" vid="91">
+                                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" vid="92"></path>
+                                                <polyline points="14 2 14 8 20 8" vid="93"></polyline>
+                                                <path d="M8 13h8" vid="94"></path>
+                                                <path d="M8 17h8" vid="95"></path>
+                                                <path d="M8 9h5" vid="96"></path>
+                                            </svg>
+                                        </div>
+                                        <div class="w-4 h-4 rounded-full border border-border peer-checked:border-accent flex items-center justify-center opacity-0 peer-checked:opacity-100" vid="97">
+                                            <div class="w-2 h-2 rounded-full bg-accent" vid="98"></div>
+                                        </div>
+                                    </div>
+                                    <div class="font-medium text-sm text-primary" vid="99">Word</div>
+                                    <div class="text-xs text-secondary mt-0.5" vid="100">.docx</div>
+                                </div>
+                            </label>
+
+                            
+                            <label class="cursor-pointer group relative" vid="101">
+                                <input type="radio" name="format" value="txt" class="peer sr-only" vid="102">
+                                <div class="p-3 rounded-md border border-border peer-checked:border-accent peer-checked:bg-accent/10 hover:bg-hover transition-all h-full bg-background/50" vid="103">
+                                    <div class="flex items-start justify-between mb-2" vid="104">
+                                        <div class="text-secondary group-hover:text-primary transition-colors" vid="105">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" vid="106">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vid="107"></path>
+                                                <polyline points="14 2 14 8 20 8" vid="108"></polyline>
+                                                <line x1="16" y1="13" x2="8" y2="13" vid="109"></line>
+                                                <line x1="16" y1="17" x2="8" y2="17" vid="110"></line>
+                                                <line x1="10" y1="9" x2="8" y2="9" vid="111"></line>
+                                            </svg>
+                                        </div>
+                                        <div class="w-4 h-4 rounded-full border border-border peer-checked:border-accent flex items-center justify-center opacity-0 peer-checked:opacity-100" vid="112">
+                                            <div class="w-2 h-2 rounded-full bg-accent" vid="113"></div>
+                                        </div>
+                                    </div>
+                                    <div class="font-medium text-sm text-primary" vid="114">Plain Text</div>
+                                    <div class="text-xs text-secondary mt-0.5 font-mono" vid="115">.txt</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    
+                    <div class="grid grid-cols-2 gap-6" vid="116">
+                        
+                        <div class="space-y-3" vid="117">
+                            <label class="text-xs font-semibold text-tertiary uppercase tracking-wider block" vid="118">Settings</label>
+                            
+                            <label class="flex items-center gap-3 cursor-pointer group custom-checkbox" vid="119">
+                                <input type="checkbox" checked="" class="hidden" vid="120">
+                                <div class="w-4 h-4 rounded border border-border group-hover:border-secondary bg-background flex items-center justify-center transition-colors" vid="121">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="hidden" vid="122">
+                                        <polyline points="20 6 9 17 4 12" vid="123"></polyline>
+                                    </svg>
+                                </div>
+                                <span class="text-sm text-secondary group-hover:text-primary transition-colors" vid="124">Include metadata</span>
+                            </label>
+
+                            <label class="flex items-center gap-3 cursor-pointer group custom-checkbox" vid="125">
+                                <input type="checkbox" class="hidden" vid="126">
+                                <div class="w-4 h-4 rounded border border-border group-hover:border-secondary bg-background flex items-center justify-center transition-colors" vid="127">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="hidden" vid="128">
+                                        <polyline points="20 6 9 17 4 12" vid="129"></polyline>
+                                    </svg>
+                                </div>
+                                <span class="text-sm text-secondary group-hover:text-primary transition-colors" vid="130">Version history</span>
+                            </label>
+
+                            <label class="flex items-center gap-3 cursor-pointer group custom-checkbox" vid="131">
+                                <input type="checkbox" checked="" class="hidden" vid="132">
+                                <div class="w-4 h-4 rounded border border-border group-hover:border-secondary bg-background flex items-center justify-center transition-colors" vid="133">
+                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="hidden" vid="134">
+                                        <polyline points="20 6 9 17 4 12" vid="135"></polyline>
+                                    </svg>
+                                </div>
+                                <span class="text-sm text-secondary group-hover:text-primary transition-colors" vid="136">Embed images</span>
+                            </label>
+                        </div>
+
+                        
+                        <div class="space-y-3" vid="137">
+                            <label class="text-xs font-semibold text-tertiary uppercase tracking-wider block" vid="138">Page Size</label>
+                            <div class="relative group" vid="139">
+                                <select class="w-full bg-background border border-border rounded-md px-3 py-2 text-sm text-primary appearance-none focus:outline-none focus:border-accent cursor-pointer hover:border-secondary transition-colors" vid="140">
+                                    <option vid="141">A4</option>
+                                    <option vid="142">Letter</option>
+                                    <option vid="143">Legal</option>
+                                </select>
+                                <div class="absolute right-2 top-2.5 pointer-events-none text-secondary" vid="144">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="145">
+                                        <polyline points="6 9 12 15 18 9" vid="146"></polyline>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div vid="147">
+                        <div class="flex items-center justify-between mb-2" vid="148">
+                            <label class="text-xs font-semibold text-tertiary uppercase tracking-wider" vid="149">Preview</label>
+                            <span class="text-[10px] text-tertiary bg-hover px-1.5 py-0.5 rounded" vid="150">PDF • A4</span>
+                        </div>
+                        <div class="w-full h-32 bg-[#050505] border border-border rounded-md p-4 overflow-hidden relative" vid="151">
+                            
+                            <div class="opacity-50 select-none pointer-events-none transform scale-[0.8] origin-top-left w-[120%]" vid="152">
+                                <div class="h-4 w-3/4 bg-tertiary/40 rounded mb-3" vid="153"></div>
+                                <div class="h-2 w-full bg-tertiary/20 rounded mb-1.5" vid="154"></div>
+                                <div class="h-2 w-full bg-tertiary/20 rounded mb-1.5" vid="155"></div>
+                                <div class="h-2 w-5/6 bg-tertiary/20 rounded mb-3" vid="156"></div>
+                                <div class="h-2 w-full bg-tertiary/20 rounded mb-1.5" vid="157"></div>
+                                <div class="h-2 w-4/5 bg-tertiary/20 rounded mb-1.5" vid="158"></div>
+                                <div class="w-full h-16 bg-tertiary/10 rounded mt-4 border border-white/5" vid="159"></div>
+                            </div>
+                            
+                            <div class="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#050505] to-transparent" vid="160"></div>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="p-6 pt-4 border-t border-border mt-auto flex items-center justify-between bg-panel" vid="161">
+                    <span class="text-sm text-secondary" vid="162">~2.4 MB</span>
+                    <div class="flex gap-3" vid="163">
+                        <button class="px-4 py-2 text-sm font-medium text-secondary hover:text-primary transition-colors rounded-md hover:bg-hover" vid="164">Cancel</button>
+                        <button onclick="startExport()" class="px-6 py-2 text-sm font-medium bg-accent text-white rounded-md hover:bg-accent-hover transition-all shadow-lg shadow-accent/20" vid="165">
+                            Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div id="view-progress" class="hidden flex-col h-full items-center justify-center p-8 text-center fade-in h-[580px]" vid="166">
+                
+                <div class="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center text-accent mb-6 relative" vid="167">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="168">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vid="169"></path>
+                        <polyline points="14 2 14 8 20 8" vid="170"></polyline>
+                    </svg>
+                    
+                    <div class="absolute inset-0 rounded-2xl border border-accent/30 animate-ping opacity-75" vid="171"></div>
+                </div>
+
+                <h3 class="text-xl font-medium text-primary mb-2" vid="172">Exporting Document</h3>
+                <p class="text-secondary text-sm mb-8" vid="173">Converting "The Architecture of Silence" to PDF...</p>
+
+                
+                <div class="w-full max-w-xs mb-2" vid="174">
+                    <div class="h-1.5 w-full bg-hover rounded-full overflow-hidden" vid="175">
+                        <div id="progress-bar-fill" class="h-full bg-accent w-0 rounded-full transition-all duration-300" vid="176"></div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between w-full max-w-xs text-xs text-tertiary font-mono" vid="177">
+                    <span id="progress-step" vid="178">Processing images...</span>
+                    <span id="progress-percent" vid="179">0%</span>
+                </div>
+
+                
+                <button onclick="resetExport()" class="mt-8 px-4 py-2 text-sm text-secondary hover:text-primary transition-colors rounded hover:bg-hover" vid="180">
+                    Cancel
+                </button>
+            </div>
+
+            
+            <div id="view-success" class="hidden flex-col h-full items-center justify-center p-8 text-center fade-in h-[580px]" vid="181">
+                <div class="w-16 h-16 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 mb-6 border border-green-500/20" vid="182">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vid="183">
+                        <polyline points="20 6 9 17 4 12" vid="184"></polyline>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-medium text-primary mb-2" vid="185">Export Complete</h3>
+                <p class="text-secondary text-sm mb-8" vid="186">Your file has been successfully downloaded.</p>
+                <button onclick="resetExport()" class="px-6 py-2 text-sm font-medium bg-white text-black rounded-md hover:bg-gray-200 transition-colors" vid="187">
+                    Done
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script vid="188">
+        function startExport() {
+            const configView = document.getElementById('view-config');
+            const progressView = document.getElementById('view-progress');
+            const successView = document.getElementById('view-success');
+            const progressBar = document.getElementById('progress-bar-fill');
+            const percentText = document.getElementById('progress-percent');
+            const stepText = document.getElementById('progress-step');
+            const modal = document.getElementById('export-modal');
+
+            
+            
+            modal.style.height = configView.offsetHeight + 'px';
+
+            configView.style.display = 'none';
+            progressView.style.display = 'flex';
+            
+            
+            let progress = 0;
+            const steps = ["Preparing...", "Generating pages...", "Embedding images...", "Finalizing PDF..."];
+            
+            const interval = setInterval(() => {
+                progress += Math.random() * 5;
+                if (progress > 100) progress = 100;
+                
+                progressBar.style.width = progress + '%';
+                percentText.innerText = Math.floor(progress) + '%';
+                
+                
+                if (progress < 30) stepText.innerText = steps[0];
+                else if (progress < 60) stepText.innerText = steps[1];
+                else if (progress < 90) stepText.innerText = steps[2];
+                else stepText.innerText = steps[3];
+
+                if (progress === 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        progressView.style.display = 'none';
+                        successView.style.display = 'flex';
+                    }, 600);
+                }
+            }, 100);
+        }
+
+        function resetExport() {
+            const configView = document.getElementById('view-config');
+            const progressView = document.getElementById('view-progress');
+            const successView = document.getElementById('view-success');
+            const modal = document.getElementById('export-modal');
+
+            configView.style.display = 'flex';
+            progressView.style.display = 'none';
+            successView.style.display = 'none';
+            
+            
+            modal.style.height = 'auto';
+
+            
+            document.getElementById('progress-bar-fill').style.width = '0%';
+            document.getElementById('progress-percent').innerText = '0%';
+        }
+    </script>
+
+</body></html>

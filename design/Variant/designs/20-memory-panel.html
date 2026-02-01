@@ -1,0 +1,353 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">CreoNow - Memory Panel</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Newsreader:ital,wght@0,300;0,400;0,500;1,300;1,400&amp;display=swap" rel="stylesheet" vid="6">
+    <script vid="7">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#080808',
+                        panel: '#0f0f0f',
+                        hover: '#1a1a1a',
+                        selected: '#222222',
+                        border: 'rgba(255, 255, 255, 0.06)',
+                        primary: '#ffffff',
+                        secondary: '#888888',
+                        tertiary: '#444444',
+                        accent: '#3b82f6', 
+                        error: '#ef4444',
+                        success: '#22c55e',
+                        warning: '#f59e0b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        serif: ['Newsreader', 'Georgia', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    boxShadow: {
+                        'glow': '0 0 20px rgba(59, 130, 246, 0.1)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style vid="8">
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #222;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #333;
+        }
+        
+        .glass-panel {
+            background: rgba(15, 15, 15, 0.7);
+            backdrop-filter: blur(12px);
+        }
+
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body class="bg-background text-primary font-sans h-screen w-screen overflow-hidden flex selection:bg-accent selection:text-white" vid="9">
+
+    <div class="noise-overlay" vid="10"></div>
+
+    
+    <aside class="w-64 border-r border-border flex flex-col flex-shrink-0 bg-background z-20" vid="11">
+        <div class="h-14 flex items-center px-6 border-b border-transparent" vid="12">
+            <div class="flex items-center gap-2" vid="13">
+                <span class="font-semibold tracking-tight text-lg" vid="14">CREO</span>
+                <span class="text-secondary font-light" vid="15">NOW</span>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto py-6 px-4 space-y-8" vid="16">
+            
+            <div class="space-y-1" vid="17">
+                <div class="px-2 text-[10px] font-medium tracking-widest text-tertiary uppercase mb-3" vid="18">Workspace</div>
+                <button class="w-full flex items-center gap-3 px-2 py-1.5 text-sm text-primary rounded-md bg-selected/50 group" vid="19">
+                    <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" vid="21"></path>
+                    </svg>
+                    <span vid="22">Recent Drafts</span>
+                </button>
+                <button class="w-full flex items-center gap-3 px-2 py-1.5 text-sm text-secondary hover:text-primary rounded-md hover:bg-hover transition-colors" vid="23">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" vid="25"></path>
+                    </svg>
+                    <span vid="26">Published</span>
+                </button>
+                <button class="w-full flex items-center gap-3 px-2 py-1.5 text-sm text-secondary hover:text-primary rounded-md hover:bg-hover transition-colors" vid="27">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="28">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" vid="29"></path>
+                    </svg>
+                    <span vid="30">Archive</span>
+                </button>
+            </div>
+
+            
+            <div class="space-y-1" vid="31">
+                <div class="flex items-center justify-between px-2 mb-3" vid="32">
+                    <div class="text-[10px] font-medium tracking-widest text-tertiary uppercase" vid="33">Collections</div>
+                    <button class="text-tertiary hover:text-primary transition-colors" vid="34">
+                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="35">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" vid="36"></path>
+                        </svg>
+                    </button>
+                </div>
+                <button class="w-full flex items-center gap-3 px-2 py-1.5 text-sm text-secondary hover:text-primary rounded-md hover:bg-hover transition-colors" vid="37">
+                    <span class="w-1.5 h-1.5 rounded-full bg-neutral-700" vid="38"></span>
+                    <span vid="39">Design Theory</span>
+                </button>
+                <button class="w-full flex items-center gap-3 px-2 py-1.5 text-sm text-secondary hover:text-primary rounded-md hover:bg-hover transition-colors" vid="40">
+                    <span class="w-1.5 h-1.5 rounded-full bg-neutral-700" vid="41"></span>
+                    <span vid="42">Visual Essays</span>
+                </button>
+                <button class="w-full flex items-center gap-3 px-2 py-1.5 text-sm text-secondary hover:text-primary rounded-md hover:bg-hover transition-colors" vid="43">
+                    <span class="w-1.5 h-1.5 rounded-full bg-neutral-700" vid="44"></span>
+                    <span vid="45">Typography</span>
+                </button>
+            </div>
+        </div>
+
+        
+        <div class="p-4 border-t border-border" vid="46">
+            <div class="flex items-center gap-3" vid="47">
+                <div class="w-8 h-8 rounded bg-gradient-to-tr from-neutral-800 to-neutral-700 flex items-center justify-center border border-border" vid="48">
+                    <span class="text-xs font-medium" vid="49">ST</span>
+                </div>
+                <div class="flex flex-col" vid="50">
+                    <span class="text-xs font-medium text-primary" vid="51">Studio Team</span>
+                    <span class="text-[10px] text-tertiary" vid="52">Pro Plan</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    
+    <main class="flex-1 flex flex-col relative z-10 bg-background" vid="53">
+        
+        <header class="h-14 border-b border-border flex items-center justify-between px-8 bg-background/50 backdrop-blur-sm sticky top-0 z-30" vid="54">
+            <div class="flex items-center gap-4 text-sm" vid="55">
+                <span class="text-secondary" vid="56">Drafts</span>
+                <span class="text-tertiary" vid="57">/</span>
+                <span class="text-primary" vid="58">The Architecture of Silence</span>
+                <span class="px-2 py-0.5 rounded text-[10px] border border-border text-tertiary ml-2" vid="59">DRAFT</span>
+            </div>
+            
+            <div class="flex items-center gap-4" vid="60">
+                <span class="text-xs text-secondary hover:text-primary cursor-pointer transition-colors" vid="61">History</span>
+                <span class="text-xs text-secondary hover:text-primary cursor-pointer transition-colors" vid="62">Preview</span>
+                <button class="px-4 py-1.5 bg-white text-black text-xs font-medium rounded hover:bg-gray-200 transition-colors" vid="63">Publish</button>
+            </div>
+        </header>
+
+        
+        <div class="flex-1 overflow-y-auto" vid="64">
+            <div class="max-w-3xl mx-auto py-16 px-12" vid="65">
+                <h1 class="font-sans text-5xl font-semibold tracking-tight mb-8 text-white leading-[1.1]" vid="66">The Architecture of Silence</h1>
+                
+                <p class="font-serif text-xl text-secondary leading-relaxed mb-12 font-light" vid="67">
+                    Intrigued by beauty, fascinated by technology and fuelled with an everlasting devotion to digital craftsmanship.
+                </p>
+
+                <div class="prose prose-invert prose-lg max-w-none font-serif text-[#a0a0a0]" vid="68">
+                    <p class="mb-6 leading-8" vid="69">
+                        Design is not just about making things look good. It is about how things work. In the digital realm, this translates to the seamless integration of form and function. <span class="text-white bg-white/5 px-1 rounded" vid="70">We build immersive environments</span> where typography leads the eye and imagery sets the mood.
+                    </p>
+                    <p class="mb-6 leading-8" vid="71">
+                        Silence in design is not the absence of sound, but the absence of noise. It is the careful curation of elements to create a space where the user can focus, breathe, and experience the content without distraction.
+                    </p>
+                    <h2 class="font-sans text-2xl font-medium text-white mt-12 mb-6" vid="72">The Aesthetic of Silence</h2>
+                    <p class="mb-6 leading-8" vid="73">
+                        When we strip away the superfluous, we are left with the essential. This reductionist approach is not about limitation, but about clarity. It requires a disciplined eye and a steady hand to remove what is not needed, until only the truth remains.
+                    </p>
+                    <p class="leading-8" vid="74">
+                        The result is an interface that feels inevitable. As if it could not have been designed any other way.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    
+    <aside class="w-[320px] bg-panel border-l border-border flex flex-col flex-shrink-0 z-20 shadow-2xl shadow-black" vid="75">
+        
+        <div class="h-12 flex items-center justify-between px-4 border-b border-border bg-panel" vid="76">
+            <div class="flex items-center h-full gap-6" vid="77">
+                <button class="h-full relative flex items-center gap-2 group" vid="78">
+                    <span class="text-sm font-medium text-white" vid="79">Memories</span>
+                    <span class="bg-white/10 text-secondary text-[10px] px-1.5 py-0.5 rounded-full group-hover:bg-white/20 transition-colors" vid="80">12</span>
+                    <div class="absolute bottom-0 left-0 w-full h-[2px] bg-accent" vid="81"></div>
+                </button>
+                <button class="h-full relative flex items-center text-sm text-secondary hover:text-white transition-colors" vid="82">
+                    Settings
+                </button>
+            </div>
+            <button class="text-secondary hover:text-white transition-colors p-1 rounded hover:bg-hover" vid="83">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="84">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" vid="85"></path>
+                </svg>
+            </button>
+        </div>
+
+        
+        <div class="flex-1 overflow-y-auto p-4 space-y-3" vid="86">
+            
+            
+            <div class="group relative bg-hover rounded-lg border-l-2 border-accent p-3 hover:bg-[#222] transition-all cursor-pointer shadow-sm" vid="87">
+                <div class="flex items-start gap-3" vid="88">
+                    <div class="mt-0.5 text-accent" vid="89">
+                        
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="90">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" vid="91"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0" vid="92">
+                        <p class="text-sm text-gray-200 line-clamp-2 leading-relaxed" vid="93">Prefer Oxford commas in all lists and avoid using passive voice in technical documentation.</p>
+                        <div class="flex items-center justify-between mt-2" vid="94">
+                            <span class="text-[10px] text-tertiary" vid="95">Style • 2m ago</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-[#222] pl-2" vid="96">
+                    <button class="p-1 hover:text-white text-secondary rounded" vid="97">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="98">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" vid="99"></path>
+                        </svg>
+                    </button>
+                    <button class="p-1 hover:text-error text-secondary rounded" vid="100">
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="101">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" vid="102"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="group relative border border-border rounded-lg p-3 hover:bg-hover transition-all cursor-pointer" vid="103">
+                <div class="flex items-start gap-3" vid="104">
+                    <div class="mt-0.5 text-secondary" vid="105">
+                        
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="106">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" vid="107"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0" vid="108">
+                        <p class="text-sm text-secondary group-hover:text-gray-300 transition-colors line-clamp-2 leading-relaxed" vid="109">The project "Orion" targets Q3 2024 launch. All marketing copy should reflect a futuristic tone.</p>
+                        <div class="flex items-center justify-between mt-2" vid="110">
+                            <span class="text-[10px] text-tertiary" vid="111">Context • 1h ago</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" vid="112">
+                     <button class="p-1 hover:bg-white/10 rounded text-secondary hover:text-white" vid="113">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="114">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" vid="115"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="group relative border border-border rounded-lg p-3 hover:bg-hover transition-all cursor-pointer" vid="116">
+                <div class="flex items-start gap-3" vid="117">
+                    <div class="mt-0.5 text-secondary" vid="118">
+                        
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="119">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" vid="120"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0" vid="121">
+                        <p class="text-sm text-secondary group-hover:text-gray-300 transition-colors line-clamp-2 leading-relaxed" vid="122">Always generate code snippets in TypeScript unless specified otherwise. Use strict typing.</p>
+                        <div class="flex items-center justify-between mt-2" vid="123">
+                            <span class="text-[10px] text-tertiary" vid="124">Preferences • Yesterday</span>
+                        </div>
+                    </div>
+                </div>
+                 <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" vid="125">
+                     <button class="p-1 hover:bg-white/10 rounded text-secondary hover:text-white" vid="126">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="127">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" vid="128"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="group relative border border-border rounded-lg p-3 hover:bg-hover transition-all cursor-pointer" vid="129">
+                <div class="flex items-start gap-3" vid="130">
+                    <div class="mt-0.5 text-secondary" vid="131">
+                        
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="132">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" vid="133"></path>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0" vid="134">
+                        <p class="text-sm text-secondary group-hover:text-gray-300 transition-colors line-clamp-2 leading-relaxed" vid="135">User is based in UTC+1 timezone. Meeting hours should align with 10:00 - 18:00 CET.</p>
+                        <div class="flex items-center justify-between mt-2" vid="136">
+                            <span class="text-[10px] text-tertiary" vid="137">Facts • Oct 24</span>
+                        </div>
+                    </div>
+                </div>
+                 <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" vid="138">
+                     <button class="p-1 hover:bg-white/10 rounded text-secondary hover:text-white" vid="139">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="140">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" vid="141"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        
+        <div class="p-4 border-t border-border bg-panel" vid="142">
+            <div class="relative" vid="143">
+                <textarea placeholder="What should AI remember about you?" class="w-full bg-hover border border-border rounded-lg p-3 text-sm text-white placeholder-tertiary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all resize-none h-24 mb-2" vid="144"></textarea>
+                
+                <div class="flex items-center justify-between" vid="145">
+                    <div class="relative group" vid="146">
+                        <button class="flex items-center gap-1.5 text-xs text-secondary hover:text-white bg-hover hover:bg-selected px-2 py-1 rounded border border-border transition-colors" vid="147">
+                            <span class="w-2 h-2 rounded-full bg-accent" vid="148"></span>
+                            <span vid="149">Style</span>
+                            <svg class="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="150">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" vid="151"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <button class="flex items-center justify-center p-1.5 bg-accent text-white rounded hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/20" vid="152">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="153">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" vid="154"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+
+</body></html>

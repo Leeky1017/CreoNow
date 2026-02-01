@@ -1,0 +1,349 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">Version History Panel</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="7">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet" vid="8">
+    <style vid="9">
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #080808;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .version-card {
+            transition: all 0.2s ease;
+        }
+        
+        
+        .version-actions {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .version-card:hover .version-actions {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        
+        .selected-version {
+            background-color: #151515;
+            border-left: 2px solid #3b82f6;
+        }
+    </style>
+</head>
+<body class="flex h-screen w-full" vid="10">
+
+    
+    <div class="flex-1 h-full flex flex-col relative bg-[#080808]" vid="11">
+        
+        <div class="h-14 border-b border-[rgba(255,255,255,0.06)] flex items-center px-6 justify-between" vid="12">
+            <div class="flex items-center gap-4" vid="13">
+                <div class="w-6 h-6 rounded bg-blue-500/20 text-blue-500 flex items-center justify-center" vid="14">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" vid="15"><path fill="currentColor" d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200Z" vid="16"></path><path fill="currentColor" d="M176,88H80a8,8,0,0,0,0,16h96a8,8,0,0,0,0-16Z" opacity="0.5" vid="17"></path><path fill="currentColor" d="M176,120H80a8,8,0,0,0,0,16h96a8,8,0,0,0,0-16Z" opacity="0.5" vid="18"></path><path fill="currentColor" d="M136,152H80a8,8,0,0,0,0,16h56a8,8,0,0,0,0-16Z" opacity="0.5" vid="19"></path></svg>
+                </div>
+                <span class="text-sm font-medium text-gray-300" vid="20">Project Requirements.docx</span>
+            </div>
+            <div class="flex items-center gap-3" vid="21">
+                <div class="w-8 h-8 rounded-full bg-gray-800 border border-gray-700" vid="22"></div>
+                <div class="w-20 h-8 rounded bg-blue-600 text-white text-xs font-medium flex items-center justify-center" vid="23">Share</div>
+            </div>
+        </div>
+
+        
+        <div class="flex-1 p-12 overflow-hidden flex justify-center bg-[#080808]" vid="24">
+            <div class="w-full max-w-3xl h-full bg-[#121212] rounded-t-lg border-x border-t border-[rgba(255,255,255,0.06)] shadow-2xl p-16 relative" vid="25">
+                
+                <div class="w-1/3 h-8 bg-[rgba(255,255,255,0.08)] rounded mb-10" vid="26"></div>
+                <div class="w-full h-3 bg-[rgba(255,255,255,0.04)] rounded mb-4" vid="27"></div>
+                <div class="w-full h-3 bg-[rgba(255,255,255,0.04)] rounded mb-4" vid="28"></div>
+                <div class="w-5/6 h-3 bg-[rgba(255,255,255,0.04)] rounded mb-4" vid="29"></div>
+                <div class="w-full h-3 bg-[rgba(255,255,255,0.04)] rounded mb-8" vid="30"></div>
+                
+                <div class="w-1/4 h-5 bg-[rgba(255,255,255,0.06)] rounded mb-6" vid="31"></div>
+                <div class="w-full h-3 bg-[rgba(255,255,255,0.04)] rounded mb-4" vid="32"></div>
+                <div class="w-11/12 h-3 bg-[rgba(255,255,255,0.04)] rounded mb-4" vid="33"></div>
+                <div class="w-full h-3 bg-[rgba(255,255,255,0.04)] rounded mb-4" vid="34"></div>
+                
+                
+                <div class="absolute top-64 left-16 right-16 h-24 bg-blue-500/5 border-l-2 border-blue-500/30" vid="35"></div>
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="w-[320px] bg-[#0f0f0f] border-l border-[rgba(255,255,255,0.06)] flex flex-col h-full shadow-2xl z-10 shrink-0" vid="36">
+        
+        
+        <div class="px-5 py-5 border-b border-[rgba(255,255,255,0.06)] flex justify-between items-start bg-[#0f0f0f]" vid="37">
+            <div vid="38">
+                <h2 class="text-[15px] font-semibold text-white tracking-tight" vid="39">Version History</h2>
+                <p class="text-xs text-[#888888] mt-1 font-medium truncate max-w-[200px]" vid="40">Project Requirements.docx</p>
+            </div>
+            <button class="text-[#888888] hover:text-white transition-colors p-1 -mr-1 rounded-md hover:bg-white/5" vid="41">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="42"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" vid="43"></path></svg>
+            </button>
+        </div>
+
+        
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2" vid="44">
+
+            
+            <div class="version-card group relative p-3 rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] hover:bg-[#1a1a1a] transition-colors" vid="45">
+                <div class="flex justify-between items-start mb-2" vid="46">
+                    <div class="flex items-center gap-2" vid="47">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded" vid="48">Current</span>
+                        <span class="text-xs text-[#666]" vid="49">Just now</span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2 mb-2" vid="50">
+                    <div class="h-5 px-1.5 rounded bg-white/10 flex items-center gap-1.5 text-white border border-white/5" vid="51">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" vid="52"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z" vid="53"></path></svg>
+                        <span class="text-[10px] font-medium leading-none mt-px" vid="54">You</span>
+                    </div>
+                </div>
+
+                <p class="text-[13px] text-gray-400 leading-snug mb-2 font-light" vid="55">
+                    Fixed typo in the executive summary and updated...
+                </p>
+
+                <div class="flex items-center justify-between text-[11px]" vid="56">
+                    <span class="text-gray-500 font-medium" vid="57">0 words changed</span>
+                </div>
+            </div>
+
+            
+            <div class="px-2 py-1" vid="58">
+                <span class="text-[10px] font-medium text-[#444] uppercase tracking-wider" vid="59">Earlier Today</span>
+            </div>
+
+            
+            <div class="version-card selected-version relative p-3 rounded-r-lg rounded-l-none pl-[10px] border-t border-r border-b border-l-0 border-t-[rgba(255,255,255,0.06)] border-b-[rgba(255,255,255,0.06)] border-r-[rgba(255,255,255,0.06)]" vid="60">
+                <div class="flex justify-between items-start mb-2" vid="61">
+                    <span class="text-xs text-[#888] font-medium" vid="62">10:42 AM</span>
+                    <span class="text-[10px] text-green-500 font-mono bg-green-500/10 px-1 rounded" vid="63">+124 words</span>
+                </div>
+                
+                <div class="flex items-center gap-2 mb-2.5" vid="64">
+                    <div class="h-5 px-1.5 rounded bg-blue-500/10 border border-blue-500/20 flex items-center gap-1.5 text-blue-400" vid="65">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" vid="66"><path d="M216,40V216a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V40A16,16,0,0,1,56,24H200A16,16,0,0,1,216,40Zm-16,0H56V216H200V40ZM96,128a16,16,0,1,1,16,16A16,16,0,0,1,96,128Zm64,0a16,16,0,1,1,16,16A16,16,0,0,1,160,128Z" vid="67"></path></svg>
+                        <span class="text-[10px] font-medium leading-none mt-px" vid="68">AI Assistant</span>
+                    </div>
+                </div>
+
+                <p class="text-[13px] text-gray-300 leading-snug mb-3" vid="69">
+                    Generated new section on "Security Protocols" based on compliance requirements...
+                </p>
+
+                
+                <div class="grid grid-cols-3 gap-2 mt-2" vid="70">
+                    <button class="flex items-center justify-center gap-1.5 h-7 rounded bg-[#222] hover:bg-[#2a2a2a] text-[10px] font-medium text-gray-300 border border-white/5 transition-colors" vid="71">
+                        Restore
+                    </button>
+                    <button class="flex items-center justify-center gap-1.5 h-7 rounded bg-[#222] hover:bg-[#2a2a2a] text-[10px] font-medium text-gray-300 border border-white/5 transition-colors" vid="72">
+                        Compare
+                    </button>
+                    <button class="flex items-center justify-center gap-1.5 h-7 rounded bg-[#222] hover:bg-[#2a2a2a] text-[10px] font-medium text-gray-300 border border-white/5 transition-colors" vid="73">
+                        Preview
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="version-card group relative p-3 rounded-lg border border-transparent hover:border-[rgba(255,255,255,0.06)] hover:bg-[#1a1a1a]" vid="74">
+                <div class="flex justify-between items-start mb-2" vid="75">
+                    <span class="text-xs text-[#666] group-hover:text-[#888]" vid="76">9:15 AM</span>
+                    <span class="text-[10px] text-red-400 font-mono bg-red-500/10 px-1 rounded" vid="77">-12 words</span>
+                </div>
+                
+                <div class="flex items-center gap-2 mb-2" vid="78">
+                    <div class="h-5 px-1.5 rounded bg-white/10 flex items-center gap-1.5 text-white border border-white/5" vid="79">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" vid="80"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM74.08,197.5a64,64,0,0,1,107.84,0,87.83,87.83,0,0,1-127.84,0ZM96,120a32,32,0,1,1,32,32A32,32,0,0,1,96,120Zm97.76,66.41a79.66,79.66,0,0,0-36.06-28.75,48,48,0,1,0-59.4,0,79.66,79.66,0,0,0-36.06,28.75,88,88,0,1,1,131.52,0Z" vid="81"></path></svg>
+                        <span class="text-[10px] font-medium leading-none mt-px" vid="82">Sarah M.</span>
+                    </div>
+                </div>
+
+                <p class="text-[13px] text-gray-500 group-hover:text-gray-400 leading-snug mb-1" vid="83">
+                    Removed redundant paragraph in introduction. Cleaned up formatting.
+                </p>
+
+                <div class="version-actions absolute inset-0 bg-[#1a1a1a]/95 backdrop-blur-sm rounded-lg flex items-center justify-center gap-2 z-10" vid="84">
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Restore" vid="85">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="86"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L45.87,91H80a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V77.25l32.56-30a96,96,0,0,1,159.44,80.75Z" vid="87"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Compare" vid="88">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="89"><path d="M224,128a96,96,0,1,1-96-96A96,96,0,0,1,224,128Zm-16,0a80,80,0,1,0-80,80A80,80,0,0,0,208,128Zm-72-40a8,8,0,0,0-16,0v32H88a8,8,0,0,0,0,16h32v32a8,8,0,0,0,16,0V136h32a8,8,0,0,0,0-16H136Z" opacity="0" vid="90"></path><path d="M136,120v-8a8,8,0,0,0-16,0v8H88a8,8,0,0,0,0,16h32v32a8,8,0,0,0,16,0V136h32a8,8,0,0,0,0-16Z" vid="91"></path><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200Z" opacity="0.2" vid="92"></path><path d="M192,120H152V80a8,8,0,0,0-16,0v40H96a8,8,0,0,0,0,16h40v40a8,8,0,0,0,16,0V136h40a8,8,0,0,0,0-16ZM208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208Z" vid="93"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Preview" vid="94">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="95"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z" vid="96"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="version-card group relative p-3 rounded-lg border border-transparent hover:border-[rgba(255,255,255,0.06)] hover:bg-[#1a1a1a]" vid="97">
+                <div class="flex justify-between items-start mb-2" vid="98">
+                    <span class="text-xs text-[#666] group-hover:text-[#888]" vid="99">8:00 AM</span>
+                    <span class="text-[10px] text-gray-500 font-mono bg-white/5 px-1 rounded" vid="100">No changes</span>
+                </div>
+                
+                <div class="flex items-center gap-2 mb-2" vid="101">
+                    <div class="h-5 px-1.5 rounded bg-white/5 border border-white/5 flex items-center gap-1.5 text-gray-400" vid="102">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" vid="103"><path d="M222.14,61.76a8,8,0,0,0-5.9-7.86l-88-24a8,8,0,0,0-4.48,0l-88,24a8,8,0,0,0-5.9,7.86l24,168A8,8,0,0,0,61.7,236.9L128,218.82l66.3,18.08a8,8,0,0,0,7.84-7.14ZM128,202.18l-59,16.08L49.09,69.57,128,48.05l78.91,21.52L187,218.26Z" vid="104"></path></svg>
+                        <span class="text-[10px] font-medium leading-none mt-px" vid="105">Auto-Save</span>
+                    </div>
+                </div>
+
+                <p class="text-[13px] text-gray-500 group-hover:text-gray-400 leading-snug mb-1" vid="106">
+                    System checkpoint created automatically.
+                </p>
+
+                <div class="version-actions absolute inset-0 bg-[#1a1a1a]/95 backdrop-blur-sm rounded-lg flex items-center justify-center gap-2 z-10" vid="107">
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Restore" vid="108">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="109"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L45.87,91H80a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V77.25l32.56-30a96,96,0,0,1,159.44,80.75Z" vid="110"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Compare" vid="111">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="112"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200Z" opacity="0.2" vid="113"></path><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208Z" vid="114"></path><path d="M112,80a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V88A8,8,0,0,0,112,80Z" vid="115"></path><path d="M160,80a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V88A8,8,0,0,0,160,80Z" vid="116"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Preview" vid="117">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="118"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z" vid="119"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="px-2 py-1 mt-2" vid="120">
+                <span class="text-[10px] font-medium text-[#444] uppercase tracking-wider" vid="121">Yesterday</span>
+            </div>
+
+            
+            <div class="version-card group relative p-3 rounded-lg border border-transparent hover:border-[rgba(255,255,255,0.06)] hover:bg-[#1a1a1a]" vid="122">
+                <div class="flex justify-between items-start mb-2" vid="123">
+                    <span class="text-xs text-[#666] group-hover:text-[#888]" vid="124">4:20 PM</span>
+                    <span class="text-[10px] text-green-500 font-mono bg-green-500/10 px-1 rounded" vid="125">+54 words</span>
+                </div>
+                
+                <div class="flex items-center gap-2 mb-2" vid="126">
+                    <div class="h-5 px-1.5 rounded bg-white/10 flex items-center gap-1.5 text-white border border-white/5" vid="127">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" vid="128"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM74.08,197.5a64,64,0,0,1,107.84,0,87.83,87.83,0,0,1-127.84,0ZM96,120a32,32,0,1,1,32,32A32,32,0,0,1,96,120Zm97.76,66.41a79.66,79.66,0,0,0-36.06-28.75,48,48,0,1,0-59.4,0,79.66,79.66,0,0,0-36.06,28.75,88,88,0,1,1,131.52,0Z" vid="129"></path></svg>
+                        <span class="text-[10px] font-medium leading-none mt-px" vid="130">You</span>
+                    </div>
+                </div>
+
+                <p class="text-[13px] text-gray-500 group-hover:text-gray-400 leading-snug mb-1" vid="131">
+                    Added initial scope definitions and stakeholder requirements...
+                </p>
+
+                <div class="version-actions absolute inset-0 bg-[#1a1a1a]/95 backdrop-blur-sm rounded-lg flex items-center justify-center gap-2 z-10" vid="132">
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Restore" vid="133">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="134"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L45.87,91H80a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V77.25l32.56-30a96,96,0,0,1,159.44,80.75Z" vid="135"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Compare" vid="136">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="137"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200Z" opacity="0.2" vid="138"></path><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208Z" vid="139"></path><path d="M112,80a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V88A8,8,0,0,0,112,80Z" vid="140"></path><path d="M160,80a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V88A8,8,0,0,0,160,80Z" vid="141"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Preview" vid="142">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="143"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z" vid="144"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="version-card group relative p-3 rounded-lg border border-transparent hover:border-[rgba(255,255,255,0.06)] hover:bg-[#1a1a1a]" vid="145">
+                <div class="flex justify-between items-start mb-2" vid="146">
+                    <span class="text-xs text-[#666] group-hover:text-[#888]" vid="147">2:45 PM</span>
+                    <span class="text-[10px] text-green-500 font-mono bg-green-500/10 px-1 rounded" vid="148">+312 words</span>
+                </div>
+                
+                <div class="flex items-center gap-2 mb-2" vid="149">
+                    <div class="h-5 px-1.5 rounded bg-blue-500/10 border border-blue-500/20 flex items-center gap-1.5 text-blue-400" vid="150">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" vid="151"><path d="M216,40V216a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V40A16,16,0,0,1,56,24H200A16,16,0,0,1,216,40Zm-16,0H56V216H200V40ZM96,128a16,16,0,1,1,16,16A16,16,0,0,1,96,128Zm64,0a16,16,0,1,1,16,16A16,16,0,0,1,160,128Z" vid="152"></path></svg>
+                        <span class="text-[10px] font-medium leading-none mt-px" vid="153">AI Assistant</span>
+                    </div>
+                </div>
+
+                <p class="text-[13px] text-gray-500 group-hover:text-gray-400 leading-snug mb-1" vid="154">
+                    First draft generation of the technical specifications outline.
+                </p>
+
+                <div class="version-actions absolute inset-0 bg-[#1a1a1a]/95 backdrop-blur-sm rounded-lg flex items-center justify-center gap-2 z-10" vid="155">
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Restore" vid="156">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="157"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L45.87,91H80a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V77.25l32.56-30a96,96,0,0,1,159.44,80.75Z" vid="158"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Compare" vid="159">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="160"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200Z" opacity="0.2" vid="161"></path><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208Z" vid="162"></path><path d="M112,80a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V88A8,8,0,0,0,112,80Z" vid="163"></path><path d="M160,80a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V88A8,8,0,0,0,160,80Z" vid="164"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Preview" vid="165">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="166"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z" vid="167"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="version-card group relative p-3 rounded-lg border border-transparent hover:border-[rgba(255,255,255,0.06)] hover:bg-[#1a1a1a]" vid="168">
+                <div class="flex justify-between items-start mb-2" vid="169">
+                    <span class="text-xs text-[#666] group-hover:text-[#888]" vid="170">11:00 AM</span>
+                    <span class="text-[10px] text-green-500 font-mono bg-green-500/10 px-1 rounded" vid="171">+15 words</span>
+                </div>
+                
+                <div class="flex items-center gap-2 mb-2" vid="172">
+                    <div class="h-5 px-1.5 rounded bg-white/10 flex items-center gap-1.5 text-white border border-white/5" vid="173">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" vid="174"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM74.08,197.5a64,64,0,0,1,107.84,0,87.83,87.83,0,0,1-127.84,0ZM96,120a32,32,0,1,1,32,32A32,32,0,0,1,96,120Zm97.76,66.41a79.66,79.66,0,0,0-36.06-28.75,48,48,0,1,0-59.4,0,79.66,79.66,0,0,0-36.06,28.75,88,88,0,1,1,131.52,0Z" vid="175"></path></svg>
+                        <span class="text-[10px] font-medium leading-none mt-px" vid="176">You</span>
+                    </div>
+                </div>
+
+                <p class="text-[13px] text-gray-500 group-hover:text-gray-400 leading-snug mb-1" vid="177">
+                    Created blank document.
+                </p>
+
+                <div class="version-actions absolute inset-0 bg-[#1a1a1a]/95 backdrop-blur-sm rounded-lg flex items-center justify-center gap-2 z-10" vid="178">
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Restore" vid="179">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="180"><path d="M224,128a96,96,0,0,1-94.71,96H128A95.38,95.38,0,0,1,62.1,197.8a8,8,0,0,1,11-11.63A80,80,0,1,0,71.43,71.39a3.07,3.07,0,0,1-.26.25L45.87,91H80a8,8,0,0,1,0,16H24a8,8,0,0,1-8-8V48a8,8,0,0,1,16,0V77.25l32.56-30a96,96,0,0,1,159.44,80.75Z" vid="181"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Compare" vid="182">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="183"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200Z" opacity="0.2" vid="184"></path><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208Z" vid="185"></path><path d="M112,80a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V88A8,8,0,0,0,112,80Z" vid="186"></path><path d="M160,80a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V88A8,8,0,0,0,160,80Z" vid="187"></path></svg>
+                    </button>
+                    <button class="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Preview" vid="188">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="189"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z" vid="190"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="h-2" vid="191"></div>
+        </div>
+
+        
+        <div class="px-5 py-4 border-t border-[rgba(255,255,255,0.06)] bg-[#0f0f0f]" vid="192">
+            <div class="flex items-center gap-2 mb-1.5" vid="193">
+                <div class="w-1.5 h-1.5 rounded-full bg-green-500" vid="194"></div>
+                <span class="text-xs text-gray-400" vid="195">Auto-save on (last saved 2m ago)</span>
+            </div>
+            <a href="#" class="text-[11px] text-blue-500 hover:text-blue-400 transition-colors hover:underline" vid="196">
+                Configure auto-save settings
+            </a>
+        </div>
+    </div>
+
+
+</body></html>

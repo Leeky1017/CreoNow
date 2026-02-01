@@ -1,0 +1,405 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">CreoNow Component Primitives</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="7">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet" vid="8">
+    <style vid="9">
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #080808;
+            color: #ffffff;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #3b82f6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="flex h-screen w-full overflow-hidden bg-[#050505] p-8 box-border gap-10 items-start justify-center" vid="10">
+
+    
+    <div class="flex-1 h-full max-w-[800px] bg-[#0f0f0f] border border-[rgba(255,255,255,0.06)] rounded-xl shadow-2xl flex flex-col overflow-hidden relative" vid="11">
+        
+        <div class="h-16 border-b border-[rgba(255,255,255,0.06)] flex items-center px-6 justify-between shrink-0 bg-[#0f0f0f] z-10" vid="12">
+            <h2 class="text-lg font-semibold text-white" vid="13">Settings</h2>
+            <div class="flex items-center gap-4" vid="14">
+                <div class="relative group" vid="15">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500 group-focus-within:text-white" vid="16">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 256 256" vid="17"><path fill="currentColor" d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z" vid="18"></path></svg>
+                    </div>
+                    <input type="text" placeholder="Search settings..." class="h-9 w-64 bg-[#1a1a1a] border border-[rgba(255,255,255,0.08)] rounded-md pl-9 pr-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 transition-all" vid="19">
+                </div>
+                <button class="text-gray-400 hover:text-white transition-colors" vid="20">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 256 256" vid="21"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" vid="22"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden" vid="23">
+            
+            <div class="w-48 border-r border-[rgba(255,255,255,0.06)] bg-[#0f0f0f] py-4 shrink-0 flex flex-col gap-1" vid="24">
+                <button class="px-6 py-2 text-sm font-medium text-left text-blue-400 bg-blue-500/10 border-r-2 border-blue-500" vid="25">General</button>
+                <button class="px-6 py-2 text-sm font-medium text-left text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors" vid="26">Editor</button>
+                <button class="px-6 py-2 text-sm font-medium text-left text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors" vid="27">AI &amp; Intelligence</button>
+                <button class="px-6 py-2 text-sm font-medium text-left text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors" vid="28">Appearance</button>
+                <button class="px-6 py-2 text-sm font-medium text-left text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors" vid="29">Keyboard</button>
+            </div>
+
+            
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-8 bg-[#0f0f0f]" vid="30">
+                <div class="max-w-2xl mx-auto space-y-10" vid="31">
+                    
+                    
+                    <section class="space-y-6" vid="32">
+                        <div class="pb-2 border-b border-[rgba(255,255,255,0.06)]" vid="33">
+                            <h3 class="text-[10px] font-bold uppercase tracking-wider text-gray-500" vid="34">Preferences</h3>
+                            <p class="text-sm text-gray-400 mt-1" vid="35">Manage your workspace basics and defaults.</p>
+                        </div>
+
+                        
+                        <div class="flex items-center justify-between group rounded-lg transition-colors hover:bg-white/[0.02] -mx-3 px-3 py-2" vid="36">
+                            <div vid="37">
+                                <label class="text-sm font-medium text-gray-200 block" vid="38">Auto-Save</label>
+                                <p class="text-xs text-gray-500 mt-1" vid="39">Automatically save changes every few seconds</p>
+                            </div>
+                            <div class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in" vid="40">
+                                <input type="checkbox" name="toggle" id="toggle" checked="" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 right-0 border-blue-600" vid="41">
+                                <label for="toggle" class="toggle-label block overflow-hidden h-5 rounded-full bg-blue-600 cursor-pointer" vid="42"></label>
+                            </div>
+                        </div>
+
+                        
+                        <div class="flex items-center justify-between group rounded-lg transition-colors hover:bg-white/[0.02] -mx-3 px-3 py-2" vid="43">
+                            <div vid="44">
+                                <label class="text-sm font-medium text-gray-200 block" vid="45">Interface Language</label>
+                                <p class="text-xs text-gray-500 mt-1" vid="46">Select your preferred language</p>
+                            </div>
+                            <div class="relative" vid="47">
+                                <select class="appearance-none bg-[#1a1a1a] border border-[rgba(255,255,255,0.08)] text-white text-sm rounded px-3 py-1.5 pr-8 focus:outline-none focus:border-blue-500/50 cursor-pointer hover:border-[rgba(255,255,255,0.15)] transition-colors w-40" vid="48">
+                                    <option vid="49">English (US)</option>
+                                    <option vid="50">Spanish</option>
+                                    <option vid="51">French</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400" vid="52">
+                                    <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" vid="53"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" vid="54"></path></svg>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    
+                    <section class="space-y-6" vid="55">
+                        <div class="pb-2 border-b border-[rgba(255,255,255,0.06)]" vid="56">
+                            <h3 class="text-[10px] font-bold uppercase tracking-wider text-gray-500" vid="57">Editor Configuration</h3>
+                            <p class="text-sm text-gray-400 mt-1" vid="58">Customize your writing environment.</p>
+                        </div>
+
+                        
+                        <div class="group rounded-lg transition-colors hover:bg-white/[0.02] -mx-3 px-3 py-2" vid="59">
+                            <label class="text-sm font-medium text-gray-200 block mb-1" vid="60">Default Project Name</label>
+                            <p class="text-xs text-gray-500 mb-3" vid="61">Pattern used for new untitled documents</p>
+                            <input type="text" value="Untitled Project {{date}}" class="w-full bg-[#1a1a1a] border border-[rgba(255,255,255,0.08)] rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all" vid="62">
+                        </div>
+
+                        
+                        <div class="group rounded-lg transition-colors hover:bg-white/[0.02] -mx-3 px-3 py-2" vid="63">
+                            <div class="flex justify-between items-center mb-1" vid="64">
+                                <label class="text-sm font-medium text-gray-200" vid="65">Editor Font Size</label>
+                                <span class="text-xs font-mono text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded" vid="66">16px</span>
+                            </div>
+                            <div class="relative pt-4 pb-2" vid="67">
+                                <input type="range" min="12" max="24" value="16" class="w-full appearance-none bg-transparent focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed" vid="68">
+                                <div class="flex justify-between text-[10px] text-gray-500 mt-2 font-medium" vid="69">
+                                    <span vid="70">12px</span>
+                                    <span vid="71">24px</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    
+                    <section class="space-y-6" vid="72">
+                        <div class="pb-2 border-b border-[rgba(255,255,255,0.06)]" vid="73">
+                            <h3 class="text-[10px] font-bold uppercase tracking-wider text-gray-500" vid="74">Data &amp; Storage</h3>
+                        </div>
+
+                        
+                        <div class="group rounded-lg transition-colors hover:bg-white/[0.02] -mx-3 px-3 py-2" vid="75">
+                            <label class="text-sm font-medium text-gray-200 block mb-3" vid="76">Export Quality</label>
+                            <div class="space-y-3" vid="77">
+                                <label class="flex items-start gap-3 cursor-pointer group/radio" vid="78">
+                                    <div class="relative flex items-center" vid="79">
+                                        <input type="radio" name="export" class="peer h-4 w-4 appearance-none rounded-full border border-gray-600 checked:border-blue-500 transition-colors" vid="80">
+                                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 peer-checked:opacity-100" vid="81">
+                                            <div class="w-2 h-2 rounded-full bg-blue-500" vid="82"></div>
+                                        </div>
+                                    </div>
+                                    <div class="text-sm" vid="83">
+                                        <span class="block text-gray-300 group-hover/radio:text-white transition-colors" vid="84">Standard</span>
+                                        <span class="block text-xs text-gray-500 mt-0.5" vid="85">Optimized for web sharing (72dpi)</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-start gap-3 cursor-pointer group/radio" vid="86">
+                                    <div class="relative flex items-center" vid="87">
+                                        <input type="radio" name="export" checked="" class="peer h-4 w-4 appearance-none rounded-full border border-gray-600 checked:border-blue-500 transition-colors" vid="88">
+                                        <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 peer-checked:opacity-100" vid="89">
+                                            <div class="w-2 h-2 rounded-full bg-blue-500" vid="90"></div>
+                                        </div>
+                                    </div>
+                                    <div class="text-sm" vid="91">
+                                        <span class="block text-gray-300 group-hover/radio:text-white transition-colors" vid="92">High Quality</span>
+                                        <span class="block text-xs text-gray-500 mt-0.5" vid="93">Best for printing (300dpi)</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        
+                         <div class="flex items-center justify-between group rounded-lg transition-colors hover:bg-white/[0.02] -mx-3 px-3 py-2" vid="94">
+                            <div vid="95">
+                                <label class="text-sm font-medium text-gray-200 block" vid="96">Reset Application Data</label>
+                                <p class="text-xs text-gray-500 mt-1" vid="97">Clears local cache and preferences</p>
+                            </div>
+                            <button class="px-3 py-1.5 text-xs font-medium text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 rounded transition-colors" vid="98">
+                                Reset to Defaults
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+        
+        
+        <div class="px-6 py-3 border-t border-[rgba(255,255,255,0.06)] bg-[#0f0f0f] flex justify-between items-center shrink-0" vid="99">
+            <div class="flex items-center gap-2" vid="100">
+                <div class="w-1.5 h-1.5 rounded-full bg-green-500" vid="101"></div>
+                <span class="text-xs text-gray-500" vid="102">Changes saved automatically</span>
+            </div>
+            <div class="flex gap-3" vid="103">
+                 
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="w-[360px] h-full flex flex-col gap-10 overflow-y-auto custom-scrollbar pr-2" vid="104">
+        
+        
+        <div class="flex flex-col gap-4" vid="105">
+            <div class="flex items-center gap-2 mb-2 opacity-50" vid="106">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400" vid="107">Toast Notifications</h3>
+                <div class="h-px bg-white/10 flex-1" vid="108"></div>
+            </div>
+
+            
+            <div class="flex flex-col gap-3" vid="109">
+                
+                
+                <div class="w-full bg-[#0f0f0f]/95 backdrop-blur-md border border-[rgba(255,255,255,0.06)] border-l-[3px] border-l-blue-500 rounded shadow-xl flex items-start p-3 gap-3 animate-slide-in" vid="110">
+                    <div class="text-blue-500 mt-0.5" vid="111">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="112"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM128,88a12,12,0,1,1-12,12A12,12,0,0,1,128,88Z" vid="113"></path></svg>
+                    </div>
+                    <div class="flex-1" vid="114">
+                        <p class="text-sm text-gray-200 font-medium leading-snug" vid="115">Document saved successfully</p>
+                    </div>
+                </div>
+
+                
+                <div class="w-full bg-[#0f0f0f]/95 backdrop-blur-md border border-[rgba(255,255,255,0.06)] border-l-[3px] border-l-green-500 rounded shadow-xl flex items-start p-3 gap-3" vid="116">
+                    <div class="text-green-500 mt-0.5" vid="117">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="118"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm45.66-106.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,160.69l50.34-50.35A8,8,0,0,1,173.66,109.66Z" vid="119"></path></svg>
+                    </div>
+                    <div class="flex-1" vid="120">
+                        <p class="text-sm text-gray-200 font-medium leading-snug" vid="121">Export complete</p>
+                        <button class="text-xs text-green-500 font-medium hover:text-green-400 mt-1 hover:underline" vid="122">View File</button>
+                    </div>
+                </div>
+
+                
+                <div class="w-full bg-[#0f0f0f]/95 backdrop-blur-md border border-[rgba(255,255,255,0.06)] border-l-[3px] border-l-yellow-500 rounded shadow-xl flex items-start p-3 gap-3" vid="123">
+                    <div class="text-yellow-500 mt-0.5" vid="124">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="125"><path d="M236.8,188.09,149.35,36.22a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09Zm-20.17,11.14a8.18,8.18,0,0,1-7.18,4.77H40.55a8.18,8.18,0,0,1-7.18-4.77,7.57,7.57,0,0,1,0-7.85L120.87,40.13a8.74,8.74,0,0,1,14.26,0l87.52,151.25A7.57,7.57,0,0,1,216.63,199.23ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z" vid="126"></path></svg>
+                    </div>
+                    <div class="flex-1" vid="127">
+                        <p class="text-sm text-gray-200 font-medium leading-snug" vid="128">Large document may slow performance</p>
+                    </div>
+                    <button class="text-gray-500 hover:text-white transition-colors" vid="129">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" vid="130"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" vid="131"></path></svg>
+                    </button>
+                </div>
+
+                
+                <div class="w-full bg-[#0f0f0f]/95 backdrop-blur-md border border-[rgba(255,255,255,0.06)] border-l-[3px] border-l-red-500 rounded shadow-xl flex items-start p-3 gap-3" vid="132">
+                    <div class="text-red-500 mt-0.5" vid="133">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="134"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm37.66-130.34a8,8,0,0,1,0,11.32L139.31,128l26.35,26.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35A8,8,0,0,1,165.66,85.66Z" vid="135"></path></svg>
+                    </div>
+                    <div class="flex-1" vid="136">
+                        <p class="text-sm text-gray-200 font-medium leading-snug mb-1" vid="137">Failed to save document</p>
+                        <button class="text-xs bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 px-2 py-0.5 rounded transition-colors" vid="138">Retry</button>
+                    </div>
+                </div>
+
+                 
+                <div class="w-full bg-[#0f0f0f]/95 backdrop-blur-md border border-[rgba(255,255,255,0.06)] rounded shadow-xl flex flex-col p-3 gap-2" vid="139">
+                    <div class="flex justify-between items-center" vid="140">
+                        <p class="text-sm text-gray-200 font-medium" vid="141">Exporting...</p>
+                        <span class="text-xs text-gray-400 font-mono" vid="142">45%</span>
+                    </div>
+                    <div class="h-1 w-full bg-gray-800 rounded-full overflow-hidden" vid="143">
+                        <div class="h-full bg-blue-500 w-[45%] rounded-full" vid="144"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        
+        <div class="flex flex-col gap-6" vid="145">
+            <div class="flex items-center gap-2 mb-2 opacity-50" vid="146">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-gray-400" vid="147">Tooltips &amp; Popovers</h3>
+                <div class="h-px bg-white/10 flex-1" vid="148"></div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-x-4 gap-y-12" vid="149">
+                
+                
+                <div class="relative flex justify-center" vid="150">
+                    <button class="w-8 h-8 rounded bg-[#1a1a1a] border border-white/10 flex items-center justify-center text-gray-400 hover:text-white" vid="151">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="152"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM128,88a12,12,0,1,1-12,12A12,12,0,0,1,128,88Z" vid="153"></path></svg>
+                    </button>
+                    
+                    <div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#1a1a1a] border border-[rgba(255,255,255,0.08)] rounded text-xs text-gray-200 whitespace-nowrap shadow-xl z-20" vid="154">
+                        View Details
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-[#1a1a1a] pointer-events-none" vid="155"></div>
+                         <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[rgba(255,255,255,0.08)] -z-10" vid="156"></div>
+                    </div>
+                </div>
+
+                
+                <div class="relative flex justify-center" vid="157">
+                    <button class="px-3 py-1.5 rounded bg-[#1a1a1a] border border-white/10 text-xs text-gray-300" vid="158">
+                        Save
+                    </button>
+                    
+                    <div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#1a1a1a] border border-[rgba(255,255,255,0.08)] rounded flex items-center gap-2 text-xs text-gray-200 shadow-xl z-20" vid="159">
+                        <span vid="160">Save Document</span>
+                        <span class="flex items-center justify-center bg-white/10 px-1 rounded text-[10px] font-mono text-gray-400 h-4 min-w-[20px] border border-white/5" vid="161">⌘S</span>
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-[#1a1a1a] pointer-events-none" vid="162"></div>
+                    </div>
+                </div>
+
+                
+                <div class="col-span-2 relative flex justify-center mt-4" vid="163">
+                     <span class="text-sm text-gray-500 border-b border-dashed border-gray-600 cursor-help" vid="164">Memory Context</span>
+                     
+                     
+                     <div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-64 bg-[#1a1a1a] border border-[rgba(255,255,255,0.08)] rounded-lg p-3 shadow-2xl z-20 text-left" vid="165">
+                        <p class="text-xs font-semibold text-white mb-1" vid="166">Context Memory</p>
+                        <p class="text-xs text-gray-400 leading-relaxed mb-2" vid="167">
+                            The AI uses this information to maintain continuity across your document sessions.
+                        </p>
+                        <a href="#" class="text-[10px] text-blue-500 hover:text-blue-400 font-medium" vid="168">Learn more →</a>
+                        
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 -mt-[1px] border-4 border-transparent border-t-[#1a1a1a] pointer-events-none" vid="169"></div>
+                     </div>
+                </div>
+
+            </div>
+
+            
+            <div class="relative mt-8 ml-4" vid="170">
+                <div class="w-full bg-[#0f0f0f] border border-[rgba(255,255,255,0.08)] rounded-lg shadow-2xl overflow-hidden w-[280px]" vid="171">
+                    
+                    <div class="p-3 border-b border-[rgba(255,255,255,0.06)] flex items-center justify-between" vid="172">
+                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider" vid="173">Account</span>
+                        <button class="text-gray-500 hover:text-white" vid="174">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 256 256" vid="175"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" vid="176"></path></svg>
+                        </button>
+                    </div>
+                    
+                    
+                    <div class="p-3" vid="177">
+                        <div class="flex items-center gap-3 mb-4" vid="178">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-medium text-sm border border-white/10 shadow-inner" vid="179">
+                                JD
+                            </div>
+                            <div class="overflow-hidden" vid="180">
+                                <p class="text-sm font-medium text-white truncate" vid="181">John Doe</p>
+                                <p class="text-xs text-gray-500 truncate" vid="182">john.doe@example.com</p>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-1" vid="183">
+                            <button class="w-full text-left px-2 py-1.5 rounded text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2" vid="184">
+                                <svg class="w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="185"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" vid="186"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" vid="187"></path></svg>
+                                Settings
+                            </button>
+                            <button class="w-full text-left px-2 py-1.5 rounded text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2" vid="188">
+                                <svg class="w-4 h-4 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="189"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" vid="190"></path></svg>
+                                Help &amp; Support
+                            </button>
+                        </div>
+                    </div>
+                    
+                    
+                    <div class="p-2 border-t border-[rgba(255,255,255,0.06)] bg-white/[0.02]" vid="191">
+                        <button class="w-full text-left px-3 py-1.5 rounded text-xs text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2" vid="192">
+                            <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="193"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" vid="194"></path></svg>
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+
+                
+                 <div class="absolute -top-2 left-8 border-8 border-transparent border-b-[#0f0f0f] transform -translate-x-1/2" vid="195"></div>
+                 <div class="absolute -top-[9px] left-8 border-8 border-transparent border-b-[rgba(255,255,255,0.08)] transform -translate-x-1/2 -z-10" vid="196"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+</body></html>

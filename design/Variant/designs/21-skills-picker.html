@@ -1,0 +1,328 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">CreoNow - Skills Picker</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="7">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" vid="8">
+    <script vid="9">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        base: '#080808',
+                        panel: '#0f0f0f',
+                        hover: '#1a1a1a',
+                        selected: '#222222',
+                        border: 'rgba(255, 255, 255, 0.06)',
+                        primary: '#ffffff',
+                        secondary: '#888888',
+                        tertiary: '#444444',
+                        accent: {
+                            blue: '#3b82f6',
+                            green: '#22c55e',
+                        }
+                    },
+                    backgroundImage: {
+                        'grid-pattern': 'radial-gradient(circle, #222 1px, transparent 1px)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style vid="10">
+        body {
+            background-color: #080808;
+            color: #ffffff;
+        }
+        
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #222;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #333;
+        }
+
+        
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #3b82f6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        
+        
+        .glass-panel {
+            background: rgba(15, 15, 15, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        
+        .bg-grid {
+            background-size: 24px 24px;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex items-center justify-center overflow-hidden relative" vid="11">
+
+    
+    <div class="absolute inset-0 bg-base bg-grid opacity-20 pointer-events-none" vid="12"></div>
+    
+    
+    <div class="relative w-[480px] flex flex-col glass-panel rounded-xl shadow-2xl overflow-hidden animate-fade-in max-h-[85vh]" vid="13">
+        
+        
+        <div class="flex items-center justify-between px-6 py-5 border-b border-white/5 bg-panel" vid="14">
+            <h2 class="text-lg font-medium text-primary tracking-tight" vid="15">Skills</h2>
+            <button class="text-secondary hover:text-primary transition-colors p-1 rounded hover:bg-white/5" vid="16">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="17"><line x1="18" y1="6" x2="6" y2="18" vid="18"></line><line x1="6" y1="6" x2="18" y2="18" vid="19"></line></svg>
+            </button>
+        </div>
+
+        
+        <div class="px-6 py-4 bg-panel" vid="20">
+            <div class="relative group" vid="21">
+                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none" vid="22">
+                    <svg class="w-4 h-4 text-secondary group-focus-within:text-accent-blue transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="23">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" vid="24"></path>
+                    </svg>
+                </div>
+                <input type="text" class="w-full bg-[#080808] border border-border text-sm rounded text-primary placeholder-secondary/50 pl-10 pr-4 py-2.5 focus:outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue transition-all" placeholder="Search skills..." vid="25">
+            </div>
+        </div>
+
+        
+        <div class="flex-1 overflow-y-auto custom-scrollbar" vid="26">
+            
+            
+            <div class="mb-2" vid="27">
+                <button class="w-full flex items-center justify-between px-6 py-2 text-xs font-medium text-secondary uppercase tracking-wider hover:bg-white/5 transition-colors group" vid="28">
+                    <span vid="29">Built-in</span>
+                    <svg class="w-4 h-4 text-tertiary group-hover:text-secondary transition-colors transform rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="30">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" vid="31"></path>
+                    </svg>
+                </button>
+
+                
+                <div class="bg-selected/50 border-l-2 border-accent-blue" vid="32">
+                    
+                    <div class="flex items-start px-6 py-4 hover:bg-white/5 transition-colors cursor-pointer" vid="33">
+                        
+                        <div class="mt-1.5 mr-4" vid="34">
+                            <div class="w-2 h-2 rounded-full bg-accent-green shadow-[0_0_8px_rgba(34,197,94,0.4)]" vid="35"></div>
+                        </div>
+                        
+                        
+                        <div class="flex-1 mr-4" vid="36">
+                            <div class="flex items-center gap-2" vid="37">
+                                <h3 class="text-sm font-medium text-primary" vid="38">Creative Copywriter</h3>
+                            </div>
+                            <p class="text-xs text-secondary mt-1" vid="39">Enhances tone and creativity in prose.</p>
+                        </div>
+
+                        
+                        <div class="flex items-center gap-3" vid="40">
+                            
+                            <div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in" vid="41">
+                                <input type="checkbox" name="toggle" id="toggle1" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer right-0 border-accent-blue" vid="42">
+                                <label for="toggle1" class="toggle-label block overflow-hidden h-4 rounded-full bg-accent-blue cursor-pointer" vid="43"></label>
+                            </div>
+                            
+                            <svg class="w-4 h-4 text-primary transform rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="44">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" vid="45"></path>
+                            </svg>
+                        </div>
+                    </div>
+
+                    
+                    <div class="px-6 pb-5 pl-12" vid="46">
+                        <p class="text-sm text-secondary leading-relaxed mb-4" vid="47">
+                            A highly tuned model for creative writing tasks. It emphasizes varied sentence structure, evocative vocabulary, and narrative flow. Best used for storytelling and blog posts.
+                        </p>
+                        
+                        <div class="flex flex-wrap gap-2 mb-4" vid="48">
+                            <span class="px-2 py-1 rounded bg-white/5 border border-white/5 text-[10px] text-secondary font-mono" vid="49">Writing</span>
+                            <span class="px-2 py-1 rounded bg-white/5 border border-white/5 text-[10px] text-secondary font-mono" vid="50">Creative</span>
+                            <span class="px-2 py-1 rounded bg-white/5 border border-white/5 text-[10px] text-secondary font-mono" vid="51">v2.1.0</span>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-3 border-t border-white/5" vid="52">
+                            <div class="text-xs text-tertiary" vid="53">
+                                By <span class="text-secondary hover:underline cursor-pointer" vid="54">Creo Team</span> • Updated 2d ago
+                            </div>
+                            <button class="text-xs text-accent-blue hover:text-blue-400 font-medium transition-colors" vid="55">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div class="border-b border-transparent" vid="56">
+                    <div class="flex items-center px-6 py-4 hover:bg-hover transition-colors cursor-pointer group" vid="57">
+                        
+                        <div class="mr-4" vid="58">
+                            <div class="w-2 h-2 rounded-full bg-tertiary" vid="59"></div>
+                        </div>
+                        
+                        
+                        <div class="flex-1 mr-4" vid="60">
+                            <h3 class="text-sm font-medium text-primary" vid="61">Logic Engine</h3>
+                            <p class="text-xs text-secondary mt-0.5 line-clamp-1" vid="62">Analyzes arguments and checks for fallacies.</p>
+                        </div>
+
+                        
+                        <div class="flex items-center gap-3" vid="63">
+                            
+                            <div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in" vid="64">
+                                <input type="checkbox" name="toggle" id="toggle2" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer left-0 border-gray-600" vid="65">
+                                <label for="toggle2" class="toggle-label block overflow-hidden h-4 rounded-full bg-gray-700 cursor-pointer" vid="66"></label>
+                            </div>
+                            
+                            <svg class="w-4 h-4 text-tertiary group-hover:text-secondary transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="67">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" vid="68"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div class="mb-2" vid="69">
+                <button class="w-full flex items-center justify-between px-6 py-2 text-xs font-medium text-secondary uppercase tracking-wider hover:bg-white/5 transition-colors group" vid="70">
+                    <span vid="71">Global</span>
+                    <svg class="w-4 h-4 text-tertiary group-hover:text-secondary transition-colors transform rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="72">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" vid="73"></path>
+                    </svg>
+                </button>
+
+                 
+                 <div class="border-b border-transparent" vid="74">
+                    <div class="flex items-center px-6 py-4 hover:bg-hover transition-colors cursor-pointer group" vid="75">
+                        
+                        <div class="mr-4" vid="76">
+                            <div class="w-2 h-2 rounded-full bg-accent-green shadow-[0_0_8px_rgba(34,197,94,0.4)]" vid="77"></div>
+                        </div>
+                        
+                        
+                        <div class="flex-1 mr-4" vid="78">
+                            <h3 class="text-sm font-medium text-primary" vid="79">Polyglot Mode</h3>
+                            <p class="text-xs text-secondary mt-0.5 line-clamp-1" vid="80">Real-time translation and localization context.</p>
+                        </div>
+
+                        
+                        <div class="flex items-center gap-3" vid="81">
+                            
+                            <div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in" vid="82">
+                                <input type="checkbox" checked="" name="toggle" id="toggle3" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer right-0 border-accent-blue" vid="83">
+                                <label for="toggle3" class="toggle-label block overflow-hidden h-4 rounded-full bg-accent-blue cursor-pointer" vid="84"></label>
+                            </div>
+                            
+                            <svg class="w-4 h-4 text-tertiary group-hover:text-secondary transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="85">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" vid="86"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                 
+                 <div class="border-b border-transparent" vid="87">
+                    <div class="flex items-center px-6 py-4 hover:bg-hover transition-colors cursor-pointer group" vid="88">
+                        
+                        <div class="mr-4" vid="89">
+                            <div class="w-2 h-2 rounded-full bg-tertiary" vid="90"></div>
+                        </div>
+                        
+                        
+                        <div class="flex-1 mr-4" vid="91">
+                            <h3 class="text-sm font-medium text-primary" vid="92">Sentiment Monitor</h3>
+                            <p class="text-xs text-secondary mt-0.5 line-clamp-1" vid="93">Highlights emotional tone shifts in text.</p>
+                        </div>
+
+                        
+                        <div class="flex items-center gap-3" vid="94">
+                            
+                            <div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in" vid="95">
+                                <input type="checkbox" name="toggle" id="toggle4" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer left-0 border-gray-600" vid="96">
+                                <label for="toggle4" class="toggle-label block overflow-hidden h-4 rounded-full bg-gray-700 cursor-pointer" vid="97"></label>
+                            </div>
+                            
+                            <svg class="w-4 h-4 text-tertiary group-hover:text-secondary transition-colors" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="98">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" vid="99"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div vid="100">
+                <button class="w-full flex items-center justify-between px-6 py-2 text-xs font-medium text-secondary uppercase tracking-wider hover:bg-white/5 transition-colors group" vid="101">
+                    <span vid="102">Project</span>
+                    <svg class="w-4 h-4 text-tertiary group-hover:text-secondary transition-colors transform rotate-180" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="103">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" vid="104"></path>
+                    </svg>
+                </button>
+
+                <div class="px-6 py-12 flex flex-col items-center justify-center text-center border-t border-transparent" vid="105">
+                    <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-4 border border-white/5 text-secondary" vid="106">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" vid="107">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" vid="108"></path>
+                        </svg>
+                    </div>
+                    <p class="text-sm text-secondary mb-4" vid="109">No project skills configured</p>
+                    <button class="px-4 py-2 text-xs font-medium text-primary bg-white/5 hover:bg-white/10 border border-white/10 rounded-md transition-all" vid="110">
+                        Browse Skills
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="p-6 border-t border-white/5 bg-panel flex justify-end gap-3 z-10" vid="111">
+            <button class="px-4 py-2 text-sm font-medium text-secondary hover:text-primary transition-colors" vid="112">
+                Manage Skills
+            </button>
+            <button class="px-5 py-2 bg-accent-blue hover:bg-blue-600 text-white text-sm font-medium rounded shadow-lg shadow-blue-500/20 transition-all" vid="113">
+                Done
+            </button>
+        </div>
+
+    </div>
+
+    
+    <style vid="114">
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #3b82f6;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+        .toggle-checkbox {
+            right: 1rem; 
+            border-color: #4b5563; 
+        }
+        .toggle-checkbox + .toggle-label {
+            background-color: #374151; 
+        }
+    </style>
+
+</body></html>

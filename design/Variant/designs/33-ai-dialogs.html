@@ -1,0 +1,344 @@
+<html lang="en" vid="0"><head vid="1">
+    <meta charset="UTF-8" vid="2">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+    <title vid="4">AI &amp; Dialog Components</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="7">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" vid="8">
+    <style vid="9">
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #080808;
+            color: #ffffff;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .glass-panel {
+            background-color: #0f0f0f;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .diff-added {
+            background-color: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+        }
+        .diff-removed {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            text-decoration: line-through;
+        }
+    </style>
+</head>
+<body class="min-h-screen w-full p-8 md:p-12" vid="10">
+
+    
+    <div class="max-w-[1400px] mx-auto grid grid-cols-12 gap-8" vid="11">
+        
+        
+        <div class="col-span-12 mb-4" vid="12">
+            <h1 class="text-2xl font-semibold tracking-tight text-white mb-2" vid="13">Design System: AI &amp; Feedback</h1>
+            <p class="text-gray-500 text-sm" vid="14">Components for AI interaction, error handling, and critical alerts.</p>
+        </div>
+
+        
+        <div class="col-span-12 lg:col-span-7 space-y-8" vid="15">
+            
+            
+            <div class="space-y-3" vid="16">
+                <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wider" vid="17">AI Apply Confirmation (Inline)</h3>
+                <div class="glass-panel rounded-lg p-8 relative min-h-[300px]" vid="18">
+                    
+                    <div class="max-w-2xl mx-auto space-y-6 text-gray-300 leading-relaxed font-light" vid="19">
+                        <p vid="20">
+                            The executive summary provides a high-level overview of the strategic initiative. It outlines the primary objectives, key stakeholders, and the anticipated timeline for delivery.
+                        </p>
+                        
+                        <div class="relative group" vid="21">
+                            
+                            <div class="relative bg-blue-500/10 px-1 -mx-1 rounded border-l-2 border-blue-500 py-0.5" vid="22">
+                                <span class="text-white" vid="23">Security protocols have been updated to comply with ISO 27001 standards, requiring multi-factor authentication for all administrative access points effective Q3 2024.</span>
+                                
+                                
+                                <div class="absolute -left-10 top-0.5 text-blue-500 opacity-80" vid="24">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="25"><path d="M216,40V216a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V40A16,16,0,0,1,56,24H200A16,16,0,0,1,216,40Zm-16,0H56V216H200V40ZM96,128a16,16,0,1,1,16,16A16,16,0,0,1,96,128Zm64,0a16,16,0,1,1,16,16A16,16,0,0,1,160,128Z" vid="26"></path></svg>
+                                </div>
+                            </div>
+
+                            
+                            <div class="absolute -top-12 right-0 flex items-center gap-1 bg-[#1a1a1a] border border-[rgba(255,255,255,0.08)] rounded-lg shadow-xl p-1 z-10 transform translate-y-2 opacity-100 transition-all" vid="27">
+                                <button class="h-7 px-2 flex items-center gap-1.5 rounded hover:bg-[#22c55e]/10 text-gray-400 hover:text-[#22c55e] transition-colors" title="Accept" vid="28">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" vid="29"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" vid="30"></path></svg>
+                                    <span class="text-[11px] font-medium" vid="31">Accept</span>
+                                </button>
+                                <div class="w-px h-4 bg-white/10 mx-0.5" vid="32"></div>
+                                <button class="h-7 px-2 flex items-center gap-1.5 rounded hover:bg-[#ef4444]/10 text-gray-400 hover:text-[#ef4444] transition-colors" title="Reject" vid="33">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" vid="34"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" vid="35"></path></svg>
+                                    <span class="text-[11px] font-medium" vid="36">Reject</span>
+                                </button>
+                                <div class="w-px h-4 bg-white/10 mx-0.5" vid="37"></div>
+                                <button class="h-7 w-7 flex items-center justify-center rounded hover:bg-white/5 text-gray-400 hover:text-white transition-colors" title="View Diff" vid="38">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" vid="39"><path d="M216,40H40A16,16,0,0,0,24,56V200a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,160H40V56H216V200Z" opacity="0.2" vid="40"></path><path d="M192,120H152V80a8,8,0,0,0-16,0v40H96a8,8,0,0,0,0,16h40v40a8,8,0,0,0,16,0V136h40a8,8,0,0,0,0-16ZM208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208Z" vid="41"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <p vid="42">
+                            Budget allocation for the hardware refresh cycle remains pending final board approval, expected by the end of the fiscal month.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div class="space-y-3" vid="43">
+                <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wider" vid="44">Diff Modal (Complex Change)</h3>
+                <div class="glass-panel rounded-lg overflow-hidden flex flex-col h-[400px]" vid="45">
+                    
+                    <div class="h-14 border-b border-[rgba(255,255,255,0.06)] px-6 flex items-center justify-between bg-[#151515]" vid="46">
+                        <div class="flex items-center gap-4" vid="47">
+                            <span class="font-medium text-sm" vid="48">Review Changes</span>
+                            <span class="text-xs text-gray-500" vid="49">This will modify 3 paragraphs</span>
+                        </div>
+                        <div class="flex items-center gap-3 bg-[#0a0a0a] rounded px-2 py-1 border border-white/5" vid="50">
+                            <button class="text-gray-500 hover:text-white transition-colors" vid="51">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" vid="52"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z" vid="53"></path></svg>
+                            </button>
+                            <span class="text-xs font-mono text-gray-400" vid="54">Change 1 of 4</span>
+                            <button class="text-gray-500 hover:text-white transition-colors" vid="55">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 256 256" vid="56"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z" vid="57"></path></svg>
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2" vid="58">
+                             <button class="text-gray-400 hover:text-white p-1" vid="59">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="60"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z" vid="61"></path></svg>
+                             </button>
+                        </div>
+                    </div>
+
+                    
+                    <div class="flex-1 flex overflow-hidden" vid="62">
+                        
+                        <div class="flex-1 border-r border-[rgba(255,255,255,0.06)] bg-[#0a0a0a] overflow-y-auto p-6" vid="63">
+                            <div class="uppercase text-[10px] font-bold text-red-500/70 mb-4 tracking-wider" vid="64">Before</div>
+                            <p class="text-sm text-gray-400 leading-relaxed font-mono" vid="65">
+                                The platform currently supports <span class="diff-removed" vid="66">XML and JSON</span> data formats for import operations. This limitation has been identified as a bottleneck for enterprise clients using legacy CSV systems.
+                            </p>
+                        </div>
+                        
+                        <div class="flex-1 bg-[#0f0f0f] overflow-y-auto p-6" vid="67">
+                            <div class="uppercase text-[10px] font-bold text-green-500/70 mb-4 tracking-wider" vid="68">After</div>
+                            <p class="text-sm text-gray-300 leading-relaxed font-mono" vid="69">
+                                The platform currently supports <span class="diff-added" vid="70">XML, JSON, and CSV</span> data formats for import operations. This expansion directly addresses requirements from enterprise clients migrating from legacy systems.
+                            </p>
+                        </div>
+                    </div>
+
+                    
+                    <div class="h-16 border-t border-[rgba(255,255,255,0.06)] px-6 flex items-center justify-between bg-[#151515]" vid="71">
+                        <div class="flex gap-2" vid="72">
+                            <button class="px-3 py-1.5 rounded text-xs font-medium text-red-400 hover:bg-red-500/10 transition-colors" vid="73">Reject All</button>
+                            <button class="px-3 py-1.5 rounded text-xs font-medium text-green-400 hover:bg-green-500/10 transition-colors" vid="74">Accept All</button>
+                        </div>
+                        <div class="flex gap-3" vid="75">
+                            <button class="px-4 py-2 rounded text-xs font-medium text-gray-300 border border-white/10 hover:bg-white/5 transition-colors" vid="76">Edit Manually</button>
+                            <button class="px-4 py-2 rounded text-xs font-medium bg-[#3b82f6] text-white hover:bg-blue-600 transition-colors shadow-lg shadow-blue-500/20" vid="77">Apply Changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        
+        <div class="col-span-12 lg:col-span-5 space-y-3" vid="78">
+            <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wider" vid="79">AI Error States</h3>
+            
+            
+            <div class="glass-panel rounded-lg h-full max-h-[740px] overflow-hidden flex flex-col" vid="80">
+                <div class="h-10 border-b border-[rgba(255,255,255,0.06)] bg-[#151515] px-4 flex items-center justify-between" vid="81">
+                    <span class="text-xs font-medium text-gray-400" vid="82">AI Assistant Panel</span>
+                    <div class="flex gap-1.5" vid="83">
+                        <div class="w-2 h-2 rounded-full bg-red-500/20" vid="84"></div>
+                        <div class="w-2 h-2 rounded-full bg-yellow-500/20" vid="85"></div>
+                    </div>
+                </div>
+                
+                <div class="flex-1 bg-[#080808] p-4 space-y-4 overflow-y-auto custom-scrollbar" vid="86">
+
+                    
+                    <div class="bg-red-500/5 border border-red-500/10 rounded-lg p-3" vid="87">
+                        <div class="flex items-start gap-3" vid="88">
+                            <div class="p-1.5 bg-yellow-500/10 rounded text-yellow-500 shrink-0 mt-0.5" vid="89">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="90"><path d="M235.16,66.6a10.87,10.87,0,0,0-5.26-2.45,212.57,212.57,0,0,0-203.8,0,10.91,10.91,0,0,0-5.26,2.45,9.65,9.65,0,0,0,0,14.61l26.69,29.35a9.56,9.56,0,0,0,14.15,0,144.6,144.6,0,0,1,184.64,0,9.56,9.56,0,0,0,14.15,0l26.69-29.35A9.65,9.65,0,0,0,235.16,66.6Zm-63.58,70a9.56,9.56,0,0,0-14.15,0,76.54,76.54,0,0,1-58.86,0,9.56,9.56,0,0,0-14.15,0L57.73,165.9a9.65,9.65,0,0,0,0,14.61l63.2,69.52a9.56,9.56,0,0,0,14.14,0l63.2-69.52a9.65,9.65,0,0,0,0-14.61ZM36.1,69.75l8.79,9.67a196.59,196.59,0,0,1,166.22,0l8.79-9.67A212.58,212.58,0,0,0,36.1,69.75Z" vid="91"></path></svg>
+                            </div>
+                            <div class="flex-1" vid="92">
+                                <h4 class="text-sm font-medium text-white mb-0.5" vid="93">Connection Failed</h4>
+                                <p class="text-xs text-gray-400 leading-snug mb-2" vid="94">Unable to reach AI service. Check your internet connection.</p>
+                                <button class="text-xs font-medium text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded transition-colors" vid="95">Retry</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="bg-red-500/5 border border-red-500/10 rounded-lg p-3" vid="96">
+                        <div class="flex items-start gap-3" vid="97">
+                            <div class="p-1.5 bg-yellow-500/10 rounded text-yellow-500 shrink-0 mt-0.5" vid="98">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="99"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z" vid="100"></path></svg>
+                            </div>
+                            <div class="flex-1" vid="101">
+                                <h4 class="text-sm font-medium text-white mb-0.5" vid="102">Request Timed Out</h4>
+                                <p class="text-xs text-gray-400 leading-snug mb-2" vid="103">The AI service took too long to respond.</p>
+                                <button class="text-xs font-medium text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded transition-colors" vid="104">Try Again</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="bg-[#151515] border border-yellow-500/20 rounded-lg p-3" vid="105">
+                        <div class="flex items-start gap-3" vid="106">
+                            <div class="p-1.5 bg-yellow-500/10 rounded text-yellow-500 shrink-0 mt-0.5" vid="107">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="108"><path d="M228,128a100,100,0,0,1-20,60l-17,6.8a8.12,8.12,0,0,1-2.91.56,8,8,0,0,1-3.69-.9,122.56,122.56,0,0,1-112.8,0,8,8,0,0,1-6.6,1.46l-17-6.8a100,100,0,1,1,180-61.12Zm-16,0a84,84,0,0,0-159.26-36.85A107.57,107.57,0,0,0,128,140a107.57,107.57,0,0,0,75.26-48.85A83.67,83.67,0,0,0,212,128Zm-73.66,42.34a8,8,0,0,0-11.31,11.32l24,24a8,8,0,0,0,11.31-11.32Z" vid="109"></path></svg>
+                            </div>
+                            <div class="flex-1" vid="110">
+                                <h4 class="text-sm font-medium text-white mb-0.5" vid="111">Too Many Requests</h4>
+                                <p class="text-xs text-gray-400 leading-snug mb-2" vid="112">Please wait a moment before sending another message.</p>
+                                <div class="text-[10px] font-mono text-yellow-500 bg-yellow-500/5 inline-block px-1.5 py-0.5 rounded border border-yellow-500/10" vid="113">Try again in 30s</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="bg-[#151515] border border-yellow-500/20 rounded-lg p-3" vid="114">
+                        <div class="flex items-start gap-3" vid="115">
+                            <div class="p-1.5 bg-yellow-500/10 rounded text-yellow-500 shrink-0 mt-0.5" vid="116">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="117"><path d="M236.8,188.09,149.35,36.22a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z" vid="118"></path></svg>
+                            </div>
+                            <div class="flex-1" vid="119">
+                                <h4 class="text-sm font-medium text-white mb-0.5" vid="120">Usage Limit Reached</h4>
+                                <p class="text-xs text-gray-400 leading-snug mb-2" vid="121">You have reached your monthly AI usage limit.</p>
+                                <div class="flex items-center gap-2" vid="122">
+                                    <button class="text-xs font-medium text-[#080808] bg-yellow-500 hover:bg-yellow-400 px-3 py-1.5 rounded transition-colors" vid="123">Upgrade Plan</button>
+                                    <button class="text-xs font-medium text-gray-400 hover:text-white px-2 transition-colors" vid="124">View Usage</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="bg-red-500/5 border border-red-500/20 rounded-lg p-3" vid="125">
+                        <div class="flex items-start gap-3" vid="126">
+                            <div class="p-1.5 bg-red-500/10 rounded text-red-500 shrink-0 mt-0.5" vid="127">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 256 256" vid="128"><path d="M80,112a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H88A8,8,0,0,1,80,112Zm144-48V200a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V64A16,16,0,0,1,48,48H208A16,16,0,0,1,224,64ZM48,104H208V64H48v40Zm160,16v80H48V120Zm-16,32a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V160A8,8,0,0,0,192,152Zm-48,0a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V160A8,8,0,0,0,144,152Z" vid="129"></path></svg>
+                            </div>
+                            <div class="flex-1" vid="130">
+                                <h4 class="text-sm font-medium text-white mb-0.5" vid="131">AI Service Error</h4>
+                                <p class="text-xs text-gray-400 leading-snug mb-2" vid="132">The AI provider is experiencing issues. This is not your fault.</p>
+                                <div class="text-[10px] font-mono text-red-400 mb-2" vid="133">upstream_error_503</div>
+                                <div class="flex items-center gap-2" vid="134">
+                                    <button class="text-xs font-medium text-white bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded transition-colors" vid="135">Retry</button>
+                                    <a href="#" class="text-xs font-medium text-gray-400 hover:text-white px-2 flex items-center gap-1 transition-colors" vid="136">
+                                        Check Status
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 256 256" vid="137"><path d="M200,64V168a8,8,0,0,1-16,0V83.31L69.66,197.66a8,8,0,0,1-11.32-11.32L172.69,72H88a8,8,0,0,1,0-16H192A8,8,0,0,1,200,64Z" vid="138"></path></svg>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        
+        <div class="col-span-12 space-y-3 mt-4" vid="139">
+            <h3 class="text-xs font-medium text-gray-500 uppercase tracking-wider" vid="140">System Dialogs</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" vid="141">
+
+                
+                <div class="glass-panel rounded-xl p-6 flex flex-col items-center text-center shadow-2xl" vid="142">
+                    <div class="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 mb-4 border border-red-500/20" vid="143">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256" vid="144"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z" vid="145"></path></svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2" vid="146">Delete Document?</h3>
+                    <p class="text-sm text-gray-400 mb-6 leading-relaxed" vid="147">
+                        This action cannot be undone. The document and its version history will be permanently deleted.
+                    </p>
+                    <div class="flex items-center gap-3 w-full" vid="148">
+                        <button class="flex-1 h-9 rounded-lg border border-[rgba(255,255,255,0.08)] bg-transparent hover:bg-white/5 text-sm font-medium text-gray-300 transition-colors" vid="149">
+                            Cancel
+                        </button>
+                        <button class="flex-1 h-9 rounded-lg bg-[#ef4444] hover:bg-red-600 text-sm font-medium text-white shadow-lg shadow-red-500/20 transition-colors" vid="150">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+
+                
+                <div class="glass-panel rounded-xl p-6 flex flex-col items-center text-center shadow-2xl" vid="151">
+                    <div class="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center text-yellow-500 mb-4 border border-yellow-500/20" vid="152">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256" vid="153"><path d="M236.8,188.09,149.35,36.22a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z" vid="154"></path></svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2" vid="155">Unsaved Changes</h3>
+                    <p class="text-sm text-gray-400 mb-6 leading-relaxed" vid="156">
+                        You have unsaved changes. Do you want to save your progress before leaving?
+                    </p>
+                    <div class="flex items-center gap-3 w-full" vid="157">
+                        <button class="h-9 px-4 rounded-lg border border-red-500/20 hover:bg-red-500/10 text-sm font-medium text-red-400 transition-colors" vid="158">
+                            Discard
+                        </button>
+                        <div class="flex-1" vid="159"></div>
+                        <button class="h-9 px-4 rounded-lg border border-[rgba(255,255,255,0.08)] bg-transparent hover:bg-white/5 text-sm font-medium text-gray-300 transition-colors" vid="160">
+                            Cancel
+                        </button>
+                        <button class="h-9 px-4 rounded-lg bg-white hover:bg-gray-200 text-sm font-medium text-black transition-colors" vid="161">
+                            Save
+                        </button>
+                    </div>
+                </div>
+
+                
+                <div class="glass-panel rounded-xl p-6 flex flex-col items-center text-center shadow-2xl" vid="162">
+                    <div class="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 mb-4 border border-green-500/20" vid="163">
+                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 256 256" vid="164"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm45.66,85.66-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32Z" vid="165"></path></svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-white mb-2" vid="166">Export Complete</h3>
+                    <p class="text-sm text-gray-400 mb-6 leading-relaxed" vid="167">
+                        Your document has been exported successfully. It has been saved to your local downloads folder.
+                    </p>
+                    <div class="flex items-center gap-3 w-full" vid="168">
+                        <button class="flex-1 h-9 rounded-lg border border-[rgba(255,255,255,0.08)] bg-transparent hover:bg-white/5 text-sm font-medium text-gray-300 transition-colors" vid="169">
+                            Done
+                        </button>
+                        <button class="flex-1 h-9 rounded-lg bg-[#22c55e] hover:bg-green-500 text-sm font-medium text-black shadow-lg shadow-green-500/20 transition-colors" vid="170">
+                            Open File
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+
+</body></html>
