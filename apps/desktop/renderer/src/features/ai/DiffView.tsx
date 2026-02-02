@@ -1,54 +1,152 @@
+import React from "react";
 import { Text } from "../../components/primitives";
 
 /**
  * Line type in a unified diff.
  */
-type DiffLineType = "added" | "removed" | "context" | "header";
+export type DiffLineType = "added" | "removed" | "context" | "header";
 
 /**
- * Parse a unified diff text into typed lines.
- *
- * Why: We need to classify each line to apply the correct visual style.
+ * Parsed diff line with line numbers.
  */
-function parseDiffLines(diffText: string): Array<{ type: DiffLineType; content: string }> {
-  if (!diffText) {
-    return [];
-  }
-
-  return diffText.split("\n").map((line) => {
-    if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("@@")) {
-      return { type: "header" as const, content: line };
-    }
-    if (line.startsWith("+")) {
-      return { type: "added" as const, content: line };
-    }
-    if (line.startsWith("-")) {
-      return { type: "removed" as const, content: line };
-    }
-    return { type: "context" as const, content: line };
-  });
-}
-
-/**
- * Style mapping for diff line types using design tokens.
- */
-const lineStyles: Record<DiffLineType, string> = {
-  added: "bg-[var(--color-success-subtle)] text-[var(--color-success)]",
-  removed: "bg-[var(--color-error-subtle)] text-[var(--color-error)] line-through",
-  context: "text-[var(--color-fg-muted)]",
-  header: "text-[var(--color-fg-subtle)] font-medium",
+export type DiffLine = {
+  type: DiffLineType;
+  content: string;
+  oldLineNumber: number | null;
+  newLineNumber: number | null;
 };
 
 /**
- * DiffView renders a unified diff text block with syntax highlighting.
- *
- * Why: AI Apply must show a reviewable preview before mutating the editor SSOT.
- * Added lines are highlighted in green, removed lines in red with strikethrough.
+ * Diff statistics.
  */
-export function DiffView(props: { diffText: string }): JSX.Element {
-  const lines = parseDiffLines(props.diffText);
+export type DiffStats = {
+  addedLines: number;
+  removedLines: number;
+  changedHunks: number;
+};
 
-  if (lines.length === 0) {
+/**
+ * Parse a unified diff text into typed lines with line numbers.
+ *
+ * Why: We need to classify each line and track line numbers for proper display.
+ */
+export function parseDiffLines(diffText: string): { lines: DiffLine[]; stats: DiffStats } {
+  if (!diffText) {
+    return { lines: [], stats: { addedLines: 0, removedLines: 0, changedHunks: 0 } };
+  }
+
+  const rawLines = diffText.split("\n");
+  const lines: DiffLine[] = [];
+  let oldLineNumber = 0;
+  let newLineNumber = 0;
+  let addedLines = 0;
+  let removedLines = 0;
+  let changedHunks = 0;
+
+  for (const line of rawLines) {
+    if (line.startsWith("@@")) {
+      // Parse hunk header: @@ -start,count +start,count @@
+      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (match) {
+        oldLineNumber = parseInt(match[1], 10);
+        newLineNumber = parseInt(match[2], 10);
+      }
+      changedHunks++;
+      lines.push({ type: "header", content: line, oldLineNumber: null, newLineNumber: null });
+    } else if (line.startsWith("+++") || line.startsWith("---")) {
+      lines.push({ type: "header", content: line, oldLineNumber: null, newLineNumber: null });
+    } else if (line.startsWith("+")) {
+      lines.push({
+        type: "added",
+        content: line.slice(1),
+        oldLineNumber: null,
+        newLineNumber: newLineNumber,
+      });
+      newLineNumber++;
+      addedLines++;
+    } else if (line.startsWith("-")) {
+      lines.push({
+        type: "removed",
+        content: line.slice(1),
+        oldLineNumber: oldLineNumber,
+        newLineNumber: null,
+      });
+      oldLineNumber++;
+      removedLines++;
+    } else {
+      // Context line (starts with space or is empty)
+      const content = line.startsWith(" ") ? line.slice(1) : line;
+      lines.push({
+        type: "context",
+        content: content,
+        oldLineNumber: oldLineNumber,
+        newLineNumber: newLineNumber,
+      });
+      oldLineNumber++;
+      newLineNumber++;
+    }
+  }
+
+  return {
+    lines,
+    stats: { addedLines, removedLines, changedHunks },
+  };
+}
+
+/**
+ * Get change positions for navigation.
+ */
+export function getChangePositions(lines: DiffLine[]): number[] {
+  const positions: number[] = [];
+  let inChange = false;
+
+  lines.forEach((line, index) => {
+    if (line.type === "added" || line.type === "removed") {
+      if (!inChange) {
+        positions.push(index);
+        inChange = true;
+      }
+    } else {
+      inChange = false;
+    }
+  });
+
+  return positions;
+}
+
+/**
+ * UnifiedDiffView renders a unified diff with dual-column line numbers.
+ *
+ * Features:
+ * - Dual-column line numbers (old | new)
+ * - +/- indicators
+ * - Colored backgrounds for added/removed lines
+ * - Hover highlighting
+ */
+export function UnifiedDiffView(props: {
+  lines: DiffLine[];
+  currentChangeIndex?: number;
+  changePositions?: number[];
+}): JSX.Element {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  // Scroll to current change when it changes
+  React.useEffect(() => {
+    if (
+      props.currentChangeIndex !== undefined &&
+      props.changePositions &&
+      props.changePositions.length > 0 &&
+      scrollRef.current
+    ) {
+      const lineIndex = props.changePositions[props.currentChangeIndex];
+      const lineElement = scrollRef.current.querySelector(`[data-line-index="${lineIndex}"]`);
+      if (lineElement) {
+        lineElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [props.currentChangeIndex, props.changePositions]);
+
+  if (props.lines.length === 0) {
     return (
       <div
         data-testid="ai-diff"
@@ -63,21 +161,127 @@ export function DiffView(props: { diffText: string }): JSX.Element {
 
   return (
     <div
+      ref={scrollRef}
       data-testid="ai-diff"
-      className="border border-[var(--color-separator)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] overflow-auto max-h-[300px]"
+      className="flex-1 overflow-y-auto font-[var(--font-family-mono)] text-[13px] leading-6"
     >
-      <div className="font-[var(--font-family-mono)] text-[13px] leading-[20px]">
-        {lines.map((line, index) => (
+      {props.lines.map((line, index) => {
+        if (line.type === "header") {
+          return (
+            <div
+              key={index}
+              data-line-index={index}
+              className="flex bg-[var(--color-bg-raised)] border-y border-[var(--color-separator)]"
+            >
+              <div className="w-20 shrink-0 bg-[var(--color-bg-base)] border-r border-[var(--color-separator)]" />
+              <div className="flex-1 px-4 py-1 text-[var(--color-fg-subtle)] font-medium text-[11px]">
+                {line.content}
+              </div>
+            </div>
+          );
+        }
+
+        const isRemoved = line.type === "removed";
+        const isAdded = line.type === "added";
+        const isContext = line.type === "context";
+
+        // Determine if this line is part of the currently highlighted change
+        const isCurrentChange =
+          props.currentChangeIndex !== undefined &&
+          props.changePositions &&
+          props.changePositions[props.currentChangeIndex] !== undefined &&
+          (() => {
+            const changeStart = props.changePositions[props.currentChangeIndex];
+            // Find extent of current change
+            let changeEnd = changeStart;
+            for (let i = changeStart; i < props.lines.length; i++) {
+              if (props.lines[i].type === "added" || props.lines[i].type === "removed") {
+                changeEnd = i;
+              } else {
+                break;
+              }
+            }
+            return index >= changeStart && index <= changeEnd;
+          })();
+
+        return (
           <div
             key={index}
-            className={`px-2.5 py-0.5 ${lineStyles[line.type]}`}
+            data-line-index={index}
+            className={`
+              flex group transition-colors
+              ${isRemoved ? "bg-[rgba(239,68,68,0.1)]" : ""}
+              ${isAdded ? "bg-[rgba(34,197,94,0.1)]" : ""}
+              ${isContext ? "hover:bg-[var(--color-bg-hover)]" : ""}
+              ${isCurrentChange ? "ring-1 ring-inset ring-[var(--color-accent)]" : ""}
+            `}
           >
-            <span className="whitespace-pre-wrap break-words">
+            {/* Gutter: +/- indicator + old line number + new line number */}
+            <div
+              className={`
+                w-20 shrink-0 flex select-none text-[11px] border-r border-[var(--color-separator)]
+                ${isRemoved ? "bg-[rgba(239,68,68,0.05)]" : ""}
+                ${isAdded ? "bg-[rgba(34,197,94,0.05)]" : ""}
+                ${isContext ? "bg-[var(--color-bg-base)]" : ""}
+              `}
+            >
+              {/* +/- indicator */}
+              <div className="w-4 flex items-center justify-center">
+                {isRemoved && (
+                  <span className="text-[var(--color-error)] opacity-50">-</span>
+                )}
+                {isAdded && (
+                  <span className="text-[var(--color-success)] opacity-50">+</span>
+                )}
+              </div>
+              {/* Old line number */}
+              <div
+                className={`
+                  w-8 text-right pr-2 py-1
+                  ${isRemoved ? "text-[var(--color-error)] opacity-50" : "text-[var(--color-fg-subtle)]"}
+                `}
+              >
+                {line.oldLineNumber ?? ""}
+              </div>
+              {/* New line number */}
+              <div
+                className={`
+                  w-8 text-right pr-2 py-1
+                  ${isAdded ? "text-[var(--color-success)] opacity-50" : "text-[var(--color-fg-subtle)]"}
+                `}
+              >
+                {line.newLineNumber ?? ""}
+              </div>
+            </div>
+
+            {/* Content */}
+            <div
+              className={`
+                flex-1 px-4 py-1 whitespace-pre-wrap break-words
+                ${isRemoved ? "text-[rgba(239,68,68,0.7)] line-through decoration-[rgba(239,68,68,0.4)]" : ""}
+                ${isAdded ? "text-[rgba(34,197,94,0.9)]" : ""}
+                ${isContext ? "text-[var(--color-fg-muted)]" : ""}
+              `}
+            >
               {line.content || "\u00A0"}
-            </span>
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Legacy DiffView for backward compatibility.
+ * Now wraps UnifiedDiffView with parsed data.
+ */
+export function DiffView(props: { diffText: string }): JSX.Element {
+  const { lines } = parseDiffLines(props.diffText);
+
+  return (
+    <div className="border border-[var(--color-separator)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] overflow-hidden max-h-[300px]">
+      <UnifiedDiffView lines={lines} />
     </div>
   );
 }
