@@ -26,7 +26,7 @@
 - Command: `pnpm test:integration`
 - Key output: `Exit code: 0` (3 个集成测试文件全部通过)
 
-- Evidence: 
+- Evidence:
   - 迁移文件: `apps/desktop/renderer/src/features/ai/AiPanel.tsx`
   - 迁移文件: `apps/desktop/renderer/src/features/files/FileTreePanel.tsx`
   - 迁移文件: `apps/desktop/renderer/src/features/memory/MemoryPanel.tsx`

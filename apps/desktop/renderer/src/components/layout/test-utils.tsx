@@ -1,13 +1,31 @@
 import React from "react";
-import { LayoutStoreProvider, createLayoutStore } from "../../stores/layoutStore";
-import { ProjectStoreProvider, createProjectStore } from "../../stores/projectStore";
+import {
+  LayoutStoreProvider,
+  createLayoutStore,
+} from "../../stores/layoutStore";
+import {
+  ProjectStoreProvider,
+  createProjectStore,
+} from "../../stores/projectStore";
 import { FileStoreProvider, createFileStore } from "../../stores/fileStore";
-import { EditorStoreProvider, createEditorStore } from "../../stores/editorStore";
+import {
+  EditorStoreProvider,
+  createEditorStore,
+} from "../../stores/editorStore";
 import { ThemeStoreProvider, createThemeStore } from "../../stores/themeStore";
 import { AiStoreProvider, createAiStore } from "../../stores/aiStore";
-import { MemoryStoreProvider, createMemoryStore } from "../../stores/memoryStore";
-import { ContextStoreProvider, createContextStore } from "../../stores/contextStore";
-import { SearchStoreProvider, createSearchStore } from "../../stores/searchStore";
+import {
+  MemoryStoreProvider,
+  createMemoryStore,
+} from "../../stores/memoryStore";
+import {
+  ContextStoreProvider,
+  createContextStore,
+} from "../../stores/contextStore";
+import {
+  SearchStoreProvider,
+  createSearchStore,
+} from "../../stores/searchStore";
 import { KgStoreProvider, createKgStore } from "../../stores/kgStore";
 
 /**
@@ -96,7 +114,8 @@ export function LayoutTestWrapper({
     [],
   );
   const projectStore = React.useMemo(
-    () => createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
+    () =>
+      createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
     [],
   );
   const fileStore = React.useMemo(
@@ -107,10 +126,7 @@ export function LayoutTestWrapper({
     () => createEditorStore(mockIpc as Parameters<typeof createEditorStore>[0]),
     [],
   );
-  const themeStore = React.useMemo(
-    () => createThemeStore(mockPreferences),
-    [],
-  );
+  const themeStore = React.useMemo(() => createThemeStore(mockPreferences), []);
   const aiStore = React.useMemo(
     () => createAiStore(mockIpc as Parameters<typeof createAiStore>[0]),
     [],
@@ -120,7 +136,8 @@ export function LayoutTestWrapper({
     [],
   );
   const contextStore = React.useMemo(
-    () => createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
+    () =>
+      createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
     [],
   );
   const searchStore = React.useMemo(

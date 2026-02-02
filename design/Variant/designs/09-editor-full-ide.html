@@ -1,456 +1,844 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow - Creative IDE</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
-    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css" rel="stylesheet" vid="6">
-    <link rel="preconnect" href="https://fonts.googleapis.com" vid="7">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="8">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;display=swap" rel="stylesheet" vid="9">
-    
+    <link
+      href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css"
+      rel="stylesheet"
+      vid="6"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="7" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin=""
+      vid="8"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&amp;display=swap"
+      rel="stylesheet"
+      vid="9"
+    />
+
     <script vid="10">
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                        serif: ['Newsreader', 'Georgia', 'serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        obsidian: '#050505',
-                        charcoal: '#0A0A0A',
-                        glass: 'rgba(255, 255, 255, 0.03)',
-                        border: 'rgba(255, 255, 255, 0.06)',
-                        accent: {
-                            primary: '#5E6AD2', 
-                            glow: 'rgba(94, 106, 210, 0.5)'
-                        }
-                    },
-                    boxShadow: {
-                        'glow': '0 0 20px rgba(94, 106, 210, 0.15)',
-                        'inner-light': 'inset 0 1px 0 rgba(255, 255, 255, 0.05)'
-                    },
-                    animation: {
-                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                    }
-                }
-            }
-        }
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "system-ui", "sans-serif"],
+              serif: ["Newsreader", "Georgia", "serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+            colors: {
+              obsidian: "#050505",
+              charcoal: "#0A0A0A",
+              glass: "rgba(255, 255, 255, 0.03)",
+              border: "rgba(255, 255, 255, 0.06)",
+              accent: {
+                primary: "#5E6AD2",
+                glow: "rgba(94, 106, 210, 0.5)",
+              },
+            },
+            boxShadow: {
+              glow: "0 0 20px rgba(94, 106, 210, 0.15)",
+              "inner-light": "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+            },
+            animation: {
+              "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+            },
+          },
+        },
+      };
     </script>
     <style vid="11">
-        
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #2a2a2a;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #3a3a3a;
-        }
-        
-        
-        ::selection {
-            background: rgba(94, 106, 210, 0.3);
-            color: white;
-        }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #2a2a2a;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #3a3a3a;
+      }
 
-        
-        .glass-panel {
-            background: rgba(10, 10, 10, 0.6);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        
-        .noise-bg {
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
-        }
+      ::selection {
+        background: rgba(94, 106, 210, 0.3);
+        color: white;
+      }
+
+      .glass-panel {
+        background: rgba(10, 10, 10, 0.6);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+
+      .noise-bg {
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E");
+      }
     </style>
-</head>
-<body class="bg-obsidian text-zinc-400 font-sans antialiased h-screen w-screen overflow-hidden flex relative" vid="12">
-
-    
-    <div class="absolute inset-0 pointer-events-none z-0 overflow-hidden" vid="13">
-        <div class="absolute top-[-20%] left-[20%] w-[600px] h-[600px] bg-accent-primary/5 rounded-full blur-[120px]" vid="14"></div>
-        <div class="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[100px]" vid="15"></div>
-        <div class="absolute inset-0 noise-bg mix-blend-overlay pointer-events-none" vid="16"></div>
+  </head>
+  <body
+    class="bg-obsidian text-zinc-400 font-sans antialiased h-screen w-screen overflow-hidden flex relative"
+    vid="12"
+  >
+    <div
+      class="absolute inset-0 pointer-events-none z-0 overflow-hidden"
+      vid="13"
+    >
+      <div
+        class="absolute top-[-20%] left-[20%] w-[600px] h-[600px] bg-accent-primary/5 rounded-full blur-[120px]"
+        vid="14"
+      ></div>
+      <div
+        class="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[100px]"
+        vid="15"
+      ></div>
+      <div
+        class="absolute inset-0 noise-bg mix-blend-overlay pointer-events-none"
+        vid="16"
+      ></div>
     </div>
 
-    
-    <nav class="w-64 border-r border-border flex flex-col z-10 bg-charcoal/50 backdrop-blur-md transition-all duration-300" vid="17">
-        
-        <div class="h-14 flex items-center px-4 border-b border-border shrink-0" vid="18">
-            <button class="flex items-center gap-3 w-full hover:bg-white/5 p-1.5 rounded-md transition-colors group" vid="19">
-                <div class="w-6 h-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded flex items-center justify-center text-white shadow-glow" vid="20">
-                    <i class="ri-quill-pen-fill text-xs" vid="21"></i>
-                </div>
-                <span class="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors" vid="22">CreoNow</span>
-                <i class="ri-expand-up-down-line ml-auto text-xs text-zinc-600 group-hover:text-zinc-400" vid="23"></i>
+    <nav
+      class="w-64 border-r border-border flex flex-col z-10 bg-charcoal/50 backdrop-blur-md transition-all duration-300"
+      vid="17"
+    >
+      <div
+        class="h-14 flex items-center px-4 border-b border-border shrink-0"
+        vid="18"
+      >
+        <button
+          class="flex items-center gap-3 w-full hover:bg-white/5 p-1.5 rounded-md transition-colors group"
+          vid="19"
+        >
+          <div
+            class="w-6 h-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded flex items-center justify-center text-white shadow-glow"
+            vid="20"
+          >
+            <i class="ri-quill-pen-fill text-xs" vid="21"></i>
+          </div>
+          <span
+            class="text-sm font-medium text-zinc-200 group-hover:text-white transition-colors"
+            vid="22"
+            >CreoNow</span
+          >
+          <i
+            class="ri-expand-up-down-line ml-auto text-xs text-zinc-600 group-hover:text-zinc-400"
+            vid="23"
+          ></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto py-4 px-2 space-y-6" vid="24">
+        <div class="space-y-0.5" vid="25">
+          <div
+            class="px-2 text-[10px] font-bold tracking-wider text-zinc-500 uppercase mb-2"
+            vid="26"
+          >
+            Workspace
+          </div>
+          <button
+            class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/5 rounded-md transition-colors"
+            vid="27"
+          >
+            <i class="ri-search-line text-zinc-500" vid="28"></i>
+            <span vid="29">Search</span>
+            <span
+              class="ml-auto text-[10px] bg-white/10 px-1 rounded text-zinc-500"
+              vid="30"
+              >⌘K</span
+            >
+          </button>
+          <button
+            class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/5 rounded-md transition-colors"
+            vid="31"
+          >
+            <i class="ri-inbox-line text-zinc-500" vid="32"></i>
+            <span vid="33">Inbox</span>
+            <span class="ml-auto text-[10px] text-zinc-600" vid="34">2</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/5 rounded-md transition-colors"
+            vid="35"
+          >
+            <i class="ri-time-line text-zinc-500" vid="36"></i>
+            <span vid="37">Recent</span>
+          </button>
+        </div>
+
+        <div class="space-y-0.5" vid="38">
+          <div
+            class="px-2 flex items-center justify-between text-[10px] font-bold tracking-wider text-zinc-500 uppercase mb-2 group"
+            vid="39"
+          >
+            <span vid="40">Projects</span>
+            <i
+              class="ri-add-line cursor-pointer hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              vid="41"
+            ></i>
+          </div>
+
+          <div class="group" vid="42">
+            <button
+              class="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-200 bg-white/5 rounded-md transition-colors"
+              vid="43"
+            >
+              <i class="ri-arrow-down-s-line text-zinc-500" vid="44"></i>
+              <i class="ri-folder-3-fill text-indigo-400/80" vid="45"></i>
+              <span vid="46">The Glass Age</span>
             </button>
+            <div
+              class="pl-4 mt-1 space-y-0.5 border-l border-border ml-3.5"
+              vid="47"
+            >
+              <button
+                class="w-full flex items-center gap-2 px-2 py-1 text-xs text-indigo-300 bg-indigo-500/10 rounded-md"
+                vid="48"
+              >
+                <i class="ri-file-text-line text-indigo-400" vid="49"></i>
+                <span vid="50">Chapter 1: Transparency</span>
+              </button>
+              <button
+                class="w-full flex items-center gap-2 px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors"
+                vid="51"
+              >
+                <i class="ri-file-text-line text-zinc-600" vid="52"></i>
+                <span vid="53">Chapter 2: Reflection</span>
+              </button>
+              <button
+                class="w-full flex items-center gap-2 px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors"
+                vid="54"
+              >
+                <i class="ri-sticky-note-line text-zinc-600" vid="55"></i>
+                <span vid="56">Notes &amp; Ideas</span>
+              </button>
+            </div>
+          </div>
+
+          <button
+            class="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors"
+            vid="57"
+          >
+            <i class="ri-arrow-right-s-line text-zinc-600" vid="58"></i>
+            <i class="ri-folder-3-fill text-zinc-700" vid="59"></i>
+            <span vid="60">System Design</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors"
+            vid="61"
+          >
+            <i class="ri-arrow-right-s-line text-zinc-600" vid="62"></i>
+            <i class="ri-folder-3-fill text-zinc-700" vid="63"></i>
+            <span vid="64">Blog Posts</span>
+          </button>
         </div>
 
-        
-        <div class="flex-1 overflow-y-auto py-4 px-2 space-y-6" vid="24">
-            
-            
-            <div class="space-y-0.5" vid="25">
-                <div class="px-2 text-[10px] font-bold tracking-wider text-zinc-500 uppercase mb-2" vid="26">Workspace</div>
-                <button class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/5 rounded-md transition-colors" vid="27">
-                    <i class="ri-search-line text-zinc-500" vid="28"></i>
-                    <span vid="29">Search</span>
-                    <span class="ml-auto text-[10px] bg-white/10 px-1 rounded text-zinc-500" vid="30">⌘K</span>
-                </button>
-                <button class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/5 rounded-md transition-colors" vid="31">
-                    <i class="ri-inbox-line text-zinc-500" vid="32"></i>
-                    <span vid="33">Inbox</span>
-                    <span class="ml-auto text-[10px] text-zinc-600" vid="34">2</span>
-                </button>
-                <button class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-white/5 rounded-md transition-colors" vid="35">
-                    <i class="ri-time-line text-zinc-500" vid="36"></i>
-                    <span vid="37">Recent</span>
-                </button>
-            </div>
-
-            
-            <div class="space-y-0.5" vid="38">
-                <div class="px-2 flex items-center justify-between text-[10px] font-bold tracking-wider text-zinc-500 uppercase mb-2 group" vid="39">
-                    <span vid="40">Projects</span>
-                    <i class="ri-add-line cursor-pointer hover:text-white opacity-0 group-hover:opacity-100 transition-opacity" vid="41"></i>
-                </div>
-                
-                
-                <div class="group" vid="42">
-                    <button class="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-200 bg-white/5 rounded-md transition-colors" vid="43">
-                        <i class="ri-arrow-down-s-line text-zinc-500" vid="44"></i>
-                        <i class="ri-folder-3-fill text-indigo-400/80" vid="45"></i>
-                        <span vid="46">The Glass Age</span>
-                    </button>
-                    <div class="pl-4 mt-1 space-y-0.5 border-l border-border ml-3.5" vid="47">
-                        <button class="w-full flex items-center gap-2 px-2 py-1 text-xs text-indigo-300 bg-indigo-500/10 rounded-md" vid="48">
-                            <i class="ri-file-text-line text-indigo-400" vid="49"></i>
-                            <span vid="50">Chapter 1: Transparency</span>
-                        </button>
-                        <button class="w-full flex items-center gap-2 px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors" vid="51">
-                            <i class="ri-file-text-line text-zinc-600" vid="52"></i>
-                            <span vid="53">Chapter 2: Reflection</span>
-                        </button>
-                        <button class="w-full flex items-center gap-2 px-2 py-1 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors" vid="54">
-                            <i class="ri-sticky-note-line text-zinc-600" vid="55"></i>
-                            <span vid="56">Notes &amp; Ideas</span>
-                        </button>
-                    </div>
-                </div>
-
-                
-                <button class="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors" vid="57">
-                    <i class="ri-arrow-right-s-line text-zinc-600" vid="58"></i>
-                    <i class="ri-folder-3-fill text-zinc-700" vid="59"></i>
-                    <span vid="60">System Design</span>
-                </button>
-                <button class="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors" vid="61">
-                    <i class="ri-arrow-right-s-line text-zinc-600" vid="62"></i>
-                    <i class="ri-folder-3-fill text-zinc-700" vid="63"></i>
-                    <span vid="64">Blog Posts</span>
-                </button>
-            </div>
-
-            
-            <div class="space-y-0.5" vid="65">
-                <div class="px-2 text-[10px] font-bold tracking-wider text-zinc-500 uppercase mb-2" vid="66">Tags</div>
-                <button class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors" vid="67">
-                    <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" vid="68"></div>
-                    <span vid="69">Published</span>
-                </button>
-                <button class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors" vid="70">
-                    <div class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" vid="71"></div>
-                    <span vid="72">Draft</span>
-                </button>
-                <button class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors" vid="73">
-                    <div class="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]" vid="74"></div>
-                    <span vid="75">Urgent</span>
-                </button>
-            </div>
+        <div class="space-y-0.5" vid="65">
+          <div
+            class="px-2 text-[10px] font-bold tracking-wider text-zinc-500 uppercase mb-2"
+            vid="66"
+          >
+            Tags
+          </div>
+          <button
+            class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors"
+            vid="67"
+          >
+            <div
+              class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+              vid="68"
+            ></div>
+            <span vid="69">Published</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors"
+            vid="70"
+          >
+            <div
+              class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]"
+              vid="71"
+            ></div>
+            <span vid="72">Draft</span>
+          </button>
+          <button
+            class="w-full flex items-center gap-2.5 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-white/5 rounded-md transition-colors"
+            vid="73"
+          >
+            <div
+              class="w-1.5 h-1.5 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]"
+              vid="74"
+            ></div>
+            <span vid="75">Urgent</span>
+          </button>
         </div>
+      </div>
 
-        
-        <div class="p-3 border-t border-border bg-black/20" vid="76">
-            <button class="flex items-center gap-3 w-full p-1.5 rounded-md hover:bg-white/5 transition-colors" vid="77">
-                <img src="https://ui-avatars.com/api/?name=Alex+Designer&amp;background=27272a&amp;color=a1a1aa&amp;size=100" class="w-7 h-7 rounded-full border border-white/10" alt="Profile" vid="78">
-                <div class="flex flex-col items-start" vid="79">
-                    <span class="text-xs font-medium text-zinc-200" vid="80">Alex Designer</span>
-                    <span class="text-[10px] text-zinc-600" vid="81">Pro Plan</span>
-                </div>
-                <i class="ri-settings-4-line ml-auto text-zinc-600" vid="82"></i>
-            </button>
-        </div>
+      <div class="p-3 border-t border-border bg-black/20" vid="76">
+        <button
+          class="flex items-center gap-3 w-full p-1.5 rounded-md hover:bg-white/5 transition-colors"
+          vid="77"
+        >
+          <img
+            src="https://ui-avatars.com/api/?name=Alex+Designer&amp;background=27272a&amp;color=a1a1aa&amp;size=100"
+            class="w-7 h-7 rounded-full border border-white/10"
+            alt="Profile"
+            vid="78"
+          />
+          <div class="flex flex-col items-start" vid="79">
+            <span class="text-xs font-medium text-zinc-200" vid="80"
+              >Alex Designer</span
+            >
+            <span class="text-[10px] text-zinc-600" vid="81">Pro Plan</span>
+          </div>
+          <i class="ri-settings-4-line ml-auto text-zinc-600" vid="82"></i>
+        </button>
+      </div>
     </nav>
 
-    
-    <main class="flex-1 flex flex-col min-w-0 bg-obsidian relative z-0" vid="83">
-        
-        
-        <header class="h-14 flex items-center justify-between px-6 border-b border-border bg-obsidian/80 backdrop-blur-xl z-20" vid="84">
-            
-            <div class="flex items-center gap-2 text-xs" vid="85">
-                <span class="text-zinc-500 hover:text-zinc-300 cursor-pointer transition-colors" vid="86">Projects</span>
-                <span class="text-zinc-700" vid="87">/</span>
-                <span class="text-zinc-500 hover:text-zinc-300 cursor-pointer transition-colors" vid="88">The Glass Age</span>
-                <span class="text-zinc-700" vid="89">/</span>
-                <span class="text-zinc-200 font-medium" vid="90">Chapter 1: Transparency</span>
-                <span class="ml-2 px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-medium border border-emerald-500/20" vid="91">Saved</span>
-            </div>
-
-            
-            <div class="flex items-center gap-4" vid="92">
-                <div class="flex items-center bg-zinc-900 rounded-lg p-0.5 border border-border" vid="93">
-                    <button class="px-3 py-1 text-xs font-medium text-zinc-200 bg-zinc-800 rounded-md shadow-sm" vid="94">Write</button>
-                    <button class="px-3 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors" vid="95">Split</button>
-                    <button class="px-3 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors" vid="96">Preview</button>
-                </div>
-                
-                <div class="h-4 w-[1px] bg-border" vid="97"></div>
-
-                <div class="flex -space-x-2" vid="98">
-                    <div class="w-7 h-7 rounded-full border-2 border-obsidian bg-zinc-700 flex items-center justify-center text-[10px] text-white" vid="99">JD</div>
-                    <div class="w-7 h-7 rounded-full border-2 border-obsidian bg-indigo-600 flex items-center justify-center text-[10px] text-white" vid="100">You</div>
-                </div>
-
-                <button class="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 text-zinc-900 text-xs font-semibold rounded hover:bg-white transition-colors" vid="101">
-                    <i class="ri-share-forward-fill" vid="102"></i>
-                    <span vid="103">Share</span>
-                </button>
-            </div>
-        </header>
-
-        
-        <div class="flex-1 overflow-y-auto relative custom-scrollbar" vid="104">
-            <div class="max-w-3xl mx-auto py-16 px-8 min-h-full" vid="105">
-                
-                
-                <div class="mb-12 group" vid="106">
-                    <h1 class="text-4xl font-serif font-medium text-zinc-100 mb-6 leading-tight focus:outline-none" contenteditable="true" vid="107">Designing for the Invisible</h1>
-                    
-                    <div class="flex flex-wrap gap-y-3 gap-x-6 text-xs text-zinc-500 border-b border-border pb-6 mb-8 font-mono" vid="108">
-                        <div class="flex items-center gap-2" vid="109">
-                            <i class="ri-calendar-line" vid="110"></i>
-                            <span vid="111">Oct 24, 2023</span>
-                        </div>
-                        <div class="flex items-center gap-2" vid="112">
-                            <i class="ri-user-3-line" vid="113"></i>
-                            <span vid="114">Alex Designer</span>
-                        </div>
-                        <div class="flex items-center gap-2" vid="115">
-                            <i class="ri-price-tag-3-line" vid="116"></i>
-                            <span class="text-zinc-400 bg-zinc-800/50 px-1.5 py-0.5 rounded border border-white/5" vid="117">Design Theory</span>
-                            <span class="text-zinc-400 bg-zinc-800/50 px-1.5 py-0.5 rounded border border-white/5" vid="118">+ Add tag</span>
-                        </div>
-                    </div>
-                </div>
-
-                
-                <article class="prose prose-invert prose-lg max-w-none font-serif text-zinc-300 leading-relaxed selection:bg-indigo-500/30 selection:text-indigo-100" vid="119">
-                    <p class="mb-6 first-letter:text-5xl first-letter:font-bold first-letter:text-zinc-100 first-letter:mr-1 first-letter:float-left" vid="120">
-                        The best interfaces are the ones we forget we are using. In an era dominated by screens, the role of a designer is shifting from creating beautiful pixels to orchestrating seamless behaviors. We are no longer just painting on a canvas; we are choreographing a dance between human intent and machine response.
-                    </p>
-
-                    <p class="mb-6" vid="121">
-                        Consider the concept of <span class="text-indigo-400 border-b border-indigo-500/30 cursor-pointer hover:bg-indigo-500/10 transition-colors" vid="122">cognitive friction</span>. Every time a user has to stop and think "What does this button do?" or "Where did that menu go?", we have failed. The "invisible" interface is one that anticipates needs before they are articulated.
-                    </p>
-
-                    
-                    <blockquote class="relative my-10 pl-6 border-l-2 border-indigo-500/50 italic text-zinc-400 text-xl" vid="123">
-                        "Perfection is achieved, not when there is nothing more to add, but when there is nothing left to take away."
-                        <footer class="mt-2 text-sm font-sans not-italic text-zinc-600" vid="124">— Antoine de Saint-Exupéry</footer>
-                    </blockquote>
-
-                    <h2 class="text-2xl font-medium text-zinc-100 mt-12 mb-4 font-sans tracking-tight" vid="125">The Linear Effect</h2>
-                    <p class="mb-6" vid="126">
-                        Tools like Linear and Raycast have popularized a new aesthetic: <strong class="text-zinc-200" vid="127">The high-density, keyboard-centric workflow</strong>. It's not just about dark mode; it's about speed. It's about respecting the user's flow state above all else.
-                    </p>
-
-                    
-                    <div class="relative my-8 group" vid="128">
-                        <div class="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity" vid="129">
-                            <div class="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center cursor-pointer hover:bg-indigo-600 hover:text-white transition-colors text-zinc-500" vid="130">
-                                <i class="ri-drag-move-2-fill" vid="131"></i>
-                            </div>
-                        </div>
-                        
-                        <div class="p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/20 relative" vid="132">
-                            <div class="absolute -right-2 -top-2 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg z-10" vid="133">
-                                <i class="ri-sparkling-fill text-xs" vid="134"></i>
-                            </div>
-                            <p class="text-sm font-sans text-indigo-200/90 mb-2 font-medium" vid="135">AI Suggestion</p>
-                            <p class="text-zinc-400 text-base mb-3" vid="136">
-                                This paragraph feels a bit disjointed from the previous section. Consider bridging the gap by discussing "Speed as a feature".
-                            </p>
-                            <div class="flex gap-2" vid="137">
-                                <button class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded transition-colors shadow-lg shadow-indigo-500/20" vid="138">Apply Fix</button>
-                                <button class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded transition-colors border border-white/5" vid="139">Dismiss</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <p class="mb-6" vid="140">
-                        When we remove the chrome—the heavy borders, the drop shadows, the skeuomorphic textures—what remains is pure function. But function need not be cold.
-                    </p>
-                    
-                    
-                    <div class="my-8 rounded-lg overflow-hidden border border-border bg-[#0C0C0E] font-mono text-sm shadow-xl" vid="141">
-                        <div class="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-border" vid="142">
-                            <span class="text-xs text-zinc-500" vid="143">interface.ts</span>
-                            <button class="text-zinc-500 hover:text-white transition-colors" vid="144"><i class="ri-file-copy-line" vid="145"></i></button>
-                        </div>
-                        <div class="p-4 overflow-x-auto text-zinc-300" vid="146">
-                            <div class="flex" vid="147"><span class="text-zinc-600 select-none mr-4" vid="148">1</span><span class="text-purple-400" vid="149">interface</span> <span class="text-yellow-200" vid="150">DesignSystem</span> {</div>
-                            <div class="flex" vid="151"><span class="text-zinc-600 select-none mr-4" vid="152">2</span>  <span class="text-blue-400" vid="153">theme</span>: <span class="text-green-400" vid="154">'dark'</span> | <span class="text-green-400" vid="155">'light'</span>;</div>
-                            <div class="flex" vid="156"><span class="text-zinc-600 select-none mr-4" vid="157">3</span>  <span class="text-blue-400" vid="158">typography</span>: {</div>
-                            <div class="flex" vid="159"><span class="text-zinc-600 select-none mr-4" vid="160">4</span>    <span class="text-blue-400" vid="161">serif</span>: <span class="text-green-400" vid="162">boolean</span>;</div>
-                            <div class="flex" vid="163"><span class="text-zinc-600 select-none mr-4" vid="164">5</span>    <span class="text-blue-400" vid="165">scale</span>: <span class="text-orange-400" vid="166">number</span>;</div>
-                            <div class="flex" vid="167"><span class="text-zinc-600 select-none mr-4" vid="168">6</span>  };</div>
-                            <div class="flex" vid="169"><span class="text-zinc-600 select-none mr-4" vid="170">7</span>}</div>
-                        </div>
-                    </div>
-
-                    <p vid="171">
-                        We are entering the glass age of UI. Transparency is the new white space.
-                    </p>
-                    <p class="text-zinc-600 italic" vid="172">
-                        [Start typing to continue...]
-                    </p>
-                </article>
-            </div>
-            
-            
-            <div class="fixed bottom-8 left-[260px] right-[320px] h-24 bg-gradient-to-t from-obsidian to-transparent pointer-events-none z-10" vid="173"></div>
+    <main
+      class="flex-1 flex flex-col min-w-0 bg-obsidian relative z-0"
+      vid="83"
+    >
+      <header
+        class="h-14 flex items-center justify-between px-6 border-b border-border bg-obsidian/80 backdrop-blur-xl z-20"
+        vid="84"
+      >
+        <div class="flex items-center gap-2 text-xs" vid="85">
+          <span
+            class="text-zinc-500 hover:text-zinc-300 cursor-pointer transition-colors"
+            vid="86"
+            >Projects</span
+          >
+          <span class="text-zinc-700" vid="87">/</span>
+          <span
+            class="text-zinc-500 hover:text-zinc-300 cursor-pointer transition-colors"
+            vid="88"
+            >The Glass Age</span
+          >
+          <span class="text-zinc-700" vid="89">/</span>
+          <span class="text-zinc-200 font-medium" vid="90"
+            >Chapter 1: Transparency</span
+          >
+          <span
+            class="ml-2 px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-medium border border-emerald-500/20"
+            vid="91"
+            >Saved</span
+          >
         </div>
 
-        
-        <footer class="h-8 border-t border-border bg-charcoal/50 backdrop-blur-md flex items-center justify-between px-4 text-[10px] font-mono text-zinc-500 z-20 shrink-0 select-none" vid="174">
-            <div class="flex items-center gap-4" vid="175">
-                <span class="flex items-center gap-1.5 hover:text-zinc-300 cursor-pointer" vid="176">
-                    <i class="ri-git-branch-line" vid="177"></i>
-                    <span vid="178">main</span>
-                </span>
-                <span class="w-[1px] h-3 bg-zinc-800" vid="179"></span>
-                <span class="hover:text-zinc-300 cursor-pointer" vid="180">452 words</span>
-                <span class="hover:text-zinc-300 cursor-pointer" vid="181">2 min read</span>
-            </div>
-            <div class="flex items-center gap-4" vid="182">
-                <span class="flex items-center gap-1.5 text-emerald-500/80" vid="183">
-                    <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" vid="184"></div>
-                    <span vid="185">Online</span>
-                </span>
-                <span class="hover:text-zinc-300 cursor-pointer" vid="186">UTF-8</span>
-            </div>
-        </footer>
+        <div class="flex items-center gap-4" vid="92">
+          <div
+            class="flex items-center bg-zinc-900 rounded-lg p-0.5 border border-border"
+            vid="93"
+          >
+            <button
+              class="px-3 py-1 text-xs font-medium text-zinc-200 bg-zinc-800 rounded-md shadow-sm"
+              vid="94"
+            >
+              Write
+            </button>
+            <button
+              class="px-3 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
+              vid="95"
+            >
+              Split
+            </button>
+            <button
+              class="px-3 py-1 text-xs font-medium text-zinc-500 hover:text-zinc-300 transition-colors"
+              vid="96"
+            >
+              Preview
+            </button>
+          </div>
 
+          <div class="h-4 w-[1px] bg-border" vid="97"></div>
+
+          <div class="flex -space-x-2" vid="98">
+            <div
+              class="w-7 h-7 rounded-full border-2 border-obsidian bg-zinc-700 flex items-center justify-center text-[10px] text-white"
+              vid="99"
+            >
+              JD
+            </div>
+            <div
+              class="w-7 h-7 rounded-full border-2 border-obsidian bg-indigo-600 flex items-center justify-center text-[10px] text-white"
+              vid="100"
+            >
+              You
+            </div>
+          </div>
+
+          <button
+            class="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 text-zinc-900 text-xs font-semibold rounded hover:bg-white transition-colors"
+            vid="101"
+          >
+            <i class="ri-share-forward-fill" vid="102"></i>
+            <span vid="103">Share</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="flex-1 overflow-y-auto relative custom-scrollbar" vid="104">
+        <div class="max-w-3xl mx-auto py-16 px-8 min-h-full" vid="105">
+          <div class="mb-12 group" vid="106">
+            <h1
+              class="text-4xl font-serif font-medium text-zinc-100 mb-6 leading-tight focus:outline-none"
+              contenteditable="true"
+              vid="107"
+            >
+              Designing for the Invisible
+            </h1>
+
+            <div
+              class="flex flex-wrap gap-y-3 gap-x-6 text-xs text-zinc-500 border-b border-border pb-6 mb-8 font-mono"
+              vid="108"
+            >
+              <div class="flex items-center gap-2" vid="109">
+                <i class="ri-calendar-line" vid="110"></i>
+                <span vid="111">Oct 24, 2023</span>
+              </div>
+              <div class="flex items-center gap-2" vid="112">
+                <i class="ri-user-3-line" vid="113"></i>
+                <span vid="114">Alex Designer</span>
+              </div>
+              <div class="flex items-center gap-2" vid="115">
+                <i class="ri-price-tag-3-line" vid="116"></i>
+                <span
+                  class="text-zinc-400 bg-zinc-800/50 px-1.5 py-0.5 rounded border border-white/5"
+                  vid="117"
+                  >Design Theory</span
+                >
+                <span
+                  class="text-zinc-400 bg-zinc-800/50 px-1.5 py-0.5 rounded border border-white/5"
+                  vid="118"
+                  >+ Add tag</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <article
+            class="prose prose-invert prose-lg max-w-none font-serif text-zinc-300 leading-relaxed selection:bg-indigo-500/30 selection:text-indigo-100"
+            vid="119"
+          >
+            <p
+              class="mb-6 first-letter:text-5xl first-letter:font-bold first-letter:text-zinc-100 first-letter:mr-1 first-letter:float-left"
+              vid="120"
+            >
+              The best interfaces are the ones we forget we are using. In an era
+              dominated by screens, the role of a designer is shifting from
+              creating beautiful pixels to orchestrating seamless behaviors. We
+              are no longer just painting on a canvas; we are choreographing a
+              dance between human intent and machine response.
+            </p>
+
+            <p class="mb-6" vid="121">
+              Consider the concept of
+              <span
+                class="text-indigo-400 border-b border-indigo-500/30 cursor-pointer hover:bg-indigo-500/10 transition-colors"
+                vid="122"
+                >cognitive friction</span
+              >. Every time a user has to stop and think "What does this button
+              do?" or "Where did that menu go?", we have failed. The "invisible"
+              interface is one that anticipates needs before they are
+              articulated.
+            </p>
+
+            <blockquote
+              class="relative my-10 pl-6 border-l-2 border-indigo-500/50 italic text-zinc-400 text-xl"
+              vid="123"
+            >
+              "Perfection is achieved, not when there is nothing more to add,
+              but when there is nothing left to take away."
+              <footer
+                class="mt-2 text-sm font-sans not-italic text-zinc-600"
+                vid="124"
+              >
+                — Antoine de Saint-Exupéry
+              </footer>
+            </blockquote>
+
+            <h2
+              class="text-2xl font-medium text-zinc-100 mt-12 mb-4 font-sans tracking-tight"
+              vid="125"
+            >
+              The Linear Effect
+            </h2>
+            <p class="mb-6" vid="126">
+              Tools like Linear and Raycast have popularized a new aesthetic:
+              <strong class="text-zinc-200" vid="127"
+                >The high-density, keyboard-centric workflow</strong
+              >. It's not just about dark mode; it's about speed. It's about
+              respecting the user's flow state above all else.
+            </p>
+
+            <div class="relative my-8 group" vid="128">
+              <div
+                class="absolute -left-12 top-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                vid="129"
+              >
+                <div
+                  class="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center cursor-pointer hover:bg-indigo-600 hover:text-white transition-colors text-zinc-500"
+                  vid="130"
+                >
+                  <i class="ri-drag-move-2-fill" vid="131"></i>
+                </div>
+              </div>
+
+              <div
+                class="p-4 rounded-lg bg-indigo-500/5 border border-indigo-500/20 relative"
+                vid="132"
+              >
+                <div
+                  class="absolute -right-2 -top-2 w-5 h-5 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-lg z-10"
+                  vid="133"
+                >
+                  <i class="ri-sparkling-fill text-xs" vid="134"></i>
+                </div>
+                <p
+                  class="text-sm font-sans text-indigo-200/90 mb-2 font-medium"
+                  vid="135"
+                >
+                  AI Suggestion
+                </p>
+                <p class="text-zinc-400 text-base mb-3" vid="136">
+                  This paragraph feels a bit disjointed from the previous
+                  section. Consider bridging the gap by discussing "Speed as a
+                  feature".
+                </p>
+                <div class="flex gap-2" vid="137">
+                  <button
+                    class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded transition-colors shadow-lg shadow-indigo-500/20"
+                    vid="138"
+                  >
+                    Apply Fix
+                  </button>
+                  <button
+                    class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium rounded transition-colors border border-white/5"
+                    vid="139"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <p class="mb-6" vid="140">
+              When we remove the chrome—the heavy borders, the drop shadows, the
+              skeuomorphic textures—what remains is pure function. But function
+              need not be cold.
+            </p>
+
+            <div
+              class="my-8 rounded-lg overflow-hidden border border-border bg-[#0C0C0E] font-mono text-sm shadow-xl"
+              vid="141"
+            >
+              <div
+                class="flex items-center justify-between px-4 py-2 bg-white/5 border-b border-border"
+                vid="142"
+              >
+                <span class="text-xs text-zinc-500" vid="143"
+                  >interface.ts</span
+                >
+                <button
+                  class="text-zinc-500 hover:text-white transition-colors"
+                  vid="144"
+                >
+                  <i class="ri-file-copy-line" vid="145"></i>
+                </button>
+              </div>
+              <div class="p-4 overflow-x-auto text-zinc-300" vid="146">
+                <div class="flex" vid="147">
+                  <span class="text-zinc-600 select-none mr-4" vid="148">1</span
+                  ><span class="text-purple-400" vid="149">interface</span>
+                  <span class="text-yellow-200" vid="150">DesignSystem</span> {
+                </div>
+                <div class="flex" vid="151">
+                  <span class="text-zinc-600 select-none mr-4" vid="152"
+                    >2</span
+                  >
+                  <span class="text-blue-400" vid="153">theme</span>:
+                  <span class="text-green-400" vid="154">'dark'</span> |
+                  <span class="text-green-400" vid="155">'light'</span>;
+                </div>
+                <div class="flex" vid="156">
+                  <span class="text-zinc-600 select-none mr-4" vid="157"
+                    >3</span
+                  >
+                  <span class="text-blue-400" vid="158">typography</span>: {
+                </div>
+                <div class="flex" vid="159">
+                  <span class="text-zinc-600 select-none mr-4" vid="160"
+                    >4</span
+                  >
+                  <span class="text-blue-400" vid="161">serif</span>:
+                  <span class="text-green-400" vid="162">boolean</span>;
+                </div>
+                <div class="flex" vid="163">
+                  <span class="text-zinc-600 select-none mr-4" vid="164"
+                    >5</span
+                  >
+                  <span class="text-blue-400" vid="165">scale</span>:
+                  <span class="text-orange-400" vid="166">number</span>;
+                </div>
+                <div class="flex" vid="167">
+                  <span class="text-zinc-600 select-none mr-4" vid="168"
+                    >6</span
+                  >
+                  };
+                </div>
+                <div class="flex" vid="169">
+                  <span class="text-zinc-600 select-none mr-4" vid="170">7</span
+                  >}
+                </div>
+              </div>
+            </div>
+
+            <p vid="171">
+              We are entering the glass age of UI. Transparency is the new white
+              space.
+            </p>
+            <p class="text-zinc-600 italic" vid="172">
+              [Start typing to continue...]
+            </p>
+          </article>
+        </div>
+
+        <div
+          class="fixed bottom-8 left-[260px] right-[320px] h-24 bg-gradient-to-t from-obsidian to-transparent pointer-events-none z-10"
+          vid="173"
+        ></div>
+      </div>
+
+      <footer
+        class="h-8 border-t border-border bg-charcoal/50 backdrop-blur-md flex items-center justify-between px-4 text-[10px] font-mono text-zinc-500 z-20 shrink-0 select-none"
+        vid="174"
+      >
+        <div class="flex items-center gap-4" vid="175">
+          <span
+            class="flex items-center gap-1.5 hover:text-zinc-300 cursor-pointer"
+            vid="176"
+          >
+            <i class="ri-git-branch-line" vid="177"></i>
+            <span vid="178">main</span>
+          </span>
+          <span class="w-[1px] h-3 bg-zinc-800" vid="179"></span>
+          <span class="hover:text-zinc-300 cursor-pointer" vid="180"
+            >452 words</span
+          >
+          <span class="hover:text-zinc-300 cursor-pointer" vid="181"
+            >2 min read</span
+          >
+        </div>
+        <div class="flex items-center gap-4" vid="182">
+          <span class="flex items-center gap-1.5 text-emerald-500/80" vid="183">
+            <div
+              class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"
+              vid="184"
+            ></div>
+            <span vid="185">Online</span>
+          </span>
+          <span class="hover:text-zinc-300 cursor-pointer" vid="186"
+            >UTF-8</span
+          >
+        </div>
+      </footer>
     </main>
 
-    
-    <aside class="w-80 border-l border-border bg-charcoal/30 backdrop-blur-xl flex flex-col z-10" vid="187">
-        
-        
-        <div class="h-14 flex items-center justify-around px-2 border-b border-border" vid="188">
-            <button class="flex-1 pb-3 pt-4 text-xs font-medium text-indigo-400 border-b-2 border-indigo-500 flex justify-center gap-2" vid="189">
-                <i class="ri-sparkling-fill" vid="190"></i>
-                Assistant
-            </button>
-            <button class="flex-1 pb-3 pt-4 text-xs font-medium text-zinc-500 hover:text-zinc-300 flex justify-center gap-2 transition-colors" vid="191">
-                <i class="ri-list-check" vid="192"></i>
-                Outline
-            </button>
-            <button class="flex-1 pb-3 pt-4 text-xs font-medium text-zinc-500 hover:text-zinc-300 flex justify-center gap-2 transition-colors" vid="193">
-                <i class="ri-book-read-line" vid="194"></i>
-                Research
-            </button>
+    <aside
+      class="w-80 border-l border-border bg-charcoal/30 backdrop-blur-xl flex flex-col z-10"
+      vid="187"
+    >
+      <div
+        class="h-14 flex items-center justify-around px-2 border-b border-border"
+        vid="188"
+      >
+        <button
+          class="flex-1 pb-3 pt-4 text-xs font-medium text-indigo-400 border-b-2 border-indigo-500 flex justify-center gap-2"
+          vid="189"
+        >
+          <i class="ri-sparkling-fill" vid="190"></i>
+          Assistant
+        </button>
+        <button
+          class="flex-1 pb-3 pt-4 text-xs font-medium text-zinc-500 hover:text-zinc-300 flex justify-center gap-2 transition-colors"
+          vid="191"
+        >
+          <i class="ri-list-check" vid="192"></i>
+          Outline
+        </button>
+        <button
+          class="flex-1 pb-3 pt-4 text-xs font-medium text-zinc-500 hover:text-zinc-300 flex justify-center gap-2 transition-colors"
+          vid="193"
+        >
+          <i class="ri-book-read-line" vid="194"></i>
+          Research
+        </button>
+      </div>
+
+      <div class="flex-1 flex flex-col overflow-hidden relative" vid="195">
+        <div
+          class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar"
+          vid="196"
+        >
+          <div class="flex gap-3" vid="197">
+            <div
+              class="w-6 h-6 rounded bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-500/30"
+              vid="198"
+            >
+              <i class="ri-openai-fill text-indigo-400 text-xs" vid="199"></i>
+            </div>
+            <div class="flex flex-col gap-1.5" vid="200">
+              <div class="text-xs font-semibold text-zinc-300" vid="201">
+                Editor AI
+              </div>
+              <div
+                class="text-sm text-zinc-400 leading-relaxed bg-white/5 p-3 rounded-lg rounded-tl-none border border-white/5"
+                vid="202"
+              >
+                I've analyzed the current draft. The tone is strong, but the
+                transition to the "Linear Effect" section feels a bit abrupt.
+                <div class="mt-3 flex flex-wrap gap-2" vid="203">
+                  <button
+                    class="px-2 py-1 bg-black/40 hover:bg-black/60 border border-white/10 rounded text-[10px] text-zinc-300 transition-colors"
+                    vid="204"
+                  >
+                    Smooth transition
+                  </button>
+                  <button
+                    class="px-2 py-1 bg-black/40 hover:bg-black/60 border border-white/10 rounded text-[10px] text-zinc-300 transition-colors"
+                    vid="205"
+                  >
+                    Expand intro
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-3 flex-row-reverse" vid="206">
+            <div
+              class="w-6 h-6 rounded bg-zinc-700 flex items-center justify-center shrink-0 mt-0.5"
+              vid="207"
+            >
+              <span class="text-[10px] text-white font-bold" vid="208">JD</span>
+            </div>
+            <div class="flex flex-col gap-1.5 items-end" vid="209">
+              <div
+                class="text-sm text-zinc-200 leading-relaxed bg-indigo-600 p-3 rounded-lg rounded-tr-none shadow-md"
+                vid="210"
+              >
+                Generate a better transition paragraph focusing on speed.
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-3" vid="211">
+            <div
+              class="w-6 h-6 rounded bg-indigo-500/20 flex items-center justify-center shrink-0 border border-indigo-500/30"
+              vid="212"
+            >
+              <i class="ri-openai-fill text-indigo-400 text-xs" vid="213"></i>
+            </div>
+            <div class="flex items-center gap-1 h-6" vid="214">
+              <div
+                class="w-1 h-1 bg-zinc-500 rounded-full animate-bounce"
+                vid="215"
+              ></div>
+              <div
+                class="w-1 h-1 bg-zinc-500 rounded-full animate-bounce delay-75"
+                vid="216"
+              ></div>
+              <div
+                class="w-1 h-1 bg-zinc-500 rounded-full animate-bounce delay-150"
+                vid="217"
+              ></div>
+            </div>
+          </div>
         </div>
 
-        
-        <div class="flex-1 flex flex-col overflow-hidden relative" vid="195">
-            
-            
-            <div class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar" vid="196">
-                
-                
-                <div class="flex gap-3" vid="197">
-                    <div class="w-6 h-6 rounded bg-indigo-500/20 flex items-center justify-center shrink-0 mt-0.5 border border-indigo-500/30" vid="198">
-                        <i class="ri-openai-fill text-indigo-400 text-xs" vid="199"></i>
-                    </div>
-                    <div class="flex flex-col gap-1.5" vid="200">
-                        <div class="text-xs font-semibold text-zinc-300" vid="201">Editor AI</div>
-                        <div class="text-sm text-zinc-400 leading-relaxed bg-white/5 p-3 rounded-lg rounded-tl-none border border-white/5" vid="202">
-                            I've analyzed the current draft. The tone is strong, but the transition to the "Linear Effect" section feels a bit abrupt.
-                            <div class="mt-3 flex flex-wrap gap-2" vid="203">
-                                <button class="px-2 py-1 bg-black/40 hover:bg-black/60 border border-white/10 rounded text-[10px] text-zinc-300 transition-colors" vid="204">Smooth transition</button>
-                                <button class="px-2 py-1 bg-black/40 hover:bg-black/60 border border-white/10 rounded text-[10px] text-zinc-300 transition-colors" vid="205">Expand intro</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <div class="p-4 bg-charcoal border-t border-border" vid="218">
+          <div class="relative group" vid="219">
+            <div
+              class="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-500"
+              vid="220"
+            ></div>
+            <div
+              class="relative bg-obsidian rounded-lg border border-border p-2 flex flex-col gap-2"
+              vid="221"
+            >
+              <textarea
+                rows="2"
+                placeholder="Ask AI to edit or generate..."
+                class="w-full bg-transparent text-sm text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none font-sans"
+                vid="222"
+              ></textarea>
 
-                
-                <div class="flex gap-3 flex-row-reverse" vid="206">
-                    <div class="w-6 h-6 rounded bg-zinc-700 flex items-center justify-center shrink-0 mt-0.5" vid="207">
-                        <span class="text-[10px] text-white font-bold" vid="208">JD</span>
-                    </div>
-                    <div class="flex flex-col gap-1.5 items-end" vid="209">
-                        <div class="text-sm text-zinc-200 leading-relaxed bg-indigo-600 p-3 rounded-lg rounded-tr-none shadow-md" vid="210">
-                            Generate a better transition paragraph focusing on speed.
-                        </div>
-                    </div>
+              <div class="flex items-center justify-between" vid="223">
+                <div class="flex items-center gap-1" vid="224">
+                  <button
+                    class="p-1 text-zinc-500 hover:text-zinc-300 rounded hover:bg-white/5 transition-colors"
+                    vid="225"
+                  >
+                    <i class="ri-at-line" vid="226"></i>
+                  </button>
+                  <button
+                    class="p-1 text-zinc-500 hover:text-zinc-300 rounded hover:bg-white/5 transition-colors"
+                    vid="227"
+                  >
+                    <i class="ri-image-line" vid="228"></i>
+                  </button>
                 </div>
-
-                
-                <div class="flex gap-3" vid="211">
-                    <div class="w-6 h-6 rounded bg-indigo-500/20 flex items-center justify-center shrink-0 border border-indigo-500/30" vid="212">
-                        <i class="ri-openai-fill text-indigo-400 text-xs" vid="213"></i>
-                    </div>
-                    <div class="flex items-center gap-1 h-6" vid="214">
-                        <div class="w-1 h-1 bg-zinc-500 rounded-full animate-bounce" vid="215"></div>
-                        <div class="w-1 h-1 bg-zinc-500 rounded-full animate-bounce delay-75" vid="216"></div>
-                        <div class="w-1 h-1 bg-zinc-500 rounded-full animate-bounce delay-150" vid="217"></div>
-                    </div>
-                </div>
+                <button
+                  class="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md transition-colors"
+                  vid="229"
+                >
+                  <i class="ri-arrow-up-line" vid="230"></i>
+                </button>
+              </div>
             </div>
-
-            
-            <div class="p-4 bg-charcoal border-t border-border" vid="218">
-                <div class="relative group" vid="219">
-                    <div class="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-500" vid="220"></div>
-                    <div class="relative bg-obsidian rounded-lg border border-border p-2 flex flex-col gap-2" vid="221">
-                        <textarea rows="2" placeholder="Ask AI to edit or generate..." class="w-full bg-transparent text-sm text-zinc-200 placeholder-zinc-600 resize-none focus:outline-none font-sans" vid="222"></textarea>
-                        
-                        <div class="flex items-center justify-between" vid="223">
-                            <div class="flex items-center gap-1" vid="224">
-                                <button class="p-1 text-zinc-500 hover:text-zinc-300 rounded hover:bg-white/5 transition-colors" vid="225"><i class="ri-at-line" vid="226"></i></button>
-                                <button class="p-1 text-zinc-500 hover:text-zinc-300 rounded hover:bg-white/5 transition-colors" vid="227"><i class="ri-image-line" vid="228"></i></button>
-                            </div>
-                            <button class="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md transition-colors" vid="229">
-                                <i class="ri-arrow-up-line" vid="230"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div class="text-[10px] text-center text-zinc-600 mt-2 font-mono" vid="231">Powered by GPT-4</div>
-            </div>
+          </div>
+          <div
+            class="text-[10px] text-center text-zinc-600 mt-2 font-mono"
+            vid="231"
+          >
+            Powered by GPT-4
+          </div>
         </div>
+      </div>
     </aside>
 
-    
-    <div class="absolute bottom-12 left-1/2 -translate-x-1/2 z-50 pointer-events-none" vid="232">
-        <div class="bg-zinc-900/80 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full text-xs text-zinc-500 shadow-xl flex items-center gap-2" vid="233">
-            <span vid="234">Actions</span>
-            <kbd class="font-sans bg-white/10 px-1.5 py-0.5 rounded text-zinc-300 min-w-[20px] text-center" vid="235">⌘</kbd>
-            <kbd class="font-sans bg-white/10 px-1.5 py-0.5 rounded text-zinc-300 min-w-[20px] text-center" vid="236">K</kbd>
-        </div>
+    <div
+      class="absolute bottom-12 left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+      vid="232"
+    >
+      <div
+        class="bg-zinc-900/80 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full text-xs text-zinc-500 shadow-xl flex items-center gap-2"
+        vid="233"
+      >
+        <span vid="234">Actions</span>
+        <kbd
+          class="font-sans bg-white/10 px-1.5 py-0.5 rounded text-zinc-300 min-w-[20px] text-center"
+          vid="235"
+          >⌘</kbd
+        >
+        <kbd
+          class="font-sans bg-white/10 px-1.5 py-0.5 rounded text-zinc-300 min-w-[20px] text-center"
+          vid="236"
+          >K</kbd
+        >
+      </div>
     </div>
-
-
-</body></html>
+  </body>
+</html>

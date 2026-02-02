@@ -503,11 +503,7 @@ describe("Select", () => {
   describe("表单集成", () => {
     it("应该支持 name 属性", () => {
       render(
-        <Select
-          placeholder="Select..."
-          options={simpleOptions}
-          name="color"
-        />,
+        <Select placeholder="Select..." options={simpleOptions} name="color" />,
       );
 
       // Radix Select 内部会处理 name

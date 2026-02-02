@@ -206,12 +206,9 @@ export function useToast() {
     title: "",
   });
 
-  const showToast = React.useCallback(
-    (props: Omit<ToastState, "open">) => {
-      setToast({ ...props, open: true });
-    },
-    [],
-  );
+  const showToast = React.useCallback((props: Omit<ToastState, "open">) => {
+    setToast({ ...props, open: true });
+  }, []);
 
   const hideToast = React.useCallback(() => {
     setToast((prev) => ({ ...prev, open: false }));

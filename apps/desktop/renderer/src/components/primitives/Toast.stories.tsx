@@ -114,7 +114,9 @@ export const WithAction: Story = {
 const variants: ToastVariant[] = ["default", "success", "error", "warning"];
 
 function AllVariantsDemo() {
-  const [openStates, setOpenStates] = React.useState<Record<ToastVariant, boolean>>({
+  const [openStates, setOpenStates] = React.useState<
+    Record<ToastVariant, boolean>
+  >({
     default: true,
     success: true,
     error: true,
@@ -191,10 +193,7 @@ function ToastDemo() {
       >
         Show Error
       </Button>
-      <Toast
-        {...toast}
-        onOpenChange={setOpen}
-      />
+      <Toast {...toast} onOpenChange={setOpen} />
     </div>
   );
 }

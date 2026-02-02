@@ -7,11 +7,10 @@ import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
  * A checkbox component built on Radix UI Checkbox primitive.
  * Supports checked, unchecked, and indeterminate states.
  */
-export interface CheckboxProps
-  extends Omit<
-    React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>,
-    "children" | "asChild"
-  > {
+export interface CheckboxProps extends Omit<
+  React.ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root>,
+  "children" | "asChild"
+> {
   /** Optional label text */
   label?: string;
 }

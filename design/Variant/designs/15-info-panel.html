@@ -1,439 +1,628 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow Info Panel</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="7">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" vid="8">
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin=""
+      vid="7"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap"
+      rel="stylesheet"
+      vid="8"
+    />
     <style vid="9">
-        :root {
-            --bg-app: #0f0f0f;
-            --bg-card: #080808;
-            --border: #222222;
-            --text-main: #ffffff;
-            --text-sub: #888888;
-            --text-label: #666666;
-            --accent: #5D3FD3;
-            
-            --font-main: 'Inter', sans-serif;
-            --panel-width: 280px;
-        }
+      :root {
+        --bg-app: #0f0f0f;
+        --bg-card: #080808;
+        --border: #222222;
+        --text-main: #ffffff;
+        --text-sub: #888888;
+        --text-label: #666666;
+        --accent: #5d3fd3;
 
-        * {
-            box-sizing: border-box;
-            scrollbar-width: thin;
-            scrollbar-color: #333 transparent;
-        }
+        --font-main: "Inter", sans-serif;
+        --panel-width: 280px;
+      }
 
-        
-        ::-webkit-scrollbar {
-            width: 4px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 2px;
-        }
+      * {
+        box-sizing: border-box;
+        scrollbar-width: thin;
+        scrollbar-color: #333 transparent;
+      }
 
-        body {
-            background-color: #000;
-            font-family: var(--font-main);
-            color: var(--text-main);
-            display: flex;
-            justify-content: flex-end; 
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
-        }
+      ::-webkit-scrollbar {
+        width: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 2px;
+      }
 
-        .panel-container {
-            width: var(--panel-width);
-            height: 100%;
-            background-color: var(--bg-app);
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-        }
+      body {
+        background-color: #000;
+        font-family: var(--font-main);
+        color: var(--text-main);
+        display: flex;
+        justify-content: flex-end;
+        height: 100vh;
+        margin: 0;
+        overflow: hidden;
+      }
 
-        
-        .panel-header {
-            height: 48px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            flex-shrink: 0;
-        }
+      .panel-container {
+        width: var(--panel-width);
+        height: 100%;
+        background-color: var(--bg-app);
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+      }
 
-        .tabs {
-            display: flex;
-            gap: 20px;
-            height: 100%;
-        }
+      .panel-header {
+        height: 48px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        flex-shrink: 0;
+      }
 
-        .tab-btn {
-            height: 100%;
-            background: none;
-            border: none;
-            color: var(--text-sub);
-            font-size: 13px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.02em;
-            cursor: pointer;
-            position: relative;
-            display: flex;
-            align-items: center;
-            transition: color 0.2s;
-        }
+      .tabs {
+        display: flex;
+        gap: 20px;
+        height: 100%;
+      }
 
-        .tab-btn:hover {
-            color: var(--text-main);
-        }
+      .tab-btn {
+        height: 100%;
+        background: none;
+        border: none;
+        color: var(--text-sub);
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        align-items: center;
+        transition: color 0.2s;
+      }
 
-        .tab-btn.active {
-            color: var(--text-main);
-        }
+      .tab-btn:hover {
+        color: var(--text-main);
+      }
 
-        .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background-color: var(--accent);
-        }
+      .tab-btn.active {
+        color: var(--text-main);
+      }
 
-        .collapse-btn {
-            background: none;
-            border: none;
-            color: var(--text-sub);
-            cursor: pointer;
-            padding: 4px;
-            border-radius: 4px;
-        }
-        .collapse-btn:hover {
-            color: var(--text-main);
-            background: rgba(255,255,255,0.05);
-        }
+      .tab-btn.active::after {
+        content: "";
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: var(--accent);
+      }
 
-        
-        .panel-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 24px 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 32px;
-        }
+      .collapse-btn {
+        background: none;
+        border: none;
+        color: var(--text-sub);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+      }
+      .collapse-btn:hover {
+        color: var(--text-main);
+        background: rgba(255, 255, 255, 0.05);
+      }
 
-        
-        .section-title {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-label);
-            margin-bottom: 12px;
-            font-weight: 600;
-        }
+      .panel-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+      }
 
-        .stat-value {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--text-main);
-            line-height: 1.2;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: var(--text-sub);
-            margin-top: 4px;
-        }
+      .section-title {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-label);
+        margin-bottom: 12px;
+        font-weight: 600;
+      }
 
-        
-        .tag-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 12px;
-        }
-        
-        .tag {
-            font-size: 10px;
-            text-transform: uppercase;
-            color: var(--text-sub);
-            border: 1px solid #333;
-            padding: 4px 8px;
-            border-radius: 100px;
-            letter-spacing: 0.02em;
-            transition: all 0.2s;
-            cursor: default;
-        }
-        .tag:hover {
-            border-color: var(--text-label);
-            color: var(--text-main);
-        }
+      .stat-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--text-main);
+        line-height: 1.2;
+      }
 
-        
-        .info-card {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 12px;
-            transition: border-color 0.2s;
-            cursor: pointer;
-        }
-        
-        .info-card:hover {
-            border-color: #333;
-        }
+      .stat-label {
+        font-size: 12px;
+        color: var(--text-sub);
+        margin-top: 4px;
+      }
 
-        .history-item {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            margin-bottom: 8px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border);
-        }
-        .history-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
+      .tag-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 12px;
+      }
 
-        .character-row {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px;
-            border-radius: 6px;
-            transition: background 0.2s;
-            cursor: pointer;
-        }
-        .character-row:hover {
-            background: var(--bg-card);
-        }
+      .tag {
+        font-size: 10px;
+        text-transform: uppercase;
+        color: var(--text-sub);
+        border: 1px solid #333;
+        padding: 4px 8px;
+        border-radius: 100px;
+        letter-spacing: 0.02em;
+        transition: all 0.2s;
+        cursor: default;
+      }
+      .tag:hover {
+        border-color: var(--text-label);
+        color: var(--text-main);
+      }
 
-        .avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background-color: #333;
-            object-fit: cover;
-        }
+      .info-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 12px;
+        transition: border-color 0.2s;
+        cursor: pointer;
+      }
 
-        .view-all {
-            display: block;
-            margin-top: 12px;
-            font-size: 12px;
-            color: var(--text-sub);
-            text-decoration: none;
-            transition: color 0.2s;
-        }
-        .view-all:hover {
-            color: var(--accent);
-        }
+      .info-card:hover {
+        border-color: #333;
+      }
 
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px 12px;
-            margin-bottom: 20px;
-        }
+      .history-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .history-item:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
 
-        .annotation-item {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: border-color 0.2s;
-        }
-        .annotation-item:hover {
-            border-color: #444;
-        }
-        .annotation-meta {
-            font-size: 11px;
-            color: var(--text-label);
-            margin-bottom: 4px;
-            display: flex;
-            justify-content: space-between;
-        }
-        .annotation-text {
-            font-size: 13px;
-            color: var(--text-sub);
-            line-height: 1.4;
-        }
+      .character-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px;
+        border-radius: 6px;
+        transition: background 0.2s;
+        cursor: pointer;
+      }
+      .character-row:hover {
+        background: var(--bg-card);
+      }
+
+      .avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #333;
+        object-fit: cover;
+      }
+
+      .view-all {
+        display: block;
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--text-sub);
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      .view-all:hover {
+        color: var(--accent);
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px 12px;
+        margin-bottom: 20px;
+      }
+
+      .annotation-item {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: border-color 0.2s;
+      }
+      .annotation-item:hover {
+        border-color: #444;
+      }
+      .annotation-meta {
+        font-size: 11px;
+        color: var(--text-label);
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .annotation-text {
+        font-size: 13px;
+        color: var(--text-sub);
+        line-height: 1.4;
+      }
     </style>
-</head>
-<body vid="10">
-
+  </head>
+  <body vid="10">
     <div class="panel-container" vid="11">
-        
-        
-        <div class="panel-header" vid="12">
-            <div class="tabs" vid="13">
-                <button class="tab-btn" vid="14">Assistant</button>
-                <button class="tab-btn active" vid="15">Info</button>
+      <div class="panel-header" vid="12">
+        <div class="tabs" vid="13">
+          <button class="tab-btn" vid="14">Assistant</button>
+          <button class="tab-btn active" vid="15">Info</button>
+        </div>
+        <button class="collapse-btn" title="Collapse Panel" vid="16">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            vid="17"
+          >
+            <polyline points="13 17 18 12 13 7" vid="18"></polyline>
+            <polyline points="6 17 11 12 6 7" vid="19"></polyline>
+          </svg>
+        </button>
+      </div>
+
+      <div class="panel-content" vid="20">
+        <div vid="21">
+          <div class="section-title" vid="22">Overview</div>
+          <div class="stats-grid" vid="23">
+            <div vid="24">
+              <div class="stat-value" vid="25">12,345</div>
+              <div class="stat-label" vid="26">Words</div>
             </div>
-            <button class="collapse-btn" title="Collapse Panel" vid="16">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="17">
-                    <polyline points="13 17 18 12 13 7" vid="18"></polyline>
-                    <polyline points="6 17 11 12 6 7" vid="19"></polyline>
-                </svg>
-            </button>
+            <div vid="27">
+              <div class="stat-value" vid="28">~45m</div>
+              <div class="stat-label" vid="29">Read Time</div>
+            </div>
+          </div>
+
+          <div
+            style="
+              display: flex;
+              flex-direction: column;
+              gap: 8px;
+              margin-bottom: 16px;
+            "
+            vid="30"
+          >
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                font-size: 12px;
+              "
+              vid="31"
+            >
+              <span style="color: var(--text-sub)" vid="32">Created</span>
+              <span style="color: var(--text-main)" vid="33">2026-01-15</span>
+            </div>
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                font-size: 12px;
+              "
+              vid="34"
+            >
+              <span style="color: var(--text-sub)" vid="35">Modified</span>
+              <span style="color: var(--text-main)" vid="36">2026-01-30</span>
+            </div>
+          </div>
+
+          <div class="tag-container" vid="37">
+            <div class="tag" vid="38">Fiction</div>
+            <div class="tag" vid="39">Sci-Fi</div>
+            <div class="tag" vid="40">Novel</div>
+            <div class="tag" vid="41">Draft</div>
+          </div>
         </div>
 
-        
-        <div class="panel-content" vid="20">
-            
-            
-            <div vid="21">
-                <div class="section-title" vid="22">Overview</div>
-                <div class="stats-grid" vid="23">
-                    <div vid="24">
-                        <div class="stat-value" vid="25">12,345</div>
-                        <div class="stat-label" vid="26">Words</div>
-                    </div>
-                    <div vid="27">
-                        <div class="stat-value" vid="28">~45m</div>
-                        <div class="stat-label" vid="29">Read Time</div>
-                    </div>
-                </div>
-                
-                <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;" vid="30">
-                    <div style="display: flex; justify-content: space-between; font-size: 12px;" vid="31">
-                        <span style="color: var(--text-sub)" vid="32">Created</span>
-                        <span style="color: var(--text-main)" vid="33">2026-01-15</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 12px;" vid="34">
-                        <span style="color: var(--text-sub)" vid="35">Modified</span>
-                        <span style="color: var(--text-main)" vid="36">2026-01-30</span>
-                    </div>
-                </div>
-
-                <div class="tag-container" vid="37">
-                    <div class="tag" vid="38">Fiction</div>
-                    <div class="tag" vid="39">Sci-Fi</div>
-                    <div class="tag" vid="40">Novel</div>
-                    <div class="tag" vid="41">Draft</div>
-                </div>
+        <div vid="42">
+          <div class="section-title" vid="43">Version History</div>
+          <div class="info-card" vid="44">
+            <div class="history-item" vid="45">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  margin-bottom: 2px;
+                "
+                vid="46"
+              >
+                <span
+                  style="
+                    font-size: 12px;
+                    color: var(--text-main);
+                    font-weight: 500;
+                  "
+                  vid="47"
+                  >Chapter 3 Revisions</span
+                >
+                <span style="font-size: 11px; color: var(--text-label)" vid="48"
+                  >10:42 AM</span
+                >
+              </div>
+              <div style="font-size: 12px; color: var(--text-sub)" vid="49">
+                Adjusted dialogue pacing in scene 4.
+              </div>
             </div>
 
-            
-            <div vid="42">
-                <div class="section-title" vid="43">Version History</div>
-                <div class="info-card" vid="44">
-                    <div class="history-item" vid="45">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;" vid="46">
-                            <span style="font-size: 12px; color: var(--text-main); font-weight: 500;" vid="47">Chapter 3 Revisions</span>
-                            <span style="font-size: 11px; color: var(--text-label);" vid="48">10:42 AM</span>
-                        </div>
-                        <div style="font-size: 12px; color: var(--text-sub);" vid="49">Adjusted dialogue pacing in scene 4.</div>
-                    </div>
-                    
-                    <div class="history-item" vid="50">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;" vid="51">
-                            <span style="font-size: 12px; color: var(--text-main); font-weight: 500;" vid="52">Character Update</span>
-                            <span style="font-size: 11px; color: var(--text-label);" vid="53">Jan 29</span>
-                        </div>
-                        <div style="font-size: 12px; color: var(--text-sub);" vid="54">Renamed "Kael" to "Kaelen".</div>
-                    </div>
-
-                    <div class="history-item" vid="55">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;" vid="56">
-                            <span style="font-size: 12px; color: var(--text-main); font-weight: 500;" vid="57">First Draft Complete</span>
-                            <span style="font-size: 11px; color: var(--text-label);" vid="58">Jan 25</span>
-                        </div>
-                        <div style="font-size: 12px; color: var(--text-sub);" vid="59">Initial completion of core arc.</div>
-                    </div>
-                    
-                    <div class="history-item" vid="60">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;" vid="61">
-                            <span style="font-size: 12px; color: var(--text-main); font-weight: 500;" vid="62">Prologue</span>
-                            <span style="font-size: 11px; color: var(--text-label);" vid="63">Jan 20</span>
-                        </div>
-                        <div style="font-size: 12px; color: var(--text-sub);" vid="64">Added atmospheric intro.</div>
-                    </div>
-                    
-                    <div class="history-item" vid="65">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 2px;" vid="66">
-                            <span style="font-size: 12px; color: var(--text-main); font-weight: 500;" vid="67">Setup</span>
-                            <span style="font-size: 11px; color: var(--text-label);" vid="68">Jan 15</span>
-                        </div>
-                        <div style="font-size: 12px; color: var(--text-sub);" vid="69">Document initialized.</div>
-                    </div>
-                </div>
-                <a href="#" class="view-all" vid="70">View full history →</a>
+            <div class="history-item" vid="50">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  margin-bottom: 2px;
+                "
+                vid="51"
+              >
+                <span
+                  style="
+                    font-size: 12px;
+                    color: var(--text-main);
+                    font-weight: 500;
+                  "
+                  vid="52"
+                  >Character Update</span
+                >
+                <span style="font-size: 11px; color: var(--text-label)" vid="53"
+                  >Jan 29</span
+                >
+              </div>
+              <div style="font-size: 12px; color: var(--text-sub)" vid="54">
+                Renamed "Kael" to "Kaelen".
+              </div>
             </div>
 
-            
-            <div vid="71">
-                <div class="section-title" vid="72">Related Characters</div>
-                <div style="display: flex; flex-direction: column; gap: 4px;" vid="73">
-                    <div class="character-row" vid="74">
-                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&amp;h=64&amp;fit=crop&amp;crop=faces" class="avatar" alt="Character" vid="75">
-                        <span style="font-size: 13px; font-weight: 500;" vid="76">Elara Vance</span>
-                        <span style="font-size: 11px; color: var(--text-label); margin-left: auto;" vid="77">Protagonist</span>
-                    </div>
-                    <div class="character-row" vid="78">
-                        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&amp;h=64&amp;fit=crop&amp;crop=faces" class="avatar" alt="Character" vid="79">
-                        <span style="font-size: 13px; font-weight: 500;" vid="80">Jax Kaelen</span>
-                        <span style="font-size: 11px; color: var(--text-label); margin-left: auto;" vid="81">Antagonist</span>
-                    </div>
-                    <div class="character-row" vid="82">
-                        <img src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&amp;h=64&amp;fit=crop&amp;crop=faces" class="avatar" alt="Character" vid="83">
-                        <span style="font-size: 13px; font-weight: 500;" vid="84">Sarah Chen</span>
-                        <span style="font-size: 11px; color: var(--text-label); margin-left: auto;" vid="85">Support</span>
-                    </div>
-                </div>
+            <div class="history-item" vid="55">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  margin-bottom: 2px;
+                "
+                vid="56"
+              >
+                <span
+                  style="
+                    font-size: 12px;
+                    color: var(--text-main);
+                    font-weight: 500;
+                  "
+                  vid="57"
+                  >First Draft Complete</span
+                >
+                <span style="font-size: 11px; color: var(--text-label)" vid="58"
+                  >Jan 25</span
+                >
+              </div>
+              <div style="font-size: 12px; color: var(--text-sub)" vid="59">
+                Initial completion of core arc.
+              </div>
             </div>
 
-            
-            <div vid="86">
-                <div class="section-title" vid="87">Annotations (3)</div>
-                
-                <div class="annotation-item" vid="88">
-                    <div class="annotation-meta" vid="89">
-                        <span vid="90">Chapter 1 • Para 3</span>
-                        <span style="color: #FF4500;" vid="91">● High</span>
-                    </div>
-                    <div class="annotation-text" vid="92">Conflict needs to be sharper here. The stakes aren't clear enough for the opening scene.</div>
-                </div>
-
-                <div class="annotation-item" vid="93">
-                    <div class="annotation-meta" vid="94">
-                        <span vid="95">Chapter 4 • Para 12</span>
-                    </div>
-                    <div class="annotation-text" vid="96">Verify the timeline consistency with the flashback in Ch 2.</div>
-                </div>
-
-                <div class="annotation-item" vid="97">
-                    <div class="annotation-meta" vid="98">
-                        <span vid="99">Chapter 7 • Para 1</span>
-                    </div>
-                    <div class="annotation-text" vid="100">Beautiful imagery, but maybe too verbose? Consider trimming.</div>
-                </div>
+            <div class="history-item" vid="60">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  margin-bottom: 2px;
+                "
+                vid="61"
+              >
+                <span
+                  style="
+                    font-size: 12px;
+                    color: var(--text-main);
+                    font-weight: 500;
+                  "
+                  vid="62"
+                  >Prologue</span
+                >
+                <span style="font-size: 11px; color: var(--text-label)" vid="63"
+                  >Jan 20</span
+                >
+              </div>
+              <div style="font-size: 12px; color: var(--text-sub)" vid="64">
+                Added atmospheric intro.
+              </div>
             </div>
 
-            
-            <div style="border-top: 1px solid var(--border); padding-top: 20px; margin-top: auto;" vid="101">
-                <div style="font-size: 11px; color: var(--text-label); display: flex; justify-content: space-between;" vid="102">
-                    <span vid="103">ID: doc_8291x</span>
-                    <span vid="104">Sync: Active</span>
-                </div>
+            <div class="history-item" vid="65">
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  margin-bottom: 2px;
+                "
+                vid="66"
+              >
+                <span
+                  style="
+                    font-size: 12px;
+                    color: var(--text-main);
+                    font-weight: 500;
+                  "
+                  vid="67"
+                  >Setup</span
+                >
+                <span style="font-size: 11px; color: var(--text-label)" vid="68"
+                  >Jan 15</span
+                >
+              </div>
+              <div style="font-size: 12px; color: var(--text-sub)" vid="69">
+                Document initialized.
+              </div>
             </div>
-
+          </div>
+          <a href="#" class="view-all" vid="70">View full history →</a>
         </div>
+
+        <div vid="71">
+          <div class="section-title" vid="72">Related Characters</div>
+          <div style="display: flex; flex-direction: column; gap: 4px" vid="73">
+            <div class="character-row" vid="74">
+              <img
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&amp;h=64&amp;fit=crop&amp;crop=faces"
+                class="avatar"
+                alt="Character"
+                vid="75"
+              />
+              <span style="font-size: 13px; font-weight: 500" vid="76"
+                >Elara Vance</span
+              >
+              <span
+                style="
+                  font-size: 11px;
+                  color: var(--text-label);
+                  margin-left: auto;
+                "
+                vid="77"
+                >Protagonist</span
+              >
+            </div>
+            <div class="character-row" vid="78">
+              <img
+                src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=64&amp;h=64&amp;fit=crop&amp;crop=faces"
+                class="avatar"
+                alt="Character"
+                vid="79"
+              />
+              <span style="font-size: 13px; font-weight: 500" vid="80"
+                >Jax Kaelen</span
+              >
+              <span
+                style="
+                  font-size: 11px;
+                  color: var(--text-label);
+                  margin-left: auto;
+                "
+                vid="81"
+                >Antagonist</span
+              >
+            </div>
+            <div class="character-row" vid="82">
+              <img
+                src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=64&amp;h=64&amp;fit=crop&amp;crop=faces"
+                class="avatar"
+                alt="Character"
+                vid="83"
+              />
+              <span style="font-size: 13px; font-weight: 500" vid="84"
+                >Sarah Chen</span
+              >
+              <span
+                style="
+                  font-size: 11px;
+                  color: var(--text-label);
+                  margin-left: auto;
+                "
+                vid="85"
+                >Support</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <div vid="86">
+          <div class="section-title" vid="87">Annotations (3)</div>
+
+          <div class="annotation-item" vid="88">
+            <div class="annotation-meta" vid="89">
+              <span vid="90">Chapter 1 • Para 3</span>
+              <span style="color: #ff4500" vid="91">● High</span>
+            </div>
+            <div class="annotation-text" vid="92">
+              Conflict needs to be sharper here. The stakes aren't clear enough
+              for the opening scene.
+            </div>
+          </div>
+
+          <div class="annotation-item" vid="93">
+            <div class="annotation-meta" vid="94">
+              <span vid="95">Chapter 4 • Para 12</span>
+            </div>
+            <div class="annotation-text" vid="96">
+              Verify the timeline consistency with the flashback in Ch 2.
+            </div>
+          </div>
+
+          <div class="annotation-item" vid="97">
+            <div class="annotation-meta" vid="98">
+              <span vid="99">Chapter 7 • Para 1</span>
+            </div>
+            <div class="annotation-text" vid="100">
+              Beautiful imagery, but maybe too verbose? Consider trimming.
+            </div>
+          </div>
+        </div>
+
+        <div
+          style="
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+            margin-top: auto;
+          "
+          vid="101"
+        >
+          <div
+            style="
+              font-size: 11px;
+              color: var(--text-label);
+              display: flex;
+              justify-content: space-between;
+            "
+            vid="102"
+          >
+            <span vid="103">ID: doc_8291x</span>
+            <span vid="104">Sync: Active</span>
+          </div>
+        </div>
+      </div>
     </div>
-
-
-</body></html>
+  </body>
+</html>

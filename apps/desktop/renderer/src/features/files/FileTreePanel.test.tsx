@@ -10,7 +10,9 @@ vi.mock("../../stores/fileStore", () => ({
       currentDocumentId: null,
       bootstrapStatus: "ready" as const,
       lastError: null,
-      createAndSetCurrent: vi.fn().mockResolvedValue({ ok: true, data: { documentId: "new-doc" } }),
+      createAndSetCurrent: vi
+        .fn()
+        .mockResolvedValue({ ok: true, data: { documentId: "new-doc" } }),
       rename: vi.fn().mockResolvedValue({ ok: true }),
       delete: vi.fn().mockResolvedValue({ ok: true }),
       setCurrent: vi.fn().mockResolvedValue({ ok: true }),
@@ -113,7 +115,10 @@ describe("FileTreePanel", () => {
           items: [],
           currentDocumentId: null,
           bootstrapStatus: "ready" as const,
-          lastError: { code: "IO_ERROR" as const, message: "Failed to load files" },
+          lastError: {
+            code: "IO_ERROR" as const,
+            message: "Failed to load files",
+          },
           bootstrapForProject: vi.fn(),
           refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
@@ -143,8 +148,16 @@ describe("FileTreePanel", () => {
         const state = {
           projectId: "test-project",
           items: [
-            { documentId: "doc-1", title: "Document 1", updatedAt: Date.now() - 1000 },
-            { documentId: "doc-2", title: "Document 2", updatedAt: Date.now() - 2000 },
+            {
+              documentId: "doc-1",
+              title: "Document 1",
+              updatedAt: Date.now() - 1000,
+            },
+            {
+              documentId: "doc-2",
+              title: "Document 2",
+              updatedAt: Date.now() - 2000,
+            },
           ],
           currentDocumentId: "doc-1",
           bootstrapStatus: "ready" as const,
@@ -174,8 +187,16 @@ describe("FileTreePanel", () => {
         const state = {
           projectId: "test-project",
           items: [
-            { documentId: "doc-1", title: "Document 1", updatedAt: Date.now() - 1000 },
-            { documentId: "doc-2", title: "Document 2", updatedAt: Date.now() - 2000 },
+            {
+              documentId: "doc-1",
+              title: "Document 1",
+              updatedAt: Date.now() - 1000,
+            },
+            {
+              documentId: "doc-2",
+              title: "Document 2",
+              updatedAt: Date.now() - 2000,
+            },
           ],
           currentDocumentId: "doc-1",
           bootstrapStatus: "ready" as const,
@@ -202,7 +223,13 @@ describe("FileTreePanel", () => {
       vi.mocked(useFileStore).mockImplementation((selector) => {
         const state = {
           projectId: "test-project",
-          items: [{ documentId: "doc-1", title: "Document 1", updatedAt: Date.now() - 1000 }],
+          items: [
+            {
+              documentId: "doc-1",
+              title: "Document 1",
+              updatedAt: Date.now() - 1000,
+            },
+          ],
           currentDocumentId: null,
           bootstrapStatus: "ready" as const,
           lastError: null,

@@ -49,7 +49,9 @@ describe("Heading", () => {
       const levelNum = parseInt(level.slice(1));
       render(<Heading level={level}>Heading</Heading>);
 
-      expect(screen.getByRole("heading", { level: levelNum })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { level: levelNum }),
+      ).toBeInTheDocument();
     });
 
     it("h1 应该有正确的样式类", () => {

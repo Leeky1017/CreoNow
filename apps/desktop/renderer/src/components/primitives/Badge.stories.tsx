@@ -101,7 +101,13 @@ export const Medium: Story = {
 // 组合展示
 // ============================================================================
 
-const variants: BadgeVariant[] = ["default", "success", "warning", "error", "info"];
+const variants: BadgeVariant[] = [
+  "default",
+  "success",
+  "warning",
+  "error",
+  "info",
+];
 const sizes: BadgeSize[] = ["sm", "md"];
 
 /** 所有 Variants 展示 */
@@ -147,8 +153,17 @@ export const FullMatrix: Story = {
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       {variants.map((variant) => (
-        <div key={variant} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <span style={{ width: "60px", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        <div
+          key={variant}
+          style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
+        >
+          <span
+            style={{
+              width: "60px",
+              fontSize: "12px",
+              color: "var(--color-fg-muted)",
+            }}
+          >
             {variant}
           </span>
           {sizes.map((size) => (
@@ -169,9 +184,15 @@ export const NumberBadges: Story = {
   },
   render: () => (
     <div style={{ display: "flex", gap: "0.5rem" }}>
-      <Badge variant="error" size="sm">3</Badge>
-      <Badge variant="info" size="sm">99+</Badge>
-      <Badge variant="success" size="sm">12</Badge>
+      <Badge variant="error" size="sm">
+        3
+      </Badge>
+      <Badge variant="info" size="sm">
+        99+
+      </Badge>
+      <Badge variant="success" size="sm">
+        12
+      </Badge>
     </div>
   ),
 };

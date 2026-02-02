@@ -1,9 +1,11 @@
 # ISSUE-57
+
 - Issue: #57
 - Branch: task/57-tailwind-radix-infra
 - PR: https://github.com/Leeky1017/CreoNow/pull/58
 
 ## Plan
+
 - 安装 Tailwind CSS 4 (tailwindcss + @tailwindcss/vite) 和 Radix UI 组件
 - 配置 electron.vite.config.ts 添加 tailwindcss 插件
 - 创建 main.css 主样式文件，补充 tokens.css 缺失变量
@@ -11,8 +13,10 @@
 ## Runs
 
 ### 2026-02-01 安装依赖
+
 - Command: `pnpm add -D tailwindcss@^4.0.0 @tailwindcss/vite@^4.0.0`
 - Key output:
+
   ```
   devDependencies:
   + @tailwindcss/vite 4.1.18
@@ -31,6 +35,7 @@
   ```
 
 ### 2026-02-01 配置文件修改
+
 - Files modified:
   - `apps/desktop/electron.vite.config.ts`: 添加 tailwindcss 插件
   - `apps/desktop/renderer/src/styles/main.css`: 新建，@import tailwindcss + @theme 配置
@@ -40,8 +45,10 @@
   - `apps/desktop/package.json`: 添加依赖
 
 ### 2026-02-01 验证
+
 - Command: `pnpm typecheck && pnpm lint && pnpm build`
 - Key output:
+
   ```
   > tsc -p tsconfig.json --noEmit
   (pass)
@@ -56,4 +63,5 @@
   dist/renderer/assets/index-CdeZBKte.js  1,270.13 kB
   ✓ built in 1.87s
   ```
+
 - Evidence: All checks passed

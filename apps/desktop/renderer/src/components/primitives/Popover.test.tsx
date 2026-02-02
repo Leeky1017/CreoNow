@@ -41,7 +41,11 @@ describe("Popover", () => {
 
     it("受控模式 open=true 时应该显示内容", () => {
       render(
-        <Popover trigger={<Button>Open</Button>} open={true} onOpenChange={() => {}}>
+        <Popover
+          trigger={<Button>Open</Button>}
+          open={true}
+          onOpenChange={() => {}}
+        >
           <div>Controlled content</div>
         </Popover>,
       );
@@ -51,7 +55,11 @@ describe("Popover", () => {
 
     it("受控模式 open=false 时不应该显示内容", () => {
       render(
-        <Popover trigger={<Button>Open</Button>} open={false} onOpenChange={() => {}}>
+        <Popover
+          trigger={<Button>Open</Button>}
+          open={false}
+          onOpenChange={() => {}}
+        >
           <div>Controlled content</div>
         </Popover>,
       );
@@ -221,7 +229,10 @@ describe("Popover", () => {
         const content = screen.getByText("Top content");
         expect(content).toBeInTheDocument();
         // Radix 会设置 data-side 属性
-        expect(content.closest("[data-side]")).toHaveAttribute("data-side", "top");
+        expect(content.closest("[data-side]")).toHaveAttribute(
+          "data-side",
+          "top",
+        );
       });
     });
 
@@ -240,7 +251,10 @@ describe("Popover", () => {
         const content = screen.getByText("Start aligned");
         expect(content).toBeInTheDocument();
         // Radix 会设置 data-align 属性
-        expect(content.closest("[data-align]")).toHaveAttribute("data-align", "start");
+        expect(content.closest("[data-align]")).toHaveAttribute(
+          "data-align",
+          "start",
+        );
       });
     });
 
@@ -268,9 +282,7 @@ describe("Popover", () => {
     it("应该处理空 children", async () => {
       const user = userEvent.setup();
 
-      render(
-        <Popover trigger={<Button>Open</Button>}>{""}</Popover>,
-      );
+      render(<Popover trigger={<Button>Open</Button>}>{""}</Popover>);
 
       await user.click(screen.getByRole("button", { name: "Open" }));
 
@@ -313,7 +325,9 @@ describe("Popover", () => {
 
       await waitFor(() => {
         // 查找 popover 内容容器
-        const content = container.querySelector("[data-radix-popper-content-wrapper]");
+        const content = container.querySelector(
+          "[data-radix-popper-content-wrapper]",
+        );
         if (content) {
           const popoverContent = content.querySelector("div");
           const classNames = popoverContent?.className ?? "";

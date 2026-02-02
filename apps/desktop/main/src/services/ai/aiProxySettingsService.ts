@@ -260,7 +260,9 @@ export function createAiProxySettingsService(deps: {
       const url = new URL("/v1/models", raw.data.baseUrl).toString();
       const res = await fetch(url, {
         method: "GET",
-        headers: raw.data.apiKey ? { Authorization: `Bearer ${raw.data.apiKey}` } : {},
+        headers: raw.data.apiKey
+          ? { Authorization: `Bearer ${raw.data.apiKey}` }
+          : {},
         signal: controller.signal,
       });
 
@@ -321,4 +323,3 @@ export function createAiProxySettingsService(deps: {
 
   return { get, getRaw, update, test: testProxy };
 }
-

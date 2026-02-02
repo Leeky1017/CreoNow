@@ -7,6 +7,7 @@
 ## Plan
 
 修复 Storybook decorator 中 data-theme 属性设置位置错误的问题：
+
 - CSS tokens 使用 `:root[data-theme="dark"]` 选择器
 - 但 decorator 把 data-theme 设置在 `<div>` 上而不是 `<html>` 上
 - 导致暗色模式下组件文字不可见

@@ -79,7 +79,9 @@ describe("Dialog", () => {
         </Dialog>,
       );
 
-      expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Submit" }),
+      ).toBeInTheDocument();
     });
 
     it("应该渲染关闭按钮", () => {
@@ -308,9 +310,15 @@ describe("Dialog", () => {
         </Dialog>,
       );
 
-      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Save Draft" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Submit" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Cancel" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Save Draft" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Submit" }),
+      ).toBeInTheDocument();
     });
   });
 

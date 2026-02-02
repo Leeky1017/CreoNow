@@ -5,17 +5,17 @@
 
   /* Spacing (4px grid) §3.8 */
   --space-0: 0px;
-  --space-1: 4px;      /* 最小间距 */
-  --space-2: 8px;      /* 紧凑间距 */
-  --space-3: 12px;     /* 常用间距 */
-  --space-4: 16px;     /* 标准间距 */
+  --space-1: 4px; /* 最小间距 */
+  --space-2: 8px; /* 紧凑间距 */
+  --space-3: 12px; /* 常用间距 */
+  --space-4: 16px; /* 标准间距 */
   --space-5: 20px;
-  --space-6: 24px;     /* 区块间距 */
-  --space-8: 32px;     /* 大间距 */
+  --space-6: 24px; /* 区块间距 */
+  --space-8: 32px; /* 大间距 */
   --space-10: 40px;
-  --space-12: 48px;    /* 模块间距 */
+  --space-12: 48px; /* 模块间距 */
   --space-16: 64px;
-  --space-20: 80px;    /* 页面间距 */
+  --space-20: 80px; /* 页面间距 */
 
   /* Radius */
   --radius-none: 0px;
@@ -32,21 +32,21 @@
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
-  --duration-instant: 50ms;   /* 即时反馈 */
-  --duration-fast: 100ms;     /* 微交互（hover 颜色变化） */
-  --duration-normal: 200ms;   /* 标准过渡 */
-  --duration-slow: 300ms;     /* 面板展开/折叠 */
-  --duration-slower: 500ms;   /* 页面切换 */
+  --duration-instant: 50ms; /* 即时反馈 */
+  --duration-fast: 100ms; /* 微交互（hover 颜色变化） */
+  --duration-normal: 200ms; /* 标准过渡 */
+  --duration-slow: 300ms; /* 面板展开/折叠 */
+  --duration-slower: 500ms; /* 页面切换 */
 
   /* z-index 层级 §5.1 */
-  --z-base: 0;           /* 默认层 */
-  --z-sticky: 100;       /* 粘性元素（工具栏） */
-  --z-dropdown: 200;     /* 下拉菜单 */
-  --z-popover: 300;      /* 弹出层 */
-  --z-modal: 400;        /* 模态框 */
-  --z-toast: 500;        /* Toast 通知 */
-  --z-tooltip: 600;      /* Tooltip */
-  --z-max: 9999;         /* 紧急覆盖（调试用） */
+  --z-base: 0; /* 默认层 */
+  --z-sticky: 100; /* 粘性元素（工具栏） */
+  --z-dropdown: 200; /* 下拉菜单 */
+  --z-popover: 300; /* 弹出层 */
+  --z-modal: 400; /* 模态框 */
+  --z-toast: 500; /* Toast 通知 */
+  --z-tooltip: 600; /* Tooltip */
+  --z-max: 9999; /* 紧急覆盖（调试用） */
 
   /* 功能色 §3.6 */
   --color-error: #ef4444;

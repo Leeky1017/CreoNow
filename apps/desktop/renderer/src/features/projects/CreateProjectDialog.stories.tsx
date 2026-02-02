@@ -52,7 +52,13 @@ export const Closed: Story = {
     open: false,
   },
   render: (args) => (
-    <div style={{ padding: "20px", color: "var(--color-fg-muted)", textAlign: "center" }}>
+    <div
+      style={{
+        padding: "20px",
+        color: "var(--color-fg-muted)",
+        textAlign: "center",
+      }}
+    >
       <CreateProjectDialog {...args} />
       Dialog is closed
     </div>

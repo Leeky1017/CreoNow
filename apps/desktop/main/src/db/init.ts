@@ -19,6 +19,7 @@ import knowledgeGraphSql from "./migrations/0005_knowledge_graph.sql?raw";
 import searchFtsSql from "./migrations/0006_search_fts.sql?raw";
 import statsSql from "./migrations/0007_stats.sql?raw";
 import userMemoryVecSql from "./migrations/0008_user_memory_vec.sql?raw";
+import memoryDocumentScopeSql from "./migrations/0009_memory_document_scope.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -47,6 +48,11 @@ const MIGRATIONS_BASE: readonly Migration[] = [
   { version: 5, name: "0005_knowledge_graph", sql: knowledgeGraphSql },
   { version: 6, name: "0006_search_fts", sql: searchFtsSql },
   { version: 7, name: "0007_stats", sql: statsSql },
+  {
+    version: 9,
+    name: "0009_memory_document_scope",
+    sql: memoryDocumentScopeSql,
+  },
 ];
 
 const SQLITE_VEC_MIGRATION: Migration = {

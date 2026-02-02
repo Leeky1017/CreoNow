@@ -1,507 +1,534 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow Editor Workspace</title>
     <style vid="5">
-        :root {
-            
-            --bg-body: #080808;      
-            --bg-surface: #0f0f0f;   
-            --bg-hover: #1a1a1a;
-            
-            --text-main: #ffffff;
-            --text-muted: #888888;
-            --text-faint: #444444;
-            
-            --line-color: #222222;
-            --accent-glow: rgba(255, 255, 255, 0.05);
+      :root {
+        --bg-body: #080808;
+        --bg-surface: #0f0f0f;
+        --bg-hover: #1a1a1a;
 
-            
-            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            --font-display: 'Inter', sans-serif;
-            
-            --space-xs: 4px;
-            --space-sm: 12px;
-            --space-md: 24px;
-            --space-lg: 48px;
-            --space-xl: 80px;
+        --text-main: #ffffff;
+        --text-muted: #888888;
+        --text-faint: #444444;
 
-            --ease: cubic-bezier(0.2, 0.0, 0.2, 1);
-        }
+        --line-color: #222222;
+        --accent-glow: rgba(255, 255, 255, 0.05);
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            outline: none;
-        }
+        --font-family:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        --font-display: "Inter", sans-serif;
 
-        body {
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            font-family: var(--font-family);
-            font-size: 14px;
-            line-height: 1.5;
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-            display: flex;
-        }
+        --space-xs: 4px;
+        --space-sm: 12px;
+        --space-md: 24px;
+        --space-lg: 48px;
+        --space-xl: 80px;
 
-        
-        .uppercase-label {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
+        --ease: cubic-bezier(0.2, 0, 0.2, 1);
+      }
 
-        .text-link {
-            color: var(--text-main);
-            text-decoration: none;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
-            padding-bottom: 2px;
-            transition: border-color 0.3s var(--ease);
-        }
-        .text-link:hover {
-            border-color: rgba(255,255,255,0.8);
-        }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        outline: none;
+      }
 
-        
-        .sidebar {
-            width: 280px;
-            background-color: var(--bg-body);
-            border-right: 1px solid var(--line-color);
-            display: flex;
-            flex-direction: column;
-            padding: var(--space-md);
-            flex-shrink: 0;
-            z-index: 10;
-        }
+      body {
+        background-color: var(--bg-body);
+        color: var(--text-main);
+        font-family: var(--font-family);
+        font-size: 14px;
+        line-height: 1.5;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+      }
 
-        .brand {
-            margin-bottom: var(--space-xl);
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .brand span {
-            font-weight: 400;
-            color: var(--text-muted);
-        }
+      .uppercase-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
 
-        .nav-group {
-            margin-bottom: var(--space-lg);
-        }
+      .text-link {
+        color: var(--text-main);
+        text-decoration: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        padding-bottom: 2px;
+        transition: border-color 0.3s var(--ease);
+      }
+      .text-link:hover {
+        border-color: rgba(255, 255, 255, 0.8);
+      }
 
-        .nav-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: var(--space-sm);
-        }
+      .sidebar {
+        width: 280px;
+        background-color: var(--bg-body);
+        border-right: 1px solid var(--line-color);
+        display: flex;
+        flex-direction: column;
+        padding: var(--space-md);
+        flex-shrink: 0;
+        z-index: 10;
+      }
 
-        .nav-list {
-            list-style: none;
-        }
+      .brand {
+        margin-bottom: var(--space-xl);
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-        .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 8px 0;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: color 0.3s var(--ease);
-            font-size: 13px;
-            position: relative;
-        }
+      .brand span {
+        font-weight: 400;
+        color: var(--text-muted);
+      }
 
-        
-        .nav-item::before {
-            content: '+';
-            position: absolute;
-            left: -16px;
-            opacity: 0;
-            color: var(--text-faint);
-            transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
-            font-weight: 300;
-        }
+      .nav-group {
+        margin-bottom: var(--space-lg);
+      }
 
-        .nav-item:hover {
-            color: var(--text-main);
-        }
+      .nav-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--space-sm);
+      }
 
-        .nav-item:hover::before {
-            opacity: 1;
-            transform: translateX(4px);
-        }
+      .nav-list {
+        list-style: none;
+      }
 
-        .nav-item.active {
-            color: var(--text-main);
-        }
-        .nav-item.active::before {
-            opacity: 1;
-            color: var(--text-main);
-            transform: translateX(4px);
-        }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 0;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: color 0.3s var(--ease);
+        font-size: 13px;
+        position: relative;
+      }
 
-        .user-profile {
-            margin-top: auto;
-            border-top: 1px solid var(--line-color);
-            padding-top: var(--space-md);
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
+      .nav-item::before {
+        content: "+";
+        position: absolute;
+        left: -16px;
+        opacity: 0;
+        color: var(--text-faint);
+        transition:
+          opacity 0.3s var(--ease),
+          transform 0.3s var(--ease);
+        font-weight: 300;
+      }
 
-        
-        .workspace {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            background-color: var(--bg-body);
-        }
+      .nav-item:hover {
+        color: var(--text-main);
+      }
 
-        
-        .toolbar {
-            height: 60px;
-            border-bottom: 1px solid transparent; 
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding: 0 var(--space-md);
-            gap: var(--space-md);
-        }
+      .nav-item:hover::before {
+        opacity: 1;
+        transform: translateX(4px);
+      }
 
-        .action-button {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 13px;
-            transition: color 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .action-button:hover {
-            color: var(--text-main);
-        }
+      .nav-item.active {
+        color: var(--text-main);
+      }
+      .nav-item.active::before {
+        opacity: 1;
+        color: var(--text-main);
+        transform: translateX(4px);
+      }
 
-        .publish-btn {
-            border: 1px solid var(--line-color);
-            padding: 8px 16px;
-            border-radius: 20px; 
-            color: var(--text-main);
-            transition: all 0.3s var(--ease);
-        }
-        .publish-btn:hover {
-            border-color: var(--text-main);
-            background: rgba(255,255,255,0.05);
-        }
+      .user-profile {
+        margin-top: auto;
+        border-top: 1px solid var(--line-color);
+        padding-top: var(--space-md);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
 
-        
-        .editor-scroller {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 0 var(--space-md);
-            scrollbar-width: thin;
-            scrollbar-color: var(--line-color) var(--bg-body);
-        }
-        
-        .editor-container {
-            max-width: 760px;
-            margin: 0 auto;
-            padding: var(--space-lg) 0 120px 0;
-        }
+      .workspace {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        background-color: var(--bg-body);
+      }
 
-        
-        .document-cover {
-            width: 100%;
-            height: 240px;
-            background-image: linear-gradient(to bottom, rgba(0,0,0,0), var(--bg-body)), url('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80');
-            background-size: cover;
-            background-position: center 20%;
-            margin-bottom: var(--space-lg);
-            opacity: 0.6;
-            border-radius: 2px;
-            position: relative;
-        }
+      .toolbar {
+        height: 60px;
+        border-bottom: 1px solid transparent;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 0 var(--space-md);
+        gap: var(--space-md);
+      }
 
-        .document-meta {
-            display: flex;
-            gap: var(--space-md);
-            margin-bottom: var(--space-md);
-            opacity: 0.6;
-        }
+      .action-button {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 13px;
+        transition: color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .action-button:hover {
+        color: var(--text-main);
+      }
 
-        .document-title {
-            font-size: 48px;
-            font-weight: 500;
-            letter-spacing: -0.03em;
-            margin-bottom: var(--space-md);
-            color: var(--text-main);
-            line-height: 1.1;
-        }
-        
-        .document-subtitle {
-            font-size: 20px;
-            color: var(--text-muted);
-            margin-bottom: var(--space-xl);
-            font-weight: 300;
-            line-height: 1.4;
-        }
+      .publish-btn {
+        border: 1px solid var(--line-color);
+        padding: 8px 16px;
+        border-radius: 20px;
+        color: var(--text-main);
+        transition: all 0.3s var(--ease);
+      }
+      .publish-btn:hover {
+        border-color: var(--text-main);
+        background: rgba(255, 255, 255, 0.05);
+      }
 
-        .content-block {
-            font-size: 16px;
-            line-height: 1.8;
-            color: #b0b0b0; 
-            margin-bottom: var(--space-md);
-        }
-        
-        .content-block p {
-            margin-bottom: 24px;
-        }
+      .editor-scroller {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 0 var(--space-md);
+        scrollbar-width: thin;
+        scrollbar-color: var(--line-color) var(--bg-body);
+      }
 
-        .content-block h2 {
-            color: var(--text-main);
-            font-weight: 500;
-            font-size: 24px;
-            margin-top: 48px;
-            margin-bottom: 16px;
-            letter-spacing: -0.01em;
-        }
+      .editor-container {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: var(--space-lg) 0 120px 0;
+      }
 
-        .highlight-text {
-            color: var(--text-main);
-        }
+      .document-cover {
+        width: 100%;
+        height: 240px;
+        background-image:
+          linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--bg-body)),
+          url("https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=1200&q=80");
+        background-size: cover;
+        background-position: center 20%;
+        margin-bottom: var(--space-lg);
+        opacity: 0.6;
+        border-radius: 2px;
+        position: relative;
+      }
 
-        
-        .context-panel {
-            width: 240px;
-            border-left: 1px solid var(--line-color);
-            padding: var(--space-md);
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-lg);
-            background-color: var(--bg-body);
-        }
+      .document-meta {
+        display: flex;
+        gap: var(--space-md);
+        margin-bottom: var(--space-md);
+        opacity: 0.6;
+      }
 
-        .panel-section {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+      .document-title {
+        font-size: 48px;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+        margin-bottom: var(--space-md);
+        color: var(--text-main);
+        line-height: 1.1;
+      }
 
-        .stat-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
+      .document-subtitle {
+        font-size: 20px;
+        color: var(--text-muted);
+        margin-bottom: var(--space-xl);
+        font-weight: 300;
+        line-height: 1.4;
+      }
 
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        
-        .stat-value {
-            font-size: 14px;
-            color: var(--text-main);
-        }
+      .content-block {
+        font-size: 16px;
+        line-height: 1.8;
+        color: #b0b0b0;
+        margin-bottom: var(--space-md);
+      }
 
-        .tag-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
+      .content-block p {
+        margin-bottom: 24px;
+      }
 
-        .tag {
-            border: 1px solid var(--line-color);
-            padding: 4px 10px;
-            border-radius: 100px;
-            font-size: 11px;
-            color: var(--text-muted);
-            transition: all 0.2s;
-            cursor: pointer;
-        }
-        .tag:hover {
-            border-color: var(--text-muted);
-            color: var(--text-main);
-        }
+      .content-block h2 {
+        color: var(--text-main);
+        font-weight: 500;
+        font-size: 24px;
+        margin-top: 48px;
+        margin-bottom: 16px;
+        letter-spacing: -0.01em;
+      }
 
-        
-        .divider {
-            height: 1px;
-            background: var(--line-color);
-            width: 100%;
-            margin: 8px 0;
-        }
+      .highlight-text {
+        color: var(--text-main);
+      }
 
-        .fade-in {
-            animation: fadeIn 0.8s var(--ease) forwards;
-            opacity: 0;
-            transform: translateY(10px);
-        }
+      .context-panel {
+        width: 240px;
+        border-left: 1px solid var(--line-color);
+        padding: var(--space-md);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-lg);
+        background-color: var(--bg-body);
+      }
 
-        @keyframes fadeIn {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+      .panel-section {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .stat-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      .stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .stat-value {
+        font-size: 14px;
+        color: var(--text-main);
+      }
+
+      .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tag {
+        border: 1px solid var(--line-color);
+        padding: 4px 10px;
+        border-radius: 100px;
+        font-size: 11px;
+        color: var(--text-muted);
+        transition: all 0.2s;
+        cursor: pointer;
+      }
+      .tag:hover {
+        border-color: var(--text-muted);
+        color: var(--text-main);
+      }
+
+      .divider {
+        height: 1px;
+        background: var(--line-color);
+        width: 100%;
+        margin: 8px 0;
+      }
+
+      .fade-in {
+        animation: fadeIn 0.8s var(--ease) forwards;
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
+      }
     </style>
-</head>
-<body vid="6">
-
-    
+  </head>
+  <body vid="6">
     <nav class="sidebar" vid="7">
-        <div class="brand" vid="8">
-            EXO<span vid="9">WRITER</span>
-        </div>
+      <div class="brand" vid="8">EXO<span vid="9">WRITER</span></div>
 
-        <div class="nav-group" vid="10">
-            <div class="nav-header uppercase-label" vid="11">Workspace</div>
-            <ul class="nav-list" vid="12">
-                <li class="nav-item active" vid="13">Recent Drafts</li>
-                <li class="nav-item" vid="14">Published</li>
-                <li class="nav-item" vid="15">Archive</li>
-            </ul>
-        </div>
+      <div class="nav-group" vid="10">
+        <div class="nav-header uppercase-label" vid="11">Workspace</div>
+        <ul class="nav-list" vid="12">
+          <li class="nav-item active" vid="13">Recent Drafts</li>
+          <li class="nav-item" vid="14">Published</li>
+          <li class="nav-item" vid="15">Archive</li>
+        </ul>
+      </div>
 
-        <div class="nav-group" vid="16">
-            <div class="nav-header uppercase-label" vid="17">
-                Collections
-                <span style="cursor: pointer" vid="18">+</span>
-            </div>
-            <ul class="nav-list" vid="19">
-                <li class="nav-item" vid="20">Design Theory</li>
-                <li class="nav-item" vid="21">Visual Essays</li>
-                <li class="nav-item" vid="22">Typography</li>
-                <li class="nav-item" vid="23">Photography</li>
-            </ul>
+      <div class="nav-group" vid="16">
+        <div class="nav-header uppercase-label" vid="17">
+          Collections
+          <span style="cursor: pointer" vid="18">+</span>
         </div>
+        <ul class="nav-list" vid="19">
+          <li class="nav-item" vid="20">Design Theory</li>
+          <li class="nav-item" vid="21">Visual Essays</li>
+          <li class="nav-item" vid="22">Typography</li>
+          <li class="nav-item" vid="23">Photography</li>
+        </ul>
+      </div>
 
-        <div class="user-profile" vid="24">
-            <div class="stat-item" vid="25">
-                <span class="uppercase-label" vid="26">Account</span>
-                <span class="text-link" style="font-size: 12px; margin-top:4px;" vid="27">Settings</span>
-            </div>
-            <div class="stat-item" vid="28">
-                <span class="uppercase-label" vid="29">Plan</span>
-                <span class="stat-value" style="font-size: 12px; margin-top:4px;" vid="30">Pro</span>
-            </div>
+      <div class="user-profile" vid="24">
+        <div class="stat-item" vid="25">
+          <span class="uppercase-label" vid="26">Account</span>
+          <span
+            class="text-link"
+            style="font-size: 12px; margin-top: 4px"
+            vid="27"
+            >Settings</span
+          >
         </div>
+        <div class="stat-item" vid="28">
+          <span class="uppercase-label" vid="29">Plan</span>
+          <span
+            class="stat-value"
+            style="font-size: 12px; margin-top: 4px"
+            vid="30"
+            >Pro</span
+          >
+        </div>
+      </div>
     </nav>
 
-    
     <main class="workspace" vid="31">
-        <header class="toolbar" vid="32">
-            <button class="action-button" vid="33">History</button>
-            <button class="action-button" vid="34">Preview</button>
-            <button class="action-button publish-btn" vid="35">Publish</button>
-        </header>
+      <header class="toolbar" vid="32">
+        <button class="action-button" vid="33">History</button>
+        <button class="action-button" vid="34">Preview</button>
+        <button class="action-button publish-btn" vid="35">Publish</button>
+      </header>
 
-        <div class="editor-scroller" vid="36">
-            <div class="editor-container fade-in" vid="37">
-                
-                <div class="document-cover" vid="38"></div>
+      <div class="editor-scroller" vid="36">
+        <div class="editor-container fade-in" vid="37">
+          <div class="document-cover" vid="38"></div>
 
-                <div class="document-meta" vid="39">
-                    <span class="uppercase-label" vid="40">Last Edited 2m ago</span>
-                    <span class="uppercase-label" vid="41">Draft</span>
-                </div>
+          <div class="document-meta" vid="39">
+            <span class="uppercase-label" vid="40">Last Edited 2m ago</span>
+            <span class="uppercase-label" vid="41">Draft</span>
+          </div>
 
-                <h1 class="document-title" contenteditable="true" vid="42">Digital Design Experience</h1>
-                <h2 class="document-subtitle" contenteditable="true" vid="43">Intrigued by beauty, fascinated by technology and fuelled with an everlasting devotion to digital craftsmanship.</h2>
-                
-                <div class="content-block" contenteditable="true" vid="44">
-                    <p vid="45">
-                        Design is not just about making things look good. It is about how things work. In the digital realm, this translates to the seamless integration of form and function. <span class="highlight-text" vid="46">We build immersive environments</span> where typography leads the eye and imagery sets the mood.
-                    </p>
-                    
-                    <h2 vid="47">The Aesthetic of Silence</h2>
-                    <p vid="48">
-                        In a world of noise, silence is a luxury. Our interfaces recede, allowing the content to breathe. The use of negative space is deliberate, creating a rhythm that guides the user through the narrative without friction.
-                    </p>
-                    <p vid="49">
-                        We observed that modern tools often clutter the workspace. Here, we strip away the non-essential. The "Plus" motif serves as our anchor—a symbol of addition, connection, and positive space.
-                    </p>
-                    <p vid="50">
-                        The monochromatic palette allows for subtle shifts in hierarchy without the need for jarring colors. Textures are felt rather than seen, providing a tactile quality to pixels on a screen.
-                    </p>
-                </div>
+          <h1 class="document-title" contenteditable="true" vid="42">
+            Digital Design Experience
+          </h1>
+          <h2 class="document-subtitle" contenteditable="true" vid="43">
+            Intrigued by beauty, fascinated by technology and fuelled with an
+            everlasting devotion to digital craftsmanship.
+          </h2>
 
-            </div>
+          <div class="content-block" contenteditable="true" vid="44">
+            <p vid="45">
+              Design is not just about making things look good. It is about how
+              things work. In the digital realm, this translates to the seamless
+              integration of form and function.
+              <span class="highlight-text" vid="46"
+                >We build immersive environments</span
+              >
+              where typography leads the eye and imagery sets the mood.
+            </p>
+
+            <h2 vid="47">The Aesthetic of Silence</h2>
+            <p vid="48">
+              In a world of noise, silence is a luxury. Our interfaces recede,
+              allowing the content to breathe. The use of negative space is
+              deliberate, creating a rhythm that guides the user through the
+              narrative without friction.
+            </p>
+            <p vid="49">
+              We observed that modern tools often clutter the workspace. Here,
+              we strip away the non-essential. The "Plus" motif serves as our
+              anchor—a symbol of addition, connection, and positive space.
+            </p>
+            <p vid="50">
+              The monochromatic palette allows for subtle shifts in hierarchy
+              without the need for jarring colors. Textures are felt rather than
+              seen, providing a tactile quality to pixels on a screen.
+            </p>
+          </div>
         </div>
+      </div>
     </main>
 
-    
     <aside class="context-panel" vid="51">
-        <div class="panel-section" vid="52">
-            <div class="uppercase-label" vid="53">Document Details</div>
-            <div class="divider" vid="54"></div>
-            <div class="stat-grid" vid="55">
-                <div class="stat-item" vid="56">
-                    <span class="uppercase-label" vid="57">Words</span>
-                    <span class="stat-value" vid="58">1,240</span>
-                </div>
-                <div class="stat-item" vid="59">
-                    <span class="uppercase-label" vid="60">Read Time</span>
-                    <span class="stat-value" vid="61">6 min</span>
-                </div>
-                <div class="stat-item" vid="62">
-                    <span class="uppercase-label" vid="63">Author</span>
-                    <span class="stat-value" vid="64">Studio Team</span>
-                </div>
-            </div>
+      <div class="panel-section" vid="52">
+        <div class="uppercase-label" vid="53">Document Details</div>
+        <div class="divider" vid="54"></div>
+        <div class="stat-grid" vid="55">
+          <div class="stat-item" vid="56">
+            <span class="uppercase-label" vid="57">Words</span>
+            <span class="stat-value" vid="58">1,240</span>
+          </div>
+          <div class="stat-item" vid="59">
+            <span class="uppercase-label" vid="60">Read Time</span>
+            <span class="stat-value" vid="61">6 min</span>
+          </div>
+          <div class="stat-item" vid="62">
+            <span class="uppercase-label" vid="63">Author</span>
+            <span class="stat-value" vid="64">Studio Team</span>
+          </div>
         </div>
+      </div>
 
-        <div class="panel-section" vid="65">
-            <div class="uppercase-label" vid="66">Tags</div>
-            <div class="divider" vid="67"></div>
-            <div class="tag-list" vid="68">
-                <span class="tag" vid="69">Design</span>
-                <span class="tag" vid="70">UX/UI</span>
-                <span class="tag" vid="71">Minimalism</span>
-                <span class="tag" vid="72">Essays</span>
-            </div>
+      <div class="panel-section" vid="65">
+        <div class="uppercase-label" vid="66">Tags</div>
+        <div class="divider" vid="67"></div>
+        <div class="tag-list" vid="68">
+          <span class="tag" vid="69">Design</span>
+          <span class="tag" vid="70">UX/UI</span>
+          <span class="tag" vid="71">Minimalism</span>
+          <span class="tag" vid="72">Essays</span>
         </div>
+      </div>
 
-        <div class="panel-section" style="margin-top: auto;" vid="73">
-            <div class="uppercase-label" vid="74">Actions</div>
-            <div class="divider" vid="75"></div>
-            <div class="stat-item" vid="76">
-                <a href="#" class="text-link" style="font-size: 13px;" vid="77">Export PDF</a>
-                <a href="#" class="text-link" style="font-size: 13px; margin-top: 8px;" vid="78">Share Link</a>
-                <a href="#" class="text-link" style="font-size: 13px; margin-top: 8px;" vid="79">Delete</a>
-            </div>
+      <div class="panel-section" style="margin-top: auto" vid="73">
+        <div class="uppercase-label" vid="74">Actions</div>
+        <div class="divider" vid="75"></div>
+        <div class="stat-item" vid="76">
+          <a href="#" class="text-link" style="font-size: 13px" vid="77"
+            >Export PDF</a
+          >
+          <a
+            href="#"
+            class="text-link"
+            style="font-size: 13px; margin-top: 8px"
+            vid="78"
+            >Share Link</a
+          >
+          <a
+            href="#"
+            class="text-link"
+            style="font-size: 13px; margin-top: 8px"
+            vid="79"
+            >Delete</a
+          >
         </div>
+      </div>
     </aside>
 
     <script vid="80">
-        
-        const editor = document.querySelector('.editor-container');
-        const workspace = document.querySelector('.workspace');
+      const editor = document.querySelector(".editor-container");
+      const workspace = document.querySelector(".workspace");
 
-        editor.addEventListener('click', () => {
-            
-            
-        });
+      editor.addEventListener("click", () => {});
 
-        
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('mouseenter', () => {
-                
-            });
-        });
+      document.querySelectorAll(".nav-item").forEach((item) => {
+        item.addEventListener("mouseenter", () => {});
+      });
     </script>
-
-</body></html>
+  </body>
+</html>

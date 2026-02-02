@@ -724,18 +724,20 @@ export type IpcChannelSpec = {
   "memory:create": {
     request: {
       content: string;
+      documentId?: string;
       projectId?: string;
-      scope: "global" | "project";
+      scope: "global" | "project" | "document";
       type: "preference" | "fact" | "note";
     };
     response: {
       content: string;
       createdAt: number;
       deletedAt?: number;
+      documentId?: string;
       memoryId: string;
       origin: "manual" | "learned";
       projectId?: string;
-      scope: "global" | "project";
+      scope: "global" | "project" | "document";
       sourceRef?: string;
       type: "preference" | "fact" | "note";
       updatedAt: number;
@@ -751,6 +753,7 @@ export type IpcChannelSpec = {
   };
   "memory:injection:preview": {
     request: {
+      documentId?: string;
       projectId?: string;
       queryText?: string;
     };
@@ -771,7 +774,7 @@ export type IpcChannelSpec = {
               kind: "semantic";
               score: number;
             };
-        scope: "global" | "project";
+        scope: "global" | "project" | "document";
         type: "preference" | "fact" | "note";
       }>;
       mode: "deterministic" | "semantic";
@@ -779,6 +782,7 @@ export type IpcChannelSpec = {
   };
   "memory:list": {
     request: {
+      documentId?: string;
       includeDeleted?: boolean;
       projectId?: string;
     };
@@ -787,10 +791,11 @@ export type IpcChannelSpec = {
         content: string;
         createdAt: number;
         deletedAt?: number;
+        documentId?: string;
         memoryId: string;
         origin: "manual" | "learned";
         projectId?: string;
-        scope: "global" | "project";
+        scope: "global" | "project" | "document";
         sourceRef?: string;
         type: "preference" | "fact" | "note";
         updatedAt: number;
@@ -827,8 +832,9 @@ export type IpcChannelSpec = {
       memoryId: string;
       patch: {
         content?: string;
+        documentId?: string;
         projectId?: string;
-        scope?: "global" | "project";
+        scope?: "global" | "project" | "document";
         type?: "preference" | "fact" | "note";
       };
     };
@@ -836,10 +842,11 @@ export type IpcChannelSpec = {
       content: string;
       createdAt: number;
       deletedAt?: number;
+      documentId?: string;
       memoryId: string;
       origin: "manual" | "learned";
       projectId?: string;
-      scope: "global" | "project";
+      scope: "global" | "project" | "document";
       sourceRef?: string;
       type: "preference" | "fact" | "note";
       updatedAt: number;

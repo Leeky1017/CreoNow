@@ -20,6 +20,7 @@
 **目标**: 确保开发环境可用
 
 **检查项**:
+
 - [ ] Node.js 安装正确 (`node --version`)
 - [ ] 依赖安装成功 (`pnpm install`)
 - [ ] Storybook 可启动 (`pnpm storybook`)
@@ -65,11 +66,13 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 **目标**: 建立代码风格和质量基准
 
 **组件列表** (按顺序精雕细琢):
+
 1. **Button** - 展示 variant/size/state 处理模式
 2. **Input** - 展示表单组件的验证和状态模式
 3. **Card** - 展示容器组件的 slot 模式
 
 **验收标准**:
+
 - [ ] 所有状态覆盖 (default/hover/active/focus-visible/disabled/loading)
 - [ ] 所有边界处理 (超长文本/空内容/极窄容器)
 - [ ] 代码风格一致
@@ -85,11 +88,13 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 **目标**: 构建设计系统基础
 
 **组件列表**:
+
 - Badge, Avatar, Icon, Spinner
 - Text, Heading, Skeleton
 - Checkbox, Select, Textarea
 
 **验收标准**:
+
 - [ ] AI 自检通过 (浏览器 MCP)
 - [ ] 代码风格与黄金标准一致
 - [ ] 用户抽查通过
@@ -101,6 +106,7 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 **目标**: 构建三栏布局框架
 
 **组件列表**:
+
 - Icon Bar (48px 固定宽度)
 - Status Bar (28px 固定高度)
 - Sidebar 容器 (可拖拽, 180-400px)
@@ -108,6 +114,7 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 - Resizer 拖拽分隔条
 
 **验收标准**:
+
 - [ ] 高度约束正确 (`min-height: 0`)
 - [ ] 独立滚动正确 (`overflow-y: auto`)
 - [ ] 拖拽调整正常工作
@@ -121,6 +128,7 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 **目标**: 构建功能面板
 
 **组件列表**:
+
 - FileTree (文件树)
 - Outline (大纲)
 - AI Panel (AI 对话)
@@ -129,6 +137,7 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 - Dialogs (对话框)
 
 **验收标准**:
+
 - [ ] 功能完整
 - [ ] 状态正确 (空/加载/错误)
 - [ ] 键盘导航可用
@@ -140,12 +149,14 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 **目标**: 组装完整页面
 
 **页面列表**:
+
 - Login (登录页)
 - Onboarding (引导页)
 - Dashboard (项目管理)
 - Editor/Workbench (核心编辑器)
 
 **验收标准**:
+
 - [ ] 页面布局正确
 - [ ] 组件组合正确
 - [ ] 完整流程可走通 (Mock 数据)
@@ -157,6 +168,7 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 **目标**: 根据用户反馈优化
 
 **工作内容**:
+
 - 视觉细节修正
 - 交互打磨
 - 边界情况处理
@@ -166,19 +178,19 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 
 ## 设计稿优先级
 
-| 优先级 | 设计稿 | 用途 |
-|--------|--------|------|
+| 优先级 | 设计稿                         | 用途             |
+| ------ | ------------------------------ | ---------------- |
 | **P0** | 05-dashboard-sidebar-full.html | Dashboard 主设计 |
-| **P0** | 09-editor-full-ide.html | 核心编辑器界面 |
-| **P0** | 12-sidebar-filetree.html | 文件树 |
-| **P0** | 14-ai-panel.html | AI 面板 |
-| P1 | 01-login.html | 登录页 |
-| P1 | 02-onboarding.html | 引导页 |
-| P1 | 10-settings.html | 设置 |
-| P1 | 13-sidebar-outline.html | 大纲 |
-| P1 | 15-info-panel.html | 信息面板 |
-| P1 | 17-command-palette.html | 命令面板 |
-| P2 | 其他 | 增强功能 |
+| **P0** | 09-editor-full-ide.html        | 核心编辑器界面   |
+| **P0** | 12-sidebar-filetree.html       | 文件树           |
+| **P0** | 14-ai-panel.html               | AI 面板          |
+| P1     | 01-login.html                  | 登录页           |
+| P1     | 02-onboarding.html             | 引导页           |
+| P1     | 10-settings.html               | 设置             |
+| P1     | 13-sidebar-outline.html        | 大纲             |
+| P1     | 15-info-panel.html             | 信息面板         |
+| P1     | 17-command-palette.html        | 命令面板         |
+| P2     | 其他                           | 增强功能         |
 
 ---
 
@@ -215,13 +227,13 @@ Phase 0 是唯一需要用户执行命令的阶段，之后全由 AI 操作：
 
 ## 文档索引
 
-| 文档 | 用途 |
-|------|------|
-| `01-tokens.css` | Design Tokens 实现 |
-| `02-component-cards/*.md` | 组件生成卡片 |
-| `03-state-inventory.md` | 全局状态清单 + 36项陷阱检查表 |
-| `04-composition-scenarios/` | 组合场景验收 |
-| `05-design-mapping.md` | 设计稿到代码映射 + UI模块清单 |
-| `06-shortcuts.md` | 快捷键规范 |
-| `../reference-implementations/` | 黄金标准代码 |
-| `../DESIGN_DECISIONS.md` | 终极参考 (完整规范) |
+| 文档                            | 用途                          |
+| ------------------------------- | ----------------------------- |
+| `01-tokens.css`                 | Design Tokens 实现            |
+| `02-component-cards/*.md`       | 组件生成卡片                  |
+| `03-state-inventory.md`         | 全局状态清单 + 36项陷阱检查表 |
+| `04-composition-scenarios/`     | 组合场景验收                  |
+| `05-design-mapping.md`          | 设计稿到代码映射 + UI模块清单 |
+| `06-shortcuts.md`               | 快捷键规范                    |
+| `../reference-implementations/` | 黄金标准代码                  |
+| `../DESIGN_DECISIONS.md`        | 终极参考 (完整规范)           |

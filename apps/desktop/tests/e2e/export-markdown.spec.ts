@@ -63,7 +63,10 @@ test("export: markdown writes deterministic file under userData exports", async 
     if (!doc.ok) {
       throw new Error(doc.error.message);
     }
-    return { projectId: project.data.projectId, documentId: doc.data.documentId };
+    return {
+      projectId: project.data.projectId,
+      documentId: doc.data.documentId,
+    };
   });
 
   await page.getByTestId("tiptap-editor").click();
@@ -91,4 +94,3 @@ test("export: markdown writes deterministic file under userData exports", async 
 
   await electronApp.close();
 });
-

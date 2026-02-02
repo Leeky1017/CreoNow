@@ -11,11 +11,27 @@ type SplitDiffViewProps = {
  * Prepare lines for split view: separate into before/after columns.
  */
 function prepareSplitLines(lines: DiffLine[]): {
-  beforeLines: Array<{ lineNumber: number | null; content: string; type: "removed" | "context" | "empty" }>;
-  afterLines: Array<{ lineNumber: number | null; content: string; type: "added" | "context" | "empty" }>;
+  beforeLines: Array<{
+    lineNumber: number | null;
+    content: string;
+    type: "removed" | "context" | "empty";
+  }>;
+  afterLines: Array<{
+    lineNumber: number | null;
+    content: string;
+    type: "added" | "context" | "empty";
+  }>;
 } {
-  const beforeLines: Array<{ lineNumber: number | null; content: string; type: "removed" | "context" | "empty" }> = [];
-  const afterLines: Array<{ lineNumber: number | null; content: string; type: "added" | "context" | "empty" }> = [];
+  const beforeLines: Array<{
+    lineNumber: number | null;
+    content: string;
+    type: "removed" | "context" | "empty";
+  }> = [];
+  const afterLines: Array<{
+    lineNumber: number | null;
+    content: string;
+    type: "added" | "context" | "empty";
+  }> = [];
 
   // Filter out header lines
   const contentLines = lines.filter((l) => l.type !== "header");
@@ -26,8 +42,16 @@ function prepareSplitLines(lines: DiffLine[]): {
     const line = contentLines[i];
 
     if (line.type === "context") {
-      beforeLines.push({ lineNumber: line.oldLineNumber, content: line.content, type: "context" });
-      afterLines.push({ lineNumber: line.newLineNumber, content: line.content, type: "context" });
+      beforeLines.push({
+        lineNumber: line.oldLineNumber,
+        content: line.content,
+        type: "context",
+      });
+      afterLines.push({
+        lineNumber: line.newLineNumber,
+        content: line.content,
+        type: "context",
+      });
       i++;
     } else if (line.type === "removed") {
       // Collect consecutive removed lines
@@ -68,7 +92,11 @@ function prepareSplitLines(lines: DiffLine[]): {
     } else if (line.type === "added") {
       // Added without preceding removed
       beforeLines.push({ lineNumber: null, content: "", type: "empty" });
-      afterLines.push({ lineNumber: line.newLineNumber, content: line.content, type: "added" });
+      afterLines.push({
+        lineNumber: line.newLineNumber,
+        content: line.content,
+        type: "added",
+      });
       i++;
     } else {
       i++;
@@ -95,7 +123,7 @@ export function SplitDiffView(props: SplitDiffViewProps): JSX.Element {
 
   const { beforeLines, afterLines } = React.useMemo(
     () => prepareSplitLines(props.lines),
-    [props.lines]
+    [props.lines],
   );
 
   // Synchronized scrolling

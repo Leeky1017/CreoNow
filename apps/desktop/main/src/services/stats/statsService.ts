@@ -30,7 +30,10 @@ export type StatsRange = {
 };
 
 export type StatsService = {
-  increment: (args: { ts: number; delta: Partial<StatsSummary> }) => ServiceResult<{
+  increment: (args: {
+    ts: number;
+    delta: Partial<StatsSummary>;
+  }) => ServiceResult<{
     updated: true;
     date: string;
   }>;
@@ -193,4 +196,3 @@ export function createStatsService(deps: {
     },
   };
 }
-

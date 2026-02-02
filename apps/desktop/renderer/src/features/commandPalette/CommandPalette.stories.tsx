@@ -28,7 +28,9 @@ function createMockIpc() {
       if (channel === "project:list") {
         return {
           ok: true,
-          data: { items: [{ projectId: "mock-project", name: "Mock Project" }] },
+          data: {
+            items: [{ projectId: "mock-project", name: "Mock Project" }],
+          },
         };
       }
       if (channel === "export:markdown") {
@@ -451,7 +453,9 @@ export const Closed: Story = {
       <div style={{ color: "var(--color-fg-muted)", textAlign: "center" }}>
         Command palette is closed (nothing rendered)
         <br />
-        <span style={{ fontSize: "12px", color: "var(--color-fg-placeholder)" }}>
+        <span
+          style={{ fontSize: "12px", color: "var(--color-fg-placeholder)" }}
+        >
           Press Cmd/Ctrl+P to open
         </span>
       </div>

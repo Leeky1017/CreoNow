@@ -209,7 +209,16 @@ function InlineError({
       role="alert"
     >
       <SeverityIcon severity={severity} className="w-3.5 h-3.5 shrink-0" />
-      <Text size="small" color={severity === "error" ? "error" : severity === "warning" ? "warning" : "info"}>
+      <Text
+        size="small"
+        color={
+          severity === "error"
+            ? "error"
+            : severity === "warning"
+              ? "warning"
+              : "info"
+        }
+      >
         {message}
       </Text>
     </div>
@@ -248,7 +257,10 @@ function BannerError({
         .join(" ")}
       role="alert"
     >
-      <SeverityIcon severity={severity ?? "error"} className="shrink-0 mt-0.5" />
+      <SeverityIcon
+        severity={severity ?? "error"}
+        className="shrink-0 mt-0.5"
+      />
 
       <div className="flex-1 min-w-0">
         {title && (
@@ -296,7 +308,10 @@ function CardError({
   secondaryActionLabel,
   onSecondaryAction,
   className = "",
-}: Omit<ErrorStateProps, "variant" | "dismissible" | "onDismiss">): JSX.Element {
+}: Omit<
+  ErrorStateProps,
+  "variant" | "dismissible" | "onDismiss"
+>): JSX.Element {
   const colors = severityColors[severity ?? "error"];
 
   return (
@@ -374,7 +389,10 @@ function FullPageError({
   secondaryActionLabel,
   onSecondaryAction,
   className = "",
-}: Omit<ErrorStateProps, "variant" | "dismissible" | "onDismiss">): JSX.Element {
+}: Omit<
+  ErrorStateProps,
+  "variant" | "dismissible" | "onDismiss"
+>): JSX.Element {
   const colors = severityColors[severity ?? "error"];
 
   return (
@@ -481,7 +499,13 @@ export function ErrorState({
 }: ErrorStateProps): JSX.Element {
   switch (variant) {
     case "inline":
-      return <InlineError message={props.message} severity={severity} className={props.className} />;
+      return (
+        <InlineError
+          message={props.message}
+          severity={severity}
+          className={props.className}
+        />
+      );
 
     case "banner":
       return <BannerError severity={severity} {...props} />;
@@ -493,6 +517,12 @@ export function ErrorState({
       return <FullPageError severity={severity} {...props} />;
 
     default:
-      return <InlineError message={props.message} severity={severity} className={props.className} />;
+      return (
+        <InlineError
+          message={props.message}
+          severity={severity}
+          className={props.className}
+        />
+      );
   }
 }

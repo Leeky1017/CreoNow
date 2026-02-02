@@ -190,7 +190,9 @@ describe("Textarea", () => {
 
       const textarea = screen.getByRole("textbox");
       expect(textarea).toHaveClass("focus-visible:outline");
-      expect(textarea).toHaveClass("focus-visible:border-[var(--color-border-focus)]");
+      expect(textarea).toHaveClass(
+        "focus-visible:border-[var(--color-border-focus)]",
+      );
     });
   });
 

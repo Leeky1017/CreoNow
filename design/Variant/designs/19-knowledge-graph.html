@@ -1,357 +1,733 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow Knowledge Graph</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="7">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet" vid="8">
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin=""
+      vid="7"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap"
+      rel="stylesheet"
+      vid="8"
+    />
     <style vid="9">
-        :root {
-            --bg-body: #080808;
-            --bg-surface: #0f0f0f;
-            --bg-panel: #141414;
-            --line-color: #222222;
-            --line-highlight: #444444;
-            --text-main: #ffffff;
-            --text-muted: #888888;
-            
-            --color-role: #3b82f6;      
-            --color-location: #22c55e;  
-            --color-event: #f97316;     
-            --color-item: #06b6d4;      
-        }
+      :root {
+        --bg-body: #080808;
+        --bg-surface: #0f0f0f;
+        --bg-panel: #141414;
+        --line-color: #222222;
+        --line-highlight: #444444;
+        --text-main: #ffffff;
+        --text-muted: #888888;
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            overflow: hidden;
-        }
+        --color-role: #3b82f6;
+        --color-location: #22c55e;
+        --color-event: #f97316;
+        --color-item: #06b6d4;
+      }
 
-        
-        .bg-grid-dots {
-            background-image: radial-gradient(circle, #222 1px, transparent 1px);
-            background-size: 24px 24px;
-        }
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: var(--bg-body);
+        color: var(--text-main);
+        overflow: hidden;
+      }
 
-        
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 3px;
-        }
+      .bg-grid-dots {
+        background-image: radial-gradient(circle, #222 1px, transparent 1px);
+        background-size: 24px 24px;
+      }
 
-        
-        .node {
-            width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg-surface);
-            border: 1px solid #333;
-            position: absolute;
-            cursor: grab;
-            transition: box-shadow 0.2s, transform 0.2s;
-            z-index: 10;
-            user-select: none;
-        }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 3px;
+      }
 
-        .node:active {
-            cursor: grabbing;
-        }
-        
-        .node.selected {
-            border-width: 2px;
-            box-shadow: 0 0 0 4px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.5);
-            z-index: 20;
-        }
+      .node {
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-surface);
+        border: 1px solid #333;
+        position: absolute;
+        cursor: grab;
+        transition:
+          box-shadow 0.2s,
+          transform 0.2s;
+        z-index: 10;
+        user-select: none;
+      }
 
-        
-        .node-role { border-radius: 50%; border-color: var(--color-role); }
-        .node-role.selected { box-shadow: 0 0 0 2px var(--bg-body), 0 0 0 4px var(--color-role); }
-        
-        .node-location { border-radius: 8px; border-color: var(--color-location); }
-        .node-location.selected { box-shadow: 0 0 0 2px var(--bg-body), 0 0 0 4px var(--color-location); }
-        
-        .node-event { border-radius: 8px; border-color: var(--color-event); transform: rotate(45deg); }
-        .node-event > div { transform: rotate(-45deg); } 
-        .node-event.selected { box-shadow: 0 0 0 2px var(--bg-body), 0 0 0 4px var(--color-event); }
+      .node:active {
+        cursor: grabbing;
+      }
 
-        .node-item { border-radius: 12px; border-color: var(--color-item); }
-        .node-item.selected { box-shadow: 0 0 0 2px var(--bg-body), 0 0 0 4px var(--color-item); }
+      .node.selected {
+        border-width: 2px;
+        box-shadow:
+          0 0 0 4px rgba(0, 0, 0, 0.5),
+          0 0 20px rgba(0, 0, 0, 0.5);
+        z-index: 20;
+      }
 
-        
-        .node-label {
-            position: absolute;
-            top: 56px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 11px;
-            white-space: nowrap;
-            background: rgba(0,0,0,0.8);
-            padding: 2px 6px;
-            border-radius: 4px;
-            pointer-events: none;
-            opacity: 0.8;
-        }
-        .node:hover .node-label, .node.selected .node-label {
-            opacity: 1;
-            background: black;
-            border: 1px solid #333;
-        }
+      .node-role {
+        border-radius: 50%;
+        border-color: var(--color-role);
+      }
+      .node-role.selected {
+        box-shadow:
+          0 0 0 2px var(--bg-body),
+          0 0 0 4px var(--color-role);
+      }
 
-        
-        .connection-label {
-            fill: #666;
-            font-size: 10px;
-            font-family: 'Inter', sans-serif;
-            background: #080808;
-        }
-        
-        .glow-effect {
-            animation: pulse-glow 2s infinite;
-        }
+      .node-location {
+        border-radius: 8px;
+        border-color: var(--color-location);
+      }
+      .node-location.selected {
+        box-shadow:
+          0 0 0 2px var(--bg-body),
+          0 0 0 4px var(--color-location);
+      }
 
-        @keyframes pulse-glow {
-            0% { opacity: 0.3; }
-            50% { opacity: 0.6; }
-            100% { opacity: 0.3; }
-        }
+      .node-event {
+        border-radius: 8px;
+        border-color: var(--color-event);
+        transform: rotate(45deg);
+      }
+      .node-event > div {
+        transform: rotate(-45deg);
+      }
+      .node-event.selected {
+        box-shadow:
+          0 0 0 2px var(--bg-body),
+          0 0 0 4px var(--color-event);
+      }
 
-        .filter-btn.active {
-            background-color: var(--bg-panel);
-            color: white;
-            border-color: #444;
+      .node-item {
+        border-radius: 12px;
+        border-color: var(--color-item);
+      }
+      .node-item.selected {
+        box-shadow:
+          0 0 0 2px var(--bg-body),
+          0 0 0 4px var(--color-item);
+      }
+
+      .node-label {
+        position: absolute;
+        top: 56px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 11px;
+        white-space: nowrap;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 2px 6px;
+        border-radius: 4px;
+        pointer-events: none;
+        opacity: 0.8;
+      }
+      .node:hover .node-label,
+      .node.selected .node-label {
+        opacity: 1;
+        background: black;
+        border: 1px solid #333;
+      }
+
+      .connection-label {
+        fill: #666;
+        font-size: 10px;
+        font-family: "Inter", sans-serif;
+        background: #080808;
+      }
+
+      .glow-effect {
+        animation: pulse-glow 2s infinite;
+      }
+
+      @keyframes pulse-glow {
+        0% {
+          opacity: 0.3;
         }
+        50% {
+          opacity: 0.6;
+        }
+        100% {
+          opacity: 0.3;
+        }
+      }
+
+      .filter-btn.active {
+        background-color: var(--bg-panel);
+        color: white;
+        border-color: #444;
+      }
     </style>
-</head>
-<body class="flex flex-col h-screen w-full" vid="10">
+  </head>
+  <body class="flex flex-col h-screen w-full" vid="10">
+    <header
+      class="h-12 flex-shrink-0 bg-[#0f0f0f] border-b border-[#222222] flex items-center justify-between px-4 z-30"
+      vid="11"
+    >
+      <div class="flex items-center gap-4 w-[240px]" vid="12">
+        <button
+          class="text-[#888888] hover:text-white transition-colors"
+          vid="13"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="14"
+          >
+            <path d="M19 12H5M12 19l-7-7 7-7" vid="15"></path>
+          </svg>
+        </button>
+        <div class="h-4 w-px bg-[#333]" vid="16"></div>
+        <h1 class="text-sm font-medium tracking-wide" vid="17">
+          Knowledge Graph
+        </h1>
+      </div>
 
-    
-    <header class="h-12 flex-shrink-0 bg-[#0f0f0f] border-b border-[#222222] flex items-center justify-between px-4 z-30" vid="11">
-        
-        
-        <div class="flex items-center gap-4 w-[240px]" vid="12">
-            <button class="text-[#888888] hover:text-white transition-colors" vid="13">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="14">
-                    <path d="M19 12H5M12 19l-7-7 7-7" vid="15"></path>
-                </svg>
-            </button>
-            <div class="h-4 w-px bg-[#333]" vid="16"></div>
-            <h1 class="text-sm font-medium tracking-wide" vid="17">Knowledge Graph</h1>
-        </div>
+      <div class="flex items-center gap-2" vid="18">
+        <button
+          class="filter-btn active px-3 py-1 rounded-full text-xs font-medium text-[#888888] hover:text-white border border-transparent hover:border-[#333] transition-all flex items-center gap-2"
+          vid="19"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-blue-500" vid="20"></span>
+          Roles
+        </button>
+        <button
+          class="filter-btn px-3 py-1 rounded-full text-xs font-medium text-[#888888] hover:text-white border border-transparent hover:border-[#333] transition-all flex items-center gap-2"
+          vid="21"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-green-500" vid="22"></span>
+          Locations
+        </button>
+        <button
+          class="filter-btn px-3 py-1 rounded-full text-xs font-medium text-[#888888] hover:text-white border border-transparent hover:border-[#333] transition-all flex items-center gap-2"
+          vid="23"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-orange-500" vid="24"></span>
+          Events
+        </button>
+        <button
+          class="filter-btn px-3 py-1 rounded-full text-xs font-medium text-[#888888] hover:text-white border border-transparent hover:border-[#333] transition-all flex items-center gap-2"
+          vid="25"
+        >
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-500" vid="26"></span>
+          Items
+        </button>
+      </div>
 
-        
-        <div class="flex items-center gap-2" vid="18">
-            <button class="filter-btn active px-3 py-1 rounded-full text-xs font-medium text-[#888888] hover:text-white border border-transparent hover:border-[#333] transition-all flex items-center gap-2" vid="19">
-                <span class="w-1.5 h-1.5 rounded-full bg-blue-500" vid="20"></span>
-                Roles
-            </button>
-            <button class="filter-btn px-3 py-1 rounded-full text-xs font-medium text-[#888888] hover:text-white border border-transparent hover:border-[#333] transition-all flex items-center gap-2" vid="21">
-                <span class="w-1.5 h-1.5 rounded-full bg-green-500" vid="22"></span>
-                Locations
-            </button>
-            <button class="filter-btn px-3 py-1 rounded-full text-xs font-medium text-[#888888] hover:text-white border border-transparent hover:border-[#333] transition-all flex items-center gap-2" vid="23">
-                <span class="w-1.5 h-1.5 rounded-full bg-orange-500" vid="24"></span>
-                Events
-            </button>
-            <button class="filter-btn px-3 py-1 rounded-full text-xs font-medium text-[#888888] hover:text-white border border-transparent hover:border-[#333] transition-all flex items-center gap-2" vid="25">
-                <span class="w-1.5 h-1.5 rounded-full bg-cyan-500" vid="26"></span>
-                Items
-            </button>
+      <div class="flex items-center gap-3 w-[240px] justify-end" vid="27">
+        <div
+          class="flex items-center bg-[#141414] rounded border border-[#222]"
+          vid="28"
+        >
+          <button
+            class="p-1.5 text-[#888888] hover:text-white hover:bg-[#222]"
+            vid="29"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              vid="30"
+            >
+              <line x1="5" y1="12" x2="19" y2="12" vid="31"></line>
+            </svg>
+          </button>
+          <span class="text-[10px] w-8 text-center text-[#666]" vid="32"
+            >100%</span
+          >
+          <button
+            class="p-1.5 text-[#888888] hover:text-white hover:bg-[#222]"
+            vid="33"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              vid="34"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" vid="35"></line>
+              <line x1="5" y1="12" x2="19" y2="12" vid="36"></line>
+            </svg>
+          </button>
         </div>
-
-        
-        <div class="flex items-center gap-3 w-[240px] justify-end" vid="27">
-            <div class="flex items-center bg-[#141414] rounded border border-[#222]" vid="28">
-                <button class="p-1.5 text-[#888888] hover:text-white hover:bg-[#222]" vid="29">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="30"><line x1="5" y1="12" x2="19" y2="12" vid="31"></line></svg>
-                </button>
-                <span class="text-[10px] w-8 text-center text-[#666]" vid="32">100%</span>
-                <button class="p-1.5 text-[#888888] hover:text-white hover:bg-[#222]" vid="33">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="34"><line x1="12" y1="5" x2="12" y2="19" vid="35"></line><line x1="5" y1="12" x2="19" y2="12" vid="36"></line></svg>
-                </button>
-            </div>
-            <button class="bg-white text-black hover:bg-gray-200 text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors" vid="37">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="38"><line x1="12" y1="5" x2="12" y2="19" vid="39"></line><line x1="5" y1="12" x2="19" y2="12" vid="40"></line></svg>
-                Add Node
-            </button>
-        </div>
+        <button
+          class="bg-white text-black hover:bg-gray-200 text-xs font-medium px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors"
+          vid="37"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="38"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" vid="39"></line>
+            <line x1="5" y1="12" x2="19" y2="12" vid="40"></line>
+          </svg>
+          Add Node
+        </button>
+      </div>
     </header>
 
-    
     <main class="flex-1 relative overflow-hidden bg-[#080808]" vid="41">
-        
-        
-        <div class="absolute inset-0 bg-grid-dots opacity-20 pointer-events-none" vid="42"></div>
+      <div
+        class="absolute inset-0 bg-grid-dots opacity-20 pointer-events-none"
+        vid="42"
+      ></div>
 
-        
-        <div class="absolute inset-0 w-full h-full transform transition-transform duration-100 ease-out" style="transform: scale(1) translate(0px, 0px);" vid="43">
-            
-            
-            <svg class="absolute inset-0 w-full h-full pointer-events-none z-0" vid="44">
-                <defs vid="45">
-                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto" vid="46">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="#444" vid="47"></polygon>
-                    </marker>
-                    <marker id="arrowhead-selected" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto" vid="48">
-                        <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6" vid="49"></polygon>
-                    </marker>
-                </defs>
+      <div
+        class="absolute inset-0 w-full h-full transform transition-transform duration-100 ease-out"
+        style="transform: scale(1) translate(0px, 0px)"
+        vid="43"
+      >
+        <svg
+          class="absolute inset-0 w-full h-full pointer-events-none z-0"
+          vid="44"
+        >
+          <defs vid="45">
+            <marker
+              id="arrowhead"
+              markerWidth="10"
+              markerHeight="7"
+              refX="28"
+              refY="3.5"
+              orient="auto"
+              vid="46"
+            >
+              <polygon points="0 0, 10 3.5, 0 7" fill="#444" vid="47"></polygon>
+            </marker>
+            <marker
+              id="arrowhead-selected"
+              markerWidth="10"
+              markerHeight="7"
+              refX="28"
+              refY="3.5"
+              orient="auto"
+              vid="48"
+            >
+              <polygon
+                points="0 0, 10 3.5, 0 7"
+                fill="#3b82f6"
+                vid="49"
+              ></polygon>
+            </marker>
+          </defs>
 
-                
-                <line x1="45%" y1="45%" x2="65%" y2="30%" stroke="#444" stroke-width="1" marker-end="url(#arrowhead)" vid="50"></line>
-                <rect x="54%" y="36.5%" width="60" height="16" fill="#080808" rx="4" vid="51"></rect>
-                <text x="54%" y="36.5%" dx="30" dy="11" text-anchor="middle" fill="#666" font-size="10" vid="52">Travels to</text>
+          <line
+            x1="45%"
+            y1="45%"
+            x2="65%"
+            y2="30%"
+            stroke="#444"
+            stroke-width="1"
+            marker-end="url(#arrowhead)"
+            vid="50"
+          ></line>
+          <rect
+            x="54%"
+            y="36.5%"
+            width="60"
+            height="16"
+            fill="#080808"
+            rx="4"
+            vid="51"
+          ></rect>
+          <text
+            x="54%"
+            y="36.5%"
+            dx="30"
+            dy="11"
+            text-anchor="middle"
+            fill="#666"
+            font-size="10"
+            vid="52"
+          >
+            Travels to
+          </text>
 
-                
-                <line x1="45%" y1="45%" x2="45%" y2="70%" stroke="#444" stroke-width="1" marker-end="url(#arrowhead)" vid="53"></line>
-                <rect x="44%" y="57%" width="70" height="16" fill="#080808" rx="4" vid="54"></rect>
-                <text x="44%" y="57%" dx="35" dy="11" text-anchor="middle" fill="#666" font-size="10" vid="55">Participant</text>
+          <line
+            x1="45%"
+            y1="45%"
+            x2="45%"
+            y2="70%"
+            stroke="#444"
+            stroke-width="1"
+            marker-end="url(#arrowhead)"
+            vid="53"
+          ></line>
+          <rect
+            x="44%"
+            y="57%"
+            width="70"
+            height="16"
+            fill="#080808"
+            rx="4"
+            vid="54"
+          ></rect>
+          <text
+            x="44%"
+            y="57%"
+            dx="35"
+            dy="11"
+            text-anchor="middle"
+            fill="#666"
+            font-size="10"
+            vid="55"
+          >
+            Participant
+          </text>
 
-                
-                <line x1="45%" y1="45%" x2="25%" y2="45%" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrowhead-selected)" opacity="0.8" vid="56"></line>
-                <rect x="34%" y="44%" width="50" height="16" fill="#080808" stroke="#3b82f6" stroke-width="1" rx="4" vid="57"></rect>
-                <text x="34%" y="44%" dx="25" dy="11" text-anchor="middle" fill="#3b82f6" font-size="10" vid="58">Owns</text>
+          <line
+            x1="45%"
+            y1="45%"
+            x2="25%"
+            y2="45%"
+            stroke="#3b82f6"
+            stroke-width="2"
+            marker-end="url(#arrowhead-selected)"
+            opacity="0.8"
+            vid="56"
+          ></line>
+          <rect
+            x="34%"
+            y="44%"
+            width="50"
+            height="16"
+            fill="#080808"
+            stroke="#3b82f6"
+            stroke-width="1"
+            rx="4"
+            vid="57"
+          ></rect>
+          <text
+            x="34%"
+            y="44%"
+            dx="25"
+            dy="11"
+            text-anchor="middle"
+            fill="#3b82f6"
+            font-size="10"
+            vid="58"
+          >
+            Owns
+          </text>
 
-                 
-                 <line x1="65%" y1="30%" x2="45%" y2="70%" stroke="#444" stroke-width="1" marker-end="url(#arrowhead)" opacity="0.5" stroke-dasharray="4" vid="59"></line>
+          <line
+            x1="65%"
+            y1="30%"
+            x2="45%"
+            y2="70%"
+            stroke="#444"
+            stroke-width="1"
+            marker-end="url(#arrowhead)"
+            opacity="0.5"
+            stroke-dasharray="4"
+            vid="59"
+          ></line>
+        </svg>
+
+        <div
+          class="node node-role selected"
+          style="top: 45%; left: 45%; transform: translate(-50%, -50%)"
+          vid="60"
+        >
+          <img
+            src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&amp;fit=crop&amp;w=100&amp;q=80"
+            alt="Elara"
+            class="w-full h-full object-cover rounded-full opacity-80 hover:opacity-100 transition-opacity"
+            vid="61"
+          />
+          <div class="node-label" vid="62">Elara</div>
+        </div>
+
+        <div
+          class="node node-location"
+          style="top: 30%; left: 65%; transform: translate(-50%, -50%)"
+          vid="63"
+        >
+          <svg
+            class="w-5 h-5 text-green-500"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="64"
+          >
+            <path
+              d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
+              vid="65"
+            ></path>
+            <circle cx="12" cy="10" r="3" vid="66"></circle>
+          </svg>
+          <div class="node-label" vid="67">Shadow Keep</div>
+        </div>
+
+        <div
+          class="node node-event"
+          style="top: 70%; left: 45%; transform: translate(-50%, -50%)"
+          vid="68"
+        >
+          <div vid="69">
+            <svg
+              class="w-5 h-5 text-orange-500"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              vid="70"
+            >
+              <circle cx="12" cy="12" r="10" vid="71"></circle>
+              <line x1="12" y1="8" x2="12" y2="12" vid="72"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16" vid="73"></line>
             </svg>
-
-            
-            
-            
-            <div class="node node-role selected" style="top: 45%; left: 45%; transform: translate(-50%, -50%);" vid="60">
-                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&amp;fit=crop&amp;w=100&amp;q=80" alt="Elara" class="w-full h-full object-cover rounded-full opacity-80 hover:opacity-100 transition-opacity" vid="61">
-                <div class="node-label" vid="62">Elara</div>
-            </div>
-
-            
-            <div class="node node-location" style="top: 30%; left: 65%; transform: translate(-50%, -50%);" vid="63">
-                <svg class="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="64"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" vid="65"></path><circle cx="12" cy="10" r="3" vid="66"></circle></svg>
-                <div class="node-label" vid="67">Shadow Keep</div>
-            </div>
-
-            
-            <div class="node node-event" style="top: 70%; left: 45%; transform: translate(-50%, -50%);" vid="68">
-                <div vid="69">
-                    <svg class="w-5 h-5 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="70"><circle cx="12" cy="12" r="10" vid="71"></circle><line x1="12" y1="8" x2="12" y2="12" vid="72"></line><line x1="12" y1="16" x2="12.01" y2="16" vid="73"></line></svg>
-                </div>
-                <div class="node-label" style="transform: translateX(-50%) rotate(-45deg); top: 60px;" vid="74">The Great War</div>
-            </div>
-
-            
-            <div class="node node-item" style="top: 45%; left: 25%; transform: translate(-50%, -50%);" vid="75">
-                <svg class="w-5 h-5 text-cyan-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="76"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" vid="77"></path></svg>
-                <div class="node-label" vid="78">Crystal Key</div>
-            </div>
-
+          </div>
+          <div
+            class="node-label"
+            style="transform: translateX(-50%) rotate(-45deg); top: 60px"
+            vid="74"
+          >
+            The Great War
+          </div>
         </div>
 
-        
+        <div
+          class="node node-item"
+          style="top: 45%; left: 25%; transform: translate(-50%, -50%)"
+          vid="75"
+        >
+          <svg
+            class="w-5 h-5 text-cyan-500"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="76"
+          >
+            <path
+              d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"
+              vid="77"
+            ></path>
+          </svg>
+          <div class="node-label" vid="78">Crystal Key</div>
+        </div>
+      </div>
 
-        
-        <div class="absolute top-[35%] left-[49%] w-[280px] bg-[#0f0f0f]/95 backdrop-blur-md border border-[#333] rounded-lg shadow-2xl p-4 flex flex-col gap-3 animate-fade-in z-40" vid="79">
-            
-            <div class="flex items-start justify-between" vid="80">
-                <div class="flex items-center gap-3" vid="81">
-                    <div class="w-10 h-10 rounded-full border border-blue-500 overflow-hidden" vid="82">
-                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&amp;fit=crop&amp;w=100&amp;q=80" class="w-full h-full object-cover" vid="83">
-                    </div>
-                    <div vid="84">
-                        <div class="text-sm font-semibold text-white" vid="85">Elara Vance</div>
-                        <div class="text-[10px] uppercase tracking-wider text-blue-400 font-medium" vid="86">Protagonist</div>
-                    </div>
-                </div>
-                <button class="text-[#666] hover:text-white" vid="87">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="88"><circle cx="12" cy="12" r="1" vid="89"></circle><circle cx="12" cy="5" r="1" vid="90"></circle><circle cx="12" cy="19" r="1" vid="91"></circle></svg>
-                </button>
+      <div
+        class="absolute top-[35%] left-[49%] w-[280px] bg-[#0f0f0f]/95 backdrop-blur-md border border-[#333] rounded-lg shadow-2xl p-4 flex flex-col gap-3 animate-fade-in z-40"
+        vid="79"
+      >
+        <div class="flex items-start justify-between" vid="80">
+          <div class="flex items-center gap-3" vid="81">
+            <div
+              class="w-10 h-10 rounded-full border border-blue-500 overflow-hidden"
+              vid="82"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&amp;fit=crop&amp;w=100&amp;q=80"
+                class="w-full h-full object-cover"
+                vid="83"
+              />
             </div>
-
-            
-            <div class="flex flex-wrap gap-1.5" vid="92">
-                <span class="px-2 py-0.5 rounded bg-[#1a1a1a] border border-[#222] text-[10px] text-[#888]" vid="93">Age: 24</span>
-                <span class="px-2 py-0.5 rounded bg-[#1a1a1a] border border-[#222] text-[10px] text-[#888]" vid="94">Human</span>
-                <span class="px-2 py-0.5 rounded bg-[#1a1a1a] border border-[#222] text-[10px] text-[#888]" vid="95">Mage</span>
+            <div vid="84">
+              <div class="text-sm font-semibold text-white" vid="85">
+                Elara Vance
+              </div>
+              <div
+                class="text-[10px] uppercase tracking-wider text-blue-400 font-medium"
+                vid="86"
+              >
+                Protagonist
+              </div>
             </div>
-
-            
-            <p class="text-xs text-[#888] leading-relaxed line-clamp-3" vid="96">
-                A skilled weaver of arcana who seeks to unravel the mystery of the Silent Void. Born in the outskirts of the capital.
-            </p>
-            
-            <div class="h-px bg-[#222] w-full my-1" vid="97"></div>
-
-            
-            <div class="flex gap-2" vid="98">
-                <button class="flex-1 bg-[#1a1a1a] hover:bg-[#222] text-xs text-white py-1.5 rounded border border-[#222] transition-colors" vid="99">Edit Node</button>
-                <button class="flex-1 bg-[#1a1a1a] hover:bg-[#222] text-xs text-white py-1.5 rounded border border-[#222] transition-colors" vid="100">View Details</button>
-            </div>
+          </div>
+          <button class="text-[#666] hover:text-white" vid="87">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              vid="88"
+            >
+              <circle cx="12" cy="12" r="1" vid="89"></circle>
+              <circle cx="12" cy="5" r="1" vid="90"></circle>
+              <circle cx="12" cy="19" r="1" vid="91"></circle>
+            </svg>
+          </button>
         </div>
 
-        
-        <div class="absolute bottom-6 right-6 bg-[#0f0f0f] border border-[#222] rounded p-3 flex flex-col gap-2 z-30" vid="101">
-            <div class="text-[10px] uppercase tracking-wider text-[#666] font-medium mb-1" vid="102">Graph Legend</div>
-            <div class="flex items-center gap-2" vid="103">
-                <div class="w-2 h-2 rounded-full border border-blue-500 bg-blue-500/10" vid="104"></div>
-                <span class="text-[11px] text-[#888]" vid="105">Character</span>
-            </div>
-            <div class="flex items-center gap-2" vid="106">
-                <div class="w-2 h-2 rounded-sm border border-green-500 bg-green-500/10" vid="107"></div>
-                <span class="text-[11px] text-[#888]" vid="108">Location</span>
-            </div>
-            <div class="flex items-center gap-2" vid="109">
-                <div class="w-2 h-2 rounded-sm border border-orange-500 bg-orange-500/10 transform rotate-45" vid="110"></div>
-                <span class="text-[11px] text-[#888]" vid="111">Event</span>
-            </div>
-            <div class="flex items-center gap-2" vid="112">
-                <div class="w-2 h-2 rounded-full border border-cyan-500 bg-cyan-500/10" vid="113"></div>
-                <span class="text-[11px] text-[#888]" vid="114">Item</span>
-            </div>
+        <div class="flex flex-wrap gap-1.5" vid="92">
+          <span
+            class="px-2 py-0.5 rounded bg-[#1a1a1a] border border-[#222] text-[10px] text-[#888]"
+            vid="93"
+            >Age: 24</span
+          >
+          <span
+            class="px-2 py-0.5 rounded bg-[#1a1a1a] border border-[#222] text-[10px] text-[#888]"
+            vid="94"
+            >Human</span
+          >
+          <span
+            class="px-2 py-0.5 rounded bg-[#1a1a1a] border border-[#222] text-[10px] text-[#888]"
+            vid="95"
+            >Mage</span
+          >
         </div>
 
-        
-         <div class="absolute bottom-6 left-6 z-30" vid="115">
-            <button class="w-10 h-10 rounded-full bg-white text-black hover:bg-gray-200 shadow-lg flex items-center justify-center transition-transform hover:scale-105" vid="116">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="117"><line x1="12" y1="5" x2="12" y2="19" vid="118"></line><line x1="5" y1="12" x2="19" y2="12" vid="119"></line></svg>
-            </button>
-         </div>
+        <p class="text-xs text-[#888] leading-relaxed line-clamp-3" vid="96">
+          A skilled weaver of arcana who seeks to unravel the mystery of the
+          Silent Void. Born in the outskirts of the capital.
+        </p>
 
+        <div class="h-px bg-[#222] w-full my-1" vid="97"></div>
+
+        <div class="flex gap-2" vid="98">
+          <button
+            class="flex-1 bg-[#1a1a1a] hover:bg-[#222] text-xs text-white py-1.5 rounded border border-[#222] transition-colors"
+            vid="99"
+          >
+            Edit Node
+          </button>
+          <button
+            class="flex-1 bg-[#1a1a1a] hover:bg-[#222] text-xs text-white py-1.5 rounded border border-[#222] transition-colors"
+            vid="100"
+          >
+            View Details
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="absolute bottom-6 right-6 bg-[#0f0f0f] border border-[#222] rounded p-3 flex flex-col gap-2 z-30"
+        vid="101"
+      >
+        <div
+          class="text-[10px] uppercase tracking-wider text-[#666] font-medium mb-1"
+          vid="102"
+        >
+          Graph Legend
+        </div>
+        <div class="flex items-center gap-2" vid="103">
+          <div
+            class="w-2 h-2 rounded-full border border-blue-500 bg-blue-500/10"
+            vid="104"
+          ></div>
+          <span class="text-[11px] text-[#888]" vid="105">Character</span>
+        </div>
+        <div class="flex items-center gap-2" vid="106">
+          <div
+            class="w-2 h-2 rounded-sm border border-green-500 bg-green-500/10"
+            vid="107"
+          ></div>
+          <span class="text-[11px] text-[#888]" vid="108">Location</span>
+        </div>
+        <div class="flex items-center gap-2" vid="109">
+          <div
+            class="w-2 h-2 rounded-sm border border-orange-500 bg-orange-500/10 transform rotate-45"
+            vid="110"
+          ></div>
+          <span class="text-[11px] text-[#888]" vid="111">Event</span>
+        </div>
+        <div class="flex items-center gap-2" vid="112">
+          <div
+            class="w-2 h-2 rounded-full border border-cyan-500 bg-cyan-500/10"
+            vid="113"
+          ></div>
+          <span class="text-[11px] text-[#888]" vid="114">Item</span>
+        </div>
+      </div>
+
+      <div class="absolute bottom-6 left-6 z-30" vid="115">
+        <button
+          class="w-10 h-10 rounded-full bg-white text-black hover:bg-gray-200 shadow-lg flex items-center justify-center transition-transform hover:scale-105"
+          vid="116"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="117"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" vid="118"></line>
+            <line x1="5" y1="12" x2="19" y2="12" vid="119"></line>
+          </svg>
+        </button>
+      </div>
     </main>
 
-    
-    
-
     <script vid="120">
-        
-        const nodes = document.querySelectorAll('.node');
-        
-        nodes.forEach(node => {
-            node.addEventListener('mousedown', (e) => {
-                
-                e.stopPropagation();
-            });
-        });
+      const nodes = document.querySelectorAll(".node");
 
-        
-        const filters = document.querySelectorAll('.filter-btn');
-        filters.forEach(btn => {
-            btn.addEventListener('click', () => {
-                filters.forEach(b => b.classList.remove('active', 'bg-[#141414]', 'border-[#444]', 'text-white'));
-                filters.forEach(b => b.classList.add('text-[#888]', 'border-transparent'));
-                
-                btn.classList.add('active', 'bg-[#141414]', 'border-[#444]', 'text-white');
-                btn.classList.remove('text-[#888]', 'border-transparent');
-            });
+      nodes.forEach((node) => {
+        node.addEventListener("mousedown", (e) => {
+          e.stopPropagation();
         });
+      });
+
+      const filters = document.querySelectorAll(".filter-btn");
+      filters.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          filters.forEach((b) =>
+            b.classList.remove(
+              "active",
+              "bg-[#141414]",
+              "border-[#444]",
+              "text-white",
+            ),
+          );
+          filters.forEach((b) =>
+            b.classList.add("text-[#888]", "border-transparent"),
+          );
+
+          btn.classList.add(
+            "active",
+            "bg-[#141414]",
+            "border-[#444]",
+            "text-white",
+          );
+          btn.classList.remove("text-[#888]", "border-transparent");
+        });
+      });
     </script>
-
-</body></html>
+  </body>
+</html>

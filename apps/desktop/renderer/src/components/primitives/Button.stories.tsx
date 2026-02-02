@@ -320,7 +320,12 @@ export const LongTextConstrained: Story = {
     layout: "padded",
   },
   render: () => (
-    <div style={{ width: "150px", border: "1px dashed var(--color-border-default)" }}>
+    <div
+      style={{
+        width: "150px",
+        border: "1px dashed var(--color-border-default)",
+      }}
+    >
       <Button fullWidth>
         Very Long Button Text That Should Handle Overflow
       </Button>
@@ -437,20 +442,46 @@ export const FullMatrix: Story = {
     layout: "fullscreen",
   },
   render: () => (
-    <div style={{ padding: "2rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div
+      style={{
+        padding: "2rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "2rem",
+      }}
+    >
       {/* Variant × Size */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Variant × Size Matrix
         </h3>
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {variants.map((variant) => (
-            <div key={variant} style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-              <span style={{ width: "80px", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            <div
+              key={variant}
+              style={{ display: "flex", gap: "1rem", alignItems: "center" }}
+            >
+              <span
+                style={{
+                  width: "80px",
+                  fontSize: "12px",
+                  color: "var(--color-fg-muted)",
+                }}
+              >
                 {variant}
               </span>
               {sizes.map((size) => (
-                <Button key={`${variant}-${size}`} variant={variant} size={size}>
+                <Button
+                  key={`${variant}-${size}`}
+                  variant={variant}
+                  size={size}
+                >
                   {size}
                 </Button>
               ))}
@@ -461,12 +492,24 @@ export const FullMatrix: Story = {
 
       {/* States */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           States
         </h3>
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-            <span style={{ width: "80px", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            <span
+              style={{
+                width: "80px",
+                fontSize: "12px",
+                color: "var(--color-fg-muted)",
+              }}
+            >
               default
             </span>
             {variants.map((variant) => (
@@ -476,7 +519,13 @@ export const FullMatrix: Story = {
             ))}
           </div>
           <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-            <span style={{ width: "80px", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            <span
+              style={{
+                width: "80px",
+                fontSize: "12px",
+                color: "var(--color-fg-muted)",
+              }}
+            >
               disabled
             </span>
             {variants.map((variant) => (
@@ -486,7 +535,13 @@ export const FullMatrix: Story = {
             ))}
           </div>
           <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-            <span style={{ width: "80px", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            <span
+              style={{
+                width: "80px",
+                fontSize: "12px",
+                color: "var(--color-fg-muted)",
+              }}
+            >
               loading
             </span>
             {variants.map((variant) => (
@@ -500,10 +555,23 @@ export const FullMatrix: Story = {
 
       {/* Full Width */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Full Width
         </h3>
-        <div style={{ maxWidth: "300px", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <div
+          style={{
+            maxWidth: "300px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.5rem",
+          }}
+        >
           <Button variant="primary" fullWidth>
             Primary Full Width
           </Button>

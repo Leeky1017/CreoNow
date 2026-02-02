@@ -6,7 +6,10 @@ import {
   createFileStore,
   type DocumentListItem,
 } from "../../stores/fileStore";
-import { EditorStoreProvider, createEditorStore } from "../../stores/editorStore";
+import {
+  EditorStoreProvider,
+  createEditorStore,
+} from "../../stores/editorStore";
 
 /**
  * FileTreePanel 组件 Story
@@ -87,7 +90,9 @@ function FileTreePanelWrapper(props: {
 
     return {
       initialProps,
-      fileStore: createFileStore(mockIpc as Parameters<typeof createFileStore>[0]),
+      fileStore: createFileStore(
+        mockIpc as Parameters<typeof createFileStore>[0],
+      ),
       editorStore: createEditorStore(
         mockIpc as Parameters<typeof createEditorStore>[0],
       ),
@@ -160,9 +165,21 @@ export const Default: Story = {
     <FileTreePanelWrapper
       projectId="project-1"
       items={[
-        { documentId: "doc-1", title: "Chapter 1", updatedAt: Date.now() - 86400000 },
-        { documentId: "doc-2", title: "Chapter 2", updatedAt: Date.now() - 172800000 },
-        { documentId: "doc-3", title: "Epilogue", updatedAt: Date.now() - 259200000 },
+        {
+          documentId: "doc-1",
+          title: "Chapter 1",
+          updatedAt: Date.now() - 86400000,
+        },
+        {
+          documentId: "doc-2",
+          title: "Chapter 2",
+          updatedAt: Date.now() - 172800000,
+        },
+        {
+          documentId: "doc-3",
+          title: "Epilogue",
+          updatedAt: Date.now() - 259200000,
+        },
       ]}
       currentDocumentId="doc-1"
     />
@@ -176,7 +193,11 @@ export const Default: Story = {
  */
 export const Empty: Story = {
   render: () => (
-    <FileTreePanelWrapper projectId="project-empty" items={[]} currentDocumentId={null} />
+    <FileTreePanelWrapper
+      projectId="project-empty"
+      items={[]}
+      currentDocumentId={null}
+    />
   ),
 };
 
@@ -230,12 +251,14 @@ export const LongFileNames: Story = {
       items={[
         {
           documentId: "doc-1",
-          title: "This is a very long document title that should be truncated properly in the UI",
+          title:
+            "This is a very long document title that should be truncated properly in the UI",
           updatedAt: Date.now() - 86400000,
         },
         {
           documentId: "doc-2",
-          title: "Another extremely long title for testing text overflow behavior in the file tree panel",
+          title:
+            "Another extremely long title for testing text overflow behavior in the file tree panel",
           updatedAt: Date.now() - 172800000,
         },
         {
@@ -257,11 +280,31 @@ export const WithSelection: Story = {
     <FileTreePanelWrapper
       projectId="project-sel"
       items={[
-        { documentId: "doc-1", title: "Introduction", updatedAt: Date.now() - 86400000 },
-        { documentId: "doc-2", title: "Main Content", updatedAt: Date.now() - 172800000 },
-        { documentId: "doc-3", title: "Conclusion", updatedAt: Date.now() - 259200000 },
-        { documentId: "doc-4", title: "Appendix A", updatedAt: Date.now() - 345600000 },
-        { documentId: "doc-5", title: "Appendix B", updatedAt: Date.now() - 432000000 },
+        {
+          documentId: "doc-1",
+          title: "Introduction",
+          updatedAt: Date.now() - 86400000,
+        },
+        {
+          documentId: "doc-2",
+          title: "Main Content",
+          updatedAt: Date.now() - 172800000,
+        },
+        {
+          documentId: "doc-3",
+          title: "Conclusion",
+          updatedAt: Date.now() - 259200000,
+        },
+        {
+          documentId: "doc-4",
+          title: "Appendix A",
+          updatedAt: Date.now() - 345600000,
+        },
+        {
+          documentId: "doc-5",
+          title: "Appendix B",
+          updatedAt: Date.now() - 432000000,
+        },
       ]}
       currentDocumentId="doc-2"
     />
@@ -285,7 +328,8 @@ export const RenameDemo: Story = {
         },
         {
           documentId: "doc-long",
-          title: "This is a very long document title that should be properly handled during rename",
+          title:
+            "This is a very long document title that should be properly handled during rename",
           updatedAt: Date.now() - 172800000,
         },
       ]}

@@ -25,40 +25,43 @@ color: var(--color-fg-default);
 
 ## 状态矩阵 (MUST 全部实现)
 
-| 状态 | 视觉表现 | 触发方式 |
-|------|----------|----------|
-| default | 正常边框颜色 | 初始状态 |
-| hover | border-color: var(--color-border-hover) | 鼠标悬停 |
-| focus-visible | border-color: var(--color-border-focus) + focus ring | 聚焦 |
-| error | border-color: var(--color-error) + 底部错误文字 | 验证失败 |
-| disabled | opacity: 0.5, cursor: not-allowed, 不可聚焦 | disabled=true |
-| readonly | background: var(--color-bg-base), 可聚焦但不可编辑 | readOnly=true |
+| 状态          | 视觉表现                                             | 触发方式      |
+| ------------- | ---------------------------------------------------- | ------------- |
+| default       | 正常边框颜色                                         | 初始状态      |
+| hover         | border-color: var(--color-border-hover)              | 鼠标悬停      |
+| focus-visible | border-color: var(--color-border-focus) + focus ring | 聚焦          |
+| error         | border-color: var(--color-error) + 底部错误文字      | 验证失败      |
+| disabled      | opacity: 0.5, cursor: not-allowed, 不可聚焦          | disabled=true |
+| readonly      | background: var(--color-bg-base), 可聚焦但不可编辑   | readOnly=true |
 
 ### disabled vs readonly 区别
 
-| 属性 | 可聚焦 | 可编辑 | 表单提交 | 视觉 |
-|------|--------|--------|----------|------|
-| disabled | ❌ | ❌ | ❌ 不包含 | 明显禁用 (opacity: 0.5) |
-| readonly | ✅ | ❌ | ✅ 包含 | 轻微区分 (背景略淡) |
+| 属性     | 可聚焦 | 可编辑 | 表单提交  | 视觉                    |
+| -------- | ------ | ------ | --------- | ----------------------- |
+| disabled | ❌     | ❌     | ❌ 不包含 | 明显禁用 (opacity: 0.5) |
+| readonly | ✅     | ❌     | ✅ 包含   | 轻微区分 (背景略淡)     |
 
 ---
 
 ## 边界情况 (MUST 处理)
 
-| 边界 | 处理方式 |
-|------|----------|
-| 超长输入 | 水平滚动，不换行 |
-| 空输入 | 显示 placeholder |
-| 带前缀/后缀 | 支持 leftElement / rightElement |
-| 密码输入 | type="password" 支持显示/隐藏切换 |
+| 边界        | 处理方式                          |
+| ----------- | --------------------------------- |
+| 超长输入    | 水平滚动，不换行                  |
+| 空输入      | 显示 placeholder                  |
+| 带前缀/后缀 | 支持 leftElement / rightElement   |
+| 密码输入    | type="password" 支持显示/隐藏切换 |
 
 ---
 
 ## Props 接口
 
 ```typescript
-interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
-  size?: 'sm' | 'md' | 'lg';
+interface InputProps extends Omit<
+  React.InputHTMLAttributes<HTMLInputElement>,
+  "size"
+> {
+  size?: "sm" | "md" | "lg";
   error?: boolean;
   errorMessage?: string;
   leftElement?: React.ReactNode;
@@ -71,10 +74,10 @@ interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, '
 ## 尺寸变体
 
 | 尺寸 | 高度 | 字号 |
-|------|------|------|
-| sm | 32px | 12px |
-| md | 40px | 13px |
-| lg | 48px | 14px |
+| ---- | ---- | ---- |
+| sm   | 32px | 12px |
+| md   | 40px | 13px |
+| lg   | 48px | 14px |
 
 ---
 
@@ -156,7 +159,7 @@ describe('Input 验收', () => {
   it('disabled 状态不可编辑', async () => {
     render(<Input disabled defaultValue="test" />);
     const input = screen.getByRole('textbox');
-    
+
     await userEvent.type(input, 'new text');
     expect(input).toHaveValue('test');
   });
@@ -165,7 +168,7 @@ describe('Input 验收', () => {
   it('Tab 聚焦显示 focus ring', async () => {
     render(<Input />);
     const input = screen.getByRole('textbox');
-    
+
     await userEvent.tab();
     expect(input).toHaveFocus();
   });
@@ -173,7 +176,7 @@ describe('Input 验收', () => {
   // Left/Right Element
   it('支持 leftElement 和 rightElement', () => {
     render(
-      <Input 
+      <Input
         leftElement={<span data-testid="left">L</span>}
         rightElement={<span data-testid="right">R</span>}
       />

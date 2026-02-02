@@ -10,7 +10,15 @@ vi.mock("../../stores/aiStore", () => ({
       status: "idle" as const,
       stream: false,
       selectedSkillId: "default",
-      skills: [{ id: "default", name: "Default Skill", enabled: true, valid: true, scope: "global" }],
+      skills: [
+        {
+          id: "default",
+          name: "Default Skill",
+          enabled: true,
+          valid: true,
+          scope: "global",
+        },
+      ],
       skillsStatus: "ready" as const,
       skillsLastError: null,
       input: "",

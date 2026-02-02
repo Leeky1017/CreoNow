@@ -58,7 +58,9 @@ export function registerStatsIpcHandlers(deps: {
 
       const svc = createStatsService({ db: deps.db, logger: deps.logger });
       const res = svc.getToday({ ts: Date.now() });
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 
@@ -86,8 +88,9 @@ export function registerStatsIpcHandlers(deps: {
 
       const svc = createStatsService({ db: deps.db, logger: deps.logger });
       const res = svc.getRange({ from, to });
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 }
-

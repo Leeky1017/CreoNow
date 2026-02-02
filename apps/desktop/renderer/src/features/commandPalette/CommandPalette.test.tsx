@@ -86,7 +86,11 @@ describe("CommandPalette", () => {
     it("open 为 true 时应该渲染", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       expect(screen.getByTestId("command-palette")).toBeInTheDocument();
@@ -108,16 +112,26 @@ describe("CommandPalette", () => {
     it("应该显示搜索输入框", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
-      expect(screen.getByPlaceholderText("搜索命令或文件...")).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText("搜索命令或文件..."),
+      ).toBeInTheDocument();
     });
 
     it("应该显示键盘提示", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       expect(screen.getByText("导航")).toBeInTheDocument();
@@ -128,7 +142,11 @@ describe("CommandPalette", () => {
     it("应该显示分组标题", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       expect(screen.getByText("Commands")).toBeInTheDocument();
@@ -138,7 +156,11 @@ describe("CommandPalette", () => {
     it("应该显示命令项", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       expect(screen.getByText("Open Settings")).toBeInTheDocument();
@@ -149,7 +171,11 @@ describe("CommandPalette", () => {
     it("应该显示快捷键", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       expect(screen.getByText("⌘,")).toBeInTheDocument();
@@ -159,7 +185,11 @@ describe("CommandPalette", () => {
     it("应该显示子文本（文件路径）", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       expect(screen.getByText("src/components")).toBeInTheDocument();
@@ -173,7 +203,11 @@ describe("CommandPalette", () => {
     it("应该有 dialog role", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -182,7 +216,11 @@ describe("CommandPalette", () => {
     it("应该有 aria-modal", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const dialog = screen.getByRole("dialog");
@@ -192,7 +230,11 @@ describe("CommandPalette", () => {
     it("应该有 listbox role", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       expect(screen.getByRole("listbox")).toBeInTheDocument();
@@ -201,7 +243,11 @@ describe("CommandPalette", () => {
     it("命令项应该有 option role", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const options = screen.getAllByRole("option");
@@ -217,51 +263,77 @@ describe("CommandPalette", () => {
       const user = userEvent.setup();
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const input = screen.getByPlaceholderText("搜索命令或文件...");
       await user.type(input, "setting");
 
       // 应该只显示包含 "setting" 的命令（使用 testid 因为高亮会分割文本）
-      expect(screen.getByTestId("command-item-open-settings")).toBeInTheDocument();
-      expect(screen.queryByTestId("command-item-toggle-sidebar")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("command-item-file-app")).not.toBeInTheDocument();
+      expect(
+        screen.getByTestId("command-item-open-settings"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("command-item-toggle-sidebar"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("command-item-file-app"),
+      ).not.toBeInTheDocument();
     });
 
     it("搜索应该不区分大小写", async () => {
       const user = userEvent.setup();
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const input = screen.getByPlaceholderText("搜索命令或文件...");
       await user.type(input, "SETTING");
 
       // 使用 testid 因为高亮会分割文本
-      expect(screen.getByTestId("command-item-open-settings")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("command-item-open-settings"),
+      ).toBeInTheDocument();
     });
 
     it("搜索子文本（文件路径）", async () => {
       const user = userEvent.setup();
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const input = screen.getByPlaceholderText("搜索命令或文件...");
       await user.type(input, "src/components");
 
       expect(screen.getByTestId("command-item-file-app")).toBeInTheDocument();
-      expect(screen.queryByTestId("command-item-file-package")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("command-item-file-package"),
+      ).not.toBeInTheDocument();
     });
 
     it("无匹配时显示空状态", async () => {
       const user = userEvent.setup();
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const input = screen.getByPlaceholderText("搜索命令或文件...");
@@ -278,7 +350,11 @@ describe("CommandPalette", () => {
     it("按 ↓ 应该移动到下一项", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       // 第一项应该是 active
@@ -298,7 +374,11 @@ describe("CommandPalette", () => {
     it("按 ↑ 应该移动到上一项", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const overlay = document.querySelector(".cn-overlay")!;
@@ -319,7 +399,11 @@ describe("CommandPalette", () => {
     it("在第一项按 ↑ 不应该移动", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const firstItem = screen.getByTestId("command-item-open-settings");
@@ -336,7 +420,11 @@ describe("CommandPalette", () => {
     it("在最后一项按 ↓ 不应该移动", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const overlay = document.querySelector(".cn-overlay")!;
@@ -359,7 +447,11 @@ describe("CommandPalette", () => {
     it("按 Enter 应该执行选中的命令", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       // 按 Enter 执行第一项
@@ -429,7 +521,11 @@ describe("CommandPalette", () => {
     it("点击命令项应该执行命令", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const item = screen.getByTestId("command-item-toggle-sidebar");
@@ -441,7 +537,11 @@ describe("CommandPalette", () => {
     it("鼠标悬停应该更新 active 状态", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       // 初始第一项是 active
@@ -464,7 +564,11 @@ describe("CommandPalette", () => {
     it("active 项应该有左侧蓝色指示器", () => {
       const commands = createMockCommands();
       render(
-        <CommandPalette open={true} onOpenChange={vi.fn()} commands={commands} />,
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
       );
 
       const firstItem = screen.getByTestId("command-item-open-settings");

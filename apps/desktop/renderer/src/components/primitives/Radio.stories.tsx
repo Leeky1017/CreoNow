@@ -44,9 +44,21 @@ const themeOptions = [
 ];
 
 const planOptions = [
-  { value: "free", label: "Free", description: "Basic features, up to 3 projects" },
-  { value: "pro", label: "Pro", description: "$9.99/month, unlimited projects" },
-  { value: "team", label: "Team", description: "$29.99/month, collaboration features" },
+  {
+    value: "free",
+    label: "Free",
+    description: "Basic features, up to 3 projects",
+  },
+  {
+    value: "pro",
+    label: "Pro",
+    description: "$9.99/month, unlimited projects",
+  },
+  {
+    value: "team",
+    label: "Team",
+    description: "$29.99/month, collaboration features",
+  },
 ];
 
 // ============================================================================
@@ -148,13 +160,25 @@ export const AllSizes: Story = {
   render: () => (
     <div style={{ display: "flex", gap: "3rem" }}>
       <div>
-        <div style={{ marginBottom: "0.5rem", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        <div
+          style={{
+            marginBottom: "0.5rem",
+            fontSize: "12px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           Small
         </div>
         <RadioGroup options={themeOptions} size="sm" defaultValue="dark" />
       </div>
       <div>
-        <div style={{ marginBottom: "0.5rem", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        <div
+          style={{
+            marginBottom: "0.5rem",
+            fontSize: "12px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           Medium
         </div>
         <RadioGroup options={themeOptions} size="md" defaultValue="dark" />
@@ -192,11 +216,7 @@ export const InForm: Story = {
         >
           Theme
         </label>
-        <RadioGroup
-          options={themeOptions}
-          name="theme"
-          defaultValue="dark"
-        />
+        <RadioGroup options={themeOptions} name="theme" defaultValue="dark" />
       </div>
       <div>
         <label
@@ -210,11 +230,7 @@ export const InForm: Story = {
         >
           Plan
         </label>
-        <RadioGroup
-          options={planOptions}
-          name="plan"
-          defaultValue="pro"
-        />
+        <RadioGroup options={planOptions} name="plan" defaultValue="pro" />
       </div>
     </form>
   ),
@@ -253,8 +269,16 @@ export const CustomLayout: Story = {
 export const LongLabels: Story = {
   args: {
     options: [
-      { value: "option1", label: "This is a very long option label that might wrap" },
-      { value: "option2", label: "Another long option with detailed description", description: "This description provides additional context about what this option does and when you might want to select it." },
+      {
+        value: "option1",
+        label: "This is a very long option label that might wrap",
+      },
+      {
+        value: "option2",
+        label: "Another long option with detailed description",
+        description:
+          "This description provides additional context about what this option does and when you might want to select it.",
+      },
     ],
   },
 };
@@ -262,9 +286,7 @@ export const LongLabels: Story = {
 /** 单个选项 */
 export const SingleOption: Story = {
   args: {
-    options: [
-      { value: "only", label: "Only option" },
-    ],
+    options: [{ value: "only", label: "Only option" }],
     defaultValue: "only",
   },
 };

@@ -1,147 +1,205 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow - Zen Mode</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400&amp;family=Newsreader:ital,wght@0,300;0,400;0,500;1,300;1,400&amp;display=swap" rel="stylesheet" vid="6">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400&amp;family=Newsreader:ital,wght@0,300;0,400;0,500;1,300;1,400&amp;display=swap"
+      rel="stylesheet"
+      vid="6"
+    />
     <script vid="7">
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        background: '#050505', 
-                        panel: '#0f0f0f',
-                        hover: '#1a1a1a',
-                        selected: '#222222',
-                        border: 'rgba(255, 255, 255, 0.06)',
-                        primary: '#ffffff',
-                        secondary: '#888888',
-                        tertiary: '#444444',
-                        accent: '#3b82f6', 
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                        serif: ['Newsreader', 'serif'],
-                    },
-                    keyframes: {
-                        blink: {
-                            '0%, 100%': { opacity: '1' },
-                            '50%': { opacity: '0' },
-                        }
-                    },
-                    animation: {
-                        blink: 'blink 1s step-end infinite',
-                    }
-                }
-            }
-        }
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              background: "#050505",
+              panel: "#0f0f0f",
+              hover: "#1a1a1a",
+              selected: "#222222",
+              border: "rgba(255, 255, 255, 0.06)",
+              primary: "#ffffff",
+              secondary: "#888888",
+              tertiary: "#444444",
+              accent: "#3b82f6",
+            },
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+              serif: ["Newsreader", "serif"],
+            },
+            keyframes: {
+              blink: {
+                "0%, 100%": { opacity: "1" },
+                "50%": { opacity: "0" },
+              },
+            },
+            animation: {
+              blink: "blink 1s step-end infinite",
+            },
+          },
+        },
+      };
     </script>
     <style vid="8">
-        
-        ::-webkit-scrollbar {
-            width: 0px;
-            background: transparent;
-        }
-        
-        
-        .zen-glow {
-            background: radial-gradient(circle at center, rgba(59, 130, 246, 0.03) 0%, rgba(5, 5, 5, 0) 70%);
-        }
+      ::-webkit-scrollbar {
+        width: 0px;
+        background: transparent;
+      }
 
-        
-        ::selection {
-            background: #3b82f6; 
-            color: #ffffff;
-        }
+      .zen-glow {
+        background: radial-gradient(
+          circle at center,
+          rgba(59, 130, 246, 0.03) 0%,
+          rgba(5, 5, 5, 0) 70%
+        );
+      }
 
-        .cursor-blink {
-            display: inline-block;
-            width: 2px;
-            height: 1.2em;
-            background-color: #3b82f6;
-            vertical-align: text-bottom;
-            margin-left: 1px;
-            animation: blink 1s step-end infinite;
-        }
+      ::selection {
+        background: #3b82f6;
+        color: #ffffff;
+      }
+
+      .cursor-blink {
+        display: inline-block;
+        width: 2px;
+        height: 1.2em;
+        background-color: #3b82f6;
+        vertical-align: text-bottom;
+        margin-left: 1px;
+        animation: blink 1s step-end infinite;
+      }
     </style>
-</head>
-<body class="bg-background text-primary font-sans h-screen w-screen overflow-hidden flex flex-col relative" vid="9">
+  </head>
+  <body
+    class="bg-background text-primary font-sans h-screen w-screen overflow-hidden flex flex-col relative"
+    vid="9"
+  >
+    <div
+      class="absolute inset-0 zen-glow pointer-events-none z-0"
+      vid="10"
+    ></div>
 
-    
-    <div class="absolute inset-0 zen-glow pointer-events-none z-0" vid="10"></div>
-
-    
-    <div class="fixed top-0 left-0 w-full h-24 z-20 transition-opacity duration-300 opacity-0 hover:opacity-100 group" vid="11">
-        
-        <div class="absolute top-8 right-8 flex items-center gap-4" vid="12">
-            <span class="text-[11px] text-tertiary tracking-wide opacity-60" vid="13">Press Esc to exit</span>
-            <button class="w-8 h-8 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-white/5 transition-colors" vid="14">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" vid="15">
-                    <line x1="18" y1="6" x2="6" y2="18" vid="16"></line>
-                    <line x1="6" y1="6" x2="18" y2="18" vid="17"></line>
-                </svg>
-            </button>
-        </div>
+    <div
+      class="fixed top-0 left-0 w-full h-24 z-20 transition-opacity duration-300 opacity-0 hover:opacity-100 group"
+      vid="11"
+    >
+      <div class="absolute top-8 right-8 flex items-center gap-4" vid="12">
+        <span
+          class="text-[11px] text-tertiary tracking-wide opacity-60"
+          vid="13"
+          >Press Esc to exit</span
+        >
+        <button
+          class="w-8 h-8 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-white/5 transition-colors"
+          vid="14"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            vid="15"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" vid="16"></line>
+            <line x1="6" y1="6" x2="18" y2="18" vid="17"></line>
+          </svg>
+        </button>
+      </div>
     </div>
 
-    
-    
     <div class="absolute top-8 right-8 z-10 pointer-events-none" vid="18">
-        <span class="text-[11px] text-tertiary tracking-wide opacity-40" vid="19">Press Esc or F11 to exit</span>
+      <span class="text-[11px] text-tertiary tracking-wide opacity-40" vid="19"
+        >Press Esc or F11 to exit</span
+      >
     </div>
 
+    <main
+      class="flex-1 w-full h-full overflow-y-auto relative z-10 flex flex-col items-center"
+      vid="20"
+    >
+      <div
+        class="w-full max-w-[720px] px-[80px] py-[120px] flex-shrink-0"
+        vid="21"
+      >
+        <h1
+          class="font-serif text-[48px] leading-tight text-primary font-medium mb-12 tracking-tight"
+          vid="22"
+        >
+          The Architecture of Silence
+        </h1>
 
-    
-    <main class="flex-1 w-full h-full overflow-y-auto relative z-10 flex flex-col items-center" vid="20">
-        
-        <div class="w-full max-w-[720px] px-[80px] py-[120px] flex-shrink-0" vid="21">
-            
-            
-            <h1 class="font-serif text-[48px] leading-tight text-primary font-medium mb-12 tracking-tight" vid="22">
-                The Architecture of Silence
-            </h1>
+        <div
+          class="font-serif text-[18px] leading-[1.8] text-primary/90 space-y-8"
+          vid="23"
+        >
+          <p vid="24">
+            Intrigued by beauty, fascinated by technology and fueled with an
+            everlasting devotion to digital craftsmanship.
+          </p>
 
-            
-            <div class="font-serif text-[18px] leading-[1.8] text-primary/90 space-y-8" vid="23">
-                
-                <p vid="24">
-                    Intrigued by beauty, fascinated by technology and fueled with an everlasting devotion to digital craftsmanship.
-                </p>
+          <p vid="25">
+            Design is not just about making things look good. It is about how
+            things work. In the digital realm, this translates to the seamless
+            integration of form and function. We build immersive environments
+            where typography leads the eye and imagery sets the mood.
+          </p>
 
-                <p vid="25">
-                    Design is not just about making things look good. It is about how things work. In the digital realm, this translates to the seamless integration of form and function. We build immersive environments where typography leads the eye and imagery sets the mood.
-                </p>
+          <p vid="26">
+            The silence of a well-designed interface is not empty; it is full of
+            potential. It is the breath between notes in a symphony, the white
+            space that gives meaning to the ink. When we strip away the
+            noise—the unnecessary borders, the decorative flourishes, the
+            redundant controls—we are left with something pure.
+          </p>
 
-                <p vid="26">
-                    The silence of a well-designed interface is not empty; it is full of potential. It is the breath between notes in a symphony, the white space that gives meaning to the ink. When we strip away the noise—the unnecessary borders, the decorative flourishes, the redundant controls—we are left with something pure.
-                </p>
+          <p vid="27">
+            <span class="bg-accent/20 text-white" vid="28"
+              >We find ourselves in a constant state of refinement.</span
+            >
+            The goal is never to add more, but to take away until nothing else
+            can be removed without breaking the essence. This is the paradox of
+            modern design: it takes immense effort to make something appear
+            effortless.
+          </p>
 
-                <p vid="27">
-                    <span class="bg-accent/20 text-white" vid="28">We find ourselves in a constant state of refinement.</span> The goal is never to add more, but to take away until nothing else can be removed without breaking the essence. This is the paradox of modern design: it takes immense effort to make something appear effortless.
-                </p>
-
-                <p vid="29">
-                    Consider the cursor blinking on a blank page<span class="cursor-blink" vid="30"></span>
-                </p>
-
-            </div>
-
+          <p vid="29">
+            Consider the cursor blinking on a blank page<span
+              class="cursor-blink"
+              vid="30"
+            ></span>
+          </p>
         </div>
-
+      </div>
     </main>
 
-    
-    <div class="fixed bottom-0 left-0 w-full h-24 z-20 flex items-end justify-center pb-8 pointer-events-none" vid="31">
-        
-        <div class="opacity-40 hover:opacity-100 transition-opacity duration-300 pointer-events-auto flex items-center gap-6 px-4 py-2 rounded-full" vid="32">
-            <span class="text-xs text-secondary font-sans tabular-nums" vid="33">1,240 words</span>
-            <span class="w-1 h-1 rounded-full bg-tertiary" vid="34"></span>
-            <span class="text-xs text-secondary font-sans" vid="35">Saved</span>
-            <span class="w-1 h-1 rounded-full bg-tertiary" vid="36"></span>
-            <span class="text-xs text-secondary font-sans" vid="37">6 min read</span>
-        </div>
+    <div
+      class="fixed bottom-0 left-0 w-full h-24 z-20 flex items-end justify-center pb-8 pointer-events-none"
+      vid="31"
+    >
+      <div
+        class="opacity-40 hover:opacity-100 transition-opacity duration-300 pointer-events-auto flex items-center gap-6 px-4 py-2 rounded-full"
+        vid="32"
+      >
+        <span class="text-xs text-secondary font-sans tabular-nums" vid="33"
+          >1,240 words</span
+        >
+        <span class="w-1 h-1 rounded-full bg-tertiary" vid="34"></span>
+        <span class="text-xs text-secondary font-sans" vid="35">Saved</span>
+        <span class="w-1 h-1 rounded-full bg-tertiary" vid="36"></span>
+        <span class="text-xs text-secondary font-sans" vid="37"
+          >6 min read</span
+        >
+      </div>
     </div>
-
-
-</body></html>
+  </body>
+</html>

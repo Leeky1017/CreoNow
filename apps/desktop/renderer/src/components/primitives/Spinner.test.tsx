@@ -23,13 +23,19 @@ describe("Spinner", () => {
     it("应该有默认的 aria-label", () => {
       render(<Spinner />);
 
-      expect(screen.getByRole("status")).toHaveAttribute("aria-label", "Loading");
+      expect(screen.getByRole("status")).toHaveAttribute(
+        "aria-label",
+        "Loading",
+      );
     });
 
     it("应该支持自定义 label", () => {
       render(<Spinner label="Please wait..." />);
 
-      expect(screen.getByRole("status")).toHaveAttribute("aria-label", "Please wait...");
+      expect(screen.getByRole("status")).toHaveAttribute(
+        "aria-label",
+        "Please wait...",
+      );
     });
 
     it("应该应用自定义 className", () => {
@@ -85,7 +91,10 @@ describe("Spinner", () => {
     it("应该有正确的 viewBox", () => {
       render(<Spinner />);
 
-      expect(screen.getByRole("status")).toHaveAttribute("viewBox", "0 0 24 24");
+      expect(screen.getByRole("status")).toHaveAttribute(
+        "viewBox",
+        "0 0 24 24",
+      );
     });
   });
 

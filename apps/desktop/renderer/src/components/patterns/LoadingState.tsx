@@ -1,4 +1,3 @@
-
 /**
  * Loading state variants
  *
@@ -12,7 +11,13 @@ export type LoadingVariant = "spinner" | "skeleton" | "progress" | "inline";
 /**
  * Skeleton element types for content placeholders
  */
-export type SkeletonType = "text" | "title" | "paragraph" | "avatar" | "card" | "list";
+export type SkeletonType =
+  | "text"
+  | "title"
+  | "paragraph"
+  | "avatar"
+  | "card"
+  | "list";
 
 export interface LoadingStateProps {
   /** Loading display variant */
@@ -169,7 +174,9 @@ export function Skeleton({
     case "title":
       return (
         <div
-          className={[baseStyles, "h-6 w-3/4", className].filter(Boolean).join(" ")}
+          className={[baseStyles, "h-6 w-3/4", className]
+            .filter(Boolean)
+            .join(" ")}
           style={{ width, height }}
         />
       );
@@ -236,7 +243,11 @@ export function Skeleton({
         <div className={["space-y-3", className].filter(Boolean).join(" ")}>
           {Array.from({ length: lines }).map((_, index) => (
             <div key={index} className="flex items-center gap-3">
-              <div className={[baseStyles, "h-8 w-8 shrink-0 rounded-full"].join(" ")} />
+              <div
+                className={[baseStyles, "h-8 w-8 shrink-0 rounded-full"].join(
+                  " ",
+                )}
+              />
               <div className="flex-1 space-y-2">
                 <div className={[baseStyles, "h-4 w-3/4"].join(" ")} />
                 <div className={[baseStyles, "h-3 w-1/2"].join(" ")} />

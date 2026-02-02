@@ -51,11 +51,7 @@ export function Spinner({
 }: SpinnerProps): JSX.Element {
   const dimension = sizeMap[size];
 
-  const classes = [
-    "animate-spin",
-    "text-current",
-    className,
-  ]
+  const classes = ["animate-spin", "text-current", className]
     .filter(Boolean)
     .join(" ");
 

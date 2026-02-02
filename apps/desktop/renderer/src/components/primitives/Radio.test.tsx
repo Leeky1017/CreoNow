@@ -225,16 +225,16 @@ describe("RadioGroup", () => {
 
     it("应该处理单个选项", () => {
       render(
-        <RadioGroup
-          options={[{ value: "only", label: "Only Option" }]}
-        />,
+        <RadioGroup options={[{ value: "only", label: "Only Option" }]} />,
       );
 
       expect(screen.getByText("Only Option")).toBeInTheDocument();
     });
 
     it("应该支持 name 属性", () => {
-      const { container } = render(<RadioGroup options={sampleOptions} name="test-group" />);
+      const { container } = render(
+        <RadioGroup options={sampleOptions} name="test-group" />,
+      );
 
       // The RadioGroup root has the name attribute
       const radioGroup = container.querySelector('[role="radiogroup"]');

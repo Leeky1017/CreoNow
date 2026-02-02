@@ -58,4 +58,3 @@ export function AppearanceSection(): JSX.Element {
     </section>
   );
 }
-

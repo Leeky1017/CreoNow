@@ -9,4 +9,3 @@ import { mapUpstreamStatusToIpcErrorCode } from "../../main/src/services/ai/aiSe
   assert.equal(mapUpstreamStatusToIpcErrorCode(400), "UPSTREAM_ERROR");
   assert.equal(mapUpstreamStatusToIpcErrorCode(500), "UPSTREAM_ERROR");
 }
-

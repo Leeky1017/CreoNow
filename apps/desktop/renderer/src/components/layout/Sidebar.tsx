@@ -2,8 +2,9 @@ import React from "react";
 
 import { FileTreePanel } from "../../features/files/FileTreePanel";
 import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
+import { MemoryPanel } from "../../features/memory/MemoryPanel";
 import { SearchPanel } from "../../features/search/SearchPanel";
-import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
+import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
 
 type SidebarTab = "files" | "search" | "kg";
 
@@ -34,20 +35,38 @@ const tabButtonInactive =
   "border-[var(--color-border-default)] bg-[var(--color-bg-surface)]";
 
 /**
- * Sidebar is the left panel container (Files/Outline/etc).
+ * Sidebar is the left panel container (Files/Outline/Memory/etc).
  *
  * Why: P0 wires the Files tab as the minimal documents entry point with stable
- * selectors for Windows E2E.
+ * selectors for Windows E2E. Memory panel can be shown here via activePanel prop.
  */
 export function Sidebar(props: {
   width: number;
   collapsed: boolean;
   projectId: string | null;
+  activePanel: LeftPanelType;
 }): JSX.Element {
   const [activeTab, setActiveTab] = React.useState<SidebarTab>("files");
 
   if (props.collapsed) {
     return <aside data-testid="layout-sidebar" className="hidden w-0" />;
+  }
+
+  // Memory panel mode: render MemoryPanel instead of file tabs
+  if (props.activePanel === "memory") {
+    return (
+      <aside
+        data-testid="layout-sidebar"
+        className="flex flex-col bg-[var(--color-bg-surface)] border-r border-[var(--color-separator)]"
+        style={{
+          width: props.width,
+          minWidth: LAYOUT_DEFAULTS.sidebar.min,
+          maxWidth: LAYOUT_DEFAULTS.sidebar.max,
+        }}
+      >
+        <MemoryPanel />
+      </aside>
+    );
   }
 
   return (

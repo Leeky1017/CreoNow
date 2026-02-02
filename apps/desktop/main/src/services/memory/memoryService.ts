@@ -10,7 +10,7 @@ import type { Logger } from "../../logging/logger";
 import { createUserMemoryVecService } from "./userMemoryVec";
 
 export type MemoryType = "preference" | "fact" | "note";
-export type MemoryScope = "global" | "project";
+export type MemoryScope = "global" | "project" | "document";
 export type MemoryOrigin = "manual" | "learned";
 
 export type UserMemoryItem = {
@@ -18,6 +18,7 @@ export type UserMemoryItem = {
   type: MemoryType;
   scope: MemoryScope;
   projectId?: string;
+  documentId?: string;
   origin: MemoryOrigin;
   sourceRef?: string;
   content: string;
@@ -63,10 +64,12 @@ export type MemoryService = {
     type: MemoryType;
     scope: MemoryScope;
     projectId?: string;
+    documentId?: string;
     content: string;
   }) => ServiceResult<UserMemoryItem>;
   list: (args: {
     projectId?: string;
+    documentId?: string;
     includeDeleted?: boolean;
   }) => ServiceResult<{ items: UserMemoryItem[] }>;
   update: (args: {
@@ -75,6 +78,7 @@ export type MemoryService = {
       type?: MemoryType;
       scope?: MemoryScope;
       projectId?: string;
+      documentId?: string;
       content?: string;
     };
   }) => ServiceResult<UserMemoryItem>;
@@ -85,6 +89,7 @@ export type MemoryService = {
   }) => ServiceResult<MemorySettings>;
   previewInjection: (args: {
     projectId?: string;
+    documentId?: string;
     queryText?: string;
   }) => ServiceResult<MemoryInjectionPreview>;
 };
@@ -100,8 +105,9 @@ const DEFAULT_SETTINGS: MemorySettings = {
 };
 
 const SCOPE_RANK: Readonly<Record<MemoryScope, number>> = {
-  project: 0,
-  global: 1,
+  document: 0,
+  project: 1,
+  global: 2,
 };
 
 const TYPE_RANK: Readonly<Record<MemoryType, number>> = {
@@ -128,7 +134,7 @@ function isMemoryType(x: string): x is MemoryType {
 }
 
 function isMemoryScope(x: string): x is MemoryScope {
-  return x === "global" || x === "project";
+  return x === "global" || x === "project" || x === "document";
 }
 
 function isMemoryOrigin(x: string): x is MemoryOrigin {
@@ -140,6 +146,7 @@ type MemoryRow = {
   type: string;
   scope: string;
   projectId: string | null;
+  documentId: string | null;
   origin: string;
   sourceRef: string | null;
   content: string;
@@ -147,6 +154,40 @@ type MemoryRow = {
   updatedAt: number;
   deletedAt: number | null;
 };
+
+/**
+ * Normalize optional identifiers from IPC inputs.
+ *
+ * Why: keep trimming rules consistent and prevent empty-string identifiers from
+ * leaking into DB constraints and uniqueness rules.
+ */
+function normalizeOptionalId(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+/**
+ * Verify a (projectId, documentId) pair exists in `documents`.
+ *
+ * Why: SQLite cannot add the FK constraint via ALTER TABLE, so we enforce
+ * referential integrity at write-time for document-scoped memories.
+ */
+function documentExistsInProject(
+  db: Database.Database,
+  projectId: string,
+  documentId: string,
+): boolean {
+  const row = db
+    .prepare<
+      [string, string],
+      { exists: 1 }
+    >("SELECT 1 as exists FROM documents WHERE document_id = ? AND project_id = ? LIMIT 1")
+    .get(documentId, projectId);
+  return row?.exists === 1;
+}
 
 function rowToMemory(row: MemoryRow): ServiceResult<UserMemoryItem> {
   if (!isMemoryType(row.type)) {
@@ -161,6 +202,56 @@ function rowToMemory(row: MemoryRow): ServiceResult<UserMemoryItem> {
     });
   }
 
+  if (row.scope === "global") {
+    if (row.projectId !== null || row.documentId !== null) {
+      return ipcError("DB_ERROR", "Invalid global memory row", {
+        memoryId: row.memoryId,
+        projectId: row.projectId,
+        documentId: row.documentId,
+      });
+    }
+  }
+  if (row.scope === "project") {
+    if (!row.projectId || row.projectId.trim().length === 0) {
+      return ipcError("DB_ERROR", "Invalid project memory row", {
+        memoryId: row.memoryId,
+        projectId: row.projectId,
+      });
+    }
+    if (row.documentId !== null) {
+      return ipcError(
+        "DB_ERROR",
+        "Invalid project memory row (documentId set)",
+        {
+          memoryId: row.memoryId,
+          documentId: row.documentId,
+        },
+      );
+    }
+  }
+  if (row.scope === "document") {
+    if (!row.projectId || row.projectId.trim().length === 0) {
+      return ipcError(
+        "DB_ERROR",
+        "Invalid document memory row (missing projectId)",
+        {
+          memoryId: row.memoryId,
+          projectId: row.projectId,
+        },
+      );
+    }
+    if (!row.documentId || row.documentId.trim().length === 0) {
+      return ipcError(
+        "DB_ERROR",
+        "Invalid document memory row (missing documentId)",
+        {
+          memoryId: row.memoryId,
+          documentId: row.documentId,
+        },
+      );
+    }
+  }
+
   return {
     ok: true,
     data: {
@@ -168,6 +259,7 @@ function rowToMemory(row: MemoryRow): ServiceResult<UserMemoryItem> {
       type: row.type,
       scope: row.scope,
       projectId: row.projectId ?? undefined,
+      documentId: row.documentId ?? undefined,
       origin: row.origin,
       sourceRef: row.sourceRef ?? undefined,
       content: row.content,
@@ -265,7 +357,7 @@ function selectMemoryById(
     .prepare<
       [string],
       MemoryRow
-    >("SELECT memory_id as memoryId, type, scope, project_id as projectId, origin, source_ref as sourceRef, content, created_at as createdAt, updated_at as updatedAt, deleted_at as deletedAt FROM user_memory WHERE memory_id = ?")
+    >("SELECT memory_id as memoryId, type, scope, project_id as projectId, document_id as documentId, origin, source_ref as sourceRef, content, created_at as createdAt, updated_at as updatedAt, deleted_at as deletedAt FROM user_memory WHERE memory_id = ?")
     .get(memoryId);
 }
 
@@ -360,7 +452,7 @@ export function createMemoryService(args: {
     getSettings,
     updateSettings,
 
-    create: ({ type, scope, projectId, content }) => {
+    create: ({ type, scope, projectId, documentId, content }) => {
       if (!isMemoryType(type)) {
         return ipcError("INVALID_ARGUMENT", "type is invalid");
       }
@@ -370,31 +462,93 @@ export function createMemoryService(args: {
       if (content.trim().length === 0) {
         return ipcError("INVALID_ARGUMENT", "content is required");
       }
-      if (
-        scope === "project" &&
-        (!projectId || projectId.trim().length === 0)
-      ) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          "projectId is required for project scope",
-        );
+      const normalizedProjectId = normalizeOptionalId(projectId);
+      const normalizedDocumentId = normalizeOptionalId(documentId);
+
+      if (scope === "global") {
+        if (normalizedProjectId) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "projectId is not allowed for global scope",
+          );
+        }
+        if (normalizedDocumentId) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "documentId is not allowed for global scope",
+          );
+        }
+      }
+      if (scope === "project") {
+        if (!normalizedProjectId) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "projectId is required for project scope",
+          );
+        }
+        if (normalizedDocumentId) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "documentId is not allowed for project scope",
+          );
+        }
+      }
+      if (scope === "document") {
+        if (!normalizedProjectId) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "projectId is required for document scope",
+          );
+        }
+        if (!normalizedDocumentId) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "documentId is required for document scope",
+          );
+        }
       }
 
       const memoryId = randomUUID();
       const ts = nowTs();
-      const scopedProjectId = scope === "project" ? projectId!.trim() : null;
+      const scopedProjectId =
+        scope === "project" || scope === "document"
+          ? normalizedProjectId!
+          : null;
+      const scopedDocumentId =
+        scope === "document" ? normalizedDocumentId! : null;
 
       try {
+        if (
+          scope === "document" &&
+          !documentExistsInProject(args.db, scopedProjectId!, scopedDocumentId!)
+        ) {
+          return ipcError("NOT_FOUND", "Document not found", {
+            projectId: scopedProjectId,
+            documentId: scopedDocumentId,
+          });
+        }
+
         args.db
           .prepare(
-            "INSERT INTO user_memory (memory_id, type, scope, project_id, origin, source_ref, content, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, 'manual', NULL, ?, ?, ?, NULL)",
+            "INSERT INTO user_memory (memory_id, type, scope, project_id, document_id, origin, source_ref, content, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, 'manual', NULL, ?, ?, ?, NULL)",
           )
-          .run(memoryId, type, scope, scopedProjectId, content.trim(), ts, ts);
+          .run(
+            memoryId,
+            type,
+            scope,
+            scopedProjectId,
+            scopedDocumentId,
+            content.trim(),
+            ts,
+            ts,
+          );
 
         args.logger.info("memory_create", {
           memory_id: memoryId,
           type,
           scope,
+          project_id: scopedProjectId,
+          document_id: scopedDocumentId,
           origin: "manual",
           content_len: content.trim().length,
         });
@@ -413,23 +567,33 @@ export function createMemoryService(args: {
       return rowToMemory(row);
     },
 
-    list: ({ projectId, includeDeleted }) => {
-      const scopedProjectId =
-        typeof projectId === "string" && projectId.trim().length > 0
-          ? projectId.trim()
-          : null;
+    list: ({ projectId, documentId, includeDeleted }) => {
+      const scopedProjectId = normalizeOptionalId(projectId);
+      const scopedDocumentId = normalizeOptionalId(documentId);
+      if (scopedDocumentId && !scopedProjectId) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "projectId is required when documentId is provided",
+        );
+      }
       const whereDeleted = includeDeleted ? "" : "AND deleted_at IS NULL";
-      const whereProject = scopedProjectId
-        ? "AND (scope = 'global' OR (scope = 'project' AND project_id = ?))"
+      const whereScope = scopedProjectId
+        ? scopedDocumentId
+          ? "AND (scope = 'global' OR (scope = 'project' AND project_id = ?) OR (scope = 'document' AND project_id = ? AND document_id = ?))"
+          : "AND (scope = 'global' OR (scope = 'project' AND project_id = ?))"
         : "AND scope = 'global'";
 
       try {
         const stmt = args.db.prepare<unknown[], MemoryRow>(
-          `SELECT memory_id as memoryId, type, scope, project_id as projectId, origin, source_ref as sourceRef, content, created_at as createdAt, updated_at as updatedAt, deleted_at as deletedAt
+          `SELECT memory_id as memoryId, type, scope, project_id as projectId, document_id as documentId, origin, source_ref as sourceRef, content, created_at as createdAt, updated_at as updatedAt, deleted_at as deletedAt
            FROM user_memory
-           WHERE 1=1 ${whereDeleted} ${whereProject}`,
+           WHERE 1=1 ${whereDeleted} ${whereScope}`,
         );
-        const rows = scopedProjectId ? stmt.all(scopedProjectId) : stmt.all();
+        const rows = scopedProjectId
+          ? scopedDocumentId
+            ? stmt.all(scopedProjectId, scopedProjectId, scopedDocumentId)
+            : stmt.all(scopedProjectId)
+          : stmt.all();
 
         const parsed: UserMemoryItem[] = [];
         for (const row of rows) {
@@ -470,8 +634,27 @@ export function createMemoryService(args: {
       const nextType = patch.type ?? current.type;
       const nextScope = patch.scope ?? current.scope;
       const nextContent = patch.content ?? current.content;
+      if (typeof patch.documentId === "string" && nextScope !== "document") {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "documentId is only allowed for document scope",
+        );
+      }
+      if (typeof patch.projectId === "string" && nextScope === "global") {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "projectId is not allowed for global scope",
+        );
+      }
+
       const nextProjectId =
-        nextScope === "project" ? (patch.projectId ?? current.projectId) : null;
+        nextScope === "project" || nextScope === "document"
+          ? normalizeOptionalId(patch.projectId ?? current.projectId)
+          : null;
+      const nextDocumentId =
+        nextScope === "document"
+          ? normalizeOptionalId(patch.documentId ?? current.documentId)
+          : null;
 
       if (!isMemoryType(nextType)) {
         return ipcError("INVALID_ARGUMENT", "type is invalid");
@@ -482,26 +665,66 @@ export function createMemoryService(args: {
       if (nextContent.trim().length === 0) {
         return ipcError("INVALID_ARGUMENT", "content is required");
       }
-      if (
-        nextScope === "project" &&
-        (!nextProjectId || nextProjectId.trim().length === 0)
-      ) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          "projectId is required for project scope",
-        );
+      if (nextScope === "global") {
+        if (nextProjectId !== null || nextDocumentId !== null) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "global scope cannot have projectId/documentId",
+          );
+        }
+      }
+      if (nextScope === "project") {
+        if (!nextProjectId) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "projectId is required for project scope",
+          );
+        }
+        if (nextDocumentId !== null) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "documentId is not allowed for project scope",
+          );
+        }
+      }
+      if (nextScope === "document") {
+        if (!nextProjectId) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "projectId is required for document scope",
+          );
+        }
+        if (!nextDocumentId) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "documentId is required for document scope",
+          );
+        }
       }
 
       const ts = nowTs();
       try {
+        if (
+          nextScope === "document" &&
+          !documentExistsInProject(args.db, nextProjectId!, nextDocumentId!)
+        ) {
+          return ipcError("NOT_FOUND", "Document not found", {
+            projectId: nextProjectId,
+            documentId: nextDocumentId,
+          });
+        }
+
         args.db
           .prepare(
-            "UPDATE user_memory SET type = ?, scope = ?, project_id = ?, content = ?, updated_at = ? WHERE memory_id = ?",
+            "UPDATE user_memory SET type = ?, scope = ?, project_id = ?, document_id = ?, content = ?, updated_at = ? WHERE memory_id = ?",
           )
           .run(
             nextType,
             nextScope,
-            nextScope === "project" ? nextProjectId!.trim() : null,
+            nextScope === "project" || nextScope === "document"
+              ? nextProjectId
+              : null,
+            nextScope === "document" ? nextDocumentId : null,
             nextContent.trim(),
             ts,
             memoryId,
@@ -511,6 +734,11 @@ export function createMemoryService(args: {
           memory_id: memoryId,
           type: nextType,
           scope: nextScope,
+          project_id:
+            nextScope === "project" || nextScope === "document"
+              ? nextProjectId
+              : null,
+          document_id: nextScope === "document" ? nextDocumentId : null,
           origin: current.origin,
           content_len: nextContent.trim().length,
         });
@@ -565,7 +793,7 @@ export function createMemoryService(args: {
       }
     },
 
-    previewInjection: ({ projectId, queryText }) => {
+    previewInjection: ({ projectId, documentId, queryText }) => {
       const settings = getSettings();
       if (!settings.ok) {
         return settings;
@@ -580,21 +808,31 @@ export function createMemoryService(args: {
         return { ok: true, data: { items: [], mode: "deterministic" } };
       }
 
-      const scopedProjectId =
-        typeof projectId === "string" && projectId.trim().length > 0
-          ? projectId.trim()
-          : null;
-      const whereProject = scopedProjectId
-        ? "AND (scope = 'global' OR (scope = 'project' AND project_id = ?))"
+      const scopedProjectId = normalizeOptionalId(projectId);
+      const scopedDocumentId = normalizeOptionalId(documentId);
+      if (scopedDocumentId && !scopedProjectId) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "projectId is required when documentId is provided",
+        );
+      }
+      const whereScope = scopedProjectId
+        ? scopedDocumentId
+          ? "AND (scope = 'global' OR (scope = 'project' AND project_id = ?) OR (scope = 'document' AND project_id = ? AND document_id = ?))"
+          : "AND (scope = 'global' OR (scope = 'project' AND project_id = ?))"
         : "AND scope = 'global'";
 
       try {
         const stmt = args.db.prepare<unknown[], MemoryRow>(
-          `SELECT memory_id as memoryId, type, scope, project_id as projectId, origin, source_ref as sourceRef, content, created_at as createdAt, updated_at as updatedAt, deleted_at as deletedAt
+          `SELECT memory_id as memoryId, type, scope, project_id as projectId, document_id as documentId, origin, source_ref as sourceRef, content, created_at as createdAt, updated_at as updatedAt, deleted_at as deletedAt
            FROM user_memory
-           WHERE deleted_at IS NULL ${whereProject}`,
+           WHERE deleted_at IS NULL ${whereScope}`,
         );
-        const rows = scopedProjectId ? stmt.all(scopedProjectId) : stmt.all();
+        const rows = scopedProjectId
+          ? scopedDocumentId
+            ? stmt.all(scopedProjectId, scopedProjectId, scopedDocumentId)
+            : stmt.all(scopedProjectId)
+          : stmt.all();
 
         const parsed: UserMemoryItem[] = [];
         for (const row of rows) {
@@ -628,9 +866,15 @@ export function createMemoryService(args: {
           return { ok: true, data: { items, mode: "deterministic" } };
         }
 
-        const vec = createUserMemoryVecService({ db: args.db, logger: args.logger });
+        const vec = createUserMemoryVecService({
+          db: args.db,
+          logger: args.logger,
+        });
         const vecRes = vec.topK({
-          sources: sorted.map((m) => ({ memoryId: m.memoryId, content: m.content })),
+          sources: sorted.map((m) => ({
+            memoryId: m.memoryId,
+            content: m.content,
+          })),
           queryText: trimmedQueryText,
           k: 8,
           ts: nowTs(),
@@ -684,14 +928,19 @@ export function createMemoryService(args: {
           return compareDeterministic(a.memory, b.memory);
         });
 
-        const items: MemoryInjectionItem[] = withScores.map(({ memory, score }) => ({
-          id: memory.memoryId,
-          type: memory.type,
-          scope: memory.scope,
-          origin: memory.origin,
-          content: memory.content,
-          reason: score > 0 ? { kind: "semantic", score } : { kind: "deterministic" },
-        }));
+        const items: MemoryInjectionItem[] = withScores.map(
+          ({ memory, score }) => ({
+            id: memory.memoryId,
+            type: memory.type,
+            scope: memory.scope,
+            origin: memory.origin,
+            content: memory.content,
+            reason:
+              score > 0
+                ? { kind: "semantic", score }
+                : { kind: "deterministic" },
+          }),
+        );
 
         args.logger.info("memory_injection_preview", {
           mode: "semantic",

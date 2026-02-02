@@ -13,11 +13,13 @@
 ## Runs
 
 ### 2026-01-30 22:30 worktree setup
+
 - Command: `scripts/agent_worktree_setup.sh 3 design-decisions`
 - Key output: `Worktree created: .worktrees/issue-3-design-decisions`
 - Evidence: worktree 已创建
 
 ### 2026-01-30 22:30 design files renamed
+
 - Command: `mv design-*.html NN-name.html`
 - Key output: 19 个文件已重命名
 - Evidence: `ls design/Variant/designs/*.html`

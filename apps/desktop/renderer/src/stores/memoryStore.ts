@@ -22,6 +22,7 @@ export type MemoryInjectionPreview =
 
 export type MemoryState = {
   projectId: string | null;
+  documentId: string | null;
   items: MemoryItem[];
   settings: MemorySettings | null;
   preview: MemoryInjectionPreview | null;
@@ -30,12 +31,18 @@ export type MemoryState = {
 };
 
 export type MemoryActions = {
+  bootstrapForContext: (
+    projectId: string | null,
+    documentId: string | null,
+  ) => Promise<void>;
+  /** @deprecated Use bootstrapForContext instead */
   bootstrapForProject: (projectId: string | null) => Promise<void>;
   refresh: () => Promise<void>;
   create: (args: {
     type: MemoryItem["type"];
     scope: MemoryItem["scope"];
     content: string;
+    documentId?: string;
   }) => Promise<IpcResponse<IpcResponseData<"memory:create">>>;
   remove: (args: {
     memoryId: string;
@@ -69,12 +76,21 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
 
   async function loadMemories(
     projectId: string | null,
+    documentId: string | null,
   ): Promise<IpcInvokeResult<"memory:list">> {
-    return await deps.invoke("memory:list", projectId ? { projectId } : {});
+    const payload: IpcRequest<"memory:list"> = {};
+    if (projectId) {
+      payload.projectId = projectId;
+    }
+    if (documentId) {
+      payload.documentId = documentId;
+    }
+    return await deps.invoke("memory:list", payload);
   }
 
   return create<MemoryStore>((set, get) => ({
     projectId: null,
+    documentId: null,
     items: [],
     settings: null,
     preview: null,
@@ -84,11 +100,12 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
     clearError: () => set({ lastError: null }),
     clearPreview: () => set({ preview: null }),
 
-    bootstrapForProject: async (projectId) => {
+    bootstrapForContext: async (projectId, documentId) => {
       const state = get();
       if (
         state.bootstrapStatus === "loading" &&
-        state.projectId === projectId
+        state.projectId === projectId &&
+        state.documentId === documentId
       ) {
         return;
       }
@@ -97,6 +114,7 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
         bootstrapStatus: "loading",
         lastError: null,
         projectId,
+        documentId,
         preview: null,
       });
 
@@ -106,7 +124,7 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
         return;
       }
 
-      const listRes = await loadMemories(projectId);
+      const listRes = await loadMemories(projectId, documentId);
       if (!listRes.ok) {
         set({
           bootstrapStatus: "error",
@@ -120,14 +138,20 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
         bootstrapStatus: "ready",
         lastError: null,
         projectId,
+        documentId,
         settings: settingsRes.data,
         items: listRes.data.items,
       });
     },
 
+    bootstrapForProject: async (projectId) => {
+      // Backward compatible wrapper
+      await get().bootstrapForContext(projectId, null);
+    },
+
     refresh: async () => {
       const state = get();
-      const listRes = await loadMemories(state.projectId);
+      const listRes = await loadMemories(state.projectId, state.documentId);
       if (!listRes.ok) {
         set({ lastError: listRes.error });
         return;
@@ -136,7 +160,7 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
       set({ items: listRes.data.items, lastError: null });
     },
 
-    create: async ({ type, scope, content }) => {
+    create: async ({ type, scope, content, documentId }) => {
       const state = get();
       if (scope === "project" && !state.projectId) {
         const error = {
@@ -146,10 +170,42 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
         set({ lastError: error });
         return { ok: false, error };
       }
+      if (scope === "document") {
+        if (!state.projectId) {
+          const error = {
+            code: "INVALID_ARGUMENT",
+            message: "projectId is required for document scope",
+          } as const;
+          set({ lastError: error });
+          return { ok: false, error };
+        }
+        const effectiveDocumentId = documentId ?? state.documentId;
+        if (!effectiveDocumentId) {
+          const error = {
+            code: "INVALID_ARGUMENT",
+            message: "documentId is required for document scope",
+          } as const;
+          set({ lastError: error });
+          return { ok: false, error };
+        }
+      }
 
       const base = { type, scope, content };
-      const payload =
-        scope === "project" ? { ...base, projectId: state.projectId! } : base;
+      let payload: IpcRequest<"memory:create">;
+      if (scope === "global") {
+        payload = base;
+      } else if (scope === "project") {
+        payload = { ...base, projectId: state.projectId! };
+      } else {
+        // scope === "document"
+        const effectiveDocumentId = documentId ?? state.documentId!;
+        payload = {
+          ...base,
+          projectId: state.projectId!,
+          documentId: effectiveDocumentId,
+        };
+      }
+
       const res = await deps.invoke("memory:create", payload);
       if (!res.ok) {
         set({ lastError: res.error });
@@ -184,9 +240,16 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
 
     previewInjection: async ({ queryText }) => {
       const state = get();
-      const payload = state.projectId
-        ? { projectId: state.projectId, queryText }
-        : { queryText };
+      const payload: IpcRequest<"memory:injection:preview"> = {};
+      if (state.projectId) {
+        payload.projectId = state.projectId;
+      }
+      if (state.documentId) {
+        payload.documentId = state.documentId;
+      }
+      if (queryText) {
+        payload.queryText = queryText;
+      }
       const res = await deps.invoke("memory:injection:preview", payload);
       if (!res.ok) {
         set({ lastError: res.error });

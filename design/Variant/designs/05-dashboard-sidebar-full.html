@@ -1,813 +1,1109 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow Dashboard</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
     <style vid="6">
-        :root {
-            
-            --bg-body: #080808;      
-            --bg-surface: #0f0f0f;   
-            --bg-hover: #1a1a1a;
-            
-            --text-main: #ffffff;
-            --text-muted: #888888;
-            --text-faint: #444444;
-            
-            --line-color: #222222;
-            --line-highlight: #444444;
-            
-            
-            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            
-            
-            --space-xs: 4px;
-            --space-sm: 12px;
-            --space-md: 24px;
-            --space-lg: 48px;
-            --space-xl: 80px;
+      :root {
+        --bg-body: #080808;
+        --bg-surface: #0f0f0f;
+        --bg-hover: #1a1a1a;
 
-            --ease: cubic-bezier(0.2, 0.0, 0.2, 1);
-        }
+        --text-main: #ffffff;
+        --text-muted: #888888;
+        --text-faint: #444444;
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            outline: none;
-        }
+        --line-color: #222222;
+        --line-highlight: #444444;
 
-        body {
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            font-family: var(--font-family);
-            font-size: 14px;
-            line-height: 1.5;
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-            display: flex;
-        }
+        --font-family:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
 
-        
-        .uppercase-label {
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
+        --space-xs: 4px;
+        --space-sm: 12px;
+        --space-md: 24px;
+        --space-lg: 48px;
+        --space-xl: 80px;
 
-        h1, h2, h3 {
-            font-weight: 400;
-            letter-spacing: -0.02em;
-        }
+        --ease: cubic-bezier(0.2, 0, 0.2, 1);
+      }
 
-        
-        .sidebar {
-            width: 280px;
-            background-color: var(--bg-body);
-            border-right: 1px solid var(--line-color);
-            display: flex;
-            flex-direction: column;
-            padding: var(--space-md);
-            flex-shrink: 0;
-            z-index: 10;
-        }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        outline: none;
+      }
 
-        .brand {
-            margin-bottom: var(--space-xl);
-            font-size: 18px;
-            font-weight: 600;
-            letter-spacing: -0.02em;
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            color: var(--text-main);
-        }
-        
-        .brand span {
-            font-weight: 300;
-            color: var(--text-muted);
-        }
+      body {
+        background-color: var(--bg-body);
+        color: var(--text-main);
+        font-family: var(--font-family);
+        font-size: 14px;
+        line-height: 1.5;
+        height: 100vh;
+        width: 100vw;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+      }
 
-        .nav-group {
-            margin-bottom: var(--space-lg);
-        }
+      .uppercase-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
 
-        .nav-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: var(--space-sm);
-        }
+      h1,
+      h2,
+      h3 {
+        font-weight: 400;
+        letter-spacing: -0.02em;
+      }
 
-        .nav-list {
-            list-style: none;
-        }
+      .sidebar {
+        width: 280px;
+        background-color: var(--bg-body);
+        border-right: 1px solid var(--line-color);
+        display: flex;
+        flex-direction: column;
+        padding: var(--space-md);
+        flex-shrink: 0;
+        z-index: 10;
+      }
 
-        .nav-item {
-            display: flex;
-            align-items: center;
-            padding: 8px 0;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: color 0.3s var(--ease);
-            font-size: 13px;
-            position: relative;
-        }
+      .brand {
+        margin-bottom: var(--space-xl);
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        color: var(--text-main);
+      }
 
-        .nav-item::before {
-            content: '+';
-            position: absolute;
-            left: -16px;
-            opacity: 0;
-            color: var(--text-faint);
-            transition: opacity 0.3s var(--ease), transform 0.3s var(--ease);
-            font-weight: 300;
-        }
+      .brand span {
+        font-weight: 300;
+        color: var(--text-muted);
+      }
 
-        .nav-item:hover {
-            color: var(--text-main);
-        }
+      .nav-group {
+        margin-bottom: var(--space-lg);
+      }
 
-        .nav-item:hover::before {
-            opacity: 1;
-            transform: translateX(4px);
-        }
+      .nav-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--space-sm);
+      }
 
-        .nav-item.active {
-            color: var(--text-main);
-        }
-        .nav-item.active::before {
-            opacity: 1;
-            color: var(--text-main);
-            transform: translateX(4px);
-        }
+      .nav-list {
+        list-style: none;
+      }
 
-        .user-profile {
-            margin-top: auto;
-            border-top: 1px solid var(--line-color);
-            padding-top: var(--space-md);
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 0;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: color 0.3s var(--ease);
+        font-size: 13px;
+        position: relative;
+      }
 
-        
-        .workspace {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            background-color: var(--bg-body);
-        }
+      .nav-item::before {
+        content: "+";
+        position: absolute;
+        left: -16px;
+        opacity: 0;
+        color: var(--text-faint);
+        transition:
+          opacity 0.3s var(--ease),
+          transform 0.3s var(--ease);
+        font-weight: 300;
+      }
 
-        .toolbar {
-            height: 80px;
-            border-bottom: 1px solid var(--line-color); 
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 var(--space-lg);
-            width: 100%;
-        }
+      .nav-item:hover {
+        color: var(--text-main);
+      }
 
-        .search-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--text-muted);
-            width: 300px;
-        }
-        
-        .search-input {
-            background: transparent;
-            border: none;
-            color: var(--text-main);
-            font-family: var(--font-family);
-            font-size: 13px;
-            width: 100%;
-        }
-        .search-input::placeholder {
-            color: var(--text-faint);
-        }
+      .nav-item:hover::before {
+        opacity: 1;
+        transform: translateX(4px);
+      }
 
-        .action-button {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 13px;
-            transition: color 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .action-button:hover {
-            color: var(--text-main);
-        }
+      .nav-item.active {
+        color: var(--text-main);
+      }
+      .nav-item.active::before {
+        opacity: 1;
+        color: var(--text-main);
+        transform: translateX(4px);
+      }
 
-        .primary-btn {
-            border: 1px solid var(--line-color);
-            padding: 8px 20px;
-            border-radius: 100px;
-            color: var(--text-main);
-            font-size: 12px;
-            transition: all 0.3s var(--ease);
-            background: transparent;
-        }
-        .primary-btn:hover {
-            border-color: var(--text-main);
-            background: var(--bg-hover);
-        }
+      .user-profile {
+        margin-top: auto;
+        border-top: 1px solid var(--line-color);
+        padding-top: var(--space-md);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
 
-        
-        .dashboard-scroller {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: var(--space-lg);
-            scrollbar-width: thin;
-            scrollbar-color: var(--line-color) var(--bg-body);
-        }
+      .workspace {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        background-color: var(--bg-body);
+      }
 
-        .section-title {
-            font-size: 14px;
-            font-weight: 500;
-            color: var(--text-main);
-            margin-bottom: var(--space-md);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+      .toolbar {
+        height: 80px;
+        border-bottom: 1px solid var(--line-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 var(--space-lg);
+        width: 100%;
+      }
 
-        
-        .card-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 24px;
-            margin-bottom: var(--space-xl);
-        }
+      .search-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--text-muted);
+        width: 300px;
+      }
 
-        .project-card {
-            background: transparent;
-            border: 1px solid var(--line-color);
-            padding: 24px;
-            height: 240px;
-            display: flex;
-            flex-direction: column;
-            transition: all 0.3s var(--ease);
-            position: relative;
-            cursor: pointer;
-        }
-        
-        .project-card:hover {
-            border-color: var(--text-muted);
-            background: var(--bg-hover);
-        }
+      .search-input {
+        background: transparent;
+        border: none;
+        color: var(--text-main);
+        font-family: var(--font-family);
+        font-size: 13px;
+        width: 100%;
+      }
+      .search-input::placeholder {
+        color: var(--text-faint);
+      }
 
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 16px;
-        }
+      .action-button {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 13px;
+        transition: color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .action-button:hover {
+        color: var(--text-main);
+      }
 
-        .card-title {
-            font-size: 18px;
-            color: var(--text-main);
-            margin-bottom: 8px;
-            line-height: 1.3;
-        }
+      .primary-btn {
+        border: 1px solid var(--line-color);
+        padding: 8px 20px;
+        border-radius: 100px;
+        color: var(--text-main);
+        font-size: 12px;
+        transition: all 0.3s var(--ease);
+        background: transparent;
+      }
+      .primary-btn:hover {
+        border-color: var(--text-main);
+        background: var(--bg-hover);
+      }
 
-        .card-excerpt {
-            font-size: 13px;
-            color: var(--text-muted);
-            line-height: 1.6;
-            display: -webkit-box;
-            -webkit-line-clamp: 3;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            margin-bottom: auto;
-        }
+      .dashboard-scroller {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: var(--space-lg);
+        scrollbar-width: thin;
+        scrollbar-color: var(--line-color) var(--bg-body);
+      }
 
-        .card-meta {
-            margin-top: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-top: 1px solid var(--line-color);
-            padding-top: 16px;
-        }
+      .section-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-main);
+        margin-bottom: var(--space-md);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
-        .meta-tag {
-            font-size: 11px;
-            color: var(--text-faint);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 24px;
+        margin-bottom: var(--space-xl);
+      }
 
-        
-        .hero-card {
-            border: 1px solid var(--line-color);
-            min-height: 320px;
-            margin-bottom: var(--space-xl);
-            display: flex;
-            transition: border-color 0.3s var(--ease);
-            cursor: pointer;
-        }
-        .hero-card:hover {
-            border-color: var(--text-muted);
-        }
+      .project-card {
+        background: transparent;
+        border: 1px solid var(--line-color);
+        padding: 24px;
+        height: 240px;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.3s var(--ease);
+        position: relative;
+        cursor: pointer;
+      }
 
-        .hero-content {
-            flex: 1;
-            padding: 40px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
+      .project-card:hover {
+        border-color: var(--text-muted);
+        background: var(--bg-hover);
+      }
 
-        .hero-image {
-            width: 40%;
-            background-color: var(--bg-surface);
-            border-left: 1px solid var(--line-color);
-            position: relative;
-            overflow: hidden;
-        }
-        .hero-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0.4;
-            filter: grayscale(100%);
-            transition: opacity 0.5s var(--ease);
-        }
-        .hero-card:hover .hero-image img {
-            opacity: 0.6;
-        }
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 16px;
+      }
 
-        
-        .context-panel {
-            width: 280px;
-            border-left: 1px solid var(--line-color);
-            padding: var(--space-md);
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-lg);
-            background-color: var(--bg-body);
-            flex-shrink: 0;
-        }
+      .card-title {
+        font-size: 18px;
+        color: var(--text-main);
+        margin-bottom: 8px;
+        line-height: 1.3;
+      }
 
-        .stat-grid {
-            display: grid;
-            gap: 20px;
-        }
+      .card-excerpt {
+        font-size: 13px;
+        color: var(--text-muted);
+        line-height: 1.6;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin-bottom: auto;
+      }
 
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        
-        .stat-value {
-            font-size: 14px;
-            color: var(--text-main);
-        }
-        
-        .stat-sub {
-            font-size: 12px;
-            color: var(--text-faint);
-        }
+      .card-meta {
+        margin-top: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top: 1px solid var(--line-color);
+        padding-top: 16px;
+      }
 
-        .divider {
-            height: 1px;
-            background: var(--line-color);
-            width: 100%;
-            margin: 8px 0;
-        }
+      .meta-tag {
+        font-size: 11px;
+        color: var(--text-faint);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
 
-        
-        .fade-in {
-            animation: fadeIn 0.8s var(--ease) forwards;
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        
-        .delay-1 { animation-delay: 0.1s; }
-        .delay-2 { animation-delay: 0.2s; }
-        .delay-3 { animation-delay: 0.3s; }
+      .hero-card {
+        border: 1px solid var(--line-color);
+        min-height: 320px;
+        margin-bottom: var(--space-xl);
+        display: flex;
+        transition: border-color 0.3s var(--ease);
+        cursor: pointer;
+      }
+      .hero-card:hover {
+        border-color: var(--text-muted);
+      }
 
-        @keyframes fadeIn {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+      .hero-content {
+        flex: 1;
+        padding: 40px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
 
-        
-        .icon {
-            width: 16px;
-            height: 16px;
-            stroke: currentColor;
-            fill: none;
-            stroke-width: 1.5;
+      .hero-image {
+        width: 40%;
+        background-color: var(--bg-surface);
+        border-left: 1px solid var(--line-color);
+        position: relative;
+        overflow: hidden;
+      }
+      .hero-image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.4;
+        filter: grayscale(100%);
+        transition: opacity 0.5s var(--ease);
+      }
+      .hero-card:hover .hero-image img {
+        opacity: 0.6;
+      }
+
+      .context-panel {
+        width: 280px;
+        border-left: 1px solid var(--line-color);
+        padding: var(--space-md);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-lg);
+        background-color: var(--bg-body);
+        flex-shrink: 0;
+      }
+
+      .stat-grid {
+        display: grid;
+        gap: 20px;
+      }
+
+      .stat-item {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .stat-value {
+        font-size: 14px;
+        color: var(--text-main);
+      }
+
+      .stat-sub {
+        font-size: 12px;
+        color: var(--text-faint);
+      }
+
+      .divider {
+        height: 1px;
+        background: var(--line-color);
+        width: 100%;
+        margin: 8px 0;
+      }
+
+      .fade-in {
+        animation: fadeIn 0.8s var(--ease) forwards;
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      .delay-1 {
+        animation-delay: 0.1s;
+      }
+      .delay-2 {
+        animation-delay: 0.2s;
+      }
+      .delay-3 {
+        animation-delay: 0.3s;
+      }
+
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
+      }
+
+      .icon {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.5;
+      }
     </style>
-</head>
-<body vid="7">
-
-    
+  </head>
+  <body vid="7">
     <nav class="sidebar" vid="8">
-        <div class="brand" vid="9">
-            CREO<span vid="10">NOW</span>
-        </div>
+      <div class="brand" vid="9">CREO<span vid="10">NOW</span></div>
 
-        <div class="nav-group" vid="11">
-            <div class="nav-header uppercase-label" vid="12">Overview</div>
-            <ul class="nav-list" vid="13">
-                <li class="nav-item active" vid="14">Dashboard</li>
-                <li class="nav-item" vid="15">Analytics</li>
-                <li class="nav-item" vid="16">Calendar</li>
-            </ul>
-        </div>
+      <div class="nav-group" vid="11">
+        <div class="nav-header uppercase-label" vid="12">Overview</div>
+        <ul class="nav-list" vid="13">
+          <li class="nav-item active" vid="14">Dashboard</li>
+          <li class="nav-item" vid="15">Analytics</li>
+          <li class="nav-item" vid="16">Calendar</li>
+        </ul>
+      </div>
 
-        <div class="nav-group" vid="17">
-            <div class="nav-header uppercase-label" vid="18">
-                Projects
-                <span style="cursor: pointer; margin-left: auto;" vid="19">+</span>
-            </div>
-            <ul class="nav-list" vid="20">
-                <li class="nav-item" vid="21">All Projects</li>
-                <li class="nav-item" vid="22">Drafts</li>
-                <li class="nav-item" vid="23">Published</li>
-                <li class="nav-item" vid="24">Archived</li>
-            </ul>
+      <div class="nav-group" vid="17">
+        <div class="nav-header uppercase-label" vid="18">
+          Projects
+          <span style="cursor: pointer; margin-left: auto" vid="19">+</span>
         </div>
+        <ul class="nav-list" vid="20">
+          <li class="nav-item" vid="21">All Projects</li>
+          <li class="nav-item" vid="22">Drafts</li>
+          <li class="nav-item" vid="23">Published</li>
+          <li class="nav-item" vid="24">Archived</li>
+        </ul>
+      </div>
 
-        <div class="nav-group" vid="25">
-            <div class="nav-header uppercase-label" vid="26">Collections</div>
-            <ul class="nav-list" vid="27">
-                <li class="nav-item" vid="28">Design Theory</li>
-                <li class="nav-item" vid="29">Typography</li>
-                <li class="nav-item" vid="30">Minimalism</li>
-            </ul>
-        </div>
+      <div class="nav-group" vid="25">
+        <div class="nav-header uppercase-label" vid="26">Collections</div>
+        <ul class="nav-list" vid="27">
+          <li class="nav-item" vid="28">Design Theory</li>
+          <li class="nav-item" vid="29">Typography</li>
+          <li class="nav-item" vid="30">Minimalism</li>
+        </ul>
+      </div>
 
-        <div class="user-profile" vid="31">
-            <div class="stat-item" vid="32">
-                <span class="uppercase-label" vid="33">User</span>
-                <span class="stat-value" style="font-size: 12px; margin-top:4px; cursor:pointer;" vid="34">Alex M.</span>
-            </div>
-            <div class="stat-item" vid="35">
-                <span class="uppercase-label" vid="36">Version</span>
-                <span class="stat-value" style="font-size: 12px; margin-top:4px; color: var(--text-muted);" vid="37">2.0.4</span>
-            </div>
+      <div class="user-profile" vid="31">
+        <div class="stat-item" vid="32">
+          <span class="uppercase-label" vid="33">User</span>
+          <span
+            class="stat-value"
+            style="font-size: 12px; margin-top: 4px; cursor: pointer"
+            vid="34"
+            >Alex M.</span
+          >
         </div>
+        <div class="stat-item" vid="35">
+          <span class="uppercase-label" vid="36">Version</span>
+          <span
+            class="stat-value"
+            style="font-size: 12px; margin-top: 4px; color: var(--text-muted)"
+            vid="37"
+            >2.0.4</span
+          >
+        </div>
+      </div>
     </nav>
 
-    
     <main class="workspace" vid="38">
-        <header class="toolbar" vid="39">
-            <div class="search-wrapper" vid="40">
-                <svg class="icon" viewBox="0 0 24 24" vid="41">
-                    <circle cx="11" cy="11" r="8" vid="42"></circle>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" vid="43"></line>
-                </svg>
-                <input type="text" class="search-input" placeholder="Search across projects..." vid="44">
-            </div>
-            
-            <div style="display: flex; gap: 16px; align-items: center;" vid="45">
-                <button class="action-button" vid="46">
-                    <svg class="icon" viewBox="0 0 24 24" vid="47"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" vid="48"></path></svg>
-                </button>
-                <button class="action-button" vid="49">
-                    <svg class="icon" viewBox="0 0 24 24" vid="50"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" vid="51"></path><path d="M13.73 21a2 2 0 0 1-3.46 0" vid="52"></path></svg>
-                </button>
-                <button class="primary-btn" vid="53">Create New</button>
-            </div>
-        </header>
-
-        <div class="dashboard-scroller" vid="54">
-            
-            
-            <div class="section-title fade-in" vid="55">
-                <span vid="56">Continue Writing</span>
-                <span class="uppercase-label" style="cursor: pointer;" vid="57">View All</span>
-            </div>
-
-            <div class="hero-card fade-in delay-1" vid="58">
-                <div class="hero-content" vid="59">
-                    <div class="uppercase-label" style="margin-bottom: 12px; color: var(--text-faint);" vid="60">Last edited 2 hours ago</div>
-                    <h2 style="font-size: 32px; color: var(--text-main); margin-bottom: 16px;" vid="61">The Aesthetics of Silence</h2>
-                    <p style="font-size: 15px; color: var(--text-muted); line-height: 1.6; max-width: 500px; margin-bottom: 32px;" vid="62">
-                        In a world of noise, silence is a luxury. Our interfaces recede, allowing the content to breathe. The use of negative space is deliberate, creating a rhythm that guides the user through the narrative without friction.
-                    </p>
-                    <div style="display: flex; gap: 12px;" vid="63">
-                        <span class="meta-tag" style="border: 1px solid var(--line-color); padding: 4px 10px; border-radius: 100px;" vid="64">Essay</span>
-                        <span class="meta-tag" style="border: 1px solid var(--line-color); padding: 4px 10px; border-radius: 100px;" vid="65">Design</span>
-                    </div>
-                </div>
-                <div class="hero-image" vid="66">
-                    <img src="https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?ixlib=rb-4.0.3&amp;auto=format&amp;fit=crop&amp;w=2000&amp;q=80" alt="Minimal Architecture" vid="67">
-                </div>
-            </div>
-
-            
-            <div class="section-title fade-in delay-2" style="margin-top: 64px;" vid="68">
-                <span vid="69">Recent Projects</span>
-                <div style="display: flex; gap: 12px;" vid="70">
-                    <button class="action-button" title="Grid View" vid="71">
-                        <svg class="icon" viewBox="0 0 24 24" vid="72"><rect x="3" y="3" width="7" height="7" vid="73"></rect><rect x="14" y="3" width="7" height="7" vid="74"></rect><rect x="14" y="14" width="7" height="7" vid="75"></rect><rect x="3" y="14" width="7" height="7" vid="76"></rect></svg>
-                    </button>
-                    <button class="action-button" title="List View" style="color: var(--text-faint);" vid="77">
-                        <svg class="icon" viewBox="0 0 24 24" vid="78"><line x1="8" y1="6" x2="21" y2="6" vid="79"></line><line x1="8" y1="12" x2="21" y2="12" vid="80"></line><line x1="8" y1="18" x2="21" y2="18" vid="81"></line><line x1="3" y1="6" x2="3.01" y2="6" vid="82"></line><line x1="3" y1="12" x2="3.01" y2="12" vid="83"></line><line x1="3" y1="18" x2="3.01" y2="18" vid="84"></line></svg>
-                    </button>
-                </div>
-            </div>
-
-            <div class="card-grid fade-in delay-3" vid="85">
-                
-                
-                <div class="project-card" vid="86">
-                    <div class="card-header" vid="87">
-                        <div class="uppercase-label" vid="88">Oct 24</div>
-                        <svg class="icon" style="color: var(--text-faint)" viewBox="0 0 24 24" vid="89"><circle cx="12" cy="12" r="1" vid="90"></circle><circle cx="19" cy="12" r="1" vid="91"></circle><circle cx="5" cy="12" r="1" vid="92"></circle></svg>
-                    </div>
-                    <h3 class="card-title" vid="93">Digital Craftsmanship</h3>
-                    <p class="card-excerpt" vid="94">
-                        Design is not just about making things look good. It is about how things work. In the digital realm, this translates to the seamless integration...
-                    </p>
-                    <div class="card-meta" vid="95">
-                        <span class="meta-tag" vid="96">Manifesto</span>
-                        <span class="meta-tag" vid="97">850 Words</span>
-                    </div>
-                </div>
-
-                
-                <div class="project-card" vid="98">
-                    <div class="card-header" vid="99">
-                        <div class="uppercase-label" vid="100">Oct 22</div>
-                        <svg class="icon" style="color: var(--text-faint)" viewBox="0 0 24 24" vid="101"><circle cx="12" cy="12" r="1" vid="102"></circle><circle cx="19" cy="12" r="1" vid="103"></circle><circle cx="5" cy="12" r="1" vid="104"></circle></svg>
-                    </div>
-                    <h3 class="card-title" vid="105">User Experience Patterns</h3>
-                    <p class="card-excerpt" vid="106">
-                        We observed that modern tools often clutter the workspace. Here, we strip away the non-essential. The "Plus" motif serves as our anchor.
-                    </p>
-                    <div class="card-meta" vid="107">
-                        <span class="meta-tag" vid="108">Research</span>
-                        <span class="meta-tag" vid="109">2.1k Words</span>
-                    </div>
-                </div>
-
-                
-                <div class="project-card" vid="110">
-                    <div class="card-header" vid="111">
-                        <div class="uppercase-label" vid="112">Oct 19</div>
-                        <svg class="icon" style="color: var(--text-faint)" viewBox="0 0 24 24" vid="113"><circle cx="12" cy="12" r="1" vid="114"></circle><circle cx="19" cy="12" r="1" vid="115"></circle><circle cx="5" cy="12" r="1" vid="116"></circle></svg>
-                    </div>
-                    <h3 class="card-title" vid="117">Monochromatic Theory</h3>
-                    <p class="card-excerpt" vid="118">
-                        The monochromatic palette allows for subtle shifts in hierarchy without the need for jarring colors. Textures are felt rather than seen.
-                    </p>
-                    <div class="card-meta" vid="119">
-                        <span class="meta-tag" vid="120">Theory</span>
-                        <span class="meta-tag" vid="121">1.4k Words</span>
-                    </div>
-                </div>
-
-                
-                <div class="project-card" vid="122">
-                    <div class="card-header" vid="123">
-                        <div class="uppercase-label" vid="124">Sep 28</div>
-                        <svg class="icon" style="color: var(--text-faint)" viewBox="0 0 24 24" vid="125"><circle cx="12" cy="12" r="1" vid="126"></circle><circle cx="19" cy="12" r="1" vid="127"></circle><circle cx="5" cy="12" r="1" vid="128"></circle></svg>
-                    </div>
-                    <h3 class="card-title" vid="129">Typographic Rhythm</h3>
-                    <p class="card-excerpt" vid="130">
-                        Vertical rhythm is the pulse of the page. It establishes a predictable structure that comforts the reader's eye and aids comprehension.
-                    </p>
-                    <div class="card-meta" vid="131">
-                        <span class="meta-tag" vid="132">Typography</span>
-                        <span class="meta-tag" vid="133">3.2k Words</span>
-                    </div>
-                </div>
-
-                 
-                 <div class="project-card" vid="134">
-                    <div class="card-header" vid="135">
-                        <div class="uppercase-label" vid="136">Sep 15</div>
-                        <svg class="icon" style="color: var(--text-faint)" viewBox="0 0 24 24" vid="137"><circle cx="12" cy="12" r="1" vid="138"></circle><circle cx="19" cy="12" r="1" vid="139"></circle><circle cx="5" cy="12" r="1" vid="140"></circle></svg>
-                    </div>
-                    <h3 class="card-title" vid="141">System Architecture</h3>
-                    <p class="card-excerpt" vid="142">
-                        Defining the boundaries of the system is the first step towards scalability. We must consider the edges as much as the center.
-                    </p>
-                    <div class="card-meta" vid="143">
-                        <span class="meta-tag" vid="144">Technical</span>
-                        <span class="meta-tag" vid="145">4.5k Words</span>
-                    </div>
-                </div>
-
-                 
-                 <div class="project-card" style="align-items: center; justify-content: center; border-style: dashed; opacity: 0.5;" vid="146">
-                    <div style="font-size: 32px; font-weight: 300; color: var(--text-faint); margin-bottom: 12px;" vid="147">+</div>
-                    <div class="uppercase-label" vid="148">New Draft</div>
-                </div>
-
-            </div>
+      <header class="toolbar" vid="39">
+        <div class="search-wrapper" vid="40">
+          <svg class="icon" viewBox="0 0 24 24" vid="41">
+            <circle cx="11" cy="11" r="8" vid="42"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65" vid="43"></line>
+          </svg>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search across projects..."
+            vid="44"
+          />
         </div>
+
+        <div style="display: flex; gap: 16px; align-items: center" vid="45">
+          <button class="action-button" vid="46">
+            <svg class="icon" viewBox="0 0 24 24" vid="47">
+              <path
+                d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+                vid="48"
+              ></path>
+            </svg>
+          </button>
+          <button class="action-button" vid="49">
+            <svg class="icon" viewBox="0 0 24 24" vid="50">
+              <path
+                d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+                vid="51"
+              ></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" vid="52"></path>
+            </svg>
+          </button>
+          <button class="primary-btn" vid="53">Create New</button>
+        </div>
+      </header>
+
+      <div class="dashboard-scroller" vid="54">
+        <div class="section-title fade-in" vid="55">
+          <span vid="56">Continue Writing</span>
+          <span class="uppercase-label" style="cursor: pointer" vid="57"
+            >View All</span
+          >
+        </div>
+
+        <div class="hero-card fade-in delay-1" vid="58">
+          <div class="hero-content" vid="59">
+            <div
+              class="uppercase-label"
+              style="margin-bottom: 12px; color: var(--text-faint)"
+              vid="60"
+            >
+              Last edited 2 hours ago
+            </div>
+            <h2
+              style="
+                font-size: 32px;
+                color: var(--text-main);
+                margin-bottom: 16px;
+              "
+              vid="61"
+            >
+              The Aesthetics of Silence
+            </h2>
+            <p
+              style="
+                font-size: 15px;
+                color: var(--text-muted);
+                line-height: 1.6;
+                max-width: 500px;
+                margin-bottom: 32px;
+              "
+              vid="62"
+            >
+              In a world of noise, silence is a luxury. Our interfaces recede,
+              allowing the content to breathe. The use of negative space is
+              deliberate, creating a rhythm that guides the user through the
+              narrative without friction.
+            </p>
+            <div style="display: flex; gap: 12px" vid="63">
+              <span
+                class="meta-tag"
+                style="
+                  border: 1px solid var(--line-color);
+                  padding: 4px 10px;
+                  border-radius: 100px;
+                "
+                vid="64"
+                >Essay</span
+              >
+              <span
+                class="meta-tag"
+                style="
+                  border: 1px solid var(--line-color);
+                  padding: 4px 10px;
+                  border-radius: 100px;
+                "
+                vid="65"
+                >Design</span
+              >
+            </div>
+          </div>
+          <div class="hero-image" vid="66">
+            <img
+              src="https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?ixlib=rb-4.0.3&amp;auto=format&amp;fit=crop&amp;w=2000&amp;q=80"
+              alt="Minimal Architecture"
+              vid="67"
+            />
+          </div>
+        </div>
+
+        <div
+          class="section-title fade-in delay-2"
+          style="margin-top: 64px"
+          vid="68"
+        >
+          <span vid="69">Recent Projects</span>
+          <div style="display: flex; gap: 12px" vid="70">
+            <button class="action-button" title="Grid View" vid="71">
+              <svg class="icon" viewBox="0 0 24 24" vid="72">
+                <rect x="3" y="3" width="7" height="7" vid="73"></rect>
+                <rect x="14" y="3" width="7" height="7" vid="74"></rect>
+                <rect x="14" y="14" width="7" height="7" vid="75"></rect>
+                <rect x="3" y="14" width="7" height="7" vid="76"></rect>
+              </svg>
+            </button>
+            <button
+              class="action-button"
+              title="List View"
+              style="color: var(--text-faint)"
+              vid="77"
+            >
+              <svg class="icon" viewBox="0 0 24 24" vid="78">
+                <line x1="8" y1="6" x2="21" y2="6" vid="79"></line>
+                <line x1="8" y1="12" x2="21" y2="12" vid="80"></line>
+                <line x1="8" y1="18" x2="21" y2="18" vid="81"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6" vid="82"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12" vid="83"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18" vid="84"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="card-grid fade-in delay-3" vid="85">
+          <div class="project-card" vid="86">
+            <div class="card-header" vid="87">
+              <div class="uppercase-label" vid="88">Oct 24</div>
+              <svg
+                class="icon"
+                style="color: var(--text-faint)"
+                viewBox="0 0 24 24"
+                vid="89"
+              >
+                <circle cx="12" cy="12" r="1" vid="90"></circle>
+                <circle cx="19" cy="12" r="1" vid="91"></circle>
+                <circle cx="5" cy="12" r="1" vid="92"></circle>
+              </svg>
+            </div>
+            <h3 class="card-title" vid="93">Digital Craftsmanship</h3>
+            <p class="card-excerpt" vid="94">
+              Design is not just about making things look good. It is about how
+              things work. In the digital realm, this translates to the seamless
+              integration...
+            </p>
+            <div class="card-meta" vid="95">
+              <span class="meta-tag" vid="96">Manifesto</span>
+              <span class="meta-tag" vid="97">850 Words</span>
+            </div>
+          </div>
+
+          <div class="project-card" vid="98">
+            <div class="card-header" vid="99">
+              <div class="uppercase-label" vid="100">Oct 22</div>
+              <svg
+                class="icon"
+                style="color: var(--text-faint)"
+                viewBox="0 0 24 24"
+                vid="101"
+              >
+                <circle cx="12" cy="12" r="1" vid="102"></circle>
+                <circle cx="19" cy="12" r="1" vid="103"></circle>
+                <circle cx="5" cy="12" r="1" vid="104"></circle>
+              </svg>
+            </div>
+            <h3 class="card-title" vid="105">User Experience Patterns</h3>
+            <p class="card-excerpt" vid="106">
+              We observed that modern tools often clutter the workspace. Here,
+              we strip away the non-essential. The "Plus" motif serves as our
+              anchor.
+            </p>
+            <div class="card-meta" vid="107">
+              <span class="meta-tag" vid="108">Research</span>
+              <span class="meta-tag" vid="109">2.1k Words</span>
+            </div>
+          </div>
+
+          <div class="project-card" vid="110">
+            <div class="card-header" vid="111">
+              <div class="uppercase-label" vid="112">Oct 19</div>
+              <svg
+                class="icon"
+                style="color: var(--text-faint)"
+                viewBox="0 0 24 24"
+                vid="113"
+              >
+                <circle cx="12" cy="12" r="1" vid="114"></circle>
+                <circle cx="19" cy="12" r="1" vid="115"></circle>
+                <circle cx="5" cy="12" r="1" vid="116"></circle>
+              </svg>
+            </div>
+            <h3 class="card-title" vid="117">Monochromatic Theory</h3>
+            <p class="card-excerpt" vid="118">
+              The monochromatic palette allows for subtle shifts in hierarchy
+              without the need for jarring colors. Textures are felt rather than
+              seen.
+            </p>
+            <div class="card-meta" vid="119">
+              <span class="meta-tag" vid="120">Theory</span>
+              <span class="meta-tag" vid="121">1.4k Words</span>
+            </div>
+          </div>
+
+          <div class="project-card" vid="122">
+            <div class="card-header" vid="123">
+              <div class="uppercase-label" vid="124">Sep 28</div>
+              <svg
+                class="icon"
+                style="color: var(--text-faint)"
+                viewBox="0 0 24 24"
+                vid="125"
+              >
+                <circle cx="12" cy="12" r="1" vid="126"></circle>
+                <circle cx="19" cy="12" r="1" vid="127"></circle>
+                <circle cx="5" cy="12" r="1" vid="128"></circle>
+              </svg>
+            </div>
+            <h3 class="card-title" vid="129">Typographic Rhythm</h3>
+            <p class="card-excerpt" vid="130">
+              Vertical rhythm is the pulse of the page. It establishes a
+              predictable structure that comforts the reader's eye and aids
+              comprehension.
+            </p>
+            <div class="card-meta" vid="131">
+              <span class="meta-tag" vid="132">Typography</span>
+              <span class="meta-tag" vid="133">3.2k Words</span>
+            </div>
+          </div>
+
+          <div class="project-card" vid="134">
+            <div class="card-header" vid="135">
+              <div class="uppercase-label" vid="136">Sep 15</div>
+              <svg
+                class="icon"
+                style="color: var(--text-faint)"
+                viewBox="0 0 24 24"
+                vid="137"
+              >
+                <circle cx="12" cy="12" r="1" vid="138"></circle>
+                <circle cx="19" cy="12" r="1" vid="139"></circle>
+                <circle cx="5" cy="12" r="1" vid="140"></circle>
+              </svg>
+            </div>
+            <h3 class="card-title" vid="141">System Architecture</h3>
+            <p class="card-excerpt" vid="142">
+              Defining the boundaries of the system is the first step towards
+              scalability. We must consider the edges as much as the center.
+            </p>
+            <div class="card-meta" vid="143">
+              <span class="meta-tag" vid="144">Technical</span>
+              <span class="meta-tag" vid="145">4.5k Words</span>
+            </div>
+          </div>
+
+          <div
+            class="project-card"
+            style="
+              align-items: center;
+              justify-content: center;
+              border-style: dashed;
+              opacity: 0.5;
+            "
+            vid="146"
+          >
+            <div
+              style="
+                font-size: 32px;
+                font-weight: 300;
+                color: var(--text-faint);
+                margin-bottom: 12px;
+              "
+              vid="147"
+            >
+              +
+            </div>
+            <div class="uppercase-label" vid="148">New Draft</div>
+          </div>
+        </div>
+      </div>
     </main>
 
-    
     <!-- AI Panel - Collapsible -->
-    <aside class="w-[360px] bg-[#0f0f0f] border-l border-[#222222] flex flex-col shadow-2xl z-20 transition-transform duration-300" id="ai-panel" vid="149">
-        
-        <!-- Header -->
-        <div class="h-12 px-4 border-b border-[#222222] flex items-center justify-between bg-[#0f0f0f]" vid="150">
-            <div class="flex items-center gap-2" vid="151">
-                <div class="w-2 h-2 bg-white rounded-full" vid="152"></div>
-                <span class="text-xs font-medium text-white uppercase tracking-wider" vid="153">Chat</span>
-            </div>
-            <button class="w-6 h-6 flex items-center justify-center text-[#444444] hover:text-white transition-colors" id="collapse-ai" vid="154">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="155">
-                    <path d="M9 18l6-6-6-6" vid="156"></path>
-                </svg>
+    <aside
+      class="w-[360px] bg-[#0f0f0f] border-l border-[#222222] flex flex-col shadow-2xl z-20 transition-transform duration-300"
+      id="ai-panel"
+      vid="149"
+    >
+      <!-- Header -->
+      <div
+        class="h-12 px-4 border-b border-[#222222] flex items-center justify-between bg-[#0f0f0f]"
+        vid="150"
+      >
+        <div class="flex items-center gap-2" vid="151">
+          <div class="w-2 h-2 bg-white rounded-full" vid="152"></div>
+          <span
+            class="text-xs font-medium text-white uppercase tracking-wider"
+            vid="153"
+            >Chat</span
+          >
+        </div>
+        <button
+          class="w-6 h-6 flex items-center justify-center text-[#444444] hover:text-white transition-colors"
+          id="collapse-ai"
+          vid="154"
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="155"
+          >
+            <path d="M9 18l6-6-6-6" vid="156"></path>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Chat Area -->
+      <div
+        class="flex-1 overflow-y-auto p-4 space-y-4"
+        id="chat-messages"
+        vid="157"
+      >
+        <!-- User Input -->
+        <div
+          class="bg-[#080808] border border-[#222222] rounded-lg p-3 text-sm text-white leading-relaxed"
+          vid="158"
+        >
+          Help me improve the tone consistency in my essay about digital
+          minimalism.
+        </div>
+
+        <!-- AI Response -->
+        <div class="space-y-3" vid="159">
+          <div class="text-sm text-white leading-relaxed" vid="160">
+            I've analyzed your essay. The tone shifts from analytical to
+            personal in paragraph 3. Here's a suggested revision:
+          </div>
+
+          <div
+            class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm italic text-[#888888]"
+            vid="161"
+          >
+            "Consider how minimalism shapes not just our interfaces, but our
+            cognitive load. It's a philosophy that extends beyond pixels to
+            affect how we process information."
+          </div>
+
+          <div class="flex gap-2" vid="162">
+            <button
+              class="px-3 py-1.5 bg-white text-black text-xs rounded hover:bg-[#e0e0e0] transition-colors font-medium"
+              vid="163"
+            >
+              Apply
             </button>
+            <button
+              class="px-3 py-1.5 bg-[#222222] text-white text-xs rounded border border-[#444444] hover:border-[#888888] transition-colors font-medium"
+              vid="164"
+            >
+              Copy
+            </button>
+            <button
+              class="px-3 py-1.5 bg-[#222222] text-white text-xs rounded border border-[#444444] hover:border-[#888888] transition-colors font-medium"
+              vid="165"
+            >
+              Regenerate
+            </button>
+          </div>
         </div>
 
-        <!-- Chat Area -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages" vid="157">
-            
-            <!-- User Input -->
-            <div class="bg-[#080808] border border-[#222222] rounded-lg p-3 text-sm text-white leading-relaxed" vid="158">
-                Help me improve the tone consistency in my essay about digital minimalism.
-            </div>
-
-            <!-- AI Response -->
-            <div class="space-y-3" vid="159">
-                <div class="text-sm text-white leading-relaxed" vid="160">
-                    I've analyzed your essay. The tone shifts from analytical to personal in paragraph 3. Here's a suggested revision:
-                </div>
-                
-                <div class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm italic text-[#888888]" vid="161">
-                    "Consider how minimalism shapes not just our interfaces, but our cognitive load. It's a philosophy that extends beyond pixels to affect how we process information."
-                </div>
-                
-                <div class="flex gap-2" vid="162">
-                    <button class="px-3 py-1.5 bg-white text-black text-xs rounded hover:bg-[#e0e0e0] transition-colors font-medium" vid="163">Apply</button>
-                    <button class="px-3 py-1.5 bg-[#222222] text-white text-xs rounded border border-[#444444] hover:border-[#888888] transition-colors font-medium" vid="164">Copy</button>
-                    <button class="px-3 py-1.5 bg-[#222222] text-white text-xs rounded border border-[#444444] hover:border-[#888888] transition-colors font-medium" vid="165">Regenerate</button>
-                </div>
-            </div>
-
-            <!-- Another User Input -->
-            <div class="bg-[#080808] border border-[#222222] rounded-lg p-3 text-sm text-white leading-relaxed" vid="166">
-                That's better. Can you also suggest a stronger opening sentence?
-            </div>
-
-            <!-- AI Response -->
-            <div class="space-y-3" vid="167">
-                <div class="text-sm text-white leading-relaxed" vid="168">
-                    Here are three alternative opening sentences that establish a more authoritative tone:
-                </div>
-                
-                <div class="space-y-2" vid="169">
-                    <div class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm text-[#ffffff] cursor-pointer hover:border-[#444444] transition-colors" vid="170">
-                        <strong class="text-[#888888] text-xs block mb-1" vid="171">Option 1</strong>
-                        "Digital minimalism isn't merely an aesthetic choice—it's a cognitive necessity in our attention-scarce world."
-                    </div>
-                    <div class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm text-[#ffffff] cursor-pointer hover:border-[#444444] transition-colors" vid="172">
-                        <strong class="text-[#888888] text-xs block mb-1" vid="173">Option 2</strong>
-                        "In a landscape of infinite scroll and endless notifications, silence has become the ultimate luxury."
-                    </div>
-                    <div class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm text-[#ffffff] cursor-pointer hover:border-[#444444] transition-colors" vid="174">
-                        <strong class="text-[#888888] text-xs block mb-1" vid="175">Option 3</strong>
-                        "The most radical act in modern interface design is the conscious decision to subtract."
-                    </div>
-                </div>
-            </div>
-
+        <!-- Another User Input -->
+        <div
+          class="bg-[#080808] border border-[#222222] rounded-lg p-3 text-sm text-white leading-relaxed"
+          vid="166"
+        >
+          That's better. Can you also suggest a stronger opening sentence?
         </div>
 
-        <!-- Input Section -->
-        <div class="p-4 border-t border-[#222222] bg-[#0f0f0f]" vid="176">
-            <div class="relative" vid="177">
-                <textarea class="w-full bg-[#080808] border border-[#222222] rounded-lg p-4 pb-12 text-sm text-white placeholder-[#444444] focus:outline-none focus:border-[#888888] resize-none transition-all" placeholder="Ask me anything..." rows="3" id="chat-input" vid="178"></textarea>
-                
-                <!-- Model Selectors - Inside Input Box -->
-                <div class="absolute bottom-2 left-4 right-12 flex gap-2" vid="179">
-                    <div class="relative flex-1" vid="180">
-                        <select class="w-full bg-transparent text-[9px] text-[#666666] appearance-none cursor-pointer hover:text-[#888888] transition-colors pr-4" vid="181">
-                            <option vid="182">Claude-3.5</option>
-                            <option vid="183">GPT-4o</option>
-                            <option vid="184">Gemini</option>
-                        </select>
-                        <svg class="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 pointer-events-none" fill="none" stroke="#666666" stroke-width="2" viewBox="0 0 24 24" vid="185">
-                            <path d="M6 9l6 6 6-6" vid="186"></path>
-                        </svg>
-                    </div>
-                    <div class="relative flex-1" vid="187">
-                        <select class="w-full bg-transparent text-[9px] text-[#666666] appearance-none cursor-pointer hover:text-[#888888] transition-colors pr-4" vid="188">
-                            <option vid="189">Sonnet</option>
-                            <option vid="190">Haiku</option>
-                            <option vid="191">Opus</option>
-                        </select>
-                        <svg class="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 pointer-events-none" fill="none" stroke="#666666" stroke-width="2" viewBox="0 0 24 24" vid="192">
-                            <path d="M6 9l6 6 6-6" vid="193"></path>
-                        </svg>
-                    </div>
-                    <div class="relative flex-1" vid="194">
-                        <select class="w-full bg-transparent text-[9px] text-[#666666] appearance-none cursor-pointer hover:text-[#888888] transition-colors pr-4" vid="195">
-                            <option vid="196">Writer</option>
-                            <option vid="197">Editor</option>
-                            <option vid="198">Researcher</option>
-                        </select>
-                        <svg class="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 pointer-events-none" fill="none" stroke="#666666" stroke-width="2" viewBox="0 0 24 24" vid="199">
-                            <path d="M6 9l6 6 6-6" vid="200"></path>
-                        </svg>
-                    </div>
-                </div>
-                
-                <button class="absolute bottom-2 right-2 p-2 bg-white text-black rounded-md hover:bg-[#e0e0e0] transition-colors" id="send-btn" vid="201">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="202">
-                        <line x1="22" y1="2" x2="11" y2="13" vid="203"></line>
-                        <polygon points="22 2 15 22 11 13 2 9 22 2" vid="204"></polygon>
-                    </svg>
-                </button>
+        <!-- AI Response -->
+        <div class="space-y-3" vid="167">
+          <div class="text-sm text-white leading-relaxed" vid="168">
+            Here are three alternative opening sentences that establish a more
+            authoritative tone:
+          </div>
+
+          <div class="space-y-2" vid="169">
+            <div
+              class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm text-[#ffffff] cursor-pointer hover:border-[#444444] transition-colors"
+              vid="170"
+            >
+              <strong class="text-[#888888] text-xs block mb-1" vid="171"
+                >Option 1</strong
+              >
+              "Digital minimalism isn't merely an aesthetic choice—it's a
+              cognitive necessity in our attention-scarce world."
             </div>
+            <div
+              class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm text-[#ffffff] cursor-pointer hover:border-[#444444] transition-colors"
+              vid="172"
+            >
+              <strong class="text-[#888888] text-xs block mb-1" vid="173"
+                >Option 2</strong
+              >
+              "In a landscape of infinite scroll and endless notifications,
+              silence has become the ultimate luxury."
+            </div>
+            <div
+              class="bg-[#1a1a1a] border border-[#222222] rounded-lg p-3 text-sm text-[#ffffff] cursor-pointer hover:border-[#444444] transition-colors"
+              vid="174"
+            >
+              <strong class="text-[#888888] text-xs block mb-1" vid="175"
+                >Option 3</strong
+              >
+              "The most radical act in modern interface design is the conscious
+              decision to subtract."
+            </div>
+          </div>
         </div>
+      </div>
+
+      <!-- Input Section -->
+      <div class="p-4 border-t border-[#222222] bg-[#0f0f0f]" vid="176">
+        <div class="relative" vid="177">
+          <textarea
+            class="w-full bg-[#080808] border border-[#222222] rounded-lg p-4 pb-12 text-sm text-white placeholder-[#444444] focus:outline-none focus:border-[#888888] resize-none transition-all"
+            placeholder="Ask me anything..."
+            rows="3"
+            id="chat-input"
+            vid="178"
+          ></textarea>
+
+          <!-- Model Selectors - Inside Input Box -->
+          <div class="absolute bottom-2 left-4 right-12 flex gap-2" vid="179">
+            <div class="relative flex-1" vid="180">
+              <select
+                class="w-full bg-transparent text-[9px] text-[#666666] appearance-none cursor-pointer hover:text-[#888888] transition-colors pr-4"
+                vid="181"
+              >
+                <option vid="182">Claude-3.5</option>
+                <option vid="183">GPT-4o</option>
+                <option vid="184">Gemini</option>
+              </select>
+              <svg
+                class="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 pointer-events-none"
+                fill="none"
+                stroke="#666666"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                vid="185"
+              >
+                <path d="M6 9l6 6 6-6" vid="186"></path>
+              </svg>
+            </div>
+            <div class="relative flex-1" vid="187">
+              <select
+                class="w-full bg-transparent text-[9px] text-[#666666] appearance-none cursor-pointer hover:text-[#888888] transition-colors pr-4"
+                vid="188"
+              >
+                <option vid="189">Sonnet</option>
+                <option vid="190">Haiku</option>
+                <option vid="191">Opus</option>
+              </select>
+              <svg
+                class="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 pointer-events-none"
+                fill="none"
+                stroke="#666666"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                vid="192"
+              >
+                <path d="M6 9l6 6 6-6" vid="193"></path>
+              </svg>
+            </div>
+            <div class="relative flex-1" vid="194">
+              <select
+                class="w-full bg-transparent text-[9px] text-[#666666] appearance-none cursor-pointer hover:text-[#888888] transition-colors pr-4"
+                vid="195"
+              >
+                <option vid="196">Writer</option>
+                <option vid="197">Editor</option>
+                <option vid="198">Researcher</option>
+              </select>
+              <svg
+                class="absolute right-1 top-1/2 -translate-y-1/2 w-2 h-2 pointer-events-none"
+                fill="none"
+                stroke="#666666"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                vid="199"
+              >
+                <path d="M6 9l6 6 6-6" vid="200"></path>
+              </svg>
+            </div>
+          </div>
+
+          <button
+            class="absolute bottom-2 right-2 p-2 bg-white text-black rounded-md hover:bg-[#e0e0e0] transition-colors"
+            id="send-btn"
+            vid="201"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              vid="202"
+            >
+              <line x1="22" y1="2" x2="11" y2="13" vid="203"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2" vid="204"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
     </aside>
 
     <!-- Collapsed AI Panel Button -->
-    <button class="fixed right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-[#0f0f0f] border border-[#222222] rounded-full flex items-center justify-center text-[#444444] hover:text-white transition-all shadow-2xl z-10 hidden" id="expand-ai" vid="205">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="206">
-            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" vid="207"></path>
-        </svg>
+    <button
+      class="fixed right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-[#0f0f0f] border border-[#222222] rounded-full flex items-center justify-center text-[#444444] hover:text-white transition-all shadow-2xl z-10 hidden"
+      id="expand-ai"
+      vid="205"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        vid="206"
+      >
+        <path
+          d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+          vid="207"
+        ></path>
+      </svg>
     </button>
 
     <script vid="208">
-        // Navigation items
-        document.querySelectorAll('.nav-item').forEach(item => {
-            item.addEventListener('click', function() {
-                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
-                this.classList.add('active');
-            });
+      // Navigation items
+      document.querySelectorAll(".nav-item").forEach((item) => {
+        item.addEventListener("click", function () {
+          document
+            .querySelectorAll(".nav-item")
+            .forEach((i) => i.classList.remove("active"));
+          this.classList.add("active");
         });
+      });
 
-        // AI Panel Toggle
-        const aiPanel = document.getElementById('ai-panel');
-        const collapseBtn = document.getElementById('collapse-ai');
-        const expandBtn = document.getElementById('expand-ai');
-        const workspace = document.querySelector('.workspace');
-        
-        collapseBtn.addEventListener('click', () => {
-            aiPanel.style.transform = 'translateX(100%)';
-            expandBtn.classList.remove('hidden');
-            workspace.style.marginRight = '0';
-        });
-        
-        expandBtn.addEventListener('click', () => {
-            aiPanel.style.transform = 'translateX(0)';
-            expandBtn.classList.add('hidden');
-            workspace.style.marginRight = '360px';
-        });
+      // AI Panel Toggle
+      const aiPanel = document.getElementById("ai-panel");
+      const collapseBtn = document.getElementById("collapse-ai");
+      const expandBtn = document.getElementById("expand-ai");
+      const workspace = document.querySelector(".workspace");
 
-        // Chat Input Auto-resize
-        const chatInput = document.getElementById('chat-input');
-        chatInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
+      collapseBtn.addEventListener("click", () => {
+        aiPanel.style.transform = "translateX(100%)";
+        expandBtn.classList.remove("hidden");
+        workspace.style.marginRight = "0";
+      });
 
-        // Send Message
-        const sendBtn = document.getElementById('send-btn');
-        sendBtn.addEventListener('click', () => {
-            const message = chatInput.value.trim();
-            if (message) {
-                // Add user message to chat
-                const chatMessages = document.getElementById('chat-messages');
-                const userMessage = document.createElement('div');
-                userMessage.className = 'bg-[#080808] border border-[#222222] rounded-lg p-3 text-sm text-white leading-relaxed';
-                userMessage.textContent = message;
-                chatMessages.appendChild(userMessage);
-                
-                // Clear input
-                chatInput.value = '';
-                chatInput.style.height = 'auto';
-                
-                // Scroll to bottom
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-        });
+      expandBtn.addEventListener("click", () => {
+        aiPanel.style.transform = "translateX(0)";
+        expandBtn.classList.add("hidden");
+        workspace.style.marginRight = "360px";
+      });
 
-        // Enter to send
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendBtn.click();
-            }
-        });
+      // Chat Input Auto-resize
+      const chatInput = document.getElementById("chat-input");
+      chatInput.addEventListener("input", function () {
+        this.style.height = "auto";
+        this.style.height = this.scrollHeight + "px";
+      });
+
+      // Send Message
+      const sendBtn = document.getElementById("send-btn");
+      sendBtn.addEventListener("click", () => {
+        const message = chatInput.value.trim();
+        if (message) {
+          // Add user message to chat
+          const chatMessages = document.getElementById("chat-messages");
+          const userMessage = document.createElement("div");
+          userMessage.className =
+            "bg-[#080808] border border-[#222222] rounded-lg p-3 text-sm text-white leading-relaxed";
+          userMessage.textContent = message;
+          chatMessages.appendChild(userMessage);
+
+          // Clear input
+          chatInput.value = "";
+          chatInput.style.height = "auto";
+
+          // Scroll to bottom
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+      });
+
+      // Enter to send
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendBtn.click();
+        }
+      });
     </script>
-
-</body></html>
+  </body>
+</html>

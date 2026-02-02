@@ -95,11 +95,7 @@ describe("Toast", () => {
 
       render(
         <ToastWrapper>
-          <Toast
-            title="Test"
-            action={{ label: "Undo", onClick }}
-            open
-          />
+          <Toast title="Test" action={{ label: "Undo", onClick }} open />
         </ToastWrapper>,
       );
 
@@ -112,11 +108,7 @@ describe("Toast", () => {
 
       render(
         <ToastWrapper>
-          <Toast
-            title="Test"
-            action={{ label: "Undo", onClick }}
-            open
-          />
+          <Toast title="Test" action={{ label: "Undo", onClick }} open />
         </ToastWrapper>,
       );
 
@@ -201,9 +193,7 @@ describe("Toast", () => {
               title="Test"
               variant={variant}
               action={
-                withAction
-                  ? { label: "Action", onClick: () => {} }
-                  : undefined
+                withAction ? { label: "Action", onClick: () => {} } : undefined
               }
               open
             />

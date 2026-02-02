@@ -1,14 +1,33 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
 import { AppShell } from "./AppShell";
-import { LayoutStoreProvider, createLayoutStore, LAYOUT_DEFAULTS } from "../../stores/layoutStore";
-import { ProjectStoreProvider, createProjectStore } from "../../stores/projectStore";
+import {
+  LayoutStoreProvider,
+  createLayoutStore,
+  LAYOUT_DEFAULTS,
+} from "../../stores/layoutStore";
+import {
+  ProjectStoreProvider,
+  createProjectStore,
+} from "../../stores/projectStore";
 import { FileStoreProvider, createFileStore } from "../../stores/fileStore";
-import { EditorStoreProvider, createEditorStore } from "../../stores/editorStore";
+import {
+  EditorStoreProvider,
+  createEditorStore,
+} from "../../stores/editorStore";
 import { AiStoreProvider, createAiStore } from "../../stores/aiStore";
-import { MemoryStoreProvider, createMemoryStore } from "../../stores/memoryStore";
-import { ContextStoreProvider, createContextStore } from "../../stores/contextStore";
-import { SearchStoreProvider, createSearchStore } from "../../stores/searchStore";
+import {
+  MemoryStoreProvider,
+  createMemoryStore,
+} from "../../stores/memoryStore";
+import {
+  ContextStoreProvider,
+  createContextStore,
+} from "../../stores/contextStore";
+import {
+  SearchStoreProvider,
+  createSearchStore,
+} from "../../stores/searchStore";
 import { KgStoreProvider, createKgStore } from "../../stores/kgStore";
 import { ThemeStoreProvider, createThemeStore } from "../../stores/themeStore";
 
@@ -37,13 +56,18 @@ const mockIpc = {
 /**
  * Full store provider wrapper for Layout stories.
  */
-function LayoutWrapper({ children }: { children: React.ReactNode }): JSX.Element {
+function LayoutWrapper({
+  children,
+}: {
+  children: React.ReactNode;
+}): JSX.Element {
   const layoutStore = React.useMemo(
     () => createLayoutStore(mockPreferences),
     [],
   );
   const projectStore = React.useMemo(
-    () => createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
+    () =>
+      createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
     [],
   );
   const fileStore = React.useMemo(
@@ -63,7 +87,8 @@ function LayoutWrapper({ children }: { children: React.ReactNode }): JSX.Element
     [],
   );
   const contextStore = React.useMemo(
-    () => createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
+    () =>
+      createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
     [],
   );
   const searchStore = React.useMemo(
@@ -74,10 +99,7 @@ function LayoutWrapper({ children }: { children: React.ReactNode }): JSX.Element
     () => createKgStore(mockIpc as Parameters<typeof createKgStore>[0]),
     [],
   );
-  const themeStore = React.useMemo(
-    () => createThemeStore(mockPreferences),
-    [],
-  );
+  const themeStore = React.useMemo(() => createThemeStore(mockPreferences), []);
 
   return (
     <LayoutStoreProvider store={layoutStore}>
@@ -192,7 +214,8 @@ export const OverflowMinimumSize: Story = {
           backgroundColor: "var(--color-bg-surface)",
         }}
       >
-        最小窗口尺寸测试：IconBar(48) + Sidebar(180) + Main(400) + Panel(280) = 908px
+        最小窗口尺寸测试：IconBar(48) + Sidebar(180) + Main(400) + Panel(280) =
+        908px
       </div>
       <div
         style={{
@@ -304,7 +327,14 @@ export const ResponsiveSmallLaptop: Story = {
 export const HeightVariations: Story = {
   name: "高度变化测试",
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1rem" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+        padding: "1rem",
+      }}
+    >
       <div>
         <div
           style={{
@@ -395,23 +425,33 @@ export const LayoutConstants: Story = {
         <tbody>
           <tr>
             <td style={{ padding: "0.5rem" }}>iconBarWidth</td>
-            <td style={{ padding: "0.5rem" }}>{LAYOUT_DEFAULTS.iconBarWidth}px</td>
+            <td style={{ padding: "0.5rem" }}>
+              {LAYOUT_DEFAULTS.iconBarWidth}px
+            </td>
           </tr>
           <tr>
             <td style={{ padding: "0.5rem" }}>statusBarHeight</td>
-            <td style={{ padding: "0.5rem" }}>{LAYOUT_DEFAULTS.statusBarHeight}px</td>
+            <td style={{ padding: "0.5rem" }}>
+              {LAYOUT_DEFAULTS.statusBarHeight}px
+            </td>
           </tr>
           <tr>
             <td style={{ padding: "0.5rem" }}>sidebar.min</td>
-            <td style={{ padding: "0.5rem" }}>{LAYOUT_DEFAULTS.sidebar.min}px</td>
+            <td style={{ padding: "0.5rem" }}>
+              {LAYOUT_DEFAULTS.sidebar.min}px
+            </td>
           </tr>
           <tr>
             <td style={{ padding: "0.5rem" }}>sidebar.max</td>
-            <td style={{ padding: "0.5rem" }}>{LAYOUT_DEFAULTS.sidebar.max}px</td>
+            <td style={{ padding: "0.5rem" }}>
+              {LAYOUT_DEFAULTS.sidebar.max}px
+            </td>
           </tr>
           <tr>
             <td style={{ padding: "0.5rem" }}>sidebar.default</td>
-            <td style={{ padding: "0.5rem" }}>{LAYOUT_DEFAULTS.sidebar.default}px</td>
+            <td style={{ padding: "0.5rem" }}>
+              {LAYOUT_DEFAULTS.sidebar.default}px
+            </td>
           </tr>
           <tr>
             <td style={{ padding: "0.5rem" }}>panel.min</td>
@@ -423,11 +463,15 @@ export const LayoutConstants: Story = {
           </tr>
           <tr>
             <td style={{ padding: "0.5rem" }}>panel.default</td>
-            <td style={{ padding: "0.5rem" }}>{LAYOUT_DEFAULTS.panel.default}px</td>
+            <td style={{ padding: "0.5rem" }}>
+              {LAYOUT_DEFAULTS.panel.default}px
+            </td>
           </tr>
           <tr>
             <td style={{ padding: "0.5rem" }}>mainMinWidth</td>
-            <td style={{ padding: "0.5rem" }}>{LAYOUT_DEFAULTS.mainMinWidth}px</td>
+            <td style={{ padding: "0.5rem" }}>
+              {LAYOUT_DEFAULTS.mainMinWidth}px
+            </td>
           </tr>
         </tbody>
       </table>

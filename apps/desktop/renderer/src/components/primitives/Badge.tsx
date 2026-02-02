@@ -47,10 +47,9 @@ const baseStyles = [
  * Variant-specific styles
  */
 const variantStyles: Record<BadgeVariant, string> = {
-  default: [
-    "bg-[var(--color-bg-hover)]",
-    "text-[var(--color-fg-muted)]",
-  ].join(" "),
+  default: ["bg-[var(--color-bg-hover)]", "text-[var(--color-fg-muted)]"].join(
+    " ",
+  ),
   success: [
     "bg-[var(--color-success-subtle)]",
     "text-[var(--color-success)]",
@@ -59,14 +58,10 @@ const variantStyles: Record<BadgeVariant, string> = {
     "bg-[var(--color-warning-subtle)]",
     "text-[var(--color-warning)]",
   ].join(" "),
-  error: [
-    "bg-[var(--color-error-subtle)]",
-    "text-[var(--color-error)]",
-  ].join(" "),
-  info: [
-    "bg-[var(--color-info-subtle)]",
-    "text-[var(--color-info)]",
-  ].join(" "),
+  error: ["bg-[var(--color-error-subtle)]", "text-[var(--color-error)]"].join(
+    " ",
+  ),
+  info: ["bg-[var(--color-info-subtle)]", "text-[var(--color-info)]"].join(" "),
 };
 
 /**

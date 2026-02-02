@@ -1,282 +1,540 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow Sidebar Outline</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet" vid="6">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap"
+      rel="stylesheet"
+      vid="6"
+    />
     <style vid="7">
-        :root {
-            --bg-body: #080808;
-            --bg-sidebar: #0f0f0f;
-            --border-color: #222222;
-            --text-main: #ffffff;
-            --text-muted: #888888;
-            --text-faint: #444444;
-            --hover-bg: #1a1a1a;
-            --active-bg: #141414;
-            --accent: #ffffff;
-            --drag-line: #3b82f6;
-        }
+      :root {
+        --bg-body: #080808;
+        --bg-sidebar: #0f0f0f;
+        --border-color: #222222;
+        --text-main: #ffffff;
+        --text-muted: #888888;
+        --text-faint: #444444;
+        --hover-bg: #1a1a1a;
+        --active-bg: #141414;
+        --accent: #ffffff;
+        --drag-line: #3b82f6;
+      }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            overflow: hidden;
-        }
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: var(--bg-body);
+        color: var(--text-main);
+        overflow: hidden;
+      }
 
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        
-        .sidebar-item {
-            height: 28px;
-            display: flex;
-            align-items: center;
-            padding-right: 12px;
-            cursor: pointer;
-            position: relative;
-            transition: background-color 0.1s;
-            font-weight: 400;
-        }
+      .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+      }
 
-        .sidebar-item:hover {
-            background-color: var(--hover-bg);
-        }
+      .sidebar-item {
+        height: 28px;
+        display: flex;
+        align-items: center;
+        padding-right: 12px;
+        cursor: pointer;
+        position: relative;
+        transition: background-color 0.1s;
+        font-weight: 400;
+      }
 
-        .sidebar-item:hover .item-actions {
-            opacity: 1;
-        }
+      .sidebar-item:hover {
+        background-color: var(--hover-bg);
+      }
 
-        .item-actions {
-            margin-left: auto;
-            display: flex;
-            gap: 6px;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
+      .sidebar-item:hover .item-actions {
+        opacity: 1;
+      }
 
-        .action-icon {
-            color: var(--text-muted);
-            width: 12px;
-            height: 12px;
-            transition: color 0.2s;
-        }
-        .action-icon:hover {
-            color: var(--text-main);
-        }
+      .item-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 6px;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
 
-        .active-indicator {
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background-color: var(--accent);
-        }
+      .action-icon {
+        color: var(--text-muted);
+        width: 12px;
+        height: 12px;
+        transition: color 0.2s;
+      }
+      .action-icon:hover {
+        color: var(--text-main);
+      }
 
-        
-        .level-h1 {
-            padding-left: 16px; 
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-main);
-        }
-        .level-h2 {
-            padding-left: 32px; 
-            font-size: 13px;
-            color: #d4d4d4;
-        }
-        .level-h3 {
-            padding-left: 48px; 
-            font-size: 12px;
-            color: var(--text-muted);
-        }
+      .active-indicator {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background-color: var(--accent);
+      }
 
-        
-        .drag-line {
-            position: absolute;
-            left: 16px;
-            right: 16px;
-            height: 2px;
-            background-color: var(--drag-line);
-            top: -1px;
-            z-index: 10;
-            pointer-events: none;
-        }
-        .drag-line::before {
-            content: '';
-            position: absolute;
-            left: -4px;
-            top: -2px;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background-color: var(--drag-line);
-        }
+      .level-h1 {
+        padding-left: 16px;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-main);
+      }
+      .level-h2 {
+        padding-left: 32px;
+        font-size: 13px;
+        color: #d4d4d4;
+      }
+      .level-h3 {
+        padding-left: 48px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
 
-        
-        .empty-state-demo {
-            border: 1px dashed var(--border-color);
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 40px;
-            text-align: center;
-        }
+      .drag-line {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        height: 2px;
+        background-color: var(--drag-line);
+        top: -1px;
+        z-index: 10;
+        pointer-events: none;
+      }
+      .drag-line::before {
+        content: "";
+        position: absolute;
+        left: -4px;
+        top: -2px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: var(--drag-line);
+      }
+
+      .empty-state-demo {
+        border: 1px dashed var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 40px;
+        text-align: center;
+      }
     </style>
-</head>
-<body class="flex h-screen w-screen selection:bg-white selection:text-black" vid="8">
+  </head>
+  <body
+    class="flex h-screen w-screen selection:bg-white selection:text-black"
+    vid="8"
+  >
+    <aside
+      class="w-[240px] bg-[#0f0f0f] border-r border-[#222222] flex flex-col flex-shrink-0 z-20"
+      vid="9"
+    >
+      <div
+        class="h-12 border-b border-[#222222] flex items-center justify-between px-4 flex-shrink-0"
+        vid="10"
+      >
+        <span
+          class="text-xs font-medium tracking-wider text-[#888] uppercase"
+          vid="11"
+          >Outline</span
+        >
+        <div class="flex gap-2" vid="12">
+          <button
+            class="text-[#666] hover:text-white transition-colors"
+            title="Expand All"
+            vid="13"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              vid="14"
+            >
+              <polyline points="4 14 10 20 16 14" vid="15"></polyline>
+              <polyline points="4 4 10 10 16 4" vid="16"></polyline>
+            </svg>
+          </button>
+          <button
+            class="text-[#666] hover:text-white transition-colors"
+            title="Collapse All"
+            vid="17"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              vid="18"
+            >
+              <polyline points="4 20 10 14 16 20" vid="19"></polyline>
+              <polyline points="4 10 10 4 16 10" vid="20"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
 
-    
-    <aside class="w-[240px] bg-[#0f0f0f] border-r border-[#222222] flex flex-col flex-shrink-0 z-20" vid="9">
-        
-        <div class="h-12 border-b border-[#222222] flex items-center justify-between px-4 flex-shrink-0" vid="10">
-            <span class="text-xs font-medium tracking-wider text-[#888] uppercase" vid="11">Outline</span>
-            <div class="flex gap-2" vid="12">
-                <button class="text-[#666] hover:text-white transition-colors" title="Expand All" vid="13">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="14"><polyline points="4 14 10 20 16 14" vid="15"></polyline><polyline points="4 4 10 10 16 4" vid="16"></polyline></svg>
-                </button>
-                <button class="text-[#666] hover:text-white transition-colors" title="Collapse All" vid="17">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="18"><polyline points="4 20 10 14 16 20" vid="19"></polyline><polyline points="4 10 10 4 16 10" vid="20"></polyline></svg>
-                </button>
-            </div>
+      <div
+        class="flex-1 overflow-y-auto py-2 scrollbar-hide flex flex-col"
+        vid="21"
+      >
+        <div class="sidebar-item level-h1 bg-[#141414]" vid="22">
+          <div class="active-indicator" vid="23"></div>
+          <svg
+            class="w-3.5 h-3.5 mr-2 opacity-70"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="24"
+          >
+            <path
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              vid="25"
+            ></path>
+            <polyline points="14 2 14 8 20 8" vid="26"></polyline>
+          </svg>
+          <span class="truncate" vid="27">The Aesthetics of Silence</span>
         </div>
 
-        
-        <div class="flex-1 overflow-y-auto py-2 scrollbar-hide flex flex-col" vid="21">
-            
-            
-            <div class="sidebar-item level-h1 bg-[#141414]" vid="22">
-                <div class="active-indicator" vid="23"></div>
-                <svg class="w-3.5 h-3.5 mr-2 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vid="25"></path><polyline points="14 2 14 8 20 8" vid="26"></polyline></svg>
-                <span class="truncate" vid="27">The Aesthetics of Silence</span>
-            </div>
-
-            
-            <div class="sidebar-item level-h2" vid="28">
-                <svg class="w-3.5 h-3.5 mr-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="29"><circle cx="12" cy="12" r="1" vid="30"></circle></svg>
-                <span class="truncate" vid="31">1. Introduction</span>
-            </div>
-
-            
-            <div class="sidebar-item level-h2" vid="32">
-                <svg class="w-3.5 h-3.5 mr-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="33"><circle cx="12" cy="12" r="1" vid="34"></circle></svg>
-                <span class="truncate" vid="35">2. Historical Context</span>
-            </div>
-
-            
-            <div class="sidebar-item level-h3 bg-[#1a1a1a]" vid="36">
-                <svg class="w-3.5 h-3.5 mr-2 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="37"><circle cx="12" cy="12" r="1" vid="38"></circle></svg>
-                <span class="truncate" vid="39">2.1 Early 20th Century</span>
-                
-                <div class="item-actions" style="opacity: 1;" vid="40">
-                    <button class="action-icon" title="Edit" vid="41"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="42"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" vid="43"></path></svg></button>
-                    <button class="action-icon" title="Delete" vid="44"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="45"><polyline points="3 6 5 6 21 6" vid="46"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" vid="47"></path></svg></button>
-                </div>
-            </div>
-
-            
-            <div class="sidebar-item level-h3" vid="48">
-                <svg class="w-3.5 h-3.5 mr-2 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="49"><circle cx="12" cy="12" r="1" vid="50"></circle></svg>
-                <span class="truncate" vid="51">2.2 Post-War Minimalism</span>
-            </div>
-
-            
-            <div class="relative w-full h-[2px]" vid="52">
-                <div class="drag-line" vid="53"></div>
-            </div>
-
-            
-            <div class="sidebar-item level-h2" style="opacity: 0.4;" vid="54">
-                <svg class="w-3.5 h-3.5 mr-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="55"><circle cx="12" cy="12" r="1" vid="56"></circle></svg>
-                <span class="truncate" vid="57">3. The Digital Age</span>
-                <div class="ml-auto mr-2 text-xs text-blue-400 font-mono tracking-tighter" vid="58">DRAGGING</div>
-            </div>
-
-            
-            <div class="sidebar-item level-h3" vid="59">
-                <svg class="w-3.5 h-3.5 mr-2 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="60"><circle cx="12" cy="12" r="1" vid="61"></circle></svg>
-                <span class="truncate" vid="62">3.1 Interface as Structure</span>
-            </div>
-
-            
-            <div class="sidebar-item level-h1 mt-2" vid="63">
-                <svg class="w-3.5 h-3.5 mr-2 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="64"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vid="65"></path><polyline points="14 2 14 8 20 8" vid="66"></polyline></svg>
-                <span class="truncate" vid="67">Conclusion</span>
-            </div>
-             <div class="sidebar-item level-h2" vid="68">
-                <svg class="w-3.5 h-3.5 mr-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="69"><circle cx="12" cy="12" r="1" vid="70"></circle></svg>
-                <span class="truncate" vid="71">Future Implications</span>
-            </div>
-
+        <div class="sidebar-item level-h2" vid="28">
+          <svg
+            class="w-3.5 h-3.5 mr-2 opacity-50"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="29"
+          >
+            <circle cx="12" cy="12" r="1" vid="30"></circle>
+          </svg>
+          <span class="truncate" vid="31">1. Introduction</span>
         </div>
 
-        
-        <div class="p-4 border-t border-[#222222] mt-auto" vid="72">
-             <span class="text-[10px] text-[#444] uppercase tracking-widest mb-2 block" vid="73">Empty State Preview</span>
-             <div class="flex flex-col items-center justify-center py-6 text-center border border-dashed border-[#222222] rounded bg-[#0b0b0b]" vid="74">
-                <svg class="w-6 h-6 text-[#333] mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" vid="75"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" vid="76"></path><polyline points="13 2 13 9 20 9" vid="77"></polyline></svg>
-                <p class="text-[11px] text-[#666] leading-tight px-2" vid="78">No outline yet.<br vid="79">Headings appear here automatically.</p>
-             </div>
+        <div class="sidebar-item level-h2" vid="32">
+          <svg
+            class="w-3.5 h-3.5 mr-2 opacity-50"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="33"
+          >
+            <circle cx="12" cy="12" r="1" vid="34"></circle>
+          </svg>
+          <span class="truncate" vid="35">2. Historical Context</span>
         </div>
+
+        <div class="sidebar-item level-h3 bg-[#1a1a1a]" vid="36">
+          <svg
+            class="w-3.5 h-3.5 mr-2 opacity-40"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="37"
+          >
+            <circle cx="12" cy="12" r="1" vid="38"></circle>
+          </svg>
+          <span class="truncate" vid="39">2.1 Early 20th Century</span>
+
+          <div class="item-actions" style="opacity: 1" vid="40">
+            <button class="action-icon" title="Edit" vid="41">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                vid="42"
+              >
+                <path
+                  d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
+                  vid="43"
+                ></path>
+              </svg>
+            </button>
+            <button class="action-icon" title="Delete" vid="44">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                vid="45"
+              >
+                <polyline points="3 6 5 6 21 6" vid="46"></polyline>
+                <path
+                  d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                  vid="47"
+                ></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="sidebar-item level-h3" vid="48">
+          <svg
+            class="w-3.5 h-3.5 mr-2 opacity-40"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="49"
+          >
+            <circle cx="12" cy="12" r="1" vid="50"></circle>
+          </svg>
+          <span class="truncate" vid="51">2.2 Post-War Minimalism</span>
+        </div>
+
+        <div class="relative w-full h-[2px]" vid="52">
+          <div class="drag-line" vid="53"></div>
+        </div>
+
+        <div class="sidebar-item level-h2" style="opacity: 0.4" vid="54">
+          <svg
+            class="w-3.5 h-3.5 mr-2 opacity-50"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="55"
+          >
+            <circle cx="12" cy="12" r="1" vid="56"></circle>
+          </svg>
+          <span class="truncate" vid="57">3. The Digital Age</span>
+          <div
+            class="ml-auto mr-2 text-xs text-blue-400 font-mono tracking-tighter"
+            vid="58"
+          >
+            DRAGGING
+          </div>
+        </div>
+
+        <div class="sidebar-item level-h3" vid="59">
+          <svg
+            class="w-3.5 h-3.5 mr-2 opacity-40"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="60"
+          >
+            <circle cx="12" cy="12" r="1" vid="61"></circle>
+          </svg>
+          <span class="truncate" vid="62">3.1 Interface as Structure</span>
+        </div>
+
+        <div class="sidebar-item level-h1 mt-2" vid="63">
+          <svg
+            class="w-3.5 h-3.5 mr-2 opacity-70"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="64"
+          >
+            <path
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+              vid="65"
+            ></path>
+            <polyline points="14 2 14 8 20 8" vid="66"></polyline>
+          </svg>
+          <span class="truncate" vid="67">Conclusion</span>
+        </div>
+        <div class="sidebar-item level-h2" vid="68">
+          <svg
+            class="w-3.5 h-3.5 mr-2 opacity-50"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            vid="69"
+          >
+            <circle cx="12" cy="12" r="1" vid="70"></circle>
+          </svg>
+          <span class="truncate" vid="71">Future Implications</span>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-[#222222] mt-auto" vid="72">
+        <span
+          class="text-[10px] text-[#444] uppercase tracking-widest mb-2 block"
+          vid="73"
+          >Empty State Preview</span
+        >
+        <div
+          class="flex flex-col items-center justify-center py-6 text-center border border-dashed border-[#222222] rounded bg-[#0b0b0b]"
+          vid="74"
+        >
+          <svg
+            class="w-6 h-6 text-[#333] mb-2"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            vid="75"
+          >
+            <path
+              d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"
+              vid="76"
+            ></path>
+            <polyline points="13 2 13 9 20 9" vid="77"></polyline>
+          </svg>
+          <p class="text-[11px] text-[#666] leading-tight px-2" vid="78">
+            No outline yet.<br vid="79" />Headings appear here automatically.
+          </p>
+        </div>
+      </div>
     </aside>
 
-    
     <main class="flex-1 flex flex-col h-full relative overflow-hidden" vid="80">
-        
-        
-        <header class="h-14 border-b border-[#222222] flex items-center justify-between px-8 bg-[#080808]" vid="81">
-            <div class="flex items-center gap-4 text-[#444]" vid="82">
-                <span class="text-xs uppercase tracking-widest" vid="83">Draft / The Aesthetics of Silence</span>
-            </div>
-            <div class="flex items-center gap-4" vid="84">
-                 <span class="text-xs text-[#444]" vid="85">Saved</span>
-                 <button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#1a1a1a] text-[#888]" vid="86">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="87"><circle cx="12" cy="12" r="1" vid="88"></circle><circle cx="19" cy="12" r="1" vid="89"></circle><circle cx="5" cy="12" r="1" vid="90"></circle></svg>
-                 </button>
-            </div>
-        </header>
-
-        
-        <div class="flex-1 overflow-y-auto bg-[#080808]" vid="91">
-            <div class="max-w-[720px] mx-auto py-16 px-8" vid="92">
-                
-                <h1 class="text-4xl font-bold text-white mb-8 tracking-tight" vid="93">The Aesthetics of Silence</h1>
-                
-                <div class="flex items-center gap-3 text-sm text-[#666] mb-12 font-mono" vid="94">
-                    <span vid="95">Oct 24, 2023</span>
-                    <span vid="96">•</span>
-                    <span vid="97">12 min read</span>
-                </div>
-
-                <div class="space-y-6 text-[#bfbfbf] leading-relaxed text-lg font-light" vid="98">
-                    <p vid="99">In a world of noise, silence is a luxury. Our interfaces recede, allowing the content to breathe. The use of negative space is deliberate, creating a rhythm that guides the user through the narrative without friction.</p>
-                    
-                    <h2 class="text-xl text-white font-medium mt-12 mb-4" vid="100">1. Introduction</h2>
-                    <p vid="101">Silence in design is not merely the absence of sound or content; it is a structural element that shapes perception. Just as a pause in music defines the melody, empty space defines the interface.</p>
-                    
-                    <p vid="102">We observe that modern tools often clutter the workspace. Here, we strip away the non-essential. The focus returns to the word, the thought, the raw input.</p>
-
-                    <h2 class="text-xl text-white font-medium mt-12 mb-4" vid="103">2. Historical Context</h2>
-                    
-                    <h3 class="text-base text-[#e5e5e5] font-medium mt-8 mb-3" vid="104">2.1 Early 20th Century</h3>
-                    <p vid="105">The roots of digital minimalism can be traced back to the Bauhaus movement and Swiss Style typography, where form followed function with ruthless efficiency.</p>
-
-                     <h3 class="text-base text-[#e5e5e5] font-medium mt-8 mb-3" vid="106">2.2 Post-War Minimalism</h3>
-                    <p vid="107">Artists like Donald Judd and Agnes Martin demonstrated that reduction could lead to an intensification of experience. This principle holds true for user interfaces.</p>
-                </div>
-                
-                
-                <div class="h-64" vid="108"></div>
-            </div>
+      <header
+        class="h-14 border-b border-[#222222] flex items-center justify-between px-8 bg-[#080808]"
+        vid="81"
+      >
+        <div class="flex items-center gap-4 text-[#444]" vid="82">
+          <span class="text-xs uppercase tracking-widest" vid="83"
+            >Draft / The Aesthetics of Silence</span
+          >
         </div>
+        <div class="flex items-center gap-4" vid="84">
+          <span class="text-xs text-[#444]" vid="85">Saved</span>
+          <button
+            class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#1a1a1a] text-[#888]"
+            vid="86"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              vid="87"
+            >
+              <circle cx="12" cy="12" r="1" vid="88"></circle>
+              <circle cx="19" cy="12" r="1" vid="89"></circle>
+              <circle cx="5" cy="12" r="1" vid="90"></circle>
+            </svg>
+          </button>
+        </div>
+      </header>
 
-        
-        <button class="absolute bottom-8 right-8 w-12 h-12 bg-white rounded-full flex items-center justify-center text-black shadow-lg hover:scale-105 transition-transform" vid="109">
-             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="110"><line x1="12" y1="5" x2="12" y2="19" vid="111"></line><line x1="5" y1="12" x2="19" y2="12" vid="112"></line></svg>
-        </button>
+      <div class="flex-1 overflow-y-auto bg-[#080808]" vid="91">
+        <div class="max-w-[720px] mx-auto py-16 px-8" vid="92">
+          <h1
+            class="text-4xl font-bold text-white mb-8 tracking-tight"
+            vid="93"
+          >
+            The Aesthetics of Silence
+          </h1>
 
+          <div
+            class="flex items-center gap-3 text-sm text-[#666] mb-12 font-mono"
+            vid="94"
+          >
+            <span vid="95">Oct 24, 2023</span>
+            <span vid="96">•</span>
+            <span vid="97">12 min read</span>
+          </div>
+
+          <div
+            class="space-y-6 text-[#bfbfbf] leading-relaxed text-lg font-light"
+            vid="98"
+          >
+            <p vid="99">
+              In a world of noise, silence is a luxury. Our interfaces recede,
+              allowing the content to breathe. The use of negative space is
+              deliberate, creating a rhythm that guides the user through the
+              narrative without friction.
+            </p>
+
+            <h2 class="text-xl text-white font-medium mt-12 mb-4" vid="100">
+              1. Introduction
+            </h2>
+            <p vid="101">
+              Silence in design is not merely the absence of sound or content;
+              it is a structural element that shapes perception. Just as a pause
+              in music defines the melody, empty space defines the interface.
+            </p>
+
+            <p vid="102">
+              We observe that modern tools often clutter the workspace. Here, we
+              strip away the non-essential. The focus returns to the word, the
+              thought, the raw input.
+            </p>
+
+            <h2 class="text-xl text-white font-medium mt-12 mb-4" vid="103">
+              2. Historical Context
+            </h2>
+
+            <h3
+              class="text-base text-[#e5e5e5] font-medium mt-8 mb-3"
+              vid="104"
+            >
+              2.1 Early 20th Century
+            </h3>
+            <p vid="105">
+              The roots of digital minimalism can be traced back to the Bauhaus
+              movement and Swiss Style typography, where form followed function
+              with ruthless efficiency.
+            </p>
+
+            <h3
+              class="text-base text-[#e5e5e5] font-medium mt-8 mb-3"
+              vid="106"
+            >
+              2.2 Post-War Minimalism
+            </h3>
+            <p vid="107">
+              Artists like Donald Judd and Agnes Martin demonstrated that
+              reduction could lead to an intensification of experience. This
+              principle holds true for user interfaces.
+            </p>
+          </div>
+
+          <div class="h-64" vid="108"></div>
+        </div>
+      </div>
+
+      <button
+        class="absolute bottom-8 right-8 w-12 h-12 bg-white rounded-full flex items-center justify-center text-black shadow-lg hover:scale-105 transition-transform"
+        vid="109"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          vid="110"
+        >
+          <line x1="12" y1="5" x2="12" y2="19" vid="111"></line>
+          <line x1="5" y1="12" x2="19" y2="12" vid="112"></line>
+        </svg>
+      </button>
     </main>
-
-
-</body></html>
+  </body>
+</html>

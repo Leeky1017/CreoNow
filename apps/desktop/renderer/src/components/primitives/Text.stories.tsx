@@ -35,7 +35,16 @@ const meta = {
     },
     color: {
       control: "select",
-      options: ["default", "muted", "subtle", "placeholder", "error", "success", "warning", "info"],
+      options: [
+        "default",
+        "muted",
+        "subtle",
+        "placeholder",
+        "error",
+        "success",
+        "warning",
+        "info",
+      ],
       description: "Text color",
     },
     weight: {
@@ -131,7 +140,14 @@ export const Code: Story = {
 // Size 矩阵
 // ============================================================================
 
-const sizes: TextSize[] = ["body", "bodyLarge", "small", "tiny", "label", "code"];
+const sizes: TextSize[] = [
+  "body",
+  "bodyLarge",
+  "small",
+  "tiny",
+  "label",
+  "code",
+];
 
 /**
  * 所有 Size 变体
@@ -143,7 +159,10 @@ export const AllSizes: Story = {
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       {sizes.map((size) => (
-        <div key={size} style={{ display: "flex", alignItems: "baseline", gap: "1rem" }}>
+        <div
+          key={size}
+          style={{ display: "flex", alignItems: "baseline", gap: "1rem" }}
+        >
           <span
             style={{
               width: "80px",
@@ -191,7 +210,10 @@ export const AllColors: Story = {
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
       {colors.map((color) => (
-        <div key={color} style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <div
+          key={color}
+          style={{ display: "flex", alignItems: "center", gap: "1rem" }}
+        >
           <span
             style={{
               width: "80px",
@@ -402,20 +424,41 @@ export const FullMatrix: Story = {
     layout: "fullscreen",
   },
   render: () => (
-    <div style={{ padding: "2rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div
+      style={{
+        padding: "2rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "2rem",
+      }}
+    >
       {/* Sizes */}
       <section>
-        <Text size="label" color="muted" as="div" style={{ marginBottom: "0.5rem" }}>
+        <Text
+          size="label"
+          color="muted"
+          as="div"
+          style={{ marginBottom: "0.5rem" }}
+        >
           SIZE VARIANTS
         </Text>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+        >
           {sizes.map((size) => (
-            <div key={size} style={{ display: "flex", alignItems: "baseline", gap: "1rem" }}>
+            <div
+              key={size}
+              style={{ display: "flex", alignItems: "baseline", gap: "1rem" }}
+            >
               <Text size="tiny" color="muted" style={{ width: "80px" }}>
                 {size}
               </Text>
               <Text size={size}>
-                {size === "code" ? "const x = 1;" : size === "label" ? "LABEL" : "Sample text"}
+                {size === "code"
+                  ? "const x = 1;"
+                  : size === "label"
+                    ? "LABEL"
+                    : "Sample text"}
               </Text>
             </div>
           ))}
@@ -424,10 +467,17 @@ export const FullMatrix: Story = {
 
       {/* Colors */}
       <section>
-        <Text size="label" color="muted" as="div" style={{ marginBottom: "0.5rem" }}>
+        <Text
+          size="label"
+          color="muted"
+          as="div"
+          style={{ marginBottom: "0.5rem" }}
+        >
           COLOR VARIANTS
         </Text>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+        >
           {colors.map((color) => (
             <Text key={color} color={color}>
               {color}: Sample text
@@ -438,10 +488,17 @@ export const FullMatrix: Story = {
 
       {/* Weights */}
       <section>
-        <Text size="label" color="muted" as="div" style={{ marginBottom: "0.5rem" }}>
+        <Text
+          size="label"
+          color="muted"
+          as="div"
+          style={{ marginBottom: "0.5rem" }}
+        >
           WEIGHT VARIANTS
         </Text>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}
+        >
           <Text weight="normal">Normal (400)</Text>
           <Text weight="medium">Medium (500)</Text>
           <Text weight="semibold">Semibold (600)</Text>
@@ -451,10 +508,17 @@ export const FullMatrix: Story = {
 
       {/* Combined */}
       <section>
-        <Text size="label" color="muted" as="div" style={{ marginBottom: "0.5rem" }}>
+        <Text
+          size="label"
+          color="muted"
+          as="div"
+          style={{ marginBottom: "0.5rem" }}
+        >
           COMBINED USAGE
         </Text>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+        >
           <Text size="bodyLarge" weight="semibold">
             Article Title
           </Text>

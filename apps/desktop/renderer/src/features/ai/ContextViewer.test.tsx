@@ -121,7 +121,9 @@ describe("ContextViewer", () => {
 
       render(<ContextViewer />);
 
-      expect(screen.getByTestId("ai-context-stable-prefix-hash")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("ai-context-stable-prefix-hash"),
+      ).toBeInTheDocument();
       expect(screen.getByText("abc123")).toBeInTheDocument();
     });
 
@@ -158,9 +160,15 @@ describe("ContextViewer", () => {
       render(<ContextViewer />);
 
       expect(screen.getByTestId("ai-context-layer-rules")).toBeInTheDocument();
-      expect(screen.getByTestId("ai-context-layer-settings")).toBeInTheDocument();
-      expect(screen.getByTestId("ai-context-layer-retrieved")).toBeInTheDocument();
-      expect(screen.getByTestId("ai-context-layer-immediate")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("ai-context-layer-settings"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("ai-context-layer-retrieved"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId("ai-context-layer-immediate"),
+      ).toBeInTheDocument();
     });
 
     it("应该显示 TrimEvidence 区域", async () => {

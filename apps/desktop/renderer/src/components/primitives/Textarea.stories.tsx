@@ -181,9 +181,7 @@ export const WithCharacterLimit: Story = {
         <span
           style={{
             fontSize: "12px",
-            color: isOverLimit
-              ? "var(--color-error)"
-              : "var(--color-fg-muted)",
+            color: isOverLimit ? "var(--color-error)" : "var(--color-fg-muted)",
           }}
         >
           {remaining} characters remaining
@@ -593,11 +591,7 @@ export const FullMatrix: Story = {
             >
               Error + Disabled
             </div>
-            <Textarea
-              defaultValue="Error and disabled"
-              error
-              disabled
-            />
+            <Textarea defaultValue="Error and disabled" error disabled />
           </div>
           <div>
             <div

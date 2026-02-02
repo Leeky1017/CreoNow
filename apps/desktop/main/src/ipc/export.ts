@@ -60,7 +60,9 @@ export function registerExportIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
       });
       const res = svc.exportPdf(payload);
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 
@@ -82,8 +84,9 @@ export function registerExportIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
       });
       const res = svc.exportDocx(payload);
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 }
-

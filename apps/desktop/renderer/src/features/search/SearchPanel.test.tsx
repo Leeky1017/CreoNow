@@ -91,8 +91,18 @@ describe("SearchPanel", () => {
         const state = {
           query: "test",
           items: [
-            { documentId: "doc-1", title: "Document 1", snippet: "...test content...", score: 0.9 },
-            { documentId: "doc-2", title: "Document 2", snippet: "...more test...", score: 0.8 },
+            {
+              documentId: "doc-1",
+              title: "Document 1",
+              snippet: "...test content...",
+              score: 0.9,
+            },
+            {
+              documentId: "doc-2",
+              title: "Document 2",
+              snippet: "...more test...",
+              score: 0.8,
+            },
           ],
           status: "idle" as const,
           lastError: null,
@@ -163,7 +173,10 @@ describe("SearchPanel", () => {
       const button = screen.getByTestId("search-run");
       fireEvent.click(button);
 
-      expect(runFulltext).toHaveBeenCalledWith({ projectId: "test-project", limit: 20 });
+      expect(runFulltext).toHaveBeenCalledWith({
+        projectId: "test-project",
+        limit: 20,
+      });
     });
   });
 

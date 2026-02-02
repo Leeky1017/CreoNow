@@ -56,8 +56,15 @@ export const Default: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           Card Title
         </h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
-          This is the card content. Cards are containers for grouping related content.
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
+          This is the card content. Cards are containers for grouping related
+          content.
         </p>
       </div>
     ),
@@ -73,7 +80,13 @@ export const Raised: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           Raised Card
         </h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           This card has elevation shadow for floating elements.
         </p>
       </div>
@@ -90,7 +103,13 @@ export const Bordered: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           Bordered Card
         </h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           This card has a prominent border.
         </p>
       </div>
@@ -111,7 +130,13 @@ export const Hoverable: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           Hoverable Card
         </h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           Hover over this card to see the effect.
         </p>
       </div>
@@ -129,7 +154,13 @@ export const HoverableRaised: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           Hoverable Raised Card
         </h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           Combined raised variant with hover effect.
         </p>
       </div>
@@ -150,7 +181,13 @@ export const NoPadding: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           Custom Padding Card
         </h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           This card has no padding - useful for custom layouts.
         </p>
       </div>
@@ -172,7 +209,13 @@ export const AllVariants: Story = {
       <Card>
         <div style={{ minWidth: "150px" }}>
           <strong>Default</strong>
-          <p style={{ margin: "0.5rem 0 0", fontSize: "14px", color: "var(--color-fg-muted)" }}>
+          <p
+            style={{
+              margin: "0.5rem 0 0",
+              fontSize: "14px",
+              color: "var(--color-fg-muted)",
+            }}
+          >
             Standard card
           </p>
         </div>
@@ -180,7 +223,13 @@ export const AllVariants: Story = {
       <Card variant="raised">
         <div style={{ minWidth: "150px" }}>
           <strong>Raised</strong>
-          <p style={{ margin: "0.5rem 0 0", fontSize: "14px", color: "var(--color-fg-muted)" }}>
+          <p
+            style={{
+              margin: "0.5rem 0 0",
+              fontSize: "14px",
+              color: "var(--color-fg-muted)",
+            }}
+          >
             Elevated card
           </p>
         </div>
@@ -188,7 +237,13 @@ export const AllVariants: Story = {
       <Card variant="bordered">
         <div style={{ minWidth: "150px" }}>
           <strong>Bordered</strong>
-          <p style={{ margin: "0.5rem 0 0", fontSize: "14px", color: "var(--color-fg-muted)" }}>
+          <p
+            style={{
+              margin: "0.5rem 0 0",
+              fontSize: "14px",
+              color: "var(--color-fg-muted)",
+            }}
+          >
             Prominent border
           </p>
         </div>
@@ -207,7 +262,13 @@ export const AllHoverable: Story = {
       <Card hoverable>
         <div style={{ minWidth: "150px" }}>
           <strong>Default Hoverable</strong>
-          <p style={{ margin: "0.5rem 0 0", fontSize: "14px", color: "var(--color-fg-muted)" }}>
+          <p
+            style={{
+              margin: "0.5rem 0 0",
+              fontSize: "14px",
+              color: "var(--color-fg-muted)",
+            }}
+          >
             Hover to see effect
           </p>
         </div>
@@ -215,7 +276,13 @@ export const AllHoverable: Story = {
       <Card variant="raised" hoverable>
         <div style={{ minWidth: "150px" }}>
           <strong>Raised Hoverable</strong>
-          <p style={{ margin: "0.5rem 0 0", fontSize: "14px", color: "var(--color-fg-muted)" }}>
+          <p
+            style={{
+              margin: "0.5rem 0 0",
+              fontSize: "14px",
+              color: "var(--color-fg-muted)",
+            }}
+          >
             Hover to see effect
           </p>
         </div>
@@ -223,7 +290,13 @@ export const AllHoverable: Story = {
       <Card variant="bordered" hoverable>
         <div style={{ minWidth: "150px" }}>
           <strong>Bordered Hoverable</strong>
-          <p style={{ margin: "0.5rem 0 0", fontSize: "14px", color: "var(--color-fg-muted)" }}>
+          <p
+            style={{
+              margin: "0.5rem 0 0",
+              fontSize: "14px",
+              color: "var(--color-fg-muted)",
+            }}
+          >
             Hover to see effect
           </p>
         </div>
@@ -254,7 +327,9 @@ export const WithSlots: Story = {
           borderBottom: "1px solid var(--color-border-default)",
         }}
       >
-        <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>Card Header</h3>
+        <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 600 }}>
+          Card Header
+        </h3>
         <button
           style={{
             background: "none",
@@ -268,9 +343,15 @@ export const WithSlots: Story = {
       </div>
       {/* Content */}
       <div style={{ marginBottom: "1rem" }}>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
-          This is the main content area of the card. It can contain any type of content including
-          text, images, forms, or other components.
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
+          This is the main content area of the card. It can contain any type of
+          content including text, images, forms, or other components.
         </p>
       </div>
       {/* Footer */}
@@ -338,11 +419,18 @@ export const LongContent: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           Card with Long Content
         </h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
-          This is a very long piece of content that demonstrates how the card handles overflow.
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt
-          ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation
-          ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
+          This is a very long piece of content that demonstrates how the card
+          handles overflow. Lorem ipsum dolor sit amet, consectetur adipiscing
+          elit. Sed do eiusmod tempor incididunt ut labore et dolore magna
+          aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco
+          laboris nisi ut aliquip ex ea commodo consequat.
         </p>
       </div>
     ),
@@ -362,12 +450,23 @@ export const LongContentConstrained: Story = {
     layout: "padded",
   },
   render: () => (
-    <div style={{ width: "300px", border: "1px dashed var(--color-border-default)" }}>
+    <div
+      style={{
+        width: "300px",
+        border: "1px dashed var(--color-border-default)",
+      }}
+    >
       <Card>
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           Very Long Card Title That Should Handle Overflow
         </h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           This content is constrained within a 300px container.
         </p>
       </Card>
@@ -386,10 +485,20 @@ export const NestedCards: Story = {
   },
   render: () => (
     <Card>
-      <h3 style={{ margin: "0 0 1rem", fontSize: "16px", fontWeight: 600 }}>Parent Card</h3>
+      <h3 style={{ margin: "0 0 1rem", fontSize: "16px", fontWeight: 600 }}>
+        Parent Card
+      </h3>
       <Card variant="bordered">
-        <h4 style={{ margin: "0 0 0.5rem", fontSize: "14px", fontWeight: 600 }}>Nested Card</h4>
-        <p style={{ margin: 0, fontSize: "13px", color: "var(--color-fg-muted)" }}>
+        <h4 style={{ margin: "0 0 0.5rem", fontSize: "14px", fontWeight: 600 }}>
+          Nested Card
+        </h4>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "13px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           Cards can be nested for complex layouts.
         </p>
       </Card>
@@ -409,7 +518,13 @@ export const WithEmoji: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           🚀 Launch Card
         </h3>
-        <p style={{ margin: 0, fontSize: "14px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "14px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           Card with emoji content 🎉
         </p>
       </div>
@@ -454,7 +569,13 @@ export const VariantMatrix: Story = {
             <Card variant={variant}>
               <div style={{ minWidth: "120px" }}>
                 <strong>Normal</strong>
-                <p style={{ margin: "0.5rem 0 0", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+                <p
+                  style={{
+                    margin: "0.5rem 0 0",
+                    fontSize: "12px",
+                    color: "var(--color-fg-muted)",
+                  }}
+                >
                   Default state
                 </p>
               </div>
@@ -462,7 +583,13 @@ export const VariantMatrix: Story = {
             <Card variant={variant} hoverable>
               <div style={{ minWidth: "120px" }}>
                 <strong>Hoverable</strong>
-                <p style={{ margin: "0.5rem 0 0", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+                <p
+                  style={{
+                    margin: "0.5rem 0 0",
+                    fontSize: "12px",
+                    color: "var(--color-fg-muted)",
+                  }}
+                >
                   Hover me
                 </p>
               </div>
@@ -487,10 +614,23 @@ export const FullMatrix: Story = {
     layout: "fullscreen",
   },
   render: () => (
-    <div style={{ padding: "2rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div
+      style={{
+        padding: "2rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "2rem",
+      }}
+    >
       {/* Variants */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Variants
         </h3>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
@@ -498,7 +638,13 @@ export const FullMatrix: Story = {
             <Card key={variant} variant={variant}>
               <div style={{ minWidth: "120px" }}>
                 <strong>{variant}</strong>
-                <p style={{ margin: "0.5rem 0 0", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+                <p
+                  style={{
+                    margin: "0.5rem 0 0",
+                    fontSize: "12px",
+                    color: "var(--color-fg-muted)",
+                  }}
+                >
                   Card variant
                 </p>
               </div>
@@ -509,7 +655,13 @@ export const FullMatrix: Story = {
 
       {/* Hoverable States */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Hoverable States
         </h3>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
@@ -517,7 +669,13 @@ export const FullMatrix: Story = {
             <Card key={variant} variant={variant} hoverable>
               <div style={{ minWidth: "120px" }}>
                 <strong>{variant} + hoverable</strong>
-                <p style={{ margin: "0.5rem 0 0", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+                <p
+                  style={{
+                    margin: "0.5rem 0 0",
+                    fontSize: "12px",
+                    color: "var(--color-fg-muted)",
+                  }}
+                >
                   Hover to see effect
                 </p>
               </div>
@@ -528,22 +686,46 @@ export const FullMatrix: Story = {
 
       {/* Padding Options */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Padding Options
         </h3>
         <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
           <Card>
             <div style={{ minWidth: "120px" }}>
               <strong>With Padding</strong>
-              <p style={{ margin: "0.5rem 0 0", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+              <p
+                style={{
+                  margin: "0.5rem 0 0",
+                  fontSize: "12px",
+                  color: "var(--color-fg-muted)",
+                }}
+              >
                 Default padding (24px)
               </p>
             </div>
           </Card>
           <Card noPadding>
-            <div style={{ padding: "1rem", background: "var(--color-bg-muted)", minWidth: "120px" }}>
+            <div
+              style={{
+                padding: "1rem",
+                background: "var(--color-bg-muted)",
+                minWidth: "120px",
+              }}
+            >
               <strong>No Padding</strong>
-              <p style={{ margin: "0.5rem 0 0", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+              <p
+                style={{
+                  margin: "0.5rem 0 0",
+                  fontSize: "12px",
+                  color: "var(--color-fg-muted)",
+                }}
+              >
                 Custom layout
               </p>
             </div>
@@ -553,7 +735,13 @@ export const FullMatrix: Story = {
 
       {/* Slot Pattern */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Slot Pattern (Header + Content + Footer)
         </h3>
         <div style={{ maxWidth: "400px" }}>
@@ -568,10 +756,18 @@ export const FullMatrix: Story = {
                 borderBottom: "1px solid var(--color-border-default)",
               }}
             >
-              <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>Header</h4>
+              <h4 style={{ margin: 0, fontSize: "14px", fontWeight: 600 }}>
+                Header
+              </h4>
               <span style={{ color: "var(--color-fg-muted)" }}>...</span>
             </div>
-            <p style={{ margin: "0 0 1rem", fontSize: "13px", color: "var(--color-fg-muted)" }}>
+            <p
+              style={{
+                margin: "0 0 1rem",
+                fontSize: "13px",
+                color: "var(--color-fg-muted)",
+              }}
+            >
               Main content area of the card.
             </p>
             <div
@@ -583,7 +779,11 @@ export const FullMatrix: Story = {
                 borderTop: "1px solid var(--color-border-default)",
               }}
             >
-              <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>Footer</span>
+              <span
+                style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}
+              >
+                Footer
+              </span>
             </div>
           </Card>
         </div>
@@ -591,10 +791,23 @@ export const FullMatrix: Story = {
 
       {/* Edge Cases */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Edge Cases
         </h3>
-        <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
+        <div
+          style={{
+            display: "flex",
+            gap: "1rem",
+            flexWrap: "wrap",
+            alignItems: "flex-start",
+          }}
+        >
           <Card>
             <div style={{ minWidth: "100px", height: "30px" }}>
               <strong>Empty</strong>
@@ -633,7 +846,13 @@ export const ProjectCardScenario: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           我的小说项目
         </h3>
-        <p style={{ margin: "0 0 1rem", fontSize: "13px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "13px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           科幻小说创作，目前第三章进行中...
         </p>
         <div
@@ -652,7 +871,13 @@ export const ProjectCardScenario: Story = {
         <h3 style={{ margin: "0 0 0.5rem", fontSize: "16px", fontWeight: 600 }}>
           商业计划书
         </h3>
-        <p style={{ margin: "0 0 1rem", fontSize: "13px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "13px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           创业项目商业计划书初稿...
         </p>
         <div
@@ -684,30 +909,77 @@ export const SettingsCardScenario: Story = {
     layout: "padded",
   },
   render: () => (
-    <div style={{ maxWidth: "500px", display: "flex", flexDirection: "column", gap: "1rem" }}>
+    <div
+      style={{
+        maxWidth: "500px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+      }}
+    >
       <Card>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "16px", fontWeight: 600 }}>外观设置</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h3 style={{ margin: "0 0 1rem", fontSize: "16px", fontWeight: 600 }}>
+          外观设置
+        </h3>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <span style={{ fontSize: "14px" }}>主题</span>
-            <span style={{ fontSize: "14px", color: "var(--color-fg-muted)" }}>深色</span>
+            <span style={{ fontSize: "14px", color: "var(--color-fg-muted)" }}>
+              深色
+            </span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <span style={{ fontSize: "14px" }}>字体大小</span>
-            <span style={{ fontSize: "14px", color: "var(--color-fg-muted)" }}>中</span>
+            <span style={{ fontSize: "14px", color: "var(--color-fg-muted)" }}>
+              中
+            </span>
           </div>
         </div>
       </Card>
       <Card>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "16px", fontWeight: 600 }}>AI 设置</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h3 style={{ margin: "0 0 1rem", fontSize: "16px", fontWeight: 600 }}>
+          AI 设置
+        </h3>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <span style={{ fontSize: "14px" }}>模型</span>
-            <span style={{ fontSize: "14px", color: "var(--color-fg-muted)" }}>GPT-4</span>
+            <span style={{ fontSize: "14px", color: "var(--color-fg-muted)" }}>
+              GPT-4
+            </span>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <span style={{ fontSize: "14px" }}>创意度</span>
-            <span style={{ fontSize: "14px", color: "var(--color-fg-muted)" }}>0.7</span>
+            <span style={{ fontSize: "14px", color: "var(--color-fg-muted)" }}>
+              0.7
+            </span>
           </div>
         </div>
       </Card>

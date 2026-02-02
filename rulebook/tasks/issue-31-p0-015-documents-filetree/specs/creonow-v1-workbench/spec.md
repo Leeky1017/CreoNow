@@ -48,4 +48,3 @@ Main process MUST log:
 - `document_renamed` (documentId)
 - `document_deleted` (documentId)
 - `document_set_current` (projectId, documentId)
-

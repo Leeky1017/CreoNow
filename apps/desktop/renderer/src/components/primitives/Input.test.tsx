@@ -29,11 +29,7 @@ describe("Input", () => {
 
     it("应该传递原生 input 属性", () => {
       render(
-        <Input
-          data-testid="test-input"
-          aria-label="Test input"
-          name="test"
-        />,
+        <Input data-testid="test-input" aria-label="Test input" name="test" />,
       );
 
       const input = screen.getByRole("textbox");
@@ -173,7 +169,9 @@ describe("Input", () => {
 
       const input = screen.getByRole("textbox");
       expect(input).toHaveClass("focus-visible:outline");
-      expect(input).toHaveClass("focus-visible:border-[var(--color-border-focus)]");
+      expect(input).toHaveClass(
+        "focus-visible:border-[var(--color-border-focus)]",
+      );
     });
   });
 
@@ -304,7 +302,9 @@ describe("Input", () => {
     it("应该显示 placeholder", () => {
       render(<Input placeholder="Enter text here" />);
 
-      expect(screen.getByPlaceholderText("Enter text here")).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText("Enter text here"),
+      ).toBeInTheDocument();
     });
 
     it("有值时应该显示值而不是 placeholder", () => {
@@ -365,7 +365,9 @@ describe("Input", () => {
   // ===========================================================================
   describe("受控组件", () => {
     it("应该支持受控 value", () => {
-      const { rerender } = render(<Input value="initial" onChange={() => {}} />);
+      const { rerender } = render(
+        <Input value="initial" onChange={() => {}} />,
+      );
 
       expect(screen.getByRole("textbox")).toHaveValue("initial");
 

@@ -67,7 +67,10 @@ function ConversationDemo(): JSX.Element {
 这样的改动让文字更具画面感，读者能够感受到场景。`;
 
   return (
-    <div style={{ width: "400px", height: "100vh" }} className="bg-[var(--color-bg-surface)]">
+    <div
+      style={{ width: "400px", height: "100vh" }}
+      className="bg-[var(--color-bg-surface)]"
+    >
       <section className="flex flex-col h-full">
         {/* Header */}
         <header className="flex items-center h-8 px-2 border-b border-[var(--color-separator)] shrink-0">
@@ -80,14 +83,36 @@ function ConversationDemo(): JSX.Element {
             </button>
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="History">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="History"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
               </svg>
             </button>
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="New Chat">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="New Chat"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </button>
           </div>
@@ -152,7 +177,14 @@ function ConversationDemo(): JSX.Element {
                 </button>
               </div>
               <button className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)]">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <line x1="12" y1="19" x2="12" y2="5" />
                   <polyline points="5 12 12 5 19 12" />
                 </svg>
@@ -181,7 +213,10 @@ export const StreamingStatic: Story = {
  */
 function StreamingDemo(): JSX.Element {
   return (
-    <div style={{ width: "360px", height: "100vh" }} className="bg-[var(--color-bg-surface)]">
+    <div
+      style={{ width: "360px", height: "100vh" }}
+      className="bg-[var(--color-bg-surface)]"
+    >
       <section className="flex flex-col h-full">
         {/* Header */}
         <header className="flex items-center h-8 px-2 border-b border-[var(--color-separator)] shrink-0">
@@ -194,14 +229,36 @@ function StreamingDemo(): JSX.Element {
             </button>
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="History">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="History"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
               </svg>
             </button>
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="New Chat">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="New Chat"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </button>
           </div>
@@ -239,9 +296,15 @@ function StreamingDemo(): JSX.Element {
             />
             <div className="flex items-center justify-between px-2 pb-2">
               <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">Ask</span>
-                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">GPT-5.2</span>
-                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">SKILL</span>
+                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                  Ask
+                </span>
+                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                  GPT-5.2
+                </span>
+                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                  SKILL
+                </span>
               </div>
               {/* Stop button */}
               <button className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]">
@@ -312,7 +375,10 @@ export const HistoryDropdownStatic: Story = {
  */
 function HistoryDropdownDemo(): JSX.Element {
   return (
-    <div style={{ width: "400px", height: "100vh" }} className="bg-[var(--color-bg-surface)]">
+    <div
+      style={{ width: "400px", height: "100vh" }}
+      className="bg-[var(--color-bg-surface)]"
+    >
       <section className="flex flex-col h-full">
         {/* Header with dropdown open */}
         <header className="flex items-center h-8 px-2 border-b border-[var(--color-separator)] shrink-0 relative">
@@ -325,14 +391,36 @@ function HistoryDropdownDemo(): JSX.Element {
             </button>
           </div>
           <div className="ml-auto flex items-center gap-1 relative">
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-default)] bg-[var(--color-bg-selected)] rounded" title="History">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-default)] bg-[var(--color-bg-selected)] rounded"
+              title="History"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
               </svg>
             </button>
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="New Chat">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="New Chat"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </button>
 
@@ -349,20 +437,46 @@ function HistoryDropdownDemo(): JSX.Element {
 
               {/* Today */}
               <div className="px-3 py-1.5 bg-[var(--color-bg-surface)]">
-                <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wide">Today</span>
+                <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wide">
+                  Today
+                </span>
               </div>
               <button className="w-full px-3 py-1.5 text-left hover:bg-[var(--color-bg-hover)] flex items-center group">
-                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">Storybook errors investigation</span>
-                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 group-hover:hidden ml-auto">1m</span>
+                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">
+                  Storybook errors investigation
+                </span>
+                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 group-hover:hidden ml-auto">
+                  1m
+                </span>
                 <div className="hidden group-hover:flex items-center gap-0.5 ml-auto">
-                  <span className="w-4 h-4 flex items-center justify-center text-[var(--color-fg-muted)]" title="Rename">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <span
+                    className="w-4 h-4 flex items-center justify-center text-[var(--color-fg-muted)]"
+                    title="Rename"
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                     </svg>
                   </span>
-                  <span className="w-4 h-4 flex items-center justify-center text-[var(--color-fg-muted)]" title="Delete">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <span
+                    className="w-4 h-4 flex items-center justify-center text-[var(--color-fg-muted)]"
+                    title="Delete"
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <polyline points="3 6 5 6 21 6" />
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                     </svg>
@@ -370,25 +484,43 @@ function HistoryDropdownDemo(): JSX.Element {
                 </div>
               </button>
               <button className="w-full px-3 py-1.5 text-left hover:bg-[var(--color-bg-hover)] flex items-center">
-                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">RAG与关键字检索对比</span>
-                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 ml-auto">1h</span>
+                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">
+                  RAG与关键字检索对比
+                </span>
+                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 ml-auto">
+                  1h
+                </span>
               </button>
               <button className="w-full px-3 py-1.5 text-left hover:bg-[var(--color-bg-hover)] flex items-center">
-                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">Phase 4 任务代码错误</span>
-                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 ml-auto">3h</span>
+                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">
+                  Phase 4 任务代码错误
+                </span>
+                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 ml-auto">
+                  3h
+                </span>
               </button>
 
               {/* Yesterday */}
               <div className="px-3 py-1.5 bg-[var(--color-bg-surface)]">
-                <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wide">Yesterday</span>
+                <span className="text-[10px] text-[var(--color-fg-muted)] uppercase tracking-wide">
+                  Yesterday
+                </span>
               </div>
               <button className="w-full px-3 py-1.5 text-left hover:bg-[var(--color-bg-hover)] flex items-center">
-                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">P2 UI 组件开发与交付</span>
-                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 ml-auto">1d</span>
+                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">
+                  P2 UI 组件开发与交付
+                </span>
+                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 ml-auto">
+                  1d
+                </span>
               </button>
               <button className="w-full px-3 py-1.5 text-left hover:bg-[var(--color-bg-hover)] flex items-center">
-                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">P2 组件 Story 和测试</span>
-                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 ml-auto">2d</span>
+                <span className="text-[12px] text-[var(--color-fg-default)] truncate flex-1 min-w-0">
+                  P2 组件 Story 和测试
+                </span>
+                <span className="text-[10px] text-[var(--color-fg-muted)] shrink-0 ml-auto">
+                  2d
+                </span>
               </button>
             </div>
           </div>
@@ -396,7 +528,9 @@ function HistoryDropdownDemo(): JSX.Element {
 
         {/* Content (empty state) */}
         <div className="flex-1 flex items-center justify-center text-center p-4">
-          <span className="text-[13px] text-[var(--color-fg-muted)]">Ask the AI to help with your writing</span>
+          <span className="text-[13px] text-[var(--color-fg-muted)]">
+            Ask the AI to help with your writing
+          </span>
         </div>
 
         {/* Input Area */}
@@ -408,12 +542,25 @@ function HistoryDropdownDemo(): JSX.Element {
             />
             <div className="flex items-center justify-between px-2 pb-2">
               <div className="flex items-center gap-1.5">
-                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">Ask</span>
-                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">GPT-5.2</span>
-                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">SKILL</span>
+                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                  Ask
+                </span>
+                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                  GPT-5.2
+                </span>
+                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">
+                  SKILL
+                </span>
               </div>
               <button className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-fg-muted)]">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <line x1="12" y1="19" x2="12" y2="5" />
                   <polyline points="5 12 12 5 19 12" />
                 </svg>

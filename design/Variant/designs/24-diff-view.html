@@ -1,620 +1,872 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow - Split Diff View</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="7">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" vid="8">
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="6" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin=""
+      vid="7"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"
+      rel="stylesheet"
+      vid="8"
+    />
     <script src="https://unpkg.com/@phosphor-icons/web" vid="9"></script>
     <script vid="10">
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        base: '#080808',
-                        panel: '#0f0f0f',
-                        hover: '#1a1a1a',
-                        border: 'rgba(255, 255, 255, 0.06)',
-                        primary: '#ffffff',
-                        secondary: '#888888',
-                        tertiary: '#444444',
-                        accent: {
-                            blue: '#3b82f6',
-                            green: '#22c55e',
-                            red: '#ef4444',
-                            yellow: '#f59e0b'
-                        }
-                    },
-                    boxShadow: {
-                        'glow': '0 0 20px rgba(59, 130, 246, 0.1)',
-                    }
-                }
-            }
-        }
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "system-ui", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+            colors: {
+              base: "#080808",
+              panel: "#0f0f0f",
+              hover: "#1a1a1a",
+              border: "rgba(255, 255, 255, 0.06)",
+              primary: "#ffffff",
+              secondary: "#888888",
+              tertiary: "#444444",
+              accent: {
+                blue: "#3b82f6",
+                green: "#22c55e",
+                red: "#ef4444",
+                yellow: "#f59e0b",
+              },
+            },
+            boxShadow: {
+              glow: "0 0 20px rgba(59, 130, 246, 0.1)",
+            },
+          },
+        },
+      };
     </script>
     <style vid="11">
-        body {
-            background-color: #080808;
-            color: #ffffff;
-        }
-        
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0f0f0f;
-            border-left: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #222;
-            border-radius: 5px;
-            border: 2px solid #0f0f0f;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #333;
-        }
+      body {
+        background-color: #080808;
+        color: #ffffff;
+      }
 
-        .diff-added {
-            background-color: rgba(34, 197, 94, 0.1);
-        }
-        .diff-removed {
-            background-color: rgba(239, 68, 68, 0.1);
-            text-decoration: line-through;
-            text-decoration-color: rgba(239, 68, 68, 0.4);
-        }
-        .diff-modified-marker {
-            border-left: 2px solid #f59e0b;
-        }
-        
-        .code-line {
-            counter-increment: line;
-        }
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f0f0f;
+        border-left: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #222;
+        border-radius: 5px;
+        border: 2px solid #0f0f0f;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #333;
+      }
+
+      .diff-added {
+        background-color: rgba(34, 197, 94, 0.1);
+      }
+      .diff-removed {
+        background-color: rgba(239, 68, 68, 0.1);
+        text-decoration: line-through;
+        text-decoration-color: rgba(239, 68, 68, 0.4);
+      }
+      .diff-modified-marker {
+        border-left: 2px solid #f59e0b;
+      }
+
+      .code-line {
+        counter-increment: line;
+      }
     </style>
-</head>
-<body class="h-screen w-full flex items-center justify-center relative overflow-hidden bg-grid-pattern" vid="12">
+  </head>
+  <body
+    class="h-screen w-full flex items-center justify-center relative overflow-hidden bg-grid-pattern"
+    vid="12"
+  >
+    <div
+      class="absolute inset-0 bg-[radial-gradient(#222_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none"
+      vid="13"
+    ></div>
 
-    
-    <div class="absolute inset-0 bg-[radial-gradient(#222_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" vid="13"></div>
-
-    
-    <div class="w-[1200px] h-[85vh] flex flex-col bg-panel border border-border rounded-xl shadow-2xl overflow-hidden z-10" vid="14">
-
-        
-        <header class="h-16 flex items-center justify-between px-6 border-b border-border bg-panel shrink-0" vid="15">
-            
-            <div class="flex items-center gap-4" vid="16">
-                
-                <div class="relative group" vid="17">
-                    <button class="flex items-center gap-2 px-3 py-1.5 bg-hover rounded border border-border text-sm text-secondary hover:text-primary transition-colors" vid="18">
-                        <i class="ph ph-clock-counter-clockwise" vid="19"></i>
-                        <span vid="20">Version from 2h ago</span>
-                        <i class="ph ph-caret-down text-tertiary" vid="21"></i>
-                    </button>
-                    <div class="absolute top-full left-0 mt-2 w-64 bg-panel border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-1" vid="22">
-                        <div class="px-3 py-2 text-xs text-tertiary uppercase tracking-wider font-medium" vid="23">History</div>
-                        <div class="flex items-center gap-2 px-3 py-2 bg-hover rounded cursor-pointer" vid="24">
-                            <div class="w-1.5 h-1.5 rounded-full bg-accent-blue" vid="25"></div>
-                            <div class="flex-1" vid="26">
-                                <div class="text-xs text-primary" vid="27">Version from 2h ago</div>
-                                <div class="text-[10px] text-tertiary" vid="28">Auto-saved</div>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded cursor-pointer group/item" vid="29">
-                            <div class="w-1.5 h-1.5 rounded-full bg-transparent group-hover/item:bg-tertiary" vid="30"></div>
-                            <div class="flex-1" vid="31">
-                                <div class="text-xs text-secondary group-hover/item:text-primary" vid="32">Yesterday, 4:20 PM</div>
-                                <div class="text-[10px] text-tertiary" vid="33">Manual save</div>
-                            </div>
-                        </div>
-                    </div>
+    <div
+      class="w-[1200px] h-[85vh] flex flex-col bg-panel border border-border rounded-xl shadow-2xl overflow-hidden z-10"
+      vid="14"
+    >
+      <header
+        class="h-16 flex items-center justify-between px-6 border-b border-border bg-panel shrink-0"
+        vid="15"
+      >
+        <div class="flex items-center gap-4" vid="16">
+          <div class="relative group" vid="17">
+            <button
+              class="flex items-center gap-2 px-3 py-1.5 bg-hover rounded border border-border text-sm text-secondary hover:text-primary transition-colors"
+              vid="18"
+            >
+              <i class="ph ph-clock-counter-clockwise" vid="19"></i>
+              <span vid="20">Version from 2h ago</span>
+              <i class="ph ph-caret-down text-tertiary" vid="21"></i>
+            </button>
+            <div
+              class="absolute top-full left-0 mt-2 w-64 bg-panel border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-1"
+              vid="22"
+            >
+              <div
+                class="px-3 py-2 text-xs text-tertiary uppercase tracking-wider font-medium"
+                vid="23"
+              >
+                History
+              </div>
+              <div
+                class="flex items-center gap-2 px-3 py-2 bg-hover rounded cursor-pointer"
+                vid="24"
+              >
+                <div
+                  class="w-1.5 h-1.5 rounded-full bg-accent-blue"
+                  vid="25"
+                ></div>
+                <div class="flex-1" vid="26">
+                  <div class="text-xs text-primary" vid="27">
+                    Version from 2h ago
+                  </div>
+                  <div class="text-[10px] text-tertiary" vid="28">
+                    Auto-saved
+                  </div>
                 </div>
-
-                <i class="ph ph-arrow-right text-tertiary" vid="34"></i>
-
-                
-                <div class="relative" vid="35">
-                    <button class="flex items-center gap-2 px-3 py-1.5 bg-hover rounded border border-border text-sm text-primary hover:border-white/10 transition-colors" vid="36">
-                        <div class="w-2 h-2 rounded-full bg-accent-green shadow-[0_0_8px_rgba(34,197,94,0.4)]" vid="37"></div>
-                        <span vid="38">Current Version</span>
-                        <i class="ph ph-caret-down text-tertiary" vid="39"></i>
-                    </button>
+              </div>
+              <div
+                class="flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded cursor-pointer group/item"
+                vid="29"
+              >
+                <div
+                  class="w-1.5 h-1.5 rounded-full bg-transparent group-hover/item:bg-tertiary"
+                  vid="30"
+                ></div>
+                <div class="flex-1" vid="31">
+                  <div
+                    class="text-xs text-secondary group-hover/item:text-primary"
+                    vid="32"
+                  >
+                    Yesterday, 4:20 PM
+                  </div>
+                  <div class="text-[10px] text-tertiary" vid="33">
+                    Manual save
+                  </div>
                 </div>
+              </div>
             </div>
+          </div>
 
-            
-            <div class="flex items-center gap-6" vid="40">
-                
-                <div class="flex items-center gap-3 bg-base p-1 rounded-lg border border-border" vid="41">
-                    <button class="px-3 py-1 bg-panel shadow-sm text-xs font-medium text-primary rounded border border-border transition-all" vid="42">Split</button>
-                    <button class="px-3 py-1 text-xs font-medium text-secondary hover:text-primary transition-colors" vid="43">Unified</button>
-                </div>
+          <i class="ph ph-arrow-right text-tertiary" vid="34"></i>
 
-                
-                <div class="h-4 w-px bg-border" vid="44"></div>
-
-                
-                <div class="flex items-center gap-2" vid="45">
-                    <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-hover text-secondary hover:text-primary transition-colors tooltip" title="Previous Change" vid="46">
-                        <i class="ph ph-caret-up" vid="47"></i>
-                    </button>
-                    <span class="text-xs font-mono text-secondary px-2" vid="48">Change <span class="text-primary" vid="49">3</span> of <span class="text-primary" vid="50">12</span></span>
-                    <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-hover text-secondary hover:text-primary transition-colors tooltip" title="Next Change" vid="51">
-                        <i class="ph ph-caret-down" vid="52"></i>
-                    </button>
-                </div>
-
-                
-                <div class="h-4 w-px bg-border" vid="53"></div>
-
-                
-                <button class="text-secondary hover:text-primary transition-colors p-2 rounded hover:bg-white/5" vid="54">
-                    <i class="ph ph-x text-lg" vid="55"></i>
-                </button>
-            </div>
-        </header>
-
-        
-        <div class="flex-1 flex overflow-hidden font-mono text-sm leading-6" vid="56">
-            
-            
-            <div class="w-1/2 flex flex-col border-r border-border" vid="57">
-                <div class="h-8 flex items-center px-4 bg-hover/50 border-b border-border text-xs text-secondary font-medium tracking-wide uppercase" vid="58">
-                    Before
-                </div>
-                <div class="flex-1 overflow-y-auto custom-scrollbar flex bg-[#0c0c0c]" vid="59">
-                    
-                    <div class="w-12 shrink-0 bg-base border-r border-border flex flex-col text-right py-4 select-none text-tertiary text-xs" vid="60">
-                        <div class="px-3" vid="61">42</div>
-                        <div class="px-3" vid="62">43</div>
-                        <div class="px-3" vid="63">44</div>
-                        <div class="px-3" vid="64">45</div>
-                        <div class="px-3" vid="65">46</div>
-                        <div class="px-3" vid="66">47</div>
-                        <div class="px-3" vid="67">48</div>
-                        <div class="px-3" vid="68">49</div>
-                        <div class="px-3" vid="69">50</div>
-                        <div class="px-3" vid="70">51</div>
-                        <div class="px-3" vid="71">52</div>
-                        <div class="px-3" vid="72">53</div>
-                        <div class="px-3" vid="73">54</div>
-                        <div class="px-3" vid="74">55</div>
-                        <div class="px-3" vid="75">56</div>
-                    </div>
-                    
-                    <div class="flex-1 py-4" vid="76">
-                        <div class="px-4 text-secondary" vid="77"></div>
-                        <div class="px-4 text-secondary" vid="78"><span class="text-primary" vid="79"># The Architecture of Silence</span></div>
-                        <div class="px-4 text-secondary" vid="80"></div>
-                        <div class="px-4 text-secondary diff-removed" vid="81">Intrigued by beauty, fascinated by technology and</div>
-                        <div class="px-4 text-secondary diff-removed" vid="82">fuelled with an everlasting devotion to digital</div>
-                        <div class="px-4 text-secondary diff-removed" vid="83">craftsmanship.</div>
-                        <div class="px-4 text-secondary" vid="84"></div>
-                        <div class="px-4 text-secondary diff-modified-marker" vid="85">Design is not just about making things look good. It is</div>
-                        <div class="px-4 text-secondary" vid="86">about how things work. In the digital realm, this</div>
-                        <div class="px-4 text-secondary" vid="87">translates to the seamless integration of form and</div>
-                        <div class="px-4 text-secondary" vid="88">function.</div>
-                        <div class="px-4 text-secondary" vid="89"></div>
-                        <div class="px-4 text-secondary" vid="90">We build immersive environments where typography</div>
-                        <div class="px-4 text-secondary" vid="91">leads the eye and imagery sets the mood.</div>
-                        <div class="px-4 text-secondary" vid="92"></div>
-                    </div>
-                </div>
-            </div>
-
-            
-            <div class="w-1/2 flex flex-col bg-base" vid="93">
-                <div class="h-8 flex items-center px-4 bg-hover/50 border-b border-border text-xs text-secondary font-medium tracking-wide uppercase" vid="94">
-                    After
-                </div>
-                <div class="flex-1 overflow-y-auto custom-scrollbar flex" vid="95">
-                    
-                    <div class="w-12 shrink-0 bg-base border-r border-border flex flex-col text-right py-4 select-none text-tertiary text-xs" vid="96">
-                        <div class="px-3" vid="97">42</div>
-                        <div class="px-3" vid="98">43</div>
-                        <div class="px-3" vid="99">44</div>
-                        <div class="px-3" vid="100">45</div>
-                        <div class="px-3" vid="101">46</div>
-                        <div class="px-3" vid="102">47</div>
-                        <div class="px-3" vid="103">48</div>
-                        <div class="px-3" vid="104">49</div>
-                        <div class="px-3" vid="105">50</div>
-                        <div class="px-3" vid="106">51</div>
-                        <div class="px-3" vid="107">52</div>
-                        <div class="px-3" vid="108">53</div>
-                        <div class="px-3" vid="109">54</div>
-                        <div class="px-3" vid="110">55</div>
-                        <div class="px-3" vid="111">56</div>
-                        <div class="px-3" vid="112">57</div>
-                    </div>
-                    
-                    <div class="flex-1 py-4" vid="113">
-                        <div class="px-4 text-secondary" vid="114"></div>
-                        <div class="px-4 text-secondary" vid="115"><span class="text-primary" vid="116"># The Architecture of Silence</span></div>
-                        <div class="px-4 text-secondary" vid="117"></div>
-                        <div class="px-4 text-secondary diff-added" vid="118">Driven by aesthetics, fascinated by AI and fueled</div>
-                        <div class="px-4 text-secondary diff-added" vid="119">with an eternal devotion to digital art.</div>
-                        <div class="px-4 text-secondary" vid="120"></div>
-                        <div class="px-4 text-secondary" vid="121"></div>
-                        <div class="px-4 text-secondary diff-modified-marker" vid="122">Design isn't merely about aesthetics. It is fundamentally</div>
-                        <div class="px-4 text-secondary" vid="123">about how things work. In the digital sphere, this</div>
-                        <div class="px-4 text-secondary" vid="124">translates to the seamless integration of form,</div>
-                        <div class="px-4 text-secondary diff-added" vid="125">function, and emotion.</div>
-                        <div class="px-4 text-secondary" vid="126"></div>
-                        <div class="px-4 text-secondary" vid="127">We build immersive environments where typography</div>
-                        <div class="px-4 text-secondary" vid="128">leads the eye and imagery sets the mood.</div>
-                        <div class="px-4 text-secondary" vid="129"></div>
-                    </div>
-                </div>
-            </div>
-
+          <div class="relative" vid="35">
+            <button
+              class="flex items-center gap-2 px-3 py-1.5 bg-hover rounded border border-border text-sm text-primary hover:border-white/10 transition-colors"
+              vid="36"
+            >
+              <div
+                class="w-2 h-2 rounded-full bg-accent-green shadow-[0_0_8px_rgba(34,197,94,0.4)]"
+                vid="37"
+              ></div>
+              <span vid="38">Current Version</span>
+              <i class="ph ph-caret-down text-tertiary" vid="39"></i>
+            </button>
+          </div>
         </div>
 
-        
-        <footer class="h-16 flex items-center justify-between px-6 border-t border-border bg-panel shrink-0" vid="130">
-            <div class="flex items-center gap-4 text-xs" vid="131">
-                <div class="flex items-center gap-1.5" vid="132">
-                    <span class="text-accent-green" vid="133">+42 words</span>
-                </div>
-                <div class="w-1 h-1 rounded-full bg-tertiary" vid="134"></div>
-                <div class="flex items-center gap-1.5" vid="135">
-                    <span class="text-accent-red" vid="136">-18 words</span>
-                </div>
-                <div class="w-1 h-1 rounded-full bg-tertiary" vid="137"></div>
-                <div class="text-secondary" vid="138">3 paragraphs modified</div>
+        <div class="flex items-center gap-6" vid="40">
+          <div
+            class="flex items-center gap-3 bg-base p-1 rounded-lg border border-border"
+            vid="41"
+          >
+            <button
+              class="px-3 py-1 bg-panel shadow-sm text-xs font-medium text-primary rounded border border-border transition-all"
+              vid="42"
+            >
+              Split
+            </button>
+            <button
+              class="px-3 py-1 text-xs font-medium text-secondary hover:text-primary transition-colors"
+              vid="43"
+            >
+              Unified
+            </button>
+          </div>
+
+          <div class="h-4 w-px bg-border" vid="44"></div>
+
+          <div class="flex items-center gap-2" vid="45">
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded hover:bg-hover text-secondary hover:text-primary transition-colors tooltip"
+              title="Previous Change"
+              vid="46"
+            >
+              <i class="ph ph-caret-up" vid="47"></i>
+            </button>
+            <span class="text-xs font-mono text-secondary px-2" vid="48"
+              >Change <span class="text-primary" vid="49">3</span> of
+              <span class="text-primary" vid="50">12</span></span
+            >
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded hover:bg-hover text-secondary hover:text-primary transition-colors tooltip"
+              title="Next Change"
+              vid="51"
+            >
+              <i class="ph ph-caret-down" vid="52"></i>
+            </button>
+          </div>
+
+          <div class="h-4 w-px bg-border" vid="53"></div>
+
+          <button
+            class="text-secondary hover:text-primary transition-colors p-2 rounded hover:bg-white/5"
+            vid="54"
+          >
+            <i class="ph ph-x text-lg" vid="55"></i>
+          </button>
+        </div>
+      </header>
+
+      <div
+        class="flex-1 flex overflow-hidden font-mono text-sm leading-6"
+        vid="56"
+      >
+        <div class="w-1/2 flex flex-col border-r border-border" vid="57">
+          <div
+            class="h-8 flex items-center px-4 bg-hover/50 border-b border-border text-xs text-secondary font-medium tracking-wide uppercase"
+            vid="58"
+          >
+            Before
+          </div>
+          <div
+            class="flex-1 overflow-y-auto custom-scrollbar flex bg-[#0c0c0c]"
+            vid="59"
+          >
+            <div
+              class="w-12 shrink-0 bg-base border-r border-border flex flex-col text-right py-4 select-none text-tertiary text-xs"
+              vid="60"
+            >
+              <div class="px-3" vid="61">42</div>
+              <div class="px-3" vid="62">43</div>
+              <div class="px-3" vid="63">44</div>
+              <div class="px-3" vid="64">45</div>
+              <div class="px-3" vid="65">46</div>
+              <div class="px-3" vid="66">47</div>
+              <div class="px-3" vid="67">48</div>
+              <div class="px-3" vid="68">49</div>
+              <div class="px-3" vid="69">50</div>
+              <div class="px-3" vid="70">51</div>
+              <div class="px-3" vid="71">52</div>
+              <div class="px-3" vid="72">53</div>
+              <div class="px-3" vid="73">54</div>
+              <div class="px-3" vid="74">55</div>
+              <div class="px-3" vid="75">56</div>
             </div>
 
-            <div class="flex items-center gap-3" vid="139">
-                <button class="px-4 py-2 rounded text-xs font-medium text-secondary hover:text-primary hover:bg-white/5 transition-colors" vid="140">
-                    Close
-                </button>
-                <button class="px-4 py-2 rounded text-xs font-medium bg-accent-blue text-white hover:bg-blue-600 shadow-glow transition-all flex items-center gap-2" vid="141">
-                    <i class="ph-bold ph-arrow-u-up-left" vid="142"></i>
-                    Restore Before Version
-                </button>
+            <div class="flex-1 py-4" vid="76">
+              <div class="px-4 text-secondary" vid="77"></div>
+              <div class="px-4 text-secondary" vid="78">
+                <span class="text-primary" vid="79"
+                  ># The Architecture of Silence</span
+                >
+              </div>
+              <div class="px-4 text-secondary" vid="80"></div>
+              <div class="px-4 text-secondary diff-removed" vid="81">
+                Intrigued by beauty, fascinated by technology and
+              </div>
+              <div class="px-4 text-secondary diff-removed" vid="82">
+                fuelled with an everlasting devotion to digital
+              </div>
+              <div class="px-4 text-secondary diff-removed" vid="83">
+                craftsmanship.
+              </div>
+              <div class="px-4 text-secondary" vid="84"></div>
+              <div class="px-4 text-secondary diff-modified-marker" vid="85">
+                Design is not just about making things look good. It is
+              </div>
+              <div class="px-4 text-secondary" vid="86">
+                about how things work. In the digital realm, this
+              </div>
+              <div class="px-4 text-secondary" vid="87">
+                translates to the seamless integration of form and
+              </div>
+              <div class="px-4 text-secondary" vid="88">function.</div>
+              <div class="px-4 text-secondary" vid="89"></div>
+              <div class="px-4 text-secondary" vid="90">
+                We build immersive environments where typography
+              </div>
+              <div class="px-4 text-secondary" vid="91">
+                leads the eye and imagery sets the mood.
+              </div>
+              <div class="px-4 text-secondary" vid="92"></div>
             </div>
-        </footer>
+          </div>
+        </div>
 
+        <div class="w-1/2 flex flex-col bg-base" vid="93">
+          <div
+            class="h-8 flex items-center px-4 bg-hover/50 border-b border-border text-xs text-secondary font-medium tracking-wide uppercase"
+            vid="94"
+          >
+            After
+          </div>
+          <div class="flex-1 overflow-y-auto custom-scrollbar flex" vid="95">
+            <div
+              class="w-12 shrink-0 bg-base border-r border-border flex flex-col text-right py-4 select-none text-tertiary text-xs"
+              vid="96"
+            >
+              <div class="px-3" vid="97">42</div>
+              <div class="px-3" vid="98">43</div>
+              <div class="px-3" vid="99">44</div>
+              <div class="px-3" vid="100">45</div>
+              <div class="px-3" vid="101">46</div>
+              <div class="px-3" vid="102">47</div>
+              <div class="px-3" vid="103">48</div>
+              <div class="px-3" vid="104">49</div>
+              <div class="px-3" vid="105">50</div>
+              <div class="px-3" vid="106">51</div>
+              <div class="px-3" vid="107">52</div>
+              <div class="px-3" vid="108">53</div>
+              <div class="px-3" vid="109">54</div>
+              <div class="px-3" vid="110">55</div>
+              <div class="px-3" vid="111">56</div>
+              <div class="px-3" vid="112">57</div>
+            </div>
+
+            <div class="flex-1 py-4" vid="113">
+              <div class="px-4 text-secondary" vid="114"></div>
+              <div class="px-4 text-secondary" vid="115">
+                <span class="text-primary" vid="116"
+                  ># The Architecture of Silence</span
+                >
+              </div>
+              <div class="px-4 text-secondary" vid="117"></div>
+              <div class="px-4 text-secondary diff-added" vid="118">
+                Driven by aesthetics, fascinated by AI and fueled
+              </div>
+              <div class="px-4 text-secondary diff-added" vid="119">
+                with an eternal devotion to digital art.
+              </div>
+              <div class="px-4 text-secondary" vid="120"></div>
+              <div class="px-4 text-secondary" vid="121"></div>
+              <div class="px-4 text-secondary diff-modified-marker" vid="122">
+                Design isn't merely about aesthetics. It is fundamentally
+              </div>
+              <div class="px-4 text-secondary" vid="123">
+                about how things work. In the digital sphere, this
+              </div>
+              <div class="px-4 text-secondary" vid="124">
+                translates to the seamless integration of form,
+              </div>
+              <div class="px-4 text-secondary diff-added" vid="125">
+                function, and emotion.
+              </div>
+              <div class="px-4 text-secondary" vid="126"></div>
+              <div class="px-4 text-secondary" vid="127">
+                We build immersive environments where typography
+              </div>
+              <div class="px-4 text-secondary" vid="128">
+                leads the eye and imagery sets the mood.
+              </div>
+              <div class="px-4 text-secondary" vid="129"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer
+        class="h-16 flex items-center justify-between px-6 border-t border-border bg-panel shrink-0"
+        vid="130"
+      >
+        <div class="flex items-center gap-4 text-xs" vid="131">
+          <div class="flex items-center gap-1.5" vid="132">
+            <span class="text-accent-green" vid="133">+42 words</span>
+          </div>
+          <div class="w-1 h-1 rounded-full bg-tertiary" vid="134"></div>
+          <div class="flex items-center gap-1.5" vid="135">
+            <span class="text-accent-red" vid="136">-18 words</span>
+          </div>
+          <div class="w-1 h-1 rounded-full bg-tertiary" vid="137"></div>
+          <div class="text-secondary" vid="138">3 paragraphs modified</div>
+        </div>
+
+        <div class="flex items-center gap-3" vid="139">
+          <button
+            class="px-4 py-2 rounded text-xs font-medium text-secondary hover:text-primary hover:bg-white/5 transition-colors"
+            vid="140"
+          >
+            Close
+          </button>
+          <button
+            class="px-4 py-2 rounded text-xs font-medium bg-accent-blue text-white hover:bg-blue-600 shadow-glow transition-all flex items-center gap-2"
+            vid="141"
+          >
+            <i class="ph-bold ph-arrow-u-up-left" vid="142"></i>
+            Restore Before Version
+          </button>
+        </div>
+      </footer>
     </div>
 
-&lt;|CONTENT:IMAGE|&gt;**Design 2: Unified Diff View Component**
-
-This variation displays the same content in a unified view, often preferred for quick scanning of changes without looking back and forth. It uses a single column layout where deletions and additions are stacked. The gutter area is used to indicate line numbers for both the old (left column in gutter) and new (right column in gutter) versions, along with +/- indicators for changes.
-
-&lt;|CONTENT:CODE|&gt;&lt;|VERSIONID:4e580e0c-96b9-4f9c-bd61-125021ed25eb|&gt;&lt;|GENERATIONID:e0d86922-2621-4d1c-8c7a-9076067b55f1|&gt;&lt;|FORMAT:desktop|&gt;&lt;|DESIGNIMAGE:true|&gt;&lt;|SELECTEDTAGVID:null|&gt;
-    <meta charset="UTF-8" vid="143">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="144">
+    &lt;|CONTENT:IMAGE|&gt;**Design 2: Unified Diff View Component** This
+    variation displays the same content in a unified view, often preferred for
+    quick scanning of changes without looking back and forth. It uses a single
+    column layout where deletions and additions are stacked. The gutter area is
+    used to indicate line numbers for both the old (left column in gutter) and
+    new (right column in gutter) versions, along with +/- indicators for
+    changes.
+    &lt;|CONTENT:CODE|&gt;&lt;|VERSIONID:4e580e0c-96b9-4f9c-bd61-125021ed25eb|&gt;&lt;|GENERATIONID:e0d86922-2621-4d1c-8c7a-9076067b55f1|&gt;&lt;|FORMAT:desktop|&gt;&lt;|DESIGNIMAGE:true|&gt;&lt;|SELECTEDTAGVID:null|&gt;
+    <meta charset="UTF-8" vid="143" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="144"
+    />
     <title vid="145">CreoNow - Unified Diff View</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="146"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" vid="147">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="148">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" vid="149">
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="147" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin=""
+      vid="148"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"
+      rel="stylesheet"
+      vid="149"
+    />
     <script src="https://unpkg.com/@phosphor-icons/web" vid="150"></script>
     <script vid="151">
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        base: '#080808',
-                        panel: '#0f0f0f',
-                        hover: '#1a1a1a',
-                        border: 'rgba(255, 255, 255, 0.06)',
-                        primary: '#ffffff',
-                        secondary: '#888888',
-                        tertiary: '#444444',
-                        accent: {
-                            blue: '#3b82f6',
-                            green: '#22c55e',
-                            red: '#ef4444',
-                            yellow: '#f59e0b'
-                        }
-                    },
-                    boxShadow: {
-                        'glow': '0 0 20px rgba(59, 130, 246, 0.1)',
-                    }
-                }
-            }
-        }
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Inter", "system-ui", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
+            colors: {
+              base: "#080808",
+              panel: "#0f0f0f",
+              hover: "#1a1a1a",
+              border: "rgba(255, 255, 255, 0.06)",
+              primary: "#ffffff",
+              secondary: "#888888",
+              tertiary: "#444444",
+              accent: {
+                blue: "#3b82f6",
+                green: "#22c55e",
+                red: "#ef4444",
+                yellow: "#f59e0b",
+              },
+            },
+            boxShadow: {
+              glow: "0 0 20px rgba(59, 130, 246, 0.1)",
+            },
+          },
+        },
+      };
     </script>
     <style vid="152">
-        body {
-            background-color: #080808;
-            color: #ffffff;
-        }
-        
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0f0f0f;
-            border-left: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #222;
-            border-radius: 5px;
-            border: 2px solid #0f0f0f;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #333;
-        }
+      body {
+        background-color: #080808;
+        color: #ffffff;
+      }
 
-        .diff-added {
-            background-color: rgba(34, 197, 94, 0.1);
-        }
-        .diff-removed {
-            background-color: rgba(239, 68, 68, 0.1);
-        }
-        
-        
-        .gutter {
-            display: flex;
-            user-select: none;
-            width: 80px;
-            color: #444;
-            font-size: 11px;
-            border-right: 1px solid rgba(255, 255, 255, 0.06);
-            background-color: #0c0c0c;
-        }
-        .gutter-num {
-            width: 50%;
-            text-align: right;
-            padding: 0 8px;
-        }
-        .gutter-icon {
-            position: absolute;
-            left: 8px;
-            width: 16px;
-            display: flex;
-            justify-content: center;
-        }
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f0f0f;
+        border-left: 1px solid rgba(255, 255, 255, 0.06);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #222;
+        border-radius: 5px;
+        border: 2px solid #0f0f0f;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #333;
+      }
+
+      .diff-added {
+        background-color: rgba(34, 197, 94, 0.1);
+      }
+      .diff-removed {
+        background-color: rgba(239, 68, 68, 0.1);
+      }
+
+      .gutter {
+        display: flex;
+        user-select: none;
+        width: 80px;
+        color: #444;
+        font-size: 11px;
+        border-right: 1px solid rgba(255, 255, 255, 0.06);
+        background-color: #0c0c0c;
+      }
+      .gutter-num {
+        width: 50%;
+        text-align: right;
+        padding: 0 8px;
+      }
+      .gutter-icon {
+        position: absolute;
+        left: 8px;
+        width: 16px;
+        display: flex;
+        justify-content: center;
+      }
     </style>
 
+    <div
+      class="absolute inset-0 bg-[radial-gradient(#222_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none"
+      vid="153"
+    ></div>
 
-
-    
-    <div class="absolute inset-0 bg-[radial-gradient(#222_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" vid="153"></div>
-
-    
-    <div class="w-[1200px] h-[85vh] flex flex-col bg-panel border border-border rounded-xl shadow-2xl overflow-hidden z-10" vid="154">
-
-        
-        <header class="h-16 flex items-center justify-between px-6 border-b border-border bg-panel shrink-0" vid="155">
-            
-            <div class="flex items-center gap-4" vid="156">
-                <button class="flex items-center gap-2 px-3 py-1.5 bg-hover rounded border border-border text-sm text-secondary hover:text-primary transition-colors" vid="157">
-                    <i class="ph ph-clock-counter-clockwise" vid="158"></i>
-                    <span vid="159">Comparing: 2h ago vs Current</span>
-                    <i class="ph ph-caret-down text-tertiary" vid="160"></i>
-                </button>
-            </div>
-
-            
-            <div class="flex items-center gap-6" vid="161">
-                
-                <div class="flex items-center gap-3 bg-base p-1 rounded-lg border border-border" vid="162">
-                    <button class="px-3 py-1 text-xs font-medium text-secondary hover:text-primary transition-colors" vid="163">Split</button>
-                    <button class="px-3 py-1 bg-panel shadow-sm text-xs font-medium text-primary rounded border border-border transition-all" vid="164">Unified</button>
-                </div>
-
-                
-                <div class="h-4 w-px bg-border" vid="165"></div>
-
-                
-                <div class="flex items-center gap-2" vid="166">
-                    <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-hover text-secondary hover:text-primary transition-colors tooltip" title="Previous Change" vid="167">
-                        <i class="ph ph-caret-up" vid="168"></i>
-                    </button>
-                    <span class="text-xs font-mono text-secondary px-2" vid="169">Change <span class="text-primary" vid="170">3</span> of <span class="text-primary" vid="171">12</span></span>
-                    <button class="w-8 h-8 flex items-center justify-center rounded hover:bg-hover text-secondary hover:text-primary transition-colors tooltip" title="Next Change" vid="172">
-                        <i class="ph ph-caret-down" vid="173"></i>
-                    </button>
-                </div>
-
-                
-                <div class="h-4 w-px bg-border" vid="174"></div>
-
-                
-                <button class="text-secondary hover:text-primary transition-colors p-2 rounded hover:bg-white/5" vid="175">
-                    <i class="ph ph-x text-lg" vid="176"></i>
-                </button>
-            </div>
-        </header>
-
-        
-        <div class="flex-1 overflow-y-auto custom-scrollbar font-mono text-sm leading-6" vid="177">
-            
-            
-            <div class="flex hover:bg-white/[0.01]" vid="178">
-                <div class="gutter shrink-0 py-1" vid="179">
-                    <div class="gutter-num" vid="180">42</div>
-                    <div class="gutter-num" vid="181">42</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-secondary" vid="182"></div>
-            </div>
-
-            <div class="flex hover:bg-white/[0.01]" vid="183">
-                <div class="gutter shrink-0 py-1" vid="184">
-                    <div class="gutter-num" vid="185">43</div>
-                    <div class="gutter-num" vid="186">43</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-secondary" vid="187"><span class="text-primary" vid="188"># The Architecture of Silence</span></div>
-            </div>
-
-            <div class="flex hover:bg-white/[0.01]" vid="189">
-                <div class="gutter shrink-0 py-1" vid="190">
-                    <div class="gutter-num" vid="191">44</div>
-                    <div class="gutter-num" vid="192">44</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-secondary" vid="193"></div>
-            </div>
-
-            
-            <div class="flex diff-removed group" vid="194">
-                <div class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors" vid="195">
-                    <div class="gutter-num text-red-500/50" vid="196">45</div>
-                    <div class="gutter-num" vid="197"></div>
-                    <div class="absolute left-2 text-red-500/50" vid="198">-</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40" vid="199">Intrigued by beauty, fascinated by technology and</div>
-            </div>
-            <div class="flex diff-removed group" vid="200">
-                <div class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors" vid="201">
-                    <div class="gutter-num text-red-500/50" vid="202">46</div>
-                    <div class="gutter-num" vid="203"></div>
-                    <div class="absolute left-2 text-red-500/50" vid="204">-</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40" vid="205">fuelled with an everlasting devotion to digital</div>
-            </div>
-            <div class="flex diff-removed group" vid="206">
-                <div class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors" vid="207">
-                    <div class="gutter-num text-red-500/50" vid="208">47</div>
-                    <div class="gutter-num" vid="209"></div>
-                    <div class="absolute left-2 text-red-500/50" vid="210">-</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40" vid="211">craftsmanship.</div>
-            </div>
-
-            
-            <div class="flex diff-added group" vid="212">
-                <div class="gutter shrink-0 py-1 bg-green-500/5 group-hover:bg-green-500/10 transition-colors" vid="213">
-                    <div class="gutter-num" vid="214"></div>
-                    <div class="gutter-num text-green-500/50" vid="215">45</div>
-                    <div class="absolute left-2 text-green-500/50" vid="216">+</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-green-100" vid="217">Driven by aesthetics, fascinated by AI and fueled</div>
-            </div>
-            <div class="flex diff-added group" vid="218">
-                <div class="gutter shrink-0 py-1 bg-green-500/5 group-hover:bg-green-500/10 transition-colors" vid="219">
-                    <div class="gutter-num" vid="220"></div>
-                    <div class="gutter-num text-green-500/50" vid="221">46</div>
-                    <div class="absolute left-2 text-green-500/50" vid="222">+</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-green-100" vid="223">with an eternal devotion to digital art.</div>
-            </div>
-
-            
-            <div class="flex hover:bg-white/[0.01]" vid="224">
-                <div class="gutter shrink-0 py-1" vid="225">
-                    <div class="gutter-num" vid="226">48</div>
-                    <div class="gutter-num" vid="227">47</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-secondary" vid="228"></div>
-            </div>
-
-            
-            <div class="flex diff-removed group" vid="229">
-                <div class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors" vid="230">
-                    <div class="gutter-num text-red-500/50" vid="231">49</div>
-                    <div class="gutter-num" vid="232"></div>
-                    <div class="absolute left-2 text-red-500/50" vid="233">-</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40" vid="234">Design is not just about making things look good. It is</div>
-            </div>
-
-             
-             <div class="flex diff-added group" vid="235">
-                <div class="gutter shrink-0 py-1 bg-green-500/5 group-hover:bg-green-500/10 transition-colors" vid="236">
-                    <div class="gutter-num" vid="237"></div>
-                    <div class="gutter-num text-green-500/50" vid="238">48</div>
-                    <div class="absolute left-2 text-green-500/50" vid="239">+</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-green-100" vid="240">Design isn't merely about aesthetics. It is fundamentally</div>
-            </div>
-
-            <div class="flex hover:bg-white/[0.01]" vid="241">
-                <div class="gutter shrink-0 py-1" vid="242">
-                    <div class="gutter-num" vid="243">50</div>
-                    <div class="gutter-num" vid="244">49</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-secondary" vid="245">about how things work. In the digital sphere, this</div>
-            </div>
-
-            <div class="flex hover:bg-white/[0.01]" vid="246">
-                <div class="gutter shrink-0 py-1" vid="247">
-                    <div class="gutter-num" vid="248">51</div>
-                    <div class="gutter-num" vid="249">50</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-secondary" vid="250">translates to the seamless integration of form and</div>
-            </div>
-            
-             <div class="flex diff-added group" vid="251">
-                <div class="gutter shrink-0 py-1 bg-green-500/5 group-hover:bg-green-500/10 transition-colors" vid="252">
-                    <div class="gutter-num" vid="253"></div>
-                    <div class="gutter-num text-green-500/50" vid="254">51</div>
-                    <div class="absolute left-2 text-green-500/50" vid="255">+</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-green-100" vid="256">function, and emotion.</div>
-            </div>
-
-            <div class="flex diff-removed group" vid="257">
-                <div class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors" vid="258">
-                    <div class="gutter-num text-red-500/50" vid="259">52</div>
-                    <div class="gutter-num" vid="260"></div>
-                    <div class="absolute left-2 text-red-500/50" vid="261">-</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40" vid="262">function.</div>
-            </div>
-
-            <div class="flex hover:bg-white/[0.01]" vid="263">
-                <div class="gutter shrink-0 py-1" vid="264">
-                    <div class="gutter-num" vid="265">53</div>
-                    <div class="gutter-num" vid="266">52</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-secondary" vid="267"></div>
-            </div>
-
-            <div class="flex hover:bg-white/[0.01]" vid="268">
-                <div class="gutter shrink-0 py-1" vid="269">
-                    <div class="gutter-num" vid="270">54</div>
-                    <div class="gutter-num" vid="271">53</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-secondary" vid="272">We build immersive environments where typography</div>
-            </div>
-            
-            <div class="flex hover:bg-white/[0.01]" vid="273">
-                <div class="gutter shrink-0 py-1" vid="274">
-                    <div class="gutter-num" vid="275">55</div>
-                    <div class="gutter-num" vid="276">54</div>
-                </div>
-                <div class="flex-1 px-4 py-1 text-secondary" vid="277">leads the eye and imagery sets the mood.</div>
-            </div>
+    <div
+      class="w-[1200px] h-[85vh] flex flex-col bg-panel border border-border rounded-xl shadow-2xl overflow-hidden z-10"
+      vid="154"
+    >
+      <header
+        class="h-16 flex items-center justify-between px-6 border-b border-border bg-panel shrink-0"
+        vid="155"
+      >
+        <div class="flex items-center gap-4" vid="156">
+          <button
+            class="flex items-center gap-2 px-3 py-1.5 bg-hover rounded border border-border text-sm text-secondary hover:text-primary transition-colors"
+            vid="157"
+          >
+            <i class="ph ph-clock-counter-clockwise" vid="158"></i>
+            <span vid="159">Comparing: 2h ago vs Current</span>
+            <i class="ph ph-caret-down text-tertiary" vid="160"></i>
+          </button>
         </div>
 
-        
-        <footer class="h-16 flex items-center justify-between px-6 border-t border-border bg-panel shrink-0" vid="278">
-            <div class="flex items-center gap-4 text-xs" vid="279">
-                <div class="flex items-center gap-1.5" vid="280">
-                    <span class="text-accent-green" vid="281">+42 words</span>
-                </div>
-                <div class="w-1 h-1 rounded-full bg-tertiary" vid="282"></div>
-                <div class="flex items-center gap-1.5" vid="283">
-                    <span class="text-accent-red" vid="284">-18 words</span>
-                </div>
-                <div class="w-1 h-1 rounded-full bg-tertiary" vid="285"></div>
-                <div class="text-secondary" vid="286">3 paragraphs modified</div>
-            </div>
+        <div class="flex items-center gap-6" vid="161">
+          <div
+            class="flex items-center gap-3 bg-base p-1 rounded-lg border border-border"
+            vid="162"
+          >
+            <button
+              class="px-3 py-1 text-xs font-medium text-secondary hover:text-primary transition-colors"
+              vid="163"
+            >
+              Split
+            </button>
+            <button
+              class="px-3 py-1 bg-panel shadow-sm text-xs font-medium text-primary rounded border border-border transition-all"
+              vid="164"
+            >
+              Unified
+            </button>
+          </div>
 
-            <div class="flex items-center gap-3" vid="287">
-                <button class="px-4 py-2 rounded text-xs font-medium text-secondary hover:text-primary hover:bg-white/5 transition-colors" vid="288">
-                    Close
-                </button>
-                <button class="px-4 py-2 rounded text-xs font-medium bg-accent-blue text-white hover:bg-blue-600 shadow-glow transition-all flex items-center gap-2" vid="289">
-                    <i class="ph-bold ph-arrow-u-up-left" vid="290"></i>
-                    Restore Before Version
-                </button>
-            </div>
-        </footer>
+          <div class="h-4 w-px bg-border" vid="165"></div>
 
+          <div class="flex items-center gap-2" vid="166">
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded hover:bg-hover text-secondary hover:text-primary transition-colors tooltip"
+              title="Previous Change"
+              vid="167"
+            >
+              <i class="ph ph-caret-up" vid="168"></i>
+            </button>
+            <span class="text-xs font-mono text-secondary px-2" vid="169"
+              >Change <span class="text-primary" vid="170">3</span> of
+              <span class="text-primary" vid="171">12</span></span
+            >
+            <button
+              class="w-8 h-8 flex items-center justify-center rounded hover:bg-hover text-secondary hover:text-primary transition-colors tooltip"
+              title="Next Change"
+              vid="172"
+            >
+              <i class="ph ph-caret-down" vid="173"></i>
+            </button>
+          </div>
+
+          <div class="h-4 w-px bg-border" vid="174"></div>
+
+          <button
+            class="text-secondary hover:text-primary transition-colors p-2 rounded hover:bg-white/5"
+            vid="175"
+          >
+            <i class="ph ph-x text-lg" vid="176"></i>
+          </button>
+        </div>
+      </header>
+
+      <div
+        class="flex-1 overflow-y-auto custom-scrollbar font-mono text-sm leading-6"
+        vid="177"
+      >
+        <div class="flex hover:bg-white/[0.01]" vid="178">
+          <div class="gutter shrink-0 py-1" vid="179">
+            <div class="gutter-num" vid="180">42</div>
+            <div class="gutter-num" vid="181">42</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-secondary" vid="182"></div>
+        </div>
+
+        <div class="flex hover:bg-white/[0.01]" vid="183">
+          <div class="gutter shrink-0 py-1" vid="184">
+            <div class="gutter-num" vid="185">43</div>
+            <div class="gutter-num" vid="186">43</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-secondary" vid="187">
+            <span class="text-primary" vid="188"
+              ># The Architecture of Silence</span
+            >
+          </div>
+        </div>
+
+        <div class="flex hover:bg-white/[0.01]" vid="189">
+          <div class="gutter shrink-0 py-1" vid="190">
+            <div class="gutter-num" vid="191">44</div>
+            <div class="gutter-num" vid="192">44</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-secondary" vid="193"></div>
+        </div>
+
+        <div class="flex diff-removed group" vid="194">
+          <div
+            class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors"
+            vid="195"
+          >
+            <div class="gutter-num text-red-500/50" vid="196">45</div>
+            <div class="gutter-num" vid="197"></div>
+            <div class="absolute left-2 text-red-500/50" vid="198">-</div>
+          </div>
+          <div
+            class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40"
+            vid="199"
+          >
+            Intrigued by beauty, fascinated by technology and
+          </div>
+        </div>
+        <div class="flex diff-removed group" vid="200">
+          <div
+            class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors"
+            vid="201"
+          >
+            <div class="gutter-num text-red-500/50" vid="202">46</div>
+            <div class="gutter-num" vid="203"></div>
+            <div class="absolute left-2 text-red-500/50" vid="204">-</div>
+          </div>
+          <div
+            class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40"
+            vid="205"
+          >
+            fuelled with an everlasting devotion to digital
+          </div>
+        </div>
+        <div class="flex diff-removed group" vid="206">
+          <div
+            class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors"
+            vid="207"
+          >
+            <div class="gutter-num text-red-500/50" vid="208">47</div>
+            <div class="gutter-num" vid="209"></div>
+            <div class="absolute left-2 text-red-500/50" vid="210">-</div>
+          </div>
+          <div
+            class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40"
+            vid="211"
+          >
+            craftsmanship.
+          </div>
+        </div>
+
+        <div class="flex diff-added group" vid="212">
+          <div
+            class="gutter shrink-0 py-1 bg-green-500/5 group-hover:bg-green-500/10 transition-colors"
+            vid="213"
+          >
+            <div class="gutter-num" vid="214"></div>
+            <div class="gutter-num text-green-500/50" vid="215">45</div>
+            <div class="absolute left-2 text-green-500/50" vid="216">+</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-green-100" vid="217">
+            Driven by aesthetics, fascinated by AI and fueled
+          </div>
+        </div>
+        <div class="flex diff-added group" vid="218">
+          <div
+            class="gutter shrink-0 py-1 bg-green-500/5 group-hover:bg-green-500/10 transition-colors"
+            vid="219"
+          >
+            <div class="gutter-num" vid="220"></div>
+            <div class="gutter-num text-green-500/50" vid="221">46</div>
+            <div class="absolute left-2 text-green-500/50" vid="222">+</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-green-100" vid="223">
+            with an eternal devotion to digital art.
+          </div>
+        </div>
+
+        <div class="flex hover:bg-white/[0.01]" vid="224">
+          <div class="gutter shrink-0 py-1" vid="225">
+            <div class="gutter-num" vid="226">48</div>
+            <div class="gutter-num" vid="227">47</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-secondary" vid="228"></div>
+        </div>
+
+        <div class="flex diff-removed group" vid="229">
+          <div
+            class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors"
+            vid="230"
+          >
+            <div class="gutter-num text-red-500/50" vid="231">49</div>
+            <div class="gutter-num" vid="232"></div>
+            <div class="absolute left-2 text-red-500/50" vid="233">-</div>
+          </div>
+          <div
+            class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40"
+            vid="234"
+          >
+            Design is not just about making things look good. It is
+          </div>
+        </div>
+
+        <div class="flex diff-added group" vid="235">
+          <div
+            class="gutter shrink-0 py-1 bg-green-500/5 group-hover:bg-green-500/10 transition-colors"
+            vid="236"
+          >
+            <div class="gutter-num" vid="237"></div>
+            <div class="gutter-num text-green-500/50" vid="238">48</div>
+            <div class="absolute left-2 text-green-500/50" vid="239">+</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-green-100" vid="240">
+            Design isn't merely about aesthetics. It is fundamentally
+          </div>
+        </div>
+
+        <div class="flex hover:bg-white/[0.01]" vid="241">
+          <div class="gutter shrink-0 py-1" vid="242">
+            <div class="gutter-num" vid="243">50</div>
+            <div class="gutter-num" vid="244">49</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-secondary" vid="245">
+            about how things work. In the digital sphere, this
+          </div>
+        </div>
+
+        <div class="flex hover:bg-white/[0.01]" vid="246">
+          <div class="gutter shrink-0 py-1" vid="247">
+            <div class="gutter-num" vid="248">51</div>
+            <div class="gutter-num" vid="249">50</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-secondary" vid="250">
+            translates to the seamless integration of form and
+          </div>
+        </div>
+
+        <div class="flex diff-added group" vid="251">
+          <div
+            class="gutter shrink-0 py-1 bg-green-500/5 group-hover:bg-green-500/10 transition-colors"
+            vid="252"
+          >
+            <div class="gutter-num" vid="253"></div>
+            <div class="gutter-num text-green-500/50" vid="254">51</div>
+            <div class="absolute left-2 text-green-500/50" vid="255">+</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-green-100" vid="256">
+            function, and emotion.
+          </div>
+        </div>
+
+        <div class="flex diff-removed group" vid="257">
+          <div
+            class="gutter shrink-0 py-1 bg-red-500/5 group-hover:bg-red-500/10 transition-colors"
+            vid="258"
+          >
+            <div class="gutter-num text-red-500/50" vid="259">52</div>
+            <div class="gutter-num" vid="260"></div>
+            <div class="absolute left-2 text-red-500/50" vid="261">-</div>
+          </div>
+          <div
+            class="flex-1 px-4 py-1 text-red-200/70 line-through decoration-red-500/40"
+            vid="262"
+          >
+            function.
+          </div>
+        </div>
+
+        <div class="flex hover:bg-white/[0.01]" vid="263">
+          <div class="gutter shrink-0 py-1" vid="264">
+            <div class="gutter-num" vid="265">53</div>
+            <div class="gutter-num" vid="266">52</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-secondary" vid="267"></div>
+        </div>
+
+        <div class="flex hover:bg-white/[0.01]" vid="268">
+          <div class="gutter shrink-0 py-1" vid="269">
+            <div class="gutter-num" vid="270">54</div>
+            <div class="gutter-num" vid="271">53</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-secondary" vid="272">
+            We build immersive environments where typography
+          </div>
+        </div>
+
+        <div class="flex hover:bg-white/[0.01]" vid="273">
+          <div class="gutter shrink-0 py-1" vid="274">
+            <div class="gutter-num" vid="275">55</div>
+            <div class="gutter-num" vid="276">54</div>
+          </div>
+          <div class="flex-1 px-4 py-1 text-secondary" vid="277">
+            leads the eye and imagery sets the mood.
+          </div>
+        </div>
+      </div>
+
+      <footer
+        class="h-16 flex items-center justify-between px-6 border-t border-border bg-panel shrink-0"
+        vid="278"
+      >
+        <div class="flex items-center gap-4 text-xs" vid="279">
+          <div class="flex items-center gap-1.5" vid="280">
+            <span class="text-accent-green" vid="281">+42 words</span>
+          </div>
+          <div class="w-1 h-1 rounded-full bg-tertiary" vid="282"></div>
+          <div class="flex items-center gap-1.5" vid="283">
+            <span class="text-accent-red" vid="284">-18 words</span>
+          </div>
+          <div class="w-1 h-1 rounded-full bg-tertiary" vid="285"></div>
+          <div class="text-secondary" vid="286">3 paragraphs modified</div>
+        </div>
+
+        <div class="flex items-center gap-3" vid="287">
+          <button
+            class="px-4 py-2 rounded text-xs font-medium text-secondary hover:text-primary hover:bg-white/5 transition-colors"
+            vid="288"
+          >
+            Close
+          </button>
+          <button
+            class="px-4 py-2 rounded text-xs font-medium bg-accent-blue text-white hover:bg-blue-600 shadow-glow transition-all flex items-center gap-2"
+            vid="289"
+          >
+            <i class="ph-bold ph-arrow-u-up-left" vid="290"></i>
+            Restore Before Version
+          </button>
+        </div>
+      </footer>
     </div>
-
-</body></html>
+  </body>
+</html>

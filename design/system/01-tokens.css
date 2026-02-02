@@ -15,32 +15,32 @@
    ============================================ */
 :root[data-theme="dark"] {
   /* 背景层级（按 elevation 递增：base → surface → raised） */
-  --color-bg-base: #080808;           /* 最底层：窗口背景 */
-  --color-bg-surface: #0f0f0f;        /* 面板/卡片/输入框背景 */
-  --color-bg-raised: #141414;         /* 浮起元素背景（popover/dropdown） */
+  --color-bg-base: #080808; /* 最底层：窗口背景 */
+  --color-bg-surface: #0f0f0f; /* 面板/卡片/输入框背景 */
+  --color-bg-raised: #141414; /* 浮起元素背景（popover/dropdown） */
   --color-bg-disabled: rgba(0, 0, 0, 0.4); /* 禁用状态覆盖层 */
 
   /* 交互状态背景 */
-  --color-bg-hover: #1a1a1a;          /* 悬停状态 */
-  --color-bg-active: #1f1f1f;         /* 激活/按下状态 */
-  --color-bg-selected: #222222;       /* 选中项 */
+  --color-bg-hover: #1a1a1a; /* 悬停状态 */
+  --color-bg-active: #1f1f1f; /* 激活/按下状态 */
+  --color-bg-selected: #222222; /* 选中项 */
 
   /* 前景（文字/图标） */
-  --color-fg-default: #ffffff;        /* 主要文字 */
-  --color-fg-muted: #888888;          /* 次要文字 */
-  --color-fg-subtle: #666666;         /* 辅助文字 */
-  --color-fg-placeholder: #444444;    /* 占位符 */
-  --color-fg-disabled: #333333;       /* 禁用状态 */
-  --color-fg-inverse: #080808;        /* 反色（用于 Primary 按钮文字） */
-  --color-fg-on-accent: #ffffff;      /* 强调色上的文字 */
+  --color-fg-default: #ffffff; /* 主要文字 */
+  --color-fg-muted: #888888; /* 次要文字 */
+  --color-fg-subtle: #666666; /* 辅助文字 */
+  --color-fg-placeholder: #444444; /* 占位符 */
+  --color-fg-disabled: #333333; /* 禁用状态 */
+  --color-fg-inverse: #080808; /* 反色（用于 Primary 按钮文字） */
+  --color-fg-on-accent: #ffffff; /* 强调色上的文字 */
 
   /* 边框与分割线 */
-  --color-border-default: #222222;    /* 默认边框 */
-  --color-border-hover: #333333;      /* 悬停边框 */
-  --color-border-focus: #444444;      /* 聚焦边框（非 focus ring） */
-  --color-separator: rgba(255, 255, 255, 0.06);  /* 1px 细分割线 */
-  --color-separator-bold: #222222;    /* 粗分割线 */
-  --color-scrim: rgba(0, 0, 0, 0.6);  /* 遮罩层 */
+  --color-border-default: #222222; /* 默认边框 */
+  --color-border-hover: #333333; /* 悬停边框 */
+  --color-border-focus: #444444; /* 聚焦边框（非 focus ring） */
+  --color-separator: rgba(255, 255, 255, 0.06); /* 1px 细分割线 */
+  --color-separator-bold: #222222; /* 粗分割线 */
+  --color-scrim: rgba(0, 0, 0, 0.6); /* 遮罩层 */
   --color-shadow: rgba(0, 0, 0, 0.5); /* 阴影基色 */
 
   /* Focus Ring */
@@ -110,11 +110,11 @@
   --color-info-subtle: rgba(59, 130, 246, 0.1);
 
   /* 知识图谱节点色 */
-  --color-node-character: #3b82f6;    /* 角色 - 蓝色 */
-  --color-node-location: #22c55e;     /* 地点 - 绿色 */
-  --color-node-event: #f97316;        /* 事件 - 橙色 */
-  --color-node-item: #06b6d4;         /* 物品 - 青色 */
-  --color-node-other: #8b5cf6;        /* 其他 - 紫色 */
+  --color-node-character: #3b82f6; /* 角色 - 蓝色 */
+  --color-node-location: #22c55e; /* 地点 - 绿色 */
+  --color-node-event: #f97316; /* 事件 - 橙色 */
+  --color-node-item: #06b6d4; /* 物品 - 青色 */
+  --color-node-other: #8b5cf6; /* 其他 - 紫色 */
 }
 
 /* ============================================
@@ -140,17 +140,17 @@
    ============================================ */
 :root {
   --space-0: 0px;
-  --space-1: 4px;      /* 最小间距 */
-  --space-2: 8px;      /* 紧凑间距 */
-  --space-3: 12px;     /* 常用间距 */
-  --space-4: 16px;     /* 标准间距 */
+  --space-1: 4px; /* 最小间距 */
+  --space-2: 8px; /* 紧凑间距 */
+  --space-3: 12px; /* 常用间距 */
+  --space-4: 16px; /* 标准间距 */
   --space-5: 20px;
-  --space-6: 24px;     /* 区块间距 */
-  --space-8: 32px;     /* 大间距 */
+  --space-6: 24px; /* 区块间距 */
+  --space-8: 32px; /* 大间距 */
   --space-10: 40px;
-  --space-12: 48px;    /* 模块间距 */
+  --space-12: 48px; /* 模块间距 */
   --space-16: 64px;
-  --space-20: 80px;    /* 页面间距 */
+  --space-20: 80px; /* 页面间距 */
 }
 
 /* ============================================
@@ -158,12 +158,12 @@
    ============================================ */
 :root {
   --radius-none: 0px;
-  --radius-sm: 4px;        /* 输入框、小按钮、列表项 */
-  --radius-md: 8px;        /* 一般按钮、下拉菜单 */
-  --radius-lg: 12px;       /* 对话框、弹窗 */
-  --radius-xl: 16px;       /* 卡片 */
-  --radius-2xl: 24px;      /* 大卡片、面板 */
-  --radius-full: 9999px;   /* 胶囊按钮、头像、标签 */
+  --radius-sm: 4px; /* 输入框、小按钮、列表项 */
+  --radius-md: 8px; /* 一般按钮、下拉菜单 */
+  --radius-lg: 12px; /* 对话框、弹窗 */
+  --radius-xl: 16px; /* 卡片 */
+  --radius-2xl: 24px; /* 大卡片、面板 */
+  --radius-full: 9999px; /* 胶囊按钮、头像、标签 */
 }
 
 /* ============================================
@@ -171,40 +171,41 @@
    ============================================ */
 :root {
   /* 缓动曲线 */
-  --ease-default: cubic-bezier(0.2, 0.0, 0.2, 1);
+  --ease-default: cubic-bezier(0.2, 0, 0.2, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 
   /* 时长 */
-  --duration-instant: 50ms;    /* 即时反馈 */
-  --duration-fast: 100ms;      /* 微交互（hover 颜色变化） */
-  --duration-normal: 200ms;    /* 标准过渡 */
-  --duration-slow: 300ms;      /* 面板展开/折叠 */
-  --duration-slower: 500ms;    /* 页面切换 */
+  --duration-instant: 50ms; /* 即时反馈 */
+  --duration-fast: 100ms; /* 微交互（hover 颜色变化） */
+  --duration-normal: 200ms; /* 标准过渡 */
+  --duration-slow: 300ms; /* 面板展开/折叠 */
+  --duration-slower: 500ms; /* 页面切换 */
 }
 
 /* ============================================
    z-index 层级
    ============================================ */
 :root {
-  --z-base: 0;           /* 默认层 */
-  --z-sticky: 100;       /* 粘性元素（工具栏） */
-  --z-dropdown: 200;     /* 下拉菜单 */
-  --z-popover: 300;      /* 弹出层 */
-  --z-modal: 400;        /* 模态框 */
-  --z-toast: 500;        /* Toast 通知 */
-  --z-tooltip: 600;      /* Tooltip */
-  --z-max: 9999;         /* 紧急覆盖（调试用） */
+  --z-base: 0; /* 默认层 */
+  --z-sticky: 100; /* 粘性元素（工具栏） */
+  --z-dropdown: 200; /* 下拉菜单 */
+  --z-popover: 300; /* 弹出层 */
+  --z-modal: 400; /* 模态框 */
+  --z-toast: 500; /* Toast 通知 */
+  --z-tooltip: 600; /* Tooltip */
+  --z-max: 9999; /* 紧急覆盖（调试用） */
 }
 
 /* ============================================
    字体族
    ============================================ */
 :root {
-  --font-family-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-family-body: 'Lora', 'Crimson Pro', Georgia, serif;
-  --font-family-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  --font-family-ui:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-family-body: "Lora", "Crimson Pro", Georgia, serif;
+  --font-family-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
 }
 
 /* ============================================
@@ -232,49 +233,49 @@
   --text-page-title-weight: 600;
   --text-page-title-line-height: 1.2;
   --text-page-title-letter-spacing: -0.02em;
-  
+
   /* 卡片标题 */
   --text-card-title-size: 16px;
   --text-card-title-weight: 600;
   --text-card-title-line-height: 1.3;
   --text-card-title-letter-spacing: -0.01em;
-  
+
   /* 小标题 */
   --text-subtitle-size: 14px;
   --text-subtitle-weight: 500;
   --text-subtitle-line-height: 1.4;
-  
+
   /* UI 正文 */
   --text-body-size: 13px;
   --text-body-weight: 400;
   --text-body-line-height: 1.5;
-  
+
   /* 编辑器正文 */
   --text-editor-size: 16px;
   --text-editor-weight: 400;
   --text-editor-line-height: 1.8;
-  
+
   /* 辅助信息 */
   --text-caption-size: 12px;
   --text-caption-weight: 400;
   --text-caption-line-height: 1.4;
-  
+
   /* 大写标签 */
   --text-label-size: 10px;
   --text-label-weight: 500;
   --text-label-line-height: 1.2;
   --text-label-letter-spacing: 0.1em;
-  
+
   /* 侧栏树节点 */
   --text-tree-size: 13px;
   --text-tree-weight: 400;
   --text-tree-line-height: 1.3;
-  
+
   /* 状态栏 */
   --text-status-size: 11px;
   --text-status-weight: 400;
   --text-status-line-height: 1.2;
-  
+
   /* 代码/等宽 */
   --text-mono-size: 13px;
   --text-mono-weight: 400;
@@ -342,23 +343,23 @@ textarea:focus-visible {
    ============================================ */
 :root {
   /* 固定尺寸 */
-  --size-icon-bar: 48px;           /* Icon Bar 宽度 */
-  --size-status-bar: 28px;         /* 状态栏高度 */
+  --size-icon-bar: 48px; /* Icon Bar 宽度 */
+  --size-status-bar: 28px; /* 状态栏高度 */
   --size-min-window-width: 1024px; /* 最小窗口宽度 */
   --size-min-window-height: 640px; /* 最小窗口高度 */
   --size-min-content-width: 400px; /* 主内容最小宽度 */
-  
+
   /* 可调整尺寸 - Sidebar */
   --size-sidebar-default: 240px;
   --size-sidebar-min: 180px;
   --size-sidebar-max: 400px;
-  
+
   /* 可调整尺寸 - Panel */
   --size-panel-default: 320px;
   --size-panel-min: 280px;
   --size-panel-max: 480px;
-  
+
   /* 图标规格 */
-  --size-icon: 24px;               /* 图标尺寸 */
-  --size-icon-button: 40px;        /* 图标点击区域 */
+  --size-icon: 24px; /* 图标尺寸 */
+  --size-icon-button: 40px; /* 图标点击区域 */
 }

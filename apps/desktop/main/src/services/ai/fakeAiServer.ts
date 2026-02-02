@@ -304,9 +304,9 @@ export async function startFakeAiServer(deps: {
 
     const payloadText = userText.includes("***REDACTED***")
       ? userText
-      : extractContextImmediatePayload(userText) ??
+      : (extractContextImmediatePayload(userText) ??
         extractTextBlockPayload(userText) ??
-        userText;
+        userText);
     const resultText = `E2E_RESULT: ${payloadText}`.trim();
 
     if (!stream) {

@@ -1,6 +1,10 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import { SearchPanel, MOCK_SEARCH_RESULTS, type SearchResultItem } from "./SearchPanel";
+import {
+  SearchPanel,
+  MOCK_SEARCH_RESULTS,
+  type SearchResultItem,
+} from "./SearchPanel";
 import { layoutDecorator } from "../../components/layout/test-utils";
 
 /**
@@ -93,9 +97,7 @@ export const Default: Story = {
     projectId: "project-1",
     open: true,
   },
-  render: (args) => (
-    <SearchPanelWithQuery {...args} />
-  ),
+  render: (args) => <SearchPanelWithQuery {...args} />,
 };
 
 /**
@@ -155,11 +157,11 @@ export const KnowledgeOnly: Story = {
   args: {
     projectId: "project-1",
     open: true,
-    mockResults: MOCK_SEARCH_RESULTS.filter((item) => item.type === "knowledge"),
+    mockResults: MOCK_SEARCH_RESULTS.filter(
+      (item) => item.type === "knowledge",
+    ),
   },
-  render: (args) => (
-    <SearchPanelWithQuery {...args} initialQuery="bauhaus" />
-  ),
+  render: (args) => <SearchPanelWithQuery {...args} initialQuery="bauhaus" />,
 };
 
 /**
@@ -177,21 +179,24 @@ export const ManyResults: Story = {
         id: "doc-3",
         type: "document" as const,
         title: "Digital Typography Principles",
-        snippet: "...the fundamental principles of design in modern typography systems...",
+        snippet:
+          "...the fundamental principles of design in modern typography systems...",
         path: "Essays / Typography",
       },
       {
         id: "doc-4",
         type: "document" as const,
         title: "Color Theory in UI Design",
-        snippet: "...applying color theory to user interface design requires understanding...",
+        snippet:
+          "...applying color theory to user interface design requires understanding...",
         path: "Research / Color",
       },
       {
         id: "mem-3",
         type: "memory" as const,
         title: "Writing Style Preference",
-        snippet: "User prefers concise, direct language in design documentation.",
+        snippet:
+          "User prefers concise, direct language in design documentation.",
         meta: "Writing Pattern",
       },
       {
@@ -202,7 +207,5 @@ export const ManyResults: Story = {
       },
     ],
   },
-  render: (args) => (
-    <SearchPanelWithQuery {...args} initialQuery="design" />
-  ),
+  render: (args) => <SearchPanelWithQuery {...args} initialQuery="design" />,
 };

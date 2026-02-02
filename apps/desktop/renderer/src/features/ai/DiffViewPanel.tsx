@@ -1,7 +1,12 @@
 import React from "react";
 import { DiffHeader, type DiffViewMode, type VersionInfo } from "./DiffHeader";
 import { DiffFooter } from "./DiffFooter";
-import { UnifiedDiffView, parseDiffLines, getChangePositions, type DiffStats } from "./DiffView";
+import {
+  UnifiedDiffView,
+  parseDiffLines,
+  getChangePositions,
+  type DiffStats,
+} from "./DiffView";
 import { SplitDiffView } from "./SplitDiffView";
 
 type DiffViewPanelProps = {
@@ -46,25 +51,25 @@ export function DiffViewPanel(props: DiffViewPanelProps): JSX.Element {
   // Parse diff
   const { lines, stats } = React.useMemo(
     () => parseDiffLines(props.diffText),
-    [props.diffText]
+    [props.diffText],
   );
 
   // Get change positions for navigation
   const changePositions = React.useMemo(
     () => getChangePositions(lines),
-    [lines]
+    [lines],
   );
 
   // State
   const [viewMode, setViewMode] = React.useState<DiffViewMode>(
-    props.initialViewMode ?? "unified"
+    props.initialViewMode ?? "unified",
   );
   const [currentChangeIndex, setCurrentChangeIndex] = React.useState(0);
   const [selectedBeforeVersion, setSelectedBeforeVersion] = React.useState(
-    versions.find((v) => v.type !== "current")?.id ?? versions[0]?.id ?? ""
+    versions.find((v) => v.type !== "current")?.id ?? versions[0]?.id ?? "",
   );
   const [selectedAfterVersion] = React.useState(
-    versions.find((v) => v.type === "current")?.id ?? "current"
+    versions.find((v) => v.type === "current")?.id ?? "current",
   );
 
   // Navigation handlers
@@ -73,7 +78,9 @@ export function DiffViewPanel(props: DiffViewPanelProps): JSX.Element {
   };
 
   const handleNextChange = (): void => {
-    setCurrentChangeIndex((prev) => Math.min(changePositions.length - 1, prev + 1));
+    setCurrentChangeIndex((prev) =>
+      Math.min(changePositions.length - 1, prev + 1),
+    );
   };
 
   // Close handler
