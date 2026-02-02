@@ -2,7 +2,7 @@
 
 - Issue: #116
 - Branch: task/116-memorypanel-ui-dialog
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/117
 
 ## Plan
 
