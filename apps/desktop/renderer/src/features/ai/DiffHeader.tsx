@@ -48,8 +48,12 @@ type DiffHeaderProps = {
 export function DiffHeader(props: DiffHeaderProps): JSX.Element {
   const [beforeDropdownOpen, setBeforeDropdownOpen] = React.useState(false);
 
-  const selectedBefore = props.versions.find((v) => v.id === props.selectedBeforeVersion);
-  const selectedAfter = props.versions.find((v) => v.id === props.selectedAfterVersion);
+  const selectedBefore = props.versions.find(
+    (v) => v.id === props.selectedBeforeVersion,
+  );
+  const selectedAfter = props.versions.find(
+    (v) => v.id === props.selectedAfterVersion,
+  );
 
   return (
     <header className="h-16 flex items-center justify-between px-6 border-b border-[var(--color-separator)] bg-[var(--color-bg-raised)] shrink-0">
@@ -63,13 +67,28 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
             className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-hover)] rounded border border-[var(--color-border-default)] text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors whitespace-nowrap"
           >
             {/* Clock icon */}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 8 14" />
             </svg>
             <span>{selectedBefore?.label ?? "Select version"}</span>
             {/* Caret down */}
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--color-fg-subtle)]">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="text-[var(--color-fg-subtle)]"
+            >
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </button>
@@ -89,7 +108,8 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
                 {props.versions
                   .filter((v) => v.id !== "current")
                   .map((version) => {
-                    const isSelected = version.id === props.selectedBeforeVersion;
+                    const isSelected =
+                      version.id === props.selectedBeforeVersion;
                     return (
                       <button
                         key={version.id}
@@ -110,11 +130,15 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
                           `}
                         />
                         <div className="flex-1 text-left">
-                          <div className={`text-xs ${isSelected ? "text-[var(--color-fg-default)]" : "text-[var(--color-fg-muted)]"}`}>
+                          <div
+                            className={`text-xs ${isSelected ? "text-[var(--color-fg-default)]" : "text-[var(--color-fg-muted)]"}`}
+                          >
                             {version.label}
                           </div>
                           <div className="text-[10px] text-[var(--color-fg-subtle)]">
-                            {version.type === "auto" ? "Auto-saved" : "Manual save"}
+                            {version.type === "auto"
+                              ? "Auto-saved"
+                              : "Manual save"}
                           </div>
                         </div>
                       </button>
@@ -126,7 +150,15 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
         </div>
 
         {/* Arrow */}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--color-fg-subtle)]">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          className="text-[var(--color-fg-subtle)]"
+        >
           <line x1="5" y1="12" x2="19" y2="12" />
           <polyline points="12 5 19 12 12 19" />
         </svg>
@@ -139,7 +171,15 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
           {/* Green dot */}
           <div className="w-2 h-2 rounded-full bg-[var(--color-success)] shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
           <span>{selectedAfter?.label ?? "Current Version"}</span>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[var(--color-fg-subtle)]">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="text-[var(--color-fg-subtle)]"
+          >
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </button>
@@ -154,9 +194,10 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
             onClick={() => props.onViewModeChange("split")}
             className={`
               px-3 py-1 text-xs font-medium rounded transition-all
-              ${props.viewMode === "split"
-                ? "bg-[var(--color-bg-raised)] shadow-sm text-[var(--color-fg-default)] border border-[var(--color-border-default)]"
-                : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
+              ${
+                props.viewMode === "split"
+                  ? "bg-[var(--color-bg-raised)] shadow-sm text-[var(--color-fg-default)] border border-[var(--color-border-default)]"
+                  : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
               }
             `}
           >
@@ -167,9 +208,10 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
             onClick={() => props.onViewModeChange("unified")}
             className={`
               px-3 py-1 text-xs font-medium rounded transition-all
-              ${props.viewMode === "unified"
-                ? "bg-[var(--color-bg-raised)] shadow-sm text-[var(--color-fg-default)] border border-[var(--color-border-default)]"
-                : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
+              ${
+                props.viewMode === "unified"
+                  ? "bg-[var(--color-bg-raised)] shadow-sm text-[var(--color-fg-default)] border border-[var(--color-border-default)]"
+                  : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
               }
             `}
           >
@@ -189,15 +231,26 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
             title="Previous Change"
             className="w-8 h-8 flex items-center justify-center rounded hover:bg-[var(--color-bg-hover)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <polyline points="18 15 12 9 6 15" />
             </svg>
           </button>
           <span className="text-xs font-[var(--font-family-mono)] text-[var(--color-fg-muted)] px-2">
             Change{" "}
-            <span className="text-[var(--color-fg-default)]">{props.totalChanges > 0 ? props.currentChangeIndex + 1 : 0}</span>
-            {" "}of{" "}
-            <span className="text-[var(--color-fg-default)]">{props.totalChanges}</span>
+            <span className="text-[var(--color-fg-default)]">
+              {props.totalChanges > 0 ? props.currentChangeIndex + 1 : 0}
+            </span>{" "}
+            of{" "}
+            <span className="text-[var(--color-fg-default)]">
+              {props.totalChanges}
+            </span>
           </span>
           <button
             type="button"
@@ -206,7 +259,14 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
             title="Next Change"
             className="w-8 h-8 flex items-center justify-center rounded hover:bg-[var(--color-bg-hover)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </button>
@@ -221,7 +281,14 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
           onClick={props.onClose}
           className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors p-2 rounded hover:bg-[var(--color-bg-hover)]"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>

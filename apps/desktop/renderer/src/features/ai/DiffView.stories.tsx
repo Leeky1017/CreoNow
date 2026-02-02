@@ -1,11 +1,19 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
-import { DiffView, UnifiedDiffView, parseDiffLines, getChangePositions } from "./DiffView";
+import {
+  DiffView,
+  UnifiedDiffView,
+  parseDiffLines,
+  getChangePositions,
+} from "./DiffView";
 import { DiffViewPanel } from "./DiffViewPanel";
 import { DiffHeader, type DiffViewMode, type VersionInfo } from "./DiffHeader";
 import { DiffFooter } from "./DiffFooter";
 import { SplitDiffView } from "./SplitDiffView";
-import { MultiVersionCompare, type VersionContent } from "./MultiVersionCompare";
+import {
+  MultiVersionCompare,
+  type VersionContent,
+} from "./MultiVersionCompare";
 import { layoutDecorator } from "../../components/layout/test-utils";
 
 /**
@@ -85,7 +93,13 @@ export const Default: Story = {
     diffText: sampleDiff,
   },
   render: (args) => (
-    <div style={{ width: "400px", backgroundColor: "var(--color-bg-surface)", padding: "16px" }}>
+    <div
+      style={{
+        width: "400px",
+        backgroundColor: "var(--color-bg-surface)",
+        padding: "16px",
+      }}
+    >
       <DiffView {...args} />
     </div>
   ),
@@ -99,7 +113,13 @@ export const Empty: Story = {
     diffText: "",
   },
   render: (args) => (
-    <div style={{ width: "400px", backgroundColor: "var(--color-bg-surface)", padding: "16px" }}>
+    <div
+      style={{
+        width: "400px",
+        backgroundColor: "var(--color-bg-surface)",
+        padding: "16px",
+      }}
+    >
       <DiffView {...args} />
     </div>
   ),
@@ -162,8 +182,15 @@ export const UnifiedViewOnly: Story = {
     const { lines } = parseDiffLines(args.diffText);
     const changePositions = getChangePositions(lines);
     return (
-      <div style={{ width: "700px", height: "400px" }} className="bg-[var(--color-bg-surface)] border border-[var(--color-separator)] rounded-lg overflow-hidden">
-        <UnifiedDiffView lines={lines} currentChangeIndex={0} changePositions={changePositions} />
+      <div
+        style={{ width: "700px", height: "400px" }}
+        className="bg-[var(--color-bg-surface)] border border-[var(--color-separator)] rounded-lg overflow-hidden"
+      >
+        <UnifiedDiffView
+          lines={lines}
+          currentChangeIndex={0}
+          changePositions={changePositions}
+        />
       </div>
     );
   },
@@ -181,7 +208,10 @@ export const SplitViewOnly: Story = {
   render: (args) => {
     const { lines } = parseDiffLines(args.diffText);
     return (
-      <div style={{ width: "900px", height: "400px" }} className="bg-[var(--color-bg-surface)] border border-[var(--color-separator)] rounded-lg overflow-hidden flex flex-col">
+      <div
+        style={{ width: "900px", height: "400px" }}
+        className="bg-[var(--color-bg-surface)] border border-[var(--color-separator)] rounded-lg overflow-hidden flex flex-col"
+      >
         <SplitDiffView lines={lines} />
       </div>
     );
@@ -401,10 +431,30 @@ We create immersive journeys where typography
 leads and imagery speaks.`;
 
 const multiVersions: VersionContent[] = [
-  { id: "v1", label: "Original (3 days ago)", content: sampleContent1, type: "manual" },
-  { id: "v2", label: "Version 2 (Yesterday)", content: sampleContent2, type: "auto" },
-  { id: "v3", label: "Version 3 (2h ago)", content: sampleContent3, type: "auto" },
-  { id: "v4", label: "Current Version", content: sampleContent4, type: "current" },
+  {
+    id: "v1",
+    label: "Original (3 days ago)",
+    content: sampleContent1,
+    type: "manual",
+  },
+  {
+    id: "v2",
+    label: "Version 2 (Yesterday)",
+    content: sampleContent2,
+    type: "auto",
+  },
+  {
+    id: "v3",
+    label: "Version 3 (2h ago)",
+    content: sampleContent3,
+    type: "auto",
+  },
+  {
+    id: "v4",
+    label: "Current Version",
+    content: sampleContent4,
+    type: "current",
+  },
 ];
 
 /**

@@ -22,7 +22,9 @@ export function DiffFooter(props: DiffFooterProps): JSX.Element {
       <div className="flex items-center gap-4 text-xs">
         {/* Added */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[var(--color-success)]">+{props.stats.addedLines} lines</span>
+          <span className="text-[var(--color-success)]">
+            +{props.stats.addedLines} lines
+          </span>
         </div>
 
         {/* Separator dot */}
@@ -30,7 +32,9 @@ export function DiffFooter(props: DiffFooterProps): JSX.Element {
 
         {/* Removed */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[var(--color-error)]">-{props.stats.removedLines} lines</span>
+          <span className="text-[var(--color-error)]">
+            -{props.stats.removedLines} lines
+          </span>
         </div>
 
         {/* Separator dot */}
@@ -38,7 +42,8 @@ export function DiffFooter(props: DiffFooterProps): JSX.Element {
 
         {/* Hunks */}
         <div className="text-[var(--color-fg-muted)]">
-          {props.stats.changedHunks} {props.stats.changedHunks === 1 ? "change" : "changes"}
+          {props.stats.changedHunks}{" "}
+          {props.stats.changedHunks === 1 ? "change" : "changes"}
         </div>
       </div>
 

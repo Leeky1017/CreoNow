@@ -14,6 +14,7 @@ consistency in DiffView to reduce perceived UI mismatch and clutter.
 - Add unit tests for the new multi-version compare behavior.
 
 ## Impact
+
 - Affected specs:
   - `rulebook/tasks/issue-110-diffview-multi-version-compare/specs/creonow-v1-workbench/spec.md`
 - Affected code:

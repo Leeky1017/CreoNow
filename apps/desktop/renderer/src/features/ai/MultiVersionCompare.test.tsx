@@ -5,9 +5,19 @@ import type { VersionContent } from "./VersionPane";
 
 const versions4: VersionContent[] = [
   { id: "v1", label: "Original", content: "Line 1\nLine 2", type: "manual" },
-  { id: "v2", label: "Version 2", content: "Line 1\nLine 2\nLine 3", type: "auto" },
+  {
+    id: "v2",
+    label: "Version 2",
+    content: "Line 1\nLine 2\nLine 3",
+    type: "auto",
+  },
   { id: "v3", label: "Version 3", content: "Hello\nWorld", type: "auto" },
-  { id: "v4", label: "Current Version", content: "Final\nContent", type: "current" },
+  {
+    id: "v4",
+    label: "Current Version",
+    content: "Final\nContent",
+    type: "current",
+  },
 ];
 
 describe("MultiVersionCompare", () => {
@@ -63,4 +73,3 @@ describe("MultiVersionCompare", () => {
     });
   });
 });
-

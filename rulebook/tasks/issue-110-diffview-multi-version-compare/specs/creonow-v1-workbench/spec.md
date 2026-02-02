@@ -28,4 +28,3 @@ It also polishes DiffView header/footer for consistency with the design system.
   (no forced wrapping), using consistent `text-xs` sizing.
 - Footer MUST NOT duplicate Close when the header already provides a close affordance (X).
 - Restore action MUST remain visually consistent with existing button styles and design tokens.
-
