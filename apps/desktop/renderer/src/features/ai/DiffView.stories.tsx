@@ -1,10 +1,19 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import React from "react";
-import { DiffView, UnifiedDiffView, parseDiffLines, getChangePositions } from "./DiffView";
+import {
+  DiffView,
+  UnifiedDiffView,
+  parseDiffLines,
+  getChangePositions,
+} from "./DiffView";
 import { DiffViewPanel } from "./DiffViewPanel";
 import { DiffHeader, type DiffViewMode, type VersionInfo } from "./DiffHeader";
 import { DiffFooter } from "./DiffFooter";
 import { SplitDiffView } from "./SplitDiffView";
+import {
+  MultiVersionCompare,
+  type VersionContent,
+} from "./MultiVersionCompare";
 import { layoutDecorator } from "../../components/layout/test-utils";
 
 /**
@@ -84,7 +93,13 @@ export const Default: Story = {
     diffText: sampleDiff,
   },
   render: (args) => (
-    <div style={{ width: "400px", backgroundColor: "var(--color-bg-surface)", padding: "16px" }}>
+    <div
+      style={{
+        width: "400px",
+        backgroundColor: "var(--color-bg-surface)",
+        padding: "16px",
+      }}
+    >
       <DiffView {...args} />
     </div>
   ),
@@ -98,7 +113,13 @@ export const Empty: Story = {
     diffText: "",
   },
   render: (args) => (
-    <div style={{ width: "400px", backgroundColor: "var(--color-bg-surface)", padding: "16px" }}>
+    <div
+      style={{
+        width: "400px",
+        backgroundColor: "var(--color-bg-surface)",
+        padding: "16px",
+      }}
+    >
       <DiffView {...args} />
     </div>
   ),
@@ -161,8 +182,15 @@ export const UnifiedViewOnly: Story = {
     const { lines } = parseDiffLines(args.diffText);
     const changePositions = getChangePositions(lines);
     return (
-      <div style={{ width: "700px", height: "400px" }} className="bg-[var(--color-bg-surface)] border border-[var(--color-separator)] rounded-lg overflow-hidden">
-        <UnifiedDiffView lines={lines} currentChangeIndex={0} changePositions={changePositions} />
+      <div
+        style={{ width: "700px", height: "400px" }}
+        className="bg-[var(--color-bg-surface)] border border-[var(--color-separator)] rounded-lg overflow-hidden"
+      >
+        <UnifiedDiffView
+          lines={lines}
+          currentChangeIndex={0}
+          changePositions={changePositions}
+        />
       </div>
     );
   },
@@ -180,7 +208,10 @@ export const SplitViewOnly: Story = {
   render: (args) => {
     const { lines } = parseDiffLines(args.diffText);
     return (
-      <div style={{ width: "900px", height: "400px" }} className="bg-[var(--color-bg-surface)] border border-[var(--color-separator)] rounded-lg overflow-hidden flex flex-col">
+      <div
+        style={{ width: "900px", height: "400px" }}
+        className="bg-[var(--color-bg-surface)] border border-[var(--color-separator)] rounded-lg overflow-hidden flex flex-col"
+      >
         <SplitDiffView lines={lines} />
       </div>
     );
@@ -337,6 +368,159 @@ export const OnlyDeletions: Story = {
         diffText={args.diffText}
         versions={mockVersions}
         initialViewMode="unified"
+      />
+    </div>
+  ),
+};
+
+// =============================================================================
+// Multi-Version Compare Stories
+// =============================================================================
+
+const sampleContent1 = `# The Architecture of Silence
+
+Intrigued by beauty, fascinated by technology and
+fuelled with an everlasting devotion to digital
+craftsmanship.
+
+Design is not just about making things look good. It is
+about how things work. In the digital realm, this
+translates to the seamless integration of form and
+function.
+
+We build immersive environments where typography
+leads the eye and imagery sets the mood.`;
+
+const sampleContent2 = `# The Architecture of Silence
+
+Driven by aesthetics, fascinated by AI and fueled
+with an eternal devotion to digital art.
+
+Design isn't merely about aesthetics. It is fundamentally
+about how things work. In the digital sphere, this
+translates to the seamless integration of form,
+function, and emotion.
+
+We build immersive environments where typography
+leads the eye and imagery sets the mood.`;
+
+const sampleContent3 = `# The Architecture of Silence
+
+Driven by creativity, empowered by AI and fueled
+with passion for digital excellence.
+
+Design transcends mere aesthetics. It fundamentally
+shapes how things work. In our digital world, this
+means perfect harmony between form, function,
+and human emotion.
+
+We craft immersive experiences where typography
+guides the eye and imagery evokes emotion.`;
+
+const sampleContent4 = `# The Architecture of Silence
+
+Inspired by creativity, enhanced by AI and fueled
+with dedication to digital craftsmanship.
+
+Design is the bridge between aesthetics and function.
+In our increasingly digital world, this translates to
+the seamless fusion of form, utility, and emotional
+resonance.
+
+We create immersive journeys where typography
+leads and imagery speaks.`;
+
+const multiVersions: VersionContent[] = [
+  {
+    id: "v1",
+    label: "Original (3 days ago)",
+    content: sampleContent1,
+    type: "manual",
+  },
+  {
+    id: "v2",
+    label: "Version 2 (Yesterday)",
+    content: sampleContent2,
+    type: "auto",
+  },
+  {
+    id: "v3",
+    label: "Version 3 (2h ago)",
+    content: sampleContent3,
+    type: "auto",
+  },
+  {
+    id: "v4",
+    label: "Current Version",
+    content: sampleContent4,
+    type: "current",
+  },
+];
+
+/**
+ * 多版本对比 - 2 个版本
+ */
+export const MultiVersion2: Story = {
+  args: {
+    diffText: sampleDiff,
+  },
+  render: () => (
+    <div style={{ width: "900px", height: "500px" }}>
+      <MultiVersionCompare
+        versions={multiVersions.slice(0, 2)}
+        onClose={() => console.log("Close clicked")}
+      />
+    </div>
+  ),
+};
+
+/**
+ * 多版本对比 - 3 个版本
+ */
+export const MultiVersion3: Story = {
+  args: {
+    diffText: sampleDiff,
+  },
+  render: () => (
+    <div style={{ width: "900px", height: "600px" }}>
+      <MultiVersionCompare
+        versions={multiVersions.slice(0, 3)}
+        onClose={() => console.log("Close clicked")}
+      />
+    </div>
+  ),
+};
+
+/**
+ * 多版本对比 - 4 个版本（2x2 网格）
+ */
+export const MultiVersion4: Story = {
+  args: {
+    diffText: sampleDiff,
+  },
+  render: () => (
+    <div style={{ width: "900px", height: "600px" }}>
+      <MultiVersionCompare
+        versions={multiVersions}
+        onClose={() => console.log("Close clicked")}
+      />
+    </div>
+  ),
+};
+
+/**
+ * 多版本对比 - 无同步滚动
+ */
+export const MultiVersionNoSync: Story = {
+  args: {
+    diffText: sampleDiff,
+  },
+  render: () => (
+    <div style={{ width: "900px", height: "600px" }}>
+      <MultiVersionCompare
+        versions={multiVersions}
+        syncScroll={false}
+        onClose={() => console.log("Close clicked")}
       />
     </div>
   ),
