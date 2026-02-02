@@ -1,81 +1,557 @@
 /**
- * CommandPalette is a minimal placeholder surface opened by Cmd/Ctrl+P.
+ * CommandPalette - 命令面板组件
+ *
+ * 设计稿参考：design/Variant/designs/17-command-palette.html
+ *
+ * 功能：
+ * - 三段式布局：Header（搜索框）+ Body（分组列表）+ Footer（键盘提示）
+ * - 搜索过滤：实时过滤命令/文件
+ * - 键盘导航：↑↓ 移动，Enter 确认，Esc 关闭
+ * - 搜索高亮：匹配文字高亮显示
  */
 import React from "react";
 
-import { Card } from "../../components/primitives/Card";
-import { ListItem } from "../../components/primitives/ListItem";
 import { Text } from "../../components/primitives/Text";
 import { invoke } from "../../lib/ipcClient";
 import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
 
-export function CommandPalette(props: {
+// =============================================================================
+// Types
+// =============================================================================
+
+/** 命令项 */
+export interface CommandItem {
+  /** 唯一标识 */
+  id: string;
+  /** 显示文本 */
+  label: string;
+  /** 图标（React 节点） */
+  icon?: React.ReactNode;
+  /** 快捷键（如 "⌘N"） */
+  shortcut?: string;
+  /** 子文本（如文件路径） */
+  subtext?: string;
+  /** 分组名称 */
+  group?: string;
+  /** 选中时执行的操作 */
+  onSelect: () => void | Promise<void>;
+}
+
+/** 命令分组 */
+interface CommandGroup {
+  title: string;
+  items: CommandItem[];
+}
+
+export interface CommandPaletteProps {
+  /** 面板是否打开 */
   open: boolean;
+  /** 打开状态变化回调 */
   onOpenChange: (open: boolean) => void;
-}): JSX.Element | null {
+  /** 自定义命令列表（可选，用于测试） */
+  commands?: CommandItem[];
+}
+
+// =============================================================================
+// Icons
+// =============================================================================
+
+/** 搜索图标 */
+function SearchIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+/** 编辑图标 */
+function EditIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M20 14.66V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.34" />
+      <polygon points="18 2 22 6 12 16 8 16 8 12 18 2" />
+    </svg>
+  );
+}
+
+/** 侧边栏图标 */
+function SidebarIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <line x1="9" y1="3" x2="9" y2="21" />
+    </svg>
+  );
+}
+
+/** 导出图标 */
+function DownloadIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+/** 设置图标 */
+function SettingsIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
+// =============================================================================
+// Utilities
+// =============================================================================
+
+/**
+ * 高亮匹配文字
+ * @param text 原文本
+ * @param query 搜索关键词
+ * @returns 带高亮的 React 节点
+ */
+function highlightMatch(text: string, query: string): React.ReactNode {
+  if (!query.trim()) {
+    return text;
+  }
+
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const index = lowerText.indexOf(lowerQuery);
+
+  if (index === -1) {
+    return text;
+  }
+
+  const before = text.slice(0, index);
+  const match = text.slice(index, index + query.length);
+  const after = text.slice(index + query.length);
+
+  return (
+    <>
+      {before}
+      <span className="text-[var(--color-fg-default)] font-medium">{match}</span>
+      {after}
+    </>
+  );
+}
+
+/**
+ * 将命令列表按分组组织
+ */
+function groupCommands(commands: CommandItem[]): CommandGroup[] {
+  const groups = new Map<string, CommandItem[]>();
+
+  for (const command of commands) {
+    const groupName = command.group ?? "Commands";
+    const existing = groups.get(groupName) ?? [];
+    groups.set(groupName, [...existing, command]);
+  }
+
+  return Array.from(groups.entries()).map(([title, items]) => ({
+    title,
+    items,
+  }));
+}
+
+/**
+ * 过滤命令列表
+ */
+function filterCommands(commands: CommandItem[], query: string): CommandItem[] {
+  if (!query.trim()) {
+    return commands;
+  }
+
+  const lowerQuery = query.toLowerCase();
+  return commands.filter(
+    (cmd) =>
+      cmd.label.toLowerCase().includes(lowerQuery) ||
+      cmd.subtext?.toLowerCase().includes(lowerQuery),
+  );
+}
+
+// =============================================================================
+// Component
+// =============================================================================
+
+export function CommandPalette({
+  open,
+  onOpenChange,
+  commands: customCommands,
+}: CommandPaletteProps): JSX.Element | null {
   const currentProjectId = useProjectStore((s) => s.current?.projectId ?? null);
   const documentId = useEditorStore((s) => s.documentId);
+
+  const [query, setQuery] = React.useState("");
+  const [activeIndex, setActiveIndex] = React.useState(0);
   const [errorText, setErrorText] = React.useState<string | null>(null);
 
-  if (!props.open) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  // 默认命令列表
+  const defaultCommands = React.useMemo<CommandItem[]>(
+    () => [
+      {
+        id: "open-settings",
+        label: "Open Settings",
+        icon: <SettingsIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: "⌘,",
+        group: "Suggestions",
+        onSelect: () => {
+          // TODO: Implement settings
+          onOpenChange(false);
+        },
+      },
+      {
+        id: "toggle-sidebar",
+        label: "Toggle Sidebar",
+        icon: <SidebarIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: "⌘B",
+        group: "Suggestions",
+        onSelect: () => {
+          // TODO: Implement toggle sidebar
+          onOpenChange(false);
+        },
+      },
+      {
+        id: "create-new-file",
+        label: "Create New File",
+        icon: <EditIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: "⌘N",
+        group: "Suggestions",
+        onSelect: () => {
+          // TODO: Implement create new file
+          onOpenChange(false);
+        },
+      },
+      {
+        id: "export-markdown",
+        label: "Export Markdown",
+        icon: <DownloadIcon className="text-[var(--color-fg-muted)]" />,
+        group: "Suggestions",
+        onSelect: async () => {
+          setErrorText(null);
+          if (!currentProjectId) {
+            setErrorText("No current project");
+            return;
+          }
+
+          const res = await invoke("export:markdown", {
+            projectId: currentProjectId,
+            documentId: documentId ?? undefined,
+          });
+          if (!res.ok) {
+            setErrorText(`${res.error.code}: ${res.error.message}`);
+            return;
+          }
+
+          onOpenChange(false);
+        },
+      },
+    ],
+    [currentProjectId, documentId, onOpenChange],
+  );
+
+  const commands = customCommands ?? defaultCommands;
+
+  // 过滤和分组
+  const filteredCommands = filterCommands(commands, query);
+  const groups = groupCommands(filteredCommands);
+
+  // 扁平化列表（用于键盘导航）
+  const flatItems = React.useMemo(
+    () => groups.flatMap((g) => g.items),
+    [groups],
+  );
+
+  // 当搜索词变化时重置 activeIndex
+  React.useEffect(() => {
+    setActiveIndex(0);
+  }, [query]);
+
+  // 打开时聚焦输入框
+  React.useEffect(() => {
+    if (open) {
+      setQuery("");
+      setActiveIndex(0);
+      setErrorText(null);
+      // 延迟聚焦以确保 DOM 已渲染
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    }
+  }, [open]);
+
+  // 滚动活动项到可视区域
+  React.useEffect(() => {
+    if (!listRef.current) return;
+
+    const activeElement = listRef.current.querySelector(
+      `[data-index="${activeIndex}"]`,
+    );
+    if (activeElement) {
+      activeElement.scrollIntoView({ block: "nearest" });
+    }
+  }, [activeIndex]);
+
+  // 键盘导航
+  function handleKeyDown(e: React.KeyboardEvent): void {
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setActiveIndex((prev) =>
+          prev < flatItems.length - 1 ? prev + 1 : prev,
+        );
+        break;
+
+      case "ArrowUp":
+        e.preventDefault();
+        setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
+        break;
+
+      case "Enter":
+        e.preventDefault();
+        if (flatItems[activeIndex]) {
+          void flatItems[activeIndex].onSelect();
+        }
+        break;
+
+      case "Escape":
+        e.preventDefault();
+        onOpenChange(false);
+        break;
+    }
+  }
+
+  if (!open) {
     return null;
   }
 
-  async function onExportMarkdown(): Promise<void> {
-    setErrorText(null);
-    if (!currentProjectId) {
-      setErrorText("No current project");
-      return;
-    }
-
-    const res = await invoke("export:markdown", {
-      projectId: currentProjectId,
-      documentId: documentId ?? undefined,
-    });
-    if (!res.ok) {
-      setErrorText(`${res.error.code}: ${res.error.message}`);
-      return;
-    }
-
-    props.onOpenChange(false);
-  }
-
   return (
-    <div className="cn-overlay" onClick={() => props.onOpenChange(false)}>
-      <Card
+    <div
+      className="cn-overlay"
+      onClick={() => onOpenChange(false)}
+      onKeyDown={handleKeyDown}
+    >
+      {/* 命令面板 */}
+      <div
         data-testid="command-palette"
         role="dialog"
         aria-modal="true"
+        aria-label="Command Palette"
         onClick={(e) => e.stopPropagation()}
-        variant="raised"
-        className="w-[520px] max-w-[90vw] flex flex-col gap-2.5 p-4 rounded-[var(--radius-lg)]"
+        className="w-[600px] max-w-[90vw] flex flex-col bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-xl overflow-hidden"
       >
-        <div className="flex items-baseline gap-2.5">
-          <Text size="small" color="muted">
-            Command Palette
-          </Text>
-          <Text size="tiny" color="subtle" className="ml-auto">
-            Ctrl/Cmd+P
-          </Text>
+        {/* Header: 搜索框 */}
+        <div className="h-14 flex items-center px-4 border-b border-[var(--color-border-default)]">
+          <SearchIcon
+            className={
+              query
+                ? "text-[var(--color-fg-default)] mr-3 shrink-0"
+                : "text-[var(--color-fg-muted)] mr-3 shrink-0"
+            }
+          />
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜索命令或文件..."
+            className="flex-1 bg-transparent border-none text-[15px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-placeholder)] outline-none"
+            aria-label="Search commands"
+          />
         </div>
 
-        {errorText ? (
-          <Text data-testid="command-palette-error" size="small" color="muted">
-            {errorText}
-          </Text>
-        ) : null}
-
-        <ListItem
-          data-testid="command-item-export-markdown"
-          interactive
-          compact
-          onClick={() => void onExportMarkdown()}
-          className="border border-[var(--color-border-default)] text-left"
+        {/* Body: 命令列表 */}
+        <div
+          ref={listRef}
+          className="max-h-[424px] overflow-y-auto p-2"
+          role="listbox"
         >
-          Export Markdown
-        </ListItem>
-      </Card>
+          {/* 错误提示 */}
+          {errorText && (
+            <div className="px-3 py-2 mb-2 bg-[var(--color-error-subtle)] rounded-[var(--radius-sm)]">
+              <Text
+                data-testid="command-palette-error"
+                size="small"
+                color="error"
+              >
+                {errorText}
+              </Text>
+            </div>
+          )}
+
+          {/* 空结果 */}
+          {flatItems.length === 0 && (
+            <div className="h-40 flex flex-col items-center justify-center gap-3">
+              <SearchIcon className="text-[var(--color-fg-placeholder)] w-8 h-8" />
+              <Text size="small" color="placeholder">
+                未找到匹配的命令
+              </Text>
+            </div>
+          )}
+
+          {/* 分组列表 */}
+          {groups.map((group) => {
+            // 计算该分组第一项在扁平列表中的起始索引
+            let startIndex = 0;
+            for (const g of groups) {
+              if (g === group) break;
+              startIndex += g.items.length;
+            }
+
+            return (
+              <div key={group.title} className="mb-1">
+                {/* 分组标题 */}
+                <div className="px-3 pt-3 pb-1.5 first:pt-1">
+                  <Text size="label" color="placeholder">
+                    {group.title}
+                  </Text>
+                </div>
+
+                {/* 分组项目 */}
+                {group.items.map((item, itemIndex) => {
+                  const flatIndex = startIndex + itemIndex;
+                  const isActive = flatIndex === activeIndex;
+
+                  return (
+                    <div
+                      key={item.id}
+                      data-testid={`command-item-${item.id}`}
+                      data-index={flatIndex}
+                      role="option"
+                      aria-selected={isActive}
+                      onClick={() => void item.onSelect()}
+                      onMouseEnter={() => setActiveIndex(flatIndex)}
+                      className={`
+                        relative h-10 flex items-center px-3 rounded-[var(--radius-sm)] cursor-pointer mb-0.5
+                        transition-colors duration-[var(--duration-fast)]
+                        ${
+                          isActive
+                            ? "bg-[var(--color-bg-hover)] text-[var(--color-fg-default)]"
+                            : "text-[var(--color-fg-muted)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--color-fg-default)]"
+                        }
+                      `}
+                    >
+                      {/* Active 指示器 */}
+                      {isActive && (
+                        <div className="absolute left-0 top-2.5 bottom-2.5 w-0.5 bg-[var(--color-accent-blue)] rounded-r-sm" />
+                      )}
+
+                      {/* 图标 */}
+                      {item.icon && (
+                        <div className="w-4 h-4 mr-3 flex items-center justify-center shrink-0">
+                          {item.icon}
+                        </div>
+                      )}
+
+                      {/* 文本 */}
+                      <div className="flex-1 text-[13px] truncate flex items-center gap-2">
+                        <span>{highlightMatch(item.label, query)}</span>
+                        {item.subtext && (
+                          <span className="text-[var(--color-fg-placeholder)] ml-1.5">
+                            {item.subtext}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* 快捷键 */}
+                      {item.shortcut && (
+                        <div
+                          className={`
+                          ml-2 px-1.5 py-0.5 text-[11px] rounded
+                          bg-[var(--color-bg-selected)] border border-[rgba(255,255,255,0.05)]
+                          ${isActive ? "text-[var(--color-fg-default)] border-[rgba(255,255,255,0.1)]" : "text-[var(--color-fg-muted)]"}
+                        `}
+                        >
+                          {item.shortcut}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer: 键盘提示 */}
+        <div className="h-9 px-4 flex items-center justify-end gap-4 border-t border-[var(--color-border-default)] bg-[var(--color-bg-surface)]">
+          <div className="flex items-center gap-1.5">
+            <span className="px-1 min-w-4 h-4 flex items-center justify-center text-[11px] text-[var(--color-fg-muted)] bg-[rgba(255,255,255,0.05)] rounded">
+              ↑↓
+            </span>
+            <Text size="tiny" color="placeholder">
+              导航
+            </Text>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="px-1 min-w-4 h-4 flex items-center justify-center text-[11px] text-[var(--color-fg-muted)] bg-[rgba(255,255,255,0.05)] rounded">
+              ↵
+            </span>
+            <Text size="tiny" color="placeholder">
+              选择
+            </Text>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="px-1 min-w-4 h-4 flex items-center justify-center text-[11px] text-[var(--color-fg-muted)] bg-[rgba(255,255,255,0.05)] rounded">
+              esc
+            </span>
+            <Text size="tiny" color="placeholder">
+              关闭
+            </Text>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
