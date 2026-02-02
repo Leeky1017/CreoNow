@@ -60,7 +60,7 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
           <button
             type="button"
             onClick={() => setBeforeDropdownOpen((v) => !v)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-hover)] rounded border border-[var(--color-border-default)] text-sm text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-hover)] rounded border border-[var(--color-border-default)] text-xs text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors whitespace-nowrap"
           >
             {/* Clock icon */}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -134,7 +134,7 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
         {/* After version (current) */}
         <button
           type="button"
-          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-hover)] rounded border border-[var(--color-border-default)] text-sm text-[var(--color-fg-default)] hover:border-[var(--color-border-hover)] transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-hover)] rounded border border-[var(--color-border-default)] text-xs text-[var(--color-fg-default)] hover:border-[var(--color-border-hover)] transition-colors whitespace-nowrap"
         >
           {/* Green dot */}
           <div className="w-2 h-2 rounded-full bg-[var(--color-success)] shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
