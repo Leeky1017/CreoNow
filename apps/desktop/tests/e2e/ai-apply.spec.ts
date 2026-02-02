@@ -83,7 +83,7 @@ test("ai apply: success path writes actor=ai version + main.log evidence", async
   await selectLastWord({ page });
 
   await page.getByTestId("ai-input").fill("replace-world");
-  await page.getByTestId("ai-run").click();
+  await page.getByTestId("ai-send-stop").click();
 
   await expect(page.getByTestId("ai-diff")).toBeVisible();
   await expect(page.getByTestId("ai-diff")).toContainText("-world");
@@ -135,7 +135,7 @@ test("ai apply: conflict path blocks overwrite + logs ai_apply_conflict", async 
   await selectLastWord({ page });
 
   await page.getByTestId("ai-input").fill("conflict-case");
-  await page.getByTestId("ai-run").click();
+  await page.getByTestId("ai-send-stop").click();
   await expect(page.getByTestId("ai-diff")).toBeVisible();
 
   await page.getByTestId("tiptap-editor").click();

@@ -74,7 +74,9 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
   }
   const docAId = parseDocumentId(firstRowIdAttr);
 
-  await firstRow.locator(`[data-testid="file-rename-${docAId}"]`).click();
+  await page.getByTestId(`file-row-${docAId}`).hover();
+  await page.getByTestId(`file-actions-${docAId}`).click();
+  await page.getByTestId(`file-rename-${docAId}`).click();
   await page.getByTestId(`file-rename-input-${docAId}`).fill("Doc A");
   await page.getByTestId(`file-rename-confirm-${docAId}`).click();
   await expect(page.getByTestId(`file-row-${docAId}`)).toContainText("Doc A");
@@ -153,6 +155,8 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     docBId,
   );
 
+  await page.getByTestId(`file-row-${docBId}`).hover();
+  await page.getByTestId(`file-actions-${docBId}`).click();
   await page.getByTestId(`file-rename-${docBId}`).click();
   await page.getByTestId(`file-rename-input-${docBId}`).fill("Doc B");
   await page.getByTestId(`file-rename-confirm-${docBId}`).click();
@@ -197,6 +201,8 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
   );
 
   page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByTestId(`file-row-${docBId}`).hover();
+  await page.getByTestId(`file-actions-${docBId}`).click();
   await page.getByTestId(`file-delete-${docBId}`).click();
 
   await expect(page.getByTestId(`file-row-${docBId}`)).toHaveCount(0);

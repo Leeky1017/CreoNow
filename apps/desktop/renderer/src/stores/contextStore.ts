@@ -289,9 +289,7 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
       type: string;
       origin: string;
       content: string;
-      reason:
-        | { kind: "deterministic" }
-        | { kind: "semantic"; score: number };
+      reason: { kind: "deterministic" } | { kind: "semantic"; score: number };
     }>;
     mode: "deterministic" | "semantic";
   }): string {
@@ -307,6 +305,36 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
       lines.push(`- (${tag}; ${reason}) ${item.content}`);
     }
 
+    return `${lines.join("\n").trimEnd()}\n`;
+  }
+
+  type RagRetrieveOk = Extract<IpcInvokeResult<"rag:retrieve">, { ok: true }>;
+  type RagRetrieveDiagnostics = RagRetrieveOk["data"]["diagnostics"];
+
+  /**
+   * Format `rag:retrieve` diagnostics into a retrieved-layer block.
+   *
+   * Why: E2E must be able to assert rerank enabled vs degraded (MODEL_NOT_READY)
+   * without depending on internal logs.
+   */
+  function formatRagRetrieveDiagnostics(d: RagRetrieveDiagnostics): string {
+    const lines: string[] = [];
+    lines.push("rag:retrieve");
+    lines.push(`mode=${d.mode}`);
+    lines.push(`rerank.enabled=${String(d.rerank.enabled)}`);
+    if (typeof d.rerank.reason === "string" && d.rerank.reason.length > 0) {
+      lines.push(`rerank.reason=${d.rerank.reason}`);
+    }
+    if (typeof d.rerank.model === "string" && d.rerank.model.length > 0) {
+      lines.push(`rerank.model=${d.rerank.model}`);
+    }
+    lines.push(`planner.selectedQuery=${d.planner.selectedQuery}`);
+    lines.push(`planner.selectedCount=${d.planner.selectedCount}`);
+    for (let i = 0; i < d.planner.queries.length; i += 1) {
+      const q = d.planner.queries[i] ?? "";
+      const hits = d.planner.perQueryHits[i] ?? 0;
+      lines.push(`planner.query[${i}]=${q} (hits=${hits})`);
+    }
     return `${lines.join("\n").trimEnd()}\n`;
   }
 
@@ -388,6 +416,16 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
         });
 
         if (ragRes.ok) {
+          const diag = redactText({
+            text: formatRagRetrieveDiagnostics(ragRes.data.diagnostics),
+            sourceRef: "retrieved:rag_diagnostics",
+          });
+          retrievedSources.push({
+            sourceRef: "retrieved:rag_diagnostics",
+            text: diag.redactedText,
+          });
+          retrievedRedactionEvidence.push(...diag.evidence);
+
           for (const item of ragRes.data.items) {
             const redacted = redactText({
               text: item.snippet,
@@ -400,14 +438,14 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
             retrievedRedactionEvidence.push(...redacted.evidence);
           }
         } else {
-            retrievedReadErrors.push({
-              layer: "retrieved",
-              sourceRef: "rag:retrieve",
-              action: "dropped",
-              reason: "read_error",
-              beforeChars: 0,
-              afterChars: 0,
-            });
+          retrievedReadErrors.push({
+            layer: "retrieved",
+            sourceRef: "rag:retrieve",
+            action: "dropped",
+            reason: "read_error",
+            beforeChars: 0,
+            afterChars: 0,
+          });
         }
 
         const memoryRes = await deps.invoke("memory:injection:preview", {

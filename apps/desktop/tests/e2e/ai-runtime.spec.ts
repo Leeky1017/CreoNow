@@ -78,7 +78,7 @@ async function setStreamEnabled(page: Page, enabled: boolean): Promise<void> {
  */
 async function runInput(page: Page, input: string): Promise<void> {
   await page.getByTestId("ai-input").fill(input);
-  await page.getByTestId("ai-run").click();
+  await page.getByTestId("ai-send-stop").click();
 }
 
 test("ai runtime: success (stream) + main.log evidence", async () => {
@@ -153,7 +153,7 @@ test("ai runtime: cancel stops output growth (stream)", async () => {
     return (el?.textContent?.length ?? 0) > 0;
   });
 
-  await page.getByTestId("ai-cancel").click();
+  await page.getByTestId("ai-send-stop").click();
   await expect(page.getByTestId("ai-status")).toContainText("canceled");
 
   const before = await page.getByTestId("ai-output").textContent();

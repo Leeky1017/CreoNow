@@ -65,13 +65,10 @@ async function launchApp(args: {
  */
 async function runInput(page: Page, input: string): Promise<void> {
   await page.getByTestId("ai-input").fill(input);
-  await page.getByTestId("ai-run").click();
+  await page.getByTestId("ai-send-stop").click();
 }
 
-test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
-  const userDataDir = await createIsolatedUserDataDir();
-  const { electronApp, page } = await launchApp({ userDataDir });
-
+async function createProjectAndGetId(page: Page): Promise<string> {
   await expect(page.getByTestId("welcome-screen")).toBeVisible();
   await page.getByTestId("welcome-create-project").click();
   await expect(page.getByTestId("create-project-dialog")).toBeVisible();
@@ -96,21 +93,26 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
   if (!current.ok) {
     throw new Error(`Expected ok current project, got: ${current.error.code}`);
   }
+  return current.data.projectId;
+}
 
-  const projectId = current.data.projectId;
-  const keyword = `E2EKEY_${randomUUID().replaceAll("-", "")}`;
-
-  const created = await page.evaluate(
-    async (args) => {
+async function createDocWithText(args: {
+  page: Page;
+  projectId: string;
+  title: string;
+  text: string;
+}): Promise<{ documentId: string }> {
+  const created = await args.page.evaluate(
+    async (payload) => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
       return await window.creonow.invoke("file:document:create", {
-        projectId: args.projectId,
-        title: "Search Target",
+        projectId: payload.projectId,
+        title: payload.title,
       });
     },
-    { projectId },
+    { projectId: args.projectId, title: args.title },
   );
   expect(created.ok).toBe(true);
   if (!created.ok) {
@@ -118,36 +120,52 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
   }
 
   const documentId = created.data.documentId;
-
   const contentJson = JSON.stringify({
     type: "doc",
     content: [
       {
         type: "paragraph",
-        content: [{ type: "text", text: `hello ${keyword} world` }],
+        content: [{ type: "text", text: args.text }],
       },
     ],
   });
 
-  const written = await page.evaluate(
-    async (args) => {
+  const written = await args.page.evaluate(
+    async (payload) => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
       return await window.creonow.invoke("file:document:write", {
-        projectId: args.projectId,
-        documentId: args.documentId,
-        contentJson: args.contentJson,
+        projectId: payload.projectId,
+        documentId: payload.documentId,
+        contentJson: payload.contentJson,
         actor: "user",
         reason: "manual-save",
       });
     },
-    { projectId, documentId, contentJson },
+    { projectId: args.projectId, documentId, contentJson },
   );
   expect(written.ok).toBe(true);
   if (!written.ok) {
     throw new Error(`Expected ok write, got: ${written.error.code}`);
   }
+
+  return { documentId };
+}
+
+test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
+  const userDataDir = await createIsolatedUserDataDir();
+  const { electronApp, page } = await launchApp({ userDataDir });
+
+  const projectId = await createProjectAndGetId(page);
+  const keyword = `E2EKEY_${randomUUID().replaceAll("-", "")}`;
+
+  const { documentId } = await createDocWithText({
+    page,
+    projectId,
+    title: "Search Target",
+    text: `hello ${keyword} world`,
+  });
 
   const searchRes = await page.evaluate(
     async (args) => {
@@ -200,6 +218,132 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
   );
   await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
     keyword,
+  );
+
+  await electronApp.close();
+});
+
+test("rag:retrieve diagnostics: rerank enabled but MODEL_NOT_READY degrades with explicit reason", async () => {
+  const userDataDir = await createIsolatedUserDataDir();
+  const { electronApp, page } = await launchApp({
+    userDataDir,
+    env: {
+      CREONOW_RAG_RERANK: "1",
+    },
+  });
+
+  const projectId = await createProjectAndGetId(page);
+  const keyword = `E2EKEY_${randomUUID().replaceAll("-", "")}`;
+
+  const { documentId } = await createDocWithText({
+    page,
+    projectId,
+    title: "Search Target",
+    text: `hello ${keyword} world`,
+  });
+
+  await runInput(page, keyword);
+  await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
+
+  await page.getByTestId("ai-context-toggle").click();
+  await expect(page.getByTestId("ai-context-panel")).toBeVisible();
+
+  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
+    `doc:${documentId}#chunk:0`,
+  );
+  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
+    "rag:retrieve",
+  );
+  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
+    "rerank.enabled=false",
+  );
+  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
+    "rerank.reason=MODEL_NOT_READY",
+  );
+
+  await electronApp.close();
+});
+
+test("rag:retrieve rerank: hash model enabled changes top1 and marks diagnostics", async () => {
+  const userDataDir = await createIsolatedUserDataDir();
+  const { electronApp, page } = await launchApp({
+    userDataDir,
+    env: {
+      CREONOW_RAG_RERANK: "1",
+      CREONOW_RAG_RERANK_MODEL: "hash-v1",
+    },
+  });
+
+  const projectId = await createProjectAndGetId(page);
+
+  const tokA = `foo${randomUUID().replaceAll("-", "")}`;
+  const tokB = `bar${randomUUID().replaceAll("-", "")}`;
+  const queryText = `${tokA} ${tokB}`;
+
+  const { documentId: docA } = await createDocWithText({
+    page,
+    projectId,
+    title: "Doc A",
+    text: new Array(80).fill(tokA).join(" "),
+  });
+  const { documentId: docB } = await createDocWithText({
+    page,
+    projectId,
+    title: "Doc B",
+    text: `${tokA} ${tokB}`,
+  });
+
+  const ftsRes = await page.evaluate(
+    async (args) => {
+      if (!window.creonow) {
+        throw new Error("Missing window.creonow bridge");
+      }
+      return await window.creonow.invoke("search:fulltext", {
+        projectId: args.projectId,
+        query: args.query,
+        limit: 5,
+      });
+    },
+    { projectId, query: tokA },
+  );
+  expect(ftsRes.ok).toBe(true);
+  if (!ftsRes.ok) {
+    throw new Error(`Expected ok search, got: ${ftsRes.error.code}`);
+  }
+  expect(ftsRes.data.items[0]?.documentId).toBe(docA);
+
+  const ragRes = await page.evaluate(
+    async (args) => {
+      if (!window.creonow) {
+        throw new Error("Missing window.creonow bridge");
+      }
+      return await window.creonow.invoke("rag:retrieve", {
+        projectId: args.projectId,
+        queryText: args.queryText,
+        limit: 5,
+        budgetTokens: 600,
+      });
+    },
+    { projectId, queryText },
+  );
+  expect(ragRes.ok).toBe(true);
+  if (!ragRes.ok) {
+    throw new Error(`Expected ok rag, got: ${ragRes.error.code}`);
+  }
+  expect(ragRes.data.items.length).toBeGreaterThan(1);
+  expect(ragRes.data.items[0]?.sourceRef).toContain(`doc:${docB}#chunk:`);
+  expect(ragRes.data.diagnostics.mode).toBe("fulltext_reranked");
+
+  await runInput(page, queryText);
+  await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
+
+  await page.getByTestId("ai-context-toggle").click();
+  await expect(page.getByTestId("ai-context-panel")).toBeVisible();
+  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
+    "mode=fulltext_reranked",
+  );
+  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
+    "rerank.enabled=true",
   );
 
   await electronApp.close();

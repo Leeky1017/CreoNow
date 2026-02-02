@@ -3,7 +3,9 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
+import type { EmbeddingService } from "../services/embedding/embeddingService";
 import { createRagService } from "../services/rag/ragService";
+import { LruCache } from "../services/rag/lruCache";
 
 /**
  * Register `rag:*` IPC handlers.
@@ -14,7 +16,11 @@ export function registerRagIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
+  embedding: EmbeddingService;
+  ragRerank: { enabled: boolean; model?: string };
 }): void {
+  const embeddingCache = new LruCache<string, number[]>({ maxEntries: 256 });
+
   deps.ipcMain.handle(
     "rag:retrieve",
     async (
@@ -33,7 +39,14 @@ export function registerRagIpcHandlers(deps: {
           usedTokens: number;
           droppedCount: number;
           trimmedCount: number;
-          mode: "fulltext";
+          mode: "fulltext" | "fulltext_reranked";
+          planner: {
+            queries: string[];
+            perQueryHits: number[];
+            selectedQuery: string;
+            selectedCount: number;
+          };
+          rerank: { enabled: boolean; reason?: string; model?: string };
           degradedFrom?: "semantic";
           reason?: string;
         };
@@ -52,7 +65,13 @@ export function registerRagIpcHandlers(deps: {
         };
       }
 
-      const svc = createRagService({ db: deps.db, logger: deps.logger });
+      const svc = createRagService({
+        db: deps.db,
+        logger: deps.logger,
+        embedding: deps.embedding,
+        embeddingCache,
+        rerank: deps.ragRerank,
+      });
       const res = svc.retrieve({
         projectId: payload.projectId,
         queryText: payload.queryText,

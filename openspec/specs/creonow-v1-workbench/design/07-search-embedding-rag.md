@@ -93,6 +93,17 @@ CN V1 支持两种 embedding 路径（实现可先做其一，但必须写死降
   - `sourceRef` 示例：`doc:<documentId>#chunk:<chunkId>`
 - retrieved layer 在 context viewer 中必须可见（`ai-context-layer-retrieved`）。
 
+### 5.3 V1 推荐路径：Lexical-first + local rerank（FTS + optional rerank）
+
+在 CN V1（Windows-first）阶段，推荐优先落地一条**可解释、可控、可降级**的检索链路：
+
+- **Recall MUST**：100% 基于 SQLite FTS5（lexical-first），确保可解释性与低依赖风险。
+- **Rerank MAY**：对 FTS topN candidates 进行本地 embedding 精排（不引入向量库）。
+  - 精排输入：`queryText + candidates.snippet`
+  - 精排输出：稳定重排（相同分数必须保持稳定顺序）
+- **Degrade MUST**：当 embedding 模型未就绪（`MODEL_NOT_READY`）时，必须跳过精排并保持 FTS 排序；
+  同时在 `rag:retrieve.diagnostics` 中写明降级原因，便于 Windows E2E 断言。
+
 ---
 
 ## 6. Windows-first 降级策略（必须可测）

@@ -903,8 +903,19 @@ export type IpcChannelSpec = {
         budgetTokens: number;
         degradedFrom?: "semantic";
         droppedCount: number;
-        mode: "fulltext";
+        mode: "fulltext" | "fulltext_reranked";
+        planner: {
+          perQueryHits: Array<number>;
+          queries: Array<string>;
+          selectedCount: number;
+          selectedQuery: string;
+        };
         reason?: string;
+        rerank: {
+          enabled: boolean;
+          model?: string;
+          reason?: string;
+        };
         trimmedCount: number;
         usedTokens: number;
       };
