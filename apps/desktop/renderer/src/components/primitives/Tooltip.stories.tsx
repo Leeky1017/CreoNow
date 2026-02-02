@@ -51,7 +51,8 @@ export const Default: Story = {
 /** 长文本内容 */
 export const LongContent: Story = {
   args: {
-    content: "This is a longer tooltip that contains more information about the element you're hovering over.",
+    content:
+      "This is a longer tooltip that contains more information about the element you're hovering over.",
     children: <Button>Hover for details</Button>,
   },
 };
@@ -136,7 +137,13 @@ export const DifferentTriggers: Story = {
         <Button variant="primary">Button</Button>
       </Tooltip>
       <Tooltip content="Text tooltip">
-        <span style={{ cursor: "help", textDecoration: "underline dotted", color: "var(--color-fg-default)" }}>
+        <span
+          style={{
+            cursor: "help",
+            textDecoration: "underline dotted",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Hover text
         </span>
       </Tooltip>

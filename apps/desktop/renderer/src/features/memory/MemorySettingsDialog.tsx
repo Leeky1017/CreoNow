@@ -81,7 +81,9 @@ export function MemorySettingsDialog(props: {
         </Text>
 
         <div className="flex items-center gap-3 mt-2">
-          <Text size="small" color="muted">学习阈值</Text>
+          <Text size="small" color="muted">
+            学习阈值
+          </Text>
           <Input
             data-testid="memory-settings-threshold"
             type="number"

@@ -133,4 +133,3 @@ const logger = createLogger();
     assert.equal(res.data.matches[1]?.score, 0.5);
   }
 }
-

@@ -54,7 +54,9 @@ function CreateDialogWrapper(props: CreateDialogWrapperProps): JSX.Element {
 
   const [memoryStore] = React.useState(() => {
     const mockIpc = createMockMemoryIpc();
-    return createMemoryStore(mockIpc as Parameters<typeof createMemoryStore>[0]);
+    return createMemoryStore(
+      mockIpc as Parameters<typeof createMemoryStore>[0],
+    );
   });
 
   return (
@@ -134,11 +136,7 @@ type Story = StoryObj<typeof MemoryCreateDialog>;
  */
 export const GlobalScope: Story = {
   render: () => (
-    <CreateDialogWrapper
-      open={true}
-      scope="global"
-      scopeLabel="全局"
-    />
+    <CreateDialogWrapper open={true} scope="global" scopeLabel="全局" />
   ),
 };
 
@@ -152,11 +150,7 @@ export const GlobalScope: Story = {
  */
 export const ProjectScope: Story = {
   render: () => (
-    <CreateDialogWrapper
-      open={true}
-      scope="project"
-      scopeLabel="项目"
-    />
+    <CreateDialogWrapper open={true} scope="project" scopeLabel="项目" />
   ),
 };
 
@@ -170,11 +164,7 @@ export const ProjectScope: Story = {
  */
 export const DocumentScope: Story = {
   render: () => (
-    <CreateDialogWrapper
-      open={true}
-      scope="document"
-      scopeLabel="文档"
-    />
+    <CreateDialogWrapper open={true} scope="document" scopeLabel="文档" />
   ),
 };
 
@@ -190,10 +180,6 @@ export const DocumentScope: Story = {
  */
 export const Interactive: Story = {
   render: () => (
-    <CreateDialogWrapper
-      open={false}
-      scope="global"
-      scopeLabel="全局"
-    />
+    <CreateDialogWrapper open={false} scope="global" scopeLabel="全局" />
   ),
 };

@@ -1,702 +1,826 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow AI Assistant</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" vid="5">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" vid="6">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet" vid="7">
+    <link rel="preconnect" href="https://fonts.googleapis.com" vid="5" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin=""
+      vid="6"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"
+      rel="stylesheet"
+      vid="7"
+    />
     <style vid="8">
-        :root {
-            
-            --bg-app: #0f0f0f;
-            --bg-user: #080808;
-            --bg-block: #1a1a1a;
-            --border-dim: #222222;
-            --border-mid: #333333;
-            --text-main: #ffffff;
-            --text-sub: #888888;
-            
-            
-            --accent-purple: #5D3FD3; 
-            --accent-orange: #FF4500; 
-            --accent-purple-dim: rgba(93, 63, 211, 0.15);
-            --font-main: 'Inter', sans-serif;
-            --font-code: 'JetBrains Mono', monospace;
-            
-            
-            --panel-width: 360px;
-            --radius-sm: 4px;
-            --radius-md: 8px;
-            --space-xs: 4px;
-            --space-sm: 8px;
-            --space-md: 12px;
-            --space-lg: 16px;
-            --space-xl: 24px;
-        }
+      :root {
+        --bg-app: #0f0f0f;
+        --bg-user: #080808;
+        --bg-block: #1a1a1a;
+        --border-dim: #222222;
+        --border-mid: #333333;
+        --text-main: #ffffff;
+        --text-sub: #888888;
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+        --accent-purple: #5d3fd3;
+        --accent-orange: #ff4500;
+        --accent-purple-dim: rgba(93, 63, 211, 0.15);
+        --font-main: "Inter", sans-serif;
+        --font-code: "JetBrains Mono", monospace;
 
-        body {
-            background-color: #000; 
-            color: var(--text-main);
-            font-family: var(--font-main);
-            font-size: 14px;
-            line-height: 1.5;
-            height: 100vh;
-            display: flex;
-            justify-content: flex-end; 
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
+        --panel-width: 360px;
+        --radius-sm: 4px;
+        --radius-md: 8px;
+        --space-xs: 4px;
+        --space-sm: 8px;
+        --space-md: 12px;
+        --space-lg: 16px;
+        --space-xl: 24px;
+      }
 
-        
-        .icon {
-            width: 16px;
-            height: 16px;
-            stroke: currentColor;
-            stroke-width: 1.5;
-            fill: none;
-            display: block;
-        }
-        .icon-sm { width: 14px; height: 14px; }
-        
-        
-        .ai-panel {
-            width: var(--panel-width);
-            height: 100%;
-            background-color: var(--bg-app);
-            border-left: 1px solid var(--border-mid);
-            display: flex;
-            flex-direction: column;
-            position: relative;
-        }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-        
-        .panel-header {
-            height: 48px;
-            border-bottom: 1px solid var(--border-dim);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 var(--space-md);
-            background: var(--bg-app);
-            flex-shrink: 0;
-            z-index: 10;
-        }
+      body {
+        background-color: #000;
+        color: var(--text-main);
+        font-family: var(--font-main);
+        font-size: 14px;
+        line-height: 1.5;
+        height: 100vh;
+        display: flex;
+        justify-content: flex-end;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
 
-        .header-tabs {
-            display: flex;
-            gap: var(--space-lg);
-            height: 100%;
-        }
+      .icon {
+        width: 16px;
+        height: 16px;
+        stroke: currentColor;
+        stroke-width: 1.5;
+        fill: none;
+        display: block;
+      }
+      .icon-sm {
+        width: 14px;
+        height: 14px;
+      }
 
-        .tab-btn {
-            background: none;
-            border: none;
-            color: var(--text-sub);
-            font-family: var(--font-main);
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            position: relative;
-            letter-spacing: 0.02em;
-            text-transform: uppercase; 
-            transition: color 0.2s;
-        }
+      .ai-panel {
+        width: var(--panel-width);
+        height: 100%;
+        background-color: var(--bg-app);
+        border-left: 1px solid var(--border-mid);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+      }
 
-        .tab-btn.active {
-            color: var(--text-main);
-        }
+      .panel-header {
+        height: 48px;
+        border-bottom: 1px solid var(--border-dim);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 var(--space-md);
+        background: var(--bg-app);
+        flex-shrink: 0;
+        z-index: 10;
+      }
 
-        
-        .tab-btn.active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background-color: var(--accent-purple);
-        }
+      .header-tabs {
+        display: flex;
+        gap: var(--space-lg);
+        height: 100%;
+      }
 
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-        }
+      .tab-btn {
+        background: none;
+        border: none;
+        color: var(--text-sub);
+        font-family: var(--font-main);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        position: relative;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        transition: color 0.2s;
+      }
 
-        .icon-btn {
-            background: transparent;
-            border: 1px solid transparent;
-            color: var(--text-sub);
-            width: 28px;
-            height: 28px;
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
+      .tab-btn.active {
+        color: var(--text-main);
+      }
 
-        .icon-btn:hover {
-            background: var(--border-dim);
-            color: var(--text-main);
-        }
+      .tab-btn.active::after {
+        content: "";
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: var(--accent-purple);
+      }
 
-        
-        .chat-area {
-            flex: 1;
-            overflow-y: auto;
-            padding: var(--space-lg);
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-xl);
-        }
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+      }
 
-        
-        .chat-area::-webkit-scrollbar {
-            width: 4px;
-        }
-        .chat-area::-webkit-scrollbar-thumb {
-            background: var(--border-mid);
-            border-radius: 2px;
-        }
+      .icon-btn {
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-sub);
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
 
-        
-        .empty-state {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            opacity: 0.6;
-            text-align: center;
-            padding-bottom: 20%; 
-        }
+      .icon-btn:hover {
+        background: var(--border-dim);
+        color: var(--text-main);
+      }
 
-        
-        .sunburst-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: radial-gradient(circle, var(--accent-orange) 0%, transparent 70%);
-            border: 1px solid var(--accent-purple);
-            margin-bottom: var(--space-lg);
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        
-        .sunburst-lines {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            animation: rotate 20s linear infinite;
-        }
-        .sunburst-lines::before, .sunburst-lines::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 50%;
-            width: 1px; height: 100%;
-            background: var(--accent-purple);
-            opacity: 0.5;
-        }
-        .sunburst-lines::after { transform: rotate(90deg); }
+      .chat-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: var(--space-lg);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-xl);
+      }
 
-        @keyframes rotate { 100% { transform: rotate(360deg); } }
+      .chat-area::-webkit-scrollbar {
+        width: 4px;
+      }
+      .chat-area::-webkit-scrollbar-thumb {
+        background: var(--border-mid);
+        border-radius: 2px;
+      }
 
-        .empty-text {
-            font-size: 14px;
-            color: var(--text-sub);
-            max-width: 200px;
-        }
+      .empty-state {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.6;
+        text-align: center;
+        padding-bottom: 20%;
+      }
 
-        
-        .msg-group {
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-sm);
-            opacity: 0;
-            animation: fadeIn 0.3s forwards;
-        }
+      .sunburst-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          var(--accent-orange) 0%,
+          transparent 70%
+        );
+        border: 1px solid var(--accent-purple);
+        margin-bottom: var(--space-lg);
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
 
-        @keyframes fadeIn { to { opacity: 1; } }
+      .sunburst-lines {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        animation: rotate 20s linear infinite;
+      }
+      .sunburst-lines::before,
+      .sunburst-lines::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 1px;
+        height: 100%;
+        background: var(--accent-purple);
+        opacity: 0.5;
+      }
+      .sunburst-lines::after {
+        transform: rotate(90deg);
+      }
 
-        
-        .msg-user {
-            align-self: flex-end;
-            max-width: 90%;
-            background-color: var(--bg-user);
-            border: 1px solid var(--border-dim);
-            border-radius: var(--radius-md);
-            padding: var(--space-md);
-            position: relative;
-            color: var(--text-main);
-            font-size: 14px;
+      @keyframes rotate {
+        100% {
+          transform: rotate(360deg);
         }
+      }
 
-        
-        .recall-btn {
-            position: absolute;
-            bottom: -20px;
-            right: 0;
-            color: var(--text-sub);
-            opacity: 0;
-            transition: opacity 0.2s;
-            cursor: pointer;
-            padding: 4px;
-        }
-        .msg-user:hover .recall-btn {
-            opacity: 1;
-        }
+      .empty-text {
+        font-size: 14px;
+        color: var(--text-sub);
+        max-width: 200px;
+      }
 
-        
-        .msg-ai {
-            align-self: flex-start;
-            width: 100%;
-            color: var(--text-main);
-            position: relative;
-            padding-left: var(--space-sm);
-        }
+      .msg-group {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-sm);
+        opacity: 0;
+        animation: fadeIn 0.3s forwards;
+      }
 
-        
-        .msg-ai::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 4px;
-            bottom: 4px;
-            width: 2px;
-            background: var(--accent-purple);
-            opacity: 0.5;
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
         }
+      }
 
-        .ai-header {
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-            margin-bottom: var(--space-xs);
-            font-size: 12px;
-            color: var(--text-sub);
-            font-family: var(--font-code);
-        }
+      .msg-user {
+        align-self: flex-end;
+        max-width: 90%;
+        background-color: var(--bg-user);
+        border: 1px solid var(--border-dim);
+        border-radius: var(--radius-md);
+        padding: var(--space-md);
+        position: relative;
+        color: var(--text-main);
+        font-size: 14px;
+      }
 
-        .ai-text {
-            line-height: 1.6;
-        }
+      .recall-btn {
+        position: absolute;
+        bottom: -20px;
+        right: 0;
+        color: var(--text-sub);
+        opacity: 0;
+        transition: opacity 0.2s;
+        cursor: pointer;
+        padding: 4px;
+      }
+      .msg-user:hover .recall-btn {
+        opacity: 1;
+      }
 
-        .ai-text p {
-            margin-bottom: var(--space-sm);
-        }
+      .msg-ai {
+        align-self: flex-start;
+        width: 100%;
+        color: var(--text-main);
+        position: relative;
+        padding-left: var(--space-sm);
+      }
 
-        
-        .code-block {
-            background-color: var(--bg-block);
-            border: 1px solid var(--border-dim);
-            border-radius: var(--radius-sm);
-            margin: var(--space-sm) 0;
-            overflow: hidden;
-            font-family: var(--font-code);
-            font-size: 13px;
-        }
+      .msg-ai::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 4px;
+        bottom: 4px;
+        width: 2px;
+        background: var(--accent-purple);
+        opacity: 0.5;
+      }
 
-        .code-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 12px;
-            background: var(--border-dim); 
-            color: var(--text-sub);
-            font-size: 11px;
-            text-transform: uppercase;
-            border-bottom: 1px solid var(--border-dim);
-        }
+      .ai-header {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        margin-bottom: var(--space-xs);
+        font-size: 12px;
+        color: var(--text-sub);
+        font-family: var(--font-code);
+      }
 
-        .code-actions {
-            display: flex;
-            gap: var(--space-sm);
-        }
+      .ai-text {
+        line-height: 1.6;
+      }
 
-        .code-action-btn {
-            background: none;
-            border: none;
-            color: var(--text-sub);
-            cursor: pointer;
-            font-size: 11px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            transition: color 0.2s;
-        }
-        .code-action-btn:hover { color: var(--text-main); }
-        .code-action-btn.primary:hover { color: var(--accent-purple); }
+      .ai-text p {
+        margin-bottom: var(--space-sm);
+      }
 
-        .code-content {
-            padding: var(--space-md);
-            overflow-x: auto;
-            color: #d4d4d4; 
-            line-height: 1.6;
-        }
+      .code-block {
+        background-color: var(--bg-block);
+        border: 1px solid var(--border-dim);
+        border-radius: var(--radius-sm);
+        margin: var(--space-sm) 0;
+        overflow: hidden;
+        font-family: var(--font-code);
+        font-size: 13px;
+      }
 
-        .keyword { color: #C586C0; }
-        .string { color: #CE9178; }
-        .function { color: #DCDCAA; }
+      .code-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 12px;
+        background: var(--border-dim);
+        color: var(--text-sub);
+        font-size: 11px;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border-dim);
+      }
 
-        
-        .cursor {
-            display: inline-block;
-            width: 8px;
-            height: 16px;
-            background-color: var(--accent-orange);
-            vertical-align: text-bottom;
-            animation: blink 1s step-end infinite;
-            margin-left: 2px;
-        }
+      .code-actions {
+        display: flex;
+        gap: var(--space-sm);
+      }
 
-        @keyframes blink { 50% { opacity: 0; } }
+      .code-action-btn {
+        background: none;
+        border: none;
+        color: var(--text-sub);
+        cursor: pointer;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: color 0.2s;
+      }
+      .code-action-btn:hover {
+        color: var(--text-main);
+      }
+      .code-action-btn.primary:hover {
+        color: var(--accent-purple);
+      }
 
-        
-        .thinking-indicator {
-            display: flex;
-            align-items: center;
-            gap: var(--space-sm);
-            color: var(--text-sub);
-            font-size: 12px;
-            font-family: var(--font-code);
-            padding: var(--space-sm) 0;
-        }
-        
-        .thinking-spinner {
-            width: 12px;
-            height: 12px;
-            border: 2px solid var(--border-mid);
-            border-top-color: var(--accent-orange);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
+      .code-content {
+        padding: var(--space-md);
+        overflow-x: auto;
+        color: #d4d4d4;
+        line-height: 1.6;
+      }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
+      .keyword {
+        color: #c586c0;
+      }
+      .string {
+        color: #ce9178;
+      }
+      .function {
+        color: #dcdcaa;
+      }
 
-        
-        .input-area {
-            background-color: var(--bg-app);
-            border-top: 1px solid var(--border-dim);
-            padding: var(--space-md);
-            display: flex;
-            flex-direction: column;
-            gap: var(--space-sm);
-            position: relative;
-        }
+      .cursor {
+        display: inline-block;
+        width: 8px;
+        height: 16px;
+        background-color: var(--accent-orange);
+        vertical-align: text-bottom;
+        animation: blink 1s step-end infinite;
+        margin-left: 2px;
+      }
 
-        
-        .context-pill-container {
-            display: flex;
-            gap: var(--space-xs);
-            flex-wrap: wrap;
-            margin-bottom: 4px;
+      @keyframes blink {
+        50% {
+          opacity: 0;
         }
-        
-        .context-pill {
-            font-size: 11px;
-            background: var(--border-dim);
-            border: 1px solid var(--border-mid);
-            border-radius: var(--radius-sm);
-            padding: 2px 6px;
-            color: var(--text-sub);
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .context-pill .close { cursor: pointer; }
+      }
 
-        .input-wrapper {
-            position: relative;
-            background: var(--bg-user);
-            border: 1px solid var(--border-dim);
-            border-radius: var(--radius-md);
-            display: flex;
-            flex-direction: column;
-            transition: border-color 0.2s;
-        }
+      .thinking-indicator {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        color: var(--text-sub);
+        font-size: 12px;
+        font-family: var(--font-code);
+        padding: var(--space-sm) 0;
+      }
 
-        .input-wrapper:focus-within {
-            border-color: var(--border-mid);
-        }
+      .thinking-spinner {
+        width: 12px;
+        height: 12px;
+        border: 2px solid var(--border-mid);
+        border-top-color: var(--accent-orange);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
 
-        textarea {
-            background: transparent;
-            border: none;
-            color: var(--text-main);
-            font-family: var(--font-main);
-            font-size: 14px;
-            padding: var(--space-md);
-            resize: none;
-            height: 60px; 
-            outline: none;
-            width: 100%;
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
         }
+      }
 
-        .input-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 var(--space-sm) var(--space-sm) var(--space-sm);
-        }
+      .input-area {
+        background-color: var(--bg-app);
+        border-top: 1px solid var(--border-dim);
+        padding: var(--space-md);
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-sm);
+        position: relative;
+      }
 
-        .toolbar-left {
-            display: flex;
-            gap: var(--space-xs);
-        }
+      .context-pill-container {
+        display: flex;
+        gap: var(--space-xs);
+        flex-wrap: wrap;
+        margin-bottom: 4px;
+      }
 
-        .tool-btn {
-            background: transparent;
-            border: 1px solid transparent;
-            border-radius: var(--radius-sm);
-            color: var(--text-sub);
-            font-size: 11px;
-            font-family: var(--font-code);
-            padding: 2px 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            transition: all 0.2s;
-        }
+      .context-pill {
+        font-size: 11px;
+        background: var(--border-dim);
+        border: 1px solid var(--border-mid);
+        border-radius: var(--radius-sm);
+        padding: 2px 6px;
+        color: var(--text-sub);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .context-pill .close {
+        cursor: pointer;
+      }
 
-        .tool-btn:hover {
-            background: var(--border-dim);
-            color: var(--text-main);
-        }
+      .input-wrapper {
+        position: relative;
+        background: var(--bg-user);
+        border: 1px solid var(--border-dim);
+        border-radius: var(--radius-md);
+        display: flex;
+        flex-direction: column;
+        transition: border-color 0.2s;
+      }
 
-        .tool-btn.active {
-            color: var(--accent-purple);
-            background: var(--accent-purple-dim);
-            border-color: rgba(93, 63, 211, 0.2);
-        }
+      .input-wrapper:focus-within {
+        border-color: var(--border-mid);
+      }
 
-        
-        .tool-separator {
-            color: var(--border-mid);
-            font-family: var(--font-code);
-            font-size: 11px;
-            margin: 0 2px;
-            display: flex;
-            align-items: center;
-        }
+      textarea {
+        background: transparent;
+        border: none;
+        color: var(--text-main);
+        font-family: var(--font-main);
+        font-size: 14px;
+        padding: var(--space-md);
+        resize: none;
+        height: 60px;
+        outline: none;
+        width: 100%;
+      }
 
-        .send-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 4px;
-            border: none;
-            background: var(--text-main);
-            color: var(--bg-app);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: transform 0.1s, background 0.2s;
-        }
-        
-        .send-btn:hover {
-            background: var(--accent-purple);
-            color: #fff;
-        }
+      .input-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0 var(--space-sm) var(--space-sm) var(--space-sm);
+      }
 
-        .send-btn:active {
-            transform: scale(0.95);
-        }
+      .toolbar-left {
+        display: flex;
+        gap: var(--space-xs);
+      }
 
-        
-        .skill-popup {
-            position: absolute;
-            bottom: 100%;
-            left: var(--space-md);
-            width: 200px;
-            background: var(--bg-block);
-            border: 1px solid var(--border-dim);
-            border-radius: var(--radius-md);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            padding: 4px;
-            display: none; 
-            z-index: 20;
-        }
-        
-        .skill-popup.visible { display: block; }
+      .tool-btn {
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: var(--radius-sm);
+        color: var(--text-sub);
+        font-size: 11px;
+        font-family: var(--font-code);
+        padding: 2px 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: all 0.2s;
+      }
 
-        .skill-item {
-            padding: 6px 12px;
-            font-size: 12px;
-            color: var(--text-sub);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border-radius: var(--radius-sm);
-        }
-        
-        .skill-item:hover {
-            background: var(--border-dim);
-            color: var(--text-main);
-        }
-        
-        .skill-icon {
-            width: 8px; height: 8px;
-            background: var(--accent-orange);
-            border-radius: 50%;
-        }
+      .tool-btn:hover {
+        background: var(--border-dim);
+        color: var(--text-main);
+      }
 
+      .tool-btn.active {
+        color: var(--accent-purple);
+        background: var(--accent-purple-dim);
+        border-color: rgba(93, 63, 211, 0.2);
+      }
+
+      .tool-separator {
+        color: var(--border-mid);
+        font-family: var(--font-code);
+        font-size: 11px;
+        margin: 0 2px;
+        display: flex;
+        align-items: center;
+      }
+
+      .send-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 4px;
+        border: none;
+        background: var(--text-main);
+        color: var(--bg-app);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition:
+          transform 0.1s,
+          background 0.2s;
+      }
+
+      .send-btn:hover {
+        background: var(--accent-purple);
+        color: #fff;
+      }
+
+      .send-btn:active {
+        transform: scale(0.95);
+      }
+
+      .skill-popup {
+        position: absolute;
+        bottom: 100%;
+        left: var(--space-md);
+        width: 200px;
+        background: var(--bg-block);
+        border: 1px solid var(--border-dim);
+        border-radius: var(--radius-md);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        padding: 4px;
+        display: none;
+        z-index: 20;
+      }
+
+      .skill-popup.visible {
+        display: block;
+      }
+
+      .skill-item {
+        padding: 6px 12px;
+        font-size: 12px;
+        color: var(--text-sub);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: var(--radius-sm);
+      }
+
+      .skill-item:hover {
+        background: var(--border-dim);
+        color: var(--text-main);
+      }
+
+      .skill-icon {
+        width: 8px;
+        height: 8px;
+        background: var(--accent-orange);
+        border-radius: 50%;
+      }
     </style>
-</head>
-<body vid="9">
-
+  </head>
+  <body vid="9">
     <div class="ai-panel" vid="10">
-        
-        <div class="panel-header" vid="11">
-            <div class="header-tabs" vid="12">
-                <button class="tab-btn active" vid="13">Assistant</button>
-                <button class="tab-btn" vid="14">Info</button>
+      <div class="panel-header" vid="11">
+        <div class="header-tabs" vid="12">
+          <button class="tab-btn active" vid="13">Assistant</button>
+          <button class="tab-btn" vid="14">Info</button>
+        </div>
+        <div class="header-actions" vid="15">
+          <button class="icon-btn" title="History" vid="16">
+            <svg class="icon" viewBox="0 0 24 24" vid="17">
+              <circle cx="12" cy="12" r="10" vid="18"></circle>
+              <polyline points="12 6 12 12 16 14" vid="19"></polyline>
+            </svg>
+          </button>
+          <button class="icon-btn" title="New Chat" vid="20">
+            <svg class="icon" viewBox="0 0 24 24" vid="21">
+              <line x1="12" y1="5" x2="12" y2="19" vid="22"></line>
+              <line x1="5" y1="12" x2="19" y2="12" vid="23"></line>
+            </svg>
+          </button>
+          <button class="icon-btn" title="Collapse" vid="24">
+            <svg class="icon" viewBox="0 0 24 24" vid="25">
+              <polyline points="13 17 18 12 13 7" vid="26"></polyline>
+              <polyline points="6 17 11 12 6 7" vid="27"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="chat-area" id="chatContainer" vid="28">
+        <div class="msg-group" vid="29">
+          <div class="msg-user" vid="30">
+            Create a Python script to sort a list of dictionaries by a specific
+            key.
+            <div class="recall-btn" title="Edit/Recall" vid="31">
+              <svg class="icon-sm" viewBox="0 0 24 24" vid="32">
+                <path d="M3 10h10a5 5 0 0 1 5 5v6" vid="33"></path>
+                <path d="M7 6 3 10l4 4" vid="34"></path>
+              </svg>
             </div>
-            <div class="header-actions" vid="15">
-                <button class="icon-btn" title="History" vid="16">
-                    <svg class="icon" viewBox="0 0 24 24" vid="17"><circle cx="12" cy="12" r="10" vid="18"></circle><polyline points="12 6 12 12 16 14" vid="19"></polyline></svg>
-                </button>
-                <button class="icon-btn" title="New Chat" vid="20">
-                    <svg class="icon" viewBox="0 0 24 24" vid="21"><line x1="12" y1="5" x2="12" y2="19" vid="22"></line><line x1="5" y1="12" x2="19" y2="12" vid="23"></line></svg>
-                </button>
-                <button class="icon-btn" title="Collapse" vid="24">
-                    <svg class="icon" viewBox="0 0 24 24" vid="25"><polyline points="13 17 18 12 13 7" vid="26"></polyline><polyline points="6 17 11 12 6 7" vid="27"></polyline></svg>
-                </button>
-            </div>
+          </div>
         </div>
 
-        
-        <div class="chat-area" id="chatContainer" vid="28">
-            
-            
-
-            
-            
-            
-            <div class="msg-group" vid="29">
-                <div class="msg-user" vid="30">
-                    Create a Python script to sort a list of dictionaries by a specific key.
-                    <div class="recall-btn" title="Edit/Recall" vid="31">
-                        <svg class="icon-sm" viewBox="0 0 24 24" vid="32"><path d="M3 10h10a5 5 0 0 1 5 5v6" vid="33"></path><path d="M7 6 3 10l4 4" vid="34"></path></svg>
-                    </div>
-                </div>
+        <div class="msg-group" vid="35">
+          <div class="msg-ai" vid="36">
+            <div class="ai-header" vid="37">
+              <svg
+                class="icon-sm"
+                style="color: var(--accent-purple)"
+                viewBox="0 0 24 24"
+                vid="38"
+              >
+                <path
+                  d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1v-1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z"
+                  vid="39"
+                ></path>
+              </svg>
+              <span vid="40">GPT-4o</span>
             </div>
+            <div class="ai-text" vid="41">
+              <p vid="42">
+                You can use the <code vid="43">sorted()</code> function with a
+                lambda function as the key.
+              </p>
 
-            
-            <div class="msg-group" vid="35">
-                <div class="msg-ai" vid="36">
-                    <div class="ai-header" vid="37">
-                        <svg class="icon-sm" style="color:var(--accent-purple);" viewBox="0 0 24 24" vid="38"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1v-1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2z" vid="39"></path></svg>
-                        <span vid="40">GPT-4o</span>
-                    </div>
-                    <div class="ai-text" vid="41">
-                        <p vid="42">You can use the <code vid="43">sorted()</code> function with a lambda function as the key.</p>
-                        
-                        <div class="code-block" vid="44">
-                            <div class="code-header" vid="45">
-                                <span vid="46">Python</span>
-                                <div class="code-actions" vid="47">
-                                    <button class="code-action-btn" title="Copy" vid="48"><svg class="icon-sm" viewBox="0 0 24 24" vid="49"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" vid="50"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" vid="51"></path></svg></button>
-                                    <button class="code-action-btn primary" title="Apply" vid="52"><svg class="icon-sm" viewBox="0 0 24 24" vid="53"><polyline points="9 11 12 14 22 4" vid="54"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" vid="55"></path></svg> Apply</button>
-                                </div>
-                            </div>
-                            <div class="code-content" vid="56">
-                                <div vid="57"><span class="keyword" vid="58">data</span> = [</div>
-                                <div vid="59">    {<span class="string" vid="60">'name'</span>: <span class="string" vid="61">'Alice'</span>, <span class="string" vid="62">'age'</span>: <span class="function" vid="63">25</span>},</div>
-                                <div vid="64">    {<span class="string" vid="65">'name'</span>: <span class="string" vid="66">'Bob'</span>, <span class="string" vid="67">'age'</span>: <span class="function" vid="68">20</span>}</div>
-                                <div vid="69">]</div>
-                                <div vid="70"><br vid="71"></div>
-                                <div vid="72"><span class="keyword" vid="73">sorted_data</span> = <span class="function" vid="74">sorted</span>(data, key=<span class="keyword" vid="75">lambda</span> x: x[<span class="string" vid="76">'age'</span>])</div>
-                                <div vid="77"><span class="function" vid="78">print</span>(sorted_data)</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            
-            <div class="msg-group" vid="79">
-                <div class="msg-user" vid="80">
-                    Now make it reverse order.
-                    <div class="recall-btn" title="Edit/Recall" vid="81">
-                        <svg class="icon-sm" viewBox="0 0 24 24" vid="82"><path d="M3 10h10a5 5 0 0 1 5 5v6" vid="83"></path><path d="M7 6 3 10l4 4" vid="84"></path></svg>
-                    </div>
-                </div>
-            </div>
-
-            
-            <div class="msg-group" vid="85">
-                <div class="msg-ai" vid="86">
-                    <div class="ai-text" vid="87">
-                        <p vid="88">Simply add the <code vid="89">reverse=True</code> parameter.<span class="cursor" vid="90"></span></p>
-                    </div>
-                </div>
-            </div>
-
-            
-            
-
-        </div>
-
-        
-        <div class="skill-popup" id="skillPopup" vid="91">
-            <div class="skill-item" vid="92">
-                <div class="skill-icon" vid="93"></div>
-                Frontend Specialist
-            </div>
-            <div class="skill-item" vid="94">
-                <div class="skill-icon" style="background:#888;" vid="95"></div>
-                Python Expert
-            </div>
-        </div>
-
-        
-        <div class="input-area" vid="96">
-            
-            <div class="context-pill-container" vid="97">
-                <div class="context-pill" vid="98">
-                    <svg class="icon-sm" viewBox="0 0 24 24" vid="99"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vid="100"></path><polyline points="14 2 14 8 20 8" vid="101"></polyline></svg>
-                    main.py <span class="close" vid="102">×</span>
-                </div>
-            </div>
-
-            <div class="input-wrapper" vid="103">
-                <textarea placeholder="Ask anything (Cmd+K)" vid="104"></textarea>
-                
-                <div class="input-footer" vid="105">
-                    <div class="toolbar-left" vid="106">
-                        <button class="tool-btn active" vid="107">Code</button>
-                        <span class="tool-separator" vid="108">/</span>
-                        <button class="tool-btn" vid="109">GPT-4</button>
-                        <span class="tool-separator" vid="110">/</span>
-                        <button class="tool-btn" onclick="document.getElementById('skillPopup').classList.toggle('visible')" vid="111">
-                             Skills <svg class="icon-sm" viewBox="0 0 24 24" style="width:10px; margin-left:2px;" vid="112"><polyline points="6 9 12 15 18 9" vid="113"></polyline></svg>
-                        </button>
-                    </div>
-                    
-                    <button class="send-btn" vid="114">
-                        <svg class="icon-sm" viewBox="0 0 24 24" vid="115"><line x1="22" y1="2" x2="11" y2="13" vid="116"></line><polygon points="22 2 15 22 11 13 2 9 22 2" vid="117"></polygon></svg>
+              <div class="code-block" vid="44">
+                <div class="code-header" vid="45">
+                  <span vid="46">Python</span>
+                  <div class="code-actions" vid="47">
+                    <button class="code-action-btn" title="Copy" vid="48">
+                      <svg class="icon-sm" viewBox="0 0 24 24" vid="49">
+                        <rect
+                          x="9"
+                          y="9"
+                          width="13"
+                          height="13"
+                          rx="2"
+                          ry="2"
+                          vid="50"
+                        ></rect>
+                        <path
+                          d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                          vid="51"
+                        ></path>
+                      </svg>
                     </button>
+                    <button
+                      class="code-action-btn primary"
+                      title="Apply"
+                      vid="52"
+                    >
+                      <svg class="icon-sm" viewBox="0 0 24 24" vid="53">
+                        <polyline points="9 11 12 14 22 4" vid="54"></polyline>
+                        <path
+                          d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"
+                          vid="55"
+                        ></path>
+                      </svg>
+                      Apply
+                    </button>
+                  </div>
                 </div>
+                <div class="code-content" vid="56">
+                  <div vid="57">
+                    <span class="keyword" vid="58">data</span> = [
+                  </div>
+                  <div vid="59">
+                    {<span class="string" vid="60">'name'</span>:
+                    <span class="string" vid="61">'Alice'</span>,
+                    <span class="string" vid="62">'age'</span>:
+                    <span class="function" vid="63">25</span>},
+                  </div>
+                  <div vid="64">
+                    {<span class="string" vid="65">'name'</span>:
+                    <span class="string" vid="66">'Bob'</span>,
+                    <span class="string" vid="67">'age'</span>:
+                    <span class="function" vid="68">20</span>}
+                  </div>
+                  <div vid="69">]</div>
+                  <div vid="70"><br vid="71" /></div>
+                  <div vid="72">
+                    <span class="keyword" vid="73">sorted_data</span> =
+                    <span class="function" vid="74">sorted</span>(data,
+                    key=<span class="keyword" vid="75">lambda</span> x: x[<span
+                      class="string"
+                      vid="76"
+                      >'age'</span
+                    >])
+                  </div>
+                  <div vid="77">
+                    <span class="function" vid="78">print</span>(sorted_data)
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
         </div>
 
+        <div class="msg-group" vid="79">
+          <div class="msg-user" vid="80">
+            Now make it reverse order.
+            <div class="recall-btn" title="Edit/Recall" vid="81">
+              <svg class="icon-sm" viewBox="0 0 24 24" vid="82">
+                <path d="M3 10h10a5 5 0 0 1 5 5v6" vid="83"></path>
+                <path d="M7 6 3 10l4 4" vid="84"></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="msg-group" vid="85">
+          <div class="msg-ai" vid="86">
+            <div class="ai-text" vid="87">
+              <p vid="88">
+                Simply add the
+                <code vid="89">reverse=True</code> parameter.<span
+                  class="cursor"
+                  vid="90"
+                ></span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="skill-popup" id="skillPopup" vid="91">
+        <div class="skill-item" vid="92">
+          <div class="skill-icon" vid="93"></div>
+          Frontend Specialist
+        </div>
+        <div class="skill-item" vid="94">
+          <div class="skill-icon" style="background: #888" vid="95"></div>
+          Python Expert
+        </div>
+      </div>
+
+      <div class="input-area" vid="96">
+        <div class="context-pill-container" vid="97">
+          <div class="context-pill" vid="98">
+            <svg class="icon-sm" viewBox="0 0 24 24" vid="99">
+              <path
+                d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                vid="100"
+              ></path>
+              <polyline points="14 2 14 8 20 8" vid="101"></polyline>
+            </svg>
+            main.py <span class="close" vid="102">×</span>
+          </div>
+        </div>
+
+        <div class="input-wrapper" vid="103">
+          <textarea placeholder="Ask anything (Cmd+K)" vid="104"></textarea>
+
+          <div class="input-footer" vid="105">
+            <div class="toolbar-left" vid="106">
+              <button class="tool-btn active" vid="107">Code</button>
+              <span class="tool-separator" vid="108">/</span>
+              <button class="tool-btn" vid="109">GPT-4</button>
+              <span class="tool-separator" vid="110">/</span>
+              <button
+                class="tool-btn"
+                onclick="
+                  document
+                    .getElementById('skillPopup')
+                    .classList.toggle('visible')
+                "
+                vid="111"
+              >
+                Skills
+                <svg
+                  class="icon-sm"
+                  viewBox="0 0 24 24"
+                  style="width: 10px; margin-left: 2px"
+                  vid="112"
+                >
+                  <polyline points="6 9 12 15 18 9" vid="113"></polyline>
+                </svg>
+              </button>
+            </div>
+
+            <button class="send-btn" vid="114">
+              <svg class="icon-sm" viewBox="0 0 24 24" vid="115">
+                <line x1="22" y1="2" x2="11" y2="13" vid="116"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2" vid="117"></polygon>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-
-
-</body></html>
+  </body>
+</html>

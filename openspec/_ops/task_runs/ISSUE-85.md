@@ -50,12 +50,12 @@
 
 ### 变更文件
 
-| 文件 | 变更 |
-|------|------|
-| Button.stories.tsx | +339 行：22 个 Stories 覆盖完整矩阵 |
-| Button.test.tsx | +270/-34 行：46 个测试用例 |
-| Button.tsx | +5/-1 行：修复文本溢出问题 |
-| tsconfig.json | +6/-1 行：添加 @testing-library/jest-dom 类型 |
+| 文件               | 变更                                          |
+| ------------------ | --------------------------------------------- |
+| Button.stories.tsx | +339 行：22 个 Stories 覆盖完整矩阵           |
+| Button.test.tsx    | +270/-34 行：46 个测试用例                    |
+| Button.tsx         | +5/-1 行：修复文本溢出问题                    |
+| tsconfig.json      | +6/-1 行：添加 @testing-library/jest-dom 类型 |
 
 ### 验收结果
 

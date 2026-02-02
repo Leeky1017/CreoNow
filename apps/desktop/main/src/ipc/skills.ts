@@ -41,7 +41,9 @@ export function registerSkillIpcHandlers(deps: {
         logger: deps.logger,
       });
       const res = svc.list({ includeDisabled: payload.includeDisabled });
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 
@@ -65,7 +67,9 @@ export function registerSkillIpcHandlers(deps: {
         logger: deps.logger,
       });
       const res = svc.read({ id: payload.id });
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 
@@ -74,7 +78,13 @@ export function registerSkillIpcHandlers(deps: {
     async (
       _e,
       payload: { id: string; content: string },
-    ): Promise<IpcResponse<{ id: string; scope: "builtin" | "global" | "project"; written: true }>> => {
+    ): Promise<
+      IpcResponse<{
+        id: string;
+        scope: "builtin" | "global" | "project";
+        written: true;
+      }>
+    > => {
       if (!deps.db) {
         return {
           ok: false,
@@ -89,7 +99,9 @@ export function registerSkillIpcHandlers(deps: {
         logger: deps.logger,
       });
       const res = svc.write({ id: payload.id, content: payload.content });
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 
@@ -113,8 +125,9 @@ export function registerSkillIpcHandlers(deps: {
         logger: deps.logger,
       });
       const res = svc.toggle({ id: payload.id, enabled: payload.enabled });
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 }
-

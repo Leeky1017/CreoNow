@@ -54,7 +54,10 @@ const variantStyles: Record<SkeletonVariant, string> = {
 /**
  * Default dimensions for each variant
  */
-const defaultDimensions: Record<SkeletonVariant, { width: string; height: string }> = {
+const defaultDimensions: Record<
+  SkeletonVariant,
+  { width: string; height: string }
+> = {
   text: { width: "100%", height: "1em" },
   circular: { width: "40px", height: "40px" },
   rectangular: { width: "100%", height: "100px" },
@@ -84,13 +87,19 @@ export function Skeleton({
 }: SkeletonProps): JSX.Element {
   const defaults = defaultDimensions[variant];
 
-  const computedWidth = width !== undefined
-    ? typeof width === "number" ? `${width}px` : width
-    : defaults.width;
+  const computedWidth =
+    width !== undefined
+      ? typeof width === "number"
+        ? `${width}px`
+        : width
+      : defaults.width;
 
-  const computedHeight = height !== undefined
-    ? typeof height === "number" ? `${height}px` : height
-    : defaults.height;
+  const computedHeight =
+    height !== undefined
+      ? typeof height === "number"
+        ? `${height}px`
+        : height
+      : defaults.height;
 
   const classes = [
     baseStyles,

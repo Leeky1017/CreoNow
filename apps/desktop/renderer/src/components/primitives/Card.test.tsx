@@ -93,7 +93,9 @@ describe("Card", () => {
       render(<Card hoverable>Hoverable</Card>);
 
       const card = screen.getByText("Hoverable").closest("div");
-      expect(card?.className).toContain("hover:border-[var(--color-border-hover)]");
+      expect(card?.className).toContain(
+        "hover:border-[var(--color-border-hover)]",
+      );
     });
 
     it("hoverable 模式应该有 hover 阴影样式", () => {

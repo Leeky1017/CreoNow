@@ -48,8 +48,12 @@ describe("Sidebar", () => {
     it("应该渲染标签页按钮", () => {
       renderWithWrapper();
 
-      expect(screen.getByRole("button", { name: /files/i })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /files/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /search/i }),
+      ).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /kg/i })).toBeInTheDocument();
     });
   });
@@ -78,7 +82,10 @@ describe("Sidebar", () => {
   // ===========================================================================
   describe("宽度约束", () => {
     it("应该有最小宽度限制", () => {
-      renderWithWrapper({ ...defaultProps, width: LAYOUT_DEFAULTS.sidebar.min });
+      renderWithWrapper({
+        ...defaultProps,
+        width: LAYOUT_DEFAULTS.sidebar.min,
+      });
 
       const sidebar = screen.getByTestId("layout-sidebar");
       expect(sidebar).toHaveStyle({
@@ -87,7 +94,10 @@ describe("Sidebar", () => {
     });
 
     it("应该有最大宽度限制", () => {
-      renderWithWrapper({ ...defaultProps, width: LAYOUT_DEFAULTS.sidebar.max });
+      renderWithWrapper({
+        ...defaultProps,
+        width: LAYOUT_DEFAULTS.sidebar.max,
+      });
 
       const sidebar = screen.getByTestId("layout-sidebar");
       expect(sidebar).toHaveStyle({
@@ -107,7 +117,9 @@ describe("Sidebar", () => {
       fireEvent.click(filesTab);
 
       // Files 标签应该有激活样式
-      expect(filesTab.className).toContain("border-[var(--color-border-focus)]");
+      expect(filesTab.className).toContain(
+        "border-[var(--color-border-focus)]",
+      );
     });
 
     it("点击 Search 标签应该激活", () => {
@@ -117,7 +129,9 @@ describe("Sidebar", () => {
       fireEvent.click(searchTab);
 
       // Search 标签应该有激活样式
-      expect(searchTab.className).toContain("border-[var(--color-border-focus)]");
+      expect(searchTab.className).toContain(
+        "border-[var(--color-border-focus)]",
+      );
     });
 
     it("点击 KG 标签应该激活", () => {

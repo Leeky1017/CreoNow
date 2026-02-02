@@ -28,7 +28,11 @@ export function registerAiProxyIpcHandlers(deps: {
   deps.ipcMain.handle(
     "ai:proxy:settings:get",
     async (): Promise<
-      IpcResponse<{ enabled: boolean; baseUrl: string; apiKeyConfigured: boolean }>
+      IpcResponse<{
+        enabled: boolean;
+        baseUrl: string;
+        apiKeyConfigured: boolean;
+      }>
     > => {
       if (!deps.db) {
         return {
@@ -36,9 +40,14 @@ export function registerAiProxyIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createAiProxySettingsService({ db: deps.db, logger: deps.logger });
+      const svc = createAiProxySettingsService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.get();
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 
@@ -48,7 +57,11 @@ export function registerAiProxyIpcHandlers(deps: {
       _e,
       payload: { patch: ProxySettingsPatch },
     ): Promise<
-      IpcResponse<{ enabled: boolean; baseUrl: string; apiKeyConfigured: boolean }>
+      IpcResponse<{
+        enabled: boolean;
+        baseUrl: string;
+        apiKeyConfigured: boolean;
+      }>
     > => {
       if (!deps.db) {
         return {
@@ -56,9 +69,14 @@ export function registerAiProxyIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createAiProxySettingsService({ db: deps.db, logger: deps.logger });
+      const svc = createAiProxySettingsService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.update({ patch: payload.patch });
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 
@@ -77,9 +95,14 @@ export function registerAiProxyIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      const svc = createAiProxySettingsService({ db: deps.db, logger: deps.logger });
+      const svc = createAiProxySettingsService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = await svc.test();
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 }

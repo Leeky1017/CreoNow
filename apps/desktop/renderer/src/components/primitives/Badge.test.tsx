@@ -36,7 +36,13 @@ describe("Badge", () => {
   // Variant 测试
   // ===========================================================================
   describe("variants", () => {
-    const variants: BadgeVariant[] = ["default", "success", "warning", "error", "info"];
+    const variants: BadgeVariant[] = [
+      "default",
+      "success",
+      "warning",
+      "error",
+      "info",
+    ];
 
     it.each(variants)("应该渲染 %s variant", (variant) => {
       render(<Badge variant={variant}>{variant}</Badge>);
@@ -124,7 +130,13 @@ describe("Badge", () => {
   // Variant × Size 矩阵测试
   // ===========================================================================
   describe("Variant × Size 矩阵", () => {
-    const variants: BadgeVariant[] = ["default", "success", "warning", "error", "info"];
+    const variants: BadgeVariant[] = [
+      "default",
+      "success",
+      "warning",
+      "error",
+      "info",
+    ];
     const sizes: BadgeSize[] = ["sm", "md"];
 
     const combinations = variants.flatMap((variant) =>

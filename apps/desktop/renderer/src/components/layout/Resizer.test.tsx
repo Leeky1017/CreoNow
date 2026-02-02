@@ -88,7 +88,9 @@ describe("Resizer", () => {
     });
 
     it("拖拽过程应该调用 onDrag 和 onCommit", () => {
-      const onDrag = vi.fn((deltaX: number, startWidth: number) => startWidth + deltaX);
+      const onDrag = vi.fn(
+        (deltaX: number, startWidth: number) => startWidth + deltaX,
+      );
       const onCommit = vi.fn();
 
       renderResizer({

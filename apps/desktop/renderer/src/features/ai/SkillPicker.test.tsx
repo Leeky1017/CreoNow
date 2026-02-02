@@ -3,10 +3,42 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { SkillPicker } from "./SkillPicker";
 
 const mockSkills = [
-  { id: "default", name: "Default", enabled: true, valid: true, scope: "global" as const, packageId: "pkg-1", version: "1.0.0" },
-  { id: "rewrite", name: "Rewrite", enabled: true, valid: true, scope: "project" as const, packageId: "pkg-2", version: "1.0.0" },
-  { id: "disabled", name: "Disabled Skill", enabled: false, valid: true, scope: "global" as const, packageId: "pkg-3", version: "1.0.0" },
-  { id: "invalid", name: "Invalid Skill", enabled: true, valid: false, scope: "global" as const, packageId: "pkg-4", version: "1.0.0" },
+  {
+    id: "default",
+    name: "Default",
+    enabled: true,
+    valid: true,
+    scope: "global" as const,
+    packageId: "pkg-1",
+    version: "1.0.0",
+  },
+  {
+    id: "rewrite",
+    name: "Rewrite",
+    enabled: true,
+    valid: true,
+    scope: "project" as const,
+    packageId: "pkg-2",
+    version: "1.0.0",
+  },
+  {
+    id: "disabled",
+    name: "Disabled Skill",
+    enabled: false,
+    valid: true,
+    scope: "global" as const,
+    packageId: "pkg-3",
+    version: "1.0.0",
+  },
+  {
+    id: "invalid",
+    name: "Invalid Skill",
+    enabled: true,
+    valid: false,
+    scope: "global" as const,
+    packageId: "pkg-4",
+    version: "1.0.0",
+  },
 ];
 
 describe("SkillPicker", () => {
@@ -22,7 +54,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={vi.fn()}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -37,7 +69,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={vi.fn()}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -51,7 +83,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={vi.fn()}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByTestId("ai-skill-default")).toBeInTheDocument();
@@ -73,11 +105,13 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={vi.fn()}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       const selectedButton = screen.getByTestId("ai-skill-default");
-      expect(selectedButton.className).toContain("border-[var(--color-border-accent)]");
+      expect(selectedButton.className).toContain(
+        "border-[var(--color-border-accent)]",
+      );
     });
   });
 
@@ -93,7 +127,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={vi.fn()}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       const disabledButton = screen.getByTestId("ai-skill-disabled");
@@ -108,7 +142,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={vi.fn()}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       const invalidButton = screen.getByTestId("ai-skill-invalid");
@@ -123,7 +157,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={vi.fn()}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByText("Disabled")).toBeInTheDocument();
@@ -137,7 +171,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={vi.fn()}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByText("Invalid")).toBeInTheDocument();
@@ -157,7 +191,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={vi.fn()}
           onSelectSkillId={onSelectSkillId}
-        />
+        />,
       );
 
       const rewriteButton = screen.getByTestId("ai-skill-rewrite");
@@ -175,7 +209,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={onOpenChange}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       const backdrop = screen.getByRole("presentation");
@@ -193,7 +227,7 @@ describe("SkillPicker", () => {
           selectedSkillId="default"
           onOpenChange={onOpenChange}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       const dialog = screen.getByRole("dialog");
@@ -215,7 +249,7 @@ describe("SkillPicker", () => {
           selectedSkillId=""
           onOpenChange={vi.fn()}
           onSelectSkillId={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByText("Skills")).toBeInTheDocument();

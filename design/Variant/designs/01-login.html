@@ -1,367 +1,484 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow - Login</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet" vid="6">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap"
+      rel="stylesheet"
+      vid="6"
+    />
     <style vid="7">
-        :root {
-            --bg-body: #080808;
-            --bg-surface: #0f0f0f;
-            --bg-hover: #1a1a1a;
-            
-            --text-main: #ffffff;
-            --text-muted: #888888;
-            --text-faint: #444444;
-            
-            --line-color: #222222;
-            --line-focus: #444444;
-            
-            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            --ease: cubic-bezier(0.2, 0.0, 0.2, 1);
-        }
+      :root {
+        --bg-body: #080808;
+        --bg-surface: #0f0f0f;
+        --bg-hover: #1a1a1a;
 
-        body {
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            font-family: var(--font-family);
-            -webkit-font-smoothing: antialiased;
-            overflow: hidden;
-        }
+        --text-main: #ffffff;
+        --text-muted: #888888;
+        --text-faint: #444444;
 
-        .uppercase-label {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
+        --line-color: #222222;
+        --line-focus: #444444;
 
-        .input-group {
-            position: relative;
-            margin-bottom: 24px;
-        }
+        --font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+        --ease: cubic-bezier(0.2, 0, 0.2, 1);
+      }
 
-        .custom-input {
-            width: 100%;
-            background: var(--bg-surface);
-            border: 1px solid var(--line-color);
-            color: var(--text-main);
-            padding: 14px 16px;
-            font-size: 14px;
-            border-radius: 4px;
-            transition: all 0.3s var(--ease);
-            outline: none;
-        }
+      body {
+        background-color: var(--bg-body);
+        color: var(--text-main);
+        font-family: var(--font-family);
+        -webkit-font-smoothing: antialiased;
+        overflow: hidden;
+      }
 
-        .custom-input:focus {
-            border-color: var(--text-muted);
-            background: var(--bg-hover);
-        }
+      .uppercase-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--text-muted);
+        font-weight: 500;
+      }
 
-        .custom-input::placeholder {
-            color: var(--text-faint);
-        }
+      .input-group {
+        position: relative;
+        margin-bottom: 24px;
+      }
 
-        .primary-btn {
-            width: 100%;
-            background: var(--text-main);
-            color: var(--bg-body);
-            border: 1px solid var(--text-main);
-            padding: 12px 24px;
-            font-size: 14px;
-            font-weight: 500;
-            border-radius: 100px;
-            cursor: pointer;
-            transition: all 0.3s var(--ease);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
+      .custom-input {
+        width: 100%;
+        background: var(--bg-surface);
+        border: 1px solid var(--line-color);
+        color: var(--text-main);
+        padding: 14px 16px;
+        font-size: 14px;
+        border-radius: 4px;
+        transition: all 0.3s var(--ease);
+        outline: none;
+      }
 
-        .primary-btn:hover {
-            background: #e0e0e0;
-            border-color: #e0e0e0;
-            transform: translateY(-1px);
-        }
+      .custom-input:focus {
+        border-color: var(--text-muted);
+        background: var(--bg-hover);
+      }
 
-        .secondary-btn {
-            background: transparent;
-            color: var(--text-muted);
-            border: 1px solid var(--line-color);
-            padding: 10px 20px;
-            font-size: 13px;
-            border-radius: 100px;
-            cursor: pointer;
-            transition: all 0.3s var(--ease);
-        }
+      .custom-input::placeholder {
+        color: var(--text-faint);
+      }
 
-        .secondary-btn:hover {
-            color: var(--text-main);
-            border-color: var(--text-faint);
-        }
+      .primary-btn {
+        width: 100%;
+        background: var(--text-main);
+        color: var(--bg-body);
+        border: 1px solid var(--text-main);
+        padding: 12px 24px;
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 100px;
+        cursor: pointer;
+        transition: all 0.3s var(--ease);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
 
-        .plus-marker {
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            pointer-events: none;
-        }
-        
-        .plus-marker::before, .plus-marker::after {
-            content: '';
-            position: absolute;
-            background-color: var(--line-color);
-        }
-        
-        .plus-marker::before {
-            top: 5px; left: 0; width: 10px; height: 1px;
-        }
-        
-        .plus-marker::after {
-            top: 0.5px; left: 4.5px; width: 1px; height: 10px;
-        }
+      .primary-btn:hover {
+        background: #e0e0e0;
+        border-color: #e0e0e0;
+        transform: translateY(-1px);
+      }
 
-        .grid-bg {
-            background-size: 40px 40px;
-            background-image: linear-gradient(to right, var(--line-color) 1px, transparent 1px),
-                              linear-gradient(to bottom, var(--line-color) 1px, transparent 1px);
-            opacity: 0.05;
-        }
+      .secondary-btn {
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--line-color);
+        padding: 10px 20px;
+        font-size: 13px;
+        border-radius: 100px;
+        cursor: pointer;
+        transition: all 0.3s var(--ease);
+      }
 
-        .glass-panel {
-            background: rgba(15, 15, 15, 0.4);
-            backdrop-filter: blur(12px);
-            border: 1px solid var(--line-color);
-        }
+      .secondary-btn:hover {
+        color: var(--text-main);
+        border-color: var(--text-faint);
+      }
 
-        
-        .fade-in {
-            animation: fadeIn 0.8s var(--ease) forwards;
-            opacity: 0;
-            transform: translateY(10px);
-        }
+      .plus-marker {
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        pointer-events: none;
+      }
 
-        .delay-100 { animation-delay: 0.1s; }
-        .delay-200 { animation-delay: 0.2s; }
-        .delay-300 { animation-delay: 0.3s; }
+      .plus-marker::before,
+      .plus-marker::after {
+        content: "";
+        position: absolute;
+        background-color: var(--line-color);
+      }
 
-        @keyframes fadeIn {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+      .plus-marker::before {
+        top: 5px;
+        left: 0;
+        width: 10px;
+        height: 1px;
+      }
 
-        .link-text {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 13px;
-            transition: color 0.2s;
-            border-bottom: 1px solid transparent;
-        }
-        .link-text:hover {
-            color: var(--text-main);
-            border-bottom-color: var(--text-faint);
-        }
+      .plus-marker::after {
+        top: 0.5px;
+        left: 4.5px;
+        width: 1px;
+        height: 10px;
+      }
 
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            user-select: none;
-        }
-        
-        .custom-checkbox {
-            width: 16px;
-            height: 16px;
-            border: 1px solid var(--line-color);
-            background: var(--bg-surface);
-            border-radius: 3px;
-            position: relative;
-            transition: all 0.2s;
-        }
-        
-        .checkbox-wrapper:hover .custom-checkbox {
-            border-color: var(--text-faint);
-        }
+      .grid-bg {
+        background-size: 40px 40px;
+        background-image:
+          linear-gradient(to right, var(--line-color) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--line-color) 1px, transparent 1px);
+        opacity: 0.05;
+      }
 
-        .checkbox-wrapper input:checked + .custom-checkbox {
-            background: var(--text-main);
-            border-color: var(--text-main);
-        }
+      .glass-panel {
+        background: rgba(15, 15, 15, 0.4);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--line-color);
+      }
 
-        .checkbox-wrapper input:checked + .custom-checkbox::after {
-            content: '';
-            position: absolute;
-            top: 45%;
-            left: 50%;
-            width: 4px;
-            height: 8px;
-            border: solid #000;
-            border-width: 0 1.5px 1.5px 0;
-            transform: translate(-50%, -60%) rotate(45deg);
-        }
+      .fade-in {
+        animation: fadeIn 0.8s var(--ease) forwards;
+        opacity: 0;
+        transform: translateY(10px);
+      }
 
-        .divider {
-            height: 1px;
-            background: var(--line-color);
-            width: 100%;
-            margin: 32px 0;
+      .delay-100 {
+        animation-delay: 0.1s;
+      }
+      .delay-200 {
+        animation-delay: 0.2s;
+      }
+      .delay-300 {
+        animation-delay: 0.3s;
+      }
+
+      @keyframes fadeIn {
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
+      }
+
+      .link-text {
+        color: var(--text-muted);
+        text-decoration: none;
+        font-size: 13px;
+        transition: color 0.2s;
+        border-bottom: 1px solid transparent;
+      }
+      .link-text:hover {
+        color: var(--text-main);
+        border-bottom-color: var(--text-faint);
+      }
+
+      .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .custom-checkbox {
+        width: 16px;
+        height: 16px;
+        border: 1px solid var(--line-color);
+        background: var(--bg-surface);
+        border-radius: 3px;
+        position: relative;
+        transition: all 0.2s;
+      }
+
+      .checkbox-wrapper:hover .custom-checkbox {
+        border-color: var(--text-faint);
+      }
+
+      .checkbox-wrapper input:checked + .custom-checkbox {
+        background: var(--text-main);
+        border-color: var(--text-main);
+      }
+
+      .checkbox-wrapper input:checked + .custom-checkbox::after {
+        content: "";
+        position: absolute;
+        top: 45%;
+        left: 50%;
+        width: 4px;
+        height: 8px;
+        border: solid #000;
+        border-width: 0 1.5px 1.5px 0;
+        transform: translate(-50%, -60%) rotate(45deg);
+      }
+
+      .divider {
+        height: 1px;
+        background: var(--line-color);
+        width: 100%;
+        margin: 32px 0;
+      }
     </style>
-</head>
-<body class="w-full h-screen flex relative" vid="8">
-
-    
+  </head>
+  <body class="w-full h-screen flex relative" vid="8">
     <div class="absolute inset-0 grid-bg pointer-events-none" vid="9"></div>
 
-    
     <div class="plus-marker top-8 left-8" vid="10"></div>
     <div class="plus-marker top-8 right-8" vid="11"></div>
     <div class="plus-marker bottom-8 left-8" vid="12"></div>
     <div class="plus-marker bottom-8 right-8" vid="13"></div>
 
-    
-    <div class="hidden lg:flex flex-col justify-between w-[40%] h-full p-12 lg:p-16 border-r border-[#222222] relative z-10 bg-[#080808]" vid="14">
-        
-        
-        <div class="fade-in" vid="15">
-            <div class="flex items-center gap-2 mb-2" vid="16">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-white" vid="17">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" vid="18"></rect>
-                    <line x1="8" y1="21" x2="16" y2="21" vid="19"></line>
-                    <line x1="12" y1="17" x2="12" y2="21" vid="20"></line>
-                </svg>
-                <div class="text-lg font-semibold tracking-tight" vid="21">
-                    CREO<span class="text-[#888888] font-normal" vid="22">NOW</span>
-                </div>
-            </div>
+    <div
+      class="hidden lg:flex flex-col justify-between w-[40%] h-full p-12 lg:p-16 border-r border-[#222222] relative z-10 bg-[#080808]"
+      vid="14"
+    >
+      <div class="fade-in" vid="15">
+        <div class="flex items-center gap-2 mb-2" vid="16">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="text-white"
+            vid="17"
+          >
+            <rect
+              x="2"
+              y="3"
+              width="20"
+              height="14"
+              rx="2"
+              ry="2"
+              vid="18"
+            ></rect>
+            <line x1="8" y1="21" x2="16" y2="21" vid="19"></line>
+            <line x1="12" y1="17" x2="12" y2="21" vid="20"></line>
+          </svg>
+          <div class="text-lg font-semibold tracking-tight" vid="21">
+            CREO<span class="text-[#888888] font-normal" vid="22">NOW</span>
+          </div>
         </div>
+      </div>
 
-        
-        <div class="fade-in delay-100 max-w-md" vid="23">
-            <h1 class="text-3xl font-light leading-tight mb-6 text-white" vid="24">
-                The aesthetic of silence.
-            </h1>
-            <p class="text-[#888888] leading-relaxed text-sm font-light" vid="25">
-                Focus on what matters. Our distraction-free environment is designed to help you capture your thoughts with clarity and precision.
-            </p>
-        </div>
+      <div class="fade-in delay-100 max-w-md" vid="23">
+        <h1 class="text-3xl font-light leading-tight mb-6 text-white" vid="24">
+          The aesthetic of silence.
+        </h1>
+        <p class="text-[#888888] leading-relaxed text-sm font-light" vid="25">
+          Focus on what matters. Our distraction-free environment is designed to
+          help you capture your thoughts with clarity and precision.
+        </p>
+      </div>
 
-        
-        <div class="fade-in delay-200 flex gap-6 text-xs text-[#444444] uppercase tracking-wider" vid="26">
-            <span vid="27">© 2024 CreoNow</span>
-            <span vid="28">v2.4.0</span>
-        </div>
+      <div
+        class="fade-in delay-200 flex gap-6 text-xs text-[#444444] uppercase tracking-wider"
+        vid="26"
+      >
+        <span vid="27">© 2024 CreoNow</span>
+        <span vid="28">v2.4.0</span>
+      </div>
     </div>
 
-    
-    <main class="flex-1 flex flex-col justify-center items-center p-8 relative z-10" vid="29">
-        
-        <div class="w-full max-w-[420px] fade-in delay-200" vid="30">
-            
-            
-            <div class="lg:hidden flex justify-center mb-12" vid="31">
-                 <div class="text-lg font-semibold tracking-tight" vid="32">
-                    CREO<span class="text-[#888888] font-normal" vid="33">NOW</span>
-                </div>
-            </div>
-
-            
-            <div class="mb-10" vid="34">
-                <h2 class="text-2xl font-medium text-white mb-2" vid="35">Welcome back</h2>
-                <p class="text-[#888888] text-sm" vid="36">Enter your workspace credentials to continue.</p>
-            </div>
-
-            <form onsubmit="event.preventDefault();" vid="37">
-                
-                <div class="input-group" vid="38">
-                    <label class="block uppercase-label mb-2" vid="39">Email Address</label>
-                    <input type="email" placeholder="name@example.com" class="custom-input" required="" vid="40">
-                </div>
-
-                
-                <div class="input-group" vid="41">
-                    <div class="flex justify-between items-center mb-2" vid="42">
-                        <label class="block uppercase-label" vid="43">Password</label>
-                        <a href="#" class="text-xs text-[#666666] hover:text-white transition-colors" vid="44">Forgot?</a>
-                    </div>
-                    <input type="password" placeholder="••••••••" class="custom-input" required="" vid="45">
-                </div>
-
-                
-                <div class="flex items-center justify-between mb-8 mt-6" vid="46">
-                    <label class="checkbox-wrapper" vid="47">
-                        <input type="checkbox" class="hidden" vid="48">
-                        <div class="custom-checkbox" vid="49"></div>
-                        <span class="text-sm text-[#888888]" vid="50">Keep me signed in</span>
-                    </label>
-                </div>
-
-                <button type="submit" class="primary-btn w-full" vid="51">
-                    <span vid="52">Sign In</span>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="53">
-                        <line x1="5" y1="12" x2="19" y2="12" vid="54"></line>
-                        <polyline points="12 5 19 12 12 19" vid="55"></polyline>
-                    </svg>
-                </button>
-
-                
-                <div class="flex items-center gap-4 my-8" vid="56">
-                    <div class="h-[1px] bg-[#222222] flex-1" vid="57"></div>
-                    <span class="text-[10px] text-[#444444] uppercase tracking-widest" vid="58">Or</span>
-                    <div class="h-[1px] bg-[#222222] flex-1" vid="59"></div>
-                </div>
-
-                
-                <div class="grid grid-cols-2 gap-4" vid="60">
-                    <button class="secondary-btn flex items-center justify-center gap-2" vid="61">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" vid="62">
-                            <path d="M12 0C5.373 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" vid="63"></path>
-                        </svg>
-                        GitHub
-                    </button>
-                    <button class="secondary-btn flex items-center justify-center gap-2" vid="64">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" vid="65">
-                             <rect x="2" y="2" width="20" height="20" rx="5" ry="5" vid="66"></rect>
-                             <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" vid="67"></path>
-                             <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" vid="68"></line>
-                        </svg>
-                        SSO
-                    </button>
-                </div>
-
-                
-                <div class="mt-8 text-center" vid="69">
-                    <p class="text-sm text-[#666666]" vid="70">
-                        Don't have an account? 
-                        <a href="#" class="text-white ml-1 hover:underline decoration-[#444] underline-offset-4" vid="71">Apply for access</a>
-                    </p>
-                </div>
-
-            </form>
+    <main
+      class="flex-1 flex flex-col justify-center items-center p-8 relative z-10"
+      vid="29"
+    >
+      <div class="w-full max-w-[420px] fade-in delay-200" vid="30">
+        <div class="lg:hidden flex justify-center mb-12" vid="31">
+          <div class="text-lg font-semibold tracking-tight" vid="32">
+            CREO<span class="text-[#888888] font-normal" vid="33">NOW</span>
+          </div>
         </div>
 
-        
-        <div class="hidden xl:block absolute bottom-12 right-12 w-64" vid="72">
-            <div class="border-l border-[#222222] pl-6 py-2" vid="73">
-                <p class="text-[#666666] text-xs italic leading-relaxed" vid="74">
-                    "The role of the designer is that of a good, thoughtful host anticipating the needs of his guests."
-                </p>
-                <div class="mt-2 text-[#444444] text-[10px] uppercase tracking-widest" vid="75">
-                    — Charles Eames
-                </div>
-            </div>
+        <div class="mb-10" vid="34">
+          <h2 class="text-2xl font-medium text-white mb-2" vid="35">
+            Welcome back
+          </h2>
+          <p class="text-[#888888] text-sm" vid="36">
+            Enter your workspace credentials to continue.
+          </p>
         </div>
 
+        <form onsubmit="event.preventDefault()" vid="37">
+          <div class="input-group" vid="38">
+            <label class="block uppercase-label mb-2" vid="39"
+              >Email Address</label
+            >
+            <input
+              type="email"
+              placeholder="name@example.com"
+              class="custom-input"
+              required=""
+              vid="40"
+            />
+          </div>
+
+          <div class="input-group" vid="41">
+            <div class="flex justify-between items-center mb-2" vid="42">
+              <label class="block uppercase-label" vid="43">Password</label>
+              <a
+                href="#"
+                class="text-xs text-[#666666] hover:text-white transition-colors"
+                vid="44"
+                >Forgot?</a
+              >
+            </div>
+            <input
+              type="password"
+              placeholder="••••••••"
+              class="custom-input"
+              required=""
+              vid="45"
+            />
+          </div>
+
+          <div class="flex items-center justify-between mb-8 mt-6" vid="46">
+            <label class="checkbox-wrapper" vid="47">
+              <input type="checkbox" class="hidden" vid="48" />
+              <div class="custom-checkbox" vid="49"></div>
+              <span class="text-sm text-[#888888]" vid="50"
+                >Keep me signed in</span
+              >
+            </label>
+          </div>
+
+          <button type="submit" class="primary-btn w-full" vid="51">
+            <span vid="52">Sign In</span>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              vid="53"
+            >
+              <line x1="5" y1="12" x2="19" y2="12" vid="54"></line>
+              <polyline points="12 5 19 12 12 19" vid="55"></polyline>
+            </svg>
+          </button>
+
+          <div class="flex items-center gap-4 my-8" vid="56">
+            <div class="h-[1px] bg-[#222222] flex-1" vid="57"></div>
+            <span
+              class="text-[10px] text-[#444444] uppercase tracking-widest"
+              vid="58"
+              >Or</span
+            >
+            <div class="h-[1px] bg-[#222222] flex-1" vid="59"></div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4" vid="60">
+            <button
+              class="secondary-btn flex items-center justify-center gap-2"
+              vid="61"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                vid="62"
+              >
+                <path
+                  d="M12 0C5.373 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+                  vid="63"
+                ></path>
+              </svg>
+              GitHub
+            </button>
+            <button
+              class="secondary-btn flex items-center justify-center gap-2"
+              vid="64"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                vid="65"
+              >
+                <rect
+                  x="2"
+                  y="2"
+                  width="20"
+                  height="20"
+                  rx="5"
+                  ry="5"
+                  vid="66"
+                ></rect>
+                <path
+                  d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"
+                  vid="67"
+                ></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" vid="68"></line>
+              </svg>
+              SSO
+            </button>
+          </div>
+
+          <div class="mt-8 text-center" vid="69">
+            <p class="text-sm text-[#666666]" vid="70">
+              Don't have an account?
+              <a
+                href="#"
+                class="text-white ml-1 hover:underline decoration-[#444] underline-offset-4"
+                vid="71"
+                >Apply for access</a
+              >
+            </p>
+          </div>
+        </form>
+      </div>
+
+      <div class="hidden xl:block absolute bottom-12 right-12 w-64" vid="72">
+        <div class="border-l border-[#222222] pl-6 py-2" vid="73">
+          <p class="text-[#666666] text-xs italic leading-relaxed" vid="74">
+            "The role of the designer is that of a good, thoughtful host
+            anticipating the needs of his guests."
+          </p>
+          <div
+            class="mt-2 text-[#444444] text-[10px] uppercase tracking-widest"
+            vid="75"
+          >
+            — Charles Eames
+          </div>
+        </div>
+      </div>
     </main>
 
-    
-    <div class="absolute bottom-0 left-[40%] h-12 w-[1px] bg-[#222222] hidden lg:block" vid="76"></div>
-    <div class="absolute top-0 left-[40%] h-12 w-[1px] bg-[#222222] hidden lg:block" vid="77"></div>
-
-
-</body></html>
+    <div
+      class="absolute bottom-0 left-[40%] h-12 w-[1px] bg-[#222222] hidden lg:block"
+      vid="76"
+    ></div>
+    <div
+      class="absolute top-0 left-[40%] h-12 w-[1px] bg-[#222222] hidden lg:block"
+      vid="77"
+    ></div>
+  </body>
+</html>

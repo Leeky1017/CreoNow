@@ -129,7 +129,11 @@ export function ChatHistory(props: ChatHistoryProps): JSX.Element | null {
               <div key={group}>
                 {/* Group header */}
                 <div className="px-3 py-1.5 bg-[var(--color-bg-surface)]">
-                  <Text size="tiny" color="muted" className="uppercase tracking-wide">
+                  <Text
+                    size="tiny"
+                    color="muted"
+                    className="uppercase tracking-wide"
+                  >
                     {group}
                   </Text>
                 </div>

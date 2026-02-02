@@ -115,7 +115,10 @@ export const AllLevels: Story = {
   render: () => (
     <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       {levels.map((level) => (
-        <div key={level} style={{ display: "flex", alignItems: "baseline", gap: "1rem" }}>
+        <div
+          key={level}
+          style={{ display: "flex", alignItems: "baseline", gap: "1rem" }}
+        >
           <span
             style={{
               width: "40px",
@@ -243,7 +246,13 @@ export const PageLayout: Story = {
       <Heading level="h4" color="muted">
         Experimental Features
       </Heading>
-      <p style={{ margin: "0.5rem 0", fontSize: "13px", color: "var(--color-fg-muted)" }}>
+      <p
+        style={{
+          margin: "0.5rem 0",
+          fontSize: "13px",
+          color: "var(--color-fg-muted)",
+        }}
+      >
         Enable experimental features at your own risk.
       </p>
     </div>
@@ -270,7 +279,13 @@ export const CardTitle: Story = {
         }}
       >
         <Story />
-        <p style={{ margin: "0.5rem 0 0", fontSize: "13px", color: "var(--color-fg-muted)" }}>
+        <p
+          style={{
+            margin: "0.5rem 0 0",
+            fontSize: "13px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           Card description text goes here.
         </p>
       </div>
@@ -370,16 +385,34 @@ export const FullMatrix: Story = {
     layout: "fullscreen",
   },
   render: () => (
-    <div style={{ padding: "2rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div
+      style={{
+        padding: "2rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "2rem",
+      }}
+    >
       {/* Levels */}
       <section>
         <Heading level="h4" color="muted" style={{ marginBottom: "0.5rem" }}>
           LEVEL VARIANTS
         </Heading>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+        >
           {levels.map((level) => (
-            <div key={level} style={{ display: "flex", alignItems: "baseline", gap: "1rem" }}>
-              <span style={{ width: "40px", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            <div
+              key={level}
+              style={{ display: "flex", alignItems: "baseline", gap: "1rem" }}
+            >
+              <span
+                style={{
+                  width: "40px",
+                  fontSize: "12px",
+                  color: "var(--color-fg-muted)",
+                }}
+              >
                 {level}
               </span>
               <Heading level={level}>Heading {level.toUpperCase()}</Heading>
@@ -393,7 +426,9 @@ export const FullMatrix: Story = {
         <Heading level="h4" color="muted" style={{ marginBottom: "0.5rem" }}>
           COLOR VARIANTS
         </Heading>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+        >
           {colors.map((color) => (
             <Heading key={color} level="h3" color={color}>
               {color}: Sample heading

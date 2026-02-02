@@ -91,7 +91,10 @@ function splitFrontmatter(content: string): ServiceResult<{
   }
 
   const frontmatterText = lines.slice(1, endIndex).join("\n");
-  const bodyMd = lines.slice(endIndex + 1).join("\n").trimStart();
+  const bodyMd = lines
+    .slice(endIndex + 1)
+    .join("\n")
+    .trimStart();
   return { ok: true, data: { frontmatterText, bodyMd } };
 }
 
@@ -167,9 +170,7 @@ export function discoverSkillFiles(args: {
 /**
  * Load and validate a single SKILL.md file.
  */
-export function loadSkillFile(args: {
-  ref: SkillFileRef;
-}): LoadedSkill {
+export function loadSkillFile(args: { ref: SkillFileRef }): LoadedSkill {
   const inferredId = `${args.ref.scope}:${args.ref.skillDirName}`;
 
   let raw: string;
@@ -369,4 +370,3 @@ export function loadSkills(deps: {
     return ipcError("IO_ERROR", "Failed to load skills");
   }
 }
-

@@ -108,8 +108,12 @@ describe("MemoryPanel", () => {
     it("不应该显示内联表单（已移至对话框）", () => {
       render(<MemoryPanel />);
 
-      expect(screen.queryByTestId("memory-create-type")).not.toBeInTheDocument();
-      expect(screen.queryByTestId("memory-create-content")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("memory-create-type"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("memory-create-content"),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -281,7 +285,10 @@ describe("MemoryPanel", () => {
           items: [],
           settings: null,
           preview: null,
-          lastError: { code: "IO_ERROR" as const, message: "Failed to save memory" },
+          lastError: {
+            code: "IO_ERROR" as const,
+            message: "Failed to save memory",
+          },
           bootstrapForContext: vi.fn(),
           bootstrapForProject: vi.fn(),
           refresh: vi.fn(),
@@ -318,7 +325,9 @@ describe("MemoryPanel", () => {
       render(<MemoryPanel />);
 
       const globalTab = screen.getByTestId("memory-scope-global");
-      expect(globalTab.className).toContain("border-[var(--color-border-focus)]");
+      expect(globalTab.className).toContain(
+        "border-[var(--color-border-focus)]",
+      );
     });
 
     it("无项目时 Project/Document tabs 应该禁用", () => {

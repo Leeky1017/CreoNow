@@ -92,7 +92,10 @@ function requireStringField(
 /**
  * Read an optional string field.
  */
-function optionalStringField(obj: JsonObject, fieldName: string): string | null {
+function optionalStringField(
+  obj: JsonObject,
+  fieldName: string,
+): string | null {
   const value = obj[fieldName];
   if (typeof value !== "string") {
     return null;
@@ -171,9 +174,13 @@ function optionalStringArrayField(
   }
   for (let i = 0; i < value.length; i += 1) {
     if (typeof value[i] !== "string") {
-      return ipcError("INVALID_ARGUMENT", `${fieldName}[${i}] must be a string`, {
-        fieldName: `${fieldName}[${i}]`,
-      });
+      return ipcError(
+        "INVALID_ARGUMENT",
+        `${fieldName}[${i}] must be a string`,
+        {
+          fieldName: `${fieldName}[${i}]`,
+        },
+      );
     }
   }
   return { ok: true, data: value };
@@ -196,11 +203,9 @@ function validateContextRules(
 
   for (const k of Object.keys(obj)) {
     if (!CONTEXT_RULE_KEY_SET.has(k)) {
-      return ipcError(
-        "INVALID_ARGUMENT",
-        `context_rules.${k} is not allowed`,
-        { fieldName: `context_rules.${k}` },
-      );
+      return ipcError("INVALID_ARGUMENT", `context_rules.${k} is not allowed`, {
+        fieldName: `context_rules.${k}`,
+      });
     }
   }
 
@@ -243,7 +248,11 @@ function validateContextRules(
   }
 
   const boolKeys: Array<
-    "user_preferences" | "style_guide" | "characters" | "outline" | "knowledge_graph"
+    | "user_preferences"
+    | "style_guide"
+    | "characters"
+    | "outline"
+    | "knowledge_graph"
   > = [
     "user_preferences",
     "style_guide",
@@ -309,9 +318,13 @@ function validatePrompt(obj: JsonObject): ServiceResult<SkillPrompt> {
     return { ok: true, data: { system: dottedSystem, user: dottedUser } };
   }
 
-  return ipcError("INVALID_ARGUMENT", "prompt.system and prompt.user are required", {
-    fieldName: "prompt",
-  });
+  return ipcError(
+    "INVALID_ARGUMENT",
+    "prompt.system and prompt.user are required",
+    {
+      fieldName: "prompt",
+    },
+  );
 }
 
 /**
@@ -378,10 +391,14 @@ export function validateSkillFrontmatter(args: {
   }
   const packageId = packageIdRes.data;
   if (packageId !== args.inferred.packageId) {
-    return ipcError("INVALID_ARGUMENT", "packageId must match directory packageId", {
-      fieldName: "packageId",
-      expected: args.inferred.packageId,
-    });
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "packageId must match directory packageId",
+      {
+        fieldName: "packageId",
+        expected: args.inferred.packageId,
+      },
+    );
   }
 
   const tagsRes = optionalStringArrayField(obj, "tags");

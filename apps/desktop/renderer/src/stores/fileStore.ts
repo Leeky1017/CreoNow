@@ -15,7 +15,8 @@ export type IpcInvoke = <C extends IpcChannel>(
   payload: IpcRequest<C>,
 ) => Promise<IpcInvokeResult<C>>;
 
-export type DocumentListItem = IpcResponseData<"file:document:list">["items"][number];
+export type DocumentListItem =
+  IpcResponseData<"file:document:list">["items"][number];
 
 export type FileState = {
   projectId: string | null;
@@ -77,7 +78,10 @@ export function createFileStore(deps: { invoke: IpcInvoke }) {
     projectId: string,
     documentId: string,
   ): Promise<IpcInvokeResult<"file:document:setCurrent">> {
-    return await deps.invoke("file:document:setCurrent", { projectId, documentId });
+    return await deps.invoke("file:document:setCurrent", {
+      projectId,
+      documentId,
+    });
   }
 
   async function createDocument(
@@ -104,7 +108,9 @@ export function createFileStore(deps: { invoke: IpcInvoke }) {
       }
 
       const currentRes = await loadCurrent(projectId);
-      const currentDocumentId = currentRes.ok ? currentRes.data.documentId : null;
+      const currentDocumentId = currentRes.ok
+        ? currentRes.data.documentId
+        : null;
 
       set({
         projectId,
@@ -115,7 +121,10 @@ export function createFileStore(deps: { invoke: IpcInvoke }) {
 
     bootstrapForProject: async (projectId) => {
       const state = get();
-      if (state.bootstrapStatus === "loading" && state.projectId === projectId) {
+      if (
+        state.bootstrapStatus === "loading" &&
+        state.projectId === projectId
+      ) {
         return;
       }
 

@@ -30,9 +30,15 @@ export type DiffStats = {
  *
  * Why: We need to classify each line and track line numbers for proper display.
  */
-export function parseDiffLines(diffText: string): { lines: DiffLine[]; stats: DiffStats } {
+export function parseDiffLines(diffText: string): {
+  lines: DiffLine[];
+  stats: DiffStats;
+} {
   if (!diffText) {
-    return { lines: [], stats: { addedLines: 0, removedLines: 0, changedHunks: 0 } };
+    return {
+      lines: [],
+      stats: { addedLines: 0, removedLines: 0, changedHunks: 0 },
+    };
   }
 
   const rawLines = diffText.split("\n");
@@ -52,9 +58,19 @@ export function parseDiffLines(diffText: string): { lines: DiffLine[]; stats: Di
         newLineNumber = parseInt(match[2], 10);
       }
       changedHunks++;
-      lines.push({ type: "header", content: line, oldLineNumber: null, newLineNumber: null });
+      lines.push({
+        type: "header",
+        content: line,
+        oldLineNumber: null,
+        newLineNumber: null,
+      });
     } else if (line.startsWith("+++") || line.startsWith("---")) {
-      lines.push({ type: "header", content: line, oldLineNumber: null, newLineNumber: null });
+      lines.push({
+        type: "header",
+        content: line,
+        oldLineNumber: null,
+        newLineNumber: null,
+      });
     } else if (line.startsWith("+")) {
       lines.push({
         type: "added",
@@ -139,7 +155,9 @@ export function UnifiedDiffView(props: {
       scrollRef.current
     ) {
       const lineIndex = props.changePositions[props.currentChangeIndex];
-      const lineElement = scrollRef.current.querySelector(`[data-line-index="${lineIndex}"]`);
+      const lineElement = scrollRef.current.querySelector(
+        `[data-line-index="${lineIndex}"]`,
+      );
       if (lineElement) {
         lineElement.scrollIntoView({ behavior: "smooth", block: "center" });
       }
@@ -195,7 +213,10 @@ export function UnifiedDiffView(props: {
             // Find extent of current change
             let changeEnd = changeStart;
             for (let i = changeStart; i < props.lines.length; i++) {
-              if (props.lines[i].type === "added" || props.lines[i].type === "removed") {
+              if (
+                props.lines[i].type === "added" ||
+                props.lines[i].type === "removed"
+              ) {
                 changeEnd = i;
               } else {
                 break;
@@ -228,10 +249,14 @@ export function UnifiedDiffView(props: {
               {/* +/- indicator */}
               <div className="w-4 flex items-center justify-center">
                 {isRemoved && (
-                  <span className="text-[var(--color-error)] opacity-50">-</span>
+                  <span className="text-[var(--color-error)] opacity-50">
+                    -
+                  </span>
                 )}
                 {isAdded && (
-                  <span className="text-[var(--color-success)] opacity-50">+</span>
+                  <span className="text-[var(--color-success)] opacity-50">
+                    +
+                  </span>
                 )}
               </div>
               {/* Old line number */}

@@ -47,7 +47,10 @@ test("theme: switch to light + persist across restart", async () => {
   await expect(first.page.getByTestId("settings-panel")).toBeVisible();
 
   await first.page.getByTestId("theme-mode-light").click();
-  await expect(first.page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(first.page.locator("html")).toHaveAttribute(
+    "data-theme",
+    "light",
+  );
 
   await first.electronApp.close();
 

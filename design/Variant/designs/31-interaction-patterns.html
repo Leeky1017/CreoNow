@@ -1,383 +1,1032 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow - Interaction Design System</title>
     <script src="https://cdn.tailwindcss.com/3.4.17" vid="5"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400&amp;family=Newsreader:ital,wght@0,400;0,500;1,400&amp;display=swap" rel="stylesheet" vid="6">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400&amp;family=Newsreader:ital,wght@0,400;0,500;1,400&amp;display=swap"
+      rel="stylesheet"
+      vid="6"
+    />
     <script vid="7">
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        background: '#080808',
-                        panel: '#0f0f0f',
-                        hover: '#1a1a1a',
-                        selected: '#222222',
-                        border: 'rgba(255, 255, 255, 0.06)',
-                        primary: '#ffffff',
-                        secondary: '#888888',
-                        tertiary: '#444444',
-                        accent: '#3b82f6',
-                        danger: '#ef4444'
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                        serif: ['Newsreader', 'serif'],
-                    },
-                    boxShadow: {
-                        'elevation': '0 4px 20px -2px rgba(0, 0, 0, 0.5)',
-                        'glow': '0 0 15px rgba(59, 130, 246, 0.1)'
-                    }
-                }
-            }
-        }
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              background: "#080808",
+              panel: "#0f0f0f",
+              hover: "#1a1a1a",
+              selected: "#222222",
+              border: "rgba(255, 255, 255, 0.06)",
+              primary: "#ffffff",
+              secondary: "#888888",
+              tertiary: "#444444",
+              accent: "#3b82f6",
+              danger: "#ef4444",
+            },
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+              serif: ["Newsreader", "serif"],
+            },
+            boxShadow: {
+              elevation: "0 4px 20px -2px rgba(0, 0, 0, 0.5)",
+              glow: "0 0 15px rgba(59, 130, 246, 0.1)",
+            },
+          },
+        },
+      };
     </script>
     <style vid="8">
-        .glass-panel {
-            backdrop-filter: blur(12px);
-            background-color: rgba(15, 15, 15, 0.95);
-        }
-        
-        
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #444;
-        }
+      .glass-panel {
+        backdrop-filter: blur(12px);
+        background-color: rgba(15, 15, 15, 0.95);
+      }
 
-        .cursor-col-resize {
-            cursor: col-resize;
-        }
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #444;
+      }
+
+      .cursor-col-resize {
+        cursor: col-resize;
+      }
     </style>
-</head>
-<body class="bg-background text-primary font-sans w-full min-h-screen overflow-x-hidden p-12" vid="9">
-
-    
+  </head>
+  <body
+    class="bg-background text-primary font-sans w-full min-h-screen overflow-x-hidden p-12"
+    vid="9"
+  >
     <header class="mb-16 border-b border-border pb-6" vid="10">
-        <h1 class="text-2xl font-semibold tracking-tight mb-2" vid="11">Interaction Components</h1>
-        <p class="text-secondary text-sm" vid="12">Design specifications for Selection Toolbar, Resize Indicators, and Context Menus.</p>
+      <h1 class="text-2xl font-semibold tracking-tight mb-2" vid="11">
+        Interaction Components
+      </h1>
+      <p class="text-secondary text-sm" vid="12">
+        Design specifications for Selection Toolbar, Resize Indicators, and
+        Context Menus.
+      </p>
     </header>
 
     <div class="max-w-7xl mx-auto space-y-20" vid="13">
+      <section vid="14">
+        <div class="flex items-center gap-2 mb-6" vid="15">
+          <span
+            class="text-xs font-mono text-accent bg-accent/10 px-2 py-1 rounded"
+            vid="16"
+            >01</span
+          >
+          <h2
+            class="text-sm font-medium tracking-wide text-secondary uppercase"
+            vid="17"
+          >
+            Selection Toolbar &amp; AI Actions
+          </h2>
+        </div>
 
-        
-        <section vid="14">
-            <div class="flex items-center gap-2 mb-6" vid="15">
-                <span class="text-xs font-mono text-accent bg-accent/10 px-2 py-1 rounded" vid="16">01</span>
-                <h2 class="text-sm font-medium tracking-wide text-secondary uppercase" vid="17">Selection Toolbar &amp; AI Actions</h2>
+        <div
+          class="relative w-full h-[400px] bg-panel border border-border rounded-xl overflow-hidden flex flex-col items-center justify-center p-8 group select-none"
+          vid="18"
+        >
+          <div
+            class="absolute inset-0 opacity-[0.03]"
+            style="
+              background-image: radial-gradient(#fff 1px, transparent 1px);
+              background-size: 24px 24px;
+            "
+            vid="19"
+          ></div>
+
+          <div class="relative z-0 max-w-2xl text-center" vid="20">
+            <p
+              class="font-serif text-2xl text-secondary leading-relaxed"
+              vid="21"
+            >
+              Design is not just about making things look good. It is about how
+              things work. In the digital realm, this translates to the
+              <span
+                class="bg-accent/20 text-white relative px-0.5 rounded-sm"
+                vid="22"
+              >
+                seamless integration of form and function
+              </span>
+            </p>
+            <div
+              class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-max"
+              vid="23"
+            >
+              <div class="flex flex-col items-center" vid="24">
+                <div
+                  class="glass-panel border border-border rounded-lg shadow-elevation flex items-center h-9 px-1 gap-0.5 z-20"
+                  vid="25"
+                >
+                  <button
+                    class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors"
+                    vid="26"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vid="27"
+                    >
+                      <path
+                        d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"
+                        vid="28"
+                      ></path>
+                      <path
+                        d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"
+                        vid="29"
+                      ></path>
+                    </svg>
+                  </button>
+
+                  <button
+                    class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors"
+                    vid="30"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vid="31"
+                    >
+                      <line x1="19" y1="4" x2="10" y2="4" vid="32"></line>
+                      <line x1="14" y1="20" x2="5" y2="20" vid="33"></line>
+                      <line x1="15" y1="4" x2="9" y2="20" vid="34"></line>
+                    </svg>
+                  </button>
+
+                  <button
+                    class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors"
+                    vid="35"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vid="36"
+                    >
+                      <path
+                        d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"
+                        vid="37"
+                      ></path>
+                      <line x1="4" y1="21" x2="20" y2="21" vid="38"></line>
+                    </svg>
+                  </button>
+
+                  <button
+                    class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors"
+                    vid="39"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vid="40"
+                    >
+                      <path d="M5 12h14" vid="41"></path>
+                      <path d="M16 6a4 4 0 0 0-8 0" vid="42"></path>
+                      <path d="M16 18a4 4 0 0 1-8 0" vid="43"></path>
+                    </svg>
+                  </button>
+
+                  <div class="w-px h-3 bg-white/10 mx-1" vid="44"></div>
+
+                  <button
+                    class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors"
+                    vid="45"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vid="46"
+                    >
+                      <path
+                        d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                        vid="47"
+                      ></path>
+                      <path
+                        d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                        vid="48"
+                      ></path>
+                    </svg>
+                  </button>
+
+                  <button
+                    class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors"
+                    vid="49"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vid="50"
+                    >
+                      <path
+                        d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"
+                        vid="51"
+                      ></path>
+                      <path
+                        d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-1.33 1.54-2 1.54 2.54.42 5.07-.62 5-3.04"
+                        vid="52"
+                      ></path>
+                      <path
+                        d="M9 16.51c1.88 0 1.59 4 4.36 4.48-1.55-3.83 3.98-1.87 3.78-5.32"
+                        vid="53"
+                      ></path>
+                    </svg>
+                  </button>
+
+                  <div class="w-px h-3 bg-white/10 mx-1" vid="54"></div>
+
+                  <button
+                    class="flex items-center gap-1.5 px-2 py-0.5 text-accent hover:bg-hover rounded transition-colors text-xs font-medium"
+                    vid="55"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      vid="56"
+                    >
+                      <path
+                        d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"
+                        vid="57"
+                      ></path>
+                    </svg>
+                    <span class="mt-0.5" vid="58">Actions</span>
+                  </button>
+                </div>
+
+                <div
+                  class="w-3 h-3 bg-panel border-r border-b border-border rotate-45 transform -translate-y-1.5 shadow-elevation z-10"
+                  vid="59"
+                ></div>
+
+                <div
+                  class="absolute top-full left-0 right-0 mt-2 glass-panel border border-border rounded-lg shadow-elevation overflow-hidden w-48 mx-auto animate-in fade-in zoom-in-95 duration-200"
+                  vid="60"
+                >
+                  <div class="p-1 space-y-0.5" vid="61">
+                    <button
+                      class="w-full flex items-center justify-between px-2 py-1.5 text-left rounded hover:bg-hover group"
+                      vid="62"
+                    >
+                      <div class="flex items-center gap-2" vid="63">
+                        <svg
+                          class="text-secondary group-hover:text-primary"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          vid="64"
+                        >
+                          <path d="M12 2v20M2 12h20" vid="65"></path>
+                        </svg>
+                        <span class="text-sm text-primary" vid="66"
+                          >Improve</span
+                        >
+                      </div>
+                      <span class="text-[10px] text-tertiary" vid="67">⌘I</span>
+                    </button>
+
+                    <button
+                      class="w-full flex items-center justify-between px-2 py-1.5 text-left rounded hover:bg-hover group"
+                      vid="68"
+                    >
+                      <div class="flex items-center gap-2" vid="69">
+                        <svg
+                          class="text-secondary group-hover:text-primary"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          vid="70"
+                        >
+                          <path
+                            d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"
+                            vid="71"
+                          ></path>
+                        </svg>
+                        <span class="text-sm text-primary" vid="72"
+                          >Expand</span
+                        >
+                      </div>
+                      <span class="text-[10px] text-tertiary" vid="73">⌘E</span>
+                    </button>
+
+                    <button
+                      class="w-full flex items-center justify-between px-2 py-1.5 text-left rounded hover:bg-hover group"
+                      vid="74"
+                    >
+                      <div class="flex items-center gap-2" vid="75">
+                        <svg
+                          class="text-secondary group-hover:text-primary"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          vid="76"
+                        >
+                          <path
+                            d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7"
+                            vid="77"
+                          ></path>
+                        </svg>
+                        <span class="text-sm text-primary" vid="78"
+                          >Shorten</span
+                        >
+                      </div>
+                      <span class="text-[10px] text-tertiary" vid="79">⌘S</span>
+                    </button>
+
+                    <div class="h-px bg-white/5 mx-2 my-1" vid="80"></div>
+
+                    <button
+                      class="w-full flex items-center justify-between px-2 py-1.5 text-left rounded hover:bg-hover group"
+                      vid="81"
+                    >
+                      <div class="flex items-center gap-2" vid="82">
+                        <svg
+                          class="text-secondary group-hover:text-primary"
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                          vid="83"
+                        >
+                          <circle cx="12" cy="12" r="10" vid="84"></circle>
+                          <path
+                            d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"
+                            vid="85"
+                          ></path>
+                          <line
+                            x1="12"
+                            y1="17"
+                            x2="12.01"
+                            y2="17"
+                            vid="86"
+                          ></line>
+                        </svg>
+                        <span class="text-sm text-primary" vid="87"
+                          >Explain</span
+                        >
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div class="relative w-full h-[400px] bg-panel border border-border rounded-xl overflow-hidden flex flex-col items-center justify-center p-8 group select-none" vid="18">
-                
-                <div class="absolute inset-0 opacity-[0.03]" style="background-image: radial-gradient(#fff 1px, transparent 1px); background-size: 24px 24px;" vid="19"></div>
+            .
+            <p vid="88"></p>
+          </div>
+        </div>
+      </section>
 
-                
-                <div class="relative z-0 max-w-2xl text-center" vid="20">
-                    <p class="font-serif text-2xl text-secondary leading-relaxed" vid="21">
-                        Design is not just about making things look good. It is about how things work. 
-                        In the digital realm, this translates to the 
-                        <span class="bg-accent/20 text-white relative px-0.5 rounded-sm" vid="22">
-                            seamless integration of form and function
-                            
-                            </span></p><div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-max" vid="23">
-                                
-                                
-                                <div class="flex flex-col items-center" vid="24">
-                                    <div class="glass-panel border border-border rounded-lg shadow-elevation flex items-center h-9 px-1 gap-0.5 z-20" vid="25">
-                                        
-                                        <button class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors" vid="26">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vid="27"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" vid="28"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" vid="29"></path></svg>
-                                        </button>
-                                        
-                                        <button class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors" vid="30">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vid="31"><line x1="19" y1="4" x2="10" y2="4" vid="32"></line><line x1="14" y1="20" x2="5" y2="20" vid="33"></line><line x1="15" y1="4" x2="9" y2="20" vid="34"></line></svg>
-                                        </button>
-                                        
-                                        <button class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors" vid="35">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vid="36"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3" vid="37"></path><line x1="4" y1="21" x2="20" y2="21" vid="38"></line></svg>
-                                        </button>
-                                        
-                                        <button class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors" vid="39">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vid="40"><path d="M5 12h14" vid="41"></path><path d="M16 6a4 4 0 0 0-8 0" vid="42"></path><path d="M16 18a4 4 0 0 1-8 0" vid="43"></path></svg>
-                                        </button>
-                                        
-                                        
-                                        <div class="w-px h-3 bg-white/10 mx-1" vid="44"></div>
+      <section vid="89">
+        <div class="flex items-center gap-2 mb-6" vid="90">
+          <span
+            class="text-xs font-mono text-accent bg-accent/10 px-2 py-1 rounded"
+            vid="91"
+            >02</span
+          >
+          <h2
+            class="text-sm font-medium tracking-wide text-secondary uppercase"
+            vid="92"
+          >
+            Resizer States
+          </h2>
+        </div>
 
-                                        
-                                        <button class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors" vid="45">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vid="46"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" vid="47"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" vid="48"></path></svg>
-                                        </button>
-                                        
-                                        <button class="w-7 h-7 flex items-center justify-center text-secondary hover:text-primary hover:bg-hover rounded transition-colors" vid="49">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vid="50"><path d="m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08" vid="51"></path><path d="M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-1.33 1.54-2 1.54 2.54.42 5.07-.62 5-3.04" vid="52"></path><path d="M9 16.51c1.88 0 1.59 4 4.36 4.48-1.55-3.83 3.98-1.87 3.78-5.32" vid="53"></path></svg>
-                                        </button>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8" vid="93">
+          <div
+            class="h-64 bg-background border border-border rounded-xl relative overflow-hidden flex items-center justify-center"
+            vid="94"
+          >
+            <span class="text-xs text-tertiary absolute top-4 left-4" vid="95"
+              >Default</span
+            >
 
-                                        
-                                        <div class="w-px h-3 bg-white/10 mx-1" vid="54"></div>
-
-                                        
-                                        <button class="flex items-center gap-1.5 px-2 py-0.5 text-accent hover:bg-hover rounded transition-colors text-xs font-medium" vid="55">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" vid="56"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" vid="57"></path></svg>
-                                            <span class="mt-0.5" vid="58">Actions</span>
-                                        </button>
-                                    </div>
-
-                                    
-                                    <div class="w-3 h-3 bg-panel border-r border-b border-border rotate-45 transform -translate-y-1.5 shadow-elevation z-10" vid="59"></div>
-
-                                    
-                                    <div class="absolute top-full left-0 right-0 mt-2 glass-panel border border-border rounded-lg shadow-elevation overflow-hidden w-48 mx-auto animate-in fade-in zoom-in-95 duration-200" vid="60">
-                                        <div class="p-1 space-y-0.5" vid="61">
-                                            
-                                            <button class="w-full flex items-center justify-between px-2 py-1.5 text-left rounded hover:bg-hover group" vid="62">
-                                                <div class="flex items-center gap-2" vid="63">
-                                                    <svg class="text-secondary group-hover:text-primary" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="64"><path d="M12 2v20M2 12h20" vid="65"></path></svg>
-                                                    <span class="text-sm text-primary" vid="66">Improve</span>
-                                                </div>
-                                                <span class="text-[10px] text-tertiary" vid="67">⌘I</span>
-                                            </button>
-                                            
-                                            <button class="w-full flex items-center justify-between px-2 py-1.5 text-left rounded hover:bg-hover group" vid="68">
-                                                <div class="flex items-center gap-2" vid="69">
-                                                    <svg class="text-secondary group-hover:text-primary" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="70"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" vid="71"></path></svg>
-                                                    <span class="text-sm text-primary" vid="72">Expand</span>
-                                                </div>
-                                                <span class="text-[10px] text-tertiary" vid="73">⌘E</span>
-                                            </button>
-                                            
-                                            <button class="w-full flex items-center justify-between px-2 py-1.5 text-left rounded hover:bg-hover group" vid="74">
-                                                <div class="flex items-center gap-2" vid="75">
-                                                    <svg class="text-secondary group-hover:text-primary" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="76"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7" vid="77"></path></svg>
-                                                    <span class="text-sm text-primary" vid="78">Shorten</span>
-                                                </div>
-                                                <span class="text-[10px] text-tertiary" vid="79">⌘S</span>
-                                            </button>
-                                            
-                                            <div class="h-px bg-white/5 mx-2 my-1" vid="80"></div>
-                                            
-                                            <button class="w-full flex items-center justify-between px-2 py-1.5 text-left rounded hover:bg-hover group" vid="81">
-                                                <div class="flex items-center gap-2" vid="82">
-                                                    <svg class="text-secondary group-hover:text-primary" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="83"><circle cx="12" cy="12" r="10" vid="84"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" vid="85"></path><line x1="12" y1="17" x2="12.01" y2="17" vid="86"></line></svg>
-                                                    <span class="text-sm text-primary" vid="87">Explain</span>
-                                                </div>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        .
-                    <p vid="88"></p>
-                </div>
+            <div class="flex w-full h-full max-w-[200px]" vid="96">
+              <div
+                class="flex-1 bg-panel border-r border-border rounded-l-md"
+                vid="97"
+              ></div>
+              <div class="relative w-px h-full bg-border" vid="98">
+                <div
+                  class="absolute inset-y-0 -left-1 -right-1 bg-transparent hover:bg-white/5 transition-colors"
+                  vid="99"
+                ></div>
+              </div>
+              <div class="flex-1 bg-background" vid="100"></div>
             </div>
-        </section>
+          </div>
 
-        
-        <section vid="89">
-            <div class="flex items-center gap-2 mb-6" vid="90">
-                <span class="text-xs font-mono text-accent bg-accent/10 px-2 py-1 rounded" vid="91">02</span>
-                <h2 class="text-sm font-medium tracking-wide text-secondary uppercase" vid="92">Resizer States</h2>
+          <div
+            class="h-64 bg-background border border-border rounded-xl relative overflow-hidden flex items-center justify-center"
+            vid="101"
+          >
+            <span class="text-xs text-tertiary absolute top-4 left-4" vid="102"
+              >Hover</span
+            >
+
+            <div class="flex w-full h-full max-w-[200px]" vid="103">
+              <div
+                class="flex-1 bg-panel border-r border-border rounded-l-md"
+                vid="104"
+              ></div>
+
+              <div
+                class="relative w-0.5 h-full bg-[#444] shadow-glow cursor-col-resize z-10 transition-colors"
+                vid="105"
+              ></div>
+              <div class="flex-1 bg-background" vid="106"></div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8" vid="93">
-                
-                
-                <div class="h-64 bg-background border border-border rounded-xl relative overflow-hidden flex items-center justify-center" vid="94">
-                    <span class="text-xs text-tertiary absolute top-4 left-4" vid="95">Default</span>
-                    
-                    <div class="flex w-full h-full max-w-[200px]" vid="96">
-                        <div class="flex-1 bg-panel border-r border-border rounded-l-md" vid="97"></div>
-                        <div class="relative w-px h-full bg-border" vid="98">
-                             
-                            <div class="absolute inset-y-0 -left-1 -right-1 bg-transparent hover:bg-white/5 transition-colors" vid="99"></div>
-                        </div>
-                        <div class="flex-1 bg-background" vid="100"></div>
-                    </div>
-                </div>
-
-                
-                <div class="h-64 bg-background border border-border rounded-xl relative overflow-hidden flex items-center justify-center" vid="101">
-                    <span class="text-xs text-tertiary absolute top-4 left-4" vid="102">Hover</span>
-                    
-                    <div class="flex w-full h-full max-w-[200px]" vid="103">
-                        <div class="flex-1 bg-panel border-r border-border rounded-l-md" vid="104"></div>
-                        
-                        <div class="relative w-0.5 h-full bg-[#444] shadow-glow cursor-col-resize z-10 transition-colors" vid="105"></div>
-                        <div class="flex-1 bg-background" vid="106"></div>
-                    </div>
-                    
-                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none" vid="107">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" class="drop-shadow-lg" vid="108"><path d="M14 6l-6 6 6 6M20 6l-6 6 6 6" stroke="transparent" vid="109"></path><path d="M9 12h6M9 12l-3-3M9 12l-3 3M15 12l3-3M15 12l3 3" vid="110"></path></svg>
-                    </div>
-                </div>
-
-                
-                <div class="h-64 bg-background border border-border rounded-xl relative overflow-hidden flex items-center justify-center" vid="111">
-                    <span class="text-xs text-tertiary absolute top-4 left-4" vid="112">Dragging</span>
-                    
-                    <div class="flex w-full h-full max-w-[200px]" vid="113">
-                        <div class="flex-1 bg-panel border-r border-border rounded-l-md" vid="114"></div>
-                        
-                        <div class="relative w-0.5 h-full bg-accent shadow-glow z-10" vid="115">
-                            
-                            <div class="absolute top-1/2 -translate-y-1/2 left-4 bg-panel border border-border text-xs text-white px-2 py-1 rounded shadow-xl whitespace-nowrap" vid="116">
-                                320px
-                            </div>
-                        </div>
-                        <div class="flex-1 bg-background" vid="117"></div>
-                    </div>
-                </div>
-
+            <div
+              class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              vid="107"
+            >
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                stroke-width="2"
+                class="drop-shadow-lg"
+                vid="108"
+              >
+                <path
+                  d="M14 6l-6 6 6 6M20 6l-6 6 6 6"
+                  stroke="transparent"
+                  vid="109"
+                ></path>
+                <path
+                  d="M9 12h6M9 12l-3-3M9 12l-3 3M15 12l3-3M15 12l3 3"
+                  vid="110"
+                ></path>
+              </svg>
             </div>
-        </section>
+          </div>
 
-        
-        <section class="pb-20" vid="118">
-            <div class="flex items-center gap-2 mb-6" vid="119">
-                <span class="text-xs font-mono text-accent bg-accent/10 px-2 py-1 rounded" vid="120">03</span>
-                <h2 class="text-sm font-medium tracking-wide text-secondary uppercase" vid="121">Context Menus</h2>
+          <div
+            class="h-64 bg-background border border-border rounded-xl relative overflow-hidden flex items-center justify-center"
+            vid="111"
+          >
+            <span class="text-xs text-tertiary absolute top-4 left-4" vid="112"
+              >Dragging</span
+            >
+
+            <div class="flex w-full h-full max-w-[200px]" vid="113">
+              <div
+                class="flex-1 bg-panel border-r border-border rounded-l-md"
+                vid="114"
+              ></div>
+
+              <div
+                class="relative w-0.5 h-full bg-accent shadow-glow z-10"
+                vid="115"
+              >
+                <div
+                  class="absolute top-1/2 -translate-y-1/2 left-4 bg-panel border border-border text-xs text-white px-2 py-1 rounded shadow-xl whitespace-nowrap"
+                  vid="116"
+                >
+                  320px
+                </div>
+              </div>
+              <div class="flex-1 bg-background" vid="117"></div>
             </div>
+          </div>
+        </div>
+      </section>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start" vid="122">
+      <section class="pb-20" vid="118">
+        <div class="flex items-center gap-2 mb-6" vid="119">
+          <span
+            class="text-xs font-mono text-accent bg-accent/10 px-2 py-1 rounded"
+            vid="120"
+            >03</span
+          >
+          <h2
+            class="text-sm font-medium tracking-wide text-secondary uppercase"
+            vid="121"
+          >
+            Context Menus
+          </h2>
+        </div>
 
-                
-                <div class="flex flex-col gap-4" vid="123">
-                    <span class="text-xs text-tertiary font-mono" vid="124">File Tree Context</span>
-                    <div class="w-full bg-[#0f0f0f] border border-border rounded-lg shadow-elevation overflow-hidden py-1" vid="125">
-                        
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="126">
-                            <svg class="text-secondary group-hover:text-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="127"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vid="128"></path><polyline points="14 2 14 8 20 8" vid="129"></polyline><line x1="12" y1="18" x2="12" y2="12" vid="130"></line><line x1="9" y1="15" x2="15" y2="15" vid="131"></line></svg>
-                            <span class="text-sm text-primary flex-1" vid="132">New File</span>
-                        </button>
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="133">
-                            <svg class="text-secondary group-hover:text-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="134"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" vid="135"></path></svg>
-                            <span class="text-sm text-primary flex-1" vid="136">New Folder</span>
-                        </button>
-                        
-                        
-                        <div class="h-px bg-border mx-3 my-1" vid="137"></div>
+        <div
+          class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start"
+          vid="122"
+        >
+          <div class="flex flex-col gap-4" vid="123">
+            <span class="text-xs text-tertiary font-mono" vid="124"
+              >File Tree Context</span
+            >
+            <div
+              class="w-full bg-[#0f0f0f] border border-border rounded-lg shadow-elevation overflow-hidden py-1"
+              vid="125"
+            >
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="126"
+              >
+                <svg
+                  class="text-secondary group-hover:text-primary"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="127"
+                >
+                  <path
+                    d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                    vid="128"
+                  ></path>
+                  <polyline points="14 2 14 8 20 8" vid="129"></polyline>
+                  <line x1="12" y1="18" x2="12" y2="12" vid="130"></line>
+                  <line x1="9" y1="15" x2="15" y2="15" vid="131"></line>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="132"
+                  >New File</span
+                >
+              </button>
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="133"
+              >
+                <svg
+                  class="text-secondary group-hover:text-primary"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="134"
+                >
+                  <path
+                    d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                    vid="135"
+                  ></path>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="136"
+                  >New Folder</span
+                >
+              </button>
 
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="138">
-                            <svg class="text-secondary group-hover:text-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="139"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" vid="140"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" vid="141"></path></svg>
-                            <span class="text-sm text-primary flex-1" vid="142">Rename</span>
-                            <span class="text-xs text-tertiary" vid="143">F2</span>
-                        </button>
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="144">
-                            <svg class="text-secondary group-hover:text-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="145"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" vid="146"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" vid="147"></path></svg>
-                            <span class="text-sm text-primary flex-1" vid="148">Duplicate</span>
-                        </button>
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="149">
-                            <svg class="text-secondary group-hover:text-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="150"><polyline points="9 10 4 15 9 20" vid="151"></polyline><path d="M20 4v7a4 4 0 0 1-4 4H4" vid="152"></path></svg>
-                            <span class="text-sm text-primary flex-1" vid="153">Move to...</span>
-                        </button>
+              <div class="h-px bg-border mx-3 my-1" vid="137"></div>
 
-                        
-                        <div class="h-px bg-border mx-3 my-1" vid="154"></div>
-                        
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="155">
-                            <svg class="text-danger group-hover:text-red-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="156"><polyline points="3 6 5 6 21 6" vid="157"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" vid="158"></path></svg>
-                            <span class="text-sm text-danger group-hover:text-red-400 flex-1" vid="159">Delete</span>
-                            <span class="text-xs text-danger/50 group-hover:text-red-400" vid="160">Del</span>
-                        </button>
-                    </div>
-                </div>
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="138"
+              >
+                <svg
+                  class="text-secondary group-hover:text-primary"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="139"
+                >
+                  <path
+                    d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                    vid="140"
+                  ></path>
+                  <path
+                    d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                    vid="141"
+                  ></path>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="142"
+                  >Rename</span
+                >
+                <span class="text-xs text-tertiary" vid="143">F2</span>
+              </button>
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="144"
+              >
+                <svg
+                  class="text-secondary group-hover:text-primary"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="145"
+                >
+                  <rect
+                    x="9"
+                    y="9"
+                    width="13"
+                    height="13"
+                    rx="2"
+                    ry="2"
+                    vid="146"
+                  ></rect>
+                  <path
+                    d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                    vid="147"
+                  ></path>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="148"
+                  >Duplicate</span
+                >
+              </button>
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="149"
+              >
+                <svg
+                  class="text-secondary group-hover:text-primary"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="150"
+                >
+                  <polyline points="9 10 4 15 9 20" vid="151"></polyline>
+                  <path d="M20 4v7a4 4 0 0 1-4 4H4" vid="152"></path>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="153"
+                  >Move to...</span
+                >
+              </button>
 
-                
-                <div class="flex flex-col gap-4" vid="161">
-                    <span class="text-xs text-tertiary font-mono" vid="162">Editor Context</span>
-                    <div class="w-full bg-[#0f0f0f] border border-border rounded-lg shadow-elevation overflow-hidden py-1" vid="163">
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="164">
-                            <span class="text-sm text-primary flex-1 pl-7" vid="165">Cut</span>
-                            <span class="text-xs text-tertiary" vid="166">⌘X</span>
-                        </button>
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="167">
-                            <span class="text-sm text-primary flex-1 pl-7" vid="168">Copy</span>
-                            <span class="text-xs text-tertiary" vid="169">⌘C</span>
-                        </button>
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="170">
-                            <span class="text-sm text-primary flex-1 pl-7" vid="171">Paste</span>
-                            <span class="text-xs text-tertiary" vid="172">⌘V</span>
-                        </button>
+              <div class="h-px bg-border mx-3 my-1" vid="154"></div>
 
-                        
-                        <div class="h-px bg-border mx-3 my-1" vid="173"></div>
-
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="174">
-                            <svg class="text-accent" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="175"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" vid="176"></path></svg>
-                            <span class="text-sm text-primary flex-1" vid="177">AI Actions</span>
-                            <svg class="text-tertiary" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="178"><polyline points="9 18 15 12 9 6" vid="179"></polyline></svg>
-                        </button>
-
-                        
-                        <div class="h-px bg-border mx-3 my-1" vid="180"></div>
-
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="181">
-                            <span class="text-sm text-primary flex-1 pl-7" vid="182">Find in Document</span>
-                            <span class="text-xs text-tertiary" vid="183">⌘F</span>
-                        </button>
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="184">
-                            <span class="text-sm text-primary flex-1 pl-7" vid="185">Add to Memories</span>
-                        </button>
-
-                        
-                        <div class="h-px bg-border mx-3 my-1" vid="186"></div>
-
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="187">
-                            <span class="text-sm text-primary flex-1 pl-7" vid="188">Format</span>
-                            <svg class="text-tertiary" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="189"><polyline points="9 18 15 12 9 6" vid="190"></polyline></svg>
-                        </button>
-                    </div>
-                </div>
-
-                
-                <div class="flex flex-col gap-4" vid="191">
-                    <span class="text-xs text-tertiary font-mono" vid="192">AI Panel Context</span>
-                    <div class="w-full bg-[#0f0f0f] border border-border rounded-lg shadow-elevation overflow-hidden py-1" vid="193">
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="194">
-                            <svg class="text-secondary group-hover:text-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="195"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" vid="196"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" vid="197"></path></svg>
-                            <span class="text-sm text-primary flex-1" vid="198">Copy</span>
-                        </button>
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="199">
-                            <svg class="text-secondary group-hover:text-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="200"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" vid="201"></path><polyline points="14 2 14 8 20 8" vid="202"></polyline><line x1="16" y1="13" x2="8" y2="13" vid="203"></line><line x1="16" y1="17" x2="8" y2="17" vid="204"></line><polyline points="10 9 9 9 8 9" vid="205"></polyline></svg>
-                            <span class="text-sm text-primary flex-1" vid="206">Copy as Markdown</span>
-                        </button>
-                        
-                        
-                        <div class="h-px bg-border mx-3 my-1" vid="207"></div>
-
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="208">
-                            <svg class="text-secondary group-hover:text-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="209"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" vid="210"></path></svg>
-                            <span class="text-sm text-primary flex-1" vid="211">Regenerate</span>
-                        </button>
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="212">
-                            <svg class="text-secondary group-hover:text-primary" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="213"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" vid="214"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" vid="215"></path></svg>
-                            <span class="text-sm text-primary flex-1" vid="216">Edit and Resend</span>
-                        </button>
-
-                        
-                        <div class="h-px bg-border mx-3 my-1" vid="217"></div>
-
-                        <button class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group" vid="218">
-                            <svg class="text-danger group-hover:text-red-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="219"><polyline points="3 6 5 6 21 6" vid="220"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" vid="221"></path></svg>
-                            <span class="text-sm text-danger group-hover:text-red-400 flex-1" vid="222">Delete Message</span>
-                        </button>
-                    </div>
-                </div>
-
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="155"
+              >
+                <svg
+                  class="text-danger group-hover:text-red-400"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="156"
+                >
+                  <polyline points="3 6 5 6 21 6" vid="157"></polyline>
+                  <path
+                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                    vid="158"
+                  ></path>
+                </svg>
+                <span
+                  class="text-sm text-danger group-hover:text-red-400 flex-1"
+                  vid="159"
+                  >Delete</span
+                >
+                <span
+                  class="text-xs text-danger/50 group-hover:text-red-400"
+                  vid="160"
+                  >Del</span
+                >
+              </button>
             </div>
-        </section>
+          </div>
 
+          <div class="flex flex-col gap-4" vid="161">
+            <span class="text-xs text-tertiary font-mono" vid="162"
+              >Editor Context</span
+            >
+            <div
+              class="w-full bg-[#0f0f0f] border border-border rounded-lg shadow-elevation overflow-hidden py-1"
+              vid="163"
+            >
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="164"
+              >
+                <span class="text-sm text-primary flex-1 pl-7" vid="165"
+                  >Cut</span
+                >
+                <span class="text-xs text-tertiary" vid="166">⌘X</span>
+              </button>
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="167"
+              >
+                <span class="text-sm text-primary flex-1 pl-7" vid="168"
+                  >Copy</span
+                >
+                <span class="text-xs text-tertiary" vid="169">⌘C</span>
+              </button>
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="170"
+              >
+                <span class="text-sm text-primary flex-1 pl-7" vid="171"
+                  >Paste</span
+                >
+                <span class="text-xs text-tertiary" vid="172">⌘V</span>
+              </button>
+
+              <div class="h-px bg-border mx-3 my-1" vid="173"></div>
+
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="174"
+              >
+                <svg
+                  class="text-accent"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="175"
+                >
+                  <path
+                    d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"
+                    vid="176"
+                  ></path>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="177"
+                  >AI Actions</span
+                >
+                <svg
+                  class="text-tertiary"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="178"
+                >
+                  <polyline points="9 18 15 12 9 6" vid="179"></polyline>
+                </svg>
+              </button>
+
+              <div class="h-px bg-border mx-3 my-1" vid="180"></div>
+
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="181"
+              >
+                <span class="text-sm text-primary flex-1 pl-7" vid="182"
+                  >Find in Document</span
+                >
+                <span class="text-xs text-tertiary" vid="183">⌘F</span>
+              </button>
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="184"
+              >
+                <span class="text-sm text-primary flex-1 pl-7" vid="185"
+                  >Add to Memories</span
+                >
+              </button>
+
+              <div class="h-px bg-border mx-3 my-1" vid="186"></div>
+
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="187"
+              >
+                <span class="text-sm text-primary flex-1 pl-7" vid="188"
+                  >Format</span
+                >
+                <svg
+                  class="text-tertiary"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="189"
+                >
+                  <polyline points="9 18 15 12 9 6" vid="190"></polyline>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-4" vid="191">
+            <span class="text-xs text-tertiary font-mono" vid="192"
+              >AI Panel Context</span
+            >
+            <div
+              class="w-full bg-[#0f0f0f] border border-border rounded-lg shadow-elevation overflow-hidden py-1"
+              vid="193"
+            >
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="194"
+              >
+                <svg
+                  class="text-secondary group-hover:text-primary"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="195"
+                >
+                  <rect
+                    x="9"
+                    y="9"
+                    width="13"
+                    height="13"
+                    rx="2"
+                    ry="2"
+                    vid="196"
+                  ></rect>
+                  <path
+                    d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                    vid="197"
+                  ></path>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="198">Copy</span>
+              </button>
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="199"
+              >
+                <svg
+                  class="text-secondary group-hover:text-primary"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="200"
+                >
+                  <path
+                    d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                    vid="201"
+                  ></path>
+                  <polyline points="14 2 14 8 20 8" vid="202"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13" vid="203"></line>
+                  <line x1="16" y1="17" x2="8" y2="17" vid="204"></line>
+                  <polyline points="10 9 9 9 8 9" vid="205"></polyline>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="206"
+                  >Copy as Markdown</span
+                >
+              </button>
+
+              <div class="h-px bg-border mx-3 my-1" vid="207"></div>
+
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="208"
+              >
+                <svg
+                  class="text-secondary group-hover:text-primary"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="209"
+                >
+                  <path
+                    d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"
+                    vid="210"
+                  ></path>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="211"
+                  >Regenerate</span
+                >
+              </button>
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="212"
+              >
+                <svg
+                  class="text-secondary group-hover:text-primary"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="213"
+                >
+                  <path
+                    d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                    vid="214"
+                  ></path>
+                  <path
+                    d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                    vid="215"
+                  ></path>
+                </svg>
+                <span class="text-sm text-primary flex-1" vid="216"
+                  >Edit and Resend</span
+                >
+              </button>
+
+              <div class="h-px bg-border mx-3 my-1" vid="217"></div>
+
+              <button
+                class="w-full flex items-center gap-3 px-3 py-1.5 hover:bg-hover text-left group"
+                vid="218"
+              >
+                <svg
+                  class="text-danger group-hover:text-red-400"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  vid="219"
+                >
+                  <polyline points="3 6 5 6 21 6" vid="220"></polyline>
+                  <path
+                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+                    vid="221"
+                  ></path>
+                </svg>
+                <span
+                  class="text-sm text-danger group-hover:text-red-400 flex-1"
+                  vid="222"
+                  >Delete Message</span
+                >
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
-
-
-</body></html>
+  </body>
+</html>

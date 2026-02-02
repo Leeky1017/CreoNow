@@ -11,46 +11,46 @@
 
 ## 变体 (Variants)
 
-| 类型 | 背景 | 文字 | 边框 | 用途 |
-|------|------|------|------|------|
-| primary | --color-fg-default | --color-fg-inverse | 无 | 主要操作 |
-| secondary | transparent | --color-fg-default | 1px --color-border-default | 次要操作 |
-| ghost | transparent | --color-fg-muted | 无 | 轻量操作 |
-| danger | transparent | --color-error | 1px --color-error | 危险操作 |
+| 类型      | 背景               | 文字               | 边框                       | 用途     |
+| --------- | ------------------ | ------------------ | -------------------------- | -------- |
+| primary   | --color-fg-default | --color-fg-inverse | 无                         | 主要操作 |
+| secondary | transparent        | --color-fg-default | 1px --color-border-default | 次要操作 |
+| ghost     | transparent        | --color-fg-muted   | 无                         | 轻量操作 |
+| danger    | transparent        | --color-error      | 1px --color-error          | 危险操作 |
 
 ---
 
 ## 尺寸 (Sizes)
 
-| 尺寸 | 高度 | 水平内边距 | 字号 | 圆角 |
-|------|------|------------|------|------|
-| sm | 28px | 12px | 12px | --radius-sm |
-| md | 36px | 16px | 13px | --radius-md |
-| lg | 44px | 20px | 14px | --radius-md |
+| 尺寸 | 高度 | 水平内边距 | 字号 | 圆角        |
+| ---- | ---- | ---------- | ---- | ----------- |
+| sm   | 28px | 12px       | 12px | --radius-sm |
+| md   | 36px | 16px       | 13px | --radius-md |
+| lg   | 44px | 20px       | 14px | --radius-md |
 
 ---
 
 ## 状态矩阵 (MUST 全部实现)
 
-| 状态 | 视觉表现 | 行为 | 触发方式 |
-|------|----------|------|----------|
-| default | 正常颜色 | 可点击 | 初始状态 |
-| hover | opacity: 0.9 (Primary) / 边框变化 (Secondary) | cursor: pointer | 鼠标悬停 |
-| active | 背景加深 | 按下反馈 | 鼠标按下 |
-| focus-visible | 显示 focus ring | - | Tab 键聚焦 |
-| disabled | opacity: 0.5 | cursor: not-allowed, 不可点击 | disabled=true |
-| loading | 显示 Spinner，隐藏文字 | 不可点击 | loading=true |
+| 状态          | 视觉表现                                      | 行为                          | 触发方式      |
+| ------------- | --------------------------------------------- | ----------------------------- | ------------- |
+| default       | 正常颜色                                      | 可点击                        | 初始状态      |
+| hover         | opacity: 0.9 (Primary) / 边框变化 (Secondary) | cursor: pointer               | 鼠标悬停      |
+| active        | 背景加深                                      | 按下反馈                      | 鼠标按下      |
+| focus-visible | 显示 focus ring                               | -                             | Tab 键聚焦    |
+| disabled      | opacity: 0.5                                  | cursor: not-allowed, 不可点击 | disabled=true |
+| loading       | 显示 Spinner，隐藏文字                        | 不可点击                      | loading=true  |
 
 ---
 
 ## 边界情况 (MUST 处理)
 
-| 边界 | 处理方式 |
-|------|----------|
-| 文字过长 | 使用 text-ellipsis 截断，设置 max-width |
-| 无文字（icon-only） | 需要 aria-label，正方形按钮 |
-| 极窄容器 | min-width 保证可用 |
-| 同时有 icon 和文字 | gap: 8px 分隔 |
+| 边界                | 处理方式                                |
+| ------------------- | --------------------------------------- |
+| 文字过长            | 使用 text-ellipsis 截断，设置 max-width |
+| 无文字（icon-only） | 需要 aria-label，正方形按钮             |
+| 极窄容器            | min-width 保证可用                      |
+| 同时有 icon 和文字  | gap: 8px 分隔                           |
 
 ---
 
@@ -92,9 +92,9 @@
 ```typescript
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** 视觉样式变体 */
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: "primary" | "secondary" | "ghost" | "danger";
   /** 按钮尺寸 */
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
   /** 显示加载状态并禁用交互 */
   loading?: boolean;
   /** 全宽按钮 */
@@ -176,7 +176,7 @@ describe('Button 验收', () => {
   it('loading 状态禁用点击', async () => {
     const onClick = vi.fn();
     render(<Button loading onClick={onClick}>Test</Button>);
-    
+
     await userEvent.click(screen.getByRole('button'));
     expect(onClick).not.toHaveBeenCalled();
   });
@@ -185,7 +185,7 @@ describe('Button 验收', () => {
   it('disabled 状态不可点击', async () => {
     const onClick = vi.fn();
     render(<Button disabled onClick={onClick}>Test</Button>);
-    
+
     await userEvent.click(screen.getByRole('button'));
     expect(onClick).not.toHaveBeenCalled();
   });
@@ -194,7 +194,7 @@ describe('Button 验收', () => {
   it('Tab 聚焦显示 focus ring', async () => {
     render(<Button>Test</Button>);
     const button = screen.getByRole('button');
-    
+
     await userEvent.tab();
     expect(button).toHaveFocus();
     // focus-visible 样式检查

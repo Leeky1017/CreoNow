@@ -44,7 +44,9 @@ function SettingsDialogWrapper(props: SettingsDialogWrapperProps): JSX.Element {
 
   const [memoryStore] = React.useState(() => {
     const mockIpc = createMockMemoryIpc(settings);
-    return createMemoryStore(mockIpc as Parameters<typeof createMemoryStore>[0]);
+    return createMemoryStore(
+      mockIpc as Parameters<typeof createMemoryStore>[0],
+    );
   });
 
   React.useEffect(() => {

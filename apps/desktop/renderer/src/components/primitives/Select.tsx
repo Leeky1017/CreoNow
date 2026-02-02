@@ -29,11 +29,10 @@ export interface SelectGroup {
  * A dropdown select component built on Radix UI Select primitive.
  * Implements z-index dropdown (200) and shadow-md (§3.7, §5.2).
  */
-export interface SelectProps
-  extends Omit<
-    React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>,
-    "children" | "asChild"
-  > {
+export interface SelectProps extends Omit<
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>,
+  "children" | "asChild"
+> {
   /** Current value (controlled) */
   value?: string;
   /** Callback when value changes */

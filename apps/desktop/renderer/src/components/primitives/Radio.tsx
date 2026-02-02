@@ -39,7 +39,9 @@ function RadioIndicator({ size }: { size: "sm" | "md" }) {
   const indicatorSize = size === "sm" ? "w-1.5 h-1.5" : "w-2 h-2";
   return (
     <RadioGroupPrimitive.Indicator className="flex items-center justify-center">
-      <span className={`${indicatorSize} rounded-[var(--radius-full)] bg-[var(--color-fg-default)]`} />
+      <span
+        className={`${indicatorSize} rounded-[var(--radius-full)] bg-[var(--color-fg-default)]`}
+      />
     </RadioGroupPrimitive.Indicator>
   );
 }
@@ -152,7 +154,9 @@ export function RadioGroup({
               {option.label}
             </label>
             {option.description && (
-              <span className={`${styles.description} text-[var(--color-fg-muted)] mt-0.5`}>
+              <span
+                className={`${styles.description} text-[var(--color-fg-muted)] mt-0.5`}
+              >
                 {option.description}
               </span>
             )}

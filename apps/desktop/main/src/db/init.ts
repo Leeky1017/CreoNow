@@ -48,7 +48,11 @@ const MIGRATIONS_BASE: readonly Migration[] = [
   { version: 5, name: "0005_knowledge_graph", sql: knowledgeGraphSql },
   { version: 6, name: "0006_search_fts", sql: searchFtsSql },
   { version: 7, name: "0007_stats", sql: statsSql },
-  { version: 9, name: "0009_memory_document_scope", sql: memoryDocumentScopeSql },
+  {
+    version: 9,
+    name: "0009_memory_document_scope",
+    sql: memoryDocumentScopeSql,
+  },
 ];
 
 const SQLITE_VEC_MIGRATION: Migration = {

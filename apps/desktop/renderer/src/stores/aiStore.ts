@@ -158,7 +158,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       }
 
       const currentSelected = get().selectedSkillId;
-      const selectedExists = res.data.items.some((s) => s.id === currentSelected);
+      const selectedExists = res.data.items.some(
+        (s) => s.id === currentSelected,
+      );
       const fallback =
         res.data.items.find((s) => s.enabled && s.valid)?.id ?? currentSelected;
 

@@ -43,7 +43,14 @@ describe("Text", () => {
   // Size 测试
   // ===========================================================================
   describe("size", () => {
-    const sizes: TextSize[] = ["body", "bodyLarge", "small", "tiny", "label", "code"];
+    const sizes: TextSize[] = [
+      "body",
+      "bodyLarge",
+      "small",
+      "tiny",
+      "label",
+      "code",
+    ];
 
     it.each(sizes)("应该渲染 %s size", (size) => {
       render(<Text size={size}>Text</Text>);

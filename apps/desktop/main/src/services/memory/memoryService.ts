@@ -219,24 +219,36 @@ function rowToMemory(row: MemoryRow): ServiceResult<UserMemoryItem> {
       });
     }
     if (row.documentId !== null) {
-      return ipcError("DB_ERROR", "Invalid project memory row (documentId set)", {
-        memoryId: row.memoryId,
-        documentId: row.documentId,
-      });
+      return ipcError(
+        "DB_ERROR",
+        "Invalid project memory row (documentId set)",
+        {
+          memoryId: row.memoryId,
+          documentId: row.documentId,
+        },
+      );
     }
   }
   if (row.scope === "document") {
     if (!row.projectId || row.projectId.trim().length === 0) {
-      return ipcError("DB_ERROR", "Invalid document memory row (missing projectId)", {
-        memoryId: row.memoryId,
-        projectId: row.projectId,
-      });
+      return ipcError(
+        "DB_ERROR",
+        "Invalid document memory row (missing projectId)",
+        {
+          memoryId: row.memoryId,
+          projectId: row.projectId,
+        },
+      );
     }
     if (!row.documentId || row.documentId.trim().length === 0) {
-      return ipcError("DB_ERROR", "Invalid document memory row (missing documentId)", {
-        memoryId: row.memoryId,
-        documentId: row.documentId,
-      });
+      return ipcError(
+        "DB_ERROR",
+        "Invalid document memory row (missing documentId)",
+        {
+          memoryId: row.memoryId,
+          documentId: row.documentId,
+        },
+      );
     }
   }
 
@@ -455,10 +467,16 @@ export function createMemoryService(args: {
 
       if (scope === "global") {
         if (normalizedProjectId) {
-          return ipcError("INVALID_ARGUMENT", "projectId is not allowed for global scope");
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "projectId is not allowed for global scope",
+          );
         }
         if (normalizedDocumentId) {
-          return ipcError("INVALID_ARGUMENT", "documentId is not allowed for global scope");
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "documentId is not allowed for global scope",
+          );
         }
       }
       if (scope === "project") {
@@ -493,8 +511,11 @@ export function createMemoryService(args: {
       const memoryId = randomUUID();
       const ts = nowTs();
       const scopedProjectId =
-        scope === "project" || scope === "document" ? normalizedProjectId! : null;
-      const scopedDocumentId = scope === "document" ? normalizedDocumentId! : null;
+        scope === "project" || scope === "document"
+          ? normalizedProjectId!
+          : null;
+      const scopedDocumentId =
+        scope === "document" ? normalizedDocumentId! : null;
 
       try {
         if (
@@ -646,7 +667,10 @@ export function createMemoryService(args: {
       }
       if (nextScope === "global") {
         if (nextProjectId !== null || nextDocumentId !== null) {
-          return ipcError("INVALID_ARGUMENT", "global scope cannot have projectId/documentId");
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "global scope cannot have projectId/documentId",
+          );
         }
       }
       if (nextScope === "project") {
@@ -842,9 +866,15 @@ export function createMemoryService(args: {
           return { ok: true, data: { items, mode: "deterministic" } };
         }
 
-        const vec = createUserMemoryVecService({ db: args.db, logger: args.logger });
+        const vec = createUserMemoryVecService({
+          db: args.db,
+          logger: args.logger,
+        });
         const vecRes = vec.topK({
-          sources: sorted.map((m) => ({ memoryId: m.memoryId, content: m.content })),
+          sources: sorted.map((m) => ({
+            memoryId: m.memoryId,
+            content: m.content,
+          })),
           queryText: trimmedQueryText,
           k: 8,
           ts: nowTs(),
@@ -898,14 +928,19 @@ export function createMemoryService(args: {
           return compareDeterministic(a.memory, b.memory);
         });
 
-        const items: MemoryInjectionItem[] = withScores.map(({ memory, score }) => ({
-          id: memory.memoryId,
-          type: memory.type,
-          scope: memory.scope,
-          origin: memory.origin,
-          content: memory.content,
-          reason: score > 0 ? { kind: "semantic", score } : { kind: "deterministic" },
-        }));
+        const items: MemoryInjectionItem[] = withScores.map(
+          ({ memory, score }) => ({
+            id: memory.memoryId,
+            type: memory.type,
+            scope: memory.scope,
+            origin: memory.origin,
+            content: memory.content,
+            reason:
+              score > 0
+                ? { kind: "semantic", score }
+                : { kind: "deterministic" },
+          }),
+        );
 
         args.logger.info("memory_injection_preview", {
           mode: "semantic",

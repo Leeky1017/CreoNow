@@ -98,13 +98,7 @@ function DefaultIllustration({
         return (
           // Search icon
           <>
-            <circle
-              cx="11"
-              cy="11"
-              r="8"
-              strokeWidth={1.5}
-              fill="none"
-            />
+            <circle cx="11" cy="11" r="8" strokeWidth={1.5} fill="none" />
             <path
               strokeLinecap="round"
               strokeWidth={1.5}
@@ -213,12 +207,7 @@ export function EmptyState({
 
       {/* Description */}
       {displayDescription && (
-        <Text
-          size="body"
-          color="muted"
-          as="p"
-          className="mb-6 max-w-[280px]"
-        >
+        <Text size="body" color="muted" as="p" className="mb-6 max-w-[280px]">
           {displayDescription}
         </Text>
       )}

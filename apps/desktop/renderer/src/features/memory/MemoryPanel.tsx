@@ -150,7 +150,9 @@ export function MemoryPanel(): JSX.Element {
     >
       {/* Header with settings button */}
       <header className="flex items-center gap-2 shrink-0">
-        <Text size="small" color="muted">Memory</Text>
+        <Text size="small" color="muted">
+          Memory
+        </Text>
         <Text size="tiny" color="muted" className="ml-auto">
           {bootstrapStatus}
         </Text>
@@ -218,14 +220,19 @@ export function MemoryPanel(): JSX.Element {
       ) : null}
 
       {/* Memory list - main content area */}
-      <Card noPadding className="p-2.5 flex-1 overflow-auto flex flex-col gap-2 min-h-0">
+      <Card
+        noPadding
+        className="p-2.5 flex-1 overflow-auto flex flex-col gap-2 min-h-0"
+      >
         <Text size="small" color="muted" className="shrink-0">
           {filteredItems.length} 条{getScopeLabel(activeScope)}记忆
         </Text>
 
         {filteredItems.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
-            <Text size="small" color="muted">还没有{getScopeLabel(activeScope)}记忆</Text>
+            <Text size="small" color="muted">
+              还没有{getScopeLabel(activeScope)}记忆
+            </Text>
           </div>
         ) : (
           <div className="flex flex-col gap-2 overflow-auto">
@@ -238,10 +245,17 @@ export function MemoryPanel(): JSX.Element {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex gap-1.5">
-                    <Text size="code" color="muted">{item.type}</Text>
-                    <Text size="code" color="muted">{item.origin === "manual" ? "手动" : "AI学习"}</Text>
+                    <Text size="code" color="muted">
+                      {item.type}
+                    </Text>
+                    <Text size="code" color="muted">
+                      {item.origin === "manual" ? "手动" : "AI学习"}
+                    </Text>
                   </div>
-                  <Text size="small" className="mt-1.5 block whitespace-pre-wrap break-words">
+                  <Text
+                    size="small"
+                    className="mt-1.5 block whitespace-pre-wrap break-words"
+                  >
                     {item.content}
                   </Text>
                 </div>

@@ -34,24 +34,28 @@
 ## 验收点
 
 ### 布局正确性
+
 - [ ] Icon Bar 宽度固定 48px
 - [ ] Status Bar 高度固定 28px
 - [ ] 三栏水平排列正确
 - [ ] 主内容区 `flex: 1` 自动填充
 
 ### 高度约束（关键）
+
 - [ ] 整体布局 `height: 100vh`
 - [ ] 主容器 `.main-layout` 设置 `min-height: 0`
 - [ ] 各面板设置 `height: 100%` + `overflow-y: auto`
 - [ ] 状态栏始终固定底部，不随内容滚动
 
 ### 独立滚动
+
 - [ ] 左侧 Sidebar 内容超出时独立滚动
 - [ ] 主内容区内容超出时独立滚动
 - [ ] 右侧 Panel 内容超出时独立滚动
 - [ ] 三个区域滚动互不影响
 
 ### 拖拽调整
+
 - [ ] Sidebar 可拖拽调整宽度 (180-400px)
 - [ ] Panel 可拖拽调整宽度 (280-480px)
 - [ ] 拖拽手柄悬停时 cursor: col-resize
@@ -59,12 +63,14 @@
 - [ ] 双击手柄恢复默认宽度
 
 ### 面板折叠
+
 - [ ] 点击 Icon Bar 当前图标折叠 Sidebar
 - [ ] 折叠后仅保留 Icon Bar (48px)
 - [ ] 右侧面板可完全隐藏 (0px)
 - [ ] 折叠/展开有动画过渡
 
 ### 偏好持久化
+
 - [ ] 面板宽度变化后持久化
 - [ ] 折叠状态持久化
 - [ ] 刷新后恢复上次状态
@@ -75,9 +81,11 @@
 
 ```css
 /* 整体布局 */
-html, body, #root { 
-  height: 100vh; 
-  overflow: hidden; 
+html,
+body,
+#root {
+  height: 100vh;
+  overflow: hidden;
 }
 
 /* 主容器 */
@@ -91,11 +99,13 @@ html, body, #root {
 .main-layout {
   display: flex;
   flex: 1;
-  min-height: 0;  /* 关键：允许 flex 子元素收缩 */
+  min-height: 0; /* 关键：允许 flex 子元素收缩 */
 }
 
 /* 各面板 */
-.sidebar, .main-content, .right-panel {
+.sidebar,
+.main-content,
+.right-panel {
   height: 100%;
   overflow-y: auto;
 }
@@ -158,12 +168,12 @@ export const Collapsed: Story = {
 
 ## 常见陷阱
 
-| 陷阱 | 检查项 |
-|------|--------|
-| 容器高度溢出 (#1) | 是否设置 `min-height: 0` |
+| 陷阱                 | 检查项                          |
+| -------------------- | ------------------------------- |
+| 容器高度溢出 (#1)    | 是否设置 `min-height: 0`        |
 | Flex 子元素溢出 (#2) | 各面板是否有 `overflow-y: auto` |
-| 固定元素被遮挡 (#3) | Status Bar 是否始终可见 |
-| 拖拽分隔条失效 (#4) | min/max 约束是否生效 |
+| 固定元素被遮挡 (#3)  | Status Bar 是否始终可见         |
+| 拖拽分隔条失效 (#4)  | min/max 约束是否生效            |
 
 ---
 

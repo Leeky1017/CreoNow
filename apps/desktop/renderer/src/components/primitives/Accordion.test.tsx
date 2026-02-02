@@ -169,7 +169,12 @@ describe("Accordion", () => {
         <Accordion
           items={[
             ...sampleItems,
-            { value: "disabled", title: "Disabled", content: "No access", disabled: true },
+            {
+              value: "disabled",
+              title: "Disabled",
+              content: "No access",
+              disabled: true,
+            },
           ]}
         />,
       );

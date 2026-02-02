@@ -117,7 +117,14 @@ export const SizeComparison: Story = {
     children: "Item",
   },
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", width: "200px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.5rem",
+        width: "200px",
+      }}
+    >
       <div>
         <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
           Standard (40px):
@@ -148,7 +155,14 @@ export const AllStates: Story = {
     children: "Item",
   },
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", width: "200px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.25rem",
+        width: "200px",
+      }}
+    >
       <ListItem>Static (non-interactive)</ListItem>
       <ListItem interactive>Interactive (hover me)</ListItem>
       <ListItem interactive selected>
@@ -348,7 +362,8 @@ export const SettingsList: Story = {
  */
 export const LongText: Story = {
   args: {
-    children: "This is a very long list item text that might overflow the container",
+    children:
+      "This is a very long list item text that might overflow the container",
     interactive: true,
   },
   decorators: [
@@ -433,7 +448,13 @@ export const KeyboardInteraction: Story = {
 
     return (
       <div style={{ width: "200px" }}>
-        <div style={{ marginBottom: "0.5rem", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        <div
+          style={{
+            marginBottom: "0.5rem",
+            fontSize: "12px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           Clicked: {clicked ?? "none"}
         </div>
         {["Item 1", "Item 2", "Item 3"].map((item) => (
@@ -446,7 +467,13 @@ export const KeyboardInteraction: Story = {
             {item}
           </ListItem>
         ))}
-        <div style={{ marginTop: "0.5rem", fontSize: "11px", color: "var(--color-fg-subtle)" }}>
+        <div
+          style={{
+            marginTop: "0.5rem",
+            fontSize: "11px",
+            color: "var(--color-fg-subtle)",
+          }}
+        >
           Try Tab, Enter, and Space keys
         </div>
       </div>
@@ -469,10 +496,23 @@ export const FullMatrix: Story = {
     layout: "fullscreen",
   },
   render: () => (
-    <div style={{ padding: "2rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div
+      style={{
+        padding: "2rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "2rem",
+      }}
+    >
       {/* States */}
       <section>
-        <h3 style={{ margin: "0 0 0.5rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 0.5rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           State Variants
         </h3>
         <div style={{ width: "200px" }}>
@@ -489,7 +529,13 @@ export const FullMatrix: Story = {
 
       {/* Sizes */}
       <section>
-        <h3 style={{ margin: "0 0 0.5rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 0.5rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Size Variants
         </h3>
         <div style={{ width: "200px" }}>
@@ -502,7 +548,13 @@ export const FullMatrix: Story = {
 
       {/* With Content */}
       <section>
-        <h3 style={{ margin: "0 0 0.5rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 0.5rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           With Content
         </h3>
         <div style={{ width: "220px" }}>
@@ -531,10 +583,23 @@ export const FullMatrix: Story = {
 
       {/* Interactive List */}
       <section>
-        <h3 style={{ margin: "0 0 0.5rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 0.5rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Interactive List
         </h3>
-        <div style={{ width: "200px", padding: "4px", background: "var(--color-bg-surface)", borderRadius: "var(--radius-md)" }}>
+        <div
+          style={{
+            width: "200px",
+            padding: "4px",
+            background: "var(--color-bg-surface)",
+            borderRadius: "var(--radius-md)",
+          }}
+        >
           {["Home", "Documents", "Settings", "Help"].map((item, i) => (
             <ListItem key={item} compact interactive selected={i === 1}>
               {item}

@@ -34,14 +34,14 @@ design/
 
 ## 文档用途
 
-| 文档 | 用途 | 何时读取 |
-|------|------|----------|
-| `00-ROADMAP.md` | 执行顺序和验收标准 | 开始前端开发前 |
-| `01-tokens.css` | Design Tokens 定义 | 实现任何组件时 |
-| `02-component-cards/*.md` | 组件施工图纸 | 生成特定组件时 |
-| `03-state-inventory.md` | 状态覆盖检查表 | 验收组件时 |
-| `04-composition-scenarios/` | 组合验收场景 | 单组件完成后 |
-| `05-design-mapping.md` | 设计稿对照表 | 需要参考设计时 |
+| 文档                        | 用途               | 何时读取       |
+| --------------------------- | ------------------ | -------------- |
+| `00-ROADMAP.md`             | 执行顺序和验收标准 | 开始前端开发前 |
+| `01-tokens.css`             | Design Tokens 定义 | 实现任何组件时 |
+| `02-component-cards/*.md`   | 组件施工图纸       | 生成特定组件时 |
+| `03-state-inventory.md`     | 状态覆盖检查表     | 验收组件时     |
+| `04-composition-scenarios/` | 组合验收场景       | 单组件完成后   |
+| `05-design-mapping.md`      | 设计稿对照表       | 需要参考设计时 |
 
 ---
 

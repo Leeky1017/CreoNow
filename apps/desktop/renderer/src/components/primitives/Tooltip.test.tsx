@@ -14,7 +14,9 @@ describe("Tooltip", () => {
         </Tooltip>,
       );
 
-      expect(screen.getByRole("button", { name: "Trigger" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Trigger" }),
+      ).toBeInTheDocument();
     });
 
     it("默认不应该显示 tooltip 内容", () => {
@@ -98,7 +100,9 @@ describe("Tooltip", () => {
         </Tooltip>,
       );
 
-      expect(screen.getByRole("button", { name: "Nested Button" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Nested Button" }),
+      ).toBeInTheDocument();
     });
   });
 

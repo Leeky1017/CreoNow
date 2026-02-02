@@ -114,7 +114,9 @@ export const ListItem = React.forwardRef<HTMLDivElement, ListItemProps>(
       .filter(Boolean)
       .join(" ");
 
-    function onInteractiveKeyDown(e: React.KeyboardEvent<HTMLDivElement>): void {
+    function onInteractiveKeyDown(
+      e: React.KeyboardEvent<HTMLDivElement>,
+    ): void {
       onKeyDown?.(e);
       if (e.defaultPrevented) {
         return;

@@ -11,7 +11,9 @@ vi.mock("../../stores/projectStore", () => ({
       bootstrapStatus: "ready" as const,
       lastError: null,
       bootstrap: vi.fn(),
-      createAndSetCurrent: vi.fn().mockResolvedValue({ ok: true, data: { projectId: "new-project" } }),
+      createAndSetCurrent: vi
+        .fn()
+        .mockResolvedValue({ ok: true, data: { projectId: "new-project" } }),
       setCurrent: vi.fn(),
       clearError: vi.fn(),
     };
@@ -104,7 +106,9 @@ describe("CreateProjectDialog", () => {
 
     it("提交表单应调用 createAndSetCurrent", async () => {
       const { useProjectStore } = await import("../../stores/projectStore");
-      const createAndSetCurrent = vi.fn().mockResolvedValue({ ok: true, data: { projectId: "new-project" } });
+      const createAndSetCurrent = vi
+        .fn()
+        .mockResolvedValue({ ok: true, data: { projectId: "new-project" } });
       vi.mocked(useProjectStore).mockImplementation((selector) => {
         const state = {
           current: null,
@@ -144,7 +148,10 @@ describe("CreateProjectDialog", () => {
           current: null,
           items: [],
           bootstrapStatus: "ready" as const,
-          lastError: { code: "IO_ERROR" as const, message: "Failed to create project" },
+          lastError: {
+            code: "IO_ERROR" as const,
+            message: "Failed to create project",
+          },
           bootstrap: vi.fn(),
           createAndSetCurrent: vi.fn(),
           setCurrent: vi.fn(),
@@ -166,7 +173,13 @@ describe("CreateProjectDialog", () => {
   describe("提交中状态", () => {
     it("提交时 Create 按钮应显示 loading", async () => {
       const { useProjectStore } = await import("../../stores/projectStore");
-      const createAndSetCurrent = vi.fn(() => new Promise<{ ok: true; data: { projectId: string; rootPath: string } }>(() => {})); // Never resolves
+      const createAndSetCurrent = vi.fn(
+        () =>
+          new Promise<{
+            ok: true;
+            data: { projectId: string; rootPath: string };
+          }>(() => {}),
+      ); // Never resolves
       vi.mocked(useProjectStore).mockImplementation((selector) => {
         const state = {
           current: null,
@@ -213,7 +226,9 @@ describe("CreateProjectDialog", () => {
         return selector(state);
       });
 
-      const { rerender } = render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
+      const { rerender } = render(
+        <CreateProjectDialog open={true} onOpenChange={vi.fn()} />,
+      );
       rerender(<CreateProjectDialog open={false} onOpenChange={vi.fn()} />);
 
       expect(clearError).toHaveBeenCalled();

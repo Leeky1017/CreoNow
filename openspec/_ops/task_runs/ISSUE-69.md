@@ -15,7 +15,7 @@
 
 - Command: `StrReplace` 工具批量替换6个组件文件
 - Key output: 所有6个文件已从内联样式迁移到 Tailwind CSS 类 + primitives 组件库
-- Evidence: 
+- Evidence:
   - `apps/desktop/renderer/src/features/settings/AppearanceSection.tsx`
   - `apps/desktop/renderer/src/features/settings/JudgeSection.tsx`
   - `apps/desktop/renderer/src/features/ai/SkillPicker.tsx`
@@ -29,7 +29,7 @@
 - Key output: Exit code 0 (无类型错误)
 
 - Command: `pnpm build`
-- Key output: 
+- Key output:
   ```
   ✓ built in 434ms (main)
   ✓ built in 28ms (preload)

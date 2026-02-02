@@ -2,14 +2,33 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import React from "react";
 import { AppShell } from "./AppShell";
-import { LayoutStoreProvider, createLayoutStore, LAYOUT_DEFAULTS } from "../../stores/layoutStore";
-import { ProjectStoreProvider, createProjectStore } from "../../stores/projectStore";
+import {
+  LayoutStoreProvider,
+  createLayoutStore,
+  LAYOUT_DEFAULTS,
+} from "../../stores/layoutStore";
+import {
+  ProjectStoreProvider,
+  createProjectStore,
+} from "../../stores/projectStore";
 import { FileStoreProvider, createFileStore } from "../../stores/fileStore";
-import { EditorStoreProvider, createEditorStore } from "../../stores/editorStore";
+import {
+  EditorStoreProvider,
+  createEditorStore,
+} from "../../stores/editorStore";
 import { AiStoreProvider, createAiStore } from "../../stores/aiStore";
-import { MemoryStoreProvider, createMemoryStore } from "../../stores/memoryStore";
-import { ContextStoreProvider, createContextStore } from "../../stores/contextStore";
-import { SearchStoreProvider, createSearchStore } from "../../stores/searchStore";
+import {
+  MemoryStoreProvider,
+  createMemoryStore,
+} from "../../stores/memoryStore";
+import {
+  ContextStoreProvider,
+  createContextStore,
+} from "../../stores/contextStore";
+import {
+  SearchStoreProvider,
+  createSearchStore,
+} from "../../stores/searchStore";
 import { KgStoreProvider, createKgStore } from "../../stores/kgStore";
 import { ThemeStoreProvider, createThemeStore } from "../../stores/themeStore";
 
@@ -38,13 +57,18 @@ const mockIpc = {
 /**
  * Full store provider wrapper for Layout tests.
  */
-function LayoutTestWrapper({ children }: { children: React.ReactNode }): JSX.Element {
+function LayoutTestWrapper({
+  children,
+}: {
+  children: React.ReactNode;
+}): JSX.Element {
   const layoutStore = React.useMemo(
     () => createLayoutStore(mockPreferences),
     [],
   );
   const projectStore = React.useMemo(
-    () => createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
+    () =>
+      createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
     [],
   );
   const fileStore = React.useMemo(
@@ -64,7 +88,8 @@ function LayoutTestWrapper({ children }: { children: React.ReactNode }): JSX.Ele
     [],
   );
   const contextStore = React.useMemo(
-    () => createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
+    () =>
+      createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
     [],
   );
   const searchStore = React.useMemo(
@@ -75,10 +100,7 @@ function LayoutTestWrapper({ children }: { children: React.ReactNode }): JSX.Ele
     () => createKgStore(mockIpc as Parameters<typeof createKgStore>[0]),
     [],
   );
-  const themeStore = React.useMemo(
-    () => createThemeStore(mockPreferences),
-    [],
-  );
+  const themeStore = React.useMemo(() => createThemeStore(mockPreferences), []);
 
   return (
     <LayoutStoreProvider store={layoutStore}>
@@ -122,10 +144,10 @@ describe("Layout 综合测试", () => {
       renderWithWrapper();
 
       const appShell = screen.getByTestId("app-shell");
-      
+
       // AppShell 应该有 flex 布局
       expect(appShell).toHaveClass("flex");
-      
+
       // 应该占满高度
       expect(appShell).toHaveClass("h-full");
     });
@@ -168,7 +190,7 @@ describe("Layout 综合测试", () => {
       renderWithWrapper();
 
       const appShell = screen.getByTestId("app-shell");
-      
+
       // 应该使用 flex 布局
       expect(appShell).toHaveClass("flex");
     });
@@ -177,7 +199,7 @@ describe("Layout 综合测试", () => {
       renderWithWrapper();
 
       const main = screen.getByRole("main");
-      
+
       // 主内容区域应该可以伸缩
       expect(main).toHaveClass("flex-1");
     });
@@ -186,7 +208,7 @@ describe("Layout 综合测试", () => {
       renderWithWrapper();
 
       const appShell = screen.getByTestId("app-shell");
-      
+
       // 检查内部 flex 容器
       const innerContainer = appShell.querySelector(".flex-1");
       expect(innerContainer).toBeInTheDocument();

@@ -48,6 +48,7 @@ pnpm tsc --noEmit
 ```
 
 **Storybook 视觉验证**：
+
 - GlobalOnly story: 齿轮图标 ✓, 三层 tabs ✓, 记忆列表 ✓, 添加按钮 ✓
 - 设置对话框: 4 个设置项 + 帮助文本 ✓
 - 创建对话框: 类型选择 + 内容输入 + scope 提示 ✓

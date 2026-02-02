@@ -48,7 +48,10 @@ describe("DiffView", () => {
   // ===========================================================================
   describe("长文本", () => {
     it("应该正确显示长 diff", () => {
-      const longDiff = Array.from({ length: 50 }, (_, i) => `Line ${i + 1}`).join("\n");
+      const longDiff = Array.from(
+        { length: 50 },
+        (_, i) => `Line ${i + 1}`,
+      ).join("\n");
 
       render(<DiffView diffText={longDiff} />);
 
@@ -57,7 +60,10 @@ describe("DiffView", () => {
     });
 
     it("容器应该可滚动", () => {
-      const longDiff = Array.from({ length: 50 }, (_, i) => `Line ${i + 1}`).join("\n");
+      const longDiff = Array.from(
+        { length: 50 },
+        (_, i) => `Line ${i + 1}`,
+      ).join("\n");
 
       render(<DiffView diffText={longDiff} />);
 

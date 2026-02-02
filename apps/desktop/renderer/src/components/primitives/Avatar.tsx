@@ -85,11 +85,7 @@ export function Avatar({
   const showImage = src && !imageError;
   const displayFallback = fallback ? getInitials(fallback) : "?";
 
-  const containerClasses = [
-    baseStyles,
-    sizeStyles[size].container,
-    className,
-  ]
+  const containerClasses = [baseStyles, sizeStyles[size].container, className]
     .filter(Boolean)
     .join(" ");
 

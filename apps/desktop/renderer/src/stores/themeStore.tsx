@@ -38,9 +38,7 @@ function normalizeMode(raw: unknown): ThemeMode | null {
  * Why: theme must be persistent and applied synchronously to avoid FOUC and to
  * keep Windows E2E deterministic.
  */
-export function createThemeStore(
-  preferences: PreferenceStore,
-) {
+export function createThemeStore(preferences: PreferenceStore) {
   const stored = preferences.get<ThemeMode>(prefKey("mode"));
   const initialMode = normalizeMode(stored) ?? "dark";
 

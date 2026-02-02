@@ -123,7 +123,14 @@ export const AllStates: Story = {
     placeholder: "Input",
   },
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "300px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+        width: "300px",
+      }}
+    >
       <div>
         <label
           style={{
@@ -235,7 +242,14 @@ export const AllTypes: Story = {
     placeholder: "Input",
   },
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "300px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+        width: "300px",
+      }}
+    >
       <div>
         <label
           style={{
@@ -334,7 +348,12 @@ export const LongTextConstrained: Story = {
     layout: "padded",
   },
   render: () => (
-    <div style={{ width: "200px", border: "1px dashed var(--color-border-default)" }}>
+    <div
+      style={{
+        width: "200px",
+        border: "1px dashed var(--color-border-default)",
+      }}
+    >
       <Input
         fullWidth
         defaultValue="Very long text that should handle overflow properly without breaking layout"
@@ -389,7 +408,9 @@ export const FocusTest: Story = {
   },
   render: () => (
     <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
-      <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>Tab →</span>
+      <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        Tab →
+      </span>
       <Input placeholder="Default Focus" />
       <Input error placeholder="Error Focus" />
     </div>
@@ -406,7 +427,14 @@ export const FormScenario: Story = {
     placeholder: "Input",
   },
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "300px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+        width: "300px",
+      }}
+    >
       <div>
         <label
           style={{
@@ -473,7 +501,14 @@ export const FullMatrix: Story = {
     layout: "fullscreen",
   },
   render: () => (
-    <div style={{ padding: "2rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div
+      style={{
+        padding: "2rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "2rem",
+      }}
+    >
       {/* States */}
       <section>
         <h3
@@ -494,19 +529,29 @@ export const FullMatrix: Story = {
             maxWidth: "400px",
           }}
         >
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>default</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            default
+          </span>
           <Input placeholder="Default input" fullWidth />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>with value</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            with value
+          </span>
           <Input defaultValue="Hello World" fullWidth />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>error</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            error
+          </span>
           <Input error defaultValue="Invalid" fullWidth />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>disabled</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            disabled
+          </span>
           <Input disabled defaultValue="Disabled" fullWidth />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>readonly</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            readonly
+          </span>
           <Input readOnly defaultValue="Read only" fullWidth />
         </div>
       </section>
@@ -531,19 +576,29 @@ export const FullMatrix: Story = {
             maxWidth: "400px",
           }}
         >
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>text</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            text
+          </span>
           <Input type="text" placeholder="Text" fullWidth />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>password</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            password
+          </span>
           <Input type="password" placeholder="Password" fullWidth />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>email</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            email
+          </span>
           <Input type="email" placeholder="Email" fullWidth />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>number</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            number
+          </span>
           <Input type="number" placeholder="Number" fullWidth />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>search</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            search
+          </span>
           <Input type="search" placeholder="Search" fullWidth />
         </div>
       </section>
@@ -568,16 +623,22 @@ export const FullMatrix: Story = {
             maxWidth: "400px",
           }}
         >
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>long text</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            long text
+          </span>
           <Input
             defaultValue="This is a very long text that should scroll horizontally"
             fullWidth
           />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>short</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            short
+          </span>
           <Input defaultValue="Hi" fullWidth />
 
-          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>emoji</span>
+          <span style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+            emoji
+          </span>
           <Input defaultValue="Hello 🌍 World 🚀" fullWidth />
         </div>
       </section>

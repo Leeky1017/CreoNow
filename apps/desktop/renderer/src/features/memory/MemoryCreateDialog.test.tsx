@@ -28,7 +28,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="global"
           scopeLabel="全局"
-        />
+        />,
       );
 
       expect(screen.getByText("添加新记忆")).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="global"
           scopeLabel="全局"
-        />
+        />,
       );
 
       expect(screen.queryByText("添加新记忆")).not.toBeInTheDocument();
@@ -54,7 +54,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="project"
           scopeLabel="项目"
-        />
+        />,
       );
 
       expect(screen.getByText(/项目/)).toBeInTheDocument();
@@ -72,7 +72,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="global"
           scopeLabel="全局"
-        />
+        />,
       );
 
       expect(screen.getByTestId("memory-create-type")).toBeInTheDocument();
@@ -85,7 +85,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="global"
           scopeLabel="全局"
-        />
+        />,
       );
 
       expect(screen.getByTestId("memory-create-content")).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="global"
           scopeLabel="全局"
-        />
+        />,
       );
 
       expect(screen.getByText("记忆类型")).toBeInTheDocument();
@@ -117,7 +117,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="global"
           scopeLabel="全局"
-        />
+        />,
       );
 
       expect(screen.getByText("取消")).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={onOpenChange}
           scope="global"
           scopeLabel="全局"
-        />
+        />,
       );
 
       const cancelButton = screen.getByText("取消");
@@ -153,7 +153,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="global"
           scopeLabel="全局"
-        />
+        />,
       );
 
       expect(screen.getByText(/全局/)).toBeInTheDocument();
@@ -166,7 +166,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="project"
           scopeLabel="项目"
-        />
+        />,
       );
 
       expect(screen.getByText(/项目/)).toBeInTheDocument();
@@ -179,7 +179,7 @@ describe("MemoryCreateDialog", () => {
           onOpenChange={vi.fn()}
           scope="document"
           scopeLabel="文档"
-        />
+        />,
       );
 
       expect(screen.getByText(/文档/)).toBeInTheDocument();

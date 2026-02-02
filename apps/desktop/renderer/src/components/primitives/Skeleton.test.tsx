@@ -44,19 +44,25 @@ describe("Skeleton", () => {
     it("text variant 应该有 rounded-sm", () => {
       render(<Skeleton variant="text" />);
 
-      expect(screen.getByRole("progressbar")).toHaveClass("rounded-[var(--radius-sm)]");
+      expect(screen.getByRole("progressbar")).toHaveClass(
+        "rounded-[var(--radius-sm)]",
+      );
     });
 
     it("circular variant 应该有 rounded-full", () => {
       render(<Skeleton variant="circular" />);
 
-      expect(screen.getByRole("progressbar")).toHaveClass("rounded-[var(--radius-full)]");
+      expect(screen.getByRole("progressbar")).toHaveClass(
+        "rounded-[var(--radius-full)]",
+      );
     });
 
     it("rectangular variant 应该有 rounded-md", () => {
       render(<Skeleton variant="rectangular" />);
 
-      expect(screen.getByRole("progressbar")).toHaveClass("rounded-[var(--radius-md)]");
+      expect(screen.getByRole("progressbar")).toHaveClass(
+        "rounded-[var(--radius-md)]",
+      );
     });
   });
 
@@ -100,13 +106,17 @@ describe("Skeleton", () => {
     it("默认应该启用动画", () => {
       render(<Skeleton />);
 
-      expect(screen.getByRole("progressbar")).toHaveClass("before:animate-shimmer");
+      expect(screen.getByRole("progressbar")).toHaveClass(
+        "before:animate-shimmer",
+      );
     });
 
     it("animate=false 时不应该有动画类", () => {
       render(<Skeleton animate={false} />);
 
-      expect(screen.getByRole("progressbar")).not.toHaveClass("before:animate-shimmer");
+      expect(screen.getByRole("progressbar")).not.toHaveClass(
+        "before:animate-shimmer",
+      );
     });
   });
 
@@ -129,7 +139,9 @@ describe("Skeleton", () => {
     it("应该支持自定义 style", () => {
       render(<Skeleton style={{ marginTop: "10px" }} />);
 
-      expect(screen.getByRole("progressbar")).toHaveStyle({ marginTop: "10px" });
+      expect(screen.getByRole("progressbar")).toHaveStyle({
+        marginTop: "10px",
+      });
     });
 
     it("应该传递原生属性", () => {

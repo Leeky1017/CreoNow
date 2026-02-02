@@ -13,7 +13,11 @@ type JsonObject = Record<string, unknown>;
  * Read `details.fieldName` safely from an unknown error details object.
  */
 function getFieldName(details: unknown): string | null {
-  if (typeof details !== "object" || details === null || Array.isArray(details)) {
+  if (
+    typeof details !== "object" ||
+    details === null ||
+    Array.isArray(details)
+  ) {
     return null;
   }
   const obj = details as JsonObject;
@@ -90,4 +94,3 @@ invalid_yaml: [
       loaded.error_message.includes("Invalid YAML frontmatter"),
   );
 }
-

@@ -23,27 +23,27 @@
 
 这些组件是代码风格和质量的基准，后续组件必须参考：
 
-| 组件 | 文件 | 用途 |
-|------|------|------|
+| 组件   | 文件        | 用途         |
+| ------ | ----------- | ------------ |
 | Button | `Button.md` | 交互组件模式 |
-| Input | `Input.md` | 表单组件模式 |
-| Card | `Card.md` | 容器组件模式 |
+| Input  | `Input.md`  | 表单组件模式 |
+| Card   | `Card.md`   | 容器组件模式 |
 
 ---
 
 ## 原子组件 (P1)
 
-| 组件 | 文件 | 状态 |
-|------|------|------|
-| Badge | `Badge.md` | 待创建 |
-| Avatar | `Avatar.md` | 待创建 |
-| Icon | `Icon.md` | 待创建 |
-| Spinner | `Spinner.md` | 待创建 |
-| Text | `Text.md` | 待创建 |
-| Heading | `Heading.md` | 待创建 |
+| 组件     | 文件          | 状态   |
+| -------- | ------------- | ------ |
+| Badge    | `Badge.md`    | 待创建 |
+| Avatar   | `Avatar.md`   | 待创建 |
+| Icon     | `Icon.md`     | 待创建 |
+| Spinner  | `Spinner.md`  | 待创建 |
+| Text     | `Text.md`     | 待创建 |
+| Heading  | `Heading.md`  | 待创建 |
 | Skeleton | `Skeleton.md` | 待创建 |
 | Checkbox | `Checkbox.md` | 待创建 |
-| Select | `Select.md` | 待创建 |
+| Select   | `Select.md`   | 待创建 |
 | Textarea | `Textarea.md` | 待创建 |
 
 ---
@@ -70,29 +70,37 @@
 # [组件名] 组件生成卡片
 
 ## 元信息
+
 - 优先级: P0/P1/P2
 - 依赖: 列出依赖的其他组件
 - 文件位置: components/primitives/[组件名]/
 - 设计参考: 对应的设计稿
 
 ## 变体/尺寸
+
 [列出所有变体和尺寸选项]
 
 ## 状态矩阵 (MUST 全部实现)
+
 [列出所有状态及其视觉表现]
 
 ## 边界情况 (MUST 处理)
+
 [列出所有边界条件及处理方式]
 
 ## Props 接口
+
 [TypeScript 类型定义]
 
 ## Cursor Prompt
+
 [可直接复制的生成 prompt]
 
 ## 验收测试代码
+
 [可执行的测试代码]
 
 ## AI 自检步骤
+
 [可视化验证步骤]
 ```

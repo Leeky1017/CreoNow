@@ -33,7 +33,7 @@ prompt:
 Use this skill to polish a selected paragraph or a short section.
 
 Guidelines:
+
 - Preserve meaning and factual claims.
 - Keep the author's voice.
 - Fix grammar, punctuation, and awkward phrasing.
-

@@ -1,4 +1,9 @@
-import { _electron as electron, expect, test, type Page } from "@playwright/test";
+import {
+  _electron as electron,
+  expect,
+  test,
+  type Page,
+} from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
@@ -104,7 +109,9 @@ test("memory semantic recall: preview mode=semantic + stablePrefixHash unchanged
   await page.getByTestId("ai-context-toggle").click();
   await expect(page.getByTestId("ai-context-panel")).toBeVisible();
 
-  const stable1 = await page.getByTestId("ai-context-stable-prefix-hash").innerText();
+  const stable1 = await page
+    .getByTestId("ai-context-stable-prefix-hash")
+    .innerText();
   const prompt1 = await page.getByTestId("ai-context-prompt-hash").innerText();
 
   await page.getByTestId("ai-context-toggle").click();
@@ -112,7 +119,9 @@ test("memory semantic recall: preview mode=semantic + stablePrefixHash unchanged
   await page.getByTestId("ai-context-toggle").click();
   await expect(page.getByTestId("ai-context-panel")).toBeVisible();
 
-  const stable2 = await page.getByTestId("ai-context-stable-prefix-hash").innerText();
+  const stable2 = await page
+    .getByTestId("ai-context-stable-prefix-hash")
+    .innerText();
   const prompt2 = await page.getByTestId("ai-context-prompt-hash").innerText();
 
   expect(stable2).toBe(stable1);

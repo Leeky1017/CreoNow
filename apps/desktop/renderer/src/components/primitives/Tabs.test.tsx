@@ -13,7 +13,12 @@ const basicTabs: TabItem[] = [
 
 const tabsWithDisabled: TabItem[] = [
   { value: "active", label: "Active", content: <div>Active content</div> },
-  { value: "disabled", label: "Disabled", disabled: true, content: <div>Disabled content</div> },
+  {
+    value: "disabled",
+    label: "Disabled",
+    disabled: true,
+    content: <div>Disabled content</div>,
+  },
   { value: "another", label: "Another", content: <div>Another content</div> },
 ];
 
@@ -96,7 +101,11 @@ describe("Tabs", () => {
       const user = userEvent.setup();
 
       render(
-        <Tabs tabs={basicTabs} value="tab1" onValueChange={handleValueChange} />,
+        <Tabs
+          tabs={basicTabs}
+          value="tab1"
+          onValueChange={handleValueChange}
+        />,
       );
 
       await user.click(screen.getByRole("tab", { name: "Tab 2" }));
@@ -181,13 +190,19 @@ describe("Tabs", () => {
     it("水平方向应该有正确的 orientation 属性", () => {
       render(<Tabs tabs={basicTabs} orientation="horizontal" />);
 
-      expect(screen.getByRole("tablist")).toHaveAttribute("aria-orientation", "horizontal");
+      expect(screen.getByRole("tablist")).toHaveAttribute(
+        "aria-orientation",
+        "horizontal",
+      );
     });
 
     it("垂直方向应该有正确的 orientation 属性", () => {
       render(<Tabs tabs={basicTabs} orientation="vertical" />);
 
-      expect(screen.getByRole("tablist")).toHaveAttribute("aria-orientation", "vertical");
+      expect(screen.getByRole("tablist")).toHaveAttribute(
+        "aria-orientation",
+        "vertical",
+      );
     });
 
     it("垂直方向应该用上下箭头键导航", async () => {
@@ -314,7 +329,9 @@ describe("Tabs", () => {
       render(<Tabs tabs={longLabels} />);
 
       expect(
-        screen.getByRole("tab", { name: "This is a very long tab label that might wrap" }),
+        screen.getByRole("tab", {
+          name: "This is a very long tab label that might wrap",
+        }),
       ).toBeInTheDocument();
     });
 

@@ -28,7 +28,13 @@ type Story = StoryObj<typeof meta>;
  */
 export const Default: Story = {
   render: () => (
-    <div style={{ width: "320px", height: "400px", backgroundColor: "var(--color-bg-surface)" }}>
+    <div
+      style={{
+        width: "320px",
+        height: "400px",
+        backgroundColor: "var(--color-bg-surface)",
+      }}
+    >
       <ContextViewer />
     </div>
   ),
@@ -41,7 +47,13 @@ export const Default: Story = {
  */
 export const NarrowWidth: Story = {
   render: () => (
-    <div style={{ width: "280px", height: "400px", backgroundColor: "var(--color-bg-surface)" }}>
+    <div
+      style={{
+        width: "280px",
+        height: "400px",
+        backgroundColor: "var(--color-bg-surface)",
+      }}
+    >
       <ContextViewer />
     </div>
   ),
@@ -54,7 +66,13 @@ export const NarrowWidth: Story = {
  */
 export const WideWidth: Story = {
   render: () => (
-    <div style={{ width: "480px", height: "600px", backgroundColor: "var(--color-bg-surface)" }}>
+    <div
+      style={{
+        width: "480px",
+        height: "600px",
+        backgroundColor: "var(--color-bg-surface)",
+      }}
+    >
       <ContextViewer />
     </div>
   ),
@@ -67,7 +85,14 @@ export const WideWidth: Story = {
  */
 export const FullHeight: Story = {
   render: () => (
-    <div style={{ width: "320px", height: "100vh", backgroundColor: "var(--color-bg-surface)", overflow: "auto" }}>
+    <div
+      style={{
+        width: "320px",
+        height: "100vh",
+        backgroundColor: "var(--color-bg-surface)",
+        overflow: "auto",
+      }}
+    >
       <ContextViewer />
     </div>
   ),

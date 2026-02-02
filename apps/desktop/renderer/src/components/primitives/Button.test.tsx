@@ -44,7 +44,12 @@ describe("Button", () => {
   // Variant 测试（全覆盖）
   // ===========================================================================
   describe("variants", () => {
-    const variants: ButtonVariant[] = ["primary", "secondary", "ghost", "danger"];
+    const variants: ButtonVariant[] = [
+      "primary",
+      "secondary",
+      "ghost",
+      "danger",
+    ];
 
     it.each(variants)("应该渲染 %s variant", (variant) => {
       render(<Button variant={variant}>{variant}</Button>);
@@ -291,7 +296,12 @@ describe("Button", () => {
   // 完整 Variant × Size 矩阵测试
   // ===========================================================================
   describe("Variant × Size 矩阵", () => {
-    const variants: ButtonVariant[] = ["primary", "secondary", "ghost", "danger"];
+    const variants: ButtonVariant[] = [
+      "primary",
+      "secondary",
+      "ghost",
+      "danger",
+    ];
     const sizes: ButtonSize[] = ["sm", "md", "lg"];
     const sizeClasses: Record<ButtonSize, string> = {
       sm: "h-7",

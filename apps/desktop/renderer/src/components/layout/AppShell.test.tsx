@@ -2,14 +2,32 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import React from "react";
 import { AppShell } from "./AppShell";
-import { LayoutStoreProvider, createLayoutStore } from "../../stores/layoutStore";
-import { ProjectStoreProvider, createProjectStore } from "../../stores/projectStore";
+import {
+  LayoutStoreProvider,
+  createLayoutStore,
+} from "../../stores/layoutStore";
+import {
+  ProjectStoreProvider,
+  createProjectStore,
+} from "../../stores/projectStore";
 import { FileStoreProvider, createFileStore } from "../../stores/fileStore";
-import { EditorStoreProvider, createEditorStore } from "../../stores/editorStore";
+import {
+  EditorStoreProvider,
+  createEditorStore,
+} from "../../stores/editorStore";
 import { AiStoreProvider, createAiStore } from "../../stores/aiStore";
-import { MemoryStoreProvider, createMemoryStore } from "../../stores/memoryStore";
-import { ContextStoreProvider, createContextStore } from "../../stores/contextStore";
-import { SearchStoreProvider, createSearchStore } from "../../stores/searchStore";
+import {
+  MemoryStoreProvider,
+  createMemoryStore,
+} from "../../stores/memoryStore";
+import {
+  ContextStoreProvider,
+  createContextStore,
+} from "../../stores/contextStore";
+import {
+  SearchStoreProvider,
+  createSearchStore,
+} from "../../stores/searchStore";
 import { KgStoreProvider, createKgStore } from "../../stores/kgStore";
 import { ThemeStoreProvider, createThemeStore } from "../../stores/themeStore";
 
@@ -38,13 +56,18 @@ const mockIpc = {
 /**
  * Full store provider wrapper for AppShell tests.
  */
-function AppShellTestWrapper({ children }: { children: React.ReactNode }): JSX.Element {
+function AppShellTestWrapper({
+  children,
+}: {
+  children: React.ReactNode;
+}): JSX.Element {
   const layoutStore = React.useMemo(
     () => createLayoutStore(mockPreferences),
     [],
   );
   const projectStore = React.useMemo(
-    () => createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
+    () =>
+      createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
     [],
   );
   const fileStore = React.useMemo(
@@ -64,7 +87,8 @@ function AppShellTestWrapper({ children }: { children: React.ReactNode }): JSX.E
     [],
   );
   const contextStore = React.useMemo(
-    () => createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
+    () =>
+      createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
     [],
   );
   const searchStore = React.useMemo(
@@ -75,10 +99,7 @@ function AppShellTestWrapper({ children }: { children: React.ReactNode }): JSX.E
     () => createKgStore(mockIpc as Parameters<typeof createKgStore>[0]),
     [],
   );
-  const themeStore = React.useMemo(
-    () => createThemeStore(mockPreferences),
-    [],
-  );
+  const themeStore = React.useMemo(() => createThemeStore(mockPreferences), []);
 
   return (
     <LayoutStoreProvider store={layoutStore}>

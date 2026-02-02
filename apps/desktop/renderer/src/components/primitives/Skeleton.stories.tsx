@@ -96,21 +96,46 @@ export const AllVariants: Story = {
     variant: "text",
   },
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", maxWidth: "400px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.5rem",
+        maxWidth: "400px",
+      }}
+    >
       <div>
-        <div style={{ marginBottom: "0.5rem", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        <div
+          style={{
+            marginBottom: "0.5rem",
+            fontSize: "12px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           text
         </div>
         <Skeleton variant="text" width="80%" />
       </div>
       <div>
-        <div style={{ marginBottom: "0.5rem", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        <div
+          style={{
+            marginBottom: "0.5rem",
+            fontSize: "12px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           circular
         </div>
         <Skeleton variant="circular" width={48} height={48} />
       </div>
       <div>
-        <div style={{ marginBottom: "0.5rem", fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        <div
+          style={{
+            marginBottom: "0.5rem",
+            fontSize: "12px",
+            color: "var(--color-fg-muted)",
+          }}
+        >
           rectangular
         </div>
         <Skeleton variant="rectangular" height={100} />
@@ -137,7 +162,14 @@ export const UserCardSkeleton: Story = {
       }}
     >
       <Skeleton variant="circular" width={48} height={48} />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.5rem",
+        }}
+      >
         <Skeleton variant="text" width="60%" height={16} />
         <Skeleton variant="text" width="80%" height={14} />
         <Skeleton variant="text" width="40%" height={14} />
@@ -152,7 +184,14 @@ export const ArticleListSkeleton: Story = {
     variant: "text",
   },
   render: () => (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", maxWidth: "500px" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.5rem",
+        maxWidth: "500px",
+      }}
+    >
       {[1, 2, 3].map((i) => (
         <div
           key={i}
@@ -165,7 +204,14 @@ export const ArticleListSkeleton: Story = {
           }}
         >
           <Skeleton variant="rectangular" width={120} height={80} />
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+            }}
+          >
             <Skeleton variant="text" width="90%" height={18} />
             <Skeleton variant="text" width="70%" height={14} />
             <Skeleton variant="text" width="50%" height={14} />

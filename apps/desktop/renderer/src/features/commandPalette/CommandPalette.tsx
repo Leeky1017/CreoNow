@@ -178,7 +178,9 @@ function highlightMatch(text: string, query: string): React.ReactNode {
   return (
     <>
       {before}
-      <span className="text-[var(--color-fg-default)] font-medium">{match}</span>
+      <span className="text-[var(--color-fg-default)] font-medium">
+        {match}
+      </span>
       {after}
     </>
   );

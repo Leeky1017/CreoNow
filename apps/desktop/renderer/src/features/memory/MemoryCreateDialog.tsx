@@ -81,7 +81,9 @@ export function MemoryCreateDialog(props: {
       <div className="flex flex-col gap-4 py-2">
         {/* Type selector */}
         <div className="flex flex-col gap-2">
-          <Text size="small" color="muted">记忆类型</Text>
+          <Text size="small" color="muted">
+            记忆类型
+          </Text>
           <Select
             data-testid="memory-create-type"
             value={type}
@@ -97,7 +99,9 @@ export function MemoryCreateDialog(props: {
 
         {/* Content input */}
         <div className="flex flex-col gap-2">
-          <Text size="small" color="muted">记忆内容</Text>
+          <Text size="small" color="muted">
+            记忆内容
+          </Text>
           <Textarea
             data-testid="memory-create-content"
             value={content}
@@ -116,7 +120,8 @@ export function MemoryCreateDialog(props: {
         {/* Scope info */}
         <div className="flex items-center gap-2 p-2 rounded bg-[var(--color-bg-subtle)]">
           <Text size="tiny" color="muted">
-            💡 记忆层级由当前选中的 Tab 决定。切换 Tab 后添加的记忆会保存到对应层级。
+            💡 记忆层级由当前选中的 Tab 决定。切换 Tab
+            后添加的记忆会保存到对应层级。
           </Text>
         </div>
       </div>

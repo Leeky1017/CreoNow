@@ -73,11 +73,7 @@ export const Default: Story = {
     return (
       <>
         <Button onClick={() => setOpen(true)}>Open Dialog</Button>
-        <Dialog
-          open={open}
-          onOpenChange={setOpen}
-          title="Dialog Title"
-        >
+        <Dialog open={open} onOpenChange={setOpen} title="Dialog Title">
           <p>Dialog content goes here.</p>
         </Dialog>
       </>
@@ -250,12 +246,14 @@ export const LongContent: Story = {
             </Button>
           }
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
             {Array.from({ length: 20 }, (_, i) => (
               <p key={i}>
-                This is paragraph {i + 1}. Lorem ipsum dolor sit amet, consectetur
-                adipiscing elit. Sed do eiusmod tempor incididunt ut labore et
-                dolore magna aliqua.
+                This is paragraph {i + 1}. Lorem ipsum dolor sit amet,
+                consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut
+                labore et dolore magna aliqua.
               </p>
             ))}
           </div>
@@ -296,7 +294,9 @@ export const FormDialog: Story = {
             </>
           }
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
             <div>
               <label
                 htmlFor="project-name"
@@ -432,7 +432,9 @@ export const FullFeatures: Story = {
             </>
           }
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+          >
             <input
               type="text"
               placeholder="Enter value..."

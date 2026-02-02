@@ -112,7 +112,10 @@ export function registerAiIpcHandlers(deps: {
       if (!deps.db) {
         return null;
       }
-      const svc = createAiProxySettingsService({ db: deps.db, logger: deps.logger });
+      const svc = createAiProxySettingsService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const res = svc.getRaw();
       return res.ok ? res.data : null;
     },

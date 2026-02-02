@@ -1,4 +1,5 @@
 ## 1. Implementation
+
 - [ ] 1.1 重写 `CommandPalette.tsx`：
   - [ ] 1.1.1 Header：搜索图标 + 输入框（56px 高度，底部边框）
   - [ ] 1.1.2 Body：分组列表（可滚动，max-height 424px）
@@ -19,6 +20,7 @@
   - [ ] 1.3.4 测试关闭（Esc 关闭面板）
 
 ## 2. Testing
+
 - [ ] 2.1 `pnpm typecheck`
 - [ ] 2.2 `pnpm lint`
 - [ ] 2.3 `pnpm test:run`
@@ -26,4 +28,5 @@
 - [ ] 2.5 Browser：验证 Storybook 中 CommandPalette Stories 符合设计稿
 
 ## 3. Documentation
+
 - [ ] 3.1 更新 `openspec/_ops/task_runs/ISSUE-113.md` Runs（仅追加不回写）

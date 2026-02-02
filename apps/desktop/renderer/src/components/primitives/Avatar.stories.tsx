@@ -181,7 +181,10 @@ export const UserList: Story = {
         { name: "Carol Williams" },
         { name: "David" },
       ].map((user) => (
-        <div key={user.name} style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div
+          key={user.name}
+          style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}
+        >
           <Avatar src={user.src} fallback={user.name} size="sm" />
           <span style={{ color: "var(--color-fg-default)", fontSize: "13px" }}>
             {user.name}

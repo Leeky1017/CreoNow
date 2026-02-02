@@ -16,8 +16,8 @@
 ```css
 background: var(--color-bg-surface);
 border: 1px solid var(--color-border-default);
-border-radius: var(--radius-xl);  /* 16px */
-padding: var(--space-6);          /* 24px，通过 p-6 实现 */
+border-radius: var(--radius-xl); /* 16px */
+padding: var(--space-6); /* 24px，通过 p-6 实现 */
 transition: all var(--duration-fast) var(--ease-default);
 ```
 
@@ -25,19 +25,19 @@ transition: all var(--duration-fast) var(--ease-default);
 
 ## 变体 (Variants)
 
-| 类型 | 边框 | 阴影 | 用途 |
-|------|------|------|------|
-| default | 1px --color-border-default | 无 | 标准内容容器 |
-| raised | 1px --color-border-default | --shadow-md | 悬浮/强调卡片 |
-| bordered | 2px --color-border-default | 无 | 强调边框 |
+| 类型     | 边框                       | 阴影        | 用途          |
+| -------- | -------------------------- | ----------- | ------------- |
+| default  | 1px --color-border-default | 无          | 标准内容容器  |
+| raised   | 1px --color-border-default | --shadow-md | 悬浮/强调卡片 |
+| bordered | 2px --color-border-default | 无          | 强调边框      |
 
 ---
 
 ## 状态矩阵
 
-| 状态 | 视觉表现 | 条件 | CSS 类 |
-|------|----------|------|--------|
-| default | 正常边框，无阴影 | 始终 | - |
+| 状态           | 视觉表现            | 条件           | CSS 类                                                                                    |
+| -------------- | ------------------- | -------------- | ----------------------------------------------------------------------------------------- |
+| default        | 正常边框，无阴影    | 始终           | -                                                                                         |
 | hover (可点击) | 边框高亮 + 可选阴影 | hoverable=true | `cursor-pointer hover:border-[var(--color-border-hover)] hover:shadow-[var(--shadow-sm)]` |
 
 ---
@@ -45,7 +45,7 @@ transition: all var(--duration-fast) var(--ease-default);
 ## 阴影使用规则 (MUST)
 
 ```
-卡片.阴影 = 
+卡片.阴影 =
   IF variant == "raised" THEN --shadow-md
   ELSE IF hoverable AND 状态 == hover THEN MAY --shadow-sm
   ELSE MUST NOT 使用阴影
@@ -87,10 +87,10 @@ Card 使用 children 作为唯一 slot，支持任意内容组合：
     <h3>Title</h3>
     <button>...</button>
   </div>
-  
+
   {/* Content 区域 */}
   <p>Main content</p>
-  
+
   {/* Footer 区域 */}
   <div className="flex justify-end gap-2 mt-4 pt-3 border-t">
     <Button>Cancel</Button>
@@ -103,13 +103,13 @@ Card 使用 children 作为唯一 slot，支持任意内容组合：
 
 ## 边界情况 (MUST 处理)
 
-| 边界 | 处理方式 | 测试覆盖 |
-|------|----------|----------|
-| 空内容 | 保持正常渲染 | ✅ |
-| 内容溢出 | 由使用方控制 | ✅ |
-| 嵌套 Card | 支持 | ✅ |
-| Emoji | 正确显示 | ✅ |
-| 超长文本 | 正常渲染 | ✅ |
+| 边界      | 处理方式     | 测试覆盖 |
+| --------- | ------------ | -------- |
+| 空内容    | 保持正常渲染 | ✅       |
+| 内容溢出  | 由使用方控制 | ✅       |
+| 嵌套 Card | 支持         | ✅       |
+| Emoji     | 正确显示     | ✅       |
+| 超长文本  | 正常渲染     | ✅       |
 
 ---
 
@@ -159,19 +159,19 @@ Card 使用 children 作为唯一 slot，支持任意内容组合：
 完整测试位于 `Card.test.tsx`，共 42 个测试用例，覆盖：
 
 ```typescript
-describe('Card', () => {
-  describe('渲染')           // 基础渲染测试
-  describe('variants')       // 3 种 variant 全覆盖
-  describe('hoverable')      // hover 状态测试
-  describe('padding')        // 内边距测试
-  describe('样式')           // 圆角、背景、过渡
-  describe('阴影规则')       // 设计规范 §5.2
-  describe('CSS Variables')  // 禁止硬编码颜色
-  describe('交互')           // onClick 响应
-  describe('Slot 模式')      // children 渲染
-  describe('边界情况')       // 空内容、超长文本、emoji、嵌套
-  describe('Variant × Hoverable 矩阵')  // 6 种组合
-  describe('无障碍')         // a11y 测试
+describe("Card", () => {
+  describe("渲染"); // 基础渲染测试
+  describe("variants"); // 3 种 variant 全覆盖
+  describe("hoverable"); // hover 状态测试
+  describe("padding"); // 内边距测试
+  describe("样式"); // 圆角、背景、过渡
+  describe("阴影规则"); // 设计规范 §5.2
+  describe("CSS Variables"); // 禁止硬编码颜色
+  describe("交互"); // onClick 响应
+  describe("Slot 模式"); // children 渲染
+  describe("边界情况"); // 空内容、超长文本、emoji、嵌套
+  describe("Variant × Hoverable 矩阵"); // 6 种组合
+  describe("无障碍"); // a11y 测试
 });
 ```
 
@@ -182,12 +182,15 @@ describe('Card', () => {
 生成组件后，执行以下步骤：
 
 1. 运行测试验证功能正确：
+
    ```bash
    pnpm --filter desktop test -- --run Card.test.tsx
    ```
+
    期望：42 个测试全部通过
 
 2. 确保 Storybook 正在运行：
+
    ```bash
    pnpm --filter desktop storybook
    ```
@@ -216,26 +219,26 @@ describe('Card', () => {
 
 ### 测试验证
 
-| 检查项 | 状态 | 验证方式 |
-|--------|------|----------|
-| 测试通过 | ✅ | 42/42 tests passed |
-| CSS Variables | ✅ | 测试验证无硬编码颜色 |
-| Variant × Hoverable 矩阵 | ✅ | 6 种组合全覆盖 |
-| 边界情况 | ✅ | 空内容、超长文本、emoji、嵌套 |
-| 无障碍 | ✅ | role、aria-label、键盘操作 |
+| 检查项                   | 状态 | 验证方式                      |
+| ------------------------ | ---- | ----------------------------- |
+| 测试通过                 | ✅   | 42/42 tests passed            |
+| CSS Variables            | ✅   | 测试验证无硬编码颜色          |
+| Variant × Hoverable 矩阵 | ✅   | 6 种组合全覆盖                |
+| 边界情况                 | ✅   | 空内容、超长文本、emoji、嵌套 |
+| 无障碍                   | ✅   | role、aria-label、键盘操作    |
 
 ### 可视化验证（Storybook MCP 浏览器）
 
-| 检查项 | 状态 | 验证方式 |
-|--------|------|----------|
-| 3 种 Variants 渲染 | ✅ | Full Matrix Story 截图 |
-| 圆角正确 (16px) | ✅ | 可视化确认 |
-| 边框正确 | ✅ | default 1px, bordered 2px |
-| default 无阴影 | ✅ | 可视化确认 |
-| raised 有阴影 | ✅ | 可视化确认明显阴影效果 |
-| hoverable 样式 | ✅ | Hoverable Story 截图 |
-| Slot 模式 | ✅ | With Slots Story：Header + Content + Footer |
-| 实际使用场景 | ✅ | Project Card Scenario：中文内容、元信息布局 |
+| 检查项             | 状态 | 验证方式                                    |
+| ------------------ | ---- | ------------------------------------------- |
+| 3 种 Variants 渲染 | ✅   | Full Matrix Story 截图                      |
+| 圆角正确 (16px)    | ✅   | 可视化确认                                  |
+| 边框正确           | ✅   | default 1px, bordered 2px                   |
+| default 无阴影     | ✅   | 可视化确认                                  |
+| raised 有阴影      | ✅   | 可视化确认明显阴影效果                      |
+| hoverable 样式     | ✅   | Hoverable Story 截图                        |
+| Slot 模式          | ✅   | With Slots Story：Header + Content + Footer |
+| 实际使用场景       | ✅   | Project Card Scenario：中文内容、元信息布局 |
 
 ### 验证截图
 

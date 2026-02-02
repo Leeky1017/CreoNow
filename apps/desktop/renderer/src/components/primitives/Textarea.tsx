@@ -1,7 +1,6 @@
 import React from "react";
 
-export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   /** Show error state styling */
   error?: boolean;
   /** Full width textarea */

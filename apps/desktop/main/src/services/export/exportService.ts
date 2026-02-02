@@ -24,8 +24,14 @@ export type ExportService = {
     projectId: string;
     documentId?: string;
   }) => Promise<ServiceResult<ExportResult>>;
-  exportPdf: (args: { projectId: string; documentId?: string }) => ServiceResult<never>;
-  exportDocx: (args: { projectId: string; documentId?: string }) => ServiceResult<never>;
+  exportPdf: (args: {
+    projectId: string;
+    documentId?: string;
+  }) => ServiceResult<never>;
+  exportDocx: (args: {
+    projectId: string;
+    documentId?: string;
+  }) => ServiceResult<never>;
 };
 
 /**
@@ -108,7 +114,10 @@ export function createExportService(deps: {
     });
 
     try {
-      const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const docSvc = createDocumentService({
+        db: deps.db,
+        logger: deps.logger,
+      });
       const doc = docSvc.read({ projectId, documentId });
       if (!doc.ok) {
         return doc;
@@ -145,4 +154,3 @@ export function createExportService(deps: {
       ipcError("UNSUPPORTED", "DOCX export is not implemented in V1"),
   };
 }
-

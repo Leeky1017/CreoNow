@@ -179,7 +179,9 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     "data-document-id",
     docAId,
   );
-  await expect(page.getByTestId("tiptap-editor")).toContainText("Alpha content");
+  await expect(page.getByTestId("tiptap-editor")).toContainText(
+    "Alpha content",
+  );
   await expect(page.getByTestId("tiptap-editor")).not.toContainText(
     "Beta content",
   );
@@ -210,7 +212,9 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     "data-document-id",
     docAId,
   );
-  await expect(page.getByTestId("tiptap-editor")).toContainText("Alpha content");
+  await expect(page.getByTestId("tiptap-editor")).toContainText(
+    "Alpha content",
+  );
 
   const currentDoc = await page.evaluate(async (projectIdParam) => {
     if (!window.creonow) {
@@ -222,7 +226,9 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
   }, project.data.projectId);
   expect(currentDoc.ok).toBe(true);
   if (!currentDoc.ok) {
-    throw new Error(`Expected ok current document, got: ${currentDoc.error.code}`);
+    throw new Error(
+      `Expected ok current document, got: ${currentDoc.error.code}`,
+    );
   }
   expect(currentDoc.data.documentId).toBe(docAId);
 
@@ -257,7 +263,9 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
   }, project.data.projectId);
   expect(currentDoc2.ok).toBe(true);
   if (!currentDoc2.ok) {
-    throw new Error(`Expected ok current document, got: ${currentDoc2.error.code}`);
+    throw new Error(
+      `Expected ok current document, got: ${currentDoc2.error.code}`,
+    );
   }
   expect(currentDoc2.data.documentId).toBe(docAId);
 
@@ -269,7 +277,9 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     "data-document-id",
     docAId,
   );
-  await expect(page2.getByTestId("tiptap-editor")).toContainText("Alpha content");
+  await expect(page2.getByTestId("tiptap-editor")).toContainText(
+    "Alpha content",
+  );
 
   await electronApp2.close();
 });

@@ -54,8 +54,14 @@ export type SkillService = {
     items: SkillListItem[];
   }>;
   read: (args: { id: string }) => ServiceResult<SkillReadResult>;
-  write: (args: { id: string; content: string }) => ServiceResult<SkillWriteResult>;
-  toggle: (args: { id: string; enabled: boolean }) => ServiceResult<SkillToggleResult>;
+  write: (args: {
+    id: string;
+    content: string;
+  }) => ServiceResult<SkillWriteResult>;
+  toggle: (args: {
+    id: string;
+    enabled: boolean;
+  }) => ServiceResult<SkillToggleResult>;
   resolveForRun: (args: { id: string }) => ServiceResult<{
     skill: LoadedSkill;
     enabled: boolean;
@@ -106,7 +112,9 @@ function getCurrentProjectRootPath(args: {
 /**
  * Read enabled flags for known skills.
  */
-function readEnabledMap(db: Database.Database): ServiceResult<Map<string, boolean>> {
+function readEnabledMap(
+  db: Database.Database,
+): ServiceResult<Map<string, boolean>> {
   try {
     const rows = db
       .prepare<
@@ -246,7 +254,11 @@ export function createSkillService(deps: {
   const resolveLoaded = (): ServiceResult<{
     skills: LoadedSkill[];
     enabledMap: Map<string, boolean>;
-    roots: { builtinSkillsDir: string; globalSkillsDir: string; projectSkillsDir: string | null };
+    roots: {
+      builtinSkillsDir: string;
+      globalSkillsDir: string;
+      projectSkillsDir: string | null;
+    };
   }> => {
     const projectRoot = getCurrentProjectRootPath({
       db: deps.db,
@@ -388,7 +400,10 @@ export function createSkillService(deps: {
           ? loaded.data.roots.projectSkillsDir
           : loaded.data.roots.globalSkillsDir;
       if (targetRoot === null) {
-        return ipcError("NOT_FOUND", "No current project for project skill write");
+        return ipcError(
+          "NOT_FOUND",
+          "No current project for project skill write",
+        );
       }
 
       const srcRoot =
@@ -411,7 +426,10 @@ export function createSkillService(deps: {
         return ref;
       }
 
-      const written = writeSkillContent({ filePath: ref.data.filePath, content });
+      const written = writeSkillContent({
+        filePath: ref.data.filePath,
+        content,
+      });
       if (!written.ok) {
         return written;
       }
@@ -498,4 +516,3 @@ export function createSkillService(deps: {
     },
   };
 }
-

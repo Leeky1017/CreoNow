@@ -64,13 +64,19 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
       return;
     }
 
-    const doc = items.find((i) => i.documentId === props.initialRenameDocumentId);
+    const doc = items.find(
+      (i) => i.documentId === props.initialRenameDocumentId,
+    );
     if (!doc) {
       return;
     }
 
     initialRenameAppliedRef.current = true;
-    setEditing({ mode: "rename", documentId: doc.documentId, title: doc.title });
+    setEditing({
+      mode: "rename",
+      documentId: doc.documentId,
+      title: doc.title,
+    });
   }, [editing.mode, items, props.initialRenameDocumentId]);
 
   React.useEffect(() => {
@@ -121,7 +127,10 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
       return;
     }
 
-    const res = await deleteDocument({ projectId: props.projectId, documentId });
+    const res = await deleteDocument({
+      projectId: props.projectId,
+      documentId,
+    });
     if (!res.ok) {
       return;
     }
@@ -130,12 +139,11 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
   }
 
   return (
-    <div
-      data-testid="sidebar-files"
-      className="flex flex-col min-h-0"
-    >
+    <div data-testid="sidebar-files" className="flex flex-col min-h-0">
       <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)]">
-        <Text size="small" color="muted">Files</Text>
+        <Text size="small" color="muted">
+          Files
+        </Text>
         <Button
           data-testid="file-create"
           variant="secondary"
@@ -154,11 +162,7 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
           <Text size="small" className="mb-2 block">
             {lastError.code}: {lastError.message}
           </Text>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => clearError()}
-          >
+          <Button variant="secondary" size="sm" onClick={() => clearError()}>
             Dismiss
           </Button>
         </div>

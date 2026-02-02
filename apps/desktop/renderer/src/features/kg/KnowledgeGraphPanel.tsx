@@ -148,13 +148,14 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   }
 
   return (
-    <section
-      data-testid="sidebar-kg"
-      className="flex flex-col gap-3 min-h-0"
-    >
+    <section data-testid="sidebar-kg" className="flex flex-col gap-3 min-h-0">
       <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)]">
-        <Text size="small" color="muted">Knowledge Graph</Text>
-        <Text size="tiny" color="muted">{bootstrapStatus}</Text>
+        <Text size="small" color="muted">
+          Knowledge Graph
+        </Text>
+        <Text size="tiny" color="muted">
+          {bootstrapStatus}
+        </Text>
       </div>
 
       {lastError ? (
@@ -175,13 +176,17 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
               Dismiss
             </Button>
           </div>
-          <Text size="small" className="mt-1.5 block">{lastError.message}</Text>
+          <Text size="small" className="mt-1.5 block">
+            {lastError.message}
+          </Text>
         </div>
       ) : null}
 
       <div className="flex-1 overflow-auto min-h-0">
         <div className="p-3">
-          <Text size="small" color="muted">Entities</Text>
+          <Text size="small" color="muted">
+            Entities
+          </Text>
 
           <div className="flex flex-col gap-2 mt-2 pb-3 border-b border-[var(--color-separator)]">
             <Input
@@ -333,7 +338,9 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
           )}
 
           <div className="mt-4">
-            <Text size="small" color="muted">Relations</Text>
+            <Text size="small" color="muted">
+              Relations
+            </Text>
 
             <div className="mt-2 flex flex-col gap-2 pb-3 border-b border-[var(--color-separator)]">
               <Select
@@ -342,7 +349,10 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                 disabled={!isReady || entities.length === 0}
                 options={entities.map((e) => ({
                   value: e.entityId,
-                  label: entityLabel({ name: e.name, entityType: e.entityType }),
+                  label: entityLabel({
+                    name: e.name,
+                    entityType: e.entityType,
+                  }),
                 }))}
                 placeholder="Select entity..."
                 fullWidth
@@ -354,7 +364,10 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                 disabled={!isReady || entities.length === 0}
                 options={entities.map((e) => ({
                   value: e.entityId,
-                  label: entityLabel({ name: e.name, entityType: e.entityType }),
+                  label: entityLabel({
+                    name: e.name,
+                    entityType: e.entityType,
+                  }),
                 }))}
                 placeholder="Select entity..."
                 fullWidth

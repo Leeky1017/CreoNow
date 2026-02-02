@@ -1,550 +1,730 @@
-<html lang="en" vid="0"><head vid="1">
-    <meta charset="UTF-8" vid="2">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" vid="3">
+<html lang="en" vid="0">
+  <head vid="1">
+    <meta charset="UTF-8" vid="2" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+      vid="3"
+    />
     <title vid="4">CreoNow Dashboard</title>
     <style vid="5">
-        
-        
-        :root {
-            
-            --bg-depth: #080808;
-            --bg-surface: #0f0f0f;
-            --bg-surface-hover: #1a1a1a;
-            --border-subtle: #222222;
-            --border-focus: #444444;
-            --text-primary: #ffffff;
-            --text-secondary: #888888;
-            --text-tertiary: #444444;
-            
-            
-            --font-stack: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            --type-display: 500 24px/1.2 var(--font-stack);
-            --type-heading: 500 16px/1.4 var(--font-stack);
-            --type-body: 400 14px/1.5 var(--font-stack);
-            --type-small: 400 12px/1.5 var(--font-stack);
-            --type-mono: 400 12px/1.5 'JetBrains Mono', monospace;
+      :root {
+        --bg-depth: #080808;
+        --bg-surface: #0f0f0f;
+        --bg-surface-hover: #1a1a1a;
+        --border-subtle: #222222;
+        --border-focus: #444444;
+        --text-primary: #ffffff;
+        --text-secondary: #888888;
+        --text-tertiary: #444444;
 
-            
-            --radius-surface: 8px; 
-            --radius-button: 4px;
-            --space-xs: 4px;
-            --space-s: 12px;
-            --space-m: 24px;
-            --space-l: 32px;
-            --space-xl: 48px;
-            
-            
-            --sidebar-width: 280px;
-            --context-width: 320px;
-        }
+        --font-stack:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        --type-display: 500 24px/1.2 var(--font-stack);
+        --type-heading: 500 16px/1.4 var(--font-stack);
+        --type-body: 400 14px/1.5 var(--font-stack);
+        --type-small: 400 12px/1.5 var(--font-stack);
+        --type-mono: 400 12px/1.5 "JetBrains Mono", monospace;
 
-        
-        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
-        
-        body {
-            background-color: var(--bg-depth);
-            color: var(--text-primary);
-            font-family: var(--font-stack);
-            font-size: 14px;
-            height: 100vh;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-            display: flex;
-        }
+        --radius-surface: 8px;
+        --radius-button: 4px;
+        --space-xs: 4px;
+        --space-s: 12px;
+        --space-m: 24px;
+        --space-l: 32px;
+        --space-xl: 48px;
 
-        
-        .text-secondary { color: var(--text-secondary); }
-        .text-mono { font-family: var(--type-mono); }
-        .h1 { font: var(--type-display); letter-spacing: -0.02em; }
-        .h2 { font: var(--type-heading); letter-spacing: -0.01em; color: var(--text-primary); }
-        .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); font-weight: 500; }
+        --sidebar-width: 280px;
+        --context-width: 320px;
+      }
 
-        
-        .icon-plus {
-            width: 12px;
-            height: 12px;
-            position: relative;
-            display: inline-block;
-        }
-        .icon-plus::before, .icon-plus::after {
-            content: '';
-            position: absolute;
-            background-color: currentColor;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        .icon-plus::before { width: 100%; height: 1.5px; }
-        .icon-plus::after { height: 100%; width: 1.5px; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        outline: none;
+      }
 
-        
+      body {
+        background-color: var(--bg-depth);
+        color: var(--text-primary);
+        font-family: var(--font-stack);
+        font-size: 14px;
+        height: 100vh;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+        display: flex;
+      }
 
-        
-        .sidebar {
-            width: var(--sidebar-width);
-            height: 100%;
-            border-right: 1px solid var(--border-subtle);
-            background-color: var(--bg-depth);
-            display: flex;
-            flex-direction: column;
-            padding: var(--space-m);
-            flex-shrink: 0;
-            z-index: 10;
-        }
+      .text-secondary {
+        color: var(--text-secondary);
+      }
+      .text-mono {
+        font-family: var(--type-mono);
+      }
+      .h1 {
+        font: var(--type-display);
+        letter-spacing: -0.02em;
+      }
+      .h2 {
+        font: var(--type-heading);
+        letter-spacing: -0.01em;
+        color: var(--text-primary);
+      }
+      .label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
 
-        .brand {
-            font-weight: 600;
-            font-size: 14px;
-            letter-spacing: 0.02em;
-            margin-bottom: var(--space-xl);
-            display: flex;
-            align-items: center;
-            gap: var(--space-s);
-        }
-        .brand span { color: var(--text-secondary); font-weight: 400; }
+      .icon-plus {
+        width: 12px;
+        height: 12px;
+        position: relative;
+        display: inline-block;
+      }
+      .icon-plus::before,
+      .icon-plus::after {
+        content: "";
+        position: absolute;
+        background-color: currentColor;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .icon-plus::before {
+        width: 100%;
+        height: 1.5px;
+      }
+      .icon-plus::after {
+        height: 100%;
+        width: 1.5px;
+      }
 
-        .nav-section { margin-bottom: var(--space-l); }
-        .nav-label { 
-            font-size: 10px; 
-            color: var(--text-tertiary); 
-            text-transform: uppercase; 
-            letter-spacing: 0.1em;
-            margin-bottom: var(--space-s);
-            padding-left: var(--space-s);
-        }
+      .sidebar {
+        width: var(--sidebar-width);
+        height: 100%;
+        border-right: 1px solid var(--border-subtle);
+        background-color: var(--bg-depth);
+        display: flex;
+        flex-direction: column;
+        padding: var(--space-m);
+        flex-shrink: 0;
+        z-index: 10;
+      }
 
-        .nav-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 12px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            border-radius: var(--radius-button);
-            transition: all 0.2s ease;
-            margin-bottom: 2px;
-            font-size: 13px;
-        }
-        .nav-item:hover {
-            color: var(--text-primary);
-            background-color: var(--bg-surface);
-        }
-        .nav-item.active {
-            color: var(--text-primary);
-            background-color: var(--bg-surface);
-        }
-        .nav-item.active::before {
-            content: '+';
-            margin-right: 8px;
-            font-size: 12px;
-            font-weight: 300;
-        }
+      .brand {
+        font-weight: 600;
+        font-size: 14px;
+        letter-spacing: 0.02em;
+        margin-bottom: var(--space-xl);
+        display: flex;
+        align-items: center;
+        gap: var(--space-s);
+      }
+      .brand span {
+        color: var(--text-secondary);
+        font-weight: 400;
+      }
 
-        
-        .main-content {
-            flex: 1;
-            height: 100%;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
+      .nav-section {
+        margin-bottom: var(--space-l);
+      }
+      .nav-label {
+        font-size: 10px;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: var(--space-s);
+        padding-left: var(--space-s);
+      }
 
-        .top-bar {
-            height: 64px;
-            border-bottom: 1px solid var(--border-subtle);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 var(--space-l);
-            position: sticky;
-            top: 0;
-            background: rgba(8,8,8, 0.95);
-            backdrop-filter: blur(8px);
-            z-index: 5;
-        }
-        
-        .breadcrumbs { color: var(--text-secondary); font-size: 13px; }
-        .breadcrumbs span { color: var(--text-tertiary); margin: 0 8px; }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        border-radius: var(--radius-button);
+        transition: all 0.2s ease;
+        margin-bottom: 2px;
+        font-size: 13px;
+      }
+      .nav-item:hover {
+        color: var(--text-primary);
+        background-color: var(--bg-surface);
+      }
+      .nav-item.active {
+        color: var(--text-primary);
+        background-color: var(--bg-surface);
+      }
+      .nav-item.active::before {
+        content: "+";
+        margin-right: 8px;
+        font-size: 12px;
+        font-weight: 300;
+      }
 
-        .content-body {
-            padding: var(--space-l);
-            max-width: 1200px;
-            width: 100%;
-            margin: 0 auto;
-        }
+      .main-content {
+        flex: 1;
+        height: 100%;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+      }
 
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: var(--space-m);
-            margin-bottom: var(--space-xl);
-        }
+      .top-bar {
+        height: 64px;
+        border-bottom: 1px solid var(--border-subtle);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 var(--space-l);
+        position: sticky;
+        top: 0;
+        background: rgba(8, 8, 8, 0.95);
+        backdrop-filter: blur(8px);
+        z-index: 5;
+      }
 
-        .stat-card {
-            background-color: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-surface);
-            padding: var(--space-m);
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            min-height: 140px;
-            transition: border-color 0.2s;
-        }
-        .stat-card:hover { border-color: var(--border-focus); }
-        
-        .stat-header { display: flex; justify-content: space-between; align-items: start; }
-        .stat-value { 
-            font-size: 32px; 
-            font-weight: 400; 
-            letter-spacing: -0.03em; 
-            margin-top: auto;
-            color: var(--text-primary);
-        }
-        .stat-value span { font-size: 14px; color: var(--text-secondary); margin-left: 4px; letter-spacing: normal; }
+      .breadcrumbs {
+        color: var(--text-secondary);
+        font-size: 13px;
+      }
+      .breadcrumbs span {
+        color: var(--text-tertiary);
+        margin: 0 8px;
+      }
 
-        
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: var(--space-m);
-            border-bottom: 1px solid var(--border-subtle);
-            padding-bottom: var(--space-s);
-        }
-        
-        .project-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1px;
-            background-color: var(--border-subtle); 
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-surface);
-            overflow: hidden;
-        }
+      .content-body {
+        padding: var(--space-l);
+        max-width: 1200px;
+        width: 100%;
+        margin: 0 auto;
+      }
 
-        .project-item {
-            background-color: var(--bg-depth); 
-            padding: 20px 24px;
-            display: grid;
-            grid-template-columns: 3fr 1fr 1fr 40px;
-            align-items: center;
-            transition: background-color 0.15s ease;
-            cursor: pointer;
-        }
-        .project-item:hover {
-            background-color: var(--bg-surface);
-        }
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-m);
+        margin-bottom: var(--space-xl);
+      }
 
-        .item-title { font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
-        .item-meta { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
-        .tag {
-            font-size: 10px;
-            padding: 2px 6px;
-            border: 1px solid var(--border-subtle);
-            border-radius: 4px;
-            color: var(--text-secondary);
-        }
-        
-        .progress-bar {
-            height: 2px;
-            width: 100%;
-            background-color: var(--bg-surface-hover);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            height: 100%;
-            background-color: var(--text-secondary);
-        }
+      .stat-card {
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-surface);
+        padding: var(--space-m);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 140px;
+        transition: border-color 0.2s;
+      }
+      .stat-card:hover {
+        border-color: var(--border-focus);
+      }
 
-        
-        .context-panel {
-            width: var(--context-width);
-            border-left: 1px solid var(--border-subtle);
-            background-color: var(--bg-depth);
-            display: flex;
-            flex-direction: column;
-            padding: var(--space-l);
-            flex-shrink: 0;
-        }
+      .stat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+      }
+      .stat-value {
+        font-size: 32px;
+        font-weight: 400;
+        letter-spacing: -0.03em;
+        margin-top: auto;
+        color: var(--text-primary);
+      }
+      .stat-value span {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin-left: 4px;
+        letter-spacing: normal;
+      }
 
-        .context-header {
-            margin-bottom: var(--space-l);
-        }
-        
-        .meta-group { margin-bottom: var(--space-l); }
-        .meta-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-            padding: 8px 0;
-            border-bottom: 1px solid var(--bg-surface);
-        }
-        .meta-row span:first-child { color: var(--text-secondary); }
-        
-        .activity-feed {
-            margin-top: auto;
-        }
-        .activity-item {
-            padding-left: 16px;
-            border-left: 1px solid var(--border-subtle);
-            padding-bottom: 24px;
-            position: relative;
-        }
-        .activity-item::before {
-            content: '';
-            width: 5px; height: 5px;
-            background-color: var(--bg-depth);
-            border: 1px solid var(--text-secondary);
-            border-radius: 50%;
-            position: absolute;
-            left: -3px; top: 6px;
-        }
-        .activity-text { font-size: 13px; margin-bottom: 4px; color: var(--text-secondary); }
-        .activity-time { font-size: 11px; color: var(--text-tertiary); }
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: var(--space-m);
+        border-bottom: 1px solid var(--border-subtle);
+        padding-bottom: var(--space-s);
+      }
 
-        
-        .btn-icon {
-            width: 32px; height: 32px;
-            display: flex; align-items: center; justify-content: center;
-            border: 1px solid var(--border-subtle);
-            background: transparent;
-            color: var(--text-primary);
-            border-radius: var(--radius-button);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .btn-icon:hover { border-color: var(--text-secondary); background: var(--bg-surface); }
+      .project-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        background-color: var(--border-subtle);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-surface);
+        overflow: hidden;
+      }
 
-        .btn-new {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 10px;
-            background: transparent;
-            border: 1px solid var(--border-subtle);
-            color: var(--text-primary);
-            font-size: 13px;
-            border-radius: var(--radius-button);
-            cursor: pointer;
-            margin-bottom: var(--space-l);
-            transition: all 0.2s;
-        }
-        .btn-new:hover {
-            background: var(--bg-surface);
-            border-color: var(--text-secondary);
-        }
+      .project-item {
+        background-color: var(--bg-depth);
+        padding: 20px 24px;
+        display: grid;
+        grid-template-columns: 3fr 1fr 1fr 40px;
+        align-items: center;
+        transition: background-color 0.15s ease;
+        cursor: pointer;
+      }
+      .project-item:hover {
+        background-color: var(--bg-surface);
+      }
 
+      .item-title {
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+      }
+      .item-meta {
+        font-size: 12px;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .tag {
+        font-size: 10px;
+        padding: 2px 6px;
+        border: 1px solid var(--border-subtle);
+        border-radius: 4px;
+        color: var(--text-secondary);
+      }
+
+      .progress-bar {
+        height: 2px;
+        width: 100%;
+        background-color: var(--bg-surface-hover);
+        border-radius: 2px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background-color: var(--text-secondary);
+      }
+
+      .context-panel {
+        width: var(--context-width);
+        border-left: 1px solid var(--border-subtle);
+        background-color: var(--bg-depth);
+        display: flex;
+        flex-direction: column;
+        padding: var(--space-l);
+        flex-shrink: 0;
+      }
+
+      .context-header {
+        margin-bottom: var(--space-l);
+      }
+
+      .meta-group {
+        margin-bottom: var(--space-l);
+      }
+      .meta-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--bg-surface);
+      }
+      .meta-row span:first-child {
+        color: var(--text-secondary);
+      }
+
+      .activity-feed {
+        margin-top: auto;
+      }
+      .activity-item {
+        padding-left: 16px;
+        border-left: 1px solid var(--border-subtle);
+        padding-bottom: 24px;
+        position: relative;
+      }
+      .activity-item::before {
+        content: "";
+        width: 5px;
+        height: 5px;
+        background-color: var(--bg-depth);
+        border: 1px solid var(--text-secondary);
+        border-radius: 50%;
+        position: absolute;
+        left: -3px;
+        top: 6px;
+      }
+      .activity-text {
+        font-size: 13px;
+        margin-bottom: 4px;
+        color: var(--text-secondary);
+      }
+      .activity-time {
+        font-size: 11px;
+        color: var(--text-tertiary);
+      }
+
+      .btn-icon {
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border-subtle);
+        background: transparent;
+        color: var(--text-primary);
+        border-radius: var(--radius-button);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .btn-icon:hover {
+        border-color: var(--text-secondary);
+        background: var(--bg-surface);
+      }
+
+      .btn-new {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px;
+        background: transparent;
+        border: 1px solid var(--border-subtle);
+        color: var(--text-primary);
+        font-size: 13px;
+        border-radius: var(--radius-button);
+        cursor: pointer;
+        margin-bottom: var(--space-l);
+        transition: all 0.2s;
+      }
+      .btn-new:hover {
+        background: var(--bg-surface);
+        border-color: var(--text-secondary);
+      }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet" vid="6">
-</head>
-<body vid="7">
-
-    
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400&amp;display=swap"
+      rel="stylesheet"
+      vid="6"
+    />
+  </head>
+  <body vid="7">
     <aside class="sidebar" vid="8">
-        <div class="brand" vid="9">
-            WRITE NOW <span style="font-size: 10px; border: 1px solid #333; padding: 1px 4px; border-radius: 4px;" vid="10">BETA</span>
-        </div>
+      <div class="brand" vid="9">
+        WRITE NOW
+        <span
+          style="
+            font-size: 10px;
+            border: 1px solid #333;
+            padding: 1px 4px;
+            border-radius: 4px;
+          "
+          vid="10"
+          >BETA</span
+        >
+      </div>
 
-        <button class="btn-new" vid="11">
-            <span class="icon-plus" vid="12"></span> New Project
-        </button>
+      <button class="btn-new" vid="11">
+        <span class="icon-plus" vid="12"></span> New Project
+      </button>
 
-        <div class="nav-section" vid="13">
-            <div class="nav-label" vid="14">Workspace</div>
-            <a href="#" class="nav-item active" vid="15">Dashboard</a>
-            <a href="#" class="nav-item" vid="16">Projects</a>
-            <a href="#" class="nav-item" vid="17">Drafts</a>
-            <a href="#" class="nav-item" vid="18">Research</a>
-        </div>
+      <div class="nav-section" vid="13">
+        <div class="nav-label" vid="14">Workspace</div>
+        <a href="#" class="nav-item active" vid="15">Dashboard</a>
+        <a href="#" class="nav-item" vid="16">Projects</a>
+        <a href="#" class="nav-item" vid="17">Drafts</a>
+        <a href="#" class="nav-item" vid="18">Research</a>
+      </div>
 
-        <div class="nav-section" vid="19">
-            <div class="nav-label" vid="20">Library</div>
-            <a href="#" class="nav-item" vid="21">Archive</a>
-            <a href="#" class="nav-item" vid="22">Trash</a>
-        </div>
+      <div class="nav-section" vid="19">
+        <div class="nav-label" vid="20">Library</div>
+        <a href="#" class="nav-item" vid="21">Archive</a>
+        <a href="#" class="nav-item" vid="22">Trash</a>
+      </div>
 
-        <div style="margin-top: auto;" vid="23">
-            <a href="#" class="nav-item" vid="24">
-                <span vid="25">Settings</span>
-            </a>
-            <a href="#" class="nav-item" vid="26">
-                <span vid="27">Mark D.</span>
-                <span class="text-secondary" style="font-size: 10px;" vid="28">PRO</span>
-            </a>
-        </div>
+      <div style="margin-top: auto" vid="23">
+        <a href="#" class="nav-item" vid="24">
+          <span vid="25">Settings</span>
+        </a>
+        <a href="#" class="nav-item" vid="26">
+          <span vid="27">Mark D.</span>
+          <span class="text-secondary" style="font-size: 10px" vid="28"
+            >PRO</span
+          >
+        </a>
+      </div>
     </aside>
 
-    
     <main class="main-content" vid="29">
-        <header class="top-bar" vid="30">
-            <div class="breadcrumbs" vid="31">
-                Workspace <span vid="32">/</span> Dashboard
-            </div>
-            <div style="display: flex; gap: 12px;" vid="33">
-                <button class="btn-icon" vid="34">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="35"><circle cx="11" cy="11" r="8" vid="36"></circle><line x1="21" y1="21" x2="16.65" y2="16.65" vid="37"></line></svg>
-                </button>
-                <button class="btn-icon" vid="38">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" vid="39"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" vid="40"></path><path d="M13.73 21a2 2 0 0 1-3.46 0" vid="41"></path></svg>
-                </button>
-            </div>
-        </header>
-
-        <div class="content-body" vid="42">
-            
-            
-            <div class="section-header" vid="43">
-                <h2 class="h2" vid="44">Overview</h2>
-                <span class="label" vid="45">This Week</span>
-            </div>
-            
-            <div class="stats-grid" vid="46">
-                <div class="stat-card" vid="47">
-                    <div class="stat-header" vid="48">
-                        <span class="label" vid="49">Total Words</span>
-                        <div class="icon-plus" style="transform: rotate(45deg); opacity: 0.5;" vid="50"></div>
-                    </div>
-                    <div class="stat-value" vid="51">34,502</div>
-                </div>
-                <div class="stat-card" vid="52">
-                    <div class="stat-header" vid="53">
-                        <span class="label" vid="54">Daily Goal</span>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" vid="55"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" vid="56"></polyline><polyline points="17 6 23 6 23 12" vid="57"></polyline></svg>
-                    </div>
-                    <div class="stat-value" vid="58">1,200 <span vid="59">/ 2k</span></div>
-                </div>
-                <div class="stat-card" vid="60">
-                    <div class="stat-header" vid="61">
-                        <span class="label" vid="62">Focus Time</span>
-                    </div>
-                    <div class="stat-value" vid="63">4h 12m</div>
-                </div>
-            </div>
-
-            
-            <div class="section-header" style="margin-top: var(--space-xl);" vid="64">
-                <h2 class="h2" vid="65">Recent Work</h2>
-                <div style="display: flex; gap: 16px;" vid="66">
-                    <span class="label" style="color: var(--text-primary); cursor: pointer;" vid="67">All</span>
-                    <span class="label" style="cursor: pointer;" vid="68">Drafts</span>
-                    <span class="label" style="cursor: pointer;" vid="69">Published</span>
-                </div>
-            </div>
-
-            <div class="project-list" vid="70">
-                <div class="project-item" vid="71">
-                    <div vid="72">
-                        <div class="item-title" vid="73">The Future of Typography</div>
-                        <div class="item-meta" vid="74">
-                            <span class="tag" vid="75">Essay</span>
-                            <span vid="76">Edited 2h ago</span>
-                        </div>
-                    </div>
-                    <div class="text-secondary" style="font-size: 13px;" vid="77">2,403 words</div>
-                    <div style="padding-right: 24px;" vid="78">
-                        <div class="progress-bar" vid="79"><div class="progress-fill" style="width: 75%;" vid="80"></div></div>
-                    </div>
-                    <div class="text-secondary" vid="81">→</div>
-                </div>
-
-                <div class="project-item" vid="82">
-                    <div vid="83">
-                        <div class="item-title" vid="84">Design System Architecture</div>
-                        <div class="item-meta" vid="85">
-                            <span class="tag" vid="86">Technical</span>
-                            <span vid="87">Edited 5h ago</span>
-                        </div>
-                    </div>
-                    <div class="text-secondary" style="font-size: 13px;" vid="88">856 words</div>
-                    <div style="padding-right: 24px;" vid="89">
-                        <div class="progress-bar" vid="90"><div class="progress-fill" style="width: 30%;" vid="91"></div></div>
-                    </div>
-                    <div class="text-secondary" vid="92">→</div>
-                </div>
-
-                <div class="project-item" vid="93">
-                    <div vid="94">
-                        <div class="item-title" vid="95">Q3 Retrospective</div>
-                        <div class="item-meta" vid="96">
-                            <span class="tag" vid="97">Internal</span>
-                            <span vid="98">Edited Yesterday</span>
-                        </div>
-                    </div>
-                    <div class="text-secondary" style="font-size: 13px;" vid="99">1,102 words</div>
-                    <div style="padding-right: 24px;" vid="100">
-                        <div class="progress-bar" vid="101"><div class="progress-fill" style="width: 100%;" vid="102"></div></div>
-                    </div>
-                    <div class="text-secondary" vid="103">→</div>
-                </div>
-                 <div class="project-item" vid="104">
-                    <div vid="105">
-                        <div class="item-title" vid="106">Notes on Minimalism</div>
-                        <div class="item-meta" vid="107">
-                            <span class="tag" vid="108">Journal</span>
-                            <span vid="109">Edited Oct 24</span>
-                        </div>
-                    </div>
-                    <div class="text-secondary" style="font-size: 13px;" vid="110">420 words</div>
-                    <div style="padding-right: 24px;" vid="111">
-                        <div class="progress-bar" vid="112"><div class="progress-fill" style="width: 15%;" vid="113"></div></div>
-                    </div>
-                    <div class="text-secondary" vid="114">→</div>
-                </div>
-            </div>
-
+      <header class="top-bar" vid="30">
+        <div class="breadcrumbs" vid="31">
+          Workspace <span vid="32">/</span> Dashboard
         </div>
+        <div style="display: flex; gap: 12px" vid="33">
+          <button class="btn-icon" vid="34">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              vid="35"
+            >
+              <circle cx="11" cy="11" r="8" vid="36"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65" vid="37"></line>
+            </svg>
+          </button>
+          <button class="btn-icon" vid="38">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              vid="39"
+            >
+              <path
+                d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+                vid="40"
+              ></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" vid="41"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="content-body" vid="42">
+        <div class="section-header" vid="43">
+          <h2 class="h2" vid="44">Overview</h2>
+          <span class="label" vid="45">This Week</span>
+        </div>
+
+        <div class="stats-grid" vid="46">
+          <div class="stat-card" vid="47">
+            <div class="stat-header" vid="48">
+              <span class="label" vid="49">Total Words</span>
+              <div
+                class="icon-plus"
+                style="transform: rotate(45deg); opacity: 0.5"
+                vid="50"
+              ></div>
+            </div>
+            <div class="stat-value" vid="51">34,502</div>
+          </div>
+          <div class="stat-card" vid="52">
+            <div class="stat-header" vid="53">
+              <span class="label" vid="54">Daily Goal</span>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#888"
+                stroke-width="2"
+                vid="55"
+              >
+                <polyline
+                  points="23 6 13.5 15.5 8.5 10.5 1 18"
+                  vid="56"
+                ></polyline>
+                <polyline points="17 6 23 6 23 12" vid="57"></polyline>
+              </svg>
+            </div>
+            <div class="stat-value" vid="58">
+              1,200 <span vid="59">/ 2k</span>
+            </div>
+          </div>
+          <div class="stat-card" vid="60">
+            <div class="stat-header" vid="61">
+              <span class="label" vid="62">Focus Time</span>
+            </div>
+            <div class="stat-value" vid="63">4h 12m</div>
+          </div>
+        </div>
+
+        <div
+          class="section-header"
+          style="margin-top: var(--space-xl)"
+          vid="64"
+        >
+          <h2 class="h2" vid="65">Recent Work</h2>
+          <div style="display: flex; gap: 16px" vid="66">
+            <span
+              class="label"
+              style="color: var(--text-primary); cursor: pointer"
+              vid="67"
+              >All</span
+            >
+            <span class="label" style="cursor: pointer" vid="68">Drafts</span>
+            <span class="label" style="cursor: pointer" vid="69"
+              >Published</span
+            >
+          </div>
+        </div>
+
+        <div class="project-list" vid="70">
+          <div class="project-item" vid="71">
+            <div vid="72">
+              <div class="item-title" vid="73">The Future of Typography</div>
+              <div class="item-meta" vid="74">
+                <span class="tag" vid="75">Essay</span>
+                <span vid="76">Edited 2h ago</span>
+              </div>
+            </div>
+            <div class="text-secondary" style="font-size: 13px" vid="77">
+              2,403 words
+            </div>
+            <div style="padding-right: 24px" vid="78">
+              <div class="progress-bar" vid="79">
+                <div class="progress-fill" style="width: 75%" vid="80"></div>
+              </div>
+            </div>
+            <div class="text-secondary" vid="81">→</div>
+          </div>
+
+          <div class="project-item" vid="82">
+            <div vid="83">
+              <div class="item-title" vid="84">Design System Architecture</div>
+              <div class="item-meta" vid="85">
+                <span class="tag" vid="86">Technical</span>
+                <span vid="87">Edited 5h ago</span>
+              </div>
+            </div>
+            <div class="text-secondary" style="font-size: 13px" vid="88">
+              856 words
+            </div>
+            <div style="padding-right: 24px" vid="89">
+              <div class="progress-bar" vid="90">
+                <div class="progress-fill" style="width: 30%" vid="91"></div>
+              </div>
+            </div>
+            <div class="text-secondary" vid="92">→</div>
+          </div>
+
+          <div class="project-item" vid="93">
+            <div vid="94">
+              <div class="item-title" vid="95">Q3 Retrospective</div>
+              <div class="item-meta" vid="96">
+                <span class="tag" vid="97">Internal</span>
+                <span vid="98">Edited Yesterday</span>
+              </div>
+            </div>
+            <div class="text-secondary" style="font-size: 13px" vid="99">
+              1,102 words
+            </div>
+            <div style="padding-right: 24px" vid="100">
+              <div class="progress-bar" vid="101">
+                <div class="progress-fill" style="width: 100%" vid="102"></div>
+              </div>
+            </div>
+            <div class="text-secondary" vid="103">→</div>
+          </div>
+          <div class="project-item" vid="104">
+            <div vid="105">
+              <div class="item-title" vid="106">Notes on Minimalism</div>
+              <div class="item-meta" vid="107">
+                <span class="tag" vid="108">Journal</span>
+                <span vid="109">Edited Oct 24</span>
+              </div>
+            </div>
+            <div class="text-secondary" style="font-size: 13px" vid="110">
+              420 words
+            </div>
+            <div style="padding-right: 24px" vid="111">
+              <div class="progress-bar" vid="112">
+                <div class="progress-fill" style="width: 15%" vid="113"></div>
+              </div>
+            </div>
+            <div class="text-secondary" vid="114">→</div>
+          </div>
+        </div>
+      </div>
     </main>
 
-    
     <aside class="context-panel" vid="115">
-        <div class="context-header" vid="116">
-            <div class="label" style="margin-bottom: 8px;" vid="117">Active Context</div>
-            <h2 class="h2" vid="118">The Future of Typography</h2>
+      <div class="context-header" vid="116">
+        <div class="label" style="margin-bottom: 8px" vid="117">
+          Active Context
         </div>
+        <h2 class="h2" vid="118">The Future of Typography</h2>
+      </div>
 
-        <div class="meta-group" vid="119">
-            <div class="meta-row" vid="120">
-                <span vid="121">Status</span>
-                <span style="color: var(--text-primary);" vid="122">In Progress</span>
-            </div>
-            <div class="meta-row" vid="123">
-                <span vid="124">Created</span>
-                <span class="text-mono" vid="125">Oct 12, 2023</span>
-            </div>
-            <div class="meta-row" vid="126">
-                <span vid="127">Target</span>
-                <span class="text-mono" vid="128">3,000 words</span>
-            </div>
+      <div class="meta-group" vid="119">
+        <div class="meta-row" vid="120">
+          <span vid="121">Status</span>
+          <span style="color: var(--text-primary)" vid="122">In Progress</span>
         </div>
+        <div class="meta-row" vid="123">
+          <span vid="124">Created</span>
+          <span class="text-mono" vid="125">Oct 12, 2023</span>
+        </div>
+        <div class="meta-row" vid="126">
+          <span vid="127">Target</span>
+          <span class="text-mono" vid="128">3,000 words</span>
+        </div>
+      </div>
 
-        <div class="meta-group" vid="129">
-            <div class="label" style="margin-bottom: 12px;" vid="130">Collaborators</div>
-            <div style="display: flex; gap: -8px;" vid="131">
-                <div style="width: 24px; height: 24px; background: #333; border-radius: 50%; border: 2px solid var(--bg-depth);" vid="132"></div>
-                <div style="width: 24px; height: 24px; background: #555; border-radius: 50%; border: 2px solid var(--bg-depth); margin-left: -8px;" vid="133"></div>
-            </div>
+      <div class="meta-group" vid="129">
+        <div class="label" style="margin-bottom: 12px" vid="130">
+          Collaborators
         </div>
+        <div style="display: flex; gap: -8px" vid="131">
+          <div
+            style="
+              width: 24px;
+              height: 24px;
+              background: #333;
+              border-radius: 50%;
+              border: 2px solid var(--bg-depth);
+            "
+            vid="132"
+          ></div>
+          <div
+            style="
+              width: 24px;
+              height: 24px;
+              background: #555;
+              border-radius: 50%;
+              border: 2px solid var(--bg-depth);
+              margin-left: -8px;
+            "
+            vid="133"
+          ></div>
+        </div>
+      </div>
 
-        <div class="activity-feed" vid="134">
-            <div class="label" style="margin-bottom: 16px;" vid="135">History</div>
-            <div class="activity-item" vid="136">
-                <div class="activity-text" vid="137">Mark updated section "Origins"</div>
-                <div class="activity-time" vid="138">2 hours ago</div>
-            </div>
-            <div class="activity-item" vid="139">
-                <div class="activity-text" vid="140">Added citation from Tschichold</div>
-                <div class="activity-time" vid="141">5 hours ago</div>
-            </div>
-            <div class="activity-item" style="border-left-color: transparent;" vid="142">
-                <div class="activity-text" vid="143">Created document</div>
-                <div class="activity-time" vid="144">Oct 12, 10:00 AM</div>
-            </div>
+      <div class="activity-feed" vid="134">
+        <div class="label" style="margin-bottom: 16px" vid="135">History</div>
+        <div class="activity-item" vid="136">
+          <div class="activity-text" vid="137">
+            Mark updated section "Origins"
+          </div>
+          <div class="activity-time" vid="138">2 hours ago</div>
         </div>
+        <div class="activity-item" vid="139">
+          <div class="activity-text" vid="140">
+            Added citation from Tschichold
+          </div>
+          <div class="activity-time" vid="141">5 hours ago</div>
+        </div>
+        <div
+          class="activity-item"
+          style="border-left-color: transparent"
+          vid="142"
+        >
+          <div class="activity-text" vid="143">Created document</div>
+          <div class="activity-time" vid="144">Oct 12, 10:00 AM</div>
+        </div>
+      </div>
     </aside>
-
-
-</body></html>
+  </body>
+</html>

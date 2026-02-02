@@ -29,4 +29,3 @@ remain maintainable and CI-green, with a specific focus on `FileTreePanel`.
 
 - `apps/desktop/storybook-static/` MUST NOT be committed.
 - Repo MUST ignore that path to keep PR diffs reviewable and stable.
-

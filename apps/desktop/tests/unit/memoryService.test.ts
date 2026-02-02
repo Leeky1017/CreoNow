@@ -374,7 +374,9 @@ const logger = createLogger();
   assert.equal(res.ok, false);
   if (!res.ok) {
     assert.equal(res.error.code, "INVALID_ARGUMENT");
-    assert.ok(res.error.message.includes("projectId is not allowed for global scope"));
+    assert.ok(
+      res.error.message.includes("projectId is not allowed for global scope"),
+    );
   }
 }
 
@@ -394,7 +396,9 @@ const logger = createLogger();
   assert.equal(res.ok, false);
   if (!res.ok) {
     assert.equal(res.error.code, "INVALID_ARGUMENT");
-    assert.ok(res.error.message.includes("documentId is not allowed for project scope"));
+    assert.ok(
+      res.error.message.includes("documentId is not allowed for project scope"),
+    );
   }
 }
 

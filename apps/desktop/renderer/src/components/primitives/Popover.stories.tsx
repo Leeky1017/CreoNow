@@ -230,7 +230,14 @@ export const MenuContent: Story = {
   },
   render: () => (
     <Popover trigger={<Button variant="ghost">Options</Button>}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "2px", margin: "-8px" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "2px",
+          margin: "-8px",
+        }}
+      >
         {["Edit", "Duplicate", "Archive", "Delete"].map((item) => (
           <PopoverClose key={item} asChild>
             <button
@@ -243,7 +250,10 @@ export const MenuContent: Story = {
                 background: "transparent",
                 cursor: "pointer",
                 fontSize: "13px",
-                color: item === "Delete" ? "var(--color-error)" : "var(--color-fg-default)",
+                color:
+                  item === "Delete"
+                    ? "var(--color-error)"
+                    : "var(--color-fg-default)",
               }}
               onMouseOver={(e) => {
                 e.currentTarget.style.background = "var(--color-bg-hover)";
@@ -334,7 +344,9 @@ export const FormContent: Story = {
         trigger={<Button>Add Tag</Button>}
       >
         <div style={{ width: "200px" }}>
-          <div style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "500" }}>
+          <div
+            style={{ marginBottom: "8px", fontSize: "13px", fontWeight: "500" }}
+          >
             New Tag
           </div>
           <input
@@ -349,7 +361,9 @@ export const FormContent: Story = {
               marginBottom: "12px",
             }}
           />
-          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+          <div
+            style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}
+          >
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
@@ -419,10 +433,23 @@ export const FullFeatures: Story = {
     layout: "fullscreen",
   },
   render: () => (
-    <div style={{ padding: "4rem", display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div
+      style={{
+        padding: "4rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "2rem",
+      }}
+    >
       {/* Sides */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Side Variants
         </h3>
         <div style={{ display: "flex", gap: "1rem" }}>
@@ -443,7 +470,13 @@ export const FullFeatures: Story = {
 
       {/* Aligns */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Align Variants
         </h3>
         <div style={{ display: "flex", gap: "1rem" }}>
@@ -461,12 +494,20 @@ export const FullFeatures: Story = {
 
       {/* Content Types */}
       <section>
-        <h3 style={{ margin: "0 0 1rem", fontSize: "14px", color: "var(--color-fg-default)" }}>
+        <h3
+          style={{
+            margin: "0 0 1rem",
+            fontSize: "14px",
+            color: "var(--color-fg-default)",
+          }}
+        >
           Content Types
         </h3>
         <div style={{ display: "flex", gap: "1rem" }}>
           <Popover trigger={<Button variant="ghost">Menu</Button>}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <div
+              style={{ display: "flex", flexDirection: "column", gap: "4px" }}
+            >
               <div>Option 1</div>
               <div>Option 2</div>
               <div>Option 3</div>

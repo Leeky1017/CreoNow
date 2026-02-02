@@ -37,6 +37,7 @@
    - `--color-shadow` 保留在各主题中定义
 
 **验证：**
+
 - Command: `pnpm run build`
 - Key output: `✓ built in 1.93s` (renderer)
 - Evidence: 编译成功，无错误

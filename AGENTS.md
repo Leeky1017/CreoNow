@@ -14,6 +14,7 @@
 本项目采用 **openspec-rulebook-github-delivery** 体系。
 
 关键要点：
+
 - GitHub 是并发与交付唯一入口：Issue → Branch → PR → Checks → Auto-merge
 - Issue 号 `N` 是任务唯一 ID
 - 分支名：`task/<N>-<slug>`
@@ -55,17 +56,17 @@
 
 以下技术已锁定，禁止替换：
 
-| 技术 | 用途 |
-|-----|------|
-| React 18 | 前端框架 |
-| TypeScript | 类型系统 |
-| Vite | 构建工具 |
-| Tailwind CSS 4 | 样式 |
-| Radix UI | 组件原语 |
-| TipTap 2 | 富文本编辑器 |
-| Zustand | 状态管理 |
-| Electron | 桌面框架 |
-| SQLite | 本地数据库 |
+| 技术           | 用途         |
+| -------------- | ------------ |
+| React 18       | 前端框架     |
+| TypeScript     | 类型系统     |
+| Vite           | 构建工具     |
+| Tailwind CSS 4 | 样式         |
+| Radix UI       | 组件原语     |
+| TipTap 2       | 富文本编辑器 |
+| Zustand        | 状态管理     |
+| Electron       | 桌面框架     |
+| SQLite         | 本地数据库   |
 
 如需变更技术选型，必须先提交 RFC 并获得批准。
 

@@ -277,14 +277,18 @@ export function createUserMemoryVecService(deps: {
             a.memoryId.localeCompare(b.memoryId),
           );
           for (const src of ordered) {
-            insert.run(src.memoryId, JSON.stringify(embedText(src.content, dimension)));
+            insert.run(
+              src.memoryId,
+              JSON.stringify(embedText(src.content, dimension)),
+            );
           }
         })();
 
         const rows = deps.db
-          .prepare<[string, number], { memoryId: string; distance: number }>(
-            "SELECT memory_id as memoryId, distance FROM user_memory_vec WHERE embedding MATCH vec_f32(?) ORDER BY distance LIMIT ?",
-          )
+          .prepare<
+            [string, number],
+            { memoryId: string; distance: number }
+          >("SELECT memory_id as memoryId, distance FROM user_memory_vec WHERE embedding MATCH vec_f32(?) ORDER BY distance LIMIT ?")
           .all(JSON.stringify(queryVec), effectiveK);
 
         const matches = rows.map((r) => ({

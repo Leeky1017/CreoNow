@@ -29,7 +29,10 @@ type MemoryListPayload = {
 type MemoryUpdatePayload = {
   memoryId: string;
   patch: Partial<
-    Pick<UserMemoryItem, "type" | "scope" | "projectId" | "documentId" | "content">
+    Pick<
+      UserMemoryItem,
+      "type" | "scope" | "projectId" | "documentId" | "content"
+    >
   >;
 };
 

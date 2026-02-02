@@ -21,8 +21,7 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
  */
 export type ButtonSize = "sm" | "md" | "lg";
 
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** Visual style variant */
   variant?: ButtonVariant;
   /** Size of the button */

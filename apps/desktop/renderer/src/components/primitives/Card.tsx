@@ -43,7 +43,8 @@ const baseStyles = [
  */
 const variantStyles: Record<CardVariant, string> = {
   default: "border border-[var(--color-border-default)]",
-  raised: "border border-[var(--color-border-default)] shadow-[var(--shadow-md)]",
+  raised:
+    "border border-[var(--color-border-default)] shadow-[var(--shadow-md)]",
   bordered: "border-2 border-[var(--color-border-default)]",
 };
 

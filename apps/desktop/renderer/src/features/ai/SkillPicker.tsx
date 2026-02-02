@@ -65,7 +65,11 @@ export function SkillPicker(props: {
                   }
                 `}
               >
-                <Text size="small" weight="semibold" color={disabled ? "muted" : "default"}>
+                <Text
+                  size="small"
+                  weight="semibold"
+                  color={disabled ? "muted" : "default"}
+                >
                   {s.name}
                 </Text>
                 <Text size="tiny" color="muted">
@@ -79,4 +83,3 @@ export function SkillPicker(props: {
     </>
   );
 }
-

@@ -12,10 +12,7 @@ import {
   ProjectStoreProvider,
   createProjectStore,
 } from "../../stores/projectStore";
-import {
-  FileStoreProvider,
-  createFileStore,
-} from "../../stores/fileStore";
+import { FileStoreProvider, createFileStore } from "../../stores/fileStore";
 
 // =============================================================================
 // Mock 数据：自然语言记忆内容
@@ -380,7 +377,10 @@ function createMockFileIpc(documentId: string | null) {
       if (channel === "file:document:list") {
         return { ok: true, data: { items: [] } };
       }
-      return { ok: false, error: { code: "NOT_FOUND", message: "No document" } };
+      return {
+        ok: false,
+        error: { code: "NOT_FOUND", message: "No document" },
+      };
     },
     on: (): (() => void) => () => {},
   };
@@ -415,9 +415,15 @@ function MemoryPanelWrapper(props: MemoryPanelWrapperProps): JSX.Element {
     const mockFileIpc = createMockFileIpc(documentId);
 
     return {
-      memoryStore: createMemoryStore(mockMemoryIpc as Parameters<typeof createMemoryStore>[0]),
-      projectStore: createProjectStore(mockProjectIpc as Parameters<typeof createProjectStore>[0]),
-      fileStore: createFileStore(mockFileIpc as Parameters<typeof createFileStore>[0]),
+      memoryStore: createMemoryStore(
+        mockMemoryIpc as Parameters<typeof createMemoryStore>[0],
+      ),
+      projectStore: createProjectStore(
+        mockProjectIpc as Parameters<typeof createProjectStore>[0],
+      ),
+      fileStore: createFileStore(
+        mockFileIpc as Parameters<typeof createFileStore>[0],
+      ),
     };
   });
 
@@ -449,7 +455,17 @@ function MemoryPanelWrapper(props: MemoryPanelWrapperProps): JSX.Element {
       currentDocumentId: documentId,
       bootstrapStatus: "ready",
     });
-  }, [memoryStore, projectStore, fileStore, projectId, documentId, items, settings, bootstrapStatus, lastError]);
+  }, [
+    memoryStore,
+    projectStore,
+    fileStore,
+    projectId,
+    documentId,
+    items,
+    settings,
+    bootstrapStatus,
+    lastError,
+  ]);
 
   return (
     <ProjectStoreProvider store={projectStore}>
@@ -547,7 +563,10 @@ export const WithProject: Story = {
     <MemoryPanelWrapper
       projectId="proj-1"
       documentId={null}
-      items={[...mockGlobalMemories.slice(0, 3), ...mockProjectMemories.slice(0, 5)]}
+      items={[
+        ...mockGlobalMemories.slice(0, 3),
+        ...mockProjectMemories.slice(0, 5),
+      ]}
     />
   ),
 };
@@ -591,11 +610,7 @@ export const WithDocument: Story = {
  */
 export const Empty: Story = {
   render: () => (
-    <MemoryPanelWrapper
-      projectId={null}
-      documentId={null}
-      items={[]}
-    />
+    <MemoryPanelWrapper projectId={null} documentId={null} items={[]} />
   ),
 };
 
@@ -762,7 +777,9 @@ export const MixedScopes: Story = {
  */
 export const PreferencesDemo: Story = {
   render: () => {
-    const preferences = mockGlobalMemories.filter((m) => m.type === "preference");
+    const preferences = mockGlobalMemories.filter(
+      (m) => m.type === "preference",
+    );
     return (
       <MemoryPanelWrapper
         projectId={null}

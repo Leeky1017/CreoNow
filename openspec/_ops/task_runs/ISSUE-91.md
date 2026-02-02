@@ -16,6 +16,7 @@
 
 - Command: `pnpm --filter @creonow/desktop test -- --run`
 - Key output:
+
   ```
   ✓ renderer/src/components/primitives/Card.test.tsx (42 tests) 475ms
   ✓ renderer/src/components/primitives/Button.test.tsx (46 tests) 710ms
@@ -23,10 +24,11 @@
   ✓ renderer/src/components/primitives/Checkbox.test.tsx (38 tests) 1029ms
   ✓ renderer/src/components/primitives/Input.test.tsx (38 tests) 1212ms
   ✓ renderer/src/components/primitives/Select.test.tsx (35 tests) 2145ms
-  
+
   Test Files  6 passed (6)
        Tests  245 passed (245)
   ```
+
 - Evidence: 终端输出
 
 ### 2026-02-01 22:49 Storybook 可视化验证
