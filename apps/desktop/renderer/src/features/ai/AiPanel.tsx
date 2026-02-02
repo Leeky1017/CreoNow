@@ -10,6 +10,7 @@ import { DiffView } from "./DiffView";
 import { applySelection, captureSelectionRef } from "./applySelection";
 import { SkillPicker } from "./SkillPicker";
 import { ChatHistory } from "./ChatHistory";
+import { ContextViewer } from "./ContextViewer";
 import { ModePicker, getModeName, type AiMode } from "./ModePicker";
 import { ModelPicker, getModelName, type AiModel } from "./ModelPicker";
 import { useAiStream } from "./useAiStream";
@@ -73,10 +74,12 @@ function SendStopButton(props: {
 function ToolButton(props: {
   children: React.ReactNode;
   active?: boolean;
+  testId?: string;
   onClick?: () => void;
 }): JSX.Element {
   return (
     <button
+      data-testid={props.testId}
       type="button"
       className={`
         px-1.5 py-0.5 text-[11px] font-medium rounded-[var(--radius-sm)]
@@ -174,6 +177,7 @@ export function AiPanel(): JSX.Element {
   useAiStream();
 
   const status = useAiStore((s) => s.status);
+  const stream = useAiStore((s) => s.stream);
   const selectedSkillId = useAiStore((s) => s.selectedSkillId);
   const skills = useAiStore((s) => s.skills);
   const skillsStatus = useAiStore((s) => s.skillsStatus);
@@ -188,6 +192,7 @@ export function AiPanel(): JSX.Element {
   const applyStatus = useAiStore((s) => s.applyStatus);
 
   const setInput = useAiStore((s) => s.setInput);
+  const setStream = useAiStore((s) => s.setStream);
   const setSelectedSkillId = useAiStore((s) => s.setSelectedSkillId);
   const refreshSkills = useAiStore((s) => s.refreshSkills);
   const clearError = useAiStore((s) => s.clearError);
@@ -205,6 +210,8 @@ export function AiPanel(): JSX.Element {
 
   const currentProject = useProjectStore((s) => s.current);
 
+  const contextViewerOpen = useContextStore((s) => s.viewerOpen);
+  const toggleContextViewer = useContextStore((s) => s.toggleViewer);
   const refreshContext = useContextStore((s) => s.refresh);
 
   const [activeTab, setActiveTab] = React.useState<"assistant" | "info">("assistant");
@@ -396,6 +403,41 @@ export function AiPanel(): JSX.Element {
         </div>
 
         <div className="ml-auto flex items-center gap-1 relative">
+          <Text data-testid="ai-status" size="tiny" color="muted" className="mr-1">
+            {status}
+          </Text>
+
+          <button
+            data-testid="ai-context-toggle"
+            type="button"
+            title="Context"
+            onClick={() => {
+              void toggleContextViewer({
+                projectId: currentProject?.projectId ?? projectId ?? null,
+                skillId: selectedSkillId ?? null,
+                immediateInput: lastRequest ?? input,
+              });
+            }}
+            className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${
+              contextViewerOpen
+                ? "text-[var(--color-fg-default)] bg-[var(--color-bg-selected)]"
+                : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
+            }`}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <rect x="4" y="4" width="16" height="16" rx="2" />
+              <line x1="7" y1="9" x2="17" y2="9" />
+              <line x1="7" y1="13" x2="17" y2="13" />
+            </svg>
+          </button>
+
           {/* History button */}
           <button
             data-testid="ai-history-toggle"
@@ -553,6 +595,12 @@ export function AiPanel(): JSX.Element {
               )}
             </div>
 
+            {contextViewerOpen && (
+              <div className="shrink-0 px-1.5 pb-1.5">
+                <ContextViewer />
+              </div>
+            )}
+
             {/* Input Area - Fixed at bottom, minimal padding like Cursor */}
             <div className="shrink-0 px-1.5 pb-1.5 pt-2 border-t border-[var(--color-separator)]">
               {/* Unified input wrapper */}
@@ -638,6 +686,7 @@ export function AiPanel(): JSX.Element {
                     <div className="relative">
                       <ToolButton
                         active={skillsOpen}
+                        testId="ai-skills-toggle"
                         onClick={() => {
                           setSkillsOpen((v) => !v);
                           setModeOpen(false);
@@ -666,6 +715,17 @@ export function AiPanel(): JSX.Element {
                         }}
                       />
                     </div>
+
+                    <label className="flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
+                      <input
+                        data-testid="ai-stream-toggle"
+                        type="checkbox"
+                        checked={stream}
+                        onChange={(e) => setStream(e.target.checked)}
+                        className="accent-[var(--color-accent)]"
+                      />
+                      <span>Stream</span>
+                    </label>
                   </div>
 
                   <SendStopButton

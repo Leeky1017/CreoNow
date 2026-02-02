@@ -3,9 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
-
-const MAX_TEXTS = 64;
-const MAX_TEXT_LENGTH = 8_000;
+import type { EmbeddingService } from "../services/embedding/embeddingService";
 
 /**
  * Register `embedding:*` IPC handlers.
@@ -17,6 +15,7 @@ export function registerEmbeddingIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
+  embedding: EmbeddingService;
 }): void {
   deps.ipcMain.handle(
     "embedding:encode",
@@ -30,48 +29,12 @@ export function registerEmbeddingIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      if (!Array.isArray(payload.texts) || payload.texts.length === 0) {
-        return {
-          ok: false,
-          error: { code: "INVALID_ARGUMENT", message: "texts is required" },
-        };
-      }
-      if (payload.texts.length > MAX_TEXTS) {
-        return {
-          ok: false,
-          error: { code: "INVALID_ARGUMENT", message: "texts is too large" },
-        };
-      }
-      for (const text of payload.texts) {
-        if (typeof text !== "string" || text.trim().length === 0) {
-          return {
-            ok: false,
-            error: {
-              code: "INVALID_ARGUMENT",
-              message: "texts must be non-empty strings",
-            },
-          };
-        }
-        if (text.length > MAX_TEXT_LENGTH) {
-          return {
-            ok: false,
-            error: { code: "INVALID_ARGUMENT", message: "text is too long" },
-          };
-        }
-      }
 
-      deps.logger.info("embedding_model_not_ready", {
-        textCount: payload.texts.length,
-        model: payload.model ?? "default",
+      const res = deps.embedding.encode({
+        texts: payload.texts,
+        model: payload.model,
       });
-
-      return {
-        ok: false,
-        error: {
-          code: "MODEL_NOT_READY",
-          message: "Embedding model not ready",
-        },
-      };
+      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
     },
   );
 

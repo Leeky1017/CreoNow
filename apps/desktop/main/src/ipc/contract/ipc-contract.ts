@@ -83,7 +83,18 @@ const RAG_RETRIEVE_DIAGNOSTICS_SCHEMA = s.object({
   usedTokens: s.number(),
   droppedCount: s.number(),
   trimmedCount: s.number(),
-  mode: s.literal("fulltext"),
+  mode: s.union(s.literal("fulltext"), s.literal("fulltext_reranked")),
+  planner: s.object({
+    queries: s.array(s.string()),
+    perQueryHits: s.array(s.number()),
+    selectedQuery: s.string(),
+    selectedCount: s.number(),
+  }),
+  rerank: s.object({
+    enabled: s.boolean(),
+    reason: s.optional(s.string()),
+    model: s.optional(s.string()),
+  }),
   degradedFrom: s.optional(s.literal("semantic")),
   reason: s.optional(s.string()),
 });

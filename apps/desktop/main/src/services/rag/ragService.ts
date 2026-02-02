@@ -5,7 +5,10 @@ import type {
   IpcErrorCode,
 } from "../../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
+import type { EmbeddingService } from "../embedding/embeddingService";
 import { createFtsService } from "../search/ftsService";
+import type { LruCache } from "./lruCache";
+import { planFtsQueries } from "./queryPlanner";
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
@@ -22,7 +25,18 @@ export type RagRetrieveDiagnostics = {
   usedTokens: number;
   droppedCount: number;
   trimmedCount: number;
-  mode: "fulltext";
+  mode: "fulltext" | "fulltext_reranked";
+  planner: {
+    queries: string[];
+    perQueryHits: number[];
+    selectedQuery: string;
+    selectedCount: number;
+  };
+  rerank: {
+    enabled: boolean;
+    reason?: string;
+    model?: string;
+  };
   degradedFrom?: "semantic";
   reason?: string;
 };
@@ -41,6 +55,9 @@ export type RagService = {
 
 const DEFAULT_LIMIT = 8;
 const MAX_LIMIT = 50;
+
+const CANDIDATE_MULTIPLIER = 6;
+const MAX_CANDIDATES = 50;
 
 const DEFAULT_BUDGET_TOKENS = 800;
 const MIN_BUDGET_TOKENS = 50;
@@ -145,6 +162,31 @@ function trimToTokenBudget(args: { text: string; tokenBudget: number }): {
   return { text: trimmedText, usedTokens, trimmed: true };
 }
 
+type Candidate = {
+  sourceRef: string;
+  rawSnippet: string;
+  ftsScore: number;
+};
+
+function cosineSimilarity(a: readonly number[], b: readonly number[]): number {
+  const n = Math.min(a.length, b.length);
+  let dot = 0;
+  let na = 0;
+  let nb = 0;
+  for (let i = 0; i < n; i += 1) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    dot += x * y;
+    na += x * x;
+    nb += y * y;
+  }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  if (!Number.isFinite(denom) || denom <= 0) {
+    return 0;
+  }
+  return dot / denom;
+}
+
 /**
  * Create a minimal RAG retrieval service (FTS fallback).
  *
@@ -154,6 +196,9 @@ function trimToTokenBudget(args: { text: string; tokenBudget: number }): {
 export function createRagService(deps: {
   db: Database.Database;
   logger: Logger;
+  embedding: EmbeddingService;
+  embeddingCache: LruCache<string, number[]>;
+  rerank: { enabled: boolean; model?: string };
 }): RagService {
   const fts = createFtsService({ db: deps.db, logger: deps.logger });
 
@@ -168,13 +213,74 @@ export function createRagService(deps: {
         return budgetRes;
       }
 
-      const fulltextRes = fts.searchFulltext({
-        projectId: args.projectId,
-        query: args.queryText,
-        limit: limitRes.data,
-      });
-      if (!fulltextRes.ok) {
-        return fulltextRes;
+      const planned = planFtsQueries({ queryText: args.queryText });
+      const plannedQueries =
+        planned.queries.length > 0 ? planned.queries : [args.queryText.trim()];
+
+      const candidateLimit = Math.min(
+        MAX_CANDIDATES,
+        Math.max(limitRes.data, 1) * CANDIDATE_MULTIPLIER,
+      );
+      const targetHits = Math.min(candidateLimit, Math.max(1, limitRes.data) * 3);
+
+      const perQueryHits: number[] = [];
+      const perQueryItems: Array<Candidate[]> = [];
+
+      for (const query of plannedQueries) {
+        const res = fts.searchFulltext({
+          projectId: args.projectId,
+          query,
+          limit: candidateLimit,
+        });
+
+        if (!res.ok) {
+          // Raw user query errors should be surfaced deterministically.
+          if (query === plannedQueries[0]) {
+            return res;
+          }
+
+          perQueryHits.push(0);
+          perQueryItems.push([]);
+          continue;
+        }
+
+        perQueryHits.push(res.data.items.length);
+        perQueryItems.push(
+          res.data.items.map((hit) => {
+            const sourceRef = buildSourceRef({
+              documentId: hit.documentId,
+              chunkId: "0",
+            });
+            const rawSnippet = `${hit.title}\n${hit.snippet}`.trimEnd();
+            return { sourceRef, rawSnippet, ftsScore: hit.score };
+          }),
+        );
+      }
+
+      let selectedIndex = 0;
+      let bestHits = -1;
+      for (let i = 0; i < plannedQueries.length; i += 1) {
+        const hits = perQueryHits[i] ?? 0;
+        if (hits > bestHits) {
+          bestHits = hits;
+          selectedIndex = i;
+        }
+        if (hits >= targetHits) {
+          selectedIndex = i;
+          break;
+        }
+      }
+
+      const selectedQuery = plannedQueries[selectedIndex] ?? plannedQueries[0] ?? "";
+      const baseCandidates = perQueryItems[selectedIndex] ?? [];
+      const candidates: Candidate[] = [];
+      const seen = new Set<string>();
+      for (const c of baseCandidates) {
+        if (seen.has(c.sourceRef)) {
+          continue;
+        }
+        seen.add(c.sourceRef);
+        candidates.push(c);
       }
 
       let remainingTokens = budgetRes.data;
@@ -182,21 +288,96 @@ export function createRagService(deps: {
       let droppedCount = 0;
       let trimmedCount = 0;
 
-      const items: RagRetrieveItem[] = [];
-      for (const hit of fulltextRes.data.items) {
-        const sourceRef = buildSourceRef({
-          documentId: hit.documentId,
-          chunkId: "0",
-        });
-        const rawSnippet = `${hit.title}\n${hit.snippet}`.trimEnd();
+      const rerankModel = deps.rerank.model;
+      let ordered: Array<{
+        candidate: Candidate;
+        score: number;
+      }> = candidates.map((c) => ({ candidate: c, score: c.ftsScore }));
 
+      const rerankDiagnostics: RagRetrieveDiagnostics["rerank"] = {
+        enabled: false,
+        model: rerankModel,
+      };
+
+      if (deps.rerank.enabled && candidates.length > 0) {
+        const model = typeof rerankModel === "string" ? rerankModel : undefined;
+        const texts = [args.queryText, ...candidates.map((c) => c.rawSnippet)];
+
+        const cachedVectors: number[][] = [];
+        const missing: Array<{ index: number; text: string }> = [];
+
+        for (let i = 0; i < texts.length; i += 1) {
+          const text = texts[i] ?? "";
+          if (i === 0) {
+            // Never cache query vectors (high-churn, low value).
+            missing.push({ index: i, text });
+            continue;
+          }
+
+          const cacheKey = `${model ?? "default"}:${text}`;
+          const cached = deps.embeddingCache.get(cacheKey);
+          if (cached) {
+            cachedVectors[i] = cached;
+          } else {
+            missing.push({ index: i, text });
+          }
+        }
+
+        const encodeRes = deps.embedding.encode({
+          texts: missing.map((m) => m.text),
+          model,
+        });
+
+        if (encodeRes.ok) {
+          const vectors = [...cachedVectors];
+          for (let i = 0; i < missing.length; i += 1) {
+            const idx = missing[i]?.index ?? -1;
+            const vec = encodeRes.data.vectors[i] ?? [];
+            vectors[idx] = vec;
+            if (idx > 0) {
+              const cacheKey = `${model ?? "default"}:${texts[idx] ?? ""}`;
+              deps.embeddingCache.set(cacheKey, vec);
+            }
+          }
+
+          const queryVec = vectors[0] ?? [];
+          ordered = candidates
+            .map((c, idx) => ({
+              idx,
+              candidate: c,
+              score: cosineSimilarity(queryVec, vectors[idx + 1] ?? []),
+            }))
+            .sort((a, b) => {
+              if (b.score !== a.score) {
+                return b.score - a.score;
+              }
+              return a.idx - b.idx;
+            })
+            .map((x) => ({ candidate: x.candidate, score: x.score }));
+
+          rerankDiagnostics.enabled = true;
+        } else {
+          rerankDiagnostics.enabled = false;
+          rerankDiagnostics.reason = encodeRes.error.code;
+        }
+      } else if (deps.rerank.enabled) {
+        rerankDiagnostics.reason = "NO_CANDIDATES";
+      } else {
+        rerankDiagnostics.reason = "DISABLED";
+      }
+
+      const items: RagRetrieveItem[] = [];
+      for (const entry of ordered) {
+        if (items.length >= limitRes.data) {
+          break;
+        }
         if (remainingTokens <= 0) {
           droppedCount += 1;
           continue;
         }
 
         const trimmed = trimToTokenBudget({
-          text: rawSnippet,
+          text: entry.candidate.rawSnippet,
           tokenBudget: remainingTokens,
         });
         if (trimmed.text.trim().length === 0) {
@@ -209,14 +390,18 @@ export function createRagService(deps: {
         }
 
         items.push({
-          sourceRef,
+          sourceRef: entry.candidate.sourceRef,
           snippet: trimmed.text,
-          score: hit.score,
+          score: entry.score,
         });
 
         usedTokens += trimmed.usedTokens;
         remainingTokens = Math.max(0, budgetRes.data - usedTokens);
       }
+
+      const mode: RagRetrieveDiagnostics["mode"] = rerankDiagnostics.enabled
+        ? "fulltext_reranked"
+        : "fulltext";
 
       return {
         ok: true,
@@ -227,9 +412,14 @@ export function createRagService(deps: {
             usedTokens,
             droppedCount,
             trimmedCount,
-            mode: "fulltext",
-            degradedFrom: "semantic",
-            reason: "semantic/embedding not ready; using FTS fallback",
+            mode,
+            planner: {
+              queries: plannedQueries,
+              perQueryHits,
+              selectedQuery,
+              selectedCount: items.length,
+            },
+            rerank: rerankDiagnostics,
           },
         },
       };

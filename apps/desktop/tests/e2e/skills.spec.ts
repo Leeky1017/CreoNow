@@ -61,7 +61,7 @@ async function launchApp(args: { userDataDir: string }) {
  */
 async function runInput(page: Page, input: string): Promise<void> {
   await page.getByTestId("ai-input").fill(input);
-  await page.getByTestId("ai-run").click();
+  await page.getByTestId("ai-send-stop").click();
 }
 
 test("skills: list + toggle disables run + command palette opens", async () => {

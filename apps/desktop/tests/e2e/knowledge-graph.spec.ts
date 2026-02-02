@@ -232,7 +232,7 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
   expect(polish.enabled).toBe(true);
 
   await page.getByTestId("ai-input").fill("hello");
-  await page.getByTestId("ai-run").click();
+  await page.getByTestId("ai-send-stop").click();
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
 
   await page.getByTestId("ai-context-toggle").click();

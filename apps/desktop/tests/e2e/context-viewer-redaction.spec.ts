@@ -65,7 +65,7 @@ async function launchApp(args: {
  */
 async function runInput(page: Page, input: string): Promise<void> {
   await page.getByTestId("ai-input").fill(input);
-  await page.getByTestId("ai-run").click();
+  await page.getByTestId("ai-send-stop").click();
 }
 
 test("context viewer: 4 layers + trim + redaction + main.log evidence", async () => {

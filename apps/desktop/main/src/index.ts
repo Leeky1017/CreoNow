@@ -23,6 +23,7 @@ import { registerSkillIpcHandlers } from "./ipc/skills";
 import { registerStatsIpcHandlers } from "./ipc/stats";
 import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
+import { createEmbeddingService } from "./services/embedding/embeddingService";
 import { createJudgeService } from "./services/judge/judgeService";
 import { createCreonowWatchService } from "./services/context/watchService";
 
@@ -131,6 +132,12 @@ function registerIpcHandlers(deps: {
     isE2E: process.env.CREONOW_E2E === "1",
   });
   const watchService = createCreonowWatchService({ logger: deps.logger });
+  const embeddingService = createEmbeddingService({ logger: deps.logger });
+
+  const ragRerank = {
+    enabled: deps.env.CREONOW_RAG_RERANK === "1",
+    model: deps.env.CREONOW_RAG_RERANK_MODEL,
+  };
 
   ipcMain.handle(
     "app:ping",
@@ -241,6 +248,7 @@ function registerIpcHandlers(deps: {
     ipcMain,
     db: deps.db,
     logger: deps.logger,
+    embedding: embeddingService,
   });
 
   registerSearchIpcHandlers({
@@ -253,6 +261,8 @@ function registerIpcHandlers(deps: {
     ipcMain,
     db: deps.db,
     logger: deps.logger,
+    embedding: embeddingService,
+    ragRerank,
   });
 
   registerSkillIpcHandlers({

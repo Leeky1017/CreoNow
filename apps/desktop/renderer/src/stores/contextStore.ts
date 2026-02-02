@@ -310,6 +310,36 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
     return `${lines.join("\n").trimEnd()}\n`;
   }
 
+  type RagRetrieveOk = Extract<IpcInvokeResult<"rag:retrieve">, { ok: true }>;
+  type RagRetrieveDiagnostics = RagRetrieveOk["data"]["diagnostics"];
+
+  /**
+   * Format `rag:retrieve` diagnostics into a retrieved-layer block.
+   *
+   * Why: E2E must be able to assert rerank enabled vs degraded (MODEL_NOT_READY)
+   * without depending on internal logs.
+   */
+  function formatRagRetrieveDiagnostics(d: RagRetrieveDiagnostics): string {
+    const lines: string[] = [];
+    lines.push("rag:retrieve");
+    lines.push(`mode=${d.mode}`);
+    lines.push(`rerank.enabled=${String(d.rerank.enabled)}`);
+    if (typeof d.rerank.reason === "string" && d.rerank.reason.length > 0) {
+      lines.push(`rerank.reason=${d.rerank.reason}`);
+    }
+    if (typeof d.rerank.model === "string" && d.rerank.model.length > 0) {
+      lines.push(`rerank.model=${d.rerank.model}`);
+    }
+    lines.push(`planner.selectedQuery=${d.planner.selectedQuery}`);
+    lines.push(`planner.selectedCount=${d.planner.selectedCount}`);
+    for (let i = 0; i < d.planner.queries.length; i += 1) {
+      const q = d.planner.queries[i] ?? "";
+      const hits = d.planner.perQueryHits[i] ?? 0;
+      lines.push(`planner.query[${i}]=${q} (hits=${hits})`);
+    }
+    return `${lines.join("\n").trimEnd()}\n`;
+  }
+
   return create<ContextStore>((set, get) => ({
     viewerOpen: false,
     status: "idle",
@@ -388,6 +418,16 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
         });
 
         if (ragRes.ok) {
+          const diag = redactText({
+            text: formatRagRetrieveDiagnostics(ragRes.data.diagnostics),
+            sourceRef: "retrieved:rag_diagnostics",
+          });
+          retrievedSources.push({
+            sourceRef: "retrieved:rag_diagnostics",
+            text: diag.redactedText,
+          });
+          retrievedRedactionEvidence.push(...diag.evidence);
+
           for (const item of ragRes.data.items) {
             const redacted = redactText({
               text: item.snippet,
