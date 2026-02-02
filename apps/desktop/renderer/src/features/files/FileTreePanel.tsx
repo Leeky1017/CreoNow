@@ -1,6 +1,15 @@
 import React from "react";
 
-import { Button, Input, ListItem, Text } from "../../components/primitives";
+import {
+  Button,
+  ContextMenu,
+  Input,
+  ListItem,
+  Popover,
+  PopoverClose,
+  Text,
+  type ContextMenuItem,
+} from "../../components/primitives";
 import { useEditorStore } from "../../stores/editorStore";
 import { useFileStore } from "../../stores/fileStore";
 
@@ -8,12 +17,22 @@ type EditingState =
   | { mode: "idle" }
   | { mode: "rename"; documentId: string; title: string };
 
+export interface FileTreePanelProps {
+  projectId: string;
+  /**
+   * 首次渲染时自动进入某个文档的 Rename 模式。
+   *
+   * Why: 仅用于 Storybook/QA 快速复现并验证 Rename 溢出问题，避免依赖复杂交互路径。
+   */
+  initialRenameDocumentId?: string;
+}
+
 /**
  * FileTreePanel renders the project-scoped documents list (DB SSOT) and actions.
  *
  * Why: P0-015 requires a minimal documents loop with stable selectors for Windows E2E.
  */
-export function FileTreePanel(props: { projectId: string }): JSX.Element {
+export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
   const items = useFileStore((s) => s.items);
   const currentDocumentId = useFileStore((s) => s.currentDocumentId);
   const bootstrapStatus = useFileStore((s) => s.bootstrapStatus);
@@ -32,6 +51,27 @@ export function FileTreePanel(props: { projectId: string }): JSX.Element {
 
   const [editing, setEditing] = React.useState<EditingState>({ mode: "idle" });
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const initialRenameAppliedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!props.initialRenameDocumentId) {
+      return;
+    }
+    if (initialRenameAppliedRef.current) {
+      return;
+    }
+    if (editing.mode !== "idle") {
+      return;
+    }
+
+    const doc = items.find((i) => i.documentId === props.initialRenameDocumentId);
+    if (!doc) {
+      return;
+    }
+
+    initialRenameAppliedRef.current = true;
+    setEditing({ mode: "rename", documentId: doc.documentId, title: doc.title });
+  }, [editing.mode, items, props.initialRenameDocumentId]);
 
   React.useEffect(() => {
     if (editing.mode !== "rename") {
@@ -140,112 +180,152 @@ export function FileTreePanel(props: { projectId: string }): JSX.Element {
               const isRenaming =
                 editing.mode === "rename" &&
                 editing.documentId === item.documentId;
-              return (
-                <ListItem
-                  key={item.documentId}
-                  data-testid={`file-row-${item.documentId}`}
-                  aria-selected={selected}
-                  selected={selected}
-                  interactive={!isRenaming}
-                  compact
-                  onClick={() => {
-                    if (isRenaming) {
-                      return;
-                    }
-                    void onSelect(item.documentId);
-                  }}
-                  className={`border ${selected ? "border-[var(--color-border-focus)]" : "border-[var(--color-border-default)]"}`}
-                >
-                  <div className="flex-1 min-w-0">
-                    {isRenaming ? (
-                      <Input
-                        ref={inputRef}
-                        data-testid={`file-rename-input-${item.documentId}`}
-                        value={editing.title}
-                        onChange={(e) =>
-                          setEditing({
-                            mode: "rename",
-                            documentId: item.documentId,
-                            title: e.target.value,
-                          })
-                        }
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") {
-                            setEditing({ mode: "idle" });
-                            return;
-                          }
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            void onCommitRename();
-                          }
-                        }}
-                        fullWidth
-                        className="h-7 text-xs"
-                      />
-                    ) : (
-                      <Text size="small" className="block overflow-hidden text-ellipsis whitespace-nowrap">
-                        {item.title}
-                      </Text>
-                    )}
-                  </div>
 
-                  <div className="flex gap-1">
-                    {isRenaming ? (
-                      <>
-                        <Button
-                          data-testid={`file-rename-confirm-${item.documentId}`}
-                          variant="secondary"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void onCommitRename();
-                          }}
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditing({ mode: "idle" });
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button
-                          data-testid={`file-rename-${item.documentId}`}
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditing({
-                              mode: "rename",
-                              documentId: item.documentId,
-                              title: item.title,
-                            });
-                          }}
-                        >
-                          Rename
-                        </Button>
-                        <Button
-                          data-testid={`file-delete-${item.documentId}`}
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void onDelete(item.documentId);
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      </>
-                    )}
+              const contextMenuItems: ContextMenuItem[] = [
+                {
+                  key: "rename",
+                  label: "Rename",
+                  onSelect: () => {
+                    setEditing({
+                      mode: "rename",
+                      documentId: item.documentId,
+                      title: item.title,
+                    });
+                  },
+                },
+                {
+                  key: "delete",
+                  label: "Delete",
+                  onSelect: () => void onDelete(item.documentId),
+                  destructive: true,
+                },
+              ];
+
+              // Rename mode: show inline input with fixed width
+              if (isRenaming) {
+                return (
+                  <div
+                    key={item.documentId}
+                    data-testid={`file-row-${item.documentId}`}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] border border-[var(--color-border-focus)] bg-[var(--color-bg-selected)] overflow-hidden"
+                  >
+                    <Input
+                      ref={inputRef}
+                      data-testid={`file-rename-input-${item.documentId}`}
+                      value={editing.title}
+                      onChange={(e) =>
+                        setEditing({
+                          mode: "rename",
+                          documentId: item.documentId,
+                          title: e.target.value,
+                        })
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setEditing({ mode: "idle" });
+                          return;
+                        }
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void onCommitRename();
+                        }
+                      }}
+                      onBlur={() => void onCommitRename()}
+                      className="h-6 text-xs flex-1 min-w-0 max-w-full"
+                    />
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        data-testid={`file-rename-confirm-${item.documentId}`}
+                        variant="secondary"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void onCommitRename();
+                        }}
+                      >
+                        OK
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditing({ mode: "idle" });
+                        }}
+                      >
+                        ✕
+                      </Button>
+                    </div>
                   </div>
-                </ListItem>
+                );
+              }
+
+              // Normal mode: show file with actions menu
+              return (
+                <ContextMenu key={item.documentId} items={contextMenuItems}>
+                  <ListItem
+                    data-testid={`file-row-${item.documentId}`}
+                    aria-selected={selected}
+                    selected={selected}
+                    interactive
+                    compact
+                    onClick={() => void onSelect(item.documentId)}
+                    className={`border ${selected ? "border-[var(--color-border-focus)]" : "border-transparent"} group`}
+                  >
+                    <Text
+                      size="small"
+                      className="block overflow-hidden text-ellipsis whitespace-nowrap flex-1 min-w-0"
+                    >
+                      {item.title}
+                    </Text>
+                    <Popover
+                      trigger={
+                        <Button
+                          data-testid={`file-actions-${item.documentId}`}
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => e.stopPropagation()}
+                          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0 w-6 h-6 p-0"
+                        >
+                          ⋯
+                        </Button>
+                      }
+                      side="bottom"
+                      align="end"
+                    >
+                      <div className="flex flex-col gap-1 -m-2">
+                        <PopoverClose asChild>
+                          <Button
+                            data-testid={`file-rename-${item.documentId}`}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditing({
+                                mode: "rename",
+                                documentId: item.documentId,
+                                title: item.title,
+                              });
+                            }}
+                            className="justify-start w-full"
+                          >
+                            Rename
+                          </Button>
+                        </PopoverClose>
+                        <PopoverClose asChild>
+                          <Button
+                            data-testid={`file-delete-${item.documentId}`}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => void onDelete(item.documentId)}
+                            className="justify-start w-full text-[var(--color-error)]"
+                          >
+                            Delete
+                          </Button>
+                        </PopoverClose>
+                      </div>
+                    </Popover>
+                  </ListItem>
+                </ContextMenu>
               );
             })}
           </div>

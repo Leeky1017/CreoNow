@@ -1,7 +1,7 @@
-// @ts-nocheck - Mock types are intentionally incomplete for testing
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { AiPanel } from "./AiPanel";
+import type { AiStore } from "../../stores/aiStore";
 
 // Mock stores
 vi.mock("../../stores/aiStore", () => ({
@@ -16,6 +16,7 @@ vi.mock("../../stores/aiStore", () => ({
       input: "",
       outputText: "",
       lastRunId: null,
+      activeRunId: null,
       lastError: null,
       selectionRef: null,
       selectionText: "",
@@ -164,6 +165,7 @@ describe("AiPanel", () => {
           input: "",
           outputText: "",
           lastRunId: null,
+          activeRunId: null,
           lastError: { code: "TIMEOUT", message: "Request timed out" },
           selectionRef: null,
           selectionText: "",
@@ -182,7 +184,7 @@ describe("AiPanel", () => {
           run: vi.fn(),
           cancel: vi.fn(),
         };
-        return selector(state);
+        return selector(state as unknown as AiStore);
       });
 
       render(<AiPanel />);
@@ -210,6 +212,7 @@ describe("AiPanel", () => {
           input: "",
           outputText: "",
           lastRunId: null,
+          activeRunId: null,
           lastError: null,
           selectionRef: null,
           selectionText: "",
@@ -228,7 +231,7 @@ describe("AiPanel", () => {
           run: vi.fn(),
           cancel: vi.fn(),
         };
-        return selector(state);
+        return selector(state as unknown as AiStore);
       });
 
       render(<AiPanel />);
@@ -250,6 +253,7 @@ describe("AiPanel", () => {
           input: "",
           outputText: "",
           lastRunId: null,
+          activeRunId: null,
           lastError: null,
           selectionRef: null,
           selectionText: "",
@@ -268,7 +272,7 @@ describe("AiPanel", () => {
           run: vi.fn(),
           cancel: vi.fn(),
         };
-        return selector(state);
+        return selector(state as unknown as AiStore);
       });
 
       render(<AiPanel />);

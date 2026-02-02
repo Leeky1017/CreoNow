@@ -1,4 +1,3 @@
-// @ts-nocheck - Mock types are intentionally incomplete for testing
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryPanel } from "./MemoryPanel";

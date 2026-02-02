@@ -1,13 +1,12 @@
-// @ts-nocheck - Mock types are intentionally incomplete for testing
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { SkillPicker } from "./SkillPicker";
 
 const mockSkills = [
-  { id: "default", name: "Default", enabled: true, valid: true, scope: "global" },
-  { id: "rewrite", name: "Rewrite", enabled: true, valid: true, scope: "project" },
-  { id: "disabled", name: "Disabled Skill", enabled: false, valid: true, scope: "global" },
-  { id: "invalid", name: "Invalid Skill", enabled: true, valid: false, scope: "global" },
+  { id: "default", name: "Default", enabled: true, valid: true, scope: "global" as const, packageId: "pkg-1", version: "1.0.0" },
+  { id: "rewrite", name: "Rewrite", enabled: true, valid: true, scope: "project" as const, packageId: "pkg-2", version: "1.0.0" },
+  { id: "disabled", name: "Disabled Skill", enabled: false, valid: true, scope: "global" as const, packageId: "pkg-3", version: "1.0.0" },
+  { id: "invalid", name: "Invalid Skill", enabled: true, valid: false, scope: "global" as const, packageId: "pkg-4", version: "1.0.0" },
 ];
 
 describe("SkillPicker", () => {

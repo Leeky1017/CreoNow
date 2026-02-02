@@ -152,37 +152,45 @@ function Spinner({ className }: { className?: string }) {
  * <Button variant="danger">Delete</Button>
  * ```
  */
-export function Button({
-  variant = "secondary",
-  size = "md",
-  loading = false,
-  fullWidth = false,
-  disabled,
-  className = "",
-  children,
-  ...props
-}: ButtonProps): JSX.Element {
-  const isDisabled = disabled || loading;
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button(
+    {
+      variant = "secondary",
+      size = "md",
+      loading = false,
+      fullWidth = false,
+      disabled,
+      className = "",
+      children,
+      ...props
+    },
+    ref,
+  ): JSX.Element {
+    const isDisabled = disabled || loading;
 
-  const classes = [
-    baseStyles,
-    variantStyles[variant],
-    sizeStyles[size],
-    fullWidth ? "w-full" : "",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+    const classes = [
+      baseStyles,
+      variantStyles[variant],
+      sizeStyles[size],
+      fullWidth ? "w-full" : "",
+      className,
+    ]
+      .filter(Boolean)
+      .join(" ");
 
-  return (
-    <button
-      type="button"
-      disabled={isDisabled}
-      className={classes}
-      {...props}
-    >
-      {loading && <Spinner />}
-      <span className="truncate">{children}</span>
-    </button>
-  );
-}
+    return (
+      <button
+        ref={ref}
+        type="button"
+        disabled={isDisabled}
+        className={classes}
+        {...props}
+      >
+        {loading && <Spinner />}
+        <span className="truncate">{children}</span>
+      </button>
+    );
+  },
+);
+
+Button.displayName = "Button";

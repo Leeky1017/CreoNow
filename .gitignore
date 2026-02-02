@@ -7,6 +7,7 @@ dist/
 out/
 build/
 *.tsbuildinfo
+apps/desktop/storybook-static/
 
 # IDE
 .vscode/

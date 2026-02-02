@@ -1,4 +1,3 @@
-// @ts-nocheck - Story files use simplified mock types
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
 import { CreateProjectDialog } from "./CreateProjectDialog";
@@ -30,7 +29,7 @@ const meta: Meta<typeof CreateProjectDialog> = {
 };
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<typeof CreateProjectDialog>;
 
 /**
  * 打开状态

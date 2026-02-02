@@ -1,16 +1,18 @@
-// @ts-nocheck - Mock types are intentionally incomplete for testing
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { ContextViewer } from "./ContextViewer";
+import type { ContextStore } from "../../stores/contextStore";
 
 // Mock stores
 vi.mock("../../stores/contextStore", () => ({
   useContextStore: vi.fn((selector) => {
     const state = {
+      viewerOpen: false,
       status: "idle" as const,
       assembled: null,
+      lastError: null,
     };
-    return selector(state);
+    return selector(state as unknown as ContextStore);
   }),
 }));
 
@@ -45,10 +47,12 @@ describe("ContextViewer", () => {
       const { useContextStore } = await import("../../stores/contextStore");
       vi.mocked(useContextStore).mockImplementation((selector) => {
         const state = {
+          viewerOpen: false,
           status: "loading" as const,
           assembled: null,
+          lastError: null,
         };
-        return selector(state);
+        return selector(state as unknown as ContextStore);
       });
 
       render(<ContextViewer />);
@@ -90,10 +94,12 @@ describe("ContextViewer", () => {
       const { useContextStore } = await import("../../stores/contextStore");
       vi.mocked(useContextStore).mockImplementation((selector) => {
         const state = {
+          viewerOpen: false,
           status: "ready" as const,
           assembled: mockAssembled,
+          lastError: null,
         };
-        return selector(state);
+        return selector(state as unknown as ContextStore);
       });
 
       render(<ContextViewer />);
@@ -105,10 +111,12 @@ describe("ContextViewer", () => {
       const { useContextStore } = await import("../../stores/contextStore");
       vi.mocked(useContextStore).mockImplementation((selector) => {
         const state = {
+          viewerOpen: false,
           status: "ready" as const,
           assembled: mockAssembled,
+          lastError: null,
         };
-        return selector(state);
+        return selector(state as unknown as ContextStore);
       });
 
       render(<ContextViewer />);
@@ -121,10 +129,12 @@ describe("ContextViewer", () => {
       const { useContextStore } = await import("../../stores/contextStore");
       vi.mocked(useContextStore).mockImplementation((selector) => {
         const state = {
+          viewerOpen: false,
           status: "ready" as const,
           assembled: mockAssembled,
+          lastError: null,
         };
-        return selector(state);
+        return selector(state as unknown as ContextStore);
       });
 
       render(<ContextViewer />);
@@ -137,10 +147,12 @@ describe("ContextViewer", () => {
       const { useContextStore } = await import("../../stores/contextStore");
       vi.mocked(useContextStore).mockImplementation((selector) => {
         const state = {
+          viewerOpen: false,
           status: "ready" as const,
           assembled: mockAssembled,
+          lastError: null,
         };
-        return selector(state);
+        return selector(state as unknown as ContextStore);
       });
 
       render(<ContextViewer />);
@@ -155,10 +167,12 @@ describe("ContextViewer", () => {
       const { useContextStore } = await import("../../stores/contextStore");
       vi.mocked(useContextStore).mockImplementation((selector) => {
         const state = {
+          viewerOpen: false,
           status: "ready" as const,
           assembled: mockAssembled,
+          lastError: null,
         };
-        return selector(state);
+        return selector(state as unknown as ContextStore);
       });
 
       render(<ContextViewer />);
@@ -170,10 +184,12 @@ describe("ContextViewer", () => {
       const { useContextStore } = await import("../../stores/contextStore");
       vi.mocked(useContextStore).mockImplementation((selector) => {
         const state = {
+          viewerOpen: false,
           status: "ready" as const,
           assembled: mockAssembled,
+          lastError: null,
         };
-        return selector(state);
+        return selector(state as unknown as ContextStore);
       });
 
       render(<ContextViewer />);
@@ -190,6 +206,7 @@ describe("ContextViewer", () => {
       const { useContextStore } = await import("../../stores/contextStore");
       vi.mocked(useContextStore).mockImplementation((selector) => {
         const state = {
+          viewerOpen: false,
           status: "ready" as const,
           assembled: {
             hashes: { stablePrefixHash: "abc", promptHash: "def" },
@@ -216,8 +233,9 @@ describe("ContextViewer", () => {
             ],
             redactionEvidence: [],
           },
+          lastError: null,
         };
-        return selector(state);
+        return selector(state as unknown as ContextStore);
       });
 
       render(<ContextViewer />);
@@ -229,6 +247,7 @@ describe("ContextViewer", () => {
       const { useContextStore } = await import("../../stores/contextStore");
       vi.mocked(useContextStore).mockImplementation((selector) => {
         const state = {
+          viewerOpen: false,
           status: "ready" as const,
           assembled: {
             hashes: { stablePrefixHash: "abc", promptHash: "def" },
@@ -248,8 +267,9 @@ describe("ContextViewer", () => {
               { patternId: "api-key", matchCount: 2, sourceRef: "config" },
             ],
           },
+          lastError: null,
         };
-        return selector(state);
+        return selector(state as unknown as ContextStore);
       });
 
       render(<ContextViewer />);

@@ -1,6 +1,5 @@
-// @ts-nocheck - Mock types are intentionally incomplete for testing
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { FileTreePanel } from "./FileTreePanel";
 
 // Mock stores
@@ -80,10 +79,13 @@ describe("FileTreePanel", () => {
       const { useFileStore } = await import("../../stores/fileStore");
       vi.mocked(useFileStore).mockImplementation((selector) => {
         const state = {
+          projectId: "test-project",
           items: [],
           currentDocumentId: null,
           bootstrapStatus: "loading" as const,
           lastError: null,
+          bootstrapForProject: vi.fn(),
+          refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
           delete: vi.fn(),
@@ -107,10 +109,13 @@ describe("FileTreePanel", () => {
       const { useFileStore } = await import("../../stores/fileStore");
       vi.mocked(useFileStore).mockImplementation((selector) => {
         const state = {
+          projectId: "test-project",
           items: [],
           currentDocumentId: null,
           bootstrapStatus: "ready" as const,
-          lastError: { code: "LOAD_FAILED", message: "Failed to load files" },
+          lastError: { code: "IO_ERROR" as const, message: "Failed to load files" },
+          bootstrapForProject: vi.fn(),
+          refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
           delete: vi.fn(),
@@ -123,7 +128,7 @@ describe("FileTreePanel", () => {
       render(<FileTreePanel projectId="test-project" />);
 
       expect(screen.getByRole("alert")).toBeInTheDocument();
-      expect(screen.getByText(/LOAD_FAILED/)).toBeInTheDocument();
+      expect(screen.getByText(/IO_ERROR/)).toBeInTheDocument();
       expect(screen.getByText("Dismiss")).toBeInTheDocument();
     });
   });
@@ -136,13 +141,16 @@ describe("FileTreePanel", () => {
       const { useFileStore } = await import("../../stores/fileStore");
       vi.mocked(useFileStore).mockImplementation((selector) => {
         const state = {
+          projectId: "test-project",
           items: [
-            { documentId: "doc-1", title: "Document 1" },
-            { documentId: "doc-2", title: "Document 2" },
+            { documentId: "doc-1", title: "Document 1", updatedAt: Date.now() - 1000 },
+            { documentId: "doc-2", title: "Document 2", updatedAt: Date.now() - 2000 },
           ],
           currentDocumentId: "doc-1",
           bootstrapStatus: "ready" as const,
           lastError: null,
+          bootstrapForProject: vi.fn(),
+          refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
           delete: vi.fn(),
@@ -164,13 +172,16 @@ describe("FileTreePanel", () => {
       const { useFileStore } = await import("../../stores/fileStore");
       vi.mocked(useFileStore).mockImplementation((selector) => {
         const state = {
+          projectId: "test-project",
           items: [
-            { documentId: "doc-1", title: "Document 1" },
-            { documentId: "doc-2", title: "Document 2" },
+            { documentId: "doc-1", title: "Document 1", updatedAt: Date.now() - 1000 },
+            { documentId: "doc-2", title: "Document 2", updatedAt: Date.now() - 2000 },
           ],
           currentDocumentId: "doc-1",
           bootstrapStatus: "ready" as const,
           lastError: null,
+          bootstrapForProject: vi.fn(),
+          refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
           delete: vi.fn(),
@@ -186,14 +197,17 @@ describe("FileTreePanel", () => {
       expect(selectedItem).toHaveAttribute("aria-selected", "true");
     });
 
-    it("每个文档应显示 Rename 和 Delete 按钮", async () => {
+    it("打开 ⋯ 菜单后应显示 Rename 和 Delete", async () => {
       const { useFileStore } = await import("../../stores/fileStore");
       vi.mocked(useFileStore).mockImplementation((selector) => {
         const state = {
-          items: [{ documentId: "doc-1", title: "Document 1" }],
+          projectId: "test-project",
+          items: [{ documentId: "doc-1", title: "Document 1", updatedAt: Date.now() - 1000 }],
           currentDocumentId: null,
           bootstrapStatus: "ready" as const,
           lastError: null,
+          bootstrapForProject: vi.fn(),
+          refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
           delete: vi.fn(),
@@ -205,6 +219,7 @@ describe("FileTreePanel", () => {
 
       render(<FileTreePanel projectId="test-project" />);
 
+      fireEvent.click(screen.getByTestId("file-actions-doc-1"));
       expect(screen.getByTestId("file-rename-doc-1")).toBeInTheDocument();
       expect(screen.getByTestId("file-delete-doc-1")).toBeInTheDocument();
     });

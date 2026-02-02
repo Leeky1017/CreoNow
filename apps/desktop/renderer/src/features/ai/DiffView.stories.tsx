@@ -1,4 +1,3 @@
-// @ts-nocheck - Story files use simplified mock types
 import type { Meta, StoryObj } from "@storybook/react";
 import { DiffView } from "./DiffView";
 

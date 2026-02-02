@@ -1,7 +1,7 @@
-// @ts-nocheck - Mock types are intentionally incomplete for testing
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CommandPalette } from "./CommandPalette";
+import type { ProjectStore } from "../../stores/projectStore";
 
 // Mock stores
 vi.mock("../../stores/projectStore", () => ({
@@ -121,7 +121,7 @@ describe("CommandPalette", () => {
         const state = {
           current: null,
         };
-        return selector(state);
+        return selector(state as unknown as ProjectStore);
       });
 
       render(<CommandPalette open={true} onOpenChange={vi.fn()} />);

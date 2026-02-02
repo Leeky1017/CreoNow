@@ -32,6 +32,9 @@ const baseStyles = [
   "transition-colors",
   "duration-[var(--duration-fast)]",
   "ease-[var(--ease-default)]",
+  // Prevent content overflow
+  "overflow-hidden",
+  "min-w-0",
 ].join(" ");
 
 /**
@@ -85,52 +88,60 @@ const disabledStyles = [
  * </ListItem>
  * ```
  */
-export function ListItem({
-  selected = false,
-  compact = false,
-  interactive = false,
-  disabled = false,
-  className = "",
-  children,
-  onClick,
-  onKeyDown,
-  ...props
-}: ListItemProps): JSX.Element {
-  const classes = [
-    baseStyles,
-    compact ? heightStyles.compact : heightStyles.standard,
-    interactive && !disabled ? interactiveStyles : "",
-    selected ? selectedStyles : "",
-    disabled ? disabledStyles : "",
-    className,
-  ]
-    .filter(Boolean)
-    .join(" ");
+export const ListItem = React.forwardRef<HTMLDivElement, ListItemProps>(
+  function ListItem(
+    {
+      selected = false,
+      compact = false,
+      interactive = false,
+      disabled = false,
+      className = "",
+      children,
+      onClick,
+      onKeyDown,
+      ...props
+    },
+    ref,
+  ): JSX.Element {
+    const classes = [
+      baseStyles,
+      compact ? heightStyles.compact : heightStyles.standard,
+      interactive && !disabled ? interactiveStyles : "",
+      selected ? selectedStyles : "",
+      disabled ? disabledStyles : "",
+      className,
+    ]
+      .filter(Boolean)
+      .join(" ");
 
-  function onInteractiveKeyDown(e: React.KeyboardEvent<HTMLDivElement>): void {
-    onKeyDown?.(e);
-    if (e.defaultPrevented) {
-      return;
+    function onInteractiveKeyDown(e: React.KeyboardEvent<HTMLDivElement>): void {
+      onKeyDown?.(e);
+      if (e.defaultPrevented) {
+        return;
+      }
+      if (!interactive || disabled) {
+        return;
+      }
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        e.currentTarget.click();
+      }
     }
-    if (!interactive || disabled) {
-      return;
-    }
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      e.currentTarget.click();
-    }
-  }
 
-  return (
-    <div
-      role={interactive ? "button" : undefined}
-      tabIndex={interactive && !disabled ? 0 : undefined}
-      className={classes}
-      onClick={onClick}
-      onKeyDown={interactive && !disabled ? onInteractiveKeyDown : onKeyDown}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-}
+    return (
+      <div
+        ref={ref}
+        role={interactive ? "button" : undefined}
+        tabIndex={interactive && !disabled ? 0 : undefined}
+        className={classes}
+        onClick={onClick}
+        onKeyDown={interactive && !disabled ? onInteractiveKeyDown : onKeyDown}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  },
+);
+
+ListItem.displayName = "ListItem";

@@ -1,4 +1,3 @@
-// @ts-nocheck - Story files use simplified mock types
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
 import { SkillPicker } from "./SkillPicker";
@@ -35,7 +34,7 @@ const meta: Meta<typeof SkillPicker> = {
 };
 
 export default meta;
-type Story = StoryObj<typeof meta>;
+type Story = StoryObj<typeof SkillPicker>;
 
 const sampleSkills = [
   { id: "default", name: "Default", enabled: true, valid: true, scope: "global" as const, packageId: "pkg-1", version: "1.0.0" },
