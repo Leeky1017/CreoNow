@@ -644,7 +644,7 @@ export function AiPanel(): JSX.Element {
                           setModelOpen(false);
                         }}
                       >
-                        {skillsStatus === "loading" ? "Loading" : "Skill"}
+                        {skillsStatus === "loading" ? "Loading" : "SKILL"}
                         <svg
                           className="inline-block ml-0.5 w-3 h-3"
                           viewBox="0 0 24 24"

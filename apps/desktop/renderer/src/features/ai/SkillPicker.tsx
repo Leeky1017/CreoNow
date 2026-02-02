@@ -26,7 +26,7 @@ export function SkillPicker(props: {
       {/* Popup - positioned above the button */}
       <div
         role="dialog"
-        aria-label="Skill"
+        aria-label="SKILL"
         onClick={(e) => e.stopPropagation()}
         className="absolute bottom-full left-0 mb-1 w-56 p-2.5 z-30 bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[0_18px_48px_rgba(0,0,0,0.45)]"
       >

@@ -39,14 +39,16 @@ export const Default: Story = {
 };
 
 /**
- * 带对话内容
+ * 对话内容（静态展示）
  *
- * 展示用户输入和 AI 回复的完整交互
+ * 静态 UI 演示，展示用户输入和 AI 回复的样式
  * - 用户输入（有框）
  * - AI 回复（无框，纯文本流）
  * - 代码块带 Copy/Apply 按钮
+ *
+ * 注意：这是静态展示，不可交互。完整交互请使用 Default story。
  */
-export const WithConversation: Story = {
+export const ConversationStatic: Story = {
   render: () => <ConversationDemo />,
 };
 
@@ -164,11 +166,13 @@ function ConversationDemo(): JSX.Element {
 }
 
 /**
- * 流式输出状态
+ * 流式输出状态（静态展示）
  *
- * 展示 AI 正在生成回复时的状态（带光标动画）
+ * 静态 UI 演示，展示 AI 正在生成回复时的状态（带光标动画）
+ *
+ * 注意：这是静态展示，不可交互。完整交互请使用 Default story。
  */
-export const Streaming: Story = {
+export const StreamingStatic: Story = {
   render: () => <StreamingDemo />,
 };
 
@@ -237,7 +241,7 @@ function StreamingDemo(): JSX.Element {
               <div className="flex items-center gap-1.5">
                 <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">Ask</span>
                 <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">GPT-5.2</span>
-                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">Skill</span>
+                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">SKILL</span>
               </div>
               {/* Stop button */}
               <button className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]">
@@ -293,11 +297,13 @@ export const MediumHeight: Story = {
 };
 
 /**
- * 历史记录下拉
+ * 历史记录下拉（静态展示）
  *
- * 展示历史记录下拉菜单的样式
+ * 静态 UI 演示，展示历史记录下拉菜单的样式
+ *
+ * 注意：这是静态展示，不可交互。完整交互请使用 Default story。
  */
-export const WithHistoryDropdown: Story = {
+export const HistoryDropdownStatic: Story = {
   render: () => <HistoryDropdownDemo />,
 };
 
@@ -404,7 +410,7 @@ function HistoryDropdownDemo(): JSX.Element {
               <div className="flex items-center gap-1.5">
                 <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">Ask</span>
                 <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">GPT-5.2</span>
-                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">Skill</span>
+                <span className="px-1.5 py-0.5 text-[11px] text-[var(--color-fg-muted)]">SKILL</span>
               </div>
               <button className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-fg-muted)]">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
