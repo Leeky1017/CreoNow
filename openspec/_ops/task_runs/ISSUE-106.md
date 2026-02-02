@@ -1,7 +1,7 @@
 # ISSUE-106
 - Issue: #106
 - Branch: task/106-skill-uppercase-storybook
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/107
 
 ## Plan
 - SKILL 统一改为全大写
