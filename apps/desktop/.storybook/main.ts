@@ -27,6 +27,9 @@ const config: StorybookConfig = {
   viteFinal: async (config) => {
     return mergeConfig(config, {
       plugins: [tailwindcss()],
+      server: {
+        allowedHosts: true, // Allow any host for tunnel access
+      },
     });
   },
 };
