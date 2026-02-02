@@ -26,3 +26,16 @@
   - lint: ✓ passed
   - test: ✓ 28 passed
   - storybook:build: ✓ built in 10s
+
+### 2026-02-02 浏览器验证
+- 启动 Storybook: `pnpm storybook --host 0.0.0.0 --port 6006`
+- 访问: `http://172.18.248.30:6006/?path=/story/features-commandpalette--default`
+- 验证结果:
+  - ✅ Header 搜索框（图标 + 中文 placeholder）
+  - ✅ 分组显示（RECENT FILES / SUGGESTIONS）
+  - ✅ 列表项（彩色图标 + 文本 + 路径 + 快捷键）
+  - ✅ Active 指示器（蓝色左侧竖条）
+  - ✅ 键盘导航（↑↓ 移动选择）
+  - ✅ Escape 关闭面板
+  - ✅ Footer 键盘提示
+- 修复: 添加 Store Providers 到 stories（c09d459）
