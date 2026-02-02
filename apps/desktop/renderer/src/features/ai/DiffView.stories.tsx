@@ -1,16 +1,19 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { DiffView } from "./DiffView";
+import { layoutDecorator } from "../../components/layout/test-utils";
 
 /**
  * DiffView 组件 Story
  *
  * 功能：
- * - 显示统一 diff 文本
- * - 代码样式渲染
+ * - 显示统一 diff 文本，带语法高亮
+ * - 添加行（绿色背景）、删除行（红色背景 + 删除线）
+ * - 头部信息（灰色）、上下文行（暗色）
  */
 const meta = {
   title: "Features/DiffView",
   component: DiffView,
+  decorators: [layoutDecorator],
   parameters: {
     layout: "padded",
   },
