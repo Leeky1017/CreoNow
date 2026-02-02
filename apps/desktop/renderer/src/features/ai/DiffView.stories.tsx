@@ -196,31 +196,33 @@ export const HeaderOnly: Story = {
   args: {
     diffText: sampleDiff,
   },
-  render: () => {
-    const [viewMode, setViewMode] = React.useState<DiffViewMode>("unified");
-    const [currentChange, setCurrentChange] = React.useState(2);
-    const [beforeVersion, setBeforeVersion] = React.useState("2h");
-
-    return (
-      <div style={{ width: "900px" }} className="bg-[var(--color-bg-surface)]">
-        <DiffHeader
-          versions={mockVersions}
-          selectedBeforeVersion={beforeVersion}
-          selectedAfterVersion="current"
-          onBeforeVersionChange={setBeforeVersion}
-          onAfterVersionChange={() => {}}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          currentChangeIndex={currentChange}
-          totalChanges={12}
-          onPreviousChange={() => setCurrentChange((c) => Math.max(0, c - 1))}
-          onNextChange={() => setCurrentChange((c) => Math.min(11, c + 1))}
-          onClose={() => console.log("Close clicked")}
-        />
-      </div>
-    );
-  },
+  render: () => <HeaderOnlyDemo />,
 };
+
+function HeaderOnlyDemo(): JSX.Element {
+  const [viewMode, setViewMode] = React.useState<DiffViewMode>("unified");
+  const [currentChange, setCurrentChange] = React.useState(2);
+  const [beforeVersion, setBeforeVersion] = React.useState("2h");
+
+  return (
+    <div style={{ width: "900px" }} className="bg-[var(--color-bg-surface)]">
+      <DiffHeader
+        versions={mockVersions}
+        selectedBeforeVersion={beforeVersion}
+        selectedAfterVersion="current"
+        onBeforeVersionChange={setBeforeVersion}
+        onAfterVersionChange={() => {}}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        currentChangeIndex={currentChange}
+        totalChanges={12}
+        onPreviousChange={() => setCurrentChange((c) => Math.max(0, c - 1))}
+        onNextChange={() => setCurrentChange((c) => Math.min(11, c + 1))}
+        onClose={() => console.log("Close clicked")}
+      />
+    </div>
+  );
+}
 
 /**
  * DiffFooter 组件
