@@ -2,7 +2,7 @@
 
 - Issue: #112
 - Branch: task/112-search-fts-agent-local-rerank
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/115
 
 ## Plan
 
@@ -78,3 +78,14 @@
 - Key output: `3 passed`
 - Evidence: `apps/desktop/test-results/` (trace/zip on failure) + Local terminal output
 
+### 2026-02-02 push
+
+- Command: `git push -u origin HEAD`
+- Key output: `HEAD -> task/112-search-fts-agent-local-rerank`
+- Evidence: Local terminal output
+
+### 2026-02-02 pr
+
+- Command: `gh pr create --title \"... (#112)\" --body \"Closes #112 ...\"`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/115`
+- Evidence: PR #115

@@ -112,4 +112,3 @@ test("skills: list + toggle disables run + command palette opens", async () => {
 
   await electronApp.close();
 });
-

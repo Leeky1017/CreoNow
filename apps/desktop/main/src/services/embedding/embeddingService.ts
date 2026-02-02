@@ -53,7 +53,9 @@ function normalizeModelId(model?: string): string {
 /**
  * Create an embedding service with a deterministic local baseline.
  */
-export function createEmbeddingService(deps: { logger: Logger }): EmbeddingService {
+export function createEmbeddingService(deps: {
+  logger: Logger;
+}): EmbeddingService {
   return {
     encode: (args) => {
       if (!Array.isArray(args.texts) || args.texts.length === 0) {
@@ -66,7 +68,10 @@ export function createEmbeddingService(deps: { logger: Logger }): EmbeddingServi
       }
       for (const text of args.texts) {
         if (typeof text !== "string" || text.trim().length === 0) {
-          return ipcError("INVALID_ARGUMENT", "texts must be non-empty strings");
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "texts must be non-empty strings",
+          );
         }
         if (text.length > MAX_TEXT_LENGTH) {
           return ipcError("INVALID_ARGUMENT", "text is too long", {
@@ -109,4 +114,3 @@ export function createEmbeddingService(deps: { logger: Logger }): EmbeddingServi
     },
   };
 }
-

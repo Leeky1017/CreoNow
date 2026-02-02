@@ -221,7 +221,10 @@ export function createRagService(deps: {
         MAX_CANDIDATES,
         Math.max(limitRes.data, 1) * CANDIDATE_MULTIPLIER,
       );
-      const targetHits = Math.min(candidateLimit, Math.max(1, limitRes.data) * 3);
+      const targetHits = Math.min(
+        candidateLimit,
+        Math.max(1, limitRes.data) * 3,
+      );
 
       const perQueryHits: number[] = [];
       const perQueryItems: Array<Candidate[]> = [];
@@ -271,7 +274,8 @@ export function createRagService(deps: {
         }
       }
 
-      const selectedQuery = plannedQueries[selectedIndex] ?? plannedQueries[0] ?? "";
+      const selectedQuery =
+        plannedQueries[selectedIndex] ?? plannedQueries[0] ?? "";
       const baseCandidates = perQueryItems[selectedIndex] ?? [];
       const candidates: Candidate[] = [];
       const seen = new Set<string>();

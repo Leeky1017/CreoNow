@@ -104,7 +104,10 @@ function createDbStub(): Database.Database {
     { projectId: "proj_1", queryText: "foo bar", limit: 2, budgetTokens: 200 },
   )) as IpcResponse<{
     items: Array<{ sourceRef: string }>;
-    diagnostics: { mode: string; rerank: { enabled: boolean; reason?: string } };
+    diagnostics: {
+      mode: string;
+      rerank: { enabled: boolean; reason?: string };
+    };
   }>;
 
   assert.equal(res.ok, true);
@@ -148,4 +151,3 @@ function createDbStub(): Database.Database {
     assert.equal(res.data.items[0]?.sourceRef, "doc:doc_b#chunk:0");
   }
 }
-

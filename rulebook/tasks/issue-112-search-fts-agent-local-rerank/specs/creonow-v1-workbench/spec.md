@@ -72,4 +72,3 @@ This delta defines the V1 retrieval pipeline for CreoNow writing assistance:
 - **Path B (MODEL_NOT_READY)**:
   - Verify `rag:retrieve` still returns best-effort results.
   - Assert `diagnostics.rerank.enabled=false` and `diagnostics.rerank.reason="MODEL_NOT_READY"`.
-

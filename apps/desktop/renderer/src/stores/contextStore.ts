@@ -289,9 +289,7 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
       type: string;
       origin: string;
       content: string;
-      reason:
-        | { kind: "deterministic" }
-        | { kind: "semantic"; score: number };
+      reason: { kind: "deterministic" } | { kind: "semantic"; score: number };
     }>;
     mode: "deterministic" | "semantic";
   }): string {
@@ -440,14 +438,14 @@ export function createContextStore(deps: { invoke: IpcInvoke }) {
             retrievedRedactionEvidence.push(...redacted.evidence);
           }
         } else {
-            retrievedReadErrors.push({
-              layer: "retrieved",
-              sourceRef: "rag:retrieve",
-              action: "dropped",
-              reason: "read_error",
-              beforeChars: 0,
-              afterChars: 0,
-            });
+          retrievedReadErrors.push({
+            layer: "retrieved",
+            sourceRef: "rag:retrieve",
+            action: "dropped",
+            reason: "read_error",
+            beforeChars: 0,
+            afterChars: 0,
+          });
         }
 
         const memoryRes = await deps.invoke("memory:injection:preview", {

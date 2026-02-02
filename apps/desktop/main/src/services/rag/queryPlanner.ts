@@ -33,7 +33,10 @@ export function planFtsQueries(args: {
     typeof args.maxQueries === "number" && Number.isFinite(args.maxQueries)
       ? args.maxQueries
       : DEFAULT_MAX_QUERIES;
-  const maxQueries = Math.max(1, Math.min(DEFAULT_MAX_QUERIES, Math.floor(requested)));
+  const maxQueries = Math.max(
+    1,
+    Math.min(DEFAULT_MAX_QUERIES, Math.floor(requested)),
+  );
 
   const tokens = tokenize(trimmed);
   const queries: string[] = [];
@@ -60,4 +63,3 @@ export function planFtsQueries(args: {
 
   return { queries };
 }
-

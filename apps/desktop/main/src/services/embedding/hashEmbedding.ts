@@ -64,4 +64,3 @@ export function dotProduct(a: readonly number[], b: readonly number[]): number {
   }
   return sum;
 }
-

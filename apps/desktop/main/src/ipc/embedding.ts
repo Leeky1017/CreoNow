@@ -34,7 +34,9 @@ export function registerEmbeddingIpcHandlers(deps: {
         texts: payload.texts,
         model: payload.model,
       });
-      return res.ok ? { ok: true, data: res.data } : { ok: false, error: res.error };
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
     },
   );
 

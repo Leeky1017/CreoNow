@@ -214,7 +214,9 @@ export function AiPanel(): JSX.Element {
   const toggleContextViewer = useContextStore((s) => s.toggleViewer);
   const refreshContext = useContextStore((s) => s.refresh);
 
-  const [activeTab, setActiveTab] = React.useState<"assistant" | "info">("assistant");
+  const [activeTab, setActiveTab] = React.useState<"assistant" | "info">(
+    "assistant",
+  );
   const [skillsOpen, setSkillsOpen] = React.useState(false);
   const [modeOpen, setModeOpen] = React.useState(false);
   const [modelOpen, setModelOpen] = React.useState(false);
@@ -403,7 +405,12 @@ export function AiPanel(): JSX.Element {
         </div>
 
         <div className="ml-auto flex items-center gap-1 relative">
-          <Text data-testid="ai-status" size="tiny" color="muted" className="mr-1">
+          <Text
+            data-testid="ai-status"
+            size="tiny"
+            color="muted"
+            className="mr-1"
+          >
             {status}
           </Text>
 
@@ -450,7 +457,14 @@ export function AiPanel(): JSX.Element {
                 : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
             }`}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
@@ -463,7 +477,14 @@ export function AiPanel(): JSX.Element {
             onClick={handleNewChat}
             className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] rounded transition-colors"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
@@ -503,14 +524,18 @@ export function AiPanel(): JSX.Element {
               {working && (
                 <div className="flex items-center gap-2 text-[12px] text-[var(--color-fg-muted)]">
                   <Spinner size="sm" />
-                  <span>{status === "streaming" ? "Generating..." : "Thinking..."}</span>
+                  <span>
+                    {status === "streaming" ? "Generating..." : "Thinking..."}
+                  </span>
                 </div>
               )}
 
               {/* Error Display */}
               {skillsLastError && (
                 <div className="p-3 border border-[var(--color-error-subtle)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)]">
-                  <Text size="code" color="muted">{skillsLastError.code}</Text>
+                  <Text size="code" color="muted">
+                    {skillsLastError.code}
+                  </Text>
                   <Text size="small" color="muted" className="mt-1.5 block">
                     {skillsLastError.message}
                   </Text>
@@ -548,15 +573,18 @@ export function AiPanel(): JSX.Element {
                     )}
                   </div>
                 </div>
-              ) : !lastRequest && !working && (
-                <div
-                  data-testid="ai-output"
-                  className="flex-1 flex items-center justify-center text-center py-12"
-                >
-                  <Text size="small" color="muted">
-                    Ask the AI to help with your writing
-                  </Text>
-                </div>
+              ) : (
+                !lastRequest &&
+                !working && (
+                  <div
+                    data-testid="ai-output"
+                    className="flex-1 flex items-center justify-center text-center py-12"
+                  >
+                    <Text size="small" color="muted">
+                      Ask the AI to help with your writing
+                    </Text>
+                  </div>
+                )
               )}
 
               {/* Applied Status */}
