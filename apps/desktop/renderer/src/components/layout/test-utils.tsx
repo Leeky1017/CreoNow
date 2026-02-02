@@ -21,14 +21,65 @@ const mockPreferences = {
 };
 
 /**
+ * Mock skills data for testing.
+ */
+const mockSkills = [
+  {
+    id: "builtin-polish",
+    name: "Polish",
+    scope: "builtin",
+    enabled: true,
+    valid: true,
+  },
+  {
+    id: "builtin-expand",
+    name: "Expand",
+    scope: "builtin",
+    enabled: true,
+    valid: true,
+  },
+  {
+    id: "builtin-simplify",
+    name: "Simplify",
+    scope: "builtin",
+    enabled: true,
+    valid: true,
+  },
+  {
+    id: "custom-rewrite",
+    name: "Rewrite in Style",
+    scope: "project",
+    enabled: true,
+    valid: true,
+  },
+  {
+    id: "disabled-skill",
+    name: "Disabled Skill",
+    scope: "global",
+    enabled: false,
+    valid: true,
+  },
+];
+
+/**
  * Mock IPC for testing layout components.
  * Returns proper data structures to avoid null reference errors.
  */
 const mockIpc = {
-  invoke: async (): Promise<unknown> => ({
-    ok: true,
-    data: { items: [], settings: {}, content: "" },
-  }),
+  invoke: async (channel: string): Promise<unknown> => {
+    // Return mock skills for skill list requests
+    if (channel === "ai:skill:list") {
+      return {
+        ok: true,
+        data: { items: mockSkills },
+      };
+    }
+    // Default response for other channels
+    return {
+      ok: true,
+      data: { items: [], settings: {}, content: "" },
+    };
+  },
   on: (): (() => void) => () => {},
 };
 

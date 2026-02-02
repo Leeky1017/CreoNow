@@ -16,19 +16,22 @@ export function SkillPicker(props: {
   }
 
   return (
-    <div
-      role="presentation"
-      onClick={() => props.onOpenChange(false)}
-      className="absolute inset-0 z-20"
-    >
+    <>
+      {/* Backdrop to close on click outside */}
+      <div
+        role="presentation"
+        onClick={() => props.onOpenChange(false)}
+        className="fixed inset-0 z-20"
+      />
+      {/* Popup - positioned above the button */}
       <div
         role="dialog"
-        aria-label="Skills"
+        aria-label="Skill"
         onClick={(e) => e.stopPropagation()}
-        className="absolute top-9 right-0 w-70 max-w-full p-2.5 bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[0_18px_48px_rgba(0,0,0,0.45)]"
+        className="absolute bottom-full left-0 mb-1 w-56 p-2.5 z-30 bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[0_18px_48px_rgba(0,0,0,0.45)]"
       >
         <Text size="label" color="muted">
-          Skills
+          SKILL
         </Text>
 
         <div className="flex flex-col mt-2 gap-1.5 max-h-65 overflow-auto">
@@ -73,7 +76,7 @@ export function SkillPicker(props: {
           })}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
