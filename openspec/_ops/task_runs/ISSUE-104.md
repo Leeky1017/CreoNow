@@ -1,7 +1,7 @@
 # ISSUE-104
 - Issue: #104
 - Branch: task/104-ai-panel-refactor
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/105
 
 ## Plan
 - 重构 AI Panel 采用单向流式布局，Header/History/NewChat/Mode/Model/Skill 选择器
