@@ -1,19 +1,21 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { AiPanel } from "./AiPanel";
+import { layoutDecorator } from "../../components/layout/test-utils";
 
 /**
  * AiPanel 组件 Story
  *
  * 功能：
- * - AI 运行/取消控制
- * - 流式/非流式模式切换
- * - 技能选择
- * - 上下文查看
- * - Diff 预览和应用
+ * - AI 运行/取消控制，状态 Badge 显示
+ * - 技能选择（下拉菜单）
+ * - 上下文查看器
+ * - 响应输出（带空状态提示）
+ * - Diff 预览和应用工作流
  */
 const meta = {
   title: "Features/AiPanel",
   component: AiPanel,
+  decorators: [layoutDecorator],
   parameters: {
     layout: "padded",
   },

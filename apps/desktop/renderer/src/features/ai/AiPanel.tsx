@@ -1,6 +1,6 @@
 import React from "react";
 
-import { Button, Card, Text, Textarea } from "../../components/primitives";
+import { Badge, Button, Card, Spinner, Text, Textarea } from "../../components/primitives";
 import { useAiStore, type AiStatus } from "../../stores/aiStore";
 import { useContextStore } from "../../stores/contextStore";
 import { useEditorStore } from "../../stores/editorStore";
@@ -22,16 +22,18 @@ function isRunning(status: AiStatus): boolean {
 }
 
 /**
- * AiPanel is the minimal UI surface for P0 AI runtime.
+ * AiPanel provides the AI assistant interface for text generation and editing.
  *
- * Why: Windows E2E must be able to drive stream/cancel/timeout/upstream-error
- * without depending on editor integrations.
+ * Features:
+ * - Text input with skill selection
+ * - Streaming AI response display
+ * - Diff preview for proposed changes
+ * - Apply/Reject workflow for editor integration
  */
 export function AiPanel(): JSX.Element {
   useAiStream();
 
   const status = useAiStore((s) => s.status);
-  const stream = useAiStore((s) => s.stream);
   const selectedSkillId = useAiStore((s) => s.selectedSkillId);
   const skills = useAiStore((s) => s.skills);
   const skillsStatus = useAiStore((s) => s.skillsStatus);
@@ -46,7 +48,6 @@ export function AiPanel(): JSX.Element {
   const applyStatus = useAiStore((s) => s.applyStatus);
 
   const setInput = useAiStore((s) => s.setInput);
-  const setStream = useAiStore((s) => s.setStream);
   const setSelectedSkillId = useAiStore((s) => s.setSelectedSkillId);
   const refreshSkills = useAiStore((s) => s.refreshSkills);
   const clearError = useAiStore((s) => s.clearError);
@@ -192,7 +193,17 @@ export function AiPanel(): JSX.Element {
       className="flex flex-col gap-3 p-3 min-h-0 relative"
     >
       <header className="flex items-center gap-2">
-        <Text size="small" color="muted">AI</Text>
+        <Text size="small" className="font-medium">AI Assistant</Text>
+        {isRunning(status) ? (
+          <Badge data-testid="ai-status" variant="info" className="flex items-center gap-1.5">
+            <Spinner size="sm" />
+            <span>{status === "streaming" ? "Generating" : "Processing"}</span>
+          </Badge>
+        ) : (
+          <Badge data-testid="ai-status" variant="default">
+            Ready
+          </Badge>
+        )}
         <div className="ml-auto flex items-center gap-2">
           <Button
             data-testid="ai-context-toggle"
@@ -205,7 +216,7 @@ export function AiPanel(): JSX.Element {
                 immediateInput: input,
               })
             }
-            className={viewerOpen ? "bg-[var(--color-bg-base)]" : ""}
+            className={viewerOpen ? "bg-[var(--color-bg-selected)]" : ""}
           >
             Context
           </Button>
@@ -214,14 +225,11 @@ export function AiPanel(): JSX.Element {
             variant="ghost"
             size="sm"
             onClick={() => setSkillsOpen((v) => !v)}
-            className="max-w-[220px] overflow-hidden text-ellipsis whitespace-nowrap"
+            className="max-w-[180px] overflow-hidden text-ellipsis whitespace-nowrap"
             title={selectedSkillName}
           >
-            {skillsStatus === "loading" ? "Skills…" : selectedSkillName}
+            {skillsStatus === "loading" ? "Loading…" : selectedSkillName}
           </Button>
-          <Text data-testid="ai-status" size="tiny" color="muted">
-            {status}
-          </Text>
         </div>
       </header>
 
@@ -272,25 +280,11 @@ export function AiPanel(): JSX.Element {
         </Card>
       ) : null}
 
-      <label className="flex items-center gap-2">
-        <input
-          data-testid="ai-stream-toggle"
-          type="checkbox"
-          checked={stream}
-          onChange={(e) => setStream(e.target.checked)}
-          disabled={isRunning(status)}
-          className="h-4 w-4 accent-[var(--color-fg-default)]"
-        />
-        <Text size="small" color="muted">
-          Stream
-        </Text>
-      </label>
-
       <Textarea
         data-testid="ai-input"
         value={input}
         onChange={(e) => setInput(e.target.value)}
-        placeholder="Type E2E_DELAY / E2E_TIMEOUT / E2E_UPSTREAM_ERROR markers to drive fake server."
+        placeholder="Ask the AI to help with your writing..."
         fullWidth
         className="min-h-[92px]"
       />
@@ -320,12 +314,23 @@ export function AiPanel(): JSX.Element {
       {viewerOpen ? <ContextViewer /> : null}
 
       <Card noPadding className="p-2.5 min-h-[120px] flex-1 overflow-auto">
-        <pre
-          data-testid="ai-output"
-          className="m-0 whitespace-pre-wrap break-words text-xs leading-[18px] text-[var(--color-fg-base)] font-[var(--font-family-mono)]"
-        >
-          {outputText}
-        </pre>
+        {outputText ? (
+          <pre
+            data-testid="ai-output"
+            className="m-0 whitespace-pre-wrap break-words text-[13px] leading-[20px] text-[var(--color-fg-default)] font-[var(--font-family-mono)]"
+          >
+            {outputText}
+          </pre>
+        ) : (
+          <div
+            data-testid="ai-output"
+            className="h-full flex items-center justify-center text-center"
+          >
+            <Text size="small" color="muted">
+              AI response will appear here
+            </Text>
+          </div>
+        )}
       </Card>
 
       {proposal ? (

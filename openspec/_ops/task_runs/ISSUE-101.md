@@ -1,7 +1,7 @@
 # ISSUE-101
 - Issue: #101
 - Branch: task/101-p4-panel-components
-- PR: https://github.com/Leeky1017/CreoNow/pull/102
+- PR: https://github.com/Leeky1017/CreoNow/pull/103
 
 ## Plan
 - 为 9 个面板组件创建 Story（FileTreePanel, AiPanel, MemoryPanel, ContextViewer, SkillPicker, CommandPalette, CreateProjectDialog, SearchPanel, DiffView）
@@ -51,3 +51,34 @@
 - Key output: `Test Files  36 passed (36), Tests  804 passed (804)`
 - Command: `pnpm storybook:build`
 - Key output: success（output: `apps/desktop/storybook-static`, 已忽略且不入库）
+
+### 2026-02-02 组件功能优化（设计稿对齐）
+
+**DiffView 红绿高亮**
+- 解析 unified diff 文本，按行分类（added/removed/context/header）
+- 添加行使用绿色背景（`--color-success-subtle`）
+- 删除行使用红色背景 + 删除线（`--color-error-subtle`）
+- Evidence: `apps/desktop/renderer/src/features/ai/DiffView.tsx`
+
+**AiPanel 清理调试元素**
+- 移除 Stream checkbox
+- 清理 placeholder 文案
+- 添加状态 Badge（Ready/Generating/Processing）
+- 添加空状态提示
+- Evidence: `apps/desktop/renderer/src/features/ai/AiPanel.tsx`
+
+**SearchPanel 按设计稿重新实现**
+- 按 `design/Variant/designs/25-search-panel.html` 完全重写
+- Glass panel 模态弹窗风格（#0f0f0f 背景，rgba(255,255,255,0.06) 边框）
+- 分类标签（All/Documents/Memories/Knowledge/Assets）
+- 过滤选项（Semantic Search/Include Archived/Scope）
+- 分组结果（Documents/Memories/Knowledge Graph）
+- 结果卡片（图标、标题、匹配度、摘要、路径）
+- 键盘快捷键提示
+- Mock 数据展示（MOCK_SEARCH_RESULTS）
+- Evidence: `apps/desktop/renderer/src/features/search/SearchPanel.tsx`
+
+**验证**
+- Command: `npx tsc --noEmit --skipLibCheck`
+- Key output: Exit code 0
+- Storybook 浏览器验证：DiffView 红绿高亮、AiPanel Ready Badge、SearchPanel 模态弹窗全部正常

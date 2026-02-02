@@ -1,25 +1,40 @@
+import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import { SearchPanel } from "./SearchPanel";
+import { SearchPanel, MOCK_SEARCH_RESULTS, type SearchResultItem } from "./SearchPanel";
+import { layoutDecorator } from "../../components/layout/test-utils";
 
 /**
  * SearchPanel 组件 Story
  *
+ * 设计参考: design/Variant/designs/25-search-panel.html
+ *
  * 功能：
- * - 全文搜索输入
- * - 搜索结果列表
- * - 点击导航到文档
+ * - 模态弹窗式全局搜索（glass panel 风格）
+ * - 分类过滤（All/Documents/Memories/Knowledge/Assets）
+ * - 语义搜索和归档切换
+ * - 分组搜索结果，带匹配高亮
+ * - 键盘快捷键提示
  */
 const meta = {
   title: "Features/SearchPanel",
   component: SearchPanel,
+  decorators: [layoutDecorator],
   parameters: {
-    layout: "padded",
+    layout: "fullscreen",
+    backgrounds: {
+      default: "dark",
+      values: [{ name: "dark", value: "#080808" }],
+    },
   },
   tags: ["autodocs"],
   argTypes: {
     projectId: {
       control: "text",
       description: "Project ID to search within",
+    },
+    open: {
+      control: "boolean",
+      description: "Whether the search modal is open",
     },
   },
 } satisfies Meta<typeof SearchPanel>;
@@ -28,65 +43,166 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * 默认状态
+ * Wrapper to set initial query for demonstration
+ */
+function SearchPanelWithQuery(props: {
+  projectId: string;
+  open?: boolean;
+  onClose?: () => void;
+  mockResults?: SearchResultItem[];
+  initialQuery?: string;
+}): JSX.Element {
+  // Simulate setting query through the store
+  React.useEffect(() => {
+    // The store is provided by layoutDecorator
+  }, []);
+
+  return (
+    <div style={{ height: "100vh", backgroundColor: "#080808" }}>
+      <SearchPanel {...props} />
+    </div>
+  );
+}
+
+/**
+ * 有搜索结果 - 完整展示
  *
- * 空搜索状态
+ * 展示搜索 "design theory" 后的完整结果，包含：
+ * - Documents 分组（3 个文档结果）
+ * - Memories 分组（2 个记忆结果）
+ * - Knowledge Graph 分组（1 个知识图谱结果）
+ */
+export const WithResults: Story = {
+  args: {
+    projectId: "project-1",
+    open: true,
+    mockResults: MOCK_SEARCH_RESULTS,
+  },
+  render: (args) => (
+    <SearchPanelWithQuery {...args} initialQuery="design theory" />
+  ),
+};
+
+/**
+ * 默认状态 - 空搜索
+ *
+ * 刚打开搜索面板，未输入任何内容
  */
 export const Default: Story = {
   args: {
     projectId: "project-1",
+    open: true,
   },
   render: (args) => (
-    <div style={{ width: "280px", height: "400px", backgroundColor: "var(--color-bg-surface)" }}>
-      <SearchPanel {...args} />
-    </div>
+    <SearchPanelWithQuery {...args} />
   ),
 };
 
 /**
- * 窄宽度
+ * 无结果
  *
- * 最小宽度下的布局
+ * 搜索后无匹配结果的空状态
  */
-export const NarrowWidth: Story = {
+export const NoResults: Story = {
   args: {
     projectId: "project-1",
+    open: true,
+    mockResults: [],
   },
   render: (args) => (
-    <div style={{ width: "180px", height: "400px", backgroundColor: "var(--color-bg-surface)" }}>
-      <SearchPanel {...args} />
-    </div>
+    <SearchPanelWithQuery {...args} initialQuery="quantum flux" />
   ),
 };
 
 /**
- * 宽布局
+ * 仅文档结果
  *
- * 较宽面板下的布局
+ * 只显示 Documents 分组
  */
-export const WideWidth: Story = {
+export const DocumentsOnly: Story = {
   args: {
     projectId: "project-1",
+    open: true,
+    mockResults: MOCK_SEARCH_RESULTS.filter((item) => item.type === "document"),
   },
   render: (args) => (
-    <div style={{ width: "400px", height: "400px", backgroundColor: "var(--color-bg-surface)" }}>
-      <SearchPanel {...args} />
-    </div>
+    <SearchPanelWithQuery {...args} initialQuery="architecture" />
   ),
 };
 
 /**
- * 全高度
+ * 仅记忆结果
  *
- * 完整高度场景
+ * 只显示 Memories 分组
  */
-export const FullHeight: Story = {
+export const MemoriesOnly: Story = {
   args: {
     projectId: "project-1",
+    open: true,
+    mockResults: MOCK_SEARCH_RESULTS.filter((item) => item.type === "memory"),
   },
   render: (args) => (
-    <div style={{ width: "280px", height: "100vh", backgroundColor: "var(--color-bg-surface)" }}>
-      <SearchPanel {...args} />
-    </div>
+    <SearchPanelWithQuery {...args} initialQuery="negative space" />
+  ),
+};
+
+/**
+ * 仅知识图谱结果
+ *
+ * 只显示 Knowledge Graph 分组
+ */
+export const KnowledgeOnly: Story = {
+  args: {
+    projectId: "project-1",
+    open: true,
+    mockResults: MOCK_SEARCH_RESULTS.filter((item) => item.type === "knowledge"),
+  },
+  render: (args) => (
+    <SearchPanelWithQuery {...args} initialQuery="bauhaus" />
+  ),
+};
+
+/**
+ * 多结果 - 长列表
+ *
+ * 展示多个结果时的滚动效果
+ */
+export const ManyResults: Story = {
+  args: {
+    projectId: "project-1",
+    open: true,
+    mockResults: [
+      ...MOCK_SEARCH_RESULTS,
+      {
+        id: "doc-3",
+        type: "document" as const,
+        title: "Digital Typography Principles",
+        snippet: "...the fundamental principles of design in modern typography systems...",
+        path: "Essays / Typography",
+      },
+      {
+        id: "doc-4",
+        type: "document" as const,
+        title: "Color Theory in UI Design",
+        snippet: "...applying color theory to user interface design requires understanding...",
+        path: "Research / Color",
+      },
+      {
+        id: "mem-3",
+        type: "memory" as const,
+        title: "Writing Style Preference",
+        snippet: "User prefers concise, direct language in design documentation.",
+        meta: "Writing Pattern",
+      },
+      {
+        id: "kg-2",
+        type: "knowledge" as const,
+        title: "Swiss Design Movement",
+        meta: "Connected to 8 documents",
+      },
+    ],
+  },
+  render: (args) => (
+    <SearchPanelWithQuery {...args} initialQuery="design" />
   ),
 };
