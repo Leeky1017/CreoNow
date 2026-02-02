@@ -3,6 +3,60 @@ import { fn } from "@storybook/test";
 import React from "react";
 
 import { CommandPalette, type CommandItem } from "./CommandPalette";
+import {
+  ProjectStoreProvider,
+  createProjectStore,
+} from "../../stores/projectStore";
+import {
+  EditorStoreProvider,
+  createEditorStore,
+} from "../../stores/editorStore";
+
+// =============================================================================
+// Mock IPC for Storybook
+// =============================================================================
+
+function createMockIpc() {
+  return {
+    invoke: async (channel: string): Promise<unknown> => {
+      if (channel === "project:getCurrent") {
+        return {
+          ok: true,
+          data: { projectId: "mock-project", name: "Mock Project" },
+        };
+      }
+      if (channel === "project:list") {
+        return {
+          ok: true,
+          data: { items: [{ projectId: "mock-project", name: "Mock Project" }] },
+        };
+      }
+      if (channel === "export:markdown") {
+        return { ok: true };
+      }
+      return { ok: true, data: {} };
+    },
+  };
+}
+
+// Decorator to provide stores
+function StoreDecorator({ children }: { children: React.ReactNode }) {
+  const mockIpc = React.useMemo(() => createMockIpc(), []);
+  const projectStore = React.useMemo(
+    () => createProjectStore({ invoke: mockIpc.invoke as never }),
+    [mockIpc],
+  );
+  const editorStore = React.useMemo(
+    () => createEditorStore({ invoke: mockIpc.invoke as never }),
+    [mockIpc],
+  );
+
+  return (
+    <ProjectStoreProvider store={projectStore}>
+      <EditorStoreProvider store={editorStore}>{children}</EditorStoreProvider>
+    </ProjectStoreProvider>
+  );
+}
 
 /**
  * CommandPalette 组件 Story
@@ -22,6 +76,13 @@ const meta: Meta<typeof CommandPalette> = {
     layout: "centered",
   },
   tags: ["autodocs"],
+  decorators: [
+    (Story) => (
+      <StoreDecorator>
+        <Story />
+      </StoreDecorator>
+    ),
+  ],
   argTypes: {
     open: {
       control: "boolean",
