@@ -89,3 +89,13 @@
 - Command: `gh pr create --title \"... (#112)\" --body \"Closes #112 ...\"`
 - Key output: `https://github.com/Leeky1017/CreoNow/pull/115`
 - Evidence: PR #115
+
+### 2026-02-02 windows-e2e fixes
+
+- Command: `pnpm -C apps/desktop test:e2e -- tests/e2e/skills.spec.ts`
+- Key output: `1 passed`
+- Evidence: `apps/desktop/test-results/` + Local terminal output
+
+- Command: `pnpm -C apps/desktop test:e2e -- tests/e2e/documents-filetree.spec.ts`
+- Key output: `1 passed`
+- Evidence: `apps/desktop/test-results/` + Local terminal output
