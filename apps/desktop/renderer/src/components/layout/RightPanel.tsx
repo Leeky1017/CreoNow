@@ -1,6 +1,5 @@
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
 import { AiPanel } from "../../features/ai/AiPanel";
-import { MemoryPanel } from "../../features/memory/MemoryPanel";
 import { SettingsPanel } from "../../features/settings/SettingsPanel";
 
 /**
@@ -28,8 +27,6 @@ export function RightPanel(props: {
       }}
     >
       <SettingsPanel />
-      <div className="h-px bg-[var(--color-separator)]" />
-      <MemoryPanel />
       <div className="h-px bg-[var(--color-separator)]" />
       <AiPanel />
     </aside>

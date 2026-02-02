@@ -13,12 +13,15 @@ export const LAYOUT_DEFAULTS = {
   mainMinWidth: 400,
 } as const;
 
+export type LeftPanelType = "sidebar" | "memory";
+
 export type LayoutState = {
   sidebarWidth: number;
   panelWidth: number;
   sidebarCollapsed: boolean;
   panelCollapsed: boolean;
   zenMode: boolean;
+  activeLeftPanel: LeftPanelType;
 };
 
 export type LayoutActions = {
@@ -29,6 +32,7 @@ export type LayoutActions = {
   setZenMode: (enabled: boolean) => void;
   resetSidebarWidth: () => void;
   resetPanelWidth: () => void;
+  setActiveLeftPanel: (panel: LeftPanelType) => void;
 };
 
 export type LayoutStore = LayoutState & LayoutActions;
@@ -75,6 +79,7 @@ export function createLayoutStore(preferences: PreferenceStore) {
     sidebarCollapsed: initialSidebarCollapsed,
     panelCollapsed: initialPanelCollapsed,
     zenMode: false,
+    activeLeftPanel: "sidebar",
 
     setSidebarWidth: (width) => {
       set({ sidebarWidth: width });
@@ -126,6 +131,9 @@ export function createLayoutStore(preferences: PreferenceStore) {
     resetPanelWidth: () => {
       set({ panelWidth: LAYOUT_DEFAULTS.panel.default });
       preferences.set(prefKey("panelWidth"), LAYOUT_DEFAULTS.panel.default);
+    },
+    setActiveLeftPanel: (panel) => {
+      set({ activeLeftPanel: panel });
     },
   }));
 }

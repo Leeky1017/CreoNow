@@ -76,6 +76,7 @@ export function AppShell(): JSX.Element {
   const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
   const panelCollapsed = useLayoutStore((s) => s.panelCollapsed);
   const zenMode = useLayoutStore((s) => s.zenMode);
+  const activeLeftPanel = useLayoutStore((s) => s.activeLeftPanel);
 
   const setSidebarWidth = useLayoutStore((s) => s.setSidebarWidth);
   const setPanelWidth = useLayoutStore((s) => s.setPanelWidth);
@@ -162,6 +163,7 @@ export function AppShell(): JSX.Element {
             width={effectiveSidebarWidth}
             collapsed={sidebarCollapsed}
             projectId={currentProjectId}
+            activePanel={activeLeftPanel}
           />
 
           {!sidebarCollapsed ? (

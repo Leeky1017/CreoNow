@@ -34,6 +34,11 @@ const meta = {
       control: "text",
       description: "Current project ID",
     },
+    activePanel: {
+      control: "select",
+      options: ["sidebar", "memory"],
+      description: "Active left panel mode",
+    },
   },
 } satisfies Meta<typeof Sidebar>;
 
@@ -50,6 +55,7 @@ export const Default: Story = {
     width: LAYOUT_DEFAULTS.sidebar.default,
     collapsed: false,
     projectId: null,
+    activePanel: "sidebar",
   },
   render: (args) => (
     <div style={{ display: "flex", height: "400px" }}>
@@ -81,6 +87,7 @@ export const Collapsed: Story = {
     width: 0,
     collapsed: true,
     projectId: null,
+    activePanel: "sidebar",
   },
   render: (args) => (
     <div style={{ display: "flex", height: "400px" }}>
@@ -112,6 +119,7 @@ export const MinWidth: Story = {
     width: LAYOUT_DEFAULTS.sidebar.min,
     collapsed: false,
     projectId: null,
+    activePanel: "sidebar",
   },
   render: (args) => (
     <div style={{ display: "flex", height: "400px" }}>
@@ -143,6 +151,7 @@ export const MaxWidth: Story = {
     width: LAYOUT_DEFAULTS.sidebar.max,
     collapsed: false,
     projectId: null,
+    activePanel: "sidebar",
   },
   render: (args) => (
     <div style={{ display: "flex", height: "400px" }}>
@@ -174,6 +183,7 @@ export const WithProject: Story = {
     width: LAYOUT_DEFAULTS.sidebar.default,
     collapsed: false,
     projectId: "test-project-id",
+    activePanel: "sidebar",
   },
   render: (args) => (
     <div style={{ display: "flex", height: "400px" }}>

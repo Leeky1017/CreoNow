@@ -150,7 +150,11 @@ const MEMORY_TYPE_SCHEMA = s.union(
   s.literal("note"),
 );
 
-const MEMORY_SCOPE_SCHEMA = s.union(s.literal("global"), s.literal("project"));
+const MEMORY_SCOPE_SCHEMA = s.union(
+  s.literal("global"),
+  s.literal("project"),
+  s.literal("document"),
+);
 
 const MEMORY_ORIGIN_SCHEMA = s.union(s.literal("manual"), s.literal("learned"));
 
@@ -313,6 +317,7 @@ export const ipcContract = {
         type: MEMORY_TYPE_SCHEMA,
         scope: MEMORY_SCOPE_SCHEMA,
         projectId: s.optional(s.string()),
+        documentId: s.optional(s.string()),
         content: s.string(),
       }),
       response: s.object({
@@ -320,6 +325,7 @@ export const ipcContract = {
         type: MEMORY_TYPE_SCHEMA,
         scope: MEMORY_SCOPE_SCHEMA,
         projectId: s.optional(s.string()),
+        documentId: s.optional(s.string()),
         origin: MEMORY_ORIGIN_SCHEMA,
         sourceRef: s.optional(s.string()),
         content: s.string(),
@@ -331,6 +337,7 @@ export const ipcContract = {
     "memory:list": {
       request: s.object({
         projectId: s.optional(s.string()),
+        documentId: s.optional(s.string()),
         includeDeleted: s.optional(s.boolean()),
       }),
       response: s.object({
@@ -340,6 +347,7 @@ export const ipcContract = {
             type: MEMORY_TYPE_SCHEMA,
             scope: MEMORY_SCOPE_SCHEMA,
             projectId: s.optional(s.string()),
+            documentId: s.optional(s.string()),
             origin: MEMORY_ORIGIN_SCHEMA,
             sourceRef: s.optional(s.string()),
             content: s.string(),
@@ -357,6 +365,7 @@ export const ipcContract = {
           type: s.optional(MEMORY_TYPE_SCHEMA),
           scope: s.optional(MEMORY_SCOPE_SCHEMA),
           projectId: s.optional(s.string()),
+          documentId: s.optional(s.string()),
           content: s.optional(s.string()),
         }),
       }),
@@ -365,6 +374,7 @@ export const ipcContract = {
         type: MEMORY_TYPE_SCHEMA,
         scope: MEMORY_SCOPE_SCHEMA,
         projectId: s.optional(s.string()),
+        documentId: s.optional(s.string()),
         origin: MEMORY_ORIGIN_SCHEMA,
         sourceRef: s.optional(s.string()),
         content: s.string(),
@@ -395,6 +405,7 @@ export const ipcContract = {
     "memory:injection:preview": {
       request: s.object({
         projectId: s.optional(s.string()),
+        documentId: s.optional(s.string()),
         queryText: s.optional(s.string()),
       }),
       response: s.object({

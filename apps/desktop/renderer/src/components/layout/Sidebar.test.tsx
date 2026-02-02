@@ -2,17 +2,19 @@ import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { Sidebar } from "./Sidebar";
 import { LayoutTestWrapper } from "./test-utils";
-import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
+import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
 
 describe("Sidebar", () => {
   const defaultProps: {
     width: number;
     collapsed: boolean;
     projectId: string | null;
+    activePanel: LeftPanelType;
   } = {
     width: LAYOUT_DEFAULTS.sidebar.default,
     collapsed: false,
     projectId: null,
+    activePanel: "sidebar",
   };
 
   const renderWithWrapper = (props: typeof defaultProps = defaultProps) => {

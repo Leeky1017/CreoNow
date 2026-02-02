@@ -16,18 +16,20 @@ type MemoryCreatePayload = {
   type: MemoryType;
   scope: MemoryScope;
   projectId?: string;
+  documentId?: string;
   content: string;
 };
 
 type MemoryListPayload = {
   projectId?: string;
+  documentId?: string;
   includeDeleted?: boolean;
 };
 
 type MemoryUpdatePayload = {
   memoryId: string;
   patch: Partial<
-    Pick<UserMemoryItem, "type" | "scope" | "projectId" | "content">
+    Pick<UserMemoryItem, "type" | "scope" | "projectId" | "documentId" | "content">
   >;
 };
 
@@ -165,7 +167,7 @@ export function registerMemoryIpcHandlers(deps: {
     "memory:injection:preview",
     async (
       _e,
-      payload: { projectId?: string; queryText?: string },
+      payload: { projectId?: string; documentId?: string; queryText?: string },
     ): Promise<IpcResponse<MemoryInjectionPreview>> => {
       if (!deps.db) {
         return {
