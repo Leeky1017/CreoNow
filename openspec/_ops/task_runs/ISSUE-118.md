@@ -2,7 +2,7 @@
 
 - Issue: #118
 - Branch: task/118-create-project-dialog
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/119
 
 ## Plan
 
