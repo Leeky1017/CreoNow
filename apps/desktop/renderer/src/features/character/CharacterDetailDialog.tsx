@@ -29,55 +29,70 @@ export interface CharacterDetailDialogProps {
   onNavigateToChapter?: (chapterId: string) => void;
   /** Available characters for adding relationships */
   availableCharacters?: Character[];
+  /**
+   * Container element for Portal rendering.
+   * Use in Storybook to constrain Dialog rendering within the story container.
+   * If not provided, Dialog renders to document.body.
+   */
+  container?: HTMLElement | null;
 }
 
 // ============================================================================
 // Styles
 // ============================================================================
 
-const overlayStyles = [
-  "fixed",
-  "inset-0",
-  "z-[var(--z-modal)]",
-  "bg-[rgba(0,0,0,0.7)]",
-  "backdrop-blur-[4px]",
-  "transition-opacity",
-  "duration-[var(--duration-slow)]",
-  "ease-[var(--ease-default)]",
-  "data-[state=open]:opacity-100",
-  "data-[state=closed]:opacity-0",
-].join(" ");
+/**
+ * Get overlay styles based on whether a container is provided
+ * When container is provided, use absolute positioning for Storybook compatibility
+ */
+function getOverlayStyles(hasContainer: boolean): string {
+  return [
+    hasContainer ? "absolute" : "fixed",
+    "inset-0",
+    "z-[var(--z-modal)]",
+    "bg-[rgba(0,0,0,0.7)]",
+    "backdrop-blur-[4px]",
+    "transition-opacity",
+    "duration-[var(--duration-slow)]",
+    "ease-[var(--ease-default)]",
+    "data-[state=open]:opacity-100",
+    "data-[state=closed]:opacity-0",
+  ].join(" ");
+}
 
-const contentStyles = [
-  "fixed",
-  "left-1/2",
-  "top-1/2",
-  "-translate-x-1/2",
-  "-translate-y-1/2",
-  "z-[var(--z-modal)]",
-  "w-[560px]",
-  "max-h-[92vh]",
-  "bg-[var(--color-bg-surface)]",
-  "border",
-  "border-[var(--color-border-default)]",
-  "rounded-[var(--radius-xl)]",
-  "shadow-2xl",
-  "flex",
-  "flex-col",
-  "overflow-hidden",
-  "relative",
-  // Animation
-  "transition-[opacity,transform]",
-  "duration-[var(--duration-slow)]",
-  "ease-[cubic-bezier(0.16,1,0.3,1)]",
-  "data-[state=open]:opacity-100",
-  "data-[state=open]:scale-100",
-  "data-[state=open]:translate-y-0",
-  "data-[state=closed]:opacity-0",
-  "data-[state=closed]:scale-[0.98]",
-  "data-[state=closed]:translate-y-5",
-  "focus:outline-none",
-].join(" ");
+/**
+ * Get content styles based on whether a container is provided
+ * When container is provided, use absolute positioning for Storybook compatibility
+ */
+function getContentStyles(hasContainer: boolean): string {
+  return [
+    hasContainer ? "absolute" : "fixed",
+    "left-1/2",
+    "top-1/2",
+    "-translate-x-1/2",
+    "-translate-y-1/2",
+    "z-[var(--z-modal)]",
+    "w-[560px]",
+    hasContainer ? "max-h-[90%]" : "max-h-[92vh]",
+    "bg-[var(--color-bg-surface)]",
+    "border",
+    "border-[var(--color-border-default)]",
+    "rounded-[var(--radius-xl)]",
+    "shadow-2xl",
+    "flex",
+    "flex-col",
+    "overflow-hidden",
+    // Animation
+    "transition-[opacity,transform]",
+    "duration-[var(--duration-slow)]",
+    "ease-[cubic-bezier(0.16,1,0.3,1)]",
+    "data-[state=open]:opacity-100",
+    "data-[state=open]:scale-100",
+    "data-[state=closed]:opacity-0",
+    "data-[state=closed]:scale-[0.98]",
+    "focus:outline-none",
+  ].join(" ");
+}
 
 const labelStyles = [
   "text-[10px]",
@@ -404,6 +419,7 @@ export function CharacterDetailDialog({
   onSave,
   onDelete,
   onNavigateToChapter,
+  container,
 }: CharacterDetailDialogProps): JSX.Element | null {
   // Form state
   const [editedCharacter, setEditedCharacter] = React.useState<Character | null>(null);
@@ -487,11 +503,13 @@ export function CharacterDetailDialog({
     }
   };
 
+  const hasContainer = container !== undefined && container !== null;
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className={overlayStyles} />
-        <DialogPrimitive.Content className={contentStyles}>
+      <DialogPrimitive.Portal container={container}>
+        <DialogPrimitive.Overlay className={getOverlayStyles(hasContainer)} />
+        <DialogPrimitive.Content className={getContentStyles(hasContainer)}>
           {/* Gradient line at top */}
           <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[var(--color-border-hover)] to-transparent opacity-50" />
 

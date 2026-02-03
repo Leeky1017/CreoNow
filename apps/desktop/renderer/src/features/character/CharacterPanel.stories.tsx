@@ -217,10 +217,17 @@ export const EmptyProject: Story = {
  */
 function EditingCharacterFormRender() {
   const [open, setOpen] = React.useState(true);
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   const character = SAMPLE_CHARACTERS[0]; // Elara
 
   return (
-    <div className="h-screen flex bg-[var(--color-bg-base)]">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
@@ -230,6 +237,7 @@ function EditingCharacterFormRender() {
         open={open}
         onOpenChange={setOpen}
         character={character}
+        container={containerEl}
       />
     </div>
   );
@@ -252,6 +260,10 @@ export const EditingCharacterForm: Story = {
  * Render component for AddingPersonalityTrait story
  */
 function AddingPersonalityTraitRender() {
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   const [character, setCharacter] = React.useState<Character>({
     ...SAMPLE_CHARACTERS[0],
     traits: ["Brave", "Impulsive", "Loyal", "Cunning"], // Added Cunning
@@ -262,7 +274,10 @@ function AddingPersonalityTraitRender() {
   };
 
   return (
-    <div className="h-screen flex bg-[var(--color-bg-base)]">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
@@ -273,6 +288,7 @@ function AddingPersonalityTraitRender() {
         onOpenChange={() => {}}
         character={character}
         onSave={handleSave}
+        container={containerEl}
       />
     </div>
   );
@@ -292,6 +308,57 @@ export const AddingPersonalityTrait: Story = {
 };
 
 /**
+ * Render component for ManagingRelationships story
+ */
+function ManagingRelationshipsRender() {
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
+  const characterWithManyRelations: Character = {
+    ...SAMPLE_CHARACTERS[0],
+    relationships: [
+      ...SAMPLE_CHARACTERS[0].relationships,
+      {
+        characterId: "darius",
+        characterName: "Darius",
+        characterRole: "deuteragonist",
+        characterAvatar:
+          "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=faces",
+        type: "friend",
+      },
+      {
+        characterId: "sarah",
+        characterName: "Sarah",
+        characterRole: "ally",
+        characterAvatar:
+          "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=faces",
+        type: "ally",
+      },
+    ],
+  };
+
+  return (
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
+      <CharacterPanel
+        characters={SAMPLE_CHARACTERS}
+        selectedId="elara"
+      />
+      <main className="flex-1 relative" />
+      <CharacterDetailDialog
+        open
+        onOpenChange={() => {}}
+        character={characterWithManyRelations}
+        container={containerEl}
+      />
+    </div>
+  );
+}
+
+/**
  * Scene 5: ManagingRelationships
  *
  * 用户正在管理人物关系
@@ -301,46 +368,41 @@ export const AddingPersonalityTrait: Story = {
  * - 验证关系状态指示器颜色（红色=敌对，蓝色=友好）
  */
 export const ManagingRelationships: Story = {
-  render: () => {
-    const characterWithManyRelations: Character = {
-      ...SAMPLE_CHARACTERS[0],
-      relationships: [
-        ...SAMPLE_CHARACTERS[0].relationships,
-        {
-          characterId: "darius",
-          characterName: "Darius",
-          characterRole: "deuteragonist",
-          characterAvatar:
-            "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=32&h=32&fit=crop&crop=faces",
-          type: "friend",
-        },
-        {
-          characterId: "sarah",
-          characterName: "Sarah",
-          characterRole: "ally",
-          characterAvatar:
-            "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=faces",
-          type: "ally",
-        },
-      ],
-    };
-
-    return (
-      <div className="h-screen flex bg-[var(--color-bg-base)]">
-        <CharacterPanel
-          characters={SAMPLE_CHARACTERS}
-          selectedId="elara"
-        />
-        <main className="flex-1 relative" />
-        <CharacterDetailDialog
-          open
-          onOpenChange={() => {}}
-          character={characterWithManyRelations}
-        />
-      </div>
-    );
-  },
+  render: () => <ManagingRelationshipsRender />,
 };
+
+/**
+ * Render component for UploadingAvatar story
+ */
+function UploadingAvatarRender() {
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
+  // Character without avatar to show initials fallback
+  const characterWithoutAvatar: Character = {
+    ...SAMPLE_CHARACTERS[3], // Jax has no avatar
+  };
+
+  return (
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
+      <CharacterPanel
+        characters={SAMPLE_CHARACTERS}
+        selectedId="jax"
+      />
+      <main className="flex-1 relative" />
+      <CharacterDetailDialog
+        open
+        onOpenChange={() => {}}
+        character={characterWithoutAvatar}
+        container={containerEl}
+      />
+    </div>
+  );
+}
 
 /**
  * Scene 6: UploadingAvatar
@@ -352,27 +414,7 @@ export const ManagingRelationships: Story = {
  * - 验证无头像时显示首字母 fallback
  */
 export const UploadingAvatar: Story = {
-  render: () => {
-    // Character without avatar to show initials fallback
-    const characterWithoutAvatar: Character = {
-      ...SAMPLE_CHARACTERS[3], // Jax has no avatar
-    };
-
-    return (
-      <div className="h-screen flex bg-[var(--color-bg-base)]">
-        <CharacterPanel
-          characters={SAMPLE_CHARACTERS}
-          selectedId="jax"
-        />
-        <main className="flex-1 relative" />
-        <CharacterDetailDialog
-          open
-          onOpenChange={() => {}}
-          character={characterWithoutAvatar}
-        />
-      </div>
-    );
-  },
+  render: () => <UploadingAvatarRender />,
 };
 
 /**
@@ -404,6 +446,10 @@ export const DeletingCharacterConfirm: Story = {
  * Render component for SwitchingBetweenCharacters story
  */
 function SwitchingBetweenCharactersRender() {
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   const [selectedId, setSelectedId] = React.useState("elara");
   const [dialogOpen, setDialogOpen] = React.useState(true);
   const selectedCharacter = SAMPLE_CHARACTERS.find((c) => c.id === selectedId);
@@ -414,7 +460,10 @@ function SwitchingBetweenCharactersRender() {
   };
 
   return (
-    <div className="h-screen flex bg-[var(--color-bg-base)]">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId={selectedId}
@@ -432,6 +481,7 @@ function SwitchingBetweenCharactersRender() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         character={selectedCharacter || null}
+        container={containerEl}
       />
     </div>
   );
@@ -454,10 +504,17 @@ export const SwitchingBetweenCharacters: Story = {
  * Render component for ChapterAppearanceNavigation story
  */
 function ChapterAppearanceNavigationRender() {
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   const [lastNavigatedChapter, setLastNavigatedChapter] = React.useState<string | null>(null);
 
   return (
-    <div className="h-screen flex bg-[var(--color-bg-base)]">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
@@ -478,6 +535,7 @@ function ChapterAppearanceNavigationRender() {
         onOpenChange={() => {}}
         character={SAMPLE_CHARACTERS[0]}
         onNavigateToChapter={(chapterId) => setLastNavigatedChapter(chapterId)}
+        container={containerEl}
       />
     </div>
   );
