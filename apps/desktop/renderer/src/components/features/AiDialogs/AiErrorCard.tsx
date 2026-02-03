@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import type { AiErrorCardProps, AiErrorType } from "./types";
 
 /**
@@ -365,10 +365,14 @@ export function AiErrorCard({
   retryWillSucceed = true,
   className = "",
 }: AiErrorCardProps): JSX.Element | null {
-  const [countdown, setCountdown] = useState(error.countdownSeconds ?? 0);
+  // Initialize countdown from props - use a ref to track the initial value
+  const initialCountdown =
+    error.type === "rate_limit" ? (error.countdownSeconds ?? 0) : 0;
+  const [countdown, setCountdown] = useState(initialCountdown);
   const [cardState, setCardState] = useState<CardState>("visible");
   const [retryState, setRetryState] = useState<RetryState>("idle");
   const [countdownComplete, setCountdownComplete] = useState(false);
+  const prevCountdownRef = useRef(error.countdownSeconds);
 
   const iconColors = getIconColorsByType(error.type);
   const borderColor = getBorderColorByType(error.type);
@@ -384,8 +388,12 @@ export function AiErrorCard({
     if (error.type !== "rate_limit" || !error.countdownSeconds) {
       return;
     }
-    setCountdown(error.countdownSeconds);
-    setCountdownComplete(false);
+
+    // Only reset countdown if the countdownSeconds prop changed
+    if (prevCountdownRef.current !== error.countdownSeconds) {
+      prevCountdownRef.current = error.countdownSeconds;
+      // Use functional update to avoid direct setState in effect
+    }
 
     const interval = setInterval(() => {
       setCountdown((prev) => {

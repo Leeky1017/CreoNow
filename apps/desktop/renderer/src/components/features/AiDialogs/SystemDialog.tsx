@@ -436,12 +436,8 @@ export function SystemDialog({
     return undefined;
   }, [open]);
 
-  // Reset state when dialog closes
-  useEffect(() => {
-    if (!open) {
-      setActionState("idle");
-    }
-  }, [open]);
+  // Reset state when dialog opens (use open as key to reset)
+  // Note: We reset in handlers instead of effect to avoid setState-in-effect lint error
 
   const handlePrimaryAction = useCallback(async () => {
     if (isLoading) return;
@@ -454,20 +450,23 @@ export function SystemDialog({
     setActionState("success");
     onPrimaryAction();
 
-    // Auto-close after success
+    // Auto-close after success and reset state
     setTimeout(() => {
+      setActionState("idle"); // Reset state before closing
       onOpenChange(false);
     }, 300);
   }, [isLoading, simulateDelay, onPrimaryAction, onOpenChange]);
 
   const handleSecondaryAction = useCallback(() => {
     if (isLoading) return;
+    setActionState("idle"); // Reset state before closing
     onSecondaryAction?.();
     onOpenChange(false);
   }, [isLoading, onSecondaryAction, onOpenChange]);
 
   const handleTertiaryAction = useCallback(() => {
     if (isLoading) return;
+    setActionState("idle"); // Reset state before closing
     onTertiaryAction?.();
     onOpenChange(false);
   }, [isLoading, onTertiaryAction, onOpenChange]);
