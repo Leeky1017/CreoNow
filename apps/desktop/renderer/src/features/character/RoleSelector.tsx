@@ -14,6 +14,10 @@ export interface RoleSelectorProps {
   value: CharacterRole;
   /** Callback when role changes */
   onChange: (role: CharacterRole) => void;
+  /** Optional portal container for popover content */
+  portalContainer?: HTMLElement | null;
+  /** Z-layer for popover content */
+  layer?: "popover" | "modal";
 }
 
 /**
@@ -47,6 +51,8 @@ const ROLE_OPTIONS: CharacterRole[] = [
 export function RoleSelector({
   value,
   onChange,
+  portalContainer,
+  layer = "popover",
 }: RoleSelectorProps): JSX.Element {
   const [open, setOpen] = React.useState(false);
   const currentRole = ROLE_DISPLAY[value];
@@ -60,6 +66,8 @@ export function RoleSelector({
     <Popover
       open={open}
       onOpenChange={setOpen}
+      layer={layer}
+      portalContainer={portalContainer}
       trigger={
         <button
           type="button"

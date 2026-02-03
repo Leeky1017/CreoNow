@@ -23,6 +23,8 @@ const SAMPLE_CHARACTERS: Character[] = [
     id: "elara",
     name: "Elara Vance",
     age: 24,
+    birthDate: "2002-03-25",
+    zodiac: "aries",
     role: "protagonist",
     group: "main",
     archetype: "reluctant-hero",
@@ -30,6 +32,7 @@ const SAMPLE_CHARACTERS: Character[] = [
       "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=64&h=64&fit=crop&crop=faces",
     description:
       "A skilled pilot with a mysterious past, determined to find the lost coordinates of Earth. She wears a faded flight jacket with an emblem no one recognizes.",
+    features: ["Wears a faded flight jacket", "Quick reflexes", "Pilot calluses"],
     traits: ["Brave", "Impulsive", "Loyal"],
     relationships: [
       {
@@ -152,23 +155,21 @@ const meta: Meta<typeof CharacterPanel> = {
   },
   decorators: [
     (Story) => (
-      <div className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)]">
-        <Story />
-        <main className="flex-1 bg-[var(--color-bg-base)] relative">
-          {/* 占位背景 - 移除 opacity-30，改用淡色占位 */}
-          <div className="absolute inset-0 p-12 pointer-events-none select-none">
-            <div className="max-w-4xl mx-auto space-y-12">
-              <h1 className="text-5xl font-bold text-[var(--color-fg-placeholder)]/20 mb-6">
-                The Last Horizon
-              </h1>
-              <div className="space-y-4">
-                <div className="h-4 w-full bg-[var(--color-bg-hover)]/50 rounded" />
-                <div className="h-4 w-[90%] bg-[var(--color-bg-hover)]/50 rounded" />
-                <div className="h-4 w-[95%] bg-[var(--color-bg-hover)]/50 rounded" />
-              </div>
+      <div className="h-screen min-h-[700px] bg-[var(--color-bg-base)] relative">
+        {/* 占位背景（仅作为背景，不参与布局） */}
+        <div className="absolute inset-0 p-12 pointer-events-none select-none">
+          <div className="max-w-4xl mx-auto space-y-12">
+            <h1 className="text-5xl font-bold text-[var(--color-fg-placeholder)]/20 mb-6">
+              The Last Horizon
+            </h1>
+            <div className="space-y-4">
+              <div className="h-4 w-full bg-[var(--color-bg-hover)]/50 rounded" />
+              <div className="h-4 w-[90%] bg-[var(--color-bg-hover)]/50 rounded" />
+              <div className="h-4 w-[95%] bg-[var(--color-bg-hover)]/50 rounded" />
             </div>
           </div>
-        </main>
+        </div>
+        <Story />
       </div>
     ),
   ],
@@ -237,6 +238,7 @@ function EditingCharacterFormRender() {
         open={open}
         onOpenChange={setOpen}
         character={character}
+        availableCharacters={SAMPLE_CHARACTERS}
         container={containerEl}
       />
     </div>
@@ -288,6 +290,7 @@ function AddingPersonalityTraitRender() {
         onOpenChange={() => {}}
         character={character}
         onSave={handleSave}
+        availableCharacters={SAMPLE_CHARACTERS}
         container={containerEl}
       />
     </div>
@@ -352,6 +355,7 @@ function ManagingRelationshipsRender() {
         open
         onOpenChange={() => {}}
         character={characterWithManyRelations}
+        availableCharacters={SAMPLE_CHARACTERS}
         container={containerEl}
       />
     </div>
@@ -398,6 +402,7 @@ function UploadingAvatarRender() {
         open
         onOpenChange={() => {}}
         character={characterWithoutAvatar}
+        availableCharacters={SAMPLE_CHARACTERS}
         container={containerEl}
       />
     </div>
@@ -481,6 +486,7 @@ function SwitchingBetweenCharactersRender() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         character={selectedCharacter || null}
+        availableCharacters={SAMPLE_CHARACTERS}
         container={containerEl}
       />
     </div>
@@ -535,6 +541,7 @@ function ChapterAppearanceNavigationRender() {
         onOpenChange={() => {}}
         character={SAMPLE_CHARACTERS[0]}
         onNavigateToChapter={(chapterId) => setLastNavigatedChapter(chapterId)}
+        availableCharacters={SAMPLE_CHARACTERS}
         container={containerEl}
       />
     </div>

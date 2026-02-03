@@ -51,6 +51,14 @@ export interface SelectProps extends Omit<
   fullWidth?: boolean;
   /** Custom class name for trigger */
   className?: string;
+  /**
+   * Z-layer for dropdown content.
+   * - "dropdown": default layer using `--z-dropdown`
+   * - "modal": render above modal overlay/content (`--z-modal`)
+   */
+  layer?: "dropdown" | "modal";
+  /** Optional portal container for rendering dropdown content */
+  portalContainer?: HTMLElement | null;
 }
 
 /**
@@ -103,7 +111,7 @@ const triggerStyles = [
  * Uses CSS transitions for animation (no tailwindcss-animate dependency).
  */
 const contentStyles = [
-  "z-[var(--z-dropdown)]",
+  "pointer-events-auto",
   "overflow-hidden",
   // Visual
   "bg-[var(--color-bg-raised)]",
@@ -120,6 +128,13 @@ const contentStyles = [
   "data-[state=closed]:opacity-0",
   "data-[state=closed]:scale-95",
 ].join(" ");
+
+/**
+ * Get z-index class based on layer.
+ */
+function getZIndexClass(layer: "dropdown" | "modal"): string {
+  return layer === "modal" ? "z-[var(--z-modal)]" : "z-[var(--z-dropdown)]";
+}
 
 /**
  * Viewport styles
@@ -249,8 +264,11 @@ export function Select({
   name,
   fullWidth = false,
   className = "",
+  layer = "dropdown",
+  portalContainer,
   ...triggerProps
 }: SelectProps): JSX.Element {
+  const contentClassName = [getZIndexClass(layer), contentStyles].join(" ");
   const triggerClasses = [triggerStyles, fullWidth ? "w-full" : "", className]
     .filter(Boolean)
     .join(" ");
@@ -274,8 +292,8 @@ export function Select({
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
 
-      <SelectPrimitive.Portal>
-        <SelectPrimitive.Content className={contentStyles} position="popper">
+      <SelectPrimitive.Portal container={portalContainer ?? undefined}>
+        <SelectPrimitive.Content className={contentClassName} position="popper">
           <SelectPrimitive.Viewport className={viewportStyles}>
             {isGrouped(options)
               ? options.map((group, groupIndex) => (

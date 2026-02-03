@@ -14,6 +14,10 @@ export interface GroupSelectorProps {
   value: CharacterGroup;
   /** Callback when group changes */
   onChange: (group: CharacterGroup) => void;
+  /** Optional portal container for popover content */
+  portalContainer?: HTMLElement | null;
+  /** Z-layer for popover content */
+  layer?: "popover" | "modal";
 }
 
 /**
@@ -35,6 +39,8 @@ export interface GroupSelectorProps {
 export function GroupSelector({
   value,
   onChange,
+  portalContainer,
+  layer = "popover",
 }: GroupSelectorProps): JSX.Element {
   const [open, setOpen] = React.useState(false);
   const currentGroup = GROUP_OPTIONS.find((g) => g.value === value);
@@ -48,6 +54,8 @@ export function GroupSelector({
     <Popover
       open={open}
       onOpenChange={setOpen}
+      layer={layer}
+      portalContainer={portalContainer}
       trigger={
         <button
           type="button"

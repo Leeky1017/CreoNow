@@ -18,6 +18,10 @@ export interface AddRelationshipPopoverProps {
   onAdd: (relationship: Omit<CharacterRelationship, "characterId"> & { characterId: string }) => void;
   /** Custom trigger element */
   trigger?: React.ReactNode;
+  /** Optional portal container for popover content */
+  portalContainer?: HTMLElement | null;
+  /** Z-layer for popover content */
+  layer?: "popover" | "modal";
 }
 
 /**
@@ -74,6 +78,8 @@ export function AddRelationshipPopover({
   existingRelationships,
   onAdd,
   trigger,
+  portalContainer,
+  layer = "popover",
 }: AddRelationshipPopoverProps): JSX.Element {
   const [open, setOpen] = React.useState(false);
   const [selectedCharacter, setSelectedCharacter] = React.useState<Character | null>(null);
@@ -120,6 +126,8 @@ export function AddRelationshipPopover({
           setTimeout(handleReset, 150);
         }
       }}
+      layer={layer}
+      portalContainer={portalContainer}
       trigger={
         trigger ?? (
           <button

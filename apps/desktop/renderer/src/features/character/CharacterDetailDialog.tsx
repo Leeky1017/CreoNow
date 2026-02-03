@@ -7,12 +7,21 @@ import {
   Textarea,
   Select,
 } from "../../components/primitives";
+import { AddRelationshipPopover } from "./AddRelationshipPopover";
+import { GroupSelector } from "./GroupSelector";
+import { RoleSelector } from "./RoleSelector";
 import type {
   Character,
   CharacterRelationship,
   ChapterAppearance,
+  ZodiacSign,
 } from "./types";
-import { ARCHETYPE_OPTIONS, ROLE_DISPLAY, RELATIONSHIP_TYPE_DISPLAY } from "./types";
+import {
+  ARCHETYPE_OPTIONS,
+  ROLE_DISPLAY,
+  RELATIONSHIP_TYPE_DISPLAY,
+  ZODIAC_OPTIONS,
+} from "./types";
 
 export interface CharacterDetailDialogProps {
   /** Controlled open state */
@@ -68,12 +77,12 @@ function getContentStyles(hasContainer: boolean): string {
   return [
     hasContainer ? "absolute" : "fixed",
     "left-1/2",
-    "top-1/2",
+    hasContainer ? "top-14" : "top-1/2",
     "-translate-x-1/2",
-    "-translate-y-1/2",
+    hasContainer ? "translate-y-0" : "-translate-y-1/2",
     "z-[var(--z-modal)]",
     "w-[560px]",
-    hasContainer ? "max-h-[90%]" : "max-h-[92vh]",
+    hasContainer ? "max-h-[calc(100%-3.5rem)]" : "max-h-[92vh]",
     "bg-[var(--color-bg-surface)]",
     "border",
     "border-[var(--color-border-default)]",
@@ -92,6 +101,37 @@ function getContentStyles(hasContainer: boolean): string {
     "data-[state=closed]:scale-[0.98]",
     "focus:outline-none",
   ].join(" ");
+}
+
+/**
+ * Compute zodiac sign from ISO birth date (YYYY-MM-DD).
+ *
+ * Returns undefined when birthDate is missing or invalid.
+ */
+function getZodiacFromBirthDate(birthDate: string): ZodiacSign | undefined {
+  const parts = birthDate.split("-");
+  if (parts.length !== 3) return undefined;
+
+  const month = Number.parseInt(parts[1] ?? "", 10);
+  const day = Number.parseInt(parts[2] ?? "", 10);
+  if (!Number.isFinite(month) || !Number.isFinite(day)) return undefined;
+
+  const md = month * 100 + day;
+
+  if (md >= 321 && md <= 419) return "aries";
+  if (md >= 420 && md <= 520) return "taurus";
+  if (md >= 521 && md <= 620) return "gemini";
+  if (md >= 621 && md <= 722) return "cancer";
+  if (md >= 723 && md <= 822) return "leo";
+  if (md >= 823 && md <= 922) return "virgo";
+  if (md >= 923 && md <= 1022) return "libra";
+  if (md >= 1023 && md <= 1121) return "scorpio";
+  if (md >= 1122 && md <= 1221) return "sagittarius";
+  if (md >= 1222 || md <= 119) return "capricorn";
+  if (md >= 120 && md <= 218) return "aquarius";
+  if (md >= 219 && md <= 320) return "pisces";
+
+  return undefined;
 }
 
 const labelStyles = [
@@ -115,6 +155,70 @@ const sectionHeaderStyles = [
 // ============================================================================
 // Sub-components
 // ============================================================================
+
+/**
+ * ProfileTableRow - A single row in the structured character settings table.
+ */
+function ProfileTableRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[160px_1fr]">
+      <div className="px-4 py-3 bg-[#0c0c0c] border-r border-[var(--color-border-default)] text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-placeholder)] font-semibold">
+        {label}
+      </div>
+      <div className="px-4 py-3 min-w-0">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * ProfileSummaryItem - Compact key/value pill for collapsed profile view.
+ *
+ * Keeps the dialog scannable while still showing essential info.
+ */
+function ProfileSummaryItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}): JSX.Element {
+  return (
+    <div className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2 py-1 text-[11px]">
+      <span className="text-[var(--color-fg-placeholder)]">{label}</span>
+      <span className="text-[var(--color-fg-default)]">{value}</span>
+    </div>
+  );
+}
+
+/**
+ * ChevronDownIcon - Small chevron used in expand/collapse toggles.
+ */
+function ChevronDownIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+      focusable="false"
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
 
 /**
  * Camera icon for avatar upload
@@ -149,25 +253,6 @@ function CloseIcon() {
     >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-/**
- * Plus icon
- */
-function PlusIcon({ size = 10 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   );
 }
@@ -419,16 +504,27 @@ export function CharacterDetailDialog({
   onSave,
   onDelete,
   onNavigateToChapter,
+  availableCharacters,
   container,
 }: CharacterDetailDialogProps): JSX.Element | null {
   // Form state
   const [editedCharacter, setEditedCharacter] = React.useState<Character | null>(null);
   const [newTrait, setNewTrait] = React.useState("");
+  const [newFeature, setNewFeature] = React.useState("");
+  const [isProfileExpanded, setIsProfileExpanded] = React.useState(false);
 
   // Initialize form state when character changes
   React.useEffect(() => {
     if (character) {
-      setEditedCharacter({ ...character });
+      const computedZodiac = character.birthDate
+        ? getZodiacFromBirthDate(character.birthDate)
+        : undefined;
+
+      setEditedCharacter({
+        ...character,
+        features: character.features ?? [],
+        zodiac: character.zodiac ?? computedZodiac,
+      });
     }
   }, [character]);
 
@@ -436,14 +532,20 @@ export function CharacterDetailDialog({
   React.useEffect(() => {
     if (!open) {
       setNewTrait("");
+      setNewFeature("");
     }
   }, [open]);
+
+  // Default collapsed when dialog opens / switches character.
+  React.useEffect(() => {
+    if (open) {
+      setIsProfileExpanded(false);
+    }
+  }, [open, character?.id]);
 
   if (!editedCharacter) {
     return null;
   }
-
-  const roleConfig = ROLE_DISPLAY[editedCharacter.role];
 
   const handleFieldChange = <K extends keyof Character>(
     field: K,
@@ -467,6 +569,30 @@ export function CharacterDetailDialog({
         editedCharacter.traits.filter((t) => t !== trait),
       );
     }
+  };
+
+  const handleAddFeature = () => {
+    const trimmed = newFeature.trim();
+    if (!trimmed || !editedCharacter) return;
+
+    const current = editedCharacter.features ?? [];
+    if (current.includes(trimmed)) {
+      setNewFeature("");
+      return;
+    }
+
+    handleFieldChange("features", [...current, trimmed]);
+    setNewFeature("");
+  };
+
+  const handleRemoveFeature = (feature: string) => {
+    if (!editedCharacter) return;
+
+    const current = editedCharacter.features ?? [];
+    handleFieldChange(
+      "features",
+      current.filter((f) => f !== feature),
+    );
   };
 
   const handleRemoveRelationship = (characterId: string) => {
@@ -503,7 +629,21 @@ export function CharacterDetailDialog({
     }
   };
 
+  const handleFeatureKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddFeature();
+    }
+  };
+
   const hasContainer = container !== undefined && container !== null;
+  const profileContentId = "character-profile-content";
+  const zodiacLabel =
+    editedCharacter.zodiac &&
+    ZODIAC_OPTIONS.find((z) => z.value === editedCharacter.zodiac)?.label;
+  const archetypeLabel =
+    editedCharacter.archetype &&
+    ARCHETYPE_OPTIONS.find((a) => a.value === editedCharacter.archetype)?.label;
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -548,112 +688,230 @@ export function CharacterDetailDialog({
                 </DialogPrimitive.Close>
               </div>
               <div className="flex items-center gap-2">
-                <span
-                  className={[
-                    "bg-[#1a2333]",
-                    roleConfig.color.replace("text-", "text-"),
-                    "border",
-                    "border-[var(--color-info)]/30",
-                    "px-2",
-                    "py-0.5",
-                    "rounded",
-                    "text-[11px]",
-                    "font-medium",
-                    "uppercase",
-                    "tracking-wide",
-                  ].join(" ")}
-                >
-                  {roleConfig.label}
-                </span>
+                <RoleSelector
+                  value={editedCharacter.role}
+                  onChange={(role) => handleFieldChange("role", role)}
+                  layer="modal"
+                />
                 <div className="h-3 w-[1px] bg-[var(--color-border-hover)]" />
-                <span className="text-[var(--color-fg-placeholder)] text-xs px-2 py-0.5 border border-[var(--color-border-default)] rounded cursor-pointer hover:border-[var(--color-border-hover)] hover:text-[var(--color-fg-muted)] transition-colors bg-[var(--color-bg-base)]">
-                  {editedCharacter.group === "main"
-                    ? "Main Cast"
-                    : editedCharacter.group === "supporting"
-                      ? "Supporting"
-                      : "Others"}
-                </span>
+                <GroupSelector
+                  value={editedCharacter.group}
+                  onChange={(group) => handleFieldChange("group", group)}
+                  layer="modal"
+                />
               </div>
             </div>
           </div>
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            {/* Age and Archetype */}
-            <div className="grid grid-cols-6 gap-4">
-              <div className="col-span-2 space-y-1.5">
-                <label className={labelStyles}>Age</label>
-                <Input
-                  type="text"
-                  value={editedCharacter.age?.toString() ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    handleFieldChange("age", val ? parseInt(val, 10) : undefined);
-                  }}
-                  fullWidth
-                />
+            {/* Profile */}
+            <div className="space-y-3">
+              <div className={sectionHeaderStyles}>
+                <label className={labelStyles}>Profile</label>
+                <button
+                  type="button"
+                  onClick={() => setIsProfileExpanded((v) => !v)}
+                  aria-expanded={isProfileExpanded}
+                  aria-controls={profileContentId}
+                  aria-label={isProfileExpanded ? "Collapse profile" : "Expand profile"}
+                  className="text-[10px] text-[var(--color-fg-placeholder)] hover:text-[var(--color-fg-muted)] inline-flex items-center gap-1 font-medium transition-colors"
+                >
+                  <span aria-hidden="true">
+                    {isProfileExpanded ? "Collapse" : "Expand"}
+                  </span>
+                  <ChevronDownIcon
+                    className={[
+                      "transition-transform duration-[var(--duration-fast)]",
+                      isProfileExpanded ? "rotate-180" : "",
+                    ].join(" ")}
+                  />
+                </button>
               </div>
-              <div className="col-span-4 space-y-1.5">
-                <label className={labelStyles}>Archetype</label>
-                <Select
-                  value={editedCharacter.archetype ?? ""}
-                  onValueChange={(val) => handleFieldChange("archetype", val)}
-                  options={ARCHETYPE_OPTIONS.map((a) => ({
-                    value: a.value,
-                    label: a.label,
-                  }))}
-                  placeholder="Select archetype..."
-                  fullWidth
-                />
-              </div>
-              <div className="col-span-6 space-y-1.5">
-                <label className={labelStyles}>Appearance &amp; Description</label>
-                <Textarea
-                  value={editedCharacter.description ?? ""}
-                  onChange={(e) => handleFieldChange("description", e.target.value)}
-                  placeholder="Describe the character..."
-                  fullWidth
-                  className="min-h-[80px] focus:min-h-[100px] transition-all resize-none"
-                />
+
+              <div id={profileContentId}>
+                {isProfileExpanded ? (
+                  <div className="rounded-lg overflow-hidden border border-[var(--color-border-default)] divide-y divide-[var(--color-border-default)] bg-[#0a0a0a]">
+                    <ProfileTableRow label="Age">
+                      <Input
+                        type="text"
+                        value={editedCharacter.age?.toString() ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          handleFieldChange(
+                            "age",
+                            val ? parseInt(val, 10) : undefined,
+                          );
+                        }}
+                        fullWidth
+                      />
+                    </ProfileTableRow>
+
+                    <ProfileTableRow label="Birth Date">
+                      <Input
+                        type="date"
+                        value={editedCharacter.birthDate ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          handleFieldChange("birthDate", val ? val : undefined);
+                          const zodiac = val ? getZodiacFromBirthDate(val) : undefined;
+                          if (zodiac) {
+                            handleFieldChange("zodiac", zodiac);
+                          }
+                        }}
+                        fullWidth
+                      />
+                    </ProfileTableRow>
+
+                    <ProfileTableRow label="Zodiac">
+                      <Select
+                        value={editedCharacter.zodiac ?? ""}
+                        onValueChange={(val) =>
+                          handleFieldChange(
+                            "zodiac",
+                            val ? (val as ZodiacSign) : undefined,
+                          )
+                        }
+                        options={ZODIAC_OPTIONS.map((z) => ({
+                          value: z.value,
+                          label: z.label,
+                        }))}
+                        placeholder="Select zodiac..."
+                        fullWidth
+                        layer="modal"
+                      />
+                    </ProfileTableRow>
+
+                    <ProfileTableRow label="Archetype">
+                      <Select
+                        value={editedCharacter.archetype ?? ""}
+                        onValueChange={(val) => handleFieldChange("archetype", val)}
+                        options={ARCHETYPE_OPTIONS.map((a) => ({
+                          value: a.value,
+                          label: a.label,
+                        }))}
+                        placeholder="Select archetype..."
+                        fullWidth
+                        layer="modal"
+                      />
+                    </ProfileTableRow>
+
+                    <ProfileTableRow label="Features">
+                      <div className="flex flex-wrap gap-2">
+                        {(editedCharacter.features ?? []).map((feature) => (
+                          <TraitTag
+                            key={feature}
+                            trait={feature}
+                            onRemove={() => handleRemoveFeature(feature)}
+                          />
+                        ))}
+                        <input
+                          type="text"
+                          placeholder="+ Add feature"
+                          value={newFeature}
+                          onChange={(e) => setNewFeature(e.target.value)}
+                          onKeyDown={handleFeatureKeyDown}
+                          onBlur={handleAddFeature}
+                          className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[80px] py-1 px-1 ml-1 hover:bg-[#111] rounded transition-colors"
+                        />
+                      </div>
+                    </ProfileTableRow>
+
+                    <ProfileTableRow label="Personality">
+                      <div className="flex flex-wrap gap-2">
+                        {editedCharacter.traits.map((trait) => (
+                          <TraitTag
+                            key={trait}
+                            trait={trait}
+                            onRemove={() => handleRemoveTrait(trait)}
+                          />
+                        ))}
+                        <input
+                          type="text"
+                          placeholder="+ Add trait"
+                          value={newTrait}
+                          onChange={(e) => setNewTrait(e.target.value)}
+                          onKeyDown={handleTraitKeyDown}
+                          onBlur={handleAddTrait}
+                          className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[60px] py-1 px-1 ml-1 hover:bg-[#111] rounded transition-colors"
+                        />
+                      </div>
+                    </ProfileTableRow>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-[var(--color-border-default)] bg-[#0a0a0a] p-3">
+                    <div className="flex flex-wrap gap-2">
+                      <ProfileSummaryItem
+                        label="Age"
+                        value={
+                          editedCharacter.age !== undefined
+                            ? String(editedCharacter.age)
+                            : "—"
+                        }
+                      />
+                      <ProfileSummaryItem
+                        label="Birth"
+                        value={editedCharacter.birthDate ?? "—"}
+                      />
+                      <ProfileSummaryItem label="Zodiac" value={zodiacLabel ?? "—"} />
+                      <ProfileSummaryItem
+                        label="Archetype"
+                        value={archetypeLabel ?? "—"}
+                      />
+                      <ProfileSummaryItem
+                        label="Features"
+                        value={String((editedCharacter.features ?? []).length)}
+                      />
+                      <ProfileSummaryItem
+                        label="Traits"
+                        value={String(editedCharacter.traits.length)}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Personality Traits */}
+            {/* Appearance & Description */}
             <div className="space-y-3">
               <div className={sectionHeaderStyles}>
-                <label className={labelStyles}>Personality Traits</label>
+                <label className={labelStyles}>Appearance &amp; Description</label>
               </div>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {editedCharacter.traits.map((trait) => (
-                  <TraitTag
-                    key={trait}
-                    trait={trait}
-                    onRemove={() => handleRemoveTrait(trait)}
-                  />
-                ))}
-                <input
-                  type="text"
-                  placeholder="+ Add trait"
-                  value={newTrait}
-                  onChange={(e) => setNewTrait(e.target.value)}
-                  onKeyDown={handleTraitKeyDown}
-                  onBlur={handleAddTrait}
-                  className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[60px] py-1 px-1 ml-1 hover:bg-[#111] rounded transition-colors"
-                />
-              </div>
+              <Textarea
+                value={editedCharacter.description ?? ""}
+                onChange={(e) => handleFieldChange("description", e.target.value)}
+                placeholder="Describe the character..."
+                fullWidth
+                className="min-h-[80px] focus:min-h-[100px] transition-all resize-none"
+              />
             </div>
 
             {/* Relationships */}
             <div className="space-y-3">
               <div className={sectionHeaderStyles}>
                 <label className={labelStyles}>Relationships</label>
-                <button
-                  type="button"
-                  className="text-[10px] text-[var(--color-info)] hover:text-[var(--color-info)]/80 flex items-center gap-1 font-medium transition-colors"
-                >
-                  <PlusIcon />
-                  Add Relation
-                </button>
+                {(() => {
+                  const candidates = (availableCharacters ?? []).filter(
+                    (c) => c.id !== editedCharacter.id,
+                  );
+                  return candidates.length > 0 ? (
+                    <AddRelationshipPopover
+                      availableCharacters={candidates}
+                      existingRelationships={editedCharacter.relationships}
+                      onAdd={(relationship) =>
+                        handleFieldChange("relationships", [
+                          ...editedCharacter.relationships,
+                          relationship,
+                        ])
+                      }
+                      layer="modal"
+                    />
+                  ) : (
+                    <span className="text-[10px] text-[var(--color-fg-placeholder)]">
+                      No other characters
+                    </span>
+                  );
+                })()}
               </div>
               {editedCharacter.relationships.length > 0 ? (
                 <div className="rounded-lg overflow-hidden bg-[#0a0a0a] border border-[var(--color-bg-hover)] divide-y divide-[var(--color-bg-hover)]">
