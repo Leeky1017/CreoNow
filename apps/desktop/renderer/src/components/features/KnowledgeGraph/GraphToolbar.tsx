@@ -1,4 +1,3 @@
-import React from "react";
 import { Button } from "../../primitives/Button";
 import type { GraphToolbarProps, NodeFilter } from "./types";
 

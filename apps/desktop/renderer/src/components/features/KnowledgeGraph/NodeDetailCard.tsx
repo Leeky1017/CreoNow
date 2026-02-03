@@ -1,4 +1,3 @@
-import React from "react";
 import { Button } from "../../primitives/Button";
 import { Avatar } from "../../primitives/Avatar";
 import { Badge } from "../../primitives/Badge";

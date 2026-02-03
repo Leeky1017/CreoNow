@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { GraphToolbar } from "./GraphToolbar";
 import { GraphCanvas } from "./GraphCanvas";
 import { GraphLegend } from "./GraphLegend";

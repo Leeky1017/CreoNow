@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { KnowledgeGraph } from "./KnowledgeGraph";
 import type { GraphData, GraphNode, NodeType } from "./types";
@@ -274,6 +274,7 @@ export const SelectedNodeWithCard: Story = {
  * - 释放后新位置保持
  */
 export const DraggingNode: Story = {
+  args: { data: DEMO_DATA },
   render: function DraggingNodeStory() {
     const [data, setData] = useState<GraphData>(DEMO_DATA);
 
@@ -428,6 +429,7 @@ export const HoverHighlight: Story = {
  * - 自动打开详情卡片编辑
  */
 export const AddNewNode: Story = {
+  args: { data: DEMO_DATA },
   render: function AddNewNodeStory() {
     const [data, setData] = useState<GraphData>(DEMO_DATA);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -537,6 +539,7 @@ export const SelectItemNode: Story = {
  * - 保存后节点数据更新
  */
 export const EditNodeDialog: Story = {
+  args: { data: DEMO_DATA },
   render: function EditNodeDialogStory() {
     const [data, setData] = useState<GraphData>(DEMO_DATA);
     const [selectedId, setSelectedId] = useState<string | null>("elara");
@@ -604,6 +607,7 @@ export const EditNodeDialog: Story = {
  * - 保存后新节点出现在画布
  */
 export const CreateNodeDialog: Story = {
+  args: { data: DEMO_DATA },
   render: function CreateNodeDialogStory() {
     const [data, setData] = useState<GraphData>({
       nodes: [
@@ -683,6 +687,7 @@ export const CreateNodeDialog: Story = {
  * 展示所有节点类型和交互状态，包括编辑和删除功能
  */
 export const FullFeatureMatrix: Story = {
+  args: { data: DEMO_DATA },
   render: function FullFeatureMatrixStory() {
     const [data, setData] = useState<GraphData>(DEMO_DATA);
     const [selectedId, setSelectedId] = useState<string | null>("elara");
