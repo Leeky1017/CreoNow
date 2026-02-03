@@ -65,6 +65,13 @@
   --color-accent-cyan: #06b6d4;
   --color-accent-purple: #8b5cf6;
 
+  /* 知识图谱节点色 - 保持多色区分 */
+  --color-node-character: #3b82f6; /* 角色 - 蓝色 */
+  --color-node-location: #22c55e; /* 地点 - 绿色 */
+  --color-node-event: #f97316; /* 事件 - 橙色 */
+  --color-node-item: #06b6d4; /* 物品 - 青色 */
+  --color-node-other: #8b5cf6; /* 其他 - 紫色 */
+
   /* 阴影系统 §3.7 - 几何保持一致，颜色来自主题内 --color-shadow */
   --shadow-sm: 0 1px 2px var(--color-shadow);
   --shadow-md: 0 4px 8px var(--color-shadow);
