@@ -306,8 +306,10 @@ export const NavigationTransition: Story = {
  * - Cancel returns to previous state
  */
 export const UnsavedChangesWarning: Story = {
-  render: (args) => {
-    const [settings, setSettings] = React.useState({
+  args: {
+    open: true,
+    defaultTab: "general",
+    initialSettings: {
       general: {
         ...defaultGeneralSettings,
         focusMode: false, // Changed from default
@@ -315,22 +317,7 @@ export const UnsavedChangesWarning: Story = {
       },
       appearance: defaultAppearanceSettings,
       export: defaultExportSettings,
-    });
-
-    return (
-      <SettingsDialog
-        {...args}
-        initialSettings={settings}
-        onSave={(newSettings) => {
-          setSettings(newSettings);
-          console.log("Settings saved:", newSettings);
-        }}
-      />
-    );
-  },
-  args: {
-    open: true,
-    defaultTab: "general",
+    },
     account: {
       name: "Sarah Mitchell",
       email: "sarah@example.com",

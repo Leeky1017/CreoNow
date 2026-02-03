@@ -99,35 +99,40 @@ export const DisabledChecked: Story = {
 };
 
 /**
+ * Toggle group wrapper component
+ */
+function ToggleGroupDemo(): JSX.Element {
+  const [focusMode, setFocusMode] = React.useState(true);
+  const [typewriter, setTypewriter] = React.useState(false);
+  const [smartPunctuation, setSmartPunctuation] = React.useState(true);
+
+  return (
+    <div className="flex flex-col gap-6 w-[400px]">
+      <Toggle
+        label="Focus Mode"
+        description="Dims all interface elements except the editor."
+        checked={focusMode}
+        onCheckedChange={setFocusMode}
+      />
+      <Toggle
+        label="Typewriter Scroll"
+        description="Keeps your active line vertically centered."
+        checked={typewriter}
+        onCheckedChange={setTypewriter}
+      />
+      <Toggle
+        label="Smart Punctuation"
+        description="Convert straight quotes to curly quotes."
+        checked={smartPunctuation}
+        onCheckedChange={setSmartPunctuation}
+      />
+    </div>
+  );
+}
+
+/**
  * Multiple toggles in a group
  */
 export const ToggleGroup: Story = {
-  render: () => {
-    const [focusMode, setFocusMode] = React.useState(true);
-    const [typewriter, setTypewriter] = React.useState(false);
-    const [smartPunctuation, setSmartPunctuation] = React.useState(true);
-
-    return (
-      <div className="flex flex-col gap-6 w-[400px]">
-        <Toggle
-          label="Focus Mode"
-          description="Dims all interface elements except the editor."
-          checked={focusMode}
-          onCheckedChange={setFocusMode}
-        />
-        <Toggle
-          label="Typewriter Scroll"
-          description="Keeps your active line vertically centered."
-          checked={typewriter}
-          onCheckedChange={setTypewriter}
-        />
-        <Toggle
-          label="Smart Punctuation"
-          description="Convert straight quotes to curly quotes."
-          checked={smartPunctuation}
-          onCheckedChange={setSmartPunctuation}
-        />
-      </div>
-    );
-  },
+  render: () => <ToggleGroupDemo />,
 };

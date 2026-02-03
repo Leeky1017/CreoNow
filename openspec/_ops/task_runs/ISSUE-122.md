@@ -41,3 +41,11 @@
   - 修复未使用的 `isDirty` 变量（重命名为 `_isDirty`）
   - 移除未使用的 `Select` import 和 `formatOptions` 变量
 - Key output: typecheck 通过，35 个测试全部通过
+
+### 2026-02-03 13:46 修复 ESLint 错误
+- Command: `pnpm lint`
+- Issues fixed:
+  - 修复 type imports（使用 `import type`）
+  - 将 story render 函数中的 React hooks 提取为独立组件（`InterfaceScaleSlider`、`FontSizeSlider`、`VolumeSlider`、`ToggleGroupDemo`）
+  - 简化 `UnsavedChangesWarning` story（移除不必要的 render 函数）
+- Key output: lint 通过，35 个测试全部通过

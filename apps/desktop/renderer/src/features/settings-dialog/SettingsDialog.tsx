@@ -1,14 +1,14 @@
 import React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Button, Text } from "../../components/primitives";
-import { SettingsGeneral, GeneralSettings, defaultGeneralSettings } from "./SettingsGeneral";
-import {
-  SettingsAppearancePage,
-  AppearanceSettings,
-  defaultAppearanceSettings,
-} from "./SettingsAppearancePage";
-import { SettingsExport, ExportSettings, defaultExportSettings } from "./SettingsExport";
-import { SettingsAccount, AccountSettings, defaultAccountSettings } from "./SettingsAccount";
+import { SettingsGeneral, defaultGeneralSettings } from "./SettingsGeneral";
+import type { GeneralSettings } from "./SettingsGeneral";
+import { SettingsAppearancePage, defaultAppearanceSettings } from "./SettingsAppearancePage";
+import type { AppearanceSettings } from "./SettingsAppearancePage";
+import { SettingsExport, defaultExportSettings } from "./SettingsExport";
+import type { ExportSettings } from "./SettingsExport";
+import { SettingsAccount, defaultAccountSettings } from "./SettingsAccount";
+import type { AccountSettings } from "./SettingsAccount";
 
 /**
  * Settings tab values
