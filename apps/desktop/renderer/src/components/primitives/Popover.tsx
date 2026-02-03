@@ -14,6 +14,14 @@ export interface PopoverProps {
   onOpenChange?: (open: boolean) => void;
   /** Default open state (uncontrolled) */
   defaultOpen?: boolean;
+  /**
+   * Z-layer for popover content.
+   * - "popover": default layer using `--z-popover`
+   * - "modal": render above modal overlay/content (`--z-modal`)
+   */
+  layer?: "popover" | "modal";
+  /** Optional portal container for rendering content */
+  portalContainer?: HTMLElement | null;
   /** Trigger element */
   trigger: React.ReactNode;
   /** Popover content */
@@ -32,7 +40,7 @@ export interface PopoverProps {
  * Uses CSS transitions for animation (no tailwindcss-animate dependency).
  */
 const contentStyles = [
-  "z-[var(--z-popover)]",
+  "pointer-events-auto",
   // Visual
   "bg-[var(--color-bg-raised)]",
   "border",
@@ -56,6 +64,13 @@ const contentStyles = [
 ].join(" ");
 
 /**
+ * Get z-index class based on layer.
+ */
+function getZIndexClass(layer: "popover" | "modal"): string {
+  return layer === "modal" ? "z-[var(--z-modal)]" : "z-[var(--z-popover)]";
+}
+
+/**
  * Popover component following design spec §5.2
  *
  * A floating popover built on Radix UI Popover for proper positioning and focus management.
@@ -72,12 +87,16 @@ export function Popover({
   open,
   onOpenChange,
   defaultOpen,
+  layer = "popover",
+  portalContainer,
   trigger,
   children,
   side = "bottom",
   sideOffset = 8,
   align = "center",
 }: PopoverProps): JSX.Element {
+  const contentClassName = [getZIndexClass(layer), contentStyles].join(" ");
+
   return (
     <PopoverPrimitive.Root
       open={open}
@@ -85,9 +104,9 @@ export function Popover({
       defaultOpen={defaultOpen}
     >
       <PopoverPrimitive.Trigger asChild>{trigger}</PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Portal container={portalContainer ?? undefined}>
         <PopoverPrimitive.Content
-          className={contentStyles}
+          className={contentClassName}
           side={side}
           sideOffset={sideOffset}
           align={align}
