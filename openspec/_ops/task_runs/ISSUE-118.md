@@ -83,3 +83,5 @@
 - windows-e2e: ❌ failed (flaky test: memory-preference-learning.spec.ts - 与本次更改无关)
   - 失败原因: `expect(page.getByTestId("memory-panel")).toBeVisible()` timeout
   - 26/27 tests passed, 1 failed (known flaky)
+  - 多次重试均失败，与本次更改无关（CreateProjectDialog/Template/ImageUpload）
+  - **Blocker**: windows-e2e 是 required check，需要人工批准或修复 flaky test
