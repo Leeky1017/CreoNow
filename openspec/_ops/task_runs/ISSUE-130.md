@@ -2,7 +2,7 @@
 
 - Issue: #130
 - Branch: task/130-character-manager-ui-fix
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/131
 
 ## Plan
 
