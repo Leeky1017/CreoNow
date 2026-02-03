@@ -1,107 +1,375 @@
-import React from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 
 import { Button } from "../../components/primitives/Button";
 import { Dialog } from "../../components/primitives/Dialog";
 import { Input } from "../../components/primitives/Input";
+import { Textarea } from "../../components/primitives/Textarea";
 import { Text } from "../../components/primitives/Text";
+import {
+  RadioCardItem,
+  RadioGroupRoot,
+} from "../../components/primitives/Radio";
+import { ImageUpload } from "../../components/primitives/ImageUpload";
 import { useProjectStore } from "../../stores/projectStore";
+import { useTemplateStore } from "../../stores/templateStore";
+import { CreateTemplateDialog } from "./CreateTemplateDialog";
 
-/**
- * Minimal create project dialog (P0).
- *
- * Why: provides a stable E2E entry point for creating and setting current
- * project, without relying on native OS dialogs.
- */
-export function CreateProjectDialog(props: {
+// =============================================================================
+// Types
+// =============================================================================
+
+interface CreateProjectDialogProps {
+  /** Whether the dialog is open */
   open: boolean;
-  onOpenChange: (next: boolean) => void;
-}): JSX.Element {
-  const createAndSetCurrent = useProjectStore((s) => s.createAndSetCurrent);
-  const clearError = useProjectStore((s) => s.clearError);
-  const lastError = useProjectStore((s) => s.lastError);
+  /** Callback when open state changes */
+  onOpenChange: (open: boolean) => void;
+}
 
-  const [name, setName] = React.useState("");
-  const [submitting, setSubmitting] = React.useState(false);
-  const formId = "create-project-form";
+interface FormContentProps {
+  formId: string;
+  defaultTemplateId: string;
+  presetOptions: Array<{ value: string; label: string }>;
+  customOptions: Array<{ value: string; label: string }>;
+  hasCustomTemplates: boolean;
+  lastError: { code: string; message: string } | null;
+  onSubmit: (data: { name: string; templateId: string; description: string; coverImage: File | null }) => Promise<void>;
+  onOpenCreateTemplate: () => void;
+}
 
-  React.useEffect(() => {
-    if (!props.open) {
-      setName("");
-      setSubmitting(false);
-      clearError();
-    }
-  }, [clearError, props.open]);
+// =============================================================================
+// Form Content Component
+// =============================================================================
 
-  async function onSubmit(e: React.FormEvent): Promise<void> {
-    e.preventDefault();
-    if (submitting) {
-      return;
-    }
+function FormContent({
+  formId,
+  defaultTemplateId,
+  presetOptions,
+  customOptions,
+  hasCustomTemplates,
+  lastError,
+  onSubmit,
+  onOpenCreateTemplate,
+}: FormContentProps): JSX.Element {
+  const [name, setName] = useState("");
+  const [templateId, setTemplateId] = useState(defaultTemplateId);
+  const [description, setDescription] = useState("");
+  const [coverImage, setCoverImage] = useState<File | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [nameError, setNameError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-    setSubmitting(true);
-    const res = await createAndSetCurrent({ name });
-    setSubmitting(false);
-    if (!res.ok) {
-      return;
-    }
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault();
 
-    props.onOpenChange(false);
-  }
+      // Validate name
+      const trimmedName = name.trim();
+      if (!trimmedName) {
+        setNameError(true);
+        return;
+      }
+
+      setNameError(false);
+      setSubmitting(true);
+
+      try {
+        await onSubmit({ name: trimmedName, templateId, description, coverImage });
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [name, templateId, description, coverImage, onSubmit],
+  );
 
   return (
-    <Dialog
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      title="Create project"
-      description="Creates a local project under your app profile."
-      footer={
-        <>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => props.onOpenChange(false)}
-          >
-            Cancel
-          </Button>
-          <Button
-            data-testid="create-project-submit"
-            variant="primary"
-            size="sm"
-            loading={submitting}
-            type="submit"
-            form={formId}
-          >
-            {submitting ? "Creating…" : "Create"}
-          </Button>
-        </>
-      }
+    <form
+      id={formId}
+      data-testid="create-project-dialog"
+      onSubmit={(e) => void handleSubmit(e)}
+      className="space-y-6"
     >
-      <form
-        id={formId}
-        data-testid="create-project-dialog"
-        onSubmit={(e) => void onSubmit(e)}
-      >
+      {/* Project Name */}
+      <div>
         <label className="block mb-2">
           <Text size="small" color="muted">
-            Name (optional)
+            Project Name <span className="text-[var(--color-error)]">*</span>
           </Text>
         </label>
         <Input
           data-testid="create-project-name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            if (nameError) setNameError(false);
+          }}
           autoFocus
-          placeholder="Untitled"
+          placeholder="e.g., The Silent Echo"
           fullWidth
-          className="mb-4"
+          error={nameError}
+          className={nameError ? "animate-shake" : ""}
         />
-
-        {lastError ? (
-          <Text size="small" color="muted" as="div" className="mb-4">
-            {lastError.code}: {lastError.message}
+        {nameError && (
+          <Text size="small" color="muted" as="div" className="mt-1 text-[var(--color-error)]">
+            Project name is required
           </Text>
-        ) : null}
-      </form>
-    </Dialog>
+        )}
+      </div>
+
+      {/* Template Selection */}
+      <div>
+        <label className="block mb-2">
+          <Text size="small" color="muted">
+            Template
+          </Text>
+        </label>
+
+        <RadioGroupRoot
+          value={templateId}
+          onValueChange={setTemplateId}
+          className="grid grid-cols-2 gap-3"
+        >
+          {/* Preset Templates */}
+          {presetOptions.map((opt) => (
+            <RadioCardItem key={opt.value} value={opt.value} label={opt.label} />
+          ))}
+        </RadioGroupRoot>
+
+        {/* Custom Templates */}
+        {hasCustomTemplates && (
+          <div className="mt-4">
+            <Text size="small" color="muted" as="div" className="mb-2">
+              Your Templates
+            </Text>
+            <RadioGroupRoot
+              value={templateId}
+              onValueChange={setTemplateId}
+              className="grid grid-cols-2 gap-3"
+            >
+              {customOptions.map((opt) => (
+                <RadioCardItem key={opt.value} value={opt.value} label={opt.label} />
+              ))}
+            </RadioGroupRoot>
+          </div>
+        )}
+
+        {/* Create Template Button */}
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={onOpenCreateTemplate}
+            className="h-10 px-3 w-full flex items-center justify-center gap-2 border-2 border-dashed border-[var(--color-border-default)] rounded-[var(--radius-sm)] text-sm text-[var(--color-fg-muted)] hover:border-[var(--color-border-hover)] hover:text-[var(--color-fg-default)] transition-colors"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Create Template
+          </button>
+        </div>
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block mb-2">
+          <Text size="small" color="muted">
+            Description{" "}
+            <span className="opacity-50 text-xs">(Optional)</span>
+          </Text>
+        </label>
+        <Textarea
+          data-testid="create-project-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Brief description of your project..."
+          fullWidth
+          rows={2}
+        />
+      </div>
+
+      {/* Cover Image */}
+      <div>
+        <label className="block mb-2">
+          <Text size="small" color="muted">
+            Cover Image{" "}
+            <span className="opacity-50 text-xs">(Optional)</span>
+          </Text>
+        </label>
+        <ImageUpload
+          value={coverImage}
+          onChange={setCoverImage}
+          onError={setImageError}
+          placeholder="Click or drag image to upload"
+          hint="PNG, JPG up to 5MB"
+        />
+        {imageError && (
+          <Text size="small" color="muted" as="div" className="mt-1 text-[var(--color-error)]">
+            {imageError}
+          </Text>
+        )}
+      </div>
+
+      {/* Error Message */}
+      {lastError && (
+        <Text size="small" color="muted" as="div" className="text-[var(--color-error)]">
+          {lastError.code}: {lastError.message}
+        </Text>
+      )}
+
+      {/* Submit button state indicator (hidden, used by parent) */}
+      <input type="hidden" data-submitting={submitting} />
+    </form>
+  );
+}
+
+// =============================================================================
+// Main Component
+// =============================================================================
+
+/**
+ * CreateProjectDialog - Full-featured dialog for creating new projects
+ *
+ * Features:
+ * - Project name (required)
+ * - Template selection (preset + custom)
+ * - Description (optional)
+ * - Cover image (optional)
+ * - Create Template entry point
+ */
+export function CreateProjectDialog({
+  open,
+  onOpenChange,
+}: CreateProjectDialogProps): JSX.Element {
+  // Project store
+  const createAndSetCurrent = useProjectStore((s) => s.createAndSetCurrent);
+  const clearError = useProjectStore((s) => s.clearError);
+  const lastError = useProjectStore((s) => s.lastError);
+
+  // Template store
+  const presets = useTemplateStore((s) => s.presets);
+  const customs = useTemplateStore((s) => s.customs);
+  const loadTemplates = useTemplateStore((s) => s.loadTemplates);
+
+  // CreateTemplateDialog state
+  const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const formId = "create-project-form";
+
+  // Compute default template ID
+  const defaultTemplateId = useMemo(
+    () => (presets.length > 0 ? presets[0].id : ""),
+    [presets],
+  );
+
+  // Build options for RadioCardGroup
+  const presetOptions = useMemo(
+    () => presets.map((t) => ({ value: t.id, label: t.name })),
+    [presets],
+  );
+
+  const customOptions = useMemo(
+    () => customs.map((t) => ({ value: t.id, label: t.name })),
+    [customs],
+  );
+
+  const hasCustomTemplates = customs.length > 0;
+
+  // Load templates on mount
+  useEffect(() => {
+    void loadTemplates();
+  }, [loadTemplates]);
+
+  // Clear error when dialog closes
+  useEffect(() => {
+    if (!open) {
+      clearError();
+    }
+  }, [open, clearError]);
+
+  const handleSubmit = useCallback(
+    async (data: { name: string }) => {
+      setSubmitting(true);
+      try {
+        const res = await createAndSetCurrent({ name: data.name });
+
+        if (!res.ok) {
+          setSubmitting(false);
+          return;
+        }
+
+        setSubmitting(false);
+        onOpenChange(false);
+      } catch {
+        setSubmitting(false);
+      }
+    },
+    [createAndSetCurrent, onOpenChange],
+  );
+
+  const handleTemplateCreated = useCallback((_id: string) => {
+    // Template selection is handled inside FormContent
+    // Refresh templates
+    void loadTemplates();
+  }, [loadTemplates]);
+
+  return (
+    <>
+      <Dialog
+        open={open}
+        onOpenChange={onOpenChange}
+        title="Create New Project"
+        description="Start a new writing project with a template."
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-testid="create-project-submit"
+              variant="primary"
+              size="sm"
+              loading={submitting}
+              type="submit"
+              form={formId}
+            >
+              {submitting ? "Creating…" : "Create Project"}
+            </Button>
+          </>
+        }
+      >
+        {/* Only render form when dialog is open to reset state on each open */}
+        {open && (
+          <FormContent
+            formId={formId}
+            defaultTemplateId={defaultTemplateId}
+            presetOptions={presetOptions}
+            customOptions={customOptions}
+            hasCustomTemplates={hasCustomTemplates}
+            lastError={lastError}
+            onSubmit={handleSubmit}
+            onOpenCreateTemplate={() => setCreateTemplateOpen(true)}
+          />
+        )}
+      </Dialog>
+
+      {/* Create Template Dialog */}
+      <CreateTemplateDialog
+        open={createTemplateOpen}
+        onOpenChange={setCreateTemplateOpen}
+        onCreated={handleTemplateCreated}
+      />
+    </>
   );
 }

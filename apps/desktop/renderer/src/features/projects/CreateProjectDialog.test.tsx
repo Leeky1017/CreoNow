@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { CreateProjectDialog } from "./CreateProjectDialog";
 
 // Mock stores
@@ -21,6 +22,36 @@ vi.mock("../../stores/projectStore", () => ({
   }),
 }));
 
+vi.mock("../../stores/templateStore", () => ({
+  useTemplateStore: vi.fn((selector) => {
+    const state = {
+      presets: [
+        { id: "preset-novel", name: "Novel", type: "preset", structure: { folders: [], files: [] } },
+        { id: "preset-short", name: "Short Story", type: "preset", structure: { folders: [], files: [] } },
+        { id: "preset-script", name: "Screenplay", type: "preset", structure: { folders: [], files: [] } },
+        { id: "preset-other", name: "Other", type: "preset", structure: { folders: [], files: [] } },
+      ],
+      customs: [],
+      loading: false,
+      error: null,
+      loadTemplates: vi.fn().mockResolvedValue(undefined),
+      createTemplate: vi.fn(),
+      updateTemplate: vi.fn(),
+      deleteTemplate: vi.fn(),
+      getAllTemplates: vi.fn(),
+      getTemplateById: vi.fn(),
+      clearError: vi.fn(),
+    };
+    return selector(state);
+  }),
+}));
+
+// Mock CreateTemplateDialog
+vi.mock("./CreateTemplateDialog", () => ({
+  CreateTemplateDialog: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="create-template-dialog">Create Template Dialog</div> : null,
+}));
+
 describe("CreateProjectDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -36,10 +67,10 @@ describe("CreateProjectDialog", () => {
       expect(screen.getByTestId("create-project-dialog")).toBeInTheDocument();
     });
 
-    it("应该显示 Create project 标题", () => {
+    it("应该显示 Create New Project 标题", () => {
       render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
 
-      expect(screen.getByText("Create project")).toBeInTheDocument();
+      expect(screen.getByText("Create New Project")).toBeInTheDocument();
     });
 
     it("应该显示名称输入框", () => {
@@ -48,17 +79,38 @@ describe("CreateProjectDialog", () => {
       expect(screen.getByTestId("create-project-name")).toBeInTheDocument();
     });
 
-    it("应该显示 Create 按钮", () => {
+    it("应该显示 Create Project 按钮", () => {
       render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
 
       expect(screen.getByTestId("create-project-submit")).toBeInTheDocument();
-      expect(screen.getByText("Create")).toBeInTheDocument();
+      expect(screen.getByText("Create Project")).toBeInTheDocument();
     });
 
     it("应该显示 Cancel 按钮", () => {
       render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
 
       expect(screen.getByText("Cancel")).toBeInTheDocument();
+    });
+
+    it("应该显示预设模板选项", () => {
+      render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
+
+      expect(screen.getByText("Novel")).toBeInTheDocument();
+      expect(screen.getByText("Short Story")).toBeInTheDocument();
+      expect(screen.getByText("Screenplay")).toBeInTheDocument();
+      expect(screen.getByText("Other")).toBeInTheDocument();
+    });
+
+    it("应该显示描述输入框", () => {
+      render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
+
+      expect(screen.getByTestId("create-project-description")).toBeInTheDocument();
+    });
+
+    it("应该显示 Create Template 按钮", () => {
+      render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
+
+      expect(screen.getByText("Create Template")).toBeInTheDocument();
     });
   });
 
@@ -70,7 +122,7 @@ describe("CreateProjectDialog", () => {
       render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
 
       const input = screen.getByTestId("create-project-name");
-      expect(input).toHaveAttribute("placeholder", "Untitled");
+      expect(input).toHaveAttribute("placeholder", "e.g., The Silent Echo");
     });
 
     it("输入应更新值", () => {
@@ -91,6 +143,31 @@ describe("CreateProjectDialog", () => {
   });
 
   // ===========================================================================
+  // 验证测试
+  // ===========================================================================
+  describe("验证", () => {
+    it("空名称应该显示错误", async () => {
+      const user = userEvent.setup();
+      render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
+
+      // Submit without entering name
+      await user.click(screen.getByTestId("create-project-submit"));
+
+      expect(screen.getByText("Project name is required")).toBeInTheDocument();
+    });
+
+    it("只有空格的名称应该显示错误", async () => {
+      const user = userEvent.setup();
+      render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
+
+      await user.type(screen.getByTestId("create-project-name"), "   ");
+      await user.click(screen.getByTestId("create-project-submit"));
+
+      expect(screen.getByText("Project name is required")).toBeInTheDocument();
+    });
+  });
+
+  // ===========================================================================
   // 交互测试
   // ===========================================================================
   describe("交互", () => {
@@ -104,7 +181,7 @@ describe("CreateProjectDialog", () => {
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
 
-    it("提交表单应调用 createAndSetCurrent", async () => {
+    it("提交有效表单应调用 createAndSetCurrent", async () => {
       const { useProjectStore } = await import("../../stores/projectStore");
       const createAndSetCurrent = vi
         .fn()
@@ -123,17 +200,24 @@ describe("CreateProjectDialog", () => {
         return selector(state);
       });
 
+      const user = userEvent.setup();
       render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
 
-      const input = screen.getByTestId("create-project-name");
-      fireEvent.change(input, { target: { value: "New Project" } });
+      await user.type(screen.getByTestId("create-project-name"), "New Project");
+      await user.click(screen.getByTestId("create-project-submit"));
 
-      const form = screen.getByTestId("create-project-dialog");
-      fireEvent.submit(form);
-
-      await vi.waitFor(() => {
-        expect(createAndSetCurrent).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(createAndSetCurrent).toHaveBeenCalledWith({ name: "New Project" });
       });
+    });
+
+    it("点击 Create Template 应打开 CreateTemplateDialog", async () => {
+      const user = userEvent.setup();
+      render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
+
+      await user.click(screen.getByText("Create Template"));
+
+      expect(screen.getByTestId("create-template-dialog")).toBeInTheDocument();
     });
   });
 
@@ -194,12 +278,13 @@ describe("CreateProjectDialog", () => {
         return selector(state);
       });
 
+      const user = userEvent.setup();
       render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
 
-      const form = screen.getByTestId("create-project-dialog");
-      fireEvent.submit(form);
+      await user.type(screen.getByTestId("create-project-name"), "Test Project");
+      await user.click(screen.getByTestId("create-project-submit"));
 
-      await vi.waitFor(() => {
+      await waitFor(() => {
         expect(screen.getByText("Creating…")).toBeInTheDocument();
       });
     });

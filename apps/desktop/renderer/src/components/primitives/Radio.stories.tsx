@@ -1,6 +1,12 @@
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import { RadioGroup, Radio, RadioGroupRoot } from "./Radio";
+import {
+  RadioGroup,
+  Radio,
+  RadioGroupRoot,
+  RadioCardGroup,
+  RadioCardItem,
+} from "./Radio";
 
 /**
  * Radio 组件 Story
@@ -299,4 +305,175 @@ export const ManyOptions: Story = {
       label: `Option ${i + 1}`,
     })),
   },
+};
+
+// ============================================================================
+// RadioCardGroup Stories
+// ============================================================================
+
+// Template options for project types
+const templateOptions = [
+  { value: "novel", label: "Novel" },
+  { value: "short", label: "Short Story" },
+  { value: "script", label: "Screenplay" },
+  { value: "other", label: "Other" },
+];
+
+/** Card Group 默认 2x2 网格 */
+export const CardGroup: StoryObj<typeof RadioCardGroup> = {
+  render: () => (
+    <div style={{ maxWidth: "400px" }}>
+      <RadioCardGroup
+        options={templateOptions}
+        defaultValue="novel"
+        columns={2}
+      />
+    </div>
+  ),
+};
+
+/** Card Group 3 列 */
+export const CardGroup3Columns: StoryObj<typeof RadioCardGroup> = {
+  render: () => (
+    <div style={{ maxWidth: "500px" }}>
+      <RadioCardGroup
+        options={[...templateOptions, { value: "essay", label: "Essay" }]}
+        defaultValue="novel"
+        columns={3}
+      />
+    </div>
+  ),
+};
+
+/** Card Group 受控模式 */
+function CardGroupControlledDemo() {
+  const [value, setValue] = React.useState("novel");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        Selected: {value}
+      </div>
+      <div style={{ maxWidth: "400px" }}>
+        <RadioCardGroup
+          options={templateOptions}
+          value={value}
+          onValueChange={setValue}
+          columns={2}
+        />
+      </div>
+    </div>
+  );
+}
+
+export const CardGroupControlled: StoryObj<typeof RadioCardGroup> = {
+  render: () => <CardGroupControlledDemo />,
+};
+
+/** Card Group 禁用状态 */
+export const CardGroupDisabled: StoryObj<typeof RadioCardGroup> = {
+  render: () => (
+    <div style={{ maxWidth: "400px" }}>
+      <RadioCardGroup
+        options={templateOptions}
+        defaultValue="novel"
+        disabled
+        columns={2}
+      />
+    </div>
+  ),
+};
+
+/** Card Group 部分禁用 */
+export const CardGroupPartialDisabled: StoryObj<typeof RadioCardGroup> = {
+  render: () => (
+    <div style={{ maxWidth: "400px" }}>
+      <RadioCardGroup
+        options={[
+          { value: "novel", label: "Novel" },
+          { value: "short", label: "Short Story" },
+          { value: "script", label: "Screenplay", disabled: true },
+          { value: "other", label: "Other" },
+        ]}
+        defaultValue="novel"
+        columns={2}
+      />
+    </div>
+  ),
+};
+
+/** Card Group 带 Action 入口 */
+function CardGroupWithActionDemo() {
+  const [value, setValue] = React.useState("novel");
+  const [templates] = React.useState(templateOptions);
+
+  const handleCreateTemplate = () => {
+    alert("Open Create Template Dialog");
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+      <div style={{ fontSize: "12px", color: "var(--color-fg-muted)" }}>
+        Selected: {value}
+      </div>
+      <div style={{ maxWidth: "400px" }}>
+        <RadioGroupRoot
+          value={value}
+          onValueChange={setValue}
+          className="grid grid-cols-2 gap-3"
+        >
+          {templates.map((opt) => (
+            <RadioCardItem key={opt.value} value={opt.value} label={opt.label} />
+          ))}
+          <RadioCardItem
+            value=""
+            label="+ Create Template"
+            isAction
+            onAction={handleCreateTemplate}
+          />
+        </RadioGroupRoot>
+      </div>
+    </div>
+  );
+}
+
+export const CardGroupWithAction: StoryObj<typeof RadioCardGroup> = {
+  render: () => <CardGroupWithActionDemo />,
+};
+
+/** Card Group 在表单中 */
+export const CardGroupInForm: StoryObj<typeof RadioCardGroup> = {
+  render: () => (
+    <form
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.5rem",
+        maxWidth: "480px",
+        padding: "1.5rem",
+        backgroundColor: "var(--color-bg-surface)",
+        borderRadius: "var(--radius-lg)",
+      }}
+    >
+      <div>
+        <label
+          style={{
+            display: "block",
+            marginBottom: "0.75rem",
+            fontSize: "14px",
+            fontWeight: 500,
+            color: "var(--color-fg-muted)",
+          }}
+        >
+          Project Type
+        </label>
+        <RadioCardGroup
+          options={templateOptions}
+          name="projectType"
+          defaultValue="novel"
+          columns={2}
+        />
+      </div>
+    </form>
+  ),
 };

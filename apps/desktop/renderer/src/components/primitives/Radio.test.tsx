@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { RadioGroup } from "./Radio";
+import { RadioGroup, RadioCardGroup, RadioCardItem, RadioGroupRoot } from "./Radio";
 
 const sampleOptions = [
   { value: "option1", label: "Option 1" },
@@ -240,5 +240,203 @@ describe("RadioGroup", () => {
       const radioGroup = container.querySelector('[role="radiogroup"]');
       expect(radioGroup).toBeInTheDocument();
     });
+  });
+});
+
+// =============================================================================
+// RadioCardGroup 测试
+// =============================================================================
+
+const cardOptions = [
+  { value: "novel", label: "Novel" },
+  { value: "short", label: "Short Story" },
+  { value: "script", label: "Screenplay" },
+  { value: "other", label: "Other" },
+];
+
+describe("RadioCardGroup", () => {
+  // ===========================================================================
+  // 基础渲染测试
+  // ===========================================================================
+  describe("渲染", () => {
+    it("应该渲染所有选项", () => {
+      render(<RadioCardGroup options={cardOptions} />);
+
+      expect(screen.getByText("Novel")).toBeInTheDocument();
+      expect(screen.getByText("Short Story")).toBeInTheDocument();
+      expect(screen.getByText("Screenplay")).toBeInTheDocument();
+      expect(screen.getByText("Other")).toBeInTheDocument();
+    });
+
+    it("应该渲染为网格布局", () => {
+      const { container } = render(
+        <RadioCardGroup options={cardOptions} columns={2} />,
+      );
+
+      expect(container.firstChild).toHaveClass("grid", "grid-cols-2");
+    });
+
+    it("应该支持不同列数", () => {
+      const { container } = render(
+        <RadioCardGroup options={cardOptions} columns={3} />,
+      );
+
+      expect(container.firstChild).toHaveClass("grid-cols-3");
+    });
+  });
+
+  // ===========================================================================
+  // 交互测试
+  // ===========================================================================
+  describe("交互", () => {
+    it("点击应该选中选项", async () => {
+      const user = userEvent.setup();
+      render(<RadioCardGroup options={cardOptions} />);
+
+      const novel = screen.getByRole("radio", { name: /Novel/i });
+      await user.click(novel);
+
+      expect(novel).toBeChecked();
+    });
+
+    it("只能选中一个选项", async () => {
+      const user = userEvent.setup();
+      render(<RadioCardGroup options={cardOptions} />);
+
+      const novel = screen.getByRole("radio", { name: /Novel/i });
+      const short = screen.getByRole("radio", { name: /Short Story/i });
+
+      await user.click(novel);
+      expect(novel).toBeChecked();
+
+      await user.click(short);
+      expect(short).toBeChecked();
+      expect(novel).not.toBeChecked();
+    });
+
+    it("应该调用 onValueChange", async () => {
+      const onValueChange = vi.fn();
+      const user = userEvent.setup();
+
+      render(
+        <RadioCardGroup options={cardOptions} onValueChange={onValueChange} />,
+      );
+
+      await user.click(screen.getByRole("radio", { name: /Screenplay/i }));
+
+      expect(onValueChange).toHaveBeenCalledWith("script");
+    });
+  });
+
+  // ===========================================================================
+  // 默认值测试
+  // ===========================================================================
+  describe("默认值", () => {
+    it("应该支持 defaultValue", () => {
+      render(<RadioCardGroup options={cardOptions} defaultValue="short" />);
+
+      expect(
+        screen.getByRole("radio", { name: /Short Story/i }),
+      ).toBeChecked();
+    });
+
+    it("应该支持受控 value", () => {
+      render(<RadioCardGroup options={cardOptions} value="script" />);
+
+      expect(
+        screen.getByRole("radio", { name: /Screenplay/i }),
+      ).toBeChecked();
+    });
+  });
+
+  // ===========================================================================
+  // 禁用测试
+  // ===========================================================================
+  describe("禁用", () => {
+    it("禁用整个组时所有选项不可点击", async () => {
+      const onValueChange = vi.fn();
+      const user = userEvent.setup();
+
+      render(
+        <RadioCardGroup
+          options={cardOptions}
+          disabled
+          onValueChange={onValueChange}
+        />,
+      );
+
+      await user.click(screen.getByRole("radio", { name: /Novel/i }));
+
+      expect(onValueChange).not.toHaveBeenCalled();
+    });
+
+    it("禁用单个选项时该选项不可点击", async () => {
+      const onValueChange = vi.fn();
+      const user = userEvent.setup();
+
+      render(
+        <RadioCardGroup
+          options={[
+            { value: "novel", label: "Novel" },
+            { value: "short", label: "Short Story", disabled: true },
+          ]}
+          onValueChange={onValueChange}
+        />,
+      );
+
+      await user.click(screen.getByRole("radio", { name: /Short Story/i }));
+
+      expect(onValueChange).not.toHaveBeenCalled();
+    });
+  });
+});
+
+// =============================================================================
+// RadioCardItem 测试
+// =============================================================================
+
+describe("RadioCardItem", () => {
+  it("应该在 RadioGroupRoot 中渲染为 radio", () => {
+    render(
+      <RadioGroupRoot defaultValue="test">
+        <RadioCardItem value="test" label="Test Label" />
+      </RadioGroupRoot>,
+    );
+
+    expect(screen.getByRole("radio")).toBeInTheDocument();
+    expect(screen.getByText("Test Label")).toBeInTheDocument();
+  });
+
+  it("isAction 模式应该渲染为按钮", () => {
+    const onAction = vi.fn();
+    render(
+      <RadioCardItem
+        value=""
+        label="+ Create Template"
+        isAction
+        onAction={onAction}
+      />,
+    );
+
+    expect(screen.getByRole("button")).toBeInTheDocument();
+    expect(screen.getByText("+ Create Template")).toBeInTheDocument();
+  });
+
+  it("isAction 模式点击应该调用 onAction", async () => {
+    const onAction = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <RadioCardItem
+        value=""
+        label="+ Create Template"
+        isAction
+        onAction={onAction}
+      />,
+    );
+
+    await user.click(screen.getByRole("button"));
+
+    expect(onAction).toHaveBeenCalled();
   });
 });

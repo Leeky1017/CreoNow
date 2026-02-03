@@ -1,14 +1,19 @@
+import React, { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
 import { CreateProjectDialog } from "./CreateProjectDialog";
+import { Button } from "../../components/primitives/Button";
 
 /**
  * CreateProjectDialog 组件 Story
  *
  * 功能：
  * - 创建项目对话框
- * - 名称输入
- * - 表单验证
+ * - 项目名称输入（必填）
+ * - 模板选择（预设 + 自定义）
+ * - 描述输入（可选）
+ * - 封面图片上传（可选）
+ * - 创建模板入口
  */
 const meta: Meta<typeof CreateProjectDialog> = {
   title: "Features/CreateProjectDialog",
@@ -34,7 +39,11 @@ type Story = StoryObj<typeof CreateProjectDialog>;
 /**
  * 打开状态
  *
- * 创建项目对话框打开
+ * 完整的创建项目对话框，包含：
+ * - 项目名称输入
+ * - 模板选择（2x2 卡片网格）
+ * - 描述输入
+ * - 封面图片上传
  */
 export const Open: Story = {
   args: {
@@ -66,6 +75,26 @@ export const Closed: Story = {
 };
 
 /**
+ * 交互演示
+ *
+ * 可以交互的完整流程演示
+ */
+function InteractiveDemo() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
+      <Button onClick={() => setOpen(true)}>Create New Project</Button>
+      <CreateProjectDialog open={open} onOpenChange={setOpen} />
+    </div>
+  );
+}
+
+export const Interactive: Story = {
+  render: () => <InteractiveDemo />,
+};
+
+/**
  * 暗色背景
  *
  * 在暗色背景下的显示效果
@@ -77,8 +106,8 @@ export const DarkBackground: Story = {
   render: (args) => (
     <div
       style={{
-        width: "600px",
-        height: "400px",
+        width: "700px",
+        height: "600px",
         backgroundColor: "var(--color-bg-base)",
         display: "flex",
         alignItems: "center",
