@@ -6,12 +6,15 @@
  *
  * Features are organized by domain:
  * - KnowledgeGraph: Entity relationship visualization
+ * - AiDialogs: AI interaction and system feedback dialogs
  *
  * @example
  * ```tsx
- * import { KnowledgeGraph } from '@/components/features';
+ * import { KnowledgeGraph, AiInlineConfirm, SystemDialog } from '@/components/features';
  *
  * <KnowledgeGraph data={graphData} onNodeSelect={handleSelect} />
+ * <AiInlineConfirm originalText="..." suggestedText="..." onAccept={...} onReject={...} />
+ * <SystemDialog type="delete" open={isOpen} onOpenChange={setIsOpen} onPrimaryAction={...} />
  * ```
  */
 
@@ -41,3 +44,22 @@ export type {
   GraphLegendProps,
   GraphCanvasProps,
 } from "./KnowledgeGraph";
+
+export {
+  AiInlineConfirm,
+  AiDiffModal,
+  DiffText,
+  AiErrorCard,
+  SystemDialog,
+} from "./AiDialogs";
+
+export type {
+  AiErrorType,
+  AiErrorConfig,
+  AiInlineConfirmProps,
+  DiffChange,
+  AiDiffModalProps,
+  AiErrorCardProps,
+  SystemDialogType,
+  SystemDialogProps,
+} from "./AiDialogs";
