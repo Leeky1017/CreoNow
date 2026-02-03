@@ -197,11 +197,7 @@ const cardStyles = [
   "ease-[var(--ease-default)]",
 ].join(" ");
 
-const contentStyles = [
-  "flex",
-  "items-start",
-  "gap-3",
-].join(" ");
+const contentStyles = ["flex", "items-start", "gap-3"].join(" ");
 
 const iconContainerStyles = [
   "p-1.5",
@@ -260,11 +256,7 @@ const readyToRetryStyles = [
   "animate-pulse",
 ].join(" ");
 
-const buttonContainerStyles = [
-  "flex",
-  "items-center",
-  "gap-2",
-].join(" ");
+const buttonContainerStyles = ["flex", "items-center", "gap-2"].join(" ");
 
 const retryButtonStyles = [
   "text-xs",
@@ -380,11 +372,12 @@ export function AiErrorCard({
 
   const iconColors = getIconColorsByType(error.type);
   const borderColor = getBorderColorByType(error.type);
-  const bgColor = error.type === "service_error"
-    ? "bg-[var(--color-error-subtle)]"
-    : error.type === "rate_limit" || error.type === "usage_limit"
-    ? "bg-[var(--color-bg-raised)]"
-    : "bg-[var(--color-error-subtle)]";
+  const bgColor =
+    error.type === "service_error"
+      ? "bg-[var(--color-error-subtle)]"
+      : error.type === "rate_limit" || error.type === "usage_limit"
+        ? "bg-[var(--color-bg-raised)]"
+        : "bg-[var(--color-error-subtle)]";
 
   // Countdown timer for rate limit errors
   useEffect(() => {
@@ -408,7 +401,8 @@ export function AiErrorCard({
     return () => clearInterval(interval);
   }, [error.type, error.countdownSeconds]);
 
-  const isRetryDisabled = (error.type === "rate_limit" && countdown > 0) || retryState === "loading";
+  const isRetryDisabled =
+    (error.type === "rate_limit" && countdown > 0) || retryState === "loading";
 
   const handleDismiss = useCallback(() => {
     setCardState("dismissing");
@@ -421,7 +415,7 @@ export function AiErrorCard({
 
   const handleRetry = useCallback(async () => {
     if (retryState === "loading") return;
-    
+
     setRetryState("loading");
 
     // Simulate async retry operation
@@ -450,7 +444,8 @@ export function AiErrorCard({
   }
 
   // Opacity class for dismissing animation
-  const opacityClass = cardState === "dismissing" ? "opacity-0 scale-95" : "opacity-100 scale-100";
+  const opacityClass =
+    cardState === "dismissing" ? "opacity-0 scale-95" : "opacity-100 scale-100";
 
   // Get retry button text and state
   const getRetryButtonContent = () => {
@@ -472,7 +467,9 @@ export function AiErrorCard({
   };
 
   return (
-    <div className={`${cardStyles} ${bgColor} ${borderColor} ${opacityClass} ${className}`}>
+    <div
+      className={`${cardStyles} ${bgColor} ${borderColor} ${opacityClass} ${className}`}
+    >
       {/* Dismiss button */}
       {showDismiss && (
         <button
@@ -487,7 +484,9 @@ export function AiErrorCard({
 
       <div className={contentStyles}>
         {/* Icon */}
-        <div className={`${iconContainerStyles} ${iconColors.bg} ${iconColors.text}`}>
+        <div
+          className={`${iconContainerStyles} ${iconColors.bg} ${iconColors.text}`}
+        >
           {getIconByType(error.type)}
         </div>
 
@@ -503,17 +502,15 @@ export function AiErrorCard({
 
           {/* Countdown for rate limit */}
           {error.type === "rate_limit" && countdown > 0 && (
-            <div className={countdownStyles}>
-              Try again in {countdown}s
-            </div>
+            <div className={countdownStyles}>Try again in {countdown}s</div>
           )}
 
           {/* Ready to retry message when countdown completes */}
-          {error.type === "rate_limit" && countdownComplete && countdown === 0 && (
-            <div className={readyToRetryStyles}>
-              Ready to retry
-            </div>
-          )}
+          {error.type === "rate_limit" &&
+            countdownComplete &&
+            countdown === 0 && (
+              <div className={readyToRetryStyles}>Ready to retry</div>
+            )}
 
           {/* Actions */}
           <div className={buttonContainerStyles}>

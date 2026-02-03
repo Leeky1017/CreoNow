@@ -4,7 +4,12 @@ import { AiInlineConfirm } from "./AiInlineConfirm";
 import { AiDiffModal } from "./AiDiffModal";
 import { AiErrorCard } from "./AiErrorCard";
 import { SystemDialog } from "./SystemDialog";
-import type { AiErrorConfig, DiffChange, AiErrorType, DiffChangeState } from "./types";
+import type {
+  AiErrorConfig,
+  DiffChange,
+  AiErrorType,
+  DiffChangeState,
+} from "./types";
 
 /**
  * AI Dialogs - Components for AI interaction and system feedback
@@ -60,8 +65,7 @@ const sampleDiffChanges: DiffChange[] = [
   },
   {
     id: "3",
-    before:
-      "The user interface will be refreshed in the next update.",
+    before: "The user interface will be refreshed in the next update.",
     after:
       "The user interface will undergo a comprehensive redesign following modern accessibility guidelines (WCAG 2.1 AA) in the next major release.",
   },
@@ -239,7 +243,8 @@ export const InlineConfirmApplyingState: StoryObj = {
     return (
       <div className="w-[600px] p-8 bg-[var(--color-bg-surface)] rounded-lg">
         <div className="text-xs text-[var(--color-fg-muted)] mb-4">
-          This shows the "applying" state with the spinner visible on the toolbar
+          This shows the "applying" state with the spinner visible on the
+          toolbar
         </div>
         <AiInlineConfirm
           originalText={sampleOriginalText}
@@ -484,7 +489,9 @@ export const ErrorDismissAnimation: StoryObj = {
             Click the X button to dismiss
           </span>
           {dismissed && (
-            <span className="text-xs text-[var(--color-success)]">Dismissed!</span>
+            <span className="text-xs text-[var(--color-success)]">
+              Dismissed!
+            </span>
           )}
         </div>
         <div className="p-4 bg-[var(--color-bg-base)] min-h-[120px]">
@@ -658,8 +665,20 @@ export const SystemKeyboardNavigation: StoryObj = {
         </button>
         <div className="text-xs text-[var(--color-fg-muted)] space-y-1">
           <p>Try these keyboard shortcuts:</p>
-          <p>• <kbd className="px-1.5 py-0.5 bg-[var(--color-bg-hover)] rounded text-[10px]">Enter</kbd> - Confirm (Delete)</p>
-          <p>• <kbd className="px-1.5 py-0.5 bg-[var(--color-bg-hover)] rounded text-[10px]">Esc</kbd> - Cancel</p>
+          <p>
+            •{" "}
+            <kbd className="px-1.5 py-0.5 bg-[var(--color-bg-hover)] rounded text-[10px]">
+              Enter
+            </kbd>{" "}
+            - Confirm (Delete)
+          </p>
+          <p>
+            •{" "}
+            <kbd className="px-1.5 py-0.5 bg-[var(--color-bg-hover)] rounded text-[10px]">
+              Esc
+            </kbd>{" "}
+            - Cancel
+          </p>
         </div>
         {lastAction && (
           <div className="text-xs text-[var(--color-success)]">
@@ -671,7 +690,9 @@ export const SystemKeyboardNavigation: StoryObj = {
           onOpenChange={setOpen}
           type="delete"
           onPrimaryAction={() => setLastAction("Delete (via Enter or click)")}
-          onSecondaryAction={() => setLastAction("Cancel (via Escape or click)")}
+          onSecondaryAction={() =>
+            setLastAction("Cancel (via Escape or click)")
+          }
           showKeyboardHints={true}
           simulateDelay={1500}
         />

@@ -79,7 +79,13 @@ const Spinner = ({ className = "" }: { className?: string }) => (
  */
 const defaultContent: Record<
   SystemDialogType,
-  { title: string; description: string; primaryLabel: string; secondaryLabel: string; tertiaryLabel?: string }
+  {
+    title: string;
+    description: string;
+    primaryLabel: string;
+    secondaryLabel: string;
+    tertiaryLabel?: string;
+  }
 > = {
   delete: {
     title: "Delete Document?",
@@ -124,7 +130,11 @@ function getIconByType(type: SystemDialogType): JSX.Element {
 /**
  * Get icon colors by dialog type
  */
-function getIconColorsByType(type: SystemDialogType): { bg: string; text: string; border: string } {
+function getIconColorsByType(type: SystemDialogType): {
+  bg: string;
+  text: string;
+  border: string;
+} {
   switch (type) {
     case "delete":
       return {
@@ -261,12 +271,9 @@ const kbdStyles = [
 /**
  * Button container styles
  */
-const buttonContainerStyles = [
-  "flex",
-  "items-center",
-  "gap-3",
-  "w-full",
-].join(" ");
+const buttonContainerStyles = ["flex", "items-center", "gap-3", "w-full"].join(
+  " ",
+);
 
 /**
  * Button base styles
@@ -407,9 +414,12 @@ export function SystemDialog({
   const defaultContentForType = defaultContent[type];
   const displayTitle = title || defaultContentForType.title;
   const displayDescription = description || defaultContentForType.description;
-  const displayPrimaryLabel = primaryLabel || defaultContentForType.primaryLabel;
-  const displaySecondaryLabel = secondaryLabel || defaultContentForType.secondaryLabel;
-  const displayTertiaryLabel = tertiaryLabel || defaultContentForType.tertiaryLabel;
+  const displayPrimaryLabel =
+    primaryLabel || defaultContentForType.primaryLabel;
+  const displaySecondaryLabel =
+    secondaryLabel || defaultContentForType.secondaryLabel;
+  const displayTertiaryLabel =
+    tertiaryLabel || defaultContentForType.tertiaryLabel;
   const iconColors = getIconColorsByType(type);
 
   const isLoading = actionState === "loading";
@@ -470,7 +480,7 @@ export function SystemDialog({
         handlePrimaryAction();
       }
     },
-    [handlePrimaryAction, isLoading]
+    [handlePrimaryAction, isLoading],
   );
 
   // Render primary button content

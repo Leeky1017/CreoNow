@@ -212,17 +212,9 @@ const closeButtonStyles = [
 /**
  * Diff panel styles
  */
-const diffContainerStyles = [
-  "flex-1",
-  "flex",
-  "overflow-hidden",
-].join(" ");
+const diffContainerStyles = ["flex-1", "flex", "overflow-hidden"].join(" ");
 
-const diffPanelStyles = [
-  "flex-1",
-  "overflow-y-auto",
-  "p-6",
-].join(" ");
+const diffPanelStyles = ["flex-1", "overflow-y-auto", "p-6"].join(" ");
 
 const beforePanelStyles = [
   diffPanelStyles,
@@ -231,10 +223,9 @@ const beforePanelStyles = [
   "bg-[var(--color-bg-base)]",
 ].join(" ");
 
-const afterPanelStyles = [
-  diffPanelStyles,
-  "bg-[var(--color-bg-surface)]",
-].join(" ");
+const afterPanelStyles = [diffPanelStyles, "bg-[var(--color-bg-surface)]"].join(
+  " ",
+);
 
 const labelStyles = [
   "uppercase",
@@ -256,21 +247,13 @@ const afterLabelStyles = [
   "opacity-70",
 ].join(" ");
 
-const textStyles = [
-  "text-sm",
-  "leading-relaxed",
-  "font-mono",
-].join(" ");
+const textStyles = ["text-sm", "leading-relaxed", "font-mono"].join(" ");
 
-const beforeTextStyles = [
-  textStyles,
-  "text-[var(--color-fg-muted)]",
-].join(" ");
+const beforeTextStyles = [textStyles, "text-[var(--color-fg-muted)]"].join(" ");
 
-const afterTextStyles = [
-  textStyles,
-  "text-[var(--color-fg-default)]",
-].join(" ");
+const afterTextStyles = [textStyles, "text-[var(--color-fg-default)]"].join(
+  " ",
+);
 
 /**
  * Diff highlight styles
@@ -351,13 +334,9 @@ const statsStyles = [
   "text-[var(--color-fg-muted)]",
 ].join(" ");
 
-const addedStatsStyles = [
-  "text-[var(--color-success)]",
-].join(" ");
+const addedStatsStyles = ["text-[var(--color-success)]"].join(" ");
 
-const removedStatsStyles = [
-  "text-[var(--color-error)]",
-].join(" ");
+const removedStatsStyles = ["text-[var(--color-error)]"].join(" ");
 
 /**
  * Button styles
@@ -464,24 +443,27 @@ const applyChangesStyles = [
 /**
  * Calculate line count diff statistics
  */
-function calculateStats(changes: DiffChange[]): { added: number; removed: number } {
+function calculateStats(changes: DiffChange[]): {
+  added: number;
+  removed: number;
+} {
   let added = 0;
   let removed = 0;
-  
+
   for (const change of changes) {
     const beforeLines = change.before.split("\n").length;
     const afterLines = change.after.split("\n").length;
-    
+
     if (afterLines > beforeLines) {
       added += afterLines - beforeLines;
     } else if (beforeLines > afterLines) {
       removed += beforeLines - afterLines;
     }
-    
+
     // Count word-level changes for same-line modifications
     const beforeWords = change.before.split(/\s+/).length;
     const afterWords = change.after.split(/\s+/).length;
-    
+
     if (afterWords > beforeWords) {
       added += 1;
     } else if (beforeWords > afterWords) {
@@ -492,23 +474,27 @@ function calculateStats(changes: DiffChange[]): { added: number; removed: number
       removed += 1;
     }
   }
-  
+
   return { added, removed };
 }
 
 /**
  * Simple word-diff algorithm for highlighting changes
  */
-function computeWordDiff(before: string, after: string): {
+function computeWordDiff(
+  before: string,
+  after: string,
+): {
   beforeParts: Array<{ text: string; type: "unchanged" | "removed" }>;
   afterParts: Array<{ text: string; type: "unchanged" | "added" }>;
 } {
   const beforeWords = before.split(/(\s+)/);
   const afterWords = after.split(/(\s+)/);
-  
-  const beforeParts: Array<{ text: string; type: "unchanged" | "removed" }> = [];
+
+  const beforeParts: Array<{ text: string; type: "unchanged" | "removed" }> =
+    [];
   const afterParts: Array<{ text: string; type: "unchanged" | "added" }> = [];
-  
+
   // Simple LCS-based diff
   const lcs = new Set<string>();
   const beforeSet = new Set(beforeWords);
@@ -517,7 +503,7 @@ function computeWordDiff(before: string, after: string): {
       lcs.add(word);
     }
   }
-  
+
   // Mark before words
   for (const word of beforeWords) {
     const isInAfter = afterWords.includes(word);
@@ -526,7 +512,7 @@ function computeWordDiff(before: string, after: string): {
       type: isInAfter ? "unchanged" : "removed",
     });
   }
-  
+
   // Mark after words
   const beforeWordsSet = new Set(beforeWords);
   for (const word of afterWords) {
@@ -535,7 +521,7 @@ function computeWordDiff(before: string, after: string): {
       type: beforeWordsSet.has(word) ? "unchanged" : "added",
     });
   }
-  
+
   return { beforeParts, afterParts };
 }
 
@@ -574,7 +560,9 @@ export function AiDiffModal({
   initialChangeStates = {},
 }: AiDiffModalProps): JSX.Element {
   const [modalState, setModalState] = useState<ModalState>("reviewing");
-  const [changeStates, setChangeStates] = useState<Record<string, DiffChangeState>>(() => {
+  const [changeStates, setChangeStates] = useState<
+    Record<string, DiffChangeState>
+  >(() => {
     const states: Record<string, DiffChangeState> = {};
     for (const change of changes) {
       states[change.id] = initialChangeStates[change.id] || "pending";
@@ -583,24 +571,28 @@ export function AiDiffModal({
   });
 
   const totalChanges = changes.length;
-  const currentChange = changes[currentIndex] || { id: "", before: "", after: "" };
+  const currentChange = changes[currentIndex] || {
+    id: "",
+    before: "",
+    after: "",
+  };
   const currentState = changeStates[currentChange.id] || "pending";
 
   // Calculate statistics
   const stats = useMemo(() => calculateStats(changes), [changes]);
   const acceptedCount = useMemo(
     () => Object.values(changeStates).filter((s) => s === "accepted").length,
-    [changeStates]
+    [changeStates],
   );
   const rejectedCount = useMemo(
     () => Object.values(changeStates).filter((s) => s === "rejected").length,
-    [changeStates]
+    [changeStates],
   );
 
   // Compute word diff for current change
   const { beforeParts, afterParts } = useMemo(
     () => computeWordDiff(currentChange.before, currentChange.after),
-    [currentChange.before, currentChange.after]
+    [currentChange.before, currentChange.after],
   );
 
   const handlePrev = useCallback(() => {
@@ -643,13 +635,13 @@ export function AiDiffModal({
 
   const handleApplyChanges = useCallback(async () => {
     setModalState("applying");
-    
+
     // Simulate async operation
     await new Promise((resolve) => setTimeout(resolve, simulateDelay));
-    
+
     setModalState("applied");
     onApplyChanges();
-    
+
     // Auto-close after success
     setTimeout(() => {
       onOpenChange(false);
@@ -697,7 +689,8 @@ export function AiDiffModal({
                 Review Changes
               </DialogPrimitive.Title>
               <span className="text-xs text-[var(--color-fg-muted)]">
-                This will modify {totalChanges} paragraph{totalChanges !== 1 ? "s" : ""}
+                This will modify {totalChanges} paragraph
+                {totalChanges !== 1 ? "s" : ""}
               </span>
             </div>
 
@@ -750,7 +743,10 @@ export function AiDiffModal({
               )}
             </div>
 
-            <DialogPrimitive.Close className={closeButtonStyles} disabled={isApplying}>
+            <DialogPrimitive.Close
+              className={closeButtonStyles}
+              disabled={isApplying}
+            >
               <CloseIcon />
             </DialogPrimitive.Close>
           </div>
@@ -764,7 +760,9 @@ export function AiDiffModal({
                 {beforeParts.map((part, idx) => (
                   <span
                     key={idx}
-                    className={part.type === "removed" ? removedStyles : undefined}
+                    className={
+                      part.type === "removed" ? removedStyles : undefined
+                    }
                   >
                     {part.text}
                   </span>
@@ -814,12 +812,18 @@ export function AiDiffModal({
               {/* Statistics */}
               <div className={statsStyles}>
                 <span className={addedStatsStyles}>+{stats.added} added</span>
-                <span className={removedStatsStyles}>-{stats.removed} removed</span>
+                <span className={removedStatsStyles}>
+                  -{stats.removed} removed
+                </span>
                 {(acceptedCount > 0 || rejectedCount > 0) && (
                   <>
                     <span className="text-[var(--color-separator)]">|</span>
-                    <span className="text-[var(--color-success)]">{acceptedCount} accepted</span>
-                    <span className="text-[var(--color-error)]">{rejectedCount} rejected</span>
+                    <span className="text-[var(--color-success)]">
+                      {acceptedCount} accepted
+                    </span>
+                    <span className="text-[var(--color-error)]">
+                      {rejectedCount} rejected
+                    </span>
                   </>
                 )}
               </div>
@@ -843,7 +847,11 @@ export function AiDiffModal({
                 disabled={isApplying || isApplied}
               >
                 {isApplying && <Spinner />}
-                {isApplied ? "Applied!" : isApplying ? "Applying..." : "Apply Changes"}
+                {isApplied
+                  ? "Applied!"
+                  : isApplying
+                    ? "Applying..."
+                    : "Apply Changes"}
               </button>
             </div>
           </div>

@@ -44,7 +44,6 @@ const DiffIcon = () => (
   </svg>
 );
 
-
 /**
  * Loading spinner for applying state
  */
@@ -76,10 +75,7 @@ const Spinner = () => (
 /**
  * Styles for the container
  */
-const containerStyles = [
-  "relative",
-  "group",
-].join(" ");
+const containerStyles = ["relative", "group"].join(" ");
 
 /**
  * Styles for the content wrapper with transitions
@@ -154,7 +150,6 @@ const rejectedTextStyles = [
   "transition-all",
   "duration-[var(--duration-normal)]",
 ].join(" ");
-
 
 /**
  * Styles for the action toolbar
@@ -235,10 +230,7 @@ const separatorStyles = [
   "mx-0.5",
 ].join(" ");
 
-const labelStyles = [
-  "text-[11px]",
-  "font-medium",
-].join(" ");
+const labelStyles = ["text-[11px]", "font-medium"].join(" ");
 
 /**
  * AiInlineConfirm - Inline confirmation component for AI suggestions
@@ -276,20 +268,20 @@ export function AiInlineConfirm({
 
   const handleAccept = useCallback(async () => {
     setState("applying");
-    
+
     // Simulate async operation
     await new Promise((resolve) => setTimeout(resolve, simulateDelay));
-    
+
     setState("accepted");
     onAccept();
   }, [onAccept, simulateDelay]);
 
   const handleReject = useCallback(async () => {
     setState("applying");
-    
+
     // Simulate async operation
     await new Promise((resolve) => setTimeout(resolve, simulateDelay / 2));
-    
+
     setState("rejected");
     onReject();
   }, [onReject, simulateDelay]);
@@ -318,7 +310,9 @@ export function AiInlineConfirm({
               </span>
             )}
             <span className={pendingHighlightStyles}>
-              <span className="text-[var(--color-fg-default)]">{suggestedText}</span>
+              <span className="text-[var(--color-fg-default)]">
+                {suggestedText}
+              </span>
             </span>
           </>
         )}
@@ -334,16 +328,12 @@ export function AiInlineConfirm({
 
         {/* Accepted state: show suggested text without highlight */}
         {isAccepted && (
-          <span className={acceptedTextStyles}>
-            {suggestedText}
-          </span>
+          <span className={acceptedTextStyles}>{suggestedText}</span>
         )}
 
         {/* Rejected state: show original text restored */}
         {isRejected && (
-          <span className={rejectedTextStyles}>
-            {originalText}
-          </span>
+          <span className={rejectedTextStyles}>{originalText}</span>
         )}
       </div>
 

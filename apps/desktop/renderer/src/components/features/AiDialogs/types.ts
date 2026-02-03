@@ -37,7 +37,11 @@ export interface AiErrorConfig {
 /**
  * State for inline confirm component
  */
-export type InlineConfirmState = "pending" | "applying" | "accepted" | "rejected";
+export type InlineConfirmState =
+  | "pending"
+  | "applying"
+  | "accepted"
+  | "rejected";
 
 /**
  * Props for AiInlineConfirm component
@@ -137,10 +141,7 @@ export interface AiErrorCardProps {
 /**
  * System dialog types
  */
-export type SystemDialogType =
-  | "delete"
-  | "unsaved_changes"
-  | "export_complete";
+export type SystemDialogType = "delete" | "unsaved_changes" | "export_complete";
 
 /**
  * Props for SystemDialog component

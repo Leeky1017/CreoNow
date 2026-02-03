@@ -12,7 +12,8 @@ import type { AiErrorConfig, DiffChange } from "./types";
 // =============================================================================
 
 const sampleOriginalText = "The castle stood majestically on the hill";
-const sampleSuggestedText = "The ancient fortress loomed atop the windswept ridge";
+const sampleSuggestedText =
+  "The ancient fortress loomed atop the windswept ridge";
 
 const sampleDiffChanges: DiffChange[] = [
   {
@@ -39,7 +40,7 @@ describe("AiInlineConfirm", () => {
         suggestedText={sampleSuggestedText}
         onAccept={vi.fn()}
         onReject={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.getByText(sampleSuggestedText)).toBeInTheDocument();
@@ -53,7 +54,7 @@ describe("AiInlineConfirm", () => {
         onAccept={vi.fn()}
         onReject={vi.fn()}
         showComparison={true}
-      />
+      />,
     );
 
     expect(screen.getByText(sampleOriginalText)).toBeInTheDocument();
@@ -71,7 +72,7 @@ describe("AiInlineConfirm", () => {
         onAccept={onAccept}
         onReject={vi.fn()}
         simulateDelay={10}
-      />
+      />,
     );
 
     const acceptButton = screen.getByRole("button", { name: /accept/i });
@@ -93,7 +94,7 @@ describe("AiInlineConfirm", () => {
         onAccept={vi.fn()}
         onReject={onReject}
         simulateDelay={10}
-      />
+      />,
     );
 
     const rejectButton = screen.getByRole("button", { name: /reject/i });
@@ -115,7 +116,7 @@ describe("AiInlineConfirm", () => {
         onAccept={vi.fn()}
         onReject={vi.fn()}
         onViewDiff={onViewDiff}
-      />
+      />,
     );
 
     const diffButton = screen.getByRole("button", { name: /view diff/i });
@@ -131,10 +132,12 @@ describe("AiInlineConfirm", () => {
         suggestedText={sampleSuggestedText}
         onAccept={vi.fn()}
         onReject={vi.fn()}
-      />
+      />,
     );
 
-    expect(screen.queryByRole("button", { name: /view diff/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /view diff/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows applying state with spinner", () => {
@@ -145,7 +148,7 @@ describe("AiInlineConfirm", () => {
         onAccept={vi.fn()}
         onReject={vi.fn()}
         initialState="applying"
-      />
+      />,
     );
 
     // In applying state, the button should show "Applying..."
@@ -160,13 +163,15 @@ describe("AiInlineConfirm", () => {
         onAccept={vi.fn()}
         onReject={vi.fn()}
         initialState="accepted"
-      />
+      />,
     );
 
     // In accepted state, only the suggested text should be visible
     expect(screen.getByText(sampleSuggestedText)).toBeInTheDocument();
     // Toolbar should not be visible
-    expect(screen.queryByRole("button", { name: /accept/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /accept/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows rejected state with original text", () => {
@@ -177,13 +182,15 @@ describe("AiInlineConfirm", () => {
         onAccept={vi.fn()}
         onReject={vi.fn()}
         initialState="rejected"
-      />
+      />,
     );
 
     // In rejected state, only the original text should be visible
     expect(screen.getByText(sampleOriginalText)).toBeInTheDocument();
     // Toolbar should not be visible
-    expect(screen.queryByRole("button", { name: /reject/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /reject/i }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -201,7 +208,7 @@ describe("AiDiffModal", () => {
         onAcceptAll={vi.fn()}
         onRejectAll={vi.fn()}
         onApplyChanges={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.getByText("Review Changes")).toBeInTheDocument();
@@ -216,7 +223,7 @@ describe("AiDiffModal", () => {
         onAcceptAll={vi.fn()}
         onRejectAll={vi.fn()}
         onApplyChanges={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.queryByText("Review Changes")).not.toBeInTheDocument();
@@ -231,7 +238,7 @@ describe("AiDiffModal", () => {
         onAcceptAll={vi.fn()}
         onRejectAll={vi.fn()}
         onApplyChanges={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.getByText(/2 paragraphs/i)).toBeInTheDocument();
@@ -246,7 +253,7 @@ describe("AiDiffModal", () => {
         onAcceptAll={vi.fn()}
         onRejectAll={vi.fn()}
         onApplyChanges={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.getByText("Before")).toBeInTheDocument();
@@ -265,7 +272,7 @@ describe("AiDiffModal", () => {
         onAcceptAll={onAcceptAll}
         onRejectAll={vi.fn()}
         onApplyChanges={vi.fn()}
-      />
+      />,
     );
 
     await user.click(screen.getByText("Accept All"));
@@ -284,7 +291,7 @@ describe("AiDiffModal", () => {
         onAcceptAll={vi.fn()}
         onRejectAll={onRejectAll}
         onApplyChanges={vi.fn()}
-      />
+      />,
     );
 
     await user.click(screen.getByText("Reject All"));
@@ -304,7 +311,7 @@ describe("AiDiffModal", () => {
         onRejectAll={vi.fn()}
         onApplyChanges={onApplyChanges}
         simulateDelay={10}
-      />
+      />,
     );
 
     await user.click(screen.getByText("Apply Changes"));
@@ -323,7 +330,7 @@ describe("AiDiffModal", () => {
         onAcceptAll={vi.fn()}
         onRejectAll={vi.fn()}
         onApplyChanges={vi.fn()}
-      />
+      />,
     );
 
     // Should show added/removed stats
@@ -345,13 +352,13 @@ describe("AiDiffModal", () => {
         onAcceptAll={vi.fn()}
         onRejectAll={vi.fn()}
         onApplyChanges={vi.fn()}
-      />
+      />,
     );
 
     // Click next
     const buttons = screen.getAllByRole("button");
     const nextButton = buttons.find((btn) =>
-      btn.querySelector('svg path[d*="181.66"]')
+      btn.querySelector('svg path[d*="181.66"]'),
     );
     if (nextButton) {
       await user.click(nextButton);
@@ -375,7 +382,9 @@ describe("AiErrorCard", () => {
     render(<AiErrorCard error={error} />);
 
     expect(screen.getByText("Connection Failed")).toBeInTheDocument();
-    expect(screen.getByText("Unable to reach the AI service.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Unable to reach the AI service."),
+    ).toBeInTheDocument();
   });
 
   it("calls onRetry when Retry button is clicked", async () => {
@@ -477,7 +486,9 @@ describe("AiErrorCard", () => {
       description: "Unable to reach the AI service.",
     };
 
-    render(<AiErrorCard error={error} showDismiss={true} onDismiss={onDismiss} />);
+    render(
+      <AiErrorCard error={error} showDismiss={true} onDismiss={onDismiss} />,
+    );
 
     await user.click(screen.getByTitle("Dismiss"));
 
@@ -585,7 +596,7 @@ describe("SystemDialog", () => {
           onOpenChange={vi.fn()}
           type="delete"
           onPrimaryAction={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByText("Delete Document?")).toBeInTheDocument();
@@ -603,7 +614,7 @@ describe("SystemDialog", () => {
           type="delete"
           onPrimaryAction={onPrimaryAction}
           simulateDelay={10}
-        />
+        />,
       );
 
       await user.click(screen.getByText("Delete"));
@@ -624,7 +635,7 @@ describe("SystemDialog", () => {
           type="delete"
           onPrimaryAction={vi.fn()}
           onSecondaryAction={onSecondaryAction}
-        />
+        />,
       );
 
       await user.click(screen.getByText("Cancel"));
@@ -640,7 +651,7 @@ describe("SystemDialog", () => {
           onOpenChange={vi.fn()}
           type="unsaved_changes"
           onPrimaryAction={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
@@ -656,7 +667,7 @@ describe("SystemDialog", () => {
           onPrimaryAction={vi.fn()}
           onSecondaryAction={vi.fn()}
           onTertiaryAction={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByText("Discard")).toBeInTheDocument();
@@ -675,7 +686,7 @@ describe("SystemDialog", () => {
           type="unsaved_changes"
           onPrimaryAction={vi.fn()}
           onTertiaryAction={onTertiaryAction}
-        />
+        />,
       );
 
       await user.click(screen.getByText("Discard"));
@@ -691,7 +702,7 @@ describe("SystemDialog", () => {
           onOpenChange={vi.fn()}
           type="export_complete"
           onPrimaryAction={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByText("Export Complete")).toBeInTheDocument();
@@ -706,7 +717,7 @@ describe("SystemDialog", () => {
           type="export_complete"
           onPrimaryAction={vi.fn()}
           onSecondaryAction={vi.fn()}
-        />
+        />,
       );
 
       expect(screen.getByText("Done")).toBeInTheDocument();
@@ -724,7 +735,7 @@ describe("SystemDialog", () => {
           type="export_complete"
           onPrimaryAction={onPrimaryAction}
           simulateDelay={10}
-        />
+        />,
       );
 
       await user.click(screen.getByText("Open File"));
@@ -742,7 +753,7 @@ describe("SystemDialog", () => {
         onOpenChange={vi.fn()}
         type="delete"
         onPrimaryAction={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.queryByText("Delete Document?")).not.toBeInTheDocument();
@@ -757,7 +768,7 @@ describe("SystemDialog", () => {
         title="Custom Title"
         description="Custom description text"
         onPrimaryAction={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.getByText("Custom Title")).toBeInTheDocument();
@@ -774,7 +785,7 @@ describe("SystemDialog", () => {
         secondaryLabel="Keep"
         onPrimaryAction={vi.fn()}
         onSecondaryAction={vi.fn()}
-      />
+      />,
     );
 
     expect(screen.getByText("Remove")).toBeInTheDocument();
@@ -789,7 +800,7 @@ describe("SystemDialog", () => {
         type="delete"
         onPrimaryAction={vi.fn()}
         showKeyboardHints={true}
-      />
+      />,
     );
 
     expect(screen.getByText("Enter")).toBeInTheDocument();
@@ -804,7 +815,7 @@ describe("SystemDialog", () => {
         type="delete"
         onPrimaryAction={vi.fn()}
         showKeyboardHints={false}
-      />
+      />,
     );
 
     expect(screen.queryByText("Enter")).not.toBeInTheDocument();
@@ -821,7 +832,7 @@ describe("SystemDialog", () => {
         type="delete"
         onPrimaryAction={vi.fn()}
         simulateDelay={1000}
-      />
+      />,
     );
 
     await user.click(screen.getByText("Delete"));
