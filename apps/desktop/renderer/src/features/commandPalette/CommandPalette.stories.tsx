@@ -770,7 +770,7 @@ export const SearchHighlight: Story = {
           zIndex: 100,
         }}
       >
-        提示：在搜索框输入 "set" 查看高亮效果
+        提示：在搜索框输入 {'"'}set{'"'} 查看高亮效果
       </div>
       <CommandPalette {...args} />
     </div>
