@@ -2,7 +2,7 @@
 
 - Issue: #141
 - Branch: task/141-outline-panel
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/142
 
 ## Plan
 
