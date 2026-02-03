@@ -25,6 +25,10 @@ export type EditorState = {
   lastSavedOrQueuedJson: string | null;
   autosaveStatus: AutosaveStatus;
   autosaveError: IpcError | null;
+  /** Whether compare mode is active (showing DiffView instead of Editor) */
+  compareMode: boolean;
+  /** The version ID being compared against current */
+  compareVersionId: string | null;
 };
 
 export type EditorActions = {
@@ -45,6 +49,8 @@ export type EditorActions = {
   retryLastAutosave: () => Promise<void>;
   setAutosaveStatus: (status: AutosaveStatus) => void;
   clearAutosaveError: () => void;
+  /** Enable or disable compare mode with a specific version */
+  setCompareMode: (enabled: boolean, versionId?: string | null) => void;
 };
 
 export type EditorStore = EditorState & EditorActions;
@@ -69,10 +75,17 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
     lastSavedOrQueuedJson: null,
     autosaveStatus: "idle",
     autosaveError: null,
+    compareMode: false,
+    compareVersionId: null,
 
     setAutosaveStatus: (status) => set({ autosaveStatus: status }),
     clearAutosaveError: () => set({ autosaveError: null }),
     setEditorInstance: (editor) => set({ editor }),
+    setCompareMode: (enabled, versionId) =>
+      set({
+        compareMode: enabled,
+        compareVersionId: enabled ? (versionId ?? null) : null,
+      }),
 
     bootstrapForProject: async (projectId) => {
       set({ bootstrapStatus: "loading" });
