@@ -55,3 +55,21 @@
 **总测试**
 - Command: `pnpm vitest run` (相关测试文件)
 - Key output: 85 tests passed (4 files)
+
+### 2026-02-03 Browser Storybook 验收
+
+**RadioCardGroup**
+- URL: `http://172.18.248.30:6008/?path=/story/primitives-radio--card-group`
+- 验证: 2x2 网格布局正确，点击切换选中状态，选中时边框/背景/check icon 显示正确
+- Evidence: MCP browser screenshot
+
+**ImageUpload**
+- URL: `http://172.18.248.30:6008/?path=/story/primitives-imageupload--default`
+- 验证: 虚线边框样式正确，placeholder/hint 文案显示正确
+- Evidence: MCP browser screenshot
+
+**CreateProjectDialog**
+- URL: `http://172.18.248.30:6008/?path=/story/features-createprojectdialog--open`
+- 验证: 对话框打开正常，预设模板 4 个卡片显示正确，Create Template 入口可见
+- Evidence: MCP browser screenshot
+- Fix: 添加 mock ProjectStoreProvider decorator 解决 context missing 问题
