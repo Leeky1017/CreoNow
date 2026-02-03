@@ -2,7 +2,7 @@
 
 - Issue: #147
 - Branch: task/147-ai-dialogs-polish
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/148
 
 ## Plan
 
