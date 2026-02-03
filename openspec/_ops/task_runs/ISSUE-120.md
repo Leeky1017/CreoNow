@@ -1,7 +1,7 @@
 # ISSUE-120
 - Issue: #120
 - Branch: task/120-memory-e2e-fix
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/121
 
 ## Plan
 - 修复 memory-preference-learning E2E 测试：在检查 memory-panel 前先切换到 memory 面板
