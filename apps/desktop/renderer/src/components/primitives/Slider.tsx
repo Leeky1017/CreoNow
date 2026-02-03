@@ -1,0 +1,186 @@
+import React from "react";
+
+/**
+ * Slider component props
+ *
+ * A range slider component for numeric values.
+ * Based on design spec style from 10-settings.html
+ */
+export interface SliderProps {
+  /** Current value (controlled) */
+  value?: number;
+  /** Callback when value changes */
+  onValueChange?: (value: number) => void;
+  /** Default value (uncontrolled) */
+  defaultValue?: number;
+  /** Minimum value */
+  min?: number;
+  /** Maximum value */
+  max?: number;
+  /** Step increment */
+  step?: number;
+  /** Disabled state */
+  disabled?: boolean;
+  /** Show min/max labels */
+  showLabels?: boolean;
+  /** Format function for labels */
+  formatLabel?: (value: number) => string;
+  /** Custom class name */
+  className?: string;
+}
+
+/**
+ * Track styles
+ */
+const trackStyles = [
+  "relative",
+  "flex-1",
+  "h-[2px]",
+  "bg-[var(--color-border-default)]",
+  "rounded-full",
+].join(" ");
+
+/**
+ * Thumb styles (design spec: 12px round white thumb with black border)
+ */
+const thumbStyles = [
+  "absolute",
+  "top-1/2",
+  "-translate-y-1/2",
+  "w-3",
+  "h-3",
+  "rounded-full",
+  "bg-[var(--color-fg-default)]",
+  "border",
+  "border-[var(--color-fg-inverse)]",
+  "cursor-pointer",
+  "transition-shadow",
+  "duration-[var(--duration-fast)]",
+  // Hover and focus
+  "hover:shadow-[0_0_0_4px_var(--color-bg-surface)]",
+  // Focus visible
+  "focus-visible:outline",
+  "focus-visible:outline-[length:var(--ring-focus-width)]",
+  "focus-visible:outline-offset-[var(--ring-focus-offset)]",
+  "focus-visible:outline-[var(--color-ring-focus)]",
+].join(" ");
+
+/**
+ * Label styles
+ */
+const labelStyles = ["text-[11px]", "text-[var(--color-fg-placeholder)]"].join(
+  " ",
+);
+
+/**
+ * Default format function for percentage
+ */
+const defaultFormatLabel = (value: number) => `${value}%`;
+
+/**
+ * Slider component for numeric range values
+ *
+ * A styled range slider based on the settings dialog design.
+ *
+ * @example
+ * ```tsx
+ * <Slider
+ *   min={80}
+ *   max={120}
+ *   step={10}
+ *   value={scale}
+ *   onValueChange={setScale}
+ *   showLabels
+ * />
+ * ```
+ */
+export function Slider({
+  value,
+  onValueChange,
+  defaultValue,
+  min = 0,
+  max = 100,
+  step = 1,
+  disabled = false,
+  showLabels = false,
+  formatLabel = defaultFormatLabel,
+  className = "",
+}: SliderProps): JSX.Element {
+  // Internal state for uncontrolled usage
+  const [internalValue, setInternalValue] = React.useState(
+    defaultValue ?? min,
+  );
+
+  // Use controlled value if provided, otherwise use internal state
+  const currentValue = value !== undefined ? value : internalValue;
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+
+    const newValue = Number(e.target.value);
+
+    // Update internal state for uncontrolled usage
+    if (value === undefined) {
+      setInternalValue(newValue);
+    }
+
+    // Call callback if provided
+    onValueChange?.(newValue);
+  };
+
+  // Calculate thumb position percentage
+  const percentage = ((currentValue - min) / (max - min)) * 100;
+
+  const containerClasses = [
+    "flex",
+    "items-center",
+    "gap-3",
+    disabled ? "opacity-50 cursor-not-allowed" : "",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className={containerClasses}>
+      {showLabels && <span className={labelStyles}>{formatLabel(min)}</span>}
+
+      <div className="relative flex-1 h-5 flex items-center">
+        {/* Track background */}
+        <div className={trackStyles}>
+          {/* Filled portion */}
+          <div
+            className="absolute inset-y-0 left-0 bg-[var(--color-fg-subtle)] rounded-full"
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+
+        {/* Native range input for accessibility */}
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={currentValue}
+          onChange={handleChange}
+          disabled={disabled}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={currentValue}
+        />
+
+        {/* Custom thumb */}
+        <div
+          className={thumbStyles}
+          style={{
+            left: `calc(${percentage}% - 6px)`,
+            pointerEvents: "none",
+          }}
+        />
+      </div>
+
+      {showLabels && <span className={labelStyles}>{formatLabel(max)}</span>}
+    </div>
+  );
+}

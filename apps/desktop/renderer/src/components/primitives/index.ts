@@ -104,3 +104,9 @@ export type { ContextMenuProps, ContextMenuItem } from "./ContextMenu";
 
 export { ImageUpload } from "./ImageUpload";
 export type { ImageUploadProps } from "./ImageUpload";
+
+export { Toggle } from "./Toggle";
+export type { ToggleProps } from "./Toggle";
+
+export { Slider } from "./Slider";
+export type { SliderProps } from "./Slider";
