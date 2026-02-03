@@ -565,7 +565,7 @@ function NoResultsState({ query }: { query: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-6 text-center mx-3">
       <p className="text-[11px] text-[var(--color-fg-subtle)] leading-tight">
-        No results for "{query}"
+        No results for &ldquo;{query}&rdquo;
       </p>
     </div>
   );

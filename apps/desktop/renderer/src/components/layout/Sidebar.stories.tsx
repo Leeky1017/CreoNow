@@ -1,5 +1,4 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import React from "react";
 import { Sidebar } from "./Sidebar";
 import { layoutDecorator } from "./test-utils";
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
