@@ -1,7 +1,7 @@
 # ISSUE-149
 - Issue: #149
 - Branch: task/149-storybook-coverage
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/150
 
 ## Plan
 - 补充 P5 前所有组件的 Storybook 场景覆盖（边界条件、键盘交互、Windows 快捷键）
