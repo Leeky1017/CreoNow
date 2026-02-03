@@ -37,3 +37,8 @@
 ### 验证
 - Command: `npx tsc --noEmit`
 - Key output: `Exit code: 0` (编译通过)
+
+### 2026-02-03 15:55 调整 Dialog 居中定位
+
+- Command: `Edit apps/desktop/renderer/src/features/character/CharacterDetailDialog.tsx`
+- Key output: 移除 `data-[state=open]:translate-y-0` / `data-[state=closed]:translate-y-5`，避免覆盖 `-translate-y-1/2` 导致 Dialog 下移

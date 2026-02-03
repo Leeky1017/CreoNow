@@ -88,10 +88,8 @@ function getContentStyles(hasContainer: boolean): string {
     "ease-[cubic-bezier(0.16,1,0.3,1)]",
     "data-[state=open]:opacity-100",
     "data-[state=open]:scale-100",
-    "data-[state=open]:translate-y-0",
     "data-[state=closed]:opacity-0",
     "data-[state=closed]:scale-[0.98]",
-    "data-[state=closed]:translate-y-5",
     "focus:outline-none",
   ].join(" ");
 }
