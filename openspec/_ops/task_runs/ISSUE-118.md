@@ -73,3 +73,13 @@
 - 验证: 对话框打开正常，预设模板 4 个卡片显示正确，Create Template 入口可见
 - Evidence: MCP browser screenshot
 - Fix: 添加 mock ProjectStoreProvider decorator 解决 context missing 问题
+
+### 2026-02-03 CI Checks
+
+- check: ✅ passed (typecheck, lint)
+- openspec-log-guard: ✅ passed
+- windows-build: ✅ passed
+- merge-gate: ✅ passed
+- windows-e2e: ❌ failed (flaky test: memory-preference-learning.spec.ts - 与本次更改无关)
+  - 失败原因: `expect(page.getByTestId("memory-panel")).toBeVisible()` timeout
+  - 26/27 tests passed, 1 failed (known flaky)
