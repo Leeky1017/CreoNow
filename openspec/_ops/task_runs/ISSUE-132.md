@@ -2,7 +2,7 @@
 
 - Issue: #132
 - Branch: task/132-dialog-storybook-fix
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/133
 
 ## Plan
 
