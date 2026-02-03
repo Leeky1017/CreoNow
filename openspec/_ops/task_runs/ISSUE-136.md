@@ -31,3 +31,15 @@
   - 修复 Button 原语的 icon+text 对齐问题
   - 使用 key 属性强制 NodeEditDialog 重新挂载，避免 useEffect 中 setState 的 lint 错误
   - 重构测试以适配 Avatar/Select 原语的 DOM 结构
+
+### 2026-02-03 修复节点颜色不显示问题
+
+- Command: `检查 Storybook 截图`
+- Key output: `节点边框和图例显示为灰色/无色`
+- Evidence: 用户截图
+
+- Root cause: `--color-node-*` 变量定义在 `design/system/01-tokens.css`，但 Storybook 导入的是 `apps/desktop/renderer/src/styles/tokens.css`，后者缺少这些变量
+
+- Fix: 将 `--color-node-character/location/event/item/other` 变量添加到 `apps/desktop/renderer/src/styles/tokens.css`
+
+- Verified: Storybook 刷新后节点多色正确显示
