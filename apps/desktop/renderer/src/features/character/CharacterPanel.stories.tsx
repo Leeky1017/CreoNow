@@ -217,11 +217,17 @@ export const EmptyProject: Story = {
  */
 function EditingCharacterFormRender() {
   const [open, setOpen] = React.useState(true);
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   const character = SAMPLE_CHARACTERS[0]; // Elara
 
   return (
-    <div ref={containerRef} className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
@@ -231,7 +237,7 @@ function EditingCharacterFormRender() {
         open={open}
         onOpenChange={setOpen}
         character={character}
-        container={containerRef.current}
+        container={containerEl}
       />
     </div>
   );
@@ -254,7 +260,10 @@ export const EditingCharacterForm: Story = {
  * Render component for AddingPersonalityTrait story
  */
 function AddingPersonalityTraitRender() {
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   const [character, setCharacter] = React.useState<Character>({
     ...SAMPLE_CHARACTERS[0],
     traits: ["Brave", "Impulsive", "Loyal", "Cunning"], // Added Cunning
@@ -265,7 +274,10 @@ function AddingPersonalityTraitRender() {
   };
 
   return (
-    <div ref={containerRef} className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
@@ -276,7 +288,7 @@ function AddingPersonalityTraitRender() {
         onOpenChange={() => {}}
         character={character}
         onSave={handleSave}
-        container={containerRef.current}
+        container={containerEl}
       />
     </div>
   );
@@ -299,7 +311,10 @@ export const AddingPersonalityTrait: Story = {
  * Render component for ManagingRelationships story
  */
 function ManagingRelationshipsRender() {
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   const characterWithManyRelations: Character = {
     ...SAMPLE_CHARACTERS[0],
     relationships: [
@@ -324,7 +339,10 @@ function ManagingRelationshipsRender() {
   };
 
   return (
-    <div ref={containerRef} className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
@@ -334,7 +352,7 @@ function ManagingRelationshipsRender() {
         open
         onOpenChange={() => {}}
         character={characterWithManyRelations}
-        container={containerRef.current}
+        container={containerEl}
       />
     </div>
   );
@@ -357,14 +375,20 @@ export const ManagingRelationships: Story = {
  * Render component for UploadingAvatar story
  */
 function UploadingAvatarRender() {
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   // Character without avatar to show initials fallback
   const characterWithoutAvatar: Character = {
     ...SAMPLE_CHARACTERS[3], // Jax has no avatar
   };
 
   return (
-    <div ref={containerRef} className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="jax"
@@ -374,7 +398,7 @@ function UploadingAvatarRender() {
         open
         onOpenChange={() => {}}
         character={characterWithoutAvatar}
-        container={containerRef.current}
+        container={containerEl}
       />
     </div>
   );
@@ -422,7 +446,10 @@ export const DeletingCharacterConfirm: Story = {
  * Render component for SwitchingBetweenCharacters story
  */
 function SwitchingBetweenCharactersRender() {
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   const [selectedId, setSelectedId] = React.useState("elara");
   const [dialogOpen, setDialogOpen] = React.useState(true);
   const selectedCharacter = SAMPLE_CHARACTERS.find((c) => c.id === selectedId);
@@ -433,7 +460,10 @@ function SwitchingBetweenCharactersRender() {
   };
 
   return (
-    <div ref={containerRef} className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId={selectedId}
@@ -451,7 +481,7 @@ function SwitchingBetweenCharactersRender() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         character={selectedCharacter || null}
-        container={containerRef.current}
+        container={containerEl}
       />
     </div>
   );
@@ -474,11 +504,17 @@ export const SwitchingBetweenCharacters: Story = {
  * Render component for ChapterAppearanceNavigation story
  */
 function ChapterAppearanceNavigationRender() {
-  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = React.useState<HTMLDivElement | null>(null);
+  const setContainerRef = React.useCallback((el: HTMLDivElement | null) => {
+    setContainerEl(el);
+  }, []);
   const [lastNavigatedChapter, setLastNavigatedChapter] = React.useState<string | null>(null);
 
   return (
-    <div ref={containerRef} className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative">
+    <div
+      ref={setContainerRef}
+      className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)] relative"
+    >
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
@@ -499,7 +535,7 @@ function ChapterAppearanceNavigationRender() {
         onOpenChange={() => {}}
         character={SAMPLE_CHARACTERS[0]}
         onNavigateToChapter={(chapterId) => setLastNavigatedChapter(chapterId)}
-        container={containerRef.current}
+        container={containerEl}
       />
     </div>
   );

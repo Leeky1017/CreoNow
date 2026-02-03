@@ -42,3 +42,8 @@
 
 - Command: `Edit apps/desktop/renderer/src/features/character/CharacterDetailDialog.tsx`
 - Key output: 移除 `data-[state=open]:translate-y-0` / `data-[state=closed]:translate-y-5`，避免覆盖 `-translate-y-1/2` 导致 Dialog 下移
+
+### 2026-02-03 16:05 修复 Storybook stories 的 ref 访问 lint
+
+- Command: `Edit apps/desktop/renderer/src/features/character/CharacterPanel.stories.tsx`
+- Key output: 使用 `useState + callback ref` 替代 `containerRef.current`，通过 `container={containerEl}` 传入，修复 `react-hooks/refs` 报错
