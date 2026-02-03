@@ -2,7 +2,7 @@
 
 - Issue: #134
 - Branch: task/134-character-detail-table-relations
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/135
 
 ## Plan
 
