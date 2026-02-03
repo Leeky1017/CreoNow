@@ -278,6 +278,9 @@ const formatCardStyles = (isSelected: boolean) =>
     "transition-all",
     "duration-[var(--duration-fast)]",
     "h-full",
+    "flex",
+    "flex-col",
+    "justify-center",
     isSelected
       ? [
           "border-[var(--color-accent)]",
@@ -421,7 +424,7 @@ function ConfigView({
             onValueChange={(value) =>
               onOptionsChange({ ...options, format: value as ExportFormat })
             }
-            className="grid grid-cols-2 gap-3"
+            className="grid grid-cols-2 gap-3 auto-rows-[100px]"
           >
             {formatOptions.map((option) => (
               <FormatCard
@@ -493,10 +496,11 @@ function ConfigView({
       </div>
 
       {/* Footer */}
-      <div className="p-6 pt-4 border-t border-[var(--color-separator)] flex items-center justify-between bg-[var(--color-bg-surface)]">
+      <div className="p-6 pt-4 border-t border-[var(--color-separator)] flex items-center bg-[var(--color-bg-surface)]">
         <span className="text-sm text-[var(--color-fg-muted)]">
           {estimatedSize}
         </span>
+        <div className="flex-1" />
         <div className="flex gap-3">
           <Button variant="ghost" onClick={onCancel}>
             Cancel
@@ -504,7 +508,6 @@ function ConfigView({
           <Button
             variant="primary"
             onClick={onExport}
-            className="!bg-[var(--color-accent)] !text-[var(--color-fg-inverse)] hover:!bg-[var(--color-accent-hover)] shadow-lg shadow-[var(--color-accent)]/20"
           >
             Export
           </Button>
