@@ -1,7 +1,7 @@
 # ISSUE-138
 - Issue: #138
 - Branch: task/138-version-history-enhance
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/139
 
 ## Plan
 - 修复 VersionHistoryPanel 颜色：选中状态使用 `--color-accent`（白色），AI 徽章保留 `--color-info`
