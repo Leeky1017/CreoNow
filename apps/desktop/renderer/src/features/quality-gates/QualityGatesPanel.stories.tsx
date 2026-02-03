@@ -840,3 +840,175 @@ export const MultipleIssues: Story = {
     },
   },
 };
+
+// =============================================================================
+// P3: 补充场景
+// =============================================================================
+
+/**
+ * Error 级别问题
+ *
+ * 展示严重错误（阻止发布）的样式。
+ *
+ * 验证点：
+ * - 检查项显示红色错误图标（X）
+ * - 问题卡片有红色边框
+ * - 顶部状态显示红色圆点
+ * - "Block on Errors" 设置为 true
+ *
+ * 浏览器测试步骤：
+ * 1. 验证检查项图标为红色 X
+ * 2. 验证问题卡片边框为红色
+ * 3. 验证顶部状态显示 "Errors Found"
+ */
+export const ErrorLevelIssues: Story = {
+  args: {
+    checkGroups: [
+      {
+        id: "consistency",
+        name: "Consistency",
+        checks: [
+          {
+            id: "character-names",
+            name: "Character Names",
+            description: "Ensures consistent naming conventions...",
+            status: "error",
+            issues: [
+              {
+                id: "issue-1",
+                description:
+                  '严重错误: 主角名字 "Alex" 在第 5 章突然变成了 "Max"，导致读者困惑',
+                location: "Chapter 5, Paragraph 1",
+                severity: "error",
+              },
+              {
+                id: "issue-2",
+                description:
+                  '严重错误: 反派 "Dr. Kane" 在结局被写成 "Dr. Cane"',
+                location: "Chapter 12, Paragraph 15",
+                severity: "error",
+              },
+            ],
+          },
+          {
+            id: "timeline",
+            name: "Timeline",
+            description: "Validates chronological consistency of events.",
+            status: "error",
+            issues: [
+              {
+                id: "issue-3",
+                description:
+                  "时间线错误: 故事开始于 2024 年，但第 3 章提到 2023 年的事件发生在未来",
+                location: "Chapter 3, Paragraph 8",
+                severity: "error",
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    panelStatus: "errors",
+    issuesCount: 3,
+    expandedCheckId: "character-names",
+    settings: {
+      runOnSave: true,
+      blockOnErrors: true,
+      frequency: "on-demand",
+    },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "严重错误展示。检查项显示红色 X 图标，问题卡片有红色边框，顶部显示 'Errors Found'。",
+      },
+    },
+  },
+};
+
+/**
+ * 所有问题已忽略
+ *
+ * 展示所有问题都被忽略后的状态。
+ *
+ * 验证点：
+ * - 检查项显示 "2 Ignored" 标签
+ * - 问题项有删除线样式
+ * - 顶部状态显示 "All Passed"（因为活跃问题为 0）
+ * - 可以取消忽略
+ *
+ * 浏览器测试步骤：
+ * 1. 验证检查项显示 "2 Ignored" 灰色标签
+ * 2. 展开检查项，验证问题有删除线
+ * 3. 验证顶部状态为绿色 "All Passed"
+ */
+export const AllIgnored: Story = {
+  args: {
+    checkGroups: [
+      {
+        id: "consistency",
+        name: "Consistency",
+        checks: [
+          {
+            id: "character-names",
+            name: "Character Names",
+            description: "Ensures consistent naming conventions...",
+            status: "passed",
+            ignoredCount: 2,
+            issues: [
+              {
+                id: "issue-1",
+                description: '"Elara" 在 Chapter 3 被写成 "Elera"',
+                location: "Chapter 3, Paragraph 5",
+                severity: "warning",
+                ignored: true,
+              },
+              {
+                id: "issue-2",
+                description: '"Kaelen" 在 Chapter 5 有不一致的拼写',
+                location: "Chapter 5, Paragraph 2",
+                severity: "warning",
+                ignored: true,
+              },
+            ],
+          },
+          {
+            id: "timeline",
+            name: "Timeline",
+            description: "Validates chronological consistency of events.",
+            status: "passed",
+          },
+        ],
+      },
+      {
+        id: "completeness",
+        name: "Completeness",
+        checks: [
+          {
+            id: "plot-threads",
+            name: "Plot Threads",
+            description: "Tracks unresolved plot threads...",
+            status: "passed",
+          },
+        ],
+      },
+    ],
+    panelStatus: "all-passed",
+    issuesCount: 0,
+    expandedCheckId: "character-names",
+    settings: {
+      runOnSave: true,
+      blockOnErrors: false,
+      frequency: "on-demand",
+    },
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '所有问题已忽略。检查项显示 "2 Ignored" 标签，问题有删除线样式，顶部状态为绿色。',
+      },
+    },
+  },
+};

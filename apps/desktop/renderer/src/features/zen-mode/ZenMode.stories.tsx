@@ -301,3 +301,88 @@ export const UnsavedChanges: Story = {
     },
   },
 };
+
+// =============================================================================
+// P3: 补充场景
+// =============================================================================
+
+/**
+ * 保存中状态
+ *
+ * 展示正在保存时的状态。
+ *
+ * 验证点：
+ * - 底部状态栏显示 "Saving..."
+ * - 显示 Spinner 动画
+ * - 用户仍可继续编辑（不阻塞）
+ *
+ * 浏览器测试步骤：
+ * 1. 将鼠标移到底部，显示状态栏
+ * 2. 验证显示 "Saving..." 文字和 Spinner
+ * 3. 验证光标仍然闪烁（可继续编辑）
+ */
+export const SavingState: Story = {
+  name: "Saving State",
+  args: {
+    open: true,
+    content: {
+      ...defaultContent,
+      showCursor: true,
+    },
+    stats: {
+      wordCount: 1245,
+      saveStatus: "Saving...",
+      readTimeMinutes: 6,
+    },
+    currentTime: "11:36 PM",
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '保存中状态。底部状态栏显示 "Saving..." 和 Spinner，用户可继续编辑。',
+      },
+    },
+  },
+};
+
+/**
+ * 保存确认状态
+ *
+ * 展示保存成功后的确认状态。
+ *
+ * 验证点：
+ * - 底部状态栏显示 "Saved"
+ * - "Saved" 文字为绿色
+ * - 显示绿色勾号图标
+ * - 2 秒后自动消失（回到默认状态）
+ *
+ * 浏览器测试步骤：
+ * 1. 将鼠标移到底部，显示状态栏
+ * 2. 验证 "Saved" 文字为绿色
+ * 3. 验证有绿色勾号图标
+ */
+export const SavedConfirmation: Story = {
+  name: "Saved Confirmation",
+  args: {
+    open: true,
+    content: {
+      ...defaultContent,
+      showCursor: false,
+    },
+    stats: {
+      wordCount: 1245,
+      saveStatus: "Saved",
+      readTimeMinutes: 6,
+    },
+    currentTime: "11:36 PM",
+  },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '保存确认状态。底部状态栏显示绿色 "Saved" 文字和勾号图标，确认保存成功。',
+      },
+    },
+  },
+};
