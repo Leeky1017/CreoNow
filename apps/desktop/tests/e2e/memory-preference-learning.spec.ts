@@ -85,6 +85,8 @@ test("memory: injection preview + preference learning loop", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({ userDataDir });
 
+  // Switch to memory panel first (default is sidebar/files panel)
+  await page.getByTestId("icon-bar-memory").click();
   await expect(page.getByTestId("memory-panel")).toBeVisible();
 
   const settingsRes = await ipcInvoke(page, "memory:settings:update", {
