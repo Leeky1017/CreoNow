@@ -220,7 +220,7 @@ function EditingCharacterFormRender() {
   const character = SAMPLE_CHARACTERS[0]; // Elara
 
   return (
-    <div className="h-screen flex bg-[var(--color-bg-base)]">
+    <div className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)]">
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
@@ -262,7 +262,7 @@ function AddingPersonalityTraitRender() {
   };
 
   return (
-    <div className="h-screen flex bg-[var(--color-bg-base)]">
+    <div className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)]">
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
@@ -326,7 +326,7 @@ export const ManagingRelationships: Story = {
     };
 
     return (
-      <div className="h-screen flex bg-[var(--color-bg-base)]">
+      <div className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)]">
         <CharacterPanel
           characters={SAMPLE_CHARACTERS}
           selectedId="elara"
@@ -359,7 +359,7 @@ export const UploadingAvatar: Story = {
     };
 
     return (
-      <div className="h-screen flex bg-[var(--color-bg-base)]">
+      <div className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)]">
         <CharacterPanel
           characters={SAMPLE_CHARACTERS}
           selectedId="jax"
@@ -414,7 +414,7 @@ function SwitchingBetweenCharactersRender() {
   };
 
   return (
-    <div className="h-screen flex bg-[var(--color-bg-base)]">
+    <div className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)]">
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId={selectedId}
@@ -457,7 +457,7 @@ function ChapterAppearanceNavigationRender() {
   const [lastNavigatedChapter, setLastNavigatedChapter] = React.useState<string | null>(null);
 
   return (
-    <div className="h-screen flex bg-[var(--color-bg-base)]">
+    <div className="h-screen min-h-[700px] flex bg-[var(--color-bg-base)]">
       <CharacterPanel
         characters={SAMPLE_CHARACTERS}
         selectedId="elara"
