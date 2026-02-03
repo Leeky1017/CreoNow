@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
 import { Resizer } from "./Resizer";
 import { CommandPalette } from "../../features/commandPalette/CommandPalette";
+import { DiffViewPanel } from "../../features/diff/DiffViewPanel";
 import { EditorPane } from "../../features/editor/EditorPane";
 import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
 import { useProjectStore } from "../../stores/projectStore";
@@ -71,6 +72,9 @@ export function AppShell(): JSX.Element {
   const currentProjectId = currentProject?.projectId ?? null;
   const bootstrapFiles = useFileStore((s) => s.bootstrapForProject);
   const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
+  const compareMode = useEditorStore((s) => s.compareMode);
+  const compareVersionId = useEditorStore((s) => s.compareVersionId);
+  const setCompareMode = useEditorStore((s) => s.setCompareMode);
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth);
   const panelWidth = useLayoutStore((s) => s.panelWidth);
   const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
@@ -192,10 +196,20 @@ export function AppShell(): JSX.Element {
             }`}
             style={{ minWidth: LAYOUT_DEFAULTS.mainMinWidth }}
           >
-            {currentProject ? (
-              <EditorPane projectId={currentProject.projectId} />
-            ) : (
+            {!currentProject ? (
               <WelcomeScreen />
+            ) : compareMode ? (
+              <DiffViewPanel
+                key={compareVersionId ?? "compare"}
+                diffText=""
+                onClose={() => setCompareMode(false)}
+                onRestore={() => {
+                  // TODO: Implement version restore via IPC
+                  setCompareMode(false);
+                }}
+              />
+            ) : (
+              <EditorPane projectId={currentProject.projectId} />
             )}
           </main>
 

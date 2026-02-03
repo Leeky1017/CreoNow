@@ -6,7 +6,7 @@ import { useContextStore } from "../../stores/contextStore";
 import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
 import { unifiedDiff } from "../../lib/diff/unifiedDiff";
-import { DiffView } from "./DiffView";
+import { DiffView } from "../diff/DiffView";
 import { applySelection, captureSelectionRef } from "./applySelection";
 import { SkillPicker } from "./SkillPicker";
 import { ChatHistory } from "./ChatHistory";
