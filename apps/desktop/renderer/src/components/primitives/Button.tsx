@@ -186,7 +186,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {...props}
       >
         {loading && <Spinner />}
-        <span className="truncate">{children}</span>
+        <span className="inline-flex items-center gap-2 truncate">{children}</span>
       </button>
     );
   },
