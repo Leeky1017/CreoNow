@@ -367,17 +367,14 @@ function KeyboardNavigationDemo(): JSX.Element {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [lastAction, setLastAction] = React.useState<string | null>(null);
 
-  // 使用固定时间戳避免 react-hooks/purity 错误
-  const items: DocumentListItem[] = React.useMemo(() => {
-    const now = Date.now();
-    return [
-      { documentId: "doc-1", title: "Chapter 1 - Introduction", updatedAt: now - 86400000 },
-      { documentId: "doc-2", title: "Chapter 2 - Development", updatedAt: now - 172800000 },
-      { documentId: "doc-3", title: "Chapter 3 - Climax", updatedAt: now - 259200000 },
-      { documentId: "doc-4", title: "Chapter 4 - Resolution", updatedAt: now - 345600000 },
-      { documentId: "doc-5", title: "Epilogue", updatedAt: now - 432000000 },
-    ];
-  }, []);
+  // 使用固定时间戳（Storybook 演示用，避免 react-hooks/purity 错误）
+  const items: DocumentListItem[] = [
+    { documentId: "doc-1", title: "Chapter 1 - Introduction", updatedAt: 1706745600000 },
+    { documentId: "doc-2", title: "Chapter 2 - Development", updatedAt: 1706659200000 },
+    { documentId: "doc-3", title: "Chapter 3 - Climax", updatedAt: 1706572800000 },
+    { documentId: "doc-4", title: "Chapter 4 - Resolution", updatedAt: 1706486400000 },
+    { documentId: "doc-5", title: "Epilogue", updatedAt: 1706400000000 },
+  ];
 
   React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent): void {
