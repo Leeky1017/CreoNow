@@ -1,8 +1,40 @@
 import React, { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { fn } from "@storybook/test";
+import { create } from "zustand";
 import { CreateProjectDialog } from "./CreateProjectDialog";
 import { Button } from "../../components/primitives/Button";
+import {
+  ProjectStoreProvider,
+  type ProjectStore,
+} from "../../stores/projectStore";
+
+/**
+ * Create a mock project store for Storybook
+ */
+function createMockProjectStore() {
+  return create<ProjectStore>(() => ({
+    current: null,
+    items: [],
+    bootstrapStatus: "ready",
+    lastError: null,
+    clearError: () => {},
+    bootstrap: async () => {},
+    createAndSetCurrent: async () => {
+      // Simulate delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return { ok: true, data: { projectId: "mock-id", rootPath: "/mock/path" } };
+    },
+  }));
+}
+
+/**
+ * Wrapper component that provides mock store
+ */
+function MockStoreWrapper({ children }: { children: React.ReactNode }) {
+  const [store] = useState(() => createMockProjectStore());
+  return <ProjectStoreProvider store={store}>{children}</ProjectStoreProvider>;
+}
 
 /**
  * CreateProjectDialog 组件 Story
@@ -18,6 +50,13 @@ import { Button } from "../../components/primitives/Button";
 const meta: Meta<typeof CreateProjectDialog> = {
   title: "Features/CreateProjectDialog",
   component: CreateProjectDialog,
+  decorators: [
+    (Story) => (
+      <MockStoreWrapper>
+        <Story />
+      </MockStoreWrapper>
+    ),
+  ],
   parameters: {
     layout: "centered",
   },
