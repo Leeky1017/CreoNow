@@ -3,10 +3,11 @@ import React from "react";
 import { FileTreePanel } from "../../features/files/FileTreePanel";
 import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
 import { MemoryPanel } from "../../features/memory/MemoryPanel";
+import { OutlinePanel } from "../../features/outline/OutlinePanel";
 import { SearchPanel } from "../../features/search/SearchPanel";
 import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
 
-type SidebarTab = "files" | "search" | "kg";
+type SidebarTab = "files" | "outline" | "search" | "kg";
 
 /**
  * Sidebar tab button styles.
@@ -90,6 +91,13 @@ export function Sidebar(props: {
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab("outline")}
+          className={`${tabButtonBase} ${activeTab === "outline" ? tabButtonActive : tabButtonInactive}`}
+        >
+          Outline
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab("search")}
           className={`${tabButtonBase} ${activeTab === "search" ? tabButtonActive : tabButtonInactive}`}
         >
@@ -108,6 +116,15 @@ export function Sidebar(props: {
       <div className="flex-1 min-h-0">
         {props.projectId && activeTab === "files" ? (
           <FileTreePanel projectId={props.projectId} />
+        ) : props.projectId && activeTab === "outline" ? (
+          <OutlinePanel
+            items={[]}
+            activeId={null}
+            onNavigate={(id) => {
+              // TODO: Wire to editor scroll position
+              console.log("Navigate to outline item:", id);
+            }}
+          />
         ) : props.projectId && activeTab === "search" ? (
           <SearchPanel projectId={props.projectId} />
         ) : props.projectId && activeTab === "kg" ? (

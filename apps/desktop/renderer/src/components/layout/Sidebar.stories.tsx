@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import React from "react";
 import { Sidebar } from "./Sidebar";
 import { layoutDecorator } from "./test-utils";
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
@@ -10,7 +11,7 @@ import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
  *
  * 功能：
  * - 可调整宽度的左侧面板
- * - 包含 Files/Search/KG 标签页
+ * - 包含 Files/Outline/Search/KG 标签页
  * - 支持折叠/展开
  */
 const meta = {
@@ -200,6 +201,67 @@ export const WithProject: Story = {
         }}
       >
         Sidebar with project content
+      </div>
+    </div>
+  ),
+};
+
+/**
+ * 所有 Tab 切换演示
+ *
+ * 点击 Files / Outline / Search / KG 切换不同面板
+ * - Files: 文件树
+ * - Outline: 文档大纲（新增）
+ * - Search: 搜索面板
+ * - KG: 知识图谱
+ */
+export const AllTabs: Story = {
+  args: {
+    width: 280,
+    collapsed: false,
+    projectId: "demo-project",
+    activePanel: "sidebar",
+  },
+  parameters: {
+    docs: {
+      description: {
+        story: `Sidebar 包含 4 个 Tab: Files / **Outline** / Search / KG。
+        
+点击 **Outline** Tab 查看文档大纲面板，功能包括：
+- 搜索/过滤
+- 单节点展开/折叠
+- 字数统计
+- 拖拽排序
+- 多选批量操作
+- 键盘导航`,
+      },
+    },
+  },
+  render: (args) => (
+    <div style={{ display: "flex", height: "600px", width: "100%" }}>
+      <Sidebar {...args} />
+      <div
+        style={{
+          flex: 1,
+          backgroundColor: "var(--color-bg-base)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--color-fg-muted)",
+          fontSize: "14px",
+          padding: "24px",
+        }}
+      >
+        <div style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "16px", color: "var(--color-fg-default)" }}>
+          Main Editor Area
+        </div>
+        <div style={{ textAlign: "center", maxWidth: "400px", lineHeight: "1.6" }}>
+          <p>← 点击左侧 Tab 切换面板</p>
+          <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--color-fg-subtle)" }}>
+            Files | <strong>Outline</strong> | Search | KG
+          </p>
+        </div>
       </div>
     </div>
   ),
