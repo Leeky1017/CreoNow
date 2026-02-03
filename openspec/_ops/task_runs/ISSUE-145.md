@@ -46,7 +46,7 @@
 ### 2026-02-03 22:40 修复状态栏定位问题
 
 - Issue: 状态栏随内容滚动，未固定
-- Fix: 
+- Fix:
   - 将 ZenModeStatus 改为 `absolute` 定位相对于外层 `fixed` 容器
   - 状态栏默认 `opacity-0`，只在 hover 底部时显示
   - 添加半透明背景和模糊效果
@@ -57,7 +57,7 @@
 ### 2026-02-03 23:01 Storybook 浏览器测试
 
 - Command: `npm run storybook` (端口 6009)
-- Key output: 
+- Key output:
   ```
   Storybook 8.6.15 for react-vite started
   Local: http://localhost:6009/

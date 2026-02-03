@@ -44,18 +44,14 @@ describe("ZenMode", () => {
 
   it("displays the title", () => {
     render(<ZenMode {...defaultProps} />);
-    expect(
-      screen.getByText("The Architecture of Silence")
-    ).toBeInTheDocument();
+    expect(screen.getByText("The Architecture of Silence")).toBeInTheDocument();
   });
 
   it("displays all paragraphs", () => {
     render(<ZenMode {...defaultProps} />);
+    expect(screen.getByText(/The rain fell in sheets/)).toBeInTheDocument();
     expect(
-      screen.getByText(/The rain fell in sheets/)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/She watched from the fourteenth floor/)
+      screen.getByText(/She watched from the fourteenth floor/),
     ).toBeInTheDocument();
   });
 
@@ -71,7 +67,7 @@ describe("ZenMode", () => {
       <ZenMode
         {...defaultProps}
         content={{ ...defaultContent, showCursor: false }}
-      />
+      />,
     );
     expect(screen.queryByTestId("zen-cursor")).not.toBeInTheDocument();
   });
@@ -129,10 +125,10 @@ describe("ZenMode", () => {
       <ZenMode
         {...defaultProps}
         stats={{ ...defaultStats, wordCount: 12345 }}
-      />
+      />,
     );
     expect(screen.getByTestId("zen-word-count")).toHaveTextContent(
-      "12,345 words"
+      "12,345 words",
     );
   });
 
@@ -194,7 +190,7 @@ describe("ZenMode content area", () => {
           paragraphs: [],
           showCursor: true,
         }}
-      />
+      />,
     );
     expect(screen.getByText("New Document")).toBeInTheDocument();
   });

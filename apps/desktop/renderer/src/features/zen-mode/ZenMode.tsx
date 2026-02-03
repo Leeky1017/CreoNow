@@ -138,7 +138,8 @@ export function ZenMode({
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = "var(--color-fg-default)";
-              e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.05)";
+              e.currentTarget.style.backgroundColor =
+                "rgba(255, 255, 255, 0.05)";
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = "var(--color-fg-muted)";
@@ -217,9 +218,8 @@ export function ZenMode({
               <p key={index}>
                 {paragraph}
                 {/* Show cursor at end of last paragraph if enabled */}
-                {content.showCursor && index === content.paragraphs.length - 1 && (
-                  <BlinkingCursor />
-                )}
+                {content.showCursor &&
+                  index === content.paragraphs.length - 1 && <BlinkingCursor />}
               </p>
             ))}
           </div>
