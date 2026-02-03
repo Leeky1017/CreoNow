@@ -42,6 +42,15 @@
 - Command: `npx tsc --noEmit`
 - Key output: Exit code 0, 无错误
 
+### 2026-02-03 21:50 CI 修复
+
+- Issue: `check` job 失败
+- Fixes:
+  1. 移除 Sidebar.stories.tsx 中未使用的 React 导入
+  2. 转义 OutlinePanel.tsx 中的引号 (`"` -> `&ldquo;`/`&rdquo;`)
+- Command: `pnpm typecheck && pnpm lint`
+- Key output: Exit code 0, 仅剩一个无关的 warning
+
 ## 功能清单
 
 ### P0 核心功能
