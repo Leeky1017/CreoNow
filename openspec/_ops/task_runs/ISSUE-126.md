@@ -2,7 +2,7 @@
 
 - Issue: #126
 - Branch: task/126-export-dialog-layout
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/127
 
 ## Plan
 
