@@ -281,6 +281,9 @@ const formatCardStyles = (isSelected: boolean) =>
     "flex",
     "flex-col",
     "justify-center",
+    "items-center",
+    "text-center",
+    "relative",
     isSelected
       ? [
           "border-[var(--color-accent)]",
@@ -294,18 +297,9 @@ const formatCardStyles = (isSelected: boolean) =>
   ].join(" ");
 
 const radioIndicatorStyles = (isSelected: boolean) =>
-  [
-    "w-4",
-    "h-4",
-    "rounded-[var(--radius-full)]",
-    "border",
-    "flex",
-    "items-center",
-    "justify-center",
-    isSelected
-      ? "border-[var(--color-accent)] opacity-100"
-      : "border-[var(--color-border-default)] opacity-0",
-  ].join(" ");
+  isSelected
+    ? "w-4 h-4 rounded-full bg-white"
+    : "w-4 h-4 rounded-full border border-[var(--color-border-default)] opacity-0";
 
 // ============================================================================
 // Sub-components
@@ -326,25 +320,26 @@ function FormatCard({
       value={option.value}
       className={formatCardStyles(isSelected)}
     >
-      <div className="flex items-start justify-between mb-2">
-        <div
-          className={
-            isSelected
-              ? "text-[var(--color-accent)]"
-              : "text-[var(--color-fg-muted)]"
-          }
-        >
-          {option.icon}
-        </div>
-        <div className={radioIndicatorStyles(isSelected)}>
-          {isSelected && (
-            <span className="w-2 h-2 rounded-[var(--radius-full)] bg-[var(--color-accent)]" />
-          )}
-        </div>
+      {/* 单选指示器 - 绝对定位在右上角，选中时为实心白色圆 */}
+      <div className={`absolute top-3 right-3 ${radioIndicatorStyles(isSelected)}`} />
+      
+      {/* 图标 */}
+      <div
+        className={`mb-2 ${
+          isSelected
+            ? "text-[var(--color-accent)]"
+            : "text-[var(--color-fg-muted)]"
+        }`}
+      >
+        {option.icon}
       </div>
+      
+      {/* 标签 */}
       <div className="font-medium text-sm text-[var(--color-fg-default)]">
         {option.label}
       </div>
+      
+      {/* 描述 */}
       <div
         className={`text-xs mt-0.5 ${
           option.value === "markdown" || option.value === "txt"
