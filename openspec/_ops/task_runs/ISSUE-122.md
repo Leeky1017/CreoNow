@@ -1,7 +1,7 @@
 # ISSUE-122
 - Issue: #122
 - Branch: task/122-settings-dialog
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/123
 
 ## Plan
 - 实现 SettingsDialog 系统级设置弹窗（4 个页面：General/Appearance/Export/Account）
