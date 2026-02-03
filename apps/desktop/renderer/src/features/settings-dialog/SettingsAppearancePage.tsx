@@ -1,4 +1,3 @@
-import React from "react";
 import { Text } from "../../components/primitives";
 import { Slider } from "../../components/primitives/Slider";
 

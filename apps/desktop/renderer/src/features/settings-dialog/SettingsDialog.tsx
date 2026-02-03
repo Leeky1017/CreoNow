@@ -181,8 +181,9 @@ export function SettingsDialog({
     export: initialSettings?.export ?? defaultExportSettings,
   });
 
-  // Track if settings have been modified
-  const [isDirty, setIsDirty] = React.useState(false);
+  // Track if settings have been modified (reserved for unsaved changes warning)
+  const [_isDirty, setIsDirty] = React.useState(false);
+  void _isDirty; // Will be used for unsaved changes warning dialog
 
   // Reset state when dialog opens
   React.useEffect(() => {

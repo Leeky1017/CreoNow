@@ -1,4 +1,3 @@
-import React from "react";
 import { Toggle } from "../../components/primitives/Toggle";
 import { Slider } from "../../components/primitives/Slider";
 import { Select } from "../../components/primitives";

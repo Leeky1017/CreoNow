@@ -31,3 +31,13 @@
   Tests  35 passed (35)
   Duration  3.30s
   ```
+
+### 2026-02-03 13:40 修复 TypeScript 未使用变量错误
+- Command: `pnpm typecheck`
+- Issues fixed:
+  - 移除未使用的 `React` imports
+  - 修复未使用的 `onLogout` 参数（重命名为 `_onLogout`）
+  - 移除未使用的 `fireEvent` import
+  - 修复未使用的 `isDirty` 变量（重命名为 `_isDirty`）
+  - 移除未使用的 `Select` import 和 `formatOptions` 变量
+- Key output: typecheck 通过，35 个测试全部通过

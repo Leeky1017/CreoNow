@@ -1,6 +1,5 @@
-import React from "react";
 import { Toggle } from "../../components/primitives/Toggle";
-import { Select, Text } from "../../components/primitives";
+import { Text } from "../../components/primitives";
 
 /**
  * Export format types
@@ -48,15 +47,6 @@ const dividerStyles = [
   "my-12",
 ].join(" ");
 
-/**
- * Export format options
- */
-const formatOptions = [
-  { value: "pdf", label: "PDF" },
-  { value: "markdown", label: "Markdown (.md)" },
-  { value: "word", label: "Word (.docx)" },
-  { value: "txt", label: "Plain Text (.txt)" },
-];
 
 /**
  * Format icon component

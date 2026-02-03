@@ -1,4 +1,3 @@
-import React from "react";
 import { Avatar, Button, Text } from "../../components/primitives";
 
 /**
@@ -104,9 +103,10 @@ function PlanBadge({ plan }: { plan: SubscriptionPlan }): JSX.Element {
 export function SettingsAccount({
   account,
   onUpgrade,
-  onLogout,
+  onLogout: _onLogout,
   onDeleteAccount,
 }: SettingsAccountProps): JSX.Element {
+  void _onLogout; // Reserved for future use
   return (
     <div className="max-w-[560px]">
       {/* Header */}
