@@ -2,7 +2,7 @@
 
 - Issue: #145
 - Branch: task/145-zen-mode
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/146
 
 ## Plan
 
