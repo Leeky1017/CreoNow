@@ -30,6 +30,12 @@ export type ProjectActions = {
   createAndSetCurrent: (args: {
     name?: string;
   }) => Promise<IpcResponse<ProjectInfo>>;
+  /**
+   * Set an existing project as current.
+   *
+   * Why: Dashboard needs to open existing projects without creating new ones.
+   */
+  setCurrentProject: (projectId: string) => Promise<IpcResponse<ProjectInfo>>;
   clearError: () => void;
 };
 
@@ -106,6 +112,17 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
 
       set({ current: setRes.data, lastError: null });
       void get().bootstrap();
+      return setRes;
+    },
+
+    setCurrentProject: async (projectId) => {
+      const setRes = await deps.invoke("project:setCurrent", { projectId });
+      if (!setRes.ok) {
+        set({ lastError: setRes.error });
+        return setRes;
+      }
+
+      set({ current: setRes.data, lastError: null });
       return setRes;
     },
   }));

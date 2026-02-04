@@ -7,6 +7,7 @@ import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
 import { Resizer } from "./Resizer";
 import { CommandPalette } from "../../features/commandPalette/CommandPalette";
+import { DashboardPage } from "../../features/dashboard";
 import { DiffViewPanel } from "../../features/diff/DiffViewPanel";
 import { EditorPane } from "../../features/editor/EditorPane";
 import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
@@ -70,6 +71,9 @@ function computePanelMax(
 export function AppShell(): JSX.Element {
   const currentProject = useProjectStore((s) => s.current);
   const currentProjectId = currentProject?.projectId ?? null;
+  const projectItems = useProjectStore((s) => s.items);
+  const bootstrapStatus = useProjectStore((s) => s.bootstrapStatus);
+  const bootstrapProjects = useProjectStore((s) => s.bootstrap);
   const bootstrapFiles = useFileStore((s) => s.bootstrapForProject);
   const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
   const compareMode = useEditorStore((s) => s.compareMode);
@@ -92,6 +96,14 @@ export function AppShell(): JSX.Element {
 
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
 
+  // Bootstrap projects on mount
+  React.useEffect(() => {
+    if (bootstrapStatus === "idle") {
+      void bootstrapProjects();
+    }
+  }, [bootstrapProjects, bootstrapStatus]);
+
+  // Bootstrap files/editor when a project is selected
   React.useEffect(() => {
     if (!currentProjectId) {
       return;
@@ -154,6 +166,41 @@ export function AppShell(): JSX.Element {
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
   const effectivePanelWidth = panelCollapsed ? 0 : panelWidth;
 
+  /**
+   * Determine which main content to render based on project state.
+   *
+   * Why: Different views for no projects, dashboard, and editor states.
+   */
+  function renderMainContent(): JSX.Element {
+    // No projects at all - show welcome/create project screen
+    if (projectItems.length === 0 && bootstrapStatus === "ready") {
+      return <WelcomeScreen />;
+    }
+
+    // Projects exist but no current project - show dashboard
+    if (!currentProject) {
+      return <DashboardPage />;
+    }
+
+    // Current project in compare mode
+    if (compareMode) {
+      return (
+        <DiffViewPanel
+          key={compareVersionId ?? "compare"}
+          diffText=""
+          onClose={() => setCompareMode(false)}
+          onRestore={() => {
+            // TODO: Implement version restore via IPC
+            setCompareMode(false);
+          }}
+        />
+      );
+    }
+
+    // Normal editor
+    return <EditorPane projectId={currentProject.projectId} />;
+  }
+
   return (
     <div
       data-testid="app-shell"
@@ -192,25 +239,13 @@ export function AppShell(): JSX.Element {
             className={`flex flex-1 bg-[var(--color-bg-base)] text-[var(--color-fg-muted)] text-[13px] ${
               currentProject
                 ? "items-stretch justify-stretch"
-                : "items-center justify-center"
+                : projectItems.length > 0
+                  ? "items-stretch justify-stretch"
+                  : "items-center justify-center"
             }`}
             style={{ minWidth: LAYOUT_DEFAULTS.mainMinWidth }}
           >
-            {!currentProject ? (
-              <WelcomeScreen />
-            ) : compareMode ? (
-              <DiffViewPanel
-                key={compareVersionId ?? "compare"}
-                diffText=""
-                onClose={() => setCompareMode(false)}
-                onRestore={() => {
-                  // TODO: Implement version restore via IPC
-                  setCompareMode(false);
-                }}
-              />
-            ) : (
-              <EditorPane projectId={currentProject.projectId} />
-            )}
+            {renderMainContent()}
           </main>
 
           {!panelCollapsed ? (

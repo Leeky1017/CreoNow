@@ -1,6 +1,7 @@
 import React from "react";
 
 import { AppShell } from "./components/layout/AppShell";
+import { OnboardingPage } from "./features/onboarding";
 import { invoke } from "./lib/ipcClient";
 import { createPreferenceStore } from "./lib/preferences";
 import { createAiStore, AiStoreProvider } from "./stores/aiStore";
@@ -13,6 +14,11 @@ import { createFileStore, FileStoreProvider } from "./stores/fileStore";
 import { createKgStore, KgStoreProvider } from "./stores/kgStore";
 import { createLayoutStore, LayoutStoreProvider } from "./stores/layoutStore";
 import { createMemoryStore, MemoryStoreProvider } from "./stores/memoryStore";
+import {
+  createOnboardingStore,
+  OnboardingStoreProvider,
+  useOnboardingStore,
+} from "./stores/onboardingStore";
 import { createSearchStore, SearchStoreProvider } from "./stores/searchStore";
 import {
   createThemeStore,
@@ -23,6 +29,22 @@ import {
   createProjectStore,
   ProjectStoreProvider,
 } from "./stores/projectStore";
+
+/**
+ * AppRouter decides which screen to show based on onboarding status.
+ *
+ * Why: First-time users should see the onboarding flow before the main app.
+ */
+function AppRouter(): JSX.Element {
+  const onboardingCompleted = useOnboardingStore((s) => s.completed);
+  const completeOnboarding = useOnboardingStore((s) => s.complete);
+
+  if (!onboardingCompleted) {
+    return <OnboardingPage onComplete={completeOnboarding} />;
+  }
+
+  return <AppShell />;
+}
 
 /**
  * App bootstraps renderer stores and mounts the Workbench shell.
@@ -50,6 +72,10 @@ export function App(): JSX.Element {
 
   const layoutStore = React.useMemo(() => {
     return createLayoutStore(preferences);
+  }, [preferences]);
+
+  const onboardingStore = React.useMemo(() => {
+    return createOnboardingStore(preferences);
   }, [preferences]);
 
   const projectStore = React.useMemo(() => {
@@ -86,25 +112,27 @@ export function App(): JSX.Element {
 
   return (
     <ThemeStoreProvider store={themeStore}>
-      <AiStoreProvider store={aiStore}>
-        <ProjectStoreProvider store={projectStore}>
-          <ContextStoreProvider store={contextStore}>
-            <EditorStoreProvider store={editorStore}>
-              <FileStoreProvider store={fileStore}>
-                <KgStoreProvider store={kgStore}>
-                  <SearchStoreProvider store={searchStore}>
-                    <MemoryStoreProvider store={memoryStore}>
-                      <LayoutStoreProvider store={layoutStore}>
-                        <AppShell />
-                      </LayoutStoreProvider>
-                    </MemoryStoreProvider>
-                  </SearchStoreProvider>
-                </KgStoreProvider>
-              </FileStoreProvider>
-            </EditorStoreProvider>
-          </ContextStoreProvider>
-        </ProjectStoreProvider>
-      </AiStoreProvider>
+      <OnboardingStoreProvider store={onboardingStore}>
+        <AiStoreProvider store={aiStore}>
+          <ProjectStoreProvider store={projectStore}>
+            <ContextStoreProvider store={contextStore}>
+              <EditorStoreProvider store={editorStore}>
+                <FileStoreProvider store={fileStore}>
+                  <KgStoreProvider store={kgStore}>
+                    <SearchStoreProvider store={searchStore}>
+                      <MemoryStoreProvider store={memoryStore}>
+                        <LayoutStoreProvider store={layoutStore}>
+                          <AppRouter />
+                        </LayoutStoreProvider>
+                      </MemoryStoreProvider>
+                    </SearchStoreProvider>
+                  </KgStoreProvider>
+                </FileStoreProvider>
+              </EditorStoreProvider>
+            </ContextStoreProvider>
+          </ProjectStoreProvider>
+        </AiStoreProvider>
+      </OnboardingStoreProvider>
     </ThemeStoreProvider>
   );
 }

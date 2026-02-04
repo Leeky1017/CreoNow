@@ -159,7 +159,30 @@ function CharacterGroupSection({
 }
 
 /**
- * CharacterPanel - A sidebar panel for managing story characters
+ * Props for CharacterPanelContent (without container-specific props)
+ */
+export interface CharacterPanelContentProps {
+  /** List of characters */
+  characters: Character[];
+  /** Currently selected character ID */
+  selectedId?: string | null;
+  /** Callback when a character is selected */
+  onSelect?: (characterId: string) => void;
+  /** Callback when a character is created */
+  onCreate?: () => void;
+  /** Callback when a character is updated */
+  onUpdate?: (character: Character) => void;
+  /** Callback when a character is deleted */
+  onDelete?: (characterId: string) => void;
+  /** Callback when navigating to a chapter */
+  onNavigateToChapter?: (chapterId: string) => void;
+}
+
+/**
+ * CharacterPanelContent - Content component without container styles.
+ *
+ * Use this component inside layout containers (Sidebar/RightPanel) that
+ * handle their own container styling (width/border/shadow).
  *
  * Features:
  * - Grouped character list (Main/Supporting/Others)
@@ -170,16 +193,16 @@ function CharacterGroupSection({
  *
  * @example
  * ```tsx
- * <CharacterPanel
+ * // Inside a layout container
+ * <CharacterPanelContent
  *   characters={characters}
  *   selectedId={selectedCharacterId}
  *   onSelect={setSelectedCharacterId}
  *   onUpdate={handleUpdateCharacter}
- *   onDelete={handleDeleteCharacter}
  * />
  * ```
  */
-export function CharacterPanel({
+export function CharacterPanelContent({
   characters,
   selectedId,
   onSelect,
@@ -187,8 +210,7 @@ export function CharacterPanel({
   onUpdate,
   onDelete,
   onNavigateToChapter,
-  width = 300,
-}: CharacterPanelProps): JSX.Element {
+}: CharacterPanelContentProps): JSX.Element {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [editingCharacter, setEditingCharacter] = React.useState<Character | null>(null);
 
@@ -217,10 +239,9 @@ export function CharacterPanel({
 
   return (
     <>
-      <aside
-        className="h-full flex flex-col border-r border-[var(--color-border-default)] bg-[var(--color-bg-surface)] shrink-0"
-        style={{ width }}
-        data-testid="character-panel"
+      <div
+        className="h-full flex flex-col bg-[var(--color-bg-surface)]"
+        data-testid="character-panel-content"
       >
         {/* Header */}
         <div className="h-14 flex items-center justify-between px-4 border-b border-[var(--color-border-default)] shrink-0">
@@ -280,7 +301,7 @@ export function CharacterPanel({
             onCreate={onCreate}
           />
         </div>
-      </aside>
+      </div>
 
       {/* Detail Dialog */}
       <CharacterDetailDialog
@@ -293,5 +314,58 @@ export function CharacterPanel({
         availableCharacters={characters}
       />
     </>
+  );
+}
+
+/**
+ * CharacterPanel - A sidebar panel for managing story characters
+ *
+ * This is the standalone panel component with its own container styles.
+ * For use inside layout containers, prefer CharacterPanelContent instead.
+ *
+ * Features:
+ * - Grouped character list (Main/Supporting/Others)
+ * - Character cards with avatar, name, and role
+ * - Selection state with detail dialog
+ * - Add new character button
+ * - Hover states with edit/delete actions
+ *
+ * @example
+ * ```tsx
+ * <CharacterPanel
+ *   characters={characters}
+ *   selectedId={selectedCharacterId}
+ *   onSelect={setSelectedCharacterId}
+ *   onUpdate={handleUpdateCharacter}
+ *   onDelete={handleDeleteCharacter}
+ * />
+ * ```
+ */
+export function CharacterPanel({
+  characters,
+  selectedId,
+  onSelect,
+  onCreate,
+  onUpdate,
+  onDelete,
+  onNavigateToChapter,
+  width = 300,
+}: CharacterPanelProps): JSX.Element {
+  return (
+    <aside
+      className="h-full flex flex-col border-r border-[var(--color-border-default)] bg-[var(--color-bg-surface)] shrink-0"
+      style={{ width }}
+      data-testid="character-panel"
+    >
+      <CharacterPanelContent
+        characters={characters}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        onCreate={onCreate}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onNavigateToChapter={onNavigateToChapter}
+      />
+    </aside>
   );
 }

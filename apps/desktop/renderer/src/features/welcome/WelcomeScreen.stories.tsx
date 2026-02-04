@@ -24,6 +24,9 @@ function createMockProjectStore(overrides: Partial<ProjectStore> = {}) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return { ok: true, data: { projectId: "mock-id", rootPath: "/mock/path" } };
     },
+    setCurrentProject: async () => {
+      return { ok: true, data: { projectId: "mock-id", rootPath: "/mock/path" } };
+    },
     ...overrides,
   }));
 }

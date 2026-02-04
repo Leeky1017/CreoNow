@@ -184,6 +184,21 @@ function PreviewIcon() {
 // Styles
 // ============================================================================
 
+/**
+ * Panel content styles - used by VersionHistoryPanelContent
+ * Does NOT include container styles (aside/width/border/shadow).
+ */
+const panelContentStyles = [
+  "bg-[var(--color-bg-surface)]",
+  "flex",
+  "flex-col",
+  "h-full",
+].join(" ");
+
+/**
+ * Legacy panel styles - includes container styles for standalone use.
+ * @deprecated Use VersionHistoryPanelContent with layout containers instead.
+ */
 const panelStyles = [
   "bg-[var(--color-bg-surface)]",
   "border-l",
@@ -643,11 +658,152 @@ function TimeGroupSection({
 }
 
 // ============================================================================
-// Main Component
+// Main Components
 // ============================================================================
 
 /**
+ * Props for VersionHistoryPanelContent (without container-specific props)
+ */
+export interface VersionHistoryPanelContentProps {
+  /** Document title */
+  documentTitle?: string;
+  /** Grouped versions by time */
+  timeGroups: TimeGroup[];
+  /** Currently selected version ID */
+  selectedId?: string | null;
+  /** Callback when a version is selected */
+  onSelect?: (versionId: string) => void;
+  /** Callback when restore is clicked */
+  onRestore?: (versionId: string) => void;
+  /** Callback when compare is clicked */
+  onCompare?: (versionId: string) => void;
+  /** Callback when preview is clicked */
+  onPreview?: (versionId: string) => void;
+  /** Callback when close is clicked */
+  onClose?: () => void;
+  /** Callback when configure auto-save is clicked */
+  onConfigureAutoSave?: () => void;
+  /** Last saved time text */
+  lastSavedText?: string;
+  /** Auto-save enabled */
+  autoSaveEnabled?: boolean;
+  /** Whether to show the close button */
+  showCloseButton?: boolean;
+}
+
+/**
+ * VersionHistoryPanelContent - Content component without container styles.
+ *
+ * Use this component inside layout containers (Sidebar/RightPanel) that
+ * handle their own container styling (width/border/shadow).
+ *
+ * Features:
+ * - Grouped version list by time (Just now, Earlier Today, Yesterday)
+ * - Version cards with author type badges (User/AI/Auto-Save)
+ * - Word change indicators (+124 words / -12 words / No changes)
+ * - Selected version with action buttons (Restore/Compare/Preview)
+ * - Hover actions for quick access
+ * - Auto-save status footer
+ *
+ * Design ref: 23-version-history.html
+ *
+ * @example
+ * ```tsx
+ * // Inside a layout container
+ * <VersionHistoryPanelContent
+ *   documentTitle="Project Requirements.docx"
+ *   timeGroups={timeGroups}
+ *   selectedId={selectedVersionId}
+ *   onSelect={setSelectedVersionId}
+ *   onRestore={handleRestore}
+ *   showCloseButton={false}
+ * />
+ * ```
+ */
+export function VersionHistoryPanelContent({
+  documentTitle = "Untitled Document",
+  timeGroups,
+  selectedId,
+  onSelect,
+  onRestore,
+  onCompare,
+  onPreview,
+  onClose,
+  onConfigureAutoSave,
+  lastSavedText = "2m ago",
+  autoSaveEnabled = true,
+  showCloseButton = true,
+}: VersionHistoryPanelContentProps): JSX.Element {
+  return (
+    <div
+      className={panelContentStyles}
+      data-testid="version-history-panel-content"
+    >
+      {/* Header */}
+      <div className={headerStyles}>
+        <div>
+          <h2 className="text-[15px] font-semibold text-[var(--color-fg-default)] tracking-tight">
+            Version History
+          </h2>
+          <p className="text-xs text-[var(--color-fg-muted)] mt-1 font-medium truncate max-w-[200px]">
+            {documentTitle}
+          </p>
+        </div>
+        {showCloseButton && (
+          <button
+            type="button"
+            onClick={onClose}
+            className={closeButtonStyles}
+            aria-label="Close version history"
+          >
+            <CloseIcon />
+          </button>
+        )}
+      </div>
+
+      {/* Scrollable content */}
+      <div className={scrollAreaStyles}>
+        {timeGroups.map((group, index) => (
+          <TimeGroupSection
+            key={group.label || `group-${index}`}
+            group={group}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            onRestore={onRestore}
+            onCompare={onCompare}
+            onPreview={onPreview}
+          />
+        ))}
+        <div className="h-2" />
+      </div>
+
+      {/* Footer */}
+      <div className={footerStyles}>
+        <div className="flex items-center gap-2 mb-1.5">
+          <div
+            className={`w-1.5 h-1.5 rounded-full ${autoSaveEnabled ? "bg-[var(--color-success)]" : "bg-[var(--color-fg-placeholder)]"}`}
+          />
+          <span className="text-xs text-[var(--color-fg-muted)]">
+            {autoSaveEnabled ? `Auto-save on (last saved ${lastSavedText})` : "Auto-save off"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onConfigureAutoSave}
+          className="text-[11px] text-[var(--color-accent-muted)] hover:text-[var(--color-accent)] transition-colors hover:underline"
+        >
+          Configure auto-save settings
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * VersionHistoryPanel - Right-side panel for viewing and managing document version history
+ *
+ * This is the standalone panel component with its own container styles.
+ * For use inside layout containers, prefer VersionHistoryPanelContent instead.
  *
  * Features:
  * - Grouped version list by time (Just now, Earlier Today, Yesterday)
@@ -692,60 +848,20 @@ export function VersionHistoryPanel({
       style={{ width }}
       data-testid="version-history-panel"
     >
-      {/* Header */}
-      <div className={headerStyles}>
-        <div>
-          <h2 className="text-[15px] font-semibold text-[var(--color-fg-default)] tracking-tight">
-            Version History
-          </h2>
-          <p className="text-xs text-[var(--color-fg-muted)] mt-1 font-medium truncate max-w-[200px]">
-            {documentTitle}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className={closeButtonStyles}
-          aria-label="Close version history"
-        >
-          <CloseIcon />
-        </button>
-      </div>
-
-      {/* Scrollable content */}
-      <div className={scrollAreaStyles}>
-        {timeGroups.map((group, index) => (
-          <TimeGroupSection
-            key={group.label || `group-${index}`}
-            group={group}
-            selectedId={selectedId}
-            onSelect={onSelect}
-            onRestore={onRestore}
-            onCompare={onCompare}
-            onPreview={onPreview}
-          />
-        ))}
-        <div className="h-2" />
-      </div>
-
-      {/* Footer */}
-      <div className={footerStyles}>
-        <div className="flex items-center gap-2 mb-1.5">
-          <div
-            className={`w-1.5 h-1.5 rounded-full ${autoSaveEnabled ? "bg-[var(--color-success)]" : "bg-[var(--color-fg-placeholder)]"}`}
-          />
-          <span className="text-xs text-[var(--color-fg-muted)]">
-            {autoSaveEnabled ? `Auto-save on (last saved ${lastSavedText})` : "Auto-save off"}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onConfigureAutoSave}
-          className="text-[11px] text-[var(--color-accent-muted)] hover:text-[var(--color-accent)] transition-colors hover:underline"
-        >
-          Configure auto-save settings
-        </button>
-      </div>
+      <VersionHistoryPanelContent
+        documentTitle={documentTitle}
+        timeGroups={timeGroups}
+        selectedId={selectedId}
+        onSelect={onSelect}
+        onRestore={onRestore}
+        onCompare={onCompare}
+        onPreview={onPreview}
+        onClose={onClose}
+        onConfigureAutoSave={onConfigureAutoSave}
+        lastSavedText={lastSavedText}
+        autoSaveEnabled={autoSaveEnabled}
+        showCloseButton={true}
+      />
     </aside>
   );
 }

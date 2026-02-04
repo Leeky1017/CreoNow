@@ -1,0 +1,483 @@
+import React from "react";
+
+import { Button, Input, Text, Spinner } from "../../components/primitives";
+import { CreateProjectDialog } from "../projects/CreateProjectDialog";
+import {
+  useProjectStore,
+  type ProjectListItem,
+} from "../../stores/projectStore";
+
+// =============================================================================
+// Types
+// =============================================================================
+
+interface DashboardPageProps {
+  /** Called when a project is selected to open */
+  onProjectSelect?: (projectId: string) => void;
+}
+
+// =============================================================================
+// Helper Components
+// =============================================================================
+
+/**
+ * SearchBar - Global search input for projects.
+ */
+function SearchBar(props: {
+  value: string;
+  onChange: (value: string) => void;
+}): JSX.Element {
+  return (
+    <div className="flex items-center gap-3 text-[var(--color-fg-muted)]">
+      <svg
+        className="w-4 h-4 shrink-0"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+      <Input
+        data-testid="dashboard-search"
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        placeholder="Search across projects..."
+        className="bg-transparent border-none text-sm w-[300px] placeholder:text-[var(--color-fg-faint)]"
+      />
+    </div>
+  );
+}
+
+/**
+ * HeroCard - Featured "Continue Writing" card for the most recent project.
+ */
+function HeroCard(props: {
+  project: ProjectListItem;
+  onClick: () => void;
+}): JSX.Element {
+  const { project, onClick } = props;
+  const lastEdited = formatRelativeTime(project.updatedAt);
+
+  return (
+    <div
+      data-testid="dashboard-hero-card"
+      onClick={onClick}
+      onKeyDown={(e) => e.key === "Enter" && onClick()}
+      role="button"
+      tabIndex={0}
+      className="border border-[var(--color-border-default)] min-h-[280px] flex cursor-pointer transition-all duration-300 hover:border-[var(--color-fg-muted)] animate-fade-in-up"
+    >
+      <div className="flex-1 p-10 flex flex-col justify-center">
+        <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-faint)] mb-3">
+          Last edited {lastEdited}
+        </div>
+        <h2 className="text-[28px] font-normal tracking-[-0.02em] text-[var(--color-fg-default)] mb-4 leading-tight">
+          {project.name || "Untitled Project"}
+        </h2>
+        <p className="text-[15px] text-[var(--color-fg-muted)] leading-relaxed max-w-[500px] mb-8">
+          Continue where you left off. Your creative journey awaits.
+        </p>
+        <div className="flex gap-3">
+          <span className="text-[11px] uppercase tracking-[0.05em] text-[var(--color-fg-faint)] border border-[var(--color-border-default)] px-2.5 py-1 rounded-full">
+            Project
+          </span>
+        </div>
+      </div>
+      <div className="w-[35%] bg-[var(--color-bg-surface)] border-l border-[var(--color-border-default)] relative overflow-hidden">
+        <div className="absolute inset-0 flex items-center justify-center text-[var(--color-fg-faint)]">
+          <svg
+            className="w-16 h-16 opacity-20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1"
+          >
+            <path d="M12 19l7-7 3 3-7 7-3-3z" />
+            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+            <path d="M2 2l7.586 7.586" />
+            <circle cx="11" cy="11" r="2" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ProjectCard - Standard project card for the grid.
+ */
+function ProjectCard(props: {
+  project: ProjectListItem;
+  onClick: () => void;
+}): JSX.Element {
+  const { project, onClick } = props;
+  const dateStr = formatDate(project.updatedAt);
+
+  return (
+    <div
+      data-testid="dashboard-project-card"
+      data-project-id={project.projectId}
+      onClick={onClick}
+      onKeyDown={(e) => e.key === "Enter" && onClick()}
+      role="button"
+      tabIndex={0}
+      className="border border-[var(--color-border-default)] p-6 h-[200px] flex flex-col cursor-pointer transition-all duration-300 hover:border-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
+    >
+      <div className="flex justify-between items-start mb-4">
+        <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-muted)]">
+          {dateStr}
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            // TODO: Open context menu
+          }}
+          className="text-[var(--color-fg-faint)] hover:text-[var(--color-fg-default)] transition-colors"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="19" cy="12" r="1.5" />
+            <circle cx="5" cy="12" r="1.5" />
+          </svg>
+        </button>
+      </div>
+
+      <h3 className="text-[16px] text-[var(--color-fg-default)] mb-2 leading-snug line-clamp-2">
+        {project.name || "Untitled Project"}
+      </h3>
+
+      <p className="text-[13px] text-[var(--color-fg-muted)] leading-relaxed line-clamp-3 flex-1">
+        Open this project to continue writing.
+      </p>
+
+      <div className="mt-auto pt-4 border-t border-[var(--color-border-default)] flex justify-between items-center">
+        <span className="text-[11px] uppercase tracking-[0.05em] text-[var(--color-fg-faint)]">
+          Project
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * NewDraftCard - Dashed card for creating new projects.
+ */
+function NewDraftCard(props: { onClick: () => void }): JSX.Element {
+  return (
+    <div
+      data-testid="dashboard-new-draft"
+      onClick={props.onClick}
+      onKeyDown={(e) => e.key === "Enter" && props.onClick()}
+      role="button"
+      tabIndex={0}
+      className="border-2 border-dashed border-[var(--color-border-default)] p-6 h-[200px] flex flex-col items-center justify-center cursor-pointer opacity-50 hover:opacity-100 hover:border-[var(--color-fg-muted)] transition-all duration-300"
+    >
+      <div className="text-[32px] font-light text-[var(--color-fg-faint)] mb-3">
+        +
+      </div>
+      <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-muted)]">
+        New Draft
+      </div>
+    </div>
+  );
+}
+
+/**
+ * SectionTitle - Consistent section header with optional action.
+ */
+function SectionTitle(props: {
+  children: React.ReactNode;
+  action?: React.ReactNode;
+  className?: string;
+}): JSX.Element {
+  return (
+    <div
+      className={`text-sm font-medium text-[var(--color-fg-default)] mb-6 flex justify-between items-center ${props.className ?? ""}`}
+    >
+      <span>{props.children}</span>
+      {props.action}
+    </div>
+  );
+}
+
+// =============================================================================
+// Utility Functions
+// =============================================================================
+
+/**
+ * Format timestamp to relative time string.
+ */
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now();
+  const diff = now - timestamp;
+
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+
+  return formatDate(timestamp);
+}
+
+/**
+ * Format timestamp to short date string.
+ */
+function formatDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  const month = date.toLocaleString("en-US", { month: "short" });
+  const day = date.getDate();
+  return `${month} ${day}`;
+}
+
+// =============================================================================
+// Main Component
+// =============================================================================
+
+/**
+ * DashboardPage - Project overview and selection screen.
+ *
+ * Why: After onboarding, users need a central hub to see their projects,
+ * continue recent work, or start new drafts. Based on design/Variant/designs/05-dashboard-sidebar-full.html.
+ */
+export function DashboardPage(props: DashboardPageProps): JSX.Element {
+  const items = useProjectStore((s) => s.items);
+  const bootstrapStatus = useProjectStore((s) => s.bootstrapStatus);
+  const bootstrap = useProjectStore((s) => s.bootstrap);
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
+
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+
+  // Bootstrap projects on mount
+  React.useEffect(() => {
+    if (bootstrapStatus === "idle") {
+      void bootstrap();
+    }
+  }, [bootstrap, bootstrapStatus]);
+
+  // Filter projects by search query
+  const filteredProjects = React.useMemo(() => {
+    if (!searchQuery.trim()) return items;
+    const query = searchQuery.toLowerCase();
+    return items.filter((p) => p.name?.toLowerCase().includes(query));
+  }, [items, searchQuery]);
+
+  // Sort by updatedAt descending (most recent first)
+  const sortedProjects = React.useMemo(() => {
+    return [...filteredProjects].sort((a, b) => b.updatedAt - a.updatedAt);
+  }, [filteredProjects]);
+
+  // Most recent project for hero card
+  const heroProject = sortedProjects[0] ?? null;
+
+  // Remaining projects for grid (exclude hero)
+  const gridProjects = sortedProjects.slice(1);
+
+  /**
+   * Handle project selection.
+   */
+  const handleProjectSelect = React.useCallback(
+    async (projectId: string) => {
+      const res = await setCurrentProject(projectId);
+      if (res.ok) {
+        props.onProjectSelect?.(projectId);
+      }
+    },
+    [props, setCurrentProject],
+  );
+
+  // Loading state
+  if (bootstrapStatus === "loading") {
+    return (
+      <div
+        data-testid="dashboard-loading"
+        className="flex-1 flex items-center justify-center"
+      >
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  // Empty state (no projects)
+  if (items.length === 0) {
+    return (
+      <>
+        <div
+          data-testid="dashboard-empty"
+          className="flex-1 flex flex-col items-center justify-center p-12"
+        >
+          <div className="text-[var(--color-fg-faint)] mb-8">
+            <svg
+              className="w-20 h-20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+            >
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+          </div>
+          <Text
+            as="div"
+            size="body"
+            color="default"
+            className="text-lg font-medium mb-2"
+          >
+            No projects yet
+          </Text>
+          <Text size="small" color="muted" className="mb-8 text-center">
+            Create your first project to start writing.
+          </Text>
+          <Button
+            data-testid="dashboard-create-first"
+            variant="secondary"
+            size="md"
+            onClick={() => setCreateDialogOpen(true)}
+          >
+            Create Project
+          </Button>
+        </div>
+
+        <CreateProjectDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div
+        data-testid="dashboard-page"
+        className="flex-1 flex flex-col min-h-0 bg-[var(--color-bg-base)]"
+      >
+        {/* Toolbar */}
+        <header className="h-20 border-b border-[var(--color-border-default)] flex items-center justify-between px-12">
+          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          <div className="flex gap-4 items-center">
+            <Button
+              data-testid="dashboard-create-new"
+              variant="secondary"
+              size="sm"
+              onClick={() => setCreateDialogOpen(true)}
+              className="rounded-full px-5"
+            >
+              Create New
+            </Button>
+          </div>
+        </header>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-12">
+          {/* Continue Writing (Hero) */}
+          {heroProject && (
+            <>
+              <SectionTitle
+                action={
+                  <button className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors cursor-pointer">
+                    View All
+                  </button>
+                }
+                className="animate-fade-in-up"
+              >
+                Continue Writing
+              </SectionTitle>
+              <div className="mb-16">
+                <HeroCard
+                  project={heroProject}
+                  onClick={() => void handleProjectSelect(heroProject.projectId)}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Recent Projects Grid */}
+          {(gridProjects.length > 0 || searchQuery) && (
+            <>
+              <SectionTitle
+                action={
+                  <div className="flex gap-3">
+                    <button
+                      className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
+                      title="Grid View"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                      </svg>
+                    </button>
+                    <button
+                      className="text-[var(--color-fg-faint)] hover:text-[var(--color-fg-default)] transition-colors"
+                      title="List View"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                }
+                className="mt-8 animate-fade-in-up animation-delay-200"
+              >
+                Recent Projects
+              </SectionTitle>
+
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6 animate-fade-in-up animation-delay-300">
+                {gridProjects.map((project) => (
+                  <ProjectCard
+                    key={project.projectId}
+                    project={project}
+                    onClick={() => void handleProjectSelect(project.projectId)}
+                  />
+                ))}
+                <NewDraftCard onClick={() => setCreateDialogOpen(true)} />
+              </div>
+
+              {/* No results */}
+              {searchQuery && filteredProjects.length === 0 && (
+                <div className="text-center py-12">
+                  <Text size="body" color="muted">
+                    No projects match &quot;{searchQuery}&quot;
+                  </Text>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Only hero, show new draft prominently */}
+          {gridProjects.length === 0 && !searchQuery && heroProject && (
+            <div className="mt-8">
+              <SectionTitle className="animate-fade-in-up animation-delay-200">
+                Start Something New
+              </SectionTitle>
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6 animate-fade-in-up animation-delay-300">
+                <NewDraftCard onClick={() => setCreateDialogOpen(true)} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <CreateProjectDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
+    </>
+  );
+}
