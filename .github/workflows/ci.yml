@@ -39,6 +39,9 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
+      - name: Storybook build check
+        run: pnpm -C apps/desktop storybook:build
+
   windows-e2e:
     runs-on: windows-latest
     steps:
