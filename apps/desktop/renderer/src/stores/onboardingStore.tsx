@@ -45,13 +45,26 @@ const OnboardingStoreContext = React.createContext<UseOnboardingStore | null>(
 );
 
 /**
+ * Check if running in E2E test mode.
+ *
+ * Why: E2E tests need to skip onboarding to test the main app directly.
+ */
+function isE2EMode(): boolean {
+  // Check for E2E environment variable exposed via preload
+  return typeof window !== "undefined" && window.__CN_E2E__?.enabled === true;
+}
+
+/**
  * Create a zustand store for onboarding state.
  *
  * Why: Track whether the user has completed onboarding to determine
  * the initial screen to show (onboarding vs welcome/dashboard).
  */
 export function createOnboardingStore(preferences: PreferenceStore) {
-  const initialCompleted = preferences.get<boolean>(ONBOARDING_KEY) ?? false;
+  // In E2E mode, skip onboarding to allow testing main app
+  const e2eMode = isE2EMode();
+  const initialCompleted =
+    e2eMode || (preferences.get<boolean>(ONBOARDING_KEY) ?? false);
 
   return create<OnboardingStore>((set) => ({
     completed: initialCompleted,
