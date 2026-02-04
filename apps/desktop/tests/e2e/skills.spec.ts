@@ -90,16 +90,12 @@ test("skills: list + toggle disables run + command palette opens", async () => {
   ).toBeVisible();
   await page.getByTestId(`ai-skill-${firstEnabledValid.id}`).click();
 
-  // Ensure we're in non-stream mode so the send/stop button is stable for back-to-back runs.
-  const streamToggle = page.getByTestId("ai-stream-toggle");
-  if (await streamToggle.isChecked()) {
-    await streamToggle.click();
-  }
-  await expect(page.getByTestId("ai-status")).toContainText("idle");
+  // Wait for AI panel to be ready (stream toggle removed in UI refactoring)
+  await expect(page.getByTestId("ai-input")).toBeVisible();
+  await expect(page.getByTestId("ai-send-stop")).toBeVisible();
 
   await runInput(page, "hello");
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
-  await expect(page.getByTestId("ai-status")).toContainText("idle");
 
   const toggled = await page.evaluate(async (id) => {
     if (!window.creonow) {
