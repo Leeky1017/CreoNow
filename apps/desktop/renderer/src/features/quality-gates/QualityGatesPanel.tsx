@@ -269,6 +269,21 @@ function LocationIcon() {
 // Styles
 // ============================================================================
 
+/**
+ * Panel content styles - used by QualityGatesPanelContent
+ * Does NOT include container styles (aside/width/border/shadow).
+ */
+const panelContentStyles = [
+  "bg-[var(--color-bg-surface)]",
+  "flex",
+  "flex-col",
+  "h-full",
+].join(" ");
+
+/**
+ * Legacy panel styles - includes container styles for standalone use.
+ * @deprecated Use QualityGatesPanelContent with layout containers instead.
+ */
 const panelStyles = [
   "bg-[var(--color-bg-surface)]",
   "border-l",
@@ -774,11 +789,180 @@ function SettingsSection({
 }
 
 // ============================================================================
-// Main Component
+// Main Components
 // ============================================================================
 
 /**
+ * Props for QualityGatesPanelContent (without container-specific props)
+ */
+export interface QualityGatesPanelContentProps {
+  /** Groups of quality checks */
+  checkGroups: CheckGroup[];
+  /** Overall panel status */
+  panelStatus: PanelStatus;
+  /** Total issues count */
+  issuesCount?: number;
+  /** Currently expanded check ID */
+  expandedCheckId?: string | null;
+  /** Callback when check is expanded/collapsed */
+  onToggleCheck?: (checkId: string) => void;
+  /** Callback when Fix Issue is clicked */
+  onFixIssue?: (checkId: string, issueId: string) => void;
+  /** Callback when Ignore is clicked */
+  onIgnoreIssue?: (checkId: string, issueId: string) => void;
+  /** Callback when View in Editor is clicked */
+  onViewInEditor?: (checkId: string, issueId: string) => void;
+  /** Callback when Run All Checks is clicked */
+  onRunAllChecks?: () => void;
+  /** Callback when close is clicked */
+  onClose?: () => void;
+  /** Settings configuration */
+  settings?: QualitySettings;
+  /** Callback when settings change */
+  onSettingsChange?: (settings: QualitySettings) => void;
+  /** Whether settings section is expanded */
+  settingsExpanded?: boolean;
+  /** Callback when settings section is toggled */
+  onToggleSettings?: () => void;
+  /** Fix in progress for issue */
+  fixingIssueId?: string | null;
+  /** Whether to show the close button */
+  showCloseButton?: boolean;
+}
+
+/**
+ * QualityGatesPanelContent - Content component without container styles.
+ *
+ * Use this component inside layout containers (Sidebar/RightPanel) that
+ * handle their own container styling (width/border/shadow).
+ *
+ * Features:
+ * - Grouped quality checks (Style, Consistency, Completeness)
+ * - Check items with status indicators (passed/warning/error/running)
+ * - Expandable issue details with Fix/Ignore/View actions
+ * - Settings toggles for check configuration
+ * - Run All Checks button
+ *
+ * Design ref: 35-constraints-panel.html
+ *
+ * @example
+ * ```tsx
+ * // Inside a layout container
+ * <QualityGatesPanelContent
+ *   checkGroups={checkGroups}
+ *   panelStatus="issues-found"
+ *   issuesCount={2}
+ *   expandedCheckId={expandedId}
+ *   onToggleCheck={setExpandedId}
+ *   showCloseButton={false}
+ * />
+ * ```
+ */
+export function QualityGatesPanelContent({
+  checkGroups,
+  panelStatus,
+  issuesCount,
+  expandedCheckId,
+  onToggleCheck,
+  onFixIssue,
+  onIgnoreIssue,
+  onViewInEditor,
+  onRunAllChecks,
+  onClose,
+  settings = {
+    runOnSave: true,
+    blockOnErrors: false,
+    frequency: "on-demand",
+  },
+  onSettingsChange,
+  settingsExpanded = false,
+  onToggleSettings,
+  fixingIssueId,
+  showCloseButton = true,
+}: QualityGatesPanelContentProps): JSX.Element {
+  return (
+    <div
+      className={panelContentStyles}
+      data-testid="quality-gates-panel-content"
+    >
+      {/* Header */}
+      <div className={headerStyles}>
+        <div>
+          <h2 className="text-[15px] font-semibold text-[var(--color-fg-default)] tracking-tight">
+            Quality Gates
+          </h2>
+          <div className="mt-2">
+            <PanelStatusIndicator status={panelStatus} issuesCount={issuesCount} />
+          </div>
+        </div>
+        {showCloseButton && (
+          <button
+            type="button"
+            onClick={onClose}
+            className={closeButtonStyles}
+            aria-label="Close quality gates panel"
+          >
+            <CloseIcon />
+          </button>
+        )}
+      </div>
+
+      {/* Scrollable content */}
+      <div className={scrollAreaStyles}>
+        {/* Run All Checks button */}
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onRunAllChecks}
+          loading={panelStatus === "running"}
+          fullWidth
+          className="!justify-center !gap-2"
+        >
+          <PlayIcon />
+          Run All Checks
+        </Button>
+
+        {/* Success message when all passed */}
+        {panelStatus === "all-passed" && (
+          <div className="p-4 bg-[var(--color-success-subtle)] border border-[var(--color-success)]/20 rounded-[var(--radius-lg)] text-center">
+            <CheckCircleIcon />
+            <p className="text-[13px] text-[var(--color-success)] mt-2">
+              Your content meets all quality standards.
+            </p>
+          </div>
+        )}
+
+        {/* Check groups */}
+        {checkGroups.map((group) => (
+          <CheckGroupAccordion
+            key={group.id}
+            group={group}
+            expandedCheckId={expandedCheckId}
+            onToggleCheck={onToggleCheck}
+            onFix={onFixIssue}
+            onIgnore={onIgnoreIssue}
+            onViewInEditor={onViewInEditor}
+            fixingIssueId={fixingIssueId}
+          />
+        ))}
+
+        {/* Settings */}
+        <SettingsSection
+          settings={settings}
+          onSettingsChange={onSettingsChange}
+          expanded={settingsExpanded}
+          onToggle={onToggleSettings}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
  * QualityGatesPanel - Right-side panel for quality checks and constraints
+ *
+ * This is the standalone panel component with its own container styles.
+ * For use inside layout containers, prefer QualityGatesPanelContent instead.
  *
  * Features:
  * - Grouped quality checks (Style, Consistency, Completeness)
@@ -831,73 +1015,24 @@ export function QualityGatesPanel({
       style={{ width }}
       data-testid="quality-gates-panel"
     >
-      {/* Header */}
-      <div className={headerStyles}>
-        <div>
-          <h2 className="text-[15px] font-semibold text-[var(--color-fg-default)] tracking-tight">
-            Quality Gates
-          </h2>
-          <div className="mt-2">
-            <PanelStatusIndicator status={panelStatus} issuesCount={issuesCount} />
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className={closeButtonStyles}
-          aria-label="Close quality gates panel"
-        >
-          <CloseIcon />
-        </button>
-      </div>
-
-      {/* Scrollable content */}
-      <div className={scrollAreaStyles}>
-        {/* Run All Checks button */}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onRunAllChecks}
-          loading={panelStatus === "running"}
-          fullWidth
-          className="!justify-center !gap-2"
-        >
-          <PlayIcon />
-          Run All Checks
-        </Button>
-
-        {/* Success message when all passed */}
-        {panelStatus === "all-passed" && (
-          <div className="p-4 bg-[var(--color-success-subtle)] border border-[var(--color-success)]/20 rounded-[var(--radius-lg)] text-center">
-            <CheckCircleIcon />
-            <p className="text-[13px] text-[var(--color-success)] mt-2">
-              Your content meets all quality standards.
-            </p>
-          </div>
-        )}
-
-        {/* Check groups */}
-        {checkGroups.map((group) => (
-          <CheckGroupAccordion
-            key={group.id}
-            group={group}
-            expandedCheckId={expandedCheckId}
-            onToggleCheck={onToggleCheck}
-            onFix={onFixIssue}
-            onIgnore={onIgnoreIssue}
-            onViewInEditor={onViewInEditor}
-            fixingIssueId={fixingIssueId}
-          />
-        ))}
-
-        {/* Settings */}
-        <SettingsSection
-          settings={settings}
-          onSettingsChange={onSettingsChange}
-          expanded={settingsExpanded}
-          onToggle={onToggleSettings}
-        />
-      </div>
+      <QualityGatesPanelContent
+        checkGroups={checkGroups}
+        panelStatus={panelStatus}
+        issuesCount={issuesCount}
+        expandedCheckId={expandedCheckId}
+        onToggleCheck={onToggleCheck}
+        onFixIssue={onFixIssue}
+        onIgnoreIssue={onIgnoreIssue}
+        onViewInEditor={onViewInEditor}
+        onRunAllChecks={onRunAllChecks}
+        onClose={onClose}
+        settings={settings}
+        onSettingsChange={onSettingsChange}
+        settingsExpanded={settingsExpanded}
+        onToggleSettings={onToggleSettings}
+        fixingIssueId={fixingIssueId}
+        showCloseButton={true}
+      />
     </aside>
   );
 }

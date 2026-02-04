@@ -1,11 +1,11 @@
-import { CharacterPanel } from "../../features/character/CharacterPanel";
+import { CharacterPanelContent } from "../../features/character/CharacterPanel";
 import { FileTreePanel } from "../../features/files/FileTreePanel";
 import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
 import { MemoryPanel } from "../../features/memory/MemoryPanel";
 import { OutlinePanel } from "../../features/outline/OutlinePanel";
 import { SearchPanel } from "../../features/search/SearchPanel";
 import { SettingsPanel } from "../../features/settings/SettingsPanel";
-import { VersionHistoryPanel } from "../../features/version-history/VersionHistoryPanel";
+import { VersionHistoryPanelContent } from "../../features/version-history/VersionHistoryPanel";
 import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
 
 /**
@@ -98,8 +98,9 @@ export function Sidebar(props: {
 
       case "versionHistory":
         return props.projectId ? (
-          <VersionHistoryPanel
+          <VersionHistoryPanelContent
             timeGroups={[]}
+            showCloseButton={false}
             onRestore={(versionId) => {
               console.log("Restore version:", versionId);
             }}
@@ -115,7 +116,7 @@ export function Sidebar(props: {
 
       case "characters":
         return props.projectId ? (
-          <CharacterPanel characters={[]} />
+          <CharacterPanelContent characters={[]} />
         ) : (
           <div className="p-3 text-xs text-[var(--color-fg-muted)]">
             Open a project to manage characters

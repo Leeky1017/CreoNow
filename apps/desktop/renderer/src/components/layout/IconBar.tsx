@@ -1,4 +1,16 @@
 import {
+  FolderOpen,
+  Search,
+  List,
+  History,
+  Brain,
+  User,
+  Network,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
+
+import {
   useLayoutStore,
   LAYOUT_DEFAULTS,
   type LeftPanelType,
@@ -30,27 +42,33 @@ const iconButtonActive =
   "border-[var(--color-border-focus)] bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]";
 
 /**
- * Icon configuration for each left panel view.
- *
- * Each icon maps to a LeftPanelType and provides:
- * - icon: Display character/emoji (will be replaced with proper icons later)
- * - label: Accessible label for screen readers
- * - testId: Test ID for E2E automation
+ * Icon item type for panel navigation.
  */
-const LEFT_PANEL_ICONS: Array<{
+type IconItem = {
   panel: LeftPanelType;
-  icon: string;
+  Icon: LucideIcon;
   label: string;
   testId: string;
-}> = [
-  { panel: "files", icon: "📁", label: "Files", testId: "icon-bar-files" },
-  { panel: "search", icon: "🔍", label: "Search", testId: "icon-bar-search" },
-  { panel: "outline", icon: "📑", label: "Outline", testId: "icon-bar-outline" },
-  { panel: "versionHistory", icon: "📜", label: "Version History", testId: "icon-bar-version-history" },
-  { panel: "memory", icon: "🧠", label: "Memory", testId: "icon-bar-memory" },
-  { panel: "characters", icon: "👤", label: "Characters", testId: "icon-bar-characters" },
-  { panel: "knowledgeGraph", icon: "🕸️", label: "Knowledge Graph", testId: "icon-bar-knowledge-graph" },
-  { panel: "settings", icon: "⚙️", label: "Settings", testId: "icon-bar-settings" },
+};
+
+/**
+ * Main navigation icons (top section).
+ */
+const MAIN_ICONS: IconItem[] = [
+  { panel: "files", Icon: FolderOpen, label: "Files", testId: "icon-bar-files" },
+  { panel: "search", Icon: Search, label: "Search", testId: "icon-bar-search" },
+  { panel: "outline", Icon: List, label: "Outline", testId: "icon-bar-outline" },
+  { panel: "versionHistory", Icon: History, label: "Version History", testId: "icon-bar-version-history" },
+  { panel: "memory", Icon: Brain, label: "Memory", testId: "icon-bar-memory" },
+  { panel: "characters", Icon: User, label: "Characters", testId: "icon-bar-characters" },
+  { panel: "knowledgeGraph", Icon: Network, label: "Knowledge Graph", testId: "icon-bar-knowledge-graph" },
+];
+
+/**
+ * Bottom section icons (settings, etc).
+ */
+const BOTTOM_ICONS: IconItem[] = [
+  { panel: "settings", Icon: Settings, label: "Settings", testId: "icon-bar-settings" },
 ];
 
 /**
@@ -85,29 +103,45 @@ export function IconBar(): JSX.Element {
     }
   };
 
+  /**
+   * Render a single icon button.
+   */
+  const renderIconButton = ({ panel, Icon, label, testId }: IconItem) => {
+    const isActive = activeLeftPanel === panel && !sidebarCollapsed;
+    return (
+      <button
+        key={panel}
+        type="button"
+        onClick={() => handleIconClick(panel)}
+        className={`${iconButtonBase} ${isActive ? iconButtonActive : iconButtonInactive}`}
+        aria-label={label}
+        aria-pressed={isActive}
+        data-testid={testId}
+        title={label}
+      >
+        <Icon size={20} strokeWidth={1.5} />
+      </button>
+    );
+  };
+
   return (
     <div
-      className="flex flex-col items-center pt-2 gap-1 bg-[var(--color-bg-surface)] border-r border-[var(--color-separator)]"
+      className="flex flex-col items-center pt-2 pb-2 bg-[var(--color-bg-surface)] border-r border-[var(--color-separator)] h-full"
       style={{ width: LAYOUT_DEFAULTS.iconBarWidth }}
       data-testid="icon-bar"
     >
-      {LEFT_PANEL_ICONS.map(({ panel, icon, label, testId }) => {
-        const isActive = activeLeftPanel === panel && !sidebarCollapsed;
-        return (
-          <button
-            key={panel}
-            type="button"
-            onClick={() => handleIconClick(panel)}
-            className={`${iconButtonBase} ${isActive ? iconButtonActive : iconButtonInactive}`}
-            aria-label={label}
-            aria-pressed={isActive}
-            data-testid={testId}
-            title={label}
-          >
-            <span className="text-lg">{icon}</span>
-          </button>
-        );
-      })}
+      {/* Main navigation icons */}
+      <div className="flex flex-col items-center gap-1">
+        {MAIN_ICONS.map(renderIconButton)}
+      </div>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Bottom icons (Settings) */}
+      <div className="flex flex-col items-center gap-1">
+        {BOTTOM_ICONS.map(renderIconButton)}
+      </div>
     </div>
   );
 }

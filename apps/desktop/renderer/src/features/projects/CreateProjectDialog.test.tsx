@@ -15,7 +15,7 @@ vi.mock("../../stores/projectStore", () => ({
       createAndSetCurrent: vi
         .fn()
         .mockResolvedValue({ ok: true, data: { projectId: "new-project" } }),
-      setCurrent: vi.fn(),
+      setCurrentProject: vi.fn(),
       clearError: vi.fn(),
     };
     return selector(state);
@@ -194,7 +194,7 @@ describe("CreateProjectDialog", () => {
           lastError: null,
           bootstrap: vi.fn(),
           createAndSetCurrent,
-          setCurrent: vi.fn(),
+          setCurrentProject: vi.fn(),
           clearError: vi.fn(),
         };
         return selector(state);
@@ -238,7 +238,7 @@ describe("CreateProjectDialog", () => {
           },
           bootstrap: vi.fn(),
           createAndSetCurrent: vi.fn(),
-          setCurrent: vi.fn(),
+          setCurrentProject: vi.fn(),
           clearError: vi.fn(),
         };
         return selector(state);
@@ -272,7 +272,7 @@ describe("CreateProjectDialog", () => {
           lastError: null,
           bootstrap: vi.fn(),
           createAndSetCurrent,
-          setCurrent: vi.fn(),
+          setCurrentProject: vi.fn(),
           clearError: vi.fn(),
         };
         return selector(state);
@@ -305,7 +305,7 @@ describe("CreateProjectDialog", () => {
           lastError: null,
           bootstrap: vi.fn(),
           createAndSetCurrent: vi.fn(),
-          setCurrent: vi.fn(),
+          setCurrentProject: vi.fn(),
           clearError,
         };
         return selector(state);

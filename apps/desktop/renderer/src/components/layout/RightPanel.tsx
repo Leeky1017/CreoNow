@@ -4,7 +4,7 @@ import {
   type RightPanelType,
 } from "../../stores/layoutStore";
 import { AiPanel } from "../../features/ai/AiPanel";
-import { QualityGatesPanel } from "../../features/quality-gates/QualityGatesPanel";
+import { QualityGatesPanelContent } from "../../features/quality-gates/QualityGatesPanel";
 
 /**
  * Tab button styles for right panel.
@@ -94,9 +94,10 @@ export function RightPanel(props: {
         return <InfoPanelContent />;
       case "quality":
         return (
-          <QualityGatesPanel
+          <QualityGatesPanelContent
             checkGroups={[]}
             panelStatus="all-passed"
+            showCloseButton={false}
           />
         );
       default: {
