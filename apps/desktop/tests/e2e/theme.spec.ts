@@ -44,6 +44,8 @@ test("theme: switch to light + persist across restart", async () => {
   }
 
   const first = await launch();
+  // Navigate to Settings panel (now in left sidebar)
+  await first.page.getByTestId("icon-bar-settings").click();
   await expect(first.page.getByTestId("settings-panel")).toBeVisible();
 
   await first.page.getByTestId("theme-mode-light").click();
