@@ -17,26 +17,30 @@ describe("IconBar", () => {
   // ===========================================================================
   describe("渲染", () => {
     it("应该渲染 IconBar 组件", () => {
-      const { container } = renderWithWrapper();
+      renderWithWrapper();
 
-      // IconBar 应该存在
-      const iconBar = container.firstChild;
+      const iconBar = screen.getByTestId("icon-bar");
       expect(iconBar).toBeInTheDocument();
     });
 
-    it("应该渲染侧边栏切换按钮", () => {
+    it("应该渲染所有 8 个导航按钮", () => {
       renderWithWrapper();
 
-      const toggleButton = screen.getByRole("button", {
-        name: /toggle sidebar/i,
-      });
-      expect(toggleButton).toBeInTheDocument();
+      // 验证所有按钮都存在
+      expect(screen.getByTestId("icon-bar-files")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-bar-search")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-bar-outline")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-bar-version-history")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-bar-memory")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-bar-characters")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-bar-knowledge-graph")).toBeInTheDocument();
+      expect(screen.getByTestId("icon-bar-settings")).toBeInTheDocument();
     });
 
     it("应该有正确的固定宽度 (48px)", () => {
-      const { container } = renderWithWrapper();
+      renderWithWrapper();
 
-      const iconBar = container.firstChild as HTMLElement;
+      const iconBar = screen.getByTestId("icon-bar");
       expect(iconBar).toHaveStyle({ width: "48px" });
     });
   });
@@ -45,18 +49,52 @@ describe("IconBar", () => {
   // 交互测试
   // ===========================================================================
   describe("交互", () => {
-    it("点击切换按钮应该触发侧边栏折叠", () => {
+    it("点击非激活的按钮应该激活对应面板", () => {
       renderWithWrapper();
 
-      const toggleButton = screen.getByRole("button", {
-        name: /toggle sidebar/i,
-      });
+      const searchButton = screen.getByTestId("icon-bar-search");
 
-      // 点击切换按钮
-      fireEvent.click(toggleButton);
+      // 初始状态：search 未激活
+      expect(searchButton).toHaveAttribute("aria-pressed", "false");
 
-      // 按钮应该仍然存在（store 状态会改变）
-      expect(toggleButton).toBeInTheDocument();
+      // 点击 search 按钮
+      fireEvent.click(searchButton);
+
+      // 按钮应该显示激活状态
+      expect(searchButton).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("点击不同按钮应该切换激活状态", () => {
+      renderWithWrapper();
+
+      const filesButton = screen.getByTestId("icon-bar-files");
+      const searchButton = screen.getByTestId("icon-bar-search");
+
+      // 初始状态：files 应该激活（默认 activeLeftPanel = "files"）
+      expect(filesButton).toHaveAttribute("aria-pressed", "true");
+      expect(searchButton).toHaveAttribute("aria-pressed", "false");
+
+      // 点击 search
+      fireEvent.click(searchButton);
+
+      // search 应该激活，files 不再激活
+      expect(searchButton).toHaveAttribute("aria-pressed", "true");
+      expect(filesButton).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("点击已激活的按钮应该保持激活（sidebar 折叠时 aria-pressed=false）", () => {
+      renderWithWrapper();
+
+      const filesButton = screen.getByTestId("icon-bar-files");
+
+      // 初始激活
+      expect(filesButton).toHaveAttribute("aria-pressed", "true");
+
+      // 再次点击同一个按钮会切换折叠状态
+      fireEvent.click(filesButton);
+
+      // sidebar 折叠后，即使 activeLeftPanel 仍是 files，aria-pressed 应该为 false
+      expect(filesButton).toHaveAttribute("aria-pressed", "false");
     });
   });
 
@@ -65,35 +103,31 @@ describe("IconBar", () => {
   // ===========================================================================
   describe("样式", () => {
     it("应该有边框右侧分隔线", () => {
-      const { container } = renderWithWrapper();
+      renderWithWrapper();
 
-      const iconBar = container.firstChild as HTMLElement;
+      const iconBar = screen.getByTestId("icon-bar");
       expect(iconBar).toHaveClass("border-r");
     });
 
     it("应该有正确的背景色类", () => {
-      const { container } = renderWithWrapper();
+      renderWithWrapper();
 
-      const iconBar = container.firstChild as HTMLElement;
+      const iconBar = screen.getByTestId("icon-bar");
       expect(iconBar.className).toContain("bg-[var(--color-bg-surface)]");
     });
 
     it("按钮应该有 hover 状态样式类", () => {
       renderWithWrapper();
 
-      const toggleButton = screen.getByRole("button", {
-        name: /toggle sidebar/i,
-      });
-      expect(toggleButton.className).toContain("hover:");
+      const filesButton = screen.getByTestId("icon-bar-files");
+      expect(filesButton.className).toContain("hover:");
     });
 
     it("按钮应该有 focus-visible 样式类", () => {
       renderWithWrapper();
 
-      const toggleButton = screen.getByRole("button", {
-        name: /toggle sidebar/i,
-      });
-      expect(toggleButton.className).toContain("focus-visible:");
+      const filesButton = screen.getByTestId("icon-bar-files");
+      expect(filesButton.className).toContain("focus-visible:");
     });
   });
 
@@ -101,22 +135,40 @@ describe("IconBar", () => {
   // 无障碍测试
   // ===========================================================================
   describe("无障碍", () => {
-    it("切换按钮应该有 aria-label", () => {
+    it("所有按钮应该有 aria-label", () => {
       renderWithWrapper();
 
-      const toggleButton = screen.getByRole("button", {
-        name: /toggle sidebar/i,
+      const buttons = screen.getAllByRole("button");
+      buttons.forEach((button) => {
+        expect(button).toHaveAttribute("aria-label");
       });
-      expect(toggleButton).toHaveAttribute("aria-label");
     });
 
-    it("切换按钮应该有 type='button'", () => {
+    it("所有按钮应该有 type='button'", () => {
       renderWithWrapper();
 
-      const toggleButton = screen.getByRole("button", {
-        name: /toggle sidebar/i,
+      const buttons = screen.getAllByRole("button");
+      buttons.forEach((button) => {
+        expect(button).toHaveAttribute("type", "button");
       });
-      expect(toggleButton).toHaveAttribute("type", "button");
+    });
+
+    it("所有按钮应该有 aria-pressed 状态", () => {
+      renderWithWrapper();
+
+      const buttons = screen.getAllByRole("button");
+      buttons.forEach((button) => {
+        expect(button).toHaveAttribute("aria-pressed");
+      });
+    });
+
+    it("所有按钮应该有 title 提示", () => {
+      renderWithWrapper();
+
+      const buttons = screen.getAllByRole("button");
+      buttons.forEach((button) => {
+        expect(button).toHaveAttribute("title");
+      });
     });
   });
 });

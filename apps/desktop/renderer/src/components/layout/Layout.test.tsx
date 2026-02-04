@@ -251,10 +251,8 @@ describe("Layout 综合测试", () => {
     it("应该包含所有必要的布局组件", () => {
       renderWithWrapper();
 
-      // IconBar（通过按钮识别）
-      expect(
-        screen.getByRole("button", { name: /toggle sidebar/i }),
-      ).toBeInTheDocument();
+      // IconBar（通过 testid 识别）
+      expect(screen.getByTestId("icon-bar")).toBeInTheDocument();
 
       // Sidebar
       expect(screen.getByTestId("layout-sidebar")).toBeInTheDocument();

@@ -1,45 +1,49 @@
-import React from "react";
-
+import { CharacterPanel } from "../../features/character/CharacterPanel";
 import { FileTreePanel } from "../../features/files/FileTreePanel";
 import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
 import { MemoryPanel } from "../../features/memory/MemoryPanel";
 import { OutlinePanel } from "../../features/outline/OutlinePanel";
 import { SearchPanel } from "../../features/search/SearchPanel";
+import { SettingsPanel } from "../../features/settings/SettingsPanel";
+import { VersionHistoryPanel } from "../../features/version-history/VersionHistoryPanel";
 import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
 
-type SidebarTab = "files" | "outline" | "search" | "kg";
-
 /**
- * Sidebar tab button styles.
- * Active state uses focus border + selected background.
+ * Left panel header showing the current view name.
  */
-const tabButtonBase = [
-  "text-xs",
-  "px-2",
-  "py-1",
-  "rounded-[var(--radius-md)]",
-  "border",
-  "text-[var(--color-fg-default)]",
-  "cursor-pointer",
-  "transition-colors",
-  "duration-[var(--duration-fast)]",
-  "hover:bg-[var(--color-bg-hover)]",
-  "focus-visible:outline",
-  "focus-visible:outline-[length:var(--ring-focus-width)]",
-  "focus-visible:outline-offset-[var(--ring-focus-offset)]",
-  "focus-visible:outline-[var(--color-ring-focus)]",
-].join(" ");
-
-const tabButtonActive =
-  "border-[var(--color-border-focus)] bg-[var(--color-bg-selected)]";
-const tabButtonInactive =
-  "border-[var(--color-border-default)] bg-[var(--color-bg-surface)]";
+function LeftPanelHeader(props: { title: string }): JSX.Element {
+  return (
+    <div className="flex items-center h-10 px-3 border-b border-[var(--color-separator)]">
+      <span className="text-xs font-medium text-[var(--color-fg-muted)] uppercase tracking-wider">
+        {props.title}
+      </span>
+    </div>
+  );
+}
 
 /**
- * Sidebar is the left panel container (Files/Outline/Memory/etc).
+ * Panel titles mapping.
+ */
+const PANEL_TITLES: Record<LeftPanelType, string> = {
+  files: "Explorer",
+  search: "Search",
+  outline: "Outline",
+  versionHistory: "Version History",
+  memory: "Memory",
+  characters: "Characters",
+  knowledgeGraph: "Knowledge Graph",
+  settings: "Settings",
+};
+
+/**
+ * Sidebar (LeftPanel) is the left panel container.
  *
- * Why: P0 wires the Files tab as the minimal documents entry point with stable
- * selectors for Windows E2E. Memory panel can be shown here via activePanel prop.
+ * Renders the active panel based on activePanel prop.
+ * No internal tabs - IconBar controls which panel is shown.
+ *
+ * Behavior:
+ * - Panels requiring projectId show empty state when no project
+ * - Settings and Memory (global scope) work without project
  */
 export function Sidebar(props: {
   width: number;
@@ -47,28 +51,96 @@ export function Sidebar(props: {
   projectId: string | null;
   activePanel: LeftPanelType;
 }): JSX.Element {
-  const [activeTab, setActiveTab] = React.useState<SidebarTab>("files");
-
   if (props.collapsed) {
     return <aside data-testid="layout-sidebar" className="hidden w-0" />;
   }
 
-  // Memory panel mode: render MemoryPanel instead of file tabs
-  if (props.activePanel === "memory") {
-    return (
-      <aside
-        data-testid="layout-sidebar"
-        className="flex flex-col bg-[var(--color-bg-surface)] border-r border-[var(--color-separator)]"
-        style={{
-          width: props.width,
-          minWidth: LAYOUT_DEFAULTS.sidebar.min,
-          maxWidth: LAYOUT_DEFAULTS.sidebar.max,
-        }}
-      >
-        <MemoryPanel />
-      </aside>
-    );
-  }
+  /**
+   * Render the content for the active panel.
+   *
+   * Some panels require projectId, others work globally.
+   */
+  const renderPanelContent = () => {
+    switch (props.activePanel) {
+      case "files":
+        return props.projectId ? (
+          <FileTreePanel projectId={props.projectId} />
+        ) : (
+          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+            No project open
+          </div>
+        );
+
+      case "search":
+        return props.projectId ? (
+          <SearchPanel projectId={props.projectId} />
+        ) : (
+          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+            Open a project to search
+          </div>
+        );
+
+      case "outline":
+        return props.projectId ? (
+          <OutlinePanel
+            items={[]}
+            activeId={null}
+            onNavigate={(id) => {
+              // TODO: Wire to editor scroll position
+              console.log("Navigate to outline item:", id);
+            }}
+          />
+        ) : (
+          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+            Open a document to view outline
+          </div>
+        );
+
+      case "versionHistory":
+        return props.projectId ? (
+          <VersionHistoryPanel
+            timeGroups={[]}
+            onRestore={(versionId) => {
+              console.log("Restore version:", versionId);
+            }}
+          />
+        ) : (
+          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+            Open a document to view history
+          </div>
+        );
+
+      case "memory":
+        return <MemoryPanel />;
+
+      case "characters":
+        return props.projectId ? (
+          <CharacterPanel characters={[]} />
+        ) : (
+          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+            Open a project to manage characters
+          </div>
+        );
+
+      case "knowledgeGraph":
+        return props.projectId ? (
+          <KnowledgeGraphPanel projectId={props.projectId} />
+        ) : (
+          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+            Open a project to view knowledge graph
+          </div>
+        );
+
+      case "settings":
+        return <SettingsPanel />;
+
+      default: {
+        // Exhaustive check
+        const _exhaustive: never = props.activePanel;
+        return _exhaustive;
+      }
+    }
+  };
 
   return (
     <aside
@@ -80,60 +152,9 @@ export function Sidebar(props: {
         maxWidth: LAYOUT_DEFAULTS.sidebar.max,
       }}
     >
-      {/* Tab bar */}
-      <div className="flex gap-1 p-2 border-b border-[var(--color-separator)]">
-        <button
-          type="button"
-          onClick={() => setActiveTab("files")}
-          className={`${tabButtonBase} ${activeTab === "files" ? tabButtonActive : tabButtonInactive}`}
-        >
-          Files
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("outline")}
-          className={`${tabButtonBase} ${activeTab === "outline" ? tabButtonActive : tabButtonInactive}`}
-        >
-          Outline
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("search")}
-          className={`${tabButtonBase} ${activeTab === "search" ? tabButtonActive : tabButtonInactive}`}
-        >
-          Search
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("kg")}
-          className={`${tabButtonBase} ${activeTab === "kg" ? tabButtonActive : tabButtonInactive}`}
-        >
-          KG
-        </button>
-      </div>
-
-      {/* Tab content */}
-      <div className="flex-1 min-h-0">
-        {props.projectId && activeTab === "files" ? (
-          <FileTreePanel projectId={props.projectId} />
-        ) : props.projectId && activeTab === "outline" ? (
-          <OutlinePanel
-            items={[]}
-            activeId={null}
-            onNavigate={(id) => {
-              // TODO: Wire to editor scroll position
-              console.log("Navigate to outline item:", id);
-            }}
-          />
-        ) : props.projectId && activeTab === "search" ? (
-          <SearchPanel projectId={props.projectId} />
-        ) : props.projectId && activeTab === "kg" ? (
-          <KnowledgeGraphPanel projectId={props.projectId} />
-        ) : (
-          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
-            Sidebar (no project)
-          </div>
-        )}
+      <LeftPanelHeader title={PANEL_TITLES[props.activePanel]} />
+      <div className="flex-1 min-h-0 overflow-auto">
+        {renderPanelContent()}
       </div>
     </aside>
   );

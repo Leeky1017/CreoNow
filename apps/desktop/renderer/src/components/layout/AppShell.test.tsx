@@ -149,11 +149,9 @@ describe("AppShell", () => {
     it("应该渲染 IconBar", () => {
       renderWithWrapper();
 
-      // IconBar 通过 toggle sidebar 按钮识别
-      const toggleButton = screen.getByRole("button", {
-        name: /toggle sidebar/i,
-      });
-      expect(toggleButton).toBeInTheDocument();
+      // IconBar 通过 testid 识别
+      const iconBar = screen.getByTestId("icon-bar");
+      expect(iconBar).toBeInTheDocument();
     });
 
     it("应该渲染 Sidebar", () => {
@@ -286,17 +284,17 @@ describe("AppShell", () => {
   // 侧边栏交互测试
   // ===========================================================================
   describe("侧边栏交互", () => {
-    it("点击 IconBar 按钮应该切换侧边栏", () => {
+    it("点击 IconBar Files 按钮应该切换侧边栏", () => {
       renderWithWrapper();
 
-      const toggleButton = screen.getByRole("button", {
-        name: /toggle sidebar/i,
-      });
+      const filesButton = screen.getByTestId("icon-bar-files");
       const sidebar = screen.getByTestId("layout-sidebar");
 
+      // 初始状态：sidebar 展开（files 是默认 activeLeftPanel）
       expect(sidebar).not.toHaveClass("hidden");
 
-      fireEvent.click(toggleButton);
+      // 点击同一按钮会切换折叠
+      fireEvent.click(filesButton);
 
       expect(sidebar).toHaveClass("hidden");
     });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { RightPanel } from "./RightPanel";
 import { LayoutTestWrapper } from "./test-utils";
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
@@ -40,6 +40,14 @@ describe("RightPanel", () => {
         width: `${LAYOUT_DEFAULTS.panel.default}px`,
       });
     });
+
+    it("应该渲染所有 3 个 tab 按钮", () => {
+      renderWithWrapper();
+
+      expect(screen.getByTestId("right-panel-tab-ai")).toBeInTheDocument();
+      expect(screen.getByTestId("right-panel-tab-info")).toBeInTheDocument();
+      expect(screen.getByTestId("right-panel-tab-quality")).toBeInTheDocument();
+    });
   });
 
   // ===========================================================================
@@ -58,6 +66,48 @@ describe("RightPanel", () => {
 
       const panel = screen.getByTestId("layout-panel");
       expect(panel).toHaveClass("w-0");
+    });
+  });
+
+  // ===========================================================================
+  // Tab 切换测试
+  // ===========================================================================
+  describe("Tab 切换", () => {
+    it("默认应该显示 AI tab 激活", () => {
+      renderWithWrapper();
+
+      const aiTab = screen.getByTestId("right-panel-tab-ai");
+      expect(aiTab).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("点击 Info tab 应该切换激活状态", () => {
+      renderWithWrapper();
+
+      const aiTab = screen.getByTestId("right-panel-tab-ai");
+      const infoTab = screen.getByTestId("right-panel-tab-info");
+
+      // 初始状态
+      expect(aiTab).toHaveAttribute("aria-pressed", "true");
+      expect(infoTab).toHaveAttribute("aria-pressed", "false");
+
+      // 点击 Info
+      fireEvent.click(infoTab);
+
+      // Info 激活
+      expect(infoTab).toHaveAttribute("aria-pressed", "true");
+      expect(aiTab).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("点击 Quality tab 应该切换激活状态", () => {
+      renderWithWrapper();
+
+      const qualityTab = screen.getByTestId("right-panel-tab-quality");
+
+      // 点击 Quality
+      fireEvent.click(qualityTab);
+
+      // Quality 激活
+      expect(qualityTab).toHaveAttribute("aria-pressed", "true");
     });
   });
 
@@ -120,6 +170,34 @@ describe("RightPanel", () => {
 
       const panel = screen.getByTestId("layout-panel");
       expect(panel.tagName).toBe("ASIDE");
+    });
+
+    it("Tab 按钮应该有 aria-pressed 状态", () => {
+      renderWithWrapper();
+
+      const tabs = [
+        screen.getByTestId("right-panel-tab-ai"),
+        screen.getByTestId("right-panel-tab-info"),
+        screen.getByTestId("right-panel-tab-quality"),
+      ];
+
+      tabs.forEach((tab) => {
+        expect(tab).toHaveAttribute("aria-pressed");
+      });
+    });
+
+    it("Tab 按钮应该有 type='button'", () => {
+      renderWithWrapper();
+
+      const tabs = [
+        screen.getByTestId("right-panel-tab-ai"),
+        screen.getByTestId("right-panel-tab-info"),
+        screen.getByTestId("right-panel-tab-quality"),
+      ];
+
+      tabs.forEach((tab) => {
+        expect(tab).toHaveAttribute("type", "button");
+      });
     });
   });
 });
