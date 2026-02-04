@@ -50,8 +50,8 @@ const OnboardingStoreContext = React.createContext<UseOnboardingStore | null>(
  * Why: E2E tests need to skip onboarding to test the main app directly.
  */
 function isE2EMode(): boolean {
-  // Check for E2E environment variable exposed via preload
-  return typeof window !== "undefined" && window.__CN_E2E__?.enabled === true;
+  // Check for E2E flag exposed via preload (separate from __CN_E2E__ which is mutable)
+  return typeof window !== "undefined" && window.__CN_E2E_ENABLED__ === true;
 }
 
 /**

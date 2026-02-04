@@ -5,9 +5,9 @@ import ReactDOM from "react-dom/client";
 
 import { App } from "./App";
 
-// Signal that React app has mounted (preserves enabled flag set by preload)
+// Signal that React app has mounted
 if (typeof window.__CN_E2E__ !== "object") {
-  window.__CN_E2E__ = { ready: true, enabled: false };
+  window.__CN_E2E__ = { ready: true };
 } else {
   window.__CN_E2E__.ready = true;
 }

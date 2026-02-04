@@ -10,14 +10,10 @@ contextBridge.exposeInMainWorld("creonow", {
 });
 
 /**
- * Expose E2E mode flag to renderer.
+ * Expose E2E mode flag to renderer via separate property.
  *
  * Why: E2E tests need to skip onboarding and other flows.
- * The flag is set via CREONOW_E2E environment variable.
+ * We use a separate property because contextBridge objects are frozen
+ * and main.tsx needs to manage __CN_E2E__.ready separately.
  */
-const isE2E = process.env.CREONOW_E2E === "1";
-
-contextBridge.exposeInMainWorld("__CN_E2E__", {
-  enabled: isE2E,
-  ready: false, // Will be set to true by main.tsx after React mounts
-});
+contextBridge.exposeInMainWorld("__CN_E2E_ENABLED__", process.env.CREONOW_E2E === "1");

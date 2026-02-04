@@ -14,10 +14,10 @@ declare global {
         payload: IpcRequest<C>,
       ) => Promise<IpcInvokeResult<C>>;
     };
+    /** E2E mode flag set by preload (frozen, read-only) */
+    __CN_E2E_ENABLED__?: boolean;
+    /** E2E ready state managed by main.tsx (mutable) */
     __CN_E2E__?: {
-      /** Whether E2E mode is enabled (set by preload from CREONOW_E2E env) */
-      enabled?: boolean;
-      /** Whether the React app has mounted (set by main.tsx) */
       ready: boolean;
     };
   }
