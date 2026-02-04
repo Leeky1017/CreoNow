@@ -53,7 +53,7 @@ test("proxy disabled + missing api key => INVALID_ARGUMENT", async () => {
     args: [appRoot],
     env: {
       ...process.env,
-      CREONOW_E2E: "0",
+      CREONOW_E2E: "1",
       CREONOW_OPEN_DEVTOOLS: "0",
       CREONOW_USER_DATA_DIR: userDataDir,
       CREONOW_AI_PROVIDER: "anthropic",
@@ -89,7 +89,7 @@ test("proxy enabled + missing baseUrl => INVALID_ARGUMENT", async () => {
     args: [appRoot],
     env: {
       ...process.env,
-      CREONOW_E2E: "0",
+      CREONOW_E2E: "1",
       CREONOW_OPEN_DEVTOOLS: "0",
       CREONOW_USER_DATA_DIR: userDataDir,
       CREONOW_AI_PROXY_ENABLED: "1",
