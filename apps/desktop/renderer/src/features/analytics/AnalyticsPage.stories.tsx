@@ -94,6 +94,11 @@ const mockResponses = {
 
 type MockScenario = keyof typeof mockResponses;
 
+type MockInvokeFn = (
+  channel: string,
+  payload: unknown,
+) => Promise<{ ok: boolean; data?: unknown; error?: { code: string; message: string } }>;
+
 /**
  * Setup mock IPC for the story
  */
@@ -102,21 +107,21 @@ function setupMockIpc(scenario: MockScenario) {
 
   // Mock window.creonow.invoke
   if (typeof window !== "undefined") {
-    (window as unknown as { creonow: { invoke: typeof mockInvoke } }).creonow = {
-      invoke: async (channel: string) => {
-        // Simulate network delay
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        return responses[channel as keyof typeof responses] ?? {
+    const mockInvoke: MockInvokeFn = async (channel: string) => {
+      // Simulate network delay
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return (
+        responses[channel as keyof typeof responses] ?? {
           ok: false,
           error: { code: "NOT_FOUND", message: "Unknown channel" },
-        };
-      },
+        }
+      );
+    };
+
+    (window as unknown as { creonow: { invoke: MockInvokeFn } }).creonow = {
+      invoke: mockInvoke,
     };
   }
-}
-
-async function mockInvoke(channel: string, _payload: unknown) {
-  return mockResponses.success[channel as keyof typeof mockResponses.success];
 }
 
 /**

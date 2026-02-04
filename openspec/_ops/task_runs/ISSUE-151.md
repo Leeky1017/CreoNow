@@ -2,7 +2,7 @@
 
 - Issue: #151
 - Branch: task/151-p5p6-story-ci
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/152
 
 ## Plan
 
@@ -35,3 +35,9 @@
   - AnalyticsPage WithData: ✅ 显示 1842 words, 62m 0s, 5 skills, 2 docs
   - AnalyticsPage ErrorState: ✅ 显示 "INTERNAL: Database connection failed"
 - Evidence: Storybook @ http://172.18.248.30:6013/
+
+### 2026-02-04 10:12 修复类型错误
+
+- Command: `StrReplace AnalyticsPage.stories.tsx`
+- Key output: 修复 mockInvoke 类型定义，使用 `MockInvokeFn` 类型
+- Evidence: CI check job 失败日志显示 TS2322 类型不匹配
