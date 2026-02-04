@@ -1,6 +1,8 @@
 import React from "react";
 import type { Editor } from "@tiptap/react";
 
+import { EDITOR_SHORTCUTS } from "../../config/shortcuts";
+
 /**
  * Toolbar button props.
  */
@@ -192,9 +194,6 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
     return null;
   }
 
-  const isMac = typeof navigator !== "undefined" && /Mac|iPod|iPhone|iPad/.test(navigator.platform);
-  const modKey = isMac ? "⌘" : "Ctrl";
-
   return (
     <div
       data-testid="editor-toolbar"
@@ -203,8 +202,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       {/* Text formatting */}
       <ToolbarButton
         testId="toolbar-bold"
-        label="Bold"
-        shortcut={`${modKey}+B`}
+        label={EDITOR_SHORTCUTS.bold.label}
+        shortcut={EDITOR_SHORTCUTS.bold.display()}
         isActive={editor.isActive("bold")}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
@@ -212,8 +211,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       </ToolbarButton>
       <ToolbarButton
         testId="toolbar-italic"
-        label="Italic"
-        shortcut={`${modKey}+I`}
+        label={EDITOR_SHORTCUTS.italic.label}
+        shortcut={EDITOR_SHORTCUTS.italic.display()}
         isActive={editor.isActive("italic")}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
@@ -221,8 +220,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       </ToolbarButton>
       <ToolbarButton
         testId="toolbar-strike"
-        label="Strikethrough"
-        shortcut={`${modKey}+Shift+S`}
+        label={EDITOR_SHORTCUTS.strikethrough.label}
+        shortcut={EDITOR_SHORTCUTS.strikethrough.display()}
         isActive={editor.isActive("strike")}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       >
@@ -230,8 +229,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       </ToolbarButton>
       <ToolbarButton
         testId="toolbar-code"
-        label="Inline Code"
-        shortcut={`${modKey}+E`}
+        label={EDITOR_SHORTCUTS.code.label}
+        shortcut={EDITOR_SHORTCUTS.code.display()}
         isActive={editor.isActive("code")}
         onClick={() => editor.chain().focus().toggleCode().run()}
       >
@@ -243,8 +242,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       {/* Headings */}
       <ToolbarButton
         testId="toolbar-h1"
-        label="Heading 1"
-        shortcut={`${modKey}+Alt+1`}
+        label={EDITOR_SHORTCUTS.heading1.label}
+        shortcut={EDITOR_SHORTCUTS.heading1.display()}
         isActive={editor.isActive("heading", { level: 1 })}
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
       >
@@ -252,8 +251,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       </ToolbarButton>
       <ToolbarButton
         testId="toolbar-h2"
-        label="Heading 2"
-        shortcut={`${modKey}+Alt+2`}
+        label={EDITOR_SHORTCUTS.heading2.label}
+        shortcut={EDITOR_SHORTCUTS.heading2.display()}
         isActive={editor.isActive("heading", { level: 2 })}
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
       >
@@ -261,8 +260,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       </ToolbarButton>
       <ToolbarButton
         testId="toolbar-h3"
-        label="Heading 3"
-        shortcut={`${modKey}+Alt+3`}
+        label={EDITOR_SHORTCUTS.heading3.label}
+        shortcut={EDITOR_SHORTCUTS.heading3.display()}
         isActive={editor.isActive("heading", { level: 3 })}
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
       >
@@ -274,8 +273,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       {/* Lists */}
       <ToolbarButton
         testId="toolbar-bullet-list"
-        label="Bullet List"
-        shortcut={`${modKey}+Shift+8`}
+        label={EDITOR_SHORTCUTS.bulletList.label}
+        shortcut={EDITOR_SHORTCUTS.bulletList.display()}
         isActive={editor.isActive("bulletList")}
         onClick={() => editor.chain().focus().toggleBulletList().run()}
       >
@@ -283,8 +282,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       </ToolbarButton>
       <ToolbarButton
         testId="toolbar-ordered-list"
-        label="Numbered List"
-        shortcut={`${modKey}+Shift+7`}
+        label={EDITOR_SHORTCUTS.orderedList.label}
+        shortcut={EDITOR_SHORTCUTS.orderedList.display()}
         isActive={editor.isActive("orderedList")}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       >
@@ -296,8 +295,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       {/* Blocks */}
       <ToolbarButton
         testId="toolbar-blockquote"
-        label="Quote"
-        shortcut={`${modKey}+Shift+B`}
+        label={EDITOR_SHORTCUTS.blockquote.label}
+        shortcut={EDITOR_SHORTCUTS.blockquote.display()}
         isActive={editor.isActive("blockquote")}
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
       >
@@ -305,8 +304,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       </ToolbarButton>
       <ToolbarButton
         testId="toolbar-code-block"
-        label="Code Block"
-        shortcut={`${modKey}+Alt+C`}
+        label={EDITOR_SHORTCUTS.codeBlock.label}
+        shortcut={EDITOR_SHORTCUTS.codeBlock.display()}
         isActive={editor.isActive("codeBlock")}
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
       >
@@ -325,8 +324,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       {/* History */}
       <ToolbarButton
         testId="toolbar-undo"
-        label="Undo"
-        shortcut={`${modKey}+Z`}
+        label={EDITOR_SHORTCUTS.undo.label}
+        shortcut={EDITOR_SHORTCUTS.undo.display()}
         disabled={!editor.can().undo()}
         onClick={() => editor.chain().focus().undo().run()}
       >
@@ -334,8 +333,8 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
       </ToolbarButton>
       <ToolbarButton
         testId="toolbar-redo"
-        label="Redo"
-        shortcut={isMac ? `${modKey}+Shift+Z` : `${modKey}+Y`}
+        label={EDITOR_SHORTCUTS.redo.label}
+        shortcut={EDITOR_SHORTCUTS.redo.display()}
         disabled={!editor.can().redo()}
         onClick={() => editor.chain().focus().redo().run()}
       >

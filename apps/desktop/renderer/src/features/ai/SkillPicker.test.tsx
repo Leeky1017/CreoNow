@@ -58,7 +58,8 @@ describe("SkillPicker", () => {
       );
 
       expect(screen.getByRole("dialog")).toBeInTheDocument();
-      expect(screen.getByText("Skills")).toBeInTheDocument();
+      // 组件使用全大写 "SKILL" 作为标题
+      expect(screen.getByText("SKILL")).toBeInTheDocument();
     });
 
     it("open 为 false 时不应该渲染", () => {
@@ -241,7 +242,7 @@ describe("SkillPicker", () => {
   // 空列表测试
   // ===========================================================================
   describe("空列表", () => {
-    it("空列表时仍应显示 Skills 标题", () => {
+    it("空列表时仍应显示 SKILL 标题", () => {
       render(
         <SkillPicker
           open={true}
@@ -252,7 +253,8 @@ describe("SkillPicker", () => {
         />,
       );
 
-      expect(screen.getByText("Skills")).toBeInTheDocument();
+      // 组件使用全大写 "SKILL" 作为标题
+      expect(screen.getByText("SKILL")).toBeInTheDocument();
     });
   });
 });
