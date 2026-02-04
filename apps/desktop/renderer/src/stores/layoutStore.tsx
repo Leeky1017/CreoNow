@@ -13,7 +13,27 @@ export const LAYOUT_DEFAULTS = {
   mainMinWidth: 400,
 } as const;
 
-export type LeftPanelType = "sidebar" | "memory";
+/**
+ * Left panel view types.
+ *
+ * Each type corresponds to an icon in IconBar and a view in LeftPanel.
+ */
+export type LeftPanelType =
+  | "files"
+  | "search"
+  | "outline"
+  | "versionHistory"
+  | "memory"
+  | "characters"
+  | "knowledgeGraph"
+  | "settings";
+
+/**
+ * Right panel tab types.
+ *
+ * Only AI Assistant, Info, and Quality Gates are shown in the right panel.
+ */
+export type RightPanelType = "ai" | "info" | "quality";
 
 export type LayoutState = {
   sidebarWidth: number;
@@ -22,6 +42,7 @@ export type LayoutState = {
   panelCollapsed: boolean;
   zenMode: boolean;
   activeLeftPanel: LeftPanelType;
+  activeRightPanel: RightPanelType;
 };
 
 export type LayoutActions = {
@@ -33,6 +54,12 @@ export type LayoutActions = {
   resetSidebarWidth: () => void;
   resetPanelWidth: () => void;
   setActiveLeftPanel: (panel: LeftPanelType) => void;
+  /**
+   * Set the active right panel tab.
+   *
+   * If the panel is collapsed, it will be automatically expanded.
+   */
+  setActiveRightPanel: (panel: RightPanelType) => void;
 };
 
 export type LayoutStore = LayoutState & LayoutActions;
@@ -79,7 +106,8 @@ export function createLayoutStore(preferences: PreferenceStore) {
     sidebarCollapsed: initialSidebarCollapsed,
     panelCollapsed: initialPanelCollapsed,
     zenMode: false,
-    activeLeftPanel: "sidebar",
+    activeLeftPanel: "files",
+    activeRightPanel: "ai",
 
     setSidebarWidth: (width) => {
       set({ sidebarWidth: width });
@@ -134,6 +162,15 @@ export function createLayoutStore(preferences: PreferenceStore) {
     },
     setActiveLeftPanel: (panel) => {
       set({ activeLeftPanel: panel });
+    },
+    setActiveRightPanel: (panel) => {
+      const current = get();
+      // Auto-expand if collapsed when switching tabs
+      if (current.panelCollapsed) {
+        set({ activeRightPanel: panel, panelCollapsed: false });
+      } else {
+        set({ activeRightPanel: panel });
+      }
     },
   }));
 }

@@ -1,16 +1,16 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { Sidebar } from "./Sidebar";
 import { layoutDecorator } from "./test-utils";
-import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
+import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
 
 /**
- * Sidebar 组件 Story
+ * Sidebar (LeftPanel) 组件 Story
  *
  * 设计规范: Sidebar 默认宽度 240px，最小 180px，最大 400px。
  *
  * 功能：
  * - 可调整宽度的左侧面板
- * - 包含 Files/Outline/Search/KG 标签页
+ * - 根据 activePanel 显示不同的面板内容
  * - 支持折叠/展开
  */
 const meta = {
@@ -36,8 +36,17 @@ const meta = {
     },
     activePanel: {
       control: "select",
-      options: ["sidebar", "memory"],
-      description: "Active left panel mode",
+      options: [
+        "files",
+        "search",
+        "outline",
+        "versionHistory",
+        "memory",
+        "characters",
+        "knowledgeGraph",
+        "settings",
+      ] as LeftPanelType[],
+      description: "Active left panel view",
     },
   },
 } satisfies Meta<typeof Sidebar>;
@@ -45,8 +54,32 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+const RenderWrapper = (args: {
+  width: number;
+  collapsed: boolean;
+  projectId: string | null;
+  activePanel: LeftPanelType;
+}) => (
+  <div style={{ display: "flex", height: "500px" }}>
+    <Sidebar {...args} />
+    <div
+      style={{
+        flex: 1,
+        backgroundColor: "var(--color-bg-base)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--color-fg-muted)",
+        fontSize: "14px",
+      }}
+    >
+      Main Content Area
+    </div>
+  </div>
+);
+
 /**
- * 默认状态
+ * 默认状态 - Files 面板
  *
  * 默认宽度 240px 的展开状态
  */
@@ -55,26 +88,9 @@ export const Default: Story = {
     width: LAYOUT_DEFAULTS.sidebar.default,
     collapsed: false,
     projectId: null,
-    activePanel: "sidebar",
+    activePanel: "files",
   },
-  render: (args) => (
-    <div style={{ display: "flex", height: "400px" }}>
-      <Sidebar {...args} />
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: "var(--color-bg-base)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--color-fg-muted)",
-          fontSize: "14px",
-        }}
-      >
-        Main Content Area
-      </div>
-    </div>
-  ),
+  render: RenderWrapper,
 };
 
 /**
@@ -87,58 +103,100 @@ export const Collapsed: Story = {
     width: 0,
     collapsed: true,
     projectId: null,
-    activePanel: "sidebar",
+    activePanel: "files",
   },
-  render: (args) => (
-    <div style={{ display: "flex", height: "400px" }}>
-      <Sidebar {...args} />
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: "var(--color-bg-base)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--color-fg-muted)",
-          fontSize: "14px",
-        }}
-      >
-        Sidebar is collapsed
-      </div>
-    </div>
-  ),
+  render: RenderWrapper,
 };
 
 /**
- * 最小宽度
- *
- * 180px 最小宽度状态
+ * Search 面板
  */
-export const MinWidth: Story = {
+export const SearchPanel: Story = {
   args: {
-    width: LAYOUT_DEFAULTS.sidebar.min,
+    width: LAYOUT_DEFAULTS.sidebar.default,
+    collapsed: false,
+    projectId: "test-project",
+    activePanel: "search",
+  },
+  render: RenderWrapper,
+};
+
+/**
+ * Outline 面板
+ */
+export const OutlinePanel: Story = {
+  args: {
+    width: LAYOUT_DEFAULTS.sidebar.default,
+    collapsed: false,
+    projectId: "test-project",
+    activePanel: "outline",
+  },
+  render: RenderWrapper,
+};
+
+/**
+ * Version History 面板
+ */
+export const VersionHistoryPanel: Story = {
+  args: {
+    width: LAYOUT_DEFAULTS.sidebar.default,
+    collapsed: false,
+    projectId: "test-project",
+    activePanel: "versionHistory",
+  },
+  render: RenderWrapper,
+};
+
+/**
+ * Memory 面板
+ */
+export const MemoryPanel: Story = {
+  args: {
+    width: LAYOUT_DEFAULTS.sidebar.default,
     collapsed: false,
     projectId: null,
-    activePanel: "sidebar",
+    activePanel: "memory",
   },
-  render: (args) => (
-    <div style={{ display: "flex", height: "400px" }}>
-      <Sidebar {...args} />
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: "var(--color-bg-base)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--color-fg-muted)",
-          fontSize: "14px",
-        }}
-      >
-        Sidebar at minimum width (180px)
-      </div>
-    </div>
-  ),
+  render: RenderWrapper,
+};
+
+/**
+ * Characters 面板
+ */
+export const CharactersPanel: Story = {
+  args: {
+    width: LAYOUT_DEFAULTS.sidebar.default,
+    collapsed: false,
+    projectId: "test-project",
+    activePanel: "characters",
+  },
+  render: RenderWrapper,
+};
+
+/**
+ * Knowledge Graph 面板
+ */
+export const KnowledgeGraphPanel: Story = {
+  args: {
+    width: LAYOUT_DEFAULTS.sidebar.default,
+    collapsed: false,
+    projectId: "test-project",
+    activePanel: "knowledgeGraph",
+  },
+  render: RenderWrapper,
+};
+
+/**
+ * Settings 面板
+ */
+export const SettingsPanel: Story = {
+  args: {
+    width: LAYOUT_DEFAULTS.sidebar.default,
+    collapsed: false,
+    projectId: null,
+    activePanel: "settings",
+  },
+  render: RenderWrapper,
 };
 
 /**
@@ -150,27 +208,10 @@ export const MaxWidth: Story = {
   args: {
     width: LAYOUT_DEFAULTS.sidebar.max,
     collapsed: false,
-    projectId: null,
-    activePanel: "sidebar",
+    projectId: "test-project",
+    activePanel: "files",
   },
-  render: (args) => (
-    <div style={{ display: "flex", height: "400px" }}>
-      <Sidebar {...args} />
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: "var(--color-bg-base)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--color-fg-muted)",
-          fontSize: "14px",
-        }}
-      >
-        Sidebar at maximum width (400px)
-      </div>
-    </div>
-  ),
+  render: RenderWrapper,
 };
 
 /**
@@ -183,85 +224,7 @@ export const WithProject: Story = {
     width: LAYOUT_DEFAULTS.sidebar.default,
     collapsed: false,
     projectId: "test-project-id",
-    activePanel: "sidebar",
+    activePanel: "files",
   },
-  render: (args) => (
-    <div style={{ display: "flex", height: "400px" }}>
-      <Sidebar {...args} />
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: "var(--color-bg-base)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--color-fg-muted)",
-          fontSize: "14px",
-        }}
-      >
-        Sidebar with project content
-      </div>
-    </div>
-  ),
-};
-
-/**
- * 所有 Tab 切换演示
- *
- * 点击 Files / Outline / Search / KG 切换不同面板
- * - Files: 文件树
- * - Outline: 文档大纲（新增）
- * - Search: 搜索面板
- * - KG: 知识图谱
- */
-export const AllTabs: Story = {
-  args: {
-    width: 280,
-    collapsed: false,
-    projectId: "demo-project",
-    activePanel: "sidebar",
-  },
-  parameters: {
-    docs: {
-      description: {
-        story: `Sidebar 包含 4 个 Tab: Files / **Outline** / Search / KG。
-        
-点击 **Outline** Tab 查看文档大纲面板，功能包括：
-- 搜索/过滤
-- 单节点展开/折叠
-- 字数统计
-- 拖拽排序
-- 多选批量操作
-- 键盘导航`,
-      },
-    },
-  },
-  render: (args) => (
-    <div style={{ display: "flex", height: "600px", width: "100%" }}>
-      <Sidebar {...args} />
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: "var(--color-bg-base)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--color-fg-muted)",
-          fontSize: "14px",
-          padding: "24px",
-        }}
-      >
-        <div style={{ fontSize: "24px", fontWeight: "bold", marginBottom: "16px", color: "var(--color-fg-default)" }}>
-          Main Editor Area
-        </div>
-        <div style={{ textAlign: "center", maxWidth: "400px", lineHeight: "1.6" }}>
-          <p>← 点击左侧 Tab 切换面板</p>
-          <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--color-fg-subtle)" }}>
-            Files | <strong>Outline</strong> | Search | KG
-          </p>
-        </div>
-      </div>
-    </div>
-  ),
+  render: RenderWrapper,
 };

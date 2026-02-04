@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { Sidebar } from "./Sidebar";
 import { LayoutTestWrapper } from "./test-utils";
 import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
@@ -14,7 +14,7 @@ describe("Sidebar", () => {
     width: LAYOUT_DEFAULTS.sidebar.default,
     collapsed: false,
     projectId: null,
-    activePanel: "sidebar",
+    activePanel: "files",
   };
 
   const renderWithWrapper = (props: typeof defaultProps = defaultProps) => {
@@ -45,16 +45,11 @@ describe("Sidebar", () => {
       });
     });
 
-    it("应该渲染标签页按钮", () => {
+    it("应该渲染当前面板的标题", () => {
       renderWithWrapper();
 
-      expect(
-        screen.getByRole("button", { name: /files/i }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /search/i }),
-      ).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: /kg/i })).toBeInTheDocument();
+      // Files 面板标题应该是 "Explorer"
+      expect(screen.getByText("Explorer")).toBeInTheDocument();
     });
   });
 
@@ -107,41 +102,60 @@ describe("Sidebar", () => {
   });
 
   // ===========================================================================
-  // 标签页交互测试
+  // 面板切换测试
   // ===========================================================================
-  describe("标签页交互", () => {
-    it("点击 Files 标签应该激活", () => {
-      renderWithWrapper();
+  describe("面板切换", () => {
+    it("activePanel=files 应该显示 Explorer 标题", () => {
+      renderWithWrapper({ ...defaultProps, activePanel: "files" });
 
-      const filesTab = screen.getByRole("button", { name: /files/i });
-      fireEvent.click(filesTab);
-
-      // Files 标签应该有激活样式
-      expect(filesTab.className).toContain(
-        "border-[var(--color-border-focus)]",
-      );
+      expect(screen.getByText("Explorer")).toBeInTheDocument();
     });
 
-    it("点击 Search 标签应该激活", () => {
-      renderWithWrapper();
+    it("activePanel=search 应该显示 Search 标题", () => {
+      renderWithWrapper({ ...defaultProps, activePanel: "search" });
 
-      const searchTab = screen.getByRole("button", { name: /search/i });
-      fireEvent.click(searchTab);
-
-      // Search 标签应该有激活样式
-      expect(searchTab.className).toContain(
-        "border-[var(--color-border-focus)]",
-      );
+      expect(screen.getByText("Search")).toBeInTheDocument();
     });
 
-    it("点击 KG 标签应该激活", () => {
-      renderWithWrapper();
+    it("activePanel=outline 应该显示 Outline 标题", () => {
+      renderWithWrapper({ ...defaultProps, activePanel: "outline" });
 
-      const kgTab = screen.getByRole("button", { name: /kg/i });
-      fireEvent.click(kgTab);
+      expect(screen.getByText("Outline")).toBeInTheDocument();
+    });
 
-      // KG 标签应该有激活样式
-      expect(kgTab.className).toContain("border-[var(--color-border-focus)]");
+    it("activePanel=memory 应该显示 Memory 标题", () => {
+      renderWithWrapper({ ...defaultProps, activePanel: "memory" });
+
+      // MemoryPanel 内部也有 "Memory" 文本，使用更宽松的断言
+      const headers = screen.getAllByText("Memory");
+      expect(headers.length).toBeGreaterThan(0);
+    });
+
+    it("activePanel=settings 应该显示 Settings 标题", () => {
+      renderWithWrapper({ ...defaultProps, activePanel: "settings" });
+
+      // 使用更具体的选择器：标题在 header 中
+      const headers = screen.getAllByText("Settings");
+      // 第一个应该是 header 中的
+      expect(headers.length).toBeGreaterThan(0);
+    });
+
+    it("activePanel=versionHistory 应该显示 Version History 标题", () => {
+      renderWithWrapper({ ...defaultProps, activePanel: "versionHistory" });
+
+      expect(screen.getByText("Version History")).toBeInTheDocument();
+    });
+
+    it("activePanel=characters 应该显示 Characters 标题", () => {
+      renderWithWrapper({ ...defaultProps, activePanel: "characters" });
+
+      expect(screen.getByText("Characters")).toBeInTheDocument();
+    });
+
+    it("activePanel=knowledgeGraph 应该显示 Knowledge Graph 标题", () => {
+      renderWithWrapper({ ...defaultProps, activePanel: "knowledgeGraph" });
+
+      expect(screen.getByText("Knowledge Graph")).toBeInTheDocument();
     });
   });
 
@@ -198,15 +212,6 @@ describe("Sidebar", () => {
 
       const sidebar = screen.getByTestId("layout-sidebar");
       expect(sidebar.tagName).toBe("ASIDE");
-    });
-
-    it("标签页按钮应该有 type='button'", () => {
-      renderWithWrapper();
-
-      const buttons = screen.getAllByRole("button");
-      buttons.forEach((button) => {
-        expect(button).toHaveAttribute("type", "button");
-      });
     });
   });
 });
