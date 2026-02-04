@@ -10,6 +10,7 @@ export function SkillPicker(props: {
   selectedSkillId: string;
   onOpenChange: (open: boolean) => void;
   onSelectSkillId: (skillId: string) => void;
+  onOpenSettings?: () => void;
 }): JSX.Element | null {
   if (!props.open) {
     return null;
@@ -30,9 +31,31 @@ export function SkillPicker(props: {
         onClick={(e) => e.stopPropagation()}
         className="absolute bottom-full left-0 mb-1 w-56 p-2.5 z-30 bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[0_18px_48px_rgba(0,0,0,0.45)]"
       >
-        <Text size="label" color="muted">
-          SKILL
-        </Text>
+        <div className="flex items-center justify-between">
+          <Text size="label" color="muted">
+            SKILL
+          </Text>
+          <button
+            type="button"
+            title="SKILL Settings"
+            className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)] rounded transition-colors"
+            onClick={() => {
+              props.onOpenSettings?.();
+            }}
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+        </div>
 
         <div className="flex flex-col mt-2 gap-1.5 max-h-65 overflow-auto">
           {props.items.map((s) => {
