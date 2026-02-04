@@ -2,7 +2,7 @@
 
 - Issue: #161
 - Branch: task/161-e2e-frozen-fix
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/162
 
 ## Plan
 
