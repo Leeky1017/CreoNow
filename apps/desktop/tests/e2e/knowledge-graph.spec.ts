@@ -81,8 +81,8 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
   }
   const projectId = project.data.projectId;
 
-  await page.getByRole("button", { name: "KG" }).click();
-  await expect(page.getByTestId("sidebar-kg")).toBeVisible();
+  await page.getByTestId("icon-bar-knowledge-graph").click();
+  await expect(page.getByTestId("layout-sidebar")).toBeVisible();
   await expect(page.getByTestId("kg-entity-create")).toBeEnabled();
 
   await page.getByTestId("kg-entity-name").fill("Alice");

@@ -137,6 +137,8 @@ test("analytics: wordsWritten + skillsUsed increment and are visible", async () 
     before.data.summary.skillsUsed,
   );
 
+  // Navigate to Settings panel (now in left sidebar) to access analytics button
+  await page.getByTestId("icon-bar-settings").click();
   await page.getByTestId("open-analytics").click();
   await expect(page.getByTestId("analytics-page")).toBeVisible();
   await expect(page.getByTestId("analytics-today-words")).not.toHaveText("0");
