@@ -153,7 +153,7 @@ describe("DiffView", () => {
 @@ -1,3 +1,3 @@
  Context`;
 
-      const { lines, stats } = parseDiffLines(diffText);
+      const { lines } = parseDiffLines(diffText);
 
       // 应该有 4 行（2 个文件头 + 1 个 hunk 头 + 1 个 context）
       expect(lines).toHaveLength(4);
