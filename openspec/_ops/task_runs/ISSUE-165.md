@@ -2,7 +2,7 @@
 
 - Issue: #165
 - Branch: task/165-skip-proxy-test
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/166
 
 ## Plan
 
