@@ -2,7 +2,7 @@
 
 - Issue: #153
 - Branch: task/153-panel-layout-v2
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/154
 
 ## Plan
 
