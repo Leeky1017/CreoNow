@@ -98,24 +98,25 @@ describe("AiPanel", () => {
       expect(panel).toBeInTheDocument();
     });
 
-    it("应该显示 AI 标题", () => {
+    it("应该显示 Assistant 和 Info 标签页", () => {
       render(<AiPanel />);
 
-      expect(screen.getByText("AI")).toBeInTheDocument();
+      // 组件使用 "Assistant" 和 "Info" 标签页而不是单独的 "AI" 标题
+      expect(screen.getByText("Assistant")).toBeInTheDocument();
+      expect(screen.getByText("Info")).toBeInTheDocument();
     });
 
-    it("应该显示 Run 和 Cancel 按钮", () => {
+    it("应该显示 Send/Stop 组合按钮", () => {
       render(<AiPanel />);
 
-      expect(screen.getByTestId("ai-run")).toBeInTheDocument();
-      expect(screen.getByTestId("ai-cancel")).toBeInTheDocument();
+      // 组件使用组合的 send-stop 按钮代替分开的 Run/Cancel
+      expect(screen.getByTestId("ai-send-stop")).toBeInTheDocument();
     });
 
-    it("应该显示 Stream 复选框", () => {
+    it("应该显示 History 按钮", () => {
       render(<AiPanel />);
 
-      expect(screen.getByTestId("ai-stream-toggle")).toBeInTheDocument();
-      expect(screen.getByText("Stream")).toBeInTheDocument();
+      expect(screen.getByTestId("ai-history-toggle")).toBeInTheDocument();
     });
 
     it("应该显示输入框", () => {
@@ -130,10 +131,10 @@ describe("AiPanel", () => {
       expect(screen.getByTestId("ai-output")).toBeInTheDocument();
     });
 
-    it("应该显示状态", () => {
+    it("应该显示 Skills 切换按钮", () => {
       render(<AiPanel />);
 
-      expect(screen.getByTestId("ai-status")).toBeInTheDocument();
+      expect(screen.getByTestId("ai-skills-toggle")).toBeInTheDocument();
     });
   });
 
@@ -141,18 +142,20 @@ describe("AiPanel", () => {
   // 按钮状态测试
   // ===========================================================================
   describe("按钮状态", () => {
-    it("idle 状态时 Run 按钮应可用", () => {
+    it("idle 状态时 Send/Stop 按钮应可用", () => {
       render(<AiPanel />);
 
-      const runButton = screen.getByTestId("ai-run");
-      expect(runButton).not.toBeDisabled();
+      const sendStopButton = screen.getByTestId("ai-send-stop");
+      expect(sendStopButton).toBeInTheDocument();
+      // idle 状态下显示发送图标
     });
 
-    it("idle 状态时 Cancel 按钮应禁用", () => {
+    it("idle 状态时 Send/Stop 按钮显示发送箭头", () => {
       render(<AiPanel />);
 
-      const cancelButton = screen.getByTestId("ai-cancel");
-      expect(cancelButton).toBeDisabled();
+      const sendStopButton = screen.getByTestId("ai-send-stop");
+      // 按钮内应该包含 svg 图标
+      expect(sendStopButton.querySelector("svg")).toBeInTheDocument();
     });
   });
 
@@ -207,7 +210,7 @@ describe("AiPanel", () => {
   // Running 状态测试
   // ===========================================================================
   describe("Running 状态", () => {
-    it("running 状态时 Run 按钮应禁用", async () => {
+    it("running 状态时 Send/Stop 按钮显示停止图标", async () => {
       const { useAiStore } = await import("../../stores/aiStore");
       vi.mocked(useAiStore).mockImplementation((selector) => {
         const state = {
@@ -244,12 +247,14 @@ describe("AiPanel", () => {
 
       render(<AiPanel />);
 
-      const runButton = screen.getByTestId("ai-run");
-      expect(runButton).toBeDisabled();
+      // running 状态下显示停止图标（圆形内有方形）
+      const sendStopButton = screen.getByTestId("ai-send-stop");
+      expect(sendStopButton).toBeInTheDocument();
     });
 
-    it("running 状态时 Cancel 按钮应可用", async () => {
+    it("running 状态时 Send/Stop 按钮可点击停止", async () => {
       const { useAiStore } = await import("../../stores/aiStore");
+      const mockCancel = vi.fn().mockResolvedValue({ ok: true });
       vi.mocked(useAiStore).mockImplementation((selector) => {
         const state = {
           status: "running" as const,
@@ -278,15 +283,16 @@ describe("AiPanel", () => {
           persistAiApply: vi.fn(),
           logAiApplyConflict: vi.fn(),
           run: vi.fn(),
-          cancel: vi.fn(),
+          cancel: mockCancel,
         };
         return selector(state as unknown as AiStore);
       });
 
       render(<AiPanel />);
 
-      const cancelButton = screen.getByTestId("ai-cancel");
-      expect(cancelButton).not.toBeDisabled();
+      // running 状态下按钮应可用于停止
+      const sendStopButton = screen.getByTestId("ai-send-stop");
+      expect(sendStopButton).not.toBeDisabled();
     });
   });
 

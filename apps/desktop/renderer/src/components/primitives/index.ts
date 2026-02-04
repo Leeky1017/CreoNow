@@ -102,6 +102,9 @@ export type {
 export { ContextMenu } from "./ContextMenu";
 export type { ContextMenuProps, ContextMenuItem } from "./ContextMenu";
 
+export { DropdownMenu } from "./DropdownMenu";
+export type { DropdownMenuProps, DropdownMenuItem } from "./DropdownMenu";
+
 export { ImageUpload } from "./ImageUpload";
 export type { ImageUploadProps } from "./ImageUpload";
 

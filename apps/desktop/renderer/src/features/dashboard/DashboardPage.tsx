@@ -1,6 +1,15 @@
 import React from "react";
 
-import { Button, Input, Text, Spinner } from "../../components/primitives";
+import {
+  Button,
+  Input,
+  Text,
+  Spinner,
+  DropdownMenu,
+  ContextMenu,
+  type DropdownMenuItem,
+  type ContextMenuItem,
+} from "../../components/primitives";
 import { CreateProjectDialog } from "../projects/CreateProjectDialog";
 import {
   useProjectStore,
@@ -106,16 +115,85 @@ function HeroCard(props: {
 }
 
 /**
+ * Three-dot menu icon for project actions.
+ */
+function MoreIcon(): JSX.Element {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="19" cy="12" r="1.5" />
+      <circle cx="5" cy="12" r="1.5" />
+    </svg>
+  );
+}
+
+/**
  * ProjectCard - Standard project card for the grid.
+ *
+ * Supports both click-triggered menu (three dots) and right-click context menu.
  */
 function ProjectCard(props: {
   project: ProjectListItem;
   onClick: () => void;
+  onRename?: (projectId: string) => void;
+  onDuplicate?: (projectId: string) => void;
+  onArchive?: (projectId: string) => void;
+  onDelete?: (projectId: string) => void;
 }): JSX.Element {
-  const { project, onClick } = props;
+  const { project, onClick, onRename, onDuplicate, onArchive, onDelete } = props;
   const dateStr = formatDate(project.updatedAt);
 
-  return (
+  /**
+   * Build menu items for both dropdown and context menu.
+   *
+   * Why: Consistent actions across both interaction patterns.
+   */
+  const menuItems: (DropdownMenuItem | ContextMenuItem)[] = React.useMemo(() => {
+    const items: (DropdownMenuItem | ContextMenuItem)[] = [
+      {
+        key: "open",
+        label: "Open",
+        onSelect: onClick,
+      },
+    ];
+
+    if (onRename) {
+      items.push({
+        key: "rename",
+        label: "Rename",
+        onSelect: () => onRename(project.projectId),
+      });
+    }
+
+    if (onDuplicate) {
+      items.push({
+        key: "duplicate",
+        label: "Duplicate",
+        onSelect: () => onDuplicate(project.projectId),
+      });
+    }
+
+    if (onArchive) {
+      items.push({
+        key: "archive",
+        label: "Archive",
+        onSelect: () => onArchive(project.projectId),
+      });
+    }
+
+    if (onDelete) {
+      items.push({
+        key: "delete",
+        label: "Delete",
+        onSelect: () => onDelete(project.projectId),
+        destructive: true,
+      });
+    }
+
+    return items;
+  }, [onClick, onRename, onDuplicate, onArchive, onDelete, project.projectId]);
+
+  const cardContent = (
     <div
       data-testid="dashboard-project-card"
       data-project-id={project.projectId}
@@ -129,19 +207,19 @@ function ProjectCard(props: {
         <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-muted)]">
           {dateStr}
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            // TODO: Open context menu
-          }}
-          className="text-[var(--color-fg-faint)] hover:text-[var(--color-fg-default)] transition-colors"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-            <circle cx="12" cy="12" r="1.5" />
-            <circle cx="19" cy="12" r="1.5" />
-            <circle cx="5" cy="12" r="1.5" />
-          </svg>
-        </button>
+        <DropdownMenu
+          trigger={
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="text-[var(--color-fg-faint)] hover:text-[var(--color-fg-default)] transition-colors p-1 -m-1 rounded"
+              data-testid="project-card-menu-trigger"
+            >
+              <MoreIcon />
+            </button>
+          }
+          items={menuItems}
+          testId="project-card-menu"
+        />
       </div>
 
       <h3 className="text-[16px] text-[var(--color-fg-default)] mb-2 leading-snug line-clamp-2">
@@ -158,6 +236,13 @@ function ProjectCard(props: {
         </span>
       </div>
     </div>
+  );
+
+  // Wrap with ContextMenu for right-click support
+  return (
+    <ContextMenu items={menuItems}>
+      {cardContent}
+    </ContextMenu>
   );
 }
 
@@ -291,6 +376,46 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
     },
     [props, setCurrentProject],
   );
+
+  /**
+   * Handle project rename.
+   *
+   * TODO: Implement rename dialog/inline editing via IPC.
+   */
+  const handleRename = React.useCallback((projectId: string) => {
+    // TODO: Open rename dialog
+    console.log("Rename project:", projectId);
+  }, []);
+
+  /**
+   * Handle project duplicate.
+   *
+   * TODO: Implement project duplication via IPC.
+   */
+  const handleDuplicate = React.useCallback((projectId: string) => {
+    // TODO: Duplicate project via IPC
+    console.log("Duplicate project:", projectId);
+  }, []);
+
+  /**
+   * Handle project archive.
+   *
+   * TODO: Implement project archiving via IPC.
+   */
+  const handleArchive = React.useCallback((projectId: string) => {
+    // TODO: Archive project via IPC
+    console.log("Archive project:", projectId);
+  }, []);
+
+  /**
+   * Handle project delete.
+   *
+   * TODO: Implement project deletion with confirmation dialog.
+   */
+  const handleDelete = React.useCallback((projectId: string) => {
+    // TODO: Show delete confirmation dialog then delete via IPC
+    console.log("Delete project:", projectId);
+  }, []);
 
   // Loading state
   if (bootstrapStatus === "loading") {
@@ -444,6 +569,10 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
                     key={project.projectId}
                     project={project}
                     onClick={() => void handleProjectSelect(project.projectId)}
+                    onRename={handleRename}
+                    onDuplicate={handleDuplicate}
+                    onArchive={handleArchive}
+                    onDelete={handleDelete}
                   />
                 ))}
                 <NewDraftCard onClick={() => setCreateDialogOpen(true)} />
