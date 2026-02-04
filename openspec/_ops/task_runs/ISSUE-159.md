@@ -2,7 +2,7 @@
 
 - Issue: #159
 - Branch: task/159-e2e-appshell-fix
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/160
 
 ## Plan
 
