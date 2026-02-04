@@ -2,7 +2,7 @@
 
 - Issue: #163
 - Branch: task/163-proxy-e2e-fix
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/164
 
 ## Plan
 
