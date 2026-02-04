@@ -10,7 +10,7 @@ import { layoutDecorator } from "../../components/layout/test-utils";
  * - Header Tabs（Assistant / Info 切换）
  * - 用户输入（有框）和 AI 回复（无框）
  * - 发送/停止复合按钮
- * - 输入框内嵌工具栏（Mode / Model / Skill）
+ * - 输入框内嵌工具栏（Mode / Model / SKILL）
  * - 代码块带 Copy/Apply 按钮
  */
 const meta = {
@@ -168,13 +168,13 @@ function ConversationDemo(): JSX.Element {
             <div className="flex items-center justify-between px-2 pb-2">
               <div className="flex items-center gap-1.5">
                 <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)] rounded">
-                  Ask ▼
+                  Ask
                 </button>
                 <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)] rounded">
-                  GPT-5.2 ▼
+                  GPT-5.2
                 </button>
                 <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)] rounded">
-                  Skill ▼
+                  SKILL
                 </button>
               </div>
               <button className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)]">
@@ -414,6 +414,20 @@ function EmptyConversationDemo(): JSX.Element {
               Info
             </button>
           </div>
+          <div className="ml-auto flex items-center gap-1">
+            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="History">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </button>
+            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="New Chat">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
         </header>
 
         {/* Empty State */}
@@ -451,10 +465,13 @@ function EmptyConversationDemo(): JSX.Element {
             <div className="flex items-center justify-between px-2 pb-2">
               <div className="flex items-center gap-1.5">
                 <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
-                  Ask ▼
+                  Ask
                 </button>
                 <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
-                  GPT-5.2 ▼
+                  GPT-5.2
+                </button>
+                <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
+                  SKILL
                 </button>
               </div>
               {/* Disabled send button */}
@@ -739,6 +756,20 @@ function ErrorStateDemo(): JSX.Element {
               Info
             </button>
           </div>
+          <div className="ml-auto flex items-center gap-1">
+            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="History">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </button>
+            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="New Chat">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
         </header>
 
         {/* Content */}
@@ -791,10 +822,13 @@ function ErrorStateDemo(): JSX.Element {
             <div className="flex items-center justify-between px-2 pb-2">
               <div className="flex items-center gap-1.5">
                 <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
-                  Ask ▼
+                  Ask
                 </button>
                 <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
-                  GPT-5.2 ▼
+                  GPT-5.2
+                </button>
+                <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
+                  SKILL
                 </button>
               </div>
               <button className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)]">
@@ -889,6 +923,20 @@ function LongConversationDemo(): JSX.Element {
               Info
             </button>
           </div>
+          <div className="ml-auto flex items-center gap-1">
+            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="History">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            </button>
+            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="New Chat">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
         </header>
 
         {/* Content */}
@@ -924,10 +972,13 @@ function LongConversationDemo(): JSX.Element {
             <div className="flex items-center justify-between px-2 pb-2">
               <div className="flex items-center gap-1.5">
                 <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
-                  Ask ▼
+                  Ask
                 </button>
                 <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
-                  GPT-5.2 ▼
+                  GPT-5.2
+                </button>
+                <button className="px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-fg-muted)]">
+                  SKILL
                 </button>
               </div>
               <button className="w-7 h-7 rounded flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)]">
