@@ -1,7 +1,7 @@
 # ISSUE-171
 - Issue: #171
 - Branch: task/171-sync-test-files
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/172
 
 ## Plan
 - Sync outdated test files with refactored component implementations
