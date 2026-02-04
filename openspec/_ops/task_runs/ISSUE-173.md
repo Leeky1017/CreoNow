@@ -1,7 +1,7 @@
 # ISSUE-173
 - Issue: #173
 - Branch: task/173-sync-e2e-tests
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/174
 
 ## Plan
 - Remove references to `ai-stream-toggle` (element removed in UI refactoring)
