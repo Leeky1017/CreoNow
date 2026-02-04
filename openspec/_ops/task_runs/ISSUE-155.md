@@ -2,7 +2,7 @@
 
 - Issue: #155
 - Branch: task/155-e2e-panel-fix
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/156
 
 ## Plan
 
