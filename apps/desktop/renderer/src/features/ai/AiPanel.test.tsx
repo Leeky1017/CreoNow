@@ -47,17 +47,6 @@ vi.mock("../../stores/aiStore", () => ({
   }),
 }));
 
-vi.mock("../../stores/contextStore", () => ({
-  useContextStore: vi.fn((selector) => {
-    const state = {
-      viewerOpen: false,
-      toggleViewer: vi.fn(),
-      refresh: vi.fn().mockResolvedValue({ promptText: "", hashes: {} }),
-    };
-    return selector(state);
-  }),
-}));
-
 vi.mock("../../stores/editorStore", () => ({
   useEditorStore: vi.fn((selector) => {
     const state = {

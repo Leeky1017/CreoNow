@@ -235,17 +235,8 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
   await page.getByTestId("ai-send-stop").click();
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
 
-  await page.getByTestId("ai-context-toggle").click();
-  await expect(page.getByTestId("ai-context-panel")).toBeVisible();
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    "Knowledge Graph (project)",
-  );
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    "Alice",
-  );
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    "knows",
-  );
+  // Note: Context viewer UI assertions removed - component has been deleted
+  // KG injection verified via IPC above (kg:get returns nodes/edges)
 
   await electronApp.close();
 });

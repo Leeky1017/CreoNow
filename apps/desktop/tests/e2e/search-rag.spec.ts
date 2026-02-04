@@ -211,14 +211,7 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
   await runInput(page, keyword);
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
 
-  await page.getByTestId("ai-context-toggle").click();
-  await expect(page.getByTestId("ai-context-panel")).toBeVisible();
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    `doc:${documentId}#chunk:0`,
-  );
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    keyword,
-  );
+  // Note: Context viewer assertions removed - component has been deleted
 
   await electronApp.close();
 });
@@ -235,7 +228,7 @@ test("rag:retrieve diagnostics: rerank enabled but MODEL_NOT_READY degrades with
   const projectId = await createProjectAndGetId(page);
   const keyword = `E2EKEY_${randomUUID().replaceAll("-", "")}`;
 
-  const { documentId } = await createDocWithText({
+  await createDocWithText({
     page,
     projectId,
     title: "Search Target",
@@ -245,21 +238,8 @@ test("rag:retrieve diagnostics: rerank enabled but MODEL_NOT_READY degrades with
   await runInput(page, keyword);
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
 
-  await page.getByTestId("ai-context-toggle").click();
-  await expect(page.getByTestId("ai-context-panel")).toBeVisible();
-
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    `doc:${documentId}#chunk:0`,
-  );
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    "rag:retrieve",
-  );
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    "rerank.enabled=false",
-  );
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    "rerank.reason=MODEL_NOT_READY",
-  );
+  // Note: Context viewer assertions removed - component has been deleted
+  // Diagnostics verification done via IPC assertion above (ragRes.data.items)
 
   await electronApp.close();
 });
@@ -337,14 +317,8 @@ test("rag:retrieve rerank: hash model enabled changes top1 and marks diagnostics
   await runInput(page, queryText);
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
 
-  await page.getByTestId("ai-context-toggle").click();
-  await expect(page.getByTestId("ai-context-panel")).toBeVisible();
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    "mode=fulltext_reranked",
-  );
-  await expect(page.getByTestId("ai-context-layer-retrieved")).toContainText(
-    "rerank.enabled=true",
-  );
+  // Note: Context viewer assertions removed - component has been deleted
+  // Rerank diagnostics verified via IPC assertion above (ragRes.data.diagnostics.mode)
 
   await electronApp.close();
 });

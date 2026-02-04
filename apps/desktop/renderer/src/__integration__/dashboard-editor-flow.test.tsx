@@ -32,10 +32,6 @@ import {
   createMemoryStore,
 } from "../stores/memoryStore";
 import {
-  ContextStoreProvider,
-  createContextStore,
-} from "../stores/contextStore";
-import {
   SearchStoreProvider,
   createSearchStore,
 } from "../stores/searchStore";
@@ -147,12 +143,6 @@ function createComprehensiveMockIpc(options: {
         case "skill:list":
           return { ok: true, data: { items: [] } };
 
-        case "context:get":
-          return {
-            ok: true,
-            data: { items: [], redacted: [], budget: { total: 0, used: 0 } },
-          };
-
         case "memory:list":
         case "memory:getPreferences":
           return { ok: true, data: { items: [] } };
@@ -206,10 +196,6 @@ function IntegrationTestWrapper({
     () => createMemoryStore(mockIpc as Parameters<typeof createMemoryStore>[0]),
     [mockIpc],
   );
-  const contextStore = React.useMemo(
-    () => createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
-    [mockIpc],
-  );
   const searchStore = React.useMemo(
     () => createSearchStore(mockIpc as Parameters<typeof createSearchStore>[0]),
     [mockIpc],
@@ -228,11 +214,9 @@ function IntegrationTestWrapper({
             <ThemeStoreProvider store={themeStore}>
               <AiStoreProvider store={aiStore}>
                 <MemoryStoreProvider store={memoryStore}>
-                  <ContextStoreProvider store={contextStore}>
-                    <SearchStoreProvider store={searchStore}>
-                      <KgStoreProvider store={kgStore}>{children}</KgStoreProvider>
-                    </SearchStoreProvider>
-                  </ContextStoreProvider>
+                  <SearchStoreProvider store={searchStore}>
+                    <KgStoreProvider store={kgStore}>{children}</KgStoreProvider>
+                  </SearchStoreProvider>
                 </MemoryStoreProvider>
               </AiStoreProvider>
             </ThemeStoreProvider>

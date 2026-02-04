@@ -21,10 +21,6 @@ import {
   createMemoryStore,
 } from "../../stores/memoryStore";
 import {
-  ContextStoreProvider,
-  createContextStore,
-} from "../../stores/contextStore";
-import {
   SearchStoreProvider,
   createSearchStore,
 } from "../../stores/searchStore";
@@ -99,11 +95,6 @@ function AppShellTestWrapper({
     () => createMemoryStore(mockIpc as Parameters<typeof createMemoryStore>[0]),
     [],
   );
-  const contextStore = React.useMemo(
-    () =>
-      createContextStore(mockIpc as Parameters<typeof createContextStore>[0]),
-    [],
-  );
   const searchStore = React.useMemo(
     () => createSearchStore(mockIpc as Parameters<typeof createSearchStore>[0]),
     [],
@@ -122,13 +113,9 @@ function AppShellTestWrapper({
             <ThemeStoreProvider store={themeStore}>
               <AiStoreProvider store={aiStore}>
                 <MemoryStoreProvider store={memoryStore}>
-                  <ContextStoreProvider store={contextStore}>
-                    <SearchStoreProvider store={searchStore}>
-                      <KgStoreProvider store={kgStore}>
-                        {children}
-                      </KgStoreProvider>
-                    </SearchStoreProvider>
-                  </ContextStoreProvider>
+                  <SearchStoreProvider store={searchStore}>
+                    <KgStoreProvider store={kgStore}>{children}</KgStoreProvider>
+                  </SearchStoreProvider>
                 </MemoryStoreProvider>
               </AiStoreProvider>
             </ThemeStoreProvider>

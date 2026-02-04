@@ -2,7 +2,6 @@ import React from "react";
 
 import { Button, Spinner, Text } from "../../components/primitives";
 import { useAiStore, type AiStatus } from "../../stores/aiStore";
-import { useContextStore } from "../../stores/contextStore";
 import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
 import { unifiedDiff } from "../../lib/diff/unifiedDiff";
@@ -207,8 +206,6 @@ export function AiPanel(): JSX.Element {
 
   const currentProject = useProjectStore((s) => s.current);
 
-  const refreshContext = useContextStore((s) => s.refresh);
-
   const [activeTab, setActiveTab] = React.useState<"assistant" | "info">(
     "assistant",
   );
@@ -268,7 +265,7 @@ export function AiPanel(): JSX.Element {
     applyStatus !== "applying";
 
   /**
-   * Assemble context and run the selected skill.
+   * Run the selected skill with current input.
    */
   async function onRun(): Promise<void> {
     if (!input.trim()) return;
@@ -288,19 +285,11 @@ export function AiPanel(): JSX.Element {
       setSelectionSnapshot(null);
     }
 
-    const assembled = await refreshContext({
-      projectId: currentProject?.projectId ?? projectId ?? null,
-      skillId: selectedSkillId ?? null,
-      immediateInput: input,
-    });
-
     await run({
-      inputOverride: assembled.promptText,
       context: {
         projectId: currentProject?.projectId ?? projectId ?? undefined,
         documentId: documentId ?? undefined,
       },
-      promptDiagnostics: assembled.hashes,
     });
   }
 

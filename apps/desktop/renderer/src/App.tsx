@@ -5,10 +5,6 @@ import { OnboardingPage } from "./features/onboarding";
 import { invoke } from "./lib/ipcClient";
 import { createPreferenceStore } from "./lib/preferences";
 import { createAiStore, AiStoreProvider } from "./stores/aiStore";
-import {
-  createContextStore,
-  ContextStoreProvider,
-} from "./stores/contextStore";
 import { createEditorStore, EditorStoreProvider } from "./stores/editorStore";
 import { createFileStore, FileStoreProvider } from "./stores/fileStore";
 import { createKgStore, KgStoreProvider } from "./stores/kgStore";
@@ -90,10 +86,6 @@ export function App(): JSX.Element {
     return createAiStore({ invoke });
   }, []);
 
-  const contextStore = React.useMemo(() => {
-    return createContextStore({ invoke });
-  }, []);
-
   const fileStore = React.useMemo(() => {
     return createFileStore({ invoke });
   }, []);
@@ -115,21 +107,19 @@ export function App(): JSX.Element {
       <OnboardingStoreProvider store={onboardingStore}>
         <AiStoreProvider store={aiStore}>
           <ProjectStoreProvider store={projectStore}>
-            <ContextStoreProvider store={contextStore}>
-              <EditorStoreProvider store={editorStore}>
-                <FileStoreProvider store={fileStore}>
-                  <KgStoreProvider store={kgStore}>
-                    <SearchStoreProvider store={searchStore}>
-                      <MemoryStoreProvider store={memoryStore}>
-                        <LayoutStoreProvider store={layoutStore}>
-                          <AppRouter />
-                        </LayoutStoreProvider>
-                      </MemoryStoreProvider>
-                    </SearchStoreProvider>
-                  </KgStoreProvider>
-                </FileStoreProvider>
-              </EditorStoreProvider>
-            </ContextStoreProvider>
+            <EditorStoreProvider store={editorStore}>
+              <FileStoreProvider store={fileStore}>
+                <KgStoreProvider store={kgStore}>
+                  <SearchStoreProvider store={searchStore}>
+                    <MemoryStoreProvider store={memoryStore}>
+                      <LayoutStoreProvider store={layoutStore}>
+                        <AppRouter />
+                      </LayoutStoreProvider>
+                    </MemoryStoreProvider>
+                  </SearchStoreProvider>
+                </KgStoreProvider>
+              </FileStoreProvider>
+            </EditorStoreProvider>
           </ProjectStoreProvider>
         </AiStoreProvider>
       </OnboardingStoreProvider>
