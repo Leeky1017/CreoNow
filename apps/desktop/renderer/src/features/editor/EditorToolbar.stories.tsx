@@ -1,0 +1,136 @@
+import type { Meta, StoryObj } from "@storybook/react";
+import { useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+
+import { EditorToolbar } from "./EditorToolbar";
+
+/**
+ * EditorToolbar provides formatting controls for the TipTap editor.
+ *
+ * Features:
+ * - Text formatting: Bold, Italic, Strikethrough, Inline Code
+ * - Headings: H1, H2, H3
+ * - Lists: Bullet, Numbered
+ * - Blocks: Quote, Code Block, Horizontal Rule
+ * - History: Undo, Redo
+ */
+const meta: Meta<typeof EditorToolbar> = {
+  title: "Features/Editor/EditorToolbar",
+  component: EditorToolbar,
+  parameters: {
+    layout: "padded",
+  },
+  decorators: [
+    (Story) => (
+      <div className="w-full max-w-[800px]">
+        <Story />
+      </div>
+    ),
+  ],
+};
+
+export default meta;
+type Story = StoryObj<typeof EditorToolbar>;
+
+/**
+ * Wrapper component that creates a real TipTap editor instance.
+ */
+function ToolbarWithEditor(props: { initialContent?: string }): JSX.Element {
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: props.initialContent ?? "<p>Start typing here...</p>",
+  });
+
+  return (
+    <div className="border border-[var(--color-border-default)] rounded-[var(--radius-md)]">
+      <EditorToolbar editor={editor} />
+      <div className="p-4 min-h-[200px] text-[var(--color-fg-default)]">
+        {editor ? (
+          <div
+            className="prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: editor.getHTML() }}
+          />
+        ) : (
+          <p className="text-[var(--color-fg-muted)]">Loading editor...</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Default toolbar with a basic editor.
+ */
+export const Default: Story = {
+  render: () => <ToolbarWithEditor />,
+};
+
+/**
+ * Toolbar with formatted content showing active states.
+ */
+export const WithFormattedContent: Story = {
+  render: () => (
+    <ToolbarWithEditor
+      initialContent={`
+        <h1>Heading 1</h1>
+        <p>This is a paragraph with <strong>bold</strong>, <em>italic</em>, and <code>inline code</code>.</p>
+        <h2>Heading 2</h2>
+        <ul>
+          <li>Bullet item 1</li>
+          <li>Bullet item 2</li>
+        </ul>
+        <h3>Heading 3</h3>
+        <ol>
+          <li>Numbered item 1</li>
+          <li>Numbered item 2</li>
+        </ol>
+        <blockquote>This is a blockquote.</blockquote>
+        <pre><code>const code = "block";</code></pre>
+        <hr />
+        <p>End of content.</p>
+      `}
+    />
+  ),
+};
+
+/**
+ * Toolbar without an editor (null state).
+ */
+export const NoEditor: Story = {
+  render: () => (
+    <div className="border border-[var(--color-border-default)] rounded-[var(--radius-md)]">
+      <EditorToolbar editor={null} />
+      <div className="p-4 min-h-[100px] text-[var(--color-fg-muted)]">
+        Toolbar returns null when no editor is provided.
+      </div>
+    </div>
+  ),
+};
+
+/**
+ * Multiple toolbars showing different editor states.
+ */
+export const MultipleStates: Story = {
+  render: () => (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-medium text-[var(--color-fg-default)] mb-2">
+          Empty Document
+        </h3>
+        <ToolbarWithEditor initialContent="<p></p>" />
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-[var(--color-fg-default)] mb-2">
+          With Bold Text
+        </h3>
+        <ToolbarWithEditor initialContent="<p><strong>Bold text selected</strong></p>" />
+      </div>
+      <div>
+        <h3 className="text-sm font-medium text-[var(--color-fg-default)] mb-2">
+          With Heading
+        </h3>
+        <ToolbarWithEditor initialContent="<h2>A Heading</h2>" />
+      </div>
+    </div>
+  ),
+};

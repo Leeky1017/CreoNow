@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { useEditorStore } from "../../stores/editorStore";
 import { useAutosave } from "./useAutosave";
 import { Text } from "../../components/primitives";
+import { EditorToolbar } from "./EditorToolbar";
 
 /**
  * EditorPane mounts TipTap editor and wires autosave to the DB SSOT.
@@ -133,9 +134,12 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     <div
       data-testid="editor-pane"
       data-document-id={documentId}
-      className="w-full h-full min-w-0"
+      className="flex h-full w-full min-w-0 flex-col"
     >
-      <EditorContent editor={editor} />
+      <EditorToolbar editor={editor} />
+      <div className="flex-1 overflow-y-auto">
+        <EditorContent editor={editor} className="h-full" />
+      </div>
     </div>
   );
 }
