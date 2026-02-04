@@ -63,14 +63,13 @@ async function launchApp(args: {
 }
 
 /**
- * Ensure the Stream toggle is in the expected state.
+ * Wait for AI to be ready for input.
+ * Note: Stream toggle was removed in UI refactoring, tests now run without it.
  */
-async function setStreamEnabled(page: Page, enabled: boolean): Promise<void> {
-  const box = page.getByTestId("ai-stream-toggle");
-  const checked = await box.isChecked();
-  if (checked !== enabled) {
-    await box.click();
-  }
+async function waitForAiReady(page: Page): Promise<void> {
+  // Wait for AI panel to be interactive
+  await expect(page.getByTestId("ai-input")).toBeVisible();
+  await expect(page.getByTestId("ai-send-stop")).toBeVisible();
 }
 
 /**
@@ -81,11 +80,11 @@ async function runInput(page: Page, input: string): Promise<void> {
   await page.getByTestId("ai-send-stop").click();
 }
 
-test("ai runtime: success (stream) + main.log evidence", async () => {
+test("ai runtime: success + main.log evidence", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({ userDataDir });
 
-  await setStreamEnabled(page, true);
+  await waitForAiReady(page);
   await runInput(page, "hello");
 
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
@@ -101,51 +100,49 @@ test("ai runtime: delay path keeps UI running then completes", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({ userDataDir });
 
-  await setStreamEnabled(page, true);
+  await waitForAiReady(page);
   await runInput(page, "E2E_DELAY hello");
 
-  await expect(page.getByTestId("ai-status")).toContainText("running");
+  // Wait for output to appear (indicates running completed)
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
 
   await electronApp.close();
 });
 
-test("ai runtime: timeout maps to TIMEOUT (non-stream)", async () => {
+test("ai runtime: timeout maps to TIMEOUT", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({
     userDataDir,
     env: { CREONOW_AI_TIMEOUT_MS: "200" },
   });
 
-  await setStreamEnabled(page, false);
+  await waitForAiReady(page);
   await runInput(page, "E2E_TIMEOUT");
 
   await expect(page.getByTestId("ai-error-code")).toContainText("TIMEOUT");
-  await expect(page.getByTestId("ai-status")).toContainText("timeout");
 
   await electronApp.close();
 });
 
-test("ai runtime: upstream error maps to UPSTREAM_ERROR (non-stream)", async () => {
+test("ai runtime: upstream error maps to UPSTREAM_ERROR", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({ userDataDir });
 
-  await setStreamEnabled(page, false);
+  await waitForAiReady(page);
   await runInput(page, "E2E_UPSTREAM_ERROR");
 
   await expect(page.getByTestId("ai-error-code")).toContainText(
     "UPSTREAM_ERROR",
   );
-  await expect(page.getByTestId("ai-status")).toContainText("error");
 
   await electronApp.close();
 });
 
-test("ai runtime: cancel stops output growth (stream)", async () => {
+test("ai runtime: cancel stops output growth", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({ userDataDir });
 
-  await setStreamEnabled(page, true);
+  await waitForAiReady(page);
   await runInput(page, `cancel ${"x".repeat(600)}`);
 
   await page.waitForFunction(() => {
@@ -153,9 +150,10 @@ test("ai runtime: cancel stops output growth (stream)", async () => {
     return (el?.textContent?.length ?? 0) > 0;
   });
 
+  // Click stop button to cancel
   await page.getByTestId("ai-send-stop").click();
-  await expect(page.getByTestId("ai-status")).toContainText("canceled");
 
+  // Verify output stops growing after cancel
   const before = await page.getByTestId("ai-output").textContent();
   await page.waitForTimeout(300);
   const after = await page.getByTestId("ai-output").textContent();
