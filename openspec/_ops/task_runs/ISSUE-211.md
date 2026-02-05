@@ -2,7 +2,7 @@
 
 - Issue: #211
 - Branch: task/211-phase4-frontend-assembly
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/212
 
 ## Plan
 
