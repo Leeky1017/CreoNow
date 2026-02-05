@@ -4,7 +4,7 @@ import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
 import { MemoryPanel } from "../../features/memory/MemoryPanel";
 import { OutlinePanel } from "../../features/outline/OutlinePanel";
 import { SearchPanel } from "../../features/search/SearchPanel";
-import { VersionHistoryPanelContent } from "../../features/version-history/VersionHistoryPanel";
+import { VersionHistoryContainer } from "../../features/version-history/VersionHistoryContainer";
 import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
 
 /**
@@ -96,13 +96,7 @@ export function Sidebar(props: {
 
       case "versionHistory":
         return props.projectId ? (
-          <VersionHistoryPanelContent
-            timeGroups={[]}
-            showCloseButton={false}
-            onRestore={(versionId) => {
-              console.log("Restore version:", versionId);
-            }}
-          />
+          <VersionHistoryContainer projectId={props.projectId} />
         ) : (
           <div className="p-3 text-xs text-[var(--color-fg-muted)]">
             Open a document to view history

@@ -25,6 +25,10 @@ import {
   createProjectStore,
   ProjectStoreProvider,
 } from "./stores/projectStore";
+import {
+  createVersionStore,
+  VersionStoreProvider,
+} from "./stores/versionStore";
 
 /**
  * AppRouter decides which screen to show based on onboarding status.
@@ -121,6 +125,10 @@ export function App(): JSX.Element {
     return createMemoryStore({ invoke });
   }, []);
 
+  const versionStore = React.useMemo(() => {
+    return createVersionStore({ invoke });
+  }, []);
+
   return (
     <ThemeStoreProvider store={themeStore}>
       <OnboardingStoreProvider store={onboardingStore}>
@@ -131,9 +139,11 @@ export function App(): JSX.Element {
                 <KgStoreProvider store={kgStore}>
                   <SearchStoreProvider store={searchStore}>
                     <MemoryStoreProvider store={memoryStore}>
-                      <LayoutStoreProvider store={layoutStore}>
-                        <AppRouter />
-                      </LayoutStoreProvider>
+                      <VersionStoreProvider store={versionStore}>
+                        <LayoutStoreProvider store={layoutStore}>
+                          <AppRouter />
+                        </LayoutStoreProvider>
+                      </VersionStoreProvider>
                     </MemoryStoreProvider>
                   </SearchStoreProvider>
                 </KgStoreProvider>

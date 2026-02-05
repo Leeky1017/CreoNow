@@ -56,6 +56,55 @@ export function registerVersionIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
+    "version:read",
+    async (
+      _e,
+      payload: { documentId: string; versionId: string },
+    ): Promise<
+      IpcResponse<{
+        documentId: string;
+        projectId: string;
+        versionId: string;
+        actor: "user" | "auto" | "ai";
+        reason: string;
+        contentJson: string;
+        contentText: string;
+        contentMd: string;
+        contentHash: string;
+        createdAt: number;
+      }>
+    > => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.documentId.trim().length === 0 ||
+        payload.versionId.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId/versionId is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.readVersion({
+        documentId: payload.documentId,
+        versionId: payload.versionId,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
     "version:restore",
     async (
       _e,
