@@ -574,7 +574,6 @@ export function CommandPalette({
     <div
       className="cn-overlay"
       onClick={() => onOpenChange(false)}
-      onKeyDown={handleKeyDown}
     >
       {/* 命令面板 */}
       <div
@@ -599,6 +598,7 @@ export function CommandPalette({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="搜索命令或文件..."
             className="flex-1 bg-transparent border-none text-[15px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-placeholder)] outline-none"
             aria-label="Search commands"

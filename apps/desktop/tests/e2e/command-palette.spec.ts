@@ -274,6 +274,11 @@ test.describe("Command Palette + Shortcuts", () => {
     // Press up arrow
     await page.keyboard.press("ArrowUp");
 
+    // Wait for second item to become inactive (confirms ArrowUp was processed)
+    await expect(secondItem).toHaveAttribute("aria-selected", "false", {
+      timeout: 5000,
+    });
+
     // First item should be active again
     await expect(firstItem).toHaveAttribute("aria-selected", "true", {
       timeout: 5000,
