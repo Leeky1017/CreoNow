@@ -82,3 +82,15 @@
   - `pnpm test:unit` ✅
 - Evidence:
   - `scripts/agent_pr_preflight.py`
+
+### 2026-02-05 16:09 Fix windows-e2e theme failure
+
+- Command:
+  - `gh run view 21718595750 --log-failed`
+  - `pnpm -C apps/desktop exec playwright test -c tests/e2e/playwright.config.ts tests/e2e/theme.spec.ts`
+- Key output:
+  - `waiting for getByTestId('theme-mode-light')` (timeout)
+  - Fix: navigate to `settings-nav-appearance` before clicking `theme-mode-light`
+  - Local: `1 passed`
+- Evidence:
+  - `apps/desktop/tests/e2e/theme.spec.ts`
