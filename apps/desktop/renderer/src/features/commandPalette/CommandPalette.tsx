@@ -512,8 +512,8 @@ export function CommandPalette({
     setActiveIndex(0);
   }, [query]);
 
-  // 打开时聚焦输入框
-  React.useEffect(() => {
+  // 打开时重置状态（使用 useLayoutEffect 确保同步执行，避免闪烁）
+  React.useLayoutEffect(() => {
     if (open) {
       setQuery("");
       setActiveIndex(0);
