@@ -4,7 +4,7 @@ import {
   type RightPanelType,
 } from "../../stores/layoutStore";
 import { AiPanel } from "../../features/ai/AiPanel";
-import { QualityGatesPanelContent } from "../../features/quality-gates/QualityGatesPanel";
+import { InfoPanel, QualityPanel } from "../../features/rightpanel";
 
 /**
  * Tab button styles for right panel.
@@ -43,24 +43,6 @@ const RIGHT_PANEL_TABS: Array<{
   { type: "quality", label: "Quality", testId: "right-panel-tab-quality" },
 ];
 
-/**
- * InfoPanel placeholder content.
- *
- * TODO: Replace with full implementation showing document info,
- * writing statistics, and context summaries.
- */
-function InfoPanelContent(): JSX.Element {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4">
-      <div className="text-[var(--color-fg-muted)] text-sm">
-        Document Info
-      </div>
-      <div className="text-[var(--color-fg-subtle)] text-xs mt-2">
-        Statistics and context will appear here
-      </div>
-    </div>
-  );
-}
 
 /**
  * RightPanel is the right-side panel container with 3 tabs:
@@ -91,15 +73,9 @@ export function RightPanel(props: {
       case "ai":
         return <AiPanel />;
       case "info":
-        return <InfoPanelContent />;
+        return <InfoPanel />;
       case "quality":
-        return (
-          <QualityGatesPanelContent
-            checkGroups={[]}
-            panelStatus="all-passed"
-            showCloseButton={false}
-          />
-        );
+        return <QualityPanel />;
       default: {
         const _exhaustive: never = activeRightPanel;
         return _exhaustive;
