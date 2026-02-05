@@ -381,10 +381,7 @@ export function CommandPalette({
         group: "Suggestions",
         onSelect: () => {
           setErrorText(null);
-          if (!currentProjectId) {
-            setErrorText("NO_PROJECT: Please open a project first");
-            return;
-          }
+          // Always open ExportDialog; it handles NO_PROJECT error internally
           if (dialogActions?.onOpenExport) {
             dialogActions.onOpenExport();
             onOpenChange(false);
