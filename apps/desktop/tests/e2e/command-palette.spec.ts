@@ -246,45 +246,47 @@ test.describe("Command Palette + Shortcuts", () => {
     await page.keyboard.press("Escape");
   });
 
-  // TODO: Fix flaky test on Windows CI - activeIndex state not reliably initialized
-  // See: https://github.com/Leeky1017/CreoNow/issues/194#issuecomment-keyboard-nav
-  test.skip("Command Palette keyboard navigation works", async () => {
+  test("Command Palette keyboard navigation works", async () => {
     const modKey = getModKey();
 
     // Open command palette
     await page.keyboard.press(`${modKey}+p`);
     await expect(page.getByTestId("command-palette")).toBeVisible();
 
-    // Wait for command list to render
+    // Wait for the listbox to be rendered and have the initial active index set
+    // Using data-active-index attribute for more reliable state detection
+    const listbox = page.locator('[role="listbox"]');
+    await expect(listbox).toHaveAttribute("data-active-index", "0", {
+      timeout: 5000,
+    });
+
+    // Wait for first item to be visible and selected
     const firstItem = page.locator('[data-index="0"]');
     await expect(firstItem).toBeVisible();
-
-    // First item should be active by default (wait for React state to settle)
-    await expect(firstItem).toHaveAttribute("aria-selected", "true", {
-      timeout: 10000,
-    });
+    await expect(firstItem).toHaveAttribute("aria-selected", "true");
 
     // Press down arrow
     await page.keyboard.press("ArrowDown");
 
-    // Second item should now be active
-    const secondItem = page.locator('[data-index="1"]');
-    await expect(secondItem).toHaveAttribute("aria-selected", "true", {
+    // Wait for active index to change to 1
+    await expect(listbox).toHaveAttribute("data-active-index", "1", {
       timeout: 5000,
     });
+
+    // Second item should now be active
+    const secondItem = page.locator('[data-index="1"]');
+    await expect(secondItem).toHaveAttribute("aria-selected", "true");
 
     // Press up arrow
     await page.keyboard.press("ArrowUp");
 
-    // Wait for second item to become inactive (confirms ArrowUp was processed)
-    await expect(secondItem).toHaveAttribute("aria-selected", "false", {
+    // Wait for active index to change back to 0
+    await expect(listbox).toHaveAttribute("data-active-index", "0", {
       timeout: 5000,
     });
 
     // First item should be active again
-    await expect(firstItem).toHaveAttribute("aria-selected", "true", {
-      timeout: 5000,
-    });
+    await expect(firstItem).toHaveAttribute("aria-selected", "true");
 
     // Close palette
     await page.keyboard.press("Escape");

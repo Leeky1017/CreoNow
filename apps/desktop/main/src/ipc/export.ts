@@ -47,7 +47,7 @@ export function registerExportIpcHandlers(deps: {
     async (
       _e,
       payload: { projectId: string; documentId?: string },
-    ): Promise<IpcResponse<never>> => {
+    ): Promise<IpcResponse<{ relativePath: string; bytesWritten: number }>> => {
       if (!deps.db) {
         return {
           ok: false,
@@ -59,7 +59,7 @@ export function registerExportIpcHandlers(deps: {
         logger: deps.logger,
         userDataDir: deps.userDataDir,
       });
-      const res = svc.exportPdf(payload);
+      const res = await svc.exportPdf(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -71,7 +71,7 @@ export function registerExportIpcHandlers(deps: {
     async (
       _e,
       payload: { projectId: string; documentId?: string },
-    ): Promise<IpcResponse<never>> => {
+    ): Promise<IpcResponse<{ relativePath: string; bytesWritten: number }>> => {
       if (!deps.db) {
         return {
           ok: false,
@@ -83,7 +83,32 @@ export function registerExportIpcHandlers(deps: {
         logger: deps.logger,
         userDataDir: deps.userDataDir,
       });
-      const res = svc.exportDocx(payload);
+      const res = await svc.exportDocx(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "export:txt",
+    async (
+      _e,
+      payload: { projectId: string; documentId?: string },
+    ): Promise<IpcResponse<{ relativePath: string; bytesWritten: number }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      const svc = createExportService({
+        db: deps.db,
+        logger: deps.logger,
+        userDataDir: deps.userDataDir,
+      });
+      const res = await svc.exportTxt(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };

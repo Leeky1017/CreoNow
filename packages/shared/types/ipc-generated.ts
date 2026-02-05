@@ -72,6 +72,7 @@ export const IPC_CHANNELS = [
   "export:docx",
   "export:markdown",
   "export:pdf",
+  "export:txt",
   "file:document:create",
   "file:document:delete",
   "file:document:getCurrent",
@@ -387,6 +388,16 @@ export type IpcChannelSpec = {
     };
   };
   "export:pdf": {
+    request: {
+      documentId?: string;
+      projectId: string;
+    };
+    response: {
+      bytesWritten: number;
+      relativePath: string;
+    };
+  };
+  "export:txt": {
     request: {
       documentId?: string;
       projectId: string;

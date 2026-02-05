@@ -26,13 +26,15 @@ describe("ExportDialog", () => {
     expect(screen.getByText("MARKDOWN • A4")).toBeInTheDocument();
   });
 
-  it("disables UNSUPPORTED formats (pdf/docx)", () => {
+  it("enables all export formats (pdf/docx/txt/markdown)", () => {
     render(
       <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
     );
 
-    expect(screen.getByTestId("export-format-pdf")).toBeDisabled();
-    expect(screen.getByTestId("export-format-docx")).toBeDisabled();
+    expect(screen.getByTestId("export-format-pdf")).not.toBeDisabled();
+    expect(screen.getByTestId("export-format-docx")).not.toBeDisabled();
+    expect(screen.getByTestId("export-format-txt")).not.toBeDisabled();
+    expect(screen.getByTestId("export-format-markdown")).not.toBeDisabled();
   });
 
   it("disables Export when projectId is missing", () => {
