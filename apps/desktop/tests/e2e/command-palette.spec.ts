@@ -253,6 +253,12 @@ test.describe("Command Palette + Shortcuts", () => {
     await page.keyboard.press(`${modKey}+p`);
     await expect(page.getByTestId("command-palette")).toBeVisible();
 
+    // Type and clear to force activeIndex reset via query change useEffect
+    // This is more reliable than relying on useLayoutEffect timing alone
+    const input = page.getByRole("textbox");
+    await input.fill("a");
+    await input.fill("");
+
     // Wait for the listbox to be rendered and have the initial active index set
     // Using data-active-index attribute for more reliable state detection
     const listbox = page.locator('[role="listbox"]');
