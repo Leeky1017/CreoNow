@@ -2,7 +2,7 @@
 
 - Issue: #196
 - Branch: task/196-settingsdialog-close-button
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/197
 
 ## Plan
 
