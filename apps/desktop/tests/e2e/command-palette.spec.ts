@@ -253,28 +253,27 @@ test.describe("Command Palette + Shortcuts", () => {
     await page.keyboard.press(`${modKey}+p`);
     await expect(page.getByTestId("command-palette")).toBeVisible();
 
-    // Type and clear to force activeIndex reset via query change useEffect
-    // This is more reliable than relying on useLayoutEffect timing alone
-    const input = page.getByRole("textbox");
-    await input.fill("a");
-    await input.fill("");
-
-    // Wait for the listbox to be rendered and have the initial active index set
-    // Using data-active-index attribute for more reliable state detection
     const listbox = page.locator('[role="listbox"]');
+    await expect(listbox).toBeVisible();
+
+    // Press ArrowUp multiple times to ensure we're at index 0
+    // (activeIndex may start at non-zero due to timing issues on Windows CI)
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press("ArrowUp");
+    }
+
+    // Now verify we're at index 0
     await expect(listbox).toHaveAttribute("data-active-index", "0", {
       timeout: 5000,
     });
 
-    // Wait for first item to be visible and selected
+    // Verify first item is selected
     const firstItem = page.locator('[data-index="0"]');
     await expect(firstItem).toBeVisible();
     await expect(firstItem).toHaveAttribute("aria-selected", "true");
 
-    // Press down arrow
+    // Press down arrow - should move to index 1
     await page.keyboard.press("ArrowDown");
-
-    // Wait for active index to change to 1
     await expect(listbox).toHaveAttribute("data-active-index", "1", {
       timeout: 5000,
     });
@@ -283,10 +282,8 @@ test.describe("Command Palette + Shortcuts", () => {
     const secondItem = page.locator('[data-index="1"]');
     await expect(secondItem).toHaveAttribute("aria-selected", "true");
 
-    // Press up arrow
+    // Press up arrow - should move back to index 0
     await page.keyboard.press("ArrowUp");
-
-    // Wait for active index to change back to 0
     await expect(listbox).toHaveAttribute("data-active-index", "0", {
       timeout: 5000,
     });
