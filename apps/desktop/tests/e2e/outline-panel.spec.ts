@@ -82,7 +82,7 @@ test.describe("OutlinePanel", () => {
     );
 
     // Open the Outline panel via IconBar
-    const outlineButton = page.getByTestId("iconbar-outline");
+    const outlineButton = page.getByTestId("icon-bar-outline");
     await outlineButton.click();
 
     // Wait for outline panel to be visible
@@ -147,7 +147,7 @@ test.describe("OutlinePanel", () => {
     await page.keyboard.type("Just some plain text without any headings.");
 
     // Open the Outline panel
-    const outlineButton = page.getByTestId("iconbar-outline");
+    const outlineButton = page.getByTestId("icon-bar-outline");
     await outlineButton.click();
 
     // Wait for outline panel
@@ -190,7 +190,7 @@ test.describe("OutlinePanel", () => {
     await expect(page.getByTestId("tiptap-editor")).toBeVisible();
 
     // Open the Outline panel first
-    const outlineButton = page.getByTestId("iconbar-outline");
+    const outlineButton = page.getByTestId("icon-bar-outline");
     await outlineButton.click();
     await expect(page.getByTestId("outline-panel")).toBeVisible();
 
@@ -257,7 +257,7 @@ test.describe("OutlinePanel", () => {
     await page.keyboard.press("Enter");
 
     // Open the Outline panel
-    const outlineButton = page.getByTestId("iconbar-outline");
+    const outlineButton = page.getByTestId("icon-bar-outline");
     await outlineButton.click();
     await expect(page.getByTestId("outline-panel")).toBeVisible();
 
