@@ -537,34 +537,37 @@ export function CommandPalette({
     }
   }, [activeIndex]);
 
-  // 键盘导航
-  function handleKeyDown(e: React.KeyboardEvent): void {
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        setActiveIndex((prev) =>
-          prev < flatItems.length - 1 ? prev + 1 : prev,
-        );
-        break;
+  // 键盘导航（使用 useCallback 确保 flatItems 闭包正确）
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent): void => {
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setActiveIndex((prev) =>
+            prev < flatItems.length - 1 ? prev + 1 : prev,
+          );
+          break;
 
-      case "ArrowUp":
-        e.preventDefault();
-        setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
-        break;
+        case "ArrowUp":
+          e.preventDefault();
+          setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
+          break;
 
-      case "Enter":
-        e.preventDefault();
-        if (flatItems[activeIndex]) {
-          void flatItems[activeIndex].onSelect();
-        }
-        break;
+        case "Enter":
+          e.preventDefault();
+          if (flatItems[activeIndex]) {
+            void flatItems[activeIndex].onSelect();
+          }
+          break;
 
-      case "Escape":
-        e.preventDefault();
-        onOpenChange(false);
-        break;
-    }
-  }
+        case "Escape":
+          e.preventDefault();
+          onOpenChange(false);
+          break;
+      }
+    },
+    [flatItems, activeIndex, onOpenChange],
+  );
 
   if (!open) {
     return null;
@@ -574,6 +577,7 @@ export function CommandPalette({
     <div
       className="cn-overlay"
       onClick={() => onOpenChange(false)}
+      onKeyDown={handleKeyDown}
     >
       {/* 命令面板 */}
       <div
