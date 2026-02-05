@@ -110,11 +110,12 @@ const navButtonBaseStyles = [
 
 /**
  * Close button styles.
+ * Positioned at dialog's top-right corner (outside content padding).
  */
 const closeButtonStyles = [
   "absolute",
-  "top-6",
-  "right-8",
+  "top-4",
+  "right-4",
   "p-2",
   "text-[var(--color-fg-placeholder)]",
   "hover:text-[var(--color-fg-default)]",
