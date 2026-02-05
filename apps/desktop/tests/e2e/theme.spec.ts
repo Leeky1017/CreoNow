@@ -48,6 +48,12 @@ test("theme: switch to light + persist across restart", async () => {
   await first.page.getByTestId("icon-bar-settings").click();
   await expect(first.page.getByTestId("settings-dialog")).toBeVisible();
 
+  // Theme controls live under the Appearance tab (default tab is General).
+  await first.page.getByTestId("settings-nav-appearance").click();
+  await expect(
+    first.page.getByTestId("settings-appearance-section"),
+  ).toBeVisible();
+
   await first.page.getByTestId("theme-mode-light").click();
   await expect(first.page.locator("html")).toHaveAttribute(
     "data-theme",
