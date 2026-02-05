@@ -4,7 +4,7 @@
 
 - **Issue**: https://github.com/Leeky1017/CreoNow/issues/207
 - **Branch**: `task/207-e2e-scope-assertions`
-- **PR**: (待创建)
+- **PR**: https://github.com/Leeky1017/CreoNow/pull/208
 
 ## Plan
 
