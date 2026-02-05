@@ -2,7 +2,7 @@
 
 - Issue: #182
 - Branch: task/182-spec-hardening
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/183
 
 ## Plan
 
