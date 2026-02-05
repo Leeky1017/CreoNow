@@ -614,6 +614,7 @@ export function CommandPalette({
           ref={listRef}
           className="max-h-[424px] overflow-y-auto p-2"
           role="listbox"
+          data-active-index={activeIndex}
         >
           {/* 错误提示 */}
           {errorText && (

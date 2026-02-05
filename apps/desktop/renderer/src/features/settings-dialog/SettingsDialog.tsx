@@ -6,11 +6,27 @@ import { AnalyticsPageContent } from "../analytics/AnalyticsPage";
 import { AppearanceSection } from "../settings/AppearanceSection";
 import { JudgeSection } from "../settings/JudgeSection";
 import { ProxySection } from "../settings/ProxySection";
+import {
+  SettingsGeneral,
+  defaultGeneralSettings,
+  type GeneralSettings,
+} from "./SettingsGeneral";
+import {
+  SettingsAccount,
+  defaultAccountSettings,
+  type AccountSettings,
+} from "./SettingsAccount";
 
 /**
  * Settings tab values.
  */
-export type SettingsTab = "appearance" | "proxy" | "judge" | "analytics";
+export type SettingsTab =
+  | "general"
+  | "appearance"
+  | "proxy"
+  | "judge"
+  | "analytics"
+  | "account";
 
 /**
  * SettingsDialog props.
@@ -28,10 +44,12 @@ export interface SettingsDialogProps {
  * Nav item configuration.
  */
 const navItems: Array<{ value: SettingsTab; label: string }> = [
+  { value: "general", label: "General" },
   { value: "appearance", label: "Appearance" },
   { value: "proxy", label: "Proxy" },
   { value: "judge", label: "Judge" },
   { value: "analytics", label: "Analytics" },
+  { value: "account", label: "Account" },
 ];
 
 /**
@@ -134,9 +152,13 @@ const closeButtonStyles = [
 export function SettingsDialog({
   open,
   onOpenChange,
-  defaultTab = "appearance",
+  defaultTab = "general",
 }: SettingsDialogProps): JSX.Element {
   const [activeTab, setActiveTab] = React.useState<SettingsTab>(defaultTab);
+  const [generalSettings, setGeneralSettings] =
+    React.useState<GeneralSettings>(defaultGeneralSettings);
+  const [accountSettings] =
+    React.useState<AccountSettings>(defaultAccountSettings);
 
   React.useEffect(() => {
     if (open) {
@@ -146,6 +168,13 @@ export function SettingsDialog({
 
   function renderContent(): JSX.Element {
     switch (activeTab) {
+      case "general":
+        return (
+          <SettingsGeneral
+            settings={generalSettings}
+            onSettingsChange={setGeneralSettings}
+          />
+        );
       case "appearance":
         return <AppearanceSection />;
       case "proxy":
@@ -154,6 +183,18 @@ export function SettingsDialog({
         return <JudgeSection />;
       case "analytics":
         return <AnalyticsPageContent />;
+      case "account":
+        return (
+          <SettingsAccount
+            account={accountSettings}
+            onUpgrade={() => {
+              // TODO: Implement upgrade flow when account system is ready
+            }}
+            onDeleteAccount={() => {
+              // TODO: Implement delete account when account system is ready
+            }}
+          />
+        );
       default: {
         const _exhaustive: never = activeTab;
         return _exhaustive;

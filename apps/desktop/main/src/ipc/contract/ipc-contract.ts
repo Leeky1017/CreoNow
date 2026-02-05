@@ -247,6 +247,13 @@ export const ipcContract = {
       }),
       response: EXPORT_RESULT_SCHEMA,
     },
+    "export:txt": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.optional(s.string()),
+      }),
+      response: EXPORT_RESULT_SCHEMA,
+    },
     "ai:skill:run": {
       request: s.object({
         skillId: s.string(),
