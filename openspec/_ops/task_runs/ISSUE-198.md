@@ -2,7 +2,7 @@
 
 - Issue: #198
 - Branch: task/198-dashboard-project-actions
-- PR: <fill-after-created>
+- PR: #199
 
 ## Plan
 
@@ -20,3 +20,16 @@
 - Command: `gh issue create` + `agent_worktree_setup.sh 198 dashboard-project-actions`
 - Key output: Issue #198 created, worktree at `.worktrees/issue-198-dashboard-project-actions`
 - Evidence: Branch `task/198-dashboard-project-actions` created from `origin/main`
+
+### 2026-02-05 Implementation complete
+- Command: `pnpm lint` + `pnpm test:e2e --grep "Dashboard project actions"`
+- Key output: Lint passed, 4 E2E tests passed
+- Evidence:
+  ```
+  Running 4 tests using 1 worker
+  ····
+    4 passed (5.2s)
+  ```
+- Commits:
+  - `5330adf feat(dashboard): project rename/duplicate/archive IPC (#198)`
+  - `bdc50d4 fix(db): register 0010_project_archive migration (#198)`
