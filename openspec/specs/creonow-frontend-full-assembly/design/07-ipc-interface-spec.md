@@ -11,6 +11,7 @@
 - 所有 invoke MUST 返回 Envelope：
   - 成功：`{ ok: true, data }`
   - 失败：`{ ok: false, error: { code, message, details? } }`
+- **统一超时（MUST）**：所有新增 IPC 的 renderer 侧调用 MUST 设置 30 秒超时（30000ms）。超时后 MUST 返回 `{ ok: false, error: { code: "TIMEOUT", message: "Request timed out after 30s" } }`。
 
 ### 0.1 统一错误码（必须使用现有集合）
 
@@ -67,7 +68,7 @@
 - Validation（MUST）
   - `projectId` 非空
   - `name.trim()` 非空
-  - `name` 长度上限必须写死（建议 1–80）
+  - `name` 长度上限 MUST 为 1–80 字符（含）
 - Errors（MUST）
   - `INVALID_ARGUMENT`（空/超长）
   - `NOT_FOUND`
@@ -85,14 +86,14 @@
   - `rootPath: string`
 - Semantics（MUST）
   - 新项目必须出现在 `project:list`
-  - 若 `name` 未提供，命名规则必须写死（例如：`"<old> (copy)"`，并处理重复后缀）
-  - 是否复制 documents/KG/memory 等：必须在任务卡写死（建议：V1 只复制“项目元数据 + documents”，不复制 user memory learned；若不同需明确）
+  - 若 `name` 未提供，命名规则 MUST 为 `"<old> (copy)"`；若已存在同名则追加数字后缀 `"<old> (copy 2)"`、`"<old> (copy 3)"` 依此类推
+  - **复制范围（MUST）**：V1 只复制"项目元数据 + documents + KG entities/relations"；不复制 user memory learned、不复制 AI 聊天历史
 - Errors（MUST）
   - `INVALID_ARGUMENT`
   - `NOT_FOUND`
   - `IO_ERROR`（若涉及文件系统复制）
   - `DB_ERROR`
-  - `TIMEOUT`（若实现端提供 timeout）
+  - `TIMEOUT`（统一 30s）
 
 ### 2.3 新增：`project:archive`（P0-005）
 
@@ -106,7 +107,7 @@
   - `archived: boolean`
   - `updatedAt: number`
 - Semantics（MUST）
-  - “归档后是否在默认列表隐藏”必须写死（推荐：默认列表隐藏，另提供 includeArchived 开关）
+  - **归档行为（MUST）**：归档后 MUST 从默认列表隐藏；`project:list` MUST 支持 `includeArchived?: boolean` 参数（默认 `false`）
 - Errors（MUST）
   - `INVALID_ARGUMENT`
   - `NOT_FOUND`
@@ -128,7 +129,7 @@
 - Request
   - `documentId: string`
   - `versionId: string`
-- Response（建议保持与 documents 字段一致）
+- Response（MUST 保持与 documents 字段一致）
   - `documentId: string`
   - `projectId: string`
   - `versionId: string`
@@ -144,17 +145,11 @@
   - `NOT_FOUND`
   - `DB_ERROR`
 
-### 3.2 compare/diff 的分工（Renderer vs Main）
+本规范规定（MUST）：
 
-本规范推荐（SHOULD）：
-
-- diff 文本生成由 renderer 侧 `unifiedDiff` 负责（便于 UI 迭代与测试）
+- diff 文本生成 MUST 由 renderer 侧 `unifiedDiff` 负责（便于 UI 迭代与测试）
 - main 仅负责提供历史内容（`version:read`）与 restore 写入
-
-若实现端选择 main 生成 diff（MAY）：
-
-- 新增 `version:diff` 需在契约中明确定义
-- 必须保证 diff 输出稳定可测（同一输入得到同一输出）
+- 禁止在 main 新增 `version:diff` 通道（避免双栈实现）
 
 ---
 
@@ -201,32 +196,35 @@
 
 KG IPC 已存在：`kg:graph:get`, `kg:entity:*`, `kg:relation:*`。
 
-本规范约定（SHOULD）：
+本规范约定（MUST）：
 
-- Characters 不新增 `character:*` IPC
-- 用 `entityType="character"` + `metadataJson` 表达角色细节
+- Characters MUST NOT 新增 `character:*` IPC（使用 KG 作为 SSOT）
+- MUST 用 `entityType="character"` + `metadataJson` 表达角色细节
+- `metadataJson` 的 schema MUST 为：`{ name: string, description?: string, avatar?: string, traits?: string[] }`
 
 错误语义（MUST）：
 
-- metadataJson 非法不得崩溃：renderer 降级为默认值并提示（如必要）
+- metadataJson 非法不得崩溃：renderer MUST 降级为默认值 `{ name: "<entity.name>", description: "", avatar: "", traits: [] }` 并在 console.warn 记录
 
 ---
 
 ## 7) 文档/模板（CreateProjectDialog 的“模板语义”）
 
-本规范给出两条可选路径（必须选其一，禁止“看起来能选模板但实际上不生效”）：
+本规范选定路径 A（MUST）：
 
-### 7.1 路径 A（推荐）：暂不支持模板应用 → UI 明确禁用
+### 7.1 路径 A（MUST）：P0 暂不支持模板应用 → UI 明确禁用
 
-- CreateProjectDialog 的 template/description/cover 字段必须标注为 “Coming soon” 并禁用交互
-- 只提交 `project:create(name)`，避免误导
+- CreateProjectDialog 的 template/description/cover 字段 MUST 标注为 "Coming soon" 并禁用交互（`disabled` + `aria-disabled`）
+- MUST 只提交 `project:create(name)`，避免误导
+- 此为 P0 范围；真模板应用见 P1-001
 
-### 7.2 路径 B：支持模板应用（使用现有 documents IPC）
+### 7.2 路径 B（P1）：支持模板应用（使用现有 documents IPC）
+
+> 本路径属于 P1 范围，P0 禁止实现。
 
 - 选择模板后，在项目创建完成时：
   - 通过 `file:document:create` + `file:document:write` 创建模板结构
 - 需要写死：
   - 模板文件名规则、默认文档、错误回滚策略
 
-对应任务：`P0-005`（必须在 Acceptance 中选定并写死）
-
+对应任务：`P1-001`（见 `task_cards/p1/P1-001-project-metadata-description-cover.md`）
