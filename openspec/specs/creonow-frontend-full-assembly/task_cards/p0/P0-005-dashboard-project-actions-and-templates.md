@@ -71,9 +71,10 @@ Status: todo
   - [ ] Delete：必须二次确认；删除后从列表消失；若删除的是 current project，AppShell 状态必须一致（回到 Dashboard/Welcome）
 - [ ] CreateProjectDialog：
   - [ ] 不允许 silent catch（禁止 `catch {}`）
-  - [ ] 模板/描述/封面字段：
-    - [ ] 若暂不支持持久化/应用，必须在 UI 上明确标注（例如“Coming soon”并禁用输入），避免误导
-    - [ ] 若支持模板应用：必须创建对应文档结构（可用 `file:document:create + write`），并在 Files 可见
+  - [ ] 模板/描述/封面字段（**MUST 选择路径 A**）：
+    - [ ] MUST 在 UI 上标注 "Coming soon" 并禁用交互（`disabled` + `aria-disabled`）
+    - [ ] MUST 只提交 `project:create(name)`，禁止提交 template/description/cover（避免误导）
+    - [ ] 真模板应用属于 P1 范围（见 `P1-001`），P0 禁止实现
 - [ ] 确认对话框统一：
   - [ ] 删除项目使用 `SystemDialog`（来自 `Features/AiDialogs`）
 

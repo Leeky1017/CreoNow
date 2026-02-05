@@ -86,9 +86,16 @@ Status: todo
 ## Edge cases & Failure modes
 
 - Settings 初始值缺失/损坏：
-  - 必须有默认值与迁移策略（不崩溃）
+  - MUST 使用以下默认值（不崩溃）：
+    - `theme`: `"system"`（跟随系统）
+    - `proxyEnabled`: `false`
+    - `proxyUrl`: `""`（空字符串）
+    - `judgeModelEnabled`: `false`
+    - `analyticsEnabled`: `false`
+  - 迁移策略：若 schema 变更，MUST 保留已有有效值，缺失字段用默认值填充
 - IPC 超时/不可用：
-  - 必须显示明确错误，不得 silent failure
+  - MUST 显示明确错误（`code: message`），不得 silent failure
+  - 统一超时 30s（见 `design/07-ipc-interface-spec.md`）
 
 ## Observability
 

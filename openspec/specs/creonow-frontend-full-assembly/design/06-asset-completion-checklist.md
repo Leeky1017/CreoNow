@@ -125,6 +125,7 @@
   - [ ] 删除或内部化 SettingsPanel（确保用户路径只有一个）
   - [ ] 持久化：至少一个设置项可在重启后保持（E2E 必测）
   - [ ] 错误可观察：Proxy/Judge IPC 失败时显示 `code: message`
+  - [ ] **默认值（MUST）**：初始值缺失/损坏时使用：`theme: "system"`, `proxyEnabled: false`, `proxyUrl: ""`, `judgeModelEnabled: false`, `analyticsEnabled: false`
 - IPC：
   - 已有：`ai:proxy:settings:get/update/test`、`judge:model:getState/ensure`、`stats:*`
 - 测试：
