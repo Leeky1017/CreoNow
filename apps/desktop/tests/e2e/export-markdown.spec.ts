@@ -76,10 +76,29 @@ test("export: markdown writes deterministic file under userData exports", async 
     "saved",
   );
 
+  // Open Command Palette and trigger Export… command
   await page.keyboard.press("Control+P");
   await expect(page.getByTestId("command-palette")).toBeVisible();
-  await page.getByTestId("command-item-export-markdown").click();
+  await page.getByTestId("command-item-export").click();
 
+  // ExportDialog should open with markdown selected by default
+  await expect(page.getByTestId("export-dialog")).toBeVisible();
+  await expect(page.getByTestId("export-format-markdown")).toHaveAttribute(
+    "data-state",
+    "checked",
+  );
+
+  // Click Export button to start export
+  await page.getByTestId("export-submit").click();
+
+  // Wait for success view
+  await expect(page.getByTestId("export-success")).toBeVisible({ timeout: 10000 });
+
+  // Verify result fields are displayed
+  await expect(page.getByTestId("export-success-relative-path")).toBeVisible();
+  await expect(page.getByTestId("export-success-bytes-written")).toBeVisible();
+
+  // Verify file was actually written
   const expectedRelPath = path.join(
     "exports",
     current.projectId,
@@ -91,6 +110,10 @@ test("export: markdown writes deterministic file under userData exports", async 
 
   const exported = await fs.readFile(expectedAbsPath, "utf8");
   expect(exported).toContain("Export me");
+
+  // Close dialog and app
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByTestId("export-dialog")).not.toBeVisible();
 
   await electronApp.close();
 });

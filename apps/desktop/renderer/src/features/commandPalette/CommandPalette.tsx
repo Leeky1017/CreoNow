@@ -21,7 +21,6 @@
 import React from "react";
 
 import { Text } from "../../components/primitives/Text";
-import { invoke } from "../../lib/ipcClient";
 import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
 
@@ -392,31 +391,6 @@ export function CommandPalette({
           } else {
             setErrorText("ACTION_FAILED: Export dialog not available");
           }
-        },
-      },
-      // === Export Markdown (直接导出，兼容现有 E2E 测试) ===
-      {
-        id: "export-markdown",
-        label: "Export Markdown",
-        icon: <DownloadIcon className="text-[var(--color-fg-muted)]" />,
-        group: "Suggestions",
-        onSelect: async () => {
-          setErrorText(null);
-          if (!currentProjectId) {
-            setErrorText("NO_PROJECT: Please open a project first");
-            return;
-          }
-
-          const res = await invoke("export:markdown", {
-            projectId: currentProjectId,
-            documentId: documentId ?? undefined,
-          });
-          if (!res.ok) {
-            setErrorText(`${res.error.code}: ${res.error.message}`);
-            return;
-          }
-
-          onOpenChange(false);
         },
       },
       // === Layout: Toggle Sidebar ===
