@@ -38,3 +38,9 @@
 - `apps/desktop/renderer/src/features/character/CharacterPanelContainer.tsx` - KG-backed character CRUD container
 - `apps/desktop/renderer/src/features/character/characterFromKg.ts` - KG entity to Character mapping utilities
 - `apps/desktop/renderer/src/features/kg/kgToGraph.ts` - KG to GraphData transformation utilities
+
+### 2026-02-05 21:25 CI Fix - ESLint
+
+- Command: `git commit -m "fix: escape apostrophe in CharacterPanelContainer (#211)"`
+- Key output: Escaped `'` to `&apos;` in CharacterPanelContainer.tsx line 179
+- Evidence: https://github.com/Leeky1017/CreoNow/actions/runs/21712687243/job/62620129596
