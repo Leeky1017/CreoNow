@@ -86,13 +86,14 @@ test.describe("OutlinePanel", () => {
     await outlineButton.click();
 
     // Wait for outline panel to be visible
-    await expect(page.getByTestId("outline-panel")).toBeVisible();
+    const outlinePanel = page.getByTestId("outline-panel");
+    await expect(outlinePanel).toBeVisible();
 
-    // Verify headings appear in the outline
-    await expect(page.getByText("Document Title")).toBeVisible();
-    await expect(page.getByText("Chapter One")).toBeVisible();
-    await expect(page.getByText("Section 1.1")).toBeVisible();
-    await expect(page.getByText("Chapter Two")).toBeVisible();
+    // Verify headings appear in the outline (scoped to outline panel)
+    await expect(outlinePanel.getByText("Document Title")).toBeVisible();
+    await expect(outlinePanel.getByText("Chapter One")).toBeVisible();
+    await expect(outlinePanel.getByText("Section 1.1")).toBeVisible();
+    await expect(outlinePanel.getByText("Chapter Two")).toBeVisible();
 
     // Click on "Chapter Two" in the outline to navigate
     const chapterTwoOutlineItem = page
@@ -192,7 +193,8 @@ test.describe("OutlinePanel", () => {
     // Open the Outline panel first
     const outlineButton = page.getByTestId("icon-bar-outline");
     await outlineButton.click();
-    await expect(page.getByTestId("outline-panel")).toBeVisible();
+    const outlinePanel = page.getByTestId("outline-panel");
+    await expect(outlinePanel).toBeVisible();
 
     // Initially should show empty state
     await expect(page.getByTestId("outline-empty-state")).toBeVisible();
@@ -206,8 +208,8 @@ test.describe("OutlinePanel", () => {
     // Wait a bit for debounced update
     await page.waitForTimeout(100);
 
-    // Verify the heading appears in the outline
-    await expect(page.getByText("New Heading Added")).toBeVisible();
+    // Verify the heading appears in the outline (scoped to outline panel)
+    await expect(outlinePanel.getByText("New Heading Added")).toBeVisible();
 
     // Empty state should no longer be visible
     await expect(page.getByTestId("outline-empty-state")).not.toBeVisible();
@@ -259,11 +261,12 @@ test.describe("OutlinePanel", () => {
     // Open the Outline panel
     const outlineButton = page.getByTestId("icon-bar-outline");
     await outlineButton.click();
-    await expect(page.getByTestId("outline-panel")).toBeVisible();
+    const outlinePanel = page.getByTestId("outline-panel");
+    await expect(outlinePanel).toBeVisible();
 
-    // Verify special characters render correctly
-    await expect(page.getByText("第一章：序言")).toBeVisible();
-    await expect(page.getByText("🚀 Getting Started")).toBeVisible();
+    // Verify special characters render correctly (scoped to outline panel)
+    await expect(outlinePanel.getByText("第一章：序言")).toBeVisible();
+    await expect(outlinePanel.getByText("🚀 Getting Started")).toBeVisible();
 
     await electronApp.close();
   });
