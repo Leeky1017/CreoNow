@@ -4,3 +4,11 @@ export type {
   OutlineItem,
   OutlineLevel,
 } from "./OutlinePanel";
+
+export { OutlinePanelContainer } from "./OutlinePanelContainer";
+
+export {
+  deriveOutline,
+  findActiveOutlineItem,
+  findHeadingPosition,
+} from "./deriveOutline";

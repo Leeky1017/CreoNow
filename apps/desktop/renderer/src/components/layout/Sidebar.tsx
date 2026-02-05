@@ -2,7 +2,7 @@ import { CharacterPanelContent } from "../../features/character/CharacterPanel";
 import { FileTreePanel } from "../../features/files/FileTreePanel";
 import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
 import { MemoryPanel } from "../../features/memory/MemoryPanel";
-import { OutlinePanel } from "../../features/outline/OutlinePanel";
+import { OutlinePanelContainer } from "../../features/outline/OutlinePanelContainer";
 import { SearchPanel } from "../../features/search/SearchPanel";
 import { VersionHistoryContainer } from "../../features/version-history/VersionHistoryContainer";
 import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
@@ -80,14 +80,7 @@ export function Sidebar(props: {
 
       case "outline":
         return props.projectId ? (
-          <OutlinePanel
-            items={[]}
-            activeId={null}
-            onNavigate={(id) => {
-              // TODO: Wire to editor scroll position
-              console.log("Navigate to outline item:", id);
-            }}
-          />
+          <OutlinePanelContainer />
         ) : (
           <div className="p-3 text-xs text-[var(--color-fg-muted)]">
             Open a document to view outline
@@ -143,9 +136,7 @@ export function Sidebar(props: {
       }}
     >
       <LeftPanelHeader title={PANEL_TITLES[props.activePanel]} />
-      <div className="flex-1 min-h-0 overflow-auto">
-        {renderPanelContent()}
-      </div>
+      <div className="flex-1 min-h-0 overflow-auto">{renderPanelContent()}</div>
     </aside>
   );
 }
