@@ -6,7 +6,7 @@
 | --- | --- |
 | 规范名称 | `creonow-frontend-full-assembly` |
 | 状态 | Draft |
-| 更新日期 | 2026-02-04 |
+| 更新日期 | 2026-02-05 |
 | 目标 | 把**当前已完成的前端资产**（组件/页面/Storybook）组装成一个“能完整使用”的桌面应用前端（App Surface 完整可达、可操作、可测试），并把与后端对接所需的接口位**预留完整**。 |
 | 上游依赖（硬约束） | `AGENTS.md`、`design/DESIGN_DECISIONS.md` |
 | SSOT（本规范以此为准） | `apps/desktop/renderer/src/**`（真实 App 入口与组装方式）+ `apps/desktop/renderer/src/**/*.stories.tsx`（资产清单） |
@@ -43,7 +43,7 @@
 
 ### In scope（必须）
 
-- **全资产组装**：以 Storybook meta title（共 57 个）为资产清单，逐一映射到可达的 App Surface 或 QA Surface（见 `design/01-asset-inventory-and-surface-map.md`）。
+- **全资产组装**：以 Storybook meta.title 为资产清单 SSOT（数量随 stories 变化；截至 2026-02-05 为 56 个），逐一映射到可达的 App Surface 或 QA Surface（见 `design/01-asset-inventory-and-surface-map.md`）。
 - **真实可用的 App Surface**：
   - IconBar / Sidebar / RightPanel / CommandPalette 的入口要完整；
   - 所有“可点击的按钮/菜单项/快捷键”必须有明确行为（完成闭环或显式禁用并解释原因；本规范目标是做到“完成闭环”）。
@@ -80,7 +80,7 @@
 ## Definitions
 
 - **Asset（资产）**：当前仓库中已经存在的 UI 组件/页面/功能代码与 Storybook stories。
-- **Storybook Inventory（资产清单）**：所有 `*.stories.tsx` 的 meta.title（共 57 个）。本规范以它作为“必须覆盖”的最小全集。
+- **Storybook Inventory（资产清单）**：所有 `*.stories.tsx` 的 meta.title（SSOT：集合；数量会随新增/删除 stories 变化）。
 - **App Surface（应用表面）**：用户在真实应用中可通过 UI/快捷键到达并操作的页面/面板/弹窗/覆盖层。
 - **QA Surface（验收表面）**：为“覆盖全部资产”而存在的可达入口，可以是：
   - App 内的隐藏入口/开发者模式页面；或
@@ -98,7 +98,7 @@
 
 ### CNFA-REQ-001: 资产清单 SSOT 与“零孤儿”门禁
 
-系统 MUST 把 Storybook Inventory（57 个 meta.title）作为前端资产清单 SSOT，并为每个条目提供**可追溯的 Surface 映射**：
+系统 MUST 把 Storybook Inventory（meta.title 集合）作为前端资产清单 SSOT，并为每个条目提供**可追溯的 Surface 映射**：
 
 - 要么映射到 App Surface（正常用户可达）；
 - 要么映射到 QA Surface（App 隐藏入口或 Storybook 皆可，但必须可达、可验收且可留下证据）。
@@ -225,3 +225,18 @@ Quality 面板 MUST：
 - 通过 Storybook 视觉/交互检查（从 Windows 浏览器经 WSL IP 访问），并把证据写入 `RUN_LOG`
 
 验收流程与清单见：`design/04-qa-gates-storybook-wsl.md`。
+
+---
+
+## Deliverables（本规范要求产物）
+
+> 本节用于回应审计报告对“规划细节度”的要求：把每个需求如何落地为可执行清单写死，避免执行时漂移。
+
+- 设计文档（本 spec 内）：
+  - `design/06-asset-completion-checklist.md`（56/56 逐项补齐清单：字段/动作/IPC/测试/手工验收）
+  - `design/07-ipc-interface-spec.md`（IPC 接口规范：request/response/errors/timeout/cancel + 任务映射）
+  - `design/08-test-and-qa-matrix.md`（自动化测试补齐 + Storybook WSL-IP 检查清单 + 证据格式）
+  - `design/09-parallel-execution-and-conflict-matrix.md`（并行执行分期 + 冲突矩阵 + 组件改动风险）
+- 任务卡：
+  - `task_cards/p0/*.md`：P0 任务必须包含子任务拆分、边界测试清单、PR 粒度与冲突说明
+  - `task_cards/p1/*.md`：P1 建议项需明确“为什么不属于 P0”

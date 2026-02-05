@@ -8,9 +8,9 @@
 
 1. **SSOT 是当前前端资产**：`apps/desktop/renderer/src/**` + Storybook（`*.stories.tsx`）。  
    - 任何实现决策都不得“回退到旧原型”重做。
-2. **零孤儿资产**：Storybook Inventory 的 57 个条目都必须有去处：  
+2. **零孤儿资产**：Storybook Inventory 的所有条目都必须有去处（截至 2026-02-05 为 56 个）：  
    - 要么在 App 中可达并可操作；  
-   - 要么作为 QA Surface（允许隐藏入口/开发者模式），但仍需可达与可验收。
+   - 要么作为 QA Surface（App 隐藏入口或 Storybook），但仍需可达、可验收且可留证。
 3. **一条链路一套实现**：同一能力（Settings/Export/Confirm/Zen/Version Compare 等）必须收敛到单一路径；禁止双栈并存。
 4. **验证不是“代码能跑”**：必须有自动化（E2E/单测）+ Storybook WSL-IP 视觉/交互验收，并留下证据。
 
@@ -61,4 +61,8 @@
 - 入口与 Surface Registry 设计：`design/02-navigation-and-surface-registry.md`
 - IPC 预留与收敛方案：`design/03-ipc-reservations.md`
 - QA 门禁（含 WSL-IP Storybook）：`design/04-qa-gates-storybook-wsl.md`
-
+- 给非程序员的验收清单：`design/05-acceptance-checklist-non-dev.md`
+- 逐项补齐清单（字段/动作/IPC/测试）：`design/06-asset-completion-checklist.md`
+- IPC 接口规范（request/response/errors/timeout/cancel）：`design/07-ipc-interface-spec.md`
+- 测试与 QA 矩阵（自动化 + 手工 + 证据格式）：`design/08-test-and-qa-matrix.md`
+- 并行与冲突矩阵（分期 + 组件改动风险）：`design/09-parallel-execution-and-conflict-matrix.md`

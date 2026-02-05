@@ -10,6 +10,11 @@ Status: todo
 - 导出走 typed IPC（`export:markdown/pdf/docx`）
 - 对不支持格式（UNSUPPORTED）必须明确禁用或提示
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/ExportDialog`
+-（入口）`Features/CommandPalette`、`Features/Editor/EditorToolbar`（可选）
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-007`
@@ -29,6 +34,22 @@ Status: todo
 | Update | `apps/desktop/renderer/src/features/editor/EditorToolbar.tsx`（可选：增加 Export 按钮打开对话框） |
 | Update | `apps/desktop/tests/e2e/export-markdown.spec.ts`（从“命令直出”改为“对话框导出”） |
 | Add | `apps/desktop/tests/e2e/export-dialog.spec.ts`（新增：格式禁用/错误态/成功态） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：入口统一（不做导出实现变更）
+   - CommandPalette “Export…” → 仅打开 ExportDialog
+   -（可选）Toolbar 增加 Export 按钮 → 仅打开 ExportDialog
+2. PR-B：导出闭环 + UNSUPPORTED 语义
+   - markdown 成功/失败反馈
+   - pdf/docx `UNSUPPORTED` 禁用（或点击提示），禁止误导
+3. PR-C：E2E 门禁
+   - 更新 `export-markdown.spec.ts`
+   - 新增 `export-dialog.spec.ts`（UNSUPPORTED + success/error）
+
+## Conflict Notes（并行约束）
+
+- `CommandPalette.tsx` 与 `EditorToolbar.tsx` 可能与 P0-002 同时改：建议先合并 P0-002 的“入口基线”再做本卡，或拆成小 PR 减少冲突（见 `design/09-parallel-execution-and-conflict-matrix.md`）。
 
 ## Acceptance Criteria
 
@@ -68,11 +89,10 @@ Status: todo
 
 - [ ] Storybook `Features/ExportDialog`：
   - [ ] 切换格式/选项的交互正确（尤其禁用态）
-  - [ ] progress/success view 视觉正确（留证到 RUN_LOG）
+  - [ ] progress/success view 视觉正确（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

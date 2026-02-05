@@ -9,6 +9,11 @@ Status: todo
 - Info：显示当前文档与写作统计（至少 word count + 今日 stats）
 - Quality：接入 `judge:model:*` 与 `constraints:*`，展示真实状态与失败语义
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Layout/RightPanel`
+- `Features/QualityGatesPanel`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-011`
@@ -24,6 +29,16 @@ Status: todo
 | Add | `apps/desktop/renderer/src/features/rightpanel/InfoPanel.tsx`（新增：真实信息面板） |
 | Add | `apps/desktop/renderer/src/features/rightpanel/QualityPanel.tsx`（新增：包装 QualityGatesPanelContent，接 IPC） |
 | Add | `apps/desktop/tests/e2e/rightpanel-info-quality.spec.ts`（新增门禁） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：InfoPanel 最小闭环（stats + word count 任一）
+2. PR-B：QualityPanel 真接电（judge/constraints；禁止“空数组假通过”）
+3. PR-C：E2E 门禁（rightpanel-info-quality.spec.ts）
+
+## Conflict Notes（并行约束）
+
+- `RightPanel.tsx` 可能与 P0-012（confirm/error UI）存在交叉：建议先落地 UI 组件再接入 IPC，拆小 PR 减少冲突（见 Design 09）。
 
 ## Acceptance Criteria
 
@@ -61,11 +76,10 @@ Status: todo
 ## Manual QA (Storybook WSL-IP)
 
 - [ ] Storybook `Layout/RightPanel` 与 `Features/QualityGatesPanel`：
-  - [ ] tab 切换、滚动、状态色彩符合 tokens（留证到 RUN_LOG）
+  - [ ] tab 切换、滚动、状态色彩符合 tokens（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

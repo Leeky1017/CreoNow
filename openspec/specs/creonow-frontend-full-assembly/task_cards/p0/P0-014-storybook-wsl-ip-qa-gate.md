@@ -14,6 +14,7 @@ Status: todo
 
 - Spec: `../spec.md#cnfa-req-012`
 - Design: `../design/04-qa-gates-storybook-wsl.md`
+- Design: `../design/08-test-and-qa-matrix.md`（证据格式与检查清单 SSOT）
 
 ## Expected File Changes
 
@@ -22,7 +23,16 @@ Status: todo
 | Update | `apps/desktop/package.json`（新增 `storybook:wsl` script：`storybook dev --host 0.0.0.0 -p 6006`） |
 | Add | `scripts/wsl_storybook_url.sh`（输出 `http://<WSL_IP>:6006`；仅打印，不写文件） |
 | Update | `openspec/specs/creonow-frontend-full-assembly/design/04-qa-gates-storybook-wsl.md`（把真实脚本与命令回填） |
-| Add | `openspec/_ops/task_runs/RUN_LOG_TEMPLATE.md`（可选：提供统一模板，便于复制） |
+| Add (optional) | `openspec/_ops/task_runs/RUN_LOG_TEMPLATE.md`（若需要：提供统一模板；否则以 Design 08 为准） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：Storybook WSL 可达
+   - 增加 `storybook:wsl` script（host=0.0.0.0）
+   - 增加 URL 打印脚本（动态读取 WSL IP）
+2. PR-B：证据格式固化
+   - Design 04/08 的模板对齐到“可复制粘贴”的最终形态
+   - RUN_LOG 示例条目可直接复用
 
 ## Acceptance Criteria
 
@@ -30,7 +40,7 @@ Status: todo
 - [ ] `scripts/wsl_storybook_url.sh` 输出格式固定：
   - [ ] 打印 WSL_IP
   - [ ] 打印完整 URL
-- [ ] RUN_LOG 证据格式固定且可复制粘贴（见 Design 04 的模板）
+- [ ] RUN_LOG 证据格式固定且可复制粘贴（见 `design/08-test-and-qa-matrix.md` 的 Evidence 块）
 
 ## Tests
 
@@ -51,11 +61,10 @@ Status: todo
 
 - [ ] 用 Windows 浏览器打开脚本输出 URL
 - [ ] 随机抽查至少 5 个 stories（含 1 个 Layout、1 个 Dialog、1 个 Primitives）
-- [ ] 证据写入 RUN_LOG（截图或录屏路径）
+- [ ] 证据写入 RUN_LOG（截图或录屏路径；格式见 Design 08）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

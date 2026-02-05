@@ -15,6 +15,12 @@ Status: todo
 - `useVersionCompare` 不再生成假内容
 - AppShell compare mode 不再传 `diffText=""` / `TODO restore`
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/VersionHistoryPanel`
+- `Features/DiffView`
+-（组装点）`Layout/AppShell`、`Layout/Sidebar`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-006`
@@ -34,6 +40,20 @@ Status: todo
 | Update | `apps/desktop/renderer/src/components/layout/AppShell.tsx`（接入 compare state，展示 Diff surface，restore 真实现） |
 | Update | `apps/desktop/renderer/src/components/layout/Sidebar.tsx`（VersionHistory panel 使用真实 timeGroups + onCompare/onRestore） |
 | Add | `apps/desktop/tests/e2e/version-history.spec.ts`（新增门禁） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+> 注意：本任务会修改 `ipc-contract.ts` + codegen，必须串行执行（见 `design/09-parallel-execution-and-conflict-matrix.md`）。
+
+1. PR-A：新增 `version:read`（contract + handler + service）
+2. PR-B：renderer compare（真实 fetch + unifiedDiff + Diff surface）
+3. PR-C：restore 闭环（SystemDialog 确认 + `version:restore` + editor 刷新）
+4. PR-D：E2E 门禁（`version-history.spec.ts` 覆盖 list/compare/restore）
+
+## Conflict Notes（并行约束）
+
+- `ipc-contract.ts` 与 `ipc-generated.ts` 为“必冲突”点：与 P0-005 同期只能串行。
+- `AppShell.tsx` 与 `Sidebar.tsx` 也为高冲突点：尽量把业务逻辑下沉到 feature container，减少同时改壳文件（见 Design 09）。
 
 ## Acceptance Criteria
 
@@ -78,11 +98,10 @@ Status: todo
 ## Manual QA (Storybook WSL-IP)
 
 - [ ] Storybook `Features/VersionHistoryPanel` 与 `Features/DiffView`：
-  - [ ] 对比/恢复按钮的 hover/focus/禁用态正确（留证到 RUN_LOG）
+  - [ ] 对比/恢复按钮的 hover/focus/禁用态正确（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

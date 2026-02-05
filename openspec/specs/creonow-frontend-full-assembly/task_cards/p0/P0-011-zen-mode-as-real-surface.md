@@ -10,6 +10,11 @@ Status: todo
 - CommandPalette 命令触发
 - overlay 内容来自当前文档（最小：标题 + 段落文本 + 字数等）
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/ZenMode`
+-（组装点）`Layout/AppShell`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-009`
@@ -24,6 +29,16 @@ Status: todo
 | Update | `apps/desktop/renderer/src/components/layout/AppShell.tsx`（渲染 ZenMode overlay；进入/退出语义） |
 | Update | `apps/desktop/renderer/src/stores/layoutStore.tsx`（zenMode 状态的单一来源与持久化策略） |
 | Add | `apps/desktop/tests/e2e/zen-mode.spec.ts`（新增门禁） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：渲染 ZenMode overlay（不改快捷键/命令）
+2. PR-B：入口统一（F11/ESC + CommandPalette）+ 状态恢复语义写死
+3. PR-C：E2E 门禁（zen-mode.spec.ts）
+
+## Conflict Notes（并行约束）
+
+- `AppShell.tsx` 与 P0-002/P0-003/P0-007 等任务有冲突风险：建议在“入口基线”稳定后再接入 overlay，或拆成更小 PR（见 Design 09）。
 
 ## Acceptance Criteria
 
@@ -61,11 +76,10 @@ Status: todo
 
 - [ ] Storybook `Features/ZenMode`：
   - [ ] hover 显示退出按钮/底部状态栏
-  - [ ] ESC 退出行为正确（留证到 RUN_LOG）
+  - [ ] ESC 退出行为正确（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

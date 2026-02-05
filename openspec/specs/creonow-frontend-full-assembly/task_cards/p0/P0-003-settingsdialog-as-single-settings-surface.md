@@ -11,6 +11,12 @@ Status: todo
 - 入口统一：IconBar Settings + Cmd/Ctrl+, + CommandPalette
 - 设置修改后重启仍生效（PreferenceStore/IPC）
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/SettingsDialog`
+- `Features/AnalyticsPage`（作为 Settings 内内容）
+-（入口/双栈消解）`Layout/IconBar`、`Layout/Sidebar`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-010`
@@ -31,6 +37,21 @@ Status: todo
 | Add/Update | `apps/desktop/renderer/src/stores/settingsDialogStore.ts`（可选：管理 dialog open/tab 状态；必须显式依赖注入） |
 | Update | `apps/desktop/tests/e2e/theme.spec.ts`（若入口变化需同步） |
 | Add | `apps/desktop/tests/e2e/settings-dialog.spec.ts`（新增门禁：打开/修改/持久化） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：入口统一 + 禁止双栈
+   - IconBar/快捷键/命令面板都打开 SettingsDialog
+   - Sidebar settings panel 移除或重定向（用户路径只剩一个）
+2. PR-B：能力吸收（Appearance/Proxy/Judge/Analytics）
+   - SettingsPanel 必要能力迁移到 SettingsDialog（或被内部化组件复用）
+   - IPC 错误路径可观察（`code: message`）
+3. PR-C：持久化门禁（E2E）
+   - 增加 `settings-dialog.spec.ts`：修改设置 → 重启仍生效
+
+## Conflict Notes（并行约束）
+
+- `AppShell.tsx` / `IconBar.tsx` / `Sidebar.tsx` 为高冲突点：按 `design/09-parallel-execution-and-conflict-matrix.md` 规划并行与先后顺序。
 
 ## Acceptance Criteria
 
@@ -78,11 +99,10 @@ Status: todo
 
 - [ ] Storybook `Features/SettingsDialog`：
   - [ ] 切换 tab 不错乱、滚动正常
-  - [ ] 保存/取消按钮行为符合预期（留证到 RUN_LOG）
+  - [ ] 保存/取消按钮行为符合预期（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

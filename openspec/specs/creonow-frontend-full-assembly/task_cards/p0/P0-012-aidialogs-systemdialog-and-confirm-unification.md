@@ -10,6 +10,11 @@ Status: todo
 - AI 相关错误态的呈现（替换散落的 error box）
 -（可选但推荐）AI apply / compare 的 diff 弹窗（收敛 diff UI，避免多套并存）
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/AiDialogs`
+-（替换点）`Features/FileTreePanel`、`Features/Dashboard/DashboardPage`、`Features/KnowledgeGraph`、`Features/VersionHistoryPanel`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-003`
@@ -26,6 +31,19 @@ Status: todo
 | Update | `apps/desktop/renderer/src/components/layout/AppShell.tsx`（Version restore 确认用 SystemDialog） |
 | Update | `apps/desktop/renderer/src/features/ai/AiPanel.tsx`（错误 UI 使用 AiErrorCard；可选：proposal diff 使用 AiDiffModal） |
 | Add | `apps/desktop/tests/e2e/system-dialog.spec.ts`（新增门禁：确认弹窗可用） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：SystemDialog “可接入”能力（不做全量替换）
+   - 提供统一调用方式（配合 P0-001 registry/openSurface，或局部注入）
+2. PR-B：替换 `window.confirm`（按 surface 分批）
+   - Files → KG → Dashboard → Version restore（每步都可独立验收）
+3. PR-C：E2E 门禁（system-dialog.spec.ts）
+   - 覆盖 Cancel/Confirm 两条路径 + 至少两个真实入口
+
+## Conflict Notes（并行约束）
+
+- 本任务会触碰多个高冲突文件（AppShell/Sidebar/Feature panels）：建议分批小 PR，避免与 P0-005/P0-007 等同时修改相同入口（见 `design/09-parallel-execution-and-conflict-matrix.md`）。
 
 ## Acceptance Criteria
 
@@ -62,11 +80,10 @@ Status: todo
 
 - [ ] Storybook `Features/AiDialogs`：
   - [ ] SystemDialog 的各种类型/按钮交互正确
-  - [ ] AiErrorCard 在不同错误类型下视觉正确（留证到 RUN_LOG）
+  - [ ] AiErrorCard 在不同错误类型下视觉正确（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

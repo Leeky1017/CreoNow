@@ -7,6 +7,8 @@
 - 成功：`{ ok: true, data }`
 - 失败：`{ ok: false, error: { code, message, details? } }`
 
+> 补充：本文件是“预留清单”。接口的 request/response/errors/timeout/cancel 与任务映射的细化规范见：`design/07-ipc-interface-spec.md`。
+
 ## 0) SSOT 与生成
 
 - IPC 契约 SSOT：`apps/desktop/main/src/ipc/contract/ipc-contract.ts`
@@ -129,4 +131,3 @@
 - 前端 MUST：
   - 在 UI 中禁用该选项，或在点击时显示明确的不可用提示（推荐：禁用 + tooltip）
   - 禁止 silent failure / 只打印 console
-

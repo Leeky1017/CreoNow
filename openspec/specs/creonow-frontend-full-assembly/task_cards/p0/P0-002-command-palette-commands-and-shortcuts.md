@@ -10,6 +10,11 @@ Status: todo
 - 快捷键严格对齐 `design/DESIGN_DECISIONS.md`（禁止冲突）
 - 每条命令都必须可测试、可观察（失败有明确提示）
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/CommandPalette`
+-（快捷键/入口）`Layout/AppShell`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-008`
@@ -26,6 +31,21 @@ Status: todo
 | Update | `apps/desktop/renderer/src/components/layout/AppShell.tsx`（补齐全局快捷键：Settings/Export/New Project 等） |
 | Add/Update | `apps/desktop/tests/e2e/command-palette.spec.ts`（新增：命令面板 E2E 门禁） |
 | Update | `openspec/specs/creonow-frontend-full-assembly/design/02-navigation-and-surface-registry.md`（回填真实入口与 testid） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：快捷键与入口基线（不做命令扩展）
+   - AppShell 全局快捷键对齐（Cmd/Ctrl+P、Cmd/Ctrl+\\、Cmd/Ctrl+L、Cmd/Ctrl+,、F11）
+   - 引入/复用 `openSurface`（来自 P0-001）作为唯一 open/close 入口
+2. PR-B：命令补齐（Settings/Export/New Doc/New Project 等）
+   - 所有命令都走 `openSurface`（避免散落 setState）
+   - 无 project/document 的错误必须可观察（UI 文案 + `error.code`）
+3. PR-C：E2E 门禁（Windows）
+   - 新增 `command-palette.spec.ts` 覆盖关键命令与快捷键（与 Design 08 对齐）
+
+## Conflict Notes（并行约束）
+
+- `apps/desktop/renderer/src/components/layout/AppShell.tsx` 与 `apps/desktop/renderer/src/features/commandPalette/CommandPalette.tsx` 为高冲突点：优先按 `design/09-parallel-execution-and-conflict-matrix.md` 排队执行。
 
 ## Acceptance Criteria
 
@@ -74,11 +94,10 @@ Status: todo
 
 - [ ] Storybook 打开 `Features/CommandPalette`：
   - [ ] 键盘上下选择/回车执行/ESC 关闭均正常
-  - [ ] 错误态文案可理解（留证到 RUN_LOG）
+  - [ ] 错误态文案可理解（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

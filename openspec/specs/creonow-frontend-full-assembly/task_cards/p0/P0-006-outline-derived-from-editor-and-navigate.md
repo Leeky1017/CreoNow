@@ -10,6 +10,11 @@ Status: todo
 - 点击 Outline 项能定位到编辑器对应位置（focus + selection/scroll）
 - 禁止空数组占位与 `console.log`
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/OutlinePanel`
+-（组装点）`Layout/Sidebar`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-005`
@@ -25,6 +30,16 @@ Status: todo
 | Update | `apps/desktop/renderer/src/components/layout/Sidebar.tsx`（使用 container，移除空数组与 console.log） |
 | Add | `apps/desktop/renderer/src/features/outline/deriveOutline.test.ts`（边界测试） |
 | Add | `apps/desktop/tests/e2e/outline-panel.spec.ts`（E2E 门禁） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：deriveOutline 纯函数 + unit（先把算法写死）
+2. PR-B：container 接 editorStore（items/activeId/onNavigate）
+3. PR-C：Sidebar 接入 container + E2E 门禁（移除占位 items/console.log）
+
+## Conflict Notes（并行约束）
+
+- `Sidebar.tsx` 与 P0-007/P0-008/P0-012 等任务有冲突风险：建议按 “container 下沉” 模式拆分（见 `design/09-parallel-execution-and-conflict-matrix.md`）。
 
 ## Acceptance Criteria
 
@@ -67,11 +82,10 @@ Status: todo
 
 - [ ] Storybook `Features/OutlinePanel`：
   - [ ] 折叠/展开、hover/focus 正常
-  - [ ] 点击交互符合预期（留证到 RUN_LOG）
+  - [ ] 点击交互符合预期（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

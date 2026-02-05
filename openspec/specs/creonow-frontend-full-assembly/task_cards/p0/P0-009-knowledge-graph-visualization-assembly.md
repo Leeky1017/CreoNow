@@ -6,6 +6,11 @@ Status: todo
 
 把 `Features/KnowledgeGraph`（可视化组件）组装进真实 App Surface（Sidebar → Knowledge Graph），形成“CRUD + 可视化”双视图，并保持单一 SSOT（KG IPC）。
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/KnowledgeGraph`
+-（组装点）`Layout/Sidebar`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-005`
@@ -22,6 +27,16 @@ Status: todo
 | Add | `apps/desktop/renderer/src/features/kg/kgToGraph.ts`（映射：KG entities/relations → graph nodes/edges） |
 | Add | `apps/desktop/renderer/src/features/kg/kgToGraph.test.ts`（映射边界测试） |
 | Add | `apps/desktop/tests/e2e/knowledge-graph-visualization.spec.ts`（新增门禁） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：kgToGraph 映射 + unit（先把稳定输出写死）
+2. PR-B：KnowledgeGraphPanel 接入可视化组件 + Graph view 切换
+3. PR-C：位置持久化语义 + E2E 门禁
+
+## Conflict Notes（并行约束）
+
+- 与 P0-008 同期都可能改 `kgStore.ts`：建议先合并 P0-008 的 schema/解析，再做可视化映射；或明确分工避免同文件冲突（见 Design 09）。
 
 ## Acceptance Criteria
 
@@ -62,11 +77,10 @@ Status: todo
 ## Manual QA (Storybook WSL-IP)
 
 - [ ] Storybook `Features/KnowledgeGraph`：
-  - [ ] 拖拽/缩放/选择节点交互正确（留证到 RUN_LOG）
+  - [ ] 拖拽/缩放/选择节点交互正确（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

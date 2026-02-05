@@ -7,6 +7,8 @@
 1. 自动化测试（单测/组件测 + Playwright Electron E2E）
 2. Storybook 视觉/交互验收（从 Windows 浏览器经 WSL IP 访问）
 
+证据格式与“P0 → Tests/Stories”矩阵见：`design/08-test-and-qa-matrix.md`。
+
 ## 1) 为什么要求 WSL-IP Storybook
 
 原因（面向非技术读者也可理解）：
@@ -97,4 +99,3 @@ ip addr | rg -n \"inet \"
 - 相关 Playwright Electron E2E（至少覆盖新增入口与关键交互闭环）
 
 > 禁止“未运行就宣称通过”。RUN_LOG 必须记录命令与关键输出。
-

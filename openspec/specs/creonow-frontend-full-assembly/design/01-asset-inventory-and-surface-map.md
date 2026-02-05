@@ -6,7 +6,7 @@
 
 ## 1) 资产清单的生成方式（SSOT）
 
-资产清单以 Storybook meta.title 为准（共 57 个），推荐用以下命令提取：
+资产清单以 Storybook meta.title 为准（数量随 stories 变化；截至 2026-02-05 为 56 个），推荐用以下命令提取：
 
 ```bash
 rg -n 'title:\\s*\"((Primitives|Layout|Features)/[^\"]+)\"' apps/desktop/renderer/src --glob '*.stories.tsx' \
@@ -24,20 +24,21 @@ rg -n 'title:\\s*\"((Primitives|Layout|Features)/[^\"]+)\"' apps/desktop/rendere
 
 > 注：Primitives 通常不要求单独的 App 页面；但**必须被真实 App 使用**，并通过 Storybook WSL-IP 做视觉/交互验收。
 
+进一步的“逐项补齐清单（字段/IPC/测试/PR 粒度）”见：`design/06-asset-completion-checklist.md`。
+
 ---
 
-## 3) Inventory（57/57）
+## 3) Inventory（56/56）
 
-### 3.1 Features（27）
+### 3.1 Features（26）
 
 | Story title | Story file | 当前状态 | 目标归属 / 入口（组装后） | Primary task card |
 | --- | --- | --- | --- | --- |
 | `Features/AiDialogs` | `apps/desktop/renderer/src/components/features/AiDialogs/AiDialogs.stories.tsx` | Storybook-only | 作为全局确认/错误/AI diff 的统一对话框体系（替换 `window.confirm` / AI apply 相关弹窗） | `task_cards/p0/P0-012-aidialogs-systemdialog-and-confirm-unification.md` |
-| `Features/AiPanel` | `apps/desktop/renderer/src/features/ai/AiPanel.stories.tsx` | App（部分） | RightPanel → AI tab；补齐：context viewer、skill settings、history 行为等 | `task_cards/p0/P0-013-contextviewer-and-ai-surface-assembly.md` |
+| `Features/AiPanel` | `apps/desktop/renderer/src/features/ai/AiPanel.stories.tsx` | App（部分） | RightPanel → AI tab；补齐：skill settings、history/new chat 行为、错误可观察性等 | `task_cards/p0/P0-013-ai-surface-assembly-and-observability.md` |
 | `Features/AnalyticsPage` | `apps/desktop/renderer/src/features/analytics/AnalyticsPage.stories.tsx` | App（部分） | Settings（单一路径）内可达（从 SettingsDialog 进入） | `task_cards/p0/P0-003-settingsdialog-as-single-settings-surface.md` |
 | `Features/CharacterPanel` | `apps/desktop/renderer/src/features/character/CharacterPanel.stories.tsx` | App（部分） | Sidebar → Characters；用 KG 作为 SSOT（Character=KG entity subtype）实现 CRUD + 关系 | `task_cards/p0/P0-008-characters-via-knowledge-graph.md` |
 | `Features/CommandPalette` | `apps/desktop/renderer/src/features/commandPalette/CommandPalette.stories.tsx` | App（部分） | Cmd/Ctrl+P；实现全部命令并修正快捷键冲突 | `task_cards/p0/P0-002-command-palette-commands-and-shortcuts.md` |
-| `Features/ContextViewer` | `apps/desktop/renderer/src/features/ai/ContextViewer.stories.tsx` | Storybook-only（需核对 E2E 选择器一致性） | AI Surface 内可开关（明确入口），并维持稳定 `data-testid` | `task_cards/p0/P0-013-contextviewer-and-ai-surface-assembly.md` |
 | `Features/CreateProjectDialog` | `apps/desktop/renderer/src/features/projects/CreateProjectDialog.stories.tsx` | App（部分） | Welcome/Dashboard 入口；补齐模板/描述/封面字段语义（至少不误导） | `task_cards/p0/P0-005-dashboard-project-actions-and-templates.md` |
 | `Features/CreateTemplateDialog` | `apps/desktop/renderer/src/features/projects/CreateTemplateDialog.stories.tsx` | App（部分） | CreateProjectDialog 内；自定义模板的保存/校验/错误反馈闭环 | `task_cards/p0/P0-005-dashboard-project-actions-and-templates.md` |
 | `Features/Dashboard/DashboardPage` | `apps/desktop/renderer/src/features/dashboard/DashboardPage.stories.tsx` | App（部分） | AppShell → Dashboard；实现 rename/duplicate/archive/delete | `task_cards/p0/P0-005-dashboard-project-actions-and-templates.md` |
@@ -55,7 +56,7 @@ rg -n 'title:\\s*\"((Primitives|Layout|Features)/[^\"]+)\"' apps/desktop/rendere
 | `Features/QualityGatesPanel` | `apps/desktop/renderer/src/features/quality-gates/QualityGatesPanel.stories.tsx` | App（部分） | RightPanel → Quality：接入 judge/constraints 的真实状态 | `task_cards/p0/P0-010-rightpanel-info-and-quality-wiring.md` |
 | `Features/SearchPanel` | `apps/desktop/renderer/src/features/search/SearchPanel.stories.tsx` | App（完整/需回归验证） | Sidebar → Search（保持可用，补齐空态与错误语义） | `task_cards/p0/P0-001-surface-registry-and-zero-orphans-gate.md` |
 | `Features/SettingsDialog` | `apps/desktop/renderer/src/features/settings-dialog/SettingsDialog.stories.tsx` | Storybook-only | Settings 的唯一权威 surface（收敛 SettingsPanel） | `task_cards/p0/P0-003-settingsdialog-as-single-settings-surface.md` |
-| `Features/SkillPicker` | `apps/desktop/renderer/src/features/ai/SkillPicker.stories.tsx` | App（部分） | AI Surface 内：技能选择 + settings 入口与行为闭环 | `task_cards/p0/P0-013-contextviewer-and-ai-surface-assembly.md` |
+| `Features/SkillPicker` | `apps/desktop/renderer/src/features/ai/SkillPicker.stories.tsx` | App（部分） | AI Surface 内：技能选择 + settings 入口与行为闭环 | `task_cards/p0/P0-013-ai-surface-assembly-and-observability.md` |
 | `Features/VersionHistoryPanel` | `apps/desktop/renderer/src/features/version-history/VersionHistoryPanel.stories.tsx` | App（部分） | Sidebar → Version History：list/compare/restore | `task_cards/p0/P0-007-version-history-compare-diff-restore.md` |
 | `Features/WelcomeScreen` | `apps/desktop/renderer/src/features/welcome/WelcomeScreen.stories.tsx` | App（完整） | AppShell：无项目时展示（保持不回归） | `task_cards/p0/P0-001-surface-registry-and-zero-orphans-gate.md` |
 | `Features/ZenMode` | `apps/desktop/renderer/src/features/zen-mode/ZenMode.stories.tsx` | Storybook-only（App 仅有“折叠面板”的半实现） | F11 进入/退出：使用 ZenMode 资产作为单一路径 | `task_cards/p0/P0-011-zen-mode-as-real-surface.md` |
@@ -113,6 +114,4 @@ rg -n 'title:\\s*\"((Primitives|Layout|Features)/[^\"]+)\"' apps/desktop/rendere
 - `Features/AiDialogs`
 - `Features/ZenMode`
 - `Features/KnowledgeGraph`（可视化部分）
-- `Features/ContextViewer`（需要与真实 App/E2E 选择器对齐）
 - `Layout/综合测试`（可保持 storybook-only，但必须纳入 QA 回归清单）
-

@@ -10,6 +10,13 @@ Status: todo
 - CreateProjectDialog 的模板/描述/封面字段至少要有明确语义（不误导用户）
 - 所有 destructive 操作使用统一 SystemDialog（禁止 `window.confirm`）
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/Dashboard/DashboardPage`
+- `Features/CreateProjectDialog`
+- `Features/CreateTemplateDialog`
+-（空态路径）`Features/WelcomeScreen`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-004`
@@ -30,6 +37,26 @@ Status: todo
 | Update | `apps/desktop/renderer/src/features/dashboard/DashboardPage.tsx`（实现操作与 UI 状态） |
 | Update | `apps/desktop/renderer/src/features/projects/CreateProjectDialog.tsx`（模板/描述/封面字段语义、错误处理、禁用态） |
 | Add/Update | `apps/desktop/tests/e2e/dashboard-project-actions.spec.ts`（新增门禁） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+> 注意：本任务会修改 `ipc-contract.ts` + codegen，必须串行执行（见 `design/09-parallel-execution-and-conflict-matrix.md`）。
+
+1. PR-A：IPC contract + main handlers（只做 project:* 扩展）
+   - 增加 `project:rename/duplicate/archive` schema + handlers + service
+   - codegen 同步更新（`pnpm contract:generate`）
+2. PR-B：Dashboard UI + store 闭环（含 SystemDialog）
+   - renderer store 增加 actions + 错误状态
+   - DashboardPage 四个动作闭环（rename/duplicate/archive/delete）
+3. PR-C：CreateProjectDialog 模板语义（选 A 或 B，必须写死）
+   - 路径 A：Coming soon + 禁用（避免误导）
+   - 路径 B：模板应用（`file:document:create + write`）+ 回滚策略
+4. PR-D：E2E 门禁
+   - 新增 `dashboard-project-actions.spec.ts` 覆盖四个动作 + 重启保持
+
+## Conflict Notes（并行约束）
+
+- `apps/desktop/main/src/ipc/contract/ipc-contract.ts` 与 `packages/shared/types/ipc-generated.ts` 为“必冲突”点：同一时间只能有一个 PR 改（必须排队）。
 
 ## Acceptance Criteria
 
@@ -79,11 +106,10 @@ Status: todo
 
 - [ ] Storybook `Features/Dashboard/DashboardPage` 与 `Features/CreateProjectDialog`：
   - [ ] 卡片操作按钮的 hover/focus/禁用态正确
-  - [ ] 对话框布局与错误态文案正确（留证到 RUN_LOG）
+  - [ ] 对话框布局与错误态文案正确（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

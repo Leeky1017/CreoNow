@@ -12,6 +12,11 @@ Status: todo
   - `metadataJson` 存人物详细字段（role/group/traits 等）
   - 关系复用 `kg:relation:*`
 
+## Assets in Scope（对应 Storybook Inventory）
+
+- `Features/CharacterPanel`
+-（组装点）`Layout/Sidebar`
+
 ## Dependencies
 
 - Spec: `../spec.md#cnfa-req-005`
@@ -28,6 +33,16 @@ Status: todo
 | Update | `apps/desktop/renderer/src/components/layout/Sidebar.tsx`（使用 container，移除 `characters={[]}`） |
 | Add | `apps/desktop/renderer/src/features/character/characterFromKg.test.ts`（边界测试：metadataJson 解析） |
 | Add | `apps/desktop/tests/e2e/characters.spec.ts`（新增门禁：CRUD + relations） |
+
+## Detailed Breakdown（建议拆分 PR）
+
+1. PR-A：KG → Character 映射 + unit（先把 schema/降级写死）
+2. PR-B：CharacterPanelContainer + Sidebar 接入（移除 `characters={[]}`）
+3. PR-C：Relations 最小闭环 + E2E 门禁（CRUD + relations）
+
+## Conflict Notes（并行约束）
+
+- `Sidebar.tsx` 与其他 panel wiring 任务冲突风险高：优先把业务逻辑下沉到 container，避免多人同时改壳文件（见 `design/09-parallel-execution-and-conflict-matrix.md`）。
 
 ## Acceptance Criteria
 
@@ -73,11 +88,10 @@ Status: todo
 
 - [ ] Storybook `Features/CharacterPanel`：
   - [ ] 分组/列表 hover/focus 正常
-  - [ ] 详情弹窗布局与滚动正确（留证到 RUN_LOG）
+  - [ ] 详情弹窗布局与滚动正确（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

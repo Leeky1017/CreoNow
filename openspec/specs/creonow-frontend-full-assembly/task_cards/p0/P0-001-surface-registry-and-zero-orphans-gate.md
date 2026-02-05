@@ -1,10 +1,10 @@
-# P0-001: Surface Registry + 零孤儿门禁（57/57 覆盖）
+# P0-001: Surface Registry + 零孤儿门禁（56/56 覆盖；数量随 stories 变化）
 
 Status: todo
 
 ## Goal
 
-建立一个“Surface Registry（组装注册表）”，把 Storybook Inventory（57 个 meta.title）与真实 App/QA 入口一一对应起来，并加入自动化门禁，确保后续不会出现“storybook-only 孤儿资产”。
+建立一个“Surface Registry（组装注册表）”，把 Storybook Inventory（meta.title 集合；截至 2026-02-05 为 56 个）与真实 App/QA 入口一一对应起来，并加入自动化门禁，确保后续不会出现“storybook-only 孤儿资产”。
 
 ## Dependencies
 
@@ -25,9 +25,20 @@ Status: todo
 
 > 说明：测试不得依赖 shell 命令解析；建议直接用 Node `fs` 递归读取 `apps/desktop/renderer/src/**.stories.tsx` 并用可靠的正则提取 `title: "..."`（以现有仓库约束为准）。
 
+## Detailed Breakdown（建议拆分 PR）
+
+> 目标：避免“一个 PR 改太多”导致 review/冲突/验收不可控（见 `design/09-parallel-execution-and-conflict-matrix.md`）。
+
+1. PR-A：Inventory extraction + parity gate
+   - 新增 `storybook-inventory.spec.ts`：提取 titles，并断言与 registry 集合完全一致（缺失/多余必须列出）
+2. PR-B：SurfaceRegistry（56/56）最小可用
+   - 写全量 registry（包含 storybookTitle、入口、testid；并记录 App/QA 归属）
+3. PR-C：openSurface 统一入口（可选）
+   - 供后续 P0-002/003/004 等任务复用，避免散落 setState
+
 ## Acceptance Criteria
 
-- [ ] `surfaceRegistry` 覆盖 57/57 个 story（以 `design/01-asset-inventory-and-surface-map.md` 为准）：
+- [ ] `surfaceRegistry` 覆盖 Inventory 全量 stories（截至 2026-02-05：56/56；以 `design/01-asset-inventory-and-surface-map.md` 为准）：
   - [ ] 每个条目都有 `storybookTitle`
   - [ ] 每个条目都有明确入口（App/QA/Storybook）与 `data-testid`
 - [ ] 自动化门禁：
@@ -52,11 +63,10 @@ Status: todo
 
 ## Manual QA (Storybook WSL-IP)
 
-- [ ] 本任务完成后，用 WSL-IP 打开 Storybook，随机抽查至少 3 个 stories，确认 assets 能正常渲染（留证到 RUN_LOG）
+- [ ] 用 WSL-IP 打开 Storybook，随机抽查至少 3 个 stories，确认 assets 能正常渲染（证据格式见 `design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-
