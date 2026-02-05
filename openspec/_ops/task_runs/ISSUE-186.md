@@ -1,7 +1,7 @@
 # ISSUE-186
 - Issue: #186
 - Branch: task/186-storybook-wsl-qa-gate
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/187
 
 ## Plan
 - 添加 `storybook:wsl` script 到 package.json（绑定 0.0.0.0）
