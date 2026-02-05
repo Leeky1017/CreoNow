@@ -176,7 +176,7 @@ export function CharacterPanelContainer(
               No characters yet
             </p>
             <p className="text-xs text-[var(--color-fg-placeholder)]">
-              Create your first character to start building your story's cast
+              Create your first character to start building your story&apos;s cast
             </p>
           </div>
           <button
