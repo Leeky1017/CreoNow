@@ -1,6 +1,8 @@
 import React from "react";
 
 import { Button, Card, Input, Select, Text } from "../../components/primitives";
+import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useKgStore } from "../../stores/kgStore";
 
 type EditingState =
@@ -36,6 +38,8 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   const entityCreate = useKgStore((s) => s.entityCreate);
   const entityUpdate = useKgStore((s) => s.entityUpdate);
   const entityDelete = useKgStore((s) => s.entityDelete);
+
+  const { confirm, dialogProps } = useConfirmDialog();
 
   const relationCreate = useKgStore((s) => s.relationCreate);
   const relationUpdate = useKgStore((s) => s.relationUpdate);
@@ -87,12 +91,39 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   }
 
   async function onDeleteEntity(entityId: string): Promise<void> {
-    const ok = window.confirm("Delete this entity? Relations will be removed.");
-    if (!ok) {
+    const confirmed = await confirm({
+      title: "Delete Entity?",
+      description:
+        "This entity and all its relations will be permanently deleted.",
+      primaryLabel: "Delete",
+      secondaryLabel: "Cancel",
+    });
+    if (!confirmed) {
       return;
     }
     await entityDelete({ entityId });
     if (editing.mode === "entity" && editing.entityId === entityId) {
+      setEditing({ mode: "idle" });
+    }
+  }
+
+  /**
+   * Confirm then delete a relation.
+   *
+   * Why: destructive KG actions must use SystemDialog for consistent UX and E2E.
+   */
+  async function onDeleteRelation(relationId: string): Promise<void> {
+    const confirmed = await confirm({
+      title: "Delete Relation?",
+      description: "This relation will be permanently deleted.",
+      primaryLabel: "Delete",
+      secondaryLabel: "Cancel",
+    });
+    if (!confirmed) {
+      return;
+    }
+    await relationDelete({ relationId });
+    if (editing.mode === "relation" && editing.relationId === relationId) {
       setEditing({ mode: "idle" });
     }
   }
@@ -463,12 +494,11 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                               Edit
                             </Button>
                             <Button
+                              data-testid={`kg-relation-delete-${r.relationId}`}
                               variant="ghost"
                               size="sm"
                               onClick={() =>
-                                void relationDelete({
-                                  relationId: r.relationId,
-                                })
+                                void onDeleteRelation(r.relationId)
                               }
                             >
                               Delete
@@ -484,6 +514,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
           </div>
         </div>
       </div>
+      <SystemDialog {...dialogProps} />
     </section>
   );
 }

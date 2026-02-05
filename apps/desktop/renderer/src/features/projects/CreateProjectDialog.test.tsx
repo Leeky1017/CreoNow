@@ -26,10 +26,30 @@ vi.mock("../../stores/templateStore", () => ({
   useTemplateStore: vi.fn((selector) => {
     const state = {
       presets: [
-        { id: "preset-novel", name: "Novel", type: "preset", structure: { folders: [], files: [] } },
-        { id: "preset-short", name: "Short Story", type: "preset", structure: { folders: [], files: [] } },
-        { id: "preset-script", name: "Screenplay", type: "preset", structure: { folders: [], files: [] } },
-        { id: "preset-other", name: "Other", type: "preset", structure: { folders: [], files: [] } },
+        {
+          id: "preset-novel",
+          name: "Novel",
+          type: "preset",
+          structure: { folders: [], files: [] },
+        },
+        {
+          id: "preset-short",
+          name: "Short Story",
+          type: "preset",
+          structure: { folders: [], files: [] },
+        },
+        {
+          id: "preset-script",
+          name: "Screenplay",
+          type: "preset",
+          structure: { folders: [], files: [] },
+        },
+        {
+          id: "preset-other",
+          name: "Other",
+          type: "preset",
+          structure: { folders: [], files: [] },
+        },
       ],
       customs: [],
       loading: false,
@@ -49,7 +69,9 @@ vi.mock("../../stores/templateStore", () => ({
 // Mock CreateTemplateDialog
 vi.mock("./CreateTemplateDialog", () => ({
   CreateTemplateDialog: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="create-template-dialog">Create Template Dialog</div> : null,
+    open ? (
+      <div data-testid="create-template-dialog">Create Template Dialog</div>
+    ) : null,
 }));
 
 describe("CreateProjectDialog", () => {
@@ -104,7 +126,9 @@ describe("CreateProjectDialog", () => {
     it("应该显示描述输入框", () => {
       render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
 
-      expect(screen.getByTestId("create-project-description")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("create-project-description"),
+      ).toBeInTheDocument();
     });
 
     it("应该显示 Create Template 按钮", () => {
@@ -195,6 +219,7 @@ describe("CreateProjectDialog", () => {
           bootstrap: vi.fn(),
           createAndSetCurrent,
           setCurrentProject: vi.fn(),
+          deleteProject: vi.fn(),
           clearError: vi.fn(),
         };
         return selector(state);
@@ -207,7 +232,9 @@ describe("CreateProjectDialog", () => {
       await user.click(screen.getByTestId("create-project-submit"));
 
       await waitFor(() => {
-        expect(createAndSetCurrent).toHaveBeenCalledWith({ name: "New Project" });
+        expect(createAndSetCurrent).toHaveBeenCalledWith({
+          name: "New Project",
+        });
       });
     });
 
@@ -239,6 +266,7 @@ describe("CreateProjectDialog", () => {
           bootstrap: vi.fn(),
           createAndSetCurrent: vi.fn(),
           setCurrentProject: vi.fn(),
+          deleteProject: vi.fn(),
           clearError: vi.fn(),
         };
         return selector(state);
@@ -273,6 +301,7 @@ describe("CreateProjectDialog", () => {
           bootstrap: vi.fn(),
           createAndSetCurrent,
           setCurrentProject: vi.fn(),
+          deleteProject: vi.fn(),
           clearError: vi.fn(),
         };
         return selector(state);
@@ -281,7 +310,10 @@ describe("CreateProjectDialog", () => {
       const user = userEvent.setup();
       render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
 
-      await user.type(screen.getByTestId("create-project-name"), "Test Project");
+      await user.type(
+        screen.getByTestId("create-project-name"),
+        "Test Project",
+      );
       await user.click(screen.getByTestId("create-project-submit"));
 
       await waitFor(() => {
@@ -306,6 +338,7 @@ describe("CreateProjectDialog", () => {
           bootstrap: vi.fn(),
           createAndSetCurrent: vi.fn(),
           setCurrentProject: vi.fn(),
+          deleteProject: vi.fn(),
           clearError,
         };
         return selector(state);

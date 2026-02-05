@@ -1,5 +1,6 @@
 import React from "react";
 
+import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 import {
   Button,
   Input,
@@ -10,6 +11,7 @@ import {
   type DropdownMenuItem,
   type ContextMenuItem,
 } from "../../components/primitives";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { CreateProjectDialog } from "../projects/CreateProjectDialog";
 import {
   useProjectStore,
@@ -140,7 +142,8 @@ function ProjectCard(props: {
   onArchive?: (projectId: string) => void;
   onDelete?: (projectId: string) => void;
 }): JSX.Element {
-  const { project, onClick, onRename, onDuplicate, onArchive, onDelete } = props;
+  const { project, onClick, onRename, onDuplicate, onArchive, onDelete } =
+    props;
   const dateStr = formatDate(project.updatedAt);
 
   /**
@@ -148,50 +151,58 @@ function ProjectCard(props: {
    *
    * Why: Consistent actions across both interaction patterns.
    */
-  const menuItems: (DropdownMenuItem | ContextMenuItem)[] = React.useMemo(() => {
-    const items: (DropdownMenuItem | ContextMenuItem)[] = [
-      {
-        key: "open",
-        label: "Open",
-        onSelect: onClick,
-      },
-    ];
+  const menuItems: (DropdownMenuItem | ContextMenuItem)[] =
+    React.useMemo(() => {
+      const items: (DropdownMenuItem | ContextMenuItem)[] = [
+        {
+          key: "open",
+          label: "Open",
+          onSelect: onClick,
+        },
+      ];
 
-    if (onRename) {
-      items.push({
-        key: "rename",
-        label: "Rename",
-        onSelect: () => onRename(project.projectId),
-      });
-    }
+      if (onRename) {
+        items.push({
+          key: "rename",
+          label: "Rename",
+          onSelect: () => onRename(project.projectId),
+        });
+      }
 
-    if (onDuplicate) {
-      items.push({
-        key: "duplicate",
-        label: "Duplicate",
-        onSelect: () => onDuplicate(project.projectId),
-      });
-    }
+      if (onDuplicate) {
+        items.push({
+          key: "duplicate",
+          label: "Duplicate",
+          onSelect: () => onDuplicate(project.projectId),
+        });
+      }
 
-    if (onArchive) {
-      items.push({
-        key: "archive",
-        label: "Archive",
-        onSelect: () => onArchive(project.projectId),
-      });
-    }
+      if (onArchive) {
+        items.push({
+          key: "archive",
+          label: "Archive",
+          onSelect: () => onArchive(project.projectId),
+        });
+      }
 
-    if (onDelete) {
-      items.push({
-        key: "delete",
-        label: "Delete",
-        onSelect: () => onDelete(project.projectId),
-        destructive: true,
-      });
-    }
+      if (onDelete) {
+        items.push({
+          key: "delete",
+          label: "Delete",
+          onSelect: () => onDelete(project.projectId),
+          destructive: true,
+        });
+      }
 
-    return items;
-  }, [onClick, onRename, onDuplicate, onArchive, onDelete, project.projectId]);
+      return items;
+    }, [
+      onClick,
+      onRename,
+      onDuplicate,
+      onArchive,
+      onDelete,
+      project.projectId,
+    ]);
 
   const cardContent = (
     <div
@@ -239,11 +250,7 @@ function ProjectCard(props: {
   );
 
   // Wrap with ContextMenu for right-click support
-  return (
-    <ContextMenu items={menuItems}>
-      {cardContent}
-    </ContextMenu>
-  );
+  return <ContextMenu items={menuItems}>{cardContent}</ContextMenu>;
 }
 
 /**
@@ -335,6 +342,11 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
   const bootstrapStatus = useProjectStore((s) => s.bootstrapStatus);
   const bootstrap = useProjectStore((s) => s.bootstrap);
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
+  const deleteProject = useProjectStore((s) => s.deleteProject);
+  const lastError = useProjectStore((s) => s.lastError);
+  const clearError = useProjectStore((s) => s.clearError);
+
+  const { confirm, dialogProps } = useConfirmDialog();
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
@@ -409,13 +421,28 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
 
   /**
    * Handle project delete.
-   *
-   * TODO: Implement project deletion with confirmation dialog.
    */
-  const handleDelete = React.useCallback((projectId: string) => {
-    // TODO: Show delete confirmation dialog then delete via IPC
-    console.log("Delete project:", projectId);
-  }, []);
+  const handleDelete = React.useCallback(
+    async (projectId: string) => {
+      const project = items.find((p) => p.projectId === projectId) ?? null;
+      const projectName = project?.name?.trim().length
+        ? project.name
+        : "Untitled Project";
+
+      const confirmed = await confirm({
+        title: "Delete Project?",
+        description: `This action cannot be undone. "${projectName}" will be permanently deleted.`,
+        primaryLabel: "Delete",
+        secondaryLabel: "Cancel",
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      await deleteProject(projectId);
+    },
+    [confirm, deleteProject, items],
+  );
 
   // Loading state
   if (bootstrapStatus === "loading") {
@@ -437,6 +464,23 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
           data-testid="dashboard-empty"
           className="flex-1 flex flex-col items-center justify-center p-12"
         >
+          {lastError ? (
+            <div role="alert" className="w-full max-w-xl mb-8">
+              <div className="p-3 border border-[var(--color-separator)] rounded-[var(--radius-md)] bg-[var(--color-bg-surface)]">
+                <Text size="small" className="mb-2 block">
+                  {lastError.code}: {lastError.message}
+                </Text>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => clearError()}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           <div className="text-[var(--color-fg-faint)] mb-8">
             <svg
               className="w-20 h-20"
@@ -476,6 +520,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
         />
+        <SystemDialog {...dialogProps} />
       </>
     );
   }
@@ -502,6 +547,20 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
           </div>
         </header>
 
+        {lastError ? (
+          <div
+            role="alert"
+            className="px-12 py-3 border-b border-[var(--color-border-default)]"
+          >
+            <Text size="small" className="mb-2 block">
+              {lastError.code}: {lastError.message}
+            </Text>
+            <Button variant="secondary" size="sm" onClick={() => clearError()}>
+              Dismiss
+            </Button>
+          </div>
+        ) : null}
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-12">
           {/* Continue Writing (Hero) */}
@@ -520,7 +579,9 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
               <div className="mb-16">
                 <HeroCard
                   project={heroProject}
-                  onClick={() => void handleProjectSelect(heroProject.projectId)}
+                  onClick={() =>
+                    void handleProjectSelect(heroProject.projectId)
+                  }
                 />
               </div>
             </>
@@ -536,7 +597,13 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
                       className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
                       title="Grid View"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
                         <rect x="3" y="3" width="7" height="7" />
                         <rect x="14" y="3" width="7" height="7" />
                         <rect x="14" y="14" width="7" height="7" />
@@ -547,7 +614,13 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
                       className="text-[var(--color-fg-faint)] hover:text-[var(--color-fg-default)] transition-colors"
                       title="List View"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <svg
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      >
                         <line x1="8" y1="6" x2="21" y2="6" />
                         <line x1="8" y1="12" x2="21" y2="12" />
                         <line x1="8" y1="18" x2="21" y2="18" />
@@ -607,6 +680,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
       />
+      <SystemDialog {...dialogProps} />
     </>
   );
 }

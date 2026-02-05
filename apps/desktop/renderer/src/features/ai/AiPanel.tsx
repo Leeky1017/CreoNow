@@ -1,5 +1,9 @@
 import React from "react";
 
+import {
+  AiErrorCard,
+  type AiErrorConfig,
+} from "../../components/features/AiDialogs";
 import { Button, Spinner, Text } from "../../components/primitives";
 import { useAiStore, type AiStatus } from "../../stores/aiStore";
 import { useEditorStore } from "../../stores/editorStore";
@@ -347,6 +351,33 @@ export function AiPanel(): JSX.Element {
   }
 
   const working = isRunning(status);
+  const skillsErrorConfig: AiErrorConfig | null = skillsLastError
+    ? {
+        type: "service_error",
+        title: "Skills unavailable",
+        description: skillsLastError.message,
+        errorCode: skillsLastError.code,
+      }
+    : null;
+
+  const runtimeErrorConfig: AiErrorConfig | null = lastError
+    ? {
+        type:
+          lastError.code === "TIMEOUT"
+            ? "timeout"
+            : lastError.code === "RATE_LIMITED"
+              ? "rate_limit"
+              : "service_error",
+        title:
+          lastError.code === "TIMEOUT"
+            ? "Timeout"
+            : lastError.code === "RATE_LIMITED"
+              ? "Rate limited"
+              : "AI error",
+        description: lastError.message,
+        errorCode: lastError.code,
+      }
+    : null;
 
   return (
     <section
@@ -475,37 +506,17 @@ export function AiPanel(): JSX.Element {
               )}
 
               {/* Error Display */}
-              {skillsLastError && (
-                <div className="p-3 border border-[var(--color-error-subtle)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)]">
-                  <Text size="code" color="muted">
-                    {skillsLastError.code}
-                  </Text>
-                  <Text size="small" color="muted" className="mt-1.5 block">
-                    {skillsLastError.message}
-                  </Text>
-                </div>
-              )}
+              {skillsErrorConfig ? (
+                <AiErrorCard error={skillsErrorConfig} showDismiss={false} />
+              ) : null}
 
-              {lastError && (
-                <div className="p-3 border border-[var(--color-error-subtle)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)]">
-                  <div className="flex gap-2 items-center">
-                    <Text data-testid="ai-error-code" size="code" color="muted">
-                      {lastError.code}
-                    </Text>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={clearError}
-                      className="ml-auto"
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                  <Text size="small" color="muted" className="mt-1.5 block">
-                    {lastError.message}
-                  </Text>
-                </div>
-              )}
+              {runtimeErrorConfig ? (
+                <AiErrorCard
+                  error={runtimeErrorConfig}
+                  errorCodeTestId="ai-error-code"
+                  onDismiss={clearError}
+                />
+              ) : null}
 
               {/* AI Response - no box, just text flow */}
               {outputText ? (
@@ -658,7 +669,6 @@ export function AiPanel(): JSX.Element {
                         }}
                       />
                     </div>
-
                   </div>
 
                   <SendStopButton

@@ -10,8 +10,10 @@ import {
   Text,
   type ContextMenuItem,
 } from "../../components/primitives";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useEditorStore } from "../../stores/editorStore";
 import { useFileStore } from "../../stores/fileStore";
+import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 
 type EditingState =
   | { mode: "idle" }
@@ -45,6 +47,7 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
   const clearError = useFileStore((s) => s.clearError);
 
   const openDocument = useEditorStore((s) => s.openDocument);
+  const { confirm, dialogProps } = useConfirmDialog();
   const openCurrentForProject = useEditorStore(
     (s) => s.openCurrentDocumentForProject,
   );
@@ -122,8 +125,14 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
   }
 
   async function onDelete(documentId: string): Promise<void> {
-    const ok = window.confirm("Delete this document?");
-    if (!ok) {
+    const confirmed = await confirm({
+      title: "Delete Document?",
+      description:
+        "This action cannot be undone. The document and its version history will be permanently deleted.",
+      primaryLabel: "Delete",
+      secondaryLabel: "Cancel",
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -335,6 +344,7 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
           </div>
         )}
       </div>
+      <SystemDialog {...dialogProps} />
     </div>
   );
 }
