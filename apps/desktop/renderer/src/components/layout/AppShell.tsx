@@ -7,10 +7,18 @@ import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
 import { Resizer } from "./Resizer";
 import { CommandPalette } from "../../features/commandPalette/CommandPalette";
+import type {
+  CommandPaletteLayoutActions,
+  CommandPaletteDialogActions,
+  CommandPaletteDocumentActions,
+} from "../../features/commandPalette/CommandPalette";
 import { DashboardPage } from "../../features/dashboard";
 import { DiffViewPanel } from "../../features/diff/DiffViewPanel";
 import { EditorPane } from "../../features/editor/EditorPane";
 import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
+import { SettingsDialog } from "../../features/settings-dialog/SettingsDialog";
+import { ExportDialog } from "../../features/export/ExportDialog";
+import { CreateProjectDialog } from "../../features/projects/CreateProjectDialog";
 import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
 import { useEditorStore } from "../../stores/editorStore";
@@ -95,6 +103,13 @@ export function AppShell(): JSX.Element {
   const resetPanelWidth = useLayoutStore((s) => s.resetPanelWidth);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
+  const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
+  const [createProjectDialogOpen, setCreateProjectDialogOpen] =
+    React.useState(false);
+
+  // File store for creating documents
+  const createDocument = useFileStore((s) => s.createAndSetCurrent);
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -117,12 +132,14 @@ export function AppShell(): JSX.Element {
 
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent): void {
+      // F11: Toggle Zen Mode
       if (e.key === "F11") {
         e.preventDefault();
         setZenMode(!zenMode);
         return;
       }
 
+      // ESC in zen mode: Exit zen mode
       if (zenMode && e.key === "Escape") {
         e.preventDefault();
         setZenMode(false);
@@ -134,27 +151,54 @@ export function AppShell(): JSX.Element {
         return;
       }
 
+      // Cmd/Ctrl+P: Command Palette
       if (e.key.toLowerCase() === "p") {
         e.preventDefault();
         setCommandPaletteOpen(true);
         return;
       }
 
+      // Cmd/Ctrl+\: Toggle Sidebar (NOT Cmd+B per DESIGN_DECISIONS.md)
       if (e.key === "\\") {
         e.preventDefault();
         setSidebarCollapsed(!sidebarCollapsed);
         return;
       }
 
+      // Cmd/Ctrl+L: Toggle Right Panel
       if (e.key.toLowerCase() === "l") {
         e.preventDefault();
         setPanelCollapsed(!panelCollapsed);
+        return;
+      }
+
+      // Cmd/Ctrl+,: Open Settings
+      if (e.key === ",") {
+        e.preventDefault();
+        setSettingsDialogOpen(true);
+        return;
+      }
+
+      // Cmd/Ctrl+Shift+N: Create New Project
+      if (e.shiftKey && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setCreateProjectDialogOpen(true);
+        return;
+      }
+
+      // Cmd/Ctrl+N: Create New Document (only if project is open)
+      if (e.key.toLowerCase() === "n" && !e.shiftKey && currentProjectId) {
+        e.preventDefault();
+        void createDocument({ projectId: currentProjectId });
+        return;
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [
+    createDocument,
+    currentProjectId,
     panelCollapsed,
     setPanelCollapsed,
     setSidebarCollapsed,
@@ -165,6 +209,47 @@ export function AppShell(): JSX.Element {
 
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
   const effectivePanelWidth = panelCollapsed ? 0 : panelWidth;
+
+  // Callbacks for CommandPalette
+  const layoutActions = React.useMemo<CommandPaletteLayoutActions>(
+    () => ({
+      onToggleSidebar: () => setSidebarCollapsed(!sidebarCollapsed),
+      onToggleRightPanel: () => setPanelCollapsed(!panelCollapsed),
+      onToggleZenMode: () => setZenMode(!zenMode),
+    }),
+    [
+      panelCollapsed,
+      setPanelCollapsed,
+      setSidebarCollapsed,
+      setZenMode,
+      sidebarCollapsed,
+      zenMode,
+    ],
+  );
+
+  const dialogActionCallbacks = React.useMemo<CommandPaletteDialogActions>(
+    () => ({
+      onOpenSettings: () => setSettingsDialogOpen(true),
+      onOpenExport: () => setExportDialogOpen(true),
+      onOpenCreateProject: () => setCreateProjectDialogOpen(true),
+    }),
+    [],
+  );
+
+  const documentActionCallbacks =
+    React.useMemo<CommandPaletteDocumentActions>(() => {
+      return {
+        onCreateDocument: async () => {
+          if (!currentProjectId) {
+            throw new Error("No project selected");
+          }
+          const res = await createDocument({ projectId: currentProjectId });
+          if (!res.ok) {
+            throw new Error(`${res.error.code}: ${res.error.message}`);
+          }
+        },
+      };
+    }, [createDocument, currentProjectId]);
 
   /**
    * Determine which main content to render based on project state.
@@ -275,6 +360,26 @@ export function AppShell(): JSX.Element {
       <CommandPalette
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
+        layoutActions={layoutActions}
+        dialogActions={dialogActionCallbacks}
+        documentActions={documentActionCallbacks}
+      />
+
+      {/* Dialogs */}
+      <SettingsDialog
+        open={settingsDialogOpen}
+        onOpenChange={setSettingsDialogOpen}
+      />
+
+      <ExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        documentTitle="Current Document"
+      />
+
+      <CreateProjectDialog
+        open={createProjectDialogOpen}
+        onOpenChange={setCreateProjectDialogOpen}
       />
     </div>
   );

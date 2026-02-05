@@ -8,12 +8,19 @@
  * - 搜索过滤：实时过滤命令/文件
  * - 键盘导航：↑↓ 移动，Enter 确认，Esc 关闭
  * - 搜索高亮：匹配文字高亮显示
+ *
+ * 快捷键对齐 design/DESIGN_DECISIONS.md：
+ * - Cmd/Ctrl+P: Command Palette
+ * - Cmd/Ctrl+,: Open Settings
+ * - Cmd/Ctrl+\: Toggle Sidebar（禁止使用 Cmd/Ctrl+B）
+ * - Cmd/Ctrl+L: Toggle Right Panel
+ * - F11: Toggle Zen Mode
+ * - Cmd/Ctrl+N: New Document
+ * - Cmd/Ctrl+Shift+N: New Project
  */
 import React from "react";
 
 import { Text } from "../../components/primitives/Text";
-import { invoke } from "../../lib/ipcClient";
-import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
 
 // =============================================================================
@@ -44,6 +51,38 @@ interface CommandGroup {
   items: CommandItem[];
 }
 
+/**
+ * Layout action callbacks for CommandPalette
+ */
+export interface CommandPaletteLayoutActions {
+  /** Toggle sidebar collapsed state */
+  onToggleSidebar: () => void;
+  /** Toggle right panel collapsed state */
+  onToggleRightPanel: () => void;
+  /** Toggle zen mode */
+  onToggleZenMode: () => void;
+}
+
+/**
+ * Dialog open callbacks for CommandPalette
+ */
+export interface CommandPaletteDialogActions {
+  /** Open settings dialog */
+  onOpenSettings: () => void;
+  /** Open export dialog */
+  onOpenExport: () => void;
+  /** Open create project dialog */
+  onOpenCreateProject: () => void;
+}
+
+/**
+ * Document action callbacks for CommandPalette
+ */
+export interface CommandPaletteDocumentActions {
+  /** Create new document in current project */
+  onCreateDocument: () => Promise<void>;
+}
+
 export interface CommandPaletteProps {
   /** 面板是否打开 */
   open: boolean;
@@ -51,6 +90,12 @@ export interface CommandPaletteProps {
   onOpenChange: (open: boolean) => void;
   /** 自定义命令列表（可选，用于测试） */
   commands?: CommandItem[];
+  /** Layout actions (sidebar/panel/zen) */
+  layoutActions?: CommandPaletteLayoutActions;
+  /** Dialog actions (settings/export/createProject) */
+  dialogActions?: CommandPaletteDialogActions;
+  /** Document actions (createDocument) */
+  documentActions?: CommandPaletteDocumentActions;
 }
 
 // =============================================================================
@@ -148,6 +193,68 @@ function SettingsIcon({ className }: { className?: string }): JSX.Element {
   );
 }
 
+/** 右侧面板图标 */
+function PanelRightIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <line x1="15" y1="3" x2="15" y2="21" />
+    </svg>
+  );
+}
+
+/** 禅模式图标 */
+function MaximizeIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+  );
+}
+
+/** 文件夹加号图标（新建项目） */
+function FolderPlusIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      <line x1="12" y1="11" x2="12" y2="17" />
+      <line x1="9" y1="14" x2="15" y2="14" />
+    </svg>
+  );
+}
+
+/**
+ * 获取平台相关的修饰键显示
+ * macOS: ⌘ (Cmd), Windows/Linux: Ctrl
+ */
+function getModKey(): string {
+  return navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl+";
+}
+
 // =============================================================================
 // Utilities
 // =============================================================================
@@ -228,9 +335,11 @@ export function CommandPalette({
   open,
   onOpenChange,
   commands: customCommands,
+  layoutActions,
+  dialogActions,
+  documentActions,
 }: CommandPaletteProps): JSX.Element | null {
   const currentProjectId = useProjectStore((s) => s.current?.projectId ?? null);
-  const documentId = useEditorStore((s) => s.documentId);
 
   const [query, setQuery] = React.useState("");
   const [activeIndex, setActiveIndex] = React.useState(0);
@@ -239,68 +348,151 @@ export function CommandPalette({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLDivElement>(null);
 
-  // 默认命令列表
+  // 获取平台相关的修饰键
+  const modKey = React.useMemo(() => getModKey(), []);
+
+  // 默认命令列表 - 对齐 design/DESIGN_DECISIONS.md 快捷键规范
   const defaultCommands = React.useMemo<CommandItem[]>(
     () => [
+      // === Settings ===
       {
         id: "open-settings",
         label: "Open Settings",
         icon: <SettingsIcon className="text-[var(--color-fg-muted)]" />,
-        shortcut: "⌘,",
+        shortcut: `${modKey},`,
         group: "Suggestions",
         onSelect: () => {
-          // TODO: Implement settings
-          onOpenChange(false);
+          setErrorText(null);
+          if (dialogActions?.onOpenSettings) {
+            dialogActions.onOpenSettings();
+            onOpenChange(false);
+          } else {
+            setErrorText("ACTION_FAILED: Settings dialog not available");
+          }
         },
       },
+      // === Export ===
+      {
+        id: "export",
+        label: "Export…",
+        icon: <DownloadIcon className="text-[var(--color-fg-muted)]" />,
+        group: "Suggestions",
+        onSelect: () => {
+          setErrorText(null);
+          if (!currentProjectId) {
+            setErrorText("NO_PROJECT: Please open a project first");
+            return;
+          }
+          if (dialogActions?.onOpenExport) {
+            dialogActions.onOpenExport();
+            onOpenChange(false);
+          } else {
+            setErrorText("ACTION_FAILED: Export dialog not available");
+          }
+        },
+      },
+      // === Layout: Toggle Sidebar ===
       {
         id: "toggle-sidebar",
         label: "Toggle Sidebar",
         icon: <SidebarIcon className="text-[var(--color-fg-muted)]" />,
-        shortcut: "⌘B",
-        group: "Suggestions",
+        shortcut: `${modKey}\\`,
+        group: "Layout",
         onSelect: () => {
-          // TODO: Implement toggle sidebar
-          onOpenChange(false);
+          setErrorText(null);
+          if (layoutActions?.onToggleSidebar) {
+            layoutActions.onToggleSidebar();
+            onOpenChange(false);
+          } else {
+            setErrorText("ACTION_FAILED: Layout actions not available");
+          }
         },
       },
+      // === Layout: Toggle Right Panel ===
       {
-        id: "create-new-file",
-        label: "Create New File",
+        id: "toggle-right-panel",
+        label: "Toggle Right Panel",
+        icon: <PanelRightIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: `${modKey}L`,
+        group: "Layout",
+        onSelect: () => {
+          setErrorText(null);
+          if (layoutActions?.onToggleRightPanel) {
+            layoutActions.onToggleRightPanel();
+            onOpenChange(false);
+          } else {
+            setErrorText("ACTION_FAILED: Layout actions not available");
+          }
+        },
+      },
+      // === Layout: Zen Mode ===
+      {
+        id: "toggle-zen-mode",
+        label: "Toggle Zen Mode",
+        icon: <MaximizeIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: "F11",
+        group: "Layout",
+        onSelect: () => {
+          setErrorText(null);
+          if (layoutActions?.onToggleZenMode) {
+            layoutActions.onToggleZenMode();
+            onOpenChange(false);
+          } else {
+            setErrorText("ACTION_FAILED: Layout actions not available");
+          }
+        },
+      },
+      // === Document: Create New Document ===
+      {
+        id: "create-new-document",
+        label: "Create New Document",
         icon: <EditIcon className="text-[var(--color-fg-muted)]" />,
-        shortcut: "⌘N",
-        group: "Suggestions",
-        onSelect: () => {
-          // TODO: Implement create new file
-          onOpenChange(false);
-        },
-      },
-      {
-        id: "export-markdown",
-        label: "Export Markdown",
-        icon: <DownloadIcon className="text-[var(--color-fg-muted)]" />,
-        group: "Suggestions",
+        shortcut: `${modKey}N`,
+        group: "Document",
         onSelect: async () => {
           setErrorText(null);
           if (!currentProjectId) {
-            setErrorText("No current project");
+            setErrorText("NO_PROJECT: Please open a project first");
             return;
           }
-
-          const res = await invoke("export:markdown", {
-            projectId: currentProjectId,
-            documentId: documentId ?? undefined,
-          });
-          if (!res.ok) {
-            setErrorText(`${res.error.code}: ${res.error.message}`);
-            return;
+          if (documentActions?.onCreateDocument) {
+            try {
+              await documentActions.onCreateDocument();
+              onOpenChange(false);
+            } catch {
+              setErrorText("ACTION_FAILED: Failed to create document");
+            }
+          } else {
+            setErrorText("ACTION_FAILED: Document actions not available");
           }
-
-          onOpenChange(false);
+        },
+      },
+      // === Project: Create New Project ===
+      {
+        id: "create-new-project",
+        label: "Create New Project",
+        icon: <FolderPlusIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: `${modKey}⇧N`,
+        group: "Project",
+        onSelect: () => {
+          setErrorText(null);
+          if (dialogActions?.onOpenCreateProject) {
+            dialogActions.onOpenCreateProject();
+            onOpenChange(false);
+          } else {
+            setErrorText("ACTION_FAILED: Create project dialog not available");
+          }
         },
       },
     ],
-    [currentProjectId, documentId, onOpenChange],
+    [
+      currentProjectId,
+      dialogActions,
+      documentActions,
+      layoutActions,
+      modKey,
+      onOpenChange,
+    ],
   );
 
   const commands = customCommands ?? defaultCommands;
