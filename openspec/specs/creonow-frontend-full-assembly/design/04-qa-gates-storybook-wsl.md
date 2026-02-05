@@ -19,23 +19,34 @@
 
 ## 2) Storybook 启动方式（WSL）
 
-在 WSL（Linux）里运行：
+### 2.1 启动 Storybook（绑定 0.0.0.0）
+
+在 WSL（Linux）仓库根目录运行：
 
 ```bash
-pnpm -C apps/desktop storybook -- --host 0.0.0.0 -p 6006
+pnpm -C apps/desktop storybook:wsl
 ```
 
-获取 WSL IP（示例命令，任选其一）：
+此命令等价于 `storybook dev --host 0.0.0.0 -p 6006`，使 Storybook 可从 Windows 浏览器通过 WSL IP 访问。
+
+### 2.2 获取 WSL IP 与访问 URL（一键脚本）
 
 ```bash
-hostname -I
-# 或：
-ip addr | rg -n \"inet \" 
+./scripts/wsl_storybook_url.sh
 ```
 
-在 Windows 浏览器中访问：
+输出示例：
 
-- `http://<WSL_IP>:6006`
+```
+WSL IP: 172.25.160.1
+Storybook URL: http://172.25.160.1:6006
+```
+
+> 脚本每次运行动态读取 WSL IP，不会写死。若需要自定义端口，设置环境变量 `STORYBOOK_PORT`。
+
+### 2.3 在 Windows 浏览器中访问
+
+复制脚本输出的 URL，在 Windows 浏览器中打开即可。
 
 > 若你环境里 `http://localhost:6006` 也能访问，依然建议记录 WSL_IP 的访问证据，以满足本规范门禁口径。
 

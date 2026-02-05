@@ -14,7 +14,17 @@
 
 ## 1) Evidence 标准（RUN_LOG 模板）
 
-### 1.1 每个 PR 必须包含的证据块（MUST）
+### 1.1 快速启动（两条命令）
+
+```bash
+# 1) 启动 Storybook（绑定 0.0.0.0）
+pnpm -C apps/desktop storybook:wsl
+
+# 2) 获取 Windows 浏览器访问 URL
+./scripts/wsl_storybook_url.sh
+```
+
+### 1.2 每个 PR 必须包含的证据块（MUST）
 
 在 `openspec/_ops/task_runs/ISSUE-<N>.md` 的 `Runs` 里追加一个小节（只追加不回写）：
 
@@ -29,11 +39,26 @@
   - Notes: <what you verified + edge cases>
 ```
 
-### 1.2 Storybook 证据最小要求（MUST）
+### 1.3 Storybook 证据最小要求（MUST）
 
 - 必须包含：WSL-IP URL（Windows 浏览器访问的地址）
 - 必须列出：本 PR 影响的 stories（至少 2 个）
 - 必须提供：截图或短录屏路径（可 repo 外，但 reviewer 必须可拿到）
+
+### 1.4 可复制粘贴的证据模板
+
+```md
+### YYYY-MM-DD HH:MM Storybook WSL-IP QA
+- Command: `pnpm -C apps/desktop storybook:wsl`
+- Key output: Storybook 9.0.3 for react-vite started (localhost:6006)
+- Evidence:
+  - Storybook WSL-IP URL: `http://<WSL_IP>:6006`
+  - Checked stories:
+    - Features/XXX（检查点：...）
+    - Layout/YYY（检查点：...）
+  - Screenshots/recordings: N/A（文本证据描述）
+  - Notes: hover/focus 正常、ESC 关闭正常、无布局溢出
+```
 
 ---
 

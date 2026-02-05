@@ -1,6 +1,6 @@
 # P0-014: Storybook WSL-IP QA Gate（流程固化 + 证据格式）
 
-Status: todo
+Status: in-progress
 
 ## Goal
 
