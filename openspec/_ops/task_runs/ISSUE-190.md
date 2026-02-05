@@ -2,7 +2,7 @@
 
 - Issue: #190
 - Branch: task/190-p0-012-systemdialog-confirm
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/191
 
 ## Plan
 
