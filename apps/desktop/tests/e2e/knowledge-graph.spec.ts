@@ -107,8 +107,13 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
 
   await expect(page.getByTestId(`kg-entity-row-${entityId}`)).toBeVisible();
 
-  page.once("dialog", (dialog) => void dialog.accept());
   await page.getByTestId(`kg-entity-delete-${entityId}`).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(dialog).not.toBeVisible();
+
   await expect(page.getByTestId(`kg-entity-row-${entityId}`)).toHaveCount(0);
 
   const tooLarge = JSON.stringify({ x: "a".repeat(33_000) });

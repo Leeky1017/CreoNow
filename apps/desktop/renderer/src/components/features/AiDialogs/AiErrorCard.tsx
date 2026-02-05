@@ -355,6 +355,7 @@ const dismissButtonStyles = [
  */
 export function AiErrorCard({
   error,
+  errorCodeTestId,
   onRetry,
   onUpgradePlan,
   onViewUsage,
@@ -505,7 +506,9 @@ export function AiErrorCard({
 
           {/* Error code for service errors */}
           {error.errorCode && (
-            <div className={errorCodeStyles}>{error.errorCode}</div>
+            <div data-testid={errorCodeTestId} className={errorCodeStyles}>
+              {error.errorCode}
+            </div>
           )}
 
           {/* Countdown for rate limit */}

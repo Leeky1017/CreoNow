@@ -13,6 +13,7 @@ import {
  * @param overrides - Partial store state to override defaults
  */
 function createMockProjectStore(overrides: Partial<ProjectStore> = {}) {
+  const { deleteProject, ...rest } = overrides;
   return create<ProjectStore>(() => ({
     current: null,
     items: [],
@@ -22,12 +23,23 @@ function createMockProjectStore(overrides: Partial<ProjectStore> = {}) {
     bootstrap: async () => {},
     createAndSetCurrent: async () => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      return { ok: true, data: { projectId: "mock-id", rootPath: "/mock/path" } };
+      return {
+        ok: true,
+        data: { projectId: "mock-id", rootPath: "/mock/path" },
+      };
     },
     setCurrentProject: async () => {
-      return { ok: true, data: { projectId: "mock-id", rootPath: "/mock/path" } };
+      return {
+        ok: true,
+        data: { projectId: "mock-id", rootPath: "/mock/path" },
+      };
     },
-    ...overrides,
+    ...rest,
+    deleteProject:
+      deleteProject ??
+      (async () => {
+        return { ok: true, data: { deleted: true } };
+      }),
   }));
 }
 

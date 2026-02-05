@@ -23,10 +23,19 @@ function createMockProjectStore() {
     createAndSetCurrent: async () => {
       // Simulate delay
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      return { ok: true, data: { projectId: "mock-id", rootPath: "/mock/path" } };
+      return {
+        ok: true,
+        data: { projectId: "mock-id", rootPath: "/mock/path" },
+      };
     },
     setCurrentProject: async () => {
-      return { ok: true, data: { projectId: "mock-id", rootPath: "/mock/path" } };
+      return {
+        ok: true,
+        data: { projectId: "mock-id", rootPath: "/mock/path" },
+      };
+    },
+    deleteProject: async () => {
+      return { ok: true, data: { deleted: true } };
     },
   }));
 }
@@ -125,7 +134,14 @@ function InteractiveDemo() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+        alignItems: "center",
+      }}
+    >
       <Button onClick={() => setOpen(true)}>Create New Project</Button>
       <CreateProjectDialog open={open} onOpenChange={setOpen} />
     </div>

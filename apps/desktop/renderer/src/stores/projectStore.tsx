@@ -36,6 +36,12 @@ export type ProjectActions = {
    * Why: Dashboard needs to open existing projects without creating new ones.
    */
   setCurrentProject: (projectId: string) => Promise<IpcResponse<ProjectInfo>>;
+  /**
+   * Delete a project permanently.
+   *
+   * Why: Dashboard must offer cleanup actions while remaining fully typed and observable.
+   */
+  deleteProject: (projectId: string) => Promise<IpcResponse<{ deleted: true }>>;
   clearError: () => void;
 };
 
@@ -124,6 +130,22 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
 
       set({ current: setRes.data, lastError: null });
       return setRes;
+    },
+
+    deleteProject: async (projectId) => {
+      const res = await deps.invoke("project:delete", { projectId });
+      if (!res.ok) {
+        set({ lastError: res.error });
+        return res;
+      }
+
+      set((prev) => ({
+        ...prev,
+        current: prev.current?.projectId === projectId ? null : prev.current,
+        lastError: null,
+      }));
+      void get().bootstrap();
+      return res;
     },
   }));
 }

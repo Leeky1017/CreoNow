@@ -202,10 +202,14 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     "Alpha content",
   );
 
-  page.once("dialog", (dialog) => void dialog.accept());
   await page.getByTestId(`file-row-${docBId}`).hover();
   await page.getByTestId(`file-actions-${docBId}`).click();
   await page.getByTestId(`file-delete-${docBId}`).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "Delete" }).click();
+  await expect(dialog).not.toBeVisible();
 
   await expect(page.getByTestId(`file-row-${docBId}`)).toHaveCount(0);
   await expect(page.getByTestId("editor-pane")).toHaveAttribute(

@@ -118,6 +118,8 @@ export interface AiDiffModalProps {
 export interface AiErrorCardProps {
   /** Error configuration */
   error: AiErrorConfig;
+  /** Optional test id for the rendered error code element */
+  errorCodeTestId?: string;
   /** Callback when user clicks retry */
   onRetry?: () => void;
   /** Callback when user clicks upgrade plan (for usage limit) */

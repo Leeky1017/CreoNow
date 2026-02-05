@@ -405,7 +405,7 @@ export function SystemDialog({
   primaryLabel,
   secondaryLabel,
   tertiaryLabel,
-  simulateDelay = 1000,
+  simulateDelay = 0,
   showKeyboardHints = true,
 }: SystemDialogProps): JSX.Element {
   const [actionState, setActionState] = useState<ActionState>("idle");
