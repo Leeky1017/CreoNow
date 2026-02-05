@@ -255,7 +255,7 @@ test.describe("Command Palette + Shortcuts", () => {
 
     // Type and clear to force activeIndex reset via query change useEffect
     // This is more reliable than relying on useLayoutEffect timing alone
-    const input = page.getByRole("textbox");
+    const input = page.getByRole("textbox", { name: "Search commands" });
     await input.fill("a");
     await input.fill("");
 
