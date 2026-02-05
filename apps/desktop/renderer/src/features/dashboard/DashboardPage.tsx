@@ -3,6 +3,7 @@ import React from "react";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 import {
   Button,
+  Dialog,
   Input,
   Text,
   Spinner,
@@ -343,6 +344,9 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
   const bootstrap = useProjectStore((s) => s.bootstrap);
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
   const deleteProject = useProjectStore((s) => s.deleteProject);
+  const renameProject = useProjectStore((s) => s.renameProject);
+  const duplicateProject = useProjectStore((s) => s.duplicateProject);
+  const archiveProject = useProjectStore((s) => s.archiveProject);
   const lastError = useProjectStore((s) => s.lastError);
   const clearError = useProjectStore((s) => s.clearError);
 
@@ -350,6 +354,11 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [renameProjectId, setRenameProjectId] = React.useState<string | null>(
+    null,
+  );
+  const [renameValue, setRenameValue] = React.useState("");
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -392,32 +401,71 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
   /**
    * Handle project rename.
    *
-   * TODO: Implement rename dialog/inline editing via IPC.
+   * Opens a dialog for the user to input new name.
    */
-  const handleRename = React.useCallback((projectId: string) => {
-    // TODO: Open rename dialog
-    console.log("Rename project:", projectId);
-  }, []);
+  const handleRename = React.useCallback(
+    (projectId: string) => {
+      const project = items.find((p) => p.projectId === projectId) ?? null;
+      setRenameProjectId(projectId);
+      setRenameValue(project?.name ?? "");
+      setRenameDialogOpen(true);
+    },
+    [items],
+  );
+
+  /**
+   * Submit rename from dialog.
+   */
+  const handleRenameSubmit = React.useCallback(async () => {
+    if (!renameProjectId || !renameValue.trim()) {
+      return;
+    }
+    const res = await renameProject(renameProjectId, renameValue.trim());
+    if (res.ok) {
+      setRenameDialogOpen(false);
+      setRenameProjectId(null);
+      setRenameValue("");
+    }
+  }, [renameProject, renameProjectId, renameValue]);
 
   /**
    * Handle project duplicate.
    *
-   * TODO: Implement project duplication via IPC.
+   * Duplicates the project with documents and KG (excludes memory/AI history).
    */
-  const handleDuplicate = React.useCallback((projectId: string) => {
-    // TODO: Duplicate project via IPC
-    console.log("Duplicate project:", projectId);
-  }, []);
+  const handleDuplicate = React.useCallback(
+    async (projectId: string) => {
+      await duplicateProject(projectId);
+    },
+    [duplicateProject],
+  );
 
   /**
    * Handle project archive.
    *
-   * TODO: Implement project archiving via IPC.
+   * Archives the project, hiding it from the default list.
    */
-  const handleArchive = React.useCallback((projectId: string) => {
-    // TODO: Archive project via IPC
-    console.log("Archive project:", projectId);
-  }, []);
+  const handleArchive = React.useCallback(
+    async (projectId: string) => {
+      const project = items.find((p) => p.projectId === projectId) ?? null;
+      const projectName = project?.name?.trim().length
+        ? project.name
+        : "Untitled Project";
+
+      const confirmed = await confirm({
+        title: "Archive Project?",
+        description: `"${projectName}" will be hidden from your project list. You can restore it later from archived projects.`,
+        primaryLabel: "Archive",
+        secondaryLabel: "Cancel",
+      });
+      if (!confirmed) {
+        return;
+      }
+
+      await archiveProject(projectId, true);
+    },
+    [archiveProject, confirm, items],
+  );
 
   /**
    * Handle project delete.
@@ -681,6 +729,55 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
         onOpenChange={setCreateDialogOpen}
       />
       <SystemDialog {...dialogProps} />
+
+      {/* Rename Dialog */}
+      <Dialog
+        open={renameDialogOpen}
+        onOpenChange={(open) => {
+          setRenameDialogOpen(open);
+          if (!open) {
+            setRenameProjectId(null);
+            setRenameValue("");
+          }
+        }}
+        title="Rename Project"
+        description="Enter a new name for your project."
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setRenameDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-testid="rename-project-submit"
+              variant="primary"
+              size="sm"
+              onClick={() => void handleRenameSubmit()}
+              disabled={!renameValue.trim()}
+            >
+              Rename
+            </Button>
+          </>
+        }
+      >
+        <div className="py-2">
+          <Input
+            data-testid="rename-project-input"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            placeholder="Project name"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && renameValue.trim()) {
+                void handleRenameSubmit();
+              }
+            }}
+          />
+        </div>
+      </Dialog>
     </>
   );
 }

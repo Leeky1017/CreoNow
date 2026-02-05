@@ -565,7 +565,10 @@ export const ipcContract = {
       response: s.object({ projectId: s.string(), rootPath: s.string() }),
     },
     "project:list": {
-      request: s.object({ includeDeleted: s.optional(s.boolean()) }),
+      request: s.object({
+        includeDeleted: s.optional(s.boolean()),
+        includeArchived: s.optional(s.boolean()),
+      }),
       response: s.object({
         items: s.array(
           s.object({
@@ -573,6 +576,7 @@ export const ipcContract = {
             name: s.string(),
             rootPath: s.string(),
             updatedAt: s.number(),
+            archivedAt: s.optional(s.number()),
           }),
         ),
       }),
@@ -588,6 +592,38 @@ export const ipcContract = {
     "project:delete": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ deleted: s.literal(true) }),
+    },
+    "project:rename": {
+      request: s.object({
+        projectId: s.string(),
+        name: s.string(),
+      }),
+      response: s.object({
+        projectId: s.string(),
+        name: s.string(),
+        updatedAt: s.number(),
+      }),
+    },
+    "project:duplicate": {
+      request: s.object({
+        projectId: s.string(),
+        name: s.optional(s.string()),
+      }),
+      response: s.object({
+        projectId: s.string(),
+        rootPath: s.string(),
+      }),
+    },
+    "project:archive": {
+      request: s.object({
+        projectId: s.string(),
+        archived: s.boolean(),
+      }),
+      response: s.object({
+        projectId: s.string(),
+        archived: s.boolean(),
+        updatedAt: s.number(),
+      }),
     },
     "context:creonow:ensure": {
       request: s.object({ projectId: s.string() }),

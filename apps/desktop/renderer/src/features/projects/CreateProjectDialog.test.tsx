@@ -220,6 +220,9 @@ describe("CreateProjectDialog", () => {
           createAndSetCurrent,
           setCurrentProject: vi.fn(),
           deleteProject: vi.fn(),
+          renameProject: vi.fn(),
+          duplicateProject: vi.fn(),
+          archiveProject: vi.fn(),
           clearError: vi.fn(),
         };
         return selector(state);
@@ -267,6 +270,9 @@ describe("CreateProjectDialog", () => {
           createAndSetCurrent: vi.fn(),
           setCurrentProject: vi.fn(),
           deleteProject: vi.fn(),
+          renameProject: vi.fn(),
+          duplicateProject: vi.fn(),
+          archiveProject: vi.fn(),
           clearError: vi.fn(),
         };
         return selector(state);
@@ -302,6 +308,9 @@ describe("CreateProjectDialog", () => {
           createAndSetCurrent,
           setCurrentProject: vi.fn(),
           deleteProject: vi.fn(),
+          renameProject: vi.fn(),
+          duplicateProject: vi.fn(),
+          archiveProject: vi.fn(),
           clearError: vi.fn(),
         };
         return selector(state);
@@ -339,6 +348,9 @@ describe("CreateProjectDialog", () => {
           createAndSetCurrent: vi.fn(),
           setCurrentProject: vi.fn(),
           deleteProject: vi.fn(),
+          renameProject: vi.fn(),
+          duplicateProject: vi.fn(),
+          archiveProject: vi.fn(),
           clearError,
         };
         return selector(state);

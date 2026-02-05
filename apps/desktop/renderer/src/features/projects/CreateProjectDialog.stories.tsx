@@ -37,6 +37,24 @@ function createMockProjectStore() {
     deleteProject: async () => {
       return { ok: true, data: { deleted: true } };
     },
+    renameProject: async (_projectId: string, name: string) => {
+      return {
+        ok: true,
+        data: { projectId: "mock-id", name, updatedAt: Date.now() },
+      };
+    },
+    duplicateProject: async () => {
+      return {
+        ok: true,
+        data: { projectId: "new-mock-id", rootPath: "/mock/path/new" },
+      };
+    },
+    archiveProject: async (_projectId: string, archived: boolean) => {
+      return {
+        ok: true,
+        data: { projectId: "mock-id", archived, updatedAt: Date.now() },
+      };
+    },
   }));
 }
 

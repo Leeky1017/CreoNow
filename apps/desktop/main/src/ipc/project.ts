@@ -42,13 +42,17 @@ export function registerProjectIpcHandlers(deps: {
 
   deps.ipcMain.handle(
     "project:list",
-    async (): Promise<
+    async (
+      _e,
+      payload: { includeDeleted?: boolean; includeArchived?: boolean },
+    ): Promise<
       IpcResponse<{
         items: Array<{
           projectId: string;
           name: string;
           rootPath: string;
           updatedAt: number;
+          archivedAt?: number;
         }>;
       }>
     > => {
@@ -63,7 +67,7 @@ export function registerProjectIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         logger: deps.logger,
       });
-      const res = svc.list();
+      const res = svc.list({ includeArchived: payload?.includeArchived });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -133,6 +137,91 @@ export function registerProjectIpcHandlers(deps: {
         logger: deps.logger,
       });
       const res = svc.delete({ projectId: payload.projectId });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "project:rename",
+    async (
+      _e,
+      payload: { projectId: string; name: string },
+    ): Promise<
+      IpcResponse<{ projectId: string; name: string; updatedAt: number }>
+    > => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      const svc = createProjectService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        logger: deps.logger,
+      });
+      const res = svc.rename({
+        projectId: payload.projectId,
+        name: payload.name,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "project:duplicate",
+    async (
+      _e,
+      payload: { projectId: string; name?: string },
+    ): Promise<IpcResponse<{ projectId: string; rootPath: string }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      const svc = createProjectService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        logger: deps.logger,
+      });
+      const res = svc.duplicate({
+        projectId: payload.projectId,
+        name: payload.name,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "project:archive",
+    async (
+      _e,
+      payload: { projectId: string; archived: boolean },
+    ): Promise<
+      IpcResponse<{ projectId: string; archived: boolean; updatedAt: number }>
+    > => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      const svc = createProjectService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        logger: deps.logger,
+      });
+      const res = svc.archive({
+        projectId: payload.projectId,
+        archived: payload.archived,
+      });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };

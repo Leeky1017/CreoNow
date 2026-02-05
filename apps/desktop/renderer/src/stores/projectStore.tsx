@@ -25,6 +25,10 @@ export type ProjectState = {
   lastError: IpcError | null;
 };
 
+export type ProjectRenameResult = IpcResponseData<"project:rename">;
+export type ProjectDuplicateResult = IpcResponseData<"project:duplicate">;
+export type ProjectArchiveResult = IpcResponseData<"project:archive">;
+
 export type ProjectActions = {
   bootstrap: () => Promise<void>;
   createAndSetCurrent: (args: {
@@ -42,6 +46,33 @@ export type ProjectActions = {
    * Why: Dashboard must offer cleanup actions while remaining fully typed and observable.
    */
   deleteProject: (projectId: string) => Promise<IpcResponse<{ deleted: true }>>;
+  /**
+   * Rename a project.
+   *
+   * Why: Dashboard needs to support renaming projects without recreating them.
+   */
+  renameProject: (
+    projectId: string,
+    name: string,
+  ) => Promise<IpcResponse<ProjectRenameResult>>;
+  /**
+   * Duplicate a project.
+   *
+   * Why: Dashboard needs to support duplicating projects including documents and KG.
+   */
+  duplicateProject: (
+    projectId: string,
+    name?: string,
+  ) => Promise<IpcResponse<ProjectDuplicateResult>>;
+  /**
+   * Archive or unarchive a project.
+   *
+   * Why: Dashboard needs to support archiving projects to hide them from default list.
+   */
+  archiveProject: (
+    projectId: string,
+    archived: boolean,
+  ) => Promise<IpcResponse<ProjectArchiveResult>>;
   clearError: () => void;
 };
 
@@ -145,6 +176,58 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
         lastError: null,
       }));
       void get().bootstrap();
+      return res;
+    },
+
+    renameProject: async (projectId, name) => {
+      const res = await deps.invoke("project:rename", { projectId, name });
+      if (!res.ok) {
+        set({ lastError: res.error });
+        return res;
+      }
+
+      set((prev) => ({
+        ...prev,
+        items: prev.items.map((item) =>
+          item.projectId === projectId
+            ? { ...item, name: res.data.name, updatedAt: res.data.updatedAt }
+            : item,
+        ),
+        lastError: null,
+      }));
+      return res;
+    },
+
+    duplicateProject: async (projectId, name) => {
+      const res = await deps.invoke("project:duplicate", { projectId, name });
+      if (!res.ok) {
+        set({ lastError: res.error });
+        return res;
+      }
+
+      set({ lastError: null });
+      void get().bootstrap();
+      return res;
+    },
+
+    archiveProject: async (projectId, archived) => {
+      const res = await deps.invoke("project:archive", { projectId, archived });
+      if (!res.ok) {
+        set({ lastError: res.error });
+        return res;
+      }
+
+      set((prev) => ({
+        ...prev,
+        items: prev.items.filter((item) =>
+          archived ? item.projectId !== projectId : true,
+        ),
+        current:
+          archived && prev.current?.projectId === projectId
+            ? null
+            : prev.current,
+        lastError: null,
+      }));
       return res;
     },
   }));

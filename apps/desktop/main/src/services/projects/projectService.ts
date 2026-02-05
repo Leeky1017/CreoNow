@@ -21,18 +21,45 @@ export type ProjectListItem = {
   name: string;
   rootPath: string;
   updatedAt: number;
+  archivedAt?: number;
 };
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
 export type ServiceResult<T> = Ok<T> | Err;
 
+export type ProjectRenameResult = {
+  projectId: string;
+  name: string;
+  updatedAt: number;
+};
+
+export type ProjectArchiveResult = {
+  projectId: string;
+  archived: boolean;
+  updatedAt: number;
+};
+
 export type ProjectService = {
   create: (args: { name?: string }) => ServiceResult<ProjectInfo>;
-  list: () => ServiceResult<{ items: ProjectListItem[] }>;
+  list: (args?: {
+    includeArchived?: boolean;
+  }) => ServiceResult<{ items: ProjectListItem[] }>;
   getCurrent: () => ServiceResult<ProjectInfo>;
   setCurrent: (args: { projectId: string }) => ServiceResult<ProjectInfo>;
   delete: (args: { projectId: string }) => ServiceResult<{ deleted: true }>;
+  rename: (args: {
+    projectId: string;
+    name: string;
+  }) => ServiceResult<ProjectRenameResult>;
+  duplicate: (args: {
+    projectId: string;
+    name?: string;
+  }) => ServiceResult<ProjectInfo>;
+  archive: (args: {
+    projectId: string;
+    archived: boolean;
+  }) => ServiceResult<ProjectArchiveResult>;
 };
 
 const SETTINGS_SCOPE = "app" as const;
@@ -134,13 +161,23 @@ function clearCurrentProjectId(db: Database.Database): ServiceResult<true> {
 function getProjectById(
   db: Database.Database,
   projectId: string,
-): ServiceResult<ProjectInfo & { name: string; updatedAt: number }> {
+): ServiceResult<
+  ProjectInfo & { name: string; updatedAt: number; archivedAt: number | null }
+> {
   try {
     const row = db
       .prepare<
         [string],
-        { projectId: string; name: string; rootPath: string; updatedAt: number }
-      >("SELECT project_id as projectId, name, root_path as rootPath, updated_at as updatedAt FROM projects WHERE project_id = ?")
+        {
+          projectId: string;
+          name: string;
+          rootPath: string;
+          updatedAt: number;
+          archivedAt: number | null;
+        }
+      >(
+        "SELECT project_id as projectId, name, root_path as rootPath, updated_at as updatedAt, archived_at as archivedAt FROM projects WHERE project_id = ?",
+      )
       .get(projectId);
     if (!row) {
       return ipcError("NOT_FOUND", "Project not found", { projectId });
@@ -198,15 +235,28 @@ export function createProjectService(args: {
       }
     },
 
-    list: () => {
+    list: (listArgs) => {
+      const includeArchived = listArgs?.includeArchived ?? false;
       try {
-        const rows = args.db
-          .prepare<
-            [],
-            ProjectListItem
-          >("SELECT project_id as projectId, name, root_path as rootPath, updated_at as updatedAt FROM projects ORDER BY updated_at DESC, project_id ASC")
-          .all();
-        return { ok: true, data: { items: rows } };
+        type DbRow = {
+          projectId: string;
+          name: string;
+          rootPath: string;
+          updatedAt: number;
+          archivedAt: number | null;
+        };
+        const query = includeArchived
+          ? "SELECT project_id as projectId, name, root_path as rootPath, updated_at as updatedAt, archived_at as archivedAt FROM projects ORDER BY updated_at DESC, project_id ASC"
+          : "SELECT project_id as projectId, name, root_path as rootPath, updated_at as updatedAt, archived_at as archivedAt FROM projects WHERE archived_at IS NULL ORDER BY updated_at DESC, project_id ASC";
+        const rows = args.db.prepare<[], DbRow>(query).all();
+        const items: ProjectListItem[] = rows.map((row) => ({
+          projectId: row.projectId,
+          name: row.name,
+          rootPath: row.rootPath,
+          updatedAt: row.updatedAt,
+          archivedAt: row.archivedAt ?? undefined,
+        }));
+        return { ok: true, data: { items } };
       } catch (error) {
         args.logger.error("project_list_failed", {
           code: "DB_ERROR",
@@ -304,6 +354,249 @@ export function createProjectService(args: {
 
       args.logger.info("project_deleted", { project_id: projectId });
       return { ok: true, data: { deleted: true } };
+    },
+
+    rename: ({ projectId, name }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      const trimmedName = name.trim();
+      if (trimmedName.length === 0) {
+        return ipcError("INVALID_ARGUMENT", "name is required");
+      }
+      if (trimmedName.length > 80) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "name must be 80 characters or less",
+        );
+      }
+
+      const project = getProjectById(args.db, projectId);
+      if (!project.ok) {
+        return project;
+      }
+
+      const ts = nowTs();
+      try {
+        args.db
+          .prepare(
+            "UPDATE projects SET name = ?, updated_at = ? WHERE project_id = ?",
+          )
+          .run(trimmedName, ts, projectId);
+
+        args.logger.info("project_renamed", {
+          project_id: projectId,
+          name: trimmedName,
+        });
+
+        return {
+          ok: true,
+          data: { projectId, name: trimmedName, updatedAt: ts },
+        };
+      } catch (error) {
+        args.logger.error("project_rename_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to rename project");
+      }
+    },
+
+    duplicate: ({ projectId, name }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+
+      const sourceProject = getProjectById(args.db, projectId);
+      if (!sourceProject.ok) {
+        return sourceProject;
+      }
+
+      // Compute new name: "<old> (copy)" or provided name
+      let newName = name?.trim();
+      if (!newName || newName.length === 0) {
+        const baseName = sourceProject.data.name;
+        newName = `${baseName} (copy)`;
+
+        // Check for existing copies and append number if needed
+        try {
+          const existingCopies = args.db
+            .prepare<
+              [string],
+              { name: string }
+            >("SELECT name FROM projects WHERE name LIKE ? ORDER BY name")
+            .all(`${baseName} (copy%`);
+
+          if (existingCopies.length > 0) {
+            // Find the highest copy number
+            let maxNum = 1;
+            for (const row of existingCopies) {
+              if (row.name === `${baseName} (copy)`) {
+                maxNum = Math.max(maxNum, 1);
+              } else {
+                const match = row.name.match(/\(copy (\d+)\)$/);
+                if (match) {
+                  maxNum = Math.max(maxNum, parseInt(match[1], 10));
+                }
+              }
+            }
+            newName = `${baseName} (copy ${maxNum + 1})`;
+          }
+        } catch {
+          // If query fails, just use the simple copy name
+        }
+      }
+
+      // Create new project
+      const newProjectId = randomUUID();
+      const newRootPath = getProjectRootPath(args.userDataDir, newProjectId);
+
+      const ensured = ensureCreonowDirStructure(newRootPath);
+      if (!ensured.ok) {
+        return ensured;
+      }
+
+      const ts = nowTs();
+      try {
+        // Create the new project entry
+        args.db
+          .prepare(
+            "INSERT INTO projects (project_id, name, root_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+          )
+          .run(newProjectId, newName, newRootPath, ts, ts);
+
+        // Copy documents
+        args.db
+          .prepare(
+            `INSERT INTO documents (document_id, project_id, title, content_json, content_text, content_md, created_at, updated_at)
+             SELECT lower(hex(randomblob(16))), ?, title, content_json, content_text, content_md, ?, ?
+             FROM documents WHERE project_id = ?`,
+          )
+          .run(newProjectId, ts, ts, projectId);
+
+        // Copy KG entities
+        const entityIdMap = new Map<string, string>();
+        const oldEntities = args.db
+          .prepare<
+            [string],
+            {
+              entityId: string;
+              name: string;
+              entityType: string | null;
+              description: string | null;
+              metadataJson: string;
+            }
+          >(
+            "SELECT entity_id as entityId, name, entity_type as entityType, description, metadata_json as metadataJson FROM kg_entities WHERE project_id = ?",
+          )
+          .all(projectId);
+
+        for (const entity of oldEntities) {
+          const newEntityId = randomUUID();
+          entityIdMap.set(entity.entityId, newEntityId);
+          args.db
+            .prepare(
+              "INSERT INTO kg_entities (entity_id, project_id, name, entity_type, description, metadata_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .run(
+              newEntityId,
+              newProjectId,
+              entity.name,
+              entity.entityType,
+              entity.description,
+              entity.metadataJson,
+              ts,
+              ts,
+            );
+        }
+
+        // Copy KG relations (with updated entity IDs)
+        const oldRelations = args.db
+          .prepare<
+            [string],
+            {
+              fromEntityId: string;
+              toEntityId: string;
+              relationType: string;
+              metadataJson: string;
+              evidenceJson: string;
+            }
+          >(
+            "SELECT from_entity_id as fromEntityId, to_entity_id as toEntityId, relation_type as relationType, metadata_json as metadataJson, evidence_json as evidenceJson FROM kg_relations WHERE project_id = ?",
+          )
+          .all(projectId);
+
+        for (const relation of oldRelations) {
+          const newFromId = entityIdMap.get(relation.fromEntityId);
+          const newToId = entityIdMap.get(relation.toEntityId);
+          if (newFromId && newToId) {
+            args.db
+              .prepare(
+                "INSERT INTO kg_relations (relation_id, project_id, from_entity_id, to_entity_id, relation_type, metadata_json, evidence_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              )
+              .run(
+                randomUUID(),
+                newProjectId,
+                newFromId,
+                newToId,
+                relation.relationType,
+                relation.metadataJson,
+                relation.evidenceJson,
+                ts,
+                ts,
+              );
+          }
+        }
+
+        args.logger.info("project_duplicated", {
+          source_project_id: projectId,
+          new_project_id: newProjectId,
+          root_path: redactUserDataPath(args.userDataDir, newRootPath),
+        });
+
+        return { ok: true, data: { projectId: newProjectId, rootPath: newRootPath } };
+      } catch (error) {
+        args.logger.error("project_duplicate_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to duplicate project");
+      }
+    },
+
+    archive: ({ projectId, archived }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+
+      const project = getProjectById(args.db, projectId);
+      if (!project.ok) {
+        return project;
+      }
+
+      const ts = nowTs();
+      const archivedAt = archived ? ts : null;
+
+      try {
+        args.db
+          .prepare(
+            "UPDATE projects SET archived_at = ?, updated_at = ? WHERE project_id = ?",
+          )
+          .run(archivedAt, ts, projectId);
+
+        args.logger.info("project_archived", {
+          project_id: projectId,
+          archived,
+        });
+
+        return { ok: true, data: { projectId, archived, updatedAt: ts } };
+      } catch (error) {
+        args.logger.error("project_archive_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to archive project");
+      }
     },
   };
 }
