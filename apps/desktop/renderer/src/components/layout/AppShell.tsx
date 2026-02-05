@@ -104,6 +104,8 @@ export function AppShell(): JSX.Element {
   const resetPanelWidth = useLayoutStore((s) => s.resetPanelWidth);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
+  // Counter to force CommandPalette remount on each open (ensures fresh state)
+  const [commandPaletteKey, setCommandPaletteKey] = React.useState(0);
   const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
   const [createProjectDialogOpen, setCreateProjectDialogOpen] =
@@ -155,6 +157,7 @@ export function AppShell(): JSX.Element {
       // Cmd/Ctrl+P: Command Palette
       if (e.key.toLowerCase() === "p") {
         e.preventDefault();
+        setCommandPaletteKey((k) => k + 1); // Force remount for fresh state
         setCommandPaletteOpen(true);
         return;
       }
@@ -362,6 +365,7 @@ export function AppShell(): JSX.Element {
       </div>
 
       <CommandPalette
+        key={commandPaletteKey}
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
         layoutActions={layoutActions}
