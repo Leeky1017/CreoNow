@@ -8,3 +8,5 @@ export {
 } from "./VersionHistoryPanel";
 
 export { useVersionCompare, type CompareState } from "./useVersionCompare";
+
+export { VersionHistoryContainer } from "./VersionHistoryContainer";

@@ -753,6 +753,25 @@ export const ipcContract = {
         ),
       }),
     },
+    "version:read": {
+      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      response: s.object({
+        documentId: s.string(),
+        projectId: s.string(),
+        versionId: s.string(),
+        actor: s.union(
+          s.literal("user"),
+          s.literal("auto"),
+          s.literal("ai"),
+        ),
+        reason: s.string(),
+        contentJson: s.string(),
+        contentText: s.string(),
+        contentMd: s.string(),
+        contentHash: s.string(),
+        createdAt: s.number(),
+      }),
+    },
     "version:restore": {
       request: s.object({ documentId: s.string(), versionId: s.string() }),
       response: s.object({ restored: s.literal(true) }),

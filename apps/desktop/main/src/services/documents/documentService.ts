@@ -38,6 +38,19 @@ export type VersionListItem = {
   createdAt: number;
 };
 
+export type VersionRead = {
+  documentId: string;
+  projectId: string;
+  versionId: string;
+  actor: "user" | "auto" | "ai";
+  reason: string;
+  contentJson: string;
+  contentText: string;
+  contentMd: string;
+  contentHash: string;
+  createdAt: number;
+};
+
 export type DocumentService = {
   create: (args: { projectId: string; title?: string }) => ServiceResult<{
     documentId: string;
@@ -80,6 +93,10 @@ export type DocumentService = {
   listVersions: (args: { documentId: string }) => ServiceResult<{
     items: VersionListItem[];
   }>;
+  readVersion: (args: {
+    documentId: string;
+    versionId: string;
+  }) => ServiceResult<VersionRead>;
   restoreVersion: (args: {
     documentId: string;
     versionId: string;
@@ -687,6 +704,34 @@ export function createDocumentService(args: {
           message: error instanceof Error ? error.message : String(error),
         });
         return ipcError("DB_ERROR", "Failed to list versions");
+      }
+    },
+
+    readVersion: ({ documentId, versionId }) => {
+      try {
+        const row = args.db
+          .prepare<
+            [string, string],
+            VersionRead
+          >("SELECT document_id as documentId, project_id as projectId, version_id as versionId, actor, reason, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? AND version_id = ?")
+          .get(documentId, versionId);
+        if (!row) {
+          return ipcError("NOT_FOUND", "Version not found");
+        }
+
+        args.logger.info("version_read", {
+          document_id: documentId,
+          version_id: versionId,
+        });
+        return { ok: true, data: row };
+      } catch (error) {
+        args.logger.error("version_read_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+          document_id: documentId,
+          version_id: versionId,
+        });
+        return ipcError("DB_ERROR", "Failed to read version");
       }
     },
 

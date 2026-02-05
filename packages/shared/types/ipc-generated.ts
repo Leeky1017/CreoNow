@@ -114,6 +114,7 @@ export const IPC_CHANNELS = [
   "stats:getToday",
   "version:aiApply:logConflict",
   "version:list",
+  "version:read",
   "version:restore",
 ] as const;
 
@@ -1084,6 +1085,24 @@ export type IpcChannelSpec = {
         reason: string;
         versionId: string;
       }>;
+    };
+  };
+  "version:read": {
+    request: {
+      documentId: string;
+      versionId: string;
+    };
+    response: {
+      actor: "user" | "auto" | "ai";
+      contentHash: string;
+      contentJson: string;
+      contentMd: string;
+      contentText: string;
+      createdAt: number;
+      documentId: string;
+      projectId: string;
+      reason: string;
+      versionId: string;
     };
   };
   "version:restore": {

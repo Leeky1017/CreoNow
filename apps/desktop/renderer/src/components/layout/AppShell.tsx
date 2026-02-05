@@ -19,9 +19,11 @@ import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
 import { SettingsDialog } from "../../features/settings-dialog/SettingsDialog";
 import { ExportDialog } from "../../features/export/ExportDialog";
 import { CreateProjectDialog } from "../../features/projects/CreateProjectDialog";
+import { useVersionCompare } from "../../features/version-history/useVersionCompare";
 import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
 import { useEditorStore } from "../../stores/editorStore";
+import { invoke } from "../../lib/ipcClient";
 
 /**
  * Clamp a value between min/max bounds.
@@ -86,7 +88,6 @@ export function AppShell(): JSX.Element {
   const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
   const compareMode = useEditorStore((s) => s.compareMode);
   const compareVersionId = useEditorStore((s) => s.compareVersionId);
-  const setCompareMode = useEditorStore((s) => s.setCompareMode);
   const documentId = useEditorStore((s) => s.documentId);
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth);
   const panelWidth = useLayoutStore((s) => s.panelWidth);
@@ -113,6 +114,9 @@ export function AppShell(): JSX.Element {
 
   // File store for creating documents
   const createDocument = useFileStore((s) => s.createAndSetCurrent);
+
+  // Version compare hook
+  const { compareState, closeCompare } = useVersionCompare();
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -273,15 +277,28 @@ export function AppShell(): JSX.Element {
 
     // Current project in compare mode
     if (compareMode) {
+      const handleRestore = async (): Promise<void> => {
+        if (!documentId || !compareVersionId) return;
+
+        // TODO: Add SystemDialog confirmation
+        const res = await invoke("version:restore", {
+          documentId,
+          versionId: compareVersionId,
+        });
+        if (res.ok) {
+          closeCompare();
+          // Re-bootstrap editor to load restored content
+          await bootstrapEditor(currentProject.projectId);
+        }
+      };
+
       return (
         <DiffViewPanel
           key={compareVersionId ?? "compare"}
-          diffText=""
-          onClose={() => setCompareMode(false)}
-          onRestore={() => {
-            // TODO: Implement version restore via IPC
-            setCompareMode(false);
-          }}
+          diffText={compareState.diffText}
+          onClose={closeCompare}
+          onRestore={() => void handleRestore()}
+          restoreInProgress={compareState.status === "loading"}
         />
       );
     }
