@@ -3,10 +3,11 @@
 > Spec: `../spec.md#cnmvp-req-011`
 >
 > Related cards:
+>
 > - `../task_cards/p2/P2-004-console-cleanup-and-logger.md`
 > - `../task_cards/p2/P2-005-ui-strings-constants.md`
 
-## 1) console.* 收敛策略（写死）
+## 1) console.\* 收敛策略（写死）
 
 目标：生产代码中禁止散落 `console.log/warn/error`，统一到可替换的日志路径，且不引入隐式依赖。
 
@@ -28,4 +29,3 @@ MVP 写死策略（P2）：
 - 新增 `apps/desktop/renderer/src/lib/uiStrings.ts` 导出分域常量（例如 `DIALOG_LABELS`, `BUTTON_LABELS`）
 - 仅替换“高频/重复/易错”的字符串（优先：SystemDialog/rename dialogs/错误文案）
 - 不做全量替换（全量属于 P3+）
-

@@ -3,6 +3,7 @@
 > Spec: `../spec.md#cnmvp-req-010`
 >
 > Related cards:
+>
 > - `../task_cards/p2/P2-001-react-memo-list-items.md`
 > - `../task_cards/p2/P2-002-virtualize-large-lists.md`
 > - `../task_cards/p2/P2-003-zustand-useShallow-audit.md`
@@ -40,4 +41,3 @@
 范围：所有 `useStore((s) => ...)` 返回对象/数组且易导致重渲染的 selector。
 
 执行方式：先做一次 `rg \"use.*Store\\(\"` 的清单化，再逐个替换；必须配套测试确保不改变行为。
-

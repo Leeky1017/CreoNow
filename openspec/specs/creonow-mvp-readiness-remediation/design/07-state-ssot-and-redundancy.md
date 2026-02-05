@@ -40,4 +40,3 @@ documentId 冗余（示例）：
 目标：让 store 在需要 projectId/documentId 时通过 `deps.getContext()` 获得，而不是各自维护副本。
 
 > 注：这是 P1 级别的架构改造，必须配套 store tests 与边界测试（快速切换项目/文档）。
-

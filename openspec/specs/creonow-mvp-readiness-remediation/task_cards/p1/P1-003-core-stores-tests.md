@@ -25,17 +25,17 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Add | `apps/desktop/renderer/src/stores/aiStore.test.tsx` |
-| Add | `apps/desktop/renderer/src/stores/editorStore.test.tsx` |
-| Add | `apps/desktop/renderer/src/stores/fileStore.test.tsx` |
-| Add | `apps/desktop/renderer/src/stores/projectStore.test.tsx` |
-| Add | `apps/desktop/renderer/src/stores/versionStore.test.tsx` |
-| Add | `apps/desktop/renderer/src/stores/searchStore.test.tsx` |
-| Add | `apps/desktop/renderer/src/stores/kgStore.test.tsx` |
-| Add | `apps/desktop/renderer/src/stores/memoryStore.test.tsx` |
-| Add | `apps/desktop/renderer/src/stores/layoutStore.test.tsx` |
+| 操作 | 文件路径                                                 |
+| ---- | -------------------------------------------------------- |
+| Add  | `apps/desktop/renderer/src/stores/aiStore.test.tsx`      |
+| Add  | `apps/desktop/renderer/src/stores/editorStore.test.tsx`  |
+| Add  | `apps/desktop/renderer/src/stores/fileStore.test.tsx`    |
+| Add  | `apps/desktop/renderer/src/stores/projectStore.test.tsx` |
+| Add  | `apps/desktop/renderer/src/stores/versionStore.test.tsx` |
+| Add  | `apps/desktop/renderer/src/stores/searchStore.test.tsx`  |
+| Add  | `apps/desktop/renderer/src/stores/kgStore.test.tsx`      |
+| Add  | `apps/desktop/renderer/src/stores/memoryStore.test.tsx`  |
+| Add  | `apps/desktop/renderer/src/stores/layoutStore.test.tsx`  |
 
 ## Detailed Breakdown（每个 store 的最小测试模板）
 
@@ -66,4 +66,3 @@ Mock 规则写死：
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

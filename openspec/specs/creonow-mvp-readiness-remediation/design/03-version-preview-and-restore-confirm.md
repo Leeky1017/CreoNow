@@ -3,6 +3,7 @@
 > Spec: `../spec.md#cnmvp-req-002`、`../spec.md#cnmvp-req-003`
 >
 > Related cards:
+>
 > - `../task_cards/p0/P0-002-version-history-preview-dialog.md`
 > - `../task_cards/p0/P0-003-version-restore-confirmation-systemdialog.md`
 
@@ -56,4 +57,3 @@ Restore 的确认必须覆盖两条链路：
 
 - restore 失败必须可见（toast 或 ErrorState），并包含错误码（便于 E2E 断言）
 - 禁止 silent failure：任何 catch 必须记录（renderer 允许临时 console.warn，但最终要收敛到 logger；见 P2-004）
-

@@ -13,17 +13,17 @@ Status: todo
 
 ## Expected File Changes（高影响，需拆分 PR）
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Add | `apps/desktop/renderer/src/lib/appContext.ts`（AppContext SSOT 抽象） |
-| Update | `apps/desktop/renderer/src/App.tsx`（把 context 注入 store factories） |
-| Update | `apps/desktop/renderer/src/components/layout/AppShell.tsx`（切换项目/文档时通过 context 驱动） |
-| Update | `apps/desktop/renderer/src/stores/fileStore.ts` |
-| Update | `apps/desktop/renderer/src/stores/editorStore.tsx` |
-| Update | `apps/desktop/renderer/src/stores/memoryStore.ts` |
-| Update | `apps/desktop/renderer/src/stores/kgStore.ts` |
-| Update | `apps/desktop/renderer/src/stores/searchStore.ts` |
-| Add/Update | `apps/desktop/renderer/src/stores/*.test.tsx`（必须覆盖快速切换竞态） |
+| 操作       | 文件路径                                                                                       |
+| ---------- | ---------------------------------------------------------------------------------------------- |
+| Add        | `apps/desktop/renderer/src/lib/appContext.ts`（AppContext SSOT 抽象）                          |
+| Update     | `apps/desktop/renderer/src/App.tsx`（把 context 注入 store factories）                         |
+| Update     | `apps/desktop/renderer/src/components/layout/AppShell.tsx`（切换项目/文档时通过 context 驱动） |
+| Update     | `apps/desktop/renderer/src/stores/fileStore.ts`                                                |
+| Update     | `apps/desktop/renderer/src/stores/editorStore.tsx`                                             |
+| Update     | `apps/desktop/renderer/src/stores/memoryStore.ts`                                              |
+| Update     | `apps/desktop/renderer/src/stores/kgStore.ts`                                                  |
+| Update     | `apps/desktop/renderer/src/stores/searchStore.ts`                                              |
+| Add/Update | `apps/desktop/renderer/src/stores/*.test.tsx`（必须覆盖快速切换竞态）                          |
 
 ## Detailed Breakdown（建议拆分 PR）
 
@@ -54,4 +54,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

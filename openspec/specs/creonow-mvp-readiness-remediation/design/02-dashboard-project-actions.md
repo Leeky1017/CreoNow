@@ -91,4 +91,3 @@ Archive 不是 delete。MVP 语义写死为：
 - `project:archive`：{ projectId, archived } → { projectId, archived, archivedAt }
 
 并且 `project:list` 必须包含 `archivedAt` 字段，且 request 增加 `includeArchived?: boolean`。
-

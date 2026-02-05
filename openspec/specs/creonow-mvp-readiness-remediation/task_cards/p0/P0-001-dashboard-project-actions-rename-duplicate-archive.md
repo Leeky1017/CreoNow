@@ -28,18 +28,18 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Update | `apps/desktop/main/src/ipc/contract/ipc-contract.ts`（新增 `project:rename/duplicate/archive`；扩展 `project:list`） |
-| Update | `packages/shared/types/ipc-generated.ts`（codegen 输出） |
-| Add | `apps/desktop/main/src/db/migrations/0010_projects_archive.sql`（新增 `projects.archived_at`） |
-| Update | `apps/desktop/main/src/services/projects/projectService.ts`（实现 rename/duplicate/archive） |
-| Update | `apps/desktop/main/src/ipc/project.ts`（新增 IPC handlers + list payload 对齐） |
-| Update | `apps/desktop/renderer/src/stores/projectStore.tsx`（新增 actions：rename/duplicate/archive；bootstrap list 包含 archived） |
-| Update | `apps/desktop/renderer/src/features/dashboard/DashboardPage.tsx`（实现 3 个 handler + UI） |
-| Add | `apps/desktop/renderer/src/features/dashboard/RenameProjectDialog.tsx`（rename 输入对话框） |
-| Add/Update | `apps/desktop/tests/e2e/dashboard-project-actions.spec.ts`（新增门禁） |
-| Add | `apps/desktop/tests/unit/projectService.projectActions.test.ts`（main 层最小单测，覆盖 rename/archive/duplicate 的核心语义） |
+| 操作       | 文件路径                                                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Update     | `apps/desktop/main/src/ipc/contract/ipc-contract.ts`（新增 `project:rename/duplicate/archive`；扩展 `project:list`）         |
+| Update     | `packages/shared/types/ipc-generated.ts`（codegen 输出）                                                                     |
+| Add        | `apps/desktop/main/src/db/migrations/0010_projects_archive.sql`（新增 `projects.archived_at`）                               |
+| Update     | `apps/desktop/main/src/services/projects/projectService.ts`（实现 rename/duplicate/archive）                                 |
+| Update     | `apps/desktop/main/src/ipc/project.ts`（新增 IPC handlers + list payload 对齐）                                              |
+| Update     | `apps/desktop/renderer/src/stores/projectStore.tsx`（新增 actions：rename/duplicate/archive；bootstrap list 包含 archived）  |
+| Update     | `apps/desktop/renderer/src/features/dashboard/DashboardPage.tsx`（实现 3 个 handler + UI）                                   |
+| Add        | `apps/desktop/renderer/src/features/dashboard/RenameProjectDialog.tsx`（rename 输入对话框）                                  |
+| Add/Update | `apps/desktop/tests/e2e/dashboard-project-actions.spec.ts`（新增门禁）                                                       |
+| Add        | `apps/desktop/tests/unit/projectService.projectActions.test.ts`（main 层最小单测，覆盖 rename/archive/duplicate 的核心语义） |
 
 ## Detailed Breakdown（建议拆分 PR）
 
@@ -153,4 +153,3 @@ main.log 必须记录（info/error）：
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

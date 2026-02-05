@@ -12,6 +12,7 @@ Status: todo
 - 允许 rename/delete（当前 UI 已有 disabled 按钮）
 
 > 审评报告定位：
+>
 > - `apps/desktop/renderer/src/features/ai/ChatHistory.tsx` 使用 `MOCK_HISTORY`
 > - `apps/desktop/renderer/src/features/ai/AiPanel.tsx:474` onSelectChat 仅关闭下拉
 
@@ -27,18 +28,18 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Add | `apps/desktop/main/src/db/migrations/0011_ai_history.sql`（新增 ai_history 表） |
-| Update | `apps/desktop/main/src/ipc/contract/ipc-contract.ts`（新增 `ai:history:*` 通道） |
-| Update | `packages/shared/types/ipc-generated.ts`（codegen） |
-| Add | `apps/desktop/main/src/services/ai/aiHistoryService.ts`（CRUD） |
-| Add/Update | `apps/desktop/main/src/ipc/aiHistory.ts`（或合并进 `ipc/ai.ts`） |
-| Update | `apps/desktop/renderer/src/stores/aiStore.ts`（run 完成后写入历史；选中历史时加载） |
-| Update | `apps/desktop/renderer/src/features/ai/ChatHistory.tsx`（移除 MOCK_HISTORY；接入 store/IPC） |
-| Update | `apps/desktop/renderer/src/features/ai/AiPanel.tsx`（onSelectChat 真切换） |
-| Add | `apps/desktop/tests/unit/aiHistoryService.test.ts`（main：SQLite roundtrip） |
-| Add | `apps/desktop/renderer/src/features/ai/ChatHistory.test.tsx`（Vitest：列表/选择/rename/delete） |
+| 操作       | 文件路径                                                                                        |
+| ---------- | ----------------------------------------------------------------------------------------------- |
+| Add        | `apps/desktop/main/src/db/migrations/0011_ai_history.sql`（新增 ai_history 表）                 |
+| Update     | `apps/desktop/main/src/ipc/contract/ipc-contract.ts`（新增 `ai:history:*` 通道）                |
+| Update     | `packages/shared/types/ipc-generated.ts`（codegen）                                             |
+| Add        | `apps/desktop/main/src/services/ai/aiHistoryService.ts`（CRUD）                                 |
+| Add/Update | `apps/desktop/main/src/ipc/aiHistory.ts`（或合并进 `ipc/ai.ts`）                                |
+| Update     | `apps/desktop/renderer/src/stores/aiStore.ts`（run 完成后写入历史；选中历史时加载）             |
+| Update     | `apps/desktop/renderer/src/features/ai/ChatHistory.tsx`（移除 MOCK_HISTORY；接入 store/IPC）    |
+| Update     | `apps/desktop/renderer/src/features/ai/AiPanel.tsx`（onSelectChat 真切换）                      |
+| Add        | `apps/desktop/tests/unit/aiHistoryService.test.ts`（main：SQLite roundtrip）                    |
+| Add        | `apps/desktop/renderer/src/features/ai/ChatHistory.test.tsx`（Vitest：列表/选择/rename/delete） |
 
 ## Detailed Breakdown（建议拆分 PR）
 
@@ -109,4 +110,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

@@ -15,14 +15,14 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Update | `apps/desktop/package.json`（新增 `keytar` 依赖） |
-| Update | `apps/desktop/main/src/services/ai/aiProxySettingsService.ts`（改为 keytar） |
-| Add | `apps/desktop/main/src/services/secrets/secretStore.ts`（显式注入：keytar adapter + stub） |
-| Update | `apps/desktop/main/src/ipc/aiProxy.ts`（若需要暴露“已配置”语义，保持不泄露 key） |
-| Update | `apps/desktop/package.json`（`rebuild:native` 需包含 keytar） |
-| Add | `apps/desktop/tests/unit/aiProxySettingsService.keytar.test.ts` |
+| 操作   | 文件路径                                                                                   |
+| ------ | ------------------------------------------------------------------------------------------ |
+| Update | `apps/desktop/package.json`（新增 `keytar` 依赖）                                          |
+| Update | `apps/desktop/main/src/services/ai/aiProxySettingsService.ts`（改为 keytar）               |
+| Add    | `apps/desktop/main/src/services/secrets/secretStore.ts`（显式注入：keytar adapter + stub） |
+| Update | `apps/desktop/main/src/ipc/aiProxy.ts`（若需要暴露“已配置”语义，保持不泄露 key）           |
+| Update | `apps/desktop/package.json`（`rebuild:native` 需包含 keytar）                              |
+| Add    | `apps/desktop/tests/unit/aiProxySettingsService.keytar.test.ts`                            |
 
 ## Detailed Breakdown（写死实现策略）
 
@@ -62,4 +62,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

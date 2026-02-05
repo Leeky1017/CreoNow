@@ -15,13 +15,13 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Update | `apps/desktop/renderer/src/features/outline/OutlinePanel.tsx`（抽出 `OutlineItemRow` 并 memo） |
-| Update | `apps/desktop/renderer/src/features/character/CharacterCard.tsx`（memo） |
-| Update | `apps/desktop/renderer/src/features/version-history/VersionHistoryPanel.tsx`（抽出 `VersionCard` 并 memo） |
-| Update | `apps/desktop/renderer/src/features/files/FileTreePanel.tsx`（抽出 row 组件并 memo） |
-| Add/Update | `apps/desktop/renderer/src/features/**/**/*.test.tsx`（确保交互不回归） |
+| 操作       | 文件路径                                                                                                   |
+| ---------- | ---------------------------------------------------------------------------------------------------------- |
+| Update     | `apps/desktop/renderer/src/features/outline/OutlinePanel.tsx`（抽出 `OutlineItemRow` 并 memo）             |
+| Update     | `apps/desktop/renderer/src/features/character/CharacterCard.tsx`（memo）                                   |
+| Update     | `apps/desktop/renderer/src/features/version-history/VersionHistoryPanel.tsx`（抽出 `VersionCard` 并 memo） |
+| Update     | `apps/desktop/renderer/src/features/files/FileTreePanel.tsx`（抽出 row 组件并 memo）                       |
+| Add/Update | `apps/desktop/renderer/src/features/**/**/*.test.tsx`（确保交互不回归）                                    |
 
 ## Detailed Breakdown
 
@@ -48,4 +48,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

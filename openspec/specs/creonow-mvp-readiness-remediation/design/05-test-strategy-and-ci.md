@@ -3,6 +3,7 @@
 > Spec: `../spec.md#cnmvp-req-005`
 >
 > Related cards:
+>
 > - `../task_cards/p0/P0-005-ci-run-desktop-vitest.md`
 > - `../task_cards/p1/P1-002-core-services-unit-tests.md`
 > - `../task_cards/p1/P1-003-core-stores-tests.md`
@@ -44,7 +45,7 @@
 - `pnpm contract:check`
 - `pnpm test:unit`
 - `pnpm test:integration`
-- `pnpm -C apps/desktop test:run`  ← 本 spec 新增的门禁
+- `pnpm -C apps/desktop test:run` ← 本 spec 新增的门禁
 
 ## 3) 证据口径（RUN_LOG）
 
@@ -54,4 +55,3 @@
 - `pnpm test:unit`
 - `pnpm test:integration`
 - 对应任务卡的 E2E 命令（若新增/更新）
-

@@ -13,10 +13,10 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Update | `apps/desktop/renderer/src/**`（逐点替换 selector） |
-| Add | `apps/desktop/renderer/src/lib/storeSelectors.md`（可选：记录约定与常见模式） |
+| 操作   | 文件路径                                                                      |
+| ------ | ----------------------------------------------------------------------------- |
+| Update | `apps/desktop/renderer/src/**`（逐点替换 selector）                           |
+| Add    | `apps/desktop/renderer/src/lib/storeSelectors.md`（可选：记录约定与常见模式） |
 
 ## Detailed Breakdown
 
@@ -44,4 +44,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

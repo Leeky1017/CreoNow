@@ -13,11 +13,11 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Add | `apps/desktop/renderer/src/lib/uiStrings.ts` |
-| Update | `apps/desktop/renderer/src/**`（替换高频字符串） |
-| Add | `apps/desktop/tests/unit/ui-strings-no-duplicates.spec.ts`（可选：防扩散门禁） |
+| 操作   | 文件路径                                                                       |
+| ------ | ------------------------------------------------------------------------------ |
+| Add    | `apps/desktop/renderer/src/lib/uiStrings.ts`                                   |
+| Update | `apps/desktop/renderer/src/**`（替换高频字符串）                               |
+| Add    | `apps/desktop/tests/unit/ui-strings-no-duplicates.spec.ts`（可选：防扩散门禁） |
 
 ## Detailed Breakdown
 
@@ -43,4 +43,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

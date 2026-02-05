@@ -21,12 +21,12 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Update | `apps/desktop/renderer/src/features/version-history/VersionHistoryContainer.tsx`（实现 handlePreview） |
-| Add | `apps/desktop/renderer/src/features/version-history/VersionPreviewDialog.tsx`（或等价文件名） |
+| 操作       | 文件路径                                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------------------------- |
+| Update     | `apps/desktop/renderer/src/features/version-history/VersionHistoryContainer.tsx`（实现 handlePreview）         |
+| Add        | `apps/desktop/renderer/src/features/version-history/VersionPreviewDialog.tsx`（或等价文件名）                  |
 | Add/Update | `apps/desktop/renderer/src/features/version-history/VersionPreviewDialog.test.tsx`（Vitest：打开/关闭/错误态） |
-| Update | `apps/desktop/tests/e2e/version-history.spec.ts`（E2E：Preview 打开与内容可见） |
+| Update     | `apps/desktop/tests/e2e/version-history.spec.ts`（E2E：Preview 打开与内容可见）                                |
 
 ## Detailed Breakdown
 
@@ -71,4 +71,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

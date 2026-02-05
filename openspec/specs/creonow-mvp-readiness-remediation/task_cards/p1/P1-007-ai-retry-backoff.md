@@ -17,11 +17,11 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Update | `apps/desktop/main/src/services/ai/aiService.ts`（引入 fetchWithRetry） |
-| Add | `apps/desktop/main/src/services/ai/retry.ts`（或等价文件） |
-| Add | `apps/desktop/tests/unit/aiService.retry.test.ts`（覆盖 retry/backoff/abort） |
+| 操作   | 文件路径                                                                      |
+| ------ | ----------------------------------------------------------------------------- |
+| Update | `apps/desktop/main/src/services/ai/aiService.ts`（引入 fetchWithRetry）       |
+| Add    | `apps/desktop/main/src/services/ai/retry.ts`（或等价文件）                    |
+| Add    | `apps/desktop/tests/unit/aiService.retry.test.ts`（覆盖 retry/backoff/abort） |
 
 ## Detailed Breakdown（写死重试策略）
 
@@ -66,4 +66,3 @@ main.log：
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

@@ -22,11 +22,11 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Update | `apps/desktop/renderer/src/features/editor/EditorToolbar.stories.tsx`（替换 innerHTML → EditorContent） |
-| Add | `apps/desktop/tests/unit/no-dangerouslySetInnerHTML.spec.ts`（静态门禁：renderer 生产代码不得出现 innerHTML） |
-| Update | `package.json`（若需要把静态门禁纳入 `pnpm test:unit`） |
+| 操作   | 文件路径                                                                                                      |
+| ------ | ------------------------------------------------------------------------------------------------------------- |
+| Update | `apps/desktop/renderer/src/features/editor/EditorToolbar.stories.tsx`（替换 innerHTML → EditorContent）       |
+| Add    | `apps/desktop/tests/unit/no-dangerouslySetInnerHTML.spec.ts`（静态门禁：renderer 生产代码不得出现 innerHTML） |
+| Update | `package.json`（若需要把静态门禁纳入 `pnpm test:unit`）                                                       |
 
 ## Detailed Breakdown
 
@@ -53,4 +53,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

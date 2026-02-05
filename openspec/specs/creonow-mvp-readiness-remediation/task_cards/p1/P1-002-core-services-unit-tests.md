@@ -22,13 +22,13 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Add/Update | `apps/desktop/tests/unit/projectService.*.test.ts`（扩充覆盖） |
-| Add | `apps/desktop/tests/unit/documentService.test.ts` |
-| Add | `apps/desktop/tests/unit/kgService.test.ts` |
-| Add | `apps/desktop/tests/unit/aiService.retry-and-error.test.ts`（与 P1-007 共享或拆分） |
-| Update | `package.json`（若 root `test:unit` 需要纳入新增脚本，必须显式添加） |
+| 操作       | 文件路径                                                                            |
+| ---------- | ----------------------------------------------------------------------------------- |
+| Add/Update | `apps/desktop/tests/unit/projectService.*.test.ts`（扩充覆盖）                      |
+| Add        | `apps/desktop/tests/unit/documentService.test.ts`                                   |
+| Add        | `apps/desktop/tests/unit/kgService.test.ts`                                         |
+| Add        | `apps/desktop/tests/unit/aiService.retry-and-error.test.ts`（与 P1-007 共享或拆分） |
+| Update     | `package.json`（若 root `test:unit` 需要纳入新增脚本，必须显式添加）                |
 
 ## Detailed Breakdown（写死测试口径）
 
@@ -64,4 +64,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

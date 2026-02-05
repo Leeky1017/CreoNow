@@ -31,4 +31,3 @@ MVP 选择：**Reload App**
 
 - renderer 端必须记录一个错误事件（临时允许 `console.error` 一次；P2 再收敛到 logger）
 - E2E 必须覆盖：触发一个受控 render error → 显示 fallback → 点击 Reload 有效（或 mock reload）
-

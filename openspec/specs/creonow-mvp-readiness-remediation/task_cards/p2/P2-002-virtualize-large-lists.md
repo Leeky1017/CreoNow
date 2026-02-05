@@ -17,13 +17,13 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Update | `apps/desktop/package.json`（新增依赖） |
-| Update | `apps/desktop/renderer/src/features/outline/OutlinePanel.tsx` |
-| Update | `apps/desktop/renderer/src/features/version-history/VersionHistoryPanel.tsx` |
-| Update | `apps/desktop/renderer/src/features/commandPalette/CommandPalette.tsx` |
-| Update | `apps/desktop/renderer/src/features/search/SearchPanel.tsx` |
+| 操作       | 文件路径                                                                            |
+| ---------- | ----------------------------------------------------------------------------------- |
+| Update     | `apps/desktop/package.json`（新增依赖）                                             |
+| Update     | `apps/desktop/renderer/src/features/outline/OutlinePanel.tsx`                       |
+| Update     | `apps/desktop/renderer/src/features/version-history/VersionHistoryPanel.tsx`        |
+| Update     | `apps/desktop/renderer/src/features/commandPalette/CommandPalette.tsx`              |
+| Update     | `apps/desktop/renderer/src/features/search/SearchPanel.tsx`                         |
 | Add/Update | `apps/desktop/renderer/src/features/**/**/*.stories.tsx`（新增“大列表”场景便于 QA） |
 
 ## Detailed Breakdown
@@ -47,4 +47,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

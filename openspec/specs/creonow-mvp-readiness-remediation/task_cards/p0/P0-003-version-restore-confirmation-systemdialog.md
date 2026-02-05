@@ -7,6 +7,7 @@ Status: todo
 修复两处 restore 缺确认的 TODO：所有 restore 必须先弹 SystemDialog 确认，再执行 `version:restore`。
 
 > 审评报告定位：
+>
 > - `apps/desktop/renderer/src/components/layout/AppShell.tsx:414`
 > - `apps/desktop/renderer/src/features/version-history/VersionHistoryContainer.tsx:254`
 
@@ -24,20 +25,20 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Update | `apps/desktop/renderer/src/components/layout/AppShell.tsx`（restore 前 confirm） |
+| 操作   | 文件路径                                                                                               |
+| ------ | ------------------------------------------------------------------------------------------------------ |
+| Update | `apps/desktop/renderer/src/components/layout/AppShell.tsx`（restore 前 confirm）                       |
 | Update | `apps/desktop/renderer/src/features/version-history/VersionHistoryContainer.tsx`（restore 前 confirm） |
-| Update | `apps/desktop/tests/e2e/version-history.spec.ts`（restore 需确认） |
-| Update | `apps/desktop/tests/e2e/system-dialog.spec.ts`（若需要补充断言/选择器） |
+| Update | `apps/desktop/tests/e2e/version-history.spec.ts`（restore 需确认）                                     |
+| Update | `apps/desktop/tests/e2e/system-dialog.spec.ts`（若需要补充断言/选择器）                                |
 
 ## Detailed Breakdown
 
 1. 在 AppShell（compareMode 分支）实现确认：
    - 调用 `useConfirmDialog()`，渲染 `<SystemDialog {...dialogProps} />`
    - Restore 按钮点击后：
-     1) `await confirm({ title, description, ... })`
-     2) confirmed 才 `invoke(\"version:restore\", ...)`
+     1. `await confirm({ title, description, ... })`
+     2. confirmed 才 `invoke(\"version:restore\", ...)`
 2. 在 VersionHistoryContainer 实现确认：
    - 同样使用 `useConfirmDialog`
    - confirmed 才执行 restore
@@ -76,4 +77,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

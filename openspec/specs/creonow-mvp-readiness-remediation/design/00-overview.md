@@ -41,4 +41,3 @@
 - IPC contract + codegen：同一时间只能 1 个 PR 修改（强制串行，见 `design/09-parallel-execution-and-conflict-matrix.md`）。
 - CI：必须新增 `pnpm -C apps/desktop test:run`（Vitest 组件/Store），否则 P1 的 store tests 无门禁。
 - keytar：属于 native 依赖，必须明确 build/rebuild 策略与测试 stub（见 `design/06-security-hardening.md`）。
-

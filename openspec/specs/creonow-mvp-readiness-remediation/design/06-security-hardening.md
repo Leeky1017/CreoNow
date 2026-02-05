@@ -3,6 +3,7 @@
 > Spec: `../spec.md#cnmvp-req-006`、`../spec.md#cnmvp-req-007`
 >
 > Related cards:
+>
 > - `../task_cards/p1/P1-004-keytar-secure-api-key-storage.md`
 > - `../task_cards/p1/P1-005-xss-hardening-sanitize-html.md`
 
@@ -60,4 +61,3 @@ MVP 策略建议（写死其一，执行者不得自选）：
 - 路径 B：保留 innerHTML 但必须 DOMPurify sanitize
 
 任务卡会写死选择哪条路径，以避免实现漂移。
-

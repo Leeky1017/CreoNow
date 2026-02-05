@@ -13,4 +13,3 @@
 - P2：memo/virtualization/useShallow；console 收敛；strings 常量化
 
 细节以 OpenSpec 为 SSOT（本文件只作指针，避免双份规格漂移）。
-

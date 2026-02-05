@@ -22,11 +22,11 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Add | `apps/desktop/renderer/src/lib/logger.ts` |
-| Update | `apps/desktop/renderer/src/**`（替换 console.*） |
-| Add | `apps/desktop/tests/unit/no-console-in-production.spec.ts`（静态门禁） |
+| 操作   | 文件路径                                                               |
+| ------ | ---------------------------------------------------------------------- |
+| Add    | `apps/desktop/renderer/src/lib/logger.ts`                              |
+| Update | `apps/desktop/renderer/src/**`（替换 console.\*）                      |
+| Add    | `apps/desktop/tests/unit/no-console-in-production.spec.ts`（静态门禁） |
 
 ## Detailed Breakdown
 
@@ -51,4 +51,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

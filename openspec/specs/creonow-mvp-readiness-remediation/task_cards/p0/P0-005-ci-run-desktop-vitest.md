@@ -15,8 +15,8 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
+| 操作   | 文件路径                                                             |
+| ------ | -------------------------------------------------------------------- |
 | Update | `.github/workflows/ci.yml`（新增一步 Desktop component/store tests） |
 
 ## Detailed Breakdown
@@ -41,4 +41,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-

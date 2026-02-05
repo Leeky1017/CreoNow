@@ -18,16 +18,16 @@
 
 ## 2) 冲突矩阵（任务卡 × touchpoints）
 
-| Card | ipc-contract + codegen | main project service | renderer Dashboard | renderer VersionHistory | renderer AppShell | CI workflow |
-| --- | --- | --- | --- | --- | --- | --- |
-| P0-001 Dashboard actions | X | X | X |  |  |  |
-| P0-002 Version preview |  |  |  | X |  |  |
-| P0-003 Restore confirm |  |  |  | X | X |  |
-| P0-004 ErrorBoundary |  |  |  |  | X (mount point) |  |
-| P0-005 CI vitest |  |  |  |  |  | X |
-| P1-004 keytar |  | X (aiProxySettingsService) |  |  |  |  |
-| P1-007 AI retry |  | X (aiService) |  |  |  |  |
-| P2-004 logger | (可能)X | (可能)X | (可能)X | (可能)X | (可能)X |  |
+| Card                     | ipc-contract + codegen | main project service       | renderer Dashboard | renderer VersionHistory | renderer AppShell | CI workflow |
+| ------------------------ | ---------------------- | -------------------------- | ------------------ | ----------------------- | ----------------- | ----------- |
+| P0-001 Dashboard actions | X                      | X                          | X                  |                         |                   |             |
+| P0-002 Version preview   |                        |                            |                    | X                       |                   |             |
+| P0-003 Restore confirm   |                        |                            |                    | X                       | X                 |             |
+| P0-004 ErrorBoundary     |                        |                            |                    |                         | X (mount point)   |             |
+| P0-005 CI vitest         |                        |                            |                    |                         |                   | X           |
+| P1-004 keytar            |                        | X (aiProxySettingsService) |                    |                         |                   |             |
+| P1-007 AI retry          |                        | X (aiService)              |                    |                         |                   |             |
+| P2-004 logger            | (可能)X                | (可能)X                    | (可能)X            | (可能)X                 | (可能)X           |             |
 
 ## 3) 推荐并行策略（最小阻塞）
 
@@ -41,4 +41,3 @@
   - MUST 只做一个 domain（本 spec：project domain）
   - MUST 同步更新 `ipc-generated.ts`（`pnpm contract:generate`）
   - MUST 带一个最小 E2E 或 integration 覆盖该 domain
-

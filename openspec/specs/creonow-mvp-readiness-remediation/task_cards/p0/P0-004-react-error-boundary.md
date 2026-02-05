@@ -18,12 +18,12 @@ Status: todo
 
 ## Expected File Changes
 
-| 操作 | 文件路径 |
-| --- | --- |
-| Add | `apps/desktop/renderer/src/components/patterns/ErrorBoundary.tsx` |
-| Update | `apps/desktop/renderer/src/components/patterns/index.ts`（export） |
-| Update | `apps/desktop/renderer/src/main.tsx`（包裹 `<App />`） |
-| Add | `apps/desktop/renderer/src/components/patterns/ErrorBoundary.test.tsx`（Vitest：fallback + reload button） |
+| 操作   | 文件路径                                                                                                   |
+| ------ | ---------------------------------------------------------------------------------------------------------- |
+| Add    | `apps/desktop/renderer/src/components/patterns/ErrorBoundary.tsx`                                          |
+| Update | `apps/desktop/renderer/src/components/patterns/index.ts`（export）                                         |
+| Update | `apps/desktop/renderer/src/main.tsx`（包裹 `<App />`）                                                     |
+| Add    | `apps/desktop/renderer/src/components/patterns/ErrorBoundary.test.tsx`（Vitest：fallback + reload button） |
 
 ## Detailed Breakdown
 
@@ -64,4 +64,3 @@ Status: todo
 - Issue: TBD
 - PR: TBD
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
-
