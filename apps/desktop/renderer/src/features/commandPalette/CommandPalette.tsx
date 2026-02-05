@@ -21,7 +21,6 @@
 import React from "react";
 
 import { Text } from "../../components/primitives/Text";
-import { invoke } from "../../lib/ipcClient";
 import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
 
@@ -382,41 +381,13 @@ export function CommandPalette({
         group: "Suggestions",
         onSelect: () => {
           setErrorText(null);
-          if (!currentProjectId) {
-            setErrorText("NO_PROJECT: Please open a project first");
-            return;
-          }
+          // Always open ExportDialog; it handles NO_PROJECT error internally
           if (dialogActions?.onOpenExport) {
             dialogActions.onOpenExport();
             onOpenChange(false);
           } else {
             setErrorText("ACTION_FAILED: Export dialog not available");
           }
-        },
-      },
-      // === Export Markdown (直接导出，兼容现有 E2E 测试) ===
-      {
-        id: "export-markdown",
-        label: "Export Markdown",
-        icon: <DownloadIcon className="text-[var(--color-fg-muted)]" />,
-        group: "Suggestions",
-        onSelect: async () => {
-          setErrorText(null);
-          if (!currentProjectId) {
-            setErrorText("NO_PROJECT: Please open a project first");
-            return;
-          }
-
-          const res = await invoke("export:markdown", {
-            projectId: currentProjectId,
-            documentId: documentId ?? undefined,
-          });
-          if (!res.ok) {
-            setErrorText(`${res.error.code}: ${res.error.message}`);
-            return;
-          }
-
-          onOpenChange(false);
         },
       },
       // === Layout: Toggle Sidebar ===
@@ -541,8 +512,8 @@ export function CommandPalette({
     setActiveIndex(0);
   }, [query]);
 
-  // 打开时聚焦输入框
-  React.useEffect(() => {
+  // 打开时重置状态（使用 useLayoutEffect 确保同步执行，避免闪烁）
+  React.useLayoutEffect(() => {
     if (open) {
       setQuery("");
       setActiveIndex(0);
@@ -566,34 +537,37 @@ export function CommandPalette({
     }
   }, [activeIndex]);
 
-  // 键盘导航
-  function handleKeyDown(e: React.KeyboardEvent): void {
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        setActiveIndex((prev) =>
-          prev < flatItems.length - 1 ? prev + 1 : prev,
-        );
-        break;
+  // 键盘导航（使用 useCallback 确保 flatItems 闭包正确）
+  const handleKeyDown = React.useCallback(
+    (e: React.KeyboardEvent): void => {
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setActiveIndex((prev) =>
+            prev < flatItems.length - 1 ? prev + 1 : prev,
+          );
+          break;
 
-      case "ArrowUp":
-        e.preventDefault();
-        setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
-        break;
+        case "ArrowUp":
+          e.preventDefault();
+          setActiveIndex((prev) => (prev > 0 ? prev - 1 : prev));
+          break;
 
-      case "Enter":
-        e.preventDefault();
-        if (flatItems[activeIndex]) {
-          void flatItems[activeIndex].onSelect();
-        }
-        break;
+        case "Enter":
+          e.preventDefault();
+          if (flatItems[activeIndex]) {
+            void flatItems[activeIndex].onSelect();
+          }
+          break;
 
-      case "Escape":
-        e.preventDefault();
-        onOpenChange(false);
-        break;
-    }
-  }
+        case "Escape":
+          e.preventDefault();
+          onOpenChange(false);
+          break;
+      }
+    },
+    [flatItems, activeIndex, onOpenChange],
+  );
 
   if (!open) {
     return null;
@@ -628,6 +602,7 @@ export function CommandPalette({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="搜索命令或文件..."
             className="flex-1 bg-transparent border-none text-[15px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-placeholder)] outline-none"
             aria-label="Search commands"

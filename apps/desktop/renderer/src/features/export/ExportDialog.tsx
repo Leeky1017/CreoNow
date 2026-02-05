@@ -1,12 +1,14 @@
 import React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { Button, Checkbox, Select } from "../../components/primitives";
+import type { IpcError } from "../../../../../../packages/shared/types/ipc-generated";
+import { Button, Checkbox, Select, Tooltip } from "../../components/primitives";
+import { invoke } from "../../lib/ipcClient";
 
 /**
  * Export format types
  */
-export type ExportFormat = "pdf" | "markdown" | "word" | "txt";
+export type ExportFormat = "pdf" | "markdown" | "docx";
 
 /**
  * Page size options (PDF only)
@@ -45,6 +47,10 @@ export interface ExportDialogProps {
   open: boolean;
   /** Callback when open state changes */
   onOpenChange: (open: boolean) => void;
+  /** Current project ID (required for export IPC) */
+  projectId?: string | null;
+  /** Current document ID (optional; backend resolves current doc when omitted) */
+  documentId?: string | null;
   /** Document title to export */
   documentTitle?: string;
   /** Estimated file size */
@@ -61,13 +67,17 @@ export interface ExportDialogProps {
   progress?: number;
   /** Current step label for progress view */
   progressStep?: string;
+  /** Export result for controlled success view (stories) */
+  result?: { relativePath: string; bytesWritten: number };
+  /** Error for controlled error display (stories) */
+  error?: IpcError;
 }
 
 /**
  * Default export options
  */
 export const defaultExportOptions: ExportOptions = {
-  format: "pdf",
+  format: "markdown",
   pageSize: "a4",
   includeMetadata: true,
   versionHistory: false,
@@ -79,9 +89,8 @@ export const defaultExportOptions: ExportOptions = {
  */
 const progressSteps: ProgressStep[] = [
   { label: "Preparing...", threshold: 30 },
-  { label: "Generating pages...", threshold: 60 },
-  { label: "Embedding images...", threshold: 90 },
-  { label: "Finalizing PDF...", threshold: 100 },
+  { label: "Exporting...", threshold: 70 },
+  { label: "Finalizing...", threshold: 100 },
 ];
 
 /**
@@ -152,7 +161,7 @@ const formatOptions: FormatOption[] = [
     ),
   },
   {
-    value: "word",
+    value: "docx",
     label: "Word",
     description: ".docx",
     icon: (
@@ -172,28 +181,16 @@ const formatOptions: FormatOption[] = [
       </svg>
     ),
   },
-  {
-    value: "txt",
-    label: "Plain Text",
-    description: ".txt",
-    icon: (
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <line x1="16" y1="13" x2="8" y2="13" />
-        <line x1="16" y1="17" x2="8" y2="17" />
-        <line x1="10" y1="9" x2="8" y2="9" />
-      </svg>
-    ),
-  },
 ];
+
+const UNSUPPORTED_FORMAT_REASONS: Partial<Record<ExportFormat, string>> = {
+  pdf: "PDF export is not implemented in V1",
+  docx: "DOCX export is not implemented in V1",
+};
+
+function getUnsupportedReason(format: ExportFormat): string | null {
+  return UNSUPPORTED_FORMAT_REASONS[format] ?? null;
+}
 
 /**
  * Page size options for Select
@@ -269,12 +266,11 @@ const labelStyles = [
   "block",
 ].join(" ");
 
-const formatCardStyles = (isSelected: boolean) =>
+const formatCardStyles = (args: { isSelected: boolean; disabled: boolean }) =>
   [
     "p-3",
     "rounded-[var(--radius-md)]",
     "border",
-    "cursor-pointer",
     "transition-all",
     "duration-[var(--duration-fast)]",
     "h-full",
@@ -284,7 +280,8 @@ const formatCardStyles = (isSelected: boolean) =>
     "items-center",
     "text-center",
     "relative",
-    isSelected
+    args.disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+    args.isSelected
       ? [
           "border-[var(--color-accent)]",
           "bg-[var(--color-accent-subtle)]",
@@ -292,7 +289,7 @@ const formatCardStyles = (isSelected: boolean) =>
       : [
           "border-[var(--color-border-default)]",
           "bg-[rgba(8,8,8,0.5)]",
-          "hover:bg-[var(--color-bg-hover)]",
+          args.disabled ? "" : "hover:bg-[var(--color-bg-hover)]",
         ].join(" "),
   ].join(" ");
 
@@ -311,15 +308,27 @@ const radioIndicatorStyles = (isSelected: boolean) =>
 function FormatCard({
   option,
   isSelected,
+  disabledReason,
 }: {
   option: FormatOption;
   isSelected: boolean;
+  disabledReason?: string;
 }) {
-  return (
+  const disabled = typeof disabledReason === "string" && disabledReason.length > 0;
+
+  const item = (
     <RadioGroupPrimitive.Item
       value={option.value}
-      className={formatCardStyles(isSelected)}
+      disabled={disabled}
+      data-testid={`export-format-${option.value}`}
+      className={formatCardStyles({ isSelected, disabled })}
     >
+      {disabled ? (
+        <div className="absolute top-3 left-3 text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-bg-hover)] text-[var(--color-fg-muted)]">
+          UNSUPPORTED
+        </div>
+      ) : null}
+
       {/* 单选指示器 - 绝对定位在右上角，选中时为实心白色圆 */}
       <div className={`absolute top-3 right-3 ${radioIndicatorStyles(isSelected)}`} />
       
@@ -342,15 +351,23 @@ function FormatCard({
       {/* 描述 */}
       <div
         className={`text-xs mt-0.5 ${
-          option.value === "markdown" || option.value === "txt"
-            ? "font-mono"
-            : ""
+          option.value === "markdown" ? "font-mono" : ""
         } text-[var(--color-fg-muted)]`}
       >
         {option.description}
       </div>
     </RadioGroupPrimitive.Item>
   );
+
+  if (disabled && disabledReason) {
+    return (
+      <Tooltip content={disabledReason}>
+        <div className="h-full">{item}</div>
+      </Tooltip>
+    );
+  }
+
+  return item;
 }
 
 /**
@@ -399,18 +416,48 @@ function ConfigView({
   onExport,
   onCancel,
   estimatedSize,
+  exportDisabledReason,
+  error,
+  onDismissError,
 }: {
   options: ExportOptions;
   onOptionsChange: (options: ExportOptions) => void;
   onExport: () => void;
   onCancel: () => void;
   estimatedSize: string;
+  exportDisabledReason: string | null;
+  error: IpcError | null;
+  onDismissError: () => void;
 }) {
   const isPdfFormat = options.format === "pdf";
 
   return (
     <>
       <div className="overflow-y-auto p-6 space-y-6">
+        {error ? (
+          <div
+            data-testid="export-error"
+            className="p-3 rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-raised)]"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex-1 text-xs text-[var(--color-fg-muted)]">
+                <div data-testid="export-error-code" className="font-mono">
+                  {error.code}
+                </div>
+                <div data-testid="export-error-message">{error.message}</div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onDismissError}
+                className="shrink-0"
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         {/* Format Selection */}
         <div>
           <span className={labelStyles}>Format</span>
@@ -426,6 +473,7 @@ function ConfigView({
                 key={option.value}
                 option={option}
                 isSelected={options.format === option.value}
+                disabledReason={getUnsupportedReason(option.value) ?? undefined}
               />
             ))}
           </RadioGroupPrimitive.Root>
@@ -492,9 +540,16 @@ function ConfigView({
 
       {/* Footer */}
       <div className="p-6 pt-4 border-t border-[var(--color-separator)] flex items-center bg-[var(--color-bg-surface)]">
-        <span className="text-sm text-[var(--color-fg-muted)]">
-          {estimatedSize}
-        </span>
+        <div className="flex flex-col gap-1">
+          <span className="text-sm text-[var(--color-fg-muted)]">
+            {estimatedSize}
+          </span>
+          {exportDisabledReason ? (
+            <span className="text-xs text-[var(--color-fg-muted)]">
+              {exportDisabledReason}
+            </span>
+          ) : null}
+        </div>
         <div className="flex-1" />
         <div className="flex gap-3">
           <Button variant="ghost" onClick={onCancel}>
@@ -503,6 +558,8 @@ function ConfigView({
           <Button
             variant="primary"
             onClick={onExport}
+            data-testid="export-submit"
+            disabled={exportDisabledReason !== null}
           >
             Export
           </Button>
@@ -580,9 +637,15 @@ function ProgressView({
 /**
  * Success view - export complete
  */
-function SuccessView({ onDone }: { onDone: () => void }) {
+function SuccessView(props: {
+  result: { relativePath: string; bytesWritten: number };
+  onDone: () => void;
+}) {
   return (
-    <div className="flex flex-col h-[400px] items-center justify-center p-8 text-center">
+    <div
+      data-testid="export-success"
+      className="flex flex-col h-[400px] items-center justify-center p-8 text-center"
+    >
       {/* Success icon */}
       <div className="w-16 h-16 rounded-[var(--radius-full)] bg-[var(--color-success-subtle)] flex items-center justify-center text-[var(--color-success)] mb-6 border border-[var(--color-success)]/20">
         <svg
@@ -603,12 +666,35 @@ function SuccessView({ onDone }: { onDone: () => void }) {
         Export Complete
       </h3>
       <p className="text-[var(--color-fg-muted)] text-sm mb-8">
-        Your file has been successfully downloaded.
+        Your file has been written under your app profile exports folder.
       </p>
+
+      <div className="w-full max-w-sm mb-8 text-left">
+        <div className="text-[10px] font-semibold text-[var(--color-fg-placeholder)] uppercase tracking-[0.1em] mb-2">
+          Result
+        </div>
+        <div className="p-3 rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-raised)] space-y-1">
+          <div className="text-xs text-[var(--color-fg-muted)]">
+            <span className="font-mono">relativePath</span>:{" "}
+            <span
+              data-testid="export-success-relative-path"
+              className="font-mono"
+            >
+              {props.result.relativePath}
+            </span>
+          </div>
+          <div className="text-xs text-[var(--color-fg-muted)]">
+            <span className="font-mono">bytesWritten</span>:{" "}
+            <span data-testid="export-success-bytes-written" className="font-mono">
+              {props.result.bytesWritten}
+            </span>
+          </div>
+        </div>
+      </div>
 
       <Button
         variant="primary"
-        onClick={onDone}
+        onClick={props.onDone}
         className="!bg-white !text-black hover:!bg-gray-200"
       >
         Done
@@ -628,7 +714,7 @@ function SuccessView({ onDone }: { onDone: () => void }) {
  * progress tracking, and success feedback.
  *
  * Features:
- * - 4 format options: PDF, Markdown, Word, Plain Text
+ * - 3 format options: PDF, Markdown, Word
  * - Export settings: metadata, version history, embed images
  * - Page size selection (PDF only)
  * - Live preview thumbnail
@@ -648,6 +734,8 @@ function SuccessView({ onDone }: { onDone: () => void }) {
 export function ExportDialog({
   open,
   onOpenChange,
+  projectId = null,
+  documentId = null,
   documentTitle = "Untitled Document",
   estimatedSize = "~2.4 MB",
   initialOptions,
@@ -656,6 +744,8 @@ export function ExportDialog({
   view: controlledView,
   progress: controlledProgress,
   progressStep: controlledProgressStep,
+  result: controlledResult,
+  error: controlledError,
 }: ExportDialogProps): JSX.Element {
   // Internal state for uncontrolled mode
   const [internalView, setInternalView] = React.useState<ExportView>("config");
@@ -664,47 +754,112 @@ export function ExportDialog({
     ...defaultExportOptions,
     ...initialOptions,
   });
+  const [lastError, setLastError] = React.useState<IpcError | null>(null);
+  const [result, setResult] = React.useState<{
+    relativePath: string;
+    bytesWritten: number;
+  } | null>(null);
+  const requestIdRef = React.useRef(0);
 
   // Use controlled or internal values
   const view = controlledView ?? internalView;
   const progress = controlledProgress ?? internalProgress;
   const progressStep =
     controlledProgressStep ?? getProgressStepLabel(progress);
+  const error = controlledError ?? lastError;
+  const exportResult = controlledResult ?? result;
+
+  const dismissError = React.useCallback(() => {
+    if (controlledError) {
+      return;
+    }
+    setLastError(null);
+  }, [controlledError]);
 
   // Reset state when dialog opens
   React.useEffect(() => {
     if (open) {
       setInternalView("config");
       setInternalProgress(0);
-      setOptions({
+      setLastError(null);
+      setResult(null);
+      const nextOptions = {
         ...defaultExportOptions,
         ...initialOptions,
+      };
+      setOptions({
+        ...nextOptions,
+        format: getUnsupportedReason(nextOptions.format) ? "markdown" : nextOptions.format,
       });
     }
   }, [open, initialOptions]);
 
-  const handleExport = () => {
+  const exportDisabledReason = React.useMemo(() => {
+    const trimmedProjectId = projectId?.trim() ?? "";
+    if (trimmedProjectId.length === 0) {
+      return "NO_PROJECT: Please open a project first";
+    }
+    const unsupported = getUnsupportedReason(options.format);
+    if (unsupported) {
+      return `UNSUPPORTED: ${unsupported}`;
+    }
+    return null;
+  }, [options.format, projectId]);
+
+  const handleExport = async () => {
+    setLastError(null);
+    setResult(null);
+
+    if (exportDisabledReason) {
+      setLastError({
+        code: exportDisabledReason.startsWith("UNSUPPORTED:")
+          ? "UNSUPPORTED"
+          : "INVALID_ARGUMENT",
+        message: exportDisabledReason,
+      });
+      return;
+    }
+
+    const trimmedProjectId = projectId?.trim() ?? "";
+    const trimmedDocumentId = documentId?.trim() ?? "";
+    const payload = {
+      projectId: trimmedProjectId,
+      documentId: trimmedDocumentId.length > 0 ? trimmedDocumentId : undefined,
+    };
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
     setInternalView("progress");
+    setInternalProgress(30);
 
-    // Simulate export progress
-    let currentProgress = 0;
-    const interval = setInterval(() => {
-      currentProgress += Math.random() * 5;
-      if (currentProgress > 100) currentProgress = 100;
-      setInternalProgress(currentProgress);
+    const res =
+      options.format === "markdown"
+        ? await invoke("export:markdown", payload)
+        : options.format === "pdf"
+          ? await invoke("export:pdf", payload)
+          : await invoke("export:docx", payload);
 
-      if (currentProgress === 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setInternalView("success");
-          onExport?.(options);
-        }, 600);
-      }
-    }, 100);
+    if (requestIdRef.current !== requestId) {
+      return;
+    }
+
+    if (!res.ok) {
+      setLastError(res.error);
+      setInternalView("config");
+      setInternalProgress(0);
+      return;
+    }
+
+    setInternalProgress(100);
+    setResult(res.data);
+    setInternalView("success");
+    onExport?.(options);
   };
 
   const handleCancel = () => {
     if (view === "progress") {
+      requestIdRef.current += 1;
       setInternalView("config");
       setInternalProgress(0);
     } else {
@@ -717,11 +872,21 @@ export function ExportDialog({
     onOpenChange(false);
   };
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      requestIdRef.current += 1;
+    }
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+    <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className={overlayStyles} />
-        <DialogPrimitive.Content className={contentStyles}>
+        <DialogPrimitive.Content
+          data-testid="export-dialog"
+          className={contentStyles}
+        >
           {view === "config" && (
             <>
               {/* Header */}
@@ -758,6 +923,9 @@ export function ExportDialog({
                 onExport={handleExport}
                 onCancel={handleCancel}
                 estimatedSize={estimatedSize}
+                exportDisabledReason={exportDisabledReason}
+                error={error}
+                onDismissError={dismissError}
               />
             </>
           )}
@@ -786,9 +954,11 @@ export function ExportDialog({
                 Export Complete
               </DialogPrimitive.Title>
               <DialogPrimitive.Description className="sr-only">
-                Your file has been successfully downloaded.
+                Export completed successfully.
               </DialogPrimitive.Description>
-              <SuccessView onDone={handleDone} />
+              {exportResult ? (
+                <SuccessView result={exportResult} onDone={handleDone} />
+              ) : null}
             </>
           )}
         </DialogPrimitive.Content>

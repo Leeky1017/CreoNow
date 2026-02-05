@@ -87,6 +87,7 @@ export function AppShell(): JSX.Element {
   const compareMode = useEditorStore((s) => s.compareMode);
   const compareVersionId = useEditorStore((s) => s.compareVersionId);
   const setCompareMode = useEditorStore((s) => s.setCompareMode);
+  const documentId = useEditorStore((s) => s.documentId);
   const sidebarWidth = useLayoutStore((s) => s.sidebarWidth);
   const panelWidth = useLayoutStore((s) => s.panelWidth);
   const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
@@ -103,6 +104,8 @@ export function AppShell(): JSX.Element {
   const resetPanelWidth = useLayoutStore((s) => s.resetPanelWidth);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
+  // Counter to force CommandPalette remount on each open (ensures fresh state)
+  const [commandPaletteKey, setCommandPaletteKey] = React.useState(0);
   const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
   const [createProjectDialogOpen, setCreateProjectDialogOpen] =
@@ -154,6 +157,7 @@ export function AppShell(): JSX.Element {
       // Cmd/Ctrl+P: Command Palette
       if (e.key.toLowerCase() === "p") {
         e.preventDefault();
+        setCommandPaletteKey((k) => k + 1); // Force remount for fresh state
         setCommandPaletteOpen(true);
         return;
       }
@@ -361,6 +365,7 @@ export function AppShell(): JSX.Element {
       </div>
 
       <CommandPalette
+        key={commandPaletteKey}
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
         layoutActions={layoutActions}
@@ -377,6 +382,8 @@ export function AppShell(): JSX.Element {
       <ExportDialog
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
+        projectId={currentProjectId}
+        documentId={documentId}
         documentTitle="Current Document"
       />
 

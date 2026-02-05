@@ -16,10 +16,9 @@ import { ExportDialog, defaultExportOptions } from "./ExportDialog";
  * - Estimated size: ~2.4 MB
  *
  * Format options:
- * - PDF (default selected, blue border)
- * - Markdown
- * - Word
- * - Plain Text
+ * - Markdown (default selected)
+ * - PDF (currently UNSUPPORTED in V1)
+ * - Word (.docx; currently UNSUPPORTED in V1)
  *
  * Export settings:
  * - Include metadata (default checked)
@@ -81,6 +80,7 @@ type Story = StoryObj<typeof ExportDialog>;
 export const ConfigViewDefault: Story = {
   args: {
     open: true,
+    projectId: "storybook-project",
     documentTitle: "The Architecture of Silence",
     estimatedSize: "~2.4 MB",
     initialOptions: defaultExportOptions,
@@ -108,6 +108,7 @@ export const ConfigViewDefault: Story = {
 export const SelectMarkdownFormat: Story = {
   args: {
     open: true,
+    projectId: "storybook-project",
     documentTitle: "The Architecture of Silence",
     estimatedSize: "~1.2 MB",
     initialOptions: {
@@ -138,6 +139,7 @@ export const SelectMarkdownFormat: Story = {
 export const ToggleAllOptions: Story = {
   args: {
     open: true,
+    projectId: "storybook-project",
     documentTitle: "The Architecture of Silence",
     estimatedSize: "~1.2 MB",
     initialOptions: {
@@ -255,70 +257,16 @@ export const SuccessView: Story = {
     open: true,
     documentTitle: "The Architecture of Silence",
     view: "success",
+    result: {
+      relativePath: "exports/storybook-project/mock-doc.md",
+      bytesWritten: 1234,
+    },
   },
   parameters: {
     docs: {
       description: {
         story:
           "Export complete. Shows green checkmark, success message, and Done button with white background.",
-      },
-    },
-  },
-};
-
-/**
- * Story 8: SelectWordFormat
- *
- * Word format selected.
- * Validates:
- * - Word card selected (blue border)
- * - Page Size dropdown disabled
- * - Preview shows "WORD"
- */
-export const SelectWordFormat: Story = {
-  args: {
-    open: true,
-    documentTitle: "The Architecture of Silence",
-    estimatedSize: "~2.8 MB",
-    initialOptions: {
-      ...defaultExportOptions,
-      format: "word",
-    },
-  },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          "Word format selected. Page Size is disabled. Preview shows 'WORD • A4'.",
-      },
-    },
-  },
-};
-
-/**
- * Story 9: SelectPlainTextFormat
- *
- * Plain Text format selected.
- * Validates:
- * - Plain Text card selected
- * - Page Size dropdown disabled
- * - Smaller file size estimate
- */
-export const SelectPlainTextFormat: Story = {
-  args: {
-    open: true,
-    documentTitle: "The Architecture of Silence",
-    estimatedSize: "~128 KB",
-    initialOptions: {
-      ...defaultExportOptions,
-      format: "txt",
-    },
-  },
-  parameters: {
-    docs: {
-      description: {
-        story:
-          "Plain Text format selected. Page Size disabled. File size much smaller at ~128 KB.",
       },
     },
   },
