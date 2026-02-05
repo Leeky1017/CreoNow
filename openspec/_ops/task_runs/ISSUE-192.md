@@ -2,7 +2,7 @@
 
 - Issue: #192
 - Branch: task/192-p0-003-settingsdialog-single-path
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/193
 
 ## Plan
 
