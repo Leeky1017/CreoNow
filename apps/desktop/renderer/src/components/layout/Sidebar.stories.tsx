@@ -44,7 +44,6 @@ const meta = {
         "memory",
         "characters",
         "knowledgeGraph",
-        "settings",
       ] as LeftPanelType[],
       description: "Active left panel view",
     },
@@ -182,19 +181,6 @@ export const KnowledgeGraphPanel: Story = {
     collapsed: false,
     projectId: "test-project",
     activePanel: "knowledgeGraph",
-  },
-  render: RenderWrapper,
-};
-
-/**
- * Settings 面板
- */
-export const SettingsPanel: Story = {
-  args: {
-    width: LAYOUT_DEFAULTS.sidebar.default,
-    collapsed: false,
-    projectId: null,
-    activePanel: "settings",
   },
   render: RenderWrapper,
 };

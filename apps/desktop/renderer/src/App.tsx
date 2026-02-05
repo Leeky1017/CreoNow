@@ -55,15 +55,34 @@ export function App(): JSX.Element {
   }, [preferences]);
 
   React.useLayoutEffect(() => {
+    const system = window.matchMedia("(prefers-color-scheme: dark)");
+
+    function resolve(mode: ThemeMode): "dark" | "light" {
+      if (mode === "system") {
+        return system.matches ? "dark" : "light";
+      }
+      return mode;
+    }
+
     function apply(mode: ThemeMode): void {
-      document.documentElement.setAttribute("data-theme", mode);
+      document.documentElement.setAttribute("data-theme", resolve(mode));
+    }
+
+    function onSystemChange(): void {
+      if (themeStore.getState().mode === "system") {
+        apply("system");
+      }
     }
 
     apply(themeStore.getState().mode);
-    const unsubscribe = themeStore.subscribe((state) => {
-      apply(state.mode);
-    });
-    return unsubscribe;
+    const unsubscribe = themeStore.subscribe((state) => apply(state.mode));
+
+    system.addEventListener("change", onSystemChange);
+
+    return () => {
+      unsubscribe();
+      system.removeEventListener("change", onSystemChange);
+    };
   }, [themeStore]);
 
   const layoutStore = React.useMemo(() => {

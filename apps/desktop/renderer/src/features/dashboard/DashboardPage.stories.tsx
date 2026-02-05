@@ -115,7 +115,7 @@ function DashboardLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-full overflow-hidden bg-[var(--color-bg-base)]">
-      <IconBar />
+      <IconBar onOpenSettings={() => {}} />
       <div className="flex flex-1 flex-col min-h-0">
         <div className="flex flex-1 min-w-0 min-h-0">
           <Sidebar

@@ -131,15 +131,6 @@ describe("Sidebar", () => {
       expect(headers.length).toBeGreaterThan(0);
     });
 
-    it("activePanel=settings 应该显示 Settings 标题", () => {
-      renderWithWrapper({ ...defaultProps, activePanel: "settings" });
-
-      // 使用更具体的选择器：标题在 header 中
-      const headers = screen.getAllByText("Settings");
-      // 第一个应该是 header 中的
-      expect(headers.length).toBeGreaterThan(0);
-    });
-
     it("activePanel=versionHistory 应该显示 Version History 标题", () => {
       renderWithWrapper({ ...defaultProps, activePanel: "versionHistory" });
 

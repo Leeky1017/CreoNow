@@ -1,69 +1,47 @@
 import React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { Button, Text } from "../../components/primitives";
-import { SettingsGeneral, defaultGeneralSettings } from "./SettingsGeneral";
-import type { GeneralSettings } from "./SettingsGeneral";
-import { SettingsAppearancePage, defaultAppearanceSettings } from "./SettingsAppearancePage";
-import type { AppearanceSettings } from "./SettingsAppearancePage";
-import { SettingsExport, defaultExportSettings } from "./SettingsExport";
-import type { ExportSettings } from "./SettingsExport";
-import { SettingsAccount, defaultAccountSettings } from "./SettingsAccount";
-import type { AccountSettings } from "./SettingsAccount";
+
+import { Text } from "../../components/primitives";
+import { AnalyticsPageContent } from "../analytics/AnalyticsPage";
+import { AppearanceSection } from "../settings/AppearanceSection";
+import { JudgeSection } from "../settings/JudgeSection";
+import { ProxySection } from "../settings/ProxySection";
 
 /**
- * Settings tab values
+ * Settings tab values.
  */
-export type SettingsTab = "general" | "appearance" | "export" | "account";
+export type SettingsTab = "appearance" | "proxy" | "judge" | "analytics";
 
 /**
- * Complete settings state
- */
-export interface AllSettings {
-  general: GeneralSettings;
-  appearance: AppearanceSettings;
-  export: ExportSettings;
-}
-
-/**
- * SettingsDialog props
+ * SettingsDialog props.
  */
 export interface SettingsDialogProps {
   /** Controlled open state */
   open: boolean;
   /** Callback when open state changes */
   onOpenChange: (open: boolean) => void;
-  /** Initial settings values */
-  initialSettings?: AllSettings;
-  /** Callback when settings are saved */
-  onSave?: (settings: AllSettings) => void;
-  /** Account information */
-  account?: AccountSettings;
-  /** Callback when upgrade is requested */
-  onUpgrade?: () => void;
-  /** Callback when logout is requested */
-  onLogout?: () => void;
   /** Initial active tab */
   defaultTab?: SettingsTab;
 }
 
 /**
- * Nav item configuration
+ * Nav item configuration.
  */
-const navItems: { value: SettingsTab; label: string }[] = [
-  { value: "general", label: "General" },
+const navItems: Array<{ value: SettingsTab; label: string }> = [
   { value: "appearance", label: "Appearance" },
-  { value: "export", label: "Export & Share" },
-  { value: "account", label: "Account" },
+  { value: "proxy", label: "Proxy" },
+  { value: "judge", label: "Judge" },
+  { value: "analytics", label: "Analytics" },
 ];
 
 /**
- * Overlay styles
+ * Overlay styles.
  */
 const overlayStyles = [
   "fixed",
   "inset-0",
   "z-[var(--z-modal)]",
-  "bg-[rgba(0,0,0,0.75)]",
+  "bg-[var(--color-scrim)]",
   "backdrop-blur-sm",
   "transition-opacity",
   "duration-[var(--duration-normal)]",
@@ -73,7 +51,7 @@ const overlayStyles = [
 ].join(" ");
 
 /**
- * Content styles
+ * Content styles.
  */
 const contentStyles = [
   "fixed",
@@ -103,7 +81,7 @@ const contentStyles = [
 ].join(" ");
 
 /**
- * Sidebar styles
+ * Sidebar styles.
  */
 const sidebarStyles = [
   "w-[260px]",
@@ -117,7 +95,7 @@ const sidebarStyles = [
 ].join(" ");
 
 /**
- * Nav button styles
+ * Nav button styles.
  */
 const navButtonBaseStyles = [
   "w-full",
@@ -131,7 +109,7 @@ const navButtonBaseStyles = [
 ].join(" ");
 
 /**
- * Close button styles
+ * Close button styles.
  */
 const closeButtonStyles = [
   "absolute",
@@ -147,118 +125,49 @@ const closeButtonStyles = [
 ].join(" ");
 
 /**
- * SettingsDialog component
+ * SettingsDialog is the single-path Settings surface.
  *
- * A full-featured settings dialog with tabbed navigation.
- * Supports General, Appearance, Export & Share, and Account pages.
- *
- * @example
- * ```tsx
- * <SettingsDialog
- *   open={isOpen}
- *   onOpenChange={setIsOpen}
- *   onSave={handleSave}
- * />
- * ```
+ * Why: Settings must be reachable via a single, testable entry point (Cmd/Ctrl+,,
+ * CommandPalette, IconBar) and must absorb legacy SettingsPanel capabilities.
  */
 export function SettingsDialog({
   open,
   onOpenChange,
-  initialSettings,
-  onSave,
-  account = defaultAccountSettings,
-  onUpgrade,
-  onLogout,
-  defaultTab = "general",
+  defaultTab = "appearance",
 }: SettingsDialogProps): JSX.Element {
-  // Active tab state
   const [activeTab, setActiveTab] = React.useState<SettingsTab>(defaultTab);
 
-  // Settings state (local copy for editing)
-  const [settings, setSettings] = React.useState<AllSettings>({
-    general: initialSettings?.general ?? defaultGeneralSettings,
-    appearance: initialSettings?.appearance ?? defaultAppearanceSettings,
-    export: initialSettings?.export ?? defaultExportSettings,
-  });
-
-  // Track if settings have been modified (reserved for unsaved changes warning)
-  const [_isDirty, setIsDirty] = React.useState(false);
-  void _isDirty; // Will be used for unsaved changes warning dialog
-
-  // Reset state when dialog opens
   React.useEffect(() => {
     if (open) {
       setActiveTab(defaultTab);
-      setSettings({
-        general: initialSettings?.general ?? defaultGeneralSettings,
-        appearance: initialSettings?.appearance ?? defaultAppearanceSettings,
-        export: initialSettings?.export ?? defaultExportSettings,
-      });
-      setIsDirty(false);
     }
-  }, [open, initialSettings, defaultTab]);
+  }, [defaultTab, open]);
 
-  const handleSettingsChange = <K extends keyof AllSettings>(
-    key: K,
-    value: AllSettings[K],
-  ) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
-    setIsDirty(true);
-  };
-
-  const handleSave = () => {
-    onSave?.(settings);
-    setIsDirty(false);
-    onOpenChange(false);
-  };
-
-  const handleCancel = () => {
-    onOpenChange(false);
-  };
-
-  const renderContent = () => {
+  function renderContent(): JSX.Element {
     switch (activeTab) {
-      case "general":
-        return (
-          <SettingsGeneral
-            settings={settings.general}
-            onSettingsChange={(value) => handleSettingsChange("general", value)}
-          />
-        );
       case "appearance":
-        return (
-          <SettingsAppearancePage
-            settings={settings.appearance}
-            onSettingsChange={(value) =>
-              handleSettingsChange("appearance", value)
-            }
-          />
-        );
-      case "export":
-        return (
-          <SettingsExport
-            settings={settings.export}
-            onSettingsChange={(value) => handleSettingsChange("export", value)}
-          />
-        );
-      case "account":
-        return (
-          <SettingsAccount
-            account={account}
-            onUpgrade={onUpgrade}
-            onLogout={onLogout}
-          />
-        );
-      default:
-        return null;
+        return <AppearanceSection />;
+      case "proxy":
+        return <ProxySection />;
+      case "judge":
+        return <JudgeSection />;
+      case "analytics":
+        return <AnalyticsPageContent />;
+      default: {
+        const _exhaustive: never = activeTab;
+        return _exhaustive;
+      }
     }
-  };
+  }
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className={overlayStyles} />
-        <DialogPrimitive.Content className={contentStyles}>
+        <DialogPrimitive.Content
+          data-testid="settings-dialog"
+          className={contentStyles}
+        >
           {/* Sidebar Navigation */}
           <div className={sidebarStyles}>
             <div className="px-8 mb-8">
@@ -280,6 +189,7 @@ export function SettingsDialog({
                     key={value}
                     type="button"
                     onClick={() => setActiveTab(value)}
+                    data-testid={`settings-nav-${value}`}
                     className={`${navButtonBaseStyles} ${
                       isActive
                         ? "text-[var(--color-fg-default)] bg-[var(--color-bg-hover)] border-[var(--color-fg-default)]"
@@ -291,19 +201,6 @@ export function SettingsDialog({
                 );
               })}
             </nav>
-
-            {/* Logout button at bottom */}
-            <div className="mt-auto px-8">
-              <div className="pt-6 border-t border-[var(--color-border-default)]">
-                <button
-                  type="button"
-                  onClick={onLogout}
-                  className="flex items-center gap-2 text-[12px] text-[var(--color-fg-subtle)] hover:text-[var(--color-fg-default)] transition-colors"
-                >
-                  Log Out
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Main Content Area */}
@@ -328,40 +225,20 @@ export function SettingsDialog({
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-y-auto px-12 py-10">
-              {renderContent()}
+              <div className="flex flex-col gap-3.5">{renderContent()}</div>
             </div>
 
-            {/* Footer with Save/Cancel */}
-            <div className="p-8 border-t border-[var(--color-border-default)] flex justify-end gap-3 bg-[var(--color-bg-surface)]">
-              <Button variant="ghost" onClick={handleCancel}>
-                Cancel
-              </Button>
-              <Button variant="primary" onClick={handleSave}>
-                Save Changes
-              </Button>
-            </div>
+            {/* Hidden title for accessibility */}
+            <DialogPrimitive.Title className="sr-only">
+              Settings
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Description className="sr-only">
+              Configure application settings including appearance, proxy, judge,
+              and analytics.
+            </DialogPrimitive.Description>
           </div>
-
-          {/* Hidden title for accessibility */}
-          <DialogPrimitive.Title className="sr-only">
-            Settings
-          </DialogPrimitive.Title>
-          <DialogPrimitive.Description className="sr-only">
-            Configure your application settings including general preferences,
-            appearance, export options, and account settings.
-          </DialogPrimitive.Description>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>
   );
 }
-
-// Re-export types and defaults
-export { defaultGeneralSettings } from "./SettingsGeneral";
-export { defaultAppearanceSettings } from "./SettingsAppearancePage";
-export { defaultExportSettings } from "./SettingsExport";
-export { defaultAccountSettings } from "./SettingsAccount";
-export type { GeneralSettings } from "./SettingsGeneral";
-export type { AppearanceSettings, ThemeMode } from "./SettingsAppearancePage";
-export type { ExportSettings, ExportFormat } from "./SettingsExport";
-export type { AccountSettings, SubscriptionPlan } from "./SettingsAccount";

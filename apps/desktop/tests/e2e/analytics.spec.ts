@@ -137,9 +137,10 @@ test("analytics: wordsWritten + skillsUsed increment and are visible", async () 
     before.data.summary.skillsUsed,
   );
 
-  // Navigate to Settings panel (now in left sidebar) to access analytics button
+  // Open SettingsDialog and view analytics (single-path settings surface)
   await page.getByTestId("icon-bar-settings").click();
-  await page.getByTestId("open-analytics").click();
+  await expect(page.getByTestId("settings-dialog")).toBeVisible();
+  await page.getByTestId("settings-nav-analytics").click();
   await expect(page.getByTestId("analytics-page")).toBeVisible();
   await expect(page.getByTestId("analytics-today-words")).not.toHaveText("0");
   await expect(page.getByTestId("analytics-today-skills")).not.toHaveText("0");

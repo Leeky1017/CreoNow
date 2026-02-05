@@ -64,6 +64,24 @@ export function AnalyticsPage(props: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }): JSX.Element {
+  return (
+    <Dialog
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      title="Analytics"
+    >
+      <AnalyticsPageContent />
+    </Dialog>
+  );
+}
+
+/**
+ * AnalyticsPageContent shows basic writing and usage stats without an outer dialog wrapper.
+ *
+ * Why: SettingsDialog needs to embed analytics as a single-path Settings surface
+ * without introducing a nested modal stack.
+ */
+export function AnalyticsPageContent(): JSX.Element {
   const [today, setToday] = React.useState<StatsDay | null>(null);
   const [rangeSummary, setRangeSummary] = React.useState<StatsSummary | null>(
     null,
@@ -91,70 +109,61 @@ export function AnalyticsPage(props: {
   }, []);
 
   React.useEffect(() => {
-    if (!props.open) {
-      return;
-    }
     void refresh();
-  }, [props.open, refresh]);
+  }, [refresh]);
 
   return (
-    <Dialog
-      open={props.open}
-      onOpenChange={props.onOpenChange}
-      title="Analytics"
-    >
-      <div data-testid="analytics-page" className="flex flex-col gap-3.5">
-        <header className="flex items-baseline gap-2.5">
-          <Heading level="h3" className="font-extrabold">
-            Statistics
-          </Heading>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void refresh()}
-            className="ml-auto"
-          >
-            Refresh
-          </Button>
-        </header>
+    <div data-testid="analytics-page" className="flex flex-col gap-3.5">
+      <header className="flex items-baseline gap-2.5">
+        <Heading level="h3" className="font-extrabold">
+          Statistics
+        </Heading>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => void refresh()}
+          className="ml-auto"
+        >
+          Refresh
+        </Button>
+      </header>
 
-        {error ? (
-          <Text data-testid="analytics-error" size="small" color="muted">
-            {error.code}: {error.message}
-          </Text>
-        ) : null}
+      {error ? (
+        <Text data-testid="analytics-error" size="small" color="muted">
+          {error.code}: {error.message}
+        </Text>
+      ) : null}
 
-        <section className="grid grid-cols-4 gap-2.5">
-          <StatCard
-            label="Today words"
-            value={today ? today.summary.wordsWritten : 0}
-            testId="analytics-today-words"
-          />
-          <StatCard
-            label="Today time"
-            value={today ? formatSeconds(today.summary.writingSeconds) : "0s"}
-          />
-          <StatCard
-            label="Today skills"
-            value={today ? today.summary.skillsUsed : 0}
-            testId="analytics-today-skills"
-          />
-          <StatCard
-            label="Today docs"
-            value={today ? today.summary.documentsCreated : 0}
-          />
-        </section>
+      <section className="grid grid-cols-4 gap-2.5">
+        <StatCard
+          label="Today words"
+          value={today ? today.summary.wordsWritten : 0}
+          testId="analytics-today-words"
+        />
+        <StatCard
+          label="Today time"
+          value={today ? formatSeconds(today.summary.writingSeconds) : "0s"}
+        />
+        <StatCard
+          label="Today skills"
+          value={today ? today.summary.skillsUsed : 0}
+          testId="analytics-today-skills"
+        />
+        <StatCard
+          label="Today docs"
+          value={today ? today.summary.documentsCreated : 0}
+        />
+      </section>
 
-        <Card className="p-3 rounded-[var(--radius-md)]">
-          <Text size="small" color="muted">
-            Range (last 7d)
-          </Text>
-          <div className="flex gap-3 mt-1.5">
-            <Text size="small">words: {rangeSummary?.wordsWritten ?? 0}</Text>
-            <Text size="small">skills: {rangeSummary?.skillsUsed ?? 0}</Text>
-          </div>
-        </Card>
-      </div>
-    </Dialog>
+      <Card className="p-3 rounded-[var(--radius-md)]">
+        <Text size="small" color="muted">
+          Range (last 7d)
+        </Text>
+        <div className="flex gap-3 mt-1.5">
+          <Text size="small">words: {rangeSummary?.wordsWritten ?? 0}</Text>
+          <Text size="small">skills: {rangeSummary?.skillsUsed ?? 0}</Text>
+        </div>
+      </Card>
+    </div>
   );
 }

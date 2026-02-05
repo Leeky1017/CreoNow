@@ -28,6 +28,19 @@ export function AppearanceSection(): JSX.Element {
 
         <div className="ml-auto flex gap-2">
           <Button
+            data-testid="theme-mode-system"
+            variant={mode === "system" ? "primary" : "secondary"}
+            size="sm"
+            onClick={() => setMode("system")}
+            className={
+              mode === "system"
+                ? "bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]"
+                : ""
+            }
+          >
+            System
+          </Button>
+          <Button
             data-testid="theme-mode-dark"
             variant={mode === "dark" ? "primary" : "secondary"}
             size="sm"

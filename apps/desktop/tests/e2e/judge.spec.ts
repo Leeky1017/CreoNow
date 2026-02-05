@@ -37,9 +37,10 @@ test("judge: settings shows state + ensure transitions", async () => {
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
 
-  // Navigate to Settings panel (now in left sidebar)
+  // Open SettingsDialog (single-path settings surface)
   await page.getByTestId("icon-bar-settings").click();
-  await expect(page.getByTestId("settings-panel")).toBeVisible();
+  await expect(page.getByTestId("settings-dialog")).toBeVisible();
+  await page.getByTestId("settings-nav-judge").click();
   const status = page.getByTestId("judge-status");
   await expect(status).toBeVisible();
 

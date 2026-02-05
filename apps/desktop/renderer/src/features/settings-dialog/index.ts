@@ -1,16 +1,12 @@
 /**
  * SettingsDialog feature module
  *
- * Full-featured settings dialog with tabbed navigation.
- * Includes General, Appearance, Export & Share, and Account pages.
+ * Single-path settings dialog surface used by the app.
+ * Includes Appearance/Proxy/Judge/Analytics entry points.
  */
 
 export { SettingsDialog } from "./SettingsDialog";
-export type {
-  SettingsDialogProps,
-  SettingsTab,
-  AllSettings,
-} from "./SettingsDialog";
+export type { SettingsDialogProps, SettingsTab } from "./SettingsDialog";
 
 // Re-export page components for standalone use
 export { SettingsGeneral, defaultGeneralSettings } from "./SettingsGeneral";

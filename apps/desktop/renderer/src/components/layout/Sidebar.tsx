@@ -4,7 +4,6 @@ import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
 import { MemoryPanel } from "../../features/memory/MemoryPanel";
 import { OutlinePanel } from "../../features/outline/OutlinePanel";
 import { SearchPanel } from "../../features/search/SearchPanel";
-import { SettingsPanel } from "../../features/settings/SettingsPanel";
 import { VersionHistoryPanelContent } from "../../features/version-history/VersionHistoryPanel";
 import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
 
@@ -32,7 +31,6 @@ const PANEL_TITLES: Record<LeftPanelType, string> = {
   memory: "Memory",
   characters: "Characters",
   knowledgeGraph: "Knowledge Graph",
-  settings: "Settings",
 };
 
 /**
@@ -131,9 +129,6 @@ export function Sidebar(props: {
             Open a project to view knowledge graph
           </div>
         );
-
-      case "settings":
-        return <SettingsPanel />;
 
       default: {
         // Exhaustive check

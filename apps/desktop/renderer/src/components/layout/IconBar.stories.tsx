@@ -30,9 +30,10 @@ type Story = StoryObj<typeof meta>;
  * 固定 48px 宽度的垂直导航栏
  */
 export const Default: Story = {
-  render: () => (
+  args: { onOpenSettings: () => {} },
+  render: (args) => (
     <div style={{ display: "flex", height: "400px" }}>
-      <IconBar />
+      <IconBar {...args} />
       <div
         style={{
           flex: 1,
@@ -56,9 +57,10 @@ export const Default: Story = {
  * 展示 IconBar 在全屏高度下的表现
  */
 export const FullHeight: Story = {
-  render: () => (
+  args: { onOpenSettings: () => {} },
+  render: (args) => (
     <div style={{ display: "flex", height: "100vh" }}>
-      <IconBar />
+      <IconBar {...args} />
       <div
         style={{
           flex: 1,

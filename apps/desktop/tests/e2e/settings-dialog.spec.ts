@@ -23,7 +23,7 @@ function getAppRoot(): string {
   return path.resolve(__dirname, "../..");
 }
 
-test("theme: switch to light + persist across restart", async () => {
+test("settings-dialog: shortcut opens + theme persists + proxy errors observable", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const appRoot = getAppRoot();
 
@@ -44,10 +44,22 @@ test("theme: switch to light + persist across restart", async () => {
   }
 
   const first = await launch();
-  // Open SettingsDialog (single-path settings surface)
-  await first.page.getByTestId("icon-bar-settings").click();
+
+  await first.page.keyboard.press("Control+,");
   await expect(first.page.getByTestId("settings-dialog")).toBeVisible();
 
+  // Proxy: enable without baseUrl should show INVALID_ARGUMENT (observable failure)
+  await first.page.getByTestId("settings-nav-proxy").click();
+  await expect(first.page.getByTestId("proxy-save")).toBeVisible();
+  await first.page.getByTestId("proxy-base-url").fill("");
+  await first.page.getByTestId("proxy-enabled").click();
+  await first.page.getByTestId("proxy-save").click();
+  await expect(first.page.getByTestId("proxy-error")).toContainText(
+    "INVALID_ARGUMENT",
+  );
+
+  // Theme: switch to light and persist across restart
+  await first.page.getByTestId("settings-nav-appearance").click();
   await first.page.getByTestId("theme-mode-light").click();
   await expect(first.page.locator("html")).toHaveAttribute(
     "data-theme",
@@ -57,9 +69,7 @@ test("theme: switch to light + persist across restart", async () => {
   await first.electronApp.close();
 
   const second = await launch();
-  await expect(second.page.locator("html")).toHaveAttribute(
-    "data-theme",
-    "light",
-  );
+  await expect(second.page.locator("html")).toHaveAttribute("data-theme", "light");
   await second.electronApp.close();
 });
+

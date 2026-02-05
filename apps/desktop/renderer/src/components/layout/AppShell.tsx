@@ -291,7 +291,10 @@ export function AppShell(): JSX.Element {
       data-testid="app-shell"
       className="flex h-full bg-[var(--color-bg-base)]"
     >
-      <IconBar />
+      <IconBar
+        onOpenSettings={() => setSettingsDialogOpen(true)}
+        settingsOpen={settingsDialogOpen}
+      />
 
       <div className="flex flex-1 flex-col">
         <div className="flex flex-1 min-w-0">

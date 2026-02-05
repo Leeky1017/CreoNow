@@ -5,7 +5,7 @@ import type { PreferenceStore } from "../lib/preferences";
 
 const APP_ID = "creonow" as const;
 
-export type ThemeMode = "dark" | "light";
+export type ThemeMode = "dark" | "light" | "system";
 
 export type ThemeState = {
   mode: ThemeMode;
@@ -29,7 +29,7 @@ function prefKey(name: "mode"): `${typeof APP_ID}.theme.${typeof name}` {
 }
 
 function normalizeMode(raw: unknown): ThemeMode | null {
-  return raw === "dark" || raw === "light" ? raw : null;
+  return raw === "dark" || raw === "light" || raw === "system" ? raw : null;
 }
 
 /**
@@ -40,7 +40,7 @@ function normalizeMode(raw: unknown): ThemeMode | null {
  */
 export function createThemeStore(preferences: PreferenceStore) {
   const stored = preferences.get<ThemeMode>(prefKey("mode"));
-  const initialMode = normalizeMode(stored) ?? "dark";
+  const initialMode = normalizeMode(stored) ?? "system";
 
   return create<ThemeStore>((set) => ({
     mode: initialMode,

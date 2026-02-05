@@ -143,13 +143,13 @@ export function ProxySection(): JSX.Element {
       </div>
 
       {errorText ? (
-        <Text size="small" color="muted">
+        <Text data-testid="proxy-error" size="small" color="muted">
           {errorText}
         </Text>
       ) : null}
 
       {testResult ? (
-        <Text size="small" color="muted">
+        <Text data-testid="proxy-test-result" size="small" color="muted">
           Test: {testResult}
         </Text>
       ) : null}

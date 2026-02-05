@@ -58,29 +58,48 @@ const MAIN_ICONS: IconItem[] = [
   { panel: "files", Icon: FolderOpen, label: "Files", testId: "icon-bar-files" },
   { panel: "search", Icon: Search, label: "Search", testId: "icon-bar-search" },
   { panel: "outline", Icon: List, label: "Outline", testId: "icon-bar-outline" },
-  { panel: "versionHistory", Icon: History, label: "Version History", testId: "icon-bar-version-history" },
+  {
+    panel: "versionHistory",
+    Icon: History,
+    label: "Version History",
+    testId: "icon-bar-version-history",
+  },
   { panel: "memory", Icon: Brain, label: "Memory", testId: "icon-bar-memory" },
-  { panel: "characters", Icon: User, label: "Characters", testId: "icon-bar-characters" },
-  { panel: "knowledgeGraph", Icon: Network, label: "Knowledge Graph", testId: "icon-bar-knowledge-graph" },
+  {
+    panel: "characters",
+    Icon: User,
+    label: "Characters",
+    testId: "icon-bar-characters",
+  },
+  {
+    panel: "knowledgeGraph",
+    Icon: Network,
+    label: "Knowledge Graph",
+    testId: "icon-bar-knowledge-graph",
+  },
 ];
 
-/**
- * Bottom section icons (settings, etc).
- */
-const BOTTOM_ICONS: IconItem[] = [
-  { panel: "settings", Icon: Settings, label: "Settings", testId: "icon-bar-settings" },
-];
+export interface IconBarProps {
+  /** Open SettingsDialog (single-path Settings surface). */
+  onOpenSettings: () => void;
+  /** Whether SettingsDialog is currently open (for pressed state). */
+  settingsOpen?: boolean;
+}
 
 /**
  * IconBar is the fixed 48px navigation rail (Windsurf-style).
  *
  * Behavior:
- * - Click an icon: switch to that view and expand sidebar if collapsed
+ * - Click a nav icon: switch to that view and expand sidebar if collapsed
  * - Click the same icon again: toggle sidebar collapse
  *
- * Design spec §5.2: Icon Bar width is 48px, icons are 24px, click area is 40x40px.
+ * Why: Settings must be a single-path dialog surface, so Settings opens a dialog
+ * instead of switching the left panel.
  */
-export function IconBar(): JSX.Element {
+export function IconBar({
+  onOpenSettings,
+  settingsOpen = false,
+}: IconBarProps): JSX.Element {
   const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useLayoutStore((s) => s.setSidebarCollapsed);
   const activeLeftPanel = useLayoutStore((s) => s.activeLeftPanel);
@@ -124,6 +143,8 @@ export function IconBar(): JSX.Element {
     );
   };
 
+  const settingsIsActive = settingsOpen;
+
   return (
     <div
       className="flex flex-col items-center pt-2 pb-2 bg-[var(--color-bg-surface)] border-r border-[var(--color-separator)] h-full"
@@ -138,10 +159,21 @@ export function IconBar(): JSX.Element {
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Bottom icons (Settings) */}
+      {/* Settings (dialog entry point) */}
       <div className="flex flex-col items-center gap-1">
-        {BOTTOM_ICONS.map(renderIconButton)}
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className={`${iconButtonBase} ${settingsIsActive ? iconButtonActive : iconButtonInactive}`}
+          aria-label="Settings"
+          aria-pressed={settingsIsActive}
+          data-testid="icon-bar-settings"
+          title="Settings"
+        >
+          <Settings size={20} strokeWidth={1.5} />
+        </button>
       </div>
     </div>
   );
 }
+

@@ -25,8 +25,7 @@ export type LeftPanelType =
   | "versionHistory"
   | "memory"
   | "characters"
-  | "knowledgeGraph"
-  | "settings";
+  | "knowledgeGraph";
 
 /**
  * Right panel tab types.

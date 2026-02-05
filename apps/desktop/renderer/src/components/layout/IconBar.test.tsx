@@ -7,7 +7,7 @@ describe("IconBar", () => {
   const renderWithWrapper = () => {
     return render(
       <LayoutTestWrapper>
-        <IconBar />
+        <IconBar onOpenSettings={() => {}} />
       </LayoutTestWrapper>,
     );
   };
