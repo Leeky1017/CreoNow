@@ -1,6 +1,6 @@
 # P0-010: RightPanel（Info/Quality 真接电：stats + judge/constraints）
 
-Status: todo
+Status: done
 
 ## Goal
 
@@ -33,7 +33,7 @@ Status: todo
 ## Detailed Breakdown（建议拆分 PR）
 
 1. PR-A：InfoPanel 最小闭环（stats + word count 任一）
-2. PR-B：QualityPanel 真接电（judge/constraints；禁止“空数组假通过”）
+2. PR-B：QualityPanel 真接电（judge/constraints；禁止"空数组假通过"）
 3. PR-C：E2E 门禁（rightpanel-info-quality.spec.ts）
 
 ## Conflict Notes（并行约束）
@@ -42,31 +42,31 @@ Status: todo
 
 ## Acceptance Criteria
 
-- [ ] Info 面板（最小闭环）：
-  - [ ] 显示当前文档的基础信息（标题/更新时间/字数至少一项）
-  - [ ] 显示今日写作 stats（来自 `stats:getToday`）
-  - [ ] 无项目/无文档时显示清晰空态（不崩溃）
-- [ ] Quality 面板（最小闭环）：
-  - [ ] 展示 judge model 状态（来自 `judge:model:getState`）
-  - [ ] 展示 constraints 条数（来自 `constraints:get`）
-  - [ ] 失败/超时/不可用时必须可观察（UI 显示 `code: message`）
-  - [ ] “Run all checks” 至少触发一次刷新（重新拉取 judge/constraints）
-- [ ] 禁止占位：
-  - [ ] 不再传 `checkGroups={[]}` 的“假通过”状态作为默认渲染
+- [x] Info 面板（最小闭环）：
+  - [x] 显示当前文档的基础信息（标题/更新时间/字数至少一项）
+  - [x] 显示今日写作 stats（来自 `stats:getToday`）
+  - [x] 无项目/无文档时显示清晰空态（不崩溃）
+- [x] Quality 面板（最小闭环）：
+  - [x] 展示 judge model 状态（来自 `judge:model:getState`）
+  - [x] 展示 constraints 条数（来自 `constraints:get`）
+  - [x] 失败/超时/不可用时必须可观察（UI 显示 `code: message`）
+  - [x] "Run all checks" 至少触发一次刷新（重新拉取 judge/constraints）
+- [x] 禁止占位：
+  - [x] 不再传 `checkGroups={[]}` 的"假通过"状态作为默认渲染
 
 ## Tests
 
-- [ ] E2E `rightpanel-info-quality.spec.ts`：
-  - [ ] 打开 Info tab → 断言至少一个真实字段可见（如 word count 或 stats）
-  - [ ] 打开 Quality tab → 断言 judge 状态可见
-  - [ ] 触发 ensure/refresh（或 Run all checks）→ UI 状态更新
+- [x] E2E `rightpanel-info-quality.spec.ts`：
+  - [x] 打开 Info tab → 断言至少一个真实字段可见（如 word count 或 stats）
+  - [x] 打开 Quality tab → 断言 judge 状态可见
+  - [x] 触发 ensure/refresh（或 Run all checks）→ UI 状态更新
 
 ## Edge cases & Failure modes
 
 - stats IPC 不可用：
   - Info 面板必须降级显示（仍可用其他字段），并提示错误原因
 - judge ensure 需要下载：
-  - UI 必须呈现 running/downloading 状态（不可“卡住无反馈”）
+  - UI 必须呈现 running/downloading 状态（不可"卡住无反馈"）
 
 ## Observability
 
@@ -75,11 +75,19 @@ Status: todo
 
 ## Manual QA (Storybook WSL-IP)
 
-- [ ] Storybook `Layout/RightPanel` 与 `Features/QualityGatesPanel`：
-  - [ ] tab 切换、滚动、状态色彩符合 tokens（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
+- [x] Storybook `Layout/RightPanel` 与 `Features/QualityGatesPanel`：
+  - [x] tab 切换、滚动、状态色彩符合 tokens（留证到 RUN_LOG；证据格式见 `../design/08-test-and-qa-matrix.md`）
 
 ## Completion
 
-- Issue: TBD
-- PR: TBD
-- RUN_LOG: `openspec/_ops/task_runs/ISSUE-<N>.md`
+- Issue: #209
+- PR: https://github.com/Leeky1017/CreoNow/pull/210
+- RUN_LOG: `openspec/_ops/task_runs/ISSUE-209.md`
+
+### Summary
+
+1. 新增 `InfoPanel.tsx`：显示当前文档标题/更新时间 + 今日写作 stats
+2. 新增 `QualityPanel.tsx`：展示 judge model 状态 + constraints 条数，错误可观察
+3. 更新 `RightPanel.tsx`：使用真实组件替代占位
+4. 新增 E2E 测试 `rightpanel-info-quality.spec.ts`
+5. 所有 CI checks 通过，PR 已合并
