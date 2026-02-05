@@ -19,6 +19,7 @@ import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
 import { SettingsDialog } from "../../features/settings-dialog/SettingsDialog";
 import { ExportDialog } from "../../features/export/ExportDialog";
 import { CreateProjectDialog } from "../../features/projects/CreateProjectDialog";
+import { ZenMode } from "../../features/zen-mode/ZenMode";
 import { useVersionCompare } from "../../features/version-history/useVersionCompare";
 import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
@@ -30,6 +31,136 @@ import { invoke } from "../../lib/ipcClient";
  */
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
+}
+
+/**
+ * Extract title and paragraphs from TipTap JSON content.
+ *
+ * Why: ZenMode needs document content in a simplified format (title + paragraphs).
+ */
+function extractZenModeContent(contentJson: string | null): {
+  title: string;
+  paragraphs: string[];
+  wordCount: number;
+} {
+  if (!contentJson) {
+    return { title: "Untitled", paragraphs: [], wordCount: 0 };
+  }
+
+  try {
+    const doc = JSON.parse(contentJson) as {
+      content?: Array<{
+        type: string;
+        attrs?: { level?: number };
+        content?: Array<{ type: string; text?: string }>;
+      }>;
+    };
+
+    let title = "Untitled";
+    const paragraphs: string[] = [];
+    let wordCount = 0;
+
+    if (doc.content) {
+      for (const node of doc.content) {
+        const text =
+          node.content
+            ?.filter((c) => c.type === "text")
+            .map((c) => c.text ?? "")
+            .join("") ?? "";
+
+        if (!text.trim()) continue;
+
+        // First heading becomes title
+        if (node.type === "heading" && title === "Untitled") {
+          title = text;
+          wordCount += text.split(/\s+/).filter(Boolean).length;
+        } else if (node.type === "paragraph" || node.type === "heading") {
+          paragraphs.push(text);
+          wordCount += text.split(/\s+/).filter(Boolean).length;
+        }
+      }
+    }
+
+    return { title, paragraphs, wordCount };
+  } catch {
+    return { title: "Untitled", paragraphs: [], wordCount: 0 };
+  }
+}
+
+/**
+ * ZenModeOverlay - Connects ZenMode to editor state.
+ *
+ * Why: Separates overlay wiring from AppShell complexity; pulls content from
+ * editorStore and autosaveStatus for the status bar.
+ */
+function ZenModeOverlay(props: {
+  open: boolean;
+  onExit: () => void;
+}): JSX.Element | null {
+  const editor = useEditorStore((s) => s.editor);
+  const autosaveStatus = useEditorStore((s) => s.autosaveStatus);
+  const documentContentJson = useEditorStore((s) => s.documentContentJson);
+
+  // Get current time for status bar
+  const [currentTime, setCurrentTime] = React.useState(() =>
+    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+  );
+
+  React.useEffect(() => {
+    if (!props.open) return;
+
+    const interval = setInterval(() => {
+      setCurrentTime(
+        new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      );
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [props.open]);
+
+  // Extract content from editor or fallback to stored JSON
+  const content = React.useMemo(() => {
+    if (editor) {
+      const json = JSON.stringify(editor.getJSON());
+      return extractZenModeContent(json);
+    }
+    return extractZenModeContent(documentContentJson);
+  }, [editor, documentContentJson]);
+
+  // Map autosave status to display text
+  const saveStatus = React.useMemo(() => {
+    switch (autosaveStatus) {
+      case "saving":
+        return "Saving...";
+      case "saved":
+        return "Saved";
+      case "error":
+        return "Save failed";
+      default:
+        return "Saved";
+    }
+  }, [autosaveStatus]);
+
+  // Calculate read time (average 200 words per minute)
+  const readTimeMinutes = Math.max(1, Math.ceil(content.wordCount / 200));
+
+  return (
+    <ZenMode
+      open={props.open}
+      onExit={props.onExit}
+      content={{
+        title: content.title,
+        paragraphs: content.paragraphs,
+        showCursor: true,
+      }}
+      stats={{
+        wordCount: content.wordCount,
+        saveStatus,
+        readTimeMinutes,
+      }}
+      currentTime={currentTime}
+    />
+  );
 }
 
 /**
@@ -375,7 +506,11 @@ export function AppShell(): JSX.Element {
             />
           ) : null}
 
-          <RightPanel width={effectivePanelWidth} collapsed={panelCollapsed} />
+          <RightPanel
+            width={effectivePanelWidth}
+            collapsed={panelCollapsed}
+            onOpenSettings={() => setSettingsDialogOpen(true)}
+          />
         </div>
 
         <StatusBar />
@@ -407,6 +542,12 @@ export function AppShell(): JSX.Element {
       <CreateProjectDialog
         open={createProjectDialogOpen}
         onOpenChange={setCreateProjectDialogOpen}
+      />
+
+      {/* Zen Mode Overlay */}
+      <ZenModeOverlay
+        open={zenMode}
+        onExit={() => setZenMode(false)}
       />
     </div>
   );

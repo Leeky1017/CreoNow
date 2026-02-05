@@ -1,3 +1,5 @@
+import React from "react";
+
 import {
   LAYOUT_DEFAULTS,
   useLayoutStore,
@@ -5,6 +7,23 @@ import {
 } from "../../stores/layoutStore";
 import { AiPanel } from "../../features/ai/AiPanel";
 import { InfoPanel, QualityPanel } from "../../features/rightpanel";
+
+/**
+ * Context for opening SettingsDialog from nested components (e.g., SkillPicker).
+ */
+export const OpenSettingsContext = React.createContext<(() => void) | null>(null);
+
+/**
+ * Hook to get the openSettings callback from context.
+ */
+export function useOpenSettings(): () => void {
+  const openSettings = React.useContext(OpenSettingsContext);
+  if (!openSettings) {
+    // Fallback: no-op if context not provided
+    return () => {};
+  }
+  return openSettings;
+}
 
 /**
  * Tab button styles for right panel.
@@ -57,13 +76,11 @@ const RIGHT_PANEL_TABS: Array<{
 export function RightPanel(props: {
   width: number;
   collapsed: boolean;
+  /** Callback to open SettingsDialog from nested components */
+  onOpenSettings?: () => void;
 }): JSX.Element {
   const activeRightPanel = useLayoutStore((s) => s.activeRightPanel);
   const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
-
-  if (props.collapsed) {
-    return <aside data-testid="layout-panel" className="hidden w-0" />;
-  }
 
   /**
    * Render the content for the active tab.
@@ -83,39 +100,53 @@ export function RightPanel(props: {
     }
   };
 
-  return (
-    <aside
-      data-testid="layout-panel"
-      className="flex flex-col bg-[var(--color-bg-surface)] border-l border-[var(--color-separator)]"
-      style={{
-        width: props.width,
-        minWidth: LAYOUT_DEFAULTS.panel.min,
-        maxWidth: LAYOUT_DEFAULTS.panel.max,
-      }}
-    >
-      {/* Tab bar */}
-      <div className="flex items-center gap-1 px-2 py-2 border-b border-[var(--color-separator)]">
-        {RIGHT_PANEL_TABS.map(({ type, label, testId }) => {
-          const isActive = activeRightPanel === type;
-          return (
-            <button
-              key={type}
-              type="button"
-              onClick={() => setActiveRightPanel(type)}
-              className={`${tabButtonBase} ${isActive ? tabButtonActive : tabButtonInactive}`}
-              aria-pressed={isActive}
-              data-testid={testId}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+  const openSettings = props.onOpenSettings ?? (() => {});
 
-      {/* Tab content */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        {renderContent()}
-      </div>
-    </aside>
+  // Always wrap in Provider to maintain consistent DOM structure for React reconciliation.
+  // This ensures element references remain valid across collapsed/expanded state changes.
+  if (props.collapsed) {
+    return (
+      <OpenSettingsContext.Provider value={openSettings}>
+        <aside data-testid="layout-panel" className="hidden w-0" />
+      </OpenSettingsContext.Provider>
+    );
+  }
+
+  return (
+    <OpenSettingsContext.Provider value={openSettings}>
+      <aside
+        data-testid="layout-panel"
+        className="flex flex-col bg-[var(--color-bg-surface)] border-l border-[var(--color-separator)]"
+        style={{
+          width: props.width,
+          minWidth: LAYOUT_DEFAULTS.panel.min,
+          maxWidth: LAYOUT_DEFAULTS.panel.max,
+        }}
+      >
+        {/* Tab bar */}
+        <div className="flex items-center gap-1 px-2 py-2 border-b border-[var(--color-separator)]">
+          {RIGHT_PANEL_TABS.map(({ type, label, testId }) => {
+            const isActive = activeRightPanel === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setActiveRightPanel(type)}
+                className={`${tabButtonBase} ${isActive ? tabButtonActive : tabButtonInactive}`}
+                aria-pressed={isActive}
+                data-testid={testId}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab content */}
+        <div className="flex-1 min-h-0 overflow-auto">
+          {renderContent()}
+        </div>
+      </aside>
+    </OpenSettingsContext.Provider>
   );
 }

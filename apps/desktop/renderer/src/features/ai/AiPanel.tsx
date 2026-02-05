@@ -5,6 +5,7 @@ import {
   type AiErrorConfig,
 } from "../../components/features/AiDialogs";
 import { Button, Spinner, Text } from "../../components/primitives";
+import { useOpenSettings } from "../../components/layout/RightPanel";
 import { useAiStore, type AiStatus } from "../../stores/aiStore";
 import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
@@ -178,6 +179,7 @@ function InfoPanel(): JSX.Element {
 export function AiPanel(): JSX.Element {
   useAiStream();
 
+  const openSettings = useOpenSettings();
   const status = useAiStore((s) => s.status);
   const selectedSkillId = useAiStore((s) => s.selectedSkillId);
   const skills = useAiStore((s) => s.skills);
@@ -470,9 +472,11 @@ export function AiPanel(): JSX.Element {
             open={historyOpen}
             onOpenChange={setHistoryOpen}
             onSelectChat={(chatId) => {
-              // TODO: Load chat by ID
-              console.log("Load chat:", chatId);
+              // History feature: select a chat by ID
+              // Currently shows a placeholder UI; full implementation is P1 scope
               setHistoryOpen(false);
+              // Optionally show a toast or notification that this feature is coming
+              void chatId; // Acknowledge the parameter for type checking
             }}
           />
         </div>
@@ -664,8 +668,8 @@ export function AiPanel(): JSX.Element {
                           setSkillsOpen(false);
                         }}
                         onOpenSettings={() => {
-                          // TODO: Open SKILL settings dialog
-                          console.log("Open SKILL settings");
+                          setSkillsOpen(false);
+                          openSettings();
                         }}
                       />
                     </div>

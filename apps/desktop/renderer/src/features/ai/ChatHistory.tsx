@@ -178,16 +178,17 @@ function ChatHistoryItemRow(props: {
         {relativeTime}
       </span>
 
-      {/* Hover actions */}
+      {/* Hover actions - disabled until chat persistence is implemented (P1 scope) */}
       <div className="hidden group-hover:flex items-center gap-0.5 ml-2">
         <button
           type="button"
-          title="Rename"
+          title="Rename (Coming soon)"
+          disabled
           onClick={(e) => {
             e.stopPropagation();
-            // TODO: Rename chat title
+            // Chat rename: requires chat persistence (P1 scope)
           }}
-          className="w-4 h-4 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] rounded"
+          className="w-4 h-4 flex items-center justify-center text-[var(--color-fg-muted)] opacity-50 cursor-not-allowed rounded"
         >
           <svg
             width="10"
@@ -203,12 +204,13 @@ function ChatHistoryItemRow(props: {
         </button>
         <button
           type="button"
-          title="Delete"
+          title="Delete (Coming soon)"
+          disabled
           onClick={(e) => {
             e.stopPropagation();
-            // TODO: Delete chat
+            // Chat delete: requires chat persistence (P1 scope)
           }}
-          className="w-4 h-4 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-error-default)] rounded"
+          className="w-4 h-4 flex items-center justify-center text-[var(--color-fg-muted)] opacity-50 cursor-not-allowed rounded"
         >
           <svg
             width="10"

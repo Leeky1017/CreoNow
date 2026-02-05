@@ -2,8 +2,11 @@ import React from "react";
 
 import { Button, Card, Input, Select, Text } from "../../components/primitives";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
+import { KnowledgeGraph } from "../../components/features/KnowledgeGraph/KnowledgeGraph";
+import type { GraphNode, NodeType } from "../../components/features/KnowledgeGraph/types";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useKgStore } from "../../stores/kgStore";
+import { kgToGraph, updatePositionInMetadata, createEntityMetadataWithPosition } from "./kgToGraph";
 
 type EditingState =
   | { mode: "idle" }
@@ -16,15 +19,62 @@ type EditingState =
     }
   | { mode: "relation"; relationId: string; relationType: string };
 
+/** View mode for the KG panel */
+type ViewMode = "list" | "graph";
+
 function entityLabel(args: { name: string; entityType?: string }): string {
   return args.entityType ? `${args.name} (${args.entityType})` : args.name;
 }
 
 /**
- * KnowledgeGraphPanel renders the minimal KG CRUD surface.
+ * Map NodeType to KG entity type string.
+ */
+function nodeTypeToEntityType(nodeType: NodeType): string {
+  return nodeType === "other" ? "" : nodeType;
+}
+
+/**
+ * ViewModeToggle - Toggle buttons for List/Graph view.
+ *
+ * Why: Extracted to avoid TypeScript narrowing issues in parent component.
+ */
+function ViewModeToggle(props: {
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+}): JSX.Element {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => props.onViewModeChange("list")}
+        className={`px-2 py-1 text-xs rounded transition-colors ${
+          props.viewMode === "list"
+            ? "bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]"
+            : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
+        }`}
+      >
+        List
+      </button>
+      <button
+        type="button"
+        onClick={() => props.onViewModeChange("graph")}
+        className={`px-2 py-1 text-xs rounded transition-colors ${
+          props.viewMode === "graph"
+            ? "bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]"
+            : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
+        }`}
+      >
+        Graph
+      </button>
+    </div>
+  );
+}
+
+/**
+ * KnowledgeGraphPanel renders the KG CRUD surface with List and Graph views.
  *
  * Why: P0 requires KG discoverability (sidebar entry), CRUD, and predictable
- * data for context injection.
+ * data for context injection. Graph view provides visual exploration.
  */
 export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   const bootstrapStatus = useKgStore((s) => s.bootstrapStatus);
@@ -46,6 +96,8 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   const relationDelete = useKgStore((s) => s.relationDelete);
 
   const [editing, setEditing] = React.useState<EditingState>({ mode: "idle" });
+  const [viewMode, setViewMode] = React.useState<ViewMode>("list");
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
 
   const [createName, setCreateName] = React.useState("");
   const [createType, setCreateType] = React.useState("");
@@ -178,15 +230,172 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
     return e ? e.name : entityId;
   }
 
+  // Convert KG data to graph format for visualization
+  const graphData = React.useMemo(
+    () => kgToGraph(entities, relations),
+    [entities, relations],
+  );
+
+  /**
+   * Handle node position change (drag) in graph view.
+   * Persists position to entity metadataJson.
+   */
+  async function onNodeMove(
+    nodeId: string,
+    position: { x: number; y: number },
+  ): Promise<void> {
+    const entity = entities.find((e) => e.entityId === nodeId);
+    if (!entity) return;
+
+    const updatedMetadata = updatePositionInMetadata(
+      entity.metadataJson,
+      position,
+    );
+
+    await entityUpdate({
+      entityId: nodeId,
+      patch: { metadataJson: updatedMetadata },
+    });
+  }
+
+  /**
+   * Handle add node from graph view.
+   */
+  async function onAddNode(nodeType: NodeType): Promise<void> {
+    // Calculate position for new node (center of visible area)
+    const position = { x: 300, y: 200 };
+
+    const res = await entityCreate({
+      name: "New Entity",
+      entityType: nodeTypeToEntityType(nodeType),
+      description: "",
+    });
+
+    if (res.ok) {
+      // Update with position metadata
+      const metadata = createEntityMetadataWithPosition(nodeType, position);
+      await entityUpdate({
+        entityId: res.data.entityId,
+        patch: { metadataJson: metadata },
+      });
+      setSelectedNodeId(res.data.entityId);
+    }
+  }
+
+  /**
+   * Handle node save from graph edit dialog.
+   */
+  async function onNodeSave(node: GraphNode, isNew: boolean): Promise<void> {
+    if (isNew) {
+      // Create new entity
+      const res = await entityCreate({
+        name: node.label,
+        entityType: node.type === "other" ? "" : node.type,
+        description: node.metadata?.description ?? "",
+      });
+
+      if (res.ok) {
+        const metadata = createEntityMetadataWithPosition(node.type, node.position);
+        await entityUpdate({
+          entityId: res.data.entityId,
+          patch: { metadataJson: metadata },
+        });
+        setSelectedNodeId(res.data.entityId);
+      }
+    } else {
+      // Update existing entity
+      const entity = entities.find((e) => e.entityId === node.id);
+      if (!entity) return;
+
+      const updatedMetadata = updatePositionInMetadata(
+        entity.metadataJson,
+        node.position,
+      );
+
+      await entityUpdate({
+        entityId: node.id,
+        patch: {
+          name: node.label,
+          entityType: node.type === "other" ? "" : node.type,
+          description: node.metadata?.description ?? "",
+          metadataJson: updatedMetadata,
+        },
+      });
+    }
+  }
+
+  /**
+   * Handle node delete from graph view.
+   */
+  async function onNodeDeleteFromGraph(nodeId: string): Promise<void> {
+    await onDeleteEntity(nodeId);
+    setSelectedNodeId(null);
+  }
+
+  // Render Graph view
+  if (viewMode === "graph") {
+    return (
+      <section data-testid="sidebar-kg" className="flex flex-col h-full min-h-0">
+        {/* Header with view toggle */}
+        <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)] shrink-0">
+          <Text size="small" color="muted">
+            Knowledge Graph
+          </Text>
+          <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+        </div>
+
+        {/* Error display */}
+        {lastError ? (
+          <div
+            role="alert"
+            className="p-3 border-b border-[var(--color-separator)] shrink-0"
+          >
+            <div className="flex gap-2 items-center">
+              <Text data-testid="kg-error-code" size="code" color="muted">
+                {lastError.code}
+              </Text>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={clearError}
+                className="ml-auto"
+              >
+                Dismiss
+              </Button>
+            </div>
+            <Text size="small" className="mt-1.5 block">
+              {lastError.message}
+            </Text>
+          </div>
+        ) : null}
+
+        {/* Graph visualization */}
+        <div className="flex-1 min-h-0">
+          <KnowledgeGraph
+            data={graphData}
+            selectedNodeId={selectedNodeId}
+            onNodeSelect={setSelectedNodeId}
+            onNodeMove={(nodeId, pos) => void onNodeMove(nodeId, pos)}
+            onAddNode={(type) => void onAddNode(type)}
+            onNodeSave={(node, isNew) => void onNodeSave(node, isNew)}
+            onNodeDelete={(nodeId) => void onNodeDeleteFromGraph(nodeId)}
+            enableEditDialog={true}
+          />
+        </div>
+
+        <SystemDialog {...dialogProps} />
+      </section>
+    );
+  }
+
+  // Render List view (original)
   return (
     <section data-testid="sidebar-kg" className="flex flex-col gap-3 min-h-0">
       <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)]">
         <Text size="small" color="muted">
           Knowledge Graph
         </Text>
-        <Text size="tiny" color="muted">
-          {bootstrapStatus}
-        </Text>
+        <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
       </div>
 
       {lastError ? (

@@ -1,4 +1,4 @@
-import { CharacterPanelContent } from "../../features/character/CharacterPanel";
+import { CharacterPanelContainer } from "../../features/character/CharacterPanelContainer";
 import { FileTreePanel } from "../../features/files/FileTreePanel";
 import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
 import { MemoryPanel } from "../../features/memory/MemoryPanel";
@@ -101,7 +101,7 @@ export function Sidebar(props: {
 
       case "characters":
         return props.projectId ? (
-          <CharacterPanelContent characters={[]} />
+          <CharacterPanelContainer projectId={props.projectId} />
         ) : (
           <div className="p-3 text-xs text-[var(--color-fg-muted)]">
             Open a project to manage characters
