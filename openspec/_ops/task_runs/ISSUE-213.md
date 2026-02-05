@@ -6,7 +6,7 @@
 | ------ | -------------------------------------------------------------------- |
 | Issue  | [#213](https://github.com/Leeky1017/CreoNow/issues/213)              |
 | Branch | `task/213-p1-frontend-assembly`                                      |
-| PR     | TBD                                                                  |
+| PR     | [#214](https://github.com/Leeky1017/CreoNow/pull/214)                |
 
 ## Plan
 
