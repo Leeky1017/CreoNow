@@ -2,7 +2,7 @@
 
 - Issue: #238
 - Branch: task/238-cnaud-039-openspec-rewrite
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/239
 
 ## Plan
 
@@ -41,3 +41,9 @@
 - Command: scripts/agent_pr_preflight.sh
 - Key output: preflight fully passed; typecheck/lint/contract/unit-test all green (lint warning-only, 0 errors)
 - Evidence: scripts/agent_pr_preflight.sh output, apps/desktop/tests/unit/storybook-inventory.spec.ts output
+
+### 2026-02-07 01:24 pr-opened
+
+- Command: gh pr create / gh pr edit
+- Key output: PR #239 created and body normalized; includes `Closes #238`
+- Evidence: https://github.com/Leeky1017/CreoNow/pull/239
