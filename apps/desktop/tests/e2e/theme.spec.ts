@@ -47,6 +47,8 @@ test("theme: switch to light + persist across restart", async () => {
   // Open SettingsDialog (single-path settings surface)
   await first.page.getByTestId("icon-bar-settings").click();
   await expect(first.page.getByTestId("settings-dialog")).toBeVisible();
+  await first.page.getByTestId("settings-nav-appearance").click();
+  await expect(first.page.getByTestId("theme-mode-light")).toBeVisible();
 
   await first.page.getByTestId("theme-mode-light").click();
   await expect(first.page.locator("html")).toHaveAttribute(
