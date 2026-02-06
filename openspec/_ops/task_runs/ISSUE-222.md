@@ -2,7 +2,7 @@
 
 - Issue: #222
 - Branch: `task/222-p0-002-version-preview-dialog`
-- PR: <pending>
+- PR: https://github.com/Leeky1017/CreoNow/pull/223
 
 ## Goal
 
@@ -10,13 +10,13 @@
 
 ## Status
 
-- CURRENT: preflight 已通过，准备提交并创建 PR。
+- CURRENT: PR 已创建并回填，等待 checks + auto-merge。
 
 ## Next Actions
 
 - [x] 运行 preflight（typecheck/lint/contract:check/test:unit）。
-- [ ] 提交并推送（commit message 含 `(#222)`）。
-- [ ] 创建 PR（body 含 `Closes #222`）并启用 auto-merge。
+- [x] 提交并推送（commit message 含 `(#222)`）。
+- [ ] 监控 `ci`/`openspec-log-guard`/`merge-serial` 并确认 `mergedAt != null`。
 
 ## Decisions Made
 
@@ -87,3 +87,15 @@
   - `pnpm test:unit` passed.
 - Evidence:
   - `scripts/agent_pr_preflight.sh` output (latest run)
+
+### 2026-02-06 00:00 Commit, push, and PR creation
+
+- Command:
+  - `git commit -m "feat: implement version preview read-only dialog (#222)"`
+  - `git push -u origin HEAD`
+  - `gh pr create --title "[MVP-REMED] P0-002: Version Preview dialog real read-only (#222)" ...`
+- Key output:
+  - Commit `e238283` created and pushed.
+  - PR `#223` created with `Closes #222` in body.
+- Evidence:
+  - `https://github.com/Leeky1017/CreoNow/pull/223`
