@@ -5,6 +5,7 @@ import {
   type VersionEntry,
   type VersionAuthorType,
 } from "./VersionHistoryPanel";
+import { VersionPreviewDialog } from "./VersionPreviewDialog";
 import { useVersionCompare } from "./useVersionCompare";
 import { useEditorStore } from "../../stores/editorStore";
 import { invoke } from "../../lib/ipcClient";
@@ -17,10 +18,20 @@ type VersionListItem = {
   createdAt: number;
 };
 
+type VersionPreview = {
+  versionId: string;
+  actor: "user" | "auto" | "ai";
+  reason: string;
+  createdAt: number;
+  contentText: string;
+};
+
 /**
  * Map backend actor to UI author type.
  */
-function mapActorToAuthorType(actor: "user" | "auto" | "ai"): VersionAuthorType {
+function mapActorToAuthorType(
+  actor: "user" | "auto" | "ai",
+): VersionAuthorType {
   switch (actor) {
     case "user":
       return "user";
@@ -191,6 +202,15 @@ export function VersionHistoryContainer(
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [currentHash, setCurrentHash] = React.useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [previewLoading, setPreviewLoading] = React.useState(false);
+  const [previewData, setPreviewData] = React.useState<VersionPreview | null>(
+    null,
+  );
+  const [previewError, setPreviewError] = React.useState<{
+    code: string;
+    message: string;
+  } | null>(null);
 
   // Fetch version list when documentId changes
   React.useEffect(() => {
@@ -266,9 +286,41 @@ export function VersionHistoryContainer(
     [documentId],
   );
 
-  const handlePreview = React.useCallback((versionId: string) => {
-    // TODO: Implement preview (read-only view of version)
-    console.log("Preview version:", versionId);
+  const handlePreview = React.useCallback(
+    async (versionId: string) => {
+      if (!documentId) return;
+
+      setPreviewOpen(true);
+      setPreviewLoading(true);
+      setPreviewData(null);
+      setPreviewError(null);
+
+      const res = await invoke("version:read", { documentId, versionId });
+      if (res.ok) {
+        setPreviewData({
+          versionId: res.data.versionId,
+          actor: res.data.actor,
+          reason: res.data.reason,
+          createdAt: res.data.createdAt,
+          contentText: res.data.contentText,
+        });
+        setPreviewLoading(false);
+        return;
+      }
+
+      setPreviewError({ code: res.error.code, message: res.error.message });
+      setPreviewLoading(false);
+    },
+    [documentId],
+  );
+
+  const handlePreviewOpenChange = React.useCallback((open: boolean) => {
+    setPreviewOpen(open);
+    if (!open) {
+      setPreviewLoading(false);
+      setPreviewData(null);
+      setPreviewError(null);
+    }
   }, []);
 
   if (!documentId) {
@@ -304,14 +356,23 @@ export function VersionHistoryContainer(
   }
 
   return (
-    <VersionHistoryPanelContent
-      timeGroups={timeGroups}
-      selectedId={selectedId}
-      onSelect={setSelectedId}
-      onCompare={handleCompare}
-      onRestore={handleRestore}
-      onPreview={handlePreview}
-      showCloseButton={false}
-    />
+    <>
+      <VersionHistoryPanelContent
+        timeGroups={timeGroups}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onCompare={handleCompare}
+        onRestore={handleRestore}
+        onPreview={handlePreview}
+        showCloseButton={false}
+      />
+      <VersionPreviewDialog
+        open={previewOpen}
+        loading={previewLoading}
+        data={previewData}
+        error={previewError}
+        onOpenChange={handlePreviewOpenChange}
+      />
+    </>
   );
 }
