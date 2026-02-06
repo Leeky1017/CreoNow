@@ -9,6 +9,9 @@ import { VersionPreviewDialog } from "./VersionPreviewDialog";
 import { useVersionCompare } from "./useVersionCompare";
 import { useEditorStore } from "../../stores/editorStore";
 import { invoke } from "../../lib/ipcClient";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
+import { RESTORE_VERSION_CONFIRM_COPY } from "./restoreConfirmCopy";
 
 type VersionListItem = {
   versionId: string;
@@ -194,7 +197,9 @@ export function VersionHistoryContainer(
   props: VersionHistoryContainerProps,
 ): JSX.Element {
   const documentId = useEditorStore((s) => s.documentId);
+  const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
   const { startCompare } = useVersionCompare();
+  const { confirm, dialogProps } = useConfirmDialog();
 
   const [items, setItems] = React.useState<VersionListItem[]>([]);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -271,8 +276,11 @@ export function VersionHistoryContainer(
     async (versionId: string) => {
       if (!documentId) return;
 
-      // TODO: Show SystemDialog confirmation before restore
-      // For now, call restore directly
+      const confirmed = await confirm(RESTORE_VERSION_CONFIRM_COPY);
+      if (!confirmed) {
+        return;
+      }
+
       const res = await invoke("version:restore", { documentId, versionId });
       if (res.ok) {
         // Refresh version list
@@ -280,10 +288,10 @@ export function VersionHistoryContainer(
         if (listRes.ok) {
           setItems(listRes.data.items);
         }
-        // TODO: Refresh editor content
+        await bootstrapEditor(props.projectId);
       }
     },
-    [documentId],
+    [bootstrapEditor, confirm, documentId, props.projectId],
   );
 
   const handlePreview = React.useCallback(
@@ -373,6 +381,7 @@ export function VersionHistoryContainer(
         error={previewError}
         onOpenChange={handlePreviewOpenChange}
       />
+      <SystemDialog {...dialogProps} />
     </>
   );
 }
