@@ -2,7 +2,7 @@
 
 - Issue: #224
 - Branch: `task/224-p0-004-error-boundary`
-- PR: <pending>
+- PR: https://github.com/Leeky1017/CreoNow/pull/225
 
 ## Goal
 
@@ -10,13 +10,13 @@
 
 ## Status
 
-- CURRENT: preflight 已通过，准备提交并创建 PR。
+- CURRENT: PR 已创建并回填，等待 checks + auto-merge。
 
 ## Next Actions
 
 - [x] 运行 preflight（typecheck/lint/contract:check/test:unit）。
-- [ ] 提交并推送（commit message 含 `(#224)`）。
-- [ ] 创建 PR（body 含 `Closes #224`）并启用 auto-merge。
+- [x] 提交并推送（commit message 含 `(#224)`）。
+- [ ] 监控 `ci`/`openspec-log-guard`/`merge-serial` 并确认 `mergedAt != null`。
 
 ## Decisions Made
 
@@ -84,3 +84,15 @@
   - `pnpm test:unit` passed.
 - Evidence:
   - `scripts/agent_pr_preflight.sh` output (latest run)
+
+### 2026-02-06 00:00 Commit, push, and PR creation
+
+- Command:
+  - `git commit -m "feat: add global renderer error boundary (#224)"`
+  - `git push -u origin HEAD`
+  - `gh pr create --title "[MVP-REMED] P0-004: Global ErrorBoundary (#224)" ...`
+- Key output:
+  - Commit `349506b` created and pushed.
+  - PR `#225` created with `Closes #224`.
+- Evidence:
+  - `https://github.com/Leeky1017/CreoNow/pull/225`
