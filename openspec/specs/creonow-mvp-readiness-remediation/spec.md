@@ -8,7 +8,7 @@
 | 状态                    | Draft                                                                                                                                                                                       |
 | 更新日期                | 2026-02-05                                                                                                                                                                                  |
 | 目标                    | 基于 MVP 审评报告，把剩余阻塞项与关键短板**执行化**为可并行、可验收、可测试的任务卡：Phase 1（P0）把 MVP 就绪度从 ~85% 拉到 ≥95%；Phase 2/3（P1/P2）提供 1–2 周的质量/安全/性能加固施工图。 |
-| 上游依赖（硬约束）      | `AGENTS.md`、`design/system/README.md`、`design/system/01-tokens.css`、`design/DESIGN_DECISIONS.md`                                                                                         |
+| 上游依赖（硬约束）      | `AGENTS.md`、`design/system/README.md`、`design/system/01-tokens.css`、`design/DESIGN_DECISIONS.md`                                                                                       |
 | 上游规格（关联）        | `openspec/specs/creonow-frontend-full-assembly/spec.md`（本 spec 为其“审评后 delta 执行化”，见 `design/01-delta-map.md`）                                                                   |
 | 参考输入（不作为 SSOT） | `/home/leeky/.cursor/plans/creonow_mvp审评报告_1a7946f4.plan.md`                                                                                                                            |
 | SSOT（本规范以此为准）  | 本 spec + `design/**` + `task_cards/**`（每张任务卡写死触碰文件、验收标准、测试与边界场景）                                                                                                 |
