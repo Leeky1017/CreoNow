@@ -8,6 +8,7 @@ const invokeMock = vi.hoisted(() => vi.fn());
 const startCompareMock = vi.hoisted(() => vi.fn());
 const editorState = vi.hoisted(() => ({
   documentId: "doc-1",
+  bootstrapForProject: vi.fn(),
 }));
 
 vi.mock("../../lib/ipcClient", () => ({
@@ -127,10 +128,20 @@ function installInvokeMock(args?: {
   });
 }
 
+/**
+ * Count how many times `version:restore` was invoked in the mocked IPC client.
+ */
+function getRestoreInvokeCount(): number {
+  return invokeMock.mock.calls.filter(
+    ([channel]) => channel === "version:restore",
+  ).length;
+}
+
 describe("VersionHistoryContainer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     editorState.documentId = "doc-1";
+    editorState.bootstrapForProject.mockReset();
     installInvokeMock();
   });
 
@@ -177,5 +188,35 @@ describe("VersionHistoryContainer", () => {
 
     const error = await screen.findByTestId("version-preview-error");
     expect(error).toHaveTextContent("NOT_FOUND: Version not found");
+  });
+
+  it("restore requires confirmation and refreshes editor only after confirm", async () => {
+    const user = userEvent.setup();
+
+    render(<VersionHistoryContainer projectId="project-1" />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("version-history-panel-content-mock"),
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("version-restore-trigger"));
+    expect(getRestoreInvokeCount()).toBe(0);
+
+    const cancel = await screen.findByRole("button", { name: "Cancel" });
+    await user.click(cancel);
+    expect(getRestoreInvokeCount()).toBe(0);
+
+    await user.click(screen.getByTestId("version-restore-trigger"));
+    const confirm = await screen.findByRole("button", {
+      name: "Restore version",
+    });
+    await user.click(confirm);
+
+    await waitFor(() => {
+      expect(getRestoreInvokeCount()).toBe(1);
+    });
+    expect(editorState.bootstrapForProject).toHaveBeenCalledWith("project-1");
   });
 });
