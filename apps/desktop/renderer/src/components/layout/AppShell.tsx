@@ -20,9 +20,12 @@ import { SettingsDialog } from "../../features/settings-dialog/SettingsDialog";
 import { ExportDialog } from "../../features/export/ExportDialog";
 import { CreateProjectDialog } from "../../features/projects/CreateProjectDialog";
 import { ZenMode } from "../../features/zen-mode/ZenMode";
-import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
+<<<<<<< ours
+import { SystemDialog } from "../features/AiDialogs/SystemDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { RESTORE_VERSION_CONFIRM_COPY } from "../../features/version-history/restoreConfirmCopy";
+=======
+>>>>>>> theirs
 import { useVersionCompare } from "../../features/version-history/useVersionCompare";
 import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
@@ -114,10 +117,7 @@ function ZenModeOverlay(props: {
 
     const interval = setInterval(() => {
       setCurrentTime(
-        new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
+        new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       );
     }, 60000);
 
@@ -248,13 +248,16 @@ export function AppShell(): JSX.Element {
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
   const [createProjectDialogOpen, setCreateProjectDialogOpen] =
     React.useState(false);
+<<<<<<< ours
+  const { confirm, dialogProps } = useConfirmDialog();
+=======
+>>>>>>> theirs
 
   // File store for creating documents
   const createDocument = useFileStore((s) => s.createAndSetCurrent);
 
   // Version compare hook
   const { compareState, closeCompare } = useVersionCompare();
-  const { confirm, dialogProps } = useConfirmDialog();
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -418,33 +421,40 @@ export function AppShell(): JSX.Element {
       const handleRestore = async (): Promise<void> => {
         if (!documentId || !compareVersionId) return;
 
+<<<<<<< ours
         const confirmed = await confirm(RESTORE_VERSION_CONFIRM_COPY);
         if (!confirmed) {
           return;
         }
 
+=======
+        // TODO: Add SystemDialog confirmation
+>>>>>>> theirs
         const res = await invoke("version:restore", {
           documentId,
           versionId: compareVersionId,
         });
         if (res.ok) {
+<<<<<<< ours
+          await bootstrapEditor(currentProject.projectId);
+          await bootstrapFiles(currentProject.projectId);
+          closeCompare();
+=======
           closeCompare();
           // Re-bootstrap editor to load restored content
           await bootstrapEditor(currentProject.projectId);
+>>>>>>> theirs
         }
       };
 
       return (
-        <>
-          <DiffViewPanel
-            key={compareVersionId ?? "compare"}
-            diffText={compareState.diffText}
-            onClose={closeCompare}
-            onRestore={() => void handleRestore()}
-            restoreInProgress={compareState.status === "loading"}
-          />
-          <SystemDialog {...dialogProps} />
-        </>
+        <DiffViewPanel
+          key={compareVersionId ?? "compare"}
+          diffText={compareState.diffText}
+          onClose={closeCompare}
+          onRestore={() => void handleRestore()}
+          restoreInProgress={compareState.status === "loading"}
+        />
       );
     }
 
@@ -557,10 +567,16 @@ export function AppShell(): JSX.Element {
         open={createProjectDialogOpen}
         onOpenChange={setCreateProjectDialogOpen}
       />
+<<<<<<< ours
+      <SystemDialog {...dialogProps} />
+=======
+>>>>>>> theirs
 
       {/* Zen Mode Overlay */}
-      <ZenModeOverlay open={zenMode} onExit={() => setZenMode(false)} />
-      {!compareMode ? <SystemDialog {...dialogProps} /> : null}
+      <ZenModeOverlay
+        open={zenMode}
+        onExit={() => setZenMode(false)}
+      />
     </div>
   );
 }
