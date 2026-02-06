@@ -48,6 +48,9 @@ export type {
   ErrorVariant,
   ErrorSeverity,
 } from "./ErrorState";
+<<<<<<< ours
 
 // Error boundary
 export { ErrorBoundary } from "./ErrorBoundary";
+=======
+>>>>>>> theirs

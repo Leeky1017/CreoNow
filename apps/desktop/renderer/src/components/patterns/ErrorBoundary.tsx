@@ -42,13 +42,11 @@ export class ErrorBoundary extends React.Component<
   }
 
   public componentDidCatch(error: Error, info: React.ErrorInfo): void {
-    const componentStack =
-      info.componentStack?.trim() ?? "(no component stack)";
     const details = [
       `${error.name}: ${error.message}`,
       "",
       "Component stack:",
-      componentStack,
+      info.componentStack.trim(),
     ].join("\n");
     this.setState({ details, copyStatus: "idle" });
   }

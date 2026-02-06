@@ -1,3 +1,4 @@
+import React from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -64,9 +65,7 @@ describe("ErrorBoundary", () => {
       </ErrorBoundaryModule.ErrorBoundary>,
     );
 
-    await user.click(
-      screen.getByRole("button", { name: "Copy error details" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Copy error details" }));
 
     expect(writeText).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("app-error-copy-status")).toHaveTextContent(

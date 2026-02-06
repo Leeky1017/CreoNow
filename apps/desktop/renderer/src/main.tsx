@@ -4,7 +4,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 
 import { App } from "./App";
+<<<<<<< ours
 import { ErrorBoundary } from "./components/patterns";
+=======
+>>>>>>> theirs
 
 // Signal that React app has mounted
 if (typeof window.__CN_E2E__ !== "object") {
@@ -20,8 +23,12 @@ if (!rootEl) {
 
 ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
+<<<<<<< ours
     <ErrorBoundary>
       <App />
     </ErrorBoundary>
+=======
+    <App />
+>>>>>>> theirs
   </React.StrictMode>,
 );
