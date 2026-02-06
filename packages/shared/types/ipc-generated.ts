@@ -99,10 +99,13 @@ export const IPC_CHANNELS = [
   "memory:settings:get",
   "memory:settings:update",
   "memory:update",
+  "project:archive",
   "project:create",
   "project:delete",
+  "project:duplicate",
   "project:getCurrent",
   "project:list",
+  "project:rename",
   "project:setCurrent",
   "rag:retrieve",
   "search:fulltext",
@@ -864,6 +867,17 @@ export type IpcChannelSpec = {
       updatedAt: number;
     };
   };
+  "project:archive": {
+    request: {
+      archived: boolean;
+      projectId: string;
+    };
+    response: {
+      archived: boolean;
+      archivedAt?: number;
+      projectId: string;
+    };
+  };
   "project:create": {
     request: {
       name?: string;
@@ -881,6 +895,16 @@ export type IpcChannelSpec = {
       deleted: true;
     };
   };
+  "project:duplicate": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      name: string;
+      projectId: string;
+      rootPath: string;
+    };
+  };
   "project:getCurrent": {
     request: Record<string, never>;
     response: {
@@ -890,15 +914,27 @@ export type IpcChannelSpec = {
   };
   "project:list": {
     request: {
-      includeDeleted?: boolean;
+      includeArchived?: boolean;
     };
     response: {
       items: Array<{
+        archivedAt?: number;
         name: string;
         projectId: string;
         rootPath: string;
         updatedAt: number;
       }>;
+    };
+  };
+  "project:rename": {
+    request: {
+      name: string;
+      projectId: string;
+    };
+    response: {
+      name: string;
+      projectId: string;
+      updatedAt: number;
     };
   };
   "project:setCurrent": {
