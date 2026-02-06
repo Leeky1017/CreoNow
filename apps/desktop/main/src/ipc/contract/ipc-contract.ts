@@ -572,7 +572,7 @@ export const ipcContract = {
       response: s.object({ projectId: s.string(), rootPath: s.string() }),
     },
     "project:list": {
-      request: s.object({ includeDeleted: s.optional(s.boolean()) }),
+      request: s.object({ includeArchived: s.optional(s.boolean()) }),
       response: s.object({
         items: s.array(
           s.object({
@@ -580,8 +580,33 @@ export const ipcContract = {
             name: s.string(),
             rootPath: s.string(),
             updatedAt: s.number(),
+            archivedAt: s.optional(s.number()),
           }),
         ),
+      }),
+    },
+    "project:rename": {
+      request: s.object({ projectId: s.string(), name: s.string() }),
+      response: s.object({
+        projectId: s.string(),
+        name: s.string(),
+        updatedAt: s.number(),
+      }),
+    },
+    "project:duplicate": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({
+        projectId: s.string(),
+        rootPath: s.string(),
+        name: s.string(),
+      }),
+    },
+    "project:archive": {
+      request: s.object({ projectId: s.string(), archived: s.boolean() }),
+      response: s.object({
+        projectId: s.string(),
+        archived: s.boolean(),
+        archivedAt: s.optional(s.number()),
       }),
     },
     "project:getCurrent": {
@@ -766,11 +791,7 @@ export const ipcContract = {
         documentId: s.string(),
         projectId: s.string(),
         versionId: s.string(),
-        actor: s.union(
-          s.literal("user"),
-          s.literal("auto"),
-          s.literal("ai"),
-        ),
+        actor: s.union(s.literal("user"), s.literal("auto"), s.literal("ai")),
         reason: s.string(),
         contentJson: s.string(),
         contentText: s.string(),

@@ -92,7 +92,7 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
       throw new Error("Missing window.creonow bridge");
     }
     return await window.creonow.invoke("project:list", {
-      includeDeleted: false,
+      includeArchived: false,
     });
   });
   expect(list.ok).toBe(true);
@@ -119,7 +119,7 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
       throw new Error("Missing window.creonow bridge");
     }
     return await window.creonow.invoke("project:list", {
-      includeDeleted: false,
+      includeArchived: false,
     });
   });
   expect(list2.ok).toBe(true);

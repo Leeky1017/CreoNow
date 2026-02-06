@@ -42,10 +42,16 @@ function createMockInvoke() {
       });
     }
     if (channel === "project:getCurrent") {
-      return Promise.resolve({ ok: false, error: { code: "NOT_FOUND", message: "No current project" } });
+      return Promise.resolve({
+        ok: false,
+        error: { code: "NOT_FOUND", message: "No current project" },
+      });
     }
     if (channel === "project:setCurrent") {
-      return Promise.resolve({ ok: true, data: { projectId: "proj-1", rootPath: "/path/to/proj-1" } });
+      return Promise.resolve({
+        ok: true,
+        data: { projectId: "proj-1", rootPath: "/path/to/proj-1" },
+      });
     }
     return Promise.resolve({ ok: true, data: {} });
   });
@@ -57,7 +63,64 @@ function createEmptyMockInvoke() {
       return Promise.resolve({ ok: true, data: { items: [] } });
     }
     if (channel === "project:getCurrent") {
-      return Promise.resolve({ ok: false, error: { code: "NOT_FOUND", message: "No current project" } });
+      return Promise.resolve({
+        ok: false,
+        error: { code: "NOT_FOUND", message: "No current project" },
+      });
+    }
+    return Promise.resolve({ ok: true, data: {} });
+  });
+}
+
+/**
+ * Build an invoke mock that includes one archived project in project:list.
+ *
+ * Why: archived section behavior requires explicit archived fixture data.
+ */
+function createArchivedMockInvoke() {
+  return vi.fn().mockImplementation((channel: string) => {
+    if (channel === "project:list") {
+      return Promise.resolve({
+        ok: true,
+        data: {
+          items: [
+            {
+              projectId: "proj-1",
+              name: "My First Novel",
+              rootPath: "/path/to/proj-1",
+              updatedAt: Date.now() - 3600000,
+            },
+            {
+              projectId: "proj-2",
+              name: "Archived Draft",
+              rootPath: "/path/to/proj-2",
+              updatedAt: Date.now() - 86400000,
+              archivedAt: Date.now() - 3600000,
+            },
+          ],
+        },
+      });
+    }
+    if (channel === "project:getCurrent") {
+      return Promise.resolve({
+        ok: false,
+        error: { code: "NOT_FOUND", message: "No current project" },
+      });
+    }
+    if (channel === "project:setCurrent") {
+      return Promise.resolve({
+        ok: true,
+        data: { projectId: "proj-1", rootPath: "/path/to/proj-1" },
+      });
+    }
+    if (channel === "project:archive") {
+      return Promise.resolve({
+        ok: true,
+        data: {
+          projectId: "proj-2",
+          archived: false,
+        },
+      });
     }
     return Promise.resolve({ ok: true, data: {} });
   });
@@ -74,9 +137,7 @@ function renderWithProviders(
 
   return {
     ...render(
-      <ProjectStoreProvider store={projectStore}>
-        {ui}
-      </ProjectStoreProvider>,
+      <ProjectStoreProvider store={projectStore}>{ui}</ProjectStoreProvider>,
     ),
     projectStore,
     invoke,
@@ -127,7 +188,9 @@ describe("DashboardPage", () => {
       renderWithProviders(<DashboardPage />, { projectStore });
 
       await waitFor(() => {
-        expect(screen.getByTestId("dashboard-create-first")).toBeInTheDocument();
+        expect(
+          screen.getByTestId("dashboard-create-first"),
+        ).toBeInTheDocument();
       });
 
       await userEvent.click(screen.getByTestId("dashboard-create-first"));
@@ -241,7 +304,9 @@ describe("DashboardPage", () => {
       await userEvent.click(screen.getByTestId("dashboard-hero-card"));
 
       await waitFor(() => {
-        expect(invoke).toHaveBeenCalledWith("project:setCurrent", { projectId: "proj-1" });
+        expect(invoke).toHaveBeenCalledWith("project:setCurrent", {
+          projectId: "proj-1",
+        });
       });
     });
   });
@@ -272,6 +337,56 @@ describe("DashboardPage", () => {
 
       await waitFor(() => {
         expect(screen.getByTestId("create-project-dialog")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("Project Actions", () => {
+    it("submits rename from project menu", async () => {
+      const invoke = createMockInvoke();
+      const projectStore = createProjectStore({ invoke });
+
+      renderWithProviders(<DashboardPage />, { projectStore });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
+      });
+
+      const menuTriggers = screen.getAllByTestId("project-card-menu-trigger");
+      await userEvent.click(menuTriggers[0]);
+      await userEvent.click(screen.getByTestId("dropdown-item-rename"));
+      await userEvent.clear(screen.getByTestId("rename-project-name"));
+      await userEvent.type(
+        screen.getByTestId("rename-project-name"),
+        "Renamed",
+      );
+      await userEvent.click(screen.getByTestId("rename-project-submit"));
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith("project:rename", {
+          projectId: "proj-2",
+          name: "Renamed",
+        });
+      });
+    });
+
+    it("hides archived projects by default and expands archived section on demand", async () => {
+      const invoke = createArchivedMockInvoke();
+      const projectStore = createProjectStore({ invoke });
+
+      renderWithProviders(<DashboardPage />, { projectStore });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
+      });
+
+      expect(screen.getByText("Archived (1)")).toBeInTheDocument();
+      expect(screen.queryByText("Archived Draft")).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByTestId("dashboard-archived-toggle"));
+
+      await waitFor(() => {
+        expect(screen.getByText("Archived Draft")).toBeInTheDocument();
       });
     });
   });
