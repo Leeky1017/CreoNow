@@ -20,6 +20,9 @@ import { SettingsDialog } from "../../features/settings-dialog/SettingsDialog";
 import { ExportDialog } from "../../features/export/ExportDialog";
 import { CreateProjectDialog } from "../../features/projects/CreateProjectDialog";
 import { ZenMode } from "../../features/zen-mode/ZenMode";
+import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
+import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { RESTORE_VERSION_CONFIRM_COPY } from "../../features/version-history/restoreConfirmCopy";
 import { useVersionCompare } from "../../features/version-history/useVersionCompare";
 import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
@@ -111,7 +114,10 @@ function ZenModeOverlay(props: {
 
     const interval = setInterval(() => {
       setCurrentTime(
-        new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
       );
     }, 60000);
 
@@ -248,6 +254,7 @@ export function AppShell(): JSX.Element {
 
   // Version compare hook
   const { compareState, closeCompare } = useVersionCompare();
+  const { confirm, dialogProps } = useConfirmDialog();
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -411,7 +418,11 @@ export function AppShell(): JSX.Element {
       const handleRestore = async (): Promise<void> => {
         if (!documentId || !compareVersionId) return;
 
-        // TODO: Add SystemDialog confirmation
+        const confirmed = await confirm(RESTORE_VERSION_CONFIRM_COPY);
+        if (!confirmed) {
+          return;
+        }
+
         const res = await invoke("version:restore", {
           documentId,
           versionId: compareVersionId,
@@ -424,13 +435,16 @@ export function AppShell(): JSX.Element {
       };
 
       return (
-        <DiffViewPanel
-          key={compareVersionId ?? "compare"}
-          diffText={compareState.diffText}
-          onClose={closeCompare}
-          onRestore={() => void handleRestore()}
-          restoreInProgress={compareState.status === "loading"}
-        />
+        <>
+          <DiffViewPanel
+            key={compareVersionId ?? "compare"}
+            diffText={compareState.diffText}
+            onClose={closeCompare}
+            onRestore={() => void handleRestore()}
+            restoreInProgress={compareState.status === "loading"}
+          />
+          <SystemDialog {...dialogProps} />
+        </>
       );
     }
 
@@ -545,10 +559,8 @@ export function AppShell(): JSX.Element {
       />
 
       {/* Zen Mode Overlay */}
-      <ZenModeOverlay
-        open={zenMode}
-        onExit={() => setZenMode(false)}
-      />
+      <ZenModeOverlay open={zenMode} onExit={() => setZenMode(false)} />
+      {!compareMode ? <SystemDialog {...dialogProps} /> : null}
     </div>
   );
 }
