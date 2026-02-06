@@ -1,3 +1,4 @@
+import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -73,7 +74,7 @@ function installInvokeMock(args?: {
           documentId: "doc-1",
           projectId: "project-1",
           title: "Doc 1",
-          contentJson: '{"type":"doc"}',
+          contentJson: "{\"type\":\"doc\"}",
           contentText: "current",
           contentMd: "current",
           contentHash: "hash-current",
@@ -111,7 +112,7 @@ function installInvokeMock(args?: {
           versionId: "v-1",
           actor: "user",
           reason: "manual-save",
-          contentJson: '{"type":"doc"}',
+          contentJson: "{\"type\":\"doc\"}",
           contentText: "historical body",
           contentMd: "historical body",
           contentHash: "hash-old",
@@ -132,9 +133,8 @@ function installInvokeMock(args?: {
  * Count how many times `version:restore` was invoked in the mocked IPC client.
  */
 function getRestoreInvokeCount(): number {
-  return invokeMock.mock.calls.filter(
-    ([channel]) => channel === "version:restore",
-  ).length;
+  return invokeMock.mock.calls.filter(([channel]) => channel === "version:restore")
+    .length;
 }
 
 describe("VersionHistoryContainer", () => {
@@ -151,9 +151,7 @@ describe("VersionHistoryContainer", () => {
     render(<VersionHistoryContainer projectId="project-1" />);
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId("version-history-panel-content-mock"),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("version-history-panel-content-mock")).toBeInTheDocument();
     });
 
     await user.click(screen.getByTestId("version-preview-trigger"));
@@ -179,9 +177,7 @@ describe("VersionHistoryContainer", () => {
     render(<VersionHistoryContainer projectId="project-1" />);
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId("version-history-panel-content-mock"),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("version-history-panel-content-mock")).toBeInTheDocument();
     });
 
     await user.click(screen.getByTestId("version-preview-trigger"));
@@ -196,9 +192,7 @@ describe("VersionHistoryContainer", () => {
     render(<VersionHistoryContainer projectId="project-1" />);
 
     await waitFor(() => {
-      expect(
-        screen.getByTestId("version-history-panel-content-mock"),
-      ).toBeInTheDocument();
+      expect(screen.getByTestId("version-history-panel-content-mock")).toBeInTheDocument();
     });
 
     await user.click(screen.getByTestId("version-restore-trigger"));

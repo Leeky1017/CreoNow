@@ -5,13 +5,20 @@ import {
   type VersionEntry,
   type VersionAuthorType,
 } from "./VersionHistoryPanel";
-import { VersionPreviewDialog } from "./VersionPreviewDialog";
+<<<<<<< ours
 import { useVersionCompare } from "./useVersionCompare";
 import { useEditorStore } from "../../stores/editorStore";
 import { invoke } from "../../lib/ipcClient";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
+import { VersionPreviewDialog } from "./VersionPreviewDialog";
 import { RESTORE_VERSION_CONFIRM_COPY } from "./restoreConfirmCopy";
+=======
+import { VersionPreviewDialog } from "./VersionPreviewDialog";
+import { useVersionCompare } from "./useVersionCompare";
+import { useEditorStore } from "../../stores/editorStore";
+import { invoke } from "../../lib/ipcClient";
+>>>>>>> theirs
 
 type VersionListItem = {
   versionId: string;
@@ -32,9 +39,13 @@ type VersionPreview = {
 /**
  * Map backend actor to UI author type.
  */
+<<<<<<< ours
+function mapActorToAuthorType(actor: "user" | "auto" | "ai"): VersionAuthorType {
+=======
 function mapActorToAuthorType(
   actor: "user" | "auto" | "ai",
 ): VersionAuthorType {
+>>>>>>> theirs
   switch (actor) {
     case "user":
       return "user";
@@ -197,9 +208,13 @@ export function VersionHistoryContainer(
   props: VersionHistoryContainerProps,
 ): JSX.Element {
   const documentId = useEditorStore((s) => s.documentId);
+<<<<<<< ours
   const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
   const { startCompare } = useVersionCompare();
   const { confirm, dialogProps } = useConfirmDialog();
+=======
+  const { startCompare } = useVersionCompare();
+>>>>>>> theirs
 
   const [items, setItems] = React.useState<VersionListItem[]>([]);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -207,6 +222,10 @@ export function VersionHistoryContainer(
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [currentHash, setCurrentHash] = React.useState<string | null>(null);
+<<<<<<< ours
+  const [actionError, setActionError] = React.useState<string | null>(null);
+=======
+>>>>>>> theirs
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [previewLoading, setPreviewLoading] = React.useState(false);
   const [previewData, setPreviewData] = React.useState<VersionPreview | null>(
@@ -229,6 +248,43 @@ export function VersionHistoryContainer(
 
     async function fetchVersions(): Promise<void> {
       setStatus("loading");
+<<<<<<< ours
+      setActionError(null);
+
+      try {
+        // Get current document hash
+        const docRes = await invoke("file:document:read", {
+          projectId: props.projectId,
+          documentId: documentId!,
+        });
+        if (!cancelled && docRes.ok) {
+          setCurrentHash(docRes.data.contentHash);
+        }
+
+        // Get version list
+        const res = await invoke("version:list", { documentId: documentId! });
+        if (cancelled) return;
+
+        if (res.ok) {
+          setItems(res.data.items);
+          setStatus("ready");
+          return;
+        }
+
+        setItems([]);
+        setStatus("error");
+        setActionError(`${res.error.code}: ${res.error.message}`);
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        setStatus("error");
+        setActionError(
+          error instanceof Error
+            ? `INTERNAL: ${error.message}`
+            : "INTERNAL: Failed to load versions",
+        );
+=======
 
       // Get current document hash
       const docRes = await invoke("file:document:read", {
@@ -249,6 +305,7 @@ export function VersionHistoryContainer(
       } else {
         setItems([]);
         setStatus("error");
+>>>>>>> theirs
       }
     }
 
@@ -276,11 +333,33 @@ export function VersionHistoryContainer(
     async (versionId: string) => {
       if (!documentId) return;
 
+<<<<<<< ours
       const confirmed = await confirm(RESTORE_VERSION_CONFIRM_COPY);
       if (!confirmed) {
         return;
       }
 
+      const res = await invoke("version:restore", { documentId, versionId });
+      if (!res.ok) {
+        setActionError(`${res.error.code}: ${res.error.message}`);
+        return;
+      }
+
+      setActionError(null);
+
+      const listRes = await invoke("version:list", { documentId });
+      if (listRes.ok) {
+        setItems(listRes.data.items);
+      } else {
+        setActionError(`${listRes.error.code}: ${listRes.error.message}`);
+      }
+
+      await bootstrapEditor(props.projectId);
+    },
+    [bootstrapEditor, confirm, documentId, props.projectId],
+=======
+      // TODO: Show SystemDialog confirmation before restore
+      // For now, call restore directly
       const res = await invoke("version:restore", { documentId, versionId });
       if (res.ok) {
         // Refresh version list
@@ -288,10 +367,11 @@ export function VersionHistoryContainer(
         if (listRes.ok) {
           setItems(listRes.data.items);
         }
-        await bootstrapEditor(props.projectId);
+        // TODO: Refresh editor content
       }
     },
-    [bootstrapEditor, confirm, documentId, props.projectId],
+    [documentId],
+>>>>>>> theirs
   );
 
   const handlePreview = React.useCallback(
@@ -325,9 +405,15 @@ export function VersionHistoryContainer(
   const handlePreviewOpenChange = React.useCallback((open: boolean) => {
     setPreviewOpen(open);
     if (!open) {
+<<<<<<< ours
+      setPreviewData(null);
+      setPreviewError(null);
+      setPreviewLoading(false);
+=======
       setPreviewLoading(false);
       setPreviewData(null);
       setPreviewError(null);
+>>>>>>> theirs
     }
   }, []);
 
@@ -349,22 +435,65 @@ export function VersionHistoryContainer(
 
   if (status === "error") {
     return (
+<<<<<<< ours
+      <>
+        <div className="p-3 text-xs text-[var(--color-error)]">
+          {actionError ?? "Failed to load version history"}
+        </div>
+        <VersionPreviewDialog
+          open={previewOpen}
+          loading={previewLoading}
+          data={previewData}
+          error={previewError}
+          onOpenChange={handlePreviewOpenChange}
+        />
+        <SystemDialog {...dialogProps} />
+      </>
+=======
       <div className="p-3 text-xs text-[var(--color-error)]">
         Failed to load version history
       </div>
+>>>>>>> theirs
     );
   }
 
   if (items.length === 0) {
     return (
+<<<<<<< ours
+      <>
+        <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+          No versions yet. Save your document to create versions.
+        </div>
+        <VersionPreviewDialog
+          open={previewOpen}
+          loading={previewLoading}
+          data={previewData}
+          error={previewError}
+          onOpenChange={handlePreviewOpenChange}
+        />
+        <SystemDialog {...dialogProps} />
+      </>
+=======
       <div className="p-3 text-xs text-[var(--color-fg-muted)]">
         No versions yet. Save your document to create versions.
       </div>
+>>>>>>> theirs
     );
   }
 
   return (
     <>
+<<<<<<< ours
+      {actionError ? (
+        <div
+          role="alert"
+          className="mx-3 mt-3 rounded-[var(--radius-sm)] border border-[var(--color-error)] bg-[var(--color-error-subtle)] p-2 text-xs text-[var(--color-error)]"
+        >
+          {actionError}
+        </div>
+      ) : null}
+=======
+>>>>>>> theirs
       <VersionHistoryPanelContent
         timeGroups={timeGroups}
         selectedId={selectedId}
@@ -381,7 +510,10 @@ export function VersionHistoryContainer(
         error={previewError}
         onOpenChange={handlePreviewOpenChange}
       />
+<<<<<<< ours
       <SystemDialog {...dialogProps} />
+=======
+>>>>>>> theirs
     </>
   );
 }

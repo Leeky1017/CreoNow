@@ -1,3 +1,5 @@
+import React from "react";
+
 import { Dialog } from "../../components/primitives/Dialog";
 import { Button } from "../../components/primitives/Button";
 import { Textarea } from "../../components/primitives/Textarea";
@@ -19,9 +21,6 @@ type VersionPreviewDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-/**
- * Convert actor value into dialog display text.
- */
 function formatActor(actor: "user" | "auto" | "ai"): string {
   if (actor === "user") return "User";
   if (actor === "ai") return "AI";
@@ -29,9 +28,9 @@ function formatActor(actor: "user" | "auto" | "ai"): string {
 }
 
 /**
- * VersionPreviewDialog shows a read-only historical snapshot.
+ * VersionPreviewDialog shows a read-only preview of historical version content.
  *
- * Why: users need safe inspection before deciding whether to restore.
+ * Why: preview must be observable and non-editable before user decides restore.
  */
 export function VersionPreviewDialog(
   props: VersionPreviewDialogProps,
@@ -57,11 +56,7 @@ export function VersionPreviewDialog(
     >
       <div data-testid="version-preview-dialog" className="space-y-3">
         {props.loading ? (
-          <Text
-            data-testid="version-preview-loading"
-            size="small"
-            color="muted"
-          >
+          <Text data-testid="version-preview-loading" size="small" color="muted">
             Loading version content...
           </Text>
         ) : null}
