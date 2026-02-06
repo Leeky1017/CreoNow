@@ -52,7 +52,7 @@ export function registerProjectIpcHandlers(deps: {
           name: string;
           rootPath: string;
           updatedAt: number;
-          archivedAt?: number;
+          archivedAt?: number | null;
         }>;
       }>
     > => {
@@ -108,9 +108,7 @@ export function registerProjectIpcHandlers(deps: {
     async (
       _e,
       payload: { projectId: string },
-    ): Promise<
-      IpcResponse<{ projectId: string; rootPath: string; name: string }>
-    > => {
+    ): Promise<IpcResponse<{ projectId: string; rootPath: string; name: string }>> => {
       if (!deps.db) {
         return {
           ok: false,
@@ -135,7 +133,7 @@ export function registerProjectIpcHandlers(deps: {
       _e,
       payload: { projectId: string; archived: boolean },
     ): Promise<
-      IpcResponse<{ projectId: string; archived: boolean; archivedAt?: number }>
+      IpcResponse<{ projectId: string; archived: boolean; archivedAt?: number | null }>
     > => {
       if (!deps.db) {
         return {

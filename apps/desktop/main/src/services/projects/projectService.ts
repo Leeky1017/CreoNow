@@ -25,16 +25,10 @@ export type ProjectListItem = {
   name: string;
   rootPath: string;
   updatedAt: number;
-  archivedAt?: number;
-};
-
-type ProjectRow = {
-  projectId: string;
-  name: string;
-  rootPath: string;
-  updatedAt: number;
   archivedAt: number | null;
 };
+
+type ProjectRow = ProjectListItem;
 
 type DuplicateDocumentRow = {
   documentId: string;
@@ -68,10 +62,13 @@ export type ProjectService = {
   duplicate: (args: {
     projectId: string;
   }) => ServiceResult<{ projectId: string; rootPath: string; name: string }>;
-  archive: (args: { projectId: string; archived: boolean }) => ServiceResult<{
+  archive: (args: {
     projectId: string;
     archived: boolean;
-    archivedAt?: number;
+  }) => ServiceResult<{
+    projectId: string;
+    archived: boolean;
+    archivedAt: number | null;
   }>;
 };
 
@@ -325,17 +322,12 @@ export function createProjectService(args: {
         const rows = args.db
           .prepare<
             [],
-            ProjectRow
-          >(`SELECT project_id as projectId, name, root_path as rootPath, updated_at as updatedAt, archived_at as archivedAt FROM projects ${whereClause} ORDER BY updated_at DESC, project_id ASC`)
+            ProjectListItem
+          >(
+            `SELECT project_id as projectId, name, root_path as rootPath, updated_at as updatedAt, archived_at as archivedAt FROM projects ${whereClause} ORDER BY updated_at DESC, project_id ASC`,
+          )
           .all();
-        const items: ProjectListItem[] = rows.map((row) => ({
-          projectId: row.projectId,
-          name: row.name,
-          rootPath: row.rootPath,
-          updatedAt: row.updatedAt,
-          ...(row.archivedAt == null ? {} : { archivedAt: row.archivedAt }),
-        }));
-        return { ok: true, data: { items } };
+        return { ok: true, data: { items: rows } };
       } catch (error) {
         args.logger.error("project_list_failed", {
           code: "DB_ERROR",
@@ -525,7 +517,9 @@ export function createProjectService(args: {
             .prepare<
               [string],
               DuplicateDocumentRow
-            >("SELECT document_id as documentId, title, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC")
+            >(
+              "SELECT document_id as documentId, title, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC",
+            )
             .all(projectId);
 
           const documentIdMap = new Map<string, string>();
@@ -561,9 +555,7 @@ export function createProjectService(args: {
             .get(getProjectSettingsScope(projectId), CURRENT_DOCUMENT_ID_KEY);
 
           if (sourceCurrentDocument) {
-            const parsedCurrent: unknown = JSON.parse(
-              sourceCurrentDocument.valueJson,
-            );
+            const parsedCurrent: unknown = JSON.parse(sourceCurrentDocument.valueJson);
             const sourceCurrentDocumentId =
               typeof parsedCurrent === "string" ? parsedCurrent : null;
             if (sourceCurrentDocumentId) {
@@ -632,7 +624,7 @@ export function createProjectService(args: {
             data: {
               projectId,
               archived: true,
-              archivedAt: project.data.archivedAt ?? undefined,
+              archivedAt: project.data.archivedAt,
             },
           };
         }
@@ -655,16 +647,13 @@ export function createProjectService(args: {
         args.logger.info("project_archived", {
           project_id: projectId,
         });
-        return {
-          ok: true,
-          data: { projectId, archived: true, archivedAt: ts },
-        };
+        return { ok: true, data: { projectId, archived: true, archivedAt: ts } };
       }
 
       if (project.data.archivedAt === null) {
         return {
           ok: true,
-          data: { projectId, archived: false },
+          data: { projectId, archived: false, archivedAt: null },
         };
       }
 
@@ -691,6 +680,7 @@ export function createProjectService(args: {
         data: {
           projectId,
           archived: false,
+          archivedAt: null,
         },
       };
     },

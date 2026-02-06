@@ -60,9 +60,7 @@ export type ProjectActions = {
    */
   duplicateProject: (args: {
     projectId: string;
-  }) => Promise<
-    IpcResponse<{ projectId: string; rootPath: string; name: string }>
-  >;
+  }) => Promise<IpcResponse<{ projectId: string; rootPath: string; name: string }>>;
   /**
    * Archive or unarchive a project.
    *
@@ -72,11 +70,7 @@ export type ProjectActions = {
     projectId: string;
     archived: boolean;
   }) => Promise<
-    IpcResponse<{
-      projectId: string;
-      archived: boolean;
-      archivedAt?: number | null;
-    }>
+    IpcResponse<{ projectId: string; archived: boolean; archivedAt?: number | null }>
   >;
   clearError: () => void;
 };
@@ -218,9 +212,7 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
       set((prev) => ({
         ...prev,
         current:
-          archived && prev.current?.projectId === projectId
-            ? null
-            : prev.current,
+          archived && prev.current?.projectId === projectId ? null : prev.current,
         lastError: null,
       }));
       void get().bootstrap();

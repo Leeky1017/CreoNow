@@ -580,7 +580,7 @@ export const ipcContract = {
             name: s.string(),
             rootPath: s.string(),
             updatedAt: s.number(),
-            archivedAt: s.optional(s.number()),
+            archivedAt: s.optional(s.union(s.number(), s.null())),
           }),
         ),
       }),
@@ -606,7 +606,7 @@ export const ipcContract = {
       response: s.object({
         projectId: s.string(),
         archived: s.boolean(),
-        archivedAt: s.optional(s.number()),
+        archivedAt: s.optional(s.union(s.number(), s.null())),
       }),
     },
     "project:getCurrent": {
@@ -791,7 +791,11 @@ export const ipcContract = {
         documentId: s.string(),
         projectId: s.string(),
         versionId: s.string(),
-        actor: s.union(s.literal("user"), s.literal("auto"), s.literal("ai")),
+        actor: s.union(
+          s.literal("user"),
+          s.literal("auto"),
+          s.literal("ai"),
+        ),
         reason: s.string(),
         contentJson: s.string(),
         contentText: s.string(),
