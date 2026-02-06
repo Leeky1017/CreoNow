@@ -145,7 +145,7 @@ main.log 必须记录（info/error）：
 ## Manual QA (Storybook / App)
 
 - [ ] App 内实际点击 Dashboard menu：
-  - [ ] 对话框布局与 token 使用符合 `design/Variant/DESIGN_SPEC.md`
+  - [ ] 对话框布局与 token 使用符合 `design/system/README.md` 与 `design/system/01-tokens.css`
   - [ ] Disabled/loading/error 状态可感知且不抖动
 
 ## Completion

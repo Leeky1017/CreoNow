@@ -39,6 +39,9 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
+      - name: Desktop vitest (renderer/store)
+        run: pnpm -C apps/desktop test:run
+
       - name: Storybook build check
         run: pnpm -C apps/desktop storybook:build
 

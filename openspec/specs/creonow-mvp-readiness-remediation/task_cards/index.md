@@ -9,7 +9,7 @@
 ## 全局约束（所有任务卡共用）
 
 - 宪法：`AGENTS.md`（IPC `{ ok: true|false }`、禁止 silent failure、必须有测试、显式依赖注入）。
-- 设计：`design/Variant/DESIGN_SPEC.md` + `design/DESIGN_DECISIONS.md`（token/间距/字体/交互不可偏移）。
+- 设计：`design/system/README.md` + `design/system/01-tokens.css` + `design/DESIGN_DECISIONS.md`（token/间距/字体/交互不可偏移）。
 - 关联规范：`openspec/specs/creonow-frontend-full-assembly/spec.md`（仅作为上游背景；本 spec 为 delta SSOT）。
 - IPC：任何新增/修改通道必须更新 codegen（`pnpm contract:generate`）且带最小测试覆盖。
 - 并行：`ipc-contract.ts` + `ipc-generated.ts` 必须串行（见 `design/09-parallel-execution-and-conflict-matrix.md`）。
