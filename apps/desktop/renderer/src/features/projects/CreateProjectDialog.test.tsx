@@ -2,22 +2,63 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CreateProjectDialog } from "./CreateProjectDialog";
+import type { ProjectStore } from "../../stores/projectStore";
+
+/**
+ * Build a fully-typed project store shape for tests.
+ *
+ * Why: CreateProjectDialog tests should stay resilient as ProjectStore actions grow.
+ */
+function createMockProjectState(
+  overrides: Partial<ProjectStore> = {},
+): ProjectStore {
+  return {
+    current: null,
+    items: [],
+    bootstrapStatus: "ready",
+    lastError: null,
+    bootstrap: vi.fn(),
+    createAndSetCurrent: vi.fn().mockResolvedValue({
+      ok: true,
+      data: { projectId: "new-project", rootPath: "/mock/path" },
+    }),
+    setCurrentProject: vi.fn(),
+    deleteProject: vi
+      .fn()
+      .mockResolvedValue({ ok: true, data: { deleted: true } }),
+    renameProject: vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        projectId: "new-project",
+        name: "Renamed",
+        updatedAt: Date.now(),
+      },
+    }),
+    duplicateProject: vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        projectId: "new-project-copy",
+        rootPath: "/mock/path-copy",
+        name: "Copy",
+      },
+    }),
+    setProjectArchived: vi.fn().mockResolvedValue({
+      ok: true,
+      data: {
+        projectId: "new-project",
+        archived: true,
+        archivedAt: Date.now(),
+      },
+    }),
+    clearError: vi.fn(),
+    ...overrides,
+  };
+}
 
 // Mock stores
 vi.mock("../../stores/projectStore", () => ({
   useProjectStore: vi.fn((selector) => {
-    const state = {
-      current: null,
-      items: [],
-      bootstrapStatus: "ready" as const,
-      lastError: null,
-      bootstrap: vi.fn(),
-      createAndSetCurrent: vi
-        .fn()
-        .mockResolvedValue({ ok: true, data: { projectId: "new-project" } }),
-      setCurrentProject: vi.fn(),
-      clearError: vi.fn(),
-    };
+    const state = createMockProjectState();
     return selector(state);
   }),
 }));
@@ -207,21 +248,12 @@ describe("CreateProjectDialog", () => {
 
     it("提交有效表单应调用 createAndSetCurrent", async () => {
       const { useProjectStore } = await import("../../stores/projectStore");
-      const createAndSetCurrent = vi
-        .fn()
-        .mockResolvedValue({ ok: true, data: { projectId: "new-project" } });
+      const createAndSetCurrent = vi.fn().mockResolvedValue({
+        ok: true,
+        data: { projectId: "new-project", rootPath: "/mock/path" },
+      });
       vi.mocked(useProjectStore).mockImplementation((selector) => {
-        const state = {
-          current: null,
-          items: [],
-          bootstrapStatus: "ready" as const,
-          lastError: null,
-          bootstrap: vi.fn(),
-          createAndSetCurrent,
-          setCurrentProject: vi.fn(),
-          deleteProject: vi.fn(),
-          clearError: vi.fn(),
-        };
+        const state = createMockProjectState({ createAndSetCurrent });
         return selector(state);
       });
 
@@ -255,20 +287,12 @@ describe("CreateProjectDialog", () => {
     it("有错误时应显示错误信息", async () => {
       const { useProjectStore } = await import("../../stores/projectStore");
       vi.mocked(useProjectStore).mockImplementation((selector) => {
-        const state = {
-          current: null,
-          items: [],
-          bootstrapStatus: "ready" as const,
+        const state = createMockProjectState({
           lastError: {
-            code: "IO_ERROR" as const,
+            code: "IO_ERROR",
             message: "Failed to create project",
           },
-          bootstrap: vi.fn(),
-          createAndSetCurrent: vi.fn(),
-          setCurrentProject: vi.fn(),
-          deleteProject: vi.fn(),
-          clearError: vi.fn(),
-        };
+        });
         return selector(state);
       });
 
@@ -293,17 +317,7 @@ describe("CreateProjectDialog", () => {
           }>(() => {}),
       ); // Never resolves
       vi.mocked(useProjectStore).mockImplementation((selector) => {
-        const state = {
-          current: null,
-          items: [],
-          bootstrapStatus: "ready" as const,
-          lastError: null,
-          bootstrap: vi.fn(),
-          createAndSetCurrent,
-          setCurrentProject: vi.fn(),
-          deleteProject: vi.fn(),
-          clearError: vi.fn(),
-        };
+        const state = createMockProjectState({ createAndSetCurrent });
         return selector(state);
       });
 
@@ -330,17 +344,7 @@ describe("CreateProjectDialog", () => {
       const { useProjectStore } = await import("../../stores/projectStore");
       const clearError = vi.fn();
       vi.mocked(useProjectStore).mockImplementation((selector) => {
-        const state = {
-          current: null,
-          items: [],
-          bootstrapStatus: "ready" as const,
-          lastError: null,
-          bootstrap: vi.fn(),
-          createAndSetCurrent: vi.fn(),
-          setCurrentProject: vi.fn(),
-          deleteProject: vi.fn(),
-          clearError,
-        };
+        const state = createMockProjectState({ clearError });
         return selector(state);
       });
 

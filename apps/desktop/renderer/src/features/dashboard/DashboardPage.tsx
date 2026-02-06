@@ -13,6 +13,7 @@ import {
 } from "../../components/primitives";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { CreateProjectDialog } from "../projects/CreateProjectDialog";
+import { RenameProjectDialog } from "./RenameProjectDialog";
 import {
   useProjectStore,
   type ProjectListItem,
@@ -139,12 +140,13 @@ function ProjectCard(props: {
   onClick: () => void;
   onRename?: (projectId: string) => void;
   onDuplicate?: (projectId: string) => void;
-  onArchive?: (projectId: string) => void;
+  onArchiveToggle?: (projectId: string, archived: boolean) => void;
   onDelete?: (projectId: string) => void;
 }): JSX.Element {
-  const { project, onClick, onRename, onDuplicate, onArchive, onDelete } =
+  const { project, onClick, onRename, onDuplicate, onArchiveToggle, onDelete } =
     props;
   const dateStr = formatDate(project.updatedAt);
+  const isArchived = typeof project.archivedAt === "number";
 
   /**
    * Build menu items for both dropdown and context menu.
@@ -177,11 +179,11 @@ function ProjectCard(props: {
         });
       }
 
-      if (onArchive) {
+      if (onArchiveToggle) {
         items.push({
           key: "archive",
-          label: "Archive",
-          onSelect: () => onArchive(project.projectId),
+          label: isArchived ? "Unarchive" : "Archive",
+          onSelect: () => onArchiveToggle(project.projectId, !isArchived),
         });
       }
 
@@ -199,9 +201,10 @@ function ProjectCard(props: {
       onClick,
       onRename,
       onDuplicate,
-      onArchive,
+      onArchiveToggle,
       onDelete,
       project.projectId,
+      isArchived,
     ]);
 
   const cardContent = (
@@ -343,6 +346,9 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
   const bootstrap = useProjectStore((s) => s.bootstrap);
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
   const deleteProject = useProjectStore((s) => s.deleteProject);
+  const renameProject = useProjectStore((s) => s.renameProject);
+  const duplicateProject = useProjectStore((s) => s.duplicateProject);
+  const setProjectArchived = useProjectStore((s) => s.setProjectArchived);
   const lastError = useProjectStore((s) => s.lastError);
   const clearError = useProjectStore((s) => s.clearError);
 
@@ -350,6 +356,14 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
+  const [renameTargetProject, setRenameTargetProject] =
+    React.useState<ProjectListItem | null>(null);
+  const [renameSubmitting, setRenameSubmitting] = React.useState(false);
+  const [renameErrorText, setRenameErrorText] = React.useState<string | null>(
+    null,
+  );
+  const [archivedExpanded, setArchivedExpanded] = React.useState(false);
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -370,11 +384,21 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
     return [...filteredProjects].sort((a, b) => b.updatedAt - a.updatedAt);
   }, [filteredProjects]);
 
-  // Most recent project for hero card
-  const heroProject = sortedProjects[0] ?? null;
+  const activeProjects = React.useMemo(
+    () => sortedProjects.filter((project) => project.archivedAt == null),
+    [sortedProjects],
+  );
 
-  // Remaining projects for grid (exclude hero)
-  const gridProjects = sortedProjects.slice(1);
+  const archivedProjects = React.useMemo(
+    () => sortedProjects.filter((project) => project.archivedAt != null),
+    [sortedProjects],
+  );
+
+  // Most recent active project for hero card
+  const heroProject = activeProjects[0] ?? null;
+
+  // Remaining active projects for grid (exclude hero)
+  const gridProjects = activeProjects.slice(1);
 
   /**
    * Handle project selection.
@@ -391,33 +415,86 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
 
   /**
    * Handle project rename.
-   *
-   * TODO: Implement rename dialog/inline editing via IPC.
    */
-  const handleRename = React.useCallback((projectId: string) => {
-    // TODO: Open rename dialog
-    console.log("Rename project:", projectId);
-  }, []);
+  const handleRename = React.useCallback(
+    (projectId: string) => {
+      const project = items.find(
+        (candidate) => candidate.projectId === projectId,
+      );
+      if (!project) {
+        return;
+      }
+      setRenameTargetProject(project);
+      setRenameErrorText(null);
+      setRenameDialogOpen(true);
+    },
+    [items],
+  );
+
+  /**
+   * Submit rename request to project store.
+   */
+  const handleRenameSubmit = React.useCallback(
+    async (name: string) => {
+      if (!renameTargetProject) {
+        return;
+      }
+      setRenameSubmitting(true);
+      setRenameErrorText(null);
+      const res = await renameProject({
+        projectId: renameTargetProject.projectId,
+        name,
+      });
+      setRenameSubmitting(false);
+      if (!res.ok) {
+        setRenameErrorText(`${res.error.code}: ${res.error.message}`);
+        return;
+      }
+      setRenameDialogOpen(false);
+      setRenameTargetProject(null);
+    },
+    [renameProject, renameTargetProject],
+  );
 
   /**
    * Handle project duplicate.
-   *
-   * TODO: Implement project duplication via IPC.
    */
-  const handleDuplicate = React.useCallback((projectId: string) => {
-    // TODO: Duplicate project via IPC
-    console.log("Duplicate project:", projectId);
-  }, []);
+  const handleDuplicate = React.useCallback(
+    async (projectId: string) => {
+      await duplicateProject({ projectId });
+    },
+    [duplicateProject],
+  );
 
   /**
-   * Handle project archive.
-   *
-   * TODO: Implement project archiving via IPC.
+   * Handle project archive/unarchive with confirmation dialog.
    */
-  const handleArchive = React.useCallback((projectId: string) => {
-    // TODO: Archive project via IPC
-    console.log("Archive project:", projectId);
-  }, []);
+  const handleArchiveToggle = React.useCallback(
+    async (projectId: string, archived: boolean) => {
+      const project = items.find(
+        (candidate) => candidate.projectId === projectId,
+      );
+      const projectName =
+        project?.name?.trim().length && project.name
+          ? project.name
+          : "Untitled Project";
+      const title = archived ? "Archive project?" : "Unarchive project?";
+      const description = archived
+        ? `"${projectName}" will move to Archived projects.`
+        : `"${projectName}" will be restored to active projects.`;
+      const confirmed = await confirm({
+        title,
+        description,
+        primaryLabel: archived ? "Archive" : "Unarchive",
+        secondaryLabel: "Cancel",
+      });
+      if (!confirmed) {
+        return;
+      }
+      await setProjectArchived({ projectId, archived });
+    },
+    [confirm, items, setProjectArchived],
+  );
 
   /**
    * Handle project delete.
@@ -644,7 +721,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
                     onClick={() => void handleProjectSelect(project.projectId)}
                     onRename={handleRename}
                     onDuplicate={handleDuplicate}
-                    onArchive={handleArchive}
+                    onArchiveToggle={handleArchiveToggle}
                     onDelete={handleDelete}
                   />
                 ))}
@@ -673,12 +750,63 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
               </div>
             </div>
           )}
+
+          {archivedProjects.length > 0 ? (
+            <div className="mt-10">
+              <SectionTitle
+                action={
+                  <button
+                    type="button"
+                    data-testid="dashboard-archived-toggle"
+                    className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
+                    onClick={() => setArchivedExpanded((prev) => !prev)}
+                  >
+                    {archivedExpanded ? "Collapse" : "Expand"}
+                  </button>
+                }
+                className="animate-fade-in-up animation-delay-200"
+              >
+                Archived ({archivedProjects.length})
+              </SectionTitle>
+              {archivedExpanded ? (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6 animate-fade-in-up animation-delay-300">
+                  {archivedProjects.map((project) => (
+                    <ProjectCard
+                      key={project.projectId}
+                      project={project}
+                      onClick={() =>
+                        void handleProjectSelect(project.projectId)
+                      }
+                      onRename={handleRename}
+                      onDuplicate={handleDuplicate}
+                      onArchiveToggle={handleArchiveToggle}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
       <CreateProjectDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
+      />
+      <RenameProjectDialog
+        open={renameDialogOpen}
+        initialName={renameTargetProject?.name ?? ""}
+        submitting={renameSubmitting}
+        errorText={renameErrorText}
+        onOpenChange={(open) => {
+          setRenameDialogOpen(open);
+          if (!open) {
+            setRenameTargetProject(null);
+            setRenameErrorText(null);
+          }
+        }}
+        onSubmit={handleRenameSubmit}
       />
       <SystemDialog {...dialogProps} />
     </>
