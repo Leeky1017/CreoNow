@@ -2,7 +2,7 @@
 
 - Issue: #240
 - Branch: task/240-windows-e2e-theme-fix
-- PR: <pending>
+- PR: https://github.com/Leeky1017/CreoNow/pull/241
 
 ## Plan
 
@@ -64,4 +64,16 @@
 
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: failed at `pnpm test:unit` with `ERR_DLOPEN_FAILED` for `better_sqlite3.node`: compiled with `NODE_MODULE_VERSION 143` while runtime expects `115`; rerun after `pnpm rebuild better-sqlite3` still fails with same ABI mismatch.
+- Evidence: local shell output
+
+### 2026-02-07 01:47 CST publish PR
+
+- Command: `git push -u origin HEAD` + `gh pr create --title ... --body ...`
+- Key output: branch pushed to `origin/task/240-windows-e2e-theme-fix`; PR created: `https://github.com/Leeky1017/CreoNow/pull/241`.
+- Evidence: local shell output
+
+### 2026-02-07 01:47 CST fix PR body quoting
+
+- Command: `gh pr edit 241 --body-file /tmp/pr-241-body.md`
+- Key output: PR body corrected and retains `Closes #240`.
 - Evidence: local shell output
