@@ -2,7 +2,7 @@
 
 - Issue: #228
 - Branch: `task/228-p0-001-dashboard-project-actions`
-- PR: <pending>
+- PR: https://github.com/Leeky1017/CreoNow/pull/229
 
 ## Goal
 
@@ -10,13 +10,14 @@
 
 ## Status
 
-- CURRENT: preflight 已通过，准备提交并创建 PR。
+- CURRENT: PR 已创建并开启合并流程，等待 checks 全绿并确认 mergedAt。
 
 ## Next Actions
 
 - [x] 运行 `scripts/agent_pr_preflight.sh` 并记录输出。
-- [ ] 提交并推送（commit message 含 `(#228)`）。
-- [ ] 创建 PR（body 含 `Closes #228`）并开启 auto-merge。
+- [x] 提交并推送（commit message 含 `(#228)`）。
+- [x] 创建 PR（body 含 `Closes #228`）并开启 auto-merge。
+- [ ] 监控 `ci`/`openspec-log-guard`/`merge-serial` 并确认 `mergedAt != null`。
 
 ## Decisions Made
 
@@ -127,3 +128,15 @@
   - lint 仅历史 warning（0 errors）。
 - Evidence:
   - `scripts/agent_pr_preflight.sh` 输出（latest）
+
+### 2026-02-06 00:00 Commit, push, PR
+
+- Command:
+  - `git commit -m "feat: close dashboard project actions loop (#228)"`
+  - `git push -u origin HEAD`
+  - `gh pr create --title "[MVP-REMED] P0-001: Dashboard project actions closure (#228)" --body-file /tmp/pr228_body.md`
+- Key output:
+  - 提交 `c8f4eeb` 已推送至远端分支。
+  - PR `#229` 已创建，body 包含 `Closes #228`。
+- Evidence:
+  - `https://github.com/Leeky1017/CreoNow/pull/229`
