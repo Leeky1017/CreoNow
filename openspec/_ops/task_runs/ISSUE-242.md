@@ -102,3 +102,12 @@
 - Key output: commit `1766d1c` created；远端 `main` 更新到 `1766d1c`
 - Result: ✅ 通过（规则已收口到控制面 `main`）
 - Evidence: `https://github.com/Leeky1017/CreoNow/commit/1766d1c`
+
+### 2026-02-07 22:40 skill-sync-and-owner-doc-commit
+
+- Command: update `/home/leeky/.codex/skills/openspec-rulebook-github-delivery/SKILL.md`（同步“必须收口到 main”要点）；`pnpm exec prettier --write "docs/OpenSpec Owner 意图定义书.md"`
+- Key output: 外部 Skill 已新增 rule 6（控制面收口）并同步阶段/异常条款；Owner 意图文档格式校验通过
+- Result: ✅ 通过
+- Evidence:
+  - `/home/leeky/.codex/skills/openspec-rulebook-github-delivery/SKILL.md`
+  - `docs/OpenSpec Owner 意图定义书.md`
