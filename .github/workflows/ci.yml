@@ -121,3 +121,18 @@ jobs:
           name: creonow-windows-build
           path: |
             apps/desktop/dist-electron/
+
+  ci:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs:
+      - lint-and-typecheck
+      - unit-test
+      - integration-test
+      - contract-check
+      - storybook-build
+      - windows-e2e
+    timeout-minutes: 2
+    steps:
+      - name: CI gate
+        run: echo "All required CI jobs passed."

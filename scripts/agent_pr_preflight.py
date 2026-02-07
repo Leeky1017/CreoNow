@@ -53,7 +53,7 @@ def current_branch(repo_root: str) -> str:
 
 def require_file(path: str) -> None:
     if not os.path.isfile(path):
-        raise RuntimeError(f"required file missing: {path}")
+        raise RuntimeError(f"[RUN_LOG] required file missing: {path}")
 
 
 def main() -> int:
@@ -62,7 +62,7 @@ def main() -> int:
         branch = current_branch(repo)
         m = re.match(r"^task/(?P<n>[0-9]+)-(?P<slug>[a-z0-9-]+)$", branch)
         if not m:
-            raise RuntimeError(f"branch must be task/<N>-<slug>, got: {branch}")
+            raise RuntimeError(f"[CONTRACT] branch must be task/<N>-<slug>, got: {branch}")
 
         issue_number = m.group("n")
         slug = m.group("slug")
@@ -75,10 +75,9 @@ def main() -> int:
         print("\n== Rulebook checks ==")
         task_id = f"issue-{issue_number}-{slug}"
         task_dir = os.path.join(repo, "rulebook", "tasks", task_id)
-        if os.path.isdir(task_dir):
-            must_run(["rulebook", "task", "validate", task_id], cwd=repo)
-        else:
-            print(f"(skip) rulebook task dir not found: {task_dir}")
+        if not os.path.isdir(task_dir):
+            raise RuntimeError(f"[RULEBOOK] required task dir missing: {task_dir}")
+        must_run(["rulebook", "task", "validate", task_id], cwd=repo)
 
         print("\n== Workspace checks ==")
         # Keep preflight OS-agnostic; Windows-only build/E2E are enforced in CI.
@@ -132,4 +131,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

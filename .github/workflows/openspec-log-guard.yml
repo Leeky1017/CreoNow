@@ -5,13 +5,15 @@ on:
     branches: [main]
 
 jobs:
-  log-guard:
+  openspec-log-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check RUN_LOG exists and validate format
+      - name: Validate RUN_LOG or Skip-Reason
+        env:
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
         run: |
           BRANCH="${{ github.head_ref }}"
 
@@ -41,6 +43,10 @@ jobs:
             echo "✅ RUN_LOG format validated"
 
           else
-            echo "⚠️ Branch '$BRANCH' does not match task/<N>-<slug> pattern"
-            echo "Non-task branches must explain skip reason in PR body."
+            if printf '%s\n' "$PR_BODY" | grep -Eiq '^[[:space:]]*Skip-Reason[[:space:]]*:'; then
+              echo "✅ Non-task branch with required Skip-Reason"
+            else
+              echo "❌ Non-task branch '$BRANCH' must include 'Skip-Reason:' in PR body"
+              exit 1
+            fi
           fi
