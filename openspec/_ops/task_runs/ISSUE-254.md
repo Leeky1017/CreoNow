@@ -2,7 +2,7 @@
 
 - Issue: #254
 - Branch: task/254-ipc-next-three-requirement-changes
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/255
 
 ## Plan
 
