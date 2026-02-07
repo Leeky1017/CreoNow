@@ -2,7 +2,7 @@
 
 - Issue: #258
 - Branch: task/258-ipc-p1-channel-naming-governance
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/259
 
 ## Plan
 
