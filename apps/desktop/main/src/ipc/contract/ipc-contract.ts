@@ -1,6 +1,9 @@
 import { s } from "./schema";
 
 export const IPC_ERROR_CODES = [
+  "VALIDATION_ERROR",
+  "IPC_TIMEOUT",
+  "INTERNAL_ERROR",
   "INVALID_ARGUMENT",
   "NOT_FOUND",
   "ALREADY_EXISTS",

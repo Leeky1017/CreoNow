@@ -21,6 +21,7 @@ import { registerRagIpcHandlers } from "./ipc/rag";
 import { registerSearchIpcHandlers } from "./ipc/search";
 import { registerSkillIpcHandlers } from "./ipc/skills";
 import { registerStatsIpcHandlers } from "./ipc/stats";
+import { createValidatedIpcMain } from "./ipc/runtime-validation";
 import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
@@ -139,7 +140,13 @@ function registerIpcHandlers(deps: {
     model: deps.env.CREONOW_RAG_RERANK_MODEL,
   };
 
-  ipcMain.handle(
+  const guardedIpcMain = createValidatedIpcMain({
+    ipcMain,
+    logger: deps.logger,
+    defaultTimeoutMs: 30_000,
+  });
+
+  guardedIpcMain.handle(
     "app:ping",
     async (): Promise<IpcResponse<Record<string, never>>> => {
       try {
@@ -153,7 +160,7 @@ function registerIpcHandlers(deps: {
     },
   );
 
-  ipcMain.handle(
+  guardedIpcMain.handle(
     "db:debug:tableNames",
     async (): Promise<IpcResponse<{ tableNames: string[] }>> => {
       if (!deps.db) {
@@ -185,7 +192,7 @@ function registerIpcHandlers(deps: {
   );
 
   registerAiIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     userDataDir: deps.userDataDir,
     builtinSkillsDir: deps.builtinSkillsDir,
@@ -194,20 +201,20 @@ function registerIpcHandlers(deps: {
   });
 
   registerAiProxyIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
   });
 
   registerProjectIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     userDataDir: deps.userDataDir,
     logger: deps.logger,
   });
 
   registerContextIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
     userDataDir: deps.userDataDir,
@@ -215,50 +222,50 @@ function registerIpcHandlers(deps: {
   });
 
   registerConstraintsIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
   });
 
   registerJudgeIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     judgeService,
   });
 
   registerFileIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
   });
 
   registerExportIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
     userDataDir: deps.userDataDir,
   });
 
   registerStatsIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
   });
 
   registerEmbeddingIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
     embedding: embeddingService,
   });
 
   registerSearchIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
   });
 
   registerRagIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
     embedding: embeddingService,
@@ -266,7 +273,7 @@ function registerIpcHandlers(deps: {
   });
 
   registerSkillIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     userDataDir: deps.userDataDir,
     builtinSkillsDir: deps.builtinSkillsDir,
@@ -274,19 +281,19 @@ function registerIpcHandlers(deps: {
   });
 
   registerMemoryIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
   });
 
   registerKnowledgeGraphIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
   });
 
   registerVersionIpcHandlers({
-    ipcMain,
+    ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
   });

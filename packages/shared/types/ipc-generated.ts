@@ -12,15 +12,18 @@ export type IpcErrorCode =
   | "DB_ERROR"
   | "ENCODING_FAILED"
   | "INTERNAL"
+  | "INTERNAL_ERROR"
   | "INVALID_ARGUMENT"
   | "IO_ERROR"
+  | "IPC_TIMEOUT"
   | "MODEL_NOT_READY"
   | "NOT_FOUND"
   | "PERMISSION_DENIED"
   | "RATE_LIMITED"
   | "TIMEOUT"
   | "UNSUPPORTED"
-  | "UPSTREAM_ERROR";
+  | "UPSTREAM_ERROR"
+  | "VALIDATION_ERROR";
 
 export type IpcMeta = {
   requestId: string;
@@ -152,6 +155,9 @@ export type IpcChannelSpec = {
     response: {
       error?: {
         code:
+          | "VALIDATION_ERROR"
+          | "IPC_TIMEOUT"
+          | "INTERNAL_ERROR"
           | "INVALID_ARGUMENT"
           | "NOT_FOUND"
           | "ALREADY_EXISTS"
@@ -514,6 +520,9 @@ export type IpcChannelSpec = {
         | {
             error: {
               code:
+                | "VALIDATION_ERROR"
+                | "IPC_TIMEOUT"
+                | "INTERNAL_ERROR"
                 | "INVALID_ARGUMENT"
                 | "NOT_FOUND"
                 | "ALREADY_EXISTS"
@@ -551,6 +560,9 @@ export type IpcChannelSpec = {
         | {
             error: {
               code:
+                | "VALIDATION_ERROR"
+                | "IPC_TIMEOUT"
+                | "INTERNAL_ERROR"
                 | "INVALID_ARGUMENT"
                 | "NOT_FOUND"
                 | "ALREADY_EXISTS"
@@ -1019,6 +1031,9 @@ export type IpcChannelSpec = {
       items: Array<{
         enabled: boolean;
         error_code?:
+          | "VALIDATION_ERROR"
+          | "IPC_TIMEOUT"
+          | "INTERNAL_ERROR"
           | "INVALID_ARGUMENT"
           | "NOT_FOUND"
           | "ALREADY_EXISTS"
