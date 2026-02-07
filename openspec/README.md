@@ -1,25 +1,32 @@
 # CreoNow OpenSpec
 
-本目录存放项目规范和运行日志。
+本目录存放项目行为规范（Source of Truth）、变更提案和执行证据。
 
 ## 目录结构
 
 ```
 openspec/
-├── _ops/
-│   ├── task_runs/     # 任务运行日志（RUN_LOG）
-│   └── audits/        # 审计报告
-├── specs/             # 规范文档
-│   └── creonow-spec/  # 项目主规范
-├── changes/archive/   # 变更存档
-├── tasks/             # 任务描述
-├── project.md         # 项目概述
-├── AGENTS.md          # Agent 规则
-└── README.md          # 本文件
+├── project.md              ← 项目概述（Agent 第二入口）
+├── specs/                  ← 按模块组织的主规范（12 个模块）
+│   ├── context-engine/
+│   ├── knowledge-graph/
+│   ├── memory-system/
+│   ├── skill-system/
+│   ├── ai-service/
+│   ├── search-and-retrieval/
+│   ├── editor/
+│   ├── workbench/
+│   ├── document-management/
+│   ├── project-management/
+│   ├── ipc/
+│   └── version-control/
+├── changes/                ← 进行中的变更（Delta Specs）
+└── _ops/
+    └── task_runs/          ← RUN_LOGs（执行证据）
 ```
 
-## 使用方式
+## 入口
 
-1. 每个 Issue 对应一个 `_ops/task_runs/ISSUE-N.md` 文件
-2. 规范文档存放在 `specs/` 目录下
-3. Agent 规则见 `AGENTS.md`
+- Agent 宪法：`/AGENTS.md`
+- 项目概述：`project.md`
+- 交付规则：`/docs/delivery-skill.md`

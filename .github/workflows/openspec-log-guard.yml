@@ -1,0 +1,46 @@
+name: OpenSpec Log Guard
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  log-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check RUN_LOG exists and validate format
+        run: |
+          BRANCH="${{ github.head_ref }}"
+
+          if [[ "$BRANCH" =~ ^task/([0-9]+)- ]]; then
+            ISSUE_NUM="${BASH_REMATCH[1]}"
+            RUN_LOG="openspec/_ops/task_runs/ISSUE-${ISSUE_NUM}.md"
+
+            # Check file exists
+            if [ ! -f "$RUN_LOG" ]; then
+              echo "❌ RUN_LOG not found: $RUN_LOG"
+              exit 1
+            fi
+            echo "✅ RUN_LOG found: $RUN_LOG"
+
+            # Validate required fields
+            MISSING=""
+            grep -q "^- Issue:" "$RUN_LOG"   || MISSING="${MISSING} Issue"
+            grep -q "^- Branch:" "$RUN_LOG"  || MISSING="${MISSING} Branch"
+            grep -q "^- PR:" "$RUN_LOG"      || MISSING="${MISSING} PR"
+            grep -q "^## Plan" "$RUN_LOG"    || MISSING="${MISSING} Plan"
+            grep -q "^## Runs" "$RUN_LOG"    || MISSING="${MISSING} Runs"
+
+            if [ -n "$MISSING" ]; then
+              echo "❌ RUN_LOG missing required fields:${MISSING}"
+              exit 1
+            fi
+            echo "✅ RUN_LOG format validated"
+
+          else
+            echo "⚠️ Branch '$BRANCH' does not match task/<N>-<slug> pattern"
+            echo "Non-task branches must explain skip reason in PR body."
+          fi

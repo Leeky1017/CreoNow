@@ -1,58 +1,226 @@
-# CreoNow — Agent Instructions
+# CreoNow — Agent 宪法
 
-本仓库目标：构建一个 AI 驱动的文字创作 IDE（创作者的 Cursor）。
+**CreoNow（CN）** 是一个 AI 驱动的文字创作 IDE，定位为「创作者的 Cursor」。
 
-## 规范导航
+所有 AI Agent 在执行任何任务之前，必须先阅读本文件。违反本文件中标记为「禁止」的规则，等同于交付失败。
 
-1. 项目规范：`openspec/specs/creonow-spec/spec.md`
-2. 设计规范：`design/Variant/DESIGN_SPEC.md`
-3. 任务运行日志：`openspec/_ops/task_runs/ISSUE-N.md`
-4. 本文件（治理规范）：`AGENTS.md`
+## 索引
 
-## 交付流程
+| §   | 章节           | 内容                                   |
+| --- | -------------- | -------------------------------------- |
+| 一  | 规范导航       | 文档路径速查                           |
+| 二  | 架构           | 四层架构 + 12 模块 Spec 路径           |
+| 三  | 不可违反的规则  | Spec-First、TDD、证据落盘、门禁、变更流程 |
+| 四  | 禁止行为清单   | 14 条硬禁                              |
+| 五  | 工作流程       | 接任务、开发阶段、命名约定              |
+| 六  | Spec 与代码关系 | GIVEN/WHEN/THEN → AAA → 实现           |
+| 七  | 测试要求速查   | 分层、覆盖率、编写规范                  |
+| 八  | 技术选型约束   | 锁定技术列表                           |
+| 九  | 工具链         | 包管理、构建、测试、Mock 工具           |
+| 十  | 设计规范       | Design Token 引用                      |
+| 十一 | 异常处理      | 遇到问题的「必须做」和「禁止做」        |
+| 十二 | 代码原则      | 显式注入、JSDoc、类型完备               |
+| 十三 | 文件组织      | 源码、测试、OpenSpec 目录结构           |
 
-本项目采用 **openspec-rulebook-github-delivery** 体系。
+---
 
-关键要点：
+## 一、规范导航
 
-- GitHub 是并发与交付唯一入口：Issue → Branch → PR → Checks → Auto-merge
-- Issue 号 `N` 是任务唯一 ID
-- 分支名：`task/<N>-<slug>`
-- Commit message 必须包含 `(#N)`
-- PR body 必须包含 `Closes #N`
-- 必须使用 worktree 隔离开发
+| #  | 文档               | 路径                                    |
+| -- | ------------------ | --------------------------------------- |
+| 1  | 本文件（Agent 宪法）| `AGENTS.md`                            |
+| 2  | 项目概述           | `openspec/project.md`                   |
+| 3  | 模块行为规范       | `openspec/specs/<module>/spec.md`       |
+| 4  | 交付规则（SKILL）   | `docs/delivery-skill.md`               |
+| 5  | 设计规范           | `design/DESIGN_DECISIONS.md`            |
+| 6  | 任务运行日志       | `openspec/_ops/task_runs/ISSUE-N.md`    |
 
-详细流程见 Skill：`openspec-rulebook-github-delivery/SKILL.md`
+---
 
-## 宪法级约束（必须遵守）
+## 二、架构
 
-### 代码质量
+| 架构层         | 路径                      | 运行环境          | 包含内容                                          |
+| -------------- | ------------------------- | ----------------- | ------------------------------------------------- |
+| 前端（渲染层） | `apps/desktop/renderer/`  | Electron 渲染进程 | React 组件、TipTap 编辑器、Zustand store、UI 交互  |
+| Preload        | `apps/desktop/preload/`   | Electron Preload  | contextBridge，安全暴露 IPC API                     |
+| 后端（业务层） | `apps/desktop/main/`      | Electron 主进程   | 上下文引擎、知识图谱、记忆系统、技能系统、SQLite DAO、LLM 调用 |
+| 共享层         | `packages/shared/`        | 跨进程            | IPC 类型定义、共享常量                              |
 
-- 代码必须同时"正确"和"好"
-- 正确：功能符合需求；边界处理完备；失败路径可观测且可恢复
-- 好：可读性强、可维护、可测试、风格一致
-- 禁止 `any` 类型；类型必须完备（TS 严格模式下可编译）
-- 注释只解释 why（原因/约束/不变量），不写 what（实现细节复述）
+### 核心引擎（后端为主）
 
-### 一致性
+| 模块               | 职责                                    | Spec 路径                                     |
+| ------------------ | --------------------------------------- | --------------------------------------------- |
+| Context Engine     | 分层上下文管理、Token 预算、Constraints  | `openspec/specs/context-engine/spec.md`        |
+| Knowledge Graph    | 实体与关系管理、语义检索、角色管理系统    | `openspec/specs/knowledge-graph/spec.md`       |
+| Memory System      | 写作偏好学习、记忆存储与衰减             | `openspec/specs/memory-system/spec.md`         |
+| Skill System       | AI 技能抽象、三级作用域、技能执行         | `openspec/specs/skill-system/spec.md`          |
+| AI Service         | LLM 代理调用、流式响应、AI 面板、Judge   | `openspec/specs/ai-service/spec.md`            |
+| Search & Retrieval | 全文检索、RAG、向量嵌入、语义搜索        | `openspec/specs/search-and-retrieval/spec.md`  |
 
-- 全项目必须始终保持统一（命名、结构、错误处理、状态管理）
-- 必须遵循已定义的契约规范
+### 用户界面（前端为主）
 
-### 测试
+| 模块               | 职责                                    | Spec 路径                                     |
+| ------------------ | --------------------------------------- | --------------------------------------------- |
+| Editor             | TipTap 编辑器、大纲、Diff 对比、禅模式   | `openspec/specs/editor/spec.md`                |
+| Workbench          | UI 外壳、布局、Surface、命令面板、设置    | `openspec/specs/workbench/spec.md`             |
+| Document Mgmt      | 文档 CRUD、文件树、导出                  | `openspec/specs/document-management/spec.md`   |
+| Project Mgmt       | 项目生命周期、仪表盘、模板、引导         | `openspec/specs/project-management/spec.md`    |
 
-- 所有功能必须有测试
-- 每个关键节点必须做极限/边界测试
-- 禁止"假装测试"：未运行就宣称通过；未断言就宣称覆盖
+### 基础设施
 
-## 代码原则（必须遵守）
+| 模块               | 职责                                    | Spec 路径                                     |
+| ------------------ | --------------------------------------- | --------------------------------------------- |
+| IPC                | 前后端通信契约、契约自动生成与校验        | `openspec/specs/ipc/spec.md`                   |
+| Version Control    | 快照、AI 修改标记、Diff、版本恢复        | `openspec/specs/version-control/spec.md`       |
 
-- 拒绝隐式注入：所有依赖必须显式传入
-- 一条链路一套实现：禁止"向后兼容/双栈并存"
-- 不写非必要代码：禁止过度抽象；先跑通最短链路再扩展
-- 显式注释：新增/修改的函数必须有 JSDoc
+---
 
-## 技术选型约束
+## 三、不可违反的规则
+
+### 3.1 Spec-First（规范优先）
+
+- 任何功能变更必须先有 spec，再写代码
+- 收到任务后，第一步是阅读 `openspec/specs/<module>/spec.md`
+- 如果 spec 不存在或不完整，必须先通过变更流程补充 spec，不得直接写代码
+- 如果开发中发现 spec 遗漏的场景，必须先补充 delta spec 并通知 Owner，等确认后再实现
+
+### 3.2 TDD（测试驱动开发）
+
+- 测试必须先于实现：先写测试（Red）→ 写最少实现（Green）→ 重构（Refactor）
+- Spec 中的每个 Scenario 必须被翻译为至少一个测试用例，不得遗漏
+- 禁止先写实现再补测试
+- 禁止编写永远通过的测试（空断言、断言常量等）
+- 禁止为了覆盖率而编写不验证行为的测试
+
+### 3.3 证据落盘
+
+- 每个任务必须有 `RUN_LOG`，路径为 `openspec/_ops/task_runs/ISSUE-<N>.md`
+- 关键命令的输入和输出必须记录在 RUN_LOG 的 Runs 段中
+- CI 失败和修复过程必须记录
+- 禁止 silent failure——异常必须有明确错误码/信息
+
+### 3.4 门禁全绿
+
+- PR 必须通过三个 required checks：`ci`、`openspec-log-guard`、`merge-serial`
+- 所有 PR 必须启用 auto-merge，禁止手动合并
+- CI 失败后必须修复再 push，不得「先合并再修」
+
+### 3.5 变更流程
+
+- 主 spec（`openspec/specs/**/spec.md`）代表系统当前真实状态，禁止直接修改
+- 所有变更必须走 **Proposal → Apply → Archive** 流程
+- Delta Spec 中使用 `[ADDED]`/`[MODIFIED]`/`[REMOVED]` 标记
+- PR 合并后才能将 delta spec 归档到主 spec
+
+---
+
+## 四、禁止行为清单
+
+以下行为绝对禁止，违反任何一条即为交付失败。
+
+1. 禁止跳过 spec 直接写代码
+2. 禁止先写实现再补测试
+3. 禁止直接修改主 spec（必须走 Proposal → Apply → Archive）
+4. 禁止 silent failure（异常必须有错误码、错误信息和日志）
+5. 禁止「先合并再修」（CI 不绿就不合并）
+6. 禁止手动合并 PR（必须用 auto-merge）
+7. 禁止测试覆盖的 Scenario 少于 spec 定义的 Scenario
+8. 禁止在测试中硬编码实现细节（如依赖内部变量名、私有方法调用顺序）
+9. 禁止测试之间共享可变状态
+10. 禁止依赖真实时间、随机数、网络请求（使用 fake timer、固定种子、mock）
+11. 禁止消耗真实 LLM API 额度（集成测试和 E2E 必须 mock）
+12. 禁止 `pnpm install` 不带 `--frozen-lockfile`
+13. 禁止 RUN_LOG 的 PR 字段留占位符（必须回填真实链接）
+14. 禁止 silent abandonment（遇到 blocker 必须记录并通知，不得静默放弃）
+
+---
+
+## 五、工作流程
+
+### 5.1 接到任务时
+
+```
+1. 阅读本文件（AGENTS.md）                         ← 如已读可跳过
+2. 阅读 openspec/project.md                        ← 项目概述
+3. 阅读 openspec/specs/<module>/spec.md             ← 任务相关模块行为规范
+4. 阅读 openspec/changes/<current>/                 ← 如有进行中的变更
+5. 确认任务的 Issue 号（N）和 SLUG
+```
+
+### 5.2 开发流程
+
+| 阶段             | 完成条件                                                       |
+| ---------------- | -------------------------------------------------------------- |
+| 1. 任务准入       | Issue 已创建或认领，N 和 SLUG 已确定                            |
+| 2. 规格制定       | spec 已编写或更新；delta spec 已提交 Owner 审阅（如需要）        |
+| 3. 环境隔离       | Worktree 已创建，工作目录已切换                                  |
+| 4. 实现与测试     | 按 TDD 循环实现；所有测试通过；RUN_LOG 已记录                    |
+| 5. 提交与合并     | PR 已创建；auto-merge 已开启；三个 checks 全绿；PR 已确认合并    |
+| 6. 收口与归档     | 控制面已同步；worktree 已清理                                    |
+
+### 5.3 命名约定
+
+| 实体      | 格式                                     | 示例                              |
+| --------- | ---------------------------------------- | --------------------------------- |
+| Branch    | `task/<N>-<slug>`                        | `task/42-memory-decay`            |
+| Commit    | `<type>: <summary> (#<N>)`               | `feat: add memory decay (#42)`    |
+| PR title  | `<title> (#<N>)`                         | `Add memory decay (#42)`          |
+| PR body   | 必须包含 `Closes #<N>`                   | `Closes #42`                      |
+| RUN_LOG   | `openspec/_ops/task_runs/ISSUE-<N>.md`   | `ISSUE-42.md`                     |
+| Worktree  | `.worktrees/issue-<N>-<slug>`            | `.worktrees/issue-42-memory-decay`|
+
+Commit type 可选值：`feat`、`fix`、`refactor`、`test`、`docs`、`chore`、`ci`
+
+---
+
+## 六、Spec 与代码的关系
+
+```
+Spec Scenario          →  测试用例             →  实现代码
+─────────────────────────────────────────────────────────
+GIVEN（前置条件）      →  Arrange（准备）       →  被测模块的依赖
+WHEN（触发动作）       →  Act（执行）           →  被测模块的接口
+THEN（期望结果）       →  Assert（验证）        →  被测模块的行为
+```
+
+同步规则：
+- Spec 新增 Scenario → 必须新增对应测试
+- Spec 修改 Scenario → 必须同步修改对应测试
+- Spec 删除 Scenario → 必须同步删除对应测试
+- 开发中发现 spec 遗漏 → 先补 delta spec + 通知 Owner → 等确认后再实现
+
+---
+
+## 七、测试要求速查
+
+### 7.1 测试分层
+
+| 层级       | 运行时机   | 速度要求      | 外部依赖                  |
+| ---------- | ---------- | ------------- | ------------------------- |
+| 单元测试   | 每次保存   | 全套 30 秒内  | 全部 mock                 |
+| 集成测试   | 每次提交   | 全套 2 分钟内 | SQLite 内存 OK，LLM 必须 mock |
+| E2E 测试   | 每次合并   | 全套 10 分钟内| LLM 用 mock server        |
+| AI Eval    | Prompt 变更| 取决于 API    | 真实 LLM，手动触发         |
+
+### 7.2 覆盖率要求
+
+| 模块类别                              | 最低覆盖率 |
+| ------------------------------------- | ---------- |
+| 核心业务逻辑（Context Engine、KG、Memory） | 90%       |
+| 一般业务模块（DAO、Skill、Version）      | 80%       |
+| UI 组件和胶水代码                        | 60%       |
+
+### 7.3 测试编写规范
+
+- 命名：`it('should <期望行为> when <前置条件>')`
+- 结构：严格 AAA（Arrange-Act-Assert），段间空行分隔
+- 独立性：每个测试独立运行，不依赖执行顺序，不共享可变状态
+- 确定性：同一测试在同一代码上运行 N 次，结果完全相同
+- 断言：每个测试至少一个有意义的断言，优先使用具体断言
+
+---
+
+## 八、技术选型约束
 
 以下技术已锁定，禁止替换：
 
@@ -70,27 +238,97 @@
 
 如需变更技术选型，必须先提交 RFC 并获得批准。
 
-## 设计规范
+---
 
-- 设计基准：`design/Variant/DESIGN_SPEC.md`
+## 九、工具链
+
+| 用途       | 工具                           | 说明                          |
+| ---------- | ------------------------------ | ----------------------------- |
+| 包管理     | pnpm 8                        | 必须使用 `--frozen-lockfile`  |
+| 构建       | Vite（via electron-vite）      | —                             |
+| 测试框架   | Vitest                         | 兼容 Jest API                 |
+| 组件测试   | React Testing Library          | 测试行为而非实现               |
+| E2E        | Playwright                     | 支持 Electron                 |
+| Mock       | Vitest 内置（vi.mock / vi.fn） | —                             |
+| 样式       | Tailwind CSS 4                 | 原子化 CSS                    |
+| 状态管理   | Zustand                        | —                             |
+| 本地存储   | SQLite                         | 测试中使用 `:memory:`         |
+
+---
+
+## 十、设计规范
+
+- 设计基准：`design/DESIGN_DECISIONS.md`
 - 所有 UI 实现必须严格遵循设计规范，禁止偏移
 - 颜色、间距、字体必须使用 Design Token
 
-## 异常与防御性编程（必须遵守）
+---
 
-- IPC 边界必须返回可判定结果（`ok: true|false`）
+## 十一、异常处理
+
+| 遇到的情况                 | 必须做                                           | 禁止做                   |
+| -------------------------- | ------------------------------------------------ | ------------------------ |
+| Spec 不存在或不完整         | 通知 Owner，请求补充 spec                         | 根据猜测直接写代码        |
+| 开发中发现 spec 遗漏场景    | 写 delta spec 补充 → 通知 Owner → 等确认          | 只写测试不更新 spec       |
+| `gh` 命令超时               | 重试 3 次（间隔 10s），仍失败 → 记录 RUN_LOG → 升级| 静默忽略                 |
+| PR 需要 review              | 记录 blocker → 通知 reviewer → 等待               | 静默放弃                 |
+| CI 失败                     | 修复 → push → 再次 watch → 写入 RUN_LOG           | 先合并再修               |
+| 任务超出 spec 范围          | 先补 spec → 经 Owner 确认后再做                    | 超范围自由发挥            |
+
+---
+
+## 十二、代码原则
+
+- 拒绝隐式注入：所有依赖必须显式传入
+- 一条链路一套实现：禁止「向后兼容/双栈并存」
+- 不写非必要代码：禁止过度抽象；先跑通最短链路再扩展
+- 显式注释：新增/修改的函数必须有 JSDoc；注释只解释 why，不写 what
+- 禁止 `any` 类型；类型必须完备（TS 严格模式下可编译）
+- IPC 边界必须返回可判定结果（`ok: true | false`）
 - 禁止 silent failure：任何 `catch` 必须显式处理
 - 超时/取消必须有明确状态
 
-## 工作留痕
+---
 
-- 每个 Issue 必须创建 `openspec/_ops/task_runs/ISSUE-N.md`
-- RUN_LOG 必含：Issue、Branch、PR、Plan、Runs
-- Runs 章节只追加不回写
+## 十三、文件组织
 
-## 禁止事项（硬禁）
+### 源码
 
-- 禁止兼容旧方案/保留两套实现
-- 禁止假数据测试
-- 禁止不做验证就说"已完成"
-- 禁止 silent failure
+```
+apps/desktop/
+├── main/src/               ← 后端（Electron 主进程）
+├── preload/src/            ← Preload 脚本
+├── renderer/src/           ← 前端（Electron 渲染进程）
+└── tests/                  ← 测试
+```
+
+### 测试
+
+```
+apps/desktop/**/*.test.ts   ← 单元测试（与源文件并置）
+tests/
+├── integration/            ← 集成测试
+├── e2e/                    ← 端到端测试
+└── ai-eval/                ← AI 输出质量测试
+    └── golden-tests/
+```
+
+### OpenSpec
+
+```
+openspec/
+├── project.md              ← 项目概述（Agent 第二入口）
+├── specs/                  ← 主规范（Source of Truth）
+│   └── <module>/spec.md
+├── changes/                ← 进行中的变更（Delta Specs）
+│   └── <change-name>/
+│       ├── proposal.md
+│       ├── tasks.md
+│       └── specs/<module>/spec.md
+└── _ops/
+    └── task_runs/          ← RUN_LOGs
+```
+
+---
+
+**读完本文件后，请阅读 `openspec/project.md`，然后阅读任务相关模块的 `spec.md`，再开始工作。**

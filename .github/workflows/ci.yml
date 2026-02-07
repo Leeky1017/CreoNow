@@ -7,46 +7,62 @@ on:
     branches: [main]
 
 jobs:
-  check:
+  # ── Fast feedback (parallel) ─────────────────────────────────
+
+  lint-and-typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
       - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install
-
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: Lint
+        run: pnpm lint
       - name: Type check
         run: pnpm typecheck
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: IPC contract check
-        run: pnpm contract:check
-
+  unit-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node-pnpm
       - name: Unit tests
         run: pnpm test:unit
-
-      - name: Integration tests
-        run: pnpm test:integration
-
       - name: Desktop vitest (renderer/store)
         run: pnpm -C apps/desktop test:run
 
+  integration-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: Integration tests
+        run: pnpm test:integration
+
+  contract-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: IPC contract check
+        run: pnpm contract:check
+
+  storybook-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node-pnpm
       - name: Storybook build check
         run: pnpm -C apps/desktop storybook:build
 
+  # ── Windows jobs ─────────────────────────────────────────────
+
   windows-e2e:
     runs-on: windows-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +76,7 @@ jobs:
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Install Playwright browsers
         run: pnpm -C apps/desktop exec playwright install
@@ -79,6 +95,8 @@ jobs:
 
   windows-build:
     runs-on: windows-latest
+    if: github.event_name == 'push'
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -92,7 +110,7 @@ jobs:
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build Windows artifacts (NSIS + zip)
         run: pnpm -C apps/desktop build:win
@@ -103,26 +121,3 @@ jobs:
           name: creonow-windows-build
           path: |
             apps/desktop/dist-electron/
-
-  openspec-log-guard:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check RUN_LOG exists
-        run: |
-          # Extract issue number from PR title or branch
-          BRANCH="${{ github.head_ref }}"
-          if [[ "$BRANCH" =~ ^task/([0-9]+)- ]]; then
-            ISSUE_NUM="${BASH_REMATCH[1]}"
-            RUN_LOG="openspec/_ops/task_runs/ISSUE-${ISSUE_NUM}.md"
-            if [ -f "$RUN_LOG" ]; then
-              echo "✅ RUN_LOG found: $RUN_LOG"
-            else
-              echo "❌ RUN_LOG not found: $RUN_LOG"
-              exit 1
-            fi
-          else
-            echo "⚠️ Branch name does not match task/<N>-<slug> pattern, skipping check"
-          fi

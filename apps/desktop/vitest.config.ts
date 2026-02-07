@@ -62,6 +62,12 @@ export default defineConfig({
         "renderer/src/main.tsx",
         "renderer/src/global.d.ts",
       ],
+      thresholds: {
+        statements: 60,
+        branches: 60,
+        functions: 60,
+        lines: 60,
+      },
     },
 
     /**
