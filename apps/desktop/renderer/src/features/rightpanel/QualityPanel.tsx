@@ -18,10 +18,10 @@ import {
 } from "../quality-gates/QualityGatesPanel";
 
 type JudgeModelState =
-  IpcChannelSpec["judge:model:getState"]["response"]["state"];
+  IpcChannelSpec["judge:model:getstate"]["response"]["state"];
 
 type ConstraintsData =
-  IpcChannelSpec["constraints:get"]["response"]["constraints"];
+  IpcChannelSpec["constraints:policy:get"]["response"]["constraints"];
 
 /**
  * Format judge state into a human-readable label with status indicator.
@@ -63,7 +63,9 @@ function StatusDot(props: {
   }
 
   return (
-    <span className={`inline-block w-2 h-2 rounded-full ${colors[props.status]}`} />
+    <span
+      className={`inline-block w-2 h-2 rounded-full ${colors[props.status]}`}
+    />
   );
 }
 
@@ -135,7 +137,10 @@ function JudgeStatusSection(props: {
           <StatusDot status={status} />
           <Text size="small" color="default">
             Judge Model:{" "}
-            <span data-testid="quality-panel-judge-status" className="font-medium">
+            <span
+              data-testid="quality-panel-judge-status"
+              className="font-medium"
+            >
               {label}
             </span>
           </Text>
@@ -201,7 +206,10 @@ function ConstraintsSection(props: {
       <div className="flex items-center justify-between">
         <Text size="small" color="default">
           Constraints:{" "}
-          <span data-testid="quality-panel-constraints-count" className="font-medium">
+          <span
+            data-testid="quality-panel-constraints-count"
+            className="font-medium"
+          >
             {count} {count === 1 ? "rule" : "rules"}
           </span>
         </Text>
@@ -325,9 +333,9 @@ function derivePanelStatus(
  * with observable error handling (not silent failure, not fake empty array).
  *
  * IPC dependencies:
- * - judge:model:getState: get current judge model status
+ * - judge:model:getstate: get current judge model status
  * - judge:model:ensure: trigger model download/initialization
- * - constraints:get: get project constraints
+ * - constraints:policy:get: get project constraints
  *
  * @example
  * ```tsx
@@ -366,7 +374,7 @@ export function QualityPanel(): JSX.Element {
 
   // Fetch judge state
   const fetchJudgeState = React.useCallback(async () => {
-    const res = await invoke("judge:model:getState", {});
+    const res = await invoke("judge:model:getstate", {});
     if (res.ok) {
       setJudgeState(res.data.state);
       setJudgeError(null);
@@ -386,7 +394,7 @@ export function QualityPanel(): JSX.Element {
       return;
     }
 
-    const res = await invoke("constraints:get", { projectId });
+    const res = await invoke("constraints:policy:get", { projectId });
     if (res.ok) {
       setConstraints(res.data.constraints);
       setConstraintsError(null);

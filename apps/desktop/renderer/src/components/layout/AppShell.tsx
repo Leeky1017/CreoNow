@@ -423,7 +423,7 @@ export function AppShell(): JSX.Element {
           return;
         }
 
-        const res = await invoke("version:restore", {
+        const res = await invoke("version:snapshot:restore", {
           documentId,
           versionId: compareVersionId,
         });

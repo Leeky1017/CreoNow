@@ -82,7 +82,7 @@ function installInvokeMock(args?: {
       };
     }
 
-    if (channel === "version:list") {
+    if (channel === "version:snapshot:list") {
       return {
         ok: true,
         data: {
@@ -99,7 +99,7 @@ function installInvokeMock(args?: {
       };
     }
 
-    if (channel === "version:read") {
+    if (channel === "version:snapshot:read") {
       if (args?.readVersionError) {
         return { ok: false, error: args.readVersionError };
       }
@@ -120,7 +120,7 @@ function installInvokeMock(args?: {
       };
     }
 
-    if (channel === "version:restore") {
+    if (channel === "version:snapshot:restore") {
       return { ok: true, data: { restored: true } };
     }
 
@@ -129,11 +129,11 @@ function installInvokeMock(args?: {
 }
 
 /**
- * Count how many times `version:restore` was invoked in the mocked IPC client.
+ * Count how many times `version:snapshot:restore` was invoked in the mocked IPC client.
  */
 function getRestoreInvokeCount(): number {
   return invokeMock.mock.calls.filter(
-    ([channel]) => channel === "version:restore",
+    ([channel]) => channel === "version:snapshot:restore",
   ).length;
 }
 
@@ -159,7 +159,7 @@ describe("VersionHistoryContainer", () => {
     await user.click(screen.getByTestId("version-preview-trigger"));
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("version:read", {
+      expect(invokeMock).toHaveBeenCalledWith("version:snapshot:read", {
         documentId: "doc-1",
         versionId: "v-1",
       });

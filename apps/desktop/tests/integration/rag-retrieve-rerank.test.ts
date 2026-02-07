@@ -96,8 +96,8 @@ function createDbStub(): Database.Database {
     ragRerank: { enabled: true },
   });
 
-  const handler = handlers.get("rag:retrieve");
-  assert.ok(handler, "Missing handler rag:retrieve");
+  const handler = handlers.get("rag:context:retrieve");
+  assert.ok(handler, "Missing handler rag:context:retrieve");
 
   const res = (await handler(
     {},
@@ -133,8 +133,8 @@ function createDbStub(): Database.Database {
     ragRerank: { enabled: true, model: "hash-v1" },
   });
 
-  const handler = handlers.get("rag:retrieve");
-  assert.ok(handler, "Missing handler rag:retrieve");
+  const handler = handlers.get("rag:context:retrieve");
+  assert.ok(handler, "Missing handler rag:context:retrieve");
 
   const res = (await handler(
     {},

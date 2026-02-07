@@ -99,7 +99,7 @@ test("memory: injection preview + preference learning loop", async () => {
   });
   expect(settingsRes.ok).toBe(true);
 
-  const created = await ipcInvoke(page, "memory:create", {
+  const created = await ipcInvoke(page, "memory:entry:create", {
     type: "preference",
     scope: "global",
     content: "Prefer: use bullets",

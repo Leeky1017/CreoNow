@@ -82,7 +82,7 @@ const mockSkills = [
 const mockIpc = {
   invoke: async (channel: string): Promise<unknown> => {
     // Return mock skills for skill list requests
-    if (channel === "ai:skill:list") {
+    if (channel === "ai:skill:registry:list") {
       return {
         ok: true,
         data: { items: mockSkills },
@@ -149,7 +149,9 @@ export function LayoutTestWrapper({
               <AiStoreProvider store={aiStore}>
                 <MemoryStoreProvider store={memoryStore}>
                   <SearchStoreProvider store={searchStore}>
-                    <KgStoreProvider store={kgStore}>{children}</KgStoreProvider>
+                    <KgStoreProvider store={kgStore}>
+                      {children}
+                    </KgStoreProvider>
                   </SearchStoreProvider>
                 </MemoryStoreProvider>
               </AiStoreProvider>

@@ -332,11 +332,11 @@ function createMockMemoryIpc(options: MockIpcOptions) {
   return {
     invoke: async (channel: string): Promise<unknown> => {
       switch (channel) {
-        case "memory:list":
+        case "memory:entry:list":
           return { ok: true, data: { items: options.items } };
-        case "memory:create":
+        case "memory:entry:create":
           return { ok: true, data: { memoryId: `mem-${Date.now()}` } };
-        case "memory:delete":
+        case "memory:entry:delete":
           return { ok: true, data: { deleted: true } };
         case "memory:settings:get":
           return { ok: true, data: options.settings };
@@ -353,13 +353,13 @@ function createMockMemoryIpc(options: MockIpcOptions) {
 function createMockProjectIpc(projectId: string | null) {
   return {
     invoke: async (channel: string): Promise<unknown> => {
-      if (channel === "project:getCurrent" && projectId) {
+      if (channel === "project:project:getcurrent" && projectId) {
         return {
           ok: true,
           data: { projectId, rootPath: "/projects/迷雾追凶" },
         };
       }
-      if (channel === "project:list") {
+      if (channel === "project:project:list") {
         return { ok: true, data: { items: [] } };
       }
       return { ok: false, error: { code: "NOT_FOUND", message: "No project" } };
@@ -371,7 +371,7 @@ function createMockProjectIpc(projectId: string | null) {
 function createMockFileIpc(documentId: string | null) {
   return {
     invoke: async (channel: string): Promise<unknown> => {
-      if (channel === "file:document:getCurrent" && documentId) {
+      if (channel === "file:document:getcurrent" && documentId) {
         return { ok: true, data: { documentId } };
       }
       if (channel === "file:document:list") {

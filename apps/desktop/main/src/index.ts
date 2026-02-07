@@ -147,7 +147,7 @@ function registerIpcHandlers(deps: {
   });
 
   guardedIpcMain.handle(
-    "app:ping",
+    "app:system:ping",
     async (): Promise<IpcResponse<Record<string, never>>> => {
       try {
         return { ok: true, data: {} };
@@ -161,7 +161,7 @@ function registerIpcHandlers(deps: {
   );
 
   guardedIpcMain.handle(
-    "db:debug:tableNames",
+    "db:debug:tablenames",
     async (): Promise<IpcResponse<{ tableNames: string[] }>> => {
       if (!deps.db) {
         return {

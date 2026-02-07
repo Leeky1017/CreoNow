@@ -26,7 +26,7 @@ export function registerAiProxyIpcHandlers(deps: {
   logger: Logger;
 }): void {
   deps.ipcMain.handle(
-    "ai:proxy:settings:get",
+    "ai:proxysettings:get",
     async (): Promise<
       IpcResponse<{
         enabled: boolean;
@@ -52,7 +52,7 @@ export function registerAiProxyIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "ai:proxy:settings:update",
+    "ai:proxysettings:update",
     async (
       _e,
       payload: { patch: ProxySettingsPatch },

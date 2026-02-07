@@ -22,7 +22,7 @@ export function registerRagIpcHandlers(deps: {
   const embeddingCache = new LruCache<string, number[]>({ maxEntries: 256 });
 
   deps.ipcMain.handle(
-    "rag:retrieve",
+    "rag:context:retrieve",
     async (
       _e,
       payload: {

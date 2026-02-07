@@ -41,7 +41,7 @@ test("app launches (E2E mode)", async () => {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return window.creonow.invoke("app:ping", {});
+    return window.creonow.invoke("app:system:ping", {});
   });
   expect(ping.ok).toBe(true);
 

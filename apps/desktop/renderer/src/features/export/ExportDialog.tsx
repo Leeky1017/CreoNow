@@ -337,7 +337,8 @@ function FormatCard({
   isSelected: boolean;
   disabledReason?: string;
 }) {
-  const disabled = typeof disabledReason === "string" && disabledReason.length > 0;
+  const disabled =
+    typeof disabledReason === "string" && disabledReason.length > 0;
 
   const item = (
     <RadioGroupPrimitive.Item
@@ -353,8 +354,10 @@ function FormatCard({
       ) : null}
 
       {/* 单选指示器 - 绝对定位在右上角，选中时为实心白色圆 */}
-      <div className={`absolute top-3 right-3 ${radioIndicatorStyles(isSelected)}`} />
-      
+      <div
+        className={`absolute top-3 right-3 ${radioIndicatorStyles(isSelected)}`}
+      />
+
       {/* 图标 */}
       <div
         className={`mb-2 ${
@@ -365,12 +368,12 @@ function FormatCard({
       >
         {option.icon}
       </div>
-      
+
       {/* 标签 */}
       <div className="font-medium text-sm text-[var(--color-fg-default)]">
         {option.label}
       </div>
-      
+
       {/* 描述 */}
       <div
         className={`text-xs mt-0.5 ${
@@ -708,7 +711,10 @@ function SuccessView(props: {
           </div>
           <div className="text-xs text-[var(--color-fg-muted)]">
             <span className="font-mono">bytesWritten</span>:{" "}
-            <span data-testid="export-success-bytes-written" className="font-mono">
+            <span
+              data-testid="export-success-bytes-written"
+              className="font-mono"
+            >
               {props.result.bytesWritten}
             </span>
           </div>
@@ -787,8 +793,7 @@ export function ExportDialog({
   // Use controlled or internal values
   const view = controlledView ?? internalView;
   const progress = controlledProgress ?? internalProgress;
-  const progressStep =
-    controlledProgressStep ?? getProgressStepLabel(progress);
+  const progressStep = controlledProgressStep ?? getProgressStepLabel(progress);
   const error = controlledError ?? lastError;
   const exportResult = controlledResult ?? result;
 
@@ -812,7 +817,9 @@ export function ExportDialog({
       };
       setOptions({
         ...nextOptions,
-        format: getUnsupportedReason(nextOptions.format) ? "markdown" : nextOptions.format,
+        format: getUnsupportedReason(nextOptions.format)
+          ? "markdown"
+          : nextOptions.format,
       });
     }
   }, [open, initialOptions]);
@@ -858,12 +865,12 @@ export function ExportDialog({
 
     const res =
       options.format === "markdown"
-        ? await invoke("export:markdown", payload)
+        ? await invoke("export:document:markdown", payload)
         : options.format === "pdf"
-          ? await invoke("export:pdf", payload)
+          ? await invoke("export:document:pdf", payload)
           : options.format === "txt"
-            ? await invoke("export:txt", payload)
-            : await invoke("export:docx", payload);
+            ? await invoke("export:document:txt", payload)
+            : await invoke("export:document:docx", payload);
 
     if (requestIdRef.current !== requestId) {
       return;
@@ -924,7 +931,10 @@ export function ExportDialog({
                     {documentTitle}
                   </DialogPrimitive.Description>
                 </div>
-                <DialogPrimitive.Close className={closeButtonStyles} aria-label="Close">
+                <DialogPrimitive.Close
+                  className={closeButtonStyles}
+                  aria-label="Close"
+                >
                   <svg
                     width="20"
                     height="20"

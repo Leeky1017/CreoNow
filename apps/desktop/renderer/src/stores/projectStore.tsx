@@ -15,8 +15,9 @@ export type IpcInvoke = <C extends IpcChannel>(
   payload: IpcRequest<C>,
 ) => Promise<IpcInvokeResult<C>>;
 
-export type ProjectInfo = IpcResponseData<"project:getCurrent">;
-export type ProjectListItem = IpcResponseData<"project:list">["items"][number];
+export type ProjectInfo = IpcResponseData<"project:project:getcurrent">;
+export type ProjectListItem =
+  IpcResponseData<"project:project:list">["items"][number];
 
 export type ProjectState = {
   current: ProjectInfo | null;
@@ -110,7 +111,7 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
 
       set({ bootstrapStatus: "loading", lastError: null });
 
-      const currentRes = await deps.invoke("project:getCurrent", {});
+      const currentRes = await deps.invoke("project:project:getcurrent", {});
       const current = currentRes.ok
         ? currentRes.data
         : currentRes.error.code === "NOT_FOUND"
@@ -121,7 +122,7 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
         return;
       }
 
-      const listRes = await deps.invoke("project:list", {
+      const listRes = await deps.invoke("project:project:list", {
         includeArchived: true,
       });
       if (!listRes.ok) {
@@ -138,13 +139,13 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
     },
 
     createAndSetCurrent: async ({ name }) => {
-      const created = await deps.invoke("project:create", { name });
+      const created = await deps.invoke("project:project:create", { name });
       if (!created.ok) {
         set({ lastError: created.error });
         return created;
       }
 
-      const setRes = await deps.invoke("project:setCurrent", {
+      const setRes = await deps.invoke("project:project:setcurrent", {
         projectId: created.data.projectId,
       });
       if (!setRes.ok) {
@@ -158,7 +159,9 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
     },
 
     setCurrentProject: async (projectId) => {
-      const setRes = await deps.invoke("project:setCurrent", { projectId });
+      const setRes = await deps.invoke("project:project:setcurrent", {
+        projectId,
+      });
       if (!setRes.ok) {
         set({ lastError: setRes.error });
         return setRes;
@@ -169,7 +172,7 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
     },
 
     deleteProject: async (projectId) => {
-      const res = await deps.invoke("project:delete", { projectId });
+      const res = await deps.invoke("project:project:delete", { projectId });
       if (!res.ok) {
         set({ lastError: res.error });
         return res;
@@ -185,7 +188,10 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
     },
 
     renameProject: async ({ projectId, name }) => {
-      const res = await deps.invoke("project:rename", { projectId, name });
+      const res = await deps.invoke("project:project:rename", {
+        projectId,
+        name,
+      });
       if (!res.ok) {
         set({ lastError: res.error });
         return res;
@@ -197,7 +203,7 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
     },
 
     duplicateProject: async ({ projectId }) => {
-      const res = await deps.invoke("project:duplicate", { projectId });
+      const res = await deps.invoke("project:project:duplicate", { projectId });
       if (!res.ok) {
         set({ lastError: res.error });
         return res;
@@ -209,7 +215,10 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
     },
 
     setProjectArchived: async ({ projectId, archived }) => {
-      const res = await deps.invoke("project:archive", { projectId, archived });
+      const res = await deps.invoke("project:project:archive", {
+        projectId,
+        archived,
+      });
       if (!res.ok) {
         set({ lastError: res.error });
         return res;

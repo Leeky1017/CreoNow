@@ -9,7 +9,7 @@ import { Button } from "../../components/primitives/Button";
  */
 const mockResponses = {
   success: {
-    "stats:getToday": {
+    "stats:day:gettoday": {
       ok: true,
       data: {
         date: new Date().toISOString().slice(0, 10),
@@ -21,7 +21,7 @@ const mockResponses = {
         },
       },
     },
-    "stats:getRange": {
+    "stats:range:get": {
       ok: true,
       data: {
         summary: {
@@ -34,7 +34,7 @@ const mockResponses = {
     },
   },
   empty: {
-    "stats:getToday": {
+    "stats:day:gettoday": {
       ok: true,
       data: {
         date: new Date().toISOString().slice(0, 10),
@@ -46,7 +46,7 @@ const mockResponses = {
         },
       },
     },
-    "stats:getRange": {
+    "stats:range:get": {
       ok: true,
       data: {
         summary: {
@@ -59,14 +59,14 @@ const mockResponses = {
     },
   },
   error: {
-    "stats:getToday": {
+    "stats:day:gettoday": {
       ok: false,
       error: {
         code: "INTERNAL",
         message: "Database connection failed",
       },
     },
-    "stats:getRange": {
+    "stats:range:get": {
       ok: false,
       error: {
         code: "INTERNAL",
@@ -75,14 +75,14 @@ const mockResponses = {
     },
   },
   networkError: {
-    "stats:getToday": {
+    "stats:day:gettoday": {
       ok: false,
       error: {
         code: "NETWORK",
         message: "Network request timed out",
       },
     },
-    "stats:getRange": {
+    "stats:range:get": {
       ok: false,
       error: {
         code: "NETWORK",
@@ -97,7 +97,11 @@ type MockScenario = keyof typeof mockResponses;
 type MockInvokeFn = (
   channel: string,
   payload: unknown,
-) => Promise<{ ok: boolean; data?: unknown; error?: { code: string; message: string } }>;
+) => Promise<{
+  ok: boolean;
+  data?: unknown;
+  error?: { code: string; message: string };
+}>;
 
 /**
  * Setup mock IPC for the story

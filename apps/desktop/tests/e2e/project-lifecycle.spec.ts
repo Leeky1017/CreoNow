@@ -50,7 +50,7 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
     if (!window.creonow) {
       return false;
     }
-    const res = await window.creonow.invoke("project:getCurrent", {});
+    const res = await window.creonow.invoke("project:project:getcurrent", {});
     return res.ok === true;
   });
 
@@ -58,7 +58,7 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:getCurrent", {});
+    return await window.creonow.invoke("project:project:getcurrent", {});
   });
   expect(current.ok).toBe(true);
   if (!current.ok) {
@@ -91,13 +91,15 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:list", {
+    return await window.creonow.invoke("project:project:list", {
       includeArchived: false,
     });
   });
   expect(list.ok).toBe(true);
   if (!list.ok) {
-    throw new Error(`Expected ok project:list, got: ${list.error.code}`);
+    throw new Error(
+      `Expected ok project:project:list, got: ${list.error.code}`,
+    );
   }
   expect(list.data.items.length).toBe(1);
   expect(list.data.items[0]?.projectId).toBe(projectId);
@@ -107,24 +109,30 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:create", { name: "Second" });
+    return await window.creonow.invoke("project:project:create", {
+      name: "Second",
+    });
   });
   expect(created2.ok).toBe(true);
   if (!created2.ok) {
-    throw new Error(`Expected ok project:create, got: ${created2.error.code}`);
+    throw new Error(
+      `Expected ok project:project:create, got: ${created2.error.code}`,
+    );
   }
 
   const list2 = await page.evaluate(async () => {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:list", {
+    return await window.creonow.invoke("project:project:list", {
       includeArchived: false,
     });
   });
   expect(list2.ok).toBe(true);
   if (!list2.ok) {
-    throw new Error(`Expected ok project:list, got: ${list2.error.code}`);
+    throw new Error(
+      `Expected ok project:project:list, got: ${list2.error.code}`,
+    );
   }
   expect(list2.data.items.length).toBe(2);
   for (let i = 0; i < list2.data.items.length - 1; i++) {
@@ -150,7 +158,7 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:getCurrent", {});
+    return await window.creonow.invoke("project:project:getcurrent", {});
   });
   expect(current2.ok).toBe(true);
   if (!current2.ok) {
@@ -162,20 +170,22 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:delete", {
+    return await window.creonow.invoke("project:project:delete", {
       projectId: projectIdParam,
     });
   }, projectId);
   expect(deleted.ok).toBe(true);
   if (!deleted.ok) {
-    throw new Error(`Expected ok project:delete, got: ${deleted.error.code}`);
+    throw new Error(
+      `Expected ok project:project:delete, got: ${deleted.error.code}`,
+    );
   }
 
   const currentAfterDelete = await page2.evaluate(async () => {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:getCurrent", {});
+    return await window.creonow.invoke("project:project:getcurrent", {});
   });
   expect(currentAfterDelete.ok).toBe(false);
   if (currentAfterDelete.ok) {
@@ -187,7 +197,7 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:setCurrent", {
+    return await window.creonow.invoke("project:project:setcurrent", {
       projectId: projectIdParam,
     });
   }, projectId);

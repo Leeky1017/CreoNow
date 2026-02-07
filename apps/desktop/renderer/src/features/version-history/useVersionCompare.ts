@@ -1,5 +1,5 @@
 /**
- * Hook for comparing versions using real version:read IPC.
+ * Hook for comparing versions using real version:snapshot:read IPC.
  */
 
 import { useCallback, useState } from "react";
@@ -20,7 +20,7 @@ export type CompareState = {
 /**
  * Hook to manage version comparison state and trigger compare mode.
  *
- * Uses version:read IPC to fetch actual historical version content
+ * Uses version:snapshot:read IPC to fetch actual historical version content
  * and generates a unified diff against the current editor content.
  *
  * Usage:
@@ -50,7 +50,7 @@ export function useVersionCompare() {
   /**
    * Start comparing a version against the current document.
    *
-   * Fetches the historical version content via version:read IPC,
+   * Fetches the historical version content via version:snapshot:read IPC,
    * then generates a unified diff against the current editor content.
    */
   const startCompare = useCallback(
@@ -62,8 +62,8 @@ export function useVersionCompare() {
         // Get current editor content as the "after" version
         const currentText = editor?.getText() ?? "";
 
-        // Fetch historical version content via version:read IPC
-        const res = await invoke("version:read", {
+        // Fetch historical version content via version:snapshot:read IPC
+        const res = await invoke("version:snapshot:read", {
           documentId: docId,
           versionId,
         });

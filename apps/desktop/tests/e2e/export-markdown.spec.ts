@@ -53,11 +53,14 @@ test("export: markdown writes deterministic file under userData exports", async 
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    const project = await window.creonow.invoke("project:getCurrent", {});
+    const project = await window.creonow.invoke(
+      "project:project:getcurrent",
+      {},
+    );
     if (!project.ok) {
       throw new Error(project.error.message);
     }
-    const doc = await window.creonow.invoke("file:document:getCurrent", {
+    const doc = await window.creonow.invoke("file:document:getcurrent", {
       projectId: project.data.projectId,
     });
     if (!doc.ok) {
@@ -92,7 +95,9 @@ test("export: markdown writes deterministic file under userData exports", async 
   await page.getByTestId("export-submit").click();
 
   // Wait for success view
-  await expect(page.getByTestId("export-success")).toBeVisible({ timeout: 10000 });
+  await expect(page.getByTestId("export-success")).toBeVisible({
+    timeout: 10000,
+  });
 
   // Verify result fields are displayed
   await expect(page.getByTestId("export-success-relative-path")).toBeVisible();

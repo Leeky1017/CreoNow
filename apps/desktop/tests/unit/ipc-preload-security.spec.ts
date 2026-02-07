@@ -24,7 +24,7 @@ type AuditEvent = {
   let invoked = false;
 
   const gateway = createPreloadIpcGateway({
-    allowedChannels: ["app:ping"],
+    allowedChannels: ["app:system:ping"],
     rendererId: "renderer-1",
     now: () => 1_717_171_000_000,
     requestIdFactory: () => "req-unauthorized",
@@ -61,7 +61,7 @@ type AuditEvent = {
   let invoked = false;
 
   const gateway = createPreloadIpcGateway({
-    allowedChannels: ["app:ping"],
+    allowedChannels: ["app:system:ping"],
     rendererId: "renderer-2",
     now: () => 1_717_171_000_100,
     requestIdFactory: () => "req-payload",
@@ -78,7 +78,7 @@ type AuditEvent = {
     blob: "x".repeat(MAX_IPC_PAYLOAD_BYTES + 1),
   };
 
-  const res = await gateway.invoke("app:ping", hugePayload);
+  const res = await gateway.invoke("app:system:ping", hugePayload);
   assert.equal(invoked, false);
   assert.equal(res.ok, false);
   if (res.ok) {
@@ -89,7 +89,7 @@ type AuditEvent = {
   assert.equal(auditEvents.length, 1);
   assert.equal(auditEvents[0]?.event, "ipc_payload_too_large");
   assert.equal(auditEvents[0]?.rendererId, "renderer-2");
-  assert.equal(auditEvents[0]?.channel, "app:ping");
+  assert.equal(auditEvents[0]?.channel, "app:system:ping");
 }
 
 // S4: 订阅数量超过上限被拒绝 [ADDED]

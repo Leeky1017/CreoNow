@@ -319,7 +319,7 @@ export function registerFileIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "file:document:getCurrent",
+    "file:document:getcurrent",
     async (
       _e,
       payload: { projectId: string },
@@ -346,7 +346,7 @@ export function registerFileIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "file:document:setCurrent",
+    "file:document:setcurrent",
     async (
       _e,
       payload: { projectId: string; documentId: string },

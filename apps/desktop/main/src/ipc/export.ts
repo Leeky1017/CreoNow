@@ -18,7 +18,7 @@ export function registerExportIpcHandlers(deps: {
   userDataDir: string;
 }): void {
   deps.ipcMain.handle(
-    "export:markdown",
+    "export:document:markdown",
     async (
       _e,
       payload: { projectId: string; documentId?: string },
@@ -43,7 +43,7 @@ export function registerExportIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "export:pdf",
+    "export:document:pdf",
     async (
       _e,
       payload: { projectId: string; documentId?: string },
@@ -67,7 +67,7 @@ export function registerExportIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "export:docx",
+    "export:document:docx",
     async (
       _e,
       payload: { projectId: string; documentId?: string },
@@ -91,7 +91,7 @@ export function registerExportIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "export:txt",
+    "export:document:txt",
     async (
       _e,
       payload: { projectId: string; documentId?: string },

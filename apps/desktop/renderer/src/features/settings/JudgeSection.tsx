@@ -5,7 +5,7 @@ import { invoke } from "../../lib/ipcClient";
 import { Button, Heading, Text } from "../../components/primitives";
 
 type JudgeModelState =
-  IpcChannelSpec["judge:model:getState"]["response"]["state"];
+  IpcChannelSpec["judge:model:getstate"]["response"]["state"];
 
 /**
  * Render judge state into a stable, human-readable label.
@@ -30,7 +30,7 @@ export function JudgeSection(): JSX.Element {
   React.useEffect(() => {
     let canceled = false;
     void (async () => {
-      const res = await invoke("judge:model:getState", {});
+      const res = await invoke("judge:model:getstate", {});
       if (canceled) {
         return;
       }

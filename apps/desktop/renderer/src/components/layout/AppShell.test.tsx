@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import React from "react";
 import { AppShell } from "./AppShell";
 import {
@@ -48,11 +54,14 @@ function createMockIpc() {
     invoke: vi.fn().mockImplementation(async (channel: string) => {
       // Simulate minimal async delay to trigger state updates properly
       await Promise.resolve();
-      if (channel === "project:list") {
+      if (channel === "project:project:list") {
         return { ok: true, data: { items: [] } };
       }
-      if (channel === "project:getCurrent") {
-        return { ok: false, error: { code: "NOT_FOUND", message: "No project" } };
+      if (channel === "project:project:getcurrent") {
+        return {
+          ok: false,
+          error: { code: "NOT_FOUND", message: "No project" },
+        };
       }
       return { ok: true, data: { items: [], settings: {}, content: "" } };
     }),
@@ -114,7 +123,9 @@ function AppShellTestWrapper({
               <AiStoreProvider store={aiStore}>
                 <MemoryStoreProvider store={memoryStore}>
                   <SearchStoreProvider store={searchStore}>
-                    <KgStoreProvider store={kgStore}>{children}</KgStoreProvider>
+                    <KgStoreProvider store={kgStore}>
+                      {children}
+                    </KgStoreProvider>
                   </SearchStoreProvider>
                 </MemoryStoreProvider>
               </AiStoreProvider>

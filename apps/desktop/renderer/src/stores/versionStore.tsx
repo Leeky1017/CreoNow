@@ -25,7 +25,7 @@ export type VersionListItem = {
 };
 
 /**
- * Full version content from version:read.
+ * Full version content from version:snapshot:read.
  */
 export type VersionContent = {
   documentId: string;
@@ -117,7 +117,7 @@ export function createVersionStore(deps: { invoke: IpcInvoke }) {
     fetchList: async (documentId) => {
       set({ documentId, listStatus: "loading", lastError: null });
 
-      const res = await deps.invoke("version:list", { documentId });
+      const res = await deps.invoke("version:snapshot:list", { documentId });
       if (!res.ok) {
         set({ listStatus: "error", lastError: res.error });
         return;
@@ -130,7 +130,10 @@ export function createVersionStore(deps: { invoke: IpcInvoke }) {
     },
 
     readVersion: async (documentId, versionId) => {
-      const res = await deps.invoke("version:read", { documentId, versionId });
+      const res = await deps.invoke("version:snapshot:read", {
+        documentId,
+        versionId,
+      });
       if (!res.ok) {
         set({ lastError: res.error });
         return null;
@@ -146,7 +149,10 @@ export function createVersionStore(deps: { invoke: IpcInvoke }) {
         lastError: null,
       });
 
-      const res = await deps.invoke("version:read", { documentId, versionId });
+      const res = await deps.invoke("version:snapshot:read", {
+        documentId,
+        versionId,
+      });
       if (!res.ok) {
         set({ compareStatus: "error", lastError: res.error });
         return;
@@ -167,7 +173,7 @@ export function createVersionStore(deps: { invoke: IpcInvoke }) {
     },
 
     restoreVersion: async (documentId, versionId) => {
-      const res = await deps.invoke("version:restore", {
+      const res = await deps.invoke("version:snapshot:restore", {
         documentId,
         versionId,
       });

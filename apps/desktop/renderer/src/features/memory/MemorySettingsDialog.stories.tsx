@@ -19,7 +19,7 @@ function createMockMemoryIpc(settings: MemorySettings) {
           return { ok: true, data: settings };
         case "memory:settings:update":
           return { ok: true, data: settings };
-        case "memory:list":
+        case "memory:entry:list":
           return { ok: true, data: { items: [] } };
         default:
           return { ok: true, data: {} };

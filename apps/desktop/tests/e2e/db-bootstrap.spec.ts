@@ -41,7 +41,7 @@ test("db bootstrap: db + tables + main.log evidence", async () => {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("db:debug:tableNames", {});
+    return await window.creonow.invoke("db:debug:tablenames", {});
   });
   expect(tables.ok).toBe(true);
   if (tables.ok) {

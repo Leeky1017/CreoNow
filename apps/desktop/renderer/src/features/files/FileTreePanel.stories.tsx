@@ -33,7 +33,7 @@ function createMockIpc(options: {
       if (channel === "file:document:list") {
         return { ok: true, data: { items } };
       }
-      if (channel === "file:document:getCurrent") {
+      if (channel === "file:document:getcurrent") {
         if (currentDocumentId) {
           return { ok: true, data: { documentId: currentDocumentId } };
         }
@@ -45,7 +45,7 @@ function createMockIpc(options: {
       if (channel === "file:document:create") {
         return { ok: true, data: { documentId: `new-${Date.now()}` } };
       }
-      if (channel === "file:document:setCurrent") {
+      if (channel === "file:document:setcurrent") {
         return {
           ok: true,
           data: { documentId: currentDocumentId ?? "doc-1" },
@@ -369,10 +369,26 @@ function KeyboardNavigationDemo(): JSX.Element {
 
   // 使用固定时间戳（Storybook 演示用，避免 react-hooks/purity 错误）
   const items: DocumentListItem[] = [
-    { documentId: "doc-1", title: "Chapter 1 - Introduction", updatedAt: 1706745600000 },
-    { documentId: "doc-2", title: "Chapter 2 - Development", updatedAt: 1706659200000 },
-    { documentId: "doc-3", title: "Chapter 3 - Climax", updatedAt: 1706572800000 },
-    { documentId: "doc-4", title: "Chapter 4 - Resolution", updatedAt: 1706486400000 },
+    {
+      documentId: "doc-1",
+      title: "Chapter 1 - Introduction",
+      updatedAt: 1706745600000,
+    },
+    {
+      documentId: "doc-2",
+      title: "Chapter 2 - Development",
+      updatedAt: 1706659200000,
+    },
+    {
+      documentId: "doc-3",
+      title: "Chapter 3 - Climax",
+      updatedAt: 1706572800000,
+    },
+    {
+      documentId: "doc-4",
+      title: "Chapter 4 - Resolution",
+      updatedAt: 1706486400000,
+    },
     { documentId: "doc-5", title: "Epilogue", updatedAt: 1706400000000 },
   ];
 
@@ -381,11 +397,15 @@ function KeyboardNavigationDemo(): JSX.Element {
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedIndex((prev) => Math.min(prev + 1, items.length - 1));
-        setLastAction(`↓ 选中: "${items[Math.min(selectedIndex + 1, items.length - 1)]?.title}"`);
+        setLastAction(
+          `↓ 选中: "${items[Math.min(selectedIndex + 1, items.length - 1)]?.title}"`,
+        );
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelectedIndex((prev) => Math.max(prev - 1, 0));
-        setLastAction(`↑ 选中: "${items[Math.max(selectedIndex - 1, 0)]?.title}"`);
+        setLastAction(
+          `↑ 选中: "${items[Math.max(selectedIndex - 1, 0)]?.title}"`,
+        );
       } else if (e.key === "Enter") {
         setLastAction(`Enter 打开: "${items[selectedIndex]?.title}"`);
       } else if (e.key === "F2") {
@@ -418,22 +438,76 @@ function KeyboardNavigationDemo(): JSX.Element {
         </p>
         <ul style={{ paddingLeft: "1rem", margin: 0, lineHeight: 1.8 }}>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>↑↓</code> 移动选中项
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              ↑↓
+            </code>{" "}
+            移动选中项
           </li>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>Enter</code> 打开文件
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              Enter
+            </code>{" "}
+            打开文件
           </li>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>F2</code> 重命名
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              F2
+            </code>{" "}
+            重命名
           </li>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>Delete</code> 删除
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              Delete
+            </code>{" "}
+            删除
           </li>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>→</code> 展开文件夹
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              →
+            </code>{" "}
+            展开文件夹
           </li>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>←</code> 折叠文件夹
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              ←
+            </code>{" "}
+            折叠文件夹
           </li>
         </ul>
         {lastAction && (
@@ -467,8 +541,7 @@ export const KeyboardNavigation: Story = {
   parameters: {
     docs: {
       description: {
-        story:
-          "键盘导航演示。↑↓ 移动，Enter 打开，F2 重命名，Delete 删除。",
+        story: "键盘导航演示。↑↓ 移动，Enter 打开，F2 重命名，Delete 删除。",
       },
     },
   },

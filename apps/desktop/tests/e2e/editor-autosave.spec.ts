@@ -61,7 +61,7 @@ test("editor autosave: typing persists across restart (actor=auto)", async () =>
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:getCurrent", {});
+    return await window.creonow.invoke("project:project:getcurrent", {});
   });
   expect(project.ok).toBe(true);
   if (!project.ok) {
@@ -118,7 +118,7 @@ test("editor autosave: typing persists across restart (actor=auto)", async () =>
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("version:list", {
+    return await window.creonow.invoke("version:snapshot:list", {
       documentId: documentIdParam,
     });
   }, documentId);
@@ -141,7 +141,7 @@ test("editor autosave: typing persists across restart (actor=auto)", async () =>
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("version:restore", {
+      return await window.creonow.invoke("version:snapshot:restore", {
         documentId: documentIdParam,
         versionId: versionIdParam,
       });

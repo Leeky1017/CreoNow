@@ -88,10 +88,10 @@ registerConstraintsIpcHandlers({
   logger,
 });
 
-const getHandler = handlers.get("constraints:get");
-assert.ok(getHandler, "Missing handler constraints:get");
-const setHandler = handlers.get("constraints:set");
-assert.ok(setHandler, "Missing handler constraints:set");
+const getHandler = handlers.get("constraints:policy:get");
+assert.ok(getHandler, "Missing handler constraints:policy:get");
+const setHandler = handlers.get("constraints:policy:set");
+assert.ok(setHandler, "Missing handler constraints:policy:set");
 
 const first = (await getHandler({}, { projectId })) as IpcResponse<{
   constraints: ConstraintsConfig;

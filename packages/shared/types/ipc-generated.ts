@@ -55,40 +55,40 @@ export type IpcErr = {
 export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
 export const IPC_CHANNELS = [
-  "ai:proxy:settings:get",
-  "ai:proxy:settings:update",
   "ai:proxy:test",
+  "ai:proxysettings:get",
+  "ai:proxysettings:update",
   "ai:skill:cancel",
   "ai:skill:feedback",
   "ai:skill:run",
-  "app:ping",
-  "constraints:get",
-  "constraints:set",
+  "app:system:ping",
+  "constraints:policy:get",
+  "constraints:policy:set",
   "context:creonow:ensure",
-  "context:creonow:rules:list",
-  "context:creonow:rules:read",
-  "context:creonow:settings:list",
-  "context:creonow:settings:read",
   "context:creonow:status",
-  "context:creonow:watch:start",
-  "context:creonow:watch:stop",
-  "db:debug:tableNames",
-  "embedding:encode",
-  "embedding:index",
-  "export:docx",
-  "export:markdown",
-  "export:pdf",
-  "export:txt",
+  "context:rules:list",
+  "context:rules:read",
+  "context:settings:list",
+  "context:settings:read",
+  "context:watch:start",
+  "context:watch:stop",
+  "db:debug:tablenames",
+  "embedding:index:build",
+  "embedding:text:encode",
+  "export:document:docx",
+  "export:document:markdown",
+  "export:document:pdf",
+  "export:document:txt",
   "file:document:create",
   "file:document:delete",
-  "file:document:getCurrent",
+  "file:document:getcurrent",
   "file:document:list",
   "file:document:read",
   "file:document:rename",
-  "file:document:setCurrent",
+  "file:document:setcurrent",
   "file:document:write",
   "judge:model:ensure",
-  "judge:model:getState",
+  "judge:model:getstate",
   "kg:entity:create",
   "kg:entity:delete",
   "kg:entity:list",
@@ -98,61 +98,39 @@ export const IPC_CHANNELS = [
   "kg:relation:delete",
   "kg:relation:list",
   "kg:relation:update",
-  "memory:create",
-  "memory:delete",
+  "memory:entry:create",
+  "memory:entry:delete",
+  "memory:entry:list",
+  "memory:entry:update",
   "memory:injection:preview",
-  "memory:list",
   "memory:settings:get",
   "memory:settings:update",
-  "memory:update",
-  "project:archive",
-  "project:create",
-  "project:delete",
-  "project:duplicate",
-  "project:getCurrent",
-  "project:list",
-  "project:rename",
-  "project:setCurrent",
-  "rag:retrieve",
-  "search:fulltext",
-  "search:semantic",
-  "skill:list",
-  "skill:read",
-  "skill:toggle",
-  "skill:write",
-  "stats:getRange",
-  "stats:getToday",
-  "version:aiApply:logConflict",
-  "version:list",
-  "version:read",
-  "version:restore",
+  "project:project:archive",
+  "project:project:create",
+  "project:project:delete",
+  "project:project:duplicate",
+  "project:project:getcurrent",
+  "project:project:list",
+  "project:project:rename",
+  "project:project:setcurrent",
+  "rag:context:retrieve",
+  "search:fulltext:query",
+  "search:semantic:query",
+  "skill:registry:list",
+  "skill:registry:read",
+  "skill:registry:toggle",
+  "skill:registry:write",
+  "stats:day:gettoday",
+  "stats:range:get",
+  "version:aiapply:logconflict",
+  "version:snapshot:list",
+  "version:snapshot:read",
+  "version:snapshot:restore",
 ] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
 export type IpcChannelSpec = {
-  "ai:proxy:settings:get": {
-    request: Record<string, never>;
-    response: {
-      apiKeyConfigured: boolean;
-      baseUrl: string;
-      enabled: boolean;
-    };
-  };
-  "ai:proxy:settings:update": {
-    request: {
-      patch: {
-        apiKey?: string;
-        baseUrl?: string;
-        enabled?: boolean;
-      };
-    };
-    response: {
-      apiKeyConfigured: boolean;
-      baseUrl: string;
-      enabled: boolean;
-    };
-  };
   "ai:proxy:test": {
     request: Record<string, never>;
     response: {
@@ -183,6 +161,28 @@ export type IpcChannelSpec = {
       };
       latencyMs: number;
       ok: boolean;
+    };
+  };
+  "ai:proxysettings:get": {
+    request: Record<string, never>;
+    response: {
+      apiKeyConfigured: boolean;
+      baseUrl: string;
+      enabled: boolean;
+    };
+  };
+  "ai:proxysettings:update": {
+    request: {
+      patch: {
+        apiKey?: string;
+        baseUrl?: string;
+        enabled?: boolean;
+      };
+    };
+    response: {
+      apiKeyConfigured: boolean;
+      baseUrl: string;
+      enabled: boolean;
     };
   };
   "ai:skill:cancel": {
@@ -234,11 +234,11 @@ export type IpcChannelSpec = {
       runId: string;
     };
   };
-  "app:ping": {
+  "app:system:ping": {
     request: Record<string, never>;
     response: Record<string, never>;
   };
-  "constraints:get": {
+  "constraints:policy:get": {
     request: {
       projectId: string;
     };
@@ -249,7 +249,7 @@ export type IpcChannelSpec = {
       };
     };
   };
-  "constraints:set": {
+  "constraints:policy:set": {
     request: {
       constraints: {
         items: Array<string>;
@@ -273,64 +273,6 @@ export type IpcChannelSpec = {
       rootPath: string;
     };
   };
-  "context:creonow:rules:list": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      items: Array<{
-        path: string;
-        sizeBytes: number;
-        updatedAtMs: number;
-      }>;
-    };
-  };
-  "context:creonow:rules:read": {
-    request: {
-      path: string;
-      projectId: string;
-    };
-    response: {
-      content: string;
-      path: string;
-      redactionEvidence: Array<{
-        matchCount: number;
-        patternId: string;
-        sourceRef: string;
-      }>;
-      sizeBytes: number;
-      updatedAtMs: number;
-    };
-  };
-  "context:creonow:settings:list": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      items: Array<{
-        path: string;
-        sizeBytes: number;
-        updatedAtMs: number;
-      }>;
-    };
-  };
-  "context:creonow:settings:read": {
-    request: {
-      path: string;
-      projectId: string;
-    };
-    response: {
-      content: string;
-      path: string;
-      redactionEvidence: Array<{
-        matchCount: number;
-        patternId: string;
-        sourceRef: string;
-      }>;
-      sizeBytes: number;
-      updatedAtMs: number;
-    };
-  };
   "context:creonow:status": {
     request: {
       projectId: string;
@@ -341,7 +283,65 @@ export type IpcChannelSpec = {
       watching: boolean;
     };
   };
-  "context:creonow:watch:start": {
+  "context:rules:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        path: string;
+        sizeBytes: number;
+        updatedAtMs: number;
+      }>;
+    };
+  };
+  "context:rules:read": {
+    request: {
+      path: string;
+      projectId: string;
+    };
+    response: {
+      content: string;
+      path: string;
+      redactionEvidence: Array<{
+        matchCount: number;
+        patternId: string;
+        sourceRef: string;
+      }>;
+      sizeBytes: number;
+      updatedAtMs: number;
+    };
+  };
+  "context:settings:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        path: string;
+        sizeBytes: number;
+        updatedAtMs: number;
+      }>;
+    };
+  };
+  "context:settings:read": {
+    request: {
+      path: string;
+      projectId: string;
+    };
+    response: {
+      content: string;
+      path: string;
+      redactionEvidence: Array<{
+        matchCount: number;
+        patternId: string;
+        sourceRef: string;
+      }>;
+      sizeBytes: number;
+      updatedAtMs: number;
+    };
+  };
+  "context:watch:start": {
     request: {
       projectId: string;
     };
@@ -349,7 +349,7 @@ export type IpcChannelSpec = {
       watching: true;
     };
   };
-  "context:creonow:watch:stop": {
+  "context:watch:stop": {
     request: {
       projectId: string;
     };
@@ -357,13 +357,22 @@ export type IpcChannelSpec = {
       watching: false;
     };
   };
-  "db:debug:tableNames": {
+  "db:debug:tablenames": {
     request: Record<string, never>;
     response: {
       tableNames: Array<string>;
     };
   };
-  "embedding:encode": {
+  "embedding:index:build": {
+    request: {
+      contentHash: string;
+      documentId: string;
+    };
+    response: {
+      accepted: true;
+    };
+  };
+  "embedding:text:encode": {
     request: {
       model?: string;
       texts: Array<string>;
@@ -373,16 +382,7 @@ export type IpcChannelSpec = {
       vectors: Array<Array<number>>;
     };
   };
-  "embedding:index": {
-    request: {
-      contentHash: string;
-      documentId: string;
-    };
-    response: {
-      accepted: true;
-    };
-  };
-  "export:docx": {
+  "export:document:docx": {
     request: {
       documentId?: string;
       projectId: string;
@@ -392,7 +392,7 @@ export type IpcChannelSpec = {
       relativePath: string;
     };
   };
-  "export:markdown": {
+  "export:document:markdown": {
     request: {
       documentId?: string;
       projectId: string;
@@ -402,7 +402,7 @@ export type IpcChannelSpec = {
       relativePath: string;
     };
   };
-  "export:pdf": {
+  "export:document:pdf": {
     request: {
       documentId?: string;
       projectId: string;
@@ -412,7 +412,7 @@ export type IpcChannelSpec = {
       relativePath: string;
     };
   };
-  "export:txt": {
+  "export:document:txt": {
     request: {
       documentId?: string;
       projectId: string;
@@ -440,7 +440,7 @@ export type IpcChannelSpec = {
       deleted: true;
     };
   };
-  "file:document:getCurrent": {
+  "file:document:getcurrent": {
     request: {
       projectId: string;
     };
@@ -486,7 +486,7 @@ export type IpcChannelSpec = {
       updated: true;
     };
   };
-  "file:document:setCurrent": {
+  "file:document:setcurrent": {
     request: {
       documentId: string;
       projectId: string;
@@ -553,7 +553,7 @@ export type IpcChannelSpec = {
           };
     };
   };
-  "judge:model:getState": {
+  "judge:model:getstate": {
     request: Record<string, never>;
     response: {
       state:
@@ -760,7 +760,7 @@ export type IpcChannelSpec = {
       updatedAt: number;
     };
   };
-  "memory:create": {
+  "memory:entry:create": {
     request: {
       content: string;
       documentId?: string;
@@ -782,12 +782,59 @@ export type IpcChannelSpec = {
       updatedAt: number;
     };
   };
-  "memory:delete": {
+  "memory:entry:delete": {
     request: {
       memoryId: string;
     };
     response: {
       deleted: true;
+    };
+  };
+  "memory:entry:list": {
+    request: {
+      documentId?: string;
+      includeDeleted?: boolean;
+      projectId?: string;
+    };
+    response: {
+      items: Array<{
+        content: string;
+        createdAt: number;
+        deletedAt?: number;
+        documentId?: string;
+        memoryId: string;
+        origin: "manual" | "learned";
+        projectId?: string;
+        scope: "global" | "project" | "document";
+        sourceRef?: string;
+        type: "preference" | "fact" | "note";
+        updatedAt: number;
+      }>;
+    };
+  };
+  "memory:entry:update": {
+    request: {
+      memoryId: string;
+      patch: {
+        content?: string;
+        documentId?: string;
+        projectId?: string;
+        scope?: "global" | "project" | "document";
+        type?: "preference" | "fact" | "note";
+      };
+    };
+    response: {
+      content: string;
+      createdAt: number;
+      deletedAt?: number;
+      documentId?: string;
+      memoryId: string;
+      origin: "manual" | "learned";
+      projectId?: string;
+      scope: "global" | "project" | "document";
+      sourceRef?: string;
+      type: "preference" | "fact" | "note";
+      updatedAt: number;
     };
   };
   "memory:injection:preview": {
@@ -819,28 +866,6 @@ export type IpcChannelSpec = {
       mode: "deterministic" | "semantic";
     };
   };
-  "memory:list": {
-    request: {
-      documentId?: string;
-      includeDeleted?: boolean;
-      projectId?: string;
-    };
-    response: {
-      items: Array<{
-        content: string;
-        createdAt: number;
-        deletedAt?: number;
-        documentId?: string;
-        memoryId: string;
-        origin: "manual" | "learned";
-        projectId?: string;
-        scope: "global" | "project" | "document";
-        sourceRef?: string;
-        type: "preference" | "fact" | "note";
-        updatedAt: number;
-      }>;
-    };
-  };
   "memory:settings:get": {
     request: Record<string, never>;
     response: {
@@ -866,32 +891,7 @@ export type IpcChannelSpec = {
       privacyModeEnabled: boolean;
     };
   };
-  "memory:update": {
-    request: {
-      memoryId: string;
-      patch: {
-        content?: string;
-        documentId?: string;
-        projectId?: string;
-        scope?: "global" | "project" | "document";
-        type?: "preference" | "fact" | "note";
-      };
-    };
-    response: {
-      content: string;
-      createdAt: number;
-      deletedAt?: number;
-      documentId?: string;
-      memoryId: string;
-      origin: "manual" | "learned";
-      projectId?: string;
-      scope: "global" | "project" | "document";
-      sourceRef?: string;
-      type: "preference" | "fact" | "note";
-      updatedAt: number;
-    };
-  };
-  "project:archive": {
+  "project:project:archive": {
     request: {
       archived: boolean;
       projectId: string;
@@ -902,7 +902,7 @@ export type IpcChannelSpec = {
       projectId: string;
     };
   };
-  "project:create": {
+  "project:project:create": {
     request: {
       name?: string;
     };
@@ -911,7 +911,7 @@ export type IpcChannelSpec = {
       rootPath: string;
     };
   };
-  "project:delete": {
+  "project:project:delete": {
     request: {
       projectId: string;
     };
@@ -919,7 +919,7 @@ export type IpcChannelSpec = {
       deleted: true;
     };
   };
-  "project:duplicate": {
+  "project:project:duplicate": {
     request: {
       projectId: string;
     };
@@ -929,14 +929,14 @@ export type IpcChannelSpec = {
       rootPath: string;
     };
   };
-  "project:getCurrent": {
+  "project:project:getcurrent": {
     request: Record<string, never>;
     response: {
       projectId: string;
       rootPath: string;
     };
   };
-  "project:list": {
+  "project:project:list": {
     request: {
       includeArchived?: boolean;
     };
@@ -950,7 +950,7 @@ export type IpcChannelSpec = {
       }>;
     };
   };
-  "project:rename": {
+  "project:project:rename": {
     request: {
       name: string;
       projectId: string;
@@ -961,7 +961,7 @@ export type IpcChannelSpec = {
       updatedAt: number;
     };
   };
-  "project:setCurrent": {
+  "project:project:setcurrent": {
     request: {
       projectId: string;
     };
@@ -970,7 +970,7 @@ export type IpcChannelSpec = {
       rootPath: string;
     };
   };
-  "rag:retrieve": {
+  "rag:context:retrieve": {
     request: {
       budgetTokens?: number;
       limit?: number;
@@ -1005,7 +1005,7 @@ export type IpcChannelSpec = {
       }>;
     };
   };
-  "search:fulltext": {
+  "search:fulltext:query": {
     request: {
       limit?: number;
       projectId: string;
@@ -1020,7 +1020,7 @@ export type IpcChannelSpec = {
       }>;
     };
   };
-  "search:semantic": {
+  "search:semantic:query": {
     request: {
       limit?: number;
       projectId: string;
@@ -1035,7 +1035,7 @@ export type IpcChannelSpec = {
       }>;
     };
   };
-  "skill:list": {
+  "skill:registry:list": {
     request: {
       includeDisabled?: boolean;
     };
@@ -1074,7 +1074,7 @@ export type IpcChannelSpec = {
       }>;
     };
   };
-  "skill:read": {
+  "skill:registry:read": {
     request: {
       id: string;
     };
@@ -1083,7 +1083,7 @@ export type IpcChannelSpec = {
       id: string;
     };
   };
-  "skill:toggle": {
+  "skill:registry:toggle": {
     request: {
       enabled: boolean;
       id: string;
@@ -1093,7 +1093,7 @@ export type IpcChannelSpec = {
       id: string;
     };
   };
-  "skill:write": {
+  "skill:registry:write": {
     request: {
       content: string;
       id: string;
@@ -1104,7 +1104,19 @@ export type IpcChannelSpec = {
       written: true;
     };
   };
-  "stats:getRange": {
+  "stats:day:gettoday": {
+    request: Record<string, never>;
+    response: {
+      date: string;
+      summary: {
+        documentsCreated: number;
+        skillsUsed: number;
+        wordsWritten: number;
+        writingSeconds: number;
+      };
+    };
+  };
+  "stats:range:get": {
     request: {
       from: string;
       to: string;
@@ -1129,19 +1141,7 @@ export type IpcChannelSpec = {
       to: string;
     };
   };
-  "stats:getToday": {
-    request: Record<string, never>;
-    response: {
-      date: string;
-      summary: {
-        documentsCreated: number;
-        skillsUsed: number;
-        wordsWritten: number;
-        writingSeconds: number;
-      };
-    };
-  };
-  "version:aiApply:logConflict": {
+  "version:aiapply:logconflict": {
     request: {
       documentId: string;
       runId: string;
@@ -1150,7 +1150,7 @@ export type IpcChannelSpec = {
       logged: true;
     };
   };
-  "version:list": {
+  "version:snapshot:list": {
     request: {
       documentId: string;
     };
@@ -1164,7 +1164,7 @@ export type IpcChannelSpec = {
       }>;
     };
   };
-  "version:read": {
+  "version:snapshot:read": {
     request: {
       documentId: string;
       versionId: string;
@@ -1182,7 +1182,7 @@ export type IpcChannelSpec = {
       versionId: string;
     };
   };
-  "version:restore": {
+  "version:snapshot:restore": {
     request: {
       documentId: string;
       versionId: string;

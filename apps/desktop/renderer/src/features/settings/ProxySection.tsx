@@ -33,7 +33,7 @@ export function ProxySection(): JSX.Element {
     setErrorText(null);
     setTestResult(null);
 
-    const res = await invoke("ai:proxy:settings:get", {});
+    const res = await invoke("ai:proxysettings:get", {});
     if (!res.ok) {
       setStatus("idle");
       setErrorText(`${res.error.code}: ${res.error.message}`);
@@ -66,7 +66,7 @@ export function ProxySection(): JSX.Element {
       patch.apiKey = apiKeyDraft;
     }
 
-    const res = await invoke("ai:proxy:settings:update", { patch });
+    const res = await invoke("ai:proxysettings:update", { patch });
     if (!res.ok) {
       setErrorText(`${res.error.code}: ${res.error.message}`);
       return;

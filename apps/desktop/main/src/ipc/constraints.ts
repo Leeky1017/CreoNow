@@ -130,7 +130,7 @@ export function registerConstraintsIpcHandlers(deps: {
   logger: Logger;
 }): void {
   deps.ipcMain.handle(
-    "constraints:get",
+    "constraints:policy:get",
     async (
       _e,
       payload: { projectId: string },
@@ -187,7 +187,7 @@ export function registerConstraintsIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "constraints:set",
+    "constraints:policy:set",
     async (
       _e,
       payload: { projectId: string; constraints: ConstraintsConfig },

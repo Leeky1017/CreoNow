@@ -19,13 +19,13 @@ import {
 function createMockIpc() {
   return {
     invoke: async (channel: string): Promise<unknown> => {
-      if (channel === "project:getCurrent") {
+      if (channel === "project:project:getcurrent") {
         return {
           ok: true,
           data: { projectId: "mock-project", name: "Mock Project" },
         };
       }
-      if (channel === "project:list") {
+      if (channel === "project:project:list") {
         return {
           ok: true,
           data: {
@@ -33,7 +33,7 @@ function createMockIpc() {
           },
         };
       }
-      if (channel === "export:markdown") {
+      if (channel === "export:document:markdown") {
         return { ok: true };
       }
       return { ok: true, data: {} };
@@ -642,7 +642,9 @@ export const KeyboardNavigationDemo: Story = {
         if (e.key === "ArrowDown") {
           e.preventDefault();
           setSelectedIndex((prev) => Math.min(prev + 1, commands.length - 1));
-          setLastAction(`↓ 移动到第 ${Math.min(selectedIndex + 2, commands.length)} 项`);
+          setLastAction(
+            `↓ 移动到第 ${Math.min(selectedIndex + 2, commands.length)} 项`,
+          );
         } else if (e.key === "ArrowUp") {
           e.preventDefault();
           setSelectedIndex((prev) => Math.max(prev - 1, 0));
@@ -690,13 +692,40 @@ export const KeyboardNavigationDemo: Story = {
           </p>
           <ul style={{ paddingLeft: "1rem", margin: 0, lineHeight: 1.6 }}>
             <li>
-              <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>↑↓</code> 移动选中项
+              <code
+                style={{
+                  backgroundColor: "var(--color-bg-raised)",
+                  padding: "2px 4px",
+                  borderRadius: "3px",
+                }}
+              >
+                ↑↓
+              </code>{" "}
+              移动选中项
             </li>
             <li>
-              <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>Enter</code> 执行命令
+              <code
+                style={{
+                  backgroundColor: "var(--color-bg-raised)",
+                  padding: "2px 4px",
+                  borderRadius: "3px",
+                }}
+              >
+                Enter
+              </code>{" "}
+              执行命令
             </li>
             <li>
-              <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>Esc</code> 关闭面板
+              <code
+                style={{
+                  backgroundColor: "var(--color-bg-raised)",
+                  padding: "2px 4px",
+                  borderRadius: "3px",
+                }}
+              >
+                Esc
+              </code>{" "}
+              关闭面板
             </li>
           </ul>
           {lastAction && (
@@ -721,8 +750,7 @@ export const KeyboardNavigationDemo: Story = {
   parameters: {
     docs: {
       description: {
-        story:
-          "键盘导航演示。使用 ↑↓ 移动选中项，Enter 执行，Esc 关闭。",
+        story: "键盘导航演示。使用 ↑↓ 移动选中项，Enter 执行，Esc 关闭。",
       },
     },
   },
@@ -778,8 +806,7 @@ export const SearchHighlight: Story = {
   parameters: {
     docs: {
       description: {
-        story:
-          '搜索高亮演示。输入 "set" 查看匹配文字的高亮效果。',
+        story: '搜索高亮演示。输入 "set" 查看匹配文字的高亮效果。',
       },
     },
   },

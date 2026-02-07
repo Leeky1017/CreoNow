@@ -14,7 +14,8 @@ export type IpcInvoke = <C extends IpcChannel>(
   payload: IpcRequest<C>,
 ) => Promise<IpcInvokeResult<C>>;
 
-export type SearchItem = IpcResponseData<"search:fulltext">["items"][number];
+export type SearchItem =
+  IpcResponseData<"search:fulltext:query">["items"][number];
 
 export type SearchStatus = "idle" | "loading" | "ready" | "error";
 
@@ -65,7 +66,7 @@ export function createSearchStore(deps: { invoke: IpcInvoke }) {
       }
 
       set({ status: "loading", lastError: null });
-      const res = await deps.invoke("search:fulltext", {
+      const res = await deps.invoke("search:fulltext:query", {
         projectId,
         query,
         limit,

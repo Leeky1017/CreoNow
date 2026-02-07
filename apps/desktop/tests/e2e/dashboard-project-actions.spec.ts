@@ -38,7 +38,9 @@ test("dashboard project actions: rename/duplicate/archive/unarchive", async () =
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:create", { name: "Alpha" });
+    return await window.creonow.invoke("project:project:create", {
+      name: "Alpha",
+    });
   });
   expect(created.ok).toBe(true);
   if (!created.ok) {
@@ -50,7 +52,7 @@ test("dashboard project actions: rename/duplicate/archive/unarchive", async () =
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:rename", {
+    return await window.creonow.invoke("project:project:rename", {
       projectId,
       name: "Alpha Renamed",
     });
@@ -64,7 +66,9 @@ test("dashboard project actions: rename/duplicate/archive/unarchive", async () =
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:duplicate", { projectId });
+    return await window.creonow.invoke("project:project:duplicate", {
+      projectId,
+    });
   }, sourceProjectId);
   expect(duplicated.ok).toBe(true);
   if (!duplicated.ok) {
@@ -75,13 +79,15 @@ test("dashboard project actions: rename/duplicate/archive/unarchive", async () =
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:list", {
+    return await window.creonow.invoke("project:project:list", {
       includeArchived: false,
     });
   });
   expect(activeList.ok).toBe(true);
   if (!activeList.ok) {
-    throw new Error(`project:list active failed: ${activeList.error.code}`);
+    throw new Error(
+      `project:project:list active failed: ${activeList.error.code}`,
+    );
   }
   expect(
     activeList.data.items.some((item) => item.name === "Alpha Renamed"),
@@ -96,7 +102,7 @@ test("dashboard project actions: rename/duplicate/archive/unarchive", async () =
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:archive", {
+    return await window.creonow.invoke("project:project:archive", {
       projectId,
       archived: true,
     });
@@ -112,14 +118,14 @@ test("dashboard project actions: rename/duplicate/archive/unarchive", async () =
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:list", {
+    return await window.creonow.invoke("project:project:list", {
       includeArchived: false,
     });
   });
   expect(activeAfterArchive.ok).toBe(true);
   if (!activeAfterArchive.ok) {
     throw new Error(
-      `project:list after archive failed: ${activeAfterArchive.error.code}`,
+      `project:project:list after archive failed: ${activeAfterArchive.error.code}`,
     );
   }
   expect(
@@ -132,13 +138,13 @@ test("dashboard project actions: rename/duplicate/archive/unarchive", async () =
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:list", {
+    return await window.creonow.invoke("project:project:list", {
       includeArchived: true,
     });
   });
   expect(fullList.ok).toBe(true);
   if (!fullList.ok) {
-    throw new Error(`project:list full failed: ${fullList.error.code}`);
+    throw new Error(`project:project:list full failed: ${fullList.error.code}`);
   }
   const archivedItem = fullList.data.items.find(
     (item) => item.projectId === sourceProjectId,
@@ -150,7 +156,7 @@ test("dashboard project actions: rename/duplicate/archive/unarchive", async () =
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:archive", {
+    return await window.creonow.invoke("project:project:archive", {
       projectId,
       archived: false,
     });
@@ -166,14 +172,14 @@ test("dashboard project actions: rename/duplicate/archive/unarchive", async () =
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:list", {
+    return await window.creonow.invoke("project:project:list", {
       includeArchived: false,
     });
   });
   expect(activeAfterUnarchive.ok).toBe(true);
   if (!activeAfterUnarchive.ok) {
     throw new Error(
-      `project:list after unarchive failed: ${activeAfterUnarchive.error.code}`,
+      `project:project:list after unarchive failed: ${activeAfterUnarchive.error.code}`,
     );
   }
   expect(

@@ -104,7 +104,7 @@ test("ai apply: success path writes actor=ai version + main.log evidence", async
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("version:list", {
+    return await window.creonow.invoke("version:snapshot:list", {
       documentId: documentIdParam,
     });
   }, documentId);
@@ -158,7 +158,7 @@ test("ai apply: conflict path blocks overwrite + logs ai_apply_conflict", async 
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("version:list", {
+    return await window.creonow.invoke("version:snapshot:list", {
       documentId: documentIdParam,
     });
   }, documentId);

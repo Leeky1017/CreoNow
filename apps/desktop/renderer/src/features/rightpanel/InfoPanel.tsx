@@ -10,7 +10,7 @@ import { Text } from "../../components/primitives/Text";
 import { invoke } from "../../lib/ipcClient";
 import { useFileStore, type DocumentListItem } from "../../stores/fileStore";
 
-type StatsSummary = IpcResponseData<"stats:getToday">["summary"];
+type StatsSummary = IpcResponseData<"stats:day:gettoday">["summary"];
 
 /**
  * Format seconds into human-readable duration.
@@ -208,7 +208,7 @@ function TodayStatsSection(props: {
  * with proper error handling that is observable in UI (not silent failure).
  *
  * IPC dependencies:
- * - stats:getToday: fetch today's writing statistics
+ * - stats:day:gettoday: fetch today's writing statistics
  *
  * @example
  * ```tsx
@@ -236,7 +236,7 @@ export function InfoPanel(): JSX.Element {
     let canceled = false;
 
     async function fetchStats(): Promise<void> {
-      const res = await invoke("stats:getToday", {});
+      const res = await invoke("stats:day:gettoday", {});
       if (canceled) {
         return;
       }

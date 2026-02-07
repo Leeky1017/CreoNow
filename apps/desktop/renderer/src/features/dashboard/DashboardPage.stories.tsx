@@ -60,21 +60,27 @@ function createMockInvoke(projects = mockProjects) {
     // Simulate network delay
     await new Promise((r) => setTimeout(r, 100));
 
-    if (channel === "project:list") {
+    if (channel === "project:project:list") {
       return { ok: true, data: { items: projects } };
     }
-    if (channel === "project:getCurrent") {
+    if (channel === "project:project:getcurrent") {
       return { ok: false, error: { code: "NOT_FOUND", message: "No current" } };
     }
-    if (channel === "project:setCurrent") {
+    if (channel === "project:project:setcurrent") {
       const id = (payload as { projectId: string })?.projectId;
       const project = projects.find((p) => p.projectId === id);
       if (project) {
-        return { ok: true, data: { projectId: id, rootPath: project.rootPath } };
+        return {
+          ok: true,
+          data: { projectId: id, rootPath: project.rootPath },
+        };
       }
-      return { ok: false, error: { code: "NOT_FOUND", message: "Project not found" } };
+      return {
+        ok: false,
+        error: { code: "NOT_FOUND", message: "Project not found" },
+      };
     }
-    if (channel === "project:create") {
+    if (channel === "project:project:create") {
       return {
         ok: true,
         data: {

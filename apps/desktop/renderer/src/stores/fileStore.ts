@@ -70,15 +70,15 @@ export function createFileStore(deps: { invoke: IpcInvoke }) {
 
   async function loadCurrent(
     projectId: string,
-  ): Promise<IpcInvokeResult<"file:document:getCurrent">> {
-    return await deps.invoke("file:document:getCurrent", { projectId });
+  ): Promise<IpcInvokeResult<"file:document:getcurrent">> {
+    return await deps.invoke("file:document:getcurrent", { projectId });
   }
 
   async function persistCurrent(
     projectId: string,
     documentId: string,
-  ): Promise<IpcInvokeResult<"file:document:setCurrent">> {
-    return await deps.invoke("file:document:setCurrent", {
+  ): Promise<IpcInvokeResult<"file:document:setcurrent">> {
+    return await deps.invoke("file:document:setcurrent", {
       projectId,
       documentId,
     });

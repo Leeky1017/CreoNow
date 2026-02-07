@@ -22,7 +22,7 @@ export function registerSkillIpcHandlers(deps: {
   logger: Logger;
 }): void {
   deps.ipcMain.handle(
-    "skill:list",
+    "skill:registry:list",
     async (
       _e,
       payload: { includeDisabled?: boolean },
@@ -48,7 +48,7 @@ export function registerSkillIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "skill:read",
+    "skill:registry:read",
     async (
       _e,
       payload: { id: string },
@@ -74,7 +74,7 @@ export function registerSkillIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "skill:write",
+    "skill:registry:write",
     async (
       _e,
       payload: { id: string; content: string },
@@ -106,7 +106,7 @@ export function registerSkillIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "skill:toggle",
+    "skill:registry:toggle",
     async (
       _e,
       payload: { id: string; enabled: boolean },

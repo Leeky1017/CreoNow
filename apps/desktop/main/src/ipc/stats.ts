@@ -50,7 +50,7 @@ export function registerStatsIpcHandlers(deps: {
   logger: Logger;
 }): void {
   deps.ipcMain.handle(
-    "stats:getToday",
+    "stats:day:gettoday",
     async (): Promise<IpcResponse<StatsDay>> => {
       if (!deps.db) {
         return ipcError("DB_ERROR", "Database not ready");
@@ -65,7 +65,7 @@ export function registerStatsIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "stats:getRange",
+    "stats:range:get",
     async (
       _e,
       payload: { from: string; to: string },

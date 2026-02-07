@@ -240,7 +240,9 @@ export function VersionHistoryContainer(
       }
 
       // Get version list
-      const res = await invoke("version:list", { documentId: documentId! });
+      const res = await invoke("version:snapshot:list", {
+        documentId: documentId!,
+      });
       if (cancelled) return;
 
       if (res.ok) {
@@ -281,10 +283,13 @@ export function VersionHistoryContainer(
         return;
       }
 
-      const res = await invoke("version:restore", { documentId, versionId });
+      const res = await invoke("version:snapshot:restore", {
+        documentId,
+        versionId,
+      });
       if (res.ok) {
         // Refresh version list
-        const listRes = await invoke("version:list", { documentId });
+        const listRes = await invoke("version:snapshot:list", { documentId });
         if (listRes.ok) {
           setItems(listRes.data.items);
         }
@@ -303,7 +308,10 @@ export function VersionHistoryContainer(
       setPreviewData(null);
       setPreviewError(null);
 
-      const res = await invoke("version:read", { documentId, versionId });
+      const res = await invoke("version:snapshot:read", {
+        documentId,
+        versionId,
+      });
       if (res.ok) {
         setPreviewData({
           versionId: res.data.versionId,

@@ -18,7 +18,7 @@ export function registerEmbeddingIpcHandlers(deps: {
   embedding: EmbeddingService;
 }): void {
   deps.ipcMain.handle(
-    "embedding:encode",
+    "embedding:text:encode",
     async (
       _e,
       payload: { texts: string[]; model?: string },
@@ -41,7 +41,7 @@ export function registerEmbeddingIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "embedding:index",
+    "embedding:index:build",
     async (
       _e,
       payload: { documentId: string; contentHash: string },

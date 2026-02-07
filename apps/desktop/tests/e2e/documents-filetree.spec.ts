@@ -85,7 +85,7 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:getCurrent", {});
+    return await window.creonow.invoke("project:project:getcurrent", {});
   });
   expect(project.ok).toBe(true);
   if (!project.ok) {
@@ -224,7 +224,7 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("file:document:getCurrent", {
+    return await window.creonow.invoke("file:document:getcurrent", {
       projectId: projectIdParam,
     });
   }, project.data.projectId);
@@ -249,7 +249,7 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:getCurrent", {});
+    return await window.creonow.invoke("project:project:getcurrent", {});
   });
   expect(project2.ok).toBe(true);
   if (!project2.ok) {
@@ -261,7 +261,7 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("file:document:getCurrent", {
+    return await window.creonow.invoke("file:document:getcurrent", {
       projectId: projectIdParam,
     });
   }, project.data.projectId);

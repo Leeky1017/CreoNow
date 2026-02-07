@@ -68,7 +68,7 @@ test("memory semantic recall: preview mode=semantic + stablePrefixHash unchanged
   await page.getByTestId("create-project-name").fill("Memory Semantic Project");
   await page.getByTestId("create-project-submit").click();
 
-  const project = await ipcInvoke(page, "project:getCurrent", {});
+  const project = await ipcInvoke(page, "project:project:getcurrent", {});
   expect(project.ok).toBe(true);
   if (!project.ok) {
     throw new Error(project.error.message);
@@ -79,14 +79,14 @@ test("memory semantic recall: preview mode=semantic + stablePrefixHash unchanged
   });
   expect(settings.ok).toBe(true);
 
-  const m1 = await ipcInvoke(page, "memory:create", {
+  const m1 = await ipcInvoke(page, "memory:entry:create", {
     type: "preference",
     scope: "global",
     content: "Prefer: use bullets",
   });
   expect(m1.ok).toBe(true);
 
-  const m2 = await ipcInvoke(page, "memory:create", {
+  const m2 = await ipcInvoke(page, "memory:entry:create", {
     type: "preference",
     scope: "global",
     content: "Prefer: use numbered lists",

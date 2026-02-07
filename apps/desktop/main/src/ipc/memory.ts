@@ -47,7 +47,7 @@ export function registerMemoryIpcHandlers(deps: {
   logger: Logger;
 }): void {
   deps.ipcMain.handle(
-    "memory:create",
+    "memory:entry:create",
     async (
       _e,
       payload: MemoryCreatePayload,
@@ -67,7 +67,7 @@ export function registerMemoryIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "memory:list",
+    "memory:entry:list",
     async (
       _e,
       payload: MemoryListPayload,
@@ -87,7 +87,7 @@ export function registerMemoryIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "memory:update",
+    "memory:entry:update",
     async (
       _e,
       payload: MemoryUpdatePayload,
@@ -110,7 +110,7 @@ export function registerMemoryIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "memory:delete",
+    "memory:entry:delete",
     async (
       _e,
       payload: MemoryDeletePayload,

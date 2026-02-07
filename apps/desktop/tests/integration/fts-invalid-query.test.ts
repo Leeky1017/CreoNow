@@ -80,8 +80,8 @@ registerSearchIpcHandlers({
   logger,
 });
 
-const handler = handlers.get("search:fulltext");
-assert.ok(handler, "Missing handler search:fulltext");
+const handler = handlers.get("search:fulltext:query");
+assert.ok(handler, "Missing handler search:fulltext:query");
 
 const okRes = (await handler({}, { projectId: "proj_1", query: "hello" })) as
   | IpcResponse<{ items: unknown[] }>

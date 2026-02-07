@@ -9,6 +9,8 @@ import type { IpcSchema } from "../apps/desktop/main/src/ipc/contract/schema";
 
 export type ContractGenerateErrorCode =
   | "IPC_CONTRACT_INVALID_NAME"
+  | "IPC_CONTRACT_UNKNOWN_DOMAIN"
+  | "IPC_CONTRACT_NAME_COLLISION"
   | "IPC_CONTRACT_MISSING_SCHEMA"
   | "IPC_CONTRACT_DUPLICATED_CHANNEL"
   | "IPC_CONTRACT_INVALID_SCHEMA_REFERENCE"
@@ -44,7 +46,26 @@ function assertNever(x: never): never {
   throw new Error(`unreachable: ${JSON.stringify(x)}`);
 }
 
-const CHANNEL_NAME_PATTERN = /^[a-z][a-zA-Z0-9]*(?::[a-z][a-zA-Z0-9]*)+$/;
+const DOMAIN_REGISTRY: Readonly<Record<string, string>> = {
+  ai: "AI Service",
+  app: "Workbench",
+  constraints: "Context Engine",
+  context: "Context Engine",
+  db: "Database",
+  embedding: "Search and Retrieval",
+  export: "Document Management",
+  file: "Document Management",
+  judge: "AI Service",
+  kg: "Knowledge Graph",
+  memory: "Memory System",
+  project: "Project Management",
+  rag: "Search and Retrieval",
+  search: "Search and Retrieval",
+  skill: "Skill System",
+  stats: "Workbench",
+  version: "Version Control",
+};
+const RESOURCE_ACTION_SEGMENT_PATTERN = /^[a-z][a-z0-9]*$/;
 const VALID_SCHEMA_KINDS = new Set([
   "string",
   "number",
@@ -214,6 +235,132 @@ function ensureNoDuplicateChannels(channels: readonly string[]): void {
   }
 }
 
+type ValidChannelName = {
+  domain: string;
+  resource: string;
+  action: string;
+};
+
+type ChannelCollisionMeta = {
+  channels: string[];
+  filePaths: string[];
+};
+
+type NamingRule =
+  | "segment-count"
+  | "domain-whitelist"
+  | "resource-action-format";
+
+function buildNamingErrorDetails(args: {
+  channel: string;
+  filePath: string;
+  rule: NamingRule;
+  domain?: string;
+  segment?: string;
+}): Record<string, string> {
+  const details: Record<string, string> = {
+    channel: args.channel,
+    filePath: args.filePath,
+    rule: args.rule,
+  };
+
+  if (args.domain) {
+    details.domain = args.domain;
+  }
+
+  if (args.segment) {
+    details.segment = args.segment;
+  }
+
+  return details;
+}
+
+function resolveChannelSourcePath(
+  channel: string,
+  channelSourceMap?: Readonly<Record<string, string>>,
+): string {
+  return (
+    channelSourceMap?.[channel] ??
+    "apps/desktop/main/src/ipc/contract/ipc-contract.ts"
+  );
+}
+
+function validateStrictChannelName(args: {
+  channel: string;
+  filePath: string;
+}): ValidChannelName {
+  const parts = args.channel.split(":");
+  if (parts.length !== 3) {
+    throw new ContractGenerateError(
+      "IPC_CONTRACT_INVALID_NAME",
+      `Channel ${args.channel} must use <domain>:<resource>:<action> format`,
+      buildNamingErrorDetails({
+        channel: args.channel,
+        filePath: args.filePath,
+        rule: "segment-count",
+      }),
+    );
+  }
+
+  const [domain, resource, action] = parts;
+  if (!(domain in DOMAIN_REGISTRY)) {
+    throw new ContractGenerateError(
+      "IPC_CONTRACT_UNKNOWN_DOMAIN",
+      `Channel ${args.channel} uses unknown domain: ${domain}`,
+      buildNamingErrorDetails({
+        channel: args.channel,
+        filePath: args.filePath,
+        rule: "domain-whitelist",
+        domain,
+      }),
+    );
+  }
+
+  if (
+    !RESOURCE_ACTION_SEGMENT_PATTERN.test(resource) ||
+    !RESOURCE_ACTION_SEGMENT_PATTERN.test(action)
+  ) {
+    throw new ContractGenerateError(
+      "IPC_CONTRACT_INVALID_NAME",
+      `Channel ${args.channel} must use lowercase alnum resource/action segments`,
+      buildNamingErrorDetails({
+        channel: args.channel,
+        filePath: args.filePath,
+        rule: "resource-action-format",
+      }),
+    );
+  }
+
+  return { domain, resource, action };
+}
+
+function toPreloadMethodName(resource: string, action: string): string {
+  return `${resource}${action}`;
+}
+
+function validatePreloadMethodCollisions(
+  perMethod: Readonly<Record<string, ChannelCollisionMeta>>,
+): void {
+  for (const [compositeKey, collision] of Object.entries(perMethod)) {
+    if (collision.channels.length < 2) {
+      continue;
+    }
+
+    const [domain, methodName] = compositeKey.split(".");
+    throw new ContractGenerateError(
+      "IPC_CONTRACT_NAME_COLLISION",
+      `Preload method name collision in domain ${domain}: ${methodName}`,
+      {
+        domain,
+        methodName,
+        channels: collision.channels,
+        filePaths: collision.filePaths,
+        rule: "preload-method-collision",
+      },
+    );
+  }
+}
+
 export function extractDeclaredChannelsFromContractSource(
   source: string,
 ): string[] {
@@ -234,20 +381,29 @@ export function validateContractDefinition(
   contract: ContractLike,
   options?: {
     declaredChannelsInSource?: readonly string[];
+    channelSourceMap?: Readonly<Record<string, string>>;
   },
 ): string[] {
   const channels = Object.keys(contract.channels);
   const declaredChannels = options?.declaredChannelsInSource ?? channels;
+  const channelSourceMap = options?.channelSourceMap;
   ensureNoDuplicateChannels(declaredChannels);
+  const perMethod: Record<string, ChannelCollisionMeta> = {};
 
   for (const channel of channels) {
-    if (!CHANNEL_NAME_PATTERN.test(channel)) {
-      throw new ContractGenerateError(
-        "IPC_CONTRACT_INVALID_NAME",
-        `Invalid channel name: ${channel}`,
-        { channel },
-      );
+    const filePath = resolveChannelSourcePath(channel, channelSourceMap);
+    const name = validateStrictChannelName({ channel, filePath });
+    const methodName = toPreloadMethodName(name.resource, name.action);
+    const collisionKey = `${name.domain}.${methodName}`;
+
+    if (!perMethod[collisionKey]) {
+      perMethod[collisionKey] = {
+        channels: [],
+        filePaths: [],
+      };
     }
+    perMethod[collisionKey]?.channels.push(channel);
+    perMethod[collisionKey]?.filePaths.push(filePath);
 
     const spec = contract.channels[channel];
     if (!spec || !spec.request || !spec.response) {
@@ -265,6 +421,8 @@ export function validateContractDefinition(
     validateSchemaReference(spec.request, `${channel}.request`);
     validateSchemaReference(spec.response, `${channel}.response`);
   }
+
+  validatePreloadMethodCollisions(perMethod);
 
   return channels.sort();
 }
@@ -421,9 +579,16 @@ export async function main(): Promise<void> {
   const contractSource = await fs.readFile(contractPath, "utf8");
   const declaredChannelsInSource =
     extractDeclaredChannelsFromContractSource(contractSource);
+  const channelSourceMap = Object.fromEntries(
+    declaredChannelsInSource.map((channel) => [
+      channel,
+      normalizePath(contractPath),
+    ]),
+  );
 
   const channels = validateContractDefinition(ipcContract, {
     declaredChannelsInSource,
+    channelSourceMap,
   });
 
   const channelSet = new Set(channels);

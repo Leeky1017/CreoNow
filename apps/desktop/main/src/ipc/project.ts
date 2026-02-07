@@ -17,7 +17,7 @@ export function registerProjectIpcHandlers(deps: {
   logger: Logger;
 }): void {
   deps.ipcMain.handle(
-    "project:create",
+    "project:project:create",
     async (
       _e,
       payload: { name?: string },
@@ -41,7 +41,7 @@ export function registerProjectIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "project:list",
+    "project:project:list",
     async (
       _e,
       payload: { includeArchived?: boolean },
@@ -75,7 +75,7 @@ export function registerProjectIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "project:rename",
+    "project:project:rename",
     async (
       _e,
       payload: { projectId: string; name: string },
@@ -104,7 +104,7 @@ export function registerProjectIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "project:duplicate",
+    "project:project:duplicate",
     async (
       _e,
       payload: { projectId: string },
@@ -130,7 +130,7 @@ export function registerProjectIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "project:archive",
+    "project:project:archive",
     async (
       _e,
       payload: { projectId: string; archived: boolean },
@@ -159,7 +159,7 @@ export function registerProjectIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "project:getCurrent",
+    "project:project:getcurrent",
     async (): Promise<IpcResponse<{ projectId: string; rootPath: string }>> => {
       if (!deps.db) {
         return {
@@ -180,7 +180,7 @@ export function registerProjectIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "project:setCurrent",
+    "project:project:setcurrent",
     async (
       _e,
       payload: { projectId: string },
@@ -204,7 +204,7 @@ export function registerProjectIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "project:delete",
+    "project:project:delete",
     async (
       _e,
       payload: { projectId: string },

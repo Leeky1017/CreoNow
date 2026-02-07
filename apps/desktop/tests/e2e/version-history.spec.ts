@@ -17,7 +17,7 @@ async function createIsolatedUserDataDir(): Promise<string> {
 }
 
 test.describe("Version History IPC", () => {
-  test("version:read returns full version content", async () => {
+  test("version:snapshot:read returns full version content", async () => {
     const userDataDir = await createIsolatedUserDataDir();
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const appRoot = path.resolve(__dirname, "../..");
@@ -63,7 +63,7 @@ test.describe("Version History IPC", () => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("project:getCurrent", {});
+      return await window.creonow.invoke("project:project:getcurrent", {});
     });
     expect(project.ok).toBe(true);
     if (!project.ok) {
@@ -88,7 +88,9 @@ test.describe("Version History IPC", () => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("version:list", { documentId: docId });
+      return await window.creonow.invoke("version:snapshot:list", {
+        documentId: docId,
+      });
     }, documentId);
     expect(versions.ok).toBe(true);
     if (!versions.ok) {
@@ -99,13 +101,13 @@ test.describe("Version History IPC", () => {
     const versionId = versions.data.items[0]?.versionId;
     expect(versionId).toBeTruthy();
 
-    // Test version:read
+    // Test version:snapshot:read
     const versionContent = await page.evaluate(
       async ({ docId, verId }) => {
         if (!window.creonow) {
           throw new Error("Missing window.creonow bridge");
         }
-        return await window.creonow.invoke("version:read", {
+        return await window.creonow.invoke("version:snapshot:read", {
           documentId: docId,
           versionId: verId,
         });
@@ -120,7 +122,7 @@ test.describe("Version History IPC", () => {
       );
     }
 
-    // Verify version:read returns all expected fields
+    // Verify version:snapshot:read returns all expected fields
     expect(versionContent.data.documentId).toBe(documentId);
     expect(versionContent.data.versionId).toBe(versionId);
     expect(versionContent.data.projectId).toBe(project.data.projectId);
@@ -137,7 +139,7 @@ test.describe("Version History IPC", () => {
     await electronApp.close();
   });
 
-  test("version:read returns NOT_FOUND for invalid versionId", async () => {
+  test("version:snapshot:read returns NOT_FOUND for invalid versionId", async () => {
     const userDataDir = await createIsolatedUserDataDir();
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const appRoot = path.resolve(__dirname, "../..");
@@ -169,7 +171,7 @@ test.describe("Version History IPC", () => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("project:getCurrent", {});
+      return await window.creonow.invoke("project:project:getcurrent", {});
     });
     expect(project.ok).toBe(true);
     if (!project.ok) {
@@ -195,7 +197,7 @@ test.describe("Version History IPC", () => {
         if (!window.creonow) {
           throw new Error("Missing window.creonow bridge");
         }
-        return await window.creonow.invoke("version:read", {
+        return await window.creonow.invoke("version:snapshot:read", {
           documentId: docId,
           versionId: "non-existent-version-id",
         });
@@ -212,7 +214,7 @@ test.describe("Version History IPC", () => {
     await electronApp.close();
   });
 
-  test("version:read returns INVALID_ARGUMENT for empty documentId", async () => {
+  test("version:snapshot:read returns INVALID_ARGUMENT for empty documentId", async () => {
     const userDataDir = await createIsolatedUserDataDir();
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const appRoot = path.resolve(__dirname, "../..");
@@ -235,7 +237,7 @@ test.describe("Version History IPC", () => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("version:read", {
+      return await window.creonow.invoke("version:snapshot:read", {
         documentId: "",
         versionId: "some-version",
       });

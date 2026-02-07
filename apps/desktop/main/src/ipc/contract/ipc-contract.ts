@@ -212,15 +212,15 @@ export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
   channels: {
-    "app:ping": {
+    "app:system:ping": {
       request: s.object({}),
       response: s.object({}),
     },
-    "stats:getToday": {
+    "stats:day:gettoday": {
       request: s.object({}),
       response: STATS_DAY_SCHEMA,
     },
-    "stats:getRange": {
+    "stats:range:get": {
       request: s.object({
         from: s.string(),
         to: s.string(),
@@ -232,28 +232,28 @@ export const ipcContract = {
         summary: STATS_SUMMARY_SCHEMA,
       }),
     },
-    "export:markdown": {
+    "export:document:markdown": {
       request: s.object({
         projectId: s.string(),
         documentId: s.optional(s.string()),
       }),
       response: EXPORT_RESULT_SCHEMA,
     },
-    "export:pdf": {
+    "export:document:pdf": {
       request: s.object({
         projectId: s.string(),
         documentId: s.optional(s.string()),
       }),
       response: EXPORT_RESULT_SCHEMA,
     },
-    "export:docx": {
+    "export:document:docx": {
       request: s.object({
         projectId: s.string(),
         documentId: s.optional(s.string()),
       }),
       response: EXPORT_RESULT_SCHEMA,
     },
-    "export:txt": {
+    "export:document:txt": {
       request: s.object({
         projectId: s.string(),
         documentId: s.optional(s.string()),
@@ -279,11 +279,11 @@ export const ipcContract = {
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
       }),
     },
-    "ai:proxy:settings:get": {
+    "ai:proxysettings:get": {
       request: s.object({}),
       response: AI_PROXY_SETTINGS_SCHEMA,
     },
-    "ai:proxy:settings:update": {
+    "ai:proxysettings:update": {
       request: s.object({
         patch: s.object({
           enabled: s.optional(s.boolean()),
@@ -325,7 +325,7 @@ export const ipcContract = {
         ),
       }),
     },
-    "memory:create": {
+    "memory:entry:create": {
       request: s.object({
         type: MEMORY_TYPE_SCHEMA,
         scope: MEMORY_SCOPE_SCHEMA,
@@ -347,7 +347,7 @@ export const ipcContract = {
         deletedAt: s.optional(s.number()),
       }),
     },
-    "memory:list": {
+    "memory:entry:list": {
       request: s.object({
         projectId: s.optional(s.string()),
         documentId: s.optional(s.string()),
@@ -371,7 +371,7 @@ export const ipcContract = {
         ),
       }),
     },
-    "memory:update": {
+    "memory:entry:update": {
       request: s.object({
         memoryId: s.string(),
         patch: s.object({
@@ -396,7 +396,7 @@ export const ipcContract = {
         deletedAt: s.optional(s.number()),
       }),
     },
-    "memory:delete": {
+    "memory:entry:delete": {
       request: s.object({ memoryId: s.string() }),
       response: s.object({ deleted: s.literal(true) }),
     },
@@ -432,7 +432,7 @@ export const ipcContract = {
         ),
       }),
     },
-    "search:fulltext": {
+    "search:fulltext:query": {
       request: s.object({
         projectId: s.string(),
         query: s.string(),
@@ -440,7 +440,7 @@ export const ipcContract = {
       }),
       response: s.object({ items: s.array(SEARCH_FTS_ITEM_SCHEMA) }),
     },
-    "search:semantic": {
+    "search:semantic:query": {
       request: s.object({
         projectId: s.string(),
         queryText: s.string(),
@@ -448,7 +448,7 @@ export const ipcContract = {
       }),
       response: s.object({ items: s.array(SEARCH_SEMANTIC_ITEM_SCHEMA) }),
     },
-    "embedding:encode": {
+    "embedding:text:encode": {
       request: s.object({
         texts: s.array(s.string()),
         model: s.optional(s.string()),
@@ -458,14 +458,14 @@ export const ipcContract = {
         dimension: s.number(),
       }),
     },
-    "embedding:index": {
+    "embedding:index:build": {
       request: s.object({
         documentId: s.string(),
         contentHash: s.string(),
       }),
       response: s.object({ accepted: s.literal(true) }),
     },
-    "rag:retrieve": {
+    "rag:context:retrieve": {
       request: s.object({
         projectId: s.string(),
         queryText: s.string(),
@@ -549,15 +549,15 @@ export const ipcContract = {
       request: s.object({ relationId: s.string() }),
       response: s.object({ deleted: s.literal(true) }),
     },
-    "skill:list": {
+    "skill:registry:list": {
       request: s.object({ includeDisabled: s.optional(s.boolean()) }),
       response: s.object({ items: s.array(SKILL_LIST_ITEM_SCHEMA) }),
     },
-    "skill:read": {
+    "skill:registry:read": {
       request: s.object({ id: s.string() }),
       response: s.object({ id: s.string(), content: s.string() }),
     },
-    "skill:write": {
+    "skill:registry:write": {
       request: s.object({ id: s.string(), content: s.string() }),
       response: s.object({
         id: s.string(),
@@ -565,19 +565,19 @@ export const ipcContract = {
         written: s.literal(true),
       }),
     },
-    "skill:toggle": {
+    "skill:registry:toggle": {
       request: s.object({ id: s.string(), enabled: s.boolean() }),
       response: s.object({ id: s.string(), enabled: s.boolean() }),
     },
-    "db:debug:tableNames": {
+    "db:debug:tablenames": {
       request: s.object({}),
       response: s.object({ tableNames: s.array(s.string()) }),
     },
-    "project:create": {
+    "project:project:create": {
       request: s.object({ name: s.optional(s.string()) }),
       response: s.object({ projectId: s.string(), rootPath: s.string() }),
     },
-    "project:list": {
+    "project:project:list": {
       request: s.object({ includeArchived: s.optional(s.boolean()) }),
       response: s.object({
         items: s.array(
@@ -591,7 +591,7 @@ export const ipcContract = {
         ),
       }),
     },
-    "project:rename": {
+    "project:project:rename": {
       request: s.object({ projectId: s.string(), name: s.string() }),
       response: s.object({
         projectId: s.string(),
@@ -599,7 +599,7 @@ export const ipcContract = {
         updatedAt: s.number(),
       }),
     },
-    "project:duplicate": {
+    "project:project:duplicate": {
       request: s.object({ projectId: s.string() }),
       response: s.object({
         projectId: s.string(),
@@ -607,7 +607,7 @@ export const ipcContract = {
         name: s.string(),
       }),
     },
-    "project:archive": {
+    "project:project:archive": {
       request: s.object({ projectId: s.string(), archived: s.boolean() }),
       response: s.object({
         projectId: s.string(),
@@ -615,15 +615,15 @@ export const ipcContract = {
         archivedAt: s.optional(s.number()),
       }),
     },
-    "project:getCurrent": {
+    "project:project:getcurrent": {
       request: s.object({}),
       response: s.object({ projectId: s.string(), rootPath: s.string() }),
     },
-    "project:setCurrent": {
+    "project:project:setcurrent": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ projectId: s.string(), rootPath: s.string() }),
     },
-    "project:delete": {
+    "project:project:delete": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ deleted: s.literal(true) }),
     },
@@ -639,21 +639,21 @@ export const ipcContract = {
         rootPath: s.optional(s.string()),
       }),
     },
-    "context:creonow:watch:start": {
+    "context:watch:start": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ watching: s.literal(true) }),
     },
-    "context:creonow:watch:stop": {
+    "context:watch:stop": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ watching: s.literal(false) }),
     },
-    "context:creonow:rules:list": {
+    "context:rules:list": {
       request: s.object({ projectId: s.string() }),
       response: s.object({
         items: s.array(CREONOW_LIST_ITEM_SCHEMA),
       }),
     },
-    "context:creonow:rules:read": {
+    "context:rules:read": {
       request: s.object({ projectId: s.string(), path: s.string() }),
       response: s.object({
         path: s.string(),
@@ -663,13 +663,13 @@ export const ipcContract = {
         redactionEvidence: s.array(REDACTION_EVIDENCE_SCHEMA),
       }),
     },
-    "context:creonow:settings:list": {
+    "context:settings:list": {
       request: s.object({ projectId: s.string() }),
       response: s.object({
         items: s.array(CREONOW_LIST_ITEM_SCHEMA),
       }),
     },
-    "context:creonow:settings:read": {
+    "context:settings:read": {
       request: s.object({ projectId: s.string(), path: s.string() }),
       response: s.object({
         path: s.string(),
@@ -679,7 +679,7 @@ export const ipcContract = {
         redactionEvidence: s.array(REDACTION_EVIDENCE_SCHEMA),
       }),
     },
-    "constraints:get": {
+    "constraints:policy:get": {
       request: s.object({ projectId: s.string() }),
       response: s.object({
         constraints: s.object({
@@ -688,7 +688,7 @@ export const ipcContract = {
         }),
       }),
     },
-    "constraints:set": {
+    "constraints:policy:set": {
       request: s.object({
         projectId: s.string(),
         constraints: s.object({
@@ -703,7 +703,7 @@ export const ipcContract = {
         }),
       }),
     },
-    "judge:model:getState": {
+    "judge:model:getstate": {
       request: s.object({}),
       response: s.object({ state: JUDGE_MODEL_STATE_SCHEMA }),
     },
@@ -761,11 +761,11 @@ export const ipcContract = {
       }),
       response: s.object({ updatedAt: s.number(), contentHash: s.string() }),
     },
-    "file:document:getCurrent": {
+    "file:document:getcurrent": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ documentId: s.string() }),
     },
-    "file:document:setCurrent": {
+    "file:document:setcurrent": {
       request: s.object({ projectId: s.string(), documentId: s.string() }),
       response: s.object({ documentId: s.string() }),
     },
@@ -773,7 +773,7 @@ export const ipcContract = {
       request: s.object({ projectId: s.string(), documentId: s.string() }),
       response: s.object({ deleted: s.literal(true) }),
     },
-    "version:list": {
+    "version:snapshot:list": {
       request: s.object({ documentId: s.string() }),
       response: s.object({
         items: s.array(
@@ -791,7 +791,7 @@ export const ipcContract = {
         ),
       }),
     },
-    "version:read": {
+    "version:snapshot:read": {
       request: s.object({ documentId: s.string(), versionId: s.string() }),
       response: s.object({
         documentId: s.string(),
@@ -806,11 +806,11 @@ export const ipcContract = {
         createdAt: s.number(),
       }),
     },
-    "version:restore": {
+    "version:snapshot:restore": {
       request: s.object({ documentId: s.string(), versionId: s.string() }),
       response: s.object({ restored: s.literal(true) }),
     },
-    "version:aiApply:logConflict": {
+    "version:aiapply:logconflict": {
       request: s.object({ documentId: s.string(), runId: s.string() }),
       response: s.object({ logged: s.literal(true) }),
     },

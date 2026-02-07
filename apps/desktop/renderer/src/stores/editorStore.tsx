@@ -92,7 +92,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
 
       let documentId: string | null = null;
 
-      const currentRes = await deps.invoke("file:document:getCurrent", {
+      const currentRes = await deps.invoke("file:document:getcurrent", {
         projectId,
       });
       if (currentRes.ok) {
@@ -116,7 +116,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
           documentId = created.data.documentId;
         }
 
-        const setRes = await deps.invoke("file:document:setCurrent", {
+        const setRes = await deps.invoke("file:document:setcurrent", {
           projectId,
           documentId,
         });
@@ -184,7 +184,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
     openCurrentDocumentForProject: async (projectId) => {
       set({ bootstrapStatus: "loading", projectId, autosaveError: null });
 
-      const currentRes = await deps.invoke("file:document:getCurrent", {
+      const currentRes = await deps.invoke("file:document:getcurrent", {
         projectId,
       });
       if (currentRes.ok) {

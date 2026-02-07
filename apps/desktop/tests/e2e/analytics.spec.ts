@@ -88,7 +88,7 @@ test("analytics: wordsWritten + skillsUsed increment and are visible", async () 
 
   const before = await ipcInvoke<{ date: string; summary: StatsSummary }>(
     page,
-    "stats:getToday",
+    "stats:day:gettoday",
     {},
   );
   expect(before.ok).toBe(true);
@@ -106,7 +106,7 @@ test("analytics: wordsWritten + skillsUsed increment and are visible", async () 
 
   const afterWords = await ipcInvoke<{ date: string; summary: StatsSummary }>(
     page,
-    "stats:getToday",
+    "stats:day:gettoday",
     {},
   );
   expect(afterWords.ok).toBe(true);
@@ -126,7 +126,7 @@ test("analytics: wordsWritten + skillsUsed increment and are visible", async () 
 
   const afterSkills = await ipcInvoke<{ date: string; summary: StatsSummary }>(
     page,
-    "stats:getToday",
+    "stats:day:gettoday",
     {},
   );
   expect(afterSkills.ok).toBe(true);

@@ -72,11 +72,13 @@ test("skills: list + toggle disables run + command palette opens", async () => {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("skill:list", { includeDisabled: true });
+    return await window.creonow.invoke("skill:registry:list", {
+      includeDisabled: true,
+    });
   });
   expect(list.ok).toBe(true);
   if (!list.ok) {
-    throw new Error(`Expected ok skill:list, got: ${list.error.code}`);
+    throw new Error(`Expected ok skill:registry:list, got: ${list.error.code}`);
   }
 
   const firstEnabledValid = list.data.items.find((s) => s.enabled && s.valid);
@@ -101,11 +103,16 @@ test("skills: list + toggle disables run + command palette opens", async () => {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("skill:toggle", { id, enabled: false });
+    return await window.creonow.invoke("skill:registry:toggle", {
+      id,
+      enabled: false,
+    });
   }, firstEnabledValid.id);
   expect(toggled.ok).toBe(true);
   if (!toggled.ok) {
-    throw new Error(`Expected ok skill:toggle, got: ${toggled.error.code}`);
+    throw new Error(
+      `Expected ok skill:registry:toggle, got: ${toggled.error.code}`,
+    );
   }
 
   await runInput(page, "hello");

@@ -17,7 +17,7 @@ export function registerJudgeIpcHandlers(deps: {
   judgeService: JudgeService;
 }): void {
   deps.ipcMain.handle(
-    "judge:model:getState",
+    "judge:model:getstate",
     async (): Promise<IpcResponse<{ state: JudgeModelState }>> => {
       return { ok: true, data: { state: deps.judgeService.getState() } };
     },

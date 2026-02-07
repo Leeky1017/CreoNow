@@ -31,7 +31,8 @@ export type AiProposal = {
   selectionText: string;
   replacementText: string;
 };
-export type SkillListItem = IpcResponseData<"skill:list">["items"][number];
+export type SkillListItem =
+  IpcResponseData<"skill:registry:list">["items"][number];
 
 export type PromptDiagnostics = {
   stablePrefixHash: string;
@@ -151,7 +152,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
 
       set({ skillsStatus: "loading", skillsLastError: null });
 
-      const res = await deps.invoke("skill:list", { includeDisabled: true });
+      const res = await deps.invoke("skill:registry:list", {
+        includeDisabled: true,
+      });
       if (!res.ok) {
         set({ skillsStatus: "error", skillsLastError: res.error });
         return;
@@ -215,7 +218,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
     },
 
     logAiApplyConflict: async (args) => {
-      await deps.invoke("version:aiApply:logConflict", {
+      await deps.invoke("version:aiapply:logconflict", {
         documentId: args.documentId,
         runId: args.runId,
       });

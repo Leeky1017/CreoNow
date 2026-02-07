@@ -14,11 +14,11 @@ function createMockMemoryIpc() {
   return {
     invoke: async (channel: string): Promise<unknown> => {
       switch (channel) {
-        case "memory:create":
+        case "memory:entry:create":
           // 模拟延迟
           await new Promise((resolve) => setTimeout(resolve, 500));
           return { ok: true, data: { memoryId: `mem-${Date.now()}` } };
-        case "memory:list":
+        case "memory:entry:list":
           return { ok: true, data: { items: [] } };
         case "memory:settings:get":
           return {

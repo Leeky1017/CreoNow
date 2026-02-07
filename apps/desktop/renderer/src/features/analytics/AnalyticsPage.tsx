@@ -91,7 +91,7 @@ export function AnalyticsPageContent(): JSX.Element {
   const refresh = React.useCallback(async () => {
     setError(null);
 
-    const todayRes = await invoke("stats:getToday", {});
+    const todayRes = await invoke("stats:day:gettoday", {});
     if (!todayRes.ok) {
       setError(todayRes.error);
       return;
@@ -100,7 +100,7 @@ export function AnalyticsPageContent(): JSX.Element {
 
     const to = utcDateKey(Date.now());
     const from = utcDateKey(Date.now() - 6 * 24 * 60 * 60 * 1000);
-    const rangeRes = await invoke("stats:getRange", { from, to });
+    const rangeRes = await invoke("stats:range:get", { from, to });
     if (!rangeRes.ok) {
       setError(rangeRes.error);
       return;

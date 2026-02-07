@@ -120,12 +120,12 @@ test("system dialog: cancel/confirm across file tree + knowledge graph", async (
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:getCurrent", {});
+    return await window.creonow.invoke("project:project:getcurrent", {});
   });
   expect(project.ok).toBe(true);
   if (!project.ok) {
     throw new Error(
-      `Expected ok project:getCurrent, got: ${project.error.code}`,
+      `Expected ok project:project:getcurrent, got: ${project.error.code}`,
     );
   }
   const projectId = project.data.projectId;

@@ -10,36 +10,18 @@ import userEvent from "@testing-library/user-event";
 import React from "react";
 
 import { AppShell } from "../components/layout/AppShell";
-import {
-  LayoutStoreProvider,
-  createLayoutStore,
-} from "../stores/layoutStore";
+import { LayoutStoreProvider, createLayoutStore } from "../stores/layoutStore";
 import {
   ProjectStoreProvider,
   createProjectStore,
 } from "../stores/projectStore";
-import {
-  FileStoreProvider,
-  createFileStore,
-} from "../stores/fileStore";
-import {
-  EditorStoreProvider,
-  createEditorStore,
-} from "../stores/editorStore";
+import { FileStoreProvider, createFileStore } from "../stores/fileStore";
+import { EditorStoreProvider, createEditorStore } from "../stores/editorStore";
 import { AiStoreProvider, createAiStore } from "../stores/aiStore";
-import {
-  MemoryStoreProvider,
-  createMemoryStore,
-} from "../stores/memoryStore";
-import {
-  SearchStoreProvider,
-  createSearchStore,
-} from "../stores/searchStore";
+import { MemoryStoreProvider, createMemoryStore } from "../stores/memoryStore";
+import { SearchStoreProvider, createSearchStore } from "../stores/searchStore";
 import { KgStoreProvider, createKgStore } from "../stores/kgStore";
-import {
-  ThemeStoreProvider,
-  createThemeStore,
-} from "../stores/themeStore";
+import { ThemeStoreProvider, createThemeStore } from "../stores/themeStore";
 
 // =============================================================================
 // Test Fixtures
@@ -87,76 +69,83 @@ function createComprehensiveMockIpc(options: {
   const state = { currentProjectId: options.currentProjectId };
 
   return {
-    invoke: vi.fn().mockImplementation(async (channel: string, payload?: unknown) => {
-      await Promise.resolve();
+    invoke: vi
+      .fn()
+      .mockImplementation(async (channel: string, payload?: unknown) => {
+        await Promise.resolve();
 
-      switch (channel) {
-        case "project:list":
-          return {
-            ok: true,
-            data: { items: options.hasProjects ? MOCK_PROJECTS : [] },
-          };
+        switch (channel) {
+          case "project:project:list":
+            return {
+              ok: true,
+              data: { items: options.hasProjects ? MOCK_PROJECTS : [] },
+            };
 
-        case "project:getCurrent":
-          if (state.currentProjectId) {
-            const project = MOCK_PROJECTS.find(
-              (p) => p.projectId === state.currentProjectId,
-            );
-            if (project) {
-              return {
-                ok: true,
-                data: { projectId: project.projectId, rootPath: project.rootPath },
-              };
+          case "project:project:getcurrent":
+            if (state.currentProjectId) {
+              const project = MOCK_PROJECTS.find(
+                (p) => p.projectId === state.currentProjectId,
+              );
+              if (project) {
+                return {
+                  ok: true,
+                  data: {
+                    projectId: project.projectId,
+                    rootPath: project.rootPath,
+                  },
+                };
+              }
             }
+            return {
+              ok: false,
+              error: { code: "NOT_FOUND", message: "No current project" },
+            };
+
+          case "project:project:setcurrent": {
+            const { projectId } = payload as { projectId: string };
+            state.currentProjectId = projectId;
+            const project = MOCK_PROJECTS.find(
+              (p) => p.projectId === projectId,
+            );
+            return {
+              ok: true,
+              data: { projectId, rootPath: project?.rootPath ?? "" },
+            };
           }
-          return {
-            ok: false,
-            error: { code: "NOT_FOUND", message: "No current project" },
-          };
 
-        case "project:setCurrent": {
-          const { projectId } = payload as { projectId: string };
-          state.currentProjectId = projectId;
-          const project = MOCK_PROJECTS.find((p) => p.projectId === projectId);
-          return {
-            ok: true,
-            data: { projectId, rootPath: project?.rootPath ?? "" },
-          };
+          case "file:list":
+          case "file:bootstrap":
+            return { ok: true, data: { items: [] } };
+
+          case "editor:bootstrap":
+            return {
+              ok: true,
+              data: {
+                documentId: "doc-1",
+                contentJson: JSON.stringify({
+                  type: "doc",
+                  content: [{ type: "paragraph" }],
+                }),
+              },
+            };
+
+          case "skill:registry:list":
+            return { ok: true, data: { items: [] } };
+
+          case "memory:entry:list":
+          case "memory:getPreferences":
+            return { ok: true, data: { items: [] } };
+
+          case "search:query":
+            return { ok: true, data: { results: [] } };
+
+          case "kg:get":
+            return { ok: true, data: { nodes: [], edges: [] } };
+
+          default:
+            return { ok: true, data: { items: [] } };
         }
-
-        case "file:list":
-        case "file:bootstrap":
-          return { ok: true, data: { items: [] } };
-
-        case "editor:bootstrap":
-          return {
-            ok: true,
-            data: {
-              documentId: "doc-1",
-              contentJson: JSON.stringify({
-                type: "doc",
-                content: [{ type: "paragraph" }],
-              }),
-            },
-          };
-
-        case "skill:list":
-          return { ok: true, data: { items: [] } };
-
-        case "memory:list":
-        case "memory:getPreferences":
-          return { ok: true, data: { items: [] } };
-
-        case "search:query":
-          return { ok: true, data: { results: [] } };
-
-        case "kg:get":
-          return { ok: true, data: { nodes: [], edges: [] } };
-
-        default:
-          return { ok: true, data: { items: [] } };
-      }
-    }),
+      }),
     on: (): (() => void) => () => {},
   };
 }
@@ -177,7 +166,8 @@ function IntegrationTestWrapper({
     [],
   );
   const projectStore = React.useMemo(
-    () => createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
+    () =>
+      createProjectStore(mockIpc as Parameters<typeof createProjectStore>[0]),
     [mockIpc],
   );
   const fileStore = React.useMemo(
@@ -215,7 +205,9 @@ function IntegrationTestWrapper({
               <AiStoreProvider store={aiStore}>
                 <MemoryStoreProvider store={memoryStore}>
                   <SearchStoreProvider store={searchStore}>
-                    <KgStoreProvider store={kgStore}>{children}</KgStoreProvider>
+                    <KgStoreProvider store={kgStore}>
+                      {children}
+                    </KgStoreProvider>
                   </SearchStoreProvider>
                 </MemoryStoreProvider>
               </AiStoreProvider>
@@ -288,7 +280,7 @@ describe("Dashboard → Editor Flow", () => {
   });
 
   describe("IPC Calls", () => {
-    it("should call project:list and project:getCurrent on bootstrap", async () => {
+    it("should call project:project:list and project:project:getcurrent on bootstrap", async () => {
       const mockIpc = createComprehensiveMockIpc({
         hasProjects: true,
         currentProjectId: null,
@@ -305,17 +297,17 @@ describe("Dashboard → Editor Flow", () => {
 
       await waitFor(() => {
         expect(mockIpc.invoke).toHaveBeenCalledWith(
-          "project:list",
+          "project:project:list",
           expect.any(Object),
         );
         expect(mockIpc.invoke).toHaveBeenCalledWith(
-          "project:getCurrent",
+          "project:project:getcurrent",
           expect.any(Object),
         );
       });
     });
 
-    it("should call project:setCurrent when selecting a project", async () => {
+    it("should call project:project:setcurrent when selecting a project", async () => {
       const user = userEvent.setup();
       const mockIpc = createComprehensiveMockIpc({
         hasProjects: true,
@@ -338,9 +330,12 @@ describe("Dashboard → Editor Flow", () => {
       await user.click(screen.getByTestId("dashboard-hero-card"));
 
       await waitFor(() => {
-        expect(mockIpc.invoke).toHaveBeenCalledWith("project:setCurrent", {
-          projectId: "proj-1",
-        });
+        expect(mockIpc.invoke).toHaveBeenCalledWith(
+          "project:project:setcurrent",
+          {
+            projectId: "proj-1",
+          },
+        );
       });
     });
   });

@@ -16,7 +16,7 @@ export function registerSearchIpcHandlers(deps: {
   logger: Logger;
 }): void {
   deps.ipcMain.handle(
-    "search:fulltext",
+    "search:fulltext:query",
     async (
       _e,
       payload: { projectId: string; query: string; limit?: number },
@@ -73,7 +73,7 @@ export function registerSearchIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "search:semantic",
+    "search:semantic:query",
     async (
       _e,
       payload: { projectId: string; queryText: string; limit?: number },

@@ -71,12 +71,12 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:getCurrent", {});
+    return await window.creonow.invoke("project:project:getcurrent", {});
   });
   expect(project.ok).toBe(true);
   if (!project.ok) {
     throw new Error(
-      `Expected ok project:getCurrent, got: ${project.error.code}`,
+      `Expected ok project:project:getcurrent, got: ${project.error.code}`,
     );
   }
   const projectId = project.data.projectId;
@@ -190,11 +190,15 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("skill:read", { id: "builtin:polish" });
+    return await window.creonow.invoke("skill:registry:read", {
+      id: "builtin:polish",
+    });
   });
   expect(skillRead.ok).toBe(true);
   if (!skillRead.ok) {
-    throw new Error(`Expected ok skill:read, got: ${skillRead.error.code}`);
+    throw new Error(
+      `Expected ok skill:registry:read, got: ${skillRead.error.code}`,
+    );
   }
 
   const patched = skillRead.data.content
@@ -205,26 +209,30 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("skill:write", {
+    return await window.creonow.invoke("skill:registry:write", {
       id: "builtin:polish",
       content,
     });
   }, patched);
   expect(skillWrite.ok).toBe(true);
   if (!skillWrite.ok) {
-    throw new Error(`Expected ok skill:write, got: ${skillWrite.error.code}`);
+    throw new Error(
+      `Expected ok skill:registry:write, got: ${skillWrite.error.code}`,
+    );
   }
 
   const skillsAfterWrite = await page.evaluate(async () => {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("skill:list", { includeDisabled: true });
+    return await window.creonow.invoke("skill:registry:list", {
+      includeDisabled: true,
+    });
   });
   expect(skillsAfterWrite.ok).toBe(true);
   if (!skillsAfterWrite.ok) {
     throw new Error(
-      `Expected ok skill:list, got: ${skillsAfterWrite.error.code}`,
+      `Expected ok skill:registry:list, got: ${skillsAfterWrite.error.code}`,
     );
   }
   const polish = skillsAfterWrite.data.items.find(

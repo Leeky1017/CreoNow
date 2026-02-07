@@ -15,7 +15,7 @@ export type IpcInvoke = <C extends IpcChannel>(
   payload: IpcRequest<C>,
 ) => Promise<IpcInvokeResult<C>>;
 
-export type MemoryItem = IpcResponseData<"memory:list">["items"][number];
+export type MemoryItem = IpcResponseData<"memory:entry:list">["items"][number];
 export type MemorySettings = IpcResponseData<"memory:settings:get">;
 export type MemoryInjectionPreview =
   IpcResponseData<"memory:injection:preview">;
@@ -43,10 +43,10 @@ export type MemoryActions = {
     scope: MemoryItem["scope"];
     content: string;
     documentId?: string;
-  }) => Promise<IpcResponse<IpcResponseData<"memory:create">>>;
+  }) => Promise<IpcResponse<IpcResponseData<"memory:entry:create">>>;
   remove: (args: {
     memoryId: string;
-  }) => Promise<IpcResponse<IpcResponseData<"memory:delete">>>;
+  }) => Promise<IpcResponse<IpcResponseData<"memory:entry:delete">>>;
   updateSettings: (args: {
     patch: Partial<MemorySettings>;
   }) => Promise<IpcResponse<MemorySettings>>;
@@ -77,15 +77,15 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
   async function loadMemories(
     projectId: string | null,
     documentId: string | null,
-  ): Promise<IpcInvokeResult<"memory:list">> {
-    const payload: IpcRequest<"memory:list"> = {};
+  ): Promise<IpcInvokeResult<"memory:entry:list">> {
+    const payload: IpcRequest<"memory:entry:list"> = {};
     if (projectId) {
       payload.projectId = projectId;
     }
     if (documentId) {
       payload.documentId = documentId;
     }
-    return await deps.invoke("memory:list", payload);
+    return await deps.invoke("memory:entry:list", payload);
   }
 
   return create<MemoryStore>((set, get) => ({
@@ -191,7 +191,7 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
       }
 
       const base = { type, scope, content };
-      let payload: IpcRequest<"memory:create">;
+      let payload: IpcRequest<"memory:entry:create">;
       if (scope === "global") {
         payload = base;
       } else if (scope === "project") {
@@ -206,7 +206,7 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
         };
       }
 
-      const res = await deps.invoke("memory:create", payload);
+      const res = await deps.invoke("memory:entry:create", payload);
       if (!res.ok) {
         set({ lastError: res.error });
         return res;
@@ -217,7 +217,7 @@ export function createMemoryStore(deps: { invoke: IpcInvoke }) {
     },
 
     remove: async ({ memoryId }) => {
-      const res = await deps.invoke("memory:delete", { memoryId });
+      const res = await deps.invoke("memory:entry:delete", { memoryId });
       if (!res.ok) {
         set({ lastError: res.error });
         return res;

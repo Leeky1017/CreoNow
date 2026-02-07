@@ -79,7 +79,7 @@ async function createProjectAndGetId(page: Page): Promise<string> {
     if (!window.creonow) {
       return false;
     }
-    const res = await window.creonow.invoke("project:getCurrent", {});
+    const res = await window.creonow.invoke("project:project:getcurrent", {});
     return res.ok === true;
   });
 
@@ -87,7 +87,7 @@ async function createProjectAndGetId(page: Page): Promise<string> {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:getCurrent", {});
+    return await window.creonow.invoke("project:project:getcurrent", {});
   });
   expect(current.ok).toBe(true);
   if (!current.ok) {
@@ -172,7 +172,7 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("search:fulltext", {
+      return await window.creonow.invoke("search:fulltext:query", {
         projectId: args.projectId,
         query: args.keyword,
         limit: 10,
@@ -192,7 +192,7 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("rag:retrieve", {
+      return await window.creonow.invoke("rag:context:retrieve", {
         projectId: args.projectId,
         queryText: args.keyword,
         limit: 5,
@@ -216,7 +216,7 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
   await electronApp.close();
 });
 
-test("rag:retrieve diagnostics: rerank enabled but MODEL_NOT_READY degrades with explicit reason", async () => {
+test("rag:context:retrieve diagnostics: rerank enabled but MODEL_NOT_READY degrades with explicit reason", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({
     userDataDir,
@@ -244,7 +244,7 @@ test("rag:retrieve diagnostics: rerank enabled but MODEL_NOT_READY degrades with
   await electronApp.close();
 });
 
-test("rag:retrieve rerank: hash model enabled changes top1 and marks diagnostics", async () => {
+test("rag:context:retrieve rerank: hash model enabled changes top1 and marks diagnostics", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({
     userDataDir,
@@ -278,7 +278,7 @@ test("rag:retrieve rerank: hash model enabled changes top1 and marks diagnostics
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("search:fulltext", {
+      return await window.creonow.invoke("search:fulltext:query", {
         projectId: args.projectId,
         query: args.query,
         limit: 5,
@@ -297,7 +297,7 @@ test("rag:retrieve rerank: hash model enabled changes top1 and marks diagnostics
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("rag:retrieve", {
+      return await window.creonow.invoke("rag:context:retrieve", {
         projectId: args.projectId,
         queryText: args.queryText,
         limit: 5,

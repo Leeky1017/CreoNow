@@ -168,7 +168,7 @@ export function registerContextIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "context:creonow:watch:start",
+    "context:watch:start",
     async (
       _e,
       payload: { projectId: string },
@@ -235,7 +235,7 @@ export function registerContextIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "context:creonow:watch:stop",
+    "context:watch:stop",
     async (
       _e,
       payload: { projectId: string },
@@ -273,7 +273,7 @@ export function registerContextIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "context:creonow:rules:list",
+    "context:rules:list",
     async (
       _e,
       payload: { projectId: string },
@@ -335,7 +335,7 @@ export function registerContextIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "context:creonow:settings:list",
+    "context:settings:list",
     async (
       _e,
       payload: { projectId: string },
@@ -397,7 +397,7 @@ export function registerContextIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "context:creonow:rules:read",
+    "context:rules:read",
     async (
       _e,
       payload: { projectId: string; path: string },
@@ -496,7 +496,7 @@ export function registerContextIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "context:creonow:settings:read",
+    "context:settings:read",
     async (
       _e,
       payload: { projectId: string; path: string },

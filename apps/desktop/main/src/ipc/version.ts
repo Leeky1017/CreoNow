@@ -16,7 +16,7 @@ export function registerVersionIpcHandlers(deps: {
   logger: Logger;
 }): void {
   deps.ipcMain.handle(
-    "version:list",
+    "version:snapshot:list",
     async (
       _e,
       payload: { documentId: string },
@@ -56,7 +56,7 @@ export function registerVersionIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "version:read",
+    "version:snapshot:read",
     async (
       _e,
       payload: { documentId: string; versionId: string },
@@ -105,7 +105,7 @@ export function registerVersionIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "version:restore",
+    "version:snapshot:restore",
     async (
       _e,
       payload: { documentId: string; versionId: string },
@@ -141,7 +141,7 @@ export function registerVersionIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "version:aiApply:logConflict",
+    "version:aiapply:logconflict",
     async (
       _e,
       payload: { documentId: string; runId: string },

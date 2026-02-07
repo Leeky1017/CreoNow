@@ -14,7 +14,7 @@ import {
 
 function createMockInvoke() {
   return vi.fn().mockImplementation((channel: string) => {
-    if (channel === "project:list") {
+    if (channel === "project:project:list") {
       return Promise.resolve({
         ok: true,
         data: {
@@ -41,13 +41,13 @@ function createMockInvoke() {
         },
       });
     }
-    if (channel === "project:getCurrent") {
+    if (channel === "project:project:getcurrent") {
       return Promise.resolve({
         ok: false,
         error: { code: "NOT_FOUND", message: "No current project" },
       });
     }
-    if (channel === "project:setCurrent") {
+    if (channel === "project:project:setcurrent") {
       return Promise.resolve({
         ok: true,
         data: { projectId: "proj-1", rootPath: "/path/to/proj-1" },
@@ -59,10 +59,10 @@ function createMockInvoke() {
 
 function createEmptyMockInvoke() {
   return vi.fn().mockImplementation((channel: string) => {
-    if (channel === "project:list") {
+    if (channel === "project:project:list") {
       return Promise.resolve({ ok: true, data: { items: [] } });
     }
-    if (channel === "project:getCurrent") {
+    if (channel === "project:project:getcurrent") {
       return Promise.resolve({
         ok: false,
         error: { code: "NOT_FOUND", message: "No current project" },
@@ -73,13 +73,13 @@ function createEmptyMockInvoke() {
 }
 
 /**
- * Build an invoke mock that includes one archived project in project:list.
+ * Build an invoke mock that includes one archived project in project:project:list.
  *
  * Why: archived section behavior requires explicit archived fixture data.
  */
 function createArchivedMockInvoke() {
   return vi.fn().mockImplementation((channel: string) => {
-    if (channel === "project:list") {
+    if (channel === "project:project:list") {
       return Promise.resolve({
         ok: true,
         data: {
@@ -101,19 +101,19 @@ function createArchivedMockInvoke() {
         },
       });
     }
-    if (channel === "project:getCurrent") {
+    if (channel === "project:project:getcurrent") {
       return Promise.resolve({
         ok: false,
         error: { code: "NOT_FOUND", message: "No current project" },
       });
     }
-    if (channel === "project:setCurrent") {
+    if (channel === "project:project:setcurrent") {
       return Promise.resolve({
         ok: true,
         data: { projectId: "proj-1", rootPath: "/path/to/proj-1" },
       });
     }
-    if (channel === "project:archive") {
+    if (channel === "project:project:archive") {
       return Promise.resolve({
         ok: true,
         data: {
@@ -304,7 +304,7 @@ describe("DashboardPage", () => {
       await userEvent.click(screen.getByTestId("dashboard-hero-card"));
 
       await waitFor(() => {
-        expect(invoke).toHaveBeenCalledWith("project:setCurrent", {
+        expect(invoke).toHaveBeenCalledWith("project:project:setcurrent", {
           projectId: "proj-1",
         });
       });
@@ -363,7 +363,7 @@ describe("DashboardPage", () => {
       await userEvent.click(screen.getByTestId("rename-project-submit"));
 
       await waitFor(() => {
-        expect(invoke).toHaveBeenCalledWith("project:rename", {
+        expect(invoke).toHaveBeenCalledWith("project:project:rename", {
           projectId: "proj-2",
           name: "Renamed",
         });
