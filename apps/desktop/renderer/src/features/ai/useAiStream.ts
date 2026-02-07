@@ -40,6 +40,20 @@ export function useAiStream(): void {
   const onStreamEvent = useAiStore((s) => s.onStreamEvent);
 
   React.useEffect(() => {
+    let subscriptionId: string | null = null;
+    const streamApi = window.creonow?.stream;
+    if (streamApi) {
+      const registration = streamApi.registerAiStreamConsumer();
+      if (!registration.ok) {
+        console.error("ai_stream_subscription_rejected", {
+          code: registration.error.code,
+          message: registration.error.message,
+        });
+        return () => undefined;
+      }
+      subscriptionId = registration.data.subscriptionId;
+    }
+
     function onEvent(evt: Event): void {
       const e = evt as CustomEvent<unknown>;
       const detail = e.detail;
@@ -50,6 +64,11 @@ export function useAiStream(): void {
     }
 
     window.addEventListener(AI_SKILL_STREAM_CHANNEL, onEvent);
-    return () => window.removeEventListener(AI_SKILL_STREAM_CHANNEL, onEvent);
+    return () => {
+      window.removeEventListener(AI_SKILL_STREAM_CHANNEL, onEvent);
+      if (subscriptionId && streamApi) {
+        streamApi.releaseAiStreamConsumer(subscriptionId);
+      }
+    };
   }, [onStreamEvent]);
 }
