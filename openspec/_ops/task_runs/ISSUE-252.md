@@ -2,7 +2,7 @@
 
 - Issue: #252
 - Branch: task/252-openspec-change-archive-hard-gate
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/253
 
 ## Plan
 
