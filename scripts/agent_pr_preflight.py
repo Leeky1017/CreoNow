@@ -169,8 +169,9 @@ def validate_no_completed_active_changes(repo: str) -> None:
     if completed_active:
         joined = ", ".join(sorted(completed_active))
         raise RuntimeError(
-            "[OPENSPEC_CHANGE] completed changes must be archived from openspec/changes/ "
-            f"to openspec/changes/archive/: {joined}"
+            "[OPENSPEC_CHANGE] change tasks.md checkboxes are all checked, so the change is completed "
+            "and must be archived from openspec/changes/ to openspec/changes/archive/: "
+            f"{joined}"
         )
 
 

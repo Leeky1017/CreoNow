@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate completed active changes are archived
+      - name: Validate completed active changes are archived (tasks.md all checked)
         run: |
           python3 - <<'PY'
           import pathlib
@@ -37,7 +37,8 @@ jobs:
 
           if completed_active:
             print(
-              "❌ Completed changes must be archived to openspec/changes/archive/: "
+              "❌ tasks.md checkboxes are all checked, so completed changes must be archived to "
+              "openspec/changes/archive/: "
               + ", ".join(completed_active)
             )
             sys.exit(1)
