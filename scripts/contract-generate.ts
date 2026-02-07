@@ -1,14 +1,60 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import prettier from "prettier";
 
 import { ipcContract } from "../apps/desktop/main/src/ipc/contract/ipc-contract";
 import type { IpcSchema } from "../apps/desktop/main/src/ipc/contract/schema";
 
+export type ContractGenerateErrorCode =
+  | "IPC_CONTRACT_INVALID_NAME"
+  | "IPC_CONTRACT_MISSING_SCHEMA"
+  | "IPC_CONTRACT_DUPLICATED_CHANNEL"
+  | "IPC_CONTRACT_INVALID_SCHEMA_REFERENCE"
+  | "IPC_CONTRACT_UNREGISTERED_BINDING";
+
+export class ContractGenerateError extends Error {
+  readonly code: ContractGenerateErrorCode;
+  readonly details?: unknown;
+
+  constructor(
+    code: ContractGenerateErrorCode,
+    message: string,
+    details?: unknown,
+  ) {
+    super(message);
+    this.name = "ContractGenerateError";
+    this.code = code;
+    this.details = details;
+  }
+}
+
+type ContractChannelDefinition = {
+  request?: IpcSchema;
+  response?: IpcSchema;
+};
+
+export type ContractLike = {
+  errorCodes: readonly string[];
+  channels: Readonly<Record<string, ContractChannelDefinition>>;
+};
+
 function assertNever(x: never): never {
   throw new Error(`unreachable: ${JSON.stringify(x)}`);
 }
+
+const CHANNEL_NAME_PATTERN = /^[a-z][a-zA-Z0-9]*(?::[a-z][a-zA-Z0-9]*)+$/;
+const VALID_SCHEMA_KINDS = new Set([
+  "string",
+  "number",
+  "boolean",
+  "literal",
+  "array",
+  "union",
+  "optional",
+  "object",
+]);
 
 function renderLiteral(value: string | number | boolean): string {
   if (typeof value === "string") {
@@ -69,26 +115,234 @@ function normalizeNewlines(s: string): string {
   return s.replaceAll("\r\n", "\n");
 }
 
-/**
- * Generate `packages/shared/types/ipc-generated.ts` from the IPC SSOT.
- *
- * Why: CI must be able to block IPC drift and ensure deterministic output across
- * Windows/macOS/Linux (newline + formatting normalization).
- */
-async function main(): Promise<void> {
-  const repoRoot = process.cwd();
-  const outPath = path.join(repoRoot, "packages/shared/types/ipc-generated.ts");
+function normalizePath(p: string): string {
+  return p.replaceAll(path.sep, "/");
+}
 
-  const channels = Object.keys(ipcContract.channels).sort();
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function validateSchemaReference(schema: unknown, trace: string): void {
+  if (!isRecord(schema) || typeof schema.kind !== "string") {
+    throw new ContractGenerateError(
+      "IPC_CONTRACT_INVALID_SCHEMA_REFERENCE",
+      `Schema at ${trace} must be an object with kind`,
+      { trace, schema },
+    );
+  }
+
+  const kind = schema.kind;
+  if (!VALID_SCHEMA_KINDS.has(kind)) {
+    throw new ContractGenerateError(
+      "IPC_CONTRACT_INVALID_SCHEMA_REFERENCE",
+      `Schema at ${trace} has unsupported kind: ${kind}`,
+      { trace, kind },
+    );
+  }
+
+  switch (kind) {
+    case "string":
+    case "number":
+    case "boolean":
+      return;
+    case "literal": {
+      const value = schema.value;
+      const valueType = typeof value;
+      if (
+        valueType !== "string" &&
+        valueType !== "number" &&
+        valueType !== "boolean"
+      ) {
+        throw new ContractGenerateError(
+          "IPC_CONTRACT_INVALID_SCHEMA_REFERENCE",
+          `Literal schema at ${trace} must use string/number/boolean`,
+          { trace, value },
+        );
+      }
+      return;
+    }
+    case "array":
+      validateSchemaReference(schema.element, `${trace}.element`);
+      return;
+    case "union": {
+      if (!Array.isArray(schema.variants) || schema.variants.length === 0) {
+        throw new ContractGenerateError(
+          "IPC_CONTRACT_INVALID_SCHEMA_REFERENCE",
+          `Union schema at ${trace} must define non-empty variants`,
+          { trace },
+        );
+      }
+      schema.variants.forEach((variant, index) => {
+        validateSchemaReference(variant, `${trace}.variants[${index}]`);
+      });
+      return;
+    }
+    case "optional":
+      validateSchemaReference(schema.schema, `${trace}.schema`);
+      return;
+    case "object": {
+      if (!isRecord(schema.fields)) {
+        throw new ContractGenerateError(
+          "IPC_CONTRACT_INVALID_SCHEMA_REFERENCE",
+          `Object schema at ${trace} must define fields`,
+          { trace },
+        );
+      }
+
+      for (const [fieldName, fieldSchema] of Object.entries(schema.fields)) {
+        validateSchemaReference(fieldSchema, `${trace}.fields.${fieldName}`);
+      }
+      return;
+    }
+    default:
+      throw assertNever(kind as never);
+  }
+}
+
+function ensureNoDuplicateChannels(channels: readonly string[]): void {
+  const seen = new Set<string>();
+  for (const channel of channels) {
+    if (seen.has(channel)) {
+      throw new ContractGenerateError(
+        "IPC_CONTRACT_DUPLICATED_CHANNEL",
+        `Duplicated channel detected: ${channel}`,
+        { channel },
+      );
+    }
+    seen.add(channel);
+  }
+}
+
+export function extractDeclaredChannelsFromContractSource(
+  source: string,
+): string[] {
+  const channels: string[] = [];
+  const keyRegex = /^\s*"([A-Za-z0-9:]+)"\s*:\s*\{/gm;
+
+  for (const match of source.matchAll(keyRegex)) {
+    const channel = match[1];
+    if (channel.includes(":")) {
+      channels.push(channel);
+    }
+  }
+
+  return channels;
+}
+
+export function validateContractDefinition(
+  contract: ContractLike,
+  options?: {
+    declaredChannelsInSource?: readonly string[];
+  },
+): string[] {
+  const channels = Object.keys(contract.channels);
+  const declaredChannels = options?.declaredChannelsInSource ?? channels;
+  ensureNoDuplicateChannels(declaredChannels);
+
+  for (const channel of channels) {
+    if (!CHANNEL_NAME_PATTERN.test(channel)) {
+      throw new ContractGenerateError(
+        "IPC_CONTRACT_INVALID_NAME",
+        `Invalid channel name: ${channel}`,
+        { channel },
+      );
+    }
+
+    const spec = contract.channels[channel];
+    if (!spec || !spec.request || !spec.response) {
+      throw new ContractGenerateError(
+        "IPC_CONTRACT_MISSING_SCHEMA",
+        `Channel ${channel} is request-response but missing request/response schema`,
+        {
+          channel,
+          hasRequest: Boolean(spec?.request),
+          hasResponse: Boolean(spec?.response),
+        },
+      );
+    }
+
+    validateSchemaReference(spec.request, `${channel}.request`);
+    validateSchemaReference(spec.response, `${channel}.response`);
+  }
+
+  return channels.sort();
+}
+
+export function extractIpcBindingsFromSource(source: string): string[] {
+  const channels: string[] = [];
+  const bindingRegex =
+    /(?:\bipcMain|\bdeps\.ipcMain)\.(?:handle|on)\(\s*(["'])([^"']+)\1/gm;
+
+  for (const match of source.matchAll(bindingRegex)) {
+    channels.push(match[2]);
+  }
+
+  return channels;
+}
+
+export function validateIpcBindingsFromSource(
+  registeredChannels: Set<string>,
+  source: string,
+  filePath: string,
+): void {
+  const bindings = extractIpcBindingsFromSource(source);
+  for (const channel of bindings) {
+    if (!registeredChannels.has(channel)) {
+      throw new ContractGenerateError(
+        "IPC_CONTRACT_UNREGISTERED_BINDING",
+        `Unregistered IPC binding in ${filePath}: ${channel}`,
+        {
+          channel,
+          filePath,
+        },
+      );
+    }
+  }
+}
+
+async function listTsFiles(rootDir: string): Promise<string[]> {
+  const entries = await fs.readdir(rootDir, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const absPath = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await listTsFiles(absPath)));
+      continue;
+    }
+    if (entry.isFile() && absPath.endsWith(".ts")) {
+      files.push(absPath);
+    }
+  }
+
+  return files;
+}
+
+export async function buildGeneratedTypes(
+  contract: ContractLike,
+): Promise<string> {
+  const channels = validateContractDefinition(contract).sort();
   const channelSpecLines = channels.map((channel) => {
-    const spec =
-      ipcContract.channels[channel as keyof typeof ipcContract.channels];
+    const spec = contract.channels[channel];
+    if (!spec?.request || !spec.response) {
+      throw new ContractGenerateError(
+        "IPC_CONTRACT_MISSING_SCHEMA",
+        `Channel ${channel} is request-response but missing request/response schema`,
+        {
+          channel,
+          hasRequest: Boolean(spec?.request),
+          hasResponse: Boolean(spec?.response),
+        },
+      );
+    }
+
     const req = renderSchema(spec.request);
     const res = renderSchema(spec.response);
     return `  ${JSON.stringify(channel)}: {\n    request: ${req};\n    response: ${res};\n  };`;
   });
 
-  const errorCodeLines = [...ipcContract.errorCodes]
+  const errorCodeLines = [...contract.errorCodes]
     .slice()
     .sort()
     .map((c) => `  | ${JSON.stringify(c)}`);
@@ -146,12 +400,61 @@ export type IpcInvokeResult<C extends IpcChannel> = IpcResponse<IpcResponseData<
 `,
   );
 
-  const formatted = normalizeNewlines(
+  return normalizeNewlines(
     await prettier.format(content, { parser: "typescript" }),
   );
+}
+
+/**
+ * Generate `packages/shared/types/ipc-generated.ts` from the IPC SSOT.
+ *
+ * Why: CI must block contract drift and reject channels that bypass the SSOT.
+ */
+export async function main(): Promise<void> {
+  const repoRoot = process.cwd();
+  const outPath = path.join(repoRoot, "packages/shared/types/ipc-generated.ts");
+  const contractPath = path.join(
+    repoRoot,
+    "apps/desktop/main/src/ipc/contract/ipc-contract.ts",
+  );
+
+  const contractSource = await fs.readFile(contractPath, "utf8");
+  const declaredChannelsInSource =
+    extractDeclaredChannelsFromContractSource(contractSource);
+
+  const channels = validateContractDefinition(ipcContract, {
+    declaredChannelsInSource,
+  });
+
+  const channelSet = new Set(channels);
+  const mainSrcDir = path.join(repoRoot, "apps/desktop/main/src");
+  const tsFiles = await listTsFiles(mainSrcDir);
+
+  for (const absFile of tsFiles) {
+    const source = await fs.readFile(absFile, "utf8");
+    validateIpcBindingsFromSource(channelSet, source, normalizePath(absFile));
+  }
+
+  const formatted = await buildGeneratedTypes(ipcContract);
 
   await fs.mkdir(path.dirname(outPath), { recursive: true });
   await fs.writeFile(outPath, formatted, "utf8");
 }
 
-await main();
+async function runCli(): Promise<void> {
+  try {
+    await main();
+  } catch (error) {
+    if (error instanceof ContractGenerateError) {
+      const details = error.details ? ` ${JSON.stringify(error.details)}` : "";
+      console.error(`[${error.code}] ${error.message}${details}`);
+      process.exitCode = 1;
+      return;
+    }
+    throw error;
+  }
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  await runCli();
+}
