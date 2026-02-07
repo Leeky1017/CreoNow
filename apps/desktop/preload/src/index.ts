@@ -3,10 +3,14 @@ import { contextBridge } from "electron";
 import { creonowInvoke } from "./ipc";
 import { registerAiStreamBridge } from "./aiStreamBridge";
 
-registerAiStreamBridge();
+const aiStreamBridge = registerAiStreamBridge();
 
 contextBridge.exposeInMainWorld("creonow", {
   invoke: creonowInvoke,
+  stream: {
+    registerAiStreamConsumer: aiStreamBridge.registerAiStreamConsumer,
+    releaseAiStreamConsumer: aiStreamBridge.releaseAiStreamConsumer,
+  },
 });
 
 /**
@@ -16,4 +20,7 @@ contextBridge.exposeInMainWorld("creonow", {
  * We use a separate property because contextBridge objects are frozen
  * and main.tsx needs to manage __CN_E2E__.ready separately.
  */
-contextBridge.exposeInMainWorld("__CN_E2E_ENABLED__", process.env.CREONOW_E2E === "1");
+contextBridge.exposeInMainWorld(
+  "__CN_E2E_ENABLED__",
+  process.env.CREONOW_E2E === "1",
+);

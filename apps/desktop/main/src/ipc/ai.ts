@@ -7,6 +7,7 @@ import {
   type AiStreamEvent,
 } from "../../../../../packages/shared/types/ai";
 import type { Logger } from "../logging/logger";
+import { createIpcPushBackpressureGate } from "./pushBackpressure";
 import { createAiService } from "../services/ai/aiService";
 import { createAiProxySettingsService } from "../services/ai/aiProxySettingsService";
 import { createMemoryService } from "../services/memory/memoryService";
@@ -48,6 +49,8 @@ type SkillFeedbackResponse = {
     threshold?: number;
   };
 };
+
+const AI_STREAM_RATE_LIMIT_PER_SECOND = 5_000;
 
 /**
  * Return an epoch-ms timestamp for AI stream events.
@@ -105,6 +108,40 @@ export function registerAiIpcHandlers(deps: {
   logger: Logger;
   env: NodeJS.ProcessEnv;
 }): void {
+  const pushBackpressureByRenderer = new Map<
+    number,
+    ReturnType<typeof createIpcPushBackpressureGate>
+  >();
+
+  /**
+   * Resolve per-renderer push backpressure gate.
+   *
+   * Why: rate limit must be isolated by renderer process, avoiding cross-window coupling.
+   */
+  function getPushBackpressureGate(
+    sender: Electron.WebContents,
+  ): ReturnType<typeof createIpcPushBackpressureGate> {
+    const existing = pushBackpressureByRenderer.get(sender.id);
+    if (existing) {
+      return existing;
+    }
+
+    const created = createIpcPushBackpressureGate({
+      limitPerSecond: AI_STREAM_RATE_LIMIT_PER_SECOND,
+      onDrop: (event) => {
+        deps.logger.info("ipc_push_backpressure_triggered", {
+          rendererId: sender.id,
+          channel: AI_SKILL_STREAM_CHANNEL,
+          timestamp: event.timestamp,
+          droppedInWindow: event.droppedInWindow,
+          limitPerSecond: event.limitPerSecond,
+        });
+      },
+    });
+    pushBackpressureByRenderer.set(sender.id, created);
+    return created;
+  }
+
   const aiService = createAiService({
     logger: deps.logger,
     env: deps.env,
@@ -194,7 +231,13 @@ export function registerAiIpcHandlers(deps: {
         };
       }
 
+      const pushBackpressure = getPushBackpressureGate(e.sender);
+
       const emitEvent = (event: AiStreamEvent): void => {
+        if (!pushBackpressure.shouldDeliver(event)) {
+          return;
+        }
+
         safeEmitToRenderer({ logger: deps.logger, sender: e.sender, event });
       };
 
