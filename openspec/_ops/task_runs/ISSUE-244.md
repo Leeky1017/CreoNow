@@ -2,7 +2,7 @@
 
 - Issue: #244
 - Branch: task/244-ipc-p0-contract-ssot-and-codegen
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/245
 
 ## Plan
 

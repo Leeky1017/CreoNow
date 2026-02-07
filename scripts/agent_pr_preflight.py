@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -54,6 +55,65 @@ def current_branch(repo_root: str) -> str:
 def require_file(path: str) -> None:
     if not os.path.isfile(path):
         raise RuntimeError(f"[RUN_LOG] required file missing: {path}")
+
+
+def validate_issue_is_open(repo: str, issue_number: str) -> None:
+    cmd = ["gh", "issue", "view", issue_number, "--json", "number,state,title,url"]
+    res = run(cmd, cwd=repo)
+    print(f"$ {' '.join(cmd)}")
+    if res.out.strip():
+        print(res.out.rstrip())
+    if res.code != 0:
+        raise RuntimeError(
+            f"[ISSUE] failed to query issue #{issue_number}; cannot validate issue freshness/open state"
+        )
+
+    try:
+        payload = json.loads(res.out)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            f"[ISSUE] invalid gh output while checking issue #{issue_number}: {exc}"
+        ) from exc
+
+    state = str(payload.get("state", "")).upper()
+    if state != "OPEN":
+        raise RuntimeError(
+            f"[ISSUE] issue #{issue_number} state is {state}; active delivery must use an OPEN issue"
+        )
+
+
+def validate_runlog_pr_field(path: str) -> None:
+    with open(path, "r", encoding="utf-8") as fp:
+        content = fp.read()
+
+    m = re.search(r"^- PR:\s*(.+)$", content, re.MULTILINE)
+    if not m:
+        raise RuntimeError(
+            f"[RUN_LOG] missing PR field line ('- PR: ...') in {path}"
+        )
+
+    value = m.group(1).strip()
+    if not value:
+        raise RuntimeError(f"[RUN_LOG] PR field cannot be empty in {path}")
+    lowered = value.lower()
+    if (
+        value in {"(待回填)", "(to-be-filled)", "TBD", "TODO"}
+        or "待回填" in value
+        or "tbd" in lowered
+        or "todo" in lowered
+        or "placeholder" in lowered
+    ):
+        raise RuntimeError(
+            f"[RUN_LOG] PR field still placeholder in {path}: {value}"
+        )
+    if not re.match(r"^https?://", value):
+        raise RuntimeError(
+            f"[RUN_LOG] PR field must be a real URL in {path}: {value}"
+        )
+    if "/pull/" not in value:
+        raise RuntimeError(
+            f"[RUN_LOG] PR field must be a pull-request URL in {path}: {value}"
+        )
 
 
 REQUIRED_CHANGE_TASKS_HEADINGS: tuple[str, ...] = (
@@ -178,9 +238,13 @@ def main() -> int:
         slug = m.group("slug")
         run_log = os.path.join(repo, "openspec", "_ops", "task_runs", f"ISSUE-{issue_number}.md")
         require_file(run_log)
+        validate_runlog_pr_field(run_log)
 
         print("== Repo checks ==")
         must_run(["git", "status", "--porcelain=v1"], cwd=repo)
+
+        print("\n== Issue checks ==")
+        validate_issue_is_open(repo, issue_number)
 
         print("\n== Rulebook checks ==")
         task_id = f"issue-{issue_number}-{slug}"
