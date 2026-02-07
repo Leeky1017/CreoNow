@@ -95,3 +95,10 @@
 - Key output: prettier check 全绿；Rulebook task valid（warning: No spec files found）
 - Result: ✅ 通过
 - Evidence: `AGENTS.md`, `docs/delivery-skill.md`, `rulebook/tasks/issue-242-cn-delivery-skill-v2-migration/.metadata.json`
+
+### 2026-02-07 22:30 commit-and-main-sync
+
+- Command: `git commit -m "docs: require merge back to main for completion (#242)"` + `git push origin main`
+- Key output: commit `1766d1c` created；远端 `main` 更新到 `1766d1c`
+- Result: ✅ 通过（规则已收口到控制面 `main`）
+- Evidence: `https://github.com/Leeky1017/CreoNow/commit/1766d1c`
