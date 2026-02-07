@@ -2,7 +2,7 @@
 
 - Issue: #246
 - Branch: task/246-fresh-issue-worktree-governance
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/247
 
 ## Plan
 
