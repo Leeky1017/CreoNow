@@ -2,7 +2,7 @@
 
 - Issue: #250
 - Branch: task/250-ipc-p0-preload-gateway-and-security-baseline
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/251
 
 ## Plan
 
