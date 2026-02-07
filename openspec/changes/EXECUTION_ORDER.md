@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-07 22:44
+更新时间：2026-02-07 23:07
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -9,7 +9,7 @@
 - 当前活跃 change 数量为 3，采用**串行执行**。
 - 原则：有依赖关系的 change 必须串行；仅当依赖矩阵明确“无共享前置”时才允许并行。
 
-## 串行顺序（当前批次）
+## 执行顺序
 
 1. `ipc-p0-contract-ssot-and-codegen`
 2. `ipc-p0-runtime-validation-and-error-envelope`
