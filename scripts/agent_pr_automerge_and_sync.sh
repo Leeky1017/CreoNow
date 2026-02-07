@@ -38,6 +38,7 @@ WAIT_TIMEOUT_SECONDS="0"
 MERGE_INTERVAL_SECONDS="10"
 MERGE_TIMEOUT_SECONDS="1800"
 MERGE_COMMENT="true"
+RUNLOG_BACKFILLED="false"
 
 comment_pr() {
   local pr_number="$1"
@@ -56,6 +57,34 @@ rebase_onto_origin_main() {
   git fetch origin main
   git rebase origin/main
   git push --force-with-lease
+}
+
+backfill_runlog_pr_link() {
+  local pr_number="$1"
+  local pr_url=""
+  pr_url="$(gh pr view "$pr_number" --json url --jq '.url')"
+
+  python3 - "$RUN_LOG" "$pr_url" <<'PY'
+import pathlib
+import re
+import sys
+
+run_log = pathlib.Path(sys.argv[1])
+pr_url = sys.argv[2]
+text = run_log.read_text(encoding="utf-8")
+new_text, count = re.subn(r"(?m)^- PR:\s*.*$", f"- PR: {pr_url}", text, count=1)
+if count == 0:
+    raise SystemExit(f"ERROR: missing '- PR:' line in {run_log}")
+if new_text != text:
+    run_log.write_text(new_text, encoding="utf-8")
+PY
+
+  if ! git diff --quiet -- "$RUN_LOG"; then
+    git add "$RUN_LOG"
+    git commit -m "docs: backfill run log PR link (#${ISSUE_NUMBER})"
+    git push
+    RUNLOG_BACKFILLED="true"
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -173,6 +202,14 @@ EOF
 
   PR_URL="$(gh pr create --base main --head "$BRANCH" $DRAFT_FLAG --title "$TITLE" --body "$BODY")"
   PR_NUMBER="${PR_URL##*/}"
+fi
+
+backfill_runlog_pr_link "$PR_NUMBER"
+if [[ "$RUNLOG_BACKFILLED" == "true" && "$SKIP_PREFLIGHT" != "true" ]]; then
+  set +e
+  scripts/agent_pr_preflight.sh
+  PREFLIGHT_RC=$?
+  set -e
 fi
 
 if [[ $PREFLIGHT_RC -ne 0 && "$FORCE" != "true" ]]; then

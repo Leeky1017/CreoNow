@@ -11,7 +11,7 @@
 | 一   | 规范导航        | 文档路径速查                              |
 | 二   | 架构            | 四层架构 + 12 模块 Spec 路径              |
 | 三   | 不可违反的规则  | Spec-First、TDD、证据落盘、门禁、变更流程 |
-| 四   | 禁止行为清单    | 17 条硬禁                                 |
+| 四   | 禁止行为清单    | 23 条硬禁                                 |
 | 五   | 工作流程        | 接任务、开发阶段、命名约定                |
 | 六   | Spec 与代码关系 | GIVEN/WHEN/THEN → AAA → 实现              |
 | 七   | 测试要求速查    | 分层、覆盖率、编写规范                    |
@@ -151,6 +151,8 @@
 19. 禁止在 `openspec/changes/*/tasks.md` 缺少 Red 失败证据要求时进入实现
 20. 禁止在 2 个及以上活跃 change 存在时缺失 `openspec/changes/EXECUTION_ORDER.md`
 21. 禁止活跃 change 变更后未同步更新 `openspec/changes/EXECUTION_ORDER.md`
+22. 禁止复用已关闭（Closed）或历史 Issue 作为新任务入口
+23. 禁止在未同步最新控制面 `origin/main` 前创建 `task/*` 分支或 worktree
 
 ---
 
@@ -164,6 +166,8 @@
 3. 阅读 openspec/specs/<module>/spec.md             ← 任务相关模块行为规范
 4. 阅读 openspec/changes/<current>/                 ← 如有进行中的变更
 5. 确认任务的 Issue 号（N）和 SLUG
+6. 校验 Issue 必须为当前执行任务的 OPEN Issue（不得复用已关闭 Issue）
+7. 从最新控制面 `origin/main` 创建 `task/<N>-<slug>` 与 `.worktrees/issue-<N>-<slug>`
 ```
 
 ### 5.2 开发流程
@@ -286,17 +290,19 @@ THEN（期望结果）       →  Assert（验证）        →  被测模块的
 
 ## 十一、异常处理
 
-| 遇到的情况                           | 必须做                                              | 禁止做                     |
-| ------------------------------------ | --------------------------------------------------- | -------------------------- |
-| Spec 不存在或不完整                  | 通知 Owner，请求补充 spec                           | 根据猜测直接写代码         |
-| 开发中发现 spec 遗漏场景             | 写 delta spec 补充 → 通知 Owner → 等确认            | 只写测试不更新 spec        |
-| `gh` 命令超时                        | 重试 3 次（间隔 10s），仍失败 → 记录 RUN_LOG → 升级 | 静默忽略                   |
-| PR 需要 review                       | 记录 blocker → 通知 reviewer → 等待                 | 静默放弃                   |
-| CI 失败                              | 修复 → push → 再次 watch → 写入 RUN_LOG             | 先合并再修                 |
-| Rulebook task 不存在或 validate 失败 | 阻断交付，先修复 Rulebook 再继续                    | 跳过 Rulebook 直接实现     |
-| 非 `task/*` 分支提交 PR              | PR body 必须包含 `Skip-Reason:`                     | 不说明原因直接跳过 RUN_LOG |
-| required checks 与交付规则文档不一致 | 阻断交付并升级治理，先完成对齐                      | 继续宣称门禁全绿           |
-| 任务超出 spec 范围                   | 先补 spec → 经 Owner 确认后再做                     | 超范围自由发挥             |
+| 遇到的情况                           | 必须做                                                                             | 禁止做                     |
+| ------------------------------------ | ---------------------------------------------------------------------------------- | -------------------------- |
+| Spec 不存在或不完整                  | 通知 Owner，请求补充 spec                                                          | 根据猜测直接写代码         |
+| 开发中发现 spec 遗漏场景             | 写 delta spec 补充 → 通知 Owner → 等确认                                           | 只写测试不更新 spec        |
+| `gh` 命令超时                        | 重试 3 次（间隔 10s），仍失败 → 记录 RUN_LOG → 升级                                | 静默忽略                   |
+| PR 需要 review                       | 记录 blocker → 通知 reviewer → 等待                                                | 静默放弃                   |
+| CI 失败                              | 修复 → push → 再次 watch → 写入 RUN_LOG                                            | 先合并再修                 |
+| Rulebook task 不存在或 validate 失败 | 阻断交付，先修复 Rulebook 再继续                                                   | 跳过 Rulebook 直接实现     |
+| 非 `task/*` 分支提交 PR              | PR body 必须包含 `Skip-Reason:`                                                    | 不说明原因直接跳过 RUN_LOG |
+| required checks 与交付规则文档不一致 | 阻断交付并升级治理，先完成对齐                                                     | 继续宣称门禁全绿           |
+| 任务超出 spec 范围                   | 先补 spec → 经 Owner 确认后再做                                                    | 超范围自由发挥             |
+| 误用已关闭/历史 Issue                | 立即停止实现 → 新建 OPEN Issue → 从最新 `origin/main` 重建 worktree → 记录 RUN_LOG | 继续沿用旧 Issue 开发      |
+| RUN_LOG 的 PR 字段为占位符           | 先回填真实 PR 链接再宣称交付完成                                                   | 带占位符进入合并流程       |
 
 ---
 
