@@ -2,7 +2,7 @@
 
 - Issue: #256
 - Branch: task/256-archive-issue-254-and-harden-change-archive-gate
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/257
 
 ## Plan
 
