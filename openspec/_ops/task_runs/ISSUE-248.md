@@ -2,7 +2,7 @@
 
 - Issue: #248
 - Branch: task/248-ipc-p0-runtime-validation-and-error-envelope
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/249
 
 ## Plan
 
