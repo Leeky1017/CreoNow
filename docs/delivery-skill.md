@@ -38,6 +38,7 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 11. **Issue 新鲜度强制**：新任务必须使用当前 OPEN Issue；禁止复用已关闭或历史 Issue。
 12. **环境基线强制**：创建 `task/*` 分支和 worktree 前，必须先同步控制面到最新 `origin/main`。
 13. **RUN_LOG PR 真实链接强制**：`openspec/_ops/task_runs/ISSUE-<N>.md` 的 `PR` 字段不得为占位符（如 `待回填/TBD/TODO`）。
+14. **完成变更归档强制**：当 `openspec/changes/<change>/tasks.md` 全部勾选完成时，必须归档到 `openspec/changes/archive/`，不得继续停留在活跃目录。
 
 ---
 
@@ -68,6 +69,7 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 | required checks 与本文件不一致       | 阻断交付并升级治理，禁止宣称“门禁全绿”                                  |
 | 误用已关闭/历史 Issue                | 立即停止实现，改为新建 OPEN Issue，并从最新 `origin/main` 重建 worktree |
 | RUN_LOG PR 字段是占位符              | 先回填真实 PR 链接，再进入交付与合并流程                                |
+| 活跃 change 已完成但未归档           | 阻断交付，先归档到 `openspec/changes/archive/` 再继续                   |
 
 ---
 

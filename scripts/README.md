@@ -21,6 +21,7 @@
 - 脚本入口校验必要参数，缺失时打印 usage 并退出
 - `agent_pr_preflight.py` 会校验：
   - `openspec/changes/*/tasks.md` 的固定 TDD 章节顺序
+  - 活跃 change 若已“全部勾选完成”，必须已归档至 `openspec/changes/archive/`
   - 多活跃 change（>=2）时 `openspec/changes/EXECUTION_ORDER.md` 的存在与同步更新
   - `task/<N>-<slug>` 对应 GitHub Issue `#N` 必须为 `OPEN`（阻断复用已关闭/历史 Issue）
   - `openspec/_ops/task_runs/ISSUE-<N>.md` 的 `PR` 字段不得为占位符（必须为真实链接）

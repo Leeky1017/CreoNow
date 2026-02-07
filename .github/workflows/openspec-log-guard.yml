@@ -11,6 +11,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Validate completed active changes are archived
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          root = pathlib.Path("openspec/changes")
+          active = sorted(
+            d for d in root.iterdir()
+            if d.is_dir() and not d.name.startswith(".") and d.name not in {"archive", "_template"}
+          )
+
+          completed_active = []
+          for change_dir in active:
+            tasks_path = change_dir / "tasks.md"
+            if not tasks_path.is_file():
+              continue
+
+            content = tasks_path.read_text(encoding="utf-8")
+            marks = re.findall(r"^- \[([ xX])\]", content, flags=re.MULTILINE)
+            if marks and all(mark.lower() == "x" for mark in marks):
+              completed_active.append(change_dir.name)
+
+          if completed_active:
+            print(
+              "❌ Completed changes must be archived to openspec/changes/archive/: "
+              + ", ".join(completed_active)
+            )
+            sys.exit(1)
+
+          print("✅ Completed active change archive guard passed")
+          PY
+
       - name: Validate RUN_LOG or Skip-Reason
         env:
           PR_BODY: ${{ github.event.pull_request.body || '' }}

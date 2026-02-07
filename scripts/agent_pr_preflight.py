@@ -140,6 +140,40 @@ def list_active_changes(repo: str) -> list[str]:
     return active
 
 
+def parse_markdown_checkbox_states(content: str) -> list[bool]:
+    states: list[bool] = []
+    for mark in re.findall(r"^- \[([ xX])\]", content, flags=re.MULTILINE):
+        states.append(mark.lower() == "x")
+    return states
+
+
+def validate_no_completed_active_changes(repo: str) -> None:
+    active_changes = list_active_changes(repo)
+    if not active_changes:
+        print("(skip) active change archive check: no active changes")
+        return
+
+    completed_active: list[str] = []
+    for change_name in active_changes:
+        tasks_path = os.path.join(repo, "openspec", "changes", change_name, "tasks.md")
+        if not os.path.isfile(tasks_path):
+            continue
+
+        with open(tasks_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+
+        checkbox_states = parse_markdown_checkbox_states(content)
+        if checkbox_states and all(checkbox_states):
+            completed_active.append(change_name)
+
+    if completed_active:
+        joined = ", ".join(sorted(completed_active))
+        raise RuntimeError(
+            "[OPENSPEC_CHANGE] completed changes must be archived from openspec/changes/ "
+            f"to openspec/changes/archive/: {joined}"
+        )
+
+
 def validate_tdd_first_change_tasks(repo: str, changed_files: set[str]) -> None:
     targets = sorted(
         path
@@ -274,6 +308,7 @@ def main() -> int:
                     changed_files.add(line.strip())
 
         print("\n== OpenSpec change checks ==")
+        validate_no_completed_active_changes(repo)
         validate_tdd_first_change_tasks(repo, changed_files)
         validate_execution_order_doc(repo, changed_files)
 
