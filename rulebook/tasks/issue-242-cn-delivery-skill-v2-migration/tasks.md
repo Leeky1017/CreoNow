@@ -16,6 +16,6 @@
 
 ## 3. Delivery
 
-- [ ] 3.1 创建 PR（包含 `Closes #242`）
+- [x] 3.1 创建 PR（包含 `Closes #242`）
 - [ ] 3.2 开启 auto-merge 并 watch checks
 - [ ] 3.3 回填 RUN_LOG PR 链接与最终结果

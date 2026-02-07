@@ -2,7 +2,7 @@
 
 - Issue: #242
 - Branch: task/242-cn-delivery-skill-v2-migration
-- PR: <pending>
+- PR: https://github.com/Leeky1017/CreoNow/pull/243
 
 ## Plan
 
@@ -74,3 +74,10 @@
 - Key output: issue body normalized with explicit Scope/Acceptance and canonical check names
 - Result: ✅ 通过
 - Evidence: `https://github.com/Leeky1017/CreoNow/issues/242`
+
+### 2026-02-07 16:15 pr-opened
+
+- Command: `gh pr create --base main --head task/242-cn-delivery-skill-v2-migration ...`
+- Key output: PR #243 created with `Closes #242`
+- Result: ✅ 通过
+- Evidence: `https://github.com/Leeky1017/CreoNow/pull/243`
