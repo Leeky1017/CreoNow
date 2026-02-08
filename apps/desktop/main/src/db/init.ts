@@ -6,10 +6,15 @@ import { getLoadablePath } from "sqlite-vec";
 
 import type {
   IpcError,
-  IpcErrorCode,
 } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { getDbPaths, redactUserDataPath } from "./paths";
+import {
+  createDbInitIpcError,
+  diagnoseDbInitFailure,
+  toErrorMessage,
+} from "./nativeDoctor";
+import { setDbInitError } from "../ipc/dbError";
 
 import initSql from "./migrations/0001_init.sql?raw";
 import documentsSql from "./migrations/0002_documents_versioning.sql?raw";
@@ -103,19 +108,6 @@ function tryLoadSqliteVec(args: {
 }
 
 /**
- * Build a stable IPC error object.
- *
- * Why: DB failures must not leak raw stacks or absolute paths across the IPC boundary.
- */
-function ipcError(
-  code: IpcErrorCode,
-  message: string,
-  details?: unknown,
-): IpcError {
-  return { code, message, details };
-}
-
-/**
  * Ensure a `schema_version` table exists and return its current version.
  *
  * Why: deterministic, recoverable migrations across launches and Windows E2E.
@@ -152,6 +144,7 @@ export function initDb(args: {
   userDataDir: string;
   logger: Logger;
 }): DbInitResult {
+  setDbInitError(null);
   const { dbDir, dbPath } = getDbPaths(args.userDataDir);
   const dbPathRedacted = redactUserDataPath(args.userDataDir, dbPath);
   let schemaVersion: number | null = null;
@@ -206,15 +199,19 @@ export function initDb(args: {
       });
     }
 
+    const diagnosed = diagnoseDbInitFailure(error);
     args.logger.error("migration_failed", {
       code: "DB_ERROR",
-      message: error instanceof Error ? error.message : String(error),
+      message: toErrorMessage(error),
       db_path: dbPathRedacted,
       schema_version: schemaVersion,
+      details: diagnosed,
     });
+    const ipcErr = createDbInitIpcError(error);
+    setDbInitError(ipcErr);
     return {
       ok: false,
-      error: ipcError("DB_ERROR", "Failed to initialize database"),
+      error: ipcErr,
     };
   }
 }

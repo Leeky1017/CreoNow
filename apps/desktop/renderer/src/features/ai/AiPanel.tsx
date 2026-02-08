@@ -50,6 +50,40 @@ function isRunning(status: AiStatus): boolean {
   return status === "running" || status === "streaming";
 }
 
+type DbErrorDetails = {
+  category?: string;
+  remediation?: {
+    command?: string;
+    restartRequired?: boolean;
+  };
+};
+
+/**
+ * Build actionable DB remediation text for AI panel errors.
+ *
+ * Why: users need a concrete recovery command when native DB bindings fail.
+ */
+export function formatDbErrorDescription(args: {
+  message: string;
+  details?: unknown;
+}): string {
+  const raw = args.details;
+  if (!raw || typeof raw !== "object") {
+    return args.message;
+  }
+
+  const details = raw as DbErrorDetails;
+  const command = details.remediation?.command?.trim();
+  if (!command) {
+    return args.message;
+  }
+
+  const restartSuffix = details.remediation?.restartRequired
+    ? " Then restart the app."
+    : "";
+  return `${args.message}\nFix: run \`${command}\`.${restartSuffix}`;
+}
+
 /**
 
  * SendStopButton - Combined send/stop button
@@ -582,9 +616,13 @@ export function AiPanel(): JSX.Element {
         type: "service_error",
 
         title: "Skills unavailable",
-
-        description: skillsLastError.message,
-
+        description:
+          skillsLastError.code === "DB_ERROR"
+            ? formatDbErrorDescription({
+                message: skillsLastError.message,
+                details: skillsLastError.details,
+              })
+            : skillsLastError.message,
         errorCode: skillsLastError.code,
       }
     : null;
@@ -617,7 +655,13 @@ export function AiPanel(): JSX.Element {
               ? "Rate limited"
               : "AI error",
 
-        description: lastError.message,
+        description:
+          lastError.code === "DB_ERROR"
+            ? formatDbErrorDescription({
+                message: lastError.message,
+                details: lastError.details,
+              })
+            : lastError.message,
 
         errorCode: lastError.code,
       }

@@ -17,6 +17,7 @@ import {
 } from "../services/memory/preferenceLearning";
 import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
+import { createDbNotReadyError } from "./dbError";
 
 type SkillRunPayload = {
   skillId: string;
@@ -228,7 +229,7 @@ export function registerAiIpcHandlers(deps: {
       if (!deps.db) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: createDbNotReadyError(),
         };
       }
 
@@ -380,7 +381,7 @@ export function registerAiIpcHandlers(deps: {
       if (!deps.db) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: createDbNotReadyError(),
         };
       }
 
