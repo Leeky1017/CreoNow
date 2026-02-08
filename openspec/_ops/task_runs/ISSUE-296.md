@@ -33,7 +33,6 @@
 - Key output: `2026-02-08 20:25`
 - 更新 `openspec/changes/EXECUTION_ORDER.md` 更新时间和维护规则。
 
-
 ### 2026-02-08 20:30 PR 创建与回填
 
 - Command: `gh pr create --base main --head task/296-change-dependency-sync-governance ...`
