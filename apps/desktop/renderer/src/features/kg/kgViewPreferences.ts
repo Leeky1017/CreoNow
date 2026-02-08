@@ -21,7 +21,9 @@ function storageKey(projectId: string): string {
 }
 
 function canUseStorage(): boolean {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  return (
+    typeof window !== "undefined" && typeof window.localStorage !== "undefined"
+  );
 }
 
 /**
@@ -45,7 +47,9 @@ export function loadKgViewPreferences(projectId: string): KgViewPreferences {
           ? parsed.graphTransform
           : DEFAULT_PREFERENCES.graphTransform,
       timelineOrder: Array.isArray(parsed.timelineOrder)
-        ? parsed.timelineOrder.filter((id): id is string => typeof id === "string")
+        ? parsed.timelineOrder.filter(
+            (id): id is string => typeof id === "string",
+          )
         : DEFAULT_PREFERENCES.timelineOrder,
       lastDraggedNodeId:
         typeof parsed.lastDraggedNodeId === "string"
@@ -80,4 +84,3 @@ export function saveKgViewPreferences(
 
   return next;
 }
-

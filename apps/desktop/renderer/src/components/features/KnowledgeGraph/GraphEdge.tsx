@@ -125,10 +125,7 @@ export function EdgeMarkerDefs(): JSX.Element {
         refY="3.5"
         orient="auto"
       >
-        <polygon
-          points="0 0, 10 3.5, 0 7"
-          fill="var(--color-node-character)"
-        />
+        <polygon points="0 0, 10 3.5, 0 7" fill="var(--color-node-character)" />
       </marker>
     </defs>
   );

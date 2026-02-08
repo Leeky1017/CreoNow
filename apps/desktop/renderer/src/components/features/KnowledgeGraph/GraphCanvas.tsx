@@ -1,7 +1,11 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { GraphNode } from "./GraphNode";
 import { GraphEdge, EdgeMarkerDefs } from "./GraphEdge";
-import type { GraphCanvasProps, GraphNode as GraphNodeType, NodeFilter } from "./types";
+import type {
+  GraphCanvasProps,
+  GraphNode as GraphNodeType,
+  NodeFilter,
+} from "./types";
 
 /**
  * Canvas container styles
@@ -58,7 +62,10 @@ export function GraphCanvas({
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
 
   // Create a map for quick node lookup
-  const nodeMap = useMemo(() => new Map(data.nodes.map((n) => [n.id, n])), [data.nodes]);
+  const nodeMap = useMemo(
+    () => new Map(data.nodes.map((n) => [n.id, n])),
+    [data.nodes],
+  );
 
   // Filter visible nodes
   const visibleNodes = data.nodes.filter((node) => isNodeVisible(node, filter));
@@ -66,7 +73,8 @@ export function GraphCanvas({
 
   // Filter edges to only show those connecting visible nodes
   const visibleEdges = data.edges.filter(
-    (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
+    (edge) =>
+      visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
   );
 
   /**
@@ -109,7 +117,14 @@ export function GraphCanvas({
 
       lastMousePos.current = { x: e.clientX, y: e.clientY };
     },
-    [draggingNodeId, isPanning, nodeMap, transform.scale, onNodeMove, onCanvasPan],
+    [
+      draggingNodeId,
+      isPanning,
+      nodeMap,
+      transform.scale,
+      onNodeMove,
+      onCanvasPan,
+    ],
   );
 
   /**
@@ -126,7 +141,10 @@ export function GraphCanvas({
    */
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     // Only start panning if clicking on the canvas itself
-    if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "svg") {
+    if (
+      e.target === e.currentTarget ||
+      (e.target as HTMLElement).tagName === "svg"
+    ) {
       setIsPanning(true);
       lastMousePos.current = { x: e.clientX, y: e.clientY };
     }
@@ -138,7 +156,10 @@ export function GraphCanvas({
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
       // Only deselect if clicking on the canvas background
-      if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains("bg-grid-dots")) {
+      if (
+        e.target === e.currentTarget ||
+        (e.target as HTMLElement).classList.contains("bg-grid-dots")
+      ) {
         onNodeSelect(null);
       }
     },
@@ -182,7 +203,8 @@ export function GraphCanvas({
       <div
         className={gridStyles}
         style={{
-          backgroundImage: "radial-gradient(circle, var(--color-border-default) 1px, transparent 1px)",
+          backgroundImage:
+            "radial-gradient(circle, var(--color-border-default) 1px, transparent 1px)",
           backgroundSize: "24px 24px",
         }}
       />

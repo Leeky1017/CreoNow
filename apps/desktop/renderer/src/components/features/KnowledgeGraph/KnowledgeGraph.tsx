@@ -31,11 +31,7 @@ const containerStyles = [
   "overflow-hidden",
 ].join(" ");
 
-const mainStyles = [
-  "flex-1",
-  "relative",
-  "overflow-hidden",
-].join(" ");
+const mainStyles = ["flex-1", "relative", "overflow-hidden"].join(" ");
 
 /**
  * Empty state component
@@ -314,7 +310,13 @@ export function KnowledgeGraph({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editDialogOpen, handleDeleteNode, handleNodeSelect, onNodeDelete, selectedNodeId]);
+  }, [
+    editDialogOpen,
+    handleDeleteNode,
+    handleNodeSelect,
+    onNodeDelete,
+    selectedNodeId,
+  ]);
 
   // Save node handler (from edit dialog)
   const handleNodeSave = useCallback(

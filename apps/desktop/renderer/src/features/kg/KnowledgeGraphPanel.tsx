@@ -127,7 +127,9 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
 
   const [editing, setEditing] = React.useState<EditingState>({ mode: "idle" });
   const [viewMode, setViewMode] = React.useState<ViewMode>("graph");
-  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(
+    null,
+  );
   const [graphTransform, setGraphTransform] = React.useState<CanvasTransform>({
     scale: 1,
     translateX: 0,
@@ -401,7 +403,10 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
       });
 
       if (res.ok) {
-        const metadata = createEntityMetadataWithPosition(node.type, node.position);
+        const metadata = createEntityMetadataWithPosition(
+          node.type,
+          node.position,
+        );
         await entityUpdate({
           entityId: res.data.entityId,
           patch: { metadataJson: metadata },
@@ -441,7 +446,10 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   // Render Graph view
   if (viewMode === "graph") {
     return (
-      <section data-testid="sidebar-kg" className="flex flex-col h-full min-h-0">
+      <section
+        data-testid="sidebar-kg"
+        className="flex flex-col h-full min-h-0"
+      >
         {/* Header with view toggle */}
         <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)] shrink-0">
           <Text size="small" color="muted">
@@ -498,7 +506,10 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
 
   if (viewMode === "timeline") {
     return (
-      <section data-testid="sidebar-kg" className="flex flex-col h-full min-h-0">
+      <section
+        data-testid="sidebar-kg"
+        className="flex flex-col h-full min-h-0"
+      >
         <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)] shrink-0">
           <Text size="small" color="muted">
             Knowledge Graph
@@ -509,9 +520,13 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
         <div className="flex-1 min-h-0">
           <TimelineView
             events={timelineEvents}
-            onOrderChange={(orderedIds) => void onTimelineOrderChange(orderedIds)}
+            onOrderChange={(orderedIds) =>
+              void onTimelineOrderChange(orderedIds)
+            }
             onOpenEvent={(eventId) => {
-              const eventEntity = entities.find((entity) => entity.entityId === eventId);
+              const eventEntity = entities.find(
+                (entity) => entity.entityId === eventId,
+              );
               if (!eventEntity) {
                 return;
               }

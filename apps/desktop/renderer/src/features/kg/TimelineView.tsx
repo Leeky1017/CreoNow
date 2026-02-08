@@ -98,7 +98,9 @@ export function TimelineView({
   }
 
   return (
-    <section className={`h-full flex flex-col bg-[var(--color-bg-base)] ${className}`}>
+    <section
+      className={`h-full flex flex-col bg-[var(--color-bg-base)] ${className}`}
+    >
       <div className="shrink-0 p-3 border-b border-[var(--color-border-default)]">
         <p className="text-xs text-[var(--color-fg-muted)] uppercase tracking-wide">
           Timeline
@@ -151,4 +153,3 @@ export function TimelineView({
     </section>
   );
 }
-

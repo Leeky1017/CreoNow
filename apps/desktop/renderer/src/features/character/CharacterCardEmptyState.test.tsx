@@ -24,4 +24,3 @@ describe("CharacterCardList.empty-state", () => {
     expect(onCreateCharacter).toHaveBeenCalledTimes(1);
   });
 });
-

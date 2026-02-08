@@ -212,7 +212,10 @@ describe("GraphNode", () => {
     render(<GraphNode node={nodeWithAvatar} />);
 
     expect(screen.getByText("Test Node")).toBeInTheDocument();
-    expect(screen.getByRole("img")).toHaveAttribute("src", nodeWithAvatar.avatar);
+    expect(screen.getByRole("img")).toHaveAttribute(
+      "src",
+      nodeWithAvatar.avatar,
+    );
   });
 
   it("renders character node with initial when no avatar", () => {
@@ -406,7 +409,9 @@ describe("NodeDetailCard", () => {
 
   it("calls onViewDetails when View Details is clicked", async () => {
     const handleViewDetails = vi.fn();
-    render(<NodeDetailCard node={mockNode} onViewDetails={handleViewDetails} />);
+    render(
+      <NodeDetailCard node={mockNode} onViewDetails={handleViewDetails} />,
+    );
 
     await userEvent.click(screen.getByText("View Details"));
     expect(handleViewDetails).toHaveBeenCalled();
@@ -539,7 +544,7 @@ describe("NodeEditDialog", () => {
         node={mockNode}
         onSave={() => {}}
         mode="edit"
-      />
+      />,
     );
 
     expect(screen.getByText(/编辑节点/)).toBeInTheDocument();
@@ -553,7 +558,7 @@ describe("NodeEditDialog", () => {
         node={mockNode}
         onSave={() => {}}
         mode="edit"
-      />
+      />,
     );
 
     expect(screen.queryByText(/编辑节点/)).not.toBeInTheDocument();
@@ -567,7 +572,7 @@ describe("NodeEditDialog", () => {
         node={null}
         onSave={() => {}}
         mode="create"
-      />
+      />,
     );
 
     expect(screen.getByText(/创建新节点/)).toBeInTheDocument();
@@ -581,7 +586,7 @@ describe("NodeEditDialog", () => {
         node={mockNode}
         onSave={() => {}}
         mode="edit"
-      />
+      />,
     );
 
     // Check that the input has the node's label
@@ -600,7 +605,7 @@ describe("NodeEditDialog", () => {
         node={mockNode}
         onSave={onSave}
         mode="edit"
-      />
+      />,
     );
 
     // Clear and type new name
@@ -617,7 +622,7 @@ describe("NodeEditDialog", () => {
         id: "test-node",
         label: "Updated Node",
         type: "character",
-      })
+      }),
     );
   });
 
@@ -632,7 +637,7 @@ describe("NodeEditDialog", () => {
         node={mockNode}
         onSave={() => {}}
         mode="edit"
-      />
+      />,
     );
 
     const cancelButton = screen.getByText("取消");
@@ -649,7 +654,7 @@ describe("NodeEditDialog", () => {
         node={null}
         onSave={() => {}}
         mode="create"
-      />
+      />,
     );
 
     // In create mode with no node, name should be empty
@@ -666,7 +671,7 @@ describe("NodeEditDialog", () => {
         node={mockNode}
         onSave={() => {}}
         mode="edit"
-      />
+      />,
     );
 
     expect(screen.getByText("角色定位")).toBeInTheDocument();
@@ -680,7 +685,7 @@ describe("NodeEditDialog", () => {
         node={mockNode}
         onSave={() => {}}
         mode="edit"
-      />
+      />,
     );
 
     // Radix Select renders both visible span and hidden native option
@@ -710,11 +715,7 @@ describe("NodeDetailCard delete functionality", () => {
 
   it("renders delete button when onDelete is provided", () => {
     render(
-      <NodeDetailCard
-        node={mockNode}
-        onDelete={() => {}}
-        onClose={() => {}}
-      />
+      <NodeDetailCard node={mockNode} onDelete={() => {}} onClose={() => {}} />,
     );
 
     const deleteButton = screen.getByLabelText("Delete node");
@@ -722,12 +723,7 @@ describe("NodeDetailCard delete functionality", () => {
   });
 
   it("does not render delete button when onDelete is not provided", () => {
-    render(
-      <NodeDetailCard
-        node={mockNode}
-        onClose={() => {}}
-      />
-    );
+    render(<NodeDetailCard node={mockNode} onClose={() => {}} />);
 
     const deleteButton = screen.queryByLabelText("Delete node");
     expect(deleteButton).not.toBeInTheDocument();
@@ -738,11 +734,7 @@ describe("NodeDetailCard delete functionality", () => {
     const onDelete = vi.fn();
 
     render(
-      <NodeDetailCard
-        node={mockNode}
-        onDelete={onDelete}
-        onClose={() => {}}
-      />
+      <NodeDetailCard node={mockNode} onDelete={onDelete} onClose={() => {}} />,
     );
 
     const deleteButton = screen.getByLabelText("Delete node");

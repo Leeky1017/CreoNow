@@ -2,7 +2,10 @@ import type { Meta, StoryObj } from "@storybook/react";
 
 import { KnowledgeGraph } from "../../components/features/KnowledgeGraph/KnowledgeGraph";
 import type { GraphData } from "../../components/features/KnowledgeGraph/types";
-import { CharacterCardList, type CharacterCardSummary } from "../character/CharacterCardList";
+import {
+  CharacterCardList,
+  type CharacterCardSummary,
+} from "../character/CharacterCardList";
 
 const graphMultiNodeData: GraphData = {
   nodes: [
@@ -133,4 +136,3 @@ export const CharacterCardEmpty: Story = {
     </div>
   ),
 };
-

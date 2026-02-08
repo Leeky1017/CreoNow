@@ -22,7 +22,8 @@ type MockKgState = {
 let mockKgState: MockKgState;
 
 vi.mock("../../stores/kgStore", () => ({
-  useKgStore: (selector: (state: MockKgState) => unknown) => selector(mockKgState),
+  useKgStore: (selector: (state: MockKgState) => unknown) =>
+    selector(mockKgState),
 }));
 
 describe("KnowledgeGraphPanel.empty-state", () => {
@@ -49,7 +50,8 @@ describe("KnowledgeGraphPanel.empty-state", () => {
     expect(
       screen.getByText("暂无实体，点击添加你的第一个角色或地点"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "添加节点" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "添加节点" }),
+    ).toBeInTheDocument();
   });
 });
-

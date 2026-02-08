@@ -123,7 +123,11 @@ export function zoomAroundCursor(args: ZoomAroundCursorArgs): CanvasTransform {
   const maxScale = args.maxScale ?? 2;
   const step = args.step ?? 0.1;
   const zoomFactor = args.deltaY < 0 ? 1 + step : 1 - step;
-  const nextScale = clampScale(args.current.scale * zoomFactor, minScale, maxScale);
+  const nextScale = clampScale(
+    args.current.scale * zoomFactor,
+    minScale,
+    maxScale,
+  );
 
   if (nextScale === args.current.scale) {
     return args.current;
@@ -145,4 +149,3 @@ export function zoomAroundCursor(args: ZoomAroundCursorArgs): CanvasTransform {
     translateY: transform.y,
   };
 }
-

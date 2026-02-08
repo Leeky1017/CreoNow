@@ -23,7 +23,8 @@ type MockKgState = {
 let mockKgState: MockKgState;
 
 vi.mock("../../stores/kgStore", () => ({
-  useKgStore: (selector: (state: MockKgState) => unknown) => selector(mockKgState),
+  useKgStore: (selector: (state: MockKgState) => unknown) =>
+    selector(mockKgState),
 }));
 
 describe("KnowledgeGraphPanel.render", () => {

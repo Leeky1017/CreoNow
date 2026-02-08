@@ -3,12 +3,12 @@ import React from "react";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useKgStore } from "../../stores/kgStore";
-import { CharacterCardList, type CharacterCardSummary } from "./CharacterCardList";
-import { CharacterDetailDialog } from "./CharacterDetailDialog";
 import {
-  characterToMetadataJson,
-  kgToCharacters,
-} from "./characterFromKg";
+  CharacterCardList,
+  type CharacterCardSummary,
+} from "./CharacterCardList";
+import { CharacterDetailDialog } from "./CharacterDetailDialog";
+import { characterToMetadataJson, kgToCharacters } from "./characterFromKg";
 import type { Character } from "./types";
 
 export interface CharacterCardListContainerProps {
@@ -110,7 +110,9 @@ export function CharacterCardListContainer({
 
   const handleDeleteCharacter = React.useCallback(
     async (characterId: string) => {
-      const target = characters.find((character) => character.id === characterId);
+      const target = characters.find(
+        (character) => character.id === characterId,
+      );
       const label = target?.name ?? "该角色";
       const confirmed = await confirm({
         title: "删除角色？",
@@ -175,4 +177,3 @@ export function CharacterCardListContainer({
     </>
   );
 }
-

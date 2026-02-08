@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { CharacterCardList, type CharacterCardSummary } from "./CharacterCardList";
+import {
+  CharacterCardList,
+  type CharacterCardSummary,
+} from "./CharacterCardList";
 
 describe("CharacterCardList", () => {
   it("should render avatar placeholder name type attributes and relation summary", () => {
@@ -25,4 +28,3 @@ describe("CharacterCardList", () => {
     expect(screen.getByText("林")).toBeInTheDocument();
   });
 });
-

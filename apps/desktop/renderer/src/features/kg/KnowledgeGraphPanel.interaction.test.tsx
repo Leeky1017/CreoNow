@@ -69,4 +69,3 @@ describe("KnowledgeGraphPanel.interaction", () => {
     expect(latestTransform?.translateY).not.toBe(0);
   });
 });
-
