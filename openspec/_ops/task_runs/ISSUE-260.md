@@ -2,7 +2,7 @@
 
 - Issue: #260
 - Branch: task/260-ipc-p1-ipc-testability-harness
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/261
 
 ## Plan
 
