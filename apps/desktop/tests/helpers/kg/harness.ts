@@ -16,22 +16,40 @@ type FakeIpcMain = {
   handle: (channel: string, handler: Handler) => void;
 };
 
+export type LoggedEvent = {
+  event: string;
+  data?: Record<string, unknown>;
+};
+
+type HarnessLoggerEvents = {
+  info: LoggedEvent[];
+  error: LoggedEvent[];
+};
+
+type PushEvent = {
+  channel: string;
+  payload: unknown;
+};
+
 /**
- * Build a no-op logger for deterministic KG tests.
+ * Build a deterministic in-memory logger for KG tests.
  *
- * Why: KG services require explicit logger injection and tests must avoid
- * environment-dependent side effects.
+ * Why: tests need to assert structured error/info events without touching disk.
  */
-function createLogger(): Logger {
+function createLogger(events: HarnessLoggerEvents): Logger {
   return {
     logPath: "<test>",
-    info: () => undefined,
-    error: () => undefined,
+    info: (event, data) => {
+      events.info.push({ event, data });
+    },
+    error: (event, data) => {
+      events.error.push({ event, data });
+    },
   };
 }
 
 /**
- * Create the SQLite schema required by KG P0 tests.
+ * Create the SQLite schema required by KG tests.
  *
  * Why: in-memory DB setup keeps tests isolated and deterministic.
  */
@@ -110,48 +128,145 @@ function bootstrapKgSchema(db: Database.Database, projectId: string): void {
  *
  * Why: tests must validate real handler wiring without booting Electron.
  */
-function createIpcHarness(): {
+function createIpcHarness(rendererId: number): {
   ipcMain: FakeIpcMain;
   handlers: Map<string, Handler>;
+  sender: { id: number; send: (channel: string, payload: unknown) => void };
+  pushEvents: PushEvent[];
 } {
   const handlers = new Map<string, Handler>();
+  const pushEvents: PushEvent[] = [];
+
   const ipcMain: FakeIpcMain = {
     handle: (channel, handler) => {
       handlers.set(channel, handler);
     },
   };
-  return { ipcMain, handlers };
+
+  const sender = {
+    id: rendererId,
+    send: (channel: string, payload: unknown) => {
+      pushEvents.push({ channel, payload });
+    },
+  };
+
+  return { ipcMain, handlers, sender, pushEvents };
+}
+
+/**
+ * Wait until pushed events for a specific channel reach a minimum count.
+ */
+async function waitForPushCount(args: {
+  channel: string;
+  events: PushEvent[];
+  count: number;
+  timeoutMs: number;
+}): Promise<boolean> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt <= args.timeoutMs) {
+    const matchedCount = args.events.filter(
+      (event) => event.channel === args.channel,
+    ).length;
+    if (matchedCount >= args.count) {
+      return true;
+    }
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 5);
+    });
+  }
+
+  return false;
 }
 
 /**
  * Create a ready-to-use KG test harness.
  */
-export function createKnowledgeGraphIpcHarness(args?: { projectId?: string }): {
+export function createKnowledgeGraphIpcHarness(args?: {
+  projectId?: string;
+  rendererId?: number;
+}): {
   db: Database.Database;
   projectId: string;
   handlers: Map<string, Handler>;
+  logs: HarnessLoggerEvents;
   invoke: <T>(channel: string, payload: unknown) => Promise<KgIpcResult<T>>;
+  getPushEvents: <T>(
+    channel?: string,
+  ) => Array<{ channel: string; payload: T }>;
+  takePushEvents: <T>(
+    channel: string,
+  ) => Array<{ channel: string; payload: T }>;
+  waitForPushCount: (
+    channel: string,
+    count: number,
+    timeoutMs?: number,
+  ) => Promise<boolean>;
   close: () => void;
 } {
   const projectId = args?.projectId ?? "proj-1";
+  const rendererId = args?.rendererId ?? 1;
   const db = new Database(":memory:");
   bootstrapKgSchema(db, projectId);
 
-  const { ipcMain, handlers } = createIpcHarness();
+  const { ipcMain, handlers, sender, pushEvents } =
+    createIpcHarness(rendererId);
+  const logs: HarnessLoggerEvents = {
+    info: [],
+    error: [],
+  };
+
   registerKnowledgeGraphIpcHandlers({
     ipcMain: ipcMain as unknown as IpcMain,
     db,
-    logger: createLogger(),
+    logger: createLogger(logs),
   });
 
   return {
     db,
     projectId,
     handlers,
+    logs,
     invoke: async <T>(channel: string, payload: unknown) => {
       const handler = handlers.get(channel);
       assert.ok(handler, `Missing IPC handler: ${channel}`);
-      return (await handler({}, payload)) as KgIpcResult<T>;
+      return (await handler({ sender }, payload)) as KgIpcResult<T>;
+    },
+    getPushEvents: <T>(channel?: string) => {
+      const events = channel
+        ? pushEvents.filter((event) => event.channel === channel)
+        : pushEvents;
+      return events.map((event) => ({
+        channel: event.channel,
+        payload: event.payload as T,
+      }));
+    },
+    takePushEvents: <T>(channel: string) => {
+      const taken: Array<{ channel: string; payload: T }> = [];
+      for (let i = pushEvents.length - 1; i >= 0; i -= 1) {
+        if (pushEvents[i]?.channel !== channel) {
+          continue;
+        }
+        const event = pushEvents.splice(i, 1)[0];
+        if (!event) {
+          continue;
+        }
+        taken.push({
+          channel: event.channel,
+          payload: event.payload as T,
+        });
+      }
+      taken.reverse();
+      return taken;
+    },
+    waitForPushCount: async (channel, count, timeoutMs = 1_000) => {
+      return await waitForPushCount({
+        channel,
+        events: pushEvents,
+        count,
+        timeoutMs,
+      });
     },
     close: () => db.close(),
   };

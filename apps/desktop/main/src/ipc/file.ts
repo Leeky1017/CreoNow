@@ -9,6 +9,7 @@ import {
   type DocumentType,
 } from "../services/documents/documentService";
 import { deriveContent } from "../services/documents/derive";
+import type { KgRecognitionRuntime } from "../services/kg/kgRecognitionRuntime";
 import { createStatsService } from "../services/stats/statsService";
 
 type Actor = "user" | "auto" | "ai";
@@ -47,6 +48,7 @@ export function registerFileIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
+  recognitionRuntime?: KgRecognitionRuntime | null;
 }): void {
   deps.ipcMain.handle(
     "file:document:create",
@@ -313,6 +315,7 @@ export function registerFileIpcHandlers(deps: {
       if (res.ok) {
         const derived = deriveContent({ contentJson: parsed });
         if (derived.ok) {
+          const normalizedContentText = derived.data.contentText.trim();
           const afterWords = countWords(derived.data.contentText);
           const deltaWords = Math.max(0, afterWords - beforeWords);
           if (deltaWords > 0) {
@@ -333,6 +336,32 @@ export function registerFileIpcHandlers(deps: {
                 message: inc.error.message,
               });
             }
+          }
+
+          if (
+            deps.recognitionRuntime &&
+            payload.actor === "auto" &&
+            payload.reason === "autosave" &&
+            normalizedContentText.length > 0
+          ) {
+            queueMicrotask(() => {
+              const enqueueRes = deps.recognitionRuntime?.enqueue({
+                projectId: payload.projectId,
+                documentId: payload.documentId,
+                sessionId: `autosave:${payload.documentId}`,
+                contentText: normalizedContentText,
+                traceId: `kg-autosave-${payload.documentId}-${res.data.updatedAt}`,
+                sender: null,
+              });
+              if (enqueueRes && !enqueueRes.ok) {
+                deps.logger.error("kg_recognition_enqueue_failed", {
+                  code: enqueueRes.error.code,
+                  message: enqueueRes.error.message,
+                  project_id: payload.projectId,
+                  document_id: payload.documentId,
+                });
+              }
+            });
           }
         } else {
           deps.logger.error("stats_derive_failed", {

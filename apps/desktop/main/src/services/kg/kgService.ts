@@ -86,6 +86,37 @@ export type KnowledgeValidateResult = {
   queryCostMs: number;
 };
 
+export type KnowledgeRelevantQueryResult = {
+  items: KnowledgeEntity[];
+  queryCostMs: number;
+};
+
+export type KnowledgeQueryByIdsResult = {
+  items: KnowledgeEntity[];
+};
+
+export type KgRulesInjectionEntity = {
+  id: string;
+  name: string;
+  type: KnowledgeEntityType;
+  attributes: Record<string, string>;
+  relationsSummary: string[];
+};
+
+export type KgRulesInjectionRequest = {
+  projectId: string;
+  documentId: string;
+  excerpt: string;
+  traceId: string;
+  maxEntities?: number;
+  entityIds?: string[];
+};
+
+export type KgRulesInjectionData = {
+  injectedEntities: KgRulesInjectionEntity[];
+  source: "kg-rules-mock";
+};
+
 export type KnowledgeGraphService = {
   entityCreate: (args: {
     projectId: string;
@@ -156,6 +187,19 @@ export type KnowledgeGraphService = {
   queryValidate: (args: {
     projectId: string;
   }) => ServiceResult<KnowledgeValidateResult>;
+  queryRelevant: (args: {
+    projectId: string;
+    excerpt: string;
+    maxEntities?: number;
+    entityIds?: string[];
+  }) => ServiceResult<KnowledgeRelevantQueryResult>;
+  queryByIds: (args: {
+    projectId: string;
+    entityIds: string[];
+  }) => ServiceResult<KnowledgeQueryByIdsResult>;
+  buildRulesInjection: (
+    args: KgRulesInjectionRequest,
+  ) => ServiceResult<KgRulesInjectionData>;
 };
 
 type ServiceLimits = {
@@ -569,6 +613,25 @@ function listProjectRelations(
   return rows.map(rowToRelation);
 }
 
+function listEntitiesByIds(
+  db: Database.Database,
+  entityIds: string[],
+): Array<{ id: string; projectId: string; row: EntityRow }> {
+  if (entityIds.length === 0) {
+    return [];
+  }
+
+  const placeholders = entityIds.map(() => "?").join(",");
+  const sql = `SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE id IN (${placeholders})`;
+
+  const rows = db.prepare(sql).all(...entityIds) as EntityRow[];
+  return rows.map((row) => ({
+    id: row.id,
+    projectId: row.projectId,
+    row,
+  }));
+}
+
 function buildDirectedAdjacency(
   relations: KnowledgeRelation[],
 ): Map<string, string[]> {
@@ -595,6 +658,40 @@ function buildUndirectedAdjacency(
     adjacency.set(relation.targetEntityId, target);
   }
   return adjacency;
+}
+
+function dedupeIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const rawId of ids) {
+    const id = rawId.trim();
+    if (id.length === 0 || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    ordered.push(id);
+  }
+  return ordered;
+}
+
+function normalizeKeywordTokens(text: string): string[] {
+  const tokens = text
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2);
+  return [...new Set(tokens)];
+}
+
+function resolveMaxEntities(maxEntities: number | undefined): number {
+  if (!maxEntities || !Number.isFinite(maxEntities)) {
+    return 5;
+  }
+  const normalized = Math.floor(maxEntities);
+  if (normalized <= 0) {
+    return 1;
+  }
+  return Math.min(50, normalized);
 }
 
 /**
@@ -1558,6 +1655,330 @@ export function createKnowledgeGraphService(args: {
           message: error instanceof Error ? error.message : String(error),
         });
         return ipcError("DB_ERROR", "Failed to validate graph");
+      }
+    },
+
+    queryRelevant: ({ projectId, excerpt, maxEntities, entityIds }) => {
+      const startedAt = Date.now();
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
+      }
+
+      const normalizedProjectId = projectId.trim();
+      const normalizedExcerpt = excerpt.trim().toLowerCase();
+      const normalizedEntityIds = dedupeIds(entityIds ?? []);
+      const maxCount = resolveMaxEntities(maxEntities);
+
+      if (process.env.CREONOW_KG_FORCE_RELEVANT_QUERY_FAIL === "1") {
+        args.logger.error("kg_query_relevant_failed", {
+          code: "KG_RELEVANT_QUERY_FAILED",
+          project_id: normalizedProjectId,
+        });
+        return ipcError(
+          "KG_RELEVANT_QUERY_FAILED",
+          "relevant query unavailable",
+          { projectId: normalizedProjectId },
+        );
+      }
+
+      try {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        let candidateEntities: KnowledgeEntity[] = [];
+        if (normalizedEntityIds.length > 0) {
+          const rows = listEntitiesByIds(args.db, normalizedEntityIds);
+          const crossProjectIds = rows
+            .filter((row) => row.projectId !== normalizedProjectId)
+            .map((row) => row.id);
+
+          if (crossProjectIds.length > 0) {
+            args.logger.error("kg_scope_violation", {
+              project_id: normalizedProjectId,
+              foreign_entity_ids: crossProjectIds,
+              reason: "query_relevant",
+            });
+            return ipcError(
+              "KG_SCOPE_VIOLATION",
+              "cross-project entity access denied",
+              {
+                projectId: normalizedProjectId,
+                foreignEntityIds: crossProjectIds,
+              },
+            );
+          }
+
+          const rowById = new Map(rows.map((row) => [row.id, row.row]));
+          candidateEntities = normalizedEntityIds
+            .map((id) => {
+              const row = rowById.get(id);
+              return row ? rowToEntity(row) : null;
+            })
+            .filter((entity): entity is KnowledgeEntity => entity !== null);
+        } else {
+          candidateEntities = listProjectEntities(args.db, normalizedProjectId);
+        }
+
+        if (normalizedExcerpt.length === 0) {
+          return {
+            ok: true,
+            data: {
+              items: candidateEntities.slice(0, maxCount),
+              queryCostMs: Date.now() - startedAt,
+            },
+          };
+        }
+
+        const excerptTokens = new Set(
+          normalizeKeywordTokens(normalizedExcerpt),
+        );
+        const scored = candidateEntities
+          .map((entity) => {
+            let score = 0;
+            const mentionIndex = normalizedExcerpt.indexOf(
+              entity.name.toLowerCase(),
+            );
+
+            if (mentionIndex >= 0) {
+              score += 100;
+            }
+
+            const textBlob = `${entity.description} ${Object.values(entity.attributes).join(" ")}`;
+            const tokens = normalizeKeywordTokens(textBlob).slice(0, 24);
+            for (const token of tokens) {
+              if (
+                excerptTokens.has(token) ||
+                normalizedExcerpt.includes(token)
+              ) {
+                score += 8;
+              }
+            }
+
+            return {
+              entity,
+              score,
+              mentionIndex:
+                mentionIndex >= 0 ? mentionIndex : Number.MAX_SAFE_INTEGER,
+            };
+          })
+          .filter((item) => item.score > 0)
+          .sort((a, b) => {
+            if (b.score !== a.score) {
+              return b.score - a.score;
+            }
+            if (a.mentionIndex !== b.mentionIndex) {
+              return a.mentionIndex - b.mentionIndex;
+            }
+            return b.entity.updatedAt.localeCompare(a.entity.updatedAt);
+          });
+
+        return {
+          ok: true,
+          data: {
+            items: scored.slice(0, maxCount).map((item) => item.entity),
+            queryCostMs: Date.now() - startedAt,
+          },
+        };
+      } catch (error) {
+        args.logger.error("kg_query_relevant_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to query relevant entities");
+      }
+    },
+
+    queryByIds: ({ projectId, entityIds }) => {
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
+      }
+
+      const normalizedProjectId = projectId.trim();
+      const normalizedEntityIds = dedupeIds(entityIds);
+      if (normalizedEntityIds.length === 0) {
+        return { ok: true, data: { items: [] } };
+      }
+
+      try {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        const rows = listEntitiesByIds(args.db, normalizedEntityIds);
+        const crossProjectIds = rows
+          .filter((row) => row.projectId !== normalizedProjectId)
+          .map((row) => row.id);
+        if (crossProjectIds.length > 0) {
+          args.logger.error("kg_scope_violation", {
+            project_id: normalizedProjectId,
+            foreign_entity_ids: crossProjectIds,
+            reason: "query_by_ids",
+          });
+          return ipcError(
+            "KG_SCOPE_VIOLATION",
+            "cross-project entity access denied",
+            {
+              projectId: normalizedProjectId,
+              foreignEntityIds: crossProjectIds,
+            },
+          );
+        }
+
+        const rowById = new Map(rows.map((row) => [row.id, row.row]));
+        const orderedItems = normalizedEntityIds
+          .map((id) => {
+            const row = rowById.get(id);
+            return row ? rowToEntity(row) : null;
+          })
+          .filter((entity): entity is KnowledgeEntity => entity !== null);
+
+        return { ok: true, data: { items: orderedItems } };
+      } catch (error) {
+        args.logger.error("kg_query_by_ids_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to query entities by ids");
+      }
+    },
+
+    buildRulesInjection: ({
+      projectId,
+      documentId,
+      excerpt,
+      traceId,
+      maxEntities,
+      entityIds,
+    }) => {
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
+      }
+      if (documentId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "documentId is required");
+      }
+      if (traceId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "traceId is required");
+      }
+
+      const normalizedProjectId = projectId.trim();
+      const relevantRes = createKnowledgeGraphService({
+        db: args.db,
+        logger: args.logger,
+      }).queryRelevant({
+        projectId: normalizedProjectId,
+        excerpt,
+        maxEntities,
+        entityIds,
+      });
+
+      if (!relevantRes.ok) {
+        if (relevantRes.error.code === "KG_SCOPE_VIOLATION") {
+          return relevantRes;
+        }
+
+        args.logger.error("kg_rules_injection_fallback", {
+          code: relevantRes.error.code,
+          trace_id: traceId,
+          project_id: normalizedProjectId,
+        });
+        return {
+          ok: true,
+          data: {
+            injectedEntities: [],
+            source: "kg-rules-mock",
+          },
+        };
+      }
+
+      if (relevantRes.data.items.length === 0) {
+        return {
+          ok: true,
+          data: {
+            injectedEntities: [],
+            source: "kg-rules-mock",
+          },
+        };
+      }
+
+      try {
+        const entityNameById = new Map<string, string>();
+        for (const entity of listProjectEntities(
+          args.db,
+          normalizedProjectId,
+        )) {
+          entityNameById.set(entity.id, entity.name);
+        }
+
+        const relations = listProjectRelations(args.db, normalizedProjectId);
+        const injectedEntities: KgRulesInjectionEntity[] =
+          relevantRes.data.items.map((entity) => {
+            const attributes: Record<string, string> = {};
+            for (const [rawKey, rawValue] of Object.entries(
+              entity.attributes,
+            )) {
+              const key = rawKey.trim();
+              const value = rawValue.trim();
+              if (key.length === 0 || value.length === 0) {
+                continue;
+              }
+              attributes[key] = value;
+            }
+
+            const relationsSummary: string[] = [];
+            for (const relation of relations) {
+              if (
+                relation.sourceEntityId !== entity.id &&
+                relation.targetEntityId !== entity.id
+              ) {
+                continue;
+              }
+
+              const sourceName =
+                entityNameById.get(relation.sourceEntityId) ??
+                relation.sourceEntityId;
+              const targetName =
+                entityNameById.get(relation.targetEntityId) ??
+                relation.targetEntityId;
+              relationsSummary.push(
+                `${sourceName} -(${relation.relationType})-> ${targetName}`,
+              );
+
+              if (relationsSummary.length >= 8) {
+                break;
+              }
+            }
+
+            return {
+              id: entity.id,
+              name: entity.name,
+              type: entity.type,
+              attributes,
+              relationsSummary,
+            };
+          });
+
+        return {
+          ok: true,
+          data: {
+            injectedEntities,
+            source: "kg-rules-mock",
+          },
+        };
+      } catch (error) {
+        args.logger.error("kg_rules_injection_failed", {
+          code: "DB_ERROR",
+          trace_id: traceId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to build KG rules injection", {
+          traceId,
+        });
       }
     },
   };

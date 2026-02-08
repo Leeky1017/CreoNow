@@ -39,7 +39,10 @@ export const IPC_ERROR_CODES = [
   "KG_ENTITY_CONFLICT",
   "KG_ENTITY_DUPLICATE",
   "KG_QUERY_TIMEOUT",
+  "KG_RECOGNITION_UNAVAILABLE",
+  "KG_RELEVANT_QUERY_FAILED",
   "KG_RELATION_INVALID",
+  "KG_SCOPE_VIOLATION",
   "KG_SUBGRAPH_K_EXCEEDED",
 ] as const;
 
@@ -412,6 +415,35 @@ const KG_RELATION_SCHEMA = s.object({
   relationType: s.string(),
   description: s.string(),
   createdAt: s.string(),
+});
+
+const KG_RECOGNITION_ENQUEUE_SCHEMA = s.object({
+  taskId: s.string(),
+  status: s.union(s.literal("started"), s.literal("queued")),
+  queuePosition: s.number(),
+});
+
+const KG_RECOGNITION_STATS_SCHEMA = s.object({
+  running: s.number(),
+  queued: s.number(),
+  maxConcurrency: s.number(),
+  peakRunning: s.number(),
+  completed: s.number(),
+  completionOrder: s.array(s.string()),
+  canceledTaskIds: s.array(s.string()),
+});
+
+const KG_RULES_INJECTION_ENTITY_SCHEMA = s.object({
+  id: s.string(),
+  name: s.string(),
+  type: KG_ENTITY_TYPE_SCHEMA,
+  attributes: s.record(s.string()),
+  relationsSummary: s.array(s.string()),
+});
+
+const KG_RULES_INJECTION_SCHEMA = s.object({
+  injectedEntities: s.array(KG_RULES_INJECTION_ENTITY_SCHEMA),
+  source: s.literal("kg-rules-mock"),
 });
 
 const DOCUMENT_TYPE_SCHEMA = s.union(
@@ -966,6 +998,83 @@ export const ipcContract = {
         cycles: s.array(s.array(s.string())),
         queryCostMs: s.number(),
       }),
+    },
+    "knowledge:recognition:enqueue": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.string(),
+        sessionId: s.string(),
+        contentText: s.string(),
+        traceId: s.string(),
+      }),
+      response: KG_RECOGNITION_ENQUEUE_SCHEMA,
+    },
+    "knowledge:recognition:cancel": {
+      request: s.object({
+        projectId: s.string(),
+        sessionId: s.string(),
+        taskId: s.string(),
+      }),
+      response: s.object({
+        canceled: s.literal(true),
+      }),
+    },
+    "knowledge:recognition:stats": {
+      request: s.object({
+        projectId: s.string(),
+        sessionId: s.string(),
+      }),
+      response: KG_RECOGNITION_STATS_SCHEMA,
+    },
+    "knowledge:suggestion:accept": {
+      request: s.object({
+        projectId: s.string(),
+        sessionId: s.string(),
+        suggestionId: s.string(),
+      }),
+      response: KG_ENTITY_SCHEMA,
+    },
+    "knowledge:suggestion:dismiss": {
+      request: s.object({
+        projectId: s.string(),
+        sessionId: s.string(),
+        suggestionId: s.string(),
+      }),
+      response: s.object({
+        dismissed: s.literal(true),
+      }),
+    },
+    "knowledge:query:relevant": {
+      request: s.object({
+        projectId: s.string(),
+        excerpt: s.string(),
+        maxEntities: s.optional(s.number()),
+        entityIds: s.optional(s.array(s.string())),
+      }),
+      response: s.object({
+        items: s.array(KG_ENTITY_SCHEMA),
+        queryCostMs: s.number(),
+      }),
+    },
+    "knowledge:query:byids": {
+      request: s.object({
+        projectId: s.string(),
+        entityIds: s.array(s.string()),
+      }),
+      response: s.object({
+        items: s.array(KG_ENTITY_SCHEMA),
+      }),
+    },
+    "knowledge:rules:inject": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.string(),
+        excerpt: s.string(),
+        traceId: s.string(),
+        maxEntities: s.optional(s.number()),
+        entityIds: s.optional(s.array(s.string())),
+      }),
+      response: KG_RULES_INJECTION_SCHEMA,
     },
     "skill:registry:list": {
       request: s.object({ includeDisabled: s.optional(s.boolean()) }),

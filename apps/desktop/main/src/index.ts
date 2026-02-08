@@ -26,6 +26,7 @@ import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
 import { createJudgeService } from "./services/judge/judgeService";
+import { createKgRecognitionRuntime } from "./services/kg/kgRecognitionRuntime";
 import { createCreonowWatchService } from "./services/context/watchService";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -134,6 +135,12 @@ function registerIpcHandlers(deps: {
   });
   const watchService = createCreonowWatchService({ logger: deps.logger });
   const embeddingService = createEmbeddingService({ logger: deps.logger });
+  const recognitionRuntime = deps.db
+    ? createKgRecognitionRuntime({
+        db: deps.db,
+        logger: deps.logger,
+      })
+    : null;
 
   const ragRerank = {
     enabled: deps.env.CREONOW_RAG_RERANK === "1",
@@ -236,6 +243,7 @@ function registerIpcHandlers(deps: {
     ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
+    recognitionRuntime,
   });
 
   registerExportIpcHandlers({
@@ -290,6 +298,7 @@ function registerIpcHandlers(deps: {
     ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
+    recognitionRuntime,
   });
 
   registerVersionIpcHandlers({
