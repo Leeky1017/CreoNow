@@ -251,6 +251,12 @@ function defaultTitleByType(type: DocumentType): string {
   }
 }
 
+function normalizeParentId(
+  parentId: string | null | undefined,
+): string | undefined {
+  return typeof parentId === "string" ? parentId : undefined;
+}
+
 type SettingsRow = {
   valueJson: string;
 };
@@ -262,7 +268,7 @@ type DocumentRow = {
   title: string;
   status: DocumentStatus;
   sortOrder: number;
-  parentId?: string;
+  parentId: string | null;
   contentJson: string;
   contentText: string;
   contentMd: string;
@@ -467,10 +473,18 @@ export function createDocumentService(args: {
         const rows = args.db
           .prepare<
             [string],
-            DocumentListItem
+            DocumentListItem & { parentId: string | null }
           >("SELECT document_id as documentId, type, title, status, sort_order as sortOrder, parent_id as parentId, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY sort_order ASC, updated_at DESC, document_id ASC")
           .all(projectId);
-        return { ok: true, data: { items: rows } };
+        return {
+          ok: true,
+          data: {
+            items: rows.map((row) => ({
+              ...row,
+              parentId: normalizeParentId(row.parentId),
+            })),
+          },
+        };
       } catch (error) {
         args.logger.error("document_list_failed", {
           code: "DB_ERROR",
@@ -492,7 +506,13 @@ export function createDocumentService(args: {
           return ipcError("NOT_FOUND", "Document not found");
         }
 
-        return { ok: true, data: row };
+        return {
+          ok: true,
+          data: {
+            ...row,
+            parentId: normalizeParentId(row.parentId),
+          },
+        };
       } catch (error) {
         args.logger.error("document_read_failed", {
           code: "DB_ERROR",

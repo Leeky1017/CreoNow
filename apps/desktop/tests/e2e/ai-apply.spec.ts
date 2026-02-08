@@ -10,6 +10,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createProjectViaWelcomeAndWaitForEditor } from "./_helpers/projectReadiness";
+
 const MOD_KEY = process.platform === "darwin" ? "Meta" : "Control";
 
 /**
@@ -57,14 +59,11 @@ async function launchApp(userDataDir: string) {
 async function createProjectAndFocusEditor(args: {
   page: Page;
 }): Promise<void> {
-  const page = args.page;
-  await expect(page.getByTestId("welcome-screen")).toBeVisible();
-  await page.getByTestId("welcome-create-project").click();
-  await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-  await page.getByTestId("create-project-name").fill("Demo Project");
-  await page.getByTestId("create-project-submit").click();
-  await expect(page.getByTestId("tiptap-editor")).toBeVisible();
-  await page.getByTestId("tiptap-editor").click();
+  await createProjectViaWelcomeAndWaitForEditor({
+    page: args.page,
+    projectName: "Demo Project",
+    clickEditor: true,
+  });
 }
 
 async function selectLastWord(args: { page: Page }) {

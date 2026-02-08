@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createProjectViaWelcomeAndWaitForEditor } from "./_helpers/projectReadiness";
+
 async function createIsolatedUserDataDir(): Promise<string> {
   const base = path.join(os.tmpdir(), "CreoNow E2E 世界 ");
   const dir = await fs.mkdtemp(base);
@@ -45,9 +47,10 @@ test("export: markdown writes deterministic file under userData exports", async 
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
 
-  await page.getByTestId("welcome-create-project").click();
-  await page.getByTestId("create-project-name").fill("Export Project");
-  await page.getByTestId("create-project-submit").click();
+  await createProjectViaWelcomeAndWaitForEditor({
+    page,
+    projectName: "Export Project",
+  });
 
   const current = await page.evaluate(async () => {
     if (!window.creonow) {

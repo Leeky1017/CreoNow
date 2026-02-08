@@ -5,6 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  createProjectViaWelcomeAndWaitForEditor,
+  waitForProjectIpcReady,
+} from "./_helpers/projectReadiness";
+
 /**
  * Create a unique E2E userData directory.
  */
@@ -36,14 +41,10 @@ test.describe("Version History IPC", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project
-    await expect(page.getByTestId("welcome-screen")).toBeVisible();
-    await page.getByTestId("welcome-create-project").click();
-    await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-    await page.getByTestId("create-project-name").fill("Version Test Project");
-    await page.getByTestId("create-project-submit").click();
-
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Version Test Project",
+    });
 
     // Type initial content
     await page.getByTestId("tiptap-editor").click();
@@ -157,14 +158,10 @@ test.describe("Version History IPC", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project
-    await expect(page.getByTestId("welcome-screen")).toBeVisible();
-    await page.getByTestId("welcome-create-project").click();
-    await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-    await page.getByTestId("create-project-name").fill("Version Error Test");
-    await page.getByTestId("create-project-submit").click();
-
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Version Error Test",
+    });
 
     // Get document ID
     const project = await page.evaluate(async () => {
@@ -231,6 +228,7 @@ test.describe("Version History IPC", () => {
     const page = await electronApp.firstWindow();
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
+    await waitForProjectIpcReady({ page });
 
     // Try to read with empty documentId
     const result = await page.evaluate(async () => {

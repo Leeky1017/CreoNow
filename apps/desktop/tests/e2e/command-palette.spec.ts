@@ -23,6 +23,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { ensureWorkbenchDialogsClosed } from "./_helpers/projectReadiness";
+
 async function createIsolatedUserDataDir(): Promise<string> {
   const base = path.join(os.tmpdir(), "CreoNow E2E CommandPalette ");
   const dir = await fs.mkdtemp(base);
@@ -36,6 +38,19 @@ async function createIsolatedUserDataDir(): Promise<string> {
  */
 function getModKey(): "Meta" | "Control" {
   return process.platform === "darwin" ? "Meta" : "Control";
+}
+
+async function openCommandPalette(args: {
+  page: Page;
+  modKey: "Meta" | "Control";
+}) {
+  await args.page.keyboard.press(`${args.modKey}+p`);
+  await expect(args.page.getByTestId("command-palette")).toBeVisible();
+  const searchInput = args.page.getByRole("textbox", {
+    name: "Search commands",
+  });
+  await expect(searchInput).toBeVisible();
+  return searchInput;
 }
 
 test.describe("Command Palette + Shortcuts", () => {
@@ -63,6 +78,14 @@ test.describe("Command Palette + Shortcuts", () => {
     await expect(page.getByTestId("app-shell")).toBeVisible();
   });
 
+  test.beforeEach(async () => {
+    await ensureWorkbenchDialogsClosed({ page });
+  });
+
+  test.afterEach(async () => {
+    await ensureWorkbenchDialogsClosed({ page });
+  });
+
   test.afterAll(async () => {
     await electronApp.close();
   });
@@ -87,24 +110,18 @@ test.describe("Command Palette + Shortcuts", () => {
   test("Search 'Settings' in Command Palette → SettingsDialog visible", async () => {
     const modKey = getModKey();
 
-    // Open command palette
-    await page.keyboard.press(`${modKey}+p`);
-    await expect(page.getByTestId("command-palette")).toBeVisible();
-
-    // Type "Settings" to filter
-    await page.getByRole("textbox", { name: "Search commands" }).fill("Settings");
+    const searchInput = await openCommandPalette({ page, modKey });
+    await searchInput.fill("Settings");
 
     // Press Enter to select first result
     await page.keyboard.press("Enter");
 
-    // SettingsDialog should be visible (check for the dialog content)
-    // Note: SettingsDialog uses Radix which renders in a portal
-    await expect(
-      page.getByRole("dialog", { name: /settings/i }),
-    ).toBeVisible();
+    await expect(page.getByTestId("command-palette")).not.toBeVisible();
+    await expect(page.getByTestId("settings-dialog")).toBeVisible();
 
     // Close the dialog
     await page.keyboard.press("Escape");
+    await expect(page.getByTestId("settings-dialog")).not.toBeVisible();
   });
 
   test("Cmd/Ctrl+\\ toggles Sidebar visibility", async () => {
@@ -197,13 +214,11 @@ test.describe("Command Palette + Shortcuts", () => {
     // Press Cmd/Ctrl+,
     await page.keyboard.press(`${modKey}+,`);
 
-    // SettingsDialog should be visible
-    await expect(
-      page.getByRole("dialog", { name: /settings/i }),
-    ).toBeVisible();
+    await expect(page.getByTestId("settings-dialog")).toBeVisible();
 
     // Close the dialog
     await page.keyboard.press("Escape");
+    await ensureWorkbenchDialogsClosed({ page });
   });
 
   test("Cmd/Ctrl+Shift+N opens Create Project dialog", async () => {
@@ -217,17 +232,14 @@ test.describe("Command Palette + Shortcuts", () => {
 
     // Close the dialog
     await page.keyboard.press("Escape");
+    await ensureWorkbenchDialogsClosed({ page });
   });
 
   test("Export command opens ExportDialog with disabled export when no project", async () => {
     const modKey = getModKey();
 
-    // Open command palette
-    await page.keyboard.press(`${modKey}+p`);
-    await expect(page.getByTestId("command-palette")).toBeVisible();
-
-    // Search for Export
-    await page.getByRole("textbox", { name: "Search commands" }).fill("Export");
+    const searchInput = await openCommandPalette({ page, modKey });
+    await searchInput.fill("Export");
 
     // Press Enter to select Export command
     await page.keyboard.press("Enter");
@@ -244,6 +256,7 @@ test.describe("Command Palette + Shortcuts", () => {
 
     // Close dialog
     await page.keyboard.press("Escape");
+    await ensureWorkbenchDialogsClosed({ page });
   });
 
   // Skip on Windows CI due to keyboard event timing issues that cause
@@ -254,9 +267,7 @@ test.describe("Command Palette + Shortcuts", () => {
   test.skip("Command Palette keyboard navigation works", async () => {
     const modKey = getModKey();
 
-    // Open command palette
-    await page.keyboard.press(`${modKey}+p`);
-    await expect(page.getByTestId("command-palette")).toBeVisible();
+    await openCommandPalette({ page, modKey });
 
     const listbox = page.locator('[role="listbox"]');
     await expect(listbox).toBeVisible();

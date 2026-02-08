@@ -1,9 +1,16 @@
-import { _electron as electron, expect, test } from "@playwright/test";
+import {
+  _electron as electron,
+  expect,
+  test,
+  type Page,
+} from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { createProjectViaWelcomeAndWaitForEditor } from "./_helpers/projectReadiness";
 
 /**
  * Create a unique E2E userData directory.
@@ -35,6 +42,26 @@ function parseDocumentId(testId: string): string {
   return id;
 }
 
+/**
+ * Execute file-row context-menu action by visible label.
+ *
+ * Why: avoids flaky hover-only action trigger in headless Windows CI.
+ */
+async function invokeFileRowContextAction(args: {
+  page: Page;
+  documentId: string;
+  actionLabel: "Delete";
+}): Promise<void> {
+  const row = args.page.getByTestId(`file-row-${args.documentId}`);
+  await expect(row).toBeVisible();
+  await row.scrollIntoViewIfNeeded();
+  await row.click({ button: "right" });
+
+  const menuItem = args.page.getByRole("menuitem", { name: args.actionLabel });
+  await expect(menuItem).toBeVisible();
+  await menuItem.click();
+}
+
 test("system dialog: cancel/confirm across file tree + knowledge graph", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -53,14 +80,10 @@ test("system dialog: cancel/confirm across file tree + knowledge graph", async (
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
 
-  // Create a project via UI
-  await expect(page.getByTestId("welcome-screen")).toBeVisible();
-  await page.getByTestId("welcome-create-project").click();
-  await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-  await page.getByTestId("create-project-name").fill("Demo Project");
-  await page.getByTestId("create-project-submit").click();
-
-  await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+  await createProjectViaWelcomeAndWaitForEditor({
+    page,
+    projectName: "Demo Project",
+  });
   await expect(page.getByTestId("sidebar-files")).toBeVisible();
 
   // ---------------------------------------------------------------------------
@@ -87,9 +110,20 @@ test("system dialog: cancel/confirm across file tree + knowledge graph", async (
   const id1 = parseDocumentId(row1Attr);
   const docToDeleteId = id0 === docAId ? id1 : id0;
 
-  await page.getByTestId(`file-row-${docToDeleteId}`).hover();
-  await page.getByTestId(`file-actions-${docToDeleteId}`).click();
-  await page.getByTestId(`file-delete-${docToDeleteId}`).click();
+  const pendingRenameInput = page.getByTestId(
+    `file-rename-input-${docToDeleteId}`,
+  );
+  if (await pendingRenameInput.isVisible()) {
+    await pendingRenameInput.click();
+    await pendingRenameInput.press("Escape");
+    await expect(pendingRenameInput).toHaveCount(0);
+  }
+
+  await invokeFileRowContextAction({
+    page,
+    documentId: docToDeleteId,
+    actionLabel: "Delete",
+  });
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -98,9 +132,11 @@ test("system dialog: cancel/confirm across file tree + knowledge graph", async (
   await expect(dialog).not.toBeVisible();
   await expect(page.getByTestId(`file-row-${docToDeleteId}`)).toBeVisible();
 
-  await page.getByTestId(`file-row-${docToDeleteId}`).hover();
-  await page.getByTestId(`file-actions-${docToDeleteId}`).click();
-  await page.getByTestId(`file-delete-${docToDeleteId}`).click();
+  await invokeFileRowContextAction({
+    page,
+    documentId: docToDeleteId,
+    actionLabel: "Delete",
+  });
 
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Delete" }).click();

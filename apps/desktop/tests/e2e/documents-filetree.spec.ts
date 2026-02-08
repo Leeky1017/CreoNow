@@ -1,9 +1,16 @@
-import { _electron as electron, expect, test } from "@playwright/test";
+import {
+  _electron as electron,
+  expect,
+  test,
+  type Page,
+} from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { createProjectViaWelcomeAndWaitForEditor } from "./_helpers/projectReadiness";
 
 /**
  * Create a unique E2E userData directory.
@@ -35,6 +42,26 @@ function parseDocumentId(testId: string): string {
   return id;
 }
 
+/**
+ * Execute file-row context-menu action by visible label.
+ *
+ * Why: avoids flaky hover-only action trigger in headless Windows CI.
+ */
+async function invokeFileRowContextAction(args: {
+  page: Page;
+  documentId: string;
+  actionLabel: "Rename" | "Delete";
+}): Promise<void> {
+  const row = args.page.getByTestId(`file-row-${args.documentId}`);
+  await expect(row).toBeVisible();
+  await row.scrollIntoViewIfNeeded();
+  await row.click({ button: "right" });
+
+  const menuItem = args.page.getByRole("menuitem", { name: args.actionLabel });
+  await expect(menuItem).toBeVisible();
+  await menuItem.click();
+}
+
 test("documents filetree: create/switch/rename/delete + current restore", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -57,13 +84,10 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
 
-  await expect(page.getByTestId("welcome-screen")).toBeVisible();
-  await page.getByTestId("welcome-create-project").click();
-  await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-  await page.getByTestId("create-project-name").fill("Demo Project");
-  await page.getByTestId("create-project-submit").click();
-
-  await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+  await createProjectViaWelcomeAndWaitForEditor({
+    page,
+    projectName: "Demo Project",
+  });
   await expect(page.getByTestId("sidebar-files")).toBeVisible();
 
   const firstRow = page.locator('[data-testid^="file-row-"]').first();
@@ -74,9 +98,11 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
   }
   const docAId = parseDocumentId(firstRowIdAttr);
 
-  await page.getByTestId(`file-row-${docAId}`).hover();
-  await page.getByTestId(`file-actions-${docAId}`).click();
-  await page.getByTestId(`file-rename-${docAId}`).click();
+  await invokeFileRowContextAction({
+    page,
+    documentId: docAId,
+    actionLabel: "Rename",
+  });
   await page.getByTestId(`file-rename-input-${docAId}`).fill("Doc A");
   await page.getByTestId(`file-rename-confirm-${docAId}`).click();
   await expect(page.getByTestId(`file-row-${docAId}`)).toContainText("Doc A");
@@ -138,16 +164,18 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
   );
 
   await page.getByTestId("file-create").click();
+  await expect(page.locator('[data-testid^="file-row-"]')).toHaveCount(2);
 
-  const selectedRow = page.locator(
-    '[data-testid^="file-row-"][aria-selected="true"]',
+  await expect(page.getByTestId("editor-pane")).not.toHaveAttribute(
+    "data-document-id",
+    docAId,
   );
-  await expect(selectedRow).toBeVisible();
-  const selectedIdAttr = await selectedRow.getAttribute("data-testid");
-  if (!selectedIdAttr) {
-    throw new Error("Missing data-testid on selected file row");
+  const docBId =
+    (await page.getByTestId("editor-pane").getAttribute("data-document-id")) ??
+    "";
+  if (!docBId) {
+    throw new Error("Missing current document id after creating doc B");
   }
-  const docBId = parseDocumentId(selectedIdAttr);
   expect(docBId).not.toBe(docAId);
 
   await expect(page.getByTestId("editor-pane")).toHaveAttribute(
@@ -155,10 +183,9 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     docBId,
   );
 
-  await page.getByTestId(`file-row-${docBId}`).hover();
-  await page.getByTestId(`file-actions-${docBId}`).click();
-  await page.getByTestId(`file-rename-${docBId}`).click();
-  await page.getByTestId(`file-rename-input-${docBId}`).fill("Doc B");
+  const docBRenameInput = page.getByTestId(`file-rename-input-${docBId}`);
+  await expect(docBRenameInput).toBeVisible();
+  await docBRenameInput.fill("Doc B");
   await page.getByTestId(`file-rename-confirm-${docBId}`).click();
 
   await page.getByTestId("tiptap-editor").click();
@@ -202,9 +229,11 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
     "Alpha content",
   );
 
-  await page.getByTestId(`file-row-${docBId}`).hover();
-  await page.getByTestId(`file-actions-${docBId}`).click();
-  await page.getByTestId(`file-delete-${docBId}`).click();
+  await invokeFileRowContextAction({
+    page,
+    documentId: docBId,
+    actionLabel: "Delete",
+  });
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();

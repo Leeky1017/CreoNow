@@ -10,6 +10,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createProjectViaWelcomeAndWaitForEditor } from "./_helpers/projectReadiness";
+
 /**
  * Create a unique E2E userData directory.
  *
@@ -53,12 +55,10 @@ async function launchApp(args: { userDataDir: string }) {
 }
 
 async function createProjectViaUi(page: Page): Promise<void> {
-  await expect(page.getByTestId("welcome-screen")).toBeVisible();
-  await page.getByTestId("welcome-create-project").click();
-  await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-  await page.getByTestId("create-project-name").fill("Demo Project");
-  await page.getByTestId("create-project-submit").click();
-  await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+  await createProjectViaWelcomeAndWaitForEditor({
+    page,
+    projectName: "Demo Project",
+  });
 }
 
 test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", async () => {

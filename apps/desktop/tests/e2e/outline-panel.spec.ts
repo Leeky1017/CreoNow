@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createProjectViaWelcomeAndWaitForEditor } from "./_helpers/projectReadiness";
+
 /**
  * Create a unique E2E userData directory.
  */
@@ -36,15 +38,10 @@ test.describe("OutlinePanel", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project to get an editor
-    await expect(page.getByTestId("welcome-screen")).toBeVisible();
-    await page.getByTestId("welcome-create-project").click();
-    await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-    await page.getByTestId("create-project-name").fill("Outline Test Project");
-    await page.getByTestId("create-project-submit").click();
-
-    // Wait for editor to be visible
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Outline Test Project",
+    });
 
     // Type content with headings using TipTap's markdown-like shortcuts
     // # at the start of a line followed by space creates H1
@@ -132,15 +129,10 @@ test.describe("OutlinePanel", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project
-    await expect(page.getByTestId("welcome-screen")).toBeVisible();
-    await page.getByTestId("welcome-create-project").click();
-    await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-    await page.getByTestId("create-project-name").fill("Empty Outline Test");
-    await page.getByTestId("create-project-submit").click();
-
-    // Wait for editor
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Empty Outline Test",
+    });
 
     // Type content without any headings
     const editor = page.getByTestId("tiptap-editor");
@@ -180,15 +172,10 @@ test.describe("OutlinePanel", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project
-    await expect(page.getByTestId("welcome-screen")).toBeVisible();
-    await page.getByTestId("welcome-create-project").click();
-    await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-    await page.getByTestId("create-project-name").fill("Dynamic Outline Test");
-    await page.getByTestId("create-project-submit").click();
-
-    // Wait for editor
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Dynamic Outline Test",
+    });
 
     // Open the Outline panel first
     const outlineButton = page.getByTestId("icon-bar-outline");
@@ -236,15 +223,10 @@ test.describe("OutlinePanel", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project
-    await expect(page.getByTestId("welcome-screen")).toBeVisible();
-    await page.getByTestId("welcome-create-project").click();
-    await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-    await page.getByTestId("create-project-name").fill("Special Chars Test");
-    await page.getByTestId("create-project-submit").click();
-
-    // Wait for editor
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Special Chars Test",
+    });
 
     // Type content with special characters
     const editor = page.getByTestId("tiptap-editor");

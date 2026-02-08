@@ -5,6 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  createProjectViaWelcomeAndWaitForEditor,
+  waitForEditorReady,
+} from "./_helpers/projectReadiness";
+
 /**
  * Create a unique E2E userData directory.
  *
@@ -41,13 +46,10 @@ test("editor autosave: typing persists across restart (actor=auto)", async () =>
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
 
-  await expect(page.getByTestId("welcome-screen")).toBeVisible();
-  await page.getByTestId("welcome-create-project").click();
-  await expect(page.getByTestId("create-project-dialog")).toBeVisible();
-  await page.getByTestId("create-project-name").fill("Demo Project");
-  await page.getByTestId("create-project-submit").click();
-
-  await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+  await createProjectViaWelcomeAndWaitForEditor({
+    page,
+    projectName: "Demo Project",
+  });
 
   await page.getByTestId("tiptap-editor").click();
   await page.keyboard.type("Hello autosave");
@@ -159,7 +161,7 @@ test("editor autosave: typing persists across restart (actor=auto)", async () =>
   const page2 = await electronApp2.firstWindow();
   await page2.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page2.getByTestId("app-shell")).toBeVisible();
-  await expect(page2.getByTestId("tiptap-editor")).toBeVisible();
+  await waitForEditorReady({ page: page2 });
   await expect(page2.getByTestId("tiptap-editor")).toContainText(
     "Hello autosave",
   );

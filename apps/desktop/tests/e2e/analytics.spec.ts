@@ -10,6 +10,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createProjectViaWelcomeAndWaitForEditor } from "./_helpers/projectReadiness";
+
 type IpcOk<T> = { ok: true; data: T };
 type IpcErr = { ok: false; error: { code: string; message: string } };
 type IpcEnvelope<T> = IpcOk<T> | IpcErr;
@@ -82,9 +84,10 @@ test("analytics: wordsWritten + skillsUsed increment and are visible", async () 
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
 
-  await page.getByTestId("welcome-create-project").click();
-  await page.getByTestId("create-project-name").fill("Analytics Project");
-  await page.getByTestId("create-project-submit").click();
+  await createProjectViaWelcomeAndWaitForEditor({
+    page,
+    projectName: "Analytics Project",
+  });
 
   const before = await ipcInvoke<{ date: string; summary: StatsSummary }>(
     page,

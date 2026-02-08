@@ -5,6 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { createProjectViaWelcomeAndWaitForEditor } from "./_helpers/projectReadiness";
+
 /**
  * Create a unique E2E userData directory.
  *
@@ -42,13 +44,10 @@ test.describe("RightPanel Info/Quality wiring", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project first
-    await page.getByTestId("welcome-create-project").click();
-    await page.getByTestId("create-project-name").fill("Info Panel Test");
-    await page.getByTestId("create-project-submit").click();
-
-    // Wait for editor to be ready
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Info Panel Test",
+    });
 
     // Type some content to generate stats
     await page.getByTestId("tiptap-editor").click();
@@ -101,13 +100,10 @@ test.describe("RightPanel Info/Quality wiring", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project first
-    await page.getByTestId("welcome-create-project").click();
-    await page.getByTestId("create-project-name").fill("Quality Panel Test");
-    await page.getByTestId("create-project-submit").click();
-
-    // Wait for editor to be ready
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Quality Panel Test",
+    });
 
     // Click Quality tab in RightPanel
     await page.getByTestId("right-panel-tab-quality").click();
@@ -144,13 +140,10 @@ test.describe("RightPanel Info/Quality wiring", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project first
-    await page.getByTestId("welcome-create-project").click();
-    await page.getByTestId("create-project-name").fill("Run Checks Test");
-    await page.getByTestId("create-project-submit").click();
-
-    // Wait for editor to be ready
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Run Checks Test",
+    });
 
     // Click Quality tab in RightPanel
     await page.getByTestId("right-panel-tab-quality").click();
@@ -190,13 +183,10 @@ test.describe("RightPanel Info/Quality wiring", () => {
     await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
     await expect(page.getByTestId("app-shell")).toBeVisible();
 
-    // Create a project first
-    await page.getByTestId("welcome-create-project").click();
-    await page.getByTestId("create-project-name").fill("Constraints Test");
-    await page.getByTestId("create-project-submit").click();
-
-    // Wait for editor to be ready
-    await expect(page.getByTestId("tiptap-editor")).toBeVisible();
+    await createProjectViaWelcomeAndWaitForEditor({
+      page,
+      projectName: "Constraints Test",
+    });
 
     // Click Quality tab in RightPanel
     await page.getByTestId("right-panel-tab-quality").click();
@@ -205,7 +195,9 @@ test.describe("RightPanel Info/Quality wiring", () => {
     await expect(page.getByTestId("quality-panel")).toBeVisible();
 
     // Verify constraints count is visible (even if 0 rules)
-    const constraintsCount = page.getByTestId("quality-panel-constraints-count");
+    const constraintsCount = page.getByTestId(
+      "quality-panel-constraints-count",
+    );
     await expect(constraintsCount).toBeVisible();
 
     // Should show "X rules" format

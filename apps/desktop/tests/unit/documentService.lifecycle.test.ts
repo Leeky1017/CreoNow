@@ -148,9 +148,40 @@ function createFakeDb(): Database.Database {
                 title: d.title,
                 status: d.status,
                 sortOrder: d.sortOrder,
-                parentId: d.parentId ?? undefined,
+                parentId: d.parentId,
                 updatedAt: d.updatedAt,
               }));
+          },
+        };
+      }
+
+      if (
+        sql ===
+        "SELECT document_id as documentId, project_id as projectId, type, title, status, sort_order as sortOrder, parent_id as parentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, created_at as createdAt, updated_at as updatedAt FROM documents WHERE project_id = ? AND document_id = ?"
+      ) {
+        return {
+          get(projectId: string, documentId: string) {
+            const row = docs.find(
+              (d) => d.projectId === projectId && d.documentId === documentId,
+            );
+            if (!row) {
+              return undefined;
+            }
+            return {
+              documentId: row.documentId,
+              projectId: row.projectId,
+              type: row.type,
+              title: row.title,
+              status: row.status,
+              sortOrder: row.sortOrder,
+              parentId: row.parentId,
+              contentJson: row.contentJson,
+              contentText: row.contentText,
+              contentMd: row.contentMd,
+              contentHash: row.contentHash,
+              createdAt: row.createdAt,
+              updatedAt: row.updatedAt,
+            };
           },
         };
       }
@@ -379,6 +410,42 @@ function createFakeDb(): Database.Database {
     listed.data.items.length,
     1,
     "project should keep one document after deleting the last one",
+  );
+}
+
+/**
+ * S2 extension: list/read must normalize null parentId to undefined for IPC contract.
+ */
+{
+  const db = createFakeDb();
+  const svc = createDocumentService({ db, logger: createNoopLogger() });
+  const created = svc.create({ projectId: "proj-1" });
+  if (!created.ok) {
+    throw new Error(`create failed: ${created.error.code}`);
+  }
+
+  const listed = svc.list({ projectId: "proj-1" });
+  if (!listed.ok) {
+    throw new Error(`list failed: ${listed.error.code}`);
+  }
+  assert.equal(listed.data.items.length, 1);
+  assert.equal(
+    listed.data.items[0]?.parentId,
+    undefined,
+    "list should expose undefined parentId instead of null",
+  );
+
+  const read = svc.read({
+    projectId: "proj-1",
+    documentId: created.data.documentId,
+  });
+  if (!read.ok) {
+    throw new Error(`read failed: ${read.error.code}`);
+  }
+  assert.equal(
+    read.data.parentId,
+    undefined,
+    "read should expose undefined parentId instead of null",
   );
 }
 
