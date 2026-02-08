@@ -3,7 +3,7 @@
 - Issue: #280
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/280
 - Branch: `task/280-document-management-p1-reference-and-export`
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/281
 - Scope: 完成 `document-management-p1-reference-and-export` 的 OpenSpec-only 收口（审批标注、任务完成、归档、执行顺序同步、合并回 main）
 - Out of Scope: 生产代码实现（引用/导出功能编码与测试）
 
