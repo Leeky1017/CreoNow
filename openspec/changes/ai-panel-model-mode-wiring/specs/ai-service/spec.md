@@ -24,4 +24,3 @@ AI Service 在执行 `ai:skill:run` 时必须消费并生效请求内的 `mode` 
 - **当** 执行 `ai:skill:run`
 - **则** AI Service 追加确定性的 planning 指令到 system 文本
 - **并且** 响应仍通过既有流式/非流式状态机返回
-

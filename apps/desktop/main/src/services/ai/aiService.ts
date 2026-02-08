@@ -207,7 +207,9 @@ function buildApiUrl(args: { baseUrl: string; endpointPath: string }): string {
 /**
  * Parse upstream JSON safely and return deterministic errors for non-JSON bodies.
  */
-async function parseJsonResponse(res: Response): Promise<ServiceResult<unknown>> {
+async function parseJsonResponse(
+  res: Response,
+): Promise<ServiceResult<unknown>> {
   const bodyText = await res.text();
   try {
     return { ok: true, data: JSON.parse(bodyText) as unknown };
@@ -236,7 +238,11 @@ function resolveSettingsProviderMode(settings: ProxySettings): ProviderMode {
 function resolveSettingsProviderCredentials(args: {
   settings: ProxySettings;
   mode: ProviderMode;
-}): { provider: AiProvider; credentials: ProviderCredentials; mode: ProviderMode } {
+}): {
+  provider: AiProvider;
+  credentials: ProviderCredentials;
+  mode: ProviderMode;
+} {
   const openAiCompatible: ProviderCredentials = {
     baseUrl:
       args.settings.openAiCompatible?.baseUrl ??
@@ -464,7 +470,9 @@ function providerDisplayName(provider: AiProvider): string {
 /**
  * Extract model items from an OpenAI-compatible `/v1/models` response.
  */
-function extractOpenAiModels(json: unknown): Array<{ id: string; name: string }> {
+function extractOpenAiModels(
+  json: unknown,
+): Array<{ id: string; name: string }> {
   const obj = asObject(json);
   const data = obj?.data;
   if (!Array.isArray(data)) {
@@ -545,11 +553,17 @@ async function readUpstreamErrorMessage(args: {
       const obj = asObject(parsed);
       const nestedError = asObject(obj?.error);
       const nestedMessage = nestedError?.message;
-      if (typeof nestedMessage === "string" && nestedMessage.trim().length > 0) {
+      if (
+        typeof nestedMessage === "string" &&
+        nestedMessage.trim().length > 0
+      ) {
         return nestedMessage.trim();
       }
       const directMessage = obj?.message;
-      if (typeof directMessage === "string" && directMessage.trim().length > 0) {
+      if (
+        typeof directMessage === "string" &&
+        directMessage.trim().length > 0
+      ) {
         return directMessage.trim();
       }
     } catch {
@@ -1344,7 +1358,10 @@ export function createAiService(deps: {
     const provider = cfg.provider;
     const providerName = providerDisplayName(provider);
 
-    const url = buildApiUrl({ baseUrl: cfg.baseUrl, endpointPath: "/v1/models" });
+    const url = buildApiUrl({
+      baseUrl: cfg.baseUrl,
+      endpointPath: "/v1/models",
+    });
     try {
       const res = await fetch(url, {
         method: "GET",
@@ -1435,4 +1452,3 @@ export function createAiService(deps: {
 
   return { runSkill, listModels, cancel, feedback };
 }
-

@@ -31,9 +31,7 @@ type ModelPickerProps = {
  */
 export function ModelPicker(props: ModelPickerProps): JSX.Element | null {
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [groupBy, setGroupBy] = React.useState<"provider" | "none">(
-    "provider",
-  );
+  const [groupBy, setGroupBy] = React.useState<"provider" | "none">("provider");
 
   React.useEffect(() => {
     if (!props.open) {
@@ -55,7 +53,8 @@ export function ModelPicker(props: ModelPickerProps): JSX.Element | null {
     loweredQuery.length === 0
       ? allModels
       : allModels.filter((model) => {
-          const haystack = `${model.name} ${model.id} ${model.provider}`.toLowerCase();
+          const haystack =
+            `${model.name} ${model.id} ${model.provider}`.toLowerCase();
           return haystack.includes(loweredQuery);
         });
 
@@ -64,7 +63,9 @@ export function ModelPicker(props: ModelPickerProps): JSX.Element | null {
     props.recentModelIds
       ?.map((id) => filteredModels.find((model) => model.id === id) ?? null)
       .filter((model): model is AiModelOption => model !== null) ?? [];
-  const normalModels = filteredModels.filter((model) => !recentSet.has(model.id));
+  const normalModels = filteredModels.filter(
+    (model) => !recentSet.has(model.id),
+  );
 
   const groupedModels = new Map<string, AiModelOption[]>();
   if (groupBy === "provider") {
@@ -172,7 +173,11 @@ export function ModelPicker(props: ModelPickerProps): JSX.Element | null {
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([provider, items]) => (
                 <div key={provider} className="px-1.5 pb-1">
-                  <Text size="tiny" color="muted" className="px-1 py-1 uppercase">
+                  <Text
+                    size="tiny"
+                    color="muted"
+                    className="px-1 py-1 uppercase"
+                  >
                     {provider}
                   </Text>
                   {items.map(renderItem)}

@@ -28,4 +28,3 @@ Issue #264 反馈 AI Panel 的 `Mode` / `Model` 选择器未进入请求链路�
   - `apps/desktop/tests/unit/*.test.ts`
 - Breaking change: NO（新增字段在当前调用方同时升级）
 - User benefit: 面板选择的 mode/model 与实际 LLM 调用一致，可预期且可验证。
-

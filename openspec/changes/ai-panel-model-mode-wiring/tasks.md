@@ -46,4 +46,3 @@
 ## 6. Evidence
 
 - [ ] 6.1 记录 RUN_LOG（含 Red 失败证据、Green 通过证据与关键命令输出）
-

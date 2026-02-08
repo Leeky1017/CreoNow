@@ -26,7 +26,6 @@
 - Command: `add rulebook/tasks/issue-264-ai-panel-model-mode-wiring/*`
 - Key output: 新增 Rulebook `proposal.md` 与 `tasks.md`。
 
-
 ### 2026-02-08 13:08 +0800 dynamic model catalog wiring (proxy/BYOK)
 
 - Command: `pnpm.cmd contract:generate`
@@ -76,3 +75,23 @@
 - Key output: 已将已完成 change 归档到 `openspec/changes/archive/`。
 - Command: `edit openspec/changes/EXECUTION_ORDER.md`
 - Key output: 活跃 change 数量改为 4，并移除已归档 change 的活跃顺序项。
+
+### 2026-02-08 16:29 +0800 format/lint gate remediation
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: `pnpm exec prettier --check ...` failed（22 files not formatted）。
+- Command: `pnpm exec prettier --write <preflight listed files>`
+- Key output: 已批量格式化并通过后续 `prettier --check`。
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: `pnpm lint` failed in `AiErrorCard.tsx` (`no-fallthrough`)。
+- Command: `edit apps/desktop/renderer/src/components/features/AiDialogs/AiErrorCard.tsx`
+- Key output: 为 `switch` 合并分支补充显式 `fall through` 注释，消除 lint error。
+
+### 2026-02-08 16:31 +0800 native module ABI remediation for preflight unit suite
+
+- Command: `pnpm -C apps/desktop rebuild:native`
+- Key output: Electron ABI rebuild 完成，但 `pnpm test:unit` 仍报 Node ABI mismatch（143 vs 115）。
+- Command: `pnpm -C apps/desktop rebuild better-sqlite3`
+- Key output: 重新构建为当前 Node ABI；`projectService.projectActions.test.ts` 通过。
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output: preflight 全流程通过（仅保留既有 lint warning，不阻断）。

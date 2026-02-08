@@ -39,9 +39,8 @@ export function ProxySection(): JSX.Element {
     "openai-compatible" | "openai-byok" | "anthropic-byok"
   >("openai-compatible");
   const [enabled, setEnabled] = React.useState(false);
-  const [openAiCompatibleBaseUrl, setOpenAiCompatibleBaseUrl] = React.useState(
-    "",
-  );
+  const [openAiCompatibleBaseUrl, setOpenAiCompatibleBaseUrl] =
+    React.useState("");
   const [openAiCompatibleApiKeyDraft, setOpenAiCompatibleApiKeyDraft] =
     React.useState("");
   const [openAiByokBaseUrl, setOpenAiByokBaseUrl] = React.useState("");
@@ -51,9 +50,15 @@ export function ProxySection(): JSX.Element {
     React.useState("");
   const [errorText, setErrorText] = React.useState<string | null>(null);
   const [testResult, setTestResult] = React.useState<string | null>(null);
-  const [modelCatalog, setModelCatalog] = React.useState<ModelCatalog | null>(null);
-  const [modelsStatus, setModelsStatus] = React.useState<"idle" | "loading">("idle");
-  const [modelsErrorText, setModelsErrorText] = React.useState<string | null>(null);
+  const [modelCatalog, setModelCatalog] = React.useState<ModelCatalog | null>(
+    null,
+  );
+  const [modelsStatus, setModelsStatus] = React.useState<"idle" | "loading">(
+    "idle",
+  );
+  const [modelsErrorText, setModelsErrorText] = React.useState<string | null>(
+    null,
+  );
 
   async function refreshModels(): Promise<void> {
     setModelsStatus("loading");
@@ -196,8 +201,10 @@ export function ProxySection(): JSX.Element {
           value={providerMode}
           onChange={(e) =>
             setProviderMode(
-              e.currentTarget
-                .value as "openai-compatible" | "openai-byok" | "anthropic-byok",
+              e.currentTarget.value as
+                | "openai-compatible"
+                | "openai-byok"
+                | "anthropic-byok",
             )
           }
           className="h-10 w-full px-3 bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-[var(--radius-sm)] text-[13px] text-[var(--color-fg-default)]"
@@ -313,7 +320,9 @@ export function ProxySection(): JSX.Element {
             Available Models
           </Text>
           <Text size="tiny" color="muted" className="ml-auto">
-            {modelCatalog ? `source: ${modelCatalog.source}` : "source: unknown"}
+            {modelCatalog
+              ? `source: ${modelCatalog.source}`
+              : "source: unknown"}
           </Text>
         </div>
 
@@ -382,4 +391,3 @@ export function ProxySection(): JSX.Element {
     </Card>
   );
 }
-

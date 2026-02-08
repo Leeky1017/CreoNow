@@ -16,4 +16,3 @@
 - [ ] 3.1 更新 `openspec/changes/ai-panel-model-mode-wiring/tasks.md` 状态
 - [ ] 3.2 更新 `openspec/changes/EXECUTION_ORDER.md`（活跃 change>=2）
 - [ ] 3.3 记录并维护 `openspec/_ops/task_runs/ISSUE-264.md`（Red/Green 证据）
-

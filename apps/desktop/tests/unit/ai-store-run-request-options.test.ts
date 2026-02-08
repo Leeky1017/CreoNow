@@ -92,4 +92,3 @@ function asRecord(x: unknown): Record<string, unknown> | null {
   assert.equal(context?.projectId, "project-1");
   assert.equal(context?.documentId, "document-1");
 }
-

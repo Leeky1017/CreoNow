@@ -44,18 +44,19 @@ async function readJson(req: http.IncomingMessage): Promise<unknown> {
   });
 }
 
-async function withOpenAiStubServer(
-  args: {
-    endpointPath?: string;
-    handler?: (args: {
-      req: http.IncomingMessage;
-      res: http.ServerResponse;
-      body: JsonRecord;
-      captured: CapturedRequest[];
-    }) => Promise<void> | void;
-    run: (args: { baseUrl: string; captured: CapturedRequest[] }) => Promise<void>;
-  },
-): Promise<void> {
+async function withOpenAiStubServer(args: {
+  endpointPath?: string;
+  handler?: (args: {
+    req: http.IncomingMessage;
+    res: http.ServerResponse;
+    body: JsonRecord;
+    captured: CapturedRequest[];
+  }) => Promise<void> | void;
+  run: (args: {
+    baseUrl: string;
+    captured: CapturedRequest[];
+  }) => Promise<void>;
+}): Promise<void> {
   const endpointPath = args.endpointPath ?? "/v1/chat/completions";
   const captured: CapturedRequest[] = [];
   const server = http.createServer(async (req, res) => {
@@ -127,31 +128,33 @@ function createEmitCollector(): {
 }
 
 {
-  await withOpenAiStubServer({ run: async ({ baseUrl, captured }) => {
-    const ai = createAiService({
-      logger: createNoopLogger(),
-      env: {
-        CREONOW_AI_PROVIDER: "openai",
-        CREONOW_AI_BASE_URL: baseUrl,
-        CREONOW_AI_API_KEY: "test-key",
-      },
-    });
+  await withOpenAiStubServer({
+    run: async ({ baseUrl, captured }) => {
+      const ai = createAiService({
+        logger: createNoopLogger(),
+        env: {
+          CREONOW_AI_PROVIDER: "openai",
+          CREONOW_AI_BASE_URL: baseUrl,
+          CREONOW_AI_API_KEY: "test-key",
+        },
+      });
 
-    const stream = createEmitCollector();
-    const result = await ai.runSkill({
-      skillId: "builtin:polish",
-      input: "hello",
-      stream: false,
-      ts: Date.now(),
-      emitEvent: stream.emitEvent,
-      model: "deepseek",
-      mode: "ask",
-    });
+      const stream = createEmitCollector();
+      const result = await ai.runSkill({
+        skillId: "builtin:polish",
+        input: "hello",
+        stream: false,
+        ts: Date.now(),
+        emitEvent: stream.emitEvent,
+        model: "deepseek",
+        mode: "ask",
+      });
 
-    assert.equal(result.ok, true);
-    assert.equal(captured.length, 1);
-    assert.equal(captured[0]?.model, "deepseek");
-  } });
+      assert.equal(result.ok, true);
+      assert.equal(captured.length, 1);
+      assert.equal(captured[0]?.model, "deepseek");
+    },
+  });
 }
 
 {
@@ -205,40 +208,43 @@ function createEmitCollector(): {
 }
 
 {
-  await withOpenAiStubServer({ run: async ({ baseUrl, captured }) => {
-    const ai = createAiService({
-      logger: createNoopLogger(),
-      env: {
-        CREONOW_AI_PROVIDER: "openai",
-        CREONOW_AI_BASE_URL: baseUrl,
-        CREONOW_AI_API_KEY: "test-key",
-      },
-    });
+  await withOpenAiStubServer({
+    run: async ({ baseUrl, captured }) => {
+      const ai = createAiService({
+        logger: createNoopLogger(),
+        env: {
+          CREONOW_AI_PROVIDER: "openai",
+          CREONOW_AI_BASE_URL: baseUrl,
+          CREONOW_AI_API_KEY: "test-key",
+        },
+      });
 
-    const stream = createEmitCollector();
-    const result = await ai.runSkill({
-      skillId: "builtin:polish",
-      input: "hello",
-      stream: false,
-      ts: Date.now(),
-      emitEvent: stream.emitEvent,
-      model: "gpt-5.2",
-      mode: "plan",
-      systemPrompt: "base-system",
-    });
+      const stream = createEmitCollector();
+      const result = await ai.runSkill({
+        skillId: "builtin:polish",
+        input: "hello",
+        stream: false,
+        ts: Date.now(),
+        emitEvent: stream.emitEvent,
+        model: "gpt-5.2",
+        mode: "plan",
+        systemPrompt: "base-system",
+      });
 
-    assert.equal(result.ok, true);
-    assert.equal(captured.length, 1);
+      assert.equal(result.ok, true);
+      assert.equal(captured.length, 1);
 
-    const messages = captured[0]?.messages;
-    assert.equal(Array.isArray(messages), true);
+      const messages = captured[0]?.messages;
+      assert.equal(Array.isArray(messages), true);
 
-    const first = Array.isArray(messages) ? asRecord(messages[0]) : null;
-    assert.equal(first?.role, "system");
-    const systemText = typeof first?.content === "string" ? first.content : "";
-    assert.equal(systemText.includes("base-system"), true);
-    assert.equal(systemText.includes("Mode: plan"), true);
-  } });
+      const first = Array.isArray(messages) ? asRecord(messages[0]) : null;
+      assert.equal(first?.role, "system");
+      const systemText =
+        typeof first?.content === "string" ? first.content : "";
+      assert.equal(systemText.includes("base-system"), true);
+      assert.equal(systemText.includes("Mode: plan"), true);
+    },
+  });
 }
 
 {

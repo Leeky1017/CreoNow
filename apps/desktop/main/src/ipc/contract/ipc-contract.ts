@@ -162,7 +162,11 @@ const AI_MODEL_CATALOG_ITEM_SCHEMA = s.object({
 });
 
 const AI_MODEL_CATALOG_SCHEMA = s.object({
-  source: s.union(s.literal("proxy"), s.literal("openai"), s.literal("anthropic")),
+  source: s.union(
+    s.literal("proxy"),
+    s.literal("openai"),
+    s.literal("anthropic"),
+  ),
   items: s.array(AI_MODEL_CATALOG_ITEM_SCHEMA),
 });
 
@@ -899,6 +903,3 @@ export const ipcContract = {
     },
   },
 } as const;
-
-
-

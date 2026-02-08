@@ -67,12 +67,16 @@ const KEY_ENABLED = "creonow.ai.proxy.enabled" as const;
 const KEY_BASE_URL = "creonow.ai.proxy.baseUrl" as const;
 const KEY_API_KEY = "creonow.ai.proxy.apiKey" as const;
 const KEY_PROVIDER_MODE = "creonow.ai.provider.mode" as const;
-const KEY_OA_COMPAT_BASE_URL = "creonow.ai.provider.openaiCompatible.baseUrl" as const;
-const KEY_OA_COMPAT_API_KEY = "creonow.ai.provider.openaiCompatible.apiKey" as const;
+const KEY_OA_COMPAT_BASE_URL =
+  "creonow.ai.provider.openaiCompatible.baseUrl" as const;
+const KEY_OA_COMPAT_API_KEY =
+  "creonow.ai.provider.openaiCompatible.apiKey" as const;
 const KEY_OA_BYOK_BASE_URL = "creonow.ai.provider.openaiByok.baseUrl" as const;
 const KEY_OA_BYOK_API_KEY = "creonow.ai.provider.openaiByok.apiKey" as const;
-const KEY_ANTH_BYOK_BASE_URL = "creonow.ai.provider.anthropicByok.baseUrl" as const;
-const KEY_ANTH_BYOK_API_KEY = "creonow.ai.provider.anthropicByok.apiKey" as const;
+const KEY_ANTH_BYOK_BASE_URL =
+  "creonow.ai.provider.anthropicByok.baseUrl" as const;
+const KEY_ANTH_BYOK_API_KEY =
+  "creonow.ai.provider.anthropicByok.apiKey" as const;
 
 function nowTs(): number {
   return Date.now();

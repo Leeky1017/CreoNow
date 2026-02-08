@@ -1,13 +1,8 @@
 ﻿import React from "react";
 
-
-
 import {
-
   AiErrorCard,
-
   type AiErrorConfig,
-
 } from "../../components/features/AiDialogs";
 
 import { Button, Spinner, Text } from "../../components/primitives";
@@ -34,12 +29,16 @@ import { ChatHistory } from "./ChatHistory";
 
 import { ModePicker, getModeName, type AiMode } from "./ModePicker";
 
-import { ModelPicker, getModelName, type AiModel, type AiModelOption } from "./ModelPicker";
+import {
+  ModelPicker,
+  getModelName,
+  type AiModel,
+  type AiModelOption,
+} from "./ModelPicker";
 import { useAiStream } from "./useAiStream";
 import { onAiModelCatalogUpdated } from "./modelCatalogEvents";
 
 const RECENT_MODELS_STORAGE_KEY = "creonow.ai.recentModels";
-
 
 /**
 
@@ -48,12 +47,8 @@ const RECENT_MODELS_STORAGE_KEY = "creonow.ai.recentModels";
  */
 
 function isRunning(status: AiStatus): boolean {
-
   return status === "running" || status === "streaming";
-
 }
-
-
 
 /**
 
@@ -68,7 +63,6 @@ function isRunning(status: AiStatus): boolean {
  */
 
 function SendStopButton(props: {
-
   isWorking: boolean;
 
   disabled?: boolean;
@@ -76,76 +70,43 @@ function SendStopButton(props: {
   onSend: () => void;
 
   onStop: () => void;
-
 }): JSX.Element {
-
   return (
-
     <button
-
       data-testid="ai-send-stop"
-
       type="button"
-
       className="w-7 h-7 rounded-[var(--radius-sm)] flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-
       onClick={props.isWorking ? props.onStop : props.onSend}
-
       disabled={props.disabled}
-
       title={props.isWorking ? "Stop generating" : "Send message"}
-
     >
-
       {props.isWorking ? (
-
         // Stop icon: circle with square
 
         <div className="w-5 h-5 rounded-full border-2 border-current flex items-center justify-center">
-
           <div className="w-2 h-2 bg-current rounded-[1px]" />
-
         </div>
-
       ) : (
-
         // Send icon: arrow up
 
         <svg
-
           width="16"
-
           height="16"
-
           viewBox="0 0 24 24"
-
           fill="none"
-
           stroke="currentColor"
-
           strokeWidth="2"
-
           strokeLinecap="round"
-
           strokeLinejoin="round"
-
         >
-
           <line x1="12" y1="19" x2="12" y2="5" />
 
           <polyline points="5 12 12 5 19 12" />
-
         </svg>
-
       )}
-
     </button>
-
   );
-
 }
-
-
 
 /**
 
@@ -179,7 +140,6 @@ function ToolButton(props: {
   );
 }
 
-
 /**
 
  * CodeBlock - Renders a code block with Copy and Apply buttons
@@ -189,7 +149,6 @@ function ToolButton(props: {
  */
 
 export function CodeBlock(props: {
-
   language?: string;
 
   code: string;
@@ -197,15 +156,10 @@ export function CodeBlock(props: {
   onCopy?: () => void;
 
   onApply?: () => void;
-
 }): JSX.Element {
-
   const [copied, setCopied] = React.useState(false);
 
-
-
   function handleCopy(): void {
-
     void navigator.clipboard.writeText(props.code);
 
     setCopied(true);
@@ -213,78 +167,46 @@ export function CodeBlock(props: {
     setTimeout(() => setCopied(false), 2000);
 
     props.onCopy?.();
-
   }
 
-
-
   return (
-
     <div className="my-3 border border-[var(--color-border-default)] rounded-[var(--radius-md)] overflow-hidden bg-[var(--color-bg-base)]">
-
       {/* Header */}
 
       <div className="flex items-center justify-between px-3 py-1.5 bg-[var(--color-bg-raised)] border-b border-[var(--color-border-default)]">
-
         <span className="text-[11px] text-[var(--color-fg-muted)] uppercase tracking-wide">
-
           {props.language || "code"}
-
         </span>
 
         <div className="flex items-center gap-1">
-
           <button
-
             type="button"
-
             onClick={handleCopy}
-
             className="px-2 py-0.5 text-[11px] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)] rounded transition-colors"
-
           >
-
             {copied ? "Copied!" : "Copy"}
-
           </button>
 
           {props.onApply && (
-
             <button
-
               type="button"
-
               onClick={props.onApply}
-
               className="px-2 py-0.5 text-[11px] text-[var(--color-fg-accent)] hover:bg-[var(--color-bg-hover)] rounded transition-colors"
-
             >
-
               Apply
-
             </button>
-
           )}
-
         </div>
-
       </div>
 
       {/* Code content */}
 
       <pre className="m-0 p-3 overflow-x-auto text-[12px] leading-[1.6] text-[var(--color-fg-default)] font-[var(--font-family-mono)]">
-
         <code>{props.code}</code>
-
       </pre>
-
     </div>
-
   );
-
 }
-
-
 
 /**
 
@@ -293,24 +215,14 @@ export function CodeBlock(props: {
  */
 
 function InfoPanel(): JSX.Element {
-
   return (
-
     <div className="flex-1 flex items-center justify-center p-4">
-
       <Text size="small" color="muted" className="text-center">
-
         Project and document info will appear here
-
       </Text>
-
     </div>
-
   );
-
 }
-
-
 
 /**
 
@@ -333,10 +245,7 @@ function InfoPanel(): JSX.Element {
  */
 
 export function AiPanel(): JSX.Element {
-
   useAiStream();
-
-
 
   const openSettings = useOpenSettings();
 
@@ -366,8 +275,6 @@ export function AiPanel(): JSX.Element {
 
   const applyStatus = useAiStore((s) => s.applyStatus);
 
-
-
   const setInput = useAiStore((s) => s.setInput);
 
   const setSelectedSkillId = useAiStore((s) => s.setSelectedSkillId);
@@ -390,24 +297,16 @@ export function AiPanel(): JSX.Element {
 
   const cancel = useAiStore((s) => s.cancel);
 
-
-
   const editor = useEditorStore((s) => s.editor);
 
   const projectId = useEditorStore((s) => s.projectId);
 
   const documentId = useEditorStore((s) => s.documentId);
 
-
-
   const currentProject = useProjectStore((s) => s.current);
 
-
-
   const [activeTab, setActiveTab] = React.useState<"assistant" | "info">(
-
     "assistant",
-
   );
 
   const [skillsOpen, setSkillsOpen] = React.useState(false);
@@ -420,74 +319,52 @@ export function AiPanel(): JSX.Element {
   const [selectedMode, setSelectedMode] = React.useState<AiMode>("ask");
   const [selectedModel, setSelectedModel] = React.useState<AiModel>("gpt-5.2");
   const [recentModelIds, setRecentModelIds] = React.useState<string[]>([]);
-  const [availableModels, setAvailableModels] = React.useState<AiModelOption[]>([]);
-  const [modelsStatus, setModelsStatus] =
-
-    React.useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [availableModels, setAvailableModels] = React.useState<AiModelOption[]>(
+    [],
+  );
+  const [modelsStatus, setModelsStatus] = React.useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
 
   const [modelsLastError, setModelsLastError] = React.useState<string | null>(
-
     null,
-
   );
 
   const [lastRequest, setLastRequest] = React.useState<string | null>(null);
 
-
-
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-
-
   const refreshModels = React.useCallback(async () => {
-
     setModelsStatus("loading");
 
     setModelsLastError(null);
 
-
-
     const res = await invoke("ai:models:list", {});
 
     if (!res.ok) {
-
       setModelsStatus("error");
 
       setModelsLastError(`${res.error.code}: ${res.error.message}`);
 
       return;
-
     }
-
-
 
     setAvailableModels(res.data.items);
 
     setModelsStatus("ready");
 
-
-
     if (res.data.items.length === 0) {
-
       return;
-
     }
 
     const selectedExists = res.data.items.some(
-
       (item) => item.id === selectedModel,
-
     );
 
     if (!selectedExists) {
-
       setSelectedModel(res.data.items[0].id);
-
     }
-
   }, [selectedModel]);
-
-
 
   React.useEffect(() => {
     void refreshSkills();
@@ -518,10 +395,10 @@ export function AiPanel(): JSX.Element {
       return;
     }
     setRecentModelIds((prev) => {
-      const next = [selectedModel, ...prev.filter((id) => id !== selectedModel)].slice(
-        0,
-        8,
-      );
+      const next = [
+        selectedModel,
+        ...prev.filter((id) => id !== selectedModel),
+      ].slice(0, 8);
       window.localStorage.setItem(
         RECENT_MODELS_STORAGE_KEY,
         JSON.stringify(next),
@@ -530,8 +407,6 @@ export function AiPanel(): JSX.Element {
     });
   }, [selectedModel]);
 
-
-
   React.useEffect(() => {
     return onAiModelCatalogUpdated(() => {
       void refreshModels();
@@ -539,29 +414,19 @@ export function AiPanel(): JSX.Element {
   }, [refreshModels]);
 
   React.useEffect(() => {
-
     if (status !== "idle") {
-
       return;
-
     }
 
     if (proposal || !lastRunId || outputText.trim().length === 0) {
-
       return;
-
     }
 
     if (!selectionRef || selectionText.length === 0) {
-
       return;
-
     }
 
-
-
     setProposal({
-
       runId: lastRunId,
 
       selectionRef,
@@ -569,11 +434,8 @@ export function AiPanel(): JSX.Element {
       selectionText,
 
       replacementText: outputText,
-
     });
-
   }, [
-
     lastRunId,
 
     outputText,
@@ -587,38 +449,22 @@ export function AiPanel(): JSX.Element {
     setProposal,
 
     status,
-
   ]);
 
-
-
   const diffText = proposal
-
     ? unifiedDiff({
-
         oldText: proposal.selectionText,
 
         newText: proposal.replacementText,
-
       })
-
     : "";
 
-
-
   const canApply =
-
     !!editor &&
-
     !!proposal &&
-
     !!projectId &&
-
     !!documentId &&
-
     applyStatus !== "applying";
-
-
 
   /**
 
@@ -627,10 +473,7 @@ export function AiPanel(): JSX.Element {
    */
 
   async function onRun(): Promise<void> {
-
     if (!input.trim()) return;
-
-
 
     setLastRequest(input);
 
@@ -638,29 +481,17 @@ export function AiPanel(): JSX.Element {
 
     setError(null);
 
-
-
     if (editor) {
-
       const captured = captureSelectionRef(editor);
 
       if (captured.ok) {
-
         setSelectionSnapshot(captured.data);
-
       } else {
-
         setSelectionSnapshot(null);
-
       }
-
     } else {
-
       setSelectionSnapshot(null);
-
     }
-
-
 
     await run({
       context: {
@@ -672,57 +503,38 @@ export function AiPanel(): JSX.Element {
     });
   }
 
-
   function onReject(): void {
-
     setProposal(null);
 
     setSelectionSnapshot(null);
-
   }
 
-
-
   async function onApply(): Promise<void> {
-
     if (!editor || !proposal || !projectId || !documentId) {
-
       return;
-
     }
 
-
-
     const applied = applySelection({
-
       editor,
 
       selectionRef: proposal.selectionRef,
 
       replacementText: proposal.replacementText,
-
     });
 
     if (!applied.ok) {
-
       setError(applied.error);
 
       if (applied.error.code === "CONFLICT") {
-
         void logAiApplyConflict({ documentId, runId: proposal.runId });
-
       }
 
       return;
-
     }
-
-
 
     const json = JSON.stringify(editor.getJSON());
 
     await persistAiApply({
-
       projectId,
 
       documentId,
@@ -730,32 +542,20 @@ export function AiPanel(): JSX.Element {
       contentJson: json,
 
       runId: proposal.runId,
-
     });
-
   }
 
-
-
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
-
     // Enter to send (without Shift)
 
     if (e.key === "Enter" && !e.shiftKey) {
-
       e.preventDefault();
 
       if (!isRunning(status) && input.trim()) {
-
         void onRun();
-
       }
-
     }
-
   }
-
-
 
   /**
 
@@ -764,7 +564,6 @@ export function AiPanel(): JSX.Element {
    */
 
   function handleNewChat(): void {
-
     setLastRequest(null);
 
     setInput("");
@@ -774,17 +573,12 @@ export function AiPanel(): JSX.Element {
     setError(null);
 
     textareaRef.current?.focus();
-
   }
-
-
 
   const working = isRunning(status);
 
   const skillsErrorConfig: AiErrorConfig | null = skillsLastError
-
     ? {
-
         type: "service_error",
 
         title: "Skills unavailable",
@@ -792,17 +586,11 @@ export function AiPanel(): JSX.Element {
         description: skillsLastError.message,
 
         errorCode: skillsLastError.code,
-
       }
-
     : null;
 
-
-
   const modelsErrorConfig: AiErrorConfig | null = modelsLastError
-
     ? {
-
         type: "service_error",
 
         title: "Models unavailable",
@@ -810,71 +598,42 @@ export function AiPanel(): JSX.Element {
         description: modelsLastError,
 
         errorCode: "UPSTREAM_ERROR",
-
       }
-
     : null;
 
-
-
   const runtimeErrorConfig: AiErrorConfig | null = lastError
-
     ? {
-
         type:
-
           lastError.code === "TIMEOUT"
-
             ? "timeout"
-
             : lastError.code === "RATE_LIMITED"
-
               ? "rate_limit"
-
               : "service_error",
 
         title:
-
           lastError.code === "TIMEOUT"
-
             ? "Timeout"
-
             : lastError.code === "RATE_LIMITED"
-
               ? "Rate limited"
-
               : "AI error",
 
         description: lastError.message,
 
         errorCode: lastError.code,
-
       }
-
     : null;
 
-
-
   return (
-
     <section
-
       data-testid="ai-panel"
-
       className="flex flex-col h-full min-h-0 bg-[var(--color-bg-surface)]"
-
     >
-
       {/* Header with Tabs */}
 
       <header className="flex items-center h-8 px-2 border-b border-[var(--color-separator)] shrink-0">
-
         <div className="flex items-center gap-3 h-full">
-
           <button
-
             type="button"
-
             className={`
 
               h-full text-[10px] font-semibold uppercase tracking-wide
@@ -882,29 +641,19 @@ export function AiPanel(): JSX.Element {
               border-b transition-colors
 
               ${
-
                 activeTab === "assistant"
-
                   ? "text-[var(--color-fg-default)] border-[var(--color-accent)]"
-
                   : "text-[var(--color-fg-muted)] border-transparent hover:text-[var(--color-fg-default)]"
-
               }
 
             `}
-
             onClick={() => setActiveTab("assistant")}
-
           >
-
             Assistant
-
           </button>
 
           <button
-
             type="button"
-
             className={`
 
               h-full text-[10px] font-semibold uppercase tracking-wide
@@ -912,131 +661,75 @@ export function AiPanel(): JSX.Element {
               border-b transition-colors
 
               ${
-
                 activeTab === "info"
-
                   ? "text-[var(--color-fg-default)] border-[var(--color-accent)]"
-
                   : "text-[var(--color-fg-muted)] border-transparent hover:text-[var(--color-fg-default)]"
-
               }
 
             `}
-
             onClick={() => setActiveTab("info")}
-
           >
-
             Info
-
           </button>
-
         </div>
 
-
-
         <div className="ml-auto flex items-center gap-1 relative">
-
           {/* History button */}
 
           <button
-
             data-testid="ai-history-toggle"
-
             type="button"
-
             title="History"
-
             onClick={() => setHistoryOpen((v) => !v)}
-
             className={`w-5 h-5 flex items-center justify-center rounded transition-colors ${
-
               historyOpen
-
                 ? "text-[var(--color-fg-default)] bg-[var(--color-bg-selected)]"
-
                 : "text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
-
             }`}
-
           >
-
             <svg
-
               width="12"
-
               height="12"
-
               viewBox="0 0 24 24"
-
               fill="none"
-
               stroke="currentColor"
-
               strokeWidth="2"
-
             >
-
               <circle cx="12" cy="12" r="10" />
 
               <polyline points="12 6 12 12 16 14" />
-
             </svg>
-
           </button>
 
           {/* New Chat button */}
 
           <button
-
             data-testid="ai-new-chat"
-
             type="button"
-
             title="New Chat"
-
             onClick={handleNewChat}
-
             className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] rounded transition-colors"
-
           >
-
             <svg
-
               width="12"
-
               height="12"
-
               viewBox="0 0 24 24"
-
               fill="none"
-
               stroke="currentColor"
-
               strokeWidth="2"
-
             >
-
               <line x1="12" y1="5" x2="12" y2="19" />
 
               <line x1="5" y1="12" x2="19" y2="12" />
-
             </svg>
-
           </button>
-
-
 
           {/* History Dropdown */}
 
           <ChatHistory
-
             open={historyOpen}
-
             onOpenChange={setHistoryOpen}
-
             onSelectChat={(chatId) => {
-
               // History feature: select a chat by ID
 
               // Currently shows a placeholder UI; full implementation is P1 scope
@@ -1046,16 +739,10 @@ export function AiPanel(): JSX.Element {
               // Optionally show a toast or notification that this feature is coming
 
               void chatId; // Acknowledge the parameter for type checking
-
             }}
-
           />
-
         </div>
-
       </header>
-
-
 
       {activeTab === "info" ? (
         <InfoPanel />
@@ -1267,8 +954,6 @@ export function AiPanel(): JSX.Element {
         </>
       )}
 
-
-
       {/* CSS for typing cursor animation */}
 
       <style>{`
@@ -1304,18 +989,6 @@ export function AiPanel(): JSX.Element {
         }
 
       `}</style>
-
     </section>
-
   );
-
 }
-
-
-
-
-
-
-
-
-
