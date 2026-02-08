@@ -40,6 +40,15 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
+  ipc-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: IPC acceptance SLO gate
+        run: pnpm test:ipc:acceptance
+
   contract-check:
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -129,6 +138,7 @@ jobs:
       - lint-and-typecheck
       - unit-test
       - integration-test
+      - ipc-acceptance
       - contract-check
       - storybook-build
       - windows-e2e

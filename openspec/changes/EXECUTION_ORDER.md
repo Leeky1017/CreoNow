@@ -1,22 +1,22 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-08 10:43
+更新时间：2026-02-08 11:09
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 1，无并行冲突。
-- 执行模式：单任务推进（`ipc-p2` 独立执行）。
+- 当前活跃 change 数量为 0。
+- 执行模式：无待执行变更。
 
 ## 执行顺序
 
-1. `ipc-p2-acceptance-slo-and-benchmark-gates`
+- 当前无活跃 change。
 
 ## 依赖说明
 
 - `ipc-p1-ipc-testability-harness` 已完成并归档到 `openspec/changes/archive/`。
-- `ipc-p2-acceptance-slo-and-benchmark-gates` 继承 `ipc-p1` 产出的测试基建作为执行前提。
+- `ipc-p2-acceptance-slo-and-benchmark-gates` 已完成并归档到 `openspec/changes/archive/`。
 
 ## 维护规则
 
