@@ -3,7 +3,7 @@
 - Issue: #285
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/285
 - Branch: `task/285-rulebook-issue-282-closeout`
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/286
 - Scope: 回填 `issue-282` Rulebook 任务文档中的 2 个残留未勾选项并完成最小治理修复交付
 - Out of Scope: 任何功能实现或 OpenSpec 行为变更
 
