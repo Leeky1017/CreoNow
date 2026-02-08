@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-08 17:31
+更新时间：2026-02-08 18:37
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -20,6 +20,7 @@
 - `ai-panel-model-mode-wiring` 依赖 IPC P0/P1 契约与运行时校验基线。
 - `document-management-p1-file-tree-organization` 已完成并归档至 `openspec/changes/archive/document-management-p1-file-tree-organization/`，不再属于活跃队列。
 - `document-management-p1-reference-and-export` 已归档至 `openspec/changes/archive/document-management-p1-reference-and-export/`，不再属于活跃队列。
+- `document-management-p2-hardening-and-gates` 已归档至 `openspec/changes/archive/document-management-p2-hardening-and-gates/`，不再属于活跃队列。
 
 ## 维护规则
 
