@@ -177,7 +177,7 @@ describe("DashboardPage", () => {
         expect(screen.getByTestId("dashboard-empty")).toBeInTheDocument();
       });
 
-      expect(screen.getByText("No projects yet")).toBeInTheDocument();
+      expect(screen.getByText("开始创建你的第一个创作项目")).toBeInTheDocument();
       expect(screen.getByTestId("dashboard-create-first")).toBeInTheDocument();
     });
 
@@ -270,7 +270,7 @@ describe("DashboardPage", () => {
       await user.type(searchInput, "nonexistent");
 
       await waitFor(() => {
-        expect(screen.getByText(/No projects match/)).toBeInTheDocument();
+        expect(screen.getByText("未找到匹配结果")).toBeInTheDocument();
       });
     });
   });
