@@ -3,7 +3,7 @@
 - Issue: #278
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/278
 - Branch: `task/278-document-management-p1-file-tree-organization`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/284
 - Scope: 完成 `document-management-p1-file-tree-organization`（文件树与章节组织）从 OpenSpec 拆分到实现、测试、交付收口
 - Out of Scope: 文档间互相引用、文档导出、主 spec 直接修改
 
