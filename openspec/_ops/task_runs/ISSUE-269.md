@@ -17,6 +17,13 @@
 
 - CURRENT: 已完成归档改动与本地验证，等待 PR 合并。
 
+## Plan
+
+- 归档 `ipc-p0-envelope-ok-and-preload-security-evidence` 到 `openspec/changes/archive/`。
+- 同步 `openspec/changes/EXECUTION_ORDER.md` 为 active change 数量 0。
+- 回填 `ISSUE-267` 的 PR/merge 证据并记录 `ISSUE-269` 运行日志。
+- 提交 PR 并等待 required checks 全绿后 auto-merge。
+
 ## Runs
 
 ### 2026-02-08 12:58 +0800 issue bootstrap
