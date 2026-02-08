@@ -13,9 +13,17 @@
 - 落地语义记忆蒸馏、衰减生命周期、冲突检测与用户确认队列、并发写入隔离。
 - 新增 `memory:semantic:*` 与 `memory:distill:progress` 契约，完成 required checks 并合并控制面 `main`。
 
+## Plan
+
+- [x] 完成 MS-2 场景测试与最小实现闭环（Red → Green → Refactor）
+- [x] 归档 `memory-system-p1-distillation-decay-conflict` 并同步 `EXECUTION_ORDER.md`
+- [x] 创建 PR 并回填 RUN_LOG 的真实 PR 链接
+- [ ] 修复 CI 阻塞项并等待 required checks 全绿
+- [ ] auto-merge 完成后同步控制面 `main`、归档 Rulebook task、清理 worktree
+
 ## Status
 
-- CURRENT: 进行中（已完成归档与本地门禁复核，待提交/PR/auto-merge/控制面收口）。
+- CURRENT: 进行中（PR #310 已开启 auto-merge；`openspec-log-guard` 失败，正在修复 RUN_LOG 结构并重跑）。
 
 ## Runs
 
@@ -176,3 +184,28 @@
 - Exit code: `0`
 - Key output:
   - `Task issue-306-memory-system-p1-distillation-decay-conflict is valid`
+
+### 2026-02-08 23:23 rebase 与分支冲突修复
+
+- Command:
+  - `git fetch origin main && git rebase origin/main`
+  - `edit openspec/changes/EXECUTION_ORDER.md`
+  - `GIT_EDITOR=true git rebase --continue`
+  - `git merge --no-ff origin/task/306-memory-system-p1-distillation-decay-conflict -m "chore: reconcile remote branch history before merge (#306)"`
+  - `edit openspec/changes/EXECUTION_ORDER.md`
+  - `git commit --no-edit`
+  - `git push`
+- Exit code: `0`（中间包含冲突，已解决）
+- Key output:
+  - `EXECUTION_ORDER.md` 冲突点已按当前活跃 change（4 个）完成合并。
+  - 分支已成功 push 到 `origin/task/306-memory-system-p1-distillation-decay-conflict`。
+
+### 2026-02-08 23:26 CI 失败定位（openspec-log-guard）
+
+- Command:
+  - `gh pr checks 310 --watch`
+  - `gh run view 21800569666 --job 62895295133 --log`
+- Exit code: `1`（预期，定位失败原因）
+- Key output:
+  - `openspec-log-guard` 报错：`RUN_LOG missing required fields: Plan`。
+  - 处理动作：补充 `ISSUE-306.md` 的 `## Plan` 段并重新 push 触发检查。
