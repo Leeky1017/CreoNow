@@ -52,12 +52,12 @@ Document Management 模块所有 Requirement 在交付前必须通过统一门�
 
 门禁阈值（必须可测）：
 
-| 维度 | 阈值 | 失败结果 |
-| --- | --- | --- |
-| 容量阈值 | `<= 5 MiB` 允许；`> 5 MiB` 拒绝 | `DOCUMENT_CAPACITY_LIMIT_EXCEEDED` |
+| 维度     | 阈值                                                                                             | 失败结果                                  |
+| -------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| 容量阈值 | `<= 5 MiB` 允许；`> 5 MiB` 拒绝                                                                  | `DOCUMENT_CAPACITY_LIMIT_EXCEEDED`        |
 | 性能阈值 | 在 `<= 1 MiB` 文档集下，`file:document:read` `p95 <= 120ms`，`file:document:save` `p95 <= 200ms` | `DOCUMENT_PERFORMANCE_THRESHOLD_EXCEEDED` |
-| 队列背压 | 写入队列待处理任务 `> 32` 时，新增请求须在 `<= 50ms` 内拒绝 | `DOCUMENT_QUEUE_BACKPRESSURE` |
-| 路径安全 | 任意文件路径越权尝试 100% 阻断 | `DOCUMENT_PATH_TRAVERSAL_BLOCKED` |
+| 队列背压 | 写入队列待处理任务 `> 32` 时，新增请求须在 `<= 50ms` 内拒绝                                      | `DOCUMENT_QUEUE_BACKPRESSURE`             |
+| 路径安全 | 任意文件路径越权尝试 100% 阻断                                                                   | `DOCUMENT_PATH_TRAVERSAL_BLOCKED`         |
 
 可执行验证位（基线命令）：
 
@@ -93,14 +93,14 @@ Document Management 模块所有 Requirement 在交付前必须通过统一门�
 
 覆盖矩阵最小集合（不得删减）：
 
-| 边界/异常类别 | 触发条件 | 预期错误码 | 恢复策略 | Scenario 绑定 |
-| --- | --- | --- | --- | --- |
-| 容量上限 | 文档字节数 `> 5 MiB` | `DOCUMENT_CAPACITY_LIMIT_EXCEEDED` | 保留原内容 + 提示分片/精简 | `DM-P2-HG-S1` |
-| 编码异常 | 非 UTF-8 可解码输入 | `DOCUMENT_ENCODING_INVALID` | 拒绝写入 + 提示重新编码 | `DM-P2-HG-S2` |
-| 并发冲突 | `baseRevision` 过期 | `DOCUMENT_CONFLICT_DETECTED` | 拉取最新版本后合并重试 | `DM-P2-HG-S3` |
-| 性能超阈 | p95 超过规定门限 | `DOCUMENT_PERFORMANCE_THRESHOLD_EXCEEDED` | 阻断验收并定位瓶颈 | `DM-P2-GATE-S1` |
-| 队列背压 | 待处理写入 `> 32` | `DOCUMENT_QUEUE_BACKPRESSURE` | 快速失败 + 降载重试 | `DM-P2-GATE-S2` |
-| 路径越权 | 路径穿越/链接逃逸 | `DOCUMENT_PATH_TRAVERSAL_BLOCKED` | 阻断访问 + 安全告警 | `DM-P2-HG-S4` / `DM-P2-GATE-S3` |
+| 边界/异常类别 | 触发条件             | 预期错误码                                | 恢复策略                   | Scenario 绑定                   |
+| ------------- | -------------------- | ----------------------------------------- | -------------------------- | ------------------------------- |
+| 容量上限      | 文档字节数 `> 5 MiB` | `DOCUMENT_CAPACITY_LIMIT_EXCEEDED`        | 保留原内容 + 提示分片/精简 | `DM-P2-HG-S1`                   |
+| 编码异常      | 非 UTF-8 可解码输入  | `DOCUMENT_ENCODING_INVALID`               | 拒绝写入 + 提示重新编码    | `DM-P2-HG-S2`                   |
+| 并发冲突      | `baseRevision` 过期  | `DOCUMENT_CONFLICT_DETECTED`              | 拉取最新版本后合并重试     | `DM-P2-HG-S3`                   |
+| 性能超阈      | p95 超过规定门限     | `DOCUMENT_PERFORMANCE_THRESHOLD_EXCEEDED` | 阻断验收并定位瓶颈         | `DM-P2-GATE-S1`                 |
+| 队列背压      | 待处理写入 `> 32`    | `DOCUMENT_QUEUE_BACKPRESSURE`             | 快速失败 + 降载重试        | `DM-P2-GATE-S2`                 |
+| 路径越权      | 路径穿越/链接逃逸    | `DOCUMENT_PATH_TRAVERSAL_BLOCKED`         | 阻断访问 + 安全告警        | `DM-P2-HG-S4` / `DM-P2-GATE-S3` |
 
 #### Scenario: 异常与边界覆盖矩阵完整性可验证 [ADDED]
 
