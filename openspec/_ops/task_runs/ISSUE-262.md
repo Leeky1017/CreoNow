@@ -2,7 +2,7 @@
 
 - Issue: #262
 - Branch: task/262-ipc-p2-acceptance-slo-and-benchmark-gates
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/263
 
 ## Plan
 
