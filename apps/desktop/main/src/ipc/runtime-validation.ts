@@ -91,6 +91,8 @@ function renderSchema(schema: IpcSchema): string {
       return JSON.stringify(schema.value);
     case "array":
       return `array<${renderSchema(schema.element)}>`;
+    case "record":
+      return `record<string, ${renderSchema(schema.value)}>`;
     case "union":
       return schema.variants
         .map((variant) => renderSchema(variant))
@@ -160,6 +162,26 @@ function validateSchemaAtPath(
       value.forEach((item, index) => {
         validateSchemaAtPath(schema.element, item, `${path}[${index}]`, issues);
       });
+      return;
+    case "record":
+      if (!isRecord(value) || Array.isArray(value)) {
+        pushIssue(
+          issues,
+          path,
+          "must be object record",
+          renderSchema(schema),
+          value,
+        );
+        return;
+      }
+      for (const [key, recordValue] of Object.entries(value)) {
+        validateSchemaAtPath(
+          schema.value,
+          recordValue,
+          `${path}.${key}`,
+          issues,
+        );
+      }
       return;
     case "union": {
       const matchesVariant = schema.variants.some((variant) => {

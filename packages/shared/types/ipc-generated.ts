@@ -19,6 +19,13 @@ export type IpcErrorCode =
   | "IPC_PAYLOAD_TOO_LARGE"
   | "IPC_SUBSCRIPTION_LIMIT_EXCEEDED"
   | "IPC_TIMEOUT"
+  | "KG_ATTRIBUTE_KEYS_EXCEEDED"
+  | "KG_CAPACITY_EXCEEDED"
+  | "KG_ENTITY_CONFLICT"
+  | "KG_ENTITY_DUPLICATE"
+  | "KG_QUERY_TIMEOUT"
+  | "KG_RELATION_INVALID"
+  | "KG_SUBGRAPH_K_EXCEEDED"
   | "MEMORY_CAPACITY_EXCEEDED"
   | "MEMORY_EPISODE_WRITE_FAILED"
   | "MODEL_NOT_READY"
@@ -94,15 +101,18 @@ export const IPC_CHANNELS = [
   "file:document:updatestatus",
   "judge:model:ensure",
   "judge:model:getstate",
-  "kg:entity:create",
-  "kg:entity:delete",
-  "kg:entity:list",
-  "kg:entity:update",
-  "kg:graph:get",
-  "kg:relation:create",
-  "kg:relation:delete",
-  "kg:relation:list",
-  "kg:relation:update",
+  "knowledge:entity:create",
+  "knowledge:entity:delete",
+  "knowledge:entity:list",
+  "knowledge:entity:read",
+  "knowledge:entity:update",
+  "knowledge:query:path",
+  "knowledge:query:subgraph",
+  "knowledge:query:validate",
+  "knowledge:relation:create",
+  "knowledge:relation:delete",
+  "knowledge:relation:list",
+  "knowledge:relation:update",
   "memory:entry:create",
   "memory:entry:delete",
   "memory:entry:list",
@@ -176,7 +186,14 @@ export type IpcChannelSpec = {
           | "TIMEOUT"
           | "CANCELED"
           | "UPSTREAM_ERROR"
-          | "INTERNAL";
+          | "INTERNAL"
+          | "KG_ATTRIBUTE_KEYS_EXCEEDED"
+          | "KG_CAPACITY_EXCEEDED"
+          | "KG_ENTITY_CONFLICT"
+          | "KG_ENTITY_DUPLICATE"
+          | "KG_QUERY_TIMEOUT"
+          | "KG_RELATION_INVALID"
+          | "KG_SUBGRAPH_K_EXCEEDED";
         message: string;
       };
       latencyMs: number;
@@ -625,7 +642,14 @@ export type IpcChannelSpec = {
                 | "TIMEOUT"
                 | "CANCELED"
                 | "UPSTREAM_ERROR"
-                | "INTERNAL";
+                | "INTERNAL"
+                | "KG_ATTRIBUTE_KEYS_EXCEEDED"
+                | "KG_CAPACITY_EXCEEDED"
+                | "KG_ENTITY_CONFLICT"
+                | "KG_ENTITY_DUPLICATE"
+                | "KG_QUERY_TIMEOUT"
+                | "KG_RELATION_INVALID"
+                | "KG_SUBGRAPH_K_EXCEEDED";
               message: string;
             };
             status: "error";
@@ -670,175 +694,226 @@ export type IpcChannelSpec = {
                 | "TIMEOUT"
                 | "CANCELED"
                 | "UPSTREAM_ERROR"
-                | "INTERNAL";
+                | "INTERNAL"
+                | "KG_ATTRIBUTE_KEYS_EXCEEDED"
+                | "KG_CAPACITY_EXCEEDED"
+                | "KG_ENTITY_CONFLICT"
+                | "KG_ENTITY_DUPLICATE"
+                | "KG_QUERY_TIMEOUT"
+                | "KG_RELATION_INVALID"
+                | "KG_SUBGRAPH_K_EXCEEDED";
               message: string;
             };
             status: "error";
           };
     };
   };
-  "kg:entity:create": {
+  "knowledge:entity:create": {
     request: {
+      attributes?: Record<string, string>;
       description?: string;
-      entityType?: string;
-      metadataJson?: string;
       name: string;
       projectId: string;
+      type: "character" | "location" | "event" | "item" | "faction";
     };
     response: {
-      createdAt: number;
-      description?: string;
-      entityId: string;
-      entityType?: string;
-      metadataJson: string;
+      attributes: Record<string, string>;
+      createdAt: string;
+      description: string;
+      id: string;
       name: string;
       projectId: string;
-      updatedAt: number;
+      type: "character" | "location" | "event" | "item" | "faction";
+      updatedAt: string;
+      version: number;
     };
   };
-  "kg:entity:delete": {
+  "knowledge:entity:delete": {
     request: {
-      entityId: string;
+      id: string;
+      projectId: string;
     };
     response: {
       deleted: true;
+      deletedRelationCount: number;
     };
   };
-  "kg:entity:list": {
+  "knowledge:entity:list": {
     request: {
       projectId: string;
     };
     response: {
       items: Array<{
-        createdAt: number;
-        description?: string;
-        entityId: string;
-        entityType?: string;
-        metadataJson: string;
+        attributes: Record<string, string>;
+        createdAt: string;
+        description: string;
+        id: string;
         name: string;
         projectId: string;
-        updatedAt: number;
+        type: "character" | "location" | "event" | "item" | "faction";
+        updatedAt: string;
+        version: number;
       }>;
     };
   };
-  "kg:entity:update": {
+  "knowledge:entity:read": {
     request: {
-      entityId: string;
+      id: string;
+      projectId: string;
+    };
+    response: {
+      attributes: Record<string, string>;
+      createdAt: string;
+      description: string;
+      id: string;
+      name: string;
+      projectId: string;
+      type: "character" | "location" | "event" | "item" | "faction";
+      updatedAt: string;
+      version: number;
+    };
+  };
+  "knowledge:entity:update": {
+    request: {
+      expectedVersion: number;
+      id: string;
       patch: {
+        attributes?: Record<string, string>;
         description?: string;
-        entityType?: string;
-        metadataJson?: string;
         name?: string;
+        type?: "character" | "location" | "event" | "item" | "faction";
       };
+      projectId: string;
     };
     response: {
-      createdAt: number;
-      description?: string;
-      entityId: string;
-      entityType?: string;
-      metadataJson: string;
+      attributes: Record<string, string>;
+      createdAt: string;
+      description: string;
+      id: string;
       name: string;
       projectId: string;
-      updatedAt: number;
+      type: "character" | "location" | "event" | "item" | "faction";
+      updatedAt: string;
+      version: number;
     };
   };
-  "kg:graph:get": {
+  "knowledge:query:path": {
     request: {
       projectId: string;
-      purpose?: "ui" | "context";
+      sourceEntityId: string;
+      targetEntityId: string;
+      timeoutMs?: number;
     };
     response: {
+      degraded: boolean;
+      expansions: number;
+      pathEntityIds: Array<string>;
+      queryCostMs: number;
+    };
+  };
+  "knowledge:query:subgraph": {
+    request: {
+      centerEntityId: string;
+      k: number;
+      projectId: string;
+    };
+    response: {
+      edgeCount: number;
       entities: Array<{
-        createdAt: number;
-        description?: string;
-        entityId: string;
-        entityType?: string;
-        metadataJson: string;
+        attributes: Record<string, string>;
+        createdAt: string;
+        description: string;
+        id: string;
         name: string;
         projectId: string;
-        updatedAt: number;
+        type: "character" | "location" | "event" | "item" | "faction";
+        updatedAt: string;
+        version: number;
       }>;
+      nodeCount: number;
+      queryCostMs: number;
       relations: Array<{
-        createdAt: number;
-        evidenceJson: string;
-        fromEntityId: string;
-        metadataJson: string;
+        createdAt: string;
+        description: string;
+        id: string;
         projectId: string;
-        relationId: string;
         relationType: string;
-        toEntityId: string;
-        updatedAt: number;
+        sourceEntityId: string;
+        targetEntityId: string;
       }>;
     };
   };
-  "kg:relation:create": {
+  "knowledge:query:validate": {
     request: {
-      evidenceJson?: string;
-      fromEntityId: string;
-      metadataJson?: string;
       projectId: string;
-      relationType: string;
-      toEntityId: string;
     };
     response: {
-      createdAt: number;
-      evidenceJson: string;
-      fromEntityId: string;
-      metadataJson: string;
-      projectId: string;
-      relationId: string;
-      relationType: string;
-      toEntityId: string;
-      updatedAt: number;
+      cycles: Array<Array<string>>;
+      queryCostMs: number;
     };
   };
-  "kg:relation:delete": {
+  "knowledge:relation:create": {
     request: {
-      relationId: string;
+      description?: string;
+      projectId: string;
+      relationType: string;
+      sourceEntityId: string;
+      targetEntityId: string;
+    };
+    response: {
+      createdAt: string;
+      description: string;
+      id: string;
+      projectId: string;
+      relationType: string;
+      sourceEntityId: string;
+      targetEntityId: string;
+    };
+  };
+  "knowledge:relation:delete": {
+    request: {
+      id: string;
+      projectId: string;
     };
     response: {
       deleted: true;
     };
   };
-  "kg:relation:list": {
+  "knowledge:relation:list": {
     request: {
       projectId: string;
     };
     response: {
       items: Array<{
-        createdAt: number;
-        evidenceJson: string;
-        fromEntityId: string;
-        metadataJson: string;
+        createdAt: string;
+        description: string;
+        id: string;
         projectId: string;
-        relationId: string;
         relationType: string;
-        toEntityId: string;
-        updatedAt: number;
+        sourceEntityId: string;
+        targetEntityId: string;
       }>;
     };
   };
-  "kg:relation:update": {
+  "knowledge:relation:update": {
     request: {
+      id: string;
       patch: {
-        evidenceJson?: string;
-        fromEntityId?: string;
-        metadataJson?: string;
+        description?: string;
         relationType?: string;
-        toEntityId?: string;
+        sourceEntityId?: string;
+        targetEntityId?: string;
       };
-      relationId: string;
+      projectId: string;
     };
     response: {
-      createdAt: number;
-      evidenceJson: string;
-      fromEntityId: string;
-      metadataJson: string;
+      createdAt: string;
+      description: string;
+      id: string;
       projectId: string;
-      relationId: string;
       relationType: string;
-      toEntityId: string;
-      updatedAt: number;
+      sourceEntityId: string;
+      targetEntityId: string;
     };
   };
   "memory:entry:create": {
@@ -1231,7 +1306,14 @@ export type IpcChannelSpec = {
           | "TIMEOUT"
           | "CANCELED"
           | "UPSTREAM_ERROR"
-          | "INTERNAL";
+          | "INTERNAL"
+          | "KG_ATTRIBUTE_KEYS_EXCEEDED"
+          | "KG_CAPACITY_EXCEEDED"
+          | "KG_ENTITY_CONFLICT"
+          | "KG_ENTITY_DUPLICATE"
+          | "KG_QUERY_TIMEOUT"
+          | "KG_RELATION_INVALID"
+          | "KG_SUBGRAPH_K_EXCEEDED";
         error_message?: string;
         id: string;
         name: string;

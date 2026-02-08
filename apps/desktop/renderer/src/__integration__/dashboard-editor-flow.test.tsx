@@ -139,8 +139,11 @@ function createComprehensiveMockIpc(options: {
           case "search:query":
             return { ok: true, data: { results: [] } };
 
-          case "kg:get":
-            return { ok: true, data: { nodes: [], edges: [] } };
+          case "knowledge:entity:list":
+            return { ok: true, data: { items: [] } };
+
+          case "knowledge:relation:list":
+            return { ok: true, data: { items: [] } };
 
           default:
             return { ok: true, data: { items: [] } };
