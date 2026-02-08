@@ -4,6 +4,7 @@ export type IpcSchema =
   | { kind: "boolean" }
   | { kind: "literal"; value: string | number | boolean }
   | { kind: "array"; element: IpcSchema }
+  | { kind: "record"; value: IpcSchema }
   | { kind: "union"; variants: readonly IpcSchema[] }
   | { kind: "object"; fields: Readonly<Record<string, IpcSchema>> }
   | { kind: "optional"; schema: IpcSchema };
@@ -23,6 +24,9 @@ export const s = {
   },
   array(element: IpcSchema): IpcSchema {
     return { kind: "array", element };
+  },
+  record(value: IpcSchema): IpcSchema {
+    return { kind: "record", value };
   },
   union(...variants: readonly IpcSchema[]): IpcSchema {
     return { kind: "union", variants };

@@ -92,17 +92,19 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    const res = await window.creonow.invoke("kg:entity:list", {
+    const res = await window.creonow.invoke("knowledge:entity:list", {
       projectId: projectIdParam,
     });
     if (!res.ok) {
-      throw new Error(`Expected ok kg:entity:list, got: ${res.error.code}`);
+      throw new Error(
+        `Expected ok knowledge:entity:list, got: ${res.error.code}`,
+      );
     }
     const item = res.data.items.find((e) => e.name === "Alice") ?? null;
     if (!item) {
       throw new Error("Missing created entity in list");
     }
-    return item.entityId;
+    return item.id;
   }, projectId);
 
   await expect(page.getByTestId(`kg-entity-row-${entityId}`)).toBeVisible();
@@ -116,36 +118,43 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
 
   await expect(page.getByTestId(`kg-entity-row-${entityId}`)).toHaveCount(0);
 
-  const tooLarge = JSON.stringify({ x: "a".repeat(33_000) });
+  const tooManyAttributes: Record<string, string> = {};
+  for (let i = 0; i < 201; i += 1) {
+    tooManyAttributes[`k${i}`] = `${i}`;
+  }
   const oversize = await page.evaluate(
-    async ({ projectIdParam, tooLargeParam }) => {
+    async ({ projectIdParam, tooManyAttributesParam }) => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("kg:entity:create", {
+      return await window.creonow.invoke("knowledge:entity:create", {
         projectId: projectIdParam,
+        type: "character",
         name: "Big",
-        metadataJson: tooLargeParam,
+        attributes: tooManyAttributesParam,
       });
     },
-    { projectIdParam: projectId, tooLargeParam: tooLarge },
+    { projectIdParam: projectId, tooManyAttributesParam: tooManyAttributes },
   );
   expect(oversize.ok).toBe(false);
   if (oversize.ok) {
-    throw new Error("Expected INVALID_ARGUMENT on oversize metadataJson");
+    throw new Error("Expected KG_ATTRIBUTE_KEYS_EXCEEDED");
   }
-  expect(oversize.error.code).toBe("INVALID_ARGUMENT");
+  expect(oversize.error.code).toBe("KG_ATTRIBUTE_KEYS_EXCEEDED");
 
   const alice = await page.evaluate(async (projectIdParam) => {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    const res = await window.creonow.invoke("kg:entity:create", {
+    const res = await window.creonow.invoke("knowledge:entity:create", {
       projectId: projectIdParam,
+      type: "character",
       name: "Alice",
     });
     if (!res.ok) {
-      throw new Error(`Expected ok kg:entity:create, got: ${res.error.code}`);
+      throw new Error(
+        `Expected ok knowledge:entity:create, got: ${res.error.code}`,
+      );
     }
     return res.data;
   }, projectId);
@@ -154,12 +163,15 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    const res = await window.creonow.invoke("kg:entity:create", {
+    const res = await window.creonow.invoke("knowledge:entity:create", {
       projectId: projectIdParam,
+      type: "character",
       name: "Bob",
     });
     if (!res.ok) {
-      throw new Error(`Expected ok kg:entity:create, got: ${res.error.code}`);
+      throw new Error(
+        `Expected ok knowledge:entity:create, got: ${res.error.code}`,
+      );
     }
     return res.data;
   }, projectId);
@@ -169,20 +181,20 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      const res = await window.creonow.invoke("kg:relation:create", {
+      const res = await window.creonow.invoke("knowledge:relation:create", {
         projectId: projectIdParam,
-        fromEntityId: fromId,
-        toEntityId: toId,
+        sourceEntityId: fromId,
+        targetEntityId: toId,
         relationType: "knows",
       });
       if (!res.ok) {
         throw new Error(
-          `Expected ok kg:relation:create, got: ${res.error.code}`,
+          `Expected ok knowledge:relation:create, got: ${res.error.code}`,
         );
       }
       return res.data;
     },
-    { projectIdParam: projectId, fromId: alice.entityId, toId: bob.entityId },
+    { projectIdParam: projectId, fromId: alice.id, toId: bob.id },
   );
   expect(relation.relationType).toBe("knows");
 
@@ -249,7 +261,7 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
 
   // Note: Context viewer UI assertions removed - component has been deleted
-  // KG injection verified via IPC above (kg:get returns nodes/edges)
+  // KG injection is covered by knowledge:* IPC assertions above.
 
   await electronApp.close();
 });

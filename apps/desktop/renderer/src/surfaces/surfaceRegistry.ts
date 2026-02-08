@@ -2,7 +2,7 @@
  * Surface Registry — 前端资产与 App/QA 入口的唯一映射表
  *
  * 本文件是 P0-001 的核心产物，实现：
- * 1. 56/56 Storybook 资产全量映射（截至 2026-02-05）
+ * 1. 57/57 Storybook 资产全量映射（截至 2026-02-08）
  * 2. 每个 surface 都有明确的入口（App/QA/Storybook）
  * 3. 每个 surface 都有 data-testid 用于 E2E 测试
  *
@@ -76,7 +76,7 @@ export interface SurfaceRegistryItem {
 }
 
 /**
- * 完整的 Surface Registry（56/56）
+ * 完整的 Surface Registry（57/57）
  *
  * 按类别组织：Layout → Primitives → Features
  */
@@ -146,7 +146,9 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   {
     id: "accordion",
     kind: "primitive",
-    entryPoints: [{ type: "storybookOnly", description: "Accordion primitive" }],
+    entryPoints: [
+      { type: "storybookOnly", description: "Accordion primitive" },
+    ],
     testId: "accordion",
     storybookTitle: "Primitives/Accordion",
   },
@@ -202,7 +204,9 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   {
     id: "imageUpload",
     kind: "primitive",
-    entryPoints: [{ type: "storybookOnly", description: "ImageUpload primitive" }],
+    entryPoints: [
+      { type: "storybookOnly", description: "ImageUpload primitive" },
+    ],
     testId: "image-upload",
     storybookTitle: "Primitives/ImageUpload",
   },
@@ -306,7 +310,7 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   },
 
   // ============================================================
-  // Features（26 个）
+  // Features（27 个）
   // ============================================================
   {
     id: "aiDialogs",
@@ -320,36 +324,28 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   {
     id: "aiPanel",
     kind: "rightPanel",
-    entryPoints: [
-      { type: "iconBar", description: "AI tab in right panel" },
-    ],
+    entryPoints: [{ type: "iconBar", description: "AI tab in right panel" }],
     testId: "ai-panel",
     storybookTitle: "Features/AiPanel",
   },
   {
     id: "analyticsPage",
     kind: "page",
-    entryPoints: [
-      { type: "navigation", description: "Analytics page route" },
-    ],
+    entryPoints: [{ type: "navigation", description: "Analytics page route" }],
     testId: "analytics-page",
     storybookTitle: "Features/AnalyticsPage",
   },
   {
     id: "characterPanel",
     kind: "leftPanel",
-    entryPoints: [
-      { type: "iconBar", description: "Characters icon" },
-    ],
+    entryPoints: [{ type: "iconBar", description: "Characters icon" }],
     testId: "character-panel",
     storybookTitle: "Features/CharacterPanel",
   },
   {
     id: "commandPalette",
     kind: "overlay",
-    entryPoints: [
-      { type: "shortcut", description: "Cmd/Ctrl+P" },
-    ],
+    entryPoints: [{ type: "shortcut", description: "Cmd/Ctrl+P" }],
     testId: "command-palette",
     storybookTitle: "Features/CommandPalette",
   },
@@ -367,9 +363,7 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   {
     id: "createTemplateDialog",
     kind: "dialog",
-    entryPoints: [
-      { type: "button", description: "Create Template button" },
-    ],
+    entryPoints: [{ type: "button", description: "Create Template button" }],
     testId: "create-template-dialog",
     storybookTitle: "Features/CreateTemplateDialog",
   },
@@ -403,9 +397,7 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   {
     id: "editorToolbar",
     kind: "layout",
-    entryPoints: [
-      { type: "navigation", description: "Editor toolbar" },
-    ],
+    entryPoints: [{ type: "navigation", description: "Editor toolbar" }],
     testId: "editor-toolbar",
     storybookTitle: "Features/Editor/EditorToolbar",
   },
@@ -422,63 +414,58 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   {
     id: "fileTreePanel",
     kind: "leftPanel",
-    entryPoints: [
-      { type: "iconBar", description: "Files icon" },
-    ],
+    entryPoints: [{ type: "iconBar", description: "Files icon" }],
     testId: "file-tree-panel",
     storybookTitle: "Features/FileTreePanel",
   },
   {
     id: "knowledgeGraph",
     kind: "leftPanel",
-    entryPoints: [
-      { type: "iconBar", description: "Knowledge Graph icon" },
-    ],
+    entryPoints: [{ type: "iconBar", description: "Knowledge Graph icon" }],
     testId: "knowledge-graph",
     storybookTitle: "Features/KnowledgeGraph",
   },
   {
+    id: "knowledgeGraphEntityDetail",
+    kind: "leftPanel",
+    entryPoints: [
+      { type: "storybookOnly", description: "KG entity detail states" },
+    ],
+    testId: "kg-entity-detail-card",
+    storybookTitle: "Features/KnowledgeGraph/EntityDetail",
+  },
+  {
     id: "memoryCreateDialog",
     kind: "dialog",
-    entryPoints: [
-      { type: "button", description: "Add memory button" },
-    ],
+    entryPoints: [{ type: "button", description: "Add memory button" }],
     testId: "memory-create-dialog",
     storybookTitle: "Features/MemoryCreateDialog",
   },
   {
     id: "memoryPanel",
     kind: "leftPanel",
-    entryPoints: [
-      { type: "iconBar", description: "Memory icon" },
-    ],
+    entryPoints: [{ type: "iconBar", description: "Memory icon" }],
     testId: "memory-panel",
     storybookTitle: "Features/MemoryPanel",
   },
   {
     id: "memorySettingsDialog",
     kind: "dialog",
-    entryPoints: [
-      { type: "button", description: "Memory settings button" },
-    ],
+    entryPoints: [{ type: "button", description: "Memory settings button" }],
     testId: "memory-settings-dialog",
     storybookTitle: "Features/MemorySettingsDialog",
   },
   {
     id: "onboardingPage",
     kind: "page",
-    entryPoints: [
-      { type: "navigation", description: "Initial app route" },
-    ],
+    entryPoints: [{ type: "navigation", description: "Initial app route" }],
     testId: "onboarding-page",
     storybookTitle: "Features/Onboarding/OnboardingPage",
   },
   {
     id: "outlinePanel",
     kind: "leftPanel",
-    entryPoints: [
-      { type: "iconBar", description: "Outline icon" },
-    ],
+    entryPoints: [{ type: "iconBar", description: "Outline icon" }],
     testId: "outline-panel",
     storybookTitle: "Features/OutlinePanel",
   },
@@ -494,9 +481,7 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   {
     id: "searchPanel",
     kind: "leftPanel",
-    entryPoints: [
-      { type: "iconBar", description: "Search icon" },
-    ],
+    entryPoints: [{ type: "iconBar", description: "Search icon" }],
     testId: "search-panel",
     storybookTitle: "Features/SearchPanel",
   },
@@ -523,18 +508,14 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   {
     id: "versionHistoryPanel",
     kind: "leftPanel",
-    entryPoints: [
-      { type: "iconBar", description: "History icon" },
-    ],
+    entryPoints: [{ type: "iconBar", description: "History icon" }],
     testId: "version-history-panel",
     storybookTitle: "Features/VersionHistoryPanel",
   },
   {
     id: "welcomeScreen",
     kind: "page",
-    entryPoints: [
-      { type: "navigation", description: "Welcome/intro screen" },
-    ],
+    entryPoints: [{ type: "navigation", description: "Welcome/intro screen" }],
     testId: "welcome-screen",
     storybookTitle: "Features/WelcomeScreen",
   },
@@ -627,8 +608,9 @@ export function getRegistryStats(): {
   }
 
   const byCategory = {
-    layout: surfaceRegistry.filter((i) => i.storybookTitle.startsWith("Layout/"))
-      .length,
+    layout: surfaceRegistry.filter((i) =>
+      i.storybookTitle.startsWith("Layout/"),
+    ).length,
     primitives: surfaceRegistry.filter((i) =>
       i.storybookTitle.startsWith("Primitives/"),
     ).length,
