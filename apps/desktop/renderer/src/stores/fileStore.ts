@@ -57,6 +57,15 @@ export type FileActions = {
     documentId: string;
   }) => Promise<IpcResponse<{ documentId: string }>>;
   clearError: () => void;
+  reorder: (args: {
+    projectId: string;
+    orderedDocumentIds: string[];
+  }) => Promise<IpcResponse<{ updated: true }>>;
+  moveToFolder: (args: {
+    projectId: string;
+    documentId: string;
+    parentId: string;
+  }) => Promise<IpcResponse<{ updated: true }>>;
 };
 
 export type FileStore = FileState & FileActions;
@@ -294,6 +303,35 @@ export function createFileStore(deps: { invoke: IpcInvoke }) {
       }
 
       set({ currentDocumentId: res.data.documentId });
+      return res;
+    },
+
+    reorder: async ({ projectId, orderedDocumentIds }) => {
+      const res = await deps.invoke("file:document:reorder", {
+        projectId,
+        orderedDocumentIds,
+      });
+      if (!res.ok) {
+        set({ lastError: res.error });
+        return res;
+      }
+
+      await get().refreshForProject(projectId);
+      return res;
+    },
+
+    moveToFolder: async ({ projectId, documentId, parentId }) => {
+      const res = await deps.invoke("file:document:update", {
+        projectId,
+        documentId,
+        parentId,
+      });
+      if (!res.ok) {
+        set({ lastError: res.error });
+        return res;
+      }
+
+      await get().refreshForProject(projectId);
       return res;
     },
   }));
