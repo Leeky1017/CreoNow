@@ -1,22 +1,26 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-09 03:36
+更新时间：2026-02-09 04:20
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **0**。
-- 执行模式：**无**（当前无活跃 change）。
+- 当前活跃 change 数量为 **1**。
+- 执行模式：**串行**（单活跃 change）。
 
 ## 执行顺序
 
-- 当前无待执行活跃 change。
+1. `issue-326-layer2-layer3-integration-gate`（进行中）
+   - 目标：完成 Layer2 + Layer3 里程碑集成检查并输出 delta report
+   - 依赖：无上游活跃 change 依赖
 
 ## 依赖说明
 
-- `memory-system-p3-isolation-degradation` 已完成并归档至 `archive/memory-system-p3-isolation-degradation`。
-- `knowledge-graph-p2-auto-recognition-ai-utilization` 已完成并归档至 `archive/knowledge-graph-p2-auto-recognition-ai-utilization`。
+- 当前活跃 change（`issue-326-layer2-layer3-integration-gate`）无上游活跃依赖，Dependency Sync Check 结论为 `N/A`。
+- 最近归档：
+  - `memory-system-p3-isolation-degradation`
+  - `knowledge-graph-p2-auto-recognition-ai-utilization`
 
 ## 维护规则
 
