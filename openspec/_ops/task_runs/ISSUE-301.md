@@ -2,7 +2,7 @@
 
 - Issue: #301
 - Branch: task/301-project-management-p0-creation-metadata-dashboard
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/305
 
 ## Plan
 
