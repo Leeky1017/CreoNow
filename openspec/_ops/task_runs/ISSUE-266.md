@@ -3,7 +3,7 @@
 - Issue: #266
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/266
 - Branch: `task/266-db-native-binding-doctor`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/279
 - Scope: 修复 AI 面板在 DB native 绑定失配时的可诊断性与可恢复性
 - Out of Scope: AI 输出自动写回编辑器正文
 
@@ -15,7 +15,7 @@
 
 ## Status
 
-- CURRENT: 实现与本地验证完成，等待你确认后再提交/开 PR。
+- CURRENT: PR 已创建并附 reviewer checklist，等待评审与 CI。
 
 ## Runs
 
@@ -77,7 +77,7 @@
 - Exit code: `0`
 - Key output:
   - typecheck passed
-  - lint passed with 4 pre-existing warnings (no new errors)
+  - lint passed with warnings only（0 errors）
 
 ### 2026-02-08 rulebook validate blocker
 
@@ -88,3 +88,21 @@
   - `rulebook : The term 'rulebook' is not recognized...`
 - Note:
   - local environment missing `rulebook` CLI; validation remains pending blocker until CLI is available.
+
+### 2026-02-08 branch publish + PR
+
+- Command:
+  - `git push -u origin task/266-db-native-binding-doctor`
+  - `gh pr create --repo Leeky1017/CreoNow --base main --head UntaDotMy:task/266-db-native-binding-doctor --title "Fix DB native doctor and AI DB_ERROR guidance (#266)" --body-file .pr-body-266.md`
+- Exit code: `0`
+- Key output:
+  - branch published: `origin/task/266-db-native-binding-doctor`
+  - PR created: `https://github.com/Leeky1017/CreoNow/pull/279`
+
+### 2026-02-08 reviewer checklist comment
+
+- Command:
+  - `gh pr comment 279 --repo Leeky1017/CreoNow --body-file -`
+- Exit code: `0`
+- Key output:
+  - `https://github.com/Leeky1017/CreoNow/pull/279#issuecomment-3866549154`
