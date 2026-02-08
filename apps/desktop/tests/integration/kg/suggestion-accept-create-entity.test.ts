@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 
-import { KG_SUGGESTION_CHANNEL, type KgSuggestionEvent } from "../../../../../packages/shared/types/kg";
+import {
+  KG_SUGGESTION_CHANNEL,
+  type KgSuggestionEvent,
+} from "../../../../../packages/shared/types/kg";
 import { createKnowledgeGraphIpcHarness } from "../../helpers/kg/harness";
 
 type RecognitionEnqueueDto = {

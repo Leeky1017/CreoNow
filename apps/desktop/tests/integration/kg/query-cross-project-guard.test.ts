@@ -12,7 +12,9 @@ type EntityDto = {
   const harness = createKnowledgeGraphIpcHarness();
 
   try {
-    harness.db.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-2");
+    harness.db
+      .prepare("INSERT INTO projects (project_id) VALUES (?)")
+      .run("proj-2");
 
     const foreignEntityRes = await harness.invoke<EntityDto>(
       "knowledge:entity:create",

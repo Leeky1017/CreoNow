@@ -25,16 +25,19 @@ type RulesInjectionDto = {
   const harness = createKnowledgeGraphIpcHarness();
 
   try {
-    const linyuanRes = await harness.invoke<EntityDto>("knowledge:entity:create", {
-      projectId: harness.projectId,
-      type: "character",
-      name: "林远",
-      description: "前特种兵",
-      attributes: {
-        年龄: "28",
-        性格: "冷静",
+    const linyuanRes = await harness.invoke<EntityDto>(
+      "knowledge:entity:create",
+      {
+        projectId: harness.projectId,
+        type: "character",
+        name: "林远",
+        description: "前特种兵",
+        attributes: {
+          年龄: "28",
+          性格: "冷静",
+        },
       },
-    });
+    );
 
     const teammateRes = await harness.invoke<EntityDto>(
       "knowledge:entity:create",

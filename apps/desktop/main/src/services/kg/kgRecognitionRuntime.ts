@@ -7,9 +7,7 @@ import {
   type KgSuggestionEntityType,
   type KgSuggestionEvent,
 } from "../../../../../../packages/shared/types/kg";
-import type {
-  IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcErrorCode } from "../../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 import {
   createKnowledgeGraphService,
@@ -213,13 +211,10 @@ function createMockRecognizer(): Recognizer {
           continue;
         }
         const type: KnowledgeEntityType = "character";
-        candidates.set(
-          normalizeSuggestionKey({ name: normalizedName, type }),
-          {
-            name: normalizedName,
-            type,
-          },
-        );
+        candidates.set(normalizeSuggestionKey({ name: normalizedName, type }), {
+          name: normalizedName,
+          type,
+        });
       }
 
       const locationPattern = /[\u4e00-\u9fa5]{1,16}(仓库|城|镇|村|山|馆|楼)/gu;
@@ -523,7 +518,10 @@ export function createKgRecognitionRuntime(args: {
         normalizedSessionId.length === 0 ||
         normalizedTaskId.length === 0
       ) {
-        return toErr("INVALID_ARGUMENT", "projectId/sessionId/taskId is required");
+        return toErr(
+          "INVALID_ARGUMENT",
+          "projectId/sessionId/taskId is required",
+        );
       }
 
       const queueIndex = queue.findIndex(
@@ -593,7 +591,9 @@ export function createKgRecognitionRuntime(args: {
         return createRes;
       }
 
-      const existingRes = service().entityList({ projectId: normalizedProjectId });
+      const existingRes = service().entityList({
+        projectId: normalizedProjectId,
+      });
       if (!existingRes.ok) {
         return existingRes;
       }
