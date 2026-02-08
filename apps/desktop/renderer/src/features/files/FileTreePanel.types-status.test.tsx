@@ -43,11 +43,12 @@ vi.mock("../../stores/fileStore", () => ({
 }));
 
 vi.mock("../../stores/editorStore", () => ({
-  useEditorStore: vi.fn((selector: (state: Record<string, unknown>) => unknown) =>
-    selector({
-      openDocument,
-      openCurrentDocumentForProject,
-    }),
+  useEditorStore: vi.fn(
+    (selector: (state: Record<string, unknown>) => unknown) =>
+      selector({
+        openDocument,
+        openCurrentDocumentForProject,
+      }),
   ),
 }));
 
@@ -110,6 +111,8 @@ describe("FileTreePanel type/status baseline", () => {
 
     render(<FileTreePanel projectId="proj-1" />);
 
-    expect(screen.getByTestId("file-status-final-doc-final")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("file-status-final-doc-final"),
+    ).toBeInTheDocument();
   });
 });

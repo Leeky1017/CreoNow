@@ -297,9 +297,7 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
                 {
                   key: "status",
                   label:
-                    item.status === "final"
-                      ? "Mark as Draft"
-                      : "Mark as Final",
+                    item.status === "final" ? "Mark as Draft" : "Mark as Final",
                   onSelect: () =>
                     void onToggleStatus({
                       documentId: item.documentId,
@@ -440,9 +438,7 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
                               void onToggleStatus({
                                 documentId: item.documentId,
                                 next:
-                                  item.status === "final"
-                                    ? "draft"
-                                    : "final",
+                                  item.status === "final" ? "draft" : "final",
                               })
                             }
                             className="justify-start w-full"

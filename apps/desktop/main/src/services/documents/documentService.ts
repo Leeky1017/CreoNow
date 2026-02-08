@@ -502,7 +502,15 @@ export function createDocumentService(args: {
       }
     },
 
-    update: ({ projectId, documentId, title, type, status, sortOrder, parentId }) => {
+    update: ({
+      projectId,
+      documentId,
+      title,
+      type,
+      status,
+      sortOrder,
+      parentId,
+    }) => {
       if (projectId.trim().length === 0 || documentId.trim().length === 0) {
         return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
       }
@@ -810,7 +818,12 @@ export function createDocumentService(args: {
             .prepare(
               "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
             )
-            .run(scope, CURRENT_DOCUMENT_ID_KEY, JSON.stringify(replacementId), ts);
+            .run(
+              scope,
+              CURRENT_DOCUMENT_ID_KEY,
+              JSON.stringify(replacementId),
+              ts,
+            );
         })();
 
         args.logger.info("document_deleted", { document_id: documentId });

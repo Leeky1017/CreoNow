@@ -68,7 +68,10 @@ function asObjectSchema(value: unknown): ObjectSchema {
   );
 
   const listRes = asObjectSchema(channels["file:document:list"]?.response);
-  const itemsSchema = listRes.fields.items as { kind: "array"; element: unknown };
+  const itemsSchema = listRes.fields.items as {
+    kind: "array";
+    element: unknown;
+  };
   assert.equal(itemsSchema.kind, "array");
   const itemObject = asObjectSchema(itemsSchema.element);
   assert.equal(

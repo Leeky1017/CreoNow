@@ -201,7 +201,12 @@ function createFakeDb(): Database.Database {
         )
       ) {
         return {
-          run(scope: string, key: string, valueJson: string, updatedAt: number) {
+          run(
+            scope: string,
+            key: string,
+            valueJson: string,
+            updatedAt: number,
+          ) {
             settings.set(settingsKey(scope, key), { valueJson, updatedAt });
             return { changes: 1 };
           },
@@ -217,12 +222,15 @@ function createFakeDb(): Database.Database {
         };
       }
 
-      if (sql === "DELETE FROM documents WHERE project_id = ? AND document_id = ?") {
+      if (
+        sql === "DELETE FROM documents WHERE project_id = ? AND document_id = ?"
+      ) {
         return {
           run(projectId: string, documentId: string) {
             const before = docs.length;
             const next = docs.filter(
-              (d) => !(d.projectId === projectId && d.documentId === documentId),
+              (d) =>
+                !(d.projectId === projectId && d.documentId === documentId),
             );
             docs.length = 0;
             docs.push(...next);

@@ -216,10 +216,7 @@ const DOCUMENT_TYPE_SCHEMA = s.union(
   s.literal("character"),
 );
 
-const DOCUMENT_STATUS_SCHEMA = s.union(
-  s.literal("draft"),
-  s.literal("final"),
-);
+const DOCUMENT_STATUS_SCHEMA = s.union(s.literal("draft"), s.literal("final"));
 
 const DOCUMENT_LIST_ITEM_SCHEMA = s.object({
   documentId: s.string(),

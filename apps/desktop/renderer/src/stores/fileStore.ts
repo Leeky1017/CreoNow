@@ -99,7 +99,11 @@ export function createFileStore(deps: { invoke: IpcInvoke }) {
     title?: string,
     type?: DocumentType,
   ): Promise<IpcInvokeResult<"file:document:create">> {
-    return await deps.invoke("file:document:create", { projectId, title, type });
+    return await deps.invoke("file:document:create", {
+      projectId,
+      title,
+      type,
+    });
   }
 
   return create<FileStore>((set, get) => ({

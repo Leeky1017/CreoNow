@@ -6,16 +6,16 @@
 
 P0 基线阶段，文档管理必须先具备基础 CRUD IPC 能力，采用 Request-Response 通信模式，并保持跨进程契约一致：
 
-| IPC 通道                  | 用途           |
-| ------------------------- | -------------- |
-| `file:document:create`    | 创建文档       |
-| `file:document:read`      | 读取文档内容   |
-| `file:document:update`    | 更新文档元信息 |
-| `file:document:save`      | 保存文档内容   |
-| `file:document:delete`    | 删除文档       |
-| `file:document:list`      | 列出项目文档   |
-| `file:document:getcurrent` | 获取当前文档  |
-| `file:document:reorder`   | 调整排序       |
+| IPC 通道                   | 用途           |
+| -------------------------- | -------------- |
+| `file:document:create`     | 创建文档       |
+| `file:document:read`       | 读取文档内容   |
+| `file:document:update`     | 更新文档元信息 |
+| `file:document:save`       | 保存文档内容   |
+| `file:document:delete`     | 删除文档       |
+| `file:document:list`       | 列出项目文档   |
+| `file:document:getcurrent` | 获取当前文档   |
+| `file:document:reorder`    | 调整排序       |
 
 所有通道必须使用共享 TypeScript 类型合同，且 Renderer -> Main 输入必须经过运行时校验并返回可判定结果（`ok: true | false`）。
 

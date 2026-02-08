@@ -14,7 +14,12 @@ vi.mock("../../stores/fileStore", () => ({
         .fn()
         .mockResolvedValue({ ok: true, data: { documentId: "new-doc" } }),
       rename: vi.fn().mockResolvedValue({ ok: true }),
-      updateStatus: vi.fn().mockResolvedValue({ ok: true, data: { updated: true, status: "draft" } }),
+      updateStatus: vi
+        .fn()
+        .mockResolvedValue({
+          ok: true,
+          data: { updated: true, status: "draft" },
+        }),
       delete: vi.fn().mockResolvedValue({ ok: true }),
       setCurrent: vi.fn().mockResolvedValue({ ok: true }),
       clearError: vi.fn(),
