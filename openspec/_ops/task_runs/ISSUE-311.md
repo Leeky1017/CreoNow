@@ -13,6 +13,12 @@
 - 保留原用例验证目标，仅修复前置步骤。
 - 完成独立 worktree 开发、PR 合并与控制面 main 收口。
 
+## Plan
+
+- 在 `knowledge-graph.spec.ts` 和 `system-dialog.spec.ts` 增加「进入 KG 后先切到 List」的稳定前置步骤。
+- 复现旧用例失败（Red），再验证修复后目标用例通过（Green）。
+- 通过 `agent_pr_automerge_and_sync.sh` 完成 PR、门禁检查与合并收口。
+
 ## Status
 
 - CURRENT: 进行中（目标用例已本地转绿，待 preflight / PR / merge / 收口）。
@@ -127,3 +133,37 @@
 - Key output:
   - `knowledge-graph.spec.ts ... 1 passed`
   - `system-dialog.spec.ts ... 1 passed`
+
+### 2026-02-08 23:39 +0800 PR 自动流程首次执行（触发基线阻断）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `中断重试`
+- Key output:
+  - 自动创建并回填 PR：`docs: backfill run log PR link (#311)`
+  - preflight 阻断：`pnpm contract:check` 失败，`packages/shared/types/ipc-generated.ts` 产生漂移
+- Note:
+  - 漂移文件由 preflight 命令生成，未纳入本任务改动，已清理工作区。
+
+### 2026-02-08 23:42 +0800 基线诊断与同步
+
+- Command:
+  - `git checkout --detach origin/main && pnpm contract:check`（在干净 checkout 验证）
+  - `git fetch origin main`
+  - `git merge --no-edit origin/main`
+  - `git push`
+- Exit code: `0`
+- Key output:
+  - 旧基线 `origin/main@ffa2a3ba` 下 `contract:check` 失败（非本任务引入）
+  - 拉取到 `origin/main@ca0c20c2`（包含 `ipc-generated.ts` 修复）后，分支完成同步并推送
+
+### 2026-02-08 23:44 +0800 门禁失败定位（openspec-log-guard）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh --skip-preflight --pr 314`
+  - `gh run view 21800832801 --log-failed`
+- Exit code: `失败定位完成`
+- Key output:
+  - `openspec-log-guard` 报错：`RUN_LOG missing required fields: Plan`
+- Fix:
+  - 在 `ISSUE-311.md` 增补 `## Plan` 段并重新推送触发检查。
