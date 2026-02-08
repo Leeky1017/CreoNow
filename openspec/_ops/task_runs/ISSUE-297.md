@@ -3,7 +3,7 @@
 - Issue: #297
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/297
 - Branch: `task/297-knowledge-graph-p0-p2-change-specs`
-- PR: https://github.com/Leeky1017/CreoNow/pull/297
+- PR: https://github.com/Leeky1017/CreoNow/pull/299
 - Scope: 交付 Knowledge Graph P0/P1/P2 三个 OpenSpec change 及串行执行顺序文档
 - Out of Scope: 生产代码实现、测试实现、archive 归档
 
