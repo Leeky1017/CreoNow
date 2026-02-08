@@ -3,7 +3,7 @@
 - Issue: #300
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/300
 - Branch: `task/300-memory-system-p0-architecture-episodic-storage`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/303
 - Scope: 实施 `memory-system-p0-architecture-episodic-storage` 的全部任务（TDD + 实现 + 合并收口）
 - Out of Scope: P1/P2/P3 的蒸馏、面板、冲突与降级全量能力
 
