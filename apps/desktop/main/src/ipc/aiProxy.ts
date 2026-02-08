@@ -12,6 +12,13 @@ type ProxySettingsPatch = Partial<{
   enabled: boolean;
   baseUrl: string;
   apiKey: string;
+  providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
+  openAiCompatibleBaseUrl: string;
+  openAiCompatibleApiKey: string;
+  openAiByokBaseUrl: string;
+  openAiByokApiKey: string;
+  anthropicByokBaseUrl: string;
+  anthropicByokApiKey: string;
 }>;
 
 /**
@@ -32,6 +39,13 @@ export function registerAiProxyIpcHandlers(deps: {
         enabled: boolean;
         baseUrl: string;
         apiKeyConfigured: boolean;
+        providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
+        openAiCompatibleBaseUrl: string;
+        openAiCompatibleApiKeyConfigured: boolean;
+        openAiByokBaseUrl: string;
+        openAiByokApiKeyConfigured: boolean;
+        anthropicByokBaseUrl: string;
+        anthropicByokApiKeyConfigured: boolean;
       }>
     > => {
       if (!deps.db) {
@@ -61,6 +75,13 @@ export function registerAiProxyIpcHandlers(deps: {
         enabled: boolean;
         baseUrl: string;
         apiKeyConfigured: boolean;
+        providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
+        openAiCompatibleBaseUrl: string;
+        openAiCompatibleApiKeyConfigured: boolean;
+        openAiByokBaseUrl: string;
+        openAiByokApiKeyConfigured: boolean;
+        anthropicByokBaseUrl: string;
+        anthropicByokApiKeyConfigured: boolean;
       }>
     > => {
       if (!deps.db) {

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+﻿import { randomUUID } from "node:crypto";
 
 import type {
   IpcError,
@@ -19,12 +19,20 @@ export type AiService = {
     skillId: string;
     systemPrompt?: string;
     input: string;
+    mode: "agent" | "plan" | "ask";
+    model: string;
     system?: string;
     context?: { projectId?: string; documentId?: string };
     stream: boolean;
     ts: number;
     emitEvent: (event: AiStreamEvent) => void;
   }) => Promise<ServiceResult<{ runId: string; outputText?: string }>>;
+  listModels: () => Promise<
+    ServiceResult<{
+      source: "proxy" | "openai" | "anthropic";
+      items: Array<{ id: string; name: string; provider: string }>;
+    }>
+  >;
   cancel: (args: { runId: string; ts: number }) => ServiceResult<{
     canceled: true;
   }>;
@@ -45,10 +53,27 @@ type ProviderConfig = {
   timeoutMs: number;
 };
 
+type ProviderMode = "openai-compatible" | "openai-byok" | "anthropic-byok";
+
+type ProviderCredentials = {
+  baseUrl: string | null;
+  apiKey: string | null;
+};
+
 type ProxySettings = {
   enabled: boolean;
   baseUrl: string | null;
   apiKey: string | null;
+  providerMode?: ProviderMode;
+  openAiCompatible?: ProviderCredentials;
+  openAiByok?: ProviderCredentials;
+  anthropicByok?: ProviderCredentials;
+  openAiCompatibleBaseUrl?: string | null;
+  openAiCompatibleApiKey?: string | null;
+  openAiByokBaseUrl?: string | null;
+  openAiByokApiKey?: string | null;
+  anthropicByokBaseUrl?: string | null;
+  anthropicByokApiKey?: string | null;
 };
 
 type RunEntry = {
@@ -110,6 +135,19 @@ function combineSystemText(args: {
 }
 
 /**
+ * Build deterministic mode-specific system hint text.
+ */
+function modeSystemHint(mode: "agent" | "plan" | "ask"): string | null {
+  if (mode === "plan") {
+    return "Mode: plan\nFirst produce a concise step-by-step plan before final output.";
+  }
+  if (mode === "agent") {
+    return "Mode: agent\nAct as an autonomous writing assistant and make concrete edits.";
+  }
+  return null;
+}
+
+/**
  * Parse timeout (ms) from env with a safe default.
  */
 function parseTimeoutMs(env: NodeJS.ProcessEnv): number {
@@ -140,6 +178,125 @@ function parseProvider(env: NodeJS.ProcessEnv): AiProvider | null {
     return raw;
   }
   return null;
+}
+
+/**
+ * Join a provider base URL with an endpoint path while preserving base path prefixes.
+ */
+function buildApiUrl(args: { baseUrl: string; endpointPath: string }): string {
+  const base = new URL(args.baseUrl.trim());
+  const endpoint = args.endpointPath.startsWith("/")
+    ? args.endpointPath
+    : `/${args.endpointPath}`;
+
+  if (!base.pathname.endsWith("/")) {
+    base.pathname = `${base.pathname}/`;
+  }
+
+  const basePathNoSlash = base.pathname.endsWith("/")
+    ? base.pathname.slice(0, -1)
+    : base.pathname;
+  const normalizedEndpoint =
+    basePathNoSlash.endsWith("/v1") && endpoint.startsWith("/v1/")
+      ? endpoint.slice(3)
+      : endpoint;
+
+  return new URL(normalizedEndpoint.slice(1), base.toString()).toString();
+}
+
+/**
+ * Parse upstream JSON safely and return deterministic errors for non-JSON bodies.
+ */
+async function parseJsonResponse(res: Response): Promise<ServiceResult<unknown>> {
+  const bodyText = await res.text();
+  try {
+    return { ok: true, data: JSON.parse(bodyText) as unknown };
+  } catch {
+    return ipcError("UPSTREAM_ERROR", "Non-JSON upstream response");
+  }
+}
+
+/**
+ * Normalize settings provider mode with backward compatibility.
+ */
+function resolveSettingsProviderMode(settings: ProxySettings): ProviderMode {
+  if (
+    settings.providerMode === "openai-compatible" ||
+    settings.providerMode === "openai-byok" ||
+    settings.providerMode === "anthropic-byok"
+  ) {
+    return settings.providerMode;
+  }
+  return settings.enabled ? "openai-compatible" : "openai-byok";
+}
+
+/**
+ * Resolve provider credentials from settings based on provider mode.
+ */
+function resolveSettingsProviderCredentials(args: {
+  settings: ProxySettings;
+  mode: ProviderMode;
+}): { provider: AiProvider; credentials: ProviderCredentials; mode: ProviderMode } {
+  const openAiCompatible: ProviderCredentials = {
+    baseUrl:
+      args.settings.openAiCompatible?.baseUrl ??
+      args.settings.openAiCompatibleBaseUrl ??
+      args.settings.baseUrl ??
+      null,
+    apiKey:
+      args.settings.openAiCompatible?.apiKey ??
+      args.settings.openAiCompatibleApiKey ??
+      args.settings.apiKey ??
+      null,
+  };
+
+  const openAiByok: ProviderCredentials = {
+    baseUrl:
+      args.settings.openAiByok?.baseUrl ??
+      args.settings.openAiByokBaseUrl ??
+      args.settings.baseUrl ??
+      null,
+    apiKey:
+      args.settings.openAiByok?.apiKey ??
+      args.settings.openAiByokApiKey ??
+      args.settings.apiKey ??
+      null,
+  };
+
+  const anthropicByok: ProviderCredentials = {
+    baseUrl:
+      args.settings.anthropicByok?.baseUrl ??
+      args.settings.anthropicByokBaseUrl ??
+      args.settings.baseUrl ??
+      null,
+    apiKey:
+      args.settings.anthropicByok?.apiKey ??
+      args.settings.anthropicByokApiKey ??
+      args.settings.apiKey ??
+      null,
+  };
+
+  if (args.mode === "anthropic-byok") {
+    return {
+      provider: "anthropic",
+      mode: args.mode,
+      credentials: anthropicByok,
+    };
+  }
+
+  if (args.mode === "openai-byok") {
+    return {
+      provider: "openai",
+      mode: args.mode,
+      credentials: openAiByok,
+    };
+  }
+
+  return {
+    provider: "proxy",
+    mode: args.mode,
+    credentials: openAiCompatible,
+  };
 }
 
 /**
@@ -205,7 +362,7 @@ function extractOpenAiText(json: unknown): string | null {
   const first = asObject(choices[0]);
   const message = asObject(first?.message);
   const content = message?.content;
-  return typeof content === "string" ? content : null;
+  return extractOpenAiContentText(content);
 }
 
 /**
@@ -220,7 +377,51 @@ function extractOpenAiDelta(json: unknown): string | null {
   const first = asObject(choices[0]);
   const delta = asObject(first?.delta);
   const content = delta?.content;
-  return typeof content === "string" ? content : null;
+  return extractOpenAiContentText(content);
+}
+
+/**
+ * Extract human-readable text from OpenAI-compatible content payloads.
+ */
+function extractOpenAiContentText(content: unknown): string | null {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return null;
+  }
+
+  const parts: string[] = [];
+  for (const item of content) {
+    if (typeof item === "string") {
+      if (item.length > 0) {
+        parts.push(item);
+      }
+      continue;
+    }
+
+    const row = asObject(item);
+    if (!row) {
+      continue;
+    }
+
+    const text = row.text;
+    if (typeof text === "string" && text.length > 0) {
+      parts.push(text);
+      continue;
+    }
+
+    const nested = row.content;
+    if (typeof nested === "string" && nested.length > 0) {
+      parts.push(nested);
+    }
+  }
+
+  if (parts.length === 0) {
+    return null;
+  }
+  return parts.join("");
 }
 
 /**
@@ -245,6 +446,53 @@ function extractAnthropicDelta(json: unknown): string | null {
   const delta = asObject(obj?.delta);
   const text = delta?.text;
   return typeof text === "string" ? text : null;
+}
+
+/**
+ * Build a stable provider display name for model catalog results.
+ */
+function providerDisplayName(provider: AiProvider): string {
+  if (provider === "proxy") {
+    return "Proxy";
+  }
+  if (provider === "openai") {
+    return "OpenAI";
+  }
+  return "Anthropic";
+}
+
+/**
+ * Extract model items from an OpenAI-compatible `/v1/models` response.
+ */
+function extractOpenAiModels(json: unknown): Array<{ id: string; name: string }> {
+  const obj = asObject(json);
+  const data = obj?.data;
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const items: Array<{ id: string; name: string }> = [];
+  for (const raw of data) {
+    const row = asObject(raw);
+    const id = typeof row?.id === "string" ? row.id.trim() : "";
+    if (id.length === 0 || seen.has(id)) {
+      continue;
+    }
+
+    const displayName =
+      typeof row?.name === "string" && row.name.trim().length > 0
+        ? row.name.trim()
+        : typeof row?.display_name === "string" &&
+            row.display_name.trim().length > 0
+          ? row.display_name.trim()
+          : id;
+
+    seen.add(id);
+    items.push({ id, name: displayName });
+  }
+
+  return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**
@@ -278,6 +526,61 @@ function upstreamError(args: { status: number; message: string }): IpcError {
     code,
     message,
     details: { status: args.status },
+  };
+}
+
+/**
+ * Extract a concise error message from an upstream non-2xx response.
+ */
+async function readUpstreamErrorMessage(args: {
+  res: Response;
+  fallback: string;
+}): Promise<string> {
+  const contentType = args.res.headers.get("content-type") ?? "";
+  const raw = await args.res.text();
+
+  if (contentType.toLowerCase().includes("application/json")) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      const obj = asObject(parsed);
+      const nestedError = asObject(obj?.error);
+      const nestedMessage = nestedError?.message;
+      if (typeof nestedMessage === "string" && nestedMessage.trim().length > 0) {
+        return nestedMessage.trim();
+      }
+      const directMessage = obj?.message;
+      if (typeof directMessage === "string" && directMessage.trim().length > 0) {
+        return directMessage.trim();
+      }
+    } catch {
+      return args.fallback;
+    }
+  }
+
+  return args.fallback;
+}
+
+/**
+ * Build mapped IPC error from an upstream non-2xx response.
+ */
+async function buildUpstreamHttpError(args: {
+  res: Response;
+  fallbackMessage: string;
+}): Promise<IpcError> {
+  const upstreamMessage = await readUpstreamErrorMessage({
+    res: args.res,
+    fallback: args.fallbackMessage,
+  });
+  const mapped = upstreamError({
+    status: args.res.status,
+    message: upstreamMessage,
+  });
+  return {
+    ...mapped,
+    details: {
+      ...(asObject(mapped.details) ?? {}),
+      upstreamMessage,
+    },
   };
 }
 
@@ -317,27 +620,48 @@ async function resolveProviderConfig(deps: {
   }
 
   const proxyFromSettings = deps.getProxySettings?.() ?? null;
-  if (proxyFromSettings?.enabled) {
-    const baseUrl =
-      typeof proxyFromSettings.baseUrl === "string"
-        ? proxyFromSettings.baseUrl.trim()
-        : "";
-    if (baseUrl.length === 0) {
-      return ipcError("INVALID_ARGUMENT", "proxy baseUrl is required");
+  if (proxyFromSettings) {
+    const mode = resolveSettingsProviderMode(proxyFromSettings);
+    const resolved = resolveSettingsProviderCredentials({
+      settings: proxyFromSettings,
+      mode,
+    });
+
+    if (mode !== "openai-compatible" || proxyFromSettings.enabled) {
+      const baseUrl =
+        typeof resolved.credentials.baseUrl === "string"
+          ? resolved.credentials.baseUrl.trim()
+          : "";
+      if (baseUrl.length === 0) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          `${mode} baseUrl is required in settings`,
+        );
+      }
+
+      const apiKey =
+        typeof resolved.credentials.apiKey === "string" &&
+        resolved.credentials.apiKey.trim().length > 0
+          ? resolved.credentials.apiKey
+          : undefined;
+
+      if (resolved.provider !== "proxy" && !isE2E(deps.env) && !apiKey) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          `${mode} api key is required in settings`,
+        );
+      }
+
+      return {
+        ok: true,
+        data: {
+          provider: resolved.provider,
+          baseUrl,
+          apiKey,
+          timeoutMs,
+        },
+      };
     }
-    return {
-      ok: true,
-      data: {
-        provider: "proxy",
-        baseUrl,
-        apiKey:
-          typeof proxyFromSettings.apiKey === "string" &&
-          proxyFromSettings.apiKey.trim().length > 0
-            ? proxyFromSettings.apiKey
-            : undefined,
-        timeoutMs,
-      },
-    };
   }
 
   const provider =
@@ -478,13 +802,20 @@ export function createAiService(deps: {
     cfg: ProviderConfig;
     systemPrompt?: string;
     input: string;
+    mode: "agent" | "plan" | "ask";
+    model: string;
     system?: string;
   }): Promise<ServiceResult<string>> {
-    const url = new URL("/v1/chat/completions", args.cfg.baseUrl).toString();
+    const url = buildApiUrl({
+      baseUrl: args.cfg.baseUrl,
+      endpointPath: "/v1/chat/completions",
+    });
 
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
-      system: args.system,
+      system: [args.system ?? "", modeSystemHint(args.mode) ?? ""]
+        .filter((part) => part.trim().length > 0)
+        .join("\n\n"),
     });
     const messages = systemText
       ? [
@@ -502,7 +833,7 @@ export function createAiService(deps: {
           : {}),
       },
       body: JSON.stringify({
-        model: "fake",
+        model: args.model,
         messages,
         stream: false,
       }),
@@ -510,16 +841,21 @@ export function createAiService(deps: {
     });
 
     if (!res.ok) {
+      const mapped = await buildUpstreamHttpError({
+        res,
+        fallbackMessage: "AI upstream request failed",
+      });
       return {
         ok: false,
-        error: upstreamError({
-          status: res.status,
-          message: "AI upstream request failed",
-        }),
+        error: mapped,
       };
     }
 
-    const json: unknown = await res.json();
+    const jsonRes = await parseJsonResponse(res);
+    if (!jsonRes.ok) {
+      return jsonRes;
+    }
+    const json = jsonRes.data;
     const text = extractOpenAiText(json);
     if (typeof text !== "string") {
       return ipcError("INTERNAL", "Invalid OpenAI response shape");
@@ -535,23 +871,31 @@ export function createAiService(deps: {
     cfg: ProviderConfig;
     systemPrompt?: string;
     input: string;
+    mode: "agent" | "plan" | "ask";
+    model: string;
     system?: string;
   }): Promise<ServiceResult<string>> {
-    const url = new URL("/v1/messages", args.cfg.baseUrl).toString();
+    const url = buildApiUrl({
+      baseUrl: args.cfg.baseUrl,
+      endpointPath: "/v1/messages",
+    });
 
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
-      system: args.system,
+      system: [args.system ?? "", modeSystemHint(args.mode) ?? ""]
+        .filter((part) => part.trim().length > 0)
+        .join("\n\n"),
     });
 
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
         ...(args.cfg.apiKey ? { "x-api-key": args.cfg.apiKey } : {}),
       },
       body: JSON.stringify({
-        model: "fake",
+        model: args.model,
         max_tokens: 256,
         ...(systemText ? { system: systemText } : {}),
         messages: [{ role: "user", content: args.input }],
@@ -561,16 +905,21 @@ export function createAiService(deps: {
     });
 
     if (!res.ok) {
+      const mapped = await buildUpstreamHttpError({
+        res,
+        fallbackMessage: "AI upstream request failed",
+      });
       return {
         ok: false,
-        error: upstreamError({
-          status: res.status,
-          message: "AI upstream request failed",
-        }),
+        error: mapped,
       };
     }
 
-    const json: unknown = await res.json();
+    const jsonRes = await parseJsonResponse(res);
+    if (!jsonRes.ok) {
+      return jsonRes;
+    }
+    const json = jsonRes.data;
     const text = extractAnthropicText(json);
     if (typeof text !== "string") {
       return ipcError("INTERNAL", "Invalid Anthropic response shape");
@@ -586,13 +935,20 @@ export function createAiService(deps: {
     cfg: ProviderConfig;
     systemPrompt?: string;
     input: string;
+    mode: "agent" | "plan" | "ask";
+    model: string;
     system?: string;
   }): Promise<ServiceResult<true>> {
-    const url = new URL("/v1/chat/completions", args.cfg.baseUrl).toString();
+    const url = buildApiUrl({
+      baseUrl: args.cfg.baseUrl,
+      endpointPath: "/v1/chat/completions",
+    });
 
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
-      system: args.system,
+      system: [args.system ?? "", modeSystemHint(args.mode) ?? ""]
+        .filter((part) => part.trim().length > 0)
+        .join("\n\n"),
     });
     const messages = systemText
       ? [
@@ -610,7 +966,7 @@ export function createAiService(deps: {
           : {}),
       },
       body: JSON.stringify({
-        model: "fake",
+        model: args.model,
         messages,
         stream: true,
       }),
@@ -618,12 +974,13 @@ export function createAiService(deps: {
     });
 
     if (!res.ok) {
+      const mapped = await buildUpstreamHttpError({
+        res,
+        fallbackMessage: "AI upstream request failed",
+      });
       return {
         ok: false,
-        error: upstreamError({
-          status: res.status,
-          message: "AI upstream request failed",
-        }),
+        error: mapped,
       };
     }
 
@@ -669,23 +1026,31 @@ export function createAiService(deps: {
     cfg: ProviderConfig;
     systemPrompt?: string;
     input: string;
+    mode: "agent" | "plan" | "ask";
+    model: string;
     system?: string;
   }): Promise<ServiceResult<true>> {
-    const url = new URL("/v1/messages", args.cfg.baseUrl).toString();
+    const url = buildApiUrl({
+      baseUrl: args.cfg.baseUrl,
+      endpointPath: "/v1/messages",
+    });
 
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
-      system: args.system,
+      system: [args.system ?? "", modeSystemHint(args.mode) ?? ""]
+        .filter((part) => part.trim().length > 0)
+        .join("\n\n"),
     });
 
     const res = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "anthropic-version": "2023-06-01",
         ...(args.cfg.apiKey ? { "x-api-key": args.cfg.apiKey } : {}),
       },
       body: JSON.stringify({
-        model: "fake",
+        model: args.model,
         max_tokens: 256,
         ...(systemText ? { system: systemText } : {}),
         messages: [{ role: "user", content: args.input }],
@@ -695,12 +1060,13 @@ export function createAiService(deps: {
     });
 
     if (!res.ok) {
+      const mapped = await buildUpstreamHttpError({
+        res,
+        fallbackMessage: "AI upstream request failed",
+      });
       return {
         ok: false,
-        error: upstreamError({
-          status: res.status,
-          message: "AI upstream request failed",
-        }),
+        error: mapped,
       };
     }
 
@@ -802,6 +1168,8 @@ export function createAiService(deps: {
                   cfg,
                   systemPrompt: args.systemPrompt,
                   input: args.input,
+                  mode: args.mode,
+                  model: args.model,
                   system: args.system,
                 })
               : await runOpenAiStream({
@@ -809,6 +1177,8 @@ export function createAiService(deps: {
                   cfg,
                   systemPrompt: args.systemPrompt,
                   input: args.input,
+                  mode: args.mode,
+                  model: args.model,
                   system: args.system,
                 });
 
@@ -886,6 +1256,8 @@ export function createAiService(deps: {
               cfg,
               systemPrompt: args.systemPrompt,
               input: args.input,
+              mode: args.mode,
+              model: args.model,
               system: args.system,
             })
           : await runOpenAiNonStream({
@@ -893,6 +1265,8 @@ export function createAiService(deps: {
               cfg,
               systemPrompt: args.systemPrompt,
               input: args.input,
+              mode: args.mode,
+              model: args.model,
               system: args.system,
             });
 
@@ -955,6 +1329,75 @@ export function createAiService(deps: {
     }
   };
 
+  const listModels: AiService["listModels"] = async () => {
+    const cfgRes = await resolveProviderConfig({
+      logger: deps.logger,
+      env: deps.env,
+      getFakeServer,
+      getProxySettings: deps.getProxySettings,
+    });
+    if (!cfgRes.ok) {
+      return cfgRes;
+    }
+
+    const cfg = cfgRes.data;
+    const provider = cfg.provider;
+    const providerName = providerDisplayName(provider);
+
+    const url = buildApiUrl({ baseUrl: cfg.baseUrl, endpointPath: "/v1/models" });
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          ...(cfg.apiKey
+            ? provider === "anthropic"
+              ? {
+                  "x-api-key": cfg.apiKey,
+                  "anthropic-version": "2023-06-01",
+                }
+              : { Authorization: `Bearer ${cfg.apiKey}` }
+            : {}),
+        },
+      });
+
+      if (!res.ok) {
+        const mapped = await buildUpstreamHttpError({
+          res,
+          fallbackMessage: "AI model catalog request failed",
+        });
+        return {
+          ok: false,
+          error: mapped,
+        };
+      }
+
+      const jsonRes = await parseJsonResponse(res);
+      if (!jsonRes.ok) {
+        return jsonRes;
+      }
+      const json = jsonRes.data;
+      const items = extractOpenAiModels(json).map((item) => ({
+        id: item.id,
+        name: item.name,
+        provider: providerName,
+      }));
+
+      return {
+        ok: true,
+        data: {
+          source: provider,
+          items,
+        },
+      };
+    } catch (error) {
+      return ipcError(
+        "UPSTREAM_ERROR",
+        error instanceof Error
+          ? error.message
+          : "AI model catalog request failed",
+      );
+    }
+  };
   const cancel: AiService["cancel"] = (args) => {
     const entry = runs.get(args.runId);
     if (!entry) {
@@ -990,5 +1433,6 @@ export function createAiService(deps: {
     return { ok: true, data: { recorded: true } };
   };
 
-  return { runSkill, cancel, feedback };
+  return { runSkill, listModels, cancel, feedback };
 }
+

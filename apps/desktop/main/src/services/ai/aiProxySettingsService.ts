@@ -14,19 +14,44 @@ export type AiProxySettings = {
   enabled: boolean;
   baseUrl: string;
   apiKeyConfigured: boolean;
+  providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
+  openAiCompatibleBaseUrl: string;
+  openAiCompatibleApiKeyConfigured: boolean;
+  openAiByokBaseUrl: string;
+  openAiByokApiKeyConfigured: boolean;
+  anthropicByokBaseUrl: string;
+  anthropicByokApiKeyConfigured: boolean;
 };
 
 export type AiProxySettingsRaw = {
   enabled: boolean;
   baseUrl: string | null;
   apiKey: string | null;
+  providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
+  openAiCompatibleBaseUrl: string | null;
+  openAiCompatibleApiKey: string | null;
+  openAiByokBaseUrl: string | null;
+  openAiByokApiKey: string | null;
+  anthropicByokBaseUrl: string | null;
+  anthropicByokApiKey: string | null;
 };
 
 export type AiProxySettingsService = {
   get: () => ServiceResult<AiProxySettings>;
   getRaw: () => ServiceResult<AiProxySettingsRaw>;
   update: (args: {
-    patch: Partial<{ enabled: boolean; baseUrl: string; apiKey: string }>;
+    patch: Partial<{
+      enabled: boolean;
+      baseUrl: string;
+      apiKey: string;
+      providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
+      openAiCompatibleBaseUrl: string;
+      openAiCompatibleApiKey: string;
+      openAiByokBaseUrl: string;
+      openAiByokApiKey: string;
+      anthropicByokBaseUrl: string;
+      anthropicByokApiKey: string;
+    }>;
   }) => ServiceResult<AiProxySettings>;
   test: () => Promise<
     ServiceResult<{
@@ -41,6 +66,13 @@ const SETTINGS_SCOPE = "app" as const;
 const KEY_ENABLED = "creonow.ai.proxy.enabled" as const;
 const KEY_BASE_URL = "creonow.ai.proxy.baseUrl" as const;
 const KEY_API_KEY = "creonow.ai.proxy.apiKey" as const;
+const KEY_PROVIDER_MODE = "creonow.ai.provider.mode" as const;
+const KEY_OA_COMPAT_BASE_URL = "creonow.ai.provider.openaiCompatible.baseUrl" as const;
+const KEY_OA_COMPAT_API_KEY = "creonow.ai.provider.openaiCompatible.apiKey" as const;
+const KEY_OA_BYOK_BASE_URL = "creonow.ai.provider.openaiByok.baseUrl" as const;
+const KEY_OA_BYOK_API_KEY = "creonow.ai.provider.openaiByok.apiKey" as const;
+const KEY_ANTH_BYOK_BASE_URL = "creonow.ai.provider.anthropicByok.baseUrl" as const;
+const KEY_ANTH_BYOK_API_KEY = "creonow.ai.provider.anthropicByok.apiKey" as const;
 
 function nowTs(): number {
   return Date.now();
@@ -112,15 +144,70 @@ function normalizeApiKey(raw: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeProviderMode(
+  raw: unknown,
+): "openai-compatible" | "openai-byok" | "anthropic-byok" {
+  if (
+    raw === "openai-compatible" ||
+    raw === "openai-byok" ||
+    raw === "anthropic-byok"
+  ) {
+    return raw;
+  }
+  return "openai-compatible";
+}
+
+function joinApiPath(args: { baseUrl: string; endpointPath: string }): string {
+  const base = new URL(args.baseUrl);
+  const endpoint = args.endpointPath.startsWith("/")
+    ? args.endpointPath
+    : `/${args.endpointPath}`;
+
+  if (!base.pathname.endsWith("/")) {
+    base.pathname = `${base.pathname}/`;
+  }
+
+  const basePathNoSlash = base.pathname.endsWith("/")
+    ? base.pathname.slice(0, -1)
+    : base.pathname;
+  const normalizedEndpoint =
+    basePathNoSlash.endsWith("/v1") && endpoint.startsWith("/v1/")
+      ? endpoint.slice(3)
+      : endpoint;
+
+  return new URL(normalizedEndpoint.slice(1), base.toString()).toString();
+}
+
 function readRawSettings(db: Database.Database): AiProxySettingsRaw {
   const enabled = readSetting(db, KEY_ENABLED);
   const baseUrl = readSetting(db, KEY_BASE_URL);
   const apiKey = readSetting(db, KEY_API_KEY);
+  const providerMode = readSetting(db, KEY_PROVIDER_MODE);
+  const openAiCompatibleBaseUrl = readSetting(db, KEY_OA_COMPAT_BASE_URL);
+  const openAiCompatibleApiKey = readSetting(db, KEY_OA_COMPAT_API_KEY);
+  const openAiByokBaseUrl = readSetting(db, KEY_OA_BYOK_BASE_URL);
+  const openAiByokApiKey = readSetting(db, KEY_OA_BYOK_API_KEY);
+  const anthropicByokBaseUrl = readSetting(db, KEY_ANTH_BYOK_BASE_URL);
+  const anthropicByokApiKey = readSetting(db, KEY_ANTH_BYOK_API_KEY);
+
+  const normalizedLegacyBaseUrl = normalizeBaseUrl(baseUrl);
+  const normalizedLegacyApiKey = normalizeApiKey(apiKey);
 
   return {
     enabled: enabled === true,
-    baseUrl: normalizeBaseUrl(baseUrl),
-    apiKey: normalizeApiKey(apiKey),
+    baseUrl: normalizedLegacyBaseUrl,
+    apiKey: normalizedLegacyApiKey,
+    providerMode: normalizeProviderMode(providerMode),
+    openAiCompatibleBaseUrl:
+      normalizeBaseUrl(openAiCompatibleBaseUrl) ?? normalizedLegacyBaseUrl,
+    openAiCompatibleApiKey:
+      normalizeApiKey(openAiCompatibleApiKey) ?? normalizedLegacyApiKey,
+    openAiByokBaseUrl:
+      normalizeBaseUrl(openAiByokBaseUrl) ?? normalizedLegacyBaseUrl,
+    openAiByokApiKey:
+      normalizeApiKey(openAiByokApiKey) ?? normalizedLegacyApiKey,
+    anthropicByokBaseUrl: normalizeBaseUrl(anthropicByokBaseUrl),
+    anthropicByokApiKey: normalizeApiKey(anthropicByokApiKey),
   };
 }
 
@@ -129,6 +216,19 @@ function toPublic(raw: AiProxySettingsRaw): AiProxySettings {
     enabled: raw.enabled,
     baseUrl: raw.baseUrl ?? "",
     apiKeyConfigured: typeof raw.apiKey === "string" && raw.apiKey.length > 0,
+    providerMode: raw.providerMode,
+    openAiCompatibleBaseUrl: raw.openAiCompatibleBaseUrl ?? "",
+    openAiCompatibleApiKeyConfigured:
+      typeof raw.openAiCompatibleApiKey === "string" &&
+      raw.openAiCompatibleApiKey.length > 0,
+    openAiByokBaseUrl: raw.openAiByokBaseUrl ?? "",
+    openAiByokApiKeyConfigured:
+      typeof raw.openAiByokApiKey === "string" &&
+      raw.openAiByokApiKey.length > 0,
+    anthropicByokBaseUrl: raw.anthropicByokBaseUrl ?? "",
+    anthropicByokApiKeyConfigured:
+      typeof raw.anthropicByokApiKey === "string" &&
+      raw.anthropicByokApiKey.length > 0,
   };
 }
 
@@ -157,7 +257,18 @@ export function createAiProxySettingsService(deps: {
   }
 
   function update(args: {
-    patch: Partial<{ enabled: boolean; baseUrl: string; apiKey: string }>;
+    patch: Partial<{
+      enabled: boolean;
+      baseUrl: string;
+      apiKey: string;
+      providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
+      openAiCompatibleBaseUrl: string;
+      openAiCompatibleApiKey: string;
+      openAiByokBaseUrl: string;
+      openAiByokApiKey: string;
+      anthropicByokBaseUrl: string;
+      anthropicByokApiKey: string;
+    }>;
   }): ServiceResult<AiProxySettings> {
     const patchKeys = Object.keys(args.patch);
     if (patchKeys.length === 0) {
@@ -179,7 +290,38 @@ export function createAiProxySettingsService(deps: {
         typeof args.patch.apiKey === "string"
           ? normalizeApiKey(args.patch.apiKey)
           : existing.data.apiKey,
+      providerMode: normalizeProviderMode(
+        args.patch.providerMode ?? existing.data.providerMode,
+      ),
+      openAiCompatibleBaseUrl:
+        typeof args.patch.openAiCompatibleBaseUrl === "string"
+          ? normalizeBaseUrl(args.patch.openAiCompatibleBaseUrl)
+          : existing.data.openAiCompatibleBaseUrl,
+      openAiCompatibleApiKey:
+        typeof args.patch.openAiCompatibleApiKey === "string"
+          ? normalizeApiKey(args.patch.openAiCompatibleApiKey)
+          : existing.data.openAiCompatibleApiKey,
+      openAiByokBaseUrl:
+        typeof args.patch.openAiByokBaseUrl === "string"
+          ? normalizeBaseUrl(args.patch.openAiByokBaseUrl)
+          : existing.data.openAiByokBaseUrl,
+      openAiByokApiKey:
+        typeof args.patch.openAiByokApiKey === "string"
+          ? normalizeApiKey(args.patch.openAiByokApiKey)
+          : existing.data.openAiByokApiKey,
+      anthropicByokBaseUrl:
+        typeof args.patch.anthropicByokBaseUrl === "string"
+          ? normalizeBaseUrl(args.patch.anthropicByokBaseUrl)
+          : existing.data.anthropicByokBaseUrl,
+      anthropicByokApiKey:
+        typeof args.patch.anthropicByokApiKey === "string"
+          ? normalizeApiKey(args.patch.anthropicByokApiKey)
+          : existing.data.anthropicByokApiKey,
     };
+
+    if (next.providerMode !== "openai-compatible") {
+      next.enabled = false;
+    }
 
     if (next.enabled && !next.baseUrl) {
       return ipcError(
@@ -191,7 +333,10 @@ export function createAiProxySettingsService(deps: {
     const ts = nowTs();
     try {
       deps.db.transaction(() => {
-        if (typeof args.patch.enabled === "boolean") {
+        if (
+          typeof args.patch.enabled === "boolean" ||
+          typeof args.patch.providerMode === "string"
+        ) {
           writeSetting(deps.db, KEY_ENABLED, next.enabled, ts);
         }
         if (typeof args.patch.baseUrl === "string") {
@@ -200,10 +345,62 @@ export function createAiProxySettingsService(deps: {
         if (typeof args.patch.apiKey === "string") {
           writeSetting(deps.db, KEY_API_KEY, next.apiKey ?? "", ts);
         }
+        if (typeof args.patch.providerMode === "string") {
+          writeSetting(deps.db, KEY_PROVIDER_MODE, next.providerMode, ts);
+        }
+        if (typeof args.patch.openAiCompatibleBaseUrl === "string") {
+          writeSetting(
+            deps.db,
+            KEY_OA_COMPAT_BASE_URL,
+            next.openAiCompatibleBaseUrl ?? "",
+            ts,
+          );
+        }
+        if (typeof args.patch.openAiCompatibleApiKey === "string") {
+          writeSetting(
+            deps.db,
+            KEY_OA_COMPAT_API_KEY,
+            next.openAiCompatibleApiKey ?? "",
+            ts,
+          );
+        }
+        if (typeof args.patch.openAiByokBaseUrl === "string") {
+          writeSetting(
+            deps.db,
+            KEY_OA_BYOK_BASE_URL,
+            next.openAiByokBaseUrl ?? "",
+            ts,
+          );
+        }
+        if (typeof args.patch.openAiByokApiKey === "string") {
+          writeSetting(
+            deps.db,
+            KEY_OA_BYOK_API_KEY,
+            next.openAiByokApiKey ?? "",
+            ts,
+          );
+        }
+        if (typeof args.patch.anthropicByokBaseUrl === "string") {
+          writeSetting(
+            deps.db,
+            KEY_ANTH_BYOK_BASE_URL,
+            next.anthropicByokBaseUrl ?? "",
+            ts,
+          );
+        }
+        if (typeof args.patch.anthropicByokApiKey === "string") {
+          writeSetting(
+            deps.db,
+            KEY_ANTH_BYOK_API_KEY,
+            next.anthropicByokApiKey ?? "",
+            ts,
+          );
+        }
       })();
 
       deps.logger.info("ai_proxy_settings_updated", {
         enabled: next.enabled,
+        providerMode: next.providerMode,
         baseUrlConfigured: typeof next.baseUrl === "string",
         apiKeyConfigured: typeof next.apiKey === "string",
       });
@@ -230,16 +427,33 @@ export function createAiProxySettingsService(deps: {
       return raw;
     }
     if (!raw.data.enabled) {
-      return {
-        ok: true,
-        data: {
-          ok: false,
-          latencyMs: 0,
-          error: { code: "INVALID_ARGUMENT", message: "proxy is disabled" },
-        },
-      };
+      if (raw.data.providerMode === "openai-compatible") {
+        return {
+          ok: true,
+          data: {
+            ok: false,
+            latencyMs: 0,
+            error: { code: "INVALID_ARGUMENT", message: "proxy is disabled" },
+          },
+        };
+      }
     }
-    if (!raw.data.baseUrl) {
+
+    const mode = raw.data.providerMode;
+    const targetBaseUrl =
+      mode === "anthropic-byok"
+        ? raw.data.anthropicByokBaseUrl
+        : mode === "openai-byok"
+          ? raw.data.openAiByokBaseUrl
+          : raw.data.openAiCompatibleBaseUrl;
+    const targetApiKey =
+      mode === "anthropic-byok"
+        ? raw.data.anthropicByokApiKey
+        : mode === "openai-byok"
+          ? raw.data.openAiByokApiKey
+          : raw.data.openAiCompatibleApiKey;
+
+    if (!targetBaseUrl) {
       return {
         ok: true,
         data: {
@@ -247,7 +461,7 @@ export function createAiProxySettingsService(deps: {
           latencyMs: 0,
           error: {
             code: "INVALID_ARGUMENT",
-            message: "proxy baseUrl is missing",
+            message: `${mode} baseUrl is missing`,
           },
         },
       };
@@ -257,12 +471,21 @@ export function createAiProxySettingsService(deps: {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2_000);
     try {
-      const url = new URL("/v1/models", raw.data.baseUrl).toString();
+      const url = joinApiPath({
+        baseUrl: targetBaseUrl,
+        endpointPath: "/v1/models",
+      });
       const res = await fetch(url, {
         method: "GET",
-        headers: raw.data.apiKey
-          ? { Authorization: `Bearer ${raw.data.apiKey}` }
-          : {},
+        headers:
+          mode === "anthropic-byok"
+            ? {
+                ...(targetApiKey ? { "x-api-key": targetApiKey } : {}),
+                "anthropic-version": "2023-06-01",
+              }
+            : targetApiKey
+              ? { Authorization: `Bearer ${targetApiKey}` }
+              : {},
         signal: controller.signal,
       });
 

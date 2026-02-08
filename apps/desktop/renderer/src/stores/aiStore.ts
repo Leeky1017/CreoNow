@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { create } from "zustand";
 
 import type {
@@ -38,6 +38,9 @@ export type PromptDiagnostics = {
   stablePrefixHash: string;
   promptHash: string;
 };
+
+export type AiRunMode = "agent" | "plan" | "ask";
+export type AiRunModel = string;
 
 export type IpcInvoke = <C extends IpcChannel>(
   channel: C,
@@ -90,6 +93,8 @@ export type AiActions = {
     inputOverride?: string;
     context?: { projectId?: string; documentId?: string };
     promptDiagnostics?: PromptDiagnostics;
+    mode?: AiRunMode;
+    model?: AiRunModel;
   }) => Promise<void>;
   cancel: () => Promise<void>;
   onStreamEvent: (event: AiStreamEvent) => void;
@@ -264,6 +269,8 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       const res = await deps.invoke("ai:skill:run", {
         skillId: state.selectedSkillId,
         input: inputToSend,
+        mode: args?.mode ?? "ask",
+        model: args?.model ?? "gpt-5.2",
         stream: state.stream,
         context: args?.context ?? {},
         promptDiagnostics: args?.promptDiagnostics,
@@ -381,3 +388,4 @@ export function useAiStore<T>(selector: (state: AiStore) => T): T {
   }
   return store(selector);
 }
+

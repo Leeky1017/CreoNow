@@ -55,6 +55,7 @@ export type IpcErr = {
 export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
 export const IPC_CHANNELS = [
+  "ai:models:list",
   "ai:proxy:test",
   "ai:proxysettings:get",
   "ai:proxysettings:update",
@@ -133,6 +134,17 @@ export const IPC_CHANNELS = [
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
 export type IpcChannelSpec = {
+  "ai:models:list": {
+    request: Record<string, never>;
+    response: {
+      items: Array<{
+        id: string;
+        name: string;
+        provider: string;
+      }>;
+      source: "proxy" | "openai" | "anthropic";
+    };
+  };
   "ai:proxy:test": {
     request: Record<string, never>;
     response: {
@@ -168,23 +180,44 @@ export type IpcChannelSpec = {
   "ai:proxysettings:get": {
     request: Record<string, never>;
     response: {
+      anthropicByokApiKeyConfigured: boolean;
+      anthropicByokBaseUrl: string;
       apiKeyConfigured: boolean;
       baseUrl: string;
       enabled: boolean;
+      openAiByokApiKeyConfigured: boolean;
+      openAiByokBaseUrl: string;
+      openAiCompatibleApiKeyConfigured: boolean;
+      openAiCompatibleBaseUrl: string;
+      providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
     };
   };
   "ai:proxysettings:update": {
     request: {
       patch: {
+        anthropicByokApiKey?: string;
+        anthropicByokBaseUrl?: string;
         apiKey?: string;
         baseUrl?: string;
         enabled?: boolean;
+        openAiByokApiKey?: string;
+        openAiByokBaseUrl?: string;
+        openAiCompatibleApiKey?: string;
+        openAiCompatibleBaseUrl?: string;
+        providerMode?: "openai-compatible" | "openai-byok" | "anthropic-byok";
       };
     };
     response: {
+      anthropicByokApiKeyConfigured: boolean;
+      anthropicByokBaseUrl: string;
       apiKeyConfigured: boolean;
       baseUrl: string;
       enabled: boolean;
+      openAiByokApiKeyConfigured: boolean;
+      openAiByokBaseUrl: string;
+      openAiCompatibleApiKeyConfigured: boolean;
+      openAiCompatibleBaseUrl: string;
+      providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
     };
   };
   "ai:skill:cancel": {
@@ -220,6 +253,8 @@ export type IpcChannelSpec = {
         projectId?: string;
       };
       input: string;
+      mode: "agent" | "plan" | "ask";
+      model: string;
       promptDiagnostics?: {
         promptHash: string;
         stablePrefixHash: string;

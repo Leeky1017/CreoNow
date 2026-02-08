@@ -1,4 +1,4 @@
-import { s } from "./schema";
+﻿import { s } from "./schema";
 
 export const IPC_ERROR_CODES = [
   "VALIDATION_ERROR",
@@ -131,6 +131,17 @@ const AI_PROXY_SETTINGS_SCHEMA = s.object({
   enabled: s.boolean(),
   baseUrl: s.string(),
   apiKeyConfigured: s.boolean(),
+  providerMode: s.union(
+    s.literal("openai-compatible"),
+    s.literal("openai-byok"),
+    s.literal("anthropic-byok"),
+  ),
+  openAiCompatibleBaseUrl: s.string(),
+  openAiCompatibleApiKeyConfigured: s.boolean(),
+  openAiByokBaseUrl: s.string(),
+  openAiByokApiKeyConfigured: s.boolean(),
+  anthropicByokBaseUrl: s.string(),
+  anthropicByokApiKeyConfigured: s.boolean(),
 });
 
 const AI_PROXY_TEST_SCHEMA = s.object({
@@ -142,6 +153,17 @@ const AI_PROXY_TEST_SCHEMA = s.object({
       message: s.string(),
     }),
   ),
+});
+
+const AI_MODEL_CATALOG_ITEM_SCHEMA = s.object({
+  id: s.string(),
+  name: s.string(),
+  provider: s.string(),
+});
+
+const AI_MODEL_CATALOG_SCHEMA = s.object({
+  source: s.union(s.literal("proxy"), s.literal("openai"), s.literal("anthropic")),
+  items: s.array(AI_MODEL_CATALOG_ITEM_SCHEMA),
 });
 
 const REDACTION_EVIDENCE_SCHEMA = s.object({
@@ -284,6 +306,8 @@ export const ipcContract = {
       request: s.object({
         skillId: s.string(),
         input: s.string(),
+        mode: s.union(s.literal("agent"), s.literal("plan"), s.literal("ask")),
+        model: s.string(),
         context: s.optional(
           s.object({
             projectId: s.optional(s.string()),
@@ -309,6 +333,19 @@ export const ipcContract = {
           enabled: s.optional(s.boolean()),
           baseUrl: s.optional(s.string()),
           apiKey: s.optional(s.string()),
+          providerMode: s.optional(
+            s.union(
+              s.literal("openai-compatible"),
+              s.literal("openai-byok"),
+              s.literal("anthropic-byok"),
+            ),
+          ),
+          openAiCompatibleBaseUrl: s.optional(s.string()),
+          openAiCompatibleApiKey: s.optional(s.string()),
+          openAiByokBaseUrl: s.optional(s.string()),
+          openAiByokApiKey: s.optional(s.string()),
+          anthropicByokBaseUrl: s.optional(s.string()),
+          anthropicByokApiKey: s.optional(s.string()),
         }),
       }),
       response: AI_PROXY_SETTINGS_SCHEMA,
@@ -316,6 +353,10 @@ export const ipcContract = {
     "ai:proxy:test": {
       request: s.object({}),
       response: AI_PROXY_TEST_SCHEMA,
+    },
+    "ai:models:list": {
+      request: s.object({}),
+      response: AI_MODEL_CATALOG_SCHEMA,
     },
     "ai:skill:cancel": {
       request: s.object({ runId: s.string() }),
@@ -858,3 +899,6 @@ export const ipcContract = {
     },
   },
 } as const;
+
+
+

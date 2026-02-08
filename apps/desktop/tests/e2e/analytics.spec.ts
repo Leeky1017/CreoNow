@@ -120,7 +120,14 @@ test("analytics: wordsWritten + skillsUsed increment and are visible", async () 
   const run = await ipcInvoke<{ runId: string; outputText?: string }>(
     page,
     "ai:skill:run",
-    { skillId: "builtin:polish", input: "hello", stream: false, context: {} },
+    {
+      skillId: "builtin:polish",
+      input: "hello",
+      mode: "ask",
+      model: "gpt-5.2",
+      stream: false,
+      context: {},
+    },
   );
   expect(run.ok).toBe(true);
 

@@ -1,4 +1,4 @@
-import type { IpcMain } from "electron";
+﻿import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
@@ -21,6 +21,8 @@ import { createSkillService } from "../services/skills/skillService";
 type SkillRunPayload = {
   skillId: string;
   input: string;
+  mode: "agent" | "plan" | "ask";
+  model: string;
   context?: { projectId?: string; documentId?: string };
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
   stream: boolean;
@@ -30,6 +32,11 @@ type SkillRunResponse = {
   runId: string;
   outputText?: string;
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
+};
+
+type ModelCatalogResponse = {
+  source: "proxy" | "openai" | "anthropic";
+  items: Array<{ id: string; name: string; provider: string }>;
 };
 
 type SkillFeedbackPayload = {
@@ -182,6 +189,25 @@ export function registerAiIpcHandlers(deps: {
   }
 
   deps.ipcMain.handle(
+    "ai:models:list",
+    async (): Promise<IpcResponse<ModelCatalogResponse>> => {
+      try {
+        const res = await aiService.listModels();
+        return res.ok
+          ? { ok: true, data: res.data }
+          : { ok: false, error: res.error };
+      } catch (error) {
+        deps.logger.error("ai_models_list_ipc_failed", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL", message: "AI models list failed" },
+        };
+      }
+    },
+  );
+  deps.ipcMain.handle(
     "ai:skill:run",
     async (
       e,
@@ -191,6 +217,12 @@ export function registerAiIpcHandlers(deps: {
         return {
           ok: false,
           error: { code: "INVALID_ARGUMENT", message: "skillId is required" },
+        };
+      }
+      if (payload.model.trim().length === 0) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "model is required" },
         };
       }
       if (!deps.db) {
@@ -264,6 +296,8 @@ export function registerAiIpcHandlers(deps: {
           skillId: payload.skillId,
           systemPrompt,
           input: userPrompt,
+          mode: payload.mode,
+          model: payload.model,
           context: payload.context,
           stream: payload.stream,
           ts: nowTs(),
@@ -406,3 +440,4 @@ export function registerAiIpcHandlers(deps: {
     },
   );
 }
+

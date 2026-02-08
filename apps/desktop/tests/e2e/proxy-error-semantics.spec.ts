@@ -71,6 +71,8 @@ test.skip("proxy disabled + missing api key => INVALID_ARGUMENT", async () => {
   const run = await ipcInvoke(page, "ai:skill:run", {
     skillId: "builtin:polish",
     input: "hello",
+    mode: "ask",
+    model: "gpt-5.2",
     stream: false,
     context: {},
   });
@@ -107,6 +109,8 @@ test("proxy enabled + missing baseUrl => INVALID_ARGUMENT", async () => {
   const run = await ipcInvoke(page, "ai:skill:run", {
     skillId: "builtin:polish",
     input: "hello",
+    mode: "ask",
+    model: "gpt-5.2",
     stream: false,
     context: {},
   });

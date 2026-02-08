@@ -118,6 +118,8 @@ test("memory: injection preview + preference learning loop", async () => {
   const run1 = await ipcInvoke(page, "ai:skill:run", {
     skillId: "builtin:polish",
     input: "hello",
+    mode: "ask",
+    model: "gpt-5.2",
     stream: false,
     context: {},
   });
@@ -146,6 +148,8 @@ test("memory: injection preview + preference learning loop", async () => {
   const run2 = await ipcInvoke(page, "ai:skill:run", {
     skillId: "builtin:polish",
     input: "hello again",
+    mode: "ask",
+    model: "gpt-5.2",
     stream: false,
     context: {},
   });
@@ -165,6 +169,8 @@ test("memory: injection preview + preference learning loop", async () => {
   const run3 = await ipcInvoke(page, "ai:skill:run", {
     skillId: "builtin:polish",
     input: "hello no injection",
+    mode: "ask",
+    model: "gpt-5.2",
     stream: false,
     context: {},
   });
