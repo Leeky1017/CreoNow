@@ -13,7 +13,7 @@
 ## 3. Validation
 
 - [x] 3.1 Rulebook validate 通过
-- [ ] 3.2 Preflight 通过
+- [x] 3.2 Preflight 通过
 - [x] 3.3 RUN_LOG 记录完整并回填真实 PR 链接
 
 ## 4. Delivery

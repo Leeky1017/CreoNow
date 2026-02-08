@@ -14,7 +14,7 @@
 
 ## Status
 
-- CURRENT: `IN_PROGRESS`
+- CURRENT: `IN_PROGRESS`（PR 已创建并开启 auto-merge，等待 required checks）
 
 ## Runs
 
@@ -51,7 +51,35 @@
   - 提交：`c4f156e0`
   - PR：`https://github.com/Leeky1017/CreoNow/pull/277`
 
+### 2026-02-08 16:03 +0800 preflight attempt (failed)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - 失败点：`pnpm test:unit`
+  - 原因：`better-sqlite3` ABI 不匹配（Electron ABI 143 vs Node ABI 115）
+
+### 2026-02-08 16:04 +0800 preflight retry (passed)
+
+- Command:
+  - `pnpm -C apps/desktop exec npm rebuild better-sqlite3 --build-from-source`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - preflight 全部通过（Issue OPEN、Rulebook validate、Prettier、Typecheck、Lint、Contract、Unit）
+
+### 2026-02-08 16:05 +0800 auto-merge enabled
+
+- Command:
+  - `gh pr merge 277 --auto --squash`
+  - `gh pr view 277 --json autoMergeRequest,mergeStateStatus,state,url`
+- Exit code: `0`
+- Key output:
+  - `autoMergeRequest.mergeMethod = SQUASH`
+  - `state = OPEN`, `mergeStateStatus = BLOCKED`（等待 checks）
+
 ## Next
 
-- 执行 `scripts/agent_pr_preflight.sh` 并记录结果。
-- 开启 auto-merge，等待 required checks 全绿并合并回 `main`。
+- 等待 required checks 全绿并自动合并到 `main`。
+- 合并后回填 checks 结果并收口控制面同步证据。
