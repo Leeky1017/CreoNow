@@ -1,9 +1,11 @@
 # Proposal: issue-292-memory-system-p0-p3-change-specs
 
 ## Why
+
 需要将 Memory System 主规范拆分为 4 个严格串行的变更包（MS-1~MS-4），为后续 Agent 并行执行实现提供可审阅、可测试、可追踪的 delta 基线，避免跨阶段实现耦合和范围漂移。
 
 ## What Changes
+
 - 新建 4 个 OpenSpec change 目录并分别编写 proposal/specs/tasks：
   - `memory-system-p0-architecture-episodic-storage`
   - `memory-system-p1-distillation-decay-conflict`
@@ -14,6 +16,7 @@
 - 创建并绑定 GitHub Issue #292，保证任务入口为当前 OPEN issue。
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/EXECUTION_ORDER.md`
   - `openspec/changes/memory-system-p0-architecture-episodic-storage/**`

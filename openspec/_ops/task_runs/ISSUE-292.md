@@ -67,7 +67,6 @@
 - Command: `for f in openspec/changes/memory-system-p*/specs/memory-system-delta.md; do rg -n "^## \[|^### Scenario" "$f"; done`
 - Key output: 核心 requirement 与跨切场景均已落盘。
 
-
 ### 2026-02-08 20:00 PR 创建与 RUN_LOG 回填
 
 - Command: `gh pr create --base main --head task/292-memory-system-p0-p3-change-specs ...`
