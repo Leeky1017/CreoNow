@@ -19,4 +19,3 @@
 - **当** 进入下一条用例前执行状态清理
 - **则** `settings-dialog`、`export-dialog`、`create-project-dialog` 均关闭
 - **并且** 下一条用例打开命令面板时可稳定定位 `Search commands` 输入框
-

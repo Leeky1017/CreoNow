@@ -3,7 +3,7 @@
 - Issue: #273
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/273
 - Branch: `task/273-windows-e2e-startup-readiness`
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/274
 - Scope: 修复 Windows E2E 启动就绪竞态与命令面板跨用例状态泄漏（Spec-first + TDD）
 - Out of Scope: 业务功能扩展、主 spec 直接修改、非本次失败链路的 UI/后端重构
 
@@ -18,7 +18,7 @@
 
 ## Status
 
-- CURRENT: `IN_PROGRESS`（实现与本地验证完成，待 PR + required checks + merge）
+- CURRENT: `IN_PROGRESS`（PR 已创建且 auto-merge 已开启，待 required checks 绿灯后自动合并）
 
 ## Plan
 
@@ -175,13 +175,33 @@
   - Prettier：`All matched files use Prettier code style!`
   - Lint：仅历史 warning，无 error
 
+### 2026-02-08 15:49 +0800 branch push + PR open
+
+- Commands:
+  - `git push -u origin task/273-windows-e2e-startup-readiness`
+  - `gh pr create --title \"Stabilize Windows E2E startup readiness (#273)\" --body ...`
+  - `gh pr edit 274 --body-file /tmp/pr274.md`
+- Exit code: `0`
+- Key output:
+  - PR URL: `https://github.com/Leeky1017/CreoNow/pull/274`
+  - PR body 已修正并包含 `Closes #273`
+
+### 2026-02-08 15:51 +0800 auto-merge + preflight
+
+- Commands:
+  - `gh pr merge 274 --auto --squash`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code:
+  - `gh pr merge --auto`: `0`
+  - `agent_pr_preflight.sh`: `0`（首次因 markdown 格式失败后修复重跑通过）
+- Key output:
+  - PR `autoMergeRequest.mergeMethod = SQUASH`
+  - preflight 覆盖通过：Issue OPEN、Rulebook validate、Prettier、Typecheck、Lint、Contract、Unit
+
 ## Blockers
 
 - NONE（当前无技术阻塞）
 
 ## Next
 
-- 提交并推送分支。
-- 创建 PR + auto-merge，回填本 RUN_LOG 的 `PR` 字段。
-- 执行 `scripts/agent_pr_preflight.sh` 并记录输出。
 - 等待 required checks 全绿后合并收口 `main`，归档 change 与 Rulebook task。

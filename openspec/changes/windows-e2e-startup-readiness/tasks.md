@@ -49,6 +49,6 @@
 
 ## 6. Evidence
 
-- [ ] 6.1 RUN_LOG 记录完整（Issue/PR/关键命令输入输出/失败与修复轨迹）
+- [x] 6.1 RUN_LOG 记录完整（Issue/PR/关键命令输入输出/失败与修复轨迹）
 - [x] 6.2 记录规则校验：`rulebook task validate issue-273-windows-e2e-startup-readiness`
 - [ ] 6.3 记录门禁状态：`ci`、`openspec-log-guard`、`merge-serial`
