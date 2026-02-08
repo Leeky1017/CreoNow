@@ -3,7 +3,7 @@
 - Issue: #289
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/289
 - Branch: `task/289-document-management-p2-hardening-and-gates`
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/290
 - Scope: 完成 `document-management-p2-hardening-and-gates` 的 OpenSpec-only 拆分、归档与门禁交付，并合并回控制面 `main`
 - Out of Scope: 任何生产代码实现与测试实现
 
