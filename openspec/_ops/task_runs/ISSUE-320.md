@@ -3,7 +3,7 @@
 - Issue: #320
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/320
 - Branch: task/320-memory-system-p2-panel-provenance
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/322
 - Scope: 完成交付 `memory-system-p2-panel-provenance`（Memory Panel + GenerationTrace 溯源）并合并回控制面 `main`
 - Out of Scope: `memory-system-p3-isolation-degradation`、`knowledge-graph-p2-auto-recognition-ai-utilization`
 
