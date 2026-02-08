@@ -56,7 +56,7 @@ const DOMAIN_REGISTRY: Readonly<Record<string, string>> = {
   export: "Document Management",
   file: "Document Management",
   judge: "AI Service",
-  kg: "Knowledge Graph",
+  knowledge: "Knowledge Graph",
   memory: "Memory System",
   project: "Project Management",
   rag: "Search and Retrieval",
@@ -72,6 +72,7 @@ const VALID_SCHEMA_KINDS = new Set([
   "boolean",
   "literal",
   "array",
+  "record",
   "union",
   "optional",
   "object",
@@ -96,6 +97,8 @@ function renderSchema(schema: IpcSchema): string {
       return renderLiteral(schema.value);
     case "array":
       return `Array<${renderSchema(schema.element)}>`;
+    case "record":
+      return `Record<string, ${renderSchema(schema.value)}>`;
     case "union": {
       const parts = [...schema.variants].map((v) => renderSchema(v));
       return parts.join(" | ");
@@ -185,6 +188,9 @@ function validateSchemaReference(schema: unknown, trace: string): void {
     }
     case "array":
       validateSchemaReference(schema.element, `${trace}.element`);
+      return;
+    case "record":
+      validateSchemaReference(schema.value, `${trace}.value`);
       return;
     case "union": {
       if (!Array.isArray(schema.variants) || schema.variants.length === 0) {

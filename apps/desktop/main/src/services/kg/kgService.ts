@@ -12,91 +12,182 @@ type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
 export type ServiceResult<T> = Ok<T> | Err;
 
-export type KgEntity = {
-  entityId: string;
+export const KNOWLEDGE_ENTITY_TYPES = [
+  "character",
+  "location",
+  "event",
+  "item",
+  "faction",
+] as const;
+
+export type KnowledgeEntityType = (typeof KNOWLEDGE_ENTITY_TYPES)[number];
+
+const BUILTIN_RELATION_TYPES = [
+  "ally",
+  "enemy",
+  "parent",
+  "sibling",
+  "belongs_to",
+  "owns",
+  "located_at",
+  "participates_in",
+] as const;
+
+const DEFAULT_NODE_LIMIT = 50_000;
+const DEFAULT_EDGE_LIMIT = 200_000;
+const DEFAULT_ATTRIBUTE_KEYS_LIMIT = 200;
+const DEFAULT_QUERY_TIMEOUT_MS = 2_000;
+const DEFAULT_PATH_EXPANSION_LIMIT = 10_000;
+const DEFAULT_SUBGRAPH_MAX_K = 3;
+
+const MAX_ENTITY_NAME_CHARS = 256;
+const MAX_RELATION_TYPE_CHARS = 64;
+const MAX_DESCRIPTION_CHARS = 4_096;
+
+export type KnowledgeEntity = {
+  id: string;
   projectId: string;
+  type: KnowledgeEntityType;
   name: string;
-  entityType?: string;
-  description?: string;
-  metadataJson: string;
-  createdAt: number;
-  updatedAt: number;
+  description: string;
+  attributes: Record<string, string>;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
-export type KgRelation = {
-  relationId: string;
+export type KnowledgeRelation = {
+  id: string;
   projectId: string;
-  fromEntityId: string;
-  toEntityId: string;
+  sourceEntityId: string;
+  targetEntityId: string;
   relationType: string;
-  metadataJson: string;
-  evidenceJson: string;
-  createdAt: number;
-  updatedAt: number;
+  description: string;
+  createdAt: string;
 };
 
-export type KgGraph = {
-  entities: KgEntity[];
-  relations: KgRelation[];
+export type KnowledgeSubgraphResult = {
+  entities: KnowledgeEntity[];
+  relations: KnowledgeRelation[];
+  nodeCount: number;
+  edgeCount: number;
+  queryCostMs: number;
+};
+
+export type KnowledgePathResult = {
+  pathEntityIds: string[];
+  queryCostMs: number;
+  expansions: number;
+  degraded: boolean;
+};
+
+export type KnowledgeValidateResult = {
+  cycles: string[][];
+  queryCostMs: number;
 };
 
 export type KnowledgeGraphService = {
-  graphGet: (args: { projectId: string }) => ServiceResult<KgGraph>;
-
   entityCreate: (args: {
     projectId: string;
+    type: KnowledgeEntityType;
     name: string;
-    entityType?: string;
     description?: string;
-    metadataJson?: string;
-  }) => ServiceResult<KgEntity>;
+    attributes?: Record<string, string>;
+  }) => ServiceResult<KnowledgeEntity>;
+  entityRead: (args: {
+    projectId: string;
+    id: string;
+  }) => ServiceResult<KnowledgeEntity>;
   entityList: (args: {
     projectId: string;
-  }) => ServiceResult<{ items: KgEntity[] }>;
+  }) => ServiceResult<{ items: KnowledgeEntity[] }>;
   entityUpdate: (args: {
-    entityId: string;
+    projectId: string;
+    id: string;
+    expectedVersion: number;
     patch: {
+      type?: KnowledgeEntityType;
       name?: string;
-      entityType?: string;
       description?: string;
-      metadataJson?: string;
+      attributes?: Record<string, string>;
     };
-  }) => ServiceResult<KgEntity>;
+  }) => ServiceResult<KnowledgeEntity>;
   entityDelete: (args: {
-    entityId: string;
-  }) => ServiceResult<{ deleted: true }>;
+    projectId: string;
+    id: string;
+  }) => ServiceResult<{ deleted: true; deletedRelationCount: number }>;
 
   relationCreate: (args: {
     projectId: string;
-    fromEntityId: string;
-    toEntityId: string;
+    sourceEntityId: string;
+    targetEntityId: string;
     relationType: string;
-    metadataJson?: string;
-    evidenceJson?: string;
-  }) => ServiceResult<KgRelation>;
+    description?: string;
+  }) => ServiceResult<KnowledgeRelation>;
   relationList: (args: {
     projectId: string;
-  }) => ServiceResult<{ items: KgRelation[] }>;
+  }) => ServiceResult<{ items: KnowledgeRelation[] }>;
   relationUpdate: (args: {
-    relationId: string;
+    projectId: string;
+    id: string;
     patch: {
-      fromEntityId?: string;
-      toEntityId?: string;
+      sourceEntityId?: string;
+      targetEntityId?: string;
       relationType?: string;
-      metadataJson?: string;
-      evidenceJson?: string;
+      description?: string;
     };
-  }) => ServiceResult<KgRelation>;
+  }) => ServiceResult<KnowledgeRelation>;
   relationDelete: (args: {
-    relationId: string;
+    projectId: string;
+    id: string;
   }) => ServiceResult<{ deleted: true }>;
+
+  querySubgraph: (args: {
+    projectId: string;
+    centerEntityId: string;
+    k: number;
+  }) => ServiceResult<KnowledgeSubgraphResult>;
+  queryPath: (args: {
+    projectId: string;
+    sourceEntityId: string;
+    targetEntityId: string;
+    timeoutMs?: number;
+  }) => ServiceResult<KnowledgePathResult>;
+  queryValidate: (args: {
+    projectId: string;
+  }) => ServiceResult<KnowledgeValidateResult>;
 };
 
-const MAX_METADATA_JSON_BYTES = 32 * 1024;
-const MAX_NAME_CHARS = 256;
-const MAX_ENTITY_TYPE_CHARS = 64;
-const MAX_DESCRIPTION_CHARS = 4096;
-const MAX_RELATION_TYPE_CHARS = 64;
+type ServiceLimits = {
+  nodeLimit: number;
+  edgeLimit: number;
+  attributeKeysLimit: number;
+  queryTimeoutMs: number;
+  pathExpansionLimit: number;
+  subgraphMaxK: number;
+};
+
+type EntityRow = {
+  id: string;
+  projectId: string;
+  type: KnowledgeEntityType;
+  name: string;
+  description: string;
+  attributesJson: string;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type RelationRow = {
+  id: string;
+  projectId: string;
+  sourceEntityId: string;
+  targetEntityId: string;
+  relationType: string;
+  description: string;
+  createdAt: string;
+};
 
 /**
  * Build a stable IPC error object.
@@ -108,36 +199,74 @@ function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
 }
 
 /**
- * Normalize optional strings to a trimmed value.
- *
- * Why: we must not persist whitespace-only values that later confuse both UI
- * rendering and deterministic context injection.
+ * Parse a positive integer from env with fallback.
  */
-function normalizeOptionalText(value: string | undefined): string | undefined {
-  if (typeof value !== "string") {
-    return undefined;
+function resolvePositiveInt(
+  value: string | undefined,
+  fallback: number,
+): number {
+  if (!value) {
+    return fallback;
   }
-  const trimmed = value.trim();
-  return trimmed.length === 0 ? undefined : trimmed;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
 }
 
 /**
- * Normalize optional strings to a nullable value.
- *
- * Why: the IPC surface uses optional strings for patches, but the DB stores
- * "unset" as NULL to avoid mixing empty strings with real data.
+ * Resolve runtime limits, with test-friendly env overrides.
  */
-function normalizeNullableText(value: string | undefined): string | null {
-  const normalized = normalizeOptionalText(value);
-  return normalized ?? null;
+function resolveLimits(): ServiceLimits {
+  return {
+    nodeLimit: resolvePositiveInt(
+      process.env.CREONOW_KG_NODE_LIMIT,
+      DEFAULT_NODE_LIMIT,
+    ),
+    edgeLimit: resolvePositiveInt(
+      process.env.CREONOW_KG_EDGE_LIMIT,
+      DEFAULT_EDGE_LIMIT,
+    ),
+    attributeKeysLimit: resolvePositiveInt(
+      process.env.CREONOW_KG_ATTRIBUTE_KEYS_LIMIT,
+      DEFAULT_ATTRIBUTE_KEYS_LIMIT,
+    ),
+    queryTimeoutMs: resolvePositiveInt(
+      process.env.CREONOW_KG_QUERY_TIMEOUT_MS,
+      DEFAULT_QUERY_TIMEOUT_MS,
+    ),
+    pathExpansionLimit: resolvePositiveInt(
+      process.env.CREONOW_KG_PATH_EXPANSION_LIMIT,
+      DEFAULT_PATH_EXPANSION_LIMIT,
+    ),
+    subgraphMaxK: resolvePositiveInt(
+      process.env.CREONOW_KG_SUBGRAPH_MAX_K,
+      DEFAULT_SUBGRAPH_MAX_K,
+    ),
+  };
 }
 
-/**
- * Validate a `projectId` string early.
- *
- * Why: DB foreign keys would turn bad inputs into `DB_ERROR`, but the contract
- * requires stable `INVALID_ARGUMENT` semantics.
- */
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function normalizeText(value: string): string {
+  return value.trim();
+}
+
+function normalizeEntityType(value: string): KnowledgeEntityType | undefined {
+  const normalized = value.trim() as KnowledgeEntityType;
+  if (KNOWLEDGE_ENTITY_TYPES.includes(normalized)) {
+    return normalized;
+  }
+  return undefined;
+}
+
+function normalizeRelationTypeKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 function validateProjectId(projectId: string): Err | null {
   if (projectId.trim().length === 0) {
     return ipcError("INVALID_ARGUMENT", "projectId is required");
@@ -145,72 +274,95 @@ function validateProjectId(projectId: string): Err | null {
   return null;
 }
 
-/**
- * Validate metadata JSON constraints before touching the DB.
- *
- * Why: the spec requires a deterministic `INVALID_ARGUMENT` on oversize payloads,
- * rather than a DB constraint error or silent truncation.
- */
-function validateMetadataJson(
-  fieldName: string,
-  value: string,
-  maxBytes: number,
-): Err | null {
-  if (value.trim().length === 0) {
-    return ipcError("INVALID_ARGUMENT", `${fieldName} is required`);
+function validateEntityName(name: string): Err | null {
+  const normalized = normalizeText(name);
+  if (normalized.length === 0) {
+    return ipcError("INVALID_ARGUMENT", "name is required");
   }
-  const bytes = Buffer.byteLength(value, "utf8");
-  if (bytes > maxBytes) {
+  if (normalized.length > MAX_ENTITY_NAME_CHARS) {
     return ipcError(
       "INVALID_ARGUMENT",
-      `${fieldName} exceeds ${maxBytes} bytes`,
-      { maxBytes, sizeBytes: bytes },
+      `name exceeds ${MAX_ENTITY_NAME_CHARS} chars`,
     );
   }
-  try {
-    JSON.parse(value);
-  } catch (error) {
-    return ipcError("INVALID_ARGUMENT", `${fieldName} must be valid JSON`, {
-      message: error instanceof Error ? error.message : String(error),
-    });
+  return null;
+}
+
+function validateDescription(description: string): Err | null {
+  if (description.length > MAX_DESCRIPTION_CHARS) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      `description exceeds ${MAX_DESCRIPTION_CHARS} chars`,
+    );
   }
   return null;
 }
 
-/**
- * Validate evidence JSON constraints before touching the DB.
- *
- * Why: evidence must remain structured and debuggable for context injection,
- * without relying on implicit parsing failures downstream.
- */
-function validateEvidenceJson(fieldName: string, value: string): Err | null {
-  const metaRes = validateMetadataJson(
-    fieldName,
-    value,
-    MAX_METADATA_JSON_BYTES,
-  );
-  if (metaRes) {
-    return metaRes;
+function validateRelationType(relationType: string): Err | null {
+  if (relationType.length === 0) {
+    return ipcError("INVALID_ARGUMENT", "relationType is required");
   }
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    if (!Array.isArray(parsed)) {
-      return ipcError("INVALID_ARGUMENT", `${fieldName} must be a JSON array`);
+  if (relationType.length > MAX_RELATION_TYPE_CHARS) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      `relationType exceeds ${MAX_RELATION_TYPE_CHARS} chars`,
+    );
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function validateAndNormalizeAttributes(args: {
+  attributes: Record<string, string> | undefined;
+  limit: number;
+}): ServiceResult<Record<string, string>> {
+  if (!args.attributes) {
+    return { ok: true, data: {} };
+  }
+
+  const entries = Object.entries(args.attributes);
+  if (entries.length > args.limit) {
+    return ipcError(
+      "KG_ATTRIBUTE_KEYS_EXCEEDED",
+      `attributes keys exceed ${args.limit}`,
+      { limit: args.limit, actual: entries.length },
+    );
+  }
+
+  const normalized: Record<string, string> = {};
+  for (const [rawKey, rawValue] of entries) {
+    const key = rawKey.trim();
+    if (key.length === 0) {
+      return ipcError("INVALID_ARGUMENT", "attribute key must not be empty");
     }
-  } catch {
-    return ipcError("INVALID_ARGUMENT", `${fieldName} must be valid JSON`);
+    normalized[key] = String(rawValue);
   }
-  return null;
+
+  return { ok: true, data: normalized };
 }
 
-type ProjectExistsRow = { projectId: string };
+function parseAttributes(attributesJson: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(attributesJson) as unknown;
+    if (!isRecord(parsed)) {
+      return {};
+    }
 
-/**
- * Check that a project exists before writing project-scoped data.
- *
- * Why: we must return `NOT_FOUND` instead of surfacing DB foreign key failures
- * across the IPC boundary.
- */
+    const normalized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "string") {
+        normalized[key] = value;
+      }
+    }
+    return normalized;
+  } catch {
+    return {};
+  }
+}
+
 function ensureProjectExists(
   db: Database.Database,
   projectId: string,
@@ -218,133 +370,231 @@ function ensureProjectExists(
   const row = db
     .prepare<
       [string],
-      ProjectExistsRow
+      { projectId: string }
     >("SELECT project_id as projectId FROM projects WHERE project_id = ?")
     .get(projectId);
+
   if (!row) {
     return ipcError("NOT_FOUND", "Project not found");
   }
   return null;
 }
 
-type EntityRow = {
-  entityId: string;
-  projectId: string;
-  name: string;
-  entityType: string | null;
-  description: string | null;
-  metadataJson: string;
-  createdAt: number;
-  updatedAt: number;
-};
-
-/**
- * Load an entity row by id.
- *
- * Why: IPC update/delete flows require deterministic "exists" checks and a
- * single source of truth for DB field mapping.
- */
 function selectEntityById(
   db: Database.Database,
-  entityId: string,
+  id: string,
 ): EntityRow | undefined {
   return db
     .prepare<
       [string],
       EntityRow
-    >("SELECT entity_id as entityId, project_id as projectId, name, entity_type as entityType, description, metadata_json as metadataJson, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE entity_id = ?")
-    .get(entityId);
+    >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE id = ?")
+    .get(id);
 }
 
-/**
- * Convert a DB row into the IPC-safe entity shape.
- *
- * Why: normalize nullable DB columns to `undefined` to keep payloads compact and
- * stable for the renderer and context injection formatting.
- */
-function rowToEntity(row: EntityRow): KgEntity {
-  return {
-    entityId: row.entityId,
-    projectId: row.projectId,
-    name: row.name,
-    entityType: row.entityType ?? undefined,
-    description: row.description ?? undefined,
-    metadataJson: row.metadataJson,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
-
-type RelationRow = {
-  relationId: string;
-  projectId: string;
-  fromEntityId: string;
-  toEntityId: string;
-  relationType: string;
-  metadataJson: string;
-  evidenceJson: string;
-  createdAt: number;
-  updatedAt: number;
-};
-
-/**
- * Load a relation row by id.
- *
- * Why: update/delete need stable NOT_FOUND detection without duplicating SQL.
- */
 function selectRelationById(
   db: Database.Database,
-  relationId: string,
+  id: string,
 ): RelationRow | undefined {
   return db
     .prepare<
       [string],
       RelationRow
-    >("SELECT relation_id as relationId, project_id as projectId, from_entity_id as fromEntityId, to_entity_id as toEntityId, relation_type as relationType, metadata_json as metadataJson, evidence_json as evidenceJson, created_at as createdAt, updated_at as updatedAt FROM kg_relations WHERE relation_id = ?")
-    .get(relationId);
+    >("SELECT id, project_id as projectId, source_entity_id as sourceEntityId, target_entity_id as targetEntityId, relation_type as relationType, description, created_at as createdAt FROM kg_relations WHERE id = ?")
+    .get(id);
 }
 
-/**
- * Convert a DB row into the IPC-safe relation shape.
- *
- * Why: keep mapping logic centralized so schema changes don't silently drift.
- */
-function rowToRelation(row: RelationRow): KgRelation {
+function rowToEntity(row: EntityRow): KnowledgeEntity {
   return {
-    relationId: row.relationId,
+    id: row.id,
     projectId: row.projectId,
-    fromEntityId: row.fromEntityId,
-    toEntityId: row.toEntityId,
-    relationType: row.relationType,
-    metadataJson: row.metadataJson,
-    evidenceJson: row.evidenceJson,
+    type: row.type,
+    name: row.name,
+    description: row.description,
+    attributes: parseAttributes(row.attributesJson),
+    version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
 }
 
-type EntityExistsRow = { entityId: string };
+function rowToRelation(row: RelationRow): KnowledgeRelation {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    sourceEntityId: row.sourceEntityId,
+    targetEntityId: row.targetEntityId,
+    relationType: row.relationType,
+    description: row.description,
+    createdAt: row.createdAt,
+  };
+}
 
-/**
- * Ensure an entity exists for a given project.
- *
- * Why: relationship endpoints require deterministic `NOT_FOUND` semantics for
- * foreign keys, instead of surfacing DB constraint errors.
- */
-function ensureEntityExistsInProject(
+function countEntities(db: Database.Database, projectId: string): number {
+  const row = db
+    .prepare<
+      [string],
+      { count: number }
+    >("SELECT COUNT(1) as count FROM kg_entities WHERE project_id = ?")
+    .get(projectId);
+  return row?.count ?? 0;
+}
+
+function countRelations(db: Database.Database, projectId: string): number {
+  const row = db
+    .prepare<
+      [string],
+      { count: number }
+    >("SELECT COUNT(1) as count FROM kg_relations WHERE project_id = ?")
+    .get(projectId);
+  return row?.count ?? 0;
+}
+
+function ensureEntityInProject(
   db: Database.Database,
   args: { projectId: string; entityId: string; fieldName: string },
-): Err | null {
+): EntityRow | Err {
   const row = db
     .prepare<
       [string, string],
-      EntityExistsRow
-    >("SELECT entity_id as entityId FROM kg_entities WHERE project_id = ? AND entity_id = ?")
+      EntityRow
+    >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? AND id = ?")
     .get(args.projectId, args.entityId);
+
   if (!row) {
-    return ipcError("NOT_FOUND", `${args.fieldName} not found`);
+    return ipcError(
+      "KG_RELATION_INVALID",
+      `${args.fieldName} not found in project`,
+      { fieldName: args.fieldName, entityId: args.entityId },
+    );
   }
-  return null;
+
+  return row;
+}
+
+function entityDuplicateExists(
+  db: Database.Database,
+  args: {
+    projectId: string;
+    type: KnowledgeEntityType;
+    name: string;
+    excludeId?: string;
+  },
+): boolean {
+  const normalizedName = normalizeText(args.name);
+  const query = args.excludeId
+    ? "SELECT id FROM kg_entities WHERE project_id = ? AND type = ? AND lower(trim(name)) = lower(trim(?)) AND id != ? LIMIT 1"
+    : "SELECT id FROM kg_entities WHERE project_id = ? AND type = ? AND lower(trim(name)) = lower(trim(?)) LIMIT 1";
+
+  const row = args.excludeId
+    ? db
+        .prepare<[string, string, string, string], { id: string }>(query)
+        .get(args.projectId, args.type, normalizedName, args.excludeId)
+    : db
+        .prepare<[string, string, string], { id: string }>(query)
+        .get(args.projectId, args.type, normalizedName);
+
+  return Boolean(row);
+}
+
+function ensureRelationTypeRegistered(
+  db: Database.Database,
+  args: { projectId: string; relationType: string },
+): void {
+  const ts = nowIso();
+
+  const insertBuiltin = db.prepare(
+    "INSERT OR IGNORE INTO kg_relation_types (id, project_id, key, label, builtin, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+  );
+
+  for (const key of BUILTIN_RELATION_TYPES) {
+    insertBuiltin.run(
+      `builtin-${args.projectId}-${key}`,
+      args.projectId,
+      key,
+      key,
+      1,
+      ts,
+    );
+  }
+
+  const normalized = normalizeRelationTypeKey(args.relationType);
+  if (
+    BUILTIN_RELATION_TYPES.includes(
+      normalized as (typeof BUILTIN_RELATION_TYPES)[number],
+    )
+  ) {
+    return;
+  }
+
+  if (normalized.length === 0) {
+    return;
+  }
+
+  db.prepare(
+    "INSERT OR IGNORE INTO kg_relation_types (id, project_id, key, label, builtin, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(
+    `custom-${args.projectId}-${normalized}`,
+    args.projectId,
+    normalized,
+    args.relationType,
+    0,
+    ts,
+  );
+}
+
+function listProjectEntities(
+  db: Database.Database,
+  projectId: string,
+): KnowledgeEntity[] {
+  const rows = db
+    .prepare<
+      [string],
+      EntityRow
+    >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, id ASC")
+    .all(projectId);
+  return rows.map(rowToEntity);
+}
+
+function listProjectRelations(
+  db: Database.Database,
+  projectId: string,
+): KnowledgeRelation[] {
+  const rows = db
+    .prepare<
+      [string],
+      RelationRow
+    >("SELECT id, project_id as projectId, source_entity_id as sourceEntityId, target_entity_id as targetEntityId, relation_type as relationType, description, created_at as createdAt FROM kg_relations WHERE project_id = ? ORDER BY created_at DESC, id ASC")
+    .all(projectId);
+  return rows.map(rowToRelation);
+}
+
+function buildDirectedAdjacency(
+  relations: KnowledgeRelation[],
+): Map<string, string[]> {
+  const adjacency = new Map<string, string[]>();
+  for (const relation of relations) {
+    const current = adjacency.get(relation.sourceEntityId) ?? [];
+    current.push(relation.targetEntityId);
+    adjacency.set(relation.sourceEntityId, current);
+  }
+  return adjacency;
+}
+
+function buildUndirectedAdjacency(
+  relations: KnowledgeRelation[],
+): Map<string, string[]> {
+  const adjacency = new Map<string, string[]>();
+  for (const relation of relations) {
+    const source = adjacency.get(relation.sourceEntityId) ?? [];
+    source.push(relation.targetEntityId);
+    adjacency.set(relation.sourceEntityId, source);
+
+    const target = adjacency.get(relation.targetEntityId) ?? [];
+    target.push(relation.sourceEntityId);
+    adjacency.set(relation.targetEntityId, target);
+  }
+  return adjacency;
 }
 
 /**
@@ -354,128 +604,96 @@ export function createKnowledgeGraphService(args: {
   db: Database.Database;
   logger: Logger;
 }): KnowledgeGraphService {
+  const limits = resolveLimits();
+
   return {
-    graphGet: ({ projectId }) => {
+    entityCreate: ({ projectId, type, name, description, attributes }) => {
       const invalidProjectId = validateProjectId(projectId);
       if (invalidProjectId) {
         return invalidProjectId;
       }
 
+      const normalizedType = normalizeEntityType(type);
+      if (!normalizedType) {
+        return ipcError("INVALID_ARGUMENT", "type is invalid");
+      }
+
+      const invalidName = validateEntityName(name);
+      if (invalidName) {
+        return invalidName;
+      }
+
+      const normalizedDescription = normalizeText(description ?? "");
+      const invalidDescription = validateDescription(normalizedDescription);
+      if (invalidDescription) {
+        return invalidDescription;
+      }
+
+      const normalizedAttributes = validateAndNormalizeAttributes({
+        attributes,
+        limit: limits.attributeKeysLimit,
+      });
+      if (!normalizedAttributes.ok) {
+        return normalizedAttributes;
+      }
+
+      const normalizedProjectId = projectId.trim();
+      const normalizedName = normalizeText(name);
+
       try {
-        const projectExists = ensureProjectExists(args.db, projectId.trim());
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
         if (projectExists) {
           return projectExists;
         }
 
-        const entities = args.db
-          .prepare<
-            [string],
-            EntityRow
-          >("SELECT entity_id as entityId, project_id as projectId, name, entity_type as entityType, description, metadata_json as metadataJson, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, entity_id ASC")
-          .all(projectId.trim())
-          .map(rowToEntity);
-
-        const relations = args.db
-          .prepare<
-            [string],
-            RelationRow
-          >("SELECT relation_id as relationId, project_id as projectId, from_entity_id as fromEntityId, to_entity_id as toEntityId, relation_type as relationType, metadata_json as metadataJson, evidence_json as evidenceJson, created_at as createdAt, updated_at as updatedAt FROM kg_relations WHERE project_id = ? ORDER BY updated_at DESC, relation_id ASC")
-          .all(projectId.trim())
-          .map(rowToRelation);
-
-        return { ok: true, data: { entities, relations } };
-      } catch (error) {
-        args.logger.error("kg_graph_get_failed", {
-          code: "DB_ERROR",
-          message: error instanceof Error ? error.message : String(error),
-        });
-        return ipcError("DB_ERROR", "Failed to load knowledge graph");
-      }
-    },
-
-    entityCreate: ({
-      projectId,
-      name,
-      entityType,
-      description,
-      metadataJson,
-    }) => {
-      const invalidProjectId = validateProjectId(projectId);
-      if (invalidProjectId) {
-        return invalidProjectId;
-      }
-
-      const normalizedName = name.trim();
-      if (normalizedName.length === 0) {
-        return ipcError("INVALID_ARGUMENT", "name is required");
-      }
-      if (normalizedName.length > MAX_NAME_CHARS) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          `name exceeds ${MAX_NAME_CHARS} chars`,
-        );
-      }
-
-      const normalizedType = normalizeOptionalText(entityType);
-      if (normalizedType && normalizedType.length > MAX_ENTITY_TYPE_CHARS) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          `entityType exceeds ${MAX_ENTITY_TYPE_CHARS} chars`,
-        );
-      }
-
-      const normalizedDescription = normalizeOptionalText(description);
-      if (
-        normalizedDescription &&
-        normalizedDescription.length > MAX_DESCRIPTION_CHARS
-      ) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          `description exceeds ${MAX_DESCRIPTION_CHARS} chars`,
-        );
-      }
-
-      const normalizedMetadataJson =
-        normalizeOptionalText(metadataJson) ?? "{}";
-      const metadataValid = validateMetadataJson(
-        "metadataJson",
-        normalizedMetadataJson,
-        MAX_METADATA_JSON_BYTES,
-      );
-      if (metadataValid) {
-        return metadataValid;
-      }
-
-      const entityId = randomUUID();
-      const ts = Date.now();
-
-      try {
-        const projectExists = ensureProjectExists(args.db, projectId.trim());
-        if (projectExists) {
-          return projectExists;
+        if (countEntities(args.db, normalizedProjectId) >= limits.nodeLimit) {
+          return ipcError("KG_CAPACITY_EXCEEDED", "node capacity exceeded", {
+            kind: "node",
+            limit: limits.nodeLimit,
+          });
         }
 
+        if (
+          entityDuplicateExists(args.db, {
+            projectId: normalizedProjectId,
+            type: normalizedType,
+            name: normalizedName,
+          })
+        ) {
+          return ipcError(
+            "KG_ENTITY_DUPLICATE",
+            "entity with same type and normalized name already exists",
+            {
+              type: normalizedType,
+              name: normalizedName,
+            },
+          );
+        }
+
+        const id = randomUUID();
+        const ts = nowIso();
         args.db
           .prepare(
-            "INSERT INTO kg_entities (entity_id, project_id, name, entity_type, description, metadata_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           )
           .run(
-            entityId,
-            projectId.trim(),
+            id,
+            normalizedProjectId,
+            normalizedType,
             normalizedName,
-            normalizedType ?? null,
-            normalizedDescription ?? null,
-            normalizedMetadataJson,
+            normalizedDescription,
+            JSON.stringify(normalizedAttributes.data),
+            1,
             ts,
             ts,
           );
 
-        args.logger.info("kg_entity_created", {
-          entity_id: entityId,
-          project_id: projectId.trim(),
-          name_len: normalizedName.length,
-          metadata_bytes: Buffer.byteLength(normalizedMetadataJson, "utf8"),
-        });
+        const row = selectEntityById(args.db, id);
+        if (!row) {
+          return ipcError("DB_ERROR", "Failed to load created entity");
+        }
+
+        return { ok: true, data: rowToEntity(row) };
       } catch (error) {
         args.logger.error("kg_entity_create_failed", {
           code: "DB_ERROR",
@@ -483,12 +701,39 @@ export function createKnowledgeGraphService(args: {
         });
         return ipcError("DB_ERROR", "Failed to create entity");
       }
+    },
 
-      const row = selectEntityById(args.db, entityId);
-      if (!row) {
-        return ipcError("DB_ERROR", "Failed to load created entity");
+    entityRead: ({ projectId, id }) => {
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
       }
-      return { ok: true, data: rowToEntity(row) };
+      if (id.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "id is required");
+      }
+
+      const normalizedProjectId = projectId.trim();
+      const normalizedId = id.trim();
+
+      try {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        const row = selectEntityById(args.db, normalizedId);
+        if (!row || row.projectId !== normalizedProjectId) {
+          return ipcError("NOT_FOUND", "Entity not found");
+        }
+
+        return { ok: true, data: rowToEntity(row) };
+      } catch (error) {
+        args.logger.error("kg_entity_read_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to read entity");
+      }
     },
 
     entityList: ({ projectId }) => {
@@ -497,19 +742,18 @@ export function createKnowledgeGraphService(args: {
         return invalidProjectId;
       }
 
+      const normalizedProjectId = projectId.trim();
+
       try {
-        const projectExists = ensureProjectExists(args.db, projectId.trim());
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
         if (projectExists) {
           return projectExists;
         }
 
-        const rows = args.db
-          .prepare<
-            [string],
-            EntityRow
-          >("SELECT entity_id as entityId, project_id as projectId, name, entity_type as entityType, description, metadata_json as metadataJson, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, entity_id ASC")
-          .all(projectId.trim());
-        return { ok: true, data: { items: rows.map(rowToEntity) } };
+        return {
+          ok: true,
+          data: { items: listProjectEntities(args.db, normalizedProjectId) },
+        };
       } catch (error) {
         args.logger.error("kg_entity_list_failed", {
           code: "DB_ERROR",
@@ -519,97 +763,134 @@ export function createKnowledgeGraphService(args: {
       }
     },
 
-    entityUpdate: ({ entityId, patch }) => {
-      if (entityId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "entityId is required");
+    entityUpdate: ({ projectId, id, expectedVersion, patch }) => {
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
       }
+      if (id.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "id is required");
+      }
+      if (!Number.isInteger(expectedVersion) || expectedVersion <= 0) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "expectedVersion must be a positive integer",
+        );
+      }
+
       const patchKeys = Object.keys(patch) as Array<keyof typeof patch>;
       if (patchKeys.length === 0) {
         return ipcError("INVALID_ARGUMENT", "patch is required");
       }
 
-      const normalizedName =
-        typeof patch.name === "string" ? patch.name.trim() : undefined;
-      if (typeof normalizedName === "string") {
-        if (normalizedName.length === 0) {
-          return ipcError("INVALID_ARGUMENT", "name is required");
-        }
-        if (normalizedName.length > MAX_NAME_CHARS) {
-          return ipcError(
-            "INVALID_ARGUMENT",
-            `name exceeds ${MAX_NAME_CHARS} chars`,
-          );
+      if (typeof patch.name === "string") {
+        const invalidName = validateEntityName(patch.name);
+        if (invalidName) {
+          return invalidName;
         }
       }
 
-      const normalizedType = normalizeNullableText(patch.entityType);
-      if (
-        typeof patch.entityType === "string" &&
-        normalizedType &&
-        normalizedType.length > MAX_ENTITY_TYPE_CHARS
-      ) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          `entityType exceeds ${MAX_ENTITY_TYPE_CHARS} chars`,
+      if (typeof patch.description === "string") {
+        const invalidDescription = validateDescription(
+          patch.description.trim(),
         );
-      }
-
-      const normalizedDescription = normalizeNullableText(patch.description);
-      if (
-        typeof patch.description === "string" &&
-        normalizedDescription &&
-        normalizedDescription.length > MAX_DESCRIPTION_CHARS
-      ) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          `description exceeds ${MAX_DESCRIPTION_CHARS} chars`,
-        );
-      }
-
-      const normalizedMetadataJson =
-        typeof patch.metadataJson === "string"
-          ? patch.metadataJson.trim()
-          : undefined;
-      if (typeof normalizedMetadataJson === "string") {
-        const metadataValid = validateMetadataJson(
-          "metadataJson",
-          normalizedMetadataJson,
-          MAX_METADATA_JSON_BYTES,
-        );
-        if (metadataValid) {
-          return metadataValid;
+        if (invalidDescription) {
+          return invalidDescription;
         }
       }
 
-      const ts = Date.now();
+      if (typeof patch.type === "string") {
+        const normalizedType = normalizeEntityType(patch.type);
+        if (!normalizedType) {
+          return ipcError("INVALID_ARGUMENT", "patch.type is invalid");
+        }
+      }
+
+      let normalizedAttributes: ServiceResult<Record<string, string>> | null =
+        null;
+      if (patch.attributes) {
+        normalizedAttributes = validateAndNormalizeAttributes({
+          attributes: patch.attributes,
+          limit: limits.attributeKeysLimit,
+        });
+        if (!normalizedAttributes.ok) {
+          return normalizedAttributes;
+        }
+      }
+
+      const normalizedProjectId = projectId.trim();
+      const normalizedId = id.trim();
 
       try {
-        const existing = selectEntityById(args.db, entityId.trim());
-        if (!existing) {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        const existing = selectEntityById(args.db, normalizedId);
+        if (!existing || existing.projectId !== normalizedProjectId) {
           return ipcError("NOT_FOUND", "Entity not found");
+        }
+
+        if (existing.version !== expectedVersion) {
+          return ipcError("KG_ENTITY_CONFLICT", "entity version conflict", {
+            expectedVersion,
+            latestVersion: existing.version,
+            latestSnapshot: rowToEntity(existing),
+          });
+        }
+
+        const nextType =
+          typeof patch.type === "string"
+            ? (normalizeEntityType(patch.type) ?? existing.type)
+            : existing.type;
+        const nextName =
+          typeof patch.name === "string"
+            ? normalizeText(patch.name)
+            : existing.name;
+        const nextDescription =
+          typeof patch.description === "string"
+            ? normalizeText(patch.description)
+            : existing.description;
+        const nextAttributesJson = normalizedAttributes
+          ? JSON.stringify(normalizedAttributes.data)
+          : existing.attributesJson;
+
+        if (
+          entityDuplicateExists(args.db, {
+            projectId: normalizedProjectId,
+            type: nextType,
+            name: nextName,
+            excludeId: normalizedId,
+          })
+        ) {
+          return ipcError(
+            "KG_ENTITY_DUPLICATE",
+            "entity with same type and normalized name already exists",
+            { type: nextType, name: nextName },
+          );
         }
 
         args.db
           .prepare(
-            "UPDATE kg_entities SET name = ?, entity_type = ?, description = ?, metadata_json = ?, updated_at = ? WHERE entity_id = ?",
+            "UPDATE kg_entities SET type = ?, name = ?, description = ?, attributes_json = ?, version = ?, updated_at = ? WHERE id = ?",
           )
           .run(
-            normalizedName ?? existing.name,
-            typeof patch.entityType === "string"
-              ? normalizedType
-              : existing.entityType,
-            typeof patch.description === "string"
-              ? normalizedDescription
-              : existing.description,
-            normalizedMetadataJson ?? existing.metadataJson,
-            ts,
-            entityId.trim(),
+            nextType,
+            nextName,
+            nextDescription,
+            nextAttributesJson,
+            existing.version + 1,
+            nowIso(),
+            normalizedId,
           );
 
-        args.logger.info("kg_entity_updated", {
-          entity_id: entityId.trim(),
-          project_id: existing.projectId,
-        });
+        const row = selectEntityById(args.db, normalizedId);
+        if (!row) {
+          return ipcError("DB_ERROR", "Failed to load updated entity");
+        }
+
+        return { ok: true, data: rowToEntity(row) };
       } catch (error) {
         args.logger.error("kg_entity_update_failed", {
           code: "DB_ERROR",
@@ -617,46 +898,46 @@ export function createKnowledgeGraphService(args: {
         });
         return ipcError("DB_ERROR", "Failed to update entity");
       }
-
-      const row = selectEntityById(args.db, entityId.trim());
-      if (!row) {
-        return ipcError("DB_ERROR", "Failed to load updated entity");
-      }
-      return { ok: true, data: rowToEntity(row) };
     },
 
-    entityDelete: ({ entityId }) => {
-      if (entityId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "entityId is required");
+    entityDelete: ({ projectId, id }) => {
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
+      }
+      if (id.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "id is required");
       }
 
+      const normalizedProjectId = projectId.trim();
+      const normalizedId = id.trim();
+
       try {
-        const existing = selectEntityById(args.db, entityId.trim());
-        if (!existing) {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        const existing = selectEntityById(args.db, normalizedId);
+        if (!existing || existing.projectId !== normalizedProjectId) {
           return ipcError("NOT_FOUND", "Entity not found");
         }
 
-        let relationsDeleted = 0;
+        let deletedRelationCount = 0;
         args.db.transaction(() => {
-          const res = args.db
+          const deletedRelations = args.db
             .prepare(
-              "DELETE FROM kg_relations WHERE project_id = ? AND (from_entity_id = ? OR to_entity_id = ?)",
+              "DELETE FROM kg_relations WHERE project_id = ? AND (source_entity_id = ? OR target_entity_id = ?)",
             )
-            .run(existing.projectId, entityId.trim(), entityId.trim());
-          relationsDeleted = res.changes;
+            .run(normalizedProjectId, normalizedId, normalizedId);
+          deletedRelationCount = deletedRelations.changes;
 
           args.db
-            .prepare("DELETE FROM kg_entities WHERE entity_id = ?")
-            .run(entityId.trim());
+            .prepare("DELETE FROM kg_entities WHERE project_id = ? AND id = ?")
+            .run(normalizedProjectId, normalizedId);
         })();
 
-        args.logger.info("kg_entity_deleted", {
-          entity_id: entityId.trim(),
-          project_id: existing.projectId,
-          relations_deleted: relationsDeleted,
-        });
-
-        return { ok: true, data: { deleted: true } };
+        return { ok: true, data: { deleted: true, deletedRelationCount } };
       } catch (error) {
         args.logger.error("kg_entity_delete_failed", {
           code: "DB_ERROR",
@@ -668,102 +949,114 @@ export function createKnowledgeGraphService(args: {
 
     relationCreate: ({
       projectId,
-      fromEntityId,
-      toEntityId,
+      sourceEntityId,
+      targetEntityId,
       relationType,
-      metadataJson,
-      evidenceJson,
+      description,
     }) => {
       const invalidProjectId = validateProjectId(projectId);
       if (invalidProjectId) {
         return invalidProjectId;
       }
 
-      if (fromEntityId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "fromEntityId is required");
-      }
-      if (toEntityId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "toEntityId is required");
-      }
+      const normalizedSource = sourceEntityId.trim();
+      const normalizedTarget = targetEntityId.trim();
+      const normalizedType = relationType.trim();
+      const normalizedDescription = normalizeText(description ?? "");
 
-      const normalizedRelationType = relationType.trim();
-      if (normalizedRelationType.length === 0) {
-        return ipcError("INVALID_ARGUMENT", "relationType is required");
+      if (normalizedSource.length === 0) {
+        return ipcError("INVALID_ARGUMENT", "sourceEntityId is required");
       }
-      if (normalizedRelationType.length > MAX_RELATION_TYPE_CHARS) {
+      if (normalizedTarget.length === 0) {
+        return ipcError("INVALID_ARGUMENT", "targetEntityId is required");
+      }
+      if (normalizedSource === normalizedTarget) {
         return ipcError(
-          "INVALID_ARGUMENT",
-          `relationType exceeds ${MAX_RELATION_TYPE_CHARS} chars`,
+          "KG_RELATION_INVALID",
+          "sourceEntityId and targetEntityId must be different",
         );
       }
 
-      const normalizedMetadataJson =
-        normalizeOptionalText(metadataJson) ?? "{}";
-      const metadataValid = validateMetadataJson(
-        "metadataJson",
-        normalizedMetadataJson,
-        MAX_METADATA_JSON_BYTES,
-      );
-      if (metadataValid) {
-        return metadataValid;
+      const invalidRelationType = validateRelationType(normalizedType);
+      if (invalidRelationType) {
+        return invalidRelationType;
       }
 
-      const normalizedEvidenceJson =
-        normalizeOptionalText(evidenceJson) ?? "[]";
-      const evidenceValid = validateEvidenceJson(
-        "evidenceJson",
-        normalizedEvidenceJson,
-      );
-      if (evidenceValid) {
-        return evidenceValid;
+      const invalidDescription = validateDescription(normalizedDescription);
+      if (invalidDescription) {
+        return invalidDescription;
       }
 
-      const relationId = randomUUID();
-      const ts = Date.now();
+      const normalizedProjectId = projectId.trim();
 
       try {
-        const projectExists = ensureProjectExists(args.db, projectId.trim());
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
         if (projectExists) {
           return projectExists;
         }
-        const fromExists = ensureEntityExistsInProject(args.db, {
-          projectId: projectId.trim(),
-          entityId: fromEntityId.trim(),
-          fieldName: "fromEntityId",
-        });
-        if (fromExists) {
-          return fromExists;
-        }
-        const toExists = ensureEntityExistsInProject(args.db, {
-          projectId: projectId.trim(),
-          entityId: toEntityId.trim(),
-          fieldName: "toEntityId",
-        });
-        if (toExists) {
-          return toExists;
+
+        if (countRelations(args.db, normalizedProjectId) >= limits.edgeLimit) {
+          return ipcError("KG_CAPACITY_EXCEEDED", "edge capacity exceeded", {
+            kind: "edge",
+            limit: limits.edgeLimit,
+          });
         }
 
+        const sourceEntity = ensureEntityInProject(args.db, {
+          projectId: normalizedProjectId,
+          entityId: normalizedSource,
+          fieldName: "sourceEntityId",
+        });
+        if (!sourceEntity || "ok" in sourceEntity) {
+          args.logger.error("kg_relation_invalid", {
+            reason: "source_missing_or_cross_project",
+            project_id: normalizedProjectId,
+            source_entity_id: normalizedSource,
+          });
+          return sourceEntity;
+        }
+
+        const targetEntity = ensureEntityInProject(args.db, {
+          projectId: normalizedProjectId,
+          entityId: normalizedTarget,
+          fieldName: "targetEntityId",
+        });
+        if (!targetEntity || "ok" in targetEntity) {
+          args.logger.error("kg_relation_invalid", {
+            reason: "target_missing_or_cross_project",
+            project_id: normalizedProjectId,
+            target_entity_id: normalizedTarget,
+          });
+          return targetEntity;
+        }
+
+        ensureRelationTypeRegistered(args.db, {
+          projectId: normalizedProjectId,
+          relationType: normalizedType,
+        });
+
+        const id = randomUUID();
+        const ts = nowIso();
         args.db
           .prepare(
-            "INSERT INTO kg_relations (relation_id, project_id, from_entity_id, to_entity_id, relation_type, metadata_json, evidence_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO kg_relations (id, project_id, source_entity_id, target_entity_id, relation_type, description, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
           )
           .run(
-            relationId,
-            projectId.trim(),
-            fromEntityId.trim(),
-            toEntityId.trim(),
-            normalizedRelationType,
-            normalizedMetadataJson,
-            normalizedEvidenceJson,
-            ts,
+            id,
+            normalizedProjectId,
+            sourceEntity.id,
+            targetEntity.id,
+            normalizedType,
+            normalizedDescription,
             ts,
           );
 
-        args.logger.info("kg_relation_created", {
-          relation_id: relationId,
-          project_id: projectId.trim(),
-          metadata_bytes: Buffer.byteLength(normalizedMetadataJson, "utf8"),
-        });
+        const row = selectRelationById(args.db, id);
+        if (!row) {
+          return ipcError("DB_ERROR", "Failed to load created relation");
+        }
+
+        return { ok: true, data: rowToRelation(row) };
       } catch (error) {
         args.logger.error("kg_relation_create_failed", {
           code: "DB_ERROR",
@@ -771,12 +1064,6 @@ export function createKnowledgeGraphService(args: {
         });
         return ipcError("DB_ERROR", "Failed to create relation");
       }
-
-      const row = selectRelationById(args.db, relationId);
-      if (!row) {
-        return ipcError("DB_ERROR", "Failed to load created relation");
-      }
-      return { ok: true, data: rowToRelation(row) };
     },
 
     relationList: ({ projectId }) => {
@@ -785,19 +1072,18 @@ export function createKnowledgeGraphService(args: {
         return invalidProjectId;
       }
 
+      const normalizedProjectId = projectId.trim();
+
       try {
-        const projectExists = ensureProjectExists(args.db, projectId.trim());
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
         if (projectExists) {
           return projectExists;
         }
 
-        const rows = args.db
-          .prepare<
-            [string],
-            RelationRow
-          >("SELECT relation_id as relationId, project_id as projectId, from_entity_id as fromEntityId, to_entity_id as toEntityId, relation_type as relationType, metadata_json as metadataJson, evidence_json as evidenceJson, created_at as createdAt, updated_at as updatedAt FROM kg_relations WHERE project_id = ? ORDER BY updated_at DESC, relation_id ASC")
-          .all(projectId.trim());
-        return { ok: true, data: { items: rows.map(rowToRelation) } };
+        return {
+          ok: true,
+          data: { items: listProjectRelations(args.db, normalizedProjectId) },
+        };
       } catch (error) {
         args.logger.error("kg_relation_list_failed", {
           code: "DB_ERROR",
@@ -807,125 +1093,125 @@ export function createKnowledgeGraphService(args: {
       }
     },
 
-    relationUpdate: ({ relationId, patch }) => {
-      if (relationId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "relationId is required");
+    relationUpdate: ({ projectId, id, patch }) => {
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
       }
+      if (id.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "id is required");
+      }
+
       const patchKeys = Object.keys(patch) as Array<keyof typeof patch>;
       if (patchKeys.length === 0) {
         return ipcError("INVALID_ARGUMENT", "patch is required");
       }
 
-      const normalizedRelationType =
-        typeof patch.relationType === "string"
-          ? patch.relationType.trim()
-          : null;
       if (typeof patch.relationType === "string") {
-        if (!normalizedRelationType || normalizedRelationType.length === 0) {
-          return ipcError("INVALID_ARGUMENT", "relationType is required");
-        }
-        if (normalizedRelationType.length > MAX_RELATION_TYPE_CHARS) {
-          return ipcError(
-            "INVALID_ARGUMENT",
-            `relationType exceeds ${MAX_RELATION_TYPE_CHARS} chars`,
-          );
-        }
-      }
-
-      const normalizedMetadataJson =
-        typeof patch.metadataJson === "string"
-          ? patch.metadataJson.trim()
-          : undefined;
-      if (typeof normalizedMetadataJson === "string") {
-        const metadataValid = validateMetadataJson(
-          "metadataJson",
-          normalizedMetadataJson,
-          MAX_METADATA_JSON_BYTES,
+        const invalidRelationType = validateRelationType(
+          patch.relationType.trim(),
         );
-        if (metadataValid) {
-          return metadataValid;
+        if (invalidRelationType) {
+          return invalidRelationType;
         }
       }
 
-      const normalizedEvidenceJson =
-        typeof patch.evidenceJson === "string"
-          ? patch.evidenceJson.trim()
-          : undefined;
-      if (typeof normalizedEvidenceJson === "string") {
-        const evidenceValid = validateEvidenceJson(
-          "evidenceJson",
-          normalizedEvidenceJson,
+      if (typeof patch.description === "string") {
+        const invalidDescription = validateDescription(
+          patch.description.trim(),
         );
-        if (evidenceValid) {
-          return evidenceValid;
+        if (invalidDescription) {
+          return invalidDescription;
         }
       }
 
-      if (
-        typeof patch.fromEntityId === "string" &&
-        patch.fromEntityId.trim().length === 0
-      ) {
-        return ipcError("INVALID_ARGUMENT", "fromEntityId is required");
-      }
-      if (
-        typeof patch.toEntityId === "string" &&
-        patch.toEntityId.trim().length === 0
-      ) {
-        return ipcError("INVALID_ARGUMENT", "toEntityId is required");
-      }
-
-      const ts = Date.now();
+      const normalizedProjectId = projectId.trim();
+      const normalizedId = id.trim();
 
       try {
-        const existing = selectRelationById(args.db, relationId.trim());
-        if (!existing) {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        const existing = selectRelationById(args.db, normalizedId);
+        if (!existing || existing.projectId !== normalizedProjectId) {
           return ipcError("NOT_FOUND", "Relation not found");
         }
 
-        const nextFromEntityId =
-          typeof patch.fromEntityId === "string"
-            ? patch.fromEntityId.trim()
-            : existing.fromEntityId;
-        const nextToEntityId =
-          typeof patch.toEntityId === "string"
-            ? patch.toEntityId.trim()
-            : existing.toEntityId;
+        const nextSource =
+          typeof patch.sourceEntityId === "string"
+            ? patch.sourceEntityId.trim()
+            : existing.sourceEntityId;
+        const nextTarget =
+          typeof patch.targetEntityId === "string"
+            ? patch.targetEntityId.trim()
+            : existing.targetEntityId;
 
-        const fromExists = ensureEntityExistsInProject(args.db, {
-          projectId: existing.projectId,
-          entityId: nextFromEntityId,
-          fieldName: "fromEntityId",
-        });
-        if (fromExists) {
-          return fromExists;
+        if (nextSource.length === 0 || nextTarget.length === 0) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "relation endpoints are required",
+          );
         }
-        const toExists = ensureEntityExistsInProject(args.db, {
-          projectId: existing.projectId,
-          entityId: nextToEntityId,
-          fieldName: "toEntityId",
-        });
-        if (toExists) {
-          return toExists;
+        if (nextSource === nextTarget) {
+          return ipcError(
+            "KG_RELATION_INVALID",
+            "sourceEntityId and targetEntityId must be different",
+          );
         }
+
+        const sourceEntity = ensureEntityInProject(args.db, {
+          projectId: normalizedProjectId,
+          entityId: nextSource,
+          fieldName: "sourceEntityId",
+        });
+        if ("ok" in sourceEntity) {
+          return sourceEntity;
+        }
+
+        const targetEntity = ensureEntityInProject(args.db, {
+          projectId: normalizedProjectId,
+          entityId: nextTarget,
+          fieldName: "targetEntityId",
+        });
+        if ("ok" in targetEntity) {
+          return targetEntity;
+        }
+
+        const nextType =
+          typeof patch.relationType === "string"
+            ? patch.relationType.trim()
+            : existing.relationType;
+        const nextDescription =
+          typeof patch.description === "string"
+            ? patch.description.trim()
+            : existing.description;
+
+        ensureRelationTypeRegistered(args.db, {
+          projectId: normalizedProjectId,
+          relationType: nextType,
+        });
 
         args.db
           .prepare(
-            "UPDATE kg_relations SET from_entity_id = ?, to_entity_id = ?, relation_type = ?, metadata_json = ?, evidence_json = ?, updated_at = ? WHERE relation_id = ?",
+            "UPDATE kg_relations SET source_entity_id = ?, target_entity_id = ?, relation_type = ?, description = ? WHERE id = ? AND project_id = ?",
           )
           .run(
-            nextFromEntityId,
-            nextToEntityId,
-            normalizedRelationType ?? existing.relationType,
-            normalizedMetadataJson ?? existing.metadataJson,
-            normalizedEvidenceJson ?? existing.evidenceJson,
-            ts,
-            relationId.trim(),
+            sourceEntity.id,
+            targetEntity.id,
+            nextType,
+            nextDescription,
+            normalizedId,
+            normalizedProjectId,
           );
 
-        args.logger.info("kg_relation_updated", {
-          relation_id: relationId.trim(),
-          project_id: existing.projectId,
-        });
+        const row = selectRelationById(args.db, normalizedId);
+        if (!row) {
+          return ipcError("DB_ERROR", "Failed to load updated relation");
+        }
+
+        return { ok: true, data: rowToRelation(row) };
       } catch (error) {
         args.logger.error("kg_relation_update_failed", {
           code: "DB_ERROR",
@@ -933,33 +1219,35 @@ export function createKnowledgeGraphService(args: {
         });
         return ipcError("DB_ERROR", "Failed to update relation");
       }
-
-      const row = selectRelationById(args.db, relationId.trim());
-      if (!row) {
-        return ipcError("DB_ERROR", "Failed to load updated relation");
-      }
-      return { ok: true, data: rowToRelation(row) };
     },
 
-    relationDelete: ({ relationId }) => {
-      if (relationId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "relationId is required");
+    relationDelete: ({ projectId, id }) => {
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
+      }
+      if (id.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "id is required");
       }
 
+      const normalizedProjectId = projectId.trim();
+      const normalizedId = id.trim();
+
       try {
-        const existing = selectRelationById(args.db, relationId.trim());
-        if (!existing) {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        const existing = selectRelationById(args.db, normalizedId);
+        if (!existing || existing.projectId !== normalizedProjectId) {
           return ipcError("NOT_FOUND", "Relation not found");
         }
 
         args.db
-          .prepare("DELETE FROM kg_relations WHERE relation_id = ?")
-          .run(relationId.trim());
+          .prepare("DELETE FROM kg_relations WHERE project_id = ? AND id = ?")
+          .run(normalizedProjectId, normalizedId);
 
-        args.logger.info("kg_relation_deleted", {
-          relation_id: relationId.trim(),
-          project_id: existing.projectId,
-        });
         return { ok: true, data: { deleted: true } };
       } catch (error) {
         args.logger.error("kg_relation_delete_failed", {
@@ -967,6 +1255,309 @@ export function createKnowledgeGraphService(args: {
           message: error instanceof Error ? error.message : String(error),
         });
         return ipcError("DB_ERROR", "Failed to delete relation");
+      }
+    },
+
+    querySubgraph: ({ projectId, centerEntityId, k }) => {
+      const startedAt = Date.now();
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
+      }
+      if (centerEntityId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "centerEntityId is required");
+      }
+      if (!Number.isInteger(k) || k <= 0) {
+        return ipcError("INVALID_ARGUMENT", "k must be a positive integer");
+      }
+      if (k > limits.subgraphMaxK) {
+        return ipcError(
+          "KG_SUBGRAPH_K_EXCEEDED",
+          `k must be <= ${limits.subgraphMaxK}`,
+          { maxK: limits.subgraphMaxK, requestedK: k },
+        );
+      }
+
+      const normalizedProjectId = projectId.trim();
+      const normalizedCenter = centerEntityId.trim();
+
+      try {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        const center = selectEntityById(args.db, normalizedCenter);
+        if (!center || center.projectId !== normalizedProjectId) {
+          return ipcError("NOT_FOUND", "center entity not found");
+        }
+
+        const entities = listProjectEntities(args.db, normalizedProjectId);
+        const relations = listProjectRelations(args.db, normalizedProjectId);
+        const adjacency = buildUndirectedAdjacency(relations);
+
+        const visited = new Set<string>([normalizedCenter]);
+        const queue: Array<{ entityId: string; depth: number }> = [
+          { entityId: normalizedCenter, depth: 0 },
+        ];
+
+        while (queue.length > 0) {
+          const head = queue.shift();
+          if (!head) {
+            break;
+          }
+
+          if (head.depth >= k) {
+            continue;
+          }
+
+          const neighbors = adjacency.get(head.entityId) ?? [];
+          for (const neighbor of neighbors) {
+            if (visited.has(neighbor)) {
+              continue;
+            }
+            visited.add(neighbor);
+            queue.push({ entityId: neighbor, depth: head.depth + 1 });
+          }
+        }
+
+        const selectedEntities = entities.filter((entity) =>
+          visited.has(entity.id),
+        );
+        const selectedRelations = relations.filter(
+          (relation) =>
+            visited.has(relation.sourceEntityId) &&
+            visited.has(relation.targetEntityId),
+        );
+
+        return {
+          ok: true,
+          data: {
+            entities: selectedEntities,
+            relations: selectedRelations,
+            nodeCount: selectedEntities.length,
+            edgeCount: selectedRelations.length,
+            queryCostMs: Date.now() - startedAt,
+          },
+        };
+      } catch (error) {
+        args.logger.error("kg_query_subgraph_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to query subgraph");
+      }
+    },
+
+    queryPath: ({ projectId, sourceEntityId, targetEntityId, timeoutMs }) => {
+      const startedAt = Date.now();
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
+      }
+
+      const normalizedSource = sourceEntityId.trim();
+      const normalizedTarget = targetEntityId.trim();
+      if (normalizedSource.length === 0 || normalizedTarget.length === 0) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "sourceEntityId and targetEntityId are required",
+        );
+      }
+
+      const effectiveTimeoutMs = timeoutMs ?? limits.queryTimeoutMs;
+      if (effectiveTimeoutMs <= 0) {
+        return ipcError("KG_QUERY_TIMEOUT", "query timeout", {
+          timeoutMs: effectiveTimeoutMs,
+          suggestion: "reduce graph scope or use keyword filtering",
+        });
+      }
+
+      const normalizedProjectId = projectId.trim();
+
+      try {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        const source = selectEntityById(args.db, normalizedSource);
+        const target = selectEntityById(args.db, normalizedTarget);
+        if (
+          !source ||
+          !target ||
+          source.projectId !== normalizedProjectId ||
+          target.projectId !== normalizedProjectId
+        ) {
+          return ipcError("KG_RELATION_INVALID", "path endpoints are invalid", {
+            sourceEntityId: normalizedSource,
+            targetEntityId: normalizedTarget,
+          });
+        }
+
+        const relations = listProjectRelations(args.db, normalizedProjectId);
+        const adjacency = buildDirectedAdjacency(relations);
+
+        const queue: string[] = [normalizedSource];
+        const visited = new Set<string>([normalizedSource]);
+        const previous = new Map<string, string>();
+
+        let expansions = 0;
+        let found = false;
+
+        while (queue.length > 0) {
+          if (Date.now() - startedAt > effectiveTimeoutMs) {
+            return ipcError("KG_QUERY_TIMEOUT", "query timeout", {
+              timeoutMs: effectiveTimeoutMs,
+              expansions,
+              suggestion: "reduce graph scope or use keyword filtering",
+            });
+          }
+
+          const nodeId = queue.shift();
+          if (!nodeId) {
+            break;
+          }
+
+          expansions += 1;
+          if (expansions > limits.pathExpansionLimit) {
+            return ipcError("KG_QUERY_TIMEOUT", "query timeout", {
+              expansions,
+              maxExpansions: limits.pathExpansionLimit,
+              suggestion: "reduce graph scope or use keyword filtering",
+            });
+          }
+
+          if (nodeId === normalizedTarget) {
+            found = true;
+            break;
+          }
+
+          const neighbors = adjacency.get(nodeId) ?? [];
+          for (const neighbor of neighbors) {
+            if (visited.has(neighbor)) {
+              continue;
+            }
+            visited.add(neighbor);
+            previous.set(neighbor, nodeId);
+            queue.push(neighbor);
+          }
+        }
+
+        if (!found) {
+          return {
+            ok: true,
+            data: {
+              pathEntityIds: [],
+              expansions,
+              degraded: false,
+              queryCostMs: Date.now() - startedAt,
+            },
+          };
+        }
+
+        const path: string[] = [];
+        let cursor: string | undefined = normalizedTarget;
+        while (cursor) {
+          path.push(cursor);
+          cursor = previous.get(cursor);
+        }
+        path.reverse();
+
+        return {
+          ok: true,
+          data: {
+            pathEntityIds: path,
+            expansions,
+            degraded: false,
+            queryCostMs: Date.now() - startedAt,
+          },
+        };
+      } catch (error) {
+        args.logger.error("kg_query_path_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to query path");
+      }
+    },
+
+    queryValidate: ({ projectId }) => {
+      const startedAt = Date.now();
+      const invalidProjectId = validateProjectId(projectId);
+      if (invalidProjectId) {
+        return invalidProjectId;
+      }
+
+      const normalizedProjectId = projectId.trim();
+
+      try {
+        const projectExists = ensureProjectExists(args.db, normalizedProjectId);
+        if (projectExists) {
+          return projectExists;
+        }
+
+        const relations = listProjectRelations(args.db, normalizedProjectId);
+        const adjacency = buildDirectedAdjacency(relations);
+        const cycles: string[][] = [];
+        const cycleKeys = new Set<string>();
+
+        const visited = new Set<string>();
+        const stack = new Set<string>();
+        const path: string[] = [];
+
+        const walk = (nodeId: string): void => {
+          visited.add(nodeId);
+          stack.add(nodeId);
+          path.push(nodeId);
+
+          const neighbors = adjacency.get(nodeId) ?? [];
+          for (const neighbor of neighbors) {
+            if (!visited.has(neighbor)) {
+              walk(neighbor);
+              continue;
+            }
+            if (!stack.has(neighbor)) {
+              continue;
+            }
+
+            const idx = path.lastIndexOf(neighbor);
+            if (idx < 0) {
+              continue;
+            }
+            const cycle = [...path.slice(idx), neighbor];
+            const key = cycle.join("->");
+            if (cycleKeys.has(key)) {
+              continue;
+            }
+
+            cycleKeys.add(key);
+            cycles.push(cycle);
+          }
+
+          stack.delete(nodeId);
+          path.pop();
+        };
+
+        for (const nodeId of adjacency.keys()) {
+          if (!visited.has(nodeId)) {
+            walk(nodeId);
+          }
+        }
+
+        return {
+          ok: true,
+          data: {
+            cycles,
+            queryCostMs: Date.now() - startedAt,
+          },
+        };
+      } catch (error) {
+        args.logger.error("kg_query_validate_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return ipcError("DB_ERROR", "Failed to validate graph");
       }
     },
   };

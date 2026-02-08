@@ -23,7 +23,8 @@ import memoryDocumentScopeSql from "./migrations/0009_memory_document_scope.sql?
 import projectsArchiveSql from "./migrations/0010_projects_archive.sql?raw";
 import documentTypeStatusSql from "./migrations/0011_document_type_status.sql?raw";
 import episodicStorageSql from "./migrations/0012_memory_episodic_storage.sql?raw";
-import projectMetadataSql from "./migrations/0013_project_metadata.sql?raw";
+import knowledgeGraphP0Sql from "./migrations/0013_knowledge_graph_p0.sql?raw";
+import projectMetadataSql from "./migrations/0014_project_metadata.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -74,7 +75,12 @@ const MIGRATIONS_BASE: readonly Migration[] = [
   },
   {
     version: 13,
-    name: "0013_project_metadata",
+    name: "0013_knowledge_graph_p0",
+    sql: knowledgeGraphP0Sql,
+  },
+  {
+    version: 14,
+    name: "0014_project_metadata",
     sql: projectMetadataSql,
   },
 ];

@@ -27,6 +27,13 @@ export const IPC_ERROR_CODES = [
   "PROJECT_CAPACITY_EXCEEDED",
   "PROJECT_METADATA_INVALID_ENUM",
   "PROJECT_IPC_SCHEMA_INVALID",
+  "KG_ATTRIBUTE_KEYS_EXCEEDED",
+  "KG_CAPACITY_EXCEEDED",
+  "KG_ENTITY_CONFLICT",
+  "KG_ENTITY_DUPLICATE",
+  "KG_QUERY_TIMEOUT",
+  "KG_RELATION_INVALID",
+  "KG_SUBGRAPH_K_EXCEEDED",
 ] as const;
 
 export type IpcErrorCode = (typeof IPC_ERROR_CODES)[number];
@@ -274,27 +281,33 @@ const MEMORY_SEMANTIC_RULE_PLACEHOLDER_SCHEMA = s.object({
   updatedAt: s.number(),
 });
 
+const KG_ENTITY_TYPE_SCHEMA = s.union(
+  s.literal("character"),
+  s.literal("location"),
+  s.literal("event"),
+  s.literal("item"),
+  s.literal("faction"),
+);
 const KG_ENTITY_SCHEMA = s.object({
-  entityId: s.string(),
+  id: s.string(),
   projectId: s.string(),
+  type: KG_ENTITY_TYPE_SCHEMA,
   name: s.string(),
-  entityType: s.optional(s.string()),
-  description: s.optional(s.string()),
-  metadataJson: s.string(),
-  createdAt: s.number(),
-  updatedAt: s.number(),
+  description: s.string(),
+  attributes: s.record(s.string()),
+  version: s.number(),
+  createdAt: s.string(),
+  updatedAt: s.string(),
 });
 
 const KG_RELATION_SCHEMA = s.object({
-  relationId: s.string(),
+  id: s.string(),
   projectId: s.string(),
-  fromEntityId: s.string(),
-  toEntityId: s.string(),
+  sourceEntityId: s.string(),
+  targetEntityId: s.string(),
   relationType: s.string(),
-  metadataJson: s.string(),
-  evidenceJson: s.string(),
-  createdAt: s.number(),
-  updatedAt: s.number(),
+  description: s.string(),
+  createdAt: s.string(),
 });
 
 const DOCUMENT_TYPE_SCHEMA = s.union(
@@ -646,77 +659,121 @@ export const ipcContract = {
         diagnostics: RAG_RETRIEVE_DIAGNOSTICS_SCHEMA,
       }),
     },
-    "kg:graph:get": {
+    "knowledge:entity:create": {
       request: s.object({
         projectId: s.string(),
-        purpose: s.optional(s.union(s.literal("ui"), s.literal("context"))),
+        type: KG_ENTITY_TYPE_SCHEMA,
+        name: s.string(),
+        description: s.optional(s.string()),
+        attributes: s.optional(s.record(s.string())),
+      }),
+      response: KG_ENTITY_SCHEMA,
+    },
+    "knowledge:entity:read": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: KG_ENTITY_SCHEMA,
+    },
+    "knowledge:entity:list": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({ items: s.array(KG_ENTITY_SCHEMA) }),
+    },
+    "knowledge:entity:update": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+        expectedVersion: s.number(),
+        patch: s.object({
+          type: s.optional(KG_ENTITY_TYPE_SCHEMA),
+          name: s.optional(s.string()),
+          description: s.optional(s.string()),
+          attributes: s.optional(s.record(s.string())),
+        }),
+      }),
+      response: KG_ENTITY_SCHEMA,
+    },
+    "knowledge:entity:delete": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: s.object({
+        deleted: s.literal(true),
+        deletedRelationCount: s.number(),
+      }),
+    },
+    "knowledge:relation:create": {
+      request: s.object({
+        projectId: s.string(),
+        sourceEntityId: s.string(),
+        targetEntityId: s.string(),
+        relationType: s.string(),
+        description: s.optional(s.string()),
+      }),
+      response: KG_RELATION_SCHEMA,
+    },
+    "knowledge:relation:list": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({ items: s.array(KG_RELATION_SCHEMA) }),
+    },
+    "knowledge:relation:update": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+        patch: s.object({
+          sourceEntityId: s.optional(s.string()),
+          targetEntityId: s.optional(s.string()),
+          relationType: s.optional(s.string()),
+          description: s.optional(s.string()),
+        }),
+      }),
+      response: KG_RELATION_SCHEMA,
+    },
+    "knowledge:relation:delete": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: s.object({ deleted: s.literal(true) }),
+    },
+    "knowledge:query:subgraph": {
+      request: s.object({
+        projectId: s.string(),
+        centerEntityId: s.string(),
+        k: s.number(),
       }),
       response: s.object({
         entities: s.array(KG_ENTITY_SCHEMA),
         relations: s.array(KG_RELATION_SCHEMA),
+        nodeCount: s.number(),
+        edgeCount: s.number(),
+        queryCostMs: s.number(),
       }),
     },
-    "kg:entity:create": {
+    "knowledge:query:path": {
       request: s.object({
         projectId: s.string(),
-        name: s.string(),
-        entityType: s.optional(s.string()),
-        description: s.optional(s.string()),
-        metadataJson: s.optional(s.string()),
+        sourceEntityId: s.string(),
+        targetEntityId: s.string(),
+        timeoutMs: s.optional(s.number()),
       }),
-      response: KG_ENTITY_SCHEMA,
-    },
-    "kg:entity:list": {
-      request: s.object({ projectId: s.string() }),
-      response: s.object({ items: s.array(KG_ENTITY_SCHEMA) }),
-    },
-    "kg:entity:update": {
-      request: s.object({
-        entityId: s.string(),
-        patch: s.object({
-          name: s.optional(s.string()),
-          entityType: s.optional(s.string()),
-          description: s.optional(s.string()),
-          metadataJson: s.optional(s.string()),
-        }),
+      response: s.object({
+        pathEntityIds: s.array(s.string()),
+        queryCostMs: s.number(),
+        expansions: s.number(),
+        degraded: s.boolean(),
       }),
-      response: KG_ENTITY_SCHEMA,
     },
-    "kg:entity:delete": {
-      request: s.object({ entityId: s.string() }),
-      response: s.object({ deleted: s.literal(true) }),
-    },
-    "kg:relation:create": {
+    "knowledge:query:validate": {
       request: s.object({
         projectId: s.string(),
-        fromEntityId: s.string(),
-        toEntityId: s.string(),
-        relationType: s.string(),
-        metadataJson: s.optional(s.string()),
-        evidenceJson: s.optional(s.string()),
       }),
-      response: KG_RELATION_SCHEMA,
-    },
-    "kg:relation:list": {
-      request: s.object({ projectId: s.string() }),
-      response: s.object({ items: s.array(KG_RELATION_SCHEMA) }),
-    },
-    "kg:relation:update": {
-      request: s.object({
-        relationId: s.string(),
-        patch: s.object({
-          fromEntityId: s.optional(s.string()),
-          toEntityId: s.optional(s.string()),
-          relationType: s.optional(s.string()),
-          metadataJson: s.optional(s.string()),
-          evidenceJson: s.optional(s.string()),
-        }),
+      response: s.object({
+        cycles: s.array(s.array(s.string())),
+        queryCostMs: s.number(),
       }),
-      response: KG_RELATION_SCHEMA,
-    },
-    "kg:relation:delete": {
-      request: s.object({ relationId: s.string() }),
-      response: s.object({ deleted: s.literal(true) }),
     },
     "skill:registry:list": {
       request: s.object({ includeDisabled: s.optional(s.boolean()) }),
