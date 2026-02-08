@@ -92,8 +92,10 @@ describe("KnowledgeGraph", () => {
   it("renders empty state when no nodes", () => {
     render(<KnowledgeGraph data={emptyData} />);
 
-    expect(screen.getByText("No nodes in the graph yet")).toBeInTheDocument();
-    expect(screen.getByText("Add First Node")).toBeInTheDocument();
+    expect(
+      screen.getByText("暂无实体，点击添加你的第一个角色或地点"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("添加节点")).toBeInTheDocument();
   });
 
   it("calls onNodeSelect when node is clicked", async () => {

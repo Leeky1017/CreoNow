@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { GraphNode } from "./GraphNode";
 import { GraphEdge, EdgeMarkerDefs } from "./GraphEdge";
 import type { GraphCanvasProps, GraphNode as GraphNodeType, NodeFilter } from "./types";
@@ -50,6 +50,7 @@ export function GraphCanvas({
   onNodeSelect,
   onNodeMove,
   onCanvasPan,
+  onCanvasZoom,
 }: GraphCanvasProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export function GraphCanvas({
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
 
   // Create a map for quick node lookup
-  const nodeMap = new Map(data.nodes.map((n) => [n.id, n]));
+  const nodeMap = useMemo(() => new Map(data.nodes.map((n) => [n.id, n])), [data.nodes]);
 
   // Filter visible nodes
   const visibleNodes = data.nodes.filter((node) => isNodeVisible(node, filter));
@@ -144,15 +145,38 @@ export function GraphCanvas({
     [onNodeSelect],
   );
 
+  /**
+   * Handle wheel zoom around the cursor anchor.
+   */
+  const handleWheel = useCallback(
+    (event: React.WheelEvent) => {
+      event.preventDefault();
+      const bounds = containerRef.current?.getBoundingClientRect();
+      if (!bounds) {
+        return;
+      }
+      onCanvasZoom(
+        {
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top,
+        },
+        event.deltaY,
+      );
+    },
+    [onCanvasZoom],
+  );
+
   return (
     <div
       ref={containerRef}
+      data-testid="knowledge-graph-canvas"
       className={canvasStyles}
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onClick={handleCanvasClick}
+      onWheel={handleWheel}
     >
       {/* Grid background */}
       <div
@@ -167,8 +191,8 @@ export function GraphCanvas({
       <div
         className="absolute inset-0 w-full h-full transition-transform duration-100 ease-out"
         style={{
-          transform: `scale(${transform.scale}) translate(${transform.translateX}px, ${transform.translateY}px)`,
-          transformOrigin: "center center",
+          transform: `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale})`,
+          transformOrigin: "0 0",
         }}
       >
         {/* SVG layer for edges */}

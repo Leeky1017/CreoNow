@@ -33,4 +33,4 @@ Knowledge Graph 主 spec 的可视化关系图、时间线与角色卡属于上�
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`
+- Owner 审阅：`APPROVED`

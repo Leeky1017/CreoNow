@@ -3,10 +3,24 @@ import React from "react";
 import { Button, Card, Input, Select, Text } from "../../components/primitives";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 import { KnowledgeGraph } from "../../components/features/KnowledgeGraph/KnowledgeGraph";
-import type { GraphNode, NodeType } from "../../components/features/KnowledgeGraph/types";
+import type {
+  CanvasTransform,
+  GraphNode,
+  NodeType,
+} from "../../components/features/KnowledgeGraph/types";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useKgStore } from "../../stores/kgStore";
-import { kgToGraph, updatePositionInMetadata, createEntityMetadataWithPosition } from "./kgToGraph";
+import { TimelineView, type TimelineEventItem } from "./TimelineView";
+import { buildForceDirectedGraph } from "./graphRenderAdapter";
+import {
+  createEntityMetadataWithPosition,
+  kgToGraph,
+  updatePositionInMetadata,
+} from "./kgToGraph";
+import {
+  loadKgViewPreferences,
+  saveKgViewPreferences,
+} from "./kgViewPreferences";
 
 type EditingState =
   | { mode: "idle" }
@@ -20,7 +34,7 @@ type EditingState =
   | { mode: "relation"; relationId: string; relationType: string };
 
 /** View mode for the KG panel */
-type ViewMode = "list" | "graph";
+type ViewMode = "list" | "graph" | "timeline";
 
 function entityLabel(args: { name: string; entityType?: string }): string {
   return args.entityType ? `${args.name} (${args.entityType})` : args.name;
@@ -33,6 +47,25 @@ function nodeTypeToEntityType(nodeType: NodeType): string {
   return nodeType === "other" ? "" : nodeType;
 }
 
+function parseMetadataJson(metadataJson: string): Record<string, unknown> {
+  try {
+    return JSON.parse(metadataJson) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+function updateTimelineOrderInMetadata(
+  metadataJson: string,
+  order: number,
+): string {
+  const metadata = parseMetadataJson(metadataJson);
+  const timeline = (metadata.timeline as Record<string, unknown>) ?? {};
+  timeline.order = order;
+  metadata.timeline = timeline;
+  return JSON.stringify(metadata);
+}
+
 /**
  * ViewModeToggle - Toggle buttons for List/Graph view.
  *
@@ -42,30 +75,27 @@ function ViewModeToggle(props: {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
 }): JSX.Element {
+  const entries: Array<{ mode: ViewMode; label: string }> = [
+    { mode: "graph", label: "Graph" },
+    { mode: "timeline", label: "Timeline" },
+    { mode: "list", label: "List" },
+  ];
   return (
     <div className="flex items-center gap-1">
-      <button
-        type="button"
-        onClick={() => props.onViewModeChange("list")}
-        className={`px-2 py-1 text-xs rounded transition-colors ${
-          props.viewMode === "list"
-            ? "bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]"
-            : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
-        }`}
-      >
-        List
-      </button>
-      <button
-        type="button"
-        onClick={() => props.onViewModeChange("graph")}
-        className={`px-2 py-1 text-xs rounded transition-colors ${
-          props.viewMode === "graph"
-            ? "bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]"
-            : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
-        }`}
-      >
-        Graph
-      </button>
+      {entries.map((entry) => (
+        <button
+          key={entry.mode}
+          type="button"
+          onClick={() => props.onViewModeChange(entry.mode)}
+          className={`px-2 py-1 text-xs rounded transition-colors ${
+            props.viewMode === entry.mode
+              ? "bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]"
+              : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
+          }`}
+        >
+          {entry.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -96,8 +126,13 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   const relationDelete = useKgStore((s) => s.relationDelete);
 
   const [editing, setEditing] = React.useState<EditingState>({ mode: "idle" });
-  const [viewMode, setViewMode] = React.useState<ViewMode>("list");
+  const [viewMode, setViewMode] = React.useState<ViewMode>("graph");
   const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
+  const [graphTransform, setGraphTransform] = React.useState<CanvasTransform>({
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+  });
 
   const [createName, setCreateName] = React.useState("");
   const [createType, setCreateType] = React.useState("");
@@ -112,6 +147,11 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   React.useEffect(() => {
     void bootstrapForProject(props.projectId);
   }, [bootstrapForProject, props.projectId]);
+
+  React.useEffect(() => {
+    const preference = loadKgViewPreferences(props.projectId);
+    setGraphTransform(preference.graphTransform);
+  }, [props.projectId]);
 
   React.useEffect(() => {
     if (entities.length === 0) {
@@ -230,11 +270,37 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
     return e ? e.name : entityId;
   }
 
-  // Convert KG data to graph format for visualization
-  const graphData = React.useMemo(
+  const baseGraphData = React.useMemo(
     () => kgToGraph(entities, relations),
     [entities, relations],
   );
+
+  // Build force-directed positions via adapter (d3-force).
+  const graphData = React.useMemo(
+    () => buildForceDirectedGraph(baseGraphData),
+    [baseGraphData],
+  );
+
+  const timelineEvents = React.useMemo<TimelineEventItem[]>(() => {
+    return entities
+      .filter((entity) => entity.entityType === "event")
+      .map((entity, index) => {
+        const metadata = parseMetadataJson(entity.metadataJson);
+        const timeline = (metadata.timeline as Record<string, unknown>) ?? {};
+        const chapterValue = timeline.chapter;
+        const orderValue = timeline.order;
+        return {
+          id: entity.entityId,
+          title: entity.name,
+          chapter:
+            typeof chapterValue === "string" && chapterValue.length > 0
+              ? chapterValue
+              : `Chapter-${String(index + 1).padStart(2, "0")}`,
+          order: typeof orderValue === "number" ? orderValue : index + 1,
+          description: entity.description ?? undefined,
+        };
+      });
+  }, [entities]);
 
   /**
    * Handle node position change (drag) in graph view.
@@ -245,7 +311,9 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
     position: { x: number; y: number },
   ): Promise<void> {
     const entity = entities.find((e) => e.entityId === nodeId);
-    if (!entity) return;
+    if (!entity) {
+      return;
+    }
 
     const updatedMetadata = updatePositionInMetadata(
       entity.metadataJson,
@@ -256,6 +324,44 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
       entityId: nodeId,
       patch: { metadataJson: updatedMetadata },
     });
+
+    saveKgViewPreferences(props.projectId, { lastDraggedNodeId: nodeId });
+  }
+
+  function onGraphTransformChange(transform: CanvasTransform): void {
+    setGraphTransform((current) => {
+      if (
+        current.scale === transform.scale &&
+        current.translateX === transform.translateX &&
+        current.translateY === transform.translateY
+      ) {
+        return current;
+      }
+      return transform;
+    });
+    saveKgViewPreferences(props.projectId, { graphTransform: transform });
+  }
+
+  async function onTimelineOrderChange(orderedIds: string[]): Promise<void> {
+    saveKgViewPreferences(props.projectId, { timelineOrder: orderedIds });
+
+    const byId = new Map(entities.map((entity) => [entity.entityId, entity]));
+    await Promise.all(
+      orderedIds.map(async (entityId, index) => {
+        const entity = byId.get(entityId);
+        if (!entity || entity.entityType !== "event") {
+          return;
+        }
+        const metadataJson = updateTimelineOrderInMetadata(
+          entity.metadataJson,
+          index + 1,
+        );
+        await entityUpdate({
+          entityId,
+          patch: { metadataJson },
+        });
+      }),
+    );
   }
 
   /**
@@ -379,7 +485,44 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
             onAddNode={(type) => void onAddNode(type)}
             onNodeSave={(node, isNew) => void onNodeSave(node, isNew)}
             onNodeDelete={(nodeId) => void onNodeDeleteFromGraph(nodeId)}
+            initialTransform={graphTransform}
+            onTransformChange={onGraphTransformChange}
             enableEditDialog={true}
+          />
+        </div>
+
+        <SystemDialog {...dialogProps} />
+      </section>
+    );
+  }
+
+  if (viewMode === "timeline") {
+    return (
+      <section data-testid="sidebar-kg" className="flex flex-col h-full min-h-0">
+        <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)] shrink-0">
+          <Text size="small" color="muted">
+            Knowledge Graph
+          </Text>
+          <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+        </div>
+
+        <div className="flex-1 min-h-0">
+          <TimelineView
+            events={timelineEvents}
+            onOrderChange={(orderedIds) => void onTimelineOrderChange(orderedIds)}
+            onOpenEvent={(eventId) => {
+              const eventEntity = entities.find((entity) => entity.entityId === eventId);
+              if (!eventEntity) {
+                return;
+              }
+              setEditing({
+                mode: "entity",
+                entityId: eventEntity.entityId,
+                name: eventEntity.name,
+                entityType: eventEntity.entityType,
+                description: eventEntity.description ?? "",
+              });
+            }}
           />
         </div>
 
