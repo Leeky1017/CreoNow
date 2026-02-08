@@ -3,7 +3,7 @@
 - Issue: #324
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/324
 - Branch: task/324-memory-system-p3-isolation-degradation
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/325
 - Scope: 完成交付 `openspec/changes/memory-system-p3-isolation-degradation`（作用域隔离 + 清除确认 + 降级策略）并合并回控制面 `main`
 - Out of Scope: Context Engine 注入细节改造、AI Service 上游链路改造、新增独立 UI 模块
 
