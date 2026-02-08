@@ -18,3 +18,4 @@
 ## 维护规则
 
 - 活跃 change 的范围/依赖/状态变化时，必须同步更新本文件。
+- 对有上游依赖的 change，进入 Red 前必须完成并落盘 Dependency Sync Check（无漂移/已更新）。
