@@ -5,117 +5,126 @@ import type { IpcResponse } from "../../../../../packages/shared/types/ipc-gener
 import type { Logger } from "../logging/logger";
 import {
   createKnowledgeGraphService,
-  type KgEntity,
-  type KgGraph,
-  type KgRelation,
+  type KnowledgeEntity,
+  type KnowledgeEntityType,
+  type KnowledgePathResult,
+  type KnowledgeRelation,
+  type KnowledgeSubgraphResult,
+  type KnowledgeValidateResult,
 } from "../services/kg/kgService";
-
-type GraphGetPayload = {
-  projectId: string;
-  purpose?: "ui" | "context";
-};
 
 type EntityCreatePayload = {
   projectId: string;
+  type: KnowledgeEntityType;
   name: string;
-  entityType?: string;
   description?: string;
-  metadataJson?: string;
+  attributes?: Record<string, string>;
 };
 
-type EntityListPayload = { projectId: string };
+type EntityReadPayload = {
+  projectId: string;
+  id: string;
+};
+
+type EntityListPayload = {
+  projectId: string;
+};
 
 type EntityUpdatePayload = {
-  entityId: string;
-  patch: Partial<
-    Pick<KgEntity, "name" | "entityType" | "description" | "metadataJson">
-  >;
+  projectId: string;
+  id: string;
+  expectedVersion: number;
+  patch: {
+    type?: KnowledgeEntityType;
+    name?: string;
+    description?: string;
+    attributes?: Record<string, string>;
+  };
 };
 
-type EntityDeletePayload = { entityId: string };
+type EntityDeletePayload = {
+  projectId: string;
+  id: string;
+};
 
 type RelationCreatePayload = {
   projectId: string;
-  fromEntityId: string;
-  toEntityId: string;
+  sourceEntityId: string;
+  targetEntityId: string;
   relationType: string;
-  metadataJson?: string;
-  evidenceJson?: string;
+  description?: string;
 };
 
-type RelationListPayload = { projectId: string };
+type RelationListPayload = {
+  projectId: string;
+};
 
 type RelationUpdatePayload = {
-  relationId: string;
-  patch: Partial<
-    Pick<
-      KgRelation,
-      | "fromEntityId"
-      | "toEntityId"
-      | "relationType"
-      | "metadataJson"
-      | "evidenceJson"
-    >
-  >;
+  projectId: string;
+  id: string;
+  patch: {
+    sourceEntityId?: string;
+    targetEntityId?: string;
+    relationType?: string;
+    description?: string;
+  };
 };
 
-type RelationDeletePayload = { relationId: string };
+type RelationDeletePayload = {
+  projectId: string;
+  id: string;
+};
+
+type QuerySubgraphPayload = {
+  projectId: string;
+  centerEntityId: string;
+  k: number;
+};
+
+type QueryPathPayload = {
+  projectId: string;
+  sourceEntityId: string;
+  targetEntityId: string;
+  timeoutMs?: number;
+};
+
+type QueryValidatePayload = {
+  projectId: string;
+};
 
 /**
- * Register `kg:*` IPC handlers (Knowledge Graph).
+ * Register `knowledge:*` IPC handlers (Knowledge Graph).
  *
- * Why: KG is persisted in SQLite but controlled via renderer UI and context
- * assembly; IPC provides the stable contract boundary.
+ * Why: KG is persisted in SQLite and exposed through a stable cross-process
+ * contract with explicit request/response envelopes.
  */
 export function registerKnowledgeGraphIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
 }): void {
-  deps.ipcMain.handle(
-    "kg:graph:get",
-    async (_e, payload: GraphGetPayload): Promise<IpcResponse<KgGraph>> => {
-      if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
-      }
-      const svc = createKnowledgeGraphService({
-        db: deps.db,
-        logger: deps.logger,
-      });
-      const res = svc.graphGet(payload);
-      if (payload.purpose === "context" && res.ok) {
-        deps.logger.info("kg_injected", {
-          project_id: payload.projectId.trim(),
-          entity_count: res.data.entities.length,
-          relation_count: res.data.relations.length,
-        });
-      }
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
-    },
-  );
+  function notReady<T>(): IpcResponse<T> {
+    return {
+      ok: false,
+      error: { code: "DB_ERROR", message: "Database not ready" },
+    };
+  }
 
   deps.ipcMain.handle(
-    "kg:entity:create",
+    "knowledge:entity:create",
     async (
-      _e,
+      _event,
       payload: EntityCreatePayload,
-    ): Promise<IpcResponse<KgEntity>> => {
+    ): Promise<IpcResponse<KnowledgeEntity>> => {
       if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
+        return notReady<KnowledgeEntity>();
       }
-      const svc = createKnowledgeGraphService({
+
+      const service = createKnowledgeGraphService({
         db: deps.db,
         logger: deps.logger,
       });
-      const res = svc.entityCreate(payload);
+      const res = service.entityCreate(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -123,22 +132,41 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "kg:entity:list",
+    "knowledge:entity:read",
     async (
-      _e,
+      _event,
+      payload: EntityReadPayload,
+    ): Promise<IpcResponse<KnowledgeEntity>> => {
+      if (!deps.db) {
+        return notReady<KnowledgeEntity>();
+      }
+
+      const service = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
+      const res = service.entityRead(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "knowledge:entity:list",
+    async (
+      _event,
       payload: EntityListPayload,
-    ): Promise<IpcResponse<{ items: KgEntity[] }>> => {
+    ): Promise<IpcResponse<{ items: KnowledgeEntity[] }>> => {
       if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
+        return notReady<{ items: KnowledgeEntity[] }>();
       }
-      const svc = createKnowledgeGraphService({
+
+      const service = createKnowledgeGraphService({
         db: deps.db,
         logger: deps.logger,
       });
-      const res = svc.entityList(payload);
+      const res = service.entityList(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -146,25 +174,20 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "kg:entity:update",
+    "knowledge:entity:update",
     async (
-      _e,
+      _event,
       payload: EntityUpdatePayload,
-    ): Promise<IpcResponse<KgEntity>> => {
+    ): Promise<IpcResponse<KnowledgeEntity>> => {
       if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
+        return notReady<KnowledgeEntity>();
       }
-      const svc = createKnowledgeGraphService({
+
+      const service = createKnowledgeGraphService({
         db: deps.db,
         logger: deps.logger,
       });
-      const res = svc.entityUpdate({
-        entityId: payload.entityId,
-        patch: payload.patch,
-      });
+      const res = service.entityUpdate(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -172,22 +195,22 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "kg:entity:delete",
+    "knowledge:entity:delete",
     async (
-      _e,
+      _event,
       payload: EntityDeletePayload,
-    ): Promise<IpcResponse<{ deleted: true }>> => {
+    ): Promise<
+      IpcResponse<{ deleted: true; deletedRelationCount: number }>
+    > => {
       if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
+        return notReady<{ deleted: true; deletedRelationCount: number }>();
       }
-      const svc = createKnowledgeGraphService({
+
+      const service = createKnowledgeGraphService({
         db: deps.db,
         logger: deps.logger,
       });
-      const res = svc.entityDelete(payload);
+      const res = service.entityDelete(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -195,22 +218,20 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "kg:relation:create",
+    "knowledge:relation:create",
     async (
-      _e,
+      _event,
       payload: RelationCreatePayload,
-    ): Promise<IpcResponse<KgRelation>> => {
+    ): Promise<IpcResponse<KnowledgeRelation>> => {
       if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
+        return notReady<KnowledgeRelation>();
       }
-      const svc = createKnowledgeGraphService({
+
+      const service = createKnowledgeGraphService({
         db: deps.db,
         logger: deps.logger,
       });
-      const res = svc.relationCreate(payload);
+      const res = service.relationCreate(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -218,22 +239,20 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "kg:relation:list",
+    "knowledge:relation:list",
     async (
-      _e,
+      _event,
       payload: RelationListPayload,
-    ): Promise<IpcResponse<{ items: KgRelation[] }>> => {
+    ): Promise<IpcResponse<{ items: KnowledgeRelation[] }>> => {
       if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
+        return notReady<{ items: KnowledgeRelation[] }>();
       }
-      const svc = createKnowledgeGraphService({
+
+      const service = createKnowledgeGraphService({
         db: deps.db,
         logger: deps.logger,
       });
-      const res = svc.relationList(payload);
+      const res = service.relationList(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -241,25 +260,20 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "kg:relation:update",
+    "knowledge:relation:update",
     async (
-      _e,
+      _event,
       payload: RelationUpdatePayload,
-    ): Promise<IpcResponse<KgRelation>> => {
+    ): Promise<IpcResponse<KnowledgeRelation>> => {
       if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
+        return notReady<KnowledgeRelation>();
       }
-      const svc = createKnowledgeGraphService({
+
+      const service = createKnowledgeGraphService({
         db: deps.db,
         logger: deps.logger,
       });
-      const res = svc.relationUpdate({
-        relationId: payload.relationId,
-        patch: payload.patch,
-      });
+      const res = service.relationUpdate(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -267,22 +281,83 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "kg:relation:delete",
+    "knowledge:relation:delete",
     async (
-      _e,
+      _event,
       payload: RelationDeletePayload,
     ): Promise<IpcResponse<{ deleted: true }>> => {
       if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
+        return notReady<{ deleted: true }>();
       }
-      const svc = createKnowledgeGraphService({
+
+      const service = createKnowledgeGraphService({
         db: deps.db,
         logger: deps.logger,
       });
-      const res = svc.relationDelete(payload);
+      const res = service.relationDelete(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "knowledge:query:subgraph",
+    async (
+      _event,
+      payload: QuerySubgraphPayload,
+    ): Promise<IpcResponse<KnowledgeSubgraphResult>> => {
+      if (!deps.db) {
+        return notReady<KnowledgeSubgraphResult>();
+      }
+
+      const service = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
+      const res = service.querySubgraph(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "knowledge:query:path",
+    async (
+      _event,
+      payload: QueryPathPayload,
+    ): Promise<IpcResponse<KnowledgePathResult>> => {
+      if (!deps.db) {
+        return notReady<KnowledgePathResult>();
+      }
+
+      const service = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
+      const res = service.queryPath(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "knowledge:query:validate",
+    async (
+      _event,
+      payload: QueryValidatePayload,
+    ): Promise<IpcResponse<KnowledgeValidateResult>> => {
+      if (!deps.db) {
+        return notReady<KnowledgeValidateResult>();
+      }
+
+      const service = createKnowledgeGraphService({
+        db: deps.db,
+        logger: deps.logger,
+      });
+      const res = service.queryValidate(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
