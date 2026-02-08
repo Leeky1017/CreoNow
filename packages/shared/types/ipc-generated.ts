@@ -24,7 +24,10 @@ export type IpcErrorCode =
   | "KG_ENTITY_CONFLICT"
   | "KG_ENTITY_DUPLICATE"
   | "KG_QUERY_TIMEOUT"
+  | "KG_RECOGNITION_UNAVAILABLE"
   | "KG_RELATION_INVALID"
+  | "KG_RELEVANT_QUERY_FAILED"
+  | "KG_SCOPE_VIOLATION"
   | "KG_SUBGRAPH_K_EXCEEDED"
   | "MEMORY_CAPACITY_EXCEEDED"
   | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
@@ -115,13 +118,21 @@ export const IPC_CHANNELS = [
   "knowledge:entity:list",
   "knowledge:entity:read",
   "knowledge:entity:update",
+  "knowledge:query:byids",
   "knowledge:query:path",
+  "knowledge:query:relevant",
   "knowledge:query:subgraph",
   "knowledge:query:validate",
+  "knowledge:recognition:cancel",
+  "knowledge:recognition:enqueue",
+  "knowledge:recognition:stats",
   "knowledge:relation:create",
   "knowledge:relation:delete",
   "knowledge:relation:list",
   "knowledge:relation:update",
+  "knowledge:rules:inject",
+  "knowledge:suggestion:accept",
+  "knowledge:suggestion:dismiss",
   "memory:distill:progress",
   "memory:entry:create",
   "memory:entry:delete",
@@ -223,7 +234,10 @@ export type IpcChannelSpec = {
           | "KG_ENTITY_CONFLICT"
           | "KG_ENTITY_DUPLICATE"
           | "KG_QUERY_TIMEOUT"
+          | "KG_RECOGNITION_UNAVAILABLE"
+          | "KG_RELEVANT_QUERY_FAILED"
           | "KG_RELATION_INVALID"
+          | "KG_SCOPE_VIOLATION"
           | "KG_SUBGRAPH_K_EXCEEDED";
         message: string;
       };
@@ -687,7 +701,10 @@ export type IpcChannelSpec = {
                 | "KG_ENTITY_CONFLICT"
                 | "KG_ENTITY_DUPLICATE"
                 | "KG_QUERY_TIMEOUT"
+                | "KG_RECOGNITION_UNAVAILABLE"
+                | "KG_RELEVANT_QUERY_FAILED"
                 | "KG_RELATION_INVALID"
+                | "KG_SCOPE_VIOLATION"
                 | "KG_SUBGRAPH_K_EXCEEDED";
               message: string;
             };
@@ -747,7 +764,10 @@ export type IpcChannelSpec = {
                 | "KG_ENTITY_CONFLICT"
                 | "KG_ENTITY_DUPLICATE"
                 | "KG_QUERY_TIMEOUT"
+                | "KG_RECOGNITION_UNAVAILABLE"
+                | "KG_RELEVANT_QUERY_FAILED"
                 | "KG_RELATION_INVALID"
+                | "KG_SCOPE_VIOLATION"
                 | "KG_SUBGRAPH_K_EXCEEDED";
               message: string;
             };
@@ -844,6 +864,25 @@ export type IpcChannelSpec = {
       version: number;
     };
   };
+  "knowledge:query:byids": {
+    request: {
+      entityIds: Array<string>;
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        attributes: Record<string, string>;
+        createdAt: string;
+        description: string;
+        id: string;
+        name: string;
+        projectId: string;
+        type: "character" | "location" | "event" | "item" | "faction";
+        updatedAt: string;
+        version: number;
+      }>;
+    };
+  };
   "knowledge:query:path": {
     request: {
       projectId: string;
@@ -855,6 +894,28 @@ export type IpcChannelSpec = {
       degraded: boolean;
       expansions: number;
       pathEntityIds: Array<string>;
+      queryCostMs: number;
+    };
+  };
+  "knowledge:query:relevant": {
+    request: {
+      entityIds?: Array<string>;
+      excerpt: string;
+      maxEntities?: number;
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        attributes: Record<string, string>;
+        createdAt: string;
+        description: string;
+        id: string;
+        name: string;
+        projectId: string;
+        type: "character" | "location" | "event" | "item" | "faction";
+        updatedAt: string;
+        version: number;
+      }>;
       queryCostMs: number;
     };
   };
@@ -897,6 +958,45 @@ export type IpcChannelSpec = {
     response: {
       cycles: Array<Array<string>>;
       queryCostMs: number;
+    };
+  };
+  "knowledge:recognition:cancel": {
+    request: {
+      projectId: string;
+      sessionId: string;
+      taskId: string;
+    };
+    response: {
+      canceled: true;
+    };
+  };
+  "knowledge:recognition:enqueue": {
+    request: {
+      contentText: string;
+      documentId: string;
+      projectId: string;
+      sessionId: string;
+      traceId: string;
+    };
+    response: {
+      queuePosition: number;
+      status: "started" | "queued";
+      taskId: string;
+    };
+  };
+  "knowledge:recognition:stats": {
+    request: {
+      projectId: string;
+      sessionId: string;
+    };
+    response: {
+      canceledTaskIds: Array<string>;
+      completed: number;
+      completionOrder: Array<string>;
+      maxConcurrency: number;
+      peakRunning: number;
+      queued: number;
+      running: number;
     };
   };
   "knowledge:relation:create": {
@@ -963,6 +1063,54 @@ export type IpcChannelSpec = {
       targetEntityId: string;
     };
   };
+  "knowledge:rules:inject": {
+    request: {
+      documentId: string;
+      entityIds?: Array<string>;
+      excerpt: string;
+      maxEntities?: number;
+      projectId: string;
+      traceId: string;
+    };
+    response: {
+      injectedEntities: Array<{
+        attributes: Record<string, string>;
+        id: string;
+        name: string;
+        relationsSummary: Array<string>;
+        type: "character" | "location" | "event" | "item" | "faction";
+      }>;
+      source: "kg-rules-mock";
+    };
+  };
+  "knowledge:suggestion:accept": {
+    request: {
+      projectId: string;
+      sessionId: string;
+      suggestionId: string;
+    };
+    response: {
+      attributes: Record<string, string>;
+      createdAt: string;
+      description: string;
+      id: string;
+      name: string;
+      projectId: string;
+      type: "character" | "location" | "event" | "item" | "faction";
+      updatedAt: string;
+      version: number;
+    };
+  };
+  "knowledge:suggestion:dismiss": {
+    request: {
+      projectId: string;
+      sessionId: string;
+      suggestionId: string;
+    };
+    response: {
+      dismissed: true;
+    };
+  };
   "memory:distill:progress": {
     request: {
       errorCode?:
@@ -1002,7 +1150,10 @@ export type IpcChannelSpec = {
         | "KG_ENTITY_CONFLICT"
         | "KG_ENTITY_DUPLICATE"
         | "KG_QUERY_TIMEOUT"
+        | "KG_RECOGNITION_UNAVAILABLE"
+        | "KG_RELEVANT_QUERY_FAILED"
         | "KG_RELATION_INVALID"
+        | "KG_SCOPE_VIOLATION"
         | "KG_SUBGRAPH_K_EXCEEDED";
       message?: string;
       progress: number;
@@ -1055,7 +1206,10 @@ export type IpcChannelSpec = {
         | "KG_ENTITY_CONFLICT"
         | "KG_ENTITY_DUPLICATE"
         | "KG_QUERY_TIMEOUT"
+        | "KG_RECOGNITION_UNAVAILABLE"
+        | "KG_RELEVANT_QUERY_FAILED"
         | "KG_RELATION_INVALID"
+        | "KG_SCOPE_VIOLATION"
         | "KG_SUBGRAPH_K_EXCEEDED";
       message?: string;
       progress: number;
@@ -1692,7 +1846,10 @@ export type IpcChannelSpec = {
           | "KG_ENTITY_CONFLICT"
           | "KG_ENTITY_DUPLICATE"
           | "KG_QUERY_TIMEOUT"
+          | "KG_RECOGNITION_UNAVAILABLE"
+          | "KG_RELEVANT_QUERY_FAILED"
           | "KG_RELATION_INVALID"
+          | "KG_SCOPE_VIOLATION"
           | "KG_SUBGRAPH_K_EXCEEDED";
         error_message?: string;
         id: string;
