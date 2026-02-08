@@ -8,6 +8,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   testDir: __dirname,
   timeout: 60_000,
+  expect: {
+    // Windows CI cold start is slower when booting Electron + SQLite migrations.
+    timeout: 15_000,
+  },
   fullyParallel: false,
   retries: process.env.CI ? 1 : 0,
   reporter: [["html", { open: "never", outputFolder: "playwright-report" }]],
