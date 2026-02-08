@@ -3,7 +3,7 @@
 - Issue: #302
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/302
 - Branch: `task/302-knowledge-graph-p0-entity-relation-query`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/304
 - Scope: 实现 `knowledge-graph-p0-entity-relation-query` 的实体/关系/查询契约与测试
 - Out of Scope: `knowledge-graph-p1-visualization-extended-views`、`knowledge-graph-p2-auto-recognition-ai-utilization`
 
