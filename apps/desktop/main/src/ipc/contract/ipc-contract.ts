@@ -17,6 +17,8 @@ export const IPC_ERROR_CODES = [
   "DB_ERROR",
   "MEMORY_EPISODE_WRITE_FAILED",
   "MEMORY_CAPACITY_EXCEEDED",
+  "MEMORY_DISTILL_LLM_UNAVAILABLE",
+  "MEMORY_CONFIDENCE_OUT_OF_RANGE",
   "MODEL_NOT_READY",
   "ENCODING_FAILED",
   "RATE_LIMITED",
@@ -279,6 +281,67 @@ const MEMORY_SEMANTIC_RULE_PLACEHOLDER_SCHEMA = s.object({
   confidence: s.number(),
   createdAt: s.number(),
   updatedAt: s.number(),
+});
+
+const MEMORY_SEMANTIC_CATEGORY_SCHEMA = s.union(
+  s.literal("style"),
+  s.literal("structure"),
+  s.literal("character"),
+  s.literal("pacing"),
+  s.literal("vocabulary"),
+);
+
+const MEMORY_SEMANTIC_SCOPE_SCHEMA = s.union(
+  s.literal("global"),
+  s.literal("project"),
+);
+
+const MEMORY_SEMANTIC_RULE_SCHEMA = s.object({
+  id: s.string(),
+  projectId: s.string(),
+  scope: MEMORY_SEMANTIC_SCOPE_SCHEMA,
+  version: s.literal(1),
+  rule: s.string(),
+  category: MEMORY_SEMANTIC_CATEGORY_SCHEMA,
+  confidence: s.number(),
+  supportingEpisodes: s.array(s.string()),
+  contradictingEpisodes: s.array(s.string()),
+  userConfirmed: s.boolean(),
+  userModified: s.boolean(),
+  recentlyUpdated: s.optional(s.boolean()),
+  conflictMarked: s.optional(s.boolean()),
+  createdAt: s.number(),
+  updatedAt: s.number(),
+});
+
+const MEMORY_CONFLICT_QUEUE_ITEM_SCHEMA = s.object({
+  id: s.string(),
+  ruleIds: s.array(s.string()),
+  status: s.union(s.literal("pending"), s.literal("resolved")),
+});
+
+const MEMORY_DISTILL_TRIGGER_SCHEMA = s.union(
+  s.literal("batch"),
+  s.literal("idle"),
+  s.literal("manual"),
+  s.literal("conflict"),
+);
+
+const MEMORY_DISTILL_PROGRESS_SCHEMA = s.object({
+  runId: s.string(),
+  projectId: s.string(),
+  trigger: MEMORY_DISTILL_TRIGGER_SCHEMA,
+  stage: s.union(
+    s.literal("started"),
+    s.literal("clustered"),
+    s.literal("patterned"),
+    s.literal("generated"),
+    s.literal("completed"),
+    s.literal("failed"),
+  ),
+  progress: s.number(),
+  message: s.optional(s.string()),
+  errorCode: s.optional(IPC_ERROR_CODE_SCHEMA),
 });
 
 const KG_ENTITY_TYPE_SCHEMA = s.union(
@@ -613,6 +676,73 @@ export const ipcContract = {
         fallbackRules: s.array(s.string()),
         semanticRules: s.array(MEMORY_SEMANTIC_RULE_PLACEHOLDER_SCHEMA),
       }),
+    },
+    "memory:semantic:list": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        items: s.array(MEMORY_SEMANTIC_RULE_SCHEMA),
+        conflictQueue: s.array(MEMORY_CONFLICT_QUEUE_ITEM_SCHEMA),
+      }),
+    },
+    "memory:semantic:add": {
+      request: s.object({
+        projectId: s.string(),
+        rule: s.string(),
+        category: MEMORY_SEMANTIC_CATEGORY_SCHEMA,
+        confidence: s.number(),
+        scope: s.optional(MEMORY_SEMANTIC_SCOPE_SCHEMA),
+        supportingEpisodes: s.optional(s.array(s.string())),
+        contradictingEpisodes: s.optional(s.array(s.string())),
+        userConfirmed: s.optional(s.boolean()),
+        userModified: s.optional(s.boolean()),
+      }),
+      response: s.object({
+        item: MEMORY_SEMANTIC_RULE_SCHEMA,
+      }),
+    },
+    "memory:semantic:update": {
+      request: s.object({
+        projectId: s.string(),
+        ruleId: s.string(),
+        patch: s.object({
+          rule: s.optional(s.string()),
+          category: s.optional(MEMORY_SEMANTIC_CATEGORY_SCHEMA),
+          confidence: s.optional(s.number()),
+          scope: s.optional(MEMORY_SEMANTIC_SCOPE_SCHEMA),
+          supportingEpisodes: s.optional(s.array(s.string())),
+          contradictingEpisodes: s.optional(s.array(s.string())),
+          userConfirmed: s.optional(s.boolean()),
+          userModified: s.optional(s.boolean()),
+        }),
+      }),
+      response: s.object({
+        item: MEMORY_SEMANTIC_RULE_SCHEMA,
+      }),
+    },
+    "memory:semantic:delete": {
+      request: s.object({
+        projectId: s.string(),
+        ruleId: s.string(),
+      }),
+      response: s.object({
+        deleted: s.literal(true),
+      }),
+    },
+    "memory:semantic:distill": {
+      request: s.object({
+        projectId: s.string(),
+        trigger: s.optional(MEMORY_DISTILL_TRIGGER_SCHEMA),
+      }),
+      response: s.object({
+        accepted: s.literal(true),
+        runId: s.string(),
+      }),
+    },
+    "memory:distill:progress": {
+      request: MEMORY_DISTILL_PROGRESS_SCHEMA,
+      response: MEMORY_DISTILL_PROGRESS_SCHEMA,
     },
     "search:fulltext:query": {
       request: s.object({

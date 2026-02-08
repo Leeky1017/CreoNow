@@ -16,6 +16,7 @@ import {
     listEpisodesByScene: () => {
       throw new Error("index read failed");
     },
+    listEpisodesByProject: () => [],
     markEpisodesRecalled: () => {},
     countEpisodes: () => 0,
     deleteExpiredEpisodes: () => 0,
@@ -23,6 +24,8 @@ import {
     compressEpisodes: () => 0,
     purgeCompressedEpisodes: () => 0,
     listSemanticPlaceholders: () => [],
+    upsertSemanticPlaceholder: () => {},
+    deleteSemanticPlaceholder: () => false,
   };
 
   const service = createEpisodicMemoryService({

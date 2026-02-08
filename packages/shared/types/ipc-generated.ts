@@ -27,6 +27,8 @@ export type IpcErrorCode =
   | "KG_RELATION_INVALID"
   | "KG_SUBGRAPH_K_EXCEEDED"
   | "MEMORY_CAPACITY_EXCEEDED"
+  | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+  | "MEMORY_DISTILL_LLM_UNAVAILABLE"
   | "MEMORY_EPISODE_WRITE_FAILED"
   | "MODEL_NOT_READY"
   | "NOT_FOUND"
@@ -117,6 +119,7 @@ export const IPC_CHANNELS = [
   "knowledge:relation:delete",
   "knowledge:relation:list",
   "knowledge:relation:update",
+  "memory:distill:progress",
   "memory:entry:create",
   "memory:entry:delete",
   "memory:entry:list",
@@ -124,6 +127,11 @@ export const IPC_CHANNELS = [
   "memory:episode:query",
   "memory:episode:record",
   "memory:injection:preview",
+  "memory:semantic:add",
+  "memory:semantic:delete",
+  "memory:semantic:distill",
+  "memory:semantic:list",
+  "memory:semantic:update",
   "memory:settings:get",
   "memory:settings:update",
   "project:project:archive",
@@ -187,6 +195,8 @@ export type IpcChannelSpec = {
           | "DB_ERROR"
           | "MEMORY_EPISODE_WRITE_FAILED"
           | "MEMORY_CAPACITY_EXCEEDED"
+          | "MEMORY_DISTILL_LLM_UNAVAILABLE"
+          | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
           | "MODEL_NOT_READY"
           | "ENCODING_FAILED"
           | "RATE_LIMITED"
@@ -646,6 +656,8 @@ export type IpcChannelSpec = {
                 | "DB_ERROR"
                 | "MEMORY_EPISODE_WRITE_FAILED"
                 | "MEMORY_CAPACITY_EXCEEDED"
+                | "MEMORY_DISTILL_LLM_UNAVAILABLE"
+                | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
                 | "MODEL_NOT_READY"
                 | "ENCODING_FAILED"
                 | "RATE_LIMITED"
@@ -701,6 +713,8 @@ export type IpcChannelSpec = {
                 | "DB_ERROR"
                 | "MEMORY_EPISODE_WRITE_FAILED"
                 | "MEMORY_CAPACITY_EXCEEDED"
+                | "MEMORY_DISTILL_LLM_UNAVAILABLE"
+                | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
                 | "MODEL_NOT_READY"
                 | "ENCODING_FAILED"
                 | "RATE_LIMITED"
@@ -932,6 +946,108 @@ export type IpcChannelSpec = {
       targetEntityId: string;
     };
   };
+  "memory:distill:progress": {
+    request: {
+      errorCode?:
+        | "VALIDATION_ERROR"
+        | "IPC_TIMEOUT"
+        | "IPC_CHANNEL_FORBIDDEN"
+        | "IPC_PAYLOAD_TOO_LARGE"
+        | "IPC_SUBSCRIPTION_LIMIT_EXCEEDED"
+        | "INTERNAL_ERROR"
+        | "INVALID_ARGUMENT"
+        | "NOT_FOUND"
+        | "ALREADY_EXISTS"
+        | "CONFLICT"
+        | "PERMISSION_DENIED"
+        | "UNSUPPORTED"
+        | "IO_ERROR"
+        | "DB_ERROR"
+        | "MEMORY_EPISODE_WRITE_FAILED"
+        | "MEMORY_CAPACITY_EXCEEDED"
+        | "MEMORY_DISTILL_LLM_UNAVAILABLE"
+        | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+        | "MODEL_NOT_READY"
+        | "ENCODING_FAILED"
+        | "RATE_LIMITED"
+        | "TIMEOUT"
+        | "CANCELED"
+        | "UPSTREAM_ERROR"
+        | "INTERNAL"
+        | "PROJECT_CAPACITY_EXCEEDED"
+        | "PROJECT_METADATA_INVALID_ENUM"
+        | "PROJECT_IPC_SCHEMA_INVALID"
+        | "KG_ATTRIBUTE_KEYS_EXCEEDED"
+        | "KG_CAPACITY_EXCEEDED"
+        | "KG_ENTITY_CONFLICT"
+        | "KG_ENTITY_DUPLICATE"
+        | "KG_QUERY_TIMEOUT"
+        | "KG_RELATION_INVALID"
+        | "KG_SUBGRAPH_K_EXCEEDED";
+      message?: string;
+      progress: number;
+      projectId: string;
+      runId: string;
+      stage:
+        | "started"
+        | "clustered"
+        | "patterned"
+        | "generated"
+        | "completed"
+        | "failed";
+      trigger: "batch" | "idle" | "manual" | "conflict";
+    };
+    response: {
+      errorCode?:
+        | "VALIDATION_ERROR"
+        | "IPC_TIMEOUT"
+        | "IPC_CHANNEL_FORBIDDEN"
+        | "IPC_PAYLOAD_TOO_LARGE"
+        | "IPC_SUBSCRIPTION_LIMIT_EXCEEDED"
+        | "INTERNAL_ERROR"
+        | "INVALID_ARGUMENT"
+        | "NOT_FOUND"
+        | "ALREADY_EXISTS"
+        | "CONFLICT"
+        | "PERMISSION_DENIED"
+        | "UNSUPPORTED"
+        | "IO_ERROR"
+        | "DB_ERROR"
+        | "MEMORY_EPISODE_WRITE_FAILED"
+        | "MEMORY_CAPACITY_EXCEEDED"
+        | "MEMORY_DISTILL_LLM_UNAVAILABLE"
+        | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+        | "MODEL_NOT_READY"
+        | "ENCODING_FAILED"
+        | "RATE_LIMITED"
+        | "TIMEOUT"
+        | "CANCELED"
+        | "UPSTREAM_ERROR"
+        | "INTERNAL"
+        | "PROJECT_CAPACITY_EXCEEDED"
+        | "PROJECT_METADATA_INVALID_ENUM"
+        | "PROJECT_IPC_SCHEMA_INVALID"
+        | "KG_ATTRIBUTE_KEYS_EXCEEDED"
+        | "KG_CAPACITY_EXCEEDED"
+        | "KG_ENTITY_CONFLICT"
+        | "KG_ENTITY_DUPLICATE"
+        | "KG_QUERY_TIMEOUT"
+        | "KG_RELATION_INVALID"
+        | "KG_SUBGRAPH_K_EXCEEDED";
+      message?: string;
+      progress: number;
+      projectId: string;
+      runId: string;
+      stage:
+        | "started"
+        | "clustered"
+        | "patterned"
+        | "generated"
+        | "completed"
+        | "failed";
+      trigger: "batch" | "idle" | "manual" | "conflict";
+    };
+  };
   "memory:entry:create": {
     request: {
       content: string;
@@ -1121,6 +1237,126 @@ export type IpcChannelSpec = {
         type: "preference" | "fact" | "note";
       }>;
       mode: "deterministic" | "semantic";
+    };
+  };
+  "memory:semantic:add": {
+    request: {
+      category: "style" | "structure" | "character" | "pacing" | "vocabulary";
+      confidence: number;
+      contradictingEpisodes?: Array<string>;
+      projectId: string;
+      rule: string;
+      scope?: "global" | "project";
+      supportingEpisodes?: Array<string>;
+      userConfirmed?: boolean;
+      userModified?: boolean;
+    };
+    response: {
+      item: {
+        category: "style" | "structure" | "character" | "pacing" | "vocabulary";
+        confidence: number;
+        conflictMarked?: boolean;
+        contradictingEpisodes: Array<string>;
+        createdAt: number;
+        id: string;
+        projectId: string;
+        recentlyUpdated?: boolean;
+        rule: string;
+        scope: "global" | "project";
+        supportingEpisodes: Array<string>;
+        updatedAt: number;
+        userConfirmed: boolean;
+        userModified: boolean;
+        version: 1;
+      };
+    };
+  };
+  "memory:semantic:delete": {
+    request: {
+      projectId: string;
+      ruleId: string;
+    };
+    response: {
+      deleted: true;
+    };
+  };
+  "memory:semantic:distill": {
+    request: {
+      projectId: string;
+      trigger?: "batch" | "idle" | "manual" | "conflict";
+    };
+    response: {
+      accepted: true;
+      runId: string;
+    };
+  };
+  "memory:semantic:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      conflictQueue: Array<{
+        id: string;
+        ruleIds: Array<string>;
+        status: "pending" | "resolved";
+      }>;
+      items: Array<{
+        category: "style" | "structure" | "character" | "pacing" | "vocabulary";
+        confidence: number;
+        conflictMarked?: boolean;
+        contradictingEpisodes: Array<string>;
+        createdAt: number;
+        id: string;
+        projectId: string;
+        recentlyUpdated?: boolean;
+        rule: string;
+        scope: "global" | "project";
+        supportingEpisodes: Array<string>;
+        updatedAt: number;
+        userConfirmed: boolean;
+        userModified: boolean;
+        version: 1;
+      }>;
+    };
+  };
+  "memory:semantic:update": {
+    request: {
+      patch: {
+        category?:
+          | "style"
+          | "structure"
+          | "character"
+          | "pacing"
+          | "vocabulary";
+        confidence?: number;
+        contradictingEpisodes?: Array<string>;
+        rule?: string;
+        scope?: "global" | "project";
+        supportingEpisodes?: Array<string>;
+        userConfirmed?: boolean;
+        userModified?: boolean;
+      };
+      projectId: string;
+      ruleId: string;
+    };
+    response: {
+      item: {
+        category: "style" | "structure" | "character" | "pacing" | "vocabulary";
+        confidence: number;
+        conflictMarked?: boolean;
+        contradictingEpisodes: Array<string>;
+        createdAt: number;
+        id: string;
+        projectId: string;
+        recentlyUpdated?: boolean;
+        rule: string;
+        scope: "global" | "project";
+        supportingEpisodes: Array<string>;
+        updatedAt: number;
+        userConfirmed: boolean;
+        userModified: boolean;
+        version: 1;
+      };
     };
   };
   "memory:settings:get": {
@@ -1360,6 +1596,8 @@ export type IpcChannelSpec = {
           | "DB_ERROR"
           | "MEMORY_EPISODE_WRITE_FAILED"
           | "MEMORY_CAPACITY_EXCEEDED"
+          | "MEMORY_DISTILL_LLM_UNAVAILABLE"
+          | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
           | "MODEL_NOT_READY"
           | "ENCODING_FAILED"
           | "RATE_LIMITED"

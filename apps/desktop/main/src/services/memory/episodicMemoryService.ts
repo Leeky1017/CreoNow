@@ -12,6 +12,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_WRITE_ATTEMPTS = 3;
 const MIN_RECALL_LIMIT = 3;
 const MAX_RECALL_LIMIT = 5;
+const DISTILL_BATCH_TRIGGER_SIZE = 50;
+const CONFLICT_RECENT_WINDOW_DAYS = 30;
+const TO_COMPRESS_THRESHOLD_DAYS = 14;
+const SEMANTIC_DECAY_FACTOR = 0.98;
 
 export const EPISODIC_ACTIVE_BUDGET = 1_000;
 export const EPISODIC_COMPRESSED_BUDGET = 5_000;
@@ -19,6 +23,35 @@ export const SEMANTIC_RULE_BUDGET = 200;
 
 const EPISODIC_TTL_DAYS = 180;
 const COMPRESSED_TTL_DAYS = 365;
+
+export type DecayLevel = "active" | "decaying" | "to_compress" | "to_evict";
+export type DistillTrigger = "batch" | "idle" | "manual" | "conflict";
+export type DistillProgressStage =
+  | "started"
+  | "clustered"
+  | "patterned"
+  | "generated"
+  | "completed"
+  | "failed";
+
+export type SemanticMemoryCategory =
+  | "style"
+  | "structure"
+  | "character"
+  | "pacing"
+  | "vocabulary";
+
+export type SemanticMemoryScope = "global" | "project";
+
+export type DistillProgressEvent = {
+  runId: string;
+  projectId: string;
+  trigger: DistillTrigger;
+  stage: DistillProgressStage;
+  progress: number;
+  message?: string;
+  errorCode?: IpcErrorCode;
+};
 
 export type ImplicitSignal =
   | "DIRECT_ACCEPT"
@@ -71,6 +104,8 @@ export type EpisodeRecord = {
   lastRecalledAt?: number;
   compressed: boolean;
   userConfirmed: boolean;
+  decayScore?: number;
+  decayLevel?: DecayLevel;
   createdAt: number;
   updatedAt: number;
 };
@@ -84,6 +119,43 @@ export type SemanticMemoryRulePlaceholder = {
   confidence: number;
   createdAt: number;
   updatedAt: number;
+};
+
+export type SemanticMemoryRule = {
+  id: string;
+  projectId: string;
+  scope: SemanticMemoryScope;
+  version: 1;
+  rule: string;
+  category: SemanticMemoryCategory;
+  confidence: number;
+  supportingEpisodes: string[];
+  contradictingEpisodes: string[];
+  userConfirmed: boolean;
+  userModified: boolean;
+  recentlyUpdated?: boolean;
+  conflictMarked?: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type SemanticConflictQueueItem = {
+  id: string;
+  projectId: string;
+  ruleIds: string[];
+  reason: "direct_contradiction";
+  status: "pending" | "resolved";
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type DistillGeneratedRule = {
+  rule: string;
+  category: SemanticMemoryCategory;
+  confidence: number;
+  supportingEpisodes: string[];
+  contradictingEpisodes: string[];
+  scope?: SemanticMemoryScope;
 };
 
 export type MemoryLayerAssembly = {
@@ -145,6 +217,10 @@ export type EpisodeRepository = {
     sceneType: string;
     includeCompressed: boolean;
   }) => EpisodeRecord[];
+  listEpisodesByProject: (args: {
+    projectId: string;
+    includeCompressed: boolean;
+  }) => EpisodeRecord[];
   markEpisodesRecalled: (args: { ids: string[]; recalledAt: number }) => void;
   countEpisodes: (args: { projectId: string; compressed: boolean }) => number;
   deleteExpiredEpisodes: (args: {
@@ -167,6 +243,11 @@ export type EpisodeRepository = {
     projectId: string;
     limit: number;
   }) => SemanticMemoryRulePlaceholder[];
+  upsertSemanticPlaceholder: (rule: SemanticMemoryRulePlaceholder) => void;
+  deleteSemanticPlaceholder: (args: {
+    projectId: string;
+    ruleId: string;
+  }) => boolean;
 };
 
 export type EpisodicMemoryService = {
@@ -194,6 +275,49 @@ export type EpisodicMemoryService = {
     deleted: number;
   }>;
   getRetryQueueSize: () => number;
+  listSemanticMemory: (args: { projectId: string }) => ServiceResult<{
+    items: SemanticMemoryRule[];
+    conflictQueue: SemanticConflictQueueItem[];
+  }>;
+  addSemanticMemory: (args: {
+    projectId: string;
+    rule: string;
+    category: SemanticMemoryCategory;
+    confidence: number;
+    scope?: SemanticMemoryScope;
+    supportingEpisodes?: string[];
+    contradictingEpisodes?: string[];
+    userConfirmed?: boolean;
+    userModified?: boolean;
+  }) => ServiceResult<{ item: SemanticMemoryRule }>;
+  updateSemanticMemory: (args: {
+    projectId: string;
+    ruleId: string;
+    patch: Partial<
+      Pick<
+        SemanticMemoryRule,
+        | "rule"
+        | "category"
+        | "confidence"
+        | "scope"
+        | "supportingEpisodes"
+        | "contradictingEpisodes"
+        | "userConfirmed"
+        | "userModified"
+      >
+    >;
+  }) => ServiceResult<{ item: SemanticMemoryRule }>;
+  deleteSemanticMemory: (args: {
+    projectId: string;
+    ruleId: string;
+  }) => ServiceResult<{ deleted: true }>;
+  distillSemanticMemory: (args: {
+    projectId: string;
+    trigger?: DistillTrigger;
+  }) => ServiceResult<{ accepted: true; runId: string }>;
+  listConflictQueue: (args: {
+    projectId: string;
+  }) => ServiceResult<{ items: SemanticConflictQueueItem[] }>;
 };
 
 export type InMemoryEpisodeRepository = EpisodeRepository & {
@@ -264,6 +388,46 @@ function normalizeRecallLimit(limit: number | undefined): number {
     return MAX_RECALL_LIMIT;
   }
   return rounded;
+}
+
+/**
+ * Calculate decay score from forgetting-curve factors.
+ *
+ * Why: MS-2 requires a pure, deterministic function that can be unit-tested.
+ */
+export function calculateDecayScore(args: {
+  ageInDays: number;
+  recallCount: number;
+  importance: number;
+}): number {
+  const age = Math.max(0, args.ageInDays);
+  const recall = Math.max(0, args.recallCount);
+  const importance = Math.max(0, Math.min(1, args.importance));
+
+  const baseDecay = Math.exp(-0.1 * age);
+  const recallBoost = 1 + 0.2 * recall;
+  const importanceBoost = 1 + 0.3 * importance;
+
+  return Math.min(1, baseDecay * recallBoost * importanceBoost);
+}
+
+/**
+ * Classify memory lifecycle level from decay score.
+ *
+ * Why: lifecycle policy and compression gating are driven by explicit score bands.
+ */
+export function classifyDecayLevel(score: number): DecayLevel {
+  const value = Math.max(0, Math.min(1, score));
+  if (value >= 0.7) {
+    return "active";
+  }
+  if (value >= 0.3) {
+    return "decaying";
+  }
+  if (value >= 0.1) {
+    return "to_compress";
+  }
+  return "to_evict";
 }
 
 /**
@@ -430,6 +594,11 @@ export function createInMemoryEpisodeRepository(args?: {
           candidates: [...episode.candidates],
         }));
     },
+    listEpisodesByProject: ({ projectId, includeCompressed }) => {
+      return episodes
+        .filter((episode) => episode.projectId === projectId)
+        .filter((episode) => (includeCompressed ? true : !episode.compressed));
+    },
     markEpisodesRecalled: ({ ids, recalledAt }) => {
       const set = new Set(ids);
       for (const item of episodes) {
@@ -550,6 +719,22 @@ export function createInMemoryEpisodeRepository(args?: {
         .filter((rule) => rule.projectId === projectId)
         .slice(0, limit)
         .map((rule) => ({ ...rule }));
+    },
+    upsertSemanticPlaceholder: (rule) => {
+      const idx = semanticRules.findIndex((item) => item.id === rule.id);
+      if (idx >= 0) {
+        semanticRules[idx] = { ...rule };
+        return;
+      }
+      semanticRules.push({ ...rule });
+    },
+    deleteSemanticPlaceholder: ({ projectId, ruleId }) => {
+      const before = semanticRules.length;
+      const keep = semanticRules.filter(
+        (rule) => !(rule.projectId === projectId && rule.id === ruleId),
+      );
+      semanticRules.splice(0, semanticRules.length, ...keep);
+      return before !== keep.length;
     },
     seedEpisodes: (seed) => {
       episodes.splice(0, episodes.length, ...seed.map((item) => ({ ...item })));
@@ -721,6 +906,23 @@ export function createSqliteEpisodeRepository(args: {
       }
       return parsed;
     },
+    listEpisodesByProject: ({ projectId, includeCompressed }) => {
+      const rows = args.db
+        .prepare<
+          [string, number],
+          EpisodeRow
+        >("SELECT episode_id as id, project_id as projectId, scope, version, chapter_id as chapterId, scene_type as sceneType, skill_used as skillUsed, input_context as inputContext, candidates_json as candidatesJson, selected_index as selectedIndex, final_text as finalText, explicit_feedback as explicit, edit_distance as editDistance, implicit_signal as implicitSignal, implicit_weight as implicitWeight, importance, recall_count as recallCount, last_recalled_at as lastRecalledAt, compressed, user_confirmed as userConfirmed, created_at as createdAt, updated_at as updatedAt FROM memory_episodes WHERE project_id = ? AND (? = 1 OR compressed = 0)")
+        .all(projectId, includeCompressed ? 1 : 0);
+
+      const parsed: EpisodeRecord[] = [];
+      for (const row of rows) {
+        const episode = rowToEpisode(row);
+        if (episode) {
+          parsed.push(episode);
+        }
+      }
+      return parsed;
+    },
     markEpisodesRecalled: ({ ids, recalledAt }) => {
       if (ids.length === 0) {
         return;
@@ -839,6 +1041,30 @@ export function createSqliteEpisodeRepository(args: {
           updatedAt: row.updatedAt,
         }));
     },
+    upsertSemanticPlaceholder: (rule) => {
+      args.db
+        .prepare(
+          "INSERT INTO memory_semantic_placeholders (rule_id, project_id, scope, version, rule_text, confidence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(rule_id) DO UPDATE SET project_id = excluded.project_id, scope = excluded.scope, version = excluded.version, rule_text = excluded.rule_text, confidence = excluded.confidence, updated_at = excluded.updated_at",
+        )
+        .run(
+          rule.id,
+          rule.projectId,
+          rule.scope,
+          rule.version,
+          rule.rule,
+          rule.confidence,
+          rule.createdAt,
+          rule.updatedAt,
+        );
+    },
+    deleteSemanticPlaceholder: ({ projectId, ruleId }) => {
+      const result = args.db
+        .prepare(
+          "DELETE FROM memory_semantic_placeholders WHERE project_id = ? AND rule_id = ?",
+        )
+        .run(projectId, ruleId);
+      return result.changes > 0;
+    },
   };
 }
 
@@ -851,9 +1077,197 @@ export function createEpisodicMemoryService(args: {
   repository: EpisodeRepository;
   logger: Logger;
   now?: () => number;
+  distillLlm?: (args: {
+    projectId: string;
+    trigger: DistillTrigger;
+    snapshotEpisodes: EpisodeRecord[];
+    clusters: Array<{
+      sceneType: string;
+      skillUsed: string;
+      episodes: EpisodeRecord[];
+    }>;
+  }) => DistillGeneratedRule[];
+  distillScheduler?: (job: () => void) => void;
+  onDistillProgress?: (event: DistillProgressEvent) => void;
 }): EpisodicMemoryService {
   const now = args.now ?? (() => Date.now());
+  const distillScheduler =
+    args.distillScheduler ?? ((job: () => void) => queueMicrotask(job));
   const retryQueue: EpisodeRecordInput[] = [];
+  const knownProjectIds = new Set<string>();
+  const pendingEpisodeCountByProject = new Map<string, number>();
+  const retryPendingByProject = new Map<string, boolean>();
+  const distillingProjects = new Set<string>();
+  const walQueueByProject = new Map<string, EpisodeRecordInput[]>();
+  const semanticRulesByProject = new Map<string, SemanticMemoryRule[]>();
+  const conflictQueueByProject = new Map<string, SemanticConflictQueueItem[]>();
+
+  function cloneSemanticRule(rule: SemanticMemoryRule): SemanticMemoryRule {
+    return {
+      ...rule,
+      supportingEpisodes: [...rule.supportingEpisodes],
+      contradictingEpisodes: [...rule.contradictingEpisodes],
+    };
+  }
+
+  function cloneConflict(
+    conflict: SemanticConflictQueueItem,
+  ): SemanticConflictQueueItem {
+    return {
+      ...conflict,
+      ruleIds: [...conflict.ruleIds],
+    };
+  }
+
+  function toPlaceholder(
+    rule: SemanticMemoryRule,
+  ): SemanticMemoryRulePlaceholder {
+    return {
+      id: rule.id,
+      projectId: rule.projectId,
+      scope: rule.scope === "project" ? "project" : "project",
+      version: 1,
+      rule: rule.rule,
+      confidence: rule.confidence,
+      createdAt: rule.createdAt,
+      updatedAt: rule.updatedAt,
+    };
+  }
+
+  function normalizeRuleText(rule: string): string {
+    return rule.trim().replace(/\s+/g, " ");
+  }
+
+  function isConfidenceInRange(confidence: number): boolean {
+    return Number.isFinite(confidence) && confidence >= 0 && confidence <= 1;
+  }
+
+  function clampConfidence(confidence: number): number {
+    if (!Number.isFinite(confidence)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(1, confidence));
+  }
+
+  function isDirectContradiction(a: string, b: string): boolean {
+    const textA = normalizeRuleText(a);
+    const textB = normalizeRuleText(b);
+    const shortVsLong =
+      (textA.includes("短句") && textB.includes("长句")) ||
+      (textA.includes("长句") && textB.includes("短句"));
+    return shortVsLong;
+  }
+
+  function emitDistillProgress(event: DistillProgressEvent): void {
+    args.onDistillProgress?.(event);
+  }
+
+  function getSemanticRules(projectId: string): SemanticMemoryRule[] {
+    const existing = semanticRulesByProject.get(projectId);
+    if (existing) {
+      return existing;
+    }
+
+    const loaded = args.repository
+      .listSemanticPlaceholders({
+        projectId,
+        limit: SEMANTIC_RULE_BUDGET,
+      })
+      .map((rule) => ({
+        id: rule.id,
+        projectId: rule.projectId,
+        scope: "project" as const,
+        version: 1 as const,
+        rule: rule.rule,
+        category: "style" as const,
+        confidence: rule.confidence,
+        supportingEpisodes: [],
+        contradictingEpisodes: [],
+        userConfirmed: false,
+        userModified: false,
+        createdAt: rule.createdAt,
+        updatedAt: rule.updatedAt,
+      }));
+    semanticRulesByProject.set(projectId, loaded);
+    return loaded;
+  }
+
+  function getConflictQueue(projectId: string): SemanticConflictQueueItem[] {
+    const existing = conflictQueueByProject.get(projectId);
+    if (existing) {
+      return existing;
+    }
+    const created: SemanticConflictQueueItem[] = [];
+    conflictQueueByProject.set(projectId, created);
+    return created;
+  }
+
+  function upsertSemanticRule(
+    projectId: string,
+    nextRule: SemanticMemoryRule,
+  ): SemanticMemoryRule {
+    const rules = getSemanticRules(projectId);
+    const idx = rules.findIndex((rule) => rule.id === nextRule.id);
+    if (idx >= 0) {
+      rules[idx] = cloneSemanticRule(nextRule);
+    } else {
+      rules.push(cloneSemanticRule(nextRule));
+    }
+    args.repository.upsertSemanticPlaceholder(toPlaceholder(nextRule));
+    return cloneSemanticRule(nextRule);
+  }
+
+  function enqueueConflict(args2: {
+    projectId: string;
+    ruleIds: string[];
+  }): void {
+    const queue = getConflictQueue(args2.projectId);
+    const ts = now();
+    queue.push({
+      id: randomUUID(),
+      projectId: args2.projectId,
+      ruleIds: [...args2.ruleIds],
+      reason: "direct_contradiction",
+      status: "pending",
+      createdAt: ts,
+      updatedAt: ts,
+    });
+  }
+
+  function defaultDistillLlm(args2: {
+    projectId: string;
+    trigger: DistillTrigger;
+    snapshotEpisodes: EpisodeRecord[];
+    clusters: Array<{
+      sceneType: string;
+      skillUsed: string;
+      episodes: EpisodeRecord[];
+    }>;
+  }): DistillGeneratedRule[] {
+    const outputs: DistillGeneratedRule[] = [];
+    for (const cluster of args2.clusters) {
+      if (cluster.episodes.length === 0) {
+        continue;
+      }
+      const shortCount = cluster.episodes.filter(
+        (episode) => episode.finalText.length <= 30,
+      ).length;
+      const shortRatio = shortCount / cluster.episodes.length;
+      if (shortRatio >= 0.6) {
+        outputs.push({
+          rule: `${cluster.sceneType}场景偏好短句`,
+          category: "pacing",
+          confidence: clampConfidence(0.5 + shortRatio * 0.4),
+          supportingEpisodes: cluster.episodes.map((episode) => episode.id),
+          contradictingEpisodes: [],
+          scope: "project",
+        });
+      }
+    }
+    return outputs;
+  }
+
+  const distillLlm = args.distillLlm ?? defaultDistillLlm;
 
   function fallbackRules(): string[] {
     return [
@@ -965,6 +1379,296 @@ export function createEpisodicMemoryService(args: {
     return { ok: true, data: undefined };
   }
 
+  function buildClusters(projectId: string): Array<{
+    sceneType: string;
+    skillUsed: string;
+    episodes: EpisodeRecord[];
+  }> {
+    const snapshot = args.repository.listEpisodesByProject({
+      projectId,
+      includeCompressed: false,
+    });
+    const grouped = new Map<
+      string,
+      { sceneType: string; skillUsed: string; episodes: EpisodeRecord[] }
+    >();
+    for (const episode of snapshot) {
+      const key = `${episode.sceneType}::${episode.skillUsed}`;
+      const current = grouped.get(key);
+      if (current) {
+        current.episodes.push(episode);
+      } else {
+        grouped.set(key, {
+          sceneType: episode.sceneType,
+          skillUsed: episode.skillUsed,
+          episodes: [episode],
+        });
+      }
+    }
+    return [...grouped.values()];
+  }
+
+  function executeDistillation(args2: {
+    projectId: string;
+    trigger: DistillTrigger;
+    runId: string;
+    background: boolean;
+  }): ServiceResult<{ accepted: true; runId: string }> {
+    const ts = now();
+    const projectId = args2.projectId;
+    knownProjectIds.add(projectId);
+
+    const snapshotEpisodes = args.repository.listEpisodesByProject({
+      projectId,
+      includeCompressed: false,
+    });
+    const clusters = buildClusters(projectId);
+
+    emitDistillProgress({
+      runId: args2.runId,
+      projectId,
+      trigger: args2.trigger,
+      stage: "started",
+      progress: 0.1,
+    });
+    emitDistillProgress({
+      runId: args2.runId,
+      projectId,
+      trigger: args2.trigger,
+      stage: "clustered",
+      progress: 0.35,
+    });
+
+    let generated: DistillGeneratedRule[];
+    try {
+      generated = distillLlm({
+        projectId,
+        trigger: args2.trigger,
+        snapshotEpisodes,
+        clusters,
+      });
+    } catch (error) {
+      args.logger.error("memory_distill_llm_unavailable", {
+        project_id: projectId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      retryPendingByProject.set(projectId, true);
+      emitDistillProgress({
+        runId: args2.runId,
+        projectId,
+        trigger: args2.trigger,
+        stage: "failed",
+        progress: 1,
+        errorCode: "MEMORY_DISTILL_LLM_UNAVAILABLE",
+      });
+      return ipcError(
+        "MEMORY_DISTILL_LLM_UNAVAILABLE",
+        "Distillation LLM is unavailable",
+      );
+    }
+
+    emitDistillProgress({
+      runId: args2.runId,
+      projectId,
+      trigger: args2.trigger,
+      stage: "patterned",
+      progress: 0.6,
+    });
+
+    for (const item of generated) {
+      if (!isConfidenceInRange(item.confidence)) {
+        retryPendingByProject.set(projectId, false);
+        emitDistillProgress({
+          runId: args2.runId,
+          projectId,
+          trigger: args2.trigger,
+          stage: "failed",
+          progress: 1,
+          errorCode: "MEMORY_CONFIDENCE_OUT_OF_RANGE",
+        });
+        return ipcError(
+          "MEMORY_CONFIDENCE_OUT_OF_RANGE",
+          "Semantic rule confidence out of range",
+          {
+            confidence: item.confidence,
+          },
+        );
+      }
+    }
+
+    const recentCutoff = ts - CONFLICT_RECENT_WINDOW_DAYS * DAY_MS;
+    const rules = getSemanticRules(projectId);
+
+    for (const generatedRule of generated) {
+      const normalizedRule = normalizeRuleText(generatedRule.rule);
+      if (normalizedRule.length === 0) {
+        continue;
+      }
+
+      const category = generatedRule.category;
+      const scope = generatedRule.scope ?? "project";
+      const sameCategory = rules.find(
+        (rule) =>
+          rule.projectId === projectId &&
+          rule.category === category &&
+          rule.scope === scope,
+      );
+
+      if (
+        sameCategory &&
+        sameCategory.updatedAt < recentCutoff &&
+        sameCategory.rule !== normalizedRule
+      ) {
+        sameCategory.rule = normalizedRule;
+        sameCategory.confidence = clampConfidence(generatedRule.confidence);
+        sameCategory.supportingEpisodes = [...generatedRule.supportingEpisodes];
+        sameCategory.contradictingEpisodes = [
+          ...generatedRule.contradictingEpisodes,
+        ];
+        sameCategory.recentlyUpdated = true;
+        sameCategory.updatedAt = ts;
+        sameCategory.userModified = false;
+        upsertSemanticRule(projectId, sameCategory);
+        continue;
+      }
+
+      if (
+        sameCategory &&
+        isDirectContradiction(sameCategory.rule, normalizedRule)
+      ) {
+        sameCategory.confidence = clampConfidence(
+          sameCategory.confidence - 0.2,
+        );
+        sameCategory.conflictMarked = true;
+        sameCategory.updatedAt = ts;
+        upsertSemanticRule(projectId, sameCategory);
+
+        const conflictRule: SemanticMemoryRule = {
+          id: randomUUID(),
+          projectId,
+          scope,
+          version: 1,
+          rule: normalizedRule,
+          category,
+          confidence: clampConfidence(generatedRule.confidence - 0.2),
+          supportingEpisodes: [...generatedRule.supportingEpisodes],
+          contradictingEpisodes: [...generatedRule.contradictingEpisodes],
+          userConfirmed: false,
+          userModified: false,
+          conflictMarked: true,
+          createdAt: ts,
+          updatedAt: ts,
+        };
+        upsertSemanticRule(projectId, conflictRule);
+        enqueueConflict({
+          projectId,
+          ruleIds: [sameCategory.id, conflictRule.id],
+        });
+        continue;
+      }
+
+      const exact = rules.find(
+        (rule) =>
+          rule.projectId === projectId &&
+          rule.scope === scope &&
+          rule.category === category &&
+          rule.rule === normalizedRule,
+      );
+      if (exact) {
+        exact.confidence = clampConfidence(generatedRule.confidence);
+        exact.supportingEpisodes = [...generatedRule.supportingEpisodes];
+        exact.contradictingEpisodes = [...generatedRule.contradictingEpisodes];
+        exact.updatedAt = ts;
+        exact.recentlyUpdated = false;
+        upsertSemanticRule(projectId, exact);
+        continue;
+      }
+
+      const created: SemanticMemoryRule = {
+        id: randomUUID(),
+        projectId,
+        scope,
+        version: 1,
+        rule: normalizedRule,
+        category,
+        confidence: clampConfidence(generatedRule.confidence),
+        supportingEpisodes: [...generatedRule.supportingEpisodes],
+        contradictingEpisodes: [...generatedRule.contradictingEpisodes],
+        userConfirmed: false,
+        userModified: false,
+        createdAt: ts,
+        updatedAt: ts,
+      };
+      upsertSemanticRule(projectId, created);
+    }
+
+    retryPendingByProject.set(projectId, false);
+    pendingEpisodeCountByProject.set(projectId, 0);
+    emitDistillProgress({
+      runId: args2.runId,
+      projectId,
+      trigger: args2.trigger,
+      stage: "generated",
+      progress: 0.85,
+    });
+    emitDistillProgress({
+      runId: args2.runId,
+      projectId,
+      trigger: args2.trigger,
+      stage: "completed",
+      progress: 1,
+    });
+
+    return { ok: true, data: { accepted: true, runId: args2.runId } };
+  }
+
+  function scheduleBatchDistillation(projectId: string): void {
+    if (distillingProjects.has(projectId)) {
+      return;
+    }
+    const runId = randomUUID();
+    distillingProjects.add(projectId);
+    distillScheduler(() => {
+      try {
+        const result = executeDistillation({
+          projectId,
+          trigger: "batch",
+          runId,
+          background: true,
+        });
+        if (!result.ok) {
+          args.logger.error("memory_distill_background_failed", {
+            project_id: projectId,
+            code: result.error.code,
+            message: result.error.message,
+          });
+        }
+      } finally {
+        distillingProjects.delete(projectId);
+        const wal = walQueueByProject.get(projectId) ?? [];
+        walQueueByProject.set(projectId, []);
+        for (const queuedInput of wal) {
+          const result = service.recordEpisode(queuedInput);
+          if (!result.ok) {
+            args.logger.error("memory_wal_flush_failed", {
+              project_id: queuedInput.projectId,
+              code: result.error.code,
+              message: result.error.message,
+            });
+          }
+        }
+      }
+    });
+  }
+
+  function maybeTriggerBatchDistillation(projectId: string): void {
+    const pending = pendingEpisodeCountByProject.get(projectId) ?? 0;
+    const retryPending = retryPendingByProject.get(projectId) ?? false;
+    if (pending >= DISTILL_BATCH_TRIGGER_SIZE || retryPending) {
+      scheduleBatchDistillation(projectId);
+    }
+  }
+
   const service: EpisodicMemoryService = {
     recordEpisode: (input) => {
       const invalid = validateRecordInput(input);
@@ -982,6 +1686,7 @@ export function createEpisodicMemoryService(args: {
       });
 
       const ts = now();
+      knownProjectIds.add(input.projectId);
 
       if (input.undoAfterAccept && input.targetEpisodeId) {
         const updated = args.repository.updateEpisodeSignal({
@@ -1000,6 +1705,22 @@ export function createEpisodicMemoryService(args: {
           data: {
             accepted: true,
             episodeId: input.targetEpisodeId,
+            retryCount: 0,
+            implicitSignal: implicit.signal,
+            implicitWeight: implicit.weight,
+          },
+        };
+      }
+
+      if (distillingProjects.has(input.projectId)) {
+        const queued = walQueueByProject.get(input.projectId) ?? [];
+        queued.push({ ...input });
+        walQueueByProject.set(input.projectId, queued);
+        return {
+          ok: true,
+          data: {
+            accepted: true,
+            episodeId: randomUUID(),
             retryCount: 0,
             implicitSignal: implicit.signal,
             implicitWeight: implicit.weight,
@@ -1040,6 +1761,10 @@ export function createEpisodicMemoryService(args: {
       for (let attempt = 1; attempt <= MAX_WRITE_ATTEMPTS; attempt += 1) {
         try {
           args.repository.insertEpisode(episode);
+          const pending =
+            (pendingEpisodeCountByProject.get(input.projectId) ?? 0) + 1;
+          pendingEpisodeCountByProject.set(input.projectId, pending);
+          maybeTriggerBatchDistillation(input.projectId);
           return {
             ok: true,
             data: {
@@ -1130,6 +1855,9 @@ export function createEpisodicMemoryService(args: {
             limit: SEMANTIC_RULE_BUDGET,
           })
           .slice(0, SEMANTIC_RULE_BUDGET);
+        const loadedSemantic = getSemanticRules(input.projectId)
+          .slice(0, SEMANTIC_RULE_BUDGET)
+          .map((rule) => toPlaceholder(rule));
 
         return {
           ok: true,
@@ -1137,7 +1865,8 @@ export function createEpisodicMemoryService(args: {
             items,
             memoryDegraded: false,
             fallbackRules: [],
-            semanticRules,
+            semanticRules:
+              loadedSemantic.length > 0 ? loadedSemantic : semanticRules,
           },
         };
       } catch (error) {
@@ -1194,7 +1923,43 @@ export function createEpisodicMemoryService(args: {
     },
 
     dailyDecayRecomputeTrigger: () => {
-      return { ok: true, data: { updated: 0 } };
+      let updated = 0;
+      const projects = new Set<string>([
+        ...knownProjectIds,
+        ...semanticRulesByProject.keys(),
+      ]);
+      for (const projectId of projects) {
+        const episodes = args.repository.listEpisodesByProject({
+          projectId,
+          includeCompressed: false,
+        });
+        for (const episode of episodes) {
+          const ageInDays = (now() - episode.createdAt) / DAY_MS;
+          const score = calculateDecayScore({
+            ageInDays,
+            recallCount: episode.recallCount,
+            importance: episode.importance,
+          });
+          episode.decayScore = score;
+          episode.decayLevel = classifyDecayLevel(score);
+          updated += 1;
+        }
+
+        const rules = getSemanticRules(projectId);
+        for (const rule of rules) {
+          if (rule.userConfirmed) {
+            continue;
+          }
+          rule.confidence = clampConfidence(
+            rule.confidence * SEMANTIC_DECAY_FACTOR,
+          );
+          rule.updatedAt = now();
+          upsertSemanticRule(projectId, rule);
+          updated += 1;
+        }
+      }
+
+      return { ok: true, data: { updated } };
     },
 
     weeklyCompressTrigger: ({ projectId }) => {
@@ -1204,7 +1969,7 @@ export function createEpisodicMemoryService(args: {
 
       try {
         const currentTs = now();
-        const compressBefore = currentTs - EPISODIC_TTL_DAYS * DAY_MS;
+        const compressBefore = currentTs - TO_COMPRESS_THRESHOLD_DAYS * DAY_MS;
         const compressed = args.repository.compressEpisodes({
           projectId,
           beforeTs: compressBefore,
@@ -1264,6 +2029,161 @@ export function createEpisodicMemoryService(args: {
     },
 
     getRetryQueueSize: () => retryQueue.length,
+
+    listSemanticMemory: ({ projectId }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      knownProjectIds.add(projectId);
+      return {
+        ok: true,
+        data: {
+          items: getSemanticRules(projectId).map(cloneSemanticRule),
+          conflictQueue: getConflictQueue(projectId).map(cloneConflict),
+        },
+      };
+    },
+
+    addSemanticMemory: (input) => {
+      if (input.projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      if (normalizeRuleText(input.rule).length === 0) {
+        return ipcError("INVALID_ARGUMENT", "rule is required");
+      }
+      if (!isConfidenceInRange(input.confidence)) {
+        return ipcError(
+          "MEMORY_CONFIDENCE_OUT_OF_RANGE",
+          "Semantic rule confidence out of range",
+          { confidence: input.confidence },
+        );
+      }
+      const ts = now();
+      const created: SemanticMemoryRule = {
+        id: randomUUID(),
+        projectId: input.projectId,
+        scope: input.scope ?? "project",
+        version: 1,
+        rule: normalizeRuleText(input.rule),
+        category: input.category,
+        confidence: input.confidence,
+        supportingEpisodes: [...(input.supportingEpisodes ?? [])],
+        contradictingEpisodes: [...(input.contradictingEpisodes ?? [])],
+        userConfirmed: input.userConfirmed ?? false,
+        userModified: input.userModified ?? false,
+        createdAt: ts,
+        updatedAt: ts,
+      };
+      knownProjectIds.add(input.projectId);
+      const item = upsertSemanticRule(input.projectId, created);
+      return { ok: true, data: { item } };
+    },
+
+    updateSemanticMemory: ({ projectId, ruleId, patch }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      const rules = getSemanticRules(projectId);
+      const idx = rules.findIndex((rule) => rule.id === ruleId);
+      if (idx < 0) {
+        return ipcError("NOT_FOUND", "Semantic rule not found", { ruleId });
+      }
+      if (
+        typeof patch.confidence === "number" &&
+        !isConfidenceInRange(patch.confidence)
+      ) {
+        return ipcError(
+          "MEMORY_CONFIDENCE_OUT_OF_RANGE",
+          "Semantic rule confidence out of range",
+          { confidence: patch.confidence },
+        );
+      }
+      const current = rules[idx];
+      const next: SemanticMemoryRule = {
+        ...current,
+        rule:
+          patch.rule !== undefined
+            ? normalizeRuleText(patch.rule)
+            : current.rule,
+        category: patch.category ?? current.category,
+        confidence: patch.confidence ?? current.confidence,
+        scope: patch.scope ?? current.scope,
+        supportingEpisodes:
+          patch.supportingEpisodes !== undefined
+            ? [...patch.supportingEpisodes]
+            : [...current.supportingEpisodes],
+        contradictingEpisodes:
+          patch.contradictingEpisodes !== undefined
+            ? [...patch.contradictingEpisodes]
+            : [...current.contradictingEpisodes],
+        userConfirmed: patch.userConfirmed ?? current.userConfirmed,
+        userModified: patch.userModified ?? current.userModified,
+        updatedAt: now(),
+      };
+      const item = upsertSemanticRule(projectId, next);
+      return { ok: true, data: { item } };
+    },
+
+    deleteSemanticMemory: ({ projectId, ruleId }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      const rules = getSemanticRules(projectId);
+      const keep = rules.filter((rule) => rule.id !== ruleId);
+      if (keep.length === rules.length) {
+        return ipcError("NOT_FOUND", "Semantic rule not found", { ruleId });
+      }
+      semanticRulesByProject.set(projectId, keep);
+      args.repository.deleteSemanticPlaceholder({ projectId, ruleId });
+      return { ok: true, data: { deleted: true } };
+    },
+
+    distillSemanticMemory: ({ projectId, trigger }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      if (distillingProjects.has(projectId)) {
+        return ipcError("CONFLICT", "Distillation already in progress", {
+          projectId,
+        });
+      }
+      const runId = randomUUID();
+      distillingProjects.add(projectId);
+      try {
+        return executeDistillation({
+          projectId,
+          trigger: trigger ?? "manual",
+          runId,
+          background: false,
+        });
+      } finally {
+        distillingProjects.delete(projectId);
+        const wal = walQueueByProject.get(projectId) ?? [];
+        walQueueByProject.set(projectId, []);
+        for (const queuedInput of wal) {
+          const result = service.recordEpisode(queuedInput);
+          if (!result.ok) {
+            args.logger.error("memory_wal_flush_failed", {
+              project_id: queuedInput.projectId,
+              code: result.error.code,
+              message: result.error.message,
+            });
+          }
+        }
+      }
+    },
+
+    listConflictQueue: ({ projectId }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      return {
+        ok: true,
+        data: {
+          items: getConflictQueue(projectId).map(cloneConflict),
+        },
+      };
+    },
   };
 
   return service;
