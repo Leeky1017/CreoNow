@@ -69,6 +69,6 @@
 ## 6. Evidence
 
 - [x] 6.1 记录 RUN_LOG（Scenario 映射、Red 失败、Green 通过、关键命令输出）
-- [ ] 6.2 记录 Storybook 4+3 态截图或执行证据
+- [x] 6.2 记录 Storybook 4+3 态截图或执行证据
 - [x] 6.3 记录门禁与 Rulebook 校验证据
 - [x] 6.4 记录 Dependency Sync Check 结论（本 change 为 N/A）
