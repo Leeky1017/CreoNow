@@ -6,8 +6,8 @@
 
 对于 Request-Response 模式，主进程返回必须始终符合统一 envelope：
 
-- 成功：`{ success: true, data: T }`
-- 失败：`{ success: false, error: IPCError }`
+- 成功：`{ ok: true, data: T }`
+- 失败：`{ ok: false, error: IPCError }`
 
 禁止返回裸对象、裸数组或非结构化异常。
 
@@ -15,7 +15,7 @@
 
 - **假设** 某 handler 返回了裸对象 `{ id: "doc-1" }`
 - **当** IPC 框架执行响应出站校验
-- **则** 将其转换为 `{ success: false, error: { code: "INTERNAL_ERROR", ... } }`
+- **则** 将其转换为 `{ ok: false, error: { code: "INTERNAL_ERROR", ... } }`
 - **并且** 记录协议违规日志
 
 ### Requirement: 运行时数据校验 [MODIFIED]
@@ -38,7 +38,7 @@
 
 - **假设** handler 产出的响应不符合 response schema
 - **当** 主进程执行出站校验
-- **则** 返回 `{ success: false, error: { code: "INTERNAL_ERROR", message: "响应数据不符合契约" } }`
+- **则** 返回 `{ ok: false, error: { code: "INTERNAL_ERROR", message: "响应数据不符合契约" } }`
 - **并且** 原始错误仅写入主进程日志
 
 ### Requirement: 统一错误处理 [MODIFIED]

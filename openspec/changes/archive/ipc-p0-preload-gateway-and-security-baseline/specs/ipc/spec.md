@@ -14,7 +14,7 @@ Preload 必须作为 IPC 的唯一网关，采用“白名单 + 最小暴露面�
 
 - **假设** 渲染进程尝试调用未在 preload 暴露名单中的通道
 - **当** 请求进入 preload 网关
-- **则** 返回 `{ success: false, error: { code: "IPC_CHANNEL_FORBIDDEN", message: "通道未授权" } }`
+- **则** 返回 `{ ok: false, error: { code: "IPC_CHANNEL_FORBIDDEN", message: "通道未授权" } }`
 - **并且** 写入安全审计日志（rendererId、channel、timestamp）
 
 #### Scenario: 渲染进程无法获得 ipcRenderer 引用 [ADDED]
