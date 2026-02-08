@@ -20,5 +20,5 @@
 
 - [x] 4.1 提交并推送分支
 - [x] 4.2 创建 PR（Closes #273）并启用 auto-merge
-- [ ] 4.3 等待 `ci` / `openspec-log-guard` / `merge-serial` 全绿
-- [ ] 4.4 合并后收口到控制面 `main`，归档 change 与 rulebook task
+- [x] 4.3 等待 `ci` / `openspec-log-guard` / `merge-serial` 全绿
+- [x] 4.4 合并后收口到控制面 `main`，归档 change 与 rulebook task

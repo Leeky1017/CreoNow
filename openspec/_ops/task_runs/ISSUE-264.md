@@ -1,8 +1,13 @@
 # ISSUE-264
 
 - Issue: #264
+- Issue URL: https://github.com/Leeky1017/CreoNow/issues/264
 - Branch: task/264-ai-panel-model-mode-wiring
 - PR: https://github.com/Leeky1017/CreoNow/pull/275
+
+## Status
+
+- CURRENT: `DONE`（PR #275 已合并，required checks 全绿；change 与 Rulebook task 已归档）
 
 ## Plan
 
@@ -95,3 +100,30 @@
 - Key output: 重新构建为当前 Node ABI；`projectService.projectActions.test.ts` 通过。
 - Command: `scripts/agent_pr_preflight.sh`
 - Key output: preflight 全流程通过（仅保留既有 lint warning，不阻断）。
+
+### 2026-02-08 18:05 +0800 post-merge required checks confirmation
+
+- Command: `gh pr view 275 --json state,mergedAt,statusCheckRollup,url`
+- Exit code: `0`
+- Key output:
+  - `state = MERGED`，`mergedAt = 2026-02-08T08:39:20Z`
+  - required checks: `ci = SUCCESS`、`openspec-log-guard = SUCCESS`、`merge-serial = SUCCESS`
+
+### 2026-02-08 18:05 +0800 archive closeout
+
+- Command: `mv openspec/changes/ai-panel-model-mode-wiring openspec/changes/archive/`
+- Exit code: `0`
+- Key output:
+  - active change 目录已归档到 `openspec/changes/archive/ai-panel-model-mode-wiring`
+- Command: `rulebook task validate issue-264-ai-panel-model-mode-wiring`
+- Exit code: `0`
+- Key output:
+  - `Task issue-264-ai-panel-model-mode-wiring is valid`
+- Command: `rulebook task archive issue-264-ai-panel-model-mode-wiring`
+- Exit code: `0`
+- Key output:
+  - `Task issue-264-ai-panel-model-mode-wiring archived successfully`
+- Command: `edit openspec/changes/EXECUTION_ORDER.md`
+- Exit code: `0`
+- Key output:
+  - 活跃 change 数量由 `2` 更新为 `1`，执行顺序同步为剩余 active change

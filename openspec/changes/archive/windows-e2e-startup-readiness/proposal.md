@@ -33,4 +33,4 @@ PR #272 的 `windows-e2e` 任务在 2026-02-08 触发 18 个失败与 1 个 flak
 ## 审阅状态
 
 - Owner 审阅：`APPROVED`
-- Apply 状态：`IN_PROGRESS`
+- Apply 状态：`DONE`（PR #274 已合并；change 已归档）

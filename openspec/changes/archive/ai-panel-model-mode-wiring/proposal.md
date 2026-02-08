@@ -25,3 +25,8 @@ Issue #264 指出 AI Chat Panel 的 `Mode` 与 `Model` 选择器当前仅为 UI 
 - 不引入新的 Provider 切换 UI。
 - 不修改主 spec（仅提交 delta spec）。
 - 不改变既有默认模式（默认仍为 `ask`）与既有流式状态机。
+
+## 审阅状态
+
+- Owner 审阅：`APPROVED`
+- Apply 状态：`DONE`（PR #275 已合并；change 已归档）
