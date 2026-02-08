@@ -20,6 +20,12 @@
 
 - CURRENT: 进行中（文档已创建，待校验、提交、PR、auto-merge、main 收口）。
 
+## Plan
+
+- 修复 CI 阻断项（`openspec-log-guard`）并重跑检查。
+- 维持 auto-merge 打开，等待 required checks（`ci`、`openspec-log-guard`、`merge-serial`）全绿。
+- PR 合并后同步控制面 `main`、验证提交已收口，并更新状态为完成。
+
 ## Runs
 
 ### 2026-02-08 19:41 +0800 control plane sync
@@ -129,3 +135,15 @@
   - `pnpm lint` 通过（4 条 warning，无 error）
   - `pnpm contract:check` 通过
   - `pnpm test:unit` 通过
+
+### 2026-02-08 20:05 +0800 ci(red) openspec-log-guard
+
+- Command:
+  - `gh pr checks 293`
+  - `gh run view 21797775102 --job 62888051487 --log`
+- Exit code: `1`（checks） / `0`（log fetch）
+- Key output:
+  - `openspec-log-guard fail`
+  - `RUN_LOG missing required fields: Plan`
+- Fix:
+  - 在 `ISSUE-291` RUN_LOG 中补充 `## Plan` 段落并回推 PR。
