@@ -88,6 +88,9 @@ type SemanticUpdatePayload = {
   >;
 };
 type SemanticDeletePayload = { projectId: string; ruleId: string };
+type SemanticPromotePayload = { projectId: string; ruleId: string };
+type ClearProjectPayload = { projectId: string; confirmed: boolean };
+type ClearAllPayload = { confirmed: boolean };
 type SemanticDistillPayload = { projectId: string; trigger?: DistillTrigger };
 type TraceGetPayload = { projectId: string; generationId: string };
 type TraceFeedbackPayload = {
@@ -468,6 +471,70 @@ export function registerMemoryIpcHandlers(deps: {
       }
       rememberSender(e);
       const res = episodicService.deleteSemanticMemory(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "memory:scope:promote",
+    async (
+      e,
+      payload: SemanticPromotePayload,
+    ): Promise<IpcResponse<{ item: SemanticMemoryRule }>> => {
+      if (!episodicService) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      rememberSender(e);
+      const res = episodicService.promoteSemanticMemory(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "memory:clear:project",
+    async (
+      e,
+      payload: ClearProjectPayload,
+    ): Promise<
+      IpcResponse<{ ok: true; deletedEpisodes: number; deletedRules: number }>
+    > => {
+      if (!episodicService) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      rememberSender(e);
+      const res = episodicService.clearProjectMemory(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "memory:clear:all",
+    async (
+      e,
+      payload: ClearAllPayload,
+    ): Promise<
+      IpcResponse<{ ok: true; deletedEpisodes: number; deletedRules: number }>
+    > => {
+      if (!episodicService) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      rememberSender(e);
+      const res = episodicService.clearAllMemory(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
