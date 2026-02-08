@@ -124,6 +124,7 @@ REQUIRED_CHANGE_TASKS_HEADINGS: tuple[str, ...] = (
     "## 5. Refactor（保持绿灯）",
     "## 6. Evidence",
 )
+REQUIRED_DEPENDENCY_SYNC_TEXT = "依赖同步检查（Dependency Sync Check）"
 
 
 def list_active_changes(repo: str) -> list[str]:
@@ -214,6 +215,10 @@ def validate_tdd_first_change_tasks(repo: str, changed_files: set[str]) -> None:
         if "Scenario" not in content or "映射" not in content:
             raise RuntimeError(
                 f"[OPENSPEC_CHANGE] {rel_path} must include Scenario->测试映射要求 in TDD Mapping section"
+            )
+        if REQUIRED_DEPENDENCY_SYNC_TEXT not in content:
+            raise RuntimeError(
+                f"[OPENSPEC_CHANGE] {rel_path} must contain dependency-sync text: {REQUIRED_DEPENDENCY_SYNC_TEXT}"
             )
 
 

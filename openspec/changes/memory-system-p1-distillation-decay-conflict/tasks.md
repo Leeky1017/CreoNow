@@ -3,6 +3,7 @@
 - [ ] 1.1 审阅并确认 MS-2 覆盖 Requirement：蒸馏 / 衰减 / 冲突
 - [ ] 1.2 审阅并确认蒸馏触发条件、衰减公式、压缩策略
 - [ ] 1.3 审阅并确认异常范围：并发冲突、置信度越界
+- [ ] 1.4 在进入 Red 前完成依赖同步检查（Dependency Sync Check）：核对 MS-1 已合并产出的 schema/IPC/错误码/阈值与本 change 假设
 
 ## 2. TDD Mapping（先测前提）
 
@@ -45,3 +46,4 @@
 
 - [ ] 6.1 在 RUN_LOG 记录 Scenario 映射、Red 失败输出、Green 通过输出
 - [ ] 6.2 记录 mock LLM 调用证据与并发冲突复现实验结果
+- [ ] 6.3 记录 Dependency Sync Check 的输入、结论（无漂移/已更新）与后续动作
