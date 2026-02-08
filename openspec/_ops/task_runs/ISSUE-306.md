@@ -3,7 +3,7 @@
 - Issue: #306
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/306
 - Branch: `task/306-memory-system-p1-distillation-decay-conflict`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/310
 - Scope: 完整交付 `openspec/changes/memory-system-p1-distillation-decay-conflict` 的全部任务（仅此 change）
 - Out of Scope: 其他活跃 change（memory-system-p2/p3、project-management、knowledge-graph）
 
