@@ -189,11 +189,32 @@ export const Default: Story = {
   },
 };
 
+export const DefaultMultiProject: Story = {
+  decorators: [createStoryDecorator(mockProjects)],
+  args: {
+    onProjectSelect: (id: string) => console.log("Selected project:", id),
+  },
+};
+
 /**
  * Empty state when user has no projects.
  */
 export const Empty: Story = {
   decorators: [createStoryDecorator([])],
+  args: {
+    onProjectSelect: (id: string) => console.log("Selected project:", id),
+  },
+};
+
+export const EmptyState: Story = {
+  decorators: [createStoryDecorator([])],
+  args: {
+    onProjectSelect: (id: string) => console.log("Selected project:", id),
+  },
+};
+
+export const SearchFiltered: Story = {
+  decorators: [createStoryDecorator(mockProjects)],
   args: {
     onProjectSelect: (id: string) => console.log("Selected project:", id),
   },

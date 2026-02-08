@@ -18,6 +18,8 @@ export type IpcInvoke = <C extends IpcChannel>(
 export type ProjectInfo = IpcResponseData<"project:project:getcurrent">;
 export type ProjectListItem =
   IpcResponseData<"project:project:list">["items"][number];
+export type ProjectAiAssistDraft =
+  IpcResponseData<"project:project:createaiassist">;
 
 export type ProjectState = {
   current: ProjectInfo | null;
@@ -30,7 +32,12 @@ export type ProjectActions = {
   bootstrap: () => Promise<void>;
   createAndSetCurrent: (args: {
     name?: string;
+    type?: "novel" | "screenplay" | "media";
+    description?: string;
   }) => Promise<IpcResponse<ProjectInfo>>;
+  createAiAssistDraft: (args: {
+    prompt: string;
+  }) => Promise<IpcResponse<ProjectAiAssistDraft>>;
   /**
    * Set an existing project as current.
    *
@@ -138,8 +145,12 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
       });
     },
 
-    createAndSetCurrent: async ({ name }) => {
-      const created = await deps.invoke("project:project:create", { name });
+    createAndSetCurrent: async ({ name, type, description }) => {
+      const created = await deps.invoke("project:project:create", {
+        name,
+        type,
+        description,
+      });
       if (!created.ok) {
         set({ lastError: created.error });
         return created;
@@ -156,6 +167,19 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
       set({ current: setRes.data, lastError: null });
       void get().bootstrap();
       return setRes;
+    },
+
+    createAiAssistDraft: async ({ prompt }) => {
+      const res = await deps.invoke("project:project:createaiassist", {
+        prompt,
+      });
+      if (!res.ok) {
+        set({ lastError: res.error });
+        return res;
+      }
+
+      set({ lastError: null });
+      return res;
     },
 
     setCurrentProject: async (projectId) => {

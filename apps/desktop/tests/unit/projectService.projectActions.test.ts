@@ -19,6 +19,16 @@ function createTestDb(): Database.Database {
       project_id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       root_path TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'novel',
+      description TEXT NOT NULL DEFAULT '',
+      stage TEXT NOT NULL DEFAULT 'outline',
+      target_word_count INTEGER,
+      target_chapter_count INTEGER,
+      narrative_person TEXT NOT NULL DEFAULT 'first',
+      language_style TEXT NOT NULL DEFAULT '',
+      target_audience TEXT NOT NULL DEFAULT '',
+      default_skill_set_id TEXT,
+      knowledge_graph_id TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
       archived_at INTEGER
@@ -217,14 +227,20 @@ async function testDuplicateCopiesDocumentsOnly(): Promise<void> {
       { count: number }
     >("SELECT COUNT(*) as count FROM documents WHERE project_id = ?")
     .get(duplicate.data.projectId);
-  assert.equal(duplicatedDocCount?.count, 1);
+  assert.equal(
+    duplicatedDocCount?.count,
+    2,
+    "duplicate should include source default chapter plus inserted chapter",
+  );
 
   const duplicatedDoc = db
     .prepare<
-      [string],
+      [string, string],
       { contentHash: string; title: string }
-    >("SELECT content_hash as contentHash, title FROM documents WHERE project_id = ?")
-    .get(duplicate.data.projectId);
+    >(
+      "SELECT content_hash as contentHash, title FROM documents WHERE project_id = ? AND title = ?",
+    )
+    .get(duplicate.data.projectId, "Chapter 1");
   assert.equal(duplicatedDoc?.contentHash, "hash-doc-1");
   assert.equal(duplicatedDoc?.title, "Chapter 1");
 

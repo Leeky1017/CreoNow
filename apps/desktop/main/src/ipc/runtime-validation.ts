@@ -1,4 +1,5 @@
 import type { IpcMain } from "electron";
+import { randomUUID } from "node:crypto";
 
 import { ipcContract } from "./contract/ipc-contract";
 import type { IpcSchema } from "./contract/schema";
@@ -246,8 +247,21 @@ function isIpcErrorCode(code: string): code is IpcErrorCode {
 }
 
 function toValidationError(
+  channel: string,
   issues: RuntimeValidationIssue[],
 ): IpcResponse<never> {
+  if (channel.startsWith("project:project:")) {
+    return {
+      ok: false,
+      error: {
+        code: "PROJECT_IPC_SCHEMA_INVALID",
+        message: "项目请求参数不符合契约",
+        traceId: randomUUID(),
+        details: issues,
+      },
+    };
+  }
+
   return {
     ok: false,
     error: {
@@ -315,6 +329,9 @@ function sanitizeErrorEnvelope(rawError: IpcError): IpcError {
   if ("retryable" in rawError) {
     sanitized.retryable = rawError.retryable;
   }
+  if ("traceId" in rawError) {
+    sanitized.traceId = rawError.traceId;
+  }
   return sanitized;
 }
 
@@ -366,7 +383,7 @@ export function wrapIpcRequestResponse(
         channel: args.channel,
         issueCount: requestIssues.length,
       });
-      return toValidationError(requestIssues);
+      return toValidationError(args.channel, requestIssues);
     }
 
     try {

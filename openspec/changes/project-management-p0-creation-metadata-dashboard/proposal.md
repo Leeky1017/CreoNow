@@ -13,11 +13,11 @@
   - 项目元数据（元数据编辑、创作阶段切换）
   - Dashboard（打开项目、空状态、搜索过滤）
 - 明确 P0 项目数据模型与 IPC 通道命名约束：
-  - `project:create`
-  - `project:create:ai-assist`
-  - `project:update`
-  - `project:list`
-  - `project:stats`
+  - `project:project:create`
+  - `project:project:createaiassist`
+  - `project:project:update`
+  - `project:project:list`
+  - `project:project:stats`
 - 为上述通道定义请求/响应 Zod schema 契约，并约束返回可判定结果（`ok: true | false`）。
 - 明确 AI 辅助创建在本阶段依赖 `ai-service` mock，不调用真实 LLM 配额。
 - 明确 `knowledgeGraphId`、`defaultSkillSetId` 在本阶段仅为占位字段，不接通真实 KG/Skill 服务。
@@ -46,4 +46,4 @@
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`
+- Owner 审阅：`APPROVED`（2026-02-08）

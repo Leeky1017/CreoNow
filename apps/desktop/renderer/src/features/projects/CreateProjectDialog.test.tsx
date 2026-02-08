@@ -22,6 +22,10 @@ function createMockProjectState(
       ok: true,
       data: { projectId: "new-project", rootPath: "/mock/path" },
     }),
+    createAiAssistDraft: vi.fn().mockResolvedValue({
+      ok: false,
+      error: { code: "RATE_LIMITED", message: "mock limited" },
+    }),
     setCurrentProject: vi.fn(),
     deleteProject: vi
       .fn()
@@ -266,6 +270,8 @@ describe("CreateProjectDialog", () => {
       await waitFor(() => {
         expect(createAndSetCurrent).toHaveBeenCalledWith({
           name: "New Project",
+          description: "",
+          type: undefined,
         });
       });
     });
@@ -354,6 +360,33 @@ describe("CreateProjectDialog", () => {
       rerender(<CreateProjectDialog open={false} onOpenChange={vi.fn()} />);
 
       expect(clearError).toHaveBeenCalled();
+    });
+  });
+
+  // ===========================================================================
+  // PM1-S3 AI 辅助降级测试
+  // ===========================================================================
+  describe("AI 辅助降级", () => {
+    it("should show fallback message and keep manual mode available", async () => {
+      const user = userEvent.setup();
+      render(<CreateProjectDialog open={true} onOpenChange={vi.fn()} />);
+
+      await user.click(screen.getByRole("tab", { name: "AI 辅助" }));
+      await user.type(
+        screen.getByTestId("create-project-ai-prompt"),
+        "帮我创建一部校园推理小说",
+      );
+      await user.click(screen.getByTestId("create-project-ai-generate"));
+
+      await waitFor(() => {
+        expect(
+          screen.getByText(
+            "AI 辅助创建暂时不可用，请手动创建或稍后重试",
+          ),
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.getByRole("tab", { name: "手动创建" })).toBeInTheDocument();
     });
   });
 });

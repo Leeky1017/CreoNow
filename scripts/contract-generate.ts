@@ -524,6 +524,7 @@ export type IpcMeta = {
 export type IpcError = {
   code: IpcErrorCode;
   message: string;
+  traceId?: string;
   details?: unknown;
   retryable?: boolean;
 };
