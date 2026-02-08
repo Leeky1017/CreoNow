@@ -3,8 +3,15 @@
 - Issue: #318
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/318
 - Branch: task/318-rulebook-issue306-archive-closeout
+- PR: https://github.com/Leeky1017/CreoNow/pull/319
 - Scope: 提交当前仓库中未提交改动（issue-306 Rulebook task 从 active 迁移到 archive），并通过 PR auto-merge 收口到控制面 `main`
 - Out of Scope: 本次遗留改动之外的任何功能/规范变更
+
+## Plan
+
+- 提交当前所有未提交改动，不丢失任何本地 pending 内容。
+- 创建 `task/*` 分支 PR 并开启 auto-merge。
+- 修复门禁报错并确保 required checks 全绿后合并到控制面 `main`。
 
 ## Runs
 
@@ -56,3 +63,40 @@
 - Exit code: `0`
 - Key output:
   - `✅ Task issue-318-rulebook-issue306-archive-closeout is valid`
+
+### 2026-02-08 23:56 提交与推送
+
+- Command: `git add -A && git commit -m "chore: archive pending rulebook task move (#318)"`
+- Exit code: `0`
+- Key output:
+  - `2eb33b37 chore: archive pending rulebook task move (#318)`
+  - 变更包含：
+    - `rulebook/tasks/issue-306-memory-system-p1-distillation-decay-conflict` -> `rulebook/tasks/archive/2026-02-08-issue-306-memory-system-p1-distillation-decay-conflict`
+    - 新增 `openspec/_ops/task_runs/ISSUE-318.md`
+    - 新增 `rulebook/tasks/issue-318-rulebook-issue306-archive-closeout/*`
+
+- Command: `git push -u origin task/318-rulebook-issue306-archive-closeout`
+- Exit code: `0`
+- Key output:
+  - 已创建远端分支并建立跟踪。
+
+### 2026-02-08 23:57 创建 PR 与自动合并
+
+- Command: `gh pr create --base main --head task/318-rulebook-issue306-archive-closeout --title "Archive pending issue-306 Rulebook move (#318)" --body "..."`
+- Exit code: `0`
+- Key output:
+  - `https://github.com/Leeky1017/CreoNow/pull/319`
+
+- Command: `gh pr merge 319 --auto --squash`
+- Exit code: `0`
+- Key output:
+  - 已开启 auto-merge。
+
+### 2026-02-08 23:58 门禁失败修复（openspec-log-guard）
+
+- Command: `gh run view 21802134644 --job 62899366676 --log-failed`
+- Exit code: `0`
+- Key output:
+  - 报错：`RUN_LOG missing required fields: PR Plan`
+- Action:
+  - 补齐 `ISSUE-318.md` 的 `- PR:` 与 `## Plan` 字段，并记录当前修复过程。
