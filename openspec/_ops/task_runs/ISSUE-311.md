@@ -3,7 +3,7 @@
 - Issue: #311
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/311
 - Branch: `task/311-kg-e2e-default-graph-mode`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/314
 - Scope: 修复 KG 默认 Graph 视图后两条 E2E 的前置交互路径（仅测试修复）
 - Out of Scope: 业务功能变更、组件 UI 重构、非相关 E2E 改造
 
