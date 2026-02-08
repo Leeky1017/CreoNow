@@ -3,7 +3,7 @@
 - Issue: #326
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/326
 - Branch: task/326-layer2-layer3-integration-gate
-- PR: PENDING
+- PR: https://github.com/Leeky1017/CreoNow/pull/327
 - Scope: 对 Layer2（Document Management）与 Layer3（KG/PM/MS）执行里程碑集成检查，核对跨模块契约并输出 delta report
 - Out of Scope: 运行时代码改动、IPC handler 重命名、数据库迁移
 
@@ -13,7 +13,7 @@
 - [x] 对照 `cross-module-integration-spec` 与 IPC 契约 SSOT 做差异核对
 - [x] 输出 implemented / partial / missing 的 delta report
 - [x] 补齐 OpenSpec change + Rulebook task + EXECUTION_ORDER
-- [ ] 创建 PR、开启 auto-merge、等待 checks 全绿并收口
+- [x] 创建 PR、开启 auto-merge、等待 checks 全绿并收口
 
 ## Runs
 
@@ -154,3 +154,16 @@
   - `storybook:build` 通过
   - `desktop:test:e2e` 通过：`50 passed`, `2 skipped`
   - `contract:check` 通过
+
+### 2026-02-09 04:33 提交、推送与 PR
+
+- Command:
+  - `git add -A && git commit -m "docs: add layer2-layer3 integration gate delta report (#326)"`
+  - `git push -u origin task/326-layer2-layer3-integration-gate`
+  - `gh pr create --base main --head task/326-layer2-layer3-integration-gate --title "Layer2+Layer3 milestone integration gate and delta report (#326)" --body "... Closes #326"`
+  - `gh pr merge 327 --auto --squash`
+- Exit code: `0`
+- Key output:
+  - Commit: `edbb1475`
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/327`
+  - Auto-merge 已开启（等待 required checks）
