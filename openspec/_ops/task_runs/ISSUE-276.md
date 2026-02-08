@@ -3,7 +3,7 @@
 - Issue: #276
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/276
 - Branch: `task/276-commit-pending-unsubmitted-updates`
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/277
 - Scope: 提交并合并所有现存未提交重要内容（控制面 + task/273 收尾文档）
 - Out of Scope: 业务代码实现变更
 
@@ -37,8 +37,21 @@
 - Key output:
   - 控制面与 `task/273` 两处未提交内容均已并入 `task/276` 工作树
 
+### 2026-02-08 16:01 +0800 validation + commit + PR
+
+- Command:
+  - `rulebook task validate issue-273-windows-e2e-startup-readiness`
+  - `rulebook task validate issue-276-commit-pending-unsubmitted-updates`
+  - `pnpm exec prettier --check <changed+untracked files>`
+  - `git commit -m "docs: commit pending unsubmitted workspace changes (#276)"`
+  - `git push -u origin task/276-commit-pending-unsubmitted-updates`
+  - `gh pr create --title "Commit pending unsubmitted workspace changes (#276)" --body-file /tmp/pr276.md`
+- Exit code: `0`
+- Key output:
+  - 提交：`c4f156e0`
+  - PR：`https://github.com/Leeky1017/CreoNow/pull/277`
+
 ## Next
 
-- 执行规则校验（Rulebook validate + preflight）。
-- 提交、推送、创建 PR 并开启 auto-merge。
-- 回填 PR 链接与 required checks 结果。
+- 执行 `scripts/agent_pr_preflight.sh` 并记录结果。
+- 开启 auto-merge，等待 required checks 全绿并合并回 `main`。

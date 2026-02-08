@@ -14,11 +14,11 @@
 
 - [x] 3.1 Rulebook validate 通过
 - [ ] 3.2 Preflight 通过
-- [ ] 3.3 RUN_LOG 记录完整并回填真实 PR 链接
+- [x] 3.3 RUN_LOG 记录完整并回填真实 PR 链接
 
 ## 4. Delivery
 
-- [ ] 4.1 提交并推送分支
-- [ ] 4.2 创建 PR（Closes #276）并启用 auto-merge
+- [x] 4.1 提交并推送分支
+- [x] 4.2 创建 PR（Closes #276）并启用 auto-merge
 - [ ] 4.3 required checks 全绿后合并回 `main`
 - [ ] 4.4 收口控制面并确认 `origin/main` 包含该提交
