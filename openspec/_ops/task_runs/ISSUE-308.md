@@ -3,7 +3,7 @@
 - Issue: #308
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/308
 - Branch: `task/308-knowledge-graph-p1-visualization-extended-views`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/309
 - Scope: 完整交付 `openspec/changes/knowledge-graph-p1-visualization-extended-views` 的全部 tasks（仅该 change）
 - Out of Scope: 其它 change 与非本 change 的功能实现
 
