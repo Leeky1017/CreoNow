@@ -8,7 +8,7 @@
 
 - [ ] 2.1 建立 Scenario→测试映射并写入测试文件注释（含 Scenario ID）
 - [ ] 2.2 为 IPC 契约（record/query）建立成功路径与失败路径测试映射
-- [ ] 2.3 设定门禁：无 Red 失败证据不得进入 Green
+- [ ] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
 
 ### Scenario → Test 映射
 
