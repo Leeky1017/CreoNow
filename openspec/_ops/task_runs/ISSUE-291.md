@@ -2,8 +2,8 @@
 
 - Issue: #291
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/291
-- Branch: `task/291-project-management-p0-p1-changes`
-- PR: https://github.com/Leeky1017/CreoNow/pull/293
+- Branch: `task/291-project-management-p0-p1-changes-v2`
+- PR: https://github.com/Leeky1017/CreoNow/pull/295
 - Scope: 为 `project-management` 模块创建 PM-1 与 PM-2 两个活跃 OpenSpec change，并维护执行顺序与交付证据
 - Out of Scope: 生产代码实现、测试实现、delta apply/archive
 
@@ -147,3 +147,28 @@
   - `RUN_LOG missing required fields: Plan`
 - Fix:
   - 在 `ISSUE-291` RUN_LOG 中补充 `## Plan` 段落并回推 PR。
+
+### 2026-02-08 20:08 +0800 branch divergence handling
+
+- Command:
+  - `git fetch origin && git rebase origin/main`
+  - `git pull --rebase origin task/291-project-management-p0-p1-changes`
+- Exit code: `1`
+- Key output:
+  - 与 `openspec/changes/EXECUTION_ORDER.md` 发生冲突（main 已新增 memory-system 活跃 change）
+  - 工作环境策略阻断 `git push --force-with-lease`
+- Fix:
+  - 采用非破坏替代方案：创建新分支 `task/291-project-management-p0-p1-changes-v2` 承接当前提交
+
+### 2026-02-08 20:10 +0800 pr rollover (293 -> 295)
+
+- Command:
+  - `git switch -c task/291-project-management-p0-p1-changes-v2`
+  - `git push -u origin task/291-project-management-p0-p1-changes-v2`
+  - `gh pr create --base main --head task/291-project-management-p0-p1-changes-v2 ...`
+  - `gh pr merge 295 --auto --squash`
+- Exit code: `0`
+- Key output:
+  - 新 PR：`https://github.com/Leeky1017/CreoNow/pull/295`
+  - auto-merge：enabled
+  - 旧 PR：`https://github.com/Leeky1017/CreoNow/pull/293` 标记为 superseded
