@@ -2,8 +2,16 @@
 
 - Issue: #307
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/307
-- Branch: task/307-project-management-p1-lifecycle-switch-delete
-- PR: PENDING
+- Branch:
+  - `task/307-project-management-p1-lifecycle-switch-delete`
+  - `task/307-project-management-p1-lifecycle-switch-delete-e2e-fix`
+  - `task/307-project-management-p1-lifecycle-switch-delete-finalize`
+- PR:
+  - `#312` https://github.com/Leeky1017/CreoNow/pull/312
+  - `#313` https://github.com/Leeky1017/CreoNow/pull/313
+  - `#315`（已关闭，改用 clean branch）https://github.com/Leeky1017/CreoNow/pull/315
+  - `#316` https://github.com/Leeky1017/CreoNow/pull/316
+  - `#317` https://github.com/Leeky1017/CreoNow/pull/317
 - Scope: 完成 `openspec/changes/project-management-p1-lifecycle-switch-delete` 的全部任务内容（仅该 change）
 - Out of Scope: 该 change 之外的功能与文档变更
 
@@ -240,3 +248,67 @@
 - Exit code: `0`
 - Key output:
   - `3 passed`
+
+### 2026-02-08 23:53 门禁与合并收口（PR #312/#313/#316）
+
+- Command: `gh pr view 312 --json number,state,mergedAt,url,mergeCommit,statusCheckRollup`
+- Exit code: `0`
+- Key output:
+  - `state=MERGED`，`mergedAt=2026-02-08T15:37:40Z`
+  - required checks：`merge-serial` 与 `openspec-log-guard` 通过；`windows-e2e` 在该轮失败，触发后续修复 PR
+
+- Command: `gh pr view 313 --json number,state,mergedAt,url,mergeCommit,statusCheckRollup`
+- Exit code: `0`
+- Key output:
+  - `state=MERGED`，`mergedAt=2026-02-08T15:42:24Z`
+  - required checks：`merge-serial` 与 `openspec-log-guard` 通过；`windows-e2e` 失败，触发 e2e 契约对齐修复
+
+- Command: `gh pr view 316 --json number,state,mergedAt,url,mergeCommit,statusCheckRollup`
+- Exit code: `0`
+- Key output:
+  - `state=MERGED`，`mergedAt=2026-02-08T15:53:41Z`，`mergeCommit=09569b11ba2d2b893f577e4765c5178ed3d46da7`
+  - required checks 全绿：`merge-serial pass`、`openspec-log-guard pass`、`windows-e2e pass`（其余 CI job 均 pass）
+
+- Command: `gh pr view 315 --json number,state,closedAt,url`
+- Exit code: `0`
+- Key output:
+  - `state=CLOSED`，`closedAt=2026-02-08T15:51:13Z`
+  - 原因：squash 历史导致 diff 脏，已由 clean branch PR #316 取代
+
+- Command: `rulebook task validate issue-307-project-management-p1-lifecycle-switch-delete`
+- Exit code: `0`
+- Key output:
+  - `✅ Task issue-307-project-management-p1-lifecycle-switch-delete is valid`
+
+- Command: `gh issue view 307 --json number,state,url,title`
+- Exit code: `0`
+- Key output:
+  - `{"number":307,"state":"CLOSED","title":"Deliver change project-management-p1-lifecycle-switch-delete","url":"https://github.com/Leeky1017/CreoNow/issues/307"}`
+
+- Command: `git fetch origin && git show -s --format='%H %s' origin/main`
+- Exit code: `0`
+- Key output:
+  - `09569b11ba2d2b893f577e4765c5178ed3d46da7 test: align e2e with PM2 lifecycle contract (#307) (#316)`
+  - 结论：控制面 `main` 已包含 ISSUE-307 最终收口提交。
+
+### 2026-02-08 23:57 归档收口（OpenSpec + Rulebook）
+
+- Command: `gh run view 21801016346 --job 62896429596 --log-failed`
+- Exit code: `0`
+- Key output:
+  - `openspec-log-guard` 报错：active change `project-management-p1-lifecycle-switch-delete` 的 `tasks.md` 已全勾选，必须归档至 `openspec/changes/archive/`。
+
+- Command: `git mv openspec/changes/project-management-p1-lifecycle-switch-delete openspec/changes/archive/project-management-p1-lifecycle-switch-delete`
+- Exit code: `0`
+- Key output:
+  - change 已从 active 目录迁移到 `openspec/changes/archive/`。
+
+- Command: `rulebook task archive issue-307-project-management-p1-lifecycle-switch-delete`
+- Exit code: `0`
+- Key output:
+  - `✅ Task issue-307-project-management-p1-lifecycle-switch-delete archived successfully`
+
+- Command: `edit openspec/changes/EXECUTION_ORDER.md`
+- Exit code: `0`
+- Key output:
+  - 活跃 change 数量更新为 `3`，并移除已归档 PM change 的顺序与依赖条目。
