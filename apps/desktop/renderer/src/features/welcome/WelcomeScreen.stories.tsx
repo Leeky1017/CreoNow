@@ -83,7 +83,7 @@ function createMockProjectStore(overrides: Partial<ProjectStore> = {}) {
           ok: true,
           data: {
             projectId,
-            archived,
+            state: archived ? "archived" : "active",
             ...(archived ? { archivedAt: Date.now() } : {}),
           },
         };

@@ -97,13 +97,25 @@ export function App(): JSX.Element {
     return createOnboardingStore(preferences);
   }, [preferences]);
 
-  const projectStore = React.useMemo(() => {
-    return createProjectStore({ invoke });
-  }, []);
-
   const editorStore = React.useMemo(() => {
     return createEditorStore({ invoke });
   }, []);
+
+  const projectStore = React.useMemo(() => {
+    return createProjectStore({
+      invoke,
+      flushPendingAutosave: async () => {
+        await editorStore.getState().flushPendingAutosave();
+      },
+      getOperatorId: () => "renderer",
+      createTraceId: () => {
+        if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+          return crypto.randomUUID();
+        }
+        return "trace-fallback";
+      },
+    });
+  }, [editorStore]);
 
   const aiStore = React.useMemo(() => {
     return createAiStore({ invoke });

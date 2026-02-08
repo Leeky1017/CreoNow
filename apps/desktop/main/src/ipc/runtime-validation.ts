@@ -272,7 +272,10 @@ function toValidationError(
   channel: string,
   issues: RuntimeValidationIssue[],
 ): IpcResponse<never> {
-  if (channel.startsWith("project:project:")) {
+  if (
+    channel.startsWith("project:project:") ||
+    channel.startsWith("project:lifecycle:")
+  ) {
     return {
       ok: false,
       error: {

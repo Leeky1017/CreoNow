@@ -34,8 +34,11 @@ export type IpcErrorCode =
   | "NOT_FOUND"
   | "PERMISSION_DENIED"
   | "PROJECT_CAPACITY_EXCEEDED"
+  | "PROJECT_DELETE_REQUIRES_ARCHIVE"
   | "PROJECT_IPC_SCHEMA_INVALID"
+  | "PROJECT_LIFECYCLE_WRITE_FAILED"
   | "PROJECT_METADATA_INVALID_ENUM"
+  | "PROJECT_PURGE_PERMISSION_DENIED"
   | "RATE_LIMITED"
   | "TIMEOUT"
   | "UNSUPPORTED"
@@ -134,6 +137,10 @@ export const IPC_CHANNELS = [
   "memory:semantic:update",
   "memory:settings:get",
   "memory:settings:update",
+  "project:lifecycle:archive",
+  "project:lifecycle:get",
+  "project:lifecycle:purge",
+  "project:lifecycle:restore",
   "project:project:archive",
   "project:project:create",
   "project:project:createaiassist",
@@ -144,6 +151,7 @@ export const IPC_CHANNELS = [
   "project:project:rename",
   "project:project:setcurrent",
   "project:project:stats",
+  "project:project:switch",
   "project:project:update",
   "rag:context:retrieve",
   "search:fulltext:query",
@@ -205,7 +213,10 @@ export type IpcChannelSpec = {
           | "UPSTREAM_ERROR"
           | "INTERNAL"
           | "PROJECT_CAPACITY_EXCEEDED"
+          | "PROJECT_DELETE_REQUIRES_ARCHIVE"
           | "PROJECT_METADATA_INVALID_ENUM"
+          | "PROJECT_PURGE_PERMISSION_DENIED"
+          | "PROJECT_LIFECYCLE_WRITE_FAILED"
           | "PROJECT_IPC_SCHEMA_INVALID"
           | "KG_ATTRIBUTE_KEYS_EXCEEDED"
           | "KG_CAPACITY_EXCEEDED"
@@ -666,7 +677,10 @@ export type IpcChannelSpec = {
                 | "UPSTREAM_ERROR"
                 | "INTERNAL"
                 | "PROJECT_CAPACITY_EXCEEDED"
+                | "PROJECT_DELETE_REQUIRES_ARCHIVE"
                 | "PROJECT_METADATA_INVALID_ENUM"
+                | "PROJECT_PURGE_PERMISSION_DENIED"
+                | "PROJECT_LIFECYCLE_WRITE_FAILED"
                 | "PROJECT_IPC_SCHEMA_INVALID"
                 | "KG_ATTRIBUTE_KEYS_EXCEEDED"
                 | "KG_CAPACITY_EXCEEDED"
@@ -723,7 +737,10 @@ export type IpcChannelSpec = {
                 | "UPSTREAM_ERROR"
                 | "INTERNAL"
                 | "PROJECT_CAPACITY_EXCEEDED"
+                | "PROJECT_DELETE_REQUIRES_ARCHIVE"
                 | "PROJECT_METADATA_INVALID_ENUM"
+                | "PROJECT_PURGE_PERMISSION_DENIED"
+                | "PROJECT_LIFECYCLE_WRITE_FAILED"
                 | "PROJECT_IPC_SCHEMA_INVALID"
                 | "KG_ATTRIBUTE_KEYS_EXCEEDED"
                 | "KG_CAPACITY_EXCEEDED"
@@ -1384,6 +1401,47 @@ export type IpcChannelSpec = {
       privacyModeEnabled: boolean;
     };
   };
+  "project:lifecycle:archive": {
+    request: {
+      projectId: string;
+      traceId?: string;
+    };
+    response: {
+      archivedAt?: number;
+      projectId: string;
+      state: "active" | "archived" | "deleted";
+    };
+  };
+  "project:lifecycle:get": {
+    request: {
+      projectId: string;
+      traceId?: string;
+    };
+    response: {
+      projectId: string;
+      state: "active" | "archived" | "deleted";
+    };
+  };
+  "project:lifecycle:purge": {
+    request: {
+      projectId: string;
+      traceId?: string;
+    };
+    response: {
+      projectId: string;
+      state: "active" | "archived" | "deleted";
+    };
+  };
+  "project:lifecycle:restore": {
+    request: {
+      projectId: string;
+      traceId?: string;
+    };
+    response: {
+      projectId: string;
+      state: "active" | "archived" | "deleted";
+    };
+  };
   "project:project:archive": {
     request: {
       archived: boolean;
@@ -1485,6 +1543,18 @@ export type IpcChannelSpec = {
       active: number;
       archived: number;
       total: number;
+    };
+  };
+  "project:project:switch": {
+    request: {
+      fromProjectId: string;
+      operatorId: string;
+      projectId: string;
+      traceId: string;
+    };
+    response: {
+      currentProjectId: string;
+      switchedAt: string;
     };
   };
   "project:project:update": {
@@ -1606,7 +1676,10 @@ export type IpcChannelSpec = {
           | "UPSTREAM_ERROR"
           | "INTERNAL"
           | "PROJECT_CAPACITY_EXCEEDED"
+          | "PROJECT_DELETE_REQUIRES_ARCHIVE"
           | "PROJECT_METADATA_INVALID_ENUM"
+          | "PROJECT_PURGE_PERMISSION_DENIED"
+          | "PROJECT_LIFECYCLE_WRITE_FAILED"
           | "PROJECT_IPC_SCHEMA_INVALID"
           | "KG_ATTRIBUTE_KEYS_EXCEEDED"
           | "KG_CAPACITY_EXCEEDED"
