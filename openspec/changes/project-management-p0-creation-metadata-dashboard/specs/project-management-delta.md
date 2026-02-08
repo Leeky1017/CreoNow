@@ -25,13 +25,13 @@ P0 阶段必须先建立项目创建的数据模型与通道契约，支持手�
 
 本 change 覆盖的 IPC 命名与 Zod schema：
 
-| IPC 通道                   | 请求 schema（Zod）                   | 响应 schema（Zod）                    |
-| -------------------------- | ------------------------------------ | ------------------------------------- |
-| `project:project:create`           | `ProjectCreateRequestSchema`         | `ProjectCreateResponseSchema`         |
+| IPC 通道                         | 请求 schema（Zod）                   | 响应 schema（Zod）                    |
+| -------------------------------- | ------------------------------------ | ------------------------------------- |
+| `project:project:create`         | `ProjectCreateRequestSchema`         | `ProjectCreateResponseSchema`         |
 | `project:project:createaiassist` | `ProjectCreateAiAssistRequestSchema` | `ProjectCreateAiAssistResponseSchema` |
-| `project:project:update`           | `ProjectUpdateRequestSchema`         | `ProjectUpdateResponseSchema`         |
-| `project:project:list`             | `ProjectListRequestSchema`           | `ProjectListResponseSchema`           |
-| `project:project:stats`            | `ProjectStatsRequestSchema`          | `ProjectStatsResponseSchema`          |
+| `project:project:update`         | `ProjectUpdateRequestSchema`         | `ProjectUpdateResponseSchema`         |
+| `project:project:list`           | `ProjectListRequestSchema`           | `ProjectListResponseSchema`           |
+| `project:project:stats`          | `ProjectStatsRequestSchema`          | `ProjectStatsResponseSchema`          |
 
 所有响应必须返回可判定结果：`{ ok: true, data }` 或 `{ ok: false, error: { code, message, traceId } }`。
 

@@ -20,7 +20,11 @@ export function registerProjectIpcHandlers(deps: {
     "project:project:create",
     async (
       _e,
-      payload: { name?: string; type?: "novel" | "screenplay" | "media"; description?: string },
+      payload: {
+        name?: string;
+        type?: "novel" | "screenplay" | "media";
+        description?: string;
+      },
     ): Promise<IpcResponse<{ projectId: string; rootPath: string }>> => {
       if (!deps.db) {
         return {

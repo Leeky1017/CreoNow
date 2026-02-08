@@ -5,7 +5,10 @@ import path from "node:path";
 
 import { createProjectService } from "../../main/src/services/projects/projectService";
 
-import { createNoopLogger, createProjectTestDb } from "./projectService.test-helpers";
+import {
+  createNoopLogger,
+  createProjectTestDb,
+} from "./projectService.test-helpers";
 
 function percentile(values: number[], p: number): number {
   if (values.length === 0) {
@@ -22,15 +25,24 @@ function percentile(values: number[], p: number): number {
  * - project:update p95 < 200ms
  */
 async function main(): Promise<void> {
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "creonow-pm1-perf-"));
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "creonow-pm1-perf-"),
+  );
   const db = createProjectTestDb();
   const svc = createProjectService({
     db,
     userDataDir,
     logger: createNoopLogger(),
   }) as unknown as {
-    create: (args: { name?: string }) => { ok: boolean; data?: { projectId: string }; error?: { code: string } };
-    update: (args: { projectId: string; patch: { stage?: "outline" | "draft" | "revision" | "final" } }) => { ok: boolean; error?: { code: string } };
+    create: (args: { name?: string }) => {
+      ok: boolean;
+      data?: { projectId: string };
+      error?: { code: string };
+    };
+    update: (args: {
+      projectId: string;
+      patch: { stage?: "outline" | "draft" | "revision" | "final" };
+    }) => { ok: boolean; error?: { code: string } };
   };
 
   const createdDurations: number[] = [];

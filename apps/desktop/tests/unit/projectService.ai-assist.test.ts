@@ -5,13 +5,18 @@ import path from "node:path";
 
 import { createProjectService } from "../../main/src/services/projects/projectService";
 
-import { createNoopLogger, createProjectTestDb } from "./projectService.test-helpers";
+import {
+  createNoopLogger,
+  createProjectTestDb,
+} from "./projectService.test-helpers";
 
 /**
  * PM1-S2: should build project draft from ai-service mock response
  */
 async function main(): Promise<void> {
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "creonow-pm1-ai-"));
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "creonow-pm1-ai-"),
+  );
   const db = createProjectTestDb();
   const svc = createProjectService({
     db,

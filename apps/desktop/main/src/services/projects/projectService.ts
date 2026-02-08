@@ -22,10 +22,7 @@ export type ProjectInfo = {
 
 export type ProjectType = "novel" | "screenplay" | "media";
 export type ProjectStage = "outline" | "draft" | "revision" | "final";
-export type NarrativePerson =
-  | "first"
-  | "third-limited"
-  | "third-omniscient";
+export type NarrativePerson = "first" | "third-limited" | "third-omniscient";
 
 export type ProjectMetadata = {
   type: ProjectType;
@@ -91,9 +88,7 @@ export type ProjectService = {
     type?: ProjectType;
     description?: string;
   }) => ServiceResult<ProjectInfo>;
-  createAiAssistDraft: (args: {
-    prompt: string;
-  }) => ServiceResult<{
+  createAiAssistDraft: (args: { prompt: string }) => ServiceResult<{
     name: string;
     type: ProjectType;
     description: string;
@@ -200,7 +195,9 @@ function normalizeProjectName(
 /**
  * Normalize project type with a deterministic default.
  */
-function normalizeProjectType(type: string | undefined): ServiceResult<ProjectType> {
+function normalizeProjectType(
+  type: string | undefined,
+): ServiceResult<ProjectType> {
   if (!type) {
     return { ok: true, data: "novel" };
   }
@@ -237,11 +234,10 @@ function normalizeNarrativePerson(
   if (NARRATIVE_PERSON_SET.has(value as NarrativePerson)) {
     return { ok: true, data: value as NarrativePerson };
   }
-  return ipcError(
-    "PROJECT_METADATA_INVALID_ENUM",
-    "Invalid narrative person",
-    { field: "narrativePerson", value },
-  );
+  return ipcError("PROJECT_METADATA_INVALID_ENUM", "Invalid narrative person", {
+    field: "narrativePerson",
+    value,
+  });
 }
 
 function createDefaultProjectMetadata(args: {
@@ -452,16 +448,15 @@ export function createProjectService(args: {
 
       try {
         const countRow = args.db
-          .prepare<[], { count: number }>(
-            "SELECT COUNT(*) as count FROM projects WHERE archived_at IS NULL",
-          )
+          .prepare<
+            [],
+            { count: number }
+          >("SELECT COUNT(*) as count FROM projects WHERE archived_at IS NULL")
           .get();
         if ((countRow?.count ?? 0) >= MAX_PROJECT_COUNT) {
-          return ipcError(
-            "PROJECT_CAPACITY_EXCEEDED",
-            "项目数量已达上限",
-            { limit: MAX_PROJECT_COUNT },
-          );
+          return ipcError("PROJECT_CAPACITY_EXCEEDED", "项目数量已达上限", {
+            limit: MAX_PROJECT_COUNT,
+          });
         }
       } catch (error) {
         args.logger.error("project_count_failed", {
@@ -567,7 +562,8 @@ export function createProjectService(args: {
       const draftType: ProjectType =
         trimmed.includes("剧本") || trimmed.toLowerCase().includes("screenplay")
           ? "screenplay"
-          : trimmed.includes("自媒体") || trimmed.toLowerCase().includes("media")
+          : trimmed.includes("自媒体") ||
+              trimmed.toLowerCase().includes("media")
             ? "media"
             : "novel";
 
@@ -660,10 +656,14 @@ export function createProjectService(args: {
       };
 
       if (!PROJECT_TYPE_SET.has(next.type)) {
-        return ipcError("PROJECT_METADATA_INVALID_ENUM", "Invalid project type", {
-          field: "type",
-          value: next.type,
-        });
+        return ipcError(
+          "PROJECT_METADATA_INVALID_ENUM",
+          "Invalid project type",
+          {
+            field: "type",
+            value: next.type,
+          },
+        );
       }
       if (!PROJECT_STAGE_SET.has(next.stage)) {
         return ipcError(
@@ -717,9 +717,7 @@ export function createProjectService(args: {
           .prepare<
             [],
             { total: number; active: number; archived: number }
-          >(
-            "SELECT COUNT(*) as total, SUM(CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END) as active, SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END) as archived FROM projects",
-          )
+          >("SELECT COUNT(*) as total, SUM(CASE WHEN archived_at IS NULL THEN 1 ELSE 0 END) as active, SUM(CASE WHEN archived_at IS NOT NULL THEN 1 ELSE 0 END) as archived FROM projects")
           .get();
 
         return {
