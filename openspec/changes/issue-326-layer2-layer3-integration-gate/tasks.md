@@ -9,7 +9,7 @@
 
 - [x] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试用例或检查命令
 - [x] 2.2 为每个测试/检查标注对应 Scenario ID，建立可追踪关系
-- [x] 2.3 设定门禁：未出现 Red（失败证据）不得进入文档结论
+- [x] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现；未出现 Red（失败证据）不得进入文档结论
 
 ### Scenario → Test/Check 映射
 
@@ -49,3 +49,4 @@
 
 - [x] 6.1 记录 RUN_LOG（含全量测试结果、Red 差异证据、Green 文档产物）
 - [x] 6.2 记录 Dependency Sync Check 结论（N/A，无上游活跃依赖）
+- [ ] 6.3 等待 PR required checks 全绿后执行 change 归档

@@ -167,3 +167,22 @@
   - Commit: `edbb1475`
   - PR: `https://github.com/Leeky1017/CreoNow/pull/327`
   - Auto-merge 已开启（等待 required checks）
+
+### 2026-02-09 04:34-04:38 preflight 失败修复与回归
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `git mv openspec/changes/issue-326-layer2-layer3-integration-gate openspec/changes/archive/issue-326-layer2-layer3-integration-gate`
+  - `scripts/agent_pr_preflight.sh`
+  - `git mv openspec/changes/archive/issue-326-layer2-layer3-integration-gate openspec/changes/issue-326-layer2-layer3-integration-gate`
+  - `edit openspec/changes/issue-326-layer2-layer3-integration-gate/tasks.md`
+  - `pnpm exec prettier --write ...`
+  - `pnpm -C apps/desktop rebuild better-sqlite3`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`（最终）
+- Key output:
+  - 失败 1：active change 全勾选但未归档（按门禁需“合并后归档”）
+  - 失败 2：`tasks.md` 缺少 Red-gate 固定文案、文档 Prettier 格式不一致
+  - 失败 3：`desktop:test:e2e` 触发 `electron-rebuild` 后，`test:unit` 命中 `better-sqlite3` ABI 漂移
+  - 修复：保留 1 条未勾选归档项、补齐固定文案、Prettier 格式化、在 preflight 前重建 Node ABI 版本 `better-sqlite3`
+  - 结果：`scripts/agent_pr_preflight.sh` 全量通过
