@@ -237,9 +237,7 @@ async function testDuplicateCopiesDocumentsOnly(): Promise<void> {
     .prepare<
       [string, string],
       { contentHash: string; title: string }
-    >(
-      "SELECT content_hash as contentHash, title FROM documents WHERE project_id = ? AND title = ?",
-    )
+    >("SELECT content_hash as contentHash, title FROM documents WHERE project_id = ? AND title = ?")
     .get(duplicate.data.projectId, "Chapter 1");
   assert.equal(duplicatedDoc?.contentHash, "hash-doc-1");
   assert.equal(duplicatedDoc?.title, "Chapter 1");

@@ -5,13 +5,18 @@ import path from "node:path";
 
 import { createProjectService } from "../../main/src/services/projects/projectService";
 
-import { createNoopLogger, createProjectTestDb } from "./projectService.test-helpers";
+import {
+  createNoopLogger,
+  createProjectTestDb,
+} from "./projectService.test-helpers";
 
 /**
  * PM1-S9: should return PROJECT_CAPACITY_EXCEEDED when project count limit reached
  */
 async function main(): Promise<void> {
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "creonow-pm1-capacity-"));
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "creonow-pm1-capacity-"),
+  );
   const db = createProjectTestDb();
   const svc = createProjectService({
     db,

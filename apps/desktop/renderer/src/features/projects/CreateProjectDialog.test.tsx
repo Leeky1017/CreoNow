@@ -380,9 +380,7 @@ describe("CreateProjectDialog", () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText(
-            "AI 辅助创建暂时不可用，请手动创建或稍后重试",
-          ),
+          screen.getByText("AI 辅助创建暂时不可用，请手动创建或稍后重试"),
         ).toBeInTheDocument();
       });
 

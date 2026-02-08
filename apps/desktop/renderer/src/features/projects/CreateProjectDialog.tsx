@@ -153,7 +153,12 @@ function FormContent({
           className={nameError ? "animate-shake" : ""}
         />
         {nameError && (
-          <Text size="small" color="muted" as="div" className="mt-1 text-[var(--color-error)]">
+          <Text
+            size="small"
+            color="muted"
+            as="div"
+            className="mt-1 text-[var(--color-error)]"
+          >
             Project name is required
           </Text>
         )}
@@ -174,7 +179,11 @@ function FormContent({
         >
           {/* Preset Templates */}
           {presetOptions.map((opt) => (
-            <RadioCardItem key={opt.value} value={opt.value} label={opt.label} />
+            <RadioCardItem
+              key={opt.value}
+              value={opt.value}
+              label={opt.label}
+            />
           ))}
         </RadioGroupRoot>
 
@@ -190,7 +199,11 @@ function FormContent({
               className="grid grid-cols-2 gap-3"
             >
               {customOptions.map((opt) => (
-                <RadioCardItem key={opt.value} value={opt.value} label={opt.label} />
+                <RadioCardItem
+                  key={opt.value}
+                  value={opt.value}
+                  label={opt.label}
+                />
               ))}
             </RadioGroupRoot>
           </div>
@@ -223,8 +236,7 @@ function FormContent({
       <div>
         <label className="block mb-2">
           <Text size="small" color="muted">
-            Description{" "}
-            <span className="opacity-50 text-xs">(Optional)</span>
+            Description <span className="opacity-50 text-xs">(Optional)</span>
           </Text>
         </label>
         <Textarea
@@ -241,8 +253,7 @@ function FormContent({
       <div>
         <label className="block mb-2">
           <Text size="small" color="muted">
-            Cover Image{" "}
-            <span className="opacity-50 text-xs">(Optional)</span>
+            Cover Image <span className="opacity-50 text-xs">(Optional)</span>
           </Text>
         </label>
         <ImageUpload
@@ -253,7 +264,12 @@ function FormContent({
           hint="PNG, JPG up to 5MB"
         />
         {imageError && (
-          <Text size="small" color="muted" as="div" className="mt-1 text-[var(--color-error)]">
+          <Text
+            size="small"
+            color="muted"
+            as="div"
+            className="mt-1 text-[var(--color-error)]"
+          >
             {imageError}
           </Text>
         )}
@@ -261,7 +277,12 @@ function FormContent({
 
       {/* Error Message */}
       {lastError && (
-        <Text size="small" color="muted" as="div" className="text-[var(--color-error)]">
+        <Text
+          size="small"
+          color="muted"
+          as="div"
+          className="text-[var(--color-error)]"
+        >
           {lastError.code}: {lastError.message}
         </Text>
       )}
@@ -355,7 +376,11 @@ export function CreateProjectDialog({
   }, [open, clearError]);
 
   const handleSubmit = useCallback(
-    async (data: { name: string; type?: "novel" | "screenplay" | "media"; description?: string }) => {
+    async (data: {
+      name: string;
+      type?: "novel" | "screenplay" | "media";
+      description?: string;
+    }) => {
       setSubmitting(true);
       try {
         const res = await createAndSetCurrent({
@@ -399,11 +424,14 @@ export function CreateProjectDialog({
     }
   }, [aiPrompt, createAiAssistDraft]);
 
-  const handleTemplateCreated = useCallback((_id: string) => {
-    // Template selection is handled inside FormContent
-    // Refresh templates
-    void loadTemplates();
-  }, [loadTemplates]);
+  const handleTemplateCreated = useCallback(
+    (_id: string) => {
+      // Template selection is handled inside FormContent
+      // Refresh templates
+      void loadTemplates();
+    },
+    [loadTemplates],
+  );
 
   return (
     <>
@@ -509,7 +537,8 @@ export function CreateProjectDialog({
                       {aiDraft.name}（{aiDraft.type}）
                     </Text>
                     <Text size="small" color="muted">
-                      章节：{aiDraft.chapterOutlines.length}，角色：{aiDraft.characters.length}
+                      章节：{aiDraft.chapterOutlines.length}，角色：
+                      {aiDraft.characters.length}
                     </Text>
                     <Button
                       size="sm"

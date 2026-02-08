@@ -107,3 +107,20 @@
   - `test:unit` 全通过（含 storybook-inventory `56/56`）。
 - Command: `cd apps/desktop && pnpm vitest run renderer/src/features/projects/CreateProjectDialog.test.tsx renderer/src/features/dashboard/Dashboard.open-project.test.tsx renderer/src/features/dashboard/Dashboard.empty-state.test.tsx renderer/src/features/dashboard/Dashboard.search.test.tsx`
 - Key output: 4 files / 23 tests 全通过。
+
+### 2026-02-08 21:45 PR 创建后 preflight 阻断与修复
+
+- Command: `scripts/agent_pr_automerge_and_sync.sh`
+- Key output:
+  - 自动创建 PR：`https://github.com/Leeky1017/CreoNow/pull/305`（draft）；
+  - 自动回填 RUN_LOG PR 链接并生成提交：`docs: backfill run log PR link (#301)`；
+  - preflight 失败：`prettier --check` 报 15 个文件格式问题。
+- Command: `pnpm exec prettier --write <15 files>`
+- Key output: 15 个文件格式化完成。
+
+### 2026-02-08 21:47 preflight 修复后回归验证
+
+- Command: `pnpm typecheck && pnpm lint && pnpm contract:check && pnpm test:unit`
+- Key output: 全通过（lint 仍为仓库既有 warning，无 error）。
+- Command: `cd apps/desktop && pnpm vitest run renderer/src/features/projects/CreateProjectDialog.test.tsx renderer/src/features/dashboard/Dashboard.open-project.test.tsx renderer/src/features/dashboard/Dashboard.empty-state.test.tsx renderer/src/features/dashboard/Dashboard.search.test.tsx`
+- Key output: 4 files / 23 tests 全通过。

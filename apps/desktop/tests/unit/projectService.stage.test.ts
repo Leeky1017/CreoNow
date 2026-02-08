@@ -5,13 +5,18 @@ import path from "node:path";
 
 import { createProjectService } from "../../main/src/services/projects/projectService";
 
-import { createNoopLogger, createProjectTestDb } from "./projectService.test-helpers";
+import {
+  createNoopLogger,
+  createProjectTestDb,
+} from "./projectService.test-helpers";
 
 /**
  * PM1-S5: should persist stage transition and expose dashboard tag update
  */
 async function main(): Promise<void> {
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "creonow-pm1-stage-"));
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "creonow-pm1-stage-"),
+  );
   const db = createProjectTestDb();
   const svc = createProjectService({
     db,
@@ -30,7 +35,10 @@ async function main(): Promise<void> {
     list: (args?: { includeArchived?: boolean }) => {
       ok: boolean;
       data?: {
-        items: Array<{ projectId: string; stage?: "outline" | "draft" | "revision" | "final" }>;
+        items: Array<{
+          projectId: string;
+          stage?: "outline" | "draft" | "revision" | "final";
+        }>;
       };
       error?: { code: string };
     };
@@ -53,7 +61,9 @@ async function main(): Promise<void> {
     throw new Error(`list failed: ${listed.error?.code ?? "unknown"}`);
   }
 
-  const item = listed.data.items.find((x) => x.projectId === created.data?.projectId);
+  const item = listed.data.items.find(
+    (x) => x.projectId === created.data?.projectId,
+  );
   assert.equal(item?.stage, "revision");
 
   db.close();

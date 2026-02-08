@@ -7,7 +7,10 @@ import type { IpcMainInvokeEvent } from "electron";
 
 import { createValidatedIpcMain } from "../../main/src/ipc/runtime-validation";
 import { registerProjectIpcHandlers } from "../../main/src/ipc/project";
-import { createProjectTestDb, createNoopLogger } from "./projectService.test-helpers";
+import {
+  createProjectTestDb,
+  createNoopLogger,
+} from "./projectService.test-helpers";
 
 type HandleListener = (
   event: IpcMainInvokeEvent,
@@ -37,12 +40,16 @@ function createMockIpcMain() {
  * - should return PROJECT_IPC_SCHEMA_INVALID with traceId
  */
 async function main(): Promise<void> {
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "creonow-pm1-ipc-"));
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "creonow-pm1-ipc-"),
+  );
   const db = createProjectTestDb();
 
   const rawIpcMain = createMockIpcMain();
   const validatedIpcMain = createValidatedIpcMain({
-    ipcMain: rawIpcMain as unknown as Parameters<typeof createValidatedIpcMain>[0]["ipcMain"],
+    ipcMain: rawIpcMain as unknown as Parameters<
+      typeof createValidatedIpcMain
+    >[0]["ipcMain"],
     logger: createNoopLogger(),
   });
 

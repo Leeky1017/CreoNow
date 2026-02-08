@@ -5,13 +5,18 @@ import path from "node:path";
 
 import { createProjectService } from "../../main/src/services/projects/projectService";
 
-import { createNoopLogger, createProjectTestDb } from "./projectService.test-helpers";
+import {
+  createNoopLogger,
+  createProjectTestDb,
+} from "./projectService.test-helpers";
 
 /**
  * PM1-S1: should create project and default chapter when valid manual input
  */
 async function main(): Promise<void> {
-  const userDataDir = await fs.mkdtemp(path.join(os.tmpdir(), "creonow-pm1-create-"));
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "creonow-pm1-create-"),
+  );
   const db = createProjectTestDb();
   const svc = createProjectService({
     db,
@@ -30,9 +35,10 @@ async function main(): Promise<void> {
   }
 
   const chapterCount = db
-    .prepare<[string], { count: number }>(
-      "SELECT COUNT(*) as count FROM documents WHERE project_id = ?",
-    )
+    .prepare<
+      [string],
+      { count: number }
+    >("SELECT COUNT(*) as count FROM documents WHERE project_id = ?")
     .get(created.data.projectId);
   assert.equal(
     chapterCount?.count,
