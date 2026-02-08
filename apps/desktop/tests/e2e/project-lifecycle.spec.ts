@@ -166,18 +166,50 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
   }
   expect(current2.data.projectId).toBe(projectId);
 
-  const deleted = await page2.evaluate(async (projectIdParam) => {
+  const blockedPurge = await page2.evaluate(async (projectIdParam) => {
     if (!window.creonow) {
       throw new Error("Missing window.creonow bridge");
     }
-    return await window.creonow.invoke("project:project:delete", {
+    return await window.creonow.invoke("project:lifecycle:purge", {
       projectId: projectIdParam,
+      traceId: "e2e-active-purge-blocked",
     });
   }, projectId);
-  expect(deleted.ok).toBe(true);
-  if (!deleted.ok) {
+  expect(blockedPurge.ok).toBe(false);
+  if (blockedPurge.ok) {
+    throw new Error("Expected PROJECT_DELETE_REQUIRES_ARCHIVE on active purge");
+  }
+  expect(blockedPurge.error.code).toBe("PROJECT_DELETE_REQUIRES_ARCHIVE");
+
+  const archived = await page2.evaluate(async (projectIdParam) => {
+    if (!window.creonow) {
+      throw new Error("Missing window.creonow bridge");
+    }
+    return await window.creonow.invoke("project:lifecycle:archive", {
+      projectId: projectIdParam,
+      traceId: "e2e-archive-before-purge",
+    });
+  }, projectId);
+  expect(archived.ok).toBe(true);
+  if (!archived.ok) {
     throw new Error(
-      `Expected ok project:project:delete, got: ${deleted.error.code}`,
+      `Expected ok project:lifecycle:archive, got: ${archived.error.code}`,
+    );
+  }
+
+  const purged = await page2.evaluate(async (projectIdParam) => {
+    if (!window.creonow) {
+      throw new Error("Missing window.creonow bridge");
+    }
+    return await window.creonow.invoke("project:lifecycle:purge", {
+      projectId: projectIdParam,
+      traceId: "e2e-purge-after-archive",
+    });
+  }, projectId);
+  expect(purged.ok).toBe(true);
+  if (!purged.ok) {
+    throw new Error(
+      `Expected ok project:lifecycle:purge, got: ${purged.error.code}`,
     );
   }
 

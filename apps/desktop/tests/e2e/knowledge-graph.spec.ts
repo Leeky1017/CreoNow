@@ -83,6 +83,10 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
 
   await page.getByTestId("icon-bar-knowledge-graph").click();
   await expect(page.getByTestId("layout-sidebar")).toBeVisible();
+  const kgPanel = page.getByTestId("sidebar-kg");
+  await expect(kgPanel).toBeVisible();
+  await kgPanel.getByRole("button", { name: "List" }).click();
+  await expect(page.getByTestId("kg-entity-name")).toBeVisible();
   await expect(page.getByTestId("kg-entity-create")).toBeEnabled();
 
   await page.getByTestId("kg-entity-name").fill("Alice");

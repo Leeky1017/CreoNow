@@ -148,6 +148,10 @@ test("system dialog: cancel/confirm across file tree + knowledge graph", async (
   // ---------------------------------------------------------------------------
   await page.getByTestId("icon-bar-knowledge-graph").click();
   await expect(page.getByTestId("layout-sidebar")).toBeVisible();
+  const kgPanel = page.getByTestId("sidebar-kg");
+  await expect(kgPanel).toBeVisible();
+  await kgPanel.getByRole("button", { name: "List" }).click();
+  await expect(page.getByTestId("kg-entity-name")).toBeVisible();
 
   await page.getByTestId("kg-entity-name").fill("Test Entity");
   await page.getByTestId("kg-entity-create").click();
