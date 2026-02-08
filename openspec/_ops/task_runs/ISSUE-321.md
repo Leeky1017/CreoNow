@@ -3,7 +3,7 @@
 - Issue: #321
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/321
 - Branch: task/321-knowledge-graph-p2-auto-recognition-ai-utilization
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/323
 - Scope: 完成 `knowledge-graph-p2-auto-recognition-ai-utilization` 全部任务（TDD、实现、验证、归档、交付）
 - Out of Scope: CE 真实 Rules 注入编排、真实 LLM provider 调用、Memory 联动
 
@@ -37,7 +37,7 @@
 
 ### 2026-02-09 01:07 Red 失败证据（KG3 新场景）
 
-- Command: 
+- Command:
   - `pnpm exec tsx apps/desktop/tests/integration/kg/auto-recognition-autosave.test.ts`
   - `pnpm exec tsx apps/desktop/tests/integration/kg/kg-rules-injection.test.ts`
   - `pnpm exec tsx apps/desktop/tests/integration/kg/query-cross-project-guard.test.ts`
@@ -72,7 +72,7 @@
 
 ### 2026-02-09 01:40 Green 通过证据（新增 11 测试）
 
-- Command: 
+- Command:
   - `pnpm exec tsx apps/desktop/tests/integration/kg/auto-recognition-autosave.test.ts`
   - `pnpm exec tsx apps/desktop/tests/integration/kg/suggestion-accept-create-entity.test.ts`
   - `pnpm exec tsx apps/desktop/tests/integration/kg/suggestion-dismiss-dedupe.test.ts`
@@ -106,9 +106,36 @@
 
 ### 2026-02-09 02:05 OpenSpec 收口
 
-- Command: 
+- Command:
   - `git mv openspec/changes/knowledge-graph-p2-auto-recognition-ai-utilization openspec/changes/archive/knowledge-graph-p2-auto-recognition-ai-utilization`
   - 更新 `openspec/changes/EXECUTION_ORDER.md`
 - Exit code: `0`
 - Key output:
   - change 已归档，活跃 change 从 3 降为 2。
+
+### 2026-02-09 02:13 提交、推送与 PR
+
+- Command: `git add -A && git commit -m "feat: deliver kg3 auto recognition and rules injection (#321)"`
+- Exit code: `0`
+- Key output:
+  - `a6fe27db feat: deliver kg3 auto recognition and rules injection (#321)`
+  - 29 files changed（代码、测试、contract、OpenSpec 归档、Rulebook、RUN_LOG）。
+
+- Command: `git push -u origin task/321-knowledge-graph-p2-auto-recognition-ai-utilization`
+- Exit code: `0`
+- Key output:
+  - 远端分支创建成功并建立 tracking。
+
+- Command: `gh pr create --base main --head task/321-knowledge-graph-p2-auto-recognition-ai-utilization --title "Deliver KG3 auto recognition and AI utilization (#321)" --body "..."`
+- Exit code: `0`
+- Key output:
+  - `https://github.com/Leeky1017/CreoNow/pull/323`
+
+### 2026-02-09 02:14 preflight 占位阻断与回填
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `[RUN_LOG] PR field still placeholder ... (待回填)`
+- Action:
+  - 回填真实 PR 链接 `https://github.com/Leeky1017/CreoNow/pull/323`。

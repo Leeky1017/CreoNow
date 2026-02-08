@@ -21,7 +21,8 @@ type RulesInjectionDto = {
 {
   const prevRecognitionUnavailable =
     process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE;
-  const prevRelevantQueryFail = process.env.CREONOW_KG_FORCE_RELEVANT_QUERY_FAIL;
+  const prevRelevantQueryFail =
+    process.env.CREONOW_KG_FORCE_RELEVANT_QUERY_FAIL;
 
   process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE = "1";
   process.env.CREONOW_KG_FORCE_RELEVANT_QUERY_FAIL = "1";

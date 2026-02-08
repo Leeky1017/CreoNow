@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 
-import { KG_SUGGESTION_CHANNEL, type KgSuggestionEvent } from "../../../../../packages/shared/types/kg";
+import {
+  KG_SUGGESTION_CHANNEL,
+  type KgSuggestionEvent,
+} from "../../../../../packages/shared/types/kg";
 import { createKnowledgeGraphIpcHarness } from "../../helpers/kg/harness";
 
 type RecognitionEnqueueDto = {
@@ -36,7 +39,8 @@ type RecognitionEnqueueDto = {
 
     assert.equal(elapsedMs < 50, true);
     assert.equal(
-      enqueueRes.data.status === "started" || enqueueRes.data.status === "queued",
+      enqueueRes.data.status === "started" ||
+        enqueueRes.data.status === "queued",
       true,
     );
 

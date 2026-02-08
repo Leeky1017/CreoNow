@@ -11,7 +11,8 @@ type EntityDto = {
 // KG3-R1-S4
 // should log recognition failure without toast and keep manual create available
 {
-  const prevForceUnavailable = process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE;
+  const prevForceUnavailable =
+    process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE;
   process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE = "1";
 
   const harness = createKnowledgeGraphIpcHarness();
@@ -41,11 +42,14 @@ type EntityDto = {
     );
     assert.equal(errorEvents.length > 0, true);
 
-    const createRes = await harness.invoke<EntityDto>("knowledge:entity:create", {
-      projectId: harness.projectId,
-      type: "character",
-      name: "手动创建角色",
-    });
+    const createRes = await harness.invoke<EntityDto>(
+      "knowledge:entity:create",
+      {
+        projectId: harness.projectId,
+        type: "character",
+        name: "手动创建角色",
+      },
+    );
 
     assert.equal(createRes.ok, true);
     if (!createRes.ok) {
@@ -57,7 +61,8 @@ type EntityDto = {
     if (prevForceUnavailable === undefined) {
       delete process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE;
     } else {
-      process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE = prevForceUnavailable;
+      process.env.CREONOW_KG_RECOGNITION_FORCE_UNAVAILABLE =
+        prevForceUnavailable;
     }
   }
 }

@@ -21,13 +21,16 @@ type RulesInjectionDto = {
   const harness = createKnowledgeGraphIpcHarness();
 
   try {
-    const createRes = await harness.invoke<EntityDto>("knowledge:entity:create", {
-      projectId: harness.projectId,
-      type: "character",
-      name: "神秘老人",
-      description: "",
-      attributes: {},
-    });
+    const createRes = await harness.invoke<EntityDto>(
+      "knowledge:entity:create",
+      {
+        projectId: harness.projectId,
+        type: "character",
+        name: "神秘老人",
+        description: "",
+        attributes: {},
+      },
+    );
 
     assert.equal(createRes.ok, true);
     if (!createRes.ok) {

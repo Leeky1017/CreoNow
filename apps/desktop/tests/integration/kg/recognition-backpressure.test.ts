@@ -47,7 +47,9 @@ type RecognitionStatsDto = {
       tasks.push(enqueueRes.data);
     }
 
-    const startedCount = tasks.filter((task) => task.status === "started").length;
+    const startedCount = tasks.filter(
+      (task) => task.status === "started",
+    ).length;
     const queuedCount = tasks.filter((task) => task.status === "queued").length;
     assert.equal(startedCount >= 1, true);
     assert.equal(queuedCount >= 1, true);
