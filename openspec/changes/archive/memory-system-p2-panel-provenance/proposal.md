@@ -32,4 +32,4 @@ MS-2 已定义语义记忆 CRUD、蒸馏、衰减与冲突处理，仍缺少用�
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`
+- Owner 审阅：`APPROVED`（Issue #320 实施前已完成依赖同步检查并进入 TDD）

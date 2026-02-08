@@ -19,6 +19,8 @@ export const IPC_ERROR_CODES = [
   "MEMORY_CAPACITY_EXCEEDED",
   "MEMORY_DISTILL_LLM_UNAVAILABLE",
   "MEMORY_CONFIDENCE_OUT_OF_RANGE",
+  "MEMORY_TRACE_MISMATCH",
+  "MEMORY_SCOPE_DENIED",
   "MODEL_NOT_READY",
   "ENCODING_FAILED",
   "RATE_LIMITED",
@@ -352,6 +354,36 @@ const MEMORY_DISTILL_PROGRESS_SCHEMA = s.object({
   message: s.optional(s.string()),
   errorCode: s.optional(IPC_ERROR_CODE_SCHEMA),
 });
+
+const MEMORY_TRACE_TYPE_SCHEMA = s.union(
+  s.literal("working"),
+  s.literal("episodic"),
+  s.literal("semantic"),
+);
+
+const MEMORY_GENERATION_TRACE_SCHEMA = s.object({
+  generationId: s.string(),
+  projectId: s.string(),
+  memoryReferences: s.object({
+    working: s.array(s.string()),
+    episodic: s.array(s.string()),
+    semantic: s.array(s.string()),
+  }),
+  influenceWeights: s.array(
+    s.object({
+      memoryType: MEMORY_TRACE_TYPE_SCHEMA,
+      referenceId: s.string(),
+      weight: s.number(),
+    }),
+  ),
+  createdAt: s.number(),
+  updatedAt: s.number(),
+});
+
+const MEMORY_TRACE_FEEDBACK_VERDICT_SCHEMA = s.union(
+  s.literal("correct"),
+  s.literal("incorrect"),
+);
 
 const KG_ENTITY_TYPE_SCHEMA = s.union(
   s.literal("character"),
@@ -752,6 +784,27 @@ export const ipcContract = {
     "memory:distill:progress": {
       request: MEMORY_DISTILL_PROGRESS_SCHEMA,
       response: MEMORY_DISTILL_PROGRESS_SCHEMA,
+    },
+    "memory:trace:get": {
+      request: s.object({
+        projectId: s.string(),
+        generationId: s.string(),
+      }),
+      response: s.object({
+        trace: MEMORY_GENERATION_TRACE_SCHEMA,
+      }),
+    },
+    "memory:trace:feedback": {
+      request: s.object({
+        projectId: s.string(),
+        generationId: s.string(),
+        verdict: MEMORY_TRACE_FEEDBACK_VERDICT_SCHEMA,
+        reason: s.optional(s.string()),
+      }),
+      response: s.object({
+        accepted: s.literal(true),
+        feedbackId: s.string(),
+      }),
     },
     "search:fulltext:query": {
       request: s.object({

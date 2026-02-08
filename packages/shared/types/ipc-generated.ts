@@ -30,6 +30,8 @@ export type IpcErrorCode =
   | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
   | "MEMORY_DISTILL_LLM_UNAVAILABLE"
   | "MEMORY_EPISODE_WRITE_FAILED"
+  | "MEMORY_SCOPE_DENIED"
+  | "MEMORY_TRACE_MISMATCH"
   | "MODEL_NOT_READY"
   | "NOT_FOUND"
   | "PERMISSION_DENIED"
@@ -137,6 +139,8 @@ export const IPC_CHANNELS = [
   "memory:semantic:update",
   "memory:settings:get",
   "memory:settings:update",
+  "memory:trace:feedback",
+  "memory:trace:get",
   "project:lifecycle:archive",
   "project:lifecycle:get",
   "project:lifecycle:purge",
@@ -205,6 +209,8 @@ export type IpcChannelSpec = {
           | "MEMORY_CAPACITY_EXCEEDED"
           | "MEMORY_DISTILL_LLM_UNAVAILABLE"
           | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+          | "MEMORY_TRACE_MISMATCH"
+          | "MEMORY_SCOPE_DENIED"
           | "MODEL_NOT_READY"
           | "ENCODING_FAILED"
           | "RATE_LIMITED"
@@ -669,6 +675,8 @@ export type IpcChannelSpec = {
                 | "MEMORY_CAPACITY_EXCEEDED"
                 | "MEMORY_DISTILL_LLM_UNAVAILABLE"
                 | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+                | "MEMORY_TRACE_MISMATCH"
+                | "MEMORY_SCOPE_DENIED"
                 | "MODEL_NOT_READY"
                 | "ENCODING_FAILED"
                 | "RATE_LIMITED"
@@ -729,6 +737,8 @@ export type IpcChannelSpec = {
                 | "MEMORY_CAPACITY_EXCEEDED"
                 | "MEMORY_DISTILL_LLM_UNAVAILABLE"
                 | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+                | "MEMORY_TRACE_MISMATCH"
+                | "MEMORY_SCOPE_DENIED"
                 | "MODEL_NOT_READY"
                 | "ENCODING_FAILED"
                 | "RATE_LIMITED"
@@ -984,6 +994,8 @@ export type IpcChannelSpec = {
         | "MEMORY_CAPACITY_EXCEEDED"
         | "MEMORY_DISTILL_LLM_UNAVAILABLE"
         | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+        | "MEMORY_TRACE_MISMATCH"
+        | "MEMORY_SCOPE_DENIED"
         | "MODEL_NOT_READY"
         | "ENCODING_FAILED"
         | "RATE_LIMITED"
@@ -1037,6 +1049,8 @@ export type IpcChannelSpec = {
         | "MEMORY_CAPACITY_EXCEEDED"
         | "MEMORY_DISTILL_LLM_UNAVAILABLE"
         | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+        | "MEMORY_TRACE_MISMATCH"
+        | "MEMORY_SCOPE_DENIED"
         | "MODEL_NOT_READY"
         | "ENCODING_FAILED"
         | "RATE_LIMITED"
@@ -1407,6 +1421,42 @@ export type IpcChannelSpec = {
       privacyModeEnabled: boolean;
     };
   };
+  "memory:trace:feedback": {
+    request: {
+      generationId: string;
+      projectId: string;
+      reason?: string;
+      verdict: "correct" | "incorrect";
+    };
+    response: {
+      accepted: true;
+      feedbackId: string;
+    };
+  };
+  "memory:trace:get": {
+    request: {
+      generationId: string;
+      projectId: string;
+    };
+    response: {
+      trace: {
+        createdAt: number;
+        generationId: string;
+        influenceWeights: Array<{
+          memoryType: "working" | "episodic" | "semantic";
+          referenceId: string;
+          weight: number;
+        }>;
+        memoryReferences: {
+          episodic: Array<string>;
+          semantic: Array<string>;
+          working: Array<string>;
+        };
+        projectId: string;
+        updatedAt: number;
+      };
+    };
+  };
   "project:lifecycle:archive": {
     request: {
       projectId: string;
@@ -1674,6 +1724,8 @@ export type IpcChannelSpec = {
           | "MEMORY_CAPACITY_EXCEEDED"
           | "MEMORY_DISTILL_LLM_UNAVAILABLE"
           | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+          | "MEMORY_TRACE_MISMATCH"
+          | "MEMORY_SCOPE_DENIED"
           | "MODEL_NOT_READY"
           | "ENCODING_FAILED"
           | "RATE_LIMITED"

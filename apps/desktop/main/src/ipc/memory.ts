@@ -12,6 +12,11 @@ import {
   type UserMemoryItem,
 } from "../services/memory/memoryService";
 import {
+  createInMemoryMemoryTraceService,
+  type GenerationTrace,
+  type MemoryTraceService,
+} from "../services/memory/memoryTraceService";
+import {
   createEpisodicMemoryService,
   createSqliteEpisodeRepository,
   type DistillGeneratedRule,
@@ -84,6 +89,13 @@ type SemanticUpdatePayload = {
 };
 type SemanticDeletePayload = { projectId: string; ruleId: string };
 type SemanticDistillPayload = { projectId: string; trigger?: DistillTrigger };
+type TraceGetPayload = { projectId: string; generationId: string };
+type TraceFeedbackPayload = {
+  projectId: string;
+  generationId: string;
+  verdict: "correct" | "incorrect";
+  reason?: string;
+};
 
 function tryGetSender(event: unknown): WebContents | null {
   if (!event || typeof event !== "object") {
@@ -122,6 +134,7 @@ export function registerMemoryIpcHandlers(deps: {
     }>;
   }) => DistillGeneratedRule[];
   distillScheduler?: (job: () => void) => void;
+  traceService?: MemoryTraceService;
 }): void {
   const distillSubscribers = new Map<number, WebContents>();
 
@@ -160,6 +173,7 @@ export function registerMemoryIpcHandlers(deps: {
           onDistillProgress: broadcastDistillProgress,
         })
       : null);
+  const traceService = deps.traceService ?? createInMemoryMemoryTraceService();
 
   deps.ipcMain.handle(
     "memory:entry:create",
@@ -474,6 +488,34 @@ export function registerMemoryIpcHandlers(deps: {
       }
       rememberSender(e);
       const res = episodicService.distillSemanticMemory(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "memory:trace:get",
+    async (
+      e,
+      payload: TraceGetPayload,
+    ): Promise<IpcResponse<{ trace: GenerationTrace }>> => {
+      rememberSender(e);
+      const res = traceService.getTrace(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "memory:trace:feedback",
+    async (
+      e,
+      payload: TraceFeedbackPayload,
+    ): Promise<IpcResponse<{ accepted: true; feedbackId: string }>> => {
+      rememberSender(e);
+      const res = traceService.recordFeedback(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
