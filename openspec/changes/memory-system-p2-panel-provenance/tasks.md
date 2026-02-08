@@ -3,6 +3,7 @@
 - [ ] 1.1 审阅并确认 MS-3 覆盖 Requirement：面板交互 / 溯源
 - [ ] 1.2 审阅并确认 5 种操作、Storybook 4 态、设计 token 约束
 - [ ] 1.3 审阅并确认异常范围：trace 失配、跨项目读取
+- [ ] 1.4 在进入 Red 前完成依赖同步检查（Dependency Sync Check）：核对 MS-2 已合并产出的语义记忆 CRUD/蒸馏进度/冲突输出与本 change 假设
 
 ## 2. TDD Mapping（先测前提）
 
@@ -44,3 +45,4 @@
 
 - [ ] 6.1 RUN_LOG 记录 Scenario 映射、Red 失败输出、Green 通过输出
 - [ ] 6.2 记录 Storybook 截图/快照与权限异常验证证据
+- [ ] 6.3 记录 Dependency Sync Check 的输入、结论（无漂移/已更新）与后续动作

@@ -3,6 +3,7 @@
 - [ ] 1.1 审阅并确认 PM-1 仅覆盖创建、元数据、Dashboard 三个 requirement
 - [ ] 1.2 审阅并确认跨切场景仅纳入容量溢出与非法枚举值
 - [ ] 1.3 审阅并确认通道命名、Zod 契约、Storybook 覆盖与 out-of-scope
+- [ ] 1.4 依赖同步检查（Dependency Sync Check）：本 change 无上游依赖，记录 N/A
 
 ## 2. TDD Mapping（先测前提）
 
@@ -70,3 +71,4 @@
 - [ ] 6.1 记录 RUN_LOG（Scenario 映射、Red 失败、Green 通过、关键命令输出）
 - [ ] 6.2 记录 Storybook 4+3 态截图或执行证据
 - [ ] 6.3 记录门禁与 Rulebook 校验证据
+- [ ] 6.4 记录 Dependency Sync Check 结论（本 change 为 N/A）

@@ -114,6 +114,8 @@
 - 当 `openspec/changes/` 中存在 2 个及以上活跃 change（不含 `archive/` 与 `_template/`）时，必须在根目录维护 `openspec/changes/EXECUTION_ORDER.md`
 - `EXECUTION_ORDER.md` 必须包含：执行模式（串行/并行）、明确顺序、依赖关系、更新时间（精确到小时和分钟，格式 `YYYY-MM-DD HH:mm`）
 - 任一活跃 change 的范围/依赖/状态变更时，必须同步更新 `EXECUTION_ORDER.md`
+- 若 change 在 `EXECUTION_ORDER.md` 中存在上游依赖，进入 Red 前必须完成「依赖同步检查（Dependency Sync Check）」并落盘（至少核对：数据结构、IPC 契约、错误码、阈值）
+- 若依赖同步检查发现漂移，必须先更新当前 change 的 `proposal.md`、`specs/*`、`tasks.md`（必要时同步更新 `EXECUTION_ORDER.md`）并经确认后再进入 Red/Green
 - 每个 `openspec/changes/<change>/tasks.md` 必须按以下固定章节顺序撰写：
   - `1. Specification`
   - `2. TDD Mapping（先测前提）`
@@ -153,6 +155,8 @@
 21. 禁止活跃 change 变更后未同步更新 `openspec/changes/EXECUTION_ORDER.md`
 22. 禁止复用已关闭（Closed）或历史 Issue 作为新任务入口
 23. 禁止在未同步最新控制面 `origin/main` 前创建 `task/*` 分支或 worktree
+24. 禁止在存在上游依赖的 change 中，未完成 `依赖同步检查（Dependency Sync Check）` 即进入 Red/Green
+25. 禁止在依赖漂移已发现时，未先更新 change 文档就继续实现
 
 ---
 
@@ -172,14 +176,14 @@
 
 ### 5.2 开发流程
 
-| 阶段          | 完成条件                                                                                       |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| 1. 任务准入   | Issue 已创建或认领，N 和 SLUG 已确定                                                           |
-| 2. 规格制定   | spec 已编写或更新；Rulebook task 已创建并通过 validate；delta spec 已提交 Owner 审阅（如需要） |
-| 3. 环境隔离   | Worktree 已创建，工作目录已切换                                                                |
-| 4. 实现与测试 | 按 TDD 循环实现；所有测试通过；RUN_LOG 已记录                                                  |
-| 5. 提交与合并 | PR 已创建；auto-merge 已开启；三个 checks 全绿；PR 已确认合并                                  |
-| 6. 收口与归档 | 控制面 `main` 已包含任务提交；worktree 已清理；Rulebook task 已归档                            |
+| 阶段          | 完成条件                                                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. 任务准入   | Issue 已创建或认领，N 和 SLUG 已确定                                                                                                              |
+| 2. 规格制定   | spec 已编写或更新；Rulebook task 已创建并通过 validate；delta spec 已提交 Owner 审阅（如需要）；若有上游依赖则已完成 Dependency Sync Check 并落盘 |
+| 3. 环境隔离   | Worktree 已创建，工作目录已切换                                                                                                                   |
+| 4. 实现与测试 | 按 TDD 循环实现；所有测试通过；RUN_LOG 已记录                                                                                                     |
+| 5. 提交与合并 | PR 已创建；auto-merge 已开启；三个 checks 全绿；PR 已确认合并                                                                                     |
+| 6. 收口与归档 | 控制面 `main` 已包含任务提交；worktree 已清理；Rulebook task 已归档                                                                               |
 
 ### 5.3 命名约定
 
@@ -290,19 +294,20 @@ THEN（期望结果）       →  Assert（验证）        →  被测模块的
 
 ## 十一、异常处理
 
-| 遇到的情况                           | 必须做                                                                             | 禁止做                     |
-| ------------------------------------ | ---------------------------------------------------------------------------------- | -------------------------- |
-| Spec 不存在或不完整                  | 通知 Owner，请求补充 spec                                                          | 根据猜测直接写代码         |
-| 开发中发现 spec 遗漏场景             | 写 delta spec 补充 → 通知 Owner → 等确认                                           | 只写测试不更新 spec        |
-| `gh` 命令超时                        | 重试 3 次（间隔 10s），仍失败 → 记录 RUN_LOG → 升级                                | 静默忽略                   |
-| PR 需要 review                       | 记录 blocker → 通知 reviewer → 等待                                                | 静默放弃                   |
-| CI 失败                              | 修复 → push → 再次 watch → 写入 RUN_LOG                                            | 先合并再修                 |
-| Rulebook task 不存在或 validate 失败 | 阻断交付，先修复 Rulebook 再继续                                                   | 跳过 Rulebook 直接实现     |
-| 非 `task/*` 分支提交 PR              | PR body 必须包含 `Skip-Reason:`                                                    | 不说明原因直接跳过 RUN_LOG |
-| required checks 与交付规则文档不一致 | 阻断交付并升级治理，先完成对齐                                                     | 继续宣称门禁全绿           |
-| 任务超出 spec 范围                   | 先补 spec → 经 Owner 确认后再做                                                    | 超范围自由发挥             |
-| 误用已关闭/历史 Issue                | 立即停止实现 → 新建 OPEN Issue → 从最新 `origin/main` 重建 worktree → 记录 RUN_LOG | 继续沿用旧 Issue 开发      |
-| RUN_LOG 的 PR 字段为占位符           | 先回填真实 PR 链接再宣称交付完成                                                   | 带占位符进入合并流程       |
+| 遇到的情况                           | 必须做                                                                                                   | 禁止做                     |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------- |
+| Spec 不存在或不完整                  | 通知 Owner，请求补充 spec                                                                                | 根据猜测直接写代码         |
+| 开发中发现 spec 遗漏场景             | 写 delta spec 补充 → 通知 Owner → 等确认                                                                 | 只写测试不更新 spec        |
+| 上游依赖产出与当前 change 假设不一致 | 先做 Dependency Sync Check 并记录 → 更新 proposal/spec/tasks（必要时更新 EXECUTION_ORDER）→ 经确认后继续 | 跳过更新直接进入 Red/Green |
+| `gh` 命令超时                        | 重试 3 次（间隔 10s），仍失败 → 记录 RUN_LOG → 升级                                                      | 静默忽略                   |
+| PR 需要 review                       | 记录 blocker → 通知 reviewer → 等待                                                                      | 静默放弃                   |
+| CI 失败                              | 修复 → push → 再次 watch → 写入 RUN_LOG                                                                  | 先合并再修                 |
+| Rulebook task 不存在或 validate 失败 | 阻断交付，先修复 Rulebook 再继续                                                                         | 跳过 Rulebook 直接实现     |
+| 非 `task/*` 分支提交 PR              | PR body 必须包含 `Skip-Reason:`                                                                          | 不说明原因直接跳过 RUN_LOG |
+| required checks 与交付规则文档不一致 | 阻断交付并升级治理，先完成对齐                                                                           | 继续宣称门禁全绿           |
+| 任务超出 spec 范围                   | 先补 spec → 经 Owner 确认后再做                                                                          | 超范围自由发挥             |
+| 误用已关闭/历史 Issue                | 立即停止实现 → 新建 OPEN Issue → 从最新 `origin/main` 重建 worktree → 记录 RUN_LOG                       | 继续沿用旧 Issue 开发      |
+| RUN_LOG 的 PR 字段为占位符           | 先回填真实 PR 链接再宣称交付完成                                                                         | 带占位符进入合并流程       |
 
 ---
 
