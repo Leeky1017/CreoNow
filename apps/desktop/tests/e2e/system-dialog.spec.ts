@@ -147,7 +147,11 @@ test("system dialog: cancel/confirm across file tree + knowledge graph", async (
   // KnowledgeGraphPanel: Cancel keeps entity, Confirm deletes entity
   // ---------------------------------------------------------------------------
   await page.getByTestId("icon-bar-knowledge-graph").click();
-  await expect(page.getByTestId("layout-sidebar")).toBeVisible();
+  const sidebar = page.getByTestId("layout-sidebar");
+  await expect(sidebar).toBeVisible();
+  await expect(sidebar.getByRole("button", { name: "Graph" })).toBeVisible();
+  await sidebar.getByRole("button", { name: "List" }).click();
+  await expect(page.getByTestId("kg-entity-create")).toBeEnabled();
 
   await page.getByTestId("kg-entity-name").fill("Test Entity");
   await page.getByTestId("kg-entity-create").click();

@@ -61,6 +61,18 @@ async function createProjectViaUi(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Enter list mode from KG default graph mode.
+ *
+ * Why: KG2 defaults to Graph view; list CRUD controls are rendered only in List.
+ */
+async function switchKgToListMode(page: Page): Promise<void> {
+  const sidebar = page.getByTestId("layout-sidebar");
+  await expect(sidebar.getByRole("button", { name: "Graph" })).toBeVisible();
+  await sidebar.getByRole("button", { name: "List" }).click();
+  await expect(page.getByTestId("kg-entity-create")).toBeEnabled();
+}
+
 test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({ userDataDir });
@@ -83,7 +95,7 @@ test("knowledge graph: sidebar CRUD + context viewer injection (skill gated)", a
 
   await page.getByTestId("icon-bar-knowledge-graph").click();
   await expect(page.getByTestId("layout-sidebar")).toBeVisible();
-  await expect(page.getByTestId("kg-entity-create")).toBeEnabled();
+  await switchKgToListMode(page);
 
   await page.getByTestId("kg-entity-name").fill("Alice");
   await page.getByTestId("kg-entity-create").click();
