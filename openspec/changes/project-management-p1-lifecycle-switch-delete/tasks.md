@@ -67,5 +67,5 @@
 
 - [x] 6.1 记录 RUN_LOG（Scenario 映射、Red/Green 证据、关键命令输出）
 - [x] 6.2 记录 benchmark 基线结果与阈值判断证据
-- [ ] 6.3 记录门禁、Rulebook 校验与 PR 合并证据
+- [x] 6.3 记录门禁、Rulebook 校验与 PR 合并证据
 - [x] 6.4 记录 Dependency Sync Check 的输入、结论（无漂移/已更新）与后续动作
