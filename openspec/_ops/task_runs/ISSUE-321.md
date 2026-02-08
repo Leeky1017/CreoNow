@@ -139,3 +139,11 @@
   - `[RUN_LOG] PR field still placeholder ... (待回填)`
 - Action:
   - 回填真实 PR 链接 `https://github.com/Leeky1017/CreoNow/pull/323`。
+
+### 2026-02-09 02:18 preflight 最终通过
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Rulebook validate 通过（仅 `No spec files found` warning）。
+  - Prettier / typecheck / lint / contract:check / test:unit 全部通过。
