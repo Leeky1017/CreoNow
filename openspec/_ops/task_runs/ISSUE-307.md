@@ -205,3 +205,38 @@
 - Exit code: `0`
 - Key output:
   - `Logged in to github.com account Leeky1017`
+
+### 2026-02-08 23:40 PR #313 门禁失败（windows-e2e）
+
+- Command: `gh pr checks 313`
+- Exit code: `1`
+- Key output:
+  - `windows-e2e fail`
+  - 其余 required checks：`merge-serial pass`、`openspec-log-guard pass`、`contract-check pass`、`unit-test pass`
+- Command: `gh run view 21800766671 --job 62895795096 --log-failed`
+- Exit code: `0`
+- Key output:
+  - `knowledge-graph.spec.ts`：`kg-entity-create` 未找到
+  - `system-dialog.spec.ts`：`kg-entity-name` 未找到
+  - `project-lifecycle.spec.ts`：`project:project:delete` 断言失败（active 直接删除返回 `ok=false`）
+- Root cause:
+  - KG E2E 仍假设默认 List 视图，但当前默认视图为 Graph；
+  - 生命周期 E2E 仍假设 active 项目可直接删除，与 PM2 `active -> archived -> deleted` 约束不一致。
+
+### 2026-02-08 23:45 本地修复与定向回归
+
+- Edited:
+  - `apps/desktop/tests/e2e/knowledge-graph.spec.ts`
+  - `apps/desktop/tests/e2e/system-dialog.spec.ts`
+  - `apps/desktop/tests/e2e/project-lifecycle.spec.ts`
+- Fix summary:
+  - KG 相关用例进入知识图谱后先显式切换到 `List` 再执行实体 CRUD；
+  - 生命周期用例改为先断言 active 直接 `project:lifecycle:purge` 返回 `PROJECT_DELETE_REQUIRES_ARCHIVE`，再执行 `archive -> purge`。
+- Command: `pnpm install --frozen-lockfile`
+- Exit code: `0`
+- Key output:
+  - `Lockfile is up to date`
+- Command: `pnpm -C apps/desktop test:e2e -- tests/e2e/knowledge-graph.spec.ts tests/e2e/project-lifecycle.spec.ts tests/e2e/system-dialog.spec.ts`
+- Exit code: `0`
+- Key output:
+  - `3 passed`
