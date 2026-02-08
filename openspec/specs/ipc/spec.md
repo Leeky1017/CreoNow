@@ -111,7 +111,7 @@ interface IPCChannelDefinition {
 **Request-Response** 规范：
 
 - 渲染进程发起，主进程处理并返回
-- 返回值统一为 `{ success: true, data: T }` 或 `{ success: false, error: IPCError }`
+- 返回值统一为 `{ ok: true, data: T }` 或 `{ ok: false, error: IPCError }`
 - 超时设置：默认 30 秒，可按通道配置
 
 **Push Notification** 规范：
@@ -131,14 +131,14 @@ interface IPCChannelDefinition {
 - **假设** 渲染进程需要获取文档列表
 - **当** 调用 `file:document:list`
 - **则** 主进程从 SQLite 查询文档列表
-- **并且** 返回 `{ success: true, data: Document[] }`
+- **并且** 返回 `{ ok: true, data: Document[] }`
 - **并且** 渲染进程收到类型安全的响应
 
 #### Scenario: Request-Response 超时
 
 - **假设** 主进程处理耗时超过 30 秒
 - **当** 超时触发
-- **则** 渲染进程收到 `{ success: false, error: { code: "IPC_TIMEOUT", message: "请求超时" } }`
+- **则** 渲染进程收到 `{ ok: false, error: { code: "IPC_TIMEOUT", message: "请求超时" } }`
 - **并且** 主进程中正在执行的操作被标记为需要清理
 
 #### Scenario: Push Notification 流式推送
@@ -227,7 +227,7 @@ interface PreloadAPI {
 
 ```typescript
 {
-  success: false,
+  ok: false,
   error: {
     code: "VALIDATION_ERROR",
     message: string,          // 人类可读的错误描述
@@ -249,14 +249,14 @@ interface PreloadAPI {
 
 - **假设** 渲染进程发送 `{ title: 123, type: "chapter" }` （title 应为 string）
 - **当** 主进程 IPC Handler 执行 Zod 校验
-- **则** 校验失败，返回 `{ success: false, error: { code: "VALIDATION_ERROR", message: "title 必须为字符串", details: [...] } }`
+- **则** 校验失败，返回 `{ ok: false, error: { code: "VALIDATION_ERROR", message: "title 必须为字符串", details: [...] } }`
 - **并且** 业务逻辑不执行
 
 #### Scenario: Zod 校验失败——缺少必填字段
 
 - **假设** 渲染进程发送 `{ type: "chapter" }` （缺少 title）
 - **当** 主进程 IPC Handler 执行 Zod 校验
-- **则** 校验失败，返回 `{ success: false, error: { code: "VALIDATION_ERROR", message: "title 为必填字段" } }`
+- **则** 校验失败，返回 `{ ok: false, error: { code: "VALIDATION_ERROR", message: "title 为必填字段" } }`
 
 ---
 
@@ -274,8 +274,8 @@ interface IPCError {
 }
 
 type IPCResponse<T> =
-  | { success: true; data: T }
-  | { success: false; error: IPCError };
+  | { ok: true; data: T }
+  | { ok: false; error: IPCError };
 ```
 
 预定义错误码：
@@ -299,14 +299,14 @@ type IPCResponse<T> =
 
 - **假设** 主进程处理文档创建时 SQLite 写入失败
 - **当** 异常被 IPC Handler 的统一错误处理捕获
-- **则** 返回 `{ success: false, error: { code: "DB_ERROR", message: "数据保存失败，请重试" } }`
+- **则** 返回 `{ ok: false, error: { code: "DB_ERROR", message: "数据保存失败，请重试" } }`
 - **并且** 原始 Error stack 记录到主进程日志文件
 - **并且** 渲染进程不会看到内部实现细节
 
 #### Scenario: 渲染进程处理错误响应
 
 - **假设** 渲染进程调用 `window.api.file.createDocument(...)`
-- **当** 收到 `{ success: false, error: { code: "VALIDATION_ERROR", ... } }`
+- **当** 收到 `{ ok: false, error: { code: "VALIDATION_ERROR", ... } }`
 - **则** 渲染进程根据 `error.code` 展示对应的用户友好提示
 - **并且** 表单字段显示内联错误（如有 `details`）
 
@@ -382,14 +382,14 @@ IPC 层**必须**支持完整的单元测试，不依赖真实的 Electron 运�
 - **当** 传入合法参数调用 handler 函数
 - **则** handler 执行 Zod 校验通过
 - **并且** 调用 Document DAO 创建文档
-- **并且** 返回 `{ success: true, data: Document }`
+- **并且** 返回 `{ ok: true, data: Document }`
 
 #### Scenario: 单元测试 Zod 校验拒绝非法数据
 
 - **假设** 测试 `file:document:create` handler
 - **当** 传入 `{ title: null }` 调用 handler
 - **则** Zod 校验失败
-- **并且** 返回 `{ success: false, error: { code: "VALIDATION_ERROR", ... } }`
+- **并且** 返回 `{ ok: false, error: { code: "VALIDATION_ERROR", ... } }`
 - **并且** DAO 不被调用
 
 ---
