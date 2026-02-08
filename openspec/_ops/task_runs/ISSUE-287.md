@@ -15,7 +15,7 @@
 
 ## Status
 
-- CURRENT: `IN_PROGRESS`（已完成 issue/rulebook/bootstrap，正在执行 preflight + PR 合并）
+- CURRENT: `IN_PROGRESS`（PR #288 已创建，已撤销误归档并等待用户确认后继续收口）
 
 ## Plan
 
@@ -82,11 +82,25 @@
   - Prettier 修复 3 个文件
   - preflight 全通过（`typecheck` / `lint` / `contract:check` / `test:unit`）
 
+### 2026-02-08 18:23 +0800 rollback mistaken archive for active change
+
+- Command:
+  - `gh pr merge 288 --disable-auto`
+  - `mv openspec/changes/archive/document-management-p2-hardening-and-gates openspec/changes/`
+  - `edit openspec/changes/document-management-p2-hardening-and-gates/{proposal.md,tasks.md}`
+  - `edit openspec/changes/EXECUTION_ORDER.md`
+- Exit code: `0`
+- Key output:
+  - `PR #288` auto-merge 已关闭（避免误归档自动合并）
+  - `document-management-p2-hardening-and-gates` 已恢复为活跃 change
+  - 该 change 的 `tasks.md` 已撤销完成勾选，`proposal.md` 状态改回 `IN_PROGRESS`
+  - `EXECUTION_ORDER.md` 活跃变更同步为包含 `document-management-p2-hardening-and-gates`
+
 ## Blockers
 
-- NONE
+- 用户已指出 `document-management-p2-hardening-and-gates` 尚未完成，需保持活跃且不得归档。
 
 ## Next
 
-- 提交 preflight 修复并推送分支。
-- 将 PR #288 标记为 Ready，开启 auto-merge 并等待 required checks 全绿合并。
+- 提交“撤销误归档”修复到 PR #288。
+- 待用户确认后继续执行最终收口（或按用户指令拆分交付范围）。
