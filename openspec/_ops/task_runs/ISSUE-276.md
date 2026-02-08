@@ -16,6 +16,12 @@
 
 - CURRENT: `IN_PROGRESS`（PR 已创建并开启 auto-merge，等待 required checks）
 
+## Plan
+
+- 保持“只提交未提交内容”，不扩展业务实现范围。
+- 通过 preflight 和 required checks 后由 auto-merge 合并回 `main`。
+- 合并后确认 `origin/main` 包含 PR #277 的 merge commit。
+
 ## Runs
 
 ### 2026-02-08 15:56 +0800 issue + branch bootstrap
@@ -78,6 +84,17 @@
 - Key output:
   - `autoMergeRequest.mergeMethod = SQUASH`
   - `state = OPEN`, `mergeStateStatus = BLOCKED`（等待 checks）
+
+### 2026-02-08 16:07 +0800 required check failure triage
+
+- Command:
+  - `gh pr checks 277`
+  - `gh run view 21794821369 --job 62880469180 --log-failed`
+- Exit code: `0`
+- Key output:
+  - 唯一失败项：`openspec-log-guard`
+  - 根因：`openspec/_ops/task_runs/ISSUE-276.md` 缺少必填章节 `## Plan`
+  - 修复动作：补齐 `## Plan` 并推送触发重跑
 
 ## Next
 
