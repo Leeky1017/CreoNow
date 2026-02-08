@@ -1,12 +1,12 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-08 20:25
+更新时间：2026-02-08 20:34
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **6**。
+- 当前活跃 change 数量为 **9**。
 - 执行模式：**串行**（控制面按单队列推进，存在明确前置依赖）。
 
 ## 执行顺序
@@ -17,6 +17,9 @@
 4. `memory-system-p3-isolation-degradation`
 5. `project-management-p0-creation-metadata-dashboard`
 6. `project-management-p1-lifecycle-switch-delete`
+7. `knowledge-graph-p0-entity-relation-query`
+8. `knowledge-graph-p1-visualization-extended-views`
+9. `knowledge-graph-p2-auto-recognition-ai-utilization`
 
 ## 依赖说明
 
@@ -24,6 +27,8 @@
 - `memory-system-p2-panel-provenance` 依赖 `memory-system-p1-distillation-decay-conflict` 的语义记忆 CRUD、蒸馏进度与冲突输出。
 - `memory-system-p3-isolation-degradation` 依赖 `memory-system-p2-panel-provenance` 的面板入口、作用域切换与用户确认交互。
 - `project-management-p1-lifecycle-switch-delete` 依赖 `project-management-p0-creation-metadata-dashboard` 的项目数据模型、IPC 命名与 schema 基线。
+- `knowledge-graph-p1-visualization-extended-views` 依赖 `knowledge-graph-p0-entity-relation-query` 的实体/关系 CRUD、查询契约与容量保护。
+- `knowledge-graph-p2-auto-recognition-ai-utilization` 依赖 `knowledge-graph-p1-visualization-extended-views` 的面板入口与建议卡 UI 承载能力。
 
 ## 维护规则
 
