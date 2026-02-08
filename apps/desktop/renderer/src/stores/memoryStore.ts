@@ -20,6 +20,202 @@ export type MemorySettings = IpcResponseData<"memory:settings:get">;
 export type MemoryInjectionPreview =
   IpcResponseData<"memory:injection:preview">;
 
+export const WORKING_MEMORY_TOKEN_BUDGET = 8_000;
+
+export type WorkingMemoryEntryKind =
+  | "editor-focus"
+  | "intent-stack"
+  | "undo-redo-buffer"
+  | "preference-signal"
+  | "ai-context";
+
+export type WorkingMemoryEntry = {
+  id: string;
+  projectId: string;
+  sessionId: string;
+  kind: WorkingMemoryEntryKind;
+  tokenCount: number;
+  importance: number;
+  focusScore: number;
+  createdAt: number;
+  updatedAt: number;
+  content: string;
+};
+
+export type WorkingMemoryBudgetState = {
+  items: WorkingMemoryEntry[];
+  tokenTotal: number;
+  tokenBudget: number;
+};
+
+export type ArchivedPreferenceSignal = {
+  projectId: string;
+  chapterId: string;
+  sessionId: string;
+  sceneType: string;
+  skillUsed: string;
+  signalText: string;
+  importance: number;
+  implicitSignalHint: "REPEATED_SCENE_SKILL";
+  scope: "project";
+  version: 1;
+};
+
+/**
+ * Create a deterministic working-memory budget state.
+ *
+ * Why: tests need a pure in-memory state model independent from React runtime.
+ */
+export function createWorkingMemoryBudgetState(
+  tokenBudget = WORKING_MEMORY_TOKEN_BUDGET,
+): WorkingMemoryBudgetState {
+  return {
+    items: [],
+    tokenTotal: 0,
+    tokenBudget,
+  };
+}
+
+function clampImportance(importance: number): number {
+  if (!Number.isFinite(importance)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, importance));
+}
+
+function clampFocusScore(score: number): number {
+  if (!Number.isFinite(score)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(1, score));
+}
+
+function compareEvictionPriority(
+  a: WorkingMemoryEntry,
+  b: WorkingMemoryEntry,
+): number {
+  if (a.importance !== b.importance) {
+    return a.importance - b.importance;
+  }
+  if (a.focusScore !== b.focusScore) {
+    return a.focusScore - b.focusScore;
+  }
+  if (a.updatedAt !== b.updatedAt) {
+    return a.updatedAt - b.updatedAt;
+  }
+  return a.id.localeCompare(b.id);
+}
+
+function trimToBudget(
+  state: WorkingMemoryBudgetState,
+): WorkingMemoryBudgetState {
+  if (state.tokenTotal <= state.tokenBudget) {
+    return state;
+  }
+
+  const sorted = [...state.items].sort(compareEvictionPriority);
+  let tokenTotal = state.tokenTotal;
+  const removed = new Set<string>();
+  for (const item of sorted) {
+    if (tokenTotal <= state.tokenBudget) {
+      break;
+    }
+    removed.add(item.id);
+    tokenTotal -= item.tokenCount;
+  }
+
+  const kept = state.items.filter((item) => !removed.has(item.id));
+  return {
+    items: kept,
+    tokenTotal,
+    tokenBudget: state.tokenBudget,
+  };
+}
+
+/**
+ * Write one entry and enforce 8K token budget with deterministic eviction.
+ *
+ * Why: P0 requires importance-first trimming that never touches disk.
+ */
+export function writeWorkingMemoryEntry(
+  state: WorkingMemoryBudgetState,
+  entry: WorkingMemoryEntry,
+): WorkingMemoryBudgetState {
+  const normalized: WorkingMemoryEntry = {
+    ...entry,
+    tokenCount: Math.max(0, Math.trunc(entry.tokenCount)),
+    importance: clampImportance(entry.importance),
+    focusScore: clampFocusScore(entry.focusScore),
+  };
+
+  const existingIndex = state.items.findIndex(
+    (item) => item.id === normalized.id,
+  );
+  const nextItems = [...state.items];
+  let nextTotal = state.tokenTotal;
+
+  if (existingIndex >= 0) {
+    nextTotal -= nextItems[existingIndex]!.tokenCount;
+    nextItems.splice(existingIndex, 1);
+  }
+
+  nextItems.push(normalized);
+  nextTotal += normalized.tokenCount;
+
+  return trimToBudget({
+    items: nextItems,
+    tokenTotal: nextTotal,
+    tokenBudget: state.tokenBudget,
+  });
+}
+
+/**
+ * Archive threshold-qualified preference signals and clear working memory.
+ *
+ * Why: session-end must emit compact archival payloads before resetting state.
+ */
+export function archiveAndClearWorkingMemory(
+  state: WorkingMemoryBudgetState,
+  args: {
+    projectId: string;
+    chapterId: string;
+    sessionId: string;
+    sceneType: string;
+    skillUsed: string;
+    archiveThreshold: number;
+  },
+): {
+  archivedSignals: ArchivedPreferenceSignal[];
+  discardedSignals: number;
+  nextState: WorkingMemoryBudgetState;
+} {
+  const threshold = clampImportance(args.archiveThreshold);
+  const preferenceSignals = state.items.filter(
+    (item) =>
+      item.kind === "preference-signal" && item.sessionId === args.sessionId,
+  );
+  const archivedSignals = preferenceSignals
+    .filter((item) => item.importance >= threshold)
+    .map((item) => ({
+      projectId: args.projectId,
+      chapterId: args.chapterId,
+      sessionId: args.sessionId,
+      sceneType: args.sceneType,
+      skillUsed: args.skillUsed,
+      signalText: item.content,
+      importance: item.importance,
+      implicitSignalHint: "REPEATED_SCENE_SKILL" as const,
+      scope: "project" as const,
+      version: 1 as const,
+    }));
+
+  return {
+    archivedSignals,
+    discardedSignals: preferenceSignals.length - archivedSignals.length,
+    nextState: createWorkingMemoryBudgetState(state.tokenBudget),
+  };
+}
+
 export type MemoryState = {
   projectId: string | null;
   documentId: string | null;

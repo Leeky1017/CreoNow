@@ -15,6 +15,8 @@ export const IPC_ERROR_CODES = [
   "UNSUPPORTED",
   "IO_ERROR",
   "DB_ERROR",
+  "MEMORY_EPISODE_WRITE_FAILED",
+  "MEMORY_CAPACITY_EXCEEDED",
   "MODEL_NOT_READY",
   "ENCODING_FAILED",
   "RATE_LIMITED",
@@ -209,6 +211,51 @@ const MEMORY_INJECTION_ITEM_SCHEMA = s.object({
   origin: MEMORY_ORIGIN_SCHEMA,
   content: s.string(),
   reason: MEMORY_INJECTION_REASON_SCHEMA,
+});
+
+const MEMORY_IMPLICIT_SIGNAL_SCHEMA = s.union(
+  s.literal("DIRECT_ACCEPT"),
+  s.literal("LIGHT_EDIT"),
+  s.literal("HEAVY_REWRITE"),
+  s.literal("FULL_REJECT"),
+  s.literal("UNDO_AFTER_ACCEPT"),
+  s.literal("REPEATED_SCENE_SKILL"),
+);
+
+const MEMORY_EPISODE_SCHEMA = s.object({
+  id: s.string(),
+  projectId: s.string(),
+  scope: s.literal("project"),
+  version: s.literal(1),
+  chapterId: s.string(),
+  sceneType: s.string(),
+  skillUsed: s.string(),
+  inputContext: s.string(),
+  candidates: s.array(s.string()),
+  selectedIndex: s.number(),
+  finalText: s.string(),
+  explicit: s.optional(s.string()),
+  editDistance: s.number(),
+  implicitSignal: MEMORY_IMPLICIT_SIGNAL_SCHEMA,
+  implicitWeight: s.number(),
+  importance: s.number(),
+  recallCount: s.number(),
+  lastRecalledAt: s.optional(s.number()),
+  compressed: s.boolean(),
+  userConfirmed: s.boolean(),
+  createdAt: s.number(),
+  updatedAt: s.number(),
+});
+
+const MEMORY_SEMANTIC_RULE_PLACEHOLDER_SCHEMA = s.object({
+  id: s.string(),
+  projectId: s.string(),
+  scope: s.literal("project"),
+  version: s.literal(1),
+  rule: s.string(),
+  confidence: s.number(),
+  createdAt: s.number(),
+  updatedAt: s.number(),
 });
 
 const KG_ENTITY_SCHEMA = s.object({
@@ -495,6 +542,47 @@ export const ipcContract = {
             reason: s.string(),
           }),
         ),
+      }),
+    },
+    "memory:episode:record": {
+      request: s.object({
+        projectId: s.string(),
+        chapterId: s.string(),
+        sceneType: s.string(),
+        skillUsed: s.string(),
+        inputContext: s.string(),
+        candidates: s.array(s.string()),
+        selectedIndex: s.number(),
+        finalText: s.string(),
+        explicit: s.optional(s.string()),
+        editDistance: s.number(),
+        importance: s.optional(s.number()),
+        acceptedWithoutEdit: s.optional(s.boolean()),
+        undoAfterAccept: s.optional(s.boolean()),
+        repeatedSceneSkillCount: s.optional(s.number()),
+        userConfirmed: s.optional(s.boolean()),
+        targetEpisodeId: s.optional(s.string()),
+      }),
+      response: s.object({
+        accepted: s.literal(true),
+        episodeId: s.string(),
+        retryCount: s.number(),
+        implicitSignal: MEMORY_IMPLICIT_SIGNAL_SCHEMA,
+        implicitWeight: s.number(),
+      }),
+    },
+    "memory:episode:query": {
+      request: s.object({
+        projectId: s.string(),
+        sceneType: s.string(),
+        queryText: s.optional(s.string()),
+        limit: s.optional(s.number()),
+      }),
+      response: s.object({
+        items: s.array(MEMORY_EPISODE_SCHEMA),
+        memoryDegraded: s.boolean(),
+        fallbackRules: s.array(s.string()),
+        semanticRules: s.array(MEMORY_SEMANTIC_RULE_PLACEHOLDER_SCHEMA),
       }),
     },
     "search:fulltext:query": {

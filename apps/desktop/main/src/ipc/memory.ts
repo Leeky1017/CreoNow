@@ -11,6 +11,15 @@ import {
   type MemoryType,
   type UserMemoryItem,
 } from "../services/memory/memoryService";
+import {
+  createEpisodicMemoryService,
+  createSqliteEpisodeRepository,
+  type EpisodicMemoryService,
+  type EpisodeQueryInput,
+  type EpisodeRecord,
+  type EpisodeRecordInput,
+  type SemanticMemoryRulePlaceholder,
+} from "../services/memory/episodicMemoryService";
 
 type MemoryCreatePayload = {
   type: MemoryType;
@@ -37,6 +46,8 @@ type MemoryUpdatePayload = {
 };
 
 type MemoryDeletePayload = { memoryId: string };
+type EpisodeRecordPayload = EpisodeRecordInput;
+type EpisodeQueryPayload = EpisodeQueryInput;
 
 /**
  * Register `memory:*` IPC handlers.
@@ -45,7 +56,20 @@ export function registerMemoryIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
+  episodicService?: EpisodicMemoryService;
 }): void {
+  const episodicService =
+    deps.episodicService ??
+    (deps.db
+      ? createEpisodicMemoryService({
+          repository: createSqliteEpisodeRepository({
+            db: deps.db,
+            logger: deps.logger,
+          }),
+          logger: deps.logger,
+        })
+      : null);
+
   deps.ipcMain.handle(
     "memory:entry:create",
     async (
@@ -180,6 +204,67 @@ export function registerMemoryIpcHandlers(deps: {
       }
       const svc = createMemoryService({ db: deps.db, logger: deps.logger });
       const res = svc.previewInjection(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "memory:episode:record",
+    async (
+      _e,
+      payload: EpisodeRecordPayload,
+    ): Promise<
+      IpcResponse<{
+        accepted: true;
+        episodeId: string;
+        retryCount: number;
+        implicitSignal:
+          | "DIRECT_ACCEPT"
+          | "LIGHT_EDIT"
+          | "HEAVY_REWRITE"
+          | "FULL_REJECT"
+          | "UNDO_AFTER_ACCEPT"
+          | "REPEATED_SCENE_SKILL";
+        implicitWeight: number;
+      }>
+    > => {
+      if (!episodicService) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      const res = episodicService.recordEpisode(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "memory:episode:query",
+    async (
+      _e,
+      payload: EpisodeQueryPayload,
+    ): Promise<
+      IpcResponse<{
+        items: EpisodeRecord[];
+        memoryDegraded: boolean;
+        fallbackRules: string[];
+        semanticRules: SemanticMemoryRulePlaceholder[];
+      }>
+    > => {
+      if (!episodicService) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      const res = episodicService.queryEpisodes(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };

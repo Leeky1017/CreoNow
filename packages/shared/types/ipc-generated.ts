@@ -19,6 +19,8 @@ export type IpcErrorCode =
   | "IPC_PAYLOAD_TOO_LARGE"
   | "IPC_SUBSCRIPTION_LIMIT_EXCEEDED"
   | "IPC_TIMEOUT"
+  | "MEMORY_CAPACITY_EXCEEDED"
+  | "MEMORY_EPISODE_WRITE_FAILED"
   | "MODEL_NOT_READY"
   | "NOT_FOUND"
   | "PERMISSION_DENIED"
@@ -105,6 +107,8 @@ export const IPC_CHANNELS = [
   "memory:entry:delete",
   "memory:entry:list",
   "memory:entry:update",
+  "memory:episode:query",
+  "memory:episode:record",
   "memory:injection:preview",
   "memory:settings:get",
   "memory:settings:update",
@@ -164,6 +168,8 @@ export type IpcChannelSpec = {
           | "UNSUPPORTED"
           | "IO_ERROR"
           | "DB_ERROR"
+          | "MEMORY_EPISODE_WRITE_FAILED"
+          | "MEMORY_CAPACITY_EXCEEDED"
           | "MODEL_NOT_READY"
           | "ENCODING_FAILED"
           | "RATE_LIMITED"
@@ -611,6 +617,8 @@ export type IpcChannelSpec = {
                 | "UNSUPPORTED"
                 | "IO_ERROR"
                 | "DB_ERROR"
+                | "MEMORY_EPISODE_WRITE_FAILED"
+                | "MEMORY_CAPACITY_EXCEEDED"
                 | "MODEL_NOT_READY"
                 | "ENCODING_FAILED"
                 | "RATE_LIMITED"
@@ -654,6 +662,8 @@ export type IpcChannelSpec = {
                 | "UNSUPPORTED"
                 | "IO_ERROR"
                 | "DB_ERROR"
+                | "MEMORY_EPISODE_WRITE_FAILED"
+                | "MEMORY_CAPACITY_EXCEEDED"
                 | "MODEL_NOT_READY"
                 | "ENCODING_FAILED"
                 | "RATE_LIMITED"
@@ -908,6 +918,91 @@ export type IpcChannelSpec = {
       updatedAt: number;
     };
   };
+  "memory:episode:query": {
+    request: {
+      limit?: number;
+      projectId: string;
+      queryText?: string;
+      sceneType: string;
+    };
+    response: {
+      fallbackRules: Array<string>;
+      items: Array<{
+        candidates: Array<string>;
+        chapterId: string;
+        compressed: boolean;
+        createdAt: number;
+        editDistance: number;
+        explicit?: string;
+        finalText: string;
+        id: string;
+        implicitSignal:
+          | "DIRECT_ACCEPT"
+          | "LIGHT_EDIT"
+          | "HEAVY_REWRITE"
+          | "FULL_REJECT"
+          | "UNDO_AFTER_ACCEPT"
+          | "REPEATED_SCENE_SKILL";
+        implicitWeight: number;
+        importance: number;
+        inputContext: string;
+        lastRecalledAt?: number;
+        projectId: string;
+        recallCount: number;
+        sceneType: string;
+        scope: "project";
+        selectedIndex: number;
+        skillUsed: string;
+        updatedAt: number;
+        userConfirmed: boolean;
+        version: 1;
+      }>;
+      memoryDegraded: boolean;
+      semanticRules: Array<{
+        confidence: number;
+        createdAt: number;
+        id: string;
+        projectId: string;
+        rule: string;
+        scope: "project";
+        updatedAt: number;
+        version: 1;
+      }>;
+    };
+  };
+  "memory:episode:record": {
+    request: {
+      acceptedWithoutEdit?: boolean;
+      candidates: Array<string>;
+      chapterId: string;
+      editDistance: number;
+      explicit?: string;
+      finalText: string;
+      importance?: number;
+      inputContext: string;
+      projectId: string;
+      repeatedSceneSkillCount?: number;
+      sceneType: string;
+      selectedIndex: number;
+      skillUsed: string;
+      targetEpisodeId?: string;
+      undoAfterAccept?: boolean;
+      userConfirmed?: boolean;
+    };
+    response: {
+      accepted: true;
+      episodeId: string;
+      implicitSignal:
+        | "DIRECT_ACCEPT"
+        | "LIGHT_EDIT"
+        | "HEAVY_REWRITE"
+        | "FULL_REJECT"
+        | "UNDO_AFTER_ACCEPT"
+        | "REPEATED_SCENE_SKILL";
+      implicitWeight: number;
+      retryCount: number;
+    };
+  };
   "memory:injection:preview": {
     request: {
       documentId?: string;
@@ -1128,6 +1223,8 @@ export type IpcChannelSpec = {
           | "UNSUPPORTED"
           | "IO_ERROR"
           | "DB_ERROR"
+          | "MEMORY_EPISODE_WRITE_FAILED"
+          | "MEMORY_CAPACITY_EXCEEDED"
           | "MODEL_NOT_READY"
           | "ENCODING_FAILED"
           | "RATE_LIMITED"

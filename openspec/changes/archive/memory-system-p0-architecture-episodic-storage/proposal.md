@@ -31,4 +31,4 @@ Memory System 主 spec 已定义三层记忆架构、情景记忆记录与存储
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`
+- Owner 审阅：`APPROVED`（2026-02-08）
