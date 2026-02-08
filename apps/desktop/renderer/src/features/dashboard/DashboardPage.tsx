@@ -93,7 +93,7 @@ function HeroCard(props: {
         </p>
         <div className="flex gap-3">
           <span className="text-[11px] uppercase tracking-[0.05em] text-[var(--color-fg-faint)] border border-[var(--color-border-default)] px-2.5 py-1 rounded-full">
-            Project
+            {formatStageTag(project.stage)}
           </span>
         </div>
       </div>
@@ -246,7 +246,7 @@ function ProjectCard(props: {
 
       <div className="mt-auto pt-4 border-t border-[var(--color-border-default)] flex justify-between items-center">
         <span className="text-[11px] uppercase tracking-[0.05em] text-[var(--color-fg-faint)]">
-          Project
+          {formatStageTag(project.stage)}
         </span>
       </div>
     </div>
@@ -328,6 +328,23 @@ function formatDate(timestamp: number): string {
   const month = date.toLocaleString("en-US", { month: "short" });
   const day = date.getDate();
   return `${month} ${day}`;
+}
+
+function formatStageTag(
+  stage: "outline" | "draft" | "revision" | "final" | undefined,
+): string {
+  switch (stage) {
+    case "outline":
+      return "大纲";
+    case "draft":
+      return "初稿";
+    case "revision":
+      return "修改";
+    case "final":
+      return "定稿";
+    default:
+      return "项目";
+  }
 }
 
 // =============================================================================
@@ -578,10 +595,10 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
             color="default"
             className="text-lg font-medium mb-2"
           >
-            No projects yet
+            开始创建你的第一个创作项目
           </Text>
           <Text size="small" color="muted" className="mb-8 text-center">
-            Create your first project to start writing.
+            从一个新项目开始你的创作流程。
           </Text>
           <Button
             data-testid="dashboard-create-first"
@@ -589,7 +606,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
             size="md"
             onClick={() => setCreateDialogOpen(true)}
           >
-            Create Project
+            新建项目
           </Button>
         </div>
 
@@ -732,7 +749,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
               {searchQuery && filteredProjects.length === 0 && (
                 <div className="text-center py-12">
                   <Text size="body" color="muted">
-                    No projects match &quot;{searchQuery}&quot;
+                    未找到匹配结果
                   </Text>
                 </div>
               )}

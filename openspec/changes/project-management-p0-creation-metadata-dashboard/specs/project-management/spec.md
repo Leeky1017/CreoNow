@@ -27,11 +27,11 @@ P0 阶段必须先建立项目创建的数据模型与通道契约，支持手�
 
 | IPC 通道                   | 请求 schema（Zod）                   | 响应 schema（Zod）                    |
 | -------------------------- | ------------------------------------ | ------------------------------------- |
-| `project:create`           | `ProjectCreateRequestSchema`         | `ProjectCreateResponseSchema`         |
-| `project:create:ai-assist` | `ProjectCreateAiAssistRequestSchema` | `ProjectCreateAiAssistResponseSchema` |
-| `project:update`           | `ProjectUpdateRequestSchema`         | `ProjectUpdateResponseSchema`         |
-| `project:list`             | `ProjectListRequestSchema`           | `ProjectListResponseSchema`           |
-| `project:stats`            | `ProjectStatsRequestSchema`          | `ProjectStatsResponseSchema`          |
+| `project:project:create`           | `ProjectCreateRequestSchema`         | `ProjectCreateResponseSchema`         |
+| `project:project:createaiassist` | `ProjectCreateAiAssistRequestSchema` | `ProjectCreateAiAssistResponseSchema` |
+| `project:project:update`           | `ProjectUpdateRequestSchema`         | `ProjectUpdateResponseSchema`         |
+| `project:project:list`             | `ProjectListRequestSchema`           | `ProjectListResponseSchema`           |
+| `project:project:stats`            | `ProjectStatsRequestSchema`          | `ProjectStatsResponseSchema`          |
 
 所有响应必须返回可判定结果：`{ ok: true, data }` 或 `{ ok: false, error: { code, message, traceId } }`。
 
@@ -41,13 +41,13 @@ AI 辅助创建在本阶段必须调用 `ai-service` mock 适配层，不接入�
 
 - **假设** 用户在 Dashboard 页面，当前项目总数小于 2,000
 - **当** 用户通过创建对话框提交名称、类型与简介
-- **则** 系统通过 `project:create` 创建项目与默认空白章节
+- **则** 系统通过 `project:project:create` 创建项目与默认空白章节
 - **并且** 主界面切换到新项目编辑器视图
 
 #### Scenario: 用户通过 AI 辅助创建项目（Mock） [MODIFIED]
 
 - **假设** 用户在创建对话框切换到 AI 辅助模式
-- **当** 用户输入创作意图文本并触发 `project:create:ai-assist`
+- **当** 用户输入创作意图文本并触发 `project:project:createaiassist`
 - **则** 系统调用 `ai-service` mock 返回可编辑草案（名称、类型、5 章大纲、3 个角色）
 - **并且** 用户确认后系统创建项目及其初始结构
 
@@ -60,12 +60,12 @@ AI 辅助创建在本阶段必须调用 `ai-service` mock 适配层，不接入�
 
 ### Requirement: 项目元数据 [MODIFIED]
 
-P0 阶段元数据编辑必须通过 `project:update` 持久化，并支持创作阶段切换。`knowledgeGraphId` 与 `defaultSkillSetId` 仅作为占位字段持久化，不触发 KG/Skill 实际联动。
+P0 阶段元数据编辑必须通过 `project:project:update` 持久化，并支持创作阶段切换。`knowledgeGraphId` 与 `defaultSkillSetId` 仅作为占位字段持久化，不触发 KG/Skill 实际联动。
 
 #### Scenario: 用户编辑项目元数据并保留占位字段 [MODIFIED]
 
 - **假设** 用户打开项目设置并编辑叙述人称、目标字数与受众
-- **当** 提交 `project:update`
+- **当** 提交 `project:project:update`
 - **则** 系统持久化变更并返回结构化成功响应
 - **并且** `knowledgeGraphId` 与 `defaultSkillSetId` 仅进行字段读写，不触发真实服务调用
 
@@ -78,7 +78,7 @@ P0 阶段元数据编辑必须通过 `project:update` 持久化，并支持创�
 
 ### Requirement: Dashboard（项目仪表盘） [MODIFIED]
 
-Dashboard 是应用启动后的默认页面。P0 阶段必须基于 `project:list` 与 `project:stats` 聚合展示项目卡片，并满足可搜索、可打开与空状态可创建。
+Dashboard 是应用启动后的默认页面。P0 阶段必须基于 `project:project:list` 与 `project:project:stats` 聚合展示项目卡片，并满足可搜索、可打开与空状态可创建。
 
 Storybook 覆盖要求：
 
@@ -94,7 +94,7 @@ Storybook 覆盖要求：
 
 #### Scenario: Dashboard 空状态引导新用户创建项目 [MODIFIED]
 
-- **假设** `project:list` 返回空集合
+- **假设** `project:project:list` 返回空集合
 - **当** Dashboard 首次渲染
 - **则** 显示空状态插图与「开始创建你的第一个创作项目」
 - **并且** 提供 Primary 样式「新建项目」入口
@@ -110,21 +110,21 @@ Storybook 覆盖要求：
 
 PM-1 覆盖范围必须满足以下可验收阈值：
 
-- `project:create` p95 < 500ms
-- `project:update` p95 < 200ms
+- `project:project:create` p95 < 500ms
+- `project:project:update` p95 < 200ms
 - Dashboard 首帧渲染 < 1.2s
-- `project:*` IPC 请求/响应必须有 Zod 运行时校验与 TypeScript strict 编译约束
+- `project:project:*` IPC 请求/响应必须有 Zod 运行时校验与 TypeScript strict 编译约束
 
 #### Scenario: 创建与元数据更新满足阈值基线 [MODIFIED]
 
-- **假设** 执行 30 次 `project:create` 与 50 次 `project:update`
+- **假设** 执行 30 次 `project:project:create` 与 50 次 `project:project:update`
 - **当** 统计耗时分位值
-- **则** `project:create` p95 小于 500ms 且 `project:update` p95 小于 200ms
+- **则** `project:project:create` p95 小于 500ms 且 `project:project:update` p95 小于 200ms
 - **并且** 不出现未定义错误码
 
 #### Scenario: IPC 输入非法时返回结构化错误 [MODIFIED]
 
-- **假设** 渲染进程发送不符合 schema 的 `project:list` 请求
+- **假设** 渲染进程发送不符合 schema 的 `project:project:list` 请求
 - **当** 主进程进行 Zod 校验
 - **则** 返回 `{ ok: false, error: { code: "PROJECT_IPC_SCHEMA_INVALID", message, traceId } }`
 - **并且** 失败写入主进程日志
@@ -136,13 +136,13 @@ PM-1 必须覆盖容量溢出与数据异常场景。
 #### Scenario: 项目数量超过 2,000 时创建被阻断 [MODIFIED]
 
 - **假设** 当前用户已有 2,000 个项目
-- **当** 用户再次执行 `project:create`
+- **当** 用户再次执行 `project:project:create`
 - **则** 返回 `{ ok: false, error: { code: "PROJECT_CAPACITY_EXCEEDED", message: "项目数量已达上限", traceId } }`
 - **并且** UI 引导用户归档或删除旧项目
 
 #### Scenario: 元数据非法枚举值被拒绝 [MODIFIED]
 
 - **假设** 客户端提交 `stage="publishing"` 或 `type="essay"`
-- **当** 主进程执行 `project:update` 校验
+- **当** 主进程执行 `project:project:update` 校验
 - **则** 返回 `{ ok: false, error: { code: "PROJECT_METADATA_INVALID_ENUM", message, traceId } }`
 - **并且** 数据库不写入非法值

@@ -27,12 +27,21 @@ interface CreateProjectDialogProps {
 
 interface FormContentProps {
   formId: string;
+  initialName?: string;
+  initialDescription?: string;
+  initialType?: "novel" | "screenplay" | "media";
   defaultTemplateId: string;
   presetOptions: Array<{ value: string; label: string }>;
   customOptions: Array<{ value: string; label: string }>;
   hasCustomTemplates: boolean;
   lastError: { code: string; message: string } | null;
-  onSubmit: (data: { name: string; templateId: string; description: string; coverImage: File | null }) => Promise<void>;
+  onSubmit: (data: {
+    name: string;
+    type?: "novel" | "screenplay" | "media";
+    templateId: string;
+    description: string;
+    coverImage: File | null;
+  }) => Promise<void>;
   onOpenCreateTemplate: () => void;
 }
 
@@ -42,6 +51,9 @@ interface FormContentProps {
 
 function FormContent({
   formId,
+  initialName,
+  initialDescription,
+  initialType,
   defaultTemplateId,
   presetOptions,
   customOptions,
@@ -50,13 +62,39 @@ function FormContent({
   onSubmit,
   onOpenCreateTemplate,
 }: FormContentProps): JSX.Element {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName ?? "");
   const [templateId, setTemplateId] = useState(defaultTemplateId);
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(initialDescription ?? "");
   const [coverImage, setCoverImage] = useState<File | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [nameError, setNameError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (initialName !== undefined) {
+      setName(initialName);
+    }
+  }, [initialName]);
+
+  useEffect(() => {
+    if (initialDescription !== undefined) {
+      setDescription(initialDescription);
+    }
+  }, [initialDescription]);
+
+  useEffect(() => {
+    if (initialType === "screenplay" && presetOptions.length >= 3) {
+      setTemplateId(presetOptions[2].value);
+      return;
+    }
+    if (initialType === "media" && presetOptions.length >= 4) {
+      setTemplateId(presetOptions[3].value);
+      return;
+    }
+    if (initialType === "novel" && presetOptions.length >= 1) {
+      setTemplateId(presetOptions[0].value);
+    }
+  }, [initialType, presetOptions]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -73,12 +111,18 @@ function FormContent({
       setSubmitting(true);
 
       try {
-        await onSubmit({ name: trimmedName, templateId, description, coverImage });
+        await onSubmit({
+          name: trimmedName,
+          type: initialType,
+          templateId,
+          description,
+          coverImage,
+        });
       } finally {
         setSubmitting(false);
       }
     },
-    [name, templateId, description, coverImage, onSubmit],
+    [coverImage, description, initialType, name, onSubmit, templateId],
   );
 
   return (
@@ -248,6 +292,7 @@ export function CreateProjectDialog({
 }: CreateProjectDialogProps): JSX.Element {
   // Project store
   const createAndSetCurrent = useProjectStore((s) => s.createAndSetCurrent);
+  const createAiAssistDraft = useProjectStore((s) => s.createAiAssistDraft);
   const clearError = useProjectStore((s) => s.clearError);
   const lastError = useProjectStore((s) => s.lastError);
 
@@ -259,6 +304,17 @@ export function CreateProjectDialog({
   // CreateTemplateDialog state
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [mode, setMode] = useState<"manual" | "ai-assist">("manual");
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiErrorMessage, setAiErrorMessage] = useState<string | null>(null);
+  const [aiDraft, setAiDraft] = useState<{
+    name: string;
+    type: "novel" | "screenplay" | "media";
+    description: string;
+    chapterOutlines: string[];
+    characters: string[];
+  } | null>(null);
 
   const formId = "create-project-form";
 
@@ -290,14 +346,23 @@ export function CreateProjectDialog({
   useEffect(() => {
     if (!open) {
       clearError();
+      setMode("manual");
+      setAiPrompt("");
+      setAiGenerating(false);
+      setAiErrorMessage(null);
+      setAiDraft(null);
     }
   }, [open, clearError]);
 
   const handleSubmit = useCallback(
-    async (data: { name: string }) => {
+    async (data: { name: string; type?: "novel" | "screenplay" | "media"; description?: string }) => {
       setSubmitting(true);
       try {
-        const res = await createAndSetCurrent({ name: data.name });
+        const res = await createAndSetCurrent({
+          name: data.name,
+          type: data.type,
+          description: data.description,
+        });
 
         if (!res.ok) {
           setSubmitting(false);
@@ -312,6 +377,27 @@ export function CreateProjectDialog({
     },
     [createAndSetCurrent, onOpenChange],
   );
+
+  const handleAiGenerate = useCallback(async () => {
+    if (aiPrompt.trim().length === 0) {
+      setAiErrorMessage("请先输入创作意图");
+      return;
+    }
+
+    setAiGenerating(true);
+    setAiErrorMessage(null);
+    try {
+      const res = await createAiAssistDraft({ prompt: aiPrompt });
+      if (!res.ok) {
+        setAiErrorMessage("AI 辅助创建暂时不可用，请手动创建或稍后重试");
+        return;
+      }
+
+      setAiDraft(res.data);
+    } finally {
+      setAiGenerating(false);
+    }
+  }, [aiPrompt, createAiAssistDraft]);
 
   const handleTemplateCreated = useCallback((_id: string) => {
     // Template selection is handled inside FormContent
@@ -349,19 +435,95 @@ export function CreateProjectDialog({
           </>
         }
       >
-        {/* Only render form when dialog is open to reset state on each open */}
-        {open && (
-          <FormContent
-            formId={formId}
-            defaultTemplateId={defaultTemplateId}
-            presetOptions={presetOptions}
-            customOptions={customOptions}
-            hasCustomTemplates={hasCustomTemplates}
-            lastError={lastError}
-            onSubmit={handleSubmit}
-            onOpenCreateTemplate={() => setCreateTemplateOpen(true)}
-          />
-        )}
+        {open ? (
+          <div className="space-y-4">
+            <div role="tablist" aria-label="创建模式" className="flex gap-2">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "manual"}
+                onClick={() => setMode("manual")}
+                className="h-8 px-3 text-xs rounded-[var(--radius-sm)] border border-[var(--color-border-default)]"
+              >
+                手动创建
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "ai-assist"}
+                onClick={() => setMode("ai-assist")}
+                className="h-8 px-3 text-xs rounded-[var(--radius-sm)] border border-[var(--color-border-default)]"
+              >
+                AI 辅助
+              </button>
+            </div>
+
+            {mode === "manual" ? (
+              <FormContent
+                formId={formId}
+                initialName={aiDraft?.name}
+                initialDescription={aiDraft?.description}
+                initialType={aiDraft?.type}
+                defaultTemplateId={defaultTemplateId}
+                presetOptions={presetOptions}
+                customOptions={customOptions}
+                hasCustomTemplates={hasCustomTemplates}
+                lastError={lastError}
+                onSubmit={handleSubmit}
+                onOpenCreateTemplate={() => setCreateTemplateOpen(true)}
+              />
+            ) : (
+              <div className="space-y-4">
+                <Textarea
+                  data-testid="create-project-ai-prompt"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="例如：帮我创建一部校园推理小说，主角是高中女生侦探"
+                  rows={4}
+                  fullWidth
+                />
+                <Button
+                  data-testid="create-project-ai-generate"
+                  variant="secondary"
+                  size="sm"
+                  loading={aiGenerating}
+                  onClick={() => void handleAiGenerate()}
+                >
+                  {aiGenerating ? "生成中…" : "生成草案"}
+                </Button>
+
+                {aiErrorMessage ? (
+                  <Text
+                    size="small"
+                    color="muted"
+                    as="div"
+                    className="text-[var(--color-error)]"
+                  >
+                    {aiErrorMessage}
+                  </Text>
+                ) : null}
+
+                {aiDraft ? (
+                  <div className="space-y-2 rounded-[var(--radius-sm)] border border-[var(--color-border-default)] p-3">
+                    <Text size="small" color="default">
+                      {aiDraft.name}（{aiDraft.type}）
+                    </Text>
+                    <Text size="small" color="muted">
+                      章节：{aiDraft.chapterOutlines.length}，角色：{aiDraft.characters.length}
+                    </Text>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setMode("manual")}
+                    >
+                      使用此草案继续手动创建
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+        ) : null}
       </Dialog>
 
       {/* Create Template Dialog */}

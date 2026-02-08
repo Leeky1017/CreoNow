@@ -22,6 +22,9 @@ export const IPC_ERROR_CODES = [
   "CANCELED",
   "UPSTREAM_ERROR",
   "INTERNAL",
+  "PROJECT_CAPACITY_EXCEEDED",
+  "PROJECT_METADATA_INVALID_ENUM",
+  "PROJECT_IPC_SCHEMA_INVALID",
 ] as const;
 
 export type IpcErrorCode = (typeof IPC_ERROR_CODES)[number];
@@ -116,6 +119,19 @@ const STATS_DAY_SCHEMA = s.object({
   date: s.string(),
   summary: STATS_SUMMARY_SCHEMA,
 });
+
+const PROJECT_TYPE_SCHEMA = s.union(
+  s.literal("novel"),
+  s.literal("screenplay"),
+  s.literal("media"),
+);
+
+const PROJECT_STAGE_SCHEMA = s.union(
+  s.literal("outline"),
+  s.literal("draft"),
+  s.literal("revision"),
+  s.literal("final"),
+);
 
 const EXPORT_RESULT_SCHEMA = s.object({
   relativePath: s.string(),
@@ -639,8 +655,22 @@ export const ipcContract = {
       response: s.object({ tableNames: s.array(s.string()) }),
     },
     "project:project:create": {
-      request: s.object({ name: s.optional(s.string()) }),
+      request: s.object({
+        name: s.optional(s.string()),
+        type: s.optional(PROJECT_TYPE_SCHEMA),
+        description: s.optional(s.string()),
+      }),
       response: s.object({ projectId: s.string(), rootPath: s.string() }),
+    },
+    "project:project:createaiassist": {
+      request: s.object({ prompt: s.string() }),
+      response: s.object({
+        name: s.string(),
+        type: PROJECT_TYPE_SCHEMA,
+        description: s.string(),
+        chapterOutlines: s.array(s.string()),
+        characters: s.array(s.string()),
+      }),
     },
     "project:project:list": {
       request: s.object({ includeArchived: s.optional(s.boolean()) }),
@@ -650,10 +680,38 @@ export const ipcContract = {
             projectId: s.string(),
             name: s.string(),
             rootPath: s.string(),
+            type: s.optional(PROJECT_TYPE_SCHEMA),
+            stage: s.optional(PROJECT_STAGE_SCHEMA),
             updatedAt: s.number(),
             archivedAt: s.optional(s.number()),
           }),
         ),
+      }),
+    },
+    "project:project:update": {
+      request: s.object({
+        projectId: s.string(),
+        patch: s.object({
+          type: s.optional(s.string()),
+          description: s.optional(s.string()),
+          stage: s.optional(s.string()),
+          targetWordCount: s.optional(s.number()),
+          targetChapterCount: s.optional(s.number()),
+          narrativePerson: s.optional(s.string()),
+          languageStyle: s.optional(s.string()),
+          targetAudience: s.optional(s.string()),
+          defaultSkillSetId: s.optional(s.string()),
+          knowledgeGraphId: s.optional(s.string()),
+        }),
+      }),
+      response: s.object({ updated: s.literal(true) }),
+    },
+    "project:project:stats": {
+      request: s.object({}),
+      response: s.object({
+        total: s.number(),
+        active: s.number(),
+        archived: s.number(),
       }),
     },
     "project:project:rename": {

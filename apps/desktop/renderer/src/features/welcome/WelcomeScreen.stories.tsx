@@ -34,6 +34,16 @@ function createMockProjectStore(overrides: Partial<ProjectStore> = {}) {
         data: { projectId: "mock-id", rootPath: "/mock/path" },
       };
     },
+    createAiAssistDraft: async ({ prompt }) => ({
+      ok: true,
+      data: {
+        name: "AI 草案项目",
+        type: "novel",
+        description: prompt,
+        chapterOutlines: ["第一章"],
+        characters: ["主角"],
+      },
+    }),
     setCurrentProject: async () => {
       return {
         ok: true,

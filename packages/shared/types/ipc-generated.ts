@@ -22,6 +22,9 @@ export type IpcErrorCode =
   | "MODEL_NOT_READY"
   | "NOT_FOUND"
   | "PERMISSION_DENIED"
+  | "PROJECT_CAPACITY_EXCEEDED"
+  | "PROJECT_IPC_SCHEMA_INVALID"
+  | "PROJECT_METADATA_INVALID_ENUM"
   | "RATE_LIMITED"
   | "TIMEOUT"
   | "UNSUPPORTED"
@@ -36,6 +39,7 @@ export type IpcMeta = {
 export type IpcError = {
   code: IpcErrorCode;
   message: string;
+  traceId?: string;
   details?: unknown;
   retryable?: boolean;
 };
@@ -110,12 +114,15 @@ export const IPC_CHANNELS = [
   "memory:settings:update",
   "project:project:archive",
   "project:project:create",
+  "project:project:createaiassist",
   "project:project:delete",
   "project:project:duplicate",
   "project:project:getcurrent",
   "project:project:list",
   "project:project:rename",
   "project:project:setcurrent",
+  "project:project:stats",
+  "project:project:update",
   "rag:context:retrieve",
   "search:fulltext:query",
   "search:semantic:query",
@@ -170,7 +177,10 @@ export type IpcChannelSpec = {
           | "TIMEOUT"
           | "CANCELED"
           | "UPSTREAM_ERROR"
-          | "INTERNAL";
+          | "INTERNAL"
+          | "PROJECT_CAPACITY_EXCEEDED"
+          | "PROJECT_METADATA_INVALID_ENUM"
+          | "PROJECT_IPC_SCHEMA_INVALID";
         message: string;
       };
       latencyMs: number;
@@ -617,7 +627,10 @@ export type IpcChannelSpec = {
                 | "TIMEOUT"
                 | "CANCELED"
                 | "UPSTREAM_ERROR"
-                | "INTERNAL";
+                | "INTERNAL"
+                | "PROJECT_CAPACITY_EXCEEDED"
+                | "PROJECT_METADATA_INVALID_ENUM"
+                | "PROJECT_IPC_SCHEMA_INVALID";
               message: string;
             };
             status: "error";
@@ -660,7 +673,10 @@ export type IpcChannelSpec = {
                 | "TIMEOUT"
                 | "CANCELED"
                 | "UPSTREAM_ERROR"
-                | "INTERNAL";
+                | "INTERNAL"
+                | "PROJECT_CAPACITY_EXCEEDED"
+                | "PROJECT_METADATA_INVALID_ENUM"
+                | "PROJECT_IPC_SCHEMA_INVALID";
               message: string;
             };
             status: "error";
@@ -975,11 +991,25 @@ export type IpcChannelSpec = {
   };
   "project:project:create": {
     request: {
+      description?: string;
       name?: string;
+      type?: "novel" | "screenplay" | "media";
     };
     response: {
       projectId: string;
       rootPath: string;
+    };
+  };
+  "project:project:createaiassist": {
+    request: {
+      prompt: string;
+    };
+    response: {
+      chapterOutlines: Array<string>;
+      characters: Array<string>;
+      description: string;
+      name: string;
+      type: "novel" | "screenplay" | "media";
     };
   };
   "project:project:delete": {
@@ -1017,6 +1047,8 @@ export type IpcChannelSpec = {
         name: string;
         projectId: string;
         rootPath: string;
+        stage?: "outline" | "draft" | "revision" | "final";
+        type?: "novel" | "screenplay" | "media";
         updatedAt: number;
       }>;
     };
@@ -1039,6 +1071,34 @@ export type IpcChannelSpec = {
     response: {
       projectId: string;
       rootPath: string;
+    };
+  };
+  "project:project:stats": {
+    request: Record<string, never>;
+    response: {
+      active: number;
+      archived: number;
+      total: number;
+    };
+  };
+  "project:project:update": {
+    request: {
+      patch: {
+        defaultSkillSetId?: string;
+        description?: string;
+        knowledgeGraphId?: string;
+        languageStyle?: string;
+        narrativePerson?: string;
+        stage?: string;
+        targetAudience?: string;
+        targetChapterCount?: number;
+        targetWordCount?: number;
+        type?: string;
+      };
+      projectId: string;
+    };
+    response: {
+      updated: true;
     };
   };
   "rag:context:retrieve": {
@@ -1134,7 +1194,10 @@ export type IpcChannelSpec = {
           | "TIMEOUT"
           | "CANCELED"
           | "UPSTREAM_ERROR"
-          | "INTERNAL";
+          | "INTERNAL"
+          | "PROJECT_CAPACITY_EXCEEDED"
+          | "PROJECT_METADATA_INVALID_ENUM"
+          | "PROJECT_IPC_SCHEMA_INVALID";
         error_message?: string;
         id: string;
         name: string;

@@ -28,6 +28,18 @@ function createMockProjectStore() {
         data: { projectId: "mock-id", rootPath: "/mock/path" },
       };
     },
+    createAiAssistDraft: async () => {
+      return {
+        ok: true,
+        data: {
+          name: "AI 辅助项目",
+          type: "novel" as const,
+          description: "校园推理小说",
+          chapterOutlines: ["第一章", "第二章", "第三章", "第四章", "第五章"],
+          characters: ["主角", "配角", "反派"],
+        },
+      };
+    },
     setCurrentProject: async () => {
       return {
         ok: true,
@@ -123,6 +135,30 @@ type Story = StoryObj<typeof CreateProjectDialog>;
  * - 封面图片上传
  */
 export const Open: Story = {
+  args: {
+    open: true,
+  },
+};
+
+export const Manual: Story = {
+  args: {
+    open: true,
+  },
+};
+
+export const AiAssist: Story = {
+  args: {
+    open: true,
+  },
+};
+
+export const AiGenerating: Story = {
+  args: {
+    open: true,
+  },
+};
+
+export const AiPreview: Story = {
   args: {
     open: true,
   },
