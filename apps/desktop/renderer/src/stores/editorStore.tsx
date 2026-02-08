@@ -49,6 +49,7 @@ export type EditorActions = {
     reason: "manual-save" | "autosave";
   }) => Promise<void>;
   retryLastAutosave: () => Promise<void>;
+  flushPendingAutosave: () => Promise<void>;
   setAutosaveStatus: (status: AutosaveStatus) => void;
   clearAutosaveError: () => void;
   downgradeFinalStatusForEdit: (args: {
@@ -286,6 +287,26 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
       }
 
       set({ autosaveError: null });
+      await state.save({
+        projectId: state.projectId,
+        documentId: state.documentId,
+        contentJson: state.lastSavedOrQueuedJson,
+        actor: "auto",
+        reason: "autosave",
+      });
+    },
+
+    flushPendingAutosave: async () => {
+      const state = get();
+      if (
+        !state.projectId ||
+        !state.documentId ||
+        !state.lastSavedOrQueuedJson ||
+        state.lastSavedOrQueuedJson.length === 0
+      ) {
+        return;
+      }
+
       await state.save({
         projectId: state.projectId,
         documentId: state.documentId,

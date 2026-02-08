@@ -70,7 +70,7 @@ function createMockProjectStore() {
         ok: true,
         data: {
           projectId,
-          archived,
+          state: archived ? "archived" : "active",
           ...(archived ? { archivedAt: Date.now() } : {}),
         },
       };

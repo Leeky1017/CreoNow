@@ -14,6 +14,10 @@ import {
   ensureCreonowDirStructure,
   getCreonowRootPath,
 } from "../context/contextFs";
+import {
+  evaluateLifecycleTransition,
+  type ProjectLifecycleState,
+} from "./projectLifecycleStateMachine";
 
 export type ProjectInfo = {
   projectId: string;
@@ -109,6 +113,12 @@ export type ProjectService = {
   }>;
   getCurrent: () => ServiceResult<ProjectInfo>;
   setCurrent: (args: { projectId: string }) => ServiceResult<ProjectInfo>;
+  switchProject: (args: {
+    projectId: string;
+    fromProjectId: string;
+    operatorId: string;
+    traceId: string;
+  }) => ServiceResult<{ currentProjectId: string; switchedAt: string }>;
   delete: (args: { projectId: string }) => ServiceResult<{ deleted: true }>;
   rename: (args: {
     projectId: string;
@@ -121,6 +131,35 @@ export type ProjectService = {
     projectId: string;
     archived: boolean;
     archivedAt?: number;
+  }>;
+  lifecycleArchive: (args: {
+    projectId: string;
+    traceId?: string;
+  }) => ServiceResult<{
+    projectId: string;
+    state: ProjectLifecycleState;
+    archivedAt?: number;
+  }>;
+  lifecycleRestore: (args: {
+    projectId: string;
+    traceId?: string;
+  }) => ServiceResult<{
+    projectId: string;
+    state: ProjectLifecycleState;
+  }>;
+  lifecyclePurge: (args: {
+    projectId: string;
+    traceId?: string;
+  }) => ServiceResult<{
+    projectId: string;
+    state: ProjectLifecycleState;
+  }>;
+  lifecycleGet: (args: {
+    projectId: string;
+    traceId?: string;
+  }) => ServiceResult<{
+    projectId: string;
+    state: ProjectLifecycleState;
   }>;
 };
 
@@ -153,8 +192,44 @@ function nowTs(): number {
  *
  * Why: services must return deterministic error codes/messages for IPC tests.
  */
-function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
-  return { ok: false, error: { code, message, details } };
+function ipcError(
+  code: IpcErrorCode,
+  message: string,
+  detailsOrOptions?:
+    | unknown
+    | {
+        details?: unknown;
+        traceId?: string;
+      },
+): Err {
+  if (
+    detailsOrOptions &&
+    typeof detailsOrOptions === "object" &&
+    ("details" in detailsOrOptions || "traceId" in detailsOrOptions)
+  ) {
+    const options = detailsOrOptions as {
+      details?: unknown;
+      traceId?: string;
+    };
+    return {
+      ok: false,
+      error: {
+        code,
+        message,
+        ...(options.traceId ? { traceId: options.traceId } : {}),
+        ...(options.details === undefined ? {} : { details: options.details }),
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    error: {
+      code,
+      message,
+      ...(detailsOrOptions === undefined ? {} : { details: detailsOrOptions }),
+    },
+  };
 }
 
 /**
@@ -392,6 +467,27 @@ function getProjectById(
 }
 
 /**
+ * Derive lifecycle state from the persisted row shape.
+ *
+ * Why: PM-2 lifecycle transitions use `archived_at` as the persisted source.
+ */
+function deriveLifecycleState(row: Pick<ProjectRow, "archivedAt">): ProjectLifecycleState {
+  return row.archivedAt == null ? "active" : "archived";
+}
+
+/**
+ * Remove a project root directory from disk.
+ *
+ * Why: lifecycle purge must clear project files after archived->deleted.
+ */
+function defaultRemoveProjectRoot(rootPath: string): void {
+  if (!fs.existsSync(rootPath)) {
+    return;
+  }
+  fs.rmSync(rootPath, { recursive: true, force: false });
+}
+
+/**
  * Copy `.creonow` metadata directory from source project to duplicate project.
  *
  * Why: duplicate should preserve authoring context when source metadata exists,
@@ -430,8 +526,25 @@ export function createProjectService(args: {
   db: Database.Database;
   userDataDir: string;
   logger: Logger;
+  now?: () => number;
+  switchKnowledgeGraphContext?: (args: {
+    fromProjectId: string;
+    toProjectId: string;
+    traceId: string;
+  }) => void;
+  switchMemoryContext?: (args: {
+    fromProjectId: string;
+    toProjectId: string;
+    traceId: string;
+  }) => void;
+  removeProjectRoot?: (rootPath: string) => void;
 }): ProjectService {
-  return {
+  const now = args.now ?? nowTs;
+  const switchKnowledgeGraphContext = args.switchKnowledgeGraphContext ?? (() => {});
+  const switchMemoryContext = args.switchMemoryContext ?? (() => {});
+  const removeProjectRoot = args.removeProjectRoot ?? defaultRemoveProjectRoot;
+
+  const service: ProjectService = {
     create: ({ name, type, description }) => {
       const projectId = randomUUID();
       const rootPath = getProjectRootPath(args.userDataDir, projectId);
@@ -471,7 +584,7 @@ export function createProjectService(args: {
         return ensured;
       }
 
-      const ts = nowTs();
+      const ts = now();
       const emptyDocJson = JSON.stringify({
         type: "doc",
         content: [{ type: "paragraph" }],
@@ -680,7 +793,7 @@ export function createProjectService(args: {
         );
       }
 
-      const ts = nowTs();
+      const ts = now();
       try {
         args.db
           .prepare(
@@ -778,7 +891,7 @@ export function createProjectService(args: {
       try {
         args.db
           .prepare("UPDATE projects SET updated_at = ? WHERE project_id = ?")
-          .run(nowTs(), projectId);
+          .run(now(), projectId);
       } catch (error) {
         args.logger.error("project_touch_failed", {
           code: "DB_ERROR",
@@ -796,9 +909,99 @@ export function createProjectService(args: {
       };
     },
 
-    delete: ({ projectId }) => {
+    switchProject: ({ projectId, fromProjectId, operatorId, traceId }) => {
       if (projectId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "projectId is required");
+        return ipcError("INVALID_ARGUMENT", "projectId is required", {
+          traceId,
+        });
+      }
+      if (fromProjectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "fromProjectId is required", {
+          traceId,
+        });
+      }
+      if (operatorId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "operatorId is required", {
+          traceId,
+        });
+      }
+
+      const nextProject = getProjectById(args.db, projectId);
+      if (!nextProject.ok) {
+        return nextProject;
+      }
+
+      const persisted = writeCurrentProjectId(args.db, projectId);
+      if (!persisted.ok) {
+        return persisted;
+      }
+
+      const ts = now();
+
+      try {
+        args.db
+          .prepare("UPDATE projects SET updated_at = ? WHERE project_id = ?")
+          .run(ts, projectId);
+      } catch (error) {
+        args.logger.error("project_switch_touch_failed", {
+          code: "DB_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+          trace_id: traceId,
+          project_id: projectId,
+        });
+      }
+
+      try {
+        switchKnowledgeGraphContext({
+          fromProjectId,
+          toProjectId: projectId,
+          traceId,
+        });
+      } catch (error) {
+        args.logger.error("project_switch_kg_hook_failed", {
+          code: "INTERNAL_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+          trace_id: traceId,
+          project_id: projectId,
+        });
+      }
+
+      try {
+        switchMemoryContext({
+          fromProjectId,
+          toProjectId: projectId,
+          traceId,
+        });
+      } catch (error) {
+        args.logger.error("project_switch_memory_hook_failed", {
+          code: "INTERNAL_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+          trace_id: traceId,
+          project_id: projectId,
+        });
+      }
+
+      args.logger.info("project_switched", {
+        from_project_id: fromProjectId,
+        to_project_id: projectId,
+        operator_id: operatorId,
+        trace_id: traceId,
+      });
+
+      return {
+        ok: true,
+        data: {
+          currentProjectId: nextProject.data.projectId,
+          switchedAt: new Date(ts).toISOString(),
+        },
+      };
+    },
+
+    lifecycleGet: ({ projectId, traceId }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required", {
+          traceId,
+        });
       }
 
       const project = getProjectById(args.db, projectId);
@@ -806,16 +1009,227 @@ export function createProjectService(args: {
         return project;
       }
 
+      return {
+        ok: true,
+        data: {
+          projectId,
+          state: deriveLifecycleState(project.data),
+        },
+      };
+    },
+
+    lifecycleArchive: ({ projectId, traceId }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required", {
+          traceId,
+        });
+      }
+
+      const project = getProjectById(args.db, projectId);
+      if (!project.ok) {
+        return project;
+      }
+
+      const currentState = deriveLifecycleState(project.data);
+      const transition = evaluateLifecycleTransition({
+        from: currentState,
+        to: "archived",
+        traceId,
+      });
+      if (!transition.ok) {
+        return { ok: false, error: transition.error };
+      }
+
+      if (project.data.archivedAt !== null) {
+        return {
+          ok: true,
+          data: {
+            projectId,
+            state: "archived",
+            archivedAt: project.data.archivedAt,
+          },
+        };
+      }
+
+      const ts = now();
       try {
         args.db
+          .prepare(
+            "UPDATE projects SET archived_at = ?, updated_at = ? WHERE project_id = ?",
+          )
+          .run(ts, ts, projectId);
+      } catch (error) {
+        args.logger.error("project_lifecycle_archive_failed", {
+          code: "PROJECT_LIFECYCLE_WRITE_FAILED",
+          message: error instanceof Error ? error.message : String(error),
+          trace_id: traceId,
+          project_id: projectId,
+        });
+        return ipcError("PROJECT_LIFECYCLE_WRITE_FAILED", "生命周期状态写入失败", {
+          traceId,
+          details: {
+            transition: "active->archived",
+            projectId,
+          },
+        });
+      }
+
+      return {
+        ok: true,
+        data: {
+          projectId,
+          state: "archived",
+          archivedAt: ts,
+        },
+      };
+    },
+
+    lifecycleRestore: ({ projectId, traceId }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required", {
+          traceId,
+        });
+      }
+
+      const project = getProjectById(args.db, projectId);
+      if (!project.ok) {
+        return project;
+      }
+
+      const currentState = deriveLifecycleState(project.data);
+      const transition = evaluateLifecycleTransition({
+        from: currentState,
+        to: "active",
+        traceId,
+      });
+      if (!transition.ok) {
+        return { ok: false, error: transition.error };
+      }
+
+      if (project.data.archivedAt === null) {
+        return {
+          ok: true,
+          data: {
+            projectId,
+            state: "active",
+          },
+        };
+      }
+
+      const ts = now();
+      try {
+        args.db
+          .prepare(
+            "UPDATE projects SET archived_at = NULL, updated_at = ? WHERE project_id = ?",
+          )
+          .run(ts, projectId);
+      } catch (error) {
+        args.logger.error("project_lifecycle_restore_failed", {
+          code: "PROJECT_LIFECYCLE_WRITE_FAILED",
+          message: error instanceof Error ? error.message : String(error),
+          trace_id: traceId,
+          project_id: projectId,
+        });
+        return ipcError("PROJECT_LIFECYCLE_WRITE_FAILED", "生命周期状态写入失败", {
+          traceId,
+          details: {
+            transition: "archived->active",
+            projectId,
+          },
+        });
+      }
+
+      return {
+        ok: true,
+        data: {
+          projectId,
+          state: "active",
+        },
+      };
+    },
+
+    lifecyclePurge: ({ projectId, traceId }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required", {
+          traceId,
+        });
+      }
+
+      const project = getProjectById(args.db, projectId);
+      if (!project.ok) {
+        if (project.error.code === "NOT_FOUND") {
+          return ipcError("NOT_FOUND", "项目已删除", {
+            traceId,
+            details: { projectId },
+          });
+        }
+        return project;
+      }
+
+      const currentState = deriveLifecycleState(project.data);
+      const transition = evaluateLifecycleTransition({
+        from: currentState,
+        to: "deleted",
+        traceId,
+      });
+      if (!transition.ok) {
+        return { ok: false, error: transition.error };
+      }
+
+      try {
+        removeProjectRoot(project.data.rootPath);
+      } catch (error) {
+        const err = error as NodeJS.ErrnoException;
+        if (err?.code === "EACCES" || err?.code === "EPERM") {
+          args.logger.error("project_lifecycle_purge_permission_denied", {
+            code: "PROJECT_PURGE_PERMISSION_DENIED",
+            message: err.message,
+            trace_id: traceId,
+            project_id: projectId,
+          });
+          return ipcError(
+            "PROJECT_PURGE_PERMISSION_DENIED",
+            "删除失败，路径无写权限",
+            {
+              traceId,
+              details: { projectId, rootPath: project.data.rootPath },
+            },
+          );
+        }
+
+        args.logger.error("project_lifecycle_purge_io_failed", {
+          code: "IO_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+          trace_id: traceId,
+          project_id: projectId,
+        });
+        return ipcError("IO_ERROR", "Failed to remove project files", {
+          traceId,
+          details: { projectId },
+        });
+      }
+
+      try {
+        const result = args.db
           .prepare("DELETE FROM projects WHERE project_id = ?")
           .run(projectId);
+        if (result.changes === 0) {
+          return ipcError("NOT_FOUND", "项目已删除", {
+            traceId,
+            details: { projectId },
+          });
+        }
       } catch (error) {
-        args.logger.error("project_delete_failed", {
+        args.logger.error("project_lifecycle_purge_db_failed", {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
+          trace_id: traceId,
+          project_id: projectId,
         });
-        return ipcError("DB_ERROR", "Failed to delete project");
+        return ipcError("DB_ERROR", "Failed to purge project", {
+          traceId,
+          details: { projectId },
+        });
       }
 
       const currentId = readCurrentProjectId(args.db);
@@ -823,7 +1237,28 @@ export function createProjectService(args: {
         void clearCurrentProjectId(args.db);
       }
 
-      args.logger.info("project_deleted", { project_id: projectId });
+      args.logger.info("project_lifecycle_purged", {
+        project_id: projectId,
+        trace_id: traceId,
+      });
+
+      return {
+        ok: true,
+        data: {
+          projectId,
+          state: "deleted",
+        },
+      };
+    },
+
+    delete: ({ projectId }) => {
+      const purgeRes = service.lifecyclePurge({
+        projectId,
+        traceId: randomUUID(),
+      });
+      if (!purgeRes.ok) {
+        return purgeRes;
+      }
       return { ok: true, data: { deleted: true } };
     },
 
@@ -837,7 +1272,7 @@ export function createProjectService(args: {
         return normalized;
       }
 
-      const ts = nowTs();
+      const ts = now();
       try {
         const res = args.db
           .prepare<
@@ -896,7 +1331,7 @@ export function createProjectService(args: {
         return ensured;
       }
 
-      const ts = nowTs();
+      const ts = now();
       let copiedDocuments = 0;
 
       try {
@@ -1018,83 +1453,40 @@ export function createProjectService(args: {
     },
 
     archive: ({ projectId, archived }) => {
-      if (projectId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "projectId is required");
-      }
-
-      const project = getProjectById(args.db, projectId);
-      if (!project.ok) {
-        return project;
-      }
-
       if (archived) {
-        if (project.data.archivedAt !== null) {
-          return {
-            ok: true,
-            data: {
-              projectId,
-              archived: true,
-              archivedAt: project.data.archivedAt ?? undefined,
-            },
-          };
-        }
-
-        const ts = nowTs();
-        try {
-          args.db
-            .prepare(
-              "UPDATE projects SET archived_at = ?, updated_at = ? WHERE project_id = ?",
-            )
-            .run(ts, ts, projectId);
-        } catch (error) {
-          args.logger.error("project_archive_failed", {
-            code: "DB_ERROR",
-            message: error instanceof Error ? error.message : String(error),
-          });
-          return ipcError("DB_ERROR", "Failed to archive project");
-        }
-
-        args.logger.info("project_archived", {
-          project_id: projectId,
+        const res = service.lifecycleArchive({
+          projectId,
+          traceId: randomUUID(),
         });
+        if (!res.ok) {
+          return res;
+        }
         return {
           ok: true,
-          data: { projectId, archived: true, archivedAt: ts },
+          data: {
+            projectId: res.data.projectId,
+            archived: true,
+            archivedAt: res.data.archivedAt,
+          },
         };
       }
 
-      if (project.data.archivedAt === null) {
-        return {
-          ok: true,
-          data: { projectId, archived: false },
-        };
-      }
-
-      const ts = nowTs();
-      try {
-        args.db
-          .prepare(
-            "UPDATE projects SET archived_at = NULL, updated_at = ? WHERE project_id = ?",
-          )
-          .run(ts, projectId);
-      } catch (error) {
-        args.logger.error("project_unarchive_failed", {
-          code: "DB_ERROR",
-          message: error instanceof Error ? error.message : String(error),
-        });
-        return ipcError("DB_ERROR", "Failed to unarchive project");
-      }
-
-      args.logger.info("project_unarchived", {
-        project_id: projectId,
+      const restored = service.lifecycleRestore({
+        projectId,
+        traceId: randomUUID(),
       });
+      if (!restored.ok) {
+        return restored;
+      }
       return {
         ok: true,
         data: {
-          projectId,
+          projectId: restored.data.projectId,
           archived: false,
         },
       };
     },
   };
+
+  return service;
 }

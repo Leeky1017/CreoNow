@@ -13,6 +13,7 @@ import {
 } from "../../components/primitives";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { CreateProjectDialog } from "../projects/CreateProjectDialog";
+import { DeleteProjectDialog } from "../projects/DeleteProjectDialog";
 import { RenameProjectDialog } from "./RenameProjectDialog";
 import {
   useProjectStore,
@@ -381,6 +382,10 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
     null,
   );
   const [archivedExpanded, setArchivedExpanded] = React.useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
+  const [deleteSubmitting, setDeleteSubmitting] = React.useState(false);
+  const [deleteTargetProject, setDeleteTargetProject] =
+    React.useState<ProjectListItem | null>(null);
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -518,25 +523,27 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
    */
   const handleDelete = React.useCallback(
     async (projectId: string) => {
-      const project = items.find((p) => p.projectId === projectId) ?? null;
-      const projectName = project?.name?.trim().length
-        ? project.name
-        : "Untitled Project";
-
-      const confirmed = await confirm({
-        title: "Delete Project?",
-        description: `This action cannot be undone. "${projectName}" will be permanently deleted.`,
-        primaryLabel: "Delete",
-        secondaryLabel: "Cancel",
-      });
-      if (!confirmed) {
+      const project = items.find((candidate) => candidate.projectId === projectId);
+      if (!project) {
         return;
       }
-
-      await deleteProject(projectId);
+      setDeleteTargetProject(project);
+      setDeleteDialogOpen(true);
     },
-    [confirm, deleteProject, items],
+    [items],
   );
+
+  const handleDeleteConfirm = React.useCallback(async () => {
+    if (!deleteTargetProject) {
+      return;
+    }
+
+    setDeleteSubmitting(true);
+    await deleteProject(deleteTargetProject.projectId);
+    setDeleteSubmitting(false);
+    setDeleteDialogOpen(false);
+    setDeleteTargetProject(null);
+  }, [deleteProject, deleteTargetProject]);
 
   // Loading state
   if (bootstrapStatus === "loading") {
@@ -824,6 +831,19 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
           }
         }}
         onSubmit={handleRenameSubmit}
+      />
+      <DeleteProjectDialog
+        open={deleteDialogOpen}
+        projectName={deleteTargetProject?.name ?? ""}
+        documentCount={0}
+        submitting={deleteSubmitting}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setDeleteTargetProject(null);
+          }
+        }}
+        onConfirm={handleDeleteConfirm}
       />
       <SystemDialog {...dialogProps} />
     </>

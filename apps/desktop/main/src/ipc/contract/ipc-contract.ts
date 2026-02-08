@@ -25,7 +25,10 @@ export const IPC_ERROR_CODES = [
   "UPSTREAM_ERROR",
   "INTERNAL",
   "PROJECT_CAPACITY_EXCEEDED",
+  "PROJECT_DELETE_REQUIRES_ARCHIVE",
   "PROJECT_METADATA_INVALID_ENUM",
+  "PROJECT_PURGE_PERMISSION_DENIED",
+  "PROJECT_LIFECYCLE_WRITE_FAILED",
   "PROJECT_IPC_SCHEMA_INVALID",
   "KG_ATTRIBUTE_KEYS_EXCEEDED",
   "KG_CAPACITY_EXCEEDED",
@@ -140,6 +143,12 @@ const PROJECT_STAGE_SCHEMA = s.union(
   s.literal("draft"),
   s.literal("revision"),
   s.literal("final"),
+);
+
+const PROJECT_LIFECYCLE_STATE_SCHEMA = s.union(
+  s.literal("active"),
+  s.literal("archived"),
+  s.literal("deleted"),
 );
 
 const EXPORT_RESULT_SCHEMA = s.object({
@@ -891,9 +900,62 @@ export const ipcContract = {
       request: s.object({ projectId: s.string() }),
       response: s.object({ projectId: s.string(), rootPath: s.string() }),
     },
+    "project:project:switch": {
+      request: s.object({
+        projectId: s.string(),
+        operatorId: s.string(),
+        fromProjectId: s.string(),
+        traceId: s.string(),
+      }),
+      response: s.object({
+        currentProjectId: s.string(),
+        switchedAt: s.string(),
+      }),
+    },
     "project:project:delete": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ deleted: s.literal(true) }),
+    },
+    "project:lifecycle:archive": {
+      request: s.object({
+        projectId: s.string(),
+        traceId: s.optional(s.string()),
+      }),
+      response: s.object({
+        projectId: s.string(),
+        state: PROJECT_LIFECYCLE_STATE_SCHEMA,
+        archivedAt: s.optional(s.number()),
+      }),
+    },
+    "project:lifecycle:restore": {
+      request: s.object({
+        projectId: s.string(),
+        traceId: s.optional(s.string()),
+      }),
+      response: s.object({
+        projectId: s.string(),
+        state: PROJECT_LIFECYCLE_STATE_SCHEMA,
+      }),
+    },
+    "project:lifecycle:purge": {
+      request: s.object({
+        projectId: s.string(),
+        traceId: s.optional(s.string()),
+      }),
+      response: s.object({
+        projectId: s.string(),
+        state: PROJECT_LIFECYCLE_STATE_SCHEMA,
+      }),
+    },
+    "project:lifecycle:get": {
+      request: s.object({
+        projectId: s.string(),
+        traceId: s.optional(s.string()),
+      }),
+      response: s.object({
+        projectId: s.string(),
+        state: PROJECT_LIFECYCLE_STATE_SCHEMA,
+      }),
     },
     "context:creonow:ensure": {
       request: s.object({ projectId: s.string() }),

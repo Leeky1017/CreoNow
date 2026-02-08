@@ -8,9 +8,9 @@
 
 ### Requirement: 多项目切换 [MODIFIED]
 
-`project:switch` 必须在切换前 flush 当前项目 pending autosave；切换耗时超过 1 秒时必须展示顶部 2px 进度条。切换流程中需调用 KG/MS 上下文切换预留接口，当前阶段使用 mock/no-op。
+`project:project:switch` 必须在切换前 flush 当前项目 pending autosave；切换耗时超过 1 秒时必须展示顶部 2px 进度条。切换流程中需调用 KG/MS 上下文切换预留接口，当前阶段使用 mock/no-op。
 
-`project:switch` 契约：
+`project:project:switch` 契约：
 
 - 请求：`{ projectId: string, operatorId: string, fromProjectId: string, traceId: string }`
 - 响应成功：`{ ok: true, data: { currentProjectId: string, switchedAt: string } }`
@@ -20,13 +20,13 @@
 
 - **假设** 用户在项目 A 编辑，存在 pending autosave
 - **当** 用户触发切换到项目 B
-- **则** 系统先完成 autosave flush，再执行 `project:switch`
+- **则** 系统先完成 autosave flush，再执行 `project:project:switch`
 - **并且** KG/MS context hook 被调用（mock/no-op），最终编辑器加载项目 B
 
 #### Scenario: 切换超过 1 秒显示加载指示并在完成后消失 [MODIFIED]
 
 - **假设** 目标项目数据较大
-- **当** `project:switch` 耗时超过 1 秒
+- **当** `project:project:switch` 耗时超过 1 秒
 - **则** 顶部显示 2px 进度条动画
 - **并且** 切换完成后进度条消失
 
@@ -56,15 +56,15 @@
 
 | IPC 通道                | 请求 schema（Zod）                 | 响应 schema（Zod）                  |
 | ----------------------- | ---------------------------------- | ----------------------------------- |
-| `project:archive`       | `ProjectArchiveRequestSchema`      | `ProjectArchiveResponseSchema`      |
-| `project:restore`       | `ProjectRestoreRequestSchema`      | `ProjectRestoreResponseSchema`      |
-| `project:purge`         | `ProjectPurgeRequestSchema`        | `ProjectPurgeResponseSchema`        |
+| `project:lifecycle:archive` | `ProjectArchiveRequestSchema`      | `ProjectArchiveResponseSchema`      |
+| `project:lifecycle:restore` | `ProjectRestoreRequestSchema`      | `ProjectRestoreResponseSchema`      |
+| `project:lifecycle:purge`   | `ProjectPurgeRequestSchema`        | `ProjectPurgeResponseSchema`        |
 | `project:lifecycle:get` | `ProjectLifecycleGetRequestSchema` | `ProjectLifecycleGetResponseSchema` |
 
 #### Scenario: 归档后恢复并保持项目统计一致 [MODIFIED]
 
 - **假设** 项目处于 `active` 且包含文档与统计数据
-- **当** 用户执行 `project:archive` 后再执行 `project:restore`
+- **当** 用户执行 `project:lifecycle:archive` 后再执行 `project:lifecycle:restore`
 - **则** 状态依次变更为 `archived`、`active`
 - **并且** 文档与统计数据在恢复后保持一致
 
@@ -79,15 +79,15 @@
 
 PM-2 覆盖范围必须满足：
 
-- `project:switch` p95 < 1s，p99 < 2s
-- `project:archive` p95 < 600ms
-- `project:restore` p95 < 800ms
-- `project:purge` p95 < 2s（项目规模 <= 1,000 文档）
+- `project:project:switch` p95 < 1s，p99 < 2s
+- `project:lifecycle:archive` p95 < 600ms
+- `project:lifecycle:restore` p95 < 800ms
+- `project:lifecycle:purge` p95 < 2s（项目规模 <= 1,000 文档）
 
 #### Scenario: 切换与生命周期阈值建立 benchmark 基线 [MODIFIED]
 
 - **假设** 在固定数据集下执行性能基线测试
-- **当** 连续执行 `project:switch`、`project:archive`、`project:restore`、`project:purge`
+- **当** 连续执行 `project:project:switch`、`project:lifecycle:archive`、`project:lifecycle:restore`、`project:lifecycle:purge`
 - **则** 生成基线报告并校验上述 p95/p99 阈值
 - **并且** 基线结果纳入回归测试输入
 
@@ -97,7 +97,7 @@ PM-2 必须覆盖并发冲突、权限/安全、网络/IO 失败。
 
 #### Scenario: 两窗口并发删除同一项目的幂等冲突处理 [MODIFIED]
 
-- **假设** 两个窗口同时对同一归档项目触发 `project:purge`
+- **假设** 两个窗口同时对同一归档项目触发 `project:lifecycle:purge`
 - **当** 第一请求已成功删除后第二请求到达
 - **则** 第二请求返回 `{ ok: false, error: { code: "NOT_FOUND", message: "项目已删除", traceId } }`
 - **并且** 不产生重复删除副作用
@@ -105,13 +105,13 @@ PM-2 必须覆盖并发冲突、权限/安全、网络/IO 失败。
 #### Scenario: 文件系统权限不足时阻断 purge [MODIFIED]
 
 - **假设** 项目目录所在路径无写权限
-- **当** 用户执行 `project:purge`
+- **当** 用户执行 `project:lifecycle:purge`
 - **则** 返回 `{ ok: false, error: { code: "PROJECT_PURGE_PERMISSION_DENIED", message: "删除失败，路径无写权限", traceId } }`
 - **并且** 生命周期状态保持 `archived`
 
 #### Scenario: 数据库写入失败时返回结构化错误码 [MODIFIED]
 
 - **假设** 生命周期状态写入数据库失败
-- **当** 用户执行 `project:archive` 或 `project:restore`
+- **当** 用户执行 `project:lifecycle:archive` 或 `project:lifecycle:restore`
 - **则** 返回 `{ ok: false, error: { code: "PROJECT_LIFECYCLE_WRITE_FAILED", message, traceId } }`
 - **并且** 失败被写入主进程日志，不允许 silent failure

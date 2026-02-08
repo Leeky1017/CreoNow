@@ -82,8 +82,8 @@ export type ProjectActions = {
   }) => Promise<
     IpcResponse<{
       projectId: string;
-      archived: boolean;
-      archivedAt?: number | null;
+      state: "active" | "archived" | "deleted";
+      archivedAt?: number;
     }>
   >;
   clearError: () => void;
@@ -101,7 +101,26 @@ const ProjectStoreContext = React.createContext<UseProjectStore | null>(null);
  * Why: the renderer must be able to drive a minimal project entry flow and keep
  * current project state in sync with IPC (typed invoke) for stable E2E.
  */
-export function createProjectStore(deps: { invoke: IpcInvoke }) {
+export function createProjectStore(deps: {
+  invoke: IpcInvoke;
+  flushPendingAutosave?: () => Promise<void>;
+  getOperatorId?: () => string;
+  createTraceId?: () => string;
+}) {
+  const flushPendingAutosave =
+    deps.flushPendingAutosave ??
+    (async (): Promise<void> => {
+      return;
+    });
+  const getOperatorId = deps.getOperatorId ?? (() => "renderer");
+  const createTraceId =
+    deps.createTraceId ??
+    (() => {
+      return `trace-${Date.now().toString(36)}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
+    });
+
   return create<ProjectStore>((set, get) => ({
     current: null,
     items: [],
@@ -183,6 +202,36 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
     },
 
     setCurrentProject: async (projectId) => {
+      const previous = get().current;
+      if (previous?.projectId === projectId) {
+        return { ok: true, data: previous };
+      }
+
+      if (previous) {
+        await flushPendingAutosave();
+
+        const switched = await deps.invoke("project:project:switch", {
+          projectId,
+          fromProjectId: previous.projectId,
+          operatorId: getOperatorId(),
+          traceId: createTraceId(),
+        });
+        if (!switched.ok) {
+          set({ lastError: switched.error });
+          return switched;
+        }
+
+        const matched = get().items.find(
+          (candidate) => candidate.projectId === switched.data.currentProjectId,
+        );
+        const current: ProjectInfo = {
+          projectId: switched.data.currentProjectId,
+          rootPath: matched?.rootPath ?? previous.rootPath,
+        };
+        set({ current, lastError: null });
+        return { ok: true, data: current };
+      }
+
       const setRes = await deps.invoke("project:project:setcurrent", {
         projectId,
       });
@@ -196,10 +245,13 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
     },
 
     deleteProject: async (projectId) => {
-      const res = await deps.invoke("project:project:delete", { projectId });
+      const res = await deps.invoke("project:lifecycle:purge", {
+        projectId,
+        traceId: createTraceId(),
+      });
       if (!res.ok) {
         set({ lastError: res.error });
-        return res;
+        return { ok: false, error: res.error };
       }
 
       set((prev) => ({
@@ -208,7 +260,7 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
         lastError: null,
       }));
       void get().bootstrap();
-      return res;
+      return { ok: true, data: { deleted: true } };
     },
 
     renameProject: async ({ projectId, name }) => {
@@ -239,10 +291,15 @@ export function createProjectStore(deps: { invoke: IpcInvoke }) {
     },
 
     setProjectArchived: async ({ projectId, archived }) => {
-      const res = await deps.invoke("project:project:archive", {
-        projectId,
-        archived,
-      });
+      const res = archived
+        ? await deps.invoke("project:lifecycle:archive", {
+            projectId,
+            traceId: createTraceId(),
+          })
+        : await deps.invoke("project:lifecycle:restore", {
+            projectId,
+            traceId: createTraceId(),
+          });
       if (!res.ok) {
         set({ lastError: res.error });
         return res;

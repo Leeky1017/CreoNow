@@ -14,15 +14,15 @@ PM 主规范中的多项目切换、删除与生命周期闭环是 P1 阶段的�
   - 项目生命周期闭环（归档→恢复→清除、活跃直接删除阻断）
 - 依赖约束：`project-management-p0-creation-metadata-dashboard`（PM-1）合并后再进入实现。
 - 定义切换与生命周期 IPC 契约：
-  - `project:switch`
-  - `project:archive`
-  - `project:restore`
-  - `project:purge`
+  - `project:project:switch`
+  - `project:lifecycle:archive`
+  - `project:lifecycle:restore`
+  - `project:lifecycle:purge`
   - `project:lifecycle:get`
-- 明确 `project:switch` 需调用 KG/MS 上下文切换预留接口（mock/no-op 占位），暂不接入真实引擎。
+- 明确 `project:project:switch` 需调用 KG/MS 上下文切换预留接口（mock/no-op 占位），暂不接入真实引擎。
 - 生命周期必须实现为代码级状态机（transition map/guard），禁止散落式 `if/else` 硬编码。
 - 删除确认必须采用「输入项目名二次确认」机制。
-- 在测试中建立 NFR benchmark 基线，覆盖 `project:switch` 与 lifecycle IPC 阈值。
+- 在测试中建立 NFR benchmark 基线，覆盖 `project:project:switch` 与 lifecycle IPC 阈值。
 - 纳入跨切边界场景：并发删除冲突、权限不足、数据库写入失败。
 
 ## 受影响模块
