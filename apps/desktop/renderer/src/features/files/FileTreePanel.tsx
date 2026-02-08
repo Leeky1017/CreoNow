@@ -12,13 +12,39 @@ import {
 } from "../../components/primitives";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useEditorStore } from "../../stores/editorStore";
-import { useFileStore } from "../../stores/fileStore";
+import {
+  useFileStore,
+  type DocumentListItem,
+  type DocumentType,
+} from "../../stores/fileStore";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
-import type { DocumentType } from "../../stores/fileStore";
 
 type EditingState =
   | { mode: "idle" }
   | { mode: "rename"; documentId: string; title: string };
+
+type DropMode = "before" | "into";
+
+type DropTargetState = {
+  documentId: string;
+  mode: DropMode;
+};
+
+type TreeNode = DocumentListItem & {
+  children: TreeNode[];
+};
+
+type TreeSnapshot = {
+  roots: TreeNode[];
+  nodeById: Map<string, TreeNode>;
+  parentById: Map<string, string | null>;
+};
+
+type VisibleTreeNode = {
+  node: TreeNode;
+  depth: number;
+  parentId: string | null;
+};
 
 export interface FileTreePanelProps {
   projectId: string;
@@ -75,9 +101,180 @@ function defaultTitleByType(type: DocumentType): string {
 }
 
 /**
- * FileTreePanel renders the project-scoped documents list (DB SSOT) and actions.
+ * Sort documents by persisted order first, then recency, then id.
  *
- * Why: P0-015 requires a minimal documents loop with stable selectors for Windows E2E.
+ * Why: drag and keyboard navigation rely on deterministic row order.
+ */
+function compareDocumentOrder(
+  a: DocumentListItem,
+  b: DocumentListItem,
+): number {
+  if (a.sortOrder !== b.sortOrder) {
+    return a.sortOrder - b.sortOrder;
+  }
+  if (a.updatedAt !== b.updatedAt) {
+    return b.updatedAt - a.updatedAt;
+  }
+  return a.documentId.localeCompare(b.documentId);
+}
+
+/**
+ * Build a tree snapshot from flat document records.
+ *
+ * Why: file-tree interactions (hierarchy, keyboard traversal, move) need parent/child lookup.
+ */
+function buildTreeSnapshot(items: DocumentListItem[]): TreeSnapshot {
+  const sorted = [...items].sort(compareDocumentOrder);
+  const nodeById = new Map<string, TreeNode>();
+  const parentById = new Map<string, string | null>();
+
+  for (const item of sorted) {
+    nodeById.set(item.documentId, { ...item, children: [] });
+  }
+
+  const roots: TreeNode[] = [];
+
+  for (const item of sorted) {
+    const node = nodeById.get(item.documentId);
+    if (!node) {
+      continue;
+    }
+
+    const parentId = item.parentId ?? null;
+    const parentNode = parentId ? nodeById.get(parentId) : undefined;
+    if (!parentNode || parentNode.documentId === node.documentId) {
+      parentById.set(node.documentId, null);
+      roots.push(node);
+      continue;
+    }
+
+    parentById.set(node.documentId, parentNode.documentId);
+    parentNode.children.push(node);
+  }
+
+  function sortNodeChildren(nodes: TreeNode[]): void {
+    nodes.sort(compareDocumentOrder);
+    for (const node of nodes) {
+      sortNodeChildren(node.children);
+    }
+  }
+
+  sortNodeChildren(roots);
+
+  return { roots, nodeById, parentById };
+}
+
+/**
+ * Determine whether a row can act as a folder-like drop target.
+ *
+ * Why: current schema has no dedicated folder type; grouping is parentId-based.
+ */
+function isFolderCandidate(
+  node: Pick<TreeNode, "title" | "children">,
+): boolean {
+  if (node.children.length > 0) {
+    return true;
+  }
+  return /卷|folder/i.test(node.title);
+}
+
+/**
+ * Flatten tree by expansion state into a visible row list.
+ *
+ * Why: Arrow navigation and drag targets operate on visible rows only.
+ */
+function flattenTree(
+  roots: TreeNode[],
+  expandedFolderIds: ReadonlySet<string>,
+  parentById: ReadonlyMap<string, string | null>,
+): VisibleTreeNode[] {
+  const visible: VisibleTreeNode[] = [];
+
+  function visit(nodes: TreeNode[], depth: number): void {
+    for (const node of nodes) {
+      visible.push({
+        node,
+        depth,
+        parentId: parentById.get(node.documentId) ?? null,
+      });
+      if (node.children.length > 0 && expandedFolderIds.has(node.documentId)) {
+        visit(node.children, depth + 1);
+      }
+    }
+  }
+
+  visit(roots, 0);
+  return visible;
+}
+
+/**
+ * Collect descendant ids for a node.
+ *
+ * Why: move-to-folder must block cycles (parent cannot be moved into its own child).
+ */
+function collectDescendantIds(node: TreeNode): Set<string> {
+  const ids = new Set<string>();
+  const queue = [...node.children];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) {
+      continue;
+    }
+    ids.add(current.documentId);
+    queue.push(...current.children);
+  }
+  return ids;
+}
+
+/**
+ * Build reordered ids for sibling reorder and preserve global order of non-siblings.
+ *
+ * Why: IPC reorder expects an explicit id sequence; tree reorder should only mutate one sibling group.
+ */
+function buildReorderedDocumentIds(args: {
+  items: DocumentListItem[];
+  sourceDocumentId: string;
+  targetDocumentId: string;
+  targetParentId: string | null;
+}): string[] | null {
+  const orderedGlobalIds = [...args.items]
+    .sort(compareDocumentOrder)
+    .map((item) => item.documentId);
+
+  const siblingIds = [...args.items]
+    .filter((item) => (item.parentId ?? null) === args.targetParentId)
+    .sort(compareDocumentOrder)
+    .map((item) => item.documentId);
+
+  if (
+    !siblingIds.includes(args.sourceDocumentId) ||
+    !siblingIds.includes(args.targetDocumentId)
+  ) {
+    return null;
+  }
+
+  const nextSiblingIds = siblingIds.filter(
+    (id) => id !== args.sourceDocumentId,
+  );
+  const targetIndex = nextSiblingIds.indexOf(args.targetDocumentId);
+  nextSiblingIds.splice(targetIndex, 0, args.sourceDocumentId);
+
+  const siblingSet = new Set(siblingIds);
+  const remainingIds = orderedGlobalIds.filter((id) => !siblingSet.has(id));
+  const insertAt = orderedGlobalIds.findIndex((id) => siblingSet.has(id));
+  const safeInsertAt = insertAt >= 0 ? insertAt : remainingIds.length;
+
+  return [
+    ...remainingIds.slice(0, safeInsertAt),
+    ...nextSiblingIds,
+    ...remainingIds.slice(safeInsertAt),
+  ];
+}
+
+/**
+ * FileTreePanel renders the project-scoped documents tree and actions.
+ *
+ * Why: P1 requires sortable tree hierarchy with keyboard/context interactions.
  */
 export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
   const items = useFileStore((s) => s.items);
@@ -91,6 +288,8 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
   const deleteDocument = useFileStore((s) => s.delete);
   const setCurrent = useFileStore((s) => s.setCurrent);
   const clearError = useFileStore((s) => s.clearError);
+  const reorder = useFileStore((s) => s.reorder);
+  const moveToFolder = useFileStore((s) => s.moveToFolder);
 
   const openDocument = useEditorStore((s) => s.openDocument);
   const { confirm, dialogProps } = useConfirmDialog();
@@ -99,9 +298,63 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
   );
 
   const [editing, setEditing] = React.useState<EditingState>({ mode: "idle" });
-  const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const [expandedFolderIds, setExpandedFolderIds] = React.useState<Set<string>>(
+    new Set(),
+  );
+  const [focusedDocumentId, setFocusedDocumentId] = React.useState<
+    string | null
+  >(null);
+  const [draggingDocumentId, setDraggingDocumentId] = React.useState<
+    string | null
+  >(null);
+  const [dropTarget, setDropTarget] = React.useState<DropTargetState | null>(
+    null,
+  );
 
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
   const initialRenameAppliedRef = React.useRef(false);
+
+  const tree = React.useMemo(() => buildTreeSnapshot(items), [items]);
+
+  const visibleNodes = React.useMemo(
+    () => flattenTree(tree.roots, expandedFolderIds, tree.parentById),
+    [tree.roots, expandedFolderIds, tree.parentById],
+  );
+
+  React.useEffect(() => {
+    const expandableIds = new Set<string>();
+    for (const node of tree.nodeById.values()) {
+      if (node.children.length > 0) {
+        expandableIds.add(node.documentId);
+      }
+    }
+
+    setExpandedFolderIds((prev) => {
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (expandableIds.has(id)) {
+          next.add(id);
+        }
+      }
+      for (const id of expandableIds) {
+        next.add(id);
+      }
+      if (next.size === prev.size) {
+        let unchanged = true;
+        for (const id of next) {
+          if (!prev.has(id)) {
+            unchanged = false;
+            break;
+          }
+        }
+        if (unchanged) {
+          return prev;
+        }
+      }
+      return next;
+    });
+  }, [tree.nodeById]);
+
   React.useEffect(() => {
     if (!props.initialRenameDocumentId) {
       return;
@@ -114,7 +367,7 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
     }
 
     const doc = items.find(
-      (i) => i.documentId === props.initialRenameDocumentId,
+      (item) => item.documentId === props.initialRenameDocumentId,
     );
     if (!doc) {
       return;
@@ -137,6 +390,54 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
     inputRef.current?.select();
   }, [editing.mode]);
 
+  React.useEffect(() => {
+    if (visibleNodes.length === 0) {
+      setFocusedDocumentId(null);
+      return;
+    }
+
+    const visibleIdSet = new Set(
+      visibleNodes.map((entry) => entry.node.documentId),
+    );
+
+    setFocusedDocumentId((prev) => {
+      if (prev && visibleIdSet.has(prev)) {
+        return prev;
+      }
+      if (currentDocumentId && visibleIdSet.has(currentDocumentId)) {
+        return currentDocumentId;
+      }
+      return visibleNodes[0]?.node.documentId ?? null;
+    });
+  }, [currentDocumentId, visibleNodes]);
+
+  function toggleFolderExpanded(documentId: string): void {
+    setExpandedFolderIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(documentId)) {
+        next.delete(documentId);
+      } else {
+        next.add(documentId);
+      }
+      return next;
+    });
+  }
+
+  function resolveMoveTargetFolder(documentId: string): string | null {
+    const sourceNode = tree.nodeById.get(documentId);
+    const descendants = sourceNode
+      ? collectDescendantIds(sourceNode)
+      : new Set();
+
+    const candidates = [...tree.nodeById.values()]
+      .filter((node) => node.documentId !== documentId)
+      .filter((node) => !descendants.has(node.documentId))
+      .filter((node) => isFolderCandidate(node))
+      .sort(compareDocumentOrder);
+
+    return candidates[0]?.documentId ?? null;
+  }
+
   async function onCreate(type: DocumentType = "chapter"): Promise<void> {
     const res = await createAndSetCurrent({
       projectId: props.projectId,
@@ -145,10 +446,13 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
     if (!res.ok) {
       return;
     }
+
     await openDocument({
       projectId: props.projectId,
       documentId: res.data.documentId,
     });
+
+    setFocusedDocumentId(res.data.documentId);
     setEditing({
       mode: "rename",
       documentId: res.data.documentId,
@@ -156,9 +460,36 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
     });
   }
 
+  async function onCopy(item: DocumentListItem): Promise<void> {
+    const res = await createAndSetCurrent({
+      projectId: props.projectId,
+      type: item.type,
+      title: `${item.title} Copy`,
+    });
+    if (!res.ok) {
+      return;
+    }
+
+    await openDocument({
+      projectId: props.projectId,
+      documentId: res.data.documentId,
+    });
+    setFocusedDocumentId(res.data.documentId);
+  }
+
   async function onSelect(documentId: string): Promise<void> {
-    const setPromise = setCurrent({ projectId: props.projectId, documentId });
-    await openDocument({ projectId: props.projectId, documentId });
+    setFocusedDocumentId(documentId);
+
+    const setPromise = setCurrent({
+      projectId: props.projectId,
+      documentId,
+    });
+
+    await openDocument({
+      projectId: props.projectId,
+      documentId,
+    });
+
     await setPromise;
   }
 
@@ -175,6 +506,7 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
     if (!res.ok) {
       return;
     }
+
     setEditing({ mode: "idle" });
   }
 
@@ -213,11 +545,185 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
     if (!res.ok) {
       return;
     }
+
     if (currentDocumentId === args.documentId) {
       await openDocument({
         projectId: props.projectId,
         documentId: args.documentId,
       });
+    }
+  }
+
+  async function onMoveDocumentToFolder(args: {
+    documentId: string;
+    parentId: string;
+  }): Promise<void> {
+    const sourceNode = tree.nodeById.get(args.documentId);
+    if (!sourceNode) {
+      return;
+    }
+
+    if (args.documentId === args.parentId) {
+      return;
+    }
+
+    const descendants = collectDescendantIds(sourceNode);
+    if (descendants.has(args.parentId)) {
+      return;
+    }
+
+    const res = await moveToFolder({
+      projectId: props.projectId,
+      documentId: args.documentId,
+      parentId: args.parentId,
+    });
+    if (!res.ok) {
+      return;
+    }
+
+    setExpandedFolderIds((prev) => {
+      const next = new Set(prev);
+      next.add(args.parentId);
+      return next;
+    });
+  }
+
+  async function onDropOnDocument(targetDocumentId: string): Promise<void> {
+    if (!draggingDocumentId || draggingDocumentId === targetDocumentId) {
+      return;
+    }
+
+    const targetMode =
+      dropTarget && dropTarget.documentId === targetDocumentId
+        ? dropTarget.mode
+        : "before";
+
+    if (targetMode === "into") {
+      await onMoveDocumentToFolder({
+        documentId: draggingDocumentId,
+        parentId: targetDocumentId,
+      });
+      return;
+    }
+
+    const targetParentId = tree.parentById.get(targetDocumentId) ?? null;
+    const reorderedIds = buildReorderedDocumentIds({
+      items,
+      sourceDocumentId: draggingDocumentId,
+      targetDocumentId,
+      targetParentId,
+    });
+
+    if (!reorderedIds) {
+      return;
+    }
+
+    await reorder({
+      projectId: props.projectId,
+      orderedDocumentIds: reorderedIds,
+    });
+  }
+
+  function onTreeKeyDown(event: React.KeyboardEvent<HTMLDivElement>): void {
+    if (editing.mode === "rename") {
+      return;
+    }
+
+    if (visibleNodes.length === 0) {
+      return;
+    }
+
+    const activeId =
+      focusedDocumentId ??
+      currentDocumentId ??
+      visibleNodes[0]?.node.documentId ??
+      null;
+    if (!activeId) {
+      return;
+    }
+
+    const currentIndex = visibleNodes.findIndex(
+      (entry) => entry.node.documentId === activeId,
+    );
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const activeNode = visibleNodes[currentIndex]?.node;
+    if (!activeNode) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      const next =
+        visibleNodes[Math.min(currentIndex + 1, visibleNodes.length - 1)];
+      if (next) {
+        setFocusedDocumentId(next.node.documentId);
+      }
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      const next = visibleNodes[Math.max(currentIndex - 1, 0)];
+      if (next) {
+        setFocusedDocumentId(next.node.documentId);
+      }
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      if (activeNode.children.length === 0) {
+        return;
+      }
+      if (!expandedFolderIds.has(activeNode.documentId)) {
+        toggleFolderExpanded(activeNode.documentId);
+        return;
+      }
+      const firstChild = activeNode.children[0];
+      if (firstChild) {
+        setFocusedDocumentId(firstChild.documentId);
+      }
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      if (
+        activeNode.children.length > 0 &&
+        expandedFolderIds.has(activeNode.documentId)
+      ) {
+        toggleFolderExpanded(activeNode.documentId);
+        return;
+      }
+      const parentId = tree.parentById.get(activeNode.documentId);
+      if (parentId) {
+        setFocusedDocumentId(parentId);
+      }
+      return;
+    }
+
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void onSelect(activeNode.documentId);
+      return;
+    }
+
+    if (event.key === "F2") {
+      event.preventDefault();
+      setEditing({
+        mode: "rename",
+        documentId: activeNode.documentId,
+        title: activeNode.title,
+      });
+      return;
+    }
+
+    if (event.key === "Delete") {
+      event.preventDefault();
+      void onDelete(activeNode.documentId);
     }
   }
 
@@ -259,22 +765,53 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
         </div>
       ) : null}
 
-      <div className="flex-1 overflow-auto min-h-0">
+      <div
+        data-testid="file-tree-list"
+        role="tree"
+        tabIndex={0}
+        onKeyDown={onTreeKeyDown}
+        className="flex-1 overflow-auto min-h-0 focus-visible:outline focus-visible:outline-[length:var(--ring-focus-width)] focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--color-ring-focus)]"
+      >
         {bootstrapStatus !== "ready" ? (
           <Text size="small" color="muted" className="p-3 block">
             Loading files…
           </Text>
         ) : items.length === 0 ? (
-          <Text size="small" color="muted" className="p-3 block">
-            No documents yet.
-          </Text>
+          <div className="p-3 flex flex-col gap-2">
+            <Text size="small" color="muted" className="block">
+              暂无文件，开始创建你的第一个文件
+            </Text>
+            <Button
+              data-testid="file-create-empty"
+              variant="secondary"
+              size="sm"
+              onClick={() => void onCreate("chapter")}
+            >
+              新建文件
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-col gap-1 p-2">
-            {items.map((item) => {
-              const selected = item.documentId === currentDocumentId;
+            {visibleNodes.map((entry) => {
+              const item = entry.node;
+              const hasChildren = item.children.length > 0;
+              const selected =
+                item.documentId === (focusedDocumentId ?? currentDocumentId);
               const isRenaming =
                 editing.mode === "rename" &&
                 editing.documentId === item.documentId;
+              const isDragging = draggingDocumentId === item.documentId;
+              const dropBefore =
+                dropTarget?.documentId === item.documentId &&
+                dropTarget.mode === "before";
+              const dropInto =
+                dropTarget?.documentId === item.documentId &&
+                dropTarget.mode === "into";
+
+              const moveTargetFolderId = resolveMoveTargetFolder(
+                item.documentId,
+              );
+              const moveToFolderDisabled = !moveTargetFolderId;
 
               const contextMenuItems: ContextMenuItem[] = [
                 {
@@ -285,6 +822,25 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
                       mode: "rename",
                       documentId: item.documentId,
                       title: item.title,
+                    });
+                  },
+                },
+                {
+                  key: "copy",
+                  label: "Copy",
+                  onSelect: () => void onCopy(item),
+                },
+                {
+                  key: "move",
+                  label: "Move to Folder",
+                  disabled: moveToFolderDisabled,
+                  onSelect: () => {
+                    if (!moveTargetFolderId) {
+                      return;
+                    }
+                    void onMoveDocumentToFolder({
+                      documentId: item.documentId,
+                      parentId: moveTargetFolderId,
                     });
                   },
                 },
@@ -306,168 +862,273 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
                 },
               ];
 
-              // Rename mode: show inline input with fixed width
               if (isRenaming) {
                 return (
                   <div
                     key={item.documentId}
-                    data-testid={`file-row-${item.documentId}`}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] border border-[var(--color-border-focus)] bg-[var(--color-bg-selected)] overflow-hidden"
+                    className="relative"
+                    style={{ paddingLeft: `${entry.depth * 16}px` }}
                   >
-                    <Input
-                      ref={inputRef}
-                      data-testid={`file-rename-input-${item.documentId}`}
-                      value={editing.title}
-                      onChange={(e) =>
-                        setEditing({
-                          mode: "rename",
-                          documentId: item.documentId,
-                          title: e.target.value,
-                        })
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") {
-                          setEditing({ mode: "idle" });
-                          return;
+                    {dropBefore ? (
+                      <div
+                        data-testid={`file-drop-indicator-${item.documentId}`}
+                        className="absolute top-0 left-0 right-0 h-[2px] bg-[var(--color-accent)]"
+                      />
+                    ) : null}
+                    <div
+                      data-testid={`file-row-${item.documentId}`}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] border border-[var(--color-border-focus)] bg-[var(--color-bg-selected)] overflow-hidden"
+                    >
+                      <Input
+                        ref={inputRef}
+                        data-testid={`file-rename-input-${item.documentId}`}
+                        value={editing.title}
+                        onChange={(e) =>
+                          setEditing({
+                            mode: "rename",
+                            documentId: item.documentId,
+                            title: e.target.value,
+                          })
                         }
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          void onCommitRename();
-                        }
-                      }}
-                      onBlur={() => void onCommitRename()}
-                      className="h-6 text-xs flex-1 min-w-0 max-w-full"
-                    />
-                    <div className="flex gap-1 shrink-0">
-                      <Button
-                        data-testid={`file-rename-confirm-${item.documentId}`}
-                        variant="secondary"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void onCommitRename();
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setEditing({ mode: "idle" });
+                            return;
+                          }
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void onCommitRename();
+                          }
                         }}
-                      >
-                        OK
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditing({ mode: "idle" });
-                        }}
-                      >
-                        ✕
-                      </Button>
+                        onBlur={() => void onCommitRename()}
+                        className="h-6 text-xs flex-1 min-w-0 max-w-full"
+                      />
+                      <div className="flex gap-1 shrink-0">
+                        <Button
+                          data-testid={`file-rename-confirm-${item.documentId}`}
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void onCommitRename();
+                          }}
+                        >
+                          OK
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing({ mode: "idle" });
+                          }}
+                        >
+                          ✕
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );
               }
 
-              // Normal mode: show file with actions menu
               return (
-                <ContextMenu key={item.documentId} items={contextMenuItems}>
-                  <ListItem
-                    data-testid={`file-row-${item.documentId}`}
-                    aria-selected={selected}
-                    selected={selected}
-                    interactive
-                    compact
-                    onClick={() => void onSelect(item.documentId)}
-                    className={`border ${selected ? "border-[var(--color-border-focus)]" : "border-transparent"} group`}
-                  >
-                    <span
-                      data-testid={`file-type-icon-${item.documentId}`}
-                      className="shrink-0"
-                      aria-hidden="true"
+                <div
+                  key={item.documentId}
+                  className="relative"
+                  style={{ paddingLeft: `${entry.depth * 16}px` }}
+                >
+                  {dropBefore ? (
+                    <div
+                      data-testid={`file-drop-indicator-${item.documentId}`}
+                      className="absolute top-0 left-0 right-0 h-[2px] bg-[var(--color-accent)]"
+                    />
+                  ) : null}
+                  <ContextMenu items={contextMenuItems}>
+                    <ListItem
+                      data-testid={`file-row-${item.documentId}`}
+                      aria-selected={selected}
+                      selected={selected}
+                      interactive
+                      compact
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggingDocumentId(item.documentId);
+                        setDropTarget(null);
+                        setFocusedDocumentId(item.documentId);
+                        if (e.dataTransfer) {
+                          e.dataTransfer.effectAllowed = "move";
+                        }
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (draggingDocumentId === item.documentId) {
+                          return;
+                        }
+                        const nextMode: DropMode = isFolderCandidate(item)
+                          ? "into"
+                          : "before";
+                        setDropTarget({
+                          documentId: item.documentId,
+                          mode: nextMode,
+                        });
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        void onDropOnDocument(item.documentId);
+                        setDropTarget(null);
+                        setDraggingDocumentId(null);
+                      }}
+                      onDragEnd={() => {
+                        setDropTarget(null);
+                        setDraggingDocumentId(null);
+                      }}
+                      onClick={() => void onSelect(item.documentId)}
+                      className={`border ${selected ? "border-[var(--color-border-focus)]" : "border-transparent"} group ${dropInto ? "bg-[var(--color-bg-hover)]" : ""} ${isDragging ? "opacity-50" : ""}`}
                     >
-                      {iconForType(item.type)}
-                    </span>
-                    <Text
-                      size="small"
-                      className="block overflow-hidden text-ellipsis whitespace-nowrap flex-1 min-w-0"
-                    >
-                      {item.title}
-                    </Text>
-                    {item.status === "final" ? (
-                      <span
-                        data-testid={`file-status-final-${item.documentId}`}
-                        className="inline-block w-2 h-2 rounded-full bg-[var(--color-success)] shrink-0"
-                      />
-                    ) : null}
-                    <Popover
-                      trigger={
-                        <Button
-                          data-testid={`file-actions-${item.documentId}`}
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => e.stopPropagation()}
-                          className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0 w-6 h-6 p-0"
+                      {hasChildren ? (
+                        <button
+                          type="button"
+                          data-testid={`file-folder-toggle-${item.documentId}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFolderExpanded(item.documentId);
+                          }}
+                          className="shrink-0 w-4 text-[10px] text-[var(--color-fg-muted)]"
+                          aria-label={
+                            expandedFolderIds.has(item.documentId)
+                              ? "Collapse"
+                              : "Expand"
+                          }
                         >
-                          ⋯
-                        </Button>
-                      }
-                      side="bottom"
-                      align="end"
-                    >
-                      <div className="flex flex-col gap-1 -m-2">
-                        <PopoverClose asChild>
+                          {expandedFolderIds.has(item.documentId) ? "▾" : "▸"}
+                        </button>
+                      ) : (
+                        <span className="shrink-0 w-4" />
+                      )}
+                      <span
+                        data-testid={`file-type-icon-${item.documentId}`}
+                        className="shrink-0"
+                        aria-hidden="true"
+                      >
+                        {iconForType(item.type)}
+                      </span>
+                      <Text
+                        size="small"
+                        className="block overflow-hidden text-ellipsis whitespace-nowrap flex-1 min-w-0"
+                      >
+                        {item.title}
+                      </Text>
+                      {item.status === "final" ? (
+                        <span
+                          data-testid={`file-status-final-${item.documentId}`}
+                          className="inline-block w-2 h-2 rounded-full bg-[var(--color-success)] shrink-0"
+                        />
+                      ) : null}
+                      <Popover
+                        trigger={
                           <Button
-                            data-testid={`file-rename-${item.documentId}`}
+                            data-testid={`file-actions-${item.documentId}`}
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              setEditing({
-                                mode: "rename",
-                                documentId: item.documentId,
-                                title: item.title,
-                              });
-                            }}
-                            className="justify-start w-full"
+                            onClick={(e) => e.stopPropagation()}
+                            className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0 w-6 h-6 p-0"
                           >
-                            Rename
+                            ⋯
                           </Button>
-                        </PopoverClose>
-                        <PopoverClose asChild>
-                          <Button
-                            data-testid={`file-status-toggle-${item.documentId}`}
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              void onToggleStatus({
-                                documentId: item.documentId,
-                                next:
-                                  item.status === "final" ? "draft" : "final",
-                              })
-                            }
-                            className="justify-start w-full"
-                          >
-                            {item.status === "final"
-                              ? "Mark as Draft"
-                              : "Mark as Final"}
-                          </Button>
-                        </PopoverClose>
-                        <PopoverClose asChild>
-                          <Button
-                            data-testid={`file-delete-${item.documentId}`}
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void onDelete(item.documentId)}
-                            className="justify-start w-full text-[var(--color-error)]"
-                          >
-                            Delete
-                          </Button>
-                        </PopoverClose>
-                      </div>
-                    </Popover>
-                  </ListItem>
-                </ContextMenu>
+                        }
+                        side="bottom"
+                        align="end"
+                      >
+                        <div className="flex flex-col gap-1 -m-2">
+                          <PopoverClose asChild>
+                            <Button
+                              data-testid={`file-rename-${item.documentId}`}
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditing({
+                                  mode: "rename",
+                                  documentId: item.documentId,
+                                  title: item.title,
+                                });
+                              }}
+                              className="justify-start w-full"
+                            >
+                              Rename
+                            </Button>
+                          </PopoverClose>
+                          <PopoverClose asChild>
+                            <Button
+                              data-testid={`file-copy-${item.documentId}`}
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void onCopy(item)}
+                              className="justify-start w-full"
+                            >
+                              Copy
+                            </Button>
+                          </PopoverClose>
+                          <PopoverClose asChild>
+                            <Button
+                              data-testid={`file-move-${item.documentId}`}
+                              variant="ghost"
+                              size="sm"
+                              disabled={moveToFolderDisabled}
+                              onClick={() => {
+                                if (!moveTargetFolderId) {
+                                  return;
+                                }
+                                void onMoveDocumentToFolder({
+                                  documentId: item.documentId,
+                                  parentId: moveTargetFolderId,
+                                });
+                              }}
+                              className="justify-start w-full"
+                            >
+                              Move to Folder
+                            </Button>
+                          </PopoverClose>
+                          <PopoverClose asChild>
+                            <Button
+                              data-testid={`file-status-toggle-${item.documentId}`}
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                void onToggleStatus({
+                                  documentId: item.documentId,
+                                  next:
+                                    item.status === "final" ? "draft" : "final",
+                                })
+                              }
+                              className="justify-start w-full"
+                            >
+                              {item.status === "final"
+                                ? "Mark as Draft"
+                                : "Mark as Final"}
+                            </Button>
+                          </PopoverClose>
+                          <PopoverClose asChild>
+                            <Button
+                              data-testid={`file-delete-${item.documentId}`}
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => void onDelete(item.documentId)}
+                              className="justify-start w-full text-[var(--color-error)]"
+                            >
+                              Delete
+                            </Button>
+                          </PopoverClose>
+                        </div>
+                      </Popover>
+                    </ListItem>
+                  </ContextMenu>
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
       <SystemDialog {...dialogProps} />
     </div>
   );

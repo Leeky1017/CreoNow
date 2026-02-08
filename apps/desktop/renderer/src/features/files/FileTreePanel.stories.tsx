@@ -416,6 +416,213 @@ export const RenameDemo: Story = {
   ),
 };
 
+/**
+ * 多层级结构
+ *
+ * 覆盖文件夹层级展示（parentId 组织）。
+ */
+export const NestedHierarchy: Story = {
+  render: () => (
+    <FileTreePanelWrapper
+      projectId="project-nested"
+      items={[
+        {
+          documentId: "folder-1",
+          type: "chapter",
+          title: "第一卷",
+          status: "draft",
+          sortOrder: 0,
+          parentId: undefined,
+          updatedAt: Date.now() - 86400000,
+        },
+        {
+          documentId: "doc-1-1",
+          type: "chapter",
+          title: "第一卷 · 第一章",
+          status: "draft",
+          sortOrder: 1,
+          parentId: "folder-1",
+          updatedAt: Date.now() - 80000000,
+        },
+        {
+          documentId: "doc-1-2",
+          type: "note",
+          title: "第一卷 · 设定备忘",
+          status: "draft",
+          sortOrder: 2,
+          parentId: "folder-1",
+          updatedAt: Date.now() - 70000000,
+        },
+        {
+          documentId: "doc-root",
+          type: "chapter",
+          title: "独立章节",
+          status: "final",
+          sortOrder: 3,
+          parentId: undefined,
+          updatedAt: Date.now() - 60000000,
+        },
+      ]}
+      currentDocumentId="doc-1-1"
+    />
+  ),
+};
+
+/**
+ * 拖拽态覆盖
+ *
+ * Storybook 用于人工验证拖拽时样式反馈与顺序指示线。
+ */
+export const DragDropState: Story = {
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div
+        style={{
+          width: 280,
+          padding: "8px 10px",
+          fontSize: "12px",
+          color: "var(--color-fg-muted)",
+          border: "1px solid var(--color-border-default)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--color-bg-surface)",
+        }}
+      >
+        拖拽任意文档到目标行，可观察 2px 顺序指示线与目标高亮。
+      </div>
+      <FileTreePanelWrapper
+        projectId="project-drag"
+        items={[
+          {
+            documentId: "doc-a",
+            type: "chapter",
+            title: "第一章",
+            status: "draft",
+            sortOrder: 0,
+            parentId: undefined,
+            updatedAt: Date.now() - 86400000,
+          },
+          {
+            documentId: "doc-b",
+            type: "chapter",
+            title: "第二章",
+            status: "draft",
+            sortOrder: 1,
+            parentId: undefined,
+            updatedAt: Date.now() - 80000000,
+          },
+          {
+            documentId: "folder-a",
+            type: "chapter",
+            title: "第一卷",
+            status: "draft",
+            sortOrder: 2,
+            parentId: undefined,
+            updatedAt: Date.now() - 70000000,
+          },
+        ]}
+        currentDocumentId="doc-a"
+      />
+    </div>
+  ),
+};
+
+/**
+ * 右键菜单态覆盖
+ *
+ * Storybook 用于人工验证 Rename/Delete/Copy/Move/Status 菜单项。
+ */
+export const ContextMenuState: Story = {
+  render: () => (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div
+        style={{
+          width: 280,
+          padding: "8px 10px",
+          fontSize: "12px",
+          color: "var(--color-fg-muted)",
+          border: "1px solid var(--color-border-default)",
+          borderRadius: "var(--radius-sm)",
+          background: "var(--color-bg-surface)",
+        }}
+      >
+        右键任意文件行以打开上下文菜单。
+      </div>
+      <FileTreePanelWrapper
+        projectId="project-context"
+        items={[
+          {
+            documentId: "doc-context-1",
+            type: "chapter",
+            title: "未命名章节",
+            status: "draft",
+            sortOrder: 0,
+            parentId: undefined,
+            updatedAt: Date.now() - 86400000,
+          },
+          {
+            documentId: "folder-context",
+            type: "chapter",
+            title: "第一卷",
+            status: "draft",
+            sortOrder: 1,
+            parentId: undefined,
+            updatedAt: Date.now() - 80000000,
+          },
+        ]}
+        currentDocumentId="doc-context-1"
+      />
+    </div>
+  ),
+};
+
+const KEYBOARD_NAV_ITEMS: DocumentListItem[] = [
+  {
+    documentId: "doc-1",
+    type: "chapter",
+    title: "Chapter 1 - Introduction",
+    status: "draft",
+    sortOrder: 0,
+    parentId: undefined,
+    updatedAt: 1706745600000,
+  },
+  {
+    documentId: "doc-2",
+    type: "chapter",
+    title: "Chapter 2 - Development",
+    status: "draft",
+    sortOrder: 1,
+    parentId: undefined,
+    updatedAt: 1706659200000,
+  },
+  {
+    documentId: "doc-3",
+    type: "chapter",
+    title: "Chapter 3 - Climax",
+    status: "draft",
+    sortOrder: 2,
+    parentId: undefined,
+    updatedAt: 1706572800000,
+  },
+  {
+    documentId: "doc-4",
+    type: "chapter",
+    title: "Chapter 4 - Resolution",
+    status: "draft",
+    sortOrder: 3,
+    parentId: undefined,
+    updatedAt: 1706486400000,
+  },
+  {
+    documentId: "doc-5",
+    type: "chapter",
+    title: "Epilogue",
+    status: "final",
+    sortOrder: 4,
+    parentId: undefined,
+    updatedAt: 1706400000000,
+  },
+];
+
 // =============================================================================
 // P2: 键盘导航测试
 // =============================================================================
@@ -444,81 +651,40 @@ function KeyboardNavigationDemo(): JSX.Element {
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [lastAction, setLastAction] = React.useState<string | null>(null);
 
-  // 使用固定时间戳（Storybook 演示用，避免 react-hooks/purity 错误）
-  const items: DocumentListItem[] = [
-    {
-      documentId: "doc-1",
-      type: "chapter",
-      title: "Chapter 1 - Introduction",
-      status: "draft",
-      sortOrder: 0,
-      parentId: undefined,
-      updatedAt: 1706745600000,
-    },
-    {
-      documentId: "doc-2",
-      type: "chapter",
-      title: "Chapter 2 - Development",
-      status: "draft",
-      sortOrder: 1,
-      parentId: undefined,
-      updatedAt: 1706659200000,
-    },
-    {
-      documentId: "doc-3",
-      type: "chapter",
-      title: "Chapter 3 - Climax",
-      status: "draft",
-      sortOrder: 2,
-      parentId: undefined,
-      updatedAt: 1706572800000,
-    },
-    {
-      documentId: "doc-4",
-      type: "chapter",
-      title: "Chapter 4 - Resolution",
-      status: "draft",
-      sortOrder: 3,
-      parentId: undefined,
-      updatedAt: 1706486400000,
-    },
-    {
-      documentId: "doc-5",
-      type: "chapter",
-      title: "Epilogue",
-      status: "final",
-      sortOrder: 4,
-      parentId: undefined,
-      updatedAt: 1706400000000,
-    },
-  ];
-
   React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent): void {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedIndex((prev) => Math.min(prev + 1, items.length - 1));
+        setSelectedIndex((prev) =>
+          Math.min(prev + 1, KEYBOARD_NAV_ITEMS.length - 1),
+        );
         setLastAction(
-          `↓ 选中: "${items[Math.min(selectedIndex + 1, items.length - 1)]?.title}"`,
+          `↓ 选中: "${KEYBOARD_NAV_ITEMS[Math.min(selectedIndex + 1, KEYBOARD_NAV_ITEMS.length - 1)]?.title}"`,
         );
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelectedIndex((prev) => Math.max(prev - 1, 0));
         setLastAction(
-          `↑ 选中: "${items[Math.max(selectedIndex - 1, 0)]?.title}"`,
+          `↑ 选中: "${KEYBOARD_NAV_ITEMS[Math.max(selectedIndex - 1, 0)]?.title}"`,
         );
       } else if (e.key === "Enter") {
-        setLastAction(`Enter 打开: "${items[selectedIndex]?.title}"`);
+        setLastAction(
+          `Enter 打开: "${KEYBOARD_NAV_ITEMS[selectedIndex]?.title}"`,
+        );
       } else if (e.key === "F2") {
-        setLastAction(`F2 重命名: "${items[selectedIndex]?.title}"`);
+        setLastAction(
+          `F2 重命名: "${KEYBOARD_NAV_ITEMS[selectedIndex]?.title}"`,
+        );
       } else if (e.key === "Delete") {
-        setLastAction(`Delete 删除: "${items[selectedIndex]?.title}" (需确认)`);
+        setLastAction(
+          `Delete 删除: "${KEYBOARD_NAV_ITEMS[selectedIndex]?.title}" (需确认)`,
+        );
       }
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedIndex, items]);
+  }, [selectedIndex]);
 
   return (
     <div style={{ display: "flex", gap: "24px", padding: "24px" }}>
@@ -630,8 +796,10 @@ function KeyboardNavigationDemo(): JSX.Element {
       {/* 文件树 */}
       <FileTreePanelWrapper
         projectId="project-keyboard"
-        items={items}
-        currentDocumentId={items[selectedIndex]?.documentId ?? null}
+        items={KEYBOARD_NAV_ITEMS}
+        currentDocumentId={
+          KEYBOARD_NAV_ITEMS[selectedIndex]?.documentId ?? null
+        }
       />
     </div>
   );

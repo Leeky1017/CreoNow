@@ -73,7 +73,12 @@ describe("FileTreePanel", () => {
     it("当无文档时应显示空状态提示", () => {
       render(<FileTreePanel projectId="test-project" />);
 
-      expect(screen.getByText("No documents yet.")).toBeInTheDocument();
+      expect(
+        screen.getByText("暂无文件，开始创建你的第一个文件"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "新建文件" }),
+      ).toBeInTheDocument();
     });
   });
 
