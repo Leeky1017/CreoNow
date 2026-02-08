@@ -1,8 +1,8 @@
 # ISSUE-292
 
 - Issue: #292
-- Branch: main
-- PR: 未创建（本轮仅完成 OpenSpec change 起草）
+- Branch: task/292-memory-system-p0-p3-change-specs
+- PR: https://github.com/Leeky1017/CreoNow/pull/294
 
 ## Plan
 
@@ -66,3 +66,11 @@
 - Key output: 四个 tasks.md 均满足固定 6 章节顺序。
 - Command: `for f in openspec/changes/memory-system-p*/specs/memory-system-delta.md; do rg -n "^## \[|^### Scenario" "$f"; done`
 - Key output: 核心 requirement 与跨切场景均已落盘。
+
+
+### 2026-02-08 20:00 PR 创建与 RUN_LOG 回填
+
+- Command: `gh pr create --base main --head task/292-memory-system-p0-p3-change-specs ...`
+- Key output: 创建 PR `https://github.com/Leeky1017/CreoNow/pull/294`。
+- Command: 更新 `openspec/_ops/task_runs/ISSUE-292.md` 的 `Branch` 与 `PR` 字段
+- Key output: RUN_LOG 通过 preflight 的 PR URL 约束。
