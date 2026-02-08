@@ -11,6 +11,7 @@
   - `#313` https://github.com/Leeky1017/CreoNow/pull/313
   - `#315`（已关闭，改用 clean branch）https://github.com/Leeky1017/CreoNow/pull/315
   - `#316` https://github.com/Leeky1017/CreoNow/pull/316
+  - `#317` https://github.com/Leeky1017/CreoNow/pull/317
 - Scope: 完成 `openspec/changes/project-management-p1-lifecycle-switch-delete` 的全部任务内容（仅该 change）
 - Out of Scope: 该 change 之外的功能与文档变更
 
@@ -289,3 +290,25 @@
 - Key output:
   - `09569b11ba2d2b893f577e4765c5178ed3d46da7 test: align e2e with PM2 lifecycle contract (#307) (#316)`
   - 结论：控制面 `main` 已包含 ISSUE-307 最终收口提交。
+
+### 2026-02-08 23:57 归档收口（OpenSpec + Rulebook）
+
+- Command: `gh run view 21801016346 --job 62896429596 --log-failed`
+- Exit code: `0`
+- Key output:
+  - `openspec-log-guard` 报错：active change `project-management-p1-lifecycle-switch-delete` 的 `tasks.md` 已全勾选，必须归档至 `openspec/changes/archive/`。
+
+- Command: `git mv openspec/changes/project-management-p1-lifecycle-switch-delete openspec/changes/archive/project-management-p1-lifecycle-switch-delete`
+- Exit code: `0`
+- Key output:
+  - change 已从 active 目录迁移到 `openspec/changes/archive/`。
+
+- Command: `rulebook task archive issue-307-project-management-p1-lifecycle-switch-delete`
+- Exit code: `0`
+- Key output:
+  - `✅ Task issue-307-project-management-p1-lifecycle-switch-delete archived successfully`
+
+- Command: `edit openspec/changes/EXECUTION_ORDER.md`
+- Exit code: `0`
+- Key output:
+  - 活跃 change 数量更新为 `3`，并移除已归档 PM change 的顺序与依赖条目。
