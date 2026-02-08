@@ -46,7 +46,7 @@ export function GraphEdge({
   // Line colors
   const lineColor = isHighlighted
     ? "var(--color-node-character)"
-    : "var(--color-border-hover)";
+    : "var(--color-fg-subtle)";
   const lineWidth = isHighlighted ? 2 : 1;
   const markerEnd = isHighlighted
     ? "url(#arrowhead-selected)"
@@ -113,7 +113,7 @@ export function EdgeMarkerDefs(): JSX.Element {
         refY="3.5"
         orient="auto"
       >
-        <polygon points="0 0, 10 3.5, 0 7" fill="var(--color-border-hover)" />
+        <polygon points="0 0, 10 3.5, 0 7" fill="var(--color-fg-subtle)" />
       </marker>
 
       {/* Selected/highlighted arrow (blue) */}
@@ -125,10 +125,7 @@ export function EdgeMarkerDefs(): JSX.Element {
         refY="3.5"
         orient="auto"
       >
-        <polygon
-          points="0 0, 10 3.5, 0 7"
-          fill="var(--color-node-character)"
-        />
+        <polygon points="0 0, 10 3.5, 0 7" fill="var(--color-node-character)" />
       </marker>
     </defs>
   );

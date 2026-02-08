@@ -1,7 +1,11 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { GraphNode } from "./GraphNode";
 import { GraphEdge, EdgeMarkerDefs } from "./GraphEdge";
-import type { GraphCanvasProps, GraphNode as GraphNodeType, NodeFilter } from "./types";
+import type {
+  GraphCanvasProps,
+  GraphNode as GraphNodeType,
+  NodeFilter,
+} from "./types";
 
 /**
  * Canvas container styles
@@ -50,6 +54,7 @@ export function GraphCanvas({
   onNodeSelect,
   onNodeMove,
   onCanvasPan,
+  onCanvasZoom,
 }: GraphCanvasProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
@@ -57,7 +62,10 @@ export function GraphCanvas({
   const lastMousePos = useRef<{ x: number; y: number } | null>(null);
 
   // Create a map for quick node lookup
-  const nodeMap = new Map(data.nodes.map((n) => [n.id, n]));
+  const nodeMap = useMemo(
+    () => new Map(data.nodes.map((n) => [n.id, n])),
+    [data.nodes],
+  );
 
   // Filter visible nodes
   const visibleNodes = data.nodes.filter((node) => isNodeVisible(node, filter));
@@ -65,7 +73,8 @@ export function GraphCanvas({
 
   // Filter edges to only show those connecting visible nodes
   const visibleEdges = data.edges.filter(
-    (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
+    (edge) =>
+      visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
   );
 
   /**
@@ -108,7 +117,14 @@ export function GraphCanvas({
 
       lastMousePos.current = { x: e.clientX, y: e.clientY };
     },
-    [draggingNodeId, isPanning, nodeMap, transform.scale, onNodeMove, onCanvasPan],
+    [
+      draggingNodeId,
+      isPanning,
+      nodeMap,
+      transform.scale,
+      onNodeMove,
+      onCanvasPan,
+    ],
   );
 
   /**
@@ -125,7 +141,10 @@ export function GraphCanvas({
    */
   const handleCanvasMouseDown = useCallback((e: React.MouseEvent) => {
     // Only start panning if clicking on the canvas itself
-    if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "svg") {
+    if (
+      e.target === e.currentTarget ||
+      (e.target as HTMLElement).tagName === "svg"
+    ) {
       setIsPanning(true);
       lastMousePos.current = { x: e.clientX, y: e.clientY };
     }
@@ -137,28 +156,55 @@ export function GraphCanvas({
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent) => {
       // Only deselect if clicking on the canvas background
-      if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains("bg-grid-dots")) {
+      if (
+        e.target === e.currentTarget ||
+        (e.target as HTMLElement).classList.contains("bg-grid-dots")
+      ) {
         onNodeSelect(null);
       }
     },
     [onNodeSelect],
   );
 
+  /**
+   * Handle wheel zoom around the cursor anchor.
+   */
+  const handleWheel = useCallback(
+    (event: React.WheelEvent) => {
+      event.preventDefault();
+      const bounds = containerRef.current?.getBoundingClientRect();
+      if (!bounds) {
+        return;
+      }
+      onCanvasZoom(
+        {
+          x: event.clientX - bounds.left,
+          y: event.clientY - bounds.top,
+        },
+        event.deltaY,
+      );
+    },
+    [onCanvasZoom],
+  );
+
   return (
     <div
       ref={containerRef}
+      data-testid="knowledge-graph-canvas"
       className={canvasStyles}
       onMouseDown={handleCanvasMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onClick={handleCanvasClick}
+      onWheel={handleWheel}
     >
       {/* Grid background */}
       <div
         className={gridStyles}
         style={{
-          backgroundImage: "radial-gradient(circle, var(--color-border-default) 1px, transparent 1px)",
+          backgroundImage:
+            "radial-gradient(circle, var(--color-border-default) 1px, transparent 1px)",
           backgroundSize: "24px 24px",
         }}
       />
@@ -167,8 +213,8 @@ export function GraphCanvas({
       <div
         className="absolute inset-0 w-full h-full transition-transform duration-100 ease-out"
         style={{
-          transform: `scale(${transform.scale}) translate(${transform.translateX}px, ${transform.translateY}px)`,
-          transformOrigin: "center center",
+          transform: `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale})`,
+          transformOrigin: "0 0",
         }}
       >
         {/* SVG layer for edges */}

@@ -2,7 +2,7 @@
  * Surface Registry — 前端资产与 App/QA 入口的唯一映射表
  *
  * 本文件是 P0-001 的核心产物，实现：
- * 1. 57/57 Storybook 资产全量映射（截至 2026-02-08）
+ * 1. 58/58 Storybook 资产全量映射（截至 2026-02-08）
  * 2. 每个 surface 都有明确的入口（App/QA/Storybook）
  * 3. 每个 surface 都有 data-testid 用于 E2E 测试
  *
@@ -76,7 +76,7 @@ export interface SurfaceRegistryItem {
 }
 
 /**
- * 完整的 Surface Registry（57/57）
+ * 完整的 Surface Registry（58/58）
  *
  * 按类别组织：Layout → Primitives → Features
  */
@@ -310,7 +310,7 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   },
 
   // ============================================================
-  // Features（27 个）
+  // Features（28 个）
   // ============================================================
   {
     id: "aiDialogs",
@@ -424,6 +424,18 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
     entryPoints: [{ type: "iconBar", description: "Knowledge Graph icon" }],
     testId: "knowledge-graph",
     storybookTitle: "Features/KnowledgeGraph",
+  },
+  {
+    id: "kgViews",
+    kind: "leftPanel",
+    entryPoints: [
+      {
+        type: "storybookOnly",
+        description: "KG2 graph/timeline/card acceptance stories",
+      },
+    ],
+    testId: "kg-views",
+    storybookTitle: "Features/KG/Views",
   },
   {
     id: "knowledgeGraphEntityDetail",

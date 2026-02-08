@@ -4,6 +4,7 @@ import { GraphCanvas } from "./GraphCanvas";
 import { GraphLegend } from "./GraphLegend";
 import { NodeDetailCard } from "./NodeDetailCard";
 import { NodeEditDialog } from "./NodeEditDialog";
+import { zoomAroundCursor } from "../../../features/kg/graphRenderAdapter";
 import type {
   KnowledgeGraphProps,
   NodeFilter,
@@ -30,11 +31,7 @@ const containerStyles = [
   "overflow-hidden",
 ].join(" ");
 
-const mainStyles = [
-  "flex-1",
-  "relative",
-  "overflow-hidden",
-].join(" ");
+const mainStyles = ["flex-1", "relative", "overflow-hidden"].join(" ");
 
 /**
  * Empty state component
@@ -62,10 +59,10 @@ function EmptyState({ onAddNode }: { onAddNode: () => void }): JSX.Element {
         </div>
         <div>
           <p className="text-sm text-[var(--color-fg-muted)]">
-            No nodes in the graph yet
+            暂无实体，点击添加你的第一个角色或地点
           </p>
           <p className="text-xs text-[var(--color-fg-subtle)] mt-1">
-            Start building your knowledge graph by adding nodes
+            你可以在关系图中拖拽节点并建立关系
           </p>
         </div>
         <button
@@ -83,7 +80,7 @@ function EmptyState({ onAddNode }: { onAddNode: () => void }): JSX.Element {
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Add First Node
+          添加节点
         </button>
       </div>
     </div>
@@ -127,6 +124,8 @@ export function KnowledgeGraph({
   onViewDetails,
   onNodeSave,
   onNodeDelete,
+  initialTransform,
+  onTransformChange,
   enableEditDialog = true,
   className = "",
 }: KnowledgeGraphProps): JSX.Element {
@@ -136,9 +135,9 @@ export function KnowledgeGraph({
   );
   const [filter, setFilter] = useState<NodeFilter>("all");
   const [transform, setTransform] = useState<CanvasTransform>({
-    scale: 1,
-    translateX: 0,
-    translateY: 0,
+    scale: initialTransform?.scale ?? 1,
+    translateX: initialTransform?.translateX ?? 0,
+    translateY: initialTransform?.translateY ?? 0,
   });
 
   // Edit dialog state
@@ -169,29 +168,61 @@ export function KnowledgeGraph({
     return data.nodes.find((n) => n.id === selectedNodeId) || null;
   }, [data.nodes, selectedNodeId]);
 
+  useEffect(() => {
+    onTransformChange?.(transform);
+  }, [onTransformChange, transform]);
+
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
-    setTransform((prev) => ({
-      ...prev,
-      scale: Math.min(prev.scale + ZOOM_STEP, MAX_ZOOM),
-    }));
+    setTransform((prev) =>
+      zoomAroundCursor({
+        current: prev,
+        pointer: { x: 420, y: 260 },
+        deltaY: -1,
+        minScale: MIN_ZOOM,
+        maxScale: MAX_ZOOM,
+        step: ZOOM_STEP,
+      }),
+    );
   }, []);
 
   const handleZoomOut = useCallback(() => {
-    setTransform((prev) => ({
-      ...prev,
-      scale: Math.max(prev.scale - ZOOM_STEP, MIN_ZOOM),
-    }));
+    setTransform((prev) =>
+      zoomAroundCursor({
+        current: prev,
+        pointer: { x: 420, y: 260 },
+        deltaY: 1,
+        minScale: MIN_ZOOM,
+        maxScale: MAX_ZOOM,
+        step: ZOOM_STEP,
+      }),
+    );
   }, []);
 
   // Pan handler
   const handleCanvasPan = useCallback((deltaX: number, deltaY: number) => {
     setTransform((prev) => ({
       ...prev,
-      translateX: prev.translateX + deltaX / prev.scale,
-      translateY: prev.translateY + deltaY / prev.scale,
+      translateX: prev.translateX + deltaX,
+      translateY: prev.translateY + deltaY,
     }));
   }, []);
+
+  const handleCanvasZoom = useCallback(
+    (pointer: { x: number; y: number }, deltaY: number) => {
+      setTransform((prev) =>
+        zoomAroundCursor({
+          current: prev,
+          pointer,
+          deltaY,
+          minScale: MIN_ZOOM,
+          maxScale: MAX_ZOOM,
+          step: ZOOM_STEP,
+        }),
+      );
+    },
+    [],
+  );
 
   // Node move handler (for dragging)
   const handleNodeMove = useCallback(
@@ -279,7 +310,13 @@ export function KnowledgeGraph({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editDialogOpen, handleDeleteNode, handleNodeSelect, onNodeDelete, selectedNodeId]);
+  }, [
+    editDialogOpen,
+    handleDeleteNode,
+    handleNodeSelect,
+    onNodeDelete,
+    selectedNodeId,
+  ]);
 
   // Save node handler (from edit dialog)
   const handleNodeSave = useCallback(
@@ -328,6 +365,7 @@ export function KnowledgeGraph({
               onNodeSelect={handleNodeSelect}
               onNodeMove={handleNodeMove}
               onCanvasPan={handleCanvasPan}
+              onCanvasZoom={handleCanvasZoom}
             />
 
             {/* Node Detail Card (fixed position, right side of canvas) */}

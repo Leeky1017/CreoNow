@@ -86,6 +86,10 @@ export interface KnowledgeGraphProps {
   onNodeSave?: (node: GraphNode, isNew: boolean) => void;
   /** Callback when a node is deleted */
   onNodeDelete?: (nodeId: string) => void;
+  /** Initial transform for persisted graph viewport */
+  initialTransform?: CanvasTransform;
+  /** Callback when viewport transform changes */
+  onTransformChange?: (transform: CanvasTransform) => void;
   /** Enable built-in edit dialog (default: true) */
   enableEditDialog?: boolean;
   /** Optional className for styling */
@@ -157,4 +161,5 @@ export interface GraphCanvasProps {
   onNodeSelect: (nodeId: string | null) => void;
   onNodeMove: (nodeId: string, position: { x: number; y: number }) => void;
   onCanvasPan: (deltaX: number, deltaY: number) => void;
+  onCanvasZoom: (pointer: { x: number; y: number }, deltaY: number) => void;
 }
