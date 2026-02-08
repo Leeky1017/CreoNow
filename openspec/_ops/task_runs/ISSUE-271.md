@@ -3,7 +3,7 @@
 - Issue: #271
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/271
 - Branch: `task/271-document-management-p0-crud-types-status`
-- PR: `TBD`
+- PR: https://github.com/Leeky1017/CreoNow/pull/272
 - Scope: 完成 `document-management-p0-crud-types-status` 的 OpenSpec + TDD + 实现 + 门禁合并收口
 - Out of Scope: 与本 change 无关的模块行为变更
 
