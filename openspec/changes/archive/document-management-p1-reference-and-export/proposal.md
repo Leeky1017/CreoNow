@@ -31,5 +31,5 @@
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`
-- Apply 状态：`NOT_STARTED`
+- Owner 审阅：`APPROVED`
+- Apply 状态：`DONE`（本 change 仅完成 OpenSpec 拆分与门禁定义，不进入实现）

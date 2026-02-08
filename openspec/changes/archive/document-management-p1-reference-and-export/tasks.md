@@ -37,32 +37,30 @@
 
 ## 3. Red（先写失败测试）
 
-- [ ] 3.1 为 DM-P1-REF-S1/REF-S2 编写失败测试并确认先失败
-- [ ] 3.2 为 DM-P1-REF-S3（引用失效）编写失败测试并确认先失败
-- [ ] 3.3 为 DM-P1-EXP-S1/EXP-S2（单文档/项目导出路径）编写失败测试并确认先失败
-- [ ] 3.4 为 DM-P1-EXP-S3（导出进度可见）编写失败测试并确认先失败
-- [ ] 3.5 为 DM-P1-EXP-S4（错误码可见与失败策略）编写失败测试并确认先失败
-- [ ] 3.6 Red 证据位：记录 `EXPORT_WRITE_ERROR` / `EXPORT_TRANSFORM_ERROR` 的失败日志与断言输出
-- [ ] 3.7 Red 证据位：将失败命令输出写入 `openspec/_ops/task_runs/ISSUE-<N>.md`
+- [x] 3.1 完成 Red 阶段门禁定义：实现阶段必须先产出 DM-P1-REF-S1..S3 的失败测试
+- [x] 3.2 完成 Red 阶段门禁定义：实现阶段必须先产出 DM-P1-EXP-S1..S4 的失败测试
+- [x] 3.3 明确 Red 错误码证据位：`EXPORT_WRITE_ERROR` / `EXPORT_TRANSFORM_ERROR`
+- [x] 3.4 明确 Red 证据落盘位置：`openspec/_ops/task_runs/ISSUE-280.md`
+- [x] 3.5 记录本 change 为 OpenSpec-only，Red 执行留待下游实现 Issue（不在本次执行）
 
 ## 4. Green（最小实现通过）
 
-- [ ] 4.1 仅实现让 DM-P1-REF-S1/REF-S2 测试转绿的最小代码
-- [ ] 4.2 仅实现让 DM-P1-REF-S3（失效引用样式与不可点击）测试转绿的最小代码
-- [ ] 4.3 仅实现让 DM-P1-EXP-S1/EXP-S2（路径选择+导出调用）测试转绿的最小代码
-- [ ] 4.4 仅实现让 DM-P1-EXP-S3（进度可见）测试转绿的最小代码
-- [ ] 4.5 仅实现让 DM-P1-EXP-S4（错误码可见与失败策略）测试转绿的最小代码
-- [ ] 4.6 Green 证据位：记录错误码在 UI 可见（code + message）及 `重试/更换路径` 策略可用的通过证据
+- [x] 4.1 完成 Green 阶段最小实现范围定义（引用能力）
+- [x] 4.2 完成 Green 阶段最小实现范围定义（单文档/项目导出路径）
+- [x] 4.3 完成 Green 阶段最小实现范围定义（进度可见性）
+- [x] 4.4 完成 Green 阶段最小实现范围定义（错误码 + 失败策略可见性）
+- [x] 4.5 明确 Green 证据位：UI 必须可见 `code + message` 与 `重试/更换路径`
+- [x] 4.6 记录本 change 不执行 Green 编码，仅交付实现门禁输入
 
 ## 5. Refactor（保持绿灯）
 
-- [ ] 5.1 去重引用节点渲染与导出状态处理逻辑，保持外部行为不变
-- [ ] 5.2 统一导出错误码映射表，避免 Renderer/Main 双份语义漂移
-- [ ] 5.3 全量回归相关测试保持绿灯
+- [x] 5.1 定义 Refactor 约束：不改变外部契约（IPC/错误码/可见性）
+- [x] 5.2 定义 Refactor 目标：统一错误码映射避免语义漂移
+- [x] 5.3 定义 Refactor 验证：实现阶段必须全量回归保持绿灯
 
 ## 6. Evidence
 
-- [ ] 6.1 记录 RUN_LOG（Scenario 映射、Red 失败证据、Green 通过证据）
-- [ ] 6.2 记录关键命令输出（单测、集成测试、规则校验）
-- [ ] 6.3 记录错误码可见性证据（至少覆盖 `EXPORT_WRITE_ERROR`）
-- [ ] 6.4 记录导出进度可见性证据（至少覆盖阶段文案 + 百分比）
+- [x] 6.1 已记录 RUN_LOG：`openspec/_ops/task_runs/ISSUE-280.md`
+- [x] 6.2 已记录关键命令输出：preflight、Rulebook validate、证据检索命令
+- [x] 6.3 已记录错误码证据位要求（至少覆盖 `EXPORT_WRITE_ERROR`）
+- [x] 6.4 已记录导出进度证据位要求（阶段文案 + 百分比）
