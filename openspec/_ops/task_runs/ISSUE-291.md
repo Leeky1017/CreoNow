@@ -3,7 +3,7 @@
 - Issue: #291
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/291
 - Branch: `task/291-project-management-p0-p1-changes`
-- PR: `TBD`
+- PR: https://github.com/Leeky1017/CreoNow/pull/293
 - Scope: 为 `project-management` 模块创建 PM-1 与 PM-2 两个活跃 OpenSpec change，并维护执行顺序与交付证据
 - Out of Scope: 生产代码实现、测试实现、delta apply/archive
 
@@ -61,12 +61,15 @@
 ### 2026-02-08 19:46 +0800 rulebook bootstrap
 
 - Command:
-  - `rulebook task create issue-291-project-management-p0-p1-change-specs`
-  - `rulebook task validate issue-291-project-management-p0-p1-change-specs`
+  - `rulebook task create issue-291-project-management-p0-p1-change-specs`（MCP）
+  - `rulebook task validate issue-291-project-management-p0-p1-change-specs`（MCP）
+  - `rulebook task create issue-291-project-management-p0-p1-changes`（仓库本地）
+  - `rulebook task validate issue-291-project-management-p0-p1-changes`
 - Exit code: `0`
 - Key output:
   - `Task issue-291-project-management-p0-p1-change-specs created successfully`
-  - `valid: true`（warning: `No spec files found (specs/*/spec.md)`）
+  - `Task issue-291-project-management-p0-p1-changes created successfully`
+  - `Task issue-291-project-management-p0-p1-changes is valid`
 
 ### 2026-02-08 19:47 +0800 openspec authoring
 
@@ -79,3 +82,50 @@
 - Exit code: `0`
 - Key output:
   - 两个 change 文档已落盘，执行顺序改为串行并声明 PM-2 依赖 PM-1。
+
+### 2026-02-08 19:56 +0800 commit + publish + pr
+
+- Command:
+  - `git commit -m "docs: draft PM-1 and PM-2 project management changes (#291)"`
+  - `git push -u origin task/291-project-management-p0-p1-changes`
+  - `gh pr create --base main --head task/291-project-management-p0-p1-changes --title "Draft PM-1 and PM-2 project management OpenSpec changes (#291)" --body ...`
+  - `gh pr merge 293 --auto --squash`
+- Exit code: `0`
+- Key output:
+  - commit: `5eb33612`
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/293`
+  - PR 状态：`OPEN / AUTO-MERGE enabled`
+
+### 2026-02-08 20:00 +0800 preflight(red-1)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `PRE-FLIGHT FAILED: ... pnpm exec prettier --check ... rulebook/tasks/issue-291-project-management-p0-p1-changes/.metadata.json`
+  - `Code style issues found ... .metadata.json`
+- Fix:
+  - 执行 `pnpm exec prettier --write rulebook/tasks/issue-291-project-management-p0-p1-changes/.metadata.json`
+
+### 2026-02-08 20:01 +0800 preflight(red-2)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `PRE-FLIGHT FAILED: command failed: pnpm typecheck (exit 1)`
+  - `sh: 1: tsc: not found`
+  - `Local package.json exists, but node_modules missing`
+- Fix:
+  - 执行 `pnpm install --frozen-lockfile` 补齐依赖
+
+### 2026-02-08 20:02 +0800 preflight(green)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - `pnpm typecheck` 通过
+  - `pnpm lint` 通过（4 条 warning，无 error）
+  - `pnpm contract:check` 通过
+  - `pnpm test:unit` 通过
