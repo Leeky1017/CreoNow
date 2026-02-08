@@ -41,4 +41,4 @@
 ## 6. Evidence
 
 - [x] 6.1 记录 RUN_LOG（含 Red 失败证据、Green 通过证据与关键命令输出）
-- [ ] 6.2 PR 合并后归档本 change 到 `openspec/changes/archive/`
+- [x] 6.2 PR 合并后归档本 change 到 `openspec/changes/archive/`

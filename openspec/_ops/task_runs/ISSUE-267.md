@@ -3,7 +3,7 @@
 - Issue: #267
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/267
 - Branch: `task/267-ipc-partial-closeout`
-- PR: `TBD`
+- PR: `https://github.com/Leeky1017/CreoNow/pull/268`
 - Scope: 关闭 IPC 审计中 2 个“部分实现”（envelope 文档收敛 + preload 暴露安全证据）
 - Out of Scope: `#264`、非 IPC 业务改造、command-palette/export E2E 稳定性修复
 
@@ -14,7 +14,7 @@
 
 ## Status
 
-- CURRENT: 代码与文档修复已完成，门禁验证通过，等待 PR 合并。
+- CURRENT: `PR #268` 已合并；变更归档由 follow-up `#269` 执行收口。
 
 ## Archive Rewrite Rationale
 
@@ -185,3 +185,24 @@
 - Key output:
   - `Task issue-267-ipc-partial-closeout is valid`
   - Warning: `No spec files found (specs/*/spec.md)`
+
+### 2026-02-08 12:53 +0800 PR delivery
+
+- Command:
+  - `gh pr create --base main --head task/267-ipc-partial-closeout --title "Close IPC partial implementations (#267)" --body-file /tmp/pr268-body.md`
+  - `gh pr merge 268 --auto --squash`
+- Exit code: `0`
+- Key output:
+  - `https://github.com/Leeky1017/CreoNow/pull/268`
+  - auto-merge enabled
+
+### 2026-02-08 12:57 +0800 required checks green + merged
+
+- Command:
+  - `gh pr checks 268 --watch --interval 10`
+  - `gh pr view 268 --json state,mergedAt,mergeCommit,url`
+- Exit code: `0`
+- Key output:
+  - `openspec-log-guard`/`merge-serial`/`ci` required checks all pass
+  - `state: MERGED`
+  - `mergeCommit: 5f34b7e327ebe3a1c6a31621171050acbe9eb566`
