@@ -13,20 +13,38 @@ type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
 export type ServiceResult<T> = Ok<T> | Err;
 
+export type DocumentType =
+  | "chapter"
+  | "note"
+  | "setting"
+  | "timeline"
+  | "character";
+
+export type DocumentStatus = "draft" | "final";
+
 export type DocumentListItem = {
   documentId: string;
+  type: DocumentType;
   title: string;
+  status: DocumentStatus;
+  sortOrder: number;
+  parentId?: string;
   updatedAt: number;
 };
 
 export type DocumentRead = {
   documentId: string;
   projectId: string;
+  type: DocumentType;
   title: string;
+  status: DocumentStatus;
+  sortOrder: number;
+  parentId?: string;
   contentJson: string;
   contentText: string;
   contentMd: string;
   contentHash: string;
+  createdAt: number;
   updatedAt: number;
 };
 
@@ -52,7 +70,11 @@ export type VersionRead = {
 };
 
 export type DocumentService = {
-  create: (args: { projectId: string; title?: string }) => ServiceResult<{
+  create: (args: {
+    projectId: string;
+    title?: string;
+    type?: DocumentType;
+  }) => ServiceResult<{
     documentId: string;
   }>;
   list: (args: { projectId: string }) => ServiceResult<{
@@ -62,12 +84,16 @@ export type DocumentService = {
     projectId: string;
     documentId: string;
   }) => ServiceResult<DocumentRead>;
-  rename: (args: {
+  update: (args: {
     projectId: string;
     documentId: string;
-    title: string;
+    title?: string;
+    type?: DocumentType;
+    status?: DocumentStatus;
+    sortOrder?: number;
+    parentId?: string;
   }) => ServiceResult<{ updated: true }>;
-  write: (args: {
+  save: (args: {
     projectId: string;
     documentId: string;
     contentJson: unknown;
@@ -81,6 +107,15 @@ export type DocumentService = {
     projectId: string;
     documentId: string;
   }) => ServiceResult<{ deleted: true }>;
+  reorder: (args: {
+    projectId: string;
+    orderedDocumentIds: string[];
+  }) => ServiceResult<{ updated: true }>;
+  updateStatus: (args: {
+    projectId: string;
+    documentId: string;
+    status: DocumentStatus;
+  }) => ServiceResult<{ updated: true; status: DocumentStatus }>;
 
   getCurrent: (args: { projectId: string }) => ServiceResult<{
     documentId: string;
@@ -112,6 +147,16 @@ const SETTINGS_SCOPE_PREFIX = "project:" as const;
 const CURRENT_DOCUMENT_ID_KEY = "creonow.document.currentId" as const;
 const MAX_TITLE_LENGTH = 200;
 const AI_APPLY_REASON_PREFIX = "ai-apply:" as const;
+
+const DOCUMENT_TYPE_SET = new Set<DocumentType>([
+  "chapter",
+  "note",
+  "setting",
+  "timeline",
+  "character",
+]);
+
+const DOCUMENT_STATUS_SET = new Set<DocumentStatus>(["draft", "final"]);
 
 function nowTs(): number {
   return Date.now();
@@ -150,6 +195,62 @@ function serializeJson(value: unknown): ServiceResult<string> {
   }
 }
 
+/**
+ * Resolve a valid document type with a deterministic default.
+ *
+ * Why: create/update operations must reject unsupported types explicitly.
+ */
+function normalizeDocumentType(
+  type: string | undefined,
+): ServiceResult<DocumentType> {
+  if (!type) {
+    return { ok: true, data: "chapter" };
+  }
+  if (DOCUMENT_TYPE_SET.has(type as DocumentType)) {
+    return { ok: true, data: type as DocumentType };
+  }
+  return ipcError("INVALID_ARGUMENT", "Unsupported document type");
+}
+
+/**
+ * Resolve a valid document status value.
+ *
+ * Why: status transitions must be explicit and deterministic for UI guards.
+ */
+function normalizeDocumentStatus(
+  status: string | undefined,
+): ServiceResult<DocumentStatus> {
+  if (!status) {
+    return ipcError("INVALID_ARGUMENT", "status is required");
+  }
+  if (DOCUMENT_STATUS_SET.has(status as DocumentStatus)) {
+    return { ok: true, data: status as DocumentStatus };
+  }
+  return ipcError("INVALID_ARGUMENT", "Unsupported document status");
+}
+
+/**
+ * Produce default untitled title by document type.
+ *
+ * Why: different creation entries must render meaningful default titles.
+ */
+function defaultTitleByType(type: DocumentType): string {
+  switch (type) {
+    case "chapter":
+      return "Untitled Chapter";
+    case "note":
+      return "Untitled Note";
+    case "setting":
+      return "Untitled Setting";
+    case "timeline":
+      return "Untitled Timeline";
+    case "character":
+      return "Untitled Character";
+    default:
+      return "Untitled";
+  }
+}
+
 type SettingsRow = {
   valueJson: string;
 };
@@ -157,11 +258,16 @@ type SettingsRow = {
 type DocumentRow = {
   documentId: string;
   projectId: string;
+  type: DocumentType;
   title: string;
+  status: DocumentStatus;
+  sortOrder: number;
+  parentId?: string;
   contentJson: string;
   contentText: string;
   contentMd: string;
   contentHash: string;
+  createdAt: number;
   updatedAt: number;
 };
 
@@ -172,6 +278,13 @@ type VersionRow = {
 type VersionRestoreRow = {
   projectId: string;
   documentId: string;
+  contentJson: string;
+  contentText: string;
+  contentMd: string;
+  contentHash: string;
+};
+
+type DocumentContentRow = {
   contentJson: string;
   contentText: string;
   contentMd: string;
@@ -283,8 +396,14 @@ export function createDocumentService(args: {
   logger: Logger;
 }): DocumentService {
   return {
-    create: ({ projectId, title }) => {
-      const safeTitle = title?.trim().length ? title.trim() : "Untitled";
+    create: ({ projectId, title, type }) => {
+      const normalizedType = normalizeDocumentType(type);
+      if (!normalizedType.ok) {
+        return normalizedType;
+      }
+      const safeTitle = title?.trim().length
+        ? title.trim()
+        : defaultTitleByType(normalizedType.data);
 
       const derived = deriveContent({ contentJson: EMPTY_DOC });
       if (!derived.ok) {
@@ -300,18 +419,30 @@ export function createDocumentService(args: {
       const ts = nowTs();
 
       try {
+        const maxSortRow = args.db
+          .prepare<
+            [string],
+            { maxSortOrder: number | null }
+          >("SELECT MAX(sort_order) as maxSortOrder FROM documents WHERE project_id = ?")
+          .get(projectId);
+        const nextSortOrder = (maxSortRow?.maxSortOrder ?? -1) + 1;
+
         args.db
           .prepare(
-            "INSERT INTO documents (document_id, project_id, title, content_json, content_text, content_md, content_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO documents (document_id, project_id, type, title, content_json, content_text, content_md, content_hash, status, sort_order, parent_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           )
           .run(
             documentId,
             projectId,
+            normalizedType.data,
             safeTitle,
             encoded.data,
             derived.data.contentText,
             derived.data.contentMd,
             contentHash,
+            "draft",
+            nextSortOrder,
+            null,
             ts,
             ts,
           );
@@ -337,7 +468,7 @@ export function createDocumentService(args: {
           .prepare<
             [string],
             DocumentListItem
-          >("SELECT document_id as documentId, title, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC")
+          >("SELECT document_id as documentId, type, title, status, sort_order as sortOrder, parent_id as parentId, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY sort_order ASC, updated_at DESC, document_id ASC")
           .all(projectId);
         return { ok: true, data: { items: rows } };
       } catch (error) {
@@ -355,7 +486,7 @@ export function createDocumentService(args: {
           .prepare<
             [string, string],
             DocumentRow
-          >("SELECT document_id as documentId, project_id as projectId, title, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, updated_at as updatedAt FROM documents WHERE project_id = ? AND document_id = ?")
+          >("SELECT document_id as documentId, project_id as projectId, type, title, status, sort_order as sortOrder, parent_id as parentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, created_at as createdAt, updated_at as updatedAt FROM documents WHERE project_id = ? AND document_id = ?")
           .get(projectId, documentId);
         if (!row) {
           return ipcError("NOT_FOUND", "Document not found");
@@ -371,45 +502,99 @@ export function createDocumentService(args: {
       }
     },
 
-    rename: ({ projectId, documentId, title }) => {
+    update: ({ projectId, documentId, title, type, status, sortOrder, parentId }) => {
       if (projectId.trim().length === 0 || documentId.trim().length === 0) {
         return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
       }
 
-      const trimmedTitle = title.trim();
-      if (trimmedTitle.length === 0) {
-        return ipcError("INVALID_ARGUMENT", "title is required");
+      const setParts: string[] = [];
+      const params: Array<string | number | null> = [];
+
+      if (title !== undefined) {
+        const trimmedTitle = title.trim();
+        if (trimmedTitle.length === 0) {
+          return ipcError("INVALID_ARGUMENT", "title is required");
+        }
+        if (trimmedTitle.length > MAX_TITLE_LENGTH) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            `title too long (max ${MAX_TITLE_LENGTH})`,
+          );
+        }
+        setParts.push("title = ?");
+        params.push(trimmedTitle);
       }
-      if (trimmedTitle.length > MAX_TITLE_LENGTH) {
+
+      if (type !== undefined) {
+        const normalized = normalizeDocumentType(type);
+        if (!normalized.ok) {
+          return normalized;
+        }
+        setParts.push("type = ?");
+        params.push(normalized.data);
+      }
+
+      if (status !== undefined) {
+        const normalized = normalizeDocumentStatus(status);
+        if (!normalized.ok) {
+          return normalized;
+        }
+        setParts.push("status = ?");
+        params.push(normalized.data);
+      }
+
+      if (sortOrder !== undefined) {
+        if (!Number.isInteger(sortOrder) || sortOrder < 0) {
+          return ipcError(
+            "INVALID_ARGUMENT",
+            "sortOrder must be a non-negative integer",
+          );
+        }
+        setParts.push("sort_order = ?");
+        params.push(sortOrder);
+      }
+
+      if (parentId !== undefined) {
+        if (parentId.trim().length === 0) {
+          return ipcError("INVALID_ARGUMENT", "parentId must be non-empty");
+        }
+        setParts.push("parent_id = ?");
+        params.push(parentId);
+      }
+
+      if (setParts.length === 0) {
         return ipcError(
           "INVALID_ARGUMENT",
-          `title too long (max ${MAX_TITLE_LENGTH})`,
+          "at least one mutable field is required",
         );
       }
 
       const ts = nowTs();
+      setParts.push("updated_at = ?");
+      params.push(ts);
+      params.push(projectId);
+      params.push(documentId);
       try {
-        const res = args.db
-          .prepare<
-            [string, number, string, string]
-          >("UPDATE documents SET title = ?, updated_at = ? WHERE project_id = ? AND document_id = ?")
-          .run(trimmedTitle, ts, projectId, documentId);
+        const stmt = args.db.prepare(
+          `UPDATE documents SET ${setParts.join(", ")} WHERE project_id = ? AND document_id = ?`,
+        );
+        const res = stmt.run(...params);
         if (res.changes === 0) {
           return ipcError("NOT_FOUND", "Document not found");
         }
 
-        args.logger.info("document_renamed", { document_id: documentId });
+        args.logger.info("document_updated", { document_id: documentId });
         return { ok: true, data: { updated: true } };
       } catch (error) {
-        args.logger.error("document_rename_failed", {
+        args.logger.error("document_update_failed", {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
         });
-        return ipcError("DB_ERROR", "Failed to rename document");
+        return ipcError("DB_ERROR", "Failed to update document");
       }
     },
 
-    write: ({ projectId, documentId, contentJson, actor, reason }) => {
+    save: ({ projectId, documentId, contentJson, actor, reason }) => {
       const aiRunId = actor === "ai" ? parseAiApplyRunId(reason) : null;
       if (actor === "ai" && !aiRunId) {
         return ipcError(
@@ -565,10 +750,6 @@ export function createDocumentService(args: {
             throw new Error("NOT_FOUND");
           }
 
-          if (!isDeletingCurrent) {
-            return;
-          }
-
           const next = args.db
             .prepare<
               [string],
@@ -577,22 +758,59 @@ export function createDocumentService(args: {
             .get(projectId);
 
           if (next) {
-            switchedTo = next.documentId;
-            args.db
-              .prepare(
-                "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
-              )
-              .run(
-                scope,
-                CURRENT_DOCUMENT_ID_KEY,
-                JSON.stringify(next.documentId),
-                ts,
-              );
-          } else {
-            args.db
-              .prepare("DELETE FROM settings WHERE scope = ? AND key = ?")
-              .run(scope, CURRENT_DOCUMENT_ID_KEY);
+            if (isDeletingCurrent) {
+              switchedTo = next.documentId;
+              args.db
+                .prepare(
+                  "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+                )
+                .run(
+                  scope,
+                  CURRENT_DOCUMENT_ID_KEY,
+                  JSON.stringify(next.documentId),
+                  ts,
+                );
+            }
+            return;
           }
+
+          const replacementId = randomUUID();
+          const derived = deriveContent({ contentJson: EMPTY_DOC });
+          if (!derived.ok) {
+            throw new Error("DERIVE_FAILED");
+          }
+          const encoded = serializeJson(EMPTY_DOC);
+          if (!encoded.ok) {
+            throw new Error("ENCODING_FAILED");
+          }
+          const contentHash = hashJson(encoded.data);
+
+          args.db
+            .prepare(
+              "INSERT INTO documents (document_id, project_id, type, title, content_json, content_text, content_md, content_hash, status, sort_order, parent_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .run(
+              replacementId,
+              projectId,
+              "chapter",
+              defaultTitleByType("chapter"),
+              encoded.data,
+              derived.data.contentText,
+              derived.data.contentMd,
+              contentHash,
+              "draft",
+              0,
+              null,
+              ts,
+              ts,
+            );
+
+          switchedTo = replacementId;
+          args.db
+            .prepare(
+              "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+            )
+            .run(scope, CURRENT_DOCUMENT_ID_KEY, JSON.stringify(replacementId), ts);
         })();
 
         args.logger.info("document_deleted", { document_id: documentId });
@@ -618,6 +836,118 @@ export function createDocumentService(args: {
           code === "NOT_FOUND"
             ? "Document not found"
             : "Failed to delete document",
+        );
+      }
+    },
+
+    reorder: ({ projectId, orderedDocumentIds }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      if (orderedDocumentIds.length === 0) {
+        return ipcError("INVALID_ARGUMENT", "orderedDocumentIds is required");
+      }
+
+      const unique = new Set(orderedDocumentIds);
+      if (unique.size !== orderedDocumentIds.length) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "orderedDocumentIds must not contain duplicates",
+        );
+      }
+
+      const ts = nowTs();
+      try {
+        args.db.transaction(() => {
+          orderedDocumentIds.forEach((docId, index) => {
+            const updated = args.db
+              .prepare<
+                [number, number, string, string]
+              >("UPDATE documents SET sort_order = ?, updated_at = ? WHERE project_id = ? AND document_id = ?")
+              .run(index, ts, projectId, docId);
+            if (updated.changes === 0) {
+              throw new Error("NOT_FOUND");
+            }
+          });
+        })();
+        return { ok: true, data: { updated: true } };
+      } catch (error) {
+        const code =
+          error instanceof Error && error.message === "NOT_FOUND"
+            ? ("NOT_FOUND" as const)
+            : ("DB_ERROR" as const);
+        return ipcError(
+          code,
+          code === "NOT_FOUND"
+            ? "Document not found"
+            : "Failed to reorder documents",
+        );
+      }
+    },
+
+    updateStatus: ({ projectId, documentId, status }) => {
+      if (projectId.trim().length === 0 || documentId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
+      }
+      const normalized = normalizeDocumentStatus(status);
+      if (!normalized.ok) {
+        return normalized;
+      }
+
+      const ts = nowTs();
+      try {
+        args.db.transaction(() => {
+          const current = args.db
+            .prepare<
+              [string, string],
+              DocumentContentRow
+            >("SELECT content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM documents WHERE project_id = ? AND document_id = ?")
+            .get(projectId, documentId);
+          if (!current) {
+            throw new Error("NOT_FOUND");
+          }
+
+          const updated = args.db
+            .prepare<
+              [string, number, string, string]
+            >("UPDATE documents SET status = ?, updated_at = ? WHERE project_id = ? AND document_id = ?")
+            .run(normalized.data, ts, projectId, documentId);
+          if (updated.changes === 0) {
+            throw new Error("NOT_FOUND");
+          }
+
+          const versionId = randomUUID();
+          args.db
+            .prepare(
+              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .run(
+              versionId,
+              projectId,
+              documentId,
+              "user",
+              `status:${normalized.data}`,
+              current.contentJson,
+              current.contentText,
+              current.contentMd,
+              current.contentHash,
+              "",
+              "",
+              ts,
+            );
+        })();
+
+        return { ok: true, data: { updated: true, status: normalized.data } };
+      } catch (error) {
+        const code =
+          error instanceof Error && error.message === "NOT_FOUND"
+            ? ("NOT_FOUND" as const)
+            : ("DB_ERROR" as const);
+        return ipcError(
+          code,
+          code === "NOT_FOUND"
+            ? "Document not found"
+            : "Failed to update document status",
         );
       }
     },

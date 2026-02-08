@@ -196,7 +196,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
     persistAiApply: async (args) => {
       set({ applyStatus: "applying", lastError: null });
 
-      const res = await deps.invoke("file:document:write", {
+      const res = await deps.invoke("file:document:save", {
         projectId: args.projectId,
         documentId: args.documentId,
         contentJson: args.contentJson,

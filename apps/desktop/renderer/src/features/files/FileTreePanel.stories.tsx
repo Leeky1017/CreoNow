@@ -51,14 +51,34 @@ function createMockIpc(options: {
           data: { documentId: currentDocumentId ?? "doc-1" },
         };
       }
-      if (channel === "file:document:rename") {
+      if (channel === "file:document:update") {
         return { ok: true, data: { updated: true } };
+      }
+      if (channel === "file:document:updatestatus") {
+        return { ok: true, data: { updated: true, status: "final" } };
       }
       if (channel === "file:document:delete") {
         return { ok: true, data: { deleted: true } };
       }
       if (channel === "file:document:read") {
-        return { ok: true, data: { contentJson: "{}" } };
+        return {
+          ok: true,
+          data: {
+            documentId: currentDocumentId ?? "doc-1",
+            projectId: "project-1",
+            type: "chapter",
+            title: "Untitled Chapter",
+            status: "draft",
+            sortOrder: 0,
+            parentId: undefined,
+            contentJson: "{}",
+            contentText: "",
+            contentMd: "",
+            contentHash: "",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        };
       }
       return { ok: true, data: {} };
     },
@@ -112,6 +132,7 @@ function FileTreePanelWrapper(props: {
       bootstrapStatus: "ready",
       projectId: initialProps.projectId,
       documentId: initialProps.currentDocumentId ?? null,
+      documentStatus: null,
       documentContentJson: null,
       editor: null,
       lastSavedOrQueuedJson: null,
@@ -167,17 +188,29 @@ export const Default: Story = {
       items={[
         {
           documentId: "doc-1",
+          type: "chapter",
           title: "Chapter 1",
+          status: "draft",
+          sortOrder: 0,
+          parentId: undefined,
           updatedAt: Date.now() - 86400000,
         },
         {
           documentId: "doc-2",
+          type: "chapter",
           title: "Chapter 2",
+          status: "draft",
+          sortOrder: 1,
+          parentId: undefined,
           updatedAt: Date.now() - 172800000,
         },
         {
           documentId: "doc-3",
+          type: "chapter",
           title: "Epilogue",
+          status: "final",
+          sortOrder: 2,
+          parentId: undefined,
           updatedAt: Date.now() - 259200000,
         },
       ]}
@@ -226,7 +259,11 @@ export const ManyFiles: Story = {
   render: () => {
     const items: DocumentListItem[] = Array.from({ length: 50 }, (_, i) => ({
       documentId: `doc-${i + 1}`,
+      type: i % 3 === 0 ? "note" : "chapter",
       title: `Document ${i + 1}`,
+      status: i % 4 === 0 ? "final" : "draft",
+      sortOrder: i,
+      parentId: undefined,
       updatedAt: Date.now() - i * 3600000,
     }));
     return (
@@ -251,19 +288,31 @@ export const LongFileNames: Story = {
       items={[
         {
           documentId: "doc-1",
+          type: "chapter",
           title:
             "This is a very long document title that should be truncated properly in the UI",
+          status: "draft",
+          sortOrder: 0,
+          parentId: undefined,
           updatedAt: Date.now() - 86400000,
         },
         {
           documentId: "doc-2",
+          type: "chapter",
           title:
             "Another extremely long title for testing text overflow behavior in the file tree panel",
+          status: "draft",
+          sortOrder: 1,
+          parentId: undefined,
           updatedAt: Date.now() - 172800000,
         },
         {
           documentId: "doc-3",
+          type: "chapter",
           title: "Short",
+          status: "draft",
+          sortOrder: 2,
+          parentId: undefined,
           updatedAt: Date.now() - 259200000,
         },
       ]}
@@ -282,27 +331,47 @@ export const WithSelection: Story = {
       items={[
         {
           documentId: "doc-1",
+          type: "chapter",
           title: "Introduction",
+          status: "draft",
+          sortOrder: 0,
+          parentId: undefined,
           updatedAt: Date.now() - 86400000,
         },
         {
           documentId: "doc-2",
+          type: "chapter",
           title: "Main Content",
+          status: "draft",
+          sortOrder: 1,
+          parentId: undefined,
           updatedAt: Date.now() - 172800000,
         },
         {
           documentId: "doc-3",
+          type: "chapter",
           title: "Conclusion",
+          status: "draft",
+          sortOrder: 2,
+          parentId: undefined,
           updatedAt: Date.now() - 259200000,
         },
         {
           documentId: "doc-4",
+          type: "chapter",
           title: "Appendix A",
+          status: "draft",
+          sortOrder: 3,
+          parentId: undefined,
           updatedAt: Date.now() - 345600000,
         },
         {
           documentId: "doc-5",
+          type: "chapter",
           title: "Appendix B",
+          status: "draft",
+          sortOrder: 4,
+          parentId: undefined,
           updatedAt: Date.now() - 432000000,
         },
       ]}
@@ -323,13 +392,21 @@ export const RenameDemo: Story = {
       items={[
         {
           documentId: "doc-short",
+          type: "chapter",
           title: "Short Name",
+          status: "draft",
+          sortOrder: 0,
+          parentId: undefined,
           updatedAt: Date.now() - 86400000,
         },
         {
           documentId: "doc-long",
+          type: "chapter",
           title:
             "This is a very long document title that should be properly handled during rename",
+          status: "draft",
+          sortOrder: 1,
+          parentId: undefined,
           updatedAt: Date.now() - 172800000,
         },
       ]}
@@ -371,25 +448,49 @@ function KeyboardNavigationDemo(): JSX.Element {
   const items: DocumentListItem[] = [
     {
       documentId: "doc-1",
+      type: "chapter",
       title: "Chapter 1 - Introduction",
+      status: "draft",
+      sortOrder: 0,
+      parentId: undefined,
       updatedAt: 1706745600000,
     },
     {
       documentId: "doc-2",
+      type: "chapter",
       title: "Chapter 2 - Development",
+      status: "draft",
+      sortOrder: 1,
+      parentId: undefined,
       updatedAt: 1706659200000,
     },
     {
       documentId: "doc-3",
+      type: "chapter",
       title: "Chapter 3 - Climax",
+      status: "draft",
+      sortOrder: 2,
+      parentId: undefined,
       updatedAt: 1706572800000,
     },
     {
       documentId: "doc-4",
+      type: "chapter",
       title: "Chapter 4 - Resolution",
+      status: "draft",
+      sortOrder: 3,
+      parentId: undefined,
       updatedAt: 1706486400000,
     },
-    { documentId: "doc-5", title: "Epilogue", updatedAt: 1706400000000 },
+    {
+      documentId: "doc-5",
+      type: "chapter",
+      title: "Epilogue",
+      status: "final",
+      sortOrder: 4,
+      parentId: undefined,
+      updatedAt: 1706400000000,
+    },
   ];
 
   React.useEffect(() => {

@@ -84,9 +84,11 @@ export const IPC_CHANNELS = [
   "file:document:getcurrent",
   "file:document:list",
   "file:document:read",
-  "file:document:rename",
+  "file:document:reorder",
+  "file:document:save",
   "file:document:setcurrent",
-  "file:document:write",
+  "file:document:update",
+  "file:document:updatestatus",
   "judge:model:ensure",
   "judge:model:getstate",
   "kg:entity:create",
@@ -426,6 +428,7 @@ export type IpcChannelSpec = {
     request: {
       projectId: string;
       title?: string;
+      type?: "chapter" | "note" | "setting" | "timeline" | "character";
     };
     response: {
       documentId: string;
@@ -455,7 +458,11 @@ export type IpcChannelSpec = {
     response: {
       items: Array<{
         documentId: string;
+        parentId?: string;
+        sortOrder: number;
+        status: "draft" | "final";
         title: string;
+        type: "chapter" | "note" | "setting" | "timeline" | "character";
         updatedAt: number;
       }>;
     };
@@ -470,20 +477,37 @@ export type IpcChannelSpec = {
       contentJson: string;
       contentMd: string;
       contentText: string;
+      createdAt: number;
       documentId: string;
+      parentId?: string;
       projectId: string;
+      sortOrder: number;
+      status: "draft" | "final";
       title: string;
+      type: "chapter" | "note" | "setting" | "timeline" | "character";
       updatedAt: number;
     };
   };
-  "file:document:rename": {
+  "file:document:reorder": {
     request: {
-      documentId: string;
+      orderedDocumentIds: Array<string>;
       projectId: string;
-      title: string;
     };
     response: {
       updated: true;
+    };
+  };
+  "file:document:save": {
+    request: {
+      actor: "user" | "auto" | "ai";
+      contentJson: string;
+      documentId: string;
+      projectId: string;
+      reason: string;
+    };
+    response: {
+      contentHash: string;
+      updatedAt: number;
     };
   };
   "file:document:setcurrent": {
@@ -495,17 +519,29 @@ export type IpcChannelSpec = {
       documentId: string;
     };
   };
-  "file:document:write": {
+  "file:document:update": {
     request: {
-      actor: "user" | "auto" | "ai";
-      contentJson: string;
       documentId: string;
+      parentId?: string;
       projectId: string;
-      reason: string;
+      sortOrder?: number;
+      status?: "draft" | "final";
+      title?: string;
+      type?: "chapter" | "note" | "setting" | "timeline" | "character";
     };
     response: {
-      contentHash: string;
-      updatedAt: number;
+      updated: true;
+    };
+  };
+  "file:document:updatestatus": {
+    request: {
+      documentId: string;
+      projectId: string;
+      status: "draft" | "final";
+    };
+    response: {
+      status: "draft" | "final";
+      updated: true;
     };
   };
   "judge:model:ensure": {

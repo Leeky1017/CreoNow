@@ -135,7 +135,7 @@ async function createDocWithText(args: {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("file:document:write", {
+      return await window.creonow.invoke("file:document:save", {
         projectId: payload.projectId,
         documentId: payload.documentId,
         contentJson: payload.contentJson,

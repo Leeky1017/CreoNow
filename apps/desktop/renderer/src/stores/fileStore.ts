@@ -17,6 +17,10 @@ export type IpcInvoke = <C extends IpcChannel>(
 
 export type DocumentListItem =
   IpcResponseData<"file:document:list">["items"][number];
+export type DocumentType = NonNullable<
+  IpcRequest<"file:document:create">["type"]
+>;
+export type DocumentStatus = IpcRequest<"file:document:updatestatus">["status"];
 
 export type FileState = {
   projectId: string | null;
@@ -32,12 +36,18 @@ export type FileActions = {
   createAndSetCurrent: (args: {
     projectId: string;
     title?: string;
+    type?: DocumentType;
   }) => Promise<IpcResponse<{ documentId: string }>>;
   rename: (args: {
     projectId: string;
     documentId: string;
     title: string;
   }) => Promise<IpcResponse<{ updated: true }>>;
+  updateStatus: (args: {
+    projectId: string;
+    documentId: string;
+    status: DocumentStatus;
+  }) => Promise<IpcResponse<{ updated: true; status: DocumentStatus }>>;
   delete: (args: {
     projectId: string;
     documentId: string;
@@ -87,8 +97,9 @@ export function createFileStore(deps: { invoke: IpcInvoke }) {
   async function createDocument(
     projectId: string,
     title?: string,
+    type?: DocumentType,
   ): Promise<IpcInvokeResult<"file:document:create">> {
-    return await deps.invoke("file:document:create", { projectId, title });
+    return await deps.invoke("file:document:create", { projectId, title, type });
   }
 
   return create<FileStore>((set, get) => ({
@@ -207,8 +218,8 @@ export function createFileStore(deps: { invoke: IpcInvoke }) {
       });
     },
 
-    createAndSetCurrent: async ({ projectId, title }) => {
-      const created = await createDocument(projectId, title);
+    createAndSetCurrent: async ({ projectId, title, type }) => {
+      const created = await createDocument(projectId, title, type);
       if (!created.ok) {
         set({ lastError: created.error });
         return created;
@@ -225,10 +236,25 @@ export function createFileStore(deps: { invoke: IpcInvoke }) {
     },
 
     rename: async ({ projectId, documentId, title }) => {
-      const res = await deps.invoke("file:document:rename", {
+      const res = await deps.invoke("file:document:update", {
         projectId,
         documentId,
         title,
+      });
+      if (!res.ok) {
+        set({ lastError: res.error });
+        return res;
+      }
+
+      await get().refreshForProject(projectId);
+      return res;
+    },
+
+    updateStatus: async ({ projectId, documentId, status }) => {
+      const res = await deps.invoke("file:document:updatestatus", {
+        projectId,
+        documentId,
+        status,
       });
       if (!res.ok) {
         set({ lastError: res.error });
