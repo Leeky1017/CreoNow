@@ -13,7 +13,7 @@ IPC 约束：
 
 - `memory:clear:project`（Request-Response）
 - `memory:clear:all`（Request-Response）
-- `memory:promote`（Request-Response）
+- `memory:scope:promote`（Request-Response）
 
 ### Scenario: MS4-R1-S1 项目级规则覆盖全局规则
 
@@ -26,7 +26,7 @@ IPC 约束：
 
 - **假设** 某项目规则被用户认为跨项目通用
 - **当** 用户在面板执行“提升为全局”
-- **则** 系统通过 `memory:promote` 更新规则 scope 为 `global`
+- **则** 系统通过 `memory:scope:promote` 更新规则 scope 为 `global`
 - **并且** 保留来源信息与版本历史
 
 ### Scenario: MS4-R1-S3 清除操作执行前必须完成二次确认

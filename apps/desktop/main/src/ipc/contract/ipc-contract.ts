@@ -19,6 +19,7 @@ export const IPC_ERROR_CODES = [
   "MEMORY_CAPACITY_EXCEEDED",
   "MEMORY_DISTILL_LLM_UNAVAILABLE",
   "MEMORY_CONFIDENCE_OUT_OF_RANGE",
+  "MEMORY_CLEAR_CONFIRM_REQUIRED",
   "MEMORY_TRACE_MISMATCH",
   "MEMORY_SCOPE_DENIED",
   "MODEL_NOT_READY",
@@ -289,7 +290,7 @@ const MEMORY_EPISODE_SCHEMA = s.object({
 const MEMORY_SEMANTIC_RULE_PLACEHOLDER_SCHEMA = s.object({
   id: s.string(),
   projectId: s.string(),
-  scope: s.literal("project"),
+  scope: s.union(s.literal("project"), s.literal("global")),
   version: s.literal(1),
   rule: s.string(),
   confidence: s.number(),
@@ -801,6 +802,36 @@ export const ipcContract = {
       }),
       response: s.object({
         deleted: s.literal(true),
+      }),
+    },
+    "memory:scope:promote": {
+      request: s.object({
+        projectId: s.string(),
+        ruleId: s.string(),
+      }),
+      response: s.object({
+        item: MEMORY_SEMANTIC_RULE_SCHEMA,
+      }),
+    },
+    "memory:clear:project": {
+      request: s.object({
+        projectId: s.string(),
+        confirmed: s.boolean(),
+      }),
+      response: s.object({
+        ok: s.literal(true),
+        deletedEpisodes: s.number(),
+        deletedRules: s.number(),
+      }),
+    },
+    "memory:clear:all": {
+      request: s.object({
+        confirmed: s.boolean(),
+      }),
+      response: s.object({
+        ok: s.literal(true),
+        deletedEpisodes: s.number(),
+        deletedRules: s.number(),
       }),
     },
     "memory:semantic:distill": {

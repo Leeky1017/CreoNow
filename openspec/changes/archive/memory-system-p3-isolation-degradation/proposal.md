@@ -13,7 +13,7 @@ MS-3 已定义用户可见的面板与溯源能力，但“作用域隔离”和
 - 定义作用域提升能力：项目级规则可提升为全局级。
 - 定义清除粒度：项目级清除、全量清除（均需二次确认）。
 - 定义记忆系统 4 档降级策略与触发边界。
-- 增加隔离与清除相关 IPC 契约：`memory:clear:project`、`memory:clear:all`、`memory:promote`。
+- 增加隔离与清除相关 IPC 契约：`memory:clear:project`、`memory:clear:all`、`memory:scope:promote`。
 - 将“蒸馏调用失败触发降级”纳入可测试故障路径。
 
 ## 受影响模块
@@ -31,4 +31,4 @@ MS-3 已定义用户可见的面板与溯源能力，但“作用域隔离”和
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`
+- Owner 审阅：`APPROVED`

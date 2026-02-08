@@ -26,6 +26,10 @@ import {
     listSemanticPlaceholders: () => [],
     upsertSemanticPlaceholder: () => {},
     deleteSemanticPlaceholder: () => false,
+    clearEpisodesByProject: () => 0,
+    clearAllEpisodes: () => 0,
+    clearSemanticPlaceholdersByProject: () => 0,
+    clearAllSemanticPlaceholders: () => 0,
   };
 
   const service = createEpisodicMemoryService({

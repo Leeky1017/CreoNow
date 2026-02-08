@@ -23,6 +23,10 @@ export const SEMANTIC_RULE_BUDGET = 200;
 
 const EPISODIC_TTL_DAYS = 180;
 const COMPRESSED_TTL_DAYS = 365;
+const DEGRADE_EVENT_VECTOR_OFFLINE = "MEMORY_DEGRADE_VECTOR_OFFLINE";
+const DEGRADE_EVENT_DISTILL_IO_FAILED = "MEMORY_DEGRADE_DISTILL_IO_FAILED";
+const DEGRADE_EVENT_ALL_MEMORY_UNAVAILABLE =
+  "MEMORY_DEGRADE_ALL_MEMORY_UNAVAILABLE";
 
 export type DecayLevel = "active" | "decaying" | "to_compress" | "to_evict";
 export type DistillTrigger = "batch" | "idle" | "manual" | "conflict";
@@ -113,7 +117,7 @@ export type EpisodeRecord = {
 export type SemanticMemoryRulePlaceholder = {
   id: string;
   projectId: string;
-  scope: "project";
+  scope: SemanticMemoryScope;
   version: 1;
   rule: string;
   confidence: number;
@@ -241,13 +245,19 @@ export type EpisodeRepository = {
   }) => number;
   listSemanticPlaceholders: (args: {
     projectId: string;
+    includeGlobal: boolean;
     limit: number;
   }) => SemanticMemoryRulePlaceholder[];
   upsertSemanticPlaceholder: (rule: SemanticMemoryRulePlaceholder) => void;
   deleteSemanticPlaceholder: (args: {
-    projectId: string;
+    projectId?: string;
     ruleId: string;
+    scope?: SemanticMemoryScope;
   }) => boolean;
+  clearEpisodesByProject: (args: { projectId: string }) => number;
+  clearAllEpisodes: () => number;
+  clearSemanticPlaceholdersByProject: (args: { projectId: string }) => number;
+  clearAllSemanticPlaceholders: () => number;
 };
 
 export type EpisodicMemoryService = {
@@ -311,6 +321,23 @@ export type EpisodicMemoryService = {
     projectId: string;
     ruleId: string;
   }) => ServiceResult<{ deleted: true }>;
+  promoteSemanticMemory: (args: {
+    projectId: string;
+    ruleId: string;
+  }) => ServiceResult<{ item: SemanticMemoryRule }>;
+  clearProjectMemory: (args: {
+    projectId: string;
+    confirmed: boolean;
+  }) => ServiceResult<{
+    ok: true;
+    deletedEpisodes: number;
+    deletedRules: number;
+  }>;
+  clearAllMemory: (args: { confirmed: boolean }) => ServiceResult<{
+    ok: true;
+    deletedEpisodes: number;
+    deletedRules: number;
+  }>;
   distillSemanticMemory: (args: {
     projectId: string;
     trigger?: DistillTrigger;
@@ -714,9 +741,13 @@ export function createInMemoryEpisodeRepository(args?: {
       episodes.splice(0, episodes.length, ...keep);
       return beforeSize - keep.length;
     },
-    listSemanticPlaceholders: ({ projectId, limit }) => {
+    listSemanticPlaceholders: ({ projectId, includeGlobal, limit }) => {
       return semanticRules
-        .filter((rule) => rule.projectId === projectId)
+        .filter((rule) =>
+          includeGlobal
+            ? rule.scope === "global" || rule.projectId === projectId
+            : rule.projectId === projectId && rule.scope === "project",
+        )
         .slice(0, limit)
         .map((rule) => ({ ...rule }));
     },
@@ -728,13 +759,48 @@ export function createInMemoryEpisodeRepository(args?: {
       }
       semanticRules.push({ ...rule });
     },
-    deleteSemanticPlaceholder: ({ projectId, ruleId }) => {
+    deleteSemanticPlaceholder: ({ projectId, ruleId, scope }) => {
       const before = semanticRules.length;
-      const keep = semanticRules.filter(
-        (rule) => !(rule.projectId === projectId && rule.id === ruleId),
-      );
+      const keep = semanticRules.filter((rule) => {
+        if (rule.id !== ruleId) {
+          return true;
+        }
+        if (projectId !== undefined && rule.projectId !== projectId) {
+          return true;
+        }
+        if (scope !== undefined && rule.scope !== scope) {
+          return true;
+        }
+        return false;
+      });
       semanticRules.splice(0, semanticRules.length, ...keep);
       return before !== keep.length;
+    },
+    clearEpisodesByProject: ({ projectId }) => {
+      const before = episodes.length;
+      const keep = episodes.filter(
+        (episode) => episode.projectId !== projectId,
+      );
+      episodes.splice(0, episodes.length, ...keep);
+      return before - keep.length;
+    },
+    clearAllEpisodes: () => {
+      const before = episodes.length;
+      episodes.splice(0, episodes.length);
+      return before;
+    },
+    clearSemanticPlaceholdersByProject: ({ projectId }) => {
+      const before = semanticRules.length;
+      const keep = semanticRules.filter(
+        (rule) => !(rule.projectId === projectId && rule.scope === "project"),
+      );
+      semanticRules.splice(0, semanticRules.length, ...keep);
+      return before - keep.length;
+    },
+    clearAllSemanticPlaceholders: () => {
+      const before = semanticRules.length;
+      semanticRules.splice(0, semanticRules.length);
+      return before;
     },
     seedEpisodes: (seed) => {
       episodes.splice(0, episodes.length, ...seed.map((item) => ({ ...item })));
@@ -1020,20 +1086,24 @@ export function createSqliteEpisodeRepository(args: {
 
       return deleted;
     },
-    listSemanticPlaceholders: ({ projectId, limit }) => {
+    listSemanticPlaceholders: ({ projectId, includeGlobal, limit }) => {
       const rows = args.db
         .prepare<
-          [string, number],
+          [string, number, number],
           SemanticPlaceholderRow
-        >("SELECT rule_id as id, project_id as projectId, scope, version, rule_text as rule, confidence, created_at as createdAt, updated_at as updatedAt FROM memory_semantic_placeholders WHERE project_id = ? ORDER BY updated_at DESC LIMIT ?")
-        .all(projectId, limit);
+        >("SELECT rule_id as id, project_id as projectId, scope, version, rule_text as rule, confidence, created_at as createdAt, updated_at as updatedAt FROM memory_semantic_placeholders WHERE (project_id = ? AND scope = 'project') OR (scope = 'global' AND ? = 1) ORDER BY updated_at DESC LIMIT ?")
+        .all(projectId, includeGlobal ? 1 : 0, limit);
 
       return rows
-        .filter((row) => row.scope === "project" && row.version === 1)
+        .filter(
+          (row) =>
+            (row.scope === "project" || row.scope === "global") &&
+            row.version === 1,
+        )
         .map((row) => ({
           id: row.id,
           projectId: row.projectId,
-          scope: "project" as const,
+          scope: row.scope as SemanticMemoryScope,
           version: 1 as const,
           rule: row.rule,
           confidence: row.confidence,
@@ -1057,13 +1127,43 @@ export function createSqliteEpisodeRepository(args: {
           rule.updatedAt,
         );
     },
-    deleteSemanticPlaceholder: ({ projectId, ruleId }) => {
+    deleteSemanticPlaceholder: ({ projectId, ruleId, scope }) => {
+      let sql = "DELETE FROM memory_semantic_placeholders WHERE rule_id = ?";
+      const params: Array<string> = [ruleId];
+      if (projectId !== undefined) {
+        sql += " AND project_id = ?";
+        params.push(projectId);
+      }
+      if (scope !== undefined) {
+        sql += " AND scope = ?";
+        params.push(scope);
+      }
+      const result = args.db.prepare(sql).run(...params);
+      return result.changes > 0;
+    },
+    clearEpisodesByProject: ({ projectId }) => {
+      const result = args.db
+        .prepare("DELETE FROM memory_episodes WHERE project_id = ?")
+        .run(projectId);
+      return result.changes;
+    },
+    clearAllEpisodes: () => {
+      const result = args.db.prepare("DELETE FROM memory_episodes").run();
+      return result.changes;
+    },
+    clearSemanticPlaceholdersByProject: ({ projectId }) => {
       const result = args.db
         .prepare(
-          "DELETE FROM memory_semantic_placeholders WHERE project_id = ? AND rule_id = ?",
+          "DELETE FROM memory_semantic_placeholders WHERE project_id = ? AND scope = 'project'",
         )
-        .run(projectId, ruleId);
-      return result.changes > 0;
+        .run(projectId);
+      return result.changes;
+    },
+    clearAllSemanticPlaceholders: () => {
+      const result = args.db
+        .prepare("DELETE FROM memory_semantic_placeholders")
+        .run();
+      return result.changes;
     },
   };
 }
@@ -1077,6 +1177,13 @@ export function createEpisodicMemoryService(args: {
   repository: EpisodeRepository;
   logger: Logger;
   now?: () => number;
+  semanticRecall?: (args: {
+    projectId: string;
+    sceneType: string;
+    queryText: string;
+    limit: number;
+    episodes: EpisodeRecord[];
+  }) => EpisodeRecord[];
   distillLlm?: (args: {
     projectId: string;
     trigger: DistillTrigger;
@@ -1101,6 +1208,7 @@ export function createEpisodicMemoryService(args: {
   const walQueueByProject = new Map<string, EpisodeRecordInput[]>();
   const semanticRulesByProject = new Map<string, SemanticMemoryRule[]>();
   const conflictQueueByProject = new Map<string, SemanticConflictQueueItem[]>();
+  const distillIoDegradedProjects = new Set<string>();
 
   function cloneSemanticRule(rule: SemanticMemoryRule): SemanticMemoryRule {
     return {
@@ -1125,7 +1233,7 @@ export function createEpisodicMemoryService(args: {
     return {
       id: rule.id,
       projectId: rule.projectId,
-      scope: rule.scope === "project" ? "project" : "project",
+      scope: rule.scope,
       version: 1,
       rule: rule.rule,
       confidence: rule.confidence,
@@ -1162,6 +1270,41 @@ export function createEpisodicMemoryService(args: {
     args.onDistillProgress?.(event);
   }
 
+  function logDegradeEvent(
+    code:
+      | typeof DEGRADE_EVENT_VECTOR_OFFLINE
+      | typeof DEGRADE_EVENT_DISTILL_IO_FAILED
+      | typeof DEGRADE_EVENT_ALL_MEMORY_UNAVAILABLE,
+    details: Record<string, unknown>,
+  ): void {
+    args.logger.error(code, details);
+  }
+
+  function invalidateSemanticCache(projectId?: string): void {
+    if (projectId) {
+      semanticRulesByProject.delete(projectId);
+      return;
+    }
+    semanticRulesByProject.clear();
+  }
+
+  function resolveScopePriority(
+    projectId: string,
+    rules: SemanticMemoryRule[],
+  ): SemanticMemoryRule[] {
+    const projectRules = rules.filter(
+      (rule) => rule.scope === "project" && rule.projectId === projectId,
+    );
+    const projectCategories = new Set(
+      projectRules.map((rule) => rule.category),
+    );
+    const globalRules = rules.filter(
+      (rule) =>
+        rule.scope === "global" && !projectCategories.has(rule.category),
+    );
+    return [...projectRules, ...globalRules];
+  }
+
   function getSemanticRules(projectId: string): SemanticMemoryRule[] {
     const existing = semanticRulesByProject.get(projectId);
     if (existing) {
@@ -1171,12 +1314,13 @@ export function createEpisodicMemoryService(args: {
     const loaded = args.repository
       .listSemanticPlaceholders({
         projectId,
+        includeGlobal: true,
         limit: SEMANTIC_RULE_BUDGET,
       })
       .map((rule) => ({
         id: rule.id,
         projectId: rule.projectId,
-        scope: "project" as const,
+        scope: rule.scope,
         version: 1 as const,
         rule: rule.rule,
         category: "style" as const,
@@ -1214,6 +1358,9 @@ export function createEpisodicMemoryService(args: {
       rules.push(cloneSemanticRule(nextRule));
     }
     args.repository.upsertSemanticPlaceholder(toPlaceholder(nextRule));
+    if (nextRule.scope === "global") {
+      invalidateSemanticCache();
+    }
     return cloneSemanticRule(nextRule);
   }
 
@@ -1452,6 +1599,11 @@ export function createEpisodicMemoryService(args: {
         project_id: projectId,
         message: error instanceof Error ? error.message : String(error),
       });
+      logDegradeEvent(DEGRADE_EVENT_DISTILL_IO_FAILED, {
+        projectId,
+        trigger: args2.trigger,
+      });
+      distillIoDegradedProjects.add(projectId);
       retryPendingByProject.set(projectId, true);
       emitDistillProgress({
         runId: args2.runId,
@@ -1603,6 +1755,7 @@ export function createEpisodicMemoryService(args: {
     }
 
     retryPendingByProject.set(projectId, false);
+    distillIoDegradedProjects.delete(projectId);
     pendingEpisodeCountByProject.set(projectId, 0);
     emitDistillProgress({
       runId: args2.runId,
@@ -1815,8 +1968,7 @@ export function createEpisodicMemoryService(args: {
         const limit = normalizeRecallLimit(input.limit);
         const trimmedQuery = (input.queryText ?? "").trim();
         const currentTs = now();
-
-        const ranked = [...rows].sort((a, b) => {
+        const lexicalRanked = [...rows].sort((a, b) => {
           if (trimmedQuery.length === 0) {
             if (a.createdAt !== b.createdAt) {
               return b.createdAt - a.createdAt;
@@ -1842,37 +1994,68 @@ export function createEpisodicMemoryService(args: {
           }
           return a.id.localeCompare(b.id);
         });
+        let vectorOfflineDegraded = false;
+        let ranked = lexicalRanked;
+        if (trimmedQuery.length > 0 && args.semanticRecall) {
+          try {
+            const semanticRanked = args.semanticRecall({
+              projectId: input.projectId,
+              sceneType: input.sceneType,
+              queryText: trimmedQuery,
+              limit,
+              episodes: rows,
+            });
+            if (semanticRanked.length > 0) {
+              ranked = [...semanticRanked];
+            }
+          } catch (error) {
+            vectorOfflineDegraded = true;
+            logDegradeEvent(DEGRADE_EVENT_VECTOR_OFFLINE, {
+              projectId: input.projectId,
+              sceneType: input.sceneType,
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+        }
 
         const items = ranked.slice(0, limit);
         args.repository.markEpisodesRecalled({
           ids: items.map((item) => item.id),
           recalledAt: currentTs,
         });
-
-        const semanticRules = args.repository
-          .listSemanticPlaceholders({
-            projectId: input.projectId,
-            limit: SEMANTIC_RULE_BUDGET,
-          })
-          .slice(0, SEMANTIC_RULE_BUDGET);
-        const loadedSemantic = getSemanticRules(input.projectId)
+        const prioritizedSemanticRules = resolveScopePriority(
+          input.projectId,
+          getSemanticRules(input.projectId),
+        )
           .slice(0, SEMANTIC_RULE_BUDGET)
           .map((rule) => toPlaceholder(rule));
+        const semanticEmptyDegraded = prioritizedSemanticRules.length === 0;
+        const distillIoDegraded = distillIoDegradedProjects.has(
+          input.projectId,
+        );
+        const fallback =
+          semanticEmptyDegraded || distillIoDegraded ? fallbackRules() : [];
 
         return {
           ok: true,
           data: {
             items,
-            memoryDegraded: false,
-            fallbackRules: [],
-            semanticRules:
-              loadedSemantic.length > 0 ? loadedSemantic : semanticRules,
+            memoryDegraded:
+              vectorOfflineDegraded ||
+              semanticEmptyDegraded ||
+              distillIoDegraded,
+            fallbackRules: fallback,
+            semanticRules: prioritizedSemanticRules,
           },
         };
       } catch (error) {
         args.logger.error("memory_episode_query_failed", {
           message: error instanceof Error ? error.message : String(error),
           project_id: input.projectId,
+        });
+        logDegradeEvent(DEGRADE_EVENT_ALL_MEMORY_UNAVAILABLE, {
+          projectId: input.projectId,
+          sceneType: input.sceneType,
         });
         return {
           ok: true,
@@ -2129,13 +2312,121 @@ export function createEpisodicMemoryService(args: {
         return ipcError("INVALID_ARGUMENT", "projectId is required");
       }
       const rules = getSemanticRules(projectId);
-      const keep = rules.filter((rule) => rule.id !== ruleId);
-      if (keep.length === rules.length) {
+      const target = rules.find((rule) => rule.id === ruleId);
+      if (!target) {
         return ipcError("NOT_FOUND", "Semantic rule not found", { ruleId });
       }
+      const keep = rules.filter((rule) => rule.id !== ruleId);
       semanticRulesByProject.set(projectId, keep);
-      args.repository.deleteSemanticPlaceholder({ projectId, ruleId });
+      args.repository.deleteSemanticPlaceholder({
+        projectId: target.projectId,
+        ruleId: target.id,
+        scope: target.scope,
+      });
+      if (target.scope === "global") {
+        invalidateSemanticCache();
+      }
       return { ok: true, data: { deleted: true } };
+    },
+
+    promoteSemanticMemory: ({ projectId, ruleId }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+
+      const rules = getSemanticRules(projectId);
+      const target = rules.find(
+        (rule) =>
+          rule.id === ruleId &&
+          rule.scope === "project" &&
+          rule.projectId === projectId,
+      );
+      if (!target) {
+        return ipcError("NOT_FOUND", "Semantic rule not found", { ruleId });
+      }
+
+      const promoted: SemanticMemoryRule = {
+        ...target,
+        scope: "global",
+        updatedAt: now(),
+      };
+      const item = upsertSemanticRule(projectId, promoted);
+      return { ok: true, data: { item } };
+    },
+
+    clearProjectMemory: ({ projectId, confirmed }) => {
+      if (projectId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "projectId is required");
+      }
+      if (!confirmed) {
+        return ipcError(
+          "MEMORY_CLEAR_CONFIRM_REQUIRED",
+          "Project memory clear requires explicit confirmation",
+        );
+      }
+      try {
+        const deletedEpisodes = args.repository.clearEpisodesByProject({
+          projectId,
+        });
+        const deletedRules = args.repository.clearSemanticPlaceholdersByProject(
+          {
+            projectId,
+          },
+        );
+        semanticRulesByProject.delete(projectId);
+        conflictQueueByProject.delete(projectId);
+        knownProjectIds.delete(projectId);
+        pendingEpisodeCountByProject.delete(projectId);
+        retryPendingByProject.delete(projectId);
+        walQueueByProject.delete(projectId);
+        distillIoDegradedProjects.delete(projectId);
+        return {
+          ok: true,
+          data: {
+            ok: true,
+            deletedEpisodes,
+            deletedRules,
+          },
+        };
+      } catch (error) {
+        return ipcError("DB_ERROR", "Failed to clear project memory", {
+          projectId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    },
+
+    clearAllMemory: ({ confirmed }) => {
+      if (!confirmed) {
+        return ipcError(
+          "MEMORY_CLEAR_CONFIRM_REQUIRED",
+          "Full memory clear requires explicit confirmation",
+        );
+      }
+      try {
+        const deletedEpisodes = args.repository.clearAllEpisodes();
+        const deletedRules = args.repository.clearAllSemanticPlaceholders();
+        retryQueue.splice(0, retryQueue.length);
+        knownProjectIds.clear();
+        pendingEpisodeCountByProject.clear();
+        retryPendingByProject.clear();
+        walQueueByProject.clear();
+        semanticRulesByProject.clear();
+        conflictQueueByProject.clear();
+        distillIoDegradedProjects.clear();
+        return {
+          ok: true,
+          data: {
+            ok: true,
+            deletedEpisodes,
+            deletedRules,
+          },
+        };
+      } catch (error) {
+        return ipcError("DB_ERROR", "Failed to clear all memory", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
     },
 
     distillSemanticMemory: ({ projectId, trigger }) => {

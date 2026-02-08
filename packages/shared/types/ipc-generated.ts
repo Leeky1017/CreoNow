@@ -30,6 +30,7 @@ export type IpcErrorCode =
   | "KG_SCOPE_VIOLATION"
   | "KG_SUBGRAPH_K_EXCEEDED"
   | "MEMORY_CAPACITY_EXCEEDED"
+  | "MEMORY_CLEAR_CONFIRM_REQUIRED"
   | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
   | "MEMORY_DISTILL_LLM_UNAVAILABLE"
   | "MEMORY_EPISODE_WRITE_FAILED"
@@ -135,6 +136,8 @@ export const IPC_CHANNELS = [
   "knowledge:rules:inject",
   "knowledge:suggestion:accept",
   "knowledge:suggestion:dismiss",
+  "memory:clear:all",
+  "memory:clear:project",
   "memory:distill:progress",
   "memory:entry:create",
   "memory:entry:delete",
@@ -143,6 +146,7 @@ export const IPC_CHANNELS = [
   "memory:episode:query",
   "memory:episode:record",
   "memory:injection:preview",
+  "memory:scope:promote",
   "memory:semantic:add",
   "memory:semantic:delete",
   "memory:semantic:distill",
@@ -220,6 +224,7 @@ export type IpcChannelSpec = {
           | "MEMORY_CAPACITY_EXCEEDED"
           | "MEMORY_DISTILL_LLM_UNAVAILABLE"
           | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+          | "MEMORY_CLEAR_CONFIRM_REQUIRED"
           | "MEMORY_TRACE_MISMATCH"
           | "MEMORY_SCOPE_DENIED"
           | "MODEL_NOT_READY"
@@ -689,6 +694,7 @@ export type IpcChannelSpec = {
                 | "MEMORY_CAPACITY_EXCEEDED"
                 | "MEMORY_DISTILL_LLM_UNAVAILABLE"
                 | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+                | "MEMORY_CLEAR_CONFIRM_REQUIRED"
                 | "MEMORY_TRACE_MISMATCH"
                 | "MEMORY_SCOPE_DENIED"
                 | "MODEL_NOT_READY"
@@ -754,6 +760,7 @@ export type IpcChannelSpec = {
                 | "MEMORY_CAPACITY_EXCEEDED"
                 | "MEMORY_DISTILL_LLM_UNAVAILABLE"
                 | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+                | "MEMORY_CLEAR_CONFIRM_REQUIRED"
                 | "MEMORY_TRACE_MISMATCH"
                 | "MEMORY_SCOPE_DENIED"
                 | "MODEL_NOT_READY"
@@ -1121,6 +1128,27 @@ export type IpcChannelSpec = {
       dismissed: true;
     };
   };
+  "memory:clear:all": {
+    request: {
+      confirmed: boolean;
+    };
+    response: {
+      deletedEpisodes: number;
+      deletedRules: number;
+      ok: true;
+    };
+  };
+  "memory:clear:project": {
+    request: {
+      confirmed: boolean;
+      projectId: string;
+    };
+    response: {
+      deletedEpisodes: number;
+      deletedRules: number;
+      ok: true;
+    };
+  };
   "memory:distill:progress": {
     request: {
       errorCode?:
@@ -1142,6 +1170,7 @@ export type IpcChannelSpec = {
         | "MEMORY_CAPACITY_EXCEEDED"
         | "MEMORY_DISTILL_LLM_UNAVAILABLE"
         | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+        | "MEMORY_CLEAR_CONFIRM_REQUIRED"
         | "MEMORY_TRACE_MISMATCH"
         | "MEMORY_SCOPE_DENIED"
         | "MODEL_NOT_READY"
@@ -1200,6 +1229,7 @@ export type IpcChannelSpec = {
         | "MEMORY_CAPACITY_EXCEEDED"
         | "MEMORY_DISTILL_LLM_UNAVAILABLE"
         | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+        | "MEMORY_CLEAR_CONFIRM_REQUIRED"
         | "MEMORY_TRACE_MISMATCH"
         | "MEMORY_SCOPE_DENIED"
         | "MODEL_NOT_READY"
@@ -1362,7 +1392,7 @@ export type IpcChannelSpec = {
         id: string;
         projectId: string;
         rule: string;
-        scope: "project";
+        scope: "project" | "global";
         updatedAt: number;
         version: 1;
       }>;
@@ -1428,6 +1458,31 @@ export type IpcChannelSpec = {
         type: "preference" | "fact" | "note";
       }>;
       mode: "deterministic" | "semantic";
+    };
+  };
+  "memory:scope:promote": {
+    request: {
+      projectId: string;
+      ruleId: string;
+    };
+    response: {
+      item: {
+        category: "style" | "structure" | "character" | "pacing" | "vocabulary";
+        confidence: number;
+        conflictMarked?: boolean;
+        contradictingEpisodes: Array<string>;
+        createdAt: number;
+        id: string;
+        projectId: string;
+        recentlyUpdated?: boolean;
+        rule: string;
+        scope: "global" | "project";
+        supportingEpisodes: Array<string>;
+        updatedAt: number;
+        userConfirmed: boolean;
+        userModified: boolean;
+        version: 1;
+      };
     };
   };
   "memory:semantic:add": {
@@ -1878,6 +1933,7 @@ export type IpcChannelSpec = {
           | "MEMORY_CAPACITY_EXCEEDED"
           | "MEMORY_DISTILL_LLM_UNAVAILABLE"
           | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
+          | "MEMORY_CLEAR_CONFIRM_REQUIRED"
           | "MEMORY_TRACE_MISMATCH"
           | "MEMORY_SCOPE_DENIED"
           | "MODEL_NOT_READY"
