@@ -14,11 +14,15 @@ vi.mock("../../stores/fileStore", () => ({
         .fn()
         .mockResolvedValue({ ok: true, data: { documentId: "new-doc" } }),
       rename: vi.fn().mockResolvedValue({ ok: true }),
+      updateStatus: vi.fn().mockResolvedValue({
+        ok: true,
+        data: { updated: true, status: "draft" },
+      }),
       delete: vi.fn().mockResolvedValue({ ok: true }),
       setCurrent: vi.fn().mockResolvedValue({ ok: true }),
       clearError: vi.fn(),
     };
-    return selector(state);
+    return selector(state as never);
   }),
 }));
 
@@ -28,7 +32,7 @@ vi.mock("../../stores/editorStore", () => ({
       openDocument: vi.fn().mockResolvedValue({ ok: true }),
       openCurrentDocumentForProject: vi.fn().mockResolvedValue({ ok: true }),
     };
-    return selector(state);
+    return selector(state as never);
   }),
 }));
 
@@ -90,11 +94,12 @@ describe("FileTreePanel", () => {
           refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
+          updateStatus: vi.fn(),
           delete: vi.fn(),
           setCurrent: vi.fn(),
           clearError: vi.fn(),
         };
-        return selector(state);
+        return selector(state as never);
       });
 
       render(<FileTreePanel projectId="test-project" />);
@@ -123,11 +128,12 @@ describe("FileTreePanel", () => {
           refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
+          updateStatus: vi.fn(),
           delete: vi.fn(),
           setCurrent: vi.fn(),
           clearError: vi.fn(),
         };
-        return selector(state);
+        return selector(state as never);
       });
 
       render(<FileTreePanel projectId="test-project" />);
@@ -150,12 +156,18 @@ describe("FileTreePanel", () => {
           items: [
             {
               documentId: "doc-1",
+              type: "chapter",
               title: "Document 1",
+              status: "draft",
+              sortOrder: 0,
               updatedAt: Date.now() - 1000,
             },
             {
               documentId: "doc-2",
+              type: "chapter",
               title: "Document 2",
+              status: "draft",
+              sortOrder: 1,
               updatedAt: Date.now() - 2000,
             },
           ],
@@ -166,11 +178,12 @@ describe("FileTreePanel", () => {
           refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
+          updateStatus: vi.fn(),
           delete: vi.fn(),
           setCurrent: vi.fn(),
           clearError: vi.fn(),
         };
-        return selector(state);
+        return selector(state as never);
       });
 
       render(<FileTreePanel projectId="test-project" />);
@@ -189,12 +202,18 @@ describe("FileTreePanel", () => {
           items: [
             {
               documentId: "doc-1",
+              type: "chapter",
               title: "Document 1",
+              status: "draft",
+              sortOrder: 0,
               updatedAt: Date.now() - 1000,
             },
             {
               documentId: "doc-2",
+              type: "chapter",
               title: "Document 2",
+              status: "draft",
+              sortOrder: 1,
               updatedAt: Date.now() - 2000,
             },
           ],
@@ -205,11 +224,12 @@ describe("FileTreePanel", () => {
           refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
+          updateStatus: vi.fn(),
           delete: vi.fn(),
           setCurrent: vi.fn(),
           clearError: vi.fn(),
         };
-        return selector(state);
+        return selector(state as never);
       });
 
       render(<FileTreePanel projectId="test-project" />);
@@ -226,7 +246,10 @@ describe("FileTreePanel", () => {
           items: [
             {
               documentId: "doc-1",
+              type: "chapter",
               title: "Document 1",
+              status: "draft",
+              sortOrder: 0,
               updatedAt: Date.now() - 1000,
             },
           ],
@@ -237,11 +260,12 @@ describe("FileTreePanel", () => {
           refreshForProject: vi.fn(),
           createAndSetCurrent: vi.fn(),
           rename: vi.fn(),
+          updateStatus: vi.fn(),
           delete: vi.fn(),
           setCurrent: vi.fn(),
           clearError: vi.fn(),
         };
-        return selector(state);
+        return selector(state as never);
       });
 
       render(<FileTreePanel projectId="test-project" />);

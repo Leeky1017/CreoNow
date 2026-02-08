@@ -15,11 +15,13 @@ export type IpcInvoke = <C extends IpcChannel>(
 ) => Promise<IpcInvokeResult<C>>;
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
+export type DocumentStatus = IpcRequest<"file:document:updatestatus">["status"];
 
 export type EditorState = {
   bootstrapStatus: "idle" | "loading" | "ready" | "error";
   projectId: string | null;
   documentId: string | null;
+  documentStatus: DocumentStatus | null;
   documentContentJson: string | null;
   editor: Editor | null;
   lastSavedOrQueuedJson: string | null;
@@ -49,6 +51,10 @@ export type EditorActions = {
   retryLastAutosave: () => Promise<void>;
   setAutosaveStatus: (status: AutosaveStatus) => void;
   clearAutosaveError: () => void;
+  downgradeFinalStatusForEdit: (args: {
+    projectId: string;
+    documentId: string;
+  }) => Promise<boolean>;
   /** Enable or disable compare mode with a specific version */
   setCompareMode: (enabled: boolean, versionId?: string | null) => void;
 };
@@ -70,6 +76,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
     bootstrapStatus: "idle",
     projectId: null,
     documentId: null,
+    documentStatus: null,
     documentContentJson: null,
     editor: null,
     lastSavedOrQueuedJson: null,
@@ -130,7 +137,12 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
       }
 
       if (!documentId) {
-        set({ bootstrapStatus: "ready", projectId, documentId: null });
+        set({
+          bootstrapStatus: "ready",
+          projectId,
+          documentId: null,
+          documentStatus: null,
+        });
         return;
       }
 
@@ -147,6 +159,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
         bootstrapStatus: "ready",
         projectId,
         documentId,
+        documentStatus: readRes.data.status,
         documentContentJson: readRes.data.contentJson,
         lastSavedOrQueuedJson: readRes.data.contentJson,
         autosaveStatus: "idle",
@@ -174,6 +187,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
         bootstrapStatus: "ready",
         projectId,
         documentId,
+        documentStatus: readRes.data.status,
         documentContentJson: readRes.data.contentJson,
         lastSavedOrQueuedJson: readRes.data.contentJson,
         autosaveStatus: "idle",
@@ -200,6 +214,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
           bootstrapStatus: "ready",
           projectId,
           documentId: null,
+          documentStatus: null,
           documentContentJson: null,
           lastSavedOrQueuedJson: null,
           autosaveStatus: "idle",
@@ -218,7 +233,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
         set({ autosaveStatus: "saving", lastSavedOrQueuedJson: contentJson });
       }
 
-      const res = await deps.invoke("file:document:write", {
+      const res = await deps.invoke("file:document:save", {
         projectId,
         documentId,
         contentJson,
@@ -242,6 +257,21 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
           autosaveError: null,
         });
       }
+    },
+
+    downgradeFinalStatusForEdit: async ({ projectId, documentId }) => {
+      const res = await deps.invoke("file:document:updatestatus", {
+        projectId,
+        documentId,
+        status: "draft",
+      });
+      if (!res.ok) {
+        set({ autosaveStatus: "error", autosaveError: res.error });
+        return false;
+      }
+
+      set({ documentStatus: "draft", autosaveError: null });
+      return true;
     },
 
     retryLastAutosave: async () => {

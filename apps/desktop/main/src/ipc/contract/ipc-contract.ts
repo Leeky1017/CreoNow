@@ -208,6 +208,26 @@ const KG_RELATION_SCHEMA = s.object({
   updatedAt: s.number(),
 });
 
+const DOCUMENT_TYPE_SCHEMA = s.union(
+  s.literal("chapter"),
+  s.literal("note"),
+  s.literal("setting"),
+  s.literal("timeline"),
+  s.literal("character"),
+);
+
+const DOCUMENT_STATUS_SCHEMA = s.union(s.literal("draft"), s.literal("final"));
+
+const DOCUMENT_LIST_ITEM_SCHEMA = s.object({
+  documentId: s.string(),
+  type: DOCUMENT_TYPE_SCHEMA,
+  title: s.string(),
+  status: DOCUMENT_STATUS_SCHEMA,
+  sortOrder: s.number(),
+  parentId: s.optional(s.string()),
+  updatedAt: s.number(),
+});
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -715,19 +735,14 @@ export const ipcContract = {
       request: s.object({
         projectId: s.string(),
         title: s.optional(s.string()),
+        type: s.optional(DOCUMENT_TYPE_SCHEMA),
       }),
       response: s.object({ documentId: s.string() }),
     },
     "file:document:list": {
       request: s.object({ projectId: s.string() }),
       response: s.object({
-        items: s.array(
-          s.object({
-            documentId: s.string(),
-            title: s.string(),
-            updatedAt: s.number(),
-          }),
-        ),
+        items: s.array(DOCUMENT_LIST_ITEM_SCHEMA),
       }),
     },
     "file:document:read": {
@@ -735,23 +750,32 @@ export const ipcContract = {
       response: s.object({
         documentId: s.string(),
         projectId: s.string(),
+        type: DOCUMENT_TYPE_SCHEMA,
         title: s.string(),
+        status: DOCUMENT_STATUS_SCHEMA,
+        sortOrder: s.number(),
+        parentId: s.optional(s.string()),
         contentJson: s.string(),
         contentText: s.string(),
         contentMd: s.string(),
         contentHash: s.string(),
+        createdAt: s.number(),
         updatedAt: s.number(),
       }),
     },
-    "file:document:rename": {
+    "file:document:update": {
       request: s.object({
         projectId: s.string(),
         documentId: s.string(),
-        title: s.string(),
+        title: s.optional(s.string()),
+        type: s.optional(DOCUMENT_TYPE_SCHEMA),
+        status: s.optional(DOCUMENT_STATUS_SCHEMA),
+        sortOrder: s.optional(s.number()),
+        parentId: s.optional(s.string()),
       }),
       response: s.object({ updated: s.literal(true) }),
     },
-    "file:document:write": {
+    "file:document:save": {
       request: s.object({
         projectId: s.string(),
         documentId: s.string(),
@@ -768,6 +792,24 @@ export const ipcContract = {
     "file:document:setcurrent": {
       request: s.object({ projectId: s.string(), documentId: s.string() }),
       response: s.object({ documentId: s.string() }),
+    },
+    "file:document:reorder": {
+      request: s.object({
+        projectId: s.string(),
+        orderedDocumentIds: s.array(s.string()),
+      }),
+      response: s.object({ updated: s.literal(true) }),
+    },
+    "file:document:updatestatus": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.string(),
+        status: DOCUMENT_STATUS_SCHEMA,
+      }),
+      response: s.object({
+        updated: s.literal(true),
+        status: DOCUMENT_STATUS_SCHEMA,
+      }),
     },
     "file:document:delete": {
       request: s.object({ projectId: s.string(), documentId: s.string() }),

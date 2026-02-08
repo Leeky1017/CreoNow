@@ -14,6 +14,7 @@ import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useEditorStore } from "../../stores/editorStore";
 import { useFileStore } from "../../stores/fileStore";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
+import type { DocumentType } from "../../stores/fileStore";
 
 type EditingState =
   | { mode: "idle" }
@@ -30,6 +31,50 @@ export interface FileTreePanelProps {
 }
 
 /**
+ * Resolve display icon by document type.
+ *
+ * Why: file tree must expose type differences visually for quick scanning.
+ */
+function iconForType(type: DocumentType): string {
+  switch (type) {
+    case "chapter":
+      return "📄";
+    case "note":
+      return "📝";
+    case "setting":
+      return "📘";
+    case "timeline":
+      return "🕒";
+    case "character":
+      return "👤";
+    default:
+      return "📄";
+  }
+}
+
+/**
+ * Resolve untitled title by document type.
+ *
+ * Why: new document enters rename mode and needs deterministic initial text.
+ */
+function defaultTitleByType(type: DocumentType): string {
+  switch (type) {
+    case "chapter":
+      return "Untitled Chapter";
+    case "note":
+      return "Untitled Note";
+    case "setting":
+      return "Untitled Setting";
+    case "timeline":
+      return "Untitled Timeline";
+    case "character":
+      return "Untitled Character";
+    default:
+      return "Untitled";
+  }
+}
+
+/**
  * FileTreePanel renders the project-scoped documents list (DB SSOT) and actions.
  *
  * Why: P0-015 requires a minimal documents loop with stable selectors for Windows E2E.
@@ -42,6 +87,7 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
 
   const createAndSetCurrent = useFileStore((s) => s.createAndSetCurrent);
   const rename = useFileStore((s) => s.rename);
+  const updateStatus = useFileStore((s) => s.updateStatus);
   const deleteDocument = useFileStore((s) => s.delete);
   const setCurrent = useFileStore((s) => s.setCurrent);
   const clearError = useFileStore((s) => s.clearError);
@@ -91,14 +137,22 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
     inputRef.current?.select();
   }, [editing.mode]);
 
-  async function onCreate(): Promise<void> {
-    const res = await createAndSetCurrent({ projectId: props.projectId });
+  async function onCreate(type: DocumentType = "chapter"): Promise<void> {
+    const res = await createAndSetCurrent({
+      projectId: props.projectId,
+      type,
+    });
     if (!res.ok) {
       return;
     }
     await openDocument({
       projectId: props.projectId,
       documentId: res.data.documentId,
+    });
+    setEditing({
+      mode: "rename",
+      documentId: res.data.documentId,
+      title: defaultTitleByType(type),
     });
   }
 
@@ -147,6 +201,26 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
     await openCurrentForProject(props.projectId);
   }
 
+  async function onToggleStatus(args: {
+    documentId: string;
+    next: "draft" | "final";
+  }): Promise<void> {
+    const res = await updateStatus({
+      projectId: props.projectId,
+      documentId: args.documentId,
+      status: args.next,
+    });
+    if (!res.ok) {
+      return;
+    }
+    if (currentDocumentId === args.documentId) {
+      await openDocument({
+        projectId: props.projectId,
+        documentId: args.documentId,
+      });
+    }
+  }
+
   return (
     <div data-testid="sidebar-files" className="flex flex-col min-h-0">
       <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)]">
@@ -157,9 +231,17 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
           data-testid="file-create"
           variant="secondary"
           size="sm"
-          onClick={() => void onCreate()}
+          onClick={() => void onCreate("chapter")}
         >
           New
+        </Button>
+        <Button
+          data-testid="file-create-note"
+          variant="ghost"
+          size="sm"
+          onClick={() => void onCreate("note")}
+        >
+          Note
         </Button>
       </div>
 
@@ -211,6 +293,16 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
                   label: "Delete",
                   onSelect: () => void onDelete(item.documentId),
                   destructive: true,
+                },
+                {
+                  key: "status",
+                  label:
+                    item.status === "final" ? "Mark as Draft" : "Mark as Final",
+                  onSelect: () =>
+                    void onToggleStatus({
+                      documentId: item.documentId,
+                      next: item.status === "final" ? "draft" : "final",
+                    }),
                 },
               ];
 
@@ -285,12 +377,25 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
                     onClick={() => void onSelect(item.documentId)}
                     className={`border ${selected ? "border-[var(--color-border-focus)]" : "border-transparent"} group`}
                   >
+                    <span
+                      data-testid={`file-type-icon-${item.documentId}`}
+                      className="shrink-0"
+                      aria-hidden="true"
+                    >
+                      {iconForType(item.type)}
+                    </span>
                     <Text
                       size="small"
                       className="block overflow-hidden text-ellipsis whitespace-nowrap flex-1 min-w-0"
                     >
                       {item.title}
                     </Text>
+                    {item.status === "final" ? (
+                      <span
+                        data-testid={`file-status-final-${item.documentId}`}
+                        className="inline-block w-2 h-2 rounded-full bg-[var(--color-success)] shrink-0"
+                      />
+                    ) : null}
                     <Popover
                       trigger={
                         <Button
@@ -322,6 +427,25 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
                             className="justify-start w-full"
                           >
                             Rename
+                          </Button>
+                        </PopoverClose>
+                        <PopoverClose asChild>
+                          <Button
+                            data-testid={`file-status-toggle-${item.documentId}`}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              void onToggleStatus({
+                                documentId: item.documentId,
+                                next:
+                                  item.status === "final" ? "draft" : "final",
+                              })
+                            }
+                            className="justify-start w-full"
+                          >
+                            {item.status === "final"
+                              ? "Mark as Draft"
+                              : "Mark as Final"}
                           </Button>
                         </PopoverClose>
                         <PopoverClose asChild>

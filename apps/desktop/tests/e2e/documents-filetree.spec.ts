@@ -97,7 +97,7 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("file:document:rename", {
+      return await window.creonow.invoke("file:document:update", {
         projectId: projectIdParam,
         documentId: documentIdParam,
         title: "",
@@ -116,7 +116,7 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("file:document:rename", {
+      return await window.creonow.invoke("file:document:update", {
         projectId: projectIdParam,
         documentId: documentIdParam,
         title: "a".repeat(201),

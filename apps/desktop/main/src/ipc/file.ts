@@ -3,7 +3,11 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
-import { createDocumentService } from "../services/documents/documentService";
+import {
+  createDocumentService,
+  type DocumentStatus,
+  type DocumentType,
+} from "../services/documents/documentService";
 import { deriveContent } from "../services/documents/derive";
 import { createStatsService } from "../services/stats/statsService";
 
@@ -48,7 +52,7 @@ export function registerFileIpcHandlers(deps: {
     "file:document:create",
     async (
       _e,
-      payload: { projectId: string; title?: string },
+      payload: { projectId: string; title?: string; type?: DocumentType },
     ): Promise<IpcResponse<{ documentId: string }>> => {
       if (!deps.db) {
         return {
@@ -67,6 +71,7 @@ export function registerFileIpcHandlers(deps: {
       const res = svc.create({
         projectId: payload.projectId,
         title: payload.title,
+        type: payload.type,
       });
 
       if (res.ok) {
@@ -96,7 +101,15 @@ export function registerFileIpcHandlers(deps: {
       payload: { projectId: string },
     ): Promise<
       IpcResponse<{
-        items: Array<{ documentId: string; title: string; updatedAt: number }>;
+        items: Array<{
+          documentId: string;
+          type: DocumentType;
+          title: string;
+          status: DocumentStatus;
+          sortOrder: number;
+          parentId?: string;
+          updatedAt: number;
+        }>;
       }>
     > => {
       if (!deps.db) {
@@ -129,11 +142,16 @@ export function registerFileIpcHandlers(deps: {
       IpcResponse<{
         documentId: string;
         projectId: string;
+        type: DocumentType;
         title: string;
+        status: DocumentStatus;
+        sortOrder: number;
+        parentId?: string;
         contentJson: string;
         contentText: string;
         contentMd: string;
         contentHash: string;
+        createdAt: number;
         updatedAt: number;
       }>
     > => {
@@ -168,10 +186,18 @@ export function registerFileIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "file:document:rename",
+    "file:document:update",
     async (
       _e,
-      payload: { projectId: string; documentId: string; title: string },
+      payload: {
+        projectId: string;
+        documentId: string;
+        title?: string;
+        type?: DocumentType;
+        status?: DocumentStatus;
+        sortOrder?: number;
+        parentId?: string;
+      },
     ): Promise<IpcResponse<{ updated: true }>> => {
       if (!deps.db) {
         return {
@@ -193,10 +219,14 @@ export function registerFileIpcHandlers(deps: {
       }
 
       const svc = createDocumentService({ db: deps.db, logger: deps.logger });
-      const res = svc.rename({
+      const res = svc.update({
         projectId: payload.projectId,
         documentId: payload.documentId,
         title: payload.title,
+        type: payload.type,
+        status: payload.status,
+        sortOrder: payload.sortOrder,
+        parentId: payload.parentId,
       });
       return res.ok
         ? { ok: true, data: res.data }
@@ -205,7 +235,7 @@ export function registerFileIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "file:document:write",
+    "file:document:save",
     async (
       _e,
       payload: {
@@ -272,7 +302,7 @@ export function registerFileIpcHandlers(deps: {
       const beforeWords = beforeRow ? countWords(beforeRow.contentText) : 0;
 
       const svc = createDocumentService({ db: deps.db, logger: deps.logger });
-      const res = svc.write({
+      const res = svc.save({
         projectId: payload.projectId,
         documentId: payload.documentId,
         contentJson: parsed,
@@ -374,6 +404,77 @@ export function registerFileIpcHandlers(deps: {
       const res = svc.setCurrent({
         projectId: payload.projectId,
         documentId: payload.documentId,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "file:document:reorder",
+    async (
+      _e,
+      payload: { projectId: string; orderedDocumentIds: string[] },
+    ): Promise<IpcResponse<{ updated: true }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (payload.projectId.trim().length === 0) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.reorder({
+        projectId: payload.projectId,
+        orderedDocumentIds: payload.orderedDocumentIds,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "file:document:updatestatus",
+    async (
+      _e,
+      payload: {
+        projectId: string;
+        documentId: string;
+        status: DocumentStatus;
+      },
+    ): Promise<IpcResponse<{ updated: true; status: DocumentStatus }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.projectId.trim().length === 0 ||
+        payload.documentId.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "projectId/documentId is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.updateStatus({
+        projectId: payload.projectId,
+        documentId: payload.documentId,
+        status: payload.status,
       });
       return res.ok
         ? { ok: true, data: res.data }
