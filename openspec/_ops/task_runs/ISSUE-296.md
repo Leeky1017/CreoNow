@@ -39,3 +39,22 @@
 - Key output: 创建 PR `https://github.com/Leeky1017/CreoNow/pull/298`。
 - Command: 更新 RUN_LOG 的 `PR` 字段为真实链接
 - Key output: 满足 openspec-log-guard 与 preflight 的 PR 字段约束。
+
+### 2026-02-08 20:32 preflight 首次失败与修复
+
+- Command: `python3 scripts/agent_pr_preflight.py --issue 296 --branch task/296-change-dependency-sync-governance`
+- Key output: 失败，原因 1：`openspec/_ops/task_runs/ISSUE-296.md` 需 Prettier 格式化；原因 2：`scripts/__pycache__/` 未跟踪目录。
+- Command: `pnpm exec prettier --write openspec/_ops/task_runs/ISSUE-296.md` + 删除 `scripts/__pycache__/`
+- Key output: 格式与工作区清理完成。
+
+### 2026-02-08 20:34 preflight 二次失败与修复
+
+- Command: `python3 scripts/agent_pr_preflight.py --issue 296 --branch task/296-change-dependency-sync-governance`
+- Key output: 失败，`pnpm typecheck` 报 `tsc: not found`（worktree 未安装依赖）。
+- Command: `pnpm install --frozen-lockfile`
+- Key output: 依赖安装完成，`typescript` 可用。
+
+### 2026-02-08 20:36 preflight 全量通过
+
+- Command: `python3 scripts/agent_pr_preflight.py --issue 296 --branch task/296-change-dependency-sync-governance`
+- Key output: Prettier/typecheck/lint/contract-check/test:unit 全部通过。
