@@ -2,7 +2,7 @@
 
 - Issue: #296
 - Branch: task/296-change-dependency-sync-governance
-- PR: 待回填
+- PR: https://github.com/Leeky1017/CreoNow/pull/298
 
 ## Plan
 
@@ -32,3 +32,11 @@
 - Command: `date '+%Y-%m-%d %H:%M'`
 - Key output: `2026-02-08 20:25`
 - 更新 `openspec/changes/EXECUTION_ORDER.md` 更新时间和维护规则。
+
+
+### 2026-02-08 20:30 PR 创建与回填
+
+- Command: `gh pr create --base main --head task/296-change-dependency-sync-governance ...`
+- Key output: 创建 PR `https://github.com/Leeky1017/CreoNow/pull/298`。
+- Command: 更新 RUN_LOG 的 `PR` 字段为真实链接
+- Key output: 满足 openspec-log-guard 与 preflight 的 PR 字段约束。
