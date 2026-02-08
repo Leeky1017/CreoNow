@@ -3,7 +3,7 @@
 - Issue: #287
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/287
 - Branch: `task/287-deliver-pending-workspace-governance`
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/288
 - Scope: 交付当前仓库全部待提交治理改动并合并回控制面 `main`
 - Out of Scope: 新功能实现、主 spec 行为扩展
 
