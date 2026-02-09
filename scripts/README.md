@@ -23,6 +23,8 @@
 - 输出前缀：`[OK]` / `[FAIL]` / `[SKIP]` / `[WARN]`
 - 脚本入口校验必要参数，缺失时打印 usage 并退出
 - `agent_pr_preflight.py` 会校验：
+  - 当前任务 Rulebook 路径可定位于 `rulebook/tasks/<task-id>`（active）或 `rulebook/tasks/archive/*-<task-id>`（archive）
+  - 当前任务位于 active 时必须 `rulebook task validate` 通过；位于 archive 时必须具备 `.metadata.json` / `proposal.md` / `tasks.md`
   - `openspec/changes/*/tasks.md` 的固定 TDD 章节顺序
   - 活跃 change 若已“全部勾选完成”，必须已归档至 `openspec/changes/archive/`
   - 多活跃 change（>=2）时 `openspec/changes/EXECUTION_ORDER.md` 的存在与同步更新

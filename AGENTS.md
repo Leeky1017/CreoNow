@@ -125,6 +125,7 @@
   - `6. Evidence`
 - 若 `TDD Mapping` 未建立 Scenario→测试映射，或未记录 Red 失败证据，禁止进入实现
 - PR 合并后才能将 delta spec 归档到主 spec
+- 允许当前任务在同一 PR 内将自身 Rulebook task 从 `rulebook/tasks/` 归档到 `rulebook/tasks/archive/`；不得仅为归档当前任务递归创建 closeout issue
 
 ---
 
@@ -157,6 +158,7 @@
 23. 禁止在未同步最新控制面 `origin/main` 前创建 `task/*` 分支或 worktree
 24. 禁止在存在上游依赖的 change 中，未完成 `依赖同步检查（Dependency Sync Check）` 即进入 Red/Green
 25. 禁止在依赖漂移已发现时，未先更新 change 文档就继续实现
+26. 禁止仅为“归档当前任务自身 Rulebook task”递归创建 closeout issue
 
 ---
 
@@ -183,7 +185,7 @@
 | 3. 环境隔离   | Worktree 已创建，工作目录已切换                                                                                                                   |
 | 4. 实现与测试 | 按 TDD 循环实现；所有测试通过；RUN_LOG 已记录                                                                                                     |
 | 5. 提交与合并 | PR 已创建；auto-merge 已开启；三个 checks 全绿；PR 已确认合并                                                                                     |
-| 6. 收口与归档 | 控制面 `main` 已包含任务提交；worktree 已清理；Rulebook task 已归档                                                                               |
+| 6. 收口与归档 | 控制面 `main` 已包含任务提交；worktree 已清理；Rulebook task 已归档（允许同 PR 自归档，无需递归 closeout issue）                                  |
 
 ### 5.3 命名约定
 
@@ -302,7 +304,7 @@ THEN（期望结果）       →  Assert（验证）        →  被测模块的
 | `gh` 命令超时                        | 重试 3 次（间隔 10s），仍失败 → 记录 RUN_LOG → 升级                                                      | 静默忽略                   |
 | PR 需要 review                       | 记录 blocker → 通知 reviewer → 等待                                                                      | 静默放弃                   |
 | CI 失败                              | 修复 → push → 再次 watch → 写入 RUN_LOG                                                                  | 先合并再修                 |
-| Rulebook task 不存在或 validate 失败 | 阻断交付，先修复 Rulebook 再继续                                                                         | 跳过 Rulebook 直接实现     |
+| Rulebook task 缺失或不合规           | 阻断交付，先修复 Rulebook 再继续（active 必须 validate；archive 必须结构完整）                           | 跳过 Rulebook 直接实现     |
 | 非 `task/*` 分支提交 PR              | PR body 必须包含 `Skip-Reason:`                                                                          | 不说明原因直接跳过 RUN_LOG |
 | required checks 与交付规则文档不一致 | 阻断交付并升级治理，先完成对齐                                                                           | 继续宣称门禁全绿           |
 | 任务超出 spec 范围                   | 先补 spec → 经 Owner 确认后再做                                                                          | 超范围自由发挥             |

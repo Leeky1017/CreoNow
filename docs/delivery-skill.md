@@ -25,7 +25,7 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 
 ## 二、交付规则（硬约束）
 
-1. **Spec-first + Rulebook-first**：任何功能变更必须先有 OpenSpec spec，并且 Rulebook task 必须存在且通过 `validate`。
+1. **Spec-first + Rulebook-first**：任何功能变更必须先有 OpenSpec spec，并且 Rulebook task 必须可定位（`active` 或 `archive`）；若位于 `active`，必须通过 `validate`。
 2. **红灯先行**：测试必须先失败再通过（Red → Green → Refactor），禁止先写实现再补测试。
 3. **Change 文档 TDD 结构强制**：每个 `openspec/changes/<change>/tasks.md` 必须按固定顺序撰写 `Specification → TDD Mapping → Red → Green → Refactor → Evidence`。
 4. **Red 证据前置**：`TDD Mapping` 未建立 Scenario→测试映射，或未记录 Red 失败测试证据，不得进入 Green 实现。
@@ -41,6 +41,7 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 14. **环境基线强制**：创建 `task/*` 分支和 worktree 前，必须先同步控制面到最新 `origin/main`。
 15. **RUN_LOG PR 真实链接强制**：`openspec/_ops/task_runs/ISSUE-<N>.md` 的 `PR` 字段不得为占位符（如 `待回填/TBD/TODO`）。
 16. **完成变更归档强制**：当 `openspec/changes/<change>/tasks.md` 全部勾选完成时，必须归档到 `openspec/changes/archive/`，不得继续停留在活跃目录。
+17. **Rulebook 自归档无递归**：允许当前任务在同一 PR 中将自身 Rulebook task 从 `active` 归档到 `archive`；不得仅为“归档当前任务”再创建递归 closeout issue。
 
 ---
 
@@ -53,7 +54,7 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 | 3. 环境隔离   | 控制面 `origin/main` 已同步，Worktree 已创建，工作目录已切换                                                       |
 | 4. 实现与测试 | 按 TDD 循环实现；所有测试通过；RUN_LOG 已记录                                                                      |
 | 5. 提交与合并 | PR 已创建；auto-merge 已开启；三个 checks 全绿；PR 已确认合并                                                      |
-| 6. 收口与归档 | 控制面 `main` 已包含任务提交；worktree 已清理；Rulebook task 已归档                                                |
+| 6. 收口与归档 | 控制面 `main` 已包含任务提交；worktree 已清理；Rulebook task 已归档（可同 PR 自归档，无需递归 closeout issue）     |
 
 ---
 
@@ -66,13 +67,14 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 | checks 失败                          | 修复后重新 push，重跑并记录失败原因和修复证据                                               |
 | Spec 不存在或不完整                  | 必须先补 spec 并确认，禁止猜测实现                                                          |
 | 上游依赖产出与当前 change 假设不一致 | 先做 Dependency Sync Check 并记录，再更新 proposal/spec/tasks（必要时更新 EXECUTION_ORDER） | 跳过更新直接进入 Red/Green |
-| Rulebook task 不存在或 validate 失败 | 阻断交付，先修复 Rulebook 再继续                                                            |
+| Rulebook task 缺失或不合规           | 阻断交付，先修复 Rulebook（active 需 validate；archive 需结构完整）再继续                   |
 | 非 `task/*` 分支提交 PR              | 可跳过 RUN_LOG，但 PR body 必须包含 `Skip-Reason:`                                          |
 | 改动仅停留在 `task/*` 分支           | 继续完成合并回 `main` 并更新 RUN_LOG 证据                                                   |
 | required checks 与本文件不一致       | 阻断交付并升级治理，禁止宣称“门禁全绿”                                                      |
 | 误用已关闭/历史 Issue                | 立即停止实现，改为新建 OPEN Issue，并从最新 `origin/main` 重建 worktree                     |
 | RUN_LOG PR 字段是占位符              | 先回填真实 PR 链接，再进入交付与合并流程                                                    |
 | 活跃 change 已完成但未归档           | 阻断交付，先归档到 `openspec/changes/archive/` 再继续                                       |
+| 当前任务已在同 PR 归档               | 允许 preflight 通过 archive 路径校验，不要求再次创建 closeout issue                         |
 
 ---
 
@@ -99,3 +101,5 @@ openspec/             rulebook/tasks/        .github/workflows/
   - 现行防线：preflight 阻断占位符；`agent_pr_automerge_and_sync.sh` 在创建 PR 后自动回填真实 PR 链接并重新 preflight。
 - 既往不符合项 C：串行依赖只维护顺序，未强制下游在实现前核对上游产出，导致需求漂移返工。
   - 现行防线：对存在上游依赖的 change 强制执行 Dependency Sync Check，发现漂移先更新 change 文档再进入 Red/Green。
+- 既往不符合项 D：治理 closeout task 归档后仍遗留 active，触发递归 closeout issue。
+  - 现行防线：preflight 支持当前任务 `active/archive` 双路径，并允许同 PR 自归档收口。

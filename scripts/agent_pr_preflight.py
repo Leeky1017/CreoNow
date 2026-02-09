@@ -15,6 +15,12 @@ class CmdResult:
     out: str
 
 
+@dataclass(frozen=True)
+class RulebookTaskLocation:
+    kind: str
+    path: str
+
+
 def run(cmd: list[str], *, cwd: str | None = None, env: dict[str, str] | None = None) -> CmdResult:
     proc = subprocess.run(
         cmd,
@@ -55,6 +61,54 @@ def current_branch(repo_root: str) -> str:
 def require_file(path: str) -> None:
     if not os.path.isfile(path):
         raise RuntimeError(f"[RUN_LOG] required file missing: {path}")
+
+
+def require_rulebook_task_files(task_dir: str, *, task_id: str, kind: str) -> None:
+    missing: list[str] = []
+    for rel in (".metadata.json", "proposal.md", "tasks.md"):
+        if not os.path.isfile(os.path.join(task_dir, rel)):
+            missing.append(rel)
+    if missing:
+        raise RuntimeError(
+            f"[RULEBOOK] {kind} task dir missing required files for {task_id}: {task_dir} ({', '.join(missing)})"
+        )
+
+
+def resolve_rulebook_task_location(repo: str, task_id: str) -> RulebookTaskLocation:
+    active_dir = os.path.join(repo, "rulebook", "tasks", task_id)
+    archive_root = os.path.join(repo, "rulebook", "tasks", "archive")
+
+    archive_candidates: list[str] = []
+    if os.path.isdir(archive_root):
+        for name in sorted(os.listdir(archive_root)):
+            if not name.endswith(f"-{task_id}"):
+                continue
+            candidate = os.path.join(archive_root, name)
+            if os.path.isdir(candidate):
+                archive_candidates.append(candidate)
+
+    has_active = os.path.isdir(active_dir)
+    if has_active and archive_candidates:
+        raise RuntimeError(
+            "[RULEBOOK] both active and archived task dirs found for current task; keep a single source of truth: "
+            f"{task_id}"
+        )
+
+    if has_active:
+        return RulebookTaskLocation(kind="active", path=active_dir)
+
+    if len(archive_candidates) > 1:
+        joined = ", ".join(archive_candidates)
+        raise RuntimeError(
+            f"[RULEBOOK] multiple archived task dirs matched {task_id}; cannot resolve uniquely: {joined}"
+        )
+
+    if len(archive_candidates) == 1:
+        return RulebookTaskLocation(kind="archive", path=archive_candidates[0])
+
+    raise RuntimeError(
+        f"[RULEBOOK] required task dir missing in both active and archive for {task_id}: {active_dir}"
+    )
 
 
 def validate_issue_is_open(repo: str, issue_number: str) -> None:
@@ -288,10 +342,12 @@ def main() -> int:
 
         print("\n== Rulebook checks ==")
         task_id = f"issue-{issue_number}-{slug}"
-        task_dir = os.path.join(repo, "rulebook", "tasks", task_id)
-        if not os.path.isdir(task_dir):
-            raise RuntimeError(f"[RULEBOOK] required task dir missing: {task_dir}")
-        must_run(["rulebook", "task", "validate", task_id], cwd=repo)
+        task_location = resolve_rulebook_task_location(repo, task_id)
+        require_rulebook_task_files(task_location.path, task_id=task_id, kind=task_location.kind)
+        if task_location.kind == "active":
+            must_run(["rulebook", "task", "validate", task_id], cwd=repo)
+        else:
+            print(f"(skip) rulebook task validate: current task is archived at {task_location.path}")
 
         print("\n== Workspace checks ==")
         # Keep preflight OS-agnostic; Windows-only build/E2E are enforced in CI.
