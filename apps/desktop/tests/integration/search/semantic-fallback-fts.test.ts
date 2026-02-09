@@ -67,7 +67,8 @@ function createDbStub(): Database.Database {
 
     if (sql.includes("FROM documents_fts")) {
       return {
-        all: (_projectId: string, _query: string, limit: number) => rows.slice(0, limit),
+        all: (_projectId: string, _query: string, limit: number) =>
+          rows.slice(0, limit),
       };
     }
 

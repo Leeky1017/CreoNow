@@ -25,11 +25,11 @@ chunk 数据结构（最小字段）：
 
 `embedding:*` IPC 契约：
 
-| IPC 通道             | 请求 Schema（Zod）         | 响应 Schema（Zod）          | 默认参数                   |
-| -------------------- | -------------------------- | --------------------------- | -------------------------- |
-| `embedding:text:generate` | `EmbeddingGenerateRequest` | `EmbeddingGenerateResponse` | `model=default`            |
-| `embedding:semantic:search`   | `EmbeddingSearchRequest`   | `EmbeddingSearchResponse`   | `topK=20`, `minScore=0.55` |
-| `embedding:index:reindex`  | `EmbeddingReindexRequest`  | `EmbeddingReindexResponse`  | `batchSize=128`            |
+| IPC 通道                    | 请求 Schema（Zod）         | 响应 Schema（Zod）          | 默认参数                   |
+| --------------------------- | -------------------------- | --------------------------- | -------------------------- |
+| `embedding:text:generate`   | `EmbeddingGenerateRequest` | `EmbeddingGenerateResponse` | `model=default`            |
+| `embedding:semantic:search` | `EmbeddingSearchRequest`   | `EmbeddingSearchResponse`   | `topK=20`, `minScore=0.55` |
+| `embedding:index:reindex`   | `EmbeddingReindexRequest`  | `EmbeddingReindexResponse`  | `batchSize=128`            |
 
 语义不可用回退规则：
 
@@ -63,11 +63,11 @@ SR-2 固化 RAG 召回与 Retrieved 注入契约，避免 AI 调用链条出现�
 
 `rag:*` IPC 契约：
 
-| IPC 通道            | 请求 Schema（Zod）       | 响应 Schema（Zod）        | 默认参数                 |
-| ------------------- | ------------------------ | ------------------------- | ------------------------ |
-| `rag:context:retrieve`      | `RagRetrieveRequest`     | `RagRetrieveResponse`     | `topK=5`, `minScore=0.7` |
-| `rag:config:get`    | `RagConfigGetRequest`    | `RagConfigGetResponse`    | 返回当前默认值           |
-| `rag:config:update` | `RagConfigUpdateRequest` | `RagConfigUpdateResponse` | 需通过 Zod 校验          |
+| IPC 通道               | 请求 Schema（Zod）       | 响应 Schema（Zod）        | 默认参数                 |
+| ---------------------- | ------------------------ | ------------------------- | ------------------------ |
+| `rag:context:retrieve` | `RagRetrieveRequest`     | `RagRetrieveResponse`     | `topK=5`, `minScore=0.7` |
+| `rag:config:get`       | `RagConfigGetRequest`    | `RagConfigGetResponse`    | 返回当前默认值           |
+| `rag:config:update`    | `RagConfigUpdateRequest` | `RagConfigUpdateResponse` | 需通过 Zod 校验          |
 
 Retrieved 注入契约：
 

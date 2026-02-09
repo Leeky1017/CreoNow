@@ -42,9 +42,10 @@ function listProjectDocuments(args: {
   projectId: string;
 }): DocumentIndexRow[] {
   return args.db
-    .prepare<[string], DocumentIndexRow>(
-      "SELECT document_id as documentId, content_text as contentText, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC",
-    )
+    .prepare<
+      [string],
+      DocumentIndexRow
+    >("SELECT document_id as documentId, content_text as contentText, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC")
     .all(args.projectId);
 }
 
@@ -118,8 +119,12 @@ export function registerRagIpcHandlers(deps: {
       payload: Partial<RagConfig>,
     ): Promise<IpcResponse<RagConfig>> => {
       ragConfig.topK = normalizeTopK(payload.topK ?? ragConfig.topK);
-      ragConfig.minScore = normalizeMinScore(payload.minScore ?? ragConfig.minScore);
-      ragConfig.maxTokens = normalizeMaxTokens(payload.maxTokens ?? ragConfig.maxTokens);
+      ragConfig.minScore = normalizeMinScore(
+        payload.minScore ?? ragConfig.minScore,
+      );
+      ragConfig.maxTokens = normalizeMaxTokens(
+        payload.maxTokens ?? ragConfig.maxTokens,
+      );
       ragConfig.model = payload.model?.trim() || ragConfig.model;
 
       return {
@@ -173,11 +178,18 @@ export function registerRagIpcHandlers(deps: {
       }
 
       const topK = normalizeTopK(payload.topK ?? ragConfig.topK);
-      const minScore = normalizeMinScore(payload.minScore ?? ragConfig.minScore);
-      const maxTokens = normalizeMaxTokens(payload.maxTokens ?? ragConfig.maxTokens);
+      const minScore = normalizeMinScore(
+        payload.minScore ?? ragConfig.minScore,
+      );
+      const maxTokens = normalizeMaxTokens(
+        payload.maxTokens ?? ragConfig.maxTokens,
+      );
       const model = payload.model ?? ragConfig.model;
 
-      const docs = listProjectDocuments({ db: deps.db, projectId: payload.projectId });
+      const docs = listProjectDocuments({
+        db: deps.db,
+        projectId: payload.projectId,
+      });
       for (const doc of docs) {
         const upserted = semanticIndex.upsertDocument({
           projectId: payload.projectId,

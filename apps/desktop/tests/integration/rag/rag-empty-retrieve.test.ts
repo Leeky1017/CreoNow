@@ -115,7 +115,12 @@ function createDbStub(): Database.Database {
       model: "hash-v1",
     },
   )) as IpcResponse<{
-    chunks: Array<{ chunkId: string; documentId: string; text: string; score: number }>;
+    chunks: Array<{
+      chunkId: string;
+      documentId: string;
+      text: string;
+      score: number;
+    }>;
     truncated: boolean;
   }>;
 

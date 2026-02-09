@@ -131,15 +131,23 @@ function createDbStub(): Database.Database {
   }
 
   const service = createContextLayerAssemblyService({
-    rules: async () => ({ chunks: [{ source: "kg:entities", content: "warehouse setting" }] }),
-    settings: async () => ({ chunks: [{ source: "memory:semantic", content: "keep consistent atmosphere" }] }),
+    rules: async () => ({
+      chunks: [{ source: "kg:entities", content: "warehouse setting" }],
+    }),
+    settings: async () => ({
+      chunks: [
+        { source: "memory:semantic", content: "keep consistent atmosphere" },
+      ],
+    }),
     retrieved: async () => ({
       chunks: ragRes.data.chunks.map((chunk) => ({
         source: "rag:context:retrieve",
         content: chunk.text,
       })),
     }),
-    immediate: async () => ({ chunks: [{ source: "editor:cursor-window", content: "continue writing" }] }),
+    immediate: async () => ({
+      chunks: [{ source: "editor:cursor-window", content: "continue writing" }],
+    }),
   });
 
   // Act

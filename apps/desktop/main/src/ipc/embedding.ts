@@ -24,9 +24,10 @@ function listProjectDocuments(args: {
   projectId: string;
 }): DocumentIndexRow[] {
   return args.db
-    .prepare<[string], DocumentIndexRow>(
-      "SELECT document_id as documentId, content_text as contentText, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC",
-    )
+    .prepare<
+      [string],
+      DocumentIndexRow
+    >("SELECT document_id as documentId, content_text as contentText, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC")
     .all(args.projectId);
 }
 
@@ -146,7 +147,10 @@ export function registerEmbeddingIpcHandlers(deps: {
       const topK = normalizeTopK(payload.topK);
       const minScore = normalizeMinScore(payload.minScore);
 
-      const docs = listProjectDocuments({ db: deps.db, projectId: payload.projectId });
+      const docs = listProjectDocuments({
+        db: deps.db,
+        projectId: payload.projectId,
+      });
       for (const doc of docs) {
         const upserted = semanticIndex.upsertDocument({
           projectId: payload.projectId,
@@ -260,7 +264,10 @@ export function registerEmbeddingIpcHandlers(deps: {
         };
       }
 
-      const docs = listProjectDocuments({ db: deps.db, projectId: payload.projectId });
+      const docs = listProjectDocuments({
+        db: deps.db,
+        projectId: payload.projectId,
+      });
       const reindexed = semanticIndex.reindexProject({
         projectId: payload.projectId,
         documents: docs,
