@@ -3,7 +3,7 @@
 - Issue: #361
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/361
 - Branch: task/361-ai-service-p1-streaming-cancel-lifecycle
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/363
 - Scope: 完成交付 `openspec/changes/ai-service-p1-streaming-cancel-lifecycle`（流式生命周期、取消优先竞态、网络中断完整 prompt 重放），并按治理流程合并到控制面 `main`
 - Out of Scope: AI 面板聊天持久化、Judge 质量评估、p2/p3/p4/p5 范围改动
 
