@@ -9,7 +9,7 @@
 
 - [x] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试/检查项
 - [x] 2.2 为每个检查项标注对应 Scenario ID，建立可追踪关系
-- [x] 2.3 设定门禁：归档前必须先看到 Red（active 状态），再进入实现
+- [x] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
 
 ### Scenario → Test/Check 映射
 
