@@ -3,7 +3,7 @@
 - Issue: #328
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/328
 - Branch: task/328-cross-module-contract-alignment-gate
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/329
 - Scope: 新增 cross-module 契约自动门禁（baseline + check script + CI/preflight 接线）
 - Out of Scope: 全量 IPC 运行时命名迁移、主 spec 直接改写
 
@@ -91,3 +91,14 @@
 - Exit code: `0`
 - Key output:
   - OpenSpec change 与 Rulebook 文档完成落盘，执行顺序文档已纳入双活跃 change。
+
+### 2026-02-09 12:34 提交、推送与 PR
+
+- Command:
+  - `git add -A && git commit -m "ci: add cross-module contract alignment gate (#328)"`
+  - `git push -u origin task/328-cross-module-contract-alignment-gate`
+  - `gh pr create --base main --head task/328-cross-module-contract-alignment-gate --title "Add cross-module contract alignment gate in CI (#328)" --body "... Closes #328"`
+- Exit code: `0`
+- Key output:
+  - Commit: `43eb7b98`
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/329`
