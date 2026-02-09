@@ -3,7 +3,7 @@
 - Issue: #340
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/340
 - Branch: task/340-governance-closeout-archive-338-266
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/341
 - Scope: 归档已合并 active changes（338/266）及对应 Rulebook active tasks（仅治理文档）
 - Out of Scope: 运行时代码改动；功能行为变更
 
@@ -83,3 +83,48 @@
 - Key output:
   - `rulebook task validate` 通过（warnings only）
   - preflight 失败：`[RUN_LOG] PR field still placeholder ... (待回填)`
+
+### 2026-02-09 16:30 +0800 提交与 PR
+
+- Command:
+  - `git add -A && git commit -m "chore: archive merged active changes and tasks (#340)"`
+  - `git push -u origin task/340-governance-closeout-archive-338-266`
+  - `gh pr create --base main --head task/340-governance-closeout-archive-338-266 --title "Governance closeout: archive merged active changes 338/266 (#340)" ...`
+- Exit code: `0`
+- Key output:
+  - Commit: `ee546dc5`
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/341`
+
+### 2026-02-09 16:31 +0800 验证（Red-2）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - preflight 失败：`rulebook/tasks/issue-340-governance-closeout-archive-338-266/.metadata.json` 与 `proposal.md` Prettier 不合规
+
+### 2026-02-09 16:32 +0800 格式修复
+
+- Command:
+  - `pnpm exec prettier --write rulebook/tasks/issue-340-governance-closeout-archive-338-266/.metadata.json rulebook/tasks/issue-340-governance-closeout-archive-338-266/proposal.md`
+- Exit code: `0`
+- Key output:
+  - 2 个 Rulebook 文件已按 Prettier 规范格式化
+
+### 2026-02-09 16:33 +0800 验证（Red-3）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - preflight 失败：`pnpm typecheck` 报错 `tsc: not found`
+
+### 2026-02-09 16:34 +0800 依赖安装与验证（Green）
+
+- Command:
+  - `pnpm install --frozen-lockfile`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`（最终 preflight）
+- Key output:
+  - 依赖安装完成：`Lockfile is up to date`，`Packages: +978`
+  - preflight 最终通过：`prettier`、`typecheck`、`lint`（0 error/3 warning）、`contract:check`、`cross-module:check`、`test:unit` 全部通过
