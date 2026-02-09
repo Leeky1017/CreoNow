@@ -1,46 +1,32 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-09 14:50
+更新时间：2026-02-09 15:36
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **2**。
-- 执行模式：**串行**（先确认 `issue-334` 已 merge，再执行 `issue-336` 收口归档）。
+- 当前活跃 change 数量为 **1**。
+- 执行模式：**单变更执行**（`issue-338` 治理收口）。
 
 ## 执行顺序
 
-1. `issue-334-archive-closeout-and-worktree-cleanup`（已合并，待 Rulebook 最终归档）
-   - 目标：归档 `issue-326/328/330/332` 并形成收口主链路
-   - 状态：PR `#335` 已 merged，遗留 `issue-334` task 归档由下游 change 处理
-2. `issue-336-rulebook-archive-issue-334`（进行中）
-   - 目标：归档 `issue-334` Rulebook task，补齐收口证据并完成治理闭环
-   - 依赖：`issue-334` 合并结果与 active task 状态
+1. `issue-338-governance-closeout-active-legacy`（进行中）
+   - 目标：归档已合并 active changes（334/336）并清理关闭 issue 的历史 pending tasks（39/50）
+   - 依赖：`issue-334`、`issue-336` 合并事实；`issue-39`、`issue-50` 关闭事实
 
 ## 依赖说明
 
-- `issue-334-archive-closeout-and-worktree-cleanup`：
+- `issue-338-governance-closeout-active-legacy`：
   - Dependency Sync Check 输入：
-    - `openspec/changes/archive/issue-326-*`
-    - `openspec/changes/archive/issue-328-*`
-    - `openspec/changes/archive/issue-330-*`
-    - `openspec/changes/archive/issue-332-*`
+    - `openspec/changes/archive/issue-334-archive-closeout-and-worktree-cleanup/*`
+    - `openspec/changes/archive/issue-336-rulebook-archive-issue-334/*`
+    - `rulebook/tasks/archive/2026-02-09-issue-39-p0-008-context-engineering/*`
+    - `rulebook/tasks/archive/2026-02-09-issue-50-p0-012-search-embedding-rag/*`
   - 核对项：
-    - 归档对象完整性
-    - 归档路径一致性
-    - PR 可追溯性
+    - active 目录与 archive 目录状态一致
+    - 仅治理文档归档，无运行时代码与契约漂移
   - 结论：`无漂移`
-
-- `issue-336-rulebook-archive-issue-334`：
-  - Dependency Sync Check 输入：
-    - `openspec/changes/issue-334-archive-closeout-and-worktree-cleanup/*`
-    - `rulebook/tasks/issue-334-archive-closeout-and-worktree-cleanup/*`
-    - PR `#335` 合并状态
-  - 核对项：
-    - `issue-334` 已合并且仅剩 Rulebook task 未归档
-    - 本次变更不涉及运行时代码与契约
-  - 结论：`无漂移`（可进入 Red/Green 收口）
 
 ## 维护规则
 

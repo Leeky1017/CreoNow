@@ -38,4 +38,4 @@
 
 - [x] 6.1 记录 RUN_LOG（含归档命令与验证输出）
 - [x] 6.2 记录 Dependency Sync Check 核对结果
-- [ ] 6.3 等待 PR required checks 全绿并 auto-merge 后确认 main 收口
+- [x] 6.3 等待 PR required checks 全绿并 auto-merge 后确认 main 收口
