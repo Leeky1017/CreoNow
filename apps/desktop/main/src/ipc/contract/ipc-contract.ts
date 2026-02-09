@@ -172,11 +172,26 @@ const CONTEXT_INSPECT_RESPONSE_SCHEMA = s.object({
   }),
 });
 
+const SEARCH_FTS_HIGHLIGHT_SCHEMA = s.object({
+  start: s.number(),
+  end: s.number(),
+});
+
+const SEARCH_FTS_ANCHOR_SCHEMA = s.object({
+  start: s.number(),
+  end: s.number(),
+});
+
 const SEARCH_FTS_ITEM_SCHEMA = s.object({
+  projectId: s.string(),
   documentId: s.string(),
-  title: s.string(),
+  documentTitle: s.string(),
+  documentType: s.string(),
   snippet: s.string(),
+  highlights: s.array(SEARCH_FTS_HIGHLIGHT_SCHEMA),
+  anchor: SEARCH_FTS_ANCHOR_SCHEMA,
   score: s.number(),
+  updatedAt: s.number(),
 });
 
 const SEARCH_SEMANTIC_ITEM_SCHEMA = s.object({
@@ -972,13 +987,28 @@ export const ipcContract = {
         feedbackId: s.string(),
       }),
     },
-    "search:fulltext:query": {
+    "search:fts:query": {
       request: s.object({
         projectId: s.string(),
         query: s.string(),
         limit: s.optional(s.number()),
+        offset: s.optional(s.number()),
       }),
-      response: s.object({ items: s.array(SEARCH_FTS_ITEM_SCHEMA) }),
+      response: s.object({
+        results: s.array(SEARCH_FTS_ITEM_SCHEMA),
+        total: s.number(),
+        hasMore: s.boolean(),
+        indexState: s.union(s.literal("ready"), s.literal("rebuilding")),
+      }),
+    },
+    "search:fts:reindex": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        indexState: s.literal("ready"),
+        reindexed: s.number(),
+      }),
     },
     "search:semantic:query": {
       request: s.object({

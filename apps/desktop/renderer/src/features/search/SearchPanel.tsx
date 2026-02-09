@@ -2,7 +2,7 @@ import React from "react";
 
 import { Spinner } from "../../components/primitives/Spinner";
 import { useFileStore } from "../../stores/fileStore";
-import { useSearchStore } from "../../stores/searchStore";
+import { useSearchStore, type SearchStatus } from "../../stores/searchStore";
 
 /**
  * Search category filter options.
@@ -14,13 +14,52 @@ type SearchCategory = "all" | "documents" | "memories" | "knowledge" | "assets";
  */
 export interface SearchResultItem {
   id: string;
+  documentId?: string;
   type: "document" | "memory" | "knowledge";
   title: string;
   snippet?: string;
+  anchor?: { start: number; end: number };
   path?: string;
   matchScore?: number;
   editedTime?: string;
   meta?: string;
+}
+
+export type NavigateSearchResultArgs = {
+  projectId: string;
+  result: { documentId: string; anchor?: { start: number; end: number } };
+  setCurrent: (args: {
+    projectId: string;
+    documentId: string;
+  }) => Promise<unknown>;
+  setFlashKey: (value: string | null) => void;
+  onClose?: () => void;
+  setTimeoutFn?: (callback: () => void, delayMs: number) => unknown;
+};
+
+/**
+ * Navigate to a selected search result and trigger a temporary visual flash key.
+ *
+ * Why: SR1-R1-S2 requires deterministic jump + short-lived feedback after click.
+ */
+export async function navigateSearchResult(
+  args: NavigateSearchResultArgs,
+): Promise<void> {
+  await args.setCurrent({
+    projectId: args.projectId,
+    documentId: args.result.documentId,
+  });
+
+  const anchor = args.result.anchor ?? { start: 0, end: 0 };
+  const flashKey = `${args.result.documentId}:${anchor.start}:${anchor.end}:${Date.now()}`;
+  args.setFlashKey(flashKey);
+
+  const schedule = args.setTimeoutFn ?? setTimeout;
+  schedule(() => {
+    args.setFlashKey(null);
+  }, 900);
+
+  args.onClose?.();
 }
 
 /**
@@ -162,9 +201,10 @@ function DocumentResultItem(props: {
   item: SearchResultItem;
   query: string;
   isActive: boolean;
+  isFlashing: boolean;
   onClick: () => void;
 }): JSX.Element {
-  const { item, query, isActive, onClick } = props;
+  const { item, query, isActive, isFlashing, onClick } = props;
 
   return (
     <button
@@ -174,7 +214,7 @@ function DocumentResultItem(props: {
         isActive
           ? "bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.05)]"
           : "border border-transparent hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.05)]"
-      }`}
+      } ${isFlashing ? "ring-1 ring-[#3b82f6] animate-pulse" : ""}`}
     >
       {/* Active indicator bar */}
       {isActive && (
@@ -460,12 +500,27 @@ export function SearchPanel(props: {
   onClose?: () => void;
   /** Mock results for storybook demonstration */
   mockResults?: SearchResultItem[];
+  /** Mock query for storybook demonstration */
+  mockQuery?: string;
+  /** Mock status for storybook demonstration */
+  mockStatus?: SearchStatus;
+  /** Mock index state for storybook demonstration */
+  mockIndexState?: "ready" | "rebuilding";
 }): JSX.Element {
-  const { projectId, open, onClose, mockResults } = props;
+  const {
+    projectId,
+    open,
+    onClose,
+    mockResults,
+    mockQuery,
+    mockStatus,
+    mockIndexState,
+  } = props;
 
   const query = useSearchStore((s) => s.query);
   const storeItems = useSearchStore((s) => s.items);
   const status = useSearchStore((s) => s.status);
+  const indexState = useSearchStore((s) => s.indexState);
 
   const setQuery = useSearchStore((s) => s.setQuery);
   const runFulltext = useSearchStore((s) => s.runFulltext);
@@ -475,17 +530,23 @@ export function SearchPanel(props: {
   const [semanticSearch, setSemanticSearch] = React.useState(false);
   const [includeArchived, setIncludeArchived] = React.useState(false);
   const [activeIndex, setActiveIndex] = React.useState(0);
+  const [flashKey, setFlashKey] = React.useState<string | null>(null);
 
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const effectiveQuery = mockQuery ?? query;
+  const effectiveStatus = mockStatus ?? status;
+  const effectiveIndexState = mockIndexState ?? indexState;
 
   // Use mock results if provided, otherwise use store items
   const items: SearchResultItem[] =
     mockResults ||
     storeItems.map((item) => ({
       id: item.documentId,
+      documentId: item.documentId,
       type: "document" as const,
-      title: item.title,
+      title: item.documentTitle,
       snippet: item.snippet,
+      anchor: item.anchor,
     }));
 
   // Group items by type
@@ -495,7 +556,7 @@ export function SearchPanel(props: {
 
   const totalResults = items.length;
   const hasResults = totalResults > 0;
-  const hasQuery = query.trim().length > 0;
+  const hasQuery = effectiveQuery.trim().length > 0;
 
   // Auto-focus input when opened
   React.useEffect(() => {
@@ -530,11 +591,23 @@ export function SearchPanel(props: {
   }
 
   function handleItemClick(documentId: string): void {
-    void setCurrent({
+    const result = items.find((item) => item.id === documentId);
+    if (!result || result.type !== "document") {
+      onClose?.();
+      return;
+    }
+
+    const targetDocumentId = result.documentId ?? result.id;
+    void navigateSearchResult({
       projectId,
-      documentId,
+      result: {
+        documentId: targetDocumentId,
+        anchor: result.anchor,
+      },
+      setCurrent,
+      setFlashKey,
+      onClose,
     });
-    onClose?.();
   }
 
   return (
@@ -583,14 +656,14 @@ export function SearchPanel(props: {
               ref={inputRef}
               data-testid="search-input"
               type="text"
-              value={query}
+              value={effectiveQuery}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleInputKeyDown}
               placeholder="Search documents, memories, knowledge..."
               className="flex-1 bg-transparent border-none outline-none text-lg text-white placeholder-[#444444] font-light h-8"
               style={{ fontFamily: "var(--font-family-ui)" }}
             />
-            {status === "loading" && <Spinner size="sm" />}
+            {effectiveStatus === "loading" && <Spinner size="sm" />}
             {onClose && (
               <button
                 type="button"
@@ -715,7 +788,30 @@ export function SearchPanel(props: {
                 Enter a search term to find documents
               </p>
             </div>
-          ) : hasQuery && !hasResults && status !== "loading" ? (
+          ) : hasQuery && effectiveIndexState === "rebuilding" ? (
+            /* Reindex rebuilding state */
+            <div className="flex flex-col items-center justify-center py-16 px-8">
+              <svg
+                className="w-16 h-16 text-[#3b82f6] mb-4 animate-pulse"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={0.75}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4.5 12a7.5 7.5 0 0112.306-5.761M19.5 12a7.5 7.5 0 01-12.306 5.761M19.5 4.5v4.5H15M4.5 19.5V15H9"
+                />
+              </svg>
+              <p className="text-sm font-medium text-white text-center mb-2">
+                正在重建索引，请稍后重试
+              </p>
+              <p className="text-xs text-[#888888] text-center">
+                查询词：&ldquo;{effectiveQuery}&rdquo;
+              </p>
+            </div>
+          ) : hasQuery && !hasResults && effectiveStatus !== "loading" ? (
             /* No results state */
             <div className="flex flex-col items-center justify-center py-16 px-8">
               <svg
@@ -732,20 +828,18 @@ export function SearchPanel(props: {
                 />
               </svg>
               <p className="text-sm font-medium text-white text-center mb-2">
-                No results found
+                未找到匹配结果
               </p>
               <p className="text-xs text-[#888888] text-center">
-                for &ldquo;{query}&rdquo;
+                查询词：&ldquo;{effectiveQuery}&rdquo;
               </p>
               <div className="mt-6 p-4 bg-[rgba(255,255,255,0.03)] rounded-lg border border-[rgba(255,255,255,0.06)]">
                 <p className="text-[10px] text-[#444444] font-medium uppercase tracking-wider mb-2">
-                  Suggestions
+                  建议
                 </p>
-                <ul className="text-xs text-[#888888] space-y-1">
-                  <li>• Check your spelling</li>
-                  <li>• Try different keywords</li>
-                  <li>• Broaden your search filters</li>
-                </ul>
+                <p className="text-xs text-[#888888]">
+                  建议检查拼写或使用不同关键词
+                </p>
               </div>
               <button
                 type="button"
@@ -785,8 +879,13 @@ export function SearchPanel(props: {
                       <DocumentResultItem
                         key={item.id}
                         item={item}
-                        query={query}
+                        query={effectiveQuery}
                         isActive={index === 0 && activeIndex === 0}
+                        isFlashing={
+                          flashKey?.startsWith(
+                            `${item.documentId ?? item.id}:${item.anchor?.start ?? 0}:${item.anchor?.end ?? 0}:`,
+                          ) ?? false
+                        }
                         onClick={() => handleItemClick(item.id)}
                       />
                     ))}
@@ -805,7 +904,7 @@ export function SearchPanel(props: {
                       <MemoryResultItem
                         key={item.id}
                         item={item}
-                        query={query}
+                        query={effectiveQuery}
                         onClick={() => handleItemClick(item.id)}
                       />
                     ))}
@@ -826,7 +925,7 @@ export function SearchPanel(props: {
                       <KnowledgeResultItem
                         key={item.id}
                         item={item}
-                        query={query}
+                        query={effectiveQuery}
                         onClick={() => handleItemClick(item.id)}
                       />
                     ))}

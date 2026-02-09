@@ -55,6 +55,8 @@ function SearchPanelWithQuery(props: {
   onClose?: () => void;
   mockResults?: SearchResultItem[];
   initialQuery?: string;
+  mockStatus?: "idle" | "loading" | "ready" | "error";
+  mockIndexState?: "ready" | "rebuilding";
 }): JSX.Element {
   // Simulate setting query through the store
   React.useEffect(() => {
@@ -63,7 +65,12 @@ function SearchPanelWithQuery(props: {
 
   return (
     <div style={{ height: "100vh", backgroundColor: "#080808" }}>
-      <SearchPanel {...props} />
+      <SearchPanel
+        {...props}
+        mockQuery={props.initialQuery}
+        mockStatus={props.mockStatus}
+        mockIndexState={props.mockIndexState}
+      />
     </div>
   );
 }
@@ -114,6 +121,33 @@ export const NoResults: Story = {
   render: (args) => (
     <SearchPanelWithQuery {...args} initialQuery="quantum flux" />
   ),
+};
+
+/**
+ * 空态（规范命名）
+ */
+export const Empty: Story = {
+  args: {
+    projectId: "project-1",
+    open: true,
+    mockResults: [],
+  },
+  render: (args) => (
+    <SearchPanelWithQuery {...args} initialQuery="quantum flux" />
+  ),
+};
+
+/**
+ * 搜索中（规范命名）
+ */
+export const Loading: Story = {
+  args: {
+    projectId: "project-1",
+    open: true,
+    mockResults: [],
+    mockStatus: "loading",
+  },
+  render: (args) => <SearchPanelWithQuery {...args} initialQuery="hero" />,
 };
 
 /**
@@ -242,7 +276,9 @@ function KeyboardNavigationDemo(): JSX.Element {
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedIndex((prev) => Math.min(prev + 1, results.length - 1));
-        setLastAction(`↓ 移动到第 ${Math.min(selectedIndex + 2, results.length)} 项`);
+        setLastAction(
+          `↓ 移动到第 ${Math.min(selectedIndex + 2, results.length)} 项`,
+        );
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelectedIndex((prev) => Math.max(prev - 1, -1));
@@ -268,7 +304,13 @@ function KeyboardNavigationDemo(): JSX.Element {
   }, [selectedIndex, results]);
 
   return (
-    <div style={{ height: "100vh", backgroundColor: "#080808", position: "relative" }}>
+    <div
+      style={{
+        height: "100vh",
+        backgroundColor: "#080808",
+        position: "relative",
+      }}
+    >
       {/* 操作提示 */}
       <div
         style={{
@@ -289,16 +331,52 @@ function KeyboardNavigationDemo(): JSX.Element {
         </p>
         <ul style={{ paddingLeft: "1rem", margin: 0, lineHeight: 1.6 }}>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>Tab</code> 搜索框 ↔ 结果列表
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              Tab
+            </code>{" "}
+            搜索框 ↔ 结果列表
           </li>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>↑↓</code> 移动选中项
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              ↑↓
+            </code>{" "}
+            移动选中项
           </li>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>Enter</code> 打开结果
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              Enter
+            </code>{" "}
+            打开结果
           </li>
           <li>
-            <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>Esc</code> 关闭面板
+            <code
+              style={{
+                backgroundColor: "var(--color-bg-raised)",
+                padding: "2px 4px",
+                borderRadius: "3px",
+              }}
+            >
+              Esc
+            </code>{" "}
+            关闭面板
           </li>
         </ul>
         {lastAction && (
@@ -316,11 +394,7 @@ function KeyboardNavigationDemo(): JSX.Element {
         )}
       </div>
 
-      <SearchPanel
-        projectId="project-1"
-        open={true}
-        mockResults={results}
-      />
+      <SearchPanel projectId="project-1" open={true} mockResults={results} />
     </div>
   );
 }
@@ -360,9 +434,7 @@ export const KeyboardNavigation: Story = {
  */
 function SearchInProgressDemo(): JSX.Element {
   return (
-    <div
-      style={{ height: "100vh", backgroundColor: "#080808" }}
-    >
+    <div style={{ height: "100vh", backgroundColor: "#080808" }}>
       <div
         style={{
           position: "fixed",
@@ -477,13 +549,40 @@ function SearchInProgressDemo(): JSX.Element {
           <span>语义搜索</span>
           <div style={{ display: "flex", gap: "8px" }}>
             <span>
-              <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>↑↓</code> 导航
+              <code
+                style={{
+                  backgroundColor: "var(--color-bg-raised)",
+                  padding: "2px 4px",
+                  borderRadius: "3px",
+                }}
+              >
+                ↑↓
+              </code>{" "}
+              导航
             </span>
             <span>
-              <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>Enter</code> 打开
+              <code
+                style={{
+                  backgroundColor: "var(--color-bg-raised)",
+                  padding: "2px 4px",
+                  borderRadius: "3px",
+                }}
+              >
+                Enter
+              </code>{" "}
+              打开
             </span>
             <span>
-              <code style={{ backgroundColor: "var(--color-bg-raised)", padding: "2px 4px", borderRadius: "3px" }}>Esc</code> 关闭
+              <code
+                style={{
+                  backgroundColor: "var(--color-bg-raised)",
+                  padding: "2px 4px",
+                  borderRadius: "3px",
+                }}
+              >
+                Esc
+              </code>{" "}
+              关闭
             </span>
           </div>
         </div>

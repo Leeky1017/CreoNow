@@ -172,7 +172,7 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("search:fulltext:query", {
+      return await window.creonow.invoke("search:fts:query", {
         projectId: args.projectId,
         query: args.keyword,
         limit: 10,
@@ -184,8 +184,8 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
   if (!searchRes.ok) {
     throw new Error(`Expected ok search, got: ${searchRes.error.code}`);
   }
-  expect(searchRes.data.items.length).toBeGreaterThan(0);
-  expect(searchRes.data.items[0]?.documentId).toBe(documentId);
+  expect(searchRes.data.results.length).toBeGreaterThan(0);
+  expect(searchRes.data.results[0]?.documentId).toBe(documentId);
 
   const ragRes = await page.evaluate(
     async (args) => {
@@ -278,7 +278,7 @@ test("rag:context:retrieve rerank: hash model enabled changes top1 and marks dia
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("search:fulltext:query", {
+      return await window.creonow.invoke("search:fts:query", {
         projectId: args.projectId,
         query: args.query,
         limit: 5,
@@ -290,7 +290,7 @@ test("rag:context:retrieve rerank: hash model enabled changes top1 and marks dia
   if (!ftsRes.ok) {
     throw new Error(`Expected ok search, got: ${ftsRes.error.code}`);
   }
-  expect(ftsRes.data.items[0]?.documentId).toBe(docA);
+  expect(ftsRes.data.results[0]?.documentId).toBe(docA);
 
   const ragRes = await page.evaluate(
     async (args) => {
