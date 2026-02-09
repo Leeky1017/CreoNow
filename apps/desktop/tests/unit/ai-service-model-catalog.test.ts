@@ -177,7 +177,7 @@ async function withCustomServer(args: {
         return;
       }
 
-      assert.equal(result.error.code, "UPSTREAM_ERROR");
+      assert.equal(result.error.code, "LLM_API_ERROR");
       assert.equal(result.error.message, "Non-JSON upstream response");
     },
   });

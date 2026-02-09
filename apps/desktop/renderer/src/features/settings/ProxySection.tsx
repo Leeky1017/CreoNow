@@ -83,7 +83,7 @@ export function ProxySection(): JSX.Element {
     setErrorText(null);
     setTestResult(null);
 
-    const res = await invoke("ai:proxysettings:get", {});
+    const res = await invoke("ai:config:get", {});
     if (!res.ok) {
       setStatus("idle");
       setErrorText(`${res.error.code}: ${res.error.message}`);
@@ -146,7 +146,7 @@ export function ProxySection(): JSX.Element {
       patch.anthropicByokApiKey = anthropicByokApiKeyDraft;
     }
 
-    const res = await invoke("ai:proxysettings:update", { patch });
+    const res = await invoke("ai:config:update", { patch });
     if (!res.ok) {
       setErrorText(`${res.error.code}: ${res.error.message}`);
       return;
@@ -165,7 +165,7 @@ export function ProxySection(): JSX.Element {
     setErrorText(null);
     setTestResult(null);
 
-    const res = await invoke("ai:proxy:test", {});
+    const res = await invoke("ai:config:test", {});
     if (!res.ok) {
       setErrorText(`${res.error.code}: ${res.error.message}`);
       return;

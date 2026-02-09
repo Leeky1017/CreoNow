@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { BrowserWindow, app, ipcMain } from "electron";
+import { BrowserWindow, app, ipcMain, safeStorage } from "electron";
 
 import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
 import { initDb, type DbInitOk } from "./db/init";
@@ -152,6 +152,12 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     defaultTimeoutMs: 30_000,
   });
+  const secretStorage = {
+    isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
+    encryptString: (plainText: string) => safeStorage.encryptString(plainText),
+    decryptString: (cipherText: Buffer) =>
+      safeStorage.decryptString(cipherText),
+  };
 
   guardedIpcMain.handle(
     "app:system:ping",
@@ -205,12 +211,14 @@ function registerIpcHandlers(deps: {
     builtinSkillsDir: deps.builtinSkillsDir,
     logger: deps.logger,
     env: deps.env,
+    secretStorage,
   });
 
   registerAiProxyIpcHandlers({
     ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
+    secretStorage,
   });
 
   registerProjectIpcHandlers({

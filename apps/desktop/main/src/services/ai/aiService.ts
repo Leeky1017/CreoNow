@@ -87,6 +87,8 @@ type RunEntry = {
 };
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_LLM_RATE_LIMIT_PER_MINUTE = 60;
+const DEFAULT_RETRY_BACKOFF_MS = [1_000, 2_000, 4_000] as const;
 
 /**
  * Narrow an unknown value to a JSON object.
@@ -214,7 +216,7 @@ async function parseJsonResponse(
   try {
     return { ok: true, data: JSON.parse(bodyText) as unknown };
   } catch {
-    return ipcError("UPSTREAM_ERROR", "Non-JSON upstream response");
+    return ipcError("LLM_API_ERROR", "Non-JSON upstream response");
   }
 }
 
@@ -509,25 +511,25 @@ function extractOpenAiModels(
 /**
  * Map upstream HTTP status codes to deterministic IPC error codes.
  *
- * Why: tests and UI assertions rely on stable semantics (401/403 → PERMISSION_DENIED,
- * 429 → RATE_LIMITED) while keeping other upstream failures grouped as UPSTREAM_ERROR.
+ * Why: tests and UI assertions rely on stable semantics (401/403 → AI_AUTH_FAILED,
+ * 429 → AI_RATE_LIMITED) while keeping other upstream failures grouped as LLM_API_ERROR.
  */
 export function mapUpstreamStatusToIpcErrorCode(status: number): IpcErrorCode {
   if (status === 401 || status === 403) {
-    return "PERMISSION_DENIED";
+    return "AI_AUTH_FAILED";
   }
   if (status === 429) {
-    return "RATE_LIMITED";
+    return "AI_RATE_LIMITED";
   }
-  return "UPSTREAM_ERROR";
+  return "LLM_API_ERROR";
 }
 
 function upstreamError(args: { status: number; message: string }): IpcError {
   const code = mapUpstreamStatusToIpcErrorCode(args.status);
   const message =
-    code === "PERMISSION_DENIED"
+    code === "AI_AUTH_FAILED"
       ? "AI upstream unauthorized"
-      : code === "RATE_LIMITED"
+      : code === "AI_RATE_LIMITED"
         ? "AI upstream rate limited"
         : args.message;
   return {
@@ -647,10 +649,7 @@ async function resolveProviderConfig(deps: {
           ? resolved.credentials.baseUrl.trim()
           : "";
       if (baseUrl.length === 0) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          `${mode} baseUrl is required in settings`,
-        );
+        return ipcError("AI_NOT_CONFIGURED", "请先在设置中配置 AI 服务");
       }
 
       const apiKey =
@@ -660,10 +659,7 @@ async function resolveProviderConfig(deps: {
           : undefined;
 
       if (resolved.provider !== "proxy" && !isE2E(deps.env) && !apiKey) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          `${mode} api key is required in settings`,
-        );
+        return ipcError("AI_NOT_CONFIGURED", "请先在设置中配置 AI 服务");
       }
 
       return {
@@ -709,10 +705,7 @@ async function resolveProviderConfig(deps: {
       : undefined;
 
   if (!isE2E(deps.env) && provider !== "proxy" && !apiKey) {
-    return ipcError(
-      "INVALID_ARGUMENT",
-      "api key is required when proxy disabled (CREONOW_AI_API_KEY)",
-    );
+    return ipcError("AI_NOT_CONFIGURED", "请先在设置中配置 AI 服务");
   }
 
   return {
@@ -735,8 +728,23 @@ export function createAiService(deps: {
   logger: Logger;
   env: NodeJS.ProcessEnv;
   getProxySettings?: () => ProxySettings | null;
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+  rateLimitPerMinute?: number;
+  retryBackoffMs?: readonly number[];
 }): AiService {
   const runs = new Map<string, RunEntry>();
+  const requestTimestamps: number[] = [];
+  const now = deps.now ?? (() => Date.now());
+  const sleep =
+    deps.sleep ??
+    ((ms: number) =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, ms);
+      }));
+  const rateLimitPerMinute =
+    deps.rateLimitPerMinute ?? DEFAULT_LLM_RATE_LIMIT_PER_MINUTE;
+  const retryBackoffMs = deps.retryBackoffMs ?? DEFAULT_RETRY_BACKOFF_MS;
   let fakeServerPromise: Promise<FakeAiServer> | null = null;
 
   const getFakeServer = async (): Promise<FakeAiServer> => {
@@ -748,6 +756,64 @@ export function createAiService(deps: {
     }
     return await fakeServerPromise;
   };
+
+  /**
+   * Consume one request budget token from the fixed 60s window limiter.
+   *
+   * Why: P0 baseline requires deterministic quota protection before upstream calls.
+   */
+  function consumeRateLimitToken(): Err | null {
+    const windowStart = now() - 60_000;
+    while (
+      requestTimestamps.length > 0 &&
+      requestTimestamps[0] <= windowStart
+    ) {
+      requestTimestamps.shift();
+    }
+
+    if (requestTimestamps.length >= rateLimitPerMinute) {
+      return ipcError("AI_RATE_LIMITED", "AI request rate limited");
+    }
+
+    requestTimestamps.push(now());
+    return null;
+  }
+
+  /**
+   * Fetch with P0 network retry and rate-limit baseline.
+   *
+   * Why: transient transport errors should retry with bounded backoff.
+   */
+  async function fetchWithPolicy(args: {
+    url: string;
+    init: RequestInit;
+  }): Promise<ServiceResult<Response>> {
+    const rateLimited = consumeRateLimitToken();
+    if (rateLimited) {
+      return rateLimited;
+    }
+
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const res = await fetch(args.url, args.init);
+        return { ok: true, data: res };
+      } catch (error) {
+        const signal = args.init.signal as AbortSignal | undefined;
+        if (signal?.aborted) {
+          return ipcError("TIMEOUT", "AI request timed out");
+        }
+
+        if (attempt >= retryBackoffMs.length) {
+          return ipcError(
+            "LLM_API_ERROR",
+            error instanceof Error ? error.message : "AI request failed",
+          );
+        }
+
+        await sleep(retryBackoffMs[attempt]);
+      }
+    }
+  }
 
   /**
    * Emit an AI stream event only while the run is still active.
@@ -838,21 +904,28 @@ export function createAiService(deps: {
         ]
       : [{ role: "user", content: args.input }];
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(args.cfg.apiKey
-          ? { Authorization: `Bearer ${args.cfg.apiKey}` }
-          : {}),
+    const fetchRes = await fetchWithPolicy({
+      url,
+      init: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(args.cfg.apiKey
+            ? { Authorization: `Bearer ${args.cfg.apiKey}` }
+            : {}),
+        },
+        body: JSON.stringify({
+          model: args.model,
+          messages,
+          stream: false,
+        }),
+        signal: args.entry.controller.signal,
       },
-      body: JSON.stringify({
-        model: args.model,
-        messages,
-        stream: false,
-      }),
-      signal: args.entry.controller.signal,
     });
+    if (!fetchRes.ok) {
+      return fetchRes;
+    }
+    const res = fetchRes.data;
 
     if (!res.ok) {
       const mapped = await buildUpstreamHttpError({
@@ -901,22 +974,29 @@ export function createAiService(deps: {
         .join("\n\n"),
     });
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-        ...(args.cfg.apiKey ? { "x-api-key": args.cfg.apiKey } : {}),
+    const fetchRes = await fetchWithPolicy({
+      url,
+      init: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "anthropic-version": "2023-06-01",
+          ...(args.cfg.apiKey ? { "x-api-key": args.cfg.apiKey } : {}),
+        },
+        body: JSON.stringify({
+          model: args.model,
+          max_tokens: 256,
+          ...(systemText ? { system: systemText } : {}),
+          messages: [{ role: "user", content: args.input }],
+          stream: false,
+        }),
+        signal: args.entry.controller.signal,
       },
-      body: JSON.stringify({
-        model: args.model,
-        max_tokens: 256,
-        ...(systemText ? { system: systemText } : {}),
-        messages: [{ role: "user", content: args.input }],
-        stream: false,
-      }),
-      signal: args.entry.controller.signal,
     });
+    if (!fetchRes.ok) {
+      return fetchRes;
+    }
+    const res = fetchRes.data;
 
     if (!res.ok) {
       const mapped = await buildUpstreamHttpError({
@@ -971,21 +1051,28 @@ export function createAiService(deps: {
         ]
       : [{ role: "user", content: args.input }];
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(args.cfg.apiKey
-          ? { Authorization: `Bearer ${args.cfg.apiKey}` }
-          : {}),
+    const fetchRes = await fetchWithPolicy({
+      url,
+      init: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(args.cfg.apiKey
+            ? { Authorization: `Bearer ${args.cfg.apiKey}` }
+            : {}),
+        },
+        body: JSON.stringify({
+          model: args.model,
+          messages,
+          stream: true,
+        }),
+        signal: args.entry.controller.signal,
       },
-      body: JSON.stringify({
-        model: args.model,
-        messages,
-        stream: true,
-      }),
-      signal: args.entry.controller.signal,
     });
+    if (!fetchRes.ok) {
+      return fetchRes;
+    }
+    const res = fetchRes.data;
 
     if (!res.ok) {
       const mapped = await buildUpstreamHttpError({
@@ -1056,22 +1143,29 @@ export function createAiService(deps: {
         .join("\n\n"),
     });
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "anthropic-version": "2023-06-01",
-        ...(args.cfg.apiKey ? { "x-api-key": args.cfg.apiKey } : {}),
+    const fetchRes = await fetchWithPolicy({
+      url,
+      init: {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "anthropic-version": "2023-06-01",
+          ...(args.cfg.apiKey ? { "x-api-key": args.cfg.apiKey } : {}),
+        },
+        body: JSON.stringify({
+          model: args.model,
+          max_tokens: 256,
+          ...(systemText ? { system: systemText } : {}),
+          messages: [{ role: "user", content: args.input }],
+          stream: true,
+        }),
+        signal: args.entry.controller.signal,
       },
-      body: JSON.stringify({
-        model: args.model,
-        max_tokens: 256,
-        ...(systemText ? { system: systemText } : {}),
-        messages: [{ role: "user", content: args.input }],
-        stream: true,
-      }),
-      signal: args.entry.controller.signal,
     });
+    if (!fetchRes.ok) {
+      return fetchRes;
+    }
+    const res = fetchRes.data;
 
     if (!res.ok) {
       const mapped = await buildUpstreamHttpError({
@@ -1362,8 +1456,9 @@ export function createAiService(deps: {
       baseUrl: cfg.baseUrl,
       endpointPath: "/v1/models",
     });
-    try {
-      const res = await fetch(url, {
+    const fetchRes = await fetchWithPolicy({
+      url,
+      init: {
         method: "GET",
         headers: {
           ...(cfg.apiKey
@@ -1375,45 +1470,42 @@ export function createAiService(deps: {
               : { Authorization: `Bearer ${cfg.apiKey}` }
             : {}),
         },
-      });
-
-      if (!res.ok) {
-        const mapped = await buildUpstreamHttpError({
-          res,
-          fallbackMessage: "AI model catalog request failed",
-        });
-        return {
-          ok: false,
-          error: mapped,
-        };
-      }
-
-      const jsonRes = await parseJsonResponse(res);
-      if (!jsonRes.ok) {
-        return jsonRes;
-      }
-      const json = jsonRes.data;
-      const items = extractOpenAiModels(json).map((item) => ({
-        id: item.id,
-        name: item.name,
-        provider: providerName,
-      }));
-
-      return {
-        ok: true,
-        data: {
-          source: provider,
-          items,
-        },
-      };
-    } catch (error) {
-      return ipcError(
-        "UPSTREAM_ERROR",
-        error instanceof Error
-          ? error.message
-          : "AI model catalog request failed",
-      );
+      },
+    });
+    if (!fetchRes.ok) {
+      return fetchRes;
     }
+    const res = fetchRes.data;
+
+    if (!res.ok) {
+      const mapped = await buildUpstreamHttpError({
+        res,
+        fallbackMessage: "AI model catalog request failed",
+      });
+      return {
+        ok: false,
+        error: mapped,
+      };
+    }
+
+    const jsonRes = await parseJsonResponse(res);
+    if (!jsonRes.ok) {
+      return jsonRes;
+    }
+    const json = jsonRes.data;
+    const items = extractOpenAiModels(json).map((item) => ({
+      id: item.id,
+      name: item.name,
+      provider: providerName,
+    }));
+
+    return {
+      ok: true,
+      data: {
+        source: provider,
+        items,
+      },
+    };
   };
   const cancel: AiService["cancel"] = (args) => {
     const entry = runs.get(args.runId);
