@@ -25,19 +25,32 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
   if (!isRecord(x)) {
     return false;
   }
-  if (typeof x.type !== "string" || typeof x.runId !== "string") {
+  if (
+    (x.type !== "chunk" && x.type !== "done") ||
+    typeof x.executionId !== "string" ||
+    typeof x.runId !== "string" ||
+    typeof x.traceId !== "string" ||
+    typeof x.ts !== "number"
+  ) {
     return false;
   }
-  if (typeof x.ts !== "number") {
-    return false;
+
+  if (x.type === "chunk") {
+    return typeof x.seq === "number" && typeof x.chunk === "string";
   }
-  return true;
+
+  return (
+    (x.terminal === "completed" ||
+      x.terminal === "cancelled" ||
+      x.terminal === "error") &&
+    typeof x.outputText === "string"
+  );
 }
 
 /**
  * Subscribe to skill stream channels and forward events into the aiStore.
  *
- * Why: the UI must update from push events (delta/completed/failed/canceled).
+ * Why: the UI must update from push events (chunk/done terminal lifecycle).
  */
 export function useAiStream(): void {
   const onStreamEvent = useAiStore((s) => s.onStreamEvent);

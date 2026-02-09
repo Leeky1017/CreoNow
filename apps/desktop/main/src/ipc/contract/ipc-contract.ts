@@ -653,6 +653,7 @@ export const ipcContract = {
         stream: s.boolean(),
       }),
       response: s.object({
+        executionId: s.string(),
         runId: s.string(),
         outputText: s.optional(s.string()),
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
@@ -694,7 +695,10 @@ export const ipcContract = {
       response: AI_MODEL_CATALOG_SCHEMA,
     },
     "ai:skill:cancel": {
-      request: s.object({ runId: s.string() }),
+      request: s.object({
+        runId: s.optional(s.string()),
+        executionId: s.optional(s.string()),
+      }),
       response: s.object({ canceled: s.literal(true) }),
     },
     "ai:skill:feedback": {

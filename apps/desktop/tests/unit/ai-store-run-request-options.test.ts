@@ -43,7 +43,7 @@ function asRecord(x: unknown): Record<string, unknown> | null {
       if (channel === "ai:skill:run") {
         return {
           ok: true,
-          data: { runId: "run-1", outputText: "ok" },
+          data: { executionId: "run-1", runId: "run-1", outputText: "ok" },
         } as never;
       }
 

@@ -342,7 +342,8 @@ export type IpcChannelSpec = {
   };
   "ai:skill:cancel": {
     request: {
-      runId: string;
+      executionId?: string;
+      runId?: string;
     };
     response: {
       canceled: true;
@@ -383,6 +384,7 @@ export type IpcChannelSpec = {
       stream: boolean;
     };
     response: {
+      executionId: string;
       outputText?: string;
       promptDiagnostics?: {
         promptHash: string;
