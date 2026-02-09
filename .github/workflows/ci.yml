@@ -58,6 +58,15 @@ jobs:
       - name: IPC contract check
         run: pnpm contract:check
 
+  cross-module-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: Cross-module contract alignment check
+        run: pnpm cross-module:check
+
   storybook-build:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -140,6 +149,7 @@ jobs:
       - integration-test
       - ipc-acceptance
       - contract-check
+      - cross-module-check
       - storybook-build
       - windows-e2e
     timeout-minutes: 2
