@@ -1,15 +1,14 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-09 19:24
+更新时间：2026-02-09 20:19
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **17**。
+- 当前活跃 change 数量为 **16**。
 - 执行模式：**分阶段并行（阶段内并行，阶段间串行）**。
 - 变更泳道：
-  - Governance：`issue-342-governance-archive-issue-340-closeout`
   - Context Engine：`context-engine-p0 → p1 → (p2 || p3) → p4`
   - AI Service：`ai-service-p0 → p1 → p2 → (p3 || p4) → p5`
   - Search & Retrieval：`search-retrieval-p0 → (p1 || p2) → p3 → p4`
@@ -17,7 +16,6 @@
 ## 执行顺序
 
 1. Phase A（并行）
-   - `issue-342-governance-archive-issue-340-closeout`
    - `context-engine-p0-layer-assembly-api`
    - `ai-service-p0-llmproxy-config-security`
    - `search-retrieval-p0-fts-foundation`
