@@ -3,7 +3,7 @@
 - Issue: #350
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/350
 - Branch: task/350-self-archive-nonrecursive-governance
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/351
 - Scope: 落地 Option A（同 PR 自归档）：preflight 支持当前 Rulebook task 在 active/archive 双路径，更新治理规则文档并消除 closeout 递归
 - Out of Scope: 业务功能变更；主模块 runtime 行为改动
 
