@@ -3,7 +3,7 @@
 - Issue: #353
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/353
 - Branch: task/353-context-engine-p0-layer-assembly-api
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/355
 - Scope: 交付 `openspec/changes/context-engine-p0-layer-assembly-api`，落地四层组装契约、降级语义、`context:prompt:assemble` / `context:prompt:inspect` IPC，并完成主干收口
 - Out of Scope: Token 预算裁剪策略、Stable Prefix 缓存命中策略扩展、Constraints CRUD 细节、P4 硬化项
 
