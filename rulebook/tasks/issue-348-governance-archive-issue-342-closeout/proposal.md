@@ -13,6 +13,7 @@
 - 记录 `ISSUE-348` RUN_LOG，落盘关键命令与门禁证据。
 
 ## Impact
+
 - Affected specs: `openspec/changes/EXECUTION_ORDER.md`
 - Affected code: none
 - Breaking change: NO
