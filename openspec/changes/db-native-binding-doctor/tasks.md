@@ -8,7 +8,8 @@
 
 - [x] 2.1 建立 Scenario → 测试映射（doctor 分类、IPC details、UI 提示）
 - [x] 2.2 为每个场景定义 Red 失败证据命令与断言
-- [ ] 2.3 设定门禁：未记录 Red 不进入实现
+- [x] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
+- [x] 2.4 执行依赖同步检查（Dependency Sync Check）并记录结果
 
 ### Scenario → Test 映射
 
@@ -18,6 +19,16 @@
   - 测试：`apps/desktop/tests/unit/ipc-db-not-ready-diagnostics.test.ts`
 - [x] S3 `AI 面板在 DB_ERROR 时显示修复指引 [ADDED]`
   - 测试：`apps/desktop/renderer/src/features/ai/AiPanel.db-error.test.tsx`
+
+### Dependency Sync Check（进入 Red 前）
+
+- 核对输入：
+  - `openspec/specs/ai-service/spec.md`
+  - `openspec/specs/ipc/spec.md`
+  - 既有 AI 面板 DB_ERROR 渲染链路（`AiPanel.tsx` / `aiStore.ts`）
+- 核对结论：
+  - IPC 错误 envelope 与 `DB_ERROR` 错误码保持不变
+  - 仅增强 `details` 诊断字段与 UI remediation 文案，无契约漂移
 
 ## 3. Red（先写失败测试）
 

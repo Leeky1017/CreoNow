@@ -46,4 +46,3 @@ import {
     "native_module_abi_mismatch",
   );
 }
-

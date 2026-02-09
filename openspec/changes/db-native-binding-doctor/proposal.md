@@ -30,4 +30,3 @@ Issue #266 显示 AI 面板出现 `Skills unavailable / Database not ready / DB_
 ## 审阅状态
 
 - Owner 审阅：`PENDING`
-

@@ -55,7 +55,7 @@ export function diagnoseDbInitFailure(error: unknown): DbInitFailureDetails {
   const isMissingBinding =
     lower.includes("could not locate the bindings file") ||
     lower.includes("better_sqlite3.node") ||
-    lower.includes("cannot find module") && lower.includes("better-sqlite3");
+    (lower.includes("cannot find module") && lower.includes("better-sqlite3"));
 
   if (isMissingBinding) {
     return {
@@ -111,4 +111,3 @@ export function createDbInitIpcError(error: unknown): IpcError {
     details,
   };
 }
-

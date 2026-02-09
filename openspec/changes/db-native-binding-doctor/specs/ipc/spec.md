@@ -27,4 +27,3 @@
 - **则** 返回 `{ ok: false, error: { code: "DB_ERROR" } }`
 - **并且** `error.details.category` 为 `native_module_missing_binding`
 - **并且** `error.details.remediation.restartRequired` 为 `true`
-

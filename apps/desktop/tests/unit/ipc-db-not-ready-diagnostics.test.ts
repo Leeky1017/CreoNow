@@ -27,4 +27,3 @@ import { createDbNotReadyErrorFromInitError } from "../../main/src/ipc/dbError";
   assert.equal(err.message, source.message);
   assert.deepEqual(err.details, source.details);
 }
-

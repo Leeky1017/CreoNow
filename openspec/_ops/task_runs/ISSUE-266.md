@@ -13,9 +13,15 @@
 - 将 DB 诊断透传到 AI 相关 IPC，并在 AI 面板显示修复指引。
 - 提供统一命令入口用于 native 重建。
 
+## Plan
+
+1. 将 `task/266-db-native-binding-doctor` 变更重放到最新 `origin/main`，解决 `EXECUTION_ORDER.md` 冲突并对齐当前活跃 change。
+2. 修复 CI 红灯项：补齐 RUN_LOG 必填段落（`## Plan`）并把 `AiPanel.db-error.test.tsx` 改为 Vitest 标准测试套件。
+3. 重新执行 Rulebook 校验、目标测试与 preflight，确认通过后推送并观察 PR #279 checks。
+
 ## Status
 
-- CURRENT: PR 已创建并附 reviewer checklist，等待评审与 CI。
+- CURRENT: 已完成 rebase 与 CI 红灯修复，本地 preflight 全绿，待推送并等待 PR checks。
 
 ## Runs
 
@@ -106,3 +112,62 @@
 - Exit code: `0`
 - Key output:
   - `https://github.com/Leeky1017/CreoNow/pull/279#issuecomment-3866549154`
+
+### 2026-02-09 rebase conflict resolution
+
+- Command:
+  - `git add openspec/changes/EXECUTION_ORDER.md`
+  - `GIT_EDITOR=true git rebase --continue`
+- Exit code: `0`
+- Key output:
+  - `Successfully rebased and updated refs/heads/task/266-db-native-binding-doctor`
+- Note:
+  - `EXECUTION_ORDER.md` 冲突按当前 active changes（`issue-338` + `db-native-binding-doctor`）合并。
+
+### 2026-02-09 dependency bootstrap (linux worktree)
+
+- Command:
+  - `pnpm install --frozen-lockfile`
+- Exit code: `0`
+- Key output:
+  - `Lockfile is up to date`
+  - `Packages: +978`
+
+### 2026-02-09 RED evidence (vitest suite missing)
+
+- Command:
+  - `pnpm -C apps/desktop test:run renderer/src/features/ai/AiPanel.db-error.test.tsx`
+- Exit code: `1`
+- Key output:
+  - `Error: No test suite found in file .../AiPanel.db-error.test.tsx`
+
+### 2026-02-09 fix implementation (RUN_LOG + tests + TDD gate text)
+
+- Command:
+  - `apply_patch`（更新 `openspec/_ops/task_runs/ISSUE-266.md` 增加 `## Plan`）
+  - `apply_patch`（将 `AiPanel.db-error.test.tsx` 改为 `describe/it/expect` Vitest 套件）
+  - `apply_patch`（更新 `openspec/changes/db-native-binding-doctor/tasks.md`，补齐 Red gate 与 Dependency Sync Check 固定文案）
+- Exit code: `0`
+- Key output:
+  - CI 阻断项对应文件已完成修复并保存
+
+### 2026-02-09 GREEN evidence (validation + targeted vitest)
+
+- Command:
+  - `rulebook task validate issue-266-db-native-binding-doctor`
+  - `pnpm -C apps/desktop test:run renderer/src/features/ai/AiPanel.db-error.test.tsx`
+- Exit code: `0`
+- Key output:
+  - `Task issue-266-db-native-binding-doctor is valid`
+  - `AiPanel.db-error.test.tsx (2 tests) passed`
+
+### 2026-02-09 preflight remediation and pass
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`（第一次，失败）
+  - `pnpm exec prettier --write apps/desktop/main/src/db/init.ts apps/desktop/main/src/db/nativeDoctor.ts apps/desktop/tests/unit/db-native-doctor.test.ts apps/desktop/tests/unit/ipc-db-not-ready-diagnostics.test.ts openspec/changes/db-native-binding-doctor/proposal.md openspec/changes/db-native-binding-doctor/specs/ai-service/spec.md openspec/changes/db-native-binding-doctor/specs/ipc/spec.md rulebook/tasks/issue-266-db-native-binding-doctor/.metadata.json rulebook/tasks/issue-266-db-native-binding-doctor/proposal.md rulebook/tasks/issue-266-db-native-binding-doctor/tasks.md`
+  - `scripts/agent_pr_preflight.sh`（第二次，通过）
+- Exit code: `0`（第二次 preflight）
+- Key output:
+  - 第一次失败原因：`tasks.md` 缺少 `未出现 Red（失败测试）不得进入实现` 固定门禁文案
+  - 第二次结果：`All matched files use Prettier code style`，`typecheck/lint/contract/cross-module/test:unit` 通过
