@@ -122,3 +122,42 @@
   - `context-engine-p1-token-budget-truncation` 已迁移至 `openspec/changes/archive/`
   - `EXECUTION_ORDER.md` 已同步活跃 change 数量 `13 -> 12`
   - Context Engine 泳道已更新为 `(p2 || p3) -> p4`
+
+### 2026-02-10 00:13 +0800 preflight 阻断确认（PR 占位符）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ... ISSUE-359.md: (待回填)`
+
+### 2026-02-10 00:14 +0800 PR 创建与 RUN_LOG 回填
+
+- Command:
+  - `git push -u origin task/359-context-engine-p1-token-budget-truncation`
+  - `scripts/agent_pr_automerge_and_sync.sh --pr 362`
+- Exit code: `1`（首次流程中断，后续重试）
+- Key output:
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/362`
+  - 自动提交 RUN_LOG 回填：`docs: backfill run log PR link (#359)`
+
+### 2026-02-10 00:16 +0800 preflight 阻断修复（Prettier）
+
+- Command:
+  - `pnpm exec prettier --write apps/desktop/main/src/services/context/layerAssemblyService.ts apps/desktop/tests/unit/context/token-budget-truncation-order.test.ts apps/desktop/tests/unit/context/token-budget-update-conflict.test.ts apps/desktop/tests/unit/context/token-budget-within-limit.test.ts rulebook/tasks/issue-359-context-engine-p1-token-budget-truncation/.metadata.json rulebook/tasks/issue-359-context-engine-p1-token-budget-truncation/proposal.md rulebook/tasks/issue-359-context-engine-p1-token-budget-truncation/tasks.md`
+  - `git commit -m "chore: apply prettier for issue 359 preflight (#359)"`
+  - `git push`
+- Exit code: `0`
+- Key output:
+  - preflight 指向的 7 个格式文件已全部修复并推送
+
+### 2026-02-10 00:21 +0800 auto-merge 重试与 GitHub GraphQL 间歇异常
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh --pr 362`
+  - `gh pr view 362 --json ...`（重试）
+- Exit code: `1`（GitHub GraphQL 间歇失败）
+- Key output:
+  - 本地 preflight 与门禁命令均通过
+  - `gh` 间歇返回 `GraphQL: Something went wrong ...`
+  - `merge-serial` 已通过，`ci/openspec-log-guard` 需等待新的同步事件触发
