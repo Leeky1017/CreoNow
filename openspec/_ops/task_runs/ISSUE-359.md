@@ -3,7 +3,7 @@
 - Issue: #359
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/359
 - Branch: task/359-context-engine-p1-token-budget-truncation
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/362
 - Scope: 交付 `openspec/changes/context-engine-p1-token-budget-truncation`，落地固定预算比例/最小保障、固定裁剪顺序、预算 IPC 契约与失败码，并完成主干收口
 - Out of Scope: Stable Prefix Hash 扩展、Constraints 注入策略、P4 硬化边界
 
