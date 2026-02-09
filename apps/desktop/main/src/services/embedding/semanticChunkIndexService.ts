@@ -77,7 +77,10 @@ function normalizeNewline(text: string): string {
   return text.replaceAll("\r\n", "\n");
 }
 
-function normalizeModel(args: { defaultModel: string; model?: string }): string {
+function normalizeModel(args: {
+  defaultModel: string;
+  model?: string;
+}): string {
   const model = args.model?.trim();
   return model && model.length > 0 ? model : args.defaultModel;
 }
@@ -168,7 +171,9 @@ export function createSemanticChunkIndexService(deps: {
     return created;
   };
 
-  const upsertDocument: SemanticChunkIndexService["upsertDocument"] = (args) => {
+  const upsertDocument: SemanticChunkIndexService["upsertDocument"] = (
+    args,
+  ) => {
     if (args.projectId.trim().length === 0) {
       return ipcError("INVALID_ARGUMENT", "projectId is required");
     }
@@ -179,7 +184,9 @@ export function createSemanticChunkIndexService(deps: {
     const model = normalizeModel({ defaultModel, model: args.model });
     const projectIndex = getProjectIndex(args.projectId);
     const previous = projectIndex.get(args.documentId) ?? [];
-    const previousByChunkId = new Map(previous.map((chunk) => [chunk.chunkId, chunk]));
+    const previousByChunkId = new Map(
+      previous.map((chunk) => [chunk.chunkId, chunk]),
+    );
 
     const paragraphs = splitParagraphs(args.contentText);
     const changedChunkIds: string[] = [];
@@ -243,7 +250,9 @@ export function createSemanticChunkIndexService(deps: {
 
     const removedChunkIds = previous
       .map((chunk) => chunk.chunkId)
-      .filter((chunkId) => !nextChunks.some((chunk) => chunk?.chunkId === chunkId));
+      .filter(
+        (chunkId) => !nextChunks.some((chunk) => chunk?.chunkId === chunkId),
+      );
     for (const chunkId of removedChunkIds) {
       byChunkHash.delete(`${args.projectId}:${chunkId}`);
     }
@@ -273,7 +282,9 @@ export function createSemanticChunkIndexService(deps: {
     };
   };
 
-  const reindexProject: SemanticChunkIndexService["reindexProject"] = (args) => {
+  const reindexProject: SemanticChunkIndexService["reindexProject"] = (
+    args,
+  ) => {
     if (args.projectId.trim().length === 0) {
       return ipcError("INVALID_ARGUMENT", "projectId is required");
     }
@@ -317,10 +328,18 @@ export function createSemanticChunkIndexService(deps: {
     if (args.queryText.trim().length === 0) {
       return ipcError("INVALID_ARGUMENT", "queryText is required");
     }
-    if (!Number.isFinite(args.topK) || !Number.isInteger(args.topK) || args.topK <= 0) {
+    if (
+      !Number.isFinite(args.topK) ||
+      !Number.isInteger(args.topK) ||
+      args.topK <= 0
+    ) {
       return ipcError("INVALID_ARGUMENT", "topK must be a positive integer");
     }
-    if (!Number.isFinite(args.minScore) || args.minScore < -1 || args.minScore > 1) {
+    if (
+      !Number.isFinite(args.minScore) ||
+      args.minScore < -1 ||
+      args.minScore > 1
+    ) {
       return ipcError("INVALID_ARGUMENT", "minScore must be between -1 and 1");
     }
 

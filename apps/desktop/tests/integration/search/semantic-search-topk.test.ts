@@ -148,7 +148,10 @@ function createDbStub(): Database.Database {
     assert.ok(response.data.results.length >= 1);
     assert.equal(response.data.results[0]?.documentId, "doc_2");
     if (response.data.results.length > 1) {
-      assert.ok((response.data.results[0]?.score ?? 0) >= (response.data.results[1]?.score ?? 0));
+      assert.ok(
+        (response.data.results[0]?.score ?? 0) >=
+          (response.data.results[1]?.score ?? 0),
+      );
     }
     assert.ok((response.data.results[0]?.text ?? "").includes("lonely"));
   }

@@ -141,6 +141,8 @@ function createDbStub(): Database.Database {
     assert.equal(response.data.chunks.length, 1);
     assert.equal(response.data.truncated, true);
     assert.ok(response.data.usedTokens <= 6);
-    assert.ok((response.data.chunks[0]?.text ?? "").includes("abandoned warehouse"));
+    assert.ok(
+      (response.data.chunks[0]?.text ?? "").includes("abandoned warehouse"),
+    );
   }
 }

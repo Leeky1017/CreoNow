@@ -13,6 +13,7 @@
 ### Task 1: Red tests for SR2 scenarios
 
 **Files:**
+
 - Create: `apps/desktop/tests/integration/search/semantic-search-topk.test.ts`
 - Create: `apps/desktop/tests/integration/search/semantic-fallback-fts.test.ts`
 - Create: `apps/desktop/tests/integration/search/embedding-incremental-update.test.ts`
@@ -27,6 +28,7 @@
 ### Task 2: Minimal green implementation
 
 **Files:**
+
 - Modify: `apps/desktop/main/src/services/embedding/embeddingService.ts`
 - Modify: `apps/desktop/main/src/ipc/embedding.ts`
 - Modify: `apps/desktop/main/src/services/rag/ragService.ts`
@@ -42,6 +44,7 @@
 ### Task 3: Refactor + verification + delivery
 
 **Files:**
+
 - Modify: `openspec/changes/search-retrieval-p1-embedding-semantic-rag/tasks.md`
 - Modify: `openspec/changes/EXECUTION_ORDER.md`
 - Move: `openspec/changes/search-retrieval-p1-embedding-semantic-rag` to archive
