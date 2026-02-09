@@ -3,7 +3,7 @@
 - Issue: #330
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/330
 - Branch: task/330-cross-module-gate-autofix-classification
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/331
 - Scope: cross-module 门禁失败后的自动分类、开发分支安全自动修复与可选自动提交
 - Out of Scope: 全量 IPC 契约迁移、CI 自动改写
 
@@ -86,3 +86,14 @@
 - Key output:
   - 全部命令通过（`lint` 仅仓库既有 warnings，无 errors）。
   - Rulebook task validate 通过。
+
+### 2026-02-09 13:07 提交、推送与 PR
+
+- Command:
+  - `git add -A && git commit -m "feat: add cross-module autofix classification flow (#330)"`
+  - `git push -u origin task/330-cross-module-gate-autofix-classification`
+  - `gh pr create --base main --head task/330-cross-module-gate-autofix-classification --title "Add cross-module autofix classification flow (#330)" --body "... Closes #330"`
+- Exit code: `0`
+- Key output:
+  - Commit: `e5b3c484`
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/331`
