@@ -15,7 +15,7 @@
 - [x] Green：最小实现通过并完成契约同步
 - [x] Refactor：DTO/schema 复用与日志字段统一
 - [x] change 归档 + Rulebook task 自归档
-- [ ] preflight 全绿
+- [x] preflight 全绿
 - [ ] PR + required checks + auto-merge + main 收口
 - [ ] worktree 清理
 
@@ -178,3 +178,53 @@
 - Key output:
   - `contract:check` 通过（`contract:generate` 后无增量漂移）
   - preflight 仅因 `PR: (待回填)` 阻断，等待 PR 创建后自动回填并复检
+
+### 2026-02-10 00:36 +0800 推送与 PR 创建阶段异常重试
+
+- Command:
+  - `git push -u origin task/360-search-retrieval-p1-embedding-semantic-rag`（重试 3 次）
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `1`（首次自动化）
+- Key output:
+  - 首次/二次 push 返回 GitHub `500 Internal Server Error`，第三次成功
+  - 自动化脚本首次/二次创建 PR 遇到 GraphQL/HTTP 502，第三次创建成功
+  - 自动回填 RUN_LOG PR 链接：`https://github.com/Leeky1017/CreoNow/pull/364`
+  - preflight 报告 `prettier --check` 阻断（13 文件）
+
+### 2026-02-10 00:40 +0800 preflight 格式化修复
+
+- Command:
+  - `pnpm exec prettier --write <13 files>`
+  - `scripts/agent_pr_preflight.sh`
+  - `git commit -m "chore: format preflight files (#360)"`
+  - `git push`（重试后成功）
+- Exit code: `0`
+- Key output:
+  - Prettier 阻断已清除，preflight 本地复检通过
+  - PR 增量提交：`chore: format preflight files (#360)`
+
+### 2026-02-10 00:46 +0800 PR merge-state 冲突修复
+
+- Command:
+  - `gh pr view 364 --json mergeStateStatus`
+  - `git fetch origin main && git rebase origin/main`
+  - 解决冲突：`openspec/changes/EXECUTION_ORDER.md`
+  - `GIT_EDITOR=true git rebase --continue`
+  - `git merge --no-ff origin/task/360-search-retrieval-p1-embedding-semantic-rag -m "chore: reconcile branch history after rebase (#360)"`
+  - `git push`
+- Exit code: `0`
+- Key output:
+  - `mergeStateStatus=DIRTY` 通过 rebase + 冲突修复解决
+  - 因策略拦截 `--force-with-lease`，采用“合并远端历史后普通 push”完成无破坏收敛
+
+### 2026-02-10 00:54 +0800 CI 平台侧取消漂移重触发
+
+- Command:
+  - `gh run rerun 21833312281`
+  - `gh run rerun 21833312264`
+  - `gh run cancel 21833312268 && gh run rerun 21833312268`
+  - `gh pr checks 364`（持续轮询）
+- Exit code: `0`（命令层）
+- Key output:
+  - 多个 check 在 `actions/checkout@v4` 阶段出现 `cancelled/fail` 漂移（平台侧）
+  - 已重触发三条 required workflow，等待 required checks 全绿后自动合并
