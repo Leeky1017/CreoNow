@@ -119,8 +119,9 @@ export const IPC_CHANNELS = [
   "context:watch:start",
   "context:watch:stop",
   "db:debug:tablenames",
-  "embedding:index:build",
-  "embedding:text:encode",
+  "embedding:index:reindex",
+  "embedding:semantic:search",
+  "embedding:text:generate",
   "export:document:docx",
   "export:document:markdown",
   "export:document:pdf",
@@ -194,10 +195,11 @@ export const IPC_CHANNELS = [
   "project:project:stats",
   "project:project:switch",
   "project:project:update",
+  "rag:config:get",
+  "rag:config:update",
   "rag:context:retrieve",
   "search:fts:query",
   "search:fts:reindex",
-  "search:semantic:query",
   "skill:registry:list",
   "skill:registry:read",
   "skill:registry:toggle",
@@ -701,16 +703,45 @@ export type IpcChannelSpec = {
       tableNames: Array<string>;
     };
   };
-  "embedding:index:build": {
+  "embedding:index:reindex": {
     request: {
-      contentHash: string;
-      documentId: string;
+      batchSize?: number;
+      model?: string;
+      projectId: string;
     };
     response: {
-      accepted: true;
+      changedChunks: number;
+      indexedChunks: number;
+      indexedDocuments: number;
     };
   };
-  "embedding:text:encode": {
+  "embedding:semantic:search": {
+    request: {
+      minScore?: number;
+      model?: string;
+      projectId: string;
+      queryText: string;
+      topK?: number;
+    };
+    response: {
+      fallback?: {
+        from: "semantic";
+        reason: string;
+        to: "fts";
+      };
+      mode: "semantic" | "fts-fallback";
+      notice?: string;
+      results: Array<{
+        chunkId: string;
+        documentId: string;
+        endOffset: number;
+        score: number;
+        startOffset: number;
+        text: string;
+      }>;
+    };
+  };
+  "embedding:text:generate": {
     request: {
       model?: string;
       texts: Array<string>;
@@ -2137,39 +2168,53 @@ export type IpcChannelSpec = {
       updated: true;
     };
   };
-  "rag:context:retrieve": {
+  "rag:config:get": {
+    request: Record<string, never>;
+    response: {
+      maxTokens: number;
+      minScore: number;
+      model?: string;
+      topK: number;
+    };
+  };
+  "rag:config:update": {
     request: {
-      budgetTokens?: number;
-      limit?: number;
-      projectId: string;
-      queryText: string;
+      maxTokens?: number;
+      minScore?: number;
+      model?: string;
+      topK?: number;
     };
     response: {
-      diagnostics: {
-        budgetTokens: number;
-        degradedFrom?: "semantic";
-        droppedCount: number;
-        mode: "fulltext" | "fulltext_reranked";
-        planner: {
-          perQueryHits: Array<number>;
-          queries: Array<string>;
-          selectedCount: number;
-          selectedQuery: string;
-        };
-        reason?: string;
-        rerank: {
-          enabled: boolean;
-          model?: string;
-          reason?: string;
-        };
-        trimmedCount: number;
-        usedTokens: number;
-      };
-      items: Array<{
+      maxTokens: number;
+      minScore: number;
+      model?: string;
+      topK: number;
+    };
+  };
+  "rag:context:retrieve": {
+    request: {
+      maxTokens?: number;
+      minScore?: number;
+      model?: string;
+      projectId: string;
+      queryText: string;
+      topK?: number;
+    };
+    response: {
+      chunks: Array<{
+        chunkId: string;
+        documentId: string;
         score: number;
-        snippet: string;
-        sourceRef: string;
+        text: string;
+        tokenEstimate: number;
       }>;
+      fallback?: {
+        from: "semantic";
+        reason: string;
+        to: "fts";
+      };
+      truncated: boolean;
+      usedTokens: number;
     };
   };
   "search:fts:query": {
@@ -2209,21 +2254,6 @@ export type IpcChannelSpec = {
     response: {
       indexState: "ready";
       reindexed: number;
-    };
-  };
-  "search:semantic:query": {
-    request: {
-      limit?: number;
-      projectId: string;
-      queryText: string;
-    };
-    response: {
-      items: Array<{
-        chunkId?: string;
-        documentId: string;
-        score: number;
-        snippet: string;
-      }>;
     };
   };
   "skill:registry:list": {

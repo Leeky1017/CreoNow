@@ -228,38 +228,28 @@ const SEARCH_FTS_ITEM_SCHEMA = s.object({
   updatedAt: s.number(),
 });
 
-const SEARCH_SEMANTIC_ITEM_SCHEMA = s.object({
+const EMBEDDING_SEARCH_RESULT_SCHEMA = s.object({
+  chunkId: s.string(),
   documentId: s.string(),
-  chunkId: s.optional(s.string()),
-  snippet: s.string(),
+  text: s.string(),
   score: s.number(),
+  startOffset: s.number(),
+  endOffset: s.number(),
 });
 
-const RAG_RETRIEVE_ITEM_SCHEMA = s.object({
-  sourceRef: s.string(),
-  snippet: s.string(),
+const RAG_CHUNK_SCHEMA = s.object({
+  chunkId: s.string(),
+  documentId: s.string(),
+  text: s.string(),
   score: s.number(),
+  tokenEstimate: s.number(),
 });
 
-const RAG_RETRIEVE_DIAGNOSTICS_SCHEMA = s.object({
-  budgetTokens: s.number(),
-  usedTokens: s.number(),
-  droppedCount: s.number(),
-  trimmedCount: s.number(),
-  mode: s.union(s.literal("fulltext"), s.literal("fulltext_reranked")),
-  planner: s.object({
-    queries: s.array(s.string()),
-    perQueryHits: s.array(s.number()),
-    selectedQuery: s.string(),
-    selectedCount: s.number(),
-  }),
-  rerank: s.object({
-    enabled: s.boolean(),
-    reason: s.optional(s.string()),
-    model: s.optional(s.string()),
-  }),
-  degradedFrom: s.optional(s.literal("semantic")),
-  reason: s.optional(s.string()),
+const RAG_CONFIG_SCHEMA = s.object({
+  topK: s.number(),
+  minScore: s.number(),
+  maxTokens: s.number(),
+  model: s.optional(s.string()),
 });
 
 const STATS_SUMMARY_SCHEMA = s.object({
@@ -1044,15 +1034,7 @@ export const ipcContract = {
         reindexed: s.number(),
       }),
     },
-    "search:semantic:query": {
-      request: s.object({
-        projectId: s.string(),
-        queryText: s.string(),
-        limit: s.optional(s.number()),
-      }),
-      response: s.object({ items: s.array(SEARCH_SEMANTIC_ITEM_SCHEMA) }),
-    },
-    "embedding:text:encode": {
+    "embedding:text:generate": {
       request: s.object({
         texts: s.array(s.string()),
         model: s.optional(s.string()),
@@ -1062,24 +1044,73 @@ export const ipcContract = {
         dimension: s.number(),
       }),
     },
-    "embedding:index:build": {
+    "embedding:semantic:search": {
       request: s.object({
-        documentId: s.string(),
-        contentHash: s.string(),
+        projectId: s.string(),
+        queryText: s.string(),
+        topK: s.optional(s.number()),
+        minScore: s.optional(s.number()),
+        model: s.optional(s.string()),
       }),
-      response: s.object({ accepted: s.literal(true) }),
+      response: s.object({
+        mode: s.union(s.literal("semantic"), s.literal("fts-fallback")),
+        notice: s.optional(s.string()),
+        fallback: s.optional(
+          s.object({
+            from: s.literal("semantic"),
+            to: s.literal("fts"),
+            reason: s.string(),
+          }),
+        ),
+        results: s.array(EMBEDDING_SEARCH_RESULT_SCHEMA),
+      }),
+    },
+    "embedding:index:reindex": {
+      request: s.object({
+        projectId: s.string(),
+        batchSize: s.optional(s.number()),
+        model: s.optional(s.string()),
+      }),
+      response: s.object({
+        indexedDocuments: s.number(),
+        indexedChunks: s.number(),
+        changedChunks: s.number(),
+      }),
     },
     "rag:context:retrieve": {
       request: s.object({
         projectId: s.string(),
         queryText: s.string(),
-        limit: s.optional(s.number()),
-        budgetTokens: s.optional(s.number()),
+        topK: s.optional(s.number()),
+        minScore: s.optional(s.number()),
+        maxTokens: s.optional(s.number()),
+        model: s.optional(s.string()),
       }),
       response: s.object({
-        items: s.array(RAG_RETRIEVE_ITEM_SCHEMA),
-        diagnostics: RAG_RETRIEVE_DIAGNOSTICS_SCHEMA,
+        chunks: s.array(RAG_CHUNK_SCHEMA),
+        truncated: s.boolean(),
+        usedTokens: s.number(),
+        fallback: s.optional(
+          s.object({
+            from: s.literal("semantic"),
+            to: s.literal("fts"),
+            reason: s.string(),
+          }),
+        ),
       }),
+    },
+    "rag:config:get": {
+      request: s.object({}),
+      response: RAG_CONFIG_SCHEMA,
+    },
+    "rag:config:update": {
+      request: s.object({
+        topK: s.optional(s.number()),
+        minScore: s.optional(s.number()),
+        maxTokens: s.optional(s.number()),
+        model: s.optional(s.string()),
+      }),
+      response: RAG_CONFIG_SCHEMA,
     },
     "knowledge:entity:create": {
       request: s.object({

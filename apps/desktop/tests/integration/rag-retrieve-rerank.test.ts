@@ -14,6 +14,13 @@ type FakeIpcMain = {
   handle: (channel: string, handler: Handler) => void;
 };
 
+type DocumentRow = {
+  projectId: string;
+  documentId: string;
+  contentText: string;
+  updatedAt: number;
+};
+
 function createLogger(): Logger {
   return {
     logPath: "<test>",
@@ -35,53 +42,27 @@ function createIpcHarness(): {
   return { ipcMain, handlers };
 }
 
-type FulltextRow = {
-  projectId: string;
-  documentId: string;
-  documentTitle: string;
-  documentType: string;
-  snippet: string;
-  score: number;
-  updatedAt: number;
-};
-
-/**
- * Create a DB stub that returns deterministic FTS results by query.
- *
- * Why: integration tests must not depend on native `better-sqlite3` binaries.
- */
 function createDbStub(): Database.Database {
-  const docA: FulltextRow = {
-    projectId: "proj_1",
-    documentId: "doc_a",
-    documentTitle: "Doc A",
-    documentType: "chapter",
-    snippet: "foo foo foo",
-    score: 2,
-    updatedAt: 1739030400,
-  };
-  const docB: FulltextRow = {
-    projectId: "proj_1",
-    documentId: "doc_b",
-    documentTitle: "Doc B",
-    documentType: "chapter",
-    snippet: "foo bar",
-    score: 1,
-    updatedAt: 1739030401,
-  };
+  const docs: DocumentRow[] = [
+    {
+      projectId: "proj_1",
+      documentId: "doc_a",
+      contentText: "foo foo foo",
+      updatedAt: 1739030400,
+    },
+    {
+      projectId: "proj_1",
+      documentId: "doc_b",
+      contentText: "foo bar",
+      updatedAt: 1739030401,
+    },
+  ];
 
   const prepare = (sql: string) => {
     if (sql.includes("COUNT(")) {
       return {
         get: (_projectId: string, query: string) => {
-          const q = query.trim();
-          if (q === "foo") {
-            return { total: 2 };
-          }
-          if (q === "foo bar" || q === '"foo bar"') {
-            return { total: 1 };
-          }
-          if (q === "foo OR bar") {
+          if (query.trim().length > 0) {
             return { total: 2 };
           }
           return { total: 0 };
@@ -89,25 +70,48 @@ function createDbStub(): Database.Database {
       };
     }
 
+    if (sql.includes("FROM documents_fts")) {
+      return {
+        all: (_projectId: string, _query: string, limit: number) =>
+          [
+            {
+              projectId: "proj_1",
+              documentId: "doc_a",
+              documentTitle: "Doc A",
+              documentType: "chapter",
+              snippet: "foo foo foo",
+              score: 2,
+              updatedAt: 1739030400,
+            },
+            {
+              projectId: "proj_1",
+              documentId: "doc_b",
+              documentTitle: "Doc B",
+              documentType: "chapter",
+              snippet: "foo bar",
+              score: 1,
+              updatedAt: 1739030401,
+            },
+          ].slice(0, limit),
+      };
+    }
+
+    if (sql.includes("FROM documents") && sql.includes("content_text")) {
+      return {
+        all: (projectId: string) =>
+          docs
+            .filter((row) => row.projectId === projectId)
+            .map((row) => ({
+              documentId: row.documentId,
+              contentText: row.contentText,
+              updatedAt: row.updatedAt,
+            })),
+      };
+    }
+
     return {
-      all: (
-        _projectId: string,
-        query: string,
-        limit: number,
-        _offset: number,
-      ) => {
-        const q = query.trim();
-        if (q === "foo") {
-          return [docA, docB].slice(0, limit);
-        }
-        if (q === "foo bar" || q === '"foo bar"') {
-          return [docB].slice(0, limit);
-        }
-        if (q === "foo OR bar") {
-          return [docA, docB].slice(0, limit);
-        }
-        return [];
-      },
+      all: () => [],
+      get: () => ({ total: 0 }),
     };
   };
 
@@ -125,29 +129,34 @@ function createDbStub(): Database.Database {
     db,
     logger,
     embedding,
-    ragRerank: { enabled: true },
+    ragRerank: { enabled: false },
   });
 
   const handler = handlers.get("rag:context:retrieve");
   assert.ok(handler, "Missing handler rag:context:retrieve");
+  if (!handler) {
+    throw new Error("Missing handler rag:context:retrieve");
+  }
 
   const res = (await handler(
     {},
-    { projectId: "proj_1", queryText: "foo bar", limit: 2, budgetTokens: 200 },
+    {
+      projectId: "proj_1",
+      queryText: "foo bar",
+      topK: 2,
+      maxTokens: 200,
+      model: "default",
+    },
   )) as IpcResponse<{
-    items: Array<{ sourceRef: string }>;
-    diagnostics: {
-      mode: string;
-      rerank: { enabled: boolean; reason?: string };
-    };
+    chunks: Array<{ chunkId: string; documentId: string }>;
+    fallback?: { reason: string };
   }>;
 
   assert.equal(res.ok, true);
   if (res.ok) {
-    assert.equal(res.data.diagnostics.mode, "fulltext");
-    assert.equal(res.data.diagnostics.rerank.enabled, false);
-    assert.equal(res.data.diagnostics.rerank.reason, "MODEL_NOT_READY");
-    assert.equal(res.data.items[0]?.sourceRef, "doc:doc_a#chunk:0");
+    assert.equal(res.data.fallback?.reason, "MODEL_NOT_READY");
+    assert.equal(res.data.chunks.length, 2);
+    assert.equal(res.data.chunks[0]?.documentId, "doc_a");
   }
 }
 
@@ -162,24 +171,33 @@ function createDbStub(): Database.Database {
     db,
     logger,
     embedding,
-    ragRerank: { enabled: true, model: "hash-v1" },
+    ragRerank: { enabled: false },
   });
 
   const handler = handlers.get("rag:context:retrieve");
   assert.ok(handler, "Missing handler rag:context:retrieve");
+  if (!handler) {
+    throw new Error("Missing handler rag:context:retrieve");
+  }
 
   const res = (await handler(
     {},
-    { projectId: "proj_1", queryText: "foo bar", limit: 2, budgetTokens: 200 },
+    {
+      projectId: "proj_1",
+      queryText: "foo bar",
+      topK: 2,
+      maxTokens: 200,
+      model: "hash-v1",
+    },
   )) as IpcResponse<{
-    items: Array<{ sourceRef: string }>;
-    diagnostics: { mode: string; rerank: { enabled: boolean } };
+    chunks: Array<{ chunkId: string; documentId: string }>;
+    fallback?: { reason: string };
   }>;
 
   assert.equal(res.ok, true);
   if (res.ok) {
-    assert.equal(res.data.diagnostics.mode, "fulltext_reranked");
-    assert.equal(res.data.diagnostics.rerank.enabled, true);
-    assert.equal(res.data.items[0]?.sourceRef, "doc:doc_b#chunk:0");
+    assert.equal(Boolean(res.data.fallback), false);
+    assert.equal(res.data.chunks.length, 2);
+    assert.equal(res.data.chunks[0]?.documentId, "doc_b");
   }
 }
