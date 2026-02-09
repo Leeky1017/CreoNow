@@ -17,7 +17,7 @@
 
 - 任一层输出缺失 `source` 或 `tokenCount` 视为契约失败。
 - 组装时某层数据源不可用，必须降级继续并将原因写入 `warnings`。
-- 降级不得阻断 `context:assemble` 的成功返回（除非发生不可恢复输入错误）。
+- 降级不得阻断 `context:prompt:assemble` 的成功返回（除非发生不可恢复输入错误）。
 
 ### Scenario: CE1-R1-S1 四层契约完整组装 [ADDED]
 
@@ -35,9 +35,9 @@
 
 ## [MODIFIED] Requirement: 上下文组装 API
 
-`context:assemble` 与 `context:inspect` 必须返回统一结构，确保 AI Service 与调试端可消费。
+`context:prompt:assemble` 与 `context:prompt:inspect` 必须返回统一结构，确保 AI Service 与调试端可消费。
 
-`context:assemble` 响应新增/固化字段：
+`context:prompt:assemble` 响应新增/固化字段：
 
 - `prompt: string`
 - `tokenCount: number`
@@ -46,23 +46,23 @@
 - `warnings: string[]`
 - `layers`：四层对象，且每层至少包含 `source`、`tokenCount`、`truncated`
 
-`context:inspect` 响应固化字段：
+`context:prompt:inspect` 响应固化字段：
 
 - `layersDetail`: 四层明细（含 `content`、`source`、`tokenCount`、`truncated`）
 - `totals`: `{ tokenCount, warningsCount }`
 - `inspectMeta`: `{ debugMode, requestedBy, requestedAt }`
 
-### Scenario: CE1-R2-S1 context:assemble 返回结构可直接消费 [ADDED]
+### Scenario: CE1-R2-S1 context:prompt:assemble 返回结构可直接消费 [ADDED]
 
 - **假设** AI Service 发起一次续写请求
-- **当** 调用 `context:assemble`
+- **当** 调用 `context:prompt:assemble`
 - **则** 返回结构包含 `prompt/tokenCount/stablePrefixHash/stablePrefixUnchanged/warnings`
 - **并且** 四层返回均包含 `source` 与 `tokenCount`
 
-### Scenario: CE1-R2-S2 context:inspect 返回调试明细且不注入 prompt [ADDED]
+### Scenario: CE1-R2-S2 context:prompt:inspect 返回调试明细且不注入 prompt [ADDED]
 
 - **假设** 调试模式下请求上下文明细
-- **当** 调用 `context:inspect`
+- **当** 调用 `context:prompt:inspect`
 - **则** 返回四层明细与 token 分布
 - **并且** 返回体不包含最终拼接 `prompt`
 

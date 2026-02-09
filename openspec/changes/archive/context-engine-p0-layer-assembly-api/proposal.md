@@ -8,7 +8,7 @@ Context Engine 主 spec 已定义四层模型与组装 API，但当前缺少可�
 ## 变更内容
 
 - 固化 Rules / Settings / Retrieved / Immediate 四层的标准数据契约与固定组装顺序。
-- 固化 `context:assemble` 与 `context:inspect` 的 Request-Response 契约与返回结构。
+- 固化 `context:prompt:assemble` 与 `context:prompt:inspect` 的 Request-Response 契约与返回结构。
 - 明确各层输出必须携带 `source` 与 `tokenCount`。
 - 明确数据源不可用时的降级策略：不中断组装，写入 `warnings` 并返回可判定结果。
 
