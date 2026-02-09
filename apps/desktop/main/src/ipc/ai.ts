@@ -34,6 +34,7 @@ type SkillRunPayload = {
 };
 
 type SkillRunResponse = {
+  executionId: string;
   runId: string;
   outputText?: string;
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
@@ -110,7 +111,7 @@ function safeEmitToRenderer(args: {
   event: AiStreamEvent;
 }): void {
   const channel =
-    args.event.type === "run_started" || args.event.type === "delta"
+    args.event.type === "chunk"
       ? SKILL_STREAM_CHUNK_CHANNEL
       : SKILL_STREAM_DONE_CHANNEL;
   try {
@@ -354,17 +355,25 @@ export function registerAiIpcHandlers(deps: {
     "ai:skill:cancel",
     async (
       _e,
-      payload: { runId: string },
+      payload: { runId?: string; executionId?: string },
     ): Promise<IpcResponse<{ canceled: true }>> => {
-      if (payload.runId.trim().length === 0) {
+      const executionId = (payload.executionId ?? payload.runId ?? "").trim();
+      if (executionId.length === 0) {
         return {
           ok: false,
-          error: { code: "INVALID_ARGUMENT", message: "runId is required" },
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "executionId is required",
+          },
         };
       }
 
       try {
-        const res = aiService.cancel({ runId: payload.runId, ts: nowTs() });
+        const res = aiService.cancel({
+          executionId,
+          runId: payload.runId,
+          ts: nowTs(),
+        });
         return res.ok
           ? { ok: true, data: res.data }
           : { ok: false, error: res.error };
