@@ -156,3 +156,24 @@
 - Exit code: `0`
 - Key output:
   - `prettier --check`、`typecheck`、`lint`、`contract:check`、`cross-module:check`、`test:unit` 全部通过
+
+### 2026-02-09 23:28 +0800 Rulebook task 自归档
+
+- Command:
+  - `rulebook task show issue-352-ai-service-p0-llmproxy-config-security`
+  - `rulebook task validate issue-352-ai-service-p0-llmproxy-config-security`
+  - `rulebook task archive issue-352-ai-service-p0-llmproxy-config-security`
+- Exit code: `0`
+- Key output:
+  - task 在 active 目录可解析，`validate` 通过（warning：`No spec files found (specs/*/spec.md)`）
+  - 归档成功：`rulebook/tasks/archive/2026-02-09-issue-352-ai-service-p0-llmproxy-config-security/`
+
+### 2026-02-09 23:30 +0800 preflight 重跑（阻塞）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `prettier --check` 阶段失败，报错旧 active task 路径不存在
+  - 原因：Rulebook 归档改动尚未提交，`origin/main...HEAD` 仍包含旧 active 文件路径
+  - 处置：先提交归档改动，再重跑 preflight
