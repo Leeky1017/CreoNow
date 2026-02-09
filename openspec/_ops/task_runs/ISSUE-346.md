@@ -3,7 +3,7 @@
 - Issue: #346
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/346
 - Branch: task/346-rulebook-archive-issue-344-closeout
-- PR: https://github.com/Leeky1017/CreoNow/pull/0
+- PR: https://github.com/Leeky1017/CreoNow/pull/347
 - Scope: 归档 Rulebook task `issue-344-active-changes-delivery` 并完成治理收口
 - Out of Scope: 运行时代码改动；主 spec 修改
 
