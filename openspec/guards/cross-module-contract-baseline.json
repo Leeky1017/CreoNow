@@ -6,26 +6,15 @@
     "memory:trace:get",
     "memory:trace:feedback",
     "knowledge:query:relevant",
-    "knowledge:query:byIds",
+    "knowledge:query:byids",
     "knowledge:query:subgraph",
     "project:project:switch",
-    "skill:execute",
+    "ai:skill:run",
     "skill:stream:chunk",
     "skill:stream:done",
-    "skill:cancel",
+    "ai:skill:cancel",
     "ai:chat:send",
-    "export:project"
-  ],
-  "channelAliases": {
-    "knowledge:query:byIds": "knowledge:query:byids",
-    "skill:execute": "ai:skill:run",
-    "skill:cancel": "ai:skill:cancel"
-  },
-  "approvedMissingChannels": [
-    "skill:stream:chunk",
-    "skill:stream:done",
-    "ai:chat:send",
-    "export:project"
+    "export:project:bundle"
   ],
   "expectedErrorCodes": [
     "KG_QUERY_TIMEOUT",
@@ -40,19 +29,5 @@
     "SEARCH_TIMEOUT",
     "CONTEXT_SCOPE_VIOLATION"
   ],
-  "approvedMissingErrorCodes": [
-    "PROJECT_SWITCH_TIMEOUT",
-    "DOCUMENT_SAVE_CONFLICT",
-    "MEMORY_BACKPRESSURE",
-    "SKILL_TIMEOUT",
-    "AI_PROVIDER_UNAVAILABLE",
-    "VERSION_MERGE_TIMEOUT",
-    "SEARCH_TIMEOUT",
-    "CONTEXT_SCOPE_VIOLATION"
-  ],
-  "desiredEnvelope": "success",
-  "approvedEnvelopeDrift": {
-    "actual": "ok",
-    "reason": "Legacy IPC envelope still uses ok/error until migration change lands."
-  }
+  "desiredEnvelope": "ok"
 }

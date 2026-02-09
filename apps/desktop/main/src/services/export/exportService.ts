@@ -27,6 +27,9 @@ export type ExportService = {
     projectId: string;
     documentId?: string;
   }) => Promise<ServiceResult<ExportResult>>;
+  exportProjectBundle: (args: {
+    projectId: string;
+  }) => Promise<ServiceResult<ExportResult>>;
   exportTxt: (args: {
     projectId: string;
     documentId?: string;
@@ -215,6 +218,79 @@ export function createExportService(deps: {
         documentId,
       });
       return ipcError("IO_ERROR", "Failed to write export file");
+    }
+  }
+
+  async function exportProjectBundle(args: {
+    projectId: string;
+  }): Promise<ServiceResult<ExportResult>> {
+    const projectId = args.projectId.trim();
+    if (projectId.length === 0) {
+      return ipcError("INVALID_ARGUMENT", "projectId is required");
+    }
+
+    if (!isSafePathSegment(projectId)) {
+      return ipcError("INVALID_ARGUMENT", "Unsafe export path segments");
+    }
+
+    const relativeParts = ["exports", projectId, `${projectId}-bundle.md`];
+    const relativePath = relativeParts.join("/");
+    const absPath = path.join(deps.userDataDir, ...relativeParts);
+
+    deps.logger.info("export_started", {
+      format: "project-bundle",
+      projectId,
+      relativePath,
+    });
+
+    try {
+      const docSvc = createDocumentService({
+        db: deps.db,
+        logger: deps.logger,
+      });
+      const listed = docSvc.list({ projectId });
+      if (!listed.ok) {
+        return listed;
+      }
+
+      const orderedItems = [...listed.data.items].sort(
+        (a, b) => a.sortOrder - b.sortOrder,
+      );
+      if (orderedItems.length === 0) {
+        return ipcError("NOT_FOUND", "No documents found for project export");
+      }
+
+      const sections: string[] = [];
+      for (const item of orderedItems) {
+        const read = docSvc.read({ projectId, documentId: item.documentId });
+        if (!read.ok) {
+          return read;
+        }
+        sections.push(`# ${read.data.title}\n\n${read.data.contentMd}`);
+      }
+
+      const bundle = `${sections.join("\n\n---\n\n")}\n`;
+
+      await fs.mkdir(path.dirname(absPath), { recursive: true });
+      await fs.writeFile(absPath, bundle, "utf8");
+
+      const bytesWritten = Buffer.byteLength(bundle, "utf8");
+      deps.logger.info("export_succeeded", {
+        format: "project-bundle",
+        projectId,
+        relativePath,
+        bytesWritten,
+      });
+
+      return { ok: true, data: { relativePath, bytesWritten } };
+    } catch (error) {
+      deps.logger.error("export_failed", {
+        code: "IO_ERROR",
+        message: error instanceof Error ? error.message : String(error),
+        format: "project-bundle",
+        projectId,
+      });
+      return ipcError("IO_ERROR", "Failed to write project export file");
     }
   }
 
@@ -416,6 +492,7 @@ export function createExportService(deps: {
 
   return {
     exportMarkdown,
+    exportProjectBundle,
     exportTxt,
     exportPdf,
     exportDocx,

@@ -1,7 +1,10 @@
 import React from "react";
 
 import type { AiStreamEvent } from "../../../../../../packages/shared/types/ai";
-import { AI_SKILL_STREAM_CHANNEL } from "../../../../../../packages/shared/types/ai";
+import {
+  SKILL_STREAM_CHUNK_CHANNEL,
+  SKILL_STREAM_DONE_CHANNEL,
+} from "../../../../../../packages/shared/types/ai";
 import { useAiStore } from "../../stores/aiStore";
 
 type UnknownRecord = Record<string, unknown>;
@@ -32,7 +35,7 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
 }
 
 /**
- * Subscribe to `ai:skill:stream` and forward events into the aiStore.
+ * Subscribe to skill stream channels and forward events into the aiStore.
  *
  * Why: the UI must update from push events (delta/completed/failed/canceled).
  */
@@ -63,9 +66,11 @@ export function useAiStream(): void {
       onStreamEvent(detail);
     }
 
-    window.addEventListener(AI_SKILL_STREAM_CHANNEL, onEvent);
+    window.addEventListener(SKILL_STREAM_CHUNK_CHANNEL, onEvent);
+    window.addEventListener(SKILL_STREAM_DONE_CHANNEL, onEvent);
     return () => {
-      window.removeEventListener(AI_SKILL_STREAM_CHANNEL, onEvent);
+      window.removeEventListener(SKILL_STREAM_CHUNK_CHANNEL, onEvent);
+      window.removeEventListener(SKILL_STREAM_DONE_CHANNEL, onEvent);
       if (subscriptionId && streamApi) {
         streamApi.releaseAiStreamConsumer(subscriptionId);
       }

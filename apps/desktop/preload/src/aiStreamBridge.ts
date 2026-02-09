@@ -1,7 +1,8 @@
 import { ipcRenderer } from "electron";
 
 import {
-  AI_SKILL_STREAM_CHANNEL,
+  SKILL_STREAM_CHUNK_CHANNEL,
+  SKILL_STREAM_DONE_CHANNEL,
   type AiStreamEvent,
 } from "../../../../packages/shared/types/ai";
 import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
@@ -40,7 +41,7 @@ export type AiStreamBridgeApi = {
 };
 
 /**
- * Bridge `ai:skill:stream` IPC events into the renderer via DOM CustomEvent.
+ * Bridge skill stream IPC events into the renderer via DOM CustomEvent.
  *
  * Why: renderer runs with contextIsolation and cannot subscribe to `ipcRenderer`
  * directly, and we must not expand the preload public API surface.
@@ -50,7 +51,7 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
     rendererId: `pid-${process.pid}`,
   });
 
-  ipcRenderer.on(AI_SKILL_STREAM_CHANNEL, (_evt, payload: unknown) => {
+  function forwardEvent(channel: string, payload: unknown): void {
     if (subscriptions.count() === 0) {
       return;
     }
@@ -60,10 +61,17 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
     }
 
     window.dispatchEvent(
-      new CustomEvent<AiStreamEvent>(AI_SKILL_STREAM_CHANNEL, {
+      new CustomEvent<AiStreamEvent>(channel, {
         detail: payload,
       }),
     );
+  }
+
+  ipcRenderer.on(SKILL_STREAM_CHUNK_CHANNEL, (_evt, payload: unknown) => {
+    forwardEvent(SKILL_STREAM_CHUNK_CHANNEL, payload);
+  });
+  ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, (_evt, payload: unknown) => {
+    forwardEvent(SKILL_STREAM_DONE_CHANNEL, payload);
   });
 
   return {

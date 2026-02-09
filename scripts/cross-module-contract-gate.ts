@@ -37,6 +37,12 @@ const GENERATED_TYPES_PATH = path.join(
   "types",
   "ipc-generated.ts",
 );
+const SHARED_AI_TYPES_PATH = path.join(
+  "packages",
+  "shared",
+  "types",
+  "ai.ts",
+);
 const BASELINE_PATH = path.join(
   "openspec",
   "guards",
@@ -92,6 +98,19 @@ function parseEnvelope(generatedContent: string): ContractEnvelope {
   return "unknown";
 }
 
+function parseSupplementalPushChannels(repoRoot: string): string[] {
+  const absPath = path.resolve(repoRoot, SHARED_AI_TYPES_PATH);
+  if (!existsSync(absPath)) {
+    return [];
+  }
+  const source = readFileSync(absPath, "utf8");
+  return uniqueSorted(
+    [...source.matchAll(/"([a-z][a-z0-9]*:[a-z][a-z0-9]*:[a-z][a-z0-9]*)"/g)].map(
+      (item) => item[1],
+    ),
+  );
+}
+
 function readJson<T>(absPath: string): T {
   const raw = readFileSync(absPath, "utf8");
   return JSON.parse(raw) as T;
@@ -124,7 +143,10 @@ export function readGeneratedCrossModuleContractActual(
 
   const generated = readFileSync(absPath, "utf8");
   return {
-    channels: parseChannels(generated),
+    channels: uniqueSorted([
+      ...parseChannels(generated),
+      ...parseSupplementalPushChannels(repoRoot),
+    ]),
     errorCodes: parseErrorCodes(generated),
     envelope: parseEnvelope(generated),
   };

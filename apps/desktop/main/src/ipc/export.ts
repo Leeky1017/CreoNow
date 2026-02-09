@@ -114,4 +114,29 @@ export function registerExportIpcHandlers(deps: {
         : { ok: false, error: res.error };
     },
   );
+
+  deps.ipcMain.handle(
+    "export:project:bundle",
+    async (
+      _e,
+      payload: { projectId: string },
+    ): Promise<IpcResponse<{ relativePath: string; bytesWritten: number }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      const svc = createExportService({
+        db: deps.db,
+        logger: deps.logger,
+        userDataDir: deps.userDataDir,
+      });
+      const res = await svc.exportProjectBundle(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
 }
