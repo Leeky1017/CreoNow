@@ -10,7 +10,10 @@ import {
 import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
 import { createAiService } from "../services/ai/aiService";
-import { createAiProxySettingsService } from "../services/ai/aiProxySettingsService";
+import {
+  type SecretStorageAdapter,
+  createAiProxySettingsService,
+} from "../services/ai/aiProxySettingsService";
 import { createMemoryService } from "../services/memory/memoryService";
 import {
   recordSkillFeedbackAndLearn,
@@ -132,6 +135,7 @@ export function registerAiIpcHandlers(deps: {
   builtinSkillsDir: string;
   logger: Logger;
   env: NodeJS.ProcessEnv;
+  secretStorage?: SecretStorageAdapter;
 }): void {
   const pushBackpressureByRenderer = new Map<
     number,
@@ -177,6 +181,7 @@ export function registerAiIpcHandlers(deps: {
       const svc = createAiProxySettingsService({
         db: deps.db,
         logger: deps.logger,
+        secretStorage: deps.secretStorage,
       });
       const res = svc.getRaw();
       return res.ok ? res.data : null;

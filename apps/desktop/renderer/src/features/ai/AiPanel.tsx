@@ -644,14 +644,16 @@ export function AiPanel(): JSX.Element {
         type:
           lastError.code === "TIMEOUT"
             ? "timeout"
-            : lastError.code === "RATE_LIMITED"
+            : lastError.code === "RATE_LIMITED" ||
+                lastError.code === "AI_RATE_LIMITED"
               ? "rate_limit"
               : "service_error",
 
         title:
           lastError.code === "TIMEOUT"
             ? "Timeout"
-            : lastError.code === "RATE_LIMITED"
+            : lastError.code === "RATE_LIMITED" ||
+                lastError.code === "AI_RATE_LIMITED"
               ? "Rate limited"
               : "AI error",
 

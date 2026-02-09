@@ -62,6 +62,12 @@ export type AiProxySettingsService = {
   >;
 };
 
+export type SecretStorageAdapter = {
+  isEncryptionAvailable: () => boolean;
+  encryptString: (plainText: string) => Buffer;
+  decryptString: (cipherText: Buffer) => string;
+};
+
 const SETTINGS_SCOPE = "app" as const;
 const KEY_ENABLED = "creonow.ai.proxy.enabled" as const;
 const KEY_BASE_URL = "creonow.ai.proxy.baseUrl" as const;
@@ -77,6 +83,7 @@ const KEY_ANTH_BYOK_BASE_URL =
   "creonow.ai.provider.anthropicByok.baseUrl" as const;
 const KEY_ANTH_BYOK_API_KEY =
   "creonow.ai.provider.anthropicByok.apiKey" as const;
+const ENCRYPTED_SECRET_PREFIX = "__safe_storage_v1__:";
 
 function nowTs(): number {
   return Date.now();
@@ -148,6 +155,80 @@ function normalizeApiKey(raw: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/**
+ * Encrypt API key text for DB persistence.
+ *
+ * Why: P0 security baseline forbids plaintext API keys on disk.
+ */
+function encryptApiKey(args: {
+  value: string | null;
+  secretStorage?: SecretStorageAdapter;
+}): ServiceResult<string | null> {
+  if (args.value === null) {
+    return { ok: true, data: null };
+  }
+
+  if (!args.secretStorage || !args.secretStorage.isEncryptionAvailable()) {
+    return ipcError(
+      "UNSUPPORTED",
+      "safeStorage is required to persist API key securely",
+    );
+  }
+
+  try {
+    const encrypted = args.secretStorage.encryptString(args.value);
+    return {
+      ok: true,
+      data: `${ENCRYPTED_SECRET_PREFIX}${encrypted.toString("base64")}`,
+    };
+  } catch {
+    return ipcError("INTERNAL", "Failed to encrypt API key");
+  }
+}
+
+/**
+ * Decrypt API key text read from DB.
+ *
+ * Why: keys are persisted encrypted, but in-memory callers need plaintext.
+ */
+function decryptApiKey(args: {
+  value: unknown;
+  secretStorage?: SecretStorageAdapter;
+  logger: Logger;
+  field: string;
+}): string | null {
+  if (typeof args.value !== "string") {
+    return null;
+  }
+
+  const trimmed = args.value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  if (!trimmed.startsWith(ENCRYPTED_SECRET_PREFIX)) {
+    return normalizeApiKey(trimmed);
+  }
+
+  if (!args.secretStorage || !args.secretStorage.isEncryptionAvailable()) {
+    args.logger.error("ai_proxy_settings_secret_decrypt_unavailable", {
+      field: args.field,
+    });
+    return null;
+  }
+
+  try {
+    const encoded = trimmed.slice(ENCRYPTED_SECRET_PREFIX.length);
+    const encrypted = Buffer.from(encoded, "base64");
+    return normalizeApiKey(args.secretStorage.decryptString(encrypted));
+  } catch {
+    args.logger.error("ai_proxy_settings_secret_decrypt_failed", {
+      field: args.field,
+    });
+    return null;
+  }
+}
+
 function normalizeProviderMode(
   raw: unknown,
 ): "openai-compatible" | "openai-byok" | "anthropic-byok" {
@@ -182,20 +263,29 @@ function joinApiPath(args: { baseUrl: string; endpointPath: string }): string {
   return new URL(normalizedEndpoint.slice(1), base.toString()).toString();
 }
 
-function readRawSettings(db: Database.Database): AiProxySettingsRaw {
-  const enabled = readSetting(db, KEY_ENABLED);
-  const baseUrl = readSetting(db, KEY_BASE_URL);
-  const apiKey = readSetting(db, KEY_API_KEY);
-  const providerMode = readSetting(db, KEY_PROVIDER_MODE);
-  const openAiCompatibleBaseUrl = readSetting(db, KEY_OA_COMPAT_BASE_URL);
-  const openAiCompatibleApiKey = readSetting(db, KEY_OA_COMPAT_API_KEY);
-  const openAiByokBaseUrl = readSetting(db, KEY_OA_BYOK_BASE_URL);
-  const openAiByokApiKey = readSetting(db, KEY_OA_BYOK_API_KEY);
-  const anthropicByokBaseUrl = readSetting(db, KEY_ANTH_BYOK_BASE_URL);
-  const anthropicByokApiKey = readSetting(db, KEY_ANTH_BYOK_API_KEY);
+function readRawSettings(args: {
+  db: Database.Database;
+  logger: Logger;
+  secretStorage?: SecretStorageAdapter;
+}): AiProxySettingsRaw {
+  const enabled = readSetting(args.db, KEY_ENABLED);
+  const baseUrl = readSetting(args.db, KEY_BASE_URL);
+  const apiKey = readSetting(args.db, KEY_API_KEY);
+  const providerMode = readSetting(args.db, KEY_PROVIDER_MODE);
+  const openAiCompatibleBaseUrl = readSetting(args.db, KEY_OA_COMPAT_BASE_URL);
+  const openAiCompatibleApiKey = readSetting(args.db, KEY_OA_COMPAT_API_KEY);
+  const openAiByokBaseUrl = readSetting(args.db, KEY_OA_BYOK_BASE_URL);
+  const openAiByokApiKey = readSetting(args.db, KEY_OA_BYOK_API_KEY);
+  const anthropicByokBaseUrl = readSetting(args.db, KEY_ANTH_BYOK_BASE_URL);
+  const anthropicByokApiKey = readSetting(args.db, KEY_ANTH_BYOK_API_KEY);
 
   const normalizedLegacyBaseUrl = normalizeBaseUrl(baseUrl);
-  const normalizedLegacyApiKey = normalizeApiKey(apiKey);
+  const normalizedLegacyApiKey = decryptApiKey({
+    value: apiKey,
+    secretStorage: args.secretStorage,
+    logger: args.logger,
+    field: KEY_API_KEY,
+  });
 
   return {
     enabled: enabled === true,
@@ -205,13 +295,28 @@ function readRawSettings(db: Database.Database): AiProxySettingsRaw {
     openAiCompatibleBaseUrl:
       normalizeBaseUrl(openAiCompatibleBaseUrl) ?? normalizedLegacyBaseUrl,
     openAiCompatibleApiKey:
-      normalizeApiKey(openAiCompatibleApiKey) ?? normalizedLegacyApiKey,
+      decryptApiKey({
+        value: openAiCompatibleApiKey,
+        secretStorage: args.secretStorage,
+        logger: args.logger,
+        field: KEY_OA_COMPAT_API_KEY,
+      }) ?? normalizedLegacyApiKey,
     openAiByokBaseUrl:
       normalizeBaseUrl(openAiByokBaseUrl) ?? normalizedLegacyBaseUrl,
     openAiByokApiKey:
-      normalizeApiKey(openAiByokApiKey) ?? normalizedLegacyApiKey,
+      decryptApiKey({
+        value: openAiByokApiKey,
+        secretStorage: args.secretStorage,
+        logger: args.logger,
+        field: KEY_OA_BYOK_API_KEY,
+      }) ?? normalizedLegacyApiKey,
     anthropicByokBaseUrl: normalizeBaseUrl(anthropicByokBaseUrl),
-    anthropicByokApiKey: normalizeApiKey(anthropicByokApiKey),
+    anthropicByokApiKey: decryptApiKey({
+      value: anthropicByokApiKey,
+      secretStorage: args.secretStorage,
+      logger: args.logger,
+      field: KEY_ANTH_BYOK_API_KEY,
+    }),
   };
 }
 
@@ -242,10 +347,18 @@ function toPublic(raw: AiProxySettingsRaw): AiProxySettings {
 export function createAiProxySettingsService(deps: {
   db: Database.Database;
   logger: Logger;
+  secretStorage?: SecretStorageAdapter;
 }): AiProxySettingsService {
   function getRaw(): ServiceResult<AiProxySettingsRaw> {
     try {
-      return { ok: true, data: readRawSettings(deps.db) };
+      return {
+        ok: true,
+        data: readRawSettings({
+          db: deps.db,
+          logger: deps.logger,
+          secretStorage: deps.secretStorage,
+        }),
+      };
     } catch (error) {
       deps.logger.error("ai_proxy_settings_get_failed", {
         code: "DB_ERROR",
@@ -335,6 +448,39 @@ export function createAiProxySettingsService(deps: {
     }
 
     const ts = nowTs();
+
+    const encryptedLegacyKey = encryptApiKey({
+      value: next.apiKey,
+      secretStorage: deps.secretStorage,
+    });
+    if (!encryptedLegacyKey.ok) {
+      return encryptedLegacyKey;
+    }
+
+    const encryptedOpenAiCompatibleKey = encryptApiKey({
+      value: next.openAiCompatibleApiKey,
+      secretStorage: deps.secretStorage,
+    });
+    if (!encryptedOpenAiCompatibleKey.ok) {
+      return encryptedOpenAiCompatibleKey;
+    }
+
+    const encryptedOpenAiByokKey = encryptApiKey({
+      value: next.openAiByokApiKey,
+      secretStorage: deps.secretStorage,
+    });
+    if (!encryptedOpenAiByokKey.ok) {
+      return encryptedOpenAiByokKey;
+    }
+
+    const encryptedAnthropicByokKey = encryptApiKey({
+      value: next.anthropicByokApiKey,
+      secretStorage: deps.secretStorage,
+    });
+    if (!encryptedAnthropicByokKey.ok) {
+      return encryptedAnthropicByokKey;
+    }
+
     try {
       deps.db.transaction(() => {
         if (
@@ -347,7 +493,7 @@ export function createAiProxySettingsService(deps: {
           writeSetting(deps.db, KEY_BASE_URL, next.baseUrl ?? "", ts);
         }
         if (typeof args.patch.apiKey === "string") {
-          writeSetting(deps.db, KEY_API_KEY, next.apiKey ?? "", ts);
+          writeSetting(deps.db, KEY_API_KEY, encryptedLegacyKey.data ?? "", ts);
         }
         if (typeof args.patch.providerMode === "string") {
           writeSetting(deps.db, KEY_PROVIDER_MODE, next.providerMode, ts);
@@ -364,7 +510,7 @@ export function createAiProxySettingsService(deps: {
           writeSetting(
             deps.db,
             KEY_OA_COMPAT_API_KEY,
-            next.openAiCompatibleApiKey ?? "",
+            encryptedOpenAiCompatibleKey.data ?? "",
             ts,
           );
         }
@@ -380,7 +526,7 @@ export function createAiProxySettingsService(deps: {
           writeSetting(
             deps.db,
             KEY_OA_BYOK_API_KEY,
-            next.openAiByokApiKey ?? "",
+            encryptedOpenAiByokKey.data ?? "",
             ts,
           );
         }
@@ -396,7 +542,7 @@ export function createAiProxySettingsService(deps: {
           writeSetting(
             deps.db,
             KEY_ANTH_BYOK_API_KEY,
-            next.anthropicByokApiKey ?? "",
+            encryptedAnthropicByokKey.data ?? "",
             ts,
           );
         }
@@ -464,8 +610,8 @@ export function createAiProxySettingsService(deps: {
           ok: false,
           latencyMs: 0,
           error: {
-            code: "INVALID_ARGUMENT",
-            message: `${mode} baseUrl is missing`,
+            code: "AI_NOT_CONFIGURED",
+            message: "请先在设置中配置 AI 服务",
           },
         },
       };
@@ -504,7 +650,7 @@ export function createAiProxySettingsService(deps: {
           data: {
             ok: false,
             latencyMs,
-            error: { code: "PERMISSION_DENIED", message: "Proxy unauthorized" },
+            error: { code: "AI_AUTH_FAILED", message: "Proxy unauthorized" },
           },
         };
       }
@@ -514,7 +660,7 @@ export function createAiProxySettingsService(deps: {
           data: {
             ok: false,
             latencyMs,
-            error: { code: "RATE_LIMITED", message: "Proxy rate limited" },
+            error: { code: "AI_RATE_LIMITED", message: "Proxy rate limited" },
           },
         };
       }
@@ -523,7 +669,7 @@ export function createAiProxySettingsService(deps: {
         data: {
           ok: false,
           latencyMs,
-          error: { code: "UPSTREAM_ERROR", message: "Proxy request failed" },
+          error: { code: "LLM_API_ERROR", message: "Proxy request failed" },
         },
       };
     } catch (error) {
@@ -534,7 +680,7 @@ export function createAiProxySettingsService(deps: {
           ok: false,
           latencyMs,
           error: {
-            code: controller.signal.aborted ? "TIMEOUT" : "UPSTREAM_ERROR",
+            code: controller.signal.aborted ? "TIMEOUT" : "LLM_API_ERROR",
             message: controller.signal.aborted
               ? "Proxy request timed out"
               : error instanceof Error

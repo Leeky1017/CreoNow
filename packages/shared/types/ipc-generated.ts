@@ -6,7 +6,10 @@
  */
 
 export type IpcErrorCode =
+  | "AI_AUTH_FAILED"
+  | "AI_NOT_CONFIGURED"
   | "AI_PROVIDER_UNAVAILABLE"
+  | "AI_RATE_LIMITED"
   | "ALREADY_EXISTS"
   | "CANCELED"
   | "CONFLICT"
@@ -32,6 +35,7 @@ export type IpcErrorCode =
   | "KG_RELEVANT_QUERY_FAILED"
   | "KG_SCOPE_VIOLATION"
   | "KG_SUBGRAPH_K_EXCEEDED"
+  | "LLM_API_ERROR"
   | "MEMORY_BACKPRESSURE"
   | "MEMORY_CAPACITY_EXCEEDED"
   | "MEMORY_CLEAR_CONFIRM_REQUIRED"
@@ -88,10 +92,10 @@ export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
 export const IPC_CHANNELS = [
   "ai:chat:send",
+  "ai:config:get",
+  "ai:config:test",
+  "ai:config:update",
   "ai:models:list",
-  "ai:proxy:test",
-  "ai:proxysettings:get",
-  "ai:proxysettings:update",
   "ai:skill:cancel",
   "ai:skill:feedback",
   "ai:skill:run",
@@ -215,18 +219,22 @@ export type IpcChannelSpec = {
       messageId: string;
     };
   };
-  "ai:models:list": {
+  "ai:config:get": {
     request: Record<string, never>;
     response: {
-      items: Array<{
-        id: string;
-        name: string;
-        provider: string;
-      }>;
-      source: "proxy" | "openai" | "anthropic";
+      anthropicByokApiKeyConfigured: boolean;
+      anthropicByokBaseUrl: string;
+      apiKeyConfigured: boolean;
+      baseUrl: string;
+      enabled: boolean;
+      openAiByokApiKeyConfigured: boolean;
+      openAiByokBaseUrl: string;
+      openAiCompatibleApiKeyConfigured: boolean;
+      openAiCompatibleBaseUrl: string;
+      providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
     };
   };
-  "ai:proxy:test": {
+  "ai:config:test": {
     request: Record<string, never>;
     response: {
       error?: {
@@ -279,6 +287,10 @@ export type IpcChannelSpec = {
           | "DOCUMENT_SAVE_CONFLICT"
           | "MEMORY_BACKPRESSURE"
           | "SKILL_TIMEOUT"
+          | "AI_AUTH_FAILED"
+          | "AI_NOT_CONFIGURED"
+          | "AI_RATE_LIMITED"
+          | "LLM_API_ERROR"
           | "AI_PROVIDER_UNAVAILABLE"
           | "VERSION_MERGE_TIMEOUT"
           | "SEARCH_TIMEOUT"
@@ -289,22 +301,7 @@ export type IpcChannelSpec = {
       ok: boolean;
     };
   };
-  "ai:proxysettings:get": {
-    request: Record<string, never>;
-    response: {
-      anthropicByokApiKeyConfigured: boolean;
-      anthropicByokBaseUrl: string;
-      apiKeyConfigured: boolean;
-      baseUrl: string;
-      enabled: boolean;
-      openAiByokApiKeyConfigured: boolean;
-      openAiByokBaseUrl: string;
-      openAiCompatibleApiKeyConfigured: boolean;
-      openAiCompatibleBaseUrl: string;
-      providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
-    };
-  };
-  "ai:proxysettings:update": {
+  "ai:config:update": {
     request: {
       patch: {
         anthropicByokApiKey?: string;
@@ -330,6 +327,17 @@ export type IpcChannelSpec = {
       openAiCompatibleApiKeyConfigured: boolean;
       openAiCompatibleBaseUrl: string;
       providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
+    };
+  };
+  "ai:models:list": {
+    request: Record<string, never>;
+    response: {
+      items: Array<{
+        id: string;
+        name: string;
+        provider: string;
+      }>;
+      source: "proxy" | "openai" | "anthropic";
     };
   };
   "ai:skill:cancel": {
@@ -861,6 +869,10 @@ export type IpcChannelSpec = {
                 | "DOCUMENT_SAVE_CONFLICT"
                 | "MEMORY_BACKPRESSURE"
                 | "SKILL_TIMEOUT"
+                | "AI_AUTH_FAILED"
+                | "AI_NOT_CONFIGURED"
+                | "AI_RATE_LIMITED"
+                | "LLM_API_ERROR"
                 | "AI_PROVIDER_UNAVAILABLE"
                 | "VERSION_MERGE_TIMEOUT"
                 | "SEARCH_TIMEOUT"
@@ -935,6 +947,10 @@ export type IpcChannelSpec = {
                 | "DOCUMENT_SAVE_CONFLICT"
                 | "MEMORY_BACKPRESSURE"
                 | "SKILL_TIMEOUT"
+                | "AI_AUTH_FAILED"
+                | "AI_NOT_CONFIGURED"
+                | "AI_RATE_LIMITED"
+                | "LLM_API_ERROR"
                 | "AI_PROVIDER_UNAVAILABLE"
                 | "VERSION_MERGE_TIMEOUT"
                 | "SEARCH_TIMEOUT"
@@ -1353,6 +1369,10 @@ export type IpcChannelSpec = {
         | "DOCUMENT_SAVE_CONFLICT"
         | "MEMORY_BACKPRESSURE"
         | "SKILL_TIMEOUT"
+        | "AI_AUTH_FAILED"
+        | "AI_NOT_CONFIGURED"
+        | "AI_RATE_LIMITED"
+        | "LLM_API_ERROR"
         | "AI_PROVIDER_UNAVAILABLE"
         | "VERSION_MERGE_TIMEOUT"
         | "SEARCH_TIMEOUT"
@@ -1420,6 +1440,10 @@ export type IpcChannelSpec = {
         | "DOCUMENT_SAVE_CONFLICT"
         | "MEMORY_BACKPRESSURE"
         | "SKILL_TIMEOUT"
+        | "AI_AUTH_FAILED"
+        | "AI_NOT_CONFIGURED"
+        | "AI_RATE_LIMITED"
+        | "LLM_API_ERROR"
         | "AI_PROVIDER_UNAVAILABLE"
         | "VERSION_MERGE_TIMEOUT"
         | "SEARCH_TIMEOUT"
@@ -2156,6 +2180,10 @@ export type IpcChannelSpec = {
           | "DOCUMENT_SAVE_CONFLICT"
           | "MEMORY_BACKPRESSURE"
           | "SKILL_TIMEOUT"
+          | "AI_AUTH_FAILED"
+          | "AI_NOT_CONFIGURED"
+          | "AI_RATE_LIMITED"
+          | "LLM_API_ERROR"
           | "AI_PROVIDER_UNAVAILABLE"
           | "VERSION_MERGE_TIMEOUT"
           | "SEARCH_TIMEOUT"
