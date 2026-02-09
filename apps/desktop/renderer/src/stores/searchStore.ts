@@ -14,15 +14,18 @@ export type IpcInvoke = <C extends IpcChannel>(
   payload: IpcRequest<C>,
 ) => Promise<IpcInvokeResult<C>>;
 
-export type SearchItem =
-  IpcResponseData<"search:fulltext:query">["items"][number];
+export type SearchItem = IpcResponseData<"search:fts:query">["results"][number];
 
 export type SearchStatus = "idle" | "loading" | "ready" | "error";
+export type SearchIndexState = "ready" | "rebuilding";
 
 export type SearchState = {
   query: string;
   items: SearchItem[];
   status: SearchStatus;
+  indexState: SearchIndexState;
+  total: number;
+  hasMore: boolean;
   lastError: IpcError | null;
 };
 
@@ -50,33 +53,64 @@ export function createSearchStore(deps: { invoke: IpcInvoke }) {
     query: "",
     items: [],
     status: "idle",
+    indexState: "ready",
+    total: 0,
+    hasMore: false,
     lastError: null,
 
     setQuery: (query) => set({ query }),
 
-    clearResults: () => set({ items: [], status: "idle" }),
+    clearResults: () =>
+      set({
+        items: [],
+        status: "idle",
+        total: 0,
+        hasMore: false,
+        indexState: "ready",
+      }),
 
     clearError: () => set({ lastError: null }),
 
     runFulltext: async ({ projectId, limit }) => {
       const query = get().query;
       if (query.trim().length === 0) {
-        set({ items: [], status: "idle", lastError: null });
+        set({
+          items: [],
+          status: "idle",
+          indexState: "ready",
+          total: 0,
+          hasMore: false,
+          lastError: null,
+        });
         return;
       }
 
       set({ status: "loading", lastError: null });
-      const res = await deps.invoke("search:fulltext:query", {
+      const res = await deps.invoke("search:fts:query", {
         projectId,
         query,
         limit,
+        offset: 0,
       });
       if (!res.ok) {
-        set({ status: "error", lastError: res.error, items: [] });
+        set({
+          status: "error",
+          lastError: res.error,
+          items: [],
+          total: 0,
+          hasMore: false,
+        });
         return;
       }
 
-      set({ status: "ready", items: res.data.items, lastError: null });
+      set({
+        status: "ready",
+        items: res.data.results,
+        total: res.data.total,
+        hasMore: res.data.hasMore,
+        indexState: res.data.indexState,
+        lastError: null,
+      });
     },
   }));
 }

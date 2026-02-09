@@ -36,10 +36,13 @@ function createIpcHarness(): {
 }
 
 type FulltextRow = {
+  projectId: string;
   documentId: string;
-  title: string;
+  documentTitle: string;
+  documentType: string;
   snippet: string;
   score: number;
+  updatedAt: number;
 };
 
 /**
@@ -49,21 +52,50 @@ type FulltextRow = {
  */
 function createDbStub(): Database.Database {
   const docA: FulltextRow = {
+    projectId: "proj_1",
     documentId: "doc_a",
-    title: "Doc A",
+    documentTitle: "Doc A",
+    documentType: "chapter",
     snippet: "foo foo foo",
     score: 2,
+    updatedAt: 1739030400,
   };
   const docB: FulltextRow = {
+    projectId: "proj_1",
     documentId: "doc_b",
-    title: "Doc B",
+    documentTitle: "Doc B",
+    documentType: "chapter",
     snippet: "foo bar",
     score: 1,
+    updatedAt: 1739030401,
   };
 
-  const prepare = () => {
+  const prepare = (sql: string) => {
+    if (sql.includes("COUNT(")) {
+      return {
+        get: (_projectId: string, query: string) => {
+          const q = query.trim();
+          if (q === "foo") {
+            return { total: 2 };
+          }
+          if (q === "foo bar" || q === '"foo bar"') {
+            return { total: 1 };
+          }
+          if (q === "foo OR bar") {
+            return { total: 2 };
+          }
+          return { total: 0 };
+        },
+      };
+    }
+
     return {
-      all: (_projectId: string, query: string, limit: number) => {
+      all: (
+        _projectId: string,
+        query: string,
+        limit: number,
+        _offset: number,
+      ) => {
         const q = query.trim();
         if (q === "foo") {
           return [docA, docB].slice(0, limit);

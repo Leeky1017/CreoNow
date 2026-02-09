@@ -49,18 +49,37 @@ function createIpcHarness(): {
  * must not depend on native `better-sqlite3` binaries.
  */
 function createDbStub(): Database.Database {
-  const prepare = () => {
+  const prepare = (sql: string) => {
+    if (sql.includes("COUNT(")) {
+      return {
+        get: (_projectId: string, query: string) => {
+          if (query.startsWith('"')) {
+            throw new Error('fts5: syntax error near "hello"');
+          }
+          return { total: 1 };
+        },
+      };
+    }
+
     return {
-      all: (_projectId: string, query: string, limit: number) => {
+      all: (
+        _projectId: string,
+        query: string,
+        limit: number,
+        _offset: number,
+      ) => {
         if (query.startsWith('"')) {
           throw new Error('fts5: syntax error near "hello"');
         }
         return [
           {
+            projectId: "proj_1",
             documentId: "doc_1",
-            title: "Doc One",
+            documentTitle: "Doc One",
+            documentType: "chapter",
             snippet: "hello world",
             score: 1,
+            updatedAt: 1739030400,
           },
         ].slice(0, limit);
       },
@@ -80,11 +99,11 @@ registerSearchIpcHandlers({
   logger,
 });
 
-const handler = handlers.get("search:fulltext:query");
-assert.ok(handler, "Missing handler search:fulltext:query");
+const handler = handlers.get("search:fts:query");
+assert.ok(handler, "Missing handler search:fts:query");
 
 const okRes = (await handler({}, { projectId: "proj_1", query: "hello" })) as
-  | IpcResponse<{ items: unknown[] }>
+  | IpcResponse<{ results: unknown[] }>
   | undefined;
 assert.ok(okRes, "Missing response");
 assert.equal(okRes.ok, true);

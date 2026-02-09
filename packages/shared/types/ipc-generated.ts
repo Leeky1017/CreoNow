@@ -183,7 +183,8 @@ export const IPC_CHANNELS = [
   "project:project:switch",
   "project:project:update",
   "rag:context:retrieve",
-  "search:fulltext:query",
+  "search:fts:query",
+  "search:fts:reindex",
   "search:semantic:query",
   "skill:registry:list",
   "skill:registry:read",
@@ -1948,19 +1949,43 @@ export type IpcChannelSpec = {
       }>;
     };
   };
-  "search:fulltext:query": {
+  "search:fts:query": {
     request: {
       limit?: number;
+      offset?: number;
       projectId: string;
       query: string;
     };
     response: {
-      items: Array<{
+      hasMore: boolean;
+      indexState: "ready" | "rebuilding";
+      results: Array<{
+        anchor: {
+          end: number;
+          start: number;
+        };
         documentId: string;
+        documentTitle: string;
+        documentType: string;
+        highlights: Array<{
+          end: number;
+          start: number;
+        }>;
+        projectId: string;
         score: number;
         snippet: string;
-        title: string;
+        updatedAt: number;
       }>;
+      total: number;
+    };
+  };
+  "search:fts:reindex": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      indexState: "ready";
+      reindexed: number;
     };
   };
   "search:semantic:query": {
