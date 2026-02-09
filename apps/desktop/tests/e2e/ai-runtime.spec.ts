@@ -124,7 +124,7 @@ test("ai runtime: timeout maps to TIMEOUT", async () => {
   await electronApp.close();
 });
 
-test("ai runtime: upstream error maps to UPSTREAM_ERROR", async () => {
+test("ai runtime: upstream error maps to LLM_API_ERROR", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({ userDataDir });
 
@@ -132,7 +132,7 @@ test("ai runtime: upstream error maps to UPSTREAM_ERROR", async () => {
   await runInput(page, "E2E_UPSTREAM_ERROR");
 
   await expect(page.getByTestId("ai-error-code")).toContainText(
-    "UPSTREAM_ERROR",
+    "LLM_API_ERROR",
   );
 
   await electronApp.close();
