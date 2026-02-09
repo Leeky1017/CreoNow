@@ -1,53 +1,41 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-09 13:55
+更新时间：2026-02-09 14:33
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **4**。
+- 当前活跃 change 数量为 **1**。
 - 执行模式：**串行**。
 
 ## 执行顺序
 
-1. `issue-326-layer2-layer3-integration-gate`（已合并，待归档）
-   - 目标：完成 Layer2 + Layer3 里程碑集成检查并输出 delta report
-   - 依赖：无上游活跃 change 依赖
-2. `issue-328-cross-module-contract-alignment-gate`（已合并，待归档）
-   - 目标：新增 cross-module 契约自动门禁（CI + preflight）
-   - 依赖：`issue-326-layer2-layer3-integration-gate`
-3. `issue-330-cross-module-gate-autofix-classification`（已合并，待归档）
-   - 目标：新增开发分支失败后自动分类 + 安全自动修复 + 可选自动提交
-   - 依赖：`issue-328-cross-module-contract-alignment-gate`
-4. `issue-332-cross-module-drift-zero`（进行中）
-   - 目标：清零 16 项已登记漂移并移除对应 baseline 例外
-   - 依赖：`issue-328-cross-module-contract-alignment-gate`、`issue-330-cross-module-gate-autofix-classification`
+1. `issue-334-archive-closeout-and-worktree-cleanup`（进行中）
+   - 目标：归档已合并 change/task 并完成本地 worktree 清理收口
+   - 依赖：`issue-326`、`issue-328`、`issue-330`、`issue-332` 已合并产物
 
 ## 依赖说明
 
-- `issue-326-layer2-layer3-integration-gate`：无上游活跃依赖，Dependency Sync Check = `N/A`。
-- `issue-328-cross-module-contract-alignment-gate`：
-  - Dependency Sync Check 输入：`issue-326` delta report
-  - 核对项：通道命名、envelope、错误码、缺失通道
-  - 结论：`无漂移`
-- `issue-330-cross-module-gate-autofix-classification`：
-  - Dependency Sync Check 输入：`issue-328` 门禁脚本与 baseline 语义
-  - 核对项：失败判定、baseline 字段、CI 只校验约束
-  - 结论：`无漂移`
-- `issue-332-cross-module-drift-zero`：
-  - Dependency Sync Check 输入：`issue-328` / `issue-330` 产物（gate + autofix + baseline）
+- `issue-334-archive-closeout-and-worktree-cleanup`：
+  - Dependency Sync Check 输入：
+    - `openspec/changes/archive/issue-326-*`
+    - `openspec/changes/archive/issue-328-*`
+    - `openspec/changes/archive/issue-330-*`
+    - `openspec/changes/archive/issue-332-*`
+    - `rulebook/tasks/archive/*issue-326*|*issue-328*|*issue-330*|*issue-332*`
   - 核对项：
-    - 数据结构：baseline 字段与 gate/autofix 读取一致
-    - IPC 契约：命名治理与跨模块期望的一致性
-    - 错误码：跨模块 required codes 在 SSOT 中的覆盖
-    - envelope：`desiredEnvelope` 与生成类型语义一致
-  - 结论：`发现既有漂移，已在 issue-332 change 文档中同步更新并进入 Red`
+    - 归档对象完整性
+    - 归档前后路径一致性
+    - RUN_LOG 与 PR 链接可追溯性
+  - 结论：`无漂移`（可进入收口交付）
 
 ## 最近归档
 
-- `memory-system-p3-isolation-degradation`
-- `knowledge-graph-p2-auto-recognition-ai-utilization`
+- `issue-326-layer2-layer3-integration-gate`
+- `issue-328-cross-module-contract-alignment-gate`
+- `issue-330-cross-module-gate-autofix-classification`
+- `issue-332-cross-module-drift-zero`
 
 ## 维护规则
 
