@@ -77,3 +77,42 @@
 - Key output:
   - 活跃 change 集合更新为仅保留：`issue-342-governance-archive-issue-340-closeout`
   - 文档不再声明 `issue-340-governance-closeout-archive-338-266` 为进行中
+
+### 2026-02-09 18:47 +0800 PR 创建与首次 preflight 阻断
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `1`（进入 preflight 等待前阻断）
+- Key output:
+  - 自动创建 PR：`https://github.com/Leeky1017/CreoNow/pull/343`
+  - 自动回填 RUN_LOG PR 链接并提交：`docs: backfill run log PR link (#342)`
+  - preflight 阻断：`pnpm exec prettier --check` 失败（`rulebook/tasks/issue-342.../.metadata.json` 与 `proposal.md`）
+
+### 2026-02-09 18:49 +0800 preflight 修复（格式）
+
+- Command:
+  - `pnpm exec prettier --write rulebook/tasks/issue-342-governance-archive-issue-340-closeout/.metadata.json rulebook/tasks/issue-342-governance-archive-issue-340-closeout/proposal.md`
+  - `git commit -m "docs: format rulebook task files for preflight (#342)"`
+  - `git push`
+- Exit code: `0`
+- Key output:
+  - 修复 2 个格式问题文件并推送到 PR 分支
+
+### 2026-02-09 18:52 +0800 preflight 再次阻断（环境依赖）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `pnpm typecheck` 失败：`tsc: not found`
+  - 环境提示：`Local package.json exists, but node_modules missing`
+
+### 2026-02-09 18:53 +0800 依赖安装与 preflight 全绿
+
+- Command:
+  - `pnpm install --frozen-lockfile`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - 依赖安装完成（`Lockfile is up to date`，新增本地 `node_modules`）
+  - preflight 全部通过（含 `typecheck/lint/contract:check/cross-module:check/test:unit`）
