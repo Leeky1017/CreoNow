@@ -13,6 +13,7 @@
 ### Task 1: Spec/Rulebook Admission
 
 **Files:**
+
 - Modify: `openspec/changes/issue-332-cross-module-drift-zero/proposal.md`
 - Modify: `openspec/changes/issue-332-cross-module-drift-zero/tasks.md`
 - Modify: `openspec/changes/issue-332-cross-module-drift-zero/specs/cross-module-integration-spec/spec.md`
@@ -27,6 +28,7 @@
 ### Task 2: Red Tests
 
 **Files:**
+
 - Modify: `apps/desktop/tests/unit/cross-module-contract-gate.spec.ts`
 - Modify: `apps/desktop/tests/unit/ipc-preload-security.spec.ts`
 
@@ -36,6 +38,7 @@
 ### Task 3: Green Implementation
 
 **Files:**
+
 - Modify: `apps/desktop/main/src/ipc/contract/ipc-contract.ts`
 - Modify: `packages/shared/types/ai.ts`
 - Modify: `apps/desktop/main/src/ipc/ai.ts`
@@ -52,6 +55,7 @@
 ### Task 4: Verify & Deliver
 
 **Files:**
+
 - Modify: `openspec/_ops/task_runs/ISSUE-332.md`
 - Modify: `openspec/changes/EXECUTION_ORDER.md`
 

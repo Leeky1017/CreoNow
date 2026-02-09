@@ -61,3 +61,4 @@
 
 - [x] 6.1 记录 RUN_LOG（含 Red 失败证据、Green 通过证据与关键命令输出）
 - [x] 6.2 记录 Dependency Sync Check 的输入、核对结论与后续动作（无漂移/已更新）
+- [ ] 6.3 等待 PR required checks 全绿并完成 auto-merge 后归档 change

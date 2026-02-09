@@ -3,7 +3,7 @@
 - Issue: #332
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/332
 - Branch: task/332-cross-module-drift-zero
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/333
 - Scope: 清零 cross-module 已登记 16 项漂移，移除对应 baseline 例外并完成门禁收口
 - Out of Scope: 新增 required checks、无关 IPC 重构、直接修改主 spec
 
@@ -119,3 +119,25 @@
   - `typecheck` 通过
   - `lint` 通过（0 error，既有 warning 3 条）
   - preflight 当前唯一阻断项为 RUN_LOG PR 占位符（待创建 PR 后回填）
+
+### 2026-02-09 14:11 提交后复验
+
+- Command:
+  - `pnpm install --frozen-lockfile && pnpm contract:check && pnpm cross-module:check && pnpm cross-module:autofix`
+  - `pnpm test:unit && pnpm test:integration && pnpm typecheck && pnpm lint`
+- Exit code: `0`
+- Key output:
+  - `contract:check` 通过（`ipc-generated.ts` 与 SSOT 一致）
+  - `cross-module:check` 仅输出 `[CROSS_MODULE_GATE] PASS`（无 DRIFT）
+  - `cross-module:autofix` 输出 `PASS`（无待修复项）
+  - `test:unit`、`test:integration`、`typecheck`、`lint` 全部通过（lint 仅既有 warning）
+
+### 2026-02-09 14:12 推送与 PR 创建
+
+- Command:
+  - `git push -u origin task/332-cross-module-drift-zero`
+  - `gh pr create --base main --head task/332-cross-module-drift-zero --title \"Resolve cross-module drift zero and remove baseline exceptions (#332)\" --body \"... Closes #332\"`
+- Exit code: `0`
+- Key output:
+  - 分支推送成功
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/333`

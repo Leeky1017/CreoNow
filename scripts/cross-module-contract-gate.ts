@@ -37,12 +37,7 @@ const GENERATED_TYPES_PATH = path.join(
   "types",
   "ipc-generated.ts",
 );
-const SHARED_AI_TYPES_PATH = path.join(
-  "packages",
-  "shared",
-  "types",
-  "ai.ts",
-);
+const SHARED_AI_TYPES_PATH = path.join("packages", "shared", "types", "ai.ts");
 const BASELINE_PATH = path.join(
   "openspec",
   "guards",
@@ -105,9 +100,9 @@ function parseSupplementalPushChannels(repoRoot: string): string[] {
   }
   const source = readFileSync(absPath, "utf8");
   return uniqueSorted(
-    [...source.matchAll(/"([a-z][a-z0-9]*:[a-z][a-z0-9]*:[a-z][a-z0-9]*)"/g)].map(
-      (item) => item[1],
-    ),
+    [
+      ...source.matchAll(/"([a-z][a-z0-9]*:[a-z][a-z0-9]*:[a-z][a-z0-9]*)"/g),
+    ].map((item) => item[1]),
   );
 }
 
