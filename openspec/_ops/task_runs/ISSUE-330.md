@@ -12,7 +12,7 @@
 - [x] 任务准入（OPEN issue、task branch、worktree）
 - [x] 完成 OpenSpec/Rulebook 规格落盘与 Dependency Sync Check
 - [x] 按 TDD 完成 Red -> Green（分类 + autofix + auto-commit）
-- [ ] 回归验证与 preflight
+- [x] 回归验证与 preflight
 - [ ] 提交、PR、auto-merge、收口
 
 ## Runs
@@ -97,3 +97,15 @@
 - Key output:
   - Commit: `e5b3c484`
   - PR: `https://github.com/Leeky1017/CreoNow/pull/331`
+
+### 2026-02-09 13:09 RUN_LOG 回填与 preflight
+
+- Command:
+  - `git add openspec/_ops/task_runs/ISSUE-330.md`
+  - `git commit -m "docs: backfill issue-330 run log pr link (#330)"`
+  - `git push`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Commit: `4eb382ce`
+  - preflight 全部通过（Rulebook validate、typecheck、lint、contract、cross-module、unit）。
