@@ -3,7 +3,7 @@
 - Issue: #354
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/354
 - Branch: task/354-search-retrieval-p0-fts-foundation
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/357
 - Scope: 交付 `openspec/changes/search-retrieval-p0-fts-foundation`，完成 FTS Query/Reindex IPC、SearchPanel 三态与跳转反馈、TDD 证据与治理收口
 - Out of Scope: 语义搜索、RAG 召回注入、搜索替换、混合重排
 
