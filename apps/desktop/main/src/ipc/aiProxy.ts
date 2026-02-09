@@ -6,7 +6,10 @@ import type {
   IpcResponse,
 } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
-import { createAiProxySettingsService } from "../services/ai/aiProxySettingsService";
+import {
+  type SecretStorageAdapter,
+  createAiProxySettingsService,
+} from "../services/ai/aiProxySettingsService";
 import { createDbNotReadyError } from "./dbError";
 
 type ProxySettingsPatch = Partial<{
@@ -23,7 +26,7 @@ type ProxySettingsPatch = Partial<{
 }>;
 
 /**
- * Register `ai:proxy:*` IPC handlers.
+ * Register `ai:config:*` IPC handlers.
  *
  * Why: renderer must not access secrets; proxy config is persisted in main DB
  * and queried via typed IPC.
@@ -32,9 +35,10 @@ export function registerAiProxyIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
+  secretStorage?: SecretStorageAdapter;
 }): void {
   deps.ipcMain.handle(
-    "ai:proxysettings:get",
+    "ai:config:get",
     async (): Promise<
       IpcResponse<{
         enabled: boolean;
@@ -58,6 +62,7 @@ export function registerAiProxyIpcHandlers(deps: {
       const svc = createAiProxySettingsService({
         db: deps.db,
         logger: deps.logger,
+        secretStorage: deps.secretStorage,
       });
       const res = svc.get();
       return res.ok
@@ -67,7 +72,7 @@ export function registerAiProxyIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "ai:proxysettings:update",
+    "ai:config:update",
     async (
       _e,
       payload: { patch: ProxySettingsPatch },
@@ -94,6 +99,7 @@ export function registerAiProxyIpcHandlers(deps: {
       const svc = createAiProxySettingsService({
         db: deps.db,
         logger: deps.logger,
+        secretStorage: deps.secretStorage,
       });
       const res = svc.update({ patch: payload.patch });
       return res.ok
@@ -103,7 +109,7 @@ export function registerAiProxyIpcHandlers(deps: {
   );
 
   deps.ipcMain.handle(
-    "ai:proxy:test",
+    "ai:config:test",
     async (): Promise<
       IpcResponse<{
         ok: boolean;
@@ -120,6 +126,7 @@ export function registerAiProxyIpcHandlers(deps: {
       const svc = createAiProxySettingsService({
         db: deps.db,
         logger: deps.logger,
+        secretStorage: deps.secretStorage,
       });
       const res = await svc.test();
       return res.ok

@@ -49,6 +49,10 @@ export const IPC_ERROR_CODES = [
   "DOCUMENT_SAVE_CONFLICT",
   "MEMORY_BACKPRESSURE",
   "SKILL_TIMEOUT",
+  "AI_AUTH_FAILED",
+  "AI_NOT_CONFIGURED",
+  "AI_RATE_LIMITED",
+  "LLM_API_ERROR",
   "AI_PROVIDER_UNAVAILABLE",
   "VERSION_MERGE_TIMEOUT",
   "SEARCH_TIMEOUT",
@@ -639,11 +643,11 @@ export const ipcContract = {
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
       }),
     },
-    "ai:proxysettings:get": {
+    "ai:config:get": {
       request: s.object({}),
       response: AI_PROXY_SETTINGS_SCHEMA,
     },
-    "ai:proxysettings:update": {
+    "ai:config:update": {
       request: s.object({
         patch: s.object({
           enabled: s.optional(s.boolean()),
@@ -666,7 +670,7 @@ export const ipcContract = {
       }),
       response: AI_PROXY_SETTINGS_SCHEMA,
     },
-    "ai:proxy:test": {
+    "ai:config:test": {
       request: s.object({}),
       response: AI_PROXY_TEST_SCHEMA,
     },
