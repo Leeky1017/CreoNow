@@ -17,7 +17,10 @@ try {
   let transientFailures = 0;
   let totalCalls = 0;
 
-  globalThis.fetch = (async (_input: URL | RequestInfo, _init?: RequestInit) => {
+  globalThis.fetch = (async (
+    _input: URL | RequestInfo,
+    _init?: RequestInit,
+  ) => {
     totalCalls += 1;
     if (transientFailures < 2) {
       transientFailures += 1;

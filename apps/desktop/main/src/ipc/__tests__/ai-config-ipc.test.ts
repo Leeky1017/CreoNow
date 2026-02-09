@@ -32,7 +32,12 @@ function createSettingsDb(): Database.Database {
   const insert = db.prepare(
     "INSERT INTO settings(scope, key, value_json, updated_at) VALUES (?, ?, ?, ?)",
   );
-  insert.run("app", "creonow.ai.provider.mode", JSON.stringify("openai-byok"), now);
+  insert.run(
+    "app",
+    "creonow.ai.provider.mode",
+    JSON.stringify("openai-byok"),
+    now,
+  );
   insert.run(
     "app",
     "creonow.ai.provider.openaiByok.baseUrl",
