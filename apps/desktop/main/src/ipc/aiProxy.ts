@@ -7,6 +7,7 @@ import type {
 } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { createAiProxySettingsService } from "../services/ai/aiProxySettingsService";
+import { createDbNotReadyError } from "./dbError";
 
 type ProxySettingsPatch = Partial<{
   enabled: boolean;
@@ -51,7 +52,7 @@ export function registerAiProxyIpcHandlers(deps: {
       if (!deps.db) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: createDbNotReadyError(),
         };
       }
       const svc = createAiProxySettingsService({
@@ -87,7 +88,7 @@ export function registerAiProxyIpcHandlers(deps: {
       if (!deps.db) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: createDbNotReadyError(),
         };
       }
       const svc = createAiProxySettingsService({
@@ -113,7 +114,7 @@ export function registerAiProxyIpcHandlers(deps: {
       if (!deps.db) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: createDbNotReadyError(),
         };
       }
       const svc = createAiProxySettingsService({

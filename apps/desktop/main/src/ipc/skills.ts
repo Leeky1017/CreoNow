@@ -7,6 +7,7 @@ import {
   createSkillService,
   type SkillListItem,
 } from "../services/skills/skillService";
+import { createDbNotReadyError } from "./dbError";
 
 /**
  * Register `skill:*` IPC handlers.
@@ -30,7 +31,7 @@ export function registerSkillIpcHandlers(deps: {
       if (!deps.db) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: createDbNotReadyError(),
         };
       }
 
@@ -56,7 +57,7 @@ export function registerSkillIpcHandlers(deps: {
       if (!deps.db) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: createDbNotReadyError(),
         };
       }
 
@@ -88,7 +89,7 @@ export function registerSkillIpcHandlers(deps: {
       if (!deps.db) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: createDbNotReadyError(),
         };
       }
 
@@ -114,7 +115,7 @@ export function registerSkillIpcHandlers(deps: {
       if (!deps.db) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: createDbNotReadyError(),
         };
       }
 

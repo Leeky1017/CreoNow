@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "desktop:dev": "pnpm -C apps/desktop dev",
+    "desktop:rebuild:native": "pnpm -C apps/desktop rebuild:native",
     "desktop:build": "pnpm -C apps/desktop build",
     "desktop:test:e2e": "pnpm -C apps/desktop test:e2e",
     "desktop:build:win": "pnpm -C apps/desktop build:win",
