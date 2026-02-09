@@ -3,7 +3,7 @@
 - Issue: #342
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/342
 - Branch: task/342-governance-archive-issue-340-closeout
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/343
 - Scope: 归档已合并 active change（issue-340）及对应 Rulebook active task（仅治理文档）
 - Out of Scope: 运行时代码改动；功能行为变更
 
