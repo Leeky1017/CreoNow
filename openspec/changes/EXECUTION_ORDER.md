@@ -1,34 +1,54 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-09 18:43
+更新时间：2026-02-09 19:24
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **1**。
-- 执行模式：**单变更执行**（`issue-342` 治理收口）。
+- 当前活跃 change 数量为 **17**。
+- 执行模式：**分阶段并行（阶段内并行，阶段间串行）**。
+- 变更泳道：
+  - Governance：`issue-342-governance-archive-issue-340-closeout`
+  - Context Engine：`context-engine-p0 → p1 → (p2 || p3) → p4`
+  - AI Service：`ai-service-p0 → p1 → p2 → (p3 || p4) → p5`
+  - Search & Retrieval：`search-retrieval-p0 → (p1 || p2) → p3 → p4`
 
 ## 执行顺序
 
-1. `issue-342-governance-archive-issue-340-closeout`（进行中）
-   - 目标：将已合并并已关闭的 `issue-340` 治理 change/task 从 active 面迁移到 archive
-   - 依赖：`PR #341` 已合并；归档后目录状态与执行面一致性核对
+1. Phase A（并行）
+   - `issue-342-governance-archive-issue-340-closeout`
+   - `context-engine-p0-layer-assembly-api`
+   - `ai-service-p0-llmproxy-config-security`
+   - `search-retrieval-p0-fts-foundation`
+2. Phase B（并行）
+   - `context-engine-p1-token-budget-truncation`（依赖 `context-engine-p0-layer-assembly-api`）
+   - `ai-service-p1-streaming-cancel-lifecycle`（依赖 `ai-service-p0-llmproxy-config-security`）
+   - `search-retrieval-p1-embedding-semantic-rag`（依赖 `search-retrieval-p0-fts-foundation`）
+   - `search-retrieval-p2-replace-versioned`（依赖 `search-retrieval-p0-fts-foundation`）
+3. Phase C（并行）
+   - `context-engine-p2-stable-prefix-hash`（依赖 `context-engine-p1-token-budget-truncation`）
+   - `context-engine-p3-constraints-rules-injection`（依赖 `context-engine-p1-token-budget-truncation`）
+   - `ai-service-p2-panel-chat-apply-flow`（依赖 `ai-service-p1-streaming-cancel-lifecycle`）
+4. Phase D（并行）
+   - `context-engine-p4-hardening-boundary`（依赖 `context-engine-p2-stable-prefix-hash` + `context-engine-p3-constraints-rules-injection`）
+   - `ai-service-p3-judge-quality-pipeline`（依赖 `ai-service-p2-panel-chat-apply-flow`）
+   - `ai-service-p4-candidates-usage-stats`（依赖 `ai-service-p2-panel-chat-apply-flow`）
+   - `search-retrieval-p3-hybrid-ranking-explain`（依赖 `search-retrieval-p1-embedding-semantic-rag` + `search-retrieval-p2-replace-versioned`）
+5. Phase E（并行）
+   - `ai-service-p5-failover-quota-hardening`（依赖 `ai-service-p0-llmproxy-config-security` + `ai-service-p1-streaming-cancel-lifecycle` + `ai-service-p3-judge-quality-pipeline` + `ai-service-p4-candidates-usage-stats`）
+   - `search-retrieval-p4-hardening-boundary`（依赖 `search-retrieval-p0-fts-foundation` + `search-retrieval-p1-embedding-semantic-rag` + `search-retrieval-p2-replace-versioned` + `search-retrieval-p3-hybrid-ranking-explain`）
 
 ## 依赖说明
 
-- `issue-342-governance-archive-issue-340-closeout`：
-  - Dependency Sync Check 输入：
-    - `openspec/changes/issue-340-governance-closeout-archive-338-266/*`
-    - `rulebook/tasks/issue-340-governance-closeout-archive-338-266/*`
-    - `openspec/changes/EXECUTION_ORDER.md`
-  - 核对项：
-    - active/archive 目录状态一致
-    - 仅治理文档归档，无运行时代码、IPC 契约、错误码与阈值漂移
-  - 结论：`无漂移`
+- 所有存在上游依赖的 change，在进入 Red 前必须完成并落盘 Dependency Sync Check（至少核对数据结构、IPC 契约、错误码、阈值）。
+- 当前已登记变更的 Dependency Sync Check 结论均为 `NO_DRIFT`；若任一 change 发现 `DRIFT`，必须先更新该 change 的 `proposal.md`、`specs/*`、`tasks.md`，再推进 Red/Green。
+- 跨泳道协同要求：
+  - `search-retrieval-p1-embedding-semantic-rag` 进入 Red 前需同步核对 Context Engine Retrieved 层预算契约。
+  - `ai-service-p5-failover-quota-hardening` 进入 Red 前需同步核对 `ai-service-p3/p4` 的错误码与统计字段。
 
 ## 维护规则
 
 - 任一活跃 change 的范围、依赖、状态发生变化时，必须同步更新本文件。
-- 对有上游依赖的 change，进入 Red 前必须完成并落盘依赖同步检查（Dependency Sync Check）；若发现漂移先更新 change 文档再实现。
-- 未同步更新本文件时，不得宣称执行顺序已确认。
+- 活跃 change 数量或拓扑变化时，必须更新执行模式、阶段顺序与更新时间。
+- 未同步本文件时，不得宣称执行顺序已确认。
