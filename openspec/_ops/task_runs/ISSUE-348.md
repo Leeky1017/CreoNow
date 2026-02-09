@@ -3,7 +3,7 @@
 - Issue: #348
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/348
 - Branch: task/348-governance-archive-issue-342-closeout
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/349
 - Scope: 归档遗留治理项 `issue-342`（OpenSpec change + Rulebook task）并同步 `EXECUTION_ORDER.md`；同时归档遗留 Rulebook task `issue-346`
 - Out of Scope: 运行时代码改动；主 spec（`openspec/specs/**/spec.md`）修改
 
