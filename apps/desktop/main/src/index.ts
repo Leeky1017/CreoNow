@@ -25,6 +25,7 @@ import { createValidatedIpcMain } from "./ipc/runtime-validation";
 import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
+import { createSemanticChunkIndexService } from "./services/embedding/semanticChunkIndexService";
 import { createJudgeService } from "./services/judge/judgeService";
 import { createKgRecognitionRuntime } from "./services/kg/kgRecognitionRuntime";
 import { createCreonowWatchService } from "./services/context/watchService";
@@ -135,6 +136,11 @@ function registerIpcHandlers(deps: {
   });
   const watchService = createCreonowWatchService({ logger: deps.logger });
   const embeddingService = createEmbeddingService({ logger: deps.logger });
+  const semanticIndex = createSemanticChunkIndexService({
+    logger: deps.logger,
+    embedding: embeddingService,
+    defaultModel: deps.env.CREONOW_EMBEDDING_MODEL ?? "default",
+  });
   const recognitionRuntime = deps.db
     ? createKgRecognitionRuntime({
         db: deps.db,
@@ -252,6 +258,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     recognitionRuntime,
+    semanticIndex,
   });
 
   registerExportIpcHandlers({
@@ -272,6 +279,8 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     embedding: embeddingService,
+    semanticIndex,
+    defaultModel: deps.env.CREONOW_EMBEDDING_MODEL ?? "default",
   });
 
   registerSearchIpcHandlers({
@@ -286,6 +295,8 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     embedding: embeddingService,
     ragRerank,
+    semanticIndex,
+    defaultModel: deps.env.CREONOW_EMBEDDING_MODEL ?? "default",
   });
 
   registerSkillIpcHandlers({
