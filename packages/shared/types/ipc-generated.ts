@@ -13,7 +13,11 @@ export type IpcErrorCode =
   | "ALREADY_EXISTS"
   | "CANCELED"
   | "CONFLICT"
+  | "CONTEXT_BUDGET_CONFLICT"
+  | "CONTEXT_BUDGET_INVALID_MINIMUM"
+  | "CONTEXT_BUDGET_INVALID_RATIO"
   | "CONTEXT_SCOPE_VIOLATION"
+  | "CONTEXT_TOKENIZER_MISMATCH"
   | "DB_ERROR"
   | "DOCUMENT_SAVE_CONFLICT"
   | "ENCODING_FAILED"
@@ -102,6 +106,8 @@ export const IPC_CHANNELS = [
   "app:system:ping",
   "constraints:policy:get",
   "constraints:policy:set",
+  "context:budget:get",
+  "context:budget:update",
   "context:creonow:ensure",
   "context:creonow:status",
   "context:prompt:assemble",
@@ -294,7 +300,11 @@ export type IpcChannelSpec = {
           | "AI_PROVIDER_UNAVAILABLE"
           | "VERSION_MERGE_TIMEOUT"
           | "SEARCH_TIMEOUT"
-          | "CONTEXT_SCOPE_VIOLATION";
+          | "CONTEXT_SCOPE_VIOLATION"
+          | "CONTEXT_BUDGET_INVALID_RATIO"
+          | "CONTEXT_BUDGET_INVALID_MINIMUM"
+          | "CONTEXT_BUDGET_CONFLICT"
+          | "CONTEXT_TOKENIZER_MISMATCH";
         message: string;
       };
       latencyMs: number;
@@ -419,6 +429,82 @@ export type IpcChannelSpec = {
         items: Array<string>;
         version: 1;
       };
+    };
+  };
+  "context:budget:get": {
+    request: Record<string, never>;
+    response: {
+      layers: {
+        immediate: {
+          minimumTokens: number;
+          ratio: number;
+        };
+        retrieved: {
+          minimumTokens: number;
+          ratio: number;
+        };
+        rules: {
+          minimumTokens: number;
+          ratio: number;
+        };
+        settings: {
+          minimumTokens: number;
+          ratio: number;
+        };
+      };
+      tokenizerId: string;
+      tokenizerVersion: string;
+      totalBudgetTokens: number;
+      version: number;
+    };
+  };
+  "context:budget:update": {
+    request: {
+      layers: {
+        immediate: {
+          minimumTokens: number;
+          ratio: number;
+        };
+        retrieved: {
+          minimumTokens: number;
+          ratio: number;
+        };
+        rules: {
+          minimumTokens: number;
+          ratio: number;
+        };
+        settings: {
+          minimumTokens: number;
+          ratio: number;
+        };
+      };
+      tokenizerId: string;
+      tokenizerVersion: string;
+      version: number;
+    };
+    response: {
+      layers: {
+        immediate: {
+          minimumTokens: number;
+          ratio: number;
+        };
+        retrieved: {
+          minimumTokens: number;
+          ratio: number;
+        };
+        rules: {
+          minimumTokens: number;
+          ratio: number;
+        };
+        settings: {
+          minimumTokens: number;
+          ratio: number;
+        };
+      };
+      tokenizerId: string;
+      tokenizerVersion: string;
+      totalBudgetTokens: number;
+      version: number;
     };
   };
   "context:creonow:ensure": {
@@ -876,7 +962,11 @@ export type IpcChannelSpec = {
                 | "AI_PROVIDER_UNAVAILABLE"
                 | "VERSION_MERGE_TIMEOUT"
                 | "SEARCH_TIMEOUT"
-                | "CONTEXT_SCOPE_VIOLATION";
+                | "CONTEXT_SCOPE_VIOLATION"
+                | "CONTEXT_BUDGET_INVALID_RATIO"
+                | "CONTEXT_BUDGET_INVALID_MINIMUM"
+                | "CONTEXT_BUDGET_CONFLICT"
+                | "CONTEXT_TOKENIZER_MISMATCH";
               message: string;
             };
             status: "error";
@@ -954,7 +1044,11 @@ export type IpcChannelSpec = {
                 | "AI_PROVIDER_UNAVAILABLE"
                 | "VERSION_MERGE_TIMEOUT"
                 | "SEARCH_TIMEOUT"
-                | "CONTEXT_SCOPE_VIOLATION";
+                | "CONTEXT_SCOPE_VIOLATION"
+                | "CONTEXT_BUDGET_INVALID_RATIO"
+                | "CONTEXT_BUDGET_INVALID_MINIMUM"
+                | "CONTEXT_BUDGET_CONFLICT"
+                | "CONTEXT_TOKENIZER_MISMATCH";
               message: string;
             };
             status: "error";
@@ -1376,7 +1470,11 @@ export type IpcChannelSpec = {
         | "AI_PROVIDER_UNAVAILABLE"
         | "VERSION_MERGE_TIMEOUT"
         | "SEARCH_TIMEOUT"
-        | "CONTEXT_SCOPE_VIOLATION";
+        | "CONTEXT_SCOPE_VIOLATION"
+        | "CONTEXT_BUDGET_INVALID_RATIO"
+        | "CONTEXT_BUDGET_INVALID_MINIMUM"
+        | "CONTEXT_BUDGET_CONFLICT"
+        | "CONTEXT_TOKENIZER_MISMATCH";
       message?: string;
       progress: number;
       projectId: string;
@@ -1447,7 +1545,11 @@ export type IpcChannelSpec = {
         | "AI_PROVIDER_UNAVAILABLE"
         | "VERSION_MERGE_TIMEOUT"
         | "SEARCH_TIMEOUT"
-        | "CONTEXT_SCOPE_VIOLATION";
+        | "CONTEXT_SCOPE_VIOLATION"
+        | "CONTEXT_BUDGET_INVALID_RATIO"
+        | "CONTEXT_BUDGET_INVALID_MINIMUM"
+        | "CONTEXT_BUDGET_CONFLICT"
+        | "CONTEXT_TOKENIZER_MISMATCH";
       message?: string;
       progress: number;
       projectId: string;
@@ -2187,7 +2289,11 @@ export type IpcChannelSpec = {
           | "AI_PROVIDER_UNAVAILABLE"
           | "VERSION_MERGE_TIMEOUT"
           | "SEARCH_TIMEOUT"
-          | "CONTEXT_SCOPE_VIOLATION";
+          | "CONTEXT_SCOPE_VIOLATION"
+          | "CONTEXT_BUDGET_INVALID_RATIO"
+          | "CONTEXT_BUDGET_INVALID_MINIMUM"
+          | "CONTEXT_BUDGET_CONFLICT"
+          | "CONTEXT_TOKENIZER_MISMATCH";
         error_message?: string;
         id: string;
         name: string;

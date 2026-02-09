@@ -71,9 +71,46 @@ export type ContextInspectResult = {
   };
 };
 
+export type ContextBudgetLayerConfig = {
+  ratio: number;
+  minimumTokens: number;
+};
+
+export type ContextBudgetProfile = {
+  version: number;
+  tokenizerId: string;
+  tokenizerVersion: string;
+  totalBudgetTokens: number;
+  layers: Record<ContextLayerId, ContextBudgetLayerConfig>;
+};
+
+export type ContextBudgetUpdateRequest = {
+  version: number;
+  tokenizerId: string;
+  tokenizerVersion: string;
+  layers: Record<ContextLayerId, ContextBudgetLayerConfig>;
+};
+
+export type ContextBudgetUpdateErrorCode =
+  | "CONTEXT_BUDGET_INVALID_RATIO"
+  | "CONTEXT_BUDGET_INVALID_MINIMUM"
+  | "CONTEXT_BUDGET_CONFLICT"
+  | "CONTEXT_TOKENIZER_MISMATCH";
+
+export type ContextBudgetUpdateResult =
+  | { ok: true; data: ContextBudgetProfile }
+  | {
+      ok: false;
+      error: { code: ContextBudgetUpdateErrorCode; message: string };
+    };
+
 export type ContextLayerAssemblyService = {
   assemble: (request: ContextAssembleRequest) => Promise<ContextAssembleResult>;
   inspect: (request: ContextInspectRequest) => Promise<ContextInspectResult>;
+  getBudgetProfile: () => ContextBudgetProfile;
+  updateBudgetProfile: (
+    request: ContextBudgetUpdateRequest,
+  ) => ContextBudgetUpdateResult;
 };
 
 const LAYER_ORDER: ContextLayerId[] = [
@@ -83,12 +120,22 @@ const LAYER_ORDER: ContextLayerId[] = [
   "immediate",
 ];
 
+const TRUNCATION_ORDER: Array<Exclude<ContextLayerId, "rules">> = [
+  "retrieved",
+  "settings",
+  "immediate",
+];
+
 const LAYER_DEGRADED_WARNING: Record<ContextLayerId, string> = {
   rules: "KG_UNAVAILABLE",
   settings: "SETTINGS_UNAVAILABLE",
   retrieved: "RAG_UNAVAILABLE",
   immediate: "IMMEDIATE_UNAVAILABLE",
 };
+
+const DEFAULT_TOTAL_BUDGET_TOKENS = 6000;
+const DEFAULT_TOKENIZER_ID = "cn-byte-estimator";
+const DEFAULT_TOKENIZER_VERSION = "1.0.0";
 
 /**
  * Why: source and warning lists must stay deterministic and free of empty noise
@@ -106,12 +153,29 @@ function uniqueNonEmpty(values: readonly string[]): string[] {
 }
 
 /**
- * Why: P0 contract only needs a deterministic approximation without model-bound
- * tokenizer dependencies.
+ * Why: CE2 requires deterministic token math without external tokenizer
+ * dependencies during local tests and CI.
  */
 function estimateTokenCount(text: string): number {
   const bytes = new TextEncoder().encode(text).length;
   return bytes === 0 ? 0 : Math.ceil(bytes / 4);
+}
+
+/**
+ * Why: truncation must be deterministic and bounded by token budget.
+ */
+function trimTextToTokenBudget(text: string, tokenBudget: number): string {
+  const maxBytes = Math.max(0, Math.floor(tokenBudget * 4));
+  if (maxBytes === 0) {
+    return "";
+  }
+
+  const buffer = new TextEncoder().encode(text);
+  if (buffer.length <= maxBytes) {
+    return text;
+  }
+
+  return new TextDecoder().decode(buffer.slice(0, maxBytes));
 }
 
 /**
@@ -195,6 +259,209 @@ async function fetchLayerWithDegrade(args: {
 }
 
 /**
+ * Why: mutable layer transforms must not mutate upstream fetch outputs.
+ */
+function cloneLayerDetail(layer: ContextLayerDetail): ContextLayerDetail {
+  return {
+    content: layer.content,
+    source: [...layer.source],
+    tokenCount: layer.tokenCount,
+    truncated: layer.truncated,
+    ...(layer.warnings ? { warnings: [...layer.warnings] } : {}),
+  };
+}
+
+/**
+ * Why: fixed CE2 defaults must be centralized for deterministic get/update
+ * behavior and test assertions.
+ */
+function defaultBudgetLayers(): Record<
+  ContextLayerId,
+  ContextBudgetLayerConfig
+> {
+  return {
+    rules: { ratio: 0.15, minimumTokens: 500 },
+    settings: { ratio: 0.1, minimumTokens: 200 },
+    retrieved: { ratio: 0.25, minimumTokens: 0 },
+    immediate: { ratio: 0.5, minimumTokens: 2000 },
+  };
+}
+
+/**
+ * Why: service state must always start from a valid CE2 profile.
+ */
+function buildDefaultBudgetProfile(): ContextBudgetProfile {
+  return {
+    version: 1,
+    tokenizerId: DEFAULT_TOKENIZER_ID,
+    tokenizerVersion: DEFAULT_TOKENIZER_VERSION,
+    totalBudgetTokens: DEFAULT_TOTAL_BUDGET_TOKENS,
+    layers: defaultBudgetLayers(),
+  };
+}
+
+/**
+ * Why: callers must never obtain mutable references to internal budget state.
+ */
+function cloneBudgetProfile(
+  profile: ContextBudgetProfile,
+): ContextBudgetProfile {
+  return {
+    version: profile.version,
+    tokenizerId: profile.tokenizerId,
+    tokenizerVersion: profile.tokenizerVersion,
+    totalBudgetTokens: profile.totalBudgetTokens,
+    layers: {
+      rules: { ...profile.layers.rules },
+      settings: { ...profile.layers.settings },
+      retrieved: { ...profile.layers.retrieved },
+      immediate: { ...profile.layers.immediate },
+    },
+  };
+}
+
+/**
+ * Why: CE2 budgets are ratio-derived with per-layer minimum guarantees.
+ */
+function deriveLayerBudgetCaps(
+  profile: ContextBudgetProfile,
+): Record<ContextLayerId, number> {
+  const total = profile.totalBudgetTokens;
+  return {
+    rules: Math.max(
+      profile.layers.rules.minimumTokens,
+      Math.floor(total * profile.layers.rules.ratio),
+    ),
+    settings: Math.max(
+      profile.layers.settings.minimumTokens,
+      Math.floor(total * profile.layers.settings.ratio),
+    ),
+    retrieved: Math.max(
+      profile.layers.retrieved.minimumTokens,
+      Math.floor(total * profile.layers.retrieved.ratio),
+    ),
+    immediate: Math.max(
+      profile.layers.immediate.minimumTokens,
+      Math.floor(total * profile.layers.immediate.ratio),
+    ),
+  };
+}
+
+/**
+ * Why: update path must return explicit CE2 errors instead of accepting drifted
+ * or malformed profile inputs.
+ */
+function validateBudgetUpdateInput(
+  layers: Record<ContextLayerId, ContextBudgetLayerConfig>,
+): ContextBudgetUpdateResult | null {
+  const ratioValues = LAYER_ORDER.map((layer) => layers[layer].ratio);
+  const ratioSum = ratioValues.reduce((acc, value) => acc + value, 0);
+
+  const invalidRatio = ratioValues.some(
+    (ratio) => !Number.isFinite(ratio) || ratio < 0,
+  );
+  if (invalidRatio || Math.abs(ratioSum - 1) > 1e-9) {
+    return {
+      ok: false,
+      error: {
+        code: "CONTEXT_BUDGET_INVALID_RATIO",
+        message: "Budget ratios must be finite, non-negative and sum to 1",
+      },
+    };
+  }
+
+  const invalidMinimum = LAYER_ORDER.some((layer) => {
+    const minimum = layers[layer].minimumTokens;
+    return (
+      !Number.isFinite(minimum) || !Number.isInteger(minimum) || minimum < 0
+    );
+  });
+  if (invalidMinimum) {
+    return {
+      ok: false,
+      error: {
+        code: "CONTEXT_BUDGET_INVALID_MINIMUM",
+        message: "minimumTokens must be a non-negative integer",
+      },
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Why: warnings and prompt layers must reflect post-budget state.
+ */
+function totalLayerTokens(
+  layers: Record<ContextLayerId, ContextLayerDetail>,
+): number {
+  return (
+    layers.rules.tokenCount +
+    layers.settings.tokenCount +
+    layers.retrieved.tokenCount +
+    layers.immediate.tokenCount
+  );
+}
+
+/**
+ * Why: CE2 requires fixed truncation order and a non-trimmable Rules layer.
+ */
+function applyBudgetToLayers(args: {
+  layers: Record<ContextLayerId, ContextLayerDetail>;
+  budgetProfile: ContextBudgetProfile;
+}): {
+  layers: Record<ContextLayerId, ContextLayerDetail>;
+  warnings: string[];
+} {
+  const layers: Record<ContextLayerId, ContextLayerDetail> = {
+    rules: cloneLayerDetail(args.layers.rules),
+    settings: cloneLayerDetail(args.layers.settings),
+    retrieved: cloneLayerDetail(args.layers.retrieved),
+    immediate: cloneLayerDetail(args.layers.immediate),
+  };
+  const warnings: string[] = [];
+  const layerCaps = deriveLayerBudgetCaps(args.budgetProfile);
+
+  if (layers.rules.tokenCount > layerCaps.rules) {
+    warnings.push("CONTEXT_RULES_OVERBUDGET");
+  }
+
+  let overflow =
+    totalLayerTokens(layers) - args.budgetProfile.totalBudgetTokens;
+
+  for (const layerId of TRUNCATION_ORDER) {
+    if (overflow <= 0) {
+      break;
+    }
+
+    const current = layers[layerId];
+    const minimumTokens = args.budgetProfile.layers[layerId].minimumTokens;
+    const removableTokens = Math.max(0, current.tokenCount - minimumTokens);
+    if (removableTokens <= 0) {
+      continue;
+    }
+
+    const targetTokens =
+      current.tokenCount - Math.min(removableTokens, overflow);
+    const trimmedContent = trimTextToTokenBudget(current.content, targetTokens);
+    const trimmedTokens = estimateTokenCount(trimmedContent);
+    const reducedTokens = Math.max(0, current.tokenCount - trimmedTokens);
+
+    if (reducedTokens > 0) {
+      layers[layerId] = {
+        ...current,
+        content: trimmedContent,
+        tokenCount: trimmedTokens,
+        truncated: true,
+      };
+      overflow -= reducedTokens;
+    }
+  }
+
+  return { layers, warnings };
+}
+
+/**
  * Why: assemble contract exposes summaries while inspect exposes details; one
  * adapter keeps the two representations consistent.
  */
@@ -210,7 +477,7 @@ function layerSummary(detail: ContextLayerDetail): ContextLayerSummary {
 }
 
 /**
- * Why: `source` and `tokenCount` are hard-required fields in CE-P0 contract.
+ * Why: `source` and `tokenCount` are hard-required fields in CE contract.
  */
 function validateLayerContract(layer: ContextLayerDetail): void {
   if (!Array.isArray(layer.source)) {
@@ -228,6 +495,7 @@ function validateLayerContract(layer: ContextLayerDetail): void {
 async function buildContextSnapshot(args: {
   request: ContextAssembleRequest;
   fetchers: ContextLayerFetcherMap;
+  budgetProfile: ContextBudgetProfile;
 }): Promise<{
   layersDetail: Record<ContextLayerId, ContextLayerDetail>;
   warnings: string[];
@@ -261,37 +529,52 @@ async function buildContextSnapshot(args: {
   validateLayerContract(retrieved);
   validateLayerContract(immediate);
 
-  const warnings = uniqueNonEmpty([
-    ...(rules.warnings ?? []),
-    ...(settings.warnings ?? []),
-    ...(retrieved.warnings ?? []),
-    ...(immediate.warnings ?? []),
-  ]);
-
-  const prompt = [
-    toLayerPrompt({ layer: "rules", content: rules.content }),
-    toLayerPrompt({ layer: "settings", content: settings.content }),
-    toLayerPrompt({ layer: "retrieved", content: retrieved.content }),
-    toLayerPrompt({ layer: "immediate", content: immediate.content }),
-  ].join("\n\n");
-
-  const tokenCount =
-    rules.tokenCount +
-    settings.tokenCount +
-    retrieved.tokenCount +
-    immediate.tokenCount;
-
-  return {
-    layersDetail: {
+  const budgetApplied = applyBudgetToLayers({
+    layers: {
       rules,
       settings,
       retrieved,
       immediate,
     },
+    budgetProfile: args.budgetProfile,
+  });
+
+  const warnings = uniqueNonEmpty([
+    ...(budgetApplied.layers.rules.warnings ?? []),
+    ...(budgetApplied.layers.settings.warnings ?? []),
+    ...(budgetApplied.layers.retrieved.warnings ?? []),
+    ...(budgetApplied.layers.immediate.warnings ?? []),
+    ...budgetApplied.warnings,
+  ]);
+
+  const prompt = [
+    toLayerPrompt({
+      layer: "rules",
+      content: budgetApplied.layers.rules.content,
+    }),
+    toLayerPrompt({
+      layer: "settings",
+      content: budgetApplied.layers.settings.content,
+    }),
+    toLayerPrompt({
+      layer: "retrieved",
+      content: budgetApplied.layers.retrieved.content,
+    }),
+    toLayerPrompt({
+      layer: "immediate",
+      content: budgetApplied.layers.immediate.content,
+    }),
+  ].join("\n\n");
+
+  return {
+    layersDetail: budgetApplied.layers,
     warnings,
     prompt,
-    tokenCount,
-    stablePrefixHash: hashStablePrefix(rules.content, settings.content),
+    tokenCount: totalLayerTokens(budgetApplied.layers),
+    stablePrefixHash: hashStablePrefix(
+      budgetApplied.layers.rules.content,
+      budgetApplied.layers.settings.content,
+    ),
   };
 }
 
@@ -329,10 +612,10 @@ function defaultFetchers(): ContextLayerFetcherMap {
 }
 
 /**
- * Create a deterministic Context Layer Assembly service for P0 contract flow.
+ * Create a deterministic Context Layer Assembly service.
  *
- * Why: P0 needs a stable and testable assembly API before budget/hash/constraint
- * extensions land in follow-up changes.
+ * Why: CE2 needs fixed token budgets plus updateable profile contract while
+ * keeping CE1 assemble/inspect behavior stable for downstream callers.
  */
 export function createContextLayerAssemblyService(
   fetchers?: Partial<ContextLayerFetcherMap>,
@@ -342,12 +625,14 @@ export function createContextLayerAssemblyService(
     ...(fetchers ?? {}),
   };
   const previousStablePrefixByRequest = new Map<string, string>();
+  let budgetProfile = buildDefaultBudgetProfile();
 
   return {
     assemble: async (request) => {
       const snapshot = await buildContextSnapshot({
         request,
         fetchers: fetcherMap,
+        budgetProfile,
       });
 
       const cacheKey = keyForStablePrefix(request);
@@ -374,6 +659,7 @@ export function createContextLayerAssemblyService(
       const snapshot = await buildContextSnapshot({
         request,
         fetchers: fetcherMap,
+        budgetProfile,
       });
 
       return {
@@ -388,6 +674,49 @@ export function createContextLayerAssemblyService(
           requestedAt: Date.now(),
         },
       };
+    },
+    getBudgetProfile: () => cloneBudgetProfile(budgetProfile),
+    updateBudgetProfile: (request) => {
+      if (request.version !== budgetProfile.version) {
+        return {
+          ok: false,
+          error: {
+            code: "CONTEXT_BUDGET_CONFLICT",
+            message: "Budget profile version conflict",
+          },
+        };
+      }
+
+      if (
+        request.tokenizerId !== budgetProfile.tokenizerId ||
+        request.tokenizerVersion !== budgetProfile.tokenizerVersion
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "CONTEXT_TOKENIZER_MISMATCH",
+            message: "Tokenizer metadata does not match context tokenizer",
+          },
+        };
+      }
+
+      const validationError = validateBudgetUpdateInput(request.layers);
+      if (validationError) {
+        return validationError;
+      }
+
+      budgetProfile = {
+        ...cloneBudgetProfile(budgetProfile),
+        version: budgetProfile.version + 1,
+        layers: {
+          rules: { ...request.layers.rules },
+          settings: { ...request.layers.settings },
+          retrieved: { ...request.layers.retrieved },
+          immediate: { ...request.layers.immediate },
+        },
+      };
+
+      return { ok: true, data: cloneBudgetProfile(budgetProfile) };
     },
   };
 }

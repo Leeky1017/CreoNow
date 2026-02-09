@@ -57,6 +57,10 @@ export const IPC_ERROR_CODES = [
   "VERSION_MERGE_TIMEOUT",
   "SEARCH_TIMEOUT",
   "CONTEXT_SCOPE_VIOLATION",
+  "CONTEXT_BUDGET_INVALID_RATIO",
+  "CONTEXT_BUDGET_INVALID_MINIMUM",
+  "CONTEXT_BUDGET_CONFLICT",
+  "CONTEXT_TOKENIZER_MISMATCH",
 ] as const;
 
 export type IpcErrorCode = (typeof IPC_ERROR_CODES)[number];
@@ -169,6 +173,36 @@ const CONTEXT_INSPECT_RESPONSE_SCHEMA = s.object({
     debugMode: s.boolean(),
     requestedBy: s.string(),
     requestedAt: s.number(),
+  }),
+});
+
+const CONTEXT_BUDGET_LAYER_SCHEMA = s.object({
+  ratio: s.number(),
+  minimumTokens: s.number(),
+});
+
+const CONTEXT_BUDGET_PROFILE_SCHEMA = s.object({
+  version: s.number(),
+  tokenizerId: s.string(),
+  tokenizerVersion: s.string(),
+  totalBudgetTokens: s.number(),
+  layers: s.object({
+    rules: CONTEXT_BUDGET_LAYER_SCHEMA,
+    settings: CONTEXT_BUDGET_LAYER_SCHEMA,
+    retrieved: CONTEXT_BUDGET_LAYER_SCHEMA,
+    immediate: CONTEXT_BUDGET_LAYER_SCHEMA,
+  }),
+});
+
+const CONTEXT_BUDGET_UPDATE_REQUEST_SCHEMA = s.object({
+  version: s.number(),
+  tokenizerId: s.string(),
+  tokenizerVersion: s.string(),
+  layers: s.object({
+    rules: CONTEXT_BUDGET_LAYER_SCHEMA,
+    settings: CONTEXT_BUDGET_LAYER_SCHEMA,
+    retrieved: CONTEXT_BUDGET_LAYER_SCHEMA,
+    immediate: CONTEXT_BUDGET_LAYER_SCHEMA,
   }),
 });
 
@@ -1432,6 +1466,14 @@ export const ipcContract = {
     "context:watch:stop": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ watching: s.literal(false) }),
+    },
+    "context:budget:get": {
+      request: s.object({}),
+      response: CONTEXT_BUDGET_PROFILE_SCHEMA,
+    },
+    "context:budget:update": {
+      request: CONTEXT_BUDGET_UPDATE_REQUEST_SCHEMA,
+      response: CONTEXT_BUDGET_PROFILE_SCHEMA,
     },
     "context:prompt:assemble": {
       request: CONTEXT_ASSEMBLE_REQUEST_SCHEMA,
