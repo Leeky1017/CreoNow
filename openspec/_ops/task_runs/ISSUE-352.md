@@ -3,7 +3,7 @@
 - Issue: #352
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/352
 - Branch: task/352-ai-service-p0-llmproxy-config-security
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/356
 - Scope: 完成 change `openspec/changes/ai-service-p0-llmproxy-config-security`（`ai:config:*` 契约、安全存储、重试与限流基线）并按治理流程合并到控制面 `main`
 - Out of Scope: 流式生命周期状态机（P1）、AI 面板聊天应用流（P2）、Judge 流程（P3）、候选方案与统计（P4/P5）
 
