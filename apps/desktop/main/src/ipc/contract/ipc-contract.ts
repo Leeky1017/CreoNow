@@ -95,6 +95,79 @@ const CREONOW_LIST_ITEM_SCHEMA = s.object({
   updatedAtMs: s.number(),
 });
 
+const CONTEXT_LAYER_ID_SCHEMA = s.union(
+  s.literal("rules"),
+  s.literal("settings"),
+  s.literal("retrieved"),
+  s.literal("immediate"),
+);
+
+const CONTEXT_ASSEMBLE_REQUEST_SCHEMA = s.object({
+  projectId: s.string(),
+  documentId: s.string(),
+  cursorPosition: s.number(),
+  skillId: s.string(),
+  additionalInput: s.optional(s.string()),
+});
+
+const CONTEXT_INSPECT_REQUEST_SCHEMA = s.object({
+  projectId: s.string(),
+  documentId: s.string(),
+  cursorPosition: s.number(),
+  skillId: s.string(),
+  additionalInput: s.optional(s.string()),
+  debugMode: s.optional(s.boolean()),
+  requestedBy: s.optional(s.string()),
+});
+
+const CONTEXT_LAYER_SUMMARY_SCHEMA = s.object({
+  source: s.array(s.string()),
+  tokenCount: s.number(),
+  truncated: s.boolean(),
+  warnings: s.optional(s.array(s.string())),
+});
+
+const CONTEXT_LAYER_DETAIL_SCHEMA = s.object({
+  content: s.string(),
+  source: s.array(s.string()),
+  tokenCount: s.number(),
+  truncated: s.boolean(),
+  warnings: s.optional(s.array(s.string())),
+});
+
+const CONTEXT_ASSEMBLE_RESPONSE_SCHEMA = s.object({
+  prompt: s.string(),
+  tokenCount: s.number(),
+  stablePrefixHash: s.string(),
+  stablePrefixUnchanged: s.boolean(),
+  warnings: s.array(s.string()),
+  assemblyOrder: s.array(CONTEXT_LAYER_ID_SCHEMA),
+  layers: s.object({
+    rules: CONTEXT_LAYER_SUMMARY_SCHEMA,
+    settings: CONTEXT_LAYER_SUMMARY_SCHEMA,
+    retrieved: CONTEXT_LAYER_SUMMARY_SCHEMA,
+    immediate: CONTEXT_LAYER_SUMMARY_SCHEMA,
+  }),
+});
+
+const CONTEXT_INSPECT_RESPONSE_SCHEMA = s.object({
+  layersDetail: s.object({
+    rules: CONTEXT_LAYER_DETAIL_SCHEMA,
+    settings: CONTEXT_LAYER_DETAIL_SCHEMA,
+    retrieved: CONTEXT_LAYER_DETAIL_SCHEMA,
+    immediate: CONTEXT_LAYER_DETAIL_SCHEMA,
+  }),
+  totals: s.object({
+    tokenCount: s.number(),
+    warningsCount: s.number(),
+  }),
+  inspectMeta: s.object({
+    debugMode: s.boolean(),
+    requestedBy: s.string(),
+    requestedAt: s.number(),
+  }),
+});
+
 const SEARCH_FTS_ITEM_SCHEMA = s.object({
   documentId: s.string(),
   title: s.string(),
@@ -1325,6 +1398,14 @@ export const ipcContract = {
     "context:watch:stop": {
       request: s.object({ projectId: s.string() }),
       response: s.object({ watching: s.literal(false) }),
+    },
+    "context:prompt:assemble": {
+      request: CONTEXT_ASSEMBLE_REQUEST_SCHEMA,
+      response: CONTEXT_ASSEMBLE_RESPONSE_SCHEMA,
+    },
+    "context:prompt:inspect": {
+      request: CONTEXT_INSPECT_REQUEST_SCHEMA,
+      response: CONTEXT_INSPECT_RESPONSE_SCHEMA,
     },
     "context:rules:list": {
       request: s.object({ projectId: s.string() }),

@@ -12,6 +12,14 @@ import {
   readCreonowTextFile,
 } from "../services/context/contextFs";
 import { redactUserDataPath } from "../db/paths";
+import {
+  createContextLayerAssemblyService,
+  type ContextAssembleRequest,
+  type ContextAssembleResult,
+  type ContextInspectRequest,
+  type ContextInspectResult,
+  type ContextLayerAssemblyService,
+} from "../services/context/layerAssemblyService";
 import type { CreonowWatchService } from "../services/context/watchService";
 
 type ProjectRow = {
@@ -32,6 +40,22 @@ function isReadWithinScope(args: {
 }
 
 /**
+ * Check project existence before context assembly/inspection.
+ *
+ * Why: `context:prompt:*` must return deterministic `NOT_FOUND` instead of
+ * allowing downstream service calls to fail ambiguously.
+ */
+function projectExists(db: Database.Database, projectId: string): boolean {
+  const row = db
+    .prepare<
+      [string],
+      ProjectRow
+    >("SELECT root_path as rootPath FROM projects WHERE project_id = ?")
+    .get(projectId);
+  return Boolean(row);
+}
+
+/**
  * Register `context:creonow:*` IPC handlers (P0 subset).
  *
  * Why: `.creonow` is the stable, project-relative metadata root required by P0,
@@ -43,7 +67,11 @@ export function registerContextIpcHandlers(deps: {
   logger: Logger;
   userDataDir: string;
   watchService: CreonowWatchService;
+  contextAssemblyService?: ContextLayerAssemblyService;
 }): void {
+  const contextAssemblyService =
+    deps.contextAssemblyService ?? createContextLayerAssemblyService();
+
   deps.ipcMain.handle(
     "context:creonow:ensure",
     async (
@@ -267,6 +295,144 @@ export function registerContextIpcHandlers(deps: {
         return {
           ok: false,
           error: { code: "IO_ERROR", message: "Failed to stop .creonow watch" },
+        };
+      }
+    },
+  );
+
+  deps.ipcMain.handle(
+    "context:prompt:assemble",
+    async (
+      _e,
+      payload: ContextAssembleRequest,
+    ): Promise<IpcResponse<ContextAssembleResult>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (payload.projectId.trim().length === 0) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
+      if (payload.documentId.trim().length === 0) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId is required",
+          },
+        };
+      }
+      if (payload.skillId.trim().length === 0) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "skillId is required" },
+        };
+      }
+      if (
+        typeof payload.cursorPosition !== "number" ||
+        Number.isNaN(payload.cursorPosition)
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "cursorPosition must be a valid number",
+          },
+        };
+      }
+
+      try {
+        if (!projectExists(deps.db, payload.projectId)) {
+          return {
+            ok: false,
+            error: { code: "NOT_FOUND", message: "Project not found" },
+          };
+        }
+
+        const assembled = await contextAssemblyService.assemble(payload);
+        return { ok: true, data: assembled };
+      } catch (error) {
+        deps.logger.error("context_assemble_failed", {
+          code: "INTERNAL",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL", message: "Failed to assemble context" },
+        };
+      }
+    },
+  );
+
+  deps.ipcMain.handle(
+    "context:prompt:inspect",
+    async (
+      _e,
+      payload: ContextInspectRequest,
+    ): Promise<IpcResponse<ContextInspectResult>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (payload.projectId.trim().length === 0) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
+      if (payload.documentId.trim().length === 0) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId is required",
+          },
+        };
+      }
+      if (payload.skillId.trim().length === 0) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "skillId is required" },
+        };
+      }
+      if (
+        typeof payload.cursorPosition !== "number" ||
+        Number.isNaN(payload.cursorPosition)
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "cursorPosition must be a valid number",
+          },
+        };
+      }
+
+      try {
+        if (!projectExists(deps.db, payload.projectId)) {
+          return {
+            ok: false,
+            error: { code: "NOT_FOUND", message: "Project not found" },
+          };
+        }
+
+        const inspected = await contextAssemblyService.inspect(payload);
+        return { ok: true, data: inspected };
+      } catch (error) {
+        deps.logger.error("context_inspect_failed", {
+          code: "INTERNAL",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "INTERNAL", message: "Failed to inspect context" },
         };
       }
     },

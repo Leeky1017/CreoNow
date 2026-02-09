@@ -100,6 +100,8 @@ export const IPC_CHANNELS = [
   "constraints:policy:set",
   "context:creonow:ensure",
   "context:creonow:status",
+  "context:prompt:assemble",
+  "context:prompt:inspect",
   "context:rules:list",
   "context:rules:read",
   "context:settings:list",
@@ -427,6 +429,101 @@ export type IpcChannelSpec = {
       exists: boolean;
       rootPath?: string;
       watching: boolean;
+    };
+  };
+  "context:prompt:assemble": {
+    request: {
+      additionalInput?: string;
+      cursorPosition: number;
+      documentId: string;
+      projectId: string;
+      skillId: string;
+    };
+    response: {
+      assemblyOrder: Array<"rules" | "settings" | "retrieved" | "immediate">;
+      layers: {
+        immediate: {
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
+        retrieved: {
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
+        rules: {
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
+        settings: {
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
+      };
+      prompt: string;
+      stablePrefixHash: string;
+      stablePrefixUnchanged: boolean;
+      tokenCount: number;
+      warnings: Array<string>;
+    };
+  };
+  "context:prompt:inspect": {
+    request: {
+      additionalInput?: string;
+      cursorPosition: number;
+      debugMode?: boolean;
+      documentId: string;
+      projectId: string;
+      requestedBy?: string;
+      skillId: string;
+    };
+    response: {
+      inspectMeta: {
+        debugMode: boolean;
+        requestedAt: number;
+        requestedBy: string;
+      };
+      layersDetail: {
+        immediate: {
+          content: string;
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
+        retrieved: {
+          content: string;
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
+        rules: {
+          content: string;
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
+        settings: {
+          content: string;
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
+      };
+      totals: {
+        tokenCount: number;
+        warningsCount: number;
+      };
     };
   };
   "context:rules:list": {
