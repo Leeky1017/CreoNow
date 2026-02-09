@@ -3,7 +3,7 @@
 - Issue: #344
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/344
 - Branch: task/344-active-changes-delivery
-- PR: https://github.com/Leeky1017/CreoNow/pull/0
+- PR: https://github.com/Leeky1017/CreoNow/pull/345
 - Scope: 交付并持久化当前全部 active OpenSpec changes（AI/Context/Search/Governance）并收口到 main
 - Out of Scope: 运行时代码改动；主 spec（`openspec/specs/**/spec.md`）修改
 
