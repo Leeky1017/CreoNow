@@ -14,7 +14,7 @@
 - [x] Red：S1/S2/S3 失败测试证据落盘
 - [x] Green：实现安全存储、`ai:config:*`、重试与限流基线
 - [x] Refactor：契约与调用方同步、测试接入 `pnpm test:unit`
-- [ ] preflight 全绿
+- [x] preflight 全绿
 - [ ] PR + required checks + auto-merge + main 收口
 - [ ] change/archive 收口 + Rulebook 自归档 + worktree 清理
 
@@ -130,3 +130,29 @@
 - Key output:
   - Rulebook task 结构通过 validate
   - Warning：`No spec files found (specs/*/spec.md)`（不阻断）
+
+### 2026-02-09 22:48 +0800 自动交付首轮尝试（阻塞）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `1`（preflight 阻塞，脚本进入等待）
+- Key output:
+  - 自动创建 PR：`https://github.com/Leeky1017/CreoNow/pull/356`（draft）
+  - 自动回填 RUN_LOG PR 链接并产生提交：`docs: backfill run log PR link (#352)`
+  - preflight 失败点：`prettier --check` 报告 4 个文件未格式化
+
+### 2026-02-09 22:50 +0800 preflight 格式修复
+
+- Command:
+  - `pnpm exec prettier --write apps/desktop/main/src/ipc/__tests__/ai-config-ipc.test.ts apps/desktop/main/src/services/ai/__tests__/llm-proxy-retry-rate-limit.test.ts rulebook/tasks/issue-352-ai-service-p0-llmproxy-config-security/.metadata.json rulebook/tasks/issue-352-ai-service-p0-llmproxy-config-security/tasks.md`
+- Exit code: `0`
+- Key output:
+  - 4 个 preflight 阻塞文件已完成格式化
+
+### 2026-02-09 22:53 +0800 preflight 全绿（修复后）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - `prettier --check`、`typecheck`、`lint`、`contract:check`、`cross-module:check`、`test:unit` 全部通过
