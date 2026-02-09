@@ -20,7 +20,9 @@ function textForTokens(tokens: number): string {
       chunks: [{ source: "rag:retrieve", content: textForTokens(1000) }],
     }),
     immediate: async () => ({
-      chunks: [{ source: "editor:cursor-window", content: textForTokens(3000) }],
+      chunks: [
+        { source: "editor:cursor-window", content: textForTokens(3000) },
+      ],
     }),
   });
 

@@ -74,7 +74,10 @@ type FakeIpcMain = {
     throw new Error("Expected budget get success");
   }
 
-  const firstUpdate = (await updateHandler({}, budgetResponse.data)) as IpcResponse<{
+  const firstUpdate = (await updateHandler(
+    {},
+    budgetResponse.data,
+  )) as IpcResponse<{
     version: number;
     tokenizerId: string;
     tokenizerVersion: string;
@@ -90,7 +93,10 @@ type FakeIpcMain = {
     throw new Error("Expected first budget update success");
   }
 
-  const conflict = (await updateHandler({}, budgetResponse.data)) as IpcResponse<{
+  const conflict = (await updateHandler(
+    {},
+    budgetResponse.data,
+  )) as IpcResponse<{
     version: number;
     tokenizerId: string;
     tokenizerVersion: string;
@@ -102,10 +108,13 @@ type FakeIpcMain = {
     };
   }>;
 
-  const mismatch = (await updateHandler({}, {
-    ...firstUpdate.data,
-    tokenizerId: "mismatched-tokenizer",
-  })) as IpcResponse<{
+  const mismatch = (await updateHandler(
+    {},
+    {
+      ...firstUpdate.data,
+      tokenizerId: "mismatched-tokenizer",
+    },
+  )) as IpcResponse<{
     version: number;
     tokenizerId: string;
     tokenizerVersion: string;

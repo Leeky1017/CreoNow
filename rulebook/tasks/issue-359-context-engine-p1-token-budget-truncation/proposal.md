@@ -1,9 +1,11 @@
 # Proposal: issue-359-context-engine-p1-token-budget-truncation
 
 ## Why
+
 `openspec/changes/context-engine-p1-token-budget-truncation` 已进入 Phase A，但代码层仍停留在 CE-1：目前缺少固定预算比例/最小保障、固定裁剪顺序，以及 `context:budget:get/update` 契约，导致 Context Engine 在超预算输入下缺乏确定性行为，且下游 CE P2/P3 无法依赖可审计预算配置。
 
 ## What Changes
+
 - 基于 CE2 delta spec 实现 Token 预算管理最小闭环：
   - 固化预算比例与最小保障（`15/10/25/50` + `500/200/0/2000`）。
   - 固化裁剪顺序 `Retrieved -> Settings -> Immediate`，Rules 不进入通用裁剪链路。
@@ -18,6 +20,7 @@
 - 更新 IPC contract schema + codegen，并完成 preflight/门禁验证、PR 自动合并与主干收口。
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/context-engine-p1-token-budget-truncation/specs/context-engine-delta.md`
   - `openspec/changes/context-engine-p1-token-budget-truncation/tasks.md`

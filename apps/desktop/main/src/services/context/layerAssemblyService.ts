@@ -275,7 +275,10 @@ function cloneLayerDetail(layer: ContextLayerDetail): ContextLayerDetail {
  * Why: fixed CE2 defaults must be centralized for deterministic get/update
  * behavior and test assertions.
  */
-function defaultBudgetLayers(): Record<ContextLayerId, ContextBudgetLayerConfig> {
+function defaultBudgetLayers(): Record<
+  ContextLayerId,
+  ContextBudgetLayerConfig
+> {
   return {
     rules: { ratio: 0.15, minimumTokens: 500 },
     settings: { ratio: 0.1, minimumTokens: 200 },
@@ -300,7 +303,9 @@ function buildDefaultBudgetProfile(): ContextBudgetProfile {
 /**
  * Why: callers must never obtain mutable references to internal budget state.
  */
-function cloneBudgetProfile(profile: ContextBudgetProfile): ContextBudgetProfile {
+function cloneBudgetProfile(
+  profile: ContextBudgetProfile,
+): ContextBudgetProfile {
   return {
     version: profile.version,
     tokenizerId: profile.tokenizerId,
@@ -368,9 +373,7 @@ function validateBudgetUpdateInput(
   const invalidMinimum = LAYER_ORDER.some((layer) => {
     const minimum = layers[layer].minimumTokens;
     return (
-      !Number.isFinite(minimum) ||
-      !Number.isInteger(minimum) ||
-      minimum < 0
+      !Number.isFinite(minimum) || !Number.isInteger(minimum) || minimum < 0
     );
   });
   if (invalidMinimum) {
@@ -389,7 +392,9 @@ function validateBudgetUpdateInput(
 /**
  * Why: warnings and prompt layers must reflect post-budget state.
  */
-function totalLayerTokens(layers: Record<ContextLayerId, ContextLayerDetail>): number {
+function totalLayerTokens(
+  layers: Record<ContextLayerId, ContextLayerDetail>,
+): number {
   return (
     layers.rules.tokenCount +
     layers.settings.tokenCount +
@@ -421,7 +426,8 @@ function applyBudgetToLayers(args: {
     warnings.push("CONTEXT_RULES_OVERBUDGET");
   }
 
-  let overflow = totalLayerTokens(layers) - args.budgetProfile.totalBudgetTokens;
+  let overflow =
+    totalLayerTokens(layers) - args.budgetProfile.totalBudgetTokens;
 
   for (const layerId of TRUNCATION_ORDER) {
     if (overflow <= 0) {
@@ -435,7 +441,8 @@ function applyBudgetToLayers(args: {
       continue;
     }
 
-    const targetTokens = current.tokenCount - Math.min(removableTokens, overflow);
+    const targetTokens =
+      current.tokenCount - Math.min(removableTokens, overflow);
     const trimmedContent = trimTextToTokenBudget(current.content, targetTokens);
     const trimmedTokens = estimateTokenCount(trimmedContent);
     const reducedTokens = Math.max(0, current.tokenCount - trimmedTokens);
@@ -541,7 +548,10 @@ async function buildContextSnapshot(args: {
   ]);
 
   const prompt = [
-    toLayerPrompt({ layer: "rules", content: budgetApplied.layers.rules.content }),
+    toLayerPrompt({
+      layer: "rules",
+      content: budgetApplied.layers.rules.content,
+    }),
     toLayerPrompt({
       layer: "settings",
       content: budgetApplied.layers.settings.content,
