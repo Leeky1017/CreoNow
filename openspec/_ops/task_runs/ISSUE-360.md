@@ -3,7 +3,7 @@
 - Issue: #360
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/360
 - Branch: task/360-search-retrieval-p1-embedding-semantic-rag
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/364
 - Scope: 交付 `openspec/changes/search-retrieval-p1-embedding-semantic-rag`，完成 SR2 的 embedding 语义检索 + RAG 检索增强 6 个场景并收口 main
 - Out of Scope: `search-retrieval-p2-replace-versioned`、`search-retrieval-p3-hybrid-ranking-explain`、`search-retrieval-p4-hardening-boundary`
 
