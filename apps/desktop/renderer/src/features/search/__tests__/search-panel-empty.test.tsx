@@ -34,6 +34,8 @@ describe("search panel empty state (SR1-R1-S3)", () => {
     render(<SearchPanel projectId="proj_1" />);
 
     expect(screen.getByText("未找到匹配结果")).toBeInTheDocument();
-    expect(screen.getByText("建议检查拼写或使用不同关键词")).toBeInTheDocument();
+    expect(
+      screen.getByText("建议检查拼写或使用不同关键词"),
+    ).toBeInTheDocument();
   });
 });

@@ -85,7 +85,12 @@ function createDbStub(): Database.Database & {
     }
 
     return {
-      all: (_projectId: string, _query: string, _limit: number, _offset: number) => {
+      all: (
+        _projectId: string,
+        _query: string,
+        _limit: number,
+        _offset: number,
+      ) => {
         if (shouldCorruptNextQuery) {
           shouldCorruptNextQuery = false;
           throw new Error("database disk image is malformed");

@@ -156,3 +156,23 @@
 - Exit code: `1`
 - Key output:
   - `PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ... ISSUE-354.md: (待回填)`
+
+### 2026-02-09 23:29 +0800 PR 创建 + RUN_LOG 回填
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `中断（等待 preflight）`
+- Key output:
+  - 创建 PR：`https://github.com/Leeky1017/CreoNow/pull/357`
+  - 自动提交并推送 RUN_LOG 回填：`docs: backfill run log PR link (#354)`
+  - preflight 新阻断：`pnpm exec prettier --check ...`（6 个文件格式不符合）
+
+### 2026-02-09 23:32 +0800 格式修复 + preflight 通过
+
+- Command:
+  - `pnpm exec prettier --write apps/desktop/renderer/src/features/search/__tests__/search-panel-empty.test.tsx apps/desktop/tests/integration/search/fts-query-panel.test.ts apps/desktop/tests/integration/search/fts-reindex-recovery.test.ts rulebook/tasks/archive/2026-02-09-issue-354-search-retrieval-p0-fts-foundation/.metadata.json rulebook/tasks/archive/2026-02-09-issue-354-search-retrieval-p0-fts-foundation/proposal.md rulebook/tasks/archive/2026-02-09-issue-354-search-retrieval-p0-fts-foundation/tasks.md`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - `All matched files use Prettier code style!`
+  - `pnpm typecheck` / `pnpm lint` / `pnpm contract:check` / `pnpm cross-module:check` / `pnpm test:unit` 通过

@@ -74,8 +74,12 @@ function createDbStub(): Database.Database {
     }
 
     return {
-      all: (_projectId: string, _query: string, limit: number, offset: number) =>
-        rows.slice(offset, offset + limit),
+      all: (
+        _projectId: string,
+        _query: string,
+        limit: number,
+        offset: number,
+      ) => rows.slice(offset, offset + limit),
     };
   };
 

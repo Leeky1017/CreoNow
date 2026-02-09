@@ -1,9 +1,11 @@
 # Proposal: issue-354-search-retrieval-p0-fts-foundation
 
 ## Why
+
 `openspec/specs/search-and-retrieval/spec.md` 已将 FTS IPC 约定固定为 `search:fts:query` / `search:fts:reindex`，但当前实现仍是 `search:fulltext:query`，且缺失重建状态回传、定位锚点与高亮区间结构，导致 SearchPanel 场景与主 spec 漂移。该任务用于把 P0 FTS 基座收口到可验收状态，并为后续 SR P1/P2 提供稳定前置。
 
 ## What Changes
+
 - 将主进程搜索 IPC 收敛为：
   - `search:fts:query`
   - `search:fts:reindex`
@@ -19,6 +21,7 @@
 - 更新 Storybook 三态：`WithResults`、`Empty`、`Loading`。
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/search-retrieval-p0-fts-foundation/**`
 - Affected code:
