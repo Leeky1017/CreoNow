@@ -3,7 +3,8 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import {
-  AI_SKILL_STREAM_CHANNEL,
+  SKILL_STREAM_CHUNK_CHANNEL,
+  SKILL_STREAM_DONE_CHANNEL,
   type AiStreamEvent,
 } from "../../../../../packages/shared/types/ai";
 import type { Logger } from "../logging/logger";
@@ -57,6 +58,18 @@ type SkillFeedbackResponse = {
   };
 };
 
+type ChatSendPayload = {
+  message: string;
+  projectId?: string;
+  documentId?: string;
+};
+
+type ChatSendResponse = {
+  accepted: true;
+  messageId: string;
+  echoed: string;
+};
+
 const AI_STREAM_RATE_LIMIT_PER_SECOND = 5_000;
 
 /**
@@ -92,8 +105,12 @@ function safeEmitToRenderer(args: {
   sender: Electron.WebContents;
   event: AiStreamEvent;
 }): void {
+  const channel =
+    args.event.type === "run_started" || args.event.type === "delta"
+      ? SKILL_STREAM_CHUNK_CHANNEL
+      : SKILL_STREAM_DONE_CHANNEL;
   try {
-    args.sender.send(AI_SKILL_STREAM_CHANNEL, args.event);
+    args.sender.send(channel, args.event);
   } catch (error) {
     args.logger.error("ai_stream_send_failed", {
       message: error instanceof Error ? error.message : String(error),
@@ -138,7 +155,7 @@ export function registerAiIpcHandlers(deps: {
       onDrop: (event) => {
         deps.logger.info("ipc_push_backpressure_triggered", {
           rendererId: sender.id,
-          channel: AI_SKILL_STREAM_CHANNEL,
+          channel: SKILL_STREAM_CHUNK_CHANNEL,
           timestamp: event.timestamp,
           droppedInWindow: event.droppedInWindow,
           limitPerSecond: event.limitPerSecond,
@@ -437,6 +454,31 @@ export function registerAiIpcHandlers(deps: {
           error: { code: "INTERNAL", message: "AI feedback failed" },
         };
       }
+    },
+  );
+
+  deps.ipcMain.handle(
+    "ai:chat:send",
+    async (
+      _e,
+      payload: ChatSendPayload,
+    ): Promise<IpcResponse<ChatSendResponse>> => {
+      const message = payload.message.trim();
+      if (message.length === 0) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "message is required" },
+        };
+      }
+
+      return {
+        ok: true,
+        data: {
+          accepted: true,
+          messageId: `chat-${nowTs()}`,
+          echoed: message,
+        },
+      };
     },
   );
 }

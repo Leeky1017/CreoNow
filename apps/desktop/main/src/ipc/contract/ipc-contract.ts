@@ -45,6 +45,14 @@ export const IPC_ERROR_CODES = [
   "KG_RELATION_INVALID",
   "KG_SCOPE_VIOLATION",
   "KG_SUBGRAPH_K_EXCEEDED",
+  "PROJECT_SWITCH_TIMEOUT",
+  "DOCUMENT_SAVE_CONFLICT",
+  "MEMORY_BACKPRESSURE",
+  "SKILL_TIMEOUT",
+  "AI_PROVIDER_UNAVAILABLE",
+  "VERSION_MERGE_TIMEOUT",
+  "SEARCH_TIMEOUT",
+  "CONTEXT_SCOPE_VIOLATION",
 ] as const;
 
 export type IpcErrorCode = (typeof IPC_ERROR_CODES)[number];
@@ -518,6 +526,24 @@ export const ipcContract = {
         documentId: s.optional(s.string()),
       }),
       response: EXPORT_RESULT_SCHEMA,
+    },
+    "export:project:bundle": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: EXPORT_RESULT_SCHEMA,
+    },
+    "ai:chat:send": {
+      request: s.object({
+        message: s.string(),
+        projectId: s.optional(s.string()),
+        documentId: s.optional(s.string()),
+      }),
+      response: s.object({
+        accepted: s.literal(true),
+        messageId: s.string(),
+        echoed: s.string(),
+      }),
     },
     "ai:skill:run": {
       request: s.object({

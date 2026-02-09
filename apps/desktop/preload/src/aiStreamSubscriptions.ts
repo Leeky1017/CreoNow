@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { AI_SKILL_STREAM_CHANNEL } from "../../../../packages/shared/types/ai";
+import { SKILL_STREAM_CHUNK_CHANNEL } from "../../../../packages/shared/types/ai";
 import type {
   IpcErr,
   IpcError,
@@ -80,7 +80,7 @@ export function createAiStreamSubscriptionRegistry(
         auditLog({
           event: "ipc_subscription_limit_exceeded",
           rendererId: args.rendererId,
-          channel: AI_SKILL_STREAM_CHANNEL,
+          channel: SKILL_STREAM_CHUNK_CHANNEL,
           timestamp: getNow(),
           details: {
             current: active.size,

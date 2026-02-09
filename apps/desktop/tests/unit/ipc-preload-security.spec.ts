@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 
-import { AI_SKILL_STREAM_CHANNEL } from "../../../../packages/shared/types/ai";
+import {
+  SKILL_STREAM_CHUNK_CHANNEL,
+  SKILL_STREAM_DONE_CHANNEL,
+} from "../../../../packages/shared/types/ai";
 import {
   createAiStreamSubscriptionRegistry,
   MAX_AI_STREAM_SUBSCRIPTIONS,
@@ -123,7 +126,10 @@ type AuditEvent = {
   assert.equal(auditEvents.length, 1);
   assert.equal(auditEvents[0]?.event, "ipc_subscription_limit_exceeded");
   assert.equal(auditEvents[0]?.rendererId, "renderer-3");
-  assert.equal(auditEvents[0]?.channel, AI_SKILL_STREAM_CHANNEL);
+  assert.equal(auditEvents[0]?.channel, SKILL_STREAM_CHUNK_CHANNEL);
+
+  // ensure both stream channels are exported from shared contract constants
+  assert.equal(SKILL_STREAM_DONE_CHANNEL, "skill:stream:done");
 
   assert.equal(MAX_AI_STREAM_SUBSCRIPTIONS, 500);
 }

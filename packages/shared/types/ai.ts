@@ -1,6 +1,7 @@
 import type { IpcError } from "./ipc-generated";
 
-export const AI_SKILL_STREAM_CHANNEL = "ai:skill:stream" as const;
+export const SKILL_STREAM_CHUNK_CHANNEL = "skill:stream:chunk" as const;
+export const SKILL_STREAM_DONE_CHANNEL = "skill:stream:done" as const;
 
 export type AiStreamEvent =
   | { type: "run_started"; runId: string; ts: number }

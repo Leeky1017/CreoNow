@@ -6,10 +6,13 @@
  */
 
 export type IpcErrorCode =
+  | "AI_PROVIDER_UNAVAILABLE"
   | "ALREADY_EXISTS"
   | "CANCELED"
   | "CONFLICT"
+  | "CONTEXT_SCOPE_VIOLATION"
   | "DB_ERROR"
+  | "DOCUMENT_SAVE_CONFLICT"
   | "ENCODING_FAILED"
   | "INTERNAL"
   | "INTERNAL_ERROR"
@@ -29,6 +32,7 @@ export type IpcErrorCode =
   | "KG_RELEVANT_QUERY_FAILED"
   | "KG_SCOPE_VIOLATION"
   | "KG_SUBGRAPH_K_EXCEEDED"
+  | "MEMORY_BACKPRESSURE"
   | "MEMORY_CAPACITY_EXCEEDED"
   | "MEMORY_CLEAR_CONFIRM_REQUIRED"
   | "MEMORY_CONFIDENCE_OUT_OF_RANGE"
@@ -45,11 +49,15 @@ export type IpcErrorCode =
   | "PROJECT_LIFECYCLE_WRITE_FAILED"
   | "PROJECT_METADATA_INVALID_ENUM"
   | "PROJECT_PURGE_PERMISSION_DENIED"
+  | "PROJECT_SWITCH_TIMEOUT"
   | "RATE_LIMITED"
+  | "SEARCH_TIMEOUT"
+  | "SKILL_TIMEOUT"
   | "TIMEOUT"
   | "UNSUPPORTED"
   | "UPSTREAM_ERROR"
-  | "VALIDATION_ERROR";
+  | "VALIDATION_ERROR"
+  | "VERSION_MERGE_TIMEOUT";
 
 export type IpcMeta = {
   requestId: string;
@@ -79,6 +87,7 @@ export type IpcErr = {
 export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
 export const IPC_CHANNELS = [
+  "ai:chat:send",
   "ai:models:list",
   "ai:proxy:test",
   "ai:proxysettings:get",
@@ -104,6 +113,7 @@ export const IPC_CHANNELS = [
   "export:document:markdown",
   "export:document:pdf",
   "export:document:txt",
+  "export:project:bundle",
   "file:document:create",
   "file:document:delete",
   "file:document:getcurrent",
@@ -190,6 +200,18 @@ export const IPC_CHANNELS = [
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
 export type IpcChannelSpec = {
+  "ai:chat:send": {
+    request: {
+      documentId?: string;
+      message: string;
+      projectId?: string;
+    };
+    response: {
+      accepted: true;
+      echoed: string;
+      messageId: string;
+    };
+  };
   "ai:models:list": {
     request: Record<string, never>;
     response: {
@@ -249,7 +271,15 @@ export type IpcChannelSpec = {
           | "KG_RELEVANT_QUERY_FAILED"
           | "KG_RELATION_INVALID"
           | "KG_SCOPE_VIOLATION"
-          | "KG_SUBGRAPH_K_EXCEEDED";
+          | "KG_SUBGRAPH_K_EXCEEDED"
+          | "PROJECT_SWITCH_TIMEOUT"
+          | "DOCUMENT_SAVE_CONFLICT"
+          | "MEMORY_BACKPRESSURE"
+          | "SKILL_TIMEOUT"
+          | "AI_PROVIDER_UNAVAILABLE"
+          | "VERSION_MERGE_TIMEOUT"
+          | "SEARCH_TIMEOUT"
+          | "CONTEXT_SCOPE_VIOLATION";
         message: string;
       };
       latencyMs: number;
@@ -538,6 +568,15 @@ export type IpcChannelSpec = {
       relativePath: string;
     };
   };
+  "export:project:bundle": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      bytesWritten: number;
+      relativePath: string;
+    };
+  };
   "file:document:create": {
     request: {
       projectId: string;
@@ -719,7 +758,15 @@ export type IpcChannelSpec = {
                 | "KG_RELEVANT_QUERY_FAILED"
                 | "KG_RELATION_INVALID"
                 | "KG_SCOPE_VIOLATION"
-                | "KG_SUBGRAPH_K_EXCEEDED";
+                | "KG_SUBGRAPH_K_EXCEEDED"
+                | "PROJECT_SWITCH_TIMEOUT"
+                | "DOCUMENT_SAVE_CONFLICT"
+                | "MEMORY_BACKPRESSURE"
+                | "SKILL_TIMEOUT"
+                | "AI_PROVIDER_UNAVAILABLE"
+                | "VERSION_MERGE_TIMEOUT"
+                | "SEARCH_TIMEOUT"
+                | "CONTEXT_SCOPE_VIOLATION";
               message: string;
             };
             status: "error";
@@ -785,7 +832,15 @@ export type IpcChannelSpec = {
                 | "KG_RELEVANT_QUERY_FAILED"
                 | "KG_RELATION_INVALID"
                 | "KG_SCOPE_VIOLATION"
-                | "KG_SUBGRAPH_K_EXCEEDED";
+                | "KG_SUBGRAPH_K_EXCEEDED"
+                | "PROJECT_SWITCH_TIMEOUT"
+                | "DOCUMENT_SAVE_CONFLICT"
+                | "MEMORY_BACKPRESSURE"
+                | "SKILL_TIMEOUT"
+                | "AI_PROVIDER_UNAVAILABLE"
+                | "VERSION_MERGE_TIMEOUT"
+                | "SEARCH_TIMEOUT"
+                | "CONTEXT_SCOPE_VIOLATION";
               message: string;
             };
             status: "error";
@@ -1195,7 +1250,15 @@ export type IpcChannelSpec = {
         | "KG_RELEVANT_QUERY_FAILED"
         | "KG_RELATION_INVALID"
         | "KG_SCOPE_VIOLATION"
-        | "KG_SUBGRAPH_K_EXCEEDED";
+        | "KG_SUBGRAPH_K_EXCEEDED"
+        | "PROJECT_SWITCH_TIMEOUT"
+        | "DOCUMENT_SAVE_CONFLICT"
+        | "MEMORY_BACKPRESSURE"
+        | "SKILL_TIMEOUT"
+        | "AI_PROVIDER_UNAVAILABLE"
+        | "VERSION_MERGE_TIMEOUT"
+        | "SEARCH_TIMEOUT"
+        | "CONTEXT_SCOPE_VIOLATION";
       message?: string;
       progress: number;
       projectId: string;
@@ -1254,7 +1317,15 @@ export type IpcChannelSpec = {
         | "KG_RELEVANT_QUERY_FAILED"
         | "KG_RELATION_INVALID"
         | "KG_SCOPE_VIOLATION"
-        | "KG_SUBGRAPH_K_EXCEEDED";
+        | "KG_SUBGRAPH_K_EXCEEDED"
+        | "PROJECT_SWITCH_TIMEOUT"
+        | "DOCUMENT_SAVE_CONFLICT"
+        | "MEMORY_BACKPRESSURE"
+        | "SKILL_TIMEOUT"
+        | "AI_PROVIDER_UNAVAILABLE"
+        | "VERSION_MERGE_TIMEOUT"
+        | "SEARCH_TIMEOUT"
+        | "CONTEXT_SCOPE_VIOLATION";
       message?: string;
       progress: number;
       projectId: string;
@@ -1958,7 +2029,15 @@ export type IpcChannelSpec = {
           | "KG_RELEVANT_QUERY_FAILED"
           | "KG_RELATION_INVALID"
           | "KG_SCOPE_VIOLATION"
-          | "KG_SUBGRAPH_K_EXCEEDED";
+          | "KG_SUBGRAPH_K_EXCEEDED"
+          | "PROJECT_SWITCH_TIMEOUT"
+          | "DOCUMENT_SAVE_CONFLICT"
+          | "MEMORY_BACKPRESSURE"
+          | "SKILL_TIMEOUT"
+          | "AI_PROVIDER_UNAVAILABLE"
+          | "VERSION_MERGE_TIMEOUT"
+          | "SEARCH_TIMEOUT"
+          | "CONTEXT_SCOPE_VIOLATION";
         error_message?: string;
         id: string;
         name: string;
