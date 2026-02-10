@@ -81,11 +81,13 @@ export function createReplaceDbStub(args: {
     text: string;
   }>;
   failSnapshotForDocumentIds?: string[];
+  conflictOnUpdateDocumentIds?: string[];
 }): Database.Database & {
   readDocument: (documentId: string) => StoredDocument | undefined;
   listVersions: (documentId: string) => StoredVersion[];
 } {
   const failSnapshotSet = new Set(args.failSnapshotForDocumentIds ?? []);
+  const conflictOnUpdateSet = new Set(args.conflictOnUpdateDocumentIds ?? []);
 
   const documents = new Map<string, StoredDocument>();
   const versions: StoredVersion[] = [];
@@ -165,6 +167,9 @@ export function createReplaceDbStub(args: {
           ) => {
             const found = documents.get(documentId);
             if (!found || found.projectId !== projectId) {
+              return { changes: 0 };
+            }
+            if (conflictOnUpdateSet.has(documentId)) {
               return { changes: 0 };
             }
             found.contentJson = contentJson;

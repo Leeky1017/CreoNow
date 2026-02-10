@@ -111,8 +111,21 @@ type PreviewTokenStore = Map<string, StoredPreview>;
  *
  * Why: Search replacement must return deterministic envelope errors.
  */
-function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
-  return { ok: false, error: { code, message, details } };
+function ipcError(
+  code: IpcErrorCode,
+  message: string,
+  details?: unknown,
+  retryable?: boolean,
+): Err {
+  return {
+    ok: false,
+    error: {
+      code,
+      message,
+      details,
+      ...(typeof retryable === "boolean" ? { retryable } : {}),
+    },
+  };
 }
 
 function hashJson(contentJson: string): string {
@@ -626,8 +639,17 @@ export function createSearchReplaceService(deps: {
 
               const updated = deps.db
                 .prepare<
-                  [string, string, string, string, number, string, string]
-                >("UPDATE documents SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, updated_at = ? WHERE project_id = ? AND document_id = ?")
+                  [
+                    string,
+                    string,
+                    string,
+                    string,
+                    number,
+                    string,
+                    string,
+                    number,
+                  ]
+                >("UPDATE documents SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, updated_at = ? WHERE project_id = ? AND document_id = ? AND updated_at = ?")
                 .run(
                   nextRow.contentJson,
                   nextRow.contentText,
@@ -636,9 +658,18 @@ export function createSearchReplaceService(deps: {
                   now,
                   nextRow.projectId,
                   nextRow.documentId,
+                  row.updatedAt,
                 );
 
               if (updated.changes === 0) {
+                const latest = loadDocumentById({
+                  db: deps.db,
+                  projectId: row.projectId,
+                  documentId: row.documentId,
+                });
+                if (latest) {
+                  throw new Error("WRITE_CONFLICT");
+                }
                 throw new Error("NOT_FOUND");
               }
 
@@ -656,9 +687,11 @@ export function createSearchReplaceService(deps: {
             if (scope === "wholeProject") {
               const reason = message.startsWith("SNAPSHOT_FAILED")
                 ? "SNAPSHOT_FAILED"
-                : message === "NOT_FOUND"
-                  ? "NOT_FOUND"
-                  : "DB_ERROR";
+                : message === "WRITE_CONFLICT"
+                  ? "SEARCH_CONCURRENT_WRITE_CONFLICT"
+                  : message === "NOT_FOUND"
+                    ? "NOT_FOUND"
+                    : "DB_ERROR";
               skipped.push({
                 documentId: row.documentId,
                 reason,
@@ -667,9 +700,22 @@ export function createSearchReplaceService(deps: {
               continue;
             }
             deps.logger.error("search_replace_execute_failed", {
-              code: message === "NOT_FOUND" ? "NOT_FOUND" : "DB_ERROR",
+              code:
+                message === "WRITE_CONFLICT"
+                  ? "SEARCH_CONCURRENT_WRITE_CONFLICT"
+                  : message === "NOT_FOUND"
+                    ? "NOT_FOUND"
+                    : "DB_ERROR",
               message,
             });
+            if (message === "WRITE_CONFLICT") {
+              return ipcError(
+                "SEARCH_CONCURRENT_WRITE_CONFLICT",
+                "Concurrent write conflict during replace",
+                { documentId: row.documentId },
+                true,
+              );
+            }
             return message === "NOT_FOUND"
               ? ipcError("NOT_FOUND", "Document not found")
               : ipcError("DB_ERROR", "Search replace execute failed");

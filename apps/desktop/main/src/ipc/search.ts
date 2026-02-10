@@ -78,6 +78,7 @@ function createSearchSemanticRetriever(args: {
         ok: true,
         data: {
           items: semantic.data.chunks.map((chunk) => ({
+            projectId: chunk.projectId,
             documentId: chunk.documentId,
             chunkId: chunk.chunkId,
             snippet: chunk.text,
@@ -256,7 +257,11 @@ export function registerSearchIpcHandlers(deps: {
       },
     ): Promise<
       IpcResponse<{
+        traceId: string;
+        costMs: number;
         strategy: "fts" | "semantic" | "hybrid";
+        fallback: "fts" | "none";
+        notice?: string;
         results: Array<{
           documentId: string;
           chunkId: string;

@@ -33,6 +33,7 @@ export type FtsSearchResult = {
 };
 
 export type FulltextSearchItem = {
+  projectId: string;
   documentId: string;
   title: string;
   snippet: string;
@@ -178,6 +179,16 @@ function isFtsCorruptionError(message: string): boolean {
   );
 }
 
+function isReindexIoError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("i/o error") ||
+    m.includes("io error") ||
+    m.includes("disk i/o") ||
+    m.includes("disk io")
+  );
+}
+
 /**
  * Extract a simple lexical term for snippet highlight.
  *
@@ -316,6 +327,24 @@ export function createFtsService(deps: {
         )
         .get(projectId, query);
 
+      const crossProjectRow = rows.find((row) => row.projectId !== projectId);
+      if (crossProjectRow) {
+        deps.logger.error("search_project_forbidden_audit", {
+          operation: "search:fts:query",
+          requestedProjectId: projectId,
+          rowProjectId: crossProjectRow.projectId,
+          documentId: crossProjectRow.documentId,
+        });
+        return ipcError(
+          "SEARCH_PROJECT_FORBIDDEN",
+          "Cross-project search query is forbidden",
+          {
+            requestedProjectId: projectId,
+            rowProjectId: crossProjectRow.projectId,
+          },
+        );
+      }
+
       const highlightTerm = extractHighlightTerm(query);
       const results: FtsSearchResult[] = rows.map((row) => {
         const snippet = typeof row.snippet === "string" ? row.snippet : "";
@@ -408,9 +437,22 @@ export function createFtsService(deps: {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       deps.logger.error("fts_reindex_failed", {
-        code: "DB_ERROR",
+        code: isReindexIoError(message)
+          ? "SEARCH_REINDEX_IO_ERROR"
+          : "DB_ERROR",
         message,
       });
+      if (isReindexIoError(message)) {
+        return {
+          ok: false,
+          error: {
+            code: "SEARCH_REINDEX_IO_ERROR",
+            message: "Fulltext reindex failed due to IO error",
+            details: { cause: message },
+            retryable: true,
+          },
+        };
+      }
       return ipcError("DB_ERROR", "Fulltext reindex failed");
     }
   }
@@ -431,6 +473,7 @@ export function createFtsService(deps: {
         ok: true,
         data: {
           items: res.data.results.map((item) => ({
+            projectId: item.projectId,
             documentId: item.documentId,
             title: item.documentTitle,
             snippet: item.snippet,

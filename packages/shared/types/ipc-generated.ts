@@ -65,6 +65,12 @@ export type IpcErrorCode =
   | "PROJECT_PURGE_PERMISSION_DENIED"
   | "PROJECT_SWITCH_TIMEOUT"
   | "RATE_LIMITED"
+  | "SEARCH_BACKPRESSURE"
+  | "SEARCH_CAPACITY_EXCEEDED"
+  | "SEARCH_CONCURRENT_WRITE_CONFLICT"
+  | "SEARCH_DATA_CORRUPTED"
+  | "SEARCH_PROJECT_FORBIDDEN"
+  | "SEARCH_REINDEX_IO_ERROR"
   | "SEARCH_TIMEOUT"
   | "SKILL_TIMEOUT"
   | "TIMEOUT"
@@ -344,6 +350,12 @@ export type IpcChannelSpec = {
           | "AI_PROVIDER_UNAVAILABLE"
           | "VERSION_MERGE_TIMEOUT"
           | "SEARCH_TIMEOUT"
+          | "SEARCH_REINDEX_IO_ERROR"
+          | "SEARCH_DATA_CORRUPTED"
+          | "SEARCH_CONCURRENT_WRITE_CONFLICT"
+          | "SEARCH_CAPACITY_EXCEEDED"
+          | "SEARCH_BACKPRESSURE"
+          | "SEARCH_PROJECT_FORBIDDEN"
           | "CONSTRAINT_VALIDATION_ERROR"
           | "CONSTRAINT_NOT_FOUND"
           | "CONSTRAINT_CONFLICT"
@@ -852,6 +864,10 @@ export type IpcChannelSpec = {
         reason: string;
         to: "fts";
       };
+      isolation?: {
+        code: "SEARCH_DATA_CORRUPTED";
+        isolatedChunkIds: Array<string>;
+      };
       mode: "semantic" | "fts-fallback";
       notice?: string;
       results: Array<{
@@ -1116,6 +1132,12 @@ export type IpcChannelSpec = {
                 | "AI_PROVIDER_UNAVAILABLE"
                 | "VERSION_MERGE_TIMEOUT"
                 | "SEARCH_TIMEOUT"
+                | "SEARCH_REINDEX_IO_ERROR"
+                | "SEARCH_DATA_CORRUPTED"
+                | "SEARCH_CONCURRENT_WRITE_CONFLICT"
+                | "SEARCH_CAPACITY_EXCEEDED"
+                | "SEARCH_BACKPRESSURE"
+                | "SEARCH_PROJECT_FORBIDDEN"
                 | "CONSTRAINT_VALIDATION_ERROR"
                 | "CONSTRAINT_NOT_FOUND"
                 | "CONSTRAINT_CONFLICT"
@@ -1204,6 +1226,12 @@ export type IpcChannelSpec = {
                 | "AI_PROVIDER_UNAVAILABLE"
                 | "VERSION_MERGE_TIMEOUT"
                 | "SEARCH_TIMEOUT"
+                | "SEARCH_REINDEX_IO_ERROR"
+                | "SEARCH_DATA_CORRUPTED"
+                | "SEARCH_CONCURRENT_WRITE_CONFLICT"
+                | "SEARCH_CAPACITY_EXCEEDED"
+                | "SEARCH_BACKPRESSURE"
+                | "SEARCH_PROJECT_FORBIDDEN"
                 | "CONSTRAINT_VALIDATION_ERROR"
                 | "CONSTRAINT_NOT_FOUND"
                 | "CONSTRAINT_CONFLICT"
@@ -1656,6 +1684,12 @@ export type IpcChannelSpec = {
         | "AI_PROVIDER_UNAVAILABLE"
         | "VERSION_MERGE_TIMEOUT"
         | "SEARCH_TIMEOUT"
+        | "SEARCH_REINDEX_IO_ERROR"
+        | "SEARCH_DATA_CORRUPTED"
+        | "SEARCH_CONCURRENT_WRITE_CONFLICT"
+        | "SEARCH_CAPACITY_EXCEEDED"
+        | "SEARCH_BACKPRESSURE"
+        | "SEARCH_PROJECT_FORBIDDEN"
         | "CONSTRAINT_VALIDATION_ERROR"
         | "CONSTRAINT_NOT_FOUND"
         | "CONSTRAINT_CONFLICT"
@@ -1737,6 +1771,12 @@ export type IpcChannelSpec = {
         | "AI_PROVIDER_UNAVAILABLE"
         | "VERSION_MERGE_TIMEOUT"
         | "SEARCH_TIMEOUT"
+        | "SEARCH_REINDEX_IO_ERROR"
+        | "SEARCH_DATA_CORRUPTED"
+        | "SEARCH_CONCURRENT_WRITE_CONFLICT"
+        | "SEARCH_CAPACITY_EXCEEDED"
+        | "SEARCH_BACKPRESSURE"
+        | "SEARCH_PROJECT_FORBIDDEN"
         | "CONSTRAINT_VALIDATION_ERROR"
         | "CONSTRAINT_NOT_FOUND"
         | "CONSTRAINT_CONFLICT"
@@ -2437,7 +2477,10 @@ export type IpcChannelSpec = {
         candidateLimit: number;
         truncated: boolean;
       };
+      costMs: number;
+      fallback: "fts" | "none";
       hasMore: boolean;
+      notice?: string;
       results: Array<{
         chunkId: string;
         documentId: string;
@@ -2452,6 +2495,7 @@ export type IpcChannelSpec = {
       }>;
       strategy: "fts" | "semantic" | "hybrid";
       total: number;
+      traceId: string;
     };
   };
   "search:rank:explain": {
@@ -2597,6 +2641,12 @@ export type IpcChannelSpec = {
           | "AI_PROVIDER_UNAVAILABLE"
           | "VERSION_MERGE_TIMEOUT"
           | "SEARCH_TIMEOUT"
+          | "SEARCH_REINDEX_IO_ERROR"
+          | "SEARCH_DATA_CORRUPTED"
+          | "SEARCH_CONCURRENT_WRITE_CONFLICT"
+          | "SEARCH_CAPACITY_EXCEEDED"
+          | "SEARCH_BACKPRESSURE"
+          | "SEARCH_PROJECT_FORBIDDEN"
           | "CONSTRAINT_VALIDATION_ERROR"
           | "CONSTRAINT_NOT_FOUND"
           | "CONSTRAINT_CONFLICT"
