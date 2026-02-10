@@ -3,7 +3,7 @@
 - Issue: #393
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/393
 - Branch: task/393-editor-p0-tiptap-foundation-toolbar
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/395
 - Scope: 完整交付 `openspec/changes/editor-p0-tiptap-foundation-toolbar`，覆盖 TipTap 基础、工具栏、快捷键、IPC bootstrap、autosave、粘贴清洗与治理收口
 - Out of Scope: Bubble Menu/Outline（P1）、AI diff/引用（P2）、Zen Mode（P3）、A11y hardening（P4）
 
