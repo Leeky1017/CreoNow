@@ -1,22 +1,21 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-10 13:34
+更新时间：2026-02-10 13:40
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **2**。
-- 执行模式：**并行执行**。
+- 当前活跃 change 数量为 **1**。
+- 执行模式：**串行执行（单活跃）**。
 - 变更泳道：
   - Context Engine：`p0 → p4` 全阶段已归档（当前无活跃 change）
   - AI Service：`p5`（`ai-service-p0/p1/p2/p3/p4` 已归档）
-  - Search & Retrieval：`p4`（`search-retrieval-p0-fts-foundation`、`search-retrieval-p1-embedding-semantic-rag`、`search-retrieval-p2-replace-versioned`、`search-retrieval-p3-hybrid-ranking-explain` 已归档）
+  - Search & Retrieval：`p0 → p4` 全阶段已归档（当前无活跃 change）
 
 ## 执行顺序
 
-1. 并行执行
-   - `search-retrieval-p4-hardening-boundary`（依赖已归档 `search-retrieval-p0-fts-foundation` + `search-retrieval-p1-embedding-semantic-rag` + `search-retrieval-p2-replace-versioned` + `search-retrieval-p3-hybrid-ranking-explain`）
+1. 当前执行
    - `ai-service-p5-failover-quota-hardening`（依赖已归档 `ai-service-p0-llmproxy-config-security` + `ai-service-p1-streaming-cancel-lifecycle` + `ai-service-p3-judge-quality-pipeline` + `ai-service-p4-candidates-usage-stats`）
 
 ## 依赖说明
