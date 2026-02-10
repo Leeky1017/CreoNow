@@ -13,7 +13,10 @@ type VersionPreferencesState = {
  * Why: settings persistence must be deterministic and resilient to malformed data.
  */
 function readShowAiMarksPreference(): boolean {
-  if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
+  if (
+    typeof window === "undefined" ||
+    typeof window.localStorage === "undefined"
+  ) {
     return false;
   }
 
@@ -36,12 +39,18 @@ function readShowAiMarksPreference(): boolean {
  * Why: version history rendering must survive app restarts.
  */
 function writeShowAiMarksPreference(enabled: boolean): void {
-  if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
+  if (
+    typeof window === "undefined" ||
+    typeof window.localStorage === "undefined"
+  ) {
     return;
   }
 
   try {
-    window.localStorage.setItem(VERSION_SHOW_AI_MARKS_KEY, JSON.stringify(enabled));
+    window.localStorage.setItem(
+      VERSION_SHOW_AI_MARKS_KEY,
+      JSON.stringify(enabled),
+    );
   } catch (error) {
     console.error("Failed to persist AI marks preference", { error });
   }
