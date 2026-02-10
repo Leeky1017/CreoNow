@@ -72,7 +72,12 @@ export function registerContextIpcHandlers(deps: {
   contextAssemblyService?: ContextLayerAssemblyService;
 }): void {
   const contextAssemblyService =
-    deps.contextAssemblyService ?? createContextLayerAssemblyService();
+    deps.contextAssemblyService ??
+    createContextLayerAssemblyService(undefined, {
+      onConstraintTrim: (log) => {
+        deps.logger.info("context_rules_constraint_trimmed", log);
+      },
+    });
 
   deps.ipcMain.handle(
     "context:creonow:ensure",

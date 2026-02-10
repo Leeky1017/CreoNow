@@ -7,7 +7,7 @@
 
 ## 变更内容
 
-- 固化 `constraints:list/create/update/delete` 契约与错误码。
+- 固化 `constraints:policy:list/create/update/delete` 契约与错误码（遵循 `<domain>:<resource>:<action>` 命名治理）。
 - 固化 Rules 注入格式与优先级规则：用户显式 > KG 自动。
 - 固化约束过多导致 Rules 膨胀时的裁剪策略与日志要求。
 
@@ -31,7 +31,7 @@
   - `openspec/specs/knowledge-graph/spec.md`
   - `openspec/specs/ipc/spec.md`
 - 核对项：数据结构、IPC 契约、错误码、阈值。
-- 结论：`NO_DRIFT`。
+- 结论：`NO_DRIFT`（并补充对齐 IPC 三段式命名治理：`constraints:policy:*`）。
 
 ## Out-of-scope
 

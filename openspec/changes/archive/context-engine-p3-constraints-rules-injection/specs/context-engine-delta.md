@@ -6,10 +6,10 @@
 
 Constraints IPC：
 
-- `constraints:list`
-- `constraints:create`
-- `constraints:update`
-- `constraints:delete`
+- `constraints:policy:list`
+- `constraints:policy:create`
+- `constraints:policy:update`
+- `constraints:policy:delete`
 
 统一响应：
 
@@ -44,7 +44,7 @@ Rules 注入格式（固定）：
 ### Scenario: CE4-R1-S1 Constraints CRUD 返回可判定结果 [ADDED]
 
 - **假设** 用户创建、更新、删除约束
-- **当** 调用 `constraints:*` IPC 通道
+- **当** 调用 `constraints:policy:*` IPC 通道
 - **则** 成功路径返回 `ok=true`
 - **并且** 非法输入或目标不存在时返回对应错误码
 

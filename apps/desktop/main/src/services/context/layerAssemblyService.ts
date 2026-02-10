@@ -21,6 +21,24 @@ export type ContextInspectRequest = ContextAssembleRequest & {
 export type ContextLayerChunk = {
   source: string;
   content: string;
+  constraints?: ContextRuleConstraint[];
+};
+
+export type ContextConstraintSource = "user" | "kg";
+
+export type ContextRuleConstraint = {
+  id: string;
+  text: string;
+  source: ContextConstraintSource;
+  priority: number;
+  updatedAt: string;
+  degradable?: boolean;
+};
+
+export type ContextConstraintTrimLog = {
+  constraintId: string;
+  reason: "KG_LOW_PRIORITY" | "USER_DEGRADABLE";
+  tokenFreed: number;
 };
 
 export type ContextLayerFetchResult = {
@@ -116,6 +134,10 @@ export type ContextLayerAssemblyService = {
   ) => ContextBudgetUpdateResult;
 };
 
+export type ContextLayerAssemblyDeps = {
+  onConstraintTrim?: (log: ContextConstraintTrimLog) => void;
+};
+
 const LAYER_ORDER: ContextLayerId[] = [
   "rules",
   "settings",
@@ -144,6 +166,12 @@ const NON_DETERMINISTIC_PREFIX_FIELDS = new Set([
   "requestId",
   "nonce",
 ]);
+const RULES_CONSTRAINT_HEADER = "[创作约束 - 不可违反]";
+
+type InternalContextLayerDetail = ContextLayerDetail & {
+  constraintItems?: ContextRuleConstraint[];
+  rulesBaseContent?: string;
+};
 
 /**
  * Why: source and warning lists must stay deterministic and free of empty noise
@@ -195,6 +223,193 @@ function mergeLayerContent(chunks: readonly ContextLayerChunk[]): string {
     .map((chunk) => chunk.content.trim())
     .filter((content) => content.length > 0)
     .join("\n\n");
+}
+
+/**
+ * Why: constraints sorting must remain deterministic across rule injection.
+ */
+function parseConstraintUpdatedAt(updatedAt: string): number {
+  const ms = Date.parse(updatedAt);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/**
+ * Why: CE4 requires `user > kg`, then `updatedAt desc`, then `id asc`.
+ */
+function compareConstraintsForRules(
+  left: ContextRuleConstraint,
+  right: ContextRuleConstraint,
+): number {
+  const leftSourceRank = left.source === "user" ? 0 : 1;
+  const rightSourceRank = right.source === "user" ? 0 : 1;
+  if (leftSourceRank !== rightSourceRank) {
+    return leftSourceRank - rightSourceRank;
+  }
+
+  const leftUpdatedAt = parseConstraintUpdatedAt(left.updatedAt);
+  const rightUpdatedAt = parseConstraintUpdatedAt(right.updatedAt);
+  if (leftUpdatedAt !== rightUpdatedAt) {
+    return rightUpdatedAt - leftUpdatedAt;
+  }
+
+  return left.id.localeCompare(right.id);
+}
+
+/**
+ * Why: CE4 requires a fixed, human-auditable rules injection format.
+ */
+function renderRulesConstraintBlock(
+  constraints: readonly ContextRuleConstraint[],
+): string {
+  if (constraints.length === 0) {
+    return "";
+  }
+
+  const lines = constraints.map(
+    (constraint, index) =>
+      `${(index + 1).toString()}. ${constraint.text}  # source=${constraint.source}, priority=${constraint.priority.toString()}`,
+  );
+
+  return `${RULES_CONSTRAINT_HEADER}\n${lines.join("\n")}`;
+}
+
+/**
+ * Why: keep rule text and constraints block composition deterministic.
+ */
+function composeRulesContent(args: {
+  baseContent: string;
+  constraints: readonly ContextRuleConstraint[];
+}): string {
+  const parts = [
+    args.baseContent.trim(),
+    renderRulesConstraintBlock(args.constraints),
+  ].filter((part) => part.length > 0);
+
+  return parts.join("\n\n");
+}
+
+/**
+ * Why: constraints payload can come from mixed fetchers and must be sanitized
+ * before sorting/trimming.
+ */
+function normalizeRulesConstraints(
+  constraints: readonly ContextRuleConstraint[],
+): ContextRuleConstraint[] {
+  return constraints
+    .map((constraint) => ({
+      ...constraint,
+      id: constraint.id.trim(),
+      text: constraint.text.trim(),
+      updatedAt: constraint.updatedAt.trim(),
+    }))
+    .filter(
+      (constraint) =>
+        constraint.id.length > 0 &&
+        constraint.text.length > 0 &&
+        (constraint.source === "user" || constraint.source === "kg") &&
+        Number.isFinite(constraint.priority),
+    )
+    .sort(compareConstraintsForRules);
+}
+
+/**
+ * Why: CE4 trimming requires deterministic candidate selection.
+ */
+function pickConstraintToTrim(
+  constraints: readonly ContextRuleConstraint[],
+): ContextRuleConstraint | null {
+  const kgCandidates = constraints
+    .filter((constraint) => constraint.source === "kg")
+    .sort((left, right) => {
+      if (left.priority !== right.priority) {
+        return left.priority - right.priority;
+      }
+
+      const leftUpdatedAt = parseConstraintUpdatedAt(left.updatedAt);
+      const rightUpdatedAt = parseConstraintUpdatedAt(right.updatedAt);
+      if (leftUpdatedAt !== rightUpdatedAt) {
+        return leftUpdatedAt - rightUpdatedAt;
+      }
+
+      return left.id.localeCompare(right.id);
+    });
+  if (kgCandidates.length > 0) {
+    return kgCandidates[0];
+  }
+
+  const degradableUserCandidates = constraints
+    .filter(
+      (constraint) => constraint.source === "user" && constraint.degradable,
+    )
+    .sort((left, right) => {
+      if (left.priority !== right.priority) {
+        return left.priority - right.priority;
+      }
+
+      const leftUpdatedAt = parseConstraintUpdatedAt(left.updatedAt);
+      const rightUpdatedAt = parseConstraintUpdatedAt(right.updatedAt);
+      if (leftUpdatedAt !== rightUpdatedAt) {
+        return leftUpdatedAt - rightUpdatedAt;
+      }
+
+      return left.id.localeCompare(right.id);
+    });
+  if (degradableUserCandidates.length > 0) {
+    return degradableUserCandidates[0];
+  }
+
+  return null;
+}
+
+/**
+ * Why: CE4 requires trimming logs with `constraintId/reason/tokenFreed`.
+ */
+function trimRulesConstraintsToBudget(args: {
+  baseContent: string;
+  constraints: readonly ContextRuleConstraint[];
+  maxTokens: number;
+}): {
+  content: string;
+  tokenCount: number;
+  constraints: ContextRuleConstraint[];
+  trimmedLogs: ContextConstraintTrimLog[];
+} {
+  let kept = normalizeRulesConstraints(args.constraints);
+  const trimmedLogs: ContextConstraintTrimLog[] = [];
+  let content = composeRulesContent({
+    baseContent: args.baseContent,
+    constraints: kept,
+  });
+  let tokenCount = estimateTokenCount(content);
+
+  while (tokenCount > args.maxTokens) {
+    const selected = pickConstraintToTrim(kept);
+    if (!selected) {
+      break;
+    }
+
+    const before = tokenCount;
+    kept = kept.filter((constraint) => constraint.id !== selected.id);
+    content = composeRulesContent({
+      baseContent: args.baseContent,
+      constraints: kept,
+    });
+    tokenCount = estimateTokenCount(content);
+
+    const tokenFreed = Math.max(0, before - tokenCount);
+    trimmedLogs.push({
+      constraintId: selected.id,
+      reason: selected.source === "kg" ? "KG_LOW_PRIORITY" : "USER_DEGRADABLE",
+      tokenFreed,
+    });
+  }
+
+  return {
+    content,
+    tokenCount,
+    constraints: kept,
+    trimmedLogs,
+  };
 }
 
 /**
@@ -349,11 +564,24 @@ async function fetchLayerWithDegrade(args: {
   layer: ContextLayerId;
   request: ContextAssembleRequest;
   fetcher: ContextLayerFetcher;
-}): Promise<ContextLayerDetail> {
+}): Promise<InternalContextLayerDetail> {
   try {
     const fetched = await args.fetcher(args.request);
     const source = uniqueNonEmpty(fetched.chunks.map((chunk) => chunk.source));
-    const content = mergeLayerContent(fetched.chunks);
+    const baseContent = mergeLayerContent(fetched.chunks);
+    const constraints =
+      args.layer === "rules"
+        ? normalizeRulesConstraints(
+            fetched.chunks.flatMap((chunk) => chunk.constraints ?? []),
+          )
+        : [];
+    const content =
+      args.layer === "rules"
+        ? composeRulesContent({
+            baseContent,
+            constraints,
+          })
+        : baseContent;
     const warnings = uniqueNonEmpty(fetched.warnings ?? []);
 
     return {
@@ -362,6 +590,12 @@ async function fetchLayerWithDegrade(args: {
       tokenCount: estimateTokenCount(content),
       truncated: fetched.truncated === true,
       ...(warnings.length > 0 ? { warnings } : {}),
+      ...(args.layer === "rules"
+        ? {
+            constraintItems: constraints,
+            rulesBaseContent: baseContent,
+          }
+        : {}),
     };
   } catch {
     const warning = LAYER_DEGRADED_WARNING[args.layer];
@@ -371,6 +605,12 @@ async function fetchLayerWithDegrade(args: {
       tokenCount: 0,
       truncated: false,
       warnings: [warning],
+      ...(args.layer === "rules"
+        ? {
+            constraintItems: [],
+            rulesBaseContent: "",
+          }
+        : {}),
     };
   }
 }
@@ -378,13 +618,21 @@ async function fetchLayerWithDegrade(args: {
 /**
  * Why: mutable layer transforms must not mutate upstream fetch outputs.
  */
-function cloneLayerDetail(layer: ContextLayerDetail): ContextLayerDetail {
+function cloneLayerDetail(
+  layer: InternalContextLayerDetail,
+): InternalContextLayerDetail {
   return {
     content: layer.content,
     source: [...layer.source],
     tokenCount: layer.tokenCount,
     truncated: layer.truncated,
     ...(layer.warnings ? { warnings: [...layer.warnings] } : {}),
+    ...(layer.constraintItems
+      ? { constraintItems: layer.constraintItems.map((item) => ({ ...item })) }
+      : {}),
+    ...(layer.rulesBaseContent !== undefined
+      ? { rulesBaseContent: layer.rulesBaseContent }
+      : {}),
   };
 }
 
@@ -510,7 +758,7 @@ function validateBudgetUpdateInput(
  * Why: warnings and prompt layers must reflect post-budget state.
  */
 function totalLayerTokens(
-  layers: Record<ContextLayerId, ContextLayerDetail>,
+  layers: Record<ContextLayerId, InternalContextLayerDetail>,
 ): number {
   return (
     layers.rules.tokenCount +
@@ -524,13 +772,14 @@ function totalLayerTokens(
  * Why: CE2 requires fixed truncation order and a non-trimmable Rules layer.
  */
 function applyBudgetToLayers(args: {
-  layers: Record<ContextLayerId, ContextLayerDetail>;
+  layers: Record<ContextLayerId, InternalContextLayerDetail>;
   budgetProfile: ContextBudgetProfile;
+  onConstraintTrim?: (log: ContextConstraintTrimLog) => void;
 }): {
-  layers: Record<ContextLayerId, ContextLayerDetail>;
+  layers: Record<ContextLayerId, InternalContextLayerDetail>;
   warnings: string[];
 } {
-  const layers: Record<ContextLayerId, ContextLayerDetail> = {
+  const layers: Record<ContextLayerId, InternalContextLayerDetail> = {
     rules: cloneLayerDetail(args.layers.rules),
     settings: cloneLayerDetail(args.layers.settings),
     retrieved: cloneLayerDetail(args.layers.retrieved),
@@ -541,6 +790,31 @@ function applyBudgetToLayers(args: {
 
   if (layers.rules.tokenCount > layerCaps.rules) {
     warnings.push("CONTEXT_RULES_OVERBUDGET");
+
+    if (
+      layers.rules.constraintItems &&
+      layers.rules.constraintItems.length > 0
+    ) {
+      const trimmed = trimRulesConstraintsToBudget({
+        baseContent: layers.rules.rulesBaseContent ?? "",
+        constraints: layers.rules.constraintItems,
+        maxTokens: layerCaps.rules,
+      });
+
+      if (trimmed.trimmedLogs.length > 0) {
+        layers.rules = {
+          ...layers.rules,
+          content: trimmed.content,
+          tokenCount: trimmed.tokenCount,
+          truncated: true,
+          constraintItems: trimmed.constraints,
+        };
+
+        for (const trimLog of trimmed.trimmedLogs) {
+          args.onConstraintTrim?.(trimLog);
+        }
+      }
+    }
   }
 
   let overflow =
@@ -594,9 +868,26 @@ function layerSummary(detail: ContextLayerDetail): ContextLayerSummary {
 }
 
 /**
+ * Why: internal metadata must never leak across assemble/inspect IPC contracts.
+ */
+function toPublicLayerDetail(
+  detail: InternalContextLayerDetail,
+): ContextLayerDetail {
+  return {
+    content: detail.content,
+    source: detail.source,
+    tokenCount: detail.tokenCount,
+    truncated: detail.truncated,
+    ...(detail.warnings && detail.warnings.length > 0
+      ? { warnings: detail.warnings }
+      : {}),
+  };
+}
+
+/**
  * Why: `source` and `tokenCount` are hard-required fields in CE contract.
  */
-function validateLayerContract(layer: ContextLayerDetail): void {
+function validateLayerContract(layer: InternalContextLayerDetail): void {
   if (!Array.isArray(layer.source)) {
     throw new Error("CONTEXT_LAYER_CONTRACT_INVALID_SOURCE");
   }
@@ -613,6 +904,7 @@ async function buildContextSnapshot(args: {
   request: ContextAssembleRequest;
   fetchers: ContextLayerFetcherMap;
   budgetProfile: ContextBudgetProfile;
+  onConstraintTrim?: (log: ContextConstraintTrimLog) => void;
 }): Promise<{
   layersDetail: Record<ContextLayerId, ContextLayerDetail>;
   warnings: string[];
@@ -654,6 +946,7 @@ async function buildContextSnapshot(args: {
       immediate,
     },
     budgetProfile: args.budgetProfile,
+    onConstraintTrim: args.onConstraintTrim,
   });
 
   const warnings = uniqueNonEmpty([
@@ -684,7 +977,12 @@ async function buildContextSnapshot(args: {
   ].join("\n\n");
 
   return {
-    layersDetail: budgetApplied.layers,
+    layersDetail: {
+      rules: toPublicLayerDetail(budgetApplied.layers.rules),
+      settings: toPublicLayerDetail(budgetApplied.layers.settings),
+      retrieved: toPublicLayerDetail(budgetApplied.layers.retrieved),
+      immediate: toPublicLayerDetail(budgetApplied.layers.immediate),
+    },
     warnings,
     prompt,
     tokenCount: totalLayerTokens(budgetApplied.layers),
@@ -736,6 +1034,7 @@ function defaultFetchers(): ContextLayerFetcherMap {
  */
 export function createContextLayerAssemblyService(
   fetchers?: Partial<ContextLayerFetcherMap>,
+  deps?: ContextLayerAssemblyDeps,
 ): ContextLayerAssemblyService {
   const fetcherMap = {
     ...defaultFetchers(),
@@ -750,6 +1049,7 @@ export function createContextLayerAssemblyService(
         request,
         fetchers: fetcherMap,
         budgetProfile,
+        onConstraintTrim: deps?.onConstraintTrim,
       });
 
       const cacheKey = keyForStablePrefix({
@@ -780,6 +1080,7 @@ export function createContextLayerAssemblyService(
         request,
         fetchers: fetcherMap,
         budgetProfile,
+        onConstraintTrim: deps?.onConstraintTrim,
       });
 
       return {
