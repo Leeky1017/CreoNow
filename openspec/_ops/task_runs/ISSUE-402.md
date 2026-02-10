@@ -3,7 +3,7 @@
 - Issue: #402
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/402
 - Branch: task/402-skill-system-p1-trigger-scope-management
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/405
 - Scope: 完整交付 `openspec/changes/skill-system-p1-trigger-scope-management`，覆盖技能面板触发、三级作用域解析、`skill:toggle` 语义对应的 `skill:registry:toggle` 启停持久化、`skill:custom:update` 作用域升降与 Storybook 场景，最终合并控制面 `main`。
 - Out of Scope: 自定义技能完整 CRUD（`skill-system-p2`）、并发调度与超时队列（`skill-system-p3`）、边界硬化（`skill-system-p4`）。
 
