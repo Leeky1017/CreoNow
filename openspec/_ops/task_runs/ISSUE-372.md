@@ -3,7 +3,7 @@
 - Issue: #372
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/372
 - Branch: task/372-context-engine-p3-constraints-rules-injection
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/377
 - Scope: 交付 `openspec/changes/context-engine-p3-constraints-rules-injection`，落地 Constraints CRUD、Rules 注入优先级与超预算裁剪日志，并完成主干收口
 - Out of Scope: Judge 违规检测算法、Stable Prefix Hash 策略扩展、CE-4 边界硬化
 
