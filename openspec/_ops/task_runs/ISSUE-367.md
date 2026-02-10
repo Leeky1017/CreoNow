@@ -3,7 +3,7 @@
 - Issue: #367
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/367
 - Branch: task/367-ai-service-p2-panel-chat-apply-flow
-- PR: https://github.com/Leeky1017/CreoNow/pull/0
+- PR: https://github.com/Leeky1017/CreoNow/pull/371
 - Scope: 完成交付 `openspec/changes/ai-service-p2-panel-chat-apply-flow`（chat IPC 项目隔离、应用到编辑器 Inline Diff 确认链路、AiPanel Storybook 四态），并按治理流程合并回控制面 `main`
 - Out of Scope: Judge 质量评估、多候选方案、用量统计
 
