@@ -110,7 +110,7 @@ export function registerSkillIpcHandlers(deps: {
     "skill:registry:toggle",
     async (
       _e,
-      payload: { id: string; enabled: boolean },
+      payload: { id?: string; skillId?: string; enabled: boolean },
     ): Promise<IpcResponse<{ id: string; enabled: boolean }>> => {
       if (!deps.db) {
         return {
@@ -125,7 +125,34 @@ export function registerSkillIpcHandlers(deps: {
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
       });
-      const res = svc.toggle({ id: payload.id, enabled: payload.enabled });
+      const id = payload.id ?? payload.skillId ?? "";
+      const res = svc.toggle({ id, enabled: payload.enabled });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "skill:custom:update",
+    async (
+      _e,
+      payload: { id: string; scope: "global" | "project" },
+    ): Promise<IpcResponse<{ id: string; scope: "global" | "project" }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: createDbNotReadyError(),
+        };
+      }
+
+      const svc = createSkillService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        builtinSkillsDir: deps.builtinSkillsDir,
+        logger: deps.logger,
+      });
+      const res = svc.updateCustom({ id: payload.id, scope: payload.scope });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };

@@ -1572,8 +1572,22 @@ export const ipcContract = {
       }),
     },
     "skill:registry:toggle": {
-      request: s.object({ id: s.string(), enabled: s.boolean() }),
+      request: s.object({
+        id: s.optional(s.string()),
+        skillId: s.optional(s.string()),
+        enabled: s.boolean(),
+      }),
       response: s.object({ id: s.string(), enabled: s.boolean() }),
+    },
+    "skill:custom:update": {
+      request: s.object({
+        id: s.string(),
+        scope: s.union(s.literal("global"), s.literal("project")),
+      }),
+      response: s.object({
+        id: s.string(),
+        scope: s.union(s.literal("global"), s.literal("project")),
+      }),
     },
     "db:debug:tablenames": {
       request: s.object({}),

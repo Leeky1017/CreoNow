@@ -15,14 +15,14 @@
 - 实现三级作用域管理：
   - `builtin`（系统，不可删除，可停用）、`global`（用户，所有项目可见）、`project`（用户，仅当前项目）。
   - 可见性解析顺序：`project → global → builtin`，同名项目级优先。
-  - 技能启停：`skill:toggle`（Request-Response）持久化启停状态。
+  - 技能启停：`skill:registry:toggle`（Request-Response，语义对齐主规范 `skill:toggle`）持久化启停状态。
   - 作用域升降：project ↔ global 互转，通过 `skill:custom:update` 持久化。
 - 编写 Storybook Stories：技能选择面板（默认态 / 空状态 / 禁用态）。
 
 ## 受影响模块
 
 - Skill System（`renderer/src/features/ai/`、`renderer/src/stores/skillStore.ts`、`main/src/ipc/skills.ts`）
-- IPC（`skill:toggle` 通道定义）
+- IPC（`skill:registry:toggle` / `skill:custom:update` 通道定义）
 
 ## 依赖关系
 

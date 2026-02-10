@@ -225,6 +225,7 @@ export const IPC_CHANNELS = [
   "search:rank:explain",
   "search:replace:execute",
   "search:replace:preview",
+  "skill:custom:update",
   "skill:registry:list",
   "skill:registry:read",
   "skill:registry:toggle",
@@ -2604,6 +2605,16 @@ export type IpcChannelSpec = {
       warnings: Array<string>;
     };
   };
+  "skill:custom:update": {
+    request: {
+      id: string;
+      scope: "global" | "project";
+    };
+    response: {
+      id: string;
+      scope: "global" | "project";
+    };
+  };
   "skill:registry:list": {
     request: {
       includeDisabled?: boolean;
@@ -2708,7 +2719,8 @@ export type IpcChannelSpec = {
   "skill:registry:toggle": {
     request: {
       enabled: boolean;
-      id: string;
+      id?: string;
+      skillId?: string;
     };
     response: {
       enabled: boolean;

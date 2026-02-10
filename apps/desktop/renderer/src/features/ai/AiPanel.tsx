@@ -687,16 +687,21 @@ export function AiPanel(): JSX.Element {
     applyStatus !== "applying";
 
   /**
-
-   * Run the selected skill with current input.
-
+   * Run the selected skill with deterministic input-source override support.
+   *
+   * Why: skill panel selection must be able to trigger execution immediately
+   * with selection/context-derived input, without waiting for manual Send.
    */
+  async function onRun(args?: {
+    inputOverride?: string;
+    skillIdOverride?: string;
+  }): Promise<void> {
+    const effectiveSkillId = args?.skillIdOverride ?? selectedSkillId;
+    const inputToSend = args?.inputOverride ?? input;
+    const allowEmptyInput = isContinueSkill(effectiveSkillId);
+    if (!allowEmptyInput && !inputToSend.trim()) return;
 
-  async function onRun(): Promise<void> {
-    const allowEmptyInput = isContinueSkill(selectedSkillId);
-    if (!allowEmptyInput && !input.trim()) return;
-
-    setLastRequest(input);
+    setLastRequest(inputToSend);
     setJudgeResult(null);
     evaluatedRunIdRef.current = null;
 
@@ -719,6 +724,7 @@ export function AiPanel(): JSX.Element {
     }
 
     await run({
+      inputOverride: inputToSend,
       context: {
         projectId: currentProject?.projectId ?? projectId ?? undefined,
         documentId: documentId ?? undefined,
@@ -758,6 +764,73 @@ export function AiPanel(): JSX.Element {
     await regenerateWithStrongNegative({
       projectId: currentProject?.projectId ?? projectId ?? undefined,
     });
+  }
+
+  /**
+   * Execute a skill immediately from picker selection.
+   *
+   * Why: P1 trigger flow requires one-click skill execution from the panel.
+   */
+  async function handleSkillSelect(skillId: string): Promise<void> {
+    setSelectedSkillId(skillId);
+    setSkillsOpen(false);
+
+    if (isRunning(status)) {
+      return;
+    }
+
+    let inputOverride = input;
+    if (isContinueSkill(skillId)) {
+      inputOverride = "";
+    } else if (editor) {
+      const captured = captureSelectionRef(editor);
+      if (captured.ok) {
+        inputOverride = captured.data.selectionText;
+      }
+    }
+
+    await onRun({
+      skillIdOverride: skillId,
+      inputOverride,
+    });
+  }
+
+  /**
+   * Persist enable/disable state changes for a skill entry.
+   */
+  async function handleSkillToggle(args: {
+    skillId: string;
+    enabled: boolean;
+  }): Promise<void> {
+    const toggled = await invoke("skill:registry:toggle", {
+      skillId: args.skillId,
+      enabled: args.enabled,
+    });
+    if (!toggled.ok) {
+      setError(toggled.error);
+      return;
+    }
+
+    await refreshSkills();
+  }
+
+  /**
+   * Promote/demote a custom skill scope and refresh picker state.
+   */
+  async function handleSkillScopeUpdate(args: {
+    id: string;
+    scope: "global" | "project";
+  }): Promise<void> {
+    const updated = await invoke("skill:custom:update", {
+      id: args.id,
+      scope: args.scope,
+    });
+    if (!updated.ok) {
+      setError(updated.error);
+      return;
+    }
+
+    await refreshSkills();
   }
 
   /**
@@ -1388,12 +1461,21 @@ export function AiPanel(): JSX.Element {
                   selectedSkillId={selectedSkillId}
                   onOpenChange={setSkillsOpen}
                   onSelectSkillId={(skillId) => {
-                    setSelectedSkillId(skillId);
-                    setSkillsOpen(false);
+                    void handleSkillSelect(skillId);
                   }}
                   onOpenSettings={() => {
                     setSkillsOpen(false);
                     openSettings();
+                  }}
+                  onCreateSkill={() => {
+                    setSkillsOpen(false);
+                    openSettings();
+                  }}
+                  onToggleSkill={(skillId, enabled) => {
+                    void handleSkillToggle({ skillId, enabled });
+                  }}
+                  onUpdateScope={(id, scope) => {
+                    void handleSkillScopeUpdate({ id, scope });
                   }}
                 />
               </div>
