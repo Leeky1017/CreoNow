@@ -57,6 +57,7 @@ export type AiState = {
   input: string;
   outputText: string;
   activeRunId: string | null;
+  activeChunkSeq: number;
   lastRunId: string | null;
   lastError: IpcError | null;
   selectionRef: SelectionRef | null;
@@ -138,6 +139,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
     input: "",
     outputText: "",
     activeRunId: null,
+    activeChunkSeq: 0,
     lastRunId: null,
     lastError: null,
     selectionRef: null,
@@ -261,6 +263,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         outputText: "",
         lastError: null,
         activeRunId: null,
+        activeChunkSeq: 0,
         lastRunId: null,
         proposal: null,
         applyStatus: "idle",
@@ -281,6 +284,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           status: statusFromError(res.error),
           lastError: res.error,
           activeRunId: null,
+          activeChunkSeq: 0,
           lastRunId: null,
         });
         return;
@@ -291,6 +295,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           status: "idle",
           outputText: res.data.outputText,
           activeRunId: null,
+          activeChunkSeq: 0,
           lastRunId: res.data.runId,
         });
         return;
@@ -298,7 +303,8 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
 
       set({
         status: "running",
-        activeRunId: res.data.runId,
+        activeRunId: res.data.executionId,
+        activeChunkSeq: 0,
         lastRunId: res.data.runId,
       });
     },
@@ -313,7 +319,12 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       }
 
       const runId = state.activeRunId;
-      set({ status: "canceled", activeRunId: null, lastError: null });
+      set({
+        status: "canceled",
+        activeRunId: null,
+        activeChunkSeq: 0,
+        lastError: null,
+      });
 
       const res = await deps.invoke("ai:skill:cancel", {
         runId,
@@ -325,41 +336,70 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
 
     onStreamEvent: (event) => {
       const state = get();
-      if (!state.activeRunId || event.runId !== state.activeRunId) {
+      if (!state.activeRunId || event.executionId !== state.activeRunId) {
         return;
       }
 
-      if (event.type === "run_started") {
-        set({ status: "running" });
-        return;
-      }
+      if (event.type === "chunk") {
+        set((prev) => {
+          if (!prev.activeRunId || event.executionId !== prev.activeRunId) {
+            return prev;
+          }
 
-      if (event.type === "delta") {
-        set((prev) => ({
-          status: "streaming",
-          outputText: `${prev.outputText}${event.delta}`,
-        }));
-        return;
-      }
+          const shouldReset = event.seq === 1 && prev.activeChunkSeq > 0;
+          if (!shouldReset && event.seq <= prev.activeChunkSeq) {
+            return prev;
+          }
 
-      if (event.type === "run_completed") {
-        set({ status: "idle", activeRunId: null, lastRunId: event.runId });
-        return;
-      }
-
-      if (event.type === "run_canceled") {
-        set({ status: "canceled", activeRunId: null, lastRunId: event.runId });
-        return;
-      }
-
-      if (event.type === "run_failed") {
-        set({
-          status: statusFromError(event.error),
-          lastError: event.error,
-          activeRunId: null,
-          lastRunId: event.runId,
+          return {
+            status: "streaming" as const,
+            outputText: shouldReset
+              ? event.chunk
+              : `${prev.outputText}${event.chunk}`,
+            activeChunkSeq: event.seq,
+            lastRunId: event.runId,
+          };
         });
+        return;
       }
+
+      if (event.terminal === "completed") {
+        set({
+          status: "idle",
+          outputText: event.outputText,
+          activeRunId: null,
+          activeChunkSeq: 0,
+          lastRunId: event.runId,
+          lastError: null,
+        });
+        return;
+      }
+
+      if (event.terminal === "cancelled") {
+        set({
+          status: "canceled",
+          outputText: event.outputText,
+          activeRunId: null,
+          activeChunkSeq: 0,
+          lastRunId: event.runId,
+          lastError: null,
+        });
+        return;
+      }
+
+      const fallbackError: IpcError = {
+        code: "INTERNAL",
+        message: "AI stream failed",
+      };
+      const error = event.error ?? fallbackError;
+      set({
+        status: statusFromError(error),
+        outputText: event.outputText,
+        lastError: error,
+        activeRunId: null,
+        activeChunkSeq: 0,
+        lastRunId: event.runId,
+      });
     },
   }));
 }

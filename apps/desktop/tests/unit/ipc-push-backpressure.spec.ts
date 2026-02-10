@@ -4,18 +4,38 @@ import { createIpcPushBackpressureGate } from "../../main/src/ipc/pushBackpressu
 import type { AiStreamEvent } from "../../../../packages/shared/types/ai";
 
 function mkEvent(type: AiStreamEvent["type"], ts: number): AiStreamEvent {
-  if (type === "delta") {
-    return { type, runId: "r1", ts, delta: "x" };
-  }
-  if (type === "run_failed") {
+  if (type === "chunk") {
     return {
       type,
+      executionId: "r1",
       runId: "r1",
+      traceId: "trace-1",
+      seq: 1,
+      chunk: "x",
+      ts,
+    };
+  }
+  if (type === "done") {
+    return {
+      type,
+      executionId: "r1",
+      runId: "r1",
+      traceId: "trace-1",
+      terminal: "error",
+      outputText: "",
       ts,
       error: { code: "INTERNAL", message: "failed" },
     };
   }
-  return { type, runId: "r1", ts };
+  return {
+    type: "done",
+    executionId: "r1",
+    runId: "r1",
+    traceId: "trace-1",
+    terminal: "completed",
+    outputText: "ok",
+    ts,
+  };
 }
 
 // NFR: push 速率超过上限时丢弃低优先级事件但保留关键事件 [ADDED]
@@ -34,17 +54,17 @@ function mkEvent(type: AiStreamEvent["type"], ts: number): AiStreamEvent {
     },
   });
 
-  assert.equal(gate.shouldDeliver(mkEvent("delta", now)), true);
-  assert.equal(gate.shouldDeliver(mkEvent("delta", now + 1)), true);
-  assert.equal(gate.shouldDeliver(mkEvent("delta", now + 2)), false);
+  assert.equal(gate.shouldDeliver(mkEvent("chunk", now)), true);
+  assert.equal(gate.shouldDeliver(mkEvent("chunk", now + 1)), true);
+  assert.equal(gate.shouldDeliver(mkEvent("chunk", now + 2)), false);
 
   // Critical control event must still pass even after rate limit is hit.
-  assert.equal(gate.shouldDeliver(mkEvent("run_completed", now + 3)), true);
+  assert.equal(gate.shouldDeliver(mkEvent("done", now + 3)), true);
 
   assert.equal(drops.length, 1);
   assert.equal(drops[0]?.droppedInWindow, 1);
 
   // New second should reset limiter.
   now += 1_000;
-  assert.equal(gate.shouldDeliver(mkEvent("delta", now)), true);
+  assert.equal(gate.shouldDeliver(mkEvent("chunk", now)), true);
 }

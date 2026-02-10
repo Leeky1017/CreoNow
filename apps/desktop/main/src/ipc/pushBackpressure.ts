@@ -17,7 +17,7 @@ function nowTs(): number {
 }
 
 /**
- * Build an event-rate gate that drops low-priority `delta` events under pressure.
+ * Build an event-rate gate that drops low-priority `chunk` events under pressure.
  *
  * Why: event storms must not destabilize IPC push delivery for critical control events.
  */
@@ -49,7 +49,7 @@ export function createIpcPushBackpressureGate(
       const timestamp = getNow();
       rotateWindowIfNeeded(Math.floor(timestamp / 1_000));
 
-      if (event.type !== "delta") {
+      if (event.type !== "chunk") {
         return true;
       }
 
