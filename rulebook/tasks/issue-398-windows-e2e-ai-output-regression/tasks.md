@@ -15,11 +15,11 @@
 - [x] 2.6 运行 `pnpm cross-module:check`
 - [x] 2.7 运行 `pnpm test:unit`
 - [x] 2.8 运行 `pnpm test:integration`
-- [ ] 2.9 运行 `scripts/agent_pr_preflight.sh`
+- [x] 2.9 运行 `scripts/agent_pr_preflight.sh`
 
 ## 3. Documentation
 
 - [x] 3.1 维护 `openspec/_ops/task_runs/ISSUE-398.md`（准入、根因、Red/Green、门禁与合并证据）
-- [ ] 3.2 创建 PR（`Closes #398`）并回填 RUN_LOG 的真实 PR 链接
+- [x] 3.2 创建 PR（`Closes #398`）并回填 RUN_LOG 的真实 PR 链接
 - [ ] 3.3 开启 auto-merge，等待 required checks 全绿后合并到控制面 `main`
 - [ ] 3.4 同 PR 归档 `rulebook/tasks/issue-398-windows-e2e-ai-output-regression`

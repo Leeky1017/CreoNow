@@ -3,7 +3,7 @@
 - Issue: #398
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/398
 - Branch: task/398-windows-e2e-ai-output-regression
-- PR: （待回填）
+- PR: https://github.com/Leeky1017/CreoNow/pull/399
 - Scope: 修复 PR #397 后 `windows-e2e` 中 `ai-output/ai-diff` 缺失回归，恢复 `ai-apply` / `knowledge-graph` / `search-rag` 稳定通过
 - Out of Scope: 新功能开发；主规范新增（本次为实现回归修复，沿用现有 `ai-service` + `ipc` 主 spec）
 
@@ -138,3 +138,35 @@
   - `PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ... ISSUE-398.md: （待回填）`
 - 结论:
   - 需先创建 PR 并回填真实链接，再复跑 preflight
+
+### 2026-02-10 18:58 +0800 提交 / 推送 / 创建 PR
+
+- Command:
+  - `git commit -m "fix: resolve ai skill run ipc contract regression (#398)"`
+  - `git push -u origin task/398-windows-e2e-ai-output-regression`
+  - `gh pr create --base main --head task/398-windows-e2e-ai-output-regression --title "Fix windows-e2e ai output/diff regression (#398)" --body-file /tmp/pr-398-body.md`
+- Exit code: `0`
+- Key output:
+  - commit: `0936902e`
+  - 远端分支创建并跟踪成功
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/399`
+
+### 2026-02-10 19:00 +0800 preflight 二次阻断（Rulebook metadata 格式）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `PRE-FLIGHT FAILED: ... prettier --check ... rulebook/tasks/.../.metadata.json`
+  - `Code style issues found ... .metadata.json`
+- 修复动作:
+  - `pnpm exec prettier --write rulebook/tasks/issue-398-windows-e2e-ai-output-regression/.metadata.json`
+
+### 2026-02-10 19:02 +0800 preflight 复验通过
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - prettier / typecheck / lint / contract:check / cross-module:check / test:unit 全通过
+  - preflight 复验通过，满足提交流程门禁
