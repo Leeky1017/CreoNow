@@ -3,7 +3,7 @@
 - Issue: #380
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/380
 - Branch: task/380-ai-service-p4-candidates-usage-stats
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/384
 - Scope: 交付 `openspec/changes/ai-service-p4-candidates-usage-stats` 全部任务（候选方案配置与应用、全部不满意重生成与强负反馈、token/费用统计展示）
 - Out of Scope: provider 健康探测与自动降级切换（属于 `ai-service-p5-failover-quota-hardening`）
 
@@ -123,3 +123,13 @@
   - `typecheck` 通过；`lint` 仅 legacy warning，无 error。
   - `[CROSS_MODULE_GATE] PASS`
   - `test:unit` 全部通过（含 AI/IPC/Context/Memory 等单元套件）
+
+### 2026-02-10 13:27 +0800 PR 创建与描述修正
+
+- Command:
+  - `gh pr create --base main --head task/380-ai-service-p4-candidates-usage-stats --title "Deliver ai-service p4 candidates and usage stats (#380)" --body "..."`
+  - `gh pr edit 384 --body-file /tmp/pr384-body.md`
+- Exit code: `0`
+- Key output:
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/384`
+  - PR body 已修正为稳定文本（避免 shell 反引号命令替换）
