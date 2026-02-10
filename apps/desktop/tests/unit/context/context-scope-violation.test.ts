@@ -15,10 +15,12 @@ type FakeIpcMain = {
   handle: (channel: string, handler: Handler) => void;
 };
 
-// Scenario Mapping: CE1-R2-S2
+// Scenario Mapping: CE5-R2-S2
 {
   // Arrange
   const handlers = new Map<string, Handler>();
+  const loggerEvents: Array<{ event: string; data?: Record<string, unknown> }> =
+    [];
   const ipcMain: FakeIpcMain = {
     handle: (channel, handler) => {
       handlers.set(channel, handler);
@@ -26,8 +28,12 @@ type FakeIpcMain = {
   };
   const logger: Logger = {
     logPath: "<test>",
-    info: () => {},
-    error: () => {},
+    info: (event, data) => {
+      loggerEvents.push({ event, data });
+    },
+    error: (event, data) => {
+      loggerEvents.push({ event, data });
+    },
   };
   const db = {
     prepare: () => ({
@@ -51,10 +57,20 @@ type FakeIpcMain = {
         chunks: [{ source: "kg:entities", content: "角色设定" }],
       }),
       settings: async () => ({
-        chunks: [{ source: "memory:semantic", content: "短句风格" }],
+        chunks: [],
       }),
       retrieved: async () => ({
-        chunks: [{ source: "rag:retrieve", content: "历史片段" }],
+        chunks: [
+          {
+            source: "rag:cross-project",
+            content: "来自其他项目的片段",
+            projectId: "project-2",
+          } as {
+            source: string;
+            content: string;
+            projectId: string;
+          },
+        ],
       }),
       immediate: async () => ({
         chunks: [{ source: "editor:cursor-window", content: "当前正文" }],
@@ -62,56 +78,30 @@ type FakeIpcMain = {
     }),
   });
 
-  const inspectHandler = handlers.get("context:prompt:inspect");
-  assert.ok(inspectHandler, "Missing handler context:prompt:inspect");
-  if (!inspectHandler) {
-    throw new Error("Missing handler context:prompt:inspect");
+  const assembleHandler = handlers.get("context:prompt:assemble");
+  assert.ok(assembleHandler, "Missing handler context:prompt:assemble");
+  if (!assembleHandler) {
+    throw new Error("Missing handler context:prompt:assemble");
   }
 
   // Act
-  const response = (await inspectHandler(
+  const response = (await assembleHandler(
     {},
     {
       projectId: "project-1",
       documentId: "document-1",
-      cursorPosition: 16,
+      cursorPosition: 32,
       skillId: "continue-writing",
-      debugMode: true,
-      requestedBy: "unit-test",
-      callerRole: "owner",
     },
-  )) as IpcResponse<{
-    layersDetail: Record<
-      string,
-      {
-        content: string;
-        source: string[];
-        tokenCount: number;
-        truncated: boolean;
-      }
-    >;
-    totals: { tokenCount: number; warningsCount: number };
-    inspectMeta: {
-      debugMode: boolean;
-      requestedBy: string;
-      requestedAt: number;
-    };
-  }>;
+  )) as IpcResponse<unknown>;
 
   // Assert
-  assert.equal(response.ok, true);
-  if (response.ok) {
-    assert.equal(typeof response.data.layersDetail.rules.content, "string");
-    assert.deepEqual(response.data.layersDetail.rules.source, ["kg:entities"]);
-    assert.equal(response.data.layersDetail.rules.tokenCount > 0, true);
-    assert.equal(typeof response.data.totals.tokenCount, "number");
-    assert.equal(typeof response.data.totals.warningsCount, "number");
-    assert.equal(response.data.inspectMeta.debugMode, true);
-    assert.equal(response.data.inspectMeta.requestedBy, "unit-test");
-    assert.equal(typeof response.data.inspectMeta.requestedAt, "number");
-    assert.equal(
-      Object.prototype.hasOwnProperty.call(response.data, "prompt"),
-      false,
-    );
+  assert.equal(response.ok, false);
+  if (!response.ok) {
+    assert.equal(response.error.code, "CONTEXT_SCOPE_VIOLATION");
   }
+  assert.equal(
+    loggerEvents.some((entry) => entry.event === "context_scope_violation"),
+    true,
+  );
 }

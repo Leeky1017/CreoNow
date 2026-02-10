@@ -15,25 +15,39 @@ type FakeIpcMain = {
   handle: (channel: string, handler: Handler) => void;
 };
 
-// Scenario Mapping: CE1-R2-S2
+type LogEntry = {
+  level: "info" | "error";
+  event: string;
+  data?: Record<string, unknown>;
+};
+
+// Scenario Mapping: CE5-R1-S2
 {
   // Arrange
   const handlers = new Map<string, Handler>();
+  const logEntries: LogEntry[] = [];
   const ipcMain: FakeIpcMain = {
     handle: (channel, handler) => {
       handlers.set(channel, handler);
     },
   };
+
   const logger: Logger = {
     logPath: "<test>",
-    info: () => {},
-    error: () => {},
+    info: (event, data) => {
+      logEntries.push({ level: "info", event, data });
+    },
+    error: (event, data) => {
+      logEntries.push({ level: "error", event, data });
+    },
   };
+
   const db = {
     prepare: () => ({
       get: () => ({ rootPath: "/tmp/project" }),
     }),
   } as unknown as Database.Database;
+
   const watchService: CreonowWatchService = {
     start: (_args) => ({ ok: true, data: { watching: true } }),
     stop: (_args) => ({ ok: true, data: { watching: false } }),
@@ -69,7 +83,21 @@ type FakeIpcMain = {
   }
 
   // Act
-  const response = (await inspectHandler(
+  const denied = (await inspectHandler(
+    {},
+    {
+      projectId: "project-1",
+      documentId: "document-1",
+      cursorPosition: 16,
+      skillId: "continue-writing",
+      debugMode: false,
+      requestedBy: "qa-member",
+      callerRole: "member",
+      additionalInput: "SECRET-RAW-CONTENT",
+    },
+  )) as IpcResponse<unknown>;
+
+  const allowed = (await inspectHandler(
     {},
     {
       projectId: "project-1",
@@ -77,20 +105,10 @@ type FakeIpcMain = {
       cursorPosition: 16,
       skillId: "continue-writing",
       debugMode: true,
-      requestedBy: "unit-test",
+      requestedBy: "qa-owner",
       callerRole: "owner",
     },
   )) as IpcResponse<{
-    layersDetail: Record<
-      string,
-      {
-        content: string;
-        source: string[];
-        tokenCount: number;
-        truncated: boolean;
-      }
-    >;
-    totals: { tokenCount: number; warningsCount: number };
     inspectMeta: {
       debugMode: boolean;
       requestedBy: string;
@@ -99,19 +117,23 @@ type FakeIpcMain = {
   }>;
 
   // Assert
-  assert.equal(response.ok, true);
-  if (response.ok) {
-    assert.equal(typeof response.data.layersDetail.rules.content, "string");
-    assert.deepEqual(response.data.layersDetail.rules.source, ["kg:entities"]);
-    assert.equal(response.data.layersDetail.rules.tokenCount > 0, true);
-    assert.equal(typeof response.data.totals.tokenCount, "number");
-    assert.equal(typeof response.data.totals.warningsCount, "number");
-    assert.equal(response.data.inspectMeta.debugMode, true);
-    assert.equal(response.data.inspectMeta.requestedBy, "unit-test");
-    assert.equal(typeof response.data.inspectMeta.requestedAt, "number");
-    assert.equal(
-      Object.prototype.hasOwnProperty.call(response.data, "prompt"),
-      false,
-    );
+  assert.equal(denied.ok, false);
+  if (!denied.ok) {
+    assert.equal(denied.error.code, "CONTEXT_INSPECT_FORBIDDEN");
+  }
+
+  const auditEntry = logEntries.find(
+    (entry) => entry.event === "context_inspect_forbidden",
+  );
+  assert.ok(auditEntry, "Missing context_inspect_forbidden audit log");
+  assert.equal(
+    JSON.stringify(auditEntry?.data ?? {}).includes("SECRET-RAW-CONTENT"),
+    false,
+  );
+
+  assert.equal(allowed.ok, true);
+  if (allowed.ok) {
+    assert.equal(allowed.data.inspectMeta.debugMode, true);
+    assert.equal(allowed.data.inspectMeta.requestedBy, "qa-owner");
   }
 }

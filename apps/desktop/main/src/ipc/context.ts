@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
@@ -13,7 +14,9 @@ import {
 } from "../services/context/contextFs";
 import { redactUserDataPath } from "../db/paths";
 import {
+  CONTEXT_CAPACITY_LIMITS,
   createContextLayerAssemblyService,
+  isContextAssemblyError,
   type ContextAssembleRequest,
   type ContextAssembleResult,
   type ContextBudgetProfile,
@@ -27,6 +30,73 @@ import type { CreonowWatchService } from "../services/context/watchService";
 type ProjectRow = {
   rootPath: string;
 };
+
+const INSPECT_ALLOWED_ROLES = new Set(["owner", "maintainer"]);
+
+/**
+ * Estimate tokens using the same deterministic byte-based approximation used by
+ * context assembly internals.
+ */
+function estimateInputTokens(text: string): number {
+  const bytes = new TextEncoder().encode(text).length;
+  return bytes === 0 ? 0 : Math.ceil(bytes / 4);
+}
+
+/**
+ * Normalize optional caller role into one stable lower-case value.
+ */
+function normalizeCallerRole(role: unknown): string {
+  if (typeof role !== "string") {
+    return "unknown";
+  }
+  const normalized = role.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : "unknown";
+}
+
+/**
+ * Hash potentially sensitive input so logs remain auditable without storing raw
+ * prompt content.
+ */
+function sha256Hex(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+/**
+ * Build safe log payload for overload/boundary paths.
+ */
+function buildInputAudit(args: {
+  additionalInput?: string;
+  debugMode: boolean;
+}): {
+  inputTokens: number;
+  inputHash?: string;
+  sampledInputRedacted?: string;
+  sampledInputEvidenceCount?: number;
+} {
+  const text = args.additionalInput?.trim() ?? "";
+  const inputTokens = estimateInputTokens(text);
+  if (text.length === 0) {
+    return { inputTokens };
+  }
+
+  if (!args.debugMode) {
+    return {
+      inputTokens,
+      inputHash: sha256Hex(text),
+    };
+  }
+
+  const redacted = redactText({
+    text,
+    sourceRef: "context:prompt:input",
+  });
+  return {
+    inputTokens,
+    inputHash: sha256Hex(text),
+    sampledInputRedacted: redacted.redactedText.slice(0, 160),
+    sampledInputEvidenceCount: redacted.evidence.length,
+  };
+}
 
 /**
  * Check that a read request stays within an allowed `.creonow/<scope>/` prefix.
@@ -78,6 +148,36 @@ export function registerContextIpcHandlers(deps: {
         deps.logger.info("context_rules_constraint_trimmed", log);
       },
     });
+  const inFlightByDocument = new Map<string, number>();
+
+  function documentInFlightKey(projectId: string, documentId: string): string {
+    return `${projectId}:${documentId}`;
+  }
+
+  function tryAcquireDocumentSlot(key: string): {
+    acquired: boolean;
+    next: number;
+  } {
+    const current = inFlightByDocument.get(key) ?? 0;
+    if (current >= CONTEXT_CAPACITY_LIMITS.maxConcurrentByDocument) {
+      return { acquired: false, next: current };
+    }
+    const next = current + 1;
+    inFlightByDocument.set(key, next);
+    return { acquired: true, next };
+  }
+
+  function releaseDocumentSlot(key: string): void {
+    const current = inFlightByDocument.get(key);
+    if (current === undefined) {
+      return;
+    }
+    if (current <= 1) {
+      inFlightByDocument.delete(key);
+      return;
+    }
+    inFlightByDocument.set(key, current - 1);
+  }
 
   deps.ipcMain.handle(
     "context:creonow:ensure",
@@ -401,6 +501,53 @@ export function registerContextIpcHandlers(deps: {
         };
       }
 
+      const inputAudit = buildInputAudit({
+        additionalInput: payload.additionalInput,
+        debugMode: false,
+      });
+      if (inputAudit.inputTokens > CONTEXT_CAPACITY_LIMITS.maxInputTokens) {
+        deps.logger.error("context_input_too_large", {
+          code: "CONTEXT_INPUT_TOO_LARGE",
+          channel: "context:prompt:assemble",
+          projectId: payload.projectId,
+          documentId: payload.documentId,
+          ...inputAudit,
+        });
+        return {
+          ok: false,
+          error: {
+            code: "CONTEXT_INPUT_TOO_LARGE",
+            message:
+              "Input exceeds 64k token limit. Please reduce, split, or shrink additionalInput.",
+          },
+        };
+      }
+
+      const slotKey = documentInFlightKey(
+        payload.projectId,
+        payload.documentId,
+      );
+      const slot = tryAcquireDocumentSlot(slotKey);
+      if (!slot.acquired) {
+        deps.logger.error("context_backpressure", {
+          code: "CONTEXT_BACKPRESSURE",
+          channel: "context:prompt:assemble",
+          projectId: payload.projectId,
+          documentId: payload.documentId,
+          inFlight: slot.next,
+          limit: CONTEXT_CAPACITY_LIMITS.maxConcurrentByDocument,
+          ...inputAudit,
+        });
+        return {
+          ok: false,
+          error: {
+            code: "CONTEXT_BACKPRESSURE",
+            message:
+              "Context assemble backpressure: too many concurrent requests",
+          },
+        };
+      }
+
       try {
         if (!projectExists(deps.db, payload.projectId)) {
           return {
@@ -412,6 +559,22 @@ export function registerContextIpcHandlers(deps: {
         const assembled = await contextAssemblyService.assemble(payload);
         return { ok: true, data: assembled };
       } catch (error) {
+        if (
+          isContextAssemblyError(error) &&
+          error.code === "CONTEXT_SCOPE_VIOLATION"
+        ) {
+          deps.logger.error("context_scope_violation", {
+            code: error.code,
+            channel: "context:prompt:assemble",
+            projectId: payload.projectId,
+            documentId: payload.documentId,
+            message: error.message,
+          });
+          return {
+            ok: false,
+            error: { code: error.code, message: error.message },
+          };
+        }
         deps.logger.error("context_assemble_failed", {
           code: "INTERNAL",
           message: error instanceof Error ? error.message : String(error),
@@ -420,6 +583,8 @@ export function registerContextIpcHandlers(deps: {
           ok: false,
           error: { code: "INTERNAL", message: "Failed to assemble context" },
         };
+      } finally {
+        releaseDocumentSlot(slotKey);
       }
     },
   );
@@ -470,6 +635,78 @@ export function registerContextIpcHandlers(deps: {
         };
       }
 
+      const callerRole = normalizeCallerRole(payload.callerRole);
+      const debugMode = payload.debugMode === true;
+      if (!debugMode || !INSPECT_ALLOWED_ROLES.has(callerRole)) {
+        deps.logger.info("context_inspect_forbidden", {
+          code: "CONTEXT_INSPECT_FORBIDDEN",
+          projectId: payload.projectId,
+          documentId: payload.documentId,
+          callerRole,
+          requestedBy: payload.requestedBy ?? "unknown",
+          debugMode,
+          ...buildInputAudit({
+            additionalInput: payload.additionalInput,
+            debugMode: false,
+          }),
+        });
+        return {
+          ok: false,
+          error: {
+            code: "CONTEXT_INSPECT_FORBIDDEN",
+            message:
+              "context:prompt:inspect requires debugMode=true and callerRole owner/maintainer",
+          },
+        };
+      }
+
+      const inputAudit = buildInputAudit({
+        additionalInput: payload.additionalInput,
+        debugMode: true,
+      });
+      if (inputAudit.inputTokens > CONTEXT_CAPACITY_LIMITS.maxInputTokens) {
+        deps.logger.error("context_input_too_large", {
+          code: "CONTEXT_INPUT_TOO_LARGE",
+          channel: "context:prompt:inspect",
+          projectId: payload.projectId,
+          documentId: payload.documentId,
+          ...inputAudit,
+        });
+        return {
+          ok: false,
+          error: {
+            code: "CONTEXT_INPUT_TOO_LARGE",
+            message:
+              "Input exceeds 64k token limit. Please reduce, split, or shrink additionalInput.",
+          },
+        };
+      }
+
+      const slotKey = documentInFlightKey(
+        payload.projectId,
+        payload.documentId,
+      );
+      const slot = tryAcquireDocumentSlot(slotKey);
+      if (!slot.acquired) {
+        deps.logger.error("context_backpressure", {
+          code: "CONTEXT_BACKPRESSURE",
+          channel: "context:prompt:inspect",
+          projectId: payload.projectId,
+          documentId: payload.documentId,
+          inFlight: slot.next,
+          limit: CONTEXT_CAPACITY_LIMITS.maxConcurrentByDocument,
+          ...inputAudit,
+        });
+        return {
+          ok: false,
+          error: {
+            code: "CONTEXT_BACKPRESSURE",
+            message:
+              "Context inspect backpressure: too many concurrent requests",
+          },
+        };
+      }
+
       try {
         if (!projectExists(deps.db, payload.projectId)) {
           return {
@@ -481,6 +718,22 @@ export function registerContextIpcHandlers(deps: {
         const inspected = await contextAssemblyService.inspect(payload);
         return { ok: true, data: inspected };
       } catch (error) {
+        if (
+          isContextAssemblyError(error) &&
+          error.code === "CONTEXT_SCOPE_VIOLATION"
+        ) {
+          deps.logger.error("context_scope_violation", {
+            code: error.code,
+            channel: "context:prompt:inspect",
+            projectId: payload.projectId,
+            documentId: payload.documentId,
+            message: error.message,
+          });
+          return {
+            ok: false,
+            error: { code: error.code, message: error.message },
+          };
+        }
         deps.logger.error("context_inspect_failed", {
           code: "INTERNAL",
           message: error instanceof Error ? error.message : String(error),
@@ -489,6 +742,8 @@ export function registerContextIpcHandlers(deps: {
           ok: false,
           error: { code: "INTERNAL", message: "Failed to inspect context" },
         };
+      } finally {
+        releaseDocumentSlot(slotKey);
       }
     },
   );

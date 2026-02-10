@@ -5,7 +5,11 @@ import type { IpcMain } from "electron";
 
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import { registerContextIpcHandlers } from "../../../main/src/ipc/context";
-import { createContextLayerAssemblyService } from "../../../main/src/services/context/layerAssemblyService";
+import {
+  CONTEXT_CAPACITY_LIMITS,
+  CONTEXT_SLO_THRESHOLDS_MS,
+  createContextLayerAssemblyService,
+} from "../../../main/src/services/context/layerAssemblyService";
 import type { Logger } from "../../../main/src/logging/logger";
 import type { CreonowWatchService } from "../../../main/src/services/context/watchService";
 
@@ -15,7 +19,7 @@ type FakeIpcMain = {
   handle: (channel: string, handler: Handler) => void;
 };
 
-// Scenario Mapping: CE1-R2-S2
+// Scenario Mapping: CE5-R1-S1
 {
   // Arrange
   const handlers = new Map<string, Handler>();
@@ -40,6 +44,11 @@ type FakeIpcMain = {
     isWatching: (_args) => false,
   };
 
+  const retrievedChunks = Array.from({ length: 250 }, (_v, index) => ({
+    source: `rag:chunk:${index.toString()}`,
+    content: `chunk-${index.toString()}`,
+  }));
+
   registerContextIpcHandlers({
     ipcMain: ipcMain as unknown as IpcMain,
     db,
@@ -54,7 +63,7 @@ type FakeIpcMain = {
         chunks: [{ source: "memory:semantic", content: "短句风格" }],
       }),
       retrieved: async () => ({
-        chunks: [{ source: "rag:retrieve", content: "历史片段" }],
+        chunks: retrievedChunks,
       }),
       immediate: async () => ({
         chunks: [{ source: "editor:cursor-window", content: "当前正文" }],
@@ -62,56 +71,51 @@ type FakeIpcMain = {
     }),
   });
 
-  const inspectHandler = handlers.get("context:prompt:inspect");
-  assert.ok(inspectHandler, "Missing handler context:prompt:inspect");
-  if (!inspectHandler) {
-    throw new Error("Missing handler context:prompt:inspect");
+  const assembleHandler = handlers.get("context:prompt:assemble");
+  assert.ok(assembleHandler, "Missing handler context:prompt:assemble");
+  if (!assembleHandler) {
+    throw new Error("Missing handler context:prompt:assemble");
   }
 
   // Act
-  const response = (await inspectHandler(
+  const response = (await assembleHandler(
     {},
     {
       projectId: "project-1",
       documentId: "document-1",
-      cursorPosition: 16,
+      cursorPosition: 80,
       skillId: "continue-writing",
-      debugMode: true,
-      requestedBy: "unit-test",
-      callerRole: "owner",
     },
   )) as IpcResponse<{
-    layersDetail: Record<
-      string,
-      {
-        content: string;
+    warnings: string[];
+    layers: {
+      retrieved: {
         source: string[];
-        tokenCount: number;
-        truncated: boolean;
-      }
-    >;
-    totals: { tokenCount: number; warningsCount: number };
-    inspectMeta: {
-      debugMode: boolean;
-      requestedBy: string;
-      requestedAt: number;
+      };
     };
   }>;
 
   // Assert
+  assert.deepEqual(CONTEXT_SLO_THRESHOLDS_MS, {
+    assemble: { p95: 250, p99: 500 },
+    inspect: { p95: 180, p99: 350 },
+    budgetCalculation: { p95: 80, p99: 150 },
+  });
+  assert.deepEqual(CONTEXT_CAPACITY_LIMITS, {
+    maxInputTokens: 64000,
+    maxRetrievedChunks: 200,
+    maxConcurrentByDocument: 4,
+  });
+
   assert.equal(response.ok, true);
   if (response.ok) {
-    assert.equal(typeof response.data.layersDetail.rules.content, "string");
-    assert.deepEqual(response.data.layersDetail.rules.source, ["kg:entities"]);
-    assert.equal(response.data.layersDetail.rules.tokenCount > 0, true);
-    assert.equal(typeof response.data.totals.tokenCount, "number");
-    assert.equal(typeof response.data.totals.warningsCount, "number");
-    assert.equal(response.data.inspectMeta.debugMode, true);
-    assert.equal(response.data.inspectMeta.requestedBy, "unit-test");
-    assert.equal(typeof response.data.inspectMeta.requestedAt, "number");
     assert.equal(
-      Object.prototype.hasOwnProperty.call(response.data, "prompt"),
-      false,
+      response.data.layers.retrieved.source.length,
+      CONTEXT_CAPACITY_LIMITS.maxRetrievedChunks,
+    );
+    assert.equal(
+      response.data.warnings.includes("CONTEXT_RETRIEVED_CHUNK_LIMIT"),
+      true,
     );
   }
 }

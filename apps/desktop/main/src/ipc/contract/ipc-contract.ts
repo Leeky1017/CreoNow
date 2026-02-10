@@ -60,6 +60,9 @@ export const IPC_ERROR_CODES = [
   "CONSTRAINT_NOT_FOUND",
   "CONSTRAINT_CONFLICT",
   "CONTEXT_SCOPE_VIOLATION",
+  "CONTEXT_INSPECT_FORBIDDEN",
+  "CONTEXT_INPUT_TOO_LARGE",
+  "CONTEXT_BACKPRESSURE",
   "CONTEXT_BUDGET_INVALID_RATIO",
   "CONTEXT_BUDGET_INVALID_MINIMUM",
   "CONTEXT_BUDGET_CONFLICT",
@@ -148,6 +151,7 @@ const CONTEXT_INSPECT_REQUEST_SCHEMA = s.object({
   tokenizerVersion: s.optional(s.string()),
   debugMode: s.optional(s.boolean()),
   requestedBy: s.optional(s.string()),
+  callerRole: s.optional(s.string()),
 });
 
 const CONTEXT_LAYER_SUMMARY_SCHEMA = s.object({

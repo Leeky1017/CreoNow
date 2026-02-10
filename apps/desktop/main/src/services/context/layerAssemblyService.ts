@@ -16,11 +16,13 @@ export type ContextAssembleRequest = {
 export type ContextInspectRequest = ContextAssembleRequest & {
   debugMode?: boolean;
   requestedBy?: string;
+  callerRole?: string;
 };
 
 export type ContextLayerChunk = {
   source: string;
   content: string;
+  projectId?: string;
   constraints?: ContextRuleConstraint[];
 };
 
@@ -157,6 +159,19 @@ const LAYER_DEGRADED_WARNING: Record<ContextLayerId, string> = {
   retrieved: "RAG_UNAVAILABLE",
   immediate: "IMMEDIATE_UNAVAILABLE",
 };
+const RETRIEVED_CHUNK_LIMIT_WARNING = "CONTEXT_RETRIEVED_CHUNK_LIMIT";
+
+export const CONTEXT_SLO_THRESHOLDS_MS = {
+  assemble: { p95: 250, p99: 500 },
+  inspect: { p95: 180, p99: 350 },
+  budgetCalculation: { p95: 80, p99: 150 },
+} as const;
+
+export const CONTEXT_CAPACITY_LIMITS = {
+  maxInputTokens: 64000,
+  maxRetrievedChunks: 200,
+  maxConcurrentByDocument: 4,
+} as const;
 
 const DEFAULT_TOTAL_BUDGET_TOKENS = 6000;
 const DEFAULT_TOKENIZER_ID = "cn-byte-estimator";
@@ -173,6 +188,24 @@ type InternalContextLayerDetail = ContextLayerDetail & {
   rulesBaseContent?: string;
 };
 
+export type ContextAssemblyErrorCode = "CONTEXT_SCOPE_VIOLATION";
+
+export class ContextAssemblyError extends Error {
+  readonly code: ContextAssemblyErrorCode;
+
+  constructor(code: ContextAssemblyErrorCode, message: string) {
+    super(message);
+    this.name = "ContextAssemblyError";
+    this.code = code;
+  }
+}
+
+export function isContextAssemblyError(
+  error: unknown,
+): error is ContextAssemblyError {
+  return error instanceof ContextAssemblyError;
+}
+
 /**
  * Why: source and warning lists must stay deterministic and free of empty noise
  * for stable contract assertions.
@@ -186,6 +219,28 @@ function uniqueNonEmpty(values: readonly string[]): string[] {
     }
   }
   return [...deduped];
+}
+
+/**
+ * Why: CE5 requires blocking cross-project layer injection before prompt
+ * assembly to keep context scope boundaries explicit and auditable.
+ */
+function assertLayerChunkScope(args: {
+  projectId: string;
+  chunks: readonly ContextLayerChunk[];
+}): void {
+  for (const chunk of args.chunks) {
+    if (!chunk.projectId || chunk.projectId.trim().length === 0) {
+      continue;
+    }
+    if (chunk.projectId === args.projectId) {
+      continue;
+    }
+    throw new ContextAssemblyError(
+      "CONTEXT_SCOPE_VIOLATION",
+      `Layer chunk scope mismatch: expected ${args.projectId}, got ${chunk.projectId}`,
+    );
+  }
 }
 
 /**
@@ -567,12 +622,24 @@ async function fetchLayerWithDegrade(args: {
 }): Promise<InternalContextLayerDetail> {
   try {
     const fetched = await args.fetcher(args.request);
-    const source = uniqueNonEmpty(fetched.chunks.map((chunk) => chunk.source));
-    const baseContent = mergeLayerContent(fetched.chunks);
+    const retrievedChunksCapped =
+      args.layer === "retrieved" &&
+      fetched.chunks.length > CONTEXT_CAPACITY_LIMITS.maxRetrievedChunks;
+    const boundedChunks = retrievedChunksCapped
+      ? fetched.chunks.slice(0, CONTEXT_CAPACITY_LIMITS.maxRetrievedChunks)
+      : fetched.chunks;
+
+    assertLayerChunkScope({
+      projectId: args.request.projectId,
+      chunks: boundedChunks,
+    });
+
+    const source = uniqueNonEmpty(boundedChunks.map((chunk) => chunk.source));
+    const baseContent = mergeLayerContent(boundedChunks);
     const constraints =
       args.layer === "rules"
         ? normalizeRulesConstraints(
-            fetched.chunks.flatMap((chunk) => chunk.constraints ?? []),
+            boundedChunks.flatMap((chunk) => chunk.constraints ?? []),
           )
         : [];
     const content =
@@ -582,13 +649,16 @@ async function fetchLayerWithDegrade(args: {
             constraints,
           })
         : baseContent;
-    const warnings = uniqueNonEmpty(fetched.warnings ?? []);
+    const warnings = uniqueNonEmpty([
+      ...(fetched.warnings ?? []),
+      ...(retrievedChunksCapped ? [RETRIEVED_CHUNK_LIMIT_WARNING] : []),
+    ]);
 
     return {
       content,
       source,
       tokenCount: estimateTokenCount(content),
-      truncated: fetched.truncated === true,
+      truncated: fetched.truncated === true || retrievedChunksCapped,
       ...(warnings.length > 0 ? { warnings } : {}),
       ...(args.layer === "rules"
         ? {
@@ -597,7 +667,10 @@ async function fetchLayerWithDegrade(args: {
           }
         : {}),
     };
-  } catch {
+  } catch (error) {
+    if (isContextAssemblyError(error)) {
+      throw error;
+    }
     const warning = LAYER_DEGRADED_WARNING[args.layer];
     return {
       content: "",
