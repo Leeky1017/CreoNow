@@ -21,6 +21,12 @@ export type DocumentType =
   | "character";
 
 export type DocumentStatus = "draft" | "final";
+export type VersionSnapshotActor = "user" | "auto" | "ai";
+export type VersionSnapshotReason =
+  | "manual-save"
+  | "autosave"
+  | "ai-accept"
+  | "status-change";
 
 export type DocumentListItem = {
   documentId: string;
@@ -50,9 +56,10 @@ export type DocumentRead = {
 
 export type VersionListItem = {
   versionId: string;
-  actor: "user" | "auto" | "ai";
+  actor: VersionSnapshotActor;
   reason: string;
   contentHash: string;
+  wordCount: number;
   createdAt: number;
 };
 
@@ -60,12 +67,13 @@ export type VersionRead = {
   documentId: string;
   projectId: string;
   versionId: string;
-  actor: "user" | "auto" | "ai";
+  actor: VersionSnapshotActor;
   reason: string;
   contentJson: string;
   contentText: string;
   contentMd: string;
   contentHash: string;
+  wordCount: number;
   createdAt: number;
 };
 
@@ -97,8 +105,8 @@ export type DocumentService = {
     projectId: string;
     documentId: string;
     contentJson: unknown;
-    actor: "user" | "auto" | "ai";
-    reason: "manual-save" | "autosave" | `ai-apply:${string}`;
+    actor: VersionSnapshotActor;
+    reason: VersionSnapshotReason;
   }) => ServiceResult<{
     updatedAt: number;
     contentHash: string;
@@ -146,7 +154,7 @@ const EMPTY_DOC = {
 const SETTINGS_SCOPE_PREFIX = "project:" as const;
 const CURRENT_DOCUMENT_ID_KEY = "creonow.document.currentId" as const;
 const MAX_TITLE_LENGTH = 200;
-const AI_APPLY_REASON_PREFIX = "ai-apply:" as const;
+const AUTOSAVE_MERGE_WINDOW_MS = 5 * 60 * 1000;
 
 const DOCUMENT_TYPE_SET = new Set<DocumentType>([
   "chapter",
@@ -175,12 +183,25 @@ function hashJson(json: string): string {
   return createHash("sha256").update(json, "utf8").digest("hex");
 }
 
-function parseAiApplyRunId(reason: string): string | null {
-  if (!reason.startsWith(AI_APPLY_REASON_PREFIX)) {
-    return null;
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return 0;
   }
-  const runId = reason.slice(AI_APPLY_REASON_PREFIX.length).trim();
-  return runId.length > 0 ? runId : null;
+  return trimmed.split(/\s+/u).length;
+}
+
+function isReasonValidForActor(
+  actor: VersionSnapshotActor,
+  reason: VersionSnapshotReason,
+): boolean {
+  if (actor === "auto") {
+    return reason === "autosave";
+  }
+  if (actor === "ai") {
+    return reason === "ai-accept";
+  }
+  return reason === "manual-save" || reason === "status-change";
 }
 
 function serializeJson(value: unknown): ServiceResult<string> {
@@ -277,8 +298,20 @@ type DocumentRow = {
   updatedAt: number;
 };
 
-type VersionRow = {
+type LatestVersionRow = {
+  versionId: string;
+  reason: string;
   contentHash: string;
+  createdAt: number;
+};
+
+type VersionListRow = {
+  versionId: string;
+  actor: VersionSnapshotActor;
+  reason: string;
+  contentHash: string;
+  wordCount: number;
+  createdAt: number;
 };
 
 type VersionRestoreRow = {
@@ -623,12 +656,8 @@ export function createDocumentService(args: {
     },
 
     save: ({ projectId, documentId, contentJson, actor, reason }) => {
-      const aiRunId = actor === "ai" ? parseAiApplyRunId(reason) : null;
-      if (actor === "ai" && !aiRunId) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          "AI apply reason must be ai-apply:<runId>",
-        );
+      if (!isReasonValidForActor(actor, reason)) {
+        return ipcError("INVALID_ARGUMENT", "actor/reason mismatch");
       }
 
       const derived = deriveContent({ contentJson });
@@ -641,15 +670,17 @@ export function createDocumentService(args: {
         return encoded;
       }
       const contentHash = hashJson(encoded.data);
+      const wordCount = countWords(derived.data.contentText);
       const ts = nowTs();
 
-      if (aiRunId) {
-        args.logger.info("ai_apply_started", {
-          runId: aiRunId,
-          document_id: documentId,
-        });
+      if (actor === "ai") {
+        args.logger.info("ai_apply_started", { document_id: documentId });
       }
-      args.logger.info("doc_save_started", { document_id: documentId });
+      args.logger.info("doc_save_started", {
+        document_id: documentId,
+        actor,
+        reason,
+      });
 
       try {
         args.db.transaction(() => {
@@ -677,21 +708,49 @@ export function createDocumentService(args: {
               documentId,
             );
 
-          const last = args.db
+          const latest = args.db
             .prepare<
               [string],
-              VersionRow
-            >("SELECT content_hash as contentHash FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+              LatestVersionRow
+            >("SELECT version_id as versionId, reason, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
             .get(documentId);
-          const lastHash = last?.contentHash ?? null;
-          const shouldInsertVersion =
-            actor === "auto" ? lastHash !== contentHash : true;
 
-          if (shouldInsertVersion) {
+          const shouldMergeAutosave =
+            actor === "auto" &&
+            latest?.reason === "autosave" &&
+            ts - latest.createdAt < AUTOSAVE_MERGE_WINDOW_MS;
+
+          if (shouldMergeAutosave && latest) {
+            args.db
+              .prepare(
+                "UPDATE document_versions SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, word_count = ?, created_at = ? WHERE version_id = ?",
+              )
+              .run(
+                encoded.data,
+                derived.data.contentText,
+                derived.data.contentMd,
+                contentHash,
+                wordCount,
+                ts,
+                latest.versionId,
+              );
+
+            args.logger.info("version_autosave_merged", {
+              version_id: latest.versionId,
+              document_id: documentId,
+              content_hash: contentHash,
+            });
+          } else {
+            const shouldInsertVersion =
+              actor === "auto" ? latest?.contentHash !== contentHash : true;
+            if (!shouldInsertVersion) {
+              return;
+            }
+
             const versionId = randomUUID();
             args.db
               .prepare(
-                "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
               )
               .run(
                 versionId,
@@ -703,6 +762,7 @@ export function createDocumentService(args: {
                 derived.data.contentText,
                 derived.data.contentMd,
                 contentHash,
+                wordCount,
                 "",
                 "",
                 ts,
@@ -739,9 +799,8 @@ export function createDocumentService(args: {
         document_id: documentId,
         content_hash: contentHash,
       });
-      if (aiRunId) {
+      if (actor === "ai") {
         args.logger.info("ai_apply_succeeded", {
-          runId: aiRunId,
           document_id: documentId,
           content_hash: contentHash,
         });
@@ -950,20 +1009,22 @@ export function createDocumentService(args: {
           }
 
           const versionId = randomUUID();
+          const wordCount = countWords(current.contentText);
           args.db
             .prepare(
-              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .run(
               versionId,
               projectId,
               documentId,
               "user",
-              `status:${normalized.data}`,
+              "status-change",
               current.contentJson,
               current.contentText,
               current.contentMd,
               current.contentHash,
+              wordCount,
               "",
               "",
               ts,
@@ -1057,8 +1118,8 @@ export function createDocumentService(args: {
         const rows = args.db
           .prepare<
             [string],
-            VersionListItem
-          >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
+            VersionListRow
+          >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
           .all(documentId);
         return { ok: true, data: { items: rows } };
       } catch (error) {
@@ -1076,7 +1137,7 @@ export function createDocumentService(args: {
           .prepare<
             [string, string],
             VersionRead
-          >("SELECT document_id as documentId, project_id as projectId, version_id as versionId, actor, reason, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? AND version_id = ?")
+          >("SELECT document_id as documentId, project_id as projectId, version_id as versionId, actor, reason, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, created_at as createdAt FROM document_versions WHERE document_id = ? AND version_id = ?")
           .get(documentId, versionId);
         if (!row) {
           return ipcError("NOT_FOUND", "Version not found");
@@ -1130,9 +1191,10 @@ export function createDocumentService(args: {
           }
 
           const newVersionId = randomUUID();
+          const wordCount = countWords(row.contentText);
           args.db
             .prepare(
-              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .run(
               newVersionId,
@@ -1144,6 +1206,7 @@ export function createDocumentService(args: {
               row.contentText,
               row.contentMd,
               row.contentHash,
+              wordCount,
               "",
               "",
               ts,

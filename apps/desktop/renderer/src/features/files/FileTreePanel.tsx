@@ -48,6 +48,7 @@ type VisibleTreeNode = {
 
 export interface FileTreePanelProps {
   projectId: string;
+  onOpenVersionHistory?: (documentId: string) => void;
   /**
    * 首次渲染时自动进入某个文档的 Rename 模式。
    *
@@ -849,6 +850,13 @@ export function FileTreePanel(props: FileTreePanelProps): JSX.Element {
                   label: "Delete",
                   onSelect: () => void onDelete(item.documentId),
                   destructive: true,
+                },
+                {
+                  key: "version-history",
+                  label: "Version History",
+                  onSelect: () => {
+                    props.onOpenVersionHistory?.(item.documentId);
+                  },
                 },
                 {
                   key: "status",

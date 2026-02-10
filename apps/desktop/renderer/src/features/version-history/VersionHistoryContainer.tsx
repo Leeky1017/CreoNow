@@ -18,6 +18,7 @@ type VersionListItem = {
   actor: "user" | "auto" | "ai";
   reason: string;
   contentHash: string;
+  wordCount: number;
   createdAt: number;
 };
 
@@ -124,6 +125,12 @@ function getDescription(reason: string): string {
   }
   if (reason === "manual-save") {
     return "手动保存";
+  }
+  if (reason === "status-change") {
+    return "状态变更";
+  }
+  if (reason === "ai-accept") {
+    return "AI 修改";
   }
   if (reason === "restore") {
     return "恢复版本";

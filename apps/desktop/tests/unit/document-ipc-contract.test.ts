@@ -31,6 +31,9 @@ function asObjectSchema(value: unknown): ObjectSchema {
     "file:document:getcurrent",
     "file:document:reorder",
     "file:document:updatestatus",
+    "version:snapshot:create",
+    "version:snapshot:list",
+    "version:snapshot:read",
   ] as const;
   const legacy = ["file:document:rename", "file:document:write"] as const;
 
@@ -49,6 +52,57 @@ function asObjectSchema(value: unknown): ObjectSchema {
       `legacy channel should be removed: ${channel}`,
     );
   }
+}
+
+/**
+ * Snapshot contract: must expose create channel + wordCount in list/read payloads.
+ */
+{
+  const channels = ipcContract.channels as unknown as Record<
+    string,
+    { request: unknown; response: unknown }
+  >;
+
+  const createReq = asObjectSchema(
+    channels["version:snapshot:create"]?.request,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(createReq.fields, "documentId"),
+    true,
+    "version:snapshot:create request should include documentId",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(createReq.fields, "contentJson"),
+    true,
+    "version:snapshot:create request should include contentJson",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(createReq.fields, "actor"),
+    true,
+    "version:snapshot:create request should include actor",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(createReq.fields, "reason"),
+    true,
+    "version:snapshot:create request should include reason",
+  );
+
+  const listRes = asObjectSchema(channels["version:snapshot:list"]?.response);
+  const listItems = listRes.fields.items as { kind: "array"; element: unknown };
+  assert.equal(listItems.kind, "array");
+  const listItem = asObjectSchema(listItems.element);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(listItem.fields, "wordCount"),
+    true,
+    "version list item should include wordCount",
+  );
+
+  const readRes = asObjectSchema(channels["version:snapshot:read"]?.response);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(readRes.fields, "wordCount"),
+    true,
+    "version read response should include wordCount",
+  );
 }
 
 /**

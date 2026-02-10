@@ -1,9 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import {
-  VersionHistoryPanel,
-  type TimeGroup,
-} from "./VersionHistoryPanel";
+import { VersionHistoryPanel, type TimeGroup } from "./VersionHistoryPanel";
 
 /**
  * Sample test data
@@ -89,16 +86,22 @@ describe("VersionHistoryPanel", () => {
     );
 
     // Check current version
-    expect(screen.getByText("Fixed typo in the executive summary")).toBeInTheDocument();
-    
+    expect(
+      screen.getByText("Fixed typo in the executive summary"),
+    ).toBeInTheDocument();
+
     // Check AI version
-    expect(screen.getByText('Generated new section on "Security Protocols"')).toBeInTheDocument();
-    
+    expect(
+      screen.getByText('Generated new section on "Security Protocols"'),
+    ).toBeInTheDocument();
+
     // Check user version
     expect(screen.getByText("Removed redundant paragraph")).toBeInTheDocument();
-    
+
     // Check auto-save version
-    expect(screen.getByText("System checkpoint created automatically")).toBeInTheDocument();
+    expect(
+      screen.getByText("System checkpoint created automatically"),
+    ).toBeInTheDocument();
   });
 
   it("renders time group labels", () => {
@@ -184,7 +187,7 @@ describe("VersionHistoryPanel", () => {
     const restoreButtons = screen.getAllByRole("button", { name: /Restore/i });
     const compareButtons = screen.getAllByRole("button", { name: /Compare/i });
     const previewButtons = screen.getAllByRole("button", { name: /Preview/i });
-    
+
     // Should have at least 1 button for each action (from selected card)
     expect(restoreButtons.length).toBeGreaterThanOrEqual(1);
     expect(compareButtons.length).toBeGreaterThanOrEqual(1);
@@ -254,7 +257,9 @@ describe("VersionHistoryPanel", () => {
       />,
     );
 
-    const closeButton = screen.getByRole("button", { name: "Close version history" });
+    const closeButton = screen.getByRole("button", {
+      name: "Close version history",
+    });
     fireEvent.click(closeButton);
 
     expect(onClose).toHaveBeenCalled();
@@ -270,8 +275,12 @@ describe("VersionHistoryPanel", () => {
       />,
     );
 
-    expect(screen.getByText("Auto-save on (last saved 2m ago)")).toBeInTheDocument();
-    expect(screen.getByText("Configure auto-save settings")).toBeInTheDocument();
+    expect(
+      screen.getByText("Auto-save on (last saved 2m ago)"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Configure auto-save settings"),
+    ).toBeInTheDocument();
   });
 
   it("renders auto-save off status when disabled", () => {
@@ -408,5 +417,34 @@ describe("VersionHistoryPanel", () => {
     expect(screen.getByText("2 段落受影响")).toBeInTheDocument();
     expect(screen.getByText("变更预览")).toBeInTheDocument();
     expect(screen.getByText("添加了新的安全协议章节...")).toBeInTheDocument();
+  });
+
+  it("renders ai-accept reason as AI 修改 label", () => {
+    const groupsWithAiAccept: TimeGroup[] = [
+      {
+        label: "Today",
+        versions: [
+          {
+            id: "v-ai-accept",
+            timestamp: "10:00 AM",
+            authorType: "ai",
+            authorName: "AI Assistant",
+            description: "Accepted AI rewrite",
+            wordChange: { type: "added", count: 10 },
+            reason: "ai-accept",
+          },
+        ],
+      },
+    ];
+
+    render(
+      <VersionHistoryPanel
+        documentTitle="Test Document"
+        timeGroups={groupsWithAiAccept}
+        selectedId="v-ai-accept"
+      />,
+    );
+
+    expect(screen.getByText("AI 修改")).toBeInTheDocument();
   });
 });

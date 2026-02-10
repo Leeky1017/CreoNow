@@ -232,6 +232,7 @@ export const IPC_CHANNELS = [
   "stats:day:gettoday",
   "stats:range:get",
   "version:aiapply:logconflict",
+  "version:snapshot:create",
   "version:snapshot:list",
   "version:snapshot:read",
   "version:snapshot:restore",
@@ -1035,7 +1036,7 @@ export type IpcChannelSpec = {
       contentJson: string;
       documentId: string;
       projectId: string;
-      reason: string;
+      reason: "manual-save" | "autosave" | "ai-accept" | "status-change";
     };
     response: {
       contentHash: string;
@@ -2771,6 +2772,21 @@ export type IpcChannelSpec = {
       logged: true;
     };
   };
+  "version:snapshot:create": {
+    request: {
+      actor: "user" | "auto" | "ai";
+      contentJson: string;
+      documentId: string;
+      projectId: string;
+      reason: "manual-save" | "autosave" | "ai-accept" | "status-change";
+    };
+    response: {
+      contentHash: string;
+      createdAt: number;
+      versionId: string;
+      wordCount: number;
+    };
+  };
   "version:snapshot:list": {
     request: {
       documentId: string;
@@ -2782,6 +2798,7 @@ export type IpcChannelSpec = {
         createdAt: number;
         reason: string;
         versionId: string;
+        wordCount: number;
       }>;
     };
   };
@@ -2801,6 +2818,7 @@ export type IpcChannelSpec = {
       projectId: string;
       reason: string;
       versionId: string;
+      wordCount: number;
     };
   };
   "version:snapshot:restore": {

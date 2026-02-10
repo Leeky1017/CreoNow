@@ -21,6 +21,7 @@ export type VersionListItem = {
   actor: "user" | "auto" | "ai";
   reason: string;
   contentHash: string;
+  wordCount: number;
   createdAt: number;
 };
 
@@ -37,6 +38,7 @@ export type VersionContent = {
   contentText: string;
   contentMd: string;
   contentHash: string;
+  wordCount: number;
   createdAt: number;
 };
 

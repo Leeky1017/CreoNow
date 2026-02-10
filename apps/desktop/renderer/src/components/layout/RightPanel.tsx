@@ -11,7 +11,9 @@ import { InfoPanel, QualityPanel } from "../../features/rightpanel";
 /**
  * Context for opening SettingsDialog from nested components (e.g., SkillPicker).
  */
-export const OpenSettingsContext = React.createContext<(() => void) | null>(null);
+export const OpenSettingsContext = React.createContext<(() => void) | null>(
+  null,
+);
 
 /**
  * Hook to get the openSettings callback from context.
@@ -62,7 +64,6 @@ const RIGHT_PANEL_TABS: Array<{
   { type: "quality", label: "Quality", testId: "right-panel-tab-quality" },
 ];
 
-
 /**
  * RightPanel is the right-side panel container with 3 tabs:
  * AI Assistant, Info, and Quality Gates.
@@ -78,6 +79,8 @@ export function RightPanel(props: {
   collapsed: boolean;
   /** Callback to open SettingsDialog from nested components */
   onOpenSettings?: () => void;
+  /** Callback to open left-panel Version History */
+  onOpenVersionHistory?: () => void;
 }): JSX.Element {
   const activeRightPanel = useLayoutStore((s) => s.activeRightPanel);
   const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
@@ -90,7 +93,7 @@ export function RightPanel(props: {
       case "ai":
         return <AiPanel />;
       case "info":
-        return <InfoPanel />;
+        return <InfoPanel onOpenVersionHistory={props.onOpenVersionHistory} />;
       case "quality":
         return <QualityPanel />;
       default: {
@@ -143,9 +146,7 @@ export function RightPanel(props: {
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 min-h-0 overflow-auto">
-          {renderContent()}
-        </div>
+        <div className="flex-1 min-h-0 overflow-auto">{renderContent()}</div>
       </aside>
     </OpenSettingsContext.Provider>
   );

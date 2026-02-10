@@ -6,12 +6,12 @@
 
 系统必须在以下时机自动生成文档版本快照：
 
-| 触发时机 | actor | reason |
-|---|---|---|
-| 用户手动保存（Cmd/Ctrl+S） | `user` | `manual-save` |
-| 自动保存（debounce 500ms） | `auto` | `autosave` |
-| AI 修改被用户接受后 | `ai` | `ai-accept` |
-| 文档状态变更（草稿↔定稿） | `user` | `status-change` |
+| 触发时机                   | actor  | reason          |
+| -------------------------- | ------ | --------------- |
+| 用户手动保存（Cmd/Ctrl+S） | `user` | `manual-save`   |
+| 自动保存（debounce 500ms） | `auto` | `autosave`      |
+| AI 修改被用户接受后        | `ai`   | `ai-accept`     |
+| 文档状态变更（草稿↔定稿）  | `user` | `status-change` |
 
 - 快照数据结构：`id`、`documentId`、`projectId`、`content`（TipTap JSON）、`actor`、`reason`、`wordCount`、`createdAt`。
 - IPC 通道：`version:snapshot:create`、`version:snapshot:list`、`version:snapshot:read`（均为 Request-Response）。

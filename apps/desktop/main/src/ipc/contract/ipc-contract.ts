@@ -705,6 +705,19 @@ const DOCUMENT_TYPE_SCHEMA = s.union(
 
 const DOCUMENT_STATUS_SCHEMA = s.union(s.literal("draft"), s.literal("final"));
 
+const VERSION_SNAPSHOT_ACTOR_SCHEMA = s.union(
+  s.literal("user"),
+  s.literal("auto"),
+  s.literal("ai"),
+);
+
+const VERSION_SNAPSHOT_REASON_SCHEMA = s.union(
+  s.literal("manual-save"),
+  s.literal("autosave"),
+  s.literal("ai-accept"),
+  s.literal("status-change"),
+);
+
 const DOCUMENT_LIST_ITEM_SCHEMA = s.object({
   documentId: s.string(),
   type: DOCUMENT_TYPE_SCHEMA,
@@ -1913,8 +1926,8 @@ export const ipcContract = {
         projectId: s.string(),
         documentId: s.string(),
         contentJson: s.string(),
-        actor: s.union(s.literal("user"), s.literal("auto"), s.literal("ai")),
-        reason: s.string(),
+        actor: VERSION_SNAPSHOT_ACTOR_SCHEMA,
+        reason: VERSION_SNAPSHOT_REASON_SCHEMA,
       }),
       response: s.object({ updatedAt: s.number(), contentHash: s.string() }),
     },
@@ -1948,19 +1961,31 @@ export const ipcContract = {
       request: s.object({ projectId: s.string(), documentId: s.string() }),
       response: s.object({ deleted: s.literal(true) }),
     },
+    "version:snapshot:create": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.string(),
+        contentJson: s.string(),
+        actor: VERSION_SNAPSHOT_ACTOR_SCHEMA,
+        reason: VERSION_SNAPSHOT_REASON_SCHEMA,
+      }),
+      response: s.object({
+        versionId: s.string(),
+        contentHash: s.string(),
+        wordCount: s.number(),
+        createdAt: s.number(),
+      }),
+    },
     "version:snapshot:list": {
       request: s.object({ documentId: s.string() }),
       response: s.object({
         items: s.array(
           s.object({
             versionId: s.string(),
-            actor: s.union(
-              s.literal("user"),
-              s.literal("auto"),
-              s.literal("ai"),
-            ),
+            actor: VERSION_SNAPSHOT_ACTOR_SCHEMA,
             reason: s.string(),
             contentHash: s.string(),
+            wordCount: s.number(),
             createdAt: s.number(),
           }),
         ),
@@ -1978,6 +2003,7 @@ export const ipcContract = {
         contentText: s.string(),
         contentMd: s.string(),
         contentHash: s.string(),
+        wordCount: s.number(),
         createdAt: s.number(),
       }),
     },
