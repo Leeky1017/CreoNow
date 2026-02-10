@@ -39,18 +39,41 @@ export interface ShortcutDef {
 }
 
 /**
+ * Convert logical key bindings into platform display text.
+ *
+ * Why: Spec requires macOS tips like "⌘B" instead of "⌘+B".
+ */
+function formatShortcutDisplay(keys: string): string {
+  const parts = keys.split("+");
+  if (isMac()) {
+    return parts
+      .map((part) => {
+        if (part === "mod") return "⌘";
+        if (part === "Shift") return "⇧";
+        if (part === "Alt") return "⌥";
+        if (part === "Ctrl") return "⌃";
+        return part;
+      })
+      .join("");
+  }
+
+  return parts
+    .map((part) => {
+      if (part === "mod") return "Ctrl";
+      return part;
+    })
+    .join("+");
+}
+
+/**
  * Create a shortcut definition with platform-aware display.
  */
-function defineShortcut(
-  id: string,
-  label: string,
-  keys: string,
-): ShortcutDef {
+function defineShortcut(id: string, label: string, keys: string): ShortcutDef {
   return {
     id,
     label,
     keys,
-    display: () => keys.replace(/mod/g, getModKey()),
+    display: () => formatShortcutDisplay(keys),
   };
 }
 
@@ -62,13 +85,18 @@ export const EDITOR_SHORTCUTS = {
   // Text formatting
   bold: defineShortcut("bold", "Bold", "mod+B"),
   italic: defineShortcut("italic", "Italic", "mod+I"),
-  strikethrough: defineShortcut("strikethrough", "Strikethrough", "mod+Shift+S"),
+  underline: defineShortcut("underline", "Underline", "mod+U"),
+  strikethrough: defineShortcut(
+    "strikethrough",
+    "Strikethrough",
+    "mod+Shift+X",
+  ),
   code: defineShortcut("code", "Inline Code", "mod+E"),
 
   // Headings
-  heading1: defineShortcut("heading1", "Heading 1", "mod+Alt+1"),
-  heading2: defineShortcut("heading2", "Heading 2", "mod+Alt+2"),
-  heading3: defineShortcut("heading3", "Heading 3", "mod+Alt+3"),
+  heading1: defineShortcut("heading1", "Heading 1", "mod+1"),
+  heading2: defineShortcut("heading2", "Heading 2", "mod+2"),
+  heading3: defineShortcut("heading3", "Heading 3", "mod+3"),
 
   // Lists
   bulletList: defineShortcut("bulletList", "Bullet List", "mod+Shift+8"),
@@ -115,7 +143,9 @@ export function getAllShortcuts(): ShortcutDef[] {
 /**
  * Get shortcut display string by ID.
  */
-export function getShortcutDisplay(id: keyof typeof EDITOR_SHORTCUTS | keyof typeof LAYOUT_SHORTCUTS): string {
+export function getShortcutDisplay(
+  id: keyof typeof EDITOR_SHORTCUTS | keyof typeof LAYOUT_SHORTCUTS,
+): string {
   const editorShortcut = EDITOR_SHORTCUTS[id as keyof typeof EDITOR_SHORTCUTS];
   if (editorShortcut) {
     return editorShortcut.display();

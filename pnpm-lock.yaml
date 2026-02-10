@@ -70,6 +70,9 @@ importers:
       "@radix-ui/react-tooltip":
         specifier: ^1.2.8
         version: 1.2.8(@types/react-dom@18.3.7)(@types/react@18.3.27)(react-dom@18.3.1)(react@18.3.1)
+      "@tiptap/extension-underline":
+        specifier: ^2.27.2
+        version: 2.27.2(@tiptap/core@2.27.2)
       "@tiptap/react":
         specifier: ^2.26.0
         version: 2.27.2(@tiptap/core@2.27.2)(@tiptap/pm@2.27.2)(react-dom@18.3.1)(react@18.3.1)
@@ -4001,6 +4004,17 @@ packages:
     resolution:
       {
         integrity: sha512-Xk7nYcigljAY0GO9hAQpZ65ZCxqOqaAlTPDFcKerXmlkQZP/8ndx95OgUb1Xf63kmPOh3xypurGS2is3v0MXSA==,
+      }
+    peerDependencies:
+      "@tiptap/core": ^2.7.0
+    dependencies:
+      "@tiptap/core": 2.27.2(@tiptap/pm@2.27.2)
+    dev: false
+
+  /@tiptap/extension-underline@2.27.2(@tiptap/core@2.27.2):
+    resolution:
+      {
+        integrity: sha512-gPOsbAcw1S07ezpAISwoO8f0RxpjcSH7VsHEFDVuXm4ODE32nhvSinvHQjv2icRLOXev+bnA7oIBu7Oy859gWQ==,
       }
     peerDependencies:
       "@tiptap/core": ^2.7.0

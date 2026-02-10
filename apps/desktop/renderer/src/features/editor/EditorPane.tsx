@@ -1,12 +1,126 @@
 import React from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
 
 import { useEditorStore } from "../../stores/editorStore";
 import { useAutosave } from "./useAutosave";
 import { Button, Text } from "../../components/primitives";
 import { EditorToolbar } from "./EditorToolbar";
 import { resolveFinalDocumentEditDecision } from "./finalDocumentEditGuard";
+
+const ALLOWED_PASTE_TAGS = new Set([
+  "p",
+  "br",
+  "strong",
+  "b",
+  "em",
+  "i",
+  "u",
+  "s",
+  "strike",
+  "code",
+  "pre",
+  "h1",
+  "h2",
+  "h3",
+  "ul",
+  "ol",
+  "li",
+  "blockquote",
+  "hr",
+]);
+
+const UNWRAP_TAGS = new Set([
+  "span",
+  "font",
+  "section",
+  "article",
+  "main",
+  "header",
+  "footer",
+]);
+
+const DROP_TAGS = new Set([
+  "script",
+  "style",
+  "object",
+  "embed",
+  "iframe",
+  "svg",
+  "math",
+]);
+
+/**
+ * Remove unsupported paste formatting and keep editor-supported structure.
+ *
+ * Why: paste from external editors often contains style blobs and embeds that
+ * TipTap P0 does not support; this keeps output deterministic and safe.
+ */
+export function sanitizePastedHtml(inputHtml: string): string {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(inputHtml, "text/html");
+  const { body } = doc;
+
+  const sanitizeElement = (element: HTMLElement): void => {
+    const children = Array.from(element.childNodes);
+    for (const child of children) {
+      if (child.nodeType !== Node.ELEMENT_NODE) {
+        continue;
+      }
+
+      const childElement = child as HTMLElement;
+      const tag = childElement.tagName.toLowerCase();
+
+      if (DROP_TAGS.has(tag)) {
+        childElement.remove();
+        continue;
+      }
+
+      if (tag === "div") {
+        const paragraph = doc.createElement("p");
+        while (childElement.firstChild) {
+          paragraph.appendChild(childElement.firstChild);
+        }
+        childElement.replaceWith(paragraph);
+        sanitizeElement(paragraph);
+        continue;
+      }
+
+      if (UNWRAP_TAGS.has(tag) || !ALLOWED_PASTE_TAGS.has(tag)) {
+        while (childElement.firstChild) {
+          element.insertBefore(childElement.firstChild, childElement);
+        }
+        childElement.remove();
+        continue;
+      }
+
+      for (const attr of Array.from(childElement.attributes)) {
+        childElement.removeAttribute(attr.name);
+      }
+
+      sanitizeElement(childElement);
+    }
+  };
+
+  sanitizeElement(body);
+
+  for (const child of Array.from(body.childNodes)) {
+    if (child.nodeType !== Node.TEXT_NODE) {
+      continue;
+    }
+    const value = child.textContent ?? "";
+    if (value.trim().length === 0) {
+      child.remove();
+      continue;
+    }
+    const paragraph = doc.createElement("p");
+    paragraph.textContent = value;
+    child.replaceWith(paragraph);
+  }
+
+  return body.innerHTML;
+}
 
 /**
  * EditorPane mounts TipTap editor and wires autosave to the DB SSOT.
@@ -26,9 +140,10 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   const [contentReady, setContentReady] = React.useState(false);
 
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [StarterKit, Underline],
     autofocus: true,
     editorProps: {
+      transformPastedHTML: sanitizePastedHtml,
       attributes: {
         "data-testid": "tiptap-editor",
         class: "h-full outline-none p-4 text-[var(--color-fg-default)]",
