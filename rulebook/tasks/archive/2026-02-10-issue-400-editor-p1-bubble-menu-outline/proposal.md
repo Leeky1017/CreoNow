@@ -1,9 +1,11 @@
 # Proposal: issue-400-editor-p1-bubble-menu-outline
 
 ## Why
+
 `openspec/changes/editor-p1-bubble-menu-outline` 已定义 Bubble Menu 与 Outline 的核心交互要求，但当前实现仅覆盖了 `editor-p0` 基础能力，缺少 Bubble Menu 和与之对应的 Scenario 测试/Storybook 证据。若继续推进后续 editor change，会把高频编辑交互缺口带入下游，导致体验与规范不一致。
 
 ## What Changes
+
 - 以 TDD 方式补齐 Bubble Menu 能力：
   - 非空选区显示，折叠选区/Code Block/只读隐藏。
   - 默认上方定位，空间不足翻转到下方。
@@ -16,6 +18,7 @@
 - 完成 RUN_LOG、preflight、PR auto-merge、change 归档、Rulebook task 归档以及控制面 `main` 收口。
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/editor-p1-bubble-menu-outline/proposal.md`
   - `openspec/changes/editor-p1-bubble-menu-outline/specs/editor-delta.md`

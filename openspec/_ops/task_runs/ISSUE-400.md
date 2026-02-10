@@ -3,7 +3,7 @@
 - Issue: #400
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/400
 - Branch: task/400-editor-p1-bubble-menu-outline
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/403
 - Scope: 完整交付 `openspec/changes/editor-p1-bubble-menu-outline`（Bubble Menu + Outline）并完成治理收口
 - Out of Scope: AI 相关编辑交互（editor-p2）、Zen Mode（editor-p3）、A11y hardening（editor-p4）
 
@@ -14,7 +14,7 @@
 - [x] Red：先写失败测试并记录失败证据
 - [x] Green：最小实现通过目标 Scenario
 - [x] Refactor：抽象复用并保持绿灯
-- [ ] 门禁：typecheck/lint/contract/cross-module/test:unit/preflight
+- [x] 门禁：typecheck/lint/contract/cross-module/test:unit/preflight
 - [ ] 交付：PR + auto-merge + main 收口 + change/rulebook 归档 + worktree 清理
 
 ## Runs
@@ -142,3 +142,35 @@
 - Exit code: `1`
 - Key output:
   - `PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ... ISSUE-400.md: (待回填)`
+
+### 2026-02-10 19:19 +0800 PR 创建与 RUN_LOG 回填
+
+- Command:
+  - `gh pr create --base main --head task/400-editor-p1-bubble-menu-outline --title "Deliver editor p1 bubble menu outline (#400)" --body-file /tmp/pr-400-body.md`
+  - `edit openspec/_ops/task_runs/ISSUE-400.md`（回填 `PR` 字段）
+- Exit code: `0`
+- Key output:
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/403`
+
+### 2026-02-10 19:20 +0800 preflight 首次失败（格式化门禁）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `pnpm exec prettier --check ...` 失败，提示 5 个文件格式不一致：
+    - `apps/desktop/renderer/src/features/editor/EditorBubbleMenu.tsx`
+    - `apps/desktop/renderer/src/features/outline/OutlinePanelContainer.test.tsx`
+    - `rulebook/tasks/archive/2026-02-10-issue-400-editor-p1-bubble-menu-outline/.metadata.json`
+    - `rulebook/tasks/archive/2026-02-10-issue-400-editor-p1-bubble-menu-outline/proposal.md`
+    - `rulebook/tasks/archive/2026-02-10-issue-400-editor-p1-bubble-menu-outline/tasks.md`
+
+### 2026-02-10 19:22 +0800 preflight 重跑通过
+
+- Command:
+  - `pnpm exec prettier --write apps/desktop/renderer/src/features/editor/EditorBubbleMenu.tsx apps/desktop/renderer/src/features/outline/OutlinePanelContainer.test.tsx rulebook/tasks/archive/2026-02-10-issue-400-editor-p1-bubble-menu-outline/.metadata.json rulebook/tasks/archive/2026-02-10-issue-400-editor-p1-bubble-menu-outline/proposal.md rulebook/tasks/archive/2026-02-10-issue-400-editor-p1-bubble-menu-outline/tasks.md`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - `All matched files use Prettier code style!`
+  - `pnpm typecheck` / `pnpm lint` / `pnpm contract:check` / `pnpm cross-module:check` / `pnpm test:unit` 全部通过

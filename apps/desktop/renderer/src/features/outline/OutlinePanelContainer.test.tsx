@@ -109,7 +109,9 @@ describe("OutlinePanelContainer", () => {
       const activeRow = targetHeading.closest('[role="treeitem"]');
       expect(activeRow).not.toBeNull();
       expect(activeRow).toHaveAttribute("aria-selected", "true");
-      expect(store.getState().editor?.state.selection.anchor).toBeGreaterThan(0);
+      expect(store.getState().editor?.state.selection.anchor).toBeGreaterThan(
+        0,
+      );
     });
   });
 });

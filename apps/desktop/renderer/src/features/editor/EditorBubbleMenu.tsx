@@ -20,7 +20,9 @@ const IS_VITEST_RUNTIME =
  * Why: jsdom cannot verify popper's runtime flip behavior reliably; keeping this
  * pure helper makes placement fallback deterministic and testable.
  */
-export function resolveBubbleMenuPlacement(selectionTop: number): BubblePlacement {
+export function resolveBubbleMenuPlacement(
+  selectionTop: number,
+): BubblePlacement {
   const hasSpaceAbove =
     selectionTop - BUBBLE_MENU_HEIGHT >= BUBBLE_MENU_VIEWPORT_PADDING;
   return hasSpaceAbove ? "top" : "bottom";
@@ -50,7 +52,9 @@ function readSelectionTop(): number | null {
  * Why: writers need near-selection formatting controls without moving cursor
  * focus to the fixed toolbar.
  */
-export function EditorBubbleMenu(props: { editor: Editor | null }): JSX.Element | null {
+export function EditorBubbleMenu(props: {
+  editor: Editor | null;
+}): JSX.Element | null {
   const { editor } = props;
   const [visible, setVisible] = React.useState(false);
   const [placement, setPlacement] = React.useState<BubblePlacement>("top");
