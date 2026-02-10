@@ -441,6 +441,7 @@ export type IpcChannelSpec = {
   };
   "ai:skill:run": {
     request: {
+      candidateCount?: number;
       context?: {
         documentId?: string;
         projectId?: string;
@@ -456,6 +457,12 @@ export type IpcChannelSpec = {
       stream: boolean;
     };
     response: {
+      candidates?: Array<{
+        id: string;
+        runId: string;
+        summary: string;
+        text: string;
+      }>;
       executionId: string;
       outputText?: string;
       promptDiagnostics?: {
@@ -463,6 +470,12 @@ export type IpcChannelSpec = {
         stablePrefixHash: string;
       };
       runId: string;
+      usage?: {
+        completionTokens: number;
+        estimatedCostUsd?: number;
+        promptTokens: number;
+        sessionTotalTokens: number;
+      };
     };
   };
   "app:system:ping": {
