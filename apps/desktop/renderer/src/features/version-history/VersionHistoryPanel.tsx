@@ -231,12 +231,9 @@ const closeButtonStyles = [
   "hover:bg-[rgba(255,255,255,0.05)]",
 ].join(" ");
 
-const scrollAreaStyles = [
-  "flex-1",
-  "overflow-y-auto",
-  "p-3",
-  "space-y-2",
-].join(" ");
+const scrollAreaStyles = ["flex-1", "overflow-y-auto", "p-3", "space-y-2"].join(
+  " ",
+);
 
 const footerStyles = [
   "px-5",
@@ -593,11 +590,12 @@ function VersionCard({
       </div>
 
       {/* Version metadata - shows affected paragraphs if available */}
-      {version.affectedParagraphs !== undefined && version.affectedParagraphs > 0 && (
-        <div className="text-[10px] text-[var(--color-fg-placeholder)] mt-1 mb-1">
-          {version.affectedParagraphs} 段落受影响
-        </div>
-      )}
+      {version.affectedParagraphs !== undefined &&
+        version.affectedParagraphs > 0 && (
+          <div className="text-[10px] text-[var(--color-fg-placeholder)] mt-1 mb-1">
+            {version.affectedParagraphs} 段落受影响
+          </div>
+        )}
 
       <p className="text-[13px] text-[var(--color-fg-placeholder)] group-hover:text-[var(--color-fg-muted)] leading-snug mb-1">
         {version.description}
@@ -786,7 +784,9 @@ export function VersionHistoryPanelContent({
             className={`w-1.5 h-1.5 rounded-full ${autoSaveEnabled ? "bg-[var(--color-success)]" : "bg-[var(--color-fg-placeholder)]"}`}
           />
           <span className="text-xs text-[var(--color-fg-muted)]">
-            {autoSaveEnabled ? `Auto-save on (last saved ${lastSavedText})` : "Auto-save off"}
+            {autoSaveEnabled
+              ? `Auto-save on (last saved ${lastSavedText})`
+              : "Auto-save off"}
           </span>
         </div>
         <button

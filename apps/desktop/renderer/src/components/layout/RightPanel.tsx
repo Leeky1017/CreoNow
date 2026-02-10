@@ -11,7 +11,9 @@ import { InfoPanel, QualityPanel } from "../../features/rightpanel";
 /**
  * Context for opening SettingsDialog from nested components (e.g., SkillPicker).
  */
-export const OpenSettingsContext = React.createContext<(() => void) | null>(null);
+export const OpenSettingsContext = React.createContext<(() => void) | null>(
+  null,
+);
 
 /**
  * Hook to get the openSettings callback from context.
@@ -61,7 +63,6 @@ const RIGHT_PANEL_TABS: Array<{
   { type: "info", label: "Info", testId: "right-panel-tab-info" },
   { type: "quality", label: "Quality", testId: "right-panel-tab-quality" },
 ];
-
 
 /**
  * RightPanel is the right-side panel container with 3 tabs:
@@ -145,9 +146,7 @@ export function RightPanel(props: {
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 min-h-0 overflow-auto">
-          {renderContent()}
-        </div>
+        <div className="flex-1 min-h-0 overflow-auto">{renderContent()}</div>
       </aside>
     </OpenSettingsContext.Provider>
   );

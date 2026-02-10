@@ -3,7 +3,7 @@
 - Issue: #394
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/394
 - Branch: task/394-version-control-p0-snapshot-history
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/397
 - Scope: 完成交付 `openspec/changes/version-control-p0-snapshot-history` 全部任务（快照 create/list/read、4 类触发、autosave 合并、版本历史入口与展示）并合并回控制面 `main`
 - Out of Scope: AI 区分显示（p1）、版本预览（p1）、Diff/回滚（p2）、分支/合并/冲突（p3）
 
@@ -199,3 +199,48 @@
 - Key output:
   - `PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ... ISSUE-394.md: (待回填)`
   - 结论：先创建 PR 并回填真实链接，再复跑 preflight
+
+### 2026-02-10 17:54 +0800 提交与推送
+
+- Command:
+  - `git commit -m "feat: deliver version-control p0 snapshot history (#394)"`
+  - `git push -u origin task/394-version-control-p0-snapshot-history`
+- Exit code: `0`
+- Key output:
+  - commit: `90ff70cf`
+  - 远端分支创建成功并建立 tracking
+
+### 2026-02-10 17:55 +0800 创建 PR 并回填 RUN_LOG
+
+- Command:
+  - `gh pr create --base main --head task/394-version-control-p0-snapshot-history --title "Deliver version-control-p0-snapshot-history change (#394)" --body-file /tmp/pr-394-body.md`
+  - `apply_patch openspec/_ops/task_runs/ISSUE-394.md`（回填 `- PR:` 为真实链接）
+- Exit code: `0`
+- Key output:
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/397`
+
+### 2026-02-10 17:55 +0800 preflight 二次阻断（Prettier）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `pnpm exec prettier --check` 失败，阻断文件共 8 个：
+    - `apps/desktop/main/src/services/documents/documentService.ts`
+    - `apps/desktop/renderer/src/components/layout/RightPanel.tsx`
+    - `apps/desktop/renderer/src/features/version-history/VersionHistoryPanel.test.tsx`
+    - `apps/desktop/renderer/src/features/version-history/VersionHistoryPanel.tsx`
+    - `apps/desktop/tests/unit/document-ipc-contract.test.ts`
+    - `apps/desktop/tests/unit/documentService.lifecycle.test.ts`
+    - `openspec/changes/EXECUTION_ORDER.md`
+    - `openspec/changes/archive/version-control-p0-snapshot-history/specs/version-control-delta.md`
+
+### 2026-02-10 17:55 +0800 Prettier 修复与 preflight 复验
+
+- Command:
+  - `pnpm exec prettier --write <preflight 阻断文件列表>`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0` / `0`
+- Key output:
+  - `prettier --check` 复验通过：`All matched files use Prettier code style!`
+  - `typecheck/lint/contract/cross-module/test:unit` 全通过
