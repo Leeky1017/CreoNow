@@ -415,14 +415,34 @@ function EmptyConversationDemo(): JSX.Element {
             </button>
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="History">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="History"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
             </button>
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="New Chat">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="New Chat"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -512,6 +532,20 @@ export const EmptyConversation: Story = {
 };
 
 /**
+ * P2 四态：空态
+ */
+export const EmptyState: Story = {
+  ...EmptyConversation,
+};
+
+/**
+ * P2 四态：生成中
+ */
+export const GeneratingState: Story = {
+  ...StreamingStatic,
+};
+
+/**
  * 发送按钮状态切换演示
  *
  * 演示发送按钮在不同状态下的外观变化。
@@ -587,7 +621,11 @@ function SendButtonStatesDemo(): JSX.Element {
             }}
           >
             {i + 1}.{" "}
-            {s === "empty" ? "Empty" : s === "hasInput" ? "Has Input" : "Generating"}
+            {s === "empty"
+              ? "Empty"
+              : s === "hasInput"
+                ? "Has Input"
+                : "Generating"}
           </button>
         ))}
       </div>
@@ -757,14 +795,34 @@ function ErrorStateDemo(): JSX.Element {
             </button>
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="History">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="History"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
             </button>
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="New Chat">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="New Chat"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -884,8 +942,7 @@ function LongConversationDemo(): JSX.Element {
     { role: "user", content: "请帮我优化这段文字，让它更加生动有趣" },
     {
       role: "ai",
-      content:
-        "好的，我来帮你润色这段文字。首先，我们可以把开头改得更吸引人。",
+      content: "好的，我来帮你润色这段文字。首先，我们可以把开头改得更吸引人。",
     },
     { role: "user", content: "原文是：今天天气很好，我去公园散步了。" },
     {
@@ -924,14 +981,34 @@ function LongConversationDemo(): JSX.Element {
             </button>
           </div>
           <div className="ml-auto flex items-center gap-1">
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="History">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="History"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
             </button>
-            <button className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]" title="New Chat">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <button
+              className="w-5 h-5 flex items-center justify-center text-[var(--color-fg-muted)]"
+              title="New Chat"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
@@ -1007,7 +1084,8 @@ export const LongConversation: Story = {
   parameters: {
     docs: {
       description: {
-        story: "长对话展示。多轮对话时的滚动和布局表现，用户消息有边框，AI 回复无边框。",
+        story:
+          "长对话展示。多轮对话时的滚动和布局表现，用户消息有边框，AI 回复无边框。",
       },
     },
   },

@@ -95,6 +95,8 @@ export type IpcErr = {
 export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
 export const IPC_CHANNELS = [
+  "ai:chat:clear",
+  "ai:chat:list",
   "ai:chat:send",
   "ai:config:get",
   "ai:config:test",
@@ -215,11 +217,36 @@ export const IPC_CHANNELS = [
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
 export type IpcChannelSpec = {
+  "ai:chat:clear": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      cleared: true;
+      removed: number;
+    };
+  };
+  "ai:chat:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        content: string;
+        messageId: string;
+        projectId: string;
+        role: "user" | "assistant";
+        skillId?: string;
+        timestamp: number;
+        traceId: string;
+      }>;
+    };
+  };
   "ai:chat:send": {
     request: {
       documentId?: string;
       message: string;
-      projectId?: string;
+      projectId: string;
     };
     response: {
       accepted: true;
