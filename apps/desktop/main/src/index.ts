@@ -287,6 +287,7 @@ function registerIpcHandlers(deps: {
     ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
+    semanticIndex,
   });
 
   registerRagIpcHandlers({
