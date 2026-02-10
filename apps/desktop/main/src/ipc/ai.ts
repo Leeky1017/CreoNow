@@ -28,15 +28,32 @@ type SkillRunPayload = {
   input: string;
   mode: "agent" | "plan" | "ask";
   model: string;
+  candidateCount?: number;
   context?: { projectId?: string; documentId?: string };
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
   stream: boolean;
+};
+
+type SkillRunUsage = {
+  promptTokens: number;
+  completionTokens: number;
+  sessionTotalTokens: number;
+  estimatedCostUsd?: number;
+};
+
+type SkillRunCandidate = {
+  id: string;
+  runId: string;
+  text: string;
+  summary: string;
 };
 
 type SkillRunResponse = {
   executionId: string;
   runId: string;
   outputText?: string;
+  candidates?: SkillRunCandidate[];
+  usage?: SkillRunUsage;
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
 };
 
@@ -105,12 +122,122 @@ type ChatClearResponse = {
 };
 
 const AI_STREAM_RATE_LIMIT_PER_SECOND = 5_000;
+const AI_CANDIDATE_COUNT_MIN = 1;
+const AI_CANDIDATE_COUNT_MAX = 5;
+
+type ModelPricing = {
+  promptPer1kTokens: number;
+  completionPer1kTokens: number;
+};
 
 /**
  * Return an epoch-ms timestamp for AI stream events.
  */
 function nowTs(): number {
   return Date.now();
+}
+
+/**
+ * Estimate token usage deterministically from UTF-8 bytes.
+ *
+ * Why: keep usage accounting stable without introducing provider-specific tokenizers.
+ */
+function estimateTokenCount(text: string): number {
+  if (text.length === 0) {
+    return 0;
+  }
+  return Math.max(1, Math.ceil(Buffer.byteLength(text, "utf8") / 4));
+}
+
+/**
+ * Parse candidateCount input and enforce the fixed 1..5 range.
+ */
+function parseCandidateCount(
+  raw: number | undefined,
+):
+  | { ok: true; data: number }
+  | { ok: false; error: { code: "INVALID_ARGUMENT"; message: string } } {
+  if (raw === undefined) {
+    return { ok: true, data: 1 };
+  }
+  if (!Number.isFinite(raw) || !Number.isInteger(raw)) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_ARGUMENT",
+        message: "candidateCount must be an integer between 1 and 5",
+      },
+    };
+  }
+  if (raw < AI_CANDIDATE_COUNT_MIN || raw > AI_CANDIDATE_COUNT_MAX) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_ARGUMENT",
+        message: "candidateCount must be between 1 and 5",
+      },
+    };
+  }
+  return { ok: true, data: raw };
+}
+
+/**
+ * Build a concise card summary for candidate rendering.
+ */
+function summarizeCandidateText(text: string): string {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 120) {
+    return normalized;
+  }
+  return `${normalized.slice(0, 117)}...`;
+}
+
+/**
+ * Parse per-model pricing from env JSON.
+ *
+ * Format:
+ * {"gpt-5.2":{"promptPer1kTokens":0.0015,"completionPer1kTokens":0.003}}
+ */
+function parseModelPricingMap(
+  env: NodeJS.ProcessEnv,
+): Map<string, ModelPricing> {
+  const raw = env.CREONOW_AI_MODEL_PRICING_JSON;
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    return new Map();
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return new Map();
+    }
+    const entries = Object.entries(parsed as Record<string, unknown>);
+    const map = new Map<string, ModelPricing>();
+    for (const [model, value] of entries) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        continue;
+      }
+      const record = value as Record<string, unknown>;
+      const prompt = record.promptPer1kTokens;
+      const completion = record.completionPer1kTokens;
+      if (
+        typeof prompt !== "number" ||
+        !Number.isFinite(prompt) ||
+        prompt < 0 ||
+        typeof completion !== "number" ||
+        !Number.isFinite(completion) ||
+        completion < 0
+      ) {
+        continue;
+      }
+      map.set(model, {
+        promptPer1kTokens: prompt,
+        completionPer1kTokens: completion,
+      });
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
 }
 
 /**
@@ -245,6 +372,8 @@ export function registerAiIpcHandlers(deps: {
     { startedAt: number; context?: SkillRunPayload["context"] }
   >();
   const chatHistoryByProject = new Map<string, ChatHistoryMessage[]>();
+  const sessionTokenTotalsByContext = new Map<string, number>();
+  const modelPricingByModel = parseModelPricingMap(deps.env);
 
   /**
    * Remember a runId for feedback validation.
@@ -263,6 +392,61 @@ export function registerAiIpcHandlers(deps: {
         runRegistry.delete(runId);
       }
     }
+  }
+
+  /**
+   * Resolve a deterministic usage aggregation key.
+   *
+   * Why: session token totals must stay isolated by project scope.
+   */
+  function resolveUsageContextKey(
+    context?: SkillRunPayload["context"],
+  ): string {
+    const projectId = context?.projectId?.trim() ?? "";
+    if (projectId.length > 0) {
+      return `project:${projectId}`;
+    }
+    const documentId = context?.documentId?.trim() ?? "";
+    if (documentId.length > 0) {
+      return `document:${documentId}`;
+    }
+    return "global";
+  }
+
+  /**
+   * Aggregate usage stats and optionally estimate cost when pricing exists.
+   */
+  function buildUsage(args: {
+    model: string;
+    context?: SkillRunPayload["context"];
+    promptTokens: number;
+    completionTokens: number;
+  }): SkillRunUsage {
+    const key = resolveUsageContextKey(args.context);
+    const delta =
+      Math.max(0, args.promptTokens) + Math.max(0, args.completionTokens);
+    const nextTotal = (sessionTokenTotalsByContext.get(key) ?? 0) + delta;
+    sessionTokenTotalsByContext.set(key, nextTotal);
+
+    const pricing = modelPricingByModel.get(args.model.trim());
+    const estimatedCostUsd =
+      pricing === undefined
+        ? undefined
+        : Number(
+            (
+              (Math.max(0, args.promptTokens) / 1000) *
+                pricing.promptPer1kTokens +
+              (Math.max(0, args.completionTokens) / 1000) *
+                pricing.completionPer1kTokens
+            ).toFixed(6),
+          );
+
+    return {
+      promptTokens: Math.max(0, args.promptTokens),
+      completionTokens: Math.max(0, args.completionTokens),
+      sessionTotalTokens: nextTotal,
+      ...(typeof estimatedCostUsd === "number" ? { estimatedCostUsd } : {}),
+    };
   }
 
   deps.ipcMain.handle(
@@ -340,6 +524,16 @@ export function registerAiIpcHandlers(deps: {
         };
       }
 
+      const candidateCountRes = parseCandidateCount(payload.candidateCount);
+      if (!candidateCountRes.ok) {
+        return {
+          ok: false,
+          error: candidateCountRes.error,
+        };
+      }
+      const candidateCount = candidateCountRes.data;
+      const effectiveStream = candidateCount > 1 ? false : payload.stream;
+
       const pushBackpressure = getPushBackpressureGate(e.sender);
 
       const emitEvent = (event: AiStreamEvent): void => {
@@ -369,29 +563,126 @@ export function registerAiIpcHandlers(deps: {
           input: payload.input,
         });
 
-        const res = await aiService.runSkill({
-          skillId: payload.skillId,
-          systemPrompt,
-          input: userPrompt,
-          mode: payload.mode,
-          model: payload.model,
-          context: payload.context,
-          stream: payload.stream,
-          ts: nowTs(),
-          emitEvent,
-        });
-        if (res.ok) {
+        if (candidateCount === 1) {
+          const res = await aiService.runSkill({
+            skillId: payload.skillId,
+            systemPrompt,
+            input: userPrompt,
+            mode: payload.mode,
+            model: payload.model,
+            context: payload.context,
+            stream: effectiveStream,
+            ts: nowTs(),
+            emitEvent,
+          });
+          if (!res.ok) {
+            return { ok: false, error: res.error };
+          }
+
           rememberRunId({ runId: res.data.runId, context: payload.context });
-        }
-        return res.ok
-          ? {
+
+          const outputText = res.data.outputText;
+          if (typeof outputText === "string") {
+            const promptTokens = estimateTokenCount(userPrompt);
+            const completionTokens = estimateTokenCount(outputText);
+            const usage = buildUsage({
+              model: payload.model,
+              context: payload.context,
+              promptTokens,
+              completionTokens,
+            });
+            const candidates: SkillRunCandidate[] = [
+              {
+                id: "candidate-1",
+                runId: res.data.runId,
+                text: outputText,
+                summary: summarizeCandidateText(outputText),
+              },
+            ];
+
+            return {
               ok: true,
               data: {
                 ...res.data,
+                candidates,
+                usage,
                 promptDiagnostics: payload.promptDiagnostics,
               },
-            }
-          : { ok: false, error: res.error };
+            };
+          }
+
+          return {
+            ok: true,
+            data: {
+              ...res.data,
+              promptDiagnostics: payload.promptDiagnostics,
+            },
+          };
+        }
+
+        const runs: Array<{
+          executionId: string;
+          runId: string;
+          outputText: string;
+        }> = [];
+        for (let index = 0; index < candidateCount; index += 1) {
+          const res = await aiService.runSkill({
+            skillId: payload.skillId,
+            systemPrompt,
+            input: userPrompt,
+            mode: payload.mode,
+            model: payload.model,
+            context: payload.context,
+            stream: false,
+            ts: nowTs(),
+            emitEvent,
+          });
+          if (!res.ok) {
+            return { ok: false, error: res.error };
+          }
+          rememberRunId({ runId: res.data.runId, context: payload.context });
+          runs.push({
+            executionId: res.data.executionId,
+            runId: res.data.runId,
+            outputText: res.data.outputText ?? "",
+          });
+        }
+
+        const candidates: SkillRunCandidate[] = runs.map((item, index) => ({
+          id: `candidate-${index + 1}`,
+          runId: item.runId,
+          text: item.outputText,
+          summary: summarizeCandidateText(item.outputText),
+        }));
+        const completionTokens = runs.reduce(
+          (sum, item) => sum + estimateTokenCount(item.outputText),
+          0,
+        );
+        const promptTokens = estimateTokenCount(userPrompt) * candidateCount;
+        const usage = buildUsage({
+          model: payload.model,
+          context: payload.context,
+          promptTokens,
+          completionTokens,
+        });
+        const primary = runs[0];
+        if (!primary) {
+          return {
+            ok: false,
+            error: { code: "INTERNAL", message: "No candidates generated" },
+          };
+        }
+        return {
+          ok: true,
+          data: {
+            executionId: primary.executionId,
+            runId: primary.runId,
+            outputText: primary.outputText,
+            candidates,
+            usage,
+            promptDiagnostics: payload.promptDiagnostics,
+          },
+        };
       } catch (error) {
         deps.logger.error("ai_run_ipc_failed", {
           message: error instanceof Error ? error.message : String(error),
