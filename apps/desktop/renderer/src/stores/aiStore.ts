@@ -124,7 +124,9 @@ export type AiActions = {
     candidateCount?: number;
     streamOverride?: boolean;
   }) => Promise<void>;
-  regenerateWithStrongNegative: (args?: { projectId?: string }) => Promise<void>;
+  regenerateWithStrongNegative: (args?: {
+    projectId?: string;
+  }) => Promise<void>;
   cancel: () => Promise<void>;
   onStreamEvent: (event: AiStreamEvent) => void;
 };
@@ -406,8 +408,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       }
 
       const selectedRunId =
-        state.lastCandidates.find((item) => item.id === state.selectedCandidateId)
-          ?.runId ?? state.lastRunId;
+        state.lastCandidates.find(
+          (item) => item.id === state.selectedCandidateId,
+        )?.runId ?? state.lastRunId;
       if (!selectedRunId) {
         return;
       }

@@ -126,9 +126,9 @@ describe("usage stats render", () => {
     expect(screen.getByTestId("ai-usage-completion-tokens")).toHaveTextContent(
       "450",
     );
-    expect(screen.getByTestId("ai-usage-session-total-tokens")).toHaveTextContent(
-      "5,230",
-    );
+    expect(
+      screen.getByTestId("ai-usage-session-total-tokens"),
+    ).toHaveTextContent("5,230");
     expect(screen.getByTestId("ai-usage-estimated-cost")).toHaveTextContent(
       "$0.1267",
     );

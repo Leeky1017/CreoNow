@@ -1,6 +1,7 @@
 # Proposal: issue-380-ai-service-p4-candidates-usage-stats
 
 ## Why
+
 `openspec/changes/ai-service-p4-candidates-usage-stats` 已定义候选方案、重生成负反馈、token/费用统计的 P4 规范，但当前代码尚未提供可验证的候选选择应用链路，也未将“全部不满意”行为落盘为强负反馈，导致下游 `ai-service-p5` 的阈值/费用治理缺少稳定输入。
 
 ## What Changes

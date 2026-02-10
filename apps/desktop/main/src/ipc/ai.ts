@@ -198,7 +198,9 @@ function summarizeCandidateText(text: string): string {
  * Format:
  * {"gpt-5.2":{"promptPer1kTokens":0.0015,"completionPer1kTokens":0.003}}
  */
-function parseModelPricingMap(env: NodeJS.ProcessEnv): Map<string, ModelPricing> {
+function parseModelPricingMap(
+  env: NodeJS.ProcessEnv,
+): Map<string, ModelPricing> {
   const raw = env.CREONOW_AI_MODEL_PRICING_JSON;
   if (typeof raw !== "string" || raw.trim().length === 0) {
     return new Map();
@@ -397,7 +399,9 @@ export function registerAiIpcHandlers(deps: {
    *
    * Why: session token totals must stay isolated by project scope.
    */
-  function resolveUsageContextKey(context?: SkillRunPayload["context"]): string {
+  function resolveUsageContextKey(
+    context?: SkillRunPayload["context"],
+  ): string {
     const projectId = context?.projectId?.trim() ?? "";
     if (projectId.length > 0) {
       return `project:${projectId}`;
@@ -419,7 +423,8 @@ export function registerAiIpcHandlers(deps: {
     completionTokens: number;
   }): SkillRunUsage {
     const key = resolveUsageContextKey(args.context);
-    const delta = Math.max(0, args.promptTokens) + Math.max(0, args.completionTokens);
+    const delta =
+      Math.max(0, args.promptTokens) + Math.max(0, args.completionTokens);
     const nextTotal = (sessionTokenTotalsByContext.get(key) ?? 0) + delta;
     sessionTokenTotalsByContext.set(key, nextTotal);
 
@@ -429,7 +434,8 @@ export function registerAiIpcHandlers(deps: {
         ? undefined
         : Number(
             (
-              (Math.max(0, args.promptTokens) / 1000) * pricing.promptPer1kTokens +
+              (Math.max(0, args.promptTokens) / 1000) *
+                pricing.promptPer1kTokens +
               (Math.max(0, args.completionTokens) / 1000) *
                 pricing.completionPer1kTokens
             ).toFixed(6),

@@ -106,7 +106,9 @@ function asRecord(x: unknown): Record<string, unknown> | null {
   assert.equal(firstRunPayload?.stream, false);
 
   const state = store.getState() as unknown as {
-    regenerateWithStrongNegative?: (args: { projectId?: string }) => Promise<void>;
+    regenerateWithStrongNegative?: (args: {
+      projectId?: string;
+    }) => Promise<void>;
   };
   assert.equal(typeof state.regenerateWithStrongNegative, "function");
 
