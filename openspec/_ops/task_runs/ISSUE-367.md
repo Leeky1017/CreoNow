@@ -120,3 +120,53 @@
   - Repo/Issue/Rulebook/Workspace/OpenSpec 校验通过
   - `prettier --check`、`typecheck`、`lint`、`contract:check`、`cross-module:check`、`test:unit` 全通过
   - `lint` 仅历史 warning，无新增 error
+
+### 2026-02-10 11:32 +0800 PR checks 复核（发现 CI 阻塞）
+
+- Command:
+  - `gh pr view 371 --json number,state,mergeStateStatus,autoMergeRequest,statusCheckRollup,url`
+- Exit code: `0`
+- Key output:
+  - PR `#371` 为 `OPEN`，auto-merge 已开启
+  - required checks 中 `openspec-log-guard`、`merge-serial` 通过
+  - `ci` 因 `windows-e2e` 失败被阻塞（job `63055958583`）
+
+### 2026-02-10 11:35 +0800 Red（E2E 失败复现）
+
+- Command:
+  - `pnpm -C apps/desktop build`
+  - `pnpm -C apps/desktop rebuild:native`
+  - `pnpm -C apps/desktop exec playwright test -c tests/e2e/playwright.config.ts tests/e2e/ai-apply.spec.ts`
+- Exit code: `1`
+- Key output:
+  - 失败 1：`expect(getByTestId('ai-apply-status')).toBeVisible()` 超时（旧单击 apply 断言失效）
+  - 失败 2：冲突路径在确认前流程不再落盘，旧断言链路与两步确认不一致
+
+### 2026-02-10 11:39 +0800 Green（修复 windows-e2e 两步确认断言）
+
+- Command:
+  - `apply_patch apps/desktop/tests/e2e/ai-apply.spec.ts`（success/conflict 两条路径均改为 `ai-apply` -> `ai-apply-confirm`）
+  - `pnpm -C apps/desktop exec playwright test -c tests/e2e/playwright.config.ts tests/e2e/ai-apply.spec.ts`
+- Exit code: `0`
+- Key output:
+  - `2 passed`（`ai-apply` 成功链路与冲突链路均通过）
+  - E2E 与 P2 规范「先预览 diff，再 Confirm Apply 持久化」一致
+
+### 2026-02-10 11:43 +0800 preflight 复验（首次失败）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - 失败点：`pnpm test:unit` 中 `better-sqlite3` ABI 不匹配
+  - 错误：`NODE_MODULE_VERSION 143`（Electron）与 Node 运行时要求 `115` 不一致
+
+### 2026-02-10 11:45 +0800 preflight 复验（修复后通过）
+
+- Command:
+  - `pnpm -C apps/desktop rebuild better-sqlite3`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - `test:unit` 恢复通过
+  - preflight 全链路通过（保留既有 lint warnings，无新增 error）

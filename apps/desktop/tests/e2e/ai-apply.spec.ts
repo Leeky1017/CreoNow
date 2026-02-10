@@ -89,6 +89,8 @@ test("ai apply: success path writes actor=ai version + main.log evidence", async
   await expect(page.getByTestId("ai-diff")).toContainText("E2E_RESULT");
 
   await page.getByTestId("ai-apply").click();
+  await expect(page.getByTestId("ai-apply-confirm")).toBeVisible();
+  await page.getByTestId("ai-apply-confirm").click();
   await expect(page.getByTestId("ai-apply-status")).toBeVisible();
   await expect(page.getByTestId("tiptap-editor")).toContainText(
     "E2E_RESULT: replace-world",
@@ -142,6 +144,8 @@ test("ai apply: conflict path blocks overwrite + logs ai_apply_conflict", async 
   await page.keyboard.type("Hello planet");
 
   await page.getByTestId("ai-apply").click();
+  await expect(page.getByTestId("ai-apply-confirm")).toBeVisible();
+  await page.getByTestId("ai-apply-confirm").click();
   await expect(page.getByTestId("ai-error-code")).toContainText("CONFLICT");
   await expect(page.getByTestId("tiptap-editor")).toContainText("Hello planet");
   await expect(page.getByTestId("tiptap-editor")).not.toContainText(
