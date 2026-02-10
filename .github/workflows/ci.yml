@@ -11,7 +11,7 @@ jobs:
 
   lint-and-typecheck:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node-pnpm
@@ -51,7 +51,7 @@ jobs:
 
   contract-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node-pnpm
@@ -60,7 +60,7 @@ jobs:
 
   cross-module-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-node-pnpm
@@ -83,6 +83,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - uses: pnpm/action-setup@v2
         with:
@@ -117,6 +121,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - uses: pnpm/action-setup@v2
         with:

@@ -4,7 +4,10 @@ import type {
   IpcError,
   IpcErrorCode,
 } from "../../../../../../packages/shared/types/ipc-generated";
-import type { AiStreamEvent } from "../../../../../../packages/shared/types/ai";
+import type {
+  AiStreamEvent,
+  AiStreamTerminal,
+} from "../../../../../../packages/shared/types/ai";
 import type { Logger } from "../../logging/logger";
 import { startFakeAiServer, type FakeAiServer } from "./fakeAiServer";
 
@@ -26,16 +29,20 @@ export type AiService = {
     stream: boolean;
     ts: number;
     emitEvent: (event: AiStreamEvent) => void;
-  }) => Promise<ServiceResult<{ runId: string; outputText?: string }>>;
+  }) => Promise<
+    ServiceResult<{ executionId: string; runId: string; outputText?: string }>
+  >;
   listModels: () => Promise<
     ServiceResult<{
       source: "proxy" | "openai" | "anthropic";
       items: Array<{ id: string; name: string; provider: string }>;
     }>
   >;
-  cancel: (args: { runId: string; ts: number }) => ServiceResult<{
-    canceled: true;
-  }>;
+  cancel: (args: {
+    executionId?: string;
+    runId?: string;
+    ts: number;
+  }) => ServiceResult<{ canceled: true }>;
   feedback: (args: {
     runId: string;
     action: "accept" | "reject" | "partial";
@@ -77,12 +84,18 @@ type ProxySettings = {
 };
 
 type RunEntry = {
+  executionId: string;
   runId: string;
+  traceId: string;
   controller: AbortController;
   timeoutTimer: NodeJS.Timeout | null;
+  completionTimer: NodeJS.Timeout | null;
   stream: boolean;
   startedAt: number;
-  terminal: "completed" | "failed" | "canceled" | null;
+  terminal: AiStreamTerminal | null;
+  doneEmitted: boolean;
+  seq: number;
+  outputText: string;
   emitEvent: (event: AiStreamEvent) => void;
 };
 
@@ -821,43 +834,97 @@ export function createAiService(deps: {
    * Why: cancel/timeout MUST stop further deltas to keep the UI stable.
    */
   function emitIfActive(entry: RunEntry, event: AiStreamEvent): void {
-    if (entry.terminal !== null && event.type === "delta") {
+    if (entry.terminal !== null && event.type === "chunk") {
       return;
     }
     entry.emitEvent(event);
   }
 
   /**
-   * Mark a run as terminal and emit a single terminal event.
+   * Emit a single stream chunk in-order for the given execution.
+   */
+  function emitChunk(entry: RunEntry, chunk: string): void {
+    if (entry.terminal !== null || chunk.length === 0) {
+      return;
+    }
+
+    entry.seq += 1;
+    entry.outputText = `${entry.outputText}${chunk}`;
+
+    emitIfActive(entry, {
+      type: "chunk",
+      executionId: entry.executionId,
+      runId: entry.runId,
+      traceId: entry.traceId,
+      seq: entry.seq,
+      chunk,
+      ts: Date.now(),
+    });
+  }
+
+  /**
+   * Emit the done terminal event once.
+   */
+  function emitDone(args: {
+    entry: RunEntry;
+    terminal: AiStreamTerminal;
+    error?: IpcError;
+    ts?: number;
+  }): void {
+    const entry = args.entry;
+    if (entry.doneEmitted) {
+      return;
+    }
+    entry.doneEmitted = true;
+
+    emitIfActive(entry, {
+      type: "done",
+      executionId: entry.executionId,
+      runId: entry.runId,
+      traceId: entry.traceId,
+      terminal: args.terminal,
+      outputText: entry.outputText,
+      ...(args.error ? { error: args.error } : {}),
+      ts: args.ts ?? Date.now(),
+    });
+  }
+
+  /**
+   * Mark a run terminal and collapse lifecycle with a single done event.
    */
   function setTerminal(args: {
     entry: RunEntry;
-    event: AiStreamEvent;
+    terminal: AiStreamTerminal;
     logEvent:
       | "ai_run_completed"
       | "ai_run_failed"
       | "ai_run_canceled"
       | "ai_run_timeout";
     errorCode?: IpcErrorCode;
+    error?: IpcError;
+    ts?: number;
   }): void {
     const entry = args.entry;
-    if (entry.terminal !== null) {
+    if (entry.terminal === "cancelled" && args.terminal !== "cancelled") {
+      return;
+    }
+    if (entry.terminal !== null && args.terminal !== "cancelled") {
       return;
     }
 
-    if (args.event.type === "run_completed") {
-      entry.terminal = "completed";
-    } else if (args.event.type === "run_canceled") {
-      entry.terminal = "canceled";
-    } else {
-      entry.terminal = "failed";
-    }
-
-    emitIfActive(entry, args.event);
+    entry.terminal = args.terminal;
+    emitDone({
+      entry,
+      terminal: args.terminal,
+      error: args.error,
+      ts: args.ts,
+    });
     deps.logger.info(args.logEvent, {
       runId: entry.runId,
+      executionId: entry.executionId,
       code: args.errorCode,
     });
+    cleanupRun(entry.runId);
   }
 
   /**
@@ -871,7 +938,29 @@ export function createAiService(deps: {
     if (entry.timeoutTimer) {
       clearTimeout(entry.timeoutTimer);
     }
+    if (entry.completionTimer) {
+      clearTimeout(entry.completionTimer);
+    }
     runs.delete(runId);
+  }
+
+  /**
+   * Reset stream sequence/output before replaying the full prompt.
+   */
+  function resetForFullPromptReplay(entry: RunEntry): void {
+    entry.seq = 0;
+    entry.outputText = "";
+  }
+
+  /**
+   * Identify replayable stream disconnect errors.
+   */
+  function isReplayableStreamDisconnect(error: IpcError): boolean {
+    const details = asObject(error.details);
+    return (
+      error.code === "LLM_API_ERROR" &&
+      details?.reason === "STREAM_DISCONNECTED"
+    );
   }
 
   /**
@@ -1089,30 +1178,48 @@ export function createAiService(deps: {
       return ipcError("INTERNAL", "Missing streaming response body");
     }
 
-    for await (const msg of readSse({ body: res.body })) {
-      if (args.entry.terminal !== null) {
-        break;
-      }
-      if (msg.data === "[DONE]") {
-        break;
-      }
+    let sawDone = false;
+    try {
+      for await (const msg of readSse({ body: res.body })) {
+        if (args.entry.terminal !== null) {
+          break;
+        }
+        if (msg.data === "[DONE]") {
+          sawDone = true;
+          break;
+        }
 
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(msg.data);
-      } catch {
-        continue;
-      }
-      const delta = extractOpenAiDelta(parsed);
-      if (typeof delta !== "string" || delta.length === 0) {
-        continue;
-      }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(msg.data);
+        } catch {
+          continue;
+        }
+        const delta = extractOpenAiDelta(parsed);
+        if (typeof delta !== "string" || delta.length === 0) {
+          continue;
+        }
 
-      emitIfActive(args.entry, {
-        type: "delta",
-        runId: args.entry.runId,
-        ts: Date.now(),
-        delta,
+        emitChunk(args.entry, delta);
+      }
+    } catch (error) {
+      if (args.entry.controller.signal.aborted) {
+        return ipcError("CANCELED", "AI request canceled");
+      }
+      return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
+        reason: "STREAM_DISCONNECTED",
+        retryable: true,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    if (args.entry.controller.signal.aborted) {
+      return ipcError("CANCELED", "AI request canceled");
+    }
+    if (args.entry.terminal === null && !sawDone) {
+      return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
+        reason: "STREAM_DISCONNECTED",
+        retryable: true,
       });
     }
 
@@ -1182,31 +1289,53 @@ export function createAiService(deps: {
       return ipcError("INTERNAL", "Missing streaming response body");
     }
 
-    for await (const msg of readSse({ body: res.body })) {
-      if (args.entry.terminal !== null) {
-        break;
-      }
+    let sawMessageStop = false;
+    try {
+      for await (const msg of readSse({ body: res.body })) {
+        if (args.entry.terminal !== null) {
+          break;
+        }
 
-      if (msg.event !== "content_block_delta") {
-        continue;
-      }
+        if (msg.event === "message_stop") {
+          sawMessageStop = true;
+          break;
+        }
 
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(msg.data);
-      } catch {
-        continue;
-      }
-      const delta = extractAnthropicDelta(parsed);
-      if (typeof delta !== "string" || delta.length === 0) {
-        continue;
-      }
+        if (msg.event !== "content_block_delta") {
+          continue;
+        }
 
-      emitIfActive(args.entry, {
-        type: "delta",
-        runId: args.entry.runId,
-        ts: Date.now(),
-        delta,
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(msg.data);
+        } catch {
+          continue;
+        }
+        const delta = extractAnthropicDelta(parsed);
+        if (typeof delta !== "string" || delta.length === 0) {
+          continue;
+        }
+
+        emitChunk(args.entry, delta);
+      }
+    } catch (error) {
+      if (args.entry.controller.signal.aborted) {
+        return ipcError("CANCELED", "AI request canceled");
+      }
+      return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
+        reason: "STREAM_DISCONNECTED",
+        retryable: true,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    if (args.entry.controller.signal.aborted) {
+      return ipcError("CANCELED", "AI request canceled");
+    }
+    if (args.entry.terminal === null && !sawMessageStop) {
+      return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
+        reason: "STREAM_DISCONNECTED",
+        retryable: true,
       });
     }
 
@@ -1226,25 +1355,33 @@ export function createAiService(deps: {
     const cfg = cfgRes.data;
 
     const runId = randomUUID();
+    const executionId = runId;
+    const traceId = randomUUID();
     const controller = new AbortController();
     const entry: RunEntry = {
+      executionId,
       runId,
+      traceId,
       controller,
       timeoutTimer: null,
+      completionTimer: null,
       stream: args.stream,
       startedAt: args.ts,
       terminal: null,
+      doneEmitted: false,
+      seq: 0,
+      outputText: "",
       emitEvent: args.emitEvent,
     };
     runs.set(runId, entry);
 
     deps.logger.info("ai_run_started", {
       runId,
+      executionId,
+      traceId,
       provider: cfg.provider,
       stream: args.stream,
     });
-
-    emitIfActive(entry, { type: "run_started", runId, ts: args.ts });
 
     entry.timeoutTimer = setTimeout(() => {
       if (entry.terminal !== null) {
@@ -1254,66 +1391,104 @@ export function createAiService(deps: {
 
       setTerminal({
         entry,
-        event: {
-          type: "run_failed",
-          runId,
-          ts: Date.now(),
-          error: { code: "TIMEOUT", message: "AI request timed out" },
-        },
+        terminal: "error",
+        error: { code: "TIMEOUT", message: "AI request timed out" },
         logEvent: "ai_run_timeout",
         errorCode: "TIMEOUT",
       });
-      cleanupRun(runId);
     }, cfg.timeoutMs);
 
     if (args.stream) {
       void (async () => {
         try {
-          const res =
-            cfg.provider === "anthropic"
-              ? await runAnthropicStream({
-                  entry,
-                  cfg,
-                  systemPrompt: args.systemPrompt,
-                  input: args.input,
-                  mode: args.mode,
-                  model: args.model,
-                  system: args.system,
-                })
-              : await runOpenAiStream({
-                  entry,
-                  cfg,
-                  systemPrompt: args.systemPrompt,
-                  input: args.input,
-                  mode: args.mode,
-                  model: args.model,
-                  system: args.system,
-                });
+          let replayAttempts = 0;
+          for (;;) {
+            const res =
+              cfg.provider === "anthropic"
+                ? await runAnthropicStream({
+                    entry,
+                    cfg,
+                    systemPrompt: args.systemPrompt,
+                    input: args.input,
+                    mode: args.mode,
+                    model: args.model,
+                    system: args.system,
+                  })
+                : await runOpenAiStream({
+                    entry,
+                    cfg,
+                    systemPrompt: args.systemPrompt,
+                    input: args.input,
+                    mode: args.mode,
+                    model: args.model,
+                    system: args.system,
+                  });
 
-          if (!res.ok) {
-            setTerminal({
-              entry,
-              event: {
-                type: "run_failed",
-                runId,
-                ts: Date.now(),
+            if (res.ok) {
+              break;
+            }
+
+            if (entry.terminal !== null) {
+              return;
+            }
+
+            if (
+              !isReplayableStreamDisconnect(res.error) ||
+              replayAttempts >= 1
+            ) {
+              setTerminal({
+                entry,
+                terminal: res.error.code === "CANCELED" ? "cancelled" : "error",
                 error: res.error,
-              },
-              logEvent: "ai_run_failed",
-              errorCode: res.error.code,
+                logEvent:
+                  res.error.code === "TIMEOUT"
+                    ? "ai_run_timeout"
+                    : res.error.code === "CANCELED"
+                      ? "ai_run_canceled"
+                      : "ai_run_failed",
+                errorCode: res.error.code,
+              });
+              return;
+            }
+
+            replayAttempts += 1;
+            resetForFullPromptReplay(entry);
+            deps.logger.info("ai_stream_replay_retry", {
+              runId,
+              executionId,
+              traceId,
+              attempt: replayAttempts,
             });
-            return;
+
+            const waitMs =
+              retryBackoffMs[
+                Math.min(replayAttempts - 1, retryBackoffMs.length - 1)
+              ] ?? 0;
+            if (waitMs > 0) {
+              await sleep(waitMs);
+            }
           }
 
           if (entry.terminal !== null) {
             return;
           }
 
-          setTerminal({
-            entry,
-            event: { type: "run_completed", runId, ts: Date.now() },
-            logEvent: "ai_run_completed",
-          });
+          if (entry.completionTimer !== null) {
+            return;
+          }
+
+          // Completion is deferred one tick so a near-simultaneous cancel can win.
+          entry.completionTimer = setTimeout(() => {
+            entry.completionTimer = null;
+            if (entry.terminal !== null) {
+              return;
+            }
+            setTerminal({
+              entry,
+              terminal: "completed",
+              logEvent: "ai_run_completed",
+            });
+          }, 0);
         } catch (error) {
           if (entry.terminal !== null) {
             return;
@@ -1323,7 +1498,7 @@ export function createAiService(deps: {
           if (aborted) {
             setTerminal({
               entry,
-              event: { type: "run_canceled", runId, ts: Date.now() },
+              terminal: "cancelled",
               logEvent: "ai_run_canceled",
               errorCode: "CANCELED",
             });
@@ -1332,28 +1507,21 @@ export function createAiService(deps: {
 
           setTerminal({
             entry,
-            event: {
-              type: "run_failed",
-              runId,
-              ts: Date.now(),
-              error: {
-                code: "INTERNAL",
-                message: "AI request failed",
-                details: {
-                  message:
-                    error instanceof Error ? error.message : String(error),
-                },
+            terminal: "error",
+            error: {
+              code: "INTERNAL",
+              message: "AI request failed",
+              details: {
+                message: error instanceof Error ? error.message : String(error),
               },
             },
             logEvent: "ai_run_failed",
             errorCode: "INTERNAL",
           });
-        } finally {
-          cleanupRun(runId);
         }
       })();
 
-      return { ok: true, data: { runId } };
+      return { ok: true, data: { executionId, runId } };
     }
 
     try {
@@ -1381,33 +1549,30 @@ export function createAiService(deps: {
       if (!res.ok) {
         setTerminal({
           entry,
-          event: {
-            type: "run_failed",
-            runId,
-            ts: Date.now(),
-            error: res.error,
-          },
+          terminal: "error",
+          error: res.error,
           logEvent: "ai_run_failed",
           errorCode: res.error.code,
         });
-        return res;
+        return { ok: false, error: res.error };
       }
 
+      entry.outputText = res.data;
       setTerminal({
         entry,
-        event: { type: "run_completed", runId, ts: Date.now() },
+        terminal: "completed",
         logEvent: "ai_run_completed",
       });
-      return { ok: true, data: { runId, outputText: res.data } };
+      return { ok: true, data: { executionId, runId, outputText: res.data } };
     } catch (error) {
       const aborted = controller.signal.aborted;
       if (aborted) {
-        if (entry.terminal === "failed") {
+        if (entry.terminal === "error") {
           return ipcError("TIMEOUT", "AI request timed out");
         }
         setTerminal({
           entry,
-          event: { type: "run_canceled", runId, ts: Date.now() },
+          terminal: "cancelled",
           logEvent: "ai_run_canceled",
           errorCode: "CANCELED",
         });
@@ -1416,16 +1581,12 @@ export function createAiService(deps: {
 
       setTerminal({
         entry,
-        event: {
-          type: "run_failed",
-          runId,
-          ts: Date.now(),
-          error: {
-            code: "INTERNAL",
-            message: "AI request failed",
-            details: {
-              message: error instanceof Error ? error.message : String(error),
-            },
+        terminal: "error",
+        error: {
+          code: "INTERNAL",
+          message: "AI request failed",
+          details: {
+            message: error instanceof Error ? error.message : String(error),
           },
         },
         logEvent: "ai_run_failed",
@@ -1508,7 +1669,12 @@ export function createAiService(deps: {
     };
   };
   const cancel: AiService["cancel"] = (args) => {
-    const entry = runs.get(args.runId);
+    const executionId = (args.executionId ?? args.runId ?? "").trim();
+    if (executionId.length === 0) {
+      return ipcError("INVALID_ARGUMENT", "executionId is required");
+    }
+
+    const entry = runs.get(executionId);
     if (!entry) {
       return { ok: true, data: { canceled: true } };
     }
@@ -1517,18 +1683,14 @@ export function createAiService(deps: {
       return { ok: true, data: { canceled: true } };
     }
 
-    entry.terminal = "canceled";
-    if (entry.timeoutTimer) {
-      clearTimeout(entry.timeoutTimer);
-    }
     entry.controller.abort();
-
-    emitIfActive(entry, {
-      type: "run_canceled",
-      runId: args.runId,
+    setTerminal({
+      entry,
+      terminal: "cancelled",
+      logEvent: "ai_run_canceled",
+      errorCode: "CANCELED",
       ts: args.ts,
     });
-    deps.logger.info("ai_run_canceled", { runId: args.runId });
 
     return { ok: true, data: { canceled: true } };
   };
