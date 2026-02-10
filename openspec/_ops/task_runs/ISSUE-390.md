@@ -12,7 +12,7 @@
 - [x] 准入：创建 OPEN issue、task worktree、Rulebook task
 - [x] 规范：复核 P3 三模块主规范与归档 change
 - [x] 集成门禁：完整执行 typecheck/lint/contract/cross-module/unit/integration
-- [ ] 交付：PR + auto-merge + checks 全绿 + main 收口 + Rulebook 归档 + worktree 清理
+- [ ] 交付：PR + auto-merge + checks 全绿 + main 收口 + worktree 清理
 
 ## Runs
 
@@ -132,3 +132,22 @@
 - Exit code: `0`
 - Key output:
   - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/391`
+
+### 2026-02-10 16:36 +0800 Rulebook 自归档（同 PR）
+
+- Command:
+  - `rulebook task archive issue-390-p3-integration-gate-closeout`
+  - `git commit -m "docs: archive rulebook task for issue-390 (#390)"`
+  - `git push`
+- Exit code: `0`
+- Key output:
+  - Rulebook task 已归档至：`rulebook/tasks/archive/2026-02-10-issue-390-p3-integration-gate-closeout`
+
+### 2026-02-10 16:37 +0800 preflight（归档后复验）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Rulebook 校验分支：`(skip) current task is archived ...`
+  - `prettier/typecheck/lint/contract/cross-module/test:unit` 全通过
