@@ -6,6 +6,11 @@ const mocks = vi.hoisted(() => {
   const persistAiApply = vi.fn().mockResolvedValue(undefined);
   const logAiApplyConflict = vi.fn().mockResolvedValue(undefined);
   const applySelection = vi.fn();
+  const setProposal = vi.fn();
+  const setSelectedCandidateId = vi.fn((candidateId: string | null) => {
+    aiState.selectedCandidateId = candidateId;
+  });
+
   const invoke = vi.fn(async (channel: string) => {
     if (channel === "ai:models:list") {
       return {
@@ -15,6 +20,9 @@ const mocks = vi.hoisted(() => {
           items: [{ id: "gpt-5.2", name: "GPT-5.2", provider: "openai" }],
         },
       };
+    }
+    if (channel === "judge:quality:evaluate") {
+      return { ok: true, data: { accepted: true } };
     }
     return { ok: true, data: {} };
   });
@@ -36,29 +44,55 @@ const mocks = vi.hoisted(() => {
     skillsStatus: "ready" as const,
     skillsLastError: null,
     input: "",
-    outputText: "AI output replacement",
+    outputText: "方案A：第一版内容",
     activeRunId: null,
     activeChunkSeq: 0,
-    lastRunId: "run-1",
+    lastRunId: "run-a",
     lastError: null,
     selectionRef: {
       range: { from: 1, to: 10 },
       selectionTextHash: "hash-1",
     },
-    selectionText: "Original text",
-    proposal: {
-      runId: "run-1",
-      selectionRef: {
-        range: { from: 1, to: 10 },
-        selectionTextHash: "hash-1",
-      },
-      selectionText: "Original text",
-      replacementText: "AI output replacement",
-    },
+    selectionText: "原始文本",
+    proposal: null as
+      | {
+          runId: string;
+          selectionRef: {
+            range: { from: number; to: number };
+            selectionTextHash: string;
+          };
+          selectionText: string;
+          replacementText: string;
+        }
+      | null,
     applyStatus: "idle" as const,
-    lastCandidates: [],
-    usageStats: null,
-    selectedCandidateId: null,
+    lastCandidates: [
+      {
+        id: "candidate-a",
+        runId: "run-a",
+        text: "方案A：第一版内容",
+        summary: "方案A摘要",
+      },
+      {
+        id: "candidate-b",
+        runId: "run-b",
+        text: "方案B：目标内容",
+        summary: "方案B摘要",
+      },
+      {
+        id: "candidate-c",
+        runId: "run-c",
+        text: "方案C：备选内容",
+        summary: "方案C摘要",
+      },
+    ],
+    usageStats: {
+      promptTokens: 120,
+      completionTokens: 480,
+      sessionTotalTokens: 600,
+      estimatedCostUsd: 0.12,
+    },
+    selectedCandidateId: null as string | null,
     lastRunRequest: null,
     setStream: vi.fn(),
     setSelectedSkillId: vi.fn(),
@@ -67,8 +101,8 @@ const mocks = vi.hoisted(() => {
     clearError: vi.fn(),
     setError: vi.fn(),
     setSelectionSnapshot: vi.fn(),
-    setProposal: vi.fn(),
-    setSelectedCandidateId: vi.fn(),
+    setProposal,
+    setSelectedCandidateId,
     persistAiApply,
     logAiApplyConflict,
     run: vi.fn().mockResolvedValue(undefined),
@@ -83,6 +117,7 @@ const mocks = vi.hoisted(() => {
     applySelection,
     invoke,
     aiState,
+    setProposal,
   };
 });
 
@@ -122,7 +157,7 @@ vi.mock("../applySelection", () => ({
     ok: true,
     data: {
       selectionRef: { range: { from: 1, to: 10 }, selectionTextHash: "hash-1" },
-      selectionText: "Original text",
+      selectionText: "原始文本",
     },
   })),
   applySelection: mocks.applySelection,
@@ -144,28 +179,45 @@ vi.mock("../../../lib/ipcClient", () => ({
   invoke: mocks.invoke,
 }));
 
-describe("apply to editor inline diff flow", () => {
+describe("candidate apply flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.applySelection.mockReturnValue({ ok: true, data: { applied: true } });
+    mocks.aiState.proposal = null;
   });
 
-  it("should require inline diff confirmation before persisting editor content", async () => {
+  it("should select candidate B and apply it through inline diff confirmation", async () => {
     const { AiPanel } = await import("../AiPanel");
     const user = userEvent.setup();
-    render(<AiPanel />);
+    const { rerender } = render(<AiPanel />);
 
-    const openConfirm = await screen.findByTestId("ai-apply");
-    await user.click(openConfirm);
+    await user.click(await screen.findByTestId("ai-candidate-card-2"));
 
-    expect(mocks.persistAiApply).not.toHaveBeenCalled();
-    expect(screen.getByTestId("ai-apply-confirm")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mocks.aiState.setSelectedCandidateId).toHaveBeenCalledWith(
+        "candidate-b",
+      );
+    });
 
+    mocks.aiState.proposal = {
+      runId: "run-b",
+      selectionRef: {
+        range: { from: 1, to: 10 },
+        selectionTextHash: "hash-1",
+      },
+      selectionText: "原始文本",
+      replacementText: "方案B：目标内容",
+    };
+    rerender(<AiPanel />);
+
+    await user.click(screen.getByTestId("ai-apply"));
     await user.click(screen.getByTestId("ai-apply-confirm"));
 
     await waitFor(() => {
       expect(mocks.applySelection).toHaveBeenCalledTimes(1);
-      expect(mocks.persistAiApply).toHaveBeenCalledTimes(1);
+      expect(mocks.persistAiApply).toHaveBeenCalledWith(
+        expect.objectContaining({ runId: "run-b" }),
+      );
     });
   });
 });
