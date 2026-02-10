@@ -116,6 +116,9 @@ const CONTEXT_ASSEMBLE_REQUEST_SCHEMA = s.object({
   cursorPosition: s.number(),
   skillId: s.string(),
   additionalInput: s.optional(s.string()),
+  provider: s.optional(s.string()),
+  model: s.optional(s.string()),
+  tokenizerVersion: s.optional(s.string()),
 });
 
 const CONTEXT_INSPECT_REQUEST_SCHEMA = s.object({
@@ -124,6 +127,9 @@ const CONTEXT_INSPECT_REQUEST_SCHEMA = s.object({
   cursorPosition: s.number(),
   skillId: s.string(),
   additionalInput: s.optional(s.string()),
+  provider: s.optional(s.string()),
+  model: s.optional(s.string()),
+  tokenizerVersion: s.optional(s.string()),
   debugMode: s.optional(s.boolean()),
   requestedBy: s.optional(s.string()),
 });

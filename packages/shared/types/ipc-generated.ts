@@ -535,8 +535,11 @@ export type IpcChannelSpec = {
       additionalInput?: string;
       cursorPosition: number;
       documentId: string;
+      model?: string;
       projectId: string;
+      provider?: string;
       skillId: string;
+      tokenizerVersion?: string;
     };
     response: {
       assemblyOrder: Array<"rules" | "settings" | "retrieved" | "immediate">;
@@ -579,9 +582,12 @@ export type IpcChannelSpec = {
       cursorPosition: number;
       debugMode?: boolean;
       documentId: string;
+      model?: string;
       projectId: string;
+      provider?: string;
       requestedBy?: string;
       skillId: string;
+      tokenizerVersion?: string;
     };
     response: {
       inspectMeta: {

@@ -8,6 +8,9 @@ export type ContextAssembleRequest = {
   cursorPosition: number;
   skillId: string;
   additionalInput?: string;
+  provider?: string;
+  model?: string;
+  tokenizerVersion?: string;
 };
 
 export type ContextInspectRequest = ContextAssembleRequest & {
@@ -136,6 +139,11 @@ const LAYER_DEGRADED_WARNING: Record<ContextLayerId, string> = {
 const DEFAULT_TOTAL_BUDGET_TOKENS = 6000;
 const DEFAULT_TOKENIZER_ID = "cn-byte-estimator";
 const DEFAULT_TOKENIZER_VERSION = "1.0.0";
+const NON_DETERMINISTIC_PREFIX_FIELDS = new Set([
+  "timestamp",
+  "requestId",
+  "nonce",
+]);
 
 /**
  * Why: source and warning lists must stay deterministic and free of empty noise
@@ -190,6 +198,95 @@ function mergeLayerContent(chunks: readonly ContextLayerChunk[]): string {
 }
 
 /**
+ * Why: JSON-ish rules/settings payloads can include non-deterministic fields
+ * and unordered keys that must not pollute stable prefix hashing.
+ */
+function canonicalizeStablePrefixValue(
+  value: unknown,
+  parentKey?: string,
+): unknown {
+  if (Array.isArray(value)) {
+    const normalizedItems = value.map((item) =>
+      canonicalizeStablePrefixValue(item, parentKey),
+    );
+
+    if (parentKey !== "constraints") {
+      return normalizedItems;
+    }
+
+    return [...normalizedItems].sort((left, right) => {
+      const leftRecord =
+        typeof left === "object" && left !== null
+          ? (left as Record<string, unknown>)
+          : {};
+      const rightRecord =
+        typeof right === "object" && right !== null
+          ? (right as Record<string, unknown>)
+          : {};
+
+      const leftPriority = Number(
+        leftRecord.priority ?? Number.NEGATIVE_INFINITY,
+      );
+      const rightPriority = Number(
+        rightRecord.priority ?? Number.NEGATIVE_INFINITY,
+      );
+      if (leftPriority !== rightPriority) {
+        return rightPriority - leftPriority;
+      }
+
+      const leftId = String(leftRecord.id ?? "");
+      const rightId = String(rightRecord.id ?? "");
+      if (leftId !== rightId) {
+        return leftId.localeCompare(rightId);
+      }
+
+      return JSON.stringify(leftRecord).localeCompare(
+        JSON.stringify(rightRecord),
+      );
+    });
+  }
+
+  if (typeof value === "object" && value !== null) {
+    const normalized: Record<string, unknown> = {};
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !NON_DETERMINISTIC_PREFIX_FIELDS.has(key))
+      .sort(([left], [right]) => left.localeCompare(right));
+
+    for (const [key, child] of entries) {
+      normalized[key] = canonicalizeStablePrefixValue(child, key);
+    }
+    return normalized;
+  }
+
+  return value;
+}
+
+/**
+ * Why: rules/settings can be plain text or JSON; canonicalization should apply
+ * only when JSON parsing is reliable.
+ */
+function canonicalizeLayerForStablePrefix(content: string): unknown {
+  const trimmed = content.trim();
+  if (trimmed.length === 0) {
+    return "";
+  }
+
+  const looksLikeJson =
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"));
+  if (!looksLikeJson) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return canonicalizeStablePrefixValue(parsed);
+  } catch {
+    return trimmed;
+  }
+}
+
+/**
  * Why: stable prefix state must be content-addressed and deterministic across
  * process restarts.
  */
@@ -197,19 +294,39 @@ function hashStablePrefix(
   rulesContent: string,
   settingsContent: string,
 ): string {
+  const canonicalizedPayload = canonicalizeStablePrefixValue({
+    rules: canonicalizeLayerForStablePrefix(rulesContent),
+    settings: canonicalizeLayerForStablePrefix(settingsContent),
+  });
+
   return createHash("sha256")
-    .update(rulesContent, "utf8")
-    .update("\n---\n", "utf8")
-    .update(settingsContent, "utf8")
+    .update(JSON.stringify(canonicalizedPayload), "utf8")
     .digest("hex");
 }
 
 /**
- * Why: unchanged detection is request-scoped; this avoids cross-document cache
- * pollution during rapid multi-tab editing.
+ * Why: CE3 unchanged semantics are scoped by project/skill/provider/model/
+ * tokenizerVersion so cache hit state follows prompt-caching boundaries.
  */
-function keyForStablePrefix(request: ContextAssembleRequest): string {
-  return `${request.projectId}:${request.documentId}:${request.skillId}`;
+function keyForStablePrefix(args: {
+  request: ContextAssembleRequest;
+  tokenizerVersion: string;
+}): string {
+  const provider =
+    args.request.provider?.trim().length && args.request.provider
+      ? args.request.provider
+      : "default-provider";
+  const model =
+    args.request.model?.trim().length && args.request.model
+      ? args.request.model
+      : "default-model";
+  const tokenizerVersion =
+    args.request.tokenizerVersion?.trim().length &&
+    args.request.tokenizerVersion
+      ? args.request.tokenizerVersion
+      : args.tokenizerVersion;
+
+  return `${args.request.projectId}:${args.request.skillId}:${provider}:${model}:${tokenizerVersion}`;
 }
 
 /**
@@ -635,7 +752,10 @@ export function createContextLayerAssemblyService(
         budgetProfile,
       });
 
-      const cacheKey = keyForStablePrefix(request);
+      const cacheKey = keyForStablePrefix({
+        request,
+        tokenizerVersion: budgetProfile.tokenizerVersion,
+      });
       const previousHash = previousStablePrefixByRequest.get(cacheKey);
       const stablePrefixUnchanged = previousHash === snapshot.stablePrefixHash;
       previousStablePrefixByRequest.set(cacheKey, snapshot.stablePrefixHash);
