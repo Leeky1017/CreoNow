@@ -56,6 +56,9 @@ export const IPC_ERROR_CODES = [
   "AI_PROVIDER_UNAVAILABLE",
   "VERSION_MERGE_TIMEOUT",
   "SEARCH_TIMEOUT",
+  "CONSTRAINT_VALIDATION_ERROR",
+  "CONSTRAINT_NOT_FOUND",
+  "CONSTRAINT_CONFLICT",
   "CONTEXT_SCOPE_VIOLATION",
   "CONTEXT_BUDGET_INVALID_RATIO",
   "CONTEXT_BUDGET_INVALID_MINIMUM",
@@ -210,6 +213,30 @@ const CONTEXT_BUDGET_UPDATE_REQUEST_SCHEMA = s.object({
     retrieved: CONTEXT_BUDGET_LAYER_SCHEMA,
     immediate: CONTEXT_BUDGET_LAYER_SCHEMA,
   }),
+});
+
+const CONSTRAINT_SOURCE_SCHEMA = s.union(s.literal("user"), s.literal("kg"));
+
+const CONSTRAINT_ITEM_SCHEMA = s.object({
+  id: s.string(),
+  text: s.string(),
+  source: CONSTRAINT_SOURCE_SCHEMA,
+  priority: s.number(),
+  updatedAt: s.string(),
+  degradable: s.boolean(),
+});
+
+const CONSTRAINT_CREATE_SCHEMA = s.object({
+  text: s.string(),
+  source: s.optional(CONSTRAINT_SOURCE_SCHEMA),
+  priority: s.optional(s.number()),
+  degradable: s.optional(s.boolean()),
+});
+
+const CONSTRAINT_PATCH_SCHEMA = s.object({
+  text: s.optional(s.string()),
+  priority: s.optional(s.number()),
+  degradable: s.optional(s.boolean()),
 });
 
 const SEARCH_FTS_HIGHLIGHT_SCHEMA = s.object({
@@ -1649,6 +1676,40 @@ export const ipcContract = {
           version: s.literal(1),
           items: s.array(s.string()),
         }),
+      }),
+    },
+    "constraints:policy:list": {
+      request: s.object({ projectId: s.string() }),
+      response: s.object({
+        constraints: s.array(CONSTRAINT_ITEM_SCHEMA),
+      }),
+    },
+    "constraints:policy:create": {
+      request: s.object({
+        projectId: s.string(),
+        constraint: CONSTRAINT_CREATE_SCHEMA,
+      }),
+      response: s.object({
+        constraint: CONSTRAINT_ITEM_SCHEMA,
+      }),
+    },
+    "constraints:policy:update": {
+      request: s.object({
+        projectId: s.string(),
+        constraintId: s.string(),
+        patch: CONSTRAINT_PATCH_SCHEMA,
+      }),
+      response: s.object({
+        constraint: CONSTRAINT_ITEM_SCHEMA,
+      }),
+    },
+    "constraints:policy:delete": {
+      request: s.object({
+        projectId: s.string(),
+        constraintId: s.string(),
+      }),
+      response: s.object({
+        deletedConstraintId: s.string(),
       }),
     },
     "constraints:policy:set": {
