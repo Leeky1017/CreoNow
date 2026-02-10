@@ -27,6 +27,7 @@ import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
 import { createSemanticChunkIndexService } from "./services/embedding/semanticChunkIndexService";
 import { createJudgeService } from "./services/judge/judgeService";
+import { createJudgeQualityService } from "./services/ai/judgeQualityService";
 import { createKgRecognitionRuntime } from "./services/kg/kgRecognitionRuntime";
 import { createCreonowWatchService } from "./services/context/watchService";
 
@@ -133,6 +134,9 @@ function registerIpcHandlers(deps: {
   const judgeService = createJudgeService({
     logger: deps.logger,
     isE2E: process.env.CREONOW_E2E === "1",
+  });
+  const judgeQualityService = createJudgeQualityService({
+    logger: deps.logger,
   });
   const watchService = createCreonowWatchService({ logger: deps.logger });
   const embeddingService = createEmbeddingService({ logger: deps.logger });
@@ -251,6 +255,8 @@ function registerIpcHandlers(deps: {
   registerJudgeIpcHandlers({
     ipcMain: guardedIpcMain,
     judgeService,
+    judgeQualityService,
+    logger: deps.logger,
   });
 
   registerFileIpcHandlers({

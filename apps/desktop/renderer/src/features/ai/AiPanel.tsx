@@ -37,6 +37,10 @@ import {
 } from "./ModelPicker";
 import { useAiStream } from "./useAiStream";
 import { onAiModelCatalogUpdated } from "./modelCatalogEvents";
+import {
+  JUDGE_RESULT_CHANNEL,
+  type JudgeResultEvent,
+} from "../../../../../../packages/shared/types/judge";
 
 const RECENT_MODELS_STORAGE_KEY = "creonow.ai.recentModels";
 
@@ -48,6 +52,54 @@ const RECENT_MODELS_STORAGE_KEY = "creonow.ai.recentModels";
 
 function isRunning(status: AiStatus): boolean {
   return status === "running" || status === "streaming";
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+/**
+ * Narrow unknown values to plain records.
+ */
+function isRecord(x: unknown): x is UnknownRecord {
+  return typeof x === "object" && x !== null;
+}
+
+/**
+ * Runtime validation for judge result push events.
+ *
+ * Why: renderer must ignore malformed push payloads safely.
+ */
+function isJudgeResultEvent(x: unknown): x is JudgeResultEvent {
+  if (!isRecord(x)) {
+    return false;
+  }
+
+  const severity = x.severity;
+  if (severity !== "high" && severity !== "medium" && severity !== "low") {
+    return false;
+  }
+
+  return (
+    typeof x.projectId === "string" &&
+    typeof x.traceId === "string" &&
+    Array.isArray(x.labels) &&
+    x.labels.every((label) => typeof label === "string") &&
+    typeof x.summary === "string" &&
+    typeof x.partialChecksSkipped === "boolean" &&
+    typeof x.ts === "number"
+  );
+}
+
+/**
+ * Map judge severity to tokenized text color classes.
+ */
+function judgeSeverityClass(severity: JudgeResultEvent["severity"]): string {
+  if (severity === "high") {
+    return "text-[var(--color-error)]";
+  }
+  if (severity === "medium") {
+    return "text-[var(--color-fg-default)]";
+  }
+  return "text-[var(--color-fg-muted)]";
 }
 
 type DbErrorDetails = {
@@ -367,6 +419,10 @@ export function AiPanel(): JSX.Element {
   const [lastRequest, setLastRequest] = React.useState<string | null>(null);
   const [inlineDiffConfirmOpen, setInlineDiffConfirmOpen] =
     React.useState(false);
+  const [judgeResult, setJudgeResult] = React.useState<JudgeResultEvent | null>(
+    null,
+  );
+  const evaluatedRunIdRef = React.useRef<string | null>(null);
 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -493,6 +549,50 @@ export function AiPanel(): JSX.Element {
     }
   }, [proposal]);
 
+  React.useEffect(() => {
+    function onJudgeResultEvent(evt: Event): void {
+      const customEvent = evt as CustomEvent<unknown>;
+      if (!isJudgeResultEvent(customEvent.detail)) {
+        return;
+      }
+
+      const result = customEvent.detail;
+      if (projectId && result.projectId !== projectId) {
+        return;
+      }
+      if (lastRunId && result.traceId !== lastRunId) {
+        return;
+      }
+
+      setJudgeResult(result);
+    }
+
+    window.addEventListener(JUDGE_RESULT_CHANNEL, onJudgeResultEvent);
+    return () => {
+      window.removeEventListener(JUDGE_RESULT_CHANNEL, onJudgeResultEvent);
+    };
+  }, [lastRunId, projectId]);
+
+  React.useEffect(() => {
+    if (status !== "idle") {
+      return;
+    }
+    if (!projectId || !lastRunId || outputText.trim().length === 0) {
+      return;
+    }
+    if (evaluatedRunIdRef.current === lastRunId) {
+      return;
+    }
+
+    evaluatedRunIdRef.current = lastRunId;
+    void invoke("judge:quality:evaluate", {
+      projectId,
+      traceId: lastRunId,
+      text: outputText,
+      contextSummary: lastRequest ?? "AI 面板上下文摘要",
+    });
+  }, [lastRequest, lastRunId, outputText, projectId, status]);
+
   const diffText = proposal
     ? unifiedDiff({
         oldText: proposal.selectionText,
@@ -518,6 +618,8 @@ export function AiPanel(): JSX.Element {
     if (!input.trim()) return;
 
     setLastRequest(input);
+    setJudgeResult(null);
+    evaluatedRunIdRef.current = null;
 
     setProposal(null);
     setInlineDiffConfirmOpen(false);
@@ -626,6 +728,8 @@ export function AiPanel(): JSX.Element {
 
   function handleNewChat(): void {
     setLastRequest(null);
+    setJudgeResult(null);
+    evaluatedRunIdRef.current = null;
 
     setInput("");
 
@@ -885,6 +989,57 @@ export function AiPanel(): JSX.Element {
                   </div>
                 )
               )}
+
+              {judgeResult ? (
+                <div
+                  data-testid="ai-judge-result"
+                  className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-3 py-2 space-y-1"
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      data-testid="ai-judge-severity"
+                      className={`text-[11px] font-semibold uppercase tracking-wide ${judgeSeverityClass(
+                        judgeResult.severity,
+                      )}`}
+                    >
+                      {judgeResult.severity}
+                    </span>
+                    {judgeResult.labels.length === 0 ? (
+                      <span
+                        data-testid="ai-judge-pass"
+                        className="text-[12px] text-[var(--color-fg-default)]"
+                      >
+                        质量校验通过
+                      </span>
+                    ) : (
+                      judgeResult.labels.map((label) => (
+                        <span
+                          key={label}
+                          className="text-[12px] text-[var(--color-fg-default)]"
+                        >
+                          {label}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  <Text
+                    data-testid="ai-judge-summary"
+                    size="small"
+                    color="muted"
+                  >
+                    {judgeResult.summary}
+                  </Text>
+                  {judgeResult.partialChecksSkipped ? (
+                    <Text
+                      data-testid="ai-judge-partial"
+                      size="small"
+                      color="muted"
+                    >
+                      部分校验已跳过
+                    </Text>
+                  ) : null}
+                </div>
+              ) : null}
 
               {/* Applied Status */}
               {applyStatus === "applied" && (

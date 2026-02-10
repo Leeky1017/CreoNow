@@ -141,6 +141,7 @@ export const IPC_CHANNELS = [
   "file:document:updatestatus",
   "judge:model:ensure",
   "judge:model:getstate",
+  "judge:quality:evaluate",
   "knowledge:entity:create",
   "knowledge:entity:delete",
   "knowledge:entity:list",
@@ -1121,6 +1122,26 @@ export type IpcChannelSpec = {
             };
             status: "error";
           };
+    };
+  };
+  "judge:quality:evaluate": {
+    request: {
+      contextSummary: string;
+      projectId: string;
+      text: string;
+      traceId: string;
+    };
+    response: {
+      accepted: true;
+      result: {
+        labels: Array<string>;
+        partialChecksSkipped: boolean;
+        projectId: string;
+        severity: "high" | "medium" | "low";
+        summary: string;
+        traceId: string;
+        ts: number;
+      };
     };
   };
   "knowledge:entity:create": {
