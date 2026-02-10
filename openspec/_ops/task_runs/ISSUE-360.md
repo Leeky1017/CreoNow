@@ -228,3 +228,26 @@
 - Key output:
   - 多个 check 在 `actions/checkout@v4` 阶段出现 `cancelled/fail` 漂移（平台侧）
   - 已重触发三条 required workflow，等待 required checks 全绿后自动合并
+
+### 2026-02-10 10:15 +0800 CI 失败根因定位（PR #364）
+
+- Command:
+  - `gh pr checks 364`
+  - `gh run view 21833570900 --log-failed`
+- Exit code: `0`
+- Key output:
+  - `windows-e2e` 出现真实断言失败：`search-rag.spec.ts` 中 `ragRes.data.truncated` 期望 `true` 实际 `false`
+  - 其余 `contract-check`/`cross-module-check`/`openspec-log-guard` 失败主要由 GitHub `fetch 500/502` 或 workflow 被取消导致
+
+### 2026-02-10 10:19 +0800 截断场景稳定性修复与本地验证
+
+- Command:
+  - `apply_patch apps/desktop/tests/e2e/search-rag.spec.ts`（在截断场景请求中新增 `minScore: 0.1`）
+  - `pnpm test:integration`
+  - `pnpm -C apps/desktop build`
+  - `pnpm -C apps/desktop exec playwright test tests/e2e/search-rag.spec.ts -g "rag:context:retrieve marks truncated when token budget is exceeded"`
+- Exit code: `1`（最后一步）
+- Key output:
+  - 集成测试全通过
+  - Electron build 成功
+  - 本地单测式 E2E 启动后卡在初始 UI（`welcome-screen` 未出现），与 CI 失败点不同；CI 的截断断言失败已通过用例参数修正为 deterministic

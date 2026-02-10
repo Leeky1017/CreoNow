@@ -288,6 +288,7 @@ test("rag:context:retrieve marks truncated when token budget is exceeded", async
         projectId: args.projectId,
         queryText: args.keyword,
         topK: 5,
+        minScore: 0.1,
         maxTokens: 10,
         model: "hash-v1",
       });
