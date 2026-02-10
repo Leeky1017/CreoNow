@@ -153,3 +153,38 @@
 - Exit code: `0`
 - Key output:
   - Prettier / typecheck / lint / contract:check / cross-module:check / test:unit 全部通过
+
+### 2026-02-10 13:31 +0800 auto-merge 触发受阻（分支冲突）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh --pr 384 --skip-preflight`
+  - `gh pr view 384 --json mergeStateStatus,statusCheckRollup`
+- Exit code:
+  - `scripts/agent_pr_automerge_and_sync.sh --pr 384 --skip-preflight`: `1`
+  - `gh pr view ...`: `0`
+- Key output:
+  - 脚本提示：`no checks reported on the branch`
+  - PR 状态：`mergeStateStatus=DIRTY`（与 `main` 冲突，需先同步分支）
+
+### 2026-02-10 13:34 +0800 同步 main 并解决冲突
+
+- Command:
+  - `git fetch origin main && git rebase origin/main`
+  - 解决 `openspec/changes/EXECUTION_ORDER.md` 冲突（按当前活跃 change 真实拓扑重写）
+  - `GIT_EDITOR=true git rebase --continue`
+  - `git fetch origin task/380-ai-service-p4-candidates-usage-stats && git merge --no-ff --no-edit origin/task/380-ai-service-p4-candidates-usage-stats`
+  - 再次解决 `openspec/changes/EXECUTION_ORDER.md` 冲突并提交 merge commit
+  - `git push`
+- Exit code: `0`
+- Key output:
+  - rebase 成功完成，分支已对齐 `origin/main`
+  - `EXECUTION_ORDER.md` 更新为当前活跃 2 个 change（`search-retrieval-p4` + `ai-service-p5`）
+  - 推送成功（无需强推）
+
+### 2026-02-10 13:36 +0800 preflight（冲突修复后）通过
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Prettier / typecheck / lint / contract:check / cross-module:check / test:unit 全部通过
