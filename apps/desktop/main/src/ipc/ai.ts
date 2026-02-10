@@ -21,6 +21,8 @@ import {
 } from "../services/memory/preferenceLearning";
 import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
+import { createSkillExecutor } from "../services/skills/skillExecutor";
+import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
 import { createDbNotReadyError } from "./dbError";
 
 type SkillRunPayload = {
@@ -194,6 +196,27 @@ function summarizeCandidateText(text: string): string {
 }
 
 /**
+ * Normalize skill id to the leaf token.
+ */
+function leafSkillId(skillId: string): string {
+  const parts = skillId.split(":");
+  return parts[parts.length - 1] ?? skillId;
+}
+
+/**
+ * Derive deterministic prompt-token input text for usage accounting.
+ */
+function promptInputForUsage(payload: SkillRunPayload): string {
+  if (payload.input.trim().length > 0) {
+    return payload.input;
+  }
+  if (leafSkillId(payload.skillId) === "continue") {
+    return "请基于当前文档上下文继续写作。";
+  }
+  return payload.input;
+}
+
+/**
  * Parse per-model pricing from env JSON.
  *
  * Format:
@@ -262,22 +285,6 @@ function resolveChatProjectId(args: {
     };
   }
   return { ok: true, data: projectId };
-}
-
-/**
- * Render a user prompt template with an input string.
- *
- * Why: skills are configured as stable prompts; input is injected deterministically.
- */
-function renderUserPrompt(args: { template: string; input: string }): string {
-  if (args.template.includes("{{input}}")) {
-    return args.template.split("{{input}}").join(args.input);
-  }
-  if (args.template.trim().length === 0) {
-    return args.input;
-  }
-  // Intentionally preserve bytes: do not trim/normalize prompt content.
-  return `${args.template}\n\n${args.input}`;
 }
 
 /**
@@ -375,6 +382,47 @@ export function registerAiIpcHandlers(deps: {
   const chatHistoryByProject = new Map<string, ChatHistoryMessage[]>();
   const sessionTokenTotalsByContext = new Map<string, number>();
   const modelPricingByModel = parseModelPricingMap(deps.env);
+  const contextAssemblyService = createContextLayerAssemblyService(undefined);
+  const skillExecutor = createSkillExecutor({
+    resolveSkill: (skillId) => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: createDbNotReadyError(),
+        };
+      }
+      const skillSvc = createSkillService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        builtinSkillsDir: deps.builtinSkillsDir,
+        logger: deps.logger,
+      });
+      const resolved = skillSvc.resolveForRun({ id: skillId });
+      if (!resolved.ok) {
+        return {
+          ok: false,
+          error: resolved.error,
+        };
+      }
+      return {
+        ok: true,
+        data: {
+          id: resolved.data.skill.id,
+          prompt: resolved.data.skill.prompt,
+          enabled: resolved.data.enabled,
+          valid: resolved.data.skill.valid,
+          error_code: resolved.data.skill.error_code,
+          error_message: resolved.data.skill.error_message,
+        },
+      };
+    },
+    runSkill: async (args) => {
+      return await aiService.runSkill(args);
+    },
+    assembleContext: async (args) => {
+      return await contextAssemblyService.assemble(args);
+    },
+  });
 
   /**
    * Remember a runId for feedback validation.
@@ -494,37 +542,6 @@ export function registerAiIpcHandlers(deps: {
         };
       }
 
-      const skillSvc = createSkillService({
-        db: deps.db,
-        userDataDir: deps.userDataDir,
-        builtinSkillsDir: deps.builtinSkillsDir,
-        logger: deps.logger,
-      });
-      const resolved = skillSvc.resolveForRun({ id: payload.skillId });
-      if (!resolved.ok) {
-        return { ok: false, error: resolved.error };
-      }
-      if (!resolved.data.enabled) {
-        return {
-          ok: false,
-          error: {
-            code: "UNSUPPORTED",
-            message: "Skill is disabled",
-            details: { id: payload.skillId },
-          },
-        };
-      }
-      if (!resolved.data.skill.valid) {
-        return {
-          ok: false,
-          error: {
-            code: resolved.data.skill.error_code ?? "INVALID_ARGUMENT",
-            message: resolved.data.skill.error_message ?? "Skill is invalid",
-            details: { id: payload.skillId },
-          },
-        };
-      }
-
       const candidateCountRes = parseCandidateCount(payload.candidateCount);
       if (!candidateCountRes.ok) {
         return {
@@ -534,15 +551,40 @@ export function registerAiIpcHandlers(deps: {
       }
       const candidateCount = candidateCountRes.data;
       const effectiveStream = candidateCount > 1 ? false : payload.stream;
+      const promptTokensForResult = estimateTokenCount(
+        promptInputForUsage(payload),
+      );
 
       const pushBackpressure = getPushBackpressureGate(e.sender);
 
       const emitEvent = (event: AiStreamEvent): void => {
-        if (!pushBackpressure.shouldDeliver(event)) {
+        const eventToSend: AiStreamEvent =
+          event.type === "done"
+            ? {
+                ...event,
+                result: {
+                  success: event.terminal === "completed",
+                  output: event.outputText,
+                  metadata: {
+                    model: payload.model,
+                    promptTokens: promptTokensForResult,
+                    completionTokens: estimateTokenCount(event.outputText),
+                  },
+                  traceId: event.traceId,
+                  ...(event.error ? { error: event.error } : {}),
+                },
+              }
+            : event;
+
+        if (!pushBackpressure.shouldDeliver(eventToSend)) {
           return;
         }
 
-        safeEmitToRenderer({ logger: deps.logger, sender: e.sender, event });
+        safeEmitToRenderer({
+          logger: deps.logger,
+          sender: e.sender,
+          event: eventToSend,
+        });
       };
 
       const stats = createStatsService({ db: deps.db, logger: deps.logger });
@@ -558,17 +600,10 @@ export function registerAiIpcHandlers(deps: {
       }
 
       try {
-        const systemPrompt = resolved.data.skill.prompt?.system ?? "";
-        const userPrompt = renderUserPrompt({
-          template: resolved.data.skill.prompt?.user ?? "",
-          input: payload.input,
-        });
-
         if (candidateCount === 1) {
-          const res = await aiService.runSkill({
+          const res = await skillExecutor.execute({
             skillId: payload.skillId,
-            systemPrompt,
-            input: userPrompt,
+            input: payload.input,
             mode: payload.mode,
             model: payload.model,
             context: payload.context,
@@ -584,7 +619,9 @@ export function registerAiIpcHandlers(deps: {
 
           const outputText = res.data.outputText;
           if (typeof outputText === "string") {
-            const promptTokens = estimateTokenCount(userPrompt);
+            const promptTokens = estimateTokenCount(
+              promptInputForUsage(payload),
+            );
             const completionTokens = estimateTokenCount(outputText);
             const usage = buildUsage({
               model: payload.model,
@@ -627,10 +664,9 @@ export function registerAiIpcHandlers(deps: {
           outputText: string;
         }> = [];
         for (let index = 0; index < candidateCount; index += 1) {
-          const res = await aiService.runSkill({
+          const res = await skillExecutor.execute({
             skillId: payload.skillId,
-            systemPrompt,
-            input: userPrompt,
+            input: payload.input,
             mode: payload.mode,
             model: payload.model,
             context: payload.context,
@@ -659,7 +695,8 @@ export function registerAiIpcHandlers(deps: {
           (sum, item) => sum + estimateTokenCount(item.outputText),
           0,
         );
-        const promptTokens = estimateTokenCount(userPrompt) * candidateCount;
+        const promptTokens =
+          estimateTokenCount(promptInputForUsage(payload)) * candidateCount;
         const usage = buildUsage({
           model: payload.model,
           context: payload.context,

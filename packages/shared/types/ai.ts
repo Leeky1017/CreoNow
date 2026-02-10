@@ -5,6 +5,20 @@ export const SKILL_STREAM_DONE_CHANNEL = "skill:stream:done" as const;
 
 export type AiStreamTerminal = "completed" | "cancelled" | "error";
 
+export type SkillResultMetadata = {
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+};
+
+export type SkillResult = {
+  success: boolean;
+  output: string;
+  metadata: SkillResultMetadata;
+  traceId: string;
+  error?: IpcError;
+};
+
 export type AiStreamChunkEvent = {
   type: "chunk";
   executionId: string;
@@ -23,6 +37,7 @@ export type AiStreamDoneEvent = {
   terminal: AiStreamTerminal;
   outputText: string;
   error?: IpcError;
+  result?: SkillResult;
   ts: number;
 };
 

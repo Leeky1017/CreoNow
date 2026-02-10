@@ -12,22 +12,22 @@ Skill System 将 AI 能力抽象为可组合的「技能」。本 change 建立�
   - 组装上下文（通过 Context Engine 注入 Immediate / Rules / Settings / Retrieved 层）。
   - 调用 LLM 并返回 `SkillResult`（`output`、`metadata`、`traceId`）。
 - 实现流式响应 IPC 管道：
-  - `skill:execute`（Request-Response）→ 返回 `executionId`。
+  - `ai:skill:run`（Request-Response）→ 返回 `executionId`。
   - `skill:stream:chunk`（Push Notification）→ 逐步推送生成内容。
   - `skill:stream:done`（Push Notification）→ 推送完成信号 + 完整 `SkillResult`。
-- 实现取消机制：`skill:cancel`（Fire-and-Forget）中断 LLM 调用、释放资源。
+- 实现取消机制：`ai:skill:cancel`（Request-Response）中断 LLM 调用、释放资源。
 - 错误处理：LLM 失败/超时返回结构化错误 `{ code: "LLM_API_ERROR" | "SKILL_INPUT_EMPTY", message }`，AI 面板展示 + 重试入口。
 
 ## 受影响模块
 
 - Skill System（`main/src/services/skills/`、`main/skills/packages/`、`main/src/ipc/skills.ts`）
 - AI Store（`renderer/src/stores/skillStore.ts` — executionId / streaming 状态）
-- IPC（`skill:execute`、`skill:stream:chunk`、`skill:stream:done`、`skill:cancel` 通道定义）
+- IPC（`ai:skill:run`、`skill:stream:chunk`、`skill:stream:done`、`ai:skill:cancel` 通道定义）
 
 ## 依赖关系
 
 - 上游依赖：
-  - AI Service（Phase 3，已归档）— LLM 代理调用、流式响应基础设施
+  - AI Service（Phase 1，已归档）— LLM 代理调用、流式响应与取消生命周期
   - Context Engine（Phase 3，已归档）— 上下文组装 API
   - IPC（Phase 0，已归档）— 通道注册机制
 - 下游依赖：`skill-system-p1` ~ `skill-system-p4`
