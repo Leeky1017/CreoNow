@@ -14,6 +14,7 @@ import {
   type SkillPrompt,
   type SkillScope,
 } from "./skillValidator";
+import { selectSkillsByScope } from "./scopeResolver";
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
@@ -283,39 +284,13 @@ function toLoadedSkill(args: {
 }
 
 /**
- * Merge multiple skills into an id->SSOT set using scope precedence.
+ * Merge multiple skills into a scope-resolved SSOT set.
  *
- * Why: "single chain" — each final id must have exactly one source of truth.
+ * Why: project/global/builtin variants can use different ids while representing
+ * one logical skill name; scope resolution must stay deterministic.
  */
 export function selectSkillSsot(skills: LoadedSkill[]): LoadedSkill[] {
-  const priority: Record<SkillScope, number> = {
-    builtin: 1,
-    global: 2,
-    project: 3,
-  };
-
-  const byId = new Map<string, LoadedSkill>();
-  for (const s of skills) {
-    const existing = byId.get(s.id);
-    if (!existing) {
-      byId.set(s.id, s);
-      continue;
-    }
-
-    const nextWins = priority[s.scope] > priority[existing.scope];
-    if (nextWins) {
-      byId.set(s.id, s);
-      continue;
-    }
-
-    const samePriority = priority[s.scope] === priority[existing.scope];
-    if (samePriority) {
-      const keep = existing.filePath.localeCompare(s.filePath) <= 0;
-      byId.set(s.id, keep ? existing : s);
-    }
-  }
-
-  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  return selectSkillsByScope(skills);
 }
 
 /**

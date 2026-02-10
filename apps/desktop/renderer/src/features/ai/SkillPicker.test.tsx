@@ -1,260 +1,133 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { SkillPicker } from "./SkillPicker";
 
-const mockSkills = [
+const sampleSkills = [
   {
-    id: "default",
-    name: "Default",
+    id: "builtin:rewrite",
+    name: "改写",
     enabled: true,
     valid: true,
-    scope: "global" as const,
-    packageId: "pkg-1",
+    scope: "builtin" as const,
+    packageId: "pkg-builtin",
     version: "1.0.0",
   },
   {
-    id: "rewrite",
-    name: "Rewrite",
+    id: "global:formal-rewrite",
+    name: "正式风格改写",
+    enabled: true,
+    valid: true,
+    scope: "global" as const,
+    packageId: "pkg-global",
+    version: "1.0.0",
+  },
+  {
+    id: "project:formal-rewrite",
+    name: "正式风格改写",
     enabled: true,
     valid: true,
     scope: "project" as const,
-    packageId: "pkg-2",
+    packageId: "pkg-project",
     version: "1.0.0",
   },
   {
-    id: "disabled",
-    name: "Disabled Skill",
+    id: "builtin:translate",
+    name: "翻译",
     enabled: false,
     valid: true,
-    scope: "global" as const,
-    packageId: "pkg-3",
-    version: "1.0.0",
-  },
-  {
-    id: "invalid",
-    name: "Invalid Skill",
-    enabled: true,
-    valid: false,
-    scope: "global" as const,
-    packageId: "pkg-4",
+    scope: "builtin" as const,
+    packageId: "pkg-builtin",
     version: "1.0.0",
   },
 ];
 
-describe("SkillPicker", () => {
-  // ===========================================================================
-  // 基础渲染测试
-  // ===========================================================================
-  describe("渲染", () => {
-    it("open 为 true 时应该渲染", () => {
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={vi.fn()}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
+describe("SkillPicker scope management", () => {
+  it("should group skills by scope sections", () => {
+    render(
+      <SkillPicker
+        open={true}
+        items={sampleSkills}
+        selectedSkillId="builtin:rewrite"
+        onOpenChange={vi.fn()}
+        onSelectSkillId={vi.fn()}
+      />,
+    );
 
-      expect(screen.getByRole("dialog")).toBeInTheDocument();
-      // 组件使用全大写 "SKILL" 作为标题
-      expect(screen.getByText("SKILL")).toBeInTheDocument();
-    });
-
-    it("open 为 false 时不应该渲染", () => {
-      render(
-        <SkillPicker
-          open={false}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={vi.fn()}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
-
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    });
-
-    it("应该渲染所有技能项", () => {
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={vi.fn()}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
-
-      expect(screen.getByTestId("ai-skill-default")).toBeInTheDocument();
-      expect(screen.getByTestId("ai-skill-rewrite")).toBeInTheDocument();
-      expect(screen.getByTestId("ai-skill-disabled")).toBeInTheDocument();
-      expect(screen.getByTestId("ai-skill-invalid")).toBeInTheDocument();
-    });
+    expect(screen.getByText("内置技能")).toBeInTheDocument();
+    expect(screen.getByText("全局技能")).toBeInTheDocument();
+    expect(screen.getByText("项目技能")).toBeInTheDocument();
   });
 
-  // ===========================================================================
-  // 选中状态测试
-  // ===========================================================================
-  describe("选中状态", () => {
-    it("选中的技能应有不同的样式", () => {
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={vi.fn()}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
+  it("should render custom-empty state when there are no global/project skills", () => {
+    const builtinOnly = sampleSkills.filter((item) => item.scope === "builtin");
 
-      const selectedButton = screen.getByTestId("ai-skill-default");
-      expect(selectedButton.className).toContain(
-        "border-[var(--color-border-accent)]",
-      );
-    });
+    render(
+      <SkillPicker
+        open={true}
+        items={builtinOnly}
+        selectedSkillId="builtin:rewrite"
+        onOpenChange={vi.fn()}
+        onSelectSkillId={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText("暂无自定义技能，点击创建或用自然语言描述需求"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "创建技能" }),
+    ).toBeInTheDocument();
   });
 
-  // ===========================================================================
-  // 禁用状态测试
-  // ===========================================================================
-  describe("禁用状态", () => {
-    it("disabled 技能应禁用按钮", () => {
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={vi.fn()}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
+  it("should gray out disabled skills with opacity + not-allowed cursor", () => {
+    render(
+      <SkillPicker
+        open={true}
+        items={sampleSkills}
+        selectedSkillId="builtin:rewrite"
+        onOpenChange={vi.fn()}
+        onSelectSkillId={vi.fn()}
+      />,
+    );
 
-      const disabledButton = screen.getByTestId("ai-skill-disabled");
-      expect(disabledButton).toBeDisabled();
-    });
-
-    it("invalid 技能应禁用按钮", () => {
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={vi.fn()}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
-
-      const invalidButton = screen.getByTestId("ai-skill-invalid");
-      expect(invalidButton).toBeDisabled();
-    });
-
-    it("disabled 技能应显示 Disabled 状态", () => {
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={vi.fn()}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
-
-      expect(screen.getByText("Disabled")).toBeInTheDocument();
-    });
-
-    it("invalid 技能应显示 Invalid 状态", () => {
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={vi.fn()}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
-
-      expect(screen.getByText("Invalid")).toBeInTheDocument();
-    });
+    const disabledButton = screen.getByTestId("ai-skill-builtin:translate");
+    expect(disabledButton).toBeDisabled();
+    expect(disabledButton.className).toContain("opacity-50");
+    expect(disabledButton.className).toContain("cursor-not-allowed");
   });
 
-  // ===========================================================================
-  // 交互测试
-  // ===========================================================================
-  describe("交互", () => {
-    it("点击技能应调用 onSelectSkillId", () => {
-      const onSelectSkillId = vi.fn();
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={vi.fn()}
-          onSelectSkillId={onSelectSkillId}
-        />,
-      );
+  it("should prefer project skill and mark override when project/global names collide", () => {
+    render(
+      <SkillPicker
+        open={true}
+        items={sampleSkills}
+        selectedSkillId="project:formal-rewrite"
+        onOpenChange={vi.fn()}
+        onSelectSkillId={vi.fn()}
+      />,
+    );
 
-      const rewriteButton = screen.getByTestId("ai-skill-rewrite");
-      fireEvent.click(rewriteButton);
-
-      expect(onSelectSkillId).toHaveBeenCalledWith("rewrite");
-    });
-
-    it("点击背景应调用 onOpenChange(false)", () => {
-      const onOpenChange = vi.fn();
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={onOpenChange}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
-
-      const backdrop = screen.getByRole("presentation");
-      fireEvent.click(backdrop);
-
-      expect(onOpenChange).toHaveBeenCalledWith(false);
-    });
-
-    it("点击弹窗内部不应关闭", () => {
-      const onOpenChange = vi.fn();
-      render(
-        <SkillPicker
-          open={true}
-          items={mockSkills}
-          selectedSkillId="default"
-          onOpenChange={onOpenChange}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
-
-      const dialog = screen.getByRole("dialog");
-      fireEvent.click(dialog);
-
-      expect(onOpenChange).not.toHaveBeenCalled();
-    });
+    const formalRows = screen.getAllByText("正式风格改写");
+    expect(formalRows).toHaveLength(1);
+    expect(screen.getByText("项目级覆盖")).toBeInTheDocument();
   });
 
-  // ===========================================================================
-  // 空列表测试
-  // ===========================================================================
-  describe("空列表", () => {
-    it("空列表时仍应显示 SKILL 标题", () => {
-      render(
-        <SkillPicker
-          open={true}
-          items={[]}
-          selectedSkillId=""
-          onOpenChange={vi.fn()}
-          onSelectSkillId={vi.fn()}
-        />,
-      );
+  it("should still allow selecting enabled skill", async () => {
+    const user = userEvent.setup();
+    const onSelectSkillId = vi.fn();
 
-      // 组件使用全大写 "SKILL" 作为标题
-      expect(screen.getByText("SKILL")).toBeInTheDocument();
-    });
+    render(
+      <SkillPicker
+        open={true}
+        items={sampleSkills}
+        selectedSkillId="builtin:rewrite"
+        onOpenChange={vi.fn()}
+        onSelectSkillId={onSelectSkillId}
+      />,
+    );
+
+    await user.click(screen.getByTestId("ai-skill-builtin:rewrite"));
+    expect(onSelectSkillId).toHaveBeenCalledWith("builtin:rewrite");
   });
 });

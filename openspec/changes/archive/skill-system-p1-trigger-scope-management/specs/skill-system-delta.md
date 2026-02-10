@@ -33,20 +33,20 @@
 
 技能有三级作用域：`builtin` / `global` / `project`。
 
-| 作用域 | 可见范围 | 创建者 | 可删除 | 可停用 | 可修改作用域 |
-|---|---|---|---|---|---|
-| `builtin` | 所有项目 | 系统 | 否 | 是 | 否 |
-| `global` | 所有项目 | 用户 | 是 | 是 | 可降为 project |
-| `project` | 当前项目 | 用户 | 是 | 是 | 可升为 global |
+| 作用域    | 可见范围 | 创建者 | 可删除 | 可停用 | 可修改作用域   |
+| --------- | -------- | ------ | ------ | ------ | -------------- |
+| `builtin` | 所有项目 | 系统   | 否     | 是     | 否             |
+| `global`  | 所有项目 | 用户   | 是     | 是     | 可降为 project |
+| `project` | 当前项目 | 用户   | 是     | 是     | 可升为 global  |
 
 - 可见性解析顺序：`project → global → builtin`，同名项目级优先。
-- 启停通过 `skill:toggle`（Request-Response）持久化。
+- 启停通过 `skill:registry:toggle`（Request-Response，语义对齐主规范 `skill:toggle`）持久化。
 
 #### Scenario: 用户停用内置技能 [ADDED]
 
 - **假设** 用户在技能管理界面查看内置技能列表
 - **当** 用户关闭「翻译」技能的开关
-- **则** 通过 `skill:toggle` 发送 `{ skillId: "translate", enabled: false }`
+- **则** 通过 `skill:registry:toggle` 发送 `{ skillId: "translate", enabled: false }`
 - **并且** 持久化后「翻译」在技能选择面板中灰显
 
 #### Scenario: 项目级技能覆盖全局技能 [ADDED]

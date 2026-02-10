@@ -49,6 +49,11 @@ export type SkillToggleResult = {
   enabled: boolean;
 };
 
+export type SkillCustomUpdateResult = {
+  id: string;
+  scope: "global" | "project";
+};
+
 export type SkillService = {
   list: (args: { includeDisabled?: boolean }) => ServiceResult<{
     items: SkillListItem[];
@@ -62,6 +67,10 @@ export type SkillService = {
     id: string;
     enabled: boolean;
   }) => ServiceResult<SkillToggleResult>;
+  updateCustom: (args: {
+    id: string;
+    scope: "global" | "project";
+  }) => ServiceResult<SkillCustomUpdateResult>;
   resolveForRun: (args: { id: string }) => ServiceResult<{
     skill: LoadedSkill;
     enabled: boolean;
@@ -211,6 +220,34 @@ function writeSkillContent(args: {
 }
 
 /**
+ * Rewrite the YAML `scope` frontmatter field for scope promotion/demotion.
+ *
+ * Why: moved files must remain valid against directory scope validation.
+ */
+function rewriteFrontmatterScope(args: {
+  content: string;
+  scope: "global" | "project";
+}): string {
+  const normalized = args.content.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  if (lines[0]?.trim() !== "---") {
+    return args.content;
+  }
+
+  for (let i = 1; i < lines.length; i += 1) {
+    if (lines[i]?.trim() === "---") {
+      break;
+    }
+    if (lines[i]?.trim().startsWith("scope:")) {
+      lines[i] = `scope: ${args.scope}`;
+      return lines.join("\n");
+    }
+  }
+
+  return args.content;
+}
+
+/**
  * Build a SkillFileRef from a loaded skill and a target scope root.
  */
 function toScopeFileRef(args: {
@@ -238,6 +275,42 @@ function toScopeFileRef(args: {
       filePath,
     },
   };
+}
+
+/**
+ * Resolve a root directory by scope from loaded roots.
+ */
+function scopeRoot(args: {
+  scope: SkillScope;
+  roots: {
+    builtinSkillsDir: string;
+    globalSkillsDir: string;
+    projectSkillsDir: string | null;
+  };
+}): string | null {
+  if (args.scope === "builtin") {
+    return args.roots.builtinSkillsDir;
+  }
+  if (args.scope === "global") {
+    return args.roots.globalSkillsDir;
+  }
+  return args.roots.projectSkillsDir;
+}
+
+/**
+ * Remove a source skill file after a successful scope move.
+ */
+function removeSkillContent(filePath: string): ServiceResult<true> {
+  try {
+    fs.rmSync(filePath, { force: true });
+    return { ok: true, data: true };
+  } catch (error) {
+    return ipcError(
+      "IO_ERROR",
+      "Failed to remove old skill file after scope update",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
 }
 
 /**
@@ -492,6 +565,107 @@ export function createSkillService(deps: {
         });
         return ipcError("DB_ERROR", "Failed to toggle skill");
       }
+    },
+
+    updateCustom: ({ id, scope }) => {
+      if (id.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "id is required", {
+          fieldName: "id",
+        });
+      }
+      if (scope !== "global" && scope !== "project") {
+        return ipcError("INVALID_ARGUMENT", "scope must be global or project", {
+          fieldName: "scope",
+        });
+      }
+
+      const loaded = resolveLoaded();
+      if (!loaded.ok) {
+        return loaded;
+      }
+
+      const skill = loaded.data.skills.find((s) => s.id === id) ?? null;
+      if (!skill) {
+        return ipcError("NOT_FOUND", "Skill not found", { id });
+      }
+
+      if (skill.scope === "builtin") {
+        return ipcError("UNSUPPORTED", "Builtin skills cannot change scope", {
+          id,
+        });
+      }
+
+      if (skill.scope === scope) {
+        return { ok: true, data: { id, scope } };
+      }
+
+      const srcRoot = scopeRoot({
+        scope: skill.scope,
+        roots: loaded.data.roots,
+      });
+      const destRoot = scopeRoot({
+        scope,
+        roots: loaded.data.roots,
+      });
+      if (!srcRoot || !destRoot) {
+        return ipcError("NOT_FOUND", "Project scope is unavailable", { scope });
+      }
+
+      const targetRef = toScopeFileRef({
+        skill,
+        scope,
+        srcRoot,
+        destRoot,
+      });
+      if (!targetRef.ok) {
+        return targetRef;
+      }
+
+      const content = readSkillContent(skill.filePath);
+      if (!content.ok) {
+        return content;
+      }
+
+      const rewrittenContent = rewriteFrontmatterScope({
+        content: content.data,
+        scope,
+      });
+
+      const written = writeSkillContent({
+        filePath: targetRef.data.filePath,
+        content: rewrittenContent,
+      });
+      if (!written.ok) {
+        return written;
+      }
+
+      if (targetRef.data.filePath !== skill.filePath) {
+        const removed = removeSkillContent(skill.filePath);
+        if (!removed.ok) {
+          return removed;
+        }
+      }
+
+      const reloaded = loadSkillFile({ ref: targetRef.data });
+      const enabledMapRes = readEnabledMap(deps.db);
+      if (!enabledMapRes.ok) {
+        return enabledMapRes;
+      }
+      const upserted = upsertSkillRows({
+        db: deps.db,
+        skills: [reloaded],
+        enabledMap: enabledMapRes.data,
+      });
+      if (!upserted.ok) {
+        return upserted;
+      }
+
+      deps.logger.info("skill_scope_updated", {
+        id,
+        from: skill.scope,
+        to: scope,
+      });
+      return { ok: true, data: { id, scope } };
     },
 
     resolveForRun: ({ id }) => {
