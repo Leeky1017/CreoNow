@@ -3,7 +3,7 @@
 - Issue: #401
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/401
 - Branch: task/401-version-control-p1-ai-mark-preview
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/404
 - Scope: 完成交付 `openspec/changes/version-control-p1-ai-mark-preview` 的全部规划任务（AI 区分显示偏好 + 主编辑区只读预览 + 返回当前版本），并按 OpenSpec/Rulebook/GitHub 门禁合并回控制面 `main`
 - Out of Scope: 版本 Diff/回滚完整流程（`version-control-p2`）、分支合并冲突（`version-control-p3`）、硬化边界（`version-control-p4`）
 
