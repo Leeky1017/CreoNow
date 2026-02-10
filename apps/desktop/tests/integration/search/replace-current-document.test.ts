@@ -42,16 +42,19 @@ import {
     throw new Error("Missing handler search:replace:execute");
   }
 
-  const previewRes = (await preview({}, {
-    projectId: "proj_1",
-    documentId: "doc_1",
-    scope: "currentDocument",
-    query: "hero",
-    replaceWith: "mage",
-    regex: false,
-    caseSensitive: true,
-    wholeWord: false,
-  })) as IpcResponse<{
+  const previewRes = (await preview(
+    {},
+    {
+      projectId: "proj_1",
+      documentId: "doc_1",
+      scope: "currentDocument",
+      query: "hero",
+      replaceWith: "mage",
+      regex: false,
+      caseSensitive: true,
+      wholeWord: false,
+    },
+  )) as IpcResponse<{
     affectedDocuments: number;
     totalMatches: number;
   }>;
@@ -61,16 +64,19 @@ import {
   assert.equal(previewRes.data.affectedDocuments, 1);
   assert.equal(previewRes.data.totalMatches, 2);
 
-  const executeRes = (await execute({}, {
-    projectId: "proj_1",
-    documentId: "doc_1",
-    scope: "currentDocument",
-    query: "hero",
-    replaceWith: "mage",
-    regex: false,
-    caseSensitive: true,
-    wholeWord: false,
-  })) as IpcResponse<{
+  const executeRes = (await execute(
+    {},
+    {
+      projectId: "proj_1",
+      documentId: "doc_1",
+      scope: "currentDocument",
+      query: "hero",
+      replaceWith: "mage",
+      regex: false,
+      caseSensitive: true,
+      wholeWord: false,
+    },
+  )) as IpcResponse<{
     replacedCount: number;
     affectedDocumentCount: number;
     snapshotIds: string[];

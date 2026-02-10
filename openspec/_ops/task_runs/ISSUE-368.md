@@ -51,7 +51,7 @@
   - `openspec/specs/version-control/spec.md`
   - `openspec/specs/ipc/spec.md`
   - `openspec/changes/archive/search-retrieval-p0-fts-foundation/**`
-  - `openspec/changes/search-retrieval-p2-replace-versioned/specs/search-and-retrieval-delta.md`
+  - `openspec/changes/archive/search-retrieval-p2-replace-versioned/specs/search-and-retrieval-delta.md`
 - Checkpoints:
   - 数据结构：预览/执行回执字段可判定（文档数、匹配数、skip 原因、snapshotIds）
   - IPC 契约：新增 `search:replace:preview` / `search:replace:execute`，沿用统一 envelope
@@ -161,3 +161,25 @@
 - Key output:
   - validate 通过（warning: `No spec files found`）
   - task 已归档至：`rulebook/tasks/archive/2026-02-10-issue-368-search-retrieval-p2-replace-versioned`
+
+### 2026-02-10 11:30 +0800 PR 启动与 preflight 阻塞
+
+- Command:
+  - `git push -u origin task/368-search-retrieval-p2-replace-versioned`
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code:
+  - `git push` => `0`
+  - `agent_pr_automerge_and_sync.sh` => 未完成（preflight 阻塞）
+- Key output:
+  - PR 创建：`https://github.com/Leeky1017/CreoNow/pull/370`（`draft`）
+  - 自动回填 RUN_LOG PR 链接并生成提交：`docs: backfill run log PR link (#368)`
+  - preflight 阻塞原因：`pnpm exec prettier --check ...` 发现 6 个文件格式问题
+
+### 2026-02-10 11:31 +0800 Prettier 阻塞修复
+
+- Command:
+  - `pnpm exec prettier --write apps/desktop/main/src/ipc/search.ts apps/desktop/main/src/services/search/searchReplaceService.ts apps/desktop/tests/integration/search/replace-current-document.test.ts apps/desktop/tests/integration/search/replace-preview-confirm.test.ts apps/desktop/tests/integration/search/replace-version-snapshot.test.ts rulebook/tasks/archive/2026-02-10-issue-368-search-retrieval-p2-replace-versioned/.metadata.json`
+- Exit code: `0`
+- Key output:
+  - preflight 阻塞的 6 个文件全部格式化完成
+  - 准备重新进入 auto-merge 流程
