@@ -475,9 +475,7 @@ function createFakeDb(): Database.Database {
             maybeVersionId: string | undefined,
           ) {
             const hasWordCount = typeof maybeVersionId === "string";
-            const wordCount = hasWordCount
-              ? maybeWordCountOrCreatedAt
-              : 0;
+            const wordCount = hasWordCount ? maybeWordCountOrCreatedAt : 0;
             const createdAt = hasWordCount
               ? (maybeCreatedAtOrVersionId as number)
               : maybeWordCountOrCreatedAt;
@@ -699,7 +697,9 @@ function createFakeDb(): Database.Database {
     documentId: created.data.documentId,
     contentJson: {
       type: "doc",
-      content: [{ type: "paragraph", content: [{ type: "text", text: "a b" }] }],
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "a b" }] },
+      ],
     },
     actor: "user",
     reason: "manual-save",
@@ -769,7 +769,9 @@ function createFakeDb(): Database.Database {
     documentId: created.data.documentId,
     contentJson: {
       type: "doc",
-      content: [{ type: "paragraph", content: [{ type: "text", text: "one" }] }],
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "one" }] },
+      ],
     },
     actor: "auto",
     reason: "autosave",
@@ -781,7 +783,9 @@ function createFakeDb(): Database.Database {
     documentId: created.data.documentId,
     contentJson: {
       type: "doc",
-      content: [{ type: "paragraph", content: [{ type: "text", text: "two" }] }],
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "two" }] },
+      ],
     },
     actor: "auto",
     reason: "autosave",

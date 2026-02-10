@@ -63,7 +63,9 @@ function asObjectSchema(value: unknown): ObjectSchema {
     { request: unknown; response: unknown }
   >;
 
-  const createReq = asObjectSchema(channels["version:snapshot:create"]?.request);
+  const createReq = asObjectSchema(
+    channels["version:snapshot:create"]?.request,
+  );
   assert.equal(
     Object.prototype.hasOwnProperty.call(createReq.fields, "documentId"),
     true,

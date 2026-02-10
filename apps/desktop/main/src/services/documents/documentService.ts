@@ -742,9 +742,7 @@ export function createDocumentService(args: {
             });
           } else {
             const shouldInsertVersion =
-              actor === "auto"
-                ? latest?.contentHash !== contentHash
-                : true;
+              actor === "auto" ? latest?.contentHash !== contentHash : true;
             if (!shouldInsertVersion) {
               return;
             }
