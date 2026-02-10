@@ -3,7 +3,7 @@
 - Issue: #374
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/374
 - Branch: task/374-ai-service-p3-judge-quality-pipeline
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/375
 - Scope: 完成交付 `openspec/changes/ai-service-p3-judge-quality-pipeline`（Judge 质量评估契约、结果推送、降级标记与 AI 面板消费），并按治理流程合并回控制面 `main`
 - Out of Scope: provider failover 与配额治理
 
