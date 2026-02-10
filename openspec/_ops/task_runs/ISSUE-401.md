@@ -126,3 +126,24 @@
 - Key output:
   - 已完成 change 归档：`openspec/changes/archive/version-control-p1-ai-mark-preview/`
   - `EXECUTION_ORDER.md` 已同步为活跃 `11` 项，Version Control 泳道更新为 `p2 → p3 → p4`。
+
+### 2026-02-10 19:22 +0800 PR 创建与首次 preflight 阻断（占位符 + 格式）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `running -> interrupted after blocker`
+- Key output:
+  - preflight 首次阻断：`RUN_LOG PR field still placeholder`
+  - 脚本自动回填 PR 链接并提交：`docs: backfill run log PR link (#401)`（commit: `c36e09e5`）
+  - PR 已创建：`https://github.com/Leeky1017/CreoNow/pull/404`（draft）
+  - 二次 preflight 阻断：`pnpm exec prettier --check ...` 失败（7 个文件格式不一致）
+
+### 2026-02-10 19:24 +0800 格式修复与 preflight 复检通过
+
+- Command:
+  - `pnpm exec prettier --write apps/desktop/renderer/src/features/editor/EditorPane.test.tsx apps/desktop/renderer/src/features/settings-dialog/SettingsDialog.tsx apps/desktop/renderer/src/features/settings-dialog/SettingsGeneral.tsx apps/desktop/renderer/src/stores/versionPreferencesStore.ts rulebook/tasks/issue-401-version-control-p1-ai-mark-preview/.metadata.json rulebook/tasks/issue-401-version-control-p1-ai-mark-preview/proposal.md rulebook/tasks/issue-401-version-control-p1-ai-mark-preview/tasks.md`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0` / `0`
+- Key output:
+  - Prettier 修复完成：7 文件全部写回。
+  - preflight 复检通过：`prettier --check`、`typecheck`、`lint`、`contract:check`、`cross-module:check`、`test:unit` 全绿。
