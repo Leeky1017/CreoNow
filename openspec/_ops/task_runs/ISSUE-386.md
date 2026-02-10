@@ -3,7 +3,7 @@
 - Issue: #386
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/386
 - Branch: task/386-execution-order-closeout-fix
-- PR: 待回填
+- PR: https://github.com/Leeky1017/CreoNow/pull/387
 - Scope: 修复 `#382` 合并后留下的治理漂移（`EXECUTION_ORDER.md` 活跃 change 列表与实际目录不一致），并补齐 `ISSUE-382` RUN_LOG 收口证据
 - Out of Scope: 业务逻辑、IPC 契约、检索算法或阈值行为改动
 
