@@ -5,13 +5,14 @@ import {
   type VersionEntry,
   type VersionAuthorType,
 } from "./VersionHistoryPanel";
-import { VersionPreviewDialog } from "./VersionPreviewDialog";
 import { useVersionCompare } from "./useVersionCompare";
 import { useEditorStore } from "../../stores/editorStore";
+import { useVersionStore } from "../../stores/versionStore";
 import { invoke } from "../../lib/ipcClient";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 import { RESTORE_VERSION_CONFIRM_COPY } from "./restoreConfirmCopy";
+import { useVersionPreferencesStore } from "../../stores/versionPreferencesStore";
 
 type VersionListItem = {
   versionId: string;
@@ -20,14 +21,6 @@ type VersionListItem = {
   contentHash: string;
   wordCount: number;
   createdAt: number;
-};
-
-type VersionPreview = {
-  versionId: string;
-  actor: "user" | "auto" | "ai";
-  reason: string;
-  createdAt: number;
-  contentText: string;
 };
 
 /**
@@ -206,6 +199,10 @@ export function VersionHistoryContainer(
   const documentId = useEditorStore((s) => s.documentId);
   const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
   const { startCompare } = useVersionCompare();
+  const startPreview = useVersionStore((s) => s.startPreview);
+  const previewStatus = useVersionStore((s) => s.previewStatus);
+  const previewError = useVersionStore((s) => s.previewError);
+  const showAiMarks = useVersionPreferencesStore((s) => s.showAiMarks);
   const { confirm, dialogProps } = useConfirmDialog();
 
   const [items, setItems] = React.useState<VersionListItem[]>([]);
@@ -214,15 +211,6 @@ export function VersionHistoryContainer(
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [currentHash, setCurrentHash] = React.useState<string | null>(null);
-  const [previewOpen, setPreviewOpen] = React.useState(false);
-  const [previewLoading, setPreviewLoading] = React.useState(false);
-  const [previewData, setPreviewData] = React.useState<VersionPreview | null>(
-    null,
-  );
-  const [previewError, setPreviewError] = React.useState<{
-    code: string;
-    message: string;
-  } | null>(null);
 
   // Fetch version list when documentId changes
   React.useEffect(() => {
@@ -307,44 +295,15 @@ export function VersionHistoryContainer(
   );
 
   const handlePreview = React.useCallback(
-    async (versionId: string) => {
+    (versionId: string) => {
       if (!documentId) return;
 
-      setPreviewOpen(true);
-      setPreviewLoading(true);
-      setPreviewData(null);
-      setPreviewError(null);
-
-      const res = await invoke("version:snapshot:read", {
-        documentId,
-        versionId,
-      });
-      if (res.ok) {
-        setPreviewData({
-          versionId: res.data.versionId,
-          actor: res.data.actor,
-          reason: res.data.reason,
-          createdAt: res.data.createdAt,
-          contentText: res.data.contentText,
-        });
-        setPreviewLoading(false);
-        return;
-      }
-
-      setPreviewError({ code: res.error.code, message: res.error.message });
-      setPreviewLoading(false);
+      const item = items.find((candidate) => candidate.versionId === versionId);
+      const timestamp = item ? formatTimestamp(item.createdAt) : "历史";
+      void startPreview(documentId, { versionId, timestamp });
     },
-    [documentId],
+    [documentId, items, startPreview],
   );
-
-  const handlePreviewOpenChange = React.useCallback((open: boolean) => {
-    setPreviewOpen(open);
-    if (!open) {
-      setPreviewLoading(false);
-      setPreviewData(null);
-      setPreviewError(null);
-    }
-  }, []);
 
   if (!documentId) {
     return (
@@ -387,15 +346,16 @@ export function VersionHistoryContainer(
         onCompare={handleCompare}
         onRestore={handleRestore}
         onPreview={handlePreview}
+        showAiMarks={showAiMarks}
         showCloseButton={false}
       />
-      <VersionPreviewDialog
-        open={previewOpen}
-        loading={previewLoading}
-        data={previewData}
-        error={previewError}
-        onOpenChange={handlePreviewOpenChange}
-      />
+      {previewStatus === "error" && previewError ? (
+        <div className="px-3 py-2 text-xs text-[var(--color-error)]">
+          <span data-testid="version-preview-error">
+            {previewError.code}: {previewError.message}
+          </span>
+        </div>
+      ) : null}
       <SystemDialog {...dialogProps} />
     </>
   );

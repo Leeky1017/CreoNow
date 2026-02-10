@@ -22,6 +22,10 @@ export interface GeneralSettings {
 export interface SettingsGeneralProps {
   /** Current settings values */
   settings: GeneralSettings;
+  /** Whether to distinguish AI edits in version history */
+  showAiMarks: boolean;
+  /** Callback for AI mark preference updates */
+  onShowAiMarksChange: (enabled: boolean) => void;
   /** Callback when settings change */
   onSettingsChange: (settings: GeneralSettings) => void;
 }
@@ -51,10 +55,9 @@ const dividerStyles = [
 /**
  * Field label styles
  */
-const fieldLabelStyles = [
-  "text-[13px]",
-  "text-[var(--color-fg-muted)]",
-].join(" ");
+const fieldLabelStyles = ["text-[13px]", "text-[var(--color-fg-muted)]"].join(
+  " ",
+);
 
 /**
  * Backup interval options
@@ -82,6 +85,8 @@ const typographyOptions = [
  */
 export function SettingsGeneral({
   settings,
+  showAiMarks,
+  onShowAiMarksChange,
   onSettingsChange,
 }: SettingsGeneralProps): JSX.Element {
   const updateSetting = <K extends keyof GeneralSettings>(
@@ -171,6 +176,15 @@ export function SettingsGeneral({
       {/* Editor Defaults Section */}
       <div className="mb-6">
         <h4 className={sectionLabelStyles}>Editor Defaults</h4>
+
+        <div className="flex flex-col gap-8 mb-8">
+          <Toggle
+            label="Differentiate AI edits"
+            description="When enabled, AI-generated entries in Version History show an extra “AI 修改” marker."
+            checked={showAiMarks}
+            onCheckedChange={onShowAiMarksChange}
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-8">
           <div className="flex flex-col gap-3">

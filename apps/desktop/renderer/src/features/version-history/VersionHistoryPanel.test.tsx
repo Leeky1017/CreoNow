@@ -447,4 +447,65 @@ describe("VersionHistoryPanel", () => {
 
     expect(screen.getByText("AI 修改")).toBeInTheDocument();
   });
+
+  it("should render AI mark tag when showAiMarks is enabled", () => {
+    const groupsWithAiAccept: TimeGroup[] = [
+      {
+        label: "Today",
+        versions: [
+          {
+            id: "v-ai-mark",
+            timestamp: "10:00 AM",
+            authorType: "ai",
+            authorName: "AI Assistant",
+            description: "Accepted AI rewrite",
+            wordChange: { type: "added", count: 10 },
+            reason: "ai-accept",
+          },
+        ],
+      },
+    ];
+
+    render(
+      <VersionHistoryPanel
+        documentTitle="Test Document"
+        timeGroups={groupsWithAiAccept}
+        selectedId="v-ai-mark"
+        showAiMarks={true}
+      />,
+    );
+
+    expect(screen.getByTestId("ai-mark-tag-v-ai-mark")).toBeInTheDocument();
+  });
+
+  it("should not render AI mark tag by default when showAiMarks is disabled", () => {
+    const groupsWithAiAccept: TimeGroup[] = [
+      {
+        label: "Today",
+        versions: [
+          {
+            id: "v-ai-mark-default",
+            timestamp: "10:00 AM",
+            authorType: "ai",
+            authorName: "AI Assistant",
+            description: "Accepted AI rewrite",
+            wordChange: { type: "added", count: 10 },
+            reason: "ai-accept",
+          },
+        ],
+      },
+    ];
+
+    render(
+      <VersionHistoryPanel
+        documentTitle="Test Document"
+        timeGroups={groupsWithAiAccept}
+        selectedId="v-ai-mark-default"
+      />,
+    );
+
+    expect(
+      screen.queryByTestId("ai-mark-tag-v-ai-mark-default"),
+    ).not.toBeInTheDocument();
+  });
 });

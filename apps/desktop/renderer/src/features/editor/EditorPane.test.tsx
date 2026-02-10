@@ -12,6 +12,11 @@ import {
   EditorStoreProvider,
   createEditorStore,
 } from "../../stores/editorStore";
+import {
+  VersionStoreProvider,
+  createVersionStore,
+  type IpcInvoke as VersionIpcInvoke,
+} from "../../stores/versionStore";
 import { EditorPane, sanitizePastedHtml } from "./EditorPane";
 
 function createReadyEditorStore(args: {
@@ -75,6 +80,22 @@ function createReadyEditorStore(args: {
   return store;
 }
 
+function createVersionStoreForEditorPaneTests() {
+  const invoke: VersionIpcInvoke = async (_channel, _payload) => {
+    return {
+      ok: false,
+      error: {
+        code: "NOT_FOUND",
+        message: "test stub",
+      },
+    };
+  };
+
+  return createVersionStore({
+    invoke,
+  });
+}
+
 /**
  * Wait until EditorPane wires the TipTap editor instance into editorStore.
  *
@@ -98,11 +119,14 @@ describe("EditorPane", () => {
         saveCalls.push({ actor: payload.actor, reason: payload.reason });
       },
     });
+    const versionStore = createVersionStoreForEditorPaneTests();
 
     render(
-      <EditorStoreProvider store={store}>
-        <EditorPane projectId="project-1" />
-      </EditorStoreProvider>,
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
     );
 
     await screen.findByTestId("editor-pane");
@@ -142,11 +166,14 @@ describe("EditorPane", () => {
 
   it("should show Bubble Menu with inline actions when selection is non-empty", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
 
     render(
-      <EditorStoreProvider store={store}>
-        <EditorPane projectId="project-1" />
-      </EditorStoreProvider>,
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
     );
 
     await screen.findByTestId("editor-pane");
@@ -173,11 +200,14 @@ describe("EditorPane", () => {
 
   it("should apply format through Bubble Menu while preserving selection and syncing toolbar active state", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
 
     render(
-      <EditorStoreProvider store={store}>
-        <EditorPane projectId="project-1" />
-      </EditorStoreProvider>,
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
     );
 
     await screen.findByTestId("editor-pane");
@@ -205,11 +235,14 @@ describe("EditorPane", () => {
 
   it("should hide Bubble Menu when selection is collapsed", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
 
     render(
-      <EditorStoreProvider store={store}>
-        <EditorPane projectId="project-1" />
-      </EditorStoreProvider>,
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
     );
 
     await screen.findByTestId("editor-pane");
@@ -237,11 +270,14 @@ describe("EditorPane", () => {
 
   it("should suppress Bubble Menu in code block and disable inline toolbar buttons", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
 
     render(
-      <EditorStoreProvider store={store}>
-        <EditorPane projectId="project-1" />
-      </EditorStoreProvider>,
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
     );
 
     await screen.findByTestId("editor-pane");
@@ -278,6 +314,7 @@ describe("EditorPane", () => {
 
   it("should place Bubble Menu below selection when top boundary has insufficient space", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
     const originalGetBoundingClientRect = Range.prototype.getBoundingClientRect;
 
     Object.defineProperty(Range.prototype, "getBoundingClientRect", {
@@ -297,9 +334,11 @@ describe("EditorPane", () => {
 
     try {
       render(
-        <EditorStoreProvider store={store}>
-          <EditorPane projectId="project-1" />
-        </EditorStoreProvider>,
+        <VersionStoreProvider store={versionStore}>
+          <EditorStoreProvider store={store}>
+            <EditorPane projectId="project-1" />
+          </EditorStoreProvider>
+        </VersionStoreProvider>,
       );
 
       await screen.findByTestId("editor-pane");
@@ -324,5 +363,84 @@ describe("EditorPane", () => {
         value: originalGetBoundingClientRect,
       });
     }
+  });
+
+  it("should render preview banner and disable editor toolbar when preview mode is active", async () => {
+    const store = createReadyEditorStore({
+      onSave: () => undefined,
+    });
+    const versionStore = createVersionStoreForEditorPaneTests();
+
+    versionStore.setState({
+      previewStatus: "ready",
+      previewVersionId: "v-1",
+      previewTimestamp: "2 小时前",
+      previewContentJson: JSON.stringify({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "历史版本内容" }],
+          },
+        ],
+      }),
+      previewError: null,
+    });
+
+    render(
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
+    );
+
+    expect(
+      await screen.findByTestId("editor-preview-banner"),
+    ).toHaveTextContent("正在预览 2 小时前 的版本");
+
+    const editor = await screen.findByTestId("tiptap-editor");
+    await waitFor(() => {
+      expect(editor).toHaveAttribute("contenteditable", "false");
+    });
+
+    expect(screen.getByTestId("toolbar-bold")).toBeDisabled();
+    expect(screen.getByTestId("toolbar-undo")).toBeDisabled();
+  });
+
+  it("should return to current version when clicking return button in preview banner", async () => {
+    const store = createReadyEditorStore({
+      onSave: () => undefined,
+    });
+    const versionStore = createVersionStoreForEditorPaneTests();
+
+    versionStore.setState({
+      previewStatus: "ready",
+      previewVersionId: "v-2",
+      previewTimestamp: "Yesterday",
+      previewContentJson: JSON.stringify({
+        type: "doc",
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: "历史版本" }] },
+        ],
+      }),
+      previewError: null,
+    });
+
+    render(
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
+    );
+
+    const returnButton = await screen.findByRole("button", {
+      name: "返回当前版本",
+    });
+    fireEvent.click(returnButton);
+
+    expect(versionStore.getState().previewStatus).toBe("idle");
+    expect(versionStore.getState().previewVersionId).toBeNull();
   });
 });

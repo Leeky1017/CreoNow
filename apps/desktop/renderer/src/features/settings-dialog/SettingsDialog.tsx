@@ -16,6 +16,7 @@ import {
   defaultAccountSettings,
   type AccountSettings,
 } from "./SettingsAccount";
+import { useVersionPreferencesStore } from "../../stores/versionPreferencesStore";
 
 /**
  * Settings tab values.
@@ -155,10 +156,14 @@ export function SettingsDialog({
   defaultTab = "general",
 }: SettingsDialogProps): JSX.Element {
   const [activeTab, setActiveTab] = React.useState<SettingsTab>(defaultTab);
-  const [generalSettings, setGeneralSettings] =
-    React.useState<GeneralSettings>(defaultGeneralSettings);
-  const [accountSettings] =
-    React.useState<AccountSettings>(defaultAccountSettings);
+  const [generalSettings, setGeneralSettings] = React.useState<GeneralSettings>(
+    defaultGeneralSettings,
+  );
+  const [accountSettings] = React.useState<AccountSettings>(
+    defaultAccountSettings,
+  );
+  const showAiMarks = useVersionPreferencesStore((s) => s.showAiMarks);
+  const setShowAiMarks = useVersionPreferencesStore((s) => s.setShowAiMarks);
 
   React.useEffect(() => {
     if (open) {
@@ -172,6 +177,8 @@ export function SettingsDialog({
         return (
           <SettingsGeneral
             settings={generalSettings}
+            showAiMarks={showAiMarks}
+            onShowAiMarksChange={setShowAiMarks}
             onSettingsChange={setGeneralSettings}
           />
         );
