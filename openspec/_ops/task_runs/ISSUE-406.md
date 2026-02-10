@@ -3,7 +3,7 @@
 - Issue: #406
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/406
 - Branch: task/406-skill-system-p2-custom-skill-crud
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/407
 - Scope: 依据 `openspec/changes/skill-system-p2-custom-skill-crud` 完成交付：实现自定义技能手动创建、AI 辅助创建、编辑、删除、`skill:custom:*` IPC 契约与 SQLite 持久化，并合并回控制面 `main`。
 - Out of Scope: 并发调度与队列（`skill-system-p3`）、技能市场/导入导出、Prompt 模板版本管理。
 
