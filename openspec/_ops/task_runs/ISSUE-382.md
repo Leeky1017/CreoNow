@@ -3,7 +3,7 @@
 - Issue: #382
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/382
 - Branch: task/382-search-retrieval-p4-hardening-boundary
-- PR: 待回填
+- PR: https://github.com/Leeky1017/CreoNow/pull/385
 - Scope: 完成交付 `openspec/changes/search-retrieval-p4-hardening-boundary` 的全部任务（SR5 阈值/边界硬化、错误码矩阵、跨项目阻断审计），并合并回控制面 `main`
 - Out of Scope: 新增检索算法、调整 Owner 固定权重/默认阈值、扩展非必要 UI 视觉主题
 
@@ -200,3 +200,34 @@
 - Key output:
   - `PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ... ISSUE-382.md: 待回填`
   - 结论：等待创建 PR 后回填真实链接，再复跑 preflight
+
+### 2026-02-10 13:27 +0800 Rulebook task 自归档
+
+- Command:
+  - `rulebook task archive issue-382-search-retrieval-p4-hardening-boundary`
+- Exit code: `0`
+- Key output:
+  - `✅ Task issue-382-search-retrieval-p4-hardening-boundary archived successfully`
+  - 归档路径：`rulebook/tasks/archive/2026-02-10-issue-382-search-retrieval-p4-hardening-boundary`
+
+### 2026-02-10 13:28 +0800 交付前新鲜验证（verification-before-completion）
+
+- Command:
+  - `pnpm typecheck && pnpm lint && pnpm contract:check && pnpm cross-module:check && pnpm test:unit && pnpm test:integration`
+- Exit code: `0`
+- Key output:
+  - `typecheck` 通过
+  - `lint` 通过（`3 warnings`, `0 errors`）
+  - `contract:check` 通过
+  - `cross-module:check` 输出 `[CROSS_MODULE_GATE] PASS`
+  - `test:unit` 通过
+  - `test:integration` 通过
+
+### 2026-02-10 13:28 +0800 Preflight 复核（PR 创建前）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ... ISSUE-382.md: 待回填`
+  - 结论：通过 PR 创建并回填真实链接后复跑 preflight
