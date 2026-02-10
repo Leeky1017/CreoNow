@@ -49,7 +49,9 @@ function pickPreferred<T extends ScopeComparable>(left: T, right: T): T {
 /**
  * Resolve multiple scope variants into a single visible SSOT set.
  */
-export function selectSkillsByScope<T extends ScopeComparable>(items: T[]): T[] {
+export function selectSkillsByScope<T extends ScopeComparable>(
+  items: T[],
+): T[] {
   const byKey = new Map<string, T>();
   for (const item of items) {
     const key = scopeKey(item);
