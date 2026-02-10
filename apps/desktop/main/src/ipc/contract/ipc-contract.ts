@@ -247,6 +247,33 @@ const SEARCH_FTS_ITEM_SCHEMA = s.object({
   updatedAt: s.number(),
 });
 
+const SEARCH_QUERY_STRATEGY_SCHEMA = s.union(
+  s.literal("fts"),
+  s.literal("semantic"),
+  s.literal("hybrid"),
+);
+
+const SEARCH_RANK_SCORE_BREAKDOWN_SCHEMA = s.object({
+  bm25: s.number(),
+  semantic: s.number(),
+  recency: s.number(),
+});
+
+const SEARCH_RANKED_ITEM_SCHEMA = s.object({
+  documentId: s.string(),
+  chunkId: s.string(),
+  snippet: s.string(),
+  finalScore: s.number(),
+  scoreBreakdown: SEARCH_RANK_SCORE_BREAKDOWN_SCHEMA,
+  updatedAt: s.number(),
+});
+
+const SEARCH_RANK_BACKPRESSURE_SCHEMA = s.object({
+  candidateLimit: s.number(),
+  candidateCount: s.number(),
+  truncated: s.boolean(),
+});
+
 const SEARCH_REPLACE_SCOPE_SCHEMA = s.union(
   s.literal("currentDocument"),
   s.literal("wholeProject"),
@@ -1102,6 +1129,39 @@ export const ipcContract = {
       response: s.object({
         indexState: s.literal("ready"),
         reindexed: s.number(),
+      }),
+    },
+    "search:query:strategy": {
+      request: s.object({
+        projectId: s.string(),
+        query: s.string(),
+        strategy: SEARCH_QUERY_STRATEGY_SCHEMA,
+        limit: s.optional(s.number()),
+        offset: s.optional(s.number()),
+      }),
+      response: s.object({
+        strategy: SEARCH_QUERY_STRATEGY_SCHEMA,
+        results: s.array(SEARCH_RANKED_ITEM_SCHEMA),
+        total: s.number(),
+        hasMore: s.boolean(),
+        backpressure: SEARCH_RANK_BACKPRESSURE_SCHEMA,
+      }),
+    },
+    "search:rank:explain": {
+      request: s.object({
+        projectId: s.string(),
+        query: s.string(),
+        strategy: SEARCH_QUERY_STRATEGY_SCHEMA,
+        documentId: s.optional(s.string()),
+        chunkId: s.optional(s.string()),
+        limit: s.optional(s.number()),
+        offset: s.optional(s.number()),
+      }),
+      response: s.object({
+        strategy: SEARCH_QUERY_STRATEGY_SCHEMA,
+        explanations: s.array(SEARCH_RANKED_ITEM_SCHEMA),
+        total: s.number(),
+        backpressure: SEARCH_RANK_BACKPRESSURE_SCHEMA,
       }),
     },
     "search:replace:preview": {

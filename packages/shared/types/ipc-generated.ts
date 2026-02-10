@@ -203,6 +203,8 @@ export const IPC_CHANNELS = [
   "rag:context:retrieve",
   "search:fts:query",
   "search:fts:reindex",
+  "search:query:strategy",
+  "search:rank:explain",
   "search:replace:execute",
   "search:replace:preview",
   "skill:registry:list",
@@ -2312,6 +2314,69 @@ export type IpcChannelSpec = {
     response: {
       indexState: "ready";
       reindexed: number;
+    };
+  };
+  "search:query:strategy": {
+    request: {
+      limit?: number;
+      offset?: number;
+      projectId: string;
+      query: string;
+      strategy: "fts" | "semantic" | "hybrid";
+    };
+    response: {
+      backpressure: {
+        candidateCount: number;
+        candidateLimit: number;
+        truncated: boolean;
+      };
+      hasMore: boolean;
+      results: Array<{
+        chunkId: string;
+        documentId: string;
+        finalScore: number;
+        scoreBreakdown: {
+          bm25: number;
+          recency: number;
+          semantic: number;
+        };
+        snippet: string;
+        updatedAt: number;
+      }>;
+      strategy: "fts" | "semantic" | "hybrid";
+      total: number;
+    };
+  };
+  "search:rank:explain": {
+    request: {
+      chunkId?: string;
+      documentId?: string;
+      limit?: number;
+      offset?: number;
+      projectId: string;
+      query: string;
+      strategy: "fts" | "semantic" | "hybrid";
+    };
+    response: {
+      backpressure: {
+        candidateCount: number;
+        candidateLimit: number;
+        truncated: boolean;
+      };
+      explanations: Array<{
+        chunkId: string;
+        documentId: string;
+        finalScore: number;
+        scoreBreakdown: {
+          bm25: number;
+          recency: number;
+          semantic: number;
+        };
+        snippet: string;
+        updatedAt: number;
+      }>;
+      strategy: "fts" | "semantic" | "hybrid";
+      total: number;
     };
   };
   "search:replace:execute": {
