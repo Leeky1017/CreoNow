@@ -3,7 +3,7 @@
 - Issue: #378
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/378
 - Branch: task/378-archive-rulebook-issue-374-closeout
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/379
 - Scope: 提交 issue-374 的本地遗留收口改动（RUN_LOG 证据补录 + Rulebook task 归档迁移），并同步控制面 main
 - Out of Scope: 功能代码修改、契约变更、测试逻辑调整
 
