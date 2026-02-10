@@ -22,6 +22,10 @@ import { MemoryStoreProvider, createMemoryStore } from "../stores/memoryStore";
 import { SearchStoreProvider, createSearchStore } from "../stores/searchStore";
 import { KgStoreProvider, createKgStore } from "../stores/kgStore";
 import { ThemeStoreProvider, createThemeStore } from "../stores/themeStore";
+import {
+  VersionStoreProvider,
+  createVersionStore,
+} from "../stores/versionStore";
 
 // =============================================================================
 // Test Fixtures
@@ -197,6 +201,11 @@ function IntegrationTestWrapper({
     () => createKgStore(mockIpc as Parameters<typeof createKgStore>[0]),
     [mockIpc],
   );
+  const versionStore = React.useMemo(
+    () =>
+      createVersionStore(mockIpc as Parameters<typeof createVersionStore>[0]),
+    [mockIpc],
+  );
   const themeStore = React.useMemo(() => createThemeStore(mockPreferences), []);
 
   return (
@@ -209,7 +218,9 @@ function IntegrationTestWrapper({
                 <MemoryStoreProvider store={memoryStore}>
                   <SearchStoreProvider store={searchStore}>
                     <KgStoreProvider store={kgStore}>
-                      {children}
+                      <VersionStoreProvider store={versionStore}>
+                        {children}
+                      </VersionStoreProvider>
                     </KgStoreProvider>
                   </SearchStoreProvider>
                 </MemoryStoreProvider>
