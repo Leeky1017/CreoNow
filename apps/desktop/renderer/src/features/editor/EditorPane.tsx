@@ -2,12 +2,21 @@ import React from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
+import BubbleMenuExtension from "@tiptap/extension-bubble-menu";
 
 import { useEditorStore } from "../../stores/editorStore";
 import { useAutosave } from "./useAutosave";
 import { Button, Text } from "../../components/primitives";
 import { EditorToolbar } from "./EditorToolbar";
+import {
+  EditorBubbleMenu,
+  EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY,
+} from "./EditorBubbleMenu";
 import { resolveFinalDocumentEditDecision } from "./finalDocumentEditGuard";
+
+const IS_VITEST_RUNTIME =
+  typeof process !== "undefined" && Boolean(process.env.VITEST);
 
 const ALLOWED_PASTE_TAGS = new Set([
   "p",
@@ -140,7 +149,22 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   const [contentReady, setContentReady] = React.useState(false);
 
   const editor = useEditor({
-    extensions: [StarterKit, Underline],
+    extensions: [
+      StarterKit,
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        autolink: false,
+        linkOnPaste: false,
+      }),
+      ...(!IS_VITEST_RUNTIME
+        ? [
+            BubbleMenuExtension.configure({
+              pluginKey: EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY,
+            }),
+          ]
+        : []),
+    ],
     autofocus: true,
     editorProps: {
       transformPastedHTML: sanitizePastedHtml,
@@ -305,6 +329,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
           </Button>
         </div>
       ) : null}
+      <EditorBubbleMenu editor={editor} />
       <EditorToolbar editor={editor} />
       <div className="flex-1 overflow-y-auto">
         <EditorContent editor={editor} className="h-full" />

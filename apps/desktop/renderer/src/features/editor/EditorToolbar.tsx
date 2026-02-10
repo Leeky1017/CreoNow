@@ -2,6 +2,7 @@ import React from "react";
 import type { Editor } from "@tiptap/react";
 
 import { EDITOR_SHORTCUTS } from "../../config/shortcuts";
+import { InlineFormatButton } from "./InlineFormatButton";
 
 /**
  * Toolbar button props.
@@ -336,57 +337,64 @@ export function EditorToolbar({
     return null;
   }
 
+  const inlineDisabled = !editor.isEditable || editor.isActive("codeBlock");
+
   return (
     <div
       data-testid="editor-toolbar"
       className={`flex items-center gap-0.5 border-b border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-1.5 ${className ?? ""}`}
     >
       {/* Text formatting */}
-      <ToolbarButton
+      <InlineFormatButton
         testId="toolbar-bold"
         label={EDITOR_SHORTCUTS.bold.label}
         shortcut={EDITOR_SHORTCUTS.bold.display()}
         isActive={editor.isActive("bold")}
+        disabled={inlineDisabled}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
         {icons.bold}
-      </ToolbarButton>
-      <ToolbarButton
+      </InlineFormatButton>
+      <InlineFormatButton
         testId="toolbar-italic"
         label={EDITOR_SHORTCUTS.italic.label}
         shortcut={EDITOR_SHORTCUTS.italic.display()}
         isActive={editor.isActive("italic")}
+        disabled={inlineDisabled}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
         {icons.italic}
-      </ToolbarButton>
-      <ToolbarButton
+      </InlineFormatButton>
+      <InlineFormatButton
         testId="toolbar-underline"
         label={EDITOR_SHORTCUTS.underline.label}
         shortcut={EDITOR_SHORTCUTS.underline.display()}
         isActive={editor.isActive("underline")}
+        disabled={inlineDisabled}
         onClick={() => editor.chain().focus().toggleMark("underline").run()}
       >
         {icons.underline}
-      </ToolbarButton>
-      <ToolbarButton
+      </InlineFormatButton>
+      <InlineFormatButton
         testId="toolbar-strike"
         label={EDITOR_SHORTCUTS.strikethrough.label}
         shortcut={EDITOR_SHORTCUTS.strikethrough.display()}
         isActive={editor.isActive("strike")}
+        disabled={inlineDisabled}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       >
         {icons.strikethrough}
-      </ToolbarButton>
-      <ToolbarButton
+      </InlineFormatButton>
+      <InlineFormatButton
         testId="toolbar-code"
         label={EDITOR_SHORTCUTS.code.label}
         shortcut={EDITOR_SHORTCUTS.code.display()}
         isActive={editor.isActive("code")}
+        disabled={inlineDisabled}
         onClick={() => editor.chain().focus().toggleCode().run()}
       >
         {icons.code}
-      </ToolbarButton>
+      </InlineFormatButton>
 
       <ToolbarSeparator />
 

@@ -1,7 +1,15 @@
+import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
+import BubbleMenuExtension from "@tiptap/extension-bubble-menu";
 
+import {
+  EditorBubbleMenu,
+  EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY,
+} from "./EditorBubbleMenu";
 import { EditorToolbar } from "./EditorToolbar";
 
 /**
@@ -25,9 +33,23 @@ type Story = StoryObj;
 function StandaloneEditor(props: {
   initialContent?: string;
   className?: string;
+  selectRange?: { from: number; to: number };
+  readOnly?: boolean;
+  activateBold?: boolean;
 }): JSX.Element {
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [
+      StarterKit,
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        autolink: false,
+        linkOnPaste: false,
+      }),
+      BubbleMenuExtension.configure({
+        pluginKey: EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY,
+      }),
+    ],
     content: props.initialContent ?? "<p>Start writing your story...</p>",
     autofocus: true,
     editorProps: {
@@ -38,11 +60,29 @@ function StandaloneEditor(props: {
     },
   });
 
+  React.useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    editor.setEditable(!props.readOnly);
+
+    if (props.selectRange) {
+      editor.commands.focus("start");
+      editor.commands.setTextSelection(props.selectRange);
+    }
+
+    if (props.activateBold) {
+      editor.chain().focus().toggleBold().run();
+    }
+  }, [editor, props.activateBold, props.readOnly, props.selectRange]);
+
   return (
     <div
       data-testid="editor-pane"
       className={`flex h-full w-full min-w-0 flex-col ${props.className ?? ""}`}
     >
+      <EditorBubbleMenu editor={editor} />
       <EditorToolbar editor={editor} />
       <div className="flex-1 overflow-y-auto">
         <EditorContent editor={editor} className="h-full" />
@@ -130,9 +170,7 @@ export const ConstrainedWidth: Story = {
   render: () => (
     <div className="flex h-screen items-center justify-center bg-[var(--color-bg-base)] p-8">
       <div className="h-[600px] w-[600px] overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-border-default)]">
-        <StandaloneEditor
-          initialContent="<p>This editor is in a constrained container.</p>"
-        />
+        <StandaloneEditor initialContent="<p>This editor is in a constrained container.</p>" />
       </div>
     </div>
   ),
@@ -145,6 +183,50 @@ export const Empty: Story = {
   render: () => (
     <div className="h-screen bg-[var(--color-bg-base)]">
       <StandaloneEditor initialContent="<p></p>" />
+    </div>
+  ),
+};
+
+/**
+ * Bubble Menu visible state with selected text.
+ */
+export const BubbleMenuVisible: Story = {
+  render: () => (
+    <div className="h-screen bg-[var(--color-bg-base)]">
+      <StandaloneEditor
+        initialContent="<p>Select this sentence to show the bubble menu.</p>"
+        selectRange={{ from: 1, to: 18 }}
+      />
+    </div>
+  ),
+};
+
+/**
+ * Bubble Menu active state where Bold is currently enabled.
+ */
+export const BubbleMenuActive: Story = {
+  render: () => (
+    <div className="h-screen bg-[var(--color-bg-base)]">
+      <StandaloneEditor
+        initialContent="<p>Bold formatting active in bubble menu state.</p>"
+        selectRange={{ from: 1, to: 8 }}
+        activateBold
+      />
+    </div>
+  ),
+};
+
+/**
+ * Bubble Menu hidden state in read-only mode.
+ */
+export const BubbleMenuHidden: Story = {
+  render: () => (
+    <div className="h-screen bg-[var(--color-bg-base)]">
+      <StandaloneEditor
+        initialContent="<p>Read-only documents should not show bubble actions.</p>"
+        selectRange={{ from: 1, to: 10 }}
+        readOnly
+      />
     </div>
   ),
 };
