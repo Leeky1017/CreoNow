@@ -3,7 +3,7 @@
 - Issue: #381
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/381
 - Branch: task/381-context-engine-p4-hardening-boundary
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/383
 - Scope: 交付 `openspec/changes/context-engine-p4-hardening-boundary` 的 CE5 边界硬化任务，完成测试、实现、门禁、归档与主干收口
 - Out of Scope: Context 层优先级与默认预算比例调整、Judge 算法实现、AI Provider 侧行为重定义
 
