@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => {
         ok: true,
         data: {
           source: "proxy",
-          items: [{ id: "local-model", name: "Local Model", provider: "proxy" }],
+          items: [
+            { id: "local-model", name: "Local Model", provider: "proxy" },
+          ],
         },
       };
     }
@@ -119,13 +121,17 @@ describe("usage stats no price", () => {
 
     render(<AiPanel />);
 
-    expect(screen.getByTestId("ai-usage-prompt-tokens")).toHaveTextContent("300");
+    expect(screen.getByTestId("ai-usage-prompt-tokens")).toHaveTextContent(
+      "300",
+    );
     expect(screen.getByTestId("ai-usage-completion-tokens")).toHaveTextContent(
       "120",
     );
-    expect(screen.getByTestId("ai-usage-session-total-tokens")).toHaveTextContent(
-      "420",
-    );
-    expect(screen.queryByTestId("ai-usage-estimated-cost")).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId("ai-usage-session-total-tokens"),
+    ).toHaveTextContent("420");
+    expect(
+      screen.queryByTestId("ai-usage-estimated-cost"),
+    ).not.toBeInTheDocument();
   });
 });

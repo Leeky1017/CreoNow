@@ -54,17 +54,15 @@ const mocks = vi.hoisted(() => {
       selectionTextHash: "hash-1",
     },
     selectionText: "原始文本",
-    proposal: null as
-      | {
-          runId: string;
-          selectionRef: {
-            range: { from: number; to: number };
-            selectionTextHash: string;
-          };
-          selectionText: string;
-          replacementText: string;
-        }
-      | null,
+    proposal: null as {
+      runId: string;
+      selectionRef: {
+        range: { from: number; to: number };
+        selectionTextHash: string;
+      };
+      selectionText: string;
+      replacementText: string;
+    } | null,
     applyStatus: "idle" as const,
     lastCandidates: [
       {

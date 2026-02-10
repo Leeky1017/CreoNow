@@ -15,7 +15,7 @@
 - [x] Red：S1-S4 失败测试证据
 - [x] Green：候选/重生成/统计最小实现
 - [x] Refactor：类型收敛与回归验证
-- [ ] preflight 通过
+- [x] preflight 通过
 - [ ] PR + auto-merge + main 收口 + worktree 清理
 
 ## Runs
@@ -133,3 +133,23 @@
 - Key output:
   - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/384`
   - PR body 已修正为稳定文本（避免 shell 反引号命令替换）
+
+### 2026-02-10 13:28 +0800 preflight 首次失败与修复
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write apps/desktop/main/src/ipc/ai.ts apps/desktop/renderer/src/features/ai/__tests__/candidate-apply-flow.test.tsx apps/desktop/renderer/src/features/ai/__tests__/usage-stats-no-price.test.tsx apps/desktop/renderer/src/features/ai/__tests__/usage-stats-render.test.tsx apps/desktop/renderer/src/stores/aiStore.ts apps/desktop/tests/integration/ai-candidate-regenerate-feedback.test.ts rulebook/tasks/archive/2026-02-10-issue-380-ai-service-p4-candidates-usage-stats/.metadata.json rulebook/tasks/archive/2026-02-10-issue-380-ai-service-p4-candidates-usage-stats/proposal.md`
+- Exit code:
+  - `scripts/agent_pr_preflight.sh`: `1`
+  - `pnpm exec prettier --write ...`: `0`
+- Key output:
+  - 失败点：`prettier --check` 提示 8 个文件格式不一致
+  - 修复后 8 个文件已统一格式
+
+### 2026-02-10 13:29 +0800 preflight 复跑通过
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Prettier / typecheck / lint / contract:check / cross-module:check / test:unit 全部通过
