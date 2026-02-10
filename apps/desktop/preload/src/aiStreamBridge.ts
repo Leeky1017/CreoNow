@@ -5,6 +5,10 @@ import {
   SKILL_STREAM_DONE_CHANNEL,
   type AiStreamEvent,
 } from "../../../../packages/shared/types/ai";
+import {
+  JUDGE_RESULT_CHANNEL,
+  type JudgeResultEvent,
+} from "../../../../packages/shared/types/judge";
 import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
 import { createAiStreamSubscriptionRegistry } from "./aiStreamSubscriptions";
 
@@ -48,6 +52,32 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
   );
 }
 
+/**
+ * Best-effort runtime validation for judge result push payload.
+ *
+ * Why: malformed push payloads must be ignored safely in preload.
+ */
+function isJudgeResultEvent(x: unknown): x is JudgeResultEvent {
+  if (!isRecord(x)) {
+    return false;
+  }
+
+  const severity = x.severity;
+  if (severity !== "high" && severity !== "medium" && severity !== "low") {
+    return false;
+  }
+
+  return (
+    typeof x.projectId === "string" &&
+    typeof x.traceId === "string" &&
+    Array.isArray(x.labels) &&
+    x.labels.every((item) => typeof item === "string") &&
+    typeof x.summary === "string" &&
+    typeof x.partialChecksSkipped === "boolean" &&
+    typeof x.ts === "number"
+  );
+}
+
 export type AiStreamBridgeApi = {
   registerAiStreamConsumer: () => IpcResponse<{ subscriptionId: string }>;
   releaseAiStreamConsumer: (subscriptionId: string) => void;
@@ -85,6 +115,20 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
   });
   ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, (_evt, payload: unknown) => {
     forwardEvent(SKILL_STREAM_DONE_CHANNEL, payload);
+  });
+  ipcRenderer.on(JUDGE_RESULT_CHANNEL, (_evt, payload: unknown) => {
+    if (subscriptions.count() === 0) {
+      return;
+    }
+    if (!isJudgeResultEvent(payload)) {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<JudgeResultEvent>(JUDGE_RESULT_CHANNEL, {
+        detail: payload,
+      }),
+    );
   });
 
   return {
