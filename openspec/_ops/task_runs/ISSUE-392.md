@@ -3,7 +3,7 @@
 - Issue: #392
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/392
 - Branch: task/392-skill-system-p0-builtin-skills-executor
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/396
 - Scope: 交付 `openspec/changes/skill-system-p0-builtin-skills-executor`，完成 8 个 builtin skills、SkillExecutor、执行/流式/取消链路、错误语义、测试与归档收口。
 - Out of Scope: 技能面板交互增强、自定义技能 CRUD、作用域管理、调度并发/超时硬化（由后续 `skill-system-p1~p4` 承接）。
 
