@@ -50,6 +50,13 @@ function normalizeMinScore(minScore?: number): number {
   return minScore;
 }
 
+function hasCorruptedOffsets(chunk: {
+  startOffset: number;
+  endOffset: number;
+}) {
+  return chunk.startOffset < 0 || chunk.endOffset < chunk.startOffset;
+}
+
 /**
  * Register `embedding:*` IPC handlers.
  *
@@ -114,6 +121,10 @@ export function registerEmbeddingIpcHandlers(deps: {
           from: "semantic";
           to: "fts";
           reason: string;
+        };
+        isolation?: {
+          code: "SEARCH_DATA_CORRUPTED";
+          isolatedChunkIds: string[];
         };
         results: Array<{
           chunkId: string;
@@ -187,6 +198,29 @@ export function registerEmbeddingIpcHandlers(deps: {
           return { ok: false, error: ftsRes.error };
         }
 
+        const crossProjectItem = ftsRes.data.items.find(
+          (item) => item.projectId !== payload.projectId,
+        );
+        if (crossProjectItem) {
+          deps.logger.error("embedding_project_forbidden_audit", {
+            operation: "embedding:semantic:search",
+            requestedProjectId: payload.projectId,
+            rowProjectId: crossProjectItem.projectId,
+            documentId: crossProjectItem.documentId,
+          });
+          return {
+            ok: false,
+            error: {
+              code: "SEARCH_PROJECT_FORBIDDEN",
+              message: "Cross-project semantic retrieval is forbidden",
+              details: {
+                requestedProjectId: payload.projectId,
+                rowProjectId: crossProjectItem.projectId,
+              },
+            },
+          };
+        }
+
         deps.logger.info("embedding_search_fallback_fts", {
           projectId: payload.projectId,
           reason: semantic.error.code,
@@ -216,17 +250,64 @@ export function registerEmbeddingIpcHandlers(deps: {
         };
       }
 
+      const crossProjectChunk = semantic.data.chunks.find(
+        (chunk) => chunk.projectId !== payload.projectId,
+      );
+      if (crossProjectChunk) {
+        deps.logger.error("embedding_project_forbidden_audit", {
+          operation: "embedding:semantic:search",
+          requestedProjectId: payload.projectId,
+          rowProjectId: crossProjectChunk.projectId,
+          documentId: crossProjectChunk.documentId,
+        });
+        return {
+          ok: false,
+          error: {
+            code: "SEARCH_PROJECT_FORBIDDEN",
+            message: "Cross-project semantic retrieval is forbidden",
+            details: {
+              requestedProjectId: payload.projectId,
+              rowProjectId: crossProjectChunk.projectId,
+            },
+          },
+        };
+      }
+
+      const isolatedChunkIds: string[] = [];
+      const validChunks = semantic.data.chunks.filter((chunk) => {
+        if (hasCorruptedOffsets(chunk)) {
+          isolatedChunkIds.push(chunk.chunkId);
+          return false;
+        }
+        return true;
+      });
+
+      if (isolatedChunkIds.length > 0) {
+        deps.logger.error("embedding_data_corrupted_isolated", {
+          projectId: payload.projectId,
+          isolatedChunkIds,
+        });
+      }
+
       deps.logger.info("embedding_search_semantic", {
         projectId: payload.projectId,
         queryLength: payload.queryText.trim().length,
-        resultCount: semantic.data.chunks.length,
+        resultCount: validChunks.length,
       });
 
       return {
         ok: true,
         data: {
           mode: "semantic",
-          results: semantic.data.chunks.map((chunk) => ({
+          ...(isolatedChunkIds.length > 0
+            ? {
+                isolation: {
+                  code: "SEARCH_DATA_CORRUPTED" as const,
+                  isolatedChunkIds,
+                },
+              }
+            : {}),
+          results: validChunks.map((chunk) => ({
             chunkId: chunk.chunkId,
             documentId: chunk.documentId,
             text: chunk.text,

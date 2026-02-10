@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import type {
   IpcError,
   IpcErrorCode,
@@ -33,7 +35,11 @@ export type SearchRankBackpressure = {
 };
 
 export type SearchQueryStrategyResponse = {
+  traceId: string;
+  costMs: number;
   strategy: SearchStrategy;
+  fallback: "fts" | "none";
+  notice?: string;
   results: SearchRankedItem[];
   total: number;
   hasMore: boolean;
@@ -48,6 +54,7 @@ export type SearchRankExplainResponse = {
 };
 
 export type SemanticRetrieveItem = {
+  projectId?: string;
   documentId: string;
   chunkId: string;
   snippet: string;
@@ -92,6 +99,7 @@ const SCORE_THRESHOLD = 0.25;
 const CANDIDATE_LIMIT = 10_000;
 const SCORE_ROUND_DIGITS = 6;
 const EPSILON = 1e-12;
+const BACKPRESSURE_RETRY_AFTER_MS = 200;
 
 type WorkingCandidate = {
   key: string;
@@ -110,6 +118,10 @@ type WorkingCandidate = {
  */
 function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
   return { ok: false, error: { code, message, details } };
+}
+
+function isTimeoutCode(code: IpcErrorCode): boolean {
+  return code === "TIMEOUT" || code === "SEARCH_TIMEOUT";
 }
 
 function roundScore(value: number): number {
@@ -284,8 +296,12 @@ function buildRankedItems(args: {
 }): ServiceResult<{
   ranked: SearchRankedItem[];
   backpressure: SearchRankBackpressure;
+  fallback: "fts" | "none";
+  notice?: string;
 }> {
   const merged = new Map<string, WorkingCandidate>();
+  let fallback: "fts" | "none" = "none";
+  let notice: string | undefined;
 
   if (args.strategy === "fts" || args.strategy === "hybrid") {
     const firstPage = args.ftsService.search({
@@ -317,6 +333,22 @@ function buildRankedItems(args: {
     }
 
     for (const item of ftsItems) {
+      if (item.projectId !== args.projectId) {
+        args.logger.error("search_project_forbidden_audit", {
+          operation: "search:query:strategy",
+          requestedProjectId: args.projectId,
+          rowProjectId: item.projectId,
+          documentId: item.documentId,
+        });
+        return ipcError(
+          "SEARCH_PROJECT_FORBIDDEN",
+          "Cross-project search query is forbidden",
+          {
+            requestedProjectId: args.projectId,
+            rowProjectId: item.projectId,
+          },
+        );
+      }
       const chunkId = `fts:${item.documentId}:0`;
       const key = `${item.documentId}::${chunkId}`;
       upsertCandidate(merged, {
@@ -338,16 +370,48 @@ function buildRankedItems(args: {
       limit: SEMANTIC_RECALL_LIMIT,
     });
     if (!semantic.ok) {
+      if (isTimeoutCode(semantic.error.code)) {
+        const semanticNotice =
+          args.strategy === "hybrid"
+            ? "语义检索超时，已切换关键词检索"
+            : "语义检索超时，请稍后重试";
+        return ipcError("SEARCH_TIMEOUT", "Semantic search timed out", {
+          fallback: args.strategy === "hybrid" ? "fts" : "none",
+          notice: semanticNotice,
+          strategy: args.strategy,
+        });
+      }
       if (args.strategy === "hybrid") {
         args.logger.info("search_hybrid_semantic_degraded", {
           projectId: args.projectId,
           reason: semantic.error.code,
         });
+        fallback = "fts";
+        notice = "语义检索不可用，已切换关键词检索";
       } else {
         return semantic;
       }
     } else {
       for (const item of semantic.data.items) {
+        if (
+          typeof item.projectId === "string" &&
+          item.projectId !== args.projectId
+        ) {
+          args.logger.error("search_project_forbidden_audit", {
+            operation: "search:query:strategy",
+            requestedProjectId: args.projectId,
+            rowProjectId: item.projectId,
+            documentId: item.documentId,
+          });
+          return ipcError(
+            "SEARCH_PROJECT_FORBIDDEN",
+            "Cross-project search query is forbidden",
+            {
+              requestedProjectId: args.projectId,
+              rowProjectId: item.projectId,
+            },
+          );
+        }
         const key = `${item.documentId}::${item.chunkId}`;
         upsertCandidate(merged, {
           key,
@@ -363,14 +427,28 @@ function buildRankedItems(args: {
   }
 
   const mergedCandidates = [...merged.values()];
+  if (mergedCandidates.length > CANDIDATE_LIMIT) {
+    return {
+      ok: false,
+      error: {
+        code: "SEARCH_BACKPRESSURE",
+        message: "Search candidate overflow",
+        retryable: true,
+        details: {
+          candidateLimit: CANDIDATE_LIMIT,
+          candidateCount: mergedCandidates.length,
+          retryAfterMs: BACKPRESSURE_RETRY_AFTER_MS,
+        },
+      },
+    };
+  }
+
   const backpressure: SearchRankBackpressure = {
     candidateLimit: CANDIDATE_LIMIT,
     candidateCount: mergedCandidates.length,
-    truncated: mergedCandidates.length > CANDIDATE_LIMIT,
+    truncated: false,
   };
-  const candidates = backpressure.truncated
-    ? mergedCandidates.slice(0, CANDIDATE_LIMIT)
-    : mergedCandidates;
+  const candidates = mergedCandidates;
 
   const bm25ByKey = normalizeBm25(candidates);
   const recencyByKey = normalizeRecency(candidates);
@@ -412,7 +490,7 @@ function buildRankedItems(args: {
       return a.chunkId.localeCompare(b.chunkId);
     });
 
-  return { ok: true, data: { ranked, backpressure } };
+  return { ok: true, data: { ranked, backpressure, fallback, notice } };
 }
 
 function validateExplainTarget(args: {
@@ -455,6 +533,8 @@ export function createHybridRankingService(deps: {
 }): HybridRankingService {
   return {
     queryByStrategy: (args) => {
+      const startedAt = Date.now();
+      const traceId = randomUUID();
       const projectIdRes = normalizeProjectId(args.projectId);
       if (!projectIdRes.ok) {
         return projectIdRes;
@@ -485,6 +565,25 @@ export function createHybridRankingService(deps: {
         strategy: strategyRes.data,
       });
       if (!rankedRes.ok) {
+        if (rankedRes.error.code === "SEARCH_TIMEOUT") {
+          const details =
+            rankedRes.error.details &&
+            typeof rankedRes.error.details === "object"
+              ? (rankedRes.error.details as Record<string, unknown>)
+              : {};
+          return {
+            ok: false,
+            error: {
+              ...rankedRes.error,
+              details: {
+                ...details,
+                traceId,
+                strategy: strategyRes.data,
+                costMs: Date.now() - startedAt,
+              },
+            },
+          };
+        }
         return rankedRes;
       }
 
@@ -495,7 +594,11 @@ export function createHybridRankingService(deps: {
       return {
         ok: true,
         data: {
+          traceId,
+          costMs: Date.now() - startedAt,
           strategy: strategyRes.data,
+          fallback: rankedRes.data.fallback,
+          ...(rankedRes.data.notice ? { notice: rankedRes.data.notice } : {}),
           results: rankedRes.data.ranked.slice(start, end),
           total,
           hasMore: end < total,

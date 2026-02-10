@@ -56,6 +56,12 @@ export const IPC_ERROR_CODES = [
   "AI_PROVIDER_UNAVAILABLE",
   "VERSION_MERGE_TIMEOUT",
   "SEARCH_TIMEOUT",
+  "SEARCH_REINDEX_IO_ERROR",
+  "SEARCH_DATA_CORRUPTED",
+  "SEARCH_CONCURRENT_WRITE_CONFLICT",
+  "SEARCH_CAPACITY_EXCEEDED",
+  "SEARCH_BACKPRESSURE",
+  "SEARCH_PROJECT_FORBIDDEN",
   "CONSTRAINT_VALIDATION_ERROR",
   "CONSTRAINT_NOT_FOUND",
   "CONSTRAINT_CONFLICT",
@@ -280,6 +286,8 @@ const SEARCH_QUERY_STRATEGY_SCHEMA = s.union(
   s.literal("hybrid"),
 );
 
+const SEARCH_FALLBACK_SCHEMA = s.union(s.literal("fts"), s.literal("none"));
+
 const SEARCH_RANK_SCORE_BREAKDOWN_SCHEMA = s.object({
   bm25: s.number(),
   semantic: s.number(),
@@ -326,6 +334,11 @@ const EMBEDDING_SEARCH_RESULT_SCHEMA = s.object({
   score: s.number(),
   startOffset: s.number(),
   endOffset: s.number(),
+});
+
+const EMBEDDING_SEARCH_ISOLATION_SCHEMA = s.object({
+  code: s.literal("SEARCH_DATA_CORRUPTED"),
+  isolatedChunkIds: s.array(s.string()),
 });
 
 const RAG_CHUNK_SCHEMA = s.object({
@@ -1167,7 +1180,11 @@ export const ipcContract = {
         offset: s.optional(s.number()),
       }),
       response: s.object({
+        traceId: s.string(),
+        costMs: s.number(),
         strategy: SEARCH_QUERY_STRATEGY_SCHEMA,
+        fallback: SEARCH_FALLBACK_SCHEMA,
+        notice: s.optional(s.string()),
         results: s.array(SEARCH_RANKED_ITEM_SCHEMA),
         total: s.number(),
         hasMore: s.boolean(),
@@ -1258,6 +1275,7 @@ export const ipcContract = {
             reason: s.string(),
           }),
         ),
+        isolation: s.optional(EMBEDDING_SEARCH_ISOLATION_SCHEMA),
         results: s.array(EMBEDDING_SEARCH_RESULT_SCHEMA),
       }),
     },
