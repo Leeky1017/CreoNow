@@ -55,6 +55,11 @@ function isRunning(status: AiStatus): boolean {
   return status === "running" || status === "streaming";
 }
 
+function isContinueSkill(skillId: string): boolean {
+  const parts = skillId.split(":");
+  return (parts[parts.length - 1] ?? skillId) === "continue";
+}
+
 type UnknownRecord = Record<string, unknown>;
 
 /**
@@ -688,7 +693,8 @@ export function AiPanel(): JSX.Element {
    */
 
   async function onRun(): Promise<void> {
-    if (!input.trim()) return;
+    const allowEmptyInput = isContinueSkill(selectedSkillId);
+    if (!allowEmptyInput && !input.trim()) return;
 
     setLastRequest(input);
     setJudgeResult(null);
@@ -808,7 +814,8 @@ export function AiPanel(): JSX.Element {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
 
-      if (!isRunning(status) && input.trim()) {
+      const allowEmptyInput = isContinueSkill(selectedSkillId);
+      if (!isRunning(status) && (allowEmptyInput || input.trim())) {
         void onRun();
       }
     }
