@@ -6,7 +6,7 @@
 
 ## 变更内容
 
-- 固化 `judge:evaluate` 与 `judge:result` 的输入输出契约。
+- 固化 `judge:quality:evaluate` 与 `judge:quality:result` 的输入输出契约。
 - 统一高/中/低严重度维度与标签反馈结构。
 - 明确高级判定不可用时的规则引擎兜底与“部分校验已跳过”反馈。
 - 对 Judge 执行时机（生成完成后异步）与非阻塞原则做阶段边界说明。
@@ -27,7 +27,7 @@
 - 结论：`NO_DRIFT`
 - 核对项：
   - 数据结构：Judge 维度（约束/角色/风格/连贯/重复）与主 spec 对齐。
-  - IPC 契约：`judge:evaluate` Request-Response、`judge:result` Push Notification。
+  - IPC 契约：`judge:quality:evaluate` Request-Response、`judge:quality:result` Push Notification。
   - 错误码：高级判定失败不覆盖主流程成功态，降级标记可判定。
   - 阈值：Judge 基础规则评估 p95 < 300ms 不变。
 

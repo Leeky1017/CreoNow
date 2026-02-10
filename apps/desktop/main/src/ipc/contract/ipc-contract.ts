@@ -82,6 +82,19 @@ const JUDGE_MODEL_STATE_SCHEMA = s.union(
   }),
 );
 
+const JUDGE_SEVERITY_SCHEMA = s.union(
+  s.literal("high"),
+  s.literal("medium"),
+  s.literal("low"),
+);
+
+const JUDGE_EVALUATE_REQUEST_SCHEMA = s.object({
+  projectId: s.string(),
+  traceId: s.string(),
+  text: s.string(),
+  contextSummary: s.string(),
+});
+
 const SKILL_SCOPE_SCHEMA = s.union(
   s.literal("builtin"),
   s.literal("global"),
@@ -1734,6 +1747,21 @@ export const ipcContract = {
     "judge:model:ensure": {
       request: s.object({ timeoutMs: s.optional(s.number()) }),
       response: s.object({ state: JUDGE_MODEL_STATE_SCHEMA }),
+    },
+    "judge:quality:evaluate": {
+      request: JUDGE_EVALUATE_REQUEST_SCHEMA,
+      response: s.object({
+        accepted: s.literal(true),
+        result: s.object({
+          projectId: s.string(),
+          traceId: s.string(),
+          severity: JUDGE_SEVERITY_SCHEMA,
+          labels: s.array(s.string()),
+          summary: s.string(),
+          partialChecksSkipped: s.boolean(),
+          ts: s.number(),
+        }),
+      }),
     },
     "file:document:create": {
       request: s.object({
