@@ -235,6 +235,29 @@ export function registerRagIpcHandlers(deps: {
           return { ok: false, error: ftsRes.error };
         }
 
+        const crossProjectItem = ftsRes.data.items.find(
+          (item) => item.projectId !== payload.projectId,
+        );
+        if (crossProjectItem) {
+          deps.logger.error("rag_project_forbidden_audit", {
+            operation: "rag:context:retrieve",
+            requestedProjectId: payload.projectId,
+            rowProjectId: crossProjectItem.projectId,
+            documentId: crossProjectItem.documentId,
+          });
+          return {
+            ok: false,
+            error: {
+              code: "SEARCH_PROJECT_FORBIDDEN",
+              message: "Cross-project rag retrieval is forbidden",
+              details: {
+                requestedProjectId: payload.projectId,
+                rowProjectId: crossProjectItem.projectId,
+              },
+            },
+          };
+        }
+
         fallback = {
           from: "semantic",
           to: "fts",
@@ -248,6 +271,29 @@ export function registerRagIpcHandlers(deps: {
           tokenEstimate: estimateTokens(item.snippet),
         }));
       } else {
+        const crossProjectChunk = semantic.data.chunks.find(
+          (chunk) => chunk.projectId !== payload.projectId,
+        );
+        if (crossProjectChunk) {
+          deps.logger.error("rag_project_forbidden_audit", {
+            operation: "rag:context:retrieve",
+            requestedProjectId: payload.projectId,
+            rowProjectId: crossProjectChunk.projectId,
+            documentId: crossProjectChunk.documentId,
+          });
+          return {
+            ok: false,
+            error: {
+              code: "SEARCH_PROJECT_FORBIDDEN",
+              message: "Cross-project rag retrieval is forbidden",
+              details: {
+                requestedProjectId: payload.projectId,
+                rowProjectId: crossProjectChunk.projectId,
+              },
+            },
+          };
+        }
+
         candidates = semantic.data.chunks.map((chunk) => ({
           chunkId: chunk.chunkId,
           documentId: chunk.documentId,
