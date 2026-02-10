@@ -4,13 +4,82 @@ import type Database from "better-sqlite3";
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import type { EmbeddingService } from "../services/embedding/embeddingService";
-import { createRagService } from "../services/rag/ragService";
-import { LruCache } from "../services/rag/lruCache";
+import {
+  createSemanticChunkIndexService,
+  type SemanticChunkIndexService,
+} from "../services/embedding/semanticChunkIndexService";
+import { createFtsService } from "../services/search/ftsService";
+
+type DocumentIndexRow = {
+  documentId: string;
+  contentText: string;
+  updatedAt: number;
+};
+
+type RagChunk = {
+  chunkId: string;
+  documentId: string;
+  text: string;
+  score: number;
+  tokenEstimate: number;
+};
+
+type RagConfig = {
+  topK: number;
+  minScore: number;
+  maxTokens: number;
+  model?: string;
+};
+
+const DEFAULT_RAG_CONFIG: RagConfig = {
+  topK: 5,
+  minScore: 0.7,
+  maxTokens: 1500,
+};
+
+function listProjectDocuments(args: {
+  db: Database.Database;
+  projectId: string;
+}): DocumentIndexRow[] {
+  return args.db
+    .prepare<
+      [string],
+      DocumentIndexRow
+    >("SELECT document_id as documentId, content_text as contentText, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC")
+    .all(args.projectId);
+}
+
+function estimateTokens(text: string): number {
+  const bytes = Buffer.from(text, "utf8").byteLength;
+  return Math.ceil(bytes / 4);
+}
+
+function normalizeTopK(value: number): number {
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
+    return DEFAULT_RAG_CONFIG.topK;
+  }
+  return Math.floor(value);
+}
+
+function normalizeMinScore(value: number): number {
+  if (!Number.isFinite(value) || value < -1 || value > 1) {
+    return DEFAULT_RAG_CONFIG.minScore;
+  }
+  return value;
+}
+
+function normalizeMaxTokens(value: number): number {
+  if (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
+    return DEFAULT_RAG_CONFIG.maxTokens;
+  }
+  return Math.floor(value);
+}
 
 /**
  * Register `rag:*` IPC handlers.
  *
- * Why: RAG retrieve must be best-effort and must not leak DB errors across IPC.
+ * Why: SR2 requires deterministic semantic retrieve, empty-result tolerance, and
+ * explicit token-budget truncation without blocking AI main flow.
  */
 export function registerRagIpcHandlers(deps: {
   ipcMain: IpcMain;
@@ -18,8 +87,52 @@ export function registerRagIpcHandlers(deps: {
   logger: Logger;
   embedding: EmbeddingService;
   ragRerank: { enabled: boolean; model?: string };
+  semanticIndex?: SemanticChunkIndexService;
+  defaultModel?: string;
 }): void {
-  const embeddingCache = new LruCache<string, number[]>({ maxEntries: 256 });
+  const semanticIndex =
+    deps.semanticIndex ??
+    createSemanticChunkIndexService({
+      logger: deps.logger,
+      embedding: deps.embedding,
+      defaultModel: deps.defaultModel ?? "default",
+    });
+
+  const ragConfig: RagConfig = {
+    ...DEFAULT_RAG_CONFIG,
+  };
+
+  deps.ipcMain.handle(
+    "rag:config:get",
+    async (): Promise<IpcResponse<RagConfig>> => {
+      return {
+        ok: true,
+        data: { ...ragConfig },
+      };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "rag:config:update",
+    async (
+      _e,
+      payload: Partial<RagConfig>,
+    ): Promise<IpcResponse<RagConfig>> => {
+      ragConfig.topK = normalizeTopK(payload.topK ?? ragConfig.topK);
+      ragConfig.minScore = normalizeMinScore(
+        payload.minScore ?? ragConfig.minScore,
+      );
+      ragConfig.maxTokens = normalizeMaxTokens(
+        payload.maxTokens ?? ragConfig.maxTokens,
+      );
+      ragConfig.model = payload.model?.trim() || ragConfig.model;
+
+      return {
+        ok: true,
+        data: { ...ragConfig },
+      };
+    },
+  );
 
   deps.ipcMain.handle(
     "rag:context:retrieve",
@@ -28,27 +141,20 @@ export function registerRagIpcHandlers(deps: {
       payload: {
         projectId: string;
         queryText: string;
-        limit?: number;
-        budgetTokens?: number;
+        topK?: number;
+        minScore?: number;
+        maxTokens?: number;
+        model?: string;
       },
     ): Promise<
       IpcResponse<{
-        items: Array<{ sourceRef: string; snippet: string; score: number }>;
-        diagnostics: {
-          budgetTokens: number;
-          usedTokens: number;
-          droppedCount: number;
-          trimmedCount: number;
-          mode: "fulltext" | "fulltext_reranked";
-          planner: {
-            queries: string[];
-            perQueryHits: number[];
-            selectedQuery: string;
-            selectedCount: number;
-          };
-          rerank: { enabled: boolean; reason?: string; model?: string };
-          degradedFrom?: "semantic";
-          reason?: string;
+        chunks: RagChunk[];
+        truncated: boolean;
+        usedTokens: number;
+        fallback?: {
+          from: "semantic";
+          to: "fts";
+          reason: string;
         };
       }>
     > => {
@@ -64,37 +170,135 @@ export function registerRagIpcHandlers(deps: {
           error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
         };
       }
-
-      const svc = createRagService({
-        db: deps.db,
-        logger: deps.logger,
-        embedding: deps.embedding,
-        embeddingCache,
-        rerank: deps.ragRerank,
-      });
-      const res = svc.retrieve({
-        projectId: payload.projectId,
-        queryText: payload.queryText,
-        limit: payload.limit,
-        budgetTokens: payload.budgetTokens,
-      });
-
-      if (!res.ok) {
-        deps.logger.error("rag_retrieve_failed", {
-          code: res.error.code,
-          message: res.error.message,
-        });
-        return { ok: false, error: res.error };
+      if (payload.queryText.trim().length === 0) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "queryText is required" },
+        };
       }
 
-      deps.logger.info("rag_retrieve", {
-        queryLength: payload.queryText.trim().length,
-        resultCount: res.data.items.length,
-        budgetTokens: res.data.diagnostics.budgetTokens,
-        usedTokens: res.data.diagnostics.usedTokens,
+      const topK = normalizeTopK(payload.topK ?? ragConfig.topK);
+      const minScore = normalizeMinScore(
+        payload.minScore ?? ragConfig.minScore,
+      );
+      const maxTokens = normalizeMaxTokens(
+        payload.maxTokens ?? ragConfig.maxTokens,
+      );
+      const model = payload.model ?? ragConfig.model;
+
+      const docs = listProjectDocuments({
+        db: deps.db,
+        projectId: payload.projectId,
+      });
+      for (const doc of docs) {
+        const upserted = semanticIndex.upsertDocument({
+          projectId: payload.projectId,
+          documentId: doc.documentId,
+          contentText: doc.contentText,
+          updatedAt: doc.updatedAt,
+          model,
+        });
+        if (!upserted.ok && upserted.error.code !== "MODEL_NOT_READY") {
+          return { ok: false, error: upserted.error };
+        }
+      }
+
+      const semantic = semanticIndex.search({
+        projectId: payload.projectId,
+        queryText: payload.queryText,
+        topK,
+        minScore,
+        model,
       });
 
-      return { ok: true, data: res.data };
+      let candidates: RagChunk[] = [];
+      let fallback:
+        | {
+            from: "semantic";
+            to: "fts";
+            reason: string;
+          }
+        | undefined;
+
+      if (!semantic.ok) {
+        if (semantic.error.code !== "MODEL_NOT_READY") {
+          return { ok: false, error: semantic.error };
+        }
+
+        const fts = createFtsService({ db: deps.db, logger: deps.logger });
+        const ftsRes = fts.searchFulltext({
+          projectId: payload.projectId,
+          query: payload.queryText,
+          limit: topK,
+        });
+        if (!ftsRes.ok) {
+          return { ok: false, error: ftsRes.error };
+        }
+
+        fallback = {
+          from: "semantic",
+          to: "fts",
+          reason: semantic.error.code,
+        };
+        candidates = ftsRes.data.items.map((item) => ({
+          chunkId: `fts:${item.documentId}:0`,
+          documentId: item.documentId,
+          text: item.snippet,
+          score: item.score,
+          tokenEstimate: estimateTokens(item.snippet),
+        }));
+      } else {
+        candidates = semantic.data.chunks.map((chunk) => ({
+          chunkId: chunk.chunkId,
+          documentId: chunk.documentId,
+          text: chunk.text,
+          score: chunk.score,
+          tokenEstimate: estimateTokens(chunk.text),
+        }));
+      }
+
+      let usedTokens = 0;
+      let truncated = false;
+      const accepted: RagChunk[] = [];
+
+      for (const chunk of candidates) {
+        if (accepted.length >= topK) {
+          break;
+        }
+
+        if (usedTokens + chunk.tokenEstimate > maxTokens) {
+          truncated = true;
+          break;
+        }
+
+        accepted.push(chunk);
+        usedTokens += chunk.tokenEstimate;
+      }
+
+      if (!truncated && accepted.length < candidates.length) {
+        truncated = true;
+      }
+
+      deps.logger.info("rag_retrieve_complete", {
+        projectId: payload.projectId,
+        queryLength: payload.queryText.trim().length,
+        topK,
+        minScore,
+        maxTokens,
+        fallbackReason: fallback?.reason,
+        returnedChunks: accepted.length,
+        truncated,
+      });
+
+      return {
+        ok: true,
+        data: {
+          chunks: accepted,
+          truncated,
+          usedTokens,
+          ...(fallback ? { fallback } : {}),
+        },
+      };
     },
   );
 }

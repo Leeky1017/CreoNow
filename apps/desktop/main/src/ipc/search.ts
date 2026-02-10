@@ -121,47 +121,4 @@ export function registerSearchIpcHandlers(deps: {
       return { ok: true, data: res.data };
     },
   );
-
-  deps.ipcMain.handle(
-    "search:semantic:query",
-    async (
-      _e,
-      payload: { projectId: string; queryText: string; limit?: number },
-    ): Promise<
-      IpcResponse<{
-        items: Array<{
-          documentId: string;
-          chunkId?: string;
-          snippet: string;
-          score: number;
-        }>;
-      }>
-    > => {
-      if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
-      }
-      if (payload.projectId.trim().length === 0) {
-        return {
-          ok: false,
-          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
-        };
-      }
-
-      deps.logger.info("semantic_disabled", {
-        reason: "embedding/vector store not implemented (P0 fallback)",
-        queryLength: payload.queryText.trim().length,
-      });
-
-      return {
-        ok: false,
-        error: {
-          code: "MODEL_NOT_READY",
-          message: "Semantic search not ready",
-        },
-      };
-    },
-  );
 }
