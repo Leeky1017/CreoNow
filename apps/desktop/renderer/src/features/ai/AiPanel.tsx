@@ -365,6 +365,8 @@ export function AiPanel(): JSX.Element {
   );
 
   const [lastRequest, setLastRequest] = React.useState<string | null>(null);
+  const [inlineDiffConfirmOpen, setInlineDiffConfirmOpen] =
+    React.useState(false);
 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -485,6 +487,12 @@ export function AiPanel(): JSX.Element {
     status,
   ]);
 
+  React.useEffect(() => {
+    if (!proposal) {
+      setInlineDiffConfirmOpen(false);
+    }
+  }, [proposal]);
+
   const diffText = proposal
     ? unifiedDiff({
         oldText: proposal.selectionText,
@@ -512,6 +520,7 @@ export function AiPanel(): JSX.Element {
     setLastRequest(input);
 
     setProposal(null);
+    setInlineDiffConfirmOpen(false);
 
     setError(null);
 
@@ -537,14 +546,30 @@ export function AiPanel(): JSX.Element {
     });
   }
 
+  /**
+   * Drop current proposal and reset inline-diff confirmation state.
+   *
+   * Why: reject must leave panel in a deterministic idle state for next run.
+   */
   function onReject(): void {
     setProposal(null);
+    setInlineDiffConfirmOpen(false);
 
     setSelectionSnapshot(null);
   }
 
+  /**
+   * Apply AI output through a two-step confirmation.
+   *
+   * Why: enforce "preview diff first, persist only after explicit confirm".
+   */
   async function onApply(): Promise<void> {
     if (!editor || !proposal || !projectId || !documentId) {
+      return;
+    }
+
+    if (!inlineDiffConfirmOpen) {
+      setInlineDiffConfirmOpen(true);
       return;
     }
 
@@ -577,6 +602,8 @@ export function AiPanel(): JSX.Element {
 
       runId: proposal.runId,
     });
+
+    setInlineDiffConfirmOpen(false);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
@@ -603,6 +630,7 @@ export function AiPanel(): JSX.Element {
     setInput("");
 
     setProposal(null);
+    setInlineDiffConfirmOpen(false);
 
     setError(null);
 
@@ -852,7 +880,7 @@ export function AiPanel(): JSX.Element {
                     className="flex-1 flex items-center justify-center text-center py-12"
                   >
                     <Text size="small" color="muted">
-                      Ask the AI to help with your writing
+                      选中文本或输入指令，开始与 AI 协作
                     </Text>
                   </div>
                 )
@@ -878,16 +906,32 @@ export function AiPanel(): JSX.Element {
                       disabled={!canApply}
                       className="flex-1"
                     >
-                      Apply
+                      {inlineDiffConfirmOpen ? "Apply (armed)" : "Apply"}
                     </Button>
+                    {inlineDiffConfirmOpen ? (
+                      <Button
+                        data-testid="ai-apply-confirm"
+                        variant="secondary"
+                        size="md"
+                        onClick={() => void onApply()}
+                        disabled={!canApply}
+                        className="flex-1"
+                      >
+                        Confirm Apply
+                      </Button>
+                    ) : null}
                     <Button
                       data-testid="ai-reject"
                       variant="ghost"
                       size="md"
-                      onClick={onReject}
+                      onClick={
+                        inlineDiffConfirmOpen
+                          ? () => setInlineDiffConfirmOpen(false)
+                          : onReject
+                      }
                       disabled={applyStatus === "applying"}
                     >
-                      Reject
+                      {inlineDiffConfirmOpen ? "Back to Diff" : "Reject"}
                     </Button>
                   </div>
                 </>

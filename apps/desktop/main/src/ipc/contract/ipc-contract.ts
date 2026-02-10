@@ -615,6 +615,18 @@ const DOCUMENT_LIST_ITEM_SCHEMA = s.object({
   updatedAt: s.number(),
 });
 
+const AI_CHAT_ROLE_SCHEMA = s.union(s.literal("user"), s.literal("assistant"));
+
+const AI_CHAT_HISTORY_ITEM_SCHEMA = s.object({
+  messageId: s.string(),
+  projectId: s.string(),
+  role: AI_CHAT_ROLE_SCHEMA,
+  content: s.string(),
+  skillId: s.optional(s.string()),
+  timestamp: s.number(),
+  traceId: s.string(),
+});
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -676,13 +688,30 @@ export const ipcContract = {
     "ai:chat:send": {
       request: s.object({
         message: s.string(),
-        projectId: s.optional(s.string()),
+        projectId: s.string(),
         documentId: s.optional(s.string()),
       }),
       response: s.object({
         accepted: s.literal(true),
         messageId: s.string(),
         echoed: s.string(),
+      }),
+    },
+    "ai:chat:list": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        items: s.array(AI_CHAT_HISTORY_ITEM_SCHEMA),
+      }),
+    },
+    "ai:chat:clear": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        cleared: s.literal(true),
+        removed: s.number(),
       }),
     },
     "ai:skill:run": {
