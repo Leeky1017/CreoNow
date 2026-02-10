@@ -147,3 +147,28 @@
 - Key output:
   - Prettier 修复完成：7 文件全部写回。
   - preflight 复检通过：`prettier --check`、`typecheck`、`lint`、`contract:check`、`cross-module:check`、`test:unit` 全绿。
+
+### 2026-02-10 19:30 +0800 CI 失败定位（unit-test）
+
+- Command:
+  - `gh run view 21863006823 --json status,conclusion,jobs`
+  - `gh run view 21863006823 --job 63096808622 --log-failed`
+  - `pnpm -C apps/desktop test:run src/__integration__/dashboard-editor-flow.test.tsx`
+- Exit code: `0` / `0` / `1`
+- Key output:
+  - CI `unit-test` 失败点：`Desktop vitest (renderer/store)`，未处理异常 `VersionStoreProvider is missing`。
+  - 异常来源：`renderer/src/__integration__/dashboard-editor-flow.test.tsx` 渲染 `AppShell` 时缺失 `VersionStoreProvider`。
+
+### 2026-02-10 19:33 +0800 Green 修复：补齐集成测试 Provider 并回归
+
+- Code change:
+  - `apps/desktop/renderer/src/__integration__/dashboard-editor-flow.test.tsx`：`IntegrationTestWrapper` 新增 `createVersionStore + VersionStoreProvider` 注入。
+- Command:
+  - `pnpm -C apps/desktop test:run src/__integration__/dashboard-editor-flow.test.tsx`
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm -C apps/desktop test:run`
+- Exit code: `0` / `0` / `0`
+- Key output:
+  - 目标集成用例通过：`5 passed`，无 `VersionStoreProvider is missing`。
+  - preflight 再次全绿。
+  - `apps/desktop` 全量 vitest 通过：`99 files, 1262 tests passed`。
