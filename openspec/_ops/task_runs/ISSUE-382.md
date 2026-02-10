@@ -15,8 +15,8 @@
 - [x] Red：SR5-R1-S1~S2、SR5-R2-S1~S5 失败测试证据落盘
 - [x] Green：检索域硬化实现通过并保持契约一致
 - [x] Refactor：统一错误映射与守卫逻辑并保持绿灯
-- [ ] preflight 全绿
-- [ ] PR + auto-merge + main 收口 + worktree 清理
+- [x] preflight 全绿
+- [x] PR + auto-merge + main 收口 + worktree 清理
 
 ## Runs
 
@@ -231,3 +231,17 @@
 - Key output:
   - `PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ... ISSUE-382.md: 待回填`
   - 结论：通过 PR 创建并回填真实链接后复跑 preflight
+
+### 2026-02-10 13:35 +0800 交付完成（PR 合并 + main 收口 + worktree 清理）
+
+- Command:
+  - `gh pr checks 385 --watch`
+  - `gh pr view 385 --json number,state,mergedAt,url`
+  - `scripts/agent_controlplane_sync.sh`
+  - `scripts/agent_worktree_cleanup.sh 382 search-retrieval-p4-hardening-boundary`
+- Exit code: `0`
+- Key output:
+  - required checks 全绿（`ci`、`openspec-log-guard`、`merge-serial`）
+  - PR 已自动合并：`https://github.com/Leeky1017/CreoNow/pull/385`（`mergedAt=2026-02-10T05:35:54Z`）
+  - 控制面 `main` 已同步至 `origin/main`，HEAD=`a9114b34`
+  - worktree 已清理：`.worktrees/issue-382-search-retrieval-p4-hardening-boundary`
