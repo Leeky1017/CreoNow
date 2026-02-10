@@ -21,7 +21,6 @@
 import React from "react";
 
 import { Text } from "../../components/primitives/Text";
-import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
 
 // =============================================================================
@@ -341,7 +340,6 @@ export function CommandPalette({
   documentActions,
 }: CommandPaletteProps): JSX.Element | null {
   const currentProjectId = useProjectStore((s) => s.current?.projectId ?? null);
-  const documentId = useEditorStore((s) => s.documentId);
 
   const [query, setQuery] = React.useState("");
   const [activeIndex, setActiveIndex] = React.useState(0);
@@ -488,7 +486,6 @@ export function CommandPalette({
       currentProjectId,
       dialogActions,
       documentActions,
-      documentId,
       layoutActions,
       modKey,
       onOpenChange,

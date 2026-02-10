@@ -60,7 +60,7 @@ export function ProxySection(): JSX.Element {
     null,
   );
 
-  async function refreshModels(): Promise<void> {
+  const refreshModels = React.useCallback(async (): Promise<void> => {
     setModelsStatus("loading");
     setModelsErrorText(null);
 
@@ -76,9 +76,9 @@ export function ProxySection(): JSX.Element {
     setModelsStatus("idle");
     setModelCatalog(res.data as unknown as ModelCatalog);
     emitAiModelCatalogUpdated();
-  }
+  }, []);
 
-  async function refresh(): Promise<void> {
+  const refresh = React.useCallback(async (): Promise<void> => {
     setStatus("loading");
     setErrorText(null);
     setTestResult(null);
@@ -100,11 +100,11 @@ export function ProxySection(): JSX.Element {
     setOpenAiByokBaseUrl(res.data.openAiByokBaseUrl || "");
     setAnthropicByokBaseUrl(res.data.anthropicByokBaseUrl || "");
     await refreshModels();
-  }
+  }, [refreshModels]);
 
   React.useEffect(() => {
     void refresh();
-  }, []);
+  }, [refresh]);
 
   React.useEffect(() => {
     if (providerMode !== "openai-compatible") {

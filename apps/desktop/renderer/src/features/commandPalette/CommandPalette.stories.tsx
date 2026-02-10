@@ -635,7 +635,7 @@ export const KeyboardNavigationDemo: Story = {
     const [selectedIndex, setSelectedIndex] = React.useState(0);
     const [lastAction, setLastAction] = React.useState<string | null>(null);
 
-    const commands = args.commands ?? [];
+    const commands = React.useMemo(() => args.commands ?? [], [args.commands]);
 
     React.useEffect(() => {
       function handleKeyDown(e: KeyboardEvent): void {
