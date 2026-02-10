@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { toSkillRunResponseData } from "../../main/src/ipc/ai";
 import type { Logger } from "../../main/src/logging/logger";
 import { startFakeAiServer } from "../../main/src/services/ai/fakeAiServer";
 
@@ -121,4 +122,38 @@ function createNoopLogger(): Logger {
   } finally {
     await server.close();
   }
+}
+
+{
+  const normalized = toSkillRunResponseData({
+    executionId: "exec-398",
+    runId: "run-398",
+    outputText: "E2E_RESULT",
+    contextPrompt: "# CreoNow Context (v1)",
+    usage: {
+      promptTokens: 10,
+      completionTokens: 20,
+      sessionTotalTokens: 30,
+    },
+    promptDiagnostics: {
+      stablePrefixHash: "stable-398",
+      promptHash: "prompt-398",
+    },
+  });
+
+  assert.deepEqual(normalized, {
+    executionId: "exec-398",
+    runId: "run-398",
+    outputText: "E2E_RESULT",
+    usage: {
+      promptTokens: 10,
+      completionTokens: 20,
+      sessionTotalTokens: 30,
+    },
+    promptDiagnostics: {
+      stablePrefixHash: "stable-398",
+      promptHash: "prompt-398",
+    },
+  });
+  assert.equal("contextPrompt" in normalized, false);
 }

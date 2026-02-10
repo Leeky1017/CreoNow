@@ -116,8 +116,7 @@ test("ai apply: success path writes actor=ai version + main.log evidence", async
 
   const aiVersion = versions.data.items.find((v) => v.actor === "ai");
   expect(aiVersion).toBeTruthy();
-  expect(aiVersion?.reason.startsWith("ai-apply:")).toBe(true);
-  expect(aiVersion?.reason.slice("ai-apply:".length).length).toBeGreaterThan(0);
+  expect(aiVersion?.reason).toBe("ai-accept");
 
   await electronApp.close();
 

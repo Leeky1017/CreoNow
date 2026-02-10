@@ -59,6 +59,10 @@ type SkillRunResponse = {
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
 };
 
+type SkillRunResponseDataInput = SkillRunResponse & {
+  contextPrompt?: string;
+};
+
 type ModelCatalogResponse = {
   source: "proxy" | "openai" | "anthropic";
   items: Array<{ id: string; name: string; provider: string }>;
@@ -193,6 +197,29 @@ function summarizeCandidateText(text: string): string {
     return normalized;
   }
   return `${normalized.slice(0, 117)}...`;
+}
+
+/**
+ * Normalize AI run response payload to the IPC contract surface.
+ *
+ * Why: executor internals (e.g. `contextPrompt`) must never leak across IPC
+ * response validation boundaries.
+ */
+export function toSkillRunResponseData(
+  data: SkillRunResponseDataInput,
+): SkillRunResponse {
+  return {
+    executionId: data.executionId,
+    runId: data.runId,
+    ...(typeof data.outputText === "string"
+      ? { outputText: data.outputText }
+      : {}),
+    ...(Array.isArray(data.candidates) ? { candidates: data.candidates } : {}),
+    ...(data.usage ? { usage: data.usage } : {}),
+    ...(data.promptDiagnostics
+      ? { promptDiagnostics: data.promptDiagnostics }
+      : {}),
+  };
 }
 
 /**
@@ -640,21 +667,21 @@ export function registerAiIpcHandlers(deps: {
 
             return {
               ok: true,
-              data: {
+              data: toSkillRunResponseData({
                 ...res.data,
                 candidates,
                 usage,
                 promptDiagnostics: payload.promptDiagnostics,
-              },
+              }),
             };
           }
 
           return {
             ok: true,
-            data: {
+            data: toSkillRunResponseData({
               ...res.data,
               promptDiagnostics: payload.promptDiagnostics,
-            },
+            }),
           };
         }
 
@@ -712,14 +739,14 @@ export function registerAiIpcHandlers(deps: {
         }
         return {
           ok: true,
-          data: {
+          data: toSkillRunResponseData({
             executionId: primary.executionId,
             runId: primary.runId,
             outputText: primary.outputText,
             candidates,
             usage,
             promptDiagnostics: payload.promptDiagnostics,
-          },
+          }),
         };
       } catch (error) {
         deps.logger.error("ai_run_ipc_failed", {
