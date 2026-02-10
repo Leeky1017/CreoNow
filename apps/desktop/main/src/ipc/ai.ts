@@ -75,6 +75,35 @@ type ChatSendResponse = {
   echoed: string;
 };
 
+type ChatListPayload = {
+  projectId?: string;
+};
+
+type ChatMessageRole = "user" | "assistant";
+
+type ChatHistoryMessage = {
+  messageId: string;
+  projectId: string;
+  role: ChatMessageRole;
+  content: string;
+  skillId?: string;
+  timestamp: number;
+  traceId: string;
+};
+
+type ChatListResponse = {
+  items: ChatHistoryMessage[];
+};
+
+type ChatClearPayload = {
+  projectId?: string;
+};
+
+type ChatClearResponse = {
+  cleared: true;
+  removed: number;
+};
+
 const AI_STREAM_RATE_LIMIT_PER_SECOND = 5_000;
 
 /**
@@ -82,6 +111,29 @@ const AI_STREAM_RATE_LIMIT_PER_SECOND = 5_000;
  */
 function nowTs(): number {
   return Date.now();
+}
+
+/**
+ * Validate and normalize chat project scope key.
+ *
+ * Why: chat history must be isolated by project to prevent cross-project leakage.
+ */
+function resolveChatProjectId(args: {
+  projectId?: string;
+}):
+  | { ok: true; data: string }
+  | { ok: false; error: { code: "INVALID_ARGUMENT"; message: string } } {
+  const projectId = args.projectId?.trim() ?? "";
+  if (projectId.length === 0) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_ARGUMENT",
+        message: "projectId is required",
+      },
+    };
+  }
+  return { ok: true, data: projectId };
 }
 
 /**
@@ -192,6 +244,7 @@ export function registerAiIpcHandlers(deps: {
     string,
     { startedAt: number; context?: SkillRunPayload["context"] }
   >();
+  const chatHistoryByProject = new Map<string, ChatHistoryMessage[]>();
 
   /**
    * Remember a runId for feedback validation.
@@ -486,12 +539,83 @@ export function registerAiIpcHandlers(deps: {
         };
       }
 
+      const projectId = resolveChatProjectId({ projectId: payload.projectId });
+      if (!projectId.ok) {
+        return {
+          ok: false,
+          error: projectId.error,
+        };
+      }
+
+      const timestamp = nowTs();
+      const projectMessages = chatHistoryByProject.get(projectId.data) ?? [];
+      const messageId = `chat-${timestamp}`;
+      const nextMessage: ChatHistoryMessage = {
+        messageId,
+        projectId: projectId.data,
+        role: "user",
+        content: message,
+        timestamp,
+        traceId: `trace-${messageId}`,
+      };
+      const nextMessages = [...projectMessages, nextMessage];
+      chatHistoryByProject.set(projectId.data, nextMessages.slice(-200));
+
       return {
         ok: true,
         data: {
           accepted: true,
-          messageId: `chat-${nowTs()}`,
+          messageId,
           echoed: message,
+        },
+      };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "ai:chat:list",
+    async (
+      _e,
+      payload: ChatListPayload,
+    ): Promise<IpcResponse<ChatListResponse>> => {
+      const projectId = resolveChatProjectId({ projectId: payload.projectId });
+      if (!projectId.ok) {
+        return {
+          ok: false,
+          error: projectId.error,
+        };
+      }
+
+      const messages = chatHistoryByProject.get(projectId.data) ?? [];
+      return {
+        ok: true,
+        data: { items: [...messages] },
+      };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "ai:chat:clear",
+    async (
+      _e,
+      payload: ChatClearPayload,
+    ): Promise<IpcResponse<ChatClearResponse>> => {
+      const projectId = resolveChatProjectId({ projectId: payload.projectId });
+      if (!projectId.ok) {
+        return {
+          ok: false,
+          error: projectId.error,
+        };
+      }
+
+      const removed = chatHistoryByProject.get(projectId.data)?.length ?? 0;
+      chatHistoryByProject.delete(projectId.data);
+
+      return {
+        ok: true,
+        data: {
+          cleared: true,
+          removed,
         },
       };
     },
