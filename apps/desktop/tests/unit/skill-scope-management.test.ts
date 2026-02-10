@@ -29,6 +29,26 @@ function ensureSkillsTable(db: ReturnType<typeof createProjectTestDb>): void {
   `);
 }
 
+function ensureCustomSkillsTable(
+  db: ReturnType<typeof createProjectTestDb>,
+): void {
+  db.exec(`
+    CREATE TABLE custom_skills (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      prompt_template TEXT NOT NULL,
+      input_type TEXT NOT NULL,
+      context_rules TEXT NOT NULL,
+      scope TEXT NOT NULL,
+      project_id TEXT,
+      enabled INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+}
+
 function seedCurrentProject(args: {
   db: ReturnType<typeof createProjectTestDb>;
   projectId: string;
@@ -163,6 +183,7 @@ function createFixture(): {
 
   const db = createProjectTestDb();
   ensureSkillsTable(db);
+  ensureCustomSkillsTable(db);
   seedCurrentProject({ db, projectId: "project-1", projectRoot });
 
   writeSkillFile({
@@ -236,6 +257,141 @@ function createFixture(): {
 
     assert.equal(formalRewriteRows.length, 1);
     assert.equal(formalRewriteRows[0]?.scope, "project");
+  } finally {
+    fixture.db.close();
+    fs.rmSync(fixture.tmpRoot, { recursive: true, force: true });
+  }
+}
+
+/**
+ * S1/S2: custom skill manual create + AI flow persistence contract [ADDED]
+ * should create/list custom skills and expose them to skill picker registry
+ */
+{
+  const fixture = createFixture();
+  try {
+    const handlers = new Map<string, Handler>();
+    const ipcMain = {
+      handle(channel: string, handler: Handler): void {
+        handlers.set(channel, handler);
+      },
+    } as unknown as IpcMain;
+
+    registerSkillIpcHandlers({
+      ipcMain,
+      db: fixture.db,
+      userDataDir: fixture.userDataDir,
+      builtinSkillsDir: fixture.builtinSkillsDir,
+      logger: createNoopLogger(),
+    });
+
+    const createHandler = handlers.get("skill:custom:create");
+    assert.ok(createHandler, "missing handler: skill:custom:create");
+
+    const created = (await createHandler(
+      {},
+      {
+        name: "文言文转白话",
+        description: "将文言文改写成现代白话文",
+        promptTemplate: "请把下面内容转成白话文：\\n\\n{{input}}",
+        inputType: "selection",
+        contextRules: { style_guide: true },
+        scope: "project",
+        enabled: true,
+      },
+    )) as {
+      ok: boolean;
+      data?: {
+        skill: { id: string; name: string; scope: "global" | "project" };
+      };
+    };
+
+    assert.equal(created.ok, true);
+    assert.equal(created.data?.skill.name, "文言文转白话");
+    assert.equal(created.data?.skill.scope, "project");
+    assert.ok(created.data?.skill.id);
+
+    const listCustomHandler = handlers.get("skill:custom:list");
+    assert.ok(listCustomHandler, "missing handler: skill:custom:list");
+
+    const listedCustom = (await listCustomHandler({}, {})) as {
+      ok: boolean;
+      data?: { items: Array<{ id: string; name: string }> };
+    };
+
+    assert.equal(listedCustom.ok, true);
+    assert.equal(listedCustom.data?.items.length, 1);
+    assert.equal(listedCustom.data?.items[0]?.name, "文言文转白话");
+
+    const listRegistryHandler = handlers.get("skill:registry:list");
+    assert.ok(listRegistryHandler, "missing handler: skill:registry:list");
+
+    const listedRegistry = (await listRegistryHandler(
+      {},
+      {
+        includeDisabled: true,
+      },
+    )) as {
+      ok: boolean;
+      data?: { items: Array<{ id: string; name: string }> };
+    };
+
+    assert.equal(listedRegistry.ok, true);
+    const customInPicker = listedRegistry.data?.items.find(
+      (item) => item.name === "文言文转白话",
+    );
+    assert.ok(customInPicker);
+    assert.match(customInPicker?.id ?? "", /^custom:/);
+  } finally {
+    fixture.db.close();
+    fs.rmSync(fixture.tmpRoot, { recursive: true, force: true });
+  }
+}
+
+/**
+ * S4: zod-like runtime validation envelope for empty promptTemplate [ADDED]
+ * should return VALIDATION_ERROR when promptTemplate is empty
+ */
+{
+  const fixture = createFixture();
+  try {
+    const handlers = new Map<string, Handler>();
+    const ipcMain = {
+      handle(channel: string, handler: Handler): void {
+        handlers.set(channel, handler);
+      },
+    } as unknown as IpcMain;
+
+    registerSkillIpcHandlers({
+      ipcMain,
+      db: fixture.db,
+      userDataDir: fixture.userDataDir,
+      builtinSkillsDir: fixture.builtinSkillsDir,
+      logger: createNoopLogger(),
+    });
+
+    const createHandler = handlers.get("skill:custom:create");
+    assert.ok(createHandler, "missing handler: skill:custom:create");
+
+    const invalid = (await createHandler(
+      {},
+      {
+        name: "空模板技能",
+        description: "invalid",
+        promptTemplate: "   ",
+        inputType: "selection",
+        contextRules: {},
+        scope: "project",
+        enabled: true,
+      },
+    )) as {
+      ok: boolean;
+      error?: { code: string; message: string };
+    };
+
+    assert.equal(invalid.ok, false);
+    assert.equal(invalid.error?.code, "VALIDATION_ERROR");
+    assert.match(invalid.error?.message ?? "", /promptTemplate/);
   } finally {
     fixture.db.close();
     fs.rmSync(fixture.tmpRoot, { recursive: true, force: true });

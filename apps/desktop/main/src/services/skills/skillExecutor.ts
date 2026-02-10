@@ -14,11 +14,14 @@ type SkillPrompt = {
   user: string;
 };
 
+type SkillInputType = "selection" | "document";
+
 export type ResolvedRunnableSkill = {
   id: string;
   prompt?: SkillPrompt;
   enabled: boolean;
   valid: boolean;
+  inputType?: SkillInputType;
   error_code?: IpcErrorCode;
   error_message?: string;
 };
@@ -87,15 +90,31 @@ function leafSkillId(skillId: string): string {
 /**
  * Whether the skill consumes editor selection text as primary input.
  */
-function requiresSelectionInput(skillId: string): boolean {
-  return leafSkillId(skillId) !== "continue";
+function resolveInputType(args: {
+  skillId: string;
+  inputType?: SkillInputType;
+}): SkillInputType {
+  if (args.inputType === "selection" || args.inputType === "document") {
+    return args.inputType;
+  }
+  return leafSkillId(args.skillId) === "continue" ? "document" : "selection";
+}
+
+function requiresSelectionInput(args: {
+  skillId: string;
+  inputType?: SkillInputType;
+}): boolean {
+  return resolveInputType(args) === "selection";
 }
 
 /**
  * Whether the skill requires document context from Context Engine.
  */
-function requiresDocumentContext(skillId: string): boolean {
-  return leafSkillId(skillId) === "continue";
+function requiresDocumentContext(args: {
+  skillId: string;
+  inputType?: SkillInputType;
+}): boolean {
+  return resolveInputType(args) === "document";
 }
 
 /**
@@ -176,11 +195,22 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
 
       const trimmedInput = args.input.trim();
 
-      if (requiresSelectionInput(args.skillId) && trimmedInput.length === 0) {
+      if (
+        requiresSelectionInput({
+          skillId: args.skillId,
+          inputType: resolved.data.inputType,
+        }) &&
+        trimmedInput.length === 0
+      ) {
         return ipcError("SKILL_INPUT_EMPTY", emptyInputMessage(args.skillId));
       }
 
-      if (requiresDocumentContext(args.skillId)) {
+      if (
+        requiresDocumentContext({
+          skillId: args.skillId,
+          inputType: resolved.data.inputType,
+        })
+      ) {
         const projectId = args.context?.projectId?.trim() ?? "";
         const documentId = args.context?.documentId?.trim() ?? "";
         if (projectId.length === 0 || documentId.length === 0) {
@@ -191,7 +221,10 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
       const inputForPrompt =
         trimmedInput.length > 0
           ? args.input
-          : requiresDocumentContext(args.skillId)
+          : requiresDocumentContext({
+                skillId: args.skillId,
+                inputType: resolved.data.inputType,
+              })
             ? "请基于当前文档上下文继续写作。"
             : args.input;
 

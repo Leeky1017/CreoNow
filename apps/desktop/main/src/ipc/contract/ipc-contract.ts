@@ -124,6 +124,33 @@ const SKILL_LIST_ITEM_SCHEMA = s.object({
   error_message: s.optional(s.string()),
 });
 
+const CUSTOM_SKILL_SCOPE_SCHEMA = s.union(
+  s.literal("global"),
+  s.literal("project"),
+);
+
+const CUSTOM_SKILL_INPUT_TYPE_SCHEMA = s.union(
+  s.literal("selection"),
+  s.literal("document"),
+);
+
+const CUSTOM_SKILL_CONTEXT_RULES_SCHEMA = s.record(
+  s.union(s.string(), s.number(), s.boolean()),
+);
+
+const CUSTOM_SKILL_SCHEMA = s.object({
+  id: s.string(),
+  name: s.string(),
+  description: s.string(),
+  promptTemplate: s.string(),
+  inputType: CUSTOM_SKILL_INPUT_TYPE_SCHEMA,
+  contextRules: CUSTOM_SKILL_CONTEXT_RULES_SCHEMA,
+  scope: CUSTOM_SKILL_SCOPE_SCHEMA,
+  enabled: s.boolean(),
+  createdAt: s.number(),
+  updatedAt: s.number(),
+});
+
 const CREONOW_LIST_ITEM_SCHEMA = s.object({
   path: s.string(),
   sizeBytes: s.number(),
@@ -1582,11 +1609,44 @@ export const ipcContract = {
     "skill:custom:update": {
       request: s.object({
         id: s.string(),
-        scope: s.union(s.literal("global"), s.literal("project")),
+        scope: s.optional(CUSTOM_SKILL_SCOPE_SCHEMA),
+        name: s.optional(s.string()),
+        description: s.optional(s.string()),
+        promptTemplate: s.optional(s.string()),
+        inputType: s.optional(CUSTOM_SKILL_INPUT_TYPE_SCHEMA),
+        contextRules: s.optional(CUSTOM_SKILL_CONTEXT_RULES_SCHEMA),
+        enabled: s.optional(s.boolean()),
       }),
       response: s.object({
         id: s.string(),
-        scope: s.union(s.literal("global"), s.literal("project")),
+        scope: CUSTOM_SKILL_SCOPE_SCHEMA,
+      }),
+    },
+    "skill:custom:create": {
+      request: s.object({
+        name: s.string(),
+        description: s.string(),
+        promptTemplate: s.string(),
+        inputType: CUSTOM_SKILL_INPUT_TYPE_SCHEMA,
+        contextRules: CUSTOM_SKILL_CONTEXT_RULES_SCHEMA,
+        scope: CUSTOM_SKILL_SCOPE_SCHEMA,
+        enabled: s.optional(s.boolean()),
+      }),
+      response: s.object({
+        skill: CUSTOM_SKILL_SCHEMA,
+      }),
+    },
+    "skill:custom:list": {
+      request: s.object({}),
+      response: s.object({
+        items: s.array(CUSTOM_SKILL_SCHEMA),
+      }),
+    },
+    "skill:custom:delete": {
+      request: s.object({ id: s.string() }),
+      response: s.object({
+        id: s.string(),
+        deleted: s.literal(true),
       }),
     },
     "db:debug:tablenames": {

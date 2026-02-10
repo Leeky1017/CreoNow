@@ -24,6 +24,7 @@ import { DiffView } from "../diff/DiffView";
 import { applySelection, captureSelectionRef } from "./applySelection";
 
 import { SkillPicker } from "./SkillPicker";
+import { SkillManagerDialog } from "./SkillManagerDialog";
 
 import { ChatHistory } from "./ChatHistory";
 
@@ -422,6 +423,7 @@ export function AiPanel(): JSX.Element {
   );
 
   const [skillsOpen, setSkillsOpen] = React.useState(false);
+  const [skillManagerOpen, setSkillManagerOpen] = React.useState(false);
 
   const [modeOpen, setModeOpen] = React.useState(false);
 
@@ -1469,13 +1471,21 @@ export function AiPanel(): JSX.Element {
                   }}
                   onCreateSkill={() => {
                     setSkillsOpen(false);
-                    openSettings();
+                    setSkillManagerOpen(true);
                   }}
                   onToggleSkill={(skillId, enabled) => {
                     void handleSkillToggle({ skillId, enabled });
                   }}
                   onUpdateScope={(id, scope) => {
                     void handleSkillScopeUpdate({ id, scope });
+                  }}
+                />
+                <SkillManagerDialog
+                  open={skillManagerOpen}
+                  onOpenChange={setSkillManagerOpen}
+                  projectId={currentProject?.projectId ?? projectId ?? null}
+                  onSaved={async () => {
+                    await refreshSkills();
                   }}
                 />
               </div>

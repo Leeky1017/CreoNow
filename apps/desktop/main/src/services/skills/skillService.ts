@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -31,6 +32,23 @@ export type SkillListItem = {
   valid: boolean;
   error_code?: IpcErrorCode;
   error_message?: string;
+};
+
+export type CustomSkillInputType = "selection" | "document";
+
+export type CustomSkillScope = "global" | "project";
+
+export type CustomSkillRecord = {
+  id: string;
+  name: string;
+  description: string;
+  promptTemplate: string;
+  inputType: CustomSkillInputType;
+  contextRules: Record<string, unknown>;
+  scope: CustomSkillScope;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
 };
 
 export type SkillReadResult = {
@@ -69,11 +87,31 @@ export type SkillService = {
   }) => ServiceResult<SkillToggleResult>;
   updateCustom: (args: {
     id: string;
-    scope: "global" | "project";
+    scope?: "global" | "project";
+    name?: string;
+    description?: string;
+    promptTemplate?: string;
+    inputType?: CustomSkillInputType;
+    contextRules?: Record<string, unknown>;
+    enabled?: boolean;
   }) => ServiceResult<SkillCustomUpdateResult>;
+  createCustom: (args: {
+    name: string;
+    description: string;
+    promptTemplate: string;
+    inputType: CustomSkillInputType;
+    contextRules: Record<string, unknown>;
+    scope: CustomSkillScope;
+    enabled?: boolean;
+  }) => ServiceResult<{ skill: CustomSkillRecord }>;
+  deleteCustom: (args: {
+    id: string;
+  }) => ServiceResult<{ id: string; deleted: true }>;
+  listCustom: () => ServiceResult<{ items: CustomSkillRecord[] }>;
   resolveForRun: (args: { id: string }) => ServiceResult<{
     skill: LoadedSkill;
     enabled: boolean;
+    inputType?: CustomSkillInputType;
   }>;
 };
 
@@ -82,8 +120,123 @@ type SkillDbRow = {
   enabled: number;
 };
 
+type CustomSkillDbRow = {
+  id: string;
+  name: string;
+  description: string;
+  promptTemplate: string;
+  inputType: CustomSkillInputType;
+  contextRules: string;
+  scope: CustomSkillScope;
+  projectId: string | null;
+  enabled: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
 function nowTs(): number {
   return Date.now();
+}
+
+function normalizeCustomSkillId(id: string): string {
+  if (id.startsWith("custom:")) {
+    return id.slice("custom:".length);
+  }
+  return id;
+}
+
+function encodeCustomListId(id: string): string {
+  return `custom:${id}`;
+}
+
+/**
+ * Build a validation error payload with deterministic wording for forms.
+ */
+function validationError(fieldName: string, message: string): Err {
+  return ipcError("VALIDATION_ERROR", message, { fieldName });
+}
+
+function parseContextRules(
+  raw: unknown,
+): ServiceResult<Record<string, unknown>> {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+    return validationError("contextRules", "contextRules 必须为对象");
+  }
+  return { ok: true, data: raw as Record<string, unknown> };
+}
+
+function requireTextField(
+  fieldName: string,
+  value: string,
+  emptyMessage: string,
+): ServiceResult<string> {
+  if (value.trim().length === 0) {
+    return validationError(fieldName, emptyMessage);
+  }
+  return { ok: true, data: value };
+}
+
+function requireInputType(
+  inputType: string,
+): ServiceResult<CustomSkillInputType> {
+  if (inputType === "selection" || inputType === "document") {
+    return { ok: true, data: inputType };
+  }
+  return validationError("inputType", "inputType 必须为 selection 或 document");
+}
+
+function requireCustomScope(scope: string): ServiceResult<CustomSkillScope> {
+  if (scope === "global" || scope === "project") {
+    return { ok: true, data: scope };
+  }
+  return validationError("scope", "scope 必须为 global 或 project");
+}
+
+function parseContextRulesJson(raw: string): Record<string, unknown> {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
+    ) {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function customPromptSystem(args: {
+  name: string;
+  description: string;
+  contextRules: Record<string, unknown>;
+}): string {
+  const lines: string[] = [
+    `你正在执行自定义技能：${args.name}`,
+    `技能描述：${args.description}`,
+  ];
+  const keys = Object.keys(args.contextRules);
+  if (keys.length > 0) {
+    lines.push(`上下文规则：${JSON.stringify(args.contextRules)}`);
+  }
+  return lines.join("\n");
+}
+
+function toCustomSkillRecord(row: CustomSkillDbRow): CustomSkillRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    promptTemplate: row.promptTemplate,
+    inputType: row.inputType,
+    contextRules: parseContextRulesJson(row.contextRules),
+    scope: row.scope,
+    enabled: row.enabled === 1,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
 }
 
 /**
@@ -96,13 +249,13 @@ function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
 }
 
 /**
- * Resolve the current project rootPath, if set.
+ * Resolve the current project info, if set.
  */
-function getCurrentProjectRootPath(args: {
+function getCurrentProjectInfo(args: {
   db: Database.Database;
   userDataDir: string;
   logger: Logger;
-}): ServiceResult<string | null> {
+}): ServiceResult<{ projectId: string; rootPath: string } | null> {
   const projectSvc = createProjectService({
     db: args.db,
     userDataDir: args.userDataDir,
@@ -115,7 +268,13 @@ function getCurrentProjectRootPath(args: {
     }
     return current;
   }
-  return { ok: true, data: current.data.rootPath };
+  return {
+    ok: true,
+    data: {
+      projectId: current.data.projectId,
+      rootPath: current.data.rootPath,
+    },
+  };
 }
 
 /**
@@ -140,6 +299,232 @@ function readEnabledMap(
     return ipcError(
       "DB_ERROR",
       "Failed to read skill state",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Read current custom skills visible to the active project context.
+ */
+function readCustomSkills(args: {
+  db: Database.Database;
+  currentProjectId: string | null;
+}): ServiceResult<CustomSkillRecord[]> {
+  try {
+    let rows: CustomSkillDbRow[];
+    if (args.currentProjectId) {
+      rows = args.db
+        .prepare<[{ currentProjectId: string }], CustomSkillDbRow>(
+          `
+          SELECT
+            id,
+            name,
+            description,
+            prompt_template as promptTemplate,
+            input_type as inputType,
+            context_rules as contextRules,
+            scope,
+            project_id as projectId,
+            enabled,
+            created_at as createdAt,
+            updated_at as updatedAt
+          FROM custom_skills
+          WHERE scope = 'global' OR (scope = 'project' AND project_id = @currentProjectId)
+          ORDER BY updated_at DESC, id ASC
+          `,
+        )
+        .all({ currentProjectId: args.currentProjectId });
+    } else {
+      rows = args.db
+        .prepare<[], CustomSkillDbRow>(
+          `
+          SELECT
+            id,
+            name,
+            description,
+            prompt_template as promptTemplate,
+            input_type as inputType,
+            context_rules as contextRules,
+            scope,
+            project_id as projectId,
+            enabled,
+            created_at as createdAt,
+            updated_at as updatedAt
+          FROM custom_skills
+          WHERE scope = 'global'
+          ORDER BY updated_at DESC, id ASC
+          `,
+        )
+        .all();
+    }
+
+    return {
+      ok: true,
+      data: rows.map((row) => toCustomSkillRecord(row)),
+    };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to read custom skills",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+function readCustomSkillById(args: {
+  db: Database.Database;
+  currentProjectId: string | null;
+  id: string;
+}): ServiceResult<CustomSkillRecord | null> {
+  const listed = readCustomSkills({
+    db: args.db,
+    currentProjectId: args.currentProjectId,
+  });
+  if (!listed.ok) {
+    return listed;
+  }
+  const found = listed.data.find((item) => item.id === args.id) ?? null;
+  return { ok: true, data: found };
+}
+
+function insertCustomSkill(args: {
+  db: Database.Database;
+  id: string;
+  name: string;
+  description: string;
+  promptTemplate: string;
+  inputType: CustomSkillInputType;
+  contextRules: Record<string, unknown>;
+  scope: CustomSkillScope;
+  projectId: string | null;
+  enabled: boolean;
+}): ServiceResult<CustomSkillRecord> {
+  try {
+    const ts = nowTs();
+    args.db
+      .prepare(
+        `
+        INSERT INTO custom_skills (
+          id,
+          name,
+          description,
+          prompt_template,
+          input_type,
+          context_rules,
+          scope,
+          project_id,
+          enabled,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        args.id,
+        args.name,
+        args.description,
+        args.promptTemplate,
+        args.inputType,
+        JSON.stringify(args.contextRules),
+        args.scope,
+        args.projectId,
+        args.enabled ? 1 : 0,
+        ts,
+        ts,
+      );
+    return {
+      ok: true,
+      data: {
+        id: args.id,
+        name: args.name,
+        description: args.description,
+        promptTemplate: args.promptTemplate,
+        inputType: args.inputType,
+        contextRules: args.contextRules,
+        scope: args.scope,
+        enabled: args.enabled,
+        createdAt: ts,
+        updatedAt: ts,
+      },
+    };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to create custom skill",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+function updateCustomSkillRow(args: {
+  db: Database.Database;
+  id: string;
+  name: string;
+  description: string;
+  promptTemplate: string;
+  inputType: CustomSkillInputType;
+  contextRules: Record<string, unknown>;
+  scope: CustomSkillScope;
+  projectId: string | null;
+  enabled: boolean;
+}): ServiceResult<CustomSkillRecord> {
+  try {
+    const ts = nowTs();
+    args.db
+      .prepare(
+        `
+        UPDATE custom_skills
+        SET
+          name = ?,
+          description = ?,
+          prompt_template = ?,
+          input_type = ?,
+          context_rules = ?,
+          scope = ?,
+          project_id = ?,
+          enabled = ?,
+          updated_at = ?
+        WHERE id = ?
+        `,
+      )
+      .run(
+        args.name,
+        args.description,
+        args.promptTemplate,
+        args.inputType,
+        JSON.stringify(args.contextRules),
+        args.scope,
+        args.projectId,
+        args.enabled ? 1 : 0,
+        ts,
+        args.id,
+      );
+    const createdAt = args.db
+      .prepare<
+        [string],
+        { createdAt: number }
+      >("SELECT created_at as createdAt FROM custom_skills WHERE id = ?")
+      .get(args.id)?.createdAt;
+    return {
+      ok: true,
+      data: {
+        id: args.id,
+        name: args.name,
+        description: args.description,
+        promptTemplate: args.promptTemplate,
+        inputType: args.inputType,
+        contextRules: args.contextRules,
+        scope: args.scope,
+        enabled: args.enabled,
+        createdAt: createdAt ?? ts,
+        updatedAt: ts,
+      },
+    };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to update custom skill",
       error instanceof Error ? { message: error.message } : { error },
     );
   }
@@ -327,25 +712,26 @@ export function createSkillService(deps: {
   const resolveLoaded = (): ServiceResult<{
     skills: LoadedSkill[];
     enabledMap: Map<string, boolean>;
+    currentProjectId: string | null;
     roots: {
       builtinSkillsDir: string;
       globalSkillsDir: string;
       projectSkillsDir: string | null;
     };
   }> => {
-    const projectRoot = getCurrentProjectRootPath({
+    const currentProject = getCurrentProjectInfo({
       db: deps.db,
       userDataDir: deps.userDataDir,
       logger: deps.logger,
     });
-    if (!projectRoot.ok) {
-      return projectRoot;
+    if (!currentProject.ok) {
+      return currentProject;
     }
 
     const projectSkillsDir =
-      projectRoot.data === null
+      currentProject.data === null
         ? null
-        : path.join(projectRoot.data, ".creonow", "skills");
+        : path.join(currentProject.data.rootPath, ".creonow", "skills");
 
     const loaded = loadSkills({
       logger: deps.logger,
@@ -383,6 +769,7 @@ export function createSkillService(deps: {
           globalSkillsDir,
           projectSkillsDir,
         },
+        currentProjectId: currentProject.data?.projectId ?? null,
       },
     };
   };
@@ -394,22 +781,44 @@ export function createSkillService(deps: {
         return loaded;
       }
 
-      const items = loaded.data.skills
-        .map((s): SkillListItem => {
-          const enabled = loaded.data.enabledMap.get(s.id) ?? true;
-          return {
-            id: s.id,
-            name: s.name,
-            scope: s.scope,
-            packageId: s.packageId,
-            version: s.version,
-            enabled,
-            valid: s.valid,
-            error_code: s.error_code,
-            error_message: s.error_message,
-          };
-        })
-        .filter((s) => (includeDisabled ? true : s.enabled));
+      const builtins = loaded.data.skills.map((s): SkillListItem => {
+        const enabled = loaded.data.enabledMap.get(s.id) ?? true;
+        return {
+          id: s.id,
+          name: s.name,
+          scope: s.scope,
+          packageId: s.packageId,
+          version: s.version,
+          enabled,
+          valid: s.valid,
+          error_code: s.error_code,
+          error_message: s.error_message,
+        };
+      });
+
+      const customSkills = readCustomSkills({
+        db: deps.db,
+        currentProjectId: loaded.data.currentProjectId,
+      });
+      if (!customSkills.ok) {
+        return customSkills;
+      }
+
+      const customItems = customSkills.data.map(
+        (item): SkillListItem => ({
+          id: encodeCustomListId(item.id),
+          name: item.name,
+          scope: item.scope,
+          packageId: "pkg.creonow.custom",
+          version: "1.0.0",
+          enabled: item.enabled,
+          valid: item.promptTemplate.trim().length > 0,
+        }),
+      );
+
+      const items = [...builtins, ...customItems].filter((s) =>
+        includeDisabled ? true : s.enabled,
+      );
 
       return { ok: true, data: { items } };
     },
@@ -531,9 +940,42 @@ export function createSkillService(deps: {
         });
       }
 
+      const normalizedCustomId = normalizeCustomSkillId(id);
+
       const loaded = resolveLoaded();
       if (!loaded.ok) {
         return loaded;
+      }
+
+      const custom = readCustomSkillById({
+        db: deps.db,
+        currentProjectId: loaded.data.currentProjectId,
+        id: normalizedCustomId,
+      });
+      if (!custom.ok) {
+        return custom;
+      }
+      if (custom.data) {
+        try {
+          deps.db
+            .prepare(
+              "UPDATE custom_skills SET enabled = ?, updated_at = ? WHERE id = ?",
+            )
+            .run(enabled ? 1 : 0, nowTs(), custom.data.id);
+          return {
+            ok: true,
+            data: {
+              id: encodeCustomListId(custom.data.id),
+              enabled,
+            },
+          };
+        } catch (error) {
+          return ipcError(
+            "DB_ERROR",
+            "Failed to toggle custom skill",
+            error instanceof Error ? { message: error.message } : { error },
+          );
+        }
       }
 
       const skill = loaded.data.skills.find((s) => s.id === id) ?? null;
@@ -567,21 +1009,121 @@ export function createSkillService(deps: {
       }
     },
 
-    updateCustom: ({ id, scope }) => {
+    updateCustom: ({
+      id,
+      scope,
+      name,
+      description,
+      promptTemplate,
+      inputType,
+      contextRules,
+      enabled,
+    }) => {
       if (id.trim().length === 0) {
         return ipcError("INVALID_ARGUMENT", "id is required", {
           fieldName: "id",
-        });
-      }
-      if (scope !== "global" && scope !== "project") {
-        return ipcError("INVALID_ARGUMENT", "scope must be global or project", {
-          fieldName: "scope",
         });
       }
 
       const loaded = resolveLoaded();
       if (!loaded.ok) {
         return loaded;
+      }
+
+      const customId = normalizeCustomSkillId(id);
+      const custom = readCustomSkillById({
+        db: deps.db,
+        currentProjectId: loaded.data.currentProjectId,
+        id: customId,
+      });
+      if (!custom.ok) {
+        return custom;
+      }
+      if (custom.data) {
+        const nextScope = scope ?? custom.data.scope;
+        const validScope = requireCustomScope(nextScope);
+        if (!validScope.ok) {
+          return validScope;
+        }
+
+        const nextName = name ?? custom.data.name;
+        const validName = requireTextField("name", nextName, "name 不能为空");
+        if (!validName.ok) {
+          return validName;
+        }
+
+        const nextDescription = description ?? custom.data.description;
+        const validDescription = requireTextField(
+          "description",
+          nextDescription,
+          "description 不能为空",
+        );
+        if (!validDescription.ok) {
+          return validDescription;
+        }
+
+        const nextTemplate = promptTemplate ?? custom.data.promptTemplate;
+        const validTemplate = requireTextField(
+          "promptTemplate",
+          nextTemplate,
+          "promptTemplate 不能为空",
+        );
+        if (!validTemplate.ok) {
+          return validTemplate;
+        }
+
+        const nextInputType = inputType ?? custom.data.inputType;
+        const validInputType = requireInputType(nextInputType);
+        if (!validInputType.ok) {
+          return validInputType;
+        }
+
+        const parsedContextRules =
+          contextRules === undefined
+            ? { ok: true as const, data: custom.data.contextRules }
+            : parseContextRules(contextRules);
+        if (!parsedContextRules.ok) {
+          return parsedContextRules;
+        }
+
+        const nextEnabled = enabled ?? custom.data.enabled;
+        const projectId =
+          validScope.data === "project" ? loaded.data.currentProjectId : null;
+        if (validScope.data === "project" && !projectId) {
+          return ipcError("NOT_FOUND", "Project scope is unavailable");
+        }
+
+        const updated = updateCustomSkillRow({
+          db: deps.db,
+          id: custom.data.id,
+          name: validName.data,
+          description: validDescription.data,
+          promptTemplate: validTemplate.data,
+          inputType: validInputType.data,
+          contextRules: parsedContextRules.data,
+          scope: validScope.data,
+          projectId,
+          enabled: nextEnabled,
+        });
+        if (!updated.ok) {
+          return updated;
+        }
+
+        return {
+          ok: true,
+          data: {
+            id: custom.data.id,
+            scope: updated.data.scope,
+          },
+        };
+      }
+
+      if (!scope) {
+        return validationError("scope", "scope 不能为空");
+      }
+      const validScope = requireCustomScope(scope);
+      if (!validScope.ok) {
+        return validScope;
       }
 
       const skill = loaded.data.skills.find((s) => s.id === id) ?? null;
@@ -595,8 +1137,8 @@ export function createSkillService(deps: {
         });
       }
 
-      if (skill.scope === scope) {
-        return { ok: true, data: { id, scope } };
+      if (skill.scope === validScope.data) {
+        return { ok: true, data: { id, scope: validScope.data } };
       }
 
       const srcRoot = scopeRoot({
@@ -604,16 +1146,18 @@ export function createSkillService(deps: {
         roots: loaded.data.roots,
       });
       const destRoot = scopeRoot({
-        scope,
+        scope: validScope.data,
         roots: loaded.data.roots,
       });
       if (!srcRoot || !destRoot) {
-        return ipcError("NOT_FOUND", "Project scope is unavailable", { scope });
+        return ipcError("NOT_FOUND", "Project scope is unavailable", {
+          scope: validScope.data,
+        });
       }
 
       const targetRef = toScopeFileRef({
         skill,
-        scope,
+        scope: validScope.data,
         srcRoot,
         destRoot,
       });
@@ -663,9 +1207,132 @@ export function createSkillService(deps: {
       deps.logger.info("skill_scope_updated", {
         id,
         from: skill.scope,
-        to: scope,
+        to: validScope.data,
       });
-      return { ok: true, data: { id, scope } };
+      return { ok: true, data: { id, scope: validScope.data } };
+    },
+
+    createCustom: ({
+      name,
+      description,
+      promptTemplate,
+      inputType,
+      contextRules,
+      scope,
+      enabled = true,
+    }) => {
+      const validName = requireTextField("name", name, "name 不能为空");
+      if (!validName.ok) {
+        return validName;
+      }
+      const validDescription = requireTextField(
+        "description",
+        description,
+        "description 不能为空",
+      );
+      if (!validDescription.ok) {
+        return validDescription;
+      }
+      const validTemplate = requireTextField(
+        "promptTemplate",
+        promptTemplate,
+        "promptTemplate 不能为空",
+      );
+      if (!validTemplate.ok) {
+        return validTemplate;
+      }
+      const validInputType = requireInputType(inputType);
+      if (!validInputType.ok) {
+        return validInputType;
+      }
+      const validScope = requireCustomScope(scope);
+      if (!validScope.ok) {
+        return validScope;
+      }
+      const parsedContextRules = parseContextRules(contextRules);
+      if (!parsedContextRules.ok) {
+        return parsedContextRules;
+      }
+
+      const loaded = resolveLoaded();
+      if (!loaded.ok) {
+        return loaded;
+      }
+      const projectId =
+        validScope.data === "project" ? loaded.data.currentProjectId : null;
+      if (validScope.data === "project" && !projectId) {
+        return ipcError("NOT_FOUND", "Project scope is unavailable");
+      }
+
+      const inserted = insertCustomSkill({
+        db: deps.db,
+        id: randomUUID(),
+        name: validName.data,
+        description: validDescription.data,
+        promptTemplate: validTemplate.data,
+        inputType: validInputType.data,
+        contextRules: parsedContextRules.data,
+        scope: validScope.data,
+        projectId,
+        enabled,
+      });
+      if (!inserted.ok) {
+        return inserted;
+      }
+      return { ok: true, data: { skill: inserted.data } };
+    },
+
+    deleteCustom: ({ id }) => {
+      if (id.trim().length === 0) {
+        return validationError("id", "id 不能为空");
+      }
+
+      const loaded = resolveLoaded();
+      if (!loaded.ok) {
+        return loaded;
+      }
+      const normalizedId = normalizeCustomSkillId(id);
+      const custom = readCustomSkillById({
+        db: deps.db,
+        currentProjectId: loaded.data.currentProjectId,
+        id: normalizedId,
+      });
+      if (!custom.ok) {
+        return custom;
+      }
+      if (!custom.data) {
+        return ipcError("NOT_FOUND", "Custom skill not found", {
+          id: normalizedId,
+        });
+      }
+
+      try {
+        deps.db
+          .prepare("DELETE FROM custom_skills WHERE id = ?")
+          .run(custom.data.id);
+        return { ok: true, data: { id: custom.data.id, deleted: true } };
+      } catch (error) {
+        return ipcError(
+          "DB_ERROR",
+          "Failed to delete custom skill",
+          error instanceof Error ? { message: error.message } : { error },
+        );
+      }
+    },
+
+    listCustom: () => {
+      const loaded = resolveLoaded();
+      if (!loaded.ok) {
+        return loaded;
+      }
+      const listed = readCustomSkills({
+        db: deps.db,
+        currentProjectId: loaded.data.currentProjectId,
+      });
+      if (!listed.ok) {
+        return listed;
+      }
+      return { ok: true, data: { items: listed.data } };
     },
 
     resolveForRun: ({ id }) => {
@@ -678,6 +1345,45 @@ export function createSkillService(deps: {
       const loaded = resolveLoaded();
       if (!loaded.ok) {
         return loaded;
+      }
+
+      const customId = normalizeCustomSkillId(id);
+      const custom = readCustomSkillById({
+        db: deps.db,
+        currentProjectId: loaded.data.currentProjectId,
+        id: customId,
+      });
+      if (!custom.ok) {
+        return custom;
+      }
+      if (custom.data) {
+        const prompt = {
+          system: customPromptSystem({
+            name: custom.data.name,
+            description: custom.data.description,
+            contextRules: custom.data.contextRules,
+          }),
+          user: custom.data.promptTemplate,
+        };
+
+        return {
+          ok: true,
+          data: {
+            skill: {
+              id: encodeCustomListId(custom.data.id),
+              name: custom.data.name,
+              scope: custom.data.scope,
+              packageId: "pkg.creonow.custom",
+              version: "1.0.0",
+              filePath: "",
+              valid: true,
+              prompt,
+              bodyMd: "",
+            },
+            enabled: custom.data.enabled,
+            inputType: custom.data.inputType,
+          },
+        };
       }
 
       const skill = loaded.data.skills.find((s) => s.id === id) ?? null;

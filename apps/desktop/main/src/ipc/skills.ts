@@ -5,6 +5,7 @@ import type { IpcResponse } from "../../../../../packages/shared/types/ipc-gener
 import type { Logger } from "../logging/logger";
 import {
   createSkillService,
+  type CustomSkillInputType,
   type SkillListItem,
 } from "../services/skills/skillService";
 import { createDbNotReadyError } from "./dbError";
@@ -137,7 +138,16 @@ export function registerSkillIpcHandlers(deps: {
     "skill:custom:update",
     async (
       _e,
-      payload: { id: string; scope: "global" | "project" },
+      payload: {
+        id: string;
+        scope?: "global" | "project";
+        name?: string;
+        description?: string;
+        promptTemplate?: string;
+        inputType?: CustomSkillInputType;
+        contextRules?: Record<string, unknown>;
+        enabled?: boolean;
+      },
     ): Promise<IpcResponse<{ id: string; scope: "global" | "project" }>> => {
       if (!deps.db) {
         return {
@@ -152,7 +162,120 @@ export function registerSkillIpcHandlers(deps: {
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
       });
-      const res = svc.updateCustom({ id: payload.id, scope: payload.scope });
+      const res = svc.updateCustom(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "skill:custom:create",
+    async (
+      _e,
+      payload: {
+        name: string;
+        description: string;
+        promptTemplate: string;
+        inputType: CustomSkillInputType;
+        contextRules: Record<string, unknown>;
+        scope: "global" | "project";
+        enabled?: boolean;
+      },
+    ): Promise<
+      IpcResponse<{
+        skill: {
+          id: string;
+          name: string;
+          description: string;
+          promptTemplate: string;
+          inputType: CustomSkillInputType;
+          contextRules: Record<string, unknown>;
+          scope: "global" | "project";
+          enabled: boolean;
+          createdAt: number;
+          updatedAt: number;
+        };
+      }>
+    > => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: createDbNotReadyError(),
+        };
+      }
+
+      const svc = createSkillService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        builtinSkillsDir: deps.builtinSkillsDir,
+        logger: deps.logger,
+      });
+      const res = svc.createCustom(payload);
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "skill:custom:list",
+    async (): Promise<
+      IpcResponse<{
+        items: Array<{
+          id: string;
+          name: string;
+          description: string;
+          promptTemplate: string;
+          inputType: CustomSkillInputType;
+          contextRules: Record<string, unknown>;
+          scope: "global" | "project";
+          enabled: boolean;
+          createdAt: number;
+          updatedAt: number;
+        }>;
+      }>
+    > => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: createDbNotReadyError(),
+        };
+      }
+
+      const svc = createSkillService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        builtinSkillsDir: deps.builtinSkillsDir,
+        logger: deps.logger,
+      });
+      const res = svc.listCustom();
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "skill:custom:delete",
+    async (
+      _e,
+      payload: { id: string },
+    ): Promise<IpcResponse<{ id: string; deleted: true }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: createDbNotReadyError(),
+        };
+      }
+
+      const svc = createSkillService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        builtinSkillsDir: deps.builtinSkillsDir,
+        logger: deps.logger,
+      });
+      const res = svc.deleteCustom(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };

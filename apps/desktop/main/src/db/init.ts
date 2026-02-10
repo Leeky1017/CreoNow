@@ -29,6 +29,7 @@ import episodicStorageSql from "./migrations/0012_memory_episodic_storage.sql?ra
 import knowledgeGraphP0Sql from "./migrations/0013_knowledge_graph_p0.sql?raw";
 import projectMetadataSql from "./migrations/0014_project_metadata.sql?raw";
 import versionSnapshotWordCountSql from "./migrations/0015_version_snapshot_word_count.sql?raw";
+import skillCustomCrudSql from "./migrations/0016_skill_custom_crud.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -91,6 +92,11 @@ const MIGRATIONS_BASE: readonly Migration[] = [
     version: 15,
     name: "0015_version_snapshot_word_count",
     sql: versionSnapshotWordCountSql,
+  },
+  {
+    version: 16,
+    name: "0016_skill_custom_crud",
+    sql: skillCustomCrudSql,
   },
 ];
 

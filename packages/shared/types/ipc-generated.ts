@@ -225,6 +225,9 @@ export const IPC_CHANNELS = [
   "search:rank:explain",
   "search:replace:execute",
   "search:replace:preview",
+  "skill:custom:create",
+  "skill:custom:delete",
+  "skill:custom:list",
   "skill:custom:update",
   "skill:registry:list",
   "skill:registry:read",
@@ -2605,10 +2608,67 @@ export type IpcChannelSpec = {
       warnings: Array<string>;
     };
   };
-  "skill:custom:update": {
+  "skill:custom:create": {
+    request: {
+      contextRules: Record<string, string | number | boolean>;
+      description: string;
+      enabled?: boolean;
+      inputType: "selection" | "document";
+      name: string;
+      promptTemplate: string;
+      scope: "global" | "project";
+    };
+    response: {
+      skill: {
+        contextRules: Record<string, string | number | boolean>;
+        createdAt: number;
+        description: string;
+        enabled: boolean;
+        id: string;
+        inputType: "selection" | "document";
+        name: string;
+        promptTemplate: string;
+        scope: "global" | "project";
+        updatedAt: number;
+      };
+    };
+  };
+  "skill:custom:delete": {
     request: {
       id: string;
-      scope: "global" | "project";
+    };
+    response: {
+      deleted: true;
+      id: string;
+    };
+  };
+  "skill:custom:list": {
+    request: Record<string, never>;
+    response: {
+      items: Array<{
+        contextRules: Record<string, string | number | boolean>;
+        createdAt: number;
+        description: string;
+        enabled: boolean;
+        id: string;
+        inputType: "selection" | "document";
+        name: string;
+        promptTemplate: string;
+        scope: "global" | "project";
+        updatedAt: number;
+      }>;
+    };
+  };
+  "skill:custom:update": {
+    request: {
+      contextRules?: Record<string, string | number | boolean>;
+      description?: string;
+      enabled?: boolean;
+      id: string;
+      inputType?: "selection" | "document";
+      name?: string;
+      promptTemplate?: string;
+      scope?: "global" | "project";
     };
     response: {
       id: string;
