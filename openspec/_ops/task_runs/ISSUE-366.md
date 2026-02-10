@@ -3,7 +3,7 @@
 - Issue: #366
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/366
 - Branch: task/366-context-engine-p2-stable-prefix-hash
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/369
 - Scope: 交付 `openspec/changes/context-engine-p2-stable-prefix-hash`，落地 canonicalize + SHA-256 + stablePrefixUnchanged 维度语义，并完成主干收口
 - Out of Scope: Token 预算策略变更、Constraints CRUD 变更、Judge 具体算法
 
