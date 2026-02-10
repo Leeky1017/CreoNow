@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-10 11:12
+更新时间：2026-02-10 11:34
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -11,7 +11,7 @@
 - 变更泳道：
   - Context Engine：`p3 → p4`（`context-engine-p0`、`context-engine-p1`、`context-engine-p2` 已归档）
   - AI Service：`ai-service-p2 → (p3 || p4) → p5`（`ai-service-p0/p1` 已归档）
-  - Search & Retrieval：`p2 → p3 → p4`（`search-retrieval-p0-fts-foundation`、`search-retrieval-p1-embedding-semantic-rag` 已归档）
+  - Search & Retrieval：`p3 → p4`（`search-retrieval-p0-fts-foundation`、`search-retrieval-p1-embedding-semantic-rag`、`search-retrieval-p2-replace-versioned` 已归档）
 
 ## 执行顺序
 
@@ -19,15 +19,14 @@
    - `context-engine-p3-constraints-rules-injection`（依赖已归档 `context-engine-p1-token-budget-truncation`，已满足）
 2. Phase B（并行）
    - `ai-service-p2-panel-chat-apply-flow`（依赖已归档 `ai-service-p1-streaming-cancel-lifecycle`）
-   - `search-retrieval-p2-replace-versioned`（依赖 `search-retrieval-p0-fts-foundation`，已满足）
+   - `search-retrieval-p3-hybrid-ranking-explain`（依赖已归档 `search-retrieval-p1-embedding-semantic-rag` + `search-retrieval-p2-replace-versioned`）
 3. Phase C（并行）
    - `context-engine-p4-hardening-boundary`（依赖已归档 `context-engine-p2-stable-prefix-hash` + `context-engine-p3-constraints-rules-injection`）
    - `ai-service-p3-judge-quality-pipeline`（依赖 `ai-service-p2-panel-chat-apply-flow`）
    - `ai-service-p4-candidates-usage-stats`（依赖 `ai-service-p2-panel-chat-apply-flow`）
-   - `search-retrieval-p3-hybrid-ranking-explain`（依赖已归档 `search-retrieval-p1-embedding-semantic-rag` + `search-retrieval-p2-replace-versioned`）
+   - `search-retrieval-p4-hardening-boundary`（依赖已归档 `search-retrieval-p0-fts-foundation` + `search-retrieval-p1-embedding-semantic-rag` + `search-retrieval-p2-replace-versioned` + `search-retrieval-p3-hybrid-ranking-explain`）
 4. Phase D（并行）
    - `ai-service-p5-failover-quota-hardening`（依赖已归档 `ai-service-p0-llmproxy-config-security` + `ai-service-p1-streaming-cancel-lifecycle` + `ai-service-p3-judge-quality-pipeline` + `ai-service-p4-candidates-usage-stats`）
-   - `search-retrieval-p4-hardening-boundary`（依赖已归档 `search-retrieval-p0-fts-foundation` + `search-retrieval-p1-embedding-semantic-rag` + `search-retrieval-p2-replace-versioned` + `search-retrieval-p3-hybrid-ranking-explain`）
 
 ## 依赖说明
 
