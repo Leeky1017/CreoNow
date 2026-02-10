@@ -264,7 +264,7 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         documentId: args.documentId,
         contentJson: args.contentJson,
         actor: "ai",
-        reason: `ai-apply:${args.runId}`,
+        reason: "ai-accept",
       });
 
       if (!res.ok) {

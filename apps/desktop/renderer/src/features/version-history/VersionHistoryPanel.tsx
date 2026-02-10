@@ -30,7 +30,7 @@ export interface VersionEntry {
   wordChange: WordChange;
   /** Whether this is the current version */
   isCurrent?: boolean;
-  /** Modification reason (e.g., "autosave", "manual-save", "ai-apply:runId") */
+  /** Modification reason (e.g., "autosave", "manual-save", "ai-accept") */
   reason?: string;
   /** Number of affected paragraphs */
   affectedParagraphs?: number;
@@ -321,6 +321,8 @@ function VersionMeta({
   const getReasonText = (r: string): string => {
     if (r === "autosave") return "自动保存";
     if (r === "manual-save") return "手动保存";
+    if (r === "status-change") return "状态变更";
+    if (r === "ai-accept") return "AI 修改";
     if (r.startsWith("ai-apply:")) return "AI 修改";
     return r;
   };

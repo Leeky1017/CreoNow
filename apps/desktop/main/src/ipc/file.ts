@@ -14,15 +14,18 @@ import type { KgRecognitionRuntime } from "../services/kg/kgRecognitionRuntime";
 import { createStatsService } from "../services/stats/statsService";
 
 type Actor = "user" | "auto" | "ai";
-type SaveReason = "manual-save" | "autosave" | `ai-apply:${string}`;
+type SaveReason = "manual-save" | "autosave" | "ai-accept" | "status-change";
 
 const WORDS_PER_SECOND = 3;
 
-function isAiApplyReason(reason: string): reason is `ai-apply:${string}` {
-  const prefix = "ai-apply:";
-  return (
-    reason.startsWith(prefix) && reason.slice(prefix.length).trim().length > 0
-  );
+function isSaveReasonValidForActor(actor: Actor, reason: SaveReason): boolean {
+  if (actor === "auto") {
+    return reason === "autosave";
+  }
+  if (actor === "ai") {
+    return reason === "ai-accept";
+  }
+  return reason === "manual-save" || reason === "status-change";
 }
 
 function countWords(text: string): number {
@@ -282,11 +285,7 @@ export function registerFileIpcHandlers(deps: {
         };
       }
 
-      if (
-        (payload.actor === "user" && payload.reason !== "manual-save") ||
-        (payload.actor === "auto" && payload.reason !== "autosave") ||
-        (payload.actor === "ai" && !isAiApplyReason(payload.reason))
-      ) {
+      if (!isSaveReasonValidForActor(payload.actor, payload.reason)) {
         return {
           ok: false,
           error: {

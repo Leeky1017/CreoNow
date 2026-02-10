@@ -24,12 +24,27 @@ type DocRow = {
   updatedAt: number;
 };
 
+type VersionRow = {
+  versionId: string;
+  projectId: string;
+  documentId: string;
+  actor: "user" | "auto" | "ai";
+  reason: string;
+  contentJson: string;
+  contentText: string;
+  contentMd: string;
+  contentHash: string;
+  wordCount: number;
+  createdAt: number;
+};
+
 function createNoopLogger(): Logger {
   return { logPath: "<test>", info: () => {}, error: () => {} };
 }
 
 function createFakeDb(): Database.Database {
   const docs: DocRow[] = [];
+  const versions: VersionRow[] = [];
   const settings = new Map<string, { valueJson: string; updatedAt: number }>();
 
   function settingsKey(scope: string, key: string): string {
@@ -326,12 +341,197 @@ function createFakeDb(): Database.Database {
       }
 
       if (
+        sql ===
+        "UPDATE documents SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, updated_at = ? WHERE project_id = ? AND document_id = ?"
+      ) {
+        return {
+          run(
+            contentJson: string,
+            contentText: string,
+            contentMd: string,
+            contentHash: string,
+            updatedAt: number,
+            projectId: string,
+            documentId: string,
+          ) {
+            const row = docs.find(
+              (d) => d.projectId === projectId && d.documentId === documentId,
+            );
+            if (!row) {
+              return { changes: 0 };
+            }
+            row.contentJson = contentJson;
+            row.contentText = contentText;
+            row.contentMd = contentMd;
+            row.contentHash = contentHash;
+            row.updatedAt = updatedAt;
+            return { changes: 1 };
+          },
+        };
+      }
+
+      if (
+        sql ===
+        "SELECT content_hash as contentHash FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1"
+      ) {
+        return {
+          get(documentId: string) {
+            const latest = versions
+              .filter((v) => v.documentId === documentId)
+              .sort((a, b) => b.createdAt - a.createdAt)[0];
+            return latest ? { contentHash: latest.contentHash } : undefined;
+          },
+        };
+      }
+
+      if (
+        sql ===
+        "SELECT version_id as versionId, reason, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1"
+      ) {
+        return {
+          get(documentId: string) {
+            const latest = versions
+              .filter((v) => v.documentId === documentId)
+              .sort((a, b) => b.createdAt - a.createdAt)[0];
+            if (!latest) {
+              return undefined;
+            }
+            return {
+              versionId: latest.versionId,
+              reason: latest.reason,
+              contentHash: latest.contentHash,
+              createdAt: latest.createdAt,
+            };
+          },
+        };
+      }
+
+      if (
         sql.startsWith(
-          "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, diff_format, diff_text, created_at)",
+          "SELECT version_id as versionId, actor, reason, content_hash as contentHash,",
+        ) &&
+        sql.includes("FROM document_versions WHERE document_id = ?")
+      ) {
+        return {
+          all(documentId: string) {
+            return versions
+              .filter((v) => v.documentId === documentId)
+              .sort((a, b) => b.createdAt - a.createdAt)
+              .map((v) => ({
+                versionId: v.versionId,
+                actor: v.actor,
+                reason: v.reason,
+                contentHash: v.contentHash,
+                wordCount: v.wordCount,
+                createdAt: v.createdAt,
+              }));
+          },
+        };
+      }
+
+      if (
+        sql ===
+        "SELECT document_id as documentId, project_id as projectId, version_id as versionId, actor, reason, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, created_at as createdAt FROM document_versions WHERE document_id = ? AND version_id = ?"
+      ) {
+        return {
+          get(documentId: string, versionId: string) {
+            const row = versions.find(
+              (v) => v.documentId === documentId && v.versionId === versionId,
+            );
+            if (!row) {
+              return undefined;
+            }
+            return {
+              documentId: row.documentId,
+              projectId: row.projectId,
+              versionId: row.versionId,
+              actor: row.actor,
+              reason: row.reason,
+              contentJson: row.contentJson,
+              contentText: row.contentText,
+              contentMd: row.contentMd,
+              contentHash: row.contentHash,
+              wordCount: row.wordCount,
+              createdAt: row.createdAt,
+            };
+          },
+        };
+      }
+
+      if (
+        sql.startsWith(
+          "UPDATE document_versions SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?,",
+        ) &&
+        sql.includes("WHERE version_id = ?")
+      ) {
+        return {
+          run(
+            contentJson: string,
+            contentText: string,
+            contentMd: string,
+            contentHash: string,
+            maybeWordCountOrCreatedAt: number,
+            maybeCreatedAtOrVersionId: number | string,
+            maybeVersionId: string | undefined,
+          ) {
+            const hasWordCount = typeof maybeVersionId === "string";
+            const wordCount = hasWordCount
+              ? maybeWordCountOrCreatedAt
+              : 0;
+            const createdAt = hasWordCount
+              ? (maybeCreatedAtOrVersionId as number)
+              : maybeWordCountOrCreatedAt;
+            const versionId = hasWordCount
+              ? maybeVersionId
+              : (maybeCreatedAtOrVersionId as string);
+
+            const row = versions.find((v) => v.versionId === versionId);
+            if (!row) {
+              return { changes: 0 };
+            }
+            row.contentJson = contentJson;
+            row.contentText = contentText;
+            row.contentMd = contentMd;
+            row.contentHash = contentHash;
+            row.wordCount = wordCount;
+            row.createdAt = createdAt;
+            return { changes: 1 };
+          },
+        };
+      }
+
+      if (
+        sql.startsWith(
+          "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason,",
         )
       ) {
         return {
-          run() {
+          run(...params: unknown[]) {
+            const versionId = String(params[0]);
+            const projectId = String(params[1]);
+            const documentId = String(params[2]);
+            const actor = params[3] as "user" | "auto" | "ai";
+            const reason = String(params[4]);
+            const contentJson = String(params[5]);
+            const contentText = String(params[6]);
+            const contentMd = String(params[7]);
+            const contentHash = String(params[8]);
+            const hasWordCount = typeof params[9] === "number";
+            const wordCount = hasWordCount ? Number(params[9]) : 0;
+            const createdAt = Number(params[params.length - 1]);
+            versions.push({
+              versionId,
+              projectId,
+              documentId,
+              actor,
+              reason,
+              contentJson,
+              contentText,
+              contentMd,
+              contentHash,
+              wordCount,
+              createdAt,
+            });
             return { changes: 1 };
           },
         };
@@ -481,6 +681,152 @@ function createFakeDb(): Database.Database {
     status: "final",
   });
   assert.equal(updated.ok, true);
+}
+
+/**
+ * Snapshot schema: manual-save snapshot should include wordCount field.
+ */
+{
+  const db = createFakeDb();
+  const svc = createDocumentService({ db, logger: createNoopLogger() });
+  const created = svc.create({ projectId: "proj-1" });
+  if (!created.ok) {
+    throw new Error(`create failed: ${created.error.code}`);
+  }
+
+  const saveRes = svc.save({
+    projectId: "proj-1",
+    documentId: created.data.documentId,
+    contentJson: {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "a b" }] }],
+    },
+    actor: "user",
+    reason: "manual-save",
+  });
+  assert.equal(saveRes.ok, true);
+
+  const listed = svc.listVersions({ documentId: created.data.documentId });
+  assert.equal(listed.ok, true);
+  if (listed.ok) {
+    const first = listed.data.items[0] as unknown as Record<string, unknown>;
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(first, "wordCount"),
+      true,
+      "version snapshot should expose wordCount",
+    );
+    assert.equal(typeof first.wordCount, "number");
+  }
+}
+
+/**
+ * Snapshot reason mapping: AI apply accept should persist with reason=ai-accept.
+ */
+{
+  const db = createFakeDb();
+  const svc = createDocumentService({ db, logger: createNoopLogger() });
+  const created = svc.create({ projectId: "proj-1" });
+  if (!created.ok) {
+    throw new Error(`create failed: ${created.error.code}`);
+  }
+
+  const aiSave = (
+    svc as unknown as {
+      save: (args: {
+        projectId: string;
+        documentId: string;
+        contentJson: unknown;
+        actor: "ai";
+        reason: "ai-accept";
+      }) => { ok: boolean };
+    }
+  ).save;
+
+  const saveRes = aiSave({
+    projectId: "proj-1",
+    documentId: created.data.documentId,
+    contentJson: { type: "doc", content: [{ type: "paragraph" }] },
+    actor: "ai",
+    reason: "ai-accept",
+  });
+
+  assert.equal(saveRes.ok, true, "AI accept save should succeed");
+}
+
+/**
+ * Autosave merge: multiple autosaves within 5 minutes should merge to one snapshot.
+ */
+{
+  const db = createFakeDb();
+  const svc = createDocumentService({ db, logger: createNoopLogger() });
+  const created = svc.create({ projectId: "proj-1" });
+  if (!created.ok) {
+    throw new Error(`create failed: ${created.error.code}`);
+  }
+
+  const first = svc.save({
+    projectId: "proj-1",
+    documentId: created.data.documentId,
+    contentJson: {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "one" }] }],
+    },
+    actor: "auto",
+    reason: "autosave",
+  });
+  assert.equal(first.ok, true);
+
+  const second = svc.save({
+    projectId: "proj-1",
+    documentId: created.data.documentId,
+    contentJson: {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "two" }] }],
+    },
+    actor: "auto",
+    reason: "autosave",
+  });
+  assert.equal(second.ok, true);
+
+  const listed = svc.listVersions({ documentId: created.data.documentId });
+  assert.equal(listed.ok, true);
+  if (listed.ok) {
+    assert.equal(
+      listed.data.items.length,
+      1,
+      "autosave snapshots in 5-minute window should merge to one",
+    );
+  }
+}
+
+/**
+ * Status transition snapshots should use reason=status-change.
+ */
+{
+  const db = createFakeDb();
+  const svc = createDocumentService({ db, logger: createNoopLogger() });
+  const created = svc.create({ projectId: "proj-1" });
+  if (!created.ok) {
+    throw new Error(`create failed: ${created.error.code}`);
+  }
+
+  const updated = svc.updateStatus({
+    projectId: "proj-1",
+    documentId: created.data.documentId,
+    status: "final",
+  });
+  assert.equal(updated.ok, true);
+
+  const listed = svc.listVersions({ documentId: created.data.documentId });
+  assert.equal(listed.ok, true);
+  if (listed.ok) {
+    assert.equal(listed.data.items.length >= 1, true);
+    assert.equal(
+      listed.data.items[0]?.reason,
+      "status-change",
+      "status transition should persist status-change reason",
+    );
+  }
 }
 
 console.log("documentService.lifecycle.test.ts: all assertions passed");

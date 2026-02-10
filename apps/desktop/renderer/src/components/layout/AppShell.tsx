@@ -238,6 +238,7 @@ export function AppShell(): JSX.Element {
   const setSidebarCollapsed = useLayoutStore((s) => s.setSidebarCollapsed);
   const setPanelCollapsed = useLayoutStore((s) => s.setPanelCollapsed);
   const setZenMode = useLayoutStore((s) => s.setZenMode);
+  const setActiveLeftPanel = useLayoutStore((s) => s.setActiveLeftPanel);
   const resetSidebarWidth = useLayoutStore((s) => s.resetSidebarWidth);
   const resetPanelWidth = useLayoutStore((s) => s.resetPanelWidth);
 
@@ -251,10 +252,41 @@ export function AppShell(): JSX.Element {
 
   // File store for creating documents
   const createDocument = useFileStore((s) => s.createAndSetCurrent);
+  const setCurrentDocument = useFileStore((s) => s.setCurrent);
+  const openEditorDocument = useEditorStore((s) => s.openDocument);
 
   // Version compare hook
   const { compareState, closeCompare } = useVersionCompare();
   const { confirm, dialogProps } = useConfirmDialog();
+
+  const openVersionHistoryPanel = React.useCallback(() => {
+    setActiveLeftPanel("versionHistory");
+    if (sidebarCollapsed) {
+      setSidebarCollapsed(false);
+    }
+  }, [setActiveLeftPanel, setSidebarCollapsed, sidebarCollapsed]);
+
+  const openVersionHistoryForDocument = React.useCallback(
+    (documentId: string) => {
+      if (!currentProjectId) {
+        openVersionHistoryPanel();
+        return;
+      }
+
+      void (async () => {
+        await setCurrentDocument({ projectId: currentProjectId, documentId });
+        await openEditorDocument({ projectId: currentProjectId, documentId });
+      })();
+
+      openVersionHistoryPanel();
+    },
+    [
+      currentProjectId,
+      openEditorDocument,
+      openVersionHistoryPanel,
+      setCurrentDocument,
+    ],
+  );
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -362,8 +394,10 @@ export function AppShell(): JSX.Element {
       onToggleSidebar: () => setSidebarCollapsed(!sidebarCollapsed),
       onToggleRightPanel: () => setPanelCollapsed(!panelCollapsed),
       onToggleZenMode: () => setZenMode(!zenMode),
+      onOpenVersionHistory: openVersionHistoryPanel,
     }),
     [
+      openVersionHistoryPanel,
       panelCollapsed,
       setPanelCollapsed,
       setSidebarCollapsed,
@@ -469,6 +503,7 @@ export function AppShell(): JSX.Element {
             collapsed={sidebarCollapsed}
             projectId={currentProjectId}
             activePanel={activeLeftPanel}
+            onOpenVersionHistoryDocument={openVersionHistoryForDocument}
           />
 
           {!sidebarCollapsed ? (
@@ -524,6 +559,7 @@ export function AppShell(): JSX.Element {
             width={effectivePanelWidth}
             collapsed={panelCollapsed}
             onOpenSettings={() => setSettingsDialogOpen(true)}
+            onOpenVersionHistory={openVersionHistoryPanel}
           />
         </div>
 

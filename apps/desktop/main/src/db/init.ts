@@ -28,6 +28,7 @@ import documentTypeStatusSql from "./migrations/0011_document_type_status.sql?ra
 import episodicStorageSql from "./migrations/0012_memory_episodic_storage.sql?raw";
 import knowledgeGraphP0Sql from "./migrations/0013_knowledge_graph_p0.sql?raw";
 import projectMetadataSql from "./migrations/0014_project_metadata.sql?raw";
+import versionSnapshotWordCountSql from "./migrations/0015_version_snapshot_word_count.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -85,6 +86,11 @@ const MIGRATIONS_BASE: readonly Migration[] = [
     version: 14,
     name: "0014_project_metadata",
     sql: projectMetadataSql,
+  },
+  {
+    version: 15,
+    name: "0015_version_snapshot_word_count",
+    sql: versionSnapshotWordCountSql,
   },
 ];
 
