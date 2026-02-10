@@ -73,4 +73,3 @@ try {
 } finally {
   globalThis.fetch = originalFetch;
 }
-

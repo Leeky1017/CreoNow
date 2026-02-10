@@ -1,6 +1,7 @@
 # Proposal: issue-388-ai-service-p5-failover-quota-hardening
 
 ## Why
+
 `openspec/changes/ai-service-p5-failover-quota-hardening` 已定义 AI Service P5 的稳定性与边界硬化要求，但当前代码尚未提供可验证的主备故障切换闭环、会话预算阻断、全 provider 降级错误语义，以及同会话并发/容量边界保护。若不完成本 change，下游门禁将无法证明 AI 链路在异常与高压场景下可判定且可恢复。
 
 ## What Changes

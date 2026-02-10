@@ -438,7 +438,10 @@ function resolveSettingsBackupProvider(args: {
 
   const candidates: ProviderConfig[] = [];
 
-  const pushCandidate = (provider: AiProvider, credentials: ProviderCredentials) => {
+  const pushCandidate = (
+    provider: AiProvider,
+    credentials: ProviderCredentials,
+  ) => {
     const cfg = buildProviderConfigFromCredentials({
       provider,
       credentials,
@@ -1783,7 +1786,9 @@ export function createAiService(deps: {
       traceId: args.entry.traceId,
       from: args.primary.provider,
       to: args.backup.provider,
-      reason: canHalfOpenProbe ? "half_open_probe_failed" : "primary_unavailable",
+      reason: canHalfOpenProbe
+        ? "half_open_probe_failed"
+        : "primary_unavailable",
     });
 
     const backupRes = await runNonStreamWithProvider({

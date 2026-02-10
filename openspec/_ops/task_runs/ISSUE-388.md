@@ -164,3 +164,23 @@
 - Key output:
   - 分支已推送并跟踪远端
   - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/389`
+
+### 2026-02-10 14:31 +0800 Preflight 首轮（格式检查失败）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - 失败点：`pnpm exec prettier --check ...`
+  - 未通过文件：`aiService.ts`、2 个新增 AI 测试、1 个集成测试、Rulebook `proposal/.metadata`
+  - 处置：执行 `prettier --write` 后复跑 preflight
+
+### 2026-02-10 14:33 +0800 Preflight 复跑通过
+
+- Command:
+  - `pnpm exec prettier --write apps/desktop/main/src/services/ai/__tests__/provider-failover-half-open.test.ts apps/desktop/main/src/services/ai/__tests__/trace-audit-continuity.test.ts apps/desktop/main/src/services/ai/aiService.ts apps/desktop/tests/integration/skill-session-queue-limit.test.ts rulebook/tasks/issue-388-ai-service-p5-failover-quota-hardening/.metadata.json rulebook/tasks/issue-388-ai-service-p5-failover-quota-hardening/proposal.md`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0` / `0`
+- Key output:
+  - `prettier --check` 通过
+  - preflight 全部通过（`typecheck`、`lint`、`contract:check`、`cross-module:check`、`test:unit`）

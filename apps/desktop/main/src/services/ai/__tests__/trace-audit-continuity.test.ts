@@ -133,7 +133,9 @@ try {
     assert.fail("missing ai_provider_half_open_probe audit log");
   }
 
-  const recovered = logs.find((entry) => entry.name === "ai_provider_recovered");
+  const recovered = logs.find(
+    (entry) => entry.name === "ai_provider_recovered",
+  );
   if (!recovered) {
     assert.fail("missing ai_provider_recovered audit log");
   }
@@ -161,4 +163,3 @@ try {
 } finally {
   globalThis.fetch = originalFetch;
 }
-
