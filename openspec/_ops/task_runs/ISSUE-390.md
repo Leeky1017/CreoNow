@@ -3,7 +3,7 @@
 - Issue: #390
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/390
 - Branch: task/390-p3-integration-gate-closeout
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/391
 - Scope: 执行 P3（AI Service / Context Engine / Search & Retrieval）全量集成门禁，清理 lint warning，并完成交付收口到控制面 `main`
 - Out of Scope: 新增产品功能、修改已归档 P3 规范内容
 
@@ -113,3 +113,22 @@
 - Key output:
   - 首次失败文件：`rulebook/tasks/issue-390-p3-integration-gate-closeout/.metadata.json`
   - 修复后：`All matched files use Prettier code style!`
+
+### 2026-02-10 16:34 +0800 提交与推送
+
+- Command:
+  - `git commit -m "fix: clear lint warnings and run p3 integration gate (#390)"`
+  - `git push -u origin task/390-p3-integration-gate-closeout`
+- Exit code: `0`
+- Key output:
+  - commit: `9aae1b52`
+  - 远端分支创建成功并建立 tracking
+
+### 2026-02-10 16:35 +0800 创建 PR 并回填 RUN_LOG
+
+- Command:
+  - `gh pr create --base main --head task/390-p3-integration-gate-closeout --title "P3 full integration gate and lint warning cleanup (#390)" --body-file /tmp/pr-390-body.md`
+  - `python3 ...`（将 `ISSUE-390.md` 的 `- PR:` 回填为真实链接）
+- Exit code: `0`
+- Key output:
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/391`
