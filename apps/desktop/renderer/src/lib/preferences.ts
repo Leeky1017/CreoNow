@@ -12,6 +12,7 @@ export type PreferenceKey =
       | "activePanel"
       | "activePanelTab"}`
   | `${typeof APP_ID}.theme.${"mode"}`
+  | `${typeof APP_ID}.editor.${"showAiMarks"}`
   | `${typeof APP_ID}.onboarding.${"completed"}`
   | `${typeof APP_ID}.version`;
 
@@ -43,6 +44,7 @@ function isCreonowKey(key: string): key is PreferenceKey {
     key === `${APP_ID}.version` ||
     key.startsWith(`${APP_ID}.layout.`) ||
     key.startsWith(`${APP_ID}.theme.`) ||
+    key.startsWith(`${APP_ID}.editor.`) ||
     key.startsWith(`${APP_ID}.onboarding.`)
   );
 }

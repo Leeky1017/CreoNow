@@ -6,6 +6,7 @@ import Link from "@tiptap/extension-link";
 import BubbleMenuExtension from "@tiptap/extension-bubble-menu";
 
 import { useEditorStore } from "../../stores/editorStore";
+import { useVersionStore } from "../../stores/versionStore";
 import { useAutosave } from "./useAutosave";
 import { Button, Text } from "../../components/primitives";
 import { EditorToolbar } from "./EditorToolbar";
@@ -144,9 +145,18 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     (s) => s.downgradeFinalStatusForEdit,
   );
   const setEditorInstance = useEditorStore((s) => s.setEditorInstance);
+  const previewStatus = useVersionStore((s) => s.previewStatus);
+  const previewTimestamp = useVersionStore((s) => s.previewTimestamp);
+  const previewContentJson = useVersionStore((s) => s.previewContentJson);
+  const exitPreview = useVersionStore((s) => s.exitPreview);
 
   const suppressAutosaveRef = React.useRef<boolean>(false);
   const [contentReady, setContentReady] = React.useState(false);
+  const isPreviewMode =
+    previewStatus === "ready" && previewContentJson !== null;
+  const activeContentJson = isPreviewMode
+    ? previewContentJson
+    : documentContentJson;
 
   const editor = useEditor({
     extensions: [
@@ -185,11 +195,11 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     if (!editor) {
       return;
     }
-    editor.setEditable(documentStatus !== "final");
-  }, [documentStatus, editor]);
+    editor.setEditable(documentStatus !== "final" && !isPreviewMode);
+  }, [documentStatus, editor, isPreviewMode]);
 
   React.useEffect(() => {
-    if (!editor || !documentId || !documentContentJson) {
+    if (!editor || !documentId || !activeContentJson) {
       setContentReady(false);
       return;
     }
@@ -197,21 +207,22 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     try {
       setContentReady(false);
       suppressAutosaveRef.current = true;
-      editor.commands.setContent(JSON.parse(documentContentJson));
+      editor.commands.setContent(JSON.parse(activeContentJson));
     } finally {
       window.setTimeout(() => {
         suppressAutosaveRef.current = false;
         setContentReady(true);
       }, 0);
     }
-  }, [documentContentJson, documentId, editor]);
+  }, [activeContentJson, documentId, editor]);
 
   useAutosave({
     enabled:
       bootstrapStatus === "ready" &&
       !!documentId &&
       contentReady &&
-      documentStatus !== "final",
+      documentStatus !== "final" &&
+      !isPreviewMode,
     projectId: props.projectId,
     documentId: documentId ?? "",
     editor,
@@ -258,6 +269,11 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       }
 
       if (e.key.toLowerCase() === "s") {
+        if (isPreviewMode) {
+          e.preventDefault();
+          return;
+        }
+
         e.preventDefault();
         const json = JSON.stringify(currentEditor.getJSON());
         void save({
@@ -277,6 +293,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     contentReady,
     documentId,
     editor,
+    isPreviewMode,
     props.projectId,
     save,
   ]);
@@ -311,7 +328,37 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       data-document-id={documentId}
       className="flex h-full w-full min-w-0 flex-col"
     >
-      {documentStatus === "final" ? (
+      {isPreviewMode ? (
+        <div
+          data-testid="editor-preview-banner"
+          className="flex items-center justify-between gap-3 border-b border-[var(--color-border-default)] bg-[var(--color-bg-raised)] px-4 py-2"
+        >
+          <Text size="small" color="muted">
+            正在预览 {previewTimestamp ?? "历史"} 的版本
+          </Text>
+          <div className="flex items-center gap-2">
+            <Button
+              data-testid="preview-restore-placeholder"
+              variant="secondary"
+              size="sm"
+              disabled={true}
+              title="将在 version-control-p2 中接入完整恢复流程"
+            >
+              恢复到此版本
+            </Button>
+            <Button
+              data-testid="preview-return-current"
+              variant="secondary"
+              size="sm"
+              onClick={exitPreview}
+            >
+              返回当前版本
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {documentStatus === "final" && !isPreviewMode ? (
         <div
           data-testid="final-document-guard"
           className="flex items-center justify-between gap-3 border-b border-[var(--color-separator)] bg-[var(--color-bg-surface)] px-4 py-2"
@@ -330,7 +377,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
         </div>
       ) : null}
       <EditorBubbleMenu editor={editor} />
-      <EditorToolbar editor={editor} />
+      <EditorToolbar editor={editor} disabled={isPreviewMode} />
       <div className="flex-1 overflow-y-auto">
         <EditorContent editor={editor} className="h-full" />
       </div>

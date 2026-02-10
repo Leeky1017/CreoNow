@@ -319,6 +319,8 @@ const icons = {
 export interface EditorToolbarProps {
   /** TipTap editor instance */
   editor: Editor | null;
+  /** Disable all toolbar actions (used in read-only preview mode) */
+  disabled?: boolean;
   /** Additional CSS classes */
   className?: string;
 }
@@ -331,6 +333,7 @@ export interface EditorToolbarProps {
  */
 export function EditorToolbar({
   editor,
+  disabled = false,
   className,
 }: EditorToolbarProps): JSX.Element | null {
   if (!editor) {
@@ -350,7 +353,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.bold.label}
         shortcut={EDITOR_SHORTCUTS.bold.display()}
         isActive={editor.isActive("bold")}
-        disabled={inlineDisabled}
+        disabled={disabled || inlineDisabled}
         onClick={() => editor.chain().focus().toggleBold().run()}
       >
         {icons.bold}
@@ -360,7 +363,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.italic.label}
         shortcut={EDITOR_SHORTCUTS.italic.display()}
         isActive={editor.isActive("italic")}
-        disabled={inlineDisabled}
+        disabled={disabled || inlineDisabled}
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
         {icons.italic}
@@ -370,7 +373,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.underline.label}
         shortcut={EDITOR_SHORTCUTS.underline.display()}
         isActive={editor.isActive("underline")}
-        disabled={inlineDisabled}
+        disabled={disabled || inlineDisabled}
         onClick={() => editor.chain().focus().toggleMark("underline").run()}
       >
         {icons.underline}
@@ -380,7 +383,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.strikethrough.label}
         shortcut={EDITOR_SHORTCUTS.strikethrough.display()}
         isActive={editor.isActive("strike")}
-        disabled={inlineDisabled}
+        disabled={disabled || inlineDisabled}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       >
         {icons.strikethrough}
@@ -390,7 +393,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.code.label}
         shortcut={EDITOR_SHORTCUTS.code.display()}
         isActive={editor.isActive("code")}
-        disabled={inlineDisabled}
+        disabled={disabled || inlineDisabled}
         onClick={() => editor.chain().focus().toggleCode().run()}
       >
         {icons.code}
@@ -404,6 +407,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.heading1.label}
         shortcut={EDITOR_SHORTCUTS.heading1.display()}
         isActive={editor.isActive("heading", { level: 1 })}
+        disabled={disabled}
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
       >
         {icons.heading1}
@@ -413,6 +417,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.heading2.label}
         shortcut={EDITOR_SHORTCUTS.heading2.display()}
         isActive={editor.isActive("heading", { level: 2 })}
+        disabled={disabled}
         onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
       >
         {icons.heading2}
@@ -422,6 +427,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.heading3.label}
         shortcut={EDITOR_SHORTCUTS.heading3.display()}
         isActive={editor.isActive("heading", { level: 3 })}
+        disabled={disabled}
         onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
       >
         {icons.heading3}
@@ -435,6 +441,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.bulletList.label}
         shortcut={EDITOR_SHORTCUTS.bulletList.display()}
         isActive={editor.isActive("bulletList")}
+        disabled={disabled}
         onClick={() => editor.chain().focus().toggleBulletList().run()}
       >
         {icons.bulletList}
@@ -444,6 +451,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.orderedList.label}
         shortcut={EDITOR_SHORTCUTS.orderedList.display()}
         isActive={editor.isActive("orderedList")}
+        disabled={disabled}
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
       >
         {icons.orderedList}
@@ -457,6 +465,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.blockquote.label}
         shortcut={EDITOR_SHORTCUTS.blockquote.display()}
         isActive={editor.isActive("blockquote")}
+        disabled={disabled}
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
       >
         {icons.blockquote}
@@ -466,6 +475,7 @@ export function EditorToolbar({
         label={EDITOR_SHORTCUTS.codeBlock.label}
         shortcut={EDITOR_SHORTCUTS.codeBlock.display()}
         isActive={editor.isActive("codeBlock")}
+        disabled={disabled}
         onClick={() => editor.chain().focus().toggleCodeBlock().run()}
       >
         {icons.codeBlock}
@@ -473,6 +483,7 @@ export function EditorToolbar({
       <ToolbarButton
         testId="toolbar-hr"
         label="Horizontal Rule"
+        disabled={disabled}
         onClick={() => editor.chain().focus().setHorizontalRule().run()}
       >
         {icons.horizontalRule}
@@ -485,7 +496,7 @@ export function EditorToolbar({
         testId="toolbar-undo"
         label={EDITOR_SHORTCUTS.undo.label}
         shortcut={EDITOR_SHORTCUTS.undo.display()}
-        disabled={!editor.can().undo()}
+        disabled={disabled || !editor.can().undo()}
         onClick={() => editor.chain().focus().undo().run()}
       >
         {icons.undo}
@@ -494,7 +505,7 @@ export function EditorToolbar({
         testId="toolbar-redo"
         label={EDITOR_SHORTCUTS.redo.label}
         shortcut={EDITOR_SHORTCUTS.redo.display()}
-        disabled={!editor.can().redo()}
+        disabled={disabled || !editor.can().redo()}
         onClick={() => editor.chain().focus().redo().run()}
       >
         {icons.redo}

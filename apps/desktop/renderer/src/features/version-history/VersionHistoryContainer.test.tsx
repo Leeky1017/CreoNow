@@ -3,6 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { VersionHistoryContainer } from "./VersionHistoryContainer";
+import {
+  VersionStoreProvider,
+  createVersionStore,
+  type UseVersionStore,
+} from "../../stores/versionStore";
 
 const invokeMock = vi.hoisted(() => vi.fn());
 const startCompareMock = vi.hoisted(() => vi.fn());
@@ -137,6 +142,18 @@ function getRestoreInvokeCount(): number {
   ).length;
 }
 
+/**
+ * Render VersionHistoryContainer with a real version store provider.
+ */
+function renderWithVersionStore(
+  ui: JSX.Element,
+  versionStore: UseVersionStore,
+): ReturnType<typeof render> {
+  return render(
+    <VersionStoreProvider store={versionStore}>{ui}</VersionStoreProvider>,
+  );
+}
+
 describe("VersionHistoryContainer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -145,10 +162,14 @@ describe("VersionHistoryContainer", () => {
     installInvokeMock();
   });
 
-  it("opens preview dialog with read-only version content", async () => {
+  it("loads selected version into preview state when preview is triggered", async () => {
     const user = userEvent.setup();
+    const versionStore = createVersionStore({ invoke: invokeMock as never });
 
-    render(<VersionHistoryContainer projectId="project-1" />);
+    renderWithVersionStore(
+      <VersionHistoryContainer projectId="project-1" />,
+      versionStore,
+    );
 
     await waitFor(() => {
       expect(
@@ -165,18 +186,22 @@ describe("VersionHistoryContainer", () => {
       });
     });
 
-    const content = await screen.findByTestId("version-preview-content");
-    expect(content).toHaveAttribute("readonly");
-    expect(content).toHaveValue("historical body");
+    expect(versionStore.getState().previewStatus).toBe("ready");
+    expect(versionStore.getState().previewVersionId).toBe("v-1");
+    expect(versionStore.getState().previewContentJson).not.toBeNull();
   });
 
   it("shows IPC error code/message when preview read fails", async () => {
     const user = userEvent.setup();
+    const versionStore = createVersionStore({ invoke: invokeMock as never });
     installInvokeMock({
       readVersionError: { code: "NOT_FOUND", message: "Version not found" },
     });
 
-    render(<VersionHistoryContainer projectId="project-1" />);
+    renderWithVersionStore(
+      <VersionHistoryContainer projectId="project-1" />,
+      versionStore,
+    );
 
     await waitFor(() => {
       expect(
@@ -192,8 +217,12 @@ describe("VersionHistoryContainer", () => {
 
   it("restore requires confirmation and refreshes editor only after confirm", async () => {
     const user = userEvent.setup();
+    const versionStore = createVersionStore({ invoke: invokeMock as never });
 
-    render(<VersionHistoryContainer projectId="project-1" />);
+    renderWithVersionStore(
+      <VersionHistoryContainer projectId="project-1" />,
+      versionStore,
+    );
 
     await waitFor(() => {
       expect(
