@@ -3,7 +3,7 @@
 - Issue: #361
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/361
 - Branch: task/361-ai-service-p1-streaming-cancel-lifecycle
-- PR: https://github.com/Leeky1017/CreoNow/pull/363
+- PR: https://github.com/Leeky1017/CreoNow/pull/365
 - Scope: 完成交付 `openspec/changes/ai-service-p1-streaming-cancel-lifecycle`（流式生命周期、取消优先竞态、网络中断完整 prompt 重放），并按治理流程合并到控制面 `main`
 - Out of Scope: AI 面板聊天持久化、Judge 质量评估、p2/p3/p4/p5 范围改动
 
@@ -15,7 +15,7 @@
 - [x] Red：S1/S2 失败测试证据落盘
 - [x] Green：生命周期状态机 + 取消优先 + 网络中断完整重放
 - [x] Refactor：协议/状态机整理并保持回归全绿
-- [ ] preflight 全绿
+- [x] preflight 全绿
 - [ ] PR + auto-merge + main 收口 + worktree 清理
 
 ## Runs
@@ -148,3 +148,43 @@
 - Exit code: `0`
 - Key output:
   - task validate 通过（warning: `No spec files found`，与当前任务结构一致）
+
+### 2026-02-10 10:32 +0800 2.4 验证链复核（收口前）
+
+- Command:
+  - `pnpm test:unit`
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm contract:check`
+  - `pnpm cross-module:check`
+- Exit code: `0`
+- Key output:
+  - 五项校验全部通过
+  - `pnpm lint` 仅存在历史 warning（`react-hooks/exhaustive-deps`），无 error
+  - `contract:check` 通过（`pnpm contract:generate && git diff --exit-code packages/shared/types/ipc-generated.ts`）
+
+### 2026-02-10 10:32 +0800 PR #363 合并与 required checks 证据补录
+
+- Command:
+  - `gh pr view 363 --json number,state,mergedAt,url,headRefName,baseRefName`
+  - `gh run view 21833648002 --json databaseId,status,conclusion,workflowName,url`
+  - `gh run view 21833647987 --json databaseId,status,conclusion,workflowName,url`
+  - `gh run view 21833647989 --json databaseId,status,conclusion,workflowName,url`
+  - `gh issue view 361 --json number,state,url`
+- Exit code: `0`
+- Key output:
+  - PR `#363` 已合并：`mergedAt=2026-02-10T02:21:13Z`
+  - `ci`（run `21833648002`）`success`，`windows-e2e` job `63051405733` 成功
+  - `openspec-log-guard`（run `21833647987`）`success`
+  - `merge-serial`（run `21833647989`）`success`
+  - Issue `#361` 已保持 `OPEN`，用于 Rulebook 收口提交
+
+### 2026-02-10 10:33 +0800 preflight 全绿（Rulebook 归档收口提交前）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Repo/Issue/Rulebook/Workspace/OpenSpec 校验通过
+  - `prettier --check` 通过（`ISSUE-361.md` + Rulebook archive 3 文件）
+  - `typecheck/lint/contract:check/cross-module:check/test:unit` 全部通过（lint 仅 warning，无 error）
