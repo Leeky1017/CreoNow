@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-10 15:40
+更新时间：2026-02-10 16:10
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -60,12 +60,12 @@
 
 ```
 Editor 泳道:          p0 ──→ p1 ──→ p2 ──→ p3 ──→ p4
-                       │             │
-                       │             │ (Diff 组件)
+                       │\            │
+                       │ \(只读)     │ (Diff 组件)
 Skill System 泳道:    p0 ──→ p1 ──→ p2 ──→ p3 ──→ p4
-                       │             │
-                       │ (保存事件)  │
-                       ↓             ↓
+                       │  \          │
+                       │(保存) \     │
+                       ↓      ↓     ↓
 Version Control 泳道: p0 ──→ p1 ──→ p2 ──→ p3 ──→ p4
 ```
 

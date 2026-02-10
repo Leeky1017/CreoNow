@@ -28,6 +28,24 @@
 - **则** 返回 `{ code: "SKILL_DEPENDENCY_MISSING", details: ["summarize"] }`
 - **并且** 不发起 LLM 调用
 
+### Requirement: 模块级可验收标准（调度器相关）[ADDED]
+
+调度器实现的超时中断与队列溢出行为必须可验证。
+
+#### Scenario: 超时中断可验证 [ADDED]
+
+- **假设** 某技能运行超过 30,000ms
+- **当** 到达 timeout
+- **则** 调度器中断执行并返回 `SKILL_TIMEOUT`
+- **并且** 资源（连接/流）被释放
+
+#### Scenario: 队列溢出被拒绝 [ADDED]
+
+- **假设** 会话队列已满 20 条
+- **当** 用户继续触发技能
+- **则** 返回 `{ code: "SKILL_QUEUE_OVERFLOW" }`
+- **并且** 不影响已有排队任务
+
 ## Out of Scope
 
 - 不修改已有内置技能定义与 I/O 结构

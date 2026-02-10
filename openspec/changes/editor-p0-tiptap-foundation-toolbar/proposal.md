@@ -29,8 +29,8 @@ Editor 是 CreoNow 的核心交互模块。本 change 建立编辑器的基础�
 
 - 不实现 Bubble Menu（→ editor-p1）
 - 不实现大纲视图（→ editor-p1）
-- 不实现 AI Inline Diff / 选中引用（→ editor-p2）
-- 不实现多版本 Diff / 禅模式（→ editor-p3）
+- 不实现 AI Inline Diff / 选中引用 / 多版本 Diff（→ editor-p2）
+- 不实现禅模式（→ editor-p3）
 - 不实现无障碍性硬化（→ editor-p4）
 
 ## 审阅状态
