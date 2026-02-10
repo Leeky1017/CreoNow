@@ -3,7 +3,7 @@
 - Issue: #373
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/373
 - Branch: task/373-search-retrieval-p3-hybrid-ranking-explain
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/376
 - Scope: 完成交付 `openspec/changes/search-retrieval-p3-hybrid-ranking-explain`（两阶段召回、融合重排、Top50+分页、`search:query:strategy` 与 `search:rank:explain` 契约），并按治理流程合并回控制面 `main`
 - Out of Scope: 调整权重公式与阈值参数、引入第三种检索策略、改造搜索替换链路
 
