@@ -62,9 +62,7 @@ function ToolbarButton({
  * Separator between toolbar button groups.
  */
 function ToolbarSeparator(): JSX.Element {
-  return (
-    <div className="mx-1 h-4 w-px bg-[var(--color-border-default)]" />
-  );
+  return <div className="mx-1 h-4 w-px bg-[var(--color-border-default)]" />;
 }
 
 /**
@@ -74,27 +72,78 @@ function ToolbarSeparator(): JSX.Element {
  */
 const icons = {
   bold: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
       <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
     </svg>
   ),
   italic: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="19" y1="4" x2="10" y2="4" />
       <line x1="14" y1="20" x2="5" y2="20" />
       <line x1="15" y1="4" x2="9" y2="20" />
     </svg>
   ),
+  underline: (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 4v6a6 6 0 0 0 12 0V4" />
+      <line x1="4" y1="20" x2="20" y2="20" />
+    </svg>
+  ),
   strikethrough: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M16 4H9a3 3 0 0 0-2.83 4" />
       <path d="M14 12a4 4 0 0 1 0 8H6" />
       <line x1="4" y1="12" x2="20" y2="12" />
     </svg>
   ),
   heading1: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4 12h8" />
       <path d="M4 18V6" />
       <path d="M12 18V6" />
@@ -102,7 +151,16 @@ const icons = {
     </svg>
   ),
   heading2: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4 12h8" />
       <path d="M4 18V6" />
       <path d="M12 18V6" />
@@ -110,7 +168,16 @@ const icons = {
     </svg>
   ),
   heading3: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4 12h8" />
       <path d="M4 18V6" />
       <path d="M12 18V6" />
@@ -119,7 +186,16 @@ const icons = {
     </svg>
   ),
   bulletList: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="9" y1="6" x2="20" y2="6" />
       <line x1="9" y1="12" x2="20" y2="12" />
       <line x1="9" y1="18" x2="20" y2="18" />
@@ -129,7 +205,16 @@ const icons = {
     </svg>
   ),
   orderedList: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="10" y1="6" x2="21" y2="6" />
       <line x1="10" y1="12" x2="21" y2="12" />
       <line x1="10" y1="18" x2="21" y2="18" />
@@ -139,37 +224,91 @@ const icons = {
     </svg>
   ),
   blockquote: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21z" />
       <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v4z" />
     </svg>
   ),
   code: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="16 18 22 12 16 6" />
       <polyline points="8 6 2 12 8 18" />
     </svg>
   ),
   codeBlock: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="3" width="18" height="18" rx="2" />
       <polyline points="9 8 5 12 9 16" />
       <polyline points="15 8 19 12 15 16" />
     </svg>
   ),
   horizontalRule: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <line x1="3" y1="12" x2="21" y2="12" />
     </svg>
   ),
   undo: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 7v6h6" />
       <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
     </svg>
   ),
   redo: (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M21 7v6h-6" />
       <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
     </svg>
@@ -189,7 +328,10 @@ export interface EditorToolbarProps {
  * Why: Writers need quick access to formatting options without memorizing shortcuts.
  * Shortcuts are provided in tooltips for power users.
  */
-export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.Element | null {
+export function EditorToolbar({
+  editor,
+  className,
+}: EditorToolbarProps): JSX.Element | null {
   if (!editor) {
     return null;
   }
@@ -217,6 +359,15 @@ export function EditorToolbar({ editor, className }: EditorToolbarProps): JSX.El
         onClick={() => editor.chain().focus().toggleItalic().run()}
       >
         {icons.italic}
+      </ToolbarButton>
+      <ToolbarButton
+        testId="toolbar-underline"
+        label={EDITOR_SHORTCUTS.underline.label}
+        shortcut={EDITOR_SHORTCUTS.underline.display()}
+        isActive={editor.isActive("underline")}
+        onClick={() => editor.chain().focus().toggleMark("underline").run()}
+      >
+        {icons.underline}
       </ToolbarButton>
       <ToolbarButton
         testId="toolbar-strike"

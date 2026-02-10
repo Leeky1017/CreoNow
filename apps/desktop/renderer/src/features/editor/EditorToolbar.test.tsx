@@ -1,22 +1,37 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { useEffect } from "react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 
 import { EditorToolbar } from "./EditorToolbar";
 
 /**
- * Test wrapper that creates a real TipTap editor instance.
+ * Test harness with a real TipTap editor instance.
  */
-function TestEditorWithToolbar(props: {
+function ToolbarHarness(props: {
   initialContent?: string;
-  onUpdate?: () => void;
+  onEditorReady?: (editor: Editor) => void;
 }): JSX.Element {
   const editor = useEditor({
     extensions: [StarterKit],
-    content: props.initialContent ?? "<p>Test content</p>",
-    onUpdate: props.onUpdate,
+    content:
+      props.initialContent ??
+      "<p>Hello world</p><h2><strong>Bold Heading</strong></h2>",
   });
+
+  useEffect(() => {
+    if (editor) {
+      props.onEditorReady?.(editor);
+    }
+  }, [editor, props]);
 
   return (
     <div>
@@ -27,163 +42,138 @@ function TestEditorWithToolbar(props: {
 }
 
 describe("EditorToolbar", () => {
-  describe("rendering", () => {
-    it("returns null when editor is null", () => {
-      const { container } = render(<EditorToolbar editor={null} />);
-      expect(container.firstChild).toBeNull();
-    });
+  it("should return null when editor is null", () => {
+    const { container } = render(<EditorToolbar editor={null} />);
+    expect(container.firstChild).toBeNull();
+  });
 
-    it("renders toolbar with all button groups", () => {
-      render(<TestEditorWithToolbar />);
+  it("should apply heading format when clicking H1 toolbar button", async () => {
+    let editorInstance: Editor | null = null;
+    render(
+      <ToolbarHarness
+        initialContent="<p>Heading source</p>"
+        onEditorReady={(editor) => {
+          editorInstance = editor;
+        }}
+      />,
+    );
 
-      expect(screen.getByTestId("editor-toolbar")).toBeInTheDocument();
+    const h1Button = await screen.findByTestId("toolbar-h1");
+    fireEvent.click(h1Button);
 
-      // Text formatting buttons
-      expect(screen.getByTestId("toolbar-bold")).toBeInTheDocument();
-      expect(screen.getByTestId("toolbar-italic")).toBeInTheDocument();
-      expect(screen.getByTestId("toolbar-strike")).toBeInTheDocument();
-      expect(screen.getByTestId("toolbar-code")).toBeInTheDocument();
-
-      // Heading buttons
-      expect(screen.getByTestId("toolbar-h1")).toBeInTheDocument();
-      expect(screen.getByTestId("toolbar-h2")).toBeInTheDocument();
-      expect(screen.getByTestId("toolbar-h3")).toBeInTheDocument();
-
-      // List buttons
-      expect(screen.getByTestId("toolbar-bullet-list")).toBeInTheDocument();
-      expect(screen.getByTestId("toolbar-ordered-list")).toBeInTheDocument();
-
-      // Block buttons
-      expect(screen.getByTestId("toolbar-blockquote")).toBeInTheDocument();
-      expect(screen.getByTestId("toolbar-code-block")).toBeInTheDocument();
-      expect(screen.getByTestId("toolbar-hr")).toBeInTheDocument();
-
-      // History buttons
-      expect(screen.getByTestId("toolbar-undo")).toBeInTheDocument();
-      expect(screen.getByTestId("toolbar-redo")).toBeInTheDocument();
-    });
-
-    it("has correct aria-labels on buttons", () => {
-      render(<TestEditorWithToolbar />);
-
-      expect(screen.getByLabelText("Bold")).toBeInTheDocument();
-      expect(screen.getByLabelText("Italic")).toBeInTheDocument();
-      expect(screen.getByLabelText("Strikethrough")).toBeInTheDocument();
-      expect(screen.getByLabelText("Undo")).toBeInTheDocument();
-      expect(screen.getByLabelText("Redo")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(editorInstance?.isActive("heading", { level: 1 })).toBe(true);
+      expect(editorInstance?.getJSON().content?.[0]?.type).toBe("heading");
+      expect(h1Button).toHaveAttribute("aria-pressed", "true");
     });
   });
 
-  describe("button states", () => {
-    it("shows bold button as active when text is bold", () => {
-      render(<TestEditorWithToolbar initialContent="<p><strong>Bold text</strong></p>" />);
+  it("should toggle bold mark when pressing Ctrl/Cmd+B", async () => {
+    let editorInstance: Editor | null = null;
+    render(
+      <ToolbarHarness
+        initialContent="<p>Hello world</p>"
+        onEditorReady={(editor) => {
+          editorInstance = editor;
+        }}
+      />,
+    );
 
-      // Note: The button state depends on cursor position, which is hard to test
-      // This test verifies the button exists and is clickable
-      const boldButton = screen.getByTestId("toolbar-bold");
-      expect(boldButton).toBeInTheDocument();
+    await waitFor(() => {
+      expect(editorInstance).not.toBeNull();
     });
 
-    it("disables undo button when nothing to undo", () => {
-      render(<TestEditorWithToolbar />);
-
-      const undoButton = screen.getByTestId("toolbar-undo");
-      expect(undoButton).toBeDisabled();
+    act(() => {
+      editorInstance?.commands.focus("start");
+      editorInstance?.commands.setTextSelection({ from: 1, to: 5 });
     });
 
-    it("disables redo button when nothing to redo", () => {
-      render(<TestEditorWithToolbar />);
-
-      const redoButton = screen.getByTestId("toolbar-redo");
-      expect(redoButton).toBeDisabled();
-    });
-  });
-
-  describe("button interactions", () => {
-    it("toggles bold on click", () => {
-      const onUpdate = vi.fn();
-      render(<TestEditorWithToolbar onUpdate={onUpdate} />);
-
-      const boldButton = screen.getByTestId("toolbar-bold");
-      fireEvent.click(boldButton);
-
-      // Editor should have been updated
-      // Note: Due to TipTap's async nature, this may not immediately trigger
-      expect(boldButton).toBeInTheDocument();
+    act(() => {
+      editorInstance?.view.dom.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "b",
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     });
 
-    it("toggles italic on click", () => {
-      render(<TestEditorWithToolbar />);
-
-      const italicButton = screen.getByTestId("toolbar-italic");
-      fireEvent.click(italicButton);
-
-      expect(italicButton).toBeInTheDocument();
+    await waitFor(() => {
+      expect(editorInstance?.isActive("bold")).toBe(true);
     });
 
-    it("toggles heading on click", () => {
-      render(<TestEditorWithToolbar />);
-
-      const h1Button = screen.getByTestId("toolbar-h1");
-      fireEvent.click(h1Button);
-
-      expect(h1Button).toBeInTheDocument();
+    act(() => {
+      editorInstance?.view.dom.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "b",
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
     });
 
-    it("toggles bullet list on click", () => {
-      render(<TestEditorWithToolbar />);
-
-      const bulletButton = screen.getByTestId("toolbar-bullet-list");
-      fireEvent.click(bulletButton);
-
-      expect(bulletButton).toBeInTheDocument();
-    });
-
-    it("toggles ordered list on click", () => {
-      render(<TestEditorWithToolbar />);
-
-      const orderedButton = screen.getByTestId("toolbar-ordered-list");
-      fireEvent.click(orderedButton);
-
-      expect(orderedButton).toBeInTheDocument();
-    });
-
-    it("toggles blockquote on click", () => {
-      render(<TestEditorWithToolbar />);
-
-      const quoteButton = screen.getByTestId("toolbar-blockquote");
-      fireEvent.click(quoteButton);
-
-      expect(quoteButton).toBeInTheDocument();
-    });
-
-    it("inserts horizontal rule on click", () => {
-      render(<TestEditorWithToolbar />);
-
-      const hrButton = screen.getByTestId("toolbar-hr");
-      fireEvent.click(hrButton);
-
-      expect(hrButton).toBeInTheDocument();
+    await waitFor(() => {
+      expect(editorInstance?.isActive("bold")).toBe(false);
     });
   });
 
-  describe("accessibility", () => {
-    it("buttons have title with shortcut hints", () => {
-      render(<TestEditorWithToolbar />);
+  it("should reflect active formatting state for bold and H2 after cursor move", async () => {
+    let editorInstance: Editor | null = null;
+    render(
+      <ToolbarHarness
+        onEditorReady={(editor) => {
+          editorInstance = editor;
+        }}
+      />,
+    );
 
-      const boldButton = screen.getByTestId("toolbar-bold");
-      expect(boldButton.title).toContain("Bold");
-      expect(boldButton.title).toMatch(/Ctrl\+B|⌘\+B/);
+    const boldButton = await screen.findByTestId("toolbar-bold");
+    const h2Button = await screen.findByTestId("toolbar-h2");
 
-      const italicButton = screen.getByTestId("toolbar-italic");
-      expect(italicButton.title).toContain("Italic");
+    expect(boldButton).toHaveAttribute("aria-pressed", "false");
+    expect(h2Button).toHaveAttribute("aria-pressed", "false");
+
+    act(() => {
+      editorInstance?.commands.focus("end");
     });
 
-    it("buttons have aria-pressed attribute", () => {
-      render(<TestEditorWithToolbar />);
-
-      const boldButton = screen.getByTestId("toolbar-bold");
-      expect(boldButton).toHaveAttribute("aria-pressed");
+    await waitFor(() => {
+      expect(boldButton).toHaveAttribute("aria-pressed", "true");
+      expect(h2Button).toHaveAttribute("aria-pressed", "true");
     });
+  });
+
+  it("should disable Undo button when no history exists", async () => {
+    render(<ToolbarHarness initialContent="<p>Fresh document</p>" />);
+    const undoButton = await screen.findByTestId("toolbar-undo");
+    expect(undoButton).toBeDisabled();
+    expect(undoButton.className).toContain("cursor-not-allowed");
+    expect(undoButton.className).toContain("opacity-40");
+  });
+
+  it("should display mac shortcut in tooltip for Bold button", async () => {
+    const originalPlatform = navigator.platform;
+    Object.defineProperty(window.navigator, "platform", {
+      configurable: true,
+      value: "MacIntel",
+    });
+
+    try {
+      render(<ToolbarHarness initialContent="<p>Tooltip check</p>" />);
+      const boldButton = await screen.findByTestId("toolbar-bold");
+      expect(boldButton).toHaveAttribute("title", "Bold (⌘B)");
+    } finally {
+      Object.defineProperty(window.navigator, "platform", {
+        configurable: true,
+        value: originalPlatform,
+      });
+    }
+  });
+
+  it("should render underline control for inline marks", async () => {
+    render(<ToolbarHarness initialContent="<p>Underline ready</p>" />);
+    expect(await screen.findByTestId("toolbar-underline")).toBeInTheDocument();
   });
 });
