@@ -202,6 +202,8 @@ export const IPC_CHANNELS = [
   "rag:context:retrieve",
   "search:fts:query",
   "search:fts:reindex",
+  "search:replace:execute",
+  "search:replace:preview",
   "skill:registry:list",
   "skill:registry:read",
   "skill:registry:toggle",
@@ -2289,6 +2291,54 @@ export type IpcChannelSpec = {
     response: {
       indexState: "ready";
       reindexed: number;
+    };
+  };
+  "search:replace:execute": {
+    request: {
+      caseSensitive?: boolean;
+      confirmed?: boolean;
+      documentId?: string;
+      previewId?: string;
+      projectId: string;
+      query: string;
+      regex?: boolean;
+      replaceWith: string;
+      scope: "currentDocument" | "wholeProject";
+      wholeWord?: boolean;
+    };
+    response: {
+      affectedDocumentCount: number;
+      replacedCount: number;
+      skipped: Array<{
+        documentId: string;
+        message?: string;
+        reason: string;
+      }>;
+      snapshotIds: Array<string>;
+    };
+  };
+  "search:replace:preview": {
+    request: {
+      caseSensitive?: boolean;
+      documentId?: string;
+      projectId: string;
+      query: string;
+      regex?: boolean;
+      replaceWith: string;
+      scope: "currentDocument" | "wholeProject";
+      wholeWord?: boolean;
+    };
+    response: {
+      affectedDocuments: number;
+      items: Array<{
+        documentId: string;
+        matchCount: number;
+        sample: string;
+        title: string;
+      }>;
+      previewId?: string;
+      totalMatches: number;
+      warnings: Array<string>;
     };
   };
   "skill:registry:list": {

@@ -234,6 +234,24 @@ const SEARCH_FTS_ITEM_SCHEMA = s.object({
   updatedAt: s.number(),
 });
 
+const SEARCH_REPLACE_SCOPE_SCHEMA = s.union(
+  s.literal("currentDocument"),
+  s.literal("wholeProject"),
+);
+
+const SEARCH_REPLACE_PREVIEW_ITEM_SCHEMA = s.object({
+  documentId: s.string(),
+  title: s.string(),
+  matchCount: s.number(),
+  sample: s.string(),
+});
+
+const SEARCH_REPLACE_SKIPPED_ITEM_SCHEMA = s.object({
+  documentId: s.string(),
+  reason: s.string(),
+  message: s.optional(s.string()),
+});
+
 const EMBEDDING_SEARCH_RESULT_SCHEMA = s.object({
   chunkId: s.string(),
   documentId: s.string(),
@@ -1071,6 +1089,45 @@ export const ipcContract = {
       response: s.object({
         indexState: s.literal("ready"),
         reindexed: s.number(),
+      }),
+    },
+    "search:replace:preview": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.optional(s.string()),
+        scope: SEARCH_REPLACE_SCOPE_SCHEMA,
+        query: s.string(),
+        replaceWith: s.string(),
+        regex: s.optional(s.boolean()),
+        caseSensitive: s.optional(s.boolean()),
+        wholeWord: s.optional(s.boolean()),
+      }),
+      response: s.object({
+        affectedDocuments: s.number(),
+        totalMatches: s.number(),
+        items: s.array(SEARCH_REPLACE_PREVIEW_ITEM_SCHEMA),
+        warnings: s.array(s.string()),
+        previewId: s.optional(s.string()),
+      }),
+    },
+    "search:replace:execute": {
+      request: s.object({
+        projectId: s.string(),
+        documentId: s.optional(s.string()),
+        scope: SEARCH_REPLACE_SCOPE_SCHEMA,
+        query: s.string(),
+        replaceWith: s.string(),
+        regex: s.optional(s.boolean()),
+        caseSensitive: s.optional(s.boolean()),
+        wholeWord: s.optional(s.boolean()),
+        previewId: s.optional(s.string()),
+        confirmed: s.optional(s.boolean()),
+      }),
+      response: s.object({
+        replacedCount: s.number(),
+        affectedDocumentCount: s.number(),
+        snapshotIds: s.array(s.string()),
+        skipped: s.array(SEARCH_REPLACE_SKIPPED_ITEM_SCHEMA),
       }),
     },
     "embedding:text:generate": {
