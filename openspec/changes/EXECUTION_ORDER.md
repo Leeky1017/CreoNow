@@ -1,28 +1,27 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-10 16:10
+更新时间：2026-02-10 17:27
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **15**。
+- 当前活跃 change 数量为 **14**。
 - 执行模式：**三泳道并行 + 泳道内串行**。
 - 变更泳道：
   - Phase 0–3 全部归档：IPC、Document Management、Project Management、Memory System、Knowledge Graph、Context Engine、AI Service、Search & Retrieval。
   - Editor：`p0 → p1 → p2 → p3 → p4`（Phase 4，5 个活跃 change）
-  - Skill System：`p0 → p1 → p2 → p3 → p4`（Phase 4，5 个活跃 change）
+  - Skill System：`p0(已归档) → p1 → p2 → p3 → p4`（Phase 4，4 个活跃 change）
   - Version Control：`p0 → p1 → p2 → p3 → p4`（Phase 4，5 个活跃 change，其中 p2 有跨泳道依赖阻塞）
 
 ## 执行顺序
 
-### 阶段 A — 三泳道 p0 并行启动
+### 阶段 A — Editor / Version Control p0 并行启动
 
 可并行执行，无跨泳道依赖：
 
 1. `editor-p0-tiptap-foundation-toolbar`（依赖已归档 IPC Phase 0 + Document Management Phase 1）
-2. `skill-system-p0-builtin-skills-executor`（依赖已归档 AI Service Phase 3 + Context Engine Phase 3 + IPC Phase 0）
-3. `version-control-p0-snapshot-history`（依赖已归档 IPC Phase 0 + Document Management Phase 1 + **同阶段** `editor-p0`）
+2. `version-control-p0-snapshot-history`（依赖已归档 IPC Phase 0 + Document Management Phase 1 + **同阶段** `editor-p0`）
 
 > 注意：`version-control-p0` 依赖 `editor-p0` 的保存事件触发快照，建议 `editor-p0` 先行或同步推进。
 
@@ -30,31 +29,31 @@
 
 阶段 A 对应泳道的 p0 完成后方可进入：
 
-4. `editor-p1-bubble-menu-outline`（依赖 `editor-p0`）
-5. `skill-system-p1-trigger-scope-management`（依赖 `skill-system-p0`）
-6. `version-control-p1-ai-mark-preview`（依赖 `version-control-p0` + `editor-p0`）
+3. `editor-p1-bubble-menu-outline`（依赖 `editor-p0`）
+4. `skill-system-p1-trigger-scope-management`（依赖已归档 `skill-system-p0`）
+5. `version-control-p1-ai-mark-preview`（依赖 `version-control-p0` + `editor-p0`）
 
 ### 阶段 C — 各泳道 p2 并行（含跨泳道依赖）
 
-7. `editor-p2-diff-ai-collaboration`（依赖 `editor-p0` + 已归档 AI Service Phase 3）
-8. `skill-system-p2-custom-skill-crud`（依赖 `skill-system-p1` + 已归档 AI Service Phase 3）
-9. `version-control-p2-diff-rollback`（依赖 `version-control-p0/p1` + **跨泳道** `editor-p2`）
+6. `editor-p2-diff-ai-collaboration`（依赖 `editor-p0` + 已归档 AI Service Phase 3）
+7. `skill-system-p2-custom-skill-crud`（依赖 `skill-system-p1` + 已归档 AI Service Phase 3）
+8. `version-control-p2-diff-rollback`（依赖 `version-control-p0/p1` + **跨泳道** `editor-p2`）
 
 > 跨泳道阻塞：`version-control-p2` 复用 Editor 的 `DiffViewPanel` / `MultiVersionCompare` 组件，必须等 `editor-p2` 完成后方可进入 Red。
 
 ### 阶段 D — 各泳道 p3 并行
 
-10. `editor-p3-zen-mode`（依赖 `editor-p0`，可与阶段 B/C 并行）
-11. `skill-system-p3-scheduler-concurrency-timeout`（依赖 `skill-system-p0`，可与阶段 B/C 并行）
-12. `version-control-p3-branch-merge-conflict`（依赖 `version-control-p2`）
+9. `editor-p3-zen-mode`（依赖 `editor-p0`，可与阶段 B/C 并行）
+10. `skill-system-p3-scheduler-concurrency-timeout`（依赖已归档 `skill-system-p0`，可与阶段 B/C 并行）
+11. `version-control-p3-branch-merge-conflict`（依赖 `version-control-p2`）
 
 > 注意：`editor-p3` 和 `skill-system-p3` 仅依赖各自 p0，理论上可提前到阶段 B 并行执行。但为控制活跃 change 数量和审阅负荷，建议按阶段 D 排列。
 
 ### 阶段 E — 各泳道 p4 硬化（收口）
 
-13. `editor-p4-a11y-hardening`（依赖 `editor-p0` ~ `editor-p3`）
-14. `skill-system-p4-hardening-boundary`（依赖 `skill-system-p0` ~ `skill-system-p3`）
-15. `version-control-p4-hardening-boundary`（依赖 `version-control-p0` ~ `version-control-p3`）
+12. `editor-p4-a11y-hardening`（依赖 `editor-p0` ~ `editor-p3`）
+13. `skill-system-p4-hardening-boundary`（依赖已归档 `skill-system-p0` + `skill-system-p1` ~ `skill-system-p3`）
+14. `version-control-p4-hardening-boundary`（依赖 `version-control-p0` ~ `version-control-p3`）
 
 ## 依赖关系总览
 
@@ -71,11 +70,11 @@ Version Control 泳道: p0 ──→ p1 ──→ p2 ──→ p3 ──→ p4
 
 ### 跨泳道依赖明细
 
-| 下游 change | 上游依赖（跨泳道） | 依赖内容 |
-|---|---|---|
-| `version-control-p0-snapshot-history` | `editor-p0-tiptap-foundation-toolbar` | 保存事件触发快照 |
-| `version-control-p1-ai-mark-preview` | `editor-p0-tiptap-foundation-toolbar` | 编辑器只读模式/工具栏禁用 |
-| `version-control-p2-diff-rollback` | `editor-p2-diff-ai-collaboration` | DiffViewPanel / MultiVersionCompare 组件 |
+| 下游 change                           | 上游依赖（跨泳道）                    | 依赖内容                                 |
+| ------------------------------------- | ------------------------------------- | ---------------------------------------- |
+| `version-control-p0-snapshot-history` | `editor-p0-tiptap-foundation-toolbar` | 保存事件触发快照                         |
+| `version-control-p1-ai-mark-preview`  | `editor-p0-tiptap-foundation-toolbar` | 编辑器只读模式/工具栏禁用                |
+| `version-control-p2-diff-rollback`    | `editor-p2-diff-ai-collaboration`     | DiffViewPanel / MultiVersionCompare 组件 |
 
 ## 依赖说明
 
