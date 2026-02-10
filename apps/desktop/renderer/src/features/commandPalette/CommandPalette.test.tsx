@@ -194,6 +194,30 @@ describe("CommandPalette", () => {
 
       expect(screen.getByText("src/components")).toBeInTheDocument();
     });
+
+    it("默认命令应包含 Version History 入口", () => {
+      render(
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          layoutActions={{
+            onToggleSidebar: vi.fn(),
+            onToggleRightPanel: vi.fn(),
+            onToggleZenMode: vi.fn(),
+          }}
+          dialogActions={{
+            onOpenSettings: vi.fn(),
+            onOpenExport: vi.fn(),
+            onOpenCreateProject: vi.fn(),
+          }}
+          documentActions={{
+            onCreateDocument: vi.fn().mockResolvedValue(undefined),
+          }}
+        />,
+      );
+
+      expect(screen.getByText("Open Version History")).toBeInTheDocument();
+    });
   });
 
   // ===========================================================================

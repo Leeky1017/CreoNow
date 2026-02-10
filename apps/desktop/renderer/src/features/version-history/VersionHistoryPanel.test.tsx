@@ -409,4 +409,33 @@ describe("VersionHistoryPanel", () => {
     expect(screen.getByText("变更预览")).toBeInTheDocument();
     expect(screen.getByText("添加了新的安全协议章节...")).toBeInTheDocument();
   });
+
+  it("renders ai-accept reason as AI 修改 label", () => {
+    const groupsWithAiAccept: TimeGroup[] = [
+      {
+        label: "Today",
+        versions: [
+          {
+            id: "v-ai-accept",
+            timestamp: "10:00 AM",
+            authorType: "ai",
+            authorName: "AI Assistant",
+            description: "Accepted AI rewrite",
+            wordChange: { type: "added", count: 10 },
+            reason: "ai-accept",
+          },
+        ],
+      },
+    ];
+
+    render(
+      <VersionHistoryPanel
+        documentTitle="Test Document"
+        timeGroups={groupsWithAiAccept}
+        selectedId="v-ai-accept"
+      />,
+    );
+
+    expect(screen.getByText("AI 修改")).toBeInTheDocument();
+  });
 });

@@ -215,7 +215,11 @@ function TodayStatsSection(props: {
  * <InfoPanel />
  * ```
  */
-export function InfoPanel(): JSX.Element {
+export interface InfoPanelProps {
+  onOpenVersionHistory?: () => void;
+}
+
+export function InfoPanel(props: InfoPanelProps = {}): JSX.Element {
   const currentDocumentId = useFileStore((s) => s.currentDocumentId);
   const items = useFileStore((s) => s.items);
 
@@ -275,6 +279,20 @@ export function InfoPanel(): JSX.Element {
 
       <DocumentInfoSection document={currentDocument} />
       <TodayStatsSection stats={stats} error={statsError} loading={loading} />
+
+      <button
+        type="button"
+        className="self-start text-xs text-[var(--color-info)] hover:underline disabled:text-[var(--color-fg-placeholder)] disabled:no-underline"
+        disabled={!currentDocument}
+        onClick={() => {
+          if (!currentDocument) {
+            return;
+          }
+          props.onOpenVersionHistory?.();
+        }}
+      >
+        查看版本历史
+      </button>
     </div>
   );
 }

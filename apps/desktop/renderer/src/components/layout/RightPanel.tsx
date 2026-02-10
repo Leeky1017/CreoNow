@@ -78,6 +78,8 @@ export function RightPanel(props: {
   collapsed: boolean;
   /** Callback to open SettingsDialog from nested components */
   onOpenSettings?: () => void;
+  /** Callback to open left-panel Version History */
+  onOpenVersionHistory?: () => void;
 }): JSX.Element {
   const activeRightPanel = useLayoutStore((s) => s.activeRightPanel);
   const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
@@ -90,7 +92,7 @@ export function RightPanel(props: {
       case "ai":
         return <AiPanel />;
       case "info":
-        return <InfoPanel />;
+        return <InfoPanel onOpenVersionHistory={props.onOpenVersionHistory} />;
       case "quality":
         return <QualityPanel />;
       default: {

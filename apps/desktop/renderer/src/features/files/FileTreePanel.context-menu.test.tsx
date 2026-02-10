@@ -107,6 +107,9 @@ describe("FileTreePanel context menu actions", () => {
     const moveItem = await screen.findByRole("menuitem", {
       name: "Move to Folder",
     });
+    const historyItem = await screen.findByRole("menuitem", {
+      name: "Version History",
+    });
     const statusItem = await screen.findByRole("menuitem", {
       name: "Mark as Final",
     });
@@ -115,6 +118,7 @@ describe("FileTreePanel context menu actions", () => {
     expect(deleteItem).toBeInTheDocument();
     expect(copyItem).toBeInTheDocument();
     expect(moveItem).toBeInTheDocument();
+    expect(historyItem).toBeInTheDocument();
     expect(statusItem).toBeInTheDocument();
 
     fireEvent.click(copyItem);

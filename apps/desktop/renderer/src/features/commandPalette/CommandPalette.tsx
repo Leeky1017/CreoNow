@@ -61,6 +61,8 @@ export interface CommandPaletteLayoutActions {
   onToggleRightPanel: () => void;
   /** Toggle zen mode */
   onToggleZenMode: () => void;
+  /** Open version history in left panel */
+  onOpenVersionHistory?: () => void;
 }
 
 /**
@@ -224,6 +226,25 @@ function MaximizeIcon({ className }: { className?: string }): JSX.Element {
       strokeWidth="2"
     >
       <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+  );
+}
+
+/** 版本历史图标 */
+function HistoryIcon({ className }: { className?: string }): JSX.Element {
+  return (
+    <svg
+      className={className}
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M3 3v5h5" />
+      <path d="M3.05 13a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M12 7v5l4 2" />
     </svg>
   );
 }
@@ -461,6 +482,21 @@ export function CommandPalette({
             }
           } else {
             setErrorText("ACTION_FAILED: Document actions not available");
+          }
+        },
+      },
+      {
+        id: "open-version-history",
+        label: "Open Version History",
+        icon: <HistoryIcon className="text-[var(--color-fg-muted)]" />,
+        group: "Document",
+        onSelect: () => {
+          setErrorText(null);
+          if (layoutActions?.onOpenVersionHistory) {
+            layoutActions.onOpenVersionHistory();
+            onOpenChange(false);
+          } else {
+            setErrorText("ACTION_FAILED: Version history action not available");
           }
         },
       },

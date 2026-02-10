@@ -48,6 +48,7 @@ export function Sidebar(props: {
   collapsed: boolean;
   projectId: string | null;
   activePanel: LeftPanelType;
+  onOpenVersionHistoryDocument?: (documentId: string) => void;
 }): JSX.Element {
   if (props.collapsed) {
     return <aside data-testid="layout-sidebar" className="hidden w-0" />;
@@ -62,7 +63,10 @@ export function Sidebar(props: {
     switch (props.activePanel) {
       case "files":
         return props.projectId ? (
-          <FileTreePanel projectId={props.projectId} />
+          <FileTreePanel
+            projectId={props.projectId}
+            onOpenVersionHistory={props.onOpenVersionHistoryDocument}
+          />
         ) : (
           <div className="p-3 text-xs text-[var(--color-fg-muted)]">
             No project open
