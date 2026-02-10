@@ -55,10 +55,9 @@ const dividerStyles = [
 /**
  * Field label styles
  */
-const fieldLabelStyles = [
-  "text-[13px]",
-  "text-[var(--color-fg-muted)]",
-].join(" ");
+const fieldLabelStyles = ["text-[13px]", "text-[var(--color-fg-muted)]"].join(
+  " ",
+);
 
 /**
  * Backup interval options

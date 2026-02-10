@@ -155,7 +155,12 @@ describe("EditorPane", () => {
       previewTimestamp: "2 小时前",
       previewContentJson: JSON.stringify({
         type: "doc",
-        content: [{ type: "paragraph", content: [{ type: "text", text: "历史版本内容" }] }],
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "历史版本内容" }],
+          },
+        ],
       }),
       previewError: null,
     });
@@ -168,9 +173,9 @@ describe("EditorPane", () => {
       </VersionStoreProvider>,
     );
 
-    expect(await screen.findByTestId("editor-preview-banner")).toHaveTextContent(
-      "正在预览 2 小时前 的版本",
-    );
+    expect(
+      await screen.findByTestId("editor-preview-banner"),
+    ).toHaveTextContent("正在预览 2 小时前 的版本");
 
     const editor = await screen.findByTestId("tiptap-editor");
     await waitFor(() => {
@@ -193,7 +198,9 @@ describe("EditorPane", () => {
       previewTimestamp: "Yesterday",
       previewContentJson: JSON.stringify({
         type: "doc",
-        content: [{ type: "paragraph", content: [{ type: "text", text: "历史版本" }] }],
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: "历史版本" }] },
+        ],
       }),
       previewError: null,
     });
