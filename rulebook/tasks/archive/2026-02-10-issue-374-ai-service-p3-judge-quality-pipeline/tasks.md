@@ -34,4 +34,4 @@
 
 - [x] 6.1 记录 Red/Green 命令与输出到 `openspec/_ops/task_runs/ISSUE-374.md`
 - [x] 6.2 记录 Dependency Sync Check 核对点（数据结构/IPC/错误码/阈值）结论 `NO_DRIFT`
-- [ ] 6.3 记录 preflight、required checks、main 收口与 Rulebook 归档证据
+- [x] 6.3 记录 preflight、required checks、main 收口与 Rulebook 归档证据

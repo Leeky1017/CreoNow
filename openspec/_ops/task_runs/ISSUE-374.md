@@ -14,7 +14,7 @@
 - [x] Red：S1/S2/S3 失败测试证据落盘
 - [x] Green：实现 Judge 评估、推送、降级标记与面板消费
 - [x] Refactor：收敛共享类型与事件桥接，回归保持绿灯
-- [ ] preflight 全绿 + PR auto-merge + main 收口 + worktree 清理
+- [x] preflight 全绿 + PR auto-merge + main 收口 + worktree 清理 + Rulebook 归档
 
 ## Runs
 
@@ -144,3 +144,32 @@
   - 变更文件格式化完成
   - 类型与跨模块契约复验通过
   - 三条 p3 场景测试保持绿灯
+
+### 2026-02-10 12:25 +0800 合并后门禁与主线收口复核
+
+- Command:
+  - `gh pr view 375 --json number,title,url,state,mergeStateStatus,mergedAt,isDraft,autoMergeRequest,headRefName,baseRefName,statusCheckRollup,mergeCommit`
+  - `gh issue view 374 --json number,title,url,state,closedAt`
+  - `gh pr checks 375`
+  - `git fetch origin --prune && git status --short --branch`
+  - `git log --oneline --decorate -n 6 --graph`
+- Exit code: `0`
+- Key output:
+  - PR `#375` 状态 `MERGED`，`mergedAt=2026-02-10T04:18:52Z`，auto-merge 已启用（squash）
+  - Issue `#374` 状态 `CLOSED`（`closedAt=2026-02-10T04:18:53Z`）
+  - required checks 全绿：`ci`、`openspec-log-guard`、`merge-serial`
+  - 控制面已收口：`main` 与 `origin/main` 同步，HEAD 为 `4bf17051`
+
+### 2026-02-10 12:26 +0800 Rulebook 归档与工作树清理
+
+- Command:
+  - `rulebook task validate issue-374-ai-service-p3-judge-quality-pipeline`
+  - `rulebook task archive issue-374-ai-service-p3-judge-quality-pipeline`
+  - `scripts/agent_worktree_cleanup.sh 374 ai-service-p3-judge-quality-pipeline`
+  - `ls -la .worktrees`
+  - `git branch --list 'task/374-ai-service-p3-judge-quality-pipeline'`
+- Exit code: `0`
+- Key output:
+  - Rulebook validate 通过（warning: `No spec files found (specs/*/spec.md)`）
+  - task 已归档至 `rulebook/tasks/archive/2026-02-10-issue-374-ai-service-p3-judge-quality-pipeline`
+  - 已清理 `.worktrees/issue-374-ai-service-p3-judge-quality-pipeline` 与本地分支 `task/374-ai-service-p3-judge-quality-pipeline`
