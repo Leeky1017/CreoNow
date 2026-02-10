@@ -3,7 +3,7 @@
 - Issue: #368
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/368
 - Branch: task/368-search-retrieval-p2-replace-versioned
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/370
 - Scope: 完成交付 `openspec/changes/search-retrieval-p2-replace-versioned`（搜索替换预览/执行契约、全项目替换确认、替换前逐文档快照与可判定回执），并按治理流程合并回控制面 `main`
 - Out of Scope: 回滚 UI 交互扩展、检索重排策略、语义检索能力新增
 
