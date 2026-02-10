@@ -45,7 +45,12 @@ function seedCurrentProject(args: {
     .prepare(
       "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?)",
     )
-    .run("app", "creonow.project.currentId", JSON.stringify(args.projectId), ts);
+    .run(
+      "app",
+      "creonow.project.currentId",
+      JSON.stringify(args.projectId),
+      ts,
+    );
 }
 
 function toScopeRoot(args: {
@@ -276,10 +281,13 @@ function createFixture(): {
     const toggleHandler = handlers.get("skill:registry:toggle");
     assert.ok(toggleHandler, "missing handler: skill:registry:toggle");
 
-    const toggled = (await toggleHandler({}, {
-      skillId: "builtin:rewrite",
-      enabled: false,
-    })) as {
+    const toggled = (await toggleHandler(
+      {},
+      {
+        skillId: "builtin:rewrite",
+        enabled: false,
+      },
+    )) as {
       ok: boolean;
       data?: { id: string; enabled: boolean };
     };
@@ -291,10 +299,13 @@ function createFixture(): {
     const promoteHandler = handlers.get("skill:custom:update");
     assert.ok(promoteHandler, "missing handler: skill:custom:update");
 
-    const promoted = (await promoteHandler({}, {
-      id: "project:formal-rewrite",
-      scope: "global",
-    })) as {
+    const promoted = (await promoteHandler(
+      {},
+      {
+        id: "project:formal-rewrite",
+        scope: "global",
+      },
+    )) as {
       ok: boolean;
       data?: { id: string; scope: "global" | "project" };
     };
