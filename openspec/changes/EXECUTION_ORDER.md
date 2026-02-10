@@ -60,11 +60,11 @@ Version Control 泳道:      p0 ──→ p1 ──→ p2 ──→ p3 ──→
 
 ### 跨泳道依赖明细
 
-| 下游 change | 上游依赖（跨泳道） | 依赖内容 |
-| --- | --- | --- |
-| `version-control-p0-snapshot-history` | `editor-p0-tiptap-foundation-toolbar`（已归档） | 保存事件触发快照 |
-| `version-control-p1-ai-mark-preview` | `editor-p0-tiptap-foundation-toolbar`（已归档） | 编辑器只读模式/工具栏禁用 |
-| `version-control-p2-diff-rollback` | `editor-p2-diff-ai-collaboration` | DiffViewPanel / MultiVersionCompare 组件 |
+| 下游 change                           | 上游依赖（跨泳道）                              | 依赖内容                                 |
+| ------------------------------------- | ----------------------------------------------- | ---------------------------------------- |
+| `version-control-p0-snapshot-history` | `editor-p0-tiptap-foundation-toolbar`（已归档） | 保存事件触发快照                         |
+| `version-control-p1-ai-mark-preview`  | `editor-p0-tiptap-foundation-toolbar`（已归档） | 编辑器只读模式/工具栏禁用                |
+| `version-control-p2-diff-rollback`    | `editor-p2-diff-ai-collaboration`               | DiffViewPanel / MultiVersionCompare 组件 |
 
 ## 依赖说明
 
