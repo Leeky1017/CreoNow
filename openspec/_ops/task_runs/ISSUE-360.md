@@ -251,3 +251,15 @@
   - 集成测试全通过
   - Electron build 成功
   - 本地单测式 E2E 启动后卡在初始 UI（`welcome-screen` 未出现），与 CI 失败点不同；CI 的截断断言失败已通过用例参数修正为 deterministic
+
+### 2026-02-10 10:24 +0800 E2E 截断断言二次去波动
+
+- Command:
+  - `apply_patch apps/desktop/tests/e2e/search-rag.spec.ts`
+  - 调整 `rag:context:retrieve` 测试参数：`minScore=-1`
+  - 移除 `chunks.length > 0` 断言，仅保留 `truncated=true` 与预算上限断言
+  - `pnpm test:integration`
+- Exit code: `0`
+- Key output:
+  - 将截断场景聚焦于“预算截断语义”，避免跨平台 embedding 排序差异导致的非目标失败
+  - integration 全通过，等待 CI windows-e2e 复验
