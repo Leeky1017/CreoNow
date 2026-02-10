@@ -208,7 +208,11 @@ export function registerSearchIpcHandlers(deps: {
         replacedCount: number;
         affectedDocumentCount: number;
         snapshotIds: string[];
-        skipped: Array<{ documentId: string; reason: string; message?: string }>;
+        skipped: Array<{
+          documentId: string;
+          reason: string;
+          message?: string;
+        }>;
       }>
     > => {
       if (!deps.db || !replaceService) {

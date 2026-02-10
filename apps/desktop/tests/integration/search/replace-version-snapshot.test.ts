@@ -48,32 +48,38 @@ import {
     throw new Error("Missing handler search:replace:execute");
   }
 
-  const previewRes = (await preview({}, {
-    projectId: "proj_1",
-    scope: "wholeProject",
-    query: "warehouse",
-    replaceWith: "factory",
-    regex: false,
-    caseSensitive: false,
-    wholeWord: true,
-  })) as IpcResponse<{
+  const previewRes = (await preview(
+    {},
+    {
+      projectId: "proj_1",
+      scope: "wholeProject",
+      query: "warehouse",
+      replaceWith: "factory",
+      regex: false,
+      caseSensitive: false,
+      wholeWord: true,
+    },
+  )) as IpcResponse<{
     previewId: string;
   }>;
   if (!previewRes.ok) {
     throw new Error(previewRes.error.message);
   }
 
-  const executeRes = (await execute({}, {
-    projectId: "proj_1",
-    scope: "wholeProject",
-    query: "warehouse",
-    replaceWith: "factory",
-    regex: false,
-    caseSensitive: false,
-    wholeWord: true,
-    previewId: previewRes.data.previewId,
-    confirmed: true,
-  })) as IpcResponse<{
+  const executeRes = (await execute(
+    {},
+    {
+      projectId: "proj_1",
+      scope: "wholeProject",
+      query: "warehouse",
+      replaceWith: "factory",
+      regex: false,
+      caseSensitive: false,
+      wholeWord: true,
+      previewId: previewRes.data.previewId,
+      confirmed: true,
+    },
+  )) as IpcResponse<{
     replacedCount: number;
     affectedDocumentCount: number;
     snapshotIds: string[];

@@ -127,7 +127,9 @@ function normalizeProjectId(projectId: string): ServiceResult<string> {
   return { ok: true, data: trimmed };
 }
 
-function normalizeDocumentId(documentId: string | undefined): ServiceResult<string> {
+function normalizeDocumentId(
+  documentId: string | undefined,
+): ServiceResult<string> {
   const trimmed = documentId?.trim() ?? "";
   if (trimmed.length === 0) {
     return ipcError("INVALID_ARGUMENT", "documentId is required");
@@ -143,7 +145,9 @@ function normalizeQuery(query: string): ServiceResult<string> {
   return { ok: true, data: trimmed };
 }
 
-function normalizeScope(scope: SearchReplaceScope): ServiceResult<SearchReplaceScope> {
+function normalizeScope(
+  scope: SearchReplaceScope,
+): ServiceResult<SearchReplaceScope> {
   if (scope === "currentDocument" || scope === "wholeProject") {
     return { ok: true, data: scope };
   }
@@ -166,9 +170,14 @@ function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function buildMatcher(query: string, options: ReplaceOptions): ServiceResult<RegExp> {
+function buildMatcher(
+  query: string,
+  options: ReplaceOptions,
+): ServiceResult<RegExp> {
   const rawPattern = options.regex ? query : escapeRegExp(query);
-  const wholeWordPattern = options.wholeWord ? `\\b(?:${rawPattern})\\b` : rawPattern;
+  const wholeWordPattern = options.wholeWord
+    ? `\\b(?:${rawPattern})\\b`
+    : rawPattern;
   const flags = options.caseSensitive ? "g" : "gi";
 
   try {
@@ -250,7 +259,11 @@ function replaceInJsonValue(
     payload.type === "text" && typeof payload.text === "string";
 
   if (isTextNode) {
-    const replaced = replaceInString(payload.text as string, matcher, replaceWith);
+    const replaced = replaceInString(
+      payload.text as string,
+      matcher,
+      replaceWith,
+    );
     return {
       contentJson: {
         ...payload,
@@ -305,9 +318,10 @@ function loadDocumentById(args: {
   documentId: string;
 }): DocumentRow | undefined {
   return args.db
-    .prepare<[string, string], DocumentRow>(
-      "SELECT document_id as documentId, project_id as projectId, title, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(type, 'chapter') as type, updated_at as updatedAt FROM documents WHERE project_id = ? AND document_id = ?",
-    )
+    .prepare<
+      [string, string],
+      DocumentRow
+    >("SELECT document_id as documentId, project_id as projectId, title, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(type, 'chapter') as type, updated_at as updatedAt FROM documents WHERE project_id = ? AND document_id = ?")
     .get(args.projectId, args.documentId);
 }
 
@@ -316,9 +330,10 @@ function loadProjectDocuments(args: {
   projectId: string;
 }): DocumentRow[] {
   return args.db
-    .prepare<[string], DocumentRow>(
-      "SELECT document_id as documentId, project_id as projectId, title, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(type, 'chapter') as type, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC",
-    )
+    .prepare<
+      [string],
+      DocumentRow
+    >("SELECT document_id as documentId, project_id as projectId, title, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(type, 'chapter') as type, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC")
     .all(args.projectId);
 }
 
@@ -397,7 +412,9 @@ export function createSearchReplaceService(deps: {
                 if (!row) {
                   return ipcError("NOT_FOUND", "Document not found");
                 }
-                return { ok: true, data: [row] } as ServiceResult<DocumentRow[]>;
+                return { ok: true, data: [row] } as ServiceResult<
+                  DocumentRow[]
+                >;
               })()
             : ({
                 ok: true,
@@ -610,9 +627,7 @@ export function createSearchReplaceService(deps: {
               const updated = deps.db
                 .prepare<
                   [string, string, string, string, number, string, string]
-                >(
-                  "UPDATE documents SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, updated_at = ? WHERE project_id = ? AND document_id = ?",
-                )
+                >("UPDATE documents SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, updated_at = ? WHERE project_id = ? AND document_id = ?")
                 .run(
                   nextRow.contentJson,
                   nextRow.contentText,
@@ -636,7 +651,8 @@ export function createSearchReplaceService(deps: {
               });
             })();
           } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
+            const message =
+              error instanceof Error ? error.message : String(error);
             if (scope === "wholeProject") {
               const reason = message.startsWith("SNAPSHOT_FAILED")
                 ? "SNAPSHOT_FAILED"

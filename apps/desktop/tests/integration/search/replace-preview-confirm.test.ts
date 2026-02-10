@@ -47,30 +47,36 @@ import {
     throw new Error("Missing handler search:replace:execute");
   }
 
-  const blocked = (await execute({}, {
-    projectId: "proj_1",
-    scope: "wholeProject",
-    query: "warehouse",
-    replaceWith: "factory",
-    regex: false,
-    caseSensitive: false,
-    wholeWord: true,
-    confirmed: true,
-  })) as IpcResponse<unknown>;
+  const blocked = (await execute(
+    {},
+    {
+      projectId: "proj_1",
+      scope: "wholeProject",
+      query: "warehouse",
+      replaceWith: "factory",
+      regex: false,
+      caseSensitive: false,
+      wholeWord: true,
+      confirmed: true,
+    },
+  )) as IpcResponse<unknown>;
   assert.equal(blocked.ok, false);
   if (!blocked.ok) {
     assert.equal(blocked.error.code, "VALIDATION_ERROR");
   }
 
-  const previewRes = (await preview({}, {
-    projectId: "proj_1",
-    scope: "wholeProject",
-    query: "warehouse",
-    replaceWith: "factory",
-    regex: false,
-    caseSensitive: false,
-    wholeWord: true,
-  })) as IpcResponse<{
+  const previewRes = (await preview(
+    {},
+    {
+      projectId: "proj_1",
+      scope: "wholeProject",
+      query: "warehouse",
+      replaceWith: "factory",
+      regex: false,
+      caseSensitive: false,
+      wholeWord: true,
+    },
+  )) as IpcResponse<{
     affectedDocuments: number;
     totalMatches: number;
     previewId: string;
@@ -82,17 +88,20 @@ import {
   assert.equal(previewRes.data.totalMatches, 3);
   assert.ok(previewRes.data.previewId.length > 0);
 
-  const executeRes = (await execute({}, {
-    projectId: "proj_1",
-    scope: "wholeProject",
-    query: "warehouse",
-    replaceWith: "factory",
-    regex: false,
-    caseSensitive: false,
-    wholeWord: true,
-    previewId: previewRes.data.previewId,
-    confirmed: true,
-  })) as IpcResponse<{
+  const executeRes = (await execute(
+    {},
+    {
+      projectId: "proj_1",
+      scope: "wholeProject",
+      query: "warehouse",
+      replaceWith: "factory",
+      regex: false,
+      caseSensitive: false,
+      wholeWord: true,
+      previewId: previewRes.data.previewId,
+      confirmed: true,
+    },
+  )) as IpcResponse<{
     replacedCount: number;
     affectedDocumentCount: number;
   }>;
