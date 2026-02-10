@@ -153,7 +153,7 @@ async function createDocWithText(args: {
   return { documentId };
 }
 
-test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
+test("search + rag retrieve: FTS hit + semantic rag chunk", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({ userDataDir });
 
@@ -195,8 +195,9 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
       return await window.creonow.invoke("rag:context:retrieve", {
         projectId: args.projectId,
         queryText: args.keyword,
-        limit: 5,
-        budgetTokens: 300,
+        topK: 5,
+        maxTokens: 300,
+        model: "hash-v1",
       });
     },
     { projectId, keyword },
@@ -205,25 +206,18 @@ test("search + rag retrieve: FTS hit + retrieved layer visible", async () => {
   if (!ragRes.ok) {
     throw new Error(`Expected ok rag, got: ${ragRes.error.code}`);
   }
-  expect(ragRes.data.items.length).toBeGreaterThan(0);
-  expect(ragRes.data.items[0]?.sourceRef).toContain(`doc:${documentId}#chunk:`);
+  expect(ragRes.data.chunks.length).toBeGreaterThan(0);
+  expect(ragRes.data.chunks[0]?.documentId).toBe(documentId);
 
   await runInput(page, keyword);
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
 
-  // Note: Context viewer assertions removed - component has been deleted
-
   await electronApp.close();
 });
 
-test("rag:context:retrieve diagnostics: rerank enabled but MODEL_NOT_READY degrades with explicit reason", async () => {
+test("rag:context:retrieve degrades to FTS when embedding model is unavailable", async () => {
   const userDataDir = await createIsolatedUserDataDir();
-  const { electronApp, page } = await launchApp({
-    userDataDir,
-    env: {
-      CREONOW_RAG_RERANK: "1",
-    },
-  });
+  const { electronApp, page } = await launchApp({ userDataDir });
 
   const projectId = await createProjectAndGetId(page);
   const keyword = `E2EKEY_${randomUUID().replaceAll("-", "")}`;
@@ -235,62 +229,55 @@ test("rag:context:retrieve diagnostics: rerank enabled but MODEL_NOT_READY degra
     text: `hello ${keyword} world`,
   });
 
-  await runInput(page, keyword);
-  await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
-
-  // Note: Context viewer assertions removed - component has been deleted
-  // Diagnostics verification done via IPC assertion above (ragRes.data.items)
-
-  await electronApp.close();
-});
-
-test("rag:context:retrieve rerank: hash model enabled changes top1 and marks diagnostics", async () => {
-  const userDataDir = await createIsolatedUserDataDir();
-  const { electronApp, page } = await launchApp({
-    userDataDir,
-    env: {
-      CREONOW_RAG_RERANK: "1",
-      CREONOW_RAG_RERANK_MODEL: "hash-v1",
-    },
-  });
-
-  const projectId = await createProjectAndGetId(page);
-
-  const tokA = `foo${randomUUID().replaceAll("-", "")}`;
-  const tokB = `bar${randomUUID().replaceAll("-", "")}`;
-  const queryText = `${tokA} ${tokB}`;
-
-  const { documentId: docA } = await createDocWithText({
-    page,
-    projectId,
-    title: "Doc A",
-    text: new Array(80).fill(tokA).join(" "),
-  });
-  const { documentId: docB } = await createDocWithText({
-    page,
-    projectId,
-    title: "Doc B",
-    text: `${tokA} ${tokB}`,
-  });
-
-  const ftsRes = await page.evaluate(
+  const ragRes = await page.evaluate(
     async (args) => {
       if (!window.creonow) {
         throw new Error("Missing window.creonow bridge");
       }
-      return await window.creonow.invoke("search:fts:query", {
+      return await window.creonow.invoke("rag:context:retrieve", {
         projectId: args.projectId,
-        query: args.query,
-        limit: 5,
+        queryText: args.keyword,
+        topK: 5,
+        maxTokens: 300,
+        model: "default",
       });
     },
-    { projectId, query: tokA },
+    { projectId, keyword },
   );
-  expect(ftsRes.ok).toBe(true);
-  if (!ftsRes.ok) {
-    throw new Error(`Expected ok search, got: ${ftsRes.error.code}`);
+
+  expect(ragRes.ok).toBe(true);
+  if (!ragRes.ok) {
+    throw new Error(`Expected ok rag, got: ${ragRes.error.code}`);
   }
-  expect(ftsRes.data.results[0]?.documentId).toBe(docA);
+  expect(ragRes.data.fallback?.reason).toBe("MODEL_NOT_READY");
+  expect(ragRes.data.chunks.length).toBeGreaterThan(0);
+
+  await runInput(page, keyword);
+  await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
+
+  await electronApp.close();
+});
+
+test("rag:context:retrieve marks truncated when token budget is exceeded", async () => {
+  const userDataDir = await createIsolatedUserDataDir();
+  const { electronApp, page } = await launchApp({ userDataDir });
+
+  const projectId = await createProjectAndGetId(page);
+  const keyword = `KEY_${randomUUID().replaceAll("-", "")}`;
+
+  await createDocWithText({
+    page,
+    projectId,
+    title: "Doc A",
+    text: `${keyword}`,
+  });
+
+  await createDocWithText({
+    page,
+    projectId,
+    title: "Doc B",
+    text: `${keyword} ${new Array(120).fill("extra").join(" ")}`,
+  });
 
   const ragRes = await page.evaluate(
     async (args) => {
@@ -299,26 +286,25 @@ test("rag:context:retrieve rerank: hash model enabled changes top1 and marks dia
       }
       return await window.creonow.invoke("rag:context:retrieve", {
         projectId: args.projectId,
-        queryText: args.queryText,
-        limit: 5,
-        budgetTokens: 600,
+        queryText: args.keyword,
+        topK: 5,
+        minScore: -1,
+        maxTokens: 10,
+        model: "hash-v1",
       });
     },
-    { projectId, queryText },
+    { projectId, keyword },
   );
+
   expect(ragRes.ok).toBe(true);
   if (!ragRes.ok) {
     throw new Error(`Expected ok rag, got: ${ragRes.error.code}`);
   }
-  expect(ragRes.data.items.length).toBeGreaterThan(1);
-  expect(ragRes.data.items[0]?.sourceRef).toContain(`doc:${docB}#chunk:`);
-  expect(ragRes.data.diagnostics.mode).toBe("fulltext_reranked");
+  expect(ragRes.data.truncated).toBe(true);
+  expect(ragRes.data.usedTokens).toBeLessThanOrEqual(10);
 
-  await runInput(page, queryText);
+  await runInput(page, keyword);
   await expect(page.getByTestId("ai-output")).toContainText("E2E_RESULT");
-
-  // Note: Context viewer assertions removed - component has been deleted
-  // Rerank diagnostics verified via IPC assertion above (ragRes.data.diagnostics.mode)
 
   await electronApp.close();
 });

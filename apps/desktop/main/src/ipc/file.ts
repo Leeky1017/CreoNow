@@ -9,6 +9,7 @@ import {
   type DocumentType,
 } from "../services/documents/documentService";
 import { deriveContent } from "../services/documents/derive";
+import type { SemanticChunkIndexService } from "../services/embedding/semanticChunkIndexService";
 import type { KgRecognitionRuntime } from "../services/kg/kgRecognitionRuntime";
 import { createStatsService } from "../services/stats/statsService";
 
@@ -49,6 +50,7 @@ export function registerFileIpcHandlers(deps: {
   db: Database.Database | null;
   logger: Logger;
   recognitionRuntime?: KgRecognitionRuntime | null;
+  semanticIndex?: SemanticChunkIndexService;
 }): void {
   deps.ipcMain.handle(
     "file:document:create",
@@ -357,6 +359,30 @@ export function registerFileIpcHandlers(deps: {
                 deps.logger.error("kg_recognition_enqueue_failed", {
                   code: enqueueRes.error.code,
                   message: enqueueRes.error.message,
+                  project_id: payload.projectId,
+                  document_id: payload.documentId,
+                });
+              }
+            });
+          }
+
+          if (
+            deps.semanticIndex &&
+            payload.actor === "auto" &&
+            payload.reason === "autosave" &&
+            normalizedContentText.length > 0
+          ) {
+            queueMicrotask(() => {
+              const upserted = deps.semanticIndex?.upsertDocument({
+                projectId: payload.projectId,
+                documentId: payload.documentId,
+                contentText: normalizedContentText,
+                updatedAt: res.data.updatedAt,
+              });
+              if (upserted && !upserted.ok) {
+                deps.logger.error("embedding_index_upsert_failed", {
+                  code: upserted.error.code,
+                  message: upserted.error.message,
                   project_id: payload.projectId,
                   document_id: payload.documentId,
                 });

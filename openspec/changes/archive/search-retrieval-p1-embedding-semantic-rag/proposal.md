@@ -38,7 +38,7 @@ SR-2 承接 SR-1 的 FTS 基线，补齐向量嵌入、语义搜索与 RAG 检�
   - 数据结构：chunk 字段完整且与 Retrieved 注入所需最小字段一致。
   - IPC 契约：`embedding:*`/`rag:*` 均为 Request-Response 且响应 envelope 统一。
   - 错误码：模型不可用回退、超时、校验失败可区分。
-  - 阈值：`rag:retrieve` p95 < 450ms，与 Context Engine token 裁剪规则一致。
+  - 阈值：`rag:context:retrieve` p95 < 450ms，与 Context Engine token 裁剪规则一致。
 - 结论：`NO_DRIFT`
 - 后续动作：按 SR-1 输出为前置，进入 Red。
 
