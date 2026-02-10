@@ -55,6 +55,16 @@ export type VersionStoreState = {
   compareVersionId: string | null;
   compareStatus: "idle" | "loading" | "ready" | "error";
   compareVersionContent: VersionContent | null;
+  /** Preview mode status */
+  previewStatus: "idle" | "loading" | "ready" | "error";
+  /** Version ID currently in preview mode */
+  previewVersionId: string | null;
+  /** Timestamp text shown in preview banner */
+  previewTimestamp: string | null;
+  /** Historical content shown in preview mode */
+  previewContentJson: string | null;
+  /** Preview error details */
+  previewError: IpcError | null;
 };
 
 export type VersionStoreActions = {
@@ -77,6 +87,17 @@ export type VersionStoreActions = {
    * Exit compare mode.
    */
   exitCompare: () => void;
+  /**
+   * Start read-only preview mode for a historical version.
+   */
+  startPreview: (
+    documentId: string,
+    args: { versionId: string; timestamp: string },
+  ) => Promise<void>;
+  /**
+   * Exit read-only preview mode and return to current document.
+   */
+  exitPreview: () => void;
   /**
    * Restore a specific version.
    */
@@ -104,6 +125,11 @@ const initialState: VersionStoreState = {
   compareVersionId: null,
   compareStatus: "idle",
   compareVersionContent: null,
+  previewStatus: "idle",
+  previewVersionId: null,
+  previewTimestamp: null,
+  previewContentJson: null,
+  previewError: null,
 };
 
 /**
@@ -171,6 +197,46 @@ export function createVersionStore(deps: { invoke: IpcInvoke }) {
         compareVersionId: null,
         compareStatus: "idle",
         compareVersionContent: null,
+      });
+    },
+
+    startPreview: async (documentId, args) => {
+      set({
+        previewStatus: "loading",
+        previewVersionId: args.versionId,
+        previewTimestamp: args.timestamp,
+        previewContentJson: null,
+        previewError: null,
+      });
+
+      const res = await deps.invoke("version:snapshot:read", {
+        documentId,
+        versionId: args.versionId,
+      });
+      if (!res.ok) {
+        set({
+          previewStatus: "error",
+          previewContentJson: null,
+          previewError: res.error,
+        });
+        return;
+      }
+
+      set({
+        previewStatus: "ready",
+        previewVersionId: res.data.versionId,
+        previewContentJson: res.data.contentJson,
+        previewError: null,
+      });
+    },
+
+    exitPreview: () => {
+      set({
+        previewStatus: "idle",
+        previewVersionId: null,
+        previewTimestamp: null,
+        previewContentJson: null,
+        previewError: null,
       });
     },
 

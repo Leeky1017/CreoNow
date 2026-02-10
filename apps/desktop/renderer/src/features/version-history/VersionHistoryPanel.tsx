@@ -72,6 +72,8 @@ export interface VersionHistoryPanelProps {
   lastSavedText?: string;
   /** Auto-save enabled */
   autoSaveEnabled?: boolean;
+  /** Whether to show explicit AI modification markers */
+  showAiMarks?: boolean;
   /** Panel width in pixels */
   width?: number;
 }
@@ -301,6 +303,20 @@ function AuthorBadge({
 }
 
 /**
+ * Explicit AI modification marker shown only when user enables the preference.
+ */
+function AiMarkTag(props: { versionId: string }): JSX.Element {
+  return (
+    <span
+      data-testid={`ai-mark-tag-${props.versionId}`}
+      className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium leading-none bg-[var(--color-info)] text-[var(--color-bg-surface)]"
+    >
+      AI 修改
+    </span>
+  );
+}
+
+/**
  * Version metadata display (reason + affected paragraphs)
  */
 function VersionMeta({
@@ -457,6 +473,7 @@ function VersionCard({
   onRestore,
   onCompare,
   onPreview,
+  showAiMarks,
 }: {
   version: VersionEntry;
   isSelected: boolean;
@@ -464,6 +481,7 @@ function VersionCard({
   onRestore?: (id: string) => void;
   onCompare?: (id: string) => void;
   onPreview?: (id: string) => void;
+  showAiMarks?: boolean;
 }) {
   const baseCardStyles = [
     "group",
@@ -489,6 +507,9 @@ function VersionCard({
 
         <div className="flex items-center gap-2 mb-1">
           <AuthorBadge type={version.authorType} name={version.authorName} />
+          {showAiMarks && version.authorType === "ai" ? (
+            <AiMarkTag versionId={version.id} />
+          ) : null}
         </div>
 
         {/* Version metadata */}
@@ -555,6 +576,9 @@ function VersionCard({
 
         <div className="flex items-center gap-2 mb-2">
           <AuthorBadge type={version.authorType} name={version.authorName} />
+          {showAiMarks && version.authorType === "ai" ? (
+            <AiMarkTag versionId={version.id} />
+          ) : null}
         </div>
 
         <p className="text-[13px] text-[var(--color-fg-muted)] leading-snug mb-2 font-light">
@@ -587,6 +611,9 @@ function VersionCard({
 
       <div className="flex items-center gap-2 mb-1">
         <AuthorBadge type={version.authorType} name={version.authorName} />
+        {showAiMarks && version.authorType === "ai" ? (
+          <AiMarkTag versionId={version.id} />
+        ) : null}
       </div>
 
       {/* Version metadata - shows affected paragraphs if available */}
@@ -622,6 +649,7 @@ function TimeGroupSection({
   onRestore,
   onCompare,
   onPreview,
+  showAiMarks,
 }: {
   group: TimeGroup;
   selectedId?: string | null;
@@ -629,6 +657,7 @@ function TimeGroupSection({
   onRestore?: (id: string) => void;
   onCompare?: (id: string) => void;
   onPreview?: (id: string) => void;
+  showAiMarks?: boolean;
 }) {
   // Don't render label if it's empty (for "Just now" group)
   const showLabel = group.label !== "";
@@ -651,6 +680,7 @@ function TimeGroupSection({
           onRestore={onRestore}
           onCompare={onCompare}
           onPreview={onPreview}
+          showAiMarks={showAiMarks}
         />
       ))}
     </>
@@ -687,6 +717,8 @@ export interface VersionHistoryPanelContentProps {
   lastSavedText?: string;
   /** Auto-save enabled */
   autoSaveEnabled?: boolean;
+  /** Whether to show explicit AI modification markers */
+  showAiMarks?: boolean;
   /** Whether to show the close button */
   showCloseButton?: boolean;
 }
@@ -732,6 +764,7 @@ export function VersionHistoryPanelContent({
   onConfigureAutoSave,
   lastSavedText = "2m ago",
   autoSaveEnabled = true,
+  showAiMarks = false,
   showCloseButton = true,
 }: VersionHistoryPanelContentProps): JSX.Element {
   return (
@@ -772,6 +805,7 @@ export function VersionHistoryPanelContent({
             onRestore={onRestore}
             onCompare={onCompare}
             onPreview={onPreview}
+            showAiMarks={showAiMarks}
           />
         ))}
         <div className="h-2" />
@@ -842,6 +876,7 @@ export function VersionHistoryPanel({
   onConfigureAutoSave,
   lastSavedText = "2m ago",
   autoSaveEnabled = true,
+  showAiMarks = false,
   width = 320,
 }: VersionHistoryPanelProps): JSX.Element {
   return (
@@ -862,6 +897,7 @@ export function VersionHistoryPanel({
         onConfigureAutoSave={onConfigureAutoSave}
         lastSavedText={lastSavedText}
         autoSaveEnabled={autoSaveEnabled}
+        showAiMarks={showAiMarks}
         showCloseButton={true}
       />
     </aside>
