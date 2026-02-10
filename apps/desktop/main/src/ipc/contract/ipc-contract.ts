@@ -388,6 +388,20 @@ const AI_PROMPT_DIAGNOSTICS_SCHEMA = s.object({
   promptHash: s.string(),
 });
 
+const AI_USAGE_STATS_SCHEMA = s.object({
+  promptTokens: s.number(),
+  completionTokens: s.number(),
+  sessionTotalTokens: s.number(),
+  estimatedCostUsd: s.optional(s.number()),
+});
+
+const AI_CANDIDATE_SCHEMA = s.object({
+  id: s.string(),
+  runId: s.string(),
+  text: s.string(),
+  summary: s.string(),
+});
+
 const AI_PROXY_SETTINGS_SCHEMA = s.object({
   enabled: s.boolean(),
   baseUrl: s.string(),
@@ -791,6 +805,7 @@ export const ipcContract = {
         input: s.string(),
         mode: s.union(s.literal("agent"), s.literal("plan"), s.literal("ask")),
         model: s.string(),
+        candidateCount: s.optional(s.number()),
         context: s.optional(
           s.object({
             projectId: s.optional(s.string()),
@@ -804,6 +819,8 @@ export const ipcContract = {
         executionId: s.string(),
         runId: s.string(),
         outputText: s.optional(s.string()),
+        candidates: s.optional(s.array(AI_CANDIDATE_SCHEMA)),
+        usage: s.optional(AI_USAGE_STATS_SCHEMA),
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
       }),
     },

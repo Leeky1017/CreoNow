@@ -41,6 +41,26 @@ export type PromptDiagnostics = {
 
 export type AiRunMode = "agent" | "plan" | "ask";
 export type AiRunModel = string;
+export type AiUsageStats = {
+  promptTokens: number;
+  completionTokens: number;
+  sessionTotalTokens: number;
+  estimatedCostUsd?: number;
+};
+export type AiCandidate = {
+  id: string;
+  runId: string;
+  text: string;
+  summary: string;
+};
+export type AiRunRequestSnapshot = {
+  input: string;
+  mode: AiRunMode;
+  model: AiRunModel;
+  candidateCount: number;
+  stream: boolean;
+  context?: { projectId?: string; documentId?: string };
+};
 
 export type IpcInvoke = <C extends IpcChannel>(
   channel: C,
@@ -64,6 +84,10 @@ export type AiState = {
   selectionText: string;
   proposal: AiProposal | null;
   applyStatus: AiApplyStatus;
+  lastCandidates: AiCandidate[];
+  usageStats: AiUsageStats | null;
+  selectedCandidateId: string | null;
+  lastRunRequest: AiRunRequestSnapshot | null;
 };
 
 export type AiActions = {
@@ -80,6 +104,7 @@ export type AiActions = {
     } | null,
   ) => void;
   setProposal: (proposal: AiProposal | null) => void;
+  setSelectedCandidateId: (candidateId: string | null) => void;
   persistAiApply: (args: {
     projectId: string;
     documentId: string;
@@ -96,7 +121,10 @@ export type AiActions = {
     promptDiagnostics?: PromptDiagnostics;
     mode?: AiRunMode;
     model?: AiRunModel;
+    candidateCount?: number;
+    streamOverride?: boolean;
   }) => Promise<void>;
+  regenerateWithStrongNegative: (args?: { projectId?: string }) => Promise<void>;
   cancel: () => Promise<void>;
   onStreamEvent: (event: AiStreamEvent) => void;
 };
@@ -123,6 +151,23 @@ function statusFromError(error: IpcError): AiStatus {
 }
 
 /**
+ * Normalize candidateCount to the fixed 1..5 contract range.
+ */
+function normalizeCandidateCount(raw: number | undefined): number {
+  if (!Number.isFinite(raw ?? 1)) {
+    return 1;
+  }
+  const rounded = Math.trunc(raw ?? 1);
+  if (rounded < 1) {
+    return 1;
+  }
+  if (rounded > 5) {
+    return 5;
+  }
+  return rounded;
+}
+
+/**
  * Create a zustand store for AI runtime state.
  *
  * Why: UI must support stream/cancel/timeout/upstream-error with deterministic
@@ -146,6 +191,10 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
     selectionText: "",
     proposal: null,
     applyStatus: "idle",
+    lastCandidates: [],
+    usageStats: null,
+    selectedCandidateId: null,
+    lastRunRequest: null,
 
     setStream: (enabled) => set({ stream: enabled }),
 
@@ -198,6 +247,11 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       set({
         proposal,
         applyStatus: "idle",
+      }),
+
+    setSelectedCandidateId: (candidateId) =>
+      set({
+        selectedCandidateId: candidateId,
       }),
 
     persistAiApply: async (args) => {
@@ -257,6 +311,19 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         return;
       }
       const inputToSend = args?.inputOverride ?? state.input;
+      const candidateCount = normalizeCandidateCount(args?.candidateCount);
+      const stream =
+        typeof args?.streamOverride === "boolean"
+          ? args.streamOverride
+          : state.stream;
+      const requestSnapshot: AiRunRequestSnapshot = {
+        input: inputToSend,
+        mode: args?.mode ?? "ask",
+        model: args?.model ?? "gpt-5.2",
+        candidateCount,
+        stream,
+        context: args?.context ?? {},
+      };
 
       set({
         status: "running",
@@ -267,14 +334,19 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         lastRunId: null,
         proposal: null,
         applyStatus: "idle",
+        lastCandidates: [],
+        usageStats: null,
+        selectedCandidateId: null,
+        lastRunRequest: requestSnapshot,
       });
 
       const res = await deps.invoke("ai:skill:run", {
         skillId: state.selectedSkillId,
         input: inputToSend,
-        mode: args?.mode ?? "ask",
-        model: args?.model ?? "gpt-5.2",
-        stream: state.stream,
+        mode: requestSnapshot.mode,
+        model: requestSnapshot.model,
+        stream: requestSnapshot.stream,
+        candidateCount: requestSnapshot.candidateCount,
         context: args?.context ?? {},
         promptDiagnostics: args?.promptDiagnostics,
       });
@@ -286,17 +358,27 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           activeRunId: null,
           activeChunkSeq: 0,
           lastRunId: null,
+          lastCandidates: [],
+          usageStats: null,
+          selectedCandidateId: null,
         });
         return;
       }
 
       if (typeof res.data.outputText === "string") {
+        const candidates = Array.isArray(res.data.candidates)
+          ? res.data.candidates
+          : [];
         set({
           status: "idle",
           outputText: res.data.outputText,
           activeRunId: null,
           activeChunkSeq: 0,
           lastRunId: res.data.runId,
+          lastCandidates: candidates,
+          usageStats: res.data.usage ?? null,
+          selectedCandidateId: candidates[0]?.id ?? null,
+          lastError: null,
         });
         return;
       }
@@ -306,6 +388,68 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         activeRunId: res.data.executionId,
         activeChunkSeq: 0,
         lastRunId: res.data.runId,
+        lastCandidates: Array.isArray(res.data.candidates)
+          ? res.data.candidates
+          : [],
+        usageStats: res.data.usage ?? null,
+        selectedCandidateId: Array.isArray(res.data.candidates)
+          ? (res.data.candidates[0]?.id ?? null)
+          : null,
+        lastError: null,
+      });
+    },
+
+    regenerateWithStrongNegative: async (args) => {
+      const state = get();
+      if (!state.lastRunRequest) {
+        return;
+      }
+
+      const selectedRunId =
+        state.lastCandidates.find((item) => item.id === state.selectedCandidateId)
+          ?.runId ?? state.lastRunId;
+      if (!selectedRunId) {
+        return;
+      }
+
+      const evidenceRef = "feedback=strong_negative";
+      const feedbackRes = await deps.invoke("ai:skill:feedback", {
+        runId: selectedRunId,
+        action: "reject",
+        evidenceRef,
+      });
+      if (!feedbackRes.ok) {
+        set({
+          status: statusFromError(feedbackRes.error),
+          lastError: feedbackRes.error,
+        });
+        return;
+      }
+
+      const normalizedProjectId = args?.projectId?.trim() ?? "";
+      if (normalizedProjectId.length > 0) {
+        const traceFeedbackRes = await deps.invoke("memory:trace:feedback", {
+          projectId: normalizedProjectId,
+          generationId: selectedRunId,
+          verdict: "incorrect",
+          reason: evidenceRef,
+        });
+        if (!traceFeedbackRes.ok) {
+          set({
+            status: statusFromError(traceFeedbackRes.error),
+            lastError: traceFeedbackRes.error,
+          });
+          return;
+        }
+      }
+
+      await get().run({
+        inputOverride: state.lastRunRequest.input,
+        context: state.lastRunRequest.context,
+        mode: state.lastRunRequest.mode,
+        model: state.lastRunRequest.model,
+        candidateCount: state.lastRunRequest.candidateCount,
+        streamOverride: state.lastRunRequest.stream,
       });
     },
 
@@ -358,6 +502,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
               : `${prev.outputText}${event.chunk}`,
             activeChunkSeq: event.seq,
             lastRunId: event.runId,
+            lastCandidates: [],
+            usageStats: null,
+            selectedCandidateId: null,
           };
         });
         return;
@@ -371,6 +518,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           activeChunkSeq: 0,
           lastRunId: event.runId,
           lastError: null,
+          lastCandidates: [],
+          usageStats: null,
+          selectedCandidateId: null,
         });
         return;
       }
@@ -383,6 +533,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           activeChunkSeq: 0,
           lastRunId: event.runId,
           lastError: null,
+          lastCandidates: [],
+          usageStats: null,
+          selectedCandidateId: null,
         });
         return;
       }
@@ -399,6 +552,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         activeRunId: null,
         activeChunkSeq: 0,
         lastRunId: event.runId,
+        lastCandidates: [],
+        usageStats: null,
+        selectedCandidateId: null,
       });
     },
   }));

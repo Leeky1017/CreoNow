@@ -43,6 +43,7 @@ import {
 } from "../../../../../../packages/shared/types/judge";
 
 const RECENT_MODELS_STORAGE_KEY = "creonow.ai.recentModels";
+const CANDIDATE_COUNT_STORAGE_KEY = "creonow.ai.candidateCount";
 
 /**
 
@@ -100,6 +101,14 @@ function judgeSeverityClass(severity: JudgeResultEvent["severity"]): string {
     return "text-[var(--color-fg-default)]";
   }
   return "text-[var(--color-fg-muted)]";
+}
+
+function formatTokenValue(value: number): string {
+  return Math.max(0, Math.trunc(value)).toLocaleString("en-US");
+}
+
+function formatUsd(value: number): string {
+  return `$${value.toFixed(4)}`;
 }
 
 type DbErrorDetails = {
@@ -351,6 +360,12 @@ export function AiPanel(): JSX.Element {
 
   const lastRunId = useAiStore((s) => s.lastRunId);
 
+  const lastCandidates = useAiStore((s) => s.lastCandidates);
+
+  const usageStats = useAiStore((s) => s.usageStats);
+
+  const selectedCandidateId = useAiStore((s) => s.selectedCandidateId);
+
   const lastError = useAiStore((s) => s.lastError);
 
   const selectionRef = useAiStore((s) => s.selectionRef);
@@ -375,11 +390,17 @@ export function AiPanel(): JSX.Element {
 
   const setProposal = useAiStore((s) => s.setProposal);
 
+  const setSelectedCandidateId = useAiStore((s) => s.setSelectedCandidateId);
+
   const persistAiApply = useAiStore((s) => s.persistAiApply);
 
   const logAiApplyConflict = useAiStore((s) => s.logAiApplyConflict);
 
   const run = useAiStore((s) => s.run);
+
+  const regenerateWithStrongNegative = useAiStore(
+    (s) => s.regenerateWithStrongNegative,
+  );
 
   const cancel = useAiStore((s) => s.cancel);
 
@@ -404,6 +425,7 @@ export function AiPanel(): JSX.Element {
   const [historyOpen, setHistoryOpen] = React.useState(false);
   const [selectedMode, setSelectedMode] = React.useState<AiMode>("ask");
   const [selectedModel, setSelectedModel] = React.useState<AiModel>("gpt-5.2");
+  const [candidateCount, setCandidateCount] = React.useState(1);
   const [recentModelIds, setRecentModelIds] = React.useState<string[]>([]);
   const [availableModels, setAvailableModels] = React.useState<AiModelOption[]>(
     [],
@@ -423,6 +445,13 @@ export function AiPanel(): JSX.Element {
     null,
   );
   const evaluatedRunIdRef = React.useRef<string | null>(null);
+
+  const selectedCandidate =
+    lastCandidates.find((item) => item.id === selectedCandidateId) ??
+    lastCandidates[0] ??
+    null;
+  const activeOutputText = selectedCandidate?.text ?? outputText;
+  const activeRunId = selectedCandidate?.runId ?? lastRunId;
 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -500,17 +529,62 @@ export function AiPanel(): JSX.Element {
   }, [selectedModel]);
 
   React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CANDIDATE_COUNT_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = Number.parseInt(raw, 10);
+      if (!Number.isFinite(parsed)) {
+        return;
+      }
+      if (parsed >= 1 && parsed <= 5) {
+        setCandidateCount(parsed);
+      }
+    } catch {
+      return;
+    }
+  }, []);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        CANDIDATE_COUNT_STORAGE_KEY,
+        String(candidateCount),
+      );
+    } catch {
+      return;
+    }
+  }, [candidateCount]);
+
+  React.useEffect(() => {
     return onAiModelCatalogUpdated(() => {
       void refreshModels();
     });
   }, [refreshModels]);
 
   React.useEffect(() => {
+    if (lastCandidates.length === 0) {
+      if (selectedCandidateId !== null) {
+        setSelectedCandidateId(null);
+      }
+      return;
+    }
+
+    const selectedExists = lastCandidates.some(
+      (item) => item.id === selectedCandidateId,
+    );
+    if (!selectedExists) {
+      setSelectedCandidateId(lastCandidates[0]?.id ?? null);
+    }
+  }, [lastCandidates, selectedCandidateId, setSelectedCandidateId]);
+
+  React.useEffect(() => {
     if (status !== "idle") {
       return;
     }
 
-    if (proposal || !lastRunId || outputText.trim().length === 0) {
+    if (proposal || !activeRunId || activeOutputText.trim().length === 0) {
       return;
     }
 
@@ -519,18 +593,17 @@ export function AiPanel(): JSX.Element {
     }
 
     setProposal({
-      runId: lastRunId,
+      runId: activeRunId,
 
       selectionRef,
 
       selectionText,
 
-      replacementText: outputText,
+      replacementText: activeOutputText,
     });
   }, [
-    lastRunId,
-
-    outputText,
+    activeOutputText,
+    activeRunId,
 
     proposal,
 
@@ -623,6 +696,7 @@ export function AiPanel(): JSX.Element {
 
     setProposal(null);
     setInlineDiffConfirmOpen(false);
+    setSelectedCandidateId(null);
 
     setError(null);
 
@@ -645,6 +719,8 @@ export function AiPanel(): JSX.Element {
       },
       mode: selectedMode,
       model: selectedModel,
+      candidateCount,
+      streamOverride: candidateCount > 1 ? false : undefined,
     });
   }
 
@@ -658,6 +734,24 @@ export function AiPanel(): JSX.Element {
     setInlineDiffConfirmOpen(false);
 
     setSelectionSnapshot(null);
+  }
+
+  function onSelectCandidate(candidateId: string): void {
+    setSelectedCandidateId(candidateId);
+    setProposal(null);
+    setInlineDiffConfirmOpen(false);
+  }
+
+  async function onRegenerateAll(): Promise<void> {
+    setProposal(null);
+    setInlineDiffConfirmOpen(false);
+    setSelectedCandidateId(null);
+    setJudgeResult(null);
+    evaluatedRunIdRef.current = null;
+
+    await regenerateWithStrongNegative({
+      projectId: currentProject?.projectId ?? projectId ?? undefined,
+    });
   }
 
   /**
@@ -966,11 +1060,67 @@ export function AiPanel(): JSX.Element {
                 />
               ) : null}
 
+              {lastCandidates.length > 0 ? (
+                <div
+                  data-testid="ai-candidate-list"
+                  className="w-full grid grid-cols-1 gap-2"
+                >
+                  {lastCandidates.map((candidate, index) => {
+                    const isSelected = selectedCandidate?.id === candidate.id;
+                    return (
+                      <button
+                        key={candidate.id}
+                        data-testid={`ai-candidate-card-${index + 1}`}
+                        type="button"
+                        onClick={() => onSelectCandidate(candidate.id)}
+                        className={`w-full text-left rounded-[var(--radius-md)] border px-3 py-2 transition-colors ${
+                          isSelected
+                            ? "border-[var(--color-accent)] bg-[var(--color-bg-selected)]"
+                            : "border-[var(--color-border-default)] bg-[var(--color-bg-base)] hover:bg-[var(--color-bg-hover)]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[12px] font-semibold text-[var(--color-fg-default)]">
+                            方案 {index + 1}
+                          </span>
+                          {isSelected ? (
+                            <span className="text-[11px] text-[var(--color-fg-accent)]">
+                              已选择
+                            </span>
+                          ) : null}
+                        </div>
+                        <Text
+                          size="small"
+                          color="muted"
+                          className="mt-1 whitespace-pre-wrap"
+                        >
+                          {candidate.summary}
+                        </Text>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {lastCandidates.length > 1 ? (
+                <div className="w-full flex justify-end">
+                  <Button
+                    data-testid="ai-candidate-regenerate"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void onRegenerateAll()}
+                    disabled={working}
+                  >
+                    全部不满意，重新生成
+                  </Button>
+                </div>
+              ) : null}
+
               {/* AI Response - no box, just text flow */}
-              {outputText ? (
+              {activeOutputText ? (
                 <div data-testid="ai-output" className="w-full">
                   <div className="text-[13px] leading-relaxed text-[var(--color-fg-default)] whitespace-pre-wrap">
-                    {outputText}
+                    {activeOutputText}
                     {status === "streaming" && (
                       <span className="typing-cursor" />
                     )}
@@ -1038,6 +1188,42 @@ export function AiPanel(): JSX.Element {
                       部分校验已跳过
                     </Text>
                   ) : null}
+                </div>
+              ) : null}
+
+              {usageStats ? (
+                <div
+                  data-testid="ai-usage-stats"
+                  className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-3 py-2"
+                >
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--color-fg-muted)]">
+                    <span>
+                      Prompt:{" "}
+                      <span data-testid="ai-usage-prompt-tokens">
+                        {formatTokenValue(usageStats.promptTokens)}
+                      </span>
+                    </span>
+                    <span>
+                      输出:{" "}
+                      <span data-testid="ai-usage-completion-tokens">
+                        {formatTokenValue(usageStats.completionTokens)}
+                      </span>
+                    </span>
+                    <span>
+                      本会话累计:{" "}
+                      <span data-testid="ai-usage-session-total-tokens">
+                        {formatTokenValue(usageStats.sessionTotalTokens)}
+                      </span>
+                    </span>
+                    {typeof usageStats.estimatedCostUsd === "number" ? (
+                      <span>
+                        费用估算:{" "}
+                        <span data-testid="ai-usage-estimated-cost">
+                          {formatUsd(usageStats.estimatedCostUsd)}
+                        </span>
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
@@ -1134,6 +1320,16 @@ export function AiPanel(): JSX.Element {
                       {modelsStatus === "loading"
                         ? "Loading"
                         : getModelName(selectedModel, availableModels)}
+                    </ToolButton>
+
+                    {/* Candidate count button */}
+                    <ToolButton
+                      testId="ai-candidate-count"
+                      onClick={() =>
+                        setCandidateCount((prev) => (prev >= 5 ? 1 : prev + 1))
+                      }
+                    >
+                      {`${candidateCount}x`}
                     </ToolButton>
 
                     {/* Skill button */}
