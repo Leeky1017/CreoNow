@@ -12,7 +12,7 @@
 - [x] 准入：创建 OPEN issue #386 + task worktree
 - [x] Rulebook task 创建并 validate
 - [x] 修正 EXECUTION_ORDER 与 ISSUE-382 RUN_LOG 文档漂移
-- [ ] preflight 全绿
+- [x] preflight 全绿
 - [ ] PR + auto-merge + main 收口 + worktree 清理
 
 ## Runs
@@ -68,3 +68,27 @@
 - Key output:
   - `PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ... ISSUE-386.md: 待回填`
   - 结论：创建 PR 并回填真实链接后复跑 preflight
+
+### 2026-02-10 13:41 +0800 自动化脚本阻塞（Prettier / 依赖）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+  - `pnpm exec prettier --write rulebook/tasks/issue-386-execution-order-closeout-fix/.metadata.json rulebook/tasks/issue-386-execution-order-closeout-fix/proposal.md rulebook/tasks/issue-386-execution-order-closeout-fix/tasks.md`
+  - `pnpm install --frozen-lockfile`
+- Exit code:
+  - `agent_pr_automerge_and_sync.sh` 中 preflight 阶段阻塞（`prettier --check` 失败）
+  - `prettier --write` => `0`
+  - `pnpm install --frozen-lockfile` => `0`
+- Key output:
+  - PR 已创建并回填：`https://github.com/Leeky1017/CreoNow/pull/387`
+  - 失败原因：Rulebook 三个文件格式不符合 Prettier + worktree 缺失 `node_modules`
+  - 修复：格式化 Rulebook 文件并安装依赖后复跑 preflight
+
+### 2026-02-10 13:43 +0800 Preflight 全绿（修复后）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Repo/Issue/Rulebook/OpenSpec 检查全部通过
+  - `pnpm typecheck` / `pnpm lint` / `pnpm contract:check` / `pnpm cross-module:check` / `pnpm test:unit` / `pnpm test:integration` 全通过

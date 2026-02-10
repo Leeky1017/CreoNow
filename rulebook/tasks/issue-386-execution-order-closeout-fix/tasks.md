@@ -6,7 +6,7 @@
 
 ## 2. Testing
 
-- [ ] 2.1 运行 `scripts/agent_pr_preflight.sh`
+- [x] 2.1 运行 `scripts/agent_pr_preflight.sh`
 - [ ] 2.2 校验 PR required checks：`ci`、`openspec-log-guard`、`merge-serial`
 
 ## 3. Documentation
