@@ -241,7 +241,7 @@ export function createVersionStore(deps: { invoke: IpcInvoke }) {
     },
 
     restoreVersion: async (documentId, versionId) => {
-      const res = await deps.invoke("version:snapshot:restore", {
+      const res = await deps.invoke("version:snapshot:rollback", {
         documentId,
         versionId,
       });

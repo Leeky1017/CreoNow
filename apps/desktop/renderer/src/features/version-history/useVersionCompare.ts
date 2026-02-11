@@ -1,27 +1,23 @@
 /**
- * Hook for comparing versions using real version:snapshot:read IPC.
+ * Hook for comparing versions using real version:snapshot:diff IPC.
  */
 
 import { useCallback, useState } from "react";
 import { useEditorStore } from "../../stores/editorStore";
-import { unifiedDiff } from "../../lib/diff/unifiedDiff";
 import { invoke } from "../../lib/ipcClient";
 
 export type CompareState = {
   status: "idle" | "loading" | "ready" | "error";
   diffText: string;
   error?: string;
-  /** The historical version's text content for display */
-  historicalText?: string;
-  /** The current document's text content for display */
-  currentText?: string;
+  /** Whether compared changes should be marked as AI-originated. */
+  aiMarked?: boolean;
 };
 
 /**
  * Hook to manage version comparison state and trigger compare mode.
  *
- * Uses version:snapshot:read IPC to fetch actual historical version content
- * and generates a unified diff against the current editor content.
+ * Uses version:snapshot:diff IPC to fetch unified diff payload from main process.
  *
  * Usage:
  * ```tsx
@@ -39,7 +35,6 @@ export type CompareState = {
  */
 export function useVersionCompare() {
   const setCompareMode = useEditorStore((s) => s.setCompareMode);
-  const editor = useEditorStore((s) => s.editor);
   const documentId = useEditorStore((s) => s.documentId);
 
   const [compareState, setCompareState] = useState<CompareState>({
@@ -50,8 +45,7 @@ export function useVersionCompare() {
   /**
    * Start comparing a version against the current document.
    *
-   * Fetches the historical version content via version:snapshot:read IPC,
-   * then generates a unified diff against the current editor content.
+   * Requests unified diff data via version:snapshot:diff IPC.
    */
   const startCompare = useCallback(
     async (docId: string, versionId: string) => {
@@ -59,13 +53,9 @@ export function useVersionCompare() {
       setCompareMode(true, versionId);
 
       try {
-        // Get current editor content as the "after" version
-        const currentText = editor?.getText() ?? "";
-
-        // Fetch historical version content via version:snapshot:read IPC
-        const res = await invoke("version:snapshot:read", {
+        const res = await invoke("version:snapshot:diff", {
           documentId: docId,
-          versionId,
+          baseVersionId: versionId,
         });
 
         if (!res.ok) {
@@ -77,21 +67,10 @@ export function useVersionCompare() {
           return;
         }
 
-        const historicalText = res.data.contentText;
-
-        // Generate unified diff
-        const diffText = unifiedDiff({
-          oldText: historicalText,
-          newText: currentText || "",
-          oldLabel: `版本 (${new Date(res.data.createdAt).toLocaleString()})`,
-          newLabel: "当前",
-        });
-
         setCompareState({
           status: "ready",
-          diffText: diffText || "No differences found.",
-          historicalText,
-          currentText,
+          diffText: res.data.diffText || "No differences found.",
+          aiMarked: res.data.aiMarked,
         });
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
@@ -102,7 +81,7 @@ export function useVersionCompare() {
         });
       }
     },
-    [editor, setCompareMode],
+    [setCompareMode],
   );
 
   /**

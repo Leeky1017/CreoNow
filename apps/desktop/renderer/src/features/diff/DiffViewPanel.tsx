@@ -38,6 +38,8 @@ type DiffViewPanelProps = {
   onAcceptAll?: () => void;
   /** Callback to reject all changes */
   onRejectAll?: () => void;
+  /** Optional underline style for added/removed lines. */
+  lineUnderlineStyle?: "none" | "solid" | "dashed";
 };
 
 /**
@@ -165,12 +167,14 @@ export function DiffViewPanel(props: DiffViewPanelProps): JSX.Element {
           lines={lines}
           currentChangeIndex={currentChangeIndex}
           changePositions={changePositions}
+          lineUnderlineStyle={props.lineUnderlineStyle}
         />
       ) : (
         <SplitDiffView
           lines={lines}
           currentChangeIndex={currentChangeIndex}
           changePositions={changePositions}
+          lineUnderlineStyle={props.lineUnderlineStyle}
         />
       )}
 

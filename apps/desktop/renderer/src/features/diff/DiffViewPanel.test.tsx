@@ -53,4 +53,27 @@ describe("DiffViewPanel", () => {
     expect(screen.getByText("+0 lines")).toBeInTheDocument();
     expect(screen.getByText("-0 lines")).toBeInTheDocument();
   });
+
+  it("should apply dashed underline style when lineUnderlineStyle is dashed", () => {
+    const diffText = [
+      "--- old",
+      "+++ new",
+      "@@ -1,1 +1,1 @@",
+      "-old-a",
+      "+new-a",
+      "",
+    ].join("\n");
+
+    render(
+      <DiffViewPanel
+        diffText={diffText}
+        versions={twoVersionOptions}
+        initialViewMode="unified"
+        lineUnderlineStyle="dashed"
+      />,
+    );
+
+    const changedLine = screen.getByText("new-a");
+    expect(changedLine).toHaveClass("decoration-dashed");
+  });
 });

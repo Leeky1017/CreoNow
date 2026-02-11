@@ -28,6 +28,7 @@ import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
 import { useEditorStore } from "../../stores/editorStore";
 import { useAiStore } from "../../stores/aiStore";
+import { useVersionPreferencesStore } from "../../stores/versionPreferencesStore";
 import { applySelection } from "../../features/ai/applySelection";
 import {
   applyHunkDecisions,
@@ -258,6 +259,7 @@ export function AppShell(): JSX.Element {
   const persistAiApply = useAiStore((s) => s.persistAiApply);
   const setAiError = useAiStore((s) => s.setError);
   const logAiApplyConflict = useAiStore((s) => s.logAiApplyConflict);
+  const showAiMarks = useVersionPreferencesStore((s) => s.showAiMarks);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
   // Counter to force CommandPalette remount on each open (ensures fresh state)
@@ -617,7 +619,7 @@ export function AppShell(): JSX.Element {
           return;
         }
 
-        const res = await invoke("version:snapshot:restore", {
+        const res = await invoke("version:snapshot:rollback", {
           documentId,
           versionId: compareVersionId,
         });
@@ -636,6 +638,13 @@ export function AppShell(): JSX.Element {
             onClose={closeCompare}
             onRestore={() => void handleRestore()}
             restoreInProgress={compareState.status === "loading"}
+            lineUnderlineStyle={
+              showAiMarks
+                ? compareState.aiMarked
+                  ? "dashed"
+                  : "solid"
+                : "none"
+            }
           />
           <SystemDialog {...dialogProps} />
         </>

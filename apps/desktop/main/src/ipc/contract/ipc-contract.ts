@@ -745,6 +745,12 @@ const VERSION_SNAPSHOT_REASON_SCHEMA = s.union(
   s.literal("status-change"),
 );
 
+const VERSION_DIFF_STATS_SCHEMA = s.object({
+  addedLines: s.number(),
+  removedLines: s.number(),
+  changedHunks: s.number(),
+});
+
 const DOCUMENT_LIST_ITEM_SCHEMA = s.object({
   documentId: s.string(),
   type: DOCUMENT_TYPE_SCHEMA,
@@ -2079,6 +2085,27 @@ export const ipcContract = {
         contentHash: s.string(),
         wordCount: s.number(),
         createdAt: s.number(),
+      }),
+    },
+    "version:snapshot:diff": {
+      request: s.object({
+        documentId: s.string(),
+        baseVersionId: s.string(),
+        targetVersionId: s.optional(s.string()),
+      }),
+      response: s.object({
+        diffText: s.string(),
+        hasDifferences: s.boolean(),
+        stats: VERSION_DIFF_STATS_SCHEMA,
+        aiMarked: s.boolean(),
+      }),
+    },
+    "version:snapshot:rollback": {
+      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      response: s.object({
+        restored: s.literal(true),
+        preRollbackVersionId: s.string(),
+        rollbackVersionId: s.string(),
       }),
     },
     "version:snapshot:restore": {

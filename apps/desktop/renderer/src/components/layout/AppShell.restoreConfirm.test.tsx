@@ -207,7 +207,7 @@ vi.mock("../../features/zen-mode/ZenMode", () => ({
 
 function getRestoreInvokeCount(): number {
   return invokeMock.mock.calls.filter(
-    ([channel]) => channel === "version:snapshot:restore",
+    ([channel]) => channel === "version:snapshot:rollback",
   ).length;
 }
 
@@ -245,7 +245,7 @@ describe("AppShell compare restore confirmation", () => {
       expect(getRestoreInvokeCount()).toBe(1);
     });
 
-    expect(invokeMock).toHaveBeenCalledWith("version:snapshot:restore", {
+    expect(invokeMock).toHaveBeenCalledWith("version:snapshot:rollback", {
       documentId: "doc-1",
       versionId: "v-1",
     });

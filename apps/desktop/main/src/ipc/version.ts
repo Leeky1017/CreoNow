@@ -2,6 +2,7 @@ import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
+import type { VersionDiffPayload } from "../../../../../packages/shared/types/version-diff";
 import type { Logger } from "../logging/logger";
 import {
   createDocumentService,
@@ -191,6 +192,101 @@ export function registerVersionIpcHandlers(deps: {
 
       const svc = createDocumentService({ db: deps.db, logger: deps.logger });
       const res = svc.readVersion({
+        documentId: payload.documentId,
+        versionId: payload.versionId,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "version:snapshot:diff",
+    async (
+      _e,
+      payload: {
+        documentId: string;
+        baseVersionId: string;
+        targetVersionId?: string;
+      },
+    ): Promise<IpcResponse<VersionDiffPayload>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.documentId.trim().length === 0 ||
+        payload.baseVersionId.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId/baseVersionId is required",
+          },
+        };
+      }
+      if (
+        payload.targetVersionId !== undefined &&
+        payload.targetVersionId.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "targetVersionId must be a non-empty string when provided",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.diffVersions({
+        documentId: payload.documentId,
+        baseVersionId: payload.baseVersionId,
+        targetVersionId: payload.targetVersionId,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "version:snapshot:rollback",
+    async (
+      _e,
+      payload: { documentId: string; versionId: string },
+    ): Promise<
+      IpcResponse<{
+        restored: true;
+        preRollbackVersionId: string;
+        rollbackVersionId: string;
+      }>
+    > => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.documentId.trim().length === 0 ||
+        payload.versionId.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId/versionId is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.rollbackVersion({
         documentId: payload.documentId,
         versionId: payload.versionId,
       });

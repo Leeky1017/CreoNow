@@ -125,7 +125,7 @@ function installInvokeMock(args?: {
       };
     }
 
-    if (channel === "version:snapshot:restore") {
+    if (channel === "version:snapshot:rollback") {
       return { ok: true, data: { restored: true } };
     }
 
@@ -134,11 +134,11 @@ function installInvokeMock(args?: {
 }
 
 /**
- * Count how many times `version:snapshot:restore` was invoked in the mocked IPC client.
+ * Count how many times `version:snapshot:rollback` was invoked in the mocked IPC client.
  */
 function getRestoreInvokeCount(): number {
   return invokeMock.mock.calls.filter(
-    ([channel]) => channel === "version:snapshot:restore",
+    ([channel]) => channel === "version:snapshot:rollback",
   ).length;
 }
 

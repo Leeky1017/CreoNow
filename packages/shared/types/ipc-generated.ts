@@ -237,9 +237,11 @@ export const IPC_CHANNELS = [
   "stats:range:get",
   "version:aiapply:logconflict",
   "version:snapshot:create",
+  "version:snapshot:diff",
   "version:snapshot:list",
   "version:snapshot:read",
   "version:snapshot:restore",
+  "version:snapshot:rollback",
 ] as const;
 
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
@@ -2859,6 +2861,23 @@ export type IpcChannelSpec = {
       wordCount: number;
     };
   };
+  "version:snapshot:diff": {
+    request: {
+      baseVersionId: string;
+      documentId: string;
+      targetVersionId?: string;
+    };
+    response: {
+      aiMarked: boolean;
+      diffText: string;
+      hasDifferences: boolean;
+      stats: {
+        addedLines: number;
+        changedHunks: number;
+        removedLines: number;
+      };
+    };
+  };
   "version:snapshot:list": {
     request: {
       documentId: string;
@@ -2900,6 +2919,17 @@ export type IpcChannelSpec = {
     };
     response: {
       restored: true;
+    };
+  };
+  "version:snapshot:rollback": {
+    request: {
+      documentId: string;
+      versionId: string;
+    };
+    response: {
+      preRollbackVersionId: string;
+      restored: true;
+      rollbackVersionId: string;
     };
   };
 };

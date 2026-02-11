@@ -26,6 +26,8 @@ export type DiffStats = {
   changedHunks: number;
 };
 
+export type LineUnderlineStyle = "none" | "solid" | "dashed";
+
 /**
  * Parse a unified diff text into typed lines with line numbers.
  *
@@ -161,6 +163,7 @@ export function UnifiedDiffView(props: {
   currentChangeIndex?: number;
   changePositions?: number[];
   testId?: string;
+  lineUnderlineStyle?: LineUnderlineStyle;
 }): JSX.Element {
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const testId = props.testId ?? "ai-diff";
@@ -221,6 +224,12 @@ export function UnifiedDiffView(props: {
         const isRemoved = line.type === "removed";
         const isAdded = line.type === "added";
         const isContext = line.type === "context";
+        const underlineClass =
+          props.lineUnderlineStyle === "dashed"
+            ? "underline decoration-dashed underline-offset-[3px]"
+            : props.lineUnderlineStyle === "solid"
+              ? "underline decoration-solid underline-offset-[3px]"
+              : "";
 
         // Determine if this line is part of the currently highlighted change
         const isCurrentChange =
@@ -288,6 +297,7 @@ export function UnifiedDiffView(props: {
                 flex-1 px-4 py-1 whitespace-pre-wrap break-words
                 ${isRemoved ? "text-[rgba(239,68,68,0.7)] line-through decoration-[rgba(239,68,68,0.4)]" : ""}
                 ${isAdded ? "text-[rgba(34,197,94,0.9)]" : ""}
+                ${(isRemoved || isAdded) && underlineClass ? underlineClass : ""}
                 ${isContext ? "text-[var(--color-fg-muted)]" : ""}
               `}
             >

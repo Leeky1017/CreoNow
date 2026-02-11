@@ -278,7 +278,7 @@ export function VersionHistoryContainer(
         return;
       }
 
-      const res = await invoke("version:snapshot:restore", {
+      const res = await invoke("version:snapshot:rollback", {
         documentId,
         versionId,
       });

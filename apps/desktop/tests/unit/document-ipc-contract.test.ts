@@ -34,6 +34,8 @@ function asObjectSchema(value: unknown): ObjectSchema {
     "version:snapshot:create",
     "version:snapshot:list",
     "version:snapshot:read",
+    "version:snapshot:diff",
+    "version:snapshot:rollback",
   ] as const;
   const legacy = ["file:document:rename", "file:document:write"] as const;
 
@@ -52,6 +54,68 @@ function asObjectSchema(value: unknown): ObjectSchema {
       `legacy channel should be removed: ${channel}`,
     );
   }
+}
+
+/**
+ * P2 contract: version:snapshot:diff and version:snapshot:rollback schemas must exist.
+ */
+{
+  const channels = ipcContract.channels as unknown as Record<
+    string,
+    { request: unknown; response: unknown }
+  >;
+
+  const diffReq = asObjectSchema(channels["version:snapshot:diff"]?.request);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(diffReq.fields, "documentId"),
+    true,
+    "version:snapshot:diff request should include documentId",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(diffReq.fields, "baseVersionId"),
+    true,
+    "version:snapshot:diff request should include baseVersionId",
+  );
+
+  const diffRes = asObjectSchema(channels["version:snapshot:diff"]?.response);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(diffRes.fields, "diffText"),
+    true,
+    "version:snapshot:diff response should include diffText",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(diffRes.fields, "hasDifferences"),
+    true,
+    "version:snapshot:diff response should include hasDifferences",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(diffRes.fields, "stats"),
+    true,
+    "version:snapshot:diff response should include stats",
+  );
+
+  const rollbackReq = asObjectSchema(
+    channels["version:snapshot:rollback"]?.request,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(rollbackReq.fields, "documentId"),
+    true,
+    "version:snapshot:rollback request should include documentId",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(rollbackReq.fields, "versionId"),
+    true,
+    "version:snapshot:rollback request should include versionId",
+  );
+
+  const rollbackRes = asObjectSchema(
+    channels["version:snapshot:rollback"]?.response,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(rollbackRes.fields, "restored"),
+    true,
+    "version:snapshot:rollback response should include restored",
+  );
 }
 
 /**

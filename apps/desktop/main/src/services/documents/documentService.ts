@@ -6,6 +6,10 @@ import type {
   IpcError,
   IpcErrorCode,
 } from "../../../../../../packages/shared/types/ipc-generated";
+import type {
+  VersionDiffPayload,
+  VersionDiffStats,
+} from "../../../../../../packages/shared/types/version-diff";
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "./derive";
 
@@ -77,6 +81,8 @@ export type VersionRead = {
   createdAt: number;
 };
 
+type VersionDiffResult = VersionDiffPayload;
+
 export type DocumentService = {
   create: (args: {
     projectId: string;
@@ -140,6 +146,19 @@ export type DocumentService = {
     documentId: string;
     versionId: string;
   }) => ServiceResult<VersionRead>;
+  diffVersions: (args: {
+    documentId: string;
+    baseVersionId: string;
+    targetVersionId?: string;
+  }) => ServiceResult<VersionDiffResult>;
+  rollbackVersion: (args: {
+    documentId: string;
+    versionId: string;
+  }) => ServiceResult<{
+    restored: true;
+    preRollbackVersionId: string;
+    rollbackVersionId: string;
+  }>;
   restoreVersion: (args: {
     documentId: string;
     versionId: string;
@@ -189,6 +208,176 @@ function countWords(text: string): number {
     return 0;
   }
   return trimmed.split(/\s+/u).length;
+}
+
+function normalizeNewlines(text: string): string {
+  return text.replaceAll("\r\n", "\n");
+}
+
+function splitLines(text: string): string[] {
+  if (text.length === 0) {
+    return [];
+  }
+  return normalizeNewlines(text).split("\n");
+}
+
+type DiffOp =
+  | { kind: "equal"; text: string }
+  | { kind: "remove"; text: string }
+  | { kind: "add"; text: string };
+
+type DiffHunk = {
+  oldStart: number;
+  newStart: number;
+  oldLines: string[];
+  newLines: string[];
+};
+
+function diffLines(oldLines: string[], newLines: string[]): DiffOp[] {
+  const oldLen = oldLines.length;
+  const newLen = newLines.length;
+  const lcs: number[][] = Array.from({ length: oldLen + 1 }, () =>
+    Array.from({ length: newLen + 1 }, () => 0),
+  );
+
+  for (let i = oldLen - 1; i >= 0; i -= 1) {
+    for (let j = newLen - 1; j >= 0; j -= 1) {
+      if (oldLines[i] === newLines[j]) {
+        lcs[i][j] = lcs[i + 1][j + 1] + 1;
+      } else {
+        lcs[i][j] = Math.max(lcs[i + 1][j], lcs[i][j + 1]);
+      }
+    }
+  }
+
+  const ops: DiffOp[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < oldLen && j < newLen) {
+    if (oldLines[i] === newLines[j]) {
+      ops.push({ kind: "equal", text: oldLines[i] });
+      i += 1;
+      j += 1;
+      continue;
+    }
+
+    if (lcs[i + 1][j] >= lcs[i][j + 1]) {
+      ops.push({ kind: "remove", text: oldLines[i] });
+      i += 1;
+    } else {
+      ops.push({ kind: "add", text: newLines[j] });
+      j += 1;
+    }
+  }
+
+  while (i < oldLen) {
+    ops.push({ kind: "remove", text: oldLines[i] });
+    i += 1;
+  }
+  while (j < newLen) {
+    ops.push({ kind: "add", text: newLines[j] });
+    j += 1;
+  }
+
+  return ops;
+}
+
+function computeDiffHunks(args: {
+  oldText: string;
+  newText: string;
+}): DiffHunk[] {
+  const oldLines = splitLines(args.oldText);
+  const newLines = splitLines(args.newText);
+  const ops = diffLines(oldLines, newLines);
+
+  const hunks: DiffHunk[] = [];
+  let oldLine = 1;
+  let newLine = 1;
+  let cursor = 0;
+
+  while (cursor < ops.length) {
+    const op = ops[cursor];
+    if (op.kind === "equal") {
+      oldLine += 1;
+      newLine += 1;
+      cursor += 1;
+      continue;
+    }
+
+    const oldStart = oldLine;
+    const newStart = newLine;
+    const oldChunk: string[] = [];
+    const newChunk: string[] = [];
+
+    while (cursor < ops.length && ops[cursor]?.kind !== "equal") {
+      const chunkOp = ops[cursor];
+      if (chunkOp.kind === "remove") {
+        oldChunk.push(chunkOp.text);
+        oldLine += 1;
+      } else if (chunkOp.kind === "add") {
+        newChunk.push(chunkOp.text);
+        newLine += 1;
+      }
+      cursor += 1;
+    }
+
+    hunks.push({
+      oldStart,
+      newStart,
+      oldLines: oldChunk,
+      newLines: newChunk,
+    });
+  }
+
+  return hunks;
+}
+
+function buildUnifiedDiff(args: {
+  oldText: string;
+  newText: string;
+  oldLabel: string;
+  newLabel: string;
+}): { diffText: string; stats: VersionDiffStats } {
+  if (args.oldText === args.newText) {
+    return {
+      diffText: "",
+      stats: { addedLines: 0, removedLines: 0, changedHunks: 0 },
+    };
+  }
+
+  const hunks = computeDiffHunks({
+    oldText: args.oldText,
+    newText: args.newText,
+  });
+
+  const lines: string[] = [];
+  lines.push(`--- ${args.oldLabel}`);
+  lines.push(`+++ ${args.newLabel}`);
+
+  let addedLines = 0;
+  let removedLines = 0;
+  for (const hunk of hunks) {
+    lines.push(
+      `@@ -${hunk.oldStart},${hunk.oldLines.length} +${hunk.newStart},${hunk.newLines.length} @@`,
+    );
+    for (const oldLine of hunk.oldLines) {
+      lines.push(`-${oldLine}`);
+      removedLines += 1;
+    }
+    for (const newLine of hunk.newLines) {
+      lines.push(`+${newLine}`);
+      addedLines += 1;
+    }
+  }
+
+  return {
+    diffText: `${lines.join("\n")}\n`,
+    stats: {
+      addedLines,
+      removedLines,
+      changedHunks: hunks.length,
+    },
+  };
 }
 
 function isReasonValidForActor(
@@ -323,7 +512,25 @@ type VersionRestoreRow = {
   contentHash: string;
 };
 
+type VersionDiffRow = {
+  actor: VersionSnapshotActor;
+  contentText: string;
+};
+
+type CurrentDocumentDiffRow = {
+  contentText: string;
+};
+
 type DocumentContentRow = {
+  contentJson: string;
+  contentText: string;
+  contentMd: string;
+  contentHash: string;
+};
+
+type RollbackCurrentDocumentRow = {
+  projectId: string;
+  documentId: string;
   contentJson: string;
   contentText: string;
   contentMd: string;
@@ -434,6 +641,130 @@ export function createDocumentService(args: {
   db: Database.Database;
   logger: Logger;
 }): DocumentService {
+  const rollbackToVersion = (params: {
+    documentId: string;
+    versionId: string;
+  }): ServiceResult<{
+    restored: true;
+    preRollbackVersionId: string;
+    rollbackVersionId: string;
+  }> => {
+    const ts = nowTs();
+    let preRollbackVersionId = "";
+    let rollbackVersionId = "";
+
+    try {
+      args.db.transaction(() => {
+        const target = args.db
+          .prepare<
+            [string, string],
+            VersionRestoreRow
+          >("SELECT project_id as projectId, document_id as documentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM document_versions WHERE document_id = ? AND version_id = ?")
+          .get(params.documentId, params.versionId);
+        if (!target) {
+          throw new Error("NOT_FOUND");
+        }
+
+        const current = args.db
+          .prepare<
+            [string],
+            RollbackCurrentDocumentRow
+          >("SELECT project_id as projectId, document_id as documentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM documents WHERE document_id = ?")
+          .get(params.documentId);
+        if (!current) {
+          throw new Error("NOT_FOUND");
+        }
+
+        preRollbackVersionId = randomUUID();
+        args.db
+          .prepare(
+            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          )
+          .run(
+            preRollbackVersionId,
+            current.projectId,
+            current.documentId,
+            "user",
+            "pre-rollback",
+            current.contentJson,
+            current.contentText,
+            current.contentMd,
+            current.contentHash,
+            countWords(current.contentText),
+            "",
+            "",
+            ts,
+          );
+
+        const updated = args.db
+          .prepare<
+            [string, string, string, string, number, string]
+          >("UPDATE documents SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, updated_at = ? WHERE document_id = ?")
+          .run(
+            target.contentJson,
+            target.contentText,
+            target.contentMd,
+            target.contentHash,
+            ts,
+            target.documentId,
+          );
+        if (updated.changes === 0) {
+          throw new Error("NOT_FOUND");
+        }
+
+        rollbackVersionId = randomUUID();
+        args.db
+          .prepare(
+            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          )
+          .run(
+            rollbackVersionId,
+            target.projectId,
+            target.documentId,
+            "user",
+            "rollback",
+            target.contentJson,
+            target.contentText,
+            target.contentMd,
+            target.contentHash,
+            countWords(target.contentText),
+            "",
+            "",
+            ts,
+          );
+
+        args.logger.info("version_rollback_applied", {
+          document_id: target.documentId,
+          from_version_id: params.versionId,
+          pre_rollback_version_id: preRollbackVersionId,
+          rollback_version_id: rollbackVersionId,
+        });
+      })();
+
+      return {
+        ok: true,
+        data: { restored: true, preRollbackVersionId, rollbackVersionId },
+      };
+    } catch (error) {
+      const code =
+        error instanceof Error && error.message === "NOT_FOUND"
+          ? ("NOT_FOUND" as const)
+          : ("DB_ERROR" as const);
+      args.logger.error("version_rollback_failed", {
+        code,
+        message: error instanceof Error ? error.message : String(error),
+        document_id: params.documentId,
+        version_id: params.versionId,
+      });
+      return ipcError(
+        code,
+        code === "NOT_FOUND"
+          ? "Version not found"
+          : "Failed to rollback version",
+      );
+    }
+  };
+
   return {
     create: ({ projectId, title, type }) => {
       const normalizedType = normalizeDocumentType(type);
@@ -1159,85 +1490,82 @@ export function createDocumentService(args: {
       }
     },
 
-    restoreVersion: ({ documentId, versionId }) => {
-      const ts = nowTs();
-
+    diffVersions: ({ documentId, baseVersionId, targetVersionId }) => {
       try {
-        args.db.transaction(() => {
-          const row = args.db
+        const base = args.db
+          .prepare<
+            [string, string],
+            VersionDiffRow
+          >("SELECT actor, content_text as contentText FROM document_versions WHERE document_id = ? AND version_id = ?")
+          .get(documentId, baseVersionId);
+        if (!base) {
+          return ipcError("NOT_FOUND", "Version not found");
+        }
+
+        let targetText = "";
+        let targetActor: VersionSnapshotActor | null = null;
+
+        if (targetVersionId) {
+          const target = args.db
             .prepare<
               [string, string],
-              VersionRestoreRow
-            >("SELECT project_id as projectId, document_id as documentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM document_versions WHERE document_id = ? AND version_id = ?")
-            .get(documentId, versionId);
-          if (!row) {
-            throw new Error("NOT_FOUND");
+              VersionDiffRow
+            >("SELECT actor, content_text as contentText FROM document_versions WHERE document_id = ? AND version_id = ?")
+            .get(documentId, targetVersionId);
+          if (!target) {
+            return ipcError("NOT_FOUND", "Target version not found");
           }
-
-          const updated = args.db
+          targetText = target.contentText;
+          targetActor = target.actor;
+        } else {
+          const current = args.db
             .prepare<
-              [string, string, string, string, number, string]
-            >("UPDATE documents SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, updated_at = ? WHERE document_id = ?")
-            .run(
-              row.contentJson,
-              row.contentText,
-              row.contentMd,
-              row.contentHash,
-              ts,
-              row.documentId,
-            );
-          if (updated.changes === 0) {
-            throw new Error("NOT_FOUND");
+              [string],
+              CurrentDocumentDiffRow
+            >("SELECT content_text as contentText FROM documents WHERE document_id = ?")
+            .get(documentId);
+          if (!current) {
+            return ipcError("NOT_FOUND", "Document not found");
           }
+          targetText = current.contentText;
+        }
 
-          const newVersionId = randomUUID();
-          const wordCount = countWords(row.contentText);
-          args.db
-            .prepare(
-              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            )
-            .run(
-              newVersionId,
-              row.projectId,
-              row.documentId,
-              "user",
-              "restore",
-              row.contentJson,
-              row.contentText,
-              row.contentMd,
-              row.contentHash,
-              wordCount,
-              "",
-              "",
-              ts,
-            );
-
-          args.logger.info("version_restored", {
-            document_id: row.documentId,
-            from_version_id: versionId,
-            new_version_id: newVersionId,
-          });
-        })();
-
-        return { ok: true, data: { restored: true } };
+        const diff = buildUnifiedDiff({
+          oldText: base.contentText,
+          newText: targetText,
+          oldLabel: baseVersionId,
+          newLabel: targetVersionId ?? "current",
+        });
+        return {
+          ok: true,
+          data: {
+            diffText: diff.diffText,
+            hasDifferences: diff.diffText.length > 0,
+            stats: diff.stats,
+            aiMarked: base.actor === "ai" || targetActor === "ai",
+          },
+        };
       } catch (error) {
-        const code =
-          error instanceof Error && error.message === "NOT_FOUND"
-            ? ("NOT_FOUND" as const)
-            : ("DB_ERROR" as const);
-        args.logger.error("version_restore_failed", {
-          code,
+        args.logger.error("version_diff_failed", {
+          code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
           document_id: documentId,
-          version_id: versionId,
+          version_id: baseVersionId,
+          target_version_id: targetVersionId,
         });
-        return ipcError(
-          code,
-          code === "NOT_FOUND"
-            ? "Version not found"
-            : "Failed to restore version",
-        );
+        return ipcError("DB_ERROR", "Failed to compute version diff");
       }
+    },
+
+    rollbackVersion: ({ documentId, versionId }) =>
+      rollbackToVersion({ documentId, versionId }),
+
+    restoreVersion: ({ documentId, versionId }) => {
+      const rollback = rollbackToVersion({ documentId, versionId });
+      if (!rollback.ok) {
+        return rollback;
+      }
+      return { ok: true, data: { restored: true } };
     },
   };
 }

@@ -5,6 +5,7 @@ type SplitDiffViewProps = {
   lines: DiffLine[];
   currentChangeIndex?: number;
   changePositions?: number[];
+  lineUnderlineStyle?: "none" | "solid" | "dashed";
 };
 
 /**
@@ -125,6 +126,12 @@ export function SplitDiffView(props: SplitDiffViewProps): JSX.Element {
     () => prepareSplitLines(props.lines),
     [props.lines],
   );
+  const underlineClass =
+    props.lineUnderlineStyle === "dashed"
+      ? "underline decoration-dashed underline-offset-[3px]"
+      : props.lineUnderlineStyle === "solid"
+        ? "underline decoration-solid underline-offset-[3px]"
+        : "";
 
   // Synchronized scrolling
   const handleScroll = (source: "before" | "after") => {
@@ -179,6 +186,7 @@ export function SplitDiffView(props: SplitDiffViewProps): JSX.Element {
                 className={`
                   px-4 leading-6 whitespace-pre-wrap
                   ${line.type === "removed" ? "bg-[rgba(239,68,68,0.1)] text-[rgba(239,68,68,0.7)] line-through decoration-[rgba(239,68,68,0.4)]" : ""}
+                  ${line.type === "removed" && underlineClass ? underlineClass : ""}
                   ${line.type === "context" ? "text-[var(--color-fg-muted)]" : ""}
                   ${line.type === "empty" ? "text-transparent" : ""}
                 `}
@@ -218,6 +226,7 @@ export function SplitDiffView(props: SplitDiffViewProps): JSX.Element {
                 className={`
                   px-4 leading-6 whitespace-pre-wrap
                   ${line.type === "added" ? "bg-[rgba(34,197,94,0.1)] text-[rgba(34,197,94,0.9)]" : ""}
+                  ${line.type === "added" && underlineClass ? underlineClass : ""}
                   ${line.type === "context" ? "text-[var(--color-fg-muted)]" : ""}
                   ${line.type === "empty" ? "text-transparent" : ""}
                 `}

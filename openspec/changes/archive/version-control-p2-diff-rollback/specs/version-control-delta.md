@@ -7,7 +7,7 @@
 用户必须能够选择两个版本进行 Diff 对比，复用 Editor 模块的 `DiffViewPanel` 和 `MultiVersionCompare` 组件。
 
 - 入口：版本历史中「与当前版本对比」、选中两版本后「对比选中版本」。
-- 通过 `version:diff`（Request-Response）获取 diff 数据。
+- 通过 `version:snapshot:diff`（Request-Response）获取 diff 数据（命名遵循三段式 channel 治理）。
 - Diff 着色遵循 Editor spec：删除 `--color-error-subtle`，新增 `--color-success-subtle`。
 - 支持 Unified / Split 模式和最多 4 版本同时对比（2×2 网格）。
 - 同步滚动支持。
@@ -17,7 +17,7 @@
 
 - **假设** 用户在版本历史中选中「3 天前」的版本
 - **当** 用户点击「与当前版本对比」
-- **则** 通过 `version:diff` 获取差异
+- **则** 通过 `version:snapshot:diff` 获取差异
 - **并且** `DiffViewPanel` 渲染删除和新增内容
 - **并且** 底部统计显示变化行数
 
@@ -35,7 +35,7 @@
 - 入口：版本历史面板或预览模式中「恢复到此版本」按钮。
 - 确认对话框：「将文档恢复到 [时间] 的版本？当前内容将被保存为新版本。」
 - 回滚三步流程：① 当前内容 → `pre-rollback` 快照 → ② 目标版本设为当前 → ③ `rollback` 快照。
-- 通过 `version:rollback`（Request-Response）完成。
+- 通过 `version:snapshot:rollback`（Request-Response）完成。
 - 可撤销：中间版本不删除，用户可再次回滚到 `pre-rollback`。
 - 取消确认时不创建任何快照。
 - 开启 AI 修改区分时，Diff 中 AI 修改使用虚线下划线渲染。
