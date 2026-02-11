@@ -14,6 +14,7 @@ export type DiffLine = {
   content: string;
   oldLineNumber: number | null;
   newLineNumber: number | null;
+  hunkIndex: number | null;
 };
 
 /**
@@ -48,6 +49,7 @@ export function parseDiffLines(diffText: string): {
   let addedLines = 0;
   let removedLines = 0;
   let changedHunks = 0;
+  let hunkIndex = -1;
 
   for (const line of rawLines) {
     if (line.startsWith("@@")) {
@@ -57,12 +59,14 @@ export function parseDiffLines(diffText: string): {
         oldLineNumber = parseInt(match[1], 10);
         newLineNumber = parseInt(match[2], 10);
       }
+      hunkIndex += 1;
       changedHunks++;
       lines.push({
         type: "header",
         content: line,
         oldLineNumber: null,
         newLineNumber: null,
+        hunkIndex,
       });
     } else if (line.startsWith("+++") || line.startsWith("---")) {
       lines.push({
@@ -70,6 +74,7 @@ export function parseDiffLines(diffText: string): {
         content: line,
         oldLineNumber: null,
         newLineNumber: null,
+        hunkIndex: null,
       });
     } else if (line.startsWith("+")) {
       lines.push({
@@ -77,6 +82,7 @@ export function parseDiffLines(diffText: string): {
         content: line.slice(1),
         oldLineNumber: null,
         newLineNumber: newLineNumber,
+        hunkIndex: hunkIndex >= 0 ? hunkIndex : null,
       });
       newLineNumber++;
       addedLines++;
@@ -86,6 +92,7 @@ export function parseDiffLines(diffText: string): {
         content: line.slice(1),
         oldLineNumber: oldLineNumber,
         newLineNumber: null,
+        hunkIndex: hunkIndex >= 0 ? hunkIndex : null,
       });
       oldLineNumber++;
       removedLines++;
@@ -97,6 +104,7 @@ export function parseDiffLines(diffText: string): {
         content: content,
         oldLineNumber: oldLineNumber,
         newLineNumber: newLineNumber,
+        hunkIndex: hunkIndex >= 0 ? hunkIndex : null,
       });
       oldLineNumber++;
       newLineNumber++;
@@ -113,20 +121,29 @@ export function parseDiffLines(diffText: string): {
  * Get change positions for navigation.
  */
 export function getChangePositions(lines: DiffLine[]): number[] {
+  const hunkHeaders = lines
+    .map((line, index) => ({ line, index }))
+    .filter(
+      (item) =>
+        item.line.type === "header" && item.line.content.startsWith("@@"),
+    )
+    .map((item) => item.index);
+  if (hunkHeaders.length > 0) {
+    return hunkHeaders;
+  }
+
   const positions: number[] = [];
   let inChange = false;
-
   lines.forEach((line, index) => {
     if (line.type === "added" || line.type === "removed") {
       if (!inChange) {
         positions.push(index);
         inChange = true;
       }
-    } else {
-      inChange = false;
+      return;
     }
+    inChange = false;
   });
-
   return positions;
 }
 
@@ -206,24 +223,8 @@ export function UnifiedDiffView(props: {
         // Determine if this line is part of the currently highlighted change
         const isCurrentChange =
           props.currentChangeIndex !== undefined &&
-          props.changePositions &&
-          props.changePositions[props.currentChangeIndex] !== undefined &&
-          (() => {
-            const changeStart = props.changePositions[props.currentChangeIndex];
-            // Find extent of current change
-            let changeEnd = changeStart;
-            for (let i = changeStart; i < props.lines.length; i++) {
-              if (
-                props.lines[i].type === "added" ||
-                props.lines[i].type === "removed"
-              ) {
-                changeEnd = i;
-              } else {
-                break;
-              }
-            }
-            return index >= changeStart && index <= changeEnd;
-          })();
+          line.hunkIndex !== null &&
+          line.hunkIndex === props.currentChangeIndex;
 
         return (
           <div

@@ -26,6 +26,18 @@ type DiffViewPanelProps = {
   width?: number;
   /** Panel height */
   height?: number | string;
+  /** Compare source */
+  mode?: "version" | "ai";
+  /** Current per-hunk decision state */
+  hunkDecisions?: Array<"pending" | "accepted" | "rejected">;
+  /** Callback to accept current hunk */
+  onAcceptHunk?: (hunkIndex: number) => void;
+  /** Callback to reject current hunk */
+  onRejectHunk?: (hunkIndex: number) => void;
+  /** Callback to accept all changes */
+  onAcceptAll?: () => void;
+  /** Callback to reject all changes */
+  onRejectAll?: () => void;
 };
 
 /**
@@ -78,6 +90,9 @@ export function DiffViewPanel(props: DiffViewPanelProps): JSX.Element {
   };
 
   const handleNextChange = (): void => {
+    if (changePositions.length === 0) {
+      return;
+    }
     setCurrentChangeIndex((prev) =>
       Math.min(changePositions.length - 1, prev + 1),
     );
@@ -92,6 +107,33 @@ export function DiffViewPanel(props: DiffViewPanelProps): JSX.Element {
   const handleRestore = (): void => {
     props.onRestore?.();
   };
+
+  const handleAcceptCurrentHunk = (): void => {
+    if (changePositions.length === 0) {
+      return;
+    }
+    props.onAcceptHunk?.(currentChangeIndex);
+  };
+
+  const handleRejectCurrentHunk = (): void => {
+    if (changePositions.length === 0) {
+      return;
+    }
+    props.onRejectHunk?.(currentChangeIndex);
+  };
+
+  React.useEffect(() => {
+    if (changePositions.length === 0 && currentChangeIndex !== 0) {
+      setCurrentChangeIndex(0);
+      return;
+    }
+    if (
+      currentChangeIndex >= changePositions.length &&
+      changePositions.length > 0
+    ) {
+      setCurrentChangeIndex(changePositions.length - 1);
+    }
+  }, [changePositions.length, currentChangeIndex]);
 
   return (
     <div
@@ -138,6 +180,13 @@ export function DiffViewPanel(props: DiffViewPanelProps): JSX.Element {
         onClose={handleClose}
         onRestore={handleRestore}
         restoreInProgress={props.restoreInProgress}
+        onAcceptAll={props.onAcceptAll}
+        onRejectAll={props.onRejectAll}
+        onAcceptHunk={props.onAcceptHunk ? handleAcceptCurrentHunk : undefined}
+        onRejectHunk={props.onRejectHunk ? handleRejectCurrentHunk : undefined}
+        currentChangeIndex={currentChangeIndex}
+        totalChanges={changePositions.length}
+        currentHunkDecision={props.hunkDecisions?.[currentChangeIndex]}
       />
     </div>
   );

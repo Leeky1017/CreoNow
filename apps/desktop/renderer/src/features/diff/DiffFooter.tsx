@@ -1,5 +1,6 @@
 import { Button } from "../../components/primitives";
 import type { DiffStats } from "./DiffView";
+import type { DiffHunkDecision } from "../../lib/diff/unifiedDiff";
 
 type DiffFooterProps = {
   /** Diff statistics */
@@ -7,15 +8,33 @@ type DiffFooterProps = {
   /** Callback for close action */
   onClose: () => void;
   /** Callback for restore action */
-  onRestore: () => void;
+  onRestore?: () => void;
   /** Whether restore is in progress */
   restoreInProgress?: boolean;
+  /** Optional AI compare actions */
+  onAcceptAll?: () => void;
+  onRejectAll?: () => void;
+  onAcceptHunk?: () => void;
+  onRejectHunk?: () => void;
+  currentChangeIndex?: number;
+  totalChanges?: number;
+  currentHunkDecision?: DiffHunkDecision;
 };
 
 /**
  * DiffFooter displays statistics and action buttons.
  */
 export function DiffFooter(props: DiffFooterProps): JSX.Element {
+  const hasAiActions = !!props.onAcceptAll || !!props.onRejectAll;
+  const hasCurrentHunk =
+    (props.totalChanges ?? 0) > 0 &&
+    typeof props.currentChangeIndex === "number" &&
+    props.currentChangeIndex >= 0;
+  const currentHunkLabel =
+    typeof props.currentChangeIndex === "number"
+      ? props.currentChangeIndex + 1
+      : 0;
+
   return (
     <footer className="h-16 flex items-center justify-between px-6 border-t border-[var(--color-separator)] bg-[var(--color-bg-raised)] shrink-0">
       {/* Left: Statistics */}
@@ -47,15 +66,63 @@ export function DiffFooter(props: DiffFooterProps): JSX.Element {
         </div>
       </div>
 
-      {/* Right: Action button */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={props.onRestore}
-        disabled={props.restoreInProgress}
-      >
-        {props.restoreInProgress ? "Restoring..." : "Restore"}
-      </Button>
+      {/* Right: Action buttons */}
+      {hasAiActions ? (
+        <div className="flex items-center gap-2">
+          {hasCurrentHunk ? (
+            <span className="text-[11px] text-[var(--color-fg-muted)]">
+              Hunk {currentHunkLabel}/{props.totalChanges}{" "}
+              {props.currentHunkDecision &&
+              props.currentHunkDecision !== "pending"
+                ? `(${props.currentHunkDecision})`
+                : ""}
+            </span>
+          ) : null}
+
+          {props.onRejectHunk ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={props.onRejectHunk}
+              disabled={!hasCurrentHunk}
+            >
+              Reject Hunk
+            </Button>
+          ) : null}
+
+          {props.onAcceptHunk ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={props.onAcceptHunk}
+              disabled={!hasCurrentHunk}
+            >
+              Accept Hunk
+            </Button>
+          ) : null}
+
+          {props.onRejectAll ? (
+            <Button variant="ghost" size="sm" onClick={props.onRejectAll}>
+              Reject All
+            </Button>
+          ) : null}
+
+          {props.onAcceptAll ? (
+            <Button variant="secondary" size="sm" onClick={props.onAcceptAll}>
+              Accept All
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={props.onRestore}
+          disabled={props.restoreInProgress}
+        >
+          {props.restoreInProgress ? "Restoring..." : "Restore"}
+        </Button>
+      )}
     </footer>
   );
 }

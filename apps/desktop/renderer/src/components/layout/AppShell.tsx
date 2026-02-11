@@ -27,6 +27,14 @@ import { useVersionCompare } from "../../features/version-history/useVersionComp
 import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
 import { useEditorStore } from "../../stores/editorStore";
+import { useAiStore } from "../../stores/aiStore";
+import { applySelection } from "../../features/ai/applySelection";
+import {
+  applyHunkDecisions,
+  computeDiffHunks,
+  unifiedDiff,
+  type DiffHunkDecision,
+} from "../../lib/diff/unifiedDiff";
 import { invoke } from "../../lib/ipcClient";
 
 /**
@@ -223,6 +231,7 @@ export function AppShell(): JSX.Element {
   const bootstrapProjects = useProjectStore((s) => s.bootstrap);
   const bootstrapFiles = useFileStore((s) => s.bootstrapForProject);
   const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
+  const editor = useEditorStore((s) => s.editor);
   const compareMode = useEditorStore((s) => s.compareMode);
   const compareVersionId = useEditorStore((s) => s.compareVersionId);
   const documentId = useEditorStore((s) => s.documentId);
@@ -241,6 +250,14 @@ export function AppShell(): JSX.Element {
   const setActiveLeftPanel = useLayoutStore((s) => s.setActiveLeftPanel);
   const resetSidebarWidth = useLayoutStore((s) => s.resetSidebarWidth);
   const resetPanelWidth = useLayoutStore((s) => s.resetPanelWidth);
+  const setCompareMode = useEditorStore((s) => s.setCompareMode);
+
+  const aiProposal = useAiStore((s) => s.proposal);
+  const setAiProposal = useAiStore((s) => s.setProposal);
+  const setAiSelectionSnapshot = useAiStore((s) => s.setSelectionSnapshot);
+  const persistAiApply = useAiStore((s) => s.persistAiApply);
+  const setAiError = useAiStore((s) => s.setError);
+  const logAiApplyConflict = useAiStore((s) => s.logAiApplyConflict);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
   // Counter to force CommandPalette remount on each open (ensures fresh state)
@@ -258,6 +275,110 @@ export function AppShell(): JSX.Element {
   // Version compare hook
   const { compareState, closeCompare } = useVersionCompare();
   const { confirm, dialogProps } = useConfirmDialog();
+  const [aiHunkDecisions, setAiHunkDecisions] = React.useState<
+    DiffHunkDecision[]
+  >([]);
+
+  const aiDiffText = React.useMemo(() => {
+    if (!aiProposal) {
+      return "";
+    }
+    return unifiedDiff({
+      oldText: aiProposal.selectionText,
+      newText: aiProposal.replacementText,
+    });
+  }, [aiProposal]);
+
+  const aiHunks = React.useMemo(() => {
+    if (!aiProposal) {
+      return [];
+    }
+    return computeDiffHunks({
+      oldText: aiProposal.selectionText,
+      newText: aiProposal.replacementText,
+    });
+  }, [aiProposal]);
+
+  React.useEffect(() => {
+    if (!compareMode || compareVersionId) {
+      if (aiHunkDecisions.length > 0) {
+        setAiHunkDecisions([]);
+      }
+      return;
+    }
+    if (!aiProposal) {
+      setCompareMode(false);
+      return;
+    }
+    setAiHunkDecisions((prev) =>
+      prev.length === aiHunks.length
+        ? prev
+        : Array.from({ length: aiHunks.length }, () => "pending"),
+    );
+  }, [
+    aiHunkDecisions.length,
+    aiHunks.length,
+    aiProposal,
+    compareMode,
+    compareVersionId,
+    setCompareMode,
+  ]);
+
+  const handleRejectAiSuggestion = React.useCallback(() => {
+    setAiProposal(null);
+    setAiSelectionSnapshot(null);
+    setAiHunkDecisions([]);
+    setCompareMode(false);
+  }, [setAiProposal, setAiSelectionSnapshot, setCompareMode]);
+
+  const handleAcceptAiSuggestion = React.useCallback(async () => {
+    if (!editor || !documentId || !currentProjectId || !aiProposal) {
+      return;
+    }
+
+    const normalizedDecisions = aiHunks.map((_, idx) => {
+      const decision = aiHunkDecisions[idx] ?? "pending";
+      return decision === "rejected" ? "rejected" : "accepted";
+    });
+    const replacementText = applyHunkDecisions({
+      oldText: aiProposal.selectionText,
+      newText: aiProposal.replacementText,
+      decisions: normalizedDecisions,
+    });
+
+    const applied = applySelection({
+      editor,
+      selectionRef: aiProposal.selectionRef,
+      replacementText,
+    });
+    if (!applied.ok) {
+      setAiError(applied.error);
+      if (applied.error.code === "CONFLICT") {
+        await logAiApplyConflict({ documentId, runId: aiProposal.runId });
+      }
+      return;
+    }
+
+    await persistAiApply({
+      projectId: currentProjectId,
+      documentId,
+      contentJson: JSON.stringify(editor.getJSON()),
+      runId: aiProposal.runId,
+    });
+    setCompareMode(false);
+    setAiHunkDecisions([]);
+  }, [
+    aiHunkDecisions,
+    aiHunks,
+    aiProposal,
+    currentProjectId,
+    documentId,
+    editor,
+    logAiApplyConflict,
+    persistAiApply,
+    setAiError,
+    setCompareMode,
+  ]);
 
   const openVersionHistoryPanel = React.useCallback(() => {
     setActiveLeftPanel("versionHistory");
@@ -449,6 +570,37 @@ export function AppShell(): JSX.Element {
 
     // Current project in compare mode
     if (compareMode) {
+      if (!compareVersionId && aiProposal) {
+        return (
+          <>
+            <DiffViewPanel
+              key={`ai-${aiProposal.runId}`}
+              diffText={aiDiffText}
+              mode="ai"
+              onClose={handleRejectAiSuggestion}
+              onRejectAll={handleRejectAiSuggestion}
+              onAcceptAll={() => void handleAcceptAiSuggestion()}
+              onAcceptHunk={(hunkIndex) =>
+                setAiHunkDecisions((prev) =>
+                  prev.map((item, idx) =>
+                    idx === hunkIndex ? "accepted" : item,
+                  ),
+                )
+              }
+              onRejectHunk={(hunkIndex) =>
+                setAiHunkDecisions((prev) =>
+                  prev.map((item, idx) =>
+                    idx === hunkIndex ? "rejected" : item,
+                  ),
+                )
+              }
+              hunkDecisions={aiHunkDecisions}
+            />
+            <SystemDialog {...dialogProps} />
+          </>
+        );
+      }
+
       const handleRestore = async (): Promise<void> => {
         if (!documentId || !compareVersionId) return;
 

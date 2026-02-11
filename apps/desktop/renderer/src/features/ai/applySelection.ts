@@ -84,6 +84,12 @@ export function captureSelectionRef(editor: Editor): CaptureSelectionResult {
   }
 
   const selectionText = selectionTextRes.data;
+  if (selectionText.trim().length === 0) {
+    return {
+      ok: false,
+      error: ipcError("INVALID_ARGUMENT", "Selection is empty"),
+    };
+  }
   const selectionRef: SelectionRef = {
     range,
     selectionTextHash: hashText(selectionText),

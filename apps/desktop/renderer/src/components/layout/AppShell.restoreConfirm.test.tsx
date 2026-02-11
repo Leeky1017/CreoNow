@@ -64,6 +64,16 @@ const editorState = vi.hoisted(() => ({
   editor: null,
   autosaveStatus: "saved" as const,
   documentContentJson: null,
+  setCompareMode: vi.fn(),
+}));
+
+const aiState = vi.hoisted(() => ({
+  proposal: null,
+  setProposal: vi.fn(),
+  setSelectionSnapshot: vi.fn(),
+  persistAiApply: vi.fn(async () => undefined),
+  setError: vi.fn(),
+  logAiApplyConflict: vi.fn(async () => undefined),
 }));
 
 vi.mock("../../lib/ipcClient", () => ({
@@ -124,6 +134,11 @@ vi.mock("../../stores/fileStore", () => ({
 vi.mock("../../stores/editorStore", () => ({
   useEditorStore: (selector: (state: typeof editorState) => unknown) =>
     selector(editorState),
+}));
+
+vi.mock("../../stores/aiStore", () => ({
+  useAiStore: (selector: (state: typeof aiState) => unknown) =>
+    selector(aiState),
 }));
 
 vi.mock("./IconBar", () => ({
