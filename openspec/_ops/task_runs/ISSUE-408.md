@@ -3,7 +3,7 @@
 - Issue: #408
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/408
 - Branch: task/408-editor-bubble-menu-crash-fix
-- PR: https://github.com/Leeky1017/CreoNow/pull/0
+- PR: https://github.com/Leeky1017/CreoNow/pull/410
 - Scope: 修复 AI apply 流程中 `EditorBubbleMenu` 卸载竞态导致的渲染崩溃，确保 success/conflict 路径稳定完成。
 - Out of Scope: 不改动 AI apply 业务逻辑（`AiPanel`/`aiStore`）、不改 IPC 契约、不新增 BubbleMenu 功能。
 
