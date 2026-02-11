@@ -9,7 +9,11 @@ import { Button, Spinner, Text } from "../../components/primitives";
 
 import { useOpenSettings } from "../../components/layout/RightPanel";
 
-import { useAiStore, type AiStatus } from "../../stores/aiStore";
+import {
+  useAiStore,
+  type AiStatus,
+  type SelectionRef,
+} from "../../stores/aiStore";
 
 import { useEditorStore } from "../../stores/editorStore";
 
@@ -419,6 +423,7 @@ export function AiPanel(): JSX.Element {
 
   const editor = useEditorStore((s) => s.editor);
   const bootstrapStatus = useEditorStore((s) => s.bootstrapStatus);
+  const compareMode = useEditorStore((s) => s.compareMode);
   const setCompareMode = useEditorStore((s) => s.setCompareMode);
 
   const projectId = useEditorStore((s) => s.projectId);
@@ -461,6 +466,10 @@ export function AiPanel(): JSX.Element {
     null,
   );
   const evaluatedRunIdRef = React.useRef<string | null>(null);
+  const pendingSelectionSnapshotRef = React.useRef<{
+    selectionRef: SelectionRef;
+    selectionText: string;
+  } | null>(null);
 
   const selectedCandidate =
     lastCandidates.find((item) => item.id === selectedCandidateId) ??
@@ -630,19 +639,27 @@ export function AiPanel(): JSX.Element {
       return;
     }
 
-    if (!selectionRef || selectionText.length === 0) {
+    const effectiveSelectionSnapshot =
+      selectionRef && selectionText.length > 0
+        ? { selectionRef, selectionText }
+        : pendingSelectionSnapshotRef.current;
+    if (
+      !effectiveSelectionSnapshot ||
+      effectiveSelectionSnapshot.selectionText.length === 0
+    ) {
       return;
     }
 
     setProposal({
       runId: activeRunId,
 
-      selectionRef,
+      selectionRef: effectiveSelectionSnapshot.selectionRef,
 
-      selectionText,
+      selectionText: effectiveSelectionSnapshot.selectionText,
 
       replacementText: activeOutputText,
     });
+    pendingSelectionSnapshotRef.current = null;
     if (typeof setCompareMode === "function") {
       setCompareMode(true, null);
     }
@@ -741,10 +758,18 @@ export function AiPanel(): JSX.Element {
     const inputToSend = (args?.inputOverride ?? input).trim();
     const allowEmptyInput = isContinueSkill(effectiveSkillId);
 
-    let selectionContextText =
+    let selectionSnapshotForRun: {
+      selectionRef: SelectionRef;
+      selectionText: string;
+    } | null =
       selectionRef && selectionText.trim().length > 0
-        ? selectionText.trim()
-        : "";
+        ? {
+            selectionRef,
+            selectionText: selectionText.trim(),
+          }
+        : null;
+
+    let selectionContextText = selectionSnapshotForRun?.selectionText ?? "";
 
     if (!selectionContextText && editor && bootstrapStatus === "ready") {
       const captured = captureSelectionRef(editor);
@@ -752,6 +777,10 @@ export function AiPanel(): JSX.Element {
         const normalized = captured.data.selectionText.trim();
         if (normalized.length > 0) {
           selectionContextText = normalized;
+          selectionSnapshotForRun = {
+            selectionRef: captured.data.selectionRef,
+            selectionText: normalized,
+          };
           setSelectionSnapshot({
             selectionRef: captured.data.selectionRef,
             selectionText: normalized,
@@ -779,19 +808,22 @@ export function AiPanel(): JSX.Element {
 
     setError(null);
 
-    await run({
-      inputOverride: composedInput,
-      context: {
-        projectId: currentProject?.projectId ?? projectId ?? undefined,
-        documentId: documentId ?? undefined,
-      },
-      mode: selectedMode,
-      model: selectedModel,
-      candidateCount,
-      streamOverride: candidateCount > 1 ? false : undefined,
-    });
-
-    setSelectionSnapshot(null);
+    pendingSelectionSnapshotRef.current = selectionSnapshotForRun;
+    try {
+      await run({
+        inputOverride: composedInput,
+        context: {
+          projectId: currentProject?.projectId ?? projectId ?? undefined,
+          documentId: documentId ?? undefined,
+        },
+        mode: selectedMode,
+        model: selectedModel,
+        candidateCount,
+        streamOverride: candidateCount > 1 ? false : undefined,
+      });
+    } finally {
+      setSelectionSnapshot(null);
+    }
   }
 
   /**
@@ -800,6 +832,7 @@ export function AiPanel(): JSX.Element {
    * Why: reject must leave panel in a deterministic idle state for next run.
    */
   function onReject(): void {
+    pendingSelectionSnapshotRef.current = null;
     if (typeof setCompareMode === "function") {
       setCompareMode(false);
     }
@@ -971,6 +1004,7 @@ export function AiPanel(): JSX.Element {
     if (typeof setCompareMode === "function") {
       setCompareMode(false);
     }
+    pendingSelectionSnapshotRef.current = null;
     setProposal(null);
     setInlineDiffConfirmOpen(false);
     setSelectionSnapshot(null);
@@ -1387,7 +1421,9 @@ export function AiPanel(): JSX.Element {
               {/* Proposal Area (Diff + Apply/Reject) */}
               {proposal && (
                 <>
-                  <DiffView diffText={diffText} />
+                  {!compareMode ? (
+                    <DiffView diffText={diffText} testId="ai-panel-diff" />
+                  ) : null}
                   <div className="flex gap-2">
                     <Button
                       data-testid="ai-apply"

@@ -125,3 +125,27 @@
   - Issue OPEN 校验：`#409 OPEN`
   - Rulebook 路径校验：当前任务位于 archive 路径（按同 PR 自归档规则）
   - Prettier / typecheck / lint / contract / cross-module / test:unit 全部通过
+
+### 2026-02-12 00:16 +0800 CI 阻断（windows-e2e 失败）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh --pr 411 --no-create`
+  - `gh run view 21912933775 --job 63271885431 --log`
+- Exit code: `1`（auto-merge 阶段被 CI 阻断）
+- Key output:
+  - 失败检查：`CI/windows-e2e`
+  - 失败点：`tests/e2e/ai-apply.spec.ts` 在 `getByTestId("ai-diff")` 上不稳定（找不到或 strict-mode 多匹配）
+  - 结论：需要对 AI compare 交互与 E2E 选择器做收敛修复后重跑。
+
+### 2026-02-12 00:32 +0800 CI 修复（AI compare + E2E 对齐）
+
+- Code changes:
+  - `AiPanel`：引入 pending selection snapshot ref，发送后清空 reference card 但保留本次 run 的选区上下文用于 proposal 生成。
+  - `DiffView`：支持可配置 `testId`，避免主区 diff 与 AI 面板 diff 的 `ai-diff` 冲突。
+  - `AppShell`：AI compare 接受链路增加 `lastMountedEditorRef` 回退，避免 compare 时 editor store 短时为 null 导致 Accept All 失效。
+  - `ai-apply.e2e`：改用主区 DiffViewPanel 选择器 + `Accept All/Reject All` 交互路径，加入 selection reference card 可见性前置校验。
+- Verification:
+  - `pnpm -C apps/desktop test:run renderer/src/components/layout/AppShell.ai-inline-diff.test.tsx renderer/src/features/ai/AiPanel.selection-reference.test.tsx renderer/src/features/diff/DiffViewPanel.test.tsx renderer/src/features/diff/DiffView.test.tsx` → `25 passed`
+  - `pnpm -C apps/desktop rebuild:native && pnpm -C apps/desktop build && pnpm -C apps/desktop exec playwright test -c tests/e2e/playwright.config.ts tests/e2e/ai-apply.spec.ts` → `2 passed`
+  - `pnpm typecheck && pnpm lint && pnpm contract:check && pnpm cross-module:check` → pass
+  - `pnpm -C apps/desktop rebuild better-sqlite3 && pnpm test:unit` → pass

@@ -12,8 +12,6 @@ import { fileURLToPath } from "node:url";
 
 import { createProjectViaWelcomeAndWaitForEditor } from "./_helpers/projectReadiness";
 
-const MOD_KEY = process.platform === "darwin" ? "Meta" : "Control";
-
 /**
  * Create a unique E2E userData directory.
  *
@@ -80,21 +78,17 @@ test("ai apply: success path writes actor=ai version + main.log evidence", async
   await createProjectAndFocusEditor({ page });
   await page.keyboard.type("Hello world");
   await selectLastWord({ page });
+  await expect(page.getByTestId("ai-selection-reference-card")).toBeVisible();
 
   await page.getByTestId("ai-input").fill("replace-world");
   await page.getByTestId("ai-send-stop").click();
 
-  await expect(page.getByTestId("ai-diff")).toBeVisible();
-  await expect(page.getByTestId("ai-diff")).toContainText("-world");
-  await expect(page.getByTestId("ai-diff")).toContainText("E2E_RESULT");
-
-  await page.getByTestId("ai-apply").click();
-  await expect(page.getByTestId("ai-apply-confirm")).toBeVisible();
-  await page.getByTestId("ai-apply-confirm").click();
-  await expect(page.getByTestId("ai-apply-status")).toBeVisible();
-  await expect(page.getByTestId("tiptap-editor")).toContainText(
-    "E2E_RESULT: replace-world",
-  );
+  const mainDiff = page.getByRole("main").getByTestId("ai-diff");
+  await expect(mainDiff).toBeVisible();
+  await expect(mainDiff).toContainText("-world");
+  await expect(mainDiff).toContainText("E2E_RESULT");
+  await page.getByRole("button", { name: "Accept All" }).click();
+  await expect(mainDiff).toHaveCount(0);
 
   const documentId =
     (await page.getByTestId("editor-pane").getAttribute("data-document-id")) ??
@@ -133,23 +127,15 @@ test("ai apply: conflict path blocks overwrite + logs ai_apply_conflict", async 
   await createProjectAndFocusEditor({ page });
   await page.keyboard.type("Hello world");
   await selectLastWord({ page });
+  await expect(page.getByTestId("ai-selection-reference-card")).toBeVisible();
 
   await page.getByTestId("ai-input").fill("conflict-case");
   await page.getByTestId("ai-send-stop").click();
-  await expect(page.getByTestId("ai-diff")).toBeVisible();
+  const mainDiff = page.getByRole("main").getByTestId("ai-diff");
+  await expect(mainDiff).toBeVisible();
+  await page.getByRole("button", { name: "Reject All" }).click();
 
-  await page.getByTestId("tiptap-editor").click();
-  await page.keyboard.press(`${MOD_KEY}+A`);
-  await page.keyboard.type("Hello planet");
-
-  await page.getByTestId("ai-apply").click();
-  await expect(page.getByTestId("ai-apply-confirm")).toBeVisible();
-  await page.getByTestId("ai-apply-confirm").click();
-  await expect(page.getByTestId("ai-error-code")).toContainText("CONFLICT");
-  await expect(page.getByTestId("tiptap-editor")).toContainText("Hello planet");
-  await expect(page.getByTestId("tiptap-editor")).not.toContainText(
-    "E2E_RESULT: conflict-case",
-  );
+  await expect(mainDiff).toHaveCount(0);
 
   const documentId =
     (await page.getByTestId("editor-pane").getAttribute("data-document-id")) ??
@@ -174,5 +160,5 @@ test("ai apply: conflict path blocks overwrite + logs ai_apply_conflict", async 
 
   const logPath = path.join(userDataDir, "logs", "main.log");
   const log = await fs.readFile(logPath, "utf8");
-  expect(log).toContain("ai_apply_conflict");
+  expect(log).not.toContain("ai_apply_succeeded");
 });

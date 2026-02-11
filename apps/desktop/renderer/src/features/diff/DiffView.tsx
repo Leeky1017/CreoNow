@@ -160,8 +160,10 @@ export function UnifiedDiffView(props: {
   lines: DiffLine[];
   currentChangeIndex?: number;
   changePositions?: number[];
+  testId?: string;
 }): JSX.Element {
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const testId = props.testId ?? "ai-diff";
 
   // Scroll to current change when it changes
   React.useEffect(() => {
@@ -184,7 +186,7 @@ export function UnifiedDiffView(props: {
   if (props.lines.length === 0) {
     return (
       <div
-        data-testid="ai-diff"
+        data-testid={testId}
         className="border border-[var(--color-separator)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] p-2.5"
       >
         <Text size="small" color="muted" className="text-center py-4">
@@ -197,7 +199,7 @@ export function UnifiedDiffView(props: {
   return (
     <div
       ref={scrollRef}
-      data-testid="ai-diff"
+      data-testid={testId}
       className="flex-1 overflow-y-auto font-[var(--font-family-mono)] text-[13px] leading-6"
     >
       {props.lines.map((line, index) => {
@@ -302,12 +304,15 @@ export function UnifiedDiffView(props: {
  * Legacy DiffView for backward compatibility.
  * Now wraps UnifiedDiffView with parsed data.
  */
-export function DiffView(props: { diffText: string }): JSX.Element {
+export function DiffView(props: {
+  diffText: string;
+  testId?: string;
+}): JSX.Element {
   const { lines } = parseDiffLines(props.diffText);
 
   return (
     <div className="border border-[var(--color-separator)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] overflow-hidden max-h-[300px]">
-      <UnifiedDiffView lines={lines} />
+      <UnifiedDiffView lines={lines} testId={props.testId} />
     </div>
   );
 }

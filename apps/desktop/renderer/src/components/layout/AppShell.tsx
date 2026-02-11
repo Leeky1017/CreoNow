@@ -266,6 +266,7 @@ export function AppShell(): JSX.Element {
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
   const [createProjectDialogOpen, setCreateProjectDialogOpen] =
     React.useState(false);
+  const lastMountedEditorRef = React.useRef<typeof editor>(null);
 
   // File store for creating documents
   const createDocument = useFileStore((s) => s.createAndSetCurrent);
@@ -300,6 +301,12 @@ export function AppShell(): JSX.Element {
   }, [aiProposal]);
 
   React.useEffect(() => {
+    if (editor) {
+      lastMountedEditorRef.current = editor;
+    }
+  }, [editor]);
+
+  React.useEffect(() => {
     if (!compareMode || compareVersionId) {
       if (aiHunkDecisions.length > 0) {
         setAiHunkDecisions([]);
@@ -332,7 +339,8 @@ export function AppShell(): JSX.Element {
   }, [setAiProposal, setAiSelectionSnapshot, setCompareMode]);
 
   const handleAcceptAiSuggestion = React.useCallback(async () => {
-    if (!editor || !documentId || !currentProjectId || !aiProposal) {
+    const effectiveEditor = editor ?? lastMountedEditorRef.current;
+    if (!effectiveEditor || !documentId || !currentProjectId || !aiProposal) {
       return;
     }
 
@@ -347,7 +355,7 @@ export function AppShell(): JSX.Element {
     });
 
     const applied = applySelection({
-      editor,
+      editor: effectiveEditor,
       selectionRef: aiProposal.selectionRef,
       replacementText,
     });
@@ -362,7 +370,7 @@ export function AppShell(): JSX.Element {
     await persistAiApply({
       projectId: currentProjectId,
       documentId,
-      contentJson: JSON.stringify(editor.getJSON()),
+      contentJson: JSON.stringify(effectiveEditor.getJSON()),
       runId: aiProposal.runId,
     });
     setCompareMode(false);
