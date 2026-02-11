@@ -3,7 +3,7 @@
 - Issue: #412
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/412
 - Branch: task/412-version-control-p2-diff-rollback
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/413
 - Scope: 完成交付 `openspec/changes/version-control-p2-diff-rollback` 的全部规划任务（版本对比 + 安全回滚），并按 OpenSpec/Rulebook/GitHub 门禁合并回控制面 `main`
 - Out of Scope: 分支管理/合并冲突（`version-control-p3`）、硬化边界（`version-control-p4`）、批量回滚
 
