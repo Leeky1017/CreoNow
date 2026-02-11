@@ -3,7 +3,7 @@
 - Issue: #409
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/409
 - Branch: task/409-editor-p2-diff-ai-collaboration
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/411
 - Scope: 完整交付 `openspec/changes/editor-p2-diff-ai-collaboration`（selection reference card + AI inline diff + multi-version compare）并收口到控制面 `main`
 - Out of Scope: 禅模式（editor-p3）、A11y hardening（editor-p4）、版本快照持久化
 
@@ -14,7 +14,7 @@
 - [x] Red：补齐 selection reference / AI inline diff / multi-version compare 的失败测试证据
 - [x] Green：最小实现转绿并完成回归
 - [x] Refactor：抽象可复用逻辑并保持绿灯
-- [ ] 门禁：typecheck/lint/contract/cross-module/test:unit/preflight
+- [x] 门禁：typecheck/lint/contract/cross-module/test:unit/preflight
 - [ ] 交付：PR + auto-merge + main 收口 + change/rulebook 归档 + worktree 清理
 
 ## Runs
@@ -115,3 +115,13 @@
 - Key output:
   - `Test Files 3 passed`
   - `Tests 11 passed`
+
+### 2026-02-12 00:13 +0800 PR Preflight（通过）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Issue OPEN 校验：`#409 OPEN`
+  - Rulebook 路径校验：当前任务位于 archive 路径（按同 PR 自归档规则）
+  - Prettier / typecheck / lint / contract / cross-module / test:unit 全部通过

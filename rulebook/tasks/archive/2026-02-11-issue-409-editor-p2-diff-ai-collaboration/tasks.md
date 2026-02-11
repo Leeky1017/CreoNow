@@ -15,7 +15,7 @@
 - [x] 2.4 运行 `pnpm contract:check`
 - [x] 2.5 运行 `pnpm cross-module:check`
 - [x] 2.6 运行 `pnpm test:unit`
-- [ ] 2.7 运行 `scripts/agent_pr_preflight.sh`（PR 链接回填后）
+- [x] 2.7 运行 `scripts/agent_pr_preflight.sh`（PR 链接回填后）
 
 ## 3. Documentation
 
