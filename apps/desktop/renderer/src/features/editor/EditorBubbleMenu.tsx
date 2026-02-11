@@ -91,10 +91,13 @@ export function EditorBubbleMenu(props: {
     };
   }, [editor, updateVisibilityAndPlacement]);
 
-  if (!editor || !visible || !editor.isEditable) {
+  if (!editor) {
     return null;
   }
 
+  // Keep BubbleMenu mounted and drive visibility via shouldShow to avoid
+  // unmount/remount races while ProseMirror selection updates.
+  const shouldShowBubble = visible && editor.isEditable;
   const inlineDisabled = !editor.isEditable || editor.isActive("codeBlock");
 
   const toggleLink = () => {
@@ -174,13 +177,14 @@ export function EditorBubbleMenu(props: {
   );
 
   if (IS_VITEST_RUNTIME) {
-    return bubbleContent;
+    return shouldShowBubble ? bubbleContent : null;
   }
 
   return (
     <BubbleMenu
       editor={editor}
       pluginKey={EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY}
+      shouldShow={() => shouldShowBubble}
       tippyOptions={{
         placement,
         duration: [100, 100],
