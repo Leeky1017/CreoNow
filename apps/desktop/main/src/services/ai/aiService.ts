@@ -14,6 +14,10 @@ import {
   type SkillSchedulerTerminal,
 } from "../skills/skillScheduler";
 import { startFakeAiServer, type FakeAiServer } from "./fakeAiServer";
+import { assembleSystemPrompt } from "./assembleSystemPrompt";
+import { GLOBAL_IDENTITY_PROMPT } from "./identityPrompt";
+
+export { assembleSystemPrompt, GLOBAL_IDENTITY_PROMPT };
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
