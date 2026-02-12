@@ -106,3 +106,41 @@ Result:
 
 - `p1-assemble-prompt` 已归档到 `openspec/changes/archive/p1-assemble-prompt`。
 - `openspec/changes/EXECUTION_ORDER.md` 已同步为 3 个活跃 change 的拓扑与顺序。
+
+### PR #478 Auto-Merge
+
+```bash
+$ scripts/agent_pr_automerge_and_sync.sh
+PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ...
+[task/477-p1-assemble-prompt ...] docs: backfill run log PR link (#477)
+# ... preflight checks all pass ...
+# ... GitHub checks pass ...
+ERROR: controlplane working tree is dirty: /home/leeky/work/CreoNow
+?? rulebook/tasks/issue-476-p1-ai-settings-ui/
+```
+
+Result:
+
+- PR `#478` 已创建并开启 auto-merge，required checks 全绿后自动合并。
+- `gh issue view 477` 状态已变为 `CLOSED`（由 `Closes #477` 触发）。
+- 脚本末尾 `agent_controlplane_sync.sh` 因控制面存在并行 agent 的未跟踪目录而失败；不影响 `origin/main` 合并事实。
+
+### Merge Verification + Rulebook Self-Archive
+
+```bash
+$ gh pr view 478 --json state,mergedAt,url,mergeCommit --jq ...
+{"number":478,"state":"MERGED","mergedAt":"2026-02-12T16:26:12Z","url":"https://github.com/Leeky1017/CreoNow/pull/478","mergeCommit":"245037d841f3fc1fe4b4a4e944c71f8cbc6d575e"}
+
+$ git fetch origin main && git show --quiet --oneline origin/main
+245037d8 fix: close out p1-assemble-prompt delivery (#477) (#478)
+
+$ gh issue reopen 477
+
+$ rulebook task archive issue-477-p1-assemble-prompt
+✅ Task issue-477-p1-assemble-prompt archived successfully
+```
+
+Result:
+
+- `origin/main` 已包含 merge commit `245037d8`。
+- 为完成阶段 6 收口，已将 Rulebook task 迁移到 `rulebook/tasks/archive/2026-02-12-issue-477-p1-assemble-prompt`。
