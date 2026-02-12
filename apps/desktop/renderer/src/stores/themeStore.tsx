@@ -1,5 +1,6 @@
 import React from "react";
 import { create } from "zustand";
+import { z } from "zod";
 
 import type { PreferenceStore } from "../lib/preferences";
 
@@ -28,9 +29,7 @@ function prefKey(name: "mode"): `${typeof APP_ID}.theme.${typeof name}` {
   return `${APP_ID}.theme.${name}` as const;
 }
 
-function normalizeMode(raw: unknown): ThemeMode | null {
-  return raw === "dark" || raw === "light" || raw === "system" ? raw : null;
-}
+const themeModeSchema = z.enum(["dark", "light", "system"]);
 
 /**
  * Create a zustand store for theme mode.
@@ -39,20 +38,29 @@ function normalizeMode(raw: unknown): ThemeMode | null {
  * keep Windows E2E deterministic.
  */
 export function createThemeStore(preferences: PreferenceStore) {
-  const stored = preferences.get<ThemeMode>(prefKey("mode"));
-  const initialMode = normalizeMode(stored) ?? "system";
+  const stored = preferences.get<unknown>(prefKey("mode"));
+  let initialMode: ThemeMode = "system";
+  if (stored != null) {
+    const result = themeModeSchema.safeParse(stored);
+    if (result.success) {
+      initialMode = result.data;
+    } else {
+      initialMode = "system";
+      preferences.set(prefKey("mode"), "system");
+    }
+  }
 
   return create<ThemeStore>((set) => ({
     mode: initialMode,
 
     setMode: (mode) => {
-      const normalized = normalizeMode(mode);
-      if (!normalized) {
+      const result = themeModeSchema.safeParse(mode);
+      if (!result.success) {
         return;
       }
 
-      set({ mode: normalized });
-      preferences.set(prefKey("mode"), normalized);
+      set({ mode: result.data });
+      preferences.set(prefKey("mode"), result.data);
     },
   }));
 }

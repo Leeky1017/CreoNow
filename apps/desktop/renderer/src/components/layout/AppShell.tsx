@@ -462,6 +462,16 @@ export function AppShell(): JSX.Element {
     })();
   }, [bootstrapEditor, bootstrapFiles, currentProjectId]);
 
+  const sidebarDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (sidebarDebounceRef.current) clearTimeout(sidebarDebounceRef.current);
+      if (panelDebounceRef.current) clearTimeout(panelDebounceRef.current);
+    };
+  }, []);
+
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent): void {
       // F11: Toggle Zen Mode
@@ -501,18 +511,26 @@ export function AppShell(): JSX.Element {
       // Cmd/Ctrl+\: Toggle Sidebar (NOT Cmd+B per DESIGN_DECISIONS.md)
       if (e.key === "\\") {
         e.preventDefault();
+        if (sidebarDebounceRef.current) return;
         setSidebarCollapsed(!sidebarCollapsed);
+        sidebarDebounceRef.current = setTimeout(() => {
+          sidebarDebounceRef.current = null;
+        }, 300);
         return;
       }
 
       // Cmd/Ctrl+L: Toggle Right Panel
       if (e.key.toLowerCase() === "l") {
         e.preventDefault();
+        if (panelDebounceRef.current) return;
         if (panelCollapsed) {
           setActiveRightPanel("ai");
         } else {
           setPanelCollapsed(true);
         }
+        panelDebounceRef.current = setTimeout(() => {
+          panelDebounceRef.current = null;
+        }, 300);
         return;
       }
 
@@ -953,6 +971,7 @@ export function AppShell(): JSX.Element {
             collapsed={panelCollapsed}
             onOpenSettings={() => setSettingsDialogOpen(true)}
             onOpenVersionHistory={openVersionHistoryPanel}
+            onCollapse={() => setPanelCollapsed(true)}
           />
         </div>
 

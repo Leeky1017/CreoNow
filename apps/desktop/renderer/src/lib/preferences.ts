@@ -10,6 +10,7 @@ export type PreferenceKey =
       | "sidebarCollapsed"
       | "panelCollapsed"
       | "activeRightPanel"
+      | "activeLeftPanel"
       | "activePanel"
       | "activePanelTab"}`
   | `${typeof APP_ID}.theme.${"mode"}`

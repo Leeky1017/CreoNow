@@ -553,4 +553,61 @@ describe("AppShell", () => {
       });
     });
   });
+
+  // ===========================================================================
+  // 快捷键去抖测试
+  // ===========================================================================
+  describe("快捷键去抖", () => {
+    it("Ctrl+\\ 300ms 内连按多次只执行一次 sidebar 切换", async () => {
+      await renderWithWrapper();
+
+      const sidebar = screen.getByTestId("layout-sidebar");
+      expect(sidebar).not.toHaveClass("hidden");
+
+      vi.useFakeTimers();
+
+      // 快速连按 3 次
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "\\", ctrlKey: true });
+        fireEvent.keyDown(window, { key: "\\", ctrlKey: true });
+        fireEvent.keyDown(window, { key: "\\", ctrlKey: true });
+      });
+
+      // Advance past debounce window
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      // Only one toggle should have executed (collapsed)
+      expect(sidebar).toHaveClass("hidden");
+
+      vi.useRealTimers();
+    });
+
+    it("Ctrl+L 300ms 内连按多次只执行一次 panel 切换", async () => {
+      await renderWithWrapper();
+
+      const panel = screen.getByTestId("layout-panel");
+      expect(panel).not.toHaveClass("hidden");
+
+      vi.useFakeTimers();
+
+      // 快速连按 3 次
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "l", ctrlKey: true });
+        fireEvent.keyDown(window, { key: "l", ctrlKey: true });
+        fireEvent.keyDown(window, { key: "l", ctrlKey: true });
+      });
+
+      // Advance past debounce window
+      await act(async () => {
+        vi.advanceTimersByTime(350);
+      });
+
+      // Only one toggle should have executed (collapsed)
+      expect(panel).toHaveClass("hidden");
+
+      vi.useRealTimers();
+    });
+  });
 });

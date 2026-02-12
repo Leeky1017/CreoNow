@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { PreferenceKey, PreferenceStore } from "../lib/preferences";
-import { createLayoutStore, LAYOUT_DEFAULTS } from "./layoutStore";
+import {
+  createLayoutStore,
+  LAYOUT_DEFAULTS,
+  type LeftPanelType,
+} from "./layoutStore";
 
 /**
  * Build an in-memory preference store stub for deterministic layout tests.
@@ -113,5 +117,181 @@ describe("layoutStore activeRightPanel persistence", () => {
     const store = createLayoutStore(preferences);
 
     expect(store.getState().activeRightPanel).toBe("ai");
+  });
+});
+
+describe("layoutStore zod validation and fallback", () => {
+  it("should fallback sidebarWidth to default when persisted value is negative", () => {
+    const { preferences, setCalls } = createPreferenceStub({
+      "creonow.layout.sidebarWidth": -100,
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().sidebarWidth).toBe(LAYOUT_DEFAULTS.sidebar.default);
+    expect(setCalls).toContainEqual([
+      "creonow.layout.sidebarWidth",
+      LAYOUT_DEFAULTS.sidebar.default,
+    ]);
+  });
+
+  it("should fallback sidebarWidth to default when persisted value exceeds max", () => {
+    const { preferences, setCalls } = createPreferenceStub({
+      "creonow.layout.sidebarWidth": 9999,
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().sidebarWidth).toBe(LAYOUT_DEFAULTS.sidebar.default);
+    expect(setCalls).toContainEqual([
+      "creonow.layout.sidebarWidth",
+      LAYOUT_DEFAULTS.sidebar.default,
+    ]);
+  });
+
+  it("should fallback sidebarWidth to default when persisted value is not a number", () => {
+    const { preferences } = createPreferenceStub({
+      "creonow.layout.sidebarWidth": "not-a-number",
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().sidebarWidth).toBe(LAYOUT_DEFAULTS.sidebar.default);
+  });
+
+  it("should fallback panelWidth to default when persisted value is below min", () => {
+    const { preferences, setCalls } = createPreferenceStub({
+      "creonow.layout.panelWidth": 10,
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().panelWidth).toBe(LAYOUT_DEFAULTS.panel.default);
+    expect(setCalls).toContainEqual([
+      "creonow.layout.panelWidth",
+      LAYOUT_DEFAULTS.panel.default,
+    ]);
+  });
+
+  it("should fallback panelWidth to default when persisted value exceeds max", () => {
+    const { preferences, setCalls } = createPreferenceStub({
+      "creonow.layout.panelWidth": 9999,
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().panelWidth).toBe(LAYOUT_DEFAULTS.panel.default);
+    expect(setCalls).toContainEqual([
+      "creonow.layout.panelWidth",
+      LAYOUT_DEFAULTS.panel.default,
+    ]);
+  });
+
+  it("should fallback sidebarCollapsed to default when persisted value is not boolean", () => {
+    const { preferences } = createPreferenceStub({
+      "creonow.layout.sidebarCollapsed": "yes",
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().sidebarCollapsed).toBe(false);
+  });
+
+  it("should fallback panelCollapsed to default when persisted value is not boolean", () => {
+    const { preferences } = createPreferenceStub({
+      "creonow.layout.panelCollapsed": 42,
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().panelCollapsed).toBe(false);
+  });
+
+  it("should accept valid sidebarWidth within range", () => {
+    const { preferences, setCalls } = createPreferenceStub({
+      "creonow.layout.sidebarWidth": 300,
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().sidebarWidth).toBe(300);
+    const correctionCall = setCalls.find(
+      ([key]) => key === "creonow.layout.sidebarWidth",
+    );
+    expect(correctionCall).toBeUndefined();
+  });
+
+  it("should write corrected default back to preferences on zod failure", () => {
+    const { preferences, setCalls } = createPreferenceStub({
+      "creonow.layout.sidebarWidth": -100,
+      "creonow.layout.panelWidth": -200,
+    });
+    createLayoutStore(preferences);
+
+    expect(setCalls).toContainEqual([
+      "creonow.layout.sidebarWidth",
+      LAYOUT_DEFAULTS.sidebar.default,
+    ]);
+    expect(setCalls).toContainEqual([
+      "creonow.layout.panelWidth",
+      LAYOUT_DEFAULTS.panel.default,
+    ]);
+  });
+
+  it("should signal layout-reset when any zod validation fails", () => {
+    const { preferences } = createPreferenceStub({
+      "creonow.layout.sidebarWidth": -100,
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().layoutResetNotice).toBe(true);
+  });
+
+  it("should not signal layout-reset when all values are valid", () => {
+    const { preferences } = createPreferenceStub({
+      "creonow.layout.sidebarWidth": 240,
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().layoutResetNotice).toBe(false);
+  });
+
+  it("should allow dismissing layout-reset notice", () => {
+    const { preferences } = createPreferenceStub({
+      "creonow.layout.sidebarWidth": -100,
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().layoutResetNotice).toBe(true);
+    store.getState().dismissLayoutResetNotice();
+    expect(store.getState().layoutResetNotice).toBe(false);
+  });
+});
+
+describe("layoutStore activeLeftPanel persistence", () => {
+  it("should persist activeLeftPanel when switching panels", () => {
+    const { preferences, setCalls } = createPreferenceStub({});
+    const store = createLayoutStore(preferences);
+
+    store.getState().setActiveLeftPanel("knowledgeGraph" as LeftPanelType);
+
+    expect(setCalls).toContainEqual([
+      "creonow.layout.activeLeftPanel",
+      "knowledgeGraph",
+    ]);
+  });
+
+  it("should restore activeLeftPanel from preferences on startup", () => {
+    const { preferences } = createPreferenceStub({
+      "creonow.layout.activeLeftPanel": "outline",
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().activeLeftPanel).toBe("outline");
+  });
+
+  it("should fallback to files when persisted activeLeftPanel is invalid", () => {
+    const { preferences, setCalls } = createPreferenceStub({
+      "creonow.layout.activeLeftPanel": "nonexistent-panel",
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().activeLeftPanel).toBe("files");
+    expect(setCalls).toContainEqual([
+      "creonow.layout.activeLeftPanel",
+      "files",
+    ]);
   });
 });

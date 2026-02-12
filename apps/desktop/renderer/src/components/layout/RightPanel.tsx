@@ -81,6 +81,8 @@ export function RightPanel(props: {
   onOpenSettings?: () => void;
   /** Callback to open left-panel Version History */
   onOpenVersionHistory?: () => void;
+  /** Callback to collapse the right panel */
+  onCollapse?: () => void;
 }): JSX.Element {
   const activeRightPanel = useLayoutStore((s) => s.activeRightPanel);
   const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
@@ -143,6 +145,18 @@ export function RightPanel(props: {
               </button>
             );
           })}
+          <div className="flex-1" />
+          {props.onCollapse ? (
+            <button
+              type="button"
+              data-testid="right-panel-collapse-btn"
+              onClick={props.onCollapse}
+              className="text-xs px-1.5 py-1 rounded-[var(--radius-sm)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors duration-[var(--duration-fast)]"
+              aria-label="Collapse panel"
+            >
+              ✕
+            </button>
+          ) : null}
         </div>
 
         {/* Tab content */}

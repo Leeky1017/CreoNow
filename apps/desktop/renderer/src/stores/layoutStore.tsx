@@ -1,5 +1,6 @@
 import React from "react";
 import { create } from "zustand";
+import { z } from "zod";
 
 import type { PreferenceStore } from "../lib/preferences";
 
@@ -42,6 +43,7 @@ export type LayoutState = {
   zenMode: boolean;
   activeLeftPanel: LeftPanelType;
   activeRightPanel: RightPanelType;
+  layoutResetNotice: boolean;
 };
 
 export type LayoutActions = {
@@ -59,6 +61,7 @@ export type LayoutActions = {
    * If the panel is collapsed, it will be automatically expanded.
    */
   setActiveRightPanel: (panel: RightPanelType) => void;
+  dismissLayoutResetNotice: () => void;
 };
 
 export type LayoutStore = LayoutState & LayoutActions;
@@ -76,14 +79,35 @@ function prefKey(
     | "panelWidth"
     | "sidebarCollapsed"
     | "panelCollapsed"
-    | "activeRightPanel",
+    | "activeRightPanel"
+    | "activeLeftPanel",
 ): `${typeof APP_ID}.layout.${typeof name}` {
   return `${APP_ID}.layout.${name}` as const;
 }
 
-function isRightPanelType(value: unknown): value is RightPanelType {
-  return value === "ai" || value === "info" || value === "quality";
-}
+const LEFT_PANEL_VALUES = [
+  "files",
+  "search",
+  "outline",
+  "versionHistory",
+  "memory",
+  "characters",
+  "knowledgeGraph",
+] as const;
+
+const RIGHT_PANEL_VALUES = ["ai", "info", "quality"] as const;
+
+const sidebarWidthSchema = z
+  .number()
+  .min(LAYOUT_DEFAULTS.sidebar.min)
+  .max(LAYOUT_DEFAULTS.sidebar.max);
+const panelWidthSchema = z
+  .number()
+  .min(LAYOUT_DEFAULTS.panel.min)
+  .max(LAYOUT_DEFAULTS.panel.max);
+const booleanSchema = z.boolean();
+const leftPanelSchema = z.enum(LEFT_PANEL_VALUES);
+const rightPanelSchema = z.enum(RIGHT_PANEL_VALUES);
 
 /**
  * Create a zustand store for layout.
@@ -97,21 +121,73 @@ export function createLayoutStore(preferences: PreferenceStore) {
     panelCollapsed: boolean;
   } | null = null;
 
+  let hadReset = false;
+
+  function validateOrDefault<T>(schema: z.ZodType<T>, raw: unknown, fallback: T, key: string): T {
+    const result = schema.safeParse(raw);
+    if (result.success) {
+      return result.data;
+    }
+    hadReset = true;
+    preferences.set(key as Parameters<typeof preferences.set>[0], fallback);
+    return fallback;
+  }
+
+  const rawSidebarWidth = preferences.get<unknown>(prefKey("sidebarWidth"));
   const initialSidebarWidth =
-    preferences.get<number>(prefKey("sidebarWidth")) ??
-    LAYOUT_DEFAULTS.sidebar.default;
+    rawSidebarWidth == null
+      ? LAYOUT_DEFAULTS.sidebar.default
+      : validateOrDefault(
+          sidebarWidthSchema,
+          rawSidebarWidth,
+          LAYOUT_DEFAULTS.sidebar.default,
+          prefKey("sidebarWidth"),
+        );
+
+  const rawPanelWidth = preferences.get<unknown>(prefKey("panelWidth"));
   const initialPanelWidth =
-    preferences.get<number>(prefKey("panelWidth")) ??
-    LAYOUT_DEFAULTS.panel.default;
+    rawPanelWidth == null
+      ? LAYOUT_DEFAULTS.panel.default
+      : validateOrDefault(
+          panelWidthSchema,
+          rawPanelWidth,
+          LAYOUT_DEFAULTS.panel.default,
+          prefKey("panelWidth"),
+        );
+
+  const rawSidebarCollapsed = preferences.get<unknown>(prefKey("sidebarCollapsed"));
   const initialSidebarCollapsed =
-    preferences.get<boolean>(prefKey("sidebarCollapsed")) ?? false;
+    rawSidebarCollapsed == null
+      ? false
+      : validateOrDefault(booleanSchema, rawSidebarCollapsed, false, prefKey("sidebarCollapsed"));
+
+  const rawPanelCollapsed = preferences.get<unknown>(prefKey("panelCollapsed"));
   const initialPanelCollapsed =
-    preferences.get<boolean>(prefKey("panelCollapsed")) ?? false;
-  const initialActiveRightPanelRaw =
-    preferences.get<unknown>(prefKey("activeRightPanel")) ?? null;
-  const initialActiveRightPanel = isRightPanelType(initialActiveRightPanelRaw)
-    ? initialActiveRightPanelRaw
-    : "ai";
+    rawPanelCollapsed == null
+      ? false
+      : validateOrDefault(booleanSchema, rawPanelCollapsed, false, prefKey("panelCollapsed"));
+
+  const rawActiveRightPanel = preferences.get<unknown>(prefKey("activeRightPanel"));
+  const initialActiveRightPanel =
+    rawActiveRightPanel == null
+      ? "ai"
+      : validateOrDefault(
+          rightPanelSchema,
+          rawActiveRightPanel,
+          "ai" as RightPanelType,
+          prefKey("activeRightPanel"),
+        );
+
+  const rawActiveLeftPanel = preferences.get<unknown>(prefKey("activeLeftPanel"));
+  const initialActiveLeftPanel =
+    rawActiveLeftPanel == null
+      ? "files"
+      : validateOrDefault(
+          leftPanelSchema,
+          rawActiveLeftPanel,
+          "files" as LeftPanelType,
+          prefKey("activeLeftPanel"),
+        );
 
   return create<LayoutStore>((set, get) => ({
     sidebarWidth: initialSidebarWidth,
@@ -119,8 +195,9 @@ export function createLayoutStore(preferences: PreferenceStore) {
     sidebarCollapsed: initialSidebarCollapsed,
     panelCollapsed: initialPanelCollapsed,
     zenMode: false,
-    activeLeftPanel: "files",
+    activeLeftPanel: initialActiveLeftPanel,
     activeRightPanel: initialActiveRightPanel,
+    layoutResetNotice: hadReset,
 
     setSidebarWidth: (width) => {
       set({ sidebarWidth: width });
@@ -175,6 +252,7 @@ export function createLayoutStore(preferences: PreferenceStore) {
     },
     setActiveLeftPanel: (panel) => {
       set({ activeLeftPanel: panel });
+      preferences.set(prefKey("activeLeftPanel"), panel);
     },
     setActiveRightPanel: (panel) => {
       const current = get();
@@ -185,6 +263,9 @@ export function createLayoutStore(preferences: PreferenceStore) {
         set({ activeRightPanel: panel });
       }
       preferences.set(prefKey("activeRightPanel"), panel);
+    },
+    dismissLayoutResetNotice: () => {
+      set({ layoutResetNotice: false });
     },
   }));
 }
