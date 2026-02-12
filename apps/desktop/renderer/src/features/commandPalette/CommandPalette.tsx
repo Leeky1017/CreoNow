@@ -41,6 +41,8 @@ export interface CommandItem {
   subtext?: string;
   /** 分组名称 */
   group?: string;
+  /** 结果分类：recent/file/command */
+  category?: "recent" | "file" | "command";
   /** 选中时执行的操作 */
   onSelect: () => void | Promise<void>;
 }
@@ -50,6 +52,8 @@ interface CommandGroup {
   title: string;
   items: CommandItem[];
 }
+
+const PAGE_SIZE = 100;
 
 /**
  * Layout action callbacks for CommandPalette
@@ -332,20 +336,37 @@ function groupCommands(commands: CommandItem[]): CommandGroup[] {
   }));
 }
 
+function resolveCategory(command: CommandItem): "recent" | "file" | "command" {
+  if (command.category) {
+    return command.category;
+  }
+  if (command.group === "最近使用") {
+    return "recent";
+  }
+  if (command.group === "文件") {
+    return "file";
+  }
+  return "command";
+}
+
 /**
  * 过滤命令列表
  */
 function filterCommands(commands: CommandItem[], query: string): CommandItem[] {
-  if (!query.trim()) {
-    return commands;
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return commands.filter((cmd) => resolveCategory(cmd) !== "file");
   }
 
-  const lowerQuery = query.toLowerCase();
-  return commands.filter(
-    (cmd) =>
-      cmd.label.toLowerCase().includes(lowerQuery) ||
-      cmd.subtext?.toLowerCase().includes(lowerQuery),
-  );
+  return commands.filter((cmd) => {
+    if (resolveCategory(cmd) === "recent") {
+      return false;
+    }
+    return (
+      cmd.label.toLowerCase().includes(normalizedQuery) ||
+      cmd.subtext?.toLowerCase().includes(normalizedQuery)
+    );
+  });
 }
 
 // =============================================================================
@@ -364,6 +385,7 @@ export function CommandPalette({
 
   const [query, setQuery] = React.useState("");
   const [activeIndex, setActiveIndex] = React.useState(0);
+  const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE);
   const [errorText, setErrorText] = React.useState<string | null>(null);
 
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -532,7 +554,11 @@ export function CommandPalette({
 
   // 过滤和分组
   const filteredCommands = filterCommands(commands, query);
-  const groups = groupCommands(filteredCommands);
+  const paginatedCommands = React.useMemo(
+    () => filteredCommands.slice(0, visibleCount),
+    [filteredCommands, visibleCount],
+  );
+  const groups = groupCommands(paginatedCommands);
 
   // 扁平化列表（用于键盘导航）
   const flatItems = React.useMemo(
@@ -543,13 +569,23 @@ export function CommandPalette({
   // 当搜索词变化时重置 activeIndex
   React.useEffect(() => {
     setActiveIndex(0);
+    setVisibleCount(PAGE_SIZE);
   }, [query]);
+
+  React.useEffect(() => {
+    if (activeIndex < flatItems.length) {
+      return;
+    }
+    const nextIndex = flatItems.length > 0 ? flatItems.length - 1 : 0;
+    setActiveIndex(nextIndex);
+  }, [activeIndex, flatItems.length]);
 
   // 打开时重置状态（使用 useLayoutEffect 确保同步执行，避免闪烁）
   React.useLayoutEffect(() => {
     if (open) {
       setQuery("");
       setActiveIndex(0);
+      setVisibleCount(PAGE_SIZE);
       setErrorText(null);
       // 延迟聚焦以确保 DOM 已渲染
       requestAnimationFrame(() => {
@@ -602,6 +638,20 @@ export function CommandPalette({
     [flatItems, activeIndex, onOpenChange],
   );
 
+  const handleListScroll = React.useCallback(
+    (event: React.UIEvent<HTMLDivElement>): void => {
+      const target = event.currentTarget;
+      if (target.scrollTop + target.clientHeight < target.scrollHeight - 16) {
+        return;
+      }
+
+      setVisibleCount((prev) =>
+        Math.min(prev + PAGE_SIZE, filteredCommands.length),
+      );
+    },
+    [filteredCommands.length],
+  );
+
   if (!open) {
     return null;
   }
@@ -648,6 +698,7 @@ export function CommandPalette({
           className="max-h-[424px] overflow-y-auto p-2"
           role="listbox"
           data-active-index={activeIndex}
+          onScroll={handleListScroll}
         >
           {/* 错误提示 */}
           {errorText && (
@@ -667,7 +718,7 @@ export function CommandPalette({
             <div className="h-40 flex flex-col items-center justify-center gap-3">
               <SearchIcon className="text-[var(--color-fg-placeholder)] w-8 h-8" />
               <Text size="small" color="placeholder">
-                未找到匹配的命令
+                未找到匹配结果
               </Text>
             </div>
           )}
