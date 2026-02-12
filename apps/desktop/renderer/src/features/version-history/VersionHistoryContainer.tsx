@@ -202,6 +202,13 @@ export function VersionHistoryContainer(
   const startPreview = useVersionStore((s) => s.startPreview);
   const previewStatus = useVersionStore((s) => s.previewStatus);
   const previewError = useVersionStore((s) => s.previewError);
+  const mergeBranch = useVersionStore((s) => s.mergeBranch);
+  const resolveBranchConflict = useVersionStore((s) => s.resolveBranchConflict);
+  const clearBranchMergeState = useVersionStore((s) => s.clearBranchMergeState);
+  const branchMergeStatus = useVersionStore((s) => s.branchMergeStatus);
+  const branchMergeError = useVersionStore((s) => s.branchMergeError);
+  const mergeSessionId = useVersionStore((s) => s.mergeSessionId);
+  const mergeConflicts = useVersionStore((s) => s.mergeConflicts);
   const showAiMarks = useVersionPreferencesStore((s) => s.showAiMarks);
   const { confirm, dialogProps } = useConfirmDialog();
 
@@ -211,6 +218,17 @@ export function VersionHistoryContainer(
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [currentHash, setCurrentHash] = React.useState<string | null>(null);
+  const [sourceBranchName, setSourceBranchName] = React.useState("alt-ending");
+  const [targetBranchName, setTargetBranchName] = React.useState("main");
+  const [conflictForm, setConflictForm] = React.useState<
+    Record<
+      string,
+      {
+        resolution: "ours" | "theirs" | "manual";
+        manualText: string;
+      }
+    >
+  >({});
 
   // Fetch version list when documentId changes
   React.useEffect(() => {
@@ -305,6 +323,129 @@ export function VersionHistoryContainer(
     [documentId, items, startPreview],
   );
 
+  React.useEffect(() => {
+    if (mergeConflicts.length === 0) {
+      setConflictForm({});
+      return;
+    }
+    setConflictForm((prev) => {
+      const next: Record<
+        string,
+        {
+          resolution: "ours" | "theirs" | "manual";
+          manualText: string;
+        }
+      > = {};
+      for (const conflict of mergeConflicts) {
+        next[conflict.conflictId] = prev[conflict.conflictId] ?? {
+          resolution: "ours",
+          manualText: "",
+        };
+      }
+      return next;
+    });
+  }, [mergeConflicts]);
+
+  const handleMergeBranches = React.useCallback(async () => {
+    if (!documentId) {
+      return;
+    }
+    if (
+      sourceBranchName.trim().length === 0 ||
+      targetBranchName.trim().length === 0
+    ) {
+      return;
+    }
+    await mergeBranch({
+      documentId,
+      sourceBranchName: sourceBranchName.trim(),
+      targetBranchName: targetBranchName.trim(),
+    });
+  }, [documentId, mergeBranch, sourceBranchName, targetBranchName]);
+
+  const handleResolutionChange = React.useCallback(
+    (conflictId: string, resolution: "ours" | "theirs" | "manual") => {
+      setConflictForm((prev) => ({
+        ...prev,
+        [conflictId]: {
+          resolution,
+          manualText: prev[conflictId]?.manualText ?? "",
+        },
+      }));
+    },
+    [],
+  );
+
+  const handleManualTextChange = React.useCallback(
+    (conflictId: string, manualText: string) => {
+      setConflictForm((prev) => ({
+        ...prev,
+        [conflictId]: {
+          resolution: prev[conflictId]?.resolution ?? "manual",
+          manualText,
+        },
+      }));
+    },
+    [],
+  );
+
+  const hasInvalidManualResolution = React.useMemo(
+    () =>
+      mergeConflicts.some((conflict) => {
+        const selected = conflictForm[conflict.conflictId];
+        if (selected?.resolution !== "manual") {
+          return false;
+        }
+        return selected.manualText.trim().length === 0;
+      }),
+    [conflictForm, mergeConflicts],
+  );
+
+  const handleResolveConflicts = React.useCallback(async () => {
+    if (!documentId || !mergeSessionId) {
+      return;
+    }
+    if (hasInvalidManualResolution) {
+      return;
+    }
+
+    const resolutions = mergeConflicts.map((conflict) => {
+      const selected = conflictForm[conflict.conflictId] ?? {
+        resolution: "ours" as const,
+        manualText: "",
+      };
+      if (selected.resolution === "manual") {
+        return {
+          conflictId: conflict.conflictId,
+          resolution: "manual" as const,
+          manualText: selected.manualText.trim(),
+        };
+      }
+      return {
+        conflictId: conflict.conflictId,
+        resolution: selected.resolution,
+      };
+    });
+
+    const result = await resolveBranchConflict({
+      documentId,
+      mergeSessionId,
+      resolutions,
+      resolvedBy: "user",
+    });
+
+    if (result.ok) {
+      setConflictForm({});
+    }
+  }, [
+    conflictForm,
+    documentId,
+    hasInvalidManualResolution,
+    mergeConflicts,
+    mergeSessionId,
+    resolveBranchConflict,
+  ]);
+
   if (!documentId) {
     return (
       <div className="p-3 text-xs text-[var(--color-fg-muted)]">
@@ -349,6 +490,177 @@ export function VersionHistoryContainer(
         showAiMarks={showAiMarks}
         showCloseButton={false}
       />
+      <div className="mx-3 mt-3 space-y-2 rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-raised)] p-3">
+        <div className="text-xs font-semibold text-[var(--color-fg-default)]">
+          Branch Merge
+        </div>
+        <div className="grid grid-cols-1 gap-2">
+          <label className="flex flex-col gap-1 text-[11px] text-[var(--color-fg-muted)]">
+            Source Branch
+            <input
+              data-testid="branch-merge-source-input"
+              className="rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-2 py-1 text-xs text-[var(--color-fg-default)]"
+              value={sourceBranchName}
+              onChange={(event) => setSourceBranchName(event.target.value)}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-[11px] text-[var(--color-fg-muted)]">
+            Target Branch
+            <input
+              data-testid="branch-merge-target-input"
+              className="rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-2 py-1 text-xs text-[var(--color-fg-default)]"
+              value={targetBranchName}
+              onChange={(event) => setTargetBranchName(event.target.value)}
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          data-testid="branch-merge-submit"
+          className="rounded border border-[var(--color-accent)] px-2 py-1 text-xs text-[var(--color-fg-default)] disabled:opacity-50"
+          onClick={() => void handleMergeBranches()}
+          disabled={
+            branchMergeStatus === "loading" ||
+            sourceBranchName.trim().length === 0 ||
+            targetBranchName.trim().length === 0
+          }
+        >
+          {branchMergeStatus === "loading" ? "Merging..." : "Merge Branches"}
+        </button>
+        {branchMergeStatus === "ready" ? (
+          <div className="text-[11px] text-[var(--color-success)]">
+            Branch merge completed.
+          </div>
+        ) : null}
+        {branchMergeStatus === "error" && branchMergeError ? (
+          <div className="text-[11px] text-[var(--color-error)]">
+            {branchMergeError.code}: {branchMergeError.message}
+          </div>
+        ) : null}
+      </div>
+      {branchMergeStatus === "conflict" && mergeConflicts.length > 0 ? (
+        <div
+          data-testid="branch-conflict-panel"
+          className="mx-3 mt-3 space-y-3 rounded-lg border border-[var(--color-warning)] bg-[var(--color-bg-raised)] p-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs font-semibold text-[var(--color-fg-default)]">
+              Merge Conflict Diff
+            </div>
+            <button
+              type="button"
+              className="rounded border border-[var(--color-border-default)] px-2 py-1 text-[11px] text-[var(--color-fg-muted)]"
+              onClick={clearBranchMergeState}
+            >
+              Dismiss
+            </button>
+          </div>
+
+          {mergeConflicts.map((conflict) => {
+            const selected = conflictForm[conflict.conflictId] ?? {
+              resolution: "ours" as const,
+              manualText: "",
+            };
+            return (
+              <div
+                key={conflict.conflictId}
+                data-testid={`branch-conflict-item-${conflict.conflictId}`}
+                className="space-y-2 rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2"
+              >
+                <div className="text-[11px] text-[var(--color-fg-muted)]">
+                  Conflict #{conflict.index + 1}
+                </div>
+                <div className="grid grid-cols-1 gap-2 text-xs text-[var(--color-fg-default)]">
+                  <div>
+                    <div className="text-[11px] text-[var(--color-fg-muted)]">
+                      Base
+                    </div>
+                    <pre className="whitespace-pre-wrap font-mono text-xs">
+                      {conflict.baseText}
+                    </pre>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-[var(--color-fg-muted)]">
+                      Ours
+                    </div>
+                    <pre className="whitespace-pre-wrap font-mono text-xs">
+                      {conflict.oursText}
+                    </pre>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-[var(--color-fg-muted)]">
+                      Theirs
+                    </div>
+                    <pre className="whitespace-pre-wrap font-mono text-xs">
+                      {conflict.theirsText}
+                    </pre>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 text-[11px] text-[var(--color-fg-default)]">
+                  <label className="inline-flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name={`resolution-${conflict.conflictId}`}
+                      checked={selected.resolution === "ours"}
+                      onChange={() =>
+                        handleResolutionChange(conflict.conflictId, "ours")
+                      }
+                    />
+                    ours
+                  </label>
+                  <label className="inline-flex items-center gap-1">
+                    <input
+                      type="radio"
+                      name={`resolution-${conflict.conflictId}`}
+                      checked={selected.resolution === "theirs"}
+                      onChange={() =>
+                        handleResolutionChange(conflict.conflictId, "theirs")
+                      }
+                    />
+                    theirs
+                  </label>
+                  <label className="inline-flex items-center gap-1">
+                    <input
+                      data-testid={`branch-conflict-manual-${conflict.conflictId}`}
+                      type="radio"
+                      name={`resolution-${conflict.conflictId}`}
+                      checked={selected.resolution === "manual"}
+                      onChange={() =>
+                        handleResolutionChange(conflict.conflictId, "manual")
+                      }
+                    />
+                    manual
+                  </label>
+                </div>
+                {selected.resolution === "manual" ? (
+                  <textarea
+                    data-testid={`branch-conflict-manual-text-${conflict.conflictId}`}
+                    className="h-20 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-raised)] p-2 font-mono text-xs text-[var(--color-fg-default)]"
+                    value={selected.manualText}
+                    onChange={(event) =>
+                      handleManualTextChange(
+                        conflict.conflictId,
+                        event.target.value,
+                      )
+                    }
+                  />
+                ) : null}
+              </div>
+            );
+          })}
+
+          <button
+            type="button"
+            data-testid="branch-conflict-submit"
+            className="rounded border border-[var(--color-accent)] px-2 py-1 text-xs text-[var(--color-fg-default)] disabled:opacity-50"
+            onClick={() => void handleResolveConflicts()}
+            disabled={hasInvalidManualResolution}
+          >
+            Submit Conflict Resolution
+          </button>
+        </div>
+      ) : null}
       {previewStatus === "error" && previewError ? (
         <div className="px-3 py-2 text-xs text-[var(--color-error)]">
           <span data-testid="version-preview-error">

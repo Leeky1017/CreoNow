@@ -42,6 +42,14 @@ export type VersionContent = {
   createdAt: number;
 };
 
+export type BranchMergeConflict = {
+  conflictId: string;
+  index: number;
+  baseText: string;
+  oursText: string;
+  theirsText: string;
+};
+
 export type VersionStoreState = {
   /** Current document ID for version list */
   documentId: string | null;
@@ -65,6 +73,14 @@ export type VersionStoreState = {
   previewContentJson: string | null;
   /** Preview error details */
   previewError: IpcError | null;
+  /** Branch merge workflow status */
+  branchMergeStatus: "idle" | "loading" | "conflict" | "ready" | "error";
+  /** Branch merge last error */
+  branchMergeError: IpcError | null;
+  /** Active merge session ID when conflict exists */
+  mergeSessionId: string | null;
+  /** Conflict blocks returned by merge */
+  mergeConflicts: BranchMergeConflict[];
 };
 
 export type VersionStoreActions = {
@@ -106,6 +122,31 @@ export type VersionStoreActions = {
     versionId: string,
   ) => Promise<{ ok: boolean; error?: IpcError }>;
   /**
+   * Merge source branch into target branch.
+   */
+  mergeBranch: (args: {
+    documentId: string;
+    sourceBranchName: string;
+    targetBranchName: string;
+  }) => Promise<{ ok: boolean; error?: IpcError }>;
+  /**
+   * Resolve merge conflict blocks and persist merged snapshot.
+   */
+  resolveBranchConflict: (args: {
+    documentId: string;
+    mergeSessionId: string;
+    resolutions: Array<{
+      conflictId: string;
+      resolution: "ours" | "theirs" | "manual";
+      manualText?: string;
+    }>;
+    resolvedBy: string;
+  }) => Promise<{ ok: boolean; error?: IpcError }>;
+  /**
+   * Clear branch merge transient state.
+   */
+  clearBranchMergeState: () => void;
+  /**
    * Clear all state.
    */
   reset: () => void;
@@ -130,7 +171,52 @@ const initialState: VersionStoreState = {
   previewTimestamp: null,
   previewContentJson: null,
   previewError: null,
+  branchMergeStatus: "idle",
+  branchMergeError: null,
+  mergeSessionId: null,
+  mergeConflicts: [],
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function readConflictBlocks(details: unknown): {
+  mergeSessionId: string | null;
+  conflicts: BranchMergeConflict[];
+} {
+  if (!isRecord(details)) {
+    return { mergeSessionId: null, conflicts: [] };
+  }
+  const mergeSessionId =
+    typeof details.mergeSessionId === "string" ? details.mergeSessionId : null;
+  const rawConflicts = Array.isArray(details.conflicts)
+    ? details.conflicts
+    : [];
+  const conflicts: BranchMergeConflict[] = [];
+  for (const item of rawConflicts) {
+    if (!isRecord(item)) {
+      continue;
+    }
+    if (
+      typeof item.conflictId !== "string" ||
+      typeof item.index !== "number" ||
+      typeof item.baseText !== "string" ||
+      typeof item.oursText !== "string" ||
+      typeof item.theirsText !== "string"
+    ) {
+      continue;
+    }
+    conflicts.push({
+      conflictId: item.conflictId,
+      index: item.index,
+      baseText: item.baseText,
+      oursText: item.oursText,
+      theirsText: item.theirsText,
+    });
+  }
+  return { mergeSessionId, conflicts };
+}
 
 /**
  * Create a zustand store for version history state.
@@ -253,6 +339,89 @@ export function createVersionStore(deps: { invoke: IpcInvoke }) {
       // Refresh version list after restore
       await get().fetchList(documentId);
       return { ok: true };
+    },
+
+    mergeBranch: async ({ documentId, sourceBranchName, targetBranchName }) => {
+      set({
+        branchMergeStatus: "loading",
+        branchMergeError: null,
+      });
+
+      const res = await deps.invoke("version:branch:merge", {
+        documentId,
+        sourceBranchName,
+        targetBranchName,
+      });
+      if (!res.ok) {
+        if (res.error.code === "CONFLICT") {
+          const parsed = readConflictBlocks(res.error.details);
+          set({
+            branchMergeStatus: "conflict",
+            branchMergeError: res.error,
+            mergeSessionId: parsed.mergeSessionId,
+            mergeConflicts: parsed.conflicts,
+          });
+        } else {
+          set({
+            branchMergeStatus: "error",
+            branchMergeError: res.error,
+          });
+        }
+        return { ok: false, error: res.error };
+      }
+
+      set({
+        branchMergeStatus: "ready",
+        branchMergeError: null,
+        mergeSessionId: null,
+        mergeConflicts: [],
+      });
+      await get().fetchList(documentId);
+      return { ok: true };
+    },
+
+    resolveBranchConflict: async ({
+      documentId,
+      mergeSessionId,
+      resolutions,
+      resolvedBy,
+    }) => {
+      set({
+        branchMergeStatus: "loading",
+        branchMergeError: null,
+      });
+
+      const res = await deps.invoke("version:conflict:resolve", {
+        documentId,
+        mergeSessionId,
+        resolutions,
+        resolvedBy,
+      });
+      if (!res.ok) {
+        set({
+          branchMergeStatus: "error",
+          branchMergeError: res.error,
+        });
+        return { ok: false, error: res.error };
+      }
+
+      set({
+        branchMergeStatus: "ready",
+        branchMergeError: null,
+        mergeSessionId: null,
+        mergeConflicts: [],
+      });
+      await get().fetchList(documentId);
+      return { ok: true };
+    },
+
+    clearBranchMergeState: () => {
+      set({
+        branchMergeStatus: "idle",
+        branchMergeError: null,
+        mergeSessionId: null,
+        mergeConflicts: [],
+      });
     },
 
     reset: () => {

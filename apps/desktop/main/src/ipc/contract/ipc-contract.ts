@@ -751,6 +751,29 @@ const VERSION_DIFF_STATS_SCHEMA = s.object({
   changedHunks: s.number(),
 });
 
+const VERSION_BRANCH_ITEM_SCHEMA = s.object({
+  id: s.string(),
+  documentId: s.string(),
+  name: s.string(),
+  baseSnapshotId: s.string(),
+  headSnapshotId: s.string(),
+  createdBy: s.string(),
+  createdAt: s.number(),
+  isCurrent: s.boolean(),
+});
+
+const VERSION_BRANCH_CONFLICT_RESOLUTION_SCHEMA = s.union(
+  s.literal("ours"),
+  s.literal("theirs"),
+  s.literal("manual"),
+);
+
+const VERSION_BRANCH_CONFLICT_RESOLUTION_ITEM_SCHEMA = s.object({
+  conflictId: s.string(),
+  resolution: VERSION_BRANCH_CONFLICT_RESOLUTION_SCHEMA,
+  manualText: s.optional(s.string()),
+});
+
 const DOCUMENT_LIST_ITEM_SCHEMA = s.object({
   documentId: s.string(),
   type: DOCUMENT_TYPE_SCHEMA,
@@ -2106,6 +2129,55 @@ export const ipcContract = {
         restored: s.literal(true),
         preRollbackVersionId: s.string(),
         rollbackVersionId: s.string(),
+      }),
+    },
+    "version:branch:create": {
+      request: s.object({
+        documentId: s.string(),
+        name: s.string(),
+        createdBy: s.string(),
+      }),
+      response: s.object({
+        branch: VERSION_BRANCH_ITEM_SCHEMA,
+      }),
+    },
+    "version:branch:list": {
+      request: s.object({ documentId: s.string() }),
+      response: s.object({
+        branches: s.array(VERSION_BRANCH_ITEM_SCHEMA),
+      }),
+    },
+    "version:branch:switch": {
+      request: s.object({
+        documentId: s.string(),
+        name: s.string(),
+      }),
+      response: s.object({
+        currentBranch: s.string(),
+        headSnapshotId: s.string(),
+      }),
+    },
+    "version:branch:merge": {
+      request: s.object({
+        documentId: s.string(),
+        sourceBranchName: s.string(),
+        targetBranchName: s.string(),
+      }),
+      response: s.object({
+        status: s.literal("merged"),
+        mergeSnapshotId: s.string(),
+      }),
+    },
+    "version:conflict:resolve": {
+      request: s.object({
+        documentId: s.string(),
+        mergeSessionId: s.string(),
+        resolutions: s.array(VERSION_BRANCH_CONFLICT_RESOLUTION_ITEM_SCHEMA),
+        resolvedBy: s.string(),
+      }),
+      response: s.object({
+        status: s.literal("merged"),
+        mergeSnapshotId: s.string(),
       }),
     },
     "version:snapshot:restore": {

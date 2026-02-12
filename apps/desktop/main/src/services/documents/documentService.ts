@@ -12,6 +12,11 @@ import type {
 } from "../../../../../../packages/shared/types/version-diff";
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "./derive";
+import {
+  applyConflictResolutions,
+  runThreeWayMerge,
+  type ConflictResolutionInput,
+} from "./threeWayMerge";
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
@@ -30,7 +35,8 @@ export type VersionSnapshotReason =
   | "manual-save"
   | "autosave"
   | "ai-accept"
-  | "status-change";
+  | "status-change"
+  | "branch-merge";
 
 export type DocumentListItem = {
   documentId: string;
@@ -80,6 +86,27 @@ export type VersionRead = {
   wordCount: number;
   createdAt: number;
 };
+
+export type BranchListItem = {
+  id: string;
+  documentId: string;
+  name: string;
+  baseSnapshotId: string;
+  headSnapshotId: string;
+  createdBy: string;
+  createdAt: number;
+  isCurrent: boolean;
+};
+
+export type BranchMergeConflict = {
+  conflictId: string;
+  index: number;
+  baseText: string;
+  oursText: string;
+  theirsText: string;
+};
+
+export type BranchConflictResolutionInput = ConflictResolutionInput;
 
 type VersionDiffResult = VersionDiffPayload;
 
@@ -163,6 +190,30 @@ export type DocumentService = {
     documentId: string;
     versionId: string;
   }) => ServiceResult<{ restored: true }>;
+  createBranch: (args: {
+    documentId: string;
+    name: string;
+    createdBy: string;
+  }) => ServiceResult<{ branch: BranchListItem }>;
+  listBranches: (args: { documentId: string }) => ServiceResult<{
+    branches: BranchListItem[];
+  }>;
+  switchBranch: (args: {
+    documentId: string;
+    name: string;
+  }) => ServiceResult<{ currentBranch: string; headSnapshotId: string }>;
+  mergeBranch: (args: {
+    documentId: string;
+    sourceBranchName: string;
+    targetBranchName: string;
+    timeoutMs?: number;
+  }) => ServiceResult<{ status: "merged"; mergeSnapshotId: string }>;
+  resolveMergeConflict: (args: {
+    documentId: string;
+    mergeSessionId: string;
+    resolutions: BranchConflictResolutionInput[];
+    resolvedBy: string;
+  }) => ServiceResult<{ status: "merged"; mergeSnapshotId: string }>;
 };
 
 const EMPTY_DOC = {
@@ -172,8 +223,12 @@ const EMPTY_DOC = {
 
 const SETTINGS_SCOPE_PREFIX = "project:" as const;
 const CURRENT_DOCUMENT_ID_KEY = "creonow.document.currentId" as const;
+const BRANCH_SETTINGS_SCOPE_PREFIX = "version:branch:" as const;
+const CURRENT_BRANCH_KEY = "creonow.version.currentBranch" as const;
 const MAX_TITLE_LENGTH = 200;
 const AUTOSAVE_MERGE_WINDOW_MS = 5 * 60 * 1000;
+const DEFAULT_BRANCH_MERGE_TIMEOUT_MS = 5_000;
+const BRANCH_NAME_PATTERN = /^[a-z0-9-]{3,32}$/u;
 
 const DOCUMENT_TYPE_SET = new Set<DocumentType>([
   "chapter",
@@ -390,7 +445,11 @@ function isReasonValidForActor(
   if (actor === "ai") {
     return reason === "ai-accept";
   }
-  return reason === "manual-save" || reason === "status-change";
+  return (
+    reason === "manual-save" ||
+    reason === "status-change" ||
+    reason === "branch-merge"
+  );
 }
 
 function serializeJson(value: unknown): ServiceResult<string> {
@@ -537,6 +596,39 @@ type RollbackCurrentDocumentRow = {
   contentHash: string;
 };
 
+type BranchRow = {
+  id: string;
+  documentId: string;
+  name: string;
+  baseSnapshotId: string;
+  headSnapshotId: string;
+  createdBy: string;
+  createdAt: number;
+};
+
+type VersionContentRow = {
+  projectId: string;
+  contentJson: string;
+  contentText: string;
+  contentMd: string;
+  contentHash: string;
+};
+
+type MergeSessionRow = {
+  mergeSessionId: string;
+  sourceBranchName: string;
+  targetBranchName: string;
+  mergedTemplateText: string;
+};
+
+type MergeConflictRow = {
+  conflictId: string;
+  conflictIndex: number;
+  baseText: string;
+  oursText: string;
+  theirsText: string;
+};
+
 /**
  * Compute a project-scoped settings namespace.
  *
@@ -632,6 +724,128 @@ function clearCurrentDocumentId(
       error instanceof Error ? { message: error.message } : { error },
     );
   }
+}
+
+/**
+ * Compute a document-scoped settings namespace for branch state.
+ *
+ * Why: each document branch pointer must stay isolated and deterministic.
+ */
+function getBranchSettingsScope(documentId: string): string {
+  return `${BRANCH_SETTINGS_SCOPE_PREFIX}${documentId}`;
+}
+
+/**
+ * Read persisted current branch name for one document.
+ *
+ * Why: branch switch must survive process restarts and reopen flows.
+ */
+function readCurrentBranchName(
+  db: Database.Database,
+  documentId: string,
+): ServiceResult<string> {
+  const scope = getBranchSettingsScope(documentId);
+  try {
+    const row = db
+      .prepare<
+        [string, string],
+        SettingsRow
+      >("SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?")
+      .get(scope, CURRENT_BRANCH_KEY);
+    if (!row) {
+      return ipcError("NOT_FOUND", "No current branch");
+    }
+    const parsed: unknown = JSON.parse(row.valueJson);
+    if (typeof parsed !== "string" || parsed.trim().length === 0) {
+      return ipcError("DB_ERROR", "Invalid current branch setting");
+    }
+    return { ok: true, data: parsed };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to read current branch setting",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Persist current branch name for one document.
+ *
+ * Why: merge/switch operations must expose one stable branch cursor.
+ */
+function writeCurrentBranchName(
+  db: Database.Database,
+  documentId: string,
+  branchName: string,
+  ts: number,
+): ServiceResult<true> {
+  const scope = getBranchSettingsScope(documentId);
+  try {
+    db.prepare(
+      "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+    ).run(scope, CURRENT_BRANCH_KEY, JSON.stringify(branchName), ts);
+    return { ok: true, data: true };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to persist current branch",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Validate branch name against governance regex.
+ *
+ * Why: branch IPC must reject invalid names deterministically.
+ */
+function normalizeBranchName(name: string): ServiceResult<string> {
+  const trimmed = name.trim();
+  if (!BRANCH_NAME_PATTERN.test(trimmed)) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "branch name must match [a-z0-9-]{3,32}",
+    );
+  }
+  return { ok: true, data: trimmed };
+}
+
+/**
+ * Convert merged plain text to a minimal TipTap JSON document.
+ *
+ * Why: merge result snapshot must remain compatible with editor serializer.
+ */
+function buildContentJsonFromText(text: string): unknown {
+  const lines = splitLines(text);
+  const content =
+    lines.length === 0
+      ? [{ type: "paragraph" }]
+      : lines.map((line) => {
+          if (line.length === 0) {
+            return { type: "paragraph" };
+          }
+          return {
+            type: "paragraph",
+            content: [{ type: "text", text: line }],
+          };
+        });
+  return { type: "doc", content };
+}
+
+/**
+ * Attach current-branch marker to one branch row.
+ *
+ * Why: list payload must support renderer-side current badge rendering.
+ */
+function toBranchListItem(
+  row: BranchRow,
+  currentBranchName: string,
+): BranchListItem {
+  return {
+    ...row,
+    isCurrent: row.name === currentBranchName,
+  };
 }
 
 /**
@@ -763,6 +977,297 @@ export function createDocumentService(args: {
           : "Failed to rollback version",
       );
     }
+  };
+
+  /**
+   * Load one branch row by document/name.
+   *
+   * Why: branch operations need a single canonical row lookup.
+   */
+  const readBranch = (params: {
+    documentId: string;
+    name: string;
+  }): ServiceResult<BranchRow> => {
+    try {
+      const row = args.db
+        .prepare<
+          [string, string],
+          BranchRow
+        >("SELECT branch_id as id, document_id as documentId, name, base_snapshot_id as baseSnapshotId, head_snapshot_id as headSnapshotId, created_by as createdBy, created_at as createdAt FROM document_branches WHERE document_id = ? AND name = ?")
+        .get(params.documentId, params.name);
+      if (!row) {
+        return ipcError("NOT_FOUND", "Branch not found");
+      }
+      return { ok: true, data: row };
+    } catch (error) {
+      return ipcError(
+        "DB_ERROR",
+        "Failed to read branch",
+        error instanceof Error ? { message: error.message } : { error },
+      );
+    }
+  };
+
+  /**
+   * Ensure `main` branch exists for one document.
+   *
+   * Why: all branch workflows assume a stable default branch anchor.
+   */
+  const ensureMainBranch = (params: {
+    documentId: string;
+    createdBy: string;
+  }): ServiceResult<BranchRow> => {
+    const existing = readBranch({
+      documentId: params.documentId,
+      name: "main",
+    });
+    if (existing.ok) {
+      return existing;
+    }
+    if (existing.error.code !== "NOT_FOUND") {
+      return existing;
+    }
+
+    let created: BranchRow | null = null;
+    const ts = nowTs();
+
+    try {
+      args.db.transaction(() => {
+        const latest = args.db
+          .prepare<
+            [string],
+            { versionId: string }
+          >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+          .get(params.documentId);
+
+        let headSnapshotId = latest?.versionId ?? "";
+        if (!headSnapshotId) {
+          const doc = args.db
+            .prepare<
+              [string],
+              VersionContentRow
+            >("SELECT project_id as projectId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM documents WHERE document_id = ?")
+            .get(params.documentId);
+          if (!doc) {
+            throw new Error("NOT_FOUND");
+          }
+          const bootstrapVersionId = randomUUID();
+          args.db
+            .prepare(
+              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )
+            .run(
+              bootstrapVersionId,
+              doc.projectId,
+              params.documentId,
+              "user",
+              "manual-save",
+              doc.contentJson,
+              doc.contentText,
+              doc.contentMd,
+              doc.contentHash,
+              countWords(doc.contentText),
+              "",
+              "",
+              ts,
+            );
+          headSnapshotId = bootstrapVersionId;
+        }
+
+        const branchId = randomUUID();
+        args.db
+          .prepare(
+            "INSERT INTO document_branches (branch_id, document_id, name, base_snapshot_id, head_snapshot_id, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          )
+          .run(
+            branchId,
+            params.documentId,
+            "main",
+            headSnapshotId,
+            headSnapshotId,
+            params.createdBy,
+            ts,
+          );
+
+        const persisted = writeCurrentBranchName(
+          args.db,
+          params.documentId,
+          "main",
+          ts,
+        );
+        if (!persisted.ok) {
+          throw new Error("DB_ERROR");
+        }
+
+        created = {
+          id: branchId,
+          documentId: params.documentId,
+          name: "main",
+          baseSnapshotId: headSnapshotId,
+          headSnapshotId,
+          createdBy: params.createdBy,
+          createdAt: ts,
+        };
+      })();
+    } catch (error) {
+      const code =
+        error instanceof Error && error.message === "NOT_FOUND"
+          ? ("NOT_FOUND" as const)
+          : ("DB_ERROR" as const);
+      return ipcError(
+        code,
+        code === "NOT_FOUND"
+          ? "Document not found"
+          : "Failed to ensure main branch",
+      );
+    }
+
+    if (!created) {
+      return ipcError("DB_ERROR", "Failed to ensure main branch");
+    }
+    return { ok: true, data: created };
+  };
+
+  /**
+   * Resolve current branch name for one document.
+   *
+   * Why: branch list/switch UI needs deterministic current pointer.
+   */
+  const resolveCurrentBranchName = (
+    documentId: string,
+  ): ServiceResult<string> => {
+    const current = readCurrentBranchName(args.db, documentId);
+    if (current.ok) {
+      return current;
+    }
+    if (current.error.code === "NOT_FOUND") {
+      return { ok: true, data: "main" };
+    }
+    return current;
+  };
+
+  /**
+   * Write merged content as `branch-merge` snapshot and update target head.
+   *
+   * Why: merge and conflict-resolve must share one persistence path.
+   */
+  const persistBranchMerge = (params: {
+    documentId: string;
+    targetBranchName: string;
+    mergedText: string;
+  }): ServiceResult<{ status: "merged"; mergeSnapshotId: string }> => {
+    const ts = nowTs();
+    let mergeSnapshotId = "";
+
+    try {
+      args.db.transaction(() => {
+        const targetBranch = args.db
+          .prepare<
+            [string, string],
+            BranchRow
+          >("SELECT branch_id as id, document_id as documentId, name, base_snapshot_id as baseSnapshotId, head_snapshot_id as headSnapshotId, created_by as createdBy, created_at as createdAt FROM document_branches WHERE document_id = ? AND name = ?")
+          .get(params.documentId, params.targetBranchName);
+        if (!targetBranch) {
+          throw new Error("NOT_FOUND");
+        }
+
+        const doc = args.db
+          .prepare<
+            [string],
+            { projectId: string }
+          >("SELECT project_id as projectId FROM documents WHERE document_id = ?")
+          .get(params.documentId);
+        if (!doc) {
+          throw new Error("NOT_FOUND");
+        }
+
+        const mergedContentJson = buildContentJsonFromText(params.mergedText);
+        const derived = deriveContent({ contentJson: mergedContentJson });
+        if (!derived.ok) {
+          throw new Error("DERIVE_FAILED");
+        }
+        const encoded = serializeJson(mergedContentJson);
+        if (!encoded.ok) {
+          throw new Error("ENCODING_FAILED");
+        }
+        const contentHash = hashJson(encoded.data);
+
+        const updated = args.db
+          .prepare<
+            [string, string, string, string, number, string]
+          >("UPDATE documents SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, updated_at = ? WHERE document_id = ?")
+          .run(
+            encoded.data,
+            derived.data.contentText,
+            derived.data.contentMd,
+            contentHash,
+            ts,
+            params.documentId,
+          );
+        if (updated.changes === 0) {
+          throw new Error("NOT_FOUND");
+        }
+
+        mergeSnapshotId = randomUUID();
+        args.db
+          .prepare(
+            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          )
+          .run(
+            mergeSnapshotId,
+            doc.projectId,
+            params.documentId,
+            "user",
+            "branch-merge",
+            encoded.data,
+            derived.data.contentText,
+            derived.data.contentMd,
+            contentHash,
+            countWords(derived.data.contentText),
+            "",
+            "",
+            ts,
+          );
+
+        const branchUpdated = args.db
+          .prepare<
+            [string, string, string]
+          >("UPDATE document_branches SET head_snapshot_id = ? WHERE document_id = ? AND name = ?")
+          .run(mergeSnapshotId, params.documentId, params.targetBranchName);
+        if (branchUpdated.changes === 0) {
+          throw new Error("NOT_FOUND");
+        }
+
+        const persisted = writeCurrentBranchName(
+          args.db,
+          params.documentId,
+          params.targetBranchName,
+          ts,
+        );
+        if (!persisted.ok) {
+          throw new Error("DB_ERROR");
+        }
+
+        args.logger.info("version_branch_merge_saved", {
+          document_id: params.documentId,
+          target_branch: params.targetBranchName,
+          merge_snapshot_id: mergeSnapshotId,
+        });
+      })();
+    } catch (error) {
+      const code =
+        error instanceof Error && error.message === "NOT_FOUND"
+          ? ("NOT_FOUND" as const)
+          : ("DB_ERROR" as const);
+      return ipcError(
+        code,
+        code === "NOT_FOUND"
+          ? "Branch or document not found"
+          : "Failed to persist branch merge",
+      );
+    }
+
+    return { ok: true, data: { status: "merged", mergeSnapshotId } };
   };
 
   return {
@@ -1555,6 +2060,449 @@ export function createDocumentService(args: {
         });
         return ipcError("DB_ERROR", "Failed to compute version diff");
       }
+    },
+
+    createBranch: ({ documentId, name, createdBy }) => {
+      if (documentId.trim().length === 0 || createdBy.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "documentId/createdBy is required");
+      }
+
+      const normalizedName = normalizeBranchName(name);
+      if (!normalizedName.ok) {
+        return normalizedName;
+      }
+
+      const ensured = ensureMainBranch({ documentId, createdBy });
+      if (!ensured.ok) {
+        return ensured;
+      }
+
+      const currentBranch = resolveCurrentBranchName(documentId);
+      if (!currentBranch.ok) {
+        return currentBranch;
+      }
+
+      const baseBranch =
+        currentBranch.data === "main"
+          ? ensured
+          : readBranch({ documentId, name: currentBranch.data });
+      if (!baseBranch.ok) {
+        return baseBranch;
+      }
+
+      const ts = nowTs();
+      const branchId = randomUUID();
+      try {
+        args.db
+          .prepare(
+            "INSERT INTO document_branches (branch_id, document_id, name, base_snapshot_id, head_snapshot_id, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          )
+          .run(
+            branchId,
+            documentId,
+            normalizedName.data,
+            baseBranch.data.headSnapshotId,
+            baseBranch.data.headSnapshotId,
+            createdBy,
+            ts,
+          );
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.includes("UNIQUE constraint failed")
+        ) {
+          return ipcError("ALREADY_EXISTS", "Branch already exists");
+        }
+        return ipcError(
+          "DB_ERROR",
+          "Failed to create branch",
+          error instanceof Error ? { message: error.message } : { error },
+        );
+      }
+
+      return {
+        ok: true,
+        data: {
+          branch: {
+            id: branchId,
+            documentId,
+            name: normalizedName.data,
+            baseSnapshotId: baseBranch.data.headSnapshotId,
+            headSnapshotId: baseBranch.data.headSnapshotId,
+            createdBy,
+            createdAt: ts,
+            isCurrent: false,
+          },
+        },
+      };
+    },
+
+    listBranches: ({ documentId }) => {
+      if (documentId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "documentId is required");
+      }
+
+      const ensured = ensureMainBranch({ documentId, createdBy: "system" });
+      if (!ensured.ok) {
+        return ensured;
+      }
+
+      const current = resolveCurrentBranchName(documentId);
+      if (!current.ok) {
+        return current;
+      }
+
+      try {
+        const rows = args.db
+          .prepare<
+            [string],
+            BranchRow
+          >("SELECT branch_id as id, document_id as documentId, name, base_snapshot_id as baseSnapshotId, head_snapshot_id as headSnapshotId, created_by as createdBy, created_at as createdAt FROM document_branches WHERE document_id = ? ORDER BY created_at ASC, name ASC")
+          .all(documentId);
+        return {
+          ok: true,
+          data: {
+            branches: rows.map((row) => toBranchListItem(row, current.data)),
+          },
+        };
+      } catch (error) {
+        return ipcError(
+          "DB_ERROR",
+          "Failed to list branches",
+          error instanceof Error ? { message: error.message } : { error },
+        );
+      }
+    },
+
+    switchBranch: ({ documentId, name }) => {
+      if (documentId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "documentId is required");
+      }
+
+      const normalizedName = normalizeBranchName(name);
+      if (!normalizedName.ok) {
+        return normalizedName;
+      }
+
+      const ensured = ensureMainBranch({ documentId, createdBy: "system" });
+      if (!ensured.ok) {
+        return ensured;
+      }
+
+      const branch =
+        normalizedName.data === "main"
+          ? ensured
+          : readBranch({ documentId, name: normalizedName.data });
+      if (!branch.ok) {
+        return branch;
+      }
+
+      const ts = nowTs();
+      try {
+        args.db.transaction(() => {
+          const snapshot = args.db
+            .prepare<
+              [string, string],
+              VersionContentRow
+            >("SELECT project_id as projectId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM document_versions WHERE document_id = ? AND version_id = ?")
+            .get(documentId, branch.data.headSnapshotId);
+          if (!snapshot) {
+            throw new Error("NOT_FOUND");
+          }
+
+          const updated = args.db
+            .prepare<
+              [string, string, string, string, number, string]
+            >("UPDATE documents SET content_json = ?, content_text = ?, content_md = ?, content_hash = ?, updated_at = ? WHERE document_id = ?")
+            .run(
+              snapshot.contentJson,
+              snapshot.contentText,
+              snapshot.contentMd,
+              snapshot.contentHash,
+              ts,
+              documentId,
+            );
+          if (updated.changes === 0) {
+            throw new Error("NOT_FOUND");
+          }
+
+          const persisted = writeCurrentBranchName(
+            args.db,
+            documentId,
+            normalizedName.data,
+            ts,
+          );
+          if (!persisted.ok) {
+            throw new Error("DB_ERROR");
+          }
+        })();
+      } catch (error) {
+        const code =
+          error instanceof Error && error.message === "NOT_FOUND"
+            ? ("NOT_FOUND" as const)
+            : ("DB_ERROR" as const);
+        return ipcError(
+          code,
+          code === "NOT_FOUND"
+            ? "Branch head snapshot not found"
+            : "Failed to switch branch",
+        );
+      }
+
+      return {
+        ok: true,
+        data: {
+          currentBranch: normalizedName.data,
+          headSnapshotId: branch.data.headSnapshotId,
+        },
+      };
+    },
+
+    mergeBranch: ({
+      documentId,
+      sourceBranchName,
+      targetBranchName,
+      timeoutMs,
+    }) => {
+      if (documentId.trim().length === 0) {
+        return ipcError("INVALID_ARGUMENT", "documentId is required");
+      }
+
+      const source = normalizeBranchName(sourceBranchName);
+      if (!source.ok) {
+        return source;
+      }
+      const target = normalizeBranchName(targetBranchName);
+      if (!target.ok) {
+        return target;
+      }
+      if (source.data === target.data) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "sourceBranchName and targetBranchName must differ",
+        );
+      }
+
+      const effectiveTimeoutMs = timeoutMs ?? DEFAULT_BRANCH_MERGE_TIMEOUT_MS;
+      if (effectiveTimeoutMs <= 0) {
+        return ipcError("VERSION_MERGE_TIMEOUT", "Branch merge timed out", {
+          timeoutMs: effectiveTimeoutMs,
+        });
+      }
+
+      const startedAt = nowTs();
+      const ensured = ensureMainBranch({ documentId, createdBy: "system" });
+      if (!ensured.ok) {
+        return ensured;
+      }
+
+      const sourceBranch =
+        source.data === "main"
+          ? ensured
+          : readBranch({ documentId, name: source.data });
+      if (!sourceBranch.ok) {
+        return sourceBranch;
+      }
+      const targetBranch =
+        target.data === "main"
+          ? ensured
+          : readBranch({ documentId, name: target.data });
+      if (!targetBranch.ok) {
+        return targetBranch;
+      }
+
+      let baseText = "";
+      let oursText = "";
+      let theirsText = "";
+      try {
+        const base = args.db
+          .prepare<
+            [string, string],
+            VersionContentRow
+          >("SELECT project_id as projectId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM document_versions WHERE document_id = ? AND version_id = ?")
+          .get(documentId, sourceBranch.data.baseSnapshotId);
+        const ours = args.db
+          .prepare<
+            [string, string],
+            VersionContentRow
+          >("SELECT project_id as projectId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM document_versions WHERE document_id = ? AND version_id = ?")
+          .get(documentId, targetBranch.data.headSnapshotId);
+        const theirs = args.db
+          .prepare<
+            [string, string],
+            VersionContentRow
+          >("SELECT project_id as projectId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM document_versions WHERE document_id = ? AND version_id = ?")
+          .get(documentId, sourceBranch.data.headSnapshotId);
+        if (!base || !ours || !theirs) {
+          return ipcError("NOT_FOUND", "Branch snapshot not found");
+        }
+        baseText = base.contentText;
+        oursText = ours.contentText;
+        theirsText = theirs.contentText;
+      } catch (error) {
+        return ipcError(
+          "DB_ERROR",
+          "Failed to load branch snapshots",
+          error instanceof Error ? { message: error.message } : { error },
+        );
+      }
+
+      const merge = runThreeWayMerge({
+        baseText,
+        oursText,
+        theirsText,
+        createConflictId: () => randomUUID(),
+      });
+      if (nowTs() - startedAt > effectiveTimeoutMs) {
+        return ipcError("VERSION_MERGE_TIMEOUT", "Branch merge timed out", {
+          timeoutMs: effectiveTimeoutMs,
+        });
+      }
+
+      if (merge.conflicts.length > 0) {
+        const mergeSessionId = randomUUID();
+        const ts = nowTs();
+        try {
+          args.db.transaction(() => {
+            args.db
+              .prepare(
+                "INSERT INTO document_merge_sessions (merge_session_id, document_id, source_branch_name, target_branch_name, merged_template_text, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+              )
+              .run(
+                mergeSessionId,
+                documentId,
+                source.data,
+                target.data,
+                merge.mergedText,
+                ts,
+              );
+
+            for (const conflict of merge.conflicts) {
+              args.db
+                .prepare(
+                  "INSERT INTO document_merge_conflicts (conflict_id, merge_session_id, document_id, source_branch_name, target_branch_name, conflict_index, base_text, ours_text, theirs_text, selected_resolution, manual_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                )
+                .run(
+                  conflict.conflictId,
+                  mergeSessionId,
+                  documentId,
+                  source.data,
+                  target.data,
+                  conflict.index,
+                  conflict.baseText,
+                  conflict.oursText,
+                  conflict.theirsText,
+                  null,
+                  null,
+                  ts,
+                );
+            }
+          })();
+        } catch (error) {
+          return ipcError(
+            "DB_ERROR",
+            "Failed to persist merge conflict session",
+            error instanceof Error ? { message: error.message } : { error },
+          );
+        }
+
+        return ipcError("CONFLICT", "Merge conflict detected", {
+          mergeSessionId,
+          conflicts: merge.conflicts.map((item) => ({
+            conflictId: item.conflictId,
+            index: item.index,
+            baseText: item.baseText,
+            oursText: item.oursText,
+            theirsText: item.theirsText,
+          })),
+        });
+      }
+
+      return persistBranchMerge({
+        documentId,
+        targetBranchName: target.data,
+        mergedText: merge.mergedText,
+      });
+    },
+
+    resolveMergeConflict: ({ documentId, mergeSessionId, resolutions }) => {
+      if (
+        documentId.trim().length === 0 ||
+        mergeSessionId.trim().length === 0
+      ) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "documentId/mergeSessionId is required",
+        );
+      }
+
+      let session: MergeSessionRow | undefined;
+      let conflicts: MergeConflictRow[] = [];
+      try {
+        session = args.db
+          .prepare<
+            [string, string],
+            MergeSessionRow
+          >("SELECT merge_session_id as mergeSessionId, source_branch_name as sourceBranchName, target_branch_name as targetBranchName, merged_template_text as mergedTemplateText FROM document_merge_sessions WHERE document_id = ? AND merge_session_id = ?")
+          .get(documentId, mergeSessionId);
+        if (!session) {
+          return ipcError("NOT_FOUND", "Merge session not found");
+        }
+
+        conflicts = args.db
+          .prepare<
+            [string, string],
+            MergeConflictRow
+          >("SELECT conflict_id as conflictId, conflict_index as conflictIndex, base_text as baseText, ours_text as oursText, theirs_text as theirsText FROM document_merge_conflicts WHERE document_id = ? AND merge_session_id = ? ORDER BY conflict_index ASC")
+          .all(documentId, mergeSessionId);
+      } catch (error) {
+        return ipcError(
+          "DB_ERROR",
+          "Failed to load merge session",
+          error instanceof Error ? { message: error.message } : { error },
+        );
+      }
+
+      const resolved = applyConflictResolutions({
+        templateText: session.mergedTemplateText,
+        conflicts,
+        resolutions,
+      });
+      if (!resolved.ok) {
+        return ipcError("INVALID_ARGUMENT", resolved.message, {
+          code: resolved.code,
+        });
+      }
+
+      const merged = persistBranchMerge({
+        documentId,
+        targetBranchName: session.targetBranchName,
+        mergedText: resolved.mergedText,
+      });
+      if (!merged.ok) {
+        return merged;
+      }
+
+      try {
+        args.db
+          .prepare(
+            "DELETE FROM document_merge_conflicts WHERE document_id = ? AND merge_session_id = ?",
+          )
+          .run(documentId, mergeSessionId);
+        args.db
+          .prepare(
+            "DELETE FROM document_merge_sessions WHERE document_id = ? AND merge_session_id = ?",
+          )
+          .run(documentId, mergeSessionId);
+      } catch (error) {
+        args.logger.error("version_conflict_cleanup_failed", {
+          document_id: documentId,
+          merge_session_id: mergeSessionId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      return merged;
     },
 
     rollbackVersion: ({ documentId, versionId }) =>
