@@ -3,7 +3,7 @@
 - Issue: #431
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/431
 - Branch: task/431-p4-integration-deep-gate
-- PR: N/A（待创建并回填）
+- PR: https://github.com/Leeky1017/CreoNow/pull/432
 - Scope: P4（Editor / Skill System / Version Control）归档后深度集成检查、问题修复与优化
 - Out of Scope: P4 之外的新功能开发
 
