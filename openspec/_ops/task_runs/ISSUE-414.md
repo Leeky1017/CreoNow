@@ -220,3 +220,46 @@
   - change 已归档：`openspec/changes/archive/version-control-p3-branch-merge-conflict`
   - Rulebook task 已归档：`rulebook/tasks/archive/2026-02-12-issue-414-version-control-p3-branch-merge-conflict`
   - `EXECUTION_ORDER.md` 已同步至归档后拓扑（active=5）。
+
+### 2026-02-12 10:41 +0800 PR 自动流程首次执行（创建 PR + 回填 RUN_LOG）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh --merge-timeout 3600`
+- Exit code: `1`（首次 preflight 阻断后进入等待）
+- Key output:
+  - 首次 preflight 阻断：`RUN_LOG PR field must be a real URL ... PENDING`
+  - 脚本自动创建 PR：`https://github.com/Leeky1017/CreoNow/pull/418`（draft）
+  - 自动提交并推送：`docs: backfill run log PR link (#414)`（PR 字段回填完成）
+  - 二次 preflight 阻断：`pnpm exec prettier --check ...` 报 9 个文件格式不符合。
+
+### 2026-02-12 10:44 +0800 Prettier 修复（preflight 阻断修复）
+
+- Command:
+  - `pnpm exec prettier --write apps/desktop/main/src/ipc/version.ts apps/desktop/main/src/services/documents/documentService.ts apps/desktop/main/src/services/documents/threeWayMerge.ts apps/desktop/renderer/src/features/version-history/VersionHistoryContainer.test.tsx apps/desktop/renderer/src/stores/versionStore.tsx apps/desktop/tests/unit/version-branch-merge-conflict.ipc.test.ts rulebook/tasks/archive/2026-02-12-issue-414-version-control-p3-branch-merge-conflict/.metadata.json rulebook/tasks/archive/2026-02-12-issue-414-version-control-p3-branch-merge-conflict/proposal.md rulebook/tasks/archive/2026-02-12-issue-414-version-control-p3-branch-merge-conflict/tasks.md`
+- Exit code: `0`
+- Key output:
+  - 9 个文件格式化完成，消除 preflight 的 Prettier 阻断项。
+
+### 2026-02-12 10:45 +0800 Fresh 门禁复跑（格式修复后）
+
+- Command:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm contract:check`
+  - `pnpm cross-module:check`
+  - `pnpm test:unit`
+  - `pnpm -C apps/desktop test:run`
+- Exit code: `0` / `0` / `0` / `0` / `0` / `0`
+- Key output:
+  - typecheck/lint/contract/cross-module 全绿。
+  - `test:unit` 通过（含 `version-branch-merge-conflict.ipc.test.ts`）。
+  - `apps/desktop` 全量 vitest 通过：`Test Files 106 passed`, `Tests 1284 passed`。
+
+### 2026-02-12 10:46 +0800 Preflight 复跑（本轮）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Prettier 检查通过（`All matched files use Prettier code style!`）。
+  - `typecheck` / `lint` / `contract:check` / `cross-module:check` / `test:unit` 全部通过。

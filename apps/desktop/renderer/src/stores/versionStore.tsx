@@ -190,7 +190,9 @@ function readConflictBlocks(details: unknown): {
   }
   const mergeSessionId =
     typeof details.mergeSessionId === "string" ? details.mergeSessionId : null;
-  const rawConflicts = Array.isArray(details.conflicts) ? details.conflicts : [];
+  const rawConflicts = Array.isArray(details.conflicts)
+    ? details.conflicts
+    : [];
   const conflicts: BranchMergeConflict[] = [];
   for (const item of rawConflicts) {
     if (!isRecord(item)) {

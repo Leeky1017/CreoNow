@@ -838,7 +838,10 @@ function buildContentJsonFromText(text: string): unknown {
  *
  * Why: list payload must support renderer-side current badge rendering.
  */
-function toBranchListItem(row: BranchRow, currentBranchName: string): BranchListItem {
+function toBranchListItem(
+  row: BranchRow,
+  currentBranchName: string,
+): BranchListItem {
   return {
     ...row,
     isCurrent: row.name === currentBranchName,
@@ -1014,7 +1017,10 @@ export function createDocumentService(args: {
     documentId: string;
     createdBy: string;
   }): ServiceResult<BranchRow> => {
-    const existing = readBranch({ documentId: params.documentId, name: "main" });
+    const existing = readBranch({
+      documentId: params.documentId,
+      name: "main",
+    });
     if (existing.ok) {
       return existing;
     }
@@ -2279,11 +2285,9 @@ export function createDocumentService(args: {
 
       const effectiveTimeoutMs = timeoutMs ?? DEFAULT_BRANCH_MERGE_TIMEOUT_MS;
       if (effectiveTimeoutMs <= 0) {
-        return ipcError(
-          "VERSION_MERGE_TIMEOUT",
-          "Branch merge timed out",
-          { timeoutMs: effectiveTimeoutMs },
-        );
+        return ipcError("VERSION_MERGE_TIMEOUT", "Branch merge timed out", {
+          timeoutMs: effectiveTimeoutMs,
+        });
       }
 
       const startedAt = nowTs();
@@ -2350,11 +2354,9 @@ export function createDocumentService(args: {
         createConflictId: () => randomUUID(),
       });
       if (nowTs() - startedAt > effectiveTimeoutMs) {
-        return ipcError(
-          "VERSION_MERGE_TIMEOUT",
-          "Branch merge timed out",
-          { timeoutMs: effectiveTimeoutMs },
-        );
+        return ipcError("VERSION_MERGE_TIMEOUT", "Branch merge timed out", {
+          timeoutMs: effectiveTimeoutMs,
+        });
       }
 
       if (merge.conflicts.length > 0) {

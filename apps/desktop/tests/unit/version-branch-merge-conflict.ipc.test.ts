@@ -173,11 +173,14 @@ function insertProject(db: Database.Database): void {
   ).run("project-1", "Project 1", "/tmp/project-1", now - 10_000, now - 9_000);
 }
 
-function insertDocument(db: Database.Database, args: {
-  documentId: string;
-  text: string;
-  createdAt: number;
-}): void {
+function insertDocument(
+  db: Database.Database,
+  args: {
+    documentId: string;
+    text: string;
+    createdAt: number;
+  },
+): void {
   const contentJson = toContentJson(args.text);
   db.prepare(
     "INSERT INTO documents (document_id, project_id, type, title, content_json, content_text, content_md, content_hash, status, sort_order, parent_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -198,13 +201,16 @@ function insertDocument(db: Database.Database, args: {
   );
 }
 
-function insertVersion(db: Database.Database, args: {
-  versionId: string;
-  documentId: string;
-  text: string;
-  reason?: string;
-  createdAt: number;
-}): void {
+function insertVersion(
+  db: Database.Database,
+  args: {
+    versionId: string;
+    documentId: string;
+    text: string;
+    reason?: string;
+    createdAt: number;
+  },
+): void {
   const contentJson = toContentJson(args.text);
   db.prepare(
     "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -225,14 +231,17 @@ function insertVersion(db: Database.Database, args: {
   );
 }
 
-function insertBranch(db: Database.Database, args: {
-  branchId: string;
-  documentId: string;
-  name: string;
-  baseSnapshotId: string;
-  headSnapshotId: string;
-  createdAt: number;
-}): void {
+function insertBranch(
+  db: Database.Database,
+  args: {
+    branchId: string;
+    documentId: string;
+    name: string;
+    baseSnapshotId: string;
+    headSnapshotId: string;
+    createdAt: number;
+  },
+): void {
   db.prepare(
     "INSERT INTO document_branches (branch_id, document_id, name, base_snapshot_id, head_snapshot_id, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
   ).run(
@@ -410,38 +419,56 @@ async function testBranchCrudScenario(): Promise<void> {
   registerVersionIpcHandlers({ ipcMain, db, logger: createNoopLogger() });
 
   const createHandler = handlers.get("version:branch:create");
-  assert.ok(createHandler, "version:branch:create handler should be registered");
+  assert.ok(
+    createHandler,
+    "version:branch:create handler should be registered",
+  );
 
   const listHandler = handlers.get("version:branch:list");
   assert.ok(listHandler, "version:branch:list handler should be registered");
 
   const switchHandler = handlers.get("version:branch:switch");
-  assert.ok(switchHandler, "version:branch:switch handler should be registered");
+  assert.ok(
+    switchHandler,
+    "version:branch:switch handler should be registered",
+  );
 
-  const createRes = (await createHandler({}, {
-    documentId: "doc-crud",
-    name: "alt-ending",
-    createdBy: "tester",
-  })) as IpcResult<{ branch: BranchListItem }>;
+  const createRes = (await createHandler(
+    {},
+    {
+      documentId: "doc-crud",
+      name: "alt-ending",
+      createdBy: "tester",
+    },
+  )) as IpcResult<{ branch: BranchListItem }>;
   assert.equal(createRes.ok, true);
 
-  const listRes = (await listHandler({}, {
-    documentId: "doc-crud",
-  })) as IpcResult<{ branches: BranchListItem[] }>;
+  const listRes = (await listHandler(
+    {},
+    {
+      documentId: "doc-crud",
+    },
+  )) as IpcResult<{ branches: BranchListItem[] }>;
   assert.equal(listRes.ok, true);
   if (!listRes.ok) {
     throw new Error("expected list branch success");
   }
-  assert.equal(listRes.data.branches.some((item) => item.name === "main"), true);
+  assert.equal(
+    listRes.data.branches.some((item) => item.name === "main"),
+    true,
+  );
   assert.equal(
     listRes.data.branches.some((item) => item.name === "alt-ending"),
     true,
   );
 
-  const switchRes = (await switchHandler({}, {
-    documentId: "doc-crud",
-    name: "alt-ending",
-  })) as IpcResult<{ currentBranch: string }>;
+  const switchRes = (await switchHandler(
+    {},
+    {
+      documentId: "doc-crud",
+      name: "alt-ending",
+    },
+  )) as IpcResult<{ currentBranch: string }>;
   assert.equal(switchRes.ok, true);
 }
 
@@ -456,11 +483,14 @@ async function testMergeWithoutConflict(): Promise<void> {
   const mergeHandler = handlers.get("version:branch:merge");
   assert.ok(mergeHandler, "version:branch:merge handler should be registered");
 
-  const mergeRes = (await mergeHandler({}, {
-    documentId: "doc-merge-clean",
-    sourceBranchName: "alt-ending",
-    targetBranchName: "main",
-  })) as IpcResult<{ status: "merged"; mergeSnapshotId: string }>;
+  const mergeRes = (await mergeHandler(
+    {},
+    {
+      documentId: "doc-merge-clean",
+      sourceBranchName: "alt-ending",
+      targetBranchName: "main",
+    },
+  )) as IpcResult<{ status: "merged"; mergeSnapshotId: string }>;
 
   assert.equal(mergeRes.ok, true);
 
@@ -473,9 +503,10 @@ async function testMergeWithoutConflict(): Promise<void> {
   assert.equal(reasons.includes("branch-merge"), true);
 
   const mergedDoc = db
-    .prepare<[string], { contentText: string }>(
-      "SELECT content_text as contentText FROM documents WHERE document_id = ?",
-    )
+    .prepare<
+      [string],
+      { contentText: string }
+    >("SELECT content_text as contentText FROM documents WHERE document_id = ?")
     .get("doc-merge-clean");
   assert.equal(
     mergedDoc?.contentText.includes("line three from alt"),
@@ -501,11 +532,14 @@ async function testMergeConflictAndResolve(): Promise<void> {
     "version:conflict:resolve handler should be registered",
   );
 
-  const conflictRes = (await mergeHandler({}, {
-    documentId: "doc-merge-conflict",
-    sourceBranchName: "alt-ending",
-    targetBranchName: "main",
-  })) as IpcResult<unknown>;
+  const conflictRes = (await mergeHandler(
+    {},
+    {
+      documentId: "doc-merge-conflict",
+      sourceBranchName: "alt-ending",
+      targetBranchName: "main",
+    },
+  )) as IpcResult<unknown>;
 
   assert.equal(conflictRes.ok, false);
   if (conflictRes.ok) {
@@ -537,25 +571,29 @@ async function testMergeConflictAndResolve(): Promise<void> {
     throw new Error("expected at least one conflict block");
   }
 
-  const resolveRes = (await resolveHandler({}, {
-    documentId: "doc-merge-conflict",
-    mergeSessionId: details.mergeSessionId,
-    resolvedBy: "tester",
-    resolutions: [
-      {
-        conflictId: firstConflict.conflictId,
-        resolution: "manual",
-        manualText: "line two resolved manually",
-      },
-    ],
-  })) as IpcResult<{ status: "merged"; mergeSnapshotId: string }>;
+  const resolveRes = (await resolveHandler(
+    {},
+    {
+      documentId: "doc-merge-conflict",
+      mergeSessionId: details.mergeSessionId,
+      resolvedBy: "tester",
+      resolutions: [
+        {
+          conflictId: firstConflict.conflictId,
+          resolution: "manual",
+          manualText: "line two resolved manually",
+        },
+      ],
+    },
+  )) as IpcResult<{ status: "merged"; mergeSnapshotId: string }>;
 
   assert.equal(resolveRes.ok, true);
 
   const resolvedDoc = db
-    .prepare<[string], { contentText: string }>(
-      "SELECT content_text as contentText FROM documents WHERE document_id = ?",
-    )
+    .prepare<
+      [string],
+      { contentText: string }
+    >("SELECT content_text as contentText FROM documents WHERE document_id = ?")
     .get("doc-merge-conflict");
   assert.equal(
     resolvedDoc?.contentText.includes("line two resolved manually"),
@@ -592,11 +630,14 @@ async function testMergeTimeout(): Promise<void> {
   const mergeHandler = handlers.get("version:branch:merge");
   assert.ok(mergeHandler, "version:branch:merge handler should be registered");
 
-  const timeoutRes = (await mergeHandler({}, {
-    documentId: "doc-merge-clean",
-    sourceBranchName: "alt-ending",
-    targetBranchName: "main",
-  })) as IpcResult<unknown>;
+  const timeoutRes = (await mergeHandler(
+    {},
+    {
+      documentId: "doc-merge-clean",
+      sourceBranchName: "alt-ending",
+      targetBranchName: "main",
+    },
+  )) as IpcResult<unknown>;
 
   assert.equal(timeoutRes.ok, false);
   if (timeoutRes.ok) {
@@ -610,7 +651,9 @@ async function main(): Promise<void> {
   await testMergeWithoutConflict();
   await testMergeConflictAndResolve();
   await testMergeTimeout();
-  console.log("version-branch-merge-conflict.ipc.test.ts: all assertions passed");
+  console.log(
+    "version-branch-merge-conflict.ipc.test.ts: all assertions passed",
+  );
 }
 
 void main().catch((error) => {
