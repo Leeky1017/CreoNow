@@ -136,3 +136,28 @@ All matched files use Prettier code style!
 ```
 
 结果：Rulebook task 可验证，变更文件格式符合要求。
+
+### 2026-02-13 Auto-Merge Preflight Blocker / Fix
+
+```bash
+$ scripts/agent_pr_automerge_and_sync.sh
+PRE-FLIGHT FAILED: [RUN_LOG] PR field still placeholder ...
+[task/486-p1-multiturn-assembly ...] docs: backfill run log PR link (#486)
+...
+[warn] openspec/changes/archive/p1-multiturn-assembly/specs/ai-service-delta.md
+[warn] rulebook/tasks/issue-486-p1-multiturn-assembly/.metadata.json
+PRE-FLIGHT FAILED: ... prettier --check ... (exit 1)
+```
+
+修复动作：
+
+```bash
+$ pnpm exec prettier --write openspec/changes/archive/p1-multiturn-assembly/specs/ai-service-delta.md \
+  rulebook/tasks/issue-486-p1-multiturn-assembly/.metadata.json
+
+$ pnpm exec prettier --check openspec/changes/archive/p1-multiturn-assembly/specs/ai-service-delta.md \
+  rulebook/tasks/issue-486-p1-multiturn-assembly/.metadata.json
+All matched files use Prettier code style!
+```
+
+结果：preflight 阻断项已修复，准备重跑 auto-merge 流程。

@@ -9,12 +9,14 @@ LLM 调用**必须**通过 `buildLLMMessages` 函数组装多轮消息数组。
 组装顺序：`[system, ...history, currentUser]`
 
 Token 预算裁剪规则：
+
 1. system 消息**永远**保留
 2. 当前用户消息**永远**保留
 3. 当总 token 超过 `maxTokenBudget` 时，从最早的历史消息开始裁剪
 4. system + currentUser 的 token 之和超过预算时，仍强制保留两者，历史全部裁掉
 
 函数签名：
+
 ```typescript
 type LLMMessage = { role: "system" | "user" | "assistant"; content: string };
 type HistoryMessage = { role: "user" | "assistant"; content: string };
@@ -24,12 +26,13 @@ function buildLLMMessages(args: {
   history: HistoryMessage[];
   currentUserMessage: string;
   maxTokenBudget: number;
-}): LLMMessage[]
+}): LLMMessage[];
 ```
 
 Token 估算函数：
+
 ```typescript
-function estimateMessageTokens(text: string): number
+function estimateMessageTokens(text: string): number;
 // 空字符串 → 0
 // 非空 → Math.max(1, Math.ceil(Buffer.byteLength(text, "utf8") / 4))
 ```
