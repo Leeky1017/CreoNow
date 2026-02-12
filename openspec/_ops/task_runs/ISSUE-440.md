@@ -138,3 +138,13 @@
 - Exit code: `0`
 - Key output:
   - `https://github.com/Leeky1017/CreoNow/pull/444`
+
+### 2026-02-12 16:31 +0800 change 04 归档 + EXECUTION_ORDER 同步
+
+- Command:
+  - `git mv openspec/changes/workbench-p5-04-command-palette openspec/changes/archive/workbench-p5-04-command-palette`
+  - `apply_patch openspec/changes/EXECUTION_ORDER.md`
+- Exit code: `0`
+- Key output:
+  - change 04 已迁移至 `openspec/changes/archive/workbench-p5-04-command-palette`
+  - `EXECUTION_ORDER.md` 已更新：active change 数量 `5 -> 4`

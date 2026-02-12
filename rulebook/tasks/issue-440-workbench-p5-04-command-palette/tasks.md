@@ -18,5 +18,5 @@
 ## 3. Documentation
 
 - [x] 3.1 维护 `openspec/_ops/task_runs/ISSUE-440.md`（Dependency Sync、Red/Green、门禁与合并证据）
-- [x] 3.2 完成 `openspec/changes/workbench-p5-04-command-palette/tasks.md` 全部勾选并回填结论
+- [x] 3.2 完成 `openspec/changes/workbench-p5-04-command-palette/tasks.md` 全部勾选并归档到 `openspec/changes/archive/workbench-p5-04-command-palette`
 - [ ] 3.3 PR auto-merge 后归档 `rulebook/tasks/issue-440-workbench-p5-04-command-palette`
