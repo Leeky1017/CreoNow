@@ -230,6 +230,7 @@ export function AppShell(): JSX.Element {
   const projectItems = useProjectStore((s) => s.items);
   const bootstrapStatus = useProjectStore((s) => s.bootstrapStatus);
   const bootstrapProjects = useProjectStore((s) => s.bootstrap);
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
   const bootstrapFiles = useFileStore((s) => s.bootstrapForProject);
   const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
   const editor = useEditorStore((s) => s.editor);
@@ -418,6 +419,13 @@ export function AppShell(): JSX.Element {
       openVersionHistoryPanel,
       setCurrentDocument,
     ],
+  );
+
+  const handleSwitchProject = React.useCallback(
+    async (projectId: string) => {
+      await setCurrentProject(projectId);
+    },
+    [setCurrentProject],
   );
 
   // Bootstrap projects on mount
@@ -684,6 +692,10 @@ export function AppShell(): JSX.Element {
             collapsed={sidebarCollapsed}
             projectId={currentProjectId}
             activePanel={activeLeftPanel}
+            currentProjectId={currentProjectId}
+            projects={projectItems}
+            onSwitchProject={handleSwitchProject}
+            onCreateProject={() => setCreateProjectDialogOpen(true)}
             onOpenVersionHistoryDocument={openVersionHistoryForDocument}
           />
 

@@ -361,6 +361,15 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
     storybookTitle: "Features/CreateProjectDialog",
   },
   {
+    id: "projectSwitcher",
+    kind: "layout",
+    entryPoints: [
+      { type: "navigation", description: "Top area of Sidebar in AppShell" },
+    ],
+    testId: "project-switcher",
+    storybookTitle: "Features/Projects/ProjectSwitcher",
+  },
+  {
     id: "createTemplateDialog",
     kind: "dialog",
     entryPoints: [{ type: "button", description: "Create Template button" }],
