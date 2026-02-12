@@ -91,7 +91,10 @@ describe("layoutStore activeRightPanel persistence", () => {
 
     store.getState().setActiveRightPanel("info");
 
-    expect(setCalls).toContainEqual(["creonow.layout.activeRightPanel", "info"]);
+    expect(setCalls).toContainEqual([
+      "creonow.layout.activeRightPanel",
+      "info",
+    ]);
   });
 
   it("should restore activeRightPanel from preferences on startup", () => {
