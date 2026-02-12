@@ -80,3 +80,15 @@ Unable to find an element by: [data-testid="mock-ai-settings-section"]
   - `pnpm cross-module:check` ✅
   - `pnpm test:unit` ✅
 - 结论：preflight 全绿，可进入 auto-merge 阶段。
+
+### 2026-02-13 CI 失败修复（windows-e2e）
+
+- Command: `gh pr checks 479`
+- Key output: `windows-e2e: fail`，其余检查通过。
+- Command: `gh run view 21955009071 --job 63416310127 --log-failed`
+- Key output:
+  - `settings-dialog.spec.ts` 断言 `getByTestId('proxy-save')` 失败（元素不存在）
+  - 失败根因：SettingsDialog 已切换到 `AiSettingsSection`，E2E 仍使用旧 `ProxySection` testid。
+- Code change:
+  - `apps/desktop/tests/e2e/settings-dialog.spec.ts`
+  - 将 `proxy-save`/`proxy-base-url`/`proxy-enabled`/`proxy-error` 断言切换为 `ai-save-btn`/`ai-base-url`/`ai-error`，并保留 INVALID_ARGUMENT 可观测性断言。
