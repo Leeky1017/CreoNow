@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-12 12:47
+更新时间：2026-02-12 13:12
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -9,6 +9,7 @@
 - 当前活跃 change 数量为 **0**。
 - 执行模式：**无活跃变更（已全部归档）**。
 - 最近完成归档：
+  - `version-control-p4-save-contract-drift-fix`
   - `editor-p4-a11y-hardening`
   - `version-control-p4-hardening-boundary`
   - `skill-system-p4-hardening-boundary`

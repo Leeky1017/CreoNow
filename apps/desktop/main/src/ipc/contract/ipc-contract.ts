@@ -2039,7 +2039,17 @@ export const ipcContract = {
         actor: VERSION_SNAPSHOT_ACTOR_SCHEMA,
         reason: VERSION_SNAPSHOT_REASON_SCHEMA,
       }),
-      response: s.object({ updatedAt: s.number(), contentHash: s.string() }),
+      response: s.object({
+        updatedAt: s.number(),
+        contentHash: s.string(),
+        compaction: s.optional(
+          s.object({
+            code: s.literal("VERSION_SNAPSHOT_COMPACTED"),
+            deletedCount: s.number(),
+            remainingCount: s.number(),
+          }),
+        ),
+      }),
     },
     "file:document:getcurrent": {
       request: s.object({ projectId: s.string() }),

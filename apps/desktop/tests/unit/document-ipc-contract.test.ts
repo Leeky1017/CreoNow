@@ -261,6 +261,13 @@ function asObjectSchema(value: unknown): ObjectSchema {
     "version:snapshot:create response should include optional compaction event",
   );
 
+  const saveRes = asObjectSchema(channels["file:document:save"]?.response);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(saveRes.fields, "compaction"),
+    true,
+    "file:document:save response should include optional compaction event",
+  );
+
   const listRes = asObjectSchema(channels["version:snapshot:list"]?.response);
   const listItems = listRes.fields.items as { kind: "array"; element: unknown };
   assert.equal(listItems.kind, "array");
