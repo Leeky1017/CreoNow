@@ -1064,6 +1064,11 @@ export type IpcChannelSpec = {
       reason: "manual-save" | "autosave" | "ai-accept" | "status-change";
     };
     response: {
+      compaction?: {
+        code: "VERSION_SNAPSHOT_COMPACTED";
+        deletedCount: number;
+        remainingCount: number;
+      };
       contentHash: string;
       updatedAt: number;
     };
