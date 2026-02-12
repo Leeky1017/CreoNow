@@ -68,7 +68,10 @@ describe("AiSettingsSection", () => {
       expect(screen.getByTestId("ai-test-btn")).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId("ai-api-key")).toHaveAttribute("type", "password");
+    expect(screen.getByTestId("ai-api-key")).toHaveAttribute(
+      "type",
+      "password",
+    );
   });
 
   it("S2 should show success message after test connection", async () => {
@@ -84,7 +87,9 @@ describe("AiSettingsSection", () => {
 
     await waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith("ai:config:test", {});
-      expect(screen.getByTestId("ai-test-result")).toHaveTextContent("连接成功");
+      expect(screen.getByTestId("ai-test-result")).toHaveTextContent(
+        "连接成功",
+      );
       expect(screen.getByTestId("ai-test-result")).toHaveTextContent("42ms");
     });
   });
@@ -151,9 +156,15 @@ describe("AiSettingsSection", () => {
       expect(screen.getByTestId("ai-save-btn")).toBeInTheDocument();
     });
 
-    await user.selectOptions(screen.getByTestId("ai-provider-mode"), "openai-byok");
+    await user.selectOptions(
+      screen.getByTestId("ai-provider-mode"),
+      "openai-byok",
+    );
     await user.clear(screen.getByTestId("ai-base-url"));
-    await user.type(screen.getByTestId("ai-base-url"), "https://api.openai.com/v1");
+    await user.type(
+      screen.getByTestId("ai-base-url"),
+      "https://api.openai.com/v1",
+    );
     await user.type(screen.getByTestId("ai-api-key"), "sk-test-123");
     await user.click(screen.getByTestId("ai-save-btn"));
 
@@ -230,9 +241,15 @@ describe("AiSettingsSection", () => {
       expect(screen.getByTestId("ai-save-btn")).toBeInTheDocument();
     });
 
-    await user.selectOptions(screen.getByTestId("ai-provider-mode"), "openai-byok");
+    await user.selectOptions(
+      screen.getByTestId("ai-provider-mode"),
+      "openai-byok",
+    );
     await user.clear(screen.getByTestId("ai-base-url"));
-    await user.type(screen.getByTestId("ai-base-url"), "https://api.openai.com/v1");
+    await user.type(
+      screen.getByTestId("ai-base-url"),
+      "https://api.openai.com/v1",
+    );
     await user.click(screen.getByTestId("ai-save-btn"));
 
     await waitFor(() => {
@@ -247,7 +264,9 @@ describe("AiSettingsSection", () => {
     );
     expect(updateCall).toBeTruthy();
 
-    const payload = (updateCall as [string, { patch: Record<string, unknown> }])[1];
+    const payload = (
+      updateCall as [string, { patch: Record<string, unknown> }]
+    )[1];
     expect(payload.patch.providerMode).toBe("openai-byok");
     expect(payload.patch).not.toHaveProperty("openAiByokApiKey");
   });

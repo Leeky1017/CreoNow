@@ -13,15 +13,15 @@
 
 ### Scenario → Test 映射
 
-| Scenario ID | 测试文件 | 测试用例名 | 断言要点 |
-|-------------|---------|-----------|----------|
-| S0 | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S0 should show "未配置" and no error when no key configured` | placeholder=`未配置`，且不存在 `ai-error` |
-| S1 | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S1 should render all required elements` | provider/base-url/api-key/save/test 五元素存在，且 api-key `type=password` |
-| S2 | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S2 should show success message after test connection` | `ai:config:test` 被调用，结果含 `连接成功` 与 `42ms` |
-| S3 | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S3 should show error on failed test connection` | 失败结果含 `AI_AUTH_FAILED` |
-| S4 | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S4 should call ai:config:update on save` | `ai:config:update` patch 包含 `providerMode: openai-byok` |
-| S5 | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S5 should show "已配置" placeholder when key exists` | placeholder=`已配置` |
-| S6 | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S6 should show "未配置" placeholder when no key` | placeholder=`未配置` |
+| Scenario ID | 测试文件                                                                           | 测试用例名                                                    | 断言要点                                                                   |
+| ----------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| S0          | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S0 should show "未配置" and no error when no key configured` | placeholder=`未配置`，且不存在 `ai-error`                                  |
+| S1          | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S1 should render all required elements`                      | provider/base-url/api-key/save/test 五元素存在，且 api-key `type=password` |
+| S2          | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S2 should show success message after test connection`        | `ai:config:test` 被调用，结果含 `连接成功` 与 `42ms`                       |
+| S3          | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S3 should show error on failed test connection`              | 失败结果含 `AI_AUTH_FAILED`                                                |
+| S4          | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S4 should call ai:config:update on save`                     | `ai:config:update` patch 包含 `providerMode: openai-byok`                  |
+| S5          | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S5 should show "已配置" placeholder when key exists`         | placeholder=`已配置`                                                       |
+| S6          | `apps/desktop/renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx` | `S6 should show "未配置" placeholder when no key`             | placeholder=`未配置`                                                       |
 
 ## 3. Red（先写失败测试）
 

@@ -5,9 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { SettingsDialog } from "./SettingsDialog";
 
 vi.mock("./SettingsGeneral", () => ({
-  SettingsGeneral: () => (
-    <div data-testid="mock-general-section">General</div>
-  ),
+  SettingsGeneral: () => <div data-testid="mock-general-section">General</div>,
   defaultGeneralSettings: {
     focusMode: true,
     typewriterScroll: false,
@@ -20,9 +18,7 @@ vi.mock("./SettingsGeneral", () => ({
 }));
 
 vi.mock("./SettingsAccount", () => ({
-  SettingsAccount: () => (
-    <div data-testid="mock-account-section">Account</div>
-  ),
+  SettingsAccount: () => <div data-testid="mock-account-section">Account</div>,
   defaultAccountSettings: {
     name: "Test User",
     email: "test@example.com",
