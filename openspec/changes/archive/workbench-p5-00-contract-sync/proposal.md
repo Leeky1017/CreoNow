@@ -3,6 +3,7 @@
 ## 背景
 
 P0–P4 迭代中，Workbench 主 Spec 与实际代码产生了三类漂移：
+
 1. IPC 通道命名漂移：Spec 写 `project:switch`，实际契约为 `project:project:switch`（含 namespace 前缀）。
 2. RightPanel Tab 类型漂移：Spec 仅定义 AI + Info 两个 tab，代码多了 `quality`（P4 Quality Gates 合理扩展）。
 3. IconBar 项目列表漂移：Spec 定义 6 项（含 `media`），代码为 7 项（多了 `search`/`versionHistory`/`memory`，缺 `media`）。
@@ -37,4 +38,4 @@ P0–P4 迭代中，Workbench 主 Spec 与实际代码产生了三类漂移：
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`
+- Owner 审阅：`APPROVED`
