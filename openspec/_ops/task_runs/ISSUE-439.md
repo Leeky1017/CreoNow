@@ -299,3 +299,48 @@
   - `missing`
   - active 列表无 `issue-439-workbench-p5-02-project-switcher`
   - archive 目录文件保持完整（4 files）
+
+### 2026-02-12 preflight（首次）阻断：分支 slug 与 Rulebook task 不匹配
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `required task dir missing in both active and archive for issue-439-workbench-p5-02-project-switcher-closeout`
+- Root cause:
+  - 临时分支命名为 `task/439-workbench-p5-02-project-switcher-closeout`，preflight 按分支 slug 校验 Rulebook task，未命中已归档任务 `issue-439-workbench-p5-02-project-switcher`
+- Action:
+  - 切回标准分支命名 `task/439-workbench-p5-02-project-switcher` 后重跑 preflight
+
+### 2026-02-12 preflight（第二次）阻断：worktree 缺少依赖
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `pnpm typecheck` 失败：`sh: 1: tsc: not found`
+  - warning：`node_modules missing`
+- Action:
+  - 运行 `pnpm install --frozen-lockfile` 初始化当前 worktree 依赖
+
+### 2026-02-12 worktree 依赖初始化
+
+- Command:
+  - `pnpm install --frozen-lockfile`
+- Exit code: `0`
+- Key output:
+  - `Lockfile is up to date`
+  - `Packages: +981`
+  - `Done in 2s`
+
+### 2026-02-12 preflight（第三次）通过
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - `pnpm typecheck` 通过
+  - `pnpm lint` 通过
+  - `pnpm contract:check` 通过
+  - `pnpm cross-module:check` 通过（`CROSS_MODULE_GATE PASS`）
+  - `pnpm test:unit` 通过，Storybook inventory `59/59`
