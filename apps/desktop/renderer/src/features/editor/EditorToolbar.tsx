@@ -3,6 +3,7 @@ import type { Editor } from "@tiptap/react";
 
 import { EDITOR_SHORTCUTS } from "../../config/shortcuts";
 import { InlineFormatButton } from "./InlineFormatButton";
+import { createToggleButtonA11yProps } from "./a11y";
 
 /**
  * Toolbar button props.
@@ -43,8 +44,7 @@ function ToolbarButton({
       type="button"
       data-testid={testId}
       title={title}
-      aria-label={label}
-      aria-pressed={isActive}
+      {...createToggleButtonA11yProps({ label, pressed: isActive })}
       disabled={disabled}
       onClick={onClick}
       className={`

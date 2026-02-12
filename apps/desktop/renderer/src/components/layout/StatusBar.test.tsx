@@ -3,6 +3,10 @@ import { render, screen } from "@testing-library/react";
 import { StatusBar } from "./StatusBar";
 import { LayoutTestWrapper } from "./test-utils";
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
+import {
+  EditorStoreProvider,
+  createEditorStore,
+} from "../../stores/editorStore";
 
 describe("StatusBar", () => {
   const renderWithWrapper = () => {
@@ -10,6 +14,24 @@ describe("StatusBar", () => {
       <LayoutTestWrapper>
         <StatusBar />
       </LayoutTestWrapper>,
+    );
+  };
+
+  const renderWithEditorState = (state: Record<string, unknown>) => {
+    const store = createEditorStore({
+      invoke: async () => ({
+        ok: true,
+        data: {
+          contentHash: "hash",
+          updatedAt: 1,
+        },
+      }),
+    });
+    store.setState(state as never);
+    return render(
+      <EditorStoreProvider store={store}>
+        <StatusBar />
+      </EditorStoreProvider>,
     );
   };
 
@@ -91,6 +113,19 @@ describe("StatusBar", () => {
 
       const statusElement = screen.getByTestId("editor-autosave-status");
       expect(statusElement).toHaveAttribute("data-status");
+    });
+
+    it("文档达到容量上限时应该显示拆分建议", () => {
+      renderWithEditorState({
+        autosaveStatus: "saved",
+        // p4: capacity overflow notice displayed in status bar.
+        capacityWarning:
+          "文档已达到 1000000 字符上限，建议拆分文档后继续写作。",
+      });
+
+      expect(screen.getByTestId("editor-capacity-warning")).toHaveTextContent(
+        "建议拆分文档",
+      );
     });
   });
 

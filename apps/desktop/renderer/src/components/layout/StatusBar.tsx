@@ -9,6 +9,7 @@ import { useEditorStore } from "../../stores/editorStore";
  */
 export function StatusBar(): JSX.Element {
   const autosaveStatus = useEditorStore((s) => s.autosaveStatus);
+  const capacityWarning = useEditorStore((s) => s.capacityWarning);
   const retryLastAutosave = useEditorStore((s) => s.retryLastAutosave);
 
   const isError = autosaveStatus === "error";
@@ -31,6 +32,15 @@ export function StatusBar(): JSX.Element {
       >
         {autosaveStatus}
       </span>
+      {capacityWarning ? (
+        <span
+          data-testid="editor-capacity-warning"
+          className="ml-3 text-[var(--color-warning)]"
+          role="status"
+        >
+          {capacityWarning}
+        </span>
+      ) : null}
     </div>
   );
 }

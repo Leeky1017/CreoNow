@@ -1,28 +1,27 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-12 12:27
+更新时间：2026-02-12 12:40
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **2**。
-- 执行模式：**双泳道并行（各泳道单项）**。
+- 当前活跃 change 数量为 **1**。
+- 执行模式：**单泳道串行（剩余单项）**。
 - 变更泳道：
-  - Editor：`p4`（`p0`、`p1`、`p2`、`p3` 已归档）
   - Version Control：`p4`（`p0`、`p1`、`p2`、`p3` 已归档）
+  - Editor：`p4` 已归档（`editor-p4-a11y-hardening` → `archive/`）
+  - Skill System：`p4` 已归档（`skill-system-p4-hardening-boundary` → `archive/`）
 
 ## 执行顺序
 
-### 阶段 A — 并行推进
+### 阶段 A — 串行收口
 
-1. `editor-p4-a11y-hardening`（依赖已归档 `editor-p0` + 已归档 `editor-p1` + 已归档 `editor-p2` + 已归档 `editor-p3`）
-2. `version-control-p4-hardening-boundary`（依赖已归档 `version-control-p0` + 已归档 `version-control-p1` + 已归档 `version-control-p2` + 已归档 `version-control-p3`）
+1. `version-control-p4-hardening-boundary`（依赖已归档 `version-control-p0` + 已归档 `version-control-p1` + 已归档 `version-control-p2` + 已归档 `version-control-p3`）
 
 ## 依赖关系总览
 
 ```
-Editor 泳道:         (p0,p1,p2,p3 已归档) ──→ p4
 Version Control 泳道:(p0,p1,p2,p3 已归档) ──→ p4
 ```
 

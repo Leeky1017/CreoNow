@@ -17,7 +17,15 @@ import {
   createVersionStore,
   type IpcInvoke as VersionIpcInvoke,
 } from "../../stores/versionStore";
-import { EditorPane, sanitizePastedHtml } from "./EditorPane";
+import {
+  EditorPane,
+  EDITOR_DOCUMENT_CHARACTER_LIMIT,
+  LARGE_PASTE_THRESHOLD_CHARS,
+  chunkLargePasteText,
+  sanitizePastedHtml,
+  shouldConfirmOverflowPaste,
+  shouldWarnDocumentCapacity,
+} from "./EditorPane";
 
 function createReadyEditorStore(args: {
   onSave: (payload: {
@@ -162,6 +170,34 @@ describe("EditorPane", () => {
     expect(sanitized).toContain("<em>italic</em>");
     expect(sanitized).not.toContain("style=");
     expect(sanitized).not.toContain("<object");
+  });
+
+  it("should split large paste payload into deterministic chunks", () => {
+    const text = "x".repeat(140_000);
+    const chunks = chunkLargePasteText(text, 64_000);
+
+    expect(chunks).toHaveLength(3);
+    expect(chunks[0]).toHaveLength(64_000);
+    expect(chunks[1]).toHaveLength(64_000);
+    expect(chunks[2]).toHaveLength(12_000);
+    expect(chunks.join("")).toBe(text);
+  });
+
+  it("should require confirmation when large paste overflows document capacity", () => {
+    const shouldConfirm = shouldConfirmOverflowPaste({
+      currentLength: EDITOR_DOCUMENT_CHARACTER_LIMIT - 100,
+      pasteLength: LARGE_PASTE_THRESHOLD_CHARS,
+    });
+    expect(shouldConfirm).toBe(true);
+  });
+
+  it("should expose capacity warning when document length reaches limit", () => {
+    expect(
+      shouldWarnDocumentCapacity(EDITOR_DOCUMENT_CHARACTER_LIMIT - 1),
+    ).toBe(false);
+    expect(shouldWarnDocumentCapacity(EDITOR_DOCUMENT_CHARACTER_LIMIT)).toBe(
+      true,
+    );
   });
 
   it("should show Bubble Menu with inline actions when selection is non-empty", async () => {

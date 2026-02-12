@@ -19,6 +19,12 @@ import { resolveFinalDocumentEditDecision } from "./finalDocumentEditGuard";
 const IS_VITEST_RUNTIME =
   typeof process !== "undefined" && Boolean(process.env.VITEST);
 
+export const EDITOR_DOCUMENT_CHARACTER_LIMIT = 1_000_000;
+export const LARGE_PASTE_THRESHOLD_CHARS = 2 * 1024 * 1024;
+const LARGE_PASTE_CHUNK_SIZE = 64 * 1024;
+const CAPACITY_WARNING_TEXT =
+  "文档已达到 1000000 字符上限，建议拆分文档后继续写作。";
+
 const ALLOWED_PASTE_TAGS = new Set([
   "p",
   "br",
@@ -60,6 +66,51 @@ const DROP_TAGS = new Set([
   "svg",
   "math",
 ]);
+
+/**
+ * Split large text into deterministic chunks for incremental paste processing.
+ *
+ * Why: very large clipboard payloads should be processed in bounded units to
+ * keep UI responsive and avoid a single giant parse/insert step.
+ */
+export function chunkLargePasteText(
+  text: string,
+  chunkSize = LARGE_PASTE_CHUNK_SIZE,
+): string[] {
+  if (chunkSize <= 0) {
+    return [text];
+  }
+  if (text.length === 0) {
+    return [];
+  }
+  const chunks: string[] = [];
+  for (let cursor = 0; cursor < text.length; cursor += chunkSize) {
+    chunks.push(text.slice(cursor, cursor + chunkSize));
+  }
+  return chunks;
+}
+
+/**
+ * Check whether current document length reaches capacity threshold.
+ */
+export function shouldWarnDocumentCapacity(
+  currentLength: number,
+  limit = EDITOR_DOCUMENT_CHARACTER_LIMIT,
+): boolean {
+  return currentLength >= limit;
+}
+
+/**
+ * Check whether incoming paste should ask overflow confirmation.
+ */
+export function shouldConfirmOverflowPaste(args: {
+  currentLength: number;
+  pasteLength: number;
+  limit?: number;
+}): boolean {
+  const limit = args.limit ?? EDITOR_DOCUMENT_CHARACTER_LIMIT;
+  return args.currentLength + args.pasteLength > limit;
+}
 
 /**
  * Remove unsupported paste formatting and keep editor-supported structure.
@@ -141,6 +192,10 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   const documentStatus = useEditorStore((s) => s.documentStatus);
   const documentContentJson = useEditorStore((s) => s.documentContentJson);
   const save = useEditorStore((s) => s.save);
+  const setDocumentCharacterCount = useEditorStore(
+    (s) => s.setDocumentCharacterCount,
+  );
+  const setCapacityWarning = useEditorStore((s) => s.setCapacityWarning);
   const downgradeFinalStatusForEdit = useEditorStore(
     (s) => s.downgradeFinalStatusForEdit,
   );
@@ -157,6 +212,16 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   const activeContentJson = isPreviewMode
     ? previewContentJson
     : documentContentJson;
+
+  const syncCapacityState = React.useCallback(
+    (nextCount: number) => {
+      setDocumentCharacterCount(nextCount);
+      setCapacityWarning(
+        shouldWarnDocumentCapacity(nextCount) ? CAPACITY_WARNING_TEXT : null,
+      );
+    },
+    [setCapacityWarning, setDocumentCharacterCount],
+  );
 
   const editor = useEditor({
     extensions: [
@@ -178,6 +243,53 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     autofocus: true,
     editorProps: {
       transformPastedHTML: sanitizePastedHtml,
+      handlePaste(view, event) {
+        const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+        if (clipboardText.length < LARGE_PASTE_THRESHOLD_CHARS) {
+          return false;
+        }
+
+        event.preventDefault();
+
+        const currentLength = view.state.doc.textContent.length;
+        const chunks = chunkLargePasteText(clipboardText);
+        if (chunks.length === 0) {
+          return true;
+        }
+
+        const overflow = shouldConfirmOverflowPaste({
+          currentLength,
+          pasteLength: clipboardText.length,
+        });
+        const shouldContinueOverflow =
+          !overflow ||
+          window.confirm(
+            "粘贴内容超过文档容量上限，超限部分需要确认继续。是否继续粘贴？",
+          );
+
+        const allowedLength = shouldContinueOverflow
+          ? clipboardText.length
+          : Math.max(EDITOR_DOCUMENT_CHARACTER_LIMIT - currentLength, 0);
+        if (allowedLength <= 0) {
+          return true;
+        }
+
+        let remaining = allowedLength;
+        for (const chunk of chunks) {
+          if (remaining <= 0) {
+            break;
+          }
+          const nextChunk = chunk.slice(0, remaining);
+          const tr = view.state.tr.insertText(
+            nextChunk,
+            view.state.selection.from,
+            view.state.selection.to,
+          );
+          view.dispatch(tr);
+          remaining -= nextChunk.length;
+        }
+        return true;
+      },
       attributes: {
         "data-testid": "tiptap-editor",
         class: "h-full outline-none p-4 text-[var(--color-fg-default)]",
@@ -212,9 +324,26 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       window.setTimeout(() => {
         suppressAutosaveRef.current = false;
         setContentReady(true);
+        syncCapacityState(editor.state.doc.textContent.length);
       }, 0);
     }
-  }, [activeContentJson, documentId, editor]);
+  }, [activeContentJson, documentId, editor, syncCapacityState]);
+
+  React.useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    const onUpdate = () => {
+      syncCapacityState(editor.state.doc.textContent.length);
+    };
+
+    onUpdate();
+    editor.on("update", onUpdate);
+    return () => {
+      editor.off("update", onUpdate);
+    };
+  }, [editor, syncCapacityState]);
 
   useAutosave({
     enabled:
