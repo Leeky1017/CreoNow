@@ -30,10 +30,14 @@ describe("IconBar", () => {
       expect(screen.getByTestId("icon-bar-files")).toBeInTheDocument();
       expect(screen.getByTestId("icon-bar-search")).toBeInTheDocument();
       expect(screen.getByTestId("icon-bar-outline")).toBeInTheDocument();
-      expect(screen.getByTestId("icon-bar-version-history")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("icon-bar-version-history"),
+      ).toBeInTheDocument();
       expect(screen.getByTestId("icon-bar-memory")).toBeInTheDocument();
       expect(screen.getByTestId("icon-bar-characters")).toBeInTheDocument();
-      expect(screen.getByTestId("icon-bar-knowledge-graph")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("icon-bar-knowledge-graph"),
+      ).toBeInTheDocument();
       expect(screen.getByTestId("icon-bar-settings")).toBeInTheDocument();
     });
 
@@ -169,6 +173,69 @@ describe("IconBar", () => {
       buttons.forEach((button) => {
         expect(button).toHaveAttribute("title");
       });
+    });
+  });
+
+  // ===========================================================================
+  // Spec 对齐测试（workbench-p5-01）
+  // ===========================================================================
+  describe("Spec 对齐", () => {
+    it("should render a left accent indicator when files icon is active", () => {
+      renderWithWrapper();
+
+      const filesButton = screen.getByTestId("icon-bar-files");
+      const searchButton = screen.getByTestId("icon-bar-search");
+
+      expect(filesButton).toHaveAttribute("aria-pressed", "true");
+      expect(filesButton.className).toContain("border-l-2");
+      expect(filesButton.className).toContain("border-l-[var(--color-accent)]");
+      expect(filesButton.className).not.toContain(
+        "bg-[var(--color-bg-selected)]",
+      );
+
+      expect(searchButton).toHaveAttribute("aria-pressed", "false");
+      expect(searchButton.className).toContain("border-l-transparent");
+    });
+
+    it("should keep the icon order aligned with change-00 contract when rendering main icons", () => {
+      renderWithWrapper();
+
+      const iconBar = screen.getByTestId("icon-bar");
+      const groups = iconBar.querySelectorAll(
+        "div.flex.flex-col.items-center.gap-1",
+      );
+      const mainGroup = groups.item(0);
+      const mainIconOrder = Array.from(
+        mainGroup.querySelectorAll<HTMLButtonElement>("button[data-testid]"),
+      ).map((button) => button.dataset.testid);
+
+      expect(mainIconOrder).toEqual([
+        "icon-bar-files",
+        "icon-bar-search",
+        "icon-bar-outline",
+        "icon-bar-version-history",
+        "icon-bar-memory",
+        "icon-bar-characters",
+        "icon-bar-knowledge-graph",
+      ]);
+      expect(screen.getByTestId("icon-bar-settings")).toBeInTheDocument();
+    });
+
+    it("should render 24px icons and 40x40 button hit areas when icon bar mounts", () => {
+      renderWithWrapper();
+
+      const filesButton = screen.getByTestId("icon-bar-files");
+      const icon = filesButton.querySelector("svg");
+
+      expect(filesButton.className).toContain("w-10");
+      expect(filesButton.className).toContain("h-10");
+      expect(filesButton.className).toContain("items-center");
+      expect(filesButton.className).toContain("justify-center");
+
+      expect(icon).not.toBeNull();
+      expect(icon).toHaveAttribute("width", "24");
+      expect(icon).toHaveAttribute("height", "24");
+      expect(filesButton).toHaveAttribute("aria-label", "Files");
     });
   });
 });

@@ -25,7 +25,6 @@ const iconButtonBase = [
   "rounded-[var(--radius-sm)]",
   "bg-transparent",
   "text-[var(--color-fg-muted)]",
-  "border",
   "cursor-pointer",
   "transition-colors",
   "duration-[var(--duration-fast)]",
@@ -37,9 +36,9 @@ const iconButtonBase = [
   "focus-visible:outline-[var(--color-ring-focus)]",
 ].join(" ");
 
-const iconButtonInactive = "border-transparent";
+const iconButtonInactive = "border-l-2 border-l-transparent";
 const iconButtonActive =
-  "border-[var(--color-border-focus)] bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]";
+  "border-l-2 border-l-[var(--color-accent)] bg-transparent text-[var(--color-fg-default)]";
 
 /**
  * Icon item type for panel navigation.
@@ -55,9 +54,19 @@ type IconItem = {
  * Main navigation icons (top section).
  */
 const MAIN_ICONS: IconItem[] = [
-  { panel: "files", Icon: FolderOpen, label: "Files", testId: "icon-bar-files" },
+  {
+    panel: "files",
+    Icon: FolderOpen,
+    label: "Files",
+    testId: "icon-bar-files",
+  },
   { panel: "search", Icon: Search, label: "Search", testId: "icon-bar-search" },
-  { panel: "outline", Icon: List, label: "Outline", testId: "icon-bar-outline" },
+  {
+    panel: "outline",
+    Icon: List,
+    label: "Outline",
+    testId: "icon-bar-outline",
+  },
   {
     panel: "versionHistory",
     Icon: History,
@@ -138,7 +147,7 @@ export function IconBar({
         data-testid={testId}
         title={label}
       >
-        <Icon size={20} strokeWidth={1.5} />
+        <Icon size={24} strokeWidth={1.5} />
       </button>
     );
   };
@@ -170,10 +179,9 @@ export function IconBar({
           data-testid="icon-bar-settings"
           title="Settings"
         >
-          <Settings size={20} strokeWidth={1.5} />
+          <Settings size={24} strokeWidth={1.5} />
         </button>
       </div>
     </div>
   );
 }
-
