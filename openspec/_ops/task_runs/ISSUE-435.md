@@ -3,7 +3,7 @@
 - Issue: #435
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/435
 - Branch: task/435-workbench-p5-00-contract-sync
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/436
 - Scope: 完成 `openspec/changes/workbench-p5-00-contract-sync` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: Workbench P5-01~05 功能实现、任何与 change 00 无关的功能改动
 
