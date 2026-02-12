@@ -3,7 +3,7 @@
 - [ ] 1.1 审阅 `openspec/specs/knowledge-graph/spec.md` §实体管理，确认当前 `KnowledgeEntity` 字段列表无 `aliases` 字段
 - [ ] 1.2 审阅 `apps/desktop/main/src/services/kg/kgService.ts` L47-57 确认 `KnowledgeEntity` 类型无 `aliases`
 - [ ] 1.3 确认 SQLite JSON 存储策略：列类型 `TEXT`，读取时 `JSON.parse`，写入时 `JSON.stringify`；parse 失败回退空数组
-- [ ] 1.4 Dependency Sync Check: N/A（无上游依赖）
+- [ ] 1.4 依赖同步检查（Dependency Sync Check）: N/A（无上游依赖）
 
 ## 2. TDD Mapping（先测前提）
 

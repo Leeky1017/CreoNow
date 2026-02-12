@@ -3,7 +3,7 @@
 - [ ] 1.1 审阅 `apps/desktop/main/src/services/context/layerAssemblyService.ts` 的 `defaultFetchers()`（L1083-1085）→ settings fetcher 当前返回空 chunks
 - [ ] 1.2 审阅 `apps/desktop/main/src/services/memory/memoryService.ts` L90-94 确认 `previewInjection` 方法签名：`(args: { projectId?, documentId?, queryText? }) => ServiceResult<MemoryInjectionPreview>`
 - [ ] 1.3 审阅 `memoryService.ts` L52-56 确认 `MemoryInjectionPreview` 返回类型：`{ items: MemoryInjectionItem[], mode: MemoryInjectionMode, diagnostics?: { degradedFrom: "semantic", reason: string } }`
-- [ ] 1.4 Dependency Sync Check: 核对 `memoryService.previewInjection` 签名和返回类型 → `NO_DRIFT`
+- [ ] 1.4 依赖同步检查（Dependency Sync Check）: 核对 `memoryService.previewInjection` 签名和返回类型 → `NO_DRIFT`
 
 ## 2. TDD Mapping（先测前提）
 

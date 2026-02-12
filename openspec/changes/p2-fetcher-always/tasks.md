@@ -3,7 +3,7 @@
 - [ ] 1.1 审阅 `apps/desktop/main/src/services/context/layerAssemblyService.ts` 的 `defaultFetchers()`（L1073-1098）→ rules fetcher 当前返回硬编码桩字符串
 - [ ] 1.2 审阅 C8 delta spec 确认 `entityList` 支持 `filter.aiContextLevel` 参数，返回 `ServiceResult<{ items: KnowledgeEntity[] }>`
 - [ ] 1.3 确认 `ContextLayerFetcher` 函数签名（L52-54）和 `ContextLayerFetchResult` 返回类型（L46-50）
-- [ ] 1.4 Dependency Sync Check: 核对 C8 `entityList({ filter: { aiContextLevel: "always" } })` 接口 → `NO_DRIFT`
+- [ ] 1.4 依赖同步检查（Dependency Sync Check）: 核对 C8 `entityList({ filter: { aiContextLevel: "always" } })` 接口 → `NO_DRIFT`
 
 ## 2. TDD Mapping（先测前提）
 

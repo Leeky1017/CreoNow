@@ -3,7 +3,7 @@
 - [ ] 1.1 审阅 C8 delta spec 确认 `AiContextLevel` 类型定义为 `"always" | "when_detected" | "manual_only" | "never"`
 - [ ] 1.2 审阅 C9 delta spec 确认 `aliases: string[]` 字段定义
 - [ ] 1.3 确认 `kgRecognitionRuntime.ts` 为当前 LLM-based 异步识别模块，`matchEntities` 是新增的同步纯函数，二者互补
-- [ ] 1.4 Dependency Sync Check: 核对 C8 `AiContextLevel` 类型和 C9 `aliases` 字段 → `NO_DRIFT`
+- [ ] 1.4 依赖同步检查（Dependency Sync Check）: 核对 C8 `AiContextLevel` 类型和 C9 `aliases` 字段 → `NO_DRIFT`
 
 ## 2. TDD Mapping（先测前提）
 

@@ -3,7 +3,7 @@
 - [ ] 1.1 审阅 `openspec/specs/knowledge-graph/spec.md` §实体管理，确认 `KnowledgeEntity` 当前字段列表（`id/projectId/type/name/description/attributes/version/createdAt/updatedAt`）不含 `aiContextLevel`
 - [ ] 1.2 审阅 `apps/desktop/main/src/services/kg/kgService.ts` L47-57 的 `KnowledgeEntity` 类型定义，确认无 `aiContextLevel` 字段
 - [ ] 1.3 确认需同步新增 Zod enum 校验：`z.enum(["always", "when_detected", "manual_only", "never"])`，无效值返回 `VALIDATION_ERROR`
-- [ ] 1.4 Dependency Sync Check: N/A（无上游依赖）
+- [ ] 1.4 依赖同步检查（Dependency Sync Check）: N/A（无上游依赖）
 
 ## 2. TDD Mapping（先测前提）
 

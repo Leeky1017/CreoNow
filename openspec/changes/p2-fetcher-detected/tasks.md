@@ -3,7 +3,7 @@
 - [ ] 1.1 审阅 `apps/desktop/main/src/services/context/layerAssemblyService.ts` 的 `defaultFetchers()`（L1086-1088）→ retrieved fetcher 当前返回空 chunks
 - [ ] 1.2 审阅 C10 delta spec 确认 `matchEntities` 函数签名：`matchEntities(text: string, entities: MatchableEntity[]): MatchResult[]`
 - [ ] 1.3 审阅 C11 确认 `formatEntityForContext(entity)` 已抽取为独立导出函数
-- [ ] 1.4 Dependency Sync Check: 核对 C10 `matchEntities` 签名 + C8 `entityList({ filter })` + C11 `formatEntityForContext` → `NO_DRIFT`
+- [ ] 1.4 依赖同步检查（Dependency Sync Check）: 核对 C10 `matchEntities` 签名 + C8 `entityList({ filter })` + C11 `formatEntityForContext` → `NO_DRIFT`
 
 ## 2. TDD Mapping（先测前提）
 
