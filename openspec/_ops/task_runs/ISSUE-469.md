@@ -3,7 +3,7 @@
 - Issue: #469
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/469
 - Branch: task/469-p1-chat-skill-closeout
-- PR: https://github.com/Leeky1017/CreoNow/pull/TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/471
 - Scope: 仅完成 `openspec/changes/p1-chat-skill` 规划任务的交付收口（TDD 证据补齐、change 归档、执行顺序同步、Rulebook 与门禁收口）
 - Out of Scope: 其他并行 change 的实现细节与治理文件内容
 
