@@ -71,9 +71,18 @@ const LayoutStoreContext = React.createContext<UseLayoutStore | null>(null);
  * Build a strongly-typed preference key for layout settings.
  */
 function prefKey(
-  name: "sidebarWidth" | "panelWidth" | "sidebarCollapsed" | "panelCollapsed",
+  name:
+    | "sidebarWidth"
+    | "panelWidth"
+    | "sidebarCollapsed"
+    | "panelCollapsed"
+    | "activeRightPanel",
 ): `${typeof APP_ID}.layout.${typeof name}` {
   return `${APP_ID}.layout.${name}` as const;
+}
+
+function isRightPanelType(value: unknown): value is RightPanelType {
+  return value === "ai" || value === "info" || value === "quality";
 }
 
 /**
@@ -98,6 +107,11 @@ export function createLayoutStore(preferences: PreferenceStore) {
     preferences.get<boolean>(prefKey("sidebarCollapsed")) ?? false;
   const initialPanelCollapsed =
     preferences.get<boolean>(prefKey("panelCollapsed")) ?? false;
+  const initialActiveRightPanelRaw =
+    preferences.get<unknown>(prefKey("activeRightPanel")) ?? null;
+  const initialActiveRightPanel = isRightPanelType(initialActiveRightPanelRaw)
+    ? initialActiveRightPanelRaw
+    : "ai";
 
   return create<LayoutStore>((set, get) => ({
     sidebarWidth: initialSidebarWidth,
@@ -106,7 +120,7 @@ export function createLayoutStore(preferences: PreferenceStore) {
     panelCollapsed: initialPanelCollapsed,
     zenMode: false,
     activeLeftPanel: "files",
-    activeRightPanel: "ai",
+    activeRightPanel: initialActiveRightPanel,
 
     setSidebarWidth: (width) => {
       set({ sidebarWidth: width });
@@ -170,6 +184,7 @@ export function createLayoutStore(preferences: PreferenceStore) {
       } else {
         set({ activeRightPanel: panel });
       }
+      preferences.set(prefKey("activeRightPanel"), panel);
     },
   }));
 }
