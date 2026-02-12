@@ -70,6 +70,52 @@ function createMockCommands(): CommandItem[] {
   ];
 }
 
+function createSpecCategoryCommands(): CommandItem[] {
+  return [
+    {
+      id: "recent-third",
+      label: "第三章.md",
+      group: "最近使用",
+      onSelect: vi.fn(),
+    },
+    {
+      id: "file-third",
+      label: "第三章.md",
+      subtext: "chapter",
+      group: "文件",
+      onSelect: vi.fn(),
+    },
+    {
+      id: "file-fourth",
+      label: "第四章.md",
+      subtext: "chapter",
+      group: "文件",
+      onSelect: vi.fn(),
+    },
+    {
+      id: "command-open-third",
+      label: "打开第三章",
+      group: "命令",
+      onSelect: vi.fn(),
+    },
+    {
+      id: "command-open-settings",
+      label: "打开设置",
+      group: "命令",
+      onSelect: vi.fn(),
+    },
+  ];
+}
+
+function createManyCommands(total: number): CommandItem[] {
+  return Array.from({ length: total }, (_, index) => ({
+    id: `command-${index + 1}`,
+    label: `Command ${index + 1}`,
+    group: "命令",
+    onSelect: vi.fn(),
+  }));
+}
+
 // =============================================================================
 // Tests
 // =============================================================================
@@ -363,7 +409,92 @@ describe("CommandPalette", () => {
       const input = screen.getByPlaceholderText("搜索命令或文件...");
       await user.type(input, "xyznonexistent");
 
-      expect(screen.getByText("未找到匹配的命令")).toBeInTheDocument();
+      expect(screen.getByText("未找到匹配结果")).toBeInTheDocument();
+    });
+
+    it("空查询时应仅展示最近使用和命令，不展示文件分组", () => {
+      const commands = createSpecCategoryCommands();
+      render(
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
+      );
+
+      expect(screen.getByText("最近使用")).toBeInTheDocument();
+      expect(screen.getByText("命令")).toBeInTheDocument();
+      expect(screen.queryByText("文件")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("command-item-file-third"),
+      ).not.toBeInTheDocument();
+    });
+
+    it("输入后应展示匹配的文件和命令分组", async () => {
+      const user = userEvent.setup();
+      const commands = createSpecCategoryCommands();
+      render(
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText("搜索命令或文件...");
+      await user.type(input, "第三章");
+
+      expect(screen.getByText("文件")).toBeInTheDocument();
+      expect(screen.getByText("命令")).toBeInTheDocument();
+      expect(screen.getByTestId("command-item-file-third")).toBeInTheDocument();
+      expect(
+        screen.getByTestId("command-item-command-open-third"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("command-item-file-fourth"),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe("分页", () => {
+    it("查询结果超过 100 项时首屏只显示 100 项并可滚动加载下一批", async () => {
+      const user = userEvent.setup();
+      const commands = createManyCommands(250);
+      render(
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
+      );
+
+      const input = screen.getByPlaceholderText("搜索命令或文件...");
+      await user.type(input, "Command");
+
+      const listbox = screen.getByRole("listbox");
+      expect(listbox.querySelectorAll('[role="option"]').length).toBe(100);
+      expect(
+        screen.queryByTestId("command-item-command-150"),
+      ).not.toBeInTheDocument();
+
+      Object.defineProperty(listbox, "scrollTop", {
+        value: 5000,
+        writable: true,
+      });
+      Object.defineProperty(listbox, "scrollHeight", {
+        value: 6000,
+        configurable: true,
+      });
+      Object.defineProperty(listbox, "clientHeight", {
+        value: 1000,
+        configurable: true,
+      });
+      fireEvent.scroll(listbox);
+
+      expect(listbox.querySelectorAll('[role="option"]').length).toBe(200);
+      expect(
+        screen.getByTestId("command-item-command-150"),
+      ).toBeInTheDocument();
     });
   });
 
@@ -613,7 +744,7 @@ describe("CommandPalette", () => {
         <CommandPalette open={true} onOpenChange={vi.fn()} commands={[]} />,
       );
 
-      expect(screen.getByText("未找到匹配的命令")).toBeInTheDocument();
+      expect(screen.getByText("未找到匹配结果")).toBeInTheDocument();
     });
   });
 });
