@@ -44,3 +44,16 @@
 - Key output: `Test Files 112 passed (112), Tests 1345 passed (1345)`
 - Command: `pnpm typecheck`
 - Key output: Clean exit (0)
+
+### 2026-02-12 18:30 CI windows-e2e fix (PR #453)
+- 4 E2E failures on PR #452: 2 caused by debounce (command-palette shortcut toggle tests), 2 pre-existing flaky (theme timeout, system-dialog)
+- Fix: Added 350ms `waitForTimeout` between toggle presses in `command-palette.spec.ts` to respect 300ms debounce window
+- layout-panels marked "flaky" by Playwright (passed on retry) — not our regression
+- PR #453 CI: all checks green (ci ✓, openspec-log-guard ✓, merge-serial ✓, windows-e2e ✓)
+
+### 2026-02-12 18:52 Closure
+- PR #452 merged to main (squash) — main feature delivery
+- PR #453 merged to main (squash) — E2E debounce fix
+- Control plane synced: `git pull origin main` — fast-forward to 5353605c
+- Worktree removed: `.worktrees/issue-451-p5-05-hardening-gate`
+- Local branches deleted: `task/451-p5-05-hardening-gate`, `fix/451-e2e-debounce-wait`
