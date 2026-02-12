@@ -22,12 +22,19 @@ export type ChatMessageManager = {
   getMessages: () => ChatMessage[];
 };
 
+function cloneChatMessage(msg: ChatMessage): ChatMessage {
+  return {
+    ...msg,
+    metadata: msg.metadata ? { ...msg.metadata } : undefined,
+  };
+}
+
 export function createChatMessageManager(): ChatMessageManager {
   let messages: ChatMessage[] = [];
 
   return {
     add(msg: ChatMessage): void {
-      messages.push({ ...msg });
+      messages.push(cloneChatMessage(msg));
     },
 
     clear(): void {
@@ -35,7 +42,7 @@ export function createChatMessageManager(): ChatMessageManager {
     },
 
     getMessages(): ChatMessage[] {
-      return messages.map((m) => ({ ...m }));
+      return messages.map(cloneChatMessage);
     },
   };
 }

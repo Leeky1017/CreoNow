@@ -60,7 +60,11 @@ import { createChatMessageManager } from "../chatMessageManager";
   mgr.add({ id: "m2", role: "assistant", content: "Hi", timestamp: 2000 });
   const snapshot2 = mgr.getMessages();
 
-  assert.equal(snapshot1.length, 1, "first snapshot must not be affected by later adds");
+  assert.equal(
+    snapshot1.length,
+    1,
+    "first snapshot must not be affected by later adds",
+  );
   assert.equal(snapshot2.length, 2);
 }
 
@@ -78,4 +82,30 @@ import { createChatMessageManager } from "../chatMessageManager";
   });
 
   assert.equal(mgr.getMessages()[0].metadata?.tokenCount, 10);
+}
+
+// --- defensive copy also isolates one-level metadata mutations ---
+
+{
+  const mgr = createChatMessageManager();
+
+  mgr.add({
+    id: "m1",
+    role: "assistant",
+    content: "Reply",
+    timestamp: 1001,
+    metadata: { tokenCount: 11, model: "gpt-4o-mini" },
+  });
+
+  const view = mgr.getMessages();
+  if (!view[0].metadata) {
+    throw new Error("metadata should exist for this scenario");
+  }
+  view[0].metadata.tokenCount = 999;
+
+  assert.equal(
+    mgr.getMessages()[0].metadata?.tokenCount,
+    11,
+    "external metadata mutation must not affect internal state",
+  );
 }
