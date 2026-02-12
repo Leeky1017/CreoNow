@@ -3,9 +3,11 @@ import { FileTreePanel } from "../../features/files/FileTreePanel";
 import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
 import { MemoryPanel } from "../../features/memory/MemoryPanel";
 import { OutlinePanelContainer } from "../../features/outline/OutlinePanelContainer";
+import { ProjectSwitcher } from "../../features/projects/ProjectSwitcher";
 import { SearchPanel } from "../../features/search/SearchPanel";
 import { VersionHistoryContainer } from "../../features/version-history/VersionHistoryContainer";
 import { LAYOUT_DEFAULTS, type LeftPanelType } from "../../stores/layoutStore";
+import type { ProjectListItem } from "../../stores/projectStore";
 
 /**
  * Left panel header showing the current view name.
@@ -48,6 +50,10 @@ export function Sidebar(props: {
   collapsed: boolean;
   projectId: string | null;
   activePanel: LeftPanelType;
+  currentProjectId?: string | null;
+  projects?: ProjectListItem[];
+  onSwitchProject?: (projectId: string) => Promise<void>;
+  onCreateProject?: () => void;
   onOpenVersionHistoryDocument?: (documentId: string) => void;
 }): JSX.Element {
   if (props.collapsed) {
@@ -139,6 +145,17 @@ export function Sidebar(props: {
         maxWidth: LAYOUT_DEFAULTS.sidebar.max,
       }}
     >
+      <div
+        data-testid="sidebar-project-switcher"
+        className="relative z-[var(--z-dropdown)] border-b border-[var(--color-separator)] p-2"
+      >
+        <ProjectSwitcher
+          currentProjectId={props.currentProjectId ?? props.projectId}
+          projects={props.projects ?? []}
+          onSwitch={props.onSwitchProject ?? (async () => {})}
+          onCreateProject={props.onCreateProject}
+        />
+      </div>
       <LeftPanelHeader title={PANEL_TITLES[props.activePanel]} />
       <div className="flex-1 min-h-0 overflow-auto">{renderPanelContent()}</div>
     </aside>
