@@ -159,6 +159,55 @@ try {
   }
 }
 
+// should reject overlong single output with IPC_PAYLOAD_TOO_LARGE
+{
+  const original = globalThis.fetch;
+  try {
+    const oversizedText = "x".repeat(120_001);
+    globalThis.fetch = (async () => {
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: oversizedText } }],
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }) as typeof fetch;
+
+    const service = createAiService({
+      logger: createLogger(),
+      env: {
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_BASE_URL: "https://api.openai.com",
+        CREONOW_AI_API_KEY: "sk-test",
+      },
+      sleep: async () => {},
+      rateLimitPerMinute: 1_000,
+    });
+
+    const result = await service.runSkill({
+      skillId: "builtin:rewrite",
+      input: "oversized-output-run",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId: "oversized-project", documentId: "doc-1" },
+      stream: false,
+      ts: Date.now(),
+      emitEvent: () => {},
+    });
+
+    assert.equal(result.ok, false);
+    if (result.ok) {
+      assert.fail("expected oversized output to be rejected");
+    }
+    assert.equal(result.error.code, "IPC_PAYLOAD_TOO_LARGE");
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+
 // should reject when per-session queue exceeds 20
 {
   const original = globalThis.fetch;

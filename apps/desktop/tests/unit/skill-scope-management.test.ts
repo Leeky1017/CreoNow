@@ -231,6 +231,73 @@ function createFixture(): {
   };
 }
 
+function insertCustomSkillRows(args: {
+  db: ReturnType<typeof createProjectTestDb>;
+  count: number;
+  scope: "global" | "project";
+  projectId: string | null;
+  prefix: string;
+}): void {
+  const stmt = args.db.prepare(
+    `
+      INSERT INTO custom_skills (
+        id,
+        name,
+        description,
+        prompt_template,
+        input_type,
+        context_rules,
+        scope,
+        project_id,
+        enabled,
+        created_at,
+        updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+  );
+  const ts = Date.now();
+  for (let i = 0; i < args.count; i += 1) {
+    const id = `${args.prefix}-${i}`;
+    stmt.run(
+      id,
+      `Skill ${i}`,
+      "seeded",
+      "rewrite {{input}}",
+      "selection",
+      "{}",
+      args.scope,
+      args.projectId,
+      1,
+      ts,
+      ts,
+    );
+  }
+}
+
+function insertProject(args: {
+  db: ReturnType<typeof createProjectTestDb>;
+  projectId: string;
+  projectRoot: string;
+}): void {
+  const ts = Date.now();
+  args.db
+    .prepare(
+      "INSERT INTO projects (project_id, name, root_path, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .run(args.projectId, `Project ${args.projectId}`, args.projectRoot, ts, ts);
+}
+
+function switchCurrentProject(args: {
+  db: ReturnType<typeof createProjectTestDb>;
+  projectId: string;
+}): void {
+  args.db
+    .prepare(
+      "UPDATE settings SET value_json = ?, updated_at = ? WHERE scope = 'app' AND key = 'creonow.project.currentId'",
+    )
+    .run(JSON.stringify(args.projectId), Date.now());
+}
+
 /**
  * S4: 项目级技能覆盖全局技能 [ADDED]
  * should keep only the project-scoped version when names collide
@@ -257,6 +324,147 @@ function createFixture(): {
 
     assert.equal(formalRewriteRows.length, 1);
     assert.equal(formalRewriteRows[0]?.scope, "project");
+  } finally {
+    fixture.db.close();
+    fs.rmSync(fixture.tmpRoot, { recursive: true, force: true });
+  }
+}
+
+/**
+ * S-P4: 自定义技能容量超限（全局 1000） [ADDED]
+ * should return SKILL_CAPACITY_EXCEEDED when global custom skill count exceeds 1000
+ */
+{
+  const fixture = createFixture();
+  try {
+    insertCustomSkillRows({
+      db: fixture.db,
+      count: 1000,
+      scope: "global",
+      projectId: null,
+      prefix: "global-cap",
+    });
+
+    const svc = createSkillService({
+      db: fixture.db,
+      userDataDir: fixture.userDataDir,
+      builtinSkillsDir: fixture.builtinSkillsDir,
+      logger: createNoopLogger(),
+    });
+
+    const created = svc.createCustom({
+      name: "overflow-global",
+      description: "overflow",
+      promptTemplate: "{{input}}",
+      inputType: "selection",
+      contextRules: {},
+      scope: "global",
+      enabled: true,
+    });
+
+    assert.equal(created.ok, false);
+    if (created.ok) {
+      throw new Error("expected global capacity guard to reject creation");
+    }
+    assert.equal(created.error.code, "SKILL_CAPACITY_EXCEEDED");
+  } finally {
+    fixture.db.close();
+    fs.rmSync(fixture.tmpRoot, { recursive: true, force: true });
+  }
+}
+
+/**
+ * S-P4: 自定义技能容量超限（项目 500） [ADDED]
+ * should return SKILL_CAPACITY_EXCEEDED when project custom skill count exceeds 500
+ */
+{
+  const fixture = createFixture();
+  try {
+    insertCustomSkillRows({
+      db: fixture.db,
+      count: 500,
+      scope: "project",
+      projectId: "project-1",
+      prefix: "project-cap",
+    });
+
+    const svc = createSkillService({
+      db: fixture.db,
+      userDataDir: fixture.userDataDir,
+      builtinSkillsDir: fixture.builtinSkillsDir,
+      logger: createNoopLogger(),
+    });
+
+    const created = svc.createCustom({
+      name: "overflow-project",
+      description: "overflow",
+      promptTemplate: "{{input}}",
+      inputType: "selection",
+      contextRules: {},
+      scope: "project",
+      enabled: true,
+    });
+
+    assert.equal(created.ok, false);
+    if (created.ok) {
+      throw new Error("expected project capacity guard to reject creation");
+    }
+    assert.equal(created.error.code, "SKILL_CAPACITY_EXCEEDED");
+  } finally {
+    fixture.db.close();
+    fs.rmSync(fixture.tmpRoot, { recursive: true, force: true });
+  }
+}
+
+/**
+ * S-P4: 跨项目技能越权访问阻断 [ADDED]
+ * should return SKILL_SCOPE_VIOLATION and emit audit log for cross-project custom skill access
+ */
+{
+  const fixture = createFixture();
+  try {
+    const securityLogs: Array<{ event: string; data?: Record<string, unknown> }> =
+      [];
+    const logger = {
+      logPath: "<test>",
+      info: (event: string, data?: Record<string, unknown>) => {
+        securityLogs.push({ event, data });
+      },
+      error: () => {},
+    };
+
+    insertProject({
+      db: fixture.db,
+      projectId: "project-2",
+      projectRoot: path.join(fixture.tmpRoot, "project-root-2"),
+    });
+    switchCurrentProject({ db: fixture.db, projectId: "project-2" });
+
+    insertCustomSkillRows({
+      db: fixture.db,
+      count: 1,
+      scope: "project",
+      projectId: "project-1",
+      prefix: "foreign-project-skill",
+    });
+
+    const svc = createSkillService({
+      db: fixture.db,
+      userDataDir: fixture.userDataDir,
+      builtinSkillsDir: fixture.builtinSkillsDir,
+      logger,
+    });
+
+    const resolved = svc.resolveForRun({ id: "foreign-project-skill-0" });
+    assert.equal(resolved.ok, false);
+    if (resolved.ok) {
+      throw new Error("expected cross-project access to be blocked");
+    }
+    assert.equal(resolved.error.code, "SKILL_SCOPE_VIOLATION");
+    assert.equal(
+      securityLogs.some((item) => item.event === "skill_scope_violation"),
+      true,
+    );
   } finally {
     fixture.db.close();
     fs.rmSync(fixture.tmpRoot, { recursive: true, force: true });

@@ -118,6 +118,9 @@ export type SkillService = {
   }) => ServiceResult<{ available: boolean }>;
 };
 
+const GLOBAL_CUSTOM_SKILL_LIMIT = 1_000;
+const PROJECT_CUSTOM_SKILL_LIMIT = 500;
+
 type SkillDbRow = {
   skillId: string;
   enabled: number;
@@ -135,6 +138,12 @@ type CustomSkillDbRow = {
   enabled: number;
   createdAt: number;
   updatedAt: number;
+};
+
+type CustomSkillOwnershipRow = {
+  id: string;
+  scope: CustomSkillScope;
+  projectId: string | null;
 };
 
 function nowTs(): number {
@@ -394,6 +403,101 @@ function readCustomSkillById(args: {
   }
   const found = listed.data.find((item) => item.id === args.id) ?? null;
   return { ok: true, data: found };
+}
+
+function readCustomSkillOwnershipById(args: {
+  db: Database.Database;
+  id: string;
+}): ServiceResult<CustomSkillOwnershipRow | null> {
+  try {
+    const row = args.db
+      .prepare<
+        [string],
+        CustomSkillOwnershipRow
+      >("SELECT id, scope, project_id as projectId FROM custom_skills WHERE id = ?")
+      .get(args.id);
+    return { ok: true, data: row ?? null };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to read custom skill scope ownership",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+function countCustomSkills(args: {
+  db: Database.Database;
+  scope: CustomSkillScope;
+  projectId: string | null;
+  excludeSkillId?: string;
+}): ServiceResult<number> {
+  try {
+    if (args.scope === "global") {
+      const row = args.excludeSkillId
+        ? args.db
+            .prepare<[string], { count: number }>(
+              "SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'global' AND id != ?",
+            )
+            .get(args.excludeSkillId)
+        : args.db
+            .prepare<[], { count: number }>(
+              "SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'global'",
+            )
+            .get();
+      return { ok: true, data: row?.count ?? 0 };
+    }
+
+    if (!args.projectId) {
+      return ipcError("NOT_FOUND", "Project scope is unavailable");
+    }
+
+    const row = args.excludeSkillId
+      ? args.db
+          .prepare<[string, string], { count: number }>(
+            "SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'project' AND project_id = ? AND id != ?",
+          )
+          .get(args.projectId, args.excludeSkillId)
+      : args.db
+          .prepare<[string], { count: number }>(
+            "SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'project' AND project_id = ?",
+          )
+          .get(args.projectId);
+    return { ok: true, data: row?.count ?? 0 };
+  } catch (error) {
+    return ipcError(
+      "DB_ERROR",
+      "Failed to count custom skills",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+function ensureCustomSkillCapacity(args: {
+  db: Database.Database;
+  scope: CustomSkillScope;
+  projectId: string | null;
+  excludeSkillId?: string;
+}): ServiceResult<true> {
+  const counted = countCustomSkills(args);
+  if (!counted.ok) {
+    return counted;
+  }
+
+  const limit =
+    args.scope === "global"
+      ? GLOBAL_CUSTOM_SKILL_LIMIT
+      : PROJECT_CUSTOM_SKILL_LIMIT;
+  if (counted.data >= limit) {
+    return ipcError("SKILL_CAPACITY_EXCEEDED", "Custom skill capacity exceeded", {
+      scope: args.scope,
+      projectId: args.projectId,
+      count: counted.data,
+      limit,
+    });
+  }
+
+  return { ok: true, data: true };
 }
 
 function insertCustomSkill(args: {
@@ -1101,6 +1205,16 @@ export function createSkillService(deps: {
           return ipcError("NOT_FOUND", "Project scope is unavailable");
         }
 
+        const capacityGuard = ensureCustomSkillCapacity({
+          db: deps.db,
+          scope: validScope.data,
+          projectId,
+          excludeSkillId: custom.data.id,
+        });
+        if (!capacityGuard.ok) {
+          return capacityGuard;
+        }
+
         const updated = updateCustomSkillRow({
           db: deps.db,
           id: custom.data.id,
@@ -1272,6 +1386,15 @@ export function createSkillService(deps: {
         return ipcError("NOT_FOUND", "Project scope is unavailable");
       }
 
+      const capacityGuard = ensureCustomSkillCapacity({
+        db: deps.db,
+        scope: validScope.data,
+        projectId,
+      });
+      if (!capacityGuard.ok) {
+        return capacityGuard;
+      }
+
       const inserted = insertCustomSkill({
         db: deps.db,
         id: randomUUID(),
@@ -1392,6 +1515,30 @@ export function createSkillService(deps: {
             inputType: custom.data.inputType,
           },
         };
+      }
+
+      const ownership = readCustomSkillOwnershipById({
+        db: deps.db,
+        id: customId,
+      });
+      if (!ownership.ok) {
+        return ownership;
+      }
+      if (
+        ownership.data &&
+        ownership.data.scope === "project" &&
+        ownership.data.projectId !== loaded.data.currentProjectId
+      ) {
+        deps.logger.info("skill_scope_violation", {
+          skillId: customId,
+          requestedProjectId: loaded.data.currentProjectId,
+          ownerProjectId: ownership.data.projectId,
+        });
+        return ipcError("SKILL_SCOPE_VIOLATION", "Custom skill is outside current project scope", {
+          skillId: customId,
+          requestedProjectId: loaded.data.currentProjectId,
+          ownerProjectId: ownership.data.projectId,
+        });
       }
 
       const skill = loaded.data.skills.find((s) => s.id === id) ?? null;

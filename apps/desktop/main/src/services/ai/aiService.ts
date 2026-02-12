@@ -126,6 +126,7 @@ const PROVIDER_FAILURE_THRESHOLD = 3;
 const PROVIDER_HALF_OPEN_AFTER_MS = 15 * 60 * 1000;
 const DEFAULT_SESSION_TOKEN_BUDGET = 200_000;
 const DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE = 256;
+const DEFAULT_MAX_SKILL_OUTPUT_CHARS = 120_000;
 
 /**
  * Narrow an unknown value to a JSON object.
@@ -209,6 +210,21 @@ function parseTimeoutMs(env: NodeJS.ProcessEnv): number {
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return DEFAULT_TIMEOUT_MS;
+  }
+  return parsed;
+}
+
+/**
+ * Parse output max chars from env with a safe default.
+ */
+function parseMaxSkillOutputChars(env: NodeJS.ProcessEnv): number {
+  const raw = env.CREONOW_AI_MAX_SKILL_OUTPUT_CHARS;
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    return DEFAULT_MAX_SKILL_OUTPUT_CHARS;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_MAX_SKILL_OUTPUT_CHARS;
   }
   return parsed;
 }
@@ -966,6 +982,7 @@ export function createAiService(deps: {
   const retryBackoffMs = deps.retryBackoffMs ?? DEFAULT_RETRY_BACKOFF_MS;
   const sessionTokenBudget =
     deps.sessionTokenBudget ?? DEFAULT_SESSION_TOKEN_BUDGET;
+  const maxSkillOutputChars = parseMaxSkillOutputChars(deps.env);
   let fakeServerPromise: Promise<FakeAiServer> | null = null;
 
   const getFakeServer = async (): Promise<FakeAiServer> => {
@@ -1172,6 +1189,20 @@ export function createAiService(deps: {
       return;
     }
 
+    const nextOutputLength = entry.outputText.length + chunk.length;
+    if (nextOutputLength > maxSkillOutputChars) {
+      entry.controller.abort();
+      const oversizedError = buildSkillOutputTooLargeError(nextOutputLength);
+      setTerminal({
+        entry,
+        terminal: "error",
+        error: oversizedError,
+        logEvent: "ai_run_failed",
+        errorCode: oversizedError.code,
+      });
+      return;
+    }
+
     entry.seq += 1;
     entry.outputText = `${entry.outputText}${chunk}`;
 
@@ -1298,6 +1329,17 @@ export function createAiService(deps: {
       ...error,
       code: "SKILL_TIMEOUT",
       message: "Skill execution timed out",
+    };
+  }
+
+  function buildSkillOutputTooLargeError(actualChars: number): IpcError {
+    return {
+      code: "IPC_PAYLOAD_TOO_LARGE",
+      message: "Skill output too large",
+      details: {
+        maxChars: maxSkillOutputChars,
+        actualChars,
+      },
     };
   }
 
@@ -1971,6 +2013,18 @@ export function createAiService(deps: {
             errorCode: normalizedError.code,
           });
           return { ok: false, error: normalizedError };
+        }
+
+        if (res.data.length > maxSkillOutputChars) {
+          const oversizedError = buildSkillOutputTooLargeError(res.data.length);
+          setTerminal({
+            entry,
+            terminal: "error",
+            error: oversizedError,
+            logEvent: "ai_run_failed",
+            errorCode: oversizedError.code,
+          });
+          return { ok: false, error: oversizedError };
         }
 
         entry.outputText = res.data;
