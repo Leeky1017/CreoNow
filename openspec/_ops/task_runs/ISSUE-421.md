@@ -3,7 +3,7 @@
 - Issue: #421
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/421
 - Branch: task/421-skill-system-p3-timeout-followup
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/422
 - Scope: 将 `#419` 后续 timeout 兼容修复正式并入 `main`，确保 `windows-e2e` 与 `SKILL_TIMEOUT` 语义一致
 - Out of Scope: 新增 skill-system 功能、调度策略变更、跨模块需求扩展
 
