@@ -51,7 +51,13 @@ export function Sidebar(props: {
   onOpenVersionHistoryDocument?: (documentId: string) => void;
 }): JSX.Element {
   if (props.collapsed) {
-    return <aside data-testid="layout-sidebar" className="hidden w-0" />;
+    return (
+      <aside
+        data-testid="layout-sidebar"
+        className="hidden w-0"
+        style={{ transition: "width var(--duration-slow) ease" }}
+      />
+    );
   }
 
   /**
@@ -137,6 +143,7 @@ export function Sidebar(props: {
         width: props.width,
         minWidth: LAYOUT_DEFAULTS.sidebar.min,
         maxWidth: LAYOUT_DEFAULTS.sidebar.max,
+        transition: "width var(--duration-slow) ease",
       }}
     >
       <LeftPanelHeader title={PANEL_TITLES[props.activePanel]} />

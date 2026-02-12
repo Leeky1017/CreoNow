@@ -3,6 +3,7 @@
 ## 背景
 
 IconBar 存在两个 S0 级缺陷：
+
 1. S0-2：图标顺序与 Spec 不一致（已由 Change 00 delta spec 重新定义最终顺序）。
 2. S0-3：激活指示条使用矩形边框高亮 + 背景色，而非 Spec 要求的左侧 2px 白色指示条（`--color-accent`）。
 
@@ -40,4 +41,4 @@ IconBar 存在两个 S0 级缺陷：
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`
+- Owner 审阅：`APPROVED`
