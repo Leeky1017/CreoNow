@@ -68,6 +68,7 @@ function bootstrapKgSchema(db: Database.Database, projectId: string): void {
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       attributes_json TEXT NOT NULL,
+      ai_context_level TEXT NOT NULL DEFAULT 'when_detected',
       version INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
@@ -85,6 +86,9 @@ function bootstrapKgSchema(db: Database.Database, projectId: string): void {
 
     CREATE INDEX IF NOT EXISTS idx_kg_entities_project_name
       ON kg_entities(project_id, name);
+
+    CREATE INDEX IF NOT EXISTS idx_kg_entities_project_context_level
+      ON kg_entities(project_id, ai_context_level);
 
     CREATE TABLE IF NOT EXISTS kg_relation_types (
       id TEXT PRIMARY KEY,

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type Database from "better-sqlite3";
+import { z } from "zod";
 
 import type {
   IpcError,
@@ -21,6 +22,15 @@ export const KNOWLEDGE_ENTITY_TYPES = [
 ] as const;
 
 export type KnowledgeEntityType = (typeof KNOWLEDGE_ENTITY_TYPES)[number];
+
+export const AI_CONTEXT_LEVELS = [
+  "always",
+  "when_detected",
+  "manual_only",
+  "never",
+] as const;
+
+export type AiContextLevel = (typeof AI_CONTEXT_LEVELS)[number];
 
 const BUILTIN_RELATION_TYPES = [
   "ally",
@@ -43,6 +53,8 @@ const DEFAULT_SUBGRAPH_MAX_K = 3;
 const MAX_ENTITY_NAME_CHARS = 256;
 const MAX_RELATION_TYPE_CHARS = 64;
 const MAX_DESCRIPTION_CHARS = 4_096;
+const DEFAULT_AI_CONTEXT_LEVEL: AiContextLevel = "when_detected";
+const AI_CONTEXT_LEVEL_SCHEMA = z.enum(AI_CONTEXT_LEVELS);
 
 export type KnowledgeEntity = {
   id: string;
@@ -51,6 +63,7 @@ export type KnowledgeEntity = {
   name: string;
   description: string;
   attributes: Record<string, string>;
+  aiContextLevel: AiContextLevel;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -124,6 +137,7 @@ export type KnowledgeGraphService = {
     name: string;
     description?: string;
     attributes?: Record<string, string>;
+    aiContextLevel?: AiContextLevel;
   }) => ServiceResult<KnowledgeEntity>;
   entityRead: (args: {
     projectId: string;
@@ -131,6 +145,9 @@ export type KnowledgeGraphService = {
   }) => ServiceResult<KnowledgeEntity>;
   entityList: (args: {
     projectId: string;
+    filter?: {
+      aiContextLevel?: AiContextLevel;
+    };
   }) => ServiceResult<{ items: KnowledgeEntity[] }>;
   entityUpdate: (args: {
     projectId: string;
@@ -141,6 +158,7 @@ export type KnowledgeGraphService = {
       name?: string;
       description?: string;
       attributes?: Record<string, string>;
+      aiContextLevel?: AiContextLevel;
     };
   }) => ServiceResult<KnowledgeEntity>;
   entityDelete: (args: {
@@ -218,6 +236,7 @@ type EntityRow = {
   name: string;
   description: string;
   attributesJson: string;
+  aiContextLevel: string;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -309,6 +328,19 @@ function normalizeEntityType(value: string): KnowledgeEntityType | undefined {
 
 function normalizeRelationTypeKey(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function normalizeAiContextLevel(
+  value: string | undefined,
+): AiContextLevel | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = AI_CONTEXT_LEVEL_SCHEMA.safeParse(value.trim());
+  if (!parsed.success) {
+    return null;
+  }
+  return parsed.data;
 }
 
 function validateProjectId(projectId: string): Err | null {
@@ -432,7 +464,7 @@ function selectEntityById(
     .prepare<
       [string],
       EntityRow
-    >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE id = ?")
+    >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, ai_context_level as aiContextLevel, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE id = ?")
     .get(id);
 }
 
@@ -449,6 +481,8 @@ function selectRelationById(
 }
 
 function rowToEntity(row: EntityRow): KnowledgeEntity {
+  const normalizedAiContextLevel =
+    normalizeAiContextLevel(row.aiContextLevel) ?? DEFAULT_AI_CONTEXT_LEVEL;
   return {
     id: row.id,
     projectId: row.projectId,
@@ -456,6 +490,7 @@ function rowToEntity(row: EntityRow): KnowledgeEntity {
     name: row.name,
     description: row.description,
     attributes: parseAttributes(row.attributesJson),
+    aiContextLevel: normalizedAiContextLevel,
     version: row.version,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -502,7 +537,7 @@ function ensureEntityInProject(
     .prepare<
       [string, string],
       EntityRow
-    >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? AND id = ?")
+    >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, ai_context_level as aiContextLevel, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? AND id = ?")
     .get(args.projectId, args.entityId);
 
   if (!row) {
@@ -590,13 +625,27 @@ function ensureRelationTypeRegistered(
 function listProjectEntities(
   db: Database.Database,
   projectId: string,
+  filter?: {
+    aiContextLevel?: AiContextLevel;
+  },
 ): KnowledgeEntity[] {
-  const rows = db
-    .prepare<
-      [string],
-      EntityRow
-    >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, id ASC")
-    .all(projectId);
+  const rows = filter?.aiContextLevel
+    ? db
+        .prepare<
+          [string, AiContextLevel],
+          EntityRow
+        >(
+          "SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, ai_context_level as aiContextLevel, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? AND ai_context_level = ? ORDER BY updated_at DESC, id ASC",
+        )
+        .all(projectId, filter.aiContextLevel)
+    : db
+        .prepare<
+          [string],
+          EntityRow
+        >(
+          "SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, ai_context_level as aiContextLevel, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, id ASC",
+        )
+        .all(projectId);
   return rows.map(rowToEntity);
 }
 
@@ -622,7 +671,7 @@ function listEntitiesByIds(
   }
 
   const placeholders = entityIds.map(() => "?").join(",");
-  const sql = `SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE id IN (${placeholders})`;
+  const sql = `SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, ai_context_level as aiContextLevel, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE id IN (${placeholders})`;
 
   const rows = db.prepare(sql).all(...entityIds) as EntityRow[];
   return rows.map((row) => ({
@@ -704,7 +753,14 @@ export function createKnowledgeGraphService(args: {
   const limits = resolveLimits();
 
   return {
-    entityCreate: ({ projectId, type, name, description, attributes }) => {
+    entityCreate: ({
+      projectId,
+      type,
+      name,
+      description,
+      attributes,
+      aiContextLevel,
+    }) => {
       const invalidProjectId = validateProjectId(projectId);
       if (invalidProjectId) {
         return invalidProjectId;
@@ -732,6 +788,21 @@ export function createKnowledgeGraphService(args: {
       });
       if (!normalizedAttributes.ok) {
         return normalizedAttributes;
+      }
+
+      const normalizedAiContextLevel =
+        aiContextLevel === undefined
+          ? DEFAULT_AI_CONTEXT_LEVEL
+          : normalizeAiContextLevel(aiContextLevel);
+      if (!normalizedAiContextLevel) {
+        return ipcError(
+          "VALIDATION_ERROR",
+          "aiContextLevel must be one of always|when_detected|manual_only|never",
+          {
+            field: "aiContextLevel",
+            allowedValues: AI_CONTEXT_LEVELS,
+          },
+        );
       }
 
       const normalizedProjectId = projectId.trim();
@@ -771,7 +842,7 @@ export function createKnowledgeGraphService(args: {
         const ts = nowIso();
         args.db
           .prepare(
-            "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, ai_context_level, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           )
           .run(
             id,
@@ -780,6 +851,7 @@ export function createKnowledgeGraphService(args: {
             normalizedName,
             normalizedDescription,
             JSON.stringify(normalizedAttributes.data),
+            normalizedAiContextLevel,
             1,
             ts,
             ts,
@@ -833,13 +905,30 @@ export function createKnowledgeGraphService(args: {
       }
     },
 
-    entityList: ({ projectId }) => {
+    entityList: ({ projectId, filter }) => {
       const invalidProjectId = validateProjectId(projectId);
       if (invalidProjectId) {
         return invalidProjectId;
       }
 
       const normalizedProjectId = projectId.trim();
+      let normalizedFilterAiContextLevel: AiContextLevel | undefined;
+      if (filter?.aiContextLevel !== undefined) {
+        const parsedAiContextLevel = normalizeAiContextLevel(
+          filter.aiContextLevel,
+        );
+        if (!parsedAiContextLevel) {
+          return ipcError(
+            "VALIDATION_ERROR",
+            "filter.aiContextLevel must be one of always|when_detected|manual_only|never",
+            {
+              field: "filter.aiContextLevel",
+              allowedValues: AI_CONTEXT_LEVELS,
+            },
+          );
+        }
+        normalizedFilterAiContextLevel = parsedAiContextLevel;
+      }
 
       try {
         const projectExists = ensureProjectExists(args.db, normalizedProjectId);
@@ -849,7 +938,11 @@ export function createKnowledgeGraphService(args: {
 
         return {
           ok: true,
-          data: { items: listProjectEntities(args.db, normalizedProjectId) },
+          data: {
+            items: listProjectEntities(args.db, normalizedProjectId, {
+              aiContextLevel: normalizedFilterAiContextLevel,
+            }),
+          },
         };
       } catch (error) {
         args.logger.error("kg_entity_list_failed", {
@@ -903,6 +996,24 @@ export function createKnowledgeGraphService(args: {
         }
       }
 
+      let normalizedPatchAiContextLevel: AiContextLevel | undefined;
+      if (patch.aiContextLevel !== undefined) {
+        const parsedAiContextLevel = normalizeAiContextLevel(
+          patch.aiContextLevel,
+        );
+        if (!parsedAiContextLevel) {
+          return ipcError(
+            "VALIDATION_ERROR",
+            "patch.aiContextLevel must be one of always|when_detected|manual_only|never",
+            {
+              field: "patch.aiContextLevel",
+              allowedValues: AI_CONTEXT_LEVELS,
+            },
+          );
+        }
+        normalizedPatchAiContextLevel = parsedAiContextLevel;
+      }
+
       let normalizedAttributes: ServiceResult<Record<string, string>> | null =
         null;
       if (patch.attributes) {
@@ -952,6 +1063,10 @@ export function createKnowledgeGraphService(args: {
         const nextAttributesJson = normalizedAttributes
           ? JSON.stringify(normalizedAttributes.data)
           : existing.attributesJson;
+        const nextAiContextLevel =
+          normalizedPatchAiContextLevel ??
+          normalizeAiContextLevel(existing.aiContextLevel) ??
+          DEFAULT_AI_CONTEXT_LEVEL;
 
         if (
           entityDuplicateExists(args.db, {
@@ -970,13 +1085,14 @@ export function createKnowledgeGraphService(args: {
 
         args.db
           .prepare(
-            "UPDATE kg_entities SET type = ?, name = ?, description = ?, attributes_json = ?, version = ?, updated_at = ? WHERE id = ?",
+            "UPDATE kg_entities SET type = ?, name = ?, description = ?, attributes_json = ?, ai_context_level = ?, version = ?, updated_at = ? WHERE id = ?",
           )
           .run(
             nextType,
             nextName,
             nextDescription,
             nextAttributesJson,
+            nextAiContextLevel,
             existing.version + 1,
             nowIso(),
             normalizedId,

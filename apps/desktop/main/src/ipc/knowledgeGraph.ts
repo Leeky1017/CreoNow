@@ -4,6 +4,7 @@ import type Database from "better-sqlite3";
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import {
+  type AiContextLevel,
   createKnowledgeGraphService,
   type KnowledgeEntity,
   type KnowledgeQueryByIdsResult,
@@ -28,6 +29,7 @@ type EntityCreatePayload = {
   name: string;
   description?: string;
   attributes?: Record<string, string>;
+  aiContextLevel?: AiContextLevel;
 };
 
 type EntityReadPayload = {
@@ -37,6 +39,9 @@ type EntityReadPayload = {
 
 type EntityListPayload = {
   projectId: string;
+  filter?: {
+    aiContextLevel?: AiContextLevel;
+  };
 };
 
 type EntityUpdatePayload = {
@@ -48,6 +53,7 @@ type EntityUpdatePayload = {
     name?: string;
     description?: string;
     attributes?: Record<string, string>;
+    aiContextLevel?: AiContextLevel;
   };
 };
 

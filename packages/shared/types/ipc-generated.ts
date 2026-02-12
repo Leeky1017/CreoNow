@@ -1337,6 +1337,7 @@ export type IpcChannelSpec = {
   };
   "knowledge:entity:create": {
     request: {
+      aiContextLevel?: "always" | "when_detected" | "manual_only" | "never";
       attributes?: Record<string, string>;
       description?: string;
       name: string;
@@ -1344,6 +1345,7 @@ export type IpcChannelSpec = {
       type: "character" | "location" | "event" | "item" | "faction";
     };
     response: {
+      aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
       attributes: Record<string, string>;
       createdAt: string;
       description: string;
@@ -1367,10 +1369,14 @@ export type IpcChannelSpec = {
   };
   "knowledge:entity:list": {
     request: {
+      filter?: {
+        aiContextLevel?: "always" | "when_detected" | "manual_only" | "never";
+      };
       projectId: string;
     };
     response: {
       items: Array<{
+        aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
         attributes: Record<string, string>;
         createdAt: string;
         description: string;
@@ -1389,6 +1395,7 @@ export type IpcChannelSpec = {
       projectId: string;
     };
     response: {
+      aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
       attributes: Record<string, string>;
       createdAt: string;
       description: string;
@@ -1405,6 +1412,7 @@ export type IpcChannelSpec = {
       expectedVersion: number;
       id: string;
       patch: {
+        aiContextLevel?: "always" | "when_detected" | "manual_only" | "never";
         attributes?: Record<string, string>;
         description?: string;
         name?: string;
@@ -1413,6 +1421,7 @@ export type IpcChannelSpec = {
       projectId: string;
     };
     response: {
+      aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
       attributes: Record<string, string>;
       createdAt: string;
       description: string;
@@ -1431,6 +1440,7 @@ export type IpcChannelSpec = {
     };
     response: {
       items: Array<{
+        aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
         attributes: Record<string, string>;
         createdAt: string;
         description: string;
@@ -1466,6 +1476,7 @@ export type IpcChannelSpec = {
     };
     response: {
       items: Array<{
+        aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
         attributes: Record<string, string>;
         createdAt: string;
         description: string;
@@ -1488,6 +1499,7 @@ export type IpcChannelSpec = {
     response: {
       edgeCount: number;
       entities: Array<{
+        aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
         attributes: Record<string, string>;
         createdAt: string;
         description: string;
@@ -1650,6 +1662,7 @@ export type IpcChannelSpec = {
       suggestionId: string;
     };
     response: {
+      aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
       attributes: Record<string, string>;
       createdAt: string;
       description: string;

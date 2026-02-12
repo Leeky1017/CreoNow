@@ -31,6 +31,7 @@ import projectMetadataSql from "./migrations/0014_project_metadata.sql?raw";
 import versionSnapshotWordCountSql from "./migrations/0015_version_snapshot_word_count.sql?raw";
 import skillCustomCrudSql from "./migrations/0016_skill_custom_crud.sql?raw";
 import versionBranchMergeConflictSql from "./migrations/0017_version_branch_merge_conflict.sql?raw";
+import kgAiContextLevelSql from "./migrations/0018_kg_ai_context_level.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -103,6 +104,11 @@ const MIGRATIONS_BASE: readonly Migration[] = [
     version: 17,
     name: "0017_version_branch_merge_conflict",
     sql: versionBranchMergeConflictSql,
+  },
+  {
+    version: 18,
+    name: "0018_kg_ai_context_level",
+    sql: kgAiContextLevelSql,
   },
 ];
 

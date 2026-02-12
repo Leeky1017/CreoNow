@@ -678,6 +678,14 @@ const KG_ENTITY_TYPE_SCHEMA = s.union(
   s.literal("item"),
   s.literal("faction"),
 );
+
+const KG_AI_CONTEXT_LEVEL_SCHEMA = s.union(
+  s.literal("always"),
+  s.literal("when_detected"),
+  s.literal("manual_only"),
+  s.literal("never"),
+);
+
 const KG_ENTITY_SCHEMA = s.object({
   id: s.string(),
   projectId: s.string(),
@@ -685,6 +693,7 @@ const KG_ENTITY_SCHEMA = s.object({
   name: s.string(),
   description: s.string(),
   attributes: s.record(s.string()),
+  aiContextLevel: KG_AI_CONTEXT_LEVEL_SCHEMA,
   version: s.number(),
   createdAt: s.string(),
   updatedAt: s.string(),
@@ -1432,6 +1441,7 @@ export const ipcContract = {
         name: s.string(),
         description: s.optional(s.string()),
         attributes: s.optional(s.record(s.string())),
+        aiContextLevel: s.optional(KG_AI_CONTEXT_LEVEL_SCHEMA),
       }),
       response: KG_ENTITY_SCHEMA,
     },
@@ -1443,7 +1453,14 @@ export const ipcContract = {
       response: KG_ENTITY_SCHEMA,
     },
     "knowledge:entity:list": {
-      request: s.object({ projectId: s.string() }),
+      request: s.object({
+        projectId: s.string(),
+        filter: s.optional(
+          s.object({
+            aiContextLevel: s.optional(KG_AI_CONTEXT_LEVEL_SCHEMA),
+          }),
+        ),
+      }),
       response: s.object({ items: s.array(KG_ENTITY_SCHEMA) }),
     },
     "knowledge:entity:update": {
@@ -1456,6 +1473,7 @@ export const ipcContract = {
           name: s.optional(s.string()),
           description: s.optional(s.string()),
           attributes: s.optional(s.record(s.string())),
+          aiContextLevel: s.optional(KG_AI_CONTEXT_LEVEL_SCHEMA),
         }),
       }),
       response: KG_ENTITY_SCHEMA,
