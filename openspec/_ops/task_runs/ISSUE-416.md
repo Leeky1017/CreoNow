@@ -149,3 +149,43 @@
   - `cross-module:check` 通过（`[CROSS_MODULE_GATE] PASS`）。
   - `test:unit` 全量通过。
   - `contract:generate` 成功，`ipc-generated.ts` 与当前 contract 源保持一致。
+
+### 2026-02-12 11:30 +0800 PR 自动流程首次执行（#419）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `1`
+- Key output:
+  - 脚本已自动回填 RUN_LOG 的真实 PR 链接并提交：`docs: backfill run log PR link (#416)`。
+  - preflight 通过（`typecheck/lint/contract/cross-module/test:unit` 全绿）。
+  - auto-merge 等待 checks 时 `windows-e2e` 失败，自动合并中止。
+
+### 2026-02-12 11:34 +0800 CI 失败定位（windows-e2e）
+
+- Command:
+  - `gh run view 21932367671 --job 63338979564 --log`
+- Exit code: `0`
+- Key output:
+  - 失败用例：`apps/desktop/tests/e2e/ai-runtime.spec.ts` 的 `ai runtime: timeout maps to TIMEOUT`。
+  - 断言失败：期望 `ai-error-code` 包含 `TIMEOUT`，实际未出现该元素。
+  - 根因：
+    - 本 change 将错误码统一为 `SKILL_TIMEOUT`；
+    - `runSkill` 默认超时从环境值解耦后，E2E 用例设置 `CREONOW_AI_TIMEOUT_MS=200` 不再触发超时路径。
+
+### 2026-02-12 11:40 +0800 CI 修复与本地复核
+
+- Command:
+  - 更新 `apps/desktop/main/src/services/ai/aiService.ts`：显式环境超时作为 skill timeout 回退值（无 `timeoutMs` 时）；
+  - 更新 `apps/desktop/renderer/src/features/ai/AiPanel.tsx`：`SKILL_TIMEOUT` 显示为 timeout 类型；
+  - 更新 `apps/desktop/tests/e2e/ai-runtime.spec.ts`：断言改为 `SKILL_TIMEOUT`；
+  - `pnpm exec prettier --check apps/desktop/main/src/services/ai/aiService.ts apps/desktop/renderer/src/features/ai/AiPanel.tsx apps/desktop/tests/e2e/ai-runtime.spec.ts`
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm test:unit`
+  - `pnpm contract:check`
+  - `pnpm exec tsx apps/desktop/tests/integration/skill-session-queue-limit.test.ts`
+  - `pnpm exec tsx apps/desktop/tests/unit/ai-store-run-request-options.test.ts`
+- Exit code: `0`（`apps/desktop test:run tests/e2e/ai-runtime.spec.ts --project=chromium` 在本地不适用，已跳过）
+- Key output:
+  - 本地编译、lint、单测、契约检查与关键回归用例均通过。
+  - 将重新 push 并重跑 auto-merge 流程，等待 `windows-e2e` 复绿。

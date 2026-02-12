@@ -1054,7 +1054,7 @@ export function AiPanel(): JSX.Element {
   const runtimeErrorConfig: AiErrorConfig | null = lastError
     ? {
         type:
-          lastError.code === "TIMEOUT"
+          lastError.code === "TIMEOUT" || lastError.code === "SKILL_TIMEOUT"
             ? "timeout"
             : lastError.code === "RATE_LIMITED" ||
                 lastError.code === "AI_RATE_LIMITED"
@@ -1062,7 +1062,7 @@ export function AiPanel(): JSX.Element {
               : "service_error",
 
         title:
-          lastError.code === "TIMEOUT"
+          lastError.code === "TIMEOUT" || lastError.code === "SKILL_TIMEOUT"
             ? "Timeout"
             : lastError.code === "RATE_LIMITED" ||
                 lastError.code === "AI_RATE_LIMITED"

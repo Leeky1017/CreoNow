@@ -215,19 +215,39 @@ function parseTimeoutMs(env: NodeJS.ProcessEnv): number {
 
 /**
  * Resolve per-skill execution timeout with default + clamp.
+ *
+ * Priority:
+ * 1) explicit skill timeout
+ * 2) explicit env timeout override (for E2E / ops tuning)
+ * 3) fixed skill default 30s
  */
-function resolveSkillTimeoutMs(timeoutMs: number | undefined): number {
-  if (
-    typeof timeoutMs !== "number" ||
-    !Number.isFinite(timeoutMs) ||
-    !Number.isInteger(timeoutMs)
-  ) {
-    return DEFAULT_SKILL_TIMEOUT_MS;
+function resolveSkillTimeoutMs(args: {
+  timeoutMs: number | undefined;
+  fallbackEnvTimeoutMs?: number;
+}): number {
+  const normalize = (value: number | undefined): number | null => {
+    if (
+      typeof value !== "number" ||
+      !Number.isFinite(value) ||
+      !Number.isInteger(value) ||
+      value <= 0
+    ) {
+      return null;
+    }
+    return Math.min(value, MAX_SKILL_TIMEOUT_MS);
+  };
+
+  const explicit = normalize(args.timeoutMs);
+  if (explicit !== null) {
+    return explicit;
   }
-  if (timeoutMs <= 0) {
-    return DEFAULT_SKILL_TIMEOUT_MS;
+
+  const envFallback = normalize(args.fallbackEnvTimeoutMs);
+  if (envFallback !== null) {
+    return envFallback;
   }
-  return Math.min(timeoutMs, MAX_SKILL_TIMEOUT_MS);
+
+  return DEFAULT_SKILL_TIMEOUT_MS;
 }
 
 /**
@@ -1830,7 +1850,15 @@ export function createAiService(deps: {
     const sessionKey = resolveSessionKey(args.context);
     const promptTokens = estimateTokenCount(args.input);
     const projectedTokens = promptTokens + DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE;
-    const skillTimeoutMs = resolveSkillTimeoutMs(args.timeoutMs);
+    const hasExplicitEnvTimeout =
+      typeof deps.env.CREONOW_AI_TIMEOUT_MS === "string" &&
+      deps.env.CREONOW_AI_TIMEOUT_MS.trim().length > 0;
+    const skillTimeoutMs = resolveSkillTimeoutMs({
+      timeoutMs: args.timeoutMs,
+      fallbackEnvTimeoutMs: hasExplicitEnvTimeout
+        ? primaryCfg.timeoutMs
+        : undefined,
+    });
     let resolveCompletion: (terminal: SkillSchedulerTerminal) => void = () =>
       undefined;
     const completionPromise = new Promise<SkillSchedulerTerminal>((resolve) => {
