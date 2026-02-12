@@ -3,7 +3,7 @@
 - Issue: #491
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/491
 - Branch: task/491-p2-kg-context-level
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/492
 - Scope: 按 OpenSpec + Rulebook + GitHub 治理完整交付 `openspec/changes/p2-kg-context-level`，实现并验证 Knowledge Graph `aiContextLevel` 字段与查询过滤能力，最终合并回控制面 `main`
 - Out of Scope: C9/C10/C11/C12（`aliases`、实体匹配、Rules/Retrieved fetcher）与 KG 前端 UI 交互
 
