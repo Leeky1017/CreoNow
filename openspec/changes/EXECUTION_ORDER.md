@@ -1,18 +1,18 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-12 22:22
+更新时间：2026-02-12 23:09
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **7**（Phase 1 已启动）。
+- 当前活跃 change 数量为 **6**（Phase 1 持续推进）。
 - 执行模式：**三泳道并行 + 泳道内串行**。
 - 路线图：36-change × 6-Phase 计划（见 `docs/plans/audit-roadmap.md`）。
 - 变更泳道（Phase 1）：
   - AI Service 泳道：`p1-identity-template → p1-assemble-prompt → p1-aistore-messages → p1-multiturn-assembly`
   - Skill System 泳道：`p1-chat-skill`（独立）
-  - Workbench 泳道：`p1-apikey-storage → p1-ai-settings-ui`
+  - Workbench 泳道：`p1-ai-settings-ui`（上游 `p1-apikey-storage` 已归档完成）
 
 ## 执行顺序
 
@@ -20,31 +20,30 @@
 
 1. `p1-identity-template`（ai-service，无依赖）
 2. `p1-chat-skill`（skill-system，无依赖）
-3. `p1-apikey-storage`（workbench，无依赖）
+3. `p1-ai-settings-ui`（workbench，依赖 `p1-apikey-storage`，依赖已满足）
 
 ### 阶段 B — 中段推进
 
 4. `p1-assemble-prompt`（ai-service，依赖 `p1-identity-template`）
-5. `p1-ai-settings-ui`（workbench，依赖 `p1-apikey-storage`）
 
 ### 阶段 C — 多轮对话
 
-6. `p1-aistore-messages`（ai-service，依赖 `p1-assemble-prompt`）
-7. `p1-multiturn-assembly`（ai-service，依赖 `p1-aistore-messages`）
+5. `p1-aistore-messages`（ai-service，依赖 `p1-assemble-prompt`）
+6. `p1-multiturn-assembly`（ai-service，依赖 `p1-aistore-messages`）
 
 ## 依赖关系总览
 
 ```
 AI Service 泳道:    p1-identity-template ──→ p1-assemble-prompt ──→ p1-aistore-messages ──→ p1-multiturn-assembly
 Skill System 泳道:  p1-chat-skill
-Workbench 泳道:     p1-apikey-storage ──→ p1-ai-settings-ui
+Workbench 泳道:     p1-ai-settings-ui（依赖已由归档 change `p1-apikey-storage` 提供）
 ```
 
 ### 跨泳道依赖明细
 
-| 下游 change | 上游依赖（跨泳道） | 依赖内容 |
-|------------|-------------------|---------|
-| （Phase 1 无跨泳道依赖） | — | — |
+| 下游 change              | 上游依赖（跨泳道） | 依赖内容 |
+| ------------------------ | ------------------ | -------- |
+| （Phase 1 无跨泳道依赖） | —                  | —        |
 
 ## 依赖说明
 
