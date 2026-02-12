@@ -23,7 +23,7 @@ function getAppRoot(): string {
   return path.resolve(__dirname, "../..");
 }
 
-test("settings-dialog: shortcut opens + theme persists + proxy errors observable", async () => {
+test("settings-dialog: shortcut opens + theme persists + ai settings errors observable", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const appRoot = getAppRoot();
 
@@ -48,13 +48,15 @@ test("settings-dialog: shortcut opens + theme persists + proxy errors observable
   await first.page.keyboard.press("Control+,");
   await expect(first.page.getByTestId("settings-dialog")).toBeVisible();
 
-  // Proxy: enable without baseUrl should show INVALID_ARGUMENT (observable failure)
+  // AI settings: invalid empty baseUrl should show INVALID_ARGUMENT (observable failure)
   await first.page.getByTestId("settings-nav-proxy").click();
-  await expect(first.page.getByTestId("proxy-save")).toBeVisible();
-  await first.page.getByTestId("proxy-base-url").fill("");
-  await first.page.getByTestId("proxy-enabled").click();
-  await first.page.getByTestId("proxy-save").click();
-  await expect(first.page.getByTestId("proxy-error")).toContainText(
+  await expect(first.page.getByTestId("ai-save-btn")).toBeVisible();
+  await first.page
+    .getByTestId("ai-provider-mode")
+    .selectOption("openai-compatible");
+  await first.page.getByTestId("ai-base-url").fill("");
+  await first.page.getByTestId("ai-save-btn").click();
+  await expect(first.page.getByTestId("ai-error")).toContainText(
     "INVALID_ARGUMENT",
   );
 
@@ -69,7 +71,9 @@ test("settings-dialog: shortcut opens + theme persists + proxy errors observable
   await first.electronApp.close();
 
   const second = await launch();
-  await expect(second.page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(second.page.locator("html")).toHaveAttribute(
+    "data-theme",
+    "light",
+  );
   await second.electronApp.close();
 });
-
