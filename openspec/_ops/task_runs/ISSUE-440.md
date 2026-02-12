@@ -3,7 +3,7 @@
 - Issue: #440
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/440
 - Branch: task/440-workbench-p5-04-command-palette
-- PR: https://github.com/Leeky1017/CreoNow/pull/444
+- PR: https://github.com/Leeky1017/CreoNow/pull/448
 - Scope: 完成 `openspec/changes/workbench-p5-04-command-palette` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: workbench-p5-01/02/03/05 的功能实现与归档
 
@@ -228,3 +228,17 @@
 - Key output:
   - rebase 成功：`Successfully rebased and updated refs/heads/task/440-workbench-p5-04-command-palette`
   - preflight 全绿，且 `git status --porcelain=v1` 为空
+
+### 2026-02-12 17:00 +0800 推送收口分支 + 创建 PR + 开启 auto-merge
+
+- Command:
+  - `git push -u origin HEAD:task/440-workbench-p5-04-command-palette-r2`
+  - `gh pr create --base main --head task/440-workbench-p5-04-command-palette-r2 --title "Archive rulebook task for issue 440 (#440)" --body "... Closes #440"`
+  - `gh pr merge 448 --auto --squash`
+  - `gh pr view 448 --json number,state,mergeStateStatus,autoMergeRequest,url,headRefName,baseRefName`
+- Exit code: `0`
+- Key output:
+  - push 成功并创建远端分支 `task/440-workbench-p5-04-command-palette-r2`
+  - PR 已创建：`https://github.com/Leeky1017/CreoNow/pull/448`
+  - auto-merge 已开启：`mergeMethod = SQUASH`
+  - 当前状态：`state = OPEN`, `mergeStateStatus = BLOCKED`（等待 checks 完成后自动合并）
