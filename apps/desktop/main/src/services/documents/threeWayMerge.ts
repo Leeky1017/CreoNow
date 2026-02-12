@@ -57,7 +57,11 @@ export function runThreeWayMerge(args: {
   const baseLines = splitLines(args.baseText);
   const oursLines = splitLines(args.oursText);
   const theirsLines = splitLines(args.theirsText);
-  const maxLen = Math.max(baseLines.length, oursLines.length, theirsLines.length);
+  const maxLen = Math.max(
+    baseLines.length,
+    oursLines.length,
+    theirsLines.length,
+  );
 
   const mergedLines: string[] = [];
   const conflicts: ThreeWayMergeConflict[] = [];
@@ -109,7 +113,9 @@ export function runThreeWayMerge(args: {
  */
 export function applyConflictResolutions(args: {
   templateText: string;
-  conflicts: Array<Pick<ThreeWayMergeConflict, "conflictId" | "oursText" | "theirsText">>;
+  conflicts: Array<
+    Pick<ThreeWayMergeConflict, "conflictId" | "oursText" | "theirsText">
+  >;
   resolutions: ConflictResolutionInput[];
 }): ApplyConflictResolutionResult {
   const resolutionMap = new Map<string, ConflictResolutionInput>();

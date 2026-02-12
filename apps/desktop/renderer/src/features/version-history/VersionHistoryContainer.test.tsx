@@ -330,9 +330,9 @@ describe("VersionHistoryContainer", () => {
     await waitFor(() => {
       expect(screen.getByTestId("branch-conflict-panel")).toBeInTheDocument();
     });
-    expect(screen.getByTestId("branch-conflict-item-conflict-1")).toHaveTextContent(
-      "line two alt",
-    );
+    expect(
+      screen.getByTestId("branch-conflict-item-conflict-1"),
+    ).toHaveTextContent("line two alt");
   });
 
   it("submits manual conflict resolution via version:conflict:resolve", async () => {
@@ -352,7 +352,10 @@ describe("VersionHistoryContainer", () => {
     });
 
     await user.clear(screen.getByTestId("branch-merge-source-input"));
-    await user.type(screen.getByTestId("branch-merge-source-input"), "alt-ending");
+    await user.type(
+      screen.getByTestId("branch-merge-source-input"),
+      "alt-ending",
+    );
     await user.clear(screen.getByTestId("branch-merge-target-input"));
     await user.type(screen.getByTestId("branch-merge-target-input"), "main");
     await user.click(screen.getByTestId("branch-merge-submit"));

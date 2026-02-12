@@ -493,8 +493,7 @@ export function registerVersionIpcHandlers(deps: {
           ok: false,
           error: {
             code: "INVALID_ARGUMENT",
-            message:
-              "documentId/sourceBranchName/targetBranchName is required",
+            message: "documentId/sourceBranchName/targetBranchName is required",
           },
         };
       }
