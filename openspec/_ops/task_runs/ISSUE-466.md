@@ -1,7 +1,7 @@
 # ISSUE-466
 - Issue: #466
 - Branch: task/466-fix-skill-test
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/467
 
 ## Plan
 - 修复 skill-executor.test.ts 中 builtin skill 清单缺少 chat 的断言失败
