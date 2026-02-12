@@ -13,11 +13,11 @@
 
 ### Scenario → Test 映射
 
-| Scenario ID | 测试文件 | 测试用例名 | 断言要点 |
-|-------------|---------|-----------|----------|
-| S1 | `apps/desktop/main/src/services/ai/__tests__/identityPrompt.test.ts` | `should be a string containing all five XML block pairs` | `expect(GLOBAL_IDENTITY_PROMPT).toContain("<identity>")` 等 5 对标签 |
-| S2 | `apps/desktop/main/src/services/ai/__tests__/identityPrompt.test.ts` | `should include writing awareness core concepts` | 提取 `<writing_awareness>` 内容，断言包含 "Show don't tell"、"blocking"/"场景"、"POV"/"叙事" |
-| S3 | `apps/desktop/main/src/services/ai/__tests__/identityPrompt.test.ts` | `should define five roles in role_fluidity block` | 提取 `<role_fluidity>` 内容，断言包含 ghostwriter/muse/editor/actor/painter |
+| Scenario ID | 测试文件                                                             | 测试用例名                                               | 断言要点                                                                                     |
+| ----------- | -------------------------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| S1          | `apps/desktop/main/src/services/ai/__tests__/identityPrompt.test.ts` | `should be a string containing all five XML block pairs` | `expect(GLOBAL_IDENTITY_PROMPT).toContain("<identity>")` 等 5 对标签                         |
+| S2          | `apps/desktop/main/src/services/ai/__tests__/identityPrompt.test.ts` | `should include writing awareness core concepts`         | 提取 `<writing_awareness>` 内容，断言包含 "Show don't tell"、"blocking"/"场景"、"POV"/"叙事" |
+| S3          | `apps/desktop/main/src/services/ai/__tests__/identityPrompt.test.ts` | `should define five roles in role_fluidity block`        | 提取 `<role_fluidity>` 内容，断言包含 ghostwriter/muse/editor/actor/painter                  |
 
 ## 3. Red（先写失败测试）
 
