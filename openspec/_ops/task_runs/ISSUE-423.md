@@ -3,7 +3,7 @@
 - Issue: #423
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/423
 - Branch: task/423-editor-p4-a11y-hardening
-- PR: https://github.com/Leeky1017/CreoNow/pull/423
+- PR: https://github.com/Leeky1017/CreoNow/pull/427
 - Scope: 完整交付 `openspec/changes/editor-p4-a11y-hardening` 全部规划任务，并按 OpenSpec/Rulebook/GitHub 门禁合并回控制面 `main`
 - Out of Scope: `skill-system-p4-hardening-boundary`、`version-control-p4-hardening-boundary`、非 Editor 模块功能扩展
 
