@@ -1,8 +1,13 @@
 # Phase 1 Agent 指令：AI 可用（7 Changes）
 
-## 你的身份
+## 角色分工
 
-你是 CreoNow 的开发 Agent。任务：为 Phase 1 编写 7 个 change 的 delta spec + tasks.md，按 TDD 实现。
+| 角色 | 模型 | 职责 | 禁止 |
+|------|------|------|------|
+| **规划 Agent（你）** | Opus | 编写 change 文档（proposal.md + tasks.md） | 禁止写任何代码 |
+| **实现 Agent** | Codex | 按 change 文档执行 TDD 实现 | 禁止修改 spec/proposal |
+
+你的唯一交付物是 **7 组 change 文档**，不涉及任何代码实现。
 
 ## 必读文件
 
@@ -18,26 +23,108 @@
 | 8 | `docs/audit/02-conversation-and-context.md` | §3.1-§3.2 方案 |
 | 9 | `docs/audit/06-onboarding-ux-config.md` | §3.1 方案 |
 
-代码文件（理解现状）：
-- `apps/desktop/main/src/services/ai/` — AI 服务
-- `apps/desktop/main/src/services/skill/` — 技能系统
-- `apps/desktop/renderer/src/stores/aiStore.ts` — AI store
+代码文件（理解现有实现以确保 spec 准确性）：
+- `apps/desktop/main/src/services/ai/` — AI 服务现状
+- `apps/desktop/main/src/services/skill/` — 技能系统现状
+- `apps/desktop/renderer/src/stores/aiStore.ts` — AI store 现状
 
 ## 执行流程
 
 ```
 对每个 change (C1-C7)：
-1. 创建 GitHub Issue: "[Phase1-C<N>] <标题>"
-2. 从 origin/main 创建 task/<N>-<slug> 分支
-3. 创建 openspec/changes/<change-id>/proposal.md (delta spec)
-4. 创建 openspec/changes/<change-id>/tasks.md (TDD 六段式)
-5. Red: 写失败测试，记录失败证据
-6. Green: 最小实现通过
-7. Refactor: 保持绿灯
-8. PR (Closes #<N>)，启用 auto-merge
+1. 阅读目标模块的 spec.md，理解现有 requirements 和 scenarios
+2. 阅读对应审计报告章节，理解问题和建议方案
+3. 阅读相关代码文件，确认现有实现状态
+4. 创建 openspec/changes/<change-id>/proposal.md (delta spec)
+5. 创建 openspec/changes/<change-id>/tasks.md (TDD 六段式，仅填写 1-2 段)
+6. 同步更新 openspec/changes/EXECUTION_ORDER.md
 ```
 
-当 2+ change 同时活跃时，维护 `openspec/changes/EXECUTION_ORDER.md`。
+全部 7 个 change 文档完成后，执行二次核对和三次核对（见下方）。
+
+## 交付物格式
+
+### proposal.md
+
+```markdown
+# Change: <change-id>
+
+## 目标 Spec
+`openspec/specs/<module>/spec.md`
+
+## 审计来源
+`docs/audit/<report>.md` §<section>
+
+## Delta
+
+### [ADDED] REQ-XXX-YYY: <requirement 标题>
+<requirement 完整描述>
+
+### [ADDED] Scenario: <scenario 标题>
+GIVEN <精确前提，含具体数据>
+WHEN <触发动作，含函数签名>
+THEN <期望结果，含类型和值断言>
+
+## Codex 实现指引
+- 目标文件路径: <具体路径>
+- 验证命令: <pnpm vitest run ...>
+- Mock 要求: <需要 mock 什么>
+```
+
+### tasks.md（仅填写 §1-§2，§3-§6 留空由 Codex 填写）
+
+```markdown
+# Tasks: <change-id>
+
+## 1. Specification
+引用 proposal.md 中的 requirements 和 scenarios。
+
+## 2. TDD Mapping（先测前提）
+| Scenario | 测试文件 | 测试用例名 | 断言要点 |
+|----------|---------|-----------|----------|
+| S1: xxx  | xxx.test.ts | should xxx | expect(xxx).toBe(xxx) |
+
+## 3. Red（先写失败测试）
+<!-- Codex 填写：测试代码 + 失败截图 -->
+
+## 4. Green（最小实现通过）
+<!-- Codex 填写：实现代码 + 通过截图 -->
+
+## 5. Refactor（保持绿灯）
+<!-- Codex 填写 -->
+
+## 6. Evidence
+<!-- Codex 填写：最终测试通过截图 + CI 链接 -->
+```
+
+## 二次核对（第一轮完成后）
+
+全部 7 个 change 文档写完后，逐一执行以下检查：
+
+| # | 检查项 | 方法 |
+|---|--------|------|
+| 1 | **Requirement ID 唯一** | 搜索所有 proposal.md，确认无重复 REQ-ID |
+| 2 | **Scenario 完整** | 每个 REQ 至少有 1 个 Scenario 覆盖 |
+| 3 | **Scenario 精确** | 每个 GIVEN/WHEN/THEN 包含具体数据值，无模糊描述 |
+| 4 | **依赖正确** | 前置依赖的 change 确实提供了被依赖的能力 |
+| 5 | **目标 spec 存在** | 引用的 spec.md 路径存在且包含被 MODIFIED 的 REQ |
+| 6 | **现有代码对齐** | Scope 中提到的函数/文件确实存在于当前代码中 |
+| 7 | **TDD Mapping 完整** | 每个 Scenario 在 tasks.md §2 中有对应测试用例 |
+| 8 | **EXECUTION_ORDER 同步** | 所有 7 个 change 都在 EXECUTION_ORDER.md 中 |
+
+发现问题立即修复，然后进入三次核对。
+
+## 三次核对（二次核对修复后）
+
+换一个视角重新审视：
+
+| # | 检查项 | 方法 |
+|---|--------|------|
+| 1 | **Codex 可独立执行** | 仅凭 proposal.md + tasks.md，不看审计报告，Codex 能否无歧义地实现？ |
+| 2 | **边界条件覆盖** | 每个 Scenario 集合是否覆盖了：空输入、超限输入、无效输入、正常路径？ |
+| 3 | **跨 change 一致性** | C1 定义的类型/接口，C2 引用时是否一致？C4 的 ChatMessage 类型，C5 使用时字段是否对齐？ |
+| 4 | **与现有 spec 不冲突** | 新增的 REQ-ID 不与现有 spec 中的 REQ-ID 冲突 |
+| 5 | **审计建议全覆盖** | 对照审计报告对应章节，所有建议是否都在 change 中体现？遗漏了什么？ |
 
 ---
 
@@ -530,25 +617,20 @@ AND 存在可点击的跳转链接/按钮
 
 ## 约束
 
-- 禁止跳过 spec 直接写代码
-- 禁止先写实现再补测试
-- 禁止消耗真实 LLM API 额度（测试必须 mock）
-- 每个 change 的 `tasks.md` 必须包含 Red 失败截图/日志
-- 每个 change 的 `tasks.md` 必须包含 Acceptance Checklist：
-  ```
-  - [ ] 所有 scenario 对应的测试存在且通过
-  - [ ] pnpm test 全量绿灯
-  - [ ] 新增代码有 JSDoc
-  - [ ] 无 any 类型逃逸
-  - [ ] RUN_LOG 记录了 Red 和 Green 证据
-  ```
+- **禁止写任何代码**——你的交付物只有 proposal.md 和 tasks.md
+- 每个 Scenario 的 GIVEN/WHEN/THEN 必须包含具体数据值，禁止模糊描述
+- 每个 proposal.md 必须包含 Codex 实现指引（目标文件路径、验证命令、Mock 要求）
+- 每个 tasks.md 的 §2 TDD Mapping 必须为每个 Scenario 指定测试文件路径和测试用例名
+- tasks.md 的 §3-§6 留空，由 Codex 填写
+- 完成全部 7 个文档后必须执行二次核对和三次核对
+- 核对发现的问题必须修复后才能宣布交付
 
-## 推荐执行顺序
+## 推荐编写顺序
 
 ```
-C1 (0.5d) → C2 (1d) → C4 (0.5d) → C5 (1d)   [主线：身份→组装→消息→多轮]
-C3 (0.5d)                                      [并行：chat 技能]
-C6 (1d) → C7 (1d)                              [并行：Key 存储→设置 UI]
+C1 (identity-template) → C2 (assemble-prompt) → C4 (aistore-messages) → C5 (multiturn-assembly)
+C3 (chat-skill)       — 可与 C1 并行编写
+C6 (apikey-storage) → C7 (ai-settings-ui) — 可与主线并行编写
 ```
 
-三条线可并行，最长路径 3d（C1→C2→C4→C5）。
+按依赖顺序编写，确保后序 change 引用前序 change 定义的类型/接口时保持一致。
