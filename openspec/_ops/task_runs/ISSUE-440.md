@@ -206,3 +206,14 @@
   - Rulebook 检测识别为 archive 任务并跳过 active validate（预期行为）
   - `pnpm exec prettier --check` 通过
   - `pnpm typecheck` / `pnpm lint` / `pnpm contract:check` / `pnpm cross-module:check` / `pnpm test:unit` 全部通过
+
+### 2026-02-12 16:56 +0800 preflight（提交后新鲜证据）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - 工作区干净（`git status --porcelain=v1` 空输出）
+  - Issue 校验通过（`state = OPEN`）
+  - 归档任务识别正常（archive 模式）
+  - `pnpm typecheck` / `pnpm lint` / `pnpm contract:check` / `pnpm cross-module:check` / `pnpm test:unit` 全绿
