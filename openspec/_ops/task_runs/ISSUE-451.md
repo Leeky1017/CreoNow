@@ -3,7 +3,7 @@
 - Issue: #451
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/451
 - Branch: task/451-p5-05-hardening-gate
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/452
 
 ## Plan
 
