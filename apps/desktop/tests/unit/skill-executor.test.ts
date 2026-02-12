@@ -41,6 +41,7 @@ function createNoopEmitter(): (event: AiStreamEvent) => void {
  */
 {
   assert.deepEqual(builtinSkillNames(), [
+    "chat",
     "condense",
     "continue",
     "expand",
