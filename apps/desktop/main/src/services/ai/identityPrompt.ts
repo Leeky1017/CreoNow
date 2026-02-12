@@ -17,6 +17,8 @@ export const GLOBAL_IDENTITY_PROMPT = `<identity>
 
 <writing_awareness>
 你理解：
+- narrative structure（叙事结构）
+- characterization（角色塑造）
 - 场景的 blocking（人物在空间中的位置和移动）
 - Show don't tell（用具体细节代替抽象陈述）
 - 角色声音的一致性（不同角色说话方式不同）
