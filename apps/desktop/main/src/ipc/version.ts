@@ -6,9 +6,141 @@ import type { VersionDiffPayload } from "../../../../../packages/shared/types/ve
 import type { Logger } from "../logging/logger";
 import {
   createDocumentService,
+  type DocumentService,
+  type SnapshotCompactionEvent,
   type VersionSnapshotActor,
   type VersionSnapshotReason,
 } from "../services/documents/documentService";
+
+const DEFAULT_IO_RETRY_MAX_ATTEMPTS = 3;
+const DEFAULT_IO_TIMEOUT_MS = 5_000;
+const DEFAULT_MAX_PARALLEL_DOCUMENT_OPS = 8;
+const DEFAULT_MAX_DIFF_PAYLOAD_BYTES = 2 * 1024 * 1024;
+
+class IoTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IoTimeoutError";
+  }
+}
+
+function isRetriableIoError(code: string): boolean {
+  return code === "DB_ERROR" || code === "IO_ERROR";
+}
+
+function normalizeRetryMaxAttempts(maxAttempts?: number): number {
+  if (typeof maxAttempts !== "number" || !Number.isFinite(maxAttempts)) {
+    return DEFAULT_IO_RETRY_MAX_ATTEMPTS;
+  }
+  return Math.max(1, Math.trunc(maxAttempts));
+}
+
+function normalizeTimeoutMs(timeoutMs?: number): number {
+  if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs)) {
+    return DEFAULT_IO_TIMEOUT_MS;
+  }
+  return Math.max(1, Math.trunc(timeoutMs));
+}
+
+function normalizeParallelOps(maxParallelOps?: number): number {
+  if (typeof maxParallelOps !== "number" || !Number.isFinite(maxParallelOps)) {
+    return DEFAULT_MAX_PARALLEL_DOCUMENT_OPS;
+  }
+  return Math.max(1, Math.trunc(maxParallelOps));
+}
+
+function sleep(ms?: number): Promise<void> {
+  if (!ms || ms <= 0) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function withTimeout<T>(
+  run: () => Promise<T>,
+  timeoutMs: number,
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new IoTimeoutError(`operation timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([run(), timeoutPromise]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+class VersionOperationCoordinator {
+  private readonly queueByDocument = new Map<string, Promise<void>>();
+  private readonly busyDocuments = new Set<string>();
+  private readonly globalWaiters: Array<() => void> = [];
+  private activeGlobalOps = 0;
+
+  constructor(private readonly maxParallelOps: number) {}
+
+  isBusy(documentId: string): boolean {
+    return (
+      this.busyDocuments.has(documentId) || this.queueByDocument.has(documentId)
+    );
+  }
+
+  async withSerializedDocument<T>(
+    documentId: string,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    const previous = this.queueByDocument.get(documentId) ?? Promise.resolve();
+    let releaseDocumentQueue: () => void = () => {};
+    const current = new Promise<void>((resolve) => {
+      releaseDocumentQueue = resolve;
+    });
+    const tail = previous.then(
+      () => current,
+      () => current,
+    );
+    this.queueByDocument.set(documentId, tail);
+
+    await previous;
+    await this.acquireGlobalSlot();
+    this.busyDocuments.add(documentId);
+    try {
+      return await run();
+    } finally {
+      this.busyDocuments.delete(documentId);
+      this.releaseGlobalSlot();
+      releaseDocumentQueue();
+      if (this.queueByDocument.get(documentId) === tail) {
+        this.queueByDocument.delete(documentId);
+      }
+    }
+  }
+
+  private async acquireGlobalSlot(): Promise<void> {
+    if (this.activeGlobalOps < this.maxParallelOps) {
+      this.activeGlobalOps += 1;
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      this.globalWaiters.push(resolve);
+    });
+    this.activeGlobalOps += 1;
+  }
+
+  private releaseGlobalSlot(): void {
+    this.activeGlobalOps = Math.max(0, this.activeGlobalOps - 1);
+    const waiter = this.globalWaiters.shift();
+    if (waiter) {
+      waiter();
+    }
+  }
+}
 
 /**
  * Register `version:*` IPC handlers (minimal subset for P0).
@@ -20,7 +152,109 @@ export function registerVersionIpcHandlers(deps: {
   db: Database.Database | null;
   logger: Logger;
   mergeTimeoutMs?: number;
+  maxSnapshotsPerDocument?: number;
+  maxDiffPayloadBytes?: number;
+  ioRetryMaxAttempts?: number;
+  ioTimeoutMs?: number;
+  maxParallelDocumentOps?: number;
+  serviceFactory?: typeof createDocumentService;
+  simulateLatencyMs?: {
+    snapshot?: number;
+    rollback?: number;
+    merge?: number;
+  };
 }): void {
+  const serviceFactory = deps.serviceFactory ?? createDocumentService;
+  const ioRetryMaxAttempts = normalizeRetryMaxAttempts(deps.ioRetryMaxAttempts);
+  const ioTimeoutMs = normalizeTimeoutMs(deps.ioTimeoutMs);
+  const coordinator = new VersionOperationCoordinator(
+    normalizeParallelOps(deps.maxParallelDocumentOps),
+  );
+
+  const createService = (): DocumentService =>
+    serviceFactory({
+      db: deps.db as Database.Database,
+      logger: deps.logger,
+      maxSnapshotsPerDocument: deps.maxSnapshotsPerDocument,
+      maxDiffPayloadBytes:
+        deps.maxDiffPayloadBytes ?? DEFAULT_MAX_DIFF_PAYLOAD_BYTES,
+    });
+
+  const rollbackConflict = (documentId: string): IpcResponse<never> => ({
+    ok: false,
+    error: {
+      code: "VERSION_ROLLBACK_CONFLICT",
+      message: "Concurrent rollback conflict",
+      details: { documentId },
+    },
+  });
+
+  const withIoRetry = async <T>(args: {
+    operation: string;
+    documentId: string;
+    run: () => Promise<IpcResponse<T>>;
+  }): Promise<IpcResponse<T>> => {
+    let lastError: IpcResponse<T> | null = null;
+    for (let attempt = 1; attempt <= ioRetryMaxAttempts; attempt += 1) {
+      try {
+        const res = await withTimeout(args.run, ioTimeoutMs);
+        if (res.ok) {
+          return res;
+        }
+        lastError = res;
+        if (
+          !isRetriableIoError(res.error.code) ||
+          attempt === ioRetryMaxAttempts
+        ) {
+          return res;
+        }
+        deps.logger.error("version_io_retry", {
+          operation: args.operation,
+          document_id: args.documentId,
+          attempt,
+          code: res.error.code,
+        });
+      } catch (error) {
+        if (
+          !(error instanceof IoTimeoutError) ||
+          attempt === ioRetryMaxAttempts
+        ) {
+          return {
+            ok: false,
+            error: {
+              code: "DB_ERROR",
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Version operation failed",
+              retryable: true,
+              details: {
+                operation: args.operation,
+                attempt,
+                timeoutMs: ioTimeoutMs,
+              },
+            },
+          };
+        }
+        deps.logger.error("version_io_retry_timeout", {
+          operation: args.operation,
+          document_id: args.documentId,
+          attempt,
+          timeout_ms: ioTimeoutMs,
+        });
+      }
+    }
+    return (
+      lastError ?? {
+        ok: false,
+        error: {
+          code: "DB_ERROR",
+          message: "Version operation failed",
+        },
+      }
+    );
+  };
+
   deps.ipcMain.handle(
     "version:snapshot:create",
     async (
@@ -38,6 +272,7 @@ export function registerVersionIpcHandlers(deps: {
         contentHash: string;
         wordCount: number;
         createdAt: number;
+        compaction?: SnapshotCompactionEvent;
       }>
     > => {
       if (!deps.db) {
@@ -72,42 +307,65 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
-      const saved = svc.save({
-        projectId: payload.projectId,
-        documentId: payload.documentId,
-        contentJson: parsed,
-        actor: payload.actor,
-        reason: payload.reason,
-      });
-      if (!saved.ok) {
-        return { ok: false, error: saved.error };
-      }
+      return coordinator.withSerializedDocument(
+        payload.documentId,
+        async () => {
+          await sleep(deps.simulateLatencyMs?.snapshot);
+          return withIoRetry({
+            operation: "version:snapshot:create",
+            documentId: payload.documentId,
+            run: async (): Promise<
+              IpcResponse<{
+                versionId: string;
+                contentHash: string;
+                wordCount: number;
+                createdAt: number;
+                compaction?: SnapshotCompactionEvent;
+              }>
+            > => {
+              const svc = createService();
+              const saved = svc.save({
+                projectId: payload.projectId,
+                documentId: payload.documentId,
+                contentJson: parsed,
+                actor: payload.actor,
+                reason: payload.reason,
+              });
+              if (!saved.ok) {
+                return { ok: false, error: saved.error };
+              }
 
-      const listed = svc.listVersions({ documentId: payload.documentId });
-      if (!listed.ok) {
-        return { ok: false, error: listed.error };
-      }
-      const latest = listed.data.items[0];
-      if (!latest) {
-        return {
-          ok: false,
-          error: {
-            code: "DB_ERROR",
-            message: "Snapshot create succeeded but no snapshot found",
-          },
-        };
-      }
+              const listed = svc.listVersions({
+                documentId: payload.documentId,
+              });
+              if (!listed.ok) {
+                return { ok: false, error: listed.error };
+              }
+              const latest = listed.data.items[0];
+              if (!latest) {
+                return {
+                  ok: false,
+                  error: {
+                    code: "DB_ERROR",
+                    message: "Snapshot create succeeded but no snapshot found",
+                  },
+                };
+              }
 
-      return {
-        ok: true,
-        data: {
-          versionId: latest.versionId,
-          contentHash: latest.contentHash,
-          wordCount: latest.wordCount,
-          createdAt: latest.createdAt,
+              return {
+                ok: true,
+                data: {
+                  versionId: latest.versionId,
+                  contentHash: latest.contentHash,
+                  wordCount: latest.wordCount,
+                  createdAt: latest.createdAt,
+                  compaction: saved.data.compaction,
+                },
+              };
+            },
+          });
         },
-      };
+      );
     },
   );
 
@@ -144,7 +402,7 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const svc = createService();
       const res = svc.listVersions({ documentId: payload.documentId });
       return res.ok
         ? { ok: true, data: res.data }
@@ -191,7 +449,7 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const svc = createService();
       const res = svc.readVersion({
         documentId: payload.documentId,
         versionId: payload.versionId,
@@ -243,7 +501,7 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const svc = createService();
       const res = svc.diffVersions({
         documentId: payload.documentId,
         baseVersionId: payload.baseVersionId,
@@ -286,14 +544,30 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
-      const res = svc.rollbackVersion({
-        documentId: payload.documentId,
-        versionId: payload.versionId,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      if (coordinator.isBusy(payload.documentId)) {
+        return rollbackConflict(payload.documentId);
+      }
+
+      return coordinator.withSerializedDocument(
+        payload.documentId,
+        async () => {
+          await sleep(deps.simulateLatencyMs?.rollback);
+          return withIoRetry({
+            operation: "version:snapshot:rollback",
+            documentId: payload.documentId,
+            run: async () => {
+              const svc = createService();
+              const res = svc.rollbackVersion({
+                documentId: payload.documentId,
+                versionId: payload.versionId,
+              });
+              return res.ok
+                ? { ok: true, data: res.data }
+                : { ok: false, error: res.error };
+            },
+          });
+        },
+      );
     },
   );
 
@@ -322,14 +596,30 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
-      const res = svc.restoreVersion({
-        documentId: payload.documentId,
-        versionId: payload.versionId,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      if (coordinator.isBusy(payload.documentId)) {
+        return rollbackConflict(payload.documentId);
+      }
+
+      return coordinator.withSerializedDocument(
+        payload.documentId,
+        async () => {
+          await sleep(deps.simulateLatencyMs?.rollback);
+          return withIoRetry({
+            operation: "version:snapshot:restore",
+            documentId: payload.documentId,
+            run: async () => {
+              const svc = createService();
+              const res = svc.restoreVersion({
+                documentId: payload.documentId,
+                versionId: payload.versionId,
+              });
+              return res.ok
+                ? { ok: true, data: res.data }
+                : { ok: false, error: res.error };
+            },
+          });
+        },
+      );
     },
   );
 
@@ -372,7 +662,7 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const svc = createService();
       const res = svc.createBranch({
         documentId: payload.documentId,
         name: payload.name,
@@ -419,7 +709,7 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const svc = createService();
       const res = svc.listBranches({ documentId: payload.documentId });
       return res.ok
         ? { ok: true, data: res.data }
@@ -457,7 +747,7 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const svc = createService();
       const res = svc.switchBranch({
         documentId: payload.documentId,
         name: payload.name,
@@ -498,16 +788,28 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
-      const res = svc.mergeBranch({
-        documentId: payload.documentId,
-        sourceBranchName: payload.sourceBranchName,
-        targetBranchName: payload.targetBranchName,
-        timeoutMs: deps.mergeTimeoutMs,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+      return coordinator.withSerializedDocument(
+        payload.documentId,
+        async () => {
+          await sleep(deps.simulateLatencyMs?.merge);
+          return withIoRetry({
+            operation: "version:branch:merge",
+            documentId: payload.documentId,
+            run: async () => {
+              const svc = createService();
+              const res = svc.mergeBranch({
+                documentId: payload.documentId,
+                sourceBranchName: payload.sourceBranchName,
+                targetBranchName: payload.targetBranchName,
+                timeoutMs: deps.mergeTimeoutMs,
+              });
+              return res.ok
+                ? { ok: true, data: res.data }
+                : { ok: false, error: res.error };
+            },
+          });
+        },
+      );
     },
   );
 
@@ -546,7 +848,7 @@ export function registerVersionIpcHandlers(deps: {
         };
       }
 
-      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const svc = createService();
       const res = svc.resolveMergeConflict({
         documentId: payload.documentId,
         mergeSessionId: payload.mergeSessionId,

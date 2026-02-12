@@ -109,6 +109,11 @@ export type BranchMergeConflict = {
 export type BranchConflictResolutionInput = ConflictResolutionInput;
 
 type VersionDiffResult = VersionDiffPayload;
+export type SnapshotCompactionEvent = {
+  code: "VERSION_SNAPSHOT_COMPACTED";
+  deletedCount: number;
+  remainingCount: number;
+};
 
 export type DocumentService = {
   create: (args: {
@@ -143,6 +148,7 @@ export type DocumentService = {
   }) => ServiceResult<{
     updatedAt: number;
     contentHash: string;
+    compaction?: SnapshotCompactionEvent;
   }>;
   delete: (args: {
     projectId: string;
@@ -227,6 +233,9 @@ const BRANCH_SETTINGS_SCOPE_PREFIX = "version:branch:" as const;
 const CURRENT_BRANCH_KEY = "creonow.version.currentBranch" as const;
 const MAX_TITLE_LENGTH = 200;
 const AUTOSAVE_MERGE_WINDOW_MS = 5 * 60 * 1000;
+const AUTOSAVE_COMPACT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_MAX_SNAPSHOTS_PER_DOCUMENT = 50_000;
+const DEFAULT_MAX_DIFF_PAYLOAD_BYTES = 2 * 1024 * 1024;
 const DEFAULT_BRANCH_MERGE_TIMEOUT_MS = 5_000;
 const BRANCH_NAME_PATTERN = /^[a-z0-9-]{3,32}$/u;
 
@@ -854,7 +863,23 @@ function toBranchListItem(
 export function createDocumentService(args: {
   db: Database.Database;
   logger: Logger;
+  maxSnapshotsPerDocument?: number;
+  autosaveCompactionAgeMs?: number;
+  maxDiffPayloadBytes?: number;
 }): DocumentService {
+  const maxSnapshotsPerDocument = Math.max(
+    1,
+    args.maxSnapshotsPerDocument ?? DEFAULT_MAX_SNAPSHOTS_PER_DOCUMENT,
+  );
+  const autosaveCompactionAgeMs = Math.max(
+    0,
+    args.autosaveCompactionAgeMs ?? AUTOSAVE_COMPACT_AGE_MS,
+  );
+  const maxDiffPayloadBytes = Math.max(
+    1,
+    args.maxDiffPayloadBytes ?? DEFAULT_MAX_DIFF_PAYLOAD_BYTES,
+  );
+
   const rollbackToVersion = (params: {
     documentId: string;
     versionId: string;
@@ -1518,6 +1543,7 @@ export function createDocumentService(args: {
         reason,
       });
 
+      let compaction: SnapshotCompactionEvent | undefined;
       try {
         args.db.transaction(() => {
           const exists = args.db
@@ -1612,6 +1638,52 @@ export function createDocumentService(args: {
               content_hash: contentHash,
             });
           }
+
+          const totalSnapshots = args.db
+            .prepare<
+              [string],
+              { count: number }
+            >("SELECT COUNT(*) as count FROM document_versions WHERE document_id = ?")
+            .get(documentId);
+          const overflowCount =
+            (totalSnapshots?.count ?? 0) - maxSnapshotsPerDocument;
+
+          if (overflowCount > 0) {
+            const compactBeforeTs = ts - autosaveCompactionAgeMs;
+            const candidates = args.db
+              .prepare<
+                [string, number, number],
+                { versionId: string }
+              >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? AND reason = 'autosave' AND created_at < ? ORDER BY created_at ASC, version_id ASC LIMIT ?")
+              .all(documentId, compactBeforeTs, overflowCount);
+
+            if (candidates.length > 0) {
+              const deleteStmt = args.db.prepare<[string]>(
+                "DELETE FROM document_versions WHERE version_id = ?",
+              );
+              for (const candidate of candidates) {
+                deleteStmt.run(candidate.versionId);
+              }
+
+              const remainingSnapshots = args.db
+                .prepare<
+                  [string],
+                  { count: number }
+                >("SELECT COUNT(*) as count FROM document_versions WHERE document_id = ?")
+                .get(documentId);
+              compaction = {
+                code: "VERSION_SNAPSHOT_COMPACTED",
+                deletedCount: candidates.length,
+                remainingCount: remainingSnapshots?.count ?? 0,
+              };
+              args.logger.info("version_snapshot_compacted", {
+                document_id: documentId,
+                deleted_count: candidates.length,
+                remaining_count: compaction.remainingCount,
+                max_snapshots_per_document: maxSnapshotsPerDocument,
+              });
+            }
+          }
         })();
       } catch (error) {
         const code =
@@ -1641,7 +1713,7 @@ export function createDocumentService(args: {
           content_hash: contentHash,
         });
       }
-      return { ok: true, data: { updatedAt: ts, contentHash } };
+      return { ok: true, data: { updatedAt: ts, contentHash, compaction } };
     },
 
     delete: ({ projectId, documentId }) => {
@@ -2033,6 +2105,20 @@ export function createDocumentService(args: {
             return ipcError("NOT_FOUND", "Document not found");
           }
           targetText = current.contentText;
+        }
+
+        const payloadBytes =
+          Buffer.byteLength(base.contentText, "utf8") +
+          Buffer.byteLength(targetText, "utf8");
+        if (payloadBytes > maxDiffPayloadBytes) {
+          return ipcError(
+            "VERSION_DIFF_PAYLOAD_TOO_LARGE",
+            "Diff payload exceeds size limit",
+            {
+              payloadBytes,
+              maxPayloadBytes: maxDiffPayloadBytes,
+            },
+          );
         }
 
         const diff = buildUnifiedDiff({
