@@ -109,7 +109,7 @@ test("ai runtime: delay path keeps UI running then completes", async () => {
   await electronApp.close();
 });
 
-test("ai runtime: timeout maps to TIMEOUT", async () => {
+test("ai runtime: timeout maps to SKILL_TIMEOUT", async () => {
   const userDataDir = await createIsolatedUserDataDir();
   const { electronApp, page } = await launchApp({
     userDataDir,
@@ -119,7 +119,9 @@ test("ai runtime: timeout maps to TIMEOUT", async () => {
   await waitForAiReady(page);
   await runInput(page, "E2E_TIMEOUT");
 
-  await expect(page.getByTestId("ai-error-code")).toContainText("TIMEOUT");
+  await expect(page.getByTestId("ai-error-code")).toContainText(
+    "SKILL_TIMEOUT",
+  );
 
   await electronApp.close();
 });
