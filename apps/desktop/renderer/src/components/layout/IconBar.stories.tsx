@@ -16,6 +16,10 @@ import { useLayoutStore, type LeftPanelType } from "../../stores/layoutStore";
 const meta = {
   title: "Layout/IconBar",
   component: IconBar,
+  args: {
+    onOpenSettings: () => {},
+    settingsOpen: false,
+  },
   parameters: {
     layout: "fullscreen",
   },

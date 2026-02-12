@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { PreferenceKey, PreferenceStore } from "../lib/preferences";
 import { createLayoutStore, LAYOUT_DEFAULTS } from "./layoutStore";
@@ -10,27 +10,30 @@ function createPreferenceStub(
   initial: Partial<Record<PreferenceKey, unknown>>,
 ) {
   const values = new Map<PreferenceKey, unknown>();
+  const setCalls: Array<[PreferenceKey, unknown]> = [];
+
   for (const [key, value] of Object.entries(initial)) {
     values.set(key as PreferenceKey, value);
   }
 
   const preferences: PreferenceStore = {
-    get: vi.fn(<T>(key: PreferenceKey) =>
+    get: <T>(key: PreferenceKey) =>
       values.has(key) ? (values.get(key) as T) : null,
-    ),
-    set: vi.fn(<T>(key: PreferenceKey, value: T) => {
+    set: <T>(key: PreferenceKey, value: T) => {
+      setCalls.push([key, value as unknown]);
       values.set(key, value);
-    }),
-    remove: vi.fn((key: PreferenceKey) => {
+    },
+    remove: (key: PreferenceKey) => {
       values.delete(key);
-    }),
-    clear: vi.fn(() => {
+    },
+    clear: () => {
       values.clear();
-    }),
+    },
   };
 
   return {
     preferences,
+    setCalls,
     values,
   };
 }
@@ -50,28 +53,22 @@ describe("layoutStore persistence", () => {
   });
 
   it("should persist sidebarCollapsed key when collapsing sidebar", () => {
-    const { preferences } = createPreferenceStub({});
+    const { preferences, setCalls } = createPreferenceStub({});
     const store = createLayoutStore(preferences);
 
     store.getState().setSidebarCollapsed(true);
 
-    expect(preferences.set).toHaveBeenCalledWith(
-      "creonow.layout.sidebarCollapsed",
-      true,
-    );
+    expect(setCalls).toContainEqual(["creonow.layout.sidebarCollapsed", true]);
     expect(store.getState().sidebarCollapsed).toBe(true);
   });
 
   it("should persist sidebarWidth key when sidebar width is updated", () => {
-    const { preferences, values } = createPreferenceStub({});
+    const { preferences, setCalls, values } = createPreferenceStub({});
     const store = createLayoutStore(preferences);
 
     store.getState().setSidebarWidth(280);
 
-    expect(preferences.set).toHaveBeenCalledWith(
-      "creonow.layout.sidebarWidth",
-      280,
-    );
+    expect(setCalls).toContainEqual(["creonow.layout.sidebarWidth", 280]);
     expect(values.get("creonow.layout.sidebarWidth")).toBe(280);
   });
 
