@@ -80,6 +80,17 @@ describe("RightPanel", () => {
       expect(aiTab).toHaveAttribute("aria-pressed", "true");
     });
 
+    it("AI 内容不应出现内部 Assistant/Info 子标签", () => {
+      renderWithWrapper();
+
+      expect(
+        screen.queryByRole("button", { name: /assistant/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /^info$/i })).toHaveLength(
+        1,
+      );
+    });
+
     it("点击 Info tab 应该切换激活状态", () => {
       renderWithWrapper();
 

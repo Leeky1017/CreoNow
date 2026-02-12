@@ -1,150 +1,147 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi, afterEach } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { StatusBar } from "./StatusBar";
-import { LayoutTestWrapper } from "./test-utils";
-import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
+import {
+  ProjectStoreProvider,
+  createProjectStore,
+} from "../../stores/projectStore";
+import { FileStoreProvider, createFileStore } from "../../stores/fileStore";
 import {
   EditorStoreProvider,
   createEditorStore,
 } from "../../stores/editorStore";
 
+function createMockIpc() {
+  return {
+    invoke: vi.fn(async () => ({
+      ok: true,
+      data: { items: [], settings: {}, content: "" },
+    })),
+    on: (): (() => void) => () => {},
+  };
+}
+
+function renderStatusBarFixture() {
+  const ipc = createMockIpc();
+  const projectStore = createProjectStore(
+    ipc as Parameters<typeof createProjectStore>[0],
+  );
+  const fileStore = createFileStore(
+    ipc as Parameters<typeof createFileStore>[0],
+  );
+  const editorStore = createEditorStore(
+    ipc as Parameters<typeof createEditorStore>[0],
+  );
+
+  const view = render(
+    <ProjectStoreProvider store={projectStore}>
+      <FileStoreProvider store={fileStore}>
+        <EditorStoreProvider store={editorStore}>
+          <StatusBar />
+        </EditorStoreProvider>
+      </FileStoreProvider>
+    </ProjectStoreProvider>,
+  );
+
+  return { view, projectStore, fileStore, editorStore };
+}
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
 describe("StatusBar", () => {
-  const renderWithWrapper = () => {
-    return render(
-      <LayoutTestWrapper>
-        <StatusBar />
-      </LayoutTestWrapper>,
-    );
-  };
+  it("should show project/document/word-count/time when context is ready", () => {
+    const { projectStore, fileStore, editorStore } = renderStatusBarFixture();
 
-  const renderWithEditorState = (state: Record<string, unknown>) => {
-    const store = createEditorStore({
-      invoke: async () => ({
-        ok: true,
-        data: {
-          contentHash: "hash",
-          updatedAt: 1,
-        },
-      }),
-    });
-    store.setState(state as never);
-    return render(
-      <EditorStoreProvider store={store}>
-        <StatusBar />
-      </EditorStoreProvider>,
-    );
-  };
-
-  // ===========================================================================
-  // 基础渲染测试
-  // ===========================================================================
-  describe("渲染", () => {
-    it("应该渲染 StatusBar 组件", () => {
-      renderWithWrapper();
-
-      const statusBar = screen.getByTestId("layout-statusbar");
-      expect(statusBar).toBeInTheDocument();
-    });
-
-    it("应该显示自动保存状态", () => {
-      renderWithWrapper();
-
-      const statusElement = screen.getByTestId("editor-autosave-status");
-      expect(statusElement).toBeInTheDocument();
-    });
-
-    it("应该有正确的固定高度 (28px)", () => {
-      renderWithWrapper();
-
-      const statusBar = screen.getByTestId("layout-statusbar");
-      expect(statusBar).toHaveStyle({
-        height: `${LAYOUT_DEFAULTS.statusBarHeight}px`,
+    act(() => {
+      projectStore.setState({
+        current: { projectId: "project-1", rootPath: "/tmp/project-1" },
+        items: [
+          {
+            projectId: "project-1",
+            name: "暗流",
+            rootPath: "/tmp/project-1",
+            updatedAt: 1700000000000,
+          },
+        ],
       });
     });
-  });
-
-  // ===========================================================================
-  // 样式测试
-  // ===========================================================================
-  describe("样式", () => {
-    it("应该有顶部边框分隔线", () => {
-      renderWithWrapper();
-
-      const statusBar = screen.getByTestId("layout-statusbar");
-      expect(statusBar).toHaveClass("border-t");
-    });
-
-    it("应该有正确的背景色类", () => {
-      renderWithWrapper();
-
-      const statusBar = screen.getByTestId("layout-statusbar");
-      expect(statusBar.className).toContain("bg-[var(--color-bg-surface)]");
-    });
-
-    it("应该有 flex 布局", () => {
-      renderWithWrapper();
-
-      const statusBar = screen.getByTestId("layout-statusbar");
-      expect(statusBar).toHaveClass("flex");
-    });
-
-    it("应该垂直居中对齐", () => {
-      renderWithWrapper();
-
-      const statusBar = screen.getByTestId("layout-statusbar");
-      expect(statusBar).toHaveClass("items-center");
-    });
-  });
-
-  // ===========================================================================
-  // 内容测试
-  // ===========================================================================
-  describe("内容", () => {
-    it("应该显示初始状态", () => {
-      renderWithWrapper();
-
-      const statusElement = screen.getByTestId("editor-autosave-status");
-      // 初始状态应该有内容（具体值取决于 store 初始状态）
-      expect(statusElement).toBeInTheDocument();
-    });
-
-    it("状态元素应该有 data-status 属性", () => {
-      renderWithWrapper();
-
-      const statusElement = screen.getByTestId("editor-autosave-status");
-      expect(statusElement).toHaveAttribute("data-status");
-    });
-
-    it("文档达到容量上限时应该显示拆分建议", () => {
-      renderWithEditorState({
-        autosaveStatus: "saved",
-        // p4: capacity overflow notice displayed in status bar.
-        capacityWarning:
-          "文档已达到 1000000 字符上限，建议拆分文档后继续写作。",
+    act(() => {
+      fileStore.setState({
+        currentDocumentId: "doc-1",
+        items: [
+          {
+            documentId: "doc-1",
+            title: "第三章",
+            status: "draft",
+            type: "chapter",
+            sortOrder: 0,
+            updatedAt: 1700000000000,
+          },
+        ],
       });
-
-      expect(screen.getByTestId("editor-capacity-warning")).toHaveTextContent(
-        "建议拆分文档",
-      );
     });
+    act(() => {
+      editorStore.setState({
+        documentId: "doc-1",
+        documentCharacterCount: 3250,
+        autosaveStatus: "idle",
+      });
+    });
+
+    expect(screen.getByTestId("status-project-name")).toHaveTextContent("暗流");
+    expect(screen.getByTestId("status-document-name")).toHaveTextContent(
+      "第三章",
+    );
+    expect(screen.getByTestId("status-word-count")).toHaveTextContent(
+      "3,250 字",
+    );
+    expect(screen.getByTestId("editor-autosave-status")).toHaveTextContent("");
+    expect(screen.getByTestId("status-current-time").textContent ?? "").toMatch(
+      /^\d{2}:\d{2}$/,
+    );
   });
 
-  // ===========================================================================
-  // 字体测试
-  // ===========================================================================
-  describe("字体", () => {
-    it("应该使用 11px 字体大小", () => {
-      renderWithWrapper();
+  it("should follow autosave state machine: saving -> saved -> idle", () => {
+    vi.useFakeTimers();
+    const { editorStore } = renderStatusBarFixture();
 
-      const statusBar = screen.getByTestId("layout-statusbar");
-      expect(statusBar.className).toContain("text-[11px]");
+    act(() => {
+      editorStore.setState({ autosaveStatus: "saving" });
+    });
+    expect(screen.getByTestId("editor-autosave-status")).toHaveTextContent(
+      "保存中...",
+    );
+
+    act(() => {
+      editorStore.setState({ autosaveStatus: "saved" });
+    });
+    expect(screen.getByTestId("editor-autosave-status")).toHaveTextContent(
+      "已保存",
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(screen.getByTestId("editor-autosave-status")).toHaveTextContent("");
+  });
+
+  it("should allow retry from error state", () => {
+    const { editorStore } = renderStatusBarFixture();
+    const retryLastAutosave = vi.fn().mockResolvedValue(undefined);
+
+    act(() => {
+      editorStore.setState({
+        autosaveStatus: "error",
+        retryLastAutosave,
+      });
     });
 
-    it("应该使用 muted 文本颜色", () => {
-      renderWithWrapper();
+    const indicator = screen.getByTestId("editor-autosave-status");
+    expect(indicator).toHaveTextContent("保存失败");
+    fireEvent.click(indicator);
 
-      const statusBar = screen.getByTestId("layout-statusbar");
-      expect(statusBar.className).toContain("text-[var(--color-fg-muted)]");
-    });
+    expect(retryLastAutosave).toHaveBeenCalledTimes(1);
   });
 });

@@ -11,6 +11,7 @@ import { AppShell } from "./AppShell";
 import {
   LayoutStoreProvider,
   createLayoutStore,
+  type UseLayoutStore,
 } from "../../stores/layoutStore";
 import {
   ProjectStoreProvider,
@@ -76,12 +77,14 @@ let mockIpc = createMockIpc();
  */
 function AppShellTestWrapper({
   children,
+  layoutStoreOverride,
 }: {
   children: React.ReactNode;
+  layoutStoreOverride?: UseLayoutStore;
 }): JSX.Element {
   const layoutStore = React.useMemo(
-    () => createLayoutStore(mockPreferences),
-    [],
+    () => layoutStoreOverride ?? createLayoutStore(mockPreferences),
+    [layoutStoreOverride],
   );
   const projectStore = React.useMemo(
     () =>
@@ -153,12 +156,14 @@ describe("AppShell", () => {
    * Why: Wraps render in act() and waits for initial bootstrap to complete,
    * avoiding "not wrapped in act()" warnings from async state updates.
    */
-  const renderWithWrapper = async () => {
+  const renderWithWrapper = async (options?: {
+    layoutStoreOverride?: UseLayoutStore;
+  }) => {
     let result: ReturnType<typeof render>;
 
     await act(async () => {
       result = render(
-        <AppShellTestWrapper>
+        <AppShellTestWrapper layoutStoreOverride={options?.layoutStoreOverride}>
           <AppShell />
         </AppShellTestWrapper>,
       );
@@ -285,6 +290,32 @@ describe("AppShell", () => {
 
       // 面板应该隐藏
       expect(panel).toHaveClass("hidden");
+    });
+
+    it("Ctrl + L 从折叠打开时应该强制切换到 AI tab", async () => {
+      const layoutStore = createLayoutStore(mockPreferences);
+      layoutStore.setState({
+        panelCollapsed: true,
+        activeRightPanel: "info",
+      });
+      await renderWithWrapper({ layoutStoreOverride: layoutStore });
+
+      const panel = screen.getByTestId("layout-panel");
+      expect(panel).toHaveClass("hidden");
+
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "l", ctrlKey: true });
+      });
+
+      expect(panel).not.toHaveClass("hidden");
+      expect(screen.getByTestId("right-panel-tab-ai")).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
+      expect(screen.getByTestId("right-panel-tab-info")).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
     });
 
     it("F11 应该切换 Zen 模式", async () => {
