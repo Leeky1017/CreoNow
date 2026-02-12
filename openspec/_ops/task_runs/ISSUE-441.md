@@ -3,7 +3,7 @@
 - Issue: #441
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/441
 - Branch: task/441-p5-workbench-rightpanel-statusbar
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/445
 - Scope: 完成 `openspec/changes/workbench-p5-03-rightpanel-statusbar` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: `workbench-p5-01` / `workbench-p5-02` / `workbench-p5-04` / `workbench-p5-05` 与任何无关改动
 
