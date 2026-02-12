@@ -3,7 +3,7 @@
 - Issue: #438
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/438
 - Branch: task/438-workbench-p5-01-layout-iconbar-shell
-- PR: https://github.com/Leeky1017/CreoNow/pull/442
+- PR: https://github.com/Leeky1017/CreoNow/pull/446
 - Scope: 完成 `openspec/changes/workbench-p5-01-layout-iconbar-shell` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: `workbench-p5-02/03/04/05` 及任何与 change 01 无关的功能改动
 
@@ -162,3 +162,63 @@
 - Exit code: `0`
 - Key output:
   - `3 passed files, 40 passed tests`
+
+### 2026-02-12 16:25 +0800 PR 自动收口（首次执行，preflight 连续阻断）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `1`（脚本保持等待后中断重试）
+- Key output:
+  - 首次阻断：`[RUN_LOG] PR field still placeholder`，脚本自动回填并提交：
+    - commit: `docs: backfill run log PR link (#438)`
+  - 二次阻断：Prettier 失败（`layoutStore.test.ts`、`rulebook/.../proposal.md`）
+  - 三次阻断：typecheck 失败（`IconBar.stories.tsx` Story args、`layoutStore.test.ts` mock 签名）
+
+### 2026-02-12 16:26 +0800 阻断修复（format/typecheck）
+
+- Command:
+  - `pnpm exec prettier --write apps/desktop/renderer/src/stores/layoutStore.test.ts rulebook/tasks/issue-438-workbench-p5-01-layout-iconbar-shell/proposal.md`
+  - `git commit -m "docs: format issue 438 artifacts (#438)"`
+  - `pnpm typecheck`
+  - `git commit -m "fix: resolve issue 438 typecheck blockers (#438)"`
+  - `pnpm -C apps/desktop test:run src/components/layout/IconBar.test.tsx src/components/layout/AppShell.test.tsx src/stores/layoutStore.test.ts`
+- Exit code: `0`
+- Key output:
+  - typecheck 恢复通过
+  - 目标测试集保持 `40 passed`
+
+### 2026-02-12 16:32 +0800 PR #442 合并完成 + 控制面同步异常
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`（继续同流程）
+- Exit code: `1`（仅最后同步步骤失败）
+- Key output:
+  - PR：`https://github.com/Leeky1017/CreoNow/pull/442`
+  - required checks：`ci`、`openspec-log-guard`、`merge-serial` 均为 `pass`
+  - PR 状态：`MERGED`，`mergedAt=2026-02-12T08:32:03Z`
+  - 脚本失败原因：控制面根目录存在未跟踪目录导致 `agent_controlplane_sync.sh` 阻断：
+    - `rulebook/tasks/issue-440-workbench-p5-04-command-palette/`
+    - `rulebook/tasks/issue-441-p5-workbench-rightpanel-statusbar/`
+
+### 2026-02-12 16:33 +0800 手动 fast-forward 同步控制面 main（非破坏）
+
+- Command:
+  - `git -C /home/leeky/work/CreoNow fetch origin main`
+  - `git -C /home/leeky/work/CreoNow checkout main`
+  - `git -C /home/leeky/work/CreoNow pull --ff-only origin main`
+  - `git -C /home/leeky/work/CreoNow rev-parse main`
+  - `git -C /home/leeky/work/CreoNow rev-parse origin/main`
+- Exit code: `0`
+- Key output:
+  - 控制面 `main` fast-forward 到 `86115029`
+  - `main` 与 `origin/main` commit 一致
+
+### 2026-02-12 16:35 +0800 Rulebook 收口准备（reopen + archive）
+
+- Command:
+  - `gh issue reopen 438`
+  - `rulebook task archive issue-438-workbench-p5-01-layout-iconbar-shell`
+- Exit code: `0`
+- Key output:
+  - issue #438 已 reopen
+  - task 已迁移到 `rulebook/tasks/archive/2026-02-12-issue-438-workbench-p5-01-layout-iconbar-shell`
