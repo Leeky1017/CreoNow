@@ -8,9 +8,9 @@
 
 - [x] 2.1 Red：`assembleSystemPrompt.test.ts` 触发空 identity 占位分隔符失败
 - [x] 2.2 Green：`assembleSystemPrompt.test.ts` 与 `identityPrompt.test.ts` 通过
-- [ ] 2.3 交付门禁：`scripts/agent_pr_preflight.sh`
+- [x] 2.3 交付门禁：`scripts/agent_pr_preflight.sh`
 
 ## 3. Documentation
 
 - [x] 3.1 更新 `openspec/_ops/task_runs/ISSUE-477.md`（含关键命令输入输出）
-- [ ] 3.2 提交 PR（Closes #477）+ auto-merge + main 收口 + Rulebook 归档
+- [x] 3.2 提交 PR（Closes #477）+ auto-merge + main 收口 + Rulebook 归档
