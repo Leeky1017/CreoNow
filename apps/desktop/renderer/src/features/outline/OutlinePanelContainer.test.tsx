@@ -1,4 +1,10 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  act,
+} from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Editor, JSONContent } from "@tiptap/react";
 
@@ -10,6 +16,10 @@ import { OutlinePanelContainer } from "./OutlinePanelContainer";
 
 type EditorEventName = "update" | "selectionUpdate";
 type EditorEventHandler = () => void;
+type OutlineEditorDouble = Editor & {
+  __setDoc: (doc: JSONContent) => void;
+  __emitUpdate: () => void;
+};
 
 /**
  * Minimal editor double for OutlinePanelContainer behavior tests.
@@ -17,8 +27,11 @@ type EditorEventHandler = () => void;
  * Why: container logic only needs document snapshot, selection anchor, and
  * chain navigation hooks; mocking those keeps tests deterministic and fast.
  */
-function createOutlineEditorDouble(doc: JSONContent): Editor {
+function createOutlineEditorDouble(
+  initialDoc: JSONContent,
+): OutlineEditorDouble {
   const handlers = new Map<EditorEventName, Set<EditorEventHandler>>();
+  let doc = initialDoc;
   const selection = { anchor: 0 };
   const editorState = {
     selection,
@@ -50,7 +63,13 @@ function createOutlineEditorDouble(doc: JSONContent): Editor {
         }),
       }),
     }),
-  } as unknown as Editor;
+    __setDoc: (nextDoc: JSONContent) => {
+      doc = nextDoc;
+    },
+    __emitUpdate: () => {
+      handlers.get("update")?.forEach((cb) => cb());
+    },
+  } as unknown as OutlineEditorDouble;
 
   return editor;
 }
@@ -113,5 +132,61 @@ describe("OutlinePanelContainer", () => {
         0,
       );
     });
+  });
+
+  it("should keep only the latest outline recomputation when rapid updates arrive", async () => {
+    const store = createEditorStore({
+      invoke: async () => {
+        throw new Error("invoke should not be called in this test");
+      },
+    });
+
+    const editor = createOutlineEditorDouble({
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 1 },
+          content: [{ type: "text", text: "初始标题" }],
+        },
+      ],
+    });
+    store.setState({
+      bootstrapStatus: "ready",
+      documentId: "doc-outline",
+      editor,
+    });
+
+    render(
+      <EditorStoreProvider store={store}>
+        <OutlinePanelContainer />
+      </EditorStoreProvider>,
+    );
+
+    for (let i = 1; i <= 10; i += 1) {
+      act(() => {
+        editor.__setDoc({
+          type: "doc",
+          content: [
+            {
+              type: "heading",
+              attrs: { level: 1 },
+              content: [{ type: "text", text: `章节${i}` }],
+            },
+          ],
+        });
+        editor.__emitUpdate();
+      });
+    }
+
+    await waitFor(
+      () => {
+        expect(screen.getByText("章节10")).toBeInTheDocument();
+      },
+      { timeout: 1000 },
+    );
+
+    expect(screen.queryByText("章节1")).not.toBeInTheDocument();
+    expect(screen.queryByText("章节9")).not.toBeInTheDocument();
   });
 });

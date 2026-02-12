@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type {
   IpcChannel,
@@ -175,5 +175,77 @@ describe("editorStore bootstrap and autosave scenarios", () => {
     expect(store.getState().autosaveStatus).toBe("saved");
     expect(store.getState().autosaveError).toBeNull();
     expect(saveAttempt).toBe(2);
+  });
+
+  it("should prioritize manual-save over queued autosave requests in the same write queue", async () => {
+    const callOrder: string[] = [];
+    let releaseFirstAutosave = (): void => {};
+    const firstAutosaveGate = new Promise<void>((resolve) => {
+      releaseFirstAutosave = () => resolve();
+    });
+
+    const invoke: IpcInvoke = async (channel, payload) => {
+      if (channel !== "file:document:save") {
+        throw new Error(`Unexpected channel: ${channel}`);
+      }
+
+      const request = payload as { reason: "autosave" | "manual-save" };
+      callOrder.push(request.reason);
+      if (callOrder.length === 1) {
+        await firstAutosaveGate;
+      }
+
+      return ok(channel, {
+        contentHash: `hash-${callOrder.length}`,
+        updatedAt: callOrder.length,
+      });
+    };
+
+    const store = createEditorStore({ invoke });
+    store.setState({
+      projectId: "project-1",
+      documentId: "doc-1",
+      autosaveStatus: "idle",
+      autosaveError: null,
+      lastSavedOrQueuedJson: JSON.stringify({
+        type: "doc",
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: "v1" }] },
+        ],
+      }),
+    });
+
+    const auto1 = store.getState().save({
+      projectId: "project-1",
+      documentId: "doc-1",
+      contentJson: '{"v":1}',
+      actor: "auto",
+      reason: "autosave",
+    });
+    const auto2 = store.getState().save({
+      projectId: "project-1",
+      documentId: "doc-1",
+      contentJson: '{"v":2}',
+      actor: "auto",
+      reason: "autosave",
+    });
+    const manual = store.getState().save({
+      projectId: "project-1",
+      documentId: "doc-1",
+      contentJson: '{"v":3}',
+      actor: "user",
+      reason: "manual-save",
+    });
+
+    await vi.waitFor(() => {
+      expect(callOrder).toEqual(["autosave"]);
+    });
+    releaseFirstAutosave();
+
+    await Promise.all([auto1, auto2, manual]);
+
+    expect(callOrder).toEqual(["autosave", "manual-save", "autosave"]);
+    expect(store.getState().autosaveStatus).toBe("saved");
+    expect(store.getState().autosaveError).toBeNull();
   });
 });

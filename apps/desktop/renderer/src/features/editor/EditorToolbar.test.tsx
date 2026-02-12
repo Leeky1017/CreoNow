@@ -6,6 +6,7 @@ import {
   waitFor,
   act,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useEditor, EditorContent } from "@tiptap/react";
 import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -175,5 +176,45 @@ describe("EditorToolbar", () => {
   it("should render underline control for inline marks", async () => {
     render(<ToolbarHarness initialContent="<p>Underline ready</p>" />);
     expect(await screen.findByTestId("toolbar-underline")).toBeInTheDocument();
+  });
+
+  it("should toggle bold with keyboard-only navigation when pressing Enter on focused toolbar button", async () => {
+    const user = userEvent.setup();
+    render(<ToolbarHarness initialContent="<p>Keyboard nav</p>" />);
+
+    const boldButton = await screen.findByTestId("toolbar-bold");
+    boldButton.focus();
+    expect(boldButton).toHaveFocus();
+
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => {
+      expect(boldButton).toHaveAttribute("aria-pressed", "true");
+    });
+  });
+
+  it("should expose aria label and pressed state for active bold button", async () => {
+    let editorInstance: Editor | null = null;
+    render(
+      <ToolbarHarness
+        initialContent="<p>Bold text</p>"
+        onEditorReady={(editor) => {
+          editorInstance = editor;
+        }}
+      />,
+    );
+
+    const boldButton = await screen.findByTestId("toolbar-bold");
+
+    act(() => {
+      editorInstance?.commands.focus("start");
+      editorInstance?.commands.setTextSelection({ from: 1, to: 5 });
+      editorInstance?.commands.toggleBold();
+    });
+
+    await waitFor(() => {
+      expect(boldButton).toHaveAttribute("aria-label", "Bold");
+      expect(boldButton).toHaveAttribute("aria-pressed", "true");
+    });
   });
 });

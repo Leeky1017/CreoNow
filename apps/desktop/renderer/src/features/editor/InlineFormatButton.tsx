@@ -1,4 +1,5 @@
 import React from "react";
+import { createToggleButtonA11yProps } from "./a11y";
 
 export interface InlineFormatButtonProps {
   /** Button label for accessibility */
@@ -42,8 +43,7 @@ export function InlineFormatButton({
       type="button"
       data-testid={testId}
       title={title}
-      aria-label={label}
-      aria-pressed={isActive}
+      {...createToggleButtonA11yProps({ label, pressed: isActive })}
       disabled={disabled}
       onClick={onClick}
       className={`

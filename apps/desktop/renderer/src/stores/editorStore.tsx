@@ -25,6 +25,8 @@ export type EditorState = {
   documentContentJson: string | null;
   editor: Editor | null;
   lastSavedOrQueuedJson: string | null;
+  documentCharacterCount: number;
+  capacityWarning: string | null;
   autosaveStatus: AutosaveStatus;
   autosaveError: IpcError | null;
   /** Whether compare mode is active (showing DiffView instead of Editor) */
@@ -51,6 +53,8 @@ export type EditorActions = {
   retryLastAutosave: () => Promise<void>;
   flushPendingAutosave: () => Promise<void>;
   setAutosaveStatus: (status: AutosaveStatus) => void;
+  setDocumentCharacterCount: (count: number) => void;
+  setCapacityWarning: (warning: string | null) => void;
   clearAutosaveError: () => void;
   downgradeFinalStatusForEdit: (args: {
     projectId: string;
@@ -73,6 +77,22 @@ const EditorStoreContext = React.createContext<UseEditorStore | null>(null);
  * and StatusBar, and must be driven through typed IPC.
  */
 export function createEditorStore(deps: { invoke: IpcInvoke }) {
+  type SaveRequest = {
+    projectId: string;
+    documentId: string;
+    contentJson: string;
+    actor: "user" | "auto";
+    reason: "manual-save" | "autosave";
+  };
+
+  type SaveQueueEntry = {
+    request: SaveRequest;
+    resolve: () => void;
+  };
+
+  const saveQueue: SaveQueueEntry[] = [];
+  let processingQueue = false;
+
   return create<EditorStore>((set, get) => ({
     bootstrapStatus: "idle",
     projectId: null,
@@ -81,12 +101,17 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
     documentContentJson: null,
     editor: null,
     lastSavedOrQueuedJson: null,
+    documentCharacterCount: 0,
+    capacityWarning: null,
     autosaveStatus: "idle",
     autosaveError: null,
     compareMode: false,
     compareVersionId: null,
 
     setAutosaveStatus: (status) => set({ autosaveStatus: status }),
+    setDocumentCharacterCount: (count) =>
+      set({ documentCharacterCount: count }),
+    setCapacityWarning: (warning) => set({ capacityWarning: warning }),
     clearAutosaveError: () => set({ autosaveError: null }),
     setEditorInstance: (editor) => set({ editor }),
     setCompareMode: (enabled, versionId) =>
@@ -163,6 +188,8 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
         documentStatus: readRes.data.status,
         documentContentJson: readRes.data.contentJson,
         lastSavedOrQueuedJson: readRes.data.contentJson,
+        documentCharacterCount: 0,
+        capacityWarning: null,
         autosaveStatus: "idle",
         autosaveError: null,
       });
@@ -191,6 +218,8 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
         documentStatus: readRes.data.status,
         documentContentJson: readRes.data.contentJson,
         lastSavedOrQueuedJson: readRes.data.contentJson,
+        documentCharacterCount: 0,
+        capacityWarning: null,
         autosaveStatus: "idle",
         autosaveError: null,
       });
@@ -218,6 +247,8 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
           documentStatus: null,
           documentContentJson: null,
           lastSavedOrQueuedJson: null,
+          documentCharacterCount: 0,
+          capacityWarning: null,
           autosaveStatus: "idle",
           autosaveError: null,
         });
@@ -228,36 +259,104 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
     },
 
     save: async ({ projectId, documentId, contentJson, actor, reason }) => {
-      const isCurrent =
-        get().projectId === projectId && get().documentId === documentId;
-      if (isCurrent) {
-        set({ autosaveStatus: "saving", lastSavedOrQueuedJson: contentJson });
-      }
+      await new Promise<void>((resolve) => {
+        const entry: SaveQueueEntry = {
+          request: { projectId, documentId, contentJson, actor, reason },
+          resolve,
+        };
 
-      const res = await deps.invoke("file:document:save", {
-        projectId,
-        documentId,
-        contentJson,
-        actor,
-        reason,
-      });
-      if (!res.ok) {
-        const stillCurrent =
-          get().projectId === projectId && get().documentId === documentId;
-        if (stillCurrent) {
-          set({ autosaveStatus: "error", autosaveError: res.error });
+        if (reason === "manual-save") {
+          const firstAutosaveIndex = saveQueue.findIndex(
+            (queued) =>
+              queued.request.projectId === projectId &&
+              queued.request.documentId === documentId &&
+              queued.request.reason === "autosave",
+          );
+          if (firstAutosaveIndex >= 0) {
+            saveQueue.splice(firstAutosaveIndex, 0, entry);
+          } else {
+            saveQueue.push(entry);
+          }
+        } else {
+          saveQueue.push(entry);
         }
-        return;
-      }
 
-      const stillCurrent =
-        get().projectId === projectId && get().documentId === documentId;
-      if (stillCurrent) {
-        set({
-          autosaveStatus: "saved",
-          autosaveError: null,
-        });
-      }
+        if (processingQueue) {
+          return;
+        }
+
+        const processQueue = async () => {
+          processingQueue = true;
+          while (saveQueue.length > 0) {
+            const current = saveQueue.shift();
+            if (!current) {
+              break;
+            }
+
+            const isCurrent =
+              get().projectId === current.request.projectId &&
+              get().documentId === current.request.documentId;
+            if (isCurrent) {
+              set({
+                autosaveStatus: "saving",
+                lastSavedOrQueuedJson: current.request.contentJson,
+              });
+            }
+
+            try {
+              const res = await deps.invoke("file:document:save", {
+                projectId: current.request.projectId,
+                documentId: current.request.documentId,
+                contentJson: current.request.contentJson,
+                actor: current.request.actor,
+                reason: current.request.reason,
+              });
+
+              if (!res.ok) {
+                const stillCurrent =
+                  get().projectId === current.request.projectId &&
+                  get().documentId === current.request.documentId;
+                if (stillCurrent) {
+                  set({ autosaveStatus: "error", autosaveError: res.error });
+                }
+                current.resolve();
+                continue;
+              }
+
+              const stillCurrent =
+                get().projectId === current.request.projectId &&
+                get().documentId === current.request.documentId;
+              if (stillCurrent) {
+                set({
+                  autosaveStatus: "saved",
+                  autosaveError: null,
+                });
+              }
+            } catch (error) {
+              const stillCurrent =
+                get().projectId === current.request.projectId &&
+                get().documentId === current.request.documentId;
+              if (stillCurrent) {
+                set({
+                  autosaveStatus: "error",
+                  autosaveError: {
+                    code: "INTERNAL_ERROR",
+                    message:
+                      error instanceof Error
+                        ? error.message
+                        : "file:document:save threw unexpectedly",
+                  },
+                });
+              }
+            }
+
+            current.resolve();
+          }
+          processingQueue = false;
+        };
+
+        void processQueue();
+      });
     },
 
     downgradeFinalStatusForEdit: async ({ projectId, documentId }) => {
