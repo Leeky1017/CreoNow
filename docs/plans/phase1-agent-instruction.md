@@ -35,67 +35,124 @@
 1. 阅读目标模块的 spec.md，理解现有 requirements 和 scenarios
 2. 阅读对应审计报告章节，理解问题和建议方案
 3. 阅读相关代码文件，确认现有实现状态
-4. 创建 openspec/changes/<change-id>/proposal.md (delta spec)
-5. 创建 openspec/changes/<change-id>/tasks.md (TDD 六段式，仅填写 1-2 段)
-6. 同步更新 openspec/changes/EXECUTION_ORDER.md
+4. 创建 openspec/changes/<change-id>/proposal.md（提案：背景/范围/依赖）
+5. 创建 openspec/changes/<change-id>/specs/<module>-delta.md（delta spec：REQ + Scenario）
+6. 创建 openspec/changes/<change-id>/tasks.md（TDD 六段式，仅填写 §1-§2）
+7. 同步更新 openspec/changes/EXECUTION_ORDER.md
 ```
 
 全部 7 个 change 文档完成后，执行二次核对和三次核对（见下方）。
 
-## 交付物格式
+## 交付物格式（三层结构）
 
-### proposal.md
+每个 change 产出三个文件，参照 `openspec/changes/_template/`：
 
-```markdown
-# Change: <change-id>
-
-## 目标 Spec
-`openspec/specs/<module>/spec.md`
-
-## 审计来源
-`docs/audit/<report>.md` §<section>
-
-## Delta
-
-### [ADDED] REQ-XXX-YYY: <requirement 标题>
-<requirement 完整描述>
-
-### [ADDED] Scenario: <scenario 标题>
-GIVEN <精确前提，含具体数据>
-WHEN <触发动作，含函数签名>
-THEN <期望结果，含类型和值断言>
-
-## Codex 实现指引
-- 目标文件路径: <具体路径>
-- 验证命令: <pnpm vitest run ...>
-- Mock 要求: <需要 mock 什么>
+```
+openspec/changes/<change-id>/
+├── proposal.md                      ← 提案（背景/范围/依赖）
+├── specs/<module>-delta.md          ← Delta Spec（REQ + Scenario）
+└── tasks.md                         ← TDD 六段式（§1-§2 由你填写，§3-§6 留空由 Codex 填写）
 ```
 
-### tasks.md（仅填写 §1-§2，§3-§6 留空由 Codex 填写）
+### 1. proposal.md（提案）
 
 ```markdown
-# Tasks: <change-id>
+# 提案：<change-id>
 
+## 背景
+<为什么要改；当前问题；不改的风险；审计来源 `docs/audit/<report>.md` §<section>>
+
+## 变更内容
+- <变更点 1>
+- <变更点 2>
+
+## 受影响模块
+- <module> delta：`openspec/changes/<change-id>/specs/<module>-delta.md`
+- <module>（后续实现阶段）：`apps/desktop/...`
+
+## 不做什么
+- <明确排除范围>
+
+## 依赖关系
+- 上游依赖：<无 / 列出 change-id>
+- 下游依赖：<列出后续 change-id>
+
+## Dependency Sync Check
+- 核对输入：<列出需要核对的 spec 文件>
+- 核对项：数据结构、IPC 契约、错误码、阈值
+- 结论：`NO_DRIFT` / `DRIFT_FOUND`（若发现漂移需先修正）
+
+## Codex 实现指引
+- 目标文件路径：<具体路径>
+- 验证命令：<pnpm vitest run ...>
+- Mock 要求：<需要 mock 什么>
+
+## 审阅状态
+- Owner 审阅：`PENDING`
+```
+
+### 2. specs/<module>-delta.md（Delta Spec）
+
+```markdown
+# <Module> Specification Delta
+
+## Change: <change-id>
+
+### Requirement: <Requirement Name> [ADDED]
+<新增/修改要求，使用可验证语句，避免模糊词。>
+
+#### Scenario: <Scenario ID> <Scenario Name> [ADDED]
+- **假设** <精确前提，含具体数据值>
+- **当** <触发动作，含函数签名>
+- **则** <可验证结果，含类型和值断言>
+- **并且** <补充约束>
+```
+
+### 3. tasks.md（§1-§2 由你填写，§3-§6 留空由 Codex 填写）
+
+```markdown
 ## 1. Specification
-引用 proposal.md 中的 requirements 和 scenarios。
+- [ ] 1.1 审阅并确认需求边界
+- [ ] 1.2 审阅并确认错误路径与边界路径
+- [ ] 1.3 审阅并确认验收阈值与不可变契约
+- [ ] 1.4 若存在上游依赖，先完成 Dependency Sync Check 并记录结论；无依赖则标注 N/A
 
 ## 2. TDD Mapping（先测前提）
-| Scenario | 测试文件 | 测试用例名 | 断言要点 |
-|----------|---------|-----------|----------|
-| S1: xxx  | xxx.test.ts | should xxx | expect(xxx).toBe(xxx) |
+- [ ] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试用例
+- [ ] 2.2 为每个测试标注对应 Scenario ID，建立可追踪关系
+- [ ] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
+
+### Scenario → Test 映射
+| Scenario ID | 测试文件 | 测试用例名 | 断言要点 |
+|-------------|---------|-----------|----------|
+| S1          | xxx.test.ts | should xxx | expect(xxx).toBe(xxx) |
 
 ## 3. Red（先写失败测试）
-<!-- Codex 填写：测试代码 + 失败截图 -->
+<!-- Codex 填写 -->
 
 ## 4. Green（最小实现通过）
-<!-- Codex 填写：实现代码 + 通过截图 -->
+<!-- Codex 填写 -->
 
 ## 5. Refactor（保持绿灯）
 <!-- Codex 填写 -->
 
 ## 6. Evidence
-<!-- Codex 填写：最终测试通过截图 + CI 链接 -->
+<!-- Codex 填写 -->
 ```
+
+## C1-C7 内容与三层文件的映射
+
+下方 C1-C7 各节包含该 change 的完整参考信息。编写时按以下规则分配到三个文件：
+
+| C 节中的子标题 | 写入文件 | 对应模板章节 |
+|---------------|---------|-------------|
+| **模块 / 审计来源 / 前置依赖** | `proposal.md` | 背景 + 依赖关系 |
+| **Scope** | `proposal.md` | 变更内容 + Codex 实现指引 |
+| **Delta Spec** | `specs/<module>-delta.md` | Requirement [ADDED]/[MODIFIED] |
+| **Scenario** | `specs/<module>-delta.md` | Scenario [ADDED]（假设/当/则 格式） |
+| **验证命令** | `proposal.md` 的 Codex 实现指引 + `tasks.md` §2 | 验证命令 + Scenario→Test 映射 |
+
+---
 
 ## 二次核对（第一轮完成后）
 
@@ -103,7 +160,7 @@ THEN <期望结果，含类型和值断言>
 
 | # | 检查项 | 方法 |
 |---|--------|------|
-| 1 | **Requirement ID 唯一** | 搜索所有 proposal.md，确认无重复 REQ-ID |
+| 1 | **Requirement ID 唯一** | 搜索所有 `specs/*-delta.md`，确认无重复 REQ-ID |
 | 2 | **Scenario 完整** | 每个 REQ 至少有 1 个 Scenario 覆盖 |
 | 3 | **Scenario 精确** | 每个 GIVEN/WHEN/THEN 包含具体数据值，无模糊描述 |
 | 4 | **依赖正确** | 前置依赖的 change 确实提供了被依赖的能力 |
@@ -617,12 +674,13 @@ AND 存在可点击的跳转链接/按钮
 
 ## 约束
 
-- **禁止写任何代码**——你的交付物只有 proposal.md 和 tasks.md
-- 每个 Scenario 的 GIVEN/WHEN/THEN 必须包含具体数据值，禁止模糊描述
+- **禁止写任何代码**——你的交付物只有 proposal.md + specs/*-delta.md + tasks.md
+- 每个 change 必须产出三个文件，参照 `openspec/changes/_template/` 的目录结构
+- Delta spec 中的每个 Scenario 必须使用"假设/当/则/并且"格式，包含具体数据值，禁止模糊描述
 - 每个 proposal.md 必须包含 Codex 实现指引（目标文件路径、验证命令、Mock 要求）
 - 每个 tasks.md 的 §2 TDD Mapping 必须为每个 Scenario 指定测试文件路径和测试用例名
 - tasks.md 的 §3-§6 留空，由 Codex 填写
-- 完成全部 7 个文档后必须执行二次核对和三次核对
+- 完成全部 7 个 change 的三层文档后，必须执行二次核对和三次核对
 - 核对发现的问题必须修复后才能宣布交付
 
 ## 推荐编写顺序
