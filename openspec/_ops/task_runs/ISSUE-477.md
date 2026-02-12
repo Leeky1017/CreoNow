@@ -4,7 +4,7 @@
 
 - Issue: #477
 - Change: p1-assemble-prompt
-- Branch: task/477-p1-assemble-prompt
+- Branch: task/477-p1-assemble-prompt-closeout
 - PR: https://github.com/Leeky1017/CreoNow/pull/480
 
 ## Plan
