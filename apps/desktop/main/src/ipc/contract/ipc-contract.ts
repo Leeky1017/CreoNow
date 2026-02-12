@@ -61,6 +61,9 @@ export const IPC_ERROR_CODES = [
   "LLM_API_ERROR",
   "AI_PROVIDER_UNAVAILABLE",
   "VERSION_MERGE_TIMEOUT",
+  "VERSION_SNAPSHOT_COMPACTED",
+  "VERSION_DIFF_PAYLOAD_TOO_LARGE",
+  "VERSION_ROLLBACK_CONFLICT",
   "SEARCH_TIMEOUT",
   "SEARCH_REINDEX_IO_ERROR",
   "SEARCH_DATA_CORRUPTED",
@@ -2081,6 +2084,13 @@ export const ipcContract = {
         contentHash: s.string(),
         wordCount: s.number(),
         createdAt: s.number(),
+        compaction: s.optional(
+          s.object({
+            code: s.literal("VERSION_SNAPSHOT_COMPACTED"),
+            deletedCount: s.number(),
+            remainingCount: s.number(),
+          }),
+        ),
       }),
     },
     "version:snapshot:list": {

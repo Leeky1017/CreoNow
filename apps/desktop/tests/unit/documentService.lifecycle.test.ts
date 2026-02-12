@@ -535,6 +535,57 @@ function createFakeDb(): Database.Database {
         };
       }
 
+      if (
+        sql ===
+        "SELECT COUNT(*) as count FROM document_versions WHERE document_id = ?"
+      ) {
+        return {
+          get(documentId: string) {
+            return {
+              count: versions.filter((v) => v.documentId === documentId).length,
+            };
+          },
+        };
+      }
+
+      if (
+        sql ===
+        "SELECT version_id as versionId FROM document_versions WHERE document_id = ? AND reason = 'autosave' AND created_at < ? ORDER BY created_at ASC, version_id ASC LIMIT ?"
+      ) {
+        return {
+          all(documentId: string, compactBeforeTs: number, limit: number) {
+            return versions
+              .filter(
+                (v) =>
+                  v.documentId === documentId &&
+                  v.reason === "autosave" &&
+                  v.createdAt < compactBeforeTs,
+              )
+              .sort((a, b) => {
+                if (a.createdAt !== b.createdAt) {
+                  return a.createdAt - b.createdAt;
+                }
+                return a.versionId.localeCompare(b.versionId);
+              })
+              .slice(0, limit)
+              .map((v) => ({ versionId: v.versionId }));
+          },
+        };
+      }
+
+      if (sql === "DELETE FROM document_versions WHERE version_id = ?") {
+        return {
+          run(versionId: string) {
+            const index = versions.findIndex((v) => v.versionId === versionId);
+            if (index < 0) {
+              return { changes: 0 };
+            }
+            versions.splice(index, 1);
+            return { changes: 1 };
+          },
+        };
+      }
+
       throw new Error(`Unexpected SQL in fake DB: ${sql}`);
     },
 

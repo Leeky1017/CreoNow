@@ -62,6 +62,25 @@ function asObjectSchema(value: unknown): ObjectSchema {
 }
 
 /**
+ * P4 contract: hardening error codes must be present.
+ */
+{
+  const errorCodes = ipcContract.errorCodes as readonly string[];
+  const required = [
+    "VERSION_SNAPSHOT_COMPACTED",
+    "VERSION_DIFF_PAYLOAD_TOO_LARGE",
+    "VERSION_ROLLBACK_CONFLICT",
+  ] as const;
+  for (const code of required) {
+    assert.equal(
+      errorCodes.includes(code),
+      true,
+      `missing hardening error code: ${code}`,
+    );
+  }
+}
+
+/**
  * P3 contract: branch merge/conflict channels must exist with core fields.
  */
 {
@@ -231,6 +250,15 @@ function asObjectSchema(value: unknown): ObjectSchema {
     Object.prototype.hasOwnProperty.call(createReq.fields, "reason"),
     true,
     "version:snapshot:create request should include reason",
+  );
+
+  const createRes = asObjectSchema(
+    channels["version:snapshot:create"]?.response,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(createRes.fields, "compaction"),
+    true,
+    "version:snapshot:create response should include optional compaction event",
   );
 
   const listRes = asObjectSchema(channels["version:snapshot:list"]?.response);

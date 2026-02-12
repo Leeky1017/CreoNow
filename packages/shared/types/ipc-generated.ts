@@ -83,7 +83,10 @@ export type IpcErrorCode =
   | "UNSUPPORTED"
   | "UPSTREAM_ERROR"
   | "VALIDATION_ERROR"
-  | "VERSION_MERGE_TIMEOUT";
+  | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
+  | "VERSION_MERGE_TIMEOUT"
+  | "VERSION_ROLLBACK_CONFLICT"
+  | "VERSION_SNAPSHOT_COMPACTED";
 
 export type IpcMeta = {
   requestId: string;
@@ -373,6 +376,9 @@ export type IpcChannelSpec = {
           | "LLM_API_ERROR"
           | "AI_PROVIDER_UNAVAILABLE"
           | "VERSION_MERGE_TIMEOUT"
+          | "VERSION_SNAPSHOT_COMPACTED"
+          | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
+          | "VERSION_ROLLBACK_CONFLICT"
           | "SEARCH_TIMEOUT"
           | "SEARCH_REINDEX_IO_ERROR"
           | "SEARCH_DATA_CORRUPTED"
@@ -1174,6 +1180,9 @@ export type IpcChannelSpec = {
                 | "LLM_API_ERROR"
                 | "AI_PROVIDER_UNAVAILABLE"
                 | "VERSION_MERGE_TIMEOUT"
+                | "VERSION_SNAPSHOT_COMPACTED"
+                | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
+                | "VERSION_ROLLBACK_CONFLICT"
                 | "SEARCH_TIMEOUT"
                 | "SEARCH_REINDEX_IO_ERROR"
                 | "SEARCH_DATA_CORRUPTED"
@@ -1274,6 +1283,9 @@ export type IpcChannelSpec = {
                 | "LLM_API_ERROR"
                 | "AI_PROVIDER_UNAVAILABLE"
                 | "VERSION_MERGE_TIMEOUT"
+                | "VERSION_SNAPSHOT_COMPACTED"
+                | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
+                | "VERSION_ROLLBACK_CONFLICT"
                 | "SEARCH_TIMEOUT"
                 | "SEARCH_REINDEX_IO_ERROR"
                 | "SEARCH_DATA_CORRUPTED"
@@ -1738,6 +1750,9 @@ export type IpcChannelSpec = {
         | "LLM_API_ERROR"
         | "AI_PROVIDER_UNAVAILABLE"
         | "VERSION_MERGE_TIMEOUT"
+        | "VERSION_SNAPSHOT_COMPACTED"
+        | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
+        | "VERSION_ROLLBACK_CONFLICT"
         | "SEARCH_TIMEOUT"
         | "SEARCH_REINDEX_IO_ERROR"
         | "SEARCH_DATA_CORRUPTED"
@@ -1831,6 +1846,9 @@ export type IpcChannelSpec = {
         | "LLM_API_ERROR"
         | "AI_PROVIDER_UNAVAILABLE"
         | "VERSION_MERGE_TIMEOUT"
+        | "VERSION_SNAPSHOT_COMPACTED"
+        | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
+        | "VERSION_ROLLBACK_CONFLICT"
         | "SEARCH_TIMEOUT"
         | "SEARCH_REINDEX_IO_ERROR"
         | "SEARCH_DATA_CORRUPTED"
@@ -2774,6 +2792,9 @@ export type IpcChannelSpec = {
           | "LLM_API_ERROR"
           | "AI_PROVIDER_UNAVAILABLE"
           | "VERSION_MERGE_TIMEOUT"
+          | "VERSION_SNAPSHOT_COMPACTED"
+          | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
+          | "VERSION_ROLLBACK_CONFLICT"
           | "SEARCH_TIMEOUT"
           | "SEARCH_REINDEX_IO_ERROR"
           | "SEARCH_DATA_CORRUPTED"
@@ -2961,6 +2982,11 @@ export type IpcChannelSpec = {
       reason: "manual-save" | "autosave" | "ai-accept" | "status-change";
     };
     response: {
+      compaction?: {
+        code: "VERSION_SNAPSHOT_COMPACTED";
+        deletedCount: number;
+        remainingCount: number;
+      };
       contentHash: string;
       createdAt: number;
       versionId: string;
