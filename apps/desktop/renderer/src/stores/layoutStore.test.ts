@@ -8,7 +8,11 @@ import { createLayoutStore, LAYOUT_DEFAULTS } from "./layoutStore";
  */
 function createPreferenceStub(
   initial: Partial<Record<PreferenceKey, unknown>>,
-) {
+): {
+  preferences: PreferenceStore;
+  setCalls: Array<[PreferenceKey, unknown]>;
+  values: Map<PreferenceKey, unknown>;
+} {
   const values = new Map<PreferenceKey, unknown>();
   const setCalls: Array<[PreferenceKey, unknown]> = [];
 
@@ -77,5 +81,37 @@ describe("layoutStore persistence", () => {
     const store = createLayoutStore(preferences);
 
     expect(store.getState().sidebarWidth).toBe(LAYOUT_DEFAULTS.sidebar.default);
+  });
+});
+
+describe("layoutStore activeRightPanel persistence", () => {
+  it("should persist activeRightPanel when switching tabs", () => {
+    const { preferences, setCalls } = createPreferenceStub({});
+    const store = createLayoutStore(preferences);
+
+    store.getState().setActiveRightPanel("info");
+
+    expect(setCalls).toContainEqual([
+      "creonow.layout.activeRightPanel",
+      "info",
+    ]);
+  });
+
+  it("should restore activeRightPanel from preferences on startup", () => {
+    const { preferences } = createPreferenceStub({
+      "creonow.layout.activeRightPanel": "info",
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().activeRightPanel).toBe("info");
+  });
+
+  it("should fallback to ai when persisted activeRightPanel is invalid", () => {
+    const { preferences } = createPreferenceStub({
+      "creonow.layout.activeRightPanel": "broken-value",
+    });
+    const store = createLayoutStore(preferences);
+
+    expect(store.getState().activeRightPanel).toBe("ai");
   });
 });

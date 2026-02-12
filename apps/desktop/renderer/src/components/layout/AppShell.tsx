@@ -260,6 +260,7 @@ export function AppShell(): JSX.Element {
   const setPanelCollapsed = useLayoutStore((s) => s.setPanelCollapsed);
   const setZenMode = useLayoutStore((s) => s.setZenMode);
   const setActiveLeftPanel = useLayoutStore((s) => s.setActiveLeftPanel);
+  const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
   const resetSidebarWidth = useLayoutStore((s) => s.resetSidebarWidth);
   const resetPanelWidth = useLayoutStore((s) => s.resetPanelWidth);
   const setCompareMode = useEditorStore((s) => s.setCompareMode);
@@ -505,7 +506,11 @@ export function AppShell(): JSX.Element {
       // Cmd/Ctrl+L: Toggle Right Panel
       if (e.key.toLowerCase() === "l") {
         e.preventDefault();
-        setPanelCollapsed(!panelCollapsed);
+        if (panelCollapsed) {
+          setActiveRightPanel("ai");
+        } else {
+          setPanelCollapsed(true);
+        }
         return;
       }
 
@@ -537,6 +542,7 @@ export function AppShell(): JSX.Element {
     createDocument,
     currentProjectId,
     panelCollapsed,
+    setActiveRightPanel,
     setPanelCollapsed,
     setSidebarCollapsed,
     setZenMode,
@@ -700,7 +706,8 @@ export function AppShell(): JSX.Element {
       },
     ];
 
-    const fileEntries = [...fileItems]
+    const safeFileItems = Array.isArray(fileItems) ? fileItems : [];
+    const fileEntries = [...safeFileItems]
       .sort((a, b) => a.title.localeCompare(b.title))
       .map<CommandItem>((item) => ({
         id: `file-${item.documentId}`,

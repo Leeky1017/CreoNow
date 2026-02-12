@@ -93,12 +93,15 @@ describe("AiPanel", () => {
       expect(panel).toBeInTheDocument();
     });
 
-    it("应该显示 Assistant 和 Info 标签页", () => {
+    it("不应显示 Assistant/Info 内部子标签", () => {
       render(<AiPanel />);
 
-      // 组件使用 "Assistant" 和 "Info" 标签页而不是单独的 "AI" 标题
-      expect(screen.getByText("Assistant")).toBeInTheDocument();
-      expect(screen.getByText("Info")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /assistant/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /info/i }),
+      ).not.toBeInTheDocument();
     });
 
     it("应该显示 Send/Stop 组合按钮", () => {

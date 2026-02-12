@@ -1,16 +1,108 @@
+import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { StatusBar } from "./StatusBar";
-import { layoutDecorator } from "./test-utils";
+import {
+  ProjectStoreProvider,
+  createProjectStore,
+} from "../../stores/projectStore";
+import { FileStoreProvider, createFileStore } from "../../stores/fileStore";
+import {
+  EditorStoreProvider,
+  createEditorStore,
+  type AutosaveStatus,
+} from "../../stores/editorStore";
 
-/**
- * StatusBar 组件 Story
- *
- * 设计规范 §5.4: Status bar 高度 28px。
- *
- * 功能：
- * - 固定高度的底部状态栏
- * - 显示自动保存状态
- */
+function createMockIpc() {
+  return {
+    invoke: async () => ({
+      ok: true as const,
+      data: { items: [], settings: {}, content: "" },
+    }),
+    on: (): (() => void) => () => {},
+  };
+}
+
+function StatusBarScenario(props: {
+  autosaveStatus: AutosaveStatus;
+}): JSX.Element {
+  const ipc = React.useMemo(() => createMockIpc(), []);
+  const projectStore = React.useMemo(
+    () => createProjectStore(ipc as Parameters<typeof createProjectStore>[0]),
+    [ipc],
+  );
+  const fileStore = React.useMemo(
+    () => createFileStore(ipc as Parameters<typeof createFileStore>[0]),
+    [ipc],
+  );
+  const editorStore = React.useMemo(
+    () => createEditorStore(ipc as Parameters<typeof createEditorStore>[0]),
+    [ipc],
+  );
+
+  React.useEffect(() => {
+    projectStore.setState({
+      current: { projectId: "project-1", rootPath: "/tmp/project-1" },
+      items: [
+        {
+          projectId: "project-1",
+          name: "暗流",
+          rootPath: "/tmp/project-1",
+          updatedAt: 1700000000000,
+        },
+      ],
+    });
+    fileStore.setState({
+      currentDocumentId: "doc-1",
+      items: [
+        {
+          documentId: "doc-1",
+          title: "第三章",
+          status: "draft",
+          type: "chapter",
+          sortOrder: 0,
+          updatedAt: 1700000000000,
+        },
+      ],
+    });
+    editorStore.setState({
+      documentId: "doc-1",
+      documentCharacterCount: 3250,
+      autosaveStatus: props.autosaveStatus,
+    });
+  }, [editorStore, fileStore, projectStore, props.autosaveStatus]);
+
+  return (
+    <ProjectStoreProvider store={projectStore}>
+      <FileStoreProvider store={fileStore}>
+        <EditorStoreProvider store={editorStore}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              height: "220px",
+              width: "100%",
+            }}
+          >
+            <div
+              style={{
+                flex: 1,
+                backgroundColor: "var(--color-bg-base)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--color-fg-muted)",
+              }}
+            >
+              Main Content Area
+            </div>
+            <StatusBar />
+          </div>
+        </EditorStoreProvider>
+      </FileStoreProvider>
+    </ProjectStoreProvider>
+  );
+}
+
 const meta = {
   title: "Layout/StatusBar",
   component: StatusBar,
@@ -18,47 +110,19 @@ const meta = {
     layout: "fullscreen",
   },
   tags: ["autodocs"],
-  decorators: [layoutDecorator],
 } satisfies Meta<typeof StatusBar>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/**
- * 默认状态
- *
- * 固定 28px 高度的底部状态栏
- */
-export const Default: Story = {
-  render: () => (
-    <div style={{ display: "flex", flexDirection: "column", height: "300px" }}>
-      <div
-        style={{
-          flex: 1,
-          backgroundColor: "var(--color-bg-base)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--color-fg-muted)",
-          fontSize: "14px",
-        }}
-      >
-        Main Content Area
-      </div>
-      <StatusBar />
-    </div>
-  ),
+export const NormalState: Story = {
+  render: () => <StatusBarScenario autosaveStatus="idle" />,
 };
 
-/**
- * 完整宽度展示
- *
- * StatusBar 在全宽布局下的表现
- */
-export const FullWidth: Story = {
-  render: () => (
-    <div style={{ width: "100%" }}>
-      <StatusBar />
-    </div>
-  ),
+export const SavingState: Story = {
+  render: () => <StatusBarScenario autosaveStatus="saving" />,
+};
+
+export const ErrorState: Story = {
+  render: () => <StatusBarScenario autosaveStatus="error" />,
 };
