@@ -97,7 +97,7 @@ export function ZenMode({
       data-testid="zen-mode"
       className="fixed inset-0"
       style={{
-        backgroundColor: "#050505",
+        backgroundColor: "var(--color-zen-bg)",
         zIndex: "var(--z-modal)",
         fontFamily: "var(--font-family-ui)",
       }}
@@ -107,7 +107,7 @@ export function ZenMode({
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(circle at center, rgba(59, 130, 246, 0.03) 0%, rgba(5, 5, 5, 0) 70%)",
+            "radial-gradient(circle at center, var(--color-zen-glow) 0%, transparent 70%)",
         }}
         aria-hidden="true"
       />
@@ -211,7 +211,7 @@ export function ZenMode({
             className="text-[18px] leading-[1.8] space-y-8"
             style={{
               fontFamily: "var(--font-family-body)",
-              color: "rgba(255, 255, 255, 0.9)",
+              color: "var(--color-zen-text)",
             }}
           >
             {content.paragraphs.map((paragraph, index) => (
@@ -222,6 +222,11 @@ export function ZenMode({
                   index === content.paragraphs.length - 1 && <BlinkingCursor />}
               </p>
             ))}
+            {content.paragraphs.length === 0 && content.showCursor ? (
+              <p>
+                <BlinkingCursor />
+              </p>
+            ) : null}
           </div>
         </div>
       </main>

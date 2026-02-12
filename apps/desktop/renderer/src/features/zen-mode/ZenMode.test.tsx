@@ -181,7 +181,7 @@ describe("ZenMode content area", () => {
     expect(content).toBeInTheDocument();
   });
 
-  it("renders empty state with no paragraphs", () => {
+  it("renders empty state with placeholder title and cursor when no paragraphs", () => {
     render(
       <ZenMode
         {...defaultProps}
@@ -190,9 +190,12 @@ describe("ZenMode content area", () => {
           paragraphs: [],
           showCursor: true,
         }}
+        stats={{ ...defaultStats, wordCount: 0 }}
       />,
     );
     expect(screen.getByText("New Document")).toBeInTheDocument();
+    expect(screen.getByTestId("zen-cursor")).toBeInTheDocument();
+    expect(screen.getByTestId("zen-word-count")).toHaveTextContent("0 words");
   });
 });
 

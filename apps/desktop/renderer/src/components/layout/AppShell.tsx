@@ -454,6 +454,12 @@ export function AppShell(): JSX.Element {
         return;
       }
 
+      // Zen mode is pure writing immersion: block non-exit shortcuts to keep
+      // AI/panel entry points inaccessible until user exits.
+      if (zenMode) {
+        return;
+      }
+
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) {
         return;

@@ -72,6 +72,11 @@
   --color-node-item: #06b6d4; /* 物品 - 青色 */
   --color-node-other: #8b5cf6; /* 其他 - 紫色 */
 
+  /* Zen mode */
+  --color-zen-bg: #050505;
+  --color-zen-glow: rgba(59, 130, 246, 0.03);
+  --color-zen-text: rgba(255, 255, 255, 0.9);
+
   /* 阴影系统 §3.7 - 几何保持一致，颜色来自主题内 --color-shadow */
   --shadow-sm: 0 1px 2px var(--color-shadow);
   --shadow-md: 0 4px 8px var(--color-shadow);

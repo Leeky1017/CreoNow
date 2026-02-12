@@ -312,6 +312,37 @@ describe("AppShell", () => {
       expect(sidebar).not.toHaveClass("hidden");
     });
 
+    it("Zen 模式下 Ctrl + P 不应打开命令面板", async () => {
+      await renderWithWrapper();
+
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "F11" });
+      });
+
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "p", ctrlKey: true });
+      });
+
+      expect(screen.queryByTestId("command-palette")).not.toBeInTheDocument();
+    });
+
+    it("Zen 模式下 Ctrl + L 不应展开右侧面板（AI 禁用）", async () => {
+      await renderWithWrapper();
+
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "F11" });
+      });
+
+      const panel = screen.getByTestId("layout-panel");
+      expect(panel).toHaveClass("hidden");
+
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "l", ctrlKey: true });
+      });
+
+      expect(panel).toHaveClass("hidden");
+    });
+
     it("Ctrl + P 应该打开命令面板", async () => {
       await renderWithWrapper();
 
