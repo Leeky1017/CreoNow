@@ -17,10 +17,7 @@
 import { describe, it, expect } from "vitest";
 
 import type { PreferenceKey, PreferenceStore } from "../lib/preferences";
-import {
-  createLayoutStore,
-  LAYOUT_DEFAULTS,
-} from "./layoutStore";
+import { createLayoutStore, LAYOUT_DEFAULTS } from "./layoutStore";
 
 function createPreferenceStub(
   initial: Partial<Record<PreferenceKey, unknown>> = {},
@@ -30,9 +27,9 @@ function createPreferenceStub(
     values.set(key as PreferenceKey, value);
   }
   return {
-    get: <T,>(key: PreferenceKey) =>
+    get: <T>(key: PreferenceKey) =>
       values.has(key) ? (values.get(key) as T) : null,
-    set: <T,>(key: PreferenceKey, value: T) => {
+    set: <T>(key: PreferenceKey, value: T) => {
       values.set(key, value);
     },
     remove: (key: PreferenceKey) => {

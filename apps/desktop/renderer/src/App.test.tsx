@@ -42,10 +42,16 @@ function createMockMatchMedia(initialDark: boolean) {
       return matches;
     },
     media: "(prefers-color-scheme: dark)",
-    addEventListener: (_event: string, fn: (e: { matches: boolean }) => void) => {
+    addEventListener: (
+      _event: string,
+      fn: (e: { matches: boolean }) => void,
+    ) => {
       listeners.push(fn);
     },
-    removeEventListener: (_event: string, fn: (e: { matches: boolean }) => void) => {
+    removeEventListener: (
+      _event: string,
+      fn: (e: { matches: boolean }) => void,
+    ) => {
       const idx = listeners.indexOf(fn);
       if (idx >= 0) listeners.splice(idx, 1);
     },
