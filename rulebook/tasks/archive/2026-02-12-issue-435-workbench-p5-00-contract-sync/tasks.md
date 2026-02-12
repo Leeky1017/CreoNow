@@ -9,9 +9,9 @@
 
 - [x] 2.1 运行 `pnpm install --frozen-lockfile`（worktree 环境基线）
 - [x] 2.2 运行 `pnpm exec tsx apps/desktop/tests/unit/cross-module-drift-zero.spec.ts`
-- [ ] 2.3 运行 `scripts/agent_pr_preflight.sh`（PR 链接回填后）
+- [x] 2.3 运行 `scripts/agent_pr_preflight.sh`（通过 `agent_pr_automerge_and_sync.sh` 内置 preflight）
 
 ## 3. Documentation
 
 - [x] 3.1 维护 `openspec/_ops/task_runs/ISSUE-435.md`（关键命令、输出、结论）
-- [ ] 3.2 完成 PR + auto-merge + main 收口后归档 `rulebook/tasks/issue-435-workbench-p5-00-contract-sync`
+- [x] 3.2 完成 PR + auto-merge + main 收口后归档 `rulebook/tasks/issue-435-workbench-p5-00-contract-sync`
