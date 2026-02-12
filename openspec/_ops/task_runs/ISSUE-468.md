@@ -5,7 +5,7 @@
 - Issue: #468
 - Change: p1-identity-template
 - Branch: task/468-p1-identity-template
-- PR: https://github.com/Leeky1017/CreoNow/pull/472
+- PR: https://github.com/Leeky1017/CreoNow/pull/475
 
 ## Plan
 
@@ -82,8 +82,13 @@ Result:
 - `p1-identity-template` 已从 active 迁移到 `openspec/changes/archive/p1-identity-template`。
 - `openspec/changes/EXECUTION_ORDER.md` 已按活跃 change 数量与拓扑更新。
 
-### Pending Finalization
+### Closeout (Rulebook Self-Archive)
 
-- `scripts/agent_pr_preflight.sh` for issue 468
-- PR creation + auto-merge + required checks
-- sync control-plane `main` and closeout
+```bash
+$ rulebook task archive issue-468-p1-identity-template
+✅ Task issue-468-p1-identity-template archived successfully
+```
+
+Result:
+
+- Rulebook task 已从 `rulebook/tasks/issue-468-p1-identity-template` 迁移到 `rulebook/tasks/archive/2026-02-12-issue-468-p1-identity-template`。
