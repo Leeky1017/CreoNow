@@ -3,7 +3,7 @@
 - Issue: #439
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/439
 - Branch: task/439-workbench-p5-02-project-switcher + task/439-workbench-p5-02-project-switcher-closeout
-- PR: https://github.com/Leeky1017/CreoNow/pull/443, https://github.com/Leeky1017/CreoNow/pull/447
+- PR: https://github.com/Leeky1017/CreoNow/pull/443, https://github.com/Leeky1017/CreoNow/pull/447, https://github.com/Leeky1017/CreoNow/pull/449
 - Scope: 完成 `openspec/changes/workbench-p5-02-project-switcher` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: `workbench-p5-01`/`workbench-p5-03`/`workbench-p5-04`/`workbench-p5-05` 的实现交付
 
@@ -344,3 +344,35 @@
   - `pnpm contract:check` 通过
   - `pnpm cross-module:check` 通过（`CROSS_MODULE_GATE PASS`）
   - `pnpm test:unit` 通过，Storybook inventory `59/59`
+
+### 2026-02-12 推送阻断：远端同名分支 non-fast-forward
+
+- Command:
+  - `git push -u origin task/439-workbench-p5-02-project-switcher`
+- Exit code: `1`
+- Key output:
+  - `rejected (non-fast-forward)`
+- Root cause:
+  - 远端 `task/439-workbench-p5-02-project-switcher` 保留了历史提交，且当前环境禁止 force push
+
+### 2026-02-12 同步远端任务分支历史并解决冲突
+
+- Command:
+  - `git merge --no-edit origin/task/439-workbench-p5-02-project-switcher`
+  - `git checkout --ours openspec/_ops/task_runs/ISSUE-439.md`
+  - `git add openspec/_ops/task_runs/ISSUE-439.md`
+  - `git commit -m "merge: integrate remote issue-439 branch history (#439)"`
+- Exit code: `0`（首次 merge 冲突后手动解冲并提交）
+- Key output:
+  - 冲突文件：`openspec/_ops/task_runs/ISSUE-439.md`
+  - 解冲策略：保留当前 closeout 证据并去除 conflict markers
+
+### 2026-02-12 推送成功并创建 closeout PR
+
+- Command:
+  - `git push -u origin task/439-workbench-p5-02-project-switcher`
+  - `gh pr create --base main --head task/439-workbench-p5-02-project-switcher --title "docs: finalize issue-439 rulebook closeout (#439)" --body-file ...`
+- Exit code: `0`
+- Key output:
+  - 分支更新：`1d0aef21..0bbef149`
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/449`
