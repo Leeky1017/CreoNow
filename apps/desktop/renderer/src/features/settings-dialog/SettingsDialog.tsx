@@ -4,8 +4,8 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Text } from "../../components/primitives";
 import { AnalyticsPageContent } from "../analytics/AnalyticsPage";
 import { AppearanceSection } from "../settings/AppearanceSection";
+import { AiSettingsSection } from "../settings/AiSettingsSection";
 import { JudgeSection } from "../settings/JudgeSection";
-import { ProxySection } from "../settings/ProxySection";
 import {
   SettingsGeneral,
   defaultGeneralSettings,
@@ -185,7 +185,7 @@ export function SettingsDialog({
       case "appearance":
         return <AppearanceSection />;
       case "proxy":
-        return <ProxySection />;
+        return <AiSettingsSection />;
       case "judge":
         return <JudgeSection />;
       case "analytics":
