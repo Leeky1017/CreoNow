@@ -12,9 +12,9 @@
 - [x] 2.2 Red：`pnpm -C apps/desktop exec vitest run renderer/src/features/projects/ProjectSwitcher.test.tsx`（6/6 fail）
 - [x] 2.3 Green：同命令回归（6/6 pass）
 - [x] 2.4 运行 `pnpm -C apps/desktop exec vitest run renderer/src/components/layout/Sidebar.test.tsx renderer/src/components/layout/AppShell.test.tsx`
-- [ ] 2.5 运行 `scripts/agent_pr_preflight.sh`（或通过 `agent_pr_automerge_and_sync.sh` 内置 preflight）
+- [x] 2.5 运行 `scripts/agent_pr_preflight.sh`（或通过 `agent_pr_automerge_and_sync.sh` 内置 preflight）
 
 ## 3. Documentation
 
 - [x] 3.1 维护 `openspec/_ops/task_runs/ISSUE-439.md`（关键命令、输出、结论）
-- [ ] 3.2 完成 PR + auto-merge + main 收口后归档 `rulebook/tasks/issue-439-workbench-p5-02-project-switcher`
+- [x] 3.2 完成 PR + auto-merge + main 收口后归档 `rulebook/tasks/issue-439-workbench-p5-02-project-switcher`
