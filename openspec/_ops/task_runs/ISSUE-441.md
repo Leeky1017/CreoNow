@@ -176,3 +176,34 @@
 - Key output:
   - `Task issue-441-p5-workbench-rightpanel-statusbar is valid`
   - warning: `No spec files found (specs/*/spec.md)`
+
+### 2026-02-12 16:32 +0800 首次自动收口阻断
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `1`
+- Key output:
+  - preflight 首次阻断：`RUN_LOG PR field still placeholder`
+  - 因分支未先推送，`gh pr create` 失败（`Head sha can't be blank` / `No commits between main and task/...`）
+
+### 2026-02-12 16:32 +0800 分支推送 + 自动收口重试
+
+- Command:
+  - `git push -u origin task/441-p5-workbench-rightpanel-statusbar`
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code:
+  - push: `0`
+  - script: `blocked`
+- Key output:
+  - 脚本自动回填 RUN_LOG PR 链接并提交：`docs: backfill run log PR link (#441)`
+  - preflight 二次阻断：`change tasks.md checkboxes are all checked, so the change is completed and must be archived`
+
+### 2026-02-12 16:33 +0800 完成 change 归档与执行顺序同步
+
+- Command:
+  - `git mv openspec/changes/workbench-p5-03-rightpanel-statusbar openspec/changes/archive/workbench-p5-03-rightpanel-statusbar`
+  - `apply_patch openspec/changes/EXECUTION_ORDER.md`
+- Exit code: `0`
+- Key output:
+  - `workbench-p5-03-rightpanel-statusbar` 已归档到 `openspec/changes/archive/`
+  - `EXECUTION_ORDER.md` 已同步为活跃 change 数量 `4`
