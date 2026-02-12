@@ -5,7 +5,7 @@
 - Issue: #476
 - Change: p1-ai-settings-ui
 - Branch: task/476-p1-ai-settings-ui
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/479
 
 ## Plan
 
@@ -63,3 +63,20 @@ Unable to find an element by: [data-testid="mock-ai-settings-section"]
 - Key output: active change 数量由 4 更新为 3，执行模式由双泳道并行更新为单泳道串行。
 - Command: `rulebook task validate issue-476-p1-ai-settings-ui`
 - Key output: `✅ Task issue-476-p1-ai-settings-ui is valid`。
+
+### 2026-02-13 PR 创建
+
+- Command: `gh pr create --base main --head task/476-p1-ai-settings-ui --title "Complete p1-ai-settings-ui delivery closure (#476)" --body ...`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/479`
+
+### 2026-02-13 门禁 preflight
+
+- Command: `scripts/agent_pr_preflight.sh`
+- Key output:
+  - `pnpm exec prettier --check ...` ✅
+  - `pnpm typecheck` ✅
+  - `pnpm lint` ✅
+  - `pnpm contract:check` ✅
+  - `pnpm cross-module:check` ✅
+  - `pnpm test:unit` ✅
+- 结论：preflight 全绿，可进入 auto-merge 阶段。

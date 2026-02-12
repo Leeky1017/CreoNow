@@ -6,15 +6,15 @@
 
 设置面板**必须**包含 AI 配置区组件 `AiSettingsSection`，包含：
 
-| 元素 | 类型 | data-testid | 说明 |
-|------|------|-------------|------|
-| Provider 选择 | `<select>` | `ai-provider-mode` | openai-compatible / openai-byok / anthropic-byok |
-| Base URL 输入 | `<input>` | `ai-base-url` | URL 输入框 |
-| API Key 输入 | `<input type="password">` | `ai-api-key` | 密码类型，placeholder 显示配置状态 |
-| 保存按钮 | `<button>` | `ai-save-btn` | 调用 `ai:config:update` |
-| 测试连接按钮 | `<button>` | `ai-test-btn` | 调用 `ai:config:test` |
-| 错误显示 | `<span>` | `ai-error` | 错误文案 |
-| 测试结果 | `<span>` | `ai-test-result` | 成功/失败状态文案 |
+| 元素          | 类型                      | data-testid        | 说明                                             |
+| ------------- | ------------------------- | ------------------ | ------------------------------------------------ |
+| Provider 选择 | `<select>`                | `ai-provider-mode` | openai-compatible / openai-byok / anthropic-byok |
+| Base URL 输入 | `<input>`                 | `ai-base-url`      | URL 输入框                                       |
+| API Key 输入  | `<input type="password">` | `ai-api-key`       | 密码类型，placeholder 显示配置状态               |
+| 保存按钮      | `<button>`                | `ai-save-btn`      | 调用 `ai:config:update`                          |
+| 测试连接按钮  | `<button>`                | `ai-test-btn`      | 调用 `ai:config:test`                            |
+| 错误显示      | `<span>`                  | `ai-error`         | 错误文案                                         |
+| 测试结果      | `<span>`                  | `ai-test-result`   | 成功/失败状态文案                                |
 
 REQ-ID: `REQ-WB-AICONFIG`
 

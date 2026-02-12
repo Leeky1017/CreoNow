@@ -8,7 +8,7 @@
 ## 2. Testing
 
 - [x] 2.1 目标测试：`pnpm -C apps/desktop test:run renderer/src/features/settings/__tests__/AiSettingsSection.test.tsx`
-- [ ] 2.2 交付门禁：`scripts/agent_pr_preflight.sh`
+- [x] 2.2 交付门禁：`scripts/agent_pr_preflight.sh`
 - [x] 2.3 必要回归：`pnpm -C apps/desktop test:run renderer/src/features/settings-dialog/SettingsDialog.test.tsx`
 
 ## 3. Documentation
