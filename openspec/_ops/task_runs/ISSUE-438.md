@@ -3,7 +3,7 @@
 - Issue: #438
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/438
 - Branch: task/438-workbench-p5-01-layout-iconbar-shell
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/442
 - Scope: 完成 `openspec/changes/workbench-p5-01-layout-iconbar-shell` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: `workbench-p5-02/03/04/05` 及任何与 change 01 无关的功能改动
 
