@@ -36,6 +36,11 @@ function asObjectSchema(value: unknown): ObjectSchema {
     "version:snapshot:read",
     "version:snapshot:diff",
     "version:snapshot:rollback",
+    "version:branch:create",
+    "version:branch:list",
+    "version:branch:switch",
+    "version:branch:merge",
+    "version:conflict:resolve",
   ] as const;
   const legacy = ["file:document:rename", "file:document:write"] as const;
 
@@ -54,6 +59,83 @@ function asObjectSchema(value: unknown): ObjectSchema {
       `legacy channel should be removed: ${channel}`,
     );
   }
+}
+
+/**
+ * P3 contract: branch merge/conflict channels must exist with core fields.
+ */
+{
+  const channels = ipcContract.channels as unknown as Record<
+    string,
+    { request: unknown; response: unknown }
+  >;
+
+  const createReq = asObjectSchema(channels["version:branch:create"]?.request);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(createReq.fields, "documentId"),
+    true,
+    "version:branch:create request should include documentId",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(createReq.fields, "name"),
+    true,
+    "version:branch:create request should include name",
+  );
+
+  const listReq = asObjectSchema(channels["version:branch:list"]?.request);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(listReq.fields, "documentId"),
+    true,
+    "version:branch:list request should include documentId",
+  );
+
+  const switchReq = asObjectSchema(channels["version:branch:switch"]?.request);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(switchReq.fields, "documentId"),
+    true,
+    "version:branch:switch request should include documentId",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(switchReq.fields, "name"),
+    true,
+    "version:branch:switch request should include name",
+  );
+
+  const mergeReq = asObjectSchema(channels["version:branch:merge"]?.request);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(mergeReq.fields, "documentId"),
+    true,
+    "version:branch:merge request should include documentId",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(mergeReq.fields, "sourceBranchName"),
+    true,
+    "version:branch:merge request should include sourceBranchName",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(mergeReq.fields, "targetBranchName"),
+    true,
+    "version:branch:merge request should include targetBranchName",
+  );
+
+  const resolveReq = asObjectSchema(
+    channels["version:conflict:resolve"]?.request,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(resolveReq.fields, "documentId"),
+    true,
+    "version:conflict:resolve request should include documentId",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(resolveReq.fields, "mergeSessionId"),
+    true,
+    "version:conflict:resolve request should include mergeSessionId",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(resolveReq.fields, "resolutions"),
+    true,
+    "version:conflict:resolve request should include resolutions",
+  );
 }
 
 /**
