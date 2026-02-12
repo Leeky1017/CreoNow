@@ -13,6 +13,7 @@
 ## 变更内容
 
 - 创建 `apps/desktop/main/src/services/skills/skillRouter.ts`，导出 `inferSkillFromInput()` 函数
+- 创建 `apps/desktop/main/skills/packages/pkg.creonow.builtin/1.0.0/skills/chat/SKILL.md`，提供 `builtin:chat` 技能定义
 - 实现基于关键词匹配的意图路由规则：
   - 包含 "续写"/"写下去"/"继续写" → `builtin:continue`
   - 包含 "扩写"/"展开" → `builtin:expand`
@@ -30,7 +31,6 @@
 
 ## 不做什么
 
-- 不创建 chat 技能的 SKILL.md 文件（技能定义文件由后续 Phase 3 统一管理）
 - 不实现 LLM 意图分类（初期用关键词+启发式规则）
 - 不涉及前端 UI 变更
 
@@ -47,10 +47,11 @@
 ## Codex 实现指引
 
 - 目标文件路径：`apps/desktop/main/src/services/skills/skillRouter.ts`
-- 测试文件路径：`apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts`
-- 验证命令：`pnpm vitest run apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts`
+- 技能定义路径：`apps/desktop/main/skills/packages/pkg.creonow.builtin/1.0.0/skills/chat/SKILL.md`
+- 测试文件路径：`apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts`、`apps/desktop/main/src/services/skills/__tests__/chatSkill.test.ts`
+- 验证命令：`pnpm exec tsx apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts && pnpm exec tsx apps/desktop/main/src/services/skills/__tests__/chatSkill.test.ts`
 - Mock 要求：无外部依赖，纯函数测试
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`
+- Owner 审阅：`DONE`（实现完成并进入 ISSUE-469 交付归档）
