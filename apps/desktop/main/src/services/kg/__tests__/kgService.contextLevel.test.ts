@@ -8,24 +8,27 @@ import {
   type KnowledgeGraphService,
 } from "../kgService";
 
-type EntityCreateWithAiContext =
-  Parameters<KnowledgeGraphService["entityCreate"]>[0] & {
+type EntityCreateWithAiContext = Parameters<
+  KnowledgeGraphService["entityCreate"]
+>[0] & {
+  aiContextLevel?: string;
+};
+
+type EntityUpdateWithAiContext = Parameters<
+  KnowledgeGraphService["entityUpdate"]
+>[0] & {
+  patch: Parameters<KnowledgeGraphService["entityUpdate"]>[0]["patch"] & {
     aiContextLevel?: string;
   };
+};
 
-type EntityUpdateWithAiContext =
-  Parameters<KnowledgeGraphService["entityUpdate"]>[0] & {
-    patch: Parameters<KnowledgeGraphService["entityUpdate"]>[0]["patch"] & {
-      aiContextLevel?: string;
-    };
+type EntityListWithAiContextFilter = Parameters<
+  KnowledgeGraphService["entityList"]
+>[0] & {
+  filter?: {
+    aiContextLevel?: string;
   };
-
-type EntityListWithAiContextFilter =
-  Parameters<KnowledgeGraphService["entityList"]>[0] & {
-    filter?: {
-      aiContextLevel?: string;
-    };
-  };
+};
 
 function createTestHarness(): {
   db: Database.Database;
@@ -96,9 +99,10 @@ function createTestHarness(): {
     assert.equal(entity.aiContextLevel, "when_detected");
 
     const row = harness.db
-      .prepare<[string], { aiContextLevel: string }>(
-        "SELECT ai_context_level as aiContextLevel FROM kg_entities WHERE id = ?",
-      )
+      .prepare<
+        [string],
+        { aiContextLevel: string }
+      >("SELECT ai_context_level as aiContextLevel FROM kg_entities WHERE id = ?")
       .get(created.data.id);
     assert.equal(row?.aiContextLevel, "when_detected");
   } finally {
@@ -139,9 +143,10 @@ function createTestHarness(): {
     assert.equal(entity.aiContextLevel, "always");
 
     const row = harness.db
-      .prepare<[string], { aiContextLevel: string }>(
-        "SELECT ai_context_level as aiContextLevel FROM kg_entities WHERE id = ?",
-      )
+      .prepare<
+        [string],
+        { aiContextLevel: string }
+      >("SELECT ai_context_level as aiContextLevel FROM kg_entities WHERE id = ?")
       .get(created.data.id);
     assert.equal(row?.aiContextLevel, "always");
   } finally {
@@ -206,7 +211,8 @@ function createTestHarness(): {
       projectId: harness.projectId,
       type: "character",
       name: "Entity-S4",
-      aiContextLevel: "invalid_value" as unknown as EntityCreateWithAiContext["aiContextLevel"],
+      aiContextLevel:
+        "invalid_value" as unknown as EntityCreateWithAiContext["aiContextLevel"],
     };
     const rejected = harness.service.entityCreate(createArgs);
 
@@ -218,9 +224,10 @@ function createTestHarness(): {
     assert.equal(rejected.error.code, "VALIDATION_ERROR");
 
     const row = harness.db
-      .prepare<[string, string], { count: number }>(
-        "SELECT COUNT(1) as count FROM kg_entities WHERE project_id = ? AND name = ?",
-      )
+      .prepare<
+        [string, string],
+        { count: number }
+      >("SELECT COUNT(1) as count FROM kg_entities WHERE project_id = ? AND name = ?")
       .get(harness.projectId, "Entity-S4");
     assert.equal(row?.count, 0);
   } finally {

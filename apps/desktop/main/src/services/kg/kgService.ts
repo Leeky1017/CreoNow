@@ -634,17 +634,13 @@ function listProjectEntities(
         .prepare<
           [string, AiContextLevel],
           EntityRow
-        >(
-          "SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, ai_context_level as aiContextLevel, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? AND ai_context_level = ? ORDER BY updated_at DESC, id ASC",
-        )
+        >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, ai_context_level as aiContextLevel, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? AND ai_context_level = ? ORDER BY updated_at DESC, id ASC")
         .all(projectId, filter.aiContextLevel)
     : db
         .prepare<
           [string],
           EntityRow
-        >(
-          "SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, ai_context_level as aiContextLevel, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, id ASC",
-        )
+        >("SELECT id, project_id as projectId, type, name, description, attributes_json as attributesJson, ai_context_level as aiContextLevel, version, created_at as createdAt, updated_at as updatedAt FROM kg_entities WHERE project_id = ? ORDER BY updated_at DESC, id ASC")
         .all(projectId);
   return rows.map(rowToEntity);
 }
