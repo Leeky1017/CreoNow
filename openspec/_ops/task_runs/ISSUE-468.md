@@ -5,7 +5,7 @@
 - Issue: #468
 - Change: p1-identity-template
 - Branch: task/468-p1-identity-template
-- PR: PENDING
+- PR: https://github.com/Leeky1017/CreoNow/pull/472
 
 ## Plan
 
