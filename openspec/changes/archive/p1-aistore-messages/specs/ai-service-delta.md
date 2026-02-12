@@ -7,14 +7,16 @@
 AI 服务**必须**在主进程维护对话消息数组，通过 `ChatMessageManager` 管理。
 
 类型定义：
+
 ```typescript
 type ChatMessage = {
-  id: string;                // 唯一标识
+  id: string; // 唯一标识
   role: "user" | "assistant"; // 消息角色
-  content: string;           // 文本内容
-  timestamp: number;         // 时间戳（Date.now()）
-  skillId?: string;          // 关联技能 ID
-  metadata?: {               // 可选元数据
+  content: string; // 文本内容
+  timestamp: number; // 时间戳（Date.now()）
+  skillId?: string; // 关联技能 ID
+  metadata?: {
+    // 可选元数据
     tokenCount: number;
     model: string;
   };
@@ -22,6 +24,7 @@ type ChatMessage = {
 ```
 
 支持操作：
+
 - `add(msg: ChatMessage)`: 追加消息（浅拷贝存入）
 - `clear()`: 清空全部消息
 - `getMessages()`: 返回消息数组的防御性浅拷贝
