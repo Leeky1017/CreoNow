@@ -3,7 +3,7 @@
 - Issue: #429
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/429
 - Branch: task/429-version-control-p4-save-contract-drift-fix
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/430
 - Scope: 修复 `file:document:save` IPC 响应契约漂移并完成门禁合并回 `main`
 - Out of Scope: 版本控制新功能开发、snapshot 业务策略调整
 
