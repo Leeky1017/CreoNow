@@ -141,6 +141,9 @@ test.describe("Command Palette + Shortcuts", () => {
       await expect(sidebar).toBeVisible();
     }
 
+    // Wait for debounce window (300ms) to expire before toggling back
+    await page.waitForTimeout(350);
+
     // Toggle back
     await page.keyboard.press(`${modKey}+\\`);
 
@@ -168,6 +171,9 @@ test.describe("Command Palette + Shortcuts", () => {
     } else {
       await expect(panel).toBeVisible();
     }
+
+    // Wait for debounce window (300ms) to expire before toggling back
+    await page.waitForTimeout(350);
 
     // Toggle back
     await page.keyboard.press(`${modKey}+l`);
