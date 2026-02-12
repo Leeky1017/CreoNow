@@ -131,3 +131,49 @@
 - Key output:
   - 首次失败文件：`openspec/changes/archive/workbench-p5-00-contract-sync/proposal.md`、`rulebook/tasks/issue-435-workbench-p5-00-contract-sync/tasks.md`
   - 格式化后：`All matched files use Prettier code style!`
+
+### 2026-02-12 15:47 +0800 PR 自动收口（首次执行，预检阻断）
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`
+- Exit code: `in-progress`（脚本进入等待）
+- Key output:
+  - 首次 preflight 阻断：`[RUN_LOG] PR field still placeholder`
+  - 脚本自动回填 PR 链接并提交：`docs: backfill run log PR link (#435)`
+  - 回填后再次 preflight 阻断：`workbench-delta.md` Prettier 未通过
+
+### 2026-02-12 15:48 +0800 preflight 修复（delta spec 格式）
+
+- Command:
+  - `pnpm exec prettier --write openspec/changes/archive/workbench-p5-00-contract-sync/specs/workbench-delta.md`
+  - `git commit -m "docs: format workbench p5-00 delta spec (#435)"`
+  - `git push`
+- Exit code: `0`
+- Key output:
+  - 仅格式化变更，无行为改动
+  - 分支更新：`1dee5d2b -> b30b1211`
+
+### 2026-02-12 15:53 +0800 PR #436 合并与控制面同步
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`（同一会话继续）
+- Exit code: `0`
+- Key output:
+  - PR：`https://github.com/Leeky1017/CreoNow/pull/436`
+  - required checks：`ci`、`openspec-log-guard`、`merge-serial` 均为 `pass`
+  - 自动合并完成：`mergedAt=2026-02-12T07:53:01Z`
+  - 控制面同步：`OK: merged PR #436 and synced controlplane main`
+
+### 2026-02-12 15:55 +0800 收口复核与 Rulebook 归档补充
+
+- Command:
+  - `gh issue view 435 --json ...`
+  - `gh pr view 436 --json ...`
+  - `test -d rulebook/tasks/issue-435-workbench-p5-00-contract-sync`
+  - `gh issue reopen 435`
+  - `rulebook task archive issue-435-workbench-p5-00-contract-sync`
+- Exit code: `0`
+- Key output:
+  - 复核确认 Rulebook task 仍在 active，需要补归档
+  - issue #435 已 reopen（用于同任务收口）
+  - Rulebook task 已归档：`rulebook/tasks/archive/2026-02-12-issue-435-workbench-p5-00-contract-sync`
