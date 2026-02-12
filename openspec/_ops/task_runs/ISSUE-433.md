@@ -1,13 +1,16 @@
-# RUN_LOG: Issue #433 — P5 Workbench Change Specs
+# ISSUE-433
 
-## Meta
+- Issue: #433
+- Issue URL: https://github.com/Leeky1017/CreoNow/issues/433
+- Branch: task/433-p5-workbench-change-specs
+- PR: https://github.com/Leeky1017/CreoNow/pull/434
 
-| Field   | Value                                                         |
-| ------- | ------------------------------------------------------------- |
-| Issue   | https://github.com/Leeky1017/CreoNow/issues/433              |
-| Branch  | `task/433-p5-workbench-change-specs`                          |
-| PR      | https://github.com/Leeky1017/CreoNow/pull/434                |
-| Status  | IN_PROGRESS                                                   |
+## Plan
+
+1. 基于 P5-WORKBENCH-ANALYSIS.md 和 workbench/spec.md 创建 6 个 change 三件套
+2. 更新 EXECUTION_ORDER.md
+3. 双重验证（Spec 覆盖矩阵 + 跨 change 一致性）
+4. 创建 Rulebook task、RUN_LOG，提交并合并到 main
 
 ## Runs
 
