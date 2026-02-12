@@ -322,29 +322,13 @@ export function CodeBlock(props: {
 
 /**
 
- * InfoPanel placeholder - shown when Info tab is selected
-
- */
-
-function InfoPanel(): JSX.Element {
-  return (
-    <div className="flex-1 flex items-center justify-center p-4">
-      <Text size="small" color="muted" className="text-center">
-        Project and document info will appear here
-      </Text>
-    </div>
-  );
-}
-
-/**
-
  * AiPanel provides the AI assistant interface for text generation and editing.
 
  *
 
  * Layout:
 
- * - Header with Tabs (Assistant / Info)
+ * - Header actions (history/new chat)
 
  * - User Request Card (shows current input)
 
@@ -433,10 +417,6 @@ export function AiPanel(): JSX.Element {
   const documentId = useEditorStore((s) => s.documentId);
 
   const currentProject = useProjectStore((s) => s.current);
-
-  const [activeTab, setActiveTab] = React.useState<"assistant" | "info">(
-    "assistant",
-  );
 
   const [skillsOpen, setSkillsOpen] = React.useState(false);
   const [skillManagerOpen, setSkillManagerOpen] = React.useState(false);
@@ -1086,51 +1066,9 @@ export function AiPanel(): JSX.Element {
       data-testid="ai-panel"
       className="flex flex-col h-full min-h-0 bg-[var(--color-bg-surface)]"
     >
-      {/* Header with Tabs */}
+      {/* Header actions */}
 
       <header className="flex items-center h-8 px-2 border-b border-[var(--color-separator)] shrink-0">
-        <div className="flex items-center gap-3 h-full">
-          <button
-            type="button"
-            className={`
-
-              h-full text-[10px] font-semibold uppercase tracking-wide
-
-              border-b transition-colors
-
-              ${
-                activeTab === "assistant"
-                  ? "text-[var(--color-fg-default)] border-[var(--color-accent)]"
-                  : "text-[var(--color-fg-muted)] border-transparent hover:text-[var(--color-fg-default)]"
-              }
-
-            `}
-            onClick={() => setActiveTab("assistant")}
-          >
-            Assistant
-          </button>
-
-          <button
-            type="button"
-            className={`
-
-              h-full text-[10px] font-semibold uppercase tracking-wide
-
-              border-b transition-colors
-
-              ${
-                activeTab === "info"
-                  ? "text-[var(--color-fg-default)] border-[var(--color-accent)]"
-                  : "text-[var(--color-fg-muted)] border-transparent hover:text-[var(--color-fg-default)]"
-              }
-
-            `}
-            onClick={() => setActiveTab("info")}
-          >
-            Info
-          </button>
-        </div>
-
         <div className="ml-auto flex items-center gap-1 relative">
           {/* History button */}
 
@@ -1202,437 +1140,421 @@ export function AiPanel(): JSX.Element {
         </div>
       </header>
 
-      {activeTab === "info" ? (
-        <InfoPanel />
-      ) : (
-        <>
-          {/* Main content area */}
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Scrollable content */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-4">
-              {/* User Request - boxed */}
-              {lastRequest && (
-                <div className="w-full p-3 border border-[var(--color-border-default)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)]">
-                  <div className="text-[13px] text-[var(--color-fg-default)] whitespace-pre-wrap">
-                    {lastRequest}
-                  </div>
-                </div>
-              )}
-
-              {/* Status indicator */}
-              {working && (
-                <div className="flex items-center gap-2 text-[12px] text-[var(--color-fg-muted)]">
-                  <Spinner size="sm" />
-                  <span>
-                    {status === "streaming" ? "Generating..." : "Thinking..."}
-                  </span>
-                  {typeof queuePosition === "number" && queuePosition > 0 ? (
-                    <span data-testid="ai-queue-status">
-                      Queue #{queuePosition} ({queuedCount} waiting)
-                    </span>
-                  ) : null}
-                </div>
-              )}
-
-              {/* Error Display */}
-              {skillsErrorConfig ? (
-                <AiErrorCard error={skillsErrorConfig} showDismiss={false} />
-              ) : null}
-
-              {modelsErrorConfig ? (
-                <AiErrorCard error={modelsErrorConfig} showDismiss={false} />
-              ) : null}
-
-              {runtimeErrorConfig ? (
-                <AiErrorCard
-                  error={runtimeErrorConfig}
-                  errorCodeTestId="ai-error-code"
-                  onDismiss={clearError}
-                />
-              ) : null}
-
-              {lastCandidates.length > 0 ? (
-                <div
-                  data-testid="ai-candidate-list"
-                  className="w-full grid grid-cols-1 gap-2"
-                >
-                  {lastCandidates.map((candidate, index) => {
-                    const isSelected = selectedCandidate?.id === candidate.id;
-                    return (
-                      <button
-                        key={candidate.id}
-                        data-testid={`ai-candidate-card-${index + 1}`}
-                        type="button"
-                        onClick={() => onSelectCandidate(candidate.id)}
-                        className={`w-full text-left rounded-[var(--radius-md)] border px-3 py-2 transition-colors ${
-                          isSelected
-                            ? "border-[var(--color-accent)] bg-[var(--color-bg-selected)]"
-                            : "border-[var(--color-border-default)] bg-[var(--color-bg-base)] hover:bg-[var(--color-bg-hover)]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[12px] font-semibold text-[var(--color-fg-default)]">
-                            方案 {index + 1}
-                          </span>
-                          {isSelected ? (
-                            <span className="text-[11px] text-[var(--color-fg-accent)]">
-                              已选择
-                            </span>
-                          ) : null}
-                        </div>
-                        <Text
-                          size="small"
-                          color="muted"
-                          className="mt-1 whitespace-pre-wrap"
-                        >
-                          {candidate.summary}
-                        </Text>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {lastCandidates.length > 1 ? (
-                <div className="w-full flex justify-end">
-                  <Button
-                    data-testid="ai-candidate-regenerate"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void onRegenerateAll()}
-                    disabled={working}
-                  >
-                    全部不满意，重新生成
-                  </Button>
-                </div>
-              ) : null}
-
-              {/* AI Response - no box, just text flow */}
-              {activeOutputText ? (
-                <div data-testid="ai-output" className="w-full">
-                  <div className="text-[13px] leading-relaxed text-[var(--color-fg-default)] whitespace-pre-wrap">
-                    {activeOutputText}
-                    {status === "streaming" && (
-                      <span className="typing-cursor" />
-                    )}
-                  </div>
-                </div>
-              ) : (
-                !lastRequest &&
-                !working && (
-                  <div
-                    data-testid="ai-output"
-                    className="flex-1 flex items-center justify-center text-center py-12"
-                  >
-                    <Text size="small" color="muted">
-                      选中文本或输入指令，开始与 AI 协作
-                    </Text>
-                  </div>
-                )
-              )}
-
-              {judgeResult ? (
-                <div
-                  data-testid="ai-judge-result"
-                  className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-3 py-2 space-y-1"
-                >
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      data-testid="ai-judge-severity"
-                      className={`text-[11px] font-semibold uppercase tracking-wide ${judgeSeverityClass(
-                        judgeResult.severity,
-                      )}`}
-                    >
-                      {judgeResult.severity}
-                    </span>
-                    {judgeResult.labels.length === 0 ? (
-                      <span
-                        data-testid="ai-judge-pass"
-                        className="text-[12px] text-[var(--color-fg-default)]"
-                      >
-                        质量校验通过
-                      </span>
-                    ) : (
-                      judgeResult.labels.map((label) => (
-                        <span
-                          key={label}
-                          className="text-[12px] text-[var(--color-fg-default)]"
-                        >
-                          {label}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                  <Text
-                    data-testid="ai-judge-summary"
-                    size="small"
-                    color="muted"
-                  >
-                    {judgeResult.summary}
-                  </Text>
-                  {judgeResult.partialChecksSkipped ? (
-                    <Text
-                      data-testid="ai-judge-partial"
-                      size="small"
-                      color="muted"
-                    >
-                      部分校验已跳过
-                    </Text>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {usageStats ? (
-                <div
-                  data-testid="ai-usage-stats"
-                  className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-3 py-2"
-                >
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--color-fg-muted)]">
-                    <span>
-                      Prompt:{" "}
-                      <span data-testid="ai-usage-prompt-tokens">
-                        {formatTokenValue(usageStats.promptTokens)}
-                      </span>
-                    </span>
-                    <span>
-                      输出:{" "}
-                      <span data-testid="ai-usage-completion-tokens">
-                        {formatTokenValue(usageStats.completionTokens)}
-                      </span>
-                    </span>
-                    <span>
-                      本会话累计:{" "}
-                      <span data-testid="ai-usage-session-total-tokens">
-                        {formatTokenValue(usageStats.sessionTotalTokens)}
-                      </span>
-                    </span>
-                    {typeof usageStats.estimatedCostUsd === "number" ? (
-                      <span>
-                        费用估算:{" "}
-                        <span data-testid="ai-usage-estimated-cost">
-                          {formatUsd(usageStats.estimatedCostUsd)}
-                        </span>
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Applied Status */}
-              {applyStatus === "applied" && (
-                <Text data-testid="ai-apply-status" size="small" color="muted">
-                  Applied &amp; saved
-                </Text>
-              )}
-
-              {/* Proposal Area (Diff + Apply/Reject) */}
-              {proposal && (
-                <>
-                  {!compareMode ? (
-                    <DiffView diffText={diffText} testId="ai-panel-diff" />
-                  ) : null}
-                  <div className="flex gap-2">
-                    <Button
-                      data-testid="ai-apply"
-                      variant="secondary"
-                      size="md"
-                      onClick={() => void onApply()}
-                      disabled={!canApply}
-                      className="flex-1"
-                    >
-                      {inlineDiffConfirmOpen ? "Apply (armed)" : "Apply"}
-                    </Button>
-                    {inlineDiffConfirmOpen ? (
-                      <Button
-                        data-testid="ai-apply-confirm"
-                        variant="secondary"
-                        size="md"
-                        onClick={() => void onApply()}
-                        disabled={!canApply}
-                        className="flex-1"
-                      >
-                        Confirm Apply
-                      </Button>
-                    ) : null}
-                    <Button
-                      data-testid="ai-reject"
-                      variant="ghost"
-                      size="md"
-                      onClick={
-                        inlineDiffConfirmOpen
-                          ? () => setInlineDiffConfirmOpen(false)
-                          : onReject
-                      }
-                      disabled={applyStatus === "applying"}
-                    >
-                      {inlineDiffConfirmOpen ? "Back to Diff" : "Reject"}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Input Area - Fixed at bottom, minimal padding like Cursor */}
-            <div className="shrink-0 px-1.5 pb-1.5 pt-2 border-t border-[var(--color-separator)]">
-              {/* Unified input wrapper */}
-              <div className="relative border border-[var(--color-border-default)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] focus-within:border-[var(--color-border-focus)]">
-                {hasSelectionReference ? (
-                  <div
-                    data-testid="ai-selection-reference-card"
-                    className="mx-2 mt-2 mb-1 rounded-[var(--radius-sm)] border border-[var(--color-border-default)] bg-[var(--color-bg-raised)] px-2 py-1.5"
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[10px] uppercase tracking-wide text-[var(--color-fg-muted)]">
-                          Selection from editor
-                        </div>
-                        <div
-                          data-testid="ai-selection-reference-preview"
-                          className="text-[12px] text-[var(--color-fg-default)] whitespace-pre-wrap break-words"
-                        >
-                          {selectionPreview}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        data-testid="ai-selection-reference-close"
-                        className="h-5 w-5 shrink-0 rounded text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)]"
-                        onClick={() => setSelectionSnapshot(null)}
-                        title="Dismiss selection reference"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-                <textarea
-                  ref={textareaRef}
-                  data-testid="ai-input"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Ask the AI to help with your writing..."
-                  className="w-full min-h-[60px] max-h-[160px] px-3 py-2 bg-transparent border-none resize-none text-[13px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-placeholder)] focus:outline-none"
-                />
-
-                {/* Embedded toolbar - seamless, no separator */}
-                <div className="flex items-center justify-between px-2 pb-2">
-                  <div className="flex items-center gap-1">
-                    {/* Mode button */}
-                    <ToolButton
-                      active={modeOpen}
-                      onClick={() => {
-                        setModeOpen((v) => !v);
-                        setModelOpen(false);
-                        setSkillsOpen(false);
-                      }}
-                    >
-                      {getModeName(selectedMode)}
-                    </ToolButton>
-
-                    {/* Model button */}
-                    <ToolButton
-                      active={modelOpen}
-                      onClick={() => {
-                        setModelOpen((v) => !v);
-                        setModeOpen(false);
-                        setSkillsOpen(false);
-                      }}
-                    >
-                      {modelsStatus === "loading"
-                        ? "Loading"
-                        : getModelName(selectedModel, availableModels)}
-                    </ToolButton>
-
-                    {/* Candidate count button */}
-                    <ToolButton
-                      testId="ai-candidate-count"
-                      onClick={() =>
-                        setCandidateCount((prev) => (prev >= 5 ? 1 : prev + 1))
-                      }
-                    >
-                      {`${candidateCount}x`}
-                    </ToolButton>
-
-                    {/* Skill button */}
-                    <ToolButton
-                      active={skillsOpen}
-                      testId="ai-skills-toggle"
-                      onClick={() => {
-                        setSkillsOpen((v) => !v);
-                        setModeOpen(false);
-                        setModelOpen(false);
-                      }}
-                    >
-                      {skillsStatus === "loading" ? "Loading" : "SKILL"}
-                    </ToolButton>
-                  </div>
-
-                  <SendStopButton
-                    isWorking={working}
-                    disabled={!working && !input.trim()}
-                    onSend={() => void onRun()}
-                    onStop={() => void cancel()}
-                  />
-                </div>
-
-                {/* Pickers anchored to the input wrapper */}
-                <ModePicker
-                  open={modeOpen}
-                  selectedMode={selectedMode}
-                  onOpenChange={setModeOpen}
-                  onSelectMode={(mode) => {
-                    setSelectedMode(mode);
-                    setModeOpen(false);
-                  }}
-                />
-                <ModelPicker
-                  open={modelOpen}
-                  models={availableModels}
-                  recentModelIds={recentModelIds}
-                  selectedModel={selectedModel}
-                  onOpenChange={setModelOpen}
-                  onSelectModel={(model) => {
-                    setSelectedModel(model);
-                    setModelOpen(false);
-                  }}
-                />
-                <SkillPicker
-                  open={skillsOpen}
-                  items={skills}
-                  selectedSkillId={selectedSkillId}
-                  onOpenChange={setSkillsOpen}
-                  onSelectSkillId={(skillId) => {
-                    void handleSkillSelect(skillId);
-                  }}
-                  onOpenSettings={() => {
-                    setSkillsOpen(false);
-                    openSettings();
-                  }}
-                  onCreateSkill={() => {
-                    setSkillsOpen(false);
-                    setSkillManagerOpen(true);
-                  }}
-                  onToggleSkill={(skillId, enabled) => {
-                    void handleSkillToggle({ skillId, enabled });
-                  }}
-                  onUpdateScope={(id, scope) => {
-                    void handleSkillScopeUpdate({ id, scope });
-                  }}
-                />
-                <SkillManagerDialog
-                  open={skillManagerOpen}
-                  onOpenChange={setSkillManagerOpen}
-                  projectId={currentProject?.projectId ?? projectId ?? null}
-                  onSaved={async () => {
-                    await refreshSkills();
-                  }}
-                />
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col min-h-0">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-4">
+          {/* User Request - boxed */}
+          {lastRequest && (
+            <div className="w-full p-3 border border-[var(--color-border-default)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)]">
+              <div className="text-[13px] text-[var(--color-fg-default)] whitespace-pre-wrap">
+                {lastRequest}
               </div>
             </div>
+          )}
+
+          {/* Status indicator */}
+          {working && (
+            <div className="flex items-center gap-2 text-[12px] text-[var(--color-fg-muted)]">
+              <Spinner size="sm" />
+              <span>
+                {status === "streaming" ? "Generating..." : "Thinking..."}
+              </span>
+              {typeof queuePosition === "number" && queuePosition > 0 ? (
+                <span data-testid="ai-queue-status">
+                  Queue #{queuePosition} ({queuedCount} waiting)
+                </span>
+              ) : null}
+            </div>
+          )}
+
+          {/* Error Display */}
+          {skillsErrorConfig ? (
+            <AiErrorCard error={skillsErrorConfig} showDismiss={false} />
+          ) : null}
+
+          {modelsErrorConfig ? (
+            <AiErrorCard error={modelsErrorConfig} showDismiss={false} />
+          ) : null}
+
+          {runtimeErrorConfig ? (
+            <AiErrorCard
+              error={runtimeErrorConfig}
+              errorCodeTestId="ai-error-code"
+              onDismiss={clearError}
+            />
+          ) : null}
+
+          {lastCandidates.length > 0 ? (
+            <div
+              data-testid="ai-candidate-list"
+              className="w-full grid grid-cols-1 gap-2"
+            >
+              {lastCandidates.map((candidate, index) => {
+                const isSelected = selectedCandidate?.id === candidate.id;
+                return (
+                  <button
+                    key={candidate.id}
+                    data-testid={`ai-candidate-card-${index + 1}`}
+                    type="button"
+                    onClick={() => onSelectCandidate(candidate.id)}
+                    className={`w-full text-left rounded-[var(--radius-md)] border px-3 py-2 transition-colors ${
+                      isSelected
+                        ? "border-[var(--color-accent)] bg-[var(--color-bg-selected)]"
+                        : "border-[var(--color-border-default)] bg-[var(--color-bg-base)] hover:bg-[var(--color-bg-hover)]"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[12px] font-semibold text-[var(--color-fg-default)]">
+                        方案 {index + 1}
+                      </span>
+                      {isSelected ? (
+                        <span className="text-[11px] text-[var(--color-fg-accent)]">
+                          已选择
+                        </span>
+                      ) : null}
+                    </div>
+                    <Text
+                      size="small"
+                      color="muted"
+                      className="mt-1 whitespace-pre-wrap"
+                    >
+                      {candidate.summary}
+                    </Text>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {lastCandidates.length > 1 ? (
+            <div className="w-full flex justify-end">
+              <Button
+                data-testid="ai-candidate-regenerate"
+                variant="ghost"
+                size="sm"
+                onClick={() => void onRegenerateAll()}
+                disabled={working}
+              >
+                全部不满意，重新生成
+              </Button>
+            </div>
+          ) : null}
+
+          {/* AI Response - no box, just text flow */}
+          {activeOutputText ? (
+            <div data-testid="ai-output" className="w-full">
+              <div className="text-[13px] leading-relaxed text-[var(--color-fg-default)] whitespace-pre-wrap">
+                {activeOutputText}
+                {status === "streaming" && <span className="typing-cursor" />}
+              </div>
+            </div>
+          ) : (
+            !lastRequest &&
+            !working && (
+              <div
+                data-testid="ai-output"
+                className="flex-1 flex items-center justify-center text-center py-12"
+              >
+                <Text size="small" color="muted">
+                  选中文本或输入指令，开始与 AI 协作
+                </Text>
+              </div>
+            )
+          )}
+
+          {judgeResult ? (
+            <div
+              data-testid="ai-judge-result"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-3 py-2 space-y-1"
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  data-testid="ai-judge-severity"
+                  className={`text-[11px] font-semibold uppercase tracking-wide ${judgeSeverityClass(
+                    judgeResult.severity,
+                  )}`}
+                >
+                  {judgeResult.severity}
+                </span>
+                {judgeResult.labels.length === 0 ? (
+                  <span
+                    data-testid="ai-judge-pass"
+                    className="text-[12px] text-[var(--color-fg-default)]"
+                  >
+                    质量校验通过
+                  </span>
+                ) : (
+                  judgeResult.labels.map((label) => (
+                    <span
+                      key={label}
+                      className="text-[12px] text-[var(--color-fg-default)]"
+                    >
+                      {label}
+                    </span>
+                  ))
+                )}
+              </div>
+              <Text data-testid="ai-judge-summary" size="small" color="muted">
+                {judgeResult.summary}
+              </Text>
+              {judgeResult.partialChecksSkipped ? (
+                <Text data-testid="ai-judge-partial" size="small" color="muted">
+                  部分校验已跳过
+                </Text>
+              ) : null}
+            </div>
+          ) : null}
+
+          {usageStats ? (
+            <div
+              data-testid="ai-usage-stats"
+              className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-3 py-2"
+            >
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--color-fg-muted)]">
+                <span>
+                  Prompt:{" "}
+                  <span data-testid="ai-usage-prompt-tokens">
+                    {formatTokenValue(usageStats.promptTokens)}
+                  </span>
+                </span>
+                <span>
+                  输出:{" "}
+                  <span data-testid="ai-usage-completion-tokens">
+                    {formatTokenValue(usageStats.completionTokens)}
+                  </span>
+                </span>
+                <span>
+                  本会话累计:{" "}
+                  <span data-testid="ai-usage-session-total-tokens">
+                    {formatTokenValue(usageStats.sessionTotalTokens)}
+                  </span>
+                </span>
+                {typeof usageStats.estimatedCostUsd === "number" ? (
+                  <span>
+                    费用估算:{" "}
+                    <span data-testid="ai-usage-estimated-cost">
+                      {formatUsd(usageStats.estimatedCostUsd)}
+                    </span>
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Applied Status */}
+          {applyStatus === "applied" && (
+            <Text data-testid="ai-apply-status" size="small" color="muted">
+              Applied &amp; saved
+            </Text>
+          )}
+
+          {/* Proposal Area (Diff + Apply/Reject) */}
+          {proposal && (
+            <>
+              {!compareMode ? (
+                <DiffView diffText={diffText} testId="ai-panel-diff" />
+              ) : null}
+              <div className="flex gap-2">
+                <Button
+                  data-testid="ai-apply"
+                  variant="secondary"
+                  size="md"
+                  onClick={() => void onApply()}
+                  disabled={!canApply}
+                  className="flex-1"
+                >
+                  {inlineDiffConfirmOpen ? "Apply (armed)" : "Apply"}
+                </Button>
+                {inlineDiffConfirmOpen ? (
+                  <Button
+                    data-testid="ai-apply-confirm"
+                    variant="secondary"
+                    size="md"
+                    onClick={() => void onApply()}
+                    disabled={!canApply}
+                    className="flex-1"
+                  >
+                    Confirm Apply
+                  </Button>
+                ) : null}
+                <Button
+                  data-testid="ai-reject"
+                  variant="ghost"
+                  size="md"
+                  onClick={
+                    inlineDiffConfirmOpen
+                      ? () => setInlineDiffConfirmOpen(false)
+                      : onReject
+                  }
+                  disabled={applyStatus === "applying"}
+                >
+                  {inlineDiffConfirmOpen ? "Back to Diff" : "Reject"}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Input Area - Fixed at bottom, minimal padding like Cursor */}
+        <div className="shrink-0 px-1.5 pb-1.5 pt-2 border-t border-[var(--color-separator)]">
+          {/* Unified input wrapper */}
+          <div className="relative border border-[var(--color-border-default)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] focus-within:border-[var(--color-border-focus)]">
+            {hasSelectionReference ? (
+              <div
+                data-testid="ai-selection-reference-card"
+                className="mx-2 mt-2 mb-1 rounded-[var(--radius-sm)] border border-[var(--color-border-default)] bg-[var(--color-bg-raised)] px-2 py-1.5"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-fg-muted)]">
+                      Selection from editor
+                    </div>
+                    <div
+                      data-testid="ai-selection-reference-preview"
+                      className="text-[12px] text-[var(--color-fg-default)] whitespace-pre-wrap break-words"
+                    >
+                      {selectionPreview}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    data-testid="ai-selection-reference-close"
+                    className="h-5 w-5 shrink-0 rounded text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)]"
+                    onClick={() => setSelectionSnapshot(null)}
+                    title="Dismiss selection reference"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            <textarea
+              ref={textareaRef}
+              data-testid="ai-input"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask the AI to help with your writing..."
+              className="w-full min-h-[60px] max-h-[160px] px-3 py-2 bg-transparent border-none resize-none text-[13px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-placeholder)] focus:outline-none"
+            />
+
+            {/* Embedded toolbar - seamless, no separator */}
+            <div className="flex items-center justify-between px-2 pb-2">
+              <div className="flex items-center gap-1">
+                {/* Mode button */}
+                <ToolButton
+                  active={modeOpen}
+                  onClick={() => {
+                    setModeOpen((v) => !v);
+                    setModelOpen(false);
+                    setSkillsOpen(false);
+                  }}
+                >
+                  {getModeName(selectedMode)}
+                </ToolButton>
+
+                {/* Model button */}
+                <ToolButton
+                  active={modelOpen}
+                  onClick={() => {
+                    setModelOpen((v) => !v);
+                    setModeOpen(false);
+                    setSkillsOpen(false);
+                  }}
+                >
+                  {modelsStatus === "loading"
+                    ? "Loading"
+                    : getModelName(selectedModel, availableModels)}
+                </ToolButton>
+
+                {/* Candidate count button */}
+                <ToolButton
+                  testId="ai-candidate-count"
+                  onClick={() =>
+                    setCandidateCount((prev) => (prev >= 5 ? 1 : prev + 1))
+                  }
+                >
+                  {`${candidateCount}x`}
+                </ToolButton>
+
+                {/* Skill button */}
+                <ToolButton
+                  active={skillsOpen}
+                  testId="ai-skills-toggle"
+                  onClick={() => {
+                    setSkillsOpen((v) => !v);
+                    setModeOpen(false);
+                    setModelOpen(false);
+                  }}
+                >
+                  {skillsStatus === "loading" ? "Loading" : "SKILL"}
+                </ToolButton>
+              </div>
+
+              <SendStopButton
+                isWorking={working}
+                disabled={!working && !input.trim()}
+                onSend={() => void onRun()}
+                onStop={() => void cancel()}
+              />
+            </div>
+
+            {/* Pickers anchored to the input wrapper */}
+            <ModePicker
+              open={modeOpen}
+              selectedMode={selectedMode}
+              onOpenChange={setModeOpen}
+              onSelectMode={(mode) => {
+                setSelectedMode(mode);
+                setModeOpen(false);
+              }}
+            />
+            <ModelPicker
+              open={modelOpen}
+              models={availableModels}
+              recentModelIds={recentModelIds}
+              selectedModel={selectedModel}
+              onOpenChange={setModelOpen}
+              onSelectModel={(model) => {
+                setSelectedModel(model);
+                setModelOpen(false);
+              }}
+            />
+            <SkillPicker
+              open={skillsOpen}
+              items={skills}
+              selectedSkillId={selectedSkillId}
+              onOpenChange={setSkillsOpen}
+              onSelectSkillId={(skillId) => {
+                void handleSkillSelect(skillId);
+              }}
+              onOpenSettings={() => {
+                setSkillsOpen(false);
+                openSettings();
+              }}
+              onCreateSkill={() => {
+                setSkillsOpen(false);
+                setSkillManagerOpen(true);
+              }}
+              onToggleSkill={(skillId, enabled) => {
+                void handleSkillToggle({ skillId, enabled });
+              }}
+              onUpdateScope={(id, scope) => {
+                void handleSkillScopeUpdate({ id, scope });
+              }}
+            />
+            <SkillManagerDialog
+              open={skillManagerOpen}
+              onOpenChange={setSkillManagerOpen}
+              projectId={currentProject?.projectId ?? projectId ?? null}
+              onSaved={async () => {
+                await refreshSkills();
+              }}
+            />
           </div>
-        </>
-      )}
+        </div>
+      </div>
 
       {/* CSS for typing cursor animation */}
 
