@@ -14,5 +14,5 @@
 ## 3. Documentation
 
 - [x] 3.1 新增并完善 `openspec/_ops/task_runs/ISSUE-486.md`（命令 + 输出 + 结论）
-- [ ] 3.2 完成 PR（`Closes #486`）+ auto-merge + required checks 全绿 + 控制面 `main` 收口
-- [ ] 3.3 将当前 Rulebook task 自归档到 `rulebook/tasks/archive/`（同 PR 收口）
+- [x] 3.2 完成 PR（`Closes #486`）+ auto-merge + required checks 全绿 + 控制面 `main` 收口
+- [x] 3.3 将当前 Rulebook task 自归档到 `rulebook/tasks/archive/`（同 PR 收口）

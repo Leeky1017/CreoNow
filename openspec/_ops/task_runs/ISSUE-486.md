@@ -161,3 +161,27 @@ All matched files use Prettier code style!
 ```
 
 结果：preflight 阻断项已修复，准备重跑 auto-merge 流程。
+
+### 2026-02-13 PR #487 Merge Verification
+
+```bash
+$ gh pr view 487 --json number,state,mergedAt,url,mergeCommit
+{"mergeCommit":{"oid":"9edf1cd3c053edb95238f07d01caeacc1ee023ef"},"mergedAt":"2026-02-12T17:49:34Z","number":487,"state":"MERGED","url":"https://github.com/Leeky1017/CreoNow/pull/487"}
+```
+
+结果：PR `#487` 已通过 auto-merge 合并，control-plane `main` 已同步到该提交。
+
+### 2026-02-13 Rulebook Self-Archive Closeout
+
+```bash
+$ gh issue reopen 486
+✓ Reopened issue Leeky1017/CreoNow#486
+
+$ rulebook task archive issue-486-p1-multiturn-assembly
+✅ Task issue-486-p1-multiturn-assembly archived successfully
+
+$ find rulebook/tasks/archive -maxdepth 1 -type d -name '*issue-486-p1-multiturn-assembly'
+rulebook/tasks/archive/2026-02-12-issue-486-p1-multiturn-assembly
+```
+
+结果：为完成阶段 6 收口，当前任务 Rulebook 已迁移至 archive 路径，准备提交归档证据并再次合并 `main`。
