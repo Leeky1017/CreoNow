@@ -706,7 +706,8 @@ export function AppShell(): JSX.Element {
       },
     ];
 
-    const fileEntries = [...fileItems]
+    const safeFileItems = Array.isArray(fileItems) ? fileItems : [];
+    const fileEntries = [...safeFileItems]
       .sort((a, b) => a.title.localeCompare(b.title))
       .map<CommandItem>((item) => ({
         id: `file-${item.documentId}`,
