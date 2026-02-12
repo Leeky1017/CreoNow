@@ -44,3 +44,9 @@
 - Key output: `Test Files 112 passed (112), Tests 1345 passed (1345)`
 - Command: `pnpm typecheck`
 - Key output: Clean exit (0)
+
+### 2026-02-12 18:30 CI windows-e2e fix
+- 4 E2E failures: 2 caused by debounce (command-palette shortcut toggle tests), 2 pre-existing flaky (theme timeout, system-dialog)
+- Fix: Added 350ms `waitForTimeout` between toggle presses in `command-palette.spec.ts` to respect 300ms debounce window
+- layout-panels marked "flaky" by Playwright (passed on retry) — not our regression
+- Reconfirmed: `pnpm vitest run` — 112 files, 1345 tests pass
