@@ -5,7 +5,7 @@
 - Issue: #486
 - Change: p1-multiturn-assembly
 - Branch: task/486-p1-multiturn-assembly
-- PR: https://github.com/Leeky1017/CreoNow/pull/487
+- PR: https://github.com/Leeky1017/CreoNow/pull/488
 
 ## Plan
 
