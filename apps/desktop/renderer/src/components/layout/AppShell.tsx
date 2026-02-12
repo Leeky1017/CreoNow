@@ -8,10 +8,15 @@ import { StatusBar } from "./StatusBar";
 import { Resizer } from "./Resizer";
 import { CommandPalette } from "../../features/commandPalette/CommandPalette";
 import type {
+  CommandItem,
   CommandPaletteLayoutActions,
   CommandPaletteDialogActions,
   CommandPaletteDocumentActions,
 } from "../../features/commandPalette/CommandPalette";
+import {
+  readRecentCommandIds,
+  recordRecentCommandId,
+} from "../../features/commandPalette/recentItems";
 import { DashboardPage } from "../../features/dashboard";
 import { DiffViewPanel } from "../../features/diff/DiffViewPanel";
 import { EditorPane } from "../../features/editor/EditorPane";
@@ -43,6 +48,10 @@ import { invoke } from "../../lib/ipcClient";
  */
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
+}
+
+function getModKey(): string {
+  return navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl+";
 }
 
 /**
@@ -232,6 +241,7 @@ export function AppShell(): JSX.Element {
   const bootstrapProjects = useProjectStore((s) => s.bootstrap);
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
   const bootstrapFiles = useFileStore((s) => s.bootstrapForProject);
+  const fileItems = useFileStore((s) => s.items);
   const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
   const editor = useEditorStore((s) => s.editor);
   const compareMode = useEditorStore((s) => s.compareMode);
@@ -266,6 +276,9 @@ export function AppShell(): JSX.Element {
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
   // Counter to force CommandPalette remount on each open (ensures fresh state)
   const [commandPaletteKey, setCommandPaletteKey] = React.useState(0);
+  const [recentCommandIds, setRecentCommandIds] = React.useState<string[]>(() =>
+    readRecentCommandIds(),
+  );
   const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
   const [createProjectDialogOpen, setCreateProjectDialogOpen] =
@@ -477,6 +490,7 @@ export function AppShell(): JSX.Element {
       // Cmd/Ctrl+P: Command Palette
       if (e.key.toLowerCase() === "p") {
         e.preventDefault();
+        setRecentCommandIds(readRecentCommandIds());
         setCommandPaletteKey((k) => k + 1); // Force remount for fresh state
         setCommandPaletteOpen(true);
         return;
@@ -581,6 +595,189 @@ export function AppShell(): JSX.Element {
         },
       };
     }, [createDocument, currentProjectId]);
+
+  const refreshRecentCommands = React.useCallback(() => {
+    setRecentCommandIds(readRecentCommandIds());
+  }, []);
+
+  const withRecentTracking = React.useCallback(
+    (command: CommandItem): CommandItem => ({
+      ...command,
+      onSelect: async () => {
+        await command.onSelect();
+        recordRecentCommandId(command.id);
+        refreshRecentCommands();
+      },
+    }),
+    [refreshRecentCommands],
+  );
+
+  const modKey = React.useMemo(() => getModKey(), []);
+  const commandPaletteCommands = React.useMemo<CommandItem[]>(() => {
+    const commandEntries: CommandItem[] = [
+      {
+        id: "open-settings",
+        label: "Open Settings",
+        shortcut: `${modKey},`,
+        group: "命令",
+        category: "command",
+        onSelect: () => {
+          setSettingsDialogOpen(true);
+          setCommandPaletteOpen(false);
+        },
+      },
+      {
+        id: "export",
+        label: "Export…",
+        group: "命令",
+        category: "command",
+        onSelect: () => {
+          setExportDialogOpen(true);
+          setCommandPaletteOpen(false);
+        },
+      },
+      {
+        id: "toggle-sidebar",
+        label: "Toggle Sidebar",
+        shortcut: `${modKey}\\`,
+        group: "命令",
+        category: "command",
+        onSelect: () => {
+          setSidebarCollapsed(!sidebarCollapsed);
+          setCommandPaletteOpen(false);
+        },
+      },
+      {
+        id: "toggle-right-panel",
+        label: "Toggle Right Panel",
+        shortcut: `${modKey}L`,
+        group: "命令",
+        category: "command",
+        onSelect: () => {
+          setPanelCollapsed(!panelCollapsed);
+          setCommandPaletteOpen(false);
+        },
+      },
+      {
+        id: "toggle-zen-mode",
+        label: "Toggle Zen Mode",
+        shortcut: "F11",
+        group: "命令",
+        category: "command",
+        onSelect: () => {
+          setZenMode(!zenMode);
+          setCommandPaletteOpen(false);
+        },
+      },
+      {
+        id: "create-new-document",
+        label: "Create New Document",
+        shortcut: `${modKey}N`,
+        group: "命令",
+        category: "command",
+        onSelect: async () => {
+          if (!currentProjectId) {
+            return;
+          }
+          await createDocument({ projectId: currentProjectId });
+          setCommandPaletteOpen(false);
+        },
+      },
+      {
+        id: "open-version-history",
+        label: "Open Version History",
+        group: "命令",
+        category: "command",
+        onSelect: () => {
+          openVersionHistoryPanel();
+          setCommandPaletteOpen(false);
+        },
+      },
+      {
+        id: "create-new-project",
+        label: "Create New Project",
+        shortcut: `${modKey}Shift+N`,
+        group: "命令",
+        category: "command",
+        onSelect: () => {
+          setCreateProjectDialogOpen(true);
+          setCommandPaletteOpen(false);
+        },
+      },
+    ];
+
+    const fileEntries = [...fileItems]
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .map<CommandItem>((item) => ({
+        id: `file-${item.documentId}`,
+        label: item.title,
+        subtext: item.type,
+        icon: (
+          <span
+            aria-hidden="true"
+            className="inline-flex h-4 w-4 items-center justify-center text-[9px] font-semibold text-[var(--color-fg-muted)]"
+          >
+            {item.type[0]?.toUpperCase() ?? "D"}
+          </span>
+        ),
+        group: "文件",
+        category: "file",
+        onSelect: async () => {
+          if (!currentProjectId) {
+            return;
+          }
+          const setCurrentRes = await setCurrentDocument({
+            projectId: currentProjectId,
+            documentId: item.documentId,
+          });
+          if (!setCurrentRes.ok) {
+            return;
+          }
+          await openEditorDocument({
+            projectId: currentProjectId,
+            documentId: item.documentId,
+          });
+          setCommandPaletteOpen(false);
+        },
+      }));
+
+    const trackedCommands = [
+      ...commandEntries.map(withRecentTracking),
+      ...fileEntries.map(withRecentTracking),
+    ];
+    const trackedById = new Map(trackedCommands.map((item) => [item.id, item]));
+    const recentEntries = recentCommandIds
+      .map((id) => trackedById.get(id))
+      .filter((item): item is CommandItem => Boolean(item))
+      .slice(0, 5)
+      .map((item) => ({
+        ...item,
+        group: "最近使用",
+        category: "recent" as const,
+      }));
+
+    return [
+      ...recentEntries,
+      ...fileEntries.map(withRecentTracking),
+      ...commandEntries.map(withRecentTracking),
+    ];
+  }, [
+    createDocument,
+    currentProjectId,
+    fileItems,
+    modKey,
+    openEditorDocument,
+    openVersionHistoryPanel,
+    panelCollapsed,
+    recentCommandIds,
+    setCurrentDocument,
+    setPanelCollapsed,
+    setSidebarCollapsed,
+    setZenMode,
+    sidebarCollapsed,
+    withRecentTracking,
+    zenMode,
+  ]);
 
   /**
    * Determine which main content to render based on project state.
@@ -763,6 +960,7 @@ export function AppShell(): JSX.Element {
         key={commandPaletteKey}
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
+        commands={commandPaletteCommands}
         layoutActions={layoutActions}
         dialogActions={dialogActionCallbacks}
         documentActions={documentActionCallbacks}

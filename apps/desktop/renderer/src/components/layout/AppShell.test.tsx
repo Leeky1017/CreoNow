@@ -22,6 +22,10 @@ import {
   EditorStoreProvider,
   createEditorStore,
 } from "../../stores/editorStore";
+import {
+  VersionStoreProvider,
+  createVersionStore,
+} from "../../stores/versionStore";
 import { AiStoreProvider, createAiStore } from "../../stores/aiStore";
 import {
   MemoryStoreProvider,
@@ -99,6 +103,11 @@ function AppShellTestWrapper({
     () => createEditorStore(mockIpc as Parameters<typeof createEditorStore>[0]),
     [],
   );
+  const versionStore = React.useMemo(
+    () =>
+      createVersionStore(mockIpc as Parameters<typeof createVersionStore>[0]),
+    [],
+  );
   const aiStore = React.useMemo(
     () => createAiStore(mockIpc as Parameters<typeof createAiStore>[0]),
     [],
@@ -122,17 +131,19 @@ function AppShellTestWrapper({
       <ProjectStoreProvider store={projectStore}>
         <FileStoreProvider store={fileStore}>
           <EditorStoreProvider store={editorStore}>
-            <ThemeStoreProvider store={themeStore}>
-              <AiStoreProvider store={aiStore}>
-                <MemoryStoreProvider store={memoryStore}>
-                  <SearchStoreProvider store={searchStore}>
-                    <KgStoreProvider store={kgStore}>
-                      {children}
-                    </KgStoreProvider>
-                  </SearchStoreProvider>
-                </MemoryStoreProvider>
-              </AiStoreProvider>
-            </ThemeStoreProvider>
+            <VersionStoreProvider store={versionStore}>
+              <ThemeStoreProvider store={themeStore}>
+                <AiStoreProvider store={aiStore}>
+                  <MemoryStoreProvider store={memoryStore}>
+                    <SearchStoreProvider store={searchStore}>
+                      <KgStoreProvider store={kgStore}>
+                        {children}
+                      </KgStoreProvider>
+                    </SearchStoreProvider>
+                  </MemoryStoreProvider>
+                </AiStoreProvider>
+              </ThemeStoreProvider>
+            </VersionStoreProvider>
           </EditorStoreProvider>
         </FileStoreProvider>
       </ProjectStoreProvider>
@@ -393,6 +404,115 @@ describe("AppShell", () => {
       // 命令面板应该打开
       await waitFor(() => {
         expect(screen.getByTestId("command-palette")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("命令面板文件集成", () => {
+    it("Ctrl+P 后搜索文件并 Enter，应触发 setcurrent + read 打开文档链路", async () => {
+      const invokeSpy = vi.fn().mockImplementation(async (channel: string) => {
+        await Promise.resolve();
+
+        if (channel === "project:project:list") {
+          return {
+            ok: true,
+            data: {
+              items: [{ projectId: "project-1", rootPath: "/tmp/project-1" }],
+            },
+          };
+        }
+        if (channel === "project:project:getcurrent") {
+          return {
+            ok: true,
+            data: { projectId: "project-1", rootPath: "/tmp/project-1" },
+          };
+        }
+        if (channel === "file:document:list") {
+          return {
+            ok: true,
+            data: {
+              items: [
+                {
+                  documentId: "doc-1",
+                  title: "第一章.md",
+                  type: "chapter",
+                  status: "draft",
+                  sortOrder: 0,
+                  updatedAt: 1,
+                },
+                {
+                  documentId: "doc-3",
+                  title: "第三章.md",
+                  type: "chapter",
+                  status: "draft",
+                  sortOrder: 1,
+                  updatedAt: 2,
+                },
+              ],
+            },
+          };
+        }
+        if (channel === "file:document:getcurrent") {
+          return {
+            ok: true,
+            data: { documentId: "doc-1" },
+          };
+        }
+        if (channel === "file:document:read") {
+          return {
+            ok: true,
+            data: {
+              contentHash: "hash",
+              contentJson: '{"type":"doc","content":[]}',
+              contentMd: "",
+              contentText: "",
+              createdAt: 1,
+              documentId: "doc-1",
+              projectId: "project-1",
+              sortOrder: 0,
+              status: "draft",
+              title: "第一章.md",
+              type: "chapter",
+              updatedAt: 1,
+            },
+          };
+        }
+        if (channel === "file:document:setcurrent") {
+          return { ok: true, data: { documentId: "doc-3" } };
+        }
+
+        return { ok: true, data: { items: [], settings: {}, content: "" } };
+      });
+
+      mockIpc = {
+        invoke: invokeSpy,
+        on: (): (() => void) => () => {},
+      };
+
+      await renderWithWrapper();
+
+      await act(async () => {
+        fireEvent.keyDown(window, { key: "p", ctrlKey: true });
+      });
+
+      const input = await screen.findByPlaceholderText("搜索命令或文件...");
+      await act(async () => {
+        fireEvent.change(input, { target: { value: "第三章" } });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("第三章.md")).toBeInTheDocument();
+      });
+
+      await act(async () => {
+        fireEvent.keyDown(input, { key: "Enter" });
+      });
+
+      await waitFor(() => {
+        expect(invokeSpy).toHaveBeenCalledWith("file:document:setcurrent", {
+          projectId: "project-1",
+          documentId: "doc-3",
+        });
       });
     });
   });
