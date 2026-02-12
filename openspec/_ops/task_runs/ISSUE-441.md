@@ -207,3 +207,90 @@
 - Key output:
   - `workbench-p5-03-rightpanel-statusbar` 已归档到 `openspec/changes/archive/`
   - `EXECUTION_ORDER.md` 已同步为活跃 change 数量 `4`
+
+### 2026-02-12 16:45 +0800 分支对齐 `origin/main`（并行变更合流）
+
+- Command:
+  - `git merge origin/main`
+  - `git add openspec/changes/EXECUTION_ORDER.md`
+  - `git commit -m "chore: resolve execution order merge conflict (#441)"`
+  - `git merge origin/main`
+  - `git commit -m "chore: merge latest main and resolve execution order (#441)"`
+- Exit code: `0`
+- Key output:
+  - 首次 merge 误合入本地过期 `main`，随后再次 merge 最新 `origin/main` 并完成冲突解决
+  - `EXECUTION_ORDER.md` 更新为仅剩 `workbench-p5-05-hardening-gate` 单活跃 change
+
+### 2026-02-12 16:49 +0800 本地 preflight 复验
+
+- Command:
+  - `pnpm exec prettier --check <issue-441 changed files>`
+  - `pnpm -C apps/desktop typecheck`
+  - `pnpm -C apps/desktop test:run renderer/src/features/ai/AiPanel.test.tsx renderer/src/components/layout/AppShell.test.tsx renderer/src/components/layout/RightPanel.test.tsx renderer/src/components/layout/StatusBar.test.tsx renderer/src/stores/layoutStore.test.ts`
+- Exit code: `0`
+- Key output:
+  - `All matched files use Prettier code style!`
+  - `tsc -p tsconfig.json --noEmit` 通过
+  - `Test Files 5 passed` / `Tests 62 passed`
+
+### 2026-02-12 16:50 +0800 PR 门禁失败定位（CI unit-test）
+
+- Command:
+  - `gh pr checks 445 --watch --interval 10`
+  - `gh run view 21939695194 --json status,conclusion,jobs,url`
+  - `gh run view 21939695194 --job 63361982580 --log`
+- Exit code: `0`
+- Key output:
+  - required checks 中 `unit-test` 失败，其余关键门禁通过
+  - 失败根因：`TypeError: fileItems is not iterable`（`AppShell.tsx` 命令面板文件列表展开）
+
+### 2026-02-12 16:54 +0800 Red/Green（CI 回归修复）
+
+- Command:
+  - `pnpm -C apps/desktop test:run renderer/src/components/layout/AppShell.ai-inline-diff.test.tsx renderer/src/components/layout/AppShell.restoreConfirm.test.tsx`（Red）
+  - `apply_patch apps/desktop/renderer/src/components/layout/AppShell.tsx`（`fileItems` 非数组回退 `[]`）
+  - `pnpm -C apps/desktop test:run renderer/src/components/layout/AppShell.ai-inline-diff.test.tsx renderer/src/components/layout/AppShell.restoreConfirm.test.tsx`（Green）
+  - `pnpm -C apps/desktop test:run`（对齐 CI 的 Desktop vitest 全量）
+  - `pnpm -C apps/desktop typecheck`
+  - `pnpm exec prettier --check apps/desktop/renderer/src/components/layout/AppShell.tsx`
+- Exit code:
+  - Red: `1`
+  - 其余: `0`
+- Key output:
+  - Red 复现与 CI 一致：6 个测试失败，均由 `fileItems` 展开崩溃触发
+  - Green 后失败用例 `2 files / 6 tests` 全部通过
+  - 全量 `vitest run` 通过：`Test Files 111 passed` / `Tests 1317 passed`
+  - `typecheck` / `prettier --check` 通过
+
+### 2026-02-12 16:56 +0800 推送修复并通过全部门禁
+
+- Command:
+  - `git commit -m "fix: guard command palette file list fallback (#441)"`
+  - `git push`
+  - `gh pr checks 445 --watch --interval 10`
+- Exit code: `0`
+- Key output:
+  - 关键门禁全部通过：`ci`、`openspec-log-guard`、`merge-serial`
+
+### 2026-02-12 17:00 +0800 再次对齐主干并等待 auto-merge
+
+- Command:
+  - `git merge origin/main`
+  - `git push`
+  - `gh pr checks 445 --watch --interval 10`
+  - `gh pr view 445 --json state,mergedAt,mergeCommit,mergeStateStatus,url`
+- Exit code: `0`
+- Key output:
+  - 因并行任务推进导致 PR 临时 `BEHIND`，完成再次对齐后门禁全绿
+  - PR `#445` 已自动合并：`mergedAt=2026-02-12T09:02:43Z`，`mergeCommit=d3b535f4c714afb9c1415af66409e0186c62e22d`
+
+### 2026-02-12 17:07 +0800 Rulebook 归档（收口阶段）
+
+- Command:
+  - `git switch -c task/441-p5-workbench-rightpanel-statusbar-closeout origin/main`
+  - `rulebook task archive issue-441-p5-workbench-rightpanel-statusbar`
+  - `rulebook task list --archived | rg 'issue-441-p5-workbench-rightpanel-statusbar|issue-440-workbench-p5-04-command-palette'`
+- Exit code: `0`
+- Key output:
+  - `Task issue-441-p5-workbench-rightpanel-statusbar archived successfully`
+  - 列表中状态为 `archived (2026-02-12)`
