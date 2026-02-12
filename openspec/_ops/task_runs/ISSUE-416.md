@@ -3,7 +3,7 @@
 - Issue: #416
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/416
 - Branch: task/416-skill-system-p3-scheduler-concurrency-timeout
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/419
 - Scope: 完成交付 `openspec/changes/skill-system-p3-scheduler-concurrency-timeout` 的全部规划任务（调度并发/队列上限/超时中断/依赖缺失阻断/队列状态推送），并按 OpenSpec + Rulebook + GitHub 门禁合并回控制面 `main`
 - Out of Scope: 技能市场与分布式调度、`skill-system-p4` 边界硬化、内置技能内容改写
 
