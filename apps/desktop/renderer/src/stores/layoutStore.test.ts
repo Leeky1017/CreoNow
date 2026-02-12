@@ -6,17 +6,19 @@ import { createLayoutStore, LAYOUT_DEFAULTS } from "./layoutStore";
 /**
  * Build an in-memory preference store stub for deterministic layout tests.
  */
-function createPreferenceStub(initial: Partial<Record<PreferenceKey, unknown>>) {
+function createPreferenceStub(
+  initial: Partial<Record<PreferenceKey, unknown>>,
+) {
   const values = new Map<PreferenceKey, unknown>();
   for (const [key, value] of Object.entries(initial)) {
     values.set(key as PreferenceKey, value);
   }
 
   const preferences: PreferenceStore = {
-    get: vi.fn(<T,>(key: PreferenceKey) =>
+    get: vi.fn(<T>(key: PreferenceKey) =>
       values.has(key) ? (values.get(key) as T) : null,
     ),
-    set: vi.fn(<T,>(key: PreferenceKey, value: T) => {
+    set: vi.fn(<T>(key: PreferenceKey, value: T) => {
       values.set(key, value);
     }),
     remove: vi.fn((key: PreferenceKey) => {
@@ -66,7 +68,10 @@ describe("layoutStore persistence", () => {
 
     store.getState().setSidebarWidth(280);
 
-    expect(preferences.set).toHaveBeenCalledWith("creonow.layout.sidebarWidth", 280);
+    expect(preferences.set).toHaveBeenCalledWith(
+      "creonow.layout.sidebarWidth",
+      280,
+    );
     expect(values.get("creonow.layout.sidebarWidth")).toBe(280);
   });
 

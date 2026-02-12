@@ -17,6 +17,7 @@
 - 完成交付闭环：RUN_LOG 证据、preflight、PR auto-merge、main 收口、Rulebook task 归档。
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/workbench-p5-01-layout-iconbar-shell/**`
   - `openspec/changes/EXECUTION_ORDER.md`
