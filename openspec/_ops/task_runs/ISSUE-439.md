@@ -3,7 +3,7 @@
 - Issue: #439
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/439
 - Branch: task/439-workbench-p5-02-project-switcher
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/443
 - Scope: 完成 `openspec/changes/workbench-p5-02-project-switcher` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: `workbench-p5-01`/`workbench-p5-03`/`workbench-p5-04`/`workbench-p5-05` 的实现交付
 
