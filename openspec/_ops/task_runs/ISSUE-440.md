@@ -217,3 +217,14 @@
   - Issue 校验通过（`state = OPEN`）
   - 归档任务识别正常（archive 模式）
   - `pnpm typecheck` / `pnpm lint` / `pnpm contract:check` / `pnpm cross-module:check` / `pnpm test:unit` 全绿
+
+### 2026-02-12 16:58 +0800 preflight（rebase 后复验）
+
+- Command:
+  - `git fetch origin --prune`
+  - `git rebase origin/main`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - rebase 成功：`Successfully rebased and updated refs/heads/task/440-workbench-p5-04-command-palette`
+  - preflight 全绿，且 `git status --porcelain=v1` 为空
