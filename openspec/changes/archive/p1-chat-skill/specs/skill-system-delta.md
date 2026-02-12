@@ -13,28 +13,30 @@ REQ-ID: `REQ-SKL-CHAT`
 技能系统**必须**提供 `inferSkillFromInput` 函数，根据用户输入文本和上下文推断目标技能 ID。
 
 函数签名：
+
 ```typescript
 function inferSkillFromInput(args: {
   input: string;
   hasSelection: boolean;
   explicitSkillId?: string;
-}): string
+}): string;
 ```
 
 路由优先级：
+
 1. 显式技能覆盖（`explicitSkillId` 非空时直接返回）
 2. 选中文本上下文启发式（有选中 + 无输入 → `builtin:polish`；有选中 + 短改写指令 → `builtin:rewrite`）
 3. 关键词匹配规则：
 
-| 关键词 | 目标技能 ID |
-|--------|------------|
-| "续写"/"写下去"/"接着写"/"继续写" | `builtin:continue` |
-| "头脑风暴"/"帮我想想" | `builtin:brainstorm` |
-| "大纲"/"提纲" | `builtin:outline` |
-| "总结"/"摘要" | `builtin:summarize` |
-| "翻译" | `builtin:translate` |
-| "扩写"/"展开" | `builtin:expand` |
-| "缩写"/"精简" | `builtin:condense` |
+| 关键词                            | 目标技能 ID          |
+| --------------------------------- | -------------------- |
+| "续写"/"写下去"/"接着写"/"继续写" | `builtin:continue`   |
+| "头脑风暴"/"帮我想想"             | `builtin:brainstorm` |
+| "大纲"/"提纲"                     | `builtin:outline`    |
+| "总结"/"摘要"                     | `builtin:summarize`  |
+| "翻译"                            | `builtin:translate`  |
+| "扩写"/"展开"                     | `builtin:expand`     |
+| "缩写"/"精简"                     | `builtin:condense`   |
 
 4. 默认 → `builtin:chat`
 
