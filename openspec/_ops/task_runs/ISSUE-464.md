@@ -1,7 +1,7 @@
 # ISSUE-464
 - Issue: #464
 - Branch: task/464-p1-change-docs
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/465
 
 ## Plan
 - 交付 Phase 1 的 7 组 OpenSpec change 文档（C1-C7）
