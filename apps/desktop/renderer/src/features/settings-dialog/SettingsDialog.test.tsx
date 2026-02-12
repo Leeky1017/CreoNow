@@ -5,9 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { SettingsDialog } from "./SettingsDialog";
 
 vi.mock("./SettingsGeneral", () => ({
-  SettingsGeneral: () => (
-    <div data-testid="mock-general-section">General</div>
-  ),
+  SettingsGeneral: () => <div data-testid="mock-general-section">General</div>,
   defaultGeneralSettings: {
     focusMode: true,
     typewriterScroll: false,
@@ -20,9 +18,7 @@ vi.mock("./SettingsGeneral", () => ({
 }));
 
 vi.mock("./SettingsAccount", () => ({
-  SettingsAccount: () => (
-    <div data-testid="mock-account-section">Account</div>
-  ),
+  SettingsAccount: () => <div data-testid="mock-account-section">Account</div>,
   defaultAccountSettings: {
     name: "Test User",
     email: "test@example.com",
@@ -38,6 +34,12 @@ vi.mock("../settings/AppearanceSection", () => ({
 
 vi.mock("../settings/ProxySection", () => ({
   ProxySection: () => <div data-testid="mock-proxy-section">Proxy</div>,
+}));
+
+vi.mock("../settings/AiSettingsSection", () => ({
+  AiSettingsSection: () => (
+    <div data-testid="mock-ai-settings-section">AI Settings</div>
+  ),
 }));
 
 vi.mock("../settings/JudgeSection", () => ({
@@ -81,7 +83,7 @@ describe("SettingsDialog", () => {
     expect(screen.getByTestId("mock-appearance-section")).toBeInTheDocument();
 
     await user.click(screen.getByTestId("settings-nav-proxy"));
-    expect(screen.getByTestId("mock-proxy-section")).toBeInTheDocument();
+    expect(screen.getByTestId("mock-ai-settings-section")).toBeInTheDocument();
 
     await user.click(screen.getByTestId("settings-nav-judge"));
     expect(screen.getByTestId("mock-judge-section")).toBeInTheDocument();
@@ -109,4 +111,3 @@ describe("SettingsDialog", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
-
