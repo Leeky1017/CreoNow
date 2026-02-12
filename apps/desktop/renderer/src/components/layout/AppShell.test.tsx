@@ -254,6 +254,14 @@ describe("AppShell", () => {
       const appShell = screen.getByTestId("app-shell");
       expect(appShell).toHaveClass("h-full");
     });
+
+    it("should expose sidebar width transition when sidebar can collapse or expand", async () => {
+      await renderWithWrapper();
+
+      const sidebar = screen.getByTestId("layout-sidebar");
+
+      expect(sidebar.style.transition).toContain("var(--duration-slow)");
+    });
   });
 
   // ===========================================================================
