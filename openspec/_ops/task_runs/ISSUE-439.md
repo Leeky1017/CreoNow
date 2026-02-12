@@ -2,8 +2,8 @@
 
 - Issue: #439
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/439
-- Branch: task/439-workbench-p5-02-project-switcher
-- PR: https://github.com/Leeky1017/CreoNow/pull/447
+- Branch: task/439-workbench-p5-02-project-switcher + task/439-workbench-p5-02-project-switcher-closeout
+- PR: https://github.com/Leeky1017/CreoNow/pull/443, https://github.com/Leeky1017/CreoNow/pull/447
 - Scope: 完成 `openspec/changes/workbench-p5-02-project-switcher` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: `workbench-p5-01`/`workbench-p5-03`/`workbench-p5-04`/`workbench-p5-05` 的实现交付
 
@@ -15,7 +15,7 @@
 - [x] TDD Red：先写失败测试并记录失败证据
 - [x] TDD Green：最小实现通过 + 回归验证
 - [x] change 02 文档勾选、归档与 `EXECUTION_ORDER.md` 同步
-- [ ] preflight + PR + auto-merge + main 收口 + Rulebook 归档 + worktree 清理
+- [x] preflight + PR + auto-merge + main 收口 + Rulebook 归档 + worktree 清理
 
 ## Runs
 
@@ -251,3 +251,51 @@
 - Exit code: `0`
 - Key output:
   - `Task issue-439-workbench-p5-02-project-switcher archived successfully`
+
+### 2026-02-12 后验漂移检查（发现 Rulebook 双写）
+
+- Command:
+  - `git ls-tree -r --name-only origin/main | rg '^rulebook/tasks/(issue-439-workbench-p5-02-project-switcher|archive/.+issue-439-workbench-p5-02-project-switcher)/'`
+  - `rulebook task list | rg 'issue-439-workbench-p5-02-project-switcher'`
+- Exit code: `0`
+- Key output:
+  - 发现 `issue-439` 同时存在 active 与 archive 两处目录（双写）
+  - active 任务状态仍显示 `in_progress`，与已归档状态冲突
+- Action:
+  - 重新打开 Issue `#439`，并创建 closeout 分支执行最小治理修复
+
+### 2026-02-12 收口分支建立（closeout）
+
+- Command:
+  - `gh issue reopen 439`
+  - `git worktree add -b task/439-workbench-p5-02-project-switcher-closeout .worktrees/issue-439-workbench-p5-02-project-switcher-closeout origin/main`
+- Exit code: `0`
+- Key output:
+  - `Reopened issue Leeky1017/CreoNow#439`
+  - `HEAD is now at 4082e3e3 docs: archive rulebook task for issue 439 (#439) (#447)`
+
+### 2026-02-12 Rulebook archive 漂移修复（最小变更）
+
+- Command:
+  - `apply_patch ... (delete) rulebook/tasks/issue-439-workbench-p5-02-project-switcher/.metadata.json`
+  - `apply_patch ... (delete) rulebook/tasks/issue-439-workbench-p5-02-project-switcher/proposal.md`
+  - `apply_patch ... (delete) rulebook/tasks/issue-439-workbench-p5-02-project-switcher/tasks.md`
+  - `apply_patch ... (delete) rulebook/tasks/issue-439-workbench-p5-02-project-switcher/specs/workbench/spec.md`
+- Exit code: `0`
+- Key output:
+  - active 目录残留文件全部删除，`issue-439` 仅保留 archive 任务目录
+
+### 2026-02-12 修复后本地验证（Rulebook 可见性）
+
+- Command:
+  - `test -d rulebook/tasks/issue-439-workbench-p5-02-project-switcher && echo exists || echo missing`
+  - `rulebook task list | rg 'issue-439-workbench-p5-02-project-switcher'`
+  - `git ls-files 'rulebook/tasks/archive/*issue-439-workbench-p5-02-project-switcher/**'`
+- Exit code:
+  - `test`: `0`
+  - `rulebook task list | rg ...`: `1`（预期：active 列表中无匹配）
+  - `git ls-files ...`: `0`
+- Key output:
+  - `missing`
+  - active 列表无 `issue-439-workbench-p5-02-project-switcher`
+  - archive 目录文件保持完整（4 files）
