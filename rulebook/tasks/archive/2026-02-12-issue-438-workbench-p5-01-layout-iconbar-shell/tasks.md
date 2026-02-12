@@ -9,7 +9,7 @@
 
 - [x] 2.1 运行 Red 失败测试并记录证据（IconBar/AppShell/layoutStore）
 - [x] 2.2 运行 Green 回归测试并验证通过
-- [ ] 2.3 运行 `scripts/agent_pr_preflight.sh`（可通过 `agent_pr_automerge_and_sync.sh` 内置 preflight 完成）
+- [x] 2.3 运行 `scripts/agent_pr_preflight.sh`（可通过 `agent_pr_automerge_and_sync.sh` 内置 preflight 完成）
 
 ## 3. Documentation
 
