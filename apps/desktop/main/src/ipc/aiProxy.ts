@@ -26,6 +26,23 @@ type ProxySettingsPatch = Partial<{
 }>;
 
 /**
+ * Normalize renderer payload into a safe proxy-settings patch object.
+ *
+ * Why: malformed IPC payload must degrade to a deterministic INVALID_ARGUMENT
+ * response from service.update instead of throwing at the IPC boundary.
+ */
+function normalizeProxySettingsPatch(payload: unknown): ProxySettingsPatch {
+  if (!payload || typeof payload !== "object" || !("patch" in payload)) {
+    return {};
+  }
+  const patch = (payload as { patch?: unknown }).patch;
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    return {};
+  }
+  return patch as ProxySettingsPatch;
+}
+
+/**
  * Register `ai:config:*` IPC handlers.
  *
  * Why: renderer must not access secrets; proxy config is persisted in main DB
@@ -75,7 +92,7 @@ export function registerAiProxyIpcHandlers(deps: {
     "ai:config:update",
     async (
       _e,
-      payload: { patch: ProxySettingsPatch },
+      payload: unknown,
     ): Promise<
       IpcResponse<{
         enabled: boolean;
@@ -101,7 +118,7 @@ export function registerAiProxyIpcHandlers(deps: {
         logger: deps.logger,
         secretStorage: deps.secretStorage,
       });
-      const res = svc.update({ patch: payload.patch });
+      const res = svc.update({ patch: normalizeProxySettingsPatch(payload) });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };

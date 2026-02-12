@@ -8,28 +8,29 @@ API Key **必须**通过 `SecretStorageAdapter`（封装 Electron `safeStorage` 
 
 支持的 provider 模式：
 
-| 模式 | 值 | 说明 |
-|------|-----|------|
+| 模式            | 值                    | 说明                        |
+| --------------- | --------------------- | --------------------------- |
 | OpenAI 兼容代理 | `"openai-compatible"` | 自建/第三方代理，需 baseUrl |
-| OpenAI 直连 | `"openai-byok"` | 用户自有 OpenAI API Key |
-| Anthropic 直连 | `"anthropic-byok"` | 用户自有 Anthropic API Key |
+| OpenAI 直连     | `"openai-byok"`       | 用户自有 OpenAI API Key     |
+| Anthropic 直连  | `"anthropic-byok"`    | 用户自有 Anthropic API Key  |
 
 每种模式独立存储 `baseUrl` 和 `apiKey`。
 
 IPC 通道：
 
-| IPC 通道 | 通信模式 | 方向 | 用途 |
-|----------|---------|------|------|
-| `ai:config:get` | Request-Response | Renderer → Main | 获取 AI 配置（不返回明文 key） |
+| IPC 通道           | 通信模式         | 方向            | 用途                           |
+| ------------------ | ---------------- | --------------- | ------------------------------ |
+| `ai:config:get`    | Request-Response | Renderer → Main | 获取 AI 配置（不返回明文 key） |
 | `ai:config:update` | Request-Response | Renderer → Main | 更新 AI 配置（含加密存储 key） |
-| `ai:config:test` | Request-Response | Renderer → Main | 测试连接有效性 |
+| `ai:config:test`   | Request-Response | Renderer → Main | 测试连接有效性                 |
 
 `ai:config:get` 返回的公开数据结构：
+
 ```typescript
 type AiProxySettings = {
   enabled: boolean;
   baseUrl: string;
-  apiKeyConfigured: boolean;        // 仅告知是否已配置，不返回明文
+  apiKeyConfigured: boolean; // 仅告知是否已配置，不返回明文
   providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
   openAiCompatibleBaseUrl: string;
   openAiCompatibleApiKeyConfigured: boolean;
