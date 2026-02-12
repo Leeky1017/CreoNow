@@ -5,7 +5,7 @@
 - Issue: #470
 - Change: p1-apikey-storage
 - Branch: task/470-p1-apikey-storage
-- PR: https://github.com/Leeky1017/CreoNow/pull/0
+- PR: https://github.com/Leeky1017/CreoNow/pull/473
 
 ## Plan
 
@@ -70,3 +70,8 @@ Error: [Boundary should return INVALID_ARGUMENT when patch is missing] Cannot co
   - `pnpm cross-module:check` ✅
   - `pnpm test:unit` ✅
 - 结论：preflight 全绿，可进入 PR 提交流程。
+
+### 2026-02-12 PR 创建
+
+- Command: `gh pr create --base main --head task/470-p1-apikey-storage --title \"Complete p1-apikey-storage delivery closure (#470)\" --body-file <tmp>`
+- Key output: `https://github.com/Leeky1017/CreoNow/pull/473`
