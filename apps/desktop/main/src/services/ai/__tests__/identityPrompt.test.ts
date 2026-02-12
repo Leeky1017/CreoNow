@@ -73,7 +73,10 @@ runCase("S2 should include writing awareness core concepts", () => {
 });
 
 runCase("S3 should define five roles in role_fluidity block", () => {
-  const roleFluidity = getXmlBlockContent(GLOBAL_IDENTITY_PROMPT, "role_fluidity");
+  const roleFluidity = getXmlBlockContent(
+    GLOBAL_IDENTITY_PROMPT,
+    "role_fluidity",
+  );
 
   for (const role of ["ghostwriter", "muse", "editor", "actor", "painter"]) {
     assert.ok(roleFluidity.includes(role), `must mention role: ${role}`);

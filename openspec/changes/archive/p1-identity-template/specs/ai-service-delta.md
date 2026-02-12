@@ -6,13 +6,13 @@
 
 AI 服务**必须**提供全局身份提示词模板（`GLOBAL_IDENTITY_PROMPT` 常量），始终作为系统提示词的第一层注入。模板**必须**包含以下 5 个 XML 区块：
 
-| 区块 | 标签 | 内容 |
-|------|------|------|
-| 身份定义 | `<identity>` | AI 创作伙伴核心身份，首要原则：尊重创作者风格和意图 |
-| 写作素养 | `<writing_awareness>` | 叙事结构（narrative structure）、角色塑造（characterization）、场景 blocking、Show don't tell、POV 一致性、节奏控制、伏笔与回收 |
-| 角色流动 | `<role_fluidity>` | ghostwriter（续写）、muse（头脑风暴）、editor（评审）、actor（扮演角色）、painter（描写）五个角色及切换规则 |
-| 行为约束 | `<behavior>` | 中文回应、保持创作者风格、不确定时追问、纯文本/Markdown 输出、不重复用户输入 |
-| 上下文感知 | `<context_awareness>` | 声明后续动态注入的上下文类型（项目、文档、光标、偏好、KG） |
+| 区块       | 标签                  | 内容                                                                                                                            |
+| ---------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 身份定义   | `<identity>`          | AI 创作伙伴核心身份，首要原则：尊重创作者风格和意图                                                                             |
+| 写作素养   | `<writing_awareness>` | 叙事结构（narrative structure）、角色塑造（characterization）、场景 blocking、Show don't tell、POV 一致性、节奏控制、伏笔与回收 |
+| 角色流动   | `<role_fluidity>`     | ghostwriter（续写）、muse（头脑风暴）、editor（评审）、actor（扮演角色）、painter（描写）五个角色及切换规则                     |
+| 行为约束   | `<behavior>`          | 中文回应、保持创作者风格、不确定时追问、纯文本/Markdown 输出、不重复用户输入                                                    |
+| 上下文感知 | `<context_awareness>` | 声明后续动态注入的上下文类型（项目、文档、光标、偏好、KG）                                                                      |
 
 REQ-ID: `REQ-AIS-IDENTITY`
 

@@ -77,6 +77,7 @@ $ date '+%Y-%m-%d %H:%M'
 ```
 
 Result:
+
 - Rulebook task validate passed.
 - `p1-identity-template` 已从 active 迁移到 `openspec/changes/archive/p1-identity-template`。
 - `openspec/changes/EXECUTION_ORDER.md` 已按活跃 change 数量与拓扑更新。
