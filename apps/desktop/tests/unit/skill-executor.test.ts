@@ -37,10 +37,11 @@ function createNoopEmitter(): (event: AiStreamEvent) => void {
 
 /**
  * S0: 内置技能清单完整 [ADDED]
- * should expose exactly 8 builtin skills in package directory
+ * should expose exactly 9 builtin skills in package directory
  */
 {
   assert.deepEqual(builtinSkillNames(), [
+    "chat",
     "condense",
     "continue",
     "expand",
