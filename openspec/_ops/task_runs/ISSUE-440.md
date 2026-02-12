@@ -242,3 +242,45 @@
   - PR 已创建：`https://github.com/Leeky1017/CreoNow/pull/448`
   - auto-merge 已开启：`mergeMethod = SQUASH`
   - 当前状态：`state = OPEN`, `mergeStateStatus = BLOCKED`（等待 checks 完成后自动合并）
+
+### 2026-02-12 17:02 +0800 CI 失败证据（PR #448 / unit-test）
+
+- Command:
+  - `gh pr view 448 --json statusCheckRollup`
+  - `gh run view 21940018284 --job 63363064146 --log-failed`
+- Exit code: `0`
+- Key output:
+  - `unit-test = FAILURE`，其余 required checks 已通过
+  - 失败栈：`TypeError: fileItems is not iterable`
+  - 触发位置：`apps/desktop/renderer/src/components/layout/AppShell.tsx:703`
+
+### 2026-02-12 17:04 +0800 本地复现（Red）
+
+- Command:
+  - `pnpm -C apps/desktop exec vitest run renderer/src/components/layout/AppShell.ai-inline-diff.test.tsx renderer/src/components/layout/AppShell.restoreConfirm.test.tsx`
+- Exit code: `1`
+- Key output:
+  - 6 tests failed（`AppShell.ai-inline-diff` 4 项 + `AppShell.restoreConfirm` 2 项）
+  - 同步复现：`TypeError: fileItems is not iterable`
+
+### 2026-02-12 17:05 +0800 Green 修复（AppShell fileItems 容错）
+
+- Change:
+  - `apps/desktop/renderer/src/components/layout/AppShell.tsx`
+  - `const fileItems = useFileStore((s) => s.items)` -> `Array.isArray(s.items) ? s.items : []`
+- Command:
+  - `pnpm -C apps/desktop exec vitest run renderer/src/components/layout/AppShell.ai-inline-diff.test.tsx renderer/src/components/layout/AppShell.restoreConfirm.test.tsx`
+  - `pnpm -C apps/desktop exec vitest run renderer/src/features/commandPalette/CommandPalette.test.tsx renderer/src/features/commandPalette/recentItems.test.ts renderer/src/components/layout/AppShell.test.tsx renderer/src/components/layout/AppShell.ai-inline-diff.test.tsx renderer/src/components/layout/AppShell.restoreConfirm.test.tsx`
+- Exit code: `0`
+- Key output:
+  - 失败 2 文件转绿：`6 passed`
+  - 命令面板与 AppShell 回归：`5 files / 61 tests passed`
+
+### 2026-02-12 17:06 +0800 CI 对齐回归（Desktop 全量 vitest）
+
+- Command:
+  - `pnpm -C apps/desktop test:run`
+- Exit code: `0`
+- Key output:
+  - `Test Files 111 passed`
+  - `Tests 1321 passed`

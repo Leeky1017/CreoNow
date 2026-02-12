@@ -241,7 +241,9 @@ export function AppShell(): JSX.Element {
   const bootstrapProjects = useProjectStore((s) => s.bootstrap);
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
   const bootstrapFiles = useFileStore((s) => s.bootstrapForProject);
-  const fileItems = useFileStore((s) => s.items);
+  const fileItems = useFileStore((s) =>
+    Array.isArray(s.items) ? s.items : [],
+  );
   const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
   const editor = useEditorStore((s) => s.editor);
   const compareMode = useEditorStore((s) => s.compareMode);
