@@ -2,10 +2,16 @@
 
 ## Metadata
 
-- **Issue**: #458
-- **Change**: `multi-turn-conversation`
-- **Branch**: `task/458-multi-turn-conversation`
-- **PR**: (pending)
+- Issue: #458
+- Change: multi-turn-conversation
+- Branch: task/458-multi-turn-conversation
+- PR: https://github.com/Leeky1017/CreoNow/pull/463
+
+## Plan
+
+1. Red: 编写 chatMessageManager.test.ts + buildLLMMessages.test.ts
+2. Green: 实现 chatMessageManager.ts + buildLLMMessages.ts
+3. Refactor: 注册测试
 
 ## Runs
 

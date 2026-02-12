@@ -2,10 +2,16 @@
 
 ## Metadata
 
-- **Issue**: #456
-- **Change**: `ai-identity-prompt`
-- **Branch**: `task/456-ai-identity-prompt`
-- **PR**: (pending)
+- Issue: #456
+- Change: ai-identity-prompt
+- Branch: task/456-ai-identity-prompt
+- PR: https://github.com/Leeky1017/CreoNow/pull/463
+
+## Plan
+
+1. Red: 编写 identityPrompt.test.ts + assembleSystemPrompt.test.ts
+2. Green: 实现 identityPrompt.ts + assembleSystemPrompt.ts
+3. Refactor: 集成到 aiService.ts，注册测试
 
 ## Runs
 

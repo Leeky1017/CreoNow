@@ -2,10 +2,16 @@
 
 ## Metadata
 
-- **Issue**: #459
-- **Change**: `api-key-settings`
-- **Branch**: `task/459-api-key-settings`
-- **PR**: (pending)
+- Issue: #459
+- Change: api-key-settings
+- Branch: task/459-api-key-settings
+- PR: https://github.com/Leeky1017/CreoNow/pull/463
+
+## Plan
+
+1. Red: 编写 AiSettingsSection.test.tsx + AiNotConfiguredGuide.test.tsx
+2. Green: 实现 AiSettingsSection.tsx + AiNotConfiguredGuide.tsx
+3. Refactor: 确保组件遵循设计规范
 
 ## Runs
 

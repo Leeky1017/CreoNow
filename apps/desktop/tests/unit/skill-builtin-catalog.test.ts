@@ -26,6 +26,7 @@ function builtinSkillNames(): string[] {
  */
 {
   assert.deepEqual(builtinSkillNames(), [
+    "chat",
     "condense",
     "continue",
     "expand",

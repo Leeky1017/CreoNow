@@ -2,10 +2,16 @@
 
 ## Metadata
 
-- **Issue**: #457
-- **Change**: `chat-skill`
-- **Branch**: `task/457-chat-skill`
-- **PR**: (pending)
+- Issue: #457
+- Change: chat-skill
+- Branch: task/457-chat-skill
+- PR: https://github.com/Leeky1017/CreoNow/pull/463
+
+## Plan
+
+1. Red: 编写 skillRouter.test.ts + chatSkill.test.ts
+2. Green: 实现 chat SKILL.md + skillRouter.ts
+3. Refactor: 提取关键词表为常量，注册测试
 
 ## Runs
 
