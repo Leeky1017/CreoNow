@@ -3,7 +3,7 @@
 - Issue: #415
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/415
 - Branch: task/415-editor-p3-zen-mode
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/417
 - Scope: 完整交付 `openspec/changes/editor-p3-zen-mode` 全部规划任务，并按 OpenSpec/Rulebook/GitHub 门禁合并回控制面 `main`
 - Out of Scope: `editor-p4-a11y-hardening`、非 Editor 模块变更
 
