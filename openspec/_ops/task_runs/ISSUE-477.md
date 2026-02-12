@@ -5,7 +5,7 @@
 - Issue: #477
 - Change: p1-assemble-prompt
 - Branch: task/477-p1-assemble-prompt
-- PR: https://github.com/Leeky1017/CreoNow/pull/480
+- PR: https://github.com/Leeky1017/CreoNow/pull/482
 
 ## Plan
 
@@ -144,3 +144,16 @@ Result:
 
 - `origin/main` 已包含 merge commit `245037d8`。
 - 为完成阶段 6 收口，已将 Rulebook task 迁移到 `rulebook/tasks/archive/2026-02-12-issue-477-p1-assemble-prompt`。
+
+### Closeout PR Realignment
+
+```bash
+$ gh pr close 480 --comment \"Superseded by #482\"
+$ gh pr close 481 --comment \"Superseded by branch/task-id slug realignment\"
+$ gh pr create --base main --head task/477-p1-assemble-prompt ...  # PR #482
+```
+
+Result:
+
+- 关闭了冲突/slug 不一致导致的中间 PR（`#480`、`#481`）。
+- 最终 closeout PR 统一为 `#482`，并保持 `task/477-p1-assemble-prompt` 与 Rulebook task ID 一致。
