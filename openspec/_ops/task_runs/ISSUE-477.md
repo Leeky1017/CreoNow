@@ -5,7 +5,7 @@
 - Issue: #477
 - Change: p1-assemble-prompt
 - Branch: task/477-p1-assemble-prompt
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/478
 
 ## Plan
 
