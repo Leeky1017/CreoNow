@@ -19,7 +19,11 @@ export function assembleSystemPrompt(args: {
   memoryOverlay?: string;
   contextOverlay?: string;
 }): string {
-  const parts: string[] = [args.globalIdentity];
+  const parts: string[] = [];
+
+  if (args.globalIdentity.trim()) {
+    parts.push(args.globalIdentity);
+  }
 
   if (args.userRules?.trim()) {
     parts.push(args.userRules);
