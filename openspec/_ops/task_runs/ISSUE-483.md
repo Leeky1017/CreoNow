@@ -5,7 +5,7 @@
 - Issue: #483
 - Change: p1-aistore-messages
 - Branch: task/483-p1-aistore-messages
-- PR: https://github.com/Leeky1017/CreoNow/pull/484
+- PR: https://github.com/Leeky1017/CreoNow/pull/485
 
 ## Plan
 
