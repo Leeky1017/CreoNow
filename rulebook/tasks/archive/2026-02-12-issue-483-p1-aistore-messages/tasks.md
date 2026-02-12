@@ -14,4 +14,4 @@
 ## 3. Documentation
 
 - [x] 3.1 更新 `openspec/_ops/task_runs/ISSUE-483.md`，记录依赖核对/Red/Green/证据
-- [ ] 3.2 提交 PR（`Closes #483`）+ auto-merge + main 收口 + Rulebook 自归档
+- [x] 3.2 提交 PR（`Closes #483`）+ auto-merge + main 收口 + Rulebook 自归档

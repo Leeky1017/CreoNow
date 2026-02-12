@@ -5,7 +5,7 @@
 - Issue: #483
 - Change: p1-aistore-messages
 - Branch: task/483-p1-aistore-messages
-- PR: https://github.com/Leeky1017/CreoNow/pull/484
+- PR: https://github.com/Leeky1017/CreoNow/pull/485
 
 ## Plan
 
@@ -114,8 +114,46 @@ $ date '+%Y-%m-%d %H:%M'
 
 ### 2026-02-13 Preflight / PR / Merge
 
-（待执行并回填）
+- Command: `scripts/agent_pr_automerge_and_sync.sh`
+- Key outputs:
+  - 首次 preflight 阻断：`[RUN_LOG] PR field still placeholder ...`
+  - 脚本自动回填并提交：`docs: backfill run log PR link (#483)`
+  - 二次 preflight 阻断：`openspec/changes/archive/p1-aistore-messages/specs/ai-service-delta.md` 需要 Prettier 格式化
+- 修复动作：
+
+```bash
+$ pnpm exec prettier --write openspec/changes/archive/p1-aistore-messages/specs/ai-service-delta.md
+$ git commit -m "docs: format archived ai-service delta spec (#483)"
+$ git push
+```
+
+- 最终门禁结果：
+  - `ci` ✅
+  - `openspec-log-guard` ✅
+  - `merge-serial` ✅
+
+```bash
+$ gh pr view 484 --json state,mergedAt,url,mergeCommit
+{"state":"MERGED","mergedAt":"2026-02-12T17:12:57Z","url":"https://github.com/Leeky1017/CreoNow/pull/484","mergeCommit":{"oid":"fea9fdb9a91a1546b25bac836646c9e22a9c1b77"}}
+```
+
+结果：PR `#484` 已开启 auto-merge 并成功合并，Issue `#483` 被 `Closes #483` 自动关闭。
 
 ### 2026-02-13 Main 收口与 Rulebook 归档
 
-（待执行并回填）
+```bash
+$ scripts/agent_controlplane_sync.sh
+OK: merged PR #484 and synced controlplane main
+
+$ gh issue reopen 483
+✓ Reopened issue Leeky1017/CreoNow#483
+
+$ rulebook task archive issue-483-p1-aistore-messages
+✅ Task issue-483-p1-aistore-messages archived successfully
+```
+
+结果：
+
+- 控制面 `main` 已同步到包含 `fea9fdb9` 的最新 `origin/main`。
+- Rulebook task 已迁移到 `rulebook/tasks/archive/2026-02-12-issue-483-p1-aistore-messages/`。
+- 当前提交将把 Rulebook 归档状态与 RUN_LOG 收口证据回写并再次合并 `main`，完成阶段 6。
