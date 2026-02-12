@@ -6,7 +6,7 @@
 | ------- | ------------------------------------------------------------- |
 | Issue   | https://github.com/Leeky1017/CreoNow/issues/433              |
 | Branch  | `task/433-p5-workbench-change-specs`                          |
-| PR      | 待回填                                                        |
+| PR      | https://github.com/Leeky1017/CreoNow/pull/434                |
 | Status  | IN_PROGRESS                                                   |
 
 ## Runs
