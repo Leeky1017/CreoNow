@@ -1,29 +1,52 @@
 # Active Changes Execution Order
 
+<<<<<<< HEAD
 更新时间：2026-02-12 23:06
+=======
+更新时间：2026-02-12 23:09
+>>>>>>> abd6d52d (fix: complete p1-apikey-storage delivery closure (#470))
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
+<<<<<<< HEAD
 - 当前活跃 change 数量为 **6**（Phase 1 进行中）。
 - 执行模式：**双泳道并行 + 泳道内串行**。
 - 路线图：36-change × 6-Phase 计划（见 `docs/plans/audit-roadmap.md`）。
 - 变更泳道（Phase 1）：
   - AI Service 泳道：`p1-identity-template → p1-assemble-prompt → p1-aistore-messages → p1-multiturn-assembly`
   - Workbench 泳道：`p1-apikey-storage → p1-ai-settings-ui`
+=======
+- 当前活跃 change 数量为 **6**（Phase 1 持续推进）。
+- 执行模式：**三泳道并行 + 泳道内串行**。
+- 路线图：36-change × 6-Phase 计划（见 `docs/plans/audit-roadmap.md`）。
+- 变更泳道（Phase 1）：
+  - AI Service 泳道：`p1-identity-template → p1-assemble-prompt → p1-aistore-messages → p1-multiturn-assembly`
+  - Skill System 泳道：`p1-chat-skill`（独立）
+  - Workbench 泳道：`p1-ai-settings-ui`（上游 `p1-apikey-storage` 已归档完成）
+>>>>>>> abd6d52d (fix: complete p1-apikey-storage delivery closure (#470))
 
 ## 执行顺序
 
 ### 阶段 A — 起步项并行
 
 1. `p1-identity-template`（ai-service，无依赖）
+<<<<<<< HEAD
 2. `p1-apikey-storage`（workbench，无依赖）
 
 ### 阶段 B — 中段推进
 
 3. `p1-assemble-prompt`（ai-service，依赖 `p1-identity-template`）
 4. `p1-ai-settings-ui`（workbench，依赖 `p1-apikey-storage`）
+=======
+2. `p1-chat-skill`（skill-system，无依赖）
+3. `p1-ai-settings-ui`（workbench，依赖 `p1-apikey-storage`，依赖已满足）
+
+### 阶段 B — 中段推进
+
+4. `p1-assemble-prompt`（ai-service，依赖 `p1-identity-template`）
+>>>>>>> abd6d52d (fix: complete p1-apikey-storage delivery closure (#470))
 
 ### 阶段 C — 多轮对话
 
@@ -34,7 +57,12 @@
 
 ```
 AI Service 泳道:    p1-identity-template ──→ p1-assemble-prompt ──→ p1-aistore-messages ──→ p1-multiturn-assembly
+<<<<<<< HEAD
 Workbench 泳道:     p1-apikey-storage ──→ p1-ai-settings-ui
+=======
+Skill System 泳道:  p1-chat-skill
+Workbench 泳道:     p1-ai-settings-ui（依赖已由归档 change `p1-apikey-storage` 提供）
+>>>>>>> abd6d52d (fix: complete p1-apikey-storage delivery closure (#470))
 ```
 
 ### 跨泳道依赖明细
