@@ -3,7 +3,7 @@
 - Issue: #440
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/440
 - Branch: task/440-workbench-p5-04-command-palette
-- PR: https://github.com/Leeky1017/CreoNow/pull/444
+- PR: https://github.com/Leeky1017/CreoNow/pull/448
 - Scope: 完成 `openspec/changes/workbench-p5-04-command-palette` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: workbench-p5-01/02/03/05 的功能实现与归档
 
@@ -15,7 +15,7 @@
 - [x] Red：新增失败测试并记录证据
 - [x] Green：最小实现通过
 - [x] Refactor：Storybook 与代码整理
-- [ ] preflight + auto-merge + main 收口 + Rulebook 归档
+- [x] preflight + auto-merge + main 收口 + Rulebook 归档
 
 ## Runs
 
@@ -162,3 +162,125 @@
   - `pnpm contract:check` 通过
   - `pnpm cross-module:check` 通过（`[CROSS_MODULE_GATE] PASS`）
   - `pnpm test:unit` 通过
+
+### 2026-02-12 16:49 +0800 合并状态复核（PR #444）
+
+- Command:
+  - `gh pr view 444 --json number,state,mergedAt,mergeCommit,url,baseRefName,headRefName`
+- Exit code: `0`
+- Key output:
+  - `state = MERGED`
+  - `mergedAt = 2026-02-12T08:44:18Z`
+  - `mergeCommit = 6810ed729e0c04aa311c81a136f8feee151ec910`
+  - `url = https://github.com/Leeky1017/CreoNow/pull/444`
+
+### 2026-02-12 16:49 +0800 延续交付（Issue 重新开启 + 基线同步）
+
+- Command:
+  - `gh issue reopen 440`
+  - `git fetch origin --prune`
+  - `git checkout -B task/440-workbench-p5-04-command-palette origin/main`
+- Exit code: `0`
+- Key output:
+  - `Reopened issue #440`
+  - 分支基线切换至最新 `origin/main`（含 `#444` 合并结果）
+
+### 2026-02-12 16:50 +0800 Rulebook 归档（3.3）
+
+- Command:
+  - `rulebook task validate issue-440-workbench-p5-04-command-palette`
+  - `rulebook task archive issue-440-workbench-p5-04-command-palette`
+- Exit code: `0`
+- Key output:
+  - `Task issue-440-workbench-p5-04-command-palette is valid`
+  - `Task issue-440-workbench-p5-04-command-palette archived successfully`
+  - 任务目录迁移至 `rulebook/tasks/archive/2026-02-12-issue-440-workbench-p5-04-command-palette`
+
+### 2026-02-12 16:52 +0800 preflight（归档后复验通过）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Issue fresh/open 校验通过（`state = OPEN`）
+  - Rulebook 检测识别为 archive 任务并跳过 active validate（预期行为）
+  - `pnpm exec prettier --check` 通过
+  - `pnpm typecheck` / `pnpm lint` / `pnpm contract:check` / `pnpm cross-module:check` / `pnpm test:unit` 全部通过
+
+### 2026-02-12 16:56 +0800 preflight（提交后新鲜证据）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - 工作区干净（`git status --porcelain=v1` 空输出）
+  - Issue 校验通过（`state = OPEN`）
+  - 归档任务识别正常（archive 模式）
+  - `pnpm typecheck` / `pnpm lint` / `pnpm contract:check` / `pnpm cross-module:check` / `pnpm test:unit` 全绿
+
+### 2026-02-12 16:58 +0800 preflight（rebase 后复验）
+
+- Command:
+  - `git fetch origin --prune`
+  - `git rebase origin/main`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - rebase 成功：`Successfully rebased and updated refs/heads/task/440-workbench-p5-04-command-palette`
+  - preflight 全绿，且 `git status --porcelain=v1` 为空
+
+### 2026-02-12 17:00 +0800 推送收口分支 + 创建 PR + 开启 auto-merge
+
+- Command:
+  - `git push -u origin HEAD:task/440-workbench-p5-04-command-palette-r2`
+  - `gh pr create --base main --head task/440-workbench-p5-04-command-palette-r2 --title "Archive rulebook task for issue 440 (#440)" --body "... Closes #440"`
+  - `gh pr merge 448 --auto --squash`
+  - `gh pr view 448 --json number,state,mergeStateStatus,autoMergeRequest,url,headRefName,baseRefName`
+- Exit code: `0`
+- Key output:
+  - push 成功并创建远端分支 `task/440-workbench-p5-04-command-palette-r2`
+  - PR 已创建：`https://github.com/Leeky1017/CreoNow/pull/448`
+  - auto-merge 已开启：`mergeMethod = SQUASH`
+  - 当前状态：`state = OPEN`, `mergeStateStatus = BLOCKED`（等待 checks 完成后自动合并）
+
+### 2026-02-12 17:02 +0800 CI 失败证据（PR #448 / unit-test）
+
+- Command:
+  - `gh pr view 448 --json statusCheckRollup`
+  - `gh run view 21940018284 --job 63363064146 --log-failed`
+- Exit code: `0`
+- Key output:
+  - `unit-test = FAILURE`，其余 required checks 已通过
+  - 失败栈：`TypeError: fileItems is not iterable`
+  - 触发位置：`apps/desktop/renderer/src/components/layout/AppShell.tsx:703`
+
+### 2026-02-12 17:04 +0800 本地复现（Red）
+
+- Command:
+  - `pnpm -C apps/desktop exec vitest run renderer/src/components/layout/AppShell.ai-inline-diff.test.tsx renderer/src/components/layout/AppShell.restoreConfirm.test.tsx`
+- Exit code: `1`
+- Key output:
+  - 6 tests failed（`AppShell.ai-inline-diff` 4 项 + `AppShell.restoreConfirm` 2 项）
+  - 同步复现：`TypeError: fileItems is not iterable`
+
+### 2026-02-12 17:05 +0800 Green 修复（AppShell fileItems 容错）
+
+- Change:
+  - `apps/desktop/renderer/src/components/layout/AppShell.tsx`
+  - `const fileItems = useFileStore((s) => s.items)` -> `Array.isArray(s.items) ? s.items : []`
+- Command:
+  - `pnpm -C apps/desktop exec vitest run renderer/src/components/layout/AppShell.ai-inline-diff.test.tsx renderer/src/components/layout/AppShell.restoreConfirm.test.tsx`
+  - `pnpm -C apps/desktop exec vitest run renderer/src/features/commandPalette/CommandPalette.test.tsx renderer/src/features/commandPalette/recentItems.test.ts renderer/src/components/layout/AppShell.test.tsx renderer/src/components/layout/AppShell.ai-inline-diff.test.tsx renderer/src/components/layout/AppShell.restoreConfirm.test.tsx`
+- Exit code: `0`
+- Key output:
+  - 失败 2 文件转绿：`6 passed`
+  - 命令面板与 AppShell 回归：`5 files / 61 tests passed`
+
+### 2026-02-12 17:06 +0800 CI 对齐回归（Desktop 全量 vitest）
+
+- Command:
+  - `pnpm -C apps/desktop test:run`
+- Exit code: `0`
+- Key output:
+  - `Test Files 111 passed`
+  - `Tests 1321 passed`
