@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-12 18:55
+更新时间：2026-02-12 19:18
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -8,6 +8,7 @@
 
 - 当前活跃 change 数量为 **0**。
 - Workbench P5 全部 6 个 change（00–05）已归档完成。
+- change 05 经审计修复（ISSUE-454）后重新归档。
 - 已归档完成：
   - `openspec/changes/archive/workbench-p5-00-contract-sync`
   - `openspec/changes/archive/workbench-p5-01-layout-iconbar-shell`

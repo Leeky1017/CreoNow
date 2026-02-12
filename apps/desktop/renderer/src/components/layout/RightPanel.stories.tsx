@@ -76,6 +76,35 @@ export const QualityTab: Story = {
   render: (args) => <RightPanelStoryRender {...args} activeTab="quality" />,
 };
 
+export const WithCollapseButton: Story = {
+  args: {
+    width: LAYOUT_DEFAULTS.panel.default,
+    collapsed: false,
+  },
+  render: (args) => (
+    <div style={{ display: "flex", height: "420px" }}>
+      <div
+        style={{
+          flex: 1,
+          backgroundColor: "var(--color-bg-base)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--color-fg-muted)",
+          fontSize: "14px",
+        }}
+      >
+        Main Content Area
+      </div>
+      <RightPanel
+        width={args.width}
+        collapsed={args.collapsed}
+        onCollapse={() => alert("Collapse triggered")}
+      />
+    </div>
+  ),
+};
+
 export const Collapsed: Story = {
   args: {
     width: 0,

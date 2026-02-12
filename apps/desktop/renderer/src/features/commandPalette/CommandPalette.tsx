@@ -19,6 +19,7 @@
  * - Cmd/Ctrl+Shift+N: New Project
  */
 import React from "react";
+import { z } from "zod";
 
 import { Text } from "../../components/primitives/Text";
 import { useProjectStore } from "../../stores/projectStore";
@@ -54,6 +55,28 @@ interface CommandGroup {
 }
 
 const PAGE_SIZE = 100;
+
+/**
+ * Zod schema for CommandItem input validation.
+ *
+ * Why: workbench spec §模块级可验收标准 requires zod validation for command store
+ * inputs. Validates structural correctness of externally provided command items.
+ */
+const commandItemSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  group: z.string().optional(),
+  category: z.enum(["recent", "file", "command"]).optional(),
+  shortcut: z.string().optional(),
+  subtext: z.string().optional(),
+});
+
+/**
+ * Validate and filter command items, dropping any that fail zod validation.
+ */
+function validateCommandItems(items: CommandItem[]): CommandItem[] {
+  return items.filter((item) => commandItemSchema.safeParse(item).success);
+}
 
 /**
  * Layout action callbacks for CommandPalette
@@ -550,7 +573,7 @@ export function CommandPalette({
     ],
   );
 
-  const commands = customCommands ?? defaultCommands;
+  const commands = validateCommandItems(customCommands ?? defaultCommands);
 
   // 过滤和分组
   const filteredCommands = filterCommands(commands, query);

@@ -184,6 +184,29 @@ describe("Resizer", () => {
   });
 
   // ===========================================================================
+  // 悬停样式验证 (CSS class-based — JSDOM 无法测 pseudo-element computed style)
+  // ===========================================================================
+  describe("悬停样式", () => {
+    it("should have cn-resizer class which provides cursor:col-resize and 8px hit area", () => {
+      renderResizer();
+
+      const resizer = screen.getByTestId("test-resizer");
+      expect(resizer).toHaveClass("cn-resizer");
+    });
+
+    it("should have role=separator for accessibility (hover affordance via CSS)", () => {
+      renderResizer();
+
+      const resizer = screen.getByRole("separator");
+      expect(resizer).toBeInTheDocument();
+      // CSS spec: .cn-resizer { cursor: col-resize; width: 8px; }
+      // CSS spec: .cn-resizer:hover::before { width: 2px; }
+      // Pseudo-element :hover::before cannot be asserted in JSDOM.
+      // Visual verification covered by Storybook InteractionGuide story.
+    });
+  });
+
+  // ===========================================================================
   // 双拖拽 last-write-wins (global dragging flag)
   // ===========================================================================
   describe("双拖拽 last-write-wins", () => {

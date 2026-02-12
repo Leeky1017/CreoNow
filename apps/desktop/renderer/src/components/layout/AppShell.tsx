@@ -42,6 +42,7 @@ import {
   type DiffHunkDecision,
 } from "../../lib/diff/unifiedDiff";
 import { invoke } from "../../lib/ipcClient";
+import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
 
 /**
  * Clamp a value between min/max bounds.
@@ -462,15 +463,23 @@ export function AppShell(): JSX.Element {
     })();
   }, [bootstrapEditor, bootstrapFiles, currentProjectId]);
 
-  const sidebarDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const panelDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedToggleSidebar = useDebouncedCallback(
+    React.useCallback(() => {
+      setSidebarCollapsed(!sidebarCollapsed);
+    }, [setSidebarCollapsed, sidebarCollapsed]),
+    300,
+  );
 
-  React.useEffect(() => {
-    return () => {
-      if (sidebarDebounceRef.current) clearTimeout(sidebarDebounceRef.current);
-      if (panelDebounceRef.current) clearTimeout(panelDebounceRef.current);
-    };
-  }, []);
+  const debouncedTogglePanel = useDebouncedCallback(
+    React.useCallback(() => {
+      if (panelCollapsed) {
+        setActiveRightPanel("ai");
+      } else {
+        setPanelCollapsed(true);
+      }
+    }, [panelCollapsed, setActiveRightPanel, setPanelCollapsed]),
+    300,
+  );
 
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent): void {
@@ -511,26 +520,14 @@ export function AppShell(): JSX.Element {
       // Cmd/Ctrl+\: Toggle Sidebar (NOT Cmd+B per DESIGN_DECISIONS.md)
       if (e.key === "\\") {
         e.preventDefault();
-        if (sidebarDebounceRef.current) return;
-        setSidebarCollapsed(!sidebarCollapsed);
-        sidebarDebounceRef.current = setTimeout(() => {
-          sidebarDebounceRef.current = null;
-        }, 300);
+        debouncedToggleSidebar();
         return;
       }
 
       // Cmd/Ctrl+L: Toggle Right Panel
       if (e.key.toLowerCase() === "l") {
         e.preventDefault();
-        if (panelDebounceRef.current) return;
-        if (panelCollapsed) {
-          setActiveRightPanel("ai");
-        } else {
-          setPanelCollapsed(true);
-        }
-        panelDebounceRef.current = setTimeout(() => {
-          panelDebounceRef.current = null;
-        }, 300);
+        debouncedTogglePanel();
         return;
       }
 
@@ -561,12 +558,9 @@ export function AppShell(): JSX.Element {
   }, [
     createDocument,
     currentProjectId,
-    panelCollapsed,
-    setActiveRightPanel,
-    setPanelCollapsed,
-    setSidebarCollapsed,
+    debouncedTogglePanel,
+    debouncedToggleSidebar,
     setZenMode,
-    sidebarCollapsed,
     zenMode,
   ]);
 

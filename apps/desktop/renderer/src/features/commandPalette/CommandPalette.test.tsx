@@ -747,4 +747,163 @@ describe("CommandPalette", () => {
       expect(screen.getByText("未找到匹配结果")).toBeInTheDocument();
     });
   });
+
+  // ===========================================================================
+  // Zod 输入验证测试
+  // ===========================================================================
+  describe("zod 输入验证", () => {
+    it("should filter out command items with empty id", () => {
+      const commands: CommandItem[] = [
+        {
+          id: "",
+          label: "Invalid Empty ID",
+          group: "Commands",
+          onSelect: vi.fn(),
+        },
+        {
+          id: "valid-cmd",
+          label: "Valid Command",
+          group: "Commands",
+          onSelect: vi.fn(),
+        },
+      ];
+
+      render(
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
+      );
+
+      expect(screen.getByText("Valid Command")).toBeInTheDocument();
+      expect(screen.queryByText("Invalid Empty ID")).not.toBeInTheDocument();
+    });
+
+    it("should filter out command items with empty label", () => {
+      const commands: CommandItem[] = [
+        {
+          id: "no-label",
+          label: "",
+          group: "Commands",
+          onSelect: vi.fn(),
+        },
+        {
+          id: "has-label",
+          label: "Has Label",
+          group: "Commands",
+          onSelect: vi.fn(),
+        },
+      ];
+
+      render(
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
+      );
+
+      expect(screen.getByText("Has Label")).toBeInTheDocument();
+      const options = screen.getAllByRole("option");
+      expect(options).toHaveLength(1);
+    });
+
+    it("should accept command items with valid category enum values", () => {
+      const commands: CommandItem[] = [
+        {
+          id: "recent-item",
+          label: "Recent Item",
+          group: "最近使用",
+          category: "recent",
+          onSelect: vi.fn(),
+        },
+        {
+          id: "file-item",
+          label: "File Item",
+          group: "文件",
+          category: "file",
+          onSelect: vi.fn(),
+        },
+        {
+          id: "cmd-item",
+          label: "Command Item",
+          group: "命令",
+          category: "command",
+          onSelect: vi.fn(),
+        },
+      ];
+
+      render(
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
+      );
+
+      // recent items hidden in empty query, file items hidden in empty query
+      // only command items should be visible
+      expect(screen.getByText("Command Item")).toBeInTheDocument();
+    });
+
+    it("should filter out command items with invalid category", () => {
+      const commands: CommandItem[] = [
+        {
+          id: "bad-cat",
+          label: "Bad Category",
+          group: "Commands",
+          category: "invalid" as "command",
+          onSelect: vi.fn(),
+        },
+        {
+          id: "good-cmd",
+          label: "Good Command",
+          group: "Commands",
+          onSelect: vi.fn(),
+        },
+      ];
+
+      render(
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          commands={commands}
+        />,
+      );
+
+      expect(screen.getByText("Good Command")).toBeInTheDocument();
+      expect(screen.queryByText("Bad Category")).not.toBeInTheDocument();
+    });
+
+    it("should pass through all valid default commands", () => {
+      render(
+        <CommandPalette
+          open={true}
+          onOpenChange={vi.fn()}
+          layoutActions={{
+            onToggleSidebar: vi.fn(),
+            onToggleRightPanel: vi.fn(),
+            onToggleZenMode: vi.fn(),
+          }}
+          dialogActions={{
+            onOpenSettings: vi.fn(),
+            onOpenExport: vi.fn(),
+            onOpenCreateProject: vi.fn(),
+          }}
+          documentActions={{
+            onCreateDocument: vi.fn().mockResolvedValue(undefined),
+          }}
+        />,
+      );
+
+      // All default commands should pass zod validation and render
+      expect(screen.getByText("Open Settings")).toBeInTheDocument();
+      expect(screen.getByText("Toggle Sidebar")).toBeInTheDocument();
+      expect(screen.getByText("Toggle Right Panel")).toBeInTheDocument();
+      expect(screen.getByText("Toggle Zen Mode")).toBeInTheDocument();
+      expect(screen.getByText("Create New Document")).toBeInTheDocument();
+      expect(screen.getByText("Create New Project")).toBeInTheDocument();
+    });
+  });
 });

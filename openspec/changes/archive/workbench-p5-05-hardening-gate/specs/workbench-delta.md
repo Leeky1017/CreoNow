@@ -137,6 +137,21 @@ NFR 验收阈值落地：
 
 ---
 
+### Requirement: 命令面板输入校验 [ADDED]
+
+- `CommandPalette` 接收的 `commands` 列表**必须**经 zod schema 校验 [ADDED]
+- `commandItemSchema`: `z.object({ id: z.string().min(1), label: z.string().min(1), group: z.string().optional(), category: z.enum(["recent","file","command"]).optional(), shortcut: z.string().optional(), subtext: z.string().optional() })`
+- 校验失败的 command item **必须**被静默过滤，不影响其余合法项
+
+#### Scenario: commandPalette zod 输入校验 [ADDED]
+
+- **假设** 外部传入一组 command items，其中部分 id 或 label 为空
+- **当** CommandPalette 渲染
+- **则** 非法项被过滤，仅合法项展示
+- **并且** 默认命令列表全部通过校验
+
+---
+
 ## Out of Scope
 
 - 核心功能逻辑变更
