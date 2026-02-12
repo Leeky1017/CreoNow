@@ -13,15 +13,15 @@
 
 ### Scenario → Test 映射
 
-| Scenario ID | 测试文件 | 测试断言（对应用例） | 断言要点 |
-|-------------|---------|---------------------|----------|
-| S1 | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "帮我想一个悬疑小说的开头", hasSelection: false })` | `"builtin:chat"` |
-| S2 | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "续写这个段落", hasSelection: false })` | `"builtin:continue"` |
-| S3 | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "头脑风暴一下", hasSelection: false })` | `"builtin:brainstorm"` |
-| S4 | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "", hasSelection: false })` | `"builtin:chat"` |
-| S5 | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "续写", hasSelection: false, explicitSkillId: "builtin:polish" })` | `"builtin:polish"` |
-| S6 | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "", hasSelection: true })` | `"builtin:polish"` |
-| S7 | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "改一下", hasSelection: true })` | `"builtin:rewrite"` |
+| Scenario ID | 测试文件                                                              | 测试断言（对应用例）                                                                             | 断言要点               |
+| ----------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------- |
+| S1          | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "帮我想一个悬疑小说的开头", hasSelection: false })`                | `"builtin:chat"`       |
+| S2          | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "续写这个段落", hasSelection: false })`                            | `"builtin:continue"`   |
+| S3          | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "头脑风暴一下", hasSelection: false })`                            | `"builtin:brainstorm"` |
+| S4          | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "", hasSelection: false })`                                        | `"builtin:chat"`       |
+| S5          | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "续写", hasSelection: false, explicitSkillId: "builtin:polish" })` | `"builtin:polish"`     |
+| S6          | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "", hasSelection: true })`                                         | `"builtin:polish"`     |
+| S7          | `apps/desktop/main/src/services/skills/__tests__/skillRouter.test.ts` | `inferSkillFromInput({ input: "改一下", hasSelection: true })`                                   | `"builtin:rewrite"`    |
 
 ## 3. Red（先写失败测试）
 

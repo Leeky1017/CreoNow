@@ -1,6 +1,7 @@
 # Proposal: issue-469-p1-chat-skill-closeout
 
 ## Why
+
 `openspec/changes/p1-chat-skill` 已在代码层实现，但 change 文档仍停留在未勾选状态，未完成 Red/Green/Refactor/Evidence 闭环，也尚未归档到 `openspec/changes/archive/`。若不做收口，会违反 OpenSpec 的“完成后必须归档”和交付证据落盘要求，导致门禁与治理状态不一致。
 
 ## What Changes
