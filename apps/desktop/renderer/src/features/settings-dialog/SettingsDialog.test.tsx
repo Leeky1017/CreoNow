@@ -40,6 +40,12 @@ vi.mock("../settings/ProxySection", () => ({
   ProxySection: () => <div data-testid="mock-proxy-section">Proxy</div>,
 }));
 
+vi.mock("../settings/AiSettingsSection", () => ({
+  AiSettingsSection: () => (
+    <div data-testid="mock-ai-settings-section">AI Settings</div>
+  ),
+}));
+
 vi.mock("../settings/JudgeSection", () => ({
   JudgeSection: () => <div data-testid="mock-judge-section">Judge</div>,
 }));
@@ -81,7 +87,7 @@ describe("SettingsDialog", () => {
     expect(screen.getByTestId("mock-appearance-section")).toBeInTheDocument();
 
     await user.click(screen.getByTestId("settings-nav-proxy"));
-    expect(screen.getByTestId("mock-proxy-section")).toBeInTheDocument();
+    expect(screen.getByTestId("mock-ai-settings-section")).toBeInTheDocument();
 
     await user.click(screen.getByTestId("settings-nav-judge"));
     expect(screen.getByTestId("mock-judge-section")).toBeInTheDocument();
@@ -109,4 +115,3 @@ describe("SettingsDialog", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });
-
