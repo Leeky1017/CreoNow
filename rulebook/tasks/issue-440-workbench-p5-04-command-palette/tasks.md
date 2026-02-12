@@ -13,7 +13,7 @@
 - [x] 2.2 运行 `pnpm --filter @creonow/desktop test -- src/features/commandPalette/CommandPalette.test.tsx`
 - [x] 2.3 运行 `pnpm --filter @creonow/desktop test -- src/features/commandPalette/recentItems.test.ts`
 - [x] 2.4 运行 `pnpm --filter @creonow/desktop test -- src/components/layout/AppShell.test.tsx`
-- [ ] 2.5 运行 `scripts/agent_pr_preflight.sh`
+- [x] 2.5 运行 `scripts/agent_pr_preflight.sh`
 
 ## 3. Documentation
 

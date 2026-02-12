@@ -15,7 +15,7 @@
 - [x] Red：新增失败测试并记录证据
 - [x] Green：最小实现通过
 - [x] Refactor：Storybook 与代码整理
-- [ ] preflight + PR + auto-merge + main 收口 + Rulebook 归档
+- [ ] preflight + auto-merge + main 收口 + Rulebook 归档
 
 ## Runs
 
@@ -148,3 +148,17 @@
 - Key output:
   - change 04 已迁移至 `openspec/changes/archive/workbench-p5-04-command-palette`
   - `EXECUTION_ORDER.md` 已更新：active change 数量 `5 -> 4`
+
+### 2026-02-12 16:33 +0800 preflight（通过）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Rulebook validate：`Task issue-440-workbench-p5-04-command-palette is valid`
+  - 格式门禁：`All matched files use Prettier code style!`
+  - `pnpm typecheck` 通过
+  - `pnpm lint` 通过
+  - `pnpm contract:check` 通过
+  - `pnpm cross-module:check` 通过（`[CROSS_MODULE_GATE] PASS`）
+  - `pnpm test:unit` 通过
