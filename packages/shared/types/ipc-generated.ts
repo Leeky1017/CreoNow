@@ -236,6 +236,11 @@ export const IPC_CHANNELS = [
   "stats:day:gettoday",
   "stats:range:get",
   "version:aiapply:logconflict",
+  "version:branch:create",
+  "version:branch:list",
+  "version:branch:merge",
+  "version:branch:switch",
+  "version:conflict:resolve",
   "version:snapshot:create",
   "version:snapshot:diff",
   "version:snapshot:list",
@@ -2844,6 +2849,79 @@ export type IpcChannelSpec = {
     };
     response: {
       logged: true;
+    };
+  };
+  "version:branch:create": {
+    request: {
+      createdBy: string;
+      documentId: string;
+      name: string;
+    };
+    response: {
+      branch: {
+        baseSnapshotId: string;
+        createdAt: number;
+        createdBy: string;
+        documentId: string;
+        headSnapshotId: string;
+        id: string;
+        isCurrent: boolean;
+        name: string;
+      };
+    };
+  };
+  "version:branch:list": {
+    request: {
+      documentId: string;
+    };
+    response: {
+      branches: Array<{
+        baseSnapshotId: string;
+        createdAt: number;
+        createdBy: string;
+        documentId: string;
+        headSnapshotId: string;
+        id: string;
+        isCurrent: boolean;
+        name: string;
+      }>;
+    };
+  };
+  "version:branch:merge": {
+    request: {
+      documentId: string;
+      sourceBranchName: string;
+      targetBranchName: string;
+    };
+    response: {
+      mergeSnapshotId: string;
+      status: "merged";
+    };
+  };
+  "version:branch:switch": {
+    request: {
+      documentId: string;
+      name: string;
+    };
+    response: {
+      currentBranch: string;
+      headSnapshotId: string;
+    };
+  };
+  "version:conflict:resolve": {
+    request: {
+      documentId: string;
+      mergeSessionId: string;
+      resolutions: Array<{
+        conflictId: string;
+        manualText?: string;
+        resolution: "ours" | "theirs" | "manual";
+      }>;
+      resolvedBy: string;
+    };
+    response: {
+      mergeSnapshotId: string;
+      status: "merged";
     };
   };
   "version:snapshot:create": {

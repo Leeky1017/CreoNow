@@ -19,6 +19,7 @@ export function registerVersionIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
+  mergeTimeoutMs?: number;
 }): void {
   deps.ipcMain.handle(
     "version:snapshot:create",
@@ -325,6 +326,233 @@ export function registerVersionIpcHandlers(deps: {
       const res = svc.restoreVersion({
         documentId: payload.documentId,
         versionId: payload.versionId,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "version:branch:create",
+    async (
+      _e,
+      payload: { documentId: string; name: string; createdBy: string },
+    ): Promise<
+      IpcResponse<{
+        branch: {
+          id: string;
+          documentId: string;
+          name: string;
+          baseSnapshotId: string;
+          headSnapshotId: string;
+          createdBy: string;
+          createdAt: number;
+          isCurrent: boolean;
+        };
+      }>
+    > => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.documentId.trim().length === 0 ||
+        payload.name.trim().length === 0 ||
+        payload.createdBy.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId/name/createdBy is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.createBranch({
+        documentId: payload.documentId,
+        name: payload.name,
+        createdBy: payload.createdBy,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "version:branch:list",
+    async (
+      _e,
+      payload: { documentId: string },
+    ): Promise<
+      IpcResponse<{
+        branches: Array<{
+          id: string;
+          documentId: string;
+          name: string;
+          baseSnapshotId: string;
+          headSnapshotId: string;
+          createdBy: string;
+          createdAt: number;
+          isCurrent: boolean;
+        }>;
+      }>
+    > => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (payload.documentId.trim().length === 0) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.listBranches({ documentId: payload.documentId });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "version:branch:switch",
+    async (
+      _e,
+      payload: { documentId: string; name: string },
+    ): Promise<
+      IpcResponse<{
+        currentBranch: string;
+        headSnapshotId: string;
+      }>
+    > => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.documentId.trim().length === 0 ||
+        payload.name.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId/name is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.switchBranch({
+        documentId: payload.documentId,
+        name: payload.name,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "version:branch:merge",
+    async (
+      _e,
+      payload: {
+        documentId: string;
+        sourceBranchName: string;
+        targetBranchName: string;
+      },
+    ): Promise<IpcResponse<{ status: "merged"; mergeSnapshotId: string }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.documentId.trim().length === 0 ||
+        payload.sourceBranchName.trim().length === 0 ||
+        payload.targetBranchName.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message:
+              "documentId/sourceBranchName/targetBranchName is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.mergeBranch({
+        documentId: payload.documentId,
+        sourceBranchName: payload.sourceBranchName,
+        targetBranchName: payload.targetBranchName,
+        timeoutMs: deps.mergeTimeoutMs,
+      });
+      return res.ok
+        ? { ok: true, data: res.data }
+        : { ok: false, error: res.error };
+    },
+  );
+
+  deps.ipcMain.handle(
+    "version:conflict:resolve",
+    async (
+      _e,
+      payload: {
+        documentId: string;
+        mergeSessionId: string;
+        resolutions: Array<{
+          conflictId: string;
+          resolution: "ours" | "theirs" | "manual";
+          manualText?: string;
+        }>;
+        resolvedBy: string;
+      },
+    ): Promise<IpcResponse<{ status: "merged"; mergeSnapshotId: string }>> => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.documentId.trim().length === 0 ||
+        payload.mergeSessionId.trim().length === 0 ||
+        payload.resolvedBy.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId/mergeSessionId/resolvedBy is required",
+          },
+        };
+      }
+
+      const svc = createDocumentService({ db: deps.db, logger: deps.logger });
+      const res = svc.resolveMergeConflict({
+        documentId: payload.documentId,
+        mergeSessionId: payload.mergeSessionId,
+        resolutions: payload.resolutions,
+        resolvedBy: payload.resolvedBy,
       });
       return res.ok
         ? { ok: true, data: res.data }

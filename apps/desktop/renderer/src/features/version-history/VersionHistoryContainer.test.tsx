@@ -69,8 +69,10 @@ vi.mock("./VersionHistoryPanel", () => ({
  */
 function installInvokeMock(args?: {
   readVersionError?: { code: string; message: string };
+  mergeConflict?: boolean;
+  resolveError?: { code: string; message: string };
 }): void {
-  invokeMock.mockImplementation(async (channel: string) => {
+  invokeMock.mockImplementation(async (channel: string, payload: unknown) => {
     if (channel === "file:document:read") {
       return {
         ok: true,
@@ -127,6 +129,57 @@ function installInvokeMock(args?: {
 
     if (channel === "version:snapshot:rollback") {
       return { ok: true, data: { restored: true } };
+    }
+
+    if (channel === "version:branch:merge") {
+      if (args?.mergeConflict) {
+        return {
+          ok: false,
+          error: {
+            code: "CONFLICT",
+            message: "Merge conflict detected",
+            details: {
+              mergeSessionId: "merge-session-1",
+              conflicts: [
+                {
+                  conflictId: "conflict-1",
+                  index: 0,
+                  baseText: "line two",
+                  oursText: "line two main",
+                  theirsText: "line two alt",
+                },
+              ],
+            },
+          },
+        };
+      }
+
+      return {
+        ok: true,
+        data: {
+          status: "merged",
+          mergeSnapshotId: "v-merged-1",
+        },
+      };
+    }
+
+    if (channel === "version:conflict:resolve") {
+      if (args?.resolveError) {
+        return { ok: false, error: args.resolveError };
+      }
+
+      const request = payload as { resolutions?: unknown[] };
+      const resolutions = Array.isArray(request.resolutions)
+        ? request.resolutions
+        : [];
+
+      return {
+        ok: true,
+        data: {
+          status: "merged",
+          mergeSnapshotId: `v-merged-${resolutions.length}`,
+        },
+      };
     }
 
     return { ok: false, error: { code: "NOT_FOUND", message: "not found" } };
@@ -247,5 +300,87 @@ describe("VersionHistoryContainer", () => {
       expect(getRestoreInvokeCount()).toBe(1);
     });
     expect(editorState.bootstrapForProject).toHaveBeenCalledWith("project-1");
+  });
+
+  it("shows conflict panel when branch merge returns CONFLICT", async () => {
+    const user = userEvent.setup();
+    const versionStore = createVersionStore({ invoke: invokeMock as never });
+    installInvokeMock({ mergeConflict: true });
+
+    renderWithVersionStore(
+      <VersionHistoryContainer projectId="project-1" />,
+      versionStore,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("version-history-panel-content-mock"),
+      ).toBeInTheDocument();
+    });
+
+    const sourceInput = screen.getByTestId("branch-merge-source-input");
+    const targetInput = screen.getByTestId("branch-merge-target-input");
+
+    await user.clear(sourceInput);
+    await user.type(sourceInput, "alt-ending");
+    await user.clear(targetInput);
+    await user.type(targetInput, "main");
+    await user.click(screen.getByTestId("branch-merge-submit"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("branch-conflict-panel")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("branch-conflict-item-conflict-1")).toHaveTextContent(
+      "line two alt",
+    );
+  });
+
+  it("submits manual conflict resolution via version:conflict:resolve", async () => {
+    const user = userEvent.setup();
+    const versionStore = createVersionStore({ invoke: invokeMock as never });
+    installInvokeMock({ mergeConflict: true });
+
+    renderWithVersionStore(
+      <VersionHistoryContainer projectId="project-1" />,
+      versionStore,
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("version-history-panel-content-mock"),
+      ).toBeInTheDocument();
+    });
+
+    await user.clear(screen.getByTestId("branch-merge-source-input"));
+    await user.type(screen.getByTestId("branch-merge-source-input"), "alt-ending");
+    await user.clear(screen.getByTestId("branch-merge-target-input"));
+    await user.type(screen.getByTestId("branch-merge-target-input"), "main");
+    await user.click(screen.getByTestId("branch-merge-submit"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("branch-conflict-panel")).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId("branch-conflict-manual-conflict-1"));
+    await user.type(
+      screen.getByTestId("branch-conflict-manual-text-conflict-1"),
+      "resolved manual text",
+    );
+    await user.click(screen.getByTestId("branch-conflict-submit"));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("version:conflict:resolve", {
+        documentId: "doc-1",
+        mergeSessionId: "merge-session-1",
+        resolvedBy: "user",
+        resolutions: [
+          {
+            conflictId: "conflict-1",
+            resolution: "manual",
+            manualText: "resolved manual text",
+          },
+        ],
+      });
+    });
   });
 });

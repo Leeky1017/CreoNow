@@ -102,3 +102,98 @@ describe("versionStore preview mode", () => {
     expect(store.getState().previewContentJson).toBeNull();
   });
 });
+
+function createBranchMergeInvokeMock(args?: {
+  resolveShouldFail?: boolean;
+}): IpcInvoke {
+  return vi.fn(async (channel, payload) => {
+    if (channel === "version:branch:merge") {
+      const request = payload as { documentId: string };
+      if (request.documentId === "doc-conflict") {
+        return err(channel, "CONFLICT", "Merge conflict detected");
+      }
+      return ok(channel, {
+        status: "merged",
+        mergeSnapshotId: "v-merge-1",
+      });
+    }
+
+    if (channel === "version:conflict:resolve") {
+      if (args?.resolveShouldFail) {
+        return err(channel, "DB_ERROR", "resolve failed");
+      }
+      return ok(channel, {
+        status: "merged",
+        mergeSnapshotId: "v-merge-resolved",
+      });
+    }
+
+    if (channel === "version:snapshot:list") {
+      return ok(channel, { items: [] });
+    }
+
+    if (channel === "version:snapshot:read") {
+      return ok(channel, {
+        documentId: "doc-1",
+        projectId: "project-1",
+        versionId: "v-1",
+        actor: "ai",
+        reason: "ai-accept",
+        contentJson:
+          '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Historical preview"}]}]}',
+        contentText: "Historical preview",
+        contentMd: "Historical preview",
+        contentHash: "hash-v1",
+        wordCount: 2,
+        createdAt: 1710000000000,
+      });
+    }
+
+    return err(channel, "NOT_FOUND", "unexpected channel");
+  });
+}
+
+describe("versionStore branch merge conflict workflow", () => {
+  it("should enter conflict state when merge returns CONFLICT", async () => {
+    const store = createVersionStore({
+      invoke: createBranchMergeInvokeMock(),
+    });
+
+    await store.getState().mergeBranch({
+      documentId: "doc-conflict",
+      sourceBranchName: "alt-ending",
+      targetBranchName: "main",
+    });
+
+    expect(store.getState().branchMergeStatus).toBe("conflict");
+    expect(store.getState().branchMergeError?.code).toBe("CONFLICT");
+  });
+
+  it("should resolve conflict and return to ready state", async () => {
+    const store = createVersionStore({
+      invoke: createBranchMergeInvokeMock(),
+    });
+
+    await store.getState().mergeBranch({
+      documentId: "doc-conflict",
+      sourceBranchName: "alt-ending",
+      targetBranchName: "main",
+    });
+
+    await store.getState().resolveBranchConflict({
+      documentId: "doc-conflict",
+      mergeSessionId: "merge-session-1",
+      resolutions: [
+        {
+          conflictId: "conflict-1",
+          resolution: "manual",
+          manualText: "resolved line",
+        },
+      ],
+      resolvedBy: "tester",
+    });
+
+    expect(store.getState().branchMergeStatus).toBe("ready");
+    expect(store.getState().branchMergeError).toBeNull();
+  });
+});
