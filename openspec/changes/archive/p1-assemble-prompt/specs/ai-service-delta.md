@@ -8,18 +8,20 @@
 
 组装顺序（约束力从高到低）：
 
-| 序号 | 层名 | 参数名 | 必选 | 说明 |
-|------|------|--------|------|------|
-| 1 | identity | `globalIdentity` | 是 | 全局身份模板（`GLOBAL_IDENTITY_PROMPT`） |
-| 2 | rules | `userRules` | 否 | 用户/项目级写作规则 |
-| 3 | skill | `skillSystemPrompt` | 否 | 当前技能的 system prompt |
-| 4 | mode | `modeHint` | 否 | 模式提示（agent/plan/ask） |
-| 5 | memory | `memoryOverlay` | 否 | 用户偏好与写作风格记忆 |
-| 6 | context | `contextOverlay` | 否 | 动态上下文（KG 规则、项目约束） |
+| 序号 | 层名     | 参数名              | 必选 | 说明                                     |
+| ---- | -------- | ------------------- | ---- | ---------------------------------------- |
+| 1    | identity | `globalIdentity`    | 是   | 全局身份模板（`GLOBAL_IDENTITY_PROMPT`） |
+| 2    | rules    | `userRules`         | 否   | 用户/项目级写作规则                      |
+| 3    | skill    | `skillSystemPrompt` | 否   | 当前技能的 system prompt                 |
+| 4    | mode     | `modeHint`          | 否   | 模式提示（agent/plan/ask）               |
+| 5    | memory   | `memoryOverlay`     | 否   | 用户偏好与写作风格记忆                   |
+| 6    | context  | `contextOverlay`    | 否   | 动态上下文（KG 规则、项目约束）          |
 
 缺省的层直接跳过，不产生空行或占位符。各层以 `\n\n` 连接。
+`globalIdentity` 参数为必选；当其传入空白字符串时，按“空层”处理并跳过，不产生前导分隔符。
 
 函数签名：
+
 ```typescript
 function assembleSystemPrompt(args: {
   globalIdentity: string;
@@ -28,7 +30,7 @@ function assembleSystemPrompt(args: {
   modeHint?: string;
   memoryOverlay?: string;
   contextOverlay?: string;
-}): string
+}): string;
 ```
 
 REQ-ID: `REQ-AIS-PROMPT-ASSEMBLY`
@@ -56,3 +58,10 @@ REQ-ID: `REQ-AIS-PROMPT-ASSEMBLY`
 - **当** 调用 `assembleSystemPrompt(args)`
 - **则** 返回值 === `"<identity>AI</identity>"`
 - **并且** 空白/换行的层不出现在输出中
+
+#### Scenario: S4 identity 为空白时不产生占位分隔符 [ADDED]
+
+- **假设** `args = { globalIdentity: "   ", modeHint: "Mode: agent" }`
+- **当** 调用 `assembleSystemPrompt(args)`
+- **则** 返回值 === `"Mode: agent"`
+- **并且** 返回值不以 `\n\n` 开头

@@ -6,17 +6,24 @@ import { GLOBAL_IDENTITY_PROMPT } from "../identityPrompt";
 // --- S1: with no optional layers includes identity blocks ---
 
 {
-  const result = assembleSystemPrompt({ globalIdentity: GLOBAL_IDENTITY_PROMPT });
+  const result = assembleSystemPrompt({
+    globalIdentity: GLOBAL_IDENTITY_PROMPT,
+  });
 
   assert.ok(result.includes("<identity>"), "must contain <identity>");
-  assert.ok(result.includes("<writing_awareness>"), "must contain <writing_awareness>");
+  assert.ok(
+    result.includes("<writing_awareness>"),
+    "must contain <writing_awareness>",
+  );
   assert.ok(result.includes("<role_fluidity>"), "must contain <role_fluidity>");
 }
 
 // --- S1: never returns null or empty string ---
 
 {
-  const result = assembleSystemPrompt({ globalIdentity: GLOBAL_IDENTITY_PROMPT });
+  const result = assembleSystemPrompt({
+    globalIdentity: GLOBAL_IDENTITY_PROMPT,
+  });
 
   assert.equal(typeof result, "string");
   assert.ok(result.trim().length > 0, "must be non-empty");
@@ -110,10 +117,24 @@ import { GLOBAL_IDENTITY_PROMPT } from "../identityPrompt";
   );
 }
 
+// --- Skips empty identity placeholder when identity is blank ---
+
+{
+  const result = assembleSystemPrompt({
+    globalIdentity: "   ",
+    modeHint: "Mode: agent",
+  });
+
+  assert.equal(result, "Mode: agent");
+  assert.ok(!result.startsWith("\n\n"), "must not emit leading separators");
+}
+
 // --- Always returns string type (never null) ---
 
 {
-  const result = assembleSystemPrompt({ globalIdentity: GLOBAL_IDENTITY_PROMPT });
+  const result = assembleSystemPrompt({
+    globalIdentity: GLOBAL_IDENTITY_PROMPT,
+  });
 
   assert.notEqual(result, null);
   assert.notEqual(result, undefined);
