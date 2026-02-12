@@ -140,6 +140,8 @@ Icon Bar 组件**必须**有 Storybook Story，覆盖：默认态（files 激活
 
 Sidebar 内容由 Icon Bar 的激活项决定，每个面板为独立的 React 组件，通过 `activePanel` 状态切换渲染。
 
+当前激活的左侧面板**必须**持久化到 `creonow.layout.activeLeftPanel`，应用重启后恢复上次选择。若持久化值非法，回退默认值 `files`。
+
 #### Scenario: 用户拖拽调整 Sidebar 宽度
 
 - **假设** 左侧 Sidebar 当前宽度 240px
@@ -332,7 +334,7 @@ AI 面板和 Info 面板**必须**各有 Storybook Story，覆盖默认态、空
 
 系统**必须**支持深色和浅色主题切换，通过 `<html>` 元素的 `data-theme` 属性控制（`dark` | `light`）。
 
-主题切换入口在设置面板中。系统**应该**支持「跟随系统」选项。
+主题切换入口在设置面板中。系统**必须**支持「跟随系统」选项，通过 `matchMedia('(prefers-color-scheme: dark)')` 监听 OS 偏好变化。`system` 模式下 OS 切换时应用自动跟随；切换为非 `system` 模式时监听器必须注销。
 
 主题切换**必须**无闪烁（切换时所有 CSS Variable 同步更新）。
 
@@ -398,9 +400,15 @@ V1 阶段仅交付深色主题为完整状态，浅色主题为可选。
   - 命令面板唤起到可输入 p95 < 120ms
 - 边界与类型安全：
   - `TypeScript strict` 必须开启
-  - `layout/theme/command` store 输入参数必须做 zod 校验
+  - `layout/theme/command` store 输入参数必须做 zod 校验，具体 schema：
+    - `sidebarWidth`: `z.number().min(180).max(400)`
+    - `panelWidth`: `z.number().min(280).max(480)`
+    - `sidebarCollapsed` / `panelCollapsed`: `z.boolean()`
+    - `activeLeftPanel`: `z.enum(["files","search","outline","versionHistory","memory","characters","knowledgeGraph"])`
+    - `activeRightPanel`: `z.enum(["ai","info","quality"])`
+    - `theme.mode`: `z.enum(["dark","light","system"])`
 - 失败处理策略：
-  - 偏好恢复失败时回退默认布局并提示
+  - 偏好恢复失败时回退默认布局 + 写入修正值到 preferences + 状态栏一次性提示「布局已重置」
   - 快捷键冲突以编辑器优先并记录冲突事件
   - UI 状态异常必须可恢复（重置布局）
 - Owner 决策边界：
@@ -433,11 +441,11 @@ V1 阶段仅交付深色主题为完整状态，浅色主题为可选。
 | 容量溢出     | 命令面板超大结果集、最近项目列表过长 |
 | 权限/安全    | 非法快捷键注入、未授权面板状态篡改   |
 
-#### Scenario: 双拖拽冲突以最近操作为准
+#### Scenario: 双拖拽冲突以全局 dragging flag 为准
 
 - **假设** 用户几乎同时拖拽左侧栏和右侧栏分割线
 - **当** 两个更新事件进入布局 store
-- **则** 采用最后一次鼠标事件作为最终宽度
+- **则** 全局 dragging flag 确保同一时刻只有一个 Resizer 活跃（last-write-wins）
 - **并且** 宽度仍受最小/最大边界约束
 
 #### Scenario: 主题值非法时阻断写入
