@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { RightPanel } from "./RightPanel";
 import { LayoutTestWrapper } from "./test-utils";
@@ -209,6 +209,44 @@ describe("RightPanel", () => {
       tabs.forEach((tab) => {
         expect(tab).toHaveAttribute("type", "button");
       });
+    });
+  });
+
+  // ===========================================================================
+  // 折叠按钮测试
+  // ===========================================================================
+  describe("折叠按钮", () => {
+    it("展开状态应该渲染折叠按钮", () => {
+      render(
+        <LayoutTestWrapper>
+          <RightPanel {...defaultProps} onCollapse={() => {}} />
+        </LayoutTestWrapper>,
+      );
+
+      const collapseBtn = screen.getByTestId("right-panel-collapse-btn");
+      expect(collapseBtn).toBeInTheDocument();
+    });
+
+    it("点击折叠按钮应该调用 onCollapse 回调", () => {
+      const onCollapse = vi.fn();
+      render(
+        <LayoutTestWrapper>
+          <RightPanel {...defaultProps} onCollapse={onCollapse} />
+        </LayoutTestWrapper>,
+      );
+
+      const collapseBtn = screen.getByTestId("right-panel-collapse-btn");
+      fireEvent.click(collapseBtn);
+
+      expect(onCollapse).toHaveBeenCalledTimes(1);
+    });
+
+    it("折叠状态不应该渲染折叠按钮", () => {
+      renderWithWrapper({ ...defaultProps, collapsed: true });
+
+      expect(
+        screen.queryByTestId("right-panel-collapse-btn"),
+      ).not.toBeInTheDocument();
     });
   });
 });

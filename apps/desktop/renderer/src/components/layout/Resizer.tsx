@@ -1,5 +1,14 @@
 import React from "react";
 
+let globalDragging = false;
+
+/**
+ * Reset the global dragging flag. For test use only.
+ */
+export function __resetGlobalDragging(): void {
+  globalDragging = false;
+}
+
 type ResizerProps = {
   testId: string;
   getStartWidth: () => number;
@@ -36,6 +45,7 @@ export function Resizer(props: ResizerProps): JSX.Element {
         return;
       }
       draggingRef.current = false;
+      globalDragging = false;
       props.onCommit(lastWidthRef.current);
     }
 
@@ -52,6 +62,10 @@ export function Resizer(props: ResizerProps): JSX.Element {
       data-testid={props.testId}
       className="cn-resizer"
       onMouseDown={(e) => {
+        if (globalDragging) {
+          return;
+        }
+        globalDragging = true;
         draggingRef.current = true;
         startXRef.current = e.clientX;
         startWidthRef.current = props.getStartWidth();

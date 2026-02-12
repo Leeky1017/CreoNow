@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { Resizer } from "./Resizer";
+import { Resizer, __resetGlobalDragging } from "./Resizer";
 
 describe("Resizer", () => {
   const defaultProps = {
@@ -17,6 +17,7 @@ describe("Resizer", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    __resetGlobalDragging();
   });
 
   // ===========================================================================
@@ -179,6 +180,58 @@ describe("Resizer", () => {
 
       const resizer = screen.getByTestId("custom-resizer");
       expect(resizer).toBeInTheDocument();
+    });
+  });
+
+  // ===========================================================================
+  // 双拖拽 last-write-wins (global dragging flag)
+  // ===========================================================================
+  describe("双拖拽 last-write-wins", () => {
+    it("should prevent second resizer from dragging when first is active", () => {
+      const onCommitA = vi.fn();
+      const onCommitB = vi.fn();
+      const onDragA = vi.fn(
+        (deltaX: number, startWidth: number) => startWidth + deltaX,
+      );
+      const onDragB = vi.fn(
+        (deltaX: number, startWidth: number) => startWidth + deltaX,
+      );
+
+      const { unmount } = render(
+        <>
+          <Resizer
+            testId="resizer-a"
+            getStartWidth={() => 240}
+            onDrag={onDragA}
+            onCommit={onCommitA}
+            onDoubleClick={() => {}}
+          />
+          <Resizer
+            testId="resizer-b"
+            getStartWidth={() => 320}
+            onDrag={onDragB}
+            onCommit={onCommitB}
+            onDoubleClick={() => {}}
+          />
+        </>,
+      );
+
+      const resizerA = screen.getByTestId("resizer-a");
+      const resizerB = screen.getByTestId("resizer-b");
+
+      // Start dragging A
+      fireEvent.mouseDown(resizerA, { clientX: 100 });
+
+      // Attempt to start dragging B while A is active
+      fireEvent.mouseDown(resizerB, { clientX: 500 });
+
+      // Move mouse — only A should respond
+      fireEvent.mouseMove(window, { clientX: 150 });
+
+      expect(onDragA).toHaveBeenCalled();
+      expect(onDragB).not.toHaveBeenCalled();
+
+      unmount();
     });
   });
 });
