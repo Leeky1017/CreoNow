@@ -3,7 +3,7 @@
 - Issue: #424
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/424
 - Branch: task/424-skill-system-p4-hardening-boundary
-- PR: 待回填
+- PR: https://github.com/Leeky1017/CreoNow/pull/426
 - Scope: 完成交付 `openspec/changes/skill-system-p4-hardening-boundary` 全部任务（P4 边界硬化、异常矩阵、NFR 与契约收口），并合并回控制面 `main`
 - Out of Scope: 新增技能功能特性、替换既有 IPC 命名空间、修改 p0-p3 已归档行为契约
 
