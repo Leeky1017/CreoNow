@@ -3,7 +3,7 @@
 - Issue: #440
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/440
 - Branch: task/440-workbench-p5-04-command-palette
-- PR: TODO (to be backfilled with real PR URL)
+- PR: https://github.com/Leeky1017/CreoNow/pull/444
 - Scope: 完成 `openspec/changes/workbench-p5-04-command-palette` 全部规划任务并按治理流程合并回控制面 `main`
 - Out of Scope: workbench-p5-01/02/03/05 的功能实现与归档
 
@@ -130,3 +130,11 @@
 - Exit code: `0`
 - Key output:
   - `Task issue-440-workbench-p5-04-command-palette is valid`
+
+### 2026-02-12 16:29 +0800 PR 创建
+
+- Command:
+  - `gh pr create --title "Deliver workbench-p5-04-command-palette and merge to main (#440)" --body "... Closes #440"`
+- Exit code: `0`
+- Key output:
+  - `https://github.com/Leeky1017/CreoNow/pull/444`
