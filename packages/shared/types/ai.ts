@@ -2,6 +2,7 @@ import type { IpcError } from "./ipc-generated";
 
 export const SKILL_STREAM_CHUNK_CHANNEL = "skill:stream:chunk" as const;
 export const SKILL_STREAM_DONE_CHANNEL = "skill:stream:done" as const;
+export const SKILL_QUEUE_STATUS_CHANNEL = "skill:queue:status" as const;
 
 export type AiStreamTerminal = "completed" | "cancelled" | "error";
 
@@ -41,4 +42,25 @@ export type AiStreamDoneEvent = {
   ts: number;
 };
 
-export type AiStreamEvent = AiStreamChunkEvent | AiStreamDoneEvent;
+export type AiQueueStatusEvent = {
+  type: "queue";
+  executionId: string;
+  runId: string;
+  traceId: string;
+  status:
+    | "queued"
+    | "started"
+    | "completed"
+    | "failed"
+    | "cancelled"
+    | "timeout";
+  queuePosition: number;
+  queued: number;
+  globalRunning: number;
+  ts: number;
+};
+
+export type AiStreamEvent =
+  | AiStreamChunkEvent
+  | AiStreamDoneEvent
+  | AiQueueStatusEvent;

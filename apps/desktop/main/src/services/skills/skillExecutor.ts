@@ -22,6 +22,8 @@ export type ResolvedRunnableSkill = {
   enabled: boolean;
   valid: boolean;
   inputType?: SkillInputType;
+  dependsOn?: string[];
+  timeoutMs?: number;
   error_code?: IpcErrorCode;
   error_message?: string;
 };
@@ -30,6 +32,7 @@ export type SkillExecutorRunArgs = {
   skillId: string;
   systemPrompt?: string;
   input: string;
+  timeoutMs?: number;
   mode: "agent" | "plan" | "ask";
   model: string;
   system?: string;
@@ -52,6 +55,10 @@ export type SkillExecutor = {
 
 type SkillExecutorDeps = {
   resolveSkill: (skillId: string) => ServiceResult<ResolvedRunnableSkill>;
+  checkDependencies?: (args: {
+    skillId: string;
+    dependsOn: string[];
+  }) => ServiceResult<true>;
   runSkill: (args: SkillExecutorRunArgs) => Promise<
     ServiceResult<{
       executionId: string;
@@ -193,6 +200,17 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
         );
       }
 
+      const dependsOn = resolved.data.dependsOn ?? [];
+      if (dependsOn.length > 0 && deps.checkDependencies) {
+        const dependencyCheck = deps.checkDependencies({
+          skillId: args.skillId,
+          dependsOn,
+        });
+        if (!dependencyCheck.ok) {
+          return dependencyCheck;
+        }
+      }
+
       const trimmedInput = args.input.trim();
 
       if (
@@ -252,6 +270,7 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
         ...args,
         systemPrompt,
         input: userPrompt,
+        timeoutMs: resolved.data.timeoutMs,
         ...(contextPrompt ? { system: contextPrompt } : {}),
       });
 

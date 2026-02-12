@@ -92,3 +92,55 @@ function asRecord(x: unknown): Record<string, unknown> | null {
   assert.equal(context?.projectId, "project-1");
   assert.equal(context?.documentId, "document-1");
 }
+
+{
+  const store = createAiStore({
+    invoke: async (channel, payload) => {
+      if (channel === "skill:registry:list") {
+        return {
+          ok: true,
+          data: {
+            items: [
+              {
+                id: "builtin:polish",
+                name: "Polish",
+                scope: "builtin",
+                packageId: "builtin",
+                version: "1.0.0",
+                enabled: true,
+                valid: true,
+              },
+            ],
+          },
+        } as never;
+      }
+      if (channel === "ai:skill:run") {
+        return {
+          ok: false,
+          error: {
+            code: "SKILL_TIMEOUT",
+            message: "scheduler timed out",
+          },
+        } as never;
+      }
+
+      return {
+        ok: false,
+        error: {
+          code: "INTERNAL",
+          message: `unexpected channel: ${String(channel)} payload=${String(payload)}`,
+        },
+      } as never;
+    },
+  });
+
+  store.setState({
+    selectedSkillId: "builtin:polish",
+    input: "timeout-me",
+  });
+
+  await store.getState().run();
+
+  assert.equal(store.getState().status, "timeout");
+  assert.equal(store.getState().lastError?.code, "SKILL_TIMEOUT");
+}

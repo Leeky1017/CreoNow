@@ -60,7 +60,7 @@ function createNoopEmitter(): (event: AiStreamEvent) => void {
   let llmCallCount = 0;
 
   const executor = createSkillExecutor({
-    resolveSkill: (skillId) => ({
+    resolveSkill: (skillId: string) => ({
       ok: true,
       data: {
         id: skillId,
@@ -108,7 +108,7 @@ function createNoopEmitter(): (event: AiStreamEvent) => void {
   let receivedSystem = "";
 
   const executor = createSkillExecutor({
-    resolveSkill: (skillId) => ({
+    resolveSkill: (skillId: string) => ({
       ok: true,
       data: {
         id: skillId,
@@ -180,7 +180,7 @@ function createNoopEmitter(): (event: AiStreamEvent) => void {
  */
 {
   const executor = createSkillExecutor({
-    resolveSkill: (skillId) => ({
+    resolveSkill: (skillId: string) => ({
       ok: true,
       data: {
         id: skillId,
@@ -214,4 +214,60 @@ function createNoopEmitter(): (event: AiStreamEvent) => void {
     throw new Error("expected execute to fail");
   }
   assert.equal(result.error.code, "LLM_API_ERROR");
+}
+
+/**
+ * S4: 技能依赖缺失阻断执行 [ADDED]
+ * should return SKILL_DEPENDENCY_MISSING and skip LLM call when dependency is disabled/missing
+ */
+{
+  let llmCallCount = 0;
+
+  const executor = createSkillExecutor({
+    resolveSkill: (skillId: string) => ({
+      ok: true,
+      data: {
+        id: skillId,
+        enabled: true,
+        valid: true,
+        prompt: {
+          system: "sys",
+          user: "{{input}}",
+        },
+        dependsOn: ["summarize"],
+      },
+    }),
+    checkDependencies: () => ({
+      ok: false,
+      error: {
+        code: "SKILL_DEPENDENCY_MISSING",
+        message: "Missing dependency",
+        details: ["summarize"],
+      },
+    }),
+    runSkill: async () => {
+      llmCallCount += 1;
+      return {
+        ok: true,
+        data: { executionId: "ex-3", runId: "run-3", outputText: "ok" },
+      } satisfies SkillRunResult;
+    },
+  } as unknown as Parameters<typeof createSkillExecutor>[0]);
+
+  const result = await executor.execute({
+    skillId: "custom:chapter-outline-refine",
+    input: "outline text",
+    mode: "ask",
+    model: "gpt-5.2",
+    stream: false,
+    ts: Date.now(),
+    emitEvent: createNoopEmitter(),
+  });
+
+  assert.equal(result.ok, false);
+  if (result.ok) {
+    throw new Error("expected dependency-missing execution to fail");
+  }
+  assert.equal(result.error.code, "SKILL_DEPENDENCY_MISSING");
+  assert.equal(llmCallCount, 0);
 }

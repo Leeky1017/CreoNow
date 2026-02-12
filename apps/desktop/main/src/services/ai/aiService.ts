@@ -9,6 +9,10 @@ import type {
   AiStreamTerminal,
 } from "../../../../../../packages/shared/types/ai";
 import type { Logger } from "../../logging/logger";
+import {
+  createSkillScheduler,
+  type SkillSchedulerTerminal,
+} from "../skills/skillScheduler";
 import { startFakeAiServer, type FakeAiServer } from "./fakeAiServer";
 
 type Ok<T> = { ok: true; data: T };
@@ -22,6 +26,7 @@ export type AiService = {
     skillId: string;
     systemPrompt?: string;
     input: string;
+    timeoutMs?: number;
     mode: "agent" | "plan" | "ask";
     model: string;
     system?: string;
@@ -94,14 +99,6 @@ type ProviderHealthState = {
   degradedAtMs: number | null;
 };
 
-type SessionQueueState = {
-  running: boolean;
-  pending: Array<{
-    traceId: string;
-    start: () => void;
-  }>;
-};
-
 type RunEntry = {
   executionId: string;
   runId: string;
@@ -113,12 +110,16 @@ type RunEntry = {
   startedAt: number;
   terminal: AiStreamTerminal | null;
   doneEmitted: boolean;
+  schedulerTerminalResolved: boolean;
+  resolveSchedulerTerminal: (terminal: SkillSchedulerTerminal) => void;
   seq: number;
   outputText: string;
   emitEvent: (event: AiStreamEvent) => void;
 };
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+const DEFAULT_SKILL_TIMEOUT_MS = 30_000;
+const MAX_SKILL_TIMEOUT_MS = 120_000;
 const DEFAULT_LLM_RATE_LIMIT_PER_MINUTE = 60;
 const DEFAULT_RETRY_BACKOFF_MS = [1_000, 2_000, 4_000] as const;
 const PROVIDER_FAILURE_THRESHOLD = 3;
@@ -210,6 +211,23 @@ function parseTimeoutMs(env: NodeJS.ProcessEnv): number {
     return DEFAULT_TIMEOUT_MS;
   }
   return parsed;
+}
+
+/**
+ * Resolve per-skill execution timeout with default + clamp.
+ */
+function resolveSkillTimeoutMs(timeoutMs: number | undefined): number {
+  if (
+    typeof timeoutMs !== "number" ||
+    !Number.isFinite(timeoutMs) ||
+    !Number.isInteger(timeoutMs)
+  ) {
+    return DEFAULT_SKILL_TIMEOUT_MS;
+  }
+  if (timeoutMs <= 0) {
+    return DEFAULT_SKILL_TIMEOUT_MS;
+  }
+  return Math.min(timeoutMs, MAX_SKILL_TIMEOUT_MS);
 }
 
 /**
@@ -912,7 +930,10 @@ export function createAiService(deps: {
   const requestTimestamps: number[] = [];
   const providerHealthByKey = new Map<string, ProviderHealthState>();
   const sessionTokenTotalsByKey = new Map<string, number>();
-  const sessionQueues = new Map<string, SessionQueueState>();
+  const skillScheduler = createSkillScheduler({
+    globalConcurrencyLimit: 8,
+    sessionQueueLimit: 20,
+  });
   const now = deps.now ?? (() => Date.now());
   const sleep =
     deps.sleep ??
@@ -1034,7 +1055,11 @@ export function createAiService(deps: {
   }
 
   function isProviderAvailabilityError(error: IpcError): boolean {
-    return error.code === "LLM_API_ERROR" || error.code === "TIMEOUT";
+    return (
+      error.code === "LLM_API_ERROR" ||
+      error.code === "TIMEOUT" ||
+      error.code === "SKILL_TIMEOUT"
+    );
   }
 
   function buildProviderUnavailableError(args: {
@@ -1046,63 +1071,6 @@ export function createAiService(deps: {
       traceId: args.traceId,
       primary: args.primary.provider,
       backup: args.backup?.provider ?? null,
-    });
-  }
-
-  /**
-   * Enqueue a non-stream execution so same-session requests run one-by-one.
-   */
-  function enqueueSessionRun<T>(args: {
-    sessionKey: string;
-    traceId: string;
-    execute: () => Promise<T>;
-  }): Promise<T> {
-    return new Promise<T>((resolve, reject) => {
-      const state =
-        sessionQueues.get(args.sessionKey) ??
-        ({
-          running: false,
-          pending: [],
-        } satisfies SessionQueueState);
-      sessionQueues.set(args.sessionKey, state);
-
-      const start = () => {
-        state.running = true;
-        void args
-          .execute()
-          .then(resolve, reject)
-          .finally(() => {
-            const next = state.pending.shift();
-            if (next) {
-              deps.logger.info("ai_session_queue_dequeued", {
-                sessionKey: args.sessionKey,
-                traceId: next.traceId,
-                queueRemaining: state.pending.length,
-              });
-              next.start();
-              return;
-            }
-
-            state.running = false;
-            sessionQueues.delete(args.sessionKey);
-          });
-      };
-
-      if (!state.running) {
-        start();
-        return;
-      }
-
-      const queuePosition = state.pending.length + 1;
-      deps.logger.info("ai_session_queue_enqueued", {
-        sessionKey: args.sessionKey,
-        traceId: args.traceId,
-        queuePosition,
-      });
-      state.pending.push({
-        traceId: args.traceId,
-        start,
-      });
     });
   }
 
@@ -1225,6 +1193,17 @@ export function createAiService(deps: {
     });
   }
 
+  function resolveSchedulerTerminal(
+    entry: RunEntry,
+    terminal: SkillSchedulerTerminal,
+  ): void {
+    if (entry.schedulerTerminalResolved) {
+      return;
+    }
+    entry.schedulerTerminalResolved = true;
+    entry.resolveSchedulerTerminal(terminal);
+  }
+
   /**
    * Mark a run terminal and collapse lifecycle with a single done event.
    */
@@ -1260,6 +1239,17 @@ export function createAiService(deps: {
       executionId: entry.executionId,
       code: args.errorCode,
     });
+    resolveSchedulerTerminal(
+      entry,
+      args.terminal === "completed"
+        ? "completed"
+        : args.terminal === "cancelled"
+          ? "cancelled"
+          : args.errorCode === "SKILL_TIMEOUT" ||
+              args.error?.code === "SKILL_TIMEOUT"
+            ? "timeout"
+            : "failed",
+    );
     cleanupRun(entry.runId);
   }
 
@@ -1278,6 +1268,17 @@ export function createAiService(deps: {
       clearTimeout(entry.completionTimer);
     }
     runs.delete(runId);
+  }
+
+  function normalizeSkillError(error: IpcError): IpcError {
+    if (error.code !== "TIMEOUT") {
+      return error;
+    }
+    return {
+      ...error,
+      code: "SKILL_TIMEOUT",
+      message: "Skill execution timed out",
+    };
   }
 
   /**
@@ -1829,6 +1830,12 @@ export function createAiService(deps: {
     const sessionKey = resolveSessionKey(args.context);
     const promptTokens = estimateTokenCount(args.input);
     const projectedTokens = promptTokens + DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE;
+    const skillTimeoutMs = resolveSkillTimeoutMs(args.timeoutMs);
+    let resolveCompletion: (terminal: SkillSchedulerTerminal) => void = () =>
+      undefined;
+    const completionPromise = new Promise<SkillSchedulerTerminal>((resolve) => {
+      resolveCompletion = resolve;
+    });
     const entry: RunEntry = {
       executionId,
       runId,
@@ -1840,6 +1847,8 @@ export function createAiService(deps: {
       startedAt: args.ts,
       terminal: null,
       doneEmitted: false,
+      schedulerTerminalResolved: false,
+      resolveSchedulerTerminal: resolveCompletion,
       seq: 0,
       outputText: "",
       emitEvent: args.emitEvent,
@@ -1852,6 +1861,7 @@ export function createAiService(deps: {
       traceId,
       provider: primaryCfg.provider,
       stream: args.stream,
+      timeoutMs: skillTimeoutMs,
     });
 
     const consumeSessionTokenBudget = (): Err | null => {
@@ -1872,165 +1882,27 @@ export function createAiService(deps: {
       return null;
     };
 
-    entry.timeoutTimer = setTimeout(() => {
-      if (entry.terminal !== null) {
-        return;
+    function armSkillTimeout(): void {
+      if (entry.timeoutTimer) {
+        clearTimeout(entry.timeoutTimer);
       }
-      controller.abort();
+      entry.timeoutTimer = setTimeout(() => {
+        if (entry.terminal !== null) {
+          return;
+        }
+        controller.abort();
 
-      setTerminal({
-        entry,
-        terminal: "error",
-        error: { code: "TIMEOUT", message: "AI request timed out" },
-        logEvent: "ai_run_timeout",
-        errorCode: "TIMEOUT",
-      });
-    }, primaryCfg.timeoutMs);
-
-    if (args.stream) {
-      const budgetExceeded = consumeSessionTokenBudget();
-      if (budgetExceeded) {
         setTerminal({
           entry,
           terminal: "error",
-          error: budgetExceeded.error,
-          logEvent: "ai_run_failed",
-          errorCode: budgetExceeded.error.code,
+          error: {
+            code: "SKILL_TIMEOUT",
+            message: "Skill execution timed out",
+          },
+          logEvent: "ai_run_timeout",
+          errorCode: "SKILL_TIMEOUT",
         });
-        return budgetExceeded;
-      }
-
-      void (async () => {
-        try {
-          let replayAttempts = 0;
-          for (;;) {
-            const res =
-              primaryCfg.provider === "anthropic"
-                ? await runAnthropicStream({
-                    entry,
-                    cfg: primaryCfg,
-                    systemPrompt: args.systemPrompt,
-                    input: args.input,
-                    mode: args.mode,
-                    model: args.model,
-                    system: args.system,
-                  })
-                : await runOpenAiStream({
-                    entry,
-                    cfg: primaryCfg,
-                    systemPrompt: args.systemPrompt,
-                    input: args.input,
-                    mode: args.mode,
-                    model: args.model,
-                    system: args.system,
-                  });
-
-            if (res.ok) {
-              break;
-            }
-
-            if (entry.terminal !== null) {
-              return;
-            }
-
-            if (
-              !isReplayableStreamDisconnect(res.error) ||
-              replayAttempts >= 1
-            ) {
-              setTerminal({
-                entry,
-                terminal: res.error.code === "CANCELED" ? "cancelled" : "error",
-                error: res.error,
-                logEvent:
-                  res.error.code === "TIMEOUT"
-                    ? "ai_run_timeout"
-                    : res.error.code === "CANCELED"
-                      ? "ai_run_canceled"
-                      : "ai_run_failed",
-                errorCode: res.error.code,
-              });
-              return;
-            }
-
-            replayAttempts += 1;
-            resetForFullPromptReplay(entry);
-            deps.logger.info("ai_stream_replay_retry", {
-              runId,
-              executionId,
-              traceId,
-              attempt: replayAttempts,
-            });
-
-            const waitMs =
-              retryBackoffMs[
-                Math.min(replayAttempts - 1, retryBackoffMs.length - 1)
-              ] ?? 0;
-            if (waitMs > 0) {
-              await sleep(waitMs);
-            }
-          }
-
-          if (entry.terminal !== null) {
-            return;
-          }
-
-          if (entry.completionTimer !== null) {
-            return;
-          }
-
-          // Completion is deferred one tick so a near-simultaneous cancel can win.
-          entry.completionTimer = setTimeout(() => {
-            entry.completionTimer = null;
-            if (entry.terminal !== null) {
-              return;
-            }
-
-            const currentTotal = sessionTokenTotalsByKey.get(sessionKey) ?? 0;
-            const completionTokens = estimateTokenCount(entry.outputText);
-            sessionTokenTotalsByKey.set(
-              sessionKey,
-              currentTotal + promptTokens + completionTokens,
-            );
-
-            setTerminal({
-              entry,
-              terminal: "completed",
-              logEvent: "ai_run_completed",
-            });
-          }, 0);
-        } catch (error) {
-          if (entry.terminal !== null) {
-            return;
-          }
-
-          const aborted = controller.signal.aborted;
-          if (aborted) {
-            setTerminal({
-              entry,
-              terminal: "cancelled",
-              logEvent: "ai_run_canceled",
-              errorCode: "CANCELED",
-            });
-            return;
-          }
-
-          setTerminal({
-            entry,
-            terminal: "error",
-            error: {
-              code: "INTERNAL",
-              message: "AI request failed",
-              details: {
-                message: error instanceof Error ? error.message : String(error),
-              },
-            },
-            logEvent: "ai_run_failed",
-            errorCode: "INTERNAL",
-          });
-        }
-      })();
-
-      return { ok: true, data: { executionId, runId } };
+      }, skillTimeoutMs);
     }
 
     const executeNonStream = async (): Promise<
@@ -2062,14 +1934,15 @@ export function createAiService(deps: {
         });
 
         if (!res.ok) {
+          const normalizedError = normalizeSkillError(res.error);
           setTerminal({
             entry,
             terminal: "error",
-            error: res.error,
+            error: normalizedError,
             logEvent: "ai_run_failed",
-            errorCode: res.error.code,
+            errorCode: normalizedError.code,
           });
-          return { ok: false, error: res.error };
+          return { ok: false, error: normalizedError };
         }
 
         entry.outputText = res.data;
@@ -2089,7 +1962,7 @@ export function createAiService(deps: {
         const aborted = controller.signal.aborted;
         if (aborted) {
           if (entry.terminal === "error") {
-            return ipcError("TIMEOUT", "AI request timed out");
+            return ipcError("SKILL_TIMEOUT", "Skill execution timed out");
           }
           setTerminal({
             entry,
@@ -2119,11 +1992,207 @@ export function createAiService(deps: {
       }
     };
 
-    return await enqueueSessionRun({
+    const scheduled = await skillScheduler.schedule({
       sessionKey,
+      executionId,
+      runId,
       traceId,
-      execute: executeNonStream,
+      onQueueEvent: (queueState) => {
+        args.emitEvent({
+          type: "queue",
+          executionId,
+          runId,
+          traceId,
+          status: queueState.status,
+          queuePosition: queueState.queuePosition,
+          queued: queueState.queued,
+          globalRunning: queueState.globalRunning,
+          ts: now(),
+        });
+      },
+      start: () => {
+        armSkillTimeout();
+        if (args.stream) {
+          const budgetExceeded = consumeSessionTokenBudget();
+          if (budgetExceeded) {
+            setTerminal({
+              entry,
+              terminal: "error",
+              error: budgetExceeded.error,
+              logEvent: "ai_run_failed",
+              errorCode: budgetExceeded.error.code,
+            });
+            return {
+              response: Promise.resolve(
+                budgetExceeded as ServiceResult<{
+                  executionId: string;
+                  runId: string;
+                  outputText?: string;
+                }>,
+              ),
+              completion: completionPromise,
+            };
+          }
+
+          void (async () => {
+            try {
+              let replayAttempts = 0;
+              for (;;) {
+                const res =
+                  primaryCfg.provider === "anthropic"
+                    ? await runAnthropicStream({
+                        entry,
+                        cfg: primaryCfg,
+                        systemPrompt: args.systemPrompt,
+                        input: args.input,
+                        mode: args.mode,
+                        model: args.model,
+                        system: args.system,
+                      })
+                    : await runOpenAiStream({
+                        entry,
+                        cfg: primaryCfg,
+                        systemPrompt: args.systemPrompt,
+                        input: args.input,
+                        mode: args.mode,
+                        model: args.model,
+                        system: args.system,
+                      });
+
+                if (res.ok) {
+                  break;
+                }
+
+                if (entry.terminal !== null) {
+                  return;
+                }
+
+                const normalizedError = normalizeSkillError(res.error);
+                if (
+                  !isReplayableStreamDisconnect(normalizedError) ||
+                  replayAttempts >= 1
+                ) {
+                  setTerminal({
+                    entry,
+                    terminal:
+                      normalizedError.code === "CANCELED"
+                        ? "cancelled"
+                        : "error",
+                    error: normalizedError,
+                    logEvent:
+                      normalizedError.code === "SKILL_TIMEOUT"
+                        ? "ai_run_timeout"
+                        : normalizedError.code === "CANCELED"
+                          ? "ai_run_canceled"
+                          : "ai_run_failed",
+                    errorCode: normalizedError.code,
+                  });
+                  return;
+                }
+
+                replayAttempts += 1;
+                resetForFullPromptReplay(entry);
+                deps.logger.info("ai_stream_replay_retry", {
+                  runId,
+                  executionId,
+                  traceId,
+                  attempt: replayAttempts,
+                });
+
+                const waitMs =
+                  retryBackoffMs[
+                    Math.min(replayAttempts - 1, retryBackoffMs.length - 1)
+                  ] ?? 0;
+                if (waitMs > 0) {
+                  await sleep(waitMs);
+                }
+              }
+
+              if (entry.terminal !== null) {
+                return;
+              }
+
+              if (entry.completionTimer !== null) {
+                return;
+              }
+
+              // Completion is deferred one tick so a near-simultaneous cancel can win.
+              entry.completionTimer = setTimeout(() => {
+                entry.completionTimer = null;
+                if (entry.terminal !== null) {
+                  return;
+                }
+
+                const currentTotal =
+                  sessionTokenTotalsByKey.get(sessionKey) ?? 0;
+                const completionTokens = estimateTokenCount(entry.outputText);
+                sessionTokenTotalsByKey.set(
+                  sessionKey,
+                  currentTotal + promptTokens + completionTokens,
+                );
+
+                setTerminal({
+                  entry,
+                  terminal: "completed",
+                  logEvent: "ai_run_completed",
+                });
+              }, 0);
+            } catch (error) {
+              if (entry.terminal !== null) {
+                return;
+              }
+
+              const aborted = controller.signal.aborted;
+              if (aborted) {
+                setTerminal({
+                  entry,
+                  terminal: "cancelled",
+                  logEvent: "ai_run_canceled",
+                  errorCode: "CANCELED",
+                });
+                return;
+              }
+
+              setTerminal({
+                entry,
+                terminal: "error",
+                error: {
+                  code: "INTERNAL",
+                  message: "AI request failed",
+                  details: {
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  },
+                },
+                logEvent: "ai_run_failed",
+                errorCode: "INTERNAL",
+              });
+            }
+          })();
+
+          return {
+            response: Promise.resolve({
+              ok: true,
+              data: { executionId, runId },
+            }),
+            completion: completionPromise,
+          };
+        }
+
+        return {
+          response: executeNonStream(),
+          completion: completionPromise,
+        };
+      },
     });
+
+    if (!scheduled.ok) {
+      resolveSchedulerTerminal(entry, "failed");
+      cleanupRun(runId);
+      return scheduled;
+    }
+
+    return scheduled;
   };
 
   const listModels: AiService["listModels"] = async () => {

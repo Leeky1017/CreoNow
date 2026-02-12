@@ -380,6 +380,8 @@ export function AiPanel(): JSX.Element {
   const lastCandidates = useAiStore((s) => s.lastCandidates);
 
   const usageStats = useAiStore((s) => s.usageStats);
+  const queuePosition = useAiStore((s) => s.queuePosition);
+  const queuedCount = useAiStore((s) => s.queuedCount);
 
   const selectedCandidateId = useAiStore((s) => s.selectedCandidateId);
 
@@ -1224,6 +1226,11 @@ export function AiPanel(): JSX.Element {
                   <span>
                     {status === "streaming" ? "Generating..." : "Thinking..."}
                   </span>
+                  {typeof queuePosition === "number" && queuePosition > 0 ? (
+                    <span data-testid="ai-queue-status">
+                      Queue #{queuePosition} ({queuedCount} waiting)
+                    </span>
+                  ) : null}
                 </div>
               )}
 

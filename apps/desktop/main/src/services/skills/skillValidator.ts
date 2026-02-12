@@ -38,6 +38,8 @@ export type SkillFrontmatter = {
   modelProfile?: Record<string, unknown>;
   output?: Record<string, unknown>;
   prompt: SkillPrompt;
+  dependsOn?: string[];
+  timeoutMs?: number;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -182,6 +184,39 @@ function optionalStringArrayField(
         },
       );
     }
+  }
+  return { ok: true, data: value };
+}
+
+/**
+ * Read an optional integer field.
+ */
+function optionalIntegerField(
+  obj: JsonObject,
+  fieldName: string,
+): ServiceResult<number | undefined> {
+  const value = obj[fieldName];
+  if (value === undefined) {
+    return { ok: true, data: undefined };
+  }
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value <= 0
+  ) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      `${fieldName} must be a positive integer`,
+      {
+        fieldName,
+      },
+    );
+  }
+  if (fieldName === "timeoutMs" && value > 120000) {
+    return ipcError("INVALID_ARGUMENT", "timeoutMs must be <= 120000", {
+      fieldName,
+    });
   }
   return { ok: true, data: value };
 }
@@ -406,6 +441,19 @@ export function validateSkillFrontmatter(args: {
     return tagsRes;
   }
 
+  const dependsOnRes =
+    obj.dependsOn !== undefined
+      ? optionalStringArrayField(obj, "dependsOn")
+      : optionalStringArrayField(obj, "depends_on");
+  if (!dependsOnRes.ok) {
+    return dependsOnRes;
+  }
+
+  const timeoutMsRes = optionalIntegerField(obj, "timeoutMs");
+  if (!timeoutMsRes.ok) {
+    return timeoutMsRes;
+  }
+
   const kindRes = optionalEnumField({
     obj,
     fieldName: "kind",
@@ -445,6 +493,8 @@ export function validateSkillFrontmatter(args: {
       modelProfile,
       output,
       prompt: promptRes.data,
+      dependsOn: dependsOnRes.data.length ? dependsOnRes.data : undefined,
+      timeoutMs: timeoutMsRes.data,
     },
   };
 }

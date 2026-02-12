@@ -1,6 +1,7 @@
 import { ipcRenderer } from "electron";
 
 import {
+  SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
   type AiStreamEvent,
@@ -31,7 +32,7 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
     return false;
   }
   if (
-    (x.type !== "chunk" && x.type !== "done") ||
+    (x.type !== "chunk" && x.type !== "done" && x.type !== "queue") ||
     typeof x.executionId !== "string" ||
     typeof x.runId !== "string" ||
     typeof x.traceId !== "string" ||
@@ -42,6 +43,20 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
 
   if (x.type === "chunk") {
     return typeof x.seq === "number" && typeof x.chunk === "string";
+  }
+
+  if (x.type === "queue") {
+    return (
+      (x.status === "queued" ||
+        x.status === "started" ||
+        x.status === "completed" ||
+        x.status === "failed" ||
+        x.status === "cancelled" ||
+        x.status === "timeout") &&
+      typeof x.queuePosition === "number" &&
+      typeof x.queued === "number" &&
+      typeof x.globalRunning === "number"
+    );
   }
 
   return (
@@ -115,6 +130,9 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
   });
   ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, (_evt, payload: unknown) => {
     forwardEvent(SKILL_STREAM_DONE_CHANNEL, payload);
+  });
+  ipcRenderer.on(SKILL_QUEUE_STATUS_CHANNEL, (_evt, payload: unknown) => {
+    forwardEvent(SKILL_QUEUE_STATUS_CHANNEL, payload);
   });
   ipcRenderer.on(JUDGE_RESULT_CHANNEL, (_evt, payload: unknown) => {
     if (subscriptions.count() === 0) {

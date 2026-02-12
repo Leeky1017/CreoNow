@@ -40,6 +40,8 @@ export type LoadedSkill = {
   error_message?: string;
   prompt?: SkillPrompt;
   bodyMd?: string;
+  dependsOn?: string[];
+  timeoutMs?: number;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -280,6 +282,8 @@ function toLoadedSkill(args: {
     valid: true,
     prompt: args.frontmatter.prompt,
     bodyMd: args.bodyMd,
+    dependsOn: args.frontmatter.dependsOn,
+    timeoutMs: args.frontmatter.timeoutMs,
   };
 }
 

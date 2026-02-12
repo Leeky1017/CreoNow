@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import {
+  SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
   type AiStreamEvent,
@@ -327,7 +328,9 @@ function safeEmitToRenderer(args: {
   const channel =
     args.event.type === "chunk"
       ? SKILL_STREAM_CHUNK_CHANNEL
-      : SKILL_STREAM_DONE_CHANNEL;
+      : args.event.type === "queue"
+        ? SKILL_QUEUE_STATUS_CHANNEL
+        : SKILL_STREAM_DONE_CHANNEL;
   try {
     args.sender.send(channel, args.event);
   } catch (error) {
@@ -438,10 +441,55 @@ export function registerAiIpcHandlers(deps: {
           prompt: resolved.data.skill.prompt,
           enabled: resolved.data.enabled,
           valid: resolved.data.skill.valid,
+          inputType: resolved.data.inputType,
+          dependsOn: resolved.data.skill.dependsOn,
+          timeoutMs: resolved.data.skill.timeoutMs,
           error_code: resolved.data.skill.error_code,
           error_message: resolved.data.skill.error_message,
         },
       };
+    },
+    checkDependencies: ({ dependsOn }) => {
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: createDbNotReadyError(),
+        };
+      }
+
+      const skillSvc = createSkillService({
+        db: deps.db,
+        userDataDir: deps.userDataDir,
+        builtinSkillsDir: deps.builtinSkillsDir,
+        logger: deps.logger,
+      });
+
+      const missing: string[] = [];
+      for (const dependencyId of dependsOn) {
+        const available = skillSvc.isDependencyAvailable({ dependencyId });
+        if (!available.ok) {
+          return {
+            ok: false,
+            error: available.error,
+          };
+        }
+        if (!available.data.available) {
+          missing.push(dependencyId);
+        }
+      }
+
+      if (missing.length > 0) {
+        return {
+          ok: false,
+          error: {
+            code: "SKILL_DEPENDENCY_MISSING",
+            message: "Skill dependency missing",
+            details: missing,
+          },
+        };
+      }
+
+      return { ok: true, data: true };
     },
     runSkill: async (args) => {
       return await aiService.runSkill(args);

@@ -113,6 +113,9 @@ export type SkillService = {
     enabled: boolean;
     inputType?: CustomSkillInputType;
   }>;
+  isDependencyAvailable: (args: {
+    dependencyId: string;
+  }) => ServiceResult<{ available: boolean }>;
 };
 
 type SkillDbRow = {
@@ -143,6 +146,11 @@ function normalizeCustomSkillId(id: string): string {
     return id.slice("custom:".length);
   }
   return id;
+}
+
+function leafSkillId(id: string): string {
+  const parts = id.split(":");
+  return parts[parts.length - 1] ?? id;
 }
 
 function encodeCustomListId(id: string): string {
@@ -1393,6 +1401,42 @@ export function createSkillService(deps: {
 
       const enabled = loaded.data.enabledMap.get(id) ?? true;
       return { ok: true, data: { skill, enabled } };
+    },
+
+    isDependencyAvailable: ({ dependencyId }) => {
+      const trimmed = dependencyId.trim();
+      if (trimmed.length === 0) {
+        return ipcError("INVALID_ARGUMENT", "dependencyId is required", {
+          fieldName: "dependencyId",
+        });
+      }
+
+      const loaded = resolveLoaded();
+      if (!loaded.ok) {
+        return loaded;
+      }
+
+      if (trimmed.startsWith("custom:")) {
+        const custom = readCustomSkillById({
+          db: deps.db,
+          currentProjectId: loaded.data.currentProjectId,
+          id: normalizeCustomSkillId(trimmed),
+        });
+        if (!custom.ok) {
+          return custom;
+        }
+        return { ok: true, data: { available: custom.data?.enabled === true } };
+      }
+
+      const matched = loaded.data.skills.find(
+        (skill) => skill.id === trimmed || leafSkillId(skill.id) === trimmed,
+      );
+      if (!matched) {
+        return { ok: true, data: { available: false } };
+      }
+
+      const enabled = loaded.data.enabledMap.get(matched.id) ?? true;
+      return { ok: true, data: { available: enabled } };
     },
   };
 }

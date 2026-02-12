@@ -1,36 +1,31 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-12 10:47
+更新时间：2026-02-12 11:24
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **4**。
-- 执行模式：**三泳道并行 + 泳道内串行**。
+- 当前活跃 change 数量为 **3**。
+- 执行模式：**三泳道并行（各泳道单项）**。
 - 变更泳道：
-  - Phase 0–3 全部归档：IPC、Document Management、Project Management、Memory System、Knowledge Graph、Context Engine、AI Service、Search & Retrieval。
   - Editor：`p4`（`p0`、`p1`、`p2`、`p3` 已归档）
-  - Skill System：`p3 → p4`（`p0`、`p1`、`p2` 已归档）
+  - Skill System：`p4`（`p0`、`p1`、`p2`、`p3` 已归档）
   - Version Control：`p4`（`p0`、`p1`、`p2`、`p3` 已归档）
 
 ## 执行顺序
 
-### 阶段 A — 起步项并行
+### 阶段 A — 并行推进
 
 1. `editor-p4-a11y-hardening`（依赖已归档 `editor-p0` + 已归档 `editor-p1` + 已归档 `editor-p2` + 已归档 `editor-p3`）
-2. `skill-system-p3-scheduler-concurrency-timeout`（依赖已归档 `skill-system-p0` + 已归档 `skill-system-p1` + 已归档 `skill-system-p2`）
-
-### 阶段 B — 中段推进
-
-3. `skill-system-p4-hardening-boundary`（依赖已归档 `skill-system-p0` + 已归档 `skill-system-p1` + 已归档 `skill-system-p2` + `skill-system-p3`）
-4. `version-control-p4-hardening-boundary`（依赖已归档 `version-control-p0` + 已归档 `version-control-p1` + 已归档 `version-control-p2` + 已归档 `version-control-p3`）
+2. `skill-system-p4-hardening-boundary`（依赖已归档 `skill-system-p0` + 已归档 `skill-system-p1` + 已归档 `skill-system-p2` + 已归档 `skill-system-p3`）
+3. `version-control-p4-hardening-boundary`（依赖已归档 `version-control-p0` + 已归档 `version-control-p1` + 已归档 `version-control-p2` + 已归档 `version-control-p3`）
 
 ## 依赖关系总览
 
 ```
 Editor 泳道:         (p0,p1,p2,p3 已归档) ──→ p4
-Skill System 泳道:   (p0,p1,p2 已归档) ──→ p3 ──→ p4
+Skill System 泳道:   (p0,p1,p2,p3 已归档) ──→ p4
 Version Control 泳道:(p0,p1,p2,p3 已归档) ──→ p4
 ```
 

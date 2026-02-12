@@ -2,6 +2,7 @@ import React from "react";
 
 import type { AiStreamEvent } from "../../../../../../packages/shared/types/ai";
 import {
+  SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
 } from "../../../../../../packages/shared/types/ai";
@@ -26,7 +27,7 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
     return false;
   }
   if (
-    (x.type !== "chunk" && x.type !== "done") ||
+    (x.type !== "chunk" && x.type !== "done" && x.type !== "queue") ||
     typeof x.executionId !== "string" ||
     typeof x.runId !== "string" ||
     typeof x.traceId !== "string" ||
@@ -37,6 +38,20 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
 
   if (x.type === "chunk") {
     return typeof x.seq === "number" && typeof x.chunk === "string";
+  }
+
+  if (x.type === "queue") {
+    return (
+      (x.status === "queued" ||
+        x.status === "started" ||
+        x.status === "completed" ||
+        x.status === "failed" ||
+        x.status === "cancelled" ||
+        x.status === "timeout") &&
+      typeof x.queuePosition === "number" &&
+      typeof x.queued === "number" &&
+      typeof x.globalRunning === "number"
+    );
   }
 
   return (
@@ -81,9 +96,11 @@ export function useAiStream(): void {
 
     window.addEventListener(SKILL_STREAM_CHUNK_CHANNEL, onEvent);
     window.addEventListener(SKILL_STREAM_DONE_CHANNEL, onEvent);
+    window.addEventListener(SKILL_QUEUE_STATUS_CHANNEL, onEvent);
     return () => {
       window.removeEventListener(SKILL_STREAM_CHUNK_CHANNEL, onEvent);
       window.removeEventListener(SKILL_STREAM_DONE_CHANNEL, onEvent);
+      window.removeEventListener(SKILL_QUEUE_STATUS_CHANNEL, onEvent);
       if (subscriptionId && streamApi) {
         streamApi.releaseAiStreamConsumer(subscriptionId);
       }

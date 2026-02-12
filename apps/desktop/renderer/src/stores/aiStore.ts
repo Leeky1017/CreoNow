@@ -88,6 +88,9 @@ export type AiState = {
   usageStats: AiUsageStats | null;
   selectedCandidateId: string | null;
   lastRunRequest: AiRunRequestSnapshot | null;
+  queuePosition: number | null;
+  queuedCount: number;
+  globalRunningCount: number;
 };
 
 export type AiActions = {
@@ -143,7 +146,7 @@ const AiStoreContext = React.createContext<UseAiStore | null>(null);
  * Why: renderer must map stable error codes into a stable state machine.
  */
 function statusFromError(error: IpcError): AiStatus {
-  if (error.code === "TIMEOUT") {
+  if (error.code === "TIMEOUT" || error.code === "SKILL_TIMEOUT") {
     return "timeout";
   }
   if (error.code === "CANCELED") {
@@ -197,6 +200,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
     usageStats: null,
     selectedCandidateId: null,
     lastRunRequest: null,
+    queuePosition: null,
+    queuedCount: 0,
+    globalRunningCount: 0,
 
     setStream: (enabled) => set({ stream: enabled }),
 
@@ -340,6 +346,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         usageStats: null,
         selectedCandidateId: null,
         lastRunRequest: requestSnapshot,
+        queuePosition: null,
+        queuedCount: 0,
+        globalRunningCount: 0,
       });
 
       const res = await deps.invoke("ai:skill:run", {
@@ -363,6 +372,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           lastCandidates: [],
           usageStats: null,
           selectedCandidateId: null,
+          queuePosition: null,
+          queuedCount: 0,
+          globalRunningCount: 0,
         });
         return;
       }
@@ -381,6 +393,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           usageStats: res.data.usage ?? null,
           selectedCandidateId: candidates[0]?.id ?? null,
           lastError: null,
+          queuePosition: null,
+          queuedCount: 0,
+          globalRunningCount: 0,
         });
         return;
       }
@@ -398,6 +413,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           ? (res.data.candidates[0]?.id ?? null)
           : null,
         lastError: null,
+        queuePosition: null,
+        queuedCount: 0,
+        globalRunningCount: 0,
       });
     },
 
@@ -471,6 +489,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         activeRunId: null,
         activeChunkSeq: 0,
         lastError: null,
+        queuePosition: null,
+        queuedCount: 0,
+        globalRunningCount: 0,
       });
 
       const res = await deps.invoke("ai:skill:cancel", {
@@ -508,6 +529,24 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
             lastCandidates: [],
             usageStats: null,
             selectedCandidateId: null,
+            queuePosition: null,
+            queuedCount: 0,
+            globalRunningCount: 0,
+          };
+        });
+        return;
+      }
+
+      if (event.type === "queue") {
+        set((prev) => {
+          if (!prev.activeRunId || event.executionId !== prev.activeRunId) {
+            return prev;
+          }
+
+          return {
+            queuePosition: event.queuePosition,
+            queuedCount: event.queued,
+            globalRunningCount: event.globalRunning,
           };
         });
         return;
@@ -524,6 +563,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           lastCandidates: [],
           usageStats: null,
           selectedCandidateId: null,
+          queuePosition: null,
+          queuedCount: 0,
+          globalRunningCount: 0,
         });
         return;
       }
@@ -539,6 +581,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
           lastCandidates: [],
           usageStats: null,
           selectedCandidateId: null,
+          queuePosition: null,
+          queuedCount: 0,
+          globalRunningCount: 0,
         });
         return;
       }
@@ -558,6 +603,9 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         lastCandidates: [],
         usageStats: null,
         selectedCandidateId: null,
+        queuePosition: null,
+        queuedCount: 0,
+        globalRunningCount: 0,
       });
     },
   }));
