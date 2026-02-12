@@ -5,7 +5,7 @@
 - Issue: #489
 - Change: p2 active OpenSpec draft persistence
 - Branch: task/489-persist-phase2-openspec-drafts
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/490
 
 ## Plan
 
