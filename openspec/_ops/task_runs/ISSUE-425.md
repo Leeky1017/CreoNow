@@ -3,7 +3,7 @@
 - Issue: #425
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/425
 - Branch: task/425-version-control-p4-hardening-boundary
-- PR: PENDING
+- PR: https://github.com/Leeky1017/CreoNow/pull/428
 - Scope: 依据 `openspec/changes/version-control-p4-hardening-boundary` 完成交付（Red→Green→Refactor→门禁）并最终合并回控制面 `main`
 - Out of Scope: 新增版本功能特性、跨项目协作权限模型改造
 
