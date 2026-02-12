@@ -3,7 +3,7 @@
 - Issue: #414
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/414
 - Branch: task/414-version-control-p3-branch-merge-conflict
-- PR: PENDING
+- PR: https://github.com/Leeky1017/CreoNow/pull/418
 - Scope: 完成交付 `openspec/changes/version-control-p3-branch-merge-conflict` 的全部规划任务（分支管理 + 三方合并 + 冲突解决）并按 OpenSpec/Rulebook/GitHub 门禁合并回控制面 `main`
 - Out of Scope: 跨文档分支、分支权限/协作锁、自动冲突解决
 
