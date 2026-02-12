@@ -15,7 +15,7 @@
 - [x] Red：新增失败测试并记录证据
 - [x] Green：最小实现通过
 - [x] Refactor：Storybook 与代码整理
-- [ ] preflight + auto-merge + main 收口 + Rulebook 归档
+- [x] preflight + auto-merge + main 收口 + Rulebook 归档
 
 ## Runs
 
@@ -162,3 +162,47 @@
   - `pnpm contract:check` 通过
   - `pnpm cross-module:check` 通过（`[CROSS_MODULE_GATE] PASS`）
   - `pnpm test:unit` 通过
+
+### 2026-02-12 16:49 +0800 合并状态复核（PR #444）
+
+- Command:
+  - `gh pr view 444 --json number,state,mergedAt,mergeCommit,url,baseRefName,headRefName`
+- Exit code: `0`
+- Key output:
+  - `state = MERGED`
+  - `mergedAt = 2026-02-12T08:44:18Z`
+  - `mergeCommit = 6810ed729e0c04aa311c81a136f8feee151ec910`
+  - `url = https://github.com/Leeky1017/CreoNow/pull/444`
+
+### 2026-02-12 16:49 +0800 延续交付（Issue 重新开启 + 基线同步）
+
+- Command:
+  - `gh issue reopen 440`
+  - `git fetch origin --prune`
+  - `git checkout -B task/440-workbench-p5-04-command-palette origin/main`
+- Exit code: `0`
+- Key output:
+  - `Reopened issue #440`
+  - 分支基线切换至最新 `origin/main`（含 `#444` 合并结果）
+
+### 2026-02-12 16:50 +0800 Rulebook 归档（3.3）
+
+- Command:
+  - `rulebook task validate issue-440-workbench-p5-04-command-palette`
+  - `rulebook task archive issue-440-workbench-p5-04-command-palette`
+- Exit code: `0`
+- Key output:
+  - `Task issue-440-workbench-p5-04-command-palette is valid`
+  - `Task issue-440-workbench-p5-04-command-palette archived successfully`
+  - 任务目录迁移至 `rulebook/tasks/archive/2026-02-12-issue-440-workbench-p5-04-command-palette`
+
+### 2026-02-12 16:52 +0800 preflight（归档后复验通过）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - Issue fresh/open 校验通过（`state = OPEN`）
+  - Rulebook 检测识别为 archive 任务并跳过 active validate（预期行为）
+  - `pnpm exec prettier --check` 通过
+  - `pnpm typecheck` / `pnpm lint` / `pnpm contract:check` / `pnpm cross-module:check` / `pnpm test:unit` 全部通过
