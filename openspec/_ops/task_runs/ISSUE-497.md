@@ -5,7 +5,7 @@
 - Issue: #497
 - Change: `openspec/changes/p2-kg-aliases`
 - Branch: `task/497-p2-kg-aliases`
-- PR: https://github.com/Leeky1017/CreoNow/pull/99999
+- PR: https://github.com/Leeky1017/CreoNow/pull/498
 
 ## Plan
 
