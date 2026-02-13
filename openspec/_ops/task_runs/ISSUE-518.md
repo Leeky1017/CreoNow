@@ -3,8 +3,8 @@
 - Issue: #518
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/518
 - Branch: task/518-main-session-audit-hard-gate
-- PR: https://github.com/Leeky1017/CreoNow/pull/518
-- Scope: 实现主会话审计硬门禁，要求 preflight 与 openspec-log-guard 同步阻断未审计场景
+- PR: https://github.com/Leeky1017/CreoNow/pull/519
+- Scope: 实现主会话审计硬门禁，要求 preflight 与 openspec-log-guard 同步阻断未审计场景，并修复 Reviewed-HEAD-SHA 自引用悖论（改为签字提交 `HEAD^`）
 - Out of Scope: 新增 required checks、任务级临时 CI 分叉逻辑
 
 ## Plan
@@ -111,10 +111,42 @@
   - `tsc --noEmit` 通过
   - 单元测试链路通过（含 `cross-module` gate 与 Storybook inventory 检查）
 
+### 2026-02-13 21:46 悖论修复（HEAD^ + 签字提交隔离）
+
+- Edited:
+  - `scripts/agent_pr_preflight.py`
+  - `scripts/tests/test_agent_pr_preflight.py`
+  - `.github/workflows/openspec-log-guard.yml`
+  - `docs/delivery-skill.md`
+  - `docs/delivery-rule-mapping.md`
+  - `openspec/changes/main-session-audit-hard-gate/*`
+- Command:
+  - `python3 -m unittest scripts/tests/test_agent_pr_preflight.py`
+  - `git commit -m "ci: resolve main-audit HEAD paradox (#518)"`
+- Exit code: `0`
+- Key output:
+  - `Ran 14 tests ... OK`
+  - 新增签字提交隔离校验：`HEAD^..HEAD` 仅允许变更当前任务 RUN_LOG
+
+### 2026-02-13 21:49 PR 创建与补跑验证
+
+- Command:
+  - `git push -u origin task/518-main-session-audit-hard-gate`
+  - `gh pr create --base main --head task/518-main-session-audit-hard-gate --title "Enforce main-session audit hard gate (#518)" ...`
+  - `python3 -m unittest scripts/tests/test_agent_pr_preflight.py`
+  - `pnpm lint`
+  - `pnpm typecheck`
+  - `pnpm test:unit`
+- Exit code: `0`
+- Key output:
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/519`
+  - `Ran 14 tests ... OK`
+  - `eslint` / `tsc --noEmit` / `test:unit` 全部通过
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 1da4f9ccc36cad7a9fe495128043913b443178fc
+- Reviewed-HEAD-SHA: a6f07e11f37210f25d1d0c6244fff541af404b7a
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
