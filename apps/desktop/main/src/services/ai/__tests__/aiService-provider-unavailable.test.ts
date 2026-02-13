@@ -49,7 +49,9 @@ function createLogger(): Logger {
 
     assert.equal(result.ok, false);
     if (result.ok) {
-      throw new Error("runSkill should fail when provider credentials are missing");
+      throw new Error(
+        "runSkill should fail when provider credentials are missing",
+      );
     }
 
     assert.equal(result.error.code, "AI_PROVIDER_UNAVAILABLE");
