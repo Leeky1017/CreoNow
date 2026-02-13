@@ -14,6 +14,14 @@ import {
   type SkillSchedulerTerminal,
 } from "../skills/skillScheduler";
 import { startFakeAiServer, type FakeAiServer } from "./fakeAiServer";
+import {
+  buildLLMMessages,
+  type LLMMessage,
+} from "./buildLLMMessages";
+import {
+  createChatMessageManager,
+  type ChatMessageManager,
+} from "./chatMessageManager";
 import { assembleSystemPrompt } from "./assembleSystemPrompt";
 import { GLOBAL_IDENTITY_PROMPT } from "./identityPrompt";
 
@@ -131,6 +139,13 @@ const PROVIDER_HALF_OPEN_AFTER_MS = 15 * 60 * 1000;
 const DEFAULT_SESSION_TOKEN_BUDGET = 200_000;
 const DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE = 256;
 const DEFAULT_MAX_SKILL_OUTPUT_CHARS = 120_000;
+const DEFAULT_CHAT_HISTORY_TOKEN_BUDGET = 16_000;
+
+type RuntimeMessages = {
+  systemText: string;
+  openAiMessages: LLMMessage[];
+  anthropicMessages: Array<{ role: "user" | "assistant"; content: string }>;
+};
 
 /**
  * Narrow an unknown value to a JSON object.
@@ -221,6 +236,21 @@ function parseMaxSkillOutputChars(env: NodeJS.ProcessEnv): number {
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return DEFAULT_MAX_SKILL_OUTPUT_CHARS;
+  }
+  return parsed;
+}
+
+/**
+ * Parse chat history token budget from env with a safe default.
+ */
+function parseChatHistoryTokenBudget(env: NodeJS.ProcessEnv): number {
+  const raw = env.CREONOW_AI_CHAT_HISTORY_TOKEN_BUDGET;
+  if (typeof raw !== "string" || raw.trim().length === 0) {
+    return DEFAULT_CHAT_HISTORY_TOKEN_BUDGET;
+  }
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_CHAT_HISTORY_TOKEN_BUDGET;
   }
   return parsed;
 }
@@ -962,6 +992,7 @@ export function createAiService(deps: {
   const requestTimestamps: number[] = [];
   const providerHealthByKey = new Map<string, ProviderHealthState>();
   const sessionTokenTotalsByKey = new Map<string, number>();
+  const sessionChatMessagesByKey = new Map<string, ChatMessageManager>();
   const skillScheduler = createSkillScheduler({
     globalConcurrencyLimit: 8,
     sessionQueueLimit: 20,
@@ -979,6 +1010,7 @@ export function createAiService(deps: {
   const sessionTokenBudget =
     deps.sessionTokenBudget ?? DEFAULT_SESSION_TOKEN_BUDGET;
   const maxSkillOutputChars = parseMaxSkillOutputChars(deps.env);
+  const chatHistoryTokenBudget = parseChatHistoryTokenBudget(deps.env);
   let fakeServerPromise: Promise<FakeAiServer> | null = null;
 
   const getFakeServer = async (): Promise<FakeAiServer> => {
@@ -1009,6 +1041,51 @@ export function createAiService(deps: {
     }
 
     return "global";
+  }
+
+  function getChatMessageManager(sessionKey: string): ChatMessageManager {
+    const existing = sessionChatMessagesByKey.get(sessionKey);
+    if (existing) {
+      return existing;
+    }
+    const created = createChatMessageManager();
+    sessionChatMessagesByKey.set(sessionKey, created);
+    return created;
+  }
+
+  function buildRuntimeMessages(args: {
+    systemPrompt?: string;
+    mode: "agent" | "plan" | "ask";
+    system?: string;
+    input: string;
+    history: Array<{ role: "user" | "assistant"; content: string }>;
+  }): RuntimeMessages {
+    const systemText = combineSystemText({
+      systemPrompt: args.systemPrompt,
+      modeHint: modeSystemHint(args.mode) ?? undefined,
+      system: args.system,
+    });
+    const openAiMessages = buildLLMMessages({
+      systemPrompt: systemText,
+      history: args.history,
+      currentUserMessage: args.input,
+      maxTokenBudget: chatHistoryTokenBudget,
+    });
+    const anthropicMessages: RuntimeMessages["anthropicMessages"] = [];
+    for (const message of openAiMessages) {
+      if (message.role !== "user" && message.role !== "assistant") {
+        continue;
+      }
+      anthropicMessages.push({
+        role: message.role,
+        content: message.content,
+      });
+    }
+    return {
+      systemText,
+      openAiMessages,
+      anthropicMessages,
+    };
   }
 
   function providerHealthKey(cfg: ProviderConfig): string {
@@ -1364,26 +1441,13 @@ export function createAiService(deps: {
   async function runOpenAiNonStream(args: {
     entry: RunEntry;
     cfg: ProviderConfig;
-    systemPrompt?: string;
-    input: string;
-    mode: "agent" | "plan" | "ask";
+    runtimeMessages: RuntimeMessages;
     model: string;
-    system?: string;
   }): Promise<ServiceResult<string>> {
     const url = buildApiUrl({
       baseUrl: args.cfg.baseUrl,
       endpointPath: "/v1/chat/completions",
     });
-
-    const systemText = combineSystemText({
-      systemPrompt: args.systemPrompt,
-      modeHint: modeSystemHint(args.mode) ?? undefined,
-      system: args.system,
-    });
-    const messages = [
-      { role: "system", content: systemText },
-      { role: "user", content: args.input },
-    ];
 
     const fetchRes = await fetchWithPolicy({
       url,
@@ -1397,7 +1461,7 @@ export function createAiService(deps: {
         },
         body: JSON.stringify({
           model: args.model,
-          messages,
+          messages: args.runtimeMessages.openAiMessages,
           stream: false,
         }),
         signal: args.entry.controller.signal,
@@ -1437,21 +1501,12 @@ export function createAiService(deps: {
   async function runAnthropicNonStream(args: {
     entry: RunEntry;
     cfg: ProviderConfig;
-    systemPrompt?: string;
-    input: string;
-    mode: "agent" | "plan" | "ask";
+    runtimeMessages: RuntimeMessages;
     model: string;
-    system?: string;
   }): Promise<ServiceResult<string>> {
     const url = buildApiUrl({
       baseUrl: args.cfg.baseUrl,
       endpointPath: "/v1/messages",
-    });
-
-    const systemText = combineSystemText({
-      systemPrompt: args.systemPrompt,
-      modeHint: modeSystemHint(args.mode) ?? undefined,
-      system: args.system,
     });
 
     const fetchRes = await fetchWithPolicy({
@@ -1466,8 +1521,8 @@ export function createAiService(deps: {
         body: JSON.stringify({
           model: args.model,
           max_tokens: 256,
-          system: systemText,
-          messages: [{ role: "user", content: args.input }],
+          system: args.runtimeMessages.systemText,
+          messages: args.runtimeMessages.anthropicMessages,
           stream: false,
         }),
         signal: args.entry.controller.signal,
@@ -1507,26 +1562,13 @@ export function createAiService(deps: {
   async function runOpenAiStream(args: {
     entry: RunEntry;
     cfg: ProviderConfig;
-    systemPrompt?: string;
-    input: string;
-    mode: "agent" | "plan" | "ask";
+    runtimeMessages: RuntimeMessages;
     model: string;
-    system?: string;
   }): Promise<ServiceResult<true>> {
     const url = buildApiUrl({
       baseUrl: args.cfg.baseUrl,
       endpointPath: "/v1/chat/completions",
     });
-
-    const systemText = combineSystemText({
-      systemPrompt: args.systemPrompt,
-      modeHint: modeSystemHint(args.mode) ?? undefined,
-      system: args.system,
-    });
-    const messages = [
-      { role: "system", content: systemText },
-      { role: "user", content: args.input },
-    ];
 
     const fetchRes = await fetchWithPolicy({
       url,
@@ -1540,7 +1582,7 @@ export function createAiService(deps: {
         },
         body: JSON.stringify({
           model: args.model,
-          messages,
+          messages: args.runtimeMessages.openAiMessages,
           stream: true,
         }),
         signal: args.entry.controller.signal,
@@ -1620,21 +1662,12 @@ export function createAiService(deps: {
   async function runAnthropicStream(args: {
     entry: RunEntry;
     cfg: ProviderConfig;
-    systemPrompt?: string;
-    input: string;
-    mode: "agent" | "plan" | "ask";
+    runtimeMessages: RuntimeMessages;
     model: string;
-    system?: string;
   }): Promise<ServiceResult<true>> {
     const url = buildApiUrl({
       baseUrl: args.cfg.baseUrl,
       endpointPath: "/v1/messages",
-    });
-
-    const systemText = combineSystemText({
-      systemPrompt: args.systemPrompt,
-      modeHint: modeSystemHint(args.mode) ?? undefined,
-      system: args.system,
     });
 
     const fetchRes = await fetchWithPolicy({
@@ -1649,8 +1682,8 @@ export function createAiService(deps: {
         body: JSON.stringify({
           model: args.model,
           max_tokens: 256,
-          system: systemText,
-          messages: [{ role: "user", content: args.input }],
+          system: args.runtimeMessages.systemText,
+          messages: args.runtimeMessages.anthropicMessages,
           stream: true,
         }),
         signal: args.entry.controller.signal,
@@ -1732,11 +1765,8 @@ export function createAiService(deps: {
   async function runNonStreamWithProvider(args: {
     entry: RunEntry;
     cfg: ProviderConfig;
-    systemPrompt?: string;
-    input: string;
-    mode: "agent" | "plan" | "ask";
+    runtimeMessages: RuntimeMessages;
     model: string;
-    system?: string;
   }): Promise<ServiceResult<string>> {
     if (args.cfg.provider === "anthropic") {
       return await runAnthropicNonStream(args);
@@ -1748,11 +1778,8 @@ export function createAiService(deps: {
     entry: RunEntry;
     primary: ProviderConfig;
     backup: ProviderConfig | null;
-    systemPrompt?: string;
-    input: string;
-    mode: "agent" | "plan" | "ask";
+    runtimeMessages: RuntimeMessages;
     model: string;
-    system?: string;
   }): Promise<ServiceResult<string>> {
     const primaryState = getProviderHealthState(args.primary);
     const canHalfOpenProbe =
@@ -1868,6 +1895,13 @@ export function createAiService(deps: {
       getProxySettings: deps.getProxySettings,
     });
     if (!cfgRes.ok) {
+      if (cfgRes.error.code === "AI_NOT_CONFIGURED") {
+        return ipcError(
+          "AI_PROVIDER_UNAVAILABLE",
+          "请先在设置中配置 AI 服务",
+          cfgRes.error.details,
+        );
+      }
       return cfgRes;
     }
     const primaryCfg = cfgRes.data.primary;
@@ -1878,6 +1912,18 @@ export function createAiService(deps: {
     const traceId = randomUUID();
     const controller = new AbortController();
     const sessionKey = resolveSessionKey(args.context);
+    const chatMessageManager = getChatMessageManager(sessionKey);
+    const history = chatMessageManager.getMessages().map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
+    const runtimeMessages = buildRuntimeMessages({
+      systemPrompt: args.systemPrompt,
+      mode: args.mode,
+      system: args.system,
+      input: args.input,
+      history,
+    });
     const promptTokens = estimateTokenCount(args.input);
     const projectedTokens = promptTokens + DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE;
     const hasExplicitEnvTimeout =
@@ -1940,6 +1986,32 @@ export function createAiService(deps: {
       return null;
     };
 
+    const persistSuccessfulTurn = (assistantOutput: string): void => {
+      const baseTs = now();
+      chatMessageManager.add({
+        id: randomUUID(),
+        role: "user",
+        content: args.input,
+        timestamp: baseTs,
+        skillId: args.skillId,
+        metadata: {
+          tokenCount: promptTokens,
+          model: args.model,
+        },
+      });
+      chatMessageManager.add({
+        id: randomUUID(),
+        role: "assistant",
+        content: assistantOutput,
+        timestamp: baseTs + 1,
+        skillId: args.skillId,
+        metadata: {
+          tokenCount: estimateTokenCount(assistantOutput),
+          model: args.model,
+        },
+      });
+    };
+
     function armSkillTimeout(): void {
       if (entry.timeoutTimer) {
         clearTimeout(entry.timeoutTimer);
@@ -1984,11 +2056,8 @@ export function createAiService(deps: {
           entry,
           primary: primaryCfg,
           backup: backupCfg,
-          systemPrompt: args.systemPrompt,
-          input: args.input,
-          mode: args.mode,
+          runtimeMessages,
           model: args.model,
-          system: args.system,
         });
 
         if (!res.ok) {
@@ -2021,6 +2090,7 @@ export function createAiService(deps: {
           sessionKey,
           currentTotal + promptTokens + completionTokens,
         );
+        persistSuccessfulTurn(res.data);
 
         setTerminal({
           entry,
@@ -2113,20 +2183,14 @@ export function createAiService(deps: {
                     ? await runAnthropicStream({
                         entry,
                         cfg: primaryCfg,
-                        systemPrompt: args.systemPrompt,
-                        input: args.input,
-                        mode: args.mode,
+                        runtimeMessages,
                         model: args.model,
-                        system: args.system,
                       })
                     : await runOpenAiStream({
                         entry,
                         cfg: primaryCfg,
-                        systemPrompt: args.systemPrompt,
-                        input: args.input,
-                        mode: args.mode,
+                        runtimeMessages,
                         model: args.model,
-                        system: args.system,
                       });
 
                 if (res.ok) {
@@ -2200,6 +2264,7 @@ export function createAiService(deps: {
                   sessionKey,
                   currentTotal + promptTokens + completionTokens,
                 );
+                persistSuccessfulTurn(entry.outputText);
 
                 setTerminal({
                   entry,
