@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 
-import type { KnowledgeEntity, KnowledgeGraphService } from "../../kg/kgService";
+import type {
+  KnowledgeEntity,
+  KnowledgeGraphService,
+} from "../../kg/kgService";
 import {
   createRulesFetcher,
   formatEntityForContext,

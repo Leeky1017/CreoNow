@@ -56,7 +56,9 @@ export function formatEntityForContext(
  * Why: Rules-layer KG injection must degrade gracefully instead of breaking
  * full context assembly when KG query is temporarily unavailable.
  */
-export function createRulesFetcher(deps: RulesFetcherDeps): ContextLayerFetcher {
+export function createRulesFetcher(
+  deps: RulesFetcherDeps,
+): ContextLayerFetcher {
   return async (request) => {
     try {
       const listed = await Promise.resolve(

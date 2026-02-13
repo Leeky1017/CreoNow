@@ -43,11 +43,11 @@ C13 (memory-injection) — 独立泳道（依赖 P1.C2，已归档）
 
 ### 跨泳道依赖明细
 
-| 下游 change               | 上游依赖（跨泳道）                   | 依赖内容                                          |
-| ------------------------- | ------------------------------------ | ------------------------------------------------- |
-| C12 `p2-fetcher-detected` | C10 `p2-entity-matcher`（已归档）    | `matchEntities` 函数                              |
-| C12 `p2-fetcher-detected` | C11 `p2-fetcher-always`（已归档）    | `formatEntityForContext` 辅助函数                 |
-| C13 `p2-memory-injection` | P1.C2 `p1-assemble-prompt`（已归档） | `assembleSystemPrompt({ memoryOverlay })` 参数位  |
+| 下游 change               | 上游依赖（跨泳道）                   | 依赖内容                                         |
+| ------------------------- | ------------------------------------ | ------------------------------------------------ |
+| C12 `p2-fetcher-detected` | C10 `p2-entity-matcher`（已归档）    | `matchEntities` 函数                             |
+| C12 `p2-fetcher-detected` | C11 `p2-fetcher-always`（已归档）    | `formatEntityForContext` 辅助函数                |
+| C13 `p2-memory-injection` | P1.C2 `p1-assemble-prompt`（已归档） | `assembleSystemPrompt({ memoryOverlay })` 参数位 |
 
 ## 依赖说明
 

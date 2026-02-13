@@ -1,9 +1,11 @@
 # Proposal: issue-495-p2-fetcher-always
 
 ## Why
+
 `openspec/changes/p2-fetcher-always` 要求 Context Engine 的 Rules 层从知识图谱注入 `aiContextLevel="always"` 实体。当前实现仍使用硬编码桩字符串，导致规则层没有真实实体信息，破坏 Phase-2 的上下文装配链路，并阻断 C12 对通用格式化函数的复用。
 
 ## What Changes
+
 - 新建 `apps/desktop/main/src/services/context/fetchers/rulesFetcher.ts`，实现 `createRulesFetcher` 与 `formatEntityForContext`。
 - 新建 `apps/desktop/main/src/services/context/__tests__/rulesFetcher.test.ts`，覆盖 S1-S4 场景并执行 Red→Green。
 - 修改 `apps/desktop/main/src/services/context/layerAssemblyService.ts`，将 rules 默认 fetcher 接入 `createRulesFetcher`（保留无 KG 依赖时的兼容 fallback）。
@@ -11,6 +13,7 @@
 - 更新 `openspec/changes/p2-fetcher-always/tasks.md` 与 `openspec/_ops/task_runs/ISSUE-495.md` 证据。
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/p2-fetcher-always/specs/context-engine/spec.md`
   - `openspec/changes/p2-fetcher-always/tasks.md`
