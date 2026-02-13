@@ -1,41 +1,39 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-13 18:13
+更新时间：2026-02-13 18:20
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **1**。
-- 执行模式：**串行（单在途）**。
-- 当前在途变更：`issue-513-p1p2-integration-closeout`。
+- 当前活跃 change 数量为 **0**。
+- 执行模式：**无活跃 change**。
+- 当前在途变更：无。
 
 ## 执行顺序
 
-1. `issue-513-p1p2-integration-closeout`
+1. 无
 
 ## 推荐执行序列
 
 ```text
-issue-513-p1p2-integration-closeout
+(none)
 ```
 
 ## 依赖关系总览
 
 ```text
-issue-513-p1p2-integration-closeout: (no upstream active dependency)
+(no active changes)
 ```
 
 ## 依赖明细
 
-- `issue-513-p1p2-integration-closeout`
-  - 上游活跃依赖：无
-  - Dependency Sync Check：N/A
+- 无活跃 change
 
 ## 依赖说明
 
-- 当后续新增 active change 且形成依赖链时，进入 Red 前必须完成并落盘 Dependency Sync Check（数据结构、IPC 契约、错误码、阈值）。
-- 若发现依赖漂移，必须先更新当前 change 文档（proposal/spec/tasks），再进入 Red/Green。
+- 当新增 active change 且存在上游依赖时，进入 Red 前必须完成并落盘 Dependency Sync Check（至少核对数据结构、IPC 契约、错误码、阈值）。
+- 若任一 active change 发现 `DRIFT`，必须先更新该 change 的 `proposal.md`、`specs/*`、`tasks.md`，再推进 Red/Green。
 
 ## 维护规则
 

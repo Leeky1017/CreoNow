@@ -120,3 +120,12 @@
 - Command: `rulebook task validate issue-513-p1p2-integration-closeout`
 - Exit: 0
 - Key output: `✅ Task issue-513-p1p2-integration-closeout is valid`
+
+### 2026-02-13 18:20 CI 修复（openspec-log-guard）
+
+- CI failure: `openspec-log-guard` 报错
+  - `tasks.md checkboxes are all checked, so completed changes must be archived`
+- Command:
+  - `mv openspec/changes/issue-513-p1p2-integration-closeout openspec/changes/archive/`
+  - 更新 `openspec/changes/EXECUTION_ORDER.md` 为 0 active change
+- Key output: active change 已归档，符合 guard 要求
