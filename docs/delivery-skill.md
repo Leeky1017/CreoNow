@@ -40,8 +40,9 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 13. **Issue 新鲜度强制**：新任务必须使用当前 OPEN Issue；禁止复用已关闭或历史 Issue。
 14. **环境基线强制**：创建 `task/*` 分支和 worktree 前，必须先同步控制面到最新 `origin/main`。
 15. **RUN_LOG PR 真实链接强制**：`openspec/_ops/task_runs/ISSUE-<N>.md` 的 `PR` 字段不得为占位符（如 `待回填/TBD/TODO`）。
-16. **完成变更归档强制**：当 `openspec/changes/<change>/tasks.md` 全部勾选完成时，必须归档到 `openspec/changes/archive/`，不得继续停留在活跃目录。
-17. **Rulebook 自归档无递归**：允许当前任务在同一 PR 中将自身 Rulebook task 从 `active` 归档到 `archive`；不得仅为“归档当前任务”再创建递归 closeout issue。
+16. **主会话审计强制**：RUN_LOG 必须包含 `## Main Session Audit`，且同时满足 `Audit-Owner=main-session`、`Reviewed-HEAD-SHA==签字提交的 HEAD^`、`Spec-Compliance/Code-Quality/Fresh-Verification` 全部 `PASS`、`Blocking-Issues=0`、`Decision=ACCEPT`；并且签字提交 `HEAD^..HEAD` 仅允许变更当前任务 RUN_LOG。任一不满足必须被 preflight 与 `openspec-log-guard` 阻断，子代理完成不得替代主会话签字。
+17. **完成变更归档强制**：当 `openspec/changes/<change>/tasks.md` 全部勾选完成时，必须归档到 `openspec/changes/archive/`，不得继续停留在活跃目录。
+18. **Rulebook 自归档无递归**：允许当前任务在同一 PR 中将自身 Rulebook task 从 `active` 归档到 `archive`；不得仅为“归档当前任务”再创建递归 closeout issue。
 
 ---
 
@@ -73,6 +74,7 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 | required checks 与本文件不一致       | 阻断交付并升级治理，禁止宣称“门禁全绿”                                                      |
 | 误用已关闭/历史 Issue                | 立即停止实现，改为新建 OPEN Issue，并从最新 `origin/main` 重建 worktree                     |
 | RUN_LOG PR 字段是占位符              | 先回填真实 PR 链接，再进入交付与合并流程                                                    |
+| RUN_LOG 主会话审计缺失/未通过        | 阻断交付；先补齐 `## Main Session Audit` 并满足全部通过条件，确保签字提交仅变更 RUN_LOG     |
 | 活跃 change 已完成但未归档           | 阻断交付，先归档到 `openspec/changes/archive/` 再继续                                       |
 | 当前任务已在同 PR 归档               | 允许 preflight 通过 archive 路径校验，不要求再次创建 closeout issue                         |
 
@@ -103,3 +105,5 @@ openspec/             rulebook/tasks/        .github/workflows/
   - 现行防线：对存在上游依赖的 change 强制执行 Dependency Sync Check，发现漂移先更新 change 文档再进入 Red/Green。
 - 既往不符合项 D：治理 closeout task 归档后仍遗留 active，触发递归 closeout issue。
   - 现行防线：preflight 支持当前任务 `active/archive` 双路径，并允许同 PR 自归档收口。
+- 既往不符合项 E：子代理自报完成但主会话未审计签字，仍进入合并路径。
+  - 现行防线：RUN_LOG 强制 `Main Session Audit`，preflight 与 `openspec-log-guard` 双门禁校验并阻断未通过场景。

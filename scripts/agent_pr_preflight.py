@@ -58,6 +58,24 @@ def current_branch(repo_root: str) -> str:
     return res.out.strip()
 
 
+def current_head_sha(repo_root: str) -> str:
+    res = run(["git", "rev-parse", "HEAD"], cwd=repo_root)
+    if res.code != 0:
+        print(res.out, file=sys.stderr)
+        raise RuntimeError("failed to get current HEAD sha")
+    return res.out.strip()
+
+
+def current_head_parent_sha(repo_root: str) -> str:
+    res = run(["git", "rev-parse", "HEAD^"], cwd=repo_root)
+    if res.code != 0:
+        print(res.out, file=sys.stderr)
+        raise RuntimeError(
+            "[MAIN_AUDIT] failed to resolve HEAD^; main-session audit requires a dedicated signing commit on top of reviewed changes"
+        )
+    return res.out.strip()
+
+
 def require_file(path: str) -> None:
     if not os.path.isfile(path):
         raise RuntimeError(f"[RUN_LOG] required file missing: {path}")
@@ -167,6 +185,128 @@ def validate_runlog_pr_field(path: str) -> None:
     if "/pull/" not in value:
         raise RuntimeError(
             f"[RUN_LOG] PR field must be a pull-request URL in {path}: {value}"
+        )
+
+
+MAIN_AUDIT_SECTION_TITLE = "## Main Session Audit"
+MAIN_AUDIT_REQUIRED_FIELDS: tuple[str, ...] = (
+    "Audit-Owner",
+    "Reviewed-HEAD-SHA",
+    "Spec-Compliance",
+    "Code-Quality",
+    "Fresh-Verification",
+    "Blocking-Issues",
+    "Decision",
+)
+
+
+def _extract_main_audit_section(content: str, path: str) -> str:
+    m = re.search(
+        r"^## Main Session Audit\s*$([\s\S]*?)(?=^##\s|\Z)",
+        content,
+        re.MULTILINE,
+    )
+    if not m:
+        raise RuntimeError(
+            f"[MAIN_AUDIT] missing required section '{MAIN_AUDIT_SECTION_TITLE}' in {path}"
+        )
+    return m.group(1)
+
+
+def _parse_main_audit_fields(section: str, path: str) -> dict[str, str]:
+    fields: dict[str, str] = {}
+    for field in MAIN_AUDIT_REQUIRED_FIELDS:
+        m = re.search(rf"^- {re.escape(field)}:\s*(.+)$", section, re.MULTILINE)
+        if not m:
+            raise RuntimeError(
+                f"[MAIN_AUDIT] missing required field '{field}' in {path}"
+            )
+        value = m.group(1).strip()
+        if not value:
+            raise RuntimeError(
+                f"[MAIN_AUDIT] field '{field}' cannot be empty in {path}"
+            )
+        fields[field] = value
+    return fields
+
+
+def validate_main_session_audit(path: str, head_sha: str) -> None:
+    with open(path, "r", encoding="utf-8") as fp:
+        content = fp.read()
+
+    section = _extract_main_audit_section(content, path)
+    fields = _parse_main_audit_fields(section, path)
+
+    audit_owner = fields["Audit-Owner"]
+    if audit_owner != "main-session":
+        raise RuntimeError(
+            f"[MAIN_AUDIT] Audit-Owner must be 'main-session', got '{audit_owner}'"
+        )
+
+    reviewed_sha = fields["Reviewed-HEAD-SHA"]
+    if not re.match(r"^[0-9a-fA-F]{40}$", reviewed_sha):
+        raise RuntimeError(
+            f"[MAIN_AUDIT] Reviewed-HEAD-SHA must be a 40-hex commit sha, got '{reviewed_sha}'"
+        )
+    if reviewed_sha.lower() != head_sha.lower():
+        raise RuntimeError(
+            f"[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch: audit={reviewed_sha}, head={head_sha}"
+        )
+
+    for field in ("Spec-Compliance", "Code-Quality", "Fresh-Verification"):
+        value = fields[field]
+        if value not in {"PASS", "FAIL"}:
+            raise RuntimeError(
+                f"[MAIN_AUDIT] {field} must be PASS or FAIL, got '{value}'"
+            )
+        if value != "PASS":
+            raise RuntimeError(
+                f"[MAIN_AUDIT] {field} must be PASS to continue, got '{value}'"
+            )
+
+    blocking_raw = fields["Blocking-Issues"]
+    if not re.match(r"^\d+$", blocking_raw):
+        raise RuntimeError(
+            f"[MAIN_AUDIT] Blocking-Issues must be a non-negative integer, got '{blocking_raw}'"
+        )
+    if int(blocking_raw) != 0:
+        raise RuntimeError(
+            f"[MAIN_AUDIT] Blocking-Issues must be 0 to continue, got '{blocking_raw}'"
+        )
+
+    decision = fields["Decision"]
+    if decision not in {"ACCEPT", "REJECT"}:
+        raise RuntimeError(
+            f"[MAIN_AUDIT] Decision must be ACCEPT or REJECT, got '{decision}'"
+        )
+    if decision != "ACCEPT":
+        raise RuntimeError(
+            f"[MAIN_AUDIT] Decision must be ACCEPT to continue, got '{decision}'"
+        )
+
+
+def validate_main_session_audit_signature_commit(repo: str, run_log_path: str) -> None:
+    run_log_rel = os.path.relpath(run_log_path, repo).replace(os.sep, "/")
+    res = run(
+        ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD^..HEAD"],
+        cwd=repo,
+    )
+    if res.code != 0:
+        raise RuntimeError(
+            "[MAIN_AUDIT] failed to inspect signing commit diff (HEAD^..HEAD)"
+        )
+
+    changed_files = [line.strip() for line in res.out.splitlines() if line.strip()]
+    if run_log_rel not in changed_files:
+        raise RuntimeError(
+            f"[MAIN_AUDIT] signing commit must include RUN_LOG update: {run_log_rel}"
+        )
+
+    disallowed = sorted(path for path in changed_files if path != run_log_rel)
+    if disallowed:
+        raise RuntimeError(
+            "[MAIN_AUDIT] signing commit must only change RUN_LOG; found additional files: "
+            + ", ".join(disallowed)
         )
 
 
@@ -330,9 +470,13 @@ def main() -> int:
 
         issue_number = m.group("n")
         slug = m.group("slug")
+        head_sha = current_head_sha(repo)
+        head_parent_sha = current_head_parent_sha(repo)
         run_log = os.path.join(repo, "openspec", "_ops", "task_runs", f"ISSUE-{issue_number}.md")
         require_file(run_log)
         validate_runlog_pr_field(run_log)
+        validate_main_session_audit(run_log, head_parent_sha)
+        validate_main_session_audit_signature_commit(repo, run_log)
 
         print("== Repo checks ==")
         must_run(["git", "status", "--porcelain=v1"], cwd=repo)

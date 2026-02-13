@@ -10,6 +10,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Validate completed active changes are archived (tasks.md all checked)
         run: |
@@ -49,6 +52,7 @@ jobs:
       - name: Validate RUN_LOG or Skip-Reason
         env:
           PR_BODY: ${{ github.event.pull_request.body || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           BRANCH="${{ github.head_ref }}"
 
@@ -76,6 +80,8 @@ jobs:
               exit 1
             fi
             echo "✅ RUN_LOG format validated"
+
+            python3 scripts/validate_main_session_audit_ci.py "$RUN_LOG"
 
           else
             if printf '%s\n' "$PR_BODY" | grep -Eiq '^[[:space:]]*Skip-Reason[[:space:]]*:'; then
