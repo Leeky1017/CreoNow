@@ -143,10 +143,23 @@
   - `Ran 14 tests ... OK`
   - `eslint` / `tsc --noEmit` / `test:unit` 全部通过
 
+### 2026-02-13 21:58 CI 失败修复（openspec-log-guard heredoc 解析）
+
+- Command:
+  - `gh run view 21991883603 --log-failed`
+  - `python3 scripts/validate_main_session_audit_ci.py openspec/_ops/task_runs/ISSUE-518.md`
+  - `python3 -m unittest scripts/tests/test_agent_pr_preflight.py`
+  - `git commit -m "ci: fix openspec-log-guard main-audit parser (#518)"`
+- Exit code: `0`
+- Key output:
+  - 失败根因：workflow heredoc 终止符解析失败（`syntax error: unexpected end of file`）
+  - 修复方案：改为调用 `scripts/validate_main_session_audit_ci.py`
+  - 本地校验：`✅ Main Session Audit validated`，`Ran 14 tests ... OK`
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: a6f07e11f37210f25d1d0c6244fff541af404b7a
+- Reviewed-HEAD-SHA: 051193bd1cbe4cbc277ac8b20fbec521012c109e
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
