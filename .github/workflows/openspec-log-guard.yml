@@ -49,6 +49,7 @@ jobs:
       - name: Validate RUN_LOG or Skip-Reason
         env:
           PR_BODY: ${{ github.event.pull_request.body || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           BRANCH="${{ github.head_ref }}"
 
@@ -76,6 +77,86 @@ jobs:
               exit 1
             fi
             echo "✅ RUN_LOG format validated"
+
+            python3 - "$RUN_LOG" "$PR_HEAD_SHA" <<'PY'
+            import pathlib
+            import re
+            import sys
+
+            run_log = pathlib.Path(sys.argv[1])
+            head_sha = sys.argv[2]
+
+            content = run_log.read_text(encoding="utf-8")
+            section_match = re.search(
+                r"^## Main Session Audit\s*$([\s\S]*?)(?=^##\s|\Z)",
+                content,
+                re.MULTILINE,
+            )
+            if not section_match:
+                print(f"❌ [MAIN_AUDIT] missing required section '## Main Session Audit' in {run_log}")
+                raise SystemExit(1)
+
+            section = section_match.group(1)
+            required_fields = (
+                "Audit-Owner",
+                "Reviewed-HEAD-SHA",
+                "Spec-Compliance",
+                "Code-Quality",
+                "Fresh-Verification",
+                "Blocking-Issues",
+                "Decision",
+            )
+            values: dict[str, str] = {}
+            for field in required_fields:
+                field_match = re.search(rf"^- {re.escape(field)}:\s*(.+)$", section, re.MULTILINE)
+                if not field_match:
+                    print(f"❌ [MAIN_AUDIT] missing required field '{field}' in {run_log}")
+                    raise SystemExit(1)
+                value = field_match.group(1).strip()
+                if not value:
+                    print(f"❌ [MAIN_AUDIT] field '{field}' cannot be empty in {run_log}")
+                    raise SystemExit(1)
+                values[field] = value
+
+            if values["Audit-Owner"] != "main-session":
+                print(f"❌ [MAIN_AUDIT] Audit-Owner must be 'main-session', got '{values['Audit-Owner']}'")
+                raise SystemExit(1)
+
+            reviewed_sha = values["Reviewed-HEAD-SHA"]
+            if not re.match(r"^[0-9a-fA-F]{40}$", reviewed_sha):
+                print(f"❌ [MAIN_AUDIT] Reviewed-HEAD-SHA must be a 40-hex commit sha, got '{reviewed_sha}'")
+                raise SystemExit(1)
+            if reviewed_sha.lower() != head_sha.lower():
+                print(f"❌ [MAIN_AUDIT] Reviewed-HEAD-SHA mismatch: audit={reviewed_sha}, head={head_sha}")
+                raise SystemExit(1)
+
+            for gate_field in ("Spec-Compliance", "Code-Quality", "Fresh-Verification"):
+                value = values[gate_field]
+                if value not in {"PASS", "FAIL"}:
+                    print(f"❌ [MAIN_AUDIT] {gate_field} must be PASS or FAIL, got '{value}'")
+                    raise SystemExit(1)
+                if value != "PASS":
+                    print(f"❌ [MAIN_AUDIT] {gate_field} must be PASS to continue, got '{value}'")
+                    raise SystemExit(1)
+
+            blocking_raw = values["Blocking-Issues"]
+            if not re.match(r"^\d+$", blocking_raw):
+                print(f"❌ [MAIN_AUDIT] Blocking-Issues must be a non-negative integer, got '{blocking_raw}'")
+                raise SystemExit(1)
+            if int(blocking_raw) != 0:
+                print(f"❌ [MAIN_AUDIT] Blocking-Issues must be 0 to continue, got '{blocking_raw}'")
+                raise SystemExit(1)
+
+            decision = values["Decision"]
+            if decision not in {"ACCEPT", "REJECT"}:
+                print(f"❌ [MAIN_AUDIT] Decision must be ACCEPT or REJECT, got '{decision}'")
+                raise SystemExit(1)
+            if decision != "ACCEPT":
+                print(f"❌ [MAIN_AUDIT] Decision must be ACCEPT to continue, got '{decision}'")
+                raise SystemExit(1)
+
+            print("✅ Main Session Audit validated")
+            PY
 
           else
             if printf '%s\n' "$PR_BODY" | grep -Eiq '^[[:space:]]*Skip-Reason[[:space:]]*:'; then
