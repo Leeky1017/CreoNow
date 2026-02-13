@@ -1,182 +1,72 @@
-# P1+P2 集成检查指令
+# P1+P2 集成检查（精简重构版）
 
-> 在进入 Phase 3 之前，验证 P1（AI 可用）和 P2（Codex 上下文）的 13 个 change + 1 个 fix 在代码层面的跨模块集成是否完整、一致、无漂移。
+> 基线：`origin/main@9aa7252`（PR `#510` 已合并，时间：2026-02-13）
+> 目标：在进入 P3 前，快速判断“还缺什么、已经完成什么、证据在哪里”。
 
----
+## 1. 没做测试 / 没完成的部分（优先处理）
 
-## 〇、已确认 PASS 项（无需再查）
+| 优先级 | 项目                                                                           | 当前状态                         | 结论     |
+| ------ | ------------------------------------------------------------------------------ | -------------------------------- | -------- |
+| HIGH   | API Key 缺失错误码语义统一（`AI_PROVIDER_UNAVAILABLE` vs `AI_NOT_CONFIGURED`） | 代码仍在返回 `AI_NOT_CONFIGURED` | 未完成   |
+| HIGH   | `buildLLMMessages` / `chatMessageManager` 主链路取舍（接入或移除）             | 仅在测试中被引用                 | 未完成   |
+| HIGH   | G1：完整 `skill:run → context assemble → LLM(mock) → stream` 一体化测试        | 尚未形成独立集成用例             | 未完成   |
+| HIGH   | G5：全降级（KG + Memory 不可用）但 AI 仍可用 的跨模块测试                      | 仅有 CE 层全 fetcher 降级用例    | 部分完成 |
+| MEDIUM | G2/G3/G4（KG 变更联动、Key 存取到调用、多轮对话 trim）                         | 仍缺集成回归                     | 未完成   |
+| MEDIUM | cross-module spec 中 Editor→Memory 相关场景                                    | 标注为 P3/P4                     | 未实现   |
+| MEDIUM | NFR：契约冲突阻断 / 高并发链路一致性                                           | 尚未有明确验证结论               | 未验证   |
+| MEDIUM | 真实 LLM（DeepSeek）L1-L5 自动化沉淀                                           | 当前为手工验证记录               | 未完成   |
 
-| 检查项                                                 | 结论                                                                                                                           |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `createContextLayerAssemblyService` 第一参 `undefined` | `defaultFetchers(deps)` 正确构建全部 4 个 fetcher，无遗漏                                                                      |
-| P2 context/memory 注入是否接入 LLM                     | 已确认：`contextAssemblyService.assemble().prompt` → `skillExecutor` → `system` param → `combineSystemText` 正确流入           |
-| Token 估算 `TextEncoder` vs `Buffer.byteLength`        | 完全一致（均 UTF-8 字节 / 4）                                                                                                  |
-| P1 单元测试覆盖（6/7 change）                          | identityPrompt / assembleSystemPrompt / skillRouter+chatSkill / chatMessageManager / buildLLMMessages / llm-proxy-config 全 ✅ |
-| P2 单元测试覆盖（6 change + 1 fix）                    | kgService.contextLevel / kgService.aliases / entityMatcher / rulesFetcher / retrievedFetcher / settingsFetcher 全 ✅           |
-| Context budget 6000 vs LLM 窗口 128k+                  | 6000 为单次上下文组装上限，远小于模型窗口，无溢出风险                                                                          |
+## 2. 已经完成的部分（代码 + 测试）
 
----
+| 项目                                                       | 当前状态 | 证据                                                                                                                                |
+| ---------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 运行时 identity prompt 接入主链路                          | 已完成   | `apps/desktop/main/src/services/ai/aiService.ts`（`combineSystemText` 调用 `assembleSystemPrompt` 并注入 `GLOBAL_IDENTITY_PROMPT`） |
+| stream / non-stream 请求均带 identity 层                   | 已完成   | `apps/desktop/main/src/services/ai/__tests__/assembleSystemPrompt.test.ts`（AIS-RUNTIME-S1/S2）                                     |
+| stream 超时收敛为 `done(error: SKILL_TIMEOUT)`             | 已完成   | `apps/desktop/tests/integration/ai-stream-lifecycle.test.ts`（AIS-TIMEOUT-S1）                                                      |
+| Context Engine 全层 fetcher 异常仍可返回 prompt + warnings | 已完成   | `apps/desktop/tests/unit/context/layer-degrade-warning.test.ts`（CE-DEGRADE-S1）                                                    |
+| IPC 契约与 cross-module 门禁                               | 已通过   | `pnpm contract:check`、`pnpm cross-module:check`，记录见 `openspec/_ops/task_runs/ISSUE-509.md`                                     |
+| 交付门禁（ci / openspec-log-guard / merge-serial）         | 已通过   | PR `#510`：`https://github.com/Leeky1017/CreoNow/pull/510`                                                                          |
 
-## 一、已处理：assembleSystemPrompt 与 GLOBAL_IDENTITY_PROMPT 已接入 LLM 调用链路
+## 3. 索引（快速检索）
 
-### 事实
+- [4. 证据：代码路径](#4-证据代码路径)
+- [5. 证据：测试与门禁](#5-证据测试与门禁)
+- [6. 真实 LLM 手工验证](#6-真实-llm-手工验证)
+- [7. 后续建议（最小闭环）](#7-后续建议最小闭环)
 
-| 符号                     | 位置                      | 运行时调用                                                                   |
-| ------------------------ | ------------------------- | ---------------------------------------------------------------------------- |
-| `assembleSystemPrompt`   | `assembleSystemPrompt.ts` | 已接入（由 `combineSystemText` 调用，进入所有 provider 请求组装路径）        |
-| `GLOBAL_IDENTITY_PROMPT` | `identityPrompt.ts`       | 已接入（由 `combineSystemText` 注入 `globalIdentity`）                       |
-| `combineSystemText`      | `aiService.ts:160`        | **4 处**（line 1378/1451/1521/1634，所有 LLM provider 的 stream/non-stream） |
+## 4. 证据：代码路径
 
-当前 system message 由 `assembleSystemPrompt` 分层构建，包含 identity + skill + mode + context。
+- AI 运行时组装：`apps/desktop/main/src/services/ai/aiService.ts`
+- Identity 模板：`apps/desktop/main/src/services/ai/identityPrompt.ts`
+- Prompt 组装器：`apps/desktop/main/src/services/ai/assembleSystemPrompt.ts`
+- Context 组装服务：`apps/desktop/main/src/services/context/layerAssemblyService.ts`
+- IPC 合约定义：`apps/desktop/main/src/ipc/contract/ipc-contract.ts`
+- IPC 生成类型：`packages/shared/types/ipc-generated.ts`
 
-### 决策项（P3 前必须选择并实施）
+## 5. 证据：测试与门禁
 
-- **A（已实施）**：在 `aiService.runSkill` 运行时链路接入 `assembleSystemPrompt`（Issue #509）
-- **B**：无需执行（被 A 覆盖）
-- **C**：无需执行（不再作为债务延期）
+- 关键新增/关键回归测试
+  - `apps/desktop/main/src/services/ai/__tests__/assembleSystemPrompt.test.ts`
+  - `apps/desktop/tests/integration/ai-stream-lifecycle.test.ts`
+  - `apps/desktop/tests/unit/context/layer-degrade-warning.test.ts`
+- 交付运行日志：`openspec/_ops/task_runs/ISSUE-509.md`
+- PR 与 CI：`https://github.com/Leeky1017/CreoNow/pull/510`
 
----
+## 6. 真实 LLM 手工验证
 
-## 二、待验证项
+当前结论：L1-L5 手工验证记录为通过（见旧版检查记录与 ISSUE-509 上下文），但尚未自动化纳入 CI/集成测试。
 
-### 2.1 端到端链路（未验证部分）
+| 场景                   | 状态     |
+| ---------------------- | -------- |
+| L1 API 连通性          | 手工通过 |
+| L2 Streaming 链路      | 手工通过 |
+| L3 Context 注入可见性  | 手工通过 |
+| L4 超时处理            | 手工通过 |
+| L5 Non-stream fallback | 手工通过 |
 
-主链路调用栈（已确认段省略）：
+## 7. 后续建议（最小闭环）
 
-```
-skillExecutor.execute()
-  → assembleContextPrompt() → contextAssemblyService.assemble()
-  → deps.runSkill({ systemPrompt: skillPrompt, system: contextPrompt })
-    → aiService.runSkill() → combineSystemText() → LLM HTTP fetch
-  → skill:stream:chunk / skill:stream:done → Renderer
-```
-
-- [ ] `buildLLMMessages` 是否在 runSkill 路径中被实际调用？
-- [ ] `safeStorage` 在 Linux CI 环境是否可用（需 mock？）
-- [ ] API Key 解密失败时是否返回 `AI_PROVIDER_UNAVAILABLE` 而非 crash
-- [ ] KG aliases DB 序列化/反序列化一致性（`string[]` vs JSON string）
-- [ ] `when_detected` 实体在 KG 为空时，retrievedFetcher 返回空 chunks 而非报错
-- [ ] Memory 数据为空时（新项目），settingsFetcher 返回空 chunks 而非 warning
-
-### 2.2 IPC 契约 delta
-
-对照 `openspec/guards/cross-module-contract-baseline.json` 中 13 个 channel 和 12 个错误码，区分已实现 vs 仅 spec：
-
-```bash
-for ch in "memory:episode:record" "memory:trace:get" "memory:trace:feedback" \
-  "knowledge:query:relevant" "knowledge:query:byids" "knowledge:query:subgraph" \
-  "project:project:switch" "ai:skill:run" "skill:stream:chunk" "skill:stream:done" \
-  "ai:skill:cancel" "ai:chat:send" "export:project:bundle"; do
-  echo "=== $ch ===" && grep -rn "\"$ch\"" apps/desktop/main/src/ipc/ packages/shared/types/
-done
-```
-
-### 2.3 降级场景（需补充集成测试）
-
-| Scenario          | 期望行为                           | 现有测试                                                          |
-| ----------------- | ---------------------------------- | ----------------------------------------------------------------- |
-| 所有 fetcher 降级 | assemble 仍返回结果（仅 warnings） | ✅ 已补充（`layer-degrade-warning.test.ts` 新增全层降级场景）     |
-| API Key 缺失      | `AI_PROVIDER_UNAVAILABLE`          | ⚠️ 仍待统一（当前实现返回 `AI_NOT_CONFIGURED`）                   |
-| LLM provider 超时 | `SKILL_TIMEOUT` + done event       | ✅ 已补充（`ai-stream-lifecycle.test.ts` 新增 timeout done 场景） |
-
-### 2.4 其他待验
-
-- [ ] `ChatMessage`（chatMessageManager）vs `ChatHistoryMessage`（ipc/ai.ts）类型一致性
-- [ ] Preload allowedChannels 是否包含 P1 新增通道
-- [ ] `aiStreamBridge` 是否处理 `AiQueueStatusEvent` 类型
-- [ ] `KgRulesInjectionEntity`（shared）vs `KnowledgeEntity`（kgService）转换是否完整
-
----
-
-## 三、真实 LLM 集成测试（DeepSeek）
-
-> 目的：不止 mock，用真实 LLM 调用验证端到端链路的实际效果。
-
-### 3.1 环境配置
-
-在 `apps/desktop/.env`（从 `.env.example` 复制）中配置 DeepSeek：
-
-```env
-CREONOW_AI_PROVIDER=openai
-CREONOW_AI_BASE_URL=https://api.deepseek.com
-CREONOW_AI_API_KEY=sk-<your-deepseek-key>
-CREONOW_AI_TIMEOUT_MS=60000
-```
-
-DeepSeek 兼容 OpenAI `/v1/chat/completions` 接口，provider 设为 `openai` 即可。
-
-### 3.2 测试场景与灵活性
-
-Agent 执行真实 LLM 集成测试时，有以下灵活度：
-
-**响应方式**：
-
-- 优先尝试 **streaming**（`stream: true`）—— 验证 `skill:stream:chunk` / `skill:stream:done` 完整链路
-- 若 streaming 不稳定，可退回 **non-streaming**（`stream: false`）—— 验证单次完整响应
-- 若 chat completions 端点异常，可尝试调整请求参数（如 `temperature`、`max_tokens`），不必严格固定
-
-**调用路径**：
-
-- 优先走 `ai:skill:run` IPC 全链路（skillExecutor → context assembly → aiService → LLM）
-- 若 IPC 层有阻碍，可直接调用 `aiService.runSkill()` 或更底层的 HTTP fetch 验证连通性
-- 目标是确认**真实 LLM 能返回有意义的文本**，而非严格断言输出内容
-
-**模型选择**：
-
-- 推荐 `deepseek-chat`（成本低、速度快）
-- 如需更强能力可用 `deepseek-reasoner`
-
-### 3.3 验证检查清单
-
-| #   | 验证项                 | 方法                                                            |
-| --- | ---------------------- | --------------------------------------------------------------- |
-| L1  | API 连通性             | 发送最简请求，确认返回 200 + 非空 content                       |
-| L2  | Streaming 链路         | `stream: true`，确认收到多个 chunk + done 事件                  |
-| L3  | Context 注入可见性     | 在 KG 中创建实体，触发 skill:run，检查 LLM 输出是否体现实体信息 |
-| L4  | 超时处理               | 设置极短 timeout（如 1ms），确认返回 SKILL_TIMEOUT              |
-| L5  | Non-streaming fallback | `stream: false`，确认返回完整 outputText                        |
-
-### 3.4 安全约束
-
-- `.env` 文件已在 `.gitignore` 中，API key 不会提交
-- 真实 LLM 测试仅在本地开发环境执行，CI 必须继续使用 mock
-- 每次测试控制 `max_tokens`（建议 ≤ 200）以限制费用
-
----
-
-## 四、缺失的集成测试（需补充）
-
-| #   | 场景                                                       | 涉及模块                  | 优先级   |
-| --- | ---------------------------------------------------------- | ------------------------- | -------- |
-| G1  | 完整 skill:run → context assemble → LLM mock → stream 返回 | AI + Context + KG + Skill | **HIGH** |
-| G5  | 全降级：KG 不可用 + Memory 不可用 → AI 仍可用              | All                       | **HIGH** |
-| G2  | KG 实体变更 → rules/retrieved fetcher 输出变更             | KG + Context              | MEDIUM   |
-| G3  | API Key 保存 → 读取 → LLM 调用成功                         | Workbench + AI            | MEDIUM   |
-| G4  | 多轮对话：message add → build → trim → 第 N 轮             | AI + aiStore              | MEDIUM   |
-
----
-
-## 五、cross-module-integration-spec.md Delta Report
-
-| Spec Scenario                                | 状态            |
-| -------------------------------------------- | --------------- |
-| 选区改写被接受后写入情景记忆 (Editor→Memory) | 未实现（P3/P4） |
-| 应用后撤销触发延迟负反馈 (Editor→Memory)     | 未实现（P4）    |
-| Context Engine 注入实体到 Rules 层 (KG→CE)   | ✅ 已实现       |
-| KG 不可用时 Context Engine 降级 (KG→CE)      | ✅ 已实现       |
-| AI Service 选择技能并流式返回 (AI→Skill)     | ✅ 已实现       |
-| 技能超时触发统一错误 (AI→Skill)              | ✅ 已实现       |
-| 契约校验通过并生成代码 (IPC)                 | 部分实现        |
-| 跨模块越权访问被拒绝 (NFR)                   | 部分实现        |
-| 契约冲突触发阻断 / 高并发链路一致 (NFR)      | 未验证          |
-
----
-
-## 六、执行优先级总览
-
-| 优先级 | 项                                                                                        |
-| ------ | ----------------------------------------------------------------------------------------- |
-| HIGH   | 统一 API Key 缺失语义：文档期望 `AI_PROVIDER_UNAVAILABLE`，当前实现为 `AI_NOT_CONFIGURED` |
-| HIGH   | 评估 `buildLLMMessages` 与 `chatMessageManager` 死路径清理（接入或移除）                  |
-| MEDIUM | §3 真实 LLM 测试（DeepSeek）L1-L5 自动化沉淀（当前以手工验证为主）                        |
-| MEDIUM | 持续对齐 §2.2 IPC 契约 delta 与 §2.4 类型一致性核查                                       |
+1. 先统一 API Key 缺失错误码语义（Spec 与实现二选一对齐）。
+2. 明确 `buildLLMMessages` / `chatMessageManager` 方向：接入主链路或删除死路径。
+3. 补 G1 + G5 的自动化集成用例，再扩展 G2/G3/G4。
+4. 将 L1-L5 从手工脚本沉淀为可复跑测试（保持 CI 用 mock，本地可选真 LLM）。
