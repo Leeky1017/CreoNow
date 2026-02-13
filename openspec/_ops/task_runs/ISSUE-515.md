@@ -50,14 +50,18 @@
 
 ### 2026-02-13 20:30 local-verification
 
-- Command: (fill) `pnpm -r test` / targeted test commands + `scripts/agent_pr_preflight.sh`
-- Key output: (fill)
-- Result: ⏳
-- Evidence: (fill)
+- Command:
+  - `pnpm install --frozen-lockfile`
+  - `pnpm exec prettier --check ...`
+  - `pnpm typecheck && pnpm lint && pnpm contract:check && pnpm cross-module:check`
+  - `pnpm test:unit`
+- Key output: dependencies installed (lockfile unchanged); Prettier/typecheck/lint/contract/cross-module/unit all passed.
+- Result: ✅
+- Evidence: `scripts/agent_pr_preflight.py` output (see PR logs), `pnpm test:unit` output.
 
 ### 2026-02-13 20:45 pr-and-merge
 
 - Command: `scripts/agent_pr_automerge_and_sync.sh`
-- Key output: (fill) PR created; run log PR link backfilled; checks green; merged to `main`
-- Result: ⏳
-- Evidence: (fill)
+- Key output: PR `#516` created; RUN_LOG PR link backfilled; required checks (`ci` / `openspec-log-guard` / `merge-serial`) green; merged to `main` with merge commit `904a1658`.
+- Result: ✅
+- Evidence: `https://github.com/Leeky1017/CreoNow/pull/516`
