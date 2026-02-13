@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-13 10:37
+更新时间：2026-02-13 11:17
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -11,6 +11,7 @@
 - 路线图：36-change × 6-Phase 计划（见 `docs/plans/audit-roadmap.md`）。
 - 已完成归档（Phase 1）：`p1-identity-template`、`p1-assemble-prompt`、`p1-chat-skill`、`p1-aistore-messages`、`p1-multiturn-assembly`、`p1-apikey-storage`、`p1-ai-settings-ui`。
 - 已完成归档（Phase 2）：`p2-kg-context-level`（C8）、`p2-kg-aliases`（C9）、`p2-entity-matcher`（C10）、`p2-fetcher-always`（C11）。
+- 已完成归档（Fix）：`issue-499-fix-kg-aliases-ipc-contract`（F499）。
 
 ## 执行顺序
 
@@ -24,12 +25,12 @@
 
 ### 推荐执行序列
 
-```
+```text
 C12（泳道 A，依赖 C10/C11 已归档产物）
 C13（泳道 B，可与泳道 A 并行）
 ```
 
-C8/C9/C10/C11 已归档并作为前置；当前活跃实现焦点为 C12 + C13。
+C8/C9/C10/C11/F499 已归档并作为前置；当前活跃实现焦点为 C12 + C13。
 
 ## 依赖关系总览
 
@@ -38,6 +39,7 @@ C8 (kg-context-level, archived) ──┬──→ C10 (entity-matcher, archived
 C9 (kg-aliases, archived) ────────┘                                     ├──→ C12 (fetcher-detected)
 C8 (kg-context-level, archived) ─────────────→ C11 (fetcher-always, archived) ┘
 C13 (memory-injection) — 独立泳道（依赖 P1.C2，已归档）
+F499 (kg-aliases ipc-contract fix, archived) — 已收口
 ```
 
 ### 跨泳道依赖明细
