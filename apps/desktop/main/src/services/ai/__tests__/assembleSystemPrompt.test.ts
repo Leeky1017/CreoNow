@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { createAiService } from "../aiService";
 import { assembleSystemPrompt } from "../assembleSystemPrompt";
 import { GLOBAL_IDENTITY_PROMPT } from "../identityPrompt";
 
@@ -139,4 +140,134 @@ import { GLOBAL_IDENTITY_PROMPT } from "../identityPrompt";
   assert.notEqual(result, null);
   assert.notEqual(result, undefined);
   assert.equal(typeof result, "string");
+}
+
+function extractOpenAiSystemMessage(body: unknown): string {
+  if (typeof body !== "object" || body === null) {
+    return "";
+  }
+  const messages = (body as { messages?: unknown }).messages;
+  if (!Array.isArray(messages)) {
+    return "";
+  }
+  for (const message of messages) {
+    if (typeof message !== "object" || message === null) {
+      continue;
+    }
+    const role = (message as { role?: unknown }).role;
+    const content = (message as { content?: unknown }).content;
+    if (role === "system" && typeof content === "string") {
+      return content;
+    }
+  }
+  return "";
+}
+
+// --- AIS-RUNTIME-S1/S2: runtime request assembly must include identity layer ---
+{
+  const originalFetch = globalThis.fetch;
+  const requestBodies: unknown[] = [];
+
+  try {
+    globalThis.fetch = (async (_input, init) => {
+      const rawBody =
+        typeof init?.body === "string" ? init.body : JSON.stringify({});
+      requestBodies.push(JSON.parse(rawBody) as unknown);
+
+      const parsed = JSON.parse(rawBody) as { stream?: unknown };
+      if (parsed.stream === true) {
+        return new Response(
+          `data: ${JSON.stringify({ choices: [{ delta: { content: "ok" } }] })}\n\n` +
+            "data: [DONE]\n\n",
+          {
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+          },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          choices: [{ message: { content: "ok" } }],
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+    }) as typeof fetch;
+
+    const service = createAiService({
+      logger: { logPath: "<test>", info: () => {}, error: () => {} },
+      env: {
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_BASE_URL: "https://api.openai.com",
+        CREONOW_AI_API_KEY: "sk-test",
+      },
+      sleep: async () => {},
+      rateLimitPerMinute: 1_000,
+    });
+
+    const nonStreamResult = await service.runSkill({
+      skillId: "builtin:polish",
+      input: "input",
+      mode: "ask",
+      model: "gpt-5.2",
+      stream: false,
+      systemPrompt: "SKILL_PROMPT_MARKER",
+      system: "CONTEXT_OVERLAY_MARKER",
+      ts: Date.now(),
+      emitEvent: () => {},
+    });
+
+    assert.equal(nonStreamResult.ok, true);
+
+    const nonStreamSystem = extractOpenAiSystemMessage(requestBodies[0]);
+    assert.ok(
+      nonStreamSystem.includes("<identity>"),
+      "runtime non-stream system prompt must include identity layer",
+    );
+    assert.ok(
+      nonStreamSystem.indexOf("<identity>") <
+        nonStreamSystem.indexOf("SKILL_PROMPT_MARKER"),
+      "identity layer must be placed before skill layer",
+    );
+    assert.ok(
+      nonStreamSystem.indexOf("SKILL_PROMPT_MARKER") <
+        nonStreamSystem.indexOf("CONTEXT_OVERLAY_MARKER"),
+      "skill layer must be placed before context layer",
+    );
+
+    const streamEvents: Array<{ type: string }> = [];
+    const streamResult = await service.runSkill({
+      skillId: "builtin:polish",
+      input: "input",
+      mode: "ask",
+      model: "gpt-5.2",
+      stream: true,
+      systemPrompt: "SKILL_PROMPT_MARKER_STREAM",
+      system: "CONTEXT_OVERLAY_MARKER_STREAM",
+      ts: Date.now(),
+      emitEvent: (event) => {
+        streamEvents.push({ type: event.type });
+      },
+    });
+    assert.equal(streamResult.ok, true);
+
+    const startedAt = Date.now();
+    while (
+      !streamEvents.some((event) => event.type === "done") &&
+      Date.now() - startedAt < 1_000
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    const streamSystem = extractOpenAiSystemMessage(requestBodies[1]);
+    assert.ok(
+      streamSystem.includes("<identity>"),
+      "runtime stream system prompt must include identity layer",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 }

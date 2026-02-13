@@ -17,23 +17,23 @@
 
 ---
 
-## 一、BLOCKER：assembleSystemPrompt 与 GLOBAL_IDENTITY_PROMPT 未接入 LLM 调用链路
+## 一、已处理：assembleSystemPrompt 与 GLOBAL_IDENTITY_PROMPT 已接入 LLM 调用链路
 
 ### 事实
 
-| 符号                     | 位置                      | 运行时调用                                                   |
-| ------------------------ | ------------------------- | ------------------------------------------------------------ |
-| `assembleSystemPrompt`   | `assembleSystemPrompt.ts` | **零处**（仅 import + re-export + 测试）                     |
-| `GLOBAL_IDENTITY_PROMPT` | `identityPrompt.ts`       | **零处**（仅 import + re-export + 测试）                     |
-| `combineSystemText`      | `aiService.ts:160`        | **4 处**（line 1386/1462/1533/1649，所有 LLM provider 路径） |
+| 符号                     | 位置                      | 运行时调用                                                                   |
+| ------------------------ | ------------------------- | ---------------------------------------------------------------------------- |
+| `assembleSystemPrompt`   | `assembleSystemPrompt.ts` | 已接入（由 `combineSystemText` 调用，进入所有 provider 请求组装路径）        |
+| `GLOBAL_IDENTITY_PROMPT` | `identityPrompt.ts`       | 已接入（由 `combineSystemText` 注入 `globalIdentity`）                       |
+| `combineSystemText`      | `aiService.ts:160`        | **4 处**（line 1378/1451/1521/1634，所有 LLM provider 的 stream/non-stream） |
 
-当前 system message = `skillPrompt` + `contextOverlay` + `modeHint`。**缺失**：identity / userRules。
+当前 system message 由 `assembleSystemPrompt` 分层构建，包含 identity + skill + mode + context。
 
 ### 决策项（P3 前必须选择并实施）
 
-- **A**：在 `skillExecutor` 或 `aiService.runSkill` 中接入 `assembleSystemPrompt`，替换 `combineSystemText`
-- **B**：在 `combineSystemText` 调用前手动注入 `GLOBAL_IDENTITY_PROMPT`
-- **C**：记录为已知债务，P3 写作技能上线时统一处理（风险：P3 技能依赖身份提示词）
+- **A（已实施）**：在 `aiService.runSkill` 运行时链路接入 `assembleSystemPrompt`（Issue #509）
+- **B**：无需执行（被 A 覆盖）
+- **C**：无需执行（不再作为债务延期）
 
 ---
 
@@ -73,11 +73,11 @@ done
 
 ### 2.3 降级场景（需补充集成测试）
 
-| Scenario          | 期望行为                           | 现有测试 |
-| ----------------- | ---------------------------------- | -------- |
-| 所有 fetcher 降级 | assemble 仍返回结果（仅 warnings） | 需补充   |
-| API Key 缺失      | `AI_PROVIDER_UNAVAILABLE`          | 需补充   |
-| LLM provider 超时 | `SKILL_TIMEOUT` + done event       | 需补充   |
+| Scenario          | 期望行为                           | 现有测试                                                          |
+| ----------------- | ---------------------------------- | ----------------------------------------------------------------- |
+| 所有 fetcher 降级 | assemble 仍返回结果（仅 warnings） | ✅ 已补充（`layer-degrade-warning.test.ts` 新增全层降级场景）     |
+| API Key 缺失      | `AI_PROVIDER_UNAVAILABLE`          | ⚠️ 仍待统一（当前实现返回 `AI_NOT_CONFIGURED`）                   |
+| LLM provider 超时 | `SKILL_TIMEOUT` + done event       | ✅ 已补充（`ai-stream-lifecycle.test.ts` 新增 timeout done 场景） |
 
 ### 2.4 其他待验
 
@@ -174,12 +174,9 @@ Agent 执行真实 LLM 集成测试时，有以下灵活度：
 
 ## 六、执行优先级总览
 
-| 优先级  | 项                                                             |
-| ------- | -------------------------------------------------------------- |
-| BLOCKER | §1：`GLOBAL_IDENTITY_PROMPT` + `assembleSystemPrompt` 接入决策 |
-| BLOCKER | 运行全量 `pnpm test:unit` 确认 0 failure                       |
-| HIGH    | §3 真实 LLM 测试（DeepSeek）—— L1-L5                           |
-| HIGH    | §4 补充 G1 / G5 集成测试                                       |
-| HIGH    | §2.1 确认 `buildLLMMessages` 是否在 runSkill 中被调用          |
-| MEDIUM  | §2.2 IPC 契约 delta report                                     |
-| MEDIUM  | §2.4 类型一致性 / Preload / DB migration                       |
+| 优先级 | 项                                                                                        |
+| ------ | ----------------------------------------------------------------------------------------- |
+| HIGH   | 统一 API Key 缺失语义：文档期望 `AI_PROVIDER_UNAVAILABLE`，当前实现为 `AI_NOT_CONFIGURED` |
+| HIGH   | 评估 `buildLLMMessages` 与 `chatMessageManager` 死路径清理（接入或移除）                  |
+| MEDIUM | §3 真实 LLM 测试（DeepSeek）L1-L5 自动化沉淀（当前以手工验证为主）                        |
+| MEDIUM | 持续对齐 §2.2 IPC 契约 delta 与 §2.4 类型一致性核查                                       |

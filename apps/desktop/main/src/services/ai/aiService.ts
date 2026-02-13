@@ -152,30 +152,22 @@ function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
 }
 
 /**
- * Combine stable + dynamic system prompt parts into a single system text.
+ * Assemble runtime system prompt with fixed identity-first layer order.
  *
- * Why: skills provide a stable `systemPrompt` while features like memory injection
- * add a dynamic `system` overlay; providers expect a single system string.
+ * Why: runtime provider requests must always include the global identity template
+ * and keep deterministic layering between skill, mode hint, and context overlay.
  */
 function combineSystemText(args: {
   systemPrompt?: string;
   system?: string;
-}): string | null {
-  const parts: string[] = [];
-
-  const stable = typeof args.systemPrompt === "string" ? args.systemPrompt : "";
-  if (stable.trim().length > 0) {
-    // Intentionally preserve bytes: do not trim/normalize prompt content.
-    parts.push(stable);
-  }
-
-  const dynamic = typeof args.system === "string" ? args.system : "";
-  if (dynamic.trim().length > 0) {
-    // Intentionally preserve bytes: do not trim/normalize prompt content.
-    parts.push(dynamic);
-  }
-
-  return parts.length > 0 ? parts.join("\n\n") : null;
+  modeHint?: string;
+}): string {
+  return assembleSystemPrompt({
+    globalIdentity: GLOBAL_IDENTITY_PROMPT,
+    skillSystemPrompt: args.systemPrompt,
+    modeHint: args.modeHint,
+    contextOverlay: args.system,
+  });
 }
 
 /**
@@ -1385,16 +1377,13 @@ export function createAiService(deps: {
 
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
-      system: [args.system ?? "", modeSystemHint(args.mode) ?? ""]
-        .filter((part) => part.trim().length > 0)
-        .join("\n\n"),
+      modeHint: modeSystemHint(args.mode) ?? undefined,
+      system: args.system,
     });
-    const messages = systemText
-      ? [
-          { role: "system", content: systemText },
-          { role: "user", content: args.input },
-        ]
-      : [{ role: "user", content: args.input }];
+    const messages = [
+      { role: "system", content: systemText },
+      { role: "user", content: args.input },
+    ];
 
     const fetchRes = await fetchWithPolicy({
       url,
@@ -1461,9 +1450,8 @@ export function createAiService(deps: {
 
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
-      system: [args.system ?? "", modeSystemHint(args.mode) ?? ""]
-        .filter((part) => part.trim().length > 0)
-        .join("\n\n"),
+      modeHint: modeSystemHint(args.mode) ?? undefined,
+      system: args.system,
     });
 
     const fetchRes = await fetchWithPolicy({
@@ -1478,7 +1466,7 @@ export function createAiService(deps: {
         body: JSON.stringify({
           model: args.model,
           max_tokens: 256,
-          ...(systemText ? { system: systemText } : {}),
+          system: systemText,
           messages: [{ role: "user", content: args.input }],
           stream: false,
         }),
@@ -1532,16 +1520,13 @@ export function createAiService(deps: {
 
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
-      system: [args.system ?? "", modeSystemHint(args.mode) ?? ""]
-        .filter((part) => part.trim().length > 0)
-        .join("\n\n"),
+      modeHint: modeSystemHint(args.mode) ?? undefined,
+      system: args.system,
     });
-    const messages = systemText
-      ? [
-          { role: "system", content: systemText },
-          { role: "user", content: args.input },
-        ]
-      : [{ role: "user", content: args.input }];
+    const messages = [
+      { role: "system", content: systemText },
+      { role: "user", content: args.input },
+    ];
 
     const fetchRes = await fetchWithPolicy({
       url,
@@ -1648,9 +1633,8 @@ export function createAiService(deps: {
 
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
-      system: [args.system ?? "", modeSystemHint(args.mode) ?? ""]
-        .filter((part) => part.trim().length > 0)
-        .join("\n\n"),
+      modeHint: modeSystemHint(args.mode) ?? undefined,
+      system: args.system,
     });
 
     const fetchRes = await fetchWithPolicy({
@@ -1665,7 +1649,7 @@ export function createAiService(deps: {
         body: JSON.stringify({
           model: args.model,
           max_tokens: 256,
-          ...(systemText ? { system: systemText } : {}),
+          system: systemText,
           messages: [{ role: "user", content: args.input }],
           stream: true,
         }),
