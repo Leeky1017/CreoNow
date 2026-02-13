@@ -2,7 +2,7 @@
 
 - Issue: #507
 - Branch: task/507-trim-integration-check
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/508
 
 ## Plan
 
