@@ -5,6 +5,7 @@ import type Database from "better-sqlite3";
 import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
 import { redactText } from "../../../../../packages/shared/redaction/redact";
 import type { Logger } from "../logging/logger";
+import { createKnowledgeGraphService } from "../services/kg/kgService";
 import {
   ensureCreonowDirStructure,
   getCreonowDirStatus,
@@ -141,12 +142,20 @@ export function registerContextIpcHandlers(deps: {
   watchService: CreonowWatchService;
   contextAssemblyService?: ContextLayerAssemblyService;
 }): void {
+  const kgService =
+    deps.db !== null
+      ? createKnowledgeGraphService({
+          db: deps.db,
+          logger: deps.logger,
+        })
+      : undefined;
   const contextAssemblyService =
     deps.contextAssemblyService ??
     createContextLayerAssemblyService(undefined, {
       onConstraintTrim: (log) => {
         deps.logger.info("context_rules_constraint_trimmed", log);
       },
+      ...(kgService ? { kgService } : {}),
     });
   const inFlightByDocument = new Map<string, number>();
 

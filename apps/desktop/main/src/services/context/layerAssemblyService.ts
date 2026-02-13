@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import type { KnowledgeGraphService } from "../kg/kgService";
+import { createRulesFetcher } from "./fetchers/rulesFetcher";
 
 export type ContextLayerId = "rules" | "settings" | "retrieved" | "immediate";
 
@@ -138,6 +140,7 @@ export type ContextLayerAssemblyService = {
 
 export type ContextLayerAssemblyDeps = {
   onConstraintTrim?: (log: ContextConstraintTrimLog) => void;
+  kgService?: Pick<KnowledgeGraphService, "entityList">;
 };
 
 const LAYER_ORDER: ContextLayerId[] = [
@@ -1070,16 +1073,22 @@ async function buildContextSnapshot(args: {
  * Why: deterministic defaults keep context IPC callable before RAG/KG/Memory
  * integrations are fully wired.
  */
-function defaultFetchers(): ContextLayerFetcherMap {
+function defaultFetchers(
+  deps?: Pick<ContextLayerAssemblyDeps, "kgService">,
+): ContextLayerFetcherMap {
+  const fallbackRulesFetcher: ContextLayerFetcher = async (request) => ({
+    chunks: [
+      {
+        source: "kg:entities",
+        content: `Skill ${request.skillId} must follow project rules.`,
+      },
+    ],
+  });
+
   return {
-    rules: async (request) => ({
-      chunks: [
-        {
-          source: "kg:entities",
-          content: `Skill ${request.skillId} must follow project rules.`,
-        },
-      ],
-    }),
+    rules: deps?.kgService
+      ? createRulesFetcher({ kgService: deps.kgService })
+      : fallbackRulesFetcher,
     settings: async () => ({
       chunks: [],
     }),
@@ -1110,7 +1119,7 @@ export function createContextLayerAssemblyService(
   deps?: ContextLayerAssemblyDeps,
 ): ContextLayerAssemblyService {
   const fetcherMap = {
-    ...defaultFetchers(),
+    ...defaultFetchers({ kgService: deps?.kgService }),
     ...(fetchers ?? {}),
   };
   const previousStablePrefixByRequest = new Map<string, string>();
