@@ -41,7 +41,7 @@
 ## Codex 实现指引
 
 - 目标文件路径：`apps/desktop/main/src/services/kg/entityMatcher.ts`（新建）
-- 验证命令：`pnpm vitest run apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts`
+- 验证命令：`pnpm exec tsx apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts`
 - Mock 要求：纯函数，无 IO，无需 mock
 
 ## 审阅状态
