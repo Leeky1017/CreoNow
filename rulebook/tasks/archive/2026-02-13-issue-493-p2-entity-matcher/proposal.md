@@ -1,9 +1,11 @@
 # Proposal: issue-493-p2-entity-matcher
 
 ## Why
+
 `openspec/changes/p2-entity-matcher` 定义了 C10 文本-实体匹配能力，但当前代码库仅有 `kgRecognitionRuntime.ts` 的异步 LLM 识别流程，缺少用于 Context Engine Retrieved fetcher 的同步纯函数匹配器。若不交付，C12 `p2-fetcher-detected` 无法按实体 `name/aliases` 检测文本引用，Phase-2 Codex 上下文主线被阻断。
 
 ## What Changes
+
 - 按 change 的 S1-S6 场景补充 `entityMatcher` Red→Green→Refactor 测试与实现。
 - 新增 `apps/desktop/main/src/services/kg/entityMatcher.ts`，导出：
   - `MatchableEntity`
@@ -19,6 +21,7 @@
 - 完成 preflight、PR auto-merge、change 归档、Rulebook 自归档与 main 收口。
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/p2-entity-matcher/proposal.md`
   - `openspec/changes/p2-entity-matcher/specs/knowledge-graph/spec.md`

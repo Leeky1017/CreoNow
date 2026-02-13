@@ -28,17 +28,14 @@ function createEntity(args: {
   const results = matchEntities(text, entities);
 
   assert.equal(results.length, 2);
-  assert.deepEqual(
-    results,
-    [
-      { entityId: "e1", matchedTerm: "林默", position: text.indexOf("林默") },
-      {
-        entityId: "e2",
-        matchedTerm: "长安城",
-        position: text.indexOf("长安城"),
-      },
-    ],
-  );
+  assert.deepEqual(results, [
+    { entityId: "e1", matchedTerm: "林默", position: text.indexOf("林默") },
+    {
+      entityId: "e2",
+      matchedTerm: "长安城",
+      position: text.indexOf("长安城"),
+    },
+  ]);
 }
 
 // S2
@@ -95,7 +92,9 @@ function createEntity(args: {
 // S5
 // should return empty for empty text
 {
-  const entities: MatchableEntity[] = [createEntity({ id: "e1", name: "林默" })];
+  const entities: MatchableEntity[] = [
+    createEntity({ id: "e1", name: "林默" }),
+  ];
 
   const results = matchEntities("", entities);
 

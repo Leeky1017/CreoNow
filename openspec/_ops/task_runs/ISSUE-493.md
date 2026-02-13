@@ -3,7 +3,7 @@
 - Issue: #493
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/493
 - Branch: task/493-p2-entity-matcher
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/494
 - Scope: 按 OpenSpec + Rulebook + GitHub 治理完整交付 `openspec/changes/p2-entity-matcher`，实现并验证实体文本匹配纯函数 `matchEntities`，最终合并回控制面 `main`
 - Out of Scope: C9 `p2-kg-aliases` 的实体持久化改造、C11/C12 fetcher 实现、`kgRecognitionRuntime.ts` 异步 LLM 识别流程修改
 
@@ -16,7 +16,7 @@
 - [x] Red：先写 S1-S6 失败测试并记录证据
 - [x] Green：最小实现 `entityMatcher.ts` 使测试通过
 - [x] Refactor：确认纯函数与性能约束，保持绿灯
-- [ ] 门禁：目标测试 + typecheck/lint/contract/cross-module/unit + preflight
+- [x] 门禁：目标测试 + typecheck/lint/contract/cross-module/unit + preflight
 - [ ] 提交/PR/auto-merge + change 归档 + Rulebook 归档 + main 收口
 
 ## Runs
@@ -105,3 +105,38 @@
 - Key output:
   - `p2-entity-matcher` 已从 active 迁移到 `openspec/changes/archive/`
   - `EXECUTION_ORDER.md` 已同步：活跃 change `5 -> 4`，并标注 C10 已归档
+
+### 2026-02-13 09:46 +0800 PR 创建与正文修正
+
+- Command:
+  - `gh pr create --base main --head task/493-p2-entity-matcher --title "Deliver p2 entity matcher (#493)" --body ...`
+  - `gh pr edit 494 --body-file /tmp/pr-494-body.md`
+- Exit code: `0`
+- Key output:
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/494`
+  - PR body 已修正并保留 `Closes #493`
+
+### 2026-02-13 09:48 +0800 Preflight（失败修复后通过）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts rulebook/tasks/issue-493-p2-entity-matcher/.metadata.json rulebook/tasks/issue-493-p2-entity-matcher/proposal.md rulebook/tasks/issue-493-p2-entity-matcher/tasks.md`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code:
+  - 首轮：`1`（Prettier 检查失败）
+  - 二轮：`0`
+- Key output:
+  - 首轮拦截：`Code style issues found in 4 files`
+  - 修复后：`All matched files use Prettier code style!`
+  - 全量 preflight 通过（typecheck/lint/contract/cross-module/test:unit 均通过）
+
+### 2026-02-13 09:49 +0800 Rulebook 自归档
+
+- Command:
+  - `mv rulebook/tasks/issue-493-p2-entity-matcher rulebook/tasks/archive/2026-02-13-issue-493-p2-entity-matcher`
+  - `apply_patch rulebook/tasks/archive/2026-02-13-issue-493-p2-entity-matcher/tasks.md`
+  - `apply_patch rulebook/tasks/archive/2026-02-13-issue-493-p2-entity-matcher/.metadata.json`
+- Exit code: `0`
+- Key output:
+  - 当前任务 Rulebook 已在同一 PR 内归档
+  - `.metadata.json` 状态更新为 `completed`
