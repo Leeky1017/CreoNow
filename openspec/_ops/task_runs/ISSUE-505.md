@@ -1,7 +1,7 @@
 # ISSUE-505
 - Issue: #505
 - Branch: task/505-p1p2-integration-check
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/506
 
 ## Plan
 - 创建 P1+P2 集成检查文档 `docs/plans/p1p2-integration-check.md`
