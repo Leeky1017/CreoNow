@@ -5,7 +5,7 @@
 - Issue: #503
 - Change: `openspec/changes/archive/p2-memory-injection`
 - Branch: `task/503-p2-memory-injection-delivery`
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/504
 
 ## Plan
 
