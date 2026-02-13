@@ -24,6 +24,7 @@ import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
 import { createSkillExecutor } from "../services/skills/skillExecutor";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
+import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { createDbNotReadyError } from "./dbError";
 
 type SkillRunPayload = {
@@ -412,7 +413,17 @@ export function registerAiIpcHandlers(deps: {
   const chatHistoryByProject = new Map<string, ChatHistoryMessage[]>();
   const sessionTokenTotalsByContext = new Map<string, number>();
   const modelPricingByModel = parseModelPricingMap(deps.env);
-  const contextAssemblyService = createContextLayerAssemblyService(undefined);
+  const contextAssemblyService = createContextLayerAssemblyService(
+    undefined,
+    deps.db
+      ? {
+          kgService: createKnowledgeGraphService({
+            db: deps.db,
+            logger: deps.logger,
+          }),
+        }
+      : undefined,
+  );
   const skillExecutor = createSkillExecutor({
     resolveSkill: (skillId) => {
       if (!deps.db) {
