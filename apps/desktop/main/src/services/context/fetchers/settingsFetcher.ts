@@ -35,7 +35,9 @@ function formatInjectionContent(
  * Why: memory preview failures must degrade to warnings instead of breaking
  * context assembly so AI writing flow remains available.
  */
-export function createSettingsFetcher(deps: SettingsFetcherDeps): ContextLayerFetcher {
+export function createSettingsFetcher(
+  deps: SettingsFetcherDeps,
+): ContextLayerFetcher {
   return async (request) => {
     try {
       const preview = await Promise.resolve(
