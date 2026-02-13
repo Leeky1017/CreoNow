@@ -15,6 +15,6 @@
 
 ## 3. Documentation
 
-- [x] 3.1 更新 `openspec/changes/issue-499-fix-kg-aliases-ipc-contract/tasks.md`（勾选 + Red/Green 证据）
+- [x] 3.1 更新 `openspec/changes/archive/issue-499-fix-kg-aliases-ipc-contract/tasks.md`（勾选 + Red/Green 证据）
 - [x] 3.2 新增 `openspec/_ops/task_runs/ISSUE-499.md` 并记录关键命令输出
-- [ ] 3.3 回填 RUN_LOG 真实 PR 链接并完成 Rulebook task 归档
+- [x] 3.3 回填 RUN_LOG 真实 PR 链接并完成 Rulebook task 归档

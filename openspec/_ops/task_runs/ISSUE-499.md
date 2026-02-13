@@ -3,7 +3,7 @@
 ## Metadata
 
 - Issue: #499
-- Change: `openspec/changes/issue-499-fix-kg-aliases-ipc-contract`
+- Change: `openspec/changes/archive/issue-499-fix-kg-aliases-ipc-contract`
 - Branch: `task/499-fix-kg-aliases-ipc-contract`
 - PR: https://github.com/Leeky1017/CreoNow/pull/500
 
@@ -109,7 +109,11 @@ $ git add packages/shared/types/ipc-generated.ts && pnpm contract:check
 
 ```bash
 $ scripts/agent_pr_automerge_and_sync.sh
-# (待执行)
+# 首轮阻断：active change tasks 全勾选，必须先归档
+
+$ mv openspec/changes/issue-499-fix-kg-aliases-ipc-contract openspec/changes/archive/issue-499-fix-kg-aliases-ipc-contract
+$ rulebook task archive issue-499-fix-kg-aliases-ipc-contract
+✅ Task issue-499-fix-kg-aliases-ipc-contract archived successfully
 ```
 
-结果：待执行。
+结果：完成 OpenSpec/Rulebook 归档后，准备重跑 auto-merge 流程。

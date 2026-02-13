@@ -53,4 +53,4 @@ Red 失败证据要求：记录 `knowledge:entity:list` 返回 `ok: false` 且 `
 - Green 结果：exit code 0
 - 回归命令：`pnpm contract:check`、`pnpm -C apps/desktop typecheck`、`pnpm tsx apps/desktop/tests/integration/kg/relation-delete.test.ts`
 - 回归结果：全部 exit code 0
-- PR: <Codex 回填>
+- PR: https://github.com/Leeky1017/CreoNow/pull/500
