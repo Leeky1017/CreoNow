@@ -1,15 +1,19 @@
 # ISSUE-505
+
 - Issue: #505
 - Branch: task/505-p1p2-integration-check
 - PR: https://github.com/Leeky1017/CreoNow/pull/506
 
 ## Plan
+
 - 创建 P1+P2 集成检查文档 `docs/plans/p1p2-integration-check.md`
 - 对照实际代码验证文档中的关键断言并修正
 - 通过交付流程合并回 main
 
 ## Runs
+
 ### 2026-02-13 12:51 文档创建与代码验证
+
 - Command: 手动代码审查 + grep 验证
 - Key output:
   - §7 确认：`assembleSystemPrompt` 和 `GLOBAL_IDENTITY_PROMPT` 是死代码，未在 aiService.ts 的 LLM 调用路径中使用

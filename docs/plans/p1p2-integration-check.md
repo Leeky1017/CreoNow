@@ -163,12 +163,12 @@ P1+P2 在三个位置引入了 token 估算逻辑，必须验证一致性。
 
 ### 2.1 estimateTokenCount 实现对比
 
-| 位置 | 文件 | 实现 |
-|------|------|------|
-| A | `layerAssemblyService.ts:260` | `new TextEncoder().encode(text).length / 4` |
-| B | `aiService.ts:199` | `Buffer.byteLength(text, "utf8") / 4` |
-| C | `buildLLMMessages.ts:31` | `Buffer.byteLength(text, "utf8") / 4` |
-| D | `ipc/ai.ts:154` | `Buffer.byteLength(text, "utf8") / 4` |
+| 位置 | 文件                          | 实现                                        |
+| ---- | ----------------------------- | ------------------------------------------- |
+| A    | `layerAssemblyService.ts:260` | `new TextEncoder().encode(text).length / 4` |
+| B    | `aiService.ts:199`            | `Buffer.byteLength(text, "utf8") / 4`       |
+| C    | `buildLLMMessages.ts:31`      | `Buffer.byteLength(text, "utf8") / 4`       |
+| D    | `ipc/ai.ts:154`               | `Buffer.byteLength(text, "utf8") / 4`       |
 
 **检查命令**：
 
@@ -311,15 +311,15 @@ grep -n "warnings" apps/desktop/main/src/services/context/layerAssemblyService.t
 
 **必须验证的 Scenario**（可用现有测试或需新增）：
 
-| # | Scenario | 期望行为 | 测试文件 |
-|---|----------|----------|----------|
-| D1 | KG service 返回 `{ ok: false }` | rulesFetcher 返回空 chunks + `KG_UNAVAILABLE` warning | `rulesFetcher.test.ts` |
-| D2 | KG service 抛出异常 | rulesFetcher catch → 空 chunks + warning | `rulesFetcher.test.ts` |
-| D3 | entityMatcher 抛出异常 | retrievedFetcher catch → 空 chunks + `ENTITY_MATCH_FAILED` | `retrievedFetcher.test.ts` |
-| D4 | memoryService.previewInjection 返回 `{ ok: false }` | settingsFetcher → 空 chunks + `MEMORY_UNAVAILABLE` | `settingsFetcher.test.ts` |
-| D5 | 所有 fetcher 降级 | assemble 仍返回结果（仅 warnings 非空） | **需验证** |
-| D6 | API Key 缺失 | aiService 返回 `AI_PROVIDER_UNAVAILABLE` | **需验证** |
-| D7 | LLM provider 超时 | `SKILL_TIMEOUT` 错误码 + `skill:stream:done` 事件 | **需验证** |
+| #   | Scenario                                            | 期望行为                                                   | 测试文件                   |
+| --- | --------------------------------------------------- | ---------------------------------------------------------- | -------------------------- |
+| D1  | KG service 返回 `{ ok: false }`                     | rulesFetcher 返回空 chunks + `KG_UNAVAILABLE` warning      | `rulesFetcher.test.ts`     |
+| D2  | KG service 抛出异常                                 | rulesFetcher catch → 空 chunks + warning                   | `rulesFetcher.test.ts`     |
+| D3  | entityMatcher 抛出异常                              | retrievedFetcher catch → 空 chunks + `ENTITY_MATCH_FAILED` | `retrievedFetcher.test.ts` |
+| D4  | memoryService.previewInjection 返回 `{ ok: false }` | settingsFetcher → 空 chunks + `MEMORY_UNAVAILABLE`         | `settingsFetcher.test.ts`  |
+| D5  | 所有 fetcher 降级                                   | assemble 仍返回结果（仅 warnings 非空）                    | **需验证**                 |
+| D6  | API Key 缺失                                        | aiService 返回 `AI_PROVIDER_UNAVAILABLE`                   | **需验证**                 |
+| D7  | LLM provider 超时                                   | `SKILL_TIMEOUT` 错误码 + `skill:stream:done` 事件          | **需验证**                 |
 
 ### 5.2 错误码覆盖度
 
@@ -335,27 +335,27 @@ grep -rohn '"[A-Z_]*"' apps/desktop/main/src/ | sort -u | grep -E "^[A-Z_]{5,}$"
 
 ### 6.1 P1 测试覆盖
 
-| Change | 关键文件 | 测试文件 | 状态 |
-|--------|----------|----------|------|
-| p1-identity-template | `identityPrompt.ts` | `identityPrompt.test.ts` | ✅ |
-| p1-assemble-prompt | `assembleSystemPrompt.ts` | `assembleSystemPrompt.test.ts` | ✅ |
-| p1-chat-skill | `skillRouter.ts` + `skills/chat/SKILL.md` | `skillRouter.test.ts` + `chatSkill.test.ts` | ✅ |
-| p1-aistore-messages | `chatMessageManager.ts` | `chatMessageManager.test.ts` | ✅ |
-| p1-multiturn-assembly | `buildLLMMessages.ts` | `buildLLMMessages.test.ts` | ✅ |
-| p1-apikey-storage | `aiProxySettingsService.ts` | `llm-proxy-config.test.ts` | ✅ |
-| p1-ai-settings-ui | renderer components | **需验证前端测试** | ? |
+| Change                | 关键文件                                  | 测试文件                                    | 状态 |
+| --------------------- | ----------------------------------------- | ------------------------------------------- | ---- |
+| p1-identity-template  | `identityPrompt.ts`                       | `identityPrompt.test.ts`                    | ✅   |
+| p1-assemble-prompt    | `assembleSystemPrompt.ts`                 | `assembleSystemPrompt.test.ts`              | ✅   |
+| p1-chat-skill         | `skillRouter.ts` + `skills/chat/SKILL.md` | `skillRouter.test.ts` + `chatSkill.test.ts` | ✅   |
+| p1-aistore-messages   | `chatMessageManager.ts`                   | `chatMessageManager.test.ts`                | ✅   |
+| p1-multiturn-assembly | `buildLLMMessages.ts`                     | `buildLLMMessages.test.ts`                  | ✅   |
+| p1-apikey-storage     | `aiProxySettingsService.ts`               | `llm-proxy-config.test.ts`                  | ✅   |
+| p1-ai-settings-ui     | renderer components                       | **需验证前端测试**                          | ?    |
 
 ### 6.2 P2 测试覆盖
 
-| Change | 关键文件 | 测试文件 | 状态 |
-|--------|----------|----------|------|
-| p2-kg-context-level | `kgService.ts` (entityList filter) | `kgService.contextLevel.test.ts` | ✅ |
-| p2-kg-aliases | `kgService.ts` (aliases CRUD) | `kgService.aliases.test.ts` | ✅ |
-| p2-entity-matcher | `entityMatcher.ts` | `entityMatcher.test.ts` | ✅ |
-| p2-fetcher-always | `rulesFetcher.ts` | `rulesFetcher.test.ts` | ✅ |
-| p2-fetcher-detected | `retrievedFetcher.ts` | `retrievedFetcher.test.ts` | ✅ |
-| p2-memory-injection | `settingsFetcher.ts` | `settingsFetcher.test.ts` | ✅ |
-| fix-499 | KG aliases IPC | `kgService.aliases.test.ts` | ✅ |
+| Change              | 关键文件                           | 测试文件                         | 状态 |
+| ------------------- | ---------------------------------- | -------------------------------- | ---- |
+| p2-kg-context-level | `kgService.ts` (entityList filter) | `kgService.contextLevel.test.ts` | ✅   |
+| p2-kg-aliases       | `kgService.ts` (aliases CRUD)      | `kgService.aliases.test.ts`      | ✅   |
+| p2-entity-matcher   | `entityMatcher.ts`                 | `entityMatcher.test.ts`          | ✅   |
+| p2-fetcher-always   | `rulesFetcher.ts`                  | `rulesFetcher.test.ts`           | ✅   |
+| p2-fetcher-detected | `retrievedFetcher.ts`              | `retrievedFetcher.test.ts`       | ✅   |
+| p2-memory-injection | `settingsFetcher.ts`               | `settingsFetcher.test.ts`        | ✅   |
+| fix-499             | KG aliases IPC                     | `kgService.aliases.test.ts`      | ✅   |
 
 **检查命令**：
 
@@ -371,13 +371,13 @@ cd apps/desktop && pnpm vitest run --coverage 2>&1 | tail -30
 
 以下场景有单元测试但缺乏跨模块集成测试：
 
-| # | 缺失场景 | 涉及模块 | 优先级 |
-|---|----------|----------|--------|
-| G1 | 完整 AI skill:run → context assemble → LLM mock → stream 返回 | AI + Context + KG + Skill | **HIGH** |
-| G2 | KG 实体变更 → rules/retrieved fetcher 输出变更 | KG + Context | MEDIUM |
-| G3 | API Key 保存 → 读取 → LLM 调用成功 | Workbench + AI | MEDIUM |
-| G4 | 多轮对话：message add → build → trim → 第 N 轮 | AI + aiStore | MEDIUM |
-| G5 | 全降级场景：KG 不可用 + Memory 不可用 → AI 仍可用 | All | **HIGH** |
+| #   | 缺失场景                                                      | 涉及模块                  | 优先级   |
+| --- | ------------------------------------------------------------- | ------------------------- | -------- |
+| G1  | 完整 AI skill:run → context assemble → LLM mock → stream 返回 | AI + Context + KG + Skill | **HIGH** |
+| G2  | KG 实体变更 → rules/retrieved fetcher 输出变更                | KG + Context              | MEDIUM   |
+| G3  | API Key 保存 → 读取 → LLM 调用成功                            | Workbench + AI            | MEDIUM   |
+| G4  | 多轮对话：message add → build → trim → 第 N 轮                | AI + aiStore              | MEDIUM   |
+| G5  | 全降级场景：KG 不可用 + Memory 不可用 → AI 仍可用             | All                       | **HIGH** |
 
 ---
 
@@ -385,11 +385,11 @@ cd apps/desktop && pnpm vitest run --coverage 2>&1 | tail -30
 
 ### 7.1 事实
 
-| 函数/常量 | 定义位置 | aiService.ts 内状态 | 实际 LLM 调用中是否使用 |
-|-----------|----------|--------------------|-----------------------|
-| `assembleSystemPrompt` | `assembleSystemPrompt.ts` | import + re-export (line 17, 20) | **否**——零处内部调用 |
-| `GLOBAL_IDENTITY_PROMPT` | `identityPrompt.ts` | import + re-export (line 18, 20) | **否**——零处内部调用 |
-| `combineSystemText` | `aiService.ts:160` (内部函数) | 4 处调用 (line 1386/1462/1533/1649) | **是**——所有 LLM provider 路径均使用 |
+| 函数/常量                | 定义位置                      | aiService.ts 内状态                 | 实际 LLM 调用中是否使用              |
+| ------------------------ | ----------------------------- | ----------------------------------- | ------------------------------------ |
+| `assembleSystemPrompt`   | `assembleSystemPrompt.ts`     | import + re-export (line 17, 20)    | **否**——零处内部调用                 |
+| `GLOBAL_IDENTITY_PROMPT` | `identityPrompt.ts`           | import + re-export (line 18, 20)    | **否**——零处内部调用                 |
+| `combineSystemText`      | `aiService.ts:160` (内部函数) | 4 处调用 (line 1386/1462/1533/1649) | **是**——所有 LLM provider 路径均使用 |
 
 ### 7.2 实际 system prompt 组成
 
@@ -402,6 +402,7 @@ system (来自 contextAssemblyService.assemble().prompt + modeHint)
 ```
 
 缺失的部分：
+
 - **`GLOBAL_IDENTITY_PROMPT`**（AI 身份、写作意识、角色流动性）未注入
 - **`userRules`**（用户自定义规则）未注入
 - **`memoryOverlay`** 已通过 settingsFetcher → context assembly 间接注入，但不在 `assembleSystemPrompt` 的分层框架中
@@ -415,6 +416,7 @@ system (来自 contextAssemblyService.assemble().prompt + modeHint)
 ### 7.4 决策项（BLOCKER）
 
 进入 P3 前必须决策：
+
 - **方案 A**：在 `skillExecutor` 或 `aiService.runSkill` 中接入 `assembleSystemPrompt`，替换 `combineSystemText`，让 identity/userRules/modeHint 正式进入分层组装。
 - **方案 B**：在 `combineSystemText` 调用前手动注入 `GLOBAL_IDENTITY_PROMPT`，保持现有简单拼接架构。
 - **方案 C**：记录为已知债务，P3 写作技能上线时统一处理（风险：P3 技能依赖身份提示词）。
@@ -447,18 +449,18 @@ grep -n "allowedChannels\|validChannels\|channel" apps/desktop/preload/src/ipcGa
 
 对照 `openspec/specs/cross-module-integration-spec.md` 中定义的 Scenario，标注实现状态。
 
-| Spec Scenario | 状态 | 证据 |
-|---------------|------|------|
-| 选区改写被接受后写入情景记忆 (Editor→Memory) | **未实现** | P3/P4 范围 |
-| 应用后撤销触发延迟负反馈 (Editor→Memory) | **未实现** | P4 范围 |
-| Context Engine 注入相关实体到 Rules 层 (KG→CE) | **已实现** | P2 rulesFetcher |
-| KG 不可用时 Context Engine 降级 (KG→CE) | **已实现** | P2 rulesFetcher + retrievedFetcher |
-| AI Service 选择技能并流式返回 (AI→Skill) | **已实现** | P1 aiService + skillExecutor |
-| 技能超时触发统一错误 (AI→Skill) | **已实现** | P1 SKILL_TIMEOUT |
-| 契约校验通过并生成代码 (IPC) | **部分实现** | ipc-generated.ts 存在但自动生成机制待验证 |
-| 契约冲突触发阻断 (IPC) | **未验证** | CI check 是否覆盖？ |
-| 跨模块高并发保持链路一致 (NFR) | **未验证** | 无并发测试 |
-| 跨模块越权访问被拒绝 (NFR) | **部分实现** | CONTEXT_SCOPE_VIOLATION 在 layerAssemblyService |
+| Spec Scenario                                  | 状态         | 证据                                            |
+| ---------------------------------------------- | ------------ | ----------------------------------------------- |
+| 选区改写被接受后写入情景记忆 (Editor→Memory)   | **未实现**   | P3/P4 范围                                      |
+| 应用后撤销触发延迟负反馈 (Editor→Memory)       | **未实现**   | P4 范围                                         |
+| Context Engine 注入相关实体到 Rules 层 (KG→CE) | **已实现**   | P2 rulesFetcher                                 |
+| KG 不可用时 Context Engine 降级 (KG→CE)        | **已实现**   | P2 rulesFetcher + retrievedFetcher              |
+| AI Service 选择技能并流式返回 (AI→Skill)       | **已实现**   | P1 aiService + skillExecutor                    |
+| 技能超时触发统一错误 (AI→Skill)                | **已实现**   | P1 SKILL_TIMEOUT                                |
+| 契约校验通过并生成代码 (IPC)                   | **部分实现** | ipc-generated.ts 存在但自动生成机制待验证       |
+| 契约冲突触发阻断 (IPC)                         | **未验证**   | CI check 是否覆盖？                             |
+| 跨模块高并发保持链路一致 (NFR)                 | **未验证**   | 无并发测试                                      |
+| 跨模块越权访问被拒绝 (NFR)                     | **部分实现** | CONTEXT_SCOPE_VIOLATION 在 layerAssemblyService |
 
 ---
 
@@ -511,20 +513,20 @@ cd /home/leeky/work/CreoNow && pnpm tsc --noEmit
 
 > 执行检查后，在此记录每项结果。
 
-| 检查项 | 结果 | 备注 |
-|--------|------|------|
-| 1.1 Chain A 主链路 | | |
-| 1.2 Chain B API Key | | |
-| 1.3 Chain C KG→Context | | |
-| 1.4 Chain D Memory→Settings | | |
-| 2.1 Token 估算一致性 | | |
-| 3.1 Contract Baseline 对齐 | | |
-| 3.2 Shared Types 一致性 | | |
-| 4.1 KG Schema 完整性 | | |
-| 4.2 aiStore 消息模型 | | |
-| 5.1 降级覆盖 | | |
-| 6.x 测试覆盖 | | |
-| 7.1 assembleSystemPrompt 接入 | FAIL | 死代码，未在 LLM 调用链路中使用 |
-| 7.2 GLOBAL_IDENTITY_PROMPT 注入 | FAIL | 未注入任何 runSkill 路径 |
-| 7.3 P2 context 注入 | PASS | 通过 combineSystemText 正确流入 |
-| 8.x Preload 安全边界 | | |
+| 检查项                          | 结果 | 备注                            |
+| ------------------------------- | ---- | ------------------------------- |
+| 1.1 Chain A 主链路              |      |                                 |
+| 1.2 Chain B API Key             |      |                                 |
+| 1.3 Chain C KG→Context          |      |                                 |
+| 1.4 Chain D Memory→Settings     |      |                                 |
+| 2.1 Token 估算一致性            |      |                                 |
+| 3.1 Contract Baseline 对齐      |      |                                 |
+| 3.2 Shared Types 一致性         |      |                                 |
+| 4.1 KG Schema 完整性            |      |                                 |
+| 4.2 aiStore 消息模型            |      |                                 |
+| 5.1 降级覆盖                    |      |                                 |
+| 6.x 测试覆盖                    |      |                                 |
+| 7.1 assembleSystemPrompt 接入   | FAIL | 死代码，未在 LLM 调用链路中使用 |
+| 7.2 GLOBAL_IDENTITY_PROMPT 注入 | FAIL | 未注入任何 runSkill 路径        |
+| 7.3 P2 context 注入             | PASS | 通过 combineSystemText 正确流入 |
+| 8.x Preload 安全边界            |      |                                 |
