@@ -20,9 +20,9 @@ RUN_LOG 必须包含可机器校验的主会话审计段。preflight 与 `opensp
 - **则** 门禁失败并阻断交付
 - **并且** preflight 报错前缀统一为 `[MAIN_AUDIT]`
 
-#### Scenario: 审计对象不是当前 HEAD 时阻断 [ADDED]
+#### Scenario: 审计对象不是签字提交的 HEAD^ 时阻断 [ADDED]
 
-- **假设** `Reviewed-HEAD-SHA` 与当前 HEAD 不一致
+- **假设** `Reviewed-HEAD-SHA` 与签字提交的 `HEAD^` 不一致
 - **当** 执行 preflight 或 PR 触发 `openspec-log-guard`
 - **则** 门禁失败并阻断交付
-- **并且** 只有审计对象等于当前 HEAD 才允许进入合并
+- **并且** `HEAD^..HEAD` 仅允许变更当前任务 RUN_LOG（主会话签字提交隔离）

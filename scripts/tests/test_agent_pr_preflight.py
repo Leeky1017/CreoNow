@@ -2,6 +2,7 @@ import os
 import tempfile
 import unittest
 import sys
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import agent_pr_preflight  # noqa: E402
@@ -152,6 +153,50 @@ class MainSessionAuditValidationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, r"^\[MAIN_AUDIT\]"):
             agent_pr_preflight.validate_main_session_audit(run_log, self.head_sha)
+
+
+class MainSessionAuditSignatureCommitTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.repo = "/tmp/repo"
+        self.run_log = os.path.join(self.repo, "openspec", "_ops", "task_runs", "ISSUE-518.md")
+
+    def test_validate_main_session_audit_signature_commit_should_pass_when_only_run_log_changed(self) -> None:
+        with mock.patch.object(
+            agent_pr_preflight,
+            "run",
+            return_value=agent_pr_preflight.CmdResult(0, "openspec/_ops/task_runs/ISSUE-518.md\n"),
+        ):
+            agent_pr_preflight.validate_main_session_audit_signature_commit(self.repo, self.run_log)
+
+    def test_validate_main_session_audit_signature_commit_should_fail_when_run_log_not_changed(self) -> None:
+        with mock.patch.object(
+            agent_pr_preflight,
+            "run",
+            return_value=agent_pr_preflight.CmdResult(0, "scripts/agent_pr_preflight.py\n"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, r"^\[MAIN_AUDIT\].*must include RUN_LOG update"):
+                agent_pr_preflight.validate_main_session_audit_signature_commit(self.repo, self.run_log)
+
+    def test_validate_main_session_audit_signature_commit_should_fail_when_other_files_changed(self) -> None:
+        with mock.patch.object(
+            agent_pr_preflight,
+            "run",
+            return_value=agent_pr_preflight.CmdResult(
+                0,
+                "openspec/_ops/task_runs/ISSUE-518.md\nscripts/agent_pr_preflight.py\n",
+            ),
+        ):
+            with self.assertRaisesRegex(RuntimeError, r"^\[MAIN_AUDIT\].*only change RUN_LOG"):
+                agent_pr_preflight.validate_main_session_audit_signature_commit(self.repo, self.run_log)
+
+    def test_validate_main_session_audit_signature_commit_should_fail_on_git_diff_error(self) -> None:
+        with mock.patch.object(
+            agent_pr_preflight,
+            "run",
+            return_value=agent_pr_preflight.CmdResult(1, "fatal: bad revision"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, r"^\[MAIN_AUDIT\].*failed to inspect signing commit diff"):
+                agent_pr_preflight.validate_main_session_audit_signature_commit(self.repo, self.run_log)
 
 
 if __name__ == "__main__":

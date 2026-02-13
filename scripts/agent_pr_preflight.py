@@ -66,6 +66,16 @@ def current_head_sha(repo_root: str) -> str:
     return res.out.strip()
 
 
+def current_head_parent_sha(repo_root: str) -> str:
+    res = run(["git", "rev-parse", "HEAD^"], cwd=repo_root)
+    if res.code != 0:
+        print(res.out, file=sys.stderr)
+        raise RuntimeError(
+            "[MAIN_AUDIT] failed to resolve HEAD^; main-session audit requires a dedicated signing commit on top of reviewed changes"
+        )
+    return res.out.strip()
+
+
 def require_file(path: str) -> None:
     if not os.path.isfile(path):
         raise RuntimeError(f"[RUN_LOG] required file missing: {path}")
@@ -275,6 +285,31 @@ def validate_main_session_audit(path: str, head_sha: str) -> None:
         )
 
 
+def validate_main_session_audit_signature_commit(repo: str, run_log_path: str) -> None:
+    run_log_rel = os.path.relpath(run_log_path, repo).replace(os.sep, "/")
+    res = run(
+        ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD^..HEAD"],
+        cwd=repo,
+    )
+    if res.code != 0:
+        raise RuntimeError(
+            "[MAIN_AUDIT] failed to inspect signing commit diff (HEAD^..HEAD)"
+        )
+
+    changed_files = [line.strip() for line in res.out.splitlines() if line.strip()]
+    if run_log_rel not in changed_files:
+        raise RuntimeError(
+            f"[MAIN_AUDIT] signing commit must include RUN_LOG update: {run_log_rel}"
+        )
+
+    disallowed = sorted(path for path in changed_files if path != run_log_rel)
+    if disallowed:
+        raise RuntimeError(
+            "[MAIN_AUDIT] signing commit must only change RUN_LOG; found additional files: "
+            + ", ".join(disallowed)
+        )
+
+
 REQUIRED_CHANGE_TASKS_HEADINGS: tuple[str, ...] = (
     "## 1. Specification",
     "## 2. TDD Mapping（先测前提）",
@@ -436,10 +471,12 @@ def main() -> int:
         issue_number = m.group("n")
         slug = m.group("slug")
         head_sha = current_head_sha(repo)
+        head_parent_sha = current_head_parent_sha(repo)
         run_log = os.path.join(repo, "openspec", "_ops", "task_runs", f"ISSUE-{issue_number}.md")
         require_file(run_log)
         validate_runlog_pr_field(run_log)
-        validate_main_session_audit(run_log, head_sha)
+        validate_main_session_audit(run_log, head_parent_sha)
+        validate_main_session_audit_signature_commit(repo, run_log)
 
         print("== Repo checks ==")
         must_run(["git", "status", "--porcelain=v1"], cwd=repo)

@@ -7,13 +7,14 @@
 不改的风险：
 
 - 子代理产出在缺少主会话审计结论时仍可能进入合并流程。
-- preflight 与 CI 不能阻断“未审计/审计失败/审计对象非当前 HEAD”的风险提交。
+- preflight 与 CI 不能阻断“未审计/审计失败/审计对象非签字提交 `HEAD^`”的风险提交。
 - RUN_LOG 无法作为“主会话最终责任签字”的机器可验证证据。
 
 ## 变更内容
 
-- 在 RUN_LOG 增加固定、可机读的 `## Main Session Audit` 段并定义通过条件。
+- 在 RUN_LOG 增加固定、可机读的 `## Main Session Audit` 段并定义通过条件（`Reviewed-HEAD-SHA == 签字提交 HEAD^`）。
 - 在 `scripts/agent_pr_preflight.py` 增加 `validate_main_session_audit(run_log, head_sha)` 并接入主流程。
+- 在 preflight 与 CI 增加签字提交隔离校验：`HEAD^..HEAD` 仅允许变更当前任务 RUN_LOG。
 - 在 `.github/workflows/openspec-log-guard.yml` 增加同等 Main Session Audit 校验，确保 PR 到 `main` 时可阻断。
 - 更新 `openspec/changes/_template/tasks.md` 的 Evidence 清单，显式要求主会话审计记录与通过条件。
 - 同步更新 `docs/delivery-skill.md` 与 `docs/delivery-rule-mapping.md`。

@@ -19,20 +19,26 @@
   - `scripts/tests/test_agent_pr_preflight.py::test_validate_main_session_audit_should_fail_when_any_gate_field_is_fail`
   - `scripts/tests/test_agent_pr_preflight.py::test_validate_main_session_audit_should_fail_when_blocking_issues_not_zero`
   - `scripts/tests/test_agent_pr_preflight.py::test_validate_main_session_audit_should_fail_when_decision_not_accept`
-- [x] S3「审计对象不是当前 HEAD 时阻断」→ `scripts/tests/test_agent_pr_preflight.py::test_validate_main_session_audit_should_fail_when_reviewed_sha_mismatch`
+- [x] S3「审计对象不是签字提交的 HEAD^ 时阻断」→ `scripts/tests/test_agent_pr_preflight.py::test_validate_main_session_audit_should_fail_when_reviewed_sha_mismatch`
+- [x] S4「签字提交隔离（仅 RUN_LOG 可变更）」→
+  - `scripts/tests/test_agent_pr_preflight.py::test_validate_main_session_audit_signature_commit_should_pass_when_only_run_log_changed`
+  - `scripts/tests/test_agent_pr_preflight.py::test_validate_main_session_audit_signature_commit_should_fail_when_run_log_not_changed`
+  - `scripts/tests/test_agent_pr_preflight.py::test_validate_main_session_audit_signature_commit_should_fail_when_other_files_changed`
 
 ## 3. Red（先写失败测试）
 
 - [x] 3.1 新增 Main Session Audit 通过路径测试并确认先失败
 - [x] 3.2 新增字段缺失/字段 FAIL/Blocking-Issues 非零/Decision 非 ACCEPT/SHA 不一致失败测试并确认先失败
-- [x] 3.3 记录 Red 失败输出与关键日志至 RUN_LOG
+- [x] 3.3 新增签字提交隔离（仅 RUN_LOG 可变更）测试并确认先失败
+- [x] 3.4 记录 Red 失败输出与关键日志至 RUN_LOG
 
 ## 4. Green（最小实现通过）
 
 - [x] 4.1 新增并接入 `validate_main_session_audit(run_log, head_sha)`
 - [x] 4.2 preflight 缺字段、格式错、值不合法、条件不满足统一 `RuntimeError`，报错前缀 `[MAIN_AUDIT]`
-- [x] 4.3 `openspec-log-guard.yml` 增加同等 Main Session Audit 校验并阻断未审计场景
-- [x] 4.4 同步模板与文档（tasks template / delivery-skill / delivery-rule-mapping）
+- [x] 4.3 preflight 与 CI 同步校验 `Reviewed-HEAD-SHA == HEAD^`，并强制签字提交仅变更 RUN_LOG
+- [x] 4.4 `openspec-log-guard.yml` 增加同等 Main Session Audit 校验并阻断未审计场景
+- [x] 4.5 同步模板与文档（tasks template / delivery-skill / delivery-rule-mapping）
 
 ## 5. Refactor（保持绿灯）
 
