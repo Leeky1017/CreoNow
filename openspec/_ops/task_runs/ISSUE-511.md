@@ -2,7 +2,7 @@
 
 - Issue: #511
 - Branch: task/511-controlplane-pending-delivery
-- PR: TBA
+- PR: https://github.com/Leeky1017/CreoNow/pull/512
 
 ## Plan
 
