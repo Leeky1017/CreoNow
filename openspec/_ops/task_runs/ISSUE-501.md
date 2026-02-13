@@ -5,7 +5,7 @@
 - Issue: #501
 - Change: `openspec/changes/archive/p2-fetcher-detected`
 - Branch: `task/501-p2-fetcher-detected-delivery`
-- PR: https://github.com/Leeky1017/CreoNow/pull/0
+- PR: https://github.com/Leeky1017/CreoNow/pull/502
 
 ## Plan
 
