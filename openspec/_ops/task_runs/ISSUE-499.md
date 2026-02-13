@@ -5,7 +5,7 @@
 - Issue: #499
 - Change: `openspec/changes/issue-499-fix-kg-aliases-ipc-contract`
 - Branch: `task/499-fix-kg-aliases-ipc-contract`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/500
 
 ## Plan
 
