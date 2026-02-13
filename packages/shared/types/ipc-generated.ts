@@ -1338,6 +1338,7 @@ export type IpcChannelSpec = {
   "knowledge:entity:create": {
     request: {
       aiContextLevel?: "always" | "when_detected" | "manual_only" | "never";
+      aliases?: Array<string>;
       attributes?: Record<string, string>;
       description?: string;
       name: string;
@@ -1346,6 +1347,7 @@ export type IpcChannelSpec = {
     };
     response: {
       aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
+      aliases: Array<string>;
       attributes: Record<string, string>;
       createdAt: string;
       description: string;
@@ -1377,6 +1379,7 @@ export type IpcChannelSpec = {
     response: {
       items: Array<{
         aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
+        aliases: Array<string>;
         attributes: Record<string, string>;
         createdAt: string;
         description: string;
@@ -1396,6 +1399,7 @@ export type IpcChannelSpec = {
     };
     response: {
       aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
+      aliases: Array<string>;
       attributes: Record<string, string>;
       createdAt: string;
       description: string;
@@ -1413,6 +1417,7 @@ export type IpcChannelSpec = {
       id: string;
       patch: {
         aiContextLevel?: "always" | "when_detected" | "manual_only" | "never";
+        aliases?: Array<string>;
         attributes?: Record<string, string>;
         description?: string;
         name?: string;
@@ -1422,6 +1427,7 @@ export type IpcChannelSpec = {
     };
     response: {
       aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
+      aliases: Array<string>;
       attributes: Record<string, string>;
       createdAt: string;
       description: string;
@@ -1441,6 +1447,7 @@ export type IpcChannelSpec = {
     response: {
       items: Array<{
         aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
+        aliases: Array<string>;
         attributes: Record<string, string>;
         createdAt: string;
         description: string;
@@ -1477,6 +1484,7 @@ export type IpcChannelSpec = {
     response: {
       items: Array<{
         aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
+        aliases: Array<string>;
         attributes: Record<string, string>;
         createdAt: string;
         description: string;
@@ -1500,6 +1508,7 @@ export type IpcChannelSpec = {
       edgeCount: number;
       entities: Array<{
         aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
+        aliases: Array<string>;
         attributes: Record<string, string>;
         createdAt: string;
         description: string;
@@ -1663,6 +1672,7 @@ export type IpcChannelSpec = {
     };
     response: {
       aiContextLevel: "always" | "when_detected" | "manual_only" | "never";
+      aliases: Array<string>;
       attributes: Record<string, string>;
       createdAt: string;
       description: string;
