@@ -140,3 +140,16 @@
 - Key output:
   - 当前任务 Rulebook 已在同一 PR 内归档
   - `.metadata.json` 状态更新为 `completed`
+
+### 2026-02-13 09:51 +0800 Preflight 复验（Rulebook 迁移后）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `git add -A && git commit -m "docs: archive rulebook task and sync logs (#493)"`
+  - `scripts/agent_pr_preflight.sh`
+- Exit code:
+  - 首轮：`1`（Prettier 目标中仍包含旧 active Rulebook 路径，文件不存在）
+  - 二轮：`0`
+- Key output:
+  - 首轮报错：`No files matching the pattern were found: rulebook/tasks/issue-493-p2-entity-matcher/...`
+  - 归档迁移提交后，preflight 全量通过
