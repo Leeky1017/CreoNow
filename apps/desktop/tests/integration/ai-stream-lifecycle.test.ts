@@ -255,3 +255,63 @@ async function withOpenAiStreamingServer(args: {
     },
   });
 }
+
+/**
+ * AIS-TIMEOUT-S1: stream 超时通过 done(error: SKILL_TIMEOUT) 收敛 [ADDED]
+ * should emit one done(error) event with SKILL_TIMEOUT when stream exceeds timeout
+ */
+{
+  await withOpenAiStreamingServer({
+    handler: async ({ res }) => {
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        Connection: "keep-alive",
+        "Cache-Control": "no-cache",
+      });
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      res.end();
+    },
+    run: async ({ baseUrl }) => {
+      const events: AiStreamEvent[] = [];
+      const ai = createAiService({
+        logger: createNoopLogger(),
+        env: {
+          CREONOW_AI_PROVIDER: "openai",
+          CREONOW_AI_BASE_URL: baseUrl,
+          CREONOW_AI_API_KEY: "test-key",
+        },
+        sleep: async () => {},
+        rateLimitPerMinute: 1_000,
+      });
+
+      const runResult = await ai.runSkill({
+        skillId: "builtin:polish",
+        input: "timeout-input",
+        mode: "ask",
+        model: "gpt-5.2",
+        stream: true,
+        timeoutMs: 5,
+        ts: Date.now(),
+        emitEvent: (event) => {
+          events.push(event);
+        },
+      });
+
+      assert.equal(runResult.ok, true);
+      if (!runResult.ok) {
+        return;
+      }
+
+      const executionId = runResult.data.executionId;
+      const done = await waitForDone(events, executionId, 3_000);
+      assert.equal(done.terminal, "error");
+      assert.equal(done.error?.code, "SKILL_TIMEOUT");
+
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const doneEvents = events.filter(
+        (event) => event.type === "done" && event.executionId === executionId,
+      );
+      assert.equal(doneEvents.length, 1);
+    },
+  });
+}

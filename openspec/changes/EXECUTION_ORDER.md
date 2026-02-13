@@ -1,37 +1,34 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-13 12:22
+更新时间：2026-02-13 14:00
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
 - 当前活跃 change 数量为 **0**。
-- 执行模式：**无在途变更（待新任务入场）**。
-- 路线图：36-change × 6-Phase 计划（见 `docs/plans/audit-roadmap.md`）。
-- 已完成归档（Phase 1）：`p1-identity-template`、`p1-assemble-prompt`、`p1-chat-skill`、`p1-aistore-messages`、`p1-multiturn-assembly`、`p1-apikey-storage`、`p1-ai-settings-ui`。
-- 已完成归档（Phase 2）：`p2-kg-context-level`（C8）、`p2-kg-aliases`（C9）、`p2-entity-matcher`（C10）、`p2-fetcher-always`（C11）、`p2-fetcher-detected`（C12）、`p2-memory-injection`（C13）。
-- 已完成归档（Fix）：`issue-499-fix-kg-aliases-ipc-contract`（F499）。
+- 执行模式：**无活跃 change**。
+- 当前在途变更：无。
 
 ## 执行顺序
 
-当前无 active change，暂无待执行顺序。
+1. 无
 
 ## 推荐执行序列
 
 ```text
-N/A（等待新的 active change）
+(none)
 ```
 
 ## 依赖关系总览
 
 ```text
-N/A（当前无在途依赖）
+(no active changes)
 ```
 
 ## 依赖明细
 
-当前无 active change，依赖明细为空。
+- 无活跃 change
 
 ## 依赖说明
 
