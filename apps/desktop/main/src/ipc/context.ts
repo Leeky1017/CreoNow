@@ -6,6 +6,7 @@ import type { IpcResponse } from "../../../../../packages/shared/types/ipc-gener
 import { redactText } from "../../../../../packages/shared/redaction/redact";
 import type { Logger } from "../logging/logger";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
+import { createMemoryService } from "../services/memory/memoryService";
 import {
   ensureCreonowDirStructure,
   getCreonowDirStatus,
@@ -149,6 +150,13 @@ export function registerContextIpcHandlers(deps: {
           logger: deps.logger,
         })
       : undefined;
+  const memoryService =
+    deps.db !== null
+      ? createMemoryService({
+          db: deps.db,
+          logger: deps.logger,
+        })
+      : undefined;
   const contextAssemblyService =
     deps.contextAssemblyService ??
     createContextLayerAssemblyService(undefined, {
@@ -156,6 +164,7 @@ export function registerContextIpcHandlers(deps: {
         deps.logger.info("context_rules_constraint_trimmed", log);
       },
       ...(kgService ? { kgService } : {}),
+      ...(memoryService ? { memoryService } : {}),
     });
   const inFlightByDocument = new Map<string, number>();
 

@@ -413,6 +413,13 @@ export function registerAiIpcHandlers(deps: {
   const chatHistoryByProject = new Map<string, ChatHistoryMessage[]>();
   const sessionTokenTotalsByContext = new Map<string, number>();
   const modelPricingByModel = parseModelPricingMap(deps.env);
+  const memoryServiceForContext =
+    deps.db !== null
+      ? createMemoryService({
+          db: deps.db,
+          logger: deps.logger,
+        })
+      : undefined;
   const contextAssemblyService = createContextLayerAssemblyService(
     undefined,
     deps.db
@@ -421,6 +428,9 @@ export function registerAiIpcHandlers(deps: {
             db: deps.db,
             logger: deps.logger,
           }),
+          ...(memoryServiceForContext
+            ? { memoryService: memoryServiceForContext }
+            : {}),
         }
       : undefined,
   );

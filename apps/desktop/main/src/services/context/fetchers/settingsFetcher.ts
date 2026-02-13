@@ -1,0 +1,87 @@
+import type {
+  MemoryInjectionItem,
+  MemoryService,
+} from "../../memory/memoryService";
+import type { ContextLayerFetcher } from "../layerAssemblyService";
+
+const MEMORY_UNAVAILABLE_WARNING = "MEMORY_UNAVAILABLE: 记忆数据未注入";
+const MEMORY_DEGRADED_WARNING_PREFIX = "MEMORY_DEGRADED";
+const MEMORY_INJECTION_HEADER = "[用户写作偏好 — 记忆注入]";
+
+const ORIGIN_LABEL_MAP: Record<MemoryInjectionItem["origin"], string> = {
+  learned: "自动学习",
+  manual: "手动添加",
+};
+
+export type SettingsFetcherDeps = {
+  memoryService: Pick<MemoryService, "previewInjection">;
+};
+
+/**
+ * Why: settings layer memory text must keep one deterministic layout so prompt
+ * caching and contract assertions remain stable across requests.
+ */
+function formatInjectionContent(
+  items: readonly Pick<MemoryInjectionItem, "content" | "origin">[],
+): string {
+  const lines = items.map((item) => {
+    const originLabel = ORIGIN_LABEL_MAP[item.origin] ?? item.origin;
+    return `- ${item.content}（来源：${originLabel}）`;
+  });
+  return [MEMORY_INJECTION_HEADER, ...lines].join("\n");
+}
+
+/**
+ * Why: memory preview failures must degrade to warnings instead of breaking
+ * context assembly so AI writing flow remains available.
+ */
+export function createSettingsFetcher(deps: SettingsFetcherDeps): ContextLayerFetcher {
+  return async (request) => {
+    try {
+      const preview = await Promise.resolve(
+        deps.memoryService.previewInjection({
+          projectId: request.projectId,
+          documentId: request.documentId,
+        }),
+      );
+      if (!preview.ok) {
+        return {
+          chunks: [],
+          warnings: [MEMORY_UNAVAILABLE_WARNING],
+        };
+      }
+
+      if (preview.data.items.length === 0) {
+        return {
+          chunks: [],
+        };
+      }
+
+      const warnings: string[] = [];
+      if (preview.data.diagnostics?.degradedFrom) {
+        const reason = preview.data.diagnostics.reason.trim();
+        warnings.push(
+          reason.length > 0
+            ? `${MEMORY_DEGRADED_WARNING_PREFIX}: ${reason}`
+            : MEMORY_DEGRADED_WARNING_PREFIX,
+        );
+      }
+
+      return {
+        chunks: [
+          {
+            source: "memory:injection",
+            projectId: request.projectId,
+            content: formatInjectionContent(preview.data.items),
+          },
+        ],
+        ...(warnings.length > 0 ? { warnings } : {}),
+      };
+    } catch {
+      return {
+        chunks: [],
+        warnings: [MEMORY_UNAVAILABLE_WARNING],
+      };
+    }
+  };
+}
