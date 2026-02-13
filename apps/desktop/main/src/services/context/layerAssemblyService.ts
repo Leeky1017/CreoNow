@@ -2,8 +2,10 @@ import { createHash } from "node:crypto";
 import type { MatchResult, MatchableEntity } from "../kg/entityMatcher";
 import { matchEntities as defaultMatchEntities } from "../kg/entityMatcher";
 import type { KnowledgeGraphService } from "../kg/kgService";
+import type { MemoryService } from "../memory/memoryService";
 import { createRetrievedFetcher } from "./fetchers/retrievedFetcher";
 import { createRulesFetcher } from "./fetchers/rulesFetcher";
+import { createSettingsFetcher } from "./fetchers/settingsFetcher";
 
 export type ContextLayerId = "rules" | "settings" | "retrieved" | "immediate";
 
@@ -144,6 +146,7 @@ export type ContextLayerAssemblyService = {
 export type ContextLayerAssemblyDeps = {
   onConstraintTrim?: (log: ContextConstraintTrimLog) => void;
   kgService?: Pick<KnowledgeGraphService, "entityList">;
+  memoryService?: Pick<MemoryService, "previewInjection">;
   matchEntities?: (text: string, entities: MatchableEntity[]) => MatchResult[];
 };
 
@@ -1078,7 +1081,10 @@ async function buildContextSnapshot(args: {
  * integrations are fully wired.
  */
 function defaultFetchers(
-  deps?: Pick<ContextLayerAssemblyDeps, "kgService" | "matchEntities">,
+  deps?: Pick<
+    ContextLayerAssemblyDeps,
+    "kgService" | "memoryService" | "matchEntities"
+  >,
 ): ContextLayerFetcherMap {
   const fallbackRulesFetcher: ContextLayerFetcher = async (request) => ({
     chunks: [
@@ -1093,9 +1099,13 @@ function defaultFetchers(
     rules: deps?.kgService
       ? createRulesFetcher({ kgService: deps.kgService })
       : fallbackRulesFetcher,
-    settings: async () => ({
-      chunks: [],
-    }),
+    settings: deps?.memoryService
+      ? createSettingsFetcher({
+          memoryService: deps.memoryService,
+        })
+      : async () => ({
+          chunks: [],
+        }),
     retrieved: deps?.kgService
       ? createRetrievedFetcher({
           kgService: deps.kgService,
@@ -1130,6 +1140,7 @@ export function createContextLayerAssemblyService(
   const fetcherMap = {
     ...defaultFetchers({
       kgService: deps?.kgService,
+      memoryService: deps?.memoryService,
       matchEntities: deps?.matchEntities,
     }),
     ...(fetchers ?? {}),
