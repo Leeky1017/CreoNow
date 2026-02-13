@@ -12,6 +12,7 @@
 - 为 AI Service 增加确定性的回归测试：缺失凭据时必须在发起网络请求前返回 `AI_PROVIDER_UNAVAILABLE`；以及流式/非流式多轮消息链路保持一致。
 
 ## Impact
+
 - Affected specs:
   - None (governance / docs / tests only)
 - Affected code:

@@ -34,11 +34,11 @@ apps/desktop/
 
 ## 组件分层（前端）
 
-| 层级 | 命名       | 说明                                           | 允许的依赖                 |
-| ---- | ---------- | ---------------------------------------------- | -------------------------- |
-| L1   | Primitives | 最小原子组件（Button、Input、Badge、Icon 等）  | 仅依赖 Token，不含业务逻辑 |
-| L2   | Composites | 由 L1 组合（SearchBar、ToolbarGroup 等）       | L1 组件 + Token            |
-| L3   | Features   | 业务级（AIPanel、KnowledgeGraphCard 等）       | L1/L2 + Store + IPC        |
+| 层级 | 命名       | 说明                                          | 允许的依赖                 |
+| ---- | ---------- | --------------------------------------------- | -------------------------- |
+| L1   | Primitives | 最小原子组件（Button、Input、Badge、Icon 等） | 仅依赖 Token，不含业务逻辑 |
+| L2   | Composites | 由 L1 组合（SearchBar、ToolbarGroup 等）      | L1 组件 + Token            |
+| L3   | Features   | 业务级（AIPanel、KnowledgeGraphCard 等）      | L1/L2 + Store + IPC        |
 
 - L1/L2 禁止调用 Zustand Store 或 IPC，只通过 props 接收数据
 - L3 采用 Container/Presentational 分离模式

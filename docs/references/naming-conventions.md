@@ -16,16 +16,16 @@ Commit type 可选值：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` 
 
 ## 代码命名
 
-| 类别       | 风格           | 示例                          |
-| ---------- | -------------- | ----------------------------- |
-| 文件名     | kebab-case     | `context-engine.ts`           |
-| 类名       | PascalCase     | `ContextEngine`               |
-| 函数名     | camelCase      | `buildContext`                 |
-| 常量       | UPPER_SNAKE    | `MAX_TOKEN_BUDGET`            |
-| 类型/接口  | PascalCase     | `ContextLayer`                |
-| IPC 通道   | `domain:action`| `editor:save-document`        |
-| 测试文件   | `*.test.ts`    | `context-engine.test.ts`      |
-| Story 文件 | `*.stories.tsx`| `Button.stories.tsx`          |
+| 类别       | 风格            | 示例                     |
+| ---------- | --------------- | ------------------------ |
+| 文件名     | kebab-case      | `context-engine.ts`      |
+| 类名       | PascalCase      | `ContextEngine`          |
+| 函数名     | camelCase       | `buildContext`           |
+| 常量       | UPPER_SNAKE     | `MAX_TOKEN_BUDGET`       |
+| 类型/接口  | PascalCase      | `ContextLayer`           |
+| IPC 通道   | `domain:action` | `editor:save-document`   |
+| 测试文件   | `*.test.ts`     | `context-engine.test.ts` |
+| Story 文件 | `*.stories.tsx` | `Button.stories.tsx`     |
 
 ## 测试命名
 
@@ -35,18 +35,18 @@ Commit type 可选值：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` 
 
 ## OpenSpec 命名
 
-| 实体           | 格式                                 |
-| -------------- | ------------------------------------ |
-| 模块 spec      | `openspec/specs/<module>/spec.md`    |
-| Change 目录    | `openspec/changes/<change-name>/`    |
-| Delta spec     | `openspec/changes/<change>/specs/<module>/spec.md` |
-| Proposal       | `openspec/changes/<change>/proposal.md` |
-| Tasks          | `openspec/changes/<change>/tasks.md` |
-| Execution Order| `openspec/changes/EXECUTION_ORDER.md`|
+| 实体            | 格式                                               |
+| --------------- | -------------------------------------------------- |
+| 模块 spec       | `openspec/specs/<module>/spec.md`                  |
+| Change 目录     | `openspec/changes/<change-name>/`                  |
+| Delta spec      | `openspec/changes/<change>/specs/<module>/spec.md` |
+| Proposal        | `openspec/changes/<change>/proposal.md`            |
+| Tasks           | `openspec/changes/<change>/tasks.md`               |
+| Execution Order | `openspec/changes/EXECUTION_ORDER.md`              |
 
 ## Rulebook 命名
 
-| 实体           | 格式                                          |
-| -------------- | --------------------------------------------- |
-| Active task    | `rulebook/tasks/issue-<N>-<slug>/`            |
-| Archived task  | `rulebook/tasks/archive/issue-<N>-<slug>/`    |
+| 实体          | 格式                                       |
+| ------------- | ------------------------------------------ |
+| Active task   | `rulebook/tasks/issue-<N>-<slug>/`         |
+| Archived task | `rulebook/tasks/archive/issue-<N>-<slug>/` |

@@ -8,15 +8,15 @@
 
 ## 索引
 
-| §  | 章节         | 内容                                      |
-| -- | ------------ | ----------------------------------------- |
-| 一 | 阅读链       | 必读顺序、文档路径速查                    |
-| 二 | 核心原则     | 7 条不可违反的原则（P1–P7）               |
-| 三 | 架构         | 四层架构 + 12 模块 Spec 路径              |
-| 四 | 三体系协作   | OpenSpec / Rulebook / GitHub 的职责与关系 |
-| 五 | 工作流程     | 接任务、开发阶段（骨架 + 指针）           |
-| 六 | 补充禁令     | 从原则可推导但容易被忽视的显式提醒        |
-| 七 | 参考文档     | 按需查阅的外部化参考文件索引              |
+| §   | 章节       | 内容                                      |
+| --- | ---------- | ----------------------------------------- |
+| 一  | 阅读链     | 必读顺序、文档路径速查                    |
+| 二  | 核心原则   | 7 条不可违反的原则（P1–P7）               |
+| 三  | 架构       | 四层架构 + 12 模块 Spec 路径              |
+| 四  | 三体系协作 | OpenSpec / Rulebook / GitHub 的职责与关系 |
+| 五  | 工作流程   | 接任务、开发阶段（骨架 + 指针）           |
+| 六  | 补充禁令   | 从原则可推导但容易被忽视的显式提醒        |
+| 七  | 参考文档   | 按需查阅的外部化参考文件索引              |
 
 ---
 
@@ -34,14 +34,14 @@
 
 ### 文档速查
 
-| #  | 文档                 | 路径                                              |
-| -- | -------------------- | ------------------------------------------------- |
-| 1  | Agent 宪法（本文件） | `AGENTS.md`                                       |
-| 2  | 项目概述             | `openspec/project.md`                             |
-| 3  | 模块行为规范         | `openspec/specs/<module>/spec.md`                 |
-| 4  | 交付规则主源（SKILL）| `docs/delivery-skill.md`                          |
-| 5  | 设计规范             | `design/DESIGN_DECISIONS.md`                      |
-| 6  | 跨模块集成规范       | `openspec/specs/cross-module-integration-spec.md` |
+| #   | 文档                  | 路径                                              |
+| --- | --------------------- | ------------------------------------------------- |
+| 1   | Agent 宪法（本文件）  | `AGENTS.md`                                       |
+| 2   | 项目概述              | `openspec/project.md`                             |
+| 3   | 模块行为规范          | `openspec/specs/<module>/spec.md`                 |
+| 4   | 交付规则主源（SKILL） | `docs/delivery-skill.md`                          |
+| 5   | 设计规范              | `design/DESIGN_DECISIONS.md`                      |
+| 6   | 跨模块集成规范        | `openspec/specs/cross-module-integration-spec.md` |
 
 按需查阅的参考文档见 §七。
 
@@ -252,14 +252,14 @@ openspec/               rulebook/tasks/          .github/workflows/
 
 ### 开发流程
 
-| 阶段          | 完成条件                                                                                             |
-| ------------- | ---------------------------------------------------------------------------------------------------- |
-| 1. 任务准入   | Issue 已创建或认领，N 和 SLUG 已确定                                                                 |
-| 2. 规格制定   | spec 已编写或更新；Rulebook task 已创建并通过 validate；若有上游依赖则 Dependency Sync Check 已完成  |
-| 3. 环境隔离   | 控制面 `origin/main` 已同步，Worktree 已创建，工作目录已切换                                         |
-| 4. 实现与测试 | 按 TDD 循环实现；所有测试通过；RUN_LOG 已记录                                                        |
-| 5. 提交与合并 | PR 已创建；auto-merge 已开启；三个 checks 全绿；PR 已确认合并                                        |
-| 6. 收口与归档 | 控制面 `main` 已包含任务提交；worktree 已清理；Rulebook task 已归档（允许同 PR 自归档）              |
+| 阶段          | 完成条件                                                                                            |
+| ------------- | --------------------------------------------------------------------------------------------------- |
+| 1. 任务准入   | Issue 已创建或认领，N 和 SLUG 已确定                                                                |
+| 2. 规格制定   | spec 已编写或更新；Rulebook task 已创建并通过 validate；若有上游依赖则 Dependency Sync Check 已完成 |
+| 3. 环境隔离   | 控制面 `origin/main` 已同步，Worktree 已创建，工作目录已切换                                        |
+| 4. 实现与测试 | 按 TDD 循环实现；所有测试通过；RUN_LOG 已记录                                                       |
+| 5. 提交与合并 | PR 已创建；auto-merge 已开启；三个 checks 全绿；PR 已确认合并                                       |
+| 6. 收口与归档 | 控制面 `main` 已包含任务提交；worktree 已清理；Rulebook task 已归档（允许同 PR 自归档）             |
 
 ---
 
@@ -277,19 +277,19 @@ openspec/               rulebook/tasks/          .github/workflows/
 
 以下文档按需查阅，不必在首次阅读时全部读完：
 
-| 文档             | 路径                                          | 查阅时机                    |
-| ---------------- | --------------------------------------------- | --------------------------- |
-| 测试要求         | `docs/references/testing-guide.md`            | 写测试前                    |
-| 设计与 UI 架构   | `docs/references/design-ui-architecture.md`   | 写前端组件前                |
-| 代码原则         | `docs/references/coding-standards.md`         | 写代码前                    |
-| 异常处理         | `docs/references/exception-handling.md`       | 遇到阻塞/异常时            |
-| 技术选型         | `docs/references/tech-stack.md`               | 选型疑问时                  |
-| 工具链           | `docs/references/toolchain.md`                | 构建/CI/脚本相关            |
-| 命名约定         | `docs/references/naming-conventions.md`       | 命名不确定时                |
-| 文件组织         | `docs/references/file-structure.md`           | 创建新文件/目录时           |
-| 交付规则映射     | `docs/delivery-rule-mapping.md`               | 审计规则-门禁一致性时       |
-| 产品概述         | `docs/PRODUCT_OVERVIEW.md`                    | 需要产品上下文时            |
-| Owner 意图定义   | `docs/OpenSpec Owner 意图定义书.md`           | 需要模块行为意图时          |
+| 文档           | 路径                                        | 查阅时机              |
+| -------------- | ------------------------------------------- | --------------------- |
+| 测试要求       | `docs/references/testing-guide.md`          | 写测试前              |
+| 设计与 UI 架构 | `docs/references/design-ui-architecture.md` | 写前端组件前          |
+| 代码原则       | `docs/references/coding-standards.md`       | 写代码前              |
+| 异常处理       | `docs/references/exception-handling.md`     | 遇到阻塞/异常时       |
+| 技术选型       | `docs/references/tech-stack.md`             | 选型疑问时            |
+| 工具链         | `docs/references/toolchain.md`              | 构建/CI/脚本相关      |
+| 命名约定       | `docs/references/naming-conventions.md`     | 命名不确定时          |
+| 文件组织       | `docs/references/file-structure.md`         | 创建新文件/目录时     |
+| 交付规则映射   | `docs/delivery-rule-mapping.md`             | 审计规则-门禁一致性时 |
+| 产品概述       | `docs/PRODUCT_OVERVIEW.md`                  | 需要产品上下文时      |
+| Owner 意图定义 | `docs/OpenSpec Owner 意图定义书.md`         | 需要模块行为意图时    |
 
 ---
 
