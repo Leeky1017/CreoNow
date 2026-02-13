@@ -5,7 +5,7 @@
 - Issue: #495
 - Change: `openspec/changes/p2-fetcher-always`
 - Branch: `task/495-p2-fetcher-always`
-- PR: pending
+- PR: https://github.com/Leeky1017/CreoNow/pull/496
 
 ## Plan
 
