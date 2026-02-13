@@ -1,54 +1,44 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-13 11:17
+更新时间：2026-02-13 11:52
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **2**（Phase 2 Codex 上下文）。
-- 执行模式：**两条并行泳道 + 依赖串行**。
+- 当前活跃 change 数量为 **1**（Phase 2 Codex 上下文）。
+- 执行模式：**单泳道串行**。
 - 路线图：36-change × 6-Phase 计划（见 `docs/plans/audit-roadmap.md`）。
 - 已完成归档（Phase 1）：`p1-identity-template`、`p1-assemble-prompt`、`p1-chat-skill`、`p1-aistore-messages`、`p1-multiturn-assembly`、`p1-apikey-storage`、`p1-ai-settings-ui`。
-- 已完成归档（Phase 2）：`p2-kg-context-level`（C8）、`p2-kg-aliases`（C9）、`p2-entity-matcher`（C10）、`p2-fetcher-always`（C11）。
+- 已完成归档（Phase 2）：`p2-kg-context-level`（C8）、`p2-kg-aliases`（C9）、`p2-entity-matcher`（C10）、`p2-fetcher-always`（C11）、`p2-fetcher-detected`（C12）。
 - 已完成归档（Fix）：`issue-499-fix-kg-aliases-ipc-contract`（F499）。
 
 ## 执行顺序
 
-### 泳道 A — Fetchers（当前仅 C12）
+### 泳道 A — Memory 注入（当前仅 C13）
 
-1. **C12** `p2-fetcher-detected`（1d）— retrieved fetcher → Codex 引用检测（依赖 C10[已归档] + C11[已归档]）
-
-### 泳道 B — Memory 注入（可与泳道 A 并行）
-
-2. **C13** `p2-memory-injection`（1d）— settings fetcher → Memory previewInjection（依赖 P1.C2）
+1. **C13** `p2-memory-injection`（1d）— settings fetcher → Memory previewInjection（依赖 P1.C2）
 
 ### 推荐执行序列
 
 ```text
-C12（泳道 A，依赖 C10/C11 已归档产物）
-C13（泳道 B，可与泳道 A 并行）
+C13（依赖 P1.C2 已归档产物）
 ```
 
-C8/C9/C10/C11/F499 已归档并作为前置；当前活跃实现焦点为 C12 + C13。
+C8/C9/C10/C11/C12/F499 已归档并作为前置；当前活跃实现焦点为 C13。
 
 ## 依赖关系总览
 
 ```text
-C8 (kg-context-level, archived) ──┬──→ C10 (entity-matcher, archived) ──┐
-C9 (kg-aliases, archived) ────────┘                                     ├──→ C12 (fetcher-detected)
-C8 (kg-context-level, archived) ─────────────→ C11 (fetcher-always, archived) ┘
 C13 (memory-injection) — 独立泳道（依赖 P1.C2，已归档）
 F499 (kg-aliases ipc-contract fix, archived) — 已收口
 ```
 
-### 跨泳道依赖明细
+### 依赖明细
 
-| 下游 change               | 上游依赖（跨泳道）                   | 依赖内容                                         |
-| ------------------------- | ------------------------------------ | ------------------------------------------------ |
-| C12 `p2-fetcher-detected` | C10 `p2-entity-matcher`（已归档）    | `matchEntities` 函数                             |
-| C12 `p2-fetcher-detected` | C11 `p2-fetcher-always`（已归档）    | `formatEntityForContext` 辅助函数                |
-| C13 `p2-memory-injection` | P1.C2 `p1-assemble-prompt`（已归档） | `assembleSystemPrompt({ memoryOverlay })` 参数位 |
+| 下游 change               | 上游依赖        | 依赖内容                                         |
+| ------------------------- | --------------- | ------------------------------------------------ |
+| C13 `p2-memory-injection` | P1.C2（已归档） | `assembleSystemPrompt({ memoryOverlay })` 参数位 |
 
 ## 依赖说明
 

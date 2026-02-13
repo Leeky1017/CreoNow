@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
+import type { MatchResult, MatchableEntity } from "../kg/entityMatcher";
+import { matchEntities as defaultMatchEntities } from "../kg/entityMatcher";
 import type { KnowledgeGraphService } from "../kg/kgService";
+import { createRetrievedFetcher } from "./fetchers/retrievedFetcher";
 import { createRulesFetcher } from "./fetchers/rulesFetcher";
 
 export type ContextLayerId = "rules" | "settings" | "retrieved" | "immediate";
@@ -141,6 +144,7 @@ export type ContextLayerAssemblyService = {
 export type ContextLayerAssemblyDeps = {
   onConstraintTrim?: (log: ContextConstraintTrimLog) => void;
   kgService?: Pick<KnowledgeGraphService, "entityList">;
+  matchEntities?: (text: string, entities: MatchableEntity[]) => MatchResult[];
 };
 
 const LAYER_ORDER: ContextLayerId[] = [
@@ -1074,7 +1078,7 @@ async function buildContextSnapshot(args: {
  * integrations are fully wired.
  */
 function defaultFetchers(
-  deps?: Pick<ContextLayerAssemblyDeps, "kgService">,
+  deps?: Pick<ContextLayerAssemblyDeps, "kgService" | "matchEntities">,
 ): ContextLayerFetcherMap {
   const fallbackRulesFetcher: ContextLayerFetcher = async (request) => ({
     chunks: [
@@ -1092,9 +1096,14 @@ function defaultFetchers(
     settings: async () => ({
       chunks: [],
     }),
-    retrieved: async () => ({
-      chunks: [],
-    }),
+    retrieved: deps?.kgService
+      ? createRetrievedFetcher({
+          kgService: deps.kgService,
+          matchEntities: deps.matchEntities ?? defaultMatchEntities,
+        })
+      : async () => ({
+          chunks: [],
+        }),
     immediate: async (request) => ({
       chunks: [
         {
@@ -1119,7 +1128,10 @@ export function createContextLayerAssemblyService(
   deps?: ContextLayerAssemblyDeps,
 ): ContextLayerAssemblyService {
   const fetcherMap = {
-    ...defaultFetchers({ kgService: deps?.kgService }),
+    ...defaultFetchers({
+      kgService: deps?.kgService,
+      matchEntities: deps?.matchEntities,
+    }),
     ...(fetchers ?? {}),
   };
   const previousStablePrefixByRequest = new Map<string, string>();
