@@ -7,13 +7,13 @@
 
 | 优先级 | 项目                                                                           | 当前状态                         | 结论     |
 | ------ | ------------------------------------------------------------------------------ | -------------------------------- | -------- |
-| HIGH   | API Key 缺失错误码语义统一（`AI_PROVIDER_UNAVAILABLE` vs `AI_NOT_CONFIGURED`） | 代码仍在返回 `AI_NOT_CONFIGURED` | 未完成   |
-| HIGH   | `buildLLMMessages` / `chatMessageManager` 主链路取舍（接入或移除）             | 仅在测试中被引用                 | 未完成   |
-| HIGH   | G1：完整 `skill:run → context assemble → LLM(mock) → stream` 一体化测试        | 尚未形成独立集成用例             | 未完成   |
-| HIGH   | G5：全降级（KG + Memory 不可用）但 AI 仍可用 的跨模块测试                      | 仅有 CE 层全 fetcher 降级用例    | 部分完成 |
-| MEDIUM | G2/G3/G4（KG 变更联动、Key 存取到调用、多轮对话 trim）                         | 仍缺集成回归                     | 未完成   |
+| HIGH   | API Key 缺失错误码语义统一（`AI_PROVIDER_UNAVAILABLE` vs `AI_NOT_CONFIGURED`） | `runSkill` 已统一返回 `AI_PROVIDER_UNAVAILABLE` | 已完成   |
+| HIGH   | `buildLLMMessages` / `chatMessageManager` 主链路取舍（接入或移除）             | 已接入 `aiService` 运行时请求组装与成功轮次历史写入 | 已完成   |
+| HIGH   | G1：完整 `skill:run → context assemble → LLM(mock) → stream` 一体化测试        | 已新增独立集成用例并通过         | 已完成   |
+| HIGH   | G5：全降级（KG + Memory 不可用）但 AI 仍可用 的跨模块测试                      | 已新增跨模块集成用例并通过       | 已完成   |
+| MEDIUM | G2/G3/G4（KG 变更联动、Key 存取到调用、多轮对话 trim）                         | 已新增并通过集成回归（G2/G3 + AIS-HISTORY trim） | 已完成   |
 | MEDIUM | cross-module spec 中 Editor→Memory 相关场景                                    | 标注为 P3/P4                     | 未实现   |
-| MEDIUM | NFR：契约冲突阻断 / 高并发链路一致性                                           | 尚未有明确验证结论               | 未验证   |
+| MEDIUM | NFR：契约冲突阻断 / 高并发链路一致性                                           | `contract:check`/`cross-module:check` 通过，队列并发相关集成回归已存在并通过 | 已验证（当前范围） |
 | MEDIUM | 真实 LLM（DeepSeek）L1-L5 自动化沉淀                                           | 当前为手工验证记录               | 未完成   |
 
 ## 2. 已经完成的部分（代码 + 测试）
@@ -24,6 +24,9 @@
 | stream / non-stream 请求均带 identity 层                   | 已完成   | `apps/desktop/main/src/services/ai/__tests__/assembleSystemPrompt.test.ts`（AIS-RUNTIME-S1/S2）                                     |
 | stream 超时收敛为 `done(error: SKILL_TIMEOUT)`             | 已完成   | `apps/desktop/tests/integration/ai-stream-lifecycle.test.ts`（AIS-TIMEOUT-S1）                                                      |
 | Context Engine 全层 fetcher 异常仍可返回 prompt + warnings | 已完成   | `apps/desktop/tests/unit/context/layer-degrade-warning.test.ts`（CE-DEGRADE-S1）                                                    |
+| `runSkill` 缺 key 错误码统一到 `AI_PROVIDER_UNAVAILABLE`   | 已完成   | `apps/desktop/main/src/services/ai/aiService.ts` + `apps/desktop/tests/integration/ai-skill-context-integration.test.ts`（AIS-ERR-S1） |
+| 多轮历史接入运行时请求并支持 token budget 裁剪             | 已完成   | `apps/desktop/main/src/services/ai/aiService.ts` + `apps/desktop/tests/integration/ai-skill-context-integration.test.ts`（AIS-HISTORY-S1/S2） |
+| G1/G2/G3/G5 跨模块回归（mock LLM）                         | 已完成   | `apps/desktop/tests/integration/ai-skill-context-integration.test.ts`                                                               |
 | IPC 契约与 cross-module 门禁                               | 已通过   | `pnpm contract:check`、`pnpm cross-module:check`，记录见 `openspec/_ops/task_runs/ISSUE-509.md`                                     |
 | 交付门禁（ci / openspec-log-guard / merge-serial）         | 已通过   | PR `#510`：`https://github.com/Leeky1017/CreoNow/pull/510`                                                                          |
 
@@ -48,8 +51,9 @@
 - 关键新增/关键回归测试
   - `apps/desktop/main/src/services/ai/__tests__/assembleSystemPrompt.test.ts`
   - `apps/desktop/tests/integration/ai-stream-lifecycle.test.ts`
+  - `apps/desktop/tests/integration/ai-skill-context-integration.test.ts`
   - `apps/desktop/tests/unit/context/layer-degrade-warning.test.ts`
-- 交付运行日志：`openspec/_ops/task_runs/ISSUE-509.md`
+- 交付运行日志：`openspec/_ops/task_runs/ISSUE-509.md`、`openspec/_ops/task_runs/ISSUE-513.md`
 - PR 与 CI：`https://github.com/Leeky1017/CreoNow/pull/510`
 
 ## 6. 真实 LLM 手工验证
@@ -66,7 +70,6 @@
 
 ## 7. 后续建议（最小闭环）
 
-1. 先统一 API Key 缺失错误码语义（Spec 与实现二选一对齐）。
-2. 明确 `buildLLMMessages` / `chatMessageManager` 方向：接入主链路或删除死路径。
-3. 补 G1 + G5 的自动化集成用例，再扩展 G2/G3/G4。
-4. 将 L1-L5 从手工脚本沉淀为可复跑测试（保持 CI 用 mock，本地可选真 LLM）。
+1. 继续推进 P3/P4 范围（如 Editor→Memory 场景）并补齐对应跨模块自动化。
+2. 将真实 LLM（DeepSeek）L1-L5 从手工验证沉淀为可复跑的非 CI 套件（CI 继续 mock）。
+3. 维持 `ai-skill-context-integration` 作为回归哨兵，后续新增 AI/Skill/Context 改动需强制回归。
