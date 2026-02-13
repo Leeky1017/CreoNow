@@ -2,7 +2,7 @@
 
 - Issue: #509
 - Branch: task/509-ai-runtime-identity-tests
-- PR: TBA
+- PR: https://github.com/Leeky1017/CreoNow/pull/510
 
 ## Plan
 
