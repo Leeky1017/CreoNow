@@ -140,6 +140,19 @@
 - Key output:
   - PR 已创建：`https://github.com/Leeky1017/CreoNow/pull/529`
 
+### 2026-02-14 14:14 preflight 阻断修复（审计 SHA 精确值）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `git rev-parse HEAD^`
+- Exit code:
+  - preflight: `1`
+  - `rev-parse`: `0`
+- Key output:
+  - 阻断信息：`[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`
+  - 根因：RUN_LOG 记录的 `Reviewed-HEAD-SHA` 存在字符级误差
+  - 修复：回填精确 `HEAD^` 值后重跑 preflight
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -154,7 +167,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: a0243e8e6dcb1ffbc1d24af6c440c2732ac5d2b2
+- Reviewed-HEAD-SHA: a0243e8e5e834bcce2457e309021edcc0cb6d30d
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
