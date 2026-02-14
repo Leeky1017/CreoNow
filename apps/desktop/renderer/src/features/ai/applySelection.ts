@@ -1,6 +1,6 @@
 import type { Editor } from "@tiptap/react";
 
-import type { IpcError } from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError } from "@shared/types/ipc-generated";
 
 export type SelectionRange = {
   from: number;

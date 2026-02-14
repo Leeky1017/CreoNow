@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type {
-  IpcError,
-  IpcResponseData,
-} from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError, IpcResponseData } from "@shared/types/ipc-generated";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 import { Dialog, Text } from "../../components/primitives";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";

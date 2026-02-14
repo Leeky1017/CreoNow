@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 import { s } from "../../main/src/ipc/contract/schema";
 import { wrapIpcRequestResponse } from "../../main/src/ipc/runtime-validation";
-import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 
 type TestLogger = {
   info: (event: string, data?: Record<string, unknown>) => void;

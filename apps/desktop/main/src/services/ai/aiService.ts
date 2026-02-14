@@ -1,23 +1,14 @@
 ﻿import { randomUUID } from "node:crypto";
 
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
-import type {
-  AiStreamEvent,
-  AiStreamTerminal,
-} from "../../../../../../packages/shared/types/ai";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
+import type { AiStreamEvent, AiStreamTerminal } from "@shared/types/ai";
 import type { Logger } from "../../logging/logger";
 import {
   createSkillScheduler,
   type SkillSchedulerTerminal,
 } from "../skills/skillScheduler";
 import { startFakeAiServer, type FakeAiServer } from "./fakeAiServer";
-import {
-  buildLLMMessages,
-  type LLMMessage,
-} from "./buildLLMMessages";
+import { buildLLMMessages, type LLMMessage } from "./buildLLMMessages";
 import {
   createChatMessageManager,
   type ChatMessageManager,

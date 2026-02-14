@@ -7,6 +7,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const sharedAliasPath = path.join(__dirname, "../../packages/shared");
 
 /**
  * Copy builtin skills into `dist/main/skills` so they ship in packaged builds.
@@ -33,6 +34,11 @@ function copyBuiltinSkillsPlugin() {
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin(), copyBuiltinSkillsPlugin()],
+    resolve: {
+      alias: {
+        "@shared": sharedAliasPath,
+      },
+    },
     build: {
       outDir: "dist/main",
       rollupOptions: {
@@ -42,6 +48,11 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    resolve: {
+      alias: {
+        "@shared": sharedAliasPath,
+      },
+    },
     build: {
       outDir: "dist/preload",
       rollupOptions: {
@@ -56,6 +67,11 @@ export default defineConfig({
   renderer: {
     root: path.join(__dirname, "renderer"),
     plugins: [react(), tailwindcss()],
+    resolve: {
+      alias: {
+        "@shared": sharedAliasPath,
+      },
+    },
     build: {
       rollupOptions: {
         input: path.join(__dirname, "renderer/index.html"),

@@ -1,5 +1,3 @@
-import React from "react";
-
 import {
   LAYOUT_DEFAULTS,
   useLayoutStore,
@@ -7,25 +5,9 @@ import {
 } from "../../stores/layoutStore";
 import { AiPanel } from "../../features/ai/AiPanel";
 import { InfoPanel, QualityPanel } from "../../features/rightpanel";
+import { OpenSettingsContext } from "../../contexts/OpenSettingsContext";
 
-/**
- * Context for opening SettingsDialog from nested components (e.g., SkillPicker).
- */
-export const OpenSettingsContext = React.createContext<(() => void) | null>(
-  null,
-);
-
-/**
- * Hook to get the openSettings callback from context.
- */
-export function useOpenSettings(): () => void {
-  const openSettings = React.useContext(OpenSettingsContext);
-  if (!openSettings) {
-    // Fallback: no-op if context not provided
-    return () => {};
-  }
-  return openSettings;
-}
+export { useOpenSettings } from "../../contexts/OpenSettingsContext";
 
 /**
  * Tab button styles for right panel.

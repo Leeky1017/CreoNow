@@ -1,10 +1,10 @@
-import { SKILL_STREAM_CHUNK_CHANNEL } from "../../../../packages/shared/types/ai";
+import { SKILL_STREAM_CHUNK_CHANNEL } from "@shared/types/ai";
 import type {
   IpcErr,
   IpcError,
   IpcErrorCode,
   IpcResponse,
-} from "../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 export const MAX_AI_STREAM_SUBSCRIPTIONS = 500;
 

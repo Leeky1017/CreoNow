@@ -1,6 +1,9 @@
 import type { StorybookConfig } from "@storybook/react-vite";
+import path from "node:path";
 import { mergeConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
+
+const sharedAliasPath = path.resolve(__dirname, "../../../packages/shared");
 
 /**
  * Storybook 配置
@@ -27,6 +30,11 @@ const config: StorybookConfig = {
   viteFinal: async (config) => {
     return mergeConfig(config, {
       plugins: [tailwindcss()],
+      resolve: {
+        alias: {
+          "@shared": sharedAliasPath,
+        },
+      },
       server: {
         allowedHosts: true, // Allow any host for tunnel access
       },

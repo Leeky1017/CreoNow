@@ -4,8 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { createSkillExecutor } from "../../main/src/services/skills/skillExecutor";
-import type { AiStreamEvent } from "../../../../packages/shared/types/ai";
-import type { IpcErrorCode } from "../../../../packages/shared/types/ipc-generated";
+import type { AiStreamEvent } from "@shared/types/ai";
+import type { IpcErrorCode } from "@shared/types/ipc-generated";
 
 type SkillRunResult =
   | {

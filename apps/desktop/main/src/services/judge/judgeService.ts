@@ -1,7 +1,4 @@
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 
 type Ok<T> = { ok: true; data: T };

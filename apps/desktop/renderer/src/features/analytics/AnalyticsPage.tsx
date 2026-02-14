@@ -1,6 +1,6 @@
 import React from "react";
 
-import type { IpcError } from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError } from "@shared/types/ipc-generated";
 import { Button } from "../../components/primitives/Button";
 import { Card } from "../../components/primitives/Card";
 import { Dialog } from "../../components/primitives/Dialog";

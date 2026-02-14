@@ -4,10 +4,7 @@ import path from "node:path";
 
 import type Database from "better-sqlite3";
 
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 import { redactUserDataPath } from "../../db/paths";
 import {
@@ -471,7 +468,9 @@ function getProjectById(
  *
  * Why: PM-2 lifecycle transitions use `archived_at` as the persisted source.
  */
-function deriveLifecycleState(row: Pick<ProjectRow, "archivedAt">): ProjectLifecycleState {
+function deriveLifecycleState(
+  row: Pick<ProjectRow, "archivedAt">,
+): ProjectLifecycleState {
   return row.archivedAt == null ? "active" : "archived";
 }
 
@@ -540,7 +539,8 @@ export function createProjectService(args: {
   removeProjectRoot?: (rootPath: string) => void;
 }): ProjectService {
   const now = args.now ?? nowTs;
-  const switchKnowledgeGraphContext = args.switchKnowledgeGraphContext ?? (() => {});
+  const switchKnowledgeGraphContext =
+    args.switchKnowledgeGraphContext ?? (() => {});
   const switchMemoryContext = args.switchMemoryContext ?? (() => {});
   const removeProjectRoot = args.removeProjectRoot ?? defaultRemoveProjectRoot;
 
@@ -1065,13 +1065,17 @@ export function createProjectService(args: {
           trace_id: traceId,
           project_id: projectId,
         });
-        return ipcError("PROJECT_LIFECYCLE_WRITE_FAILED", "生命周期状态写入失败", {
-          traceId,
-          details: {
-            transition: "active->archived",
-            projectId,
+        return ipcError(
+          "PROJECT_LIFECYCLE_WRITE_FAILED",
+          "生命周期状态写入失败",
+          {
+            traceId,
+            details: {
+              transition: "active->archived",
+              projectId,
+            },
           },
-        });
+        );
       }
 
       return {
@@ -1130,13 +1134,17 @@ export function createProjectService(args: {
           trace_id: traceId,
           project_id: projectId,
         });
-        return ipcError("PROJECT_LIFECYCLE_WRITE_FAILED", "生命周期状态写入失败", {
-          traceId,
-          details: {
-            transition: "archived->active",
-            projectId,
+        return ipcError(
+          "PROJECT_LIFECYCLE_WRITE_FAILED",
+          "生命周期状态写入失败",
+          {
+            traceId,
+            details: {
+              transition: "archived->active",
+              projectId,
+            },
           },
-        });
+        );
       }
 
       return {

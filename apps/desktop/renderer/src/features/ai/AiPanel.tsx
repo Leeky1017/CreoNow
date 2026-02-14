@@ -7,7 +7,7 @@ import {
 
 import { Button, Spinner, Text } from "../../components/primitives";
 
-import { useOpenSettings } from "../../components/layout/RightPanel";
+import { useOpenSettings } from "../../contexts/OpenSettingsContext";
 
 import {
   useAiStore,
@@ -45,7 +45,7 @@ import { onAiModelCatalogUpdated } from "./modelCatalogEvents";
 import {
   JUDGE_RESULT_CHANNEL,
   type JudgeResultEvent,
-} from "../../../../../../packages/shared/types/judge";
+} from "@shared/types/judge";
 
 const RECENT_MODELS_STORAGE_KEY = "creonow.ai.recentModels";
 const CANDIDATE_COUNT_STORAGE_KEY = "creonow.ai.candidateCount";

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type Database from "better-sqlite3";
 import type { IpcMain } from "electron";
 
-import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import { registerContextIpcHandlers } from "../../../main/src/ipc/context";
 import { createContextLayerAssemblyService } from "../../../main/src/services/context/layerAssemblyService";
 import type { Logger } from "../../../main/src/logging/logger";

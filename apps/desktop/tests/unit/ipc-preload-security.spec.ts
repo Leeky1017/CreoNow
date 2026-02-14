@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
-} from "../../../../packages/shared/types/ai";
+} from "@shared/types/ai";
 import {
   createAiStreamSubscriptionRegistry,
   MAX_AI_STREAM_SUBSCRIPTIONS,

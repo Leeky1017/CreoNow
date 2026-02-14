@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import { registerSearchIpcHandlers } from "../../../main/src/ipc/search";
 import {
   asIpcMain,

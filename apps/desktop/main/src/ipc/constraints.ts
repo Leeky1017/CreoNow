@@ -5,10 +5,7 @@ import path from "node:path";
 import type Database from "better-sqlite3";
 import type { IpcMain } from "electron";
 
-import type {
-  IpcError,
-  IpcResponse,
-} from "../../../../../packages/shared/types/ipc-generated";
+import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { ensureCreonowDirStructure } from "../services/context/contextFs";
 

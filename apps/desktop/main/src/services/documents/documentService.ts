@@ -2,14 +2,11 @@ import { createHash, randomUUID } from "node:crypto";
 
 import type Database from "better-sqlite3";
 
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type {
   VersionDiffPayload,
   VersionDiffStats,
-} from "../../../../../../packages/shared/types/version-diff";
+} from "@shared/types/version-diff";
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "./derive";
 import {

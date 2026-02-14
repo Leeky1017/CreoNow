@@ -4,7 +4,7 @@ import React from "react";
 import type {
   IpcInvokeResult,
   IpcResponseData,
-} from "../../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import {
   ProjectStoreProvider,
   createProjectStore,

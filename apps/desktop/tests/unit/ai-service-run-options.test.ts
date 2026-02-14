@@ -3,7 +3,7 @@ import http from "node:http";
 
 import { createAiService } from "../../main/src/services/ai/aiService";
 import type { Logger } from "../../main/src/logging/logger";
-import type { AiStreamEvent } from "../../../../packages/shared/types/ai";
+import type { AiStreamEvent } from "@shared/types/ai";
 
 type CapturedRequest = {
   model: unknown;

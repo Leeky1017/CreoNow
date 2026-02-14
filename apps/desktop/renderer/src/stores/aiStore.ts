@@ -7,8 +7,8 @@ import type {
   IpcInvokeResult,
   IpcRequest,
   IpcResponseData,
-} from "../../../../../packages/shared/types/ipc-generated";
-import type { AiStreamEvent } from "../../../../../packages/shared/types/ai";
+} from "@shared/types/ipc-generated";
+import type { AiStreamEvent } from "@shared/types/ai";
 
 export type AiStatus =
   | "idle"

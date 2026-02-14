@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import type { IpcError } from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError } from "@shared/types/ipc-generated";
 import { ExportDialog } from "./ExportDialog";
 
 describe("ExportDialog", () => {
@@ -73,12 +73,12 @@ describe("ExportDialog", () => {
     );
 
     expect(screen.getByTestId("export-success")).toBeInTheDocument();
-    expect(screen.getByTestId("export-success-relative-path")).toHaveTextContent(
-      "exports/test/doc.md",
-    );
-    expect(screen.getByTestId("export-success-bytes-written")).toHaveTextContent(
-      "99",
-    );
+    expect(
+      screen.getByTestId("export-success-relative-path"),
+    ).toHaveTextContent("exports/test/doc.md");
+    expect(
+      screen.getByTestId("export-success-bytes-written"),
+    ).toHaveTextContent("99");
   });
 
   it("renders error banner in config view when error is provided", () => {
@@ -103,4 +103,3 @@ describe("ExportDialog", () => {
     expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
   });
 });
-

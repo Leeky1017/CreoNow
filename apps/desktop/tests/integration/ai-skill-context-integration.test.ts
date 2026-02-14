@@ -29,11 +29,8 @@ import {
   createSkillExecutor,
   type SkillExecutor,
 } from "../../main/src/services/skills/skillExecutor";
-import type {
-  AiStreamDoneEvent,
-  AiStreamEvent,
-} from "../../../../packages/shared/types/ai";
-import type { IpcError } from "../../../../packages/shared/types/ipc-generated";
+import type { AiStreamDoneEvent, AiStreamEvent } from "@shared/types/ai";
+import type { IpcError } from "@shared/types/ipc-generated";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -424,7 +421,11 @@ function createKnowledgeEntity(args: {
       maxTokenBudget: budget,
     });
 
-    assert.equal(expected.length, 4, "expected history trimming to keep 2 turns");
+    assert.equal(
+      expected.length,
+      4,
+      "expected history trimming to keep 2 turns",
+    );
     assert.deepEqual(actual, expected as LLMMessage[]);
   } finally {
     globalThis.fetch = originalFetch;
@@ -644,11 +645,13 @@ function createKnowledgeEntity(args: {
     });
 
     const firstSystem =
-      parseOpenAiMessages(requestBodies[0]).find((item) => item.role === "system")
-        ?.content ?? "";
+      parseOpenAiMessages(requestBodies[0]).find(
+        (item) => item.role === "system",
+      )?.content ?? "";
     const secondSystem =
-      parseOpenAiMessages(requestBodies[1]).find((item) => item.role === "system")
-        ?.content ?? "";
+      parseOpenAiMessages(requestBodies[1]).find(
+        (item) => item.role === "system",
+      )?.content ?? "";
 
     assert.match(firstSystem, /初始设定/);
     assert.match(secondSystem, /更新后设定/);

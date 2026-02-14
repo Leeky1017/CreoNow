@@ -4,10 +4,8 @@ import type {
   KnowledgeEntity,
   KnowledgeGraphService,
 } from "../../kg/kgService";
-import {
-  createRulesFetcher,
-  formatEntityForContext,
-} from "../fetchers/rulesFetcher";
+import { createRulesFetcher } from "../fetchers/rulesFetcher";
+import { formatEntityForContext } from "../utils/formatEntity";
 
 function createEntity(args: {
   id: string;

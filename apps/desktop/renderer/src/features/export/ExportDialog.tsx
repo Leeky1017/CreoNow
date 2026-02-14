@@ -1,7 +1,7 @@
 import React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import type { IpcError } from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError } from "@shared/types/ipc-generated";
 import { Button, Checkbox, Select, Tooltip } from "../../components/primitives";
 import { invoke } from "../../lib/ipcClient";
 

@@ -5,7 +5,7 @@ import {
   type IpcChannel,
   type IpcInvokeResult,
   type IpcRequest,
-} from "../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import { createPreloadIpcGateway } from "./ipcGateway";
 
 function resolveRendererId(): string {

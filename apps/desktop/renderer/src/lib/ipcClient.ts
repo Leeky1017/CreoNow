@@ -2,7 +2,7 @@ import type {
   IpcChannel,
   IpcInvokeResult,
   IpcRequest,
-} from "../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 export async function invoke<C extends IpcChannel>(
   channel: C,

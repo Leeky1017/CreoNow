@@ -14,7 +14,7 @@ import type {
   IpcChannel,
   IpcInvokeResult,
   IpcRequest,
-} from "../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 /**
  * Create a unique E2E userData directory.

@@ -1,7 +1,4 @@
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
@@ -50,6 +47,22 @@ type SessionQueueState = {
   pending: SkillTask<unknown>[];
 };
 
+type SchedulerErrorSource = "response" | "completion";
+
+type SchedulerLogger = {
+  error: (event: string, data?: Record<string, unknown>) => void;
+};
+
+type ResponseSettleState =
+  | { kind: "pending" }
+  | { kind: "settled"; result: ServiceResult<unknown> }
+  | { kind: "errored"; failure: Err };
+
+type CompletionSettleState =
+  | { kind: "pending" }
+  | { kind: "settled"; terminal: SkillSchedulerTerminal }
+  | { kind: "errored"; failure: Err };
+
 export type SkillScheduler = {
   schedule: <T>(args: {
     sessionKey: string;
@@ -75,6 +88,57 @@ function normalizeDependencies(dependsOn: string[] | undefined): string[] {
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
   return [...new Set(normalized)];
+}
+
+function normalizeErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return String(error);
+}
+
+function buildTaskErrorContext(args: {
+  task: SkillTask<unknown>;
+  errorSource: SchedulerErrorSource;
+  error: unknown;
+}): Record<string, unknown> {
+  const errorMessage = normalizeErrorMessage(args.error);
+  const context: Record<string, unknown> = {
+    sessionKey: args.task.sessionKey,
+    taskId: args.task.runId,
+    errorSource: args.errorSource,
+    errorMessage,
+  };
+  if (args.task.executionId.trim().length > 0) {
+    context.executionId = args.task.executionId;
+  }
+  return context;
+}
+
+function buildTaskPathError(args: {
+  logger?: SchedulerLogger;
+  task: SkillTask<unknown>;
+  errorSource: SchedulerErrorSource;
+  error: unknown;
+}): Err {
+  const event =
+    args.errorSource === "response"
+      ? "skill_response_error"
+      : "skill_completion_error";
+  const context = buildTaskErrorContext({
+    task: args.task,
+    errorSource: args.errorSource,
+    error: args.error,
+  });
+  if (args.logger) {
+    args.logger.error(event, context);
+  } else {
+    console.error(event, context);
+  }
+  return ipcError("INTERNAL", "Skill scheduler task failed", context);
 }
 
 function toQueueStatus(args: {
@@ -111,6 +175,7 @@ function toQueueStatus(args: {
 export function createSkillScheduler(args?: {
   globalConcurrencyLimit?: number;
   sessionQueueLimit?: number;
+  logger?: SchedulerLogger;
 }): SkillScheduler {
   const globalConcurrencyLimit = Math.max(
     1,
@@ -124,6 +189,7 @@ export function createSkillScheduler(args?: {
   const sessions = new Map<string, SessionQueueState>();
   const readySessionQueue: string[] = [];
   const readySessionSet = new Set<string>();
+  const logger = args?.logger;
   let globalRunning = 0;
 
   function getSessionState(sessionKey: string): SessionQueueState {
@@ -244,37 +310,120 @@ export function createSkillScheduler(args?: {
     globalRunning += 1;
     emitQueueStatus(task, "started", 0, state.pending.length);
 
+    let resolved = false;
+    let finalized = false;
+    let responseState: ResponseSettleState = { kind: "pending" };
+    let completionState: CompletionSettleState = { kind: "pending" };
+    const resolveResultOnce = (result: ServiceResult<unknown>): void => {
+      if (resolved) {
+        return;
+      }
+      resolved = true;
+      task.resolveResult(result);
+    };
+    const finalizeOnce = (terminal: SkillSchedulerTerminal): void => {
+      if (finalized) {
+        return;
+      }
+      finalized = true;
+      finalizeTask(sessionKey, task, terminal);
+    };
+    const resolveWithResponsePriority = (
+      result: ServiceResult<unknown>,
+    ): void => {
+      if (
+        result.ok &&
+        completionState.kind === "errored" &&
+        responseState.kind === "settled"
+      ) {
+        resolveResultOnce(completionState.failure);
+        return;
+      }
+      resolveResultOnce(result);
+    };
+    const settleTerminalIfPossible = (): void => {
+      if (responseState.kind === "errored") {
+        finalizeOnce("failed");
+        return;
+      }
+      if (responseState.kind === "settled" && !responseState.result.ok) {
+        finalizeOnce("failed");
+        return;
+      }
+      if (completionState.kind === "errored") {
+        finalizeOnce("failed");
+        return;
+      }
+      if (
+        responseState.kind === "settled" &&
+        completionState.kind === "settled"
+      ) {
+        finalizeOnce(completionState.terminal);
+      }
+    };
+
     let started: SkillTaskStartResult<unknown>;
     try {
       started = task.start();
     } catch (error) {
-      task.resolveResult(
+      resolveResultOnce(
         ipcError("INTERNAL", "Skill scheduler failed to start task", {
-          message: error instanceof Error ? error.message : String(error),
+          sessionKey: task.sessionKey,
+          taskId: task.runId,
+          errorMessage: normalizeErrorMessage(error),
+          ...(task.executionId.trim().length > 0
+            ? { executionId: task.executionId }
+            : {}),
         }),
       );
-      finalizeTask(sessionKey, task, "failed");
+      finalizeOnce("failed");
       return;
     }
 
     void started.response
       .then((result) => {
-        task.resolveResult(result);
+        responseState = { kind: "settled", result };
+        if (result.ok && completionState.kind === "pending") {
+          queueMicrotask(() => {
+            resolveWithResponsePriority(result);
+            settleTerminalIfPossible();
+          });
+          return;
+        }
+        resolveWithResponsePriority(result);
+        settleTerminalIfPossible();
       })
       .catch((error) => {
-        task.resolveResult(
-          ipcError("INTERNAL", "Skill scheduler task crashed", {
-            message: error instanceof Error ? error.message : String(error),
+        responseState = {
+          kind: "errored",
+          failure: buildTaskPathError({
+            logger,
+            task,
+            errorSource: "response",
+            error,
           }),
-        );
+        };
+        resolveResultOnce(responseState.failure);
+        settleTerminalIfPossible();
       });
 
     void started.completion
       .then((terminal) => {
-        finalizeTask(sessionKey, task, terminal);
+        completionState = { kind: "settled", terminal };
+        settleTerminalIfPossible();
       })
-      .catch(() => {
-        finalizeTask(sessionKey, task, "failed");
+      .catch((error) => {
+        completionState = {
+          kind: "errored",
+          failure: buildTaskPathError({
+            logger,
+            task,
+            errorSource: "completion",
+            error,
+          }),
+        };
+        resolveResultOnce(completionState.failure);
+        settleTerminalIfPossible();
       });
   }
 

@@ -1,9 +1,6 @@
 import React from "react";
 
-import type {
-  IpcError,
-  IpcResponseData,
-} from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError, IpcResponseData } from "@shared/types/ipc-generated";
 import { Card } from "../../components/primitives/Card";
 import { Heading } from "../../components/primitives/Heading";
 import { Text } from "../../components/primitives/Text";

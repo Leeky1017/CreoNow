@@ -6,8 +6,8 @@ import {
   KG_SUGGESTION_CHANNEL,
   type KgSuggestionEntityType,
   type KgSuggestionEvent,
-} from "../../../../../../packages/shared/types/kg";
-import type { IpcErrorCode } from "../../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/kg";
+import type { IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 import {
   createKnowledgeGraphService,

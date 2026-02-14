@@ -14,7 +14,7 @@ import type {
   IpcChannel,
   IpcInvokeResult,
   IpcRequest,
-} from "../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 async function createIsolatedUserDataDir(): Promise<string> {
   const base = path.join(os.tmpdir(), "CreoNow E2E 世界 ");

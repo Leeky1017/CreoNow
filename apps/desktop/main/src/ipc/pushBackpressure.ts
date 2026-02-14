@@ -1,4 +1,4 @@
-import type { AiStreamEvent } from "../../../../../packages/shared/types/ai";
+import type { AiStreamEvent } from "@shared/types/ai";
 
 export type IpcPushBackpressureDropEvent = {
   droppedInWindow: number;

@@ -1,6 +1,11 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Vitest 配置
@@ -12,6 +17,11 @@ import tailwindcss from "@tailwindcss/vite";
  */
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    alias: {
+      "@shared": path.resolve(__dirname, "../../packages/shared"),
+    },
+  },
   test: {
     /**
      * 测试环境配置
