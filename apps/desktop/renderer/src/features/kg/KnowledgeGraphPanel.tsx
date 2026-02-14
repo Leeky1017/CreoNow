@@ -30,8 +30,21 @@ type EditingState =
       name: string;
       entityType: string;
       description: string;
+      aiContextLevel: AiContextLevel;
     }
   | { mode: "relation"; relationId: string; relationType: string };
+
+type AiContextLevel = "always" | "when_detected" | "manual_only" | "never";
+
+const AI_CONTEXT_LEVEL_OPTIONS: Array<{
+  value: AiContextLevel;
+  label: string;
+}> = [
+  { value: "always", label: "Always" },
+  { value: "when_detected", label: "When detected" },
+  { value: "manual_only", label: "Manual only" },
+  { value: "never", label: "Never" },
+];
 
 /** View mode for the KG panel */
 type ViewMode = "list" | "graph" | "timeline";
@@ -288,6 +301,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
           name: editing.name,
           entityType: editing.entityType,
           description: editing.description,
+          aiContextLevel: editing.aiContextLevel,
         },
       });
       if (!res.ok) {
@@ -660,6 +674,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                 name: eventEntity.name,
                 entityType: eventEntity.entityType,
                 description: eventEntity.description ?? "",
+                aiContextLevel: eventEntity.aiContextLevel,
               });
             }}
           />
@@ -790,6 +805,18 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                           }
                           fullWidth
                         />
+                        <Select
+                          data-testid="kg-entity-ai-context-level"
+                          value={editing.aiContextLevel}
+                          onValueChange={(value) =>
+                            setEditing({
+                              ...editing,
+                              aiContextLevel: value as AiContextLevel,
+                            })
+                          }
+                          options={AI_CONTEXT_LEVEL_OPTIONS}
+                          fullWidth
+                        />
                       </>
                     ) : (
                       <>
@@ -837,6 +864,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                                 name: e.name,
                                 entityType: e.entityType ?? "",
                                 description: e.description ?? "",
+                                aiContextLevel: e.aiContextLevel,
                               })
                             }
                           >

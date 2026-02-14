@@ -15,6 +15,7 @@ const META_JSON_ATTRIBUTE_KEY = "__meta_json";
 type EntityResponse = IpcResponseData<"knowledge:entity:list">["items"][number];
 type RelationResponse =
   IpcResponseData<"knowledge:relation:list">["items"][number];
+type AiContextLevel = EntityResponse["aiContextLevel"];
 
 export type IpcInvoke = <C extends IpcChannel>(
   channel: C,
@@ -48,11 +49,19 @@ export type KgActions = {
     name: string;
     entityType?: string;
     description?: string;
+    aiContextLevel?: AiContextLevel;
   }) => Promise<IpcResponse<KgEntity>>;
   entityUpdate: (args: {
     entityId: string;
     patch: Partial<
-      Pick<KgEntity, "name" | "entityType" | "description" | "metadataJson">
+      Pick<
+        KgEntity,
+        | "name"
+        | "entityType"
+        | "description"
+        | "metadataJson"
+        | "aiContextLevel"
+      >
     >;
   }) => Promise<IpcResponse<KgEntity>>;
   entityDelete: (args: {
@@ -254,7 +263,7 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
       });
     },
 
-    entityCreate: async ({ name, entityType, description }) => {
+    entityCreate: async ({ name, entityType, description, aiContextLevel }) => {
       const state = get();
       if (!state.projectId) {
         const error = missingProjectError();
@@ -269,6 +278,7 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
         type: normalizedType,
         name,
         description,
+        aiContextLevel,
       });
       if (!res.ok) {
         set({ lastError: res.error });
@@ -317,6 +327,7 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
           name: patch.name,
           type: nextType,
           description: patch.description,
+          aiContextLevel: patch.aiContextLevel,
           attributes: nextAttributes,
         },
       });
