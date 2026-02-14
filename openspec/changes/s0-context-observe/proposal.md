@@ -31,6 +31,14 @@
   - 测试映射：Scenario 与 `skillExecutor` 测试用例一一对应。
 - 结论：`NO_DRIFT`（符合 Sprint0 止血目标，可进入后续 TDD 实施）。
 
+## 踩坑提醒
+
+- `logger` 获取路径必须与 `skillExecutor` 现有依赖注入方式一致（如 `deps.logger`）；不要在文件内引入新的全局 logger 来源。
+
+## 防治标签
+
+- `SILENT` `FALLBACK` `FAKETEST`
+
 ## 不做什么
 
 - 不改动 Context Engine 的组装算法与上下文分层策略。

@@ -31,6 +31,14 @@
   - 渲染层不可直接访问 `ipcRenderer`、`require`、Node 内建能力。
 - 结论：`NO_DRIFT`（与 IPC 主 spec 安全约束一致，可进入后续 TDD 实施）。
 
+## 踩坑提醒
+
+- sandbox 模式下 preload 对 `require`/Node 内建模块的使用边界会收紧；必须审查 `apps/desktop/preload/src/` 全部 imports，避免直接依赖 Node 内建能力。
+
+## 防治标签
+
+- `SECURITY` `FAKETEST`
+
 ## 不做什么
 
 - 不引入新的 IPC 通道或修改业务层 handler 语义。

@@ -36,6 +36,14 @@
   - 变更边界仅限 `app.whenReady()` 链尾兜底，不扩展到资源加载分支。
 - 结论：`NO_DRIFT`（与 Sprint0 定义一致，可进入后续 TDD 实施）。
 
+## 踩坑提醒
+
+- 在 `catch` 中调用 `app.quit()` 时，需确认 app 未完全 ready 的场景不会触发额外副作用；校验 `app.on("window-all-closed")` 与退出路径不冲突。
+
+## 防治标签
+
+- `SILENT` `FALLBACK`
+
 ## 不做什么
 
 - 不改变 `BrowserWindow` 创建参数与页面加载分支逻辑。

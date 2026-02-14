@@ -30,6 +30,14 @@
   - 上层可追踪失败原因（`code/path`）并保留失败语义。
 - 结论：`NO_DRIFT`（与 Sprint0 定义一致，可进入后续 TDD 实施）。
 
+## 踩坑提醒
+
+- `listSubdirs` 返回类型变化是 breaking change；`loadBuiltinSkills` 与 `loadUserSkills` 等调用点必须全部适配，不能遗漏任何旧签名调用。
+
+## 防治标签
+
+- `FALLBACK` `FAKETEST`
+
 ## 不做什么
 
 - 不改动 Skill 执行器、调度器、IPC 通道契约。

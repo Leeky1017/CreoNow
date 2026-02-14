@@ -31,6 +31,14 @@ Sprint 0 紧急止血项（来源：A2-H-002 + A2-H-003）。
   - 为 `s0-kg-async-validate` 保持可预期的 helper 返回语义。
 - 结论：`NO_DRIFT`（可作为 `s0-kg-async-validate` 的前置变更进入实施）。
 
+## 踩坑提醒
+
+- `parseMetadataJson` 返回类型从 `Record<string, unknown>` 变为 `Record<string, unknown> | null` 后，所有调用点必须补齐 `null` 分支处理；利用 TypeScript 报错做全量收口。
+
+## 防治标签
+
+- `SILENT` `FALLBACK` `GHOST` `FAKETEST`
+
 ## 不做什么
 
 - 不引入新的 metadata schema/migration。

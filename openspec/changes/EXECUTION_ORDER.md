@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-14 11:50
+更新时间：2026-02-14 12:18
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
