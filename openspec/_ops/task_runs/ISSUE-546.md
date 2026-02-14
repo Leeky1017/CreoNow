@@ -148,6 +148,18 @@
 - Key output:
   - PR 创建成功：`#547`
 
+### 2026-02-14 21:34-21:36 preflight 阻断与修复
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write apps/desktop/main/src/ipc/__tests__/ai-config-ipc.test.ts apps/desktop/renderer/src/features/editor/SlashCommandPanel.tsx apps/desktop/tests/unit/skill-scope-management.test.ts openspec/changes/archive/s2-bubble-ai/tasks.md openspec/changes/archive/s2-demo-params-cleanup/tasks.md openspec/changes/archive/s2-dual-field-migrate/tasks.md rulebook/tasks/archive/2026-02-14-issue-546-s2-wave3-governed-delivery/.metadata.json`
+- Exit code:
+  - 首次 preflight：`1`
+  - 格式化修复：`0`
+- Key output:
+  - 阻断原因为 `prettier --check` 命中 7 文件格式漂移。
+  - 修复后所有文件已满足 Prettier 规范。
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -176,7 +188,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 75902e24e6e0999fa386da20e4e47b3e1c521417
+- Reviewed-HEAD-SHA: 49203a49717148a6e5c622d1fb8a4b99ca9c0147
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
