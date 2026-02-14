@@ -13,36 +13,47 @@
 ## 执行顺序
 
 1. **Wave 1**
+
 - `s2-kg-context-level`
 - `s2-kg-aliases`
 - `s2-memory-injection`
 - `s2-dead-code-cleanup`
 - `s2-settings-disable`
 - `s2-type-convergence`
+
 2. **Wave 2**
+
 - `s2-entity-matcher`
 - `s2-fetcher-always`
 - `s2-writing-skills`
 - `s2-conversation-skills`
 - `s2-kg-metrics-split`
 - `s2-judge-hook`
+
 3. **Wave 3**
+
 - `s2-fetcher-detected`
 - `s2-write-button`
 - `s2-bubble-ai`
 - `s2-slash-framework`
 - `s2-demo-params-cleanup`
 - `s2-dual-field-migrate`
+
 4. **Wave 4**
+
 - `s2-slash-commands`
 - `s2-inline-diff`
 - `s2-test-timing-fix`
 - `s2-story-assertions`
+
 5. **Wave 5**
+
 - `s2-shortcuts`
 - `s2-debug-channel-gate`
 - `s2-service-error-decouple`
+
 6. **Wave 6**
+
 - `s2-store-race-fix`
 - `s2-memory-panel-error`
 
