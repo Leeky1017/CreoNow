@@ -346,48 +346,68 @@ function registerIpcHandlers(deps: {
   });
 }
 
+function logAppInitFatal(error: unknown): void {
+  const payload =
+    error instanceof Error
+      ? { error: error.message, stack: error.stack }
+      : { error: String(error) };
+
+  try {
+    const logger = createMainLogger(app.getPath("userData"));
+    logger.error("app_init_fatal", payload);
+  } catch {
+    // Swallow to ensure startup rejection is fully handled.
+  }
+}
+
 enableE2EUserDataIsolation();
 
-void app.whenReady().then(() => {
-  const userDataDir = app.getPath("userData");
-  const logger = createMainLogger(userDataDir);
-  logger.info("app_ready", { user_data_dir: "<userData>" });
+app
+  .whenReady()
+  .then(() => {
+    const userDataDir = app.getPath("userData");
+    const logger = createMainLogger(userDataDir);
+    logger.info("app_ready", { user_data_dir: "<userData>" });
 
-  const dbRes = initDb({ userDataDir, logger });
-  const db: DbInitOk["db"] | null = dbRes.ok ? dbRes.db : null;
-  if (!dbRes.ok) {
-    logger.error("db_init_failed", { code: dbRes.error.code });
-  }
-
-  registerIpcHandlers({
-    db,
-    logger,
-    userDataDir,
-    builtinSkillsDir: resolveBuiltinSkillsDir(__dirname),
-    env: process.env,
-  });
-
-  createMainWindow(logger);
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow(logger);
+    const dbRes = initDb({ userDataDir, logger });
+    const db: DbInitOk["db"] | null = dbRes.ok ? dbRes.db : null;
+    if (!dbRes.ok) {
+      logger.error("db_init_failed", { code: dbRes.error.code });
     }
-  });
 
-  app.on("before-quit", () => {
-    if (!db) {
-      return;
-    }
-    try {
-      db.close();
-    } catch (error) {
-      logger.error("db_close_failed", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+    registerIpcHandlers({
+      db,
+      logger,
+      userDataDir,
+      builtinSkillsDir: resolveBuiltinSkillsDir(__dirname),
+      env: process.env,
+    });
+
+    createMainWindow(logger);
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createMainWindow(logger);
+      }
+    });
+
+    app.on("before-quit", () => {
+      if (!db) {
+        return;
+      }
+      try {
+        db.close();
+      } catch (error) {
+        logger.error("db_close_failed", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+  })
+  .catch((error) => {
+    logAppInitFatal(error);
+    app.quit();
   });
-});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
