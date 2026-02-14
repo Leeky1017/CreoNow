@@ -133,6 +133,23 @@
   - 新增回归防线：`resolvesResultBeforeCompletionSettles`（防止取消竞态回归）
   - 修复提交：`158e50d5de5ac0e649749e9a2dbcad78aab1e6fe`
 
+### 2026-02-14 17:11-17:20 preflight 格式门禁修复
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write <preflight 报告的 43 个文件>`
+  - `pnpm exec tsx apps/desktop/main/src/services/skills/__tests__/skillScheduler.test.ts`
+  - `pnpm exec tsx apps/desktop/tests/integration/ai-stream-race-cancel-priority.test.ts`
+  - `pnpm -C apps/desktop storybook:build`
+  - `pnpm typecheck`
+  - `git commit -m "chore: format wave1 touched files for preflight (#534)"`
+- Exit code:
+  - 首次 preflight 失败：`prettier --check` 报 `43` 文件格式不合规
+  - 格式化后关键回归与类型检查均通过
+- Key output:
+  - preflight 阻断根因已清除（格式化问题已收敛）
+  - 格式化提交：`fcc263d9e13100d8c64440d09133170d8a97697c`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -153,7 +170,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 158e50d5de5ac0e649749e9a2dbcad78aab1e6fe
+- Reviewed-HEAD-SHA: fcc263d9e13100d8c64440d09133170d8a97697c
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
