@@ -135,6 +135,17 @@
 - Key output:
   - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/552`
 
+### 2026-02-14 23:41-23:43 preflight 阻断与格式修复
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write apps/desktop/main/src/ipc/__tests__/debug-channel-gate.test.ts apps/desktop/renderer/src/stores/__tests__/searchStore.race.test.ts openspec/changes/archive/s2-debug-channel-gate/tasks.md rulebook/tasks/archive/2026-02-14-issue-551-s2-wave5-wave6-governed-delivery/.metadata.json`
+- Exit code:
+  - 首次 preflight：`1`（Prettier check 阻断 4 文件）
+  - 格式修复后：`0`（待复跑确认）
+- Key output:
+  - 触发点均为格式漂移，无行为层回归
+
 ## Dependency Sync Check
 
 - Inputs:

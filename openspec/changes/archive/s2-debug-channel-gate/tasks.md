@@ -13,10 +13,10 @@
 
 ### Scenario → 测试映射
 
-| Scenario ID     | 测试文件                                                         | 测试名称（拟定）                                   | 断言要点                          |
-| --------------- | ---------------------------------------------------------------- | -------------------------------------------------- | --------------------------------- |
-| `IPC-S2-DBG-S1` | `apps/desktop/main/src/ipc/__tests__/debug-channel-gate.test.ts` | `IPC-S2-DBG-S1 production 环境不注册 debug 通道`   | production 下通道未注册/不可调用  |
-| `IPC-S2-DBG-S2` | `apps/desktop/main/src/ipc/__tests__/debug-channel-gate.test.ts` | `IPC-S2-DBG-S2 non-production 环境保留调试能力`    | non-production 下保持既有调试能力 |
+| Scenario ID     | 测试文件                                                         | 测试名称（拟定）                                 | 断言要点                          |
+| --------------- | ---------------------------------------------------------------- | ------------------------------------------------ | --------------------------------- |
+| `IPC-S2-DBG-S1` | `apps/desktop/main/src/ipc/__tests__/debug-channel-gate.test.ts` | `IPC-S2-DBG-S1 production 环境不注册 debug 通道` | production 下通道未注册/不可调用  |
+| `IPC-S2-DBG-S2` | `apps/desktop/main/src/ipc/__tests__/debug-channel-gate.test.ts` | `IPC-S2-DBG-S2 non-production 环境保留调试能力`  | non-production 下保持既有调试能力 |
 
 ## 3. Red（先写失败测试）
 

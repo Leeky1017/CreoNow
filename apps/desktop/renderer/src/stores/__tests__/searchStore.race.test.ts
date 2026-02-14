@@ -84,18 +84,18 @@ describe("searchStore race scenarios", () => {
     store.getState().setQuery("alpha-beta");
     const secondRun = store.getState().runFulltext({ projectId: "project-1" });
 
-    pendingByQuery.get("alpha-beta")!.resolve(
-      ok("search:fts:query", createSearchResponse("alpha-beta")),
-    );
+    pendingByQuery
+      .get("alpha-beta")!
+      .resolve(ok("search:fts:query", createSearchResponse("alpha-beta")));
     await secondRun;
 
     expect(store.getState().items.map((item) => item.snippet)).toEqual([
       "snippet-alpha-beta",
     ]);
 
-    pendingByQuery.get("alpha")!.resolve(
-      ok("search:fts:query", createSearchResponse("alpha")),
-    );
+    pendingByQuery
+      .get("alpha")!
+      .resolve(ok("search:fts:query", createSearchResponse("alpha")));
     await firstRun;
 
     const state = store.getState();

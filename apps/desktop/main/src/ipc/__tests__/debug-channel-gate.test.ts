@@ -99,7 +99,10 @@ async function main(): Promise<void> {
       });
 
       const handler = harness.handlers.get("db:debug:tablenames");
-      assert.ok(handler, "expected db:debug:tablenames handler to be registered");
+      assert.ok(
+        handler,
+        "expected db:debug:tablenames handler to be registered",
+      );
 
       const response = (await handler({}, {})) as {
         ok: boolean;
