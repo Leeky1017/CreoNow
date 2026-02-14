@@ -3,7 +3,7 @@
 - Issue: #524
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/524
 - Branch: task/524-s0-doc-hardening
-- PR: (pending)
+- PR: https://github.com/Leeky1017/CreoNow/pull/525
 - Scope: 对齐 Sprint0 change 文档的防再犯表达，补齐 `踩坑提醒` 与 `防治标签`
 - Out of Scope: 功能代码改动、Sprint1+ 文档改造
 
@@ -59,3 +59,34 @@
   - 文档格式通过并统一
   - Rulebook task 校验通过
   - 8 个 Sprint0 proposal 均包含 `踩坑提醒` 与 `防治标签`
+
+### 2026-02-14 12:10 首个内容提交与 PR 创建
+
+- Command:
+  - `git add -A`
+  - `git commit -m "docs: harden sprint0 anti-regression wording (#524)"`
+  - `git push -u origin task/524-s0-doc-hardening`
+  - `gh pr create --base main --head Leeky1017:task/524-s0-doc-hardening --title "Harden Sprint0 anti-regression wording and labels (#524)" ...`
+- Exit code: `0`
+- Key output:
+  - 内容提交 SHA：`e3331ea75b0eb8d82d598ac1a8aa711088d304f0`
+  - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/525`
+
+### 2026-02-14 12:11 preflight 首次阻断（RUN_LOG PR 占位符）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `[RUN_LOG] PR field must be a real URL ... (pending)`
+  - 动作：回填 RUN_LOG PR 链接并执行主会话签字提交
+
+## Main Session Audit
+
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: e3331ea75b0eb8d82d598ac1a8aa711088d304f0
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
