@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 
 import type { Logger } from "../../../logging/logger";
-import type {
-  AiStreamDoneEvent,
-  AiStreamEvent,
-} from "@shared/types/ai";
+import type { AiStreamDoneEvent, AiStreamEvent } from "@shared/types/ai";
 import { createAiService } from "../aiService";
 
 function createLogger(): Logger {

@@ -1,10 +1,7 @@
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
-import type {
-  IpcError,
-  IpcResponse,
-} from "@shared/types/ipc-generated";
+import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { createStatsService } from "../services/stats/statsService";
 

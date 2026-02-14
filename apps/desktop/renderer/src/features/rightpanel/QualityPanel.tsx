@@ -1,9 +1,6 @@
 import React from "react";
 
-import type {
-  IpcChannelSpec,
-  IpcError,
-} from "@shared/types/ipc-generated";
+import type { IpcChannelSpec, IpcError } from "@shared/types/ipc-generated";
 import { Card } from "../../components/primitives/Card";
 import { Button } from "../../components/primitives/Button";
 import { Heading } from "../../components/primitives/Heading";

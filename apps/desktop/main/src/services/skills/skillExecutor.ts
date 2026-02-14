@@ -1,7 +1,4 @@
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "@shared/types/ipc-generated";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { AiStreamEvent } from "@shared/types/ai";
 import type { ContextAssembleResult } from "../context/layerAssemblyService";
 

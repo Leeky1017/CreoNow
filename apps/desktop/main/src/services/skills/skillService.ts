@@ -4,10 +4,7 @@ import path from "node:path";
 
 import type Database from "better-sqlite3";
 
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "@shared/types/ipc-generated";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 import { createProjectService } from "../projects/projectService";
 import {
@@ -436,14 +433,16 @@ function countCustomSkills(args: {
     if (args.scope === "global") {
       const row = args.excludeSkillId
         ? args.db
-            .prepare<[string], { count: number }>(
-              "SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'global' AND id != ?",
-            )
+            .prepare<
+              [string],
+              { count: number }
+            >("SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'global' AND id != ?")
             .get(args.excludeSkillId)
         : args.db
-            .prepare<[], { count: number }>(
-              "SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'global'",
-            )
+            .prepare<
+              [],
+              { count: number }
+            >("SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'global'")
             .get();
       return { ok: true, data: row?.count ?? 0 };
     }
@@ -454,14 +453,16 @@ function countCustomSkills(args: {
 
     const row = args.excludeSkillId
       ? args.db
-          .prepare<[string, string], { count: number }>(
-            "SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'project' AND project_id = ? AND id != ?",
-          )
+          .prepare<
+            [string, string],
+            { count: number }
+          >("SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'project' AND project_id = ? AND id != ?")
           .get(args.projectId, args.excludeSkillId)
       : args.db
-          .prepare<[string], { count: number }>(
-            "SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'project' AND project_id = ?",
-          )
+          .prepare<
+            [string],
+            { count: number }
+          >("SELECT COUNT(*) as count FROM custom_skills WHERE scope = 'project' AND project_id = ?")
           .get(args.projectId);
     return { ok: true, data: row?.count ?? 0 };
   } catch (error) {
@@ -489,12 +490,16 @@ function ensureCustomSkillCapacity(args: {
       ? GLOBAL_CUSTOM_SKILL_LIMIT
       : PROJECT_CUSTOM_SKILL_LIMIT;
   if (counted.data >= limit) {
-    return ipcError("SKILL_CAPACITY_EXCEEDED", "Custom skill capacity exceeded", {
-      scope: args.scope,
-      projectId: args.projectId,
-      count: counted.data,
-      limit,
-    });
+    return ipcError(
+      "SKILL_CAPACITY_EXCEEDED",
+      "Custom skill capacity exceeded",
+      {
+        scope: args.scope,
+        projectId: args.projectId,
+        count: counted.data,
+        limit,
+      },
+    );
   }
 
   return { ok: true, data: true };
@@ -1534,11 +1539,15 @@ export function createSkillService(deps: {
           requestedProjectId: loaded.data.currentProjectId,
           ownerProjectId: ownership.data.projectId,
         });
-        return ipcError("SKILL_SCOPE_VIOLATION", "Custom skill is outside current project scope", {
-          skillId: customId,
-          requestedProjectId: loaded.data.currentProjectId,
-          ownerProjectId: ownership.data.projectId,
-        });
+        return ipcError(
+          "SKILL_SCOPE_VIOLATION",
+          "Custom skill is outside current project scope",
+          {
+            skillId: customId,
+            requestedProjectId: loaded.data.currentProjectId,
+            ownerProjectId: ownership.data.projectId,
+          },
+        );
       }
 
       const skill = loaded.data.skills.find((s) => s.id === id) ?? null;

@@ -217,8 +217,7 @@ async function resolvesResultBeforeCompletionSettles(): Promise<void> {
   response.resolve({ ok: true, data: "ok" });
 
   const raced = await Promise.race<
-    | { kind: "result"; value: ServiceResult<string> }
-    | { kind: "timeout" }
+    { kind: "result"; value: ServiceResult<string> } | { kind: "timeout" }
   >([
     resultPromise.then((value) => ({ kind: "result" as const, value })),
     new Promise<{ kind: "timeout" }>((resolve) =>

@@ -1,10 +1,7 @@
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
-import type {
-  IpcErrorCode,
-  IpcResponse,
-} from "@shared/types/ipc-generated";
+import type { IpcErrorCode, IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import {
   type SecretStorageAdapter,

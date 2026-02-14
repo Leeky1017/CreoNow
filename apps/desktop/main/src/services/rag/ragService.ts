@@ -1,9 +1,6 @@
 import type Database from "better-sqlite3";
 
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "@shared/types/ipc-generated";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 import type { EmbeddingService } from "../embedding/embeddingService";
 import { createFtsService } from "../search/ftsService";

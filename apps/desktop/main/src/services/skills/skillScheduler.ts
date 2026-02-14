@@ -1,7 +1,4 @@
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "@shared/types/ipc-generated";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
@@ -357,7 +354,10 @@ export function createSkillScheduler(args?: {
         finalizeOnce("failed");
         return;
       }
-      if (responseState.kind === "settled" && completionState.kind === "settled") {
+      if (
+        responseState.kind === "settled" &&
+        completionState.kind === "settled"
+      ) {
         finalizeOnce(completionState.terminal);
       }
     };

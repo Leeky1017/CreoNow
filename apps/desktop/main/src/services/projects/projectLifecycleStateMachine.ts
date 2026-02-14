@@ -3,7 +3,10 @@ import type { IpcError } from "@shared/types/ipc-generated";
 export type ProjectLifecycleState = "active" | "archived" | "deleted";
 
 export type LifecycleTransitionResult =
-  | { ok: true; data: { from: ProjectLifecycleState; to: ProjectLifecycleState } }
+  | {
+      ok: true;
+      data: { from: ProjectLifecycleState; to: ProjectLifecycleState };
+    }
   | { ok: false; error: IpcError };
 
 const LIFECYCLE_TRANSITIONS: Record<

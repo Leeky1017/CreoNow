@@ -2,10 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type Database from "better-sqlite3";
 
-import type {
-  IpcError,
-  IpcErrorCode,
-} from "@shared/types/ipc-generated";
+import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 
 const DAY_MS = 24 * 60 * 60 * 1000;

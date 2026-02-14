@@ -3,10 +3,7 @@ import http from "node:http";
 
 import { createAiService } from "../../main/src/services/ai/aiService";
 import type { Logger } from "../../main/src/logging/logger";
-import type {
-  AiStreamDoneEvent,
-  AiStreamEvent,
-} from "@shared/types/ai";
+import type { AiStreamDoneEvent, AiStreamEvent } from "@shared/types/ai";
 
 type JsonRecord = Record<string, unknown>;
 
