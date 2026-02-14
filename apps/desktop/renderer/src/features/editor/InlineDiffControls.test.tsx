@@ -2,12 +2,12 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { InlineDiffDecorations } from "./InlineDiffDecorations";
+import { InlineDiffControls } from "./InlineDiffControls";
 
-describe("InlineDiffDecorations", () => {
+describe("InlineDiffControls", () => {
   it("S2-ID-1 should render inline add/remove decorations with accept/reject controls", () => {
     render(
-      <InlineDiffDecorations
+      <InlineDiffControls
         originalText="before line"
         suggestedText="after line"
         onApplyAcceptedText={vi.fn()}
@@ -31,7 +31,7 @@ describe("InlineDiffDecorations", () => {
     const user = userEvent.setup();
 
     render(
-      <InlineDiffDecorations
+      <InlineDiffControls
         originalText="before line"
         suggestedText="after line"
         onApplyAcceptedText={onApplyAcceptedText}
@@ -53,7 +53,7 @@ describe("InlineDiffDecorations", () => {
     const user = userEvent.setup();
 
     render(
-      <InlineDiffDecorations
+      <InlineDiffControls
         originalText="before line"
         suggestedText="after line"
         onApplyAcceptedText={onApplyAcceptedText}

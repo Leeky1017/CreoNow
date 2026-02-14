@@ -2,73 +2,50 @@ import React from "react";
 
 import { Button, Text } from "../../components/primitives";
 import {
-  applyHunkDecisions,
-  computeDiffHunks,
-  type DiffHunkDecision,
-} from "../../lib/diff/unifiedDiff";
+  createInlineDiffDecorations,
+  createPendingInlineDiffDecisions,
+  resolveInlineDiffText,
+  type InlineDiffDecision,
+} from "./extensions/inlineDiff";
 
-type InlineDiffDecorationsProps = {
+type InlineDiffControlsProps = {
   originalText: string;
   suggestedText: string;
   onApplyAcceptedText: (nextText: string) => void;
 };
-
-type InlineDiffDecoration = {
-  hunkIndex: number;
-  removedLines: string[];
-  addedLines: string[];
-};
-
-function createPendingDecisions(length: number): DiffHunkDecision[] {
-  return Array.from({ length }, () => "pending");
-}
-
-function buildDecorations(args: {
-  originalText: string;
-  suggestedText: string;
-}): InlineDiffDecoration[] {
-  return computeDiffHunks({
-    oldText: args.originalText,
-    newText: args.suggestedText,
-  }).map((hunk) => ({
-    hunkIndex: hunk.index,
-    removedLines: hunk.oldLines,
-    addedLines: hunk.newLines,
-  }));
-}
 
 /**
  * Render inline diff hunks with per-hunk accept/reject controls.
  *
  * Why: AI changes must stay non-destructive until user explicitly accepts.
  */
-export function InlineDiffDecorations(
-  props: InlineDiffDecorationsProps,
+export function InlineDiffControls(
+  props: InlineDiffControlsProps,
 ): JSX.Element {
   const decorations = React.useMemo(
     () =>
-      buildDecorations({
+      createInlineDiffDecorations({
         originalText: props.originalText,
         suggestedText: props.suggestedText,
       }),
     [props.originalText, props.suggestedText],
   );
 
-  const [decisions, setDecisions] = React.useState<DiffHunkDecision[]>(() =>
-    createPendingDecisions(decorations.length),
+  const [decisions, setDecisions] = React.useState<InlineDiffDecision[]>(() =>
+    createPendingInlineDiffDecisions(decorations.length),
   );
   const [currentText, setCurrentText] = React.useState(props.originalText);
 
   React.useEffect(() => {
-    setDecisions(createPendingDecisions(decorations.length));
+    setDecisions(createPendingInlineDiffDecisions(decorations.length));
     setCurrentText(props.originalText);
   }, [decorations.length, props.originalText]);
 
   const resolveAcceptedText = React.useCallback(
-    (nextDecisions: DiffHunkDecision[]): string =>
-      applyHunkDecisions({
-        oldText: props.originalText,
-        newText: props.suggestedText,
+    (nextDecisions: InlineDiffDecision[]): string =>
+      resolveInlineDiffText({
+        originalText: props.originalText,
+        suggestedText: props.suggestedText,
         decisions: nextDecisions,
       }),
     [props.originalText, props.suggestedText],
