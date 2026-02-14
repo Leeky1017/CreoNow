@@ -19,9 +19,14 @@ import { resolveFinalDocumentEditDecision } from "./finalDocumentEditGuard";
 import { WriteButton } from "./WriteButton";
 import { SlashCommandExtension } from "./extensions/slashCommand";
 import {
-  DEFAULT_SLASH_COMMAND_CANDIDATES,
   SlashCommandPanel,
 } from "./SlashCommandPanel";
+import {
+  routeSlashCommandExecution,
+  SLASH_COMMAND_REGISTRY,
+  type SlashCommandExecutors,
+  type SlashCommandId,
+} from "./slashCommands";
 
 const IS_VITEST_RUNTIME =
   typeof process !== "undefined" && Boolean(process.env.VITEST);
@@ -508,6 +513,56 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     });
   }
 
+  async function runSlashAiSkill(skillId: string): Promise<void> {
+    if (
+      !aiSetSelectedSkillId ||
+      !aiRun ||
+      !editor ||
+      !documentId ||
+      isAiRunning(aiStatus)
+    ) {
+      return;
+    }
+
+    aiSetSelectedSkillId(skillId);
+    await aiRun({
+      inputOverride: buildWriteInput(editor),
+      context: {
+        projectId: props.projectId,
+        documentId,
+      },
+    });
+  }
+
+  const handleSlashCommandSelect = React.useCallback(
+    (commandId: SlashCommandId) => {
+      const executors: SlashCommandExecutors = {
+        continueWriting: () => {
+          void onWriteClick();
+        },
+        describe: () => {
+          void runSlashAiSkill("builtin:describe");
+        },
+        dialogue: () => {
+          void runSlashAiSkill("builtin:dialogue");
+        },
+        character: () => {
+          void runSlashAiSkill("builtin:character");
+        },
+        outline: () => {
+          void runSlashAiSkill("builtin:outline");
+        },
+        search: () => {
+          void runSlashAiSkill("builtin:search");
+        },
+      };
+
+      routeSlashCommandExecution(commandId, executors);
+      closeSlashPanel();
+    },
+    [closeSlashPanel, onWriteClick, runSlashAiSkill],
+  );
+
   if (bootstrapStatus !== "ready") {
     return (
       <Text as="div" size="body" color="muted" className="p-4">
@@ -591,8 +646,9 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       <SlashCommandPanel
         open={isSlashPanelOpen}
         query={slashSearchQuery}
-        candidates={DEFAULT_SLASH_COMMAND_CANDIDATES}
+        candidates={SLASH_COMMAND_REGISTRY}
         onQueryChange={setSlashSearchQuery}
+        onSelectCommand={handleSlashCommandSelect}
         onRequestClose={closeSlashPanel}
       />
       <div

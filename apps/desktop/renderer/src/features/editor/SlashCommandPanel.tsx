@@ -1,58 +1,15 @@
-export interface SlashCommandCandidate {
-  id: string;
-  title: string;
-  description: string;
-  keywords: string[];
-}
-
-export const DEFAULT_SLASH_COMMAND_CANDIDATES: SlashCommandCandidate[] = [
-  {
-    id: "outline",
-    title: "Insert Outline Block",
-    description: "Framework placeholder candidate for outline templates.",
-    keywords: ["outline", "structure", "章节"],
-  },
-  {
-    id: "summary",
-    title: "Insert Summary Block",
-    description: "Framework placeholder candidate for summary templates.",
-    keywords: ["summary", "recap", "总结"],
-  },
-  {
-    id: "note",
-    title: "Insert Note Block",
-    description: "Framework placeholder candidate for notes.",
-    keywords: ["note", "memo", "备注"],
-  },
-];
-
-export function filterSlashCommandCandidates(
-  candidates: SlashCommandCandidate[],
-  query: string,
-): SlashCommandCandidate[] {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) {
-    return candidates;
-  }
-
-  return candidates.filter((candidate) => {
-    if (candidate.title.toLowerCase().includes(normalized)) {
-      return true;
-    }
-    if (candidate.description.toLowerCase().includes(normalized)) {
-      return true;
-    }
-    return candidate.keywords.some((keyword) =>
-      keyword.toLowerCase().includes(normalized),
-    );
-  });
-}
+import {
+  filterSlashCommands,
+  type SlashCommandDefinition,
+  type SlashCommandId,
+} from "./slashCommands";
 
 interface SlashCommandPanelProps {
   open: boolean;
   query: string;
-  candidates: SlashCommandCandidate[];
+  candidates: SlashCommandDefinition[];
   onQueryChange: (query: string) => void;
+  onSelectCommand: (commandId: SlashCommandId) => void;
   onRequestClose: () => void;
 }
 
@@ -63,10 +20,7 @@ export function SlashCommandPanel(
     return null;
   }
 
-  const filteredCandidates = filterSlashCommandCandidates(
-    props.candidates,
-    props.query,
-  );
+  const filteredCandidates = filterSlashCommands(props.candidates, props.query);
 
   return (
     <div
@@ -101,15 +55,21 @@ export function SlashCommandPanel(
           {filteredCandidates.map((candidate) => (
             <li
               key={candidate.id}
-              data-testid={`slash-command-item-${candidate.id}`}
-              className="rounded-[var(--radius-sm)] bg-[var(--color-bg-surface)] px-2 py-2"
+              className="rounded-[var(--radius-sm)] bg-[var(--color-bg-surface)]"
             >
-              <p className="text-sm text-[var(--color-fg-default)]">
-                {candidate.title}
-              </p>
-              <p className="text-xs text-[var(--color-fg-muted)]">
-                {candidate.description}
-              </p>
+              <button
+                type="button"
+                data-testid={`slash-command-item-${candidate.id}`}
+                onClick={() => props.onSelectCommand(candidate.id)}
+                className="w-full rounded-[var(--radius-sm)] px-2 py-2 text-left hover:bg-[var(--color-bg-hover)]"
+              >
+                <p className="text-sm text-[var(--color-fg-default)]">
+                  {candidate.label}
+                </p>
+                <p className="text-xs text-[var(--color-fg-muted)]">
+                  {candidate.description}
+                </p>
+              </button>
             </li>
           ))}
         </ul>
