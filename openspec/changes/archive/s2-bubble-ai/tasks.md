@@ -27,10 +27,10 @@
 
 ### Scenario → 测试映射
 
-| Scenario ID | 测试文件 | 测试用例 | 断言要点 |
-| --- | --- | --- | --- |
-| S2-BA-1 | `apps/desktop/renderer/src/features/editor/EditorPane.test.tsx` | `S2-BA-1 should show Bubble Menu with inline actions when selection is non-empty` + `S2-BA-1 should hide Bubble Menu when selection is collapsed` | 非空选区时显示 Bubble AI 菜单项；折叠选区后隐藏 |
-| S2-BA-2 | `apps/desktop/renderer/src/features/editor/EditorPane.test.tsx` | `S2-BA-2 should trigger mapped skill with selection text and selection reference when clicking Bubble AI item` | 点击菜单触发目标技能调用，且传入选中文本 + 选区引用 |
+| Scenario ID | 测试文件                                                        | 测试用例                                                                                                                                          | 断言要点                                            |
+| ----------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| S2-BA-1     | `apps/desktop/renderer/src/features/editor/EditorPane.test.tsx` | `S2-BA-1 should show Bubble Menu with inline actions when selection is non-empty` + `S2-BA-1 should hide Bubble Menu when selection is collapsed` | 非空选区时显示 Bubble AI 菜单项；折叠选区后隐藏     |
+| S2-BA-2     | `apps/desktop/renderer/src/features/editor/EditorPane.test.tsx` | `S2-BA-2 should trigger mapped skill with selection text and selection reference when clicking Bubble AI item`                                    | 点击菜单触发目标技能调用，且传入选中文本 + 选区引用 |
 
 ## 3. Red（先写失败测试）
 

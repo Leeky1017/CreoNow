@@ -13,14 +13,14 @@
 
 Scenario 映射：
 
-| Delta Scenario | 测试文件 | 用例 |
-| --- | --- | --- |
-| 仅新字段输入时正常处理且无弃用告警 | `apps/desktop/main/src/ipc/__tests__/ai-config-ipc.test.ts` | `S8 should accept executionId without deprecated warning` |
-| 旧字段输入时兼容处理并记录告警 | `apps/desktop/main/src/ipc/__tests__/ai-config-ipc.test.ts` | `S9 should accept legacy runId and emit deprecated_field warning` |
-| 新旧并存时优先采用新字段 | `apps/desktop/main/src/ipc/__tests__/ai-config-ipc.test.ts` | `S10 should prefer executionId when executionId and runId are both present` |
-| 仅新字段输入时正常处理且无弃用告警 | `apps/desktop/tests/unit/skill-scope-management.test.ts` | `toggledWithId` 断言 `deprecatedWarnings.length === 0` |
-| 旧字段输入时兼容处理并记录告警 | `apps/desktop/tests/unit/skill-scope-management.test.ts` | `toggledWithSkillId` 断言 `deprecated_field + field=skillId` |
-| 新旧并存时优先采用新字段 | `apps/desktop/tests/unit/skill-scope-management.test.ts` | `toggledWithBoth` 返回 `id === builtin:rewrite` 且告警计数不增长 |
+| Delta Scenario                     | 测试文件                                                    | 用例                                                                        |
+| ---------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 仅新字段输入时正常处理且无弃用告警 | `apps/desktop/main/src/ipc/__tests__/ai-config-ipc.test.ts` | `S8 should accept executionId without deprecated warning`                   |
+| 旧字段输入时兼容处理并记录告警     | `apps/desktop/main/src/ipc/__tests__/ai-config-ipc.test.ts` | `S9 should accept legacy runId and emit deprecated_field warning`           |
+| 新旧并存时优先采用新字段           | `apps/desktop/main/src/ipc/__tests__/ai-config-ipc.test.ts` | `S10 should prefer executionId when executionId and runId are both present` |
+| 仅新字段输入时正常处理且无弃用告警 | `apps/desktop/tests/unit/skill-scope-management.test.ts`    | `toggledWithId` 断言 `deprecatedWarnings.length === 0`                      |
+| 旧字段输入时兼容处理并记录告警     | `apps/desktop/tests/unit/skill-scope-management.test.ts`    | `toggledWithSkillId` 断言 `deprecated_field + field=skillId`                |
+| 新旧并存时优先采用新字段           | `apps/desktop/tests/unit/skill-scope-management.test.ts`    | `toggledWithBoth` 返回 `id === builtin:rewrite` 且告警计数不增长            |
 
 ## 3. Red（先写失败测试）
 

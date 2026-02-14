@@ -132,9 +132,7 @@ function createIpcHarness(args?: { secretStorage?: SecretStorageAdapter }): {
 }
 
 function createAiCancelIpcHarness(): {
-  invokeCancel: (
-    payload: { executionId?: string; runId?: string },
-  ) => Promise<{
+  invokeCancel: (payload: { executionId?: string; runId?: string }) => Promise<{
     ok: boolean;
     data?: { canceled: true };
     error?: { code?: string; message?: string };
@@ -172,7 +170,10 @@ function createAiCancelIpcHarness(): {
   return {
     invokeCancel: async (payload) => {
       const handler = handlers.get("ai:skill:cancel");
-      assert.ok(handler, "expected IPC handler ai:skill:cancel to be registered");
+      assert.ok(
+        handler,
+        "expected IPC handler ai:skill:cancel to be registered",
+      );
       return (await handler({}, payload)) as {
         ok: boolean;
         data?: { canceled: true };

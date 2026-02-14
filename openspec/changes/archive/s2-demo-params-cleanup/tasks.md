@@ -6,6 +6,7 @@
 - [x] 1.4 若存在上游依赖，先完成依赖同步检查（Dependency Sync Check）并记录“无漂移/已更新”；无依赖则标注 N/A
 
 Specification notes:
+
 - Dependency Sync Check: `N/A`（本 change 无上游依赖，基于 proposal 的依赖声明与 roadmap 条目核对）。
 
 ## 2. TDD Mapping（先测前提）
@@ -15,6 +16,7 @@ Specification notes:
 - [x] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
 
 Scenario mapping:
+
 - `S1` 生产组件在无 demo 参数下按回调驱动状态
   - `AiInlineConfirm > [S1] waits for onAccept callback resolution before leaving applying state`
   - `AiErrorCard > [S1] uses rejected onRetry callback as retry failure signal`
@@ -29,6 +31,7 @@ Scenario mapping:
 - [x] 3.3 运行目标测试并记录 Red 证据
 
 Red evidence:
+
 - Command:
   - `pnpm -C apps/desktop exec vitest run renderer/src/components/features/AiDialogs/AiDialogs.test.tsx`
 - Result: `FAILED`（新增 2 条断言失败）
@@ -52,6 +55,7 @@ Red evidence:
 - [x] 6.3 记录 Main Session Audit（Audit-Owner/Reviewed-HEAD-SHA=签字提交 HEAD^/三项 PASS/Blocking-Issues=0/Decision=ACCEPT），并确认签字提交仅变更当前任务 RUN_LOG（见 `openspec/_ops/task_runs/ISSUE-546.md`）
 
 Green evidence:
+
 - Command:
   - `pnpm -C apps/desktop exec vitest run renderer/src/components/features/AiDialogs/AiDialogs.test.tsx`
   - `pnpm -C apps/desktop exec tsc --noEmit`
@@ -60,4 +64,5 @@ Green evidence:
   - `tsc --noEmit`: `exit 0`
 
 Governance note:
+
 - RUN_LOG 与 Main Session Audit 由主会话统一落盘并签字。

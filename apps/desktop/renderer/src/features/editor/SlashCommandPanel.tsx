@@ -56,7 +56,9 @@ interface SlashCommandPanelProps {
   onRequestClose: () => void;
 }
 
-export function SlashCommandPanel(props: SlashCommandPanelProps): JSX.Element | null {
+export function SlashCommandPanel(
+  props: SlashCommandPanelProps,
+): JSX.Element | null {
   if (!props.open) {
     return null;
   }

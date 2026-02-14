@@ -423,8 +423,10 @@ function switchCurrentProject(args: {
 {
   const fixture = createFixture();
   try {
-    const securityLogs: Array<{ event: string; data?: Record<string, unknown> }> =
-      [];
+    const securityLogs: Array<{
+      event: string;
+      data?: Record<string, unknown>;
+    }> = [];
     const logger = {
       logPath: "<test>",
       info: (event: string, data?: Record<string, unknown>) => {
