@@ -17,6 +17,7 @@ import {
   createVersionStore,
   type IpcInvoke as VersionIpcInvoke,
 } from "../../stores/versionStore";
+import { AiStoreProvider, createAiStore } from "../../stores/aiStore";
 import {
   EditorPane,
   EDITOR_DOCUMENT_CHARACTER_LIMIT,
@@ -101,6 +102,27 @@ function createVersionStoreForEditorPaneTests() {
 
   return createVersionStore({
     invoke,
+  });
+}
+
+function createAiStoreForEditorPaneTests(args: {
+  onSkillRun?: (payload: IpcRequest<"ai:skill:run">) => void;
+}) {
+  return createAiStore({
+    invoke: async (channel, payload) => {
+      if (channel === "ai:skill:run") {
+        args.onSkillRun?.(payload as IpcRequest<"ai:skill:run">);
+        return {
+          ok: true,
+          data: {
+            runId: "run-s2-bubble-ai",
+            outputText: "mock-output",
+          },
+        };
+      }
+
+      throw new Error(`Unexpected channel: ${channel}`);
+    },
   });
 }
 
@@ -200,7 +222,7 @@ describe("EditorPane", () => {
     );
   });
 
-  it("should show Bubble Menu with inline actions when selection is non-empty", async () => {
+  it("S2-BA-1 should show Bubble Menu with inline actions when selection is non-empty", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
     const versionStore = createVersionStoreForEditorPaneTests();
 
@@ -232,6 +254,10 @@ describe("EditorPane", () => {
     expect(screen.getByTestId("bubble-strike")).toBeInTheDocument();
     expect(screen.getByTestId("bubble-code")).toBeInTheDocument();
     expect(screen.getByTestId("bubble-link")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-ai-polish")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-ai-rewrite")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-ai-describe")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-ai-dialogue")).toBeInTheDocument();
   });
 
   it("should apply format through Bubble Menu while preserving selection and syncing toolbar active state", async () => {
@@ -269,7 +295,7 @@ describe("EditorPane", () => {
     });
   });
 
-  it("should hide Bubble Menu when selection is collapsed", async () => {
+  it("S2-BA-1 should hide Bubble Menu when selection is collapsed", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
     const versionStore = createVersionStoreForEditorPaneTests();
 
@@ -302,6 +328,58 @@ describe("EditorPane", () => {
         screen.queryByTestId("editor-bubble-menu"),
       ).not.toBeInTheDocument();
     });
+    expect(screen.queryByTestId("bubble-ai-polish")).not.toBeInTheDocument();
+  });
+
+  it("S2-BA-2 should trigger mapped skill with selection text and selection reference when clicking Bubble AI item", async () => {
+    const skillRuns: IpcRequest<"ai:skill:run">[] = [];
+    const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
+    const aiStore = createAiStoreForEditorPaneTests({
+      onSkillRun: (payload) => {
+        skillRuns.push(payload);
+      },
+    });
+
+    render(
+      <AiStoreProvider store={aiStore}>
+        <VersionStoreProvider store={versionStore}>
+          <EditorStoreProvider store={store}>
+            <EditorPane projectId="project-1" />
+          </EditorStoreProvider>
+        </VersionStoreProvider>
+      </AiStoreProvider>,
+    );
+
+    await screen.findByTestId("editor-pane");
+    await screen.findByTestId("tiptap-editor");
+
+    const editor = await waitForEditorInstance(store);
+
+    act(() => {
+      editor.commands.focus("start");
+      editor.commands.setTextSelection({ from: 1, to: 8 });
+    });
+
+    fireEvent.click(await screen.findByTestId("bubble-ai-rewrite"));
+
+    await waitFor(() => {
+      expect(skillRuns).toHaveLength(1);
+    });
+
+    expect(skillRuns[0]).toMatchObject({
+      skillId: "builtin:rewrite",
+      input: "Initial",
+      context: {
+        projectId: "project-1",
+        documentId: "doc-1",
+      },
+    });
+
+    const aiState = aiStore.getState();
+    expect(aiState.selectionText).toBe("Initial");
+    expect(aiState.selectionRef?.range).toEqual({ from: 1, to: 8 });
+    expect(aiState.selectionRef?.selectionTextHash).toBeTruthy();
   });
 
   it("should suppress Bubble Menu in code block and disable inline toolbar buttons", async () => {

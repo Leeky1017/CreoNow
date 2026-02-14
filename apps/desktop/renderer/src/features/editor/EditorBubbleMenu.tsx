@@ -4,8 +4,33 @@ import { BubbleMenu } from "@tiptap/react";
 
 import { InlineFormatButton } from "./InlineFormatButton";
 import { EDITOR_SHORTCUTS } from "../../config/shortcuts";
+import { captureSelectionRef } from "../ai/applySelection";
+import { useEditorStore } from "../../stores/editorStore";
+import { useOptionalAiStore } from "../../stores/aiStore";
 
 export const EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY = "cn-editor-inline-bubble";
+const BUBBLE_AI_SKILLS = [
+  {
+    id: "builtin:polish",
+    label: "润色",
+    testId: "bubble-ai-polish",
+  },
+  {
+    id: "builtin:rewrite",
+    label: "改写",
+    testId: "bubble-ai-rewrite",
+  },
+  {
+    id: "builtin:describe",
+    label: "描写",
+    testId: "bubble-ai-describe",
+  },
+  {
+    id: "builtin:dialogue",
+    label: "对白",
+    testId: "bubble-ai-dialogue",
+  },
+] as const;
 
 type BubblePlacement = "top" | "bottom";
 
@@ -58,6 +83,14 @@ export function EditorBubbleMenu(props: {
   const { editor } = props;
   const [visible, setVisible] = React.useState(false);
   const [placement, setPlacement] = React.useState<BubblePlacement>("top");
+  const projectId = useEditorStore((s) => s.projectId);
+  const documentId = useEditorStore((s) => s.documentId);
+  const aiStatus = useOptionalAiStore((s) => s.status);
+  const setSelectionSnapshot = useOptionalAiStore(
+    (s) => s.setSelectionSnapshot,
+  );
+  const setSelectedSkillId = useOptionalAiStore((s) => s.setSelectedSkillId);
+  const runSkill = useOptionalAiStore((s) => s.run);
 
   const updateVisibilityAndPlacement = React.useCallback(() => {
     if (!editor) {
@@ -106,6 +139,44 @@ export function EditorBubbleMenu(props: {
       return;
     }
     editor.chain().focus().setLink({ href: "https://example.com" }).run();
+  };
+
+  const aiDisabled =
+    inlineDisabled ||
+    aiStatus === "running" ||
+    aiStatus === "streaming" ||
+    !setSelectionSnapshot ||
+    !setSelectedSkillId ||
+    !runSkill;
+
+  const handleAiSkillClick = (skillId: string) => {
+    if (aiDisabled) {
+      return;
+    }
+
+    const captured = captureSelectionRef(editor);
+    if (!captured.ok) {
+      return;
+    }
+
+    const selectionText = captured.data.selectionText.trim();
+    if (selectionText.length === 0) {
+      return;
+    }
+
+    setSelectionSnapshot({
+      selectionRef: captured.data.selectionRef,
+      selectionText,
+    });
+    setSelectedSkillId(skillId);
+
+    void runSkill({
+      inputOverride: selectionText,
+      context: {
+        projectId: projectId ?? undefined,
+        documentId: documentId ?? undefined,
+      },
+    });
   };
 
   const bubbleContent = (
@@ -173,6 +244,22 @@ export function EditorBubbleMenu(props: {
       >
         {icons.link}
       </InlineFormatButton>
+      <div className="mx-1 h-5 w-px bg-[var(--color-border-default)]" />
+      <div className="flex items-center gap-1">
+        {BUBBLE_AI_SKILLS.map((skill) => (
+          <button
+            key={skill.id}
+            type="button"
+            data-testid={skill.testId}
+            aria-label={`AI ${skill.label}`}
+            disabled={aiDisabled}
+            className="rounded-[var(--radius-sm)] px-2 py-1 text-xs text-[var(--color-fg-default)] transition-colors duration-[var(--duration-fast)] hover:bg-[var(--color-bg-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={() => handleAiSkillClick(skill.id)}
+          >
+            {skill.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 

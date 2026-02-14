@@ -637,9 +637,9 @@ export function useAiStore<T>(selector: (state: AiStore) => T): T {
 }
 
 /**
- * Read values from AI store when available.
+ * Read values from AI store when provider exists, otherwise return null.
  *
- * Why: some isolated editor tests/stories do not mount AiStoreProvider.
+ * Why: editor-only surfaces may render without AI context in unit tests.
  */
 export function useOptionalAiStore<T>(
   selector: (state: AiStore) => T,
