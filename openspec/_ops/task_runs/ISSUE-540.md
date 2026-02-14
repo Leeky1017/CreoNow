@@ -3,7 +3,7 @@
 - Issue: #540
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/540
 - Branch: task/540-s2-change-spec-scaffold
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/541
 - Scope:
   - `openspec/changes/s2-*/**`（Sprint 2 共 27 个 active changes）
   - `openspec/changes/EXECUTION_ORDER.md`
@@ -115,7 +115,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: (待签字提交时回填 HEAD^)
+- Reviewed-HEAD-SHA: 00e3ae3e604dcf211449ebf031de210b9d79f7ea
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
