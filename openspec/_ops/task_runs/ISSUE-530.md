@@ -9,7 +9,7 @@
   - `openspec/changes/archive/s0-kg-async-validate/**`（已归档）
   - `openspec/changes/EXECUTION_ORDER.md`
   - `openspec/_ops/task_runs/ISSUE-530.md`
-  - `rulebook/tasks/issue-530-s0-kg-async-validate/**`
+  - `rulebook/tasks/archive/2026-02-14-issue-530-s0-kg-async-validate/**`
 - Out of Scope:
   - 创建 PR / 合并 main / 清理 worktree
   - 责任边界外文件
@@ -22,6 +22,7 @@
 - [x] 按 Scenario 执行 Red → Green → Refactor
 - [x] 运行最小必要验证（覆盖 KG-S0-AV-S1/S2/S3）
 - [x] 归档 change 并同步 `EXECUTION_ORDER.md`
+- [x] 同 PR 自归档 Rulebook task（避免 active 残留漂移）
 - [x] 提交到 `task/530-s0-kg-async-validate`，停在“可审计可接管”
 
 ## Runs
@@ -166,6 +167,33 @@
 - Key output:
   - 平台策略阻断目录删除命令（非 worktree 内操作）
   - 当前分支交付物不受影响；控制面残留目录需由后续人工清理或放行后清理
+
+### 2026-02-14 14:43 主会话审计修复（typecheck 阻断）
+
+- Command:
+  - `pnpm -C apps/desktop exec vitest run src/features/kg/__tests__/kg-async-validation.test.tsx`
+  - `pnpm typecheck`
+  - `pnpm contract:check`
+- Exit code:
+  - vitest: `0`
+  - typecheck: `1`（首次）→ `0`（修复后）
+  - contract:check: `0`
+- Key output:
+  - 发现阻断：
+    - `kg-async-validation.test.tsx` 使用过宽 `type` 声明导致 `TS2322`
+    - `AsyncMutationResult` 类型过窄，测试 `ok:false` payload 不可表达
+  - 修复动作：
+    - `KnowledgeGraphPanel.tsx`：`AsyncMutationResult` 扩展为 `({ ok: boolean } & Record<string, unknown>) | null | undefined`
+    - `kg-async-validation.test.tsx`：`makeEntity` 参数类型改为 `KgEntity["type"]`
+  - 修复后 `typecheck`、`contract:check` 与 `KG-S0-AV` 测试均通过
+
+### 2026-02-14 14:43 Rulebook task 自归档
+
+- Command:
+  - `mv rulebook/tasks/issue-530-s0-kg-async-validate rulebook/tasks/archive/2026-02-14-issue-530-s0-kg-async-validate`
+- Exit code: `0`
+- Key output:
+  - Rulebook task 已迁移到 archive 路径，避免 active 残留
 
 ## Dependency Sync Check
 

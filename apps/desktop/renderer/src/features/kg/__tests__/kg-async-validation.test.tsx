@@ -36,7 +36,7 @@ vi.mock("../../../stores/kgStore", () => ({
 
 function makeEntity(args: {
   id: string;
-  type: string;
+  type: KgEntity["type"];
   name: string;
   metadataJson?: string;
 }): KgEntity {

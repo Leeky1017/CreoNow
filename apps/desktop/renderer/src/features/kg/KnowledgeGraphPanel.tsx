@@ -36,7 +36,10 @@ type EditingState =
 /** View mode for the KG panel */
 type ViewMode = "list" | "graph" | "timeline";
 
-type AsyncMutationResult = { ok: boolean } | null | undefined;
+type AsyncMutationResult =
+  | ({ ok: boolean } & Record<string, unknown>)
+  | null
+  | undefined;
 
 function entityLabel(args: { name: string; entityType?: string }): string {
   return args.entityType ? `${args.name} (${args.entityType})` : args.name;
