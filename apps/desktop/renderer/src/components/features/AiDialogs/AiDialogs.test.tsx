@@ -5,7 +5,12 @@ import { AiInlineConfirm } from "./AiInlineConfirm";
 import { AiDiffModal } from "./AiDiffModal";
 import { AiErrorCard } from "./AiErrorCard";
 import { SystemDialog } from "./SystemDialog";
-import type { AiErrorConfig, DiffChange } from "./types";
+import type {
+  AiErrorCardProps,
+  AiErrorConfig,
+  AiInlineConfirmProps,
+  DiffChange,
+} from "./types";
 
 // =============================================================================
 // Test Data
@@ -71,7 +76,6 @@ describe("AiInlineConfirm", () => {
         suggestedText={sampleSuggestedText}
         onAccept={onAccept}
         onReject={vi.fn()}
-        simulateDelay={10}
       />,
     );
 
@@ -93,7 +97,6 @@ describe("AiInlineConfirm", () => {
         suggestedText={sampleSuggestedText}
         onAccept={vi.fn()}
         onReject={onReject}
-        simulateDelay={10}
       />,
     );
 
@@ -140,57 +143,108 @@ describe("AiInlineConfirm", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows applying state with spinner", () => {
+  it("shows applying state with spinner while callback is pending", async () => {
+    const user = userEvent.setup();
+    const onAccept = vi.fn(() => new Promise<void>(() => {}));
+
     render(
       <AiInlineConfirm
         originalText={sampleOriginalText}
         suggestedText={sampleSuggestedText}
-        onAccept={vi.fn()}
+        onAccept={onAccept}
         onReject={vi.fn()}
-        initialState="applying"
       />,
     );
 
-    // In applying state, the button should show "Applying..."
+    await user.click(screen.getByRole("button", { name: /accept/i }));
+    expect(onAccept).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Applying...")).toBeInTheDocument();
   });
 
-  it("shows accepted state without toolbar", () => {
+  it("shows accepted state without toolbar after accept callback resolves", async () => {
+    const user = userEvent.setup();
     render(
       <AiInlineConfirm
         originalText={sampleOriginalText}
         suggestedText={sampleSuggestedText}
-        onAccept={vi.fn()}
+        onAccept={vi.fn().mockResolvedValue(undefined)}
         onReject={vi.fn()}
-        initialState="accepted"
       />,
     );
 
-    // In accepted state, only the suggested text should be visible
-    expect(screen.getByText(sampleSuggestedText)).toBeInTheDocument();
-    // Toolbar should not be visible
-    expect(
-      screen.queryByRole("button", { name: /accept/i }),
-    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /accept/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Applying...")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /accept/i })).toBeNull();
+      expect(screen.getByText(sampleSuggestedText)).toBeInTheDocument();
+    });
   });
 
-  it("shows rejected state with original text", () => {
+  it("shows rejected state with original text after reject callback resolves", async () => {
+    const user = userEvent.setup();
     render(
       <AiInlineConfirm
         originalText={sampleOriginalText}
         suggestedText={sampleSuggestedText}
         onAccept={vi.fn()}
-        onReject={vi.fn()}
-        initialState="rejected"
+        onReject={vi.fn().mockResolvedValue(undefined)}
       />,
     );
 
-    // In rejected state, only the original text should be visible
-    expect(screen.getByText(sampleOriginalText)).toBeInTheDocument();
-    // Toolbar should not be visible
-    expect(
-      screen.queryByRole("button", { name: /reject/i }),
-    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /reject/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("Applying...")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /reject/i })).toBeNull();
+      expect(screen.getByText(sampleOriginalText)).toBeInTheDocument();
+    });
+  });
+
+  it("[S1] waits for onAccept callback resolution before leaving applying state", async () => {
+    const user = userEvent.setup();
+    let resolveAccept: (() => void) | undefined;
+    const onAccept = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveAccept = () => resolve();
+        }),
+    );
+
+    render(
+      <AiInlineConfirm
+        originalText={sampleOriginalText}
+        suggestedText={sampleSuggestedText}
+        onAccept={onAccept}
+        onReject={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /accept/i }));
+
+    expect(onAccept).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Applying...")).toBeInTheDocument();
+
+    resolveAccept?.();
+
+    await waitFor(() => {
+      expect(screen.queryByText("Applying...")).not.toBeInTheDocument();
+    });
+  });
+
+  it("[S2] does not expose demo-only props in AiInlineConfirmProps", () => {
+    type HasSimulateDelay = "simulateDelay" extends keyof AiInlineConfirmProps
+      ? true
+      : false;
+    type HasInitialState = "initialState" extends keyof AiInlineConfirmProps
+      ? true
+      : false;
+
+    const hasSimulateDelay: HasSimulateDelay = false;
+    const hasInitialState: HasInitialState = false;
+
+    expect(hasSimulateDelay).toBe(false);
+    expect(hasInitialState).toBe(false);
   });
 });
 
@@ -397,13 +451,48 @@ describe("AiErrorCard", () => {
       description: "Unable to reach the AI service.",
     };
 
-    render(<AiErrorCard error={error} onRetry={onRetry} simulateDelay={10} />);
+    render(<AiErrorCard error={error} onRetry={onRetry} />);
 
     await user.click(screen.getByText("Retry"));
 
     await waitFor(() => {
       expect(onRetry).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("[S1] uses rejected onRetry callback as retry failure signal", async () => {
+    const user = userEvent.setup();
+    const onRetry = vi.fn().mockRejectedValueOnce(new Error("retry failed"));
+    const error: AiErrorConfig = {
+      type: "connection_failed",
+      title: "Connection Failed",
+      description: "Unable to reach the AI service.",
+    };
+
+    render(<AiErrorCard error={error} onRetry={onRetry} />);
+
+    await user.click(screen.getByRole("button", { name: /retry/i }));
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed")).toBeInTheDocument();
+    });
+  });
+
+  it("[S2] does not expose demo-only props in AiErrorCardProps", () => {
+    type HasSimulateDelay = "simulateDelay" extends keyof AiErrorCardProps
+      ? true
+      : false;
+    type HasRetryWillSucceed = "retryWillSucceed" extends keyof AiErrorCardProps
+      ? true
+      : false;
+
+    const hasSimulateDelay: HasSimulateDelay = false;
+    const hasRetryWillSucceed: HasRetryWillSucceed = false;
+
+    expect(hasSimulateDelay).toBe(false);
+    expect(hasRetryWillSucceed).toBe(false);
   });
 
   it("displays error code for service errors", () => {

@@ -112,6 +112,12 @@ const errorConfigs: Record<AiErrorType, AiErrorConfig> = {
   },
 };
 
+function waitForDemo(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
 // =============================================================================
 // Wrapper Components for Stories with State
 // =============================================================================
@@ -136,10 +142,12 @@ function InlineConfirmAcceptFlowWrapper() {
           key={key}
           originalText={sampleOriginalText}
           suggestedText={sampleSuggestedText}
-          onAccept={() => console.log("Accepted")}
+          onAccept={async () => {
+            await waitForDemo(1500);
+            console.log("Accepted");
+          }}
           onReject={() => console.log("Rejected")}
           showComparison={true}
-          simulateDelay={1500}
         />
       </div>
     </div>
@@ -167,9 +175,11 @@ function InlineConfirmRejectFlowWrapper() {
           originalText={sampleOriginalText}
           suggestedText={sampleSuggestedText}
           onAccept={() => console.log("Accepted")}
-          onReject={() => console.log("Rejected")}
+          onReject={async () => {
+            await waitForDemo(800);
+            console.log("Rejected");
+          }}
           showComparison={true}
-          simulateDelay={800}
         />
       </div>
     </div>
@@ -282,9 +292,10 @@ function ErrorRetryLoadingWrapper() {
         <AiErrorCard
           key={key}
           error={errorConfigs.connection_failed}
-          onRetry={() => console.log("Retrying...")}
-          simulateDelay={2000}
-          retryWillSucceed={true}
+          onRetry={async () => {
+            console.log("Retrying...");
+            await waitForDemo(2000);
+          }}
         />
       </div>
     </div>
@@ -310,9 +321,11 @@ function ErrorRetryFailedWrapper() {
         <AiErrorCard
           key={key}
           error={errorConfigs.timeout}
-          onRetry={() => console.log("Retrying...")}
-          simulateDelay={1500}
-          retryWillSucceed={false}
+          onRetry={async () => {
+            console.log("Retrying...");
+            await waitForDemo(1500);
+            throw new Error("Story demo retry failure");
+          }}
         />
       </div>
     </div>
@@ -645,15 +658,14 @@ export const InlineConfirmApplyingState: StoryObj = {
   render: () => (
     <div className="w-[600px] p-8 bg-[var(--color-bg-surface)] rounded-lg">
       <div className="text-xs text-[var(--color-fg-muted)] mb-4">
-        This shows the &quot;applying&quot; state with the spinner visible on
-        the toolbar
+        Click &quot;Accept&quot; to enter applying state (Story callback keeps
+        promise pending).
       </div>
       <AiInlineConfirm
         originalText={sampleOriginalText}
         suggestedText={sampleSuggestedText}
-        onAccept={() => {}}
+        onAccept={() => new Promise<void>(() => {})}
         onReject={() => {}}
-        initialState="applying"
       />
     </div>
   ),

@@ -260,31 +260,35 @@ export function AiInlineConfirm({
   onReject,
   onViewDiff,
   className = "",
-  initialState = "pending",
-  simulateDelay = 800,
   showComparison = true,
 }: AiInlineConfirmProps): JSX.Element {
-  const [state, setState] = useState<InlineConfirmState>(initialState);
+  const [state, setState] = useState<InlineConfirmState>("pending");
 
   const handleAccept = useCallback(async () => {
+    if (state === "applying") {
+      return;
+    }
     setState("applying");
-
-    // Simulate async operation
-    await new Promise((resolve) => setTimeout(resolve, simulateDelay));
-
-    setState("accepted");
-    onAccept();
-  }, [onAccept, simulateDelay]);
+    try {
+      await onAccept();
+      setState("accepted");
+    } catch {
+      setState("pending");
+    }
+  }, [onAccept, state]);
 
   const handleReject = useCallback(async () => {
+    if (state === "applying") {
+      return;
+    }
     setState("applying");
-
-    // Simulate async operation
-    await new Promise((resolve) => setTimeout(resolve, simulateDelay / 2));
-
-    setState("rejected");
-    onReject();
-  }, [onReject, simulateDelay]);
+    try {
+      await onReject();
+      setState("rejected");
+    } catch {
+      setState("pending");
+    }
+  }, [onReject, state]);
 
   const isApplying = state === "applying";
   const isPending = state === "pending";

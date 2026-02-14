@@ -529,10 +529,6 @@ export function AiErrorCard({
 
   showDismiss = true,
 
-  simulateDelay = 1500,
-
-  retryWillSucceed = true,
-
   className = "",
 }: AiErrorCardProps): JSX.Element | null {
   // Initialize countdown from props - use a ref to track the initial value
@@ -612,31 +608,19 @@ export function AiErrorCard({
     if (retryState === "loading") return;
 
     setRetryState("loading");
-
-    // Simulate async retry operation
-
-    await new Promise((resolve) => setTimeout(resolve, simulateDelay));
-
-    if (retryWillSucceed) {
+    try {
+      await onRetry?.();
       setRetryState("success");
-
-      // Auto-dismiss on success
-
       setTimeout(() => {
         handleDismiss();
       }, 500);
-    } else {
+    } catch {
       setRetryState("error");
-
-      // Reset to idle after showing error
-
       setTimeout(() => {
         setRetryState("idle");
       }, 2000);
     }
-
-    onRetry?.();
-  }, [onRetry, simulateDelay, retryWillSucceed, handleDismiss, retryState]);
+  }, [onRetry, handleDismiss, retryState]);
 
   // Don't render if dismissed
 
