@@ -31,15 +31,19 @@ prompt:
 # builtin:describe
 
 Goal
+
 - Turn plain passages into vivid descriptions.
 
 Input
+
 - Selected text to describe in more detail.
 
 Output
+
 - A richer passage with concrete imagery and sensory cues.
 
 Constraints
+
 - Keep the original event sequence and perspective.
 - Use details that fit the existing scene and tone.
 - Do not introduce unrelated plot developments.

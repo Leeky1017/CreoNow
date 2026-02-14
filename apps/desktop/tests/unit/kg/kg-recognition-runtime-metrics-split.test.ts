@@ -92,7 +92,9 @@ async function waitForCondition(
     assert.equal(statsRes.data.completionOrder.length, 1);
     assert.equal(statsRes.data.canceledTaskIds.length, 0);
     assert.equal(
-      harness.logs.error.some((entry) => entry.event === "kg_recognition_failed"),
+      harness.logs.error.some(
+        (entry) => entry.event === "kg_recognition_failed",
+      ),
       false,
     );
   } finally {

@@ -26,7 +26,9 @@ describe("useJudgeEnsure", () => {
   it("Scenario: 两个调用点复用同一 hook 状态语义（busy/downloading/error）", async () => {
     const first = createDeferred<IpcInvokeResult<"judge:model:ensure">>();
     const second = createDeferred<IpcInvokeResult<"judge:model:ensure">>();
-    invokeMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    invokeMock
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
 
     const callsiteA = renderHook(() => useJudgeEnsure());
     const callsiteB = renderHook(() => useJudgeEnsure());

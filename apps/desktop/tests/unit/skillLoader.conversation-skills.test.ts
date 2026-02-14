@@ -47,7 +47,11 @@ function parseSkillMarkdown(filePath: string): {
   assert.ok(match, `${filePath} must include YAML frontmatter`);
 
   const parsed = parseDocument(match[1] ?? "");
-  assert.equal(parsed.errors.length, 0, `${filePath} has invalid YAML frontmatter`);
+  assert.equal(
+    parsed.errors.length,
+    0,
+    `${filePath} has invalid YAML frontmatter`,
+  );
 
   return {
     frontmatter: asObject(parsed.toJSON()),
@@ -70,8 +74,7 @@ function skillRefs(): {
   assert.equal(discovered.errors.length, 0, "builtin scan should not fail");
 
   const builtinRefs = discovered.refs.filter(
-    (ref) =>
-      ref.packageId === "pkg.creonow.builtin" && ref.version === "1.0.0",
+    (ref) => ref.packageId === "pkg.creonow.builtin" && ref.version === "1.0.0",
   );
 
   return {
@@ -96,7 +99,11 @@ function skillRefs(): {
     assert.ok(ref, `${skillName} ref should exist`);
     const loaded = loadSkillFile({ ref });
 
-    assert.equal(loaded.valid, true, `${skillName} should load as a valid skill`);
+    assert.equal(
+      loaded.valid,
+      true,
+      `${skillName} should load as a valid skill`,
+    );
     assert.equal(loaded.id, `builtin:${skillName}`);
   }
 }
@@ -111,14 +118,14 @@ function skillRefs(): {
 
     const parsed = parseSkillMarkdown(ref.filePath);
     const prompt = asObject(parsed.frontmatter.prompt);
-    const systemPrompt =
-      typeof prompt.system === "string" ? prompt.system : "";
+    const systemPrompt = typeof prompt.system === "string" ? prompt.system : "";
     const description =
       typeof parsed.frontmatter.description === "string"
         ? parsed.frontmatter.description
         : "";
 
-    const responsibilityText = `${description}\n${systemPrompt}\n${parsed.body}`.toLowerCase();
+    const responsibilityText =
+      `${description}\n${systemPrompt}\n${parsed.body}`.toLowerCase();
 
     for (const banned of BANNED_WRITING_TERMS) {
       assert.equal(

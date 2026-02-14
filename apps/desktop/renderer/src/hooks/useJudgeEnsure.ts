@@ -3,7 +3,8 @@ import React from "react";
 import type { IpcChannelSpec, IpcError } from "@shared/types/ipc-generated";
 import { invoke } from "../lib/ipcClient";
 
-type JudgeModelState = IpcChannelSpec["judge:model:ensure"]["response"]["state"];
+type JudgeModelState =
+  IpcChannelSpec["judge:model:ensure"]["response"]["state"];
 
 type JudgeEnsureSuccess = {
   ok: true;

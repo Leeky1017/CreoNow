@@ -13,11 +13,11 @@
 
 ### Scenario → 测试映射
 
-| Scenario ID | 测试文件                                                                        | 测试名称                                        | 断言要点                       |
-| ----------- | ------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------ |
-| KG-S2-EM-S1 | `apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts`             | `matches entity names and aliases`              | 名字与别名均可触发匹配         |
-| KG-S2-EM-S2 | `apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts`             | `matches 100 entities in 1000 chars under 10ms` | 100×1000 性能阈值可验证        |
-| KG-S2-EM-S3 | `apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts`             | `handles overlap cn text and empty input`       | 重叠名称/中文/空输入边界可验证 |
+| Scenario ID | 测试文件                                                            | 测试名称                                        | 断言要点                       |
+| ----------- | ------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------ |
+| KG-S2-EM-S1 | `apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts` | `matches entity names and aliases`              | 名字与别名均可触发匹配         |
+| KG-S2-EM-S2 | `apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts` | `matches 100 entities in 1000 chars under 10ms` | 100×1000 性能阈值可验证        |
+| KG-S2-EM-S3 | `apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts` | `handles overlap cn text and empty input`       | 重叠名称/中文/空输入边界可验证 |
 
 ## 3. Red（先写失败测试）
 

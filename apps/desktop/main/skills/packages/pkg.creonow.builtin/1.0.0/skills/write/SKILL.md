@@ -31,15 +31,19 @@ prompt:
 # builtin:write
 
 Goal
+
 - Continue the draft naturally from current context.
 
 Input
+
 - Current document context around the cursor.
 
 Output
+
 - One or more coherent continuation paragraphs.
 
 Constraints
+
 - Match established voice and tense.
 - Do not contradict known facts or character settings.
 - Avoid repeating recently written sentences.

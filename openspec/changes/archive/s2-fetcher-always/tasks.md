@@ -13,11 +13,11 @@
 
 ### Scenario → 测试映射
 
-| Scenario ID | 测试文件                                                                       | 测试名称                                          | 断言要点                       |
-| ----------- | ------------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------ |
-| CE-S2-FA-S1 | `apps/desktop/main/src/services/context/__tests__/rulesFetcher.test.ts` | `CE-S2-FA-S1 injects always entities into rules context chunks`      | always 实体被注入 Rules 层     |
+| Scenario ID | 测试文件                                                                | 测试名称                                                           | 断言要点                       |
+| ----------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------ |
+| CE-S2-FA-S1 | `apps/desktop/main/src/services/context/__tests__/rulesFetcher.test.ts` | `CE-S2-FA-S1 injects always entities into rules context chunks`    | always 实体被注入 Rules 层     |
 | CE-S2-FA-S2 | `apps/desktop/main/src/services/context/__tests__/rulesFetcher.test.ts` | `CE-S2-FA-S2 does not inject chunks when no always entities exist` | 无 always 实体时不注入额外内容 |
-| CE-S2-FA-S3 | `apps/desktop/main/src/services/context/__tests__/rulesFetcher.test.ts` | `CE-S2-FA-S3 degrades with explicit warning on KG query failure`     | 异常降级返回可追踪告警         |
+| CE-S2-FA-S3 | `apps/desktop/main/src/services/context/__tests__/rulesFetcher.test.ts` | `CE-S2-FA-S3 degrades with explicit warning on KG query failure`   | 异常降级返回可追踪告警         |
 
 ## 3. Red（先写失败测试）
 

@@ -75,7 +75,11 @@ function createEntity(args: {
       matchedTerm: "长安城",
       position: text.indexOf("长安城"),
     },
-    { entityId: "e-short", matchedTerm: "长安", position: text.indexOf("长安") },
+    {
+      entityId: "e-short",
+      matchedTerm: "长安",
+      position: text.indexOf("长安"),
+    },
     {
       entityId: "e-cn-alias",
       matchedTerm: "长安",

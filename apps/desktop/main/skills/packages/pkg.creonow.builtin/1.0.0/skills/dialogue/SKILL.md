@@ -31,15 +31,19 @@ prompt:
 # builtin:dialogue
 
 Goal
+
 - Transform narrative text into effective spoken dialogue.
 
 Input
+
 - Selected text describing a scene, action, or intent.
 
 Output
+
 - Dialogue-first rewrite with clear speaker turns.
 
 Constraints
+
 - Keep speakers consistent with character context.
 - Preserve the original intent and key information.
 - Keep dialogue concise and avoid exposition dumps.

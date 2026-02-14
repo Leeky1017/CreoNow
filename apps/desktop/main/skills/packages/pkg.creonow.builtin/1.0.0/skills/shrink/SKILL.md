@@ -30,15 +30,19 @@ prompt:
 # builtin:shrink
 
 Goal
+
 - Reduce length while preserving essential meaning.
 
 Input
+
 - Selected text that needs to be shorter.
 
 Output
+
 - A concise rewrite with less redundancy.
 
 Constraints
+
 - Keep important facts, actions, and causal links.
 - Remove filler and repeated phrasing first.
 - Do not change narrative point of view.

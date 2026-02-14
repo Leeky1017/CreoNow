@@ -30,15 +30,19 @@ prompt:
 # builtin:expand
 
 Goal
+
 - Enrich selected text with additional detail.
 
 Input
+
 - Selected text that needs elaboration.
 
 Output
+
 - An expanded version with clearer texture and context.
 
 Constraints
+
 - Preserve core meaning and event order.
 - Keep narrative pace compatible with the source passage.
 - Avoid introducing unrelated facts.
