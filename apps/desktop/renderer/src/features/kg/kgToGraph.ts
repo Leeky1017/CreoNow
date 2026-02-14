@@ -27,7 +27,8 @@ export interface EntityUiMetadata {
   attributes?: Array<{ key: string; value: string }>;
 }
 
-const METADATA_FAILFAST_LOG_PREFIX = "[kgToGraph] metadataJson parse fail-fast:";
+const METADATA_FAILFAST_LOG_PREFIX =
+  "[kgToGraph] metadataJson parse fail-fast:";
 const METADATA_LOG_SNIPPET_LIMIT = 80;
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {

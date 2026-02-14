@@ -166,6 +166,20 @@
   - 根因：补丁提交后 `HEAD^` 变化，RUN_LOG 未同步为最新签字链
   - 修复：将 `Reviewed-HEAD-SHA` 更新为最新 `HEAD^`
 
+### 2026-02-14 14:15 preflight 三次阻断修复（格式门禁）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write apps/desktop/renderer/src/features/kg/KnowledgeGraphPanel.tsx apps/desktop/renderer/src/features/kg/kgToGraph.ts rulebook/tasks/archive/2026-02-14-issue-528-s0-metadata-failfast/proposal.md rulebook/tasks/archive/2026-02-14-issue-528-s0-metadata-failfast/tasks.md`
+  - `pnpm -C apps/desktop exec vitest run src/features/kg/metadata-parse-failfast.test.tsx src/features/kg/KnowledgeGraphPanel.render.test.tsx src/features/kg/KnowledgeGraphPanel.interaction.test.tsx src/features/kg/KnowledgeGraphPanel.empty-state.test.tsx src/features/kg/TimelineView.ordering.test.tsx`
+- Exit code:
+  - preflight: `1`
+  - prettier: `0`
+  - vitest: `0`
+- Key output:
+  - preflight 阻断：`prettier --check` 发现 4 个文件格式不合规
+  - 修复后 KG 回归集通过：`5 passed files / 8 passed tests`
+
 ## Dependency Sync Check
 
 - Inputs:

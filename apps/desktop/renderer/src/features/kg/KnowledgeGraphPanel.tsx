@@ -57,7 +57,11 @@ function parseMetadataJson(
 
   try {
     const parsed = JSON.parse(metadataJson) as unknown;
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return null;
     }
     return parsed as Record<string, unknown>;
