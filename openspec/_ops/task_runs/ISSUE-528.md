@@ -3,7 +3,7 @@
 - Issue: #528
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/528
 - Branch: task/528-s0-metadata-failfast
-- PR: N/A（按要求停在可审计可接管状态，不创建 PR）
+- PR: https://github.com/Leeky1017/CreoNow/pull/529
 - Scope:
   - `apps/desktop/renderer/src/features/kg/**`（metadata fail-fast 最小改动）
   - `openspec/changes/s0-metadata-failfast`（实施后归档）
@@ -131,6 +131,15 @@
   - `contract:check` 与 `typecheck` 通过
   - Rulebook task 已自归档到 `rulebook/tasks/archive/2026-02-14-issue-528-s0-metadata-failfast/`
 
+### 2026-02-14 14:13 提交与创建 PR
+
+- Command:
+  - `git push -u origin task/528-s0-metadata-failfast`
+  - `gh pr create --base main --head task/528-s0-metadata-failfast --title "Deliver Sprint0 serial-B step1 metadata fail-fast (#528)" --body-file /tmp/pr-528.md`
+- Exit code: `0`
+- Key output:
+  - PR 已创建：`https://github.com/Leeky1017/CreoNow/pull/529`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -145,7 +154,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 40b08e2203763dfc7dae144c2f1125f8b917e44b
+- Reviewed-HEAD-SHA: a0243e8e6dcb1ffbc1d24af6c440c2732ac5d2b2
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
