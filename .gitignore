@@ -36,6 +36,10 @@ logs/
 npm-debug.log*
 pnpm-debug.log*
 
+# Python cache
+__pycache__/
+*.py[cod]
+
 # Test coverage
 coverage/
 
