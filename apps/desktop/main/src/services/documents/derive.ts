@@ -1,7 +1,7 @@
-import type { IpcError } from "@shared/types/ipc-generated";
+import type { DocumentError } from "./types";
 
 type Ok<T> = { ok: true; data: T };
-type Err = { ok: false; error: IpcError };
+type Err = { ok: false; error: DocumentError };
 export type DeriveResult<T> = Ok<T> | Err;
 
 export type DerivedContent = {
@@ -15,7 +15,7 @@ type ProseMirrorNode = {
   content?: ProseMirrorNode[];
 };
 
-function ipcError(message: string, details?: unknown): Err {
+function documentError(message: string, details?: unknown): Err {
   return { ok: false, error: { code: "INVALID_ARGUMENT", message, details } };
 }
 
@@ -70,7 +70,7 @@ export function deriveContent(args: {
   contentJson: unknown;
 }): DeriveResult<DerivedContent> {
   if (!isProseMirrorNode(args.contentJson)) {
-    return ipcError("Invalid TipTap JSON document");
+    return documentError("Invalid TipTap JSON document");
   }
 
   const out: string[] = [];

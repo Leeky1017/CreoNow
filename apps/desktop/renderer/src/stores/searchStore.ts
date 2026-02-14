@@ -49,6 +49,9 @@ const SearchStoreContext = React.createContext<UseSearchStore | null>(null);
  * state machine and recoverable error handling.
  */
 export function createSearchStore(deps: { invoke: IpcInvoke }) {
+  let latestSearchRequestId = 0;
+  let activeSearchController: AbortController | null = null;
+
   return create<SearchStore>((set, get) => ({
     query: "",
     items: [],
@@ -60,20 +63,29 @@ export function createSearchStore(deps: { invoke: IpcInvoke }) {
 
     setQuery: (query) => set({ query }),
 
-    clearResults: () =>
+    clearResults: () => {
+      latestSearchRequestId += 1;
+      activeSearchController?.abort();
+      activeSearchController = null;
+
       set({
         items: [],
         status: "idle",
         total: 0,
         hasMore: false,
         indexState: "ready",
-      }),
+      });
+    },
 
     clearError: () => set({ lastError: null }),
 
     runFulltext: async ({ projectId, limit }) => {
       const query = get().query;
       if (query.trim().length === 0) {
+        latestSearchRequestId += 1;
+        activeSearchController?.abort();
+        activeSearchController = null;
+
         set({
           items: [],
           status: "idle",
@@ -85,6 +97,12 @@ export function createSearchStore(deps: { invoke: IpcInvoke }) {
         return;
       }
 
+      latestSearchRequestId += 1;
+      const requestId = latestSearchRequestId;
+      activeSearchController?.abort();
+      const controller = new AbortController();
+      activeSearchController = controller;
+
       set({ status: "loading", lastError: null });
       const res = await deps.invoke("search:fts:query", {
         projectId,
@@ -92,6 +110,17 @@ export function createSearchStore(deps: { invoke: IpcInvoke }) {
         limit,
         offset: 0,
       });
+
+      const shouldCommit =
+        !controller.signal.aborted &&
+        requestId === latestSearchRequestId &&
+        activeSearchController === controller &&
+        get().query === query;
+
+      if (!shouldCommit) {
+        return;
+      }
+
       if (!res.ok) {
         set({
           status: "error",
@@ -100,6 +129,9 @@ export function createSearchStore(deps: { invoke: IpcInvoke }) {
           total: 0,
           hasMore: false,
         });
+        if (activeSearchController === controller) {
+          activeSearchController = null;
+        }
         return;
       }
 
@@ -111,6 +143,10 @@ export function createSearchStore(deps: { invoke: IpcInvoke }) {
         indexState: res.data.indexState,
         lastError: null,
       });
+
+      if (activeSearchController === controller) {
+        activeSearchController = null;
+      }
     },
   }));
 }
