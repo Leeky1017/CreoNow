@@ -492,47 +492,33 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     save,
   ]);
 
-  async function onWriteClick(): Promise<void> {
-    if (
-      !aiSetSelectedSkillId ||
-      !aiRun ||
-      !editor ||
-      !documentId ||
-      isAiRunning(aiStatus)
-    ) {
-      return;
-    }
+  const runSlashAiSkill = React.useCallback(
+    async (skillId: string): Promise<void> => {
+      if (
+        !aiSetSelectedSkillId ||
+        !aiRun ||
+        !editor ||
+        !documentId ||
+        isAiRunning(aiStatus)
+      ) {
+        return;
+      }
 
-    aiSetSelectedSkillId("builtin:write");
-    await aiRun({
-      inputOverride: buildWriteInput(editor),
-      context: {
-        projectId: props.projectId,
-        documentId,
-      },
-    });
-  }
+      aiSetSelectedSkillId(skillId);
+      await aiRun({
+        inputOverride: buildWriteInput(editor),
+        context: {
+          projectId: props.projectId,
+          documentId,
+        },
+      });
+    },
+    [aiRun, aiSetSelectedSkillId, aiStatus, documentId, editor, props.projectId],
+  );
 
-  async function runSlashAiSkill(skillId: string): Promise<void> {
-    if (
-      !aiSetSelectedSkillId ||
-      !aiRun ||
-      !editor ||
-      !documentId ||
-      isAiRunning(aiStatus)
-    ) {
-      return;
-    }
-
-    aiSetSelectedSkillId(skillId);
-    await aiRun({
-      inputOverride: buildWriteInput(editor),
-      context: {
-        projectId: props.projectId,
-        documentId,
-      },
-    });
-  }
+  const onWriteClick = React.useCallback(async (): Promise<void> => {
+    await runSlashAiSkill("builtin:write");
+  }, [runSlashAiSkill]);
 
   const handleSlashCommandSelect = React.useCallback(
     (commandId: SlashCommandId) => {

@@ -22,33 +22,35 @@ type InlineDiffControlsProps = {
 export function InlineDiffControls(
   props: InlineDiffControlsProps,
 ): JSX.Element {
+  const { originalText, suggestedText, onApplyAcceptedText } = props;
+
   const decorations = React.useMemo(
     () =>
       createInlineDiffDecorations({
-        originalText: props.originalText,
-        suggestedText: props.suggestedText,
+        originalText,
+        suggestedText,
       }),
-    [props.originalText, props.suggestedText],
+    [originalText, suggestedText],
   );
 
   const [decisions, setDecisions] = React.useState<InlineDiffDecision[]>(() =>
     createPendingInlineDiffDecisions(decorations.length),
   );
-  const [currentText, setCurrentText] = React.useState(props.originalText);
+  const [currentText, setCurrentText] = React.useState(originalText);
 
   React.useEffect(() => {
     setDecisions(createPendingInlineDiffDecisions(decorations.length));
-    setCurrentText(props.originalText);
-  }, [decorations.length, props.originalText]);
+    setCurrentText(originalText);
+  }, [decorations.length, originalText]);
 
   const resolveAcceptedText = React.useCallback(
     (nextDecisions: InlineDiffDecision[]): string =>
       resolveInlineDiffText({
-        originalText: props.originalText,
-        suggestedText: props.suggestedText,
+        originalText,
+        suggestedText,
         decisions: nextDecisions,
       }),
-    [props.originalText, props.suggestedText],
+    [originalText, suggestedText],
   );
 
   const onAcceptHunk = React.useCallback(
@@ -61,11 +63,11 @@ export function InlineDiffControls(
         next[hunkIndex] = "accepted";
         const nextText = resolveAcceptedText(next);
         setCurrentText(nextText);
-        props.onApplyAcceptedText(nextText);
+        onApplyAcceptedText(nextText);
         return next;
       });
     },
-    [props.onApplyAcceptedText, resolveAcceptedText],
+    [onApplyAcceptedText, resolveAcceptedText],
   );
 
   const onRejectHunk = React.useCallback((hunkIndex: number): void => {
