@@ -145,6 +145,15 @@
   - 阻断原因：`[warn] openspec/changes/EXECUTION_ORDER.md`
   - 修复提交：`1999229ae0f2ef0f2adf0b9834ef60cb9e79f95f`
 
+### 2026-02-14 19:23 preflight 四次复验（签字 SHA 录入修正）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - 阻断原因：`[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`
+  - 原因定位：RUN_LOG 中手工回填的 Reviewed SHA 与实际 `HEAD^` 不一致，需按当前父提交精确回填
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -160,7 +169,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 1999229ae0f2ef0f2adf0b9834ef60cb9e79f95f
+- Reviewed-HEAD-SHA: 1999229a93c8913ee6aeae20dce6af726b19b5d8
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
