@@ -7,21 +7,15 @@ import {
 } from "./VersionHistoryPanel";
 import { useVersionCompare } from "./useVersionCompare";
 import { useEditorStore } from "../../stores/editorStore";
-import { useVersionStore } from "../../stores/versionStore";
+import {
+  type VersionListItem,
+  useVersionStore,
+} from "../../stores/versionStore";
 import { invoke } from "../../lib/ipcClient";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 import { RESTORE_VERSION_CONFIRM_COPY } from "./restoreConfirmCopy";
 import { useVersionPreferencesStore } from "../../stores/versionPreferencesStore";
-
-type VersionListItem = {
-  versionId: string;
-  actor: "user" | "auto" | "ai";
-  reason: string;
-  contentHash: string;
-  wordCount: number;
-  createdAt: number;
-};
 
 /**
  * Map backend actor to UI author type.
