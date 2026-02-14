@@ -25,6 +25,7 @@ import {
   type SlashCommandExecutors,
   type SlashCommandId,
 } from "./slashCommands";
+import { dispatchEditorSkillShortcut } from "./skillShortcutDispatcher";
 
 const IS_VITEST_RUNTIME =
   typeof process !== "undefined" && Boolean(process.env.VITEST);
@@ -441,55 +442,6 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     });
   }
 
-  React.useEffect(() => {
-    if (
-      !editor ||
-      bootstrapStatus !== "ready" ||
-      !documentId ||
-      !contentReady
-    ) {
-      return;
-    }
-
-    const currentEditor = editor;
-    const currentDocumentId = documentId;
-
-    function onKeyDown(e: KeyboardEvent): void {
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) {
-        return;
-      }
-
-      if (e.key.toLowerCase() === "s") {
-        if (isPreviewMode) {
-          e.preventDefault();
-          return;
-        }
-
-        e.preventDefault();
-        const json = JSON.stringify(currentEditor.getJSON());
-        void save({
-          projectId: props.projectId,
-          documentId: currentDocumentId,
-          contentJson: json,
-          actor: "user",
-          reason: "manual-save",
-        });
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
-    bootstrapStatus,
-    contentReady,
-    documentId,
-    editor,
-    isPreviewMode,
-    props.projectId,
-    save,
-  ]);
-
   const runSlashAiSkill = React.useCallback(
     async (skillId: string): Promise<void> => {
       if (
@@ -524,6 +476,71 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   const onWriteClick = React.useCallback(async (): Promise<void> => {
     await runSlashAiSkill("builtin:write");
   }, [runSlashAiSkill]);
+
+  React.useEffect(() => {
+    if (
+      !editor ||
+      bootstrapStatus !== "ready" ||
+      !documentId ||
+      !contentReady
+    ) {
+      return;
+    }
+
+    const currentEditor = editor;
+    const currentDocumentId = documentId;
+
+    function onKeyDown(e: KeyboardEvent): void {
+      const shortcutResult = dispatchEditorSkillShortcut(e, {
+        continueWriting: () => {
+          e.preventDefault();
+          void onWriteClick();
+        },
+        polish: () => {
+          e.preventDefault();
+          void runSlashAiSkill("builtin:polish");
+        },
+      });
+      if (shortcutResult.matched) {
+        return;
+      }
+
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) {
+        return;
+      }
+
+      if (e.key.toLowerCase() === "s") {
+        if (isPreviewMode) {
+          e.preventDefault();
+          return;
+        }
+
+        e.preventDefault();
+        const json = JSON.stringify(currentEditor.getJSON());
+        void save({
+          projectId: props.projectId,
+          documentId: currentDocumentId,
+          contentJson: json,
+          actor: "user",
+          reason: "manual-save",
+        });
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    bootstrapStatus,
+    contentReady,
+    documentId,
+    editor,
+    isPreviewMode,
+    onWriteClick,
+    props.projectId,
+    runSlashAiSkill,
+    save,
+  ]);
 
   const handleSlashCommandSelect = React.useCallback(
     (commandId: SlashCommandId) => {

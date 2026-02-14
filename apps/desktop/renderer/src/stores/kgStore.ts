@@ -158,6 +158,8 @@ function toLegacyRelation(relation: RelationResponse): KgRelation {
  * machine deterministic for Windows E2E assertions.
  */
 export function createKgStore(deps: { invoke: IpcInvoke }) {
+  let latestBootstrapRequestId = 0;
+
   async function loadEntities(
     projectId: string,
   ): Promise<IpcInvokeResult<"knowledge:entity:list">> {
@@ -213,6 +215,8 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
         return;
       }
 
+      const requestId = ++latestBootstrapRequestId;
+
       if (!projectId) {
         set({
           projectId: null,
@@ -233,6 +237,13 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
       });
 
       const res = await refreshProjectData(projectId);
+      if (
+        requestId !== latestBootstrapRequestId ||
+        get().projectId !== projectId
+      ) {
+        return;
+      }
+
       if (!res.ok) {
         set({ bootstrapStatus: "error", lastError: res.error });
         return;
@@ -248,11 +259,16 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
 
     refresh: async () => {
       const state = get();
-      if (!state.projectId) {
+      const projectId = state.projectId;
+      if (!projectId) {
         return;
       }
 
-      const res = await refreshProjectData(state.projectId);
+      const res = await refreshProjectData(projectId);
+      if (get().projectId !== projectId) {
+        return;
+      }
+
       if (!res.ok) {
         set({ lastError: res.error });
         return;

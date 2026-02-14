@@ -1,33 +1,23 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-14 22:24
+更新时间：2026-02-14 23:31
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **5**（Sprint 2 Wave1 + Wave2 + Wave3 + Wave4 已完成并归档）。
-- 执行模式：**跨 Wave 并行 + Wave 内按依赖约束串行**。
-- 目标：在 Wave4 基线之上，继续按依赖推进剩余 Wave5/Wave6 change 的 Red/Green 交付。
+- 当前活跃 change 数量为 **0**（Sprint 2 Wave5 + Wave6 已完成并归档）。
+- 执行模式：**无待执行 change**。
+- 目标：保持控制面 `main` 与归档状态一致，等待下一批变更准入。
 
 ## 执行顺序
 
-1. **Wave 5**
-
-- `s2-shortcuts`
-- `s2-debug-channel-gate`
-- `s2-service-error-decouple`
-
-2. **Wave 6**
-
-- `s2-store-race-fix`
-- `s2-memory-panel-error`
+1. 当前无活跃 Wave。
 
 ## 依赖说明
 
-- `s2-shortcuts` 依赖 `s2-write-button` + `s2-bubble-ai`（均已在 Wave3 完成交付并归档，依赖已满足）。
-- 债务组默认独立并行，但进入 Red 前仍必须在各自 `tasks.md` 与 RUN_LOG 落盘“依赖同步检查（Dependency Sync Check）”结论。
-- 跨 Sprint 基线依赖：`s2-service-error-decouple` 依赖 `s1-ai-service-extract`。
+- Wave5/Wave6 所有依赖已在交付期间完成并经主会话审计确认为 `NO_DRIFT`。
+- 新增活跃 change 前，必须重新建立执行拓扑并更新本文件。
 
 ## 维护规则
 

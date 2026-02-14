@@ -2,13 +2,14 @@ import { createHash, randomUUID } from "node:crypto";
 
 import type Database from "better-sqlite3";
 
-import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { VersionDiffStats } from "@shared/types/version-diff";
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "./derive";
 import { applyConflictResolutions, runThreeWayMerge } from "./threeWayMerge";
 import type {
   BranchListItem,
+  DocumentError,
+  DocumentErrorCode,
   DocumentListItem,
   DocumentService,
   DocumentStatus,
@@ -20,7 +21,7 @@ import type {
   VersionSnapshotReason,
 } from "./types";
 
-type Err = { ok: false; error: IpcError };
+type Err = { ok: false; error: DocumentError };
 
 const EMPTY_DOC = {
   type: "doc",
@@ -54,11 +55,15 @@ function nowTs(): number {
 }
 
 /**
- * Build a stable IPC error object.
+ * Build a stable document domain error object.
  *
- * Why: services must return deterministic error codes/messages for IPC tests.
+ * Why: services return domain errors and keep IPC transport concerns outside.
  */
-function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
+function documentError(
+  code: DocumentErrorCode,
+  message: string,
+  details?: unknown,
+): Err {
   return { ok: false, error: { code, message, details } };
 }
 
@@ -265,7 +270,7 @@ function serializeJson(value: unknown): ServiceResult<string> {
   try {
     return { ok: true, data: JSON.stringify(value) };
   } catch (error) {
-    return ipcError(
+    return documentError(
       "ENCODING_FAILED",
       "Failed to encode document JSON",
       error instanceof Error ? { message: error.message } : { error },
@@ -287,7 +292,7 @@ function normalizeDocumentType(
   if (DOCUMENT_TYPE_SET.has(type as DocumentType)) {
     return { ok: true, data: type as DocumentType };
   }
-  return ipcError("INVALID_ARGUMENT", "Unsupported document type");
+  return documentError("INVALID_ARGUMENT", "Unsupported document type");
 }
 
 /**
@@ -299,12 +304,12 @@ function normalizeDocumentStatus(
   status: string | undefined,
 ): ServiceResult<DocumentStatus> {
   if (!status) {
-    return ipcError("INVALID_ARGUMENT", "status is required");
+    return documentError("INVALID_ARGUMENT", "status is required");
   }
   if (DOCUMENT_STATUS_SET.has(status as DocumentStatus)) {
     return { ok: true, data: status as DocumentStatus };
   }
-  return ipcError("INVALID_ARGUMENT", "Unsupported document status");
+  return documentError("INVALID_ARGUMENT", "Unsupported document status");
 }
 
 /**
@@ -466,15 +471,15 @@ function readCurrentDocumentId(
       >("SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?")
       .get(scope, CURRENT_DOCUMENT_ID_KEY);
     if (!row) {
-      return ipcError("NOT_FOUND", "No current document");
+      return documentError("NOT_FOUND", "No current document");
     }
     const parsed: unknown = JSON.parse(row.valueJson);
     if (typeof parsed !== "string" || parsed.trim().length === 0) {
-      return ipcError("DB_ERROR", "Invalid current document setting");
+      return documentError("DB_ERROR", "Invalid current document setting");
     }
     return { ok: true, data: parsed };
   } catch (error) {
-    return ipcError(
+    return documentError(
       "DB_ERROR",
       "Failed to read current document setting",
       error instanceof Error ? { message: error.message } : { error },
@@ -501,7 +506,7 @@ function writeCurrentDocumentId(
     ).run(scope, CURRENT_DOCUMENT_ID_KEY, JSON.stringify(documentId), ts);
     return { ok: true, data: true };
   } catch (error) {
-    return ipcError(
+    return documentError(
       "DB_ERROR",
       "Failed to persist current document",
       error instanceof Error ? { message: error.message } : { error },
@@ -527,7 +532,7 @@ function clearCurrentDocumentId(
     );
     return { ok: true, data: true };
   } catch (error) {
-    return ipcError(
+    return documentError(
       "DB_ERROR",
       "Failed to clear current document",
       error instanceof Error ? { message: error.message } : { error },
@@ -562,15 +567,15 @@ function readCurrentBranchName(
       >("SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?")
       .get(scope, CURRENT_BRANCH_KEY);
     if (!row) {
-      return ipcError("NOT_FOUND", "No current branch");
+      return documentError("NOT_FOUND", "No current branch");
     }
     const parsed: unknown = JSON.parse(row.valueJson);
     if (typeof parsed !== "string" || parsed.trim().length === 0) {
-      return ipcError("DB_ERROR", "Invalid current branch setting");
+      return documentError("DB_ERROR", "Invalid current branch setting");
     }
     return { ok: true, data: parsed };
   } catch (error) {
-    return ipcError(
+    return documentError(
       "DB_ERROR",
       "Failed to read current branch setting",
       error instanceof Error ? { message: error.message } : { error },
@@ -596,7 +601,7 @@ function writeCurrentBranchName(
     ).run(scope, CURRENT_BRANCH_KEY, JSON.stringify(branchName), ts);
     return { ok: true, data: true };
   } catch (error) {
-    return ipcError(
+    return documentError(
       "DB_ERROR",
       "Failed to persist current branch",
       error instanceof Error ? { message: error.message } : { error },
@@ -612,7 +617,7 @@ function writeCurrentBranchName(
 function normalizeBranchName(name: string): ServiceResult<string> {
   const trimmed = name.trim();
   if (!BRANCH_NAME_PATTERN.test(trimmed)) {
-    return ipcError(
+    return documentError(
       "INVALID_ARGUMENT",
       "branch name must match [a-z0-9-]{3,32}",
     );
@@ -795,7 +800,7 @@ export function createDocumentCoreService(args: {
         document_id: params.documentId,
         version_id: params.versionId,
       });
-      return ipcError(
+      return documentError(
         code,
         code === "NOT_FOUND"
           ? "Version not found"
@@ -821,11 +826,11 @@ export function createDocumentCoreService(args: {
         >("SELECT branch_id as id, document_id as documentId, name, base_snapshot_id as baseSnapshotId, head_snapshot_id as headSnapshotId, created_by as createdBy, created_at as createdAt FROM document_branches WHERE document_id = ? AND name = ?")
         .get(params.documentId, params.name);
       if (!row) {
-        return ipcError("NOT_FOUND", "Branch not found");
+        return documentError("NOT_FOUND", "Branch not found");
       }
       return { ok: true, data: row };
     } catch (error) {
-      return ipcError(
+      return documentError(
         "DB_ERROR",
         "Failed to read branch",
         error instanceof Error ? { message: error.message } : { error },
@@ -939,7 +944,7 @@ export function createDocumentCoreService(args: {
         error instanceof Error && error.message === "NOT_FOUND"
           ? ("NOT_FOUND" as const)
           : ("DB_ERROR" as const);
-      return ipcError(
+      return documentError(
         code,
         code === "NOT_FOUND"
           ? "Document not found"
@@ -948,7 +953,7 @@ export function createDocumentCoreService(args: {
     }
 
     if (!created) {
-      return ipcError("DB_ERROR", "Failed to ensure main branch");
+      return documentError("DB_ERROR", "Failed to ensure main branch");
     }
     return { ok: true, data: created };
   };
@@ -1084,7 +1089,7 @@ export function createDocumentCoreService(args: {
         error instanceof Error && error.message === "NOT_FOUND"
           ? ("NOT_FOUND" as const)
           : ("DB_ERROR" as const);
-      return ipcError(
+      return documentError(
         code,
         code === "NOT_FOUND"
           ? "Branch or document not found"
@@ -1158,7 +1163,7 @@ export function createDocumentCoreService(args: {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
         });
-        return ipcError("DB_ERROR", "Failed to create document");
+        return documentError("DB_ERROR", "Failed to create document");
       }
     },
 
@@ -1184,7 +1189,7 @@ export function createDocumentCoreService(args: {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
         });
-        return ipcError("DB_ERROR", "Failed to list documents");
+        return documentError("DB_ERROR", "Failed to list documents");
       }
     },
 
@@ -1197,7 +1202,7 @@ export function createDocumentCoreService(args: {
           >("SELECT document_id as documentId, project_id as projectId, type, title, status, sort_order as sortOrder, parent_id as parentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, created_at as createdAt, updated_at as updatedAt FROM documents WHERE project_id = ? AND document_id = ?")
           .get(projectId, documentId);
         if (!row) {
-          return ipcError("NOT_FOUND", "Document not found");
+          return documentError("NOT_FOUND", "Document not found");
         }
 
         return {
@@ -1212,7 +1217,7 @@ export function createDocumentCoreService(args: {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
         });
-        return ipcError("DB_ERROR", "Failed to read document");
+        return documentError("DB_ERROR", "Failed to read document");
       }
     },
 
@@ -1226,7 +1231,10 @@ export function createDocumentCoreService(args: {
       parentId,
     }) => {
       if (projectId.trim().length === 0 || documentId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
+        return documentError(
+          "INVALID_ARGUMENT",
+          "projectId/documentId is required",
+        );
       }
 
       const setParts: string[] = [];
@@ -1235,10 +1243,10 @@ export function createDocumentCoreService(args: {
       if (title !== undefined) {
         const trimmedTitle = title.trim();
         if (trimmedTitle.length === 0) {
-          return ipcError("INVALID_ARGUMENT", "title is required");
+          return documentError("INVALID_ARGUMENT", "title is required");
         }
         if (trimmedTitle.length > MAX_TITLE_LENGTH) {
-          return ipcError(
+          return documentError(
             "INVALID_ARGUMENT",
             `title too long (max ${MAX_TITLE_LENGTH})`,
           );
@@ -1267,7 +1275,7 @@ export function createDocumentCoreService(args: {
 
       if (sortOrder !== undefined) {
         if (!Number.isInteger(sortOrder) || sortOrder < 0) {
-          return ipcError(
+          return documentError(
             "INVALID_ARGUMENT",
             "sortOrder must be a non-negative integer",
           );
@@ -1278,14 +1286,17 @@ export function createDocumentCoreService(args: {
 
       if (parentId !== undefined) {
         if (parentId.trim().length === 0) {
-          return ipcError("INVALID_ARGUMENT", "parentId must be non-empty");
+          return documentError(
+            "INVALID_ARGUMENT",
+            "parentId must be non-empty",
+          );
         }
         setParts.push("parent_id = ?");
         params.push(parentId);
       }
 
       if (setParts.length === 0) {
-        return ipcError(
+        return documentError(
           "INVALID_ARGUMENT",
           "at least one mutable field is required",
         );
@@ -1302,7 +1313,7 @@ export function createDocumentCoreService(args: {
         );
         const res = stmt.run(...params);
         if (res.changes === 0) {
-          return ipcError("NOT_FOUND", "Document not found");
+          return documentError("NOT_FOUND", "Document not found");
         }
 
         args.logger.info("document_updated", { document_id: documentId });
@@ -1312,13 +1323,13 @@ export function createDocumentCoreService(args: {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
         });
-        return ipcError("DB_ERROR", "Failed to update document");
+        return documentError("DB_ERROR", "Failed to update document");
       }
     },
 
     save: ({ projectId, documentId, contentJson, actor, reason }) => {
       if (!isReasonValidForActor(actor, reason)) {
-        return ipcError("INVALID_ARGUMENT", "actor/reason mismatch");
+        return documentError("INVALID_ARGUMENT", "actor/reason mismatch");
       }
 
       const derived = deriveContent({ contentJson });
@@ -1495,7 +1506,7 @@ export function createDocumentCoreService(args: {
           message: error instanceof Error ? error.message : String(error),
           document_id: documentId,
         });
-        return ipcError(
+        return documentError(
           code,
           code === "NOT_FOUND"
             ? "Document not found"
@@ -1518,7 +1529,10 @@ export function createDocumentCoreService(args: {
 
     delete: ({ projectId, documentId }) => {
       if (projectId.trim().length === 0 || documentId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
+        return documentError(
+          "INVALID_ARGUMENT",
+          "projectId/documentId is required",
+        );
       }
 
       const scope = getProjectSettingsScope(projectId);
@@ -1631,7 +1645,7 @@ export function createDocumentCoreService(args: {
           message: error instanceof Error ? error.message : String(error),
           document_id: documentId,
         });
-        return ipcError(
+        return documentError(
           code,
           code === "NOT_FOUND"
             ? "Document not found"
@@ -1642,15 +1656,18 @@ export function createDocumentCoreService(args: {
 
     reorder: ({ projectId, orderedDocumentIds }) => {
       if (projectId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "projectId is required");
+        return documentError("INVALID_ARGUMENT", "projectId is required");
       }
       if (orderedDocumentIds.length === 0) {
-        return ipcError("INVALID_ARGUMENT", "orderedDocumentIds is required");
+        return documentError(
+          "INVALID_ARGUMENT",
+          "orderedDocumentIds is required",
+        );
       }
 
       const unique = new Set(orderedDocumentIds);
       if (unique.size !== orderedDocumentIds.length) {
-        return ipcError(
+        return documentError(
           "INVALID_ARGUMENT",
           "orderedDocumentIds must not contain duplicates",
         );
@@ -1676,7 +1693,7 @@ export function createDocumentCoreService(args: {
           error instanceof Error && error.message === "NOT_FOUND"
             ? ("NOT_FOUND" as const)
             : ("DB_ERROR" as const);
-        return ipcError(
+        return documentError(
           code,
           code === "NOT_FOUND"
             ? "Document not found"
@@ -1687,7 +1704,10 @@ export function createDocumentCoreService(args: {
 
     updateStatus: ({ projectId, documentId, status }) => {
       if (projectId.trim().length === 0 || documentId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
+        return documentError(
+          "INVALID_ARGUMENT",
+          "projectId/documentId is required",
+        );
       }
       const normalized = normalizeDocumentStatus(status);
       if (!normalized.ok) {
@@ -1745,7 +1765,7 @@ export function createDocumentCoreService(args: {
           error instanceof Error && error.message === "NOT_FOUND"
             ? ("NOT_FOUND" as const)
             : ("DB_ERROR" as const);
-        return ipcError(
+        return documentError(
           code,
           code === "NOT_FOUND"
             ? "Document not found"
@@ -1756,7 +1776,7 @@ export function createDocumentCoreService(args: {
 
     getCurrent: ({ projectId }) => {
       if (projectId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "projectId is required");
+        return documentError("INVALID_ARGUMENT", "projectId is required");
       }
 
       const current = readCurrentDocumentId(args.db, projectId);
@@ -1773,7 +1793,7 @@ export function createDocumentCoreService(args: {
           .get(projectId, current.data);
         if (!exists) {
           void clearCurrentDocumentId(args.db, projectId);
-          return ipcError("NOT_FOUND", "Current document not found");
+          return documentError("NOT_FOUND", "Current document not found");
         }
 
         return { ok: true, data: { documentId: current.data } };
@@ -1782,13 +1802,16 @@ export function createDocumentCoreService(args: {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
         });
-        return ipcError("DB_ERROR", "Failed to resolve current document");
+        return documentError("DB_ERROR", "Failed to resolve current document");
       }
     },
 
     setCurrent: ({ projectId, documentId }) => {
       if (projectId.trim().length === 0 || documentId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "projectId/documentId is required");
+        return documentError(
+          "INVALID_ARGUMENT",
+          "projectId/documentId is required",
+        );
       }
 
       try {
@@ -1799,14 +1822,14 @@ export function createDocumentCoreService(args: {
           >("SELECT document_id as documentId FROM documents WHERE project_id = ? AND document_id = ?")
           .get(projectId, documentId);
         if (!exists) {
-          return ipcError("NOT_FOUND", "Document not found");
+          return documentError("NOT_FOUND", "Document not found");
         }
       } catch (error) {
         args.logger.error("document_set_current_lookup_failed", {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
         });
-        return ipcError("DB_ERROR", "Failed to load document");
+        return documentError("DB_ERROR", "Failed to load document");
       }
 
       const persisted = writeCurrentDocumentId(args.db, projectId, documentId);
@@ -1835,7 +1858,7 @@ export function createDocumentCoreService(args: {
           code: "DB_ERROR",
           message: error instanceof Error ? error.message : String(error),
         });
-        return ipcError("DB_ERROR", "Failed to list versions");
+        return documentError("DB_ERROR", "Failed to list versions");
       }
     },
 
@@ -1848,7 +1871,7 @@ export function createDocumentCoreService(args: {
           >("SELECT document_id as documentId, project_id as projectId, version_id as versionId, actor, reason, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, created_at as createdAt FROM document_versions WHERE document_id = ? AND version_id = ?")
           .get(documentId, versionId);
         if (!row) {
-          return ipcError("NOT_FOUND", "Version not found");
+          return documentError("NOT_FOUND", "Version not found");
         }
 
         args.logger.info("version_read", {
@@ -1863,7 +1886,7 @@ export function createDocumentCoreService(args: {
           document_id: documentId,
           version_id: versionId,
         });
-        return ipcError("DB_ERROR", "Failed to read version");
+        return documentError("DB_ERROR", "Failed to read version");
       }
     },
 
@@ -1876,7 +1899,7 @@ export function createDocumentCoreService(args: {
           >("SELECT actor, content_text as contentText FROM document_versions WHERE document_id = ? AND version_id = ?")
           .get(documentId, baseVersionId);
         if (!base) {
-          return ipcError("NOT_FOUND", "Version not found");
+          return documentError("NOT_FOUND", "Version not found");
         }
 
         let targetText = "";
@@ -1890,7 +1913,7 @@ export function createDocumentCoreService(args: {
             >("SELECT actor, content_text as contentText FROM document_versions WHERE document_id = ? AND version_id = ?")
             .get(documentId, targetVersionId);
           if (!target) {
-            return ipcError("NOT_FOUND", "Target version not found");
+            return documentError("NOT_FOUND", "Target version not found");
           }
           targetText = target.contentText;
           targetActor = target.actor;
@@ -1902,7 +1925,7 @@ export function createDocumentCoreService(args: {
             >("SELECT content_text as contentText FROM documents WHERE document_id = ?")
             .get(documentId);
           if (!current) {
-            return ipcError("NOT_FOUND", "Document not found");
+            return documentError("NOT_FOUND", "Document not found");
           }
           targetText = current.contentText;
         }
@@ -1911,7 +1934,7 @@ export function createDocumentCoreService(args: {
           Buffer.byteLength(base.contentText, "utf8") +
           Buffer.byteLength(targetText, "utf8");
         if (payloadBytes > maxDiffPayloadBytes) {
-          return ipcError(
+          return documentError(
             "VERSION_DIFF_PAYLOAD_TOO_LARGE",
             "Diff payload exceeds size limit",
             {
@@ -1944,13 +1967,16 @@ export function createDocumentCoreService(args: {
           version_id: baseVersionId,
           target_version_id: targetVersionId,
         });
-        return ipcError("DB_ERROR", "Failed to compute version diff");
+        return documentError("DB_ERROR", "Failed to compute version diff");
       }
     },
 
     createBranch: ({ documentId, name, createdBy }) => {
       if (documentId.trim().length === 0 || createdBy.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "documentId/createdBy is required");
+        return documentError(
+          "INVALID_ARGUMENT",
+          "documentId/createdBy is required",
+        );
       }
 
       const normalizedName = normalizeBranchName(name);
@@ -1997,9 +2023,9 @@ export function createDocumentCoreService(args: {
           error instanceof Error &&
           error.message.includes("UNIQUE constraint failed")
         ) {
-          return ipcError("ALREADY_EXISTS", "Branch already exists");
+          return documentError("ALREADY_EXISTS", "Branch already exists");
         }
-        return ipcError(
+        return documentError(
           "DB_ERROR",
           "Failed to create branch",
           error instanceof Error ? { message: error.message } : { error },
@@ -2025,7 +2051,7 @@ export function createDocumentCoreService(args: {
 
     listBranches: ({ documentId }) => {
       if (documentId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "documentId is required");
+        return documentError("INVALID_ARGUMENT", "documentId is required");
       }
 
       const ensured = ensureMainBranch({ documentId, createdBy: "system" });
@@ -2052,7 +2078,7 @@ export function createDocumentCoreService(args: {
           },
         };
       } catch (error) {
-        return ipcError(
+        return documentError(
           "DB_ERROR",
           "Failed to list branches",
           error instanceof Error ? { message: error.message } : { error },
@@ -2062,7 +2088,7 @@ export function createDocumentCoreService(args: {
 
     switchBranch: ({ documentId, name }) => {
       if (documentId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "documentId is required");
+        return documentError("INVALID_ARGUMENT", "documentId is required");
       }
 
       const normalizedName = normalizeBranchName(name);
@@ -2127,7 +2153,7 @@ export function createDocumentCoreService(args: {
           error instanceof Error && error.message === "NOT_FOUND"
             ? ("NOT_FOUND" as const)
             : ("DB_ERROR" as const);
-        return ipcError(
+        return documentError(
           code,
           code === "NOT_FOUND"
             ? "Branch head snapshot not found"
@@ -2151,7 +2177,7 @@ export function createDocumentCoreService(args: {
       timeoutMs,
     }) => {
       if (documentId.trim().length === 0) {
-        return ipcError("INVALID_ARGUMENT", "documentId is required");
+        return documentError("INVALID_ARGUMENT", "documentId is required");
       }
 
       const source = normalizeBranchName(sourceBranchName);
@@ -2163,7 +2189,7 @@ export function createDocumentCoreService(args: {
         return target;
       }
       if (source.data === target.data) {
-        return ipcError(
+        return documentError(
           "INVALID_ARGUMENT",
           "sourceBranchName and targetBranchName must differ",
         );
@@ -2171,9 +2197,13 @@ export function createDocumentCoreService(args: {
 
       const effectiveTimeoutMs = timeoutMs ?? DEFAULT_BRANCH_MERGE_TIMEOUT_MS;
       if (effectiveTimeoutMs <= 0) {
-        return ipcError("VERSION_MERGE_TIMEOUT", "Branch merge timed out", {
-          timeoutMs: effectiveTimeoutMs,
-        });
+        return documentError(
+          "VERSION_MERGE_TIMEOUT",
+          "Branch merge timed out",
+          {
+            timeoutMs: effectiveTimeoutMs,
+          },
+        );
       }
 
       const startedAt = nowTs();
@@ -2220,13 +2250,13 @@ export function createDocumentCoreService(args: {
           >("SELECT project_id as projectId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM document_versions WHERE document_id = ? AND version_id = ?")
           .get(documentId, sourceBranch.data.headSnapshotId);
         if (!base || !ours || !theirs) {
-          return ipcError("NOT_FOUND", "Branch snapshot not found");
+          return documentError("NOT_FOUND", "Branch snapshot not found");
         }
         baseText = base.contentText;
         oursText = ours.contentText;
         theirsText = theirs.contentText;
       } catch (error) {
-        return ipcError(
+        return documentError(
           "DB_ERROR",
           "Failed to load branch snapshots",
           error instanceof Error ? { message: error.message } : { error },
@@ -2240,9 +2270,13 @@ export function createDocumentCoreService(args: {
         createConflictId: () => randomUUID(),
       });
       if (nowTs() - startedAt > effectiveTimeoutMs) {
-        return ipcError("VERSION_MERGE_TIMEOUT", "Branch merge timed out", {
-          timeoutMs: effectiveTimeoutMs,
-        });
+        return documentError(
+          "VERSION_MERGE_TIMEOUT",
+          "Branch merge timed out",
+          {
+            timeoutMs: effectiveTimeoutMs,
+          },
+        );
       }
 
       if (merge.conflicts.length > 0) {
@@ -2285,14 +2319,14 @@ export function createDocumentCoreService(args: {
             }
           })();
         } catch (error) {
-          return ipcError(
+          return documentError(
             "DB_ERROR",
             "Failed to persist merge conflict session",
             error instanceof Error ? { message: error.message } : { error },
           );
         }
 
-        return ipcError("CONFLICT", "Merge conflict detected", {
+        return documentError("CONFLICT", "Merge conflict detected", {
           mergeSessionId,
           conflicts: merge.conflicts.map((item) => ({
             conflictId: item.conflictId,
@@ -2316,7 +2350,7 @@ export function createDocumentCoreService(args: {
         documentId.trim().length === 0 ||
         mergeSessionId.trim().length === 0
       ) {
-        return ipcError(
+        return documentError(
           "INVALID_ARGUMENT",
           "documentId/mergeSessionId is required",
         );
@@ -2332,7 +2366,7 @@ export function createDocumentCoreService(args: {
           >("SELECT merge_session_id as mergeSessionId, source_branch_name as sourceBranchName, target_branch_name as targetBranchName, merged_template_text as mergedTemplateText FROM document_merge_sessions WHERE document_id = ? AND merge_session_id = ?")
           .get(documentId, mergeSessionId);
         if (!session) {
-          return ipcError("NOT_FOUND", "Merge session not found");
+          return documentError("NOT_FOUND", "Merge session not found");
         }
 
         conflicts = args.db
@@ -2342,7 +2376,7 @@ export function createDocumentCoreService(args: {
           >("SELECT conflict_id as conflictId, conflict_index as conflictIndex, base_text as baseText, ours_text as oursText, theirs_text as theirsText FROM document_merge_conflicts WHERE document_id = ? AND merge_session_id = ? ORDER BY conflict_index ASC")
           .all(documentId, mergeSessionId);
       } catch (error) {
-        return ipcError(
+        return documentError(
           "DB_ERROR",
           "Failed to load merge session",
           error instanceof Error ? { message: error.message } : { error },
@@ -2355,7 +2389,7 @@ export function createDocumentCoreService(args: {
         resolutions,
       });
       if (!resolved.ok) {
-        return ipcError("INVALID_ARGUMENT", resolved.message, {
+        return documentError("INVALID_ARGUMENT", resolved.message, {
           code: resolved.code,
         });
       }

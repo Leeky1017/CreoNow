@@ -8,6 +8,8 @@ export type {
   BranchConflictResolutionInput,
   BranchListItem,
   BranchMergeConflict,
+  DocumentError,
+  DocumentErrorCode,
   DocumentListItem,
   DocumentRead,
   DocumentService,

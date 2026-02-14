@@ -18,7 +18,7 @@ describe("ping dead-code cleanup", () => {
     ).not.toBe(-1);
 
     const pingBlockEnd = indexSource.indexOf(
-      'guardedIpcMain.handle(\n    "db:debug:tablenames",',
+      "registerDbDebugIpcHandlers({",
       pingBlockStart,
     );
     expect(

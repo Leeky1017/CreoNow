@@ -1,12 +1,29 @@
 import type Database from "better-sqlite3";
 
-import type { IpcError } from "@shared/types/ipc-generated";
 import type { VersionDiffPayload } from "@shared/types/version-diff";
 import type { Logger } from "../../logging/logger";
 import type { ConflictResolutionInput } from "./threeWayMerge";
 
 type Ok<T> = { ok: true; data: T };
-type Err = { ok: false; error: IpcError };
+export type DocumentErrorCode =
+  | "ALREADY_EXISTS"
+  | "CONFLICT"
+  | "DB_ERROR"
+  | "ENCODING_FAILED"
+  | "INVALID_ARGUMENT"
+  | "NOT_FOUND"
+  | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
+  | "VERSION_MERGE_TIMEOUT";
+
+export type DocumentError = {
+  code: DocumentErrorCode;
+  message: string;
+  traceId?: string;
+  details?: unknown;
+  retryable?: boolean;
+};
+
+type Err = { ok: false; error: DocumentError };
 export type ServiceResult<T> = Ok<T> | Err;
 
 export type DocumentType =

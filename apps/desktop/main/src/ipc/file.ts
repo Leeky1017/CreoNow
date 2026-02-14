@@ -1,10 +1,11 @@
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
-import type { IpcResponse } from "@shared/types/ipc-generated";
+import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import {
   createDocumentService,
+  type DocumentError,
   type DocumentStatus,
   type DocumentType,
 } from "../services/documents/documentService";
@@ -17,6 +18,16 @@ type Actor = "user" | "auto" | "ai";
 type SaveReason = "manual-save" | "autosave" | "ai-accept" | "status-change";
 
 const WORDS_PER_SECOND = 3;
+
+export function mapDocumentErrorToIpcError(error: DocumentError): IpcError {
+  return {
+    code: error.code,
+    message: error.message,
+    traceId: error.traceId,
+    details: error.details,
+    retryable: error.retryable,
+  };
+}
 
 function isSaveReasonValidForActor(actor: Actor, reason: SaveReason): boolean {
   if (actor === "auto") {
@@ -97,7 +108,7 @@ export function registerFileIpcHandlers(deps: {
 
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 
@@ -136,7 +147,7 @@ export function registerFileIpcHandlers(deps: {
       const res = svc.list({ projectId: payload.projectId });
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 
@@ -188,7 +199,7 @@ export function registerFileIpcHandlers(deps: {
       });
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 
@@ -237,7 +248,7 @@ export function registerFileIpcHandlers(deps: {
       });
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 
@@ -398,7 +409,7 @@ export function registerFileIpcHandlers(deps: {
 
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 
@@ -425,7 +436,7 @@ export function registerFileIpcHandlers(deps: {
       const res = svc.getCurrent({ projectId: payload.projectId });
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 
@@ -461,7 +472,7 @@ export function registerFileIpcHandlers(deps: {
       });
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 
@@ -491,7 +502,7 @@ export function registerFileIpcHandlers(deps: {
       });
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 
@@ -532,7 +543,7 @@ export function registerFileIpcHandlers(deps: {
       });
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 
@@ -568,7 +579,7 @@ export function registerFileIpcHandlers(deps: {
       });
       return res.ok
         ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
+        : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
     },
   );
 }

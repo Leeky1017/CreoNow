@@ -21,6 +21,7 @@ import { registerRagIpcHandlers } from "./ipc/rag";
 import { registerSearchIpcHandlers } from "./ipc/search";
 import { registerSkillIpcHandlers } from "./ipc/skills";
 import { registerStatsIpcHandlers } from "./ipc/stats";
+import { registerDbDebugIpcHandlers } from "./ipc/debugChannelGate";
 import { createValidatedIpcMain } from "./ipc/runtime-validation";
 import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
@@ -196,36 +197,12 @@ function registerIpcHandlers(deps: {
     },
   );
 
-  guardedIpcMain.handle(
-    "db:debug:tablenames",
-    async (): Promise<IpcResponse<{ tableNames: string[] }>> => {
-      if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
-      }
-
-      try {
-        const rows = deps.db
-          .prepare<
-            [],
-            { name: string }
-          >("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
-          .all();
-        const tableNames = rows.map((r) => r.name).sort();
-        return { ok: true, data: { tableNames } };
-      } catch (error) {
-        deps.logger.error("db_list_tables_failed", {
-          message: error instanceof Error ? error.message : String(error),
-        });
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Failed to list tables" },
-        };
-      }
-    },
-  );
+  registerDbDebugIpcHandlers({
+    ipcMain: guardedIpcMain,
+    db: deps.db,
+    logger: deps.logger,
+    env: deps.env,
+  });
 
   registerAiIpcHandlers({
     ipcMain: guardedIpcMain,

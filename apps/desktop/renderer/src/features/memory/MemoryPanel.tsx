@@ -23,6 +23,25 @@ const CATEGORY_GROUPS: CategoryGroup[] = [
   { category: "vocabulary", label: "词汇偏好" },
 ];
 
+function normalizePanelLoadError(cause: unknown): IpcError {
+  if (
+    typeof cause === "object" &&
+    cause !== null &&
+    "message" in cause &&
+    typeof cause.message === "string" &&
+    cause.message.trim().length > 0
+  ) {
+    return {
+      code: "INTERNAL_ERROR",
+      message: cause.message,
+    };
+  }
+  return {
+    code: "INTERNAL_ERROR",
+    message: "Memory 面板加载失败",
+  };
+}
+
 function formatUpdatedAt(ts: number | null): string {
   if (!ts || !Number.isFinite(ts)) {
     return "--";
@@ -74,27 +93,32 @@ export function MemoryPanel(): JSX.Element {
     setStatus("loading");
     setError(null);
 
-    const [listRes, settingsRes] = await Promise.all([
-      invoke("memory:semantic:list", { projectId }),
-      invoke("memory:settings:get", {}),
-    ]);
+    try {
+      const [listRes, settingsRes] = await Promise.all([
+        invoke("memory:semantic:list", { projectId }),
+        invoke("memory:settings:get", {}),
+      ]);
 
-    if (!listRes.ok) {
+      if (!listRes.ok) {
+        setStatus("error");
+        setError(listRes.error);
+        return;
+      }
+
+      if (!settingsRes.ok) {
+        setStatus("error");
+        setError(settingsRes.error);
+        return;
+      }
+
+      setRules(listRes.data.items);
+      setConflictCount(listRes.data.conflictQueue.length);
+      setSettings(settingsRes.data);
+      setStatus("ready");
+    } catch (cause) {
       setStatus("error");
-      setError(listRes.error);
-      return;
+      setError(normalizePanelLoadError(cause));
     }
-
-    if (!settingsRes.ok) {
-      setStatus("error");
-      setError(settingsRes.error);
-      return;
-    }
-
-    setRules(listRes.data.items);
-    setConflictCount(listRes.data.conflictQueue.length);
-    setSettings(settingsRes.data);
-    setStatus("ready");
   }, [projectId]);
 
   React.useEffect(() => {
