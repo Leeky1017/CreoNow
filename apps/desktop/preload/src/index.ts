@@ -15,11 +15,13 @@ function isE2EEnabled(): boolean {
     }
   }
 
-  const maybeProcess = (globalThis as {
-    process?: {
-      env?: Record<string, string | undefined>;
-    };
-  }).process;
+  const maybeProcess = (
+    globalThis as {
+      process?: {
+        env?: Record<string, string | undefined>;
+      };
+    }
+  ).process;
 
   return maybeProcess?.env?.CREONOW_E2E === "1";
 }
@@ -41,7 +43,4 @@ contextBridge.exposeInMainWorld("creonow", {
  * We use a separate property because contextBridge objects are frozen
  * and main.tsx needs to manage __CN_E2E__.ready separately.
  */
-contextBridge.exposeInMainWorld(
-  "__CN_E2E_ENABLED__",
-  isE2EEnabled(),
-);
+contextBridge.exposeInMainWorld("__CN_E2E_ENABLED__", isE2EEnabled());
