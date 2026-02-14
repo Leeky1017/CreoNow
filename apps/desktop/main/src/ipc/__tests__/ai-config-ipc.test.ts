@@ -8,6 +8,7 @@ import {
   type SecretStorageAdapter,
   createAiProxySettingsService,
 } from "../../services/ai/aiProxySettingsService";
+import { registerAiIpcHandlers } from "../ai";
 import { registerAiProxyIpcHandlers } from "../aiProxy";
 
 type Handler = (event: unknown, payload: unknown) => Promise<unknown>;
@@ -127,6 +128,58 @@ function createIpcHarness(args?: { secretStorage?: SecretStorageAdapter }): {
       assert.ok(handler, `expected IPC handler ${channel} to be registered`);
       return (await handler({}, payload)) as T;
     },
+  };
+}
+
+function createAiCancelIpcHarness(): {
+  invokeCancel: (
+    payload: { executionId?: string; runId?: string },
+  ) => Promise<{
+    ok: boolean;
+    data?: { canceled: true };
+    error?: { code?: string; message?: string };
+  }>;
+  deprecatedWarnings: Array<{ event: string; data?: Record<string, unknown> }>;
+} {
+  const handlers = new Map<string, Handler>();
+  const deprecatedWarnings: Array<{
+    event: string;
+    data?: Record<string, unknown>;
+  }> = [];
+  const ipcMain = {
+    handle: (channel: string, listener: Handler) => {
+      handlers.set(channel, listener);
+    },
+  } as unknown as IpcMain;
+
+  registerAiIpcHandlers({
+    ipcMain,
+    db: null,
+    userDataDir: "<test-user-data>",
+    builtinSkillsDir: "<test-skills>",
+    logger: {
+      logPath: "<test>",
+      info: (event, data) => {
+        if (event === "deprecated_field") {
+          deprecatedWarnings.push({ event, data });
+        }
+      },
+      error: () => undefined,
+    },
+    env: process.env,
+  });
+
+  return {
+    invokeCancel: async (payload) => {
+      const handler = handlers.get("ai:skill:cancel");
+      assert.ok(handler, "expected IPC handler ai:skill:cancel to be registered");
+      return (await handler({}, payload)) as {
+        ok: boolean;
+        data?: { canceled: true };
+        error?: { code?: string; message?: string };
+      };
+    },
+    deprecatedWarnings,
   };
 }
 
@@ -395,6 +448,54 @@ async function main(): Promise<void> {
       globalThis.fetch = originalFetch;
     }
   });
+
+  // S8
+  await runScenario(
+    "S8 should accept executionId without deprecated warning",
+    async () => {
+      const harness = createAiCancelIpcHarness();
+      const canceled = await harness.invokeCancel({
+        executionId: "exec-s2-new-field",
+      });
+
+      assert.equal(canceled.ok, true);
+      assert.equal(canceled.data?.canceled, true);
+      assert.equal(harness.deprecatedWarnings.length, 0);
+    },
+  );
+
+  // S9
+  await runScenario(
+    "S9 should accept legacy runId and emit deprecated_field warning",
+    async () => {
+      const harness = createAiCancelIpcHarness();
+      const canceled = await harness.invokeCancel({
+        runId: "run-s2-legacy-field",
+      });
+
+      assert.equal(canceled.ok, true);
+      assert.equal(canceled.data?.canceled, true);
+      assert.equal(harness.deprecatedWarnings.length, 1);
+      assert.equal(harness.deprecatedWarnings[0]?.event, "deprecated_field");
+      assert.equal(harness.deprecatedWarnings[0]?.data?.field, "runId");
+    },
+  );
+
+  // S10
+  await runScenario(
+    "S10 should prefer executionId when executionId and runId are both present",
+    async () => {
+      const harness = createAiCancelIpcHarness();
+      const canceled = await harness.invokeCancel({
+        executionId: "exec-s2-primary",
+        runId: "run-s2-legacy-secondary",
+      });
+
+      assert.equal(canceled.ok, true);
+      assert.equal(canceled.data?.canceled, true);
+      assert.equal(harness.deprecatedWarnings.length, 0);
+    },
+  );
 }
 
 await main();

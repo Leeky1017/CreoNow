@@ -631,12 +631,25 @@ function switchCurrentProject(args: {
       },
     } as unknown as IpcMain;
 
+    const deprecatedWarnings: Array<{
+      event: string;
+      data?: Record<string, unknown>;
+    }> = [];
+
     registerSkillIpcHandlers({
       ipcMain,
       db: fixture.db,
       userDataDir: fixture.userDataDir,
       builtinSkillsDir: fixture.builtinSkillsDir,
-      logger: createNoopLogger(),
+      logger: {
+        logPath: "<test>",
+        info: (event, data) => {
+          if (event === "deprecated_field") {
+            deprecatedWarnings.push({ event, data });
+          }
+        },
+        error: () => undefined,
+      },
     });
 
     assert.ok(handlers.has("skill:registry:toggle"));
@@ -645,10 +658,10 @@ function switchCurrentProject(args: {
     const toggleHandler = handlers.get("skill:registry:toggle");
     assert.ok(toggleHandler, "missing handler: skill:registry:toggle");
 
-    const toggled = (await toggleHandler(
+    const toggledWithId = (await toggleHandler(
       {},
       {
-        skillId: "builtin:rewrite",
+        id: "builtin:rewrite",
         enabled: false,
       },
     )) as {
@@ -656,9 +669,45 @@ function switchCurrentProject(args: {
       data?: { id: string; enabled: boolean };
     };
 
-    assert.equal(toggled.ok, true);
-    assert.equal(toggled.data?.id, "builtin:rewrite");
-    assert.equal(toggled.data?.enabled, false);
+    assert.equal(toggledWithId.ok, true);
+    assert.equal(toggledWithId.data?.id, "builtin:rewrite");
+    assert.equal(toggledWithId.data?.enabled, false);
+    assert.equal(deprecatedWarnings.length, 0);
+
+    const toggledWithSkillId = (await toggleHandler(
+      {},
+      {
+        skillId: "builtin:rewrite",
+        enabled: true,
+      },
+    )) as {
+      ok: boolean;
+      data?: { id: string; enabled: boolean };
+    };
+
+    assert.equal(toggledWithSkillId.ok, true);
+    assert.equal(toggledWithSkillId.data?.id, "builtin:rewrite");
+    assert.equal(toggledWithSkillId.data?.enabled, true);
+    assert.equal(deprecatedWarnings.length, 1);
+    assert.equal(deprecatedWarnings[0]?.event, "deprecated_field");
+    assert.equal(deprecatedWarnings[0]?.data?.field, "skillId");
+
+    const toggledWithBoth = (await toggleHandler(
+      {},
+      {
+        id: "builtin:rewrite",
+        skillId: "builtin:continue",
+        enabled: false,
+      },
+    )) as {
+      ok: boolean;
+      data?: { id: string; enabled: boolean };
+    };
+
+    assert.equal(toggledWithBoth.ok, true);
+    assert.equal(toggledWithBoth.data?.id, "builtin:rewrite");
+    assert.equal(toggledWithBoth.data?.enabled, false);
+    assert.equal(deprecatedWarnings.length, 1);
 
     const promoteHandler = handlers.get("skill:custom:update");
     assert.ok(promoteHandler, "missing handler: skill:custom:update");

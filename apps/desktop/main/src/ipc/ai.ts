@@ -838,7 +838,20 @@ export function registerAiIpcHandlers(deps: {
       _e,
       payload: { runId?: string; executionId?: string },
     ): Promise<IpcResponse<{ canceled: true }>> => {
-      const executionId = (payload.executionId ?? payload.runId ?? "").trim();
+      const executionIdValue =
+        typeof payload.executionId === "string"
+          ? payload.executionId.trim()
+          : "";
+      const runIdValue =
+        typeof payload.runId === "string" ? payload.runId.trim() : "";
+      if (executionIdValue.length === 0 && runIdValue.length > 0) {
+        deps.logger.info("deprecated_field", {
+          channel: "ai:skill:cancel",
+          field: "runId",
+        });
+      }
+      const executionId =
+        executionIdValue.length > 0 ? executionIdValue : runIdValue;
       if (executionId.length === 0) {
         return {
           ok: false,
@@ -852,7 +865,7 @@ export function registerAiIpcHandlers(deps: {
       try {
         const res = aiService.cancel({
           executionId,
-          runId: payload.runId,
+          runId: runIdValue.length > 0 ? runIdValue : undefined,
           ts: nowTs(),
         });
         return res.ok

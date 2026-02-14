@@ -126,7 +126,16 @@ export function registerSkillIpcHandlers(deps: {
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
       });
-      const id = payload.id ?? payload.skillId ?? "";
+      const idValue = typeof payload.id === "string" ? payload.id.trim() : "";
+      const skillIdValue =
+        typeof payload.skillId === "string" ? payload.skillId.trim() : "";
+      if (idValue.length === 0 && skillIdValue.length > 0) {
+        deps.logger.info("deprecated_field", {
+          channel: "skill:registry:toggle",
+          field: "skillId",
+        });
+      }
+      const id = idValue.length > 0 ? idValue : skillIdValue;
       const res = svc.toggle({ id, enabled: payload.enabled });
       return res.ok
         ? { ok: true, data: res.data }
