@@ -62,6 +62,8 @@ const cardStyles = [
   "bg-[var(--color-bg-raised)]",
 ].join(" ");
 
+const accountActionComingSoonLabel = "即将推出";
+
 /**
  * Plan badge component
  */
@@ -171,16 +173,24 @@ export function SettingsAccount({
 
           <div className="flex gap-3">
             {account.plan === "free" && (
-              <Button variant="primary" size="sm" onClick={onUpgrade}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={onUpgrade}
+                disabled
+              >
                 Upgrade to Pro
               </Button>
             )}
             {account.plan !== "free" && (
-              <Button variant="secondary" size="sm">
+              <Button variant="secondary" size="sm" disabled>
                 Manage Subscription
               </Button>
             )}
           </div>
+          <Text size="small" color="muted" as="p" className="mt-3">
+            {accountActionComingSoonLabel}
+          </Text>
         </div>
       </div>
 
@@ -200,10 +210,18 @@ export function SettingsAccount({
                 Permanently delete your account and all associated data.
               </Text>
             </div>
-            <Button variant="danger" size="sm" onClick={onDeleteAccount}>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={onDeleteAccount}
+              disabled
+            >
               Delete Account
             </Button>
           </div>
+          <Text size="small" color="muted" as="p" className="mt-3">
+            {accountActionComingSoonLabel}
+          </Text>
         </div>
       </div>
     </div>
