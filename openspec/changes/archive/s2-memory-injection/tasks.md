@@ -39,6 +39,6 @@
 
 ## 6. Evidence
 
-- [ ] 6.1 在 RUN_LOG 记录 Red/Green 关键命令与输出。
-- [ ] 6.2 在 RUN_LOG 记录 Dependency Sync Check 输入、结论与后续动作。
-- [ ] 6.3 在 RUN_LOG 记录与 Scenario 映射一致的测试证据。
+- [x] 6.1 在 RUN_LOG 记录 Red/Green 关键命令与输出。
+- [x] 6.2 在 RUN_LOG 记录 Dependency Sync Check 输入、结论与后续动作。
+- [x] 6.3 在 RUN_LOG 记录与 Scenario 映射一致的测试证据。

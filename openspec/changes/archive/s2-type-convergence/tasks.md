@@ -15,7 +15,7 @@
 
 - [x] 3.1 编写类型重复定义检测用例（或静态断言）并确认失败
 - [x] 3.2 编写类型来源收敛验证用例并确认失败
-- [ ] 3.3 运行 `pnpm tsc --noEmit` 相关路径并记录 Red 证据
+- [x] 3.3 运行 `pnpm tsc --noEmit` 相关路径并记录 Red 证据
 
 ## 4. Green（最小实现通过）
 
@@ -29,6 +29,6 @@
 
 ## 6. Evidence
 
-- [ ] 6.1 记录 RUN_LOG（含 Red 失败证据、Green 通过证据与关键命令输出）
-- [ ] 6.2 记录 Dependency Sync Check 的输入、核对结论与后续动作（无漂移/已更新）
-- [ ] 6.3 记录 Main Session Audit（Audit-Owner/Reviewed-HEAD-SHA=签字提交 HEAD^/三项 PASS/Blocking-Issues=0/Decision=ACCEPT），并确认签字提交仅变更当前任务 RUN_LOG
+- [x] 6.1 记录 RUN_LOG（含 Red 失败证据、Green 通过证据与关键命令输出）
+- [x] 6.2 记录 Dependency Sync Check 的输入、核对结论与后续动作（无漂移/已更新）
+- [x] 6.3 记录 Main Session Audit（Audit-Owner/Reviewed-HEAD-SHA=签字提交 HEAD^/三项 PASS/Blocking-Issues=0/Decision=ACCEPT），并确认签字提交仅变更当前任务 RUN_LOG
