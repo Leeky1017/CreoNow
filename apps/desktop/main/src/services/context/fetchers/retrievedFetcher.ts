@@ -43,7 +43,9 @@ export function createRetrievedFetcher(
           warnings: [KG_UNAVAILABLE_WARNING],
         };
       }
-      entities = listed.data.items;
+      entities = listed.data.items.filter(
+        (entity) => entity.aiContextLevel === "when_detected",
+      );
     } catch {
       return {
         chunks: [],
@@ -84,7 +86,7 @@ export function createRetrievedFetcher(
     const chunks = matches
       .map((match) => {
         const entity = entitiesById.get(match.entityId);
-        if (!entity) {
+        if (!entity || entity.aiContextLevel !== "when_detected") {
           return null;
         }
         return {
