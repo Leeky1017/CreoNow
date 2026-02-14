@@ -153,6 +153,19 @@
   - 根因：RUN_LOG 记录的 `Reviewed-HEAD-SHA` 存在字符级误差
   - 修复：回填精确 `HEAD^` 值后重跑 preflight
 
+### 2026-02-14 14:15 preflight 二次阻断修复（签字提交链更新）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `git rev-parse HEAD^`
+- Exit code:
+  - preflight: `1`
+  - `rev-parse`: `0`
+- Key output:
+  - 阻断信息：`[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`
+  - 根因：补丁提交后 `HEAD^` 变化，RUN_LOG 未同步为最新签字链
+  - 修复：将 `Reviewed-HEAD-SHA` 更新为最新 `HEAD^`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -167,7 +180,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: a0243e8e5e834bcce2457e309021edcc0cb6d30d
+- Reviewed-HEAD-SHA: 3d1644e69dd7f833f945f3375f573445ab6fdef5
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
