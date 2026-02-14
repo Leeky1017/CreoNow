@@ -1,0 +1,36 @@
+## 1. Specification
+
+- [ ] 1.1 审阅 `unified-roadmap` 中 AR-C14 的范围、边界与依赖
+- [ ] 1.2 审阅 `skill-system` 主 spec 中内置技能与加载约束
+- [ ] 1.3 完成 `skill-system-delta.md` 的 Requirement/Scenario 固化
+- [ ] 1.4 完成依赖同步检查（Dependency Sync Check）并记录 `NO_DRIFT/DRIFT` 结论
+
+## 2. TDD Mapping（先测前提）
+
+- [ ] 2.1 将 delta spec 每个 Scenario 映射为至少一个测试
+- [ ] 2.2 为测试标注 Scenario ID（S2-WS-1/2）并建立追踪关系
+- [ ] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
+
+## 3. Red（先写失败测试）
+
+- [ ] 3.1 编写“5 个写作技能均可被 loader 发现”的失败测试
+- [ ] 3.2 编写“技能文档字段缺失时返回可诊断失败”的失败测试
+- [ ] 3.3 运行目标测试并记录 Red 失败证据
+
+## 4. Green（最小实现通过）
+
+- [ ] 4.1 补齐 write/expand/describe/shrink/dialogue 的 SKILL.md
+- [ ] 4.2 仅实现让 Red 转绿所需的最小改动
+- [ ] 4.3 复跑映射测试并确认全部转绿
+
+## 5. Refactor（保持绿灯）
+
+- [ ] 5.1 统一写作技能文档结构与命名，去除重复描述
+- [ ] 5.2 清理无关噪音文本，保持对外契约不变
+- [ ] 5.3 复跑相关回归测试确保无行为回退
+
+## 6. Evidence
+
+- [ ] 6.1 在 RUN_LOG 记录 Red/Green 命令与关键输出
+- [ ] 6.2 记录依赖同步检查（Dependency Sync Check）的输入、结论与后续动作
+- [ ] 6.3 记录 Scenario→测试映射与防治标签落实结果
