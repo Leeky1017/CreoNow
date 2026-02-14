@@ -75,6 +75,9 @@ type SkillExecutorDeps = {
     provider?: string;
     model?: string;
   }) => Promise<ContextAssembleResult>;
+  logger?: {
+    warn: (event: string, data?: Record<string, unknown>) => void;
+  };
 };
 
 /**
@@ -145,6 +148,19 @@ function renderUserPrompt(args: { template: string; input: string }): string {
     return args.input;
   }
   return `${args.template}\n\n${args.input}`;
+}
+
+/**
+ * Normalize unknown error values for structured warning logging.
+ */
+function normalizeErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string") {
+    return error;
+  }
+  return String(error);
 }
 
 /**
@@ -247,6 +263,7 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
             : args.input;
 
       let contextPrompt: string | undefined;
+      const contextAssemblyExecutionId = `${args.skillId}:${args.ts}`;
       try {
         const assembled = await assembleContextPrompt({
           assembleContext: deps.assembleContext,
@@ -256,8 +273,12 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
         if (assembled && assembled.prompt.trim().length > 0) {
           contextPrompt = assembled.prompt;
         }
-      } catch {
-        // Context is best-effort in executor; upstream IPC context channel keeps strict errors.
+      } catch (error) {
+        deps.logger?.warn("context_assembly_degraded", {
+          executionId: contextAssemblyExecutionId,
+          skillId: args.skillId,
+          error: normalizeErrorMessage(error),
+        });
       }
 
       const systemPrompt = resolved.data.prompt?.system ?? "";

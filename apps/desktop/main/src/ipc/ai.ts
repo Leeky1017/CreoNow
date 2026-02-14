@@ -518,6 +518,9 @@ export function registerAiIpcHandlers(deps: {
     assembleContext: async (args) => {
       return await contextAssemblyService.assemble(args);
     },
+    logger: {
+      warn: (event, data) => deps.logger.info(event, data),
+    },
   });
 
   /**

@@ -253,7 +253,7 @@ function createNoopEmitter(): (event: AiStreamEvent) => void {
         data: { executionId: "ex-3", runId: "run-3", outputText: "ok" },
       } satisfies SkillRunResult;
     },
-  } as unknown as Parameters<typeof createSkillExecutor>[0]);
+  });
 
   const result = await executor.execute({
     skillId: "custom:chapter-outline-refine",
@@ -271,4 +271,127 @@ function createNoopEmitter(): (event: AiStreamEvent) => void {
   }
   assert.equal(result.error.code, "SKILL_DEPENDENCY_MISSING");
   assert.equal(llmCallCount, 0);
+}
+
+/**
+ * S5: context 组装失败降级但可观测 [ADDED]
+ * should emit context_assembly_degraded warning with executionId/skillId/error and continue execution
+ */
+{
+  const warnings: Array<{
+    event: string;
+    data: Record<string, unknown> | undefined;
+  }> = [];
+
+  const executor = createSkillExecutor({
+    resolveSkill: (skillId: string) => ({
+      ok: true,
+      data: {
+        id: skillId,
+        enabled: true,
+        valid: true,
+        inputType: "document",
+        prompt: {
+          system: "continue-system",
+          user: "Continue:\n{{input}}",
+        },
+      },
+    }),
+    assembleContext: async () => {
+      throw new Error("KG_UNAVAILABLE");
+    },
+    runSkill: async () =>
+      ({
+        ok: true,
+        data: { executionId: "ex-ctx-1", runId: "run-ctx-1", outputText: "ok" },
+      }) satisfies SkillRunResult,
+    logger: {
+      warn: (event: string, data?: Record<string, unknown>) => {
+        warnings.push({ event, data });
+      },
+    },
+  });
+
+  const result = await executor.execute({
+    skillId: "builtin:continue",
+    input: "",
+    mode: "ask",
+    model: "gpt-5.2",
+    stream: false,
+    ts: Date.now(),
+    context: { projectId: "project-ctx", documentId: "doc-ctx" },
+    emitEvent: createNoopEmitter(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0]?.event, "context_assembly_degraded");
+  assert.equal(typeof warnings[0]?.data?.executionId, "string");
+  assert.equal(warnings[0]?.data?.skillId, "builtin:continue");
+  assert.equal(warnings[0]?.data?.error, "KG_UNAVAILABLE");
+}
+
+/**
+ * S6: context 组装成功不发降级 warning [ADDED]
+ * should not emit context_assembly_degraded warning when context assembly succeeds
+ */
+{
+  const warnings: Array<{
+    event: string;
+    data: Record<string, unknown> | undefined;
+  }> = [];
+
+  const executor = createSkillExecutor({
+    resolveSkill: (skillId: string) => ({
+      ok: true,
+      data: {
+        id: skillId,
+        enabled: true,
+        valid: true,
+        inputType: "document",
+        prompt: {
+          system: "continue-system",
+          user: "Continue:\n{{input}}",
+        },
+      },
+    }),
+    assembleContext: async () => ({
+      prompt: "# CreoNow Context\nok",
+      tokenCount: 64,
+      stablePrefixHash: "ctx-hash",
+      stablePrefixUnchanged: true,
+      warnings: [],
+      assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+      layers: {
+        rules: { source: [], tokenCount: 0, truncated: false },
+        settings: { source: [], tokenCount: 0, truncated: false },
+        retrieved: { source: [], tokenCount: 0, truncated: false },
+        immediate: { source: [], tokenCount: 4, truncated: false },
+      },
+    }),
+    runSkill: async () =>
+      ({
+        ok: true,
+        data: { executionId: "ex-ctx-2", runId: "run-ctx-2", outputText: "ok" },
+      }) satisfies SkillRunResult,
+    logger: {
+      warn: (event: string, data?: Record<string, unknown>) => {
+        warnings.push({ event, data });
+      },
+    },
+  } as unknown as Parameters<typeof createSkillExecutor>[0]);
+
+  const result = await executor.execute({
+    skillId: "builtin:continue",
+    input: "",
+    mode: "ask",
+    model: "gpt-5.2",
+    stream: false,
+    ts: Date.now(),
+    context: { projectId: "project-ctx", documentId: "doc-ctx" },
+    emitEvent: createNoopEmitter(),
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(warnings.length, 0);
 }
