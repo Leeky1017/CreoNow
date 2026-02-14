@@ -1,4 +1,4 @@
-﻿import { randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { AiStreamEvent, AiStreamTerminal } from "@shared/types/ai";
@@ -14,10 +14,29 @@ import {
   createChatMessageManager,
   type ChatMessageManager,
 } from "./chatMessageManager";
+import {
+  buildUpstreamHttpError,
+  mapUpstreamStatusToIpcErrorCode,
+} from "./errorMapper";
+import {
+  combineSystemText,
+  DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE,
+  estimateTokenCount,
+  modeSystemHint,
+  parseChatHistoryTokenBudget,
+  parseMaxSkillOutputChars,
+  resolveSkillTimeoutMs,
+} from "./runtimeConfig";
 import { assembleSystemPrompt } from "./assembleSystemPrompt";
 import { GLOBAL_IDENTITY_PROMPT } from "./identityPrompt";
+import {
+  createProviderResolver,
+  type ProviderConfig,
+  type ProxySettings,
+} from "./providerResolver";
 
 export { assembleSystemPrompt, GLOBAL_IDENTITY_PROMPT };
+export { mapUpstreamStatusToIpcErrorCode };
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
@@ -62,47 +81,6 @@ export type AiService = {
 
 type JsonObject = Record<string, unknown>;
 
-type ProviderConfig = {
-  provider: AiProvider;
-  baseUrl: string;
-  apiKey?: string;
-  timeoutMs: number;
-};
-
-type ProviderResolution = {
-  primary: ProviderConfig;
-  backup: ProviderConfig | null;
-};
-
-type ProviderMode = "openai-compatible" | "openai-byok" | "anthropic-byok";
-
-type ProviderCredentials = {
-  baseUrl: string | null;
-  apiKey: string | null;
-};
-
-type ProxySettings = {
-  enabled: boolean;
-  baseUrl: string | null;
-  apiKey: string | null;
-  providerMode?: ProviderMode;
-  openAiCompatible?: ProviderCredentials;
-  openAiByok?: ProviderCredentials;
-  anthropicByok?: ProviderCredentials;
-  openAiCompatibleBaseUrl?: string | null;
-  openAiCompatibleApiKey?: string | null;
-  openAiByokBaseUrl?: string | null;
-  openAiByokApiKey?: string | null;
-  anthropicByokBaseUrl?: string | null;
-  anthropicByokApiKey?: string | null;
-};
-
-type ProviderHealthState = {
-  status: "healthy" | "degraded";
-  consecutiveFailures: number;
-  degradedAtMs: number | null;
-};
-
 type RunEntry = {
   executionId: string;
   runId: string;
@@ -121,14 +99,8 @@ type RunEntry = {
   emitEvent: (event: AiStreamEvent) => void;
 };
 
-const DEFAULT_SKILL_TIMEOUT_MS = 30_000;
-const MAX_SKILL_TIMEOUT_MS = 120_000;
 const DEFAULT_LLM_RATE_LIMIT_PER_MINUTE = 60;
-const PROVIDER_FAILURE_THRESHOLD = 3;
 const PROVIDER_HALF_OPEN_AFTER_MS = 15 * 60 * 1000;
-const DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE = 256;
-const DEFAULT_MAX_SKILL_OUTPUT_CHARS = 120_000;
-const DEFAULT_CHAT_HISTORY_TOKEN_BUDGET = 16_000;
 
 type RuntimeMessages = {
   systemText: string;
@@ -153,135 +125,6 @@ function asObject(x: unknown): JsonObject | null {
  */
 function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
   return { ok: false, error: { code, message, details } };
-}
-
-/**
- * Assemble runtime system prompt with fixed identity-first layer order.
- *
- * Why: runtime provider requests must always include the global identity template
- * and keep deterministic layering between skill, mode hint, and context overlay.
- */
-function combineSystemText(args: {
-  systemPrompt?: string;
-  system?: string;
-  modeHint?: string;
-}): string {
-  return assembleSystemPrompt({
-    globalIdentity: GLOBAL_IDENTITY_PROMPT,
-    skillSystemPrompt: args.systemPrompt,
-    modeHint: args.modeHint,
-    contextOverlay: args.system,
-  });
-}
-
-/**
- * Build deterministic mode-specific system hint text.
- */
-function modeSystemHint(mode: "agent" | "plan" | "ask"): string | null {
-  if (mode === "plan") {
-    return "Mode: plan\nFirst produce a concise step-by-step plan before final output.";
-  }
-  if (mode === "agent") {
-    return "Mode: agent\nAct as an autonomous writing assistant and make concrete edits.";
-  }
-  return null;
-}
-
-/**
- * Estimate token usage from UTF-8 byte length with deterministic approximation.
- *
- * Why: avoid provider-specific tokenizer drift while keeping quota accounting stable.
- */
-function estimateTokenCount(text: string): number {
-  if (text.length === 0) {
-    return 0;
-  }
-  return Math.max(1, Math.ceil(Buffer.byteLength(text, "utf8") / 4));
-}
-
-/**
- * Parse output max chars from env with a safe default.
- */
-function parseMaxSkillOutputChars(env: NodeJS.ProcessEnv): number {
-  const raw = env.CREONOW_AI_MAX_SKILL_OUTPUT_CHARS;
-  if (typeof raw !== "string" || raw.trim().length === 0) {
-    return DEFAULT_MAX_SKILL_OUTPUT_CHARS;
-  }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_MAX_SKILL_OUTPUT_CHARS;
-  }
-  return parsed;
-}
-
-/**
- * Parse chat history token budget from env with a safe default.
- */
-function parseChatHistoryTokenBudget(env: NodeJS.ProcessEnv): number {
-  const raw = env.CREONOW_AI_CHAT_HISTORY_TOKEN_BUDGET;
-  if (typeof raw !== "string" || raw.trim().length === 0) {
-    return DEFAULT_CHAT_HISTORY_TOKEN_BUDGET;
-  }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_CHAT_HISTORY_TOKEN_BUDGET;
-  }
-  return parsed;
-}
-
-/**
- * Resolve per-skill execution timeout with default + clamp.
- *
- * Priority:
- * 1) explicit skill timeout
- * 2) explicit env timeout override (for E2E / ops tuning)
- * 3) fixed skill default 30s
- */
-function resolveSkillTimeoutMs(args: {
-  timeoutMs: number | undefined;
-  fallbackEnvTimeoutMs?: number;
-}): number {
-  const normalize = (value: number | undefined): number | null => {
-    if (
-      typeof value !== "number" ||
-      !Number.isFinite(value) ||
-      !Number.isInteger(value) ||
-      value <= 0
-    ) {
-      return null;
-    }
-    return Math.min(value, MAX_SKILL_TIMEOUT_MS);
-  };
-
-  const explicit = normalize(args.timeoutMs);
-  if (explicit !== null) {
-    return explicit;
-  }
-
-  const envFallback = normalize(args.fallbackEnvTimeoutMs);
-  if (envFallback !== null) {
-    return envFallback;
-  }
-
-  return DEFAULT_SKILL_TIMEOUT_MS;
-}
-
-/**
- * Check whether the current process is running in E2E mode.
- */
-function isE2E(env: NodeJS.ProcessEnv): boolean {
-  return env.CREONOW_E2E === "1";
-}
-
-/**
- * Parse AI provider enum from env.
- */
-function parseProvider(env: NodeJS.ProcessEnv): AiProvider | null {
-  const raw = env.CREONOW_AI_PROVIDER;
-  if (raw === "anthropic" || raw === "openai" || raw === "proxy") {
-    return raw;
-  }
-  return null;
 }
 
 /**
@@ -320,217 +163,6 @@ async function parseJsonResponse(
   } catch {
     return ipcError("LLM_API_ERROR", "Non-JSON upstream response");
   }
-}
-
-/**
- * Normalize settings provider mode with backward compatibility.
- */
-function resolveSettingsProviderMode(settings: ProxySettings): ProviderMode {
-  if (
-    settings.providerMode === "openai-compatible" ||
-    settings.providerMode === "openai-byok" ||
-    settings.providerMode === "anthropic-byok"
-  ) {
-    return settings.providerMode;
-  }
-  return settings.enabled ? "openai-compatible" : "openai-byok";
-}
-
-/**
- * Resolve provider credentials from settings based on provider mode.
- */
-function resolveSettingsProviderCredentials(args: {
-  settings: ProxySettings;
-  mode: ProviderMode;
-}): {
-  provider: AiProvider;
-  credentials: ProviderCredentials;
-  mode: ProviderMode;
-} {
-  const openAiCompatible: ProviderCredentials = {
-    baseUrl:
-      args.settings.openAiCompatible?.baseUrl ??
-      args.settings.openAiCompatibleBaseUrl ??
-      args.settings.baseUrl ??
-      null,
-    apiKey:
-      args.settings.openAiCompatible?.apiKey ??
-      args.settings.openAiCompatibleApiKey ??
-      args.settings.apiKey ??
-      null,
-  };
-
-  const openAiByok: ProviderCredentials = {
-    baseUrl:
-      args.settings.openAiByok?.baseUrl ??
-      args.settings.openAiByokBaseUrl ??
-      args.settings.baseUrl ??
-      null,
-    apiKey:
-      args.settings.openAiByok?.apiKey ??
-      args.settings.openAiByokApiKey ??
-      args.settings.apiKey ??
-      null,
-  };
-
-  const anthropicByok: ProviderCredentials = {
-    baseUrl:
-      args.settings.anthropicByok?.baseUrl ??
-      args.settings.anthropicByokBaseUrl ??
-      args.settings.baseUrl ??
-      null,
-    apiKey:
-      args.settings.anthropicByok?.apiKey ??
-      args.settings.anthropicByokApiKey ??
-      args.settings.apiKey ??
-      null,
-  };
-
-  if (args.mode === "anthropic-byok") {
-    return {
-      provider: "anthropic",
-      mode: args.mode,
-      credentials: anthropicByok,
-    };
-  }
-
-  if (args.mode === "openai-byok") {
-    return {
-      provider: "openai",
-      mode: args.mode,
-      credentials: openAiByok,
-    };
-  }
-
-  return {
-    provider: "proxy",
-    mode: args.mode,
-    credentials: openAiCompatible,
-  };
-}
-
-/**
- * Build a provider config from credential inputs.
- */
-function buildProviderConfigFromCredentials(args: {
-  provider: AiProvider;
-  credentials: ProviderCredentials;
-  timeoutMs: number;
-  env: NodeJS.ProcessEnv;
-}): ProviderConfig | null {
-  const baseUrl =
-    typeof args.credentials.baseUrl === "string"
-      ? args.credentials.baseUrl.trim()
-      : "";
-  if (baseUrl.length === 0) {
-    return null;
-  }
-
-  const apiKey =
-    typeof args.credentials.apiKey === "string" &&
-    args.credentials.apiKey.trim().length > 0
-      ? args.credentials.apiKey
-      : undefined;
-
-  if (args.provider !== "proxy" && !isE2E(args.env) && !apiKey) {
-    return null;
-  }
-
-  return {
-    provider: args.provider,
-    baseUrl,
-    apiKey,
-    timeoutMs: args.timeoutMs,
-  };
-}
-
-/**
- * Resolve a best-effort backup provider config from settings.
- */
-function resolveSettingsBackupProvider(args: {
-  settings: ProxySettings;
-  primary: ProviderConfig;
-  timeoutMs: number;
-  env: NodeJS.ProcessEnv;
-}): ProviderConfig | null {
-  const openAiCompatible: ProviderCredentials = {
-    baseUrl:
-      args.settings.openAiCompatible?.baseUrl ??
-      args.settings.openAiCompatibleBaseUrl ??
-      args.settings.baseUrl ??
-      null,
-    apiKey:
-      args.settings.openAiCompatible?.apiKey ??
-      args.settings.openAiCompatibleApiKey ??
-      args.settings.apiKey ??
-      null,
-  };
-  const openAiByok: ProviderCredentials = {
-    baseUrl:
-      args.settings.openAiByok?.baseUrl ??
-      args.settings.openAiByokBaseUrl ??
-      args.settings.baseUrl ??
-      null,
-    apiKey:
-      args.settings.openAiByok?.apiKey ??
-      args.settings.openAiByokApiKey ??
-      args.settings.apiKey ??
-      null,
-  };
-  const anthropicByok: ProviderCredentials = {
-    baseUrl:
-      args.settings.anthropicByok?.baseUrl ??
-      args.settings.anthropicByokBaseUrl ??
-      args.settings.baseUrl ??
-      null,
-    apiKey:
-      args.settings.anthropicByok?.apiKey ??
-      args.settings.anthropicByokApiKey ??
-      args.settings.apiKey ??
-      null,
-  };
-
-  const candidates: ProviderConfig[] = [];
-
-  const pushCandidate = (
-    provider: AiProvider,
-    credentials: ProviderCredentials,
-  ) => {
-    const cfg = buildProviderConfigFromCredentials({
-      provider,
-      credentials,
-      timeoutMs: args.timeoutMs,
-      env: args.env,
-    });
-    if (!cfg) {
-      return;
-    }
-    if (
-      cfg.provider === args.primary.provider &&
-      cfg.baseUrl === args.primary.baseUrl &&
-      cfg.apiKey === args.primary.apiKey
-    ) {
-      return;
-    }
-    candidates.push(cfg);
-  };
-
-  if (args.primary.provider !== "anthropic") {
-    pushCandidate("anthropic", anthropicByok);
-  }
-  if (args.primary.provider !== "openai") {
-    pushCandidate("openai", openAiByok);
-  }
-
-  const mode = resolveSettingsProviderMode(args.settings);
-  if (
-    args.primary.provider !== "proxy" &&
-    (mode === "openai-compatible" || args.settings.enabled)
-  ) {
-    pushCandidate("proxy", openAiCompatible);
-  }
-
-  return candidates[0] ?? null;
 }
 
 /**
@@ -732,223 +364,6 @@ function extractOpenAiModels(
 }
 
 /**
- * Create an IpcError for upstream failures without leaking secrets.
- */
-/**
- * Map upstream HTTP status codes to deterministic IPC error codes.
- *
- * Why: tests and UI assertions rely on stable semantics (401/403 → AI_AUTH_FAILED,
- * 429 → AI_RATE_LIMITED) while keeping other upstream failures grouped as LLM_API_ERROR.
- */
-export function mapUpstreamStatusToIpcErrorCode(status: number): IpcErrorCode {
-  if (status === 401 || status === 403) {
-    return "AI_AUTH_FAILED";
-  }
-  if (status === 429) {
-    return "AI_RATE_LIMITED";
-  }
-  return "LLM_API_ERROR";
-}
-
-function upstreamError(args: { status: number; message: string }): IpcError {
-  const code = mapUpstreamStatusToIpcErrorCode(args.status);
-  const message =
-    code === "AI_AUTH_FAILED"
-      ? "AI upstream unauthorized"
-      : code === "AI_RATE_LIMITED"
-        ? "AI upstream rate limited"
-        : args.message;
-  return {
-    code,
-    message,
-    details: { status: args.status },
-  };
-}
-
-/**
- * Extract a concise error message from an upstream non-2xx response.
- */
-async function readUpstreamErrorMessage(args: {
-  res: Response;
-  fallback: string;
-}): Promise<string> {
-  const contentType = args.res.headers.get("content-type") ?? "";
-  const raw = await args.res.text();
-
-  if (contentType.toLowerCase().includes("application/json")) {
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      const obj = asObject(parsed);
-      const nestedError = asObject(obj?.error);
-      const nestedMessage = nestedError?.message;
-      if (
-        typeof nestedMessage === "string" &&
-        nestedMessage.trim().length > 0
-      ) {
-        return nestedMessage.trim();
-      }
-      const directMessage = obj?.message;
-      if (
-        typeof directMessage === "string" &&
-        directMessage.trim().length > 0
-      ) {
-        return directMessage.trim();
-      }
-    } catch {
-      return args.fallback;
-    }
-  }
-
-  return args.fallback;
-}
-
-/**
- * Build mapped IPC error from an upstream non-2xx response.
- */
-async function buildUpstreamHttpError(args: {
-  res: Response;
-  fallbackMessage: string;
-}): Promise<IpcError> {
-  const upstreamMessage = await readUpstreamErrorMessage({
-    res: args.res,
-    fallback: args.fallbackMessage,
-  });
-  const mapped = upstreamError({
-    status: args.res.status,
-    message: upstreamMessage,
-  });
-  return {
-    ...mapped,
-    details: {
-      ...(asObject(mapped.details) ?? {}),
-      upstreamMessage,
-    },
-  };
-}
-
-/**
- * Build provider config from env, starting the fake server in E2E by default.
- */
-async function resolveProviderConfig(deps: {
-  logger: Logger;
-  env: NodeJS.ProcessEnv;
-  runtimeAiTimeoutMs: number;
-  getFakeServer: () => Promise<FakeAiServer>;
-  getProxySettings?: () => ProxySettings | null;
-}): Promise<ServiceResult<ProviderResolution>> {
-  const timeoutMs = deps.runtimeAiTimeoutMs;
-
-  const proxyEnabled = deps.env.CREONOW_AI_PROXY_ENABLED === "1";
-  if (proxyEnabled) {
-    const baseUrl = deps.env.CREONOW_AI_PROXY_BASE_URL;
-    if (typeof baseUrl !== "string" || baseUrl.trim().length === 0) {
-      return ipcError(
-        "INVALID_ARGUMENT",
-        "proxy baseUrl is required when proxy enabled (CREONOW_AI_PROXY_BASE_URL)",
-      );
-    }
-    return {
-      ok: true,
-      data: {
-        primary: {
-          provider: "proxy",
-          baseUrl,
-          apiKey:
-            typeof deps.env.CREONOW_AI_PROXY_API_KEY === "string" &&
-            deps.env.CREONOW_AI_PROXY_API_KEY.length > 0
-              ? deps.env.CREONOW_AI_PROXY_API_KEY
-              : undefined,
-          timeoutMs,
-        },
-        backup: null,
-      },
-    };
-  }
-
-  const proxyFromSettings = deps.getProxySettings?.() ?? null;
-  if (proxyFromSettings) {
-    const mode = resolveSettingsProviderMode(proxyFromSettings);
-    const resolved = resolveSettingsProviderCredentials({
-      settings: proxyFromSettings,
-      mode,
-    });
-
-    if (mode !== "openai-compatible" || proxyFromSettings.enabled) {
-      const primary = buildProviderConfigFromCredentials({
-        provider: resolved.provider,
-        credentials: resolved.credentials,
-        timeoutMs,
-        env: deps.env,
-      });
-      if (!primary) {
-        return ipcError("AI_NOT_CONFIGURED", "请先在设置中配置 AI 服务");
-      }
-      const backup = resolveSettingsBackupProvider({
-        settings: proxyFromSettings,
-        primary,
-        timeoutMs,
-        env: deps.env,
-      });
-
-      return {
-        ok: true,
-        data: {
-          primary,
-          backup,
-        },
-      };
-    }
-  }
-
-  const provider =
-    parseProvider(deps.env) ?? (isE2E(deps.env) ? "anthropic" : null);
-  if (!provider) {
-    return ipcError(
-      "INVALID_ARGUMENT",
-      "CREONOW_AI_PROVIDER is required (anthropic|openai|proxy)",
-    );
-  }
-
-  const envBaseUrl = deps.env.CREONOW_AI_BASE_URL;
-  const baseUrl =
-    typeof envBaseUrl === "string" && envBaseUrl.trim().length > 0
-      ? envBaseUrl
-      : isE2E(deps.env)
-        ? (await deps.getFakeServer()).baseUrl
-        : null;
-
-  if (!baseUrl) {
-    return ipcError(
-      "INVALID_ARGUMENT",
-      "CREONOW_AI_BASE_URL is required (or set CREONOW_E2E=1 for fake-first)",
-    );
-  }
-
-  const apiKey =
-    typeof deps.env.CREONOW_AI_API_KEY === "string" &&
-    deps.env.CREONOW_AI_API_KEY.length > 0
-      ? deps.env.CREONOW_AI_API_KEY
-      : undefined;
-
-  if (!isE2E(deps.env) && provider !== "proxy" && !apiKey) {
-    return ipcError("AI_NOT_CONFIGURED", "请先在设置中配置 AI 服务");
-  }
-
-  return {
-    ok: true,
-    data: {
-      primary: {
-        provider,
-        baseUrl,
-        apiKey,
-        timeoutMs,
-      },
-      backup: null,
-    },
-  };
-}
-
-/**
  * Create the main-process AI service.
  *
  * Why: keep secrets + network + error mapping in the main process for stable IPC.
@@ -966,7 +381,6 @@ export function createAiService(deps: {
   const runtimeGovernance = resolveRuntimeGovernanceFromEnv(deps.env);
   const runs = new Map<string, RunEntry>();
   const requestTimestamps: number[] = [];
-  const providerHealthByKey = new Map<string, ProviderHealthState>();
   const sessionTokenTotalsByKey = new Map<string, number>();
   const sessionChatMessagesByKey = new Map<string, ChatMessageManager>();
   const skillScheduler = createSkillScheduler({
@@ -974,6 +388,10 @@ export function createAiService(deps: {
     sessionQueueLimit: 20,
   });
   const now = deps.now ?? (() => Date.now());
+  const providerResolver = createProviderResolver({
+    logger: deps.logger,
+    now,
+  });
   const sleep =
     deps.sleep ??
     ((ms: number) =>
@@ -1063,82 +481,6 @@ export function createAiService(deps: {
       openAiMessages,
       anthropicMessages,
     };
-  }
-
-  function providerHealthKey(cfg: ProviderConfig): string {
-    return `${cfg.provider}:${cfg.baseUrl}`;
-  }
-
-  function getProviderHealthState(cfg: ProviderConfig): ProviderHealthState {
-    const key = providerHealthKey(cfg);
-    const existing = providerHealthByKey.get(key);
-    if (existing) {
-      return existing;
-    }
-
-    const initial: ProviderHealthState = {
-      status: "healthy",
-      consecutiveFailures: 0,
-      degradedAtMs: null,
-    };
-    providerHealthByKey.set(key, initial);
-    return initial;
-  }
-
-  function setProviderHealthState(
-    cfg: ProviderConfig,
-    state: ProviderHealthState,
-  ): void {
-    providerHealthByKey.set(providerHealthKey(cfg), state);
-  }
-
-  function markProviderFailure(args: {
-    cfg: ProviderConfig;
-    traceId: string;
-    reason: string;
-  }): ProviderHealthState {
-    const state = { ...getProviderHealthState(args.cfg) };
-    state.consecutiveFailures += 1;
-
-    if (state.consecutiveFailures >= PROVIDER_FAILURE_THRESHOLD) {
-      const wasDegraded = state.status === "degraded";
-      state.status = "degraded";
-      state.degradedAtMs = now();
-      if (!wasDegraded) {
-        deps.logger.info("ai_provider_degraded", {
-          traceId: args.traceId,
-          provider: args.cfg.provider,
-          baseUrl: args.cfg.baseUrl,
-          failures: state.consecutiveFailures,
-          reason: args.reason,
-        });
-      }
-    }
-
-    setProviderHealthState(args.cfg, state);
-    return state;
-  }
-
-  function markProviderSuccess(args: {
-    cfg: ProviderConfig;
-    traceId: string;
-    fromHalfOpen: boolean;
-  }): void {
-    const state = { ...getProviderHealthState(args.cfg) };
-    const wasDegraded = state.status === "degraded";
-    state.status = "healthy";
-    state.consecutiveFailures = 0;
-    state.degradedAtMs = null;
-    setProviderHealthState(args.cfg, state);
-
-    if (wasDegraded || args.fromHalfOpen) {
-      deps.logger.info("ai_provider_recovered", {
-        traceId: args.traceId,
-        provider: args.cfg.provider,
-        baseUrl: args.cfg.baseUrl,
-        fromHalfOpen: args.fromHalfOpen,
-      });
-    }
   }
 
   function isProviderAvailabilityError(error: IpcError): boolean {
@@ -1758,7 +1100,7 @@ export function createAiService(deps: {
     runtimeMessages: RuntimeMessages;
     model: string;
   }): Promise<ServiceResult<string>> {
-    const primaryState = getProviderHealthState(args.primary);
+    const primaryState = providerResolver.getProviderHealthState(args.primary);
     const canHalfOpenProbe =
       primaryState.status === "degraded" &&
       primaryState.degradedAtMs !== null &&
@@ -1804,7 +1146,7 @@ export function createAiService(deps: {
       cfg: args.primary,
     });
     if (primaryRes.ok) {
-      markProviderSuccess({
+      providerResolver.markProviderSuccess({
         cfg: args.primary,
         traceId: args.entry.traceId,
         fromHalfOpen: canHalfOpenProbe,
@@ -1816,7 +1158,7 @@ export function createAiService(deps: {
       return primaryRes;
     }
 
-    const state = markProviderFailure({
+    const state = providerResolver.markProviderFailure({
       cfg: args.primary,
       traceId: args.entry.traceId,
       reason: primaryRes.error.code,
@@ -1865,8 +1207,7 @@ export function createAiService(deps: {
   }
 
   const runSkill: AiService["runSkill"] = async (args) => {
-    const cfgRes = await resolveProviderConfig({
-      logger: deps.logger,
+    const cfgRes = await providerResolver.resolveProviderConfig({
       env: deps.env,
       runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
       getFakeServer,
@@ -2311,8 +1652,7 @@ export function createAiService(deps: {
   };
 
   const listModels: AiService["listModels"] = async () => {
-    const cfgRes = await resolveProviderConfig({
-      logger: deps.logger,
+    const cfgRes = await providerResolver.resolveProviderConfig({
       env: deps.env,
       runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
       getFakeServer,
