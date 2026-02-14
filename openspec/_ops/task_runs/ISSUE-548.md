@@ -119,6 +119,30 @@
 - Key output:
   - PR 创建成功：`#549`
 
+### 2026-02-14 22:36-22:40 preflight 阻断与格式修复
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write apps/desktop/renderer/src/features/editor/EditorPane.tsx apps/desktop/renderer/src/features/editor/InlineDiffControls.test.tsx apps/desktop/renderer/src/features/editor/slashCommands.ts openspec/changes/archive/s2-story-assertions/tasks.md rulebook/tasks/issue-548-s2-wave4-governed-delivery/proposal.md`
+  - `pnpm -C apps/desktop exec vitest run renderer/src/features/editor/slashCommands.test.ts renderer/src/features/editor/EditorPane.test.tsx renderer/src/features/editor/InlineDiffControls.test.tsx`
+  - `git commit -m "style: format wave4 touched files (#548)"`
+- Exit code:
+  - 首次 preflight：`1`（Prettier check 阻断 5 文件）
+  - 格式修复与回归复验：`0`
+- Key output:
+  - preflight 阻断原因定位为格式漂移，无运行时回归
+  - 三个 editor 相关测试文件复验通过：`22 passed`
+
+### 2026-02-14 22:40-22:42 Main Session Audit 签字刷新
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`（复测）
+  - 结果：`[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`
+  - 更新 `openspec/_ops/task_runs/ISSUE-548.md` 中审计签字 SHA 并追加本次记录
+- Exit code: `进行中`
+- Key output:
+  - 签字 SHA 刷新为格式修复后的最新被审阅提交，确保后续签字提交满足 `HEAD^..HEAD` 仅 RUN_LOG 变更约束。
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -140,7 +164,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: acc7c9cf1b290f7da05ad7696403d8f6053fdea7
+- Reviewed-HEAD-SHA: fa69266917410206f1066f77b6353ae0da769493
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
