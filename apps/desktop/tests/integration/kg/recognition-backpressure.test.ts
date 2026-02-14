@@ -89,9 +89,7 @@ type RecognitionStatsDto = {
         break;
       }
 
-      await new Promise((resolve) => {
-        setTimeout(resolve, 20);
-      });
+      await new Promise<void>((resolve) => setImmediate(resolve));
     }
 
     assert.equal(drained, true);

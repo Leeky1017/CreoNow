@@ -185,11 +185,17 @@ describe("EditorPane", () => {
       });
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    const autosaveCalls = saveCalls.filter(
-      (call) => call.reason === "autosave",
+    const settleStartedAt = Date.now();
+    await waitFor(
+      () => {
+        expect(Date.now() - settleStartedAt).toBeGreaterThanOrEqual(700);
+        const autosaveCalls = saveCalls.filter(
+          (call) => call.reason === "autosave",
+        );
+        expect(autosaveCalls).toHaveLength(0);
+      },
+      { timeout: 1_500, interval: 50 },
     );
-    expect(autosaveCalls).toHaveLength(0);
   });
 
   it("should strip unsupported paste formatting while preserving supported structure", () => {

@@ -4,6 +4,21 @@ import { createAiService } from "../aiService";
 import { assembleSystemPrompt } from "../assembleSystemPrompt";
 import { GLOBAL_IDENTITY_PROMPT } from "../identityPrompt";
 
+async function waitForCondition(
+  predicate: () => boolean,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  throw new Error(timeoutMessage);
+}
+
 // --- S1: with no optional layers includes identity blocks ---
 
 {
@@ -254,13 +269,11 @@ function extractOpenAiSystemMessage(body: unknown): string {
     });
     assert.equal(streamResult.ok, true);
 
-    const startedAt = Date.now();
-    while (
-      !streamEvents.some((event) => event.type === "done") &&
-      Date.now() - startedAt < 1_000
-    ) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
+    await waitForCondition(
+      () => streamEvents.some((event) => event.type === "done"),
+      1_000,
+      "expected stream done event",
+    );
 
     const streamSystem = extractOpenAiSystemMessage(requestBodies[1]);
     assert.ok(

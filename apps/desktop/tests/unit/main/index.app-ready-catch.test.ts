@@ -7,7 +7,7 @@ type BootHarness = {
 
 async function flushMicrotasks(): Promise<void> {
   await Promise.resolve();
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 async function bootIndexWithWhenReady(

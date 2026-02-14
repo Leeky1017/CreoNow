@@ -178,8 +178,9 @@ describe("AppShell", () => {
           <AppShell />
         </AppShellTestWrapper>,
       );
-      // Wait for bootstrap effects to settle
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => {
+      expect(mockIpc.invoke).toHaveBeenCalled();
     });
 
     return result!;

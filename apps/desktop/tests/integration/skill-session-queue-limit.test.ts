@@ -11,6 +11,21 @@ function createLogger(): Logger {
   };
 }
 
+async function waitForCondition(
+  predicate: () => boolean,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  throw new Error(timeoutMessage);
+}
+
 const originalFetch = globalThis.fetch;
 
 try {
@@ -22,7 +37,11 @@ try {
     inFlight += 1;
     maxInFlight = Math.max(maxInFlight, inFlight);
 
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    await waitForCondition(
+      () => queueStates.some((item) => item.status === "queued"),
+      2_000,
+      "expected queue event before resolving fetch",
+    );
 
     inFlight -= 1;
     return new Response(
@@ -107,7 +126,11 @@ try {
     globalThis.fetch = (async () => {
       inFlight += 1;
       maxInFlight = Math.max(maxInFlight, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 35));
+      await waitForCondition(
+        () => maxInFlight >= 8,
+        2_000,
+        "expected global in-flight to reach 8",
+      );
       inFlight -= 1;
       return new Response(
         JSON.stringify({
@@ -212,8 +235,14 @@ try {
 {
   const original = globalThis.fetch;
   try {
+    let queueDepthReached = false;
+
     globalThis.fetch = (async () => {
-      await new Promise((resolve) => setTimeout(resolve, 8));
+      await waitForCondition(
+        () => queueDepthReached,
+        2_000,
+        "expected queued depth to reach overflow boundary",
+      );
       return new Response(
         JSON.stringify({
           choices: [{ message: { content: "queue-cap-ok" } }],
@@ -249,7 +278,21 @@ try {
           },
           stream: false,
           ts: Date.now(),
-          emitEvent: () => {},
+          emitEvent: (event) => {
+            const queueEvent = event as unknown as {
+              type?: string;
+              status?: string;
+              queuePosition?: number;
+            };
+            if (
+              queueEvent.type === "queue" &&
+              queueEvent.status === "queued" &&
+              typeof queueEvent.queuePosition === "number" &&
+              queueEvent.queuePosition >= 20
+            ) {
+              queueDepthReached = true;
+            }
+          },
         }),
       ),
     );
@@ -274,20 +317,12 @@ try {
       const signal = init?.signal as AbortSignal | undefined;
 
       if (callIndex === 1) {
-        await new Promise<void>((resolve) => {
-          const timer = setTimeout(resolve, 40);
-          signal?.addEventListener(
-            "abort",
-            () => {
-              clearTimeout(timer);
-              resolve();
-            },
-            { once: true },
-          );
-        });
-        if (signal?.aborted) {
-          throw new Error("aborted");
-        }
+        await waitForCondition(
+          () => signal?.aborted === true,
+          2_000,
+          "expected first fetch to be aborted by timeout",
+        );
+        throw new Error("aborted");
       }
 
       return new Response(

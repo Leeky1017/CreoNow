@@ -93,9 +93,7 @@ type RecognitionStatsDto = {
 
       const done = statsRes.data.completed >= 6 && statsRes.data.queued === 0;
       if (!done) {
-        await new Promise((resolve) => {
-          setTimeout(resolve, 20);
-        });
+        await new Promise<void>((resolve) => setImmediate(resolve));
         continue;
       }
 
