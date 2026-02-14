@@ -3,6 +3,11 @@ import { randomUUID } from "node:crypto";
 
 import { ipcContract } from "./contract/ipc-contract";
 import type { IpcSchema } from "./contract/schema";
+import {
+  createIpcAclEvaluator,
+  type IpcAclDecision,
+  type IpcAclEvaluator,
+} from "./ipcAcl";
 
 import type {
   IpcError,
@@ -43,6 +48,7 @@ type WrapIpcRequestResponseArgs = {
   logger: RuntimeLogger;
   timeoutMs: number;
   onTimeoutCleanup?: TimeoutCleanup;
+  aclEvaluator?: IpcAclEvaluator;
   handler: HandleListener;
 };
 
@@ -51,6 +57,7 @@ type CreateValidatedIpcMainArgs = {
   logger: RuntimeLogger;
   defaultTimeoutMs?: number;
   channelPolicies?: Partial<Record<string, RuntimeChannelPolicy>>;
+  aclEvaluator?: IpcAclEvaluator;
 };
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -317,6 +324,22 @@ function toTimeoutError(timeoutMs: number): IpcResponse<never> {
   };
 }
 
+function toForbiddenError(
+  decision: Extract<IpcAclDecision, { allowed: false }>,
+): IpcResponse<never> {
+  return {
+    ok: false,
+    error: {
+      code: "FORBIDDEN",
+      message: "调用方未授权",
+      details: {
+        reason: decision.reason,
+        ...decision.details,
+      },
+    },
+  };
+}
+
 function isIpcEnvelope(value: unknown): value is IpcResponse<unknown> {
   if (!isRecord(value) || typeof value.ok !== "boolean") {
     return false;
@@ -400,7 +423,22 @@ function resolveRequestPayload(schema: IpcSchema, payload: unknown): unknown {
 export function wrapIpcRequestResponse(
   args: WrapIpcRequestResponseArgs,
 ): HandleListener {
+  const aclEvaluator = args.aclEvaluator ?? createIpcAclEvaluator();
+
   return async (event, payload): Promise<IpcResponse<unknown>> => {
+    const aclDecision = aclEvaluator({
+      channel: args.channel,
+      event,
+    });
+    if (!aclDecision.allowed) {
+      args.logger.error("ipc_acl_forbidden", {
+        channel: args.channel,
+        reason: aclDecision.reason,
+        ...aclDecision.details,
+      });
+      return toForbiddenError(aclDecision);
+    }
+
     const requestPayload = resolveRequestPayload(args.requestSchema, payload);
     const requestIssues = validateSchema(args.requestSchema, requestPayload);
     if (requestIssues.length > 0) {
@@ -491,6 +529,7 @@ export function createValidatedIpcMain(
   args: CreateValidatedIpcMainArgs,
 ): IpcMain {
   const defaultTimeoutMs = args.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const aclEvaluator = args.aclEvaluator ?? createIpcAclEvaluator();
 
   const wrappedHandle: IpcMain["handle"] = (channel, listener) => {
     const contractSchema = getRequestResponseSchema(channel);
@@ -512,6 +551,7 @@ export function createValidatedIpcMain(
       logger: args.logger,
       timeoutMs: policy?.timeoutMs ?? defaultTimeoutMs,
       onTimeoutCleanup: policy?.onTimeoutCleanup,
+      aclEvaluator,
       handler: listener,
     });
 

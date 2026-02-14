@@ -4,8 +4,10 @@ import type {
   IpcErrorCode,
   IpcResponse,
 } from "@shared/types/ipc-generated";
+import { RUNTIME_GOVERNANCE_DEFAULTS } from "@shared/runtimeGovernance";
 
-export const MAX_IPC_PAYLOAD_BYTES = 10 * 1024 * 1024;
+export const MAX_IPC_PAYLOAD_BYTES =
+  RUNTIME_GOVERNANCE_DEFAULTS.ipc.maxPayloadBytes;
 
 export type IpcSecurityAuditEvent = {
   event: string;

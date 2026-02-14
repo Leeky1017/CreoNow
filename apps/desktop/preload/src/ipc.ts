@@ -7,6 +7,7 @@ import {
   type IpcRequest,
 } from "@shared/types/ipc-generated";
 import { createPreloadIpcGateway } from "./ipcGateway";
+import { resolveRuntimeGovernance } from "./runtimeGovernance";
 
 function resolveRendererId(): string {
   const maybeProcess = (globalThis as { process?: { pid?: number } }).process;
@@ -20,6 +21,7 @@ function resolveRendererId(): string {
 const gateway = createPreloadIpcGateway({
   allowedChannels: IPC_CHANNELS as unknown as readonly string[],
   rendererId: resolveRendererId(),
+  maxPayloadBytes: resolveRuntimeGovernance().ipc.maxPayloadBytes,
   invoke: async (channel, payload) =>
     await ipcRenderer.invoke(channel, payload),
 });

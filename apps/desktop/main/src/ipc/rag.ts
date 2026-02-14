@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
+import { resolveRuntimeGovernanceFromEnv } from "../config/runtimeGovernance";
 import type { EmbeddingService } from "../services/embedding/embeddingService";
 import {
   createSemanticChunkIndexService,
@@ -68,9 +69,9 @@ function normalizeMinScore(value: number): number {
   return value;
 }
 
-function normalizeMaxTokens(value: number): number {
+function normalizeMaxTokens(value: number, fallback: number): number {
   if (!Number.isFinite(value) || !Number.isInteger(value) || value <= 0) {
-    return DEFAULT_RAG_CONFIG.maxTokens;
+    return fallback;
   }
   return Math.floor(value);
 }
@@ -90,6 +91,7 @@ export function registerRagIpcHandlers(deps: {
   semanticIndex?: SemanticChunkIndexService;
   defaultModel?: string;
 }): void {
+  const runtimeGovernance = resolveRuntimeGovernanceFromEnv(process.env);
   const semanticIndex =
     deps.semanticIndex ??
     createSemanticChunkIndexService({
@@ -100,6 +102,7 @@ export function registerRagIpcHandlers(deps: {
 
   const ragConfig: RagConfig = {
     ...DEFAULT_RAG_CONFIG,
+    maxTokens: runtimeGovernance.rag.maxTokens,
   };
 
   deps.ipcMain.handle(
@@ -124,6 +127,7 @@ export function registerRagIpcHandlers(deps: {
       );
       ragConfig.maxTokens = normalizeMaxTokens(
         payload.maxTokens ?? ragConfig.maxTokens,
+        ragConfig.maxTokens,
       );
       ragConfig.model = payload.model?.trim() || ragConfig.model;
 
@@ -183,6 +187,7 @@ export function registerRagIpcHandlers(deps: {
       );
       const maxTokens = normalizeMaxTokens(
         payload.maxTokens ?? ragConfig.maxTokens,
+        ragConfig.maxTokens,
       );
       const model = payload.model ?? ragConfig.model;
 
