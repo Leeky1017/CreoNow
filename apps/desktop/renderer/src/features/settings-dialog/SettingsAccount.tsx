@@ -89,9 +89,7 @@ function PlanBadge({ plan }: { plan: SubscriptionPlan }): JSX.Element {
   const { label, className } = planConfig[plan];
 
   return (
-    <span
-      className={`px-2 py-0.5 rounded text-xs font-medium ${className}`}
-    >
+    <span className={`px-2 py-0.5 rounded text-xs font-medium ${className}`}>
       {label}
     </span>
   );
@@ -124,11 +122,7 @@ export function SettingsAccount({
         <h4 className={sectionLabelStyles}>Profile</h4>
 
         <div className={`${cardStyles} flex items-center gap-4`}>
-          <Avatar
-            src={account.avatarUrl}
-            fallback={account.name}
-            size="lg"
-          />
+          <Avatar src={account.avatarUrl} fallback={account.name} size="lg" />
           <div className="flex flex-col gap-1">
             <Text size="body" weight="medium" color="default">
               {account.name}
@@ -137,11 +131,7 @@ export function SettingsAccount({
               {account.email}
             </Text>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="ml-auto"
-          >
+          <Button variant="secondary" size="sm" className="ml-auto">
             Edit Profile
           </Button>
         </div>
@@ -173,12 +163,7 @@ export function SettingsAccount({
 
           <div className="flex gap-3">
             {account.plan === "free" && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={onUpgrade}
-                disabled
-              >
+              <Button variant="primary" size="sm" onClick={onUpgrade} disabled>
                 Upgrade to Pro
               </Button>
             )}

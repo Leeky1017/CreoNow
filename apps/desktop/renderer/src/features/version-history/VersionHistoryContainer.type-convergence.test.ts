@@ -19,7 +19,9 @@ describe("VersionHistoryContainer type convergence", () => {
     expect(containerSource).not.toMatch(
       /^\s*type\s+VersionListItem\s*=\s*|^\s*interface\s+VersionListItem\s*\{/m,
     );
-    expect(containerSource).toMatch(/convertToTimeGroups\(\s*items:\s*VersionListItem\[\]/);
+    expect(containerSource).toMatch(
+      /convertToTimeGroups\(\s*items:\s*VersionListItem\[\]/,
+    );
     expect(containerSource).toMatch(/useState<VersionListItem\[\]>\(\[\]\)/);
   });
 });

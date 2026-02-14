@@ -65,7 +65,8 @@ assert.equal(
     }
 
     assert.equal(
-      enqueueRes.data.status === "started" || enqueueRes.data.status === "queued",
+      enqueueRes.data.status === "started" ||
+        enqueueRes.data.status === "queued",
       true,
     );
 
@@ -108,8 +109,13 @@ assert.equal(
       assert.fail("expected entity list success");
     }
 
-    const accepted = listRes.data.items.find((item) => item.id === acceptRes.data.id);
-    assert.ok(accepted, "accepted suggestion must be discoverable via entity:list");
+    const accepted = listRes.data.items.find(
+      (item) => item.id === acceptRes.data.id,
+    );
+    assert.ok(
+      accepted,
+      "accepted suggestion must be discoverable via entity:list",
+    );
 
     const hasEntityListFailureLog = harness.logs.error.some(
       (entry) => entry.event === "kg_recognition_entity_list_failed",

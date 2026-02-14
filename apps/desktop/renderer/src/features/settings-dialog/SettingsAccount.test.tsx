@@ -24,8 +24,12 @@ describe("SettingsAccount", () => {
   it("Scenario: 账户入口以禁用态展示并带“即将推出”提示", () => {
     render(<SettingsAccount account={freePlanAccount} />);
 
-    expect(screen.getByRole("button", { name: "Upgrade to Pro" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Delete Account" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Upgrade to Pro" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Delete Account" }),
+    ).toBeDisabled();
     expect(screen.getAllByText("即将推出")).toHaveLength(2);
   });
 
