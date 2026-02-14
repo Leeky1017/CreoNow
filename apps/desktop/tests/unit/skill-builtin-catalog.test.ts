@@ -22,18 +22,25 @@ function builtinSkillNames(): string[] {
 
 /**
  * S0: 内置技能清单完整 [ADDED]
- * should expose exactly 8 builtin skill directories
+ * should expose current builtin skill directories
  */
 {
   assert.deepEqual(builtinSkillNames(), [
+    "brainstorm",
     "chat",
     "condense",
     "continue",
+    "critique",
+    "describe",
+    "dialogue",
     "expand",
     "polish",
     "rewrite",
+    "roleplay",
+    "shrink",
     "style-transfer",
     "summarize",
     "translate",
+    "write",
   ]);
 }

@@ -26,10 +26,20 @@ prompt:
 
 # builtin:brainstorm
 
-Use this skill to run ideation conversations and unblock creative direction.
+Goal
 
-Guidelines:
+- Run ideation conversations and unblock creative direction.
 
-- Offer multiple idea branches instead of a single answer.
+Input
+
+- User problem statement, draft concept, or open-ended direction request.
+
+Output
+
+- Multiple candidate idea branches with concrete next actions.
+
+Constraints
+
+- Offer alternatives instead of a single path.
 - Ask one clarifying question when goals are ambiguous.
-- Prioritize concrete, actionable next options.
+- Keep responses action-oriented and concise.

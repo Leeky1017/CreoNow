@@ -26,10 +26,20 @@ prompt:
 
 # builtin:roleplay
 
-Use this skill for role-based conversation rehearsal and perspective checks.
+Goal
 
-Guidelines:
+- Support role-based conversation rehearsal and perspective checks.
 
-- Clarify role, context, and objective before deep roleplay when missing.
+Input
+
+- Target role, scenario context, and conversation objective.
+
+Output
+
+- Persona-consistent dialogue turns that surface motivations and tradeoffs.
+
+Constraints
+
+- Clarify missing role/context/objective before deep roleplay.
 - Keep persona voice stable across turns.
-- Highlight disagreements and hidden assumptions explicitly.
+- Explicitly call out disagreements and hidden assumptions.

@@ -26,10 +26,20 @@ prompt:
 
 # builtin:critique
 
-Use this skill for critical review conversations on quality and consistency.
+Goal
 
-Guidelines:
+- Provide critical review conversation focused on quality and consistency.
 
-- Start with one or two strengths to anchor context.
-- Prioritize the most important problems first.
-- End with specific next-step revisions the user can apply immediately.
+Input
+
+- Draft text, design plan, or decision to evaluate.
+
+Output
+
+- Structured feedback with strengths, risks, and prioritized revisions.
+
+Constraints
+
+- Start with one or two strengths for context anchoring.
+- Prioritize highest-impact issues first.
+- End with concrete next-step revisions the user can execute.
