@@ -1561,8 +1561,8 @@ export type IpcChannelSpec = {
     };
     response: {
       queuePosition: number;
-      status: "started" | "queued";
-      taskId: string;
+      status: "started" | "queued" | "skipped";
+      taskId: string | null;
     };
   };
   "knowledge:recognition:stats": {
