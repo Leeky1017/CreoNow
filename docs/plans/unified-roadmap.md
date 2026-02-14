@@ -2317,47 +2317,6 @@ P3 + Ratchet:
 
 ---
 
-## 被重构/瘦身的原有文件
-
-以下文件在路线图执行完成后将从 God Object 变为聚合门面（代码量大幅缩减）：
-
-| 原有文件 | 当前行数 | 提取后预估行数 | 提取到 |
-|---------|---------|-------------|-------|
-| `documentService.ts` | 2606 | ~200（门面） | `documentCrudService.ts` + `versionService.ts` + `branchService.ts` + `types.ts` |
-| `aiService.ts` | 2441 | ~400（核心调度） | `providerResolver.ts` + `runtimeConfig.ts` + `errorMapper.ts` + `types.ts` |
-| `kgService.ts` | 2162 | ~200（门面） | `kgQueryService.ts` + `kgWriteService.ts` + `types.ts` |
-| `context.ts`（IPC） | 1091 | ~100（聚合注册器） | `contextAssembly.ts` + `contextBudget.ts` + `contextFs.ts` |
-| `layerAssemblyService.ts` | 1249 | ~900（类型抽离后） | `types.ts` + `utils/formatEntity.ts` |
-
-**注意**：以上文件不会被删除，而是变为轻量聚合层。原有对外接口保持不变，消费方无需修改。
-
----
-
-## 被清理/下线的旧内容
-
-| 类型 | 文件/内容 | 所属 Change | 说明 |
-|------|---------|------------|------|
-| 废弃样式 | `QualityGatesPanel.tsx` 中 deprecated panelStyles | s3-p3-backlog-batch | 确认无调用后删除 |
-| BOM 头 | 9 个含 BOM 的源文件 | s3-p3-backlog-batch | 清理 ef bb bf |
-| 不可达代码 | `index.ts` ping handler catch | s2-dead-code-cleanup | 删除 |
-| 包装函数 | `kgRecognitionRuntime.ts` service() | s2-dead-code-cleanup | 内联 |
-| Demo 参数 | AiInlineConfirm/AiErrorCard 中 simulateDelay 等 | s2-demo-params-cleanup | 迁移到 stories |
-| 重复类型 | VersionHistoryContainer 中 VersionListItem | s2-type-convergence | 统一导入源 |
-| 深层 import | 818 处 `../../../../../../packages/shared/` | s1-path-alias | 替换为 `@shared/` |
-
----
-
-## 旧文件废弃清单
-
-以下旧文档在本路线图执行完成后应归档或更新：
-
-| 文件 | 处置 | 说明 |
-|------|------|------|
-| `docs/plans/audit-roadmap.md` | 归档 | 已被本文件整合，Phase 1 状态保留作为历史记录 |
-| `CN-Code-Audit-2026-02-14/*.md` | 保留只读 | 审计原始报告，作为 Evidence 保留 |
-
----
-
 ## 来源 → Change 交叉索引
 
 | 审计编号 | Change ID | Sprint |
