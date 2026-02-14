@@ -134,6 +134,19 @@
   - 修复后任务归档目录后缀与分支 `task/532-s1-openspec-change-bootstrap` 对齐
   - 修复提交：`9dff1ce0d13ce0e9989ea2573b5b962653afb072`
 
+### 2026-02-14 15:26 preflight 二次阻断修复（Red-gate 文案对齐）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - 修改 `openspec/changes/s1-context-ipc-split/tasks.md` 第 2.3 条为：`未出现 Red（失败测试）不得进入实现`
+  - `git commit -m "docs: align red-gate wording for s1-context-ipc-split (#532)"`
+- Exit code:
+  - preflight: `1`（首次）
+  - fix + commit: `0`
+- Key output:
+  - 阻断原因：`[OPENSPEC_CHANGE] ... must contain Red-gate text: 未出现 Red（失败测试）不得进入实现`
+  - 修复提交：`9f871deaca6469e1596d01a949e5bf4a4c62dc29`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -148,7 +161,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 9dff1ce0d13ce0e9989ea2573b5b962653afb072
+- Reviewed-HEAD-SHA: 9f871deaca6469e1596d01a949e5bf4a4c62dc29
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
