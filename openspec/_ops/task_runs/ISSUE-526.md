@@ -112,10 +112,23 @@
   - PR 已创建：`https://github.com/Leeky1017/CreoNow/pull/527`
   - 动作：回填 RUN_LOG PR 字段并提交主会话签字补丁
 
+### 2026-02-14 13:11 preflight 二次阻断与格式修复
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write apps/desktop/preload/src/index.ts`
+- Exit code:
+  - preflight: `1`
+  - prettier write: `0`
+- Key output:
+  - preflight 阻断：`[warn] apps/desktop/preload/src/index.ts`（格式不符合）
+  - 修复动作：格式化 `apps/desktop/preload/src/index.ts` 并提交 `chore: format preload index for preflight (#526)`
+  - 后续动作：重新执行主会话签字提交并复跑 preflight
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: d282dfdeb4b25ae58ae368963972da40fe9d4000
+- Reviewed-HEAD-SHA: 518be26f7c7d88eb08ca5a804cc9abbe896f6af6
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
