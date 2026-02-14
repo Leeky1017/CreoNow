@@ -36,6 +36,8 @@ type EditingState =
 /** View mode for the KG panel */
 type ViewMode = "list" | "graph" | "timeline";
 
+type AsyncMutationResult = { ok: boolean } | null | undefined;
+
 function entityLabel(args: { name: string; entityType?: string }): string {
   return args.entityType ? `${args.name} (${args.entityType})` : args.name;
 }
@@ -82,6 +84,18 @@ function updateTimelineOrderInMetadata(
   timeline.order = order;
   metadata.timeline = timeline;
   return JSON.stringify(metadata);
+}
+
+export function shouldClearRelationEditingAfterDelete(args: {
+  editing: EditingState;
+  targetRelationId: string;
+  result: AsyncMutationResult;
+}): boolean {
+  return (
+    args.result?.ok === true &&
+    args.editing.mode === "relation" &&
+    args.editing.relationId === args.targetRelationId
+  );
 }
 
 /**
@@ -234,9 +248,32 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
     if (!confirmed) {
       return;
     }
-    await relationDelete({ relationId });
-    if (editing.mode === "relation" && editing.relationId === relationId) {
-      setEditing({ mode: "idle" });
+    try {
+      const res = await relationDelete({ relationId });
+      if (!res.ok) {
+        console.warn(
+          "[KnowledgeGraphPanel] relationDelete failed:",
+          relationId,
+          res,
+        );
+        return;
+      }
+      if (
+        shouldClearRelationEditingAfterDelete({
+          editing,
+          targetRelationId: relationId,
+          result: res,
+        })
+      ) {
+        setEditing({ mode: "idle" });
+      }
+    } catch (error) {
+      console.warn(
+        "[KnowledgeGraphPanel] relationDelete rejected:",
+        relationId,
+        error,
+      );
+      return;
     }
   }
 
@@ -345,12 +382,24 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
       return;
     }
 
-    await entityUpdate({
-      entityId: nodeId,
-      patch: { metadataJson: updatedMetadata },
-    });
-
-    saveKgViewPreferences(props.projectId, { lastDraggedNodeId: nodeId });
+    try {
+      const res = await entityUpdate({
+        entityId: nodeId,
+        patch: { metadataJson: updatedMetadata },
+      });
+      if (!res.ok) {
+        console.warn("[KnowledgeGraphPanel] entityUpdate failed:", nodeId, res);
+        return;
+      }
+      saveKgViewPreferences(props.projectId, { lastDraggedNodeId: nodeId });
+    } catch (error) {
+      console.warn(
+        "[KnowledgeGraphPanel] entityUpdate rejected:",
+        nodeId,
+        error,
+      );
+      return;
+    }
   }
 
   function onGraphTransformChange(transform: CanvasTransform): void {
@@ -368,28 +417,71 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   }
 
   async function onTimelineOrderChange(orderedIds: string[]): Promise<void> {
-    saveKgViewPreferences(props.projectId, { timelineOrder: orderedIds });
-
     const byId = new Map(entities.map((entity) => [entity.entityId, entity]));
-    await Promise.all(
+    const writeResults = await Promise.allSettled(
       orderedIds.map(async (entityId, index) => {
         const entity = byId.get(entityId);
         if (!entity || entity.entityType !== "event") {
-          return;
+          return { attempted: false as const, failed: false as const };
         }
         const metadataJson = updateTimelineOrderInMetadata(
           entity.metadataJson,
           index + 1,
         );
         if (metadataJson === entity.metadataJson) {
-          return;
+          return { attempted: false as const, failed: false as const };
         }
-        await entityUpdate({
-          entityId,
-          patch: { metadataJson },
-        });
+        try {
+          const res = await entityUpdate({
+            entityId,
+            patch: { metadataJson },
+          });
+          if (!res.ok) {
+            return {
+              attempted: true as const,
+              failed: true as const,
+              entityId,
+              detail: res,
+            };
+          }
+          return { attempted: true as const, failed: false as const };
+        } catch (error) {
+          return {
+            attempted: true as const,
+            failed: true as const,
+            entityId,
+            detail: error,
+          };
+        }
       }),
     );
+
+    const failures: unknown[] = [];
+    let attemptedCount = 0;
+
+    for (const result of writeResults) {
+      if (result.status === "rejected") {
+        attemptedCount += 1;
+        failures.push(result.reason);
+        continue;
+      }
+      if (result.value.attempted) {
+        attemptedCount += 1;
+      }
+      if (result.value.failed) {
+        failures.push(result.value);
+      }
+    }
+
+    if (failures.length > 0) {
+      console.warn(
+        `[KnowledgeGraphPanel] timeline reorder partially failed: ${failures.length}/${attemptedCount} entity updates failed`,
+        failures,
+      );
+      return;
+    }
+
+    saveKgViewPreferences(props.projectId, { timelineOrder: orderedIds });
   }
 
   /**
