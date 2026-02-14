@@ -7,7 +7,7 @@
 - Scope:
   - `openspec/changes/s1-*/**`（Sprint 1 十个 active change 文档）
   - `openspec/changes/EXECUTION_ORDER.md`
-  - `rulebook/tasks/archive/2026-02-14-issue-532-s1-openspec-changes-bootstrap/**`
+  - `rulebook/tasks/archive/2026-02-14-issue-532-s1-openspec-change-bootstrap/**`
   - `openspec/_ops/task_runs/ISSUE-532.md`
 - Out of Scope:
   - 应用运行时代码实现
