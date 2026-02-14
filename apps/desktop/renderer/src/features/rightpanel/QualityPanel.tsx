@@ -5,6 +5,7 @@ import { Card } from "../../components/primitives/Card";
 import { Button } from "../../components/primitives/Button";
 import { Heading } from "../../components/primitives/Heading";
 import { Text } from "../../components/primitives/Text";
+import { useJudgeEnsure } from "../../hooks/useJudgeEnsure";
 import { invoke } from "../../lib/ipcClient";
 import { useProjectStore } from "../../stores/projectStore";
 import {
@@ -348,7 +349,13 @@ export function QualityPanel(): JSX.Element {
   );
   const [judgeError, setJudgeError] = React.useState<IpcError | null>(null);
   const [judgeLoading, setJudgeLoading] = React.useState(true);
-  const [ensureBusy, setEnsureBusy] = React.useState(false);
+  const {
+    busy: ensureBusy,
+    downloading: ensureDownloading,
+    error: ensureError,
+    ensure,
+    clearError,
+  } = useJudgeEnsure();
 
   // Constraints state
   const [constraints, setConstraints] = React.useState<ConstraintsData | null>(
@@ -375,12 +382,13 @@ export function QualityPanel(): JSX.Element {
     if (res.ok) {
       setJudgeState(res.data.state);
       setJudgeError(null);
+      clearError();
     } else {
       setJudgeState(null);
       setJudgeError(res.error);
     }
     setJudgeLoading(false);
-  }, []);
+  }, [clearError]);
 
   // Fetch constraints
   const fetchConstraints = React.useCallback(async () => {
@@ -411,29 +419,23 @@ export function QualityPanel(): JSX.Element {
 
   // Handle ensure button
   const handleEnsure = React.useCallback(async () => {
-    if (ensureBusy) {
+    setJudgeError(null);
+    const result = await ensure();
+    if (!result) {
       return;
     }
 
-    setEnsureBusy(true);
-    setJudgeError(null);
-    setJudgeState({ status: "downloading" });
-
-    try {
-      const res = await invoke("judge:model:ensure", {});
-      if (res.ok) {
-        setJudgeState(res.data.state);
-      } else {
-        setJudgeError(res.error);
-        setJudgeState({
-          status: "error",
-          error: { code: res.error.code, message: res.error.message },
-        });
-      }
-    } finally {
-      setEnsureBusy(false);
+    if (result.ok) {
+      setJudgeState(result.state);
+      return;
     }
-  }, [ensureBusy]);
+
+    setJudgeError(result.error);
+    setJudgeState({
+      status: "error",
+      error: { code: result.error.code, message: result.error.message },
+    });
+  }, [ensure]);
 
   // Handle run all checks
   const handleRunAllChecks = React.useCallback(async () => {
@@ -443,21 +445,26 @@ export function QualityPanel(): JSX.Element {
     await fetchConstraints();
   }, [fetchJudgeState, fetchConstraints]);
 
+  const effectiveJudgeState: JudgeModelState | null = ensureDownloading
+    ? { status: "downloading" }
+    : judgeState;
+  const effectiveJudgeError = ensureError ?? judgeError;
+
   // Build check groups and panel status
-  const checkGroups = buildCheckGroups(judgeState, constraints);
+  const checkGroups = buildCheckGroups(effectiveJudgeState, constraints);
   const panelStatus = derivePanelStatus(
-    judgeState,
-    judgeError,
+    effectiveJudgeState,
+    effectiveJudgeError,
     constraintsError,
     judgeLoading || constraintsLoading,
   );
 
   // Count issues (errors are issues)
   const issuesCount =
-    (judgeError ? 1 : 0) +
+    (effectiveJudgeError ? 1 : 0) +
     (constraintsError ? 1 : 0) +
-    (judgeState?.status === "error" ? 1 : 0) +
-    (judgeState?.status === "not_ready" ? 1 : 0);
+    (effectiveJudgeState?.status === "error" ? 1 : 0) +
+    (effectiveJudgeState?.status === "not_ready" ? 1 : 0);
 
   // No project selected
   if (!projectId) {
@@ -486,8 +493,8 @@ export function QualityPanel(): JSX.Element {
             Judge Model
           </Heading>
           <JudgeStatusSection
-            state={judgeState}
-            error={judgeError}
+            state={effectiveJudgeState}
+            error={effectiveJudgeError}
             loading={judgeLoading}
             onEnsure={handleEnsure}
             ensureBusy={ensureBusy}
@@ -506,8 +513,8 @@ export function QualityPanel(): JSX.Element {
             Judge Model
           </Heading>
           <JudgeStatusSection
-            state={judgeState}
-            error={judgeError}
+            state={effectiveJudgeState}
+            error={effectiveJudgeError}
             loading={judgeLoading}
             onEnsure={handleEnsure}
             ensureBusy={ensureBusy}

@@ -3,6 +3,7 @@ import React from "react";
 import type { IpcChannelSpec } from "@shared/types/ipc-generated";
 import { invoke } from "../../lib/ipcClient";
 import { Button, Heading, Text } from "../../components/primitives";
+import { useJudgeEnsure } from "../../hooks/useJudgeEnsure";
 
 type JudgeModelState =
   IpcChannelSpec["judge:model:getstate"]["response"]["state"];
@@ -25,7 +26,13 @@ function formatState(state: JudgeModelState): string {
 export function JudgeSection(): JSX.Element {
   const [state, setState] = React.useState<JudgeModelState | null>(null);
   const [errorText, setErrorText] = React.useState<string | null>(null);
-  const [ensureBusy, setEnsureBusy] = React.useState(false);
+  const {
+    busy: ensureBusy,
+    downloading: ensureDownloading,
+    error: ensureError,
+    ensure,
+    clearError,
+  } = useJudgeEnsure();
 
   React.useEffect(() => {
     let canceled = false;
@@ -37,6 +44,7 @@ export function JudgeSection(): JSX.Element {
       if (res.ok) {
         setState(res.data.state);
         setErrorText(null);
+        clearError();
         return;
       }
       setErrorText(`${res.error.code}: ${res.error.message}`);
@@ -44,31 +52,33 @@ export function JudgeSection(): JSX.Element {
     return () => {
       canceled = true;
     };
-  }, []);
+  }, [clearError]);
 
-  async function ensure(): Promise<void> {
-    if (ensureBusy) {
+  async function handleEnsure(): Promise<void> {
+    setErrorText(null);
+    const result = await ensure();
+    if (!result) {
       return;
     }
-    setEnsureBusy(true);
-    setErrorText(null);
-    setState({ status: "downloading" });
 
-    try {
-      const res = await invoke("judge:model:ensure", {});
-      if (res.ok) {
-        setState(res.data.state);
-        return;
-      }
-      setErrorText(`${res.error.code}: ${res.error.message}`);
-      setState({
-        status: "error",
-        error: { code: res.error.code, message: res.error.message },
-      });
-    } finally {
-      setEnsureBusy(false);
+    if (result.ok) {
+      setState(result.state);
+      return;
     }
+
+    setErrorText(`${result.error.code}: ${result.error.message}`);
+    setState({
+      status: "error",
+      error: { code: result.error.code, message: result.error.message },
+    });
   }
+
+  const viewState: JudgeModelState | null = ensureDownloading
+    ? { status: "downloading" }
+    : state;
+  const displayError = ensureError
+    ? `${ensureError.code}: ${ensureError.message}`
+    : errorText;
 
   return (
     <section
@@ -81,7 +91,7 @@ export function JudgeSection(): JSX.Element {
       <Text size="small" color="muted" as="div" className="mb-2.5">
         Status:{" "}
         <Text data-testid="judge-status" size="small" color="default" as="span">
-          {state ? formatState(state) : "loading"}
+          {viewState ? formatState(viewState) : "loading"}
         </Text>
       </Text>
 
@@ -90,7 +100,7 @@ export function JudgeSection(): JSX.Element {
           data-testid="judge-ensure"
           variant="secondary"
           size="sm"
-          onClick={() => void ensure()}
+          onClick={() => void handleEnsure()}
           disabled={ensureBusy}
           loading={ensureBusy}
           className="bg-[var(--color-bg-selected)]"
@@ -98,9 +108,9 @@ export function JudgeSection(): JSX.Element {
           Ensure
         </Button>
 
-        {errorText ? (
+        {displayError ? (
           <Text data-testid="judge-error" size="small" color="muted">
-            {errorText}
+            {displayError}
           </Text>
         ) : null}
       </div>
