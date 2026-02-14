@@ -1,25 +1,23 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-14 13:02
+更新时间：2026-02-14 14:06
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **2**。
-- 执行模式：**串行**。
-- 执行分组：
-  - 串行组 B（同模块先后依赖）：`s0-metadata-failfast` → `s0-kg-async-validate`
-- `s0-fake-queued-fix`、`s0-window-load-catch`、`s0-app-ready-catch`、`s0-skill-loader-error`、`s0-sandbox-enable`、`s0-context-observe` 已完成并归档至 `openspec/changes/archive/`。
+- 当前活跃 change 数量为 **1**。
+- 执行模式：**单线执行（无需分组）**。
+- 活跃 change：`s0-kg-async-validate`。
+- `s0-metadata-failfast` 已完成并归档至 `openspec/changes/archive/s0-metadata-failfast`。
 
 ## 执行顺序
 
-1. `s0-metadata-failfast`
-2. `s0-kg-async-validate`
+1. `s0-kg-async-validate`
 
 ## 依赖说明
 
-- 唯一显式上游依赖：`s0-kg-async-validate` 依赖 `s0-metadata-failfast`，进入 Red 前必须完成并落盘 Dependency Sync Check。
+- `s0-kg-async-validate` 的上游 `s0-metadata-failfast` 已完成并归档；进入 Red 前仍需在其 `tasks.md`/RUN_LOG 落盘 Dependency Sync Check。
 - 当新增 active change 且存在上游依赖时，进入 Red 前必须完成并落盘 Dependency Sync Check（至少核对数据结构、IPC 契约、错误码、阈值）。
 - 若任一 active change 发现 `DRIFT`，必须先更新该 change 的 `proposal.md`、`specs/*`、`tasks.md`，再推进 Red/Green。
 

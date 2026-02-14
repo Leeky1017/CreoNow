@@ -27,6 +27,25 @@ export interface EntityUiMetadata {
   attributes?: Array<{ key: string; value: string }>;
 }
 
+const METADATA_FAILFAST_LOG_PREFIX =
+  "[kgToGraph] metadataJson parse fail-fast:";
+const METADATA_LOG_SNIPPET_LIMIT = 80;
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function metadataSnippet(metadataJson: string): string {
+  const condensed = metadataJson.replace(/\s+/g, " ").trim();
+  if (condensed.length === 0) {
+    return "<empty>";
+  }
+  if (condensed.length <= METADATA_LOG_SNIPPET_LIMIT) {
+    return condensed;
+  }
+  return `${condensed.slice(0, METADATA_LOG_SNIPPET_LIMIT)}...`;
+}
+
 /**
  * Default position for nodes without stored position.
  * Uses a simple grid layout based on entity index.
@@ -225,12 +244,23 @@ export function updatePositionInMetadata(
 ): string {
   let metadata: Record<string, unknown> = {};
 
-  if (currentMetadataJson) {
+  if (currentMetadataJson !== null && currentMetadataJson !== undefined) {
     try {
-      metadata = JSON.parse(currentMetadataJson) as Record<string, unknown>;
+      const parsed = JSON.parse(currentMetadataJson) as unknown;
+      if (!isObjectRecord(parsed)) {
+        console.warn(
+          METADATA_FAILFAST_LOG_PREFIX,
+          metadataSnippet(currentMetadataJson),
+        );
+        return currentMetadataJson;
+      }
+      metadata = parsed;
     } catch {
-      // Start fresh if parsing fails
-      metadata = {};
+      console.warn(
+        METADATA_FAILFAST_LOG_PREFIX,
+        metadataSnippet(currentMetadataJson),
+      );
+      return currentMetadataJson;
     }
   }
 
