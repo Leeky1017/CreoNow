@@ -74,9 +74,7 @@ export function filterSlashCommands(
   });
 }
 
-export type SlashCommandExecutors = Partial<
-  Record<SlashCommandId, () => void>
->;
+export type SlashCommandExecutors = Partial<Record<SlashCommandId, () => void>>;
 
 export function routeSlashCommandExecution(
   commandId: SlashCommandId,

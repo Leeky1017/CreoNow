@@ -13,10 +13,10 @@
 
 ### Scenario → 测试映射
 
-| Scenario ID    | 测试文件                                                        | 测试名称（拟定）                                         | 断言要点                       |
-| -------------- | --------------------------------------------------------------- | -------------------------------------------------------- | ------------------------------ |
+| Scenario ID    | 测试文件                                                        | 测试名称（拟定）                                               | 断言要点                       |
+| -------------- | --------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------ |
 | `CMI-S2-SA-S1` | `apps/desktop/renderer/src/features/ai/AiPanel.stories.test.ts` | `[CMI-S2-SA-S1] asserts key render elements and initial state` | 关键元素和初始状态必须明确断言 |
-| `CMI-S2-SA-S2` | `apps/desktop/renderer/src/features/ai/AiPanel.stories.test.ts` | `[CMI-S2-SA-S2] fails when interaction feedback regresses` | 仅对象存在不足以通过测试       |
+| `CMI-S2-SA-S2` | `apps/desktop/renderer/src/features/ai/AiPanel.stories.test.ts` | `[CMI-S2-SA-S2] fails when interaction feedback regresses`     | 仅对象存在不足以通过测试       |
 
 ## 3. Red（先写失败测试）
 

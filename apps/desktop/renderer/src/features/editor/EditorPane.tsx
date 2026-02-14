@@ -18,9 +18,7 @@ import {
 import { resolveFinalDocumentEditDecision } from "./finalDocumentEditGuard";
 import { WriteButton } from "./WriteButton";
 import { SlashCommandExtension } from "./extensions/slashCommand";
-import {
-  SlashCommandPanel,
-} from "./SlashCommandPanel";
+import { SlashCommandPanel } from "./SlashCommandPanel";
 import {
   routeSlashCommandExecution,
   SLASH_COMMAND_REGISTRY,
@@ -513,7 +511,14 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
         },
       });
     },
-    [aiRun, aiSetSelectedSkillId, aiStatus, documentId, editor, props.projectId],
+    [
+      aiRun,
+      aiSetSelectedSkillId,
+      aiStatus,
+      documentId,
+      editor,
+      props.projectId,
+    ],
   );
 
   const onWriteClick = React.useCallback(async (): Promise<void> => {

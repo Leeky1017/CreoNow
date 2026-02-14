@@ -14,7 +14,9 @@ describe("InlineDiffControls", () => {
       />,
     );
 
-    expect(screen.getByTestId("inline-diff-decoration-layer")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("inline-diff-decoration-layer"),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("inline-diff-remove-0-0")).toHaveTextContent(
       "before line",
     );
@@ -42,7 +44,9 @@ describe("InlineDiffControls", () => {
 
     expect(onApplyAcceptedText).toHaveBeenCalledTimes(1);
     expect(onApplyAcceptedText).toHaveBeenCalledWith("after line");
-    expect(screen.queryByTestId("inline-diff-controls-0")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("inline-diff-controls-0"),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("inline-diff-current-text")).toHaveTextContent(
       "after line",
     );
@@ -63,7 +67,9 @@ describe("InlineDiffControls", () => {
     await user.click(screen.getByTestId("inline-diff-reject-0"));
 
     expect(onApplyAcceptedText).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("inline-diff-controls-0")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("inline-diff-controls-0"),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("inline-diff-current-text")).toHaveTextContent(
       "before line",
     );
