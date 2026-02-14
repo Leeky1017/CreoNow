@@ -94,7 +94,7 @@ function resolveBuiltinSkillsDir(mainDir: string): string {
  *
  * Why: keep a single place for window defaults used by E2E and later features.
  */
-function createMainWindow(): BrowserWindow {
+export function createMainWindow(logger: Logger): BrowserWindow {
   const preload = resolvePreloadPath();
   const win = new BrowserWindow({
     width: 1280,
@@ -110,9 +110,21 @@ function createMainWindow(): BrowserWindow {
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
-    void win.loadURL(process.env.VITE_DEV_SERVER_URL);
+    const target = process.env.VITE_DEV_SERVER_URL;
+    void win.loadURL(target).catch((error) => {
+      logger.error("window_load_failed", {
+        target,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
   } else {
-    void win.loadFile(path.join(__dirname, "../renderer/index.html"));
+    const target = path.join(__dirname, "../renderer/index.html");
+    void win.loadFile(target).catch((error) => {
+      logger.error("window_load_failed", {
+        target,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
   }
 
   return win;
@@ -355,11 +367,11 @@ void app.whenReady().then(() => {
     env: process.env,
   });
 
-  createMainWindow();
+  createMainWindow(logger);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
+      createMainWindow(logger);
     }
   });
 
