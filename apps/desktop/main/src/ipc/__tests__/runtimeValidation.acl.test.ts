@@ -67,6 +67,10 @@ async function main(): Promise<void> {
         assert.fail("expected FORBIDDEN response");
       }
       assert.equal(response.error.code, "FORBIDDEN");
+      assert.equal(
+        (response.error.details as { reason?: string } | undefined)?.reason,
+        "origin_not_allowed",
+      );
     },
   );
 }
