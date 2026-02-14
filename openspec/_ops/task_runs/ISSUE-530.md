@@ -3,7 +3,7 @@
 - Issue: #530
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/530
 - Branch: task/530-s0-kg-async-validate
-- PR: N/A（按任务约束不创建 PR）
+- PR: https://github.com/Leeky1017/CreoNow/pull/531
 - Scope:
   - `apps/desktop/renderer/src/features/kg/**`（仅本 change 所需最小改动）
   - `openspec/changes/archive/s0-kg-async-validate/**`（已归档）
@@ -195,6 +195,15 @@
 - Key output:
   - Rulebook task 已迁移到 archive 路径，避免 active 残留
 
+### 2026-02-14 14:45 提交与创建 PR
+
+- Command:
+  - `git push -u origin task/530-s0-kg-async-validate`
+  - `gh pr create --base main --head task/530-s0-kg-async-validate --title "Deliver Sprint0 serial-B step2 async validation (#530)" --body-file /tmp/pr-530.md`
+- Exit code: `0`
+- Key output:
+  - PR 已创建：`https://github.com/Leeky1017/CreoNow/pull/531`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -209,7 +218,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 44892845634948909c33c9c331b48b970eecc21d
+- Reviewed-HEAD-SHA: d3a2da8728737a1b897ae56f4fc855ddfd866324
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
