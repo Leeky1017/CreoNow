@@ -48,10 +48,29 @@
 - Key output:
   - PR 创建成功：`https://github.com/Leeky1017/CreoNow/pull/521`
 
+### 2026-02-14 01:28 preflight 首次失败（格式）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `pnpm exec prettier --check ...` 失败
+  - 失败文件：`rulebook/tasks/issue-520-deliver-all-pending-local-workspace-changes/{.metadata.json,proposal.md,tasks.md}`
+
+### 2026-02-14 01:31 修复 preflight 格式阻断
+
+- Command:
+  - `pnpm exec prettier --write rulebook/tasks/issue-520-deliver-all-pending-local-workspace-changes/.metadata.json rulebook/tasks/issue-520-deliver-all-pending-local-workspace-changes/proposal.md rulebook/tasks/issue-520-deliver-all-pending-local-workspace-changes/tasks.md`
+  - `git commit -m "chore: format rulebook task files (#520)"`
+- Exit code: `0`
+- Key output:
+  - 格式修复完成
+  - 提交 SHA：`dbb3863381d807a5a859fef23256415f97f0ced9`
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: da3e10726ea6eab85f6f7722a9d67e7a18691eaf
+- Reviewed-HEAD-SHA: dbb3863381d807a5a859fef23256415f97f0ced9
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
