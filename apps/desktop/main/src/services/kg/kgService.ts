@@ -26,7 +26,8 @@ export function createKnowledgeGraphServiceFacade(args: {
 
     relationCreate: (relationArgs) =>
       args.writeService.relationCreate(relationArgs),
-    relationList: (relationArgs) => args.writeService.relationList(relationArgs),
+    relationList: (relationArgs) =>
+      args.writeService.relationList(relationArgs),
     relationUpdate: (relationArgs) =>
       args.writeService.relationUpdate(relationArgs),
     relationDelete: (relationArgs) =>

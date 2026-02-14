@@ -6,7 +6,9 @@ import type { SubServiceFactoryArgs, VersionService } from "./types";
  *
  * Why: facade composes stable public contract from dedicated domain services.
  */
-export function createVersionService(args: SubServiceFactoryArgs): VersionService {
+export function createVersionService(
+  args: SubServiceFactoryArgs,
+): VersionService {
   const { baseService, ...coreArgs } = args;
   const service = baseService ?? createDocumentCoreService(coreArgs);
   return {

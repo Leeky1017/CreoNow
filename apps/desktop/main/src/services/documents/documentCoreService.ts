@@ -3,15 +3,10 @@ import { createHash, randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
-import type {
-  VersionDiffStats,
-} from "@shared/types/version-diff";
+import type { VersionDiffStats } from "@shared/types/version-diff";
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "./derive";
-import {
-  applyConflictResolutions,
-  runThreeWayMerge,
-} from "./threeWayMerge";
+import { applyConflictResolutions, runThreeWayMerge } from "./threeWayMerge";
 import type {
   BranchListItem,
   DocumentListItem,

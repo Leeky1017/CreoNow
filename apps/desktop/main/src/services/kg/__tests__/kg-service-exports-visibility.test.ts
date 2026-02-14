@@ -12,10 +12,7 @@ import {
   createKnowledgeGraphService,
   KNOWLEDGE_ENTITY_TYPES as SERVICE_KNOWLEDGE_ENTITY_TYPES,
 } from "../kgService";
-import {
-  AI_CONTEXT_LEVELS,
-  KNOWLEDGE_ENTITY_TYPES,
-} from "../types";
+import { AI_CONTEXT_LEVELS, KNOWLEDGE_ENTITY_TYPES } from "../types";
 
 const logger: Logger = {
   logPath: "<test>",
@@ -70,7 +67,9 @@ try {
       created_at TEXT NOT NULL
     );
   `);
-  db.prepare("INSERT INTO projects (project_id) VALUES (?)").run("proj-exports");
+  db.prepare("INSERT INTO projects (project_id) VALUES (?)").run(
+    "proj-exports",
+  );
 
   const queryService = createKnowledgeGraphQueryService({ db, logger });
   const builtByQuery = queryService.buildRulesInjection({

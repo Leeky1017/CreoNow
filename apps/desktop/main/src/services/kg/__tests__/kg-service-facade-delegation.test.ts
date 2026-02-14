@@ -80,7 +80,10 @@ const queryService: KnowledgeGraphQueryService = {
   },
 };
 
-const facade = createKnowledgeGraphServiceFacade({ queryService, writeService });
+const facade = createKnowledgeGraphServiceFacade({
+  queryService,
+  writeService,
+});
 
 // KG-S1-KSE-S2
 // should delegate facade methods to query/write services without contract drift

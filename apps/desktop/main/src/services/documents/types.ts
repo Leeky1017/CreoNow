@@ -230,12 +230,20 @@ export type DocumentCrudService = Pick<
 
 export type VersionService = Pick<
   DocumentService,
-  "listVersions" | "readVersion" | "diffVersions" | "rollbackVersion" | "restoreVersion"
+  | "listVersions"
+  | "readVersion"
+  | "diffVersions"
+  | "rollbackVersion"
+  | "restoreVersion"
 >;
 
 export type BranchService = Pick<
   DocumentService,
-  "createBranch" | "listBranches" | "switchBranch" | "mergeBranch" | "resolveMergeConflict"
+  | "createBranch"
+  | "listBranches"
+  | "switchBranch"
+  | "mergeBranch"
+  | "resolveMergeConflict"
 >;
 
 export type SubServiceFactoryArgs = DocumentServiceFactoryArgs & {

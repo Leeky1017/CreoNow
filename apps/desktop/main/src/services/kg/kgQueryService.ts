@@ -26,6 +26,7 @@ export function createKnowledgeGraphQueryService(args: {
     queryValidate: (queryArgs) => coreService.queryValidate(queryArgs),
     queryRelevant: (queryArgs) => coreService.queryRelevant(queryArgs),
     queryByIds: (queryArgs) => coreService.queryByIds(queryArgs),
-    buildRulesInjection: (queryArgs) => coreService.buildRulesInjection(queryArgs),
+    buildRulesInjection: (queryArgs) =>
+      coreService.buildRulesInjection(queryArgs),
   };
 }
