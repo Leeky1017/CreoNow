@@ -142,9 +142,18 @@
   - `pnpm exec prettier --write apps/desktop/main/src/ipc/__tests__/debug-channel-gate.test.ts apps/desktop/renderer/src/stores/__tests__/searchStore.race.test.ts openspec/changes/archive/s2-debug-channel-gate/tasks.md rulebook/tasks/archive/2026-02-14-issue-551-s2-wave5-wave6-governed-delivery/.metadata.json`
 - Exit code:
   - 首次 preflight：`1`（Prettier check 阻断 4 文件）
-  - 格式修复后：`0`（待复跑确认）
+  - 格式修复后：`0`（已复跑确认）
 - Key output:
   - 触发点均为格式漂移，无行为层回归
+
+### 2026-02-14 23:44 Main Session Audit 签字刷新
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - 更新 `Reviewed-HEAD-SHA` 为签字前最新实现提交 SHA
+- Exit code: `进行中`
+- Key output:
+  - preflight 指出 `Reviewed-HEAD-SHA` 与当前签字基线不一致，按规则刷新后再签字。
 
 ## Dependency Sync Check
 
@@ -164,7 +173,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: e242faf84dbe536b3402588dddab937cb3642940
+- Reviewed-HEAD-SHA: e968a1653340730d9516f26448f95ec0282056d2
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
