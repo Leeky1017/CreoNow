@@ -52,10 +52,36 @@ async function waitForDone(
     if (done) {
       return done;
     }
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise<void>((resolve) => setImmediate(resolve));
   }
 
   throw new Error("timeout waiting for done event");
+}
+
+async function waitForEventsToSettle(
+  events: AiStreamEvent[],
+  timeoutMs = 1_000,
+): Promise<void> {
+  const startedAt = Date.now();
+  let stableTurns = 0;
+  let lastLength = events.length;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    if (events.length === lastLength) {
+      stableTurns += 1;
+      if (stableTurns >= 5) {
+        return;
+      }
+      continue;
+    }
+
+    stableTurns = 0;
+    lastLength = events.length;
+  }
+
+  throw new Error("timeout waiting for stream events to settle");
 }
 
 async function withOpenAiStreamingServer(args: {
@@ -169,7 +195,7 @@ async function withOpenAiStreamingServer(args: {
       assert.equal(done.terminal, "completed");
       assert.equal(done.outputText, "Hello World");
 
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await waitForEventsToSettle(events);
       const doneEvents = events.filter(
         (event) => event.type === "done" && event.executionId === executionId,
       );
@@ -259,13 +285,15 @@ async function withOpenAiStreamingServer(args: {
  */
 {
   await withOpenAiStreamingServer({
-    handler: async ({ res }) => {
+    handler: async ({ req, res }) => {
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
         Connection: "keep-alive",
         "Cache-Control": "no-cache",
       });
-      await new Promise((resolve) => setTimeout(resolve, 120));
+      await new Promise<void>((resolve) => {
+        req.once("close", resolve);
+      });
       res.end();
     },
     run: async ({ baseUrl }) => {
@@ -304,7 +332,7 @@ async function withOpenAiStreamingServer(args: {
       assert.equal(done.terminal, "error");
       assert.equal(done.error?.code, "SKILL_TIMEOUT");
 
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await waitForEventsToSettle(events);
       const doneEvents = events.filter(
         (event) => event.type === "done" && event.executionId === executionId,
       );

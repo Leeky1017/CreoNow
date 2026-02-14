@@ -27,9 +27,7 @@ async function waitForCondition(
     if (await predicate()) {
       return true;
     }
-    await new Promise((resolve) => {
-      setTimeout(resolve, 10);
-    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
   }
   return false;
 }

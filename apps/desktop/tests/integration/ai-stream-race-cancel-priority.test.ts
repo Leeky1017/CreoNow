@@ -43,10 +43,36 @@ async function waitForDone(
     if (done) {
       return done;
     }
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise<void>((resolve) => setImmediate(resolve));
   }
 
   throw new Error("timeout waiting for done event");
+}
+
+async function waitForEventsToSettle(
+  events: AiStreamEvent[],
+  timeoutMs = 1_000,
+): Promise<void> {
+  const startedAt = Date.now();
+  let stableTurns = 0;
+  let lastLength = events.length;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    if (events.length === lastLength) {
+      stableTurns += 1;
+      if (stableTurns >= 5) {
+        return;
+      }
+      continue;
+    }
+
+    stableTurns = 0;
+    lastLength = events.length;
+  }
+
+  throw new Error("timeout waiting for stream events to settle");
 }
 
 async function withStreamingServer(args: {
@@ -71,7 +97,7 @@ async function withStreamingServer(args: {
       res.write(
         `data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`,
       );
-      await new Promise((resolve) => setTimeout(resolve, 25));
+      await new Promise<void>((resolve) => setImmediate(resolve));
     }
 
     res.write("data: [DONE]\n\n");
@@ -158,7 +184,7 @@ async function withStreamingServer(args: {
       const done = await waitForDone(events, executionId);
       assert.equal(done.terminal, "cancelled");
 
-      await new Promise((resolve) => setTimeout(resolve, 60));
+      await waitForEventsToSettle(events);
 
       const doneEvents = events.filter(
         (event): event is AiStreamDoneEvent =>

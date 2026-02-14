@@ -16,6 +16,21 @@ type RulesInjectionDto = {
   source: "kg-rules-mock";
 };
 
+async function waitForCondition(
+  predicate: () => boolean,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  throw new Error(timeoutMessage);
+}
+
 // KG3-X-S1
 // should return structured codes and fallback to empty rules injection
 {
@@ -43,9 +58,14 @@ type RulesInjectionDto = {
 
     assert.equal(enqueueRes.ok, true);
 
-    await new Promise((resolve) => {
-      setTimeout(resolve, 80);
-    });
+    await waitForCondition(
+      () =>
+        harness.logs.error.some(
+          (event) => event.event === "kg_recognition_unavailable",
+        ),
+      2_000,
+      "expected kg_recognition_unavailable log",
+    );
 
     const pushedSuggestions = harness.getPushEvents(KG_SUGGESTION_CHANNEL);
     assert.equal(pushedSuggestions.length, 0);

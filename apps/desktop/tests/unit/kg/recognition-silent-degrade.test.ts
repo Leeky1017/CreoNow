@@ -8,6 +8,21 @@ type EntityDto = {
   name: string;
 };
 
+async function waitForCondition(
+  predicate: () => boolean,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<void> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+  throw new Error(timeoutMessage);
+}
+
 // KG3-R1-S4
 // should log recognition failure without toast and keep manual create available
 {
@@ -30,9 +45,14 @@ type EntityDto = {
 
     assert.equal(enqueueRes.ok, true);
 
-    await new Promise((resolve) => {
-      setTimeout(resolve, 50);
-    });
+    await waitForCondition(
+      () =>
+        harness.logs.error.some(
+          (event) => event.event === "kg_recognition_unavailable",
+        ),
+      2_000,
+      "expected kg_recognition_unavailable log",
+    );
 
     const pushEvents = harness.getPushEvents(KG_SUGGESTION_CHANNEL);
     assert.equal(pushEvents.length, 0);

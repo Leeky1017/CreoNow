@@ -235,7 +235,7 @@ async function resolvesResultBeforeCompletionSettles(): Promise<void> {
   }
 
   completion.resolve("completed");
-  await new Promise((resolve) => setTimeout(resolve, 0));
+  await new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 // S1-SEC-S3
