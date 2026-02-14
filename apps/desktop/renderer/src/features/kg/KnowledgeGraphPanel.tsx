@@ -47,11 +47,22 @@ function nodeTypeToEntityType(nodeType: NodeType): string {
   return nodeType === "other" ? "" : nodeType;
 }
 
-function parseMetadataJson(metadataJson: string): Record<string, unknown> {
+function parseMetadataJson(
+  metadataJson: string,
+): Record<string, unknown> | null {
+  const normalized = metadataJson.trim();
+  if (normalized.length === 0) {
+    return null;
+  }
+
   try {
-    return JSON.parse(metadataJson) as Record<string, unknown>;
+    const parsed = JSON.parse(metadataJson) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
   } catch {
-    return {};
+    return null;
   }
 }
 
@@ -60,6 +71,9 @@ function updateTimelineOrderInMetadata(
   order: number,
 ): string {
   const metadata = parseMetadataJson(metadataJson);
+  if (!metadata) {
+    return metadataJson;
+  }
   const timeline = (metadata.timeline as Record<string, unknown>) ?? {};
   timeline.order = order;
   metadata.timeline = timeline;
@@ -288,7 +302,9 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
       .filter((entity) => entity.entityType === "event")
       .map((entity, index) => {
         const metadata = parseMetadataJson(entity.metadataJson);
-        const timeline = (metadata.timeline as Record<string, unknown>) ?? {};
+        const timeline = metadata
+          ? ((metadata.timeline as Record<string, unknown>) ?? {})
+          : {};
         const chapterValue = timeline.chapter;
         const orderValue = timeline.order;
         return {
@@ -321,6 +337,9 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
       entity.metadataJson,
       position,
     );
+    if (updatedMetadata === entity.metadataJson) {
+      return;
+    }
 
     await entityUpdate({
       entityId: nodeId,
@@ -358,6 +377,9 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
           entity.metadataJson,
           index + 1,
         );
+        if (metadataJson === entity.metadataJson) {
+          return;
+        }
         await entityUpdate({
           entityId,
           patch: { metadataJson },
@@ -422,6 +444,9 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
         entity.metadataJson,
         node.position,
       );
+      if (updatedMetadata === entity.metadataJson) {
+        return;
+      }
 
       await entityUpdate({
         entityId: node.id,
