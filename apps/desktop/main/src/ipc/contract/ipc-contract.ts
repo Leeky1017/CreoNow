@@ -711,7 +711,7 @@ const KG_RELATION_SCHEMA = s.object({
 });
 
 const KG_RECOGNITION_ENQUEUE_SCHEMA = s.object({
-  taskId: s.union(s.string(), s.null()),
+  taskId: s.union(s.string(), s.literal(null)),
   status: s.union(
     s.literal("started"),
     s.literal("queued"),

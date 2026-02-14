@@ -111,11 +111,12 @@ export function createMainWindow(logger: Logger): BrowserWindow {
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
-    const devUrl = new URL(process.env.VITE_DEV_SERVER_URL);
+    let target = process.env.VITE_DEV_SERVER_URL;
     if (isE2E) {
+      const devUrl = new URL(target);
       devUrl.searchParams.set("creonow_e2e", "1");
+      target = devUrl.toString();
     }
-    const target = devUrl.toString();
     void win.loadURL(target).catch((error) => {
       logger.error("window_load_failed", {
         target,

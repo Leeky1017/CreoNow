@@ -32,13 +32,15 @@ vi.mock("electron", () => {
 
 const originalDevServerUrl = process.env.VITE_DEV_SERVER_URL;
 
-async function loadCreateMainWindow(): Promise<(logger: {
-  logPath: string;
-  info: (event: string, data?: Record<string, unknown>) => void;
-  error: (event: string, data?: Record<string, unknown>) => void;
-}) => unknown> {
+async function loadCreateMainWindow(): Promise<
+  (logger: {
+    logPath: string;
+    info: (event: string, data?: Record<string, unknown>) => void;
+    error: (event: string, data?: Record<string, unknown>) => void;
+  }) => unknown
+> {
   vi.resetModules();
-  const mod = await import("../../../main/src/index.ts");
+  const mod = await import("../../../main/src/index");
   return (
     mod as unknown as {
       createMainWindow: (logger: {

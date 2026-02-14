@@ -9,11 +9,14 @@ const mainIndexPath = path.join(repoRoot, "apps/desktop/main/src/index.ts");
 const mainSource = await fs.readFile(mainIndexPath, "utf8");
 
 const webPreferencesMatch = mainSource.match(
-  /function createMainWindow\(\): BrowserWindow \{[\s\S]*?webPreferences:\s*\{([\s\S]*?)\},/m,
+  /(?:export\s+)?function createMainWindow\([^)]*\):\s*BrowserWindow\s*\{[\s\S]*?webPreferences:\s*\{([\s\S]*?)\},/m,
 );
 
 // SSE-S1: BrowserWindow 必须在 sandbox 下创建 [ADDED]
-assert.ok(webPreferencesMatch, "createMainWindow webPreferences block should exist");
+assert.ok(
+  webPreferencesMatch,
+  "createMainWindow webPreferences block should exist",
+);
 
 const webPreferencesSource = webPreferencesMatch[1];
 assert.match(
@@ -27,4 +30,6 @@ assert.equal(
   "main window webPreferences must not fallback to sandbox: false",
 );
 
-console.log("ipc-browser-window-sandbox-security.spec.ts: all assertions passed");
+console.log(
+  "ipc-browser-window-sandbox-security.spec.ts: all assertions passed",
+);

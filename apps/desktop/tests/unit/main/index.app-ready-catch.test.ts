@@ -21,8 +21,8 @@ async function bootIndexWithWhenReady(
 
   const browserWindow = vi.fn(function MockBrowserWindow() {
     return {
-      loadURL: vi.fn(),
-      loadFile: vi.fn(),
+      loadURL: vi.fn(async () => undefined),
+      loadFile: vi.fn(async () => undefined),
     };
   });
   Object.assign(browserWindow, {
@@ -63,7 +63,9 @@ async function bootIndexWithWhenReady(
     })),
   }));
 
-  vi.doMock("../../../main/src/ipc/ai", () => ({ registerAiIpcHandlers: vi.fn() }));
+  vi.doMock("../../../main/src/ipc/ai", () => ({
+    registerAiIpcHandlers: vi.fn(),
+  }));
   vi.doMock("../../../main/src/ipc/aiProxy", () => ({
     registerAiProxyIpcHandlers: vi.fn(),
   }));
@@ -73,11 +75,15 @@ async function bootIndexWithWhenReady(
   vi.doMock("../../../main/src/ipc/constraints", () => ({
     registerConstraintsIpcHandlers: vi.fn(),
   }));
-  vi.doMock("../../../main/src/ipc/file", () => ({ registerFileIpcHandlers: vi.fn() }));
+  vi.doMock("../../../main/src/ipc/file", () => ({
+    registerFileIpcHandlers: vi.fn(),
+  }));
   vi.doMock("../../../main/src/ipc/export", () => ({
     registerExportIpcHandlers: vi.fn(),
   }));
-  vi.doMock("../../../main/src/ipc/judge", () => ({ registerJudgeIpcHandlers: vi.fn() }));
+  vi.doMock("../../../main/src/ipc/judge", () => ({
+    registerJudgeIpcHandlers: vi.fn(),
+  }));
   vi.doMock("../../../main/src/ipc/knowledgeGraph", () => ({
     registerKnowledgeGraphIpcHandlers: vi.fn(),
   }));
@@ -90,7 +96,9 @@ async function bootIndexWithWhenReady(
   vi.doMock("../../../main/src/ipc/project", () => ({
     registerProjectIpcHandlers: vi.fn(),
   }));
-  vi.doMock("../../../main/src/ipc/rag", () => ({ registerRagIpcHandlers: vi.fn() }));
+  vi.doMock("../../../main/src/ipc/rag", () => ({
+    registerRagIpcHandlers: vi.fn(),
+  }));
   vi.doMock("../../../main/src/ipc/search", () => ({
     registerSearchIpcHandlers: vi.fn(),
   }));

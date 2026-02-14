@@ -72,7 +72,11 @@ test("security: renderer cannot access ipcRenderer/require while bridge remains 
       throw new Error("Main window not found");
     }
 
-    return mainWindow.webContents.getLastWebPreferences().sandbox;
+    const webContentsWithPrefs = mainWindow.webContents as unknown as {
+      getLastWebPreferences?: () => { sandbox?: boolean };
+    };
+
+    return webContentsWithPrefs.getLastWebPreferences?.().sandbox ?? false;
   });
 
   expect(sandboxEnabled).toBe(true);
