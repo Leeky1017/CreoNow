@@ -8,9 +8,18 @@ import {
 } from "../../../../packages/shared/types/ipc-generated";
 import { createPreloadIpcGateway } from "./ipcGateway";
 
+function resolveRendererId(): string {
+  const maybeProcess = (globalThis as { process?: { pid?: number } }).process;
+  if (typeof maybeProcess?.pid === "number") {
+    return `pid-${maybeProcess.pid}`;
+  }
+
+  return "pid-unknown";
+}
+
 const gateway = createPreloadIpcGateway({
   allowedChannels: IPC_CHANNELS as unknown as readonly string[],
-  rendererId: `pid-${process.pid}`,
+  rendererId: resolveRendererId(),
   invoke: async (channel, payload) =>
     await ipcRenderer.invoke(channel, payload),
 });

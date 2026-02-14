@@ -96,6 +96,7 @@ function resolveBuiltinSkillsDir(mainDir: string): string {
  */
 export function createMainWindow(logger: Logger): BrowserWindow {
   const preload = resolvePreloadPath();
+  const isE2E = process.env.CREONOW_E2E === "1";
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -105,12 +106,16 @@ export function createMainWindow(logger: Logger): BrowserWindow {
       preload,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
-    const target = process.env.VITE_DEV_SERVER_URL;
+    const devUrl = new URL(process.env.VITE_DEV_SERVER_URL);
+    if (isE2E) {
+      devUrl.searchParams.set("creonow_e2e", "1");
+    }
+    const target = devUrl.toString();
     void win.loadURL(target).catch((error) => {
       logger.error("window_load_failed", {
         target,
@@ -119,12 +124,14 @@ export function createMainWindow(logger: Logger): BrowserWindow {
     });
   } else {
     const target = path.join(__dirname, "../renderer/index.html");
-    void win.loadFile(target).catch((error) => {
-      logger.error("window_load_failed", {
-        target,
-        message: error instanceof Error ? error.message : String(error),
+    void win
+      .loadFile(target, { query: isE2E ? { creonow_e2e: "1" } : {} })
+      .catch((error) => {
+        logger.error("window_load_failed", {
+          target,
+          message: error instanceof Error ? error.message : String(error),
+        });
       });
-    });
   }
 
   return win;

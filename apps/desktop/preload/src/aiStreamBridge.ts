@@ -98,6 +98,15 @@ export type AiStreamBridgeApi = {
   releaseAiStreamConsumer: (subscriptionId: string) => void;
 };
 
+function resolveRendererId(): string {
+  const maybeProcess = (globalThis as { process?: { pid?: number } }).process;
+  if (typeof maybeProcess?.pid === "number") {
+    return `pid-${maybeProcess.pid}`;
+  }
+
+  return "pid-unknown";
+}
+
 /**
  * Bridge skill stream IPC events into the renderer via DOM CustomEvent.
  *
@@ -106,7 +115,7 @@ export type AiStreamBridgeApi = {
  */
 export function registerAiStreamBridge(): AiStreamBridgeApi {
   const subscriptions = createAiStreamSubscriptionRegistry({
-    rendererId: `pid-${process.pid}`,
+    rendererId: resolveRendererId(),
   });
 
   function forwardEvent(channel: string, payload: unknown): void {

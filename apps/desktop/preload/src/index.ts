@@ -3,6 +3,27 @@ import { contextBridge } from "electron";
 import { creonowInvoke } from "./ipc";
 import { registerAiStreamBridge } from "./aiStreamBridge";
 
+function isE2EEnabled(): boolean {
+  if (typeof window.location?.href === "string") {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("creonow_e2e") === "1") {
+        return true;
+      }
+    } catch {
+      // Ignore URL parse errors and fallback to env probing.
+    }
+  }
+
+  const maybeProcess = (globalThis as {
+    process?: {
+      env?: Record<string, string | undefined>;
+    };
+  }).process;
+
+  return maybeProcess?.env?.CREONOW_E2E === "1";
+}
+
 const aiStreamBridge = registerAiStreamBridge();
 
 contextBridge.exposeInMainWorld("creonow", {
@@ -22,5 +43,5 @@ contextBridge.exposeInMainWorld("creonow", {
  */
 contextBridge.exposeInMainWorld(
   "__CN_E2E_ENABLED__",
-  process.env.CREONOW_E2E === "1",
+  isE2EEnabled(),
 );

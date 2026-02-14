@@ -66,6 +66,17 @@ test("security: renderer cannot access ipcRenderer/require while bridge remains 
   const page = await electronApp.firstWindow();
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
 
+  const sandboxEnabled = await electronApp.evaluate(({ BrowserWindow }) => {
+    const [mainWindow] = BrowserWindow.getAllWindows();
+    if (!mainWindow) {
+      throw new Error("Main window not found");
+    }
+
+    return mainWindow.webContents.getLastWebPreferences().sandbox;
+  });
+
+  expect(sandboxEnabled).toBe(true);
+
   const securitySnapshot = await page.evaluate(() => ({
     creonowInvokeType: typeof window.creonow?.invoke,
     ipcRendererType: typeof (window as unknown as Record<string, unknown>)

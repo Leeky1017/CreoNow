@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type {
   IpcErr,
   IpcError,
@@ -29,6 +27,17 @@ type CreatePreloadIpcGatewayArgs = {
 
 function nowTs(): number {
   return Date.now();
+}
+
+function createRequestId(): string {
+  if (
+    typeof globalThis.crypto === "object" &&
+    typeof globalThis.crypto.randomUUID === "function"
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `req-${nowTs()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function toIpcError(
@@ -96,7 +105,7 @@ function estimatePayloadSize(payload: unknown): number | null {
     if (typeof serialized !== "string") {
       return 0;
     }
-    return Buffer.byteLength(serialized, "utf8");
+    return new TextEncoder().encode(serialized).byteLength;
   } catch {
     return null;
   }
@@ -115,7 +124,7 @@ export function createPreloadIpcGateway(args: CreatePreloadIpcGatewayArgs): {
   const channelSet = new Set(args.allowedChannels);
   const limitBytes = args.maxPayloadBytes ?? MAX_IPC_PAYLOAD_BYTES;
   const getNow = args.now ?? nowTs;
-  const getRequestId = args.requestIdFactory ?? randomUUID;
+  const getRequestId = args.requestIdFactory ?? createRequestId;
   const auditLog = args.auditLog ?? defaultAuditLog;
 
   return {
