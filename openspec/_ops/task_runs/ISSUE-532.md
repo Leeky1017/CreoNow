@@ -147,6 +147,19 @@
   - 阻断原因：`[OPENSPEC_CHANGE] ... must contain Red-gate text: 未出现 Red（失败测试）不得进入实现`
   - 修复提交：`9f871deaca6469e1596d01a949e5bf4a4c62dc29`
 
+### 2026-02-14 15:28 preflight 三次阻断修复（批量 Red-gate 文案归一）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - 修正 `openspec/changes/s1-kg-service-extract/tasks.md` 与 `openspec/changes/s1-path-alias/tasks.md` 的 2.3 门禁文案为：`未出现 Red（失败测试）不得进入实现`
+  - `git commit -m "docs: normalize red-gate text for s1 task docs (#532)"`
+- Exit code:
+  - preflight: `1`（首次）
+  - fix + commit: `0`
+- Key output:
+  - 阻断原因：同类文案不精确匹配出现在 `s1-kg-service-extract` 与 `s1-path-alias`
+  - 修复提交：`d2ce3e3437b6e3ef8e175e6273f7ecd40f1ab60d`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -161,7 +174,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 9f871deaca6469e1596d01a949e5bf4a4c62dc29
+- Reviewed-HEAD-SHA: d2ce3e3437b6e3ef8e175e6273f7ecd40f1ab60d
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
