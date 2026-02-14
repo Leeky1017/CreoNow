@@ -160,6 +160,19 @@
   - 阻断原因：同类文案不精确匹配出现在 `s1-kg-service-extract` 与 `s1-path-alias`
   - 修复提交：`d2ce3e3437b6e3ef8e175e6273f7ecd40f1ab60d`
 
+### 2026-02-14 15:30 preflight 四次阻断修复（Rulebook metadata 格式）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write rulebook/tasks/archive/2026-02-14-issue-532-s1-openspec-change-bootstrap/.metadata.json`
+  - `git commit -m "docs: format archived rulebook metadata for preflight (#532)"`
+- Exit code:
+  - preflight: `1`（首次）
+  - fix + commit: `0`
+- Key output:
+  - 阻断原因：`.metadata.json` 未通过 Prettier
+  - 修复提交：`d1417329f6a0151440b06f33fa15d13262b3b075`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -174,7 +187,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: d2ce3e3437b6e3ef8e175e6273f7ecd40f1ab60d
+- Reviewed-HEAD-SHA: d1417329f6a0151440b06f33fa15d13262b3b075
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
