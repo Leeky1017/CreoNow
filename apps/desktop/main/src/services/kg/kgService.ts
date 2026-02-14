@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
+import { resolveRuntimeGovernanceFromEnv } from "../../config/runtimeGovernance";
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };
@@ -43,7 +44,6 @@ const BUILTIN_RELATION_TYPES = [
 const DEFAULT_NODE_LIMIT = 50_000;
 const DEFAULT_EDGE_LIMIT = 200_000;
 const DEFAULT_ATTRIBUTE_KEYS_LIMIT = 200;
-const DEFAULT_QUERY_TIMEOUT_MS = 2_000;
 const DEFAULT_PATH_EXPANSION_LIMIT = 10_000;
 const DEFAULT_SUBGRAPH_MAX_K = 3;
 
@@ -288,6 +288,8 @@ function resolvePositiveInt(
  * Resolve runtime limits, with test-friendly env overrides.
  */
 function resolveLimits(): ServiceLimits {
+  const runtimeGovernance = resolveRuntimeGovernanceFromEnv(process.env);
+
   return {
     nodeLimit: resolvePositiveInt(
       process.env.CREONOW_KG_NODE_LIMIT,
@@ -301,10 +303,7 @@ function resolveLimits(): ServiceLimits {
       process.env.CREONOW_KG_ATTRIBUTE_KEYS_LIMIT,
       DEFAULT_ATTRIBUTE_KEYS_LIMIT,
     ),
-    queryTimeoutMs: resolvePositiveInt(
-      process.env.CREONOW_KG_QUERY_TIMEOUT_MS,
-      DEFAULT_QUERY_TIMEOUT_MS,
-    ),
+    queryTimeoutMs: runtimeGovernance.kg.queryTimeoutMs,
     pathExpansionLimit: resolvePositiveInt(
       process.env.CREONOW_KG_PATH_EXPANSION_LIMIT,
       DEFAULT_PATH_EXPANSION_LIMIT,

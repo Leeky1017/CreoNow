@@ -3,6 +3,7 @@
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { AiStreamEvent, AiStreamTerminal } from "@shared/types/ai";
 import type { Logger } from "../../logging/logger";
+import { resolveRuntimeGovernanceFromEnv } from "../../config/runtimeGovernance";
 import {
   createSkillScheduler,
   type SkillSchedulerTerminal,
@@ -120,14 +121,11 @@ type RunEntry = {
   emitEvent: (event: AiStreamEvent) => void;
 };
 
-const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_SKILL_TIMEOUT_MS = 30_000;
 const MAX_SKILL_TIMEOUT_MS = 120_000;
 const DEFAULT_LLM_RATE_LIMIT_PER_MINUTE = 60;
-const DEFAULT_RETRY_BACKOFF_MS = [1_000, 2_000, 4_000] as const;
 const PROVIDER_FAILURE_THRESHOLD = 3;
 const PROVIDER_HALF_OPEN_AFTER_MS = 15 * 60 * 1000;
-const DEFAULT_SESSION_TOKEN_BUDGET = 200_000;
 const DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE = 256;
 const DEFAULT_MAX_SKILL_OUTPUT_CHARS = 120_000;
 const DEFAULT_CHAT_HISTORY_TOKEN_BUDGET = 16_000;
@@ -199,21 +197,6 @@ function estimateTokenCount(text: string): number {
     return 0;
   }
   return Math.max(1, Math.ceil(Buffer.byteLength(text, "utf8") / 4));
-}
-
-/**
- * Parse timeout (ms) from env with a safe default.
- */
-function parseTimeoutMs(env: NodeJS.ProcessEnv): number {
-  const raw = env.CREONOW_AI_TIMEOUT_MS;
-  if (typeof raw !== "string" || raw.trim().length === 0) {
-    return DEFAULT_TIMEOUT_MS;
-  }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_TIMEOUT_MS;
-  }
-  return parsed;
 }
 
 /**
@@ -849,10 +832,11 @@ async function buildUpstreamHttpError(args: {
 async function resolveProviderConfig(deps: {
   logger: Logger;
   env: NodeJS.ProcessEnv;
+  runtimeAiTimeoutMs: number;
   getFakeServer: () => Promise<FakeAiServer>;
   getProxySettings?: () => ProxySettings | null;
 }): Promise<ServiceResult<ProviderResolution>> {
-  const timeoutMs = parseTimeoutMs(deps.env);
+  const timeoutMs = deps.runtimeAiTimeoutMs;
 
   const proxyEnabled = deps.env.CREONOW_AI_PROXY_ENABLED === "1";
   if (proxyEnabled) {
@@ -979,6 +963,7 @@ export function createAiService(deps: {
   retryBackoffMs?: readonly number[];
   sessionTokenBudget?: number;
 }): AiService {
+  const runtimeGovernance = resolveRuntimeGovernanceFromEnv(deps.env);
   const runs = new Map<string, RunEntry>();
   const requestTimestamps: number[] = [];
   const providerHealthByKey = new Map<string, ProviderHealthState>();
@@ -997,9 +982,10 @@ export function createAiService(deps: {
       }));
   const rateLimitPerMinute =
     deps.rateLimitPerMinute ?? DEFAULT_LLM_RATE_LIMIT_PER_MINUTE;
-  const retryBackoffMs = deps.retryBackoffMs ?? DEFAULT_RETRY_BACKOFF_MS;
+  const retryBackoffMs =
+    deps.retryBackoffMs ?? runtimeGovernance.ai.retryBackoffMs;
   const sessionTokenBudget =
-    deps.sessionTokenBudget ?? DEFAULT_SESSION_TOKEN_BUDGET;
+    deps.sessionTokenBudget ?? runtimeGovernance.ai.sessionTokenBudget;
   const maxSkillOutputChars = parseMaxSkillOutputChars(deps.env);
   const chatHistoryTokenBudget = parseChatHistoryTokenBudget(deps.env);
   let fakeServerPromise: Promise<FakeAiServer> | null = null;
@@ -1882,6 +1868,7 @@ export function createAiService(deps: {
     const cfgRes = await resolveProviderConfig({
       logger: deps.logger,
       env: deps.env,
+      runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
       getFakeServer,
       getProxySettings: deps.getProxySettings,
     });
@@ -1918,8 +1905,10 @@ export function createAiService(deps: {
     const promptTokens = estimateTokenCount(args.input);
     const projectedTokens = promptTokens + DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE;
     const hasExplicitEnvTimeout =
-      typeof deps.env.CREONOW_AI_TIMEOUT_MS === "string" &&
-      deps.env.CREONOW_AI_TIMEOUT_MS.trim().length > 0;
+      (typeof deps.env.CN_AI_TIMEOUT_MS === "string" &&
+        deps.env.CN_AI_TIMEOUT_MS.trim().length > 0) ||
+      (typeof deps.env.CREONOW_AI_TIMEOUT_MS === "string" &&
+        deps.env.CREONOW_AI_TIMEOUT_MS.trim().length > 0);
     const skillTimeoutMs = resolveSkillTimeoutMs({
       timeoutMs: args.timeoutMs,
       fallbackEnvTimeoutMs: hasExplicitEnvTimeout
@@ -2325,6 +2314,7 @@ export function createAiService(deps: {
     const cfgRes = await resolveProviderConfig({
       logger: deps.logger,
       env: deps.env,
+      runtimeAiTimeoutMs: runtimeGovernance.ai.timeoutMs,
       getFakeServer,
       getProxySettings: deps.getProxySettings,
     });
