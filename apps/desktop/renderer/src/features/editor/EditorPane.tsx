@@ -1,10 +1,11 @@
 import React from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import BubbleMenuExtension from "@tiptap/extension-bubble-menu";
 
+import { useOptionalAiStore } from "../../stores/aiStore";
 import { useEditorStore } from "../../stores/editorStore";
 import { useVersionStore } from "../../stores/versionStore";
 import { useAutosave } from "./useAutosave";
@@ -15,6 +16,12 @@ import {
   EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY,
 } from "./EditorBubbleMenu";
 import { resolveFinalDocumentEditDecision } from "./finalDocumentEditGuard";
+import { WriteButton } from "./WriteButton";
+import { SlashCommandExtension } from "./extensions/slashCommand";
+import {
+  DEFAULT_SLASH_COMMAND_CANDIDATES,
+  SlashCommandPanel,
+} from "./SlashCommandPanel";
 
 const IS_VITEST_RUNTIME =
   typeof process !== "undefined" && Boolean(process.env.VITEST);
@@ -24,6 +31,7 @@ export const LARGE_PASTE_THRESHOLD_CHARS = 2 * 1024 * 1024;
 const LARGE_PASTE_CHUNK_SIZE = 64 * 1024;
 const CAPACITY_WARNING_TEXT =
   "文档已达到 1000000 字符上限，建议拆分文档后继续写作。";
+const WRITE_CONTEXT_WINDOW = 240;
 
 const ALLOWED_PASTE_TAGS = new Set([
   "p",
@@ -66,6 +74,27 @@ const DROP_TAGS = new Set([
   "svg",
   "math",
 ]);
+
+function isAiRunning(status: string): boolean {
+  return status === "running" || status === "streaming";
+}
+
+function buildWriteInput(editor: Editor): string {
+  const cursor = editor.state.selection.to;
+  const from = Math.max(1, cursor - WRITE_CONTEXT_WINDOW);
+  const nearCursor = editor.state.doc
+    .textBetween(from, cursor, "\n", "\n")
+    .trim();
+  if (nearCursor.length > 0) {
+    return `Continue writing from cursor context:\n${nearCursor}`;
+  }
+
+  const fallback = editor.state.doc.textContent.trim();
+  if (fallback.length > 0) {
+    return `Continue writing from cursor context:\n${fallback.slice(-WRITE_CONTEXT_WINDOW)}`;
+  }
+  return "Continue writing from cursor context:";
+}
 
 /**
  * Split large text into deterministic chunks for incremental paste processing.
@@ -204,9 +233,16 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   const previewTimestamp = useVersionStore((s) => s.previewTimestamp);
   const previewContentJson = useVersionStore((s) => s.previewContentJson);
   const exitPreview = useVersionStore((s) => s.exitPreview);
+  const aiStatus = useOptionalAiStore((s) => s.status) ?? "idle";
+  const aiSetSelectedSkillId = useOptionalAiStore((s) => s.setSelectedSkillId);
+  const aiRun = useOptionalAiStore((s) => s.run);
 
   const suppressAutosaveRef = React.useRef<boolean>(false);
   const [contentReady, setContentReady] = React.useState(false);
+  const [writeHovering, setWriteHovering] = React.useState(false);
+  const [isSlashPanelOpen, setIsSlashPanelOpen] = React.useState(false);
+  const [slashSearchQuery, setSlashSearchQuery] = React.useState("");
+  const slashPanelOpenRef = React.useRef(false);
   const isPreviewMode =
     previewStatus === "ready" && previewContentJson !== null;
   const activeContentJson = isPreviewMode
@@ -223,6 +259,19 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     [setCapacityWarning, setDocumentCharacterCount],
   );
 
+  React.useEffect(() => {
+    slashPanelOpenRef.current = isSlashPanelOpen;
+  }, [isSlashPanelOpen]);
+
+  const openSlashPanel = React.useCallback(() => {
+    setIsSlashPanelOpen(true);
+  }, []);
+
+  const closeSlashPanel = React.useCallback(() => {
+    setIsSlashPanelOpen(false);
+    setSlashSearchQuery("");
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -231,6 +280,11 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
         openOnClick: false,
         autolink: false,
         linkOnPaste: false,
+      }),
+      SlashCommandExtension.configure({
+        isPanelOpen: () => slashPanelOpenRef.current,
+        onOpenPanel: openSlashPanel,
+        onClosePanel: closeSlashPanel,
       }),
       ...(!IS_VITEST_RUNTIME
         ? [
@@ -302,6 +356,12 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     setEditorInstance(editor ?? null);
     return () => setEditorInstance(null);
   }, [editor, setEditorInstance]);
+
+  React.useEffect(() => {
+    if (!contentReady || isPreviewMode) {
+      closeSlashPanel();
+    }
+  }, [closeSlashPanel, contentReady, isPreviewMode]);
 
   React.useEffect(() => {
     if (!editor) {
@@ -427,6 +487,27 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     save,
   ]);
 
+  async function onWriteClick(): Promise<void> {
+    if (
+      !aiSetSelectedSkillId ||
+      !aiRun ||
+      !editor ||
+      !documentId ||
+      isAiRunning(aiStatus)
+    ) {
+      return;
+    }
+
+    aiSetSelectedSkillId("builtin:write");
+    await aiRun({
+      inputOverride: buildWriteInput(editor),
+      context: {
+        projectId: props.projectId,
+        documentId,
+      },
+    });
+  }
+
   if (bootstrapStatus !== "ready") {
     return (
       <Text as="div" size="body" color="muted" className="p-4">
@@ -507,8 +588,34 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       ) : null}
       <EditorBubbleMenu editor={editor} />
       <EditorToolbar editor={editor} disabled={isPreviewMode} />
-      <div className="flex-1 overflow-y-auto">
+      <SlashCommandPanel
+        open={isSlashPanelOpen}
+        query={slashSearchQuery}
+        candidates={DEFAULT_SLASH_COMMAND_CANDIDATES}
+        onQueryChange={setSlashSearchQuery}
+        onRequestClose={closeSlashPanel}
+      />
+      <div
+        data-testid="editor-content-region"
+        className="relative flex-1 overflow-y-auto"
+        onMouseEnter={() => setWriteHovering(true)}
+        onMouseLeave={() => setWriteHovering(false)}
+      >
         <EditorContent editor={editor} className="h-full" />
+        <WriteButton
+          visible={
+            writeHovering &&
+            !!editor &&
+            contentReady &&
+            documentStatus !== "final" &&
+            !isPreviewMode &&
+            editor.isEditable &&
+            editor.state.selection.empty
+          }
+          disabled={!aiSetSelectedSkillId || !aiRun || isAiRunning(aiStatus)}
+          running={isAiRunning(aiStatus)}
+          onClick={() => void onWriteClick()}
+        />
       </div>
     </div>
   );

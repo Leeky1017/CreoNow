@@ -52,17 +52,13 @@ export interface AiInlineConfirmProps {
   /** Suggested text from AI */
   suggestedText: string;
   /** Callback when user accepts the suggestion */
-  onAccept: () => void;
+  onAccept: () => void | Promise<void>;
   /** Callback when user rejects the suggestion */
-  onReject: () => void;
+  onReject: () => void | Promise<void>;
   /** Callback to view full diff */
   onViewDiff?: () => void;
   /** Additional CSS classes */
   className?: string;
-  /** Initial state for testing/demo purposes */
-  initialState?: InlineConfirmState;
-  /** Simulated delay for async operations (ms) */
-  simulateDelay?: number;
   /** Show both original and suggested text in comparison mode */
   showComparison?: boolean;
 }
@@ -121,7 +117,7 @@ export interface AiErrorCardProps {
   /** Optional test id for the rendered error code element */
   errorCodeTestId?: string;
   /** Callback when user clicks retry */
-  onRetry?: () => void;
+  onRetry?: () => void | Promise<void>;
   /** Callback when user clicks upgrade plan (for usage limit) */
   onUpgradePlan?: () => void;
   /** Callback when user clicks view usage (for usage limit) */
@@ -132,10 +128,6 @@ export interface AiErrorCardProps {
   onDismiss?: () => void;
   /** Whether to show dismiss button */
   showDismiss?: boolean;
-  /** Simulated delay for retry operations (ms) - for demo purposes */
-  simulateDelay?: number;
-  /** Whether retry should succeed (for demo purposes) */
-  retryWillSucceed?: boolean;
   /** Additional CSS classes */
   className?: string;
 }

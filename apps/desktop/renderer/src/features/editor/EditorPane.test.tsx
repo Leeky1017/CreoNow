@@ -6,7 +6,11 @@ import {
   act,
 } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { IpcRequest } from "@shared/types/ipc-generated";
+import type {
+  IpcChannel,
+  IpcInvokeResult,
+  IpcRequest,
+} from "@shared/types/ipc-generated";
 
 import {
   EditorStoreProvider,
@@ -17,6 +21,11 @@ import {
   createVersionStore,
   type IpcInvoke as VersionIpcInvoke,
 } from "../../stores/versionStore";
+import {
+  AiStoreProvider,
+  createAiStore,
+  type IpcInvoke,
+} from "../../stores/aiStore";
 import {
   EditorPane,
   EDITOR_DOCUMENT_CHARACTER_LIMIT,
@@ -100,6 +109,33 @@ function createVersionStoreForEditorPaneTests() {
   };
 
   return createVersionStore({
+    invoke,
+  });
+}
+
+function createAiStoreForEditorPaneTests(args: {
+  onSkillRun?: (payload: IpcRequest<"ai:skill:run">) => void;
+}) {
+  const invoke: IpcInvoke = async <C extends IpcChannel>(
+    channel: C,
+    payload: IpcRequest<C>,
+  ): Promise<IpcInvokeResult<C>> => {
+    if (channel === "ai:skill:run") {
+      args.onSkillRun?.(payload as IpcRequest<"ai:skill:run">);
+      return {
+        ok: true,
+        data: {
+          executionId: "run-s2-bubble-ai",
+          runId: "run-s2-bubble-ai",
+          outputText: "mock-output",
+        },
+      } as IpcInvokeResult<C>;
+    }
+
+    throw new Error(`Unexpected channel: ${String(channel)}`);
+  };
+
+  return createAiStore({
     invoke,
   });
 }
@@ -200,7 +236,7 @@ describe("EditorPane", () => {
     );
   });
 
-  it("should show Bubble Menu with inline actions when selection is non-empty", async () => {
+  it("S2-BA-1 should show Bubble Menu with inline actions when selection is non-empty", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
     const versionStore = createVersionStoreForEditorPaneTests();
 
@@ -232,6 +268,10 @@ describe("EditorPane", () => {
     expect(screen.getByTestId("bubble-strike")).toBeInTheDocument();
     expect(screen.getByTestId("bubble-code")).toBeInTheDocument();
     expect(screen.getByTestId("bubble-link")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-ai-polish")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-ai-rewrite")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-ai-describe")).toBeInTheDocument();
+    expect(screen.getByTestId("bubble-ai-dialogue")).toBeInTheDocument();
   });
 
   it("should apply format through Bubble Menu while preserving selection and syncing toolbar active state", async () => {
@@ -269,7 +309,7 @@ describe("EditorPane", () => {
     });
   });
 
-  it("should hide Bubble Menu when selection is collapsed", async () => {
+  it("S2-BA-1 should hide Bubble Menu when selection is collapsed", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
     const versionStore = createVersionStoreForEditorPaneTests();
 
@@ -302,6 +342,58 @@ describe("EditorPane", () => {
         screen.queryByTestId("editor-bubble-menu"),
       ).not.toBeInTheDocument();
     });
+    expect(screen.queryByTestId("bubble-ai-polish")).not.toBeInTheDocument();
+  });
+
+  it("S2-BA-2 should trigger mapped skill with selection text and selection reference when clicking Bubble AI item", async () => {
+    const skillRuns: IpcRequest<"ai:skill:run">[] = [];
+    const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
+    const aiStore = createAiStoreForEditorPaneTests({
+      onSkillRun: (payload) => {
+        skillRuns.push(payload);
+      },
+    });
+
+    render(
+      <AiStoreProvider store={aiStore}>
+        <VersionStoreProvider store={versionStore}>
+          <EditorStoreProvider store={store}>
+            <EditorPane projectId="project-1" />
+          </EditorStoreProvider>
+        </VersionStoreProvider>
+      </AiStoreProvider>,
+    );
+
+    await screen.findByTestId("editor-pane");
+    await screen.findByTestId("tiptap-editor");
+
+    const editor = await waitForEditorInstance(store);
+
+    act(() => {
+      editor.commands.focus("start");
+      editor.commands.setTextSelection({ from: 1, to: 8 });
+    });
+
+    fireEvent.click(await screen.findByTestId("bubble-ai-rewrite"));
+
+    await waitFor(() => {
+      expect(skillRuns).toHaveLength(1);
+    });
+
+    expect(skillRuns[0]).toMatchObject({
+      skillId: "builtin:rewrite",
+      input: "Initial",
+      context: {
+        projectId: "project-1",
+        documentId: "doc-1",
+      },
+    });
+
+    const aiState = aiStore.getState();
+    expect(aiState.selectionText).toBe("Initial");
+    expect(aiState.selectionRef?.range).toEqual({ from: 1, to: 8 });
+    expect(aiState.selectionRef?.selectionTextHash).toBeTruthy();
   });
 
   it("should suppress Bubble Menu in code block and disable inline toolbar buttons", async () => {
@@ -478,5 +570,104 @@ describe("EditorPane", () => {
 
     expect(versionStore.getState().previewStatus).toBe("idle");
     expect(versionStore.getState().previewVersionId).toBeNull();
+  });
+
+  it("[SCN-SF-1] should open slash command panel when typing / in editor", async () => {
+    const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
+
+    render(
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
+    );
+
+    const editorRoot = await screen.findByTestId("tiptap-editor");
+    const editor = await waitForEditorInstance(store);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.keyDown(editorRoot, { key: "/" });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("slash-command-panel")).toBeInTheDocument();
+    });
+  });
+
+  it("[SCN-SF-2] should filter slash candidates by keyword and render empty state", async () => {
+    const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
+
+    render(
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
+    );
+
+    const editorRoot = await screen.findByTestId("tiptap-editor");
+    const editor = await waitForEditorInstance(store);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.keyDown(editorRoot, { key: "/" });
+    await screen.findByTestId("slash-command-panel");
+
+    const searchInput = screen.getByTestId(
+      "slash-command-search-input",
+    ) as HTMLInputElement;
+
+    fireEvent.change(searchInput, {
+      target: { value: "out" },
+    });
+    expect(
+      screen.getByTestId("slash-command-item-outline"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "not-exist-keyword" },
+    });
+    expect(screen.getByTestId("slash-command-empty-state")).toBeInTheDocument();
+  });
+
+  it("[SCN-SF-3] should close slash panel on Escape and keep normal typing", async () => {
+    const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
+
+    render(
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
+    );
+
+    const editorRoot = await screen.findByTestId("tiptap-editor");
+    const editor = await waitForEditorInstance(store);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.keyDown(editorRoot, { key: "/" });
+    await screen.findByTestId("slash-command-panel");
+
+    fireEvent.keyDown(editorRoot, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId("slash-command-panel"),
+      ).not.toBeInTheDocument();
+    });
+
+    act(() => {
+      editor.commands.insertContent("x");
+    });
+    await waitFor(() => {
+      expect(editor.getText()).toContain("x");
+      expect(
+        screen.queryByTestId("slash-command-panel"),
+      ).not.toBeInTheDocument();
+    });
   });
 });

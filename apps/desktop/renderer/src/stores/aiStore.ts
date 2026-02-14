@@ -635,3 +635,18 @@ export function useAiStore<T>(selector: (state: AiStore) => T): T {
   }
   return store(selector);
 }
+
+/**
+ * Read values from AI store when provider exists, otherwise return null.
+ *
+ * Why: editor-only surfaces may render without AI context in unit tests.
+ */
+export function useOptionalAiStore<T>(
+  selector: (state: AiStore) => T,
+): T | null {
+  const store = React.useContext(AiStoreContext);
+  if (!store) {
+    return null;
+  }
+  return store(selector);
+}
