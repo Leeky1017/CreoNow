@@ -103,6 +103,21 @@
   - 对应 `tasks.md` 已收口为完成态
   - Rulebook task 校验通过
 
+### 2026-02-14 19:58-20:00 preflight 阻断定位与修复
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh`（首次执行）
+  - `pnpm exec prettier --write apps/desktop/renderer/src/features/settings-dialog/SettingsAccount.test.tsx apps/desktop/renderer/src/features/settings-dialog/SettingsAccount.tsx apps/desktop/renderer/src/features/version-history/VersionHistoryContainer.type-convergence.test.ts apps/desktop/tests/unit/kg/kg-recognition-runtime-dead-code-cleanup.test.ts rulebook/tasks/issue-542-s2-wave1-governed-delivery/.metadata.json`
+  - `pnpm -C apps/desktop exec vitest run renderer/src/features/settings-dialog/SettingsAccount.test.tsx renderer/src/features/version-history/VersionHistoryContainer.type-convergence.test.ts`
+  - `pnpm exec tsx apps/desktop/tests/unit/kg/kg-recognition-runtime-dead-code-cleanup.test.ts`
+- Exit code:
+  - 首次 auto-script preflight 阻断：`prettier --check` 命中 `5` 个文件
+  - 格式修复与关键回归复验通过：`0`
+- Key output:
+  - 已创建 PR：`https://github.com/Leeky1017/CreoNow/pull/543`
+  - 已回填 RUN_LOG PR 链接并生成提交：`414f63b8`
+  - 格式修复提交：`201d1261`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -125,7 +140,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: cee3163c53553f87feb888cce50f47d3fb6a71ec
+- Reviewed-HEAD-SHA: 201d1261ebf893695cc7012b427a68241c2c8b01
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
