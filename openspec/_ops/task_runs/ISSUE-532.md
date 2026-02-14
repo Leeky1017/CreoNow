@@ -120,6 +120,20 @@
   - 实现提交：`c85d26e6fd0152883671b1e98d7e2b20d71f0b79`
   - PR：`https://github.com/Leeky1017/CreoNow/pull/533`
 
+### 2026-02-14 15:24 preflight 阻断修复（Rulebook task slug 对齐）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `mv rulebook/tasks/archive/2026-02-14-issue-532-s1-openspec-changes-bootstrap rulebook/tasks/archive/2026-02-14-issue-532-s1-openspec-change-bootstrap`
+  - `git commit -m "docs: align rulebook task slug with branch for issue 532 (#532)"`
+- Exit code:
+  - preflight: `1`（首次）
+  - rename + commit: `0`
+- Key output:
+  - 阻断原因：`[RULEBOOK] required task dir missing...`（taskId 与分支 slug 不一致）
+  - 修复后任务归档目录后缀与分支 `task/532-s1-openspec-change-bootstrap` 对齐
+  - 修复提交：`9dff1ce0d13ce0e9989ea2573b5b962653afb072`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -134,7 +148,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: c85d26e6fd0152883671b1e98d7e2b20d71f0b79
+- Reviewed-HEAD-SHA: 9dff1ce0d13ce0e9989ea2573b5b962653afb072
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
