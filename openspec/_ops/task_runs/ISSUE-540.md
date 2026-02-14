@@ -132,6 +132,19 @@
 - Key output:
   - 阻断原因：`[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`（新增修复提交后需重新签字 RUN_LOG）
 
+### 2026-02-14 19:22 preflight 三次复验（EXECUTION_ORDER 格式）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write openspec/changes/EXECUTION_ORDER.md`
+  - `git commit -m "docs: format sprint2 execution order doc (#540)"`
+- Exit code:
+  - preflight: `1`（首次）
+  - format + commit: `0`
+- Key output:
+  - 阻断原因：`[warn] openspec/changes/EXECUTION_ORDER.md`
+  - 修复提交：`1999229ae0f2ef0f2adf0b9834ef60cb9e79f95f`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -147,7 +160,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: bdd46c3995ffac7cecbbb42f00a10217ee1020d3
+- Reviewed-HEAD-SHA: 1999229ae0f2ef0f2adf0b9834ef60cb9e79f95f
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
