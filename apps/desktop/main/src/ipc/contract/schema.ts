@@ -2,7 +2,7 @@ export type IpcSchema =
   | { kind: "string" }
   | { kind: "number" }
   | { kind: "boolean" }
-  | { kind: "literal"; value: string | number | boolean }
+  | { kind: "literal"; value: string | number | boolean | null }
   | { kind: "array"; element: IpcSchema }
   | { kind: "record"; value: IpcSchema }
   | { kind: "union"; variants: readonly IpcSchema[] }
@@ -19,7 +19,7 @@ export const s = {
   boolean(): IpcSchema {
     return { kind: "boolean" };
   },
-  literal(value: string | number | boolean): IpcSchema {
+  literal(value: string | number | boolean | null): IpcSchema {
     return { kind: "literal", value };
   },
   array(element: IpcSchema): IpcSchema {

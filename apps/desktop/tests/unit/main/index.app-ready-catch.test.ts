@@ -1,0 +1,204 @@
+import { describe, expect, it, vi } from "vitest";
+
+type BootHarness = {
+  appQuit: ReturnType<typeof vi.fn>;
+  loggerError: ReturnType<typeof vi.fn>;
+};
+
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+async function bootIndexWithWhenReady(
+  whenReadyPromise: Promise<void>,
+): Promise<BootHarness> {
+  vi.resetModules();
+
+  const appQuit = vi.fn();
+  const loggerError = vi.fn();
+  const loggerInfo = vi.fn();
+
+  const browserWindow = vi.fn(function MockBrowserWindow() {
+    return {
+      loadURL: vi.fn(async () => undefined),
+      loadFile: vi.fn(async () => undefined),
+    };
+  });
+  Object.assign(browserWindow, {
+    getAllWindows: vi.fn(() => []),
+  });
+
+  vi.doMock("electron", () => ({
+    app: {
+      whenReady: vi.fn(() => whenReadyPromise),
+      getPath: vi.fn(() => "/tmp/creonow-test-user-data"),
+      setPath: vi.fn(),
+      on: vi.fn(),
+      quit: appQuit,
+    },
+    BrowserWindow: browserWindow,
+    ipcMain: {
+      handle: vi.fn(),
+    },
+    safeStorage: {
+      isEncryptionAvailable: vi.fn(() => true),
+      encryptString: vi.fn((plainText: string) => Buffer.from(plainText)),
+      decryptString: vi.fn((cipherText: Buffer) => cipherText.toString("utf8")),
+    },
+  }));
+
+  vi.doMock("../../../main/src/logging/logger", () => ({
+    createMainLogger: vi.fn(() => ({
+      logPath: "<test>",
+      info: loggerInfo,
+      error: loggerError,
+    })),
+  }));
+
+  vi.doMock("../../../main/src/db/init", () => ({
+    initDb: vi.fn(() => ({
+      ok: false as const,
+      error: { code: "DB_INIT_FAILED", message: "mock db init failed" },
+    })),
+  }));
+
+  vi.doMock("../../../main/src/ipc/ai", () => ({
+    registerAiIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/aiProxy", () => ({
+    registerAiProxyIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/context", () => ({
+    registerContextIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/constraints", () => ({
+    registerConstraintsIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/file", () => ({
+    registerFileIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/export", () => ({
+    registerExportIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/judge", () => ({
+    registerJudgeIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/knowledgeGraph", () => ({
+    registerKnowledgeGraphIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/embedding", () => ({
+    registerEmbeddingIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/memory", () => ({
+    registerMemoryIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/project", () => ({
+    registerProjectIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/rag", () => ({
+    registerRagIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/search", () => ({
+    registerSearchIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/skills", () => ({
+    registerSkillIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/stats", () => ({
+    registerStatsIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/version", () => ({
+    registerVersionIpcHandlers: vi.fn(),
+  }));
+  vi.doMock("../../../main/src/ipc/runtime-validation", () => ({
+    createValidatedIpcMain: vi.fn(() => ({
+      handle: vi.fn(),
+    })),
+  }));
+
+  vi.doMock("../../../main/src/services/embedding/embeddingService", () => ({
+    createEmbeddingService: vi.fn(() => ({})),
+  }));
+  vi.doMock(
+    "../../../main/src/services/embedding/semanticChunkIndexService",
+    () => ({
+      createSemanticChunkIndexService: vi.fn(() => ({})),
+    }),
+  );
+  vi.doMock("../../../main/src/services/judge/judgeService", () => ({
+    createJudgeService: vi.fn(() => ({})),
+  }));
+  vi.doMock("../../../main/src/services/ai/judgeQualityService", () => ({
+    createJudgeQualityService: vi.fn(() => ({})),
+  }));
+  vi.doMock("../../../main/src/services/kg/kgRecognitionRuntime", () => ({
+    createKgRecognitionRuntime: vi.fn(() => null),
+  }));
+  vi.doMock("../../../main/src/services/context/watchService", () => ({
+    createCreonowWatchService: vi.fn(() => ({})),
+  }));
+
+  await import("../../../main/src/index");
+  return {
+    appQuit,
+    loggerError,
+  };
+}
+
+describe("main index app ready catch", () => {
+  it("logs app_init_fatal and quits when app ready chain rejects", async () => {
+    let rejectReady: (reason: unknown) => void = () => {};
+    const whenReadyPromise = new Promise<void>((_resolve, reject) => {
+      rejectReady = reject;
+    });
+
+    const fatal = new Error("app ready failed");
+    const harness = await bootIndexWithWhenReady(whenReadyPromise);
+    rejectReady(fatal);
+    await flushMicrotasks();
+
+    expect(harness.loggerError).toHaveBeenCalledWith(
+      "app_init_fatal",
+      expect.objectContaining({
+        error: "app ready failed",
+        stack: fatal.stack,
+      }),
+    );
+    expect(harness.appQuit).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not quit on successful app ready path", async () => {
+    const harness = await bootIndexWithWhenReady(Promise.resolve());
+    await flushMicrotasks();
+
+    const hasAppInitFatalLog = harness.loggerError.mock.calls.some(
+      ([event]) => event === "app_init_fatal",
+    );
+    expect(hasAppInitFatalLog).toBe(false);
+    expect(harness.appQuit).not.toHaveBeenCalled();
+  });
+
+  it("prevents unhandled rejection leakage via chain-tail catch", async () => {
+    let rejectReady: (reason: unknown) => void = () => {};
+    const whenReadyPromise = new Promise<void>((_resolve, reject) => {
+      rejectReady = reject;
+    });
+
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+
+    try {
+      await bootIndexWithWhenReady(whenReadyPromise);
+      rejectReady(new Error("leak-check"));
+      await flushMicrotasks();
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+
+    expect(unhandled).toHaveLength(0);
+  });
+});

@@ -72,8 +72,8 @@ type Recognizer = {
 };
 
 export type RecognitionEnqueueResult = {
-  taskId: string;
-  status: "started" | "queued";
+  taskId: string | null;
+  status: "started" | "queued" | "skipped";
   queuePosition: number;
 };
 
@@ -471,8 +471,8 @@ export function createKgRecognitionRuntime(args: {
         return {
           ok: true,
           data: {
-            taskId: randomUUID(),
-            status: "queued",
+            taskId: null,
+            status: "skipped",
             queuePosition: 0,
           },
         };

@@ -78,7 +78,10 @@ const VALID_SCHEMA_KINDS = new Set([
   "object",
 ]);
 
-function renderLiteral(value: string | number | boolean): string {
+function renderLiteral(value: string | number | boolean | null): string {
+  if (value === null) {
+    return "null";
+  }
   if (typeof value === "string") {
     return JSON.stringify(value);
   }
@@ -174,15 +177,18 @@ function validateSchemaReference(schema: unknown, trace: string): void {
       const value = schema.value;
       const valueType = typeof value;
       if (
-        valueType !== "string" &&
-        valueType !== "number" &&
-        valueType !== "boolean"
+        value === null ||
+        (valueType !== "string" &&
+          valueType !== "number" &&
+          valueType !== "boolean")
       ) {
-        throw new ContractGenerateError(
-          "IPC_CONTRACT_INVALID_SCHEMA_REFERENCE",
-          `Literal schema at ${trace} must use string/number/boolean`,
-          { trace, value },
-        );
+        if (value !== null) {
+          throw new ContractGenerateError(
+            "IPC_CONTRACT_INVALID_SCHEMA_REFERENCE",
+            `Literal schema at ${trace} must use string/number/boolean/null`,
+            { trace, value },
+          );
+        }
       }
       return;
     }

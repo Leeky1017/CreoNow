@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { SKILL_STREAM_CHUNK_CHANNEL } from "../../../../packages/shared/types/ai";
 import type {
   IpcErr,
@@ -28,6 +26,17 @@ type CreateAiStreamSubscriptionRegistryArgs = {
 
 function nowTs(): number {
   return Date.now();
+}
+
+function createSubscriptionId(): string {
+  if (
+    typeof globalThis.crypto === "object" &&
+    typeof globalThis.crypto.randomUUID === "function"
+  ) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `sub-${nowTs()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function toIpcError(
@@ -70,7 +79,7 @@ export function createAiStreamSubscriptionRegistry(
 } {
   const maxSubscriptions = args.maxSubscriptions ?? MAX_AI_STREAM_SUBSCRIPTIONS;
   const getNow = args.now ?? nowTs;
-  const createId = args.idFactory ?? randomUUID;
+  const createId = args.idFactory ?? createSubscriptionId;
   const auditLog = args.auditLog ?? defaultAuditLog;
   const active = new Set<string>();
 

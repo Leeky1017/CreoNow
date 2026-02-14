@@ -94,8 +94,9 @@ function resolveBuiltinSkillsDir(mainDir: string): string {
  *
  * Why: keep a single place for window defaults used by E2E and later features.
  */
-function createMainWindow(): BrowserWindow {
+export function createMainWindow(logger: Logger): BrowserWindow {
   const preload = resolvePreloadPath();
+  const isE2E = process.env.CREONOW_E2E === "1";
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -105,14 +106,33 @@ function createMainWindow(): BrowserWindow {
       preload,
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {
-    void win.loadURL(process.env.VITE_DEV_SERVER_URL);
+    let target = process.env.VITE_DEV_SERVER_URL;
+    if (isE2E) {
+      const devUrl = new URL(target);
+      devUrl.searchParams.set("creonow_e2e", "1");
+      target = devUrl.toString();
+    }
+    void win.loadURL(target).catch((error) => {
+      logger.error("window_load_failed", {
+        target,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
   } else {
-    void win.loadFile(path.join(__dirname, "../renderer/index.html"));
+    const target = path.join(__dirname, "../renderer/index.html");
+    void win
+      .loadFile(target, { query: isE2E ? { creonow_e2e: "1" } : {} })
+      .catch((error) => {
+        logger.error("window_load_failed", {
+          target,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
   }
 
   return win;
@@ -334,48 +354,68 @@ function registerIpcHandlers(deps: {
   });
 }
 
+function logAppInitFatal(error: unknown): void {
+  const payload =
+    error instanceof Error
+      ? { error: error.message, stack: error.stack }
+      : { error: String(error) };
+
+  try {
+    const logger = createMainLogger(app.getPath("userData"));
+    logger.error("app_init_fatal", payload);
+  } catch {
+    // Swallow to ensure startup rejection is fully handled.
+  }
+}
+
 enableE2EUserDataIsolation();
 
-void app.whenReady().then(() => {
-  const userDataDir = app.getPath("userData");
-  const logger = createMainLogger(userDataDir);
-  logger.info("app_ready", { user_data_dir: "<userData>" });
+app
+  .whenReady()
+  .then(() => {
+    const userDataDir = app.getPath("userData");
+    const logger = createMainLogger(userDataDir);
+    logger.info("app_ready", { user_data_dir: "<userData>" });
 
-  const dbRes = initDb({ userDataDir, logger });
-  const db: DbInitOk["db"] | null = dbRes.ok ? dbRes.db : null;
-  if (!dbRes.ok) {
-    logger.error("db_init_failed", { code: dbRes.error.code });
-  }
-
-  registerIpcHandlers({
-    db,
-    logger,
-    userDataDir,
-    builtinSkillsDir: resolveBuiltinSkillsDir(__dirname),
-    env: process.env,
-  });
-
-  createMainWindow();
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
+    const dbRes = initDb({ userDataDir, logger });
+    const db: DbInitOk["db"] | null = dbRes.ok ? dbRes.db : null;
+    if (!dbRes.ok) {
+      logger.error("db_init_failed", { code: dbRes.error.code });
     }
-  });
 
-  app.on("before-quit", () => {
-    if (!db) {
-      return;
-    }
-    try {
-      db.close();
-    } catch (error) {
-      logger.error("db_close_failed", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
+    registerIpcHandlers({
+      db,
+      logger,
+      userDataDir,
+      builtinSkillsDir: resolveBuiltinSkillsDir(__dirname),
+      env: process.env,
+    });
+
+    createMainWindow(logger);
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        createMainWindow(logger);
+      }
+    });
+
+    app.on("before-quit", () => {
+      if (!db) {
+        return;
+      }
+      try {
+        db.close();
+      } catch (error) {
+        logger.error("db_close_failed", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+  })
+  .catch((error) => {
+    logAppInitFatal(error);
+    app.quit();
   });
-});
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
