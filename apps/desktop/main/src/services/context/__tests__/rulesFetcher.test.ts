@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import test from "node:test";
 
 import type {
   KnowledgeEntity,
@@ -13,6 +14,7 @@ function createEntity(args: {
   name: string;
   type: KnowledgeEntity["type"];
   description: string;
+  aiContextLevel?: KnowledgeEntity["aiContextLevel"];
   attributes?: Record<string, string>;
   aliases?: string[];
 }): KnowledgeEntity & { aliases: string[] } {
@@ -23,7 +25,7 @@ function createEntity(args: {
     type: args.type,
     description: args.description,
     attributes: args.attributes ?? {},
-    aiContextLevel: "always",
+    aiContextLevel: args.aiContextLevel ?? "always",
     version: 1,
     createdAt: "2026-02-13T00:00:00.000Z",
     updatedAt: "2026-02-13T00:00:00.000Z",
@@ -31,9 +33,7 @@ function createEntity(args: {
   };
 }
 
-// S1
-// should inject always entities into rules layer
-{
+test("CE-S2-FA-S1 injects always entities into rules context chunks", async () => {
   const calls: Array<Parameters<KnowledgeGraphService["entityList"]>[0]> = [];
   const kgService: Pick<KnowledgeGraphService, "entityList"> = {
     entityList: (args) => {
@@ -81,15 +81,23 @@ function createEntity(args: {
   assert.equal(result.chunks[0]?.content.includes("林默"), true);
   assert.equal(result.chunks[0]?.content.includes("28岁侦探"), true);
   assert.equal(result.chunks[1]?.content.includes("魔法系统"), true);
-}
+});
 
-// S2
-// should return empty chunks when no always entities
-{
+test("CE-S2-FA-S2 does not inject chunks when no always entities exist", async () => {
   const kgService: Pick<KnowledgeGraphService, "entityList"> = {
     entityList: (_args) => ({
       ok: true,
-      data: { items: [] },
+      data: {
+        items: [
+          createEntity({
+            id: "ent-detected",
+            name: "临时线索",
+            type: "event",
+            description: "只在命中时注入",
+            aiContextLevel: "when_detected",
+          }),
+        ],
+      },
     }),
   };
   const fetcher = createRulesFetcher({ kgService });
@@ -103,11 +111,9 @@ function createEntity(args: {
 
   assert.deepEqual(result.chunks, []);
   assert.equal(result.warnings, undefined);
-}
+});
 
-// S3
-// should degrade with KG_UNAVAILABLE warning on error
-{
+test("CE-S2-FA-S3 degrades with explicit warning on KG query failure", async () => {
   const kgService: Pick<KnowledgeGraphService, "entityList"> = {
     entityList: (_args) => {
       throw new Error("DB connection lost");
@@ -123,12 +129,10 @@ function createEntity(args: {
   });
 
   assert.deepEqual(result.chunks, []);
-  assert.equal(result.warnings?.[0]?.includes("KG_UNAVAILABLE"), true);
-}
+  assert.deepEqual(result.warnings, ["KG_UNAVAILABLE: 知识图谱数据未注入"]);
+});
 
-// S4
-// should format entity with type, description, attributes
-{
+test("formats entity with type, description, attributes", () => {
   const content = formatEntityForContext(
     createEntity({
       id: "ent-format",
@@ -144,4 +148,4 @@ function createEntity(args: {
   assert.equal(content.includes("描述：侦探"), true);
   assert.equal(content.includes("age=28"), true);
   assert.equal(content.includes("skill=推理"), true);
-}
+});
