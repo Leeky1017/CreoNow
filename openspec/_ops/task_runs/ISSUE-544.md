@@ -133,6 +133,22 @@
 - Key output:
   - PR 创建成功：`#545`
 
+### 2026-02-14 20:46-20:48 preflight 阻断与修复
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write <13 blocked files>`
+  - `pnpm exec tsx apps/desktop/main/src/services/kg/__tests__/entityMatcher.test.ts`
+  - `pnpm exec tsx apps/desktop/tests/unit/skillLoader.conversation-skills.test.ts`
+  - `pnpm exec tsx apps/desktop/tests/unit/kg/kg-recognition-runtime-metrics-split.test.ts`
+  - `pnpm -C apps/desktop exec vitest run renderer/src/hooks/useJudgeEnsure.test.tsx`
+- Exit code:
+  - 首次 preflight：`1`（`prettier --check` 命中 13 文件）
+  - 修复后回归命令：`0`
+- Key output:
+  - 阻断原因为子代理提交的格式化漂移（代码与文档混合文件）
+  - 格式化修复后目标回归测试通过
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -161,7 +177,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 3e22949a7ef654f04a7bc7a11d180d8d577af4b3
+- Reviewed-HEAD-SHA: 7810d238a01f7f1cb91805eb9e55f7dfa4f3b393
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
