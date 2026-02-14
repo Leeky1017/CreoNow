@@ -29,6 +29,6 @@
 
 ## 6. Evidence
 
-- [ ] 6.1 在 RUN_LOG 记录 Red/Green 命令及关键输出。
+- [x] 6.1 在 RUN_LOG 记录 Red/Green 命令及关键输出。
 - [x] 6.2 记录 Dependency Sync Check 输入、核对项与结论。
-- [ ] 6.3 记录 Main Session Audit 结果并确认签字提交仅变更当前任务 RUN_LOG。
+- [x] 6.3 记录 Main Session Audit 结果并确认签字提交仅变更当前任务 RUN_LOG。
