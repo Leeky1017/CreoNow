@@ -32,6 +32,14 @@ Sprint 0 紧急止血项（来源：A6-H-003）。
   - 批量更新 `allSettled` 方案与上游 metadata 解析策略不存在语义冲突。
 - 结论：`NO_DRIFT`（维持串行执行：先 `s0-metadata-failfast`，后 `s0-kg-async-validate`）。
 
+## 踩坑提醒
+
+- 错误提示必须复用 `KnowledgeGraphPanel` 现有机制（如已有 toast / error state）；不要新造一套提示通道导致重复链路与风格漂移。
+
+## 防治标签
+
+- `SILENT` `GHOST` `DUP` `FAKETEST`
+
 ## 不做什么
 
 - 不引入新的异步任务系统/队列抽象（仅在现有调用点增加校验与错误处理）。

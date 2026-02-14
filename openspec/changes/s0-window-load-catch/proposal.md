@@ -36,6 +36,14 @@
   - 变更边界仅限 `loadURL/loadFile` Promise 失败兜底。
 - 结论：`NO_DRIFT`（与 Sprint0 定义一致，可进入后续 TDD 实施）。
 
+## 踩坑提醒
+
+- `loadFile` 分支同样需要 `.catch(...)`；不要只改 dev 分支，`if/else` 两条加载路径必须同时覆盖。
+
+## 防治标签
+
+- `SILENT` `FALLBACK`
+
 ## 不做什么
 
 - 不调整窗口布局、尺寸、生命周期事件注册逻辑。
