@@ -31,6 +31,7 @@ type EditingState =
       entityType: string;
       description: string;
       aiContextLevel: AiContextLevel;
+      aliasesInput: string;
     }
   | { mode: "relation"; relationId: string; relationType: string };
 
@@ -56,6 +57,17 @@ type AsyncMutationResult =
 
 function entityLabel(args: { name: string; entityType?: string }): string {
   return args.entityType ? `${args.name} (${args.entityType})` : args.name;
+}
+
+function parseAliasesInput(value: string): string[] {
+  return value
+    .split(",")
+    .map((alias) => alias.trim())
+    .filter((alias) => alias.length > 0);
+}
+
+function formatAliasesInput(aliases: string[]): string {
+  return aliases.join(", ");
 }
 
 /**
@@ -187,6 +199,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   const [createName, setCreateName] = React.useState("");
   const [createType, setCreateType] = React.useState("");
   const [createDescription, setCreateDescription] = React.useState("");
+  const [createAliasesInput, setCreateAliasesInput] = React.useState("");
 
   const [relFromId, setRelFromId] = React.useState("");
   const [relToId, setRelToId] = React.useState("");
@@ -223,6 +236,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
       name: createName,
       entityType: createType,
       description: createDescription,
+      aliases: parseAliasesInput(createAliasesInput),
     });
     if (!res.ok) {
       return;
@@ -230,6 +244,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
     setCreateName("");
     setCreateType("");
     setCreateDescription("");
+    setCreateAliasesInput("");
   }
 
   async function onDeleteEntity(entityId: string): Promise<void> {
@@ -302,6 +317,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
           entityType: editing.entityType,
           description: editing.description,
           aiContextLevel: editing.aiContextLevel,
+          aliases: parseAliasesInput(editing.aliasesInput),
         },
       });
       if (!res.ok) {
@@ -675,6 +691,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                 entityType: eventEntity.entityType,
                 description: eventEntity.description ?? "",
                 aiContextLevel: eventEntity.aiContextLevel,
+                aliasesInput: formatAliasesInput(eventEntity.aliases),
               });
             }}
           />
@@ -745,6 +762,13 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
               onChange={(e) => setCreateDescription(e.target.value)}
               fullWidth
             />
+            <Input
+              data-testid="kg-entity-aliases"
+              placeholder="Aliases (comma separated)"
+              value={createAliasesInput}
+              onChange={(e) => setCreateAliasesInput(e.target.value)}
+              fullWidth
+            />
             <Button
               data-testid="kg-entity-create"
               variant="secondary"
@@ -801,6 +825,16 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                             setEditing({
                               ...editing,
                               description: evt.target.value,
+                            })
+                          }
+                          fullWidth
+                        />
+                        <Input
+                          value={editing.aliasesInput}
+                          onChange={(evt) =>
+                            setEditing({
+                              ...editing,
+                              aliasesInput: evt.target.value,
                             })
                           }
                           fullWidth
@@ -865,6 +899,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                                 entityType: e.entityType ?? "",
                                 description: e.description ?? "",
                                 aiContextLevel: e.aiContextLevel,
+                                aliasesInput: formatAliasesInput(e.aliases),
                               })
                             }
                           >

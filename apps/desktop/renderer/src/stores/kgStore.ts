@@ -50,6 +50,7 @@ export type KgActions = {
     entityType?: string;
     description?: string;
     aiContextLevel?: AiContextLevel;
+    aliases?: string[];
   }) => Promise<IpcResponse<KgEntity>>;
   entityUpdate: (args: {
     entityId: string;
@@ -61,6 +62,7 @@ export type KgActions = {
         | "description"
         | "metadataJson"
         | "aiContextLevel"
+        | "aliases"
       >
     >;
   }) => Promise<IpcResponse<KgEntity>>;
@@ -263,7 +265,13 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
       });
     },
 
-    entityCreate: async ({ name, entityType, description, aiContextLevel }) => {
+    entityCreate: async ({
+      name,
+      entityType,
+      description,
+      aiContextLevel,
+      aliases,
+    }) => {
       const state = get();
       if (!state.projectId) {
         const error = missingProjectError();
@@ -279,6 +287,7 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
         name,
         description,
         aiContextLevel,
+        aliases,
       });
       if (!res.ok) {
         set({ lastError: res.error });
@@ -329,6 +338,7 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
           description: patch.description,
           aiContextLevel: patch.aiContextLevel,
           attributes: nextAttributes,
+          aliases: patch.aliases,
         },
       });
 
