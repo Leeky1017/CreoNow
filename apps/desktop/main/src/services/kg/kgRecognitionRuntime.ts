@@ -55,6 +55,8 @@ type StoredSuggestion = {
 };
 
 type RecognitionMetrics = {
+  succeeded: number;
+  failed: number;
   completed: number;
   peakRunning: number;
   completionOrder: string[];
@@ -266,6 +268,8 @@ export function createKgRecognitionRuntime(args: {
   const running = new Map<string, RecognitionTask>();
   const sessions = new Map<string, RecognitionSessionState>();
   const metrics: RecognitionMetrics = {
+    succeeded: 0,
+    failed: 0,
     completed: 0,
     peakRunning: 0,
     completionOrder: [],
@@ -307,7 +311,9 @@ export function createKgRecognitionRuntime(args: {
     }
   }
 
-  async function processTask(task: RecognitionTask): Promise<void> {
+  async function processTask(
+    task: RecognitionTask,
+  ): Promise<"succeeded" | "failed" | "canceled"> {
     const recognitionRes = await recognizer.recognize({
       projectId: task.projectId,
       documentId: task.documentId,
@@ -318,7 +324,7 @@ export function createKgRecognitionRuntime(args: {
 
     if (task.canceled) {
       metrics.canceledTaskIds.push(task.taskId);
-      return;
+      return "canceled";
     }
 
     if (!recognitionRes.ok) {
@@ -330,7 +336,7 @@ export function createKgRecognitionRuntime(args: {
           session_id: task.sessionId,
           trace_id: task.traceId,
         });
-        return;
+        return "failed";
       }
 
       args.logger.error("kg_recognition_failed", {
@@ -341,7 +347,7 @@ export function createKgRecognitionRuntime(args: {
         session_id: task.sessionId,
         trace_id: task.traceId,
       });
-      return;
+      return "failed";
     }
 
     const listRes = kgService.entityList({ projectId: task.projectId });
@@ -351,7 +357,7 @@ export function createKgRecognitionRuntime(args: {
         message: listRes.error.message,
         task_id: task.taskId,
       });
-      return;
+      return "failed";
     }
 
     const existingKeys = new Set(
@@ -409,6 +415,8 @@ export function createKgRecognitionRuntime(args: {
         createdAt: stored.createdAt,
       });
     }
+
+    return "succeeded";
   }
 
   function pump(): void {
@@ -422,19 +430,27 @@ export function createKgRecognitionRuntime(args: {
       metrics.peakRunning = Math.max(metrics.peakRunning, running.size);
 
       void processTask(next)
+        .then((outcome) => {
+          if (outcome === "succeeded") {
+            metrics.succeeded += 1;
+            metrics.completed += 1;
+            metrics.completionOrder.push(next.taskId);
+            return;
+          }
+          if (outcome === "failed") {
+            metrics.failed += 1;
+          }
+        })
         .catch((error) => {
           args.logger.error("kg_recognition_worker_failed", {
             code: "INTERNAL",
             message: error instanceof Error ? error.message : String(error),
             task_id: next.taskId,
           });
+          metrics.failed += 1;
         })
         .finally(() => {
           running.delete(next.taskId);
-          if (!metrics.canceledTaskIds.includes(next.taskId)) {
-            metrics.completed += 1;
-            metrics.completionOrder.push(next.taskId);
-          }
           pump();
         });
     }
