@@ -3,7 +3,7 @@
 - Issue: #534
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/534
 - Branch: task/534-s1-wave1-governed-delivery
-- PR: 待回填
+- PR: https://github.com/Leeky1017/CreoNow/pull/535
 - Scope:
   - `s1-path-alias`
   - `s1-break-context-cycle`
@@ -90,6 +90,49 @@
   - active change 数量从 `10` 更新为 `6`
   - EXECUTION_ORDER 拓扑更新为 Wave 2 → Wave 3
 
+### 2026-02-14 16:21-16:37 主会话二次并行审计与 CI 阻断定位
+
+- Sub-agent sessions（主会话发起）:
+  - `019c5b3e-1829-7620-a536-e46c4137f1d7`（path-alias，首次基线错误，已剔除）
+  - `019c5b3e-18c8-75f2-b4ae-bd983cba2570`（context-cycle，首次基线错误，已剔除）
+  - `019c5b3e-1926-7d91-b4ef-94cc3621428d`（panel-cycle）
+  - `019c5b41-0926-7331-85ce-c91e32500e45`（path-alias，worktree 基线复审）
+  - `019c5b41-0982-75d1-be63-660bc2798500`（context-cycle，worktree 基线复审）
+  - `019c5b41-09e3-7582-b7ca-4a4f462502ae`（scheduler-error-ctx，worktree 基线复审）
+- Command:
+  - `gh pr view 535 --json state,mergeStateStatus,statusCheckRollup`
+  - `gh run view 22014137548 --job 63613109254 --log`
+  - `gh run view 22014137534 --job 63613109214 --log`
+  - `gh run view 22014137534 --job 63613109233 --log`
+- Exit code: `0`
+- Key output:
+  - `openspec-log-guard` 失败根因：RUN_LOG `Reviewed-HEAD-SHA` 占位符未签字
+  - `integration-test` 失败根因：`ai-stream-race-cancel-priority` 断言 `expected cancelled, got completed`
+  - `storybook-build` 失败根因：`@shared/types/judge` 在 Storybook Vite 配置中未解析
+
+### 2026-02-14 16:38-17:10 阻断修复与回归验证
+
+- Command:
+  - `pnpm exec tsx apps/desktop/tests/integration/ai-stream-race-cancel-priority.test.ts`
+  - `pnpm -C apps/desktop storybook:build`
+  - （修复）更新 `apps/desktop/main/src/services/skills/skillScheduler.ts`
+  - （修复）更新 `apps/desktop/main/src/services/skills/__tests__/skillScheduler.test.ts`
+  - （修复）更新 `apps/desktop/.storybook/main.ts`
+  - `pnpm exec tsx apps/desktop/main/src/services/skills/__tests__/skillScheduler.test.ts`
+  - `pnpm exec tsx apps/desktop/tests/integration/ai-stream-race-cancel-priority.test.ts`
+  - `pnpm -C apps/desktop storybook:build`
+  - `pnpm typecheck`
+  - `pnpm dlx madge --extensions ts,tsx --circular apps/desktop/main/src/services/context`
+  - `git commit -m "fix: restore wave1 scheduler + storybook gates (#534)"`
+- Exit code:
+  - 首轮复现失败（符合 CI）：`integration-test` 与 `storybook-build` 均可重现
+  - 修复后全部通过（`skillScheduler`/integration/storybook/typecheck/madge 全绿）
+- Key output:
+  - `skillScheduler` 恢复“response 先返回”契约，同时保持错误上下文与终态单次收敛
+  - Storybook 补齐 `@shared` alias 解析，`storybook:build` 构建通过
+  - 新增回归防线：`resolvesResultBeforeCompletionSettles`（防止取消竞态回归）
+  - 修复提交：`158e50d5de5ac0e649749e9a2dbcad78aab1e6fe`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -110,7 +153,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 待签字提交回填
+- Reviewed-HEAD-SHA: 158e50d5de5ac0e649749e9a2dbcad78aab1e6fe
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
