@@ -100,6 +100,38 @@
 - Key output:
   - 控制面 `main` clean（无残留改动）
 
+### 2026-02-14 19:16-19:18 首次提交与 PR 创建
+
+- Command:
+  - `git commit -m "docs: bootstrap sprint2 openspec changes with prevention tags (#540)"`
+  - `git push -u origin task/540-s2-change-spec-scaffold`
+  - `gh pr create --base main --head task/540-s2-change-spec-scaffold --title "Bootstrap Sprint 2 OpenSpec changes with prevention tags (#540)" --body-file /tmp/pr540.md`
+- Exit code: `0`
+- Key output:
+  - 主提交：`00e3ae3e604dcf211449ebf031de210b9d79f7ea`
+  - PR：`https://github.com/Leeky1017/CreoNow/pull/541`
+
+### 2026-02-14 19:19 preflight 阻断修复（Red-gate 文案精确匹配）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - 修改 4 个文件：`s2-inline-diff` / `s2-shortcuts` / `s2-slash-commands` / `s2-slash-framework` 的 2.3 门禁文案
+  - `git commit -m "docs: normalize red-gate wording for sprint2 editor tasks (#540)"`
+- Exit code:
+  - preflight: `1`（首次）
+  - fix + commit: `0`
+- Key output:
+  - 阻断原因：`[OPENSPEC_CHANGE] ... must contain Red-gate text: 未出现 Red（失败测试）不得进入实现`
+  - 修复提交：`bdd46c3995ffac7cecbbb42f00a10217ee1020d3`
+
+### 2026-02-14 19:20 preflight 二次复验（签字 SHA 失配）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - 阻断原因：`[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`（新增修复提交后需重新签字 RUN_LOG）
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -115,7 +147,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 00e3ae3e604dcf211449ebf031de210b9d79f7ea
+- Reviewed-HEAD-SHA: bdd46c3995ffac7cecbbb42f00a10217ee1020d3
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
