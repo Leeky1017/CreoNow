@@ -9,7 +9,7 @@
 
 - [ ] 2.1 将 delta spec 的每个 Scenario 映射为至少一个失败测试，并为测试标注 Scenario ID（`SCIS-S1`/`SCIS-S2`/`SCIS-S3`）
 - [ ] 2.2 建立“通道归属、聚合委托、实例化次数”三类断言，覆盖拆分后最小回归面
-- [ ] 2.3 设定门禁：未出现 Red（失败测试）不得进入 Green 实现
+- [ ] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
 - [ ] 2.4 将 依赖同步检查（Dependency Sync Check） 的复核命令、输入与结论写入 RUN_LOG 后，方可开始 Red
 
 ### Scenario → 测试映射
