@@ -67,10 +67,19 @@
   - 格式修复完成
   - 提交 SHA：`dbb3863381d807a5a859fef23256415f97f0ced9`
 
+### 2026-02-14 01:34 preflight 二次失败（Reviewed-HEAD-SHA 不匹配）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code: `1`
+- Key output:
+  - `[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`
+  - 触发原因：签字提交 `HEAD^` 更新后，RUN_LOG 中 SHA 未同步
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: dbb3863381d807a5a859fef23256415f97f0ced9
+- Reviewed-HEAD-SHA: c5b149f5d6f177c0d4ce25d21b1e2740044e39d4
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
