@@ -44,6 +44,16 @@ export type LoadedSkill = {
   timeoutMs?: number;
 };
 
+export type DirectoryScanError = {
+  code: string;
+  path: string;
+};
+
+export type DiscoverSkillFilesResult = {
+  refs: SkillFileRef[];
+  errors: DirectoryScanError[];
+};
+
 type JsonObject = Record<string, unknown>;
 
 /**
@@ -122,16 +132,40 @@ function parseYamlFrontmatter(frontmatterText: string): ServiceResult<unknown> {
 /**
  * Enumerate sub-directories at a path.
  */
-function listSubdirs(dirPath: string): string[] {
+function listSubdirs(dirPath: string): {
+  dirs: string[];
+  error?: DirectoryScanError;
+} {
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    return entries
+    const dirs = entries
       .filter((e) => e.isDirectory())
       .map((e) => e.name)
       .filter((name) => !name.startsWith("."))
       .sort((a, b) => a.localeCompare(b));
-  } catch {
-    return [];
+    return { dirs };
+  } catch (error) {
+    const errorCode =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      typeof error.code === "string"
+        ? error.code
+        : "UNKNOWN";
+    const errorPath =
+      typeof error === "object" &&
+      error !== null &&
+      "path" in error &&
+      typeof error.path === "string"
+        ? error.path
+        : dirPath;
+    return {
+      dirs: [],
+      error: {
+        code: errorCode,
+        path: errorPath,
+      },
+    };
   }
 }
 
@@ -141,17 +175,33 @@ function listSubdirs(dirPath: string): string[] {
 export function discoverSkillFiles(args: {
   scope: SkillScope;
   packagesDir: string;
-}): SkillFileRef[] {
+}): DiscoverSkillFilesResult {
   const refs: SkillFileRef[] = [];
+  const errors: DirectoryScanError[] = [];
 
-  const packageIds = listSubdirs(args.packagesDir);
-  for (const packageId of packageIds) {
+  const packageScan = listSubdirs(args.packagesDir);
+  if (packageScan.error) {
+    errors.push(packageScan.error);
+    return { refs, errors };
+  }
+
+  for (const packageId of packageScan.dirs) {
     const pkgDir = path.join(args.packagesDir, packageId);
-    const versions = listSubdirs(pkgDir);
-    for (const version of versions) {
+    const versionScan = listSubdirs(pkgDir);
+    if (versionScan.error) {
+      errors.push(versionScan.error);
+      continue;
+    }
+
+    for (const version of versionScan.dirs) {
       const skillsDir = path.join(pkgDir, version, "skills");
-      const skillNames = listSubdirs(skillsDir);
-      for (const skillDirName of skillNames) {
+      const skillScan = listSubdirs(skillsDir);
+      if (skillScan.error) {
+        errors.push(skillScan.error);
+        continue;
+      }
+
+      for (const skillDirName of skillScan.dirs) {
         const filePath = path.join(skillsDir, skillDirName, "SKILL.md");
         if (!fs.existsSync(filePath)) {
           continue;
@@ -167,7 +217,7 @@ export function discoverSkillFiles(args: {
     }
   }
 
-  return refs;
+  return { refs, errors };
 }
 
 /**
@@ -307,27 +357,41 @@ export function loadSkills(deps: {
     globalSkillsDir: string;
     projectSkillsDir: string | null;
   };
-}): ServiceResult<{ skills: LoadedSkill[] }> {
+}): ServiceResult<{ skills: LoadedSkill[]; scanErrors: DirectoryScanError[] }> {
   try {
-    const builtinRefs = discoverSkillFiles({
+    const builtinDiscovery = discoverSkillFiles({
       scope: "builtin",
       packagesDir: path.join(deps.roots.builtinSkillsDir, "packages"),
     });
-    const globalRefs = discoverSkillFiles({
+    const globalDiscovery = discoverSkillFiles({
       scope: "global",
       packagesDir: path.join(deps.roots.globalSkillsDir, "packages"),
     });
-    const projectRefs =
+    const projectDiscovery =
       deps.roots.projectSkillsDir === null
-        ? []
+        ? { refs: [], errors: [] }
         : discoverSkillFiles({
             scope: "project",
             packagesDir: path.join(deps.roots.projectSkillsDir, "packages"),
           });
 
-    const loaded = [...builtinRefs, ...globalRefs, ...projectRefs].map((ref) =>
-      loadSkillFile({ ref }),
-    );
+    const scanErrors = [
+      ...builtinDiscovery.errors,
+      ...globalDiscovery.errors,
+      ...projectDiscovery.errors,
+    ];
+    for (const scanError of scanErrors) {
+      deps.logger.error("skill_dir_scan_failed", {
+        code: scanError.code,
+        path: scanError.path,
+      });
+    }
+
+    const loaded = [
+      ...builtinDiscovery.refs,
+      ...globalDiscovery.refs,
+      ...projectDiscovery.refs,
+    ].map((ref) => loadSkillFile({ ref }));
 
     const ssot = selectSkillSsot(loaded);
     deps.logger.info("skill_loaded", { count: ssot.length });
@@ -340,7 +404,7 @@ export function loadSkills(deps: {
       }
     }
 
-    return { ok: true, data: { skills: ssot } };
+    return { ok: true, data: { skills: ssot, scanErrors } };
   } catch (error) {
     deps.logger.error("skill_load_failed", {
       code: "IO_ERROR",
