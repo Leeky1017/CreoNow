@@ -315,7 +315,6 @@ export function createSkillScheduler(args?: {
 
     let resolved = false;
     let finalized = false;
-    let settled = false;
     let responseState: ResponseSettleState = { kind: "pending" };
     let completionState: CompletionSettleState = { kind: "pending" };
     const resolveResultOnce = (result: ServiceResult<unknown>): void => {
@@ -332,35 +331,35 @@ export function createSkillScheduler(args?: {
       finalized = true;
       finalizeTask(sessionKey, task, terminal);
     };
-    const settleIfPossible = (): void => {
-      if (settled) {
+    const resolveWithResponsePriority = (
+      result: ServiceResult<unknown>,
+    ): void => {
+      if (
+        result.ok &&
+        completionState.kind === "errored" &&
+        responseState.kind === "settled"
+      ) {
+        resolveResultOnce(completionState.failure);
         return;
       }
+      resolveResultOnce(result);
+    };
+    const settleTerminalIfPossible = (): void => {
       if (responseState.kind === "errored") {
-        settled = true;
-        resolveResultOnce(responseState.failure);
+        finalizeOnce("failed");
+        return;
+      }
+      if (responseState.kind === "settled" && !responseState.result.ok) {
         finalizeOnce("failed");
         return;
       }
       if (completionState.kind === "errored") {
-        settled = true;
-        resolveResultOnce(completionState.failure);
         finalizeOnce("failed");
         return;
       }
-      if (responseState.kind !== "settled" || completionState.kind !== "settled") {
-        return;
+      if (responseState.kind === "settled" && completionState.kind === "settled") {
+        finalizeOnce(completionState.terminal);
       }
-
-      settled = true;
-      if (!responseState.result.ok) {
-        resolveResultOnce(responseState.result);
-        finalizeOnce("failed");
-        return;
-      }
-
-      resolveResultOnce(responseState.result);
-      finalizeOnce(completionState.terminal);
     };
 
     let started: SkillTaskStartResult<unknown>;
@@ -384,7 +383,15 @@ export function createSkillScheduler(args?: {
     void started.response
       .then((result) => {
         responseState = { kind: "settled", result };
-        settleIfPossible();
+        if (result.ok && completionState.kind === "pending") {
+          queueMicrotask(() => {
+            resolveWithResponsePriority(result);
+            settleTerminalIfPossible();
+          });
+          return;
+        }
+        resolveWithResponsePriority(result);
+        settleTerminalIfPossible();
       })
       .catch((error) => {
         responseState = {
@@ -396,13 +403,14 @@ export function createSkillScheduler(args?: {
             error,
           }),
         };
-        settleIfPossible();
+        resolveResultOnce(responseState.failure);
+        settleTerminalIfPossible();
       });
 
     void started.completion
       .then((terminal) => {
         completionState = { kind: "settled", terminal };
-        settleIfPossible();
+        settleTerminalIfPossible();
       })
       .catch((error) => {
         completionState = {
@@ -414,7 +422,8 @@ export function createSkillScheduler(args?: {
             error,
           }),
         };
-        settleIfPossible();
+        resolveResultOnce(completionState.failure);
+        settleTerminalIfPossible();
       });
   }
 

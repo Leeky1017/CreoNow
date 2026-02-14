@@ -193,6 +193,52 @@ async function finalizesTaskTerminalStateExactlyOnceAcrossAsyncRaces(): Promise<
   );
 }
 
+// Regression guard: keep scheduler response contract for stream cancel paths.
+async function resolvesResultBeforeCompletionSettles(): Promise<void> {
+  const scheduler = createSkillScheduler({
+    globalConcurrencyLimit: 1,
+    sessionQueueLimit: 20,
+  });
+
+  const response = createDeferred<ServiceResult<string>>();
+  const completion = createDeferred<SkillSchedulerTerminal>();
+
+  const resultPromise = scheduler.schedule({
+    sessionKey: "session-response-first",
+    executionId: "exec-response-first",
+    runId: "task-response-first",
+    traceId: "trace-response-first",
+    start: () => ({
+      response: response.promise,
+      completion: completion.promise,
+    }),
+  });
+
+  response.resolve({ ok: true, data: "ok" });
+
+  const raced = await Promise.race<
+    | { kind: "result"; value: ServiceResult<string> }
+    | { kind: "timeout" }
+  >([
+    resultPromise.then((value) => ({ kind: "result" as const, value })),
+    new Promise<{ kind: "timeout" }>((resolve) =>
+      setTimeout(() => resolve({ kind: "timeout" }), 30),
+    ),
+  ]);
+
+  assert.equal(
+    raced.kind,
+    "result",
+    "response should resolve before completion settles",
+  );
+  if (raced.kind === "result") {
+    assert.equal(raced.value.ok, true);
+  }
+
+  completion.resolve("completed");
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 // S1-SEC-S3
 async function emitsCompleteSchedulerErrorLogFields(): Promise<void> {
   const logs: Array<{ event: string; data?: Record<string, unknown> }> = [];
@@ -306,4 +352,5 @@ async function emitsCompleteSchedulerErrorLogFields(): Promise<void> {
 
 await preservesResponseCompletionErrorContextInFailedPath();
 await finalizesTaskTerminalStateExactlyOnceAcrossAsyncRaces();
+await resolvesResultBeforeCompletionSettles();
 await emitsCompleteSchedulerErrorLogFields();
