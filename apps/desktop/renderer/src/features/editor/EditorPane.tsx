@@ -17,6 +17,11 @@ import {
 } from "./EditorBubbleMenu";
 import { resolveFinalDocumentEditDecision } from "./finalDocumentEditGuard";
 import { WriteButton } from "./WriteButton";
+import { SlashCommandExtension } from "./extensions/slashCommand";
+import {
+  DEFAULT_SLASH_COMMAND_CANDIDATES,
+  SlashCommandPanel,
+} from "./SlashCommandPanel";
 
 const IS_VITEST_RUNTIME =
   typeof process !== "undefined" && Boolean(process.env.VITEST);
@@ -235,6 +240,9 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   const suppressAutosaveRef = React.useRef<boolean>(false);
   const [contentReady, setContentReady] = React.useState(false);
   const [writeHovering, setWriteHovering] = React.useState(false);
+  const [isSlashPanelOpen, setIsSlashPanelOpen] = React.useState(false);
+  const [slashSearchQuery, setSlashSearchQuery] = React.useState("");
+  const slashPanelOpenRef = React.useRef(false);
   const isPreviewMode =
     previewStatus === "ready" && previewContentJson !== null;
   const activeContentJson = isPreviewMode
@@ -251,6 +259,19 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     [setCapacityWarning, setDocumentCharacterCount],
   );
 
+  React.useEffect(() => {
+    slashPanelOpenRef.current = isSlashPanelOpen;
+  }, [isSlashPanelOpen]);
+
+  const openSlashPanel = React.useCallback(() => {
+    setIsSlashPanelOpen(true);
+  }, []);
+
+  const closeSlashPanel = React.useCallback(() => {
+    setIsSlashPanelOpen(false);
+    setSlashSearchQuery("");
+  }, []);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -259,6 +280,11 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
         openOnClick: false,
         autolink: false,
         linkOnPaste: false,
+      }),
+      SlashCommandExtension.configure({
+        isPanelOpen: () => slashPanelOpenRef.current,
+        onOpenPanel: openSlashPanel,
+        onClosePanel: closeSlashPanel,
       }),
       ...(!IS_VITEST_RUNTIME
         ? [
@@ -330,6 +356,12 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     setEditorInstance(editor ?? null);
     return () => setEditorInstance(null);
   }, [editor, setEditorInstance]);
+
+  React.useEffect(() => {
+    if (!contentReady || isPreviewMode) {
+      closeSlashPanel();
+    }
+  }, [closeSlashPanel, contentReady, isPreviewMode]);
 
   React.useEffect(() => {
     if (!editor) {
@@ -556,6 +588,13 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       ) : null}
       <EditorBubbleMenu editor={editor} />
       <EditorToolbar editor={editor} disabled={isPreviewMode} />
+      <SlashCommandPanel
+        open={isSlashPanelOpen}
+        query={slashSearchQuery}
+        candidates={DEFAULT_SLASH_COMMAND_CANDIDATES}
+        onQueryChange={setSlashSearchQuery}
+        onRequestClose={closeSlashPanel}
+      />
       <div
         data-testid="editor-content-region"
         className="relative flex-1 overflow-y-auto"

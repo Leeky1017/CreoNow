@@ -557,4 +557,101 @@ describe("EditorPane", () => {
     expect(versionStore.getState().previewStatus).toBe("idle");
     expect(versionStore.getState().previewVersionId).toBeNull();
   });
+
+  it("[SCN-SF-1] should open slash command panel when typing / in editor", async () => {
+    const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
+
+    render(
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
+    );
+
+    const editorRoot = await screen.findByTestId("tiptap-editor");
+    const editor = await waitForEditorInstance(store);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.keyDown(editorRoot, { key: "/" });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("slash-command-panel")).toBeInTheDocument();
+    });
+  });
+
+  it("[SCN-SF-2] should filter slash candidates by keyword and render empty state", async () => {
+    const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
+
+    render(
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
+    );
+
+    const editorRoot = await screen.findByTestId("tiptap-editor");
+    const editor = await waitForEditorInstance(store);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.keyDown(editorRoot, { key: "/" });
+    await screen.findByTestId("slash-command-panel");
+
+    const searchInput = screen.getByTestId(
+      "slash-command-search-input",
+    ) as HTMLInputElement;
+
+    fireEvent.change(searchInput, {
+      target: { value: "out" },
+    });
+    expect(screen.getByTestId("slash-command-item-outline")).toBeInTheDocument();
+
+    fireEvent.change(searchInput, {
+      target: { value: "not-exist-keyword" },
+    });
+    expect(screen.getByTestId("slash-command-empty-state")).toBeInTheDocument();
+  });
+
+  it("[SCN-SF-3] should close slash panel on Escape and keep normal typing", async () => {
+    const store = createReadyEditorStore({ onSave: () => {} });
+    const versionStore = createVersionStoreForEditorPaneTests();
+
+    render(
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
+    );
+
+    const editorRoot = await screen.findByTestId("tiptap-editor");
+    const editor = await waitForEditorInstance(store);
+    act(() => {
+      editor.commands.focus("end");
+    });
+    fireEvent.keyDown(editorRoot, { key: "/" });
+    await screen.findByTestId("slash-command-panel");
+
+    fireEvent.keyDown(editorRoot, { key: "Escape" });
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId("slash-command-panel"),
+      ).not.toBeInTheDocument();
+    });
+
+    act(() => {
+      editor.commands.insertContent("x");
+    });
+    await waitFor(() => {
+      expect(editor.getText()).toContain("x");
+      expect(
+        screen.queryByTestId("slash-command-panel"),
+      ).not.toBeInTheDocument();
+    });
+  });
 });
