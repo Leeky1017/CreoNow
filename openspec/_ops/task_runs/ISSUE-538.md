@@ -112,6 +112,18 @@
   - Wave 3 三个 change 已归档
   - `EXECUTION_ORDER.md` 已同步为“无活跃 change”状态
 
+### 2026-02-14 18:44-18:46 preflight 失败修复（Prettier）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write apps/desktop/main/src/services/documents/branchService.ts apps/desktop/main/src/services/documents/documentCoreService.ts apps/desktop/main/src/services/documents/types.ts apps/desktop/main/src/services/documents/versionService.ts apps/desktop/main/src/services/kg/__tests__/kg-service-exports-visibility.test.ts apps/desktop/main/src/services/kg/__tests__/kg-service-facade-delegation.test.ts apps/desktop/main/src/services/kg/kgQueryService.ts apps/desktop/main/src/services/kg/kgService.ts rulebook/tasks/issue-538-s1-wave3-governed-delivery/.metadata.json rulebook/tasks/issue-538-s1-wave3-governed-delivery/proposal.md rulebook/tasks/issue-538-s1-wave3-governed-delivery/tasks.md`
+- Exit code:
+  - preflight: `1`
+  - prettier 修复: `0`
+- Key output:
+  - preflight 报告 11 个文件 `prettier --check` 未通过
+  - 按失败清单 `--write` 修复后，格式漂移已消除
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -130,7 +142,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 5aced48afa406f61c6f964e6ca4fad767e25a5f0
+- Reviewed-HEAD-SHA: a60aa1294a889b4dd9b574822fe4d5e946448579
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
