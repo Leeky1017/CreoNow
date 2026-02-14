@@ -124,6 +124,33 @@
   - 活跃 change 数量从 `6` 收敛为 `3`（仅剩 Wave 3）
   - Rulebook task 校验通过
 
+### 2026-02-14 17:28-17:42 主会话并行复审与缺口修复
+
+- Sub-agent sessions:
+  - `019c5b7c-9d6f-7553-832e-1bfb14bdfbcb` → `s1-ipc-acl` 复审
+  - `019c5b7c-9dbb-7371-a067-4016e34dc554` → `s1-context-ipc-split` 复审
+  - `019c5b84-2992-7b42-b811-526029b438c3` → `s1-runtime-config` 修复后复审
+  - `019c5b84-29be-7450-b8ab-80dce9b5c497` → `s1-ipc-acl` 修复后复审
+- Audit finding & correction:
+  - 发现 `S1-RC-S1/S2` 在 `runtime-governance-consistency` 的 preload/main 一致性断言覆盖不足，补充对应断言与有效 env 覆盖逐 key 校验
+  - 发现 `runtimeValidation.acl` 对 `FORBIDDEN` 仅断言错误码，补充 `details.reason=origin_not_allowed` 断言
+- Command:
+  - 编辑：
+    - `apps/desktop/tests/integration/runtime-governance-consistency.test.ts`
+    - `apps/desktop/main/src/ipc/__tests__/runtimeValidation.acl.test.ts`
+  - 验证：
+    - `pnpm exec tsx apps/desktop/tests/integration/runtime-governance-consistency.test.ts`
+    - `pnpm exec tsx apps/desktop/main/src/config/__tests__/runtimeGovernance.test.ts`
+    - `pnpm exec tsx apps/desktop/main/src/ipc/__tests__/runtimeValidation.acl.test.ts`
+  - 提交与推送：
+    - `git commit -m "test: close wave2 audit gaps (#536)"`
+    - `git -c http.https://github.com/.extraheader="AUTHORIZATION: basic <token>" push origin task/536-s1-wave2-governed-delivery`
+- Exit code: `0`
+- Key output:
+  - 修复提交：`ebb1df91908812946cef1788e72a106e53ca8462`
+  - 修复后两路复审均返回 `No blocking findings`
+  - `gh` 本地二进制在当前环境发生阻塞，推送改走 token extraheader 非交互路径并成功
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -142,7 +169,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 268b8a899f4c2ae3f116000a37e2580b5d46c65d
+- Reviewed-HEAD-SHA: ebb1df91908812946cef1788e72a106e53ca8462
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
