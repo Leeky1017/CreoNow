@@ -9,7 +9,7 @@
   - `openspec/changes/s0-metadata-failfast`（实施后归档）
   - `openspec/changes/EXECUTION_ORDER.md`
   - `openspec/_ops/task_runs/ISSUE-528.md`
-  - `rulebook/tasks/issue-528-s0-metadata-failfast/**`
+  - `rulebook/tasks/archive/2026-02-14-issue-528-s0-metadata-failfast/**`
 - Out of Scope:
   - PR 创建 / auto-merge / main merge / worktree cleanup
   - 非责任边界文件改动
@@ -21,6 +21,7 @@
 - [x] 按 change 做 Red → Green → Refactor
 - [x] 更新 change tasks 与证据
 - [x] 归档 `s0-metadata-failfast` 并同步 `EXECUTION_ORDER.md`
+- [x] 同 PR 自归档 Rulebook task（避免 active 残留漂移）
 - [x] 保持“可审计可接管”状态，不执行 PR/merge/cleanup
 
 ## Runs
@@ -116,6 +117,19 @@
 - Key output:
   - 活跃 change 从 `2` 变更为 `1`
   - 活跃队列仅剩：`s0-kg-async-validate`
+
+### 2026-02-14 14:10 主会话复验与 Rulebook 自归档
+
+- Command:
+  - `pnpm -C apps/desktop exec vitest run src/features/kg/metadata-parse-failfast.test.tsx src/features/kg/KnowledgeGraphPanel.render.test.tsx src/features/kg/KnowledgeGraphPanel.interaction.test.tsx src/features/kg/KnowledgeGraphPanel.empty-state.test.tsx src/features/kg/TimelineView.ordering.test.tsx`
+  - `pnpm contract:check`
+  - `pnpm typecheck`
+  - `mv rulebook/tasks/issue-528-s0-metadata-failfast rulebook/tasks/archive/2026-02-14-issue-528-s0-metadata-failfast`
+- Exit code: `0`
+- Key output:
+  - KG 相关回归集：`5 passed files / 8 passed tests`
+  - `contract:check` 与 `typecheck` 通过
+  - Rulebook task 已自归档到 `rulebook/tasks/archive/2026-02-14-issue-528-s0-metadata-failfast/`
 
 ## Dependency Sync Check
 
