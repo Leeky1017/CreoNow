@@ -3,7 +3,7 @@
 - Issue: #526
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/526
 - Branch: task/526-sprint0-group-a-c-delivery
-- PR: pending
+- PR: https://github.com/Leeky1017/CreoNow/pull/527
 - Scope: 实现并交付 Sprint0 并行组 A + 并行组 C（共 6 个 change）
 - Out of Scope: 串行组 B（`s0-metadata-failfast`、`s0-kg-async-validate`）
 
@@ -13,7 +13,7 @@
 - [x] 并行派发子代理完成 6 个 change 的 Red→Green 实现
 - [x] 主会话集成 6 个提交并执行缺陷优先审计
 - [x] 修复主会话审计发现的问题并复验
-- [ ] preflight / PR / auto-merge / main sync / cleanup 收口
+- [ ] preflight / auto-merge / main sync / cleanup 收口
 
 ## Runs
 
@@ -98,10 +98,24 @@
   - app-launch E2E `2 passed`
   - `contract:check` / `typecheck` 通过
 
+### 2026-02-14 13:05 preflight 与 PR 建立
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `git push -u origin task/526-sprint0-group-a-c-delivery`
+  - `gh pr create --base main --head Leeky1017:task/526-sprint0-group-a-c-delivery ...`
+- Exit code:
+  - preflight: `1`（预期阻断，PR URL 未回填）
+  - push / PR create: `0`
+- Key output:
+  - preflight 阻断：`[RUN_LOG] PR field must be a real URL ... pending`
+  - PR 已创建：`https://github.com/Leeky1017/CreoNow/pull/527`
+  - 动作：回填 RUN_LOG PR 字段并提交主会话签字补丁
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: pending
+- Reviewed-HEAD-SHA: d282dfdeb4b25ae58ae368963972da40fe9d4000
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
