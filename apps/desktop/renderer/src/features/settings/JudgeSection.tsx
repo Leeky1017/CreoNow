@@ -1,6 +1,6 @@
 import React from "react";
 
-import type { IpcChannelSpec } from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcChannelSpec } from "@shared/types/ipc-generated";
 import { invoke } from "../../lib/ipcClient";
 import { Button, Heading, Text } from "../../components/primitives";
 

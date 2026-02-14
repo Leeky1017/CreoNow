@@ -1,7 +1,7 @@
 import type {
   IpcError,
   IpcErrorCode,
-} from "../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 export const REBUILD_NATIVE_COMMAND = "pnpm -C apps/desktop rebuild:native";
 

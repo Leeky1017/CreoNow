@@ -5,7 +5,7 @@ import type {
   IpcInvokeResult,
   IpcRequest,
   IpcResponse,
-} from "../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 declare global {
   interface Window {

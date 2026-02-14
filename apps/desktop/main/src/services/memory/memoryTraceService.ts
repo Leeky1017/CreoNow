@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type {
   IpcError,
   IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 export type GenerationTraceMemoryType = "working" | "episodic" | "semantic";
 

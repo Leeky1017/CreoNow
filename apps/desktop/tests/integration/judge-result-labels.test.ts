@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 
 import type { IpcMain } from "electron";
 
-import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import {
   JUDGE_RESULT_CHANNEL,
   type JudgeResultEvent,
-} from "../../../../packages/shared/types/judge";
+} from "@shared/types/judge";
 import type { Logger } from "../../main/src/logging/logger";
 import { registerJudgeIpcHandlers } from "../../main/src/ipc/judge";
 import { createJudgeQualityService } from "../../main/src/services/ai/judgeQualityService";

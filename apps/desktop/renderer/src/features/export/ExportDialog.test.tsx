@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-import type { IpcError } from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError } from "@shared/types/ipc-generated";
 import { ExportDialog } from "./ExportDialog";
 
 describe("ExportDialog", () => {

@@ -2,7 +2,7 @@ import React from "react";
 import type { Editor, JSONContent } from "@tiptap/react";
 import { render, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import type { IpcRequest } from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcRequest } from "@shared/types/ipc-generated";
 
 import {
   EditorStoreProvider,

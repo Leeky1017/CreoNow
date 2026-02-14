@@ -6,7 +6,7 @@ import { parseDocument } from "yaml";
 import type {
   IpcError,
   IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 import {
   validateSkillFrontmatter,

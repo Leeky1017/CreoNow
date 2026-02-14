@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import type { IpcChannel } from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcChannel } from "@shared/types/ipc-generated";
 import { SkillManagerDialog } from "./SkillManagerDialog";
 
 const mocks = vi.hoisted(() => {

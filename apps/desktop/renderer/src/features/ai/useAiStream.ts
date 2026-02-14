@@ -1,11 +1,11 @@
 import React from "react";
 
-import type { AiStreamEvent } from "../../../../../../packages/shared/types/ai";
+import type { AiStreamEvent } from "@shared/types/ai";
 import {
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
-} from "../../../../../../packages/shared/types/ai";
+} from "@shared/types/ai";
 import { useAiStore } from "../../stores/aiStore";
 
 type UnknownRecord = Record<string, unknown>;

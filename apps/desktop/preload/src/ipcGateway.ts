@@ -3,7 +3,7 @@ import type {
   IpcError,
   IpcErrorCode,
   IpcResponse,
-} from "../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 export const MAX_IPC_PAYLOAD_BYTES = 10 * 1024 * 1024;
 

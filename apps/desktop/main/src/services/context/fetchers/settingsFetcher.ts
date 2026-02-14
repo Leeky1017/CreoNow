@@ -2,7 +2,7 @@ import type {
   MemoryInjectionItem,
   MemoryService,
 } from "../../memory/memoryService";
-import type { ContextLayerFetcher } from "../layerAssemblyService";
+import type { ContextLayerFetcher } from "../types";
 
 const MEMORY_UNAVAILABLE_WARNING = "MEMORY_UNAVAILABLE: 记忆数据未注入";
 const MEMORY_DEGRADED_WARNING_PREFIX = "MEMORY_DEGRADED";

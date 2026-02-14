@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import type Database from "better-sqlite3";
 import type { IpcMain } from "electron";
 
-import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import { registerEmbeddingIpcHandlers } from "../../../main/src/ipc/embedding";
 import { registerRagIpcHandlers } from "../../../main/src/ipc/rag";
 import { registerSearchIpcHandlers } from "../../../main/src/ipc/search";

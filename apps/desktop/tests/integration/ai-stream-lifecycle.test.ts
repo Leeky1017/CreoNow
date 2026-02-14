@@ -6,7 +6,7 @@ import type { Logger } from "../../main/src/logging/logger";
 import type {
   AiStreamDoneEvent,
   AiStreamEvent,
-} from "../../../../packages/shared/types/ai";
+} from "@shared/types/ai";
 
 type JsonRecord = Record<string, unknown>;
 

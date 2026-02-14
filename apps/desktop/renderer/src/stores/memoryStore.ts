@@ -8,7 +8,7 @@ import type {
   IpcRequest,
   IpcResponse,
   IpcResponseData,
-} from "../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 export type IpcInvoke = <C extends IpcChannel>(
   channel: C,

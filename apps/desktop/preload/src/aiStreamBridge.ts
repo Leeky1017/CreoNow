@@ -5,12 +5,12 @@ import {
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
   type AiStreamEvent,
-} from "../../../../packages/shared/types/ai";
+} from "@shared/types/ai";
 import {
   JUDGE_RESULT_CHANNEL,
   type JudgeResultEvent,
-} from "../../../../packages/shared/types/judge";
-import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/judge";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import { createAiStreamSubscriptionRegistry } from "./aiStreamSubscriptions";
 
 type UnknownRecord = Record<string, unknown>;

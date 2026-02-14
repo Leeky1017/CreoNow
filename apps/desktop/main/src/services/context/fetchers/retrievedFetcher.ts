@@ -3,8 +3,8 @@ import type {
   KnowledgeEntity,
   KnowledgeGraphService,
 } from "../../kg/kgService";
-import type { ContextLayerFetcher } from "../layerAssemblyService";
-import { formatEntityForContext } from "./rulesFetcher";
+import type { ContextLayerFetcher } from "../types";
+import { formatEntityForContext } from "../utils/formatEntity";
 
 const KG_UNAVAILABLE_WARNING = "KG_UNAVAILABLE: 知识图谱数据未注入";
 const ENTITY_MATCH_FAILED_WARNING = "ENTITY_MATCH_FAILED: 实体匹配异常";

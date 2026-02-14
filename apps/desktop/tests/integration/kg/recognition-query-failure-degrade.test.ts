@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import { KG_SUGGESTION_CHANNEL } from "../../../../../packages/shared/types/kg";
+import { KG_SUGGESTION_CHANNEL } from "@shared/types/kg";
 import { createKnowledgeGraphIpcHarness } from "../../helpers/kg/harness";
 
 type RelevantQueryDto = {

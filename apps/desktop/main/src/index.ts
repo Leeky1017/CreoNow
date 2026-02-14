@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { BrowserWindow, app, ipcMain, safeStorage } from "electron";
 
-import type { IpcResponse } from "../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import { initDb, type DbInitOk } from "./db/init";
 import { registerAiIpcHandlers } from "./ipc/ai";
 import { registerAiProxyIpcHandlers } from "./ipc/aiProxy";

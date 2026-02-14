@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import { createIpcPushBackpressureGate } from "../../main/src/ipc/pushBackpressure";
-import type { AiStreamEvent } from "../../../../packages/shared/types/ai";
+import type { AiStreamEvent } from "@shared/types/ai";
 
 function mkEvent(type: AiStreamEvent["type"], ts: number): AiStreamEvent {
   if (type === "chunk") {

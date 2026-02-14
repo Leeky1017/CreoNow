@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import { registerMemoryIpcHandlers } from "../../../main/src/ipc/memory";
 import {
   createEpisodicMemoryService,

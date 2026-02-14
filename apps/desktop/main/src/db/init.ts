@@ -4,7 +4,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { getLoadablePath } from "sqlite-vec";
 
-import type { IpcError } from "../../../../../packages/shared/types/ipc-generated";
+import type { IpcError } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { getDbPaths, redactUserDataPath } from "./paths";
 import {

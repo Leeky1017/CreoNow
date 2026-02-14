@@ -1,10 +1,10 @@
 import type { IpcMain } from "electron";
 
-import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import {
   JUDGE_RESULT_CHANNEL,
   type JudgeResultEvent,
-} from "../../../../../packages/shared/types/judge";
+} from "@shared/types/judge";
 import type { Logger } from "../logging/logger";
 import type { JudgeQualityService } from "../services/ai/judgeQualityService";
 import type {

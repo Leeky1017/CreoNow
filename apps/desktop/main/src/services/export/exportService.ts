@@ -9,7 +9,7 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
 import type {
   IpcError,
   IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 import { createDocumentService } from "../documents/documentService";
 

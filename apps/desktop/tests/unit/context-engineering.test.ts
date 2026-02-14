@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import { assembleContext } from "../../renderer/src/lib/ai/contextAssembler";
-import { redactText } from "../../../../packages/shared/redaction/redact";
+import { redactText } from "@shared/redaction/redact";
 
 const base = assembleContext({
   rules: [{ sourceRef: ".creonow/rules/style.md", text: "RULES v1" }],

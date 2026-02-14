@@ -1,4 +1,4 @@
-import type { IpcError } from "../../../../../../packages/shared/types/ipc-generated";
+import type { IpcError } from "@shared/types/ipc-generated";
 
 export type ProjectLifecycleState = "active" | "archived" | "deleted";
 

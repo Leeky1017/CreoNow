@@ -3,11 +3,11 @@
 import type {
   IpcError,
   IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import type {
   AiStreamEvent,
   AiStreamTerminal,
-} from "../../../../../../packages/shared/types/ai";
+} from "@shared/types/ai";
 import type { Logger } from "../../logging/logger";
 import {
   createSkillScheduler,

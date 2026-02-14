@@ -32,8 +32,8 @@ import {
 import type {
   AiStreamDoneEvent,
   AiStreamEvent,
-} from "../../../../packages/shared/types/ai";
-import type { IpcError } from "../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ai";
+import type { IpcError } from "@shared/types/ipc-generated";
 
 type JsonRecord = Record<string, unknown>;
 

@@ -4,7 +4,7 @@ import type Database from "better-sqlite3";
 import type {
   IpcError,
   IpcResponse,
-} from "../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { createStatsService } from "../services/stats/statsService";
 

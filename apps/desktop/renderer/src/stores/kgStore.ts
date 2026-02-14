@@ -8,7 +8,7 @@ import type {
   IpcRequest,
   IpcResponse,
   IpcResponseData,
-} from "../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 const META_JSON_ATTRIBUTE_KEY = "__meta_json";
 

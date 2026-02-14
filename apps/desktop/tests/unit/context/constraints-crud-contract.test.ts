@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import { registerConstraintsIpcHandlers } from "../../../main/src/ipc/constraints";
 import type { Logger } from "../../../main/src/logging/logger";
 

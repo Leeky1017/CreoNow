@@ -1,8 +1,8 @@
 import type {
   IpcError,
   IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
-import type { AiStreamEvent } from "../../../../../../packages/shared/types/ai";
+} from "@shared/types/ipc-generated";
+import type { AiStreamEvent } from "@shared/types/ai";
 import type { ContextAssembleResult } from "../context/layerAssemblyService";
 
 type Ok<T> = { ok: true; data: T };

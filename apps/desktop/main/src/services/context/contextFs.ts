@@ -4,7 +4,7 @@ import path from "node:path";
 import type {
   IpcError,
   IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: IpcError };

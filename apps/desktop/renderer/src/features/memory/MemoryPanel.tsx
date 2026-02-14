@@ -3,7 +3,7 @@ import React from "react";
 import type {
   IpcError,
   IpcResponseData,
-} from "../../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import { Button, Card, Text } from "../../components/primitives";
 import { invoke } from "../../lib/ipcClient";
 import { useProjectStore } from "../../stores/projectStore";

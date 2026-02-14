@@ -8,7 +8,7 @@ import type { IpcMain } from "electron";
 import type {
   IpcError,
   IpcResponse,
-} from "../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { ensureCreonowDirStructure } from "../services/context/contextFs";
 

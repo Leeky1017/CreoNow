@@ -5,7 +5,7 @@ import type {
   IpcErrorCode,
   IpcInvokeResult,
   IpcResponseData,
-} from "../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import { createEditorStore, type IpcInvoke } from "./editorStore";
 
 function ok<C extends IpcChannel>(

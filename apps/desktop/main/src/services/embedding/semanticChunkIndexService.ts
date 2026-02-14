@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import type {
   IpcError,
   IpcErrorCode,
-} from "../../../../../../packages/shared/types/ipc-generated";
+} from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
 import type { EmbeddingService } from "./embeddingService";
 

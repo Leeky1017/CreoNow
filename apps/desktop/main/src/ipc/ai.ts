@@ -1,13 +1,13 @@
 ﻿import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
-import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
+import type { IpcResponse } from "@shared/types/ipc-generated";
 import {
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
   type AiStreamEvent,
-} from "../../../../../packages/shared/types/ai";
+} from "@shared/types/ai";
 import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
 import { createAiService } from "../services/ai/aiService";

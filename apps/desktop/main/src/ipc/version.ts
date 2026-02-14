@@ -1,8 +1,8 @@
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
-import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
-import type { VersionDiffPayload } from "../../../../../packages/shared/types/version-diff";
+import type { IpcResponse } from "@shared/types/ipc-generated";
+import type { VersionDiffPayload } from "@shared/types/version-diff";
 import type { Logger } from "../logging/logger";
 import {
   createDocumentService,

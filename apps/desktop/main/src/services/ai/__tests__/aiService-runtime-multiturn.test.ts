@@ -4,7 +4,7 @@ import type { Logger } from "../../../logging/logger";
 import type {
   AiStreamDoneEvent,
   AiStreamEvent,
-} from "../../../../../../../packages/shared/types/ai";
+} from "@shared/types/ai";
 import { createAiService } from "../aiService";
 
 function createLogger(): Logger {

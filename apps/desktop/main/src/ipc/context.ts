@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
-import type { IpcResponse } from "../../../../../packages/shared/types/ipc-generated";
-import { redactText } from "../../../../../packages/shared/redaction/redact";
+import type { IpcResponse } from "@shared/types/ipc-generated";
+import { redactText } from "@shared/redaction/redact";
 import type { Logger } from "../logging/logger";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { createMemoryService } from "../services/memory/memoryService";
