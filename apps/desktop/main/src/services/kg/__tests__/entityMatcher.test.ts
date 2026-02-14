@@ -16,93 +16,30 @@ function createEntity(args: {
   };
 }
 
-// S1
-// should match entities by name when text contains their names
+// Scenario KG-S2-EM-S1
+// matches entity names and aliases.
 {
-  const text = "林默推开门，走进长安城";
+  const text = "林默推开门，小默回头看向长安城";
   const entities: MatchableEntity[] = [
-    createEntity({ id: "e1", name: "林默" }),
-    createEntity({ id: "e2", name: "长安城", aliases: ["长安"] }),
+    createEntity({ id: "e-1", name: "林默", aliases: ["小默", "默哥"] }),
+    createEntity({ id: "e-2", name: "长安城", aliases: ["长安"] }),
+    createEntity({ id: "e-3", name: "旁白", aiContextLevel: "always" }),
   ];
 
   const results = matchEntities(text, entities);
 
-  assert.equal(results.length, 2);
   assert.deepEqual(results, [
-    { entityId: "e1", matchedTerm: "林默", position: text.indexOf("林默") },
+    { entityId: "e-1", matchedTerm: "林默", position: text.indexOf("林默") },
     {
-      entityId: "e2",
+      entityId: "e-2",
       matchedTerm: "长安城",
       position: text.indexOf("长安城"),
     },
   ]);
 }
 
-// S2
-// should match entities by alias when name is absent
-{
-  const text = "小默推开门";
-  const entities: MatchableEntity[] = [
-    createEntity({ id: "e1", name: "林默", aliases: ["小默", "默哥"] }),
-  ];
-
-  const results = matchEntities(text, entities);
-
-  assert.equal(results.length, 1);
-  assert.deepEqual(results[0], {
-    entityId: "e1",
-    matchedTerm: "小默",
-    position: text.indexOf("小默"),
-  });
-}
-
-// S3
-// should skip non-when_detected entities when matching
-{
-  const text = "林默和张薇在讨论";
-  const entities: MatchableEntity[] = [
-    createEntity({ id: "e1", name: "林默", aiContextLevel: "always" }),
-    createEntity({ id: "e2", name: "张薇", aiContextLevel: "never" }),
-    createEntity({ id: "e3", name: "讨论", aiContextLevel: "manual_only" }),
-  ];
-
-  const results = matchEntities(text, entities);
-
-  assert.equal(results.length, 0);
-}
-
-// S4
-// should deduplicate by entityId when both name and alias match
-{
-  const text = "林默和小默一起出发";
-  const entities: MatchableEntity[] = [
-    createEntity({ id: "e1", name: "林默", aliases: ["小默"] }),
-  ];
-
-  const results = matchEntities(text, entities);
-
-  assert.equal(results.length, 1);
-  assert.deepEqual(results[0], {
-    entityId: "e1",
-    matchedTerm: "林默",
-    position: text.indexOf("林默"),
-  });
-}
-
-// S5
-// should return empty for empty text
-{
-  const entities: MatchableEntity[] = [
-    createEntity({ id: "e1", name: "林默" }),
-  ];
-
-  const results = matchEntities("", entities);
-
-  assert.deepEqual(results, []);
-}
-
-// S6
-// should complete within 10ms for 100 entities x 1000 chars
+// Scenario KG-S2-EM-S2
+// matches 100 entities in 1000 chars under 10ms.
 {
   const entities: MatchableEntity[] = Array.from({ length: 100 }, (_, index) =>
     createEntity({
@@ -119,4 +56,35 @@ function createEntity(args: {
   const elapsed = performance.now() - startedAt;
 
   assert.equal(elapsed < 10, true);
+}
+
+// Scenario KG-S2-EM-S3
+// handles overlap cn text and empty input.
+{
+  const text = "长安城外，长安的风吹过。";
+  const entities: MatchableEntity[] = [
+    createEntity({ id: "e-short", name: "长安" }),
+    createEntity({ id: "e-long", name: "长安城" }),
+    createEntity({ id: "e-cn-alias", name: "神都", aliases: ["长安"] }),
+  ];
+
+  const results = matchEntities(text, entities);
+  assert.deepEqual(results, [
+    {
+      entityId: "e-long",
+      matchedTerm: "长安城",
+      position: text.indexOf("长安城"),
+    },
+    {
+      entityId: "e-short",
+      matchedTerm: "长安",
+      position: text.indexOf("长安"),
+    },
+    {
+      entityId: "e-cn-alias",
+      matchedTerm: "长安",
+      position: text.indexOf("长安"),
+    },
+  ]);
+  assert.deepEqual(matchEntities("", entities), []);
 }

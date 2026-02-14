@@ -31,14 +31,18 @@ export function createRulesFetcher(
         };
       }
 
-      if (listed.data.items.length === 0) {
+      const alwaysItems = listed.data.items.filter(
+        (entity) => entity.aiContextLevel === "always",
+      );
+
+      if (alwaysItems.length === 0) {
         return {
           chunks: [],
         };
       }
 
       return {
-        chunks: listed.data.items.map((entity) => ({
+        chunks: alwaysItems.map((entity) => ({
           source: `kg:always:${entity.id}`,
           projectId: entity.projectId,
           content: formatEntityForContext(entity),

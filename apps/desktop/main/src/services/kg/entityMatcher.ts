@@ -56,5 +56,13 @@ export function matchEntities(
     }
   }
 
-  return [...deduplicated.values()];
+  return [...deduplicated.values()].sort((left, right) => {
+    if (left.position !== right.position) {
+      return left.position - right.position;
+    }
+    if (left.matchedTerm.length !== right.matchedTerm.length) {
+      return right.matchedTerm.length - left.matchedTerm.length;
+    }
+    return 0;
+  });
 }
