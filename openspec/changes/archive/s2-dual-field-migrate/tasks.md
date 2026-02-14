@@ -50,9 +50,9 @@ pnpm exec tsx apps/desktop/tests/unit/skill-scope-management.test.ts
 
 ## 6. Evidence
 
-- [ ] 6.1 记录 RUN_LOG（含 Red 失败证据、Green 通过证据与关键命令输出）（按本次指令：不修改 RUN_LOG）
+- [x] 6.1 记录 RUN_LOG（含 Red 失败证据、Green 通过证据与关键命令输出，见 `openspec/_ops/task_runs/ISSUE-546.md`）
 - [x] 6.2 记录 Dependency Sync Check 的输入、核对结论与后续动作（无漂移/已更新）
-- [ ] 6.3 记录 Main Session Audit（Audit-Owner/Reviewed-HEAD-SHA=签字提交 HEAD^/三项 PASS/Blocking-Issues=0/Decision=ACCEPT），并确认签字提交仅变更当前任务 RUN_LOG（按本次指令：不修改 RUN_LOG）
+- [x] 6.3 记录 Main Session Audit（Audit-Owner/Reviewed-HEAD-SHA=签字提交 HEAD^/三项 PASS/Blocking-Issues=0/Decision=ACCEPT），并确认签字提交仅变更当前任务 RUN_LOG（见 `openspec/_ops/task_runs/ISSUE-546.md`）
 
 Green 证据（实现后）：
 

@@ -33,7 +33,7 @@
 
 ## 6. Evidence
 
-- [ ] 6.1 在 RUN_LOG 记录 Red/Green 命令与关键输出（按 Owner 指令“不要改 RUN_LOG”，本次仅在本文件留证）
+- [x] 6.1 在 RUN_LOG 记录 Red/Green 命令与关键输出（见 `openspec/_ops/task_runs/ISSUE-546.md`）
 - [x] 6.2 记录依赖同步检查（Dependency Sync Check）的输入、结论与后续动作
 - [x] 6.3 记录 Scenario→测试映射与防治标签落实结果
 

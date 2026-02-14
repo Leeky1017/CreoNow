@@ -2,7 +2,7 @@
  * Surface Registry — 前端资产与 App/QA 入口的唯一映射表
  *
  * 本文件是 P0-001 的核心产物，实现：
- * 1. 58/58 Storybook 资产全量映射（截至 2026-02-08）
+ * 1. 60/60 Storybook 资产全量映射（截至 2026-02-14）
  * 2. 每个 surface 都有明确的入口（App/QA/Storybook）
  * 3. 每个 surface 都有 data-testid 用于 E2E 测试
  *
@@ -76,7 +76,7 @@ export interface SurfaceRegistryItem {
 }
 
 /**
- * 完整的 Surface Registry（58/58）
+ * 完整的 Surface Registry（60/60）
  *
  * 按类别组织：Layout → Primitives → Features
  */
@@ -409,6 +409,13 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
     entryPoints: [{ type: "navigation", description: "Editor toolbar" }],
     testId: "editor-toolbar",
     storybookTitle: "Features/Editor/EditorToolbar",
+  },
+  {
+    id: "writeButton",
+    kind: "layout",
+    entryPoints: [{ type: "button", description: "Floating write trigger" }],
+    testId: "write-button-group",
+    storybookTitle: "Features/Editor/WriteButton",
   },
   {
     id: "exportDialog",

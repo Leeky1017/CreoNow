@@ -37,7 +37,7 @@ const BASE_REQUEST = {
 };
 
 async function runCeS2FdS1InjectsWhenDetectedEntityWhenTextMatches() {
-  const entityList = async () => ({
+  const entityList = () => ({
     ok: true as const,
     data: {
       items: [
@@ -79,7 +79,7 @@ async function runCeS2FdS1InjectsWhenDetectedEntityWhenTextMatches() {
 }
 
 async function runCeS2FdS2SkipsEntitiesWithAiContextLevelNever() {
-  const entityList = async () => ({
+  const entityList = () => ({
     ok: true as const,
     data: {
       items: [
@@ -123,7 +123,7 @@ async function runCeS2FdS2SkipsEntitiesWithAiContextLevelNever() {
 }
 
 async function runCeS2FdS3ReturnsDegradableWarningWhenMatcherOrQueryFails() {
-  const entityListOk = async () => ({
+  const entityListOk = () => ({
     ok: true as const,
     data: {
       items: [

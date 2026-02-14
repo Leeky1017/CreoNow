@@ -29,9 +29,9 @@
 
 ## 6. Evidence
 
-- [ ] 6.1 在 RUN_LOG 记录 Red/Green 命令、失败与通过证据。
+- [x] 6.1 在 RUN_LOG 记录 Red/Green 命令、失败与通过证据（见 `openspec/_ops/task_runs/ISSUE-546.md`）。
 - [x] 6.2 记录 Dependency Sync Check 输入、核对项与 `NO_DRIFT` 结论。
-- [ ] 6.3 记录 Main Session Audit 结果并确认签字提交仅变更当前任务 RUN_LOG。
+- [x] 6.3 记录 Main Session Audit 结果并确认签字提交仅变更当前任务 RUN_LOG（见 `openspec/_ops/task_runs/ISSUE-546.md`）。
 
 ### 依赖同步检查（Dependency Sync Check）
 

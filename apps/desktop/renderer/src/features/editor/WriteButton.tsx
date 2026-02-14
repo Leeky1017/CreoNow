@@ -1,5 +1,3 @@
-import React from "react";
-
 export const WRITE_BUTTON_LABEL = "续写";
 
 export function WriteButton(props: {

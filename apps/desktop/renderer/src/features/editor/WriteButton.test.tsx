@@ -1,4 +1,3 @@
-import React from "react";
 import {
   act,
   fireEvent,
@@ -7,9 +6,17 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { IpcRequest } from "@shared/types/ipc-generated";
+import type {
+  IpcChannel,
+  IpcInvokeResult,
+  IpcRequest,
+} from "@shared/types/ipc-generated";
 
-import { AiStoreProvider, createAiStore } from "../../stores/aiStore";
+import {
+  AiStoreProvider,
+  createAiStore,
+  type IpcInvoke,
+} from "../../stores/aiStore";
 import {
   EditorStoreProvider,
   createEditorStore,
@@ -23,9 +30,8 @@ import { EditorPane } from "./EditorPane";
 
 function createReadyEditorStore() {
   const store = createEditorStore({
-    invoke: async (channel, payload) => {
+    invoke: async (channel, _payload) => {
       if (channel === "file:document:save") {
-        const _savePayload = payload as IpcRequest<"file:document:save">;
         return {
           ok: true,
           data: {
@@ -89,55 +95,55 @@ function createVersionStoreForEditorPaneTests() {
 function createAiStoreForWriteButtonTests(
   calls: Array<IpcRequest<"ai:skill:run">>,
 ) {
-  return createAiStore({
-    invoke: async (channel, payload) => {
-      if (channel === "skill:registry:list") {
-        return {
-          ok: true,
-          data: {
-            items: [
-              {
-                id: "builtin:write",
-                name: "Write",
-                scope: "builtin",
-                enabled: true,
-                valid: true,
-                source: "builtin",
-                updatedAt: 1,
-                error_code: null,
-                error_message: null,
-              },
-            ],
-          },
-        };
-      }
-
-      if (channel === "ai:skill:run") {
-        calls.push(payload as IpcRequest<"ai:skill:run">);
-        return {
-          ok: true,
-          data: {
-            runId: "run-1",
-            outputText: "continued text",
-            usage: {
-              promptTokens: 12,
-              completionTokens: 8,
-              totalTokens: 20,
+  const invoke: IpcInvoke = async <C extends IpcChannel>(
+    channel: C,
+    payload: IpcRequest<C>,
+  ): Promise<IpcInvokeResult<C>> => {
+    if (channel === "skill:registry:list") {
+      return {
+        ok: true,
+        data: {
+          items: [
+            {
+              id: "builtin:write",
+              name: "Write",
+              scope: "builtin",
+              enabled: true,
+              valid: true,
+              source: "builtin",
+              updatedAt: 1,
+              error_code: null,
+              error_message: null,
             },
-            candidates: [],
-          },
-        };
-      }
+          ],
+        },
+      } as unknown as IpcInvokeResult<C>;
+    }
 
-      if (channel === "ai:skill:cancel") {
-        return {
-          ok: true,
-          data: { runId: "run-1", canceled: true },
-        };
-      }
+    if (channel === "ai:skill:run") {
+      calls.push(payload as IpcRequest<"ai:skill:run">);
+      return {
+        ok: true,
+        data: {
+          executionId: "run-1",
+          runId: "run-1",
+          outputText: "continued text",
+        },
+      } as unknown as IpcInvokeResult<C>;
+    }
 
-      throw new Error(`Unexpected AI channel: ${channel}`);
-    },
+    if (channel === "ai:skill:cancel") {
+      return {
+        ok: true,
+        data: { runId: "run-1", canceled: true },
+      } as unknown as IpcInvokeResult<C>;
+    }
+
+    throw new Error(`Unexpected AI channel: ${String(channel)}`);
+  };
+
+  return createAiStore({
+    invoke,
   });
 }
 

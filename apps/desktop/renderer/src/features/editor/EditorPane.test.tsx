@@ -6,7 +6,11 @@ import {
   act,
 } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { IpcRequest } from "@shared/types/ipc-generated";
+import type {
+  IpcChannel,
+  IpcInvokeResult,
+  IpcRequest,
+} from "@shared/types/ipc-generated";
 
 import {
   EditorStoreProvider,
@@ -17,7 +21,11 @@ import {
   createVersionStore,
   type IpcInvoke as VersionIpcInvoke,
 } from "../../stores/versionStore";
-import { AiStoreProvider, createAiStore } from "../../stores/aiStore";
+import {
+  AiStoreProvider,
+  createAiStore,
+  type IpcInvoke,
+} from "../../stores/aiStore";
 import {
   EditorPane,
   EDITOR_DOCUMENT_CHARACTER_LIMIT,
@@ -108,21 +116,27 @@ function createVersionStoreForEditorPaneTests() {
 function createAiStoreForEditorPaneTests(args: {
   onSkillRun?: (payload: IpcRequest<"ai:skill:run">) => void;
 }) {
-  return createAiStore({
-    invoke: async (channel, payload) => {
-      if (channel === "ai:skill:run") {
-        args.onSkillRun?.(payload as IpcRequest<"ai:skill:run">);
-        return {
-          ok: true,
-          data: {
-            runId: "run-s2-bubble-ai",
-            outputText: "mock-output",
-          },
-        };
-      }
+  const invoke: IpcInvoke = async <C extends IpcChannel>(
+    channel: C,
+    payload: IpcRequest<C>,
+  ): Promise<IpcInvokeResult<C>> => {
+    if (channel === "ai:skill:run") {
+      args.onSkillRun?.(payload as IpcRequest<"ai:skill:run">);
+      return {
+        ok: true,
+        data: {
+          executionId: "run-s2-bubble-ai",
+          runId: "run-s2-bubble-ai",
+          outputText: "mock-output",
+        },
+      } as IpcInvokeResult<C>;
+    }
 
-      throw new Error(`Unexpected channel: ${channel}`);
-    },
+    throw new Error(`Unexpected channel: ${String(channel)}`);
+  };
+
+  return createAiStore({
+    invoke,
   });
 }
 
@@ -609,7 +623,9 @@ describe("EditorPane", () => {
     fireEvent.change(searchInput, {
       target: { value: "out" },
     });
-    expect(screen.getByTestId("slash-command-item-outline")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("slash-command-item-outline"),
+    ).toBeInTheDocument();
 
     fireEvent.change(searchInput, {
       target: { value: "not-exist-keyword" },
