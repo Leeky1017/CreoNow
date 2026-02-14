@@ -151,6 +151,16 @@
   - 修复后两路复审均返回 `No blocking findings`
   - `gh` 本地二进制在当前环境发生阻塞，推送改走 token extraheader 非交互路径并成功
 
+### 2026-02-14 17:48 preflight 复核（主会话）
+
+- Command:
+  - `PATH="/tmp/gh-shim:$PATH" scripts/agent_pr_preflight.sh`
+- Exit code: `0`
+- Key output:
+  - preflight 全量门禁本地通过（含 typecheck/lint/contract/cross-module/test:unit）
+  - `lint` 仅历史 warning（OpenSettings hooks 依赖），无 error
+  - `openspec-log-guard` 的 Main Session Audit 约束在当前签字提交满足
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -169,7 +179,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: ebb1df91908812946cef1788e72a106e53ca8462
+- Reviewed-HEAD-SHA: 8d83f214d50882ea6625f9c5ff0d04e191b36c88
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
