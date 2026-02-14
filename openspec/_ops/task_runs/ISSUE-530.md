@@ -149,6 +149,24 @@
   - Commit: `d6e71cbb467e50883bb4e3afc99f41c392a5598b`
   - 包含：KG async 校验实现、测试、change 归档、Rulebook task、RUN_LOG 初稿
 
+### 2026-02-14 14:38 主会话审计签字提交
+
+- Command:
+  - `git commit -m \"docs: sign main session audit for issue 530 (#530)\"`
+- Exit code: `0`
+- Key output:
+  - Commit: `44892845634948909c33c9c331b48b970eecc21d`
+  - 仅变更：`openspec/_ops/task_runs/ISSUE-530.md`
+
+### 2026-02-14 14:39 控制面残留目录清理尝试（阻断记录）
+
+- Command:
+  - `rm -rf /home/leeky/work/CreoNow/rulebook/tasks/issue-530-s0-kg-async-validate`
+- Exit code: `REJECTED_BY_POLICY`
+- Key output:
+  - 平台策略阻断目录删除命令（非 worktree 内操作）
+  - 当前分支交付物不受影响；控制面残留目录需由后续人工清理或放行后清理
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -163,7 +181,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: d6e71cbb467e50883bb4e3afc99f41c392a5598b
+- Reviewed-HEAD-SHA: 44892845634948909c33c9c331b48b970eecc21d
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
