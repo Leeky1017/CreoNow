@@ -66,7 +66,7 @@ describe("createSettingsFetcher", () => {
     expect(result.chunks[0]?.content).toContain("严格第一人称叙述");
   });
 
-  it("should return empty chunks when no memory items", async () => {
+  it("should return warning marker when no memory items", async () => {
     const previewInjection = vi.fn<MemoryService["previewInjection"]>(() => ({
       ok: true,
       data: {
@@ -83,7 +83,7 @@ describe("createSettingsFetcher", () => {
     const result = await fetcher(BASE_REQUEST);
 
     expect(result.chunks).toEqual([]);
-    expect(result.warnings).toBeUndefined();
+    expect(result.warnings?.[0]).toContain("MEMORY_DEGRADED");
   });
 
   it("should degrade with MEMORY_UNAVAILABLE on error", async () => {

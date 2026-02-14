@@ -271,10 +271,10 @@ export function createKgRecognitionRuntime(args: {
     completionOrder: [],
     canceledTaskIds: [],
   };
-
-  function service() {
-    return createKnowledgeGraphService({ db: args.db, logger: args.logger });
-  }
+  const kgService = createKnowledgeGraphService({
+    db: args.db,
+    logger: args.logger,
+  });
 
   function getSessionState(sessionId: string): RecognitionSessionState {
     const existing = sessions.get(sessionId);
@@ -344,7 +344,7 @@ export function createKgRecognitionRuntime(args: {
       return;
     }
 
-    const listRes = service().entityList({ projectId: task.projectId });
+    const listRes = kgService.entityList({ projectId: task.projectId });
     if (!listRes.ok) {
       args.logger.error("kg_recognition_entity_list_failed", {
         code: listRes.error.code,
@@ -576,7 +576,7 @@ export function createKgRecognitionRuntime(args: {
         return toErr("NOT_FOUND", "suggestion not found");
       }
 
-      const createRes = service().entityCreate({
+      const createRes = kgService.entityCreate({
         projectId: normalizedProjectId,
         type: suggestion.type,
         name: suggestion.name,
@@ -591,7 +591,7 @@ export function createKgRecognitionRuntime(args: {
         return createRes;
       }
 
-      const existingRes = service().entityList({
+      const existingRes = kgService.entityList({
         projectId: normalizedProjectId,
       });
       if (!existingRes.ok) {

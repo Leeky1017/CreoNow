@@ -30,8 +30,22 @@ type EditingState =
       name: string;
       entityType: string;
       description: string;
+      aiContextLevel: AiContextLevel;
+      aliasesInput: string;
     }
   | { mode: "relation"; relationId: string; relationType: string };
+
+type AiContextLevel = "always" | "when_detected" | "manual_only" | "never";
+
+const AI_CONTEXT_LEVEL_OPTIONS: Array<{
+  value: AiContextLevel;
+  label: string;
+}> = [
+  { value: "always", label: "Always" },
+  { value: "when_detected", label: "When detected" },
+  { value: "manual_only", label: "Manual only" },
+  { value: "never", label: "Never" },
+];
 
 /** View mode for the KG panel */
 type ViewMode = "list" | "graph" | "timeline";
@@ -43,6 +57,17 @@ type AsyncMutationResult =
 
 function entityLabel(args: { name: string; entityType?: string }): string {
   return args.entityType ? `${args.name} (${args.entityType})` : args.name;
+}
+
+function parseAliasesInput(value: string): string[] {
+  return value
+    .split(",")
+    .map((alias) => alias.trim())
+    .filter((alias) => alias.length > 0);
+}
+
+function formatAliasesInput(aliases: string[]): string {
+  return aliases.join(", ");
 }
 
 /**
@@ -174,6 +199,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   const [createName, setCreateName] = React.useState("");
   const [createType, setCreateType] = React.useState("");
   const [createDescription, setCreateDescription] = React.useState("");
+  const [createAliasesInput, setCreateAliasesInput] = React.useState("");
 
   const [relFromId, setRelFromId] = React.useState("");
   const [relToId, setRelToId] = React.useState("");
@@ -210,6 +236,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
       name: createName,
       entityType: createType,
       description: createDescription,
+      aliases: parseAliasesInput(createAliasesInput),
     });
     if (!res.ok) {
       return;
@@ -217,6 +244,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
     setCreateName("");
     setCreateType("");
     setCreateDescription("");
+    setCreateAliasesInput("");
   }
 
   async function onDeleteEntity(entityId: string): Promise<void> {
@@ -288,6 +316,8 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
           name: editing.name,
           entityType: editing.entityType,
           description: editing.description,
+          aiContextLevel: editing.aiContextLevel,
+          aliases: parseAliasesInput(editing.aliasesInput),
         },
       });
       if (!res.ok) {
@@ -660,6 +690,8 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                 name: eventEntity.name,
                 entityType: eventEntity.entityType,
                 description: eventEntity.description ?? "",
+                aiContextLevel: eventEntity.aiContextLevel,
+                aliasesInput: formatAliasesInput(eventEntity.aliases),
               });
             }}
           />
@@ -730,6 +762,13 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
               onChange={(e) => setCreateDescription(e.target.value)}
               fullWidth
             />
+            <Input
+              data-testid="kg-entity-aliases"
+              placeholder="Aliases (comma separated)"
+              value={createAliasesInput}
+              onChange={(e) => setCreateAliasesInput(e.target.value)}
+              fullWidth
+            />
             <Button
               data-testid="kg-entity-create"
               variant="secondary"
@@ -790,6 +829,28 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                           }
                           fullWidth
                         />
+                        <Input
+                          value={editing.aliasesInput}
+                          onChange={(evt) =>
+                            setEditing({
+                              ...editing,
+                              aliasesInput: evt.target.value,
+                            })
+                          }
+                          fullWidth
+                        />
+                        <Select
+                          data-testid="kg-entity-ai-context-level"
+                          value={editing.aiContextLevel}
+                          onValueChange={(value) =>
+                            setEditing({
+                              ...editing,
+                              aiContextLevel: value as AiContextLevel,
+                            })
+                          }
+                          options={AI_CONTEXT_LEVEL_OPTIONS}
+                          fullWidth
+                        />
                       </>
                     ) : (
                       <>
@@ -837,6 +898,8 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                                 name: e.name,
                                 entityType: e.entityType ?? "",
                                 description: e.description ?? "",
+                                aiContextLevel: e.aiContextLevel,
+                                aliasesInput: formatAliasesInput(e.aliases),
                               })
                             }
                           >

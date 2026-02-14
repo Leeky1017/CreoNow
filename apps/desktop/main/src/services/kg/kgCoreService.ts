@@ -37,15 +37,34 @@ const DEFAULT_PATH_EXPANSION_LIMIT = 10_000;
 const DEFAULT_SUBGRAPH_MAX_K = 3;
 
 const MAX_ENTITY_NAME_CHARS = 256;
+const MAX_ENTITY_ALIAS_CHARS = 256;
 const MAX_RELATION_TYPE_CHARS = 64;
 const MAX_DESCRIPTION_CHARS = 4_096;
 const DEFAULT_AI_CONTEXT_LEVEL: AiContextLevel = "when_detected";
 const AI_CONTEXT_LEVEL_SCHEMA = z.enum(AI_CONTEXT_LEVELS);
+
+function normalizeAliases(rawAliases: string[]): string[] {
+  const deduped: string[] = [];
+  const seen = new Set<string>();
+
+  for (const rawAlias of rawAliases) {
+    const alias = rawAlias.trim();
+    if (alias.length === 0 || alias.length > MAX_ENTITY_ALIAS_CHARS) {
+      continue;
+    }
+    if (seen.has(alias)) {
+      continue;
+    }
+    seen.add(alias);
+    deduped.push(alias);
+  }
+
+  return deduped;
+}
+
 const ALIASES_SCHEMA = z
   .array(z.string())
-  .transform((aliases) =>
-    aliases.map((alias) => alias.trim()).filter((alias) => alias.length > 0),
-  );
+  .transform((aliases) => normalizeAliases(aliases));
 
 type ServiceLimits = {
   nodeLimit: number;

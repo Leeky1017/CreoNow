@@ -192,14 +192,7 @@ function registerIpcHandlers(deps: {
   guardedIpcMain.handle(
     "app:system:ping",
     async (): Promise<IpcResponse<Record<string, never>>> => {
-      try {
-        return { ok: true, data: {} };
-      } catch {
-        return {
-          ok: false,
-          error: { code: "INTERNAL", message: "Ping failed" },
-        };
-      }
+      return { ok: true, data: {} };
     },
   );
 

@@ -6,6 +6,7 @@ import type { ContextLayerFetcher } from "../types";
 
 const MEMORY_UNAVAILABLE_WARNING = "MEMORY_UNAVAILABLE: 记忆数据未注入";
 const MEMORY_DEGRADED_WARNING_PREFIX = "MEMORY_DEGRADED";
+const MEMORY_EMPTY_WARNING = "MEMORY_DEGRADED: no preview memory items";
 const MEMORY_INJECTION_HEADER = "[用户写作偏好 — 记忆注入]";
 
 const ORIGIN_LABEL_MAP: Record<MemoryInjectionItem["origin"], string> = {
@@ -56,6 +57,7 @@ export function createSettingsFetcher(
       if (preview.data.items.length === 0) {
         return {
           chunks: [],
+          warnings: [MEMORY_EMPTY_WARNING],
         };
       }
 
