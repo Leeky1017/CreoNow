@@ -22,7 +22,7 @@
 - [x] 按 Scenario 执行 Red → Green → Refactor
 - [x] 运行最小必要验证（覆盖 KG-S0-AV-S1/S2/S3）
 - [x] 归档 change 并同步 `EXECUTION_ORDER.md`
-- [ ] 提交到 `task/530-s0-kg-async-validate`，停在“可审计可接管”
+- [x] 提交到 `task/530-s0-kg-async-validate`，停在“可审计可接管”
 
 ## Runs
 
@@ -140,6 +140,15 @@
   - Prettier check 命中 2 个文件，已 write 修复
   - Fresh Verification：`5 passed files / 10 passed tests`
 
+### 2026-02-14 14:38 提交实现与治理工件
+
+- Command:
+  - `git commit -m \"fix: harden KG async write validation (#530)\"`
+- Exit code: `0`
+- Key output:
+  - Commit: `d6e71cbb467e50883bb4e3afc99f41c392a5598b`
+  - 包含：KG async 校验实现、测试、change 归档、Rulebook task、RUN_LOG 初稿
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -154,9 +163,9 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: PENDING（将在签字提交后回填 HEAD^）
-- Spec-Compliance: PENDING
-- Code-Quality: PENDING
-- Fresh-Verification: PENDING
+- Reviewed-HEAD-SHA: d6e71cbb467e50883bb4e3afc99f41c392a5598b
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
 - Blocking-Issues: 0
-- Decision: PENDING
+- Decision: ACCEPT
