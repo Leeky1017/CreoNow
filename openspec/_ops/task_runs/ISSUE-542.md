@@ -118,6 +118,19 @@
   - 已回填 RUN_LOG PR 链接并生成提交：`414f63b8`
   - 格式修复提交：`201d1261`
 
+### 2026-02-14 20:01-20:02 preflight 二次阻断修复（Vitest 套件识别）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm -C apps/desktop exec vitest run --config tests/unit/main/vitest.window-load.config.ts`
+  - 修复 `apps/desktop/tests/unit/main/ping-dead-code-cleanup.test.ts`（脚本断言 → Vitest `describe/it`）
+- Exit code:
+  - preflight 首次失败：`pnpm test:unit` 报 `No test suite found in ping-dead-code-cleanup.test.ts`
+  - 修复后窗口主进程测试配置通过：`0`
+- Key output:
+  - 新增/转换后的 Vitest 用例：`S2-DC-PING-S1 keeps ping envelope and removes unreachable catch`
+  - 修复提交：`fd98c7dd`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -140,7 +153,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 201d1261ebf893695cc7012b427a68241c2c8b01
+- Reviewed-HEAD-SHA: fd98c7ddcad3934921dd6680f77aa68a526f0d95
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
