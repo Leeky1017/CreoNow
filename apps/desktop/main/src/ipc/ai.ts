@@ -11,6 +11,7 @@ import {
 import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
 import { createAiService } from "../services/ai/aiService";
+import { createSqliteTraceStore } from "../services/ai/traceStore";
 import {
   type SecretStorageAdapter,
   createAiProxySettingsService,
@@ -393,6 +394,14 @@ export function registerAiIpcHandlers(deps: {
   const aiService = createAiService({
     logger: deps.logger,
     env: deps.env,
+    ...(deps.db
+      ? {
+          traceStore: createSqliteTraceStore({
+            db: deps.db,
+            logger: deps.logger,
+          }),
+        }
+      : {}),
     getProxySettings: () => {
       if (!deps.db) {
         return null;
