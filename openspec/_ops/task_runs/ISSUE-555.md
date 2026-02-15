@@ -132,6 +132,27 @@
   - `rulebook task validate` PASS
   - Remediation commit pushed: `af8ee0edbc2914e5f46ba0d7ccfc6f4861f1a352`
 
+### 2026-02-15 10:44 Preflight attempt #2 (blocked)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Blocker:
+  - `pnpm test:unit` failed at `apps/desktop/tests/unit/kg/entity-duplicate-guard.test.ts:16`
+  - Symptom: first `knowledge:entity:create` returned `ok=false` unexpectedly.
+- Root cause:
+  - Test SQLite schemas in `apps/desktop/tests/helpers/kg/harness.ts` and `apps/desktop/tests/unit/kg/entity-list-runtime-contract-aliases.test.ts` missed `kg_entities.last_seen_state`, while runtime insert now writes this column.
+
+### 2026-02-15 10:45-10:47 Unit blocker remediation
+
+- Fix:
+  - Added `last_seen_state TEXT` to both outdated test schemas.
+  - Updated seed inserts in `entity-list-runtime-contract-aliases.test.ts` to include `last_seen_state` column/value.
+- Verification:
+  - `pnpm exec tsx apps/desktop/tests/unit/kg/entity-duplicate-guard.test.ts` PASS
+  - `pnpm exec tsx apps/desktop/tests/unit/kg/entity-list-runtime-contract-aliases.test.ts` PASS
+  - `pnpm exec prettier --check apps/desktop/tests/helpers/kg/harness.ts apps/desktop/tests/unit/kg/entity-list-runtime-contract-aliases.test.ts` PASS
+  - Remediation commit pushed: `bcdda0bdb5c631a69ebb89847bd325c29b13e631`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -146,7 +167,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: af8ee0edbc2914e5f46ba0d7ccfc6f4861f1a352
+- Reviewed-HEAD-SHA: bcdda0bdb5c631a69ebb89847bd325c29b13e631
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
