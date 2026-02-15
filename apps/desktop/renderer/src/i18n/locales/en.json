@@ -1,11 +1,41 @@
 {
   "workbench": {
     "bootstrap": {
-      "appShell": "Workbench Shell",
-      "fallbackOnly": "Fallback only in English"
+      "appShell": "Workbench Shell"
     },
     "export": {
       "currentDocument": "Current Document"
+    },
+    "commandPalette": {
+      "searchPlaceholder": "Search commands or files...",
+      "emptyResult": "No matching results",
+      "footer": {
+        "navigation": "Navigate",
+        "select": "Select",
+        "close": "Close"
+      },
+      "groups": {
+        "suggestions": "Suggestions",
+        "layout": "Layout",
+        "document": "Document",
+        "project": "Project",
+        "command": "Command",
+        "file": "File",
+        "recent": "Recent"
+      }
+    },
+    "statusBar": {
+      "unnamedProject": "Untitled Project",
+      "unnamedDocument": "Untitled Document",
+      "wordCount": "{{count}} chars"
+    },
+    "saveIndicator": {
+      "saving": "Saving...",
+      "saved": "Saved",
+      "error": "Save failed"
+    },
+    "infoPanel": {
+      "openVersionHistory": "View Version History"
     }
   }
 }

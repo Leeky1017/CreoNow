@@ -122,7 +122,7 @@ describe("Workbench NFR: Command palette search performance", () => {
     const items = Array.from({ length: 5000 }, (_, i) => ({
       id: `item-${i}`,
       label: `Document ${i} - ${String.fromCharCode(65 + (i % 26))}`,
-      group: "文件",
+      group: "file",
       category: "file" as const,
       onSelect: () => {},
     }));

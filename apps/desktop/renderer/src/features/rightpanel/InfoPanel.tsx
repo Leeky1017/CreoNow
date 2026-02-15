@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 import type { IpcError, IpcResponseData } from "@shared/types/ipc-generated";
 import { Card } from "../../components/primitives/Card";
@@ -6,6 +7,7 @@ import { Heading } from "../../components/primitives/Heading";
 import { Text } from "../../components/primitives/Text";
 import { invoke } from "../../lib/ipcClient";
 import { useFileStore, type DocumentListItem } from "../../stores/fileStore";
+import "../../i18n";
 
 type StatsSummary = IpcResponseData<"stats:day:gettoday">["summary"];
 
@@ -217,6 +219,7 @@ export interface InfoPanelProps {
 }
 
 export function InfoPanel(props: InfoPanelProps = {}): JSX.Element {
+  const { t } = useTranslation();
   const currentDocumentId = useFileStore((s) => s.currentDocumentId);
   const items = useFileStore((s) => s.items);
 
@@ -288,7 +291,7 @@ export function InfoPanel(props: InfoPanelProps = {}): JSX.Element {
           props.onOpenVersionHistory?.();
         }}
       >
-        查看版本历史
+        {t("workbench.infoPanel.openVersionHistory")}
       </button>
     </div>
   );

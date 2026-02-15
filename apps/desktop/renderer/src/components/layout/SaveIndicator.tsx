@@ -1,15 +1,20 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import type { AutosaveStatus } from "../../stores/editorStore";
+import "../../i18n";
 
-function getSaveLabel(status: AutosaveStatus): string {
+function getSaveLabel(
+  status: AutosaveStatus,
+  t: (key: string) => string,
+): string {
   if (status === "saving") {
-    return "保存中...";
+    return t("workbench.saveIndicator.saving");
   }
   if (status === "saved") {
-    return "已保存";
+    return t("workbench.saveIndicator.saved");
   }
   if (status === "error") {
-    return "保存失败";
+    return t("workbench.saveIndicator.error");
   }
   return "";
 }
@@ -23,6 +28,7 @@ export function SaveIndicator(props: {
   autosaveStatus: AutosaveStatus;
   onRetry: () => void;
 }): JSX.Element {
+  const { t } = useTranslation();
   const [displayStatus, setDisplayStatus] = React.useState<AutosaveStatus>(
     props.autosaveStatus,
   );
@@ -41,7 +47,7 @@ export function SaveIndicator(props: {
   }, [props.autosaveStatus]);
 
   const isError = displayStatus === "error";
-  const label = getSaveLabel(displayStatus);
+  const label = getSaveLabel(displayStatus, t);
 
   return (
     <span

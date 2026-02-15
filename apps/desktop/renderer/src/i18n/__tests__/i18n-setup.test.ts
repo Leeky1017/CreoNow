@@ -39,10 +39,10 @@ describe("i18n setup", () => {
     expect(i18n.t("workbench.bootstrap.appShell")).toBe("工作台外壳");
   });
 
-  it("missing key follows fallback strategy with observable output", () => {
-    expect(i18n.t("workbench.bootstrap.fallbackOnly")).toBe(
-      "Fallback only in English",
-    );
+  it("missing key follows fallback strategy with observable output", async () => {
+    await i18n.changeLanguage("fr-FR");
+    expect(i18n.t("workbench.bootstrap.appShell")).toBe("Workbench Shell");
+    await i18n.changeLanguage("zh-CN");
 
     const missing = i18n.t("workbench.bootstrap.missingEverywhere");
     expect(missing).toBe("workbench.bootstrap.missingEverywhere");
