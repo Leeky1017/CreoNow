@@ -11,6 +11,20 @@ type Err = { ok: false; error: IpcError };
 export type ServiceResult<T> = Ok<T> | Err;
 
 export type EmbeddingEncodeResult = { vectors: number[][]; dimension: number };
+export type EmbeddingProvider = "hash" | "onnx";
+
+type PrimaryFailureReason = "PRIMARY_TIMEOUT" | "PRIMARY_UNAVAILABLE";
+
+type EmbeddingFallbackPolicy = {
+  enabled: boolean;
+  provider: EmbeddingProvider;
+  onReasons?: PrimaryFailureReason[];
+};
+
+export type EmbeddingProviderPolicy = {
+  primaryProvider: EmbeddingProvider;
+  fallback?: EmbeddingFallbackPolicy;
+};
 
 export type EmbeddingService = {
   /**
@@ -37,6 +51,7 @@ const HASH_MODEL_ALIASES = new Set([
 
 const HASH_MODEL_DIMENSION = 256;
 const ONNX_MODEL_ALIASES = new Set(["onnx", "onnx-v1", "local:onnx"]);
+const PRIMARY_TIMEOUT_REASONS: PrimaryFailureReason[] = ["PRIMARY_TIMEOUT"];
 
 /**
  * Build a stable IPC error object.
@@ -50,6 +65,46 @@ function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
 function normalizeModelId(model?: string): string {
   const m = typeof model === "string" ? model.trim() : "";
   return m.length === 0 ? "default" : m;
+}
+
+function normalizeProviderPolicy(
+  policy?: EmbeddingProviderPolicy,
+): EmbeddingProviderPolicy | undefined {
+  if (!policy) {
+    return undefined;
+  }
+  return {
+    primaryProvider: policy.primaryProvider,
+    fallback: policy.fallback
+      ? {
+          enabled: Boolean(policy.fallback.enabled),
+          provider: policy.fallback.provider,
+          onReasons: policy.fallback.onReasons ?? PRIMARY_TIMEOUT_REASONS,
+        }
+      : undefined,
+  };
+}
+
+function isTimeoutMarker(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return (
+    normalized.includes("timeout") ||
+    normalized.includes("timed out") ||
+    normalized.includes("etimedout")
+  );
+}
+
+function classifyPrimaryFailureReason(
+  error: OnnxEmbeddingRuntimeError,
+): PrimaryFailureReason {
+  const detailsError =
+    typeof error.details.error === "string" ? error.details.error : "";
+
+  if (isTimeoutMarker(error.message) || isTimeoutMarker(detailsError)) {
+    return "PRIMARY_TIMEOUT";
+  }
+
+  return "PRIMARY_UNAVAILABLE";
 }
 
 function mapOnnxRuntimeError(args: {
@@ -86,7 +141,118 @@ function mapOnnxRuntimeError(args: {
 export function createEmbeddingService(deps: {
   logger: Logger;
   onnxRuntime?: OnnxEmbeddingRuntime;
+  providerPolicy?: EmbeddingProviderPolicy;
 }): EmbeddingService {
+  const providerPolicy = normalizeProviderPolicy(deps.providerPolicy);
+
+  const encodeWithHash = (args: {
+    texts: readonly string[];
+    modelId: string;
+  }): ServiceResult<EmbeddingEncodeResult> => {
+    const vectors = args.texts.map((t) =>
+      embedTextToUnitVector({ text: t, dimension: HASH_MODEL_DIMENSION }),
+    );
+    deps.logger.info("embedding_encode_hash", {
+      model: args.modelId,
+      textCount: args.texts.length,
+      dimension: HASH_MODEL_DIMENSION,
+    });
+    return {
+      ok: true,
+      data: { vectors, dimension: HASH_MODEL_DIMENSION },
+    };
+  };
+
+  const encodeWithOnnx = (args: {
+    texts: readonly string[];
+    modelId: string;
+  }): ServiceResult<EmbeddingEncodeResult> => {
+    if (!deps.onnxRuntime) {
+      return mapOnnxRuntimeError({
+        modelId: args.modelId,
+        logger: deps.logger,
+        error: {
+          code: "EMBEDDING_RUNTIME_UNAVAILABLE",
+          message: "ONNX runtime not configured",
+          details: {
+            provider: "cpu",
+            modelPath: "<unset>",
+            error: "ONNX runtime not configured",
+          },
+        },
+      });
+    }
+
+    const encoded = deps.onnxRuntime.encode({
+      texts: args.texts,
+    });
+    if (!encoded.ok) {
+      return mapOnnxRuntimeError({
+        modelId: args.modelId,
+        logger: deps.logger,
+        error: encoded.error,
+      });
+    }
+
+    deps.logger.info("embedding_encode_onnx", {
+      model: args.modelId,
+      textCount: args.texts.length,
+      dimension: encoded.data.dimension,
+    });
+    return {
+      ok: true,
+      data: encoded.data,
+    };
+  };
+
+  const encodeWithProviderForPolicy = (args: {
+    provider: EmbeddingProvider;
+    texts: readonly string[];
+    modelId: string;
+  }):
+    | { ok: true; data: EmbeddingEncodeResult }
+    | { ok: false; error: OnnxEmbeddingRuntimeError } => {
+    if (args.provider === "hash") {
+      const encoded = encodeWithHash({
+        texts: args.texts,
+        modelId: args.modelId,
+      });
+      if (!encoded.ok) {
+        throw new Error("hash provider should not fail");
+      }
+      return encoded;
+    }
+
+    if (!deps.onnxRuntime) {
+      return {
+        ok: false,
+        error: {
+          code: "EMBEDDING_RUNTIME_UNAVAILABLE",
+          message: "ONNX runtime not configured",
+          details: {
+            provider: "cpu",
+            modelPath: "<unset>",
+            error: "ONNX runtime not configured",
+          },
+        },
+      };
+    }
+
+    const encoded = deps.onnxRuntime.encode({
+      texts: args.texts,
+    });
+    if (!encoded.ok) {
+      return encoded;
+    }
+
+    deps.logger.info("embedding_encode_onnx", {
+      model: args.modelId,
+      textCount: args.texts.length,
+      dimension: encoded.data.dimension,
+    });
+    return encoded;
+  };
+
   return {
     encode: (args) => {
       if (!Array.isArray(args.texts) || args.texts.length === 0) {
@@ -113,57 +279,68 @@ export function createEmbeddingService(deps: {
 
       const modelId = normalizeModelId(args.model);
       if (HASH_MODEL_ALIASES.has(modelId)) {
-        const vectors = args.texts.map((t) =>
-          embedTextToUnitVector({ text: t, dimension: HASH_MODEL_DIMENSION }),
-        );
-        deps.logger.info("embedding_encode_hash", {
-          model: modelId,
-          textCount: args.texts.length,
-          dimension: HASH_MODEL_DIMENSION,
+        return encodeWithHash({
+          texts: args.texts,
+          modelId,
         });
-        return {
-          ok: true,
-          data: { vectors, dimension: HASH_MODEL_DIMENSION },
-        };
       }
 
       if (ONNX_MODEL_ALIASES.has(modelId)) {
-        if (!deps.onnxRuntime) {
-          return mapOnnxRuntimeError({
-            modelId,
-            logger: deps.logger,
-            error: {
-              code: "EMBEDDING_RUNTIME_UNAVAILABLE",
-              message: "ONNX runtime not configured",
-              details: {
-                provider: "cpu",
-                modelPath: "<unset>",
-                error: "ONNX runtime not configured",
-              },
-            },
-          });
-        }
-
-        const encoded = deps.onnxRuntime.encode({
+        return encodeWithOnnx({
           texts: args.texts,
+          modelId,
         });
-        if (!encoded.ok) {
-          return mapOnnxRuntimeError({
-            modelId,
-            logger: deps.logger,
-            error: encoded.error,
-          });
+      }
+
+      if (modelId === "default" && providerPolicy) {
+        const primary = encodeWithProviderForPolicy({
+          provider: providerPolicy.primaryProvider,
+          texts: args.texts,
+          modelId,
+        });
+
+        if (primary.ok) {
+          return primary;
         }
 
-        deps.logger.info("embedding_encode_onnx", {
-          model: modelId,
-          textCount: args.texts.length,
-          dimension: encoded.data.dimension,
-        });
-        return {
-          ok: true,
-          data: encoded.data,
-        };
+        const reason = classifyPrimaryFailureReason(primary.error);
+        const fallbackPolicy = providerPolicy.fallback;
+        const shouldFallback =
+          Boolean(fallbackPolicy?.enabled) &&
+          Boolean(fallbackPolicy?.provider) &&
+          fallbackPolicy?.provider !== providerPolicy.primaryProvider &&
+          (fallbackPolicy?.onReasons ?? PRIMARY_TIMEOUT_REASONS).includes(
+            reason,
+          );
+
+        if (shouldFallback && fallbackPolicy) {
+          deps.logger.info("embedding_provider_fallback", {
+            primaryProvider: providerPolicy.primaryProvider,
+            fallbackProvider: fallbackPolicy.provider,
+            reason,
+          });
+
+          const fallback = encodeWithProviderForPolicy({
+            provider: fallbackPolicy.provider,
+            texts: args.texts,
+            modelId,
+          });
+          if (fallback.ok) {
+            return fallback;
+          }
+        }
+
+        return ipcError(
+          "EMBEDDING_PROVIDER_UNAVAILABLE",
+          "Embedding provider unavailable",
+          {
+            primaryProvider: providerPolicy.primaryProvider,
+            fallbackProvider: fallbackPolicy?.provider,
+            fallbackEnabled: Boolean(fallbackPolicy?.enabled),
+            reason,
+            runtimeCode: primary.error.code,
+          },
+        );
       }
 
       deps.logger.info("embedding_model_not_ready", {
@@ -174,7 +351,11 @@ export function createEmbeddingService(deps: {
       if (modelId !== "default") {
         return ipcError("INVALID_ARGUMENT", "Unknown embedding model", {
           model: modelId,
-          supported: [...HASH_MODEL_ALIASES.values()].sort(),
+          supported: [
+            ...HASH_MODEL_ALIASES.values(),
+            ...ONNX_MODEL_ALIASES.values(),
+            "default",
+          ].sort(),
         });
       }
 

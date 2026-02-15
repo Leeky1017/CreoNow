@@ -24,7 +24,7 @@
 ## 依赖同步检查（Dependency Sync Check）
 
 - 核对输入：
-  - `openspec/changes/s3-onnx-runtime/specs/search-and-retrieval-delta.md`；
+  - `openspec/changes/archive/s3-onnx-runtime/specs/search-and-retrieval-delta.md`；
   - `openspec/specs/search-and-retrieval/spec.md` 中“嵌入模型不可用时的降级”约束。
 - 核对项：
   - fallback 是否“显式可配置”且可审计；
