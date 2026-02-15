@@ -6,7 +6,11 @@
  */
 import React from "react";
 import { Popover, Button, Avatar } from "../../components/primitives";
-import type { Character, CharacterRelationship, RelationshipType } from "./types";
+import type {
+  Character,
+  CharacterRelationship,
+  RelationshipType,
+} from "./types";
 import { ROLE_DISPLAY, RELATIONSHIP_TYPE_DISPLAY } from "./types";
 
 export interface AddRelationshipPopoverProps {
@@ -15,7 +19,11 @@ export interface AddRelationshipPopoverProps {
   /** Existing relationships (to filter out already related characters) */
   existingRelationships: CharacterRelationship[];
   /** Callback when a relationship is added */
-  onAdd: (relationship: Omit<CharacterRelationship, "characterId"> & { characterId: string }) => void;
+  onAdd: (
+    relationship: Omit<CharacterRelationship, "characterId"> & {
+      characterId: string;
+    },
+  ) => void;
   /** Custom trigger element */
   trigger?: React.ReactNode;
   /** Optional portal container for popover content */
@@ -82,13 +90,18 @@ export function AddRelationshipPopover({
   layer = "popover",
 }: AddRelationshipPopoverProps): JSX.Element {
   const [open, setOpen] = React.useState(false);
-  const [selectedCharacter, setSelectedCharacter] = React.useState<Character | null>(null);
-  const [selectedType, setSelectedType] = React.useState<RelationshipType | null>(null);
+  const [selectedCharacter, setSelectedCharacter] =
+    React.useState<Character | null>(null);
+  const [selectedType, setSelectedType] =
+    React.useState<RelationshipType | null>(null);
+  const resetTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // Filter out characters that already have a relationship
   const existingIds = new Set(existingRelationships.map((r) => r.characterId));
   const selectableCharacters = availableCharacters.filter(
-    (c) => !existingIds.has(c.id)
+    (c) => !existingIds.has(c.id),
   );
 
   const handleReset = () => {
@@ -96,10 +109,29 @@ export function AddRelationshipPopover({
     setSelectedType(null);
   };
 
+  const scheduleReset = () => {
+    if (resetTimerRef.current !== null) {
+      clearTimeout(resetTimerRef.current);
+    }
+
+    resetTimerRef.current = setTimeout(() => {
+      resetTimerRef.current = null;
+      handleReset();
+    }, 150);
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (resetTimerRef.current !== null) {
+        clearTimeout(resetTimerRef.current);
+        resetTimerRef.current = null;
+      }
+    };
+  }, []);
+
   const handleClose = () => {
     setOpen(false);
-    // Reset state after close animation
-    setTimeout(handleReset, 150);
+    scheduleReset();
   };
 
   const handleAdd = () => {
@@ -123,7 +155,7 @@ export function AddRelationshipPopover({
       onOpenChange={(newOpen) => {
         setOpen(newOpen);
         if (!newOpen) {
-          setTimeout(handleReset, 150);
+          scheduleReset();
         }
       }}
       layer={layer}

@@ -96,6 +96,7 @@ function isJudgeResultEvent(x: unknown): x is JudgeResultEvent {
 export type AiStreamBridgeApi = {
   registerAiStreamConsumer: () => IpcResponse<{ subscriptionId: string }>;
   releaseAiStreamConsumer: (subscriptionId: string) => void;
+  dispose: () => void;
 };
 
 function resolveRendererId(): string {
@@ -134,16 +135,16 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
     );
   }
 
-  ipcRenderer.on(SKILL_STREAM_CHUNK_CHANNEL, (_evt, payload: unknown) => {
+  const onSkillStreamChunk = (_evt: unknown, payload: unknown) => {
     forwardEvent(SKILL_STREAM_CHUNK_CHANNEL, payload);
-  });
-  ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, (_evt, payload: unknown) => {
+  };
+  const onSkillStreamDone = (_evt: unknown, payload: unknown) => {
     forwardEvent(SKILL_STREAM_DONE_CHANNEL, payload);
-  });
-  ipcRenderer.on(SKILL_QUEUE_STATUS_CHANNEL, (_evt, payload: unknown) => {
+  };
+  const onSkillQueueStatus = (_evt: unknown, payload: unknown) => {
     forwardEvent(SKILL_QUEUE_STATUS_CHANNEL, payload);
-  });
-  ipcRenderer.on(JUDGE_RESULT_CHANNEL, (_evt, payload: unknown) => {
+  };
+  const onJudgeResult = (_evt: unknown, payload: unknown) => {
     if (subscriptions.count() === 0) {
       return;
     }
@@ -156,12 +157,29 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
         detail: payload,
       }),
     );
-  });
+  };
+
+  ipcRenderer.on(SKILL_STREAM_CHUNK_CHANNEL, onSkillStreamChunk);
+  ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, onSkillStreamDone);
+  ipcRenderer.on(SKILL_QUEUE_STATUS_CHANNEL, onSkillQueueStatus);
+  ipcRenderer.on(JUDGE_RESULT_CHANNEL, onJudgeResult);
 
   return {
     registerAiStreamConsumer: () => subscriptions.register(),
     releaseAiStreamConsumer: (subscriptionId: string) => {
       subscriptions.release(subscriptionId);
+    },
+    dispose: () => {
+      ipcRenderer.removeListener(
+        SKILL_STREAM_CHUNK_CHANNEL,
+        onSkillStreamChunk,
+      );
+      ipcRenderer.removeListener(SKILL_STREAM_DONE_CHANNEL, onSkillStreamDone);
+      ipcRenderer.removeListener(
+        SKILL_QUEUE_STATUS_CHANNEL,
+        onSkillQueueStatus,
+      );
+      ipcRenderer.removeListener(JUDGE_RESULT_CHANNEL, onJudgeResult);
     },
   };
 }

@@ -195,10 +195,10 @@ export function SettingsDialog({
           <SettingsAccount
             account={accountSettings}
             onUpgrade={() => {
-              // TODO: Implement upgrade flow when account system is ready
+              // TODO(#571): Implement upgrade flow when account system is ready
             }}
             onDeleteAccount={() => {
-              // TODO: Implement delete account when account system is ready
+              // TODO(#571): Implement delete account when account system is ready
             }}
           />
         );

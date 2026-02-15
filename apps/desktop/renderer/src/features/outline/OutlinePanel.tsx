@@ -47,7 +47,11 @@ export interface OutlinePanelProps {
   /** Callback when an item is renamed */
   onRename?: (itemId: string, newTitle: string) => void;
   /** Callback when items are reordered via drag-and-drop */
-  onReorder?: (draggedId: string, targetId: string, position: DropPosition) => void;
+  onReorder?: (
+    draggedId: string,
+    targetId: string,
+    position: DropPosition,
+  ) => void;
   /** Callback when editor scrolls to sync active item */
   onScrollSync?: (itemId: string) => void;
   /** Whether drag-and-drop is enabled */
@@ -124,7 +128,14 @@ function DotIcon({ opacity = 0.5 }: { opacity?: number }) {
 
 function EditIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
     </svg>
   );
@@ -132,7 +143,14 @@ function EditIcon() {
 
 function DeleteIcon() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <polyline points="3 6 5 6 21 6" />
       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
@@ -141,7 +159,16 @@ function DeleteIcon() {
 
 function ExpandAllIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="4 14 10 20 16 14" />
       <polyline points="4 4 10 10 16 4" />
     </svg>
@@ -150,7 +177,16 @@ function ExpandAllIcon() {
 
 function CollapseAllIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <polyline points="4 20 10 14 16 20" />
       <polyline points="4 10 10 4 16 10" />
     </svg>
@@ -159,7 +195,16 @@ function CollapseAllIcon() {
 
 function SearchIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
@@ -168,7 +213,13 @@ function SearchIcon() {
 
 function EmptyDocumentIcon() {
   return (
-    <svg className="w-6 h-6 text-[var(--color-fg-placeholder)] mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <svg
+      className="w-6 h-6 text-[var(--color-fg-placeholder)] mb-2"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+    >
       <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
       <polyline points="13 2 13 9 20 9" />
     </svg>
@@ -179,10 +230,28 @@ function EmptyDocumentIcon() {
 // Styles
 // ============================================================================
 
-const levelStyles: Record<OutlineLevel, { paddingLeft: number; fontSize: string; fontWeight: string; color: string }> = {
-  h1: { paddingLeft: 16, fontSize: "14px", fontWeight: "600", color: "var(--color-fg-default)" },
-  h2: { paddingLeft: 32, fontSize: "13px", fontWeight: "400", color: "#d4d4d4" },
-  h3: { paddingLeft: 48, fontSize: "12px", fontWeight: "400", color: "var(--color-fg-muted)" },
+const levelStyles: Record<
+  OutlineLevel,
+  { paddingLeft: number; fontSize: string; fontWeight: string; color: string }
+> = {
+  h1: {
+    paddingLeft: 16,
+    fontSize: "14px",
+    fontWeight: "600",
+    color: "var(--color-fg-default)",
+  },
+  h2: {
+    paddingLeft: 32,
+    fontSize: "13px",
+    fontWeight: "400",
+    color: "#d4d4d4",
+  },
+  h3: {
+    paddingLeft: 48,
+    fontSize: "12px",
+    fontWeight: "400",
+    color: "var(--color-fg-muted)",
+  },
 };
 
 const levelOrder = { h1: 1, h2: 2, h3: 3 };
@@ -276,7 +345,12 @@ function SearchInput({
 function DragIndicator({ position }: { position: DropPosition | null }) {
   if (!position) return null;
 
-  const topOffset = position === "before" ? "-1px" : position === "after" ? "calc(100% - 1px)" : "50%";
+  const topOffset =
+    position === "before"
+      ? "-1px"
+      : position === "after"
+        ? "calc(100% - 1px)"
+        : "50%";
   const isInto = position === "into";
 
   return (
@@ -300,7 +374,9 @@ function DragIndicator({ position }: { position: DropPosition | null }) {
  * Active indicator (left white line for current item)
  */
 function ActiveIndicator() {
-  return <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[var(--color-accent)]" />;
+  return (
+    <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[var(--color-accent)]" />
+  );
 }
 
 /**
@@ -451,7 +527,8 @@ function OutlineItemRow({
         : "hover:bg-[var(--color-bg-hover)]";
 
   const Icon = item.level === "h1" ? DocumentIcon : DotIcon;
-  const iconOpacity = item.level === "h1" ? undefined : item.level === "h2" ? 0.5 : 0.4;
+  const iconOpacity =
+    item.level === "h1" ? undefined : item.level === "h2" ? 0.5 : 0.4;
 
   return (
     <div className="relative" data-outline-item-id={item.id}>
@@ -494,7 +571,10 @@ function OutlineItemRow({
 
         {/* Collapse toggle */}
         {hasChildItems && (
-          <CollapseToggle isCollapsed={isCollapsed} onToggle={onToggleCollapse} />
+          <CollapseToggle
+            isCollapsed={isCollapsed}
+            onToggle={onToggleCollapse}
+          />
         )}
 
         <Icon opacity={iconOpacity} />
@@ -533,7 +613,9 @@ function OutlineItemRow({
           </div>
         )}
 
-        {!isEditing && !isDragging && <HoverActions onEdit={onEditStart} onDelete={onDelete} />}
+        {!isEditing && !isDragging && (
+          <HoverActions onEdit={onEditStart} onDelete={onDelete} />
+        )}
       </div>
     </div>
   );
@@ -599,11 +681,10 @@ export function OutlinePanel({
   onDelete,
   onRename,
   onReorder,
-  // onScrollSync is provided for future editor integration
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onScrollSync: _onScrollSync,
+  onScrollSync,
   draggable = true,
 }: OutlinePanelProps): JSX.Element {
+  void onScrollSync;
   // Flatten items for rendering
   const flatItems = React.useMemo(() => flattenOutline(items), [items]);
 
@@ -615,7 +696,9 @@ export function OutlinePanel({
 
   // Selection state (for multi-select)
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
-  const [lastSelectedId, setLastSelectedId] = React.useState<string | null>(null);
+  const [lastSelectedId, setLastSelectedId] = React.useState<string | null>(
+    null,
+  );
 
   // Editing state
   const [editingId, setEditingId] = React.useState<string | null>(null);
@@ -624,7 +707,9 @@ export function OutlinePanel({
   // Drag state
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [dragOverId, setDragOverId] = React.useState<string | null>(null);
-  const [dropPosition, setDropPosition] = React.useState<DropPosition | null>(null);
+  const [dropPosition, setDropPosition] = React.useState<DropPosition | null>(
+    null,
+  );
 
   // Focused item for keyboard navigation
   const [focusedIndex, setFocusedIndex] = React.useState<number>(-1);
@@ -688,7 +773,10 @@ export function OutlinePanel({
   };
 
   // Multi-select handlers
-  const toggleSelect = (itemId: string, e: React.MouseEvent | React.KeyboardEvent) => {
+  const toggleSelect = (
+    itemId: string,
+    e: React.MouseEvent | React.KeyboardEvent,
+  ) => {
     const isCtrlOrCmd = "ctrlKey" in e ? e.ctrlKey || e.metaKey : false;
     const isShift = "shiftKey" in e ? e.shiftKey : false;
 
@@ -697,7 +785,8 @@ export function OutlinePanel({
       const startIdx = visibleItems.findIndex((i) => i.id === lastSelectedId);
       const endIdx = visibleItems.findIndex((i) => i.id === itemId);
       if (startIdx !== -1 && endIdx !== -1) {
-        const [from, to] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
+        const [from, to] =
+          startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
         const rangeIds = visibleItems.slice(from, to + 1).map((i) => i.id);
         setSelectedIds((prev) => new Set([...prev, ...rangeIds]));
       }
@@ -753,7 +842,11 @@ export function OutlinePanel({
     setDropPosition(null);
   };
 
-  const handleDragOver = (e: React.DragEvent, itemId: string, itemLevel: OutlineLevel) => {
+  const handleDragOver = (
+    e: React.DragEvent,
+    itemId: string,
+    itemLevel: OutlineLevel,
+  ) => {
     e.preventDefault();
     if (draggingId === itemId) return;
 
@@ -804,7 +897,10 @@ export function OutlinePanel({
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    const currentIdx = focusedIndex >= 0 ? focusedIndex : visibleItems.findIndex((i) => i.id === activeId);
+    const currentIdx =
+      focusedIndex >= 0
+        ? focusedIndex
+        : visibleItems.findIndex((i) => i.id === activeId);
 
     switch (e.key) {
       case "ArrowDown":
@@ -1012,7 +1108,9 @@ export function OutlinePanel({
       {scrollSyncEnabled && (
         <div className="px-3 py-1.5 border-t border-[var(--color-separator)] flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-success)]" />
-          <span className="text-[10px] text-[var(--color-fg-muted)]">Sync with editor</span>
+          <span className="text-[10px] text-[var(--color-fg-muted)]">
+            Sync with editor
+          </span>
         </div>
       )}
     </aside>

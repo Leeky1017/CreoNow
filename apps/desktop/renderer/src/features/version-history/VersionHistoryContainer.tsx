@@ -151,7 +151,7 @@ function convertToTimeGroups(
       authorType: mapActorToAuthorType(item.actor),
       authorName: getAuthorName(item.actor),
       description: getDescription(item.reason),
-      wordChange: { type: "none", count: 0 }, // TODO: calculate actual word diff
+      wordChange: { type: "none", count: 0 }, // TODO(#571): calculate actual word diff
       isCurrent,
       reason: item.reason,
     };
