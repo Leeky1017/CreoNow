@@ -19,4 +19,4 @@
 - [x] 3.1 运行 S1/S2/S3 focused tests（RED 与 GREEN 均留证）。
 - [x] 3.2 运行受影响 project-management 回归测试（unit/integration/UI）。
 - [x] 3.3 更新 RUN_LOG 与 change/tasks 勾选状态（Main Session Audit 项保留待 lead）。
-- [ ] 3.4 提交并推送到 `origin/task/580-s3-project-templates`（不创建 PR）。
+- [x] 3.4 提交并推送到 `origin/task/580-s3-project-templates`（不创建 PR）。
