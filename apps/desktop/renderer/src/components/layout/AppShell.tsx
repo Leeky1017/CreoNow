@@ -57,6 +57,8 @@ function getModKey(): string {
   return navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl+";
 }
 
+let hasWarnedInvalidZenContent = false;
+
 /**
  * Extract title and paragraphs from TipTap JSON content.
  *
@@ -106,7 +108,11 @@ function extractZenModeContent(contentJson: string | null): {
     }
 
     return { title, paragraphs, wordCount };
-  } catch {
+  } catch (error) {
+    if (!hasWarnedInvalidZenContent) {
+      hasWarnedInvalidZenContent = true;
+      console.warn("[A2-L-001] Failed to parse ZenMode content JSON", error);
+    }
     return { title: "Untitled", paragraphs: [], wordCount: 0 };
   }
 }
@@ -636,7 +642,7 @@ export function AppShell(): JSX.Element {
         id: "open-settings",
         label: "Open Settings",
         shortcut: `${modKey},`,
-        group: "命令",
+        group: "command",
         category: "command",
         onSelect: () => {
           setSettingsDialogOpen(true);
@@ -646,7 +652,7 @@ export function AppShell(): JSX.Element {
       {
         id: "export",
         label: "Export…",
-        group: "命令",
+        group: "command",
         category: "command",
         onSelect: () => {
           setExportDialogOpen(true);
@@ -657,7 +663,7 @@ export function AppShell(): JSX.Element {
         id: "toggle-sidebar",
         label: "Toggle Sidebar",
         shortcut: `${modKey}\\`,
-        group: "命令",
+        group: "command",
         category: "command",
         onSelect: () => {
           setSidebarCollapsed(!sidebarCollapsed);
@@ -668,7 +674,7 @@ export function AppShell(): JSX.Element {
         id: "toggle-right-panel",
         label: "Toggle Right Panel",
         shortcut: `${modKey}L`,
-        group: "命令",
+        group: "command",
         category: "command",
         onSelect: () => {
           setPanelCollapsed(!panelCollapsed);
@@ -679,7 +685,7 @@ export function AppShell(): JSX.Element {
         id: "toggle-zen-mode",
         label: "Toggle Zen Mode",
         shortcut: "F11",
-        group: "命令",
+        group: "command",
         category: "command",
         onSelect: () => {
           setZenMode(!zenMode);
@@ -690,7 +696,7 @@ export function AppShell(): JSX.Element {
         id: "create-new-document",
         label: "Create New Document",
         shortcut: `${modKey}N`,
-        group: "命令",
+        group: "command",
         category: "command",
         onSelect: async () => {
           if (!currentProjectId) {
@@ -703,7 +709,7 @@ export function AppShell(): JSX.Element {
       {
         id: "open-version-history",
         label: "Open Version History",
-        group: "命令",
+        group: "command",
         category: "command",
         onSelect: () => {
           openVersionHistoryPanel();
@@ -714,7 +720,7 @@ export function AppShell(): JSX.Element {
         id: "create-new-project",
         label: "Create New Project",
         shortcut: `${modKey}Shift+N`,
-        group: "命令",
+        group: "command",
         category: "command",
         onSelect: () => {
           setCreateProjectDialogOpen(true);
@@ -738,7 +744,7 @@ export function AppShell(): JSX.Element {
             {item.type[0]?.toUpperCase() ?? "D"}
           </span>
         ),
-        group: "文件",
+        group: "file",
         category: "file",
         onSelect: async () => {
           if (!currentProjectId) {
@@ -770,7 +776,7 @@ export function AppShell(): JSX.Element {
       .slice(0, 5)
       .map((item) => ({
         ...item,
-        group: "最近使用",
+        group: "recent",
         category: "recent" as const,
       }));
 

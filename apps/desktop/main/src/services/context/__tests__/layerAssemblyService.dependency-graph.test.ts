@@ -12,6 +12,7 @@ const fetcherFiles = [
   "fetchers/rulesFetcher.ts",
   "fetchers/retrievedFetcher.ts",
   "fetchers/settingsFetcher.ts",
+  "fetchers/synopsisFetcher.ts",
 ] as const;
 
 for (const relativePath of fetcherFiles) {

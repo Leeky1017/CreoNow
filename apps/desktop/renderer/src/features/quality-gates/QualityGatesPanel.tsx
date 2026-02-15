@@ -280,11 +280,7 @@ const panelContentStyles = [
   "h-full",
 ].join(" ");
 
-/**
- * Legacy panel styles - includes container styles for standalone use.
- * @deprecated Use QualityGatesPanelContent with layout containers instead.
- */
-const panelStyles = [
+const panelContainerStyles = [
   "bg-[var(--color-bg-surface)]",
   "border-l",
   "border-[var(--color-separator)]",
@@ -316,12 +312,9 @@ const closeButtonStyles = [
   "hover:bg-[rgba(255,255,255,0.05)]",
 ].join(" ");
 
-const scrollAreaStyles = [
-  "flex-1",
-  "overflow-y-auto",
-  "p-3",
-  "space-y-3",
-].join(" ");
+const scrollAreaStyles = ["flex-1", "overflow-y-auto", "p-3", "space-y-3"].join(
+  " ",
+);
 
 // ============================================================================
 // Sub-components
@@ -892,7 +885,10 @@ export function QualityGatesPanelContent({
             Quality Gates
           </h2>
           <div className="mt-2">
-            <PanelStatusIndicator status={panelStatus} issuesCount={issuesCount} />
+            <PanelStatusIndicator
+              status={panelStatus}
+              issuesCount={issuesCount}
+            />
           </div>
         </div>
         {showCloseButton && (
@@ -1011,7 +1007,7 @@ export function QualityGatesPanel({
 }: QualityGatesPanelProps): JSX.Element {
   return (
     <aside
-      className={panelStyles}
+      className={panelContainerStyles}
       style={{ width }}
       data-testid="quality-gates-panel"
     >

@@ -19,10 +19,12 @@
  * - Cmd/Ctrl+Shift+N: New Project
  */
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { z } from "zod";
 
 import { Text } from "../../components/primitives/Text";
 import { useProjectStore } from "../../stores/projectStore";
+import "../../i18n";
 
 // =============================================================================
 // Types
@@ -55,6 +57,25 @@ interface CommandGroup {
 }
 
 const PAGE_SIZE = 100;
+const GROUP_IDS = {
+  suggestions: "suggestions",
+  layout: "layout",
+  document: "document",
+  project: "project",
+  command: "command",
+  file: "file",
+  recent: "recent",
+} as const;
+
+const GROUP_TRANSLATION_KEYS: Record<string, string> = {
+  [GROUP_IDS.suggestions]: "workbench.commandPalette.groups.suggestions",
+  [GROUP_IDS.layout]: "workbench.commandPalette.groups.layout",
+  [GROUP_IDS.document]: "workbench.commandPalette.groups.document",
+  [GROUP_IDS.project]: "workbench.commandPalette.groups.project",
+  [GROUP_IDS.command]: "workbench.commandPalette.groups.command",
+  [GROUP_IDS.file]: "workbench.commandPalette.groups.file",
+  [GROUP_IDS.recent]: "workbench.commandPalette.groups.recent",
+};
 
 /**
  * Zod schema for CommandItem input validation.
@@ -363,10 +384,10 @@ function resolveCategory(command: CommandItem): "recent" | "file" | "command" {
   if (command.category) {
     return command.category;
   }
-  if (command.group === "最近使用") {
+  if (command.group === GROUP_IDS.recent) {
     return "recent";
   }
-  if (command.group === "文件") {
+  if (command.group === GROUP_IDS.file) {
     return "file";
   }
   return "command";
@@ -404,6 +425,7 @@ export function CommandPalette({
   dialogActions,
   documentActions,
 }: CommandPaletteProps): JSX.Element | null {
+  const { t } = useTranslation();
   const currentProjectId = useProjectStore((s) => s.current?.projectId ?? null);
 
   const [query, setQuery] = React.useState("");
@@ -426,7 +448,7 @@ export function CommandPalette({
         label: "Open Settings",
         icon: <SettingsIcon className="text-[var(--color-fg-muted)]" />,
         shortcut: `${modKey},`,
-        group: "Suggestions",
+        group: GROUP_IDS.suggestions,
         onSelect: () => {
           setErrorText(null);
           if (dialogActions?.onOpenSettings) {
@@ -442,7 +464,7 @@ export function CommandPalette({
         id: "export",
         label: "Export…",
         icon: <DownloadIcon className="text-[var(--color-fg-muted)]" />,
-        group: "Suggestions",
+        group: GROUP_IDS.suggestions,
         onSelect: () => {
           setErrorText(null);
           // Always open ExportDialog; it handles NO_PROJECT error internally
@@ -460,7 +482,7 @@ export function CommandPalette({
         label: "Toggle Sidebar",
         icon: <SidebarIcon className="text-[var(--color-fg-muted)]" />,
         shortcut: `${modKey}\\`,
-        group: "Layout",
+        group: GROUP_IDS.layout,
         onSelect: () => {
           setErrorText(null);
           if (layoutActions?.onToggleSidebar) {
@@ -477,7 +499,7 @@ export function CommandPalette({
         label: "Toggle Right Panel",
         icon: <PanelRightIcon className="text-[var(--color-fg-muted)]" />,
         shortcut: `${modKey}L`,
-        group: "Layout",
+        group: GROUP_IDS.layout,
         onSelect: () => {
           setErrorText(null);
           if (layoutActions?.onToggleRightPanel) {
@@ -494,7 +516,7 @@ export function CommandPalette({
         label: "Toggle Zen Mode",
         icon: <MaximizeIcon className="text-[var(--color-fg-muted)]" />,
         shortcut: "F11",
-        group: "Layout",
+        group: GROUP_IDS.layout,
         onSelect: () => {
           setErrorText(null);
           if (layoutActions?.onToggleZenMode) {
@@ -511,7 +533,7 @@ export function CommandPalette({
         label: "Create New Document",
         icon: <EditIcon className="text-[var(--color-fg-muted)]" />,
         shortcut: `${modKey}N`,
-        group: "Document",
+        group: GROUP_IDS.document,
         onSelect: async () => {
           setErrorText(null);
           if (!currentProjectId) {
@@ -534,7 +556,7 @@ export function CommandPalette({
         id: "open-version-history",
         label: "Open Version History",
         icon: <HistoryIcon className="text-[var(--color-fg-muted)]" />,
-        group: "Document",
+        group: GROUP_IDS.document,
         onSelect: () => {
           setErrorText(null);
           if (layoutActions?.onOpenVersionHistory) {
@@ -551,7 +573,7 @@ export function CommandPalette({
         label: "Create New Project",
         icon: <FolderPlusIcon className="text-[var(--color-fg-muted)]" />,
         shortcut: `${modKey}⇧N`,
-        group: "Project",
+        group: GROUP_IDS.project,
         onSelect: () => {
           setErrorText(null);
           if (dialogActions?.onOpenCreateProject) {
@@ -709,7 +731,7 @@ export function CommandPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="搜索命令或文件..."
+            placeholder={t("workbench.commandPalette.searchPlaceholder")}
             className="flex-1 bg-transparent border-none text-[15px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-placeholder)] outline-none"
             aria-label="Search commands"
           />
@@ -741,7 +763,7 @@ export function CommandPalette({
             <div className="h-40 flex flex-col items-center justify-center gap-3">
               <SearchIcon className="text-[var(--color-fg-placeholder)] w-8 h-8" />
               <Text size="small" color="placeholder">
-                未找到匹配结果
+                {t("workbench.commandPalette.emptyResult")}
               </Text>
             </div>
           )}
@@ -760,7 +782,7 @@ export function CommandPalette({
                 {/* 分组标题 */}
                 <div className="px-3 pt-3 pb-1.5 first:pt-1">
                   <Text size="label" color="placeholder">
-                    {group.title}
+                    {t(GROUP_TRANSLATION_KEYS[group.title] ?? group.title)}
                   </Text>
                 </div>
 
@@ -837,7 +859,7 @@ export function CommandPalette({
               ↑↓
             </span>
             <Text size="tiny" color="placeholder">
-              导航
+              {t("workbench.commandPalette.footer.navigation")}
             </Text>
           </div>
           <div className="flex items-center gap-1.5">
@@ -845,7 +867,7 @@ export function CommandPalette({
               ↵
             </span>
             <Text size="tiny" color="placeholder">
-              选择
+              {t("workbench.commandPalette.footer.select")}
             </Text>
           </div>
           <div className="flex items-center gap-1.5">
@@ -853,7 +875,7 @@ export function CommandPalette({
               esc
             </span>
             <Text size="tiny" color="placeholder">
-              关闭
+              {t("workbench.commandPalette.footer.close")}
             </Text>
           </div>
         </div>
