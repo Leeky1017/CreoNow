@@ -57,6 +57,8 @@ function getModKey(): string {
   return navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl+";
 }
 
+let hasWarnedInvalidZenContent = false;
+
 /**
  * Extract title and paragraphs from TipTap JSON content.
  *
@@ -106,7 +108,11 @@ function extractZenModeContent(contentJson: string | null): {
     }
 
     return { title, paragraphs, wordCount };
-  } catch {
+  } catch (error) {
+    if (!hasWarnedInvalidZenContent) {
+      hasWarnedInvalidZenContent = true;
+      console.warn("[A2-L-001] Failed to parse ZenMode content JSON", error);
+    }
     return { title: "Untitled", paragraphs: [], wordCount: 0 };
   }
 }

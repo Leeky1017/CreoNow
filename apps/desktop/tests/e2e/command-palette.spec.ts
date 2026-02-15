@@ -269,7 +269,7 @@ test.describe("Command Palette + Shortcuts", () => {
   // ArrowDown/ArrowUp to be processed inconsistently. The underlying
   // keyboard navigation functionality works correctly - only the E2E test
   // has timing issues specific to Windows CI environment.
-  // TODO: Investigate Windows-specific keyboard event handling in Electron/Playwright
+  // TODO(#571): Investigate Windows-specific keyboard event handling in Electron/Playwright
   test.skip("Command Palette keyboard navigation works", async () => {
     const modKey = getModKey();
 

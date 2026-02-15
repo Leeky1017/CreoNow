@@ -27,6 +27,9 @@ function isE2EEnabled(): boolean {
 }
 
 const aiStreamBridge = registerAiStreamBridge();
+window.addEventListener("beforeunload", () => {
+  aiStreamBridge.dispose();
+});
 
 contextBridge.exposeInMainWorld("creonow", {
   invoke: creonowInvoke,

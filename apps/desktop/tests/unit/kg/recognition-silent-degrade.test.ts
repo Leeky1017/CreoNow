@@ -60,7 +60,7 @@ async function waitForCondition(
     const errorEvents = harness.logs.error.filter(
       (event) => event.event === "kg_recognition_unavailable",
     );
-    assert.equal(errorEvents.length > 0, true);
+    assert.ok(errorEvents.length > 0);
 
     const createRes = await harness.invoke<EntityDto>(
       "knowledge:entity:create",
