@@ -105,4 +105,10 @@
 
 ## Main Session Audit
 
-- Status: `NOT_EXECUTED`（按任务约束：不创建 PR，不进入主会话签字提交流程）
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: 95b1045a880a6c38376997ceb500f45c3e1d6806
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT

@@ -31,7 +31,7 @@
 - [x] 先做 Dependency Sync Check 并记录 `NO_DRIFT`
 - [x] 按 `CMI-S3-BB-S1..S4` 先 Red 后 Green
 - [x] 更新 Rulebook/Change/RUN_LOG 证据
-- [ ] commit + push（本节将在提交后回填 SHA）
+- [x] commit + push（已执行，SHA=af778d8a207262b583f2b2654f4eef75cc4e405b）
 
 ## Runs
 
@@ -119,7 +119,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: TO_BE_FILLED_AFTER_COMMIT
+- Reviewed-HEAD-SHA: af778d8a207262b583f2b2654f4eef75cc4e405b
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS

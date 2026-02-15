@@ -13,7 +13,7 @@
 
 ### Scenario → 测试映射
 
-- [ ] S3-SYN-INJ-S1 `续写时按章节顺序注入前几章摘要 [ADDED]`
+- [x] S3-SYN-INJ-S1 `续写时按章节顺序注入前几章摘要 [ADDED]`
 - [x] S3-SYN-INJ-S1 `续写时按章节顺序注入前几章摘要 [ADDED]`
   - 测试文件：`apps/desktop/main/src/services/context/__tests__/synopsisFetcher.test.ts`
   - 测试名：`injects previous chapter synopsis in deterministic order`

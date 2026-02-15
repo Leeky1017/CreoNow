@@ -34,10 +34,15 @@ const expectedAuditIds = [
 ] as const;
 
 const repoRoot = path.resolve(import.meta.dirname, "../../../../..");
-const mapFile = path.join(
+const activeMapFile = path.join(
   repoRoot,
   "openspec/changes/s3-p3-backlog-batch/evidence/audit-item-map.json",
 );
+const archivedMapFile = path.join(
+  repoRoot,
+  "openspec/changes/archive/s3-p3-backlog-batch/evidence/audit-item-map.json",
+);
+const mapFile = existsSync(activeMapFile) ? activeMapFile : archivedMapFile;
 
 assert.equal(
   existsSync(mapFile),

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -60,10 +60,15 @@ assert.equal(
 assert.deepEqual(result.issues, []);
 assert.deepEqual(result.drifts, []);
 
-const mapFile = path.join(
+const activeMapFile = path.join(
   repoRoot,
   "openspec/changes/s3-p3-backlog-batch/evidence/audit-item-map.json",
 );
+const archivedMapFile = path.join(
+  repoRoot,
+  "openspec/changes/archive/s3-p3-backlog-batch/evidence/audit-item-map.json",
+);
+const mapFile = existsSync(activeMapFile) ? activeMapFile : archivedMapFile;
 const mapped = JSON.parse(readFileSync(mapFile, "utf8")) as AuditItem[];
 const hasScenarioS2 = mapped.some((item) =>
   item.scenarioIds.includes("CMI-S3-BB-S2"),

@@ -156,3 +156,13 @@
   - 提取失败必须输出结构化降级信号，不阻断章节完成主流程
 - Result: `NO_DRIFT`
 - Follow-up: 进入 Red，先补 S3-STE-S1/S2/S3 失败测试。
+
+## Main Session Audit
+
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: fc21d91c64a089eb6371ff3cfc32c8e89de96820
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT

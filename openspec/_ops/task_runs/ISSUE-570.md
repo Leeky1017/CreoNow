@@ -25,7 +25,7 @@
 - [x] 先做 Dependency Sync Check（N/A）再进入 Red
 - [x] 按 S1/S2/S3 先 Red 再 Green
 - [x] 更新 OpenSpec/Rulebook/RUN_LOG 证据
-- [ ] commit + push（将在验证后执行）
+- [x] commit + push（已执行，含主会话审计返工提交）
 
 ## Runs
 
@@ -127,10 +127,10 @@
 
 ## Main Session Audit
 
-- Audit-Owner: N/A（本任务范围要求不创建 PR，未执行签字提交流）
-- Reviewed-HEAD-SHA: N/A
-- Spec-Compliance: PASS（S1/S2/S3 已有 Red/Green 证据）
-- Code-Quality: PASS（最小改动，导出逻辑与错误兜底清晰）
-- Fresh-Verification: PASS（聚焦测试通过）
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: 313c24c94f46d60e2c6f40203e9302d9bc9c9d15
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
 - Blocking-Issues: 0
-- Decision: ACCEPT（分支内交付）
+- Decision: ACCEPT
