@@ -1,7 +1,7 @@
 import React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import type { IpcError } from "@shared/types/ipc-generated";
+import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
 import { Button, Checkbox, Select, Tooltip } from "../../components/primitives";
 import { invoke } from "../../lib/ipcClient";
 
@@ -863,14 +863,32 @@ export function ExportDialog({
     setInternalView("progress");
     setInternalProgress(30);
 
-    const res =
-      options.format === "markdown"
-        ? await invoke("export:document:markdown", payload)
-        : options.format === "pdf"
-          ? await invoke("export:document:pdf", payload)
-          : options.format === "txt"
-            ? await invoke("export:document:txt", payload)
-            : await invoke("export:document:docx", payload);
+    let res: IpcResponse<{ relativePath: string; bytesWritten: number }>;
+    try {
+      res =
+        options.format === "markdown"
+          ? await invoke("export:document:markdown", payload)
+          : options.format === "pdf"
+            ? await invoke("export:document:pdf", payload)
+            : options.format === "txt"
+              ? await invoke("export:document:txt", payload)
+              : await invoke("export:document:docx", payload);
+    } catch (error) {
+      if (requestIdRef.current !== requestId) {
+        return;
+      }
+
+      setLastError({
+        code: "IO_ERROR",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Export failed due to unknown error",
+      });
+      setInternalView("config");
+      setInternalProgress(0);
+      return;
+    }
 
     if (requestIdRef.current !== requestId) {
       return;

@@ -60,6 +60,22 @@ function isSafePathSegment(segment: string): boolean {
   return !segment.includes("/") && !segment.includes("\\");
 }
 
+function composeMarkdownExport(args: { title: string; body: string }): string {
+  const trimmedBody = args.body.trim();
+  if (trimmedBody.length === 0) {
+    return `# ${args.title}\n`;
+  }
+  return `# ${args.title}\n\n${trimmedBody}\n`;
+}
+
+function composeTxtExport(args: { title: string; body: string }): string {
+  const trimmedBody = args.body.trim();
+  if (trimmedBody.length === 0) {
+    return `${args.title}\n`;
+  }
+  return `${args.title}\n\n${trimmedBody}`;
+}
+
 /**
  * Create an export service that writes files under the app's userData directory.
  */
@@ -130,10 +146,14 @@ export function createExportService(deps: {
         return doc;
       }
 
+      const markdown = composeMarkdownExport({
+        title: doc.data.title,
+        body: doc.data.contentMd,
+      });
       await fs.mkdir(path.dirname(absPath), { recursive: true });
-      await fs.writeFile(absPath, doc.data.contentMd, "utf8");
+      await fs.writeFile(absPath, markdown, "utf8");
 
-      const bytesWritten = Buffer.byteLength(doc.data.contentMd, "utf8");
+      const bytesWritten = Buffer.byteLength(markdown, "utf8");
       deps.logger.info("export_succeeded", {
         format: "markdown",
         documentId,
@@ -195,10 +215,14 @@ export function createExportService(deps: {
         return doc;
       }
 
+      const text = composeTxtExport({
+        title: doc.data.title,
+        body: doc.data.contentText,
+      });
       await fs.mkdir(path.dirname(absPath), { recursive: true });
-      await fs.writeFile(absPath, doc.data.contentText, "utf8");
+      await fs.writeFile(absPath, text, "utf8");
 
-      const bytesWritten = Buffer.byteLength(doc.data.contentText, "utf8");
+      const bytesWritten = Buffer.byteLength(text, "utf8");
       deps.logger.info("export_succeeded", {
         format: "txt",
         documentId,
