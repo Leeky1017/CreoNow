@@ -10,6 +10,10 @@ import {
   createProjectTestDb,
 } from "../../../../../tests/unit/projectService.test-helpers";
 
+function hasFieldDetails(value: unknown): value is { field: unknown } {
+  return typeof value === "object" && value !== null && "field" in value;
+}
+
 async function main(): Promise<void> {
   const userDataDir = await fs.mkdtemp(
     path.join(os.tmpdir(), "creonow-s3-template-dir-invalid-"),
@@ -53,7 +57,11 @@ async function main(): Promise<void> {
       created.error.message,
       /Configured built-in template directory/,
     );
-    assert.equal(created.error.details?.field, "template.directory");
+    assert.ok(
+      hasFieldDetails(created.error.details),
+      "error.details should include field",
+    );
+    assert.equal(created.error.details.field, "template.directory");
   } finally {
     process.env.CREONOW_TEMPLATE_DIR = previousTemplateDir;
     resetBuiltInTemplateCacheForTests();

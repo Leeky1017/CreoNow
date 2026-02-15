@@ -38,7 +38,7 @@ async function main(): Promise<void> {
     "bundled runtime should resolve built-in template directory",
   );
   if (!resolved.ok) {
-    throw new Error(resolved.error.message);
+    throw new Error("bundled runtime should resolve built-in template directory");
   }
   assert.equal(path.resolve(resolved.data), expectedDir);
 
