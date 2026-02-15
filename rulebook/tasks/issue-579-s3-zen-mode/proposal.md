@@ -1,9 +1,11 @@
 # Proposal: issue-579-s3-zen-mode
 
 ## Why
+
 `s3-zen-mode` 需要在现有实现上补齐可审计的 Sprint3 场景闭环（S1/S2/S3）：进入时隐藏干扰面板、退出时恢复进入前布局快照、快捷键切换不出现双重切换。当前代码缺少针对该契约的独立场景测试，且 F11 长按会触发重复事件导致状态回翻。
 
 ## What Changes
+
 - 新增 3 个聚焦场景测试：
   - `zen-mode-enter.test.tsx`
   - `zen-mode-exit-restore.test.tsx`
@@ -12,6 +14,7 @@
 - 更新 OpenSpec change checklist、RUN_LOG 与 Rulebook 任务文档，记录 RED/GREEN 证据和依赖同步检查结论。
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/s3-zen-mode/tasks.md`
 - Affected code:
