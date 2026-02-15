@@ -155,4 +155,10 @@
 
 ## Main Session Audit
 
-- Status: PENDING（按本任务约束，主会话签字由 lead 在后续阶段完成）
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: a1863e6088da89c1f5cfb765c741fc9a4da40057
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT

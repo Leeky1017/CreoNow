@@ -170,4 +170,10 @@
 
 ## Main Session Audit
 
-- Pending lead sign-off（按任务要求保留待主会话审计）。
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: 71fd26b956b1325512bb11a08dd36ec9e16db954
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
