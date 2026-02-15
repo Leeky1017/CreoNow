@@ -119,3 +119,14 @@
 - Result: `NO_DRIFT`
 - Follow-up:
   - 后续 `s3-embedding-service` 仅在当前 runtime 基础上扩展服务编排，不重复定义错误映射。
+
+## Main Session Audit
+
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: c92f3794b41ec32e6bf8351f4969082e9247e5c0
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
+- Notes: reviewed in issue #555 integration branch before merge-to-main.

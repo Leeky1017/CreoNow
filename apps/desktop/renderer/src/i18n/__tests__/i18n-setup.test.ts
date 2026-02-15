@@ -2,6 +2,29 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { i18n, initializeI18n } from "../index";
 
+function normalizeFallbackLng(
+  fallback: typeof i18n.options.fallbackLng,
+): string[] {
+  if (typeof fallback === "string") {
+    return [fallback];
+  }
+  if (Array.isArray(fallback)) {
+    return fallback.filter((item): item is string => typeof item === "string");
+  }
+  if (fallback && typeof fallback === "object" && "default" in fallback) {
+    const defaultFallback = (fallback as { default?: unknown }).default;
+    if (typeof defaultFallback === "string") {
+      return [defaultFallback];
+    }
+    if (Array.isArray(defaultFallback)) {
+      return defaultFallback.filter(
+        (item): item is string => typeof item === "string",
+      );
+    }
+  }
+  return [];
+}
+
 describe("i18n setup", () => {
   beforeEach(async () => {
     await initializeI18n();
@@ -12,14 +35,7 @@ describe("i18n setup", () => {
     await initializeI18n();
 
     expect(i18n.options.lng).toBe("zh-CN");
-    const fallback = i18n.options.fallbackLng;
-    if (typeof fallback === "string") {
-      expect(fallback).toBe("en");
-    } else if (Array.isArray(fallback)) {
-      expect(fallback).toContain("en");
-    } else {
-      expect(fallback?.default).toContain("en");
-    }
+    expect(normalizeFallbackLng(i18n.options.fallbackLng)).toContain("en");
     expect(i18n.t("workbench.bootstrap.appShell")).toBe("工作台外壳");
   });
 

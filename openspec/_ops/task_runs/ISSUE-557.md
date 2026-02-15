@@ -78,3 +78,14 @@
   - 结论：`NO_DRIFT`
 - Reason:
   - 本 change 仅对现有 KG 实体契约做可选字段扩展，未引入上游契约依赖。
+
+## Main Session Audit
+
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: f9a4761c0b1134637da568e1bd55da94442267ec
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
+- Notes: reviewed in issue #555 integration branch before merge-to-main.

@@ -163,6 +163,10 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Status: PENDING_MAIN_SESSION_SIGNOFF
-- Note:
-  - 按任务约束，本次子会话不执行最终签字；主会话将补齐最终审计结论。
+- Reviewed-HEAD-SHA: e24ddec21961fef273e2e0352c91ee06d354d429
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
+- Notes: reviewed in issue #555 integration branch before merge-to-main.

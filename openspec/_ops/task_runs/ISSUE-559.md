@@ -138,3 +138,14 @@
   - S1/S2/S3 持续绿灯
   - AI IPC 接线回归通过
   - Rulebook task 仍为 `✅ valid`
+
+## Main Session Audit
+
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: 91d356822b6ac990166b713253b6a177cf56713b
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
+- Notes: reviewed in issue #555 integration branch before merge-to-main.

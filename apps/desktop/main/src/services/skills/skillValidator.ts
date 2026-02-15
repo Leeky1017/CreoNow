@@ -385,31 +385,23 @@ function validateOutputConstraints(args: {
     });
   }
 
-  const minChars = output.minChars;
-  if (
-    minChars !== undefined &&
-    (typeof minChars !== "number" ||
-      !Number.isFinite(minChars) ||
-      !Number.isInteger(minChars) ||
-      minChars <= 0)
-  ) {
-    return ipcError("INVALID_ARGUMENT", "output.minChars must be a positive integer", {
-      fieldName: "output.minChars",
-    });
+  const minCharsResult = validateOptionalPositiveInteger({
+    value: output.minChars,
+    fieldName: "output.minChars",
+  });
+  if (!minCharsResult.ok) {
+    return minCharsResult;
   }
+  const minChars = minCharsResult.data;
 
-  const maxChars = output.maxChars;
-  if (
-    maxChars !== undefined &&
-    (typeof maxChars !== "number" ||
-      !Number.isFinite(maxChars) ||
-      !Number.isInteger(maxChars) ||
-      maxChars <= 0)
-  ) {
-    return ipcError("INVALID_ARGUMENT", "output.maxChars must be a positive integer", {
-      fieldName: "output.maxChars",
-    });
+  const maxCharsResult = validateOptionalPositiveInteger({
+    value: output.maxChars,
+    fieldName: "output.maxChars",
+  });
+  if (!maxCharsResult.ok) {
+    return maxCharsResult;
   }
+  const maxChars = maxCharsResult.data;
 
   if (
     minChars !== undefined &&
@@ -428,28 +420,14 @@ function validateOutputConstraints(args: {
     });
   }
 
-  if (args.skillId === "builtin:synopsis") {
-    if (minChars !== 200) {
-      return ipcError(
-        "INVALID_ARGUMENT",
-        "builtin:synopsis requires output.minChars = 200",
-        { fieldName: "output.minChars" },
-      );
-    }
-    if (maxChars !== 300) {
-      return ipcError(
-        "INVALID_ARGUMENT",
-        "builtin:synopsis requires output.maxChars = 300",
-        { fieldName: "output.maxChars" },
-      );
-    }
-    if (singleParagraph !== true) {
-      return ipcError(
-        "INVALID_ARGUMENT",
-        "builtin:synopsis requires output.singleParagraph = true",
-        { fieldName: "output.singleParagraph" },
-      );
-    }
+  const synopsisRuleResult = validateSynopsisOutputConstraints({
+    skillId: args.skillId,
+    minChars,
+    maxChars,
+    singleParagraph,
+  });
+  if (!synopsisRuleResult.ok) {
+    return synopsisRuleResult;
   }
 
   return {
@@ -460,6 +438,61 @@ function validateOutputConstraints(args: {
       ...(singleParagraph !== undefined ? { singleParagraph } : {}),
     },
   };
+}
+
+function validateOptionalPositiveInteger(args: {
+  value: unknown;
+  fieldName: "output.minChars" | "output.maxChars";
+}): ServiceResult<number | undefined> {
+  if (args.value === undefined) {
+    return { ok: true, data: undefined };
+  }
+  if (
+    typeof args.value !== "number" ||
+    !Number.isFinite(args.value) ||
+    !Number.isInteger(args.value) ||
+    args.value <= 0
+  ) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      `${args.fieldName} must be a positive integer`,
+      { fieldName: args.fieldName },
+    );
+  }
+  return { ok: true, data: args.value };
+}
+
+function validateSynopsisOutputConstraints(args: {
+  skillId: string;
+  minChars: number | undefined;
+  maxChars: number | undefined;
+  singleParagraph: boolean | undefined;
+}): ServiceResult<void> {
+  if (args.skillId !== "builtin:synopsis") {
+    return { ok: true, data: undefined };
+  }
+  if (args.minChars !== 200) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "builtin:synopsis requires output.minChars = 200",
+      { fieldName: "output.minChars" },
+    );
+  }
+  if (args.maxChars !== 300) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "builtin:synopsis requires output.maxChars = 300",
+      { fieldName: "output.maxChars" },
+    );
+  }
+  if (args.singleParagraph !== true) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "builtin:synopsis requires output.singleParagraph = true",
+      { fieldName: "output.singleParagraph" },
+    );
+  }
+  return { ok: true, data: undefined };
 }
 
 /**

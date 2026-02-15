@@ -110,3 +110,14 @@
   - `NO_DRIFT`
 - Notes:
   - 新增 `builtin:synopsis` 不改变既有 skill envelope，仅扩展可选 `output` 约束并在 executor 针对 synopsis 落实运行时校验。
+
+## Main Session Audit
+
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: a339d3ff305bd3933c9fef94057f39256a767338
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
+- Notes: reviewed in issue #555 integration branch before merge-to-main.
