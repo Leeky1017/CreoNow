@@ -1,8 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
 import type { IpcError } from "@shared/types/ipc-generated";
 import { ExportDialog } from "./ExportDialog";
+import * as ipcClient from "../../lib/ipcClient";
 
 describe("ExportDialog", () => {
   it("renders config view with Markdown selected by default", () => {
@@ -101,5 +103,32 @@ describe("ExportDialog", () => {
       "failed",
     );
     expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
+  });
+
+  it("shows explicit error and avoids success state when export IPC throws", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(ipcClient, "invoke").mockRejectedValueOnce(
+      new Error("disk write permission denied"),
+    );
+
+    render(
+      <ExportDialog
+        open={true}
+        onOpenChange={() => {}}
+        projectId="test-project"
+        documentId="doc-1"
+      />,
+    );
+
+    await user.click(screen.getByTestId("export-submit"));
+
+    expect(await screen.findByTestId("export-error")).toBeInTheDocument();
+    expect(screen.getByTestId("export-error-code")).toHaveTextContent(
+      "IO_ERROR",
+    );
+    expect(screen.getByTestId("export-error-message")).toHaveTextContent(
+      "disk write permission denied",
+    );
+    expect(screen.queryByTestId("export-success")).not.toBeInTheDocument();
   });
 });
