@@ -16,6 +16,31 @@ export type IpcInvoke = <C extends IpcChannel>(
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 export type DocumentStatus = IpcRequest<"file:document:updatestatus">["status"];
+export type EntityCompletionStatus =
+  | "idle"
+  | "loading"
+  | "ready"
+  | "empty"
+  | "error";
+
+export type EntityCompletionCandidate = {
+  id: string;
+  name: string;
+  type: IpcRequest<"knowledge:entity:create">["type"];
+};
+
+export type EntityCompletionSession = {
+  open: boolean;
+  query: string;
+  triggerFrom: number;
+  triggerTo: number;
+  anchorTop: number;
+  anchorLeft: number;
+  selectedIndex: number;
+  status: EntityCompletionStatus;
+  candidates: EntityCompletionCandidate[];
+  message: string | null;
+};
 
 export type EditorState = {
   bootstrapStatus: "idle" | "loading" | "ready" | "error";
@@ -29,6 +54,7 @@ export type EditorState = {
   capacityWarning: string | null;
   autosaveStatus: AutosaveStatus;
   autosaveError: IpcError | null;
+  entityCompletionSession: EntityCompletionSession;
   /** Whether compare mode is active (showing DiffView instead of Editor) */
   compareMode: boolean;
   /** The version ID being compared against current */
@@ -55,6 +81,11 @@ export type EditorActions = {
   setAutosaveStatus: (status: AutosaveStatus) => void;
   setDocumentCharacterCount: (count: number) => void;
   setCapacityWarning: (warning: string | null) => void;
+  setEntityCompletionSession: (patch: Partial<EntityCompletionSession>) => void;
+  clearEntityCompletionSession: () => void;
+  listKnowledgeEntities: (args: {
+    projectId: string;
+  }) => Promise<IpcInvokeResult<"knowledge:entity:list">>;
   clearAutosaveError: () => void;
   downgradeFinalStatusForEdit: (args: {
     projectId: string;
@@ -105,6 +136,18 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
     capacityWarning: null,
     autosaveStatus: "idle",
     autosaveError: null,
+    entityCompletionSession: {
+      open: false,
+      query: "",
+      triggerFrom: 0,
+      triggerTo: 0,
+      anchorTop: 0,
+      anchorLeft: 0,
+      selectedIndex: 0,
+      status: "idle",
+      candidates: [],
+      message: null,
+    },
     compareMode: false,
     compareVersionId: null,
 
@@ -112,6 +155,31 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
     setDocumentCharacterCount: (count) =>
       set({ documentCharacterCount: count }),
     setCapacityWarning: (warning) => set({ capacityWarning: warning }),
+    setEntityCompletionSession: (patch) =>
+      set((state) => ({
+        entityCompletionSession: {
+          ...state.entityCompletionSession,
+          ...patch,
+        },
+      })),
+    clearEntityCompletionSession: () =>
+      set({
+        entityCompletionSession: {
+          open: false,
+          query: "",
+          triggerFrom: 0,
+          triggerTo: 0,
+          anchorTop: 0,
+          anchorLeft: 0,
+          selectedIndex: 0,
+          status: "idle",
+          candidates: [],
+          message: null,
+        },
+      }),
+    listKnowledgeEntities: async ({ projectId }) => {
+      return await deps.invoke("knowledge:entity:list", { projectId });
+    },
     clearAutosaveError: () => set({ autosaveError: null }),
     setEditorInstance: (editor) => set({ editor }),
     setCompareMode: (enabled, versionId) =>
@@ -192,6 +260,18 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
         capacityWarning: null,
         autosaveStatus: "idle",
         autosaveError: null,
+        entityCompletionSession: {
+          open: false,
+          query: "",
+          triggerFrom: 0,
+          triggerTo: 0,
+          anchorTop: 0,
+          anchorLeft: 0,
+          selectedIndex: 0,
+          status: "idle",
+          candidates: [],
+          message: null,
+        },
       });
     },
 
@@ -222,6 +302,18 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
         capacityWarning: null,
         autosaveStatus: "idle",
         autosaveError: null,
+        entityCompletionSession: {
+          open: false,
+          query: "",
+          triggerFrom: 0,
+          triggerTo: 0,
+          anchorTop: 0,
+          anchorLeft: 0,
+          selectedIndex: 0,
+          status: "idle",
+          candidates: [],
+          message: null,
+        },
       });
     },
 
@@ -251,6 +343,18 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
           capacityWarning: null,
           autosaveStatus: "idle",
           autosaveError: null,
+          entityCompletionSession: {
+            open: false,
+            query: "",
+            triggerFrom: 0,
+            triggerTo: 0,
+            anchorTop: 0,
+            anchorLeft: 0,
+            selectedIndex: 0,
+            status: "idle",
+            candidates: [],
+            message: null,
+          },
         });
         return;
       }
