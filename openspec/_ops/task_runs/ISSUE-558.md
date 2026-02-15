@@ -24,7 +24,7 @@
 - [x] 最小实现：新增 `synopsis` 资产 + loader/schema/executor 约束
 - [x] 运行聚焦测试，验证 Green
 - [x] 更新 Rulebook task、change tasks、RUN_LOG
-- [ ] 提交并推送（无 PR）
+- [x] 提交并推送（无 PR）
 
 ## Runs
 
@@ -84,6 +84,18 @@
 - Key output:
   - 四项聚焦测试复跑全绿。
   - Rulebook validate 通过（仅非阻断 warning：`No spec files found (specs/*/spec.md)`）。
+
+### 2026-02-15 Commit & Push（no PR）
+
+- Command:
+  - `git commit -m "feat: add builtin synopsis skill constraints (#558)"`
+  - `git push -u origin task/558-s3-synopsis-skill`
+- Exit code:
+  - `0`
+  - `0`
+- Key output:
+  - Commit SHA: `b58f0bce`
+  - branch 已推送并建立 upstream：`origin/task/558-s3-synopsis-skill`
 
 ## Dependency Sync Check
 
