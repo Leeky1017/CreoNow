@@ -67,9 +67,13 @@ export function StatusBar(): JSX.Element {
     );
   }, [activeDocumentId, fileItems, t]);
 
+  const documentCharacterCountSafe = Math.max(0, documentCharacterCount);
   const wordCountText = t("workbench.statusBar.wordCount", {
-    count: Math.max(0, documentCharacterCount).toLocaleString("en-US"),
-  });
+    count: documentCharacterCountSafe,
+  }).replace(
+    String(documentCharacterCountSafe),
+    documentCharacterCountSafe.toLocaleString("en-US"),
+  );
 
   return (
     <div

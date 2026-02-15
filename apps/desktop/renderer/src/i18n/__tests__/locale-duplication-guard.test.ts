@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import en from "../locales/en.json";
 import zhCN from "../locales/zh-CN.json";
 
-type LocaleNode = Record<string, LocaleNode | string>;
+interface LocaleNode {
+  [key: string]: LocaleNode | string;
+}
 
 function flattenEntries(node: LocaleNode, prefix = ""): Record<string, string> {
   return Object.entries(node).reduce<Record<string, string>>(

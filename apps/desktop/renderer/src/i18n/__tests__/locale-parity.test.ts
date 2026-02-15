@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import en from "../locales/en.json";
 import zhCN from "../locales/zh-CN.json";
 
-type LocaleNode = Record<string, LocaleNode | string>;
+interface LocaleNode {
+  [key: string]: LocaleNode | string;
+}
 
 function flattenKeys(node: LocaleNode, prefix = ""): string[] {
   return Object.entries(node).flatMap(([key, value]) => {
