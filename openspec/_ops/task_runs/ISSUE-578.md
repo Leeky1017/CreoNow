@@ -106,6 +106,18 @@
     - `pnpm exec tsx apps/desktop/tests/integration/search/search-cross-project-forbidden.test.ts`
   - committed as `fix: align fulltext item typing for hybrid rag (#578)` (`b784e9ee`)
 
+### 2026-02-15 15:41-15:44 CI lint-ratchet blocker remediation
+
+- Blocker:
+  - PR `#582` check `lint-and-typecheck` failed on `Lint ratchet` (`baseline=66 current=68 delta=+2`), introduced by `rag:context:retrieve` handler growth.
+- Fix:
+  - Refactored `apps/desktop/main/src/ipc/rag.ts` to extract payload validation and semantic index preparation helpers, reducing handler complexity/line-count warnings.
+  - Verified with:
+    - `pnpm exec prettier --check apps/desktop/main/src/ipc/rag.ts`
+    - `pnpm typecheck`
+    - `pnpm lint:ratchet`
+  - committed as `refactor: keep rag retrieval lint-ratchet neutral (#578)` (`ad2d2822`)
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -119,7 +131,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: b784e9eebecd6995ce3c4afcec9166f5c7050655
+- Reviewed-HEAD-SHA: ad2d28225434c4fc523ef9aeab4f8f37a16a1020
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
