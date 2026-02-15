@@ -111,6 +111,28 @@
   - `pnpm exec prettier --write rulebook/tasks/issue-563-s3-wave2-governed-delivery/.metadata.json`
   - committed as `chore: fix rulebook metadata formatting (#563)` (`d8e4a74b`) and pushed.
 
+### 2026-02-15 11:55-12:03 Preflight attempt #2 (blocked) + attempt #3 (passed)
+
+- Preflight attempt #2 blocker:
+  - `scripts/agent_pr_preflight.sh` failed at `pnpm typecheck` with 6 errors:
+    - `StatusBar.tsx` i18n `count` received `string` instead of `number`
+    - three editor entity-completion tests had unused `React` imports
+    - two locale tests used circular type alias (`TS2456`)
+- Remediation:
+  - `apps/desktop/renderer/src/components/layout/StatusBar.tsx`: pass numeric `count` and preserve grouped display output.
+  - Removed unused `React` imports from:
+    - `apps/desktop/renderer/src/features/editor/__tests__/entity-completion.trigger.test.tsx`
+    - `apps/desktop/renderer/src/features/editor/__tests__/entity-completion.insert.test.tsx`
+    - `apps/desktop/renderer/src/features/editor/__tests__/entity-completion.empty-state.test.tsx`
+  - Replaced recursive alias with recursive interface in:
+    - `apps/desktop/renderer/src/i18n/__tests__/locale-parity.test.ts`
+    - `apps/desktop/renderer/src/i18n/__tests__/locale-duplication-guard.test.ts`
+- Verification:
+  - `pnpm typecheck` (pass)
+  - `scripts/agent_pr_preflight.sh` (attempt #3 pass; exit 0)
+- Commit:
+  - `fix: unblock wave2 umbrella typecheck gate (#563)` (`81534392`)
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -123,7 +145,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: d8e4a74be74dcea34cba9f406043ccd6e9e34ade
+- Reviewed-HEAD-SHA: 81534392809c9fb07b1d71363fd5eb788e2422e9
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
