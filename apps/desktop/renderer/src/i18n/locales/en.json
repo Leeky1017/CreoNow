@@ -1,0 +1,11 @@
+{
+  "workbench": {
+    "bootstrap": {
+      "appShell": "Workbench Shell",
+      "fallbackOnly": "Fallback only in English"
+    },
+    "export": {
+      "currentDocument": "Current Document"
+    }
+  }
+}
