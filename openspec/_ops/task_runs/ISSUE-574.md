@@ -39,6 +39,17 @@
   - pushed `task/574-post-merge-lint-ratchet-fix`
   - created PR `#575` with `Closes #574`
 
+### 2026-02-15 12:21-12:22 Preflight attempt #1 (blocked) and remediation
+
+- Blocker:
+  - `scripts/agent_pr_preflight.sh` failed at Prettier check for Rulebook files.
+- Fix:
+  - `pnpm exec prettier --write rulebook/tasks/issue-574-post-merge-lint-ratchet-fix/.metadata.json`
+  - `pnpm exec prettier --write rulebook/tasks/issue-574-post-merge-lint-ratchet-fix/proposal.md`
+  - `pnpm exec prettier --write rulebook/tasks/issue-574-post-merge-lint-ratchet-fix/specs/governance/spec.md`
+  - `pnpm exec prettier --write rulebook/tasks/issue-574-post-merge-lint-ratchet-fix/tasks.md`
+  - committed as `chore: format issue-574 rulebook artifacts (#574)` (`692fa970`)
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -50,7 +61,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 3c86724f0b0f4e8f0ca1c8c931cc10ff1c618be3
+- Reviewed-HEAD-SHA: 692fa97006f172b96c356ca079fcdf75dbf7a08a
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
