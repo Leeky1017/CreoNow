@@ -110,6 +110,28 @@
 - Output:
   - `https://github.com/Leeky1017/CreoNow/pull/562`
 
+### 2026-02-15 10:38 Preflight attempt #1 (blocked)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Blocker:
+  - `pnpm exec prettier --check ...` failed with `Code style issues found in 12 files`
+  - Affected files included `skillValidator.ts`, `skillExecutor.ts`, `aiService.ts`, `pnpm-lock.yaml`, and rulebook metadata/docs.
+
+### 2026-02-15 10:39-10:43 Preflight blocker remediation
+
+- Commands:
+  - `pnpm exec prettier --write <12 blocked files>`
+  - `pnpm lint:ratchet`
+  - `pnpm -C apps/desktop typecheck`
+  - `pnpm rulebook task validate issue-555-s3-wave1-governed-delivery`
+- Result:
+  - Formatting blocker cleared
+  - `lint:ratchet` PASS (`baseline=66 current=66 delta=0`)
+  - `typecheck` PASS
+  - `rulebook task validate` PASS
+  - Remediation commit pushed: `af8ee0edbc2914e5f46ba0d7ccfc6f4861f1a352`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -124,7 +146,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 31b3ef22e3520da393c3caa7a04293976a9ea085
+- Reviewed-HEAD-SHA: af8ee0edbc2914e5f46ba0d7ccfc6f4861f1a352
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
