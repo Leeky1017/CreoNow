@@ -18,4 +18,4 @@
 - [x] 3.1 更新 `openspec/changes/s3-synopsis-injection/proposal.md`（Dependency Sync Check）
 - [x] 3.2 更新 `openspec/changes/s3-synopsis-injection/tasks.md`（TDD + 证据勾选）
 - [x] 3.3 新建并更新 `openspec/_ops/task_runs/ISSUE-565.md`
-- [ ] 3.4 完成本任务 commit + push（不创建 PR）
+- [x] 3.4 完成本任务 commit + push（不创建 PR）

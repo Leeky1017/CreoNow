@@ -23,7 +23,7 @@
 - [x] Red：先写失败测试（S1/S2/S3）并记录证据
 - [x] Green：最小实现 `synopsisStore + synopsisFetcher + layer 注册 + migration`
 - [x] Refactor + focused verification + rulebook validate
-- [ ] commit + push（不创建 PR）
+- [x] commit + push（不创建 PR）
 
 ## Runs
 
@@ -142,6 +142,17 @@
   - `layerAssemblyService.synopsis.test.ts: all assertions passed`
   - `synopsisStore.error-path.test.ts: all assertions passed`
 
+### 2026-02-15 11:47-11:48 提交与推送（No PR）
+
+- Command:
+  - `git commit -m "feat: implement synopsis injection context flow (#565)"`
+  - `git push origin task/565-s3-synopsis-injection`
+- Exit code: `0`
+- Key output:
+  - Commit: `dfcd516154fe149d166248a8e64277d3eaf039ad`
+  - Branch pushed: `task/565-s3-synopsis-injection`
+  - Remote: `https://github.com/Leeky1017/CreoNow/pull/new/task/565-s3-synopsis-injection`（仅提示，按约束未创建 PR）
+
 ## 依赖同步检查（Dependency Sync Check）
 
 - Inputs:
@@ -156,9 +167,9 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: PENDING
-- Spec-Compliance: PENDING
-- Code-Quality: PENDING
-- Fresh-Verification: PENDING
+- Reviewed-HEAD-SHA: c1db9df6c471c03783f1cb0e1e1d7698da3bba72
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
 - Blocking-Issues: 0
-- Decision: PENDING
+- Decision: ACCEPT
