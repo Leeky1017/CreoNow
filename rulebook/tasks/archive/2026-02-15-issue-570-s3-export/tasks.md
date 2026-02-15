@@ -14,4 +14,4 @@
 
 - [x] 3.1 更新 `openspec/changes/s3-export/tasks.md`（TDD Mapping + Dependency Sync Check）
 - [x] 3.2 更新 `openspec/_ops/task_runs/ISSUE-570.md`（命令证据与结论）
-- [ ] 3.3 commit + push `task/570-s3-export`（按要求不创建 PR）
+- [x] 3.3 commit + push `task/570-s3-export`（由总控 PR `#573` 统一完成 merge 收口）
