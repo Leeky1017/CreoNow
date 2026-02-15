@@ -16,6 +16,6 @@
 ## 3. Governance
 - [x] 3.1 创建 Rulebook 治理文件：`.metadata.json`、`proposal.md`、`specs/governance/spec.md`、`tasks.md`
 - [x] 3.2 创建并对齐 `openspec/_ops/task_runs/ISSUE-583.md`（Scope/accepted commits/verification evidence）
-- [ ] 3.3 创建 PR（`Closes #583`）并回填 RUN_LOG issue/pr 占位符为真实链接
+- [x] 3.3 创建 PR（`Closes #583`）并回填 RUN_LOG issue/pr 占位符为真实链接
 - [ ] 3.4 开启 auto-merge，等待 required checks（`ci`/`openspec-log-guard`/`merge-serial`）全绿
 - [ ] 3.5 合并后执行控制面 `main` 同步、worktree 清理、Rulebook 归档

@@ -3,7 +3,7 @@
 - Issue: #583
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/583
 - Branch: `task/583-windows-e2e-create-dialog-regression`
-- PR: `<fill-pr-url-after-create>`
+- PR: https://github.com/Leeky1017/CreoNow/pull/584
 - Scope (Functional):
   - `apps/desktop/main/src/services/projects/templateService.ts`
   - `apps/desktop/electron.vite.config.ts`
@@ -29,7 +29,7 @@
 - [x] 保持结构化失败路径（模板目录不可用时返回 `INVALID_ARGUMENT`）
 - [x] 完成主会话最新验证证据（unit/vitest/build/playwright 单测）
 - [x] 补齐并校准 Rulebook + RUN_LOG 治理文件
-- [ ] 创建 PR 并回填 PR 链接
+- [x] 创建 PR 并回填 PR 链接
 - [ ] 开启 auto-merge 并等待 required checks 全绿
 - [ ] 合并回 `main`、同步控制面、清理 worktree、归档 Rulebook task
 
@@ -38,7 +38,7 @@
 - [x] Scope 已与当前分支真实改动对齐
 - [x] 已记录 accepted commits（4 个）
 - [x] 已记录主会话最新验证证据
-- [ ] PR 已创建（当前：未创建）
+- [x] PR 已创建（当前：https://github.com/Leeky1017/CreoNow/pull/584）
 - [ ] Auto-merge 已开启（当前：未开启）
 - [ ] Required checks 全绿（当前：未触发）
 - [ ] 已合并至 `main`（当前：未合并）
@@ -105,3 +105,11 @@
   - Playwright 单测通过：
     - `ai-apply.spec.ts` success path: `1 passed`
     - `version-history.spec.ts` full content path: `1 passed`
+
+### 2026-02-15 PR Creation
+
+- Command:
+  - `gh pr create --base main --head task/583-windows-e2e-create-dialog-regression --title "Fix bundled template loading regression after W3 (#583)" --body-file /tmp/pr-583-body.md`
+- Exit code: `0`
+- Key output:
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/584`
