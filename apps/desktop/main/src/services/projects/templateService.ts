@@ -52,9 +52,72 @@ function fail(field: string, message: string): Err {
   };
 }
 
-function getTemplateDirPath(): string {
-  const filePath = fileURLToPath(import.meta.url);
-  return path.resolve(path.dirname(filePath), "../../../templates/project");
+function isDirectory(candidate: string): boolean {
+  try {
+    return fs.statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function uniquePaths(candidates: string[]): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const candidate of candidates) {
+    const normalized = path.resolve(candidate);
+    if (seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    unique.push(normalized);
+  }
+  return unique;
+}
+
+export function resolveBuiltInTemplateDirectory(args?: {
+  moduleFilePath?: string;
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+}): Result<string> {
+  const moduleFilePath = args?.moduleFilePath ?? fileURLToPath(import.meta.url);
+  const cwd = args?.cwd ?? process.cwd();
+  const env = args?.env ?? process.env;
+
+  const configuredDir = env.CREONOW_TEMPLATE_DIR?.trim();
+  if (configuredDir && configuredDir.length > 0) {
+    const resolvedConfiguredDir = path.resolve(cwd, configuredDir);
+    if (isDirectory(resolvedConfiguredDir)) {
+      return { ok: true, data: resolvedConfiguredDir };
+    }
+    return fail(
+      "template.directory",
+      `Configured built-in template directory is unavailable: ${resolvedConfiguredDir}`,
+    );
+  }
+
+  const moduleDir = path.dirname(moduleFilePath);
+  const candidates = uniquePaths([
+    path.resolve(moduleDir, "../../../templates/project"),
+    path.resolve(moduleDir, "templates/project"),
+    path.resolve(moduleDir, "../../main/templates/project"),
+    path.resolve(cwd, "apps/desktop/main/templates/project"),
+    path.resolve(cwd, "main/templates/project"),
+  ]);
+
+  for (const candidate of candidates) {
+    if (isDirectory(candidate)) {
+      return { ok: true, data: candidate };
+    }
+  }
+
+  return fail(
+    "template.directory",
+    `Built-in template directory not found (checked ${candidates.join(", ")})`,
+  );
+}
+
+export function resetBuiltInTemplateCacheForTests(): void {
+  builtInTemplateCache = null;
 }
 
 function normalizeBuiltInTemplateId(rawId: string): BuiltInTemplateId | null {
@@ -88,16 +151,52 @@ function loadBuiltInTemplates(): Result<
     return { ok: true, data: builtInTemplateCache };
   }
 
-  const directory = getTemplateDirPath();
-  const filenames = fs
-    .readdirSync(directory)
-    .filter((filename) => filename.endsWith(".json"));
+  const directory = resolveBuiltInTemplateDirectory();
+  if (!directory.ok) {
+    return directory;
+  }
+
+  let filenames: string[] = [];
+  try {
+    filenames = fs
+      .readdirSync(directory.data)
+      .filter((filename) => filename.endsWith(".json"));
+  } catch {
+    return fail(
+      "template.directory",
+      `Failed to read built-in template directory: ${directory.data}`,
+    );
+  }
+
+  if (filenames.length === 0) {
+    return fail(
+      "template.directory",
+      `No built-in template resources found in ${directory.data}`,
+    );
+  }
 
   const map = new Map<BuiltInTemplateId, BuiltInTemplate>();
 
   for (const filename of filenames) {
-    const raw = fs.readFileSync(path.join(directory, filename), "utf8");
-    const parsed: unknown = JSON.parse(raw);
+    let raw = "";
+    try {
+      raw = fs.readFileSync(path.join(directory.data, filename), "utf8");
+    } catch {
+      return fail(
+        "template.resource",
+        `Failed to read built-in template resource: ${filename}`,
+      );
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return fail(
+        "template.resource",
+        `Invalid JSON template file: ${filename}`,
+      );
+    }
     if (!isRecord(parsed)) {
       return fail(
         "template.resource",
