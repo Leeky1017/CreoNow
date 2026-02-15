@@ -55,6 +55,7 @@ function createNoopEmitter(): (event: AiStreamEvent) => void {
     "shrink",
     "style-transfer",
     "summarize",
+    "synopsis",
     "translate",
     "write",
   ]);

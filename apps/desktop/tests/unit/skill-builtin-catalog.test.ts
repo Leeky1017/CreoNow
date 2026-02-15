@@ -40,6 +40,7 @@ function builtinSkillNames(): string[] {
     "shrink",
     "style-transfer",
     "summarize",
+    "synopsis",
     "translate",
     "write",
   ]);
