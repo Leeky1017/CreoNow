@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 
 import {
@@ -13,10 +14,17 @@ async function main(): Promise<void> {
     process.cwd(),
     "apps/desktop/dist/main/index.js",
   );
-  const expectedDir = path.resolve(
+  const bundledExpectedDir = path.resolve(
+    process.cwd(),
+    "apps/desktop/dist/main/templates/project",
+  );
+  const sourceFallbackDir = path.resolve(
     process.cwd(),
     "apps/desktop/main/templates/project",
   );
+  const expectedDir = fs.existsSync(bundledExpectedDir)
+    ? bundledExpectedDir
+    : sourceFallbackDir;
 
   const resolved = resolveBuiltInTemplateDirectory({
     moduleFilePath: bundledMainModulePath,

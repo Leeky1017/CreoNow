@@ -31,9 +31,35 @@ function copyBuiltinSkillsPlugin() {
   } as const;
 }
 
+/**
+ * Copy builtin project templates into `dist/main/templates/project`.
+ *
+ * Why: bundled runtimes resolve templates from `dist/main/**`, not source paths.
+ */
+function copyBuiltinProjectTemplatesPlugin() {
+  return {
+    name: "creonow-copy-builtin-project-templates",
+    closeBundle() {
+      const src = path.join(__dirname, "main", "templates", "project");
+      const dest = path.join(__dirname, "dist", "main", "templates", "project");
+      if (!fs.existsSync(src)) {
+        return;
+      }
+
+      fs.rmSync(dest, { recursive: true, force: true });
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.cpSync(src, dest, { recursive: true });
+    },
+  } as const;
+}
+
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin(), copyBuiltinSkillsPlugin()],
+    plugins: [
+      externalizeDepsPlugin(),
+      copyBuiltinSkillsPlugin(),
+      copyBuiltinProjectTemplatesPlugin(),
+    ],
     resolve: {
       alias: {
         "@shared": sharedAliasPath,
