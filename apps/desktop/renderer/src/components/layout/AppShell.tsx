@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 import { useLayoutStore, LAYOUT_DEFAULTS } from "../../stores/layoutStore";
 import { IconBar } from "./IconBar";
@@ -43,6 +44,7 @@ import {
 } from "../../lib/diff/unifiedDiff";
 import { invoke } from "../../lib/ipcClient";
 import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
+import "../../i18n";
 
 /**
  * Clamp a value between min/max bounds.
@@ -235,6 +237,7 @@ function computePanelMax(
  * + RightPanel) and wires resizing, persistence, and P0 keyboard shortcuts.
  */
 export function AppShell(): JSX.Element {
+  const { t } = useTranslation();
   const currentProject = useProjectStore((s) => s.current);
   const currentProjectId = currentProject?.projectId ?? null;
   const projectItems = useProjectStore((s) => s.items);
@@ -993,7 +996,7 @@ export function AppShell(): JSX.Element {
         onOpenChange={setExportDialogOpen}
         projectId={currentProjectId}
         documentId={documentId}
-        documentTitle="Current Document"
+        documentTitle={t("workbench.export.currentDocument")}
       />
 
       <CreateProjectDialog

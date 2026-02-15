@@ -30,6 +30,7 @@ type EditingState =
       name: string;
       entityType: string;
       description: string;
+      lastSeenState: string;
       aiContextLevel: AiContextLevel;
       aliasesInput: string;
     }
@@ -316,6 +317,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
           name: editing.name,
           entityType: editing.entityType,
           description: editing.description,
+          lastSeenState: editing.lastSeenState,
           aiContextLevel: editing.aiContextLevel,
           aliases: parseAliasesInput(editing.aliasesInput),
         },
@@ -690,6 +692,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                 name: eventEntity.name,
                 entityType: eventEntity.entityType,
                 description: eventEntity.description ?? "",
+                lastSeenState: eventEntity.lastSeenState ?? "",
                 aiContextLevel: eventEntity.aiContextLevel,
                 aliasesInput: formatAliasesInput(eventEntity.aliases),
               });
@@ -830,6 +833,18 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                           fullWidth
                         />
                         <Input
+                          data-testid="kg-entity-last-seen-state"
+                          value={editing.lastSeenState}
+                          onChange={(evt) =>
+                            setEditing({
+                              ...editing,
+                              lastSeenState: evt.target.value,
+                            })
+                          }
+                          placeholder="Last seen state (optional)"
+                          fullWidth
+                        />
+                        <Input
                           value={editing.aliasesInput}
                           onChange={(evt) =>
                             setEditing({
@@ -898,6 +913,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
                                 name: e.name,
                                 entityType: e.entityType ?? "",
                                 description: e.description ?? "",
+                                lastSeenState: e.lastSeenState ?? "",
                                 aiContextLevel: e.aiContextLevel,
                                 aliasesInput: formatAliasesInput(e.aliases),
                               })

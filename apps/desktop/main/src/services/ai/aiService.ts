@@ -34,6 +34,7 @@ import {
   type ProviderConfig,
   type ProxySettings,
 } from "./providerResolver";
+import type { TraceStore } from "./traceStore";
 
 export { assembleSystemPrompt, GLOBAL_IDENTITY_PROMPT };
 export { mapUpstreamStatusToIpcErrorCode };
@@ -43,6 +44,14 @@ type Err = { ok: false; error: IpcError };
 export type ServiceResult<T> = Ok<T> | Err;
 
 export type AiProvider = "anthropic" | "openai" | "proxy";
+
+export type TracePersistenceDegradation = {
+  code: "TRACE_PERSISTENCE_DEGRADED";
+  message: string;
+  runId: string;
+  traceId: string;
+  cause: { code: IpcErrorCode; message: string };
+};
 
 export type AiService = {
   runSkill: (args: {
@@ -58,7 +67,13 @@ export type AiService = {
     ts: number;
     emitEvent: (event: AiStreamEvent) => void;
   }) => Promise<
-    ServiceResult<{ executionId: string; runId: string; outputText?: string }>
+    ServiceResult<{
+      executionId: string;
+      runId: string;
+      traceId: string;
+      outputText?: string;
+      degradation?: TracePersistenceDegradation;
+    }>
   >;
   listModels: () => Promise<
     ServiceResult<{
@@ -372,6 +387,7 @@ export function createAiService(deps: {
   logger: Logger;
   env: NodeJS.ProcessEnv;
   getProxySettings?: () => ProxySettings | null;
+  traceStore?: TraceStore;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   rateLimitPerMinute?: number;
@@ -1333,6 +1349,53 @@ export function createAiService(deps: {
       });
     };
 
+    const persistTraceAndGetDegradation = (
+      assistantOutput: string,
+    ): TracePersistenceDegradation | undefined => {
+      if (!deps.traceStore) {
+        return undefined;
+      }
+
+      const persisted = deps.traceStore.persistGenerationTrace({
+        traceId,
+        runId,
+        executionId,
+        skillId: args.skillId,
+        mode: args.mode,
+        model: args.model,
+        inputText: args.input,
+        outputText: assistantOutput,
+        context: args.context,
+        startedAt: entry.startedAt,
+        completedAt: now(),
+      });
+
+      if (persisted.ok) {
+        return undefined;
+      }
+
+      const degradation: TracePersistenceDegradation = {
+        code: "TRACE_PERSISTENCE_DEGRADED",
+        message: "Trace persistence failed",
+        runId,
+        traceId,
+        cause: {
+          code: persisted.error.code,
+          message: persisted.error.message,
+        },
+      };
+
+      deps.logger.error("ai_trace_persistence_degraded", {
+        code: degradation.code,
+        runId: degradation.runId,
+        traceId: degradation.traceId,
+        causeCode: degradation.cause.code,
+        causeMessage: degradation.cause.message,
+      });
+
+      return degradation;
+    };
+
     function armSkillTimeout(): void {
       if (entry.timeoutTimer) {
         clearTimeout(entry.timeoutTimer);
@@ -1357,7 +1420,13 @@ export function createAiService(deps: {
     }
 
     const executeNonStream = async (): Promise<
-      ServiceResult<{ executionId: string; runId: string; outputText?: string }>
+      ServiceResult<{
+        executionId: string;
+        runId: string;
+        traceId: string;
+        outputText?: string;
+        degradation?: TracePersistenceDegradation;
+      }>
     > => {
       try {
         const budgetExceeded = consumeSessionTokenBudget();
@@ -1412,13 +1481,23 @@ export function createAiService(deps: {
           currentTotal + promptTokens + completionTokens,
         );
         persistSuccessfulTurn(res.data);
+        const degradation = persistTraceAndGetDegradation(res.data);
 
         setTerminal({
           entry,
           terminal: "completed",
           logEvent: "ai_run_completed",
         });
-        return { ok: true, data: { executionId, runId, outputText: res.data } };
+        return {
+          ok: true,
+          data: {
+            executionId,
+            runId,
+            traceId,
+            outputText: res.data,
+            ...(degradation ? { degradation } : {}),
+          },
+        };
       } catch (error) {
         const aborted = controller.signal.aborted;
         if (aborted) {
@@ -1488,7 +1567,9 @@ export function createAiService(deps: {
                 budgetExceeded as ServiceResult<{
                   executionId: string;
                   runId: string;
+                  traceId: string;
                   outputText?: string;
+                  degradation?: TracePersistenceDegradation;
                 }>,
               ),
               completion: completionPromise,
@@ -1586,6 +1667,7 @@ export function createAiService(deps: {
                   currentTotal + promptTokens + completionTokens,
                 );
                 persistSuccessfulTurn(entry.outputText);
+                persistTraceAndGetDegradation(entry.outputText);
 
                 setTerminal({
                   entry,
@@ -1629,7 +1711,7 @@ export function createAiService(deps: {
           return {
             response: Promise.resolve({
               ok: true,
-              data: { executionId, runId },
+              data: { executionId, runId, traceId },
             }),
             completion: completionPromise,
           };
@@ -1749,6 +1831,24 @@ export function createAiService(deps: {
   };
 
   const feedback: AiService["feedback"] = (args) => {
+    if (deps.traceStore) {
+      const persisted = deps.traceStore.recordTraceFeedback({
+        runId: args.runId,
+        action: args.action,
+        evidenceRef: args.evidenceRef,
+        ts: args.ts,
+      });
+      if (!persisted.ok) {
+        deps.logger.error("ai_trace_feedback_persist_failed", {
+          runId: args.runId,
+          action: args.action,
+          code: persisted.error.code,
+          message: persisted.error.message,
+        });
+        return persisted;
+      }
+    }
+
     deps.logger.info("ai_feedback_received", {
       runId: args.runId,
       action: args.action,

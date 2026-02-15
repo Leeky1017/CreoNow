@@ -8,6 +8,7 @@ import type { Logger } from "../../logging/logger";
 import {
   validateSkillFrontmatter,
   type SkillFrontmatter,
+  type SkillOutputConstraints,
   type SkillPrompt,
   type SkillScope,
 } from "./skillValidator";
@@ -36,6 +37,7 @@ export type LoadedSkill = {
   error_code?: IpcErrorCode;
   error_message?: string;
   prompt?: SkillPrompt;
+  output?: SkillOutputConstraints;
   bodyMd?: string;
   dependsOn?: string[];
   timeoutMs?: number;
@@ -328,6 +330,7 @@ function toLoadedSkill(args: {
     filePath: args.filePath,
     valid: true,
     prompt: args.frontmatter.prompt,
+    output: args.frontmatter.output,
     bodyMd: args.bodyMd,
     dependsOn: args.frontmatter.dependsOn,
     timeoutMs: args.frontmatter.timeoutMs,

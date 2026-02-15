@@ -11,6 +11,12 @@ type SkillPrompt = {
   user: string;
 };
 
+type SkillOutputConstraints = {
+  minChars?: number;
+  maxChars?: number;
+  singleParagraph?: boolean;
+};
+
 type SkillInputType = "selection" | "document";
 
 export type ResolvedRunnableSkill = {
@@ -19,6 +25,7 @@ export type ResolvedRunnableSkill = {
   enabled: boolean;
   valid: boolean;
   inputType?: SkillInputType;
+  output?: SkillOutputConstraints;
   dependsOn?: string[];
   timeoutMs?: number;
   error_code?: IpcErrorCode;
@@ -160,6 +167,56 @@ function normalizeErrorMessage(error: unknown): string {
   return String(error);
 }
 
+function containsListMarker(outputText: string): boolean {
+  return /(?:^|\n)\s*(?:[-*]|\d+\.)\s+/u.test(outputText);
+}
+
+function containsDebugNoise(outputText: string): boolean {
+  return /\b(?:TODO|DEBUG)\b|<[^>\n]+>/u.test(outputText);
+}
+
+function validateSynopsisOutput(args: {
+  outputText: string;
+  output?: SkillOutputConstraints;
+}): ServiceResult<true> {
+  const trimmed = args.outputText.trim();
+  const length = Array.from(trimmed).length;
+  const minChars = args.output?.minChars ?? 200;
+  const maxChars = args.output?.maxChars ?? 300;
+  const requireSingleParagraph = args.output?.singleParagraph ?? true;
+
+  if (length < minChars || length > maxChars) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      `synopsis output must be ${minChars}-${maxChars} chars`,
+      { minChars, maxChars, actualChars: length },
+    );
+  }
+
+  if (requireSingleParagraph && /\n/.test(trimmed)) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "synopsis output must be single paragraph",
+    );
+  }
+
+  if (containsListMarker(trimmed)) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "synopsis output must not contain list markers",
+    );
+  }
+
+  if (containsDebugNoise(trimmed)) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "synopsis output must not contain template/debug noise",
+    );
+  }
+
+  return { ok: true, data: true };
+}
+
 /**
  * Assemble Context Engine prompt when project/document context exists.
  */
@@ -294,6 +351,19 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
 
       if (!run.ok) {
         return run;
+      }
+
+      if (
+        leafSkillId(args.skillId) === "synopsis" &&
+        typeof run.data.outputText === "string"
+      ) {
+        const synopsisValidation = validateSynopsisOutput({
+          outputText: run.data.outputText,
+          output: resolved.data.output,
+        });
+        if (!synopsisValidation.ok) {
+          return synopsisValidation;
+        }
       }
 
       return {

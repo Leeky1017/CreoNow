@@ -22,6 +22,12 @@ export type SkillPrompt = {
   user: string;
 };
 
+export type SkillOutputConstraints = {
+  minChars?: number;
+  maxChars?: number;
+  singleParagraph?: boolean;
+};
+
 export type SkillFrontmatter = {
   id: string;
   name: string;
@@ -33,7 +39,7 @@ export type SkillFrontmatter = {
   packageId: string;
   context_rules: SkillContextRules;
   modelProfile?: Record<string, unknown>;
-  output?: Record<string, unknown>;
+  output?: SkillOutputConstraints;
   prompt: SkillPrompt;
   dependsOn?: string[];
   timeoutMs?: number;
@@ -359,6 +365,140 @@ function validatePrompt(obj: JsonObject): ServiceResult<SkillPrompt> {
   );
 }
 
+function validateOutputConstraints(args: {
+  skillId: string;
+  output: unknown;
+}): ServiceResult<SkillOutputConstraints | undefined> {
+  if (args.output === undefined) {
+    if (args.skillId === "builtin:synopsis") {
+      return ipcError("INVALID_ARGUMENT", "output is required", {
+        fieldName: "output",
+      });
+    }
+    return { ok: true, data: undefined };
+  }
+
+  const output = asObject(args.output);
+  if (!output) {
+    return ipcError("INVALID_ARGUMENT", "output must be an object", {
+      fieldName: "output",
+    });
+  }
+
+  const minCharsResult = validateOptionalPositiveInteger({
+    value: output.minChars,
+    fieldName: "output.minChars",
+  });
+  if (!minCharsResult.ok) {
+    return minCharsResult;
+  }
+  const minChars = minCharsResult.data;
+
+  const maxCharsResult = validateOptionalPositiveInteger({
+    value: output.maxChars,
+    fieldName: "output.maxChars",
+  });
+  if (!maxCharsResult.ok) {
+    return maxCharsResult;
+  }
+  const maxChars = maxCharsResult.data;
+
+  if (minChars !== undefined && maxChars !== undefined && minChars > maxChars) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "output.minChars must be <= output.maxChars",
+      {
+        fieldName: "output.minChars",
+      },
+    );
+  }
+
+  const singleParagraph = output.singleParagraph;
+  if (singleParagraph !== undefined && typeof singleParagraph !== "boolean") {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "output.singleParagraph must be a boolean",
+      {
+        fieldName: "output.singleParagraph",
+      },
+    );
+  }
+
+  const synopsisRuleResult = validateSynopsisOutputConstraints({
+    skillId: args.skillId,
+    minChars,
+    maxChars,
+    singleParagraph,
+  });
+  if (!synopsisRuleResult.ok) {
+    return synopsisRuleResult;
+  }
+
+  return {
+    ok: true,
+    data: {
+      ...(minChars !== undefined ? { minChars } : {}),
+      ...(maxChars !== undefined ? { maxChars } : {}),
+      ...(singleParagraph !== undefined ? { singleParagraph } : {}),
+    },
+  };
+}
+
+function validateOptionalPositiveInteger(args: {
+  value: unknown;
+  fieldName: "output.minChars" | "output.maxChars";
+}): ServiceResult<number | undefined> {
+  if (args.value === undefined) {
+    return { ok: true, data: undefined };
+  }
+  if (
+    typeof args.value !== "number" ||
+    !Number.isFinite(args.value) ||
+    !Number.isInteger(args.value) ||
+    args.value <= 0
+  ) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      `${args.fieldName} must be a positive integer`,
+      { fieldName: args.fieldName },
+    );
+  }
+  return { ok: true, data: args.value };
+}
+
+function validateSynopsisOutputConstraints(args: {
+  skillId: string;
+  minChars: number | undefined;
+  maxChars: number | undefined;
+  singleParagraph: boolean | undefined;
+}): ServiceResult<void> {
+  if (args.skillId !== "builtin:synopsis") {
+    return { ok: true, data: undefined };
+  }
+  if (args.minChars !== 200) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "builtin:synopsis requires output.minChars = 200",
+      { fieldName: "output.minChars" },
+    );
+  }
+  if (args.maxChars !== 300) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "builtin:synopsis requires output.maxChars = 300",
+      { fieldName: "output.maxChars" },
+    );
+  }
+  if (args.singleParagraph !== true) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "builtin:synopsis requires output.singleParagraph = true",
+      { fieldName: "output.singleParagraph" },
+    );
+  }
+  return { ok: true, data: undefined };
+}
+
 /**
  * Validate a parsed skill frontmatter object against the V1 schema.
  */
@@ -473,7 +613,13 @@ export function validateSkillFrontmatter(args: {
 
   const description = optionalStringField(obj, "description") ?? undefined;
   const modelProfile = asObject(obj.modelProfile) ?? undefined;
-  const output = asObject(obj.output) ?? undefined;
+  const outputRes = validateOutputConstraints({
+    skillId: id,
+    output: obj.output,
+  });
+  if (!outputRes.ok) {
+    return outputRes;
+  }
 
   return {
     ok: true,
@@ -488,7 +634,7 @@ export function validateSkillFrontmatter(args: {
       packageId,
       context_rules: contextRulesRes.data,
       modelProfile,
-      output,
+      output: outputRes.data,
       prompt: promptRes.data,
       dependsOn: dependsOnRes.data.length ? dependsOnRes.data : undefined,
       timeoutMs: timeoutMsRes.data,

@@ -29,6 +29,7 @@ type EntityCreatePayload = {
   name: string;
   description?: string;
   attributes?: Record<string, string>;
+  lastSeenState?: string;
   aiContextLevel?: AiContextLevel;
   aliases?: string[];
 };
@@ -54,6 +55,7 @@ type EntityUpdatePayload = {
     name?: string;
     description?: string;
     attributes?: Record<string, string>;
+    lastSeenState?: string;
     aiContextLevel?: AiContextLevel;
     aliases?: string[];
   };

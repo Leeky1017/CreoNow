@@ -41,6 +41,11 @@ module.exports = {
       "error",
       { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
     ],
+    complexity: ["warn", 25],
+    "max-lines-per-function": [
+      "warn",
+      { max: 300, skipBlankLines: true, skipComments: true },
+    ],
     "react/react-in-jsx-scope": "off",
   },
 };
