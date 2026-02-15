@@ -84,6 +84,10 @@ function FormContent({
   const [imageError, setImageError] = useState<string | null>(null);
   const [nameError, setNameError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const selectableTemplateIds = useMemo(
+    () => new Set([...presetOptions, ...customOptions].map((opt) => opt.value)),
+    [customOptions, presetOptions],
+  );
 
   useEffect(() => {
     if (initialName !== undefined) {
@@ -110,6 +114,16 @@ function FormContent({
       setTemplateId(presetOptions[0].value);
     }
   }, [initialType, presetOptions]);
+
+  useEffect(() => {
+    if (!defaultTemplateId) {
+      return;
+    }
+    if (templateId.length > 0 && selectableTemplateIds.has(templateId)) {
+      return;
+    }
+    setTemplateId(defaultTemplateId);
+  }, [defaultTemplateId, selectableTemplateIds, templateId]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
