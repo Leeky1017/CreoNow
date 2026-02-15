@@ -101,6 +101,16 @@
     - `pnpm contract:check`
     - `rulebook task validate issue-563-s3-wave2-governed-delivery`
 
+### 2026-02-15 11:47-11:49 Preflight attempt #1 (blocked) and remediation
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Blocker:
+  - Prettier gate failed on `rulebook/tasks/issue-563-s3-wave2-governed-delivery/.metadata.json`。
+- Fix:
+  - `pnpm exec prettier --write rulebook/tasks/issue-563-s3-wave2-governed-delivery/.metadata.json`
+  - committed as `chore: fix rulebook metadata formatting (#563)` (`d8e4a74b`) and pushed.
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -113,7 +123,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 044c16463f3675bad59be6521649dff3ceb3d6b7
+- Reviewed-HEAD-SHA: d8e4a74be74dcea34cba9f406043ccd6e9e34ade
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
