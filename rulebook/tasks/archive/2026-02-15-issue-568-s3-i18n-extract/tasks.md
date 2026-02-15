@@ -17,4 +17,4 @@
 - [x] 3.2 更新 `openspec/changes/s3-i18n-extract/tasks.md`
 - [x] 3.3 更新 RUN_LOG：`openspec/_ops/task_runs/ISSUE-568.md`
 - [x] 3.4 `rulebook task validate issue-568-s3-i18n-extract` 通过
-- [ ] 3.5 PR / auto-merge / main sync（按任务约束不执行）
+- [x] 3.5 PR / auto-merge / main sync（由总控 PR `#573` 统一完成）

@@ -10,10 +10,10 @@
 - [x] 2.1 补齐 `ISSUE-564..ISSUE-571` 主会话审计字段（Audit-Owner/Reviewed-HEAD-SHA/PASS）
 - [x] 2.2 将 8 个完成 change 归档到 `openspec/changes/archive/`
 - [x] 2.3 同步更新 `openspec/changes/EXECUTION_ORDER.md`（活跃拓扑更新）
-- [ ] 2.4 执行 preflight 并清零阻断
+- [x] 2.4 执行 preflight 并清零阻断（已在总控交付路径完成）
 
 ## 3. Delivery
 
-- [ ] 3.1 创建 PR（`Closes #563`，并关联 `Closes #564..#571`）
-- [ ] 3.2 开启 auto-merge 并等待 required checks 全绿
-- [ ] 3.3 确认 merged、控制面 main 同步、清理全部 W2 worktree
+- [x] 3.1 创建 PR（`Closes #563`，并关联 `Closes #564..#571`）→ PR `#573`
+- [x] 3.2 开启 auto-merge 并等待 required checks 全绿（`ci`/`openspec-log-guard`/`merge-serial`）
+- [x] 3.3 确认 merged、控制面 main 同步、清理全部 W2 worktree（后续 `#575` 修复后 main 仍保持对齐）

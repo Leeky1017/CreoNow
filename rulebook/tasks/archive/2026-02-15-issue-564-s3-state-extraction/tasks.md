@@ -16,5 +16,5 @@
 
 - [x] 3.1 更新 `openspec/changes/s3-state-extraction/tasks.md` 勾选与 Dependency Sync Check 结论
 - [x] 3.2 更新 RUN_LOG：`openspec/_ops/task_runs/ISSUE-564.md`（含 Dependency Sync + Red/Green + 验证证据）
-- [ ] 3.3 Main Session Audit 签字提交（本次按任务约束不包含单独签字提交）
-- [ ] 3.4 PR / auto-merge / main sync（按任务约束不执行）
+- [x] 3.3 Main Session Audit 签字提交（由总控 `#563` 主会话统一完成）
+- [x] 3.4 PR / auto-merge / main sync（由总控 PR `#573` 统一完成）
