@@ -3,7 +3,7 @@
 - Issue: #576
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/576
 - Branch: task/576-s3-wave2-governance-closeout
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/577
 - Scope:
   - Finalize governance closeout artifacts for Sprint3 Wave2 (`#563..#571`) and post-merge lint fix (`#574`).
   - Align Rulebook checklist/status/archive state with already merged GitHub truth (`#573`, `#575`).
@@ -17,13 +17,13 @@
 
 ## Status
 
-- CURRENT: 归档迁移与首个治理提交已完成，正在执行 preflight/PR/auto-merge 收口。
+- CURRENT: PR `#577` 已创建，正在执行主会话 preflight 与门禁收口。
 
 ## Next Actions
 
 - [x] Update remaining unchecked Rulebook checklist items to reflect merged umbrella delivery.
 - [x] Mark `issue-563..571` + `issue-574` completed and archive them.
-- [ ] Run validation + preflight, open PR, enable auto-merge, confirm main sync.
+- [ ] Run preflight, enable auto-merge, confirm merged + main sync.
 
 ## Plan
 
@@ -111,6 +111,15 @@
 - Evidence:
   - `rulebook/tasks/issue-576-s3-wave2-governance-closeout/`
 
+### 2026-02-15 13:14-13:15 PR creation
+
+- Command:
+  - `gh pr create --base main --head task/576-s3-wave2-governance-closeout --title \"Finalize Sprint3 Wave2 governance closeout artifacts (#576)\" --body-file /tmp/pr-576-body.md`
+- Key output:
+  - PR created: `https://github.com/Leeky1017/CreoNow/pull/577`
+- Evidence:
+  - `https://github.com/Leeky1017/CreoNow/pull/577`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -122,7 +131,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 0000000000000000000000000000000000000000
+- Reviewed-HEAD-SHA: 3cd7f812c137f68241c410dcc7f863ea9b22b97a
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
