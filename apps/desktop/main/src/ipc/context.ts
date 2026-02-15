@@ -7,6 +7,7 @@ import { registerContextBudgetHandlers } from "./contextBudget";
 import { registerContextFsHandlers } from "./contextFs";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { createMemoryService } from "../services/memory/memoryService";
+import { createSqliteSynopsisStore } from "../services/context/synopsisStore";
 import {
   createContextLayerAssemblyService,
   type ContextLayerAssemblyService,
@@ -35,6 +36,13 @@ export function registerContextIpcHandlers(deps: {
           logger: deps.logger,
         })
       : undefined;
+  const synopsisStore =
+    deps.db !== null
+      ? createSqliteSynopsisStore({
+          db: deps.db,
+          logger: deps.logger,
+        })
+      : undefined;
   const contextAssemblyService =
     deps.contextAssemblyService ??
     createContextLayerAssemblyService(undefined, {
@@ -43,6 +51,7 @@ export function registerContextIpcHandlers(deps: {
       },
       ...(kgService ? { kgService } : {}),
       ...(memoryService ? { memoryService } : {}),
+      ...(synopsisStore ? { synopsisStore } : {}),
     });
 
   const registrationDeps = {
