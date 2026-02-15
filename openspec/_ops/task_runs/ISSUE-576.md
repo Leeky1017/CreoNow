@@ -17,13 +17,15 @@
 
 ## Status
 
-- CURRENT: PR `#577` 已创建，正在执行主会话 preflight 与门禁收口。
+- CURRENT: preflight 已通过，当前任务已自归档，正在等待 PR checks 全绿并自动合并。
 
 ## Next Actions
 
 - [x] Update remaining unchecked Rulebook checklist items to reflect merged umbrella delivery.
 - [x] Mark `issue-563..571` + `issue-574` completed and archive them.
-- [ ] Run preflight, enable auto-merge, confirm merged + main sync.
+- [x] Run preflight
+- [ ] Enable auto-merge and monitor checks
+- [ ] Confirm merged + controlplane main sync + cleanup
 
 ## Plan
 
@@ -119,6 +121,31 @@
   - PR created: `https://github.com/Leeky1017/CreoNow/pull/577`
 - Evidence:
   - `https://github.com/Leeky1017/CreoNow/pull/577`
+
+### 2026-02-15 13:16-13:18 Preflight (PASS)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Key output:
+  - Issue freshness check: `#576` is `OPEN`
+  - Rulebook check: `rulebook task validate issue-576-s3-wave2-governance-closeout` PASS
+  - Workspace check: `prettier --check` PASS
+  - Workspace check: `pnpm typecheck` PASS
+  - Workspace check: `pnpm lint` PASS (`66` warnings, `0` errors)
+  - Workspace check: `pnpm contract:check` PASS
+  - Workspace check: `pnpm cross-module:check` PASS
+  - Workspace check: `pnpm test:unit` PASS
+- Evidence:
+  - terminal output captured in current run
+
+### 2026-02-15 13:19 Current-task self-archive
+
+- Command:
+  - `rulebook task archive issue-576-s3-wave2-governance-closeout`
+- Key output:
+  - `✅ Task issue-576-s3-wave2-governance-closeout archived successfully`
+- Evidence:
+  - `rulebook/tasks/archive/2026-02-15-issue-576-s3-wave2-governance-closeout/`
 
 ## Dependency Sync Check
 

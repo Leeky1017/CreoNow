@@ -7,7 +7,7 @@
 ## 2. Testing
 
 - [x] 2.1 执行 `rulebook task validate`（当前任务 + 归档后结构）
-- [ ] 2.2 执行 preflight（typecheck/lint/contract/cross-module/unit）并记录结果
+- [x] 2.2 执行 preflight（typecheck/lint/contract/cross-module/unit）并记录结果
 
 ## 3. Documentation
 
