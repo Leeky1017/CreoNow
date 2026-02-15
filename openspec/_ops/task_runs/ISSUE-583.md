@@ -83,6 +83,19 @@
   - Files:
     - `openspec/_ops/task_runs/ISSUE-583.md`
     - `rulebook/tasks/issue-583-windows-e2e-create-dialog-regression/**`
+- `aceac82923f4bd233d65dcf2c6fca4c735253802`
+  - Message: `chore: format issue-583 artifacts for preflight (#583)`
+  - Files:
+    - `apps/desktop/main/src/services/projects/templateService.ts`
+    - `apps/desktop/main/src/services/projects/__tests__/template-builtin-dir-invalid-argument.test.ts`
+    - `apps/desktop/renderer/src/features/projects/CreateProjectDialog.test.tsx`
+    - `rulebook/tasks/issue-583-windows-e2e-create-dialog-regression/proposal.md`
+    - `rulebook/tasks/issue-583-windows-e2e-create-dialog-regression/tasks.md`
+- `bafdf9bc5bdc7920a0e999a59aa2be97850e9b1c`
+  - Message: `fix: repair issue-583 template test type narrowing (#583)`
+  - Files:
+    - `apps/desktop/main/src/services/projects/__tests__/template-builtin-dir-invalid-argument.test.ts`
+    - `apps/desktop/main/src/services/projects/__tests__/template-runtime-resolution.test.ts`
 
 ### 2026-02-15 Main-Session Verification（Latest Audit Commands）
 
@@ -114,10 +127,32 @@
 - Key output:
   - PR: `https://github.com/Leeky1017/CreoNow/pull/584`
 
+### 2026-02-15 Preflight Blockers And Remediation
+
+- Blocker #1:
+  - `scripts/agent_pr_preflight.sh` failed at Prettier check.
+  - Non-formatted files:
+    - `apps/desktop/main/src/services/projects/__tests__/template-builtin-dir-invalid-argument.test.ts`
+    - `apps/desktop/main/src/services/projects/templateService.ts`
+    - `apps/desktop/renderer/src/features/projects/CreateProjectDialog.test.tsx`
+    - `rulebook/tasks/issue-583-windows-e2e-create-dialog-regression/proposal.md`
+    - `rulebook/tasks/issue-583-windows-e2e-create-dialog-regression/tasks.md`
+  - Fix:
+    - `pnpm exec prettier --write <5 files>`
+    - commit: `aceac82923f4bd233d65dcf2c6fca4c735253802`
+- Blocker #2:
+  - `scripts/agent_pr_preflight.sh` failed at `pnpm typecheck`.
+  - Errors:
+    - `template-builtin-dir-invalid-argument.test.ts`: `Property 'field' does not exist on type '{}'`.
+    - `template-runtime-resolution.test.ts`: `Property 'error' does not exist on type 'never'.`
+  - Fix:
+    - tightened type narrowing in both test files.
+    - commit: `bafdf9bc5bdc7920a0e999a59aa2be97850e9b1c`
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: aceac8290ce40e27ff2d407ebff183bf5664261e
+- Reviewed-HEAD-SHA: bafdf9bc5bdc7920a0e999a59aa2be97850e9b1c
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
