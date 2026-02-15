@@ -3,7 +3,7 @@
 - Issue: #563
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/563
 - Branch: task/563-s3-wave2-governed-delivery
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/573
 - Scope:
   - Wave W2 integration for 8 changes: `s3-state-extraction`、`s3-synopsis-injection`、`s3-embedding-service`、`s3-entity-completion`、`s3-i18n-extract`、`s3-search-panel`、`s3-export`、`s3-p3-backlog-batch`
   - Main-session audit normalization for `ISSUE-564..ISSUE-571`
@@ -113,7 +113,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 0000000000000000000000000000000000000000
+- Reviewed-HEAD-SHA: 044c16463f3675bad59be6521649dff3ceb3d6b7
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
