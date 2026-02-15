@@ -68,6 +68,7 @@ function bootstrapKgSchema(db: Database.Database, projectId: string): void {
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       attributes_json TEXT NOT NULL,
+      last_seen_state TEXT,
       ai_context_level TEXT NOT NULL DEFAULT 'when_detected',
       aliases TEXT NOT NULL DEFAULT '[]',
       version INTEGER NOT NULL DEFAULT 1,

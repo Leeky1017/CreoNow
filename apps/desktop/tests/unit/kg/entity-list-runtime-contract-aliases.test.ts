@@ -56,6 +56,7 @@ function bootstrapKgSchema(db: Database.Database, projectId: string): void {
       name TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       attributes_json TEXT NOT NULL,
+      last_seen_state TEXT,
       ai_context_level TEXT NOT NULL DEFAULT 'when_detected',
       aliases TEXT NOT NULL DEFAULT '[]',
       version INTEGER NOT NULL DEFAULT 1,
@@ -114,7 +115,7 @@ async function main(): Promise<void> {
   });
 
   db.prepare(
-    "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, ai_context_level, aliases, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, last_seen_state, ai_context_level, aliases, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   ).run(
     "seed-1",
     projectId,
@@ -122,6 +123,7 @@ async function main(): Promise<void> {
     "linmo-seeded",
     "",
     "{}",
+    null,
     "when_detected",
     JSON.stringify(["xiao-mo", "mo-ge"]),
     1,
@@ -161,7 +163,7 @@ async function main(): Promise<void> {
   assert.deepEqual(createdEntity.aliases, ["xiao-mo-created"]);
 
   db.prepare(
-    "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, ai_context_level, aliases, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO kg_entities (id, project_id, type, name, description, attributes_json, last_seen_state, ai_context_level, aliases, version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   ).run(
     "seed-2",
     projectId,
@@ -169,6 +171,7 @@ async function main(): Promise<void> {
     "linmo-updatable",
     "",
     "{}",
+    null,
     "when_detected",
     JSON.stringify([]),
     1,
