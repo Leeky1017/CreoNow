@@ -3,7 +3,7 @@
 - Issue: #555
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/555
 - Branch: task/555-s3-wave1-governed-delivery
-- PR: PENDING
+- PR: https://github.com/Leeky1017/CreoNow/pull/562
 - Scope:
   - Integration of W1: `s3-lint-ratchet`, `s3-kg-last-seen`, `s3-synopsis-skill`, `s3-trace-persistence`, `s3-onnx-runtime`, `s3-i18n-setup`
   - Main-session audit for `ISSUE-556..ISSUE-561`
@@ -103,6 +103,13 @@
   - typecheck: exit code `0`
   - rulebook validate: `✅ Task issue-555-s3-wave1-governed-delivery is valid`
 
+### 2026-02-15 10:37 PR creation
+
+- Command:
+  - `gh pr create --base main --head task/555-s3-wave1-governed-delivery --title "Deliver Sprint3 Wave1 governed integration (#555)" --body-file /tmp/pr555_body.md`
+- Output:
+  - `https://github.com/Leeky1017/CreoNow/pull/562`
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -117,9 +124,9 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: PENDING
+- Reviewed-HEAD-SHA: 31b3ef22e3520da393c3caa7a04293976a9ea085
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
 - Blocking-Issues: 0
-- Decision: PENDING
+- Decision: ACCEPT
