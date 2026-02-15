@@ -1,0 +1,14 @@
+{
+  "id": "screenplay",
+  "name": "Screenplay",
+  "documents": [
+    {
+      "title": "Scene 1",
+      "contentMd": "# Scene 1\n\nINT. LOCATION - DAY\n\n"
+    },
+    {
+      "title": "Characters",
+      "contentMd": "# Characters\n\n"
+    }
+  ]
+}

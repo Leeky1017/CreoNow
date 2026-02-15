@@ -423,6 +423,25 @@ const PROJECT_STAGE_SCHEMA = s.union(
   s.literal("final"),
 );
 
+const PROJECT_TEMPLATE_INPUT_SCHEMA = s.union(
+  s.object({
+    kind: s.literal("builtin"),
+    id: s.string(),
+  }),
+  s.object({
+    kind: s.literal("custom"),
+    structure: s.object({
+      folders: s.array(s.string()),
+      files: s.array(
+        s.object({
+          path: s.string(),
+          content: s.optional(s.string()),
+        }),
+      ),
+    }),
+  }),
+);
+
 const PROJECT_LIFECYCLE_STATE_SCHEMA = s.union(
   s.literal("active"),
   s.literal("archived"),
@@ -1724,6 +1743,7 @@ export const ipcContract = {
         name: s.optional(s.string()),
         type: s.optional(PROJECT_TYPE_SCHEMA),
         description: s.optional(s.string()),
+        template: s.optional(PROJECT_TEMPLATE_INPUT_SCHEMA),
       }),
       response: s.object({ projectId: s.string(), rootPath: s.string() }),
     },

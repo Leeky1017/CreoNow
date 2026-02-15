@@ -15,6 +15,10 @@ import {
   evaluateLifecycleTransition,
   type ProjectLifecycleState,
 } from "./projectLifecycleStateMachine";
+import {
+  resolveTemplateSeedDocuments,
+  type ProjectTemplateInput,
+} from "./templateService";
 
 export type ProjectInfo = {
   projectId: string;
@@ -88,6 +92,7 @@ export type ProjectService = {
     name?: string;
     type?: ProjectType;
     description?: string;
+    template?: ProjectTemplateInput;
   }) => ServiceResult<ProjectInfo>;
   createAiAssistDraft: (args: { prompt: string }) => ServiceResult<{
     name: string;
@@ -342,6 +347,25 @@ function hashJson(json: string): string {
   return createHash("sha256").update(json, "utf8").digest("hex");
 }
 
+function buildDocumentContentJson(contentMd: string): string {
+  const text = contentMd.trim();
+  if (text.length === 0) {
+    return JSON.stringify({
+      type: "doc",
+      content: [{ type: "paragraph" }],
+    });
+  }
+  return JSON.stringify({
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+        content: [{ type: "text", text }],
+      },
+    ],
+  });
+}
+
 /**
  * Compute a settings scope for project-scoped settings.
  *
@@ -545,7 +569,7 @@ export function createProjectService(args: {
   const removeProjectRoot = args.removeProjectRoot ?? defaultRemoveProjectRoot;
 
   const service: ProjectService = {
-    create: ({ name, type, description }) => {
+    create: ({ name, type, description, template }) => {
       const projectId = randomUUID();
       const rootPath = getProjectRootPath(args.userDataDir, projectId);
 
@@ -584,11 +608,19 @@ export function createProjectService(args: {
         return ensured;
       }
 
+      const templateDocuments = resolveTemplateSeedDocuments(template);
+      if (!templateDocuments.ok) {
+        return ipcError("INVALID_ARGUMENT", templateDocuments.error.message, {
+          field: templateDocuments.error.field,
+        });
+      }
+
+      const initialDocuments =
+        templateDocuments.data.length > 0
+          ? templateDocuments.data
+          : [{ title: "Untitled Chapter", contentMd: "" }];
+
       const ts = now();
-      const emptyDocJson = JSON.stringify({
-        type: "doc",
-        content: [{ type: "paragraph" }],
-      });
 
       try {
         args.db.transaction(() => {
@@ -614,22 +646,32 @@ export function createProjectService(args: {
               ts,
             );
 
-          const documentId = randomUUID();
-          args.db
-            .prepare(
-              "INSERT INTO documents (document_id, project_id, title, content_json, content_text, content_md, content_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            )
-            .run(
-              documentId,
-              projectId,
-              "Untitled Chapter",
-              emptyDocJson,
-              "",
-              "",
-              hashJson(emptyDocJson),
-              ts,
-              ts,
-            );
+          let currentDocumentId = "";
+          for (const document of initialDocuments) {
+            const documentId = randomUUID();
+            const contentJson = buildDocumentContentJson(document.contentMd);
+            const contentText = document.contentMd.trim();
+
+            args.db
+              .prepare(
+                "INSERT INTO documents (document_id, project_id, title, content_json, content_text, content_md, content_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              )
+              .run(
+                documentId,
+                projectId,
+                document.title,
+                contentJson,
+                contentText,
+                document.contentMd,
+                hashJson(contentJson),
+                ts,
+                ts,
+              );
+
+            if (currentDocumentId.length === 0) {
+              currentDocumentId = documentId;
+            }
+          }
 
           args.db
             .prepare(
@@ -638,7 +680,7 @@ export function createProjectService(args: {
             .run(
               getProjectSettingsScope(projectId),
               CURRENT_DOCUMENT_ID_KEY,
-              JSON.stringify(documentId),
+              JSON.stringify(currentDocumentId),
               ts,
             );
         })();

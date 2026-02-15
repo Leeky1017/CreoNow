@@ -45,6 +45,21 @@ interface FormContentProps {
   onOpenCreateTemplate: () => void;
 }
 
+function mapPresetToBuiltInTemplateId(presetId: string): string {
+  switch (presetId) {
+    case "preset-novel":
+      return "novel";
+    case "preset-short":
+      return "short-story";
+    case "preset-script":
+      return "screenplay";
+    case "preset-other":
+      return "custom";
+    default:
+      return presetId;
+  }
+}
+
 // =============================================================================
 // Form Content Component
 // =============================================================================
@@ -379,14 +394,42 @@ export function CreateProjectDialog({
     async (data: {
       name: string;
       type?: "novel" | "screenplay" | "media";
+      templateId: string;
       description?: string;
     }) => {
       setSubmitting(true);
       try {
+        const selectedPreset = presets.find(
+          (preset) => preset.id === data.templateId,
+        );
+        const selectedCustom = customs.find(
+          (custom) => custom.id === data.templateId,
+        );
+        const template = selectedCustom
+          ? {
+              kind: "custom" as const,
+              structure: {
+                folders: selectedCustom.structure.folders,
+                files: selectedCustom.structure.files.map((file) => ({
+                  path: file.path,
+                  ...(file.content === undefined
+                    ? {}
+                    : { content: file.content }),
+                })),
+              },
+            }
+          : selectedPreset
+            ? {
+                kind: "builtin" as const,
+                id: mapPresetToBuiltInTemplateId(selectedPreset.id),
+              }
+            : undefined;
+
         const res = await createAndSetCurrent({
           name: data.name,
           type: data.type,
           description: data.description,
+          template,
         });
 
         if (!res.ok) {
@@ -400,7 +443,7 @@ export function CreateProjectDialog({
         setSubmitting(false);
       }
     },
-    [createAndSetCurrent, onOpenChange],
+    [createAndSetCurrent, customs, onOpenChange, presets],
   );
 
   const handleAiGenerate = useCallback(async () => {
