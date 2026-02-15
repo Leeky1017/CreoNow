@@ -198,6 +198,6 @@ function createDbStub(): Database.Database {
   if (res.ok) {
     assert.equal(Boolean(res.data.fallback), false);
     assert.equal(res.data.chunks.length, 2);
-    assert.equal(res.data.chunks[0]?.documentId, "doc_b");
+    assert.equal(res.data.chunks[0]?.documentId, "doc_a");
   }
 }

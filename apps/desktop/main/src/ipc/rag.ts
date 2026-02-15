@@ -9,6 +9,10 @@ import {
   createSemanticChunkIndexService,
   type SemanticChunkIndexService,
 } from "../services/embedding/semanticChunkIndexService";
+import {
+  rankHybridRagCandidates,
+  truncateHybridRagCandidates,
+} from "../services/rag/hybridRagRanking";
 import { createFtsService } from "../services/search/ftsService";
 
 type DocumentIndexRow = {
@@ -306,13 +310,84 @@ export function registerRagIpcHandlers(deps: {
           };
         }
 
-        candidates = semantic.data.chunks.map((chunk) => ({
-          chunkId: chunk.chunkId,
-          documentId: chunk.documentId,
-          text: chunk.text,
-          score: chunk.score,
-          tokenEstimate: estimateTokens(chunk.text),
-        }));
+        const fts = createFtsService({ db: deps.db, logger: deps.logger });
+        const ftsRes = fts.searchFulltext({
+          projectId: payload.projectId,
+          query: payload.queryText,
+          limit: topK,
+        });
+        if (!ftsRes.ok) {
+          return { ok: false, error: ftsRes.error };
+        }
+
+        const crossProjectItem = ftsRes.data.items.find(
+          (item) => item.projectId !== payload.projectId,
+        );
+        if (crossProjectItem) {
+          deps.logger.error("rag_project_forbidden_audit", {
+            operation: "rag:context:retrieve",
+            requestedProjectId: payload.projectId,
+            rowProjectId: crossProjectItem.projectId,
+            documentId: crossProjectItem.documentId,
+          });
+          return {
+            ok: false,
+            error: {
+              code: "SEARCH_PROJECT_FORBIDDEN",
+              message: "Cross-project rag retrieval is forbidden",
+              details: {
+                requestedProjectId: payload.projectId,
+                rowProjectId: crossProjectItem.projectId,
+              },
+            },
+          };
+        }
+
+        const ranked = rankHybridRagCandidates({
+          ftsCandidates: ftsRes.data.items.map((item) => ({
+            documentId: item.documentId,
+            chunkId: `fts:${item.documentId}:0`,
+            text: item.snippet,
+            score: item.score,
+            updatedAt: item.updatedAt,
+          })),
+          semanticCandidates: semantic.data.chunks.map((chunk) => ({
+            documentId: chunk.documentId,
+            chunkId: chunk.chunkId,
+            text: chunk.text,
+            score: chunk.score,
+            updatedAt: chunk.updatedAt,
+          })),
+          minFinalScore: 0.25,
+        });
+
+        const truncatedHybrid = truncateHybridRagCandidates({
+          ranked,
+          topK,
+          maxTokens,
+          estimateTokens,
+        });
+
+        deps.logger.info("rag_retrieve_complete", {
+          projectId: payload.projectId,
+          queryLength: payload.queryText.trim().length,
+          topK,
+          minScore,
+          maxTokens,
+          fallbackReason: fallback?.reason,
+          returnedChunks: truncatedHybrid.chunks.length,
+          truncated: truncatedHybrid.truncated,
+          strategy: "hybrid",
+        });
+
+        return {
+          ok: true,
+          data: {
+            chunks: truncatedHybrid.chunks,
+            truncated: truncatedHybrid.truncated,
+            usedTokens: truncatedHybrid.usedTokens,
+          },
+        };
       }
 
       let usedTokens = 0;
