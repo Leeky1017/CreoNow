@@ -192,7 +192,10 @@ function loadBuiltInTemplates(): Result<
     try {
       parsed = JSON.parse(raw);
     } catch {
-      return fail("template.resource", `Invalid JSON template file: ${filename}`);
+      return fail(
+        "template.resource",
+        `Invalid JSON template file: ${filename}`,
+      );
     }
     if (!isRecord(parsed)) {
       return fail(

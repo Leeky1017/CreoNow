@@ -109,7 +109,9 @@ function createMockTemplateState(
     getTemplateById: vi
       .fn<(id: string) => ProjectTemplate | undefined>()
       .mockImplementation((id: string) =>
-        [...state.presets, ...state.customs].find((template) => template.id === id),
+        [...state.presets, ...state.customs].find(
+          (template) => template.id === id,
+        ),
       ),
     clearError: vi.fn(),
   };

@@ -49,7 +49,10 @@ async function main(): Promise<void> {
       );
     }
     assert.equal(created.error.code, "INVALID_ARGUMENT");
-    assert.match(created.error.message, /Configured built-in template directory/);
+    assert.match(
+      created.error.message,
+      /Configured built-in template directory/,
+    );
     assert.equal(created.error.details?.field, "template.directory");
   } finally {
     process.env.CREONOW_TEMPLATE_DIR = previousTemplateDir;
