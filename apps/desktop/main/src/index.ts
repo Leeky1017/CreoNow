@@ -26,6 +26,7 @@ import { createValidatedIpcMain } from "./ipc/runtime-validation";
 import { registerVersionIpcHandlers } from "./ipc/version";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
+import { createOnnxEmbeddingRuntime } from "./services/embedding/onnxRuntime";
 import { createSemanticChunkIndexService } from "./services/embedding/semanticChunkIndexService";
 import { createJudgeService } from "./services/judge/judgeService";
 import { createJudgeQualityService } from "./services/ai/judgeQualityService";
@@ -139,6 +140,24 @@ export function createMainWindow(logger: Logger): BrowserWindow {
   return win;
 }
 
+function parsePositiveInteger(
+  raw: string | undefined,
+  fallback: number,
+): number {
+  if (typeof raw !== "string") {
+    return fallback;
+  }
+  const trimmed = raw.trim();
+  if (!/^\d+$/u.test(trimmed)) {
+    return fallback;
+  }
+  const parsed = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
+}
+
 /**
  * Register all IPC handlers.
  *
@@ -152,6 +171,22 @@ function registerIpcHandlers(deps: {
   builtinSkillsDir: string;
   env: NodeJS.ProcessEnv;
 }): void {
+  const onnxModelPath = deps.env.CREONOW_ONNX_MODEL_PATH?.trim() ?? "";
+  const onnxProvider = deps.env.CREONOW_ONNX_PROVIDER?.trim() ?? "cpu";
+  const onnxDimension = parsePositiveInteger(
+    deps.env.CREONOW_ONNX_DIMENSION,
+    384,
+  );
+  const onnxRuntime =
+    onnxModelPath.length > 0
+      ? createOnnxEmbeddingRuntime({
+          logger: deps.logger,
+          modelPath: onnxModelPath,
+          provider: onnxProvider,
+          dimension: onnxDimension,
+        })
+      : undefined;
+
   const judgeService = createJudgeService({
     logger: deps.logger,
     isE2E: process.env.CREONOW_E2E === "1",
@@ -160,7 +195,10 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
   });
   const watchService = createCreonowWatchService({ logger: deps.logger });
-  const embeddingService = createEmbeddingService({ logger: deps.logger });
+  const embeddingService = createEmbeddingService({
+    logger: deps.logger,
+    onnxRuntime,
+  });
   const semanticIndex = createSemanticChunkIndexService({
     logger: deps.logger,
     embedding: embeddingService,
