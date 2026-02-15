@@ -17,7 +17,7 @@
 
 ## Status
 
-- CURRENT: Wave2 + post-merge related Rulebook tasks已完成归档迁移，正在执行验证、PR 与主线收口。
+- CURRENT: 归档迁移与首个治理提交已完成，正在执行 preflight/PR/auto-merge 收口。
 
 ## Next Actions
 
@@ -90,6 +90,17 @@
   - `rulebook/tasks/archive/2026-02-15-issue-570-s3-export/`
   - `rulebook/tasks/archive/2026-02-15-issue-571-s3-p3-backlog-batch/`
   - `rulebook/tasks/archive/2026-02-15-issue-574-post-merge-lint-ratchet-fix/`
+
+### 2026-02-15 13:09-13:12 Closeout archive commit
+
+- Command:
+  - `git add -A`
+  - `git commit -m \"docs: archive sprint3 wave2 governance tasks (#576)\"`
+- Key output:
+  - Commit: `babafc34`
+  - Archived 10 legacy Wave2-related Rulebook tasks + added current closeout Rulebook task and RUN_LOG skeleton
+- Evidence:
+  - `git show --stat --oneline babafc34`
 
 ## Dependency Sync Check
 

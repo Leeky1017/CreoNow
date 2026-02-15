@@ -2,7 +2,7 @@
 
 - [x] 1.1 盘点 Sprint3 Wave2（`#563..#571`）与 post-merge 修复（`#574`）当前治理状态
 - [x] 1.2 回填未勾选的 Rulebook 交付步骤（仅治理证据补齐，不改产品行为）
-- [ ] 1.3 将 `issue-563..571` 与 `issue-574` 标记 completed 并归档
+- [x] 1.3 将 `issue-563..571` 与 `issue-574` 标记 completed 并归档
 
 ## 2. Testing
 
