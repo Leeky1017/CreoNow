@@ -1345,6 +1345,7 @@ export type IpcChannelSpec = {
       aliases?: Array<string>;
       attributes?: Record<string, string>;
       description?: string;
+      lastSeenState?: string;
       name: string;
       projectId: string;
       type: "character" | "location" | "event" | "item" | "faction";
@@ -1356,6 +1357,7 @@ export type IpcChannelSpec = {
       createdAt: string;
       description: string;
       id: string;
+      lastSeenState?: string;
       name: string;
       projectId: string;
       type: "character" | "location" | "event" | "item" | "faction";
@@ -1388,6 +1390,7 @@ export type IpcChannelSpec = {
         createdAt: string;
         description: string;
         id: string;
+        lastSeenState?: string;
         name: string;
         projectId: string;
         type: "character" | "location" | "event" | "item" | "faction";
@@ -1408,6 +1411,7 @@ export type IpcChannelSpec = {
       createdAt: string;
       description: string;
       id: string;
+      lastSeenState?: string;
       name: string;
       projectId: string;
       type: "character" | "location" | "event" | "item" | "faction";
@@ -1424,6 +1428,7 @@ export type IpcChannelSpec = {
         aliases?: Array<string>;
         attributes?: Record<string, string>;
         description?: string;
+        lastSeenState?: string;
         name?: string;
         type?: "character" | "location" | "event" | "item" | "faction";
       };
@@ -1436,6 +1441,7 @@ export type IpcChannelSpec = {
       createdAt: string;
       description: string;
       id: string;
+      lastSeenState?: string;
       name: string;
       projectId: string;
       type: "character" | "location" | "event" | "item" | "faction";
@@ -1456,6 +1462,7 @@ export type IpcChannelSpec = {
         createdAt: string;
         description: string;
         id: string;
+        lastSeenState?: string;
         name: string;
         projectId: string;
         type: "character" | "location" | "event" | "item" | "faction";
@@ -1493,6 +1500,7 @@ export type IpcChannelSpec = {
         createdAt: string;
         description: string;
         id: string;
+        lastSeenState?: string;
         name: string;
         projectId: string;
         type: "character" | "location" | "event" | "item" | "faction";
@@ -1517,6 +1525,7 @@ export type IpcChannelSpec = {
         createdAt: string;
         description: string;
         id: string;
+        lastSeenState?: string;
         name: string;
         projectId: string;
         type: "character" | "location" | "event" | "item" | "faction";
@@ -1681,6 +1690,7 @@ export type IpcChannelSpec = {
       createdAt: string;
       description: string;
       id: string;
+      lastSeenState?: string;
       name: string;
       projectId: string;
       type: "character" | "location" | "event" | "item" | "faction";

@@ -49,6 +49,7 @@ export type KgActions = {
     name: string;
     entityType?: string;
     description?: string;
+    lastSeenState?: string;
     aiContextLevel?: AiContextLevel;
     aliases?: string[];
   }) => Promise<IpcResponse<KgEntity>>;
@@ -61,6 +62,7 @@ export type KgActions = {
         | "entityType"
         | "description"
         | "metadataJson"
+        | "lastSeenState"
         | "aiContextLevel"
         | "aliases"
       >
@@ -285,6 +287,7 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
       name,
       entityType,
       description,
+      lastSeenState,
       aiContextLevel,
       aliases,
     }) => {
@@ -302,6 +305,7 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
         type: normalizedType,
         name,
         description,
+        lastSeenState,
         aiContextLevel,
         aliases,
       });
@@ -352,6 +356,7 @@ export function createKgStore(deps: { invoke: IpcInvoke }) {
           name: patch.name,
           type: nextType,
           description: patch.description,
+          lastSeenState: patch.lastSeenState,
           aiContextLevel: patch.aiContextLevel,
           attributes: nextAttributes,
           aliases: patch.aliases,
