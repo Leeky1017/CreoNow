@@ -96,6 +96,10 @@
   - Files:
     - `apps/desktop/main/src/services/projects/__tests__/template-builtin-dir-invalid-argument.test.ts`
     - `apps/desktop/main/src/services/projects/__tests__/template-runtime-resolution.test.ts`
+- `6ca067370dbf57999f4f08d42ea5da67a671b9f6`
+  - Message: `chore: format template runtime resolution test (#583)`
+  - Files:
+    - `apps/desktop/main/src/services/projects/__tests__/template-runtime-resolution.test.ts`
 
 ### 2026-02-15 Main-Session Verification（Latest Audit Commands）
 
@@ -148,11 +152,18 @@
   - Fix:
     - tightened type narrowing in both test files.
     - commit: `bafdf9bc5bdc7920a0e999a59aa2be97850e9b1c`
+- Blocker #3:
+  - after type-narrowing commit, preflight still reported one-file Prettier drift.
+  - File:
+    - `apps/desktop/main/src/services/projects/__tests__/template-runtime-resolution.test.ts`
+  - Fix:
+    - `pnpm exec prettier --write apps/desktop/main/src/services/projects/__tests__/template-runtime-resolution.test.ts`
+    - commit: `6ca067370dbf57999f4f08d42ea5da67a671b9f6`
 
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: bafdf9bc5bdc7920a0e999a59aa2be97850e9b1c
+- Reviewed-HEAD-SHA: 6ca067370dbf57999f4f08d42ea5da67a671b9f6
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
