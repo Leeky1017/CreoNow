@@ -6,6 +6,8 @@ import type { MemoryService } from "../memory/memoryService";
 import { createRetrievedFetcher } from "./fetchers/retrievedFetcher";
 import { createRulesFetcher } from "./fetchers/rulesFetcher";
 import { createSettingsFetcher } from "./fetchers/settingsFetcher";
+import { createSynopsisFetcher } from "./fetchers/synopsisFetcher";
+import type { SynopsisStore } from "./synopsisStore";
 import type {
   ContextAssembleRequest,
   ContextBudgetLayerConfig,
@@ -16,6 +18,7 @@ import type {
   ContextLayerChunk,
   ContextLayerDetail,
   ContextLayerFetcher,
+  ContextLayerFetchResult,
   ContextLayerFetcherMap,
   ContextLayerId,
   ContextLayerSummary,
@@ -49,6 +52,7 @@ export type ContextLayerAssemblyDeps = {
   onConstraintTrim?: (log: ContextConstraintTrimLog) => void;
   kgService?: Pick<KnowledgeGraphService, "entityList">;
   memoryService?: Pick<MemoryService, "previewInjection">;
+  synopsisStore?: Pick<SynopsisStore, "listRecentByProject">;
   matchEntities?: (text: string, entities: MatchableEntity[]) => MatchResult[];
 };
 
@@ -131,6 +135,26 @@ function uniqueNonEmpty(values: readonly string[]): string[] {
     }
   }
   return [...deduped];
+}
+
+/**
+ * Why: composed fetchers need one deterministic merge strategy for chunks,
+ * warnings, and truncation flags.
+ */
+function mergeFetchResults(
+  results: readonly ContextLayerFetchResult[],
+): ContextLayerFetchResult {
+  const chunks = results.flatMap((result) => result.chunks);
+  const warnings = uniqueNonEmpty(
+    results.flatMap((result) => result.warnings ?? []),
+  );
+  const truncated = results.some((result) => result.truncated === true);
+
+  return {
+    chunks,
+    ...(truncated ? { truncated: true } : {}),
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
 }
 
 /**
@@ -985,7 +1009,7 @@ async function buildContextSnapshot(args: {
 function defaultFetchers(
   deps?: Pick<
     ContextLayerAssemblyDeps,
-    "kgService" | "memoryService" | "matchEntities"
+    "kgService" | "memoryService" | "synopsisStore" | "matchEntities"
   >,
 ): ContextLayerFetcherMap {
   const fallbackRulesFetcher: ContextLayerFetcher = async (request) => ({
@@ -996,6 +1020,23 @@ function defaultFetchers(
       },
     ],
   });
+
+  const synopsisFetcher: ContextLayerFetcher = deps?.synopsisStore
+    ? createSynopsisFetcher({
+        synopsisStore: deps.synopsisStore,
+      })
+    : async () => ({
+        chunks: [],
+      });
+
+  const retrievedFetcher: ContextLayerFetcher = deps?.kgService
+    ? createRetrievedFetcher({
+        kgService: deps.kgService,
+        matchEntities: deps.matchEntities ?? defaultMatchEntities,
+      })
+    : async () => ({
+        chunks: [],
+      });
 
   return {
     rules: deps?.kgService
@@ -1008,14 +1049,12 @@ function defaultFetchers(
       : async () => ({
           chunks: [],
         }),
-    retrieved: deps?.kgService
-      ? createRetrievedFetcher({
-          kgService: deps.kgService,
-          matchEntities: deps.matchEntities ?? defaultMatchEntities,
-        })
-      : async () => ({
-          chunks: [],
-        }),
+    retrieved: async (request) => {
+      const synopsisResult = await synopsisFetcher(request);
+      const retrievedResult = await retrievedFetcher(request);
+
+      return mergeFetchResults([synopsisResult, retrievedResult]);
+    },
     immediate: async (request) => ({
       chunks: [
         {
@@ -1043,6 +1082,7 @@ export function createContextLayerAssemblyService(
     ...defaultFetchers({
       kgService: deps?.kgService,
       memoryService: deps?.memoryService,
+      synopsisStore: deps?.synopsisStore,
       matchEntities: deps?.matchEntities,
     }),
     ...(fetchers ?? {}),

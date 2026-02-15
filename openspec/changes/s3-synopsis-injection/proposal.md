@@ -24,14 +24,18 @@
 ## 依赖同步检查（Dependency Sync Check）
 
 - 核对输入：
-  - `openspec/changes/s3-synopsis-skill/specs/skill-system-delta.md`；
+  - `openspec/changes/archive/s3-synopsis-skill/specs/skill-system-delta.md`；
+  - `apps/desktop/main/skills/packages/pkg.creonow.builtin/1.0.0/skills/synopsis/SKILL.md`；
   - `docs/plans/unified-roadmap.md` 中 `s3-synopsis-injection（AR-C25）` 条目；
   - `openspec/specs/context-engine/spec.md` 的层组装与预算契约。
 - 核对项：
   - `synopsis` 输出结构是否满足存储与注入前提；
   - 摘要注入是否可被预算裁剪且不破坏既有层优先级；
   - 存储/检索失败是否具备结构化降级信号。
-- 结论：`PENDING（进入 Red 前复核；依赖上游交付状态）`。
+- 结论：`NO_DRIFT（上游已归档；输出约束与注入前提一致）`。
+- 备注：
+  - 上游 change 已归档，依赖检查输入路径以 `archive/` 为准；
+  - roadmap 中的旧技能路径已被包化目录替代，不影响 `synopsis` 输出契约。
 
 ## 踩坑提醒（防复发）
 

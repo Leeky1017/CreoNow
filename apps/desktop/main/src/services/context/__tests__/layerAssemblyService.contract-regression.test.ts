@@ -12,11 +12,13 @@ const contextDir = path.resolve(
 
 const topologyFiles = [
   "layerAssemblyService.ts",
+  "synopsisStore.ts",
   "types.ts",
   "utils/formatEntity.ts",
   "fetchers/rulesFetcher.ts",
   "fetchers/retrievedFetcher.ts",
   "fetchers/settingsFetcher.ts",
+  "fetchers/synopsisFetcher.ts",
 ] as const;
 
 for (const relativePath of topologyFiles) {
