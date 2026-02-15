@@ -22,6 +22,12 @@ export type SkillPrompt = {
   user: string;
 };
 
+export type SkillOutputConstraints = {
+  minChars?: number;
+  maxChars?: number;
+  singleParagraph?: boolean;
+};
+
 export type SkillFrontmatter = {
   id: string;
   name: string;
@@ -33,7 +39,7 @@ export type SkillFrontmatter = {
   packageId: string;
   context_rules: SkillContextRules;
   modelProfile?: Record<string, unknown>;
-  output?: Record<string, unknown>;
+  output?: SkillOutputConstraints;
   prompt: SkillPrompt;
   dependsOn?: string[];
   timeoutMs?: number;
@@ -359,6 +365,103 @@ function validatePrompt(obj: JsonObject): ServiceResult<SkillPrompt> {
   );
 }
 
+function validateOutputConstraints(args: {
+  skillId: string;
+  output: unknown;
+}): ServiceResult<SkillOutputConstraints | undefined> {
+  if (args.output === undefined) {
+    if (args.skillId === "builtin:synopsis") {
+      return ipcError("INVALID_ARGUMENT", "output is required", {
+        fieldName: "output",
+      });
+    }
+    return { ok: true, data: undefined };
+  }
+
+  const output = asObject(args.output);
+  if (!output) {
+    return ipcError("INVALID_ARGUMENT", "output must be an object", {
+      fieldName: "output",
+    });
+  }
+
+  const minChars = output.minChars;
+  if (
+    minChars !== undefined &&
+    (typeof minChars !== "number" ||
+      !Number.isFinite(minChars) ||
+      !Number.isInteger(minChars) ||
+      minChars <= 0)
+  ) {
+    return ipcError("INVALID_ARGUMENT", "output.minChars must be a positive integer", {
+      fieldName: "output.minChars",
+    });
+  }
+
+  const maxChars = output.maxChars;
+  if (
+    maxChars !== undefined &&
+    (typeof maxChars !== "number" ||
+      !Number.isFinite(maxChars) ||
+      !Number.isInteger(maxChars) ||
+      maxChars <= 0)
+  ) {
+    return ipcError("INVALID_ARGUMENT", "output.maxChars must be a positive integer", {
+      fieldName: "output.maxChars",
+    });
+  }
+
+  if (
+    minChars !== undefined &&
+    maxChars !== undefined &&
+    minChars > maxChars
+  ) {
+    return ipcError("INVALID_ARGUMENT", "output.minChars must be <= output.maxChars", {
+      fieldName: "output.minChars",
+    });
+  }
+
+  const singleParagraph = output.singleParagraph;
+  if (singleParagraph !== undefined && typeof singleParagraph !== "boolean") {
+    return ipcError("INVALID_ARGUMENT", "output.singleParagraph must be a boolean", {
+      fieldName: "output.singleParagraph",
+    });
+  }
+
+  if (args.skillId === "builtin:synopsis") {
+    if (minChars !== 200) {
+      return ipcError(
+        "INVALID_ARGUMENT",
+        "builtin:synopsis requires output.minChars = 200",
+        { fieldName: "output.minChars" },
+      );
+    }
+    if (maxChars !== 300) {
+      return ipcError(
+        "INVALID_ARGUMENT",
+        "builtin:synopsis requires output.maxChars = 300",
+        { fieldName: "output.maxChars" },
+      );
+    }
+    if (singleParagraph !== true) {
+      return ipcError(
+        "INVALID_ARGUMENT",
+        "builtin:synopsis requires output.singleParagraph = true",
+        { fieldName: "output.singleParagraph" },
+      );
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      ...(minChars !== undefined ? { minChars } : {}),
+      ...(maxChars !== undefined ? { maxChars } : {}),
+      ...(singleParagraph !== undefined ? { singleParagraph } : {}),
+    },
+  };
+}
+
 /**
  * Validate a parsed skill frontmatter object against the V1 schema.
  */
@@ -473,7 +576,13 @@ export function validateSkillFrontmatter(args: {
 
   const description = optionalStringField(obj, "description") ?? undefined;
   const modelProfile = asObject(obj.modelProfile) ?? undefined;
-  const output = asObject(obj.output) ?? undefined;
+  const outputRes = validateOutputConstraints({
+    skillId: id,
+    output: obj.output,
+  });
+  if (!outputRes.ok) {
+    return outputRes;
+  }
 
   return {
     ok: true,
@@ -488,7 +597,7 @@ export function validateSkillFrontmatter(args: {
       packageId,
       context_rules: contextRulesRes.data,
       modelProfile,
-      output,
+      output: outputRes.data,
       prompt: promptRes.data,
       dependsOn: dependsOnRes.data.length ? dependsOnRes.data : undefined,
       timeoutMs: timeoutMsRes.data,

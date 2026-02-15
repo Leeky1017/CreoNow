@@ -460,6 +460,7 @@ export function registerAiIpcHandlers(deps: {
         data: {
           id: resolved.data.skill.id,
           prompt: resolved.data.skill.prompt,
+          output: resolved.data.skill.output,
           enabled: resolved.data.enabled,
           valid: resolved.data.skill.valid,
           inputType: resolved.data.inputType,
