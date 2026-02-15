@@ -1,0 +1,10 @@
+{
+  "id": "short-story",
+  "name": "Short Story",
+  "documents": [
+    {
+      "title": "Story",
+      "contentMd": "# Untitled Story\n\n"
+    }
+  ]
+}

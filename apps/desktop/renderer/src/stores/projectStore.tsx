@@ -34,6 +34,18 @@ export type ProjectActions = {
     name?: string;
     type?: "novel" | "screenplay" | "media";
     description?: string;
+    template?:
+      | {
+          kind: "builtin";
+          id: string;
+        }
+      | {
+          kind: "custom";
+          structure: {
+            folders: string[];
+            files: Array<{ path: string; content?: string }>;
+          };
+        };
   }) => Promise<IpcResponse<ProjectInfo>>;
   createAiAssistDraft: (args: {
     prompt: string;
@@ -164,11 +176,12 @@ export function createProjectStore(deps: {
       });
     },
 
-    createAndSetCurrent: async ({ name, type, description }) => {
+    createAndSetCurrent: async ({ name, type, description, template }) => {
       const created = await deps.invoke("project:project:create", {
         name,
         type,
         description,
+        template,
       });
       if (!created.ok) {
         set({ lastError: created.error });

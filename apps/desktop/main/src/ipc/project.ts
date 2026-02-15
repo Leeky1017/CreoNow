@@ -24,6 +24,18 @@ export function registerProjectIpcHandlers(deps: {
         name?: string;
         type?: "novel" | "screenplay" | "media";
         description?: string;
+        template?:
+          | {
+              kind: "builtin";
+              id: string;
+            }
+          | {
+              kind: "custom";
+              structure: {
+                folders: string[];
+                files: Array<{ path: string; content?: string }>;
+              };
+            };
       },
     ): Promise<IpcResponse<{ projectId: string; rootPath: string }>> => {
       if (!deps.db) {
@@ -41,6 +53,7 @@ export function registerProjectIpcHandlers(deps: {
         name: payload.name,
         type: payload.type,
         description: payload.description,
+        template: payload.template,
       });
       return res.ok
         ? { ok: true, data: res.data }

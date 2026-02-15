@@ -1,0 +1,14 @@
+{
+  "id": "novel",
+  "name": "Novel",
+  "documents": [
+    {
+      "title": "Chapter 1",
+      "contentMd": "# Chapter 1\n\n"
+    },
+    {
+      "title": "Outline",
+      "contentMd": "# Story Outline\n\n## Act 1\n\n## Act 2\n\n## Act 3\n"
+    }
+  ]
+}
