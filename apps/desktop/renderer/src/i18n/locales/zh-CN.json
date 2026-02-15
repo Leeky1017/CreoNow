@@ -1,0 +1,10 @@
+{
+  "workbench": {
+    "bootstrap": {
+      "appShell": "工作台外壳"
+    },
+    "export": {
+      "currentDocument": "当前文档"
+    }
+  }
+}
