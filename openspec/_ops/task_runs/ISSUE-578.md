@@ -93,6 +93,19 @@
   - `pnpm exec prettier --write rulebook/tasks/issue-579-s3-zen-mode/.metadata.json rulebook/tasks/issue-579-s3-zen-mode/proposal.md rulebook/tasks/issue-579-s3-zen-mode/tasks.md`
   - committed as `chore: format zen-mode rulebook artifacts (#578)` (`8538995a`)
 
+### 2026-02-15 15:38-15:40 Preflight #2 blocked + remediation
+
+- Blocker:
+  - `scripts/agent_pr_preflight.sh` failed at `pnpm typecheck`:
+    - `apps/desktop/main/src/ipc/rag.ts(352,29): error TS2339: Property 'updatedAt' does not exist on type 'FulltextSearchItem'.`
+- Fix:
+  - Added `updatedAt` field to `FulltextSearchItem` and to `searchFulltext` mapping in `apps/desktop/main/src/services/search/ftsService.ts`.
+  - Verified with:
+    - `pnpm typecheck`
+    - `pnpm exec tsx apps/desktop/tests/integration/rag-retrieve-rerank.test.ts`
+    - `pnpm exec tsx apps/desktop/tests/integration/search/search-cross-project-forbidden.test.ts`
+  - committed as `fix: align fulltext item typing for hybrid rag (#578)` (`b784e9ee`)
+
 ## Dependency Sync Check
 
 - Inputs:
@@ -106,7 +119,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 8538995acb6289760b3014302f9528aeca7a01d0
+- Reviewed-HEAD-SHA: b784e9eebecd6995ce3c4afcec9166f5c7050655
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
