@@ -33,6 +33,7 @@ import skillCustomCrudSql from "./migrations/0016_skill_custom_crud.sql?raw";
 import versionBranchMergeConflictSql from "./migrations/0017_version_branch_merge_conflict.sql?raw";
 import kgAiContextLevelSql from "./migrations/0018_kg_ai_context_level.sql?raw";
 import kgAliasesSql from "./migrations/0019_kg_aliases.sql?raw";
+import kgLastSeenStateSql from "./migrations/0020_kg_last_seen_state.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -115,6 +116,11 @@ const MIGRATIONS_BASE: readonly Migration[] = [
     version: 19,
     name: "0019_kg_aliases",
     sql: kgAliasesSql,
+  },
+  {
+    version: 20,
+    name: "0020_kg_last_seen_state",
+    sql: kgLastSeenStateSql,
   },
 ];
 

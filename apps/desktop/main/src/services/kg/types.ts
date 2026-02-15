@@ -30,6 +30,7 @@ export type KnowledgeEntity = {
   name: string;
   description: string;
   attributes: Record<string, string>;
+  lastSeenState?: string;
   aiContextLevel: AiContextLevel;
   aliases: string[];
   version: number;
@@ -105,6 +106,7 @@ export type KnowledgeGraphService = {
     name: string;
     description?: string;
     attributes?: Record<string, string>;
+    lastSeenState?: string;
     aiContextLevel?: AiContextLevel;
     aliases?: string[];
   }) => ServiceResult<KnowledgeEntity>;
@@ -127,6 +129,7 @@ export type KnowledgeGraphService = {
       name?: string;
       description?: string;
       attributes?: Record<string, string>;
+      lastSeenState?: string;
       aiContextLevel?: AiContextLevel;
       aliases?: string[];
     };
