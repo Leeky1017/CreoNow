@@ -17,4 +17,4 @@
 - [x] 3.1 更新 `openspec/changes/s3-synopsis-skill/tasks.md` 勾选状态
 - [x] 3.2 新建 `openspec/_ops/task_runs/ISSUE-558.md`（含 Dependency Sync + Red/Green 证据）
 - [x] 3.3 执行 `rulebook task validate issue-558-s3-synopsis-skill`
-- [ ] 3.4 完成提交与推送（不创建 PR）
+- [x] 3.4 完成提交与推送（不创建 PR）
