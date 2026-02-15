@@ -12,6 +12,10 @@ import {
 import { deriveContent } from "../services/documents/derive";
 import type { SemanticChunkIndexService } from "../services/embedding/semanticChunkIndexService";
 import type { KgRecognitionRuntime } from "../services/kg/kgRecognitionRuntime";
+import {
+  runStateExtractionForChapterCompletion,
+  type StateExtractor,
+} from "../services/kg/stateExtractor";
 import { createStatsService } from "../services/stats/statsService";
 
 type Actor = "user" | "auto" | "ai";
@@ -64,6 +68,7 @@ export function registerFileIpcHandlers(deps: {
   db: Database.Database | null;
   logger: Logger;
   recognitionRuntime?: KgRecognitionRuntime | null;
+  stateExtractor?: StateExtractor | null;
   semanticIndex?: SemanticChunkIndexService;
 }): void {
   deps.ipcMain.handle(
@@ -541,6 +546,21 @@ export function registerFileIpcHandlers(deps: {
         documentId: payload.documentId,
         status: payload.status,
       });
+
+      if (res.ok && deps.db && deps.stateExtractor) {
+        queueMicrotask(() => {
+          void runStateExtractionForChapterCompletion({
+            db: deps.db as Database.Database,
+            logger: deps.logger,
+            stateExtractor: deps.stateExtractor ?? null,
+            projectId: payload.projectId,
+            documentId: payload.documentId,
+            status: res.data.status,
+            traceId: `kg-state-extract-${payload.documentId}-${Date.now()}`,
+          });
+        });
+      }
+
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: mapDocumentErrorToIpcError(res.error) };
