@@ -31,6 +31,7 @@ import { createSemanticChunkIndexService } from "./services/embedding/semanticCh
 import { createJudgeService } from "./services/judge/judgeService";
 import { createJudgeQualityService } from "./services/ai/judgeQualityService";
 import { createKgRecognitionRuntime } from "./services/kg/kgRecognitionRuntime";
+import { createStateExtractor } from "./services/kg/stateExtractor";
 import { createCreonowWatchService } from "./services/context/watchService";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -210,6 +211,12 @@ function registerIpcHandlers(deps: {
         logger: deps.logger,
       })
     : null;
+  const stateExtractor = deps.db
+    ? createStateExtractor({
+        db: deps.db,
+        logger: deps.logger,
+      })
+    : null;
 
   const ragRerank = {
     enabled: deps.env.CREONOW_RAG_RERANK === "1",
@@ -292,6 +299,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     recognitionRuntime,
+    stateExtractor,
     semanticIndex,
   });
 
