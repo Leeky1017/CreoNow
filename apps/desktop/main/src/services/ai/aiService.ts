@@ -1349,9 +1349,9 @@ export function createAiService(deps: {
       });
     };
 
-    const persistTraceAndGetDegradation = (assistantOutput: string):
-      | TracePersistenceDegradation
-      | undefined => {
+    const persistTraceAndGetDegradation = (
+      assistantOutput: string,
+    ): TracePersistenceDegradation | undefined => {
       if (!deps.traceStore) {
         return undefined;
       }

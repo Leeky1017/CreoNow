@@ -44,7 +44,9 @@ function buildLogger(logPath: string): Logger {
     throw new Error("Expected loadSkills to return ok result");
   }
 
-  const synopsis = loaded.data.skills.find((skill) => skill.id === "builtin:synopsis");
+  const synopsis = loaded.data.skills.find(
+    (skill) => skill.id === "builtin:synopsis",
+  );
   assert.ok(synopsis, "synopsis skill must be discoverable by loader");
   assert.equal(synopsis?.scope, "builtin");
   assert.equal(synopsis?.valid, true);
@@ -166,12 +168,16 @@ prompt:
     throw new Error("Expected loadSkills to return ok result");
   }
 
-  const synopsis = loaded.data.skills.find((skill) => skill.id === "builtin:synopsis");
+  const synopsis = loaded.data.skills.find(
+    (skill) => skill.id === "builtin:synopsis",
+  );
   assert.ok(synopsis, "synopsis skill entry should be present");
   assert.equal(synopsis?.valid, false);
   assert.equal(synopsis?.error_code, "INVALID_ARGUMENT");
 
-  const rewrite = loaded.data.skills.find((skill) => skill.id === "builtin:rewrite");
+  const rewrite = loaded.data.skills.find(
+    (skill) => skill.id === "builtin:rewrite",
+  );
   assert.ok(rewrite, "other skills should still be loaded");
   assert.equal(rewrite?.valid, true);
 }

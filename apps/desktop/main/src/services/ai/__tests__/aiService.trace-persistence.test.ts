@@ -70,7 +70,11 @@ try {
     emitEvent: () => {},
   });
 
-  assert.equal(run.ok, true, "runSkill should still succeed when trace persistence fails");
+  assert.equal(
+    run.ok,
+    true,
+    "runSkill should still succeed when trace persistence fails",
+  );
   if (!run.ok) {
     throw new Error("runSkill should return successful output");
   }

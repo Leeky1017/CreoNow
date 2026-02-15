@@ -194,15 +194,24 @@ function validateSynopsisOutput(args: {
   }
 
   if (requireSingleParagraph && /\n/.test(trimmed)) {
-    return ipcError("INVALID_ARGUMENT", "synopsis output must be single paragraph");
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "synopsis output must be single paragraph",
+    );
   }
 
   if (containsListMarker(trimmed)) {
-    return ipcError("INVALID_ARGUMENT", "synopsis output must not contain list markers");
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "synopsis output must not contain list markers",
+    );
   }
 
   if (containsDebugNoise(trimmed)) {
-    return ipcError("INVALID_ARGUMENT", "synopsis output must not contain template/debug noise");
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "synopsis output must not contain template/debug noise",
+    );
   }
 
   return { ok: true, data: true };

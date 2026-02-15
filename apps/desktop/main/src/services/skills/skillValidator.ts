@@ -403,21 +403,25 @@ function validateOutputConstraints(args: {
   }
   const maxChars = maxCharsResult.data;
 
-  if (
-    minChars !== undefined &&
-    maxChars !== undefined &&
-    minChars > maxChars
-  ) {
-    return ipcError("INVALID_ARGUMENT", "output.minChars must be <= output.maxChars", {
-      fieldName: "output.minChars",
-    });
+  if (minChars !== undefined && maxChars !== undefined && minChars > maxChars) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "output.minChars must be <= output.maxChars",
+      {
+        fieldName: "output.minChars",
+      },
+    );
   }
 
   const singleParagraph = output.singleParagraph;
   if (singleParagraph !== undefined && typeof singleParagraph !== "boolean") {
-    return ipcError("INVALID_ARGUMENT", "output.singleParagraph must be a boolean", {
-      fieldName: "output.singleParagraph",
-    });
+    return ipcError(
+      "INVALID_ARGUMENT",
+      "output.singleParagraph must be a boolean",
+      {
+        fieldName: "output.singleParagraph",
+      },
+    );
   }
 
   const synopsisRuleResult = validateSynopsisOutputConstraints({

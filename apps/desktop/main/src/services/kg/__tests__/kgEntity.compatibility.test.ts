@@ -124,9 +124,7 @@ function createTestHarness(): {
       .prepare<
         [string],
         { description: string; lastSeenState: string | null }
-      >(
-        "SELECT description, last_seen_state as lastSeenState FROM kg_entities WHERE id = ?",
-      )
+      >("SELECT description, last_seen_state as lastSeenState FROM kg_entities WHERE id = ?")
       .get(harness.legacyEntityId);
 
     assert.equal(row?.description, "legacy-desc-updated");
