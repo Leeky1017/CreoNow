@@ -1,0 +1,17 @@
+{
+  "version": "2026-02-15",
+  "generatedAt": "2026-02-15T02:05:48.910Z",
+  "source": "eslint-json",
+  "governance": {
+    "issue": "#556",
+    "reason": "s3-lint-ratchet initial baseline snapshot"
+  },
+  "snapshot": {
+    "totalViolations": 66,
+    "byRule": {
+      "complexity": 14,
+      "max-lines-per-function": 50,
+      "react-hooks/exhaustive-deps": 2
+    }
+  }
+}
