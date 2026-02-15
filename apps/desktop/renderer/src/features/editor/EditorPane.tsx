@@ -4,6 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import Link from "@tiptap/extension-link";
 import BubbleMenuExtension from "@tiptap/extension-bubble-menu";
+import type { IpcResponseData } from "@shared/types/ipc-generated";
 
 import { useOptionalAiStore } from "../../stores/aiStore";
 import { useEditorStore } from "../../stores/editorStore";
@@ -19,6 +20,7 @@ import { resolveFinalDocumentEditDecision } from "./finalDocumentEditGuard";
 import { WriteButton } from "./WriteButton";
 import { SlashCommandExtension } from "./extensions/slashCommand";
 import { SlashCommandPanel } from "./SlashCommandPanel";
+import { EntityCompletionPanel } from "./EntityCompletionPanel";
 import {
   routeSlashCommandExecution,
   SLASH_COMMAND_REGISTRY,
@@ -36,6 +38,10 @@ const LARGE_PASTE_CHUNK_SIZE = 64 * 1024;
 const CAPACITY_WARNING_TEXT =
   "文档已达到 1000000 字符上限，建议拆分文档后继续写作。";
 const WRITE_CONTEXT_WINDOW = 240;
+const ENTITY_COMPLETION_LOOKBACK_CHARS = 96;
+const ENTITY_COMPLETION_TRIGGER = "@";
+
+type EntityListItem = IpcResponseData<"knowledge:entity:list">["items"][number];
 
 const ALLOWED_PASTE_TAGS = new Set([
   "p",
@@ -81,6 +87,95 @@ const DROP_TAGS = new Set([
 
 function isAiRunning(status: string): boolean {
   return status === "running" || status === "streaming";
+}
+
+function normalizeEntityMatchValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function collectEntityCandidates(
+  query: string,
+  items: EntityListItem[],
+): Array<{
+  id: string;
+  name: string;
+  type: EntityListItem["type"];
+}> {
+  const normalizedQuery = normalizeEntityMatchValue(query);
+  if (normalizedQuery.length === 0) {
+    return [];
+  }
+
+  return items
+    .filter((item) => {
+      const normalizedName = normalizeEntityMatchValue(item.name);
+      if (normalizedName.includes(normalizedQuery)) {
+        return true;
+      }
+      return item.aliases.some((alias) =>
+        normalizeEntityMatchValue(alias).includes(normalizedQuery),
+      );
+    })
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      type: item.type,
+    }));
+}
+
+function detectEntityCompletionInput(editor: Editor): {
+  query: string;
+  triggerFrom: number;
+  triggerTo: number;
+  anchorTop: number;
+  anchorLeft: number;
+} | null {
+  const { state, view } = editor;
+  const selection = state.selection;
+
+  if (!selection.empty) {
+    return null;
+  }
+
+  const triggerTo = selection.from;
+  const textFrom = Math.max(1, triggerTo - ENTITY_COMPLETION_LOOKBACK_CHARS);
+  const textBeforeCursor = state.doc.textBetween(
+    textFrom,
+    triggerTo,
+    "\n",
+    "\n",
+  );
+  const match = textBeforeCursor.match(/(?:^|\s)@([^\s@]+)$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const query = match[1];
+  if (query.trim().length === 0) {
+    return null;
+  }
+
+  const triggerFrom = triggerTo - `${ENTITY_COMPLETION_TRIGGER}${query}`.length;
+  if (triggerFrom < 1) {
+    return null;
+  }
+
+  let coords: { bottom: number; left: number };
+  try {
+    const resolved = view.coordsAtPos(triggerTo);
+    coords = { bottom: resolved.bottom, left: resolved.left };
+  } catch {
+    // JSDOM does not fully implement geometry APIs used by ProseMirror.
+    coords = { bottom: 0, left: 0 };
+  }
+  return {
+    query,
+    triggerFrom,
+    triggerTo,
+    anchorTop: coords.bottom + 6,
+    anchorLeft: coords.left,
+  };
 }
 
 function buildWriteInput(editor: Editor): string {
@@ -229,6 +324,16 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     (s) => s.setDocumentCharacterCount,
   );
   const setCapacityWarning = useEditorStore((s) => s.setCapacityWarning);
+  const entityCompletionSession = useEditorStore(
+    (s) => s.entityCompletionSession,
+  );
+  const setEntityCompletionSession = useEditorStore(
+    (s) => s.setEntityCompletionSession,
+  );
+  const clearEntityCompletionSession = useEditorStore(
+    (s) => s.clearEntityCompletionSession,
+  );
+  const listKnowledgeEntities = useEditorStore((s) => s.listKnowledgeEntities);
   const downgradeFinalStatusForEdit = useEditorStore(
     (s) => s.downgradeFinalStatusForEdit,
   );
@@ -247,6 +352,8 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   const [isSlashPanelOpen, setIsSlashPanelOpen] = React.useState(false);
   const [slashSearchQuery, setSlashSearchQuery] = React.useState("");
   const slashPanelOpenRef = React.useRef(false);
+  const entityCompletionSessionRef = React.useRef(entityCompletionSession);
+  const entityCompletionRequestIdRef = React.useRef(0);
   const isPreviewMode =
     previewStatus === "ready" && previewContentJson !== null;
   const activeContentJson = isPreviewMode
@@ -266,6 +373,10 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   React.useEffect(() => {
     slashPanelOpenRef.current = isSlashPanelOpen;
   }, [isSlashPanelOpen]);
+
+  React.useEffect(() => {
+    entityCompletionSessionRef.current = entityCompletionSession;
+  }, [entityCompletionSession]);
 
   const openSlashPanel = React.useCallback(() => {
     setIsSlashPanelOpen(true);
@@ -408,6 +519,220 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       editor.off("update", onUpdate);
     };
   }, [editor, syncCapacityState]);
+
+  const resolveEntityCompletionCandidates = React.useCallback(
+    async (args: {
+      query: string;
+      triggerFrom: number;
+      triggerTo: number;
+      anchorTop: number;
+      anchorLeft: number;
+    }): Promise<void> => {
+      const requestId = ++entityCompletionRequestIdRef.current;
+      setEntityCompletionSession({
+        open: true,
+        query: args.query,
+        triggerFrom: args.triggerFrom,
+        triggerTo: args.triggerTo,
+        anchorTop: args.anchorTop,
+        anchorLeft: args.anchorLeft,
+        status: "loading",
+        selectedIndex: 0,
+        candidates: [],
+        message: null,
+      });
+
+      const listed = await listKnowledgeEntities({
+        projectId: props.projectId,
+      });
+      if (requestId !== entityCompletionRequestIdRef.current) {
+        return;
+      }
+
+      if (!listed.ok) {
+        setEntityCompletionSession({
+          open: true,
+          status: "error",
+          candidates: [],
+          selectedIndex: 0,
+          message: "Entity suggestions unavailable.",
+        });
+        return;
+      }
+
+      const candidates = collectEntityCandidates(args.query, listed.data.items);
+      if (candidates.length === 0) {
+        setEntityCompletionSession({
+          open: true,
+          status: "empty",
+          candidates: [],
+          selectedIndex: 0,
+          message: null,
+        });
+        return;
+      }
+
+      setEntityCompletionSession({
+        open: true,
+        status: "ready",
+        candidates,
+        selectedIndex: 0,
+        message: null,
+      });
+    },
+    [listKnowledgeEntities, props.projectId, setEntityCompletionSession],
+  );
+
+  React.useEffect(() => {
+    if (
+      !editor ||
+      bootstrapStatus !== "ready" ||
+      !documentId ||
+      !contentReady ||
+      isPreviewMode ||
+      documentStatus === "final"
+    ) {
+      clearEntityCompletionSession();
+      return;
+    }
+
+    const onEditorChange = () => {
+      const detected = detectEntityCompletionInput(editor);
+      if (!detected) {
+        if (entityCompletionSessionRef.current.open) {
+          clearEntityCompletionSession();
+        }
+        return;
+      }
+
+      const session = entityCompletionSessionRef.current;
+      const sameQuery =
+        session.open &&
+        session.query === detected.query &&
+        session.triggerFrom === detected.triggerFrom &&
+        session.triggerTo === detected.triggerTo;
+      if (sameQuery) {
+        if (
+          session.anchorTop !== detected.anchorTop ||
+          session.anchorLeft !== detected.anchorLeft
+        ) {
+          setEntityCompletionSession({
+            anchorTop: detected.anchorTop,
+            anchorLeft: detected.anchorLeft,
+          });
+        }
+        return;
+      }
+
+      void resolveEntityCompletionCandidates(detected);
+    };
+
+    onEditorChange();
+    editor.on("update", onEditorChange);
+    editor.on("selectionUpdate", onEditorChange);
+    return () => {
+      editor.off("update", onEditorChange);
+      editor.off("selectionUpdate", onEditorChange);
+    };
+  }, [
+    bootstrapStatus,
+    clearEntityCompletionSession,
+    contentReady,
+    documentId,
+    documentStatus,
+    editor,
+    isPreviewMode,
+    resolveEntityCompletionCandidates,
+    setEntityCompletionSession,
+  ]);
+
+  const applyEntityCompletionCandidate = React.useCallback(
+    (index: number) => {
+      if (!editor) {
+        return;
+      }
+
+      const session = entityCompletionSessionRef.current;
+      const candidate = session.candidates[index];
+      if (!candidate) {
+        return;
+      }
+
+      editor
+        .chain()
+        .focus()
+        .insertContentAt(
+          {
+            from: session.triggerFrom,
+            to: session.triggerTo,
+          },
+          `${ENTITY_COMPLETION_TRIGGER}${candidate.name} `,
+        )
+        .run();
+      clearEntityCompletionSession();
+    },
+    [clearEntityCompletionSession, editor],
+  );
+
+  React.useEffect(() => {
+    if (!editor || !entityCompletionSession.open) {
+      return;
+    }
+
+    function onKeyDown(event: KeyboardEvent): void {
+      if (event.metaKey || event.ctrlKey || event.altKey) {
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        clearEntityCompletionSession();
+        return;
+      }
+
+      if (entityCompletionSession.status !== "ready") {
+        return;
+      }
+
+      const candidateCount = entityCompletionSession.candidates.length;
+      if (candidateCount === 0) {
+        return;
+      }
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setEntityCompletionSession({
+          selectedIndex:
+            (entityCompletionSession.selectedIndex + 1) % candidateCount,
+        });
+        return;
+      }
+
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setEntityCompletionSession({
+          selectedIndex:
+            (entityCompletionSession.selectedIndex - 1 + candidateCount) %
+            candidateCount,
+        });
+        return;
+      }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        applyEntityCompletionCandidate(entityCompletionSession.selectedIndex);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    applyEntityCompletionCandidate,
+    clearEntityCompletionSession,
+    editor,
+    entityCompletionSession,
+    setEntityCompletionSession,
+  ]);
 
   useAutosave({
     enabled:
@@ -666,6 +991,10 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
         onMouseLeave={() => setWriteHovering(false)}
       >
         <EditorContent editor={editor} className="h-full" />
+        <EntityCompletionPanel
+          session={entityCompletionSession}
+          onSelectCandidate={applyEntityCompletionCandidate}
+        />
         <WriteButton
           visible={
             writeHovering &&
