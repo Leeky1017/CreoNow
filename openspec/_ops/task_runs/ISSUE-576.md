@@ -102,6 +102,15 @@
 - Evidence:
   - `git show --stat --oneline babafc34`
 
+### 2026-02-15 13:13 Rulebook validation refresh
+
+- Command:
+  - `rulebook task validate issue-576-s3-wave2-governance-closeout`
+- Key output:
+  - `✅ Task issue-576-s3-wave2-governance-closeout is valid`
+- Evidence:
+  - `rulebook/tasks/issue-576-s3-wave2-governance-closeout/`
+
 ## Dependency Sync Check
 
 - Inputs:
