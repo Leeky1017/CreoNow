@@ -203,7 +203,11 @@ export function registerRagIpcHandlers(deps: {
           updatedAt: doc.updatedAt,
           model,
         });
-        if (!upserted.ok && upserted.error.code !== "MODEL_NOT_READY") {
+        if (
+          !upserted.ok &&
+          upserted.error.code !== "MODEL_NOT_READY" &&
+          upserted.error.code !== "EMBEDDING_PROVIDER_UNAVAILABLE"
+        ) {
           return { ok: false, error: upserted.error };
         }
       }
@@ -226,7 +230,10 @@ export function registerRagIpcHandlers(deps: {
         | undefined;
 
       if (!semantic.ok) {
-        if (semantic.error.code !== "MODEL_NOT_READY") {
+        if (
+          semantic.error.code !== "MODEL_NOT_READY" &&
+          semantic.error.code !== "EMBEDDING_PROVIDER_UNAVAILABLE"
+        ) {
           return { ok: false, error: semantic.error };
         }
 
