@@ -75,33 +75,33 @@ function createSpecCategoryCommands(): CommandItem[] {
     {
       id: "recent-third",
       label: "第三章.md",
-      group: "最近使用",
+      group: "recent",
       onSelect: vi.fn(),
     },
     {
       id: "file-third",
       label: "第三章.md",
       subtext: "chapter",
-      group: "文件",
+      group: "file",
       onSelect: vi.fn(),
     },
     {
       id: "file-fourth",
       label: "第四章.md",
       subtext: "chapter",
-      group: "文件",
+      group: "file",
       onSelect: vi.fn(),
     },
     {
       id: "command-open-third",
       label: "打开第三章",
-      group: "命令",
+      group: "command",
       onSelect: vi.fn(),
     },
     {
       id: "command-open-settings",
       label: "打开设置",
-      group: "命令",
+      group: "command",
       onSelect: vi.fn(),
     },
   ];
@@ -111,7 +111,7 @@ function createManyCommands(total: number): CommandItem[] {
   return Array.from({ length: total }, (_, index) => ({
     id: `command-${index + 1}`,
     label: `Command ${index + 1}`,
-    group: "命令",
+    group: "command",
     onSelect: vi.fn(),
   }));
 }
@@ -814,21 +814,21 @@ describe("CommandPalette", () => {
         {
           id: "recent-item",
           label: "Recent Item",
-          group: "最近使用",
+          group: "recent",
           category: "recent",
           onSelect: vi.fn(),
         },
         {
           id: "file-item",
           label: "File Item",
-          group: "文件",
+          group: "file",
           category: "file",
           onSelect: vi.fn(),
         },
         {
           id: "cmd-item",
           label: "Command Item",
-          group: "命令",
+          group: "command",
           category: "command",
           onSelect: vi.fn(),
         },

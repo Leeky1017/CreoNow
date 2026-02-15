@@ -1,9 +1,11 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { LAYOUT_DEFAULTS } from "../../stores/layoutStore";
 import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
 import { SaveIndicator } from "./SaveIndicator";
+import "../../i18n";
 
 function formatCurrentTime(value: Date): string {
   return value.toLocaleTimeString("en-GB", {
@@ -20,6 +22,7 @@ function formatCurrentTime(value: Date): string {
  * side panels.
  */
 export function StatusBar(): JSX.Element {
+  const { t } = useTranslation();
   const currentProjectId = useProjectStore((s) => s.current?.projectId ?? null);
   const projectItems = useProjectStore((s) => s.items);
   const documentId = useEditorStore((s) => s.documentId);
@@ -45,26 +48,28 @@ export function StatusBar(): JSX.Element {
 
   const projectName = React.useMemo(() => {
     if (!currentProjectId) {
-      return "未命名项目";
+      return t("workbench.statusBar.unnamedProject");
     }
     return (
       projectItems.find((item) => item.projectId === currentProjectId)?.name ??
-      "未命名项目"
+      t("workbench.statusBar.unnamedProject")
     );
-  }, [currentProjectId, projectItems]);
+  }, [currentProjectId, projectItems, t]);
 
   const activeDocumentId = documentId ?? currentDocumentId;
   const documentName = React.useMemo(() => {
     if (!activeDocumentId) {
-      return "未命名文档";
+      return t("workbench.statusBar.unnamedDocument");
     }
     return (
       fileItems.find((item) => item.documentId === activeDocumentId)?.title ??
-      "未命名文档"
+      t("workbench.statusBar.unnamedDocument")
     );
-  }, [activeDocumentId, fileItems]);
+  }, [activeDocumentId, fileItems, t]);
 
-  const wordCountText = `${Math.max(0, documentCharacterCount).toLocaleString("en-US")} 字`;
+  const wordCountText = t("workbench.statusBar.wordCount", {
+    count: Math.max(0, documentCharacterCount).toLocaleString("en-US"),
+  });
 
   return (
     <div
