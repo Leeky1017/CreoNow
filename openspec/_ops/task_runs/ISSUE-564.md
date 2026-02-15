@@ -27,7 +27,7 @@
 - [x] 最小实现 `stateExtractor` + 章节完成触发集成
 - [x] Refactor 并更新 Rulebook/change tasks/RUN_LOG
 - [x] 执行聚焦验证（tests/prettier/rulebook validate）
-- [ ] commit + push 到 `task/564-s3-state-extraction`
+- [x] commit + push 到 `task/564-s3-state-extraction`
 
 ## Runs
 
@@ -132,6 +132,16 @@
   - 新增场景 + 受影响回归全部通过
   - 格式检查通过
   - Rulebook task 验证通过
+
+### 2026-02-15 11:27-11:28 提交与推送
+
+- Command:
+  - `git commit -m "feat: add chapter completion state extraction (#564)"`
+  - `git push -u origin task/564-s3-state-extraction`
+- Exit code: `0`
+- Key output:
+  - Commit: `049d9dca`
+  - Branch pushed: `origin/task/564-s3-state-extraction`
 
 ## 依赖同步检查（Dependency Sync Check）
 
