@@ -35,6 +35,7 @@ export type FulltextSearchItem = {
   title: string;
   snippet: string;
   score: number;
+  updatedAt: number;
 };
 
 export type FtsService = {
@@ -475,6 +476,7 @@ export function createFtsService(deps: {
             title: item.documentTitle,
             snippet: item.snippet,
             score: item.score,
+            updatedAt: item.updatedAt,
           })),
         },
       };

@@ -494,6 +494,9 @@ export function AppShell(): JSX.Element {
     function onKeyDown(e: KeyboardEvent): void {
       // F11: Toggle Zen Mode
       if (e.key === "F11") {
+        if (e.repeat) {
+          return;
+        }
         e.preventDefault();
         setZenMode(!zenMode);
         return;

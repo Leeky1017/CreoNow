@@ -9,6 +9,10 @@ import {
   createSemanticChunkIndexService,
   type SemanticChunkIndexService,
 } from "../services/embedding/semanticChunkIndexService";
+import {
+  rankHybridRagCandidates,
+  truncateHybridRagCandidates,
+} from "../services/rag/hybridRagRanking";
 import { createFtsService } from "../services/search/ftsService";
 
 type DocumentIndexRow = {
@@ -29,6 +33,15 @@ type RagConfig = {
   topK: number;
   minScore: number;
   maxTokens: number;
+  model?: string;
+};
+
+type RagRetrievePayload = {
+  projectId: string;
+  queryText: string;
+  topK?: number;
+  minScore?: number;
+  maxTokens?: number;
   model?: string;
 };
 
@@ -74,6 +87,55 @@ function normalizeMaxTokens(value: number, fallback: number): number {
     return fallback;
   }
   return Math.floor(value);
+}
+
+function validateRagRetrievePayload(
+  payload: RagRetrievePayload,
+): IpcResponse<never> | null {
+  if (payload.projectId.trim().length === 0) {
+    return {
+      ok: false,
+      error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+    };
+  }
+  if (payload.queryText.trim().length === 0) {
+    return {
+      ok: false,
+      error: { code: "INVALID_ARGUMENT", message: "queryText is required" },
+    };
+  }
+  return null;
+}
+
+function prepareSemanticDocuments(args: {
+  db: Database.Database;
+  projectId: string;
+  model?: string;
+  semanticIndex: SemanticChunkIndexService;
+}): IpcResponse<never> | null {
+  const docs = listProjectDocuments({
+    db: args.db,
+    projectId: args.projectId,
+  });
+
+  for (const doc of docs) {
+    const upserted = args.semanticIndex.upsertDocument({
+      projectId: args.projectId,
+      documentId: doc.documentId,
+      contentText: doc.contentText,
+      updatedAt: doc.updatedAt,
+      model: args.model,
+    });
+    if (
+      !upserted.ok &&
+      upserted.error.code !== "MODEL_NOT_READY" &&
+      upserted.error.code !== "EMBEDDING_PROVIDER_UNAVAILABLE"
+    ) {
+      return { ok: false, error: upserted.error };
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -142,14 +204,7 @@ export function registerRagIpcHandlers(deps: {
     "rag:context:retrieve",
     async (
       _e,
-      payload: {
-        projectId: string;
-        queryText: string;
-        topK?: number;
-        minScore?: number;
-        maxTokens?: number;
-        model?: string;
-      },
+      payload: RagRetrievePayload,
     ): Promise<
       IpcResponse<{
         chunks: RagChunk[];
@@ -168,17 +223,9 @@ export function registerRagIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      if (payload.projectId.trim().length === 0) {
-        return {
-          ok: false,
-          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
-        };
-      }
-      if (payload.queryText.trim().length === 0) {
-        return {
-          ok: false,
-          error: { code: "INVALID_ARGUMENT", message: "queryText is required" },
-        };
+      const payloadError = validateRagRetrievePayload(payload);
+      if (payloadError) {
+        return payloadError;
       }
 
       const topK = normalizeTopK(payload.topK ?? ragConfig.topK);
@@ -191,25 +238,14 @@ export function registerRagIpcHandlers(deps: {
       );
       const model = payload.model ?? ragConfig.model;
 
-      const docs = listProjectDocuments({
+      const semanticPrepareError = prepareSemanticDocuments({
         db: deps.db,
         projectId: payload.projectId,
+        model,
+        semanticIndex,
       });
-      for (const doc of docs) {
-        const upserted = semanticIndex.upsertDocument({
-          projectId: payload.projectId,
-          documentId: doc.documentId,
-          contentText: doc.contentText,
-          updatedAt: doc.updatedAt,
-          model,
-        });
-        if (
-          !upserted.ok &&
-          upserted.error.code !== "MODEL_NOT_READY" &&
-          upserted.error.code !== "EMBEDDING_PROVIDER_UNAVAILABLE"
-        ) {
-          return { ok: false, error: upserted.error };
-        }
+      if (semanticPrepareError) {
+        return semanticPrepareError;
       }
 
       const semantic = semanticIndex.search({
@@ -306,13 +342,84 @@ export function registerRagIpcHandlers(deps: {
           };
         }
 
-        candidates = semantic.data.chunks.map((chunk) => ({
-          chunkId: chunk.chunkId,
-          documentId: chunk.documentId,
-          text: chunk.text,
-          score: chunk.score,
-          tokenEstimate: estimateTokens(chunk.text),
-        }));
+        const fts = createFtsService({ db: deps.db, logger: deps.logger });
+        const ftsRes = fts.searchFulltext({
+          projectId: payload.projectId,
+          query: payload.queryText,
+          limit: topK,
+        });
+        if (!ftsRes.ok) {
+          return { ok: false, error: ftsRes.error };
+        }
+
+        const crossProjectItem = ftsRes.data.items.find(
+          (item) => item.projectId !== payload.projectId,
+        );
+        if (crossProjectItem) {
+          deps.logger.error("rag_project_forbidden_audit", {
+            operation: "rag:context:retrieve",
+            requestedProjectId: payload.projectId,
+            rowProjectId: crossProjectItem.projectId,
+            documentId: crossProjectItem.documentId,
+          });
+          return {
+            ok: false,
+            error: {
+              code: "SEARCH_PROJECT_FORBIDDEN",
+              message: "Cross-project rag retrieval is forbidden",
+              details: {
+                requestedProjectId: payload.projectId,
+                rowProjectId: crossProjectItem.projectId,
+              },
+            },
+          };
+        }
+
+        const ranked = rankHybridRagCandidates({
+          ftsCandidates: ftsRes.data.items.map((item) => ({
+            documentId: item.documentId,
+            chunkId: `fts:${item.documentId}:0`,
+            text: item.snippet,
+            score: item.score,
+            updatedAt: item.updatedAt,
+          })),
+          semanticCandidates: semantic.data.chunks.map((chunk) => ({
+            documentId: chunk.documentId,
+            chunkId: chunk.chunkId,
+            text: chunk.text,
+            score: chunk.score,
+            updatedAt: chunk.updatedAt,
+          })),
+          minFinalScore: 0.25,
+        });
+
+        const truncatedHybrid = truncateHybridRagCandidates({
+          ranked,
+          topK,
+          maxTokens,
+          estimateTokens,
+        });
+
+        deps.logger.info("rag_retrieve_complete", {
+          projectId: payload.projectId,
+          queryLength: payload.queryText.trim().length,
+          topK,
+          minScore,
+          maxTokens,
+          fallbackReason: fallback?.reason,
+          returnedChunks: truncatedHybrid.chunks.length,
+          truncated: truncatedHybrid.truncated,
+          strategy: "hybrid",
+        });
+
+        return {
+          ok: true,
+          data: {
+            chunks: truncatedHybrid.chunks,
+            truncated: truncatedHybrid.truncated,
+            usedTokens: truncatedHybrid.usedTokens,
+          },
+        };
       }
 
       let usedTokens = 0;

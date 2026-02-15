@@ -272,6 +272,10 @@ describe("CreateProjectDialog", () => {
           name: "New Project",
           description: "",
           type: undefined,
+          template: {
+            kind: "builtin",
+            id: "novel",
+          },
         });
       });
     });

@@ -24,13 +24,15 @@
 ## 依赖同步检查（Dependency Sync Check）
 
 - 核对输入：
-  - `openspec/changes/s3-embedding-service/specs/search-and-retrieval-delta.md`；
+  - `openspec/changes/archive/s3-embedding-service/specs/search-and-retrieval-delta.md`；
+  - `openspec/changes/archive/s3-onnx-runtime/specs/search-and-retrieval-delta.md`；
   - `openspec/specs/search-and-retrieval/spec.md` 中“两阶段召回 + 融合重排”要求。
 - 核对项：
   - hybrid 编排是否复用统一 embedding 语义；
+  - ONNX runtime 语义向量契约是否与检索链路保持一致；
   - `scoreBreakdown` 是否可用于 explain 与调试；
   - 是否避免把单次转发逻辑拆成过多无收益抽象层。
-- 结论：`NO_DRIFT`（在 embedding service 契约稳定前提下）。
+- 结论：`NO_DRIFT`（embedding + onnx runtime 契约稳定，当前实现无需更新 delta spec）。
 
 ## 踩坑提醒（防复发）
 

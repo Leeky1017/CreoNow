@@ -2384,6 +2384,21 @@ export type IpcChannelSpec = {
     request: {
       description?: string;
       name?: string;
+      template?:
+        | {
+            id: string;
+            kind: "builtin";
+          }
+        | {
+            kind: "custom";
+            structure: {
+              files: Array<{
+                content?: string;
+                path: string;
+              }>;
+              folders: Array<string>;
+            };
+          };
       type?: "novel" | "screenplay" | "media";
     };
     response: {
