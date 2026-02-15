@@ -210,6 +210,7 @@ function DocumentResultItem(props: {
     <button
       type="button"
       onClick={onClick}
+      data-testid={`search-result-item-${item.documentId ?? item.id}`}
       className={`group w-full text-left mx-2 p-2 rounded-lg flex items-start gap-3 transition-all relative overflow-hidden ${
         isActive
           ? "bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.05)]"
@@ -521,9 +522,11 @@ export function SearchPanel(props: {
   const storeItems = useSearchStore((s) => s.items);
   const status = useSearchStore((s) => s.status);
   const indexState = useSearchStore((s) => s.indexState);
+  const lastError = useSearchStore((s) => s.lastError);
 
   const setQuery = useSearchStore((s) => s.setQuery);
   const runFulltext = useSearchStore((s) => s.runFulltext);
+  const clearError = useSearchStore((s) => s.clearError);
   const setCurrent = useFileStore((s) => s.setCurrent);
 
   const [category, setCategory] = React.useState<SearchCategory>("all");
@@ -557,6 +560,7 @@ export function SearchPanel(props: {
   const totalResults = items.length;
   const hasResults = totalResults > 0;
   const hasQuery = effectiveQuery.trim().length > 0;
+  const hasError = effectiveStatus === "error" && lastError !== null;
 
   // Auto-focus input when opened
   React.useEffect(() => {
@@ -608,6 +612,11 @@ export function SearchPanel(props: {
       setFlashKey,
       onClose,
     });
+  }
+
+  function handleRetrySearch(): void {
+    clearError();
+    void runFulltext({ projectId, limit: 20 });
   }
 
   return (
@@ -810,6 +819,36 @@ export function SearchPanel(props: {
               <p className="text-xs text-[#888888] text-center">
                 查询词：&ldquo;{effectiveQuery}&rdquo;
               </p>
+            </div>
+          ) : hasQuery && hasError ? (
+            /* Search error state */
+            <div className="flex flex-col items-center justify-center py-16 px-8">
+              <svg
+                className="w-16 h-16 text-[#ef4444] mb-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={0.75}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m9.303 3.376l-7.884-13.645a1.65 1.65 0 00-2.838 0L2.697 16.126A1.65 1.65 0 004.116 18.6h15.768a1.65 1.65 0 001.419-2.474zM12 15.75h.007v.008H12v-.008z"
+                />
+              </svg>
+              <p className="text-sm font-medium text-white text-center mb-2">
+                搜索失败，请重试
+              </p>
+              <p className="text-xs text-[#888888] text-center">
+                {lastError.message}
+              </p>
+              <button
+                type="button"
+                onClick={handleRetrySearch}
+                className="mt-6 px-4 py-2 bg-[#3b82f6] text-white text-sm font-medium rounded-lg hover:bg-[#2563eb] transition-colors"
+              >
+                重试搜索
+              </button>
             </div>
           ) : hasQuery && !hasResults && effectiveStatus !== "loading" ? (
             /* No results state */
