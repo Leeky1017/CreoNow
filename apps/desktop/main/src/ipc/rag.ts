@@ -36,6 +36,15 @@ type RagConfig = {
   model?: string;
 };
 
+type RagRetrievePayload = {
+  projectId: string;
+  queryText: string;
+  topK?: number;
+  minScore?: number;
+  maxTokens?: number;
+  model?: string;
+};
+
 const DEFAULT_RAG_CONFIG: RagConfig = {
   topK: 5,
   minScore: 0.7,
@@ -78,6 +87,55 @@ function normalizeMaxTokens(value: number, fallback: number): number {
     return fallback;
   }
   return Math.floor(value);
+}
+
+function validateRagRetrievePayload(
+  payload: RagRetrievePayload,
+): IpcResponse<never> | null {
+  if (payload.projectId.trim().length === 0) {
+    return {
+      ok: false,
+      error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+    };
+  }
+  if (payload.queryText.trim().length === 0) {
+    return {
+      ok: false,
+      error: { code: "INVALID_ARGUMENT", message: "queryText is required" },
+    };
+  }
+  return null;
+}
+
+function prepareSemanticDocuments(args: {
+  db: Database.Database;
+  projectId: string;
+  model?: string;
+  semanticIndex: SemanticChunkIndexService;
+}): IpcResponse<never> | null {
+  const docs = listProjectDocuments({
+    db: args.db,
+    projectId: args.projectId,
+  });
+
+  for (const doc of docs) {
+    const upserted = args.semanticIndex.upsertDocument({
+      projectId: args.projectId,
+      documentId: doc.documentId,
+      contentText: doc.contentText,
+      updatedAt: doc.updatedAt,
+      model: args.model,
+    });
+    if (
+      !upserted.ok &&
+      upserted.error.code !== "MODEL_NOT_READY" &&
+      upserted.error.code !== "EMBEDDING_PROVIDER_UNAVAILABLE"
+    ) {
+      return { ok: false, error: upserted.error };
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -146,14 +204,7 @@ export function registerRagIpcHandlers(deps: {
     "rag:context:retrieve",
     async (
       _e,
-      payload: {
-        projectId: string;
-        queryText: string;
-        topK?: number;
-        minScore?: number;
-        maxTokens?: number;
-        model?: string;
-      },
+      payload: RagRetrievePayload,
     ): Promise<
       IpcResponse<{
         chunks: RagChunk[];
@@ -172,17 +223,9 @@ export function registerRagIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      if (payload.projectId.trim().length === 0) {
-        return {
-          ok: false,
-          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
-        };
-      }
-      if (payload.queryText.trim().length === 0) {
-        return {
-          ok: false,
-          error: { code: "INVALID_ARGUMENT", message: "queryText is required" },
-        };
+      const payloadError = validateRagRetrievePayload(payload);
+      if (payloadError) {
+        return payloadError;
       }
 
       const topK = normalizeTopK(payload.topK ?? ragConfig.topK);
@@ -195,25 +238,14 @@ export function registerRagIpcHandlers(deps: {
       );
       const model = payload.model ?? ragConfig.model;
 
-      const docs = listProjectDocuments({
+      const semanticPrepareError = prepareSemanticDocuments({
         db: deps.db,
         projectId: payload.projectId,
+        model,
+        semanticIndex,
       });
-      for (const doc of docs) {
-        const upserted = semanticIndex.upsertDocument({
-          projectId: payload.projectId,
-          documentId: doc.documentId,
-          contentText: doc.contentText,
-          updatedAt: doc.updatedAt,
-          model,
-        });
-        if (
-          !upserted.ok &&
-          upserted.error.code !== "MODEL_NOT_READY" &&
-          upserted.error.code !== "EMBEDDING_PROVIDER_UNAVAILABLE"
-        ) {
-          return { ok: false, error: upserted.error };
-        }
+      if (semanticPrepareError) {
+        return semanticPrepareError;
       }
 
       const semantic = semanticIndex.search({
