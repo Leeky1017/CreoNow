@@ -3,7 +3,7 @@
 - Issue: #589
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/589
 - Branch: `task/589-wave0-audit-remediation`
-- PR: N/A（尚未创建）
+- PR: https://github.com/Leeky1017/CreoNow/pull/590
 - Scope (Functional):
   - `apps/desktop/renderer/src/lib/ipcClient.ts`
   - `apps/desktop/preload/src/ipcGateway.ts`
@@ -32,7 +32,7 @@
 - [x] 完成 c1a/c2a/c3a/h1/h2a/h3/h5/m1/m2 实施改动
 - [x] 完成关键回归测试与类型检查
 - [ ] 完成双层审计（Audit A/B）与 Lead 终审
-- [ ] 创建 PR、开启 auto-merge、等待 required checks
+- [x] 创建 PR、开启 auto-merge、等待 required checks
 - [ ] 合并回 `main` 并完成控制面收口
 
 ## Dependency Sync Check
@@ -49,7 +49,7 @@
 - [x] `pnpm test:unit`（发现式）通过
 - [x] `pnpm test:integration`（发现式）通过
 - [ ] preflight 通过
-- [ ] PR 已创建且 RUN_LOG 回填真实 PR URL
+- [x] PR 已创建且 RUN_LOG 回填真实 PR URL
 - [ ] required checks 全绿并 auto-merge
 - [ ] merged 到 `main`
 
@@ -118,13 +118,13 @@
 
 ## Main Session Audit
 
-- Audit-Owner: pending
-- Reviewed-HEAD-SHA: pending
-- Spec-Compliance: pending
-- Code-Quality: pending
-- Fresh-Verification: pending
-- Blocking-Issues: pending
-- Decision: pending
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: 49d749da1b203a6f822eadb4bcb9641c2ac5b755
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
 
 ### 2026-02-16 Dual-Layer Audit (Audit A/B)
 
@@ -158,3 +158,11 @@
 - Key output:
   - `eslint completed (warnings only, no errors)`
   - `[LINT_RATCHET] PASS baseline=66 current=66 delta=0`
+
+### 2026-02-16 PR Creation
+
+- Command:
+  - `gh pr create --base main --head task/589-wave0-audit-remediation --title "Implement wave0 audit remediation baseline (#589)" --body-file /tmp/pr589.md`
+- Exit code: `0`
+- Key output:
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/590`
