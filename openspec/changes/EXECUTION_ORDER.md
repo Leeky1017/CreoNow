@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-16 08:38
+更新时间：2026-02-16 10:50
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -59,6 +59,13 @@
 - Wave 1（依赖收敛层）：`aud-c1b`、`aud-c2b`、`aud-c3b`、`aud-h2b`、`aud-h4`、`aud-m3`、`aud-m4`
 - Wave 2（治理门禁层）：`aud-c1c`、`aud-c2c`、`aud-h6a`、`aud-m5`
 - Wave 3（架构拆分层）：`aud-h6b`、`aud-h6c`
+
+## 进度快照
+
+- Wave 0：已完成实现与验证（待 PR #590 合并收口）。
+- Wave 1：可在 Wave0 合并后按依赖并行推进（`aud-c1b/c2b/c3b/h2b/h4/m3/m4`）。
+- Wave 2：依赖 Wave1 产出后推进（`aud-c1c/c2c/h6a/m5`）。
+- Wave 3：依赖 `aud-h6a` 后推进（`aud-h6b/h6c`）。
 
 ## 维护规则
 
