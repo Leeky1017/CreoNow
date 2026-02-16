@@ -150,7 +150,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 8eaa8559217fb9d82dd9e88c03858240e1ba7a70
+- Reviewed-HEAD-SHA: 16aad3d88f821a9a60eef53db14d4bbd862738e1
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
@@ -168,3 +168,18 @@
 - Lead Final Review:
   - Decision=`ACCEPT_FOR_PR`
   - 说明：允许进入 preflight + PR + auto-merge 阶段。
+
+### 2026-02-16 Preflight Remediation Chain (PR #596)
+
+- Attempt 1:
+  - 失败：`[RUN_LOG] PR field must be a real URL ... pending`
+  - 修复：回填真实 PR 链接并提交 `docs: backfill issue-595 pr link in run log (#595)`
+- Attempt 2:
+  - 失败：`[MAIN_AUDIT] missing required section '## Main Session Audit'`
+  - 修复：补充 Main Session Audit 并提交 `docs: sign main session audit for issue-595 (#595)`
+- Attempt 3:
+  - 失败：`prettier --check` 报告 3 个文件不合规（`document-diff-helpers.test.ts` / `AppShell.tsx` / `aiPanelFormatting.ts`）
+  - 修复：运行 `pnpm exec prettier --write ...`，并通过 `pnpm typecheck` + 两条定向回归测试，提交 `style: align wave3 extracted files with prettier (#595)`
+- Attempt 4:
+  - 失败：`[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`
+  - 修复：更新 `Reviewed-HEAD-SHA` 为签字提交 `HEAD^`（当前为 `16aad3d88f821a9a60eef53db14d4bbd862738e1`），并重新签字提交 RUN_LOG。
