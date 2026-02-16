@@ -48,4 +48,20 @@ module.exports = {
     ],
     "react/react-in-jsx-scope": "off",
   },
+  overrides: [
+    {
+      files: ["apps/desktop/renderer/src/**/*.{ts,tsx}"],
+      rules: {
+        "no-restricted-syntax": [
+          "error",
+          {
+            selector:
+              "UnaryExpression[operator='void'][argument.type='CallExpression'][argument.callee.type='ArrowFunctionExpression'][argument.callee.async=true]",
+            message:
+              "Do not use bare void async IIFE. Use runFireAndForget() with explicit error handling.",
+          },
+        ],
+      },
+    },
+  ],
 };

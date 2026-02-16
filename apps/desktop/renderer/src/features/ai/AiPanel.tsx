@@ -21,6 +21,7 @@ import { useProjectStore } from "../../stores/projectStore";
 
 import { unifiedDiff } from "../../lib/diff/unifiedDiff";
 
+import { runFireAndForget } from "../../lib/fireAndForget";
 import { invoke } from "../../lib/ipcClient";
 
 import { DiffView } from "../diff/DiffView";
@@ -709,7 +710,7 @@ export function AiPanel(): JSX.Element {
     }
 
     evaluatedRunIdRef.current = lastRunId;
-    void (async () => {
+    runFireAndForget(async () => {
       try {
         const res = await invoke("judge:quality:evaluate", {
           projectId,
@@ -726,7 +727,7 @@ export function AiPanel(): JSX.Element {
       if (evaluatedRunIdRef.current === lastRunId) {
         evaluatedRunIdRef.current = null;
       }
-    })();
+    });
   }, [lastRequest, lastRunId, outputText, projectId, status]);
 
   const diffText = proposal
