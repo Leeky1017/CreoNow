@@ -3,7 +3,7 @@
 - Issue: #593
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/593
 - Branch: `task/593-wave2-audit-remediation-governance-gates`
-- PR: 待回填（创建 PR 后更新）
+- PR: https://github.com/Leeky1017/CreoNow/pull/594
 - Scope (Functional):
   - `.eslintrc.cjs`
   - `apps/desktop/renderer/src/{lib/fireAndForget.ts,components/layout/AppShell.tsx,features/ai/AiPanel.tsx,features/settings/JudgeSection.tsx}`
@@ -30,7 +30,8 @@
 - [x] 完成依赖同步检查并在 change tasks 记录无漂移
 - [x] 通过类型/静态/契约/单测/集成与新增门禁验证
 - [x] 完成双层审计（Audit L1/L2）与 Lead 终审
-- [ ] 创建 PR、开启 auto-merge、通过 preflight
+- [x] 创建 PR
+- [ ] 开启 auto-merge、通过 preflight
 - [ ] required checks 全绿并自动合并至 main
 
 ## Dependency Sync Check
@@ -56,7 +57,7 @@
 - [x] `pnpm test:discovery:consistency` 通过
 - [x] `pnpm test:coverage:desktop` 通过
 - [ ] preflight 通过
-- [ ] PR 已创建并回填真实链接
+- [x] PR 已创建并回填真实链接
 - [ ] required checks 全绿并 auto-merge
 - [ ] merged 到 `main`
 
@@ -121,15 +122,23 @@
   - `[discovery-gate] integration discovered=88 executed=88`
   - `Coverage report: branches 58.84% (threshold 58%)`
 
+### 2026-02-16 PR Creation
+
+- Command:
+  - `gh pr create --base main --head task/593-wave2-audit-remediation-governance-gates --title \"Implement wave2 audit remediation governance gates (#593)\" --body-file /tmp/pr593.md`
+- Exit code: `0`
+- Key output:
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/594`
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 待签字提交时回填（须等于签字提交 `HEAD^`）
-- Spec-Compliance: PENDING
-- Code-Quality: PENDING
-- Fresh-Verification: PENDING
-- Blocking-Issues: PENDING
-- Decision: PENDING
+- Reviewed-HEAD-SHA: 8a59c9e3d97ce8f5ff6d4e50c9458af4e39af6a6
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
 
 ### 2026-02-16 Dual-Layer Audit (Audit L1/L2)
 
