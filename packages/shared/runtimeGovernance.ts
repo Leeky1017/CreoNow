@@ -8,6 +8,8 @@ export type RuntimeGovernance = {
     timeoutMs: number;
     retryBackoffMs: readonly number[];
     sessionTokenBudget: number;
+    streamRateLimitPerSecond: number;
+    chatMessageCapacity: number;
   };
   kg: {
     queryTimeoutMs: number;
@@ -25,6 +27,8 @@ export const RUNTIME_GOVERNANCE_DEFAULTS: RuntimeGovernance = {
     timeoutMs: 10_000,
     retryBackoffMs: [1_000, 2_000, 4_000],
     sessionTokenBudget: 200_000,
+    streamRateLimitPerSecond: 5_000,
+    chatMessageCapacity: 2_000,
   },
   kg: {
     queryTimeoutMs: 2_000,
@@ -149,6 +153,22 @@ export function resolveRuntimeGovernanceFromEnv(
     }),
     RUNTIME_GOVERNANCE_DEFAULTS.ai.sessionTokenBudget,
   );
+  const aiStreamRateLimitPerSecond = parsePositiveInt(
+    pickRaw({
+      env,
+      primaryKey: "CN_AI_STREAM_RATE_LIMIT_PER_SECOND",
+      legacyKey: "CREONOW_AI_STREAM_RATE_LIMIT_PER_SECOND",
+    }),
+    RUNTIME_GOVERNANCE_DEFAULTS.ai.streamRateLimitPerSecond,
+  );
+  const aiChatMessageCapacity = parsePositiveInt(
+    pickRaw({
+      env,
+      primaryKey: "CN_AI_CHAT_MESSAGE_CAPACITY",
+      legacyKey: "CREONOW_AI_CHAT_MESSAGE_CAPACITY",
+    }),
+    RUNTIME_GOVERNANCE_DEFAULTS.ai.chatMessageCapacity,
+  );
 
   const kgQueryTimeoutMs = parsePositiveInt(
     pickRaw({
@@ -176,6 +196,8 @@ export function resolveRuntimeGovernanceFromEnv(
       timeoutMs: aiTimeoutMs,
       retryBackoffMs: aiRetryBackoffMs,
       sessionTokenBudget: aiSessionTokenBudget,
+      streamRateLimitPerSecond: aiStreamRateLimitPerSecond,
+      chatMessageCapacity: aiChatMessageCapacity,
     },
     kg: {
       queryTimeoutMs: kgQueryTimeoutMs,

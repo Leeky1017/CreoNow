@@ -6,11 +6,11 @@ import { redactText } from "@shared/redaction/redact";
 import { redactUserDataPath } from "../db/paths";
 import type { Logger } from "../logging/logger";
 import {
-  ensureCreonowDirStructure,
-  getCreonowDirStatus,
+  ensureCreonowDirStructureAsync,
+  getCreonowDirStatusAsync,
   getCreonowRootPath,
-  listCreonowFiles,
-  readCreonowTextFile,
+  listCreonowFilesAsync,
+  readCreonowTextFileAsync,
 } from "../services/context/contextFs";
 import type { CreonowWatchService } from "../services/context/watchService";
 
@@ -67,7 +67,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
           };
         }
 
-        const ensured = ensureCreonowDirStructure(row.rootPath);
+        const ensured = await ensureCreonowDirStructureAsync(row.rootPath);
         if (!ensured.ok) {
           return { ok: false, error: ensured.error };
         }
@@ -126,7 +126,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
           };
         }
 
-        const status = getCreonowDirStatus(row.rootPath);
+        const status = await getCreonowDirStatusAsync(row.rootPath);
         if (!status.ok) {
           return { ok: false, error: status.error };
         }
@@ -190,7 +190,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
           };
         }
 
-        const ensured = ensureCreonowDirStructure(row.rootPath);
+        const ensured = await ensureCreonowDirStructureAsync(row.rootPath);
         if (!ensured.ok) {
           return { ok: false, error: ensured.error };
         }
@@ -299,12 +299,12 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
           };
         }
 
-        const ensured = ensureCreonowDirStructure(row.rootPath);
+        const ensured = await ensureCreonowDirStructureAsync(row.rootPath);
         if (!ensured.ok) {
           return { ok: false, error: ensured.error };
         }
 
-        const listed = listCreonowFiles({
+        const listed = await listCreonowFilesAsync({
           projectRootPath: row.rootPath,
           scope: "rules",
         });
@@ -361,12 +361,12 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
           };
         }
 
-        const ensured = ensureCreonowDirStructure(row.rootPath);
+        const ensured = await ensureCreonowDirStructureAsync(row.rootPath);
         if (!ensured.ok) {
           return { ok: false, error: ensured.error };
         }
 
-        const listed = listCreonowFiles({
+        const listed = await listCreonowFilesAsync({
           projectRootPath: row.rootPath,
           scope: "settings",
         });
@@ -437,12 +437,12 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
           };
         }
 
-        const ensured = ensureCreonowDirStructure(row.rootPath);
+        const ensured = await ensureCreonowDirStructureAsync(row.rootPath);
         if (!ensured.ok) {
           return { ok: false, error: ensured.error };
         }
 
-        const file = readCreonowTextFile({
+        const file = await readCreonowTextFileAsync({
           projectRootPath: row.rootPath,
           path: payload.path,
         });
@@ -536,12 +536,12 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
           };
         }
 
-        const ensured = ensureCreonowDirStructure(row.rootPath);
+        const ensured = await ensureCreonowDirStructureAsync(row.rootPath);
         if (!ensured.ok) {
           return { ok: false, error: ensured.error };
         }
 
-        const file = readCreonowTextFile({
+        const file = await readCreonowTextFileAsync({
           projectRootPath: row.rootPath,
           path: payload.path,
         });

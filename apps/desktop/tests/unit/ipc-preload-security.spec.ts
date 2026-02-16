@@ -95,6 +95,46 @@ type AuditEvent = {
   assert.equal(auditEvents[0]?.channel, "app:system:ping");
 }
 
+// S3: 负载超限时应短路，不应继续读取后续危险字段 [ADDED]
+{
+  const auditEvents: AuditEvent[] = [];
+  let invoked = false;
+
+  const gateway = createPreloadIpcGateway({
+    allowedChannels: ["app:system:ping"],
+    rendererId: "renderer-2b",
+    now: () => 1_717_171_000_150,
+    requestIdFactory: () => "req-payload-shortcircuit",
+    invoke: async () => {
+      invoked = true;
+      return { ok: true, data: {} };
+    },
+    auditLog: (event) => {
+      auditEvents.push(event);
+    },
+  });
+
+  const payload: Record<string, unknown> = {
+    blob: "x".repeat(MAX_IPC_PAYLOAD_BYTES + 256),
+  };
+  Object.defineProperty(payload, "explosive", {
+    enumerable: true,
+    get() {
+      throw new Error("should not access explosive field");
+    },
+  });
+
+  const res = await gateway.invoke("app:system:ping", payload);
+  assert.equal(invoked, false);
+  assert.equal(res.ok, false);
+  if (res.ok) {
+    assert.fail("expected payload-too-large response");
+  }
+  assert.equal(res.error.code, "IPC_PAYLOAD_TOO_LARGE");
+  assert.equal(auditEvents.length, 1);
+  assert.equal(auditEvents[0]?.event, "ipc_payload_too_large");
+}
+
 // S4: 订阅数量超过上限被拒绝 [ADDED]
 {
   const auditEvents: AuditEvent[] = [];

@@ -97,17 +97,135 @@ function isIpcResponse(value: unknown): value is IpcResponse<unknown> {
  *
  * Why: IPC payload must be hard-limited before entering main handlers.
  */
-function estimatePayloadSize(payload: unknown): number | null {
-  if (payload === undefined) {
+function estimatePayloadSize(payload: unknown, maxBytes?: number): number | null {
+  if (
+    payload === undefined ||
+    typeof payload === "function" ||
+    typeof payload === "symbol"
+  ) {
     return 0;
   }
 
-  try {
-    const serialized = JSON.stringify(payload);
-    if (typeof serialized !== "string") {
-      return 0;
+  const encoder = new TextEncoder();
+  const byteLimit =
+    typeof maxBytes === "number" && Number.isFinite(maxBytes) && maxBytes > 0
+      ? maxBytes
+      : Number.POSITIVE_INFINITY;
+  const stack = new Set<object>();
+
+  const addWithLimit = (total: number, delta: number): number => {
+    const next = total + delta;
+    return next > byteLimit ? byteLimit + 1 : next;
+  };
+
+  // Keep one traversal function to avoid payload re-walk while preserving short-circuit semantics.
+  // eslint-disable-next-line complexity
+  const walk = (value: unknown, inArray: boolean): number | null => {
+    if (value === null) {
+      return 4;
     }
-    return new TextEncoder().encode(serialized).byteLength;
+
+    const valueType = typeof value;
+    if (valueType === "string") {
+      return encoder.encode(value as string).byteLength + 2;
+    }
+    if (valueType === "number") {
+      const numeric = value as number;
+      return Number.isFinite(numeric) ? String(numeric).length : 4;
+    }
+    if (valueType === "boolean") {
+      return (value as boolean) ? 4 : 5;
+    }
+    if (valueType === "bigint") {
+      return null;
+    }
+    if (
+      valueType === "undefined" ||
+      valueType === "function" ||
+      valueType === "symbol"
+    ) {
+      return inArray ? 4 : 0;
+    }
+    if (valueType !== "object" || value === null) {
+      return null;
+    }
+
+    const objectValue = value as object;
+    const jsonLike = value as { toJSON?: () => unknown };
+    if (typeof jsonLike.toJSON === "function") {
+      try {
+        return walk(jsonLike.toJSON(), inArray);
+      } catch {
+        return null;
+      }
+    }
+
+    if (stack.has(objectValue)) {
+      return null;
+    }
+
+    stack.add(objectValue);
+    try {
+      if (Array.isArray(value)) {
+        let total = 2;
+        for (let i = 0; i < value.length; i += 1) {
+          if (i > 0) {
+            total = addWithLimit(total, 1);
+          }
+          if (total > byteLimit) {
+            return total;
+          }
+
+          const itemSize = walk(value[i], true);
+          if (itemSize === null) {
+            return null;
+          }
+          total = addWithLimit(total, itemSize);
+          if (total > byteLimit) {
+            return total;
+          }
+        }
+        return total;
+      }
+
+      let total = 2;
+      let writtenEntries = 0;
+      const recordValue = value as Record<string, unknown>;
+      for (const key of Object.keys(recordValue)) {
+        const propertyValue = recordValue[key];
+        if (
+          propertyValue === undefined ||
+          typeof propertyValue === "function" ||
+          typeof propertyValue === "symbol"
+        ) {
+          continue;
+        }
+
+        const valueSize = walk(propertyValue, false);
+        if (valueSize === null) {
+          return null;
+        }
+
+        if (writtenEntries > 0) {
+          total = addWithLimit(total, 1);
+        }
+
+        const keySize = encoder.encode(key).byteLength + 2;
+        total = addWithLimit(total, keySize + 1 + valueSize);
+        writtenEntries += 1;
+        if (total > byteLimit) {
+          return total;
+        }
+      }
+
+      return total;
+    } finally {
+      stack.delete(objectValue);
+    }
+  };
+
+  try {
+    return walk(payload, false);
   } catch {
     return null;
   }
@@ -151,7 +269,7 @@ export function createPreloadIpcGateway(args: CreatePreloadIpcGatewayArgs): {
         });
       }
 
-      const payloadBytes = estimatePayloadSize(payload);
+      const payloadBytes = estimatePayloadSize(payload, limitBytes);
       if (payloadBytes === null) {
         return toErr({
           code: "INVALID_ARGUMENT",

@@ -1,4 +1,5 @@
 import type { RedactionEvidenceItem } from "../redaction/redact";
+import { estimateUtf8TokenCount as estimateTokens } from "@shared/tokenBudget";
 
 export type ContextLayerId = "rules" | "settings" | "retrieved" | "immediate";
 
@@ -133,16 +134,6 @@ function fnv1a32Hex(text: string): string {
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
   return hash.toString(16).padStart(8, "0");
-}
-
-/**
- * Estimate token count from UTF-8 bytes.
- *
- * Why: V1 avoids tokenizer deps; byte-based estimate is stable and cheap.
- */
-function estimateTokens(text: string): number {
-  const bytes = new TextEncoder().encode(text).length;
-  return Math.ceil(bytes / 4);
 }
 
 /**

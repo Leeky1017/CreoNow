@@ -4,6 +4,7 @@ import type Database from "better-sqlite3";
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { createProjectService } from "../services/projects/projectService";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 /**
  * Register `project:*` IPC handlers.
@@ -15,6 +16,7 @@ export function registerProjectIpcHandlers(deps: {
   db: Database.Database | null;
   userDataDir: string;
   logger: Logger;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
   deps.ipcMain.handle(
     "project:project:create",
@@ -279,7 +281,9 @@ export function registerProjectIpcHandlers(deps: {
 
   deps.ipcMain.handle(
     "project:project:getcurrent",
-    async (): Promise<IpcResponse<{ projectId: string; rootPath: string }>> => {
+    async (
+      event,
+    ): Promise<IpcResponse<{ projectId: string; rootPath: string }>> => {
       if (!deps.db) {
         return {
           ok: false,
@@ -292,6 +296,12 @@ export function registerProjectIpcHandlers(deps: {
         logger: deps.logger,
       });
       const res = svc.getCurrent();
+      if (res.ok) {
+        deps.projectSessionBinding?.bind({
+          webContentsId: event.sender.id,
+          projectId: res.data.projectId,
+        });
+      }
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -301,7 +311,7 @@ export function registerProjectIpcHandlers(deps: {
   deps.ipcMain.handle(
     "project:project:setcurrent",
     async (
-      _e,
+      event,
       payload: { projectId: string },
     ): Promise<IpcResponse<{ projectId: string; rootPath: string }>> => {
       if (!deps.db) {
@@ -316,6 +326,12 @@ export function registerProjectIpcHandlers(deps: {
         logger: deps.logger,
       });
       const res = svc.setCurrent({ projectId: payload.projectId });
+      if (res.ok) {
+        deps.projectSessionBinding?.bind({
+          webContentsId: event.sender.id,
+          projectId: res.data.projectId,
+        });
+      }
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -325,7 +341,7 @@ export function registerProjectIpcHandlers(deps: {
   deps.ipcMain.handle(
     "project:project:switch",
     async (
-      _e,
+      event,
       payload: {
         projectId: string;
         fromProjectId: string;
@@ -355,6 +371,12 @@ export function registerProjectIpcHandlers(deps: {
         operatorId: payload.operatorId,
         traceId: payload.traceId,
       });
+      if (res.ok) {
+        deps.projectSessionBinding?.bind({
+          webContentsId: event.sender.id,
+          projectId: res.data.currentProjectId,
+        });
+      }
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };

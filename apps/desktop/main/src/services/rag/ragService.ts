@@ -1,6 +1,10 @@
 import type Database from "better-sqlite3";
 
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
+import {
+  estimateUtf8TokenCount as estimateTokens,
+  trimUtf8ToTokenBudget,
+} from "@shared/tokenBudget";
 import type { Logger } from "../../logging/logger";
 import type { EmbeddingService } from "../embedding/embeddingService";
 import { createFtsService } from "../search/ftsService";
@@ -70,16 +74,6 @@ function ipcError(code: IpcErrorCode, message: string, details?: unknown): Err {
 }
 
 /**
- * Estimate token count from UTF-8 bytes.
- *
- * Why: V1 avoids tokenizer deps; byte-based estimate is stable and cheap.
- */
-function estimateTokens(text: string): number {
-  const bytes = Buffer.from(text, "utf8").byteLength;
-  return Math.ceil(bytes / 4);
-}
-
-/**
  * Normalize and validate a limit.
  *
  * Why: rag retrieve must stay fast and predictable.
@@ -146,17 +140,10 @@ function trimToTokenBudget(args: { text: string; tokenBudget: number }): {
   usedTokens: number;
   trimmed: boolean;
 } {
-  const maxBytes = Math.max(0, Math.floor(args.tokenBudget * 4));
-  const buf = Buffer.from(args.text, "utf8");
-  if (buf.byteLength <= maxBytes) {
-    const usedTokens = estimateTokens(args.text);
-    return { text: args.text, usedTokens, trimmed: false };
-  }
-
-  const sliced = buf.subarray(0, maxBytes);
-  const trimmedText = sliced.toString("utf8");
+  const trimmedText = trimUtf8ToTokenBudget(args.text, args.tokenBudget);
   const usedTokens = estimateTokens(trimmedText);
-  return { text: trimmedText, usedTokens, trimmed: true };
+  const trimmed = trimmedText !== args.text;
+  return { text: trimmedText, usedTokens, trimmed };
 }
 
 type Candidate = {
