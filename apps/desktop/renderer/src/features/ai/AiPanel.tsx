@@ -466,31 +466,37 @@ export function AiPanel(): JSX.Element {
     setModelsStatus("loading");
 
     setModelsLastError(null);
+    try {
+      const res = await invoke("ai:models:list", {});
 
-    const res = await invoke("ai:models:list", {});
+      if (!res.ok) {
+        setModelsStatus("error");
 
-    if (!res.ok) {
+        setModelsLastError(`${res.error.code}: ${res.error.message}`);
+
+        return;
+      }
+
+      setAvailableModels(res.data.items);
+
+      setModelsStatus("ready");
+
+      if (res.data.items.length === 0) {
+        return;
+      }
+
+      const selectedExists = res.data.items.some(
+        (item) => item.id === selectedModel,
+      );
+
+      if (!selectedExists) {
+        setSelectedModel(res.data.items[0].id);
+      }
+    } catch (error) {
+      const cause =
+        error instanceof Error ? error.message : String(error ?? "unknown");
       setModelsStatus("error");
-
-      setModelsLastError(`${res.error.code}: ${res.error.message}`);
-
-      return;
-    }
-
-    setAvailableModels(res.data.items);
-
-    setModelsStatus("ready");
-
-    if (res.data.items.length === 0) {
-      return;
-    }
-
-    const selectedExists = res.data.items.some(
-      (item) => item.id === selectedModel,
-    );
-
-    if (!selectedExists) {
-      setSelectedModel(res.data.items[0].id);
+      setModelsLastError(`INTERNAL: ${cause}`);
     }
   }, [selectedModel]);
 
@@ -703,12 +709,24 @@ export function AiPanel(): JSX.Element {
     }
 
     evaluatedRunIdRef.current = lastRunId;
-    void invoke("judge:quality:evaluate", {
-      projectId,
-      traceId: lastRunId,
-      text: outputText,
-      contextSummary: lastRequest ?? "AI 面板上下文摘要",
-    });
+    void (async () => {
+      try {
+        const res = await invoke("judge:quality:evaluate", {
+          projectId,
+          traceId: lastRunId,
+          text: outputText,
+          contextSummary: lastRequest ?? "AI 面板上下文摘要",
+        });
+        if (res.ok) {
+          return;
+        }
+      } catch {
+        // ignored: evaluatedRunIdRef recovery below enables deterministic retry.
+      }
+      if (evaluatedRunIdRef.current === lastRunId) {
+        evaluatedRunIdRef.current = null;
+      }
+    })();
   }, [lastRequest, lastRunId, outputText, projectId, status]);
 
   const diffText = proposal

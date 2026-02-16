@@ -13,6 +13,8 @@ import {
   readCreonowTextFileAsync,
 } from "../services/context/contextFs";
 import type { CreonowWatchService } from "../services/context/watchService";
+import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type ProjectRow = {
   rootPath: string;
@@ -24,6 +26,7 @@ type ContextFsRegistrarDeps = {
   logger: Logger;
   userDataDir: string;
   watchService: CreonowWatchService;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 };
 
 function isReadWithinScope(args: {
@@ -34,7 +37,27 @@ function isReadWithinScope(args: {
 }
 
 export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
-  deps.ipcMain.handle(
+  function handleWithProjectAccess<TPayload, TResponse>(
+    channel: string,
+    listener: (
+      event: unknown,
+      payload: TPayload,
+    ) => Promise<IpcResponse<TResponse>>,
+  ): void {
+    deps.ipcMain.handle(channel, async (event, payload) => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding: deps.projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response as IpcResponse<TResponse>;
+      }
+      return listener(event, payload as TPayload);
+    });
+  }
+
+  handleWithProjectAccess(
     "context:creonow:ensure",
     async (
       _e,
@@ -91,7 +114,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "context:creonow:status",
     async (
       _e,
@@ -157,7 +180,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "context:watch:start",
     async (
       _e,
@@ -224,7 +247,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "context:watch:stop",
     async (
       _e,
@@ -262,7 +285,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "context:rules:list",
     async (
       _e,
@@ -324,7 +347,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "context:settings:list",
     async (
       _e,
@@ -386,7 +409,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "context:rules:read",
     async (
       _e,
@@ -485,7 +508,7 @@ export function registerContextFsHandlers(deps: ContextFsRegistrarDeps): void {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "context:settings:read",
     async (
       _e,

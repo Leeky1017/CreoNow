@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const repoRoot = path.resolve(import.meta.dirname, "../../../..");
 const packageJsonPath = path.join(repoRoot, "package.json");
@@ -43,4 +44,91 @@ assert.match(
   runnerScript,
   /apps\/desktop\/main\/src/,
   "main source test discovery root is required",
+);
+
+// S4: discovery runner must expose import-safe execution plan for deterministic guard checks [ADDED]
+assert.match(
+  runnerScript,
+  /export\s+async\s+function\s+discoverUnitBuckets/u,
+  "runner must export discoverUnitBuckets for governance checks",
+);
+assert.match(
+  runnerScript,
+  /export\s+async\s+function\s+buildUnitExecutionPlan/u,
+  "runner must export unit execution plan builder for governance checks",
+);
+assert.match(
+  runnerScript,
+  /if\s*\(isEntrypoint\(import\.meta\.url\)\)/u,
+  "runner entrypoint should be gated to avoid side effects on import",
+);
+
+type UnitExecutionPlan = {
+  buckets: {
+    tsxFiles: string[];
+    vitestFiles: string[];
+  };
+  commands: Array<{
+    command: string;
+    args: string[];
+    cwd: string;
+  }>;
+};
+
+const runnerModule = (await import(pathToFileURL(runnerScriptPath).href)) as {
+  buildUnitExecutionPlan: () => Promise<UnitExecutionPlan>;
+};
+const unitPlan = await runnerModule.buildUnitExecutionPlan();
+
+const unitTsxSentinel = "apps/desktop/tests/unit/test-runner-discovery.spec.ts";
+const mainTsxSentinel =
+  "apps/desktop/main/src/services/context/__tests__/rulesFetcher.test.ts";
+const unitVitestSentinel = "tests/unit/main/window-load-catch.test.ts";
+
+assert.equal(
+  unitPlan.buckets.tsxFiles.some((file) => file.endsWith(unitTsxSentinel)),
+  true,
+  "tsx bucket should include tests/unit suites",
+);
+assert.equal(
+  unitPlan.buckets.tsxFiles.some((file) => file.endsWith(mainTsxSentinel)),
+  true,
+  "tsx bucket should include main/src __tests__ suites",
+);
+assert.equal(
+  unitPlan.buckets.vitestFiles.some((file) =>
+    file.endsWith("apps/desktop/tests/unit/main/window-load-catch.test.ts"),
+  ),
+  true,
+  "vitest bucket should include tests/unit main vitest suites",
+);
+
+const tsxExecutionTargets = unitPlan.commands
+  .filter(
+    (command) =>
+      command.command === "pnpm" &&
+      command.args[0] === "exec" &&
+      command.args[1] === "tsx",
+  )
+  .map((command) => command.args[2] ?? "");
+
+assert.equal(
+  tsxExecutionTargets.some((file) => file.endsWith(unitTsxSentinel)),
+  true,
+  "unit tsx suites should be part of execution plan",
+);
+assert.equal(
+  tsxExecutionTargets.some((file) => file.endsWith(mainTsxSentinel)),
+  true,
+  "main tsx suites should be part of execution plan",
+);
+
+const vitestExecution = unitPlan.commands.find((command) =>
+  command.args.includes("vitest"),
+);
+assert.ok(vitestExecution, "vitest execution command should exist");
+assert.equal(
+  (vitestExecution?.args ?? []).includes(unitVitestSentinel),
+  true,
+  "unit vitest suites should be part of execution plan",
 );

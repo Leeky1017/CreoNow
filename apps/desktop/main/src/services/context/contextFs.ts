@@ -114,6 +114,17 @@ export type CreonowTextFile = {
   updatedAtMs: number;
 };
 
+export const CONTEXT_FS_STREAM_READ_THRESHOLD_BYTES = 256 * 1024;
+export const CONTEXT_FS_STREAM_READ_HARD_LIMIT_BYTES = 4 * 1024 * 1024;
+
+export function resolveContextFsReadStrategy(
+  sizeBytes: number,
+): "direct" | "stream" {
+  return sizeBytes > CONTEXT_FS_STREAM_READ_THRESHOLD_BYTES
+    ? "stream"
+    : "direct";
+}
+
 export type CreonowListItem = {
   path: string;
   sizeBytes: number;
@@ -544,12 +555,48 @@ export async function readCreonowTextFileAsync(args: {
     if (!stat.isFile()) {
       return ipcError("UNSUPPORTED", "Only files are supported");
     }
-    const content = await fsPromises.readFile(abs.data.absPath, "utf8");
+    let content: string;
+    if (resolveContextFsReadStrategy(stat.size) === "direct") {
+      content = await fsPromises.readFile(abs.data.absPath, "utf8");
+    } else {
+      content = await new Promise<string>((resolve, reject) => {
+        const chunks: string[] = [];
+        let totalBytes = 0;
+        const stream = fs.createReadStream(abs.data.absPath, {
+          encoding: "utf8",
+          highWaterMark: 64 * 1024,
+        });
+        stream.on("data", (chunk: string | Buffer) => {
+          const textChunk =
+            typeof chunk === "string" ? chunk : chunk.toString("utf8");
+          totalBytes += Buffer.byteLength(textChunk, "utf8");
+          if (totalBytes > CONTEXT_FS_STREAM_READ_HARD_LIMIT_BYTES) {
+            stream.destroy(new Error("stream read hard limit exceeded"));
+            return;
+          }
+          chunks.push(textChunk);
+        });
+        stream.on("error", (error) => {
+          reject(error);
+        });
+        stream.on("end", () => {
+          resolve(chunks.join(""));
+        });
+      });
+    }
     return {
       ok: true,
       data: { content, sizeBytes: stat.size, updatedAtMs: stat.mtimeMs },
     };
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "stream read hard limit exceeded"
+    ) {
+      return ipcError("IO_ERROR", "File exceeds stream read hard limit", {
+        limitBytes: CONTEXT_FS_STREAM_READ_HARD_LIMIT_BYTES,
+      });
+    }
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       return ipcError("NOT_FOUND", "File not found");
     }

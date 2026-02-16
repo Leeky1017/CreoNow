@@ -288,6 +288,7 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     userDataDir: deps.userDataDir,
     watchService,
+    projectSessionBinding,
   });
 
   registerConstraintsIpcHandlers({
@@ -363,6 +364,7 @@ function registerIpcHandlers(deps: {
     ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
+    projectSessionBinding,
   });
 
   registerKnowledgeGraphIpcHandlers({
@@ -370,6 +372,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     recognitionRuntime,
+    projectSessionBinding,
   });
 
   registerVersionIpcHandlers({
