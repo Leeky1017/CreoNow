@@ -1,42 +1,64 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-15 15:22
+更新时间：2026-02-16 08:38
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **0**（Sprint 3 Wave W3 已交付并归档）。
-- 执行模式：**无活跃执行拓扑**（等待下一批 change 激活）。
+- 当前活跃 change 数量为 **22**。
+- 执行模式：**分波次并行 + 依赖串行收敛**。
 - 基线规则：
-  - 新增活跃 change 后必须立即恢复本文件的拓扑维护。
-  - 进入 Red 前必须完成 `依赖同步检查（Dependency Sync Check）`。
-  - 任一上游契约漂移时，下游必须先更新 proposal/spec/tasks 再继续实现。
+  - 进入 Red 前必须完成依赖同步检查（Dependency Sync Check）。
+  - 若发现依赖漂移，必须先更新 proposal/spec/tasks 与本文件，再继续实现。
 
 ## 执行顺序
 
-- 当前无活跃 change。
+1. `aud-c1a-renderer-safeinvoke-contract`
+2. `aud-c2a-test-runner-discovery`
+3. `aud-c3a-ipc-session-project-binding`
+4. `aud-h1-export-stream-write`
+5. `aud-h2a-main-hotpath-async-io`
+6. `aud-h3-watcher-error-recovery-state`
+7. `aud-h5-preload-payload-size-protocol`
+8. `aud-m1-ai-runtime-config-centralization`
+9. `aud-m2-shared-token-budget-helper`
+10. `aud-c1b-renderer-async-state-convergence`
+11. `aud-c2b-main-unit-suite-inclusion`
+12. `aud-c3b-ipc-assert-project-access`
+13. `aud-h2b-main-io-offload-guard`
+14. `aud-h4-judge-eval-retry-safety`
+15. `aud-m3-test-token-estimator-parity`
+16. `aud-m4-preload-diagnostic-metadata`
+17. `aud-c1c-renderer-fireforget-lint-guard`
+18. `aud-c2c-executed-vs-discovered-gate`
+19. `aud-h6a-main-service-decomposition`
+20. `aud-m5-coverage-gate-artifacts`
+21. `aud-h6b-memory-document-decomposition`
+22. `aud-h6c-renderer-shell-decomposition`
 
 ## 依赖说明
 
-- Sprint 3 已归档结果（W1/W2/W3 全部完成）：
-  - `s3-lint-ratchet`
-  - `s3-kg-last-seen`
-  - `s3-synopsis-skill`
-  - `s3-trace-persistence`
-  - `s3-onnx-runtime`
-  - `s3-i18n-setup`
-  - `s3-state-extraction`
-  - `s3-synopsis-injection`
-  - `s3-embedding-service`
-  - `s3-entity-completion`
-  - `s3-i18n-extract`
-  - `s3-search-panel`
-  - `s3-export`
-  - `s3-p3-backlog-batch`
-  - `s3-hybrid-rag`
-  - `s3-zen-mode`
-  - `s3-project-templates`
+- `aud-c1b-renderer-async-state-convergence` 依赖 `aud-c1a-renderer-safeinvoke-contract`。
+- `aud-c1c-renderer-fireforget-lint-guard` 依赖 `aud-c1a-renderer-safeinvoke-contract`、`aud-c1b-renderer-async-state-convergence`。
+- `aud-c2b-main-unit-suite-inclusion` 依赖 `aud-c2a-test-runner-discovery`。
+- `aud-c2c-executed-vs-discovered-gate` 依赖 `aud-c2a-test-runner-discovery`、`aud-c2b-main-unit-suite-inclusion`。
+- `aud-c3b-ipc-assert-project-access` 依赖 `aud-c3a-ipc-session-project-binding`。
+- `aud-h2b-main-io-offload-guard` 依赖 `aud-h2a-main-hotpath-async-io`。
+- `aud-h4-judge-eval-retry-safety` 依赖 `aud-c1a-renderer-safeinvoke-contract`。
+- `aud-h6a-main-service-decomposition` 依赖 `aud-c1a-renderer-safeinvoke-contract`、`aud-c3b-ipc-assert-project-access`。
+- `aud-h6b-memory-document-decomposition` 依赖 `aud-h6a-main-service-decomposition`。
+- `aud-h6c-renderer-shell-decomposition` 依赖 `aud-h6a-main-service-decomposition`。
+- `aud-m3-test-token-estimator-parity` 依赖 `aud-m2-shared-token-budget-helper`。
+- `aud-m4-preload-diagnostic-metadata` 依赖 `aud-h5-preload-payload-size-protocol`。
+- `aud-m5-coverage-gate-artifacts` 依赖 `aud-c2c-executed-vs-discovered-gate`。
+
+## 波次并行建议
+
+- Wave 0（并行基础层）：`aud-c1a`、`aud-c2a`、`aud-c3a`、`aud-h1`、`aud-h2a`、`aud-h3`、`aud-h5`、`aud-m1`、`aud-m2`
+- Wave 1（依赖收敛层）：`aud-c1b`、`aud-c2b`、`aud-c3b`、`aud-h2b`、`aud-h4`、`aud-m3`、`aud-m4`
+- Wave 2（治理门禁层）：`aud-c1c`、`aud-c2c`、`aud-h6a`、`aud-m5`
+- Wave 3（架构拆分层）：`aud-h6b`、`aud-h6c`
 
 ## 维护规则
 
