@@ -3,7 +3,7 @@
 - Issue: #585
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/585
 - Branch: `task/585-audit-round2-delivery`
-- PR: https://github.com/Leeky1017/CreoNow/pull/0
+- PR: https://github.com/Leeky1017/CreoNow/pull/586
 - Scope (Functional):
   - `docs/CN-全量代码严格审计报告-2026-02-15-第二轮.md`
 - Scope (Governance):
@@ -20,7 +20,7 @@
 
 - [x] 将审计报告纳入分支并补齐 Rulebook 工件
 - [x] 创建并填充 ISSUE-585 RUN_LOG
-- [ ] 创建 PR 并回填真实 PR URL
+- [x] 创建 PR 并回填真实 PR URL
 - [ ] 开启 auto-merge 并等待 required checks 全绿
 - [ ] 确认 merged 到 `main`
 
@@ -29,7 +29,7 @@
 - [x] Scope 与变更文件对齐
 - [x] Rulebook task 可验证
 - [ ] Preflight 通过
-- [ ] PR 已创建且 RUN_LOG PR 字段为真实链接
+- [x] PR 已创建且 RUN_LOG PR 字段为真实链接
 - [ ] Auto-merge 已开启
 - [ ] Required checks 全绿
 - [ ] 已合并到 `main`
@@ -60,9 +60,17 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 0000000000000000000000000000000000000000
+- Reviewed-HEAD-SHA: 9dc536f580294c5f212ca2e416959ddf8f439dea
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
 - Blocking-Issues: 0
 - Decision: ACCEPT
+
+### 2026-02-16 PR Creation
+
+- Command:
+  - `gh pr create --base main --head task/585-audit-round2-delivery --title "Deliver round2 strict audit report baseline (#585)" --body-file /tmp/pr585.md`
+- Exit code: `0`
+- Key output:
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/586`
