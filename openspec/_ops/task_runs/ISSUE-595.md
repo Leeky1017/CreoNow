@@ -3,7 +3,7 @@
 - Issue: #595
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/595
 - Branch: `task/595-wave3-audit-remediation-architecture-decomposition`
-- PR: pending
+- PR: https://github.com/Leeky1017/CreoNow/pull/596
 - Scope (Functional):
   - `apps/desktop/main/src/services/memory/**`
   - `apps/desktop/main/src/services/documents/**`
@@ -42,7 +42,7 @@
 - [x] `pnpm contract:check` / `pnpm cross-module:check` 通过
 - [x] `pnpm test:unit` / `pnpm test:integration` / `pnpm -C apps/desktop test:run` 通过
 - [ ] preflight 通过
-- [ ] PR 已创建并回填真实链接
+- [x] PR 已创建并回填真实链接
 - [ ] required checks 全绿并 auto-merge
 - [ ] merged 到 `main`
 
