@@ -3,7 +3,7 @@
 - Issue: #591
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/591
 - Branch: `task/591-wave1-audit-remediation-convergence`
-- PR: TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/592
 - Scope (Functional):
   - `apps/desktop/renderer/src/{stores/aiStore.ts,features/ai/AiPanel.tsx}`
   - `apps/desktop/main/src/ipc/{context.ts,contextFs.ts,knowledgeGraph.ts,memory.ts,index.ts,projectAccessGuard.ts}`
@@ -28,7 +28,7 @@
 - [x] 完成 Wave1 七个 change 的实现（c1b/c2b/c3b/h2b/h4/m3/m4）
 - [x] 完成依赖同步检查并在 change tasks 记录无漂移
 - [x] 通过类型/静态/契约/单测/集成门禁验证
-- [ ] 完成双层审计（Audit A/B）与 Lead 终审
+- [x] 完成双层审计（Audit A/B）与 Lead 终审
 - [ ] 创建 PR、开启 auto-merge、通过 preflight
 - [ ] required checks 全绿并自动合并至 main
 
@@ -54,7 +54,7 @@
 - [x] `pnpm test:unit` 通过
 - [x] `pnpm test:integration` 通过
 - [ ] preflight 通过
-- [ ] PR 已创建并回填真实链接
+- [x] PR 已创建并回填真实链接
 - [ ] required checks 全绿并 auto-merge
 - [ ] merged 到 `main`
 
@@ -113,6 +113,14 @@
   - `Test Files 3 passed (3)`（renderer Wave1 三测）
   - 其余 TSX 定向测试命令全部通过（exit 0）
 
+### 2026-02-16 PR Creation
+
+- Command:
+  - `gh pr create --base main --head task/591-wave1-audit-remediation-convergence --title \"Implement wave1 audit remediation convergence changes (#591)\" --body-file /tmp/pr591.md`
+- Exit code: `0`
+- Key output:
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/592`
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
@@ -126,7 +134,9 @@
 ### 2026-02-16 Dual-Layer Audit (Audit A/B)
 
 - Audit-A result:
-  - Pending
+  - No blocking findings.
+  - Residual risk: `apps/desktop/main/src/ipc/projectAccessGuard.ts` 在会话未绑定 projectId 时当前策略为放行（保持兼容）；后续若要升级为强制绑定，需要补齐启动期绑定契约与迁移测试。
 - Audit-B result:
-  - Pending
-- Lead Decision: Pending
+  - No blocking findings.
+  - Residual risk: `apps/desktop/main/src/services/context/contextFs.ts` 的流式硬上限目前统一返回 `IO_ERROR`，若后续需要更细粒度可观测性，可扩展专用错误码。
+- Lead Decision: ACCEPT

@@ -20,6 +20,6 @@
 
 - [x] 3.1 更新 `openspec/_ops/task_runs/ISSUE-591.md`（含 Red/Green 证据与依赖同步结论）
 - [x] 3.2 同步 `openspec/changes/EXECUTION_ORDER.md`（Wave1 进度）
-- [ ] 3.3 完成双层审计（Audit A/B）与 Lead 终审签字
+- [x] 3.3 完成双层审计（Audit A/B）与 Lead 终审签字
 - [ ] 3.4 preflight 通过 + auto-merge + required checks 全绿
 - [ ] 3.5 合并回 `main` + worktree 清理 + Rulebook 归档
