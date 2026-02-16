@@ -8,6 +8,10 @@ import { createRulesFetcher } from "./fetchers/rulesFetcher";
 import { createSettingsFetcher } from "./fetchers/settingsFetcher";
 import { createSynopsisFetcher } from "./fetchers/synopsisFetcher";
 import type { SynopsisStore } from "./synopsisStore";
+import {
+  estimateUtf8TokenCount as estimateTokenCount,
+  trimUtf8ToTokenBudget as trimTextToTokenBudget,
+} from "@shared/tokenBudget";
 import type {
   ContextAssembleRequest,
   ContextBudgetLayerConfig,
@@ -177,32 +181,6 @@ function assertLayerChunkScope(args: {
       `Layer chunk scope mismatch: expected ${args.projectId}, got ${chunk.projectId}`,
     );
   }
-}
-
-/**
- * Why: CE2 requires deterministic token math without external tokenizer
- * dependencies during local tests and CI.
- */
-function estimateTokenCount(text: string): number {
-  const bytes = new TextEncoder().encode(text).length;
-  return bytes === 0 ? 0 : Math.ceil(bytes / 4);
-}
-
-/**
- * Why: truncation must be deterministic and bounded by token budget.
- */
-function trimTextToTokenBudget(text: string, tokenBudget: number): string {
-  const maxBytes = Math.max(0, Math.floor(tokenBudget * 4));
-  if (maxBytes === 0) {
-    return "";
-  }
-
-  const buffer = new TextEncoder().encode(text);
-  if (buffer.length <= maxBytes) {
-    return text;
-  }
-
-  return new TextDecoder().decode(buffer.slice(0, maxBytes));
 }
 
 /**

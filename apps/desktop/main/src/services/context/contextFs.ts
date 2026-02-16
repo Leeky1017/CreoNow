@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import fsPromises from "node:fs/promises";
 import path from "node:path";
 
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
@@ -309,6 +310,241 @@ export function readCreonowTextFile(args: {
       return ipcError("UNSUPPORTED", "Only files are supported");
     }
     const content = fs.readFileSync(abs.data.absPath, "utf8");
+    return {
+      ok: true,
+      data: { content, sizeBytes: stat.size, updatedAtMs: stat.mtimeMs },
+    };
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return ipcError("NOT_FOUND", "File not found");
+    }
+    return ipcError(
+      "IO_ERROR",
+      "Failed to read file",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Async variant of ensureCreonowDirStructure for IPC hot-path usage.
+ *
+ * Why: synchronous mkdir/write operations can block the main-process event loop.
+ */
+export async function ensureCreonowDirStructureAsync(
+  projectRootPath: string,
+): Promise<ServiceResult<true>> {
+  try {
+    const base = getCreonowRootPath(projectRootPath);
+    const dirs = [
+      base,
+      path.join(base, "rules"),
+      path.join(base, "settings"),
+      path.join(base, "skills"),
+      path.join(base, "characters"),
+      path.join(base, "conversations"),
+      path.join(base, "cache"),
+    ];
+    for (const d of dirs) {
+      await fsPromises.mkdir(d, { recursive: true });
+    }
+
+    const defaultFiles: Array<{ p: string; content: string }> = [
+      {
+        p: path.join(base, "rules", "style.md"),
+        content: "# Style\n\n",
+      },
+      {
+        p: path.join(base, "rules", "terminology.json"),
+        content: JSON.stringify({ terms: [] }, null, 2) + "\n",
+      },
+      {
+        p: path.join(base, "rules", "constraints.json"),
+        content: JSON.stringify({ version: 1, items: [] }, null, 2) + "\n",
+      },
+    ];
+    for (const f of defaultFiles) {
+      const exists = await fsPromises
+        .access(f.p)
+        .then(() => true)
+        .catch(() => false);
+      if (!exists) {
+        await fsPromises.writeFile(f.p, f.content, "utf8");
+      }
+    }
+
+    return { ok: true, data: true };
+  } catch (error) {
+    return ipcError(
+      "IO_ERROR",
+      "Failed to initialize .creonow directory",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Async variant of getCreonowDirStatus for IPC hot-path usage.
+ */
+export async function getCreonowDirStatusAsync(
+  projectRootPath: string,
+): Promise<ServiceResult<CreonowDirStatus>> {
+  const creonowRootPath = getCreonowRootPath(projectRootPath);
+  try {
+    const stat = await fsPromises.stat(creonowRootPath);
+    return { ok: true, data: { exists: stat.isDirectory(), creonowRootPath } };
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return { ok: true, data: { exists: false, creonowRootPath } };
+    }
+    return ipcError(
+      "IO_ERROR",
+      "Failed to read .creonow status",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Async stat conversion for deterministic list output.
+ */
+async function statToListItemAsync(args: {
+  absPath: string;
+  relPath: string;
+}): Promise<ServiceResult<CreonowListItem>> {
+  try {
+    const stat = await fsPromises.stat(args.absPath);
+    if (!stat.isFile()) {
+      return ipcError("UNSUPPORTED", "Only files are supported");
+    }
+    return {
+      ok: true,
+      data: {
+        path: args.relPath,
+        sizeBytes: stat.size,
+        updatedAtMs: stat.mtimeMs,
+      },
+    };
+  } catch (error) {
+    return ipcError(
+      "IO_ERROR",
+      "Failed to stat file",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Async recursive listing for `.creonow/**`.
+ */
+async function listFilesRecursiveAsync(args: {
+  dirAbs: string;
+  prefixRel: string;
+}): Promise<ServiceResult<CreonowListItem[]>> {
+  try {
+    const entries = await fsPromises.readdir(args.dirAbs, {
+      withFileTypes: true,
+    });
+    const items: CreonowListItem[] = [];
+
+    for (const entry of entries) {
+      const absPath = path.join(args.dirAbs, entry.name);
+      const relPath = `${args.prefixRel}/${entry.name}`.split("\\").join("/");
+      if (entry.isDirectory()) {
+        const child = await listFilesRecursiveAsync({
+          dirAbs: absPath,
+          prefixRel: relPath,
+        });
+        if (!child.ok) {
+          return child;
+        }
+        items.push(...child.data);
+        continue;
+      }
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const item = await statToListItemAsync({ absPath, relPath });
+      if (!item.ok) {
+        return item;
+      }
+      items.push(item.data);
+    }
+
+    items.sort((a, b) => a.path.localeCompare(b.path));
+    return { ok: true, data: items };
+  } catch (error) {
+    return ipcError(
+      "IO_ERROR",
+      "Failed to list .creonow files",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+}
+
+/**
+ * Async variant of listCreonowFiles for IPC hot-path usage.
+ */
+export async function listCreonowFilesAsync(args: {
+  projectRootPath: string;
+  scope: "rules" | "settings";
+}): Promise<ServiceResult<{ items: CreonowListItem[] }>> {
+  const baseRel = `.creonow/${args.scope}`;
+  const abs = toAbsoluteCreonowPath({
+    projectRootPath: args.projectRootPath,
+    normalizedCreonowPath: baseRel,
+  });
+  if (!abs.ok) {
+    return abs;
+  }
+  const dirAbs = abs.data.absPath;
+  try {
+    const stat = await fsPromises.stat(dirAbs);
+    if (!stat.isDirectory()) {
+      return ipcError("NOT_FOUND", "Directory not found");
+    }
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return { ok: true, data: { items: [] } };
+    }
+    return ipcError(
+      "IO_ERROR",
+      "Failed to read directory",
+      error instanceof Error ? { message: error.message } : { error },
+    );
+  }
+
+  const listed = await listFilesRecursiveAsync({ dirAbs, prefixRel: baseRel });
+  return listed.ok ? { ok: true, data: { items: listed.data } } : listed;
+}
+
+/**
+ * Async variant of readCreonowTextFile for IPC hot-path usage.
+ */
+export async function readCreonowTextFileAsync(args: {
+  projectRootPath: string;
+  path: string;
+}): Promise<ServiceResult<CreonowTextFile>> {
+  const normalized = normalizeCreonowPath(args.path);
+  if (!normalized.ok) {
+    return normalized;
+  }
+
+  const abs = toAbsoluteCreonowPath({
+    projectRootPath: args.projectRootPath,
+    normalizedCreonowPath: normalized.data,
+  });
+  if (!abs.ok) {
+    return abs;
+  }
+
+  try {
+    const stat = await fsPromises.stat(abs.data.absPath);
+    if (!stat.isFile()) {
+      return ipcError("UNSUPPORTED", "Only files are supported");
+    }
+    const content = await fsPromises.readFile(abs.data.absPath, "utf8");
     return {
       ok: true,
       data: { content, sizeBytes: stat.size, updatedAtMs: stat.mtimeMs },

@@ -24,6 +24,7 @@ import { registerStatsIpcHandlers } from "./ipc/stats";
 import { registerDbDebugIpcHandlers } from "./ipc/debugChannelGate";
 import { createValidatedIpcMain } from "./ipc/runtime-validation";
 import { registerVersionIpcHandlers } from "./ipc/version";
+import { createProjectSessionBindingRegistry } from "./ipc/projectSessionBinding";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
 import { createOnnxEmbeddingRuntime } from "./services/embedding/onnxRuntime";
@@ -228,6 +229,12 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     defaultTimeoutMs: 30_000,
   });
+  const projectSessionBinding = createProjectSessionBindingRegistry();
+  app.on("web-contents-created", (_event, webContents) => {
+    webContents.once("destroyed", () => {
+      projectSessionBinding.clear({ webContentsId: webContents.id });
+    });
+  });
   const secretStorage = {
     isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
     encryptString: (plainText: string) => safeStorage.encryptString(plainText),
@@ -257,6 +264,7 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     env: deps.env,
     secretStorage,
+    projectSessionBinding,
   });
 
   registerAiProxyIpcHandlers({
@@ -271,6 +279,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     userDataDir: deps.userDataDir,
     logger: deps.logger,
+    projectSessionBinding,
   });
 
   registerContextIpcHandlers({

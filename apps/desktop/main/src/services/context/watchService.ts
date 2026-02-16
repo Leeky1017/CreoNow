@@ -33,8 +33,11 @@ export type CreonowWatchService = {
  */
 export function createCreonowWatchService(deps: {
   logger: Logger;
+  watchFactory?: typeof fs.watch;
+  onWatcherInvalidated?: (args: { projectId: string; reason: "error" }) => void;
 }): CreonowWatchService {
   const watchers = new Map<string, fs.FSWatcher>();
+  const watchFactory = deps.watchFactory ?? fs.watch;
   const supportsRecursiveWatch =
     process.platform === "win32" || process.platform === "darwin";
 
@@ -71,17 +74,26 @@ export function createCreonowWatchService(deps: {
       }
 
       try {
-        const watcher = fs.watch(
+        const watcher = watchFactory(
           creonowRootPath,
           { recursive: supportsRecursiveWatch },
           () => {
             // Intentionally ignored in P0: renderer will pull fresh context on demand.
           },
         );
-        watcher.on("error", () => {
+        watcher.on("error", (error) => {
           deps.logger.error("context_watch_error", {
             projectId,
             code: "IO_ERROR",
+            message: error instanceof Error ? error.message : String(error),
+          });
+          safeClose(watcher);
+          if (watchers.get(projectId) === watcher) {
+            watchers.delete(projectId);
+          }
+          deps.onWatcherInvalidated?.({
+            projectId,
+            reason: "error",
           });
         });
         watchers.set(projectId, watcher);

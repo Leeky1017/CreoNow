@@ -76,6 +76,50 @@ function composeTxtExport(args: { title: string; body: string }): string {
   return `${args.title}\n\n${trimmedBody}`;
 }
 
+function writeUtf8Chunk(
+  stream: NodeJS.WritableStream,
+  chunk: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (fn: () => void) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      stream.off("error", onError);
+      fn();
+    };
+    const onError = (error: unknown) => {
+      settle(() => reject(error));
+    };
+    stream.once("error", onError);
+
+    const drained = stream.write(chunk, "utf8", () => {
+      settle(resolve);
+    });
+    if (!drained) {
+      stream.once("drain", () => {
+        settle(resolve);
+      });
+    }
+  });
+}
+
+function endStream(stream: NodeJS.WritableStream): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onError = (error: unknown) => {
+      stream.off("error", onError);
+      reject(error);
+    };
+    stream.once("error", onError);
+    stream.end(() => {
+      stream.off("error", onError);
+      resolve();
+    });
+  });
+}
+
 /**
  * Create an export service that writes files under the app's userData directory.
  */
@@ -281,21 +325,37 @@ export function createExportService(deps: {
         return ipcError("NOT_FOUND", "No documents found for project export");
       }
 
-      const sections: string[] = [];
-      for (const item of orderedItems) {
-        const read = docSvc.read({ projectId, documentId: item.documentId });
-        if (!read.ok) {
-          return read;
+      await fs.mkdir(path.dirname(absPath), { recursive: true });
+      const stream = createWriteStream(absPath);
+
+      let bytesWritten = 0;
+      try {
+        for (let i = 0; i < orderedItems.length; i += 1) {
+          const item = orderedItems[i];
+          const read = docSvc.read({ projectId, documentId: item.documentId });
+          if (!read.ok) {
+            stream.destroy();
+            await fs.rm(absPath, { force: true });
+            return read;
+          }
+
+          const section =
+            i === 0
+              ? `# ${read.data.title}\n\n${read.data.contentMd}`
+              : `\n\n---\n\n# ${read.data.title}\n\n${read.data.contentMd}`;
+          await writeUtf8Chunk(stream, section);
+          bytesWritten += Buffer.byteLength(section, "utf8");
         }
-        sections.push(`# ${read.data.title}\n\n${read.data.contentMd}`);
+
+        await writeUtf8Chunk(stream, "\n");
+        bytesWritten += 1;
+        await endStream(stream);
+      } catch (streamError) {
+        stream.destroy();
+        await fs.rm(absPath, { force: true });
+        throw streamError;
       }
 
-      const bundle = `${sections.join("\n\n---\n\n")}\n`;
-
-      await fs.mkdir(path.dirname(absPath), { recursive: true });
-      await fs.writeFile(absPath, bundle, "utf8");
-
-      const bytesWritten = Buffer.byteLength(bundle, "utf8");
       deps.logger.info("export_succeeded", {
         format: "project-bundle",
         projectId,

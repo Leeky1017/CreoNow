@@ -12,6 +12,7 @@ import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
 import { createAiService } from "../services/ai/aiService";
 import { createSqliteTraceStore } from "../services/ai/traceStore";
+import { resolveRuntimeGovernanceFromEnv } from "../config/runtimeGovernance";
 import {
   type SecretStorageAdapter,
   createAiProxySettingsService,
@@ -27,6 +28,7 @@ import { createSkillExecutor } from "../services/skills/skillExecutor";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { createDbNotReadyError } from "./dbError";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type SkillRunPayload = {
   skillId: string;
@@ -130,10 +132,8 @@ type ChatClearResponse = {
   removed: number;
 };
 
-const AI_STREAM_RATE_LIMIT_PER_SECOND = 5_000;
 const AI_CANDIDATE_COUNT_MIN = 1;
 const AI_CANDIDATE_COUNT_MAX = 5;
-const AI_CHAT_MESSAGE_CAPACITY = 2_000;
 
 type ModelPricing = {
   promptPer1kTokens: number;
@@ -301,11 +301,22 @@ function parseModelPricingMap(
  */
 function resolveChatProjectId(args: {
   projectId?: string;
+  boundProjectId?: string | null;
 }):
   | { ok: true; data: string }
-  | { ok: false; error: { code: "INVALID_ARGUMENT"; message: string } } {
-  const projectId = args.projectId?.trim() ?? "";
-  if (projectId.length === 0) {
+  | {
+      ok: false;
+      error:
+        | { code: "INVALID_ARGUMENT"; message: string }
+        | { code: "FORBIDDEN"; message: string };
+    } {
+  const boundProjectId = args.boundProjectId?.trim() ?? "";
+  const requestedProjectId = args.projectId?.trim() ?? "";
+
+  if (requestedProjectId.length === 0) {
+    if (boundProjectId.length > 0) {
+      return { ok: true, data: boundProjectId };
+    }
     return {
       ok: false,
       error: {
@@ -314,7 +325,18 @@ function resolveChatProjectId(args: {
       },
     };
   }
-  return { ok: true, data: projectId };
+
+  if (boundProjectId.length > 0 && requestedProjectId !== boundProjectId) {
+    return {
+      ok: false,
+      error: {
+        code: "FORBIDDEN",
+        message: "projectId is not active for this renderer session",
+      },
+    };
+  }
+
+  return { ok: true, data: requestedProjectId };
 }
 
 /**
@@ -356,7 +378,9 @@ export function registerAiIpcHandlers(deps: {
   logger: Logger;
   env: NodeJS.ProcessEnv;
   secretStorage?: SecretStorageAdapter;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
+  const runtimeGovernance = resolveRuntimeGovernanceFromEnv(deps.env);
   const pushBackpressureByRenderer = new Map<
     number,
     ReturnType<typeof createIpcPushBackpressureGate>
@@ -376,7 +400,7 @@ export function registerAiIpcHandlers(deps: {
     }
 
     const created = createIpcPushBackpressureGate({
-      limitPerSecond: AI_STREAM_RATE_LIMIT_PER_SECOND,
+      limitPerSecond: runtimeGovernance.ai.streamRateLimitPerSecond,
       onDrop: (event) => {
         deps.logger.info("ipc_push_backpressure_triggered", {
           rendererId: sender.id,
@@ -979,7 +1003,7 @@ export function registerAiIpcHandlers(deps: {
   deps.ipcMain.handle(
     "ai:chat:send",
     async (
-      _e,
+      event,
       payload: ChatSendPayload,
     ): Promise<IpcResponse<ChatSendResponse>> => {
       const message = payload.message.trim();
@@ -990,7 +1014,12 @@ export function registerAiIpcHandlers(deps: {
         };
       }
 
-      const projectId = resolveChatProjectId({ projectId: payload.projectId });
+      const projectId = resolveChatProjectId({
+        projectId: payload.projectId,
+        boundProjectId: deps.projectSessionBinding?.resolveProjectId({
+          webContentsId: event.sender.id,
+        }),
+      });
       if (!projectId.ok) {
         return {
           ok: false,
@@ -1000,7 +1029,7 @@ export function registerAiIpcHandlers(deps: {
 
       const timestamp = nowTs();
       const projectMessages = chatHistoryByProject.get(projectId.data) ?? [];
-      if (projectMessages.length >= AI_CHAT_MESSAGE_CAPACITY) {
+      if (projectMessages.length >= runtimeGovernance.ai.chatMessageCapacity) {
         return {
           ok: false,
           error: {
@@ -1035,10 +1064,15 @@ export function registerAiIpcHandlers(deps: {
   deps.ipcMain.handle(
     "ai:chat:list",
     async (
-      _e,
+      event,
       payload: ChatListPayload,
     ): Promise<IpcResponse<ChatListResponse>> => {
-      const projectId = resolveChatProjectId({ projectId: payload.projectId });
+      const projectId = resolveChatProjectId({
+        projectId: payload.projectId,
+        boundProjectId: deps.projectSessionBinding?.resolveProjectId({
+          webContentsId: event.sender.id,
+        }),
+      });
       if (!projectId.ok) {
         return {
           ok: false,
@@ -1057,10 +1091,15 @@ export function registerAiIpcHandlers(deps: {
   deps.ipcMain.handle(
     "ai:chat:clear",
     async (
-      _e,
+      event,
       payload: ChatClearPayload,
     ): Promise<IpcResponse<ChatClearResponse>> => {
-      const projectId = resolveChatProjectId({ projectId: payload.projectId });
+      const projectId = resolveChatProjectId({
+        projectId: payload.projectId,
+        boundProjectId: deps.projectSessionBinding?.resolveProjectId({
+          webContentsId: event.sender.id,
+        }),
+      });
       if (!projectId.ok) {
         return {
           ok: false,
