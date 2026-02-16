@@ -24,7 +24,7 @@
 - Scope (Governance):
   - `openspec/changes/aud-*/tasks.md`（Wave0 九项）
   - `openspec/_ops/task_runs/ISSUE-589.md`
-  - `rulebook/tasks/issue-589-wave0-audit-remediation/.metadata.json`
+  - `rulebook/tasks/issue-589-wave0-audit-remediation/{.metadata.json,proposal.md,tasks.md}`
 
 ## Plan
 
@@ -119,7 +119,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 3a0b3785bcb1649f9fabb7947c82b88e8225d4fd
+- Reviewed-HEAD-SHA: 451fe30c054f3c6b131ba669605d0f0f0da8d2c7
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
@@ -166,3 +166,19 @@
 - Exit code: `0`
 - Key output:
   - PR: `https://github.com/Leeky1017/CreoNow/pull/590`
+
+### 2026-02-16 Preflight Blockers + Recovery
+
+- Command:
+  - `scripts/agent_pr_preflight.sh --issue 589 --slug wave0-audit-remediation --pr 590`（多轮）
+  - `git add/commit/push openspec/_ops/task_runs/ISSUE-589.md`（主会话签字链修正）
+  - `mkdir -p rulebook/tasks/issue-589-wave0-audit-remediation`
+  - `cat > rulebook/tasks/issue-589-wave0-audit-remediation/{proposal.md,tasks.md,.metadata.json}`
+  - `git add/commit/push rulebook/tasks/issue-589-wave0-audit-remediation/*`
+- Exit code:
+  - preflight：`1`（阶段失败，已定位修复）
+  - git commit/push：`0`
+- Key output:
+  - `[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`
+  - `[RULEBOOK] required task dir missing in both active and archive`
+  - Rulebook active task 已补齐，进入下一轮 preflight 复验
