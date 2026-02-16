@@ -1029,9 +1029,7 @@ export function registerAiIpcHandlers(deps: {
 
       const timestamp = nowTs();
       const projectMessages = chatHistoryByProject.get(projectId.data) ?? [];
-      if (
-        projectMessages.length >= runtimeGovernance.ai.chatMessageCapacity
-      ) {
+      if (projectMessages.length >= runtimeGovernance.ai.chatMessageCapacity) {
         return {
           ok: false,
           error: {

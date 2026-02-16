@@ -29,7 +29,9 @@ function parseMode(argv: string[]): Mode {
     }
   }
 
-  throw new Error("Usage: tsx scripts/run-discovered-tests.ts --mode unit|integration");
+  throw new Error(
+    "Usage: tsx scripts/run-discovered-tests.ts --mode unit|integration",
+  );
 }
 
 async function walkFiles(rootDir: string): Promise<string[]> {
@@ -167,7 +169,9 @@ async function runUnitDiscovered(): Promise<void> {
 
 async function runIntegrationDiscovered(): Promise<void> {
   const files = await discoverIntegrationFiles();
-  console.log(`[test-discovery] mode=integration tests=${files.length.toString()}`);
+  console.log(
+    `[test-discovery] mode=integration tests=${files.length.toString()}`,
+  );
 
   for (const file of files) {
     runCommand("pnpm", ["exec", "tsx", file], REPO_ROOT);

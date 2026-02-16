@@ -24,7 +24,10 @@ export function estimateUtf8TokenCount(text: string): number {
  *
  * Why: all layers must share one truncation rule to avoid drift.
  */
-export function trimUtf8ToTokenBudget(text: string, tokenBudget: number): string {
+export function trimUtf8ToTokenBudget(
+  text: string,
+  tokenBudget: number,
+): string {
   const maxBytes = tokenBudgetToUtf8ByteLimit(tokenBudget);
   if (maxBytes === 0) {
     return "";

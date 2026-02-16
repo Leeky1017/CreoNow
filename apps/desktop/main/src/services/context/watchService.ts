@@ -34,10 +34,7 @@ export type CreonowWatchService = {
 export function createCreonowWatchService(deps: {
   logger: Logger;
   watchFactory?: typeof fs.watch;
-  onWatcherInvalidated?: (args: {
-    projectId: string;
-    reason: "error";
-  }) => void;
+  onWatcherInvalidated?: (args: { projectId: string; reason: "error" }) => void;
 }): CreonowWatchService {
   const watchers = new Map<string, fs.FSWatcher>();
   const watchFactory = deps.watchFactory ?? fs.watch;

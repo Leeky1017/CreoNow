@@ -97,7 +97,10 @@ function isIpcResponse(value: unknown): value is IpcResponse<unknown> {
  *
  * Why: IPC payload must be hard-limited before entering main handlers.
  */
-function estimatePayloadSize(payload: unknown, maxBytes?: number): number | null {
+function estimatePayloadSize(
+  payload: unknown,
+  maxBytes?: number,
+): number | null {
   if (
     payload === undefined ||
     typeof payload === "function" ||

@@ -16,9 +16,7 @@ function createLogger(): Logger {
   };
 }
 
-function createHarness(args?: {
-  useProjectSessionBinding?: boolean;
-}): {
+function createHarness(args?: { useProjectSessionBinding?: boolean }): {
   chatSend: Handler;
   chatList: Handler;
   chatClear: Handler;

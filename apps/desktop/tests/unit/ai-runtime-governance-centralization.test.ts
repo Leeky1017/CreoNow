@@ -2,10 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-const aiIpcPath = path.resolve(
-  import.meta.dirname,
-  "../../main/src/ipc/ai.ts",
-);
+const aiIpcPath = path.resolve(import.meta.dirname, "../../main/src/ipc/ai.ts");
 const aiIpcSource = readFileSync(aiIpcPath, "utf8");
 
 // S1: AI runtime quotas should be centralized via runtime governance [ADDED]
