@@ -1,6 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 
 const DEFAULT_EDITOR_READY_TIMEOUT_MS = 30_000;
+type CreateProjectTemplateLabel =
+  | "Novel"
+  | "Short Story"
+  | "Screenplay"
+  | "Other";
 
 /**
  * Wait until project IPC endpoints are ready to serve requests.
@@ -108,6 +113,7 @@ export async function waitForEditorReady(args: {
 export async function createProjectViaWelcomeAndWaitForEditor(args: {
   page: Page;
   projectName: string;
+  templateLabel?: CreateProjectTemplateLabel;
   clickEditor?: boolean;
   timeoutMs?: number;
 }): Promise<void> {
@@ -129,6 +135,14 @@ export async function createProjectViaWelcomeAndWaitForEditor(args: {
   await expect(args.page.getByTestId("create-project-dialog")).toBeVisible({
     timeout: timeoutMs,
   });
+  if (args.templateLabel) {
+    const templateOption = args.page.getByRole("radio", {
+      name: args.templateLabel,
+      exact: true,
+    });
+    await expect(templateOption).toBeVisible({ timeout: timeoutMs });
+    await templateOption.click();
+  }
   await args.page.getByTestId("create-project-name").fill(args.projectName);
   await args.page.getByTestId("create-project-submit").click();
 

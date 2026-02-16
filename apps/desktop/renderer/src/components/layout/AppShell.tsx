@@ -42,6 +42,7 @@ import {
   unifiedDiff,
   type DiffHunkDecision,
 } from "../../lib/diff/unifiedDiff";
+import { runFireAndForget } from "../../lib/fireAndForget";
 import { invoke } from "../../lib/ipcClient";
 import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
 import "../../i18n";
@@ -431,10 +432,10 @@ export function AppShell(): JSX.Element {
         return;
       }
 
-      void (async () => {
+      runFireAndForget(async () => {
         await setCurrentDocument({ projectId: currentProjectId, documentId });
         await openEditorDocument({ projectId: currentProjectId, documentId });
-      })();
+      });
 
       openVersionHistoryPanel();
     },
@@ -466,10 +467,10 @@ export function AppShell(): JSX.Element {
       return;
     }
 
-    void (async () => {
+    runFireAndForget(async () => {
       await bootstrapFiles(currentProjectId);
       await bootstrapEditor(currentProjectId);
-    })();
+    });
   }, [bootstrapEditor, bootstrapFiles, currentProjectId]);
 
   const debouncedToggleSidebar = useDebouncedCallback(

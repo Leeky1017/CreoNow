@@ -2,6 +2,7 @@ import React from "react";
 
 import type { IpcChannelSpec } from "@shared/types/ipc-generated";
 import { invoke } from "../../lib/ipcClient";
+import { runFireAndForget } from "../../lib/fireAndForget";
 import { Button, Heading, Text } from "../../components/primitives";
 import { useJudgeEnsure } from "../../hooks/useJudgeEnsure";
 
@@ -36,19 +37,29 @@ export function JudgeSection(): JSX.Element {
 
   React.useEffect(() => {
     let canceled = false;
-    void (async () => {
-      const res = await invoke("judge:model:getstate", {});
-      if (canceled) {
-        return;
-      }
-      if (res.ok) {
-        setState(res.data.state);
-        setErrorText(null);
-        clearError();
-        return;
-      }
-      setErrorText(`${res.error.code}: ${res.error.message}`);
-    })();
+    runFireAndForget(
+      async () => {
+        const res = await invoke("judge:model:getstate", {});
+        if (canceled) {
+          return;
+        }
+        if (res.ok) {
+          setState(res.data.state);
+          setErrorText(null);
+          clearError();
+          return;
+        }
+        setErrorText(`${res.error.code}: ${res.error.message}`);
+      },
+      (error) => {
+        if (canceled) {
+          return;
+        }
+        const message =
+          error instanceof Error ? error.message : String(error ?? "unknown");
+        setErrorText(`INTERNAL: ${message}`);
+      },
+    );
     return () => {
       canceled = true;
     };

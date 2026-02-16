@@ -83,6 +83,7 @@ test("system dialog: cancel/confirm across file tree + knowledge graph", async (
   await createProjectViaWelcomeAndWaitForEditor({
     page,
     projectName: "Demo Project",
+    templateLabel: "Other",
   });
   await expect(page.getByTestId("sidebar-files")).toBeVisible();
 
