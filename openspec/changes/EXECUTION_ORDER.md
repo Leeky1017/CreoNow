@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-16 12:01
+更新时间：2026-02-16 13:06
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -64,8 +64,8 @@
 
 - Wave 0：已完成并合并（PR #590）。
 - Wave 1：已完成并合并（PR #592）。
-- Wave 2：issue #593 已完成实现与本地门禁验证（`aud-c1c/c2c/h6a/m5`），进入审计与治理收口（Rulebook/RUN_LOG/preflight/PR）。
-- Wave 3：依赖 Wave2 的 `aud-h6a` 合并后推进（`aud-h6b/h6c`）。
+- Wave 2：已完成并合并（PR #594）。
+- Wave 3：issue #595 已完成 h6b/h6c TDD 实现与本地门禁验证，进入双层审计与治理合并阶段。
 
 ## 维护规则
 

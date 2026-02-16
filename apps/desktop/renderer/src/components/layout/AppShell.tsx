@@ -45,77 +45,23 @@ import {
 import { runFireAndForget } from "../../lib/fireAndForget";
 import { invoke } from "../../lib/ipcClient";
 import { useDebouncedCallback } from "../../hooks/useDebouncedCallback";
+import {
+  clamp,
+  computePanelMax,
+  computeSidebarMax,
+  extractZenModeContent,
+  getModKey,
+} from "./appShellLayoutHelpers";
 import "../../i18n";
-
-/**
- * Clamp a value between min/max bounds.
- */
-function clamp(n: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, n));
-}
-
-function getModKey(): string {
-  return navigator.platform.toLowerCase().includes("mac") ? "⌘" : "Ctrl+";
-}
 
 let hasWarnedInvalidZenContent = false;
 
-/**
- * Extract title and paragraphs from TipTap JSON content.
- *
- * Why: ZenMode needs document content in a simplified format (title + paragraphs).
- */
-function extractZenModeContent(contentJson: string | null): {
-  title: string;
-  paragraphs: string[];
-  wordCount: number;
-} {
-  if (!contentJson) {
-    return { title: "Untitled", paragraphs: [], wordCount: 0 };
+function warnInvalidZenContent(error: unknown): void {
+  if (hasWarnedInvalidZenContent) {
+    return;
   }
-
-  try {
-    const doc = JSON.parse(contentJson) as {
-      content?: Array<{
-        type: string;
-        attrs?: { level?: number };
-        content?: Array<{ type: string; text?: string }>;
-      }>;
-    };
-
-    let title = "Untitled";
-    const paragraphs: string[] = [];
-    let wordCount = 0;
-
-    if (doc.content) {
-      for (const node of doc.content) {
-        const text =
-          node.content
-            ?.filter((c) => c.type === "text")
-            .map((c) => c.text ?? "")
-            .join("") ?? "";
-
-        if (!text.trim()) continue;
-
-        // First heading becomes title
-        if (node.type === "heading" && title === "Untitled") {
-          title = text;
-          wordCount += text.split(/\s+/).filter(Boolean).length;
-        } else if (node.type === "paragraph" || node.type === "heading") {
-          paragraphs.push(text);
-          wordCount += text.split(/\s+/).filter(Boolean).length;
-        }
-      }
-    }
-
-    return { title, paragraphs, wordCount };
-  } catch (error) {
-    if (!hasWarnedInvalidZenContent) {
-      hasWarnedInvalidZenContent = true;
-      console.warn("[A2-L-001] Failed to parse ZenMode content JSON", error);
-    }
-    return { title: "Untitled", paragraphs: [], wordCount: 0 };
-  }
+  hasWarnedInvalidZenContent = true;
+  console.warn("[A2-L-001] Failed to parse ZenMode content JSON", error);
 }
 
 /**
@@ -156,9 +102,9 @@ function ZenModeOverlay(props: {
   const content = React.useMemo(() => {
     if (editor) {
       const json = JSON.stringify(editor.getJSON());
-      return extractZenModeContent(json);
+      return extractZenModeContent(json, warnInvalidZenContent);
     }
-    return extractZenModeContent(documentContentJson);
+    return extractZenModeContent(documentContentJson, warnInvalidZenContent);
   }, [editor, documentContentJson]);
 
   // Map autosave status to display text
@@ -197,47 +143,6 @@ function ZenModeOverlay(props: {
   );
 }
 
-/**
- * Compute maximum available sidebar width given current window width.
- *
- * Why: we must keep main content usable (min 400px) even on small windows.
- */
-function computeSidebarMax(
-  windowWidth: number,
-  panelWidth: number,
-  panelCollapsed: boolean,
-): number {
-  const panel = panelCollapsed ? 0 : panelWidth;
-  const max =
-    windowWidth -
-    LAYOUT_DEFAULTS.iconBarWidth -
-    panel -
-    LAYOUT_DEFAULTS.mainMinWidth;
-  return Math.max(
-    LAYOUT_DEFAULTS.sidebar.min,
-    Math.min(LAYOUT_DEFAULTS.sidebar.max, max),
-  );
-}
-
-/**
- * Compute maximum available panel width given current window width.
- */
-function computePanelMax(
-  windowWidth: number,
-  sidebarWidth: number,
-  sidebarCollapsed: boolean,
-): number {
-  const sidebar = sidebarCollapsed ? 0 : sidebarWidth;
-  const max =
-    windowWidth -
-    LAYOUT_DEFAULTS.iconBarWidth -
-    sidebar -
-    LAYOUT_DEFAULTS.mainMinWidth;
-  return Math.max(
-    LAYOUT_DEFAULTS.panel.min,
-    Math.min(LAYOUT_DEFAULTS.panel.max, max),
-  );
-}
 
 /**
  * AppShell renders the Workbench three-column layout (IconBar + Sidebar + Main
