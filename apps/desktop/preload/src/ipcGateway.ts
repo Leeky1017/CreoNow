@@ -76,6 +76,103 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+type SerializationIssue = {
+  path: string;
+  reason: string;
+};
+
+function summarizePayloadShape(payload: unknown): Record<string, unknown> {
+  if (payload === null) {
+    return { rootType: "null" };
+  }
+  if (Array.isArray(payload)) {
+    return {
+      rootType: "array",
+      length: payload.length,
+    };
+  }
+  if (isRecord(payload)) {
+    return {
+      rootType: "object",
+      keyCount: Object.keys(payload).length,
+    };
+  }
+  return { rootType: typeof payload };
+}
+
+/**
+ * Find a safe serialization failure pointer for diagnostics.
+ *
+ * Why: INVALID_ARGUMENT should include actionable metadata without dumping raw payload.
+ */
+function findSerializationIssue(payload: unknown): SerializationIssue | null {
+  const seen = new Set<object>();
+
+  const visit = (value: unknown, path: string): SerializationIssue | null => {
+    if (value === null) {
+      return null;
+    }
+
+    const valueType = typeof value;
+    if (valueType === "bigint") {
+      return { path, reason: "BIGINT_NOT_SERIALIZABLE" };
+    }
+    if (valueType === "function") {
+      return { path, reason: "FUNCTION_NOT_SERIALIZABLE" };
+    }
+    if (valueType === "symbol") {
+      return { path, reason: "SYMBOL_NOT_SERIALIZABLE" };
+    }
+
+    if (valueType !== "object") {
+      return null;
+    }
+
+    const objectValue = value as object;
+    if (seen.has(objectValue)) {
+      return { path, reason: "CIRCULAR_REFERENCE" };
+    }
+    seen.add(objectValue);
+
+    try {
+      const jsonLike = value as { toJSON?: () => unknown };
+      if (typeof jsonLike.toJSON === "function") {
+        try {
+          const issue = visit(jsonLike.toJSON(), path);
+          if (issue) {
+            return issue;
+          }
+        } catch {
+          return { path, reason: "TO_JSON_THROW" };
+        }
+      }
+
+      if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i += 1) {
+          const issue = visit(value[i], `${path}[${i.toString()}]`);
+          if (issue) {
+            return issue;
+          }
+        }
+        return null;
+      }
+
+      const record = value as Record<string, unknown>;
+      for (const key of Object.keys(record)) {
+        const issue = visit(record[key], `${path}.${key}`);
+        if (issue) {
+          return issue;
+        }
+      }
+      return null;
+    } finally {
+      seen.delete(objectValue);
+    }
+  };
+
+  return visit(payload, "$");
+}
+
 function isIpcResponse(value: unknown): value is IpcResponse<unknown> {
   if (!isRecord(value) || typeof value.ok !== "boolean") {
     return false;
@@ -274,9 +371,14 @@ export function createPreloadIpcGateway(args: CreatePreloadIpcGatewayArgs): {
 
       const payloadBytes = estimatePayloadSize(payload, limitBytes);
       if (payloadBytes === null) {
+        const serializationIssue = findSerializationIssue(payload);
         return toErr({
           code: "INVALID_ARGUMENT",
           message: "请求参数不可序列化",
+          details: {
+            shape: summarizePayloadShape(payload),
+            ...(serializationIssue ? { serializationIssue } : {}),
+          },
           requestId,
           timestamp,
         });

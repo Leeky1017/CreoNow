@@ -22,6 +22,8 @@ import {
   type RecognitionEnqueueResult,
   type RecognitionStatsResult,
 } from "../services/kg/kgRecognitionRuntime";
+import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type EntityCreatePayload = {
   projectId: string;
@@ -174,6 +176,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
   db: Database.Database | null;
   logger: Logger;
   recognitionRuntime?: KgRecognitionRuntime | null;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
   function notReady<T>(): IpcResponse<T> {
     return {
@@ -201,7 +204,27 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     });
   }
 
-  deps.ipcMain.handle(
+  function handleWithProjectAccess<TPayload, TResponse, TEvent = unknown>(
+    channel: string,
+    listener: (
+      event: TEvent,
+      payload: TPayload,
+    ) => Promise<IpcResponse<TResponse>>,
+  ): void {
+    deps.ipcMain.handle(channel, async (event, payload) => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding: deps.projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response as IpcResponse<TResponse>;
+      }
+      return listener(event as TEvent, payload as TPayload);
+    });
+  }
+
+  handleWithProjectAccess(
     "knowledge:entity:create",
     async (
       _event,
@@ -222,7 +245,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:entity:read",
     async (
       _event,
@@ -243,7 +266,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:entity:list",
     async (
       _event,
@@ -264,7 +287,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:entity:update",
     async (
       _event,
@@ -285,7 +308,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:entity:delete",
     async (
       _event,
@@ -308,7 +331,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:relation:create",
     async (
       _event,
@@ -329,7 +352,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:relation:list",
     async (
       _event,
@@ -350,7 +373,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:relation:update",
     async (
       _event,
@@ -371,7 +394,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:relation:delete",
     async (
       _event,
@@ -392,7 +415,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:query:subgraph",
     async (
       _event,
@@ -413,7 +436,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:query:path",
     async (
       _event,
@@ -434,7 +457,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:query:validate",
     async (
       _event,
@@ -455,7 +478,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:recognition:enqueue",
     async (
       event: IpcMainInvokeEvent,
@@ -475,7 +498,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:recognition:cancel",
     async (
       _event,
@@ -492,7 +515,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:recognition:stats",
     async (
       _event,
@@ -509,7 +532,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:suggestion:accept",
     async (
       _event,
@@ -526,7 +549,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:suggestion:dismiss",
     async (
       _event,
@@ -543,7 +566,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:query:relevant",
     async (
       _event,
@@ -561,7 +584,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:query:byids",
     async (
       _event,
@@ -579,7 +602,7 @@ export function registerKnowledgeGraphIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "knowledge:rules:inject",
     async (
       _event,

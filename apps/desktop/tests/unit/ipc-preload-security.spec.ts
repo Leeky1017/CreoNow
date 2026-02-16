@@ -173,3 +173,40 @@ type AuditEvent = {
 
   assert.equal(MAX_AI_STREAM_SUBSCRIPTIONS, 500);
 }
+
+// S5: INVALID_ARGUMENT 应包含可审计诊断元数据（结构摘要 + 字段路径）[ADDED]
+{
+  const gateway = createPreloadIpcGateway({
+    allowedChannels: ["app:system:ping"],
+    rendererId: "renderer-5",
+    now: () => 1_717_171_000_500,
+    requestIdFactory: () => "req-invalid-payload",
+    invoke: async () => {
+      assert.fail("invoke should not run when payload is not serializable");
+    },
+  });
+
+  const payload = {
+    input: {
+      dangerousBigInt: 1n,
+    },
+  };
+
+  const res = await gateway.invoke("app:system:ping", payload);
+  assert.equal(res.ok, false);
+  if (res.ok) {
+    assert.fail("expected INVALID_ARGUMENT response");
+  }
+
+  assert.equal(res.error.code, "INVALID_ARGUMENT");
+  const details = res.error.details as
+    | {
+        shape?: { rootType?: string; keyCount?: number };
+        serializationIssue?: { path?: string; reason?: string };
+      }
+    | undefined;
+  assert.equal(details?.shape?.rootType, "object");
+  assert.equal(details?.shape?.keyCount, 1);
+  assert.equal(details?.serializationIssue?.path, "$.input.dangerousBigInt");
+  assert.equal(details?.serializationIssue?.reason, "BIGINT_NOT_SERIALIZABLE");
+}

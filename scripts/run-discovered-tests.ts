@@ -1,12 +1,29 @@
 import { spawnSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 type Mode = "unit" | "integration";
 
 type DiscoveredBuckets = {
   tsxFiles: string[];
   vitestFiles: string[];
+};
+
+type CommandSpec = {
+  command: string;
+  args: string[];
+  cwd: string;
+};
+
+type UnitExecutionPlan = {
+  buckets: DiscoveredBuckets;
+  commands: CommandSpec[];
+};
+
+type IntegrationExecutionPlan = {
+  files: string[];
+  commands: CommandSpec[];
 };
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..");
@@ -87,7 +104,7 @@ function runCommand(command: string, args: string[], cwd: string): void {
   }
 }
 
-async function discoverUnitBuckets(): Promise<DiscoveredBuckets> {
+export async function discoverUnitBuckets(): Promise<DiscoveredBuckets> {
   const roots = [
     path.join(REPO_ROOT, "apps/desktop/tests/unit"),
     path.join(REPO_ROOT, "apps/desktop/main/src"),
@@ -116,7 +133,7 @@ async function discoverUnitBuckets(): Promise<DiscoveredBuckets> {
   return buckets;
 }
 
-async function discoverIntegrationFiles(): Promise<string[]> {
+export async function discoverIntegrationFiles(): Promise<string[]> {
   const roots = [
     path.join(REPO_ROOT, "apps/desktop/tests/integration"),
     path.join(REPO_ROOT, "apps/desktop/tests/perf"),
@@ -139,20 +156,18 @@ function toDesktopRelative(filePath: string): string {
   return path.relative(DESKTOP_ROOT, filePath).split(path.sep).join("/");
 }
 
-async function runUnitDiscovered(): Promise<void> {
-  const { tsxFiles, vitestFiles } = await discoverUnitBuckets();
-  console.log(
-    `[test-discovery] mode=unit tsx=${tsxFiles.length.toString()} vitest=${vitestFiles.length.toString()}`,
-  );
+export async function buildUnitExecutionPlan(): Promise<UnitExecutionPlan> {
+  const buckets = await discoverUnitBuckets();
+  const commands: CommandSpec[] = buckets.tsxFiles.map((file) => ({
+    command: "pnpm",
+    args: ["exec", "tsx", file],
+    cwd: REPO_ROOT,
+  }));
 
-  for (const file of tsxFiles) {
-    runCommand("pnpm", ["exec", "tsx", file], REPO_ROOT);
-  }
-
-  if (vitestFiles.length > 0) {
-    runCommand(
-      "pnpm",
-      [
+  if (buckets.vitestFiles.length > 0) {
+    commands.push({
+      command: "pnpm",
+      args: [
         "-C",
         "apps/desktop",
         "exec",
@@ -160,26 +175,57 @@ async function runUnitDiscovered(): Promise<void> {
         "run",
         "--config",
         "tests/unit/main/vitest.node.config.ts",
-        ...vitestFiles.map(toDesktopRelative),
+        ...buckets.vitestFiles.map(toDesktopRelative),
       ],
-      REPO_ROOT,
-    );
+      cwd: REPO_ROOT,
+    });
+  }
+
+  return { buckets, commands };
+}
+
+export async function buildIntegrationExecutionPlan(): Promise<IntegrationExecutionPlan> {
+  const files = await discoverIntegrationFiles();
+  const commands: CommandSpec[] = files.map((file) => ({
+    command: "pnpm",
+    args: ["exec", "tsx", file],
+    cwd: REPO_ROOT,
+  }));
+  return { files, commands };
+}
+
+async function runUnitDiscovered(): Promise<void> {
+  const { buckets, commands } = await buildUnitExecutionPlan();
+  console.log(
+    `[test-discovery] mode=unit tsx=${buckets.tsxFiles.length.toString()} vitest=${buckets.vitestFiles.length.toString()}`,
+  );
+
+  for (const command of commands) {
+    runCommand(command.command, command.args, command.cwd);
   }
 }
 
 async function runIntegrationDiscovered(): Promise<void> {
-  const files = await discoverIntegrationFiles();
+  const { files, commands } = await buildIntegrationExecutionPlan();
   console.log(
     `[test-discovery] mode=integration tests=${files.length.toString()}`,
   );
 
-  for (const file of files) {
-    runCommand("pnpm", ["exec", "tsx", file], REPO_ROOT);
+  for (const command of commands) {
+    runCommand(command.command, command.args, command.cwd);
   }
 }
 
-async function main(): Promise<void> {
-  const mode = parseMode(process.argv.slice(2));
+function isEntrypoint(moduleUrl: string): boolean {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
+  }
+  return pathToFileURL(entry).href === moduleUrl;
+}
+
+export async function main(argv = process.argv.slice(2)): Promise<void> {
+  const mode = parseMode(argv);
   if (mode === "unit") {
     await runUnitDiscovered();
     return;
@@ -187,4 +233,6 @@ async function main(): Promise<void> {
   await runIntegrationDiscovered();
 }
 
-void main();
+if (isEntrypoint(import.meta.url)) {
+  void main();
+}

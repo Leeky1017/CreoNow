@@ -155,6 +155,16 @@ function statusFromError(error: IpcError): AiStatus {
   return "error";
 }
 
+function toUnexpectedIpcError(message: string, cause: unknown): IpcError {
+  const causeMessage =
+    cause instanceof Error ? cause.message : String(cause ?? "unknown");
+  return {
+    code: "INTERNAL",
+    message,
+    details: { cause: causeMessage },
+  };
+}
+
 /**
  * Normalize candidateCount to the fixed 1..5 contract range.
  */
@@ -215,27 +225,51 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
       }
 
       set({ skillsStatus: "loading", skillsLastError: null });
+      let nextStatus: "ready" | "error" = "error";
+      let nextError: IpcError | null = {
+        code: "INTERNAL",
+        message: "Failed to refresh skills",
+      };
+      let nextSkills = get().skills;
+      let nextSelectedSkillId = get().selectedSkillId;
 
-      const res = await deps.invoke("skill:registry:list", {
-        includeDisabled: true,
-      });
-      if (!res.ok) {
-        set({ skillsStatus: "error", skillsLastError: res.error });
+      try {
+        const res = await deps.invoke("skill:registry:list", {
+          includeDisabled: true,
+        });
+        if (!res.ok) {
+          nextError = res.error;
+        } else {
+          const currentSelected = get().selectedSkillId;
+          const selectedExists = res.data.items.some(
+            (s) => s.id === currentSelected,
+          );
+          const fallback =
+            res.data.items.find((s) => s.enabled && s.valid)?.id ??
+            currentSelected;
+
+          nextStatus = "ready";
+          nextError = null;
+          nextSkills = res.data.items;
+          nextSelectedSkillId = selectedExists ? currentSelected : fallback;
+        }
+      } catch (error) {
+        nextError = toUnexpectedIpcError("Failed to refresh skills", error);
+      }
+
+      if (nextStatus === "ready") {
+        set({
+          skillsStatus: "ready",
+          skills: nextSkills,
+          skillsLastError: null,
+          selectedSkillId: nextSelectedSkillId,
+        });
         return;
       }
 
-      const currentSelected = get().selectedSkillId;
-      const selectedExists = res.data.items.some(
-        (s) => s.id === currentSelected,
-      );
-      const fallback =
-        res.data.items.find((s) => s.enabled && s.valid)?.id ?? currentSelected;
-
       set({
-        skillsStatus: "ready",
-        skills: res.data.items,
-        skillsLastError: null,
-        selectedSkillId: selectedExists ? currentSelected : fallback,
+        skillsStatus: "error",
+        skillsLastError: nextError,
       });
     },
 

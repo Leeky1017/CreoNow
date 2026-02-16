@@ -11,6 +11,7 @@
  *   const result = await llm.complete('prompt')
  *   expect(result.text).toBe(FIXED_RESPONSES.continuation)
  */
+import { estimateUtf8TokenCount } from "@shared/tokenBudget";
 
 /** Pre-defined deterministic responses keyed by skill type. */
 export const FIXED_RESPONSES = {
@@ -20,7 +21,8 @@ export const FIXED_RESPONSES = {
     "She walked slowly toward the old house, her footsteps echoing in the quiet street.",
   expansion:
     "The garden stretched endlessly before her. Rows of chrysanthemums lined the stone path, their petals glistening with morning dew. A gentle breeze carried the scent of osmanthus from the far corner, where an ancient tree stood guard over a moss-covered bench.",
-  summary: "A character reflects on past events while walking through a garden.",
+  summary:
+    "A character reflects on past events while walking through a garden.",
   error: "Error: LLM service unavailable",
 } as const;
 
@@ -57,18 +59,21 @@ export function createMockLlmClient(
       _callCount++;
       _lastPrompt = prompt;
       await delay(latencyMs);
-      return { text: responseText, tokens: responseText.split(/\s+/).length };
+      return {
+        text: responseText,
+        tokens: estimateUtf8TokenCount(responseText),
+      };
     },
 
     async stream(prompt: string, onChunk: (chunk: string) => void) {
       _callCount++;
       _lastPrompt = prompt;
       await delay(latencyMs);
-      const words = responseText.split(" ");
+      const words = responseText.length === 0 ? [] : responseText.split(" ");
       for (const word of words) {
         onChunk(word + " ");
       }
-      return { totalTokens: words.length };
+      return { totalTokens: estimateUtf8TokenCount(responseText) };
     },
 
     callCount: () => _callCount,

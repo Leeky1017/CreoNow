@@ -13,6 +13,7 @@ import {
   type ContextLayerAssemblyService,
 } from "../services/context/layerAssemblyService";
 import type { CreonowWatchService } from "../services/context/watchService";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 export function registerContextIpcHandlers(deps: {
   ipcMain: IpcMain;
@@ -20,6 +21,7 @@ export function registerContextIpcHandlers(deps: {
   logger: Logger;
   userDataDir: string;
   watchService: CreonowWatchService;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
   contextAssemblyService?: ContextLayerAssemblyService;
 }): void {
   const kgService =
@@ -60,6 +62,7 @@ export function registerContextIpcHandlers(deps: {
     logger: deps.logger,
     userDataDir: deps.userDataDir,
     watchService: deps.watchService,
+    projectSessionBinding: deps.projectSessionBinding,
     contextAssemblyService,
     inFlightByDocument: new Map<string, number>(),
   };

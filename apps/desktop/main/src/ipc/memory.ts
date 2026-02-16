@@ -30,6 +30,8 @@ import {
   type SemanticMemoryScope,
   type SemanticMemoryRulePlaceholder,
 } from "../services/memory/episodicMemoryService";
+import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type MemoryCreatePayload = {
   type: MemoryType;
@@ -138,6 +140,7 @@ export function registerMemoryIpcHandlers(deps: {
   }) => DistillGeneratedRule[];
   distillScheduler?: (job: () => void) => void;
   traceService?: MemoryTraceService;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
   const distillSubscribers = new Map<number, WebContents>();
 
@@ -178,7 +181,27 @@ export function registerMemoryIpcHandlers(deps: {
       : null);
   const traceService = deps.traceService ?? createInMemoryMemoryTraceService();
 
-  deps.ipcMain.handle(
+  function handleWithProjectAccess<TPayload, TResponse>(
+    channel: string,
+    listener: (
+      event: unknown,
+      payload: TPayload,
+    ) => Promise<IpcResponse<TResponse>>,
+  ): void {
+    deps.ipcMain.handle(channel, async (event, payload) => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding: deps.projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response as IpcResponse<TResponse>;
+      }
+      return listener(event, payload as TPayload);
+    });
+  }
+
+  handleWithProjectAccess(
     "memory:entry:create",
     async (
       _e,
@@ -198,7 +221,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:entry:list",
     async (
       _e,
@@ -218,7 +241,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:entry:update",
     async (
       _e,
@@ -241,7 +264,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:entry:delete",
     async (
       _e,
@@ -261,7 +284,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:settings:get",
     async (): Promise<IpcResponse<MemorySettings>> => {
       if (!deps.db) {
@@ -278,7 +301,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:settings:update",
     async (
       _e,
@@ -298,7 +321,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:injection:preview",
     async (
       _e,
@@ -318,7 +341,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:episode:record",
     async (
       e,
@@ -353,7 +376,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:episode:query",
     async (
       e,
@@ -381,7 +404,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:semantic:list",
     async (
       e,
@@ -417,7 +440,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:semantic:add",
     async (
       e,
@@ -437,7 +460,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:semantic:update",
     async (
       e,
@@ -457,7 +480,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:semantic:delete",
     async (
       e,
@@ -477,7 +500,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:scope:promote",
     async (
       e,
@@ -497,7 +520,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:clear:project",
     async (
       e,
@@ -519,7 +542,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:clear:all",
     async (
       e,
@@ -541,7 +564,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:semantic:distill",
     async (
       e,
@@ -561,7 +584,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:trace:get",
     async (
       e,
@@ -575,7 +598,7 @@ export function registerMemoryIpcHandlers(deps: {
     },
   );
 
-  deps.ipcMain.handle(
+  handleWithProjectAccess(
     "memory:trace:feedback",
     async (
       e,
