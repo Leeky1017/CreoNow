@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 
-import {
-  buildUnifiedDiff,
-  computeDiffHunks,
-} from "../documentDiffHelpers";
+import { buildUnifiedDiff, computeDiffHunks } from "../documentDiffHelpers";
 
 // Scenario Mapping: aud-h6b Core Path Stabilized
 {

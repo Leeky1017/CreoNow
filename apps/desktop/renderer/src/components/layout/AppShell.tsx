@@ -143,7 +143,6 @@ function ZenModeOverlay(props: {
   );
 }
 
-
 /**
  * AppShell renders the Workbench three-column layout (IconBar + Sidebar + Main
  * + RightPanel) and wires resizing, persistence, and P0 keyboard shortcuts.

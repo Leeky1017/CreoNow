@@ -6,7 +6,9 @@ export function isContinueSkill(skillId: string): boolean {
 /**
  * Map judge severity to tokenized text color classes.
  */
-export function judgeSeverityClass(severity: "high" | "medium" | "low"): string {
+export function judgeSeverityClass(
+  severity: "high" | "medium" | "low",
+): string {
   if (severity === "high") {
     return "text-[var(--color-error)]";
   }
