@@ -119,7 +119,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 9a5f4de41b00fff91aa4193eb04003efcebb60f1
+- Reviewed-HEAD-SHA: e1e5dc05090402eb38ba664c6c6bb8271b8469ab
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
@@ -194,3 +194,15 @@
 - Key output:
   - `[OPENSPEC_CHANGE] active change content updated but openspec/changes/EXECUTION_ORDER.md not updated in this PR`
   - 已更新 `EXECUTION_ORDER.md` 的更新时间与 Wave0-3 波次进度快照
+
+### 2026-02-16 Prettier Gate Recovery
+
+- Command:
+  - `pnpm exec prettier --write`（按 preflight 报错的 8 个文件定向修复）
+  - `pnpm typecheck`
+  - `pnpm exec tsx apps/desktop/main/src/ipc/__tests__/ai-chat-project-isolation.test.ts`
+  - `pnpm exec tsx apps/desktop/tests/unit/ai-runtime-governance-centralization.test.ts`
+- Exit code: `0`
+- Key output:
+  - `Code style issues found in 8 files` → 已修复并提交
+  - `typecheck` 与两条关键回归测试通过
