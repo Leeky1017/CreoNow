@@ -119,7 +119,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 451fe30c054f3c6b131ba669605d0f0f0da8d2c7
+- Reviewed-HEAD-SHA: 9a5f4de41b00fff91aa4193eb04003efcebb60f1
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
@@ -182,3 +182,15 @@
   - `[MAIN_AUDIT] Reviewed-HEAD-SHA mismatch`
   - `[RULEBOOK] required task dir missing in both active and archive`
   - Rulebook active task 已补齐，进入下一轮 preflight 复验
+
+### 2026-02-16 Execution Order Sync for Active Changes
+
+- Command:
+  - `scripts/agent_pr_preflight.sh --issue 589 --slug wave0-audit-remediation --pr 590`
+  - `git add/commit/push openspec/changes/EXECUTION_ORDER.md`
+- Exit code:
+  - preflight：`1`（提示需同步 EXECUTION_ORDER）
+  - git commit/push：`0`
+- Key output:
+  - `[OPENSPEC_CHANGE] active change content updated but openspec/changes/EXECUTION_ORDER.md not updated in this PR`
+  - 已更新 `EXECUTION_ORDER.md` 的更新时间与 Wave0-3 波次进度快照
