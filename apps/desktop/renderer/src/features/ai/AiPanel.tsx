@@ -47,6 +47,13 @@ import {
   JUDGE_RESULT_CHANNEL,
   type JudgeResultEvent,
 } from "@shared/types/judge";
+import {
+  formatSelectionPreview,
+  formatTokenValue,
+  formatUsd,
+  isContinueSkill,
+  judgeSeverityClass,
+} from "./aiPanelFormatting";
 
 const RECENT_MODELS_STORAGE_KEY = "creonow.ai.recentModels";
 const CANDIDATE_COUNT_STORAGE_KEY = "creonow.ai.candidateCount";
@@ -59,11 +66,6 @@ const CANDIDATE_COUNT_STORAGE_KEY = "creonow.ai.candidateCount";
 
 function isRunning(status: AiStatus): boolean {
   return status === "running" || status === "streaming";
-}
-
-function isContinueSkill(skillId: string): boolean {
-  const parts = skillId.split(":");
-  return (parts[parts.length - 1] ?? skillId) === "continue";
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -99,34 +101,6 @@ function isJudgeResultEvent(x: unknown): x is JudgeResultEvent {
     typeof x.partialChecksSkipped === "boolean" &&
     typeof x.ts === "number"
   );
-}
-
-/**
- * Map judge severity to tokenized text color classes.
- */
-function judgeSeverityClass(severity: JudgeResultEvent["severity"]): string {
-  if (severity === "high") {
-    return "text-[var(--color-error)]";
-  }
-  if (severity === "medium") {
-    return "text-[var(--color-fg-default)]";
-  }
-  return "text-[var(--color-fg-muted)]";
-}
-
-function formatTokenValue(value: number): string {
-  return Math.max(0, Math.trunc(value)).toLocaleString("en-US");
-}
-
-function formatUsd(value: number): string {
-  return `$${value.toFixed(4)}`;
-}
-
-function formatSelectionPreview(text: string, maxChars = 120): string {
-  if (text.length <= maxChars) {
-    return text;
-  }
-  return `${text.slice(0, maxChars)}...`;
 }
 
 type DbErrorDetails = {
