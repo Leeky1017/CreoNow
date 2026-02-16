@@ -41,6 +41,7 @@ test.describe("OutlinePanel", () => {
     await createProjectViaWelcomeAndWaitForEditor({
       page,
       projectName: "Outline Test Project",
+      templateLabel: "Other",
     });
 
     // Type content with headings using TipTap's markdown-like shortcuts
@@ -132,6 +133,7 @@ test.describe("OutlinePanel", () => {
     await createProjectViaWelcomeAndWaitForEditor({
       page,
       projectName: "Empty Outline Test",
+      templateLabel: "Other",
     });
 
     // Type content without any headings
@@ -175,6 +177,7 @@ test.describe("OutlinePanel", () => {
     await createProjectViaWelcomeAndWaitForEditor({
       page,
       projectName: "Dynamic Outline Test",
+      templateLabel: "Other",
     });
 
     // Open the Outline panel first
@@ -226,6 +229,7 @@ test.describe("OutlinePanel", () => {
     await createProjectViaWelcomeAndWaitForEditor({
       page,
       projectName: "Special Chars Test",
+      templateLabel: "Other",
     });
 
     // Type content with special characters

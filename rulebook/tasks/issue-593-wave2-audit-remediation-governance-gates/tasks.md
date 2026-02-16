@@ -16,6 +16,7 @@
 - [x] 2.2 全量门禁：`pnpm typecheck`、`pnpm lint`、`pnpm lint:ratchet`、`pnpm contract:check`、`pnpm cross-module:check`
 - [x] 2.3 测试门禁：`pnpm test:unit`、`pnpm test:integration`、`pnpm -C apps/desktop test:run`
 - [x] 2.4 新增门禁验证：`pnpm test:discovery:consistency`、`pnpm test:coverage:desktop`
+- [x] 2.5 Windows E2E 阻塞修复：显式选择 `Other` 模板并定向回归 `outline-panel`、`documents-filetree`、`system-dialog`
 
 ## 3. Governance
 

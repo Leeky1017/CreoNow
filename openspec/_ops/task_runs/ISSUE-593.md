@@ -18,6 +18,8 @@
   - `apps/desktop/tests/unit/test-discovery-consistency-gate.spec.ts`
   - `apps/desktop/main/src/services/ai/__tests__/ai-payload-parsers.test.ts`
   - `apps/desktop/tests/unit/coverage-gate-ci.spec.ts`
+  - `apps/desktop/tests/e2e/_helpers/projectReadiness.ts`
+  - `apps/desktop/tests/e2e/{outline-panel.spec.ts,documents-filetree.spec.ts,system-dialog.spec.ts}`
 - Scope (Governance):
   - `openspec/changes/aud-{c1c,c2c,h6a,m5}-*/tasks.md`
   - `openspec/changes/EXECUTION_ORDER.md`
@@ -31,6 +33,7 @@
 - [x] 通过类型/静态/契约/单测/集成与新增门禁验证
 - [x] 完成双层审计（Audit L1/L2）与 Lead 终审
 - [x] 创建 PR
+- [x] 修复 Windows E2E 默认模板漂移导致的 CI 阻塞
 - [ ] 开启 auto-merge、通过 preflight
 - [ ] required checks 全绿并自动合并至 main
 
@@ -129,6 +132,22 @@
 - Exit code: `0`
 - Key output:
   - PR: `https://github.com/Leeky1017/CreoNow/pull/594`
+
+### 2026-02-16 Windows E2E Blocker Analysis + Fix
+
+- Command:
+  - `gh pr checks 594`
+  - `gh run view 22049914237 --job 63705954387 --log | tail -n 240`
+  - `pnpm -C apps/desktop rebuild:native && pnpm -C apps/desktop build && pnpm -C apps/desktop exec playwright test tests/e2e/outline-panel.spec.ts tests/e2e/documents-filetree.spec.ts tests/e2e/system-dialog.spec.ts -c tests/e2e/playwright.config.ts`
+  - `pnpm exec eslint apps/desktop/tests/e2e/_helpers/projectReadiness.ts apps/desktop/tests/e2e/outline-panel.spec.ts apps/desktop/tests/e2e/documents-filetree.spec.ts apps/desktop/tests/e2e/system-dialog.spec.ts`
+- Exit code:
+  - `gh pr checks 594`: `1`（windows-e2e fail，ci skipping）
+  - 其余命令：`0`
+- Key output:
+  - CI 失败集中在 `outline-panel.spec.ts` 与 `documents-filetree/system-dialog` 的旧假设（默认空白模板）。
+  - 根因：创建项目默认模板已是 `Novel`，包含预置文档与内容；相关 E2E 仍按 `Other`（空白）路径断言。
+  - 修复：`createProjectViaWelcomeAndWaitForEditor` 新增 `templateLabel` 参数，失败 spec 显式选 `Other`。
+  - 本地复验：`6 passed (13.2s)`。
 
 ## Main Session Audit
 

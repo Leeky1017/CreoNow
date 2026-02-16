@@ -87,6 +87,7 @@ test("documents filetree: create/switch/rename/delete + current restore", async 
   await createProjectViaWelcomeAndWaitForEditor({
     page,
     projectName: "Demo Project",
+    templateLabel: "Other",
   });
   await expect(page.getByTestId("sidebar-files")).toBeVisible();
 
