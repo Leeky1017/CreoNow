@@ -13,12 +13,12 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                         | 用例名 |
-| --------------- | ------------------------------------------------ | ------ |
-| WB-AUD-C1A-S1   | `apps/desktop/renderer/src/lib/ipcClient.test.ts` | `keeps invoke as alias of safeInvoke` / `passes through valid envelope` |
-| WB-AUD-C1A-S2   | `apps/desktop/renderer/src/lib/ipcClient.test.ts` | `returns deterministic error when bridge is missing` |
-| WB-AUD-C1A-S3   | `apps/desktop/renderer/src/lib/ipcClient.test.ts` | `normalizes invoke rejection into envelope error` / `handles non-Error throwables` |
-| WB-AUD-C1A-S4   | `apps/desktop/renderer/src/lib/ipcClient.test.ts` | `rejects non-envelope response shape` |
+| Scenario ID   | 测试文件                                          | 用例名                                                                             |
+| ------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| WB-AUD-C1A-S1 | `apps/desktop/renderer/src/lib/ipcClient.test.ts` | `keeps invoke as alias of safeInvoke` / `passes through valid envelope`            |
+| WB-AUD-C1A-S2 | `apps/desktop/renderer/src/lib/ipcClient.test.ts` | `returns deterministic error when bridge is missing`                               |
+| WB-AUD-C1A-S3 | `apps/desktop/renderer/src/lib/ipcClient.test.ts` | `normalizes invoke rejection into envelope error` / `handles non-Error throwables` |
+| WB-AUD-C1A-S4 | `apps/desktop/renderer/src/lib/ipcClient.test.ts` | `rejects non-envelope response shape`                                              |
 
 ## 3. Red（先写失败测试）
 

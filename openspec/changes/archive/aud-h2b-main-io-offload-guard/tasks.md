@@ -13,10 +13,10 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                                        | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| --------------- | --------------------------------------------------------------- | ---------------------------------------- |
-| CE-AUD-H2B-S1   | `apps/desktop/tests/unit/context/context-fs-offload-guard.test.ts` | `H2B-S1: threshold strategy chooses direct/stream paths deterministically`（注释） |
-| CE-AUD-H2B-S2   | `apps/desktop/tests/unit/context/context-fs-offload-guard.test.ts` | `H2B-S2: oversized stream read triggers hard-limit guard...`（注释） |
+| Scenario ID   | 测试文件                                                           | 计划用例名 / 断言块（若为脚本断言则 N/A）                                          |
+| ------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| CE-AUD-H2B-S1 | `apps/desktop/tests/unit/context/context-fs-offload-guard.test.ts` | `H2B-S1: threshold strategy chooses direct/stream paths deterministically`（注释） |
+| CE-AUD-H2B-S2 | `apps/desktop/tests/unit/context/context-fs-offload-guard.test.ts` | `H2B-S2: oversized stream read triggers hard-limit guard...`（注释）               |
 
 ## 3. Red（先写失败测试）
 

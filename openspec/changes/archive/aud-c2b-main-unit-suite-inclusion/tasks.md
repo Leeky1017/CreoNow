@@ -13,10 +13,10 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID     | 测试文件                                               | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| -------------- | ------------------------------------------------------ | ---------------------------------------- |
+| Scenario ID    | 测试文件                                                | 计划用例名 / 断言块（若为脚本断言则 N/A）                                  |
+| -------------- | ------------------------------------------------------- | -------------------------------------------------------------------------- |
 | CMI-AUD-C2B-S1 | `apps/desktop/tests/unit/test-runner-discovery.spec.ts` | `S3: unit discovery must include desktop unit + main source tests`（注释） |
-| CMI-AUD-C2B-S2 | `apps/desktop/tests/unit/test-runner-discovery.spec.ts` | `S4: discovery runner must expose import-safe execution plan...`（注释） |
+| CMI-AUD-C2B-S2 | `apps/desktop/tests/unit/test-runner-discovery.spec.ts` | `S4: discovery runner must expose import-safe execution plan...`（注释）   |
 
 ## 3. Red（先写失败测试）
 

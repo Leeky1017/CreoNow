@@ -13,12 +13,12 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                                          | 计划用例名 / 断言块（若为脚本断言则 N/A）                                   |
-| --------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| WB-AUD-H6C-S1   | `apps/desktop/tests/unit/renderer-app-shell-layout-helpers.test.ts` | N/A（tsx 脚本断言）                                                        |
-| WB-AUD-H6C-S2   | `apps/desktop/tests/unit/renderer-app-shell-layout-helpers.test.ts` | N/A（tsx 脚本断言）                                                        |
-| WB-AUD-H6C-S3   | `apps/desktop/tests/unit/renderer-ai-panel-formatting.test.ts`      | N/A（tsx 脚本断言）                                                        |
-| WB-AUD-H6C-S4   | `apps/desktop/tests/unit/renderer-ai-panel-formatting.test.ts`      | N/A（tsx 脚本断言）                                                        |
+| Scenario ID   | 测试文件                                                            | 计划用例名 / 断言块（若为脚本断言则 N/A） |
+| ------------- | ------------------------------------------------------------------- | ----------------------------------------- |
+| WB-AUD-H6C-S1 | `apps/desktop/tests/unit/renderer-app-shell-layout-helpers.test.ts` | N/A（tsx 脚本断言）                       |
+| WB-AUD-H6C-S2 | `apps/desktop/tests/unit/renderer-app-shell-layout-helpers.test.ts` | N/A（tsx 脚本断言）                       |
+| WB-AUD-H6C-S3 | `apps/desktop/tests/unit/renderer-ai-panel-formatting.test.ts`      | N/A（tsx 脚本断言）                       |
+| WB-AUD-H6C-S4 | `apps/desktop/tests/unit/renderer-ai-panel-formatting.test.ts`      | N/A（tsx 脚本断言）                       |
 
 ## 3. Red（先写失败测试）
 

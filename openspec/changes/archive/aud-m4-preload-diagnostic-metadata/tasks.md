@@ -13,9 +13,9 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                           | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| --------------- | -------------------------------------------------- | ---------------------------------------- |
-| IPC-AUD-M4-S1   | `apps/desktop/tests/unit/ipc-preload-security.spec.ts` | N/A（脚本断言：INVALID_ARGUMENT details 含 shape + path + reason） |
+| Scenario ID   | 测试文件                                               | 计划用例名 / 断言块（若为脚本断言则 N/A）                          |
+| ------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
+| IPC-AUD-M4-S1 | `apps/desktop/tests/unit/ipc-preload-security.spec.ts` | N/A（脚本断言：INVALID_ARGUMENT details 含 shape + path + reason） |
 
 ## 3. Red（先写失败测试）
 

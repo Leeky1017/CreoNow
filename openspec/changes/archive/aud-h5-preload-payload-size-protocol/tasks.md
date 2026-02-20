@@ -13,11 +13,11 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                       | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| --------------- | ---------------------------------------------- | ---------------------------------------- |
-| IPC-AUD-H5-S1   | `apps/desktop/tests/unit/ipc-preload-security.spec.ts` | `S1: 调用未暴露通道被网关拒绝`（注释） |
-| IPC-AUD-H5-S2   | `apps/desktop/tests/unit/ipc-preload-security.spec.ts` | `S3: 超大 payload 被拒绝...` / `S3: 负载超限时应短路...`（注释） |
-| IPC-AUD-H5-S3   | `apps/desktop/tests/unit/ipc-preload-security.spec.ts` | `S4: 订阅数量超过上限被拒绝`（注释） |
+| Scenario ID   | 测试文件                                               | 计划用例名 / 断言块（若为脚本断言则 N/A）                        |
+| ------------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
+| IPC-AUD-H5-S1 | `apps/desktop/tests/unit/ipc-preload-security.spec.ts` | `S1: 调用未暴露通道被网关拒绝`（注释）                           |
+| IPC-AUD-H5-S2 | `apps/desktop/tests/unit/ipc-preload-security.spec.ts` | `S3: 超大 payload 被拒绝...` / `S3: 负载超限时应短路...`（注释） |
+| IPC-AUD-H5-S3 | `apps/desktop/tests/unit/ipc-preload-security.spec.ts` | `S4: 订阅数量超过上限被拒绝`（注释）                             |
 
 ## 3. Red（先写失败测试）
 

@@ -13,9 +13,9 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID       | 测试文件                                                          | 计划用例名 / 断言块（若为脚本断言则 N/A）                                      |
-| ---------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| CMI-AUD-C2C-S1   | `apps/desktop/tests/unit/test-discovery-consistency-gate.spec.ts` | `C2C-S1: discovered and executed test sets must match exactly`（注释）         |
+| Scenario ID    | 测试文件                                                          | 计划用例名 / 断言块（若为脚本断言则 N/A）                              |
+| -------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| CMI-AUD-C2C-S1 | `apps/desktop/tests/unit/test-discovery-consistency-gate.spec.ts` | `C2C-S1: discovered and executed test sets must match exactly`（注释） |
 
 ## 3. Red（先写失败测试）
 

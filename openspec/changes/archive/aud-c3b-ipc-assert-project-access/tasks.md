@@ -13,9 +13,9 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                                           | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| --------------- | ------------------------------------------------------------------ | ---------------------------------------- |
-| IPC-AUD-C3B-S1  | `apps/desktop/main/src/ipc/__tests__/project-access-guard.test.ts` | N/A（tsx 脚本断言：三类 handler mismatch -> FORBIDDEN） |
+| Scenario ID    | 测试文件                                                           | 计划用例名 / 断言块（若为脚本断言则 N/A）               |
+| -------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
+| IPC-AUD-C3B-S1 | `apps/desktop/main/src/ipc/__tests__/project-access-guard.test.ts` | N/A（tsx 脚本断言：三类 handler mismatch -> FORBIDDEN） |
 
 ## 3. Red（先写失败测试）
 

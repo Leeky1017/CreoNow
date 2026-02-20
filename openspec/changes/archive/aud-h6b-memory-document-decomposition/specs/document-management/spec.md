@@ -28,4 +28,3 @@
 - **当** 调用 `buildUnifiedDiff`
 - **则** `diffText == ""`
 - **并且** `stats == { addedLines: 0, removedLines: 0, changedHunks: 0 }`
-

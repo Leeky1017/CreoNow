@@ -13,13 +13,13 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                                                 | 计划用例名 / 断言块（若为脚本断言则 N/A）                                      |
-| --------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| MS-AUD-H6B-S1   | `apps/desktop/tests/unit/memory/episodic-memory-helpers-extract.test.ts` | N/A（tsx 脚本断言）                                                           |
-| MS-AUD-H6B-S2   | `apps/desktop/tests/unit/memory/episodic-memory-helpers-extract.test.ts` | N/A（tsx 脚本断言）                                                           |
-| MS-AUD-H6B-S3   | `apps/desktop/tests/unit/memory/episodic-memory-helpers-extract.test.ts` | N/A（tsx 脚本断言）                                                           |
-| DOC-AUD-H6B-S1  | `apps/desktop/main/src/services/documents/__tests__/document-diff-helpers.test.ts` | N/A（tsx 脚本断言）                                                   |
-| DOC-AUD-H6B-S2  | `apps/desktop/main/src/services/documents/__tests__/document-diff-helpers.test.ts` | N/A（tsx 脚本断言）                                                   |
+| Scenario ID    | 测试文件                                                                           | 计划用例名 / 断言块（若为脚本断言则 N/A） |
+| -------------- | ---------------------------------------------------------------------------------- | ----------------------------------------- |
+| MS-AUD-H6B-S1  | `apps/desktop/tests/unit/memory/episodic-memory-helpers-extract.test.ts`           | N/A（tsx 脚本断言）                       |
+| MS-AUD-H6B-S2  | `apps/desktop/tests/unit/memory/episodic-memory-helpers-extract.test.ts`           | N/A（tsx 脚本断言）                       |
+| MS-AUD-H6B-S3  | `apps/desktop/tests/unit/memory/episodic-memory-helpers-extract.test.ts`           | N/A（tsx 脚本断言）                       |
+| DOC-AUD-H6B-S1 | `apps/desktop/main/src/services/documents/__tests__/document-diff-helpers.test.ts` | N/A（tsx 脚本断言）                       |
+| DOC-AUD-H6B-S2 | `apps/desktop/main/src/services/documents/__tests__/document-diff-helpers.test.ts` | N/A（tsx 脚本断言）                       |
 
 ## 3. Red（先写失败测试）
 

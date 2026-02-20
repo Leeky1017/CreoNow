@@ -13,10 +13,10 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                                         | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| --------------- | ---------------------------------------------------------------- | ---------------------------------------- |
-| CE-AUD-H2A-S1   | `apps/desktop/tests/unit/context/context-fs-async-io.test.ts`    | N/A（tsx 脚本断言） |
-| CE-AUD-H2A-S2   | `apps/desktop/tests/unit/context/context-fs-ipc-async-hotpath.guard.test.ts` | `S1: IPC hot path should use async contextFs service variants`（注释） |
+| Scenario ID   | 测试文件                                                                     | 计划用例名 / 断言块（若为脚本断言则 N/A）                              |
+| ------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| CE-AUD-H2A-S1 | `apps/desktop/tests/unit/context/context-fs-async-io.test.ts`                | N/A（tsx 脚本断言）                                                    |
+| CE-AUD-H2A-S2 | `apps/desktop/tests/unit/context/context-fs-ipc-async-hotpath.guard.test.ts` | `S1: IPC hot path should use async contextFs service variants`（注释） |
 
 ## 3. Red（先写失败测试）
 

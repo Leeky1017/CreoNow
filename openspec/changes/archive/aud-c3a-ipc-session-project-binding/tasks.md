@@ -13,11 +13,11 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID       | 测试文件                                                          | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| ---------------- | ----------------------------------------------------------------- | ---------------------------------------- |
-| IPC-AUD-C3A-S1   | `apps/desktop/main/src/ipc/__tests__/projectSessionBinding.test.ts` | `S1: webContents 会话与 projectId 绑定可读可清理`（注释） |
-| IPC-AUD-C3A-S2   | `apps/desktop/main/src/ipc/__tests__/ai-chat-project-isolation.test.ts` | `Scenario: chat history must remain isolated by project id`（注释） |
-| IPC-AUD-C3A-S3   | `apps/desktop/main/src/ipc/__tests__/ai-chat-project-isolation.test.ts` | `Scenario: session-bound project id must reject mismatched payloads`（注释） |
+| Scenario ID    | 测试文件                                                                | 计划用例名 / 断言块（若为脚本断言则 N/A）                                    |
+| -------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| IPC-AUD-C3A-S1 | `apps/desktop/main/src/ipc/__tests__/projectSessionBinding.test.ts`     | `S1: webContents 会话与 projectId 绑定可读可清理`（注释）                    |
+| IPC-AUD-C3A-S2 | `apps/desktop/main/src/ipc/__tests__/ai-chat-project-isolation.test.ts` | `Scenario: chat history must remain isolated by project id`（注释）          |
+| IPC-AUD-C3A-S3 | `apps/desktop/main/src/ipc/__tests__/ai-chat-project-isolation.test.ts` | `Scenario: session-bound project id must reject mismatched payloads`（注释） |
 
 ## 3. Red（先写失败测试）
 

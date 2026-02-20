@@ -17,6 +17,7 @@
 - 运行 preflight，创建 PR 并开启 auto-merge，确保 required checks 全绿后完成归档闭环
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/aud-*/**`
   - `openspec/changes/archive/aud-*/**`

@@ -13,11 +13,11 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID     | 测试文件                                                    | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| -------------- | ----------------------------------------------------------- | ---------------------------------------- |
-| AIS-AUD-M3-S1  | `apps/desktop/tests/unit/llm-mock-token-estimator-parity.spec.ts` | `Scenario Mapping: AUD-M3-S1 Core Path Stabilized`（注释） |
-| AIS-AUD-M3-S2  | `apps/desktop/tests/unit/llm-mock-token-estimator-parity.spec.ts` | `Scenario Mapping: AUD-M3-S2 Edge Case (multibyte UTF-8 parity)`（注释） |
-| AIS-AUD-M3-S3  | `apps/desktop/tests/unit/llm-mock-token-estimator-parity.spec.ts` | `Scenario Mapping: AUD-M3-S3 Error Path Deterministic (empty output)`（注释） |
+| Scenario ID   | 测试文件                                                          | 计划用例名 / 断言块（若为脚本断言则 N/A）                                     |
+| ------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| AIS-AUD-M3-S1 | `apps/desktop/tests/unit/llm-mock-token-estimator-parity.spec.ts` | `Scenario Mapping: AUD-M3-S1 Core Path Stabilized`（注释）                    |
+| AIS-AUD-M3-S2 | `apps/desktop/tests/unit/llm-mock-token-estimator-parity.spec.ts` | `Scenario Mapping: AUD-M3-S2 Edge Case (multibyte UTF-8 parity)`（注释）      |
+| AIS-AUD-M3-S3 | `apps/desktop/tests/unit/llm-mock-token-estimator-parity.spec.ts` | `Scenario Mapping: AUD-M3-S3 Error Path Deterministic (empty output)`（注释） |
 
 ## 3. Red（先写失败测试）
 

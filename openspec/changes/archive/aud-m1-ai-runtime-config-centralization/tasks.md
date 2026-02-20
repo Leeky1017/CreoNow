@@ -13,9 +13,9 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID     | 测试文件                                                     | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| -------------- | ------------------------------------------------------------ | ---------------------------------------- |
-| AIS-AUD-M1-S1  | `apps/desktop/tests/unit/ai-runtime-governance-centralization.test.ts` | `S1: AI runtime quotas should be centralized via runtime governance`（注释） |
+| Scenario ID   | 测试文件                                                               | 计划用例名 / 断言块（若为脚本断言则 N/A）                                    |
+| ------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| AIS-AUD-M1-S1 | `apps/desktop/tests/unit/ai-runtime-governance-centralization.test.ts` | `S1: AI runtime quotas should be centralized via runtime governance`（注释） |
 
 ## 3. Red（先写失败测试）
 

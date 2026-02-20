@@ -13,10 +13,10 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                                     | 计划用例名 / 断言块（若为脚本断言则 N/A）                                        |
-| --------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| WB-AUD-C1C-S1   | `apps/desktop/tests/unit/renderer-fireforget-lint-guard.spec.ts` | `C1C-S1: renderer must define lint guard against bare void async IIFE`（注释）   |
-| WB-AUD-C1C-S2   | `apps/desktop/tests/unit/renderer-fireforget-helper.spec.ts`     | `C1C-S2: fire-and-forget helper should not swallow errors silently`（注释）      |
+| Scenario ID   | 测试文件                                                         | 计划用例名 / 断言块（若为脚本断言则 N/A）                                      |
+| ------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| WB-AUD-C1C-S1 | `apps/desktop/tests/unit/renderer-fireforget-lint-guard.spec.ts` | `C1C-S1: renderer must define lint guard against bare void async IIFE`（注释） |
+| WB-AUD-C1C-S2 | `apps/desktop/tests/unit/renderer-fireforget-helper.spec.ts`     | `C1C-S2: fire-and-forget helper should not swallow errors silently`（注释）    |
 
 ## 3. Red（先写失败测试）
 

@@ -13,10 +13,10 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID      | 测试文件                                           | 计划用例名 / 断言块（若为脚本断言则 N/A）                                      |
-| --------------- | -------------------------------------------------- | ----------------------------------------------------------------------------- |
-| CMI-AUD-M5-S1   | `apps/desktop/tests/unit/coverage-gate-ci.spec.ts` | `M5-S1: CI must include coverage gate job and artifact upload`（注释）         |
-| CMI-AUD-M5-S2   | `apps/desktop/tests/unit/coverage-gate-ci.spec.ts` | `M5-S2: aggregate ci gate must depend on coverage-gate`（注释）                |
+| Scenario ID   | 测试文件                                           | 计划用例名 / 断言块（若为脚本断言则 N/A）                              |
+| ------------- | -------------------------------------------------- | ---------------------------------------------------------------------- |
+| CMI-AUD-M5-S1 | `apps/desktop/tests/unit/coverage-gate-ci.spec.ts` | `M5-S1: CI must include coverage gate job and artifact upload`（注释） |
+| CMI-AUD-M5-S2 | `apps/desktop/tests/unit/coverage-gate-ci.spec.ts` | `M5-S2: aggregate ci gate must depend on coverage-gate`（注释）        |
 
 ## 3. Red（先写失败测试）
 

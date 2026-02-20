@@ -10,7 +10,7 @@
 - IPC/服务层读取 quotas 必须来自 `runtimeGovernance.ai.*` 字段。
 - 禁止保留硬编码常量作为真实生效来源。
 
-#### Scenario: AIS-AUD-M1-S1 quotas 引用必须集中到 runtimeGovernance.ai.* 且移除硬编码常量 [ADDED]
+#### Scenario: AIS-AUD-M1-S1 quotas 引用必须集中到 runtimeGovernance.ai.\* 且移除硬编码常量 [ADDED]
 
 - **假设** 检查 AI IPC 层源码（例如 `apps/desktop/main/src/ipc/ai.ts`）
 - **当** 查找 stream rate limit 与 chat capacity 的来源

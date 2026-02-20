@@ -13,10 +13,10 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID       | 测试文件                                                | 计划用例名 / 断言块（若为脚本断言则 N/A）                                    |
-| ---------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
-| CMI-AUD-C2A-S1   | `apps/desktop/tests/unit/test-runner-discovery.spec.ts` | `S1: unit/integration must use discovery runner entrypoint`（注释）           |
-| CMI-AUD-C2A-S2   | `apps/desktop/tests/unit/test-runner-discovery.spec.ts` | `S2: discovery runner must include integration + perf roots`（注释）          |
+| Scenario ID    | 测试文件                                                | 计划用例名 / 断言块（若为脚本断言则 N/A）                            |
+| -------------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
+| CMI-AUD-C2A-S1 | `apps/desktop/tests/unit/test-runner-discovery.spec.ts` | `S1: unit/integration must use discovery runner entrypoint`（注释）  |
+| CMI-AUD-C2A-S2 | `apps/desktop/tests/unit/test-runner-discovery.spec.ts` | `S2: discovery runner must include integration + perf roots`（注释） |
 
 ## 3. Red（先写失败测试）
 

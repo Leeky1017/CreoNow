@@ -13,9 +13,9 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID       | 测试文件                                                                 | 计划用例名 / 断言块（若为脚本断言则 N/A）                                  |
-| ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| AIS-AUD-H6A-S1   | `apps/desktop/main/src/services/ai/__tests__/ai-payload-parsers.test.ts` | `H6A-S1: parser helpers are extracted into a dedicated module...`（注释） |
+| Scenario ID    | 测试文件                                                                 | 计划用例名 / 断言块（若为脚本断言则 N/A）                                 |
+| -------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| AIS-AUD-H6A-S1 | `apps/desktop/main/src/services/ai/__tests__/ai-payload-parsers.test.ts` | `H6A-S1: parser helpers are extracted into a dedicated module...`（注释） |
 
 ## 3. Red（先写失败测试）
 

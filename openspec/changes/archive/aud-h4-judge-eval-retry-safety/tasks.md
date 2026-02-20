@@ -13,9 +13,9 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID        | 测试文件                                                              | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| ----------------- | --------------------------------------------------------------------- | ---------------------------------------- |
-| AIS-AUD-H4-S2     | `apps/desktop/renderer/src/features/ai/__tests__/judge-auto-eval-retry-safety.test.tsx` | `AISVC-AUD-H4-S2 retries same runId after first auto-eval failure` |
+| Scenario ID   | 测试文件                                                                                | 计划用例名 / 断言块（若为脚本断言则 N/A）                          |
+| ------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| AIS-AUD-H4-S2 | `apps/desktop/renderer/src/features/ai/__tests__/judge-auto-eval-retry-safety.test.tsx` | `AISVC-AUD-H4-S2 retries same runId after first auto-eval failure` |
 
 ## 3. Red（先写失败测试）
 

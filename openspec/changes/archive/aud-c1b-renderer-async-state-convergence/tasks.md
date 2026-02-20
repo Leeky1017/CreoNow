@@ -13,10 +13,10 @@
 
 ### Scenario -> Test 映射
 
-| Scenario ID     | 测试文件                                                               | 计划用例名 / 断言块（若为脚本断言则 N/A） |
-| -------------- | ---------------------------------------------------------------------- | ---------------------------------------- |
-| WB-AUD-C1B-S2  | `apps/desktop/renderer/src/stores/__tests__/aiStore.async-convergence.test.ts` | `WB-AUD-C1B-S2 converges refreshSkills to error when invoke throws` |
-| WB-AUD-C1B-S2  | `apps/desktop/renderer/src/features/ai/__tests__/models-loading-convergence.test.tsx` | `WB-AUD-C1B-S2 should not keep model picker in Loading when refresh throws` |
+| Scenario ID   | 测试文件                                                                              | 计划用例名 / 断言块（若为脚本断言则 N/A）                                   |
+| ------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| WB-AUD-C1B-S2 | `apps/desktop/renderer/src/stores/__tests__/aiStore.async-convergence.test.ts`        | `WB-AUD-C1B-S2 converges refreshSkills to error when invoke throws`         |
+| WB-AUD-C1B-S2 | `apps/desktop/renderer/src/features/ai/__tests__/models-loading-convergence.test.tsx` | `WB-AUD-C1B-S2 should not keep model picker in Loading when refresh throws` |
 
 ## 3. Red（先写失败测试）
 
