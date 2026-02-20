@@ -3,7 +3,7 @@
 - Issue: #597
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/597
 - Branch: `task/597-aud-change-docs-archive`
-- PR: (pending)
+- PR: https://github.com/Leeky1017/CreoNow/pull/598
 - Scope (Governance):
   - `openspec/changes/aud-*`
   - `openspec/changes/archive/aud-*`
@@ -36,4 +36,3 @@
   - Worktree: `.worktrees/issue-597-aud-change-docs-archive`
   - Branch: `task/597-aud-change-docs-archive`
   - Rulebook validate: pass (warning: `No spec files found`)
-
