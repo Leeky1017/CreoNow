@@ -18,7 +18,7 @@
 - [x] Rewrite all `openspec/changes/aud-*` docs to archived-change quality
 - [x] Archive all `openspec/changes/aud-*` -> `openspec/changes/archive/`
 - [x] Update `openspec/changes/EXECUTION_ORDER.md` (active set = 0)
-- [ ] Run agent preflight and fix blockers
+- [x] Run agent preflight and fix blockers
 - [x] Create PR and backfill RUN_LOG PR URL
 - [ ] Enable auto-merge, required checks all green
 - [ ] Post-merge: sync control-plane `main` and cleanup worktree
@@ -50,10 +50,28 @@
   - PR create: `0` (PR #598)
   - preflight: `1` (blocked: missing `## Main Session Audit` section in this RUN_LOG)
 
+### 2026-02-20 Preflight fix + verification
+
+- Command:
+  - `./scripts/agent_pr_preflight.sh` (failed: Prettier check)
+  - `pnpm exec prettier --write <26 flagged files>`
+  - `./scripts/agent_pr_preflight.sh` (failed: `tsc` not found, node_modules missing)
+  - `pnpm install --frozen-lockfile`
+  - `./scripts/agent_pr_preflight.sh` (pass)
+- Exit code:
+  - preflight (prettier): `1`
+  - prettier write: `0`
+  - preflight (typecheck): `1`
+  - pnpm install: `0`
+  - preflight (final): `0`
+- Key output:
+  - Prettier: `All matched files use Prettier code style!`
+  - Cross-module gate: `[CROSS_MODULE_GATE] PASS`
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 895e58693ffae4a4e5e5444d7a8555b8564e7ded
+- Reviewed-HEAD-SHA: e6d9709c7660cdc49bd89f5c4d85676a349f0b25
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
