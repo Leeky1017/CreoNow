@@ -129,22 +129,38 @@ export function createMainWindow(logger: Logger): BrowserWindow {
       devUrl.searchParams.set("creonow_e2e", "1");
       target = devUrl.toString();
     }
-    void win.loadURL(target).catch((error) => {
-      logger.error("window_load_failed", {
-        target,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    });
-  } else {
-    const target = path.join(__dirname, "../renderer/index.html");
-    void win
-      .loadFile(target, { query: isE2E ? { creonow_e2e: "1" } : {} })
-      .catch((error) => {
+    try {
+      const loadResult = win.loadURL(target);
+      void Promise.resolve(loadResult).catch((error) => {
         logger.error("window_load_failed", {
           target,
           message: error instanceof Error ? error.message : String(error),
         });
       });
+    } catch (error) {
+      logger.error("window_load_failed", {
+        target,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  } else {
+    const target = path.join(__dirname, "../renderer/index.html");
+    try {
+      const loadResult = win.loadFile(target, {
+        query: isE2E ? { creonow_e2e: "1" } : {},
+      });
+      void Promise.resolve(loadResult).catch((error) => {
+        logger.error("window_load_failed", {
+          target,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+    } catch (error) {
+      logger.error("window_load_failed", {
+        target,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return win;
