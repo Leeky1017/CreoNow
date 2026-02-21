@@ -3,7 +3,7 @@
 - Issue: #602
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/602
 - Branch: `task/602-product-overview-drift`
-- PR: (pending)
+- PR: https://github.com/Leeky1017/CreoNow/pull/603
 - Scope (Governance):
   - `docs/PRODUCT_OVERVIEW.md`
   - `docs/audit/**`
