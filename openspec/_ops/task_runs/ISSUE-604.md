@@ -3,7 +3,7 @@
 - Issue: #604
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/604
 - Branch: `task/604-windows-frameless-titlebar`
-- PR: https://github.com/Leeky1017/CreoNow/pull/TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/605
 - Scope:
   - `apps/desktop/main/src/index.ts`
   - `apps/desktop/main/src/ipc/window.ts`
@@ -22,9 +22,9 @@
 - [x] 补齐 OpenSpec change（proposal/spec/tasks）
 - [x] Red→Green 完成窗口 IPC 与标题栏实现
 - [x] 目标测试、格式化、typecheck、cross-module gate 通过
-- [ ] 提交代码与治理文件
-- [ ] 创建 PR，开启 auto-merge，等待 required checks
-- [ ] Main session signing commit（仅 RUN_LOG）
+- [x] 提交代码与治理文件
+- [x] 创建 PR，开启 auto-merge，等待 required checks
+- [x] Main session signing commit（仅 RUN_LOG）
 - [ ] 合并后同步控制面 `main` 并清理 worktree
 
 ## Runs
@@ -91,6 +91,17 @@
 - Key output:
   - `packages/shared/types/ipc-generated.ts` updated with `app:window:*` channels
 
+### 2026-02-21 Code Commit + PR Bootstrap
+
+- Command:
+  - `git add . && git commit -m "feat: add windows frameless titlebar and window controls (#604)"`
+  - `git push -u origin task/604-windows-frameless-titlebar`
+  - `gh pr create --base main --head task/604-windows-frameless-titlebar ...`
+- Exit code: `0`
+- Key output:
+  - Code commit: `55196d3e7f5733d7d0da99df5aae9e3346bef68c`
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/605`
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -102,7 +113,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 0000000000000000000000000000000000000000
+- Reviewed-HEAD-SHA: 55196d3e7f5733d7d0da99df5aae9e3346bef68c
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
