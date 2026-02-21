@@ -3,7 +3,7 @@
 - Issue: #600
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/600
 - Branch: `task/600-doc-reality-alignment`
-- PR: (pending)
+- PR: https://github.com/Leeky1017/CreoNow/pull/601
 - Scope (Governance):
   - `README*.md`
   - `docs/**/*.md`
@@ -68,12 +68,35 @@
   - Timestamp policy: `docs/references/document-timestamp-governance.md`
   - CI gate: `doc-timestamp-gate` integrated into required check `ci`
 
+### 2026-02-21 Local Verification
+
+- Command:
+  - `pnpm install --frozen-lockfile`
+  - `pnpm exec prettier --check <changed targets>` (failed; expected)
+  - `pnpm exec prettier --write <flagged targets>`
+  - `pnpm exec prettier --check <changed targets>` (pass)
+  - `pnpm typecheck`
+  - `pnpm lint` (warnings only)
+  - `pnpm contract:check`
+  - `pnpm cross-module:check`
+  - `pnpm test:unit`
+  - `pnpm -C apps/desktop test:run`
+- Exit code:
+  - pnpm install: `0`
+  - prettier check (initial): `1`
+  - prettier write: `0`
+  - prettier check (final): `0`
+  - typecheck/lint/contract/cross-module/unit/desktop test: `0`
+- Key output:
+  - Cross-module: `[CROSS_MODULE_GATE] PASS`
+  - Doc timestamp diff check: `OK: validated timestamps for 10 governed markdown file(s)`
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: (pending)
-- Spec-Compliance: TBD
-- Code-Quality: TBD
-- Fresh-Verification: TBD
-- Blocking-Issues: TBD
-- Decision: TBD
+- Reviewed-HEAD-SHA: b8fb510fb452a45c178377a56b5826027c0cb4ab
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
