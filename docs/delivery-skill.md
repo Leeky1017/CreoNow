@@ -1,5 +1,7 @@
 # OpenSpec + Rulebook + GitHub 交付规则
 
+更新时间：2026-02-21 11:57
+
 本文件是 CreoNow 的交付规则主源（Source of Truth）。
 本文件只定义约束条件和验收标准，不定义具体命令和脚本参数。
 
@@ -107,3 +109,13 @@ openspec/             rulebook/tasks/        .github/workflows/
   - 现行防线：preflight 支持当前任务 `active/archive` 双路径，并允许同 PR 自归档收口。
 - 既往不符合项 E：子代理自报完成但主会话未审计签字，仍进入合并路径。
   - 现行防线：RUN_LOG 强制 `Main Session Audit`，preflight 与 `openspec-log-guard` 双门禁校验并阻断未通过场景。
+
+---
+
+## 七、文档时间戳治理（强制对齐）
+
+为减少文档静默漂移造成的误导，受管文档必须包含时间戳，并通过 CI/Preflight 自动校验阻断缺失场景。
+
+- 规则主源：`docs/references/document-timestamp-governance.md`
+- 校验脚本：`scripts/check_doc_timestamps.py`
+- CI 接入：`.github/workflows/ci.yml` 的 `doc-timestamp-gate` job（接入 required check `ci` 的 `needs`）

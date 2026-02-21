@@ -513,6 +513,8 @@ def main() -> int:
                 if line.strip():
                     changed_files.add(line.strip())
 
+        must_run(["python3", "scripts/check_doc_timestamps.py"], cwd=repo)
+
         print("\n== OpenSpec change checks ==")
         validate_no_completed_active_changes(repo)
         validate_tdd_first_change_tasks(repo, changed_files)

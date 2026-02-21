@@ -22,6 +22,20 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
+  doc-timestamp-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Doc timestamp gate
+        run: |
+          python3 scripts/check_doc_timestamps.py \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}"
+
   unit-test:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -177,6 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     needs:
+      - doc-timestamp-gate
       - lint-and-typecheck
       - unit-test
       - integration-test
