@@ -3,6 +3,7 @@
 更新时间：2026-02-21 11:57
 
 ## 1. Implementation
+
 - [x] 1.1 建立治理基线：OPEN Issue + worktree + Rulebook validate + RUN_LOG
 - [x] 1.2 产出 Swarm 任务图与分工清单，并完成 Owner 确认
 - [x] 1.3 Repo truth baseline：门禁、脚本、CI、文档事实来源的代码证据（`path:line`）
@@ -13,6 +14,7 @@
 - [x] 1.8 时间戳自动校验脚本 + CI 接入（接入 required check `ci`）
 
 ## 2. Testing
+
 - [x] 2.1 Red：timestamp 校验对缺少时间戳/格式不符的受管文档变更失败（预期）
 - [x] 2.2 Green：补齐后校验通过（预期）
 - [ ] 2.3 本地 preflight：`./scripts/agent_pr_preflight.sh` 通过（记录失败与修复证据）

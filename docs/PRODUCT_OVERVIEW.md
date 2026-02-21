@@ -21,12 +21,12 @@ Cursor 为程序员重新定义了代码编辑器，CreoNow 要为文字创作�
 
 ### 核心价值主张
 
-| 维度 | 说明 |
-|------|------|
-| **AI 原生** | AI 不是插件，是底层架构的一部分——技能系统、上下文工程、偏好学习一体化 |
-| **本地优先** | 数据全部在本地 SQLite，不依赖云服务，隐私可控 |
-| **创作者专属** | 不是通用文本编辑器，而是为长文创作设计——角色管理、知识图谱、版本对比都是一等公民 |
-| **可控 AI** | 用户决定 AI 的参与程度——技能可启停、记忆可审查、上下文可可视化、输出可 diff 后确认 |
+| 维度           | 说明                                                                               |
+| -------------- | ---------------------------------------------------------------------------------- |
+| **AI 原生**    | AI 不是插件，是底层架构的一部分——技能系统、上下文工程、偏好学习一体化              |
+| **本地优先**   | 数据全部在本地 SQLite，不依赖云服务，隐私可控                                      |
+| **创作者专属** | 不是通用文本编辑器，而是为长文创作设计——角色管理、知识图谱、版本对比都是一等公民   |
+| **可控 AI**    | 用户决定 AI 的参与程度——技能可启停、记忆可审查、上下文可可视化、输出可 diff 后确认 |
 
 ---
 
@@ -74,22 +74,22 @@ CreoNow/
 
 ### 2.2 技术栈（已锁定，禁止替换）
 
-| 层 | 技术 | 版本 | 用途 |
-|----|------|------|------|
-| 前端框架 | React | 18.x | UI 渲染 |
-| 类型系统 | TypeScript | 5.x | 全栈类型安全 |
-| 构建工具 | Vite + electron-vite | 7.x / 5.x | 开发与打包 |
-| 样式 | Tailwind CSS + CSS Variables | 4.x | Token 驱动的样式系统 |
-| 组件原语 | Radix UI | latest | 无样式可访问组件 |
-| 富文本编辑器 | TipTap 2 | 2.26+ | 基于 ProseMirror 的编辑器 |
-| 状态管理 | Zustand | 5.x | 轻量、类型安全的状态管理 |
-| 桌面框架 | Electron | 40.x | 跨平台桌面应用 |
-| 数据库 | SQLite (better-sqlite3) | 12.x | 本地数据持久化 |
-| 向量检索 | sqlite-vec | 0.1.7-alpha | 语义记忆召回（可降级） |
-| 测试 | Vitest + Playwright | 4.x / 1.58+ | 组件测试 + E2E |
-| 组件文档 | Storybook | 8.6+ | 组件开发与验收 |
-| 包管理 | pnpm workspace | 8.x | Monorepo 管理 |
-| CI | GitHub Actions | - | 自动化门禁 |
+| 层           | 技术                         | 版本        | 用途                      |
+| ------------ | ---------------------------- | ----------- | ------------------------- |
+| 前端框架     | React                        | 18.x        | UI 渲染                   |
+| 类型系统     | TypeScript                   | 5.x         | 全栈类型安全              |
+| 构建工具     | Vite + electron-vite         | 7.x / 5.x   | 开发与打包                |
+| 样式         | Tailwind CSS + CSS Variables | 4.x         | Token 驱动的样式系统      |
+| 组件原语     | Radix UI                     | latest      | 无样式可访问组件          |
+| 富文本编辑器 | TipTap 2                     | 2.26+       | 基于 ProseMirror 的编辑器 |
+| 状态管理     | Zustand                      | 5.x         | 轻量、类型安全的状态管理  |
+| 桌面框架     | Electron                     | 40.x        | 跨平台桌面应用            |
+| 数据库       | SQLite (better-sqlite3)      | 12.x        | 本地数据持久化            |
+| 向量检索     | sqlite-vec                   | 0.1.7-alpha | 语义记忆召回（可降级）    |
+| 测试         | Vitest + Playwright          | 4.x / 1.58+ | 组件测试 + E2E            |
+| 组件文档     | Storybook                    | 8.6+        | 组件开发与验收            |
+| 包管理       | pnpm workspace               | 8.x         | Monorepo 管理             |
+| CI           | GitHub Actions               | -           | 自动化门禁                |
 
 ### 2.3 IPC 契约架构
 
@@ -119,6 +119,7 @@ ipc-contract.ts (SSOT)  ──→  pnpm contract:generate  ──→  ipc-genera
 - **三栏布局**：IconBar(48px) + Sidebar(240px) + Editor + RightPanel(320px) + StatusBar(28px)
 
 **关键文件**：
+
 - `renderer/src/features/editor/EditorPane.tsx` — 编辑器主体
 - `renderer/src/features/editor/EditorToolbar.tsx` — 工具栏
 - `renderer/src/stores/editorStore.tsx` — 编辑器状态
@@ -136,6 +137,7 @@ AI 是 CreoNow 的核心差异化能力，分为以下子系统：
 - **Proxy 支持**：单链路原则——直连 provider 或走 proxy，不双栈重试
 
 **关键文件**：
+
 - `main/src/services/ai/aiService.ts` — AI 核心服务（995 行）
 - `main/src/services/ai/fakeAiServer.ts` — 测试用假 AI 服务器
 - `main/src/services/ai/aiProxySettingsService.ts` — Proxy 配置管理
@@ -155,6 +157,7 @@ Skills 是 AI 能力的封装单元，类似 Cursor 的 Agent/Rules：
 - **UI 入口**：AI Panel 的 SkillPicker + CommandPalette
 
 **关键文件**：
+
 - `main/src/services/skills/skillService.ts` — Skill CRUD 与解析
 - `main/src/services/skills/skillLoader.ts` — 从文件系统加载 skill
 - `main/src/services/skills/skillValidator.ts` — 严格校验器
@@ -172,6 +175,7 @@ Skills 是 AI 能力的封装单元，类似 Cursor 的 Agent/Rules：
 - **文件系统 Watch**：监听 `.creonow/` 目录变化，自动更新上下文
 
 **关键文件**：
+
 - `main/src/services/context/contextFs.ts` — 上下文文件系统操作
 - `main/src/services/context/watchService.ts` — 文件变化监听
 - `packages/shared/redaction/` — 脱敏工具
@@ -189,6 +193,7 @@ Skills 是 AI 能力的封装单元，类似 Cursor 的 Agent/Rules：
 - **注入预览**：`memory:injection:preview` 可预览哪些记忆会被注入 AI 上下文
 
 **关键文件**：
+
 - `main/src/services/memory/memoryService.ts` — Memory CRUD（29K 行）
 - `main/src/services/memory/preferenceLearning.ts` — 偏好学习引擎
 - `main/src/services/memory/userMemoryVec.ts` — 向量语义召回
@@ -204,6 +209,7 @@ AI 输出不是直接覆盖文档，而是走 diff → 确认 → apply 流程�
 - 确认后 apply 并自动创建版本（`actor=ai`）
 
 **关键文件**：
+
 - `renderer/src/features/diff/DiffView.tsx` — Diff 展示
 - `renderer/src/features/diff/DiffViewPanel.tsx` — Diff 面板
 - `renderer/src/features/diff/SplitDiffView.tsx` — 分栏 diff 视图
@@ -224,6 +230,7 @@ AI 输出不是直接覆盖文档，而是走 diff → 确认 → apply 流程�
 - 编辑与保存与 SSOT/版本机制一致
 
 **关键文件**：
+
 - `main/src/ipc/project.ts` — 项目 IPC（6K）
 - `main/src/ipc/file.ts` — 文档 IPC（11.7K）
 - `main/src/services/projects/projectService.ts` — 项目服务
@@ -240,6 +247,7 @@ AI 输出不是直接覆盖文档，而是走 diff → 确认 → apply 流程�
 - **AI Apply 自动落版本**：`actor=ai` 标记
 
 **关键文件**：
+
 - `main/src/ipc/version.ts` — 版本 IPC
 - `renderer/src/features/version-history/VersionHistoryPanel.tsx` — 版本历史面板（25K）
 - `renderer/src/features/diff/` — 11 个 diff 相关文件
@@ -255,6 +263,7 @@ AI 输出不是直接覆盖文档，而是走 diff → 确认 → apply 流程�
 - **上下文集成**：图谱内容可作为 AI 的 `retrieved` 上下文来源
 
 **关键文件**：
+
 - `main/src/ipc/knowledgeGraph.ts` — KG IPC（7K）
 - `main/src/services/kg/` — KG 服务
 - `renderer/src/features/kg/KnowledgeGraphPanel.tsx` — KG 面板（24K）
@@ -270,6 +279,7 @@ AI 输出不是直接覆盖文档，而是走 diff → 确认 → apply 流程�
 - 从 KG 实体自动派生角色数据
 
 **关键文件**：
+
 - `renderer/src/features/character/` — 14 个文件
 - `renderer/src/features/character/characterFromKg.ts` — KG → Character 转换
 
@@ -281,6 +291,7 @@ AI 输出不是直接覆盖文档，而是走 diff → 确认 → apply 流程�
 - **降级策略**：语义检索不可用时降级到全文检索，不阻断主链路
 
 **关键文件**：
+
 - `main/src/services/rag/ragService.ts` — RAG 服务（12K）
 - `main/src/services/rag/queryPlanner.ts` — 查询规划
 - `main/src/services/search/` — 搜索服务
@@ -294,6 +305,7 @@ AI 输出不是直接覆盖文档，而是走 diff → 确认 → apply 流程�
 - **入口**：CommandPalette + ExportDialog
 
 **关键文件**：
+
 - `main/src/services/export/` — 导出服务
 - `main/src/ipc/export.ts` — 4 个导出 IPC 通道
 - `renderer/src/features/export/ExportDialog.tsx` — 导出对话框（29K）
@@ -305,6 +317,7 @@ AI 输出不是直接覆盖文档，而是走 diff → 确认 → apply 流程�
 - **Quality Gates Panel**：展示 judge/constraints 的真实状态与失败/降级路径
 
 **关键文件**：
+
 - `main/src/ipc/constraints.ts` — Constraints IPC（7.6K）
 - `main/src/ipc/judge.ts` — Judge IPC
 - `main/src/services/judge/` — Judge 服务
@@ -317,6 +330,7 @@ AI 输出不是直接覆盖文档，而是走 diff → 确认 → apply 流程�
 - Analytics 页面可视化
 
 **关键文件**：
+
 - `main/src/services/stats/` — 统计服务
 - `main/src/ipc/stats.ts` — 统计 IPC
 - `renderer/src/features/analytics/AnalyticsPage.tsx` — 分析页面
@@ -340,47 +354,47 @@ Accordion, Avatar, Badge, Button, Card, Checkbox, ContextMenu, Dialog, DropdownM
 
 ### 4.2 Feature 模块（22 个）
 
-| 模块 | 职责 | 关键组件 |
-|------|------|----------|
-| `ai/` | AI 面板、模型/模式/技能选择、流式通信 | AiPanel, ModelPicker, SkillPicker |
-| `analytics/` | 写作统计可视化 | AnalyticsPage |
-| `character/` | 角色管理 | CharacterPanel, CharacterDetailDialog |
-| `commandPalette/` | 全局命令面板 | CommandPalette |
-| `dashboard/` | 项目仪表盘 | DashboardPage, RenameProjectDialog |
-| `diff/` | 版本对比 | DiffView, DiffViewPanel, SplitDiffView |
-| `editor/` | 编辑器主体 | EditorPane, EditorToolbar |
-| `export/` | 导出对话框 | ExportDialog |
-| `files/` | 文件树 | — |
-| `kg/` | 知识图谱 | KnowledgeGraphPanel |
-| `memory/` | 记忆管理 | MemoryPanel, MemoryCreateDialog, MemorySettingsDialog |
-| `onboarding/` | 引导页 | OnboardingPage |
-| `outline/` | 文档大纲 | OutlinePanel |
-| `projects/` | 创建项目/模板 | CreateProjectDialog, CreateTemplateDialog |
-| `quality-gates/` | 质量门禁面板 | QualityGatesPanel |
-| `rightpanel/` | 右侧面板容器 | — |
-| `search/` | 搜索面板 | SearchPanel |
-| `settings/` | 设置面板 | — |
-| `settings-dialog/` | 设置对话框 | SettingsDialog (General/Appearance/Export/Account) |
-| `version-history/` | 版本历史 | VersionHistoryPanel, VersionPreviewDialog |
-| `welcome/` | 欢迎屏幕 | WelcomeScreen |
-| `zen-mode/` | 禅模式 | ZenMode |
+| 模块               | 职责                                  | 关键组件                                              |
+| ------------------ | ------------------------------------- | ----------------------------------------------------- |
+| `ai/`              | AI 面板、模型/模式/技能选择、流式通信 | AiPanel, ModelPicker, SkillPicker                     |
+| `analytics/`       | 写作统计可视化                        | AnalyticsPage                                         |
+| `character/`       | 角色管理                              | CharacterPanel, CharacterDetailDialog                 |
+| `commandPalette/`  | 全局命令面板                          | CommandPalette                                        |
+| `dashboard/`       | 项目仪表盘                            | DashboardPage, RenameProjectDialog                    |
+| `diff/`            | 版本对比                              | DiffView, DiffViewPanel, SplitDiffView                |
+| `editor/`          | 编辑器主体                            | EditorPane, EditorToolbar                             |
+| `export/`          | 导出对话框                            | ExportDialog                                          |
+| `files/`           | 文件树                                | —                                                     |
+| `kg/`              | 知识图谱                              | KnowledgeGraphPanel                                   |
+| `memory/`          | 记忆管理                              | MemoryPanel, MemoryCreateDialog, MemorySettingsDialog |
+| `onboarding/`      | 引导页                                | OnboardingPage                                        |
+| `outline/`         | 文档大纲                              | OutlinePanel                                          |
+| `projects/`        | 创建项目/模板                         | CreateProjectDialog, CreateTemplateDialog             |
+| `quality-gates/`   | 质量门禁面板                          | QualityGatesPanel                                     |
+| `rightpanel/`      | 右侧面板容器                          | —                                                     |
+| `search/`          | 搜索面板                              | SearchPanel                                           |
+| `settings/`        | 设置面板                              | —                                                     |
+| `settings-dialog/` | 设置对话框                            | SettingsDialog (General/Appearance/Export/Account)    |
+| `version-history/` | 版本历史                              | VersionHistoryPanel, VersionPreviewDialog             |
+| `welcome/`         | 欢迎屏幕                              | WelcomeScreen                                         |
+| `zen-mode/`        | 禅模式                                | ZenMode                                               |
 
 ### 4.3 状态管理（12 个 Zustand Store）
 
-| Store | 职责 |
-|-------|------|
-| `aiStore` | AI 运行状态、流式事件处理、反馈 |
-| `editorStore` | 编辑器实例、当前文档内容、保存状态 |
-| `fileStore` | 文件列表、当前文档 ID、文件树操作 |
-| `kgStore` | 知识图谱实体/关系 CRUD |
-| `layoutStore` | 面板宽度、折叠状态、布局偏好 |
-| `memoryStore` | 记忆 CRUD、注入预览、设置 |
-| `onboardingStore` | 引导页状态 |
-| `projectStore` | 项目列表、当前项目、项目操作 |
-| `searchStore` | 搜索状态与结果 |
-| `templateStore` | 模板管理 |
-| `themeStore` | 主题切换（深色/浅色） |
-| `versionStore` | 版本列表、对比、恢复 |
+| Store             | 职责                               |
+| ----------------- | ---------------------------------- |
+| `aiStore`         | AI 运行状态、流式事件处理、反馈    |
+| `editorStore`     | 编辑器实例、当前文档内容、保存状态 |
+| `fileStore`       | 文件列表、当前文档 ID、文件树操作  |
+| `kgStore`         | 知识图谱实体/关系 CRUD             |
+| `layoutStore`     | 面板宽度、折叠状态、布局偏好       |
+| `memoryStore`     | 记忆 CRUD、注入预览、设置          |
+| `onboardingStore` | 引导页状态                         |
+| `projectStore`    | 项目列表、当前项目、项目操作       |
+| `searchStore`     | 搜索状态与结果                     |
+| `templateStore`   | 模板管理                           |
+| `themeStore`      | 主题切换（深色/浅色）              |
+| `versionStore`    | 版本列表、对比、恢复               |
 
 ### 4.4 页面流程
 
@@ -400,59 +414,59 @@ Onboarding → Dashboard → Editor (Workbench)
 
 ### 5.1 服务层（13 个子模块）
 
-| 模块 | 职责 | 关键实现 |
-|------|------|----------|
-| `ai/` | AI 请求、流式输出、取消、超时、Proxy、Fake Server | aiService.ts (995 行) |
-| `context/` | `.creonow/` 目录管理、规则/设置读取、文件 Watch | contextFs.ts, watchService.ts |
-| `documents/` | 文档 CRUD、派生字段生成 | — |
-| `embedding/` | 文本向量化 | — |
-| `export/` | 导出（MD/PDF/DOCX/TXT） | — |
-| `judge/` | 质量评判模型管理 | — |
-| `kg/` | 知识图谱 CRUD | — |
-| `memory/` | 记忆 CRUD、偏好学习、语义召回 | memoryService.ts (29K) |
-| `projects/` | 项目生命周期管理 | projectService.ts |
-| `rag/` | RAG 检索、查询规划、LRU 缓存 | ragService.ts (12K) |
-| `search/` | 全文检索 | — |
-| `skills/` | Skill 加载、校验、CRUD | skillService.ts (13K) |
-| `stats/` | 写作统计 | — |
+| 模块         | 职责                                              | 关键实现                      |
+| ------------ | ------------------------------------------------- | ----------------------------- |
+| `ai/`        | AI 请求、流式输出、取消、超时、Proxy、Fake Server | aiService.ts (995 行)         |
+| `context/`   | `.creonow/` 目录管理、规则/设置读取、文件 Watch   | contextFs.ts, watchService.ts |
+| `documents/` | 文档 CRUD、派生字段生成                           | —                             |
+| `embedding/` | 文本向量化                                        | —                             |
+| `export/`    | 导出（MD/PDF/DOCX/TXT）                           | —                             |
+| `judge/`     | 质量评判模型管理                                  | —                             |
+| `kg/`        | 知识图谱 CRUD                                     | —                             |
+| `memory/`    | 记忆 CRUD、偏好学习、语义召回                     | memoryService.ts (29K)        |
+| `projects/`  | 项目生命周期管理                                  | projectService.ts             |
+| `rag/`       | RAG 检索、查询规划、LRU 缓存                      | ragService.ts (12K)           |
+| `search/`    | 全文检索                                          | —                             |
+| `skills/`    | Skill 加载、校验、CRUD                            | skillService.ts (13K)         |
+| `stats/`     | 写作统计                                          | —                             |
 
 ### 5.2 IPC 通道（18 个领域，71 个通道）
 
-| 模块 | 通道数 | 示例通道 |
-|------|--------|----------|
-| ai | 3 | `ai:skill:run`, `ai:skill:cancel`, `ai:skill:feedback` |
-| aiProxy | 3 | `ai:proxy:settings:get/update`, `ai:proxy:test` |
-| app | 1 | `app:ping` |
-| constraints | 2 | `constraints:get`, `constraints:set` |
-| context | 8 | `context:creonow:ensure/status/rules:list/rules:read/settings:list/settings:read/watch:start/stop` |
-| db | 1 | `db:debug:tableNames` |
-| embedding | 2 | `embedding:encode`, `embedding:index` |
-| export | 4 | `export:markdown/pdf/docx/txt` |
-| file | 8 | `file:document:create/read/write/delete/list/rename/getCurrent/setCurrent` |
-| judge | 2 | `judge:model:ensure`, `judge:model:getState` |
-| knowledgeGraph | 9 | `kg:entity:create/delete/list/update`, `kg:relation:create/delete/list/update`, `kg:graph:get` |
-| memory | 7 | `memory:create/delete/update/list`, `memory:settings:get/update`, `memory:injection:preview` |
-| project | 8 | `project:create/delete/list/rename/duplicate/archive/getCurrent/setCurrent` |
-| rag | 1 | `rag:retrieve` |
-| search | 2 | `search:fulltext`, `search:semantic` |
-| skills | 4 | `skill:list/read/write/toggle` |
-| stats | 2 | `stats:getToday`, `stats:getRange` |
-| version | 4 | `version:list/read/restore`, `version:aiApply:logConflict` |
+| 模块           | 通道数 | 示例通道                                                                                           |
+| -------------- | ------ | -------------------------------------------------------------------------------------------------- |
+| ai             | 3      | `ai:skill:run`, `ai:skill:cancel`, `ai:skill:feedback`                                             |
+| aiProxy        | 3      | `ai:proxy:settings:get/update`, `ai:proxy:test`                                                    |
+| app            | 1      | `app:ping`                                                                                         |
+| constraints    | 2      | `constraints:get`, `constraints:set`                                                               |
+| context        | 8      | `context:creonow:ensure/status/rules:list/rules:read/settings:list/settings:read/watch:start/stop` |
+| db             | 1      | `db:debug:tableNames`                                                                              |
+| embedding      | 2      | `embedding:encode`, `embedding:index`                                                              |
+| export         | 4      | `export:markdown/pdf/docx/txt`                                                                     |
+| file           | 8      | `file:document:create/read/write/delete/list/rename/getCurrent/setCurrent`                         |
+| judge          | 2      | `judge:model:ensure`, `judge:model:getState`                                                       |
+| knowledgeGraph | 9      | `kg:entity:create/delete/list/update`, `kg:relation:create/delete/list/update`, `kg:graph:get`     |
+| memory         | 7      | `memory:create/delete/update/list`, `memory:settings:get/update`, `memory:injection:preview`       |
+| project        | 8      | `project:create/delete/list/rename/duplicate/archive/getCurrent/setCurrent`                        |
+| rag            | 1      | `rag:retrieve`                                                                                     |
+| search         | 2      | `search:fulltext`, `search:semantic`                                                               |
+| skills         | 4      | `skill:list/read/write/toggle`                                                                     |
+| stats          | 2      | `stats:getToday`, `stats:getRange`                                                                 |
+| version        | 4      | `version:list/read/restore`, `version:aiApply:logConflict`                                         |
 
 ### 5.3 数据库（SQLite + 10 个迁移）
 
-| 迁移 | 内容 |
-|------|------|
-| 0001_init | 基础表（projects/documents/settings/memories/ai_conversations） |
-| 0002_documents_versioning | 文档版本历史 |
-| 0003_judge | 质量评判 |
-| 0004_skills | 技能启停状态 |
-| 0005_knowledge_graph | 实体/关系表 |
-| 0006_search_fts | FTS5 全文检索索引 |
-| 0007_stats | 写作统计 |
-| 0008_user_memory_vec | 向量语义召回（sqlite-vec，可选） |
-| 0009_memory_document_scope | 记忆文档级作用域 |
-| 0010_projects_archive | 项目归档 |
+| 迁移                       | 内容                                                            |
+| -------------------------- | --------------------------------------------------------------- |
+| 0001_init                  | 基础表（projects/documents/settings/memories/ai_conversations） |
+| 0002_documents_versioning  | 文档版本历史                                                    |
+| 0003_judge                 | 质量评判                                                        |
+| 0004_skills                | 技能启停状态                                                    |
+| 0005_knowledge_graph       | 实体/关系表                                                     |
+| 0006_search_fts            | FTS5 全文检索索引                                               |
+| 0007_stats                 | 写作统计                                                        |
+| 0008_user_memory_vec       | 向量语义召回（sqlite-vec，可选）                                |
+| 0009_memory_document_scope | 记忆文档级作用域                                                |
+| 0010_projects_archive      | 项目归档                                                        |
 
 迁移采用单调递增版本号，每个迁移为独立 SQL 文件，通过 Vite `?raw` 导入。
 
@@ -483,6 +497,7 @@ sqlite-vec 扩展为**可选**：加载失败时记忆系统降级到确定性�
 ### 6.3 设计系统实现
 
 `design/system/` 包含：
+
 - `01-tokens.css` — Token CSS 变量定义（11K）
 - `02-component-cards/` — 组件卡片
 - `03-state-inventory.md` — 状态清单
@@ -495,19 +510,19 @@ sqlite-vec 扩展为**可选**：加载失败时记忆系统降级到确定性�
 
 ### 7.1 测试层级
 
-| 层级 | 工具 | 数量 | 覆盖范围 |
-|------|------|------|----------|
-| 组件测试 | Vitest + Testing Library | primitives/features 均有 `.test.tsx` | UI 渲染、交互、状态 |
-| 单元测试 | tsx (直接运行) | 11 个 spec | 契约生成、派生、diff、skill校验、上下文工程、偏好学习、错误映射、记忆服务、项目操作 |
-| 集成测试 | tsx (直接运行) | 4 个 spec | Constraints roundtrip, FTS invalid query, user-memory-vec, RAG retrieve+rerank |
-| E2E 测试 | Playwright Electron | 25 个 spec | 全链路：启动、编辑/保存、AI 成功/取消/超时/错误、命令面板、dashboard 项目操作、版本历史、知识图谱、搜索/RAG、导出、记忆偏好学习、技能、设置、主题 |
-| Storybook | Storybook 8 | ~56 个 stories | 组件视觉/交互验收 |
+| 层级      | 工具                     | 数量                                 | 覆盖范围                                                                                                                                          |
+| --------- | ------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 组件测试  | Vitest + Testing Library | primitives/features 均有 `.test.tsx` | UI 渲染、交互、状态                                                                                                                               |
+| 单元测试  | tsx (直接运行)           | 11 个 spec                           | 契约生成、派生、diff、skill校验、上下文工程、偏好学习、错误映射、记忆服务、项目操作                                                               |
+| 集成测试  | tsx (直接运行)           | 4 个 spec                            | Constraints roundtrip, FTS invalid query, user-memory-vec, RAG retrieve+rerank                                                                    |
+| E2E 测试  | Playwright Electron      | 25 个 spec                           | 全链路：启动、编辑/保存、AI 成功/取消/超时/错误、命令面板、dashboard 项目操作、版本历史、知识图谱、搜索/RAG、导出、记忆偏好学习、技能、设置、主题 |
+| Storybook | Storybook 8              | ~56 个 stories                       | 组件视觉/交互验收                                                                                                                                 |
 
 ### 7.2 CI 门禁（GitHub Actions）
 
 ```yaml
 jobs:
-  check:              # ubuntu-latest
+  check: # ubuntu-latest
     - typecheck
     - lint
     - contract:check
@@ -516,10 +531,10 @@ jobs:
     - desktop vitest (renderer/store)
     - storybook:build
 
-  windows-e2e:        # windows-latest
+  windows-e2e: # windows-latest
     - Playwright Electron E2E
 
-  windows-build:      # windows-latest
+  windows-build: # windows-latest
     - electron-builder --win nsis zip
 
   openspec-log-guard: # PR 必须有对应的 ISSUE-N.md RUN_LOG
@@ -532,6 +547,7 @@ jobs:
 ### 8.1 AGENTS.md（仓库宪法）
 
 核心约束：
+
 - **代码质量**：禁止 `any` 类型；注释只解释 why 不写 what；JSDoc 必须
 - **一致性**：全项目统一命名/结构/错误处理/状态管理
 - **测试**：所有功能必须有测试；禁止假装测试
@@ -556,6 +572,7 @@ openspec/
 ### 8.3 交付流程
 
 采用 **openspec-rulebook-github-delivery** 体系：
+
 - GitHub Issue → Branch (`task/<N>-<slug>`) → PR (`Closes #N`) → Checks → Auto-merge
 - 每个 commit message 包含 `(#N)`
 - 每个 Issue 必须有 `openspec/_ops/task_runs/ISSUE-N.md` 运行日志
@@ -568,6 +585,7 @@ openspec/
 ### 9.1 MVP 就绪度
 
 **已完成**（~85%）：
+
 - 应用能启动，三栏布局骨架完整
 - 编辑器可用（TipTap + 自动保存 + 版本历史）
 - AI 面板功能链路打通（流式输出 + 取消 + 反馈）
@@ -576,6 +594,7 @@ openspec/
 - Storybook 资产丰富（~56 个 stories）
 
 **待修复的 P0 阻塞**：
+
 - Dashboard 项目操作（rename/duplicate/archive）需要接电
 - Version History Preview 需要实现
 - Restore 缺确认对话框
@@ -584,6 +603,7 @@ openspec/
 ### 9.2 审计问题（39 条）
 
 已通过 `creonow-audit-remediation` 规范转化为可执行任务卡：
+
 - P0: 7 条（AI 模型参数、迁移版本、Zen Mode、DB 降级、accent token）
 - P1: 17 条（编辑器增强、架构一致性、AI 可信度、CI、设计系统）
 - P2: 15 条（架构拆分、测试覆盖、样式收敛、可观测性）
@@ -594,11 +614,11 @@ openspec/
 
 ### 10.1 当前阶段：MVP → V1
 
-| 阶段 | 目标 | 时间 |
-|------|------|------|
-| Phase 1 (P0) | MVP 闭环：Dashboard 接电、版本预览、ErrorBoundary、CI 组件门禁 | 2-3 天 |
-| Phase 2 (P1) | 质量加固：AI History 真实数据、核心服务/Store 单测、API Key 安全存储（keytar）、XSS 防护、状态 SSOT | ~1 周 |
-| Phase 3 (P2) | 性能与代码质量：React.memo、列表虚拟化、useShallow、console 收敛、字符串常量化 | ~1 周 |
+| 阶段         | 目标                                                                                                | 时间   |
+| ------------ | --------------------------------------------------------------------------------------------------- | ------ |
+| Phase 1 (P0) | MVP 闭环：Dashboard 接电、版本预览、ErrorBoundary、CI 组件门禁                                      | 2-3 天 |
+| Phase 2 (P1) | 质量加固：AI History 真实数据、核心服务/Store 单测、API Key 安全存储（keytar）、XSS 防护、状态 SSOT | ~1 周  |
+| Phase 3 (P2) | 性能与代码质量：React.memo、列表虚拟化、useShallow、console 收敛、字符串常量化                      | ~1 周  |
 
 ### 10.2 V1 目标能力
 
@@ -682,14 +702,14 @@ pnpm desktop:build:win
 
 ## 12. 关键架构决策摘要
 
-| 决策 | 选择 | 原因 |
-|------|------|------|
-| 文档 SSOT | TipTap/ProseMirror JSON | 编辑器原生格式，避免序列化/反序列化损耗 |
-| IPC Envelope | `{ ok: true/false }` | 统一错误处理，可测试，可判定 |
-| AI 测试策略 | Fake-first（fakeAiServer） | CI 中无网络/无 key 即可跑完整链路 |
-| 样式方案 | CSS Variables + Tailwind 映射 | Token 驱动，主题切换仅切 data-theme |
-| 向量检索 | sqlite-vec（可选） | 不可用时降级到确定性排序，不阻断主链路 |
-| 数据存储 | 全本地 SQLite | 隐私优先，无云依赖 |
-| 状态管理 | 每 feature 独立 Zustand store | 细粒度更新，避免全局 re-render |
-| 组件原语 | Radix UI + 自定义样式 | 可访问性由 Radix 保证，视觉由 Design Token 控制 |
-| Windows-first | CI 跑 windows-latest E2E + build | 主要用户群体在 Windows |
+| 决策          | 选择                             | 原因                                            |
+| ------------- | -------------------------------- | ----------------------------------------------- |
+| 文档 SSOT     | TipTap/ProseMirror JSON          | 编辑器原生格式，避免序列化/反序列化损耗         |
+| IPC Envelope  | `{ ok: true/false }`             | 统一错误处理，可测试，可判定                    |
+| AI 测试策略   | Fake-first（fakeAiServer）       | CI 中无网络/无 key 即可跑完整链路               |
+| 样式方案      | CSS Variables + Tailwind 映射    | Token 驱动，主题切换仅切 data-theme             |
+| 向量检索      | sqlite-vec（可选）               | 不可用时降级到确定性排序，不阻断主链路          |
+| 数据存储      | 全本地 SQLite                    | 隐私优先，无云依赖                              |
+| 状态管理      | 每 feature 独立 Zustand store    | 细粒度更新，避免全局 re-render                  |
+| 组件原语      | Radix UI + 自定义样式            | 可访问性由 Radix 保证，视觉由 Design Token 控制 |
+| Windows-first | CI 跑 windows-latest E2E + build | 主要用户群体在 Windows                          |
