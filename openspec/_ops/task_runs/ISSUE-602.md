@@ -65,10 +65,24 @@
   - typecheck: `0`
   - lint: `0` (warnings only)
 
+### 2026-02-21 Preflight (Timestamp Gate)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh` (expected fail)
+  - Fix missing timestamps in:
+    - `rulebook/tasks/issue-602-product-overview-drift/proposal.md`
+    - `rulebook/tasks/issue-602-product-overview-drift/tasks.md`
+  - `rulebook task validate issue-602-product-overview-drift`
+- Exit code:
+  - preflight (red): `1`
+  - validate (green): `0`
+- Key output:
+  - Red: missing/invalid doc timestamps (rulebook task markdown)
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: f96ecd68c173f8e9f415401243bb4af04b724a99
+- Reviewed-HEAD-SHA: 5304a01792ed1e127bc2bebe90a73127d427f5b2
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
