@@ -1,6 +1,6 @@
 # CreoNow — 产品与技术全景介绍
 
-更新时间：2026-02-21 11:57
+更新时间：2026-02-21 12:45
 
 > **面向对象**：即将加入项目的专业开发者
 > **项目阶段**：MVP → V1（当前处于 MVP 就绪度 ~85%，正在推进至 ≥95%）
@@ -520,25 +520,9 @@ sqlite-vec 扩展为**可选**：加载失败时记忆系统降级到确定性�
 
 ### 7.2 CI 门禁（GitHub Actions）
 
-```yaml
-jobs:
-  check: # ubuntu-latest
-    - typecheck
-    - lint
-    - contract:check
-    - test:unit
-    - test:integration
-    - desktop vitest (renderer/store)
-    - storybook:build
-
-  windows-e2e: # windows-latest
-    - Playwright Electron E2E
-
-  windows-build: # windows-latest
-    - electron-builder --win nsis zip
-
-  openspec-log-guard: # PR 必须有对应的 ISSUE-N.md RUN_LOG
-```
+- Branch protection required checks：`ci` / `openspec-log-guard` / `merge-serial`
+- `ci` 是汇总门禁（见 `.github/workflows/ci.yml`），内部包含 typecheck/lint、契约校验、跨模块契约门禁、单测/集成测试、Windows E2E，以及文档时间戳门禁 `doc-timestamp-gate` 等。
+- `openspec-log-guard` 强制 `task/<N>-<slug>` 分支必须提供对应 `openspec/_ops/task_runs/ISSUE-N.md` RUN_LOG，并校验主会话审计签字。
 
 ---
 
@@ -546,28 +530,31 @@ jobs:
 
 ### 8.1 AGENTS.md（仓库宪法）
 
-核心约束：
+核心约束以 `AGENTS.md` 与 `docs/delivery-skill.md` 为准（本节只做摘要）：
 
-- **代码质量**：禁止 `any` 类型；注释只解释 why 不写 what；JSDoc 必须
-- **一致性**：全项目统一命名/结构/错误处理/状态管理
-- **测试**：所有功能必须有测试；禁止假装测试
-- **代码原则**：显式依赖注入；单链路实现；不写非必要代码
-- **异常处理**：IPC 必须返回 `{ ok: true|false }`；禁止 silent failure；超时/取消有明确状态
+- Spec-First：无 spec 不写实现
+- Test-First：无 Red 不写 Green
+- Evidence：关键命令与结论必须落到 RUN_LOG
+- Gates：`ci`/`openspec-log-guard`/`merge-serial` 全绿 + auto-merge
+- Change Protocol：主 spec 不可直接改，按 Proposal → Apply → Archive
+- Deterministic & Isolated：测试确定性，worktree 隔离，`pnpm install --frozen-lockfile`
+- Escalate：不确定就记录并上报，不猜测
 
 ### 8.2 OpenSpec 体系
 
 ```
 openspec/
+├── project.md
 ├── specs/
-│   ├── creonow-spec/                     # 项目基础规范
-│   ├── creonow-v1-workbench/             # V1 工作台规范（Windows-first）
-│   ├── creonow-frontend-full-assembly/   # 前端资产全组装规范
-│   ├── creonow-audit-remediation/        # 审计问题修复规范（39 条）
-│   └── creonow-mvp-readiness-remediation/ # MVP 就绪度修复规范
+│   ├── <module>/spec.md                  # 模块主规范（SSOT）
+│   └── cross-module-integration-spec.md  # 跨模块集成规范
+├── changes/                              # Delta Specs（进行中的变更）
+│   ├── <change>/                         # proposal.md / tasks.md / (spec deltas)
+│   └── archive/                          # 已完成变更归档（历史不可篡改）
 └── _ops/task_runs/                       # 任务运行日志（ISSUE-N.md）
 ```
 
-每套规范包含 `spec.md` + `design/*.md` + `task_cards/**/*.md`，任务卡写死触碰文件、验收标准、测试与边界场景。
+主规范以 `spec.md` 为主；变更通过 `openspec/changes/<change>/` 走 Proposal → Apply → Archive；执行证据记录在 `_ops/task_runs/ISSUE-N.md`。
 
 ### 8.3 交付流程
 
@@ -600,13 +587,12 @@ openspec/
 - Restore 缺确认对话框
 - React ErrorBoundary 防白屏
 
-### 9.2 审计问题（39 条）
+### 9.2 审计问题（历史）
 
-已通过 `creonow-audit-remediation` 规范转化为可执行任务卡：
+- 审计材料：`CN-Code-Audit-2026-02-14/`
+- 对应修复变更（已归档）：`openspec/changes/archive/aud-*`
 
-- P0: 7 条（AI 模型参数、迁移版本、Zen Mode、DB 降级、accent token）
-- P1: 17 条（编辑器增强、架构一致性、AI 可信度、CI、设计系统）
-- P2: 15 条（架构拆分、测试覆盖、样式收敛、可观测性）
+> 注：本节仅提供索引，避免在本文件写死数量/分级导致静默漂移。具体结论以审计材料与变更归档为准。
 
 ---
 
