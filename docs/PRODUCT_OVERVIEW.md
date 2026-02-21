@@ -1,7 +1,8 @@
 # CreoNow — 产品与技术全景介绍
 
+更新时间：2026-02-21 11:57
+
 > **面向对象**：即将加入项目的专业开发者
-> **更新日期**：2026-02-07
 > **项目阶段**：MVP → V1（当前处于 MVP 就绪度 ~85%，正在推进至 ≥95%）
 
 ---
@@ -37,31 +38,35 @@ Cursor 为程序员重新定义了代码编辑器，CreoNow 要为文字创作�
 CreoNow/
 ├── apps/desktop/              # Electron 桌面应用（唯一产品）
 │   ├── main/src/              # Electron 主进程（后端）
-│   │   ├── db/                #   SQLite 数据库初始化与迁移（10 个版本）
-│   │   ├── ipc/               #   IPC 通道实现（16 个模块）
-│   │   ├── services/          #   业务服务层（13 个子模块）
+│   │   ├── db/                #   SQLite 数据库初始化与迁移
+│   │   ├── ipc/               #   IPC handler 注册
+│   │   ├── services/          #   业务服务层（Context/KG/Memory/Skill/AI 等）
 │   │   └── logging/           #   日志
-│   ├── preload/               # Electron preload 脚本（IPC 桥接）
+│   ├── preload/src/           # Electron preload 脚本（IPC 桥接）
 │   ├── renderer/src/          # Electron 渲染进程（前端）
 │   │   ├── components/        #   组件库（primitives/patterns/layout/features）
-│   │   ├── features/          #   功能模块（22 个 feature 目录）
-│   │   ├── stores/            #   Zustand 状态管理（12 个 store）
+│   │   ├── features/          #   功能模块
+│   │   ├── stores/            #   Zustand 状态管理
 │   │   ├── styles/            #   Design Tokens + 全局样式
 │   │   └── surfaces/          #   Surface 注册
 │   └── tests/                 # 测试
-│       ├── e2e/               #   Playwright Electron E2E（25 个 spec）
-│       ├── unit/              #   单元测试（11 个 spec）
-│       └── integration/       #   集成测试（4 个 spec）
+│       ├── e2e/               #   Playwright Electron E2E
+│       ├── unit/              #   单元测试
+│       ├── integration/       #   集成测试
+│       ├── perf/              #   性能与门禁测试
+│       └── ai-eval/           #   AI 输出质量测试（golden tests）
 ├── packages/shared/           # 跨进程共享
 │   ├── types/                 #   IPC 契约类型（自动生成）
 │   └── redaction/             #   脱敏工具
 ├── design/                    # 设计资产
-│   ├── DESIGN_DECISIONS.md    #   前端设计决策（SSOT，1293 行）
-│   ├── Variant/designs/       #   36 个 HTML 设计稿
+│   ├── DESIGN_DECISIONS.md    #   前端设计决策（SSOT）
+│   ├── Variant/designs/       #   HTML 设计稿
 │   └── system/                #   设计系统（tokens/组件卡/状态清单/快捷键）
 ├── openspec/                  # 项目规范体系
-│   ├── specs/                 #   5 套规范（含 task cards）
-│   └── _ops/task_runs/        #   任务运行日志
+│   ├── project.md             #   项目概述（模块索引）
+│   ├── specs/                 #   12 个模块规范 + 1 个跨模块集成规范
+│   ├── changes/               #   进行中的变更（Delta Specs）
+│   └── _ops/task_runs/        #   任务运行日志（RUN_LOG）
 ├── rulebook/                  # Rulebook 任务定义
 ├── scripts/                   # 自动化脚本（contract-generate 等）
 └── AGENTS.md                  # 仓库治理宪法
@@ -630,7 +635,7 @@ git clone <repo-url>
 cd CreoNow
 
 # 安装依赖
-pnpm install
+pnpm install --frozen-lockfile
 
 # 启动开发模式（Electron + Vite HMR）
 pnpm desktop:dev
@@ -667,10 +672,11 @@ pnpm desktop:build:win
 ### 11.3 必读文档（优先级排序）
 
 1. `AGENTS.md` — 仓库宪法，所有开发行为的硬约束
-2. `design/DESIGN_DECISIONS.md` — 前端设计 SSOT
-3. `openspec/specs/creonow-v1-workbench/spec.md` — V1 产品规范
-4. `openspec/specs/creonow-mvp-readiness-remediation/spec.md` — 当前最紧迫的任务
-5. `packages/shared/types/ipc-generated.ts` — IPC 契约全貌
+2. `openspec/project.md` — 项目概述与模块索引
+3. `openspec/specs/<module>/spec.md` — 模块行为规范（按任务选择）
+4. `docs/delivery-skill.md` — OpenSpec + Rulebook + GitHub 交付规则主源
+5. `design/DESIGN_DECISIONS.md` — 前端设计 SSOT（做 UI 时必读）
+6. `packages/shared/types/ipc-generated.ts` — IPC 契约全貌（通道与 Envelope）
 
 ---
 

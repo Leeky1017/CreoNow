@@ -1,5 +1,7 @@
 # CreoNow
 
+更新时间：2026-02-21 11:57
+
 AI 驱动的文字创作 IDE（创作者的 Cursor）
 
 ## 项目结构
@@ -28,7 +30,7 @@ CreoNow/
 
 ```bash
 # 安装依赖
-pnpm install
+pnpm install --frozen-lockfile
 
 # 类型检查
 pnpm typecheck
@@ -39,6 +41,7 @@ pnpm lint
 
 ## 规范
 
-- 项目规范：`openspec/specs/creonow-spec/spec.md`
-- 设计规范：`design/Variant/DESIGN_SPEC.md`
+- 项目概述：`openspec/project.md`
+- 模块行为规范：`openspec/specs/<module>/spec.md`
+- 设计规范：`design/DESIGN_DECISIONS.md`
 - Agent 规则：`AGENTS.md`
