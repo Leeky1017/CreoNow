@@ -129,6 +129,10 @@ export const IPC_CHANNELS = [
   "ai:skill:feedback",
   "ai:skill:run",
   "app:system:ping",
+  "app:window:close",
+  "app:window:getstate",
+  "app:window:minimize",
+  "app:window:togglemaximized",
   "constraints:policy:create",
   "constraints:policy:delete",
   "constraints:policy:get",
@@ -513,6 +517,28 @@ export type IpcChannelSpec = {
     };
   };
   "app:system:ping": {
+    request: Record<string, never>;
+    response: Record<string, never>;
+  };
+  "app:window:close": {
+    request: Record<string, never>;
+    response: Record<string, never>;
+  };
+  "app:window:getstate": {
+    request: Record<string, never>;
+    response: {
+      controlsEnabled: boolean;
+      isFullScreen: boolean;
+      isMaximized: boolean;
+      isMinimized: boolean;
+      platform: string;
+    };
+  };
+  "app:window:minimize": {
+    request: Record<string, never>;
+    response: Record<string, never>;
+  };
+  "app:window:togglemaximized": {
     request: Record<string, never>;
     response: Record<string, never>;
   };
