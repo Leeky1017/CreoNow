@@ -102,6 +102,24 @@
   - Code commit: `55196d3e7f5733d7d0da99df5aae9e3346bef68c`
   - PR: `https://github.com/Leeky1017/CreoNow/pull/605`
 
+### 2026-02-21 Preflight Failure Triage + Regression Fix
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm -C apps/desktop exec vitest run tests/unit/main/window-load-catch.test.ts --config tests/unit/main/vitest.node.config.ts`
+  - 修复 `apps/desktop/main/src/index.ts`：`loadURL/loadFile` 结果改为 `Promise.resolve(...)` 包裹，并补齐同步异常 `try/catch` 日志
+  - `git add apps/desktop/main/src/index.ts`
+  - `git commit -m "fix: harden window load promise handling (#604)"`
+- Exit code:
+  - preflight: `1`
+  - targeted test: `0`
+  - code commit: `0`
+- Key output:
+  - preflight failed at `pnpm test:unit`
+  - failing suite: `apps/desktop/tests/unit/main/window-load-catch.test.ts`（`loadURL(...).catch` 非 thenable 场景回归）
+  - targeted verification after fix: `3 passed`
+  - code commit: `2b9786edc2c49112b8e342f930daeb76b7640688`
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -113,7 +131,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 55196d3e7f5733d7d0da99df5aae9e3346bef68c
+- Reviewed-HEAD-SHA: 2b9786edc2c49112b8e342f930daeb76b7640688
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
