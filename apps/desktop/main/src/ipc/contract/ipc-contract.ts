@@ -839,11 +839,35 @@ const AI_CHAT_HISTORY_ITEM_SCHEMA = s.object({
   traceId: s.string(),
 });
 
+const APP_WINDOW_STATE_SCHEMA = s.object({
+  controlsEnabled: s.boolean(),
+  isMaximized: s.boolean(),
+  isMinimized: s.boolean(),
+  isFullScreen: s.boolean(),
+  platform: s.string(),
+});
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
   channels: {
     "app:system:ping": {
+      request: s.object({}),
+      response: s.object({}),
+    },
+    "app:window:getstate": {
+      request: s.object({}),
+      response: APP_WINDOW_STATE_SCHEMA,
+    },
+    "app:window:minimize": {
+      request: s.object({}),
+      response: s.object({}),
+    },
+    "app:window:togglemaximized": {
+      request: s.object({}),
+      response: s.object({}),
+    },
+    "app:window:close": {
       request: s.object({}),
       response: s.object({}),
     },

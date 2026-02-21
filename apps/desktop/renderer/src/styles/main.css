@@ -88,6 +88,66 @@ textarea:focus-visible {
   scrollbar-color: var(--color-border-default) transparent;
 }
 
+.cn-window-drag {
+  -webkit-app-region: drag;
+}
+
+.cn-window-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.cn-window-titlebar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  height: 34px;
+  padding: 0 8px 0 10px;
+  border-bottom: 1px solid var(--color-separator);
+  background: var(--color-bg-surface);
+  color: var(--color-fg-muted);
+  user-select: none;
+}
+
+.cn-window-titlebar__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.cn-window-controls {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.cn-window-control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--color-fg-muted);
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.cn-window-control-btn:hover {
+  background: var(--color-bg-hover);
+}
+
+.cn-window-control-btn:focus-visible {
+  outline-offset: -2px;
+}
+
+.cn-window-control-btn--close:hover {
+  background: #cc2b3e;
+  color: var(--color-fg-inverse);
+}
+
 /* === 实用类 === */
 
 .cn-hairline {

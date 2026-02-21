@@ -24,6 +24,7 @@ import { registerStatsIpcHandlers } from "./ipc/stats";
 import { registerDbDebugIpcHandlers } from "./ipc/debugChannelGate";
 import { createValidatedIpcMain } from "./ipc/runtime-validation";
 import { registerVersionIpcHandlers } from "./ipc/version";
+import { registerWindowIpcHandlers } from "./ipc/window";
 import { createProjectSessionBindingRegistry } from "./ipc/projectSessionBinding";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
@@ -101,11 +102,13 @@ function resolveBuiltinSkillsDir(mainDir: string): string {
 export function createMainWindow(logger: Logger): BrowserWindow {
   const preload = resolvePreloadPath();
   const isE2E = process.env.CREONOW_E2E === "1";
+  const isWindows = process.platform === "win32";
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
     minHeight: 640,
+    ...(isWindows ? { frame: false } : {}),
     webPreferences: {
       preload,
       contextIsolation: true,
@@ -113,6 +116,11 @@ export function createMainWindow(logger: Logger): BrowserWindow {
       sandbox: true,
     },
   });
+  if (isWindows) {
+    win.setAutoHideMenuBar(true);
+    win.setMenuBarVisibility(false);
+    win.removeMenu();
+  }
 
   if (process.env.VITE_DEV_SERVER_URL) {
     let target = process.env.VITE_DEV_SERVER_URL;
@@ -121,22 +129,38 @@ export function createMainWindow(logger: Logger): BrowserWindow {
       devUrl.searchParams.set("creonow_e2e", "1");
       target = devUrl.toString();
     }
-    void win.loadURL(target).catch((error) => {
-      logger.error("window_load_failed", {
-        target,
-        message: error instanceof Error ? error.message : String(error),
-      });
-    });
-  } else {
-    const target = path.join(__dirname, "../renderer/index.html");
-    void win
-      .loadFile(target, { query: isE2E ? { creonow_e2e: "1" } : {} })
-      .catch((error) => {
+    try {
+      const loadResult = win.loadURL(target);
+      void Promise.resolve(loadResult).catch((error) => {
         logger.error("window_load_failed", {
           target,
           message: error instanceof Error ? error.message : String(error),
         });
       });
+    } catch (error) {
+      logger.error("window_load_failed", {
+        target,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  } else {
+    const target = path.join(__dirname, "../renderer/index.html");
+    try {
+      const loadResult = win.loadFile(target, {
+        query: isE2E ? { creonow_e2e: "1" } : {},
+      });
+      void Promise.resolve(loadResult).catch((error) => {
+        logger.error("window_load_failed", {
+          target,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+    } catch (error) {
+      logger.error("window_load_failed", {
+        target,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return win;
@@ -248,6 +272,13 @@ function registerIpcHandlers(deps: {
       return { ok: true, data: {} };
     },
   );
+
+  registerWindowIpcHandlers({
+    ipcMain: guardedIpcMain,
+    platform: process.platform,
+    resolveWindowFromEvent: (event) =>
+      BrowserWindow.fromWebContents(event.sender),
+  });
 
   registerDbDebugIpcHandlers({
     ipcMain: guardedIpcMain,

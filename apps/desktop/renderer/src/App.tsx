@@ -29,6 +29,7 @@ import {
   createVersionStore,
   VersionStoreProvider,
 } from "./stores/versionStore";
+import { WindowTitleBar } from "./components/window/WindowTitleBar";
 
 /**
  * AppRouter decides which screen to show based on onboarding status.
@@ -153,7 +154,12 @@ export function App(): JSX.Element {
                     <MemoryStoreProvider store={memoryStore}>
                       <VersionStoreProvider store={versionStore}>
                         <LayoutStoreProvider store={layoutStore}>
-                          <AppRouter />
+                          <div className="flex h-full min-h-0 flex-col">
+                            <WindowTitleBar />
+                            <div className="min-h-0 flex-1">
+                              <AppRouter />
+                            </div>
+                          </div>
                         </LayoutStoreProvider>
                       </VersionStoreProvider>
                     </MemoryStoreProvider>
