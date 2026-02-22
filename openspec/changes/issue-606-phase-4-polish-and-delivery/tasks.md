@@ -1,0 +1,53 @@
+更新时间：2026-02-22 12:10
+
+## 1. Specification
+
+- [ ] 1.1 审阅并确认 Phase 4 “精磨”边界（视觉审计闭环、参考对标、交付物管理、工程化落地）。
+- [ ] 1.2 审阅并确认关键边界路径（审计不通过、截图缺失、CI 门禁不一致、i18n 漏提取）。
+- [ ] 1.3 审阅并确认验收阈值与不可变契约（required checks、benchmark 阈值、ADR 落盘规则）。
+- [ ] 1.4 若存在上游依赖，先完成依赖同步检查（Dependency Sync Check）并记录“无漂移/已更新”；无依赖则标注 N/A。
+
+## 2. TDD Mapping（先测前提）
+
+- [ ] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试或校验用例（包含文档/脚本门禁）。
+- [ ] 2.2 为每个测试标注对应 Scenario ID，建立可追踪关系。
+- [ ] 2.3 设定门禁：未出现 Red（失败测试/失败校验）不得进入实现。
+
+### Scenario -> 测试映射
+
+| Scenario ID | 目标测试/校验文件（计划）                                               | 核对要点                            |
+| ----------- | ----------------------------------------------------------------------- | ----------------------------------- |
+| WB-P4-S1    | `apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`  | 审计项存在“问题-整改-复测”闭环      |
+| WB-P4-S2    | `apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`  | 未闭环审计项阻断 Phase 4 验收       |
+| WB-P4-S3    | `apps/desktop/tests/e2e/visual/phase4-baseline-capture.spec.ts`         | 基线截图清单与目录结构完整          |
+| WB-P4-S4    | `apps/desktop/tests/e2e/visual/phase4-visual-diff.spec.ts`              | 视觉差异超阈值触发失败              |
+| WB-P4-S5    | `apps/desktop/tests/perf/phase4-benchmark.spec.ts`                      | benchmark 指标达标后允许收口        |
+| PM-P4-S1    | `apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts` | ADR 与交付物台账关联完整            |
+| PM-P4-S2    | `apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts` | 缺失 ADR/交付物阻断审阅             |
+| PM-P4-S3    | `scripts/tests/phase4-branch-strategy.spec.ts`                          | 分支命名与生命周期满足策略          |
+| PM-P4-S4    | `scripts/tests/phase4-ci-gates.spec.ts`                                 | required checks + 质量门禁一致      |
+| PM-P4-S5    | `apps/desktop/tests/integration/i18n/phase4-i18n-strategy.spec.ts`      | 新增 UI 文案必须走 i18n key 与 Intl |
+
+## 3. Red（先写失败测试）
+
+- [ ] 3.1 编写视觉审计与截图基线的失败测试，验证缺失闭环时必然失败。
+- [ ] 3.2 编写交付物台账与 ADR 的失败校验，验证缺失关联信息时失败。
+- [ ] 3.3 编写分支策略、CI 门禁、i18n 提取的失败校验，记录 Red 证据。
+
+## 4. Green（最小实现通过）
+
+- [ ] 4.1 仅实现使审计闭环、基线截图、benchmark 验收通过的最小变更。
+- [ ] 4.2 仅实现使 ADR/交付物管理、分支策略、CI 门禁、i18n 策略通过的最小变更。
+- [ ] 4.3 逐条让映射测试转绿，不引入 Phase 4 范围外能力。
+
+## 5. Refactor（保持绿灯）
+
+- [ ] 5.1 合并重复校验逻辑，统一审计与 benchmark 数据结构。
+- [ ] 5.2 收敛治理策略文档与自动化校验规则，避免门禁规则分叉。
+- [ ] 5.3 保持所有场景测试与门禁持续全绿。
+
+## 6. Evidence
+
+- [ ] 6.1 记录 RUN_LOG（含 Red 失败证据、Green 通过证据与关键命令输出）。
+- [ ] 6.2 记录依赖同步检查（Dependency Sync Check）的输入、结论与后续动作（无漂移/已更新）。
+- [ ] 6.3 记录 Main Session Audit（Audit-Owner/Reviewed-HEAD-SHA=签字提交 HEAD^/三项 PASS/Blocking-Issues=0/Decision=ACCEPT），并确认签字提交仅变更当前任务 RUN_LOG。
