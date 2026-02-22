@@ -52,5 +52,12 @@ describe("WB-P2-S1 LayoutShell boundary", () => {
     expect(source).not.toContain("../stores/");
     expect(source).not.toContain("../../stores/");
   });
-});
 
+  it("AppShell composes LayoutShell + NavigationController + PanelOrchestrator", () => {
+    const source = readSource("../AppShell.tsx");
+
+    expect(source).toContain("<LayoutShell");
+    expect(source).toContain("NavigationController");
+    expect(source).toContain("PanelOrchestrator");
+  });
+});
