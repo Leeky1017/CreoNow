@@ -20,7 +20,7 @@
 
 ## Status
 
-- CURRENT: 治理脚手架文档已提交（`566af46387d342d0ef055b0412c79b5d7f2dc672`、`f84c57c1a7de1114ea927b2f8b1147e0bd1faf9f`）；四个 Scenario 对应测试在本地已验证 `PASS`。由于网络 DNS 故障仍无法 push/创建 PR，待恢复后继续 auto-merge 门禁流程。
+- CURRENT: 治理脚手架文档已提交（`566af46387d342d0ef055b0412c79b5d7f2dc672`、`f84c57c1a7de1114ea927b2f8b1147e0bd1faf9f`、`c11d7a94a6a3d45c054f195d616b5e91a25dde3b`）；四个 Scenario 对应测试在本地已验证 `PASS`。PR 创建命令已执行但被网络 DNS 故障阻断，待恢复后继续 auto-merge 门禁流程。
 
 ## Next Actions
 
@@ -113,6 +113,15 @@
   - failure: `error connecting to api.github.com`
 - Impact:
   - PR creation and auto-merge orchestration are blocked until GitHub API connectivity recovers.
+
+### 2026-02-22 PR Create Attempt (Blocked)
+
+- Command:
+  - `gh pr create --base main --head task/620-global-hardening-baseline --title "Governance scaffold for global hardening baseline (#620)" --body-file /tmp/pr_620_body.md`
+- Key output:
+  - failure: `error connecting to api.github.com`
+- Impact:
+  - PR URL unavailable; RUN_LOG PR field remains branch-specific create URL until network recovers.
 
 ## Dependency Sync Check
 
