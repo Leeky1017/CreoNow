@@ -23,8 +23,8 @@
 - [x] 创建并校验 Rulebook task
 - [x] 本地格式化与核心验证
 - [x] 提交变更并创建 PR
-- [ ] 等待 required checks 全绿并开启 auto-merge
-- [ ] 合并后同步控制面 `main` 与清理 worktree
+- [x] 等待 required checks 全绿并开启 auto-merge
+- [x] 合并后同步控制面 `main` 与清理 worktree
 
 ## Runs
 
@@ -118,6 +118,17 @@
 - Key output:
   - preflight failure: `must contain Red-gate text: 未出现 Red（失败测试）不得进入实现`
   - fix commit SHA: `bb00ffb2a3fff94ca2cb1c394e4c3b1e89acebc1`
+
+### 2026-02-22 Merge + Closeout Reality Check
+
+- Command:
+  - `gh issue view 606 --json state,url`
+  - `gh pr view 607 --json state,mergedAt,url`
+- Exit code: `0`
+- Key output:
+  - Issue 状态：`CLOSED`（`https://github.com/Leeky1017/CreoNow/issues/606`）
+  - PR 状态：`MERGED`，`mergedAt=2026-02-22T03:56:22Z`（`https://github.com/Leeky1017/CreoNow/pull/607`）
+  - 收口结论：Issue 与 PR 已完成闭环，任务状态应标记为完成
 
 ## Dependency Sync Check
 

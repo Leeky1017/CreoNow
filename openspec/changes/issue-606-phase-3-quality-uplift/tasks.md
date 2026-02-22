@@ -1,4 +1,4 @@
-更新时间：2026-02-22 12:00
+更新时间：2026-02-22 12:22
 
 ## 1. Specification
 
@@ -25,7 +25,9 @@
 | `WB-A11Y-02`   | 可访问性测试 | `apps/desktop/renderer/src/components/layout/IconBar.test.tsx`                  | 键盘导航与 focus-visible 指示一致可见                  |
 | `WB-TEST-01`   | 视觉回归     | `apps/desktop/renderer/src/components/layout/*.stories.tsx` + 快照测试          | 默认/hover/focus/reduced-motion/暗色差异可审查         |
 | `ED-TYPO-01`   | 组件测试     | `apps/desktop/renderer/src/features/editor/EditorContent.test.tsx`              | 编辑器排版使用 token，并补全 CJK 行高 token            |
+| `ED-TYPO-02`   | 组件测试     | `apps/desktop/renderer/src/features/editor/EditorContent.test.tsx`              | 系统字体缩放 125%/150% 下排版层级稳定、无截断重叠      |
 | `ED-SCROLL-01` | 集成测试     | `apps/desktop/renderer/src/features/outline/OutlinePanel.test.tsx`              | 长内容通过 ScrollArea 滚动且工具栏保持可达             |
+| `ED-SCROLL-02` | 集成测试     | `apps/desktop/renderer/src/features/diff/DiffView.test.tsx`                     | Diff 长列表滚动不影响操作条可达性                      |
 | `ED-MOTION-01` | 组件测试     | `apps/desktop/renderer/src/features/editor/EditorBubbleMenu.test.tsx`           | BubbleMenu/工具栏过渡不使用 `transition-all`           |
 | `ED-MOTION-02` | 可访问性测试 | `apps/desktop/renderer/src/features/editor/EditorBubbleMenu.test.tsx`           | reduced motion 下关闭非必要 transform/opacity 动画     |
 | `ED-A11Y-01`   | 组件测试     | `apps/desktop/renderer/src/features/editor/EditorToolbar.test.tsx`              | `aria-label`/`aria-pressed`/键盘操作路径完整           |

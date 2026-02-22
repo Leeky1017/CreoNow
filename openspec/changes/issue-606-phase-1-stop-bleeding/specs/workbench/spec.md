@@ -1,6 +1,6 @@
 # Workbench Specification Delta
 
-更新时间：2026-02-22 11:36
+更新时间：2026-02-22 12:22
 
 ## Change: issue-606-phase-1-stop-bleeding
 
@@ -55,9 +55,9 @@ Primitives 已具备 Button/Input 基础能力，Feature 层不得继续散写�
 - 除浏览器能力要求的受限场景外（如文件选择器封装），禁止直接散写原生 `<button>` 与 `<input>`。
 - 替换后需保持键盘导航、focus 行为与 ARIA 语义不回退。
 
-#### Scenario: Feature 层新增原生 button/input 时必须被阻断 [ADDED]
+#### Scenario: Feature 层新增非例外原生 button/input 时必须被阻断 [ADDED]
 
-- **假设** 开发者在 Feature 组件直接新增原生 `<button>` 或 `<input>`
+- **假设** 开发者在 Feature 组件直接新增原生 `<button>` 或 `<input>` 且不属于受限浏览器能力场景
 - **当** 代码进入测试与门禁阶段
 - **则** 检查必须失败并要求改用 Primitives
-- **并且** 已有交互行为（键盘/焦点/可访问性）保持不变
+- **并且** 受限场景（如文件选择器）只能通过受控封装并附例外说明，且交互语义不回退

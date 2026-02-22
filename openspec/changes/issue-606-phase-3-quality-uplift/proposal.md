@@ -1,6 +1,6 @@
 # 提案：issue-606-phase-3-quality-uplift
 
-更新时间：2026-02-22 12:00
+更新时间：2026-02-22 12:22
 
 ## 背景
 
@@ -40,7 +40,7 @@ Phase 3 以“提质”为主题，在不改业务功能范围的前提下统一
 | `design/system/01-tokens.css`                            | 上游实现基线 | 现有 `duration/ease/focus/typography` token 的真实命名与取值。 |
 | `openspec/changes/archive/workbench-p5-00-contract-sync` | 上游历史变更 | Workbench 契约同步背景，避免回退既有命名。                     |
 | `openspec/changes/archive/editor-p4-a11y-hardening`      | 上游历史变更 | Editor 可访问性加固经验输入。                                  |
-| 下游依赖                                                 | 无           | 本变更为质量统一层，不作为其他 change 的硬前置。               |
+| `issue-606-phase-4-polish-and-delivery`                  | 下游依赖     | Phase 4 的视觉审计、交付治理与最终门禁依赖本阶段质量基线。     |
 
 ## 依赖同步检查（Dependency Sync Check）
 
