@@ -6,10 +6,10 @@
 - PR: https://github.com/Leeky1017/CreoNow/pull/614
 - Scope:
   - `openspec/_ops/task_runs/ISSUE-613.md`
-  - `openspec/changes/issue-606-phase-1-stop-bleeding/proposal.md`
-  - `openspec/changes/issue-606-phase-1-stop-bleeding/tasks.md`
-  - `rulebook/tasks/issue-613-issue-606-phase-1-stop-bleeding/proposal.md`
-  - `rulebook/tasks/issue-613-issue-606-phase-1-stop-bleeding/tasks.md`
+  - `openspec/changes/archive/issue-606-phase-1-stop-bleeding/proposal.md`
+  - `openspec/changes/archive/issue-606-phase-1-stop-bleeding/tasks.md`
+  - `rulebook/tasks/archive/2026-02-22-issue-613-issue-606-phase-1-stop-bleeding/proposal.md`
+  - `rulebook/tasks/archive/2026-02-22-issue-613-issue-606-phase-1-stop-bleeding/tasks.md`
 
 ## Plan
 
@@ -19,7 +19,7 @@
 - [x] 修复 Phase 1 proposal/tasks 的已知文档漂移（仅 admission/spec setup）
 - [x] 进入 Red（失败测试）阶段并记录 5 个 guard 失败证据
 - [x] 完成 Green（同一组 5 个 guard 全绿）与兼容性回归验证
-- [ ] Main Session Audit 签字与最终收口
+- [x] Main Session Audit 签字与最终收口
 
 ## Runs
 
@@ -138,6 +138,23 @@
 - Note:
   - 已修复 Rulebook metadata 的格式化阻断，待重新 preflight 验证。
 
+### 2026-02-22 Post-merge Refactor + Archive Closeout
+
+- Command:
+  - `pnpm -C apps/desktop exec vitest run renderer/src/features/__tests__/token-color-guard.test.ts renderer/src/features/__tests__/z-index-token-guard.test.ts renderer/src/features/__tests__/shadow-token-guard.test.ts renderer/src/features/__tests__/overlay-layering.test.ts renderer/src/features/__tests__/primitive-replacement-guard.test.ts`
+  - 新增 `guard-test-utils.ts` 并重构 `token-color` / `z-index-token` / `shadow-token` 三个 guard 测试的重复读取与扫描逻辑
+  - `git mv openspec/changes/issue-606-phase-1-stop-bleeding openspec/changes/archive/issue-606-phase-1-stop-bleeding`
+  - `rulebook task archive issue-613-issue-606-phase-1-stop-bleeding`
+- Exit code:
+  - `vitest`: `0`
+  - `git mv`: `0`
+  - `rulebook archive`: `0`
+- Key output:
+  - `Test Files 5 passed (5) / Tests 6 passed (6)`
+  - `Task issue-613-issue-606-phase-1-stop-bleeding archived successfully`
+- Note:
+  - 完成 Refactor 收敛与治理归档收口，避免“任务全勾选但未归档”的漂移。
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -151,7 +168,7 @@
 - Notes:
   - issue-604 引用已统一为 archive 路径/状态。
   - phase2/3/4 下游变更已存在并在执行顺序文档中登记，已移除“待分别建档”过期表述。
-  - 本次仅完成 admission/spec 文档修正，尚未进入 Red 实现。
+  - 已完成 Red→Green→Refactor 并完成 Phase 1 change 归档收口。
 
 ## Main Session Audit
 
