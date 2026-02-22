@@ -106,6 +106,19 @@
   - Commit SHA: `a2097941cf3ab9256372558f2d73c2f8cfddd6c1`
   - PR: `https://github.com/Leeky1017/CreoNow/pull/607`
 
+### 2026-02-22 Preflight Failure + Gate Text Fix
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - 修复 `openspec/changes/issue-606-phase-4-polish-and-delivery/tasks.md` 第 2.3 条 Red-gate 文案
+  - `git commit -m 'docs: align phase 4 red-gate wording with preflight rule (#606)'`
+- Exit code:
+  - preflight: `1`
+  - fix commit: `0`
+- Key output:
+  - preflight failure: `must contain Red-gate text: 未出现 Red（失败测试）不得进入实现`
+  - fix commit SHA: `bb00ffb2a3fff94ca2cb1c394e4c3b1e89acebc1`
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -122,7 +135,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: a2097941cf3ab9256372558f2d73c2f8cfddd6c1
+- Reviewed-HEAD-SHA: bb00ffb2a3fff94ca2cb1c394e4c3b1e89acebc1
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
