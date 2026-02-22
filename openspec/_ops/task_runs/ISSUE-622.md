@@ -21,14 +21,14 @@
 
 ## Status
 
-- CURRENT: 修复已提交、PR `#623` 已创建；待 preflight、开启 auto-merge 并等待 required checks 全绿后合并收口。
+- CURRENT: PR `#623` 已开启 auto-merge；本地 `agent_pr_preflight` 已通过。CI `windows-e2e` 仍失败，已提交 follow-up（`4fec108f`）并等待复测。
 
 ## Next Actions
 
 - [x] 完成修复：`ci` gate job 非可跳过 + Windows export regression
-- [ ] 运行 `python3 scripts/agent_pr_preflight.py` 通过
+- [x] 运行 `python3 scripts/agent_pr_preflight.py` 通过
 - [x] 创建 PR（body 含 `Closes #622`）：PR `#623`
-- [ ] 开启 auto-merge
+- [x] 开启 auto-merge
 - [ ] 等待 required checks：`ci` / `openspec-log-guard` / `merge-serial` 全绿并合并到 `main`
 - [ ] 同步控制面 `main` 并清理 worktree
 
@@ -37,7 +37,7 @@
 - [x] 建立 issue-622 Rulebook task（active）并通过 validate
 - [x] 建立 ISSUE-622 RUN_LOG
 - [x] 修复实现（CI gate + Windows export）并补齐回归测试
-- [ ] PR + required checks + auto-merge 合并收口
+- [ ] PR + required checks + auto-merge 合并收口（当前 blocker：`windows-e2e`）
 - [ ] 控制面同步 + worktree 清理
 
 ## Runs
@@ -69,6 +69,15 @@
 - Verification:
   - `node --import tsx apps/desktop/main/src/services/documents/__tests__/atomic-write.contract.test.ts` -> PASS
 
+### 2026-02-23 Follow-up: harden atomicWrite temp-file fsync on Windows
+
+- Change:
+  - commit: `4fec108f` (`fix: harden atomicWrite fsync handling (#622)`)
+- Notes:
+  - suspected Windows export failure may be caused by temp-file `FileHandle.sync()` behavior; open temp file with `r+` and treat fsync errors as best-effort on Windows
+  - add contract coverage for temp-file sync failure
+  - enhance `export-markdown` E2E diagnostics by dumping `userData/logs/main.log` tail on failure
+
 ### 2026-02-22 Create PR
 
 - Command:
@@ -87,11 +96,12 @@
   - Fix: commit `df72fc50` (`docs: format issue-622 rulebook task (#622)`)
   - PASS: `check_doc_timestamps` OK; `prettier --check` PASS; `typecheck` PASS; `lint` warnings-only; `contract:check` PASS; `cross-module:check` PASS; `test:unit` PASS
   - Note: `gh issue view` encountered TLS handshake timeout once; retry succeeded
+  - Rerun after `4fec108f`: PASS
 
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: df72fc5073ff79facc89a7fcfeafad7a7f38f157
+- Reviewed-HEAD-SHA: 4fec108f592b5e40904d53dc4458a4ce9dd66415
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
