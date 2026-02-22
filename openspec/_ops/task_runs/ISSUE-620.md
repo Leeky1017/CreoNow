@@ -5,13 +5,13 @@
 - Issue: #620
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/620
 - Branch: `task/620-global-hardening-baseline`
-- PR: https://github.com/Leeky1017/CreoNow/pull/new/task/620-global-hardening-baseline
+- PR: https://github.com/Leeky1017/CreoNow/pull/621
 
 ## Scope
 
-- Rulebook task: `rulebook/tasks/issue-620-global-hardening-baseline/**`
+- Rulebook task: `rulebook/tasks/archive/2026-02-22-issue-620-global-hardening-baseline/**`
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-620.md`
-- Change tracking: `openspec/changes/issue-617-global-hardening-baseline/tasks.md`
+- Change tracking: `openspec/changes/archive/issue-617-global-hardening-baseline/tasks.md`
 - Execution order sync: `openspec/changes/EXECUTION_ORDER.md`
 
 ## Goal
@@ -20,13 +20,13 @@
 
 ## Status
 
-- CURRENT: 治理脚手架文档已提交（`566af46387d342d0ef055b0412c79b5d7f2dc672`、`f84c57c1a7de1114ea927b2f8b1147e0bd1faf9f`、`c11d7a94a6a3d45c054f195d616b5e91a25dde3b`）；四个 Scenario 对应测试在本地已验证 `PASS`。PR 创建命令已执行但被网络 DNS 故障阻断，待恢复后继续 auto-merge 门禁流程。
+- CURRENT: 分支已 push，PR `#621` 已创建；本地 `pnpm install --frozen-lockfile` 与 `pnpm test:unit` 已验证 `PASS`。OpenSpec change 与 Rulebook task 已归档（`a7f98c58b123fa8c5ecd2058c6e5915e96daed20`）。待开启 auto-merge 并等待 required checks 全绿后合并收口。
 
 ## Next Actions
 
-- [ ] 创建 PR（body 含 `Closes #620`）并将真实 PR 链接回填 RUN_LOG
+- [x] 创建 PR（body 含 `Closes #620`）并将真实 PR 链接回填 RUN_LOG（PR `#621`）
 - [ ] 开启 auto-merge，跟踪 `ci` / `openspec-log-guard` / `merge-serial`
-- [ ] 持续汇总实施同学的 Red/Green/Refactor 证据到本 RUN_LOG
+- [ ] 确认 PR 合并到 `main`，同步控制面并清理 worktree
 
 ## Plan
 
@@ -123,6 +123,39 @@
 - Impact:
   - PR URL unavailable; RUN_LOG PR field remains branch-specific create URL until network recovers.
 
+### 2026-02-22 Restore network + install deps + run unit suite (PASS)
+
+- Command:
+  - `pnpm install --frozen-lockfile`
+  - `pnpm test:unit`
+- Key output:
+  - install: `Done in 3s`
+  - tests: `[test-discovery] mode=unit tsx=192 vitest=5` then `Test Files 5 passed`
+
+### 2026-02-22 Push branch + create PR
+
+- Command:
+  - `git push -u origin task/620-global-hardening-baseline`
+  - `gh pr create --base main --head task/620-global-hardening-baseline --title \"Global hardening baseline (#620)\" --body-file /tmp/pr_620_body.md`
+- Key output:
+  - pushed: `origin/task/620-global-hardening-baseline`
+  - PR: https://github.com/Leeky1017/CreoNow/pull/621
+
+### 2026-02-22 Unit suite regression fix (BrowserWindow security wiring)
+
+- Change:
+  - commit: `a481a82a` (`fix: tolerate missing webContents in window security wiring (#620)`)
+- Verification:
+  - `pnpm -C apps/desktop exec vitest run --config tests/unit/main/vitest.node.config.ts tests/unit/main/index.app-ready-catch.test.ts tests/unit/main/window-load-catch.test.ts` -> PASS
+
+### 2026-02-22 Archive OpenSpec change + Rulebook task
+
+- Change:
+  - commit: `a7f98c58b123fa8c5ecd2058c6e5915e96daed20` (`docs: archive global hardening baseline artifacts (#620)`)
+- Result:
+  - OpenSpec change archived: `openspec/changes/archive/issue-617-global-hardening-baseline`
+  - Rulebook task archived: `rulebook/tasks/archive/2026-02-22-issue-620-global-hardening-baseline`
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -137,7 +170,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 566af46387d342d0ef055b0412c79b5d7f2dc672
+- Reviewed-HEAD-SHA: a7f98c58b123fa8c5ecd2058c6e5915e96daed20
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
