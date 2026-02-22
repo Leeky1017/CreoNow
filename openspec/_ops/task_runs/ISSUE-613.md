@@ -124,6 +124,20 @@
 - Note:
   - 已补齐执行顺序文档同步要求，待重新 preflight 验证。
 
+### 2026-02-22 Preflight Format Fix (Rulebook metadata)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `pnpm exec prettier --write rulebook/tasks/issue-613-issue-606-phase-1-stop-bleeding/.metadata.json`
+- Exit code:
+  - `preflight before fix`: `1`
+  - `prettier write`: `0`
+- Key output:
+  - preflight failure: `Code style issues found` on `rulebook/tasks/issue-613-issue-606-phase-1-stop-bleeding/.metadata.json`
+  - remediation: `rulebook/tasks/issue-613-issue-606-phase-1-stop-bleeding/.metadata.json 14ms`
+- Note:
+  - 已修复 Rulebook metadata 的格式化阻断，待重新 preflight 验证。
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -142,7 +156,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 66320d7e1047ede49f9a29a2d98d01df9f47fa25
+- Reviewed-HEAD-SHA: 643758d5803f11221fc181a8f6c716b2ae4f93bb
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
