@@ -1,4 +1,4 @@
-更新时间：2026-02-22 15:08
+更新时间：2026-02-22 17:25
 
 ## 1. Admission & Isolation (Phase 1)
 
@@ -26,9 +26,9 @@
 - [x] 4.4 Green：运行同一组 5 个 guard 测试并确认全部通过
 - [x] 4.5 兼容性回归：`SkillPicker.test.tsx`、`AiPanel.test.tsx`、`AiPanel.db-error.test.tsx` 全部通过（记录 React `act(...)` warning 但不阻断）
 
-## 5. Merge / Closeout / Signing（Pending）
+## 5. Merge / Closeout / Signing
 
-- [ ] 5.1 创建 PR 并开启 auto-merge（PR body 包含 `Closes #613`）
-- [ ] 5.2 等待并确认 required checks（`ci` / `openspec-log-guard` / `merge-serial`）全绿后自动合并
-- [ ] 5.3 回填并完成 Main Session Audit（签字提交仅变更本任务 RUN_LOG，`Reviewed-HEAD-SHA=HEAD^`）
-- [ ] 5.4 合并后同步控制面 `main`、清理 worktree 并归档 Rulebook task
+- [x] 5.1 创建 PR 并开启 auto-merge（PR `#614`，body 包含 `Closes #613`）
+- [x] 5.2 等待并确认 required checks（`ci` / `openspec-log-guard` / `merge-serial`）全绿后自动合并
+- [x] 5.3 回填并完成 Main Session Audit（签字提交仅变更本任务 RUN_LOG，`Reviewed-HEAD-SHA=HEAD^`）
+- [x] 5.4 合并后同步控制面 `main`、清理 worktree 并归档 Rulebook task

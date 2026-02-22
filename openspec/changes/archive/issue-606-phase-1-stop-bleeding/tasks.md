@@ -1,4 +1,4 @@
-更新时间：2026-02-22 15:08
+更新时间：2026-02-22 17:22
 
 ## 1. Specification
 
@@ -38,12 +38,12 @@
 
 ## 5. Refactor（保持绿灯）
 
-- [ ] 5.1 去重 token 替换规则，收敛重复样式片段，保持测试全绿
-- [ ] 5.2 清理替换过程中的临时适配代码，不改变已通过的外部行为契约
-- [ ] 5.3 对齐 lint/test 命名与目录结构，确保 Scenario 可追溯性不回退
+- [x] 5.1 去重 token 替换规则，收敛重复样式片段，保持测试全绿
+- [x] 5.2 清理替换过程中的临时适配代码，不改变已通过的外部行为契约
+- [x] 5.3 对齐 lint/test 命名与目录结构，确保 Scenario 可追溯性不回退
 
 ## 6. Evidence
 
 - [x] 6.1 记录 RUN_LOG（含 Red 失败证据、Green 通过证据与关键命令输出）
 - [x] 6.2 记录 Dependency Sync Check 的输入、核对结论与后续动作（无漂移/已更新）
-- [ ] 6.3 记录 Main Session Audit（Audit-Owner/Reviewed-HEAD-SHA=签字提交 HEAD^/三项 PASS/Blocking-Issues=0/Decision=ACCEPT），并确认签字提交仅变更当前任务 RUN_LOG
+- [x] 6.3 记录 Main Session Audit（Audit-Owner/Reviewed-HEAD-SHA=签字提交 HEAD^/三项 PASS/Blocking-Issues=0/Decision=ACCEPT），并确认签字提交仅变更当前任务 RUN_LOG
