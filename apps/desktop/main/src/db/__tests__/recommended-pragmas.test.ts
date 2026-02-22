@@ -7,6 +7,10 @@ import {
   applyRecommendedPragmas,
 } from "../recommendedPragmas";
 
+/**
+ * Scenario: BE-GHB-S1
+ * applyRecommendedPragmas should set busy_timeout/synchronous/mmap_size/cache_size.
+ */
 {
   const pragmaCalls: string[] = [];
   const db = {
