@@ -1,0 +1,123 @@
+import React from "react";
+
+import { LAYOUT_DEFAULTS, useLayoutStore } from "../../stores/layoutStore";
+import { clamp, computePanelMax, computeSidebarMax } from "./appShellLayoutHelpers";
+import { Resizer } from "./Resizer";
+
+export function computeNextSidebarWidth(args: {
+  deltaX: number;
+  startWidth: number;
+  windowWidth: number;
+  panelWidth: number;
+  panelCollapsed: boolean;
+}): number {
+  const nextRaw = args.startWidth + args.deltaX;
+  const max = computeSidebarMax(
+    args.windowWidth,
+    args.panelWidth,
+    args.panelCollapsed,
+  );
+  return clamp(nextRaw, LAYOUT_DEFAULTS.sidebar.min, max);
+}
+
+export function computeNextPanelWidth(args: {
+  deltaX: number;
+  startWidth: number;
+  windowWidth: number;
+  sidebarWidth: number;
+  sidebarCollapsed: boolean;
+}): number {
+  const nextRaw = args.startWidth - args.deltaX;
+  const max = computePanelMax(
+    args.windowWidth,
+    args.sidebarWidth,
+    args.sidebarCollapsed,
+  );
+  return clamp(nextRaw, LAYOUT_DEFAULTS.panel.min, max);
+}
+
+type PanelOrchestratorRenderState = {
+  sidebarCollapsed: boolean;
+  panelCollapsed: boolean;
+  effectiveSidebarWidth: number;
+  effectivePanelWidth: number;
+  sidebarResizer: React.ReactNode;
+  panelResizer: React.ReactNode;
+  onCollapseRightPanel: () => void;
+};
+
+type PanelOrchestratorProps = {
+  children: (state: PanelOrchestratorRenderState) => React.ReactNode;
+};
+
+/**
+ * PanelOrchestrator is the only place that performs panel sizing orchestration.
+ *
+ * It owns width constraints, collapse affordances, and editor min-width protection.
+ */
+export function PanelOrchestrator(props: PanelOrchestratorProps): JSX.Element {
+  const sidebarWidth = useLayoutStore((s) => s.sidebarWidth);
+  const panelWidth = useLayoutStore((s) => s.panelWidth);
+  const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
+  const panelCollapsed = useLayoutStore((s) => s.panelCollapsed);
+
+  const setSidebarWidth = useLayoutStore((s) => s.setSidebarWidth);
+  const setPanelWidth = useLayoutStore((s) => s.setPanelWidth);
+  const resetSidebarWidth = useLayoutStore((s) => s.resetSidebarWidth);
+  const resetPanelWidth = useLayoutStore((s) => s.resetPanelWidth);
+  const setPanelCollapsed = useLayoutStore((s) => s.setPanelCollapsed);
+
+  const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
+  const effectivePanelWidth = panelCollapsed ? 0 : panelWidth;
+
+  const sidebarResizer = !sidebarCollapsed ? (
+    <Resizer
+      testId="resize-handle-sidebar"
+      onDrag={(deltaX, startWidth) =>
+        computeNextSidebarWidth({
+          deltaX,
+          startWidth,
+          windowWidth: window.innerWidth,
+          panelWidth,
+          panelCollapsed,
+        })
+      }
+      onCommit={(nextWidth) => setSidebarWidth(nextWidth)}
+      onDoubleClick={() => resetSidebarWidth()}
+      getStartWidth={() => sidebarWidth}
+    />
+  ) : null;
+
+  const panelResizer = !panelCollapsed ? (
+    <Resizer
+      testId="resize-handle-panel"
+      onDrag={(deltaX, startWidth) =>
+        computeNextPanelWidth({
+          deltaX,
+          startWidth,
+          windowWidth: window.innerWidth,
+          sidebarWidth,
+          sidebarCollapsed,
+        })
+      }
+      onCommit={(nextWidth) => setPanelWidth(nextWidth)}
+      onDoubleClick={() => resetPanelWidth()}
+      getStartWidth={() => panelWidth}
+    />
+  ) : null;
+
+  return (
+    <>
+      {props.children({
+        sidebarCollapsed,
+        panelCollapsed,
+        effectiveSidebarWidth,
+        effectivePanelWidth,
+        sidebarResizer,
+        panelResizer,
+        onCollapseRightPanel: () => setPanelCollapsed(true),
+      })}
+    </>
+  );
+}
+
