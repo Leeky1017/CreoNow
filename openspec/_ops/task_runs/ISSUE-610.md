@@ -3,7 +3,7 @@
 - Issue: #610
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/610
 - Branch: `task/610-backend-code-snapshot`
-- PR: <TBD>
+- PR: https://github.com/Leeky1017/CreoNow/pull/611
 - Scope:
   - `docs/audits/backend-code-snapshot-2026-02-22.md`
   - `rulebook/tasks/issue-610-backend-code-snapshot/**`
@@ -16,7 +16,7 @@
 - [x] 创建 Rulebook task（`issue-610-backend-code-snapshot`）
 - [x] 扫描后端代码并整理 A–G 审计快照文档
 - [x] 本地验证（typecheck/lint/unit/contract）
-- [ ] 提交变更并创建 PR
+- [x] 提交变更并创建 PR
 - [ ] 等待 required checks 全绿并开启 auto-merge
 - [ ] 合并后同步控制面 `main` 与清理 worktree
 
@@ -72,6 +72,17 @@
   - `[CROSS_MODULE_GATE] PASS`
   - `test:unit` pass
   - Rulebook validate: `valid` (warning: `No spec files found (specs/*/spec.md)`)
+
+### 2026-02-22 Commit + PR
+
+- Command:
+  - `git commit -m "docs: add backend code snapshot audit doc (#610)"`
+  - `git push -u origin task/610-backend-code-snapshot`
+  - `gh pr create --base main --head task/610-backend-code-snapshot --title "Add backend code snapshot audit doc (#610)" --body-file /tmp/pr_610_body.md`
+- Exit code: `0`
+- Key output:
+  - Commit SHA: `0dd0f5e2...`
+  - PR: `https://github.com/Leeky1017/CreoNow/pull/611`
 
 ## Main Session Audit
 
