@@ -16,7 +16,7 @@
   - `openspec/changes/issue-606-phase-4-polish-and-delivery/proposal.md`
   - `openspec/changes/issue-606-phase-4-polish-and-delivery/tasks.md`
   - `openspec/changes/issue-606-phase-4-polish-and-delivery/specs/project-management/spec.md`
-  - `rulebook/tasks/issue-608-phase-reorg-audit-fixes/**`
+  - `rulebook/tasks/issue-608-cn-frontend-phase-reorg-audit-fixes/**`
   - `openspec/_ops/task_runs/ISSUE-608.md`
 
 ## Plan
@@ -71,7 +71,7 @@
 
 - Command:
   - `rulebook task validate issue-606-cn-frontend-phase-reorg`
-  - `rulebook task validate issue-608-phase-reorg-audit-fixes`
+  - `rulebook task validate issue-608-cn-frontend-phase-reorg-audit-fixes`
   - `pnpm exec prettier --check <changed files>`
   - `pnpm install --frozen-lockfile`
   - `pnpm exec prettier --write <changed files>`
@@ -100,6 +100,22 @@
   - Rulebook 进度提交：`25c97089595dfe9aa09ef21ef0dfa46d9ed9aec8`
   - PR created: `https://github.com/Leeky1017/CreoNow/pull/609`
 
+### 2026-02-22 Preflight Blocker + Task-ID Fix
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - `git mv rulebook/tasks/issue-608-phase-reorg-audit-fixes rulebook/tasks/issue-608-cn-frontend-phase-reorg-audit-fixes`
+  - `rulebook task validate issue-608-cn-frontend-phase-reorg-audit-fixes`
+  - `git commit -m "docs: align issue-608 rulebook task id with branch slug (#608)"`
+  - `git push`
+- Exit code:
+  - preflight: `1`
+  - validate/commit/push: `0`
+- Key output:
+  - blocker: `[RULEBOOK] required task dir missing ... issue-608-cn-frontend-phase-reorg-audit-fixes`
+  - fix commit: `0ff5aeeec55b5080201f1ca9a13d44251c2c6cf7`
+  - resolution: Rulebook task ID 与分支 slug 已对齐
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -116,7 +132,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 25c97089595dfe9aa09ef21ef0dfa46d9ed9aec8
+- Reviewed-HEAD-SHA: 0ff5aeeec55b5080201f1ca9a13d44251c2c6cf7
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
