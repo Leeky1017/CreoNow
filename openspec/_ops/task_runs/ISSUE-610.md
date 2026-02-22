@@ -93,10 +93,23 @@
   - Make width probe prefer inline style `width` over `getBoundingClientRect()` in `apps/desktop/tests/e2e/layout-panels.spec.ts`.
 - Exit code: `0`
 
+### 2026-02-22 Update-Branch Sync + Audit SHA Refresh
+
+- Context:
+  - PR `#611` checks were green but `mergeStateStatus` was `BEHIND`.
+  - `gh pr update-branch 611 --rebase` rewrote branch head, causing main-session audit SHA drift.
+  - `openspec-log-guard` failed with: `Reviewed-HEAD-SHA mismatch`.
+- Command:
+  - `gh pr update-branch 611 --rebase`
+  - `gh run view 22271557691 --job 64427054926 --log-failed`
+- Change:
+  - Refresh `Reviewed-HEAD-SHA` in this RUN_LOG to match new `HEAD^`.
+- Exit code: `0`
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 15c50095938bb92152cbcb9058f8cb23c2e1e72d
+- Reviewed-HEAD-SHA: b9b23b9aa8b4149b2873f62694615b0e2c433e29
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
