@@ -16,6 +16,7 @@
   - `openspec/changes/issue-606-phase-4-polish-and-delivery/proposal.md`
   - `openspec/changes/issue-606-phase-4-polish-and-delivery/tasks.md`
   - `openspec/changes/issue-606-phase-4-polish-and-delivery/specs/project-management/spec.md`
+  - `openspec/changes/EXECUTION_ORDER.md`
   - `rulebook/tasks/issue-608-cn-frontend-phase-reorg-audit-fixes/**`
   - `openspec/_ops/task_runs/ISSUE-608.md`
 
@@ -131,6 +132,21 @@
   - fix commit: `fd4f14b9befdbc901812ba4c97a1150ccc2010bd`
   - resolution: 文档时间戳门禁满足要求
 
+### 2026-02-22 Preflight Blocker + EXECUTION_ORDER Sync
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - 更新 `openspec/changes/EXECUTION_ORDER.md` 的时间戳与 issue-608 进度快照
+  - `git commit -m "docs: sync execution order after issue-606 phase doc updates (#608)"`
+  - `git push`
+- Exit code:
+  - preflight: `1`
+  - fix commit/push: `0`
+- Key output:
+  - blocker: `[OPENSPEC_CHANGE] active change content updated but openspec/changes/EXECUTION_ORDER.md not updated in this PR`
+  - fix commit: `fd5d05e68c4d882e36b24f3811a2ea70c2d76c68`
+  - resolution: 执行顺序文档已与活跃 change 变更同步
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -147,7 +163,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: fd4f14b9befdbc901812ba4c97a1150ccc2010bd
+- Reviewed-HEAD-SHA: fd5d05e68c4d882e36b24f3811a2ea70c2d76c68
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
