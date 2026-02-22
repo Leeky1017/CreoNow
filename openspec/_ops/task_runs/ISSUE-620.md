@@ -20,7 +20,7 @@
 
 ## Status
 
-- CURRENT: Rulebook task 已创建并二次 validate 通过；`issue-617-global-hardening-baseline/tasks.md` 的 Specification/TDD Mapping 与 Dependency Sync 记录已回填；等待 GitHub API 连通后创建 PR 并开启 auto-merge。
+- CURRENT: 治理脚手架文档已提交（`566af46387d342d0ef055b0412c79b5d7f2dc672`）；由于网络 DNS 故障无法 push/创建 PR，待恢复后继续 auto-merge 门禁流程。
 
 ## Next Actions
 
@@ -76,6 +76,17 @@
   - validate: `Task issue-620-global-hardening-baseline is valid`
   - timestamp gate: `OK: validated timestamps for 4 governed markdown file(s)`
 
+### 2026-02-22 Commit + Push Retry (Blocked)
+
+- Command:
+  - `git commit -m "docs: scaffold governance for global hardening baseline (#620)" -m "Create the active Rulebook task and ISSUE-620 RUN_LOG, then sync issue-617 change task progress and execution-order status for governed delivery." -m "Co-authored-by: Codex <noreply@openai.com>"`
+  - `git push -u origin task/620-global-hardening-baseline` (x3 retries)
+- Key output:
+  - commit: `566af46387d342d0ef055b0412c79b5d7f2dc672`
+  - push failure: `fatal: unable to access 'https://github.com/Leeky1017/CreoNow.git/': Could not resolve host: github.com`
+- Impact:
+  - remote branch、PR 创建与 required checks 观测均被阻断。
+
 ### 2026-02-22 GitHub Connectivity Blocker
 
 - Command:
@@ -99,7 +110,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: c84cce237abae82123529bb3adbfb4a28e138998
+- Reviewed-HEAD-SHA: 566af46387d342d0ef055b0412c79b5d7f2dc672
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
