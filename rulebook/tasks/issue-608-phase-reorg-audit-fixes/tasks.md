@@ -18,5 +18,5 @@
 ## 3. Verification & Delivery
 
 - [x] 3.1 运行 Rulebook/Prettier/关键治理校验并记录证据
-- [ ] 3.2 提交修复 PR，开启 auto-merge 并回填 ISSUE-608 RUN_LOG
+- [x] 3.2 提交修复 PR，开启 auto-merge 并回填 ISSUE-608 RUN_LOG
 - [ ] 3.3 required checks 全绿后完成 main 收口与归档
