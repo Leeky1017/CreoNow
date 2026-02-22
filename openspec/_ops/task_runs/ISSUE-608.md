@@ -3,7 +3,7 @@
 - Issue: #608
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/608
 - Branch: `task/608-cn-frontend-phase-reorg-audit-fixes`
-- PR: 待回填
+- PR: https://github.com/Leeky1017/CreoNow/pull/609
 - Scope:
   - `openspec/_ops/task_runs/ISSUE-606.md`
   - `rulebook/tasks/issue-606-cn-frontend-phase-reorg/tasks.md`
@@ -31,7 +31,7 @@
 - [x] 澄清 Phase 1 原生元素例外语义并同步映射
 - [x] 补充 Phase 2/4 来源映射表增强可审计性
 - [x] 运行格式与治理验证
-- [ ] 提交变更并创建 PR（开启 auto-merge）
+- [x] 提交变更并创建 PR（开启 auto-merge）
 - [ ] 等待 required checks 全绿并完成 main 收口
 
 ## Runs
@@ -86,6 +86,20 @@
   - Prettier 缺失通过安装依赖修复
   - 格式化复检：`All matched files use Prettier code style!`
 
+### 2026-02-22 Commit + PR
+
+- Command:
+  - `git commit -m "docs: remediate issue-606 phase reorg audit drift (#608)"`
+  - `git push -u origin task/608-cn-frontend-phase-reorg-audit-fixes`
+  - `gh pr create --base main --head task/608-cn-frontend-phase-reorg-audit-fixes --title "Remediate issue-606 phase reorg audit drift (#608)" --body-file /tmp/pr_608_body.md`
+  - `git commit -m "docs: update issue-608 rulebook delivery progress (#608)"`
+  - `git push`
+- Exit code: `0`
+- Key output:
+  - 内容修复提交：`cac2c20c9341a8fed0b1e02ebf3b9b350a548f5f`
+  - Rulebook 进度提交：`25c97089595dfe9aa09ef21ef0dfa46d9ed9aec8`
+  - PR created: `https://github.com/Leeky1017/CreoNow/pull/609`
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -102,9 +116,9 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 待回填
-- Spec-Compliance: PENDING
-- Code-Quality: PENDING
-- Fresh-Verification: PENDING
+- Reviewed-HEAD-SHA: 25c97089595dfe9aa09ef21ef0dfa46d9ed9aec8
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
 - Blocking-Issues: 0
-- Decision: PENDING
+- Decision: ACCEPT
