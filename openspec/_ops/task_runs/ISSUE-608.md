@@ -116,6 +116,21 @@
   - fix commit: `0ff5aeeec55b5080201f1ca9a13d44251c2c6cf7`
   - resolution: Rulebook task ID 与分支 slug 已对齐
 
+### 2026-02-22 Preflight Blocker + Timestamp Fix
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - 在 `rulebook/tasks/issue-608-cn-frontend-phase-reorg-audit-fixes/proposal.md` 前 5 行补充 `更新时间：2026-02-22 12:31`
+  - `git commit -m "docs: add timestamp header to issue-608 rulebook proposal (#608)"`
+  - `git push`
+- Exit code:
+  - preflight: `1`
+  - fix commit/push: `0`
+- Key output:
+  - blocker: `missing/invalid doc timestamps`（目标文件：`rulebook/tasks/issue-608-cn-frontend-phase-reorg-audit-fixes/proposal.md`）
+  - fix commit: `fd4f14b9befdbc901812ba4c97a1150ccc2010bd`
+  - resolution: 文档时间戳门禁满足要求
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -132,7 +147,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 0ff5aeeec55b5080201f1ca9a13d44251c2c6cf7
+- Reviewed-HEAD-SHA: fd4f14b9befdbc901812ba4c97a1150ccc2010bd
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
