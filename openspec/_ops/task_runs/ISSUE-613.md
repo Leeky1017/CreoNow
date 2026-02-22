@@ -3,7 +3,7 @@
 - Issue: #613
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/613
 - Branch: `task/613-issue-606-phase-1-stop-bleeding`
-- PR: N/A（pre-Red admission，尚未创建 PR）
+- PR: https://github.com/Leeky1017/CreoNow/pull/614
 - Scope:
   - `openspec/_ops/task_runs/ISSUE-613.md`
   - `openspec/changes/issue-606-phase-1-stop-bleeding/proposal.md`
@@ -128,9 +128,9 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: PENDING（签字提交时回填 HEAD^）
-- Spec-Compliance: PENDING
-- Code-Quality: PENDING
-- Fresh-Verification: PENDING
-- Blocking-Issues: 0（当前无阻塞，待最终签字复核）
-- Decision: PENDING
+- Reviewed-HEAD-SHA: 3e4bf4d1e77f1f903046f39c758192965102db5c
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
