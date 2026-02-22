@@ -1,5 +1,7 @@
 # Proposal: issue-608-cn-frontend-phase-reorg-audit-fixes
 
+更新时间：2026-02-22 12:31
+
 ## Why
 
 Issue-606 的 phase 重组已合并，但仍存在治理收口漂移、i18n 门禁语义冲突、依赖描述不一致和 Scenario 映射覆盖缺口，影响 OpenSpec/Rulebook 可审计性与后续执行可靠性。
