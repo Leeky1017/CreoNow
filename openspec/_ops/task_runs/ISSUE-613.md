@@ -110,6 +110,20 @@
 - Note:
   - 三个兼容性测试全部通过；`act(...)` warning 记录为已知噪音，不阻断当前任务门禁。
 
+### 2026-02-22 Preflight Drift Fix (EXECUTION_ORDER sync)
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+  - 更新 `openspec/changes/EXECUTION_ORDER.md` 的更新时间与进度快照（补充 ISSUE-613 Wave A 实现状态）
+- Exit code:
+  - `preflight before fix`: `1`
+  - `doc update`: `0`
+- Key output:
+  - preflight failure: `[OPENSPEC_CHANGE] active change content updated but openspec/changes/EXECUTION_ORDER.md not updated in this PR`
+  - remediation: `docs: sync execution order with wave1 progress (#613)`
+- Note:
+  - 已补齐执行顺序文档同步要求，待重新 preflight 验证。
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
@@ -128,7 +142,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 3e4bf4d1e77f1f903046f39c758192965102db5c
+- Reviewed-HEAD-SHA: 66320d7e1047ede49f9a29a2d98d01df9f47fa25
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
