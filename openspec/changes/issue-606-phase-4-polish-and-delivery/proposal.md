@@ -1,6 +1,6 @@
 # 提案：issue-606-phase-4-polish-and-delivery
 
-更新时间：2026-02-22 12:10
+更新时间：2026-02-22 12:22
 
 ## 背景
 
@@ -47,11 +47,22 @@ Issue 606 的前端重组在前 3 个阶段主要完成了止血、拆弹与提�
 - 核对项：
   - 分支策略需与仓库治理兼容：交付层保持 `task/<N>-<slug>`，前端执行层允许短命 `feat/refactor/style/fix/experiment` 子分支。
   - CI 门禁必须保留 `ci`、`openspec-log-guard`、`merge-serial` 三个 required checks，不允许与文档契约漂移。
-  - i18n 采用渐进式交付（先架构与提取规范，后扩语言），避免一次性全量翻译带来的风险。
+- i18n 采用渐进式语言扩展（先架构与提取规范，后扩语言），但提取与 `Intl` 违规在 Phase 4 即阻断。
 - 结论：`UPDATED`
 - 后续动作：
   - 在本 change 的 delta spec 中固化上述收敛规则。
   - 在执行阶段以测试和 RUN_LOG 证据验证无漂移。
+
+## 来源映射
+
+| 来源                                | 提炼结论                                          | 落地位置与对应场景                                           |
+| ----------------------------------- | ------------------------------------------------- | ------------------------------------------------------------ |
+| `视觉审计（Visual Audit）.md`       | 建立“问题-整改-复测”闭环，未闭环项阻断验收        | `specs/workbench/spec.md`（`WB-P4-S1`、`WB-P4-S2`）          |
+| `参考分析（Reference Analysis）.md` | 截图基线必须覆盖关键页面与主题态，差异超阈值阻断  | `specs/workbench/spec.md`（`WB-P4-S3`、`WB-P4-S4`）          |
+| `设计交付物管理.md`                 | 交付物台账与 ADR 必须可追溯，缺失信息阻断审阅     | `specs/project-management/spec.md`（`PM-P4-S1`、`PM-P4-S2`） |
+| `Git 分支策略.md`                   | 执行分支生命周期治理，experiment 未晋升不可入主干 | `specs/project-management/spec.md`（`PM-P4-S3`、`PM-P4-S4`） |
+| `CI-CD 集成.md`                     | required checks 与质量门禁必须同时通过            | `specs/project-management/spec.md`（`PM-P4-S5`、`PM-P4-S6`） |
+| `i18n - l10n 考量.md`               | UI 文案提取与 `Intl` 规范在 Phase 4 即作为阻断项  | `specs/project-management/spec.md`（`PM-P4-S7`、`PM-P4-S8`） |
 
 ## 审阅状态
 

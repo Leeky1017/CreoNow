@@ -1,6 +1,6 @@
 # 提案：issue-606-phase-2-shell-decomposition
 
-更新时间：2026-02-22 11:36
+更新时间：2026-02-22 12:22
 
 ## 背景
 
@@ -43,6 +43,7 @@ Phase 2 的目标是“拆弹”：对现有 `AppShell` 进行瘦身并建立 Wo
   - `openspec/specs/workbench/spec.md`
   - `openspec/specs/ipc/spec.md`
   - `/tmp/cn_notion_vault/CN前端开发/CN 前端开发/渲染架构与状态管理.md`
+  - `/tmp/cn_notion_vault/CN前端开发/CN 前端开发/组件架构（Component Architecture）.md`
   - `/tmp/cn_notion_vault/CN前端开发/CN 前端开发/AI 辅助前端工作流.md`
   - `/tmp/cn_notion_vault/CN前端开发/CN 前端开发/Electron 性能优化.md`
   - `/tmp/cn_notion_vault/CN前端开发/CN 前端开发.md`
@@ -51,6 +52,16 @@ Phase 2 的目标是“拆弹”：对现有 `AppShell` 进行瘦身并建立 Wo
   - Feature 组件必须从“接管 viewport”改为“消费 Shell 注入空间”，禁止 `h-screen` / `w-screen`。
   - Renderer IPC 必须收敛为 “Feature -> Service -> Preload/Main” 路径，错误策略在 Service 层统一。
 - 结论：`NO_DRIFT`
+
+## 来源映射
+
+| 来源                                    | 提炼结论                                                      | 落地位置                                       |
+| --------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------- |
+| `渲染架构与状态管理.md`                 | `AppShell` 需要职责拆分并保持渲染层边界清晰                   | `specs/workbench/spec.md`、`specs/ipc/spec.md` |
+| `组件架构（Component Architecture）.md` | Feature 不得越权接管 viewport，壳层负责布局分配               | `specs/workbench/spec.md`、`tasks.md`          |
+| `AI 辅助前端工作流.md`                  | 渲染层调用路径需要统一为 Feature -> Service -> IPC            | `specs/ipc/spec.md`、`tasks.md`                |
+| `Electron 性能优化.md`                  | 通过壳层分层与调用收敛减少冗余渲染和状态耦合                  | `specs/workbench/spec.md`、`specs/ipc/spec.md` |
+| `CN 前端开发.md`                        | Phase 2 作为“拆弹阶段”承接 Phase 1，向 Phase 3/4 提供稳定基线 | `proposal.md`、`tasks.md`                      |
 
 ## 审阅状态
 

@@ -1,4 +1,4 @@
-更新时间：2026-02-22 11:43
+更新时间：2026-02-22 12:22
 
 ## 1. Admission & Governance
 
@@ -15,5 +15,5 @@
 ## 3. Ordering & Evidence
 
 - [x] 3.1 更新 `openspec/changes/EXECUTION_ORDER.md` 以反映 Phase 依赖
-- [ ] 3.2 记录 `openspec/_ops/task_runs/ISSUE-606.md`（含 PR 与审计）
-- [ ] 3.3 完成 preflight、PR、auto-merge 与 main 收口
+- [x] 3.2 记录 `openspec/_ops/task_runs/ISSUE-606.md`（含 PR 与审计）
+- [x] 3.3 完成 preflight、PR、auto-merge 与 main 收口

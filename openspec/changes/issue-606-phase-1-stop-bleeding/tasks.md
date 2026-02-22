@@ -1,4 +1,4 @@
-更新时间：2026-02-22 11:36
+更新时间：2026-02-22 12:22
 
 ## 1. Specification
 
@@ -15,13 +15,13 @@
 
 ### Scenario → 测试映射
 
-| Scenario ID | 测试文件（计划）                                                                    | 测试名称（计划）                                                   | 断言要点                                  |
-| ----------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------- |
-| `WB-P1-S1`  | `apps/desktop/renderer/src/features/__tests__/token-color-guard.spec.ts`            | `rejects raw tailwind colors and hex/rgba styles in feature layer` | 出现 raw color 即失败，仅允许 `--color-*` |
-| `WB-P1-S2`  | `apps/desktop/renderer/src/features/__tests__/z-index-token-guard.spec.ts`          | `rejects numeric z-index classes in workbench features`            | 出现 `z-10/z-20/z-30/z-50` 即失败         |
-| `WB-P1-S3`  | `apps/desktop/renderer/src/features/__tests__/overlay-layering.spec.tsx`            | `keeps overlay stacking order with tokenized z-index + portal`     | 弹层按 `--z-*` 顺序渲染，无穿透           |
-| `WB-P1-S4`  | `apps/desktop/renderer/src/features/__tests__/shadow-token-guard.spec.ts`           | `rejects magic shadow values and enforces --shadow-* tokens`       | 出现 `shadow-[0_...]` 即失败              |
-| `WB-P1-S5`  | `apps/desktop/renderer/src/features/__tests__/primitive-replacement-guard.spec.tsx` | `disallows direct button/input usage in feature components`        | Feature 层交互元素必须走 Primitives       |
+| Scenario ID | 测试文件（计划）                                                                    | 测试名称（计划）                                                   | 断言要点                                                  |
+| ----------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------- |
+| `WB-P1-S1`  | `apps/desktop/renderer/src/features/__tests__/token-color-guard.spec.ts`            | `rejects raw tailwind colors and hex/rgba styles in feature layer` | 出现 raw color 即失败，仅允许 `--color-*`                 |
+| `WB-P1-S2`  | `apps/desktop/renderer/src/features/__tests__/z-index-token-guard.spec.ts`          | `rejects numeric z-index classes in workbench features`            | 出现 `z-10/z-20/z-30/z-50` 即失败                         |
+| `WB-P1-S3`  | `apps/desktop/renderer/src/features/__tests__/overlay-layering.spec.tsx`            | `keeps overlay stacking order with tokenized z-index + portal`     | 弹层按 `--z-*` 顺序渲染，无穿透                           |
+| `WB-P1-S4`  | `apps/desktop/renderer/src/features/__tests__/shadow-token-guard.spec.ts`           | `rejects magic shadow values and enforces --shadow-* tokens`       | 出现 `shadow-[0_...]` 即失败                              |
+| `WB-P1-S5`  | `apps/desktop/renderer/src/features/__tests__/primitive-replacement-guard.spec.tsx` | `disallows non-exempt direct button/input usage in feature layer`  | 非例外场景必须走 Primitives，受限场景需受控封装并记录例外 |
 
 ## 3. Red（先写失败测试）
 

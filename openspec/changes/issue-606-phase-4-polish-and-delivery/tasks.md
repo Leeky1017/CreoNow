@@ -1,4 +1,4 @@
-更新时间：2026-02-22 12:10
+更新时间：2026-02-22 12:22
 
 ## 1. Specification
 
@@ -15,29 +15,33 @@
 
 ### Scenario -> 测试映射
 
-| Scenario ID | 目标测试/校验文件（计划）                                               | 核对要点                            |
-| ----------- | ----------------------------------------------------------------------- | ----------------------------------- |
-| WB-P4-S1    | `apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`  | 审计项存在“问题-整改-复测”闭环      |
-| WB-P4-S2    | `apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`  | 未闭环审计项阻断 Phase 4 验收       |
-| WB-P4-S3    | `apps/desktop/tests/e2e/visual/phase4-baseline-capture.spec.ts`         | 基线截图清单与目录结构完整          |
-| WB-P4-S4    | `apps/desktop/tests/e2e/visual/phase4-visual-diff.spec.ts`              | 视觉差异超阈值触发失败              |
-| WB-P4-S5    | `apps/desktop/tests/perf/phase4-benchmark.spec.ts`                      | benchmark 指标达标后允许收口        |
-| PM-P4-S1    | `apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts` | ADR 与交付物台账关联完整            |
-| PM-P4-S2    | `apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts` | 缺失 ADR/交付物阻断审阅             |
-| PM-P4-S3    | `scripts/tests/phase4-branch-strategy.spec.ts`                          | 分支命名与生命周期满足策略          |
-| PM-P4-S4    | `scripts/tests/phase4-ci-gates.spec.ts`                                 | required checks + 质量门禁一致      |
-| PM-P4-S5    | `apps/desktop/tests/integration/i18n/phase4-i18n-strategy.spec.ts`      | 新增 UI 文案必须走 i18n key 与 Intl |
+| Scenario ID | 目标测试/校验文件（计划）                                               | 核对要点                              |
+| ----------- | ----------------------------------------------------------------------- | ------------------------------------- |
+| WB-P4-S1    | `apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`  | 审计项存在“问题-整改-复测”闭环        |
+| WB-P4-S2    | `apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`  | 未闭环审计项阻断 Phase 4 验收         |
+| WB-P4-S3    | `apps/desktop/tests/e2e/visual/phase4-baseline-capture.spec.ts`         | 基线截图清单与目录结构完整            |
+| WB-P4-S4    | `apps/desktop/tests/e2e/visual/phase4-visual-diff.spec.ts`              | 视觉差异超阈值触发失败                |
+| WB-P4-S5    | `apps/desktop/tests/perf/phase4-benchmark.spec.ts`                      | benchmark 指标达标后允许收口          |
+| WB-P4-S6    | `apps/desktop/tests/perf/phase4-benchmark.spec.ts`                      | 任一 benchmark 未达标时进入下一轮精磨 |
+| PM-P4-S1    | `apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts` | ADR 与交付物台账关联完整              |
+| PM-P4-S2    | `apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts` | 缺失 ADR/交付物阻断审阅               |
+| PM-P4-S3    | `scripts/tests/phase4-branch-strategy.spec.ts`                          | 短命执行分支按策略回合并治理分支      |
+| PM-P4-S4    | `scripts/tests/phase4-branch-strategy.spec.ts`                          | experiment 分支未晋升时阻断主干交付   |
+| PM-P4-S5    | `scripts/tests/phase4-ci-gates.spec.ts`                                 | required checks 全绿并启用 auto-merge |
+| PM-P4-S6    | `scripts/tests/phase4-ci-gates.spec.ts`                                 | 任一质量门禁失败时阻断交付            |
+| PM-P4-S7    | `apps/desktop/tests/integration/i18n/phase4-i18n-strategy.spec.ts`      | 新增 UI 文案必须走 i18n key 与 Intl   |
+| PM-P4-S8    | `apps/desktop/tests/integration/i18n/phase4-i18n-strategy.spec.ts`      | 文案未提取或格式化违规时立即阻断合并  |
 
 ## 3. Red（先写失败测试）
 
 - [ ] 3.1 编写视觉审计与截图基线的失败测试，验证缺失闭环时必然失败。
 - [ ] 3.2 编写交付物台账与 ADR 的失败校验，验证缺失关联信息时失败。
-- [ ] 3.3 编写分支策略、CI 门禁、i18n 提取的失败校验，记录 Red 证据。
+- [ ] 3.3 编写分支策略、CI 门禁、i18n 提取的失败校验，记录 Red 证据（含 i18n 阻断场景）。
 
 ## 4. Green（最小实现通过）
 
 - [ ] 4.1 仅实现使审计闭环、基线截图、benchmark 验收通过的最小变更。
-- [ ] 4.2 仅实现使 ADR/交付物管理、分支策略、CI 门禁、i18n 策略通过的最小变更。
+- [ ] 4.2 仅实现使 ADR/交付物管理、分支策略、CI 门禁、i18n 阻断策略通过的最小变更。
 - [ ] 4.3 逐条让映射测试转绿，不引入 Phase 4 范围外能力。
 
 ## 5. Refactor（保持绿灯）
