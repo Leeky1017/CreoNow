@@ -9,11 +9,11 @@ type OpenWindowDetails = {
 };
 
 type WindowLike = {
-  webContents: {
-    setWindowOpenHandler: (
+  webContents?: {
+    setWindowOpenHandler?: (
       handler: (details: OpenWindowDetails) => { action: "allow" | "deny" },
     ) => void;
-    on: (
+    on?: (
       event: "will-navigate",
       listener: (event: NavigationEvent, url: string) => void,
     ) => void;
@@ -97,6 +97,11 @@ function toAuditTarget(targetUrl: string): {
 export function applyBrowserWindowSecurityPolicy(
   deps: BrowserWindowSecurityDeps,
 ): void {
+  const webContents = deps.windowLike.webContents;
+  if (!webContents?.setWindowOpenHandler || !webContents.on) {
+    return;
+  }
+
   const allowedOrigins = resolveAllowedOrigins(deps);
 
   const logBlocked = (
@@ -109,12 +114,12 @@ export function applyBrowserWindowSecurityPolicy(
     });
   };
 
-  deps.windowLike.webContents.setWindowOpenHandler((details) => {
+  webContents.setWindowOpenHandler((details) => {
     logBlocked("window_open", details.url);
     return { action: "deny" };
   });
 
-  deps.windowLike.webContents.on("will-navigate", (event, targetUrl) => {
+  webContents.on("will-navigate", (event, targetUrl) => {
     if (shouldAllowNavigation(targetUrl, allowedOrigins)) {
       return;
     }
