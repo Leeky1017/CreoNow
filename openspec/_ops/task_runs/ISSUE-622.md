@@ -83,12 +83,15 @@
 - Key output:
   - FAIL: `scripts/check_doc_timestamps.py` blocked by missing `更新时间：YYYY-MM-DD HH:mm`
   - Fix: commit `e776613e` (`docs: add timestamps for issue-622 rulebook task (#622)`)
-  - PASS: (pending)
+  - FAIL: `pnpm exec prettier --check ...` flagged Rulebook formatting drift
+  - Fix: commit `df72fc50` (`docs: format issue-622 rulebook task (#622)`)
+  - PASS: `check_doc_timestamps` OK; `prettier --check` PASS; `typecheck` PASS; `lint` warnings-only; `contract:check` PASS; `cross-module:check` PASS; `test:unit` PASS
+  - Note: `gh issue view` encountered TLS handshake timeout once; retry succeeded
 
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: e776613ee5d65c880fd10bc4ff225e44ad064508
+- Reviewed-HEAD-SHA: df72fc5073ff79facc89a7fcfeafad7a7f38f157
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
