@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Sidebar } from "./Sidebar";
 import { LayoutTestWrapper } from "./test-utils";
@@ -171,6 +171,20 @@ describe("Sidebar", () => {
   // 样式测试
   // ===========================================================================
   describe("样式", () => {
+    it("[WB-SCROLL-01] 侧栏滚动区域应由 ScrollArea viewport 承载", () => {
+      renderWithWrapper();
+
+      const viewport = screen.getByTestId("sidebar-scroll-viewport");
+      const header = screen.getByTestId("sidebar-panel-header");
+      const projectSwitcher = screen.getByTestId("sidebar-project-switcher");
+
+      expect(viewport).toBeInTheDocument();
+      expect(header).toBeInTheDocument();
+      expect(projectSwitcher).toBeInTheDocument();
+      expect(viewport).not.toContainElement(header);
+      expect(viewport).not.toContainElement(projectSwitcher);
+    });
+
     it("应该有右边框分隔线", () => {
       renderWithWrapper();
 
@@ -198,6 +212,39 @@ describe("Sidebar", () => {
   // 无障碍测试
   // ===========================================================================
   describe("无障碍", () => {
+    it("[WB-A11Y-01] reduced motion 启用时侧栏宽度过渡应降级为 0ms", () => {
+      const originalMatchMedia = window.matchMedia;
+      const matchMediaMock = vi.fn().mockImplementation((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+      Object.defineProperty(window, "matchMedia", {
+        configurable: true,
+        writable: true,
+        value: matchMediaMock,
+      });
+      try {
+        renderWithWrapper();
+
+        const sidebar = screen.getByTestId("layout-sidebar");
+        expect(sidebar.style.transition).toContain(
+          "width 0ms var(--ease-default)",
+        );
+      } finally {
+        Object.defineProperty(window, "matchMedia", {
+          configurable: true,
+          writable: true,
+          value: originalMatchMedia,
+        });
+      }
+    });
+
     it("应该渲染为 aside 元素", () => {
       renderWithWrapper();
 

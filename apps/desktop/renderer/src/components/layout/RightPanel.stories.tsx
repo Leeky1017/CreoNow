@@ -12,6 +12,8 @@ function RightPanelStoryRender(args: {
   width: number;
   collapsed: boolean;
   activeTab: RightPanelType;
+  reducedMotion?: boolean;
+  dark?: boolean;
 }): JSX.Element {
   const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
 
@@ -19,8 +21,20 @@ function RightPanelStoryRender(args: {
     setActiveRightPanel(args.activeTab);
   }, [args.activeTab, setActiveRightPanel]);
 
+  const containerStyle: React.CSSProperties = {
+    display: "flex",
+    height: "420px",
+    ...(args.reducedMotion
+      ? ({
+          ["--duration-fast" as string]: "0ms",
+          ["--duration-normal" as string]: "0ms",
+          ["--duration-slow" as string]: "0ms",
+        } as React.CSSProperties)
+      : {}),
+  };
+
   return (
-    <div style={{ display: "flex", height: "420px" }}>
+    <div style={containerStyle} data-theme={args.dark ? "dark" : undefined}>
       <div
         style={{
           flex: 1,
@@ -74,6 +88,30 @@ export const QualityTab: Story = {
     collapsed: false,
   },
   render: (args) => <RightPanelStoryRender {...args} activeTab="quality" />,
+};
+
+export const ReducedMotionInfoTab: Story = {
+  args: {
+    width: LAYOUT_DEFAULTS.panel.default,
+    collapsed: false,
+  },
+  render: (args) => (
+    <RightPanelStoryRender
+      {...args}
+      activeTab="info"
+      reducedMotion={true}
+    />
+  ),
+};
+
+export const DarkModeQualityTab: Story = {
+  args: {
+    width: LAYOUT_DEFAULTS.panel.default,
+    collapsed: false,
+  },
+  render: (args) => (
+    <RightPanelStoryRender {...args} activeTab="quality" dark={true} />
+  ),
 };
 
 export const WithCollapseButton: Story = {

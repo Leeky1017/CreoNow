@@ -149,6 +149,17 @@ describe("RightPanel", () => {
   // 样式测试
   // ===========================================================================
   describe("样式", () => {
+    it("[WB-SCROLL-02] 右侧内容滚动区域应由 ScrollArea viewport 承载", () => {
+      renderWithWrapper();
+
+      const viewport = screen.getByTestId("right-panel-scroll-viewport");
+      const tabBar = screen.getByTestId("right-panel-tab-bar");
+
+      expect(viewport).toBeInTheDocument();
+      expect(tabBar).toBeInTheDocument();
+      expect(viewport).not.toContainElement(tabBar);
+    });
+
     it("应该有左边框分隔线", () => {
       renderWithWrapper();
 

@@ -7,6 +7,10 @@ import { EDITOR_SHORTCUTS } from "../../config/shortcuts";
 import { captureSelectionRef } from "../ai/applySelection";
 import { useEditorStore } from "../../stores/editorStore";
 import { useOptionalAiStore } from "../../stores/aiStore";
+import {
+  readPrefersReducedMotion,
+  resolveReducedMotionDurationPair,
+} from "../../lib/motion/reducedMotion";
 
 export const EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY = "cn-editor-inline-bubble";
 const BUBBLE_AI_SKILLS = [
@@ -253,7 +257,7 @@ export function EditorBubbleMenu(props: {
             data-testid={skill.testId}
             aria-label={`AI ${skill.label}`}
             disabled={aiDisabled}
-            className="rounded-[var(--radius-sm)] px-2 py-1 text-xs text-[var(--color-fg-default)] transition-colors duration-[var(--duration-fast)] hover:bg-[var(--color-bg-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-[var(--radius-sm)] px-2 py-1 text-xs text-[var(--color-fg-default)] transition-colors duration-[var(--duration-fast)] hover:bg-[var(--color-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-raised)] disabled:cursor-not-allowed disabled:opacity-40"
             onClick={() => handleAiSkillClick(skill.id)}
           >
             {skill.label}
@@ -267,6 +271,11 @@ export function EditorBubbleMenu(props: {
     return shouldShowBubble ? bubbleContent : null;
   }
 
+  const bubbleDurations = resolveReducedMotionDurationPair(
+    readPrefersReducedMotion(),
+    [100, 100],
+  );
+
   return (
     <BubbleMenu
       editor={editor}
@@ -274,7 +283,7 @@ export function EditorBubbleMenu(props: {
       shouldShow={() => shouldShowBubble}
       tippyOptions={{
         placement,
-        duration: [100, 100],
+        duration: bubbleDurations,
         zIndex: 400,
         appendTo: () => document.body,
         popperOptions: {

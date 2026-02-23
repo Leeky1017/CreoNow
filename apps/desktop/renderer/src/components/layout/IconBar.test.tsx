@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { IconBar } from "./IconBar";
 import { LayoutTestWrapper } from "./test-utils";
 
@@ -139,6 +140,26 @@ describe("IconBar", () => {
   // 无障碍测试
   // ===========================================================================
   describe("无障碍", () => {
+    it("[WB-A11Y-02] 应支持键盘导航并保持 focus-visible 指示样式", async () => {
+      renderWithWrapper();
+      const user = userEvent.setup();
+      const filesButton = screen.getByTestId("icon-bar-files");
+      const searchButton = screen.getByTestId("icon-bar-search");
+
+      expect(filesButton.className).toContain(
+        "focus-visible:outline-[var(--color-ring-focus)]",
+      );
+      expect(filesButton.className).toContain(
+        "focus-visible:outline-offset-[var(--ring-focus-offset)]",
+      );
+
+      await user.tab();
+      expect(filesButton).toHaveFocus();
+
+      await user.tab();
+      expect(searchButton).toHaveFocus();
+    });
+
     it("所有按钮应该有 aria-label", () => {
       renderWithWrapper();
 

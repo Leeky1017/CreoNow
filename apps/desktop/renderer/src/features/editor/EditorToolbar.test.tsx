@@ -178,11 +178,14 @@ describe("EditorToolbar", () => {
     expect(await screen.findByTestId("toolbar-underline")).toBeInTheDocument();
   });
 
-  it("should toggle bold with keyboard-only navigation when pressing Enter on focused toolbar button", async () => {
+  it("[ED-A11Y-01] should toggle bold with keyboard-only navigation when pressing Enter on focused toolbar button", async () => {
     const user = userEvent.setup();
     render(<ToolbarHarness initialContent="<p>Keyboard nav</p>" />);
 
     const boldButton = await screen.findByTestId("toolbar-bold");
+    expect(boldButton.className).toContain("focus-visible:ring-2");
+    expect(boldButton.className).toContain("focus-visible:outline-none");
+
     boldButton.focus();
     expect(boldButton).toHaveFocus();
 

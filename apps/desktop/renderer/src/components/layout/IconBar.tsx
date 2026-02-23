@@ -28,6 +28,7 @@ const iconButtonBase = [
   "cursor-pointer",
   "transition-colors",
   "duration-[var(--duration-fast)]",
+  "ease-[var(--ease-default)]",
   "hover:bg-[var(--color-bg-hover)]",
   "hover:text-[var(--color-fg-default)]",
   "focus-visible:outline",

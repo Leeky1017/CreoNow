@@ -1,4 +1,4 @@
-更新时间：2026-02-22 12:22
+更新时间：2026-02-23 14:32
 
 ## 1. Specification
 
@@ -17,21 +17,21 @@
 
 | Scenario ID    | 测试类型     | 建议测试位置                                                                    | 验证要点                                               |
 | -------------- | ------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `WB-SCROLL-01` | 组件测试     | `apps/desktop/renderer/src/components/layout/AppShell.test.tsx`                 | 侧栏溢出区由 ScrollArea 承载，header/footer 不跟随滚动 |
+| `WB-SCROLL-01` | 组件测试     | `apps/desktop/renderer/src/components/layout/Sidebar.test.tsx`                  | 侧栏溢出区由 ScrollArea 承载，header/footer 不跟随滚动 |
 | `WB-SCROLL-02` | 组件测试     | `apps/desktop/renderer/src/components/layout/RightPanel.test.tsx`               | 右栏内容滚动与 Tab/标题区解耦                          |
-| `WB-MOTION-01` | 约束测试     | `apps/desktop/renderer/src/components/layout/__tests__/motion-contract.test.ts` | 关键交互组件不再使用 `transition-all`                  |
-| `WB-MOTION-02` | 组件测试     | `apps/desktop/renderer/src/components/layout/__tests__/motion-contract.test.ts` | 过渡时长与缓动仅引用 `duration/ease` token             |
-| `WB-A11Y-01`   | 可访问性测试 | `apps/desktop/renderer/src/components/layout/AppShell.test.tsx`                 | `prefers-reduced-motion` 下非必要动画降级为 0ms        |
+| `WB-MOTION-01` | 约束测试     | `apps/desktop/renderer/src/components/layout/workbench-motion.contract.test.ts` | 关键交互组件不再使用 `transition-all`                  |
+| `WB-MOTION-02` | 组件测试     | `apps/desktop/renderer/src/components/layout/workbench-motion.contract.test.ts` | 过渡时长与缓动仅引用 `duration/ease` token             |
+| `WB-A11Y-01`   | 可访问性测试 | `apps/desktop/renderer/src/components/layout/workbench-motion.contract.test.ts` | `prefers-reduced-motion` 下非必要动画降级为 0ms        |
 | `WB-A11Y-02`   | 可访问性测试 | `apps/desktop/renderer/src/components/layout/IconBar.test.tsx`                  | 键盘导航与 focus-visible 指示一致可见                  |
-| `WB-TEST-01`   | 视觉回归     | `apps/desktop/renderer/src/components/layout/*.stories.tsx` + 快照测试          | 默认/hover/focus/reduced-motion/暗色差异可审查         |
-| `ED-TYPO-01`   | 组件测试     | `apps/desktop/renderer/src/features/editor/EditorContent.test.tsx`              | 编辑器排版使用 token，并补全 CJK 行高 token            |
-| `ED-TYPO-02`   | 组件测试     | `apps/desktop/renderer/src/features/editor/EditorContent.test.tsx`              | 系统字体缩放 125%/150% 下排版层级稳定、无截断重叠      |
+| `WB-TEST-01`   | 视觉回归     | `apps/desktop/renderer/src/components/layout/workbench.stories.snapshot.test.ts` | 默认/hover/focus/reduced-motion/暗色差异可审查        |
+| `ED-TYPO-01`   | 组件测试     | `apps/desktop/renderer/src/features/editor/editor-typography.contract.test.ts`  | 编辑器排版使用 token，并补全 CJK 行高 token            |
+| `ED-TYPO-02`   | 组件测试     | `apps/desktop/renderer/src/features/editor/editor-typography.contract.test.ts`  | 系统字体缩放 125%/150% 下排版层级稳定、无截断重叠      |
 | `ED-SCROLL-01` | 集成测试     | `apps/desktop/renderer/src/features/outline/OutlinePanel.test.tsx`              | 长内容通过 ScrollArea 滚动且工具栏保持可达             |
 | `ED-SCROLL-02` | 集成测试     | `apps/desktop/renderer/src/features/diff/DiffView.test.tsx`                     | Diff 长列表滚动不影响操作条可达性                      |
-| `ED-MOTION-01` | 组件测试     | `apps/desktop/renderer/src/features/editor/EditorBubbleMenu.test.tsx`           | BubbleMenu/工具栏过渡不使用 `transition-all`           |
-| `ED-MOTION-02` | 可访问性测试 | `apps/desktop/renderer/src/features/editor/EditorBubbleMenu.test.tsx`           | reduced motion 下关闭非必要 transform/opacity 动画     |
+| `ED-MOTION-01` | 组件测试     | `apps/desktop/renderer/src/features/editor/editor-motion.contract.test.ts`      | BubbleMenu/工具栏过渡不使用 `transition-all`           |
+| `ED-MOTION-02` | 可访问性测试 | `apps/desktop/renderer/src/features/editor/editor-motion.contract.test.ts`      | reduced motion 下关闭非必要 transform/opacity 动画     |
 | `ED-A11Y-01`   | 组件测试     | `apps/desktop/renderer/src/features/editor/EditorToolbar.test.tsx`              | `aria-label`/`aria-pressed`/键盘操作路径完整           |
-| `ED-TEST-01`   | 视觉回归     | `apps/desktop/renderer/src/features/editor/*.stories.tsx` + 快照测试            | 编辑器关键状态视觉基线与 a11y 基线联动校验             |
+| `ED-TEST-01`   | 视觉回归     | `apps/desktop/renderer/src/features/editor/editor.stories.snapshot.test.ts`     | 编辑器关键状态视觉基线与 a11y 基线联动校验             |
 
 ## 3. Red（先写失败测试）
 
