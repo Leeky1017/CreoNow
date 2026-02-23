@@ -60,7 +60,7 @@ function installControlledTimeouts(): {
       }
     });
     return id as unknown as NodeJS.Timeout;
-  }) as typeof setTimeout;
+  }) as unknown as typeof setTimeout;
 
   const fakeClearTimeout = ((timerId: NodeJS.Timeout) => {
     timers.delete(timerId as unknown as number);
