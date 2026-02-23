@@ -1,11 +1,11 @@
-更新时间：2026-02-22 19:37
+更新时间：2026-02-23 23:06
 
 ## 1. Specification
 
-- [ ] 1.1 审阅并确认需求边界（ScopedLifecycle + ProjectLifecycle + IPC Abort 联动 + BoundedMap 基础资产）
+- [ ] 1.1 审阅并确认需求边界（ScopedLifecycle + ProjectLifecycle + IPC timeout->abort 联动）
 - [ ] 1.2 审阅并确认错误路径与边界路径（teardown 超时、取消竞态、幽灵执行、并发槽位泄漏）
 - [ ] 1.3 审阅并确认验收阈值与不可变契约（切换必卸载；timeout 必中止底层执行）
-- [ ] 1.4 若存在上游依赖，先完成依赖同步检查（Dependency Sync Check）并记录“无漂移/已更新”；无依赖则标注 N/A（本 change：N/A）
+- [ ] 1.4 完成依赖同步检查（Dependency Sync Check）并记录结论（无上游依赖也必须记录 `PASS`：No upstream dependencies）
 
 ## 2. TDD Mapping（先测前提）
 
