@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-23 21:08
+更新时间：2026-02-23 23:12
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -31,7 +31,7 @@
 
 1. `issue-617-scoped-lifecycle-and-abort`
 
-- 生命周期与取消：三层 ScopedLifecycle、ProjectLifecycle、IPC timeout/取消联动 AbortController。
+- 生命周期与取消：三层 ScopedLifecycle、ProjectLifecycle、IPC timeout->abort、槽位回收与解绑清理闭环。
 - 依赖：无（与 UtilityProcess 可并行起草；实现联动时需对齐协议）。
 
 2. `issue-617-kg-query-engine-refactor`
@@ -89,7 +89,7 @@
 - ISSUE-604 当前状态：已归档至 `openspec/changes/archive/issue-604-windows-frameless-titlebar`，并从活跃执行顺序移除。
 - ISSUE-606 当前状态：Phase 1、Phase 2 已完成并归档；活跃阶段剩余 Phase 3/4。
 - ISSUE-613 当前状态：PR `#614` 已合并，Issue 已关闭，Rulebook task 已归档。
-- ISSUE-616 当前状态：Phase 2 closeout PR `#625` 在审，合并后执行顺序以本文件为准。
+- ISSUE-616 当前状态：Phase 2 closeout PR `#625` 已合并，执行顺序以本文件为准。
 - ISSUE-608 当前状态：已修复 ISSUE-606 文档中的治理收口漂移、i18n 门禁语义冲突与 Scenario 映射缺口。
 - ISSUE-617 当前状态：`issue-617-utilityprocess-foundation` 已完成并归档至 `openspec/changes/archive/issue-617-utilityprocess-foundation`；backend lane 其余 6 个 change 持续推进中，`issue-617-global-hardening-baseline` 亦已归档（Issue `#620`）。
 
