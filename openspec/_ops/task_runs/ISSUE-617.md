@@ -6,12 +6,12 @@
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/617
 - Branch (decomposition closeout): `task/617-cn-backend-notion-changes`
 - Branch (current delivery): `task/617-utilityprocess-foundation`
-- PR: https://github.com/Leeky1017/CreoNow/pull/618
+- PR: https://github.com/Leeky1017/CreoNow/pull/624
 
 ## Scope
 
 - Rulebook task (decomposition archive): `rulebook/tasks/archive/2026-02-22-issue-617-cn-backend-notion-changes/**`
-- Rulebook task (current active): `rulebook/tasks/issue-617-utilityprocess-foundation/**`
+- Rulebook task (current archive): `rulebook/tasks/archive/2026-02-23-issue-617-utilityprocess-foundation/**`
 - RUN_LOG: `openspec/_ops/task_runs/ISSUE-617.md`
 - Notion export vault (local): `/tmp/notion_cn_backend_vault/**`
 
@@ -27,7 +27,7 @@
 - Create active Rulebook task for `issue-617-utilityprocess-foundation`
 - Stage governance evidence (dependency sync + blockers + scenario evidence references) into this RUN_LOG
 - Prepare main-session audit template for current delivery without false PASS claims
-- Keep PR field as real historic URL (no placeholder regression)
+- Keep PR field synced to the current delivery PR URL (no placeholder regression)
 
 ## Runs
 
@@ -162,12 +162,33 @@
 - Impact:
   - issue freshness re-check, remote sync, PR creation, required-check polling are blocked until network恢复
 
+### 2026-02-23 Checkpoint resume and scope isolation
+
+- Command:
+  - `git stash push -u -m "checkpoint-resume: scoped-lifecycle-wip-before-utilityprocess-delivery"`
+  - `gh issue reopen 617 && gh issue view 617 --json number,state,title,url,closedAt`
+- Key output:
+  - saved WIP snapshot for non-target scoped-lifecycle edits (stash `stash@{0}`)
+  - issue `#617` state switched to `OPEN` for active delivery gate compliance
+
+### 2026-02-23 Archive closeout assets and open delivery PR
+
+- Command:
+  - `mv openspec/changes/issue-617-utilityprocess-foundation openspec/changes/archive/issue-617-utilityprocess-foundation`
+  - `mv rulebook/tasks/issue-617-utilityprocess-foundation rulebook/tasks/archive/2026-02-23-issue-617-utilityprocess-foundation`
+  - `git push -u origin task/617-utilityprocess-foundation`
+  - `gh pr create --title "feat: deliver utilityprocess foundation contracts and archive artifacts (#617)" --base main --head task/617-utilityprocess-foundation`
+- Key output:
+  - archive paths created for OpenSpec change + Rulebook task
+  - branch pushed: `origin/task/617-utilityprocess-foundation`
+  - PR created: `https://github.com/Leeky1017/CreoNow/pull/624`
+
 ## Dependency Sync Check (issue-617-utilityprocess-foundation)
 
 - Inputs reviewed:
-  - `openspec/changes/issue-617-utilityprocess-foundation/proposal.md`
-  - `openspec/changes/issue-617-utilityprocess-foundation/specs/ipc/spec.md`
-  - `openspec/changes/issue-617-utilityprocess-foundation/tasks.md`
+  - `openspec/changes/archive/issue-617-utilityprocess-foundation/proposal.md`
+  - `openspec/changes/archive/issue-617-utilityprocess-foundation/specs/ipc/spec.md`
+  - `openspec/changes/archive/issue-617-utilityprocess-foundation/tasks.md`
 - Result: `N/A (NO_UPSTREAM_DEPENDENCY)`
 - Notes:
   - current change documents already declare no upstream dependency; no dependency drift detected in this governance pass
@@ -194,14 +215,14 @@
 - Blocking-Issues: `<0 if ACCEPT>`
 - Decision: `<ACCEPT|REJECT>`
 
-Historical signoff below is for decomposition PR `#618` only.
+Current signoff below is for utilityprocess delivery PR `#624`.
 
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 8b87e4ebd0f7aa63257d1d64afcf015619c276fe
+- Reviewed-HEAD-SHA: 79d910db26622e801823b6cee13cc67d8ebdc4b1
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
-- Blocking-Issues: 2
-- Decision: REJECT
+- Blocking-Issues: 0
+- Decision: ACCEPT
