@@ -198,9 +198,9 @@ Historical signoff below is for decomposition PR `#618` only.
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 8c5ebdca87973d84abad39c8103e0ec77c35e155
+- Reviewed-HEAD-SHA: bd8dfacd169bda30635c50ef286eeb5c5e24b3aa
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
-- Blocking-Issues: 0
-- Decision: ACCEPT
+- Blocking-Issues: 2
+- Decision: REJECT
