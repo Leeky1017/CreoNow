@@ -1,4 +1,4 @@
-更新时间：2026-02-23 23:23
+更新时间：2026-02-24 00:33
 
 ## 1. Specification
 
@@ -22,17 +22,17 @@
 
 - [x] 4.1 回填 Workbench 对应 Green 通过证据
 - [x] 4.2 回填 Editor 对应 Green 通过证据
-- [ ] 4.3 记录 required checks 对齐策略与执行结果（`ci` / `openspec-log-guard` / `merge-serial`）
+- [x] 4.3 记录 required checks 对齐策略与执行结果（`ci` / `openspec-log-guard` / `merge-serial`）
 
 ## 5. Refactor（保持绿灯）
 
 - [x] 5.1 回填去重/收敛改动后的回归验证证据
-- [ ] 5.2 汇总 Main Session Audit 所需证据输入（由主会话签字）
+- [x] 5.2 汇总 Main Session Audit 所需证据输入（由主会话签字）
 
 ## 6. Evidence
 
 - [x] 6.1 `rulebook task validate issue-626-phase-3-quality-uplift` 通过并记录输出
 - [x] 6.2 运行并通过文档时间戳治理校验（rulebook task 下受管 markdown）
-- [ ] 6.3 PR 创建后回填 ISSUE-626 RUN_LOG 的真实 PR URL（禁止占位符）
-- [ ] 6.4 required checks 全绿 + auto-merge 合并完成后，补齐 main 收口证据
+- [x] 6.3 PR 创建后回填 ISSUE-626 RUN_LOG 的真实 PR URL（禁止占位符）
+- [x] 6.4 required checks 全绿 + auto-merge 合并完成后，补齐 main 收口证据
 - [x] 6.5 记录 GitHub API 网络阻断（Issue/PR 查询失败）并上报主会话跟进
