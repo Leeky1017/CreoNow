@@ -19,7 +19,10 @@ import {
  */
 function LeftPanelHeader(props: { title: string }): JSX.Element {
   return (
-    <div className="flex items-center h-10 px-3 border-b border-[var(--color-separator)]">
+    <div
+      data-testid="sidebar-panel-header"
+      className="flex items-center h-10 px-3 border-b border-[var(--color-separator)]"
+    >
       <span className="text-xs font-medium text-[var(--color-fg-muted)] uppercase tracking-wider">
         {props.title}
       </span>

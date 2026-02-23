@@ -8,11 +8,16 @@ import * as rightPanelStories from "./RightPanel.stories";
 const {
   Default: IconBarDefault,
   SearchHover,
+  FilesFocusVisible,
+  ReducedMotion: IconBarReducedMotion,
+  DarkMode: IconBarDarkMode,
   KnowledgeGraphActive,
 } = composeStories(iconBarStories);
 const {
   AiTabDefault,
   InfoTab,
+  ReducedMotionInfoTab,
+  DarkModeQualityTab,
   Collapsed: RightPanelCollapsed,
 } = composeStories(rightPanelStories);
 
@@ -21,9 +26,14 @@ describe("workbench stories snapshots", () => {
     const entries = [
       ["icon-bar-default", IconBarDefault],
       ["icon-bar-search-hover", SearchHover],
+      ["icon-bar-focus-visible", FilesFocusVisible],
+      ["icon-bar-reduced-motion", IconBarReducedMotion],
+      ["icon-bar-dark-mode", IconBarDarkMode],
       ["icon-bar-kg-active", KnowledgeGraphActive],
       ["right-panel-ai", AiTabDefault],
       ["right-panel-info", InfoTab],
+      ["right-panel-reduced-motion-info", ReducedMotionInfoTab],
+      ["right-panel-dark-quality", DarkModeQualityTab],
       ["right-panel-collapsed", RightPanelCollapsed],
     ] as const;
 
