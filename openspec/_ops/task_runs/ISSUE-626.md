@@ -1,6 +1,6 @@
 # ISSUE-626
 
-更新时间：2026-02-24 00:37
+更新时间：2026-02-24 00:42
 
 ## Links
 
@@ -376,10 +376,25 @@
   - latest head oid: `ea7e1257095cbf4e3d48c537cf3ef2d8e39aa6af`
   - pre-signing snapshot: `openspec-log-guard=FAILURE`，`merge-serial=SUCCESS`，`ci` in progress
 
+### 2026-02-24 Preflight Drift Check + Execution Order Sync
+
+- Command:
+  - `python3 scripts/agent_pr_preflight.py`
+  - `python3 scripts/check_doc_timestamps.py --files openspec/changes/EXECUTION_ORDER.md`
+  - `git commit -m "docs: sync execution order for issue-626 closeout (#626)" ...`
+- Exit code:
+  - `agent_pr_preflight`: `1`（before sync）
+  - `timestamp gate`: `0`
+  - `git commit`: `0`
+- Key output:
+  - `PRE-FLIGHT FAILED: [OPENSPEC_CHANGE] active change content updated but openspec/changes/EXECUTION_ORDER.md not updated in this PR`
+  - `OK: validated timestamps for 1 governed markdown file(s)`
+  - execution-order sync commit: `080e87c97746278f4def0662ec1488180fe74cb0`
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: ea7e1257095cbf4e3d48c537cf3ef2d8e39aa6af
+- Reviewed-HEAD-SHA: 080e87c97746278f4def0662ec1488180fe74cb0
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
