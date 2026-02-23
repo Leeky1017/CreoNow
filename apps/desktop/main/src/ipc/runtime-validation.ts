@@ -386,10 +386,16 @@ function sanitizeErrorEnvelope(rawError: IpcError): IpcError {
 async function runWithTimeout(
   run: () => Promise<unknown>,
   timeoutMs: number,
+  options?: { onTimeout?: () => void },
 ): Promise<unknown> {
   let timer: NodeJS.Timeout | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
+      try {
+        options?.onTimeout?.();
+      } catch {
+        // Ignore onTimeout failures to preserve timeout semantics.
+      }
       reject(new IpcTimeoutError("ipc request timed out"));
     }, timeoutMs);
   });
@@ -450,9 +456,18 @@ export function wrapIpcRequestResponse(
     }
 
     try {
+      const abortController = new AbortController();
       const raw = await runWithTimeout(
-        async () => await Promise.resolve(args.handler(event, requestPayload)),
+        async () =>
+          await Promise.resolve(
+            args.handler(event, requestPayload, abortController.signal),
+          ),
         args.timeoutMs,
+        {
+          onTimeout: () => {
+            abortController.abort();
+          },
+        },
       );
 
       if (!isIpcEnvelope(raw)) {
