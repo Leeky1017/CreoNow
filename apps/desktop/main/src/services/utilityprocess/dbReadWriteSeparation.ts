@@ -16,6 +16,10 @@ export type DbWriteExecutionResult<T> =
 
 const READ_ONLY_ROLES = new Set<DbExecutionRole>(["main", "compute"]);
 const require = createRequire(import.meta.url);
+type BetterSqlite3Ctor = new (
+  filename: string,
+  options?: Database.Options,
+) => Database.Database;
 
 export type DbWriteStatementParams =
   | readonly unknown[]
@@ -50,8 +54,7 @@ export function openUtilityProcessDb(args: {
   role: DbExecutionRole;
   fileMustExist?: boolean;
 }): Database.Database {
-  const BetterSqlite3 =
-    require("better-sqlite3") as typeof import("better-sqlite3");
+  const BetterSqlite3 = require("better-sqlite3") as BetterSqlite3Ctor;
   const readonly = READ_ONLY_ROLES.has(args.role);
   const db = new BetterSqlite3(args.dbPath, {
     readonly,
