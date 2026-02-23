@@ -17,6 +17,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -49,6 +50,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -93,6 +95,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -128,6 +131,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -166,6 +170,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -201,6 +206,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -238,6 +244,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -275,6 +282,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -318,6 +326,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -379,6 +388,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -434,6 +444,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -465,6 +476,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -503,6 +515,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -537,6 +550,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-not-allowed opacity-40
       "
@@ -569,6 +583,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-not-allowed opacity-40
       "
@@ -628,6 +643,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -660,6 +676,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -704,6 +721,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -739,6 +757,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -777,6 +796,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
         
@@ -812,6 +832,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         bg-[var(--color-bg-selected)] text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -849,6 +870,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -886,6 +908,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -929,6 +952,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -990,6 +1014,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -1045,6 +1070,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -1076,6 +1102,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -1114,6 +1141,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-pointer
       "
@@ -1148,6 +1176,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-not-allowed opacity-40
       "
@@ -1180,6 +1209,7 @@ exports[`editor stories snapshots > [ED-TEST-01] should cover toolbar + write bu
         class="
         flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)]
         transition-colors duration-[var(--duration-fast)] motion-reduce:transition-none
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-surface)]
         text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-fg-default)]
         cursor-not-allowed opacity-40
       "
