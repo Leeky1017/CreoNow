@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import type { CSSProperties } from "react";
 
 import { EditorToolbar } from "./EditorToolbar";
 
@@ -90,6 +91,46 @@ export const WithFormattedContent: Story = {
         <p>End of content.</p>
       `}
     />
+  ),
+};
+
+/**
+ * Simulated focus-visible state to keep keyboard a11y baseline in snapshots.
+ */
+export const FocusVisibleBold: Story = {
+  render: () => (
+    <div className="[&_[data-testid='toolbar-bold']]:ring-2 [&_[data-testid='toolbar-bold']]:ring-[var(--color-ring-focus)] [&_[data-testid='toolbar-bold']]:ring-offset-1 [&_[data-testid='toolbar-bold']]:ring-offset-[var(--color-bg-surface)]">
+      <ToolbarWithEditor />
+    </div>
+  ),
+};
+
+/**
+ * Simulated reduced-motion state by overriding duration tokens to 0ms.
+ */
+export const ReducedMotionDefault: Story = {
+  render: () => {
+    const reducedMotionStyle: CSSProperties = {
+      ["--duration-fast" as string]: "0ms",
+      ["--duration-normal" as string]: "0ms",
+      ["--duration-slow" as string]: "0ms",
+    };
+    return (
+      <div style={reducedMotionStyle}>
+        <ToolbarWithEditor />
+      </div>
+    );
+  },
+};
+
+/**
+ * Dark mode baseline for visual diff auditing.
+ */
+export const DarkModeDefault: Story = {
+  render: () => (
+    <div data-theme="dark">
+      <ToolbarWithEditor />
+    </div>
   ),
 };
 

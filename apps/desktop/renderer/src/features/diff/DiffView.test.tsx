@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { DiffView, parseDiffLines } from "./DiffView";
 
 describe("DiffView", () => {
@@ -83,13 +83,38 @@ Context
     });
 
     it("[ED-SCROLL-02] Diff 内容滚动区域应由 ScrollArea viewport 承载", () => {
-      const diffText = `@@ -1,2 +1,2 @@
--old
-+new`;
+      const onJumpClick = vi.fn();
+      const longDiffBody = Array.from({ length: 140 }, (_, index) => {
+        if (index % 3 === 0) return `+added ${index}`;
+        if (index % 3 === 1) return `-removed ${index}`;
+        return ` context ${index}`;
+      }).join("\n");
+      const diffText = `@@ -1,140 +1,140 @@\n${longDiffBody}`;
 
-      render(<DiffView diffText={diffText} />);
+      render(
+        <div className="flex min-h-0 flex-col">
+          <div data-testid="diff-action-bar" className="sticky top-0">
+            <button type="button" onClick={onJumpClick}>
+              Jump to next change
+            </button>
+          </div>
+          <DiffView diffText={diffText} />
+        </div>,
+      );
 
-      expect(screen.getByTestId("ai-diff-scroll-viewport")).toBeInTheDocument();
+      const viewport = screen.getByTestId("ai-diff-scroll-viewport");
+      const actionButton = screen.getByRole("button", {
+        name: "Jump to next change",
+      });
+
+      expect(viewport).toBeInTheDocument();
+      expect(viewport.className).toContain("overflow-y-auto");
+      expect(viewport).not.toContainElement(actionButton);
+
+      fireEvent.scroll(viewport, { target: { scrollTop: 720 } });
+      fireEvent.click(actionButton);
+
+      expect(onJumpClick).toHaveBeenCalledTimes(1);
     });
   });
 

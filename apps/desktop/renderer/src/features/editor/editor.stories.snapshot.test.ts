@@ -7,6 +7,9 @@ import * as writeButtonStories from "./WriteButton.stories";
 
 const {
   Default: ToolbarDefault,
+  FocusVisibleBold,
+  ReducedMotionDefault,
+  DarkModeDefault,
   NoEditor,
   WithFormattedContent,
 } = composeStories(toolbarStories);
@@ -23,6 +26,9 @@ runStorySnapshotSuite({
   entries: [
     ["editor-toolbar-default", ToolbarDefault],
     ["editor-toolbar-formatted", WithFormattedContent],
+    ["editor-toolbar-focus-visible", FocusVisibleBold],
+    ["editor-toolbar-reduced-motion", ReducedMotionDefault],
+    ["editor-toolbar-dark-mode", DarkModeDefault],
     ["editor-toolbar-no-editor", NoEditor],
     ["editor-write-button-visible", WriteButtonVisible],
     ["editor-write-button-disabled", WriteButtonDisabled],

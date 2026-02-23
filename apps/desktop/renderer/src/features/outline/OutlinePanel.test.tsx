@@ -47,9 +47,29 @@ describe("OutlinePanel", () => {
   });
 
   it("[ED-SCROLL-01] 大纲滚动区域应由 ScrollArea viewport 承载", () => {
-    render(<OutlinePanel items={SAMPLE_ITEMS} />);
+    const longItems: OutlineItem[] = Array.from({ length: 180 }, (_, index) => ({
+      id: `outline-${index}`,
+      title: `Heading ${index}`,
+      level: (["h1", "h2", "h3"] as const)[index % 3],
+    }));
+    render(<OutlinePanel items={longItems} />);
 
-    expect(screen.getByTestId("outline-scroll-viewport")).toBeInTheDocument();
+    const viewport = screen.getByTestId("outline-scroll-viewport");
+    const searchInput = screen.getByTestId("outline-search-input");
+    const expandAllButton = screen.getByRole("button", {
+      name: "Expand all outline items",
+    });
+
+    expect(viewport).toBeInTheDocument();
+    expect(viewport.className).toContain("overflow-y-auto");
+    expect(viewport).not.toContainElement(searchInput);
+    expect(viewport).not.toContainElement(expandAllButton);
+
+    fireEvent.scroll(viewport, { target: { scrollTop: 640 } });
+    fireEvent.change(searchInput, { target: { value: "Heading 120" } });
+
+    expect(searchInput).toHaveValue("Heading 120");
+    expect(screen.getByText("Heading 120")).toBeInTheDocument();
   });
 
   // ==========================================================================
