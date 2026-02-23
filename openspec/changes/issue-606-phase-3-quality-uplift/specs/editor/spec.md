@@ -1,6 +1,6 @@
 # Editor Specification Delta
 
-更新时间：2026-02-22 12:00
+更新时间：2026-02-23 14:32
 
 ## Change: issue-606-phase-3-quality-uplift
 
@@ -12,14 +12,14 @@ Editor 排版必须从“可用”升级为“可扩展且可本地化”：
 - 必须补全 CJK 场景 token（例如 `--text-editor-line-height-cjk`），用于中文密集段落的可读性与扩展性。
 - 编辑区域排版应支持系统字体缩放，不得因 token 缺失导致布局断裂。
 
-#### Scenario: CJK 场景使用补全后的行高 token [ADDED]
+#### Scenario: ED-TYPO-01 CJK 场景使用补全后的行高 token [ADDED]
 
 - **假设** 文档以中文段落为主，包含长句与密集标点
 - **当** 编辑器渲染正文
 - **则** 行高策略使用 CJK 友好 token
 - **并且** 与默认正文 token 保持可配置切换能力
 
-#### Scenario: 系统字体缩放下排版保持稳定 [ADDED]
+#### Scenario: ED-TYPO-02 系统字体缩放下排版保持稳定 [ADDED]
 
 - **假设** 用户系统字体缩放为 125% 或 150%
 - **当** 编辑器与工具栏共同渲染
@@ -34,14 +34,14 @@ Editor 域可滚动区域必须统一到 `ScrollArea` 抽象：
 - 工具栏、状态条、关键操作区不得与内容滚动绑定，避免滚动时交互控件丢失。
 - 业务组件禁止散写根级 `overflow-auto` 作为默认滚动方案。
 
-#### Scenario: 大纲长列表通过 ScrollArea 独立滚动 [ADDED]
+#### Scenario: ED-SCROLL-01 大纲长列表通过 ScrollArea 独立滚动 [ADDED]
 
 - **假设** 当前文档含 100+ 大纲节点
 - **当** 用户在 Outline 面板滚动并使用键盘导航定位节点
 - **则** 大纲内容在 `ScrollArea.Viewport` 中滚动
 - **并且** 面板头部与筛选控件保持固定可用
 
-#### Scenario: Diff 视图滚动不影响工具条可达性 [ADDED]
+#### Scenario: ED-SCROLL-02 Diff 视图滚动不影响工具条可达性 [ADDED]
 
 - **假设** Diff 结果包含大量行级变更
 - **当** 用户滚动查看变更
@@ -56,14 +56,14 @@ Editor 域动效必须遵循统一 Motion Choreography 契约：
 - 动效时长与缓动必须使用统一 token，不得直接写死 `duration-300`、`ease` 等字面值。
 - reduced motion 模式必须关闭非必要 transform/opacity 序列动画，但保留语义状态变化。
 
-#### Scenario: 编辑器交互从 transition-all 收敛到属性级过渡 [ADDED]
+#### Scenario: ED-MOTION-01 编辑器交互从 transition-all 收敛到属性级过渡 [ADDED]
 
 - **假设** Bubble Menu 与 Toolbar 存在 hover/active 动效
 - **当** 执行动效契约校验
 - **则** 组件仅允许声明具体过渡属性
 - **并且** 未豁免的 `transition-all` 被识别为违规
 
-#### Scenario: reduced motion 下关闭非必要动画 [ADDED]
+#### Scenario: ED-MOTION-02 reduced motion 下关闭非必要动画 [ADDED]
 
 - **假设** 用户启用了 `prefers-reduced-motion: reduce`
 - **当** 打开 Bubble Menu、切换 Diff 视图或触发 AI 内联确认
@@ -78,14 +78,14 @@ Editor 必须把 a11y 与测试策略绑定为可执行契约：
 - 所有可交互元素必须在键盘导航时显示统一 focus-visible 指示。
 - 视觉回归基线必须覆盖默认态、focus 态、reduced-motion 态、暗色态，且与组件测试联动。
 
-#### Scenario: 纯键盘完成格式化操作路径 [ADDED]
+#### Scenario: ED-A11Y-01 纯键盘完成格式化操作路径 [ADDED]
 
 - **假设** 用户仅使用键盘编辑文档
 - **当** 用户通过 Tab/Shift+Tab 聚焦工具栏并触发快捷键或 Enter 操作
 - **则** 格式化动作可被完整执行
 - **并且** 当前聚焦按钮的焦点样式清晰可见
 
-#### Scenario: 视觉回归与可访问性基线协同拦截回归 [ADDED]
+#### Scenario: ED-TEST-01 视觉回归与可访问性基线协同拦截回归 [ADDED]
 
 - **假设** 一次样式或组件改动影响 Editor 外观
 - **当** 运行组件测试与视觉回归测试

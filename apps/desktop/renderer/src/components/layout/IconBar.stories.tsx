@@ -36,8 +36,11 @@ type Story = StoryObj<typeof meta>;
 function IconBarStatePreview(props: {
   activePanel: LeftPanelType;
   hoveredTestId?: string;
+  focusVisibleTestId?: string;
   settingsOpen?: boolean;
   fullHeight?: boolean;
+  reducedMotion?: boolean;
+  dark?: boolean;
 }): JSX.Element {
   const setActiveLeftPanel = useLayoutStore((s) => s.setActiveLeftPanel);
   const setSidebarCollapsed = useLayoutStore((s) => s.setSidebarCollapsed);
@@ -50,12 +53,27 @@ function IconBarStatePreview(props: {
   const simulatedHoverClass = props.hoveredTestId
     ? `[&_[data-testid='${props.hoveredTestId}']]:bg-[var(--color-bg-hover)] [&_[data-testid='${props.hoveredTestId}']]:text-[var(--color-fg-default)]`
     : "";
+  const simulatedFocusVisibleClass = props.focusVisibleTestId
+    ? `[&_[data-testid='${props.focusVisibleTestId}']]:outline [&_[data-testid='${props.focusVisibleTestId}']]:outline-[length:var(--ring-focus-width)] [&_[data-testid='${props.focusVisibleTestId}']]:outline-offset-[var(--ring-focus-offset)] [&_[data-testid='${props.focusVisibleTestId}']]:outline-[var(--color-ring-focus)]`
+    : "";
+  const previewClassName = [simulatedHoverClass, simulatedFocusVisibleClass]
+    .filter(Boolean)
+    .join(" ");
+  const previewStyle: React.CSSProperties = {
+    display: "flex",
+    height: props.fullHeight ? "100vh" : "100%",
+    ...(props.reducedMotion
+      ? ({
+          ["--duration-fast" as string]: "0ms",
+          ["--duration-normal" as string]: "0ms",
+          ["--duration-slow" as string]: "0ms",
+        } as React.CSSProperties)
+      : {}),
+  };
 
   return (
-    <div
-      style={{ display: "flex", height: props.fullHeight ? "100vh" : "100%" }}
-    >
-      <div className={simulatedHoverClass}>
+    <div style={previewStyle} data-theme={props.dark ? "dark" : undefined}>
+      <div className={previewClassName}>
         <IconBar
           onOpenSettings={() => {}}
           settingsOpen={props.settingsOpen ?? false}
@@ -110,6 +128,33 @@ export const SearchHover: Story = {
         activePanel="files"
         hoveredTestId="icon-bar-search"
       />
+    </div>
+  ),
+};
+
+export const FilesFocusVisible: Story = {
+  render: () => (
+    <div style={{ display: "flex", height: "400px" }}>
+      <IconBarStatePreview
+        activePanel="files"
+        focusVisibleTestId="icon-bar-files"
+      />
+    </div>
+  ),
+};
+
+export const ReducedMotion: Story = {
+  render: () => (
+    <div style={{ display: "flex", height: "400px" }}>
+      <IconBarStatePreview activePanel="files" reducedMotion={true} />
+    </div>
+  ),
+};
+
+export const DarkMode: Story = {
+  render: () => (
+    <div style={{ display: "flex", height: "400px" }}>
+      <IconBarStatePreview activePanel="files" dark={true} />
     </div>
   ),
 };

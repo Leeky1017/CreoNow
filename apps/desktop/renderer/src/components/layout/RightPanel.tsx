@@ -6,6 +6,7 @@ import {
 import { AiPanel } from "../../features/ai/AiPanel";
 import { InfoPanel, QualityPanel } from "../../features/rightpanel";
 import { OpenSettingsContext } from "../../contexts/OpenSettingsContext";
+import { ScrollArea } from "../primitives";
 
 export { useOpenSettings } from "../../contexts/OpenSettingsContext";
 
@@ -21,6 +22,7 @@ const tabButtonBase = [
   "cursor-pointer",
   "transition-colors",
   "duration-[var(--duration-fast)]",
+  "ease-[var(--ease-default)]",
   "hover:bg-[var(--color-bg-hover)]",
   "focus-visible:outline",
   "focus-visible:outline-[length:var(--ring-focus-width)]",
@@ -111,7 +113,10 @@ export function RightPanel(props: {
         }}
       >
         {/* Tab bar */}
-        <div className="flex items-center gap-1 px-2 py-2 border-b border-[var(--color-separator)]">
+        <div
+          data-testid="right-panel-tab-bar"
+          className="flex items-center gap-1 px-2 py-2 border-b border-[var(--color-separator)]"
+        >
           {RIGHT_PANEL_TABS.map(({ type, label, testId }) => {
             const isActive = activeRightPanel === type;
             return (
@@ -133,7 +138,7 @@ export function RightPanel(props: {
               type="button"
               data-testid="right-panel-collapse-btn"
               onClick={props.onCollapse}
-              className="text-xs px-1.5 py-1 rounded-[var(--radius-sm)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors duration-[var(--duration-fast)]"
+              className="text-xs px-1.5 py-1 rounded-[var(--radius-sm)] text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors duration-[var(--duration-fast)] ease-[var(--ease-default)]"
               aria-label="Collapse panel"
             >
               ✕
@@ -142,7 +147,13 @@ export function RightPanel(props: {
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 min-h-0 overflow-auto">{renderContent()}</div>
+        <ScrollArea
+          data-testid="right-panel-scroll"
+          viewportTestId="right-panel-scroll-viewport"
+          className="flex-1 min-h-0"
+        >
+          {renderContent()}
+        </ScrollArea>
       </aside>
     </OpenSettingsContext.Provider>
   );
