@@ -54,4 +54,20 @@ describe("service error normalization (IPC-P2-S3)", () => {
       traceId: "trace-1",
     });
   });
+
+  it("normalizes DB_ERROR to internal kind", () => {
+    const error: IpcError = {
+      code: "DB_ERROR",
+      message: "db write failed",
+    };
+
+    expect(normalizeIpcError(error)).toEqual({
+      kind: "internal",
+      code: "DB_ERROR",
+      message: "db write failed",
+      details: undefined,
+      retryable: undefined,
+      traceId: undefined,
+    });
+  });
 });

@@ -20,7 +20,11 @@ function toKind(code: IpcErrorCode): ServiceErrorKind {
     return "validation";
   }
 
-  if (code === "INTERNAL" || code === "INTERNAL_ERROR") {
+  if (
+    code === "INTERNAL" ||
+    code === "INTERNAL_ERROR" ||
+    code.endsWith("_ERROR")
+  ) {
     return "internal";
   }
 

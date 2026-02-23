@@ -36,6 +36,34 @@ export function computeNextPanelWidth(args: {
   return clamp(nextRaw, LAYOUT_DEFAULTS.panel.min, max);
 }
 
+export type PanelVisibilityActions = {
+  toggleSidebar: () => void;
+  expandSidebar: () => void;
+  collapseSidebar: () => void;
+  toggleRightPanel: () => void;
+  expandRightPanel: () => void;
+  collapseRightPanel: () => void;
+};
+
+export function usePanelVisibilityActions(): PanelVisibilityActions {
+  const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
+  const panelCollapsed = useLayoutStore((s) => s.panelCollapsed);
+  const setSidebarCollapsed = useLayoutStore((s) => s.setSidebarCollapsed);
+  const setPanelCollapsed = useLayoutStore((s) => s.setPanelCollapsed);
+
+  return React.useMemo(
+    () => ({
+      toggleSidebar: () => setSidebarCollapsed(!sidebarCollapsed),
+      expandSidebar: () => setSidebarCollapsed(false),
+      collapseSidebar: () => setSidebarCollapsed(true),
+      toggleRightPanel: () => setPanelCollapsed(!panelCollapsed),
+      expandRightPanel: () => setPanelCollapsed(false),
+      collapseRightPanel: () => setPanelCollapsed(true),
+    }),
+    [panelCollapsed, setPanelCollapsed, setSidebarCollapsed, sidebarCollapsed],
+  );
+}
+
 type PanelOrchestratorRenderState = {
   sidebarCollapsed: boolean;
   panelCollapsed: boolean;
@@ -43,7 +71,7 @@ type PanelOrchestratorRenderState = {
   effectivePanelWidth: number;
   sidebarResizer: React.ReactNode;
   panelResizer: React.ReactNode;
-  onCollapseRightPanel: () => void;
+  panelVisibility: PanelVisibilityActions;
 };
 
 type PanelOrchestratorProps = {
@@ -60,12 +88,12 @@ export function PanelOrchestrator(props: PanelOrchestratorProps): JSX.Element {
   const panelWidth = useLayoutStore((s) => s.panelWidth);
   const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
   const panelCollapsed = useLayoutStore((s) => s.panelCollapsed);
+  const panelVisibility = usePanelVisibilityActions();
 
   const setSidebarWidth = useLayoutStore((s) => s.setSidebarWidth);
   const setPanelWidth = useLayoutStore((s) => s.setPanelWidth);
   const resetSidebarWidth = useLayoutStore((s) => s.resetSidebarWidth);
   const resetPanelWidth = useLayoutStore((s) => s.resetPanelWidth);
-  const setPanelCollapsed = useLayoutStore((s) => s.setPanelCollapsed);
 
   const effectiveSidebarWidth = sidebarCollapsed ? 0 : sidebarWidth;
   const effectivePanelWidth = panelCollapsed ? 0 : panelWidth;
@@ -115,9 +143,8 @@ export function PanelOrchestrator(props: PanelOrchestratorProps): JSX.Element {
         effectivePanelWidth,
         sidebarResizer,
         panelResizer,
-        onCollapseRightPanel: () => setPanelCollapsed(true),
+        panelVisibility,
       })}
     </>
   );
 }
-

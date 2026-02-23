@@ -5,7 +5,10 @@ import { useLayoutStore, LAYOUT_DEFAULTS } from "../../stores/layoutStore";
 import { IconBar } from "./IconBar";
 import { LayoutShell } from "./LayoutShell";
 import { NavigationController } from "./NavigationController";
-import { PanelOrchestrator } from "./PanelOrchestrator";
+import {
+  PanelOrchestrator,
+  usePanelVisibilityActions,
+} from "./PanelOrchestrator";
 import { RightPanel } from "./RightPanel";
 import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
@@ -166,9 +169,8 @@ export function AppShell(): JSX.Element {
   const panelCollapsed = useLayoutStore((s) => s.panelCollapsed);
   const zenMode = useLayoutStore((s) => s.zenMode);
   const activeLeftPanel = useLayoutStore((s) => s.activeLeftPanel);
+  const panelVisibility = usePanelVisibilityActions();
 
-  const setSidebarCollapsed = useLayoutStore((s) => s.setSidebarCollapsed);
-  const setPanelCollapsed = useLayoutStore((s) => s.setPanelCollapsed);
   const setZenMode = useLayoutStore((s) => s.setZenMode);
   const setActiveLeftPanel = useLayoutStore((s) => s.setActiveLeftPanel);
   const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
@@ -317,9 +319,22 @@ export function AppShell(): JSX.Element {
   const openVersionHistoryPanel = React.useCallback(() => {
     setActiveLeftPanel("versionHistory");
     if (sidebarCollapsed) {
-      setSidebarCollapsed(false);
+      panelVisibility.expandSidebar();
     }
-  }, [setActiveLeftPanel, setSidebarCollapsed, sidebarCollapsed]);
+  }, [panelVisibility, setActiveLeftPanel, sidebarCollapsed]);
+
+  const toggleSidebarVisibility = React.useCallback(() => {
+    panelVisibility.toggleSidebar();
+  }, [panelVisibility]);
+
+  const toggleRightPanelVisibility = React.useCallback(() => {
+    if (panelCollapsed) {
+      setActiveRightPanel("ai");
+      panelVisibility.expandRightPanel();
+      return;
+    }
+    panelVisibility.collapseRightPanel();
+  }, [panelCollapsed, panelVisibility, setActiveRightPanel]);
 
   const openVersionHistoryForDocument = React.useCallback(
     (documentId: string) => {
@@ -378,18 +393,16 @@ export function AppShell(): JSX.Element {
   // Callbacks for CommandPalette
   const layoutActions = React.useMemo<CommandPaletteLayoutActions>(
     () => ({
-      onToggleSidebar: () => setSidebarCollapsed(!sidebarCollapsed),
-      onToggleRightPanel: () => setPanelCollapsed(!panelCollapsed),
+      onToggleSidebar: toggleSidebarVisibility,
+      onToggleRightPanel: toggleRightPanelVisibility,
       onToggleZenMode: () => setZenMode(!zenMode),
       onOpenVersionHistory: openVersionHistoryPanel,
     }),
     [
       openVersionHistoryPanel,
-      panelCollapsed,
-      setPanelCollapsed,
-      setSidebarCollapsed,
       setZenMode,
-      sidebarCollapsed,
+      toggleRightPanelVisibility,
+      toggleSidebarVisibility,
       zenMode,
     ],
   );
@@ -465,7 +478,7 @@ export function AppShell(): JSX.Element {
         group: "command",
         category: "command",
         onSelect: () => {
-          setSidebarCollapsed(!sidebarCollapsed);
+          toggleSidebarVisibility();
           setCommandPaletteOpen(false);
         },
       },
@@ -476,7 +489,7 @@ export function AppShell(): JSX.Element {
         group: "command",
         category: "command",
         onSelect: () => {
-          setPanelCollapsed(!panelCollapsed);
+          toggleRightPanelVisibility();
           setCommandPaletteOpen(false);
         },
       },
@@ -591,13 +604,11 @@ export function AppShell(): JSX.Element {
     modKey,
     openEditorDocument,
     openVersionHistoryPanel,
-    panelCollapsed,
     recentCommandIds,
     setCurrentDocument,
-    setPanelCollapsed,
-    setSidebarCollapsed,
     setZenMode,
-    sidebarCollapsed,
+    toggleRightPanelVisibility,
+    toggleSidebarVisibility,
     withRecentTracking,
     zenMode,
   ]);
@@ -700,14 +711,8 @@ export function AppShell(): JSX.Element {
       <NavigationController
         zenMode={zenMode}
         canCreateDocument={Boolean(currentProjectId)}
-        onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
-        onToggleRightPanel={() => {
-          if (panelCollapsed) {
-            setActiveRightPanel("ai");
-          } else {
-            setPanelCollapsed(true);
-          }
-        }}
+        onToggleSidebar={toggleSidebarVisibility}
+        onToggleRightPanel={toggleRightPanelVisibility}
         onToggleZenMode={() => setZenMode(!zenMode)}
         onExitZenMode={() => setZenMode(false)}
         onOpenCommandPalette={openCommandPalette}
@@ -766,7 +771,7 @@ export function AppShell(): JSX.Element {
                 collapsed={layout.panelCollapsed}
                 onOpenSettings={() => setSettingsDialogOpen(true)}
                 onOpenVersionHistory={openVersionHistoryPanel}
-                onCollapse={layout.onCollapseRightPanel}
+                onCollapse={layout.panelVisibility.collapseRightPanel}
               />
             }
             bottomBar={<StatusBar />}

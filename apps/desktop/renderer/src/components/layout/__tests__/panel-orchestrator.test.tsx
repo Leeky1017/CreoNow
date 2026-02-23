@@ -67,5 +67,13 @@ describe("WB-P2-S5/S6 PanelOrchestrator orchestration", () => {
       expect(src).not.toContain("resetPanelWidth");
     }
   });
-});
 
+  it("AppShell delegates panel collapse state writes to orchestrator helpers (WB-P2-S5/S6)", () => {
+    const appShellSource = readSource("../AppShell.tsx");
+
+    expect(appShellSource).toContain("usePanelVisibilityActions");
+    expect(appShellSource).not.toContain("setSidebarCollapsed");
+    expect(appShellSource).not.toContain("setPanelCollapsed");
+  });
+
+});
