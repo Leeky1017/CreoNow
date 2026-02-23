@@ -1,6 +1,6 @@
 # ISSUE-626
 
-更新时间：2026-02-24 00:44
+更新时间：2026-02-24 01:00
 
 ## Links
 
@@ -408,10 +408,30 @@
   - 失败根因定位：`ISSUE-626.md` 缺少一级标题 `## Plan`
   - 修复策略：补充 `## Plan` 段并以 RUN_LOG-only 签字提交触发门禁重跑
 
+### 2026-02-24 CI Blocker Fixes Commit + Push (PR #629)
+
+- Command:
+  - `pnpm lint && pnpm lint:ratchet && pnpm typecheck`
+  - `pnpm -C apps/desktop exec vitest run renderer/src/features/outline/OutlinePanel.test.tsx`
+  - `git commit -m "test: fix pr629 gate blockers in outline+lint ratchet (#626)" ...`
+  - `git push`
+  - `gh pr view 629 --json state,mergeStateStatus,autoMergeRequest,headRefOid,statusCheckRollup`
+- Exit code:
+  - verification commands: `0`
+  - `git commit`: `0`
+  - `git push`: `0`
+  - `gh pr view`: `0`
+- Key output:
+  - lint ratchet: `PASS baseline=67 current=67 delta=0`
+  - typecheck: `PASS`
+  - OutlinePanel targeted suite: `29 passed`（`[ED-SCROLL-01]` 在本地通过）
+  - blocker-fix commit: `7793d1bc3412033338f322b707781c35cff350eb`
+  - PR #629 head 更新为 `7793d1bc3412033338f322b707781c35cff350eb`，auto-merge 保持开启，required checks 已重新触发
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 3e696206373e26b96d3d287e9bbb293c9c6592d5
+- Reviewed-HEAD-SHA: 7793d1bc3412033338f322b707781c35cff350eb
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
