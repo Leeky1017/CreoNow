@@ -1,6 +1,6 @@
 # ISSUE-626
 
-更新时间：2026-02-23 23:28
+更新时间：2026-02-23 23:56
 
 ## Links
 
@@ -259,6 +259,51 @@
   - 抽取共享 Story snapshot 执行器，保留现有 snapshot 名称与场景覆盖。
   - Editor 保持 `ED-TEST-01` 场景标识；KG 套件沿用现有断言集。
 
+### 2026-02-23 Release Gate Re-Verification (release-v8)
+
+- Command:
+  - `pnpm -C apps/desktop exec vitest run renderer/src/features/editor/editor.stories.snapshot.test.ts renderer/src/features/kg/kg-views.stories.snapshot.test.ts`
+  - `pnpm -C apps/desktop exec eslint renderer/src/features/editor/editor.stories.snapshot.test.ts renderer/src/features/kg/kg-views.stories.snapshot.test.ts renderer/src/test-utils/storySnapshotHarness.tsx`
+  - `rulebook task validate issue-626-phase-3-quality-uplift`
+  - `python3 scripts/check_doc_timestamps.py --files rulebook/tasks/issue-626-phase-3-quality-uplift/proposal.md rulebook/tasks/issue-626-phase-3-quality-uplift/tasks.md openspec/_ops/task_runs/ISSUE-626.md`
+- Exit code:
+  - `vitest`: `0`
+  - `eslint`: `0`
+  - `rulebook validate`: `0`
+  - `timestamp gate`: `0`
+- Key output:
+  - `Test Files 2 passed (2)` / `Tests 2 passed (2)`
+  - `✅ Task issue-626-phase-3-quality-uplift is valid`
+  - `OK: validated timestamps for 2 governed markdown file(s)`
+
+### 2026-02-23 PR + Auto-merge Attempt (blocked by network)
+
+- Command:
+  - `scripts/agent_pr_automerge_and_sync.sh --no-wait-preflight --no-sync`
+- Exit code: `1`
+- Key output:
+  - `PRE-FLIGHT FAILED: [RUN_LOG] PR field must be a real URL ...`
+  - `error connecting to api.github.com`
+  - `check your internet connection or https://githubstatus.com`
+
+### 2026-02-23 GitHub Reachability Retry (Issue + PR probes)
+
+- Command:
+  - `for i in 1 2 3; do gh issue view 626 --json number,state,url; sleep 1; done`
+  - `for i in 1 2 3; do gh pr list --head task/626-phase-3-quality-uplift --json number,url,state,headRefName,baseRefName; sleep 1; done`
+- Exit code: `0`（loop shell 完成；6 次 `gh` 子命令均失败）
+- Key output:
+  - `error connecting to api.github.com`
+  - `check your internet connection or https://githubstatus.com`
+
+### 2026-02-23 Team Release Packet Status (task-release-v8)
+
+- Action:
+  - `claim_task(task-release-v8)` 返回 `task blocked by dependencies: task-release-v8`
+  - 已按阻塞态回填 `fail_task(task-release-v8, category=blocked)`
+- Result:
+  - Release packet 仍需等待依赖解除 + GitHub 网络恢复后再执行 PR/auto-merge 收口
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
@@ -266,5 +311,5 @@
 - Spec-Compliance: `FAIL`（PR/门禁状态尚未可验证）
 - Code-Quality: `PASS`（Rulebook validate + 文档时间戳校验通过）
 - Fresh-Verification: `FAIL`（GitHub API 不可达，无法完成 fresh gate verification）
-- Blocking-Issues: `1`
+- Blocking-Issues: `2`
 - Decision: `REJECT`
