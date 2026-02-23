@@ -1,4 +1,4 @@
-更新时间：2026-02-23 16:12
+更新时间：2026-02-23 20:02
 
 ## 1. Specification
 
@@ -34,5 +34,5 @@
 ## 6. Evidence
 
 - [x] 6.1 维护 `openspec/_ops/task_runs/ISSUE-616.md`（Dependency Sync + Red/Green 证据）
-- [ ] 6.2 提交 PR 并开启 auto-merge；required checks：`ci` / `openspec-log-guard` / `merge-serial`
-- [ ] 6.3 合并后同步控制面 `main`，并归档 Rulebook task（允许同 PR 自归档）
+- [x] 6.2 提交 PR 并开启 auto-merge；required checks：`ci` / `openspec-log-guard` / `merge-serial`
+- [x] 6.3 合并后同步控制面 `main`，并归档 Rulebook task（允许同 PR 自归档）

@@ -5,9 +5,9 @@
 - Branch: `task/616-issue-606-phase-2-shell-decomposition`
 - PR: BLOCKED (sandbox cannot reach GitHub API; lead/main-session to backfill real PR URL)
 - Scope:
-  - `openspec/changes/issue-606-phase-2-shell-decomposition/**`
+  - `openspec/changes/archive/issue-606-phase-2-shell-decomposition/**`
   - `openspec/changes/archive/issue-606-phase-1-stop-bleeding/**`
-  - `rulebook/tasks/issue-616-issue-606-phase-2-shell-decomposition/**`
+  - `rulebook/tasks/archive/2026-02-23-issue-616-issue-606-phase-2-shell-decomposition/**`
   - `openspec/_ops/task_runs/ISSUE-616.md`
   - `apps/desktop/renderer/src/components/layout/AppShell.tsx`
   - `apps/desktop/renderer/src/components/layout/**`
@@ -16,7 +16,7 @@
 
 ## Plan
 
-- [ ] 创建/确认 OPEN Issue（#616）并落盘 `gh issue view` 成功输出（当前沙箱网络阻断）
+- [x] 创建/确认 OPEN Issue（#616）并落盘 `gh issue view` 成功输出
 - [x] 同步 `origin/main` 并确认 worktree 基于 `task/616-issue-606-phase-2-shell-decomposition`
 - [x] 阅读 `openspec/changes/issue-606-phase-2-shell-decomposition/{proposal.md,tasks.md}`
 - [x] 阅读 `openspec/specs/workbench/spec.md`、`openspec/specs/ipc/spec.md`
@@ -55,7 +55,7 @@
   - `sed -n '1,220p' openspec/project.md`
   - `sed -n '1,220p' openspec/specs/workbench/spec.md`
   - `sed -n '1,220p' openspec/specs/ipc/spec.md`
-  - `sed -n '1,320p' openspec/changes/issue-606-phase-2-shell-decomposition/tasks.md`
+  - `sed -n '1,320p' openspec/changes/archive/issue-606-phase-2-shell-decomposition/tasks.md`
   - `git log --oneline --reverse origin/main..HEAD`
 - Exit code: `0`
 - Key output:
@@ -65,7 +65,7 @@
 ### 2026-02-23 TDD Mapping Reality Check
 
 - Command:
-  - `sed -n '1,320p' openspec/changes/issue-606-phase-2-shell-decomposition/tasks.md`
+  - `sed -n '1,320p' openspec/changes/archive/issue-606-phase-2-shell-decomposition/tasks.md`
 - Exit code: `0`
 - Key output:
   - Scenario 映射覆盖 `WB-P2-S1..S6` 与 `IPC-P2-S1..S3`。
@@ -123,7 +123,7 @@
 ### 2026-02-23 Governance Packet Sanity
 
 - Command:
-  - `python3 scripts/check_doc_timestamps.py --files rulebook/tasks/issue-616-issue-606-phase-2-shell-decomposition/tasks.md`
+  - `python3 scripts/check_doc_timestamps.py --files rulebook/tasks/archive/2026-02-23-issue-616-issue-606-phase-2-shell-decomposition/tasks.md`
 - Exit code: `0`
 - Key output:
   - `OK: validated timestamps for 1 governed markdown file(s)`
@@ -160,11 +160,58 @@
 - Note:
   - 当前沙箱 DNS/外网不可达，无法完成 PR 创建、auto-merge 与 control-plane main 收口。
 
+### 2026-02-23 Checkpoint-Resume Verification（Main Session）
+
+- Command:
+  - `pnpm -C apps/desktop exec vitest run renderer/src/components/layout/__tests__/layout-shell-boundary.test.tsx renderer/src/components/layout/__tests__/navigation-controller.test.tsx renderer/src/components/layout/__tests__/panel-orchestrator.test.tsx renderer/src/components/layout/__tests__/viewport-allocation.test.tsx renderer/src/services/__tests__/ipc-boundary-lint.test.ts renderer/src/services/__tests__/project-service.test.ts renderer/src/services/__tests__/service-error-normalization.test.ts tests/lint/renderer-viewport-ownership.test.ts`
+  - `pnpm exec node --import tsx scripts/test-discovery-consistency-gate.ts`
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `pnpm exec node --import tsx scripts/contract-generate.ts && git diff --exit-code packages/shared/types/ipc-generated.ts`
+  - `pnpm exec node --import tsx scripts/cross-module-contract-gate.ts`
+- Exit code:
+  - `vitest`: `0`
+  - `discovery-gate`: `0`
+  - `typecheck`: `0`
+  - `lint`: `0`
+  - `contract-generate + diff`: `0`
+  - `cross-module gate`: `0`
+- Key output:
+  - `Test Files 7 passed (7)`
+  - `Tests 18 passed (18)`
+  - `[discovery-gate] unit discovered=194 executed=194`
+  - `[discovery-gate] integration discovered=88 executed=88`
+  - `[CROSS_MODULE_GATE] PASS`
+
+### 2026-02-23 Change/Rulebook Archive + EO Sync
+
+- Command:
+  - `mv openspec/changes/issue-606-phase-2-shell-decomposition openspec/changes/archive/`
+  - `mv rulebook/tasks/issue-616-issue-606-phase-2-shell-decomposition rulebook/tasks/archive/2026-02-23-issue-616-issue-606-phase-2-shell-decomposition`
+  - `python3 scripts/check_doc_timestamps.py`
+- Exit code:
+  - `mv`: `0`
+  - `check_doc_timestamps.py`: `0`
+- Key output:
+  - `OK: validated timestamps for 3 governed markdown file(s)`
+  - `openspec/changes/EXECUTION_ORDER.md` 已同步为仅含 Phase 3/4 两个活跃 change。
+
+### 2026-02-23 Preflight Recheck（Current Blocking）
+
+- Command:
+  - `scripts/agent_pr_preflight.sh`
+- Exit code:
+  - `agent_pr_preflight.sh`: `1`
+- Key output:
+  - `PRE-FLIGHT FAILED: [RUN_LOG] PR field must be a real URL in .../openspec/_ops/task_runs/ISSUE-616.md: BLOCKED (sandbox cannot reach GitHub API; lead/main-session to backfill real PR URL)`
+- Note:
+  - 当前唯一阻断为 RUN_LOG `- PR:` 需回填真实 PR URL；完成 PR 创建并签字提交后重新校验。
+
 ## Dependency Sync Check
 
 - Inputs reviewed:
   - `openspec/changes/archive/issue-606-phase-1-stop-bleeding/**`
-  - `openspec/changes/issue-606-phase-2-shell-decomposition/{proposal.md,tasks.md}`
+  - `openspec/changes/archive/issue-606-phase-2-shell-decomposition/{proposal.md,tasks.md}`
   - `openspec/specs/workbench/spec.md`
   - `openspec/specs/ipc/spec.md`
 - Result: `NO_DRIFT`
