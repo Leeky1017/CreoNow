@@ -1,6 +1,6 @@
 # ISSUE-626
 
-更新时间：2026-02-24 00:42
+更新时间：2026-02-24 00:44
 
 ## Links
 
@@ -61,6 +61,12 @@
 - Required checks (`ci` / `openspec-log-guard` / `merge-serial`): `IN_PROGRESS`（PR #629；签字提交前一次 `openspec-log-guard` 失败待重跑）
 - Auto-merge: `ENABLED`（`gh pr merge 629 --auto --merge`）
 - Main sync (`HEAD == origin/main` after merge): `NOT_REACHED`
+
+## Plan
+
+- [x] 完成 Rulebook closeout（`tasks.md` 勾选 + `.metadata.json` 置 `completed`）并补齐 RUN_LOG 主会话签字
+- [x] push 分支并创建 PR `#629`（body 含 `Closes #626`），开启 auto-merge
+- [ ] 跟踪 required checks（`ci` / `openspec-log-guard` / `merge-serial`）直至合并，随后完成 main 同步与 worktree 清理
 
 ## Runs
 
@@ -391,10 +397,21 @@
   - `OK: validated timestamps for 1 governed markdown file(s)`
   - execution-order sync commit: `080e87c97746278f4def0662ec1488180fe74cb0`
 
+### 2026-02-24 openspec-log-guard Failure Triage (missing Plan heading)
+
+- Command:
+  - `gh pr checks 629 --watch`
+  - `gh run view 22315534198 --job 64559221526 --log-failed`
+- Exit code: `0`
+- Key output:
+  - required check `openspec-log-guard` failed with `RUN_LOG missing required fields: Plan`
+  - 失败根因定位：`ISSUE-626.md` 缺少一级标题 `## Plan`
+  - 修复策略：补充 `## Plan` 段并以 RUN_LOG-only 签字提交触发门禁重跑
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 080e87c97746278f4def0662ec1488180fe74cb0
+- Reviewed-HEAD-SHA: 3e696206373e26b96d3d287e9bbb293c9c6592d5
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
