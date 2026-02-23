@@ -1,6 +1,6 @@
 # 提案：issue-617-scoped-lifecycle-and-abort
 
-更新时间：2026-02-23 23:06
+更新时间：2026-02-23 23:54
 
 ## 背景
 
@@ -70,4 +70,4 @@
 
 ## 审阅状态
 
-- Owner 审阅：`PENDING`（需要 Owner 明确：BE-SLA-S3 与 `issue-617-skill-runtime-hardening` 的责任边界；timeout->abort 的可观测性/边界；以及是否允许将 BoundedMap 治理资产从本 change 中显式 de-scope）
+- Owner 审阅：`ACCEPTED`（2026-02-23 23:54：本 change 范围已锁定；BoundedMap 已显式 de-scope；BE-SLA-S2/S3/S4 的跨模块 delta spec 已补齐；BE-SLA-S3 与 `issue-617-skill-runtime-hardening` 的重叠点已在 spec 中声明边界，允许进入 Red 阶段）

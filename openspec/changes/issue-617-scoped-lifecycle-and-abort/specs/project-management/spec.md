@@ -1,6 +1,6 @@
 # Project Management Specification Delta
 
-更新时间：2026-02-23 23:06
+更新时间：2026-02-23 23:54
 
 ## Change: issue-617-scoped-lifecycle-and-abort
 
@@ -20,4 +20,4 @@
 - **假设** 当前项目为 A，目标项目为 B
 - **当** 系统执行项目切换
 - **则** 系统先对所有 project-scoped 服务执行 A 的 unbind，再执行持久化切换，再执行 B 的 bind
-- **并且** 任一解绑/绑定步骤具备超时保护并可记录审计事件
+- **并且** 任一解绑/绑定步骤具备超时保护
