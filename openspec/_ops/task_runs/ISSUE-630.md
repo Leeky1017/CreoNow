@@ -1,6 +1,6 @@
 # ISSUE-630
 
-更新时间：2026-02-24 03:10
+更新时间：2026-02-24 03:14
 
 ## Links
 
@@ -22,13 +22,13 @@
 
 ## Status
 
-- CURRENT: 已完成治理脚手架（RUN_LOG + Rulebook task）；已集成 S3 slot-recovery（commit `98b03799`）；PR `#631` 已创建，等待集成 S1/S4 并补齐验证与最终签字提交。
+- CURRENT: 已完成治理脚手架（RUN_LOG + Rulebook task）；已集成 S3 slot-recovery（commit `98b03799`）与 S1/S4 project lifecycle（commit `3e8e7fd1`）；PR `#631` 已创建，等待 CI 全绿并在最终签字提交补齐 `## Main Session Audit`。
 
 ## Plan
 
 - [x] 创建 RUN_LOG（本文件）
 - [x] 创建并 validate Rulebook task：`issue-630-scoped-lifecycle-s1-s3-s4`
-- [ ] 集成实现分支（S1/S3/S4；S3 已完成）
+- [x] 集成实现分支（S1/S3/S4）
 - [ ] 本地跑关键验证（按门禁对应脚本）
 - [x] 创建 PR（title: `Implement scoped lifecycle S1/S3/S4 (#630)`；body 含 `Closes #630`）
 - [ ] 开启 auto-merge 并跟踪 required checks 全绿
@@ -67,3 +67,17 @@
   - local contract test: exit `0`
   - PR: https://github.com/Leeky1017/CreoNow/pull/631
   - mergeable: `MERGEABLE`；mergeStateStatus: `BLOCKED`
+
+### 2026-02-24 Integrate S1/S4 project lifecycle + scoped cache cleanup
+
+- Command:
+  - `git fetch origin --prune`
+  - `git show --stat 9b4a89b9 --oneline`
+  - `git cherry-pick 9b4a89b9`
+  - `node --import tsx apps/desktop/main/src/services/context/__tests__/project-scoped-cache.cleanup.contract.test.ts`
+  - `node --import tsx apps/desktop/main/src/services/projects/__tests__/project-lifecycle.switch.contract.test.ts`
+- Exit code: `0`
+- Key output:
+  - cherry-pick commit: `3e8e7fd1`
+  - `project-scoped-cache.cleanup.contract.test.ts: all assertions passed`
+  - `project-lifecycle.switch.contract.test.ts: all assertions passed`
