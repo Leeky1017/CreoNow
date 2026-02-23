@@ -1,7 +1,11 @@
 import React from "react";
 
 import { LAYOUT_DEFAULTS, useLayoutStore } from "../../stores/layoutStore";
-import { clamp, computePanelMax, computeSidebarMax } from "./appShellLayoutHelpers";
+import {
+  clamp,
+  computePanelMax,
+  computeSidebarMax,
+} from "./appShellLayoutHelpers";
 import { Resizer } from "./Resizer";
 
 export function computeNextSidebarWidth(args: {

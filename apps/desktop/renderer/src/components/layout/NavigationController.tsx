@@ -107,12 +107,7 @@ export function NavigationController(props: NavigationControllerProps): null {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [
-    debouncedToggleRightPanel,
-    debouncedToggleSidebar,
-    props,
-  ]);
+  }, [debouncedToggleRightPanel, debouncedToggleSidebar, props]);
 
   return null;
 }
-

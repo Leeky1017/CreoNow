@@ -48,7 +48,9 @@ export function createProjectService(deps: {
   const createTraceId = deps.createTraceId ?? defaultCreateTraceId;
 
   return {
-    async switchProject(projectId: string): Promise<ServiceResult<ProjectSwitchResult>> {
+    async switchProject(
+      projectId: string,
+    ): Promise<ServiceResult<ProjectSwitchResult>> {
       const current = await deps.invoke("project:project:getcurrent", {});
       if (!current.ok) {
         if (current.error.code === "NOT_FOUND") {

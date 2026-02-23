@@ -75,5 +75,4 @@ describe("WB-P2-S5/S6 PanelOrchestrator orchestration", () => {
     expect(appShellSource).not.toContain("setSidebarCollapsed");
     expect(appShellSource).not.toContain("setPanelCollapsed");
   });
-
 });

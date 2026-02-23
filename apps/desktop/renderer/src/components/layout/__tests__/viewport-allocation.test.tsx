@@ -31,4 +31,3 @@ describe("WB-P2-S4 Viewport allocation ownership", () => {
     expect(layoutShellSource).toContain("h-full");
   });
 });
-

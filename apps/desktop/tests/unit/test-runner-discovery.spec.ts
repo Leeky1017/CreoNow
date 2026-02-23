@@ -112,7 +112,9 @@ assert.equal(
   "vitest bucket should include tests/unit main vitest suites",
 );
 assert.equal(
-  unitPlan.buckets.vitestFiles.some((file) => file.endsWith(lintVitestSentinel)),
+  unitPlan.buckets.vitestFiles.some((file) =>
+    file.endsWith(lintVitestSentinel),
+  ),
   true,
   "vitest bucket should include tests/lint viewport ownership suite",
 );

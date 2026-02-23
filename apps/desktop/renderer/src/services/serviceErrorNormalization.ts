@@ -1,6 +1,10 @@
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 
-export type ServiceErrorKind = "timeout" | "validation" | "internal" | "unknown";
+export type ServiceErrorKind =
+  | "timeout"
+  | "validation"
+  | "internal"
+  | "unknown";
 
 export type ServiceError = {
   kind: ServiceErrorKind;
@@ -12,7 +16,11 @@ export type ServiceError = {
 };
 
 function toKind(code: IpcErrorCode): ServiceErrorKind {
-  if (code === "IPC_TIMEOUT" || code === "TIMEOUT" || code.endsWith("_TIMEOUT")) {
+  if (
+    code === "IPC_TIMEOUT" ||
+    code === "TIMEOUT" ||
+    code.endsWith("_TIMEOUT")
+  ) {
     return "timeout";
   }
 

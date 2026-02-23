@@ -49,10 +49,7 @@ import {
 } from "../../lib/diff/unifiedDiff";
 import { runFireAndForget } from "../../lib/fireAndForget";
 import { invoke } from "../../lib/ipcClient";
-import {
-  extractZenModeContent,
-  getModKey,
-} from "./appShellLayoutHelpers";
+import { extractZenModeContent, getModKey } from "./appShellLayoutHelpers";
 import "../../i18n";
 
 let hasWarnedInvalidZenContent = false;
@@ -807,7 +804,10 @@ export function AppShell(): JSX.Element {
                 />
 
                 {/* Zen Mode Overlay */}
-                <ZenModeOverlay open={zenMode} onExit={() => setZenMode(false)} />
+                <ZenModeOverlay
+                  open={zenMode}
+                  onExit={() => setZenMode(false)}
+                />
                 {!compareMode ? <SystemDialog {...dialogProps} /> : null}
               </>
             }

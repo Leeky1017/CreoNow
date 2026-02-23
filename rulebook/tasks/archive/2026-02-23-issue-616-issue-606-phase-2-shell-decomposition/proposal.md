@@ -13,6 +13,7 @@
 - IPC service convergence：renderer 侧调用路径收敛为 `Feature -> Service -> Preload/Main`，错误策略在 service 层统一。
 
 ## Impact
+
 - Affected specs:
   - `openspec/changes/issue-606-phase-2-shell-decomposition/{proposal.md,tasks.md}`
   - `openspec/specs/workbench/spec.md`
