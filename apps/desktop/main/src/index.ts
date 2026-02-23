@@ -36,7 +36,9 @@ import { createJudgeService } from "./services/judge/judgeService";
 import { createJudgeQualityService } from "./services/ai/judgeQualityService";
 import { createKgRecognitionRuntime } from "./services/kg/kgRecognitionRuntime";
 import { createStateExtractor } from "./services/kg/stateExtractor";
+import { createContextProjectScopedCache } from "./services/context/projectScopedCache";
 import { createCreonowWatchService } from "./services/context/watchService";
+import { createProjectLifecycle } from "./services/projects/projectLifecycle";
 import { createUtilityProcessFoundation } from "./services/utilityprocess/utilityProcessFoundation";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -231,6 +233,29 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
   });
   const watchService = createCreonowWatchService({ logger: deps.logger });
+  const contextCache = createContextProjectScopedCache({
+    logger: deps.logger,
+    watchService,
+  });
+  const projectLifecycle = createProjectLifecycle({
+    logger: deps.logger,
+    timeoutMs: 5_000,
+  });
+  projectLifecycle.register({
+    id: "context",
+    unbind: ({ projectId, traceId, signal }) => {
+      if (signal.aborted) {
+        return;
+      }
+      contextCache.unbindProject({ projectId, traceId });
+    },
+    bind: ({ projectId, traceId, signal }) => {
+      if (signal.aborted) {
+        return;
+      }
+      contextCache.bindProject({ projectId, traceId });
+    },
+  });
   const embeddingService = createEmbeddingService({
     logger: deps.logger,
     onnxRuntime,
@@ -326,6 +351,7 @@ function registerIpcHandlers(deps: {
     userDataDir: deps.userDataDir,
     logger: deps.logger,
     projectSessionBinding,
+    projectLifecycle,
   });
 
   registerContextIpcHandlers({

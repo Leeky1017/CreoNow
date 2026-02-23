@@ -4,6 +4,7 @@ import type Database from "better-sqlite3";
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
 import { createProjectService } from "../services/projects/projectService";
+import type { ProjectLifecycle } from "../services/projects/projectLifecycle";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 /**
@@ -17,6 +18,7 @@ export function registerProjectIpcHandlers(deps: {
   userDataDir: string;
   logger: Logger;
   projectSessionBinding?: ProjectSessionBindingRegistry;
+  projectLifecycle?: ProjectLifecycle;
 }): void {
   deps.ipcMain.handle(
     "project:project:create",
@@ -365,12 +367,29 @@ export function registerProjectIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         logger: deps.logger,
       });
+
+      const traceId = payload.traceId;
+      const lifecycle = deps.projectLifecycle;
+      if (lifecycle) {
+        await lifecycle.unbindAll({
+          projectId: payload.fromProjectId,
+          traceId,
+        });
+      }
+
       const res = svc.switchProject({
         projectId: payload.projectId,
         fromProjectId: payload.fromProjectId,
         operatorId: payload.operatorId,
-        traceId: payload.traceId,
+        traceId,
       });
+
+      if (lifecycle) {
+        await lifecycle.bindAll({
+          projectId: res.ok ? payload.projectId : payload.fromProjectId,
+          traceId,
+        });
+      }
       if (res.ok) {
         deps.projectSessionBinding?.bind({
           webContentsId: event.sender.id,
