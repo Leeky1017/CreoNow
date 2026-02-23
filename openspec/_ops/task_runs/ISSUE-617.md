@@ -229,7 +229,7 @@ Current signoff below is for utilityprocess delivery PR `#624`.
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: bd5ddecb73e64e40211111795bdb85eb1e04582b
+- Reviewed-HEAD-SHA: bd5ddecbbfcd9ca321fda79407c03fe903b1c312
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
