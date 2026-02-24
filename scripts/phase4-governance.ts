@@ -324,6 +324,14 @@ export function validateBranchLifecyclePolicy(
       );
       continue;
     }
+    if (ageDays < 0) {
+      addError(
+        errors,
+        "BRANCH_CHRONOLOGY_INVALID",
+        `execution branch ${branch.name} has createdAt after mergedAt/now`,
+      );
+      continue;
+    }
 
     if (kind !== "experiment" && ageDays > SHORT_LIVED_BRANCH_LIMIT_DAYS) {
       addError(

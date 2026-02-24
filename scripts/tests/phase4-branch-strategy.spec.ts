@@ -51,3 +51,28 @@ import {
     JSON.stringify(result.errors, null, 2),
   );
 }
+
+// PM-P4-S3 edge case
+// createdAt 晚于 mergedAt/now 时必须阻断
+{
+  const invalidChronologyPlan: Phase4BranchStrategyInput = {
+    governanceBranch: "task/635-issue-606-phase-4-polish-and-delivery",
+    now: "2026-02-24T02:30:00.000Z",
+    executionBranches: [
+      {
+        name: "fix/sidebar-density",
+        createdAt: "2026-02-24T02:00:00.000Z",
+        mergedAt: "2026-02-24T01:30:00.000Z",
+        targetBranch: "task/635-issue-606-phase-4-polish-and-delivery",
+      },
+    ],
+  };
+
+  const result = validateBranchLifecyclePolicy(invalidChronologyPlan);
+  assert.equal(result.ok, false, JSON.stringify(result.errors, null, 2));
+  assert.equal(
+    result.errors.some((error) => error.code === "BRANCH_CHRONOLOGY_INVALID"),
+    true,
+    JSON.stringify(result.errors, null, 2),
+  );
+}
