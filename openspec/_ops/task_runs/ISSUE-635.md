@@ -1,6 +1,6 @@
 # ISSUE-635
 
-更新时间：2026-02-24 10:39
+更新时间：2026-02-24 11:25
 
 ## Links
 
@@ -49,7 +49,7 @@
 - [x] 创建 Rulebook task 并通过 validate
 - [x] 初始化 ISSUE-635 RUN_LOG（含 Main Session Audit scaffold）
 - [x] 完成 dependency sync freshness 核对并记录结论
-- [ ] 进入 Red/Green/Refactor 执行并持续补证据
+- [x] 进入 Red/Green/Refactor 执行并持续补证据
 - [ ] 创建 PR、回填真实 PR URL、完成 required checks + auto-merge 收口
 
 ## Main Session Audit
@@ -108,3 +108,67 @@
   - `✅ Task issue-635-issue-606-phase-4-polish-and-delivery is valid`
   - warning: `No spec files found (specs/*/spec.md)`
   - `OK: validated timestamps for 2 governed markdown file(s)`
+
+### 2026-02-24 Red: PM-P4-S1/S2 deliverables + ADR
+
+- Command:
+  - `pnpm exec tsx apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts`
+- Exit code: `1`
+- Key output:
+  - `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../scripts/phase4-governance'`
+
+### 2026-02-24 Red: PM-P4-S3/S4 branch strategy
+
+- Command:
+  - `pnpm exec tsx scripts/tests/phase4-branch-strategy.spec.ts`
+- Exit code: `1`
+- Key output:
+  - `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../scripts/phase4-governance'`
+
+### 2026-02-24 Red: PM-P4-S5/S6 CI gates
+
+- Command:
+  - `pnpm exec tsx scripts/tests/phase4-ci-gates.spec.ts`
+- Exit code: `1`
+- Key output:
+  - `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../scripts/phase4-governance'`
+
+### 2026-02-24 Red: PM-P4-S7/S8 i18n strategy
+
+- Command:
+  - `pnpm exec tsx apps/desktop/tests/integration/i18n/phase4-i18n-strategy.spec.ts`
+- Exit code: `1`
+- Key output:
+  - `Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../scripts/phase4-governance'`
+
+### 2026-02-24 Green: PM-P4-S1/S2 deliverables + ADR
+
+- Command:
+  - `pnpm exec tsx apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts`
+- Exit code: `0`
+- Key output:
+  - no assertion failures
+
+### 2026-02-24 Green: PM-P4-S3/S4 branch strategy
+
+- Command:
+  - `pnpm exec tsx scripts/tests/phase4-branch-strategy.spec.ts`
+- Exit code: `0`
+- Key output:
+  - no assertion failures
+
+### 2026-02-24 Green: PM-P4-S5/S6 CI gates
+
+- Command:
+  - `pnpm exec tsx scripts/tests/phase4-ci-gates.spec.ts`
+- Exit code: `0`
+- Key output:
+  - no assertion failures
+
+### 2026-02-24 Green: PM-P4-S7/S8 i18n strategy
+
+- Command:
+  - `pnpm exec tsx apps/desktop/tests/integration/i18n/phase4-i18n-strategy.spec.ts`
+- Exit code: `0`
+- Key output:
+  - no assertion failures
