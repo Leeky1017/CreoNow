@@ -1,13 +1,13 @@
 # ISSUE-638
 
-更新时间：2026-02-24 14:06
+更新时间：2026-02-24 20:56
 
 ## Links
 
 - Issue: #638
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/638
 - Branch: `task/638-embedding-rag-offload`
-- PR: N/A（gov baseline 阶段，待主会话创建）
+- PR: https://github.com/Leeky1017/CreoNow/pull/642
 
 ## Scope
 
@@ -23,6 +23,7 @@
 - [x] 执行并记录 Dependency Sync Check（含归档依赖核对）
 - [x] 执行并记录受管 markdown 时间戳门禁
 - [x] 修正 delta 文档的基线术语，明确 UtilityProcess compute runner 契约并去除“已实现物理 OS 进程隔离”暗示
+- [x] 产出治理预检清单（BE-EMR-S1~S4 + Rulebook/RUN_LOG/Preflight 门禁）
 - [ ] 主会话后续实现/提测/PR/auto-merge 收口
 
 ## Runs
@@ -281,6 +282,40 @@
 - Key output:
   - `OK: validated timestamps for 3 governed markdown file(s)`
 
+### 2026-02-24 Governance precheck checklist（mate-governance）
+
+- Command:
+  - `rulebook task validate issue-638-embedding-rag-offload`
+  - `grep -n '^## ' openspec/changes/issue-617-embedding-rag-offload/tasks.md`
+  - `for f in apps/desktop/main/src/services/embedding/embeddingQueue.ts apps/desktop/main/src/services/embedding/embeddingComputeOffload.ts apps/desktop/main/src/services/rag/ragComputeOffload.ts apps/desktop/main/src/services/embedding/semanticChunkIndexCache.ts apps/desktop/main/src/ipc/file.ts apps/desktop/main/src/ipc/embedding.ts apps/desktop/main/src/ipc/rag.ts apps/desktop/main/src/ipc/__tests__/file-autosave-embedding-runtime.contract.test.ts apps/desktop/main/src/ipc/__tests__/embedding-generate-runtime.contract.test.ts apps/desktop/main/src/ipc/__tests__/rag-retrieve-runtime.contract.test.ts apps/desktop/main/src/services/embedding/__tests__/embedding-queue.debounce.contract.test.ts apps/desktop/main/src/services/embedding/__tests__/embedding-offload.compute.contract.test.ts apps/desktop/main/src/services/embedding/__tests__/semantic-chunk-index.lru-ttl.contract.test.ts apps/desktop/main/src/services/rag/__tests__/rag-offload.compute.contract.test.ts rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md; do test -f \"$f\" && echo \"[OK] $f\"; done`
+  - `python3 scripts/check_doc_timestamps.py --files rulebook/tasks/issue-638-embedding-rag-offload/proposal.md rulebook/tasks/issue-638-embedding-rag-offload/tasks.md rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md openspec/_ops/task_runs/ISSUE-638.md`
+  - `grep -n 'PR:' openspec/_ops/task_runs/ISSUE-638.md`
+- Exit code:
+  - all `0`
+- Key output:
+  - `✅ Task issue-638-embedding-rag-offload is valid`
+  - `## 1. Specification` / `## 2. TDD Mapping（先测前提）` / `## 3. Red（先写失败测试）` / `## 4. Green（最小实现通过）` / `## 5. Refactor（保持绿灯）` / `## 6. Evidence`
+  - `[OK] apps/desktop/main/src/services/embedding/embeddingQueue.ts`
+  - `[OK] apps/desktop/main/src/services/embedding/embeddingComputeOffload.ts`
+  - `[OK] apps/desktop/main/src/services/rag/ragComputeOffload.ts`
+  - `[OK] apps/desktop/main/src/services/embedding/semanticChunkIndexCache.ts`
+  - `[OK] apps/desktop/main/src/ipc/file.ts`
+  - `[OK] apps/desktop/main/src/ipc/embedding.ts`
+  - `[OK] apps/desktop/main/src/ipc/rag.ts`
+  - `[OK] apps/desktop/main/src/ipc/__tests__/file-autosave-embedding-runtime.contract.test.ts`
+  - `[OK] apps/desktop/main/src/ipc/__tests__/embedding-generate-runtime.contract.test.ts`
+  - `[OK] apps/desktop/main/src/ipc/__tests__/rag-retrieve-runtime.contract.test.ts`
+  - `[OK] apps/desktop/main/src/services/embedding/__tests__/embedding-queue.debounce.contract.test.ts`
+  - `[OK] apps/desktop/main/src/services/embedding/__tests__/embedding-offload.compute.contract.test.ts`
+  - `[OK] apps/desktop/main/src/services/embedding/__tests__/semantic-chunk-index.lru-ttl.contract.test.ts`
+  - `[OK] apps/desktop/main/src/services/rag/__tests__/rag-offload.compute.contract.test.ts`
+  - `[OK] rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`
+  - `OK: validated timestamps for 4 governed markdown file(s)`
+  - `10:- PR: N/A（gov baseline 阶段，待主会话创建）`
+- Governance finding:
+  - 预检清单已生成：`rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`
+  - 当前 preflight 文档阻塞点仅剩：PR URL 未回填 + Main Session Audit 未签字。
+
 ## Dependency Sync Check
 
 - 检查时间：2026-02-24 14:05
@@ -313,9 +348,9 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: PENDING
-- Spec-Compliance: PENDING
-- Code-Quality: PENDING
-- Fresh-Verification: PENDING
-- Blocking-Issues: PENDING
-- Decision: PENDING
+- Reviewed-HEAD-SHA: 990f1cd97fbd8b795f6d6bd7bad5b92bfa32681f
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
