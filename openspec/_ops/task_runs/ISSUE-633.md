@@ -42,7 +42,7 @@
 - [x] 勾选 change tasks checklist + 归档 change（`openspec/changes/archive/**`）
 - [x] 同步 `openspec/changes/EXECUTION_ORDER.md`
 - [x] 创建 PR #636 + 开启 auto-merge
-- [ ] 最终签字提交：仅修改 RUN_LOG，补齐 `## Main Session Audit` 且 `Reviewed-HEAD-SHA == HEAD^`
+- [x] 最终签字提交：仅修改 RUN_LOG，补齐 `## Main Session Audit` 且 `Reviewed-HEAD-SHA == HEAD^`
 - [ ] 跟踪 required checks 全绿并确认自动合并
 - [ ] 同步控制面 `main` + 清理 worktree
 
@@ -101,3 +101,13 @@
   - `✅ Task issue-633-issue-617-change-closeout is valid`
   - Warning: `No spec files found (specs/*/spec.md)`
   - `OK: validated timestamps for 1 governed markdown file(s)`
+
+## Main Session Audit
+
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: efde2aaa904ee761dd9603d813ede53af36db8cd
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
