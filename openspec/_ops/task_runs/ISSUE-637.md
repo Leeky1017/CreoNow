@@ -1,6 +1,6 @@
 # ISSUE-637
 
-更新时间：2026-02-24 13:58
+更新时间：2026-02-24 13:59
 
 ## Links
 
@@ -213,13 +213,13 @@
   - `git fetch origin && git merge --no-edit origin/main`
 - Key output:
   - required checks (`ci`/`openspec-log-guard`/`merge-serial`) 已全绿，但 PR 仍为 `BEHIND`
-  - sync merge commit: `d440c9ce3a2c4f9656a0d904fdb0ce039f2660a1`
+  - sync merge commit: `d440c9ce0ff2dcf2cccd0e44d20ba95c9b1a2f7a`
   - 引入 `origin/main` 最新提交：`d0fb0b2a`、`ff5da04c`
 
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: d440c9ce3a2c4f9656a0d904fdb0ce039f2660a1
+- Reviewed-HEAD-SHA: d440c9ce0ff2dcf2cccd0e44d20ba95c9b1a2f7a
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
