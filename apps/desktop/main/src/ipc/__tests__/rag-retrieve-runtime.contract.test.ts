@@ -207,7 +207,10 @@ async function main(): Promise<void> {
   } as unknown as Parameters<typeof registerRagIpcHandlers>[0]);
 
   const retrieveHandler = handlers.get("rag:context:retrieve");
-  assert.ok(retrieveHandler, "rag:context:retrieve handler should be registered");
+  assert.ok(
+    retrieveHandler,
+    "rag:context:retrieve handler should be registered",
+  );
   const callerAbort = new AbortController();
 
   const response = (await retrieveHandler?.(
@@ -221,7 +224,11 @@ async function main(): Promise<void> {
     callerAbort.signal,
   )) as RagContextResponse;
 
-  assert.equal(runCalls, 1, "rag retrieve should call compute runner exactly once");
+  assert.equal(
+    runCalls,
+    1,
+    "rag retrieve should call compute runner exactly once",
+  );
   assert.equal(
     observedSignal,
     callerAbort.signal,
@@ -326,7 +333,10 @@ async function main(): Promise<void> {
   const timeoutRetrieveHandler = timeoutHarness.handlers.get(
     "rag:context:retrieve",
   );
-  assert.ok(timeoutRetrieveHandler, "timeout-path handler should be registered");
+  assert.ok(
+    timeoutRetrieveHandler,
+    "timeout-path handler should be registered",
+  );
   const timeoutResponse = (await timeoutRetrieveHandler?.(
     {},
     {

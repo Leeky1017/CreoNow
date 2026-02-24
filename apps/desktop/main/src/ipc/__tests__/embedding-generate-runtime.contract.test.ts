@@ -155,7 +155,9 @@ async function main(): Promise<void> {
     computeRunner,
   } as unknown as Parameters<typeof registerEmbeddingIpcHandlers>[0]);
 
-  const errorGenerateHandler = errorHarness.handlers.get("embedding:text:generate");
+  const errorGenerateHandler = errorHarness.handlers.get(
+    "embedding:text:generate",
+  );
   assert.ok(errorGenerateHandler, "error-path handler should be registered");
 
   const errorResponse = (await errorGenerateHandler?.(
@@ -202,7 +204,9 @@ async function main(): Promise<void> {
     embedding: directEmbedding,
   });
 
-  const directGenerateHandler = directHarness.handlers.get("embedding:text:generate");
+  const directGenerateHandler = directHarness.handlers.get(
+    "embedding:text:generate",
+  );
   assert.ok(directGenerateHandler, "direct-path handler should be registered");
 
   const directResponse = (await directGenerateHandler?.(
@@ -213,7 +217,11 @@ async function main(): Promise<void> {
     },
   )) as EmbeddingGenerateResponse;
 
-  assert.equal(directEncodeCalls, 1, "direct path should preserve sync encode behavior");
+  assert.equal(
+    directEncodeCalls,
+    1,
+    "direct path should preserve sync encode behavior",
+  );
   assert.equal(directResponse.ok, true);
 }
 

@@ -184,13 +184,12 @@ export function registerFileIpcHandlers(deps: {
   semanticIndex?: SemanticChunkIndexService;
   computeRunner?: EmbeddingComputeRunner | null;
 }): void {
-  const semanticAutosaveEmbeddingRuntime = createSemanticAutosaveEmbeddingRuntime(
-    {
+  const semanticAutosaveEmbeddingRuntime =
+    createSemanticAutosaveEmbeddingRuntime({
       logger: deps.logger,
       semanticIndex: deps.semanticIndex,
       computeRunner: deps.computeRunner,
-    },
-  );
+    });
 
   deps.ipcMain.handle(
     "file:document:create",
