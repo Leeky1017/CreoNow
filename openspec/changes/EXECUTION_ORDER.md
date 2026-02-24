@@ -1,6 +1,6 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-24 13:08
+更新时间：2026-02-24 22:35
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
@@ -80,6 +80,7 @@
 - ISSUE-606 当前状态：Phase 1、Phase 2、Phase 3 已完成并归档（Phase 3 路径：`openspec/changes/archive/issue-606-phase-3-quality-uplift`）；活跃阶段剩余 Phase 4。
 - ISSUE-635 当前状态：交付 PR `#639` 已自动合并到 `main`，`issue-606-phase-4-polish-and-delivery` 进入后续治理收口阶段。
 - ISSUE-637 当前状态：交付 PR `#640` 已自动合并到 `main`，`issue-617-kg-query-engine-refactor` 实现已落地主干，待后续 change closeout。
+- ISSUE-638 当前状态：承接 `issue-617-embedding-rag-offload` 收口，交付 PR `#642` 已开启 auto-merge；当前 `mergeStateStatus=DIRTY`，需先完成分支同步并重跑 required checks。
 - ISSUE-641 当前状态：治理基线已启动（Rulebook + RUN_LOG），Issue freshness 在线校验受网络限制待补证。
 - ISSUE-613 当前状态：PR `#614` 已合并，Issue 已关闭，Rulebook task 已归档。
 - ISSUE-616 当前状态：Phase 2 closeout PR `#625` 已合并，执行顺序以本文件为准。
