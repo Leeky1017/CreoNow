@@ -1,6 +1,6 @@
 # issue-638-embedding-rag-offload
 
-更新时间：2026-02-24 11:30
+更新时间：2026-02-24 20:57
 
 ## 1. Governance Scaffold（Gov-Mate Scope）
 
@@ -19,3 +19,8 @@
 
 - [x] 3.1 交付命令证据给主会话（create/validate/dependency-sync/timestamp gate）
 - [ ] 3.2 Feature implementation（out of scope for gov-mate）
+
+## 4. Preflight Readiness Docs（Gov-Mate Scope）
+
+- [x] 4.1 产出跨审计预检清单：`rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`（覆盖 BE-EMR-S1~S4 的必查文件与通过标准）
+- [x] 4.2 在 RUN_LOG 补录治理核验结果与当前阻塞（PR URL 回填、Main Session Audit 签字前置）
