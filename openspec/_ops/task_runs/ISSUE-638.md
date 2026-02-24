@@ -1,6 +1,6 @@
 # ISSUE-638
 
-更新时间：2026-02-24 11:30
+更新时间：2026-02-24 11:34
 
 ## Links
 
@@ -73,6 +73,44 @@
   - ` M openspec/changes/issue-617-embedding-rag-offload/tasks.md`
   - `?? openspec/_ops/task_runs/ISSUE-638.md`
   - `?? rulebook/tasks/issue-638-embedding-rag-offload/`
+
+### 2026-02-24 Integration verification matrix（integrate-mate）
+
+- Command:
+  - `pnpm typecheck`
+  - `pnpm lint`
+  - `node --import tsx/esm apps/desktop/main/src/services/embedding/__tests__/embedding-queue.debounce.contract.test.ts`
+  - `node --import tsx/esm apps/desktop/main/src/services/embedding/__tests__/embedding-offload.compute.contract.test.ts`
+  - `node --import tsx/esm scripts/contract-generate.ts && git diff --exit-code packages/shared/types/ipc-generated.ts`
+  - `node --import tsx/esm scripts/cross-module-contract-gate.ts`
+- Exit code:
+  - `typecheck`: `0`
+  - `lint`: `0`（仅遗留 warning，无新增 error）
+  - `embedding-queue.debounce.contract`: `0`
+  - `embedding-offload.compute.contract`: `0`
+  - `contract-generate + diff`: `0`
+  - `cross-module-contract-gate`: `0`
+- Key output:
+  - `tsc --noEmit` completed without errors.
+  - `eslint . --ext .ts,.tsx` returned `0` with existing repo warnings.
+  - `[CROSS_MODULE_GATE] PASS`
+
+### 2026-02-24 Preflight / remote-delivery blockers
+
+- Command:
+  - `./scripts/agent_pr_preflight.sh`
+  - `gh issue view 638 --json number,state,title,url`
+  - `git push origin task/638-embedding-rag-offload`
+- Exit code:
+  - `preflight`: `1`
+  - `gh issue view`: `1`
+  - `git push`: `128`
+- Key output:
+  - `PRE-FLIGHT FAILED: [RUN_LOG] PR field must be a real URL ... N/A（gov baseline 阶段，待主会话创建）`
+  - `error connecting to api.github.com`
+  - `fatal: unable to access 'https://github.com/Leeky1017/CreoNow.git/': Could not resolve host: github.com`
+- Blocker conclusion:
+  - 当前可完成本地验证；远程交付链路（push / PR / auto-merge / checks polling / main sync）受网络解析失败阻断。
 
 ## Dependency Sync Check
 
