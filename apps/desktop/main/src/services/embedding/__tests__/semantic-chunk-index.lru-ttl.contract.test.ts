@@ -62,7 +62,7 @@ function createEmbeddingRecorder() {
 }
 
 {
-  let now = 0;
+  const now = 0;
   const logger = createLogger();
   const { embedding, getEncodeCalls } = createEmbeddingRecorder();
   const chunkHashCache = createSemanticChunkIndexCache<string>({
