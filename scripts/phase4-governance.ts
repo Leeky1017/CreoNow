@@ -13,6 +13,16 @@ export const PHASE4_REQUIRED_CHECKS = [
   "openspec-log-guard",
   "merge-serial",
 ] as const;
+export type Phase4RequiredCheckName = (typeof PHASE4_REQUIRED_CHECKS)[number];
+
+const REQUIRED_CHECK_WORKFLOW_FILES: Record<
+  Phase4RequiredCheckName,
+  string
+> = {
+  ci: "ci.yml",
+  "openspec-log-guard": "openspec-log-guard.yml",
+  "merge-serial": "merge-serial.yml",
+};
 
 type DeliverableStatus = "draft" | "reviewing" | "accepted";
 type AdrStatus = "Proposed" | "Accepted" | "Deprecated" | "Superseded";
@@ -241,6 +251,7 @@ export type Phase4ExecutionBranch = {
 
 export type Phase4BranchStrategyInput = {
   governanceBranch: string;
+  governanceIssueId?: number;
   now: string;
   executionBranches: Phase4ExecutionBranch[];
 };
@@ -254,6 +265,18 @@ function extractBranchKind(branchName: string): BranchKind | null {
     return null;
   }
   return kind as BranchKind;
+}
+
+function extractGovernanceIssueId(governanceBranch: string): number | null {
+  const match = /^task\/([0-9]+)-[a-z0-9-]+$/u.exec(governanceBranch);
+  if (!match) {
+    return null;
+  }
+  const issueToken = match[1];
+  if (!issueToken) {
+    return null;
+  }
+  return Number.parseInt(issueToken, 10);
 }
 
 function computeAgeDays(startAt: string, endAt: string): number | null {
@@ -276,6 +299,19 @@ export function validateBranchLifecyclePolicy(
       "BRANCH_GOVERNANCE_PATTERN_INVALID",
       "governance branch must follow task/<N>-<slug>",
     );
+  }
+  if (
+    typeof input.governanceIssueId === "number" &&
+    input.governanceIssueId > 0
+  ) {
+    const parsedIssueId = extractGovernanceIssueId(input.governanceBranch);
+    if (parsedIssueId !== input.governanceIssueId) {
+      addError(
+        errors,
+        "BRANCH_GOVERNANCE_ISSUE_MISMATCH",
+        `governance branch ${input.governanceBranch} does not match issue ${input.governanceIssueId.toString()}`,
+      );
+    }
   }
   if (!isIsoTimestamp(input.now)) {
     addError(
@@ -380,8 +416,14 @@ const PHASE4_QUALITY_GATE_NAMES = [
 
 type Phase4QualityGateName = (typeof PHASE4_QUALITY_GATE_NAMES)[number];
 
+export type Phase4RequiredChecksContract = {
+  documentedChecks: string[];
+  workflowChecks: string[];
+};
+
 export type Phase4CiGateInput = {
   autoMergeEnabled: boolean;
+  requiredChecksContract: Phase4RequiredChecksContract;
   requiredChecks: Array<{
     name: string;
     state: RequiredCheckState;
@@ -406,6 +448,53 @@ function sameStringSet(left: string[], right: string[]): boolean {
   return true;
 }
 
+export function extractDocumentedRequiredChecks(markdown: string): string[] {
+  const checks = new Set<string>();
+  for (const requiredCheck of PHASE4_REQUIRED_CHECKS) {
+    if (markdown.includes(`\`${requiredCheck}\``)) {
+      checks.add(requiredCheck);
+    }
+  }
+  return [...checks].sort((a, b) => a.localeCompare(b));
+}
+
+export function extractRequiredChecksFromWorkflowFiles(
+  workflowFiles: string[],
+): string[] {
+  const workflowFileSet = new Set(workflowFiles);
+  const checks: string[] = [];
+  for (const requiredCheck of PHASE4_REQUIRED_CHECKS) {
+    const workflowFile = REQUIRED_CHECK_WORKFLOW_FILES[requiredCheck];
+    if (workflowFileSet.has(workflowFile)) {
+      checks.push(requiredCheck);
+    }
+  }
+  return checks.sort((a, b) => a.localeCompare(b));
+}
+
+export function validateRequiredChecksContract(
+  input: Phase4RequiredChecksContract,
+): ValidationResult {
+  const errors: ValidationError[] = [];
+
+  if (!sameStringSet(input.documentedChecks, [...PHASE4_REQUIRED_CHECKS])) {
+    addError(
+      errors,
+      "CI_REQUIRED_CHECK_DOC_DRIFT",
+      "delivery-skill documented required checks drift from ci + openspec-log-guard + merge-serial",
+    );
+  }
+  if (!sameStringSet(input.workflowChecks, [...PHASE4_REQUIRED_CHECKS])) {
+    addError(
+      errors,
+      "CI_REQUIRED_CHECK_WORKFLOW_DRIFT",
+      "workflow required checks drift from ci + openspec-log-guard + merge-serial",
+    );
+  }
+
+  return buildResult(errors);
+}
+
 export function validateCiDeliveryGate(
   input: Phase4CiGateInput,
 ): ValidationResult {
@@ -418,6 +507,11 @@ export function validateCiDeliveryGate(
       "delivery is blocked when auto-merge is disabled",
     );
   }
+
+  const contractResult = validateRequiredChecksContract(
+    input.requiredChecksContract,
+  );
+  errors.push(...contractResult.errors);
 
   const checkNames = input.requiredChecks.map((check) => check.name);
   if (!sameStringSet(checkNames, [...PHASE4_REQUIRED_CHECKS])) {
@@ -461,28 +555,47 @@ interface LocaleTreeNode {
 
 type LocaleLeaf = string | LocaleTreeNode;
 
+function walkLocaleKeys(
+  node: LocaleLeaf,
+  prefix: string,
+  out: Set<string>,
+): void {
+  if (typeof node === "string") {
+    out.add(prefix);
+    return;
+  }
+
+  for (const [key, value] of Object.entries(node)) {
+    const nextPrefix = prefix.length === 0 ? key : `${prefix}.${key}`;
+    walkLocaleKeys(value, nextPrefix, out);
+  }
+}
+
+export function collectLocaleKeysByLocale(
+  localeTrees: Record<string, LocaleLeaf>,
+): Record<string, string[]> {
+  const byLocale: Record<string, string[]> = {};
+
+  for (const [locale, tree] of Object.entries(localeTrees)) {
+    const keys = new Set<string>();
+    walkLocaleKeys(tree, "", keys);
+    byLocale[locale] = [...keys].sort((a, b) => a.localeCompare(b));
+  }
+
+  return byLocale;
+}
+
 export function flattenLocaleKeys(
   localeTrees: Record<string, LocaleLeaf>,
 ): string[] {
-  const out = new Set<string>();
-
-  function walk(node: LocaleLeaf, prefix: string): void {
-    if (typeof node === "string") {
-      out.add(prefix);
-      return;
-    }
-
-    for (const [key, value] of Object.entries(node)) {
-      const nextPrefix = prefix.length === 0 ? key : `${prefix}.${key}`;
-      walk(value, nextPrefix);
+  const byLocale = collectLocaleKeysByLocale(localeTrees);
+  const merged = new Set<string>();
+  for (const keys of Object.values(byLocale)) {
+    for (const key of keys) {
+      merged.add(key);
     }
   }
-
-  for (const locale of Object.values(localeTrees)) {
-    walk(locale, "");
-  }
-
-  return [...out].sort((a, b) => a.localeCompare(b));
+  return [...merged].sort((a, b) => a.localeCompare(b));
 }
 
 export type Phase4I18nSubmission = {
@@ -491,7 +604,7 @@ export type Phase4I18nSubmission = {
     i18nKey?: string;
     rawLiteral?: string;
   }>;
-  localeKeys: string[];
+  localeKeysByLocale: Record<string, string[]>;
   formattingRequirements: Array<"date" | "number" | "relativeTime">;
   intlCalls: string[];
   hardcodedFormattingPatterns: string[];
@@ -508,7 +621,23 @@ export function validateI18nSubmissionGate(
   input: Phase4I18nSubmission,
 ): ValidationResult {
   const errors: ValidationError[] = [];
-  const localeKeySet = new Set(input.localeKeys);
+  const baseLocaleKeySet = new Set(input.localeKeysByLocale["zh-CN"] ?? []);
+  const fallbackLocaleKeySet = new Set(input.localeKeysByLocale["en-US"] ?? []);
+
+  if (baseLocaleKeySet.size === 0) {
+    addError(
+      errors,
+      "I18N_BASE_LOCALE_MISSING",
+      "zh-CN locale keys are required for phase 4 submission gate",
+    );
+  }
+  if (fallbackLocaleKeySet.size === 0) {
+    addError(
+      errors,
+      "I18N_FALLBACK_LOCALE_MISSING",
+      "en-US locale keys are required for phase 4 submission gate",
+    );
+  }
 
   for (const change of input.uiChanges) {
     if (hasText(change.rawLiteral)) {
@@ -528,11 +657,18 @@ export function validateI18nSubmissionGate(
       continue;
     }
 
-    if (!localeKeySet.has(change.i18nKey)) {
+    if (!baseLocaleKeySet.has(change.i18nKey)) {
       addError(
         errors,
-        "I18N_KEY_NOT_IN_LOCALE",
-        `component ${change.componentPath} references missing locale key ${change.i18nKey}`,
+        "I18N_KEY_NOT_IN_BASE_LOCALE",
+        `component ${change.componentPath} references missing zh-CN key ${change.i18nKey}`,
+      );
+    }
+    if (!fallbackLocaleKeySet.has(change.i18nKey)) {
+      addError(
+        errors,
+        "I18N_KEY_NOT_IN_FALLBACK_LOCALE",
+        `component ${change.componentPath} references missing en-US key ${change.i18nKey}`,
       );
     }
   }
