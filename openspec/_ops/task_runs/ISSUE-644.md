@@ -1,6 +1,6 @@
 # ISSUE-644
 
-更新时间：2026-02-24 22:16
+更新时间：2026-02-24 22:18
 
 ## Links
 
@@ -102,10 +102,20 @@
   - PR: `https://github.com/Leeky1017/CreoNow/pull/645`
   - preflight 阶段性阻断定位准确，仅剩 Main Session Audit 签字门槛待完成。
 
+### 2026-02-24 Preflight follow-up（EXECUTION_ORDER 同步）
+
+- Command:
+  - `python3 scripts/agent_pr_preflight.py`
+  - `edit openspec/changes/EXECUTION_ORDER.md`（更新时间 + ISSUE-644 进度快照）
+  - `git commit/push`（execution order sync）
+- Key output:
+  - preflight 阻断：`[OPENSPEC_CHANGE] active change content updated but openspec/changes/EXECUTION_ORDER.md not updated in this PR`
+  - 修复后已补齐 `openspec/changes/EXECUTION_ORDER.md` 同步更新。
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 5fc2d1cf7dc1ca16747f71724c43dcb0332f7103
+- Reviewed-HEAD-SHA: 4118cf538f6e4e502cececc8a90ce4e777622278
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
