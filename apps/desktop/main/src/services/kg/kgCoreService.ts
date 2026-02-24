@@ -35,6 +35,8 @@ const DEFAULT_EDGE_LIMIT = 200_000;
 const DEFAULT_ATTRIBUTE_KEYS_LIMIT = 200;
 const DEFAULT_PATH_EXPANSION_LIMIT = 10_000;
 const DEFAULT_SUBGRAPH_MAX_K = 3;
+const DEFAULT_VALIDATE_MAX_DEPTH = 10_000;
+const DEFAULT_VALIDATE_MAX_VISITED = DEFAULT_NODE_LIMIT;
 
 const MAX_ENTITY_NAME_CHARS = 256;
 const MAX_ENTITY_ALIAS_CHARS = 256;
@@ -73,6 +75,8 @@ type ServiceLimits = {
   queryTimeoutMs: number;
   pathExpansionLimit: number;
   subgraphMaxK: number;
+  validateMaxDepth: number;
+  validateMaxVisited: number;
 };
 
 type EntityRow = {
@@ -152,6 +156,14 @@ function resolveLimits(): ServiceLimits {
     subgraphMaxK: resolvePositiveInt(
       process.env.CREONOW_KG_SUBGRAPH_MAX_K,
       DEFAULT_SUBGRAPH_MAX_K,
+    ),
+    validateMaxDepth: resolvePositiveInt(
+      process.env.CREONOW_KG_VALIDATE_MAX_DEPTH,
+      DEFAULT_VALIDATE_MAX_DEPTH,
+    ),
+    validateMaxVisited: resolvePositiveInt(
+      process.env.CREONOW_KG_VALIDATE_MAX_VISITED,
+      DEFAULT_VALIDATE_MAX_VISITED,
     ),
   };
 }
@@ -577,22 +589,6 @@ function buildDirectedAdjacency(
     const current = adjacency.get(relation.sourceEntityId) ?? [];
     current.push(relation.targetEntityId);
     adjacency.set(relation.sourceEntityId, current);
-  }
-  return adjacency;
-}
-
-function buildUndirectedAdjacency(
-  relations: KnowledgeRelation[],
-): Map<string, string[]> {
-  const adjacency = new Map<string, string[]>();
-  for (const relation of relations) {
-    const source = adjacency.get(relation.sourceEntityId) ?? [];
-    source.push(relation.targetEntityId);
-    adjacency.set(relation.sourceEntityId, source);
-
-    const target = adjacency.get(relation.targetEntityId) ?? [];
-    target.push(relation.sourceEntityId);
-    adjacency.set(relation.targetEntityId, target);
   }
   return adjacency;
 }
@@ -1445,42 +1441,60 @@ export function createKnowledgeGraphCoreService(args: {
           return ipcError("NOT_FOUND", "center entity not found");
         }
 
-        const entities = listProjectEntities(args.db, normalizedProjectId);
-        const relations = listProjectRelations(args.db, normalizedProjectId);
-        const adjacency = buildUndirectedAdjacency(relations);
+        const depthRows = args.db
+          .prepare<
+            [string, string, string, number],
+            { entityId: string; depth: number }
+          >(
+            `WITH RECURSIVE traversal(entity_id, depth) AS (
+               SELECT ? AS entity_id, 0 AS depth
+               UNION
+               SELECT edges.neighbor_id AS entity_id, traversal.depth + 1 AS depth
+               FROM traversal
+               JOIN (
+                 SELECT source_entity_id AS from_id, target_entity_id AS neighbor_id
+                 FROM kg_relations
+                 WHERE project_id = ?
+                 UNION ALL
+                 SELECT target_entity_id AS from_id, source_entity_id AS neighbor_id
+                 FROM kg_relations
+                 WHERE project_id = ?
+               ) AS edges
+                 ON edges.from_id = traversal.entity_id
+               WHERE traversal.depth < ?
+             ),
+             ranked AS (
+               SELECT entity_id, MIN(depth) AS depth
+               FROM traversal
+               GROUP BY entity_id
+             )
+             SELECT entity_id AS entityId, depth
+             FROM ranked
+             ORDER BY depth ASC, entity_id ASC`,
+          )
+          .all(normalizedCenter, normalizedProjectId, normalizedProjectId, k);
 
-        const visited = new Set<string>([normalizedCenter]);
-        const queue: Array<{ entityId: string; depth: number }> = [
-          { entityId: normalizedCenter, depth: 0 },
-        ];
+        const reachableEntityIds = depthRows.map((row) => row.entityId);
+        const reachableSet = new Set(reachableEntityIds);
 
-        while (queue.length > 0) {
-          const head = queue.shift();
-          if (!head) {
-            break;
-          }
-
-          if (head.depth >= k) {
-            continue;
-          }
-
-          const neighbors = adjacency.get(head.entityId) ?? [];
-          for (const neighbor of neighbors) {
-            if (visited.has(neighbor)) {
-              continue;
-            }
-            visited.add(neighbor);
-            queue.push({ entityId: neighbor, depth: head.depth + 1 });
-          }
-        }
-
-        const selectedEntities = entities.filter((entity) =>
-          visited.has(entity.id),
+        const selectedEntityRows = listEntitiesByIds(
+          args.db,
+          reachableEntityIds,
+        ).filter((entry) => entry.projectId === normalizedProjectId);
+        const entityById = new Map(
+          selectedEntityRows.map((entry) => [entry.id, rowToEntity(entry.row)]),
         );
-        const selectedRelations = relations.filter(
+        const selectedEntities = reachableEntityIds
+          .map((entityId) => entityById.get(entityId))
+          .filter((entity): entity is KnowledgeEntity => entity !== undefined);
+
+        const selectedRelations = listProjectRelations(
+          args.db,
+          normalizedProjectId,
+        ).filter(
           (relation) =>
-            visited.has(relation.sourceEntityId) &&
-            visited.has(relation.targetEntityId),
+            reachableSet.has(relation.sourceEntityId) &&
+            reachableSet.has(relation.targetEntityId),
         );
 
         return {
@@ -1552,13 +1566,14 @@ export function createKnowledgeGraphCoreService(args: {
         const adjacency = buildDirectedAdjacency(relations);
 
         const queue: string[] = [normalizedSource];
+        let queueIndex = 0;
         const visited = new Set<string>([normalizedSource]);
         const previous = new Map<string, string>();
 
         let expansions = 0;
         let found = false;
 
-        while (queue.length > 0) {
+        while (queueIndex < queue.length) {
           if (Date.now() - startedAt > effectiveTimeoutMs) {
             return ipcError("KG_QUERY_TIMEOUT", "query timeout", {
               timeoutMs: effectiveTimeoutMs,
@@ -1567,10 +1582,8 @@ export function createKnowledgeGraphCoreService(args: {
             });
           }
 
-          const nodeId = queue.shift();
-          if (!nodeId) {
-            break;
-          }
+          const nodeId = queue[queueIndex];
+          queueIndex += 1;
 
           expansions += 1;
           if (expansions > limits.pathExpansionLimit) {
@@ -1593,7 +1606,15 @@ export function createKnowledgeGraphCoreService(args: {
             }
             visited.add(neighbor);
             previous.set(neighbor, nodeId);
+            if (neighbor === normalizedTarget) {
+              found = true;
+              break;
+            }
             queue.push(neighbor);
+          }
+
+          if (found) {
+            break;
           }
         }
 
@@ -1635,11 +1656,26 @@ export function createKnowledgeGraphCoreService(args: {
       }
     },
 
-    queryValidate: ({ projectId }) => {
+    queryValidate: ({ projectId, maxDepth, maxVisited }) => {
       const startedAt = Date.now();
       const invalidProjectId = validateProjectId(projectId);
       if (invalidProjectId) {
         return invalidProjectId;
+      }
+
+      const effectiveMaxDepth = maxDepth ?? limits.validateMaxDepth;
+      if (!Number.isInteger(effectiveMaxDepth) || effectiveMaxDepth <= 0) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "maxDepth must be a positive integer",
+        );
+      }
+      const effectiveMaxVisited = maxVisited ?? limits.validateMaxVisited;
+      if (!Number.isInteger(effectiveMaxVisited) || effectiveMaxVisited <= 0) {
+        return ipcError(
+          "INVALID_ARGUMENT",
+          "maxVisited must be a positive integer",
+        );
       }
 
       const normalizedProjectId = projectId.trim();
@@ -1655,46 +1691,98 @@ export function createKnowledgeGraphCoreService(args: {
         const cycles: string[][] = [];
         const cycleKeys = new Set<string>();
 
+        type TraversalFrame = {
+          nodeId: string;
+          depth: number;
+          neighbors: string[];
+          nextNeighborIndex: number;
+          entered: boolean;
+        };
+
         const visited = new Set<string>();
         const stack = new Set<string>();
         const path: string[] = [];
+        const frames: TraversalFrame[] = [];
 
-        const walk = (nodeId: string): void => {
-          visited.add(nodeId);
-          stack.add(nodeId);
-          path.push(nodeId);
-
-          const neighbors = adjacency.get(nodeId) ?? [];
-          for (const neighbor of neighbors) {
-            if (!visited.has(neighbor)) {
-              walk(neighbor);
-              continue;
-            }
-            if (!stack.has(neighbor)) {
-              continue;
-            }
-
-            const idx = path.lastIndexOf(neighbor);
-            if (idx < 0) {
-              continue;
-            }
-            const cycle = [...path.slice(idx), neighbor];
-            const key = cycle.join("->");
-            if (cycleKeys.has(key)) {
-              continue;
-            }
-
-            cycleKeys.add(key);
-            cycles.push(cycle);
+        const pushFrame = (nodeId: string, depth: number): Err | null => {
+          if (depth > effectiveMaxDepth) {
+            return ipcError("KG_QUERY_TIMEOUT", "query timeout", {
+              reason: "MAX_DEPTH_EXCEEDED",
+              maxDepth: effectiveMaxDepth,
+              depth,
+              nodeId,
+              suggestion: "reduce graph scope or increase maxDepth",
+            });
           }
 
-          stack.delete(nodeId);
-          path.pop();
+          frames.push({
+            nodeId,
+            depth,
+            neighbors: adjacency.get(nodeId) ?? [],
+            nextNeighborIndex: 0,
+            entered: false,
+          });
+          return null;
         };
 
         for (const nodeId of adjacency.keys()) {
           if (!visited.has(nodeId)) {
-            walk(nodeId);
+            const pushRootError = pushFrame(nodeId, 0);
+            if (pushRootError) {
+              return pushRootError;
+            }
+
+            while (frames.length > 0) {
+              const frame = frames[frames.length - 1];
+              if (!frame.entered) {
+                frame.entered = true;
+                visited.add(frame.nodeId);
+                if (visited.size > effectiveMaxVisited) {
+                  return ipcError("KG_QUERY_TIMEOUT", "query timeout", {
+                    reason: "MAX_VISITED_EXCEEDED",
+                    maxVisited: effectiveMaxVisited,
+                    visited: visited.size,
+                    nodeId: frame.nodeId,
+                    suggestion: "reduce graph scope or increase maxVisited",
+                  });
+                }
+                stack.add(frame.nodeId);
+                path.push(frame.nodeId);
+              }
+
+              if (frame.nextNeighborIndex >= frame.neighbors.length) {
+                stack.delete(frame.nodeId);
+                path.pop();
+                frames.pop();
+                continue;
+              }
+
+              const neighbor = frame.neighbors[frame.nextNeighborIndex];
+              frame.nextNeighborIndex += 1;
+              if (!visited.has(neighbor)) {
+                const pushChildError = pushFrame(neighbor, frame.depth + 1);
+                if (pushChildError) {
+                  return pushChildError;
+                }
+                continue;
+              }
+              if (!stack.has(neighbor)) {
+                continue;
+              }
+
+              const idx = path.lastIndexOf(neighbor);
+              if (idx < 0) {
+                continue;
+              }
+              const cycle = [...path.slice(idx), neighbor];
+              const key = cycle.join("->");
+              if (cycleKeys.has(key)) {
+                continue;
+              }
+
+              cycleKeys.add(key);
+              cycles.push(cycle);
+            }
           }
         }
 

@@ -177,6 +177,8 @@ export type KnowledgeGraphService = {
   }) => ServiceResult<KnowledgePathResult>;
   queryValidate: (args: {
     projectId: string;
+    maxDepth?: number;
+    maxVisited?: number;
   }) => ServiceResult<KnowledgeValidateResult>;
   queryRelevant: (args: {
     projectId: string;
