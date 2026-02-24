@@ -31,6 +31,16 @@ const WORDS_PER_SECOND = 3;
 
 type SemanticAutosaveEmbeddingRuntime = Pick<EmbeddingQueue, "enqueue">;
 
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === "string" && error.trim().length > 0) {
+    return error;
+  }
+  return "unknown error";
+}
+
 function logSemanticUpsertFailed(args: {
   logger: Logger;
   projectId: string;
@@ -59,10 +69,11 @@ export function createSemanticAutosaveEmbeddingRuntime(args: {
   embeddingQueue?: Pick<EmbeddingQueue, "enqueue">;
   debounceMs?: number;
 }): SemanticAutosaveEmbeddingRuntime | null {
-  if (args.embeddingQueue) {
+  const embeddingQueue = args.embeddingQueue;
+  if (embeddingQueue) {
     return {
       enqueue: (task) => {
-        args.embeddingQueue?.enqueue(task);
+        embeddingQueue.enqueue(task);
       },
     };
   }
@@ -102,7 +113,7 @@ export function createSemanticAutosaveEmbeddingRuntime(args: {
       if (runResult.status !== "completed") {
         args.logger.error("embedding_index_upsert_runner_failed", {
           status: runResult.status,
-          message: runResult.error.message,
+          message: toErrorMessage(runResult.error),
           project_id: task.projectId,
           document_id: task.documentId,
         });
@@ -110,7 +121,7 @@ export function createSemanticAutosaveEmbeddingRuntime(args: {
     },
     onError: (error, task) => {
       args.logger.error("embedding_index_upsert_queue_failed", {
-        message: error instanceof Error ? error.message : String(error),
+        message: toErrorMessage(error),
         project_id: task.projectId,
         document_id: task.documentId,
       });
