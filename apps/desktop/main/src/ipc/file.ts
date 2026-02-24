@@ -67,19 +67,21 @@ export function createSemanticAutosaveEmbeddingRuntime(args: {
     };
   }
 
-  if (!args.semanticIndex || !args.computeRunner) {
+  const semanticIndex = args.semanticIndex;
+  const computeRunner = args.computeRunner;
+  if (!semanticIndex || !computeRunner) {
     return null;
   }
 
   const queue = createEmbeddingQueue({
     debounceMs: args.debounceMs,
     run: async (task) => {
-      const runResult = await args.computeRunner.run({
+      const runResult = await computeRunner.run({
         execute: async (signal) => {
           if (signal.aborted) {
             return;
           }
-          const upserted = args.semanticIndex?.upsertDocument({
+          const upserted = semanticIndex.upsertDocument({
             projectId: task.projectId,
             documentId: task.documentId,
             contentText: task.contentText,
