@@ -383,6 +383,7 @@ function registerIpcHandlers(deps: {
     recognitionRuntime,
     stateExtractor,
     semanticIndex,
+    computeRunner: utilityProcessFoundation.compute,
   });
 
   registerExportIpcHandlers({
@@ -404,6 +405,7 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     embedding: embeddingService,
     semanticIndex,
+    computeRunner: utilityProcessFoundation.compute,
     defaultModel: deps.env.CREONOW_EMBEDDING_MODEL ?? "default",
   });
 
@@ -421,6 +423,7 @@ function registerIpcHandlers(deps: {
     embedding: embeddingService,
     ragRerank,
     semanticIndex,
+    computeRunner: utilityProcessFoundation.compute,
     defaultModel: deps.env.CREONOW_EMBEDDING_MODEL ?? "default",
   });
 

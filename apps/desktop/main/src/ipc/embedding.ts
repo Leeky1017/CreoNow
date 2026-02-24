@@ -3,6 +3,10 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
+import {
+  createEmbeddingComputeOffload,
+  type EmbeddingComputeRunner,
+} from "../services/embedding/embeddingComputeOffload";
 import type { EmbeddingService } from "../services/embedding/embeddingService";
 import {
   createSemanticChunkIndexService,
@@ -63,12 +67,14 @@ function hasCorruptedOffsets(chunk: {
  * Why: SR2 requires deterministic semantic retrieval contracts with explicit
  * fallback behavior when embedding model is unavailable.
  */
+/* eslint-disable max-lines-per-function */
 export function registerEmbeddingIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
   embedding: EmbeddingService;
   semanticIndex?: SemanticChunkIndexService;
+  computeRunner?: EmbeddingComputeRunner | null;
   defaultModel?: string;
 }): void {
   const semanticIndex =
@@ -78,18 +84,37 @@ export function registerEmbeddingIpcHandlers(deps: {
       embedding: deps.embedding,
       defaultModel: deps.defaultModel ?? "default",
     });
+  const embeddingTextOffload = deps.computeRunner
+    ? createEmbeddingComputeOffload({
+        computeRunner: deps.computeRunner,
+        encodeOnCompute: ({ texts, model }) =>
+          deps.embedding.encode({
+            texts,
+            model,
+          }),
+      })
+    : null;
 
   deps.ipcMain.handle(
     "embedding:text:generate",
     async (
       _e,
       payload: { texts: string[]; model?: string },
+      signal?: AbortSignal,
     ): Promise<IpcResponse<{ vectors: number[][]; dimension: number }>> => {
       if (!deps.db) {
         return {
           ok: false,
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
+      }
+
+      if (embeddingTextOffload) {
+        return await embeddingTextOffload.encode({
+          texts: payload.texts,
+          model: payload.model,
+          signal,
+        });
       }
 
       const encoded = deps.embedding.encode({
@@ -378,3 +403,4 @@ export function registerEmbeddingIpcHandlers(deps: {
     },
   );
 }
+/* eslint-enable max-lines-per-function */

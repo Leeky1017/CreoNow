@@ -1,6 +1,6 @@
 # Search & Retrieval Specification Delta
 
-更新时间：2026-02-22 19:37
+更新时间：2026-02-24 14:01
 
 ## Change: issue-617-embedding-rag-offload
 
@@ -8,8 +8,9 @@
 
 系统**必须**确保 autosave 触发的 embedding 计算不会阻塞编辑器主线程：
 
-- 推理必须在 ComputeProcess 执行，主进程不得持有同步推理会话。
+- 推理必须通过 UtilityProcess compute runner 契约执行（`utilityProcessFoundation.compute`），主进程不得持有同步推理会话。
 - autosave → EmbeddingQueue 必须 debounce + 去重，避免“每次保存都推理”。
+- 本 delta 的 offload 基线是可测试的 compute runner 执行路径；在无额外实现证据前，不将“物理 OS 进程隔离”作为验收事实。
 
 #### Scenario: BE-EMR-S1 EmbeddingQueue debounce 并按 documentId 去重 [ADDED]
 
@@ -18,22 +19,22 @@
 - **则** 队列对该文档的任务去重并应用 debounce
 - **并且** 最终仅执行最新版本的 embedding 计算（或等价一致语义）
 
-#### Scenario: BE-EMR-S2 Embedding encode 通过 ComputeProcess 执行 [ADDED]
+#### Scenario: BE-EMR-S2 Embedding encode 通过 UtilityProcess compute runner 执行 [ADDED]
 
 - **假设** 系统需要对文本进行 embedding encode
 - **当** 触发 encode 执行
-- **则** encode 在 ComputeProcess 内执行并返回向量结果
+- **则** encode 通过 UtilityProcess compute runner 契约执行并返回向量结果
 - **并且** 主进程不执行同步推理（避免阻塞 IPC 与 UI）
 
 ### Requirement: RAG 检索与语义缓存必须有界并支持稳定降级 [ADDED]
 
 系统**必须**确保 RAG retrieve 的重量计算不阻塞主线程，并对缓存提供容量上限与过期策略。
 
-#### Scenario: BE-EMR-S3 RAG retrieve 通过 ComputeProcess 执行并返回稳定 TopK [ADDED]
+#### Scenario: BE-EMR-S3 RAG retrieve 通过 UtilityProcess compute runner 执行并返回稳定 TopK [ADDED]
 
 - **假设** 用户触发 RAG 检索请求
 - **当** 系统执行 retrieve + rerank
-- **则** 重量计算在 ComputeProcess 执行并返回稳定的 TopK 结果
+- **则** 重量计算通过 UtilityProcess compute runner 契约执行并返回稳定的 TopK 结果
 - **并且** 支持 timeout/取消以避免长时间占用资源
 
 #### Scenario: BE-EMR-S4 语义块缓存具备 maxSize 淘汰与 TTL 过期 [ADDED]
