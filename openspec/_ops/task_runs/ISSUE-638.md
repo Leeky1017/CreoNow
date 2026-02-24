@@ -1,6 +1,6 @@
 # ISSUE-638
 
-更新时间：2026-02-24 11:49
+更新时间：2026-02-24 12:30
 
 ## Links
 
@@ -25,6 +25,27 @@
 - [ ] 主会话后续实现/提测/PR/auto-merge 收口
 
 ## Runs
+
+### 2026-02-24 BE-EMR-S1/S2 Red（file autosave runtime contract）
+
+- Command:
+  - `node --import tsx apps/desktop/main/src/ipc/__tests__/file-autosave-embedding-runtime.contract.test.ts`
+- Exit code: `1`
+- Key output:
+  - `SyntaxError: The requested module '../file' does not provide an export named 'createSemanticAutosaveEmbeddingRuntime'`
+
+### 2026-02-24 BE-EMR-S1/S2 Green（runtime wiring + contracts）
+
+- Command:
+  - `node --import tsx apps/desktop/main/src/ipc/__tests__/file-autosave-embedding-runtime.contract.test.ts`
+  - `node --import tsx apps/desktop/main/src/services/embedding/__tests__/embedding-queue.debounce.contract.test.ts`
+  - `node --import tsx apps/desktop/main/src/services/embedding/__tests__/embedding-offload.compute.contract.test.ts`
+- Exit code:
+  - all `0`
+- Key output:
+  - `[OK] node --import tsx apps/desktop/main/src/ipc/__tests__/file-autosave-embedding-runtime.contract.test.ts`
+  - `[OK] node --import tsx apps/desktop/main/src/services/embedding/__tests__/embedding-queue.debounce.contract.test.ts`
+  - `[OK] node --import tsx apps/desktop/main/src/services/embedding/__tests__/embedding-offload.compute.contract.test.ts`
 
 ### 2026-02-24 BE-EMR-S3/S4 Red（contract tests）
 

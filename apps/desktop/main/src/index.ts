@@ -383,6 +383,7 @@ function registerIpcHandlers(deps: {
     recognitionRuntime,
     stateExtractor,
     semanticIndex,
+    computeRunner: utilityProcessFoundation.compute,
   });
 
   registerExportIpcHandlers({
