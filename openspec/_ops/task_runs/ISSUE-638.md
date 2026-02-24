@@ -1,6 +1,6 @@
 # ISSUE-638
 
-更新时间：2026-02-24 20:56
+更新时间：2026-02-24 21:00
 
 ## Links
 
@@ -310,11 +310,28 @@
   - `[OK] apps/desktop/main/src/services/embedding/__tests__/semantic-chunk-index.lru-ttl.contract.test.ts`
   - `[OK] apps/desktop/main/src/services/rag/__tests__/rag-offload.compute.contract.test.ts`
   - `[OK] rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`
-  - `OK: validated timestamps for 4 governed markdown file(s)`
-  - `10:- PR: N/A（gov baseline 阶段，待主会话创建）`
+  - `OK: validated timestamps for 3 governed markdown file(s)`
+  - `10:- PR: https://github.com/Leeky1017/CreoNow/pull/642`
 - Governance finding:
   - 预检清单已生成：`rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`
-  - 当前 preflight 文档阻塞点仅剩：PR URL 未回填 + Main Session Audit 未签字。
+  - 当前 preflight 文档阻塞点仅剩：Main Session Audit 未签字。
+
+### 2026-02-24 Governance docs formatting + timestamp recheck
+
+- Command:
+  - `pnpm exec prettier --check openspec/_ops/task_runs/ISSUE-638.md rulebook/tasks/issue-638-embedding-rag-offload/proposal.md rulebook/tasks/issue-638-embedding-rag-offload/tasks.md rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`
+  - `pnpm exec prettier --write rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`
+  - `pnpm exec prettier --check openspec/_ops/task_runs/ISSUE-638.md rulebook/tasks/issue-638-embedding-rag-offload/proposal.md rulebook/tasks/issue-638-embedding-rag-offload/tasks.md rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`
+  - `python3 scripts/check_doc_timestamps.py --files rulebook/tasks/issue-638-embedding-rag-offload/proposal.md rulebook/tasks/issue-638-embedding-rag-offload/tasks.md rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md openspec/_ops/task_runs/ISSUE-638.md`
+- Exit code:
+  - first prettier check: `1`
+  - prettier write: `0`
+  - second prettier check: `0`
+  - timestamp check: `0`
+- Key output:
+  - `[warn] rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`
+  - `All matched files use Prettier code style!`
+  - `OK: validated timestamps for 3 governed markdown file(s)`
 
 ## Dependency Sync Check
 

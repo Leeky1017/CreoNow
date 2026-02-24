@@ -1,6 +1,6 @@
 # issue-638 governance preflight audit checklist
 
-更新时间：2026-02-24 20:57
+更新时间：2026-02-24 21:00
 
 ## 1. 审计范围与输入基线
 
@@ -28,7 +28,7 @@
 | 时间戳门禁                  | `rulebook/tasks/issue-638-embedding-rag-offload/proposal.md`；`rulebook/tasks/issue-638-embedding-rag-offload/tasks.md`；`rulebook/tasks/issue-638-embedding-rag-offload/preflight-audit-checklist.md`；`openspec/_ops/task_runs/ISSUE-638.md` | 所有受管 markdown 顶部包含 `更新时间：YYYY-MM-DD HH:mm`，并通过 `scripts/check_doc_timestamps.py`。                                                                |
 | Main Session Audit 签字前置 | `openspec/_ops/task_runs/ISSUE-638.md`                                                                                                                                                                                                         | `Reviewed-HEAD-SHA == 签字提交 HEAD^`、三项 PASS、`Blocking-Issues=0`、`Decision=ACCEPT`，且签字提交仅变更当前 RUN_LOG。                                           |
 
-## 4. 当前阻塞快照（2026-02-24 20:57）
+## 4. 当前阻塞快照（2026-02-24 21:00）
 
 - `openspec/_ops/task_runs/ISSUE-638.md` 的 `PR` 字段已回填真实链接：`https://github.com/Leeky1017/CreoNow/pull/642`。
 - `Main Session Audit` 仍为 `PENDING`，需主会话完成最终审计与 RUN_LOG-only 签字提交后再进入合并门禁。

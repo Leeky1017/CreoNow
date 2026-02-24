@@ -1,6 +1,6 @@
 # Proposal: issue-638-embedding-rag-offload
 
-更新时间：2026-02-24 20:57
+更新时间：2026-02-24 21:00
 
 ## Why
 
