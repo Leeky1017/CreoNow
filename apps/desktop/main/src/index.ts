@@ -433,6 +433,7 @@ function registerIpcHandlers(deps: {
     userDataDir: deps.userDataDir,
     builtinSkillsDir: deps.builtinSkillsDir,
     logger: deps.logger,
+    dataProcess: utilityProcessFoundation.data,
   });
 
   registerMemoryIpcHandlers({

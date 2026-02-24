@@ -22,6 +22,7 @@ export function registerSkillIpcHandlers(deps: {
   userDataDir: string;
   builtinSkillsDir: string;
   logger: Logger;
+  dataProcess?: Parameters<typeof createSkillService>[0]["dataProcess"];
 }): void {
   deps.ipcMain.handle(
     "skill:registry:list",
@@ -41,6 +42,7 @@ export function registerSkillIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
+        dataProcess: deps.dataProcess,
       });
       const res = svc.list({ includeDisabled: payload.includeDisabled });
       return res.ok
@@ -67,8 +69,9 @@ export function registerSkillIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
+        dataProcess: deps.dataProcess,
       });
-      const res = svc.read({ id: payload.id });
+      const res = await svc.read({ id: payload.id });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -99,8 +102,9 @@ export function registerSkillIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
+        dataProcess: deps.dataProcess,
       });
-      const res = svc.write({ id: payload.id, content: payload.content });
+      const res = await svc.write({ id: payload.id, content: payload.content });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -125,6 +129,7 @@ export function registerSkillIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
+        dataProcess: deps.dataProcess,
       });
       const idValue = typeof payload.id === "string" ? payload.id.trim() : "";
       const skillIdValue =
@@ -170,8 +175,9 @@ export function registerSkillIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
+        dataProcess: deps.dataProcess,
       });
-      const res = svc.updateCustom(payload);
+      const res = await svc.updateCustom(payload);
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -219,6 +225,7 @@ export function registerSkillIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
+        dataProcess: deps.dataProcess,
       });
       const res = svc.createCustom(payload);
       return res.ok
@@ -257,6 +264,7 @@ export function registerSkillIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
+        dataProcess: deps.dataProcess,
       });
       const res = svc.listCustom();
       return res.ok
@@ -283,6 +291,7 @@ export function registerSkillIpcHandlers(deps: {
         userDataDir: deps.userDataDir,
         builtinSkillsDir: deps.builtinSkillsDir,
         logger: deps.logger,
+        dataProcess: deps.dataProcess,
       });
       const res = svc.deleteCustom(payload);
       return res.ok

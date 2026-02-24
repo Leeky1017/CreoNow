@@ -96,7 +96,7 @@ export type SkillService = {
     inputType?: CustomSkillInputType;
     contextRules?: Record<string, unknown>;
     enabled?: boolean;
-  }) => ServiceResult<SkillCustomUpdateResult>;
+  }) => Promise<ServiceResult<SkillCustomUpdateResult>>;
   createCustom: (args: {
     name: string;
     description: string;
@@ -1201,7 +1201,7 @@ export function createSkillService(deps: {
       }
     },
 
-    updateCustom: ({
+    updateCustom: async ({
       id,
       scope,
       name,
@@ -1367,7 +1367,7 @@ export function createSkillService(deps: {
         return targetRef;
       }
 
-      const content = readSkillContent(skill.filePath);
+      const content = await skillFileIo.read({ filePath: skill.filePath });
       if (!content.ok) {
         return content;
       }
@@ -1377,7 +1377,7 @@ export function createSkillService(deps: {
         scope,
       });
 
-      const written = writeSkillContent({
+      const written = await skillFileIo.write({
         filePath: targetRef.data.filePath,
         content: rewrittenContent,
       });
