@@ -1,6 +1,6 @@
 # ISSUE-644
 
-更新时间：2026-02-24 22:56
+更新时间：2026-02-24 23:10
 
 ## Links
 
@@ -176,10 +176,31 @@
   - Expected:
     - 签字提交后以 `HEAD^=f852e20719066f94868213327f1fc2aba406fa72` 通过 `MAIN_AUDIT` 校验
 
+### 2026-02-24 Rebase sync + Main Session Audit refresh（post-rebase）
+
+- Rebase update:
+  - Command:
+    - `git fetch origin`
+    - `git rebase origin/main`
+  - Exit code:
+    - `0`（含 1 处冲突手工解并继续完成 rebase）
+  - Key output:
+    - 冲突文件：`openspec/changes/EXECUTION_ORDER.md`
+    - 冲突解法：保留最新时间戳并清理冲突标记后完成 rebase。
+- Audit refresh prep:
+  - Command:
+    - `git rev-parse HEAD`
+    - `edit openspec/_ops/task_runs/ISSUE-644.md`
+  - Exit code:
+    - `0`
+  - Key output:
+    - `HEAD(before signing commit)=747eae702c147134830e9642f0c9173e8fd6e52e`
+    - `Reviewed-HEAD-SHA` 已刷新为签字提交前 `HEAD`（用于满足 `Reviewed-HEAD-SHA == HEAD^`）。
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: f852e20719066f94868213327f1fc2aba406fa72
+- Reviewed-HEAD-SHA: 747eae702c147134830e9642f0c9173e8fd6e52e
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
