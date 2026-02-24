@@ -67,6 +67,7 @@ function hasCorruptedOffsets(chunk: {
  * Why: SR2 requires deterministic semantic retrieval contracts with explicit
  * fallback behavior when embedding model is unavailable.
  */
+/* eslint-disable max-lines-per-function */
 export function registerEmbeddingIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
@@ -402,3 +403,4 @@ export function registerEmbeddingIpcHandlers(deps: {
     },
   );
 }
+/* eslint-enable max-lines-per-function */

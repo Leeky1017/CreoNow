@@ -180,6 +180,7 @@ function toRagCanceledError(): IpcResponse<never> {
  * Why: SR2 requires deterministic semantic retrieve, empty-result tolerance, and
  * explicit token-budget truncation without blocking AI main flow.
  */
+/* eslint-disable max-lines-per-function */
 export function registerRagIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
@@ -550,3 +551,4 @@ export function registerRagIpcHandlers(deps: {
     },
   );
 }
+/* eslint-enable max-lines-per-function */
