@@ -163,6 +163,16 @@ function toRagComputeRunnerError(
   };
 }
 
+function toRagCanceledError(): IpcResponse<never> {
+  return {
+    ok: false,
+    error: {
+      code: "CANCELED",
+      message: "RAG retrieve canceled",
+    },
+  };
+}
+
 /**
  * Register `rag:*` IPC handlers.
  *
@@ -265,7 +275,9 @@ export function registerRagIpcHandlers(deps: {
       );
       const model = payload.model ?? ragConfig.model;
 
-      const retrieveWithCurrentConfig = async (): Promise<
+      const retrieveWithCurrentConfig = async (
+        runtimeSignal?: AbortSignal,
+      ): Promise<
         IpcResponse<{
           chunks: RagChunk[];
           truncated: boolean;
@@ -277,6 +289,10 @@ export function registerRagIpcHandlers(deps: {
           };
         }>
       > => {
+        if (runtimeSignal?.aborted) {
+          return toRagCanceledError();
+        }
+
         const semanticPrepareError = prepareSemanticDocuments({
           db: deps.db,
           projectId: payload.projectId,
@@ -286,6 +302,9 @@ export function registerRagIpcHandlers(deps: {
         if (semanticPrepareError) {
           return semanticPrepareError;
         }
+        if (runtimeSignal?.aborted) {
+          return toRagCanceledError();
+        }
 
         const semantic = semanticIndex.search({
           projectId: payload.projectId,
@@ -294,6 +313,9 @@ export function registerRagIpcHandlers(deps: {
           minScore,
           model,
         });
+        if (runtimeSignal?.aborted) {
+          return toRagCanceledError();
+        }
 
         let candidates: RagChunk[] = [];
         let fallback:
@@ -466,6 +488,10 @@ export function registerRagIpcHandlers(deps: {
         const accepted: RagChunk[] = [];
 
         for (const chunk of candidates) {
+          if (runtimeSignal?.aborted) {
+            return toRagCanceledError();
+          }
+
           if (accepted.length >= topK) {
             break;
           }
@@ -506,12 +532,13 @@ export function registerRagIpcHandlers(deps: {
       };
 
       if (!deps.computeRunner) {
-        return await retrieveWithCurrentConfig();
+        return await retrieveWithCurrentConfig(signal);
       }
 
       const runResult = await deps.computeRunner.run({
         signal,
-        execute: async () => await retrieveWithCurrentConfig(),
+        execute: async (runtimeSignal) =>
+          await retrieveWithCurrentConfig(runtimeSignal),
       });
       if (runResult.status !== "completed") {
         return toRagComputeRunnerError(runResult.status, runResult.error);

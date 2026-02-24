@@ -1,6 +1,6 @@
 # ISSUE-638
 
-更新时间：2026-02-24 12:55
+更新时间：2026-02-24 13:04
 
 ## Links
 
@@ -189,6 +189,29 @@
 - Notes:
   - `registerRagIpcHandlers` 在提供 `computeRunner` 时通过 `computeRunner.run(...)` 执行 `rag:context:retrieve` 检索路径。
   - `apps/desktop/main/src/index.ts` 已为 `registerRagIpcHandlers` 注入 `utilityProcessFoundation.compute`。
+
+### 2026-02-24 BE-EMR-S3 Red（aborted compute signal short-circuit）
+
+- Command:
+  - `node --import tsx apps/desktop/main/src/ipc/__tests__/rag-retrieve-runtime.contract.test.ts`
+- Exit code: `1`
+- Key output:
+  - `AssertionError [ERR_ASSERTION]: aborted compute signal should short-circuit before semantic search`
+  - `1 !== 0`
+
+### 2026-02-24 BE-EMR-S3 Green（aborted compute signal short-circuit）
+
+- Command:
+  - `node --import tsx apps/desktop/main/src/ipc/__tests__/rag-retrieve-runtime.contract.test.ts && echo "[OK] rag-retrieve-runtime.contract"`
+  - `node --import tsx apps/desktop/main/src/services/rag/__tests__/rag-offload.compute.contract.test.ts && echo "[OK] rag-offload.compute.contract"`
+- Exit code:
+  - `rag-retrieve-runtime.contract`: `0`
+  - `rag-offload.compute.contract`: `0`
+- Key output:
+  - `[OK] rag-retrieve-runtime.contract`
+  - `[OK] rag-offload.compute.contract`
+- Notes:
+  - `rag:context:retrieve` 在 compute runner `execute(signal)` 路径下使用 runtime signal；aborted signal 会在语义检索前短路并返回 `CANCELED`。
 
 ## Dependency Sync Check
 

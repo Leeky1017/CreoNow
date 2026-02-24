@@ -239,6 +239,63 @@ async function main(): Promise<void> {
     "rag fallback should preserve token-budget truncation behavior",
   );
   assert.equal(response.data.usedTokens, 2);
+
+  let abortedSearchCalls = 0;
+
+  const abortedSignalRunner: RagComputeRunner = {
+    run: async (args) => {
+      const aborted = new AbortController();
+      aborted.abort("timeout");
+      return {
+        status: "completed",
+        value: await args.execute(aborted.signal),
+      };
+    },
+  };
+
+  const abortedHarness = createIpcHarness();
+  registerRagIpcHandlers({
+    ipcMain: abortedHarness.ipcMain,
+    db: createDbStub(),
+    logger: createLogger(),
+    embedding: createEmbeddingStub(),
+    ragRerank: { enabled: false },
+    semanticIndex: createSemanticIndexStub({
+      onSearch: () => {
+        abortedSearchCalls += 1;
+      },
+    }),
+    computeRunner: abortedSignalRunner,
+  } as unknown as Parameters<typeof registerRagIpcHandlers>[0]);
+
+  const abortedRetrieveHandler = abortedHarness.handlers.get(
+    "rag:context:retrieve",
+  );
+  assert.ok(
+    abortedRetrieveHandler,
+    "rag:context:retrieve handler should be registered for aborted-signal scenario",
+  );
+
+  const abortedResponse = (await abortedRetrieveHandler?.(
+    {},
+    {
+      projectId: "project-1",
+      queryText: "warehouse",
+      topK: 2,
+      maxTokens: 4,
+    },
+  )) as RagContextResponse;
+
+  assert.equal(
+    abortedSearchCalls,
+    0,
+    "aborted compute signal should short-circuit before semantic search",
+  );
+  assert.equal(abortedResponse.ok, false);
+  if (abortedResponse.ok) {
+    throw new Error("expected aborted-signal scenario to return an error");
+  }
+  assert.equal(abortedResponse.error.code, "CANCELED");
 }
 
 void main().catch((error) => {
