@@ -1,6 +1,6 @@
 # ISSUE-635
 
-更新时间：2026-02-24 11:35
+更新时间：2026-02-24 11:43
 
 ## Links
 
@@ -56,7 +56,7 @@
 
 - Draft-Status: SIGNED-FINALIZED
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: c54b7b6af4fac5ec07a09c18e7cf7fc5cfbc25dd
+- Reviewed-HEAD-SHA: f1c13935a34e85d9955460b41baf0bdda8b4e4a1
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
@@ -245,3 +245,16 @@
   - `[new branch] task/635-issue-606-phase-4-polish-and-delivery -> task/635-issue-606-phase-4-polish-and-delivery`
   - `[discovery-gate] PASS`
   - `https://github.com/Leeky1017/CreoNow/pull/639`
+
+### 2026-02-24 Preflight blocker remediation: execution-order sync (pre-sign HEAD f1c13935)
+
+- Command:
+  - `./scripts/agent_pr_preflight.sh`
+  - `git diff --name-only origin/main...HEAD`
+  - `git add openspec/changes/EXECUTION_ORDER.md && git commit -m \"docs: sync execution order for issue-635 delivery (#635)\"`
+- Exit code:
+  - `preflight`: `1` (blocked)
+  - `execution-order sync commit`: `0`
+- Key output:
+  - `PRE-FLIGHT FAILED: [OPENSPEC_CHANGE] active change content updated but openspec/changes/EXECUTION_ORDER.md not updated in this PR`
+  - `docs: sync execution order for issue-635 delivery (#635)`
