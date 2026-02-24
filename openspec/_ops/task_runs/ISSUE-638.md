@@ -1,6 +1,6 @@
 # ISSUE-638
 
-更新时间：2026-02-24 13:52
+更新时间：2026-02-24 14:06
 
 ## Links
 
@@ -22,6 +22,7 @@
 - [x] 执行并记录 Rulebook validate
 - [x] 执行并记录 Dependency Sync Check（含归档依赖核对）
 - [x] 执行并记录受管 markdown 时间戳门禁
+- [x] 修正 delta 文档的基线术语，明确 UtilityProcess compute runner 契约并去除“已实现物理 OS 进程隔离”暗示
 - [ ] 主会话后续实现/提测/PR/auto-merge 收口
 
 ## Runs
@@ -238,9 +239,51 @@
   - `apps/desktop/main/src/index.ts` 已为 `registerEmbeddingIpcHandlers` 注入 `utilityProcessFoundation.compute`。
   - 未注入 `computeRunner` 时保留原同步 encode 路径与错误码行为。
 
+### 2026-02-24 Dependency Sync Check update（spec-interpretation align）
+
+- Command:
+  - `{ echo '[1] archive dependency anchors'; grep -nE 'UtilityProcess|BackgroundTaskRunner|五态机|ComputeProcess|DataProcess' openspec/changes/archive/issue-617-utilityprocess-foundation/specs/ipc/spec.md; echo; echo '[2] runtime baseline anchors'; grep -nE 'createUtilityProcessFoundation|createUtilityProcessSupervisor|createBackgroundTaskRunner|utilityProcessFoundation\\.compute' apps/desktop/main/src/services/utilityprocess/utilityProcessFoundation.ts apps/desktop/main/src/services/utilityprocess/utilityProcessSupervisor.ts apps/desktop/main/src/index.ts; echo; echo '[3] offload delta wording'; grep -nE 'compute runner|物理 OS 进程|ComputeProcess|DataProcess' openspec/changes/issue-617-embedding-rag-offload/proposal.md openspec/changes/issue-617-embedding-rag-offload/specs/search-and-retrieval/spec.md openspec/changes/issue-617-embedding-rag-offload/tasks.md; }`
+- Exit code: `0`
+- Key output:
+  - `[1] archive dependency anchors`
+  - `Requirement: UtilityProcess 执行与任务调度的稳定语义`
+  - `BackgroundTaskRunner 返回五态机结果`
+  - `[2] runtime baseline anchors`
+  - `createUtilityProcessFoundation`
+  - `createBackgroundTaskRunner`
+  - `utilityProcessFoundation.compute`
+  - `[3] offload delta wording`
+  - `当前验收基线是“主线程同步推理迁移到 compute runner 执行路径”`
+  - `在缺少实现证据前，本 change 不声明“已实现物理 OS 进程级隔离”`
+- Conclusion:
+  - 上游契约无漂移；本轮为文档解释对齐，将“Compute/Data 既成事实”收敛为 UtilityProcess compute/data runner 契约基线。
+
+### 2026-02-24 Markdown validation（Prettier）
+
+- Command:
+  - `pnpm exec prettier --check openspec/changes/issue-617-embedding-rag-offload/proposal.md openspec/changes/issue-617-embedding-rag-offload/specs/search-and-retrieval/spec.md openspec/changes/issue-617-embedding-rag-offload/tasks.md openspec/_ops/task_runs/ISSUE-638.md`
+  - `pnpm exec prettier --write openspec/changes/issue-617-embedding-rag-offload/proposal.md openspec/changes/issue-617-embedding-rag-offload/tasks.md`
+  - `pnpm exec prettier --check openspec/changes/issue-617-embedding-rag-offload/proposal.md openspec/changes/issue-617-embedding-rag-offload/specs/search-and-retrieval/spec.md openspec/changes/issue-617-embedding-rag-offload/tasks.md openspec/_ops/task_runs/ISSUE-638.md`
+- Exit code:
+  - first check: `1`
+  - write: `0`
+  - second check: `0`
+- Key output:
+  - `[warn] openspec/changes/issue-617-embedding-rag-offload/proposal.md`
+  - `[warn] openspec/changes/issue-617-embedding-rag-offload/tasks.md`
+  - `All matched files use Prettier code style!`
+
+### 2026-02-24 Doc timestamp gate（delta alignment docs）
+
+- Command:
+  - `python3 scripts/check_doc_timestamps.py --files openspec/changes/issue-617-embedding-rag-offload/proposal.md openspec/changes/issue-617-embedding-rag-offload/specs/search-and-retrieval/spec.md openspec/changes/issue-617-embedding-rag-offload/tasks.md openspec/_ops/task_runs/ISSUE-638.md`
+- Exit code: `0`
+- Key output:
+  - `OK: validated timestamps for 3 governed markdown file(s)`
+
 ## Dependency Sync Check
 
-- 检查时间：2026-02-24 11:29
+- 检查时间：2026-02-24 14:05
 - 上游依赖（归档）：
   - `openspec/changes/archive/issue-617-utilityprocess-foundation`
   - `openspec/changes/archive/issue-617-scoped-lifecycle-and-abort`
@@ -256,12 +299,16 @@
   - `openspec/specs/ipc/spec.md`
   - `openspec/specs/skill-system/spec.md`
   - `openspec/specs/context-engine/spec.md`
+  - `openspec/changes/issue-617-embedding-rag-offload/proposal.md`
+  - `openspec/changes/issue-617-embedding-rag-offload/specs/search-and-retrieval/spec.md`
+  - `openspec/changes/issue-617-embedding-rag-offload/tasks.md`
 - 核对项：
   - timeout -> abort（BE-SLA-S2）语义已在主 spec 保持一致。
   - 会话并发槽位回收（BE-SLA-S3）语义已在主 spec 保持一致。
   - project-scoped cache/watcher 清理（BE-SLA-S4）语义已在主 spec 保持一致。
-- 结论：`PASS（NO_DRIFT）`
-- 后续动作：已将结论同步写入 `openspec/changes/issue-617-embedding-rag-offload/tasks.md` 第 1.4 节；继续按 BE-EMR-S1~S4 进入 TDD。
+  - `issue-617-utilityprocess-foundation` 可验证基线为 UtilityProcess supervisor/runner 契约（含 BackgroundTaskRunner 五态机），未发现必须宣称“已实现物理 OS 进程级隔离”的依赖证据。
+- 结论：`PASS（NO_DRIFT，DOCS_UPDATED_FOR_BASELINE_ALIGNMENT）`
+- 后续动作：已将结论同步写入 `openspec/changes/issue-617-embedding-rag-offload/tasks.md` 第 1.4 节，并更新 proposal/spec 的 baseline 表述后继续按 BE-EMR-S1~S4 推进。
 
 ## Main Session Audit
 
