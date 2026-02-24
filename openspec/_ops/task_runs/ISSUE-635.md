@@ -1,6 +1,6 @@
 # ISSUE-635
 
-更新时间：2026-02-24 11:25
+更新时间：2026-02-24 11:15
 
 ## Links
 
@@ -20,7 +20,7 @@
 
 - 已阅读 `AGENTS.md`、`openspec/project.md`、`openspec/specs/cross-module-integration-spec.md`、`docs/delivery-skill.md`。
 - 已对齐任务范围为治理引导：创建 Rulebook task、初始化 RUN_LOG、核对 dependency sync freshness。
-- 本次不实现 feature/runtime 代码，不改动模块行为契约。
+- 本次包含治理门禁相关实现与测试更新（`scripts/phase4-governance.ts`、`scripts/run-discovered-tests.ts`、Phase4 场景测试），未引入 Phase 4 范围外行为。
 
 ## TDD Mapping References
 
@@ -172,3 +172,56 @@
 - Exit code: `0`
 - Key output:
   - no assertion failures
+
+### 2026-02-24 Red replay: WB-P4-S2 metadata gate before WB remediation
+
+- Command:
+  - `git -C /home/leeky/work/CreoNow worktree add --detach /tmp/creonow-635-wb-red-75b1fde7 75b1fde7`
+  - `cp /home/leeky/work/CreoNow/.worktrees/issue-635-issue-606-phase-4-polish-and-delivery/apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts /tmp/creonow-635-wb-red-75b1fde7/apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`
+  - `cd /tmp/creonow-635-wb-red-75b1fde7 && pnpm exec tsx apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`
+- Exit code: `1`
+- Key output:
+  - `AssertionError [ERR_ASSERTION]: Expected values to be strictly equal: true !== false`
+  - failing location: `phase4-visual-audit.spec.ts:73`
+
+### 2026-02-24 Green: WB-P4-S1~S6 key scenarios on HEAD
+
+- Command:
+  - `pnpm exec tsx apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`
+  - `pnpm exec tsx apps/desktop/tests/e2e/visual/phase4-baseline-capture.spec.ts`
+  - `pnpm exec tsx apps/desktop/tests/e2e/visual/phase4-visual-diff.spec.ts`
+  - `pnpm exec tsx apps/desktop/tests/perf/phase4-benchmark.spec.ts`
+- Exit code: `0`
+- Key output:
+  - no assertion failures
+
+### 2026-02-24 Remediation replay: pre-fix typecheck failure at 4046acf6
+
+- Command:
+  - `git -C /home/leeky/work/CreoNow worktree add --detach /tmp/creonow-635-remediation-4046 4046acf6`
+  - `cd /tmp/creonow-635-remediation-4046 && pnpm typecheck`
+- Exit code: `1`
+- Key output:
+  - `scripts/phase4-governance.ts(202,24): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.`
+  - `scripts/phase4-governance.ts(450,6): error TS2456: Type alias 'LocaleLeaf' circularly references itself.`
+  - `scripts/phase4-governance.ts(519,27): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.`
+
+### 2026-02-24 Latest verification run (HEAD 0af3bb47)
+
+- Command:
+  - `pnpm typecheck`
+  - `pnpm exec tsx scripts/test-discovery-consistency-gate.ts`
+  - `pnpm exec tsx apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts`
+  - `pnpm exec tsx apps/desktop/tests/e2e/visual/phase4-baseline-capture.spec.ts`
+  - `pnpm exec tsx apps/desktop/tests/e2e/visual/phase4-visual-diff.spec.ts`
+  - `pnpm exec tsx apps/desktop/tests/perf/phase4-benchmark.spec.ts`
+  - `pnpm exec tsx apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts`
+  - `pnpm exec tsx scripts/tests/phase4-branch-strategy.spec.ts`
+  - `pnpm exec tsx scripts/tests/phase4-ci-gates.spec.ts`
+  - `pnpm exec tsx apps/desktop/tests/integration/i18n/phase4-i18n-strategy.spec.ts`
+- Exit code: `0`
+- Key output:
+  - `tsc --noEmit` completed without errors
+  - `[discovery-gate] unit discovered=205 executed=205`
+  - `[discovery-gate] integration discovered=100 executed=100`
+  - `[discovery-gate] PASS`
