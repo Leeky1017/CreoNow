@@ -48,9 +48,7 @@ function buildCompleteCaptureEntries(): Phase4BaselineCaptureEntry[] {
 
   assert.equal(gate.ok, false);
   assert.equal(
-    gate.missing.some(
-      (missing) => missing.reason === "invalid-baseline-path",
-    ),
+    gate.missing.some((missing) => missing.reason === "invalid-baseline-path"),
     true,
   );
 }

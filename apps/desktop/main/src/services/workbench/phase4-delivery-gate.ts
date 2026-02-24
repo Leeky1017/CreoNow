@@ -2,9 +2,7 @@ export type Phase4RetestStatus = "PASS" | "FAIL" | "WAIVED";
 
 export type Phase4Theme = "light" | "dark";
 
-export type Phase4VisualAuditSource =
-  | "internal-audit"
-  | "reference-benchmark";
+export type Phase4VisualAuditSource = "internal-audit" | "reference-benchmark";
 
 export type Phase4ReferenceSystem =
   | "notion"

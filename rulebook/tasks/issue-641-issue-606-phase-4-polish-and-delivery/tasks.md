@@ -19,12 +19,12 @@
 
 ### Scenario -> 校验映射
 
-| Scenario ID | 校验命令 / 证据来源 | 通过标准 |
-| --- | --- | --- |
-| GOV-641-S1 | `gh issue view 641 --json ...` | Issue 为 `OPEN`；失败需落盘 blocker |
-| GOV-641-S2 | `rulebook task validate issue-641-issue-606-phase-4-polish-and-delivery` | validate 通过 |
-| GOV-641-S3 | `python3 scripts/check_doc_timestamps.py --files ...` | 受管 markdown 时间戳校验通过 |
-| GOV-641-S4 | `openspec/changes/EXECUTION_ORDER.md` diff | 进度快照与主干事实一致 |
+| Scenario ID | 校验命令 / 证据来源                                                      | 通过标准                            |
+| ----------- | ------------------------------------------------------------------------ | ----------------------------------- |
+| GOV-641-S1  | `gh issue view 641 --json ...`                                           | Issue 为 `OPEN`；失败需落盘 blocker |
+| GOV-641-S2  | `rulebook task validate issue-641-issue-606-phase-4-polish-and-delivery` | validate 通过                       |
+| GOV-641-S3  | `python3 scripts/check_doc_timestamps.py --files ...`                    | 受管 markdown 时间戳校验通过        |
+| GOV-641-S4  | `openspec/changes/EXECUTION_ORDER.md` diff                               | 进度快照与主干事实一致              |
 
 ## 3. Red（先写失败测试）
 

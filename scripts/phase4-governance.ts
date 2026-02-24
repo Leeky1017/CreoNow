@@ -167,7 +167,11 @@ export function validateDeliverablesAndAdr(
     adrById.set(adr.id, adr);
 
     if (!ADR_STATUSES.has(adr.status)) {
-      addError(errors, "ADR_STATUS_INVALID", `ADR ${adr.id} has invalid status`);
+      addError(
+        errors,
+        "ADR_STATUS_INVALID",
+        `ADR ${adr.id} has invalid status`,
+      );
     }
 
     if (!hasText(adr.background)) {
@@ -179,7 +183,11 @@ export function validateDeliverablesAndAdr(
     }
 
     if (!hasText(adr.decision)) {
-      addError(errors, "ADR_DECISION_MISSING", `ADR ${adr.id} decision is required`);
+      addError(
+        errors,
+        "ADR_DECISION_MISSING",
+        `ADR ${adr.id} decision is required`,
+      );
     }
 
     if (adr.alternatives.length === 0) {
@@ -456,7 +464,10 @@ export type Phase4CiGateInput = {
   }>;
 };
 
-function sameStringSet(left: readonly string[], right: readonly string[]): boolean {
+function sameStringSet(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
   if (left.length !== right.length) {
     return false;
   }
@@ -499,7 +510,9 @@ export function validateCiDeliveryGate(
   }
 
   for (const requiredCheck of PHASE4_REQUIRED_CHECKS) {
-    const check = input.requiredChecks.find((item) => item.name === requiredCheck);
+    const check = input.requiredChecks.find(
+      (item) => item.name === requiredCheck,
+    );
     if (!check || check.state !== "success") {
       addError(
         errors,
@@ -529,7 +542,9 @@ export function validateCiDeliveryGate(
   }
 
   for (const stageName of PHASE4_REQUIRED_CI_STAGE_CHECKS) {
-    const stageCheck = input.stageChecks.find((check) => check.name === stageName);
+    const stageCheck = input.stageChecks.find(
+      (check) => check.name === stageName,
+    );
     if (!stageCheck || stageCheck.state !== "success") {
       addError(
         errors,
@@ -546,7 +561,11 @@ type LocaleTree = {
   [key: string]: string | LocaleTree;
 };
 
-function flattenLocaleTree(node: string | LocaleTree, prefix: string, out: Set<string>): void {
+function flattenLocaleTree(
+  node: string | LocaleTree,
+  prefix: string,
+  out: Set<string>,
+): void {
   if (typeof node === "string") {
     if (prefix.length > 0) {
       out.add(prefix);
@@ -600,11 +619,12 @@ export type Phase4I18nSubmission = {
   hardcodedFormattingPatterns: string[];
 };
 
-const REQUIRED_INTL_CALLS: Record<"date" | "number" | "relativeTime", string> = {
-  date: "Intl.DateTimeFormat",
-  number: "Intl.NumberFormat",
-  relativeTime: "Intl.RelativeTimeFormat",
-};
+const REQUIRED_INTL_CALLS: Record<"date" | "number" | "relativeTime", string> =
+  {
+    date: "Intl.DateTimeFormat",
+    number: "Intl.NumberFormat",
+    relativeTime: "Intl.RelativeTimeFormat",
+  };
 
 export function validateI18nSubmissionGate(
   input: Phase4I18nSubmission,
