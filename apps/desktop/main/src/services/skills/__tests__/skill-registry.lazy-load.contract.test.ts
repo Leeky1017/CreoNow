@@ -162,10 +162,9 @@ prompt:
 }
 
 function ensureProjectSkillPackagesDir(projectRoot: string): void {
-  fs.mkdirSync(
-    path.join(projectRoot, ".creonow", "skills", "packages"),
-    { recursive: true },
-  );
+  fs.mkdirSync(path.join(projectRoot, ".creonow", "skills", "packages"), {
+    recursive: true,
+  });
 }
 
 {

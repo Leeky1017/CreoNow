@@ -60,8 +60,7 @@ async function main(): Promise<void> {
   );
 
   const racedA = await Promise.race<
-    | { kind: "result"; value: ServiceResult<string> }
-    | { kind: "timeout" }
+    { kind: "result"; value: ServiceResult<string> } | { kind: "timeout" }
   >([
     resultPromiseA.then((value) => ({ kind: "result" as const, value })),
     wait(250).then(() => ({ kind: "timeout" as const })),
@@ -79,8 +78,7 @@ async function main(): Promise<void> {
   }
 
   const racedB = await Promise.race<
-    | { kind: "result"; value: ServiceResult<string> }
-    | { kind: "timeout" }
+    { kind: "result"; value: ServiceResult<string> } | { kind: "timeout" }
   >([
     resultPromiseB.then((value) => ({ kind: "result" as const, value })),
     wait(250).then(() => ({ kind: "timeout" as const })),
