@@ -1,13 +1,13 @@
 # ISSUE-637
 
-更新时间：2026-02-24 11:44
+更新时间：2026-02-24 12:54
 
 ## Links
 
 - Issue: #637
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/637
 - Branch: `task/637-kg-query-engine-refactor`
-- PR: N/A（pre-PR）
+- PR: https://github.com/Leeky1017/CreoNow/pull/640
 
 ## Scope
 
@@ -27,8 +27,8 @@
 - [x] 创建 Rulebook task（`issue-637-kg-query-engine-refactor`）
 - [x] 记录依赖同步检查（NO_DRIFT）
 - [x] 并行实现 S1/S2、S3、S4（Red -> Green -> Refactor）
-- [ ] 双审计（spec + quality）与修复闭环
-- [ ] 创建 PR 并开启 auto-merge
+- [x] 双审计（spec + quality）与修复闭环
+- [x] 创建 PR 并开启 auto-merge
 - [ ] required checks 全绿后自动合并
 - [ ] 同步控制面 `main` + 清理 worktree
 
@@ -112,12 +112,62 @@
   - commit: `8b7d6909b31a8695fcb809ef8f0733f632ce8f35`
   - changed files: `7`
 
+### 2026-02-24 Cross-audit results (Team Mode)
+
+- Inputs reviewed:
+  - `~/.codex/team/handoffs/team-ecaac847/handoff-71197745.json`（Spec 审计）
+  - `~/.codex/team/logs/team-ecaac847/tm-967bbb23.out.log`（Quality 审计明细）
+- Key output:
+  - Spec 审计：`REJECT`，指出 BE-KGQ-S2 缺少调用方可指定 `maxDepth/maxExpansions` 契约能力。
+  - Quality 审计：`REJECT`，指出 `entityMatcher` 重复 `entityId` 漏匹配、`querySubgraph` 大量 `IN` 占位符风险、S4 性能断言波动风险、`queryValidate` cycle 语义测试缺口。
+
+### 2026-02-24 Audit remediation implementation (mate commit)
+
+- Command:
+  - `team spawn_subagent_once impl-audit-remediation`（在 `task/637-kg-query-engine-refactor` 直接修复并提交）
+  - `git show --stat --oneline e2d765a3a2570d74f011e782152ee7cdf339f855`
+- Key output:
+  - commit: `e2d765a3a2570d74f011e782152ee7cdf339f855`
+  - fixed scope:
+    - `queryPath` 增加可选 `maxDepth/maxExpansions` 并落地超限语义
+    - `listEntitiesByIds` 分批查询，规避单条 SQL 占位符过多
+    - `entityMatcher` 修复重复 `entityId` 漏匹配
+    - S4 性能断言改为多轮中位数，降低 flaky 风险
+    - 新增 `queryValidate` cycle 语义测试
+
+### 2026-02-24 Post-remediation verification
+
+- Command:
+  - `for t in apps/desktop/main/src/services/kg/__tests__/*.test.ts; do pnpm exec node --import tsx "$t"; done`
+  - `pnpm exec node --import tsx apps/desktop/main/src/services/context/__tests__/retrievedFetcher.test.ts`
+  - `pnpm -C apps/desktop typecheck`
+  - `pnpm -C apps/desktop exec eslint main/src/services/kg/kgCoreService.ts main/src/services/kg/types.ts main/src/services/kg/entityMatcher.ts main/src/services/kg/__tests__/kg-cte-query.path.contract.test.ts main/src/services/kg/__tests__/kg-cte-query.subgraph.contract.test.ts main/src/services/kg/__tests__/kg-validate.iterative.contract.test.ts main/src/services/kg/__tests__/entityMatcher.test.ts main/src/services/kg/__tests__/entity-matcher.aho-corasick.contract.test.ts`
+- Key output:
+  - KG/service-context tests: `0` failures
+  - `typecheck`: pass
+  - `eslint`: `0` errors（保留 `kgCoreService.ts` 复杂度历史 warning）
+
+### 2026-02-24 PR creation + auto-merge + branch sync
+
+- Command:
+  - `gh pr create --base main --head task/637-kg-query-engine-refactor --title "Remediate kg query engine audit blockers (#637)" --body-file /tmp/pr-637-body.md`
+  - `gh pr merge 640 --auto --merge`
+  - `gh pr view 640 --json mergeStateStatus`
+  - `git fetch origin && git merge --no-edit origin/main`
+  - `git push origin task/637-kg-query-engine-refactor`
+  - `gh pr view 640 --json state,mergeStateStatus,autoMergeRequest,headRefOid`
+- Key output:
+  - PR created: `#640`
+  - auto-merge enabled
+  - branch sync commit: `bf3c474d040a1bbc2db3ed4a8acc0dce1aef1232`
+  - post-sync targeted verification re-run: pass
+
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: N/A（to be filled by signing commit）
-- Spec-Compliance: PENDING
-- Code-Quality: PENDING
-- Fresh-Verification: PENDING
+- Reviewed-HEAD-SHA: bf3c474d040a1bbc2db3ed4a8acc0dce1aef1232
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
 - Blocking-Issues: 0
-- Decision: PENDING
+- Decision: ACCEPT
