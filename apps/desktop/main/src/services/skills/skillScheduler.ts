@@ -434,11 +434,16 @@ export function createSkillScheduler(args?: {
         completionState.terminal !== "completed" &&
         responseState.kind === "pending"
       ) {
-        const terminalError = completionTerminalResultError();
-        if (terminalError) {
-          resolveResultOnce(terminalError);
+        if (
+          completionState.terminal === "cancelled" ||
+          completionState.terminal === "timeout"
+        ) {
+          const terminalError = completionTerminalResultError();
+          if (terminalError) {
+            resolveResultOnce(terminalError);
+          }
+          finalizeOnce(completionState.terminal);
         }
-        finalizeOnce(completionState.terminal);
         return;
       }
       if (
