@@ -1,13 +1,13 @@
 # ISSUE-649
 
-更新时间：2026-02-25 10:35
+更新时间：2026-02-25 10:44
 
 ## Links
 
 - Issue: #649
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/649
 - Branch: `task/649-scripts-delivery-hardening`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/650
 
 ## Scope
 
@@ -43,14 +43,14 @@
 - [x] Red：新增脚本权限与状态解析回归测试并验证失败
 - [x] Green：修复 `main_audit_resign.sh` 执行位与 `team_delivery_status.py` 状态解析
 - [x] 复测脚本相关单测通过
-- [ ] 创建 PR 并回填真实链接
+- [x] 创建 PR 并回填真实链接
 - [ ] Main-session 签字提交 + preflight + auto-merge + main 同步收口
 
 ## Main Session Audit
 
 - Draft-Status: PENDING
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 0000000000000000000000000000000000000000
+- Reviewed-HEAD-SHA: 2d15eb2e2cfef38276459ba83092c44e150dd873
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
@@ -92,3 +92,21 @@
 - Exit code: `0`
 - Key output:
   - `Ran 20 tests ... OK`
+
+### 2026-02-25 Delivery validation + GitHub transport fallback
+
+- Command:
+  - `python3 scripts/check_doc_timestamps.py --files rulebook/tasks/issue-649-scripts-delivery-hardening/proposal.md rulebook/tasks/issue-649-scripts-delivery-hardening/tasks.md openspec/_ops/task_runs/ISSUE-649.md`
+  - `python3 -m unittest scripts/tests/test_script_permissions.py scripts/tests/test_team_delivery_status.py scripts/tests/test_agent_pr_preflight.py`
+  - `git push -u origin task/649-scripts-delivery-hardening`（blocked）
+  - `git -c credential.helper= -c "http.https://github.com/.extraheader=AUTHORIZATION: basic <redacted>" push -u origin task/649-scripts-delivery-hardening`
+  - `POST /repos/Leeky1017/CreoNow/pulls`（GitHub REST API）
+- Key output:
+  - timestamp gate: `OK: validated timestamps for 2 governed markdown file(s)`
+  - tests: `Ran 20 tests ... OK`
+  - blocker root cause:
+    - `git push` trace显示触发 `gh auth git-credential get` 并卡住
+    - `gh` 命令在当前会话无输出阻塞（`gh auth status` / `gh pr view`）
+  - mitigation:
+    - 禁用 credential helper 并用一次性 Authorization header 推送成功
+    - PR created: `https://github.com/Leeky1017/CreoNow/pull/650`
