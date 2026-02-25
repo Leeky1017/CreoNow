@@ -7,7 +7,7 @@
 - Issue: #651
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/651
 - Branch: `task/651-ai-stream-write-guardrails-redo`
-- PR: `N/A (local team-mode redo in progress)`
+- PR: https://github.com/Leeky1017/CreoNow/pull/653
 
 ## Scope
 
@@ -82,9 +82,9 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: `N/A (no signing commit yet)`
+- Reviewed-HEAD-SHA: 4787063b1d1307356394412fb065cb130f18df7f
 - Spec-Compliance: PASS (local verification)
 - Code-Quality: PASS (local verification)
 - Fresh-Verification: PASS (local verification)
 - Blocking-Issues: 0
-- Decision: ACCEPT (local lane)
+- Decision: ACCEPT
