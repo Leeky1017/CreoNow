@@ -24,7 +24,9 @@ export function createAiWriteTransaction(): AiWriteTransaction {
     for (let index = rollbacks.length - 1; index >= 0; index -= 1) {
       try {
         rollbacks[index]?.();
-      } catch {}
+      } catch {
+        // Rollback is best-effort; subsequent rollback handlers still run.
+      }
     }
     rollbacks.length = 0;
   };

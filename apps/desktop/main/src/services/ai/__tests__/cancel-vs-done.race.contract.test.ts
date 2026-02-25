@@ -100,22 +100,20 @@ function createManualTimerRuntime(): ManualTimerRuntime {
     }
   }) as typeof globalThis.clearTimeout;
 
+  const getDueTimers = (targetDue: number): TimerEntry[] =>
+    timers
+      .filter((timer) => !timer.canceled && timer.due <= targetDue)
+      .sort((left, right) => {
+        if (left.due !== right.due) {
+          return left.due - right.due;
+        }
+        return left.id - right.id;
+      });
+
   function runDue(targetDue: number): boolean {
     let executed = false;
-    while (true) {
-      const dueTimers = timers
-        .filter((timer) => !timer.canceled && timer.due <= targetDue)
-        .sort((left, right) => {
-          if (left.due !== right.due) {
-            return left.due - right.due;
-          }
-          return left.id - right.id;
-        });
-
-      if (dueTimers.length === 0) {
-        break;
-      }
-
+    let dueTimers = getDueTimers(targetDue);
+    while (dueTimers.length > 0) {
       for (const timer of dueTimers) {
         if (timer.canceled) {
           continue;
@@ -124,6 +122,7 @@ function createManualTimerRuntime(): ManualTimerRuntime {
         executed = true;
         timer.callback();
       }
+      dueTimers = getDueTimers(targetDue);
     }
     return executed;
   }
