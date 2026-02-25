@@ -1,6 +1,6 @@
 # ISSUE-651
 
-更新时间：2026-02-25 18:50
+更新时间：2026-02-25 19:20
 
 ## Links
 
@@ -9,7 +9,7 @@
 - Branch: `task/651-ai-stream-write-guardrails-redo`
 - PR: https://github.com/Leeky1017/CreoNow/pull/653
 
-## Scope
+## Plan
 
 - Change: `openspec/changes/issue-617-ai-stream-write-guardrails/**`
 - Scenario coverage target:
@@ -82,7 +82,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 81a649f859c9a8e517c618de38f5b7e2b3fd0315
+- Reviewed-HEAD-SHA: 6d06414afe2a8b4c4d08a1f2d4f429c3685afcd7
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
