@@ -4,6 +4,22 @@ import type { Logger } from "../../logging/logger";
 import { createContextProjectScopedCache } from "../../services/context/projectScopedCache";
 import { createCreonowWatchService } from "../../services/context/watchService";
 
+type Deferred<T> = {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+};
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -76,44 +92,51 @@ async function main(): Promise<void> {
     const cache = createContextProjectScopedCache({ logger, watchService });
     let computeA = 0;
     let computeB = 0;
+    const releaseA = createDeferred<void>();
+    const releaseB = createDeferred<void>();
+    let startedA = false;
+    let startedB = false;
 
-    const startedAt = Date.now();
-
-    const [resultA, resultB] = await Promise.all([
-      Promise.resolve(
-        cache.getOrComputeString({
-          projectId: "proj-cache",
-          cacheKey: "k-a",
-          compute: toAsyncStringCompute(async () => {
-            computeA += 1;
-            await wait(40);
-            return "A";
-          }),
+    const resultAPromise = Promise.resolve(
+      cache.getOrComputeString({
+        projectId: "proj-cache",
+        cacheKey: "k-a",
+        compute: toAsyncStringCompute(async () => {
+          computeA += 1;
+          startedA = true;
+          await releaseA.promise;
+          return "A";
         }),
-      ),
-      Promise.resolve(
-        cache.getOrComputeString({
-          projectId: "proj-cache",
-          cacheKey: "k-b",
-          compute: toAsyncStringCompute(async () => {
-            computeB += 1;
-            await wait(40);
-            return "B";
-          }),
+      }),
+    );
+    const resultBPromise = Promise.resolve(
+      cache.getOrComputeString({
+        projectId: "proj-cache",
+        cacheKey: "k-b",
+        compute: toAsyncStringCompute(async () => {
+          computeB += 1;
+          startedB = true;
+          await releaseB.promise;
+          return "B";
         }),
-      ),
-    ]);
+      }),
+    );
 
-    const elapsedMs = Date.now() - startedAt;
+    for (let attempt = 0; attempt < 4 && (!startedA || !startedB); attempt += 1) {
+      await Promise.resolve();
+    }
+    assert.equal(startedA, true, "key-a compute should start");
+    assert.equal(startedB, true, "key-b compute should start without waiting key-a");
+
+    releaseA.resolve(undefined);
+    releaseB.resolve(undefined);
+
+    const [resultA, resultB] = await Promise.all([resultAPromise, resultBPromise]);
 
     assert.equal(resultA, "A");
     assert.equal(resultB, "B");
     assert.equal(computeA, 1);
     assert.equal(computeB, 1);
-    assert.ok(
-      elapsedMs < 75,
-      `different keys should run in parallel, elapsed=${elapsedMs.toString()}ms`,
-    );
   }
 
   // Scenario: AUD-C1-S8

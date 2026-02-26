@@ -197,6 +197,9 @@ async function main(): Promise<void> {
     const pendingInsertOperations: Array<Promise<void>> = [];
     let inflightGlobal = 0;
     let maxInflightGlobal = 0;
+    const startedProjects = new Set<string>();
+    const releaseLeft = createDeferred<void>();
+    const releaseRight = createDeferred<void>();
 
     const repository: EpisodeRepository = {
       ...baseRepository,
@@ -206,7 +209,13 @@ async function main(): Promise<void> {
           if (inflightGlobal > maxInflightGlobal) {
             maxInflightGlobal = inflightGlobal;
           }
-          await wait(40);
+          startedProjects.add(episode.projectId);
+          if (episode.projectId === "proj-left") {
+            await releaseLeft.promise;
+          }
+          if (episode.projectId === "proj-right") {
+            await releaseRight.promise;
+          }
           baseRepository.insertEpisode(episode);
           inflightGlobal -= 1;
         })();
@@ -221,26 +230,36 @@ async function main(): Promise<void> {
       logger: createLogger(),
     });
 
-    const startedAt = Date.now();
-    const [left, right] = await Promise.all([
-      Promise.resolve(
-        service.recordEpisode(createRecordInput("proj-left", "left-1")),
-      ),
-      Promise.resolve(
-        service.recordEpisode(createRecordInput("proj-right", "right-1")),
-      ),
-    ]);
+    const leftPromise = Promise.resolve(
+      service.recordEpisode(createRecordInput("proj-left", "left-1")),
+    );
+    const rightPromise = Promise.resolve(
+      service.recordEpisode(createRecordInput("proj-right", "right-1")),
+    );
 
+    for (let attempt = 0; attempt < 5 && startedProjects.size < 2; attempt += 1) {
+      await Promise.resolve();
+    }
+    assert.equal(
+      startedProjects.has("proj-left"),
+      true,
+      "proj-left insert should start",
+    );
+    assert.equal(
+      startedProjects.has("proj-right"),
+      true,
+      "proj-right insert should start without waiting proj-left",
+    );
+
+    releaseLeft.resolve(undefined);
+    releaseRight.resolve(undefined);
+
+    const [left, right] = await Promise.all([leftPromise, rightPromise]);
     await Promise.all(pendingInsertOperations);
-    const elapsedMs = Date.now() - startedAt;
 
     assert.equal(left.ok, true);
     assert.equal(right.ok, true);
     assert.ok(maxInflightGlobal >= 2, "different projects should run in parallel");
-    assert.ok(
-      elapsedMs < 120,
-      `different projects should not serialize, elapsed=${elapsedMs.toString()}ms`,
-    );
   }
 
   console.log("episodic-memory-mutex.stress.test.ts: all assertions passed");

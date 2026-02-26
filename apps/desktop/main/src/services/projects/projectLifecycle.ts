@@ -29,6 +29,11 @@ export type ProjectLifecycle = {
     toProjectId: string;
     traceId: string;
     persist: () => Promise<T>;
+    resolveBindProjectId?: (args: {
+      fromProjectId: string;
+      toProjectId: string;
+      result: T;
+    }) => string;
   }) => Promise<T>;
 };
 
@@ -228,7 +233,13 @@ export function createProjectLifecycle(deps: {
       }
     },
 
-    switchProject: async ({ fromProjectId, toProjectId, traceId, persist }) => {
+    switchProject: async ({
+      fromProjectId,
+      toProjectId,
+      traceId,
+      persist,
+      resolveBindProjectId,
+    }) => {
       const normalizedFrom = fromProjectId.trim();
       const normalizedTo = toProjectId.trim();
       const scopeKey = resolveScopeKey(normalizedFrom);
@@ -249,7 +260,8 @@ export function createProjectLifecycle(deps: {
           scopeByProjectId.set(currentFrom, scopeKey);
         }
 
-        if (currentFrom !== normalizedTo) {
+        const shouldRunLifecycleSteps = currentFrom !== normalizedTo;
+        if (shouldRunLifecycleSteps) {
           for (const participant of participants.values()) {
             await runStep({
               step: "unbind",
@@ -261,19 +273,31 @@ export function createProjectLifecycle(deps: {
         }
 
         const result = await persist();
+        const resolvedBindProjectId = resolveBindProjectId
+          ? resolveBindProjectId({
+              fromProjectId: currentFrom,
+              toProjectId: normalizedTo,
+              result,
+            })
+          : normalizedTo;
+        const normalizedBindProjectId = resolvedBindProjectId.trim();
+        const nextProjectId =
+          normalizedBindProjectId.length > 0
+            ? normalizedBindProjectId
+            : currentFrom;
 
-        if (currentFrom !== normalizedTo) {
+        if (shouldRunLifecycleSteps) {
           for (const participant of participants.values()) {
             await runStep({
               step: "bind",
               participant,
-              projectId: normalizedTo,
+              projectId: nextProjectId,
               traceId,
             });
           }
           if (scopeKey.length > 0) {
-            activeProjectByScope.set(scopeKey, normalizedTo);
-            scopeByProjectId.set(normalizedTo, scopeKey);
+            activeProjectByScope.set(scopeKey, nextProjectId);
+            scopeByProjectId.set(nextProjectId, scopeKey);
           }
         }
 

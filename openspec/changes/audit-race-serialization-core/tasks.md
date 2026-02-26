@@ -28,7 +28,7 @@
 
 ## 3. Red（先写失败测试）
 
-- [x] 3.1 **并发丢失更新**：构造 N 个并发 `recordEpisode(projectId)` 调用（共享同一 projectId），断言最终 `walQueueByProject` 条目数等于 N，无丢失（AUD-C1-S1）
+- [x] 3.1 **并发丢失更新**：构造 N 个并发 `recordEpisode(projectId)` 调用（共享同一 projectId），断言最终持久化 episode 条目数等于 N，且 `pendingEpisodeCountByProject` 与新增已接收 episode 数一致（AUD-C1-S1）
 - [x] 3.2 **互斥验证**：并发触发 `recordEpisode` 与 `scheduleBatchDistillation`，断言 `distillingProjects` 在同一 project 上不存在交叠时间窗（AUD-C1-S2）
 - [x] 3.3 **跨 project 隔离**：并发操作不同 projectId，断言无互相阻塞、各自独立完成（AUD-C1-S3）
 - [x] 3.4 **switchProject 串行化**：并发触发 2 次 `switchProject(A→B, A→C)`，断言 unbind→persist→bind 序列无交错（AUD-C1-S4）
