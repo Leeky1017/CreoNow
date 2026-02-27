@@ -109,7 +109,7 @@ async function invokeWrapped(
     assert.fail("expected error envelope");
   }
   assert.equal(res.error.code, "INTERNAL_ERROR");
-  assert.equal(res.error.message, "响应数据不符合契约");
+  assert.equal(res.error.message, "Response payload does not match IPC contract");
 }
 
 // S4: 未捕获异常统一映射为 INTERNAL_ERROR [ADDED]
@@ -133,7 +133,7 @@ async function invokeWrapped(
     assert.fail("expected error envelope");
   }
   assert.equal(res.error.code, "INTERNAL_ERROR");
-  assert.equal(res.error.message, "内部错误");
+  assert.equal(res.error.message, "Internal error");
   assert.equal(
     JSON.stringify(res).includes("secret-stack-should-not-leak"),
     false,

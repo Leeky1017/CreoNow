@@ -4,6 +4,7 @@ import type {
   IpcInvokeResult,
   IpcRequest,
 } from "@shared/types/ipc-generated";
+import { localizeIpcError } from "./errorMessages";
 
 function toInvokeError(message: string, details?: unknown): IpcError {
   return {
@@ -51,7 +52,14 @@ export async function safeInvoke<C extends IpcChannel>(
         error: toInvokeError("Invalid IPC response shape"),
       };
     }
-    return response as IpcInvokeResult<C>;
+    const envelope = response as IpcInvokeResult<C>;
+    if (!envelope.ok) {
+      return {
+        ok: false,
+        error: localizeIpcError(envelope.error),
+      } as IpcInvokeResult<C>;
+    }
+    return envelope;
   } catch (error) {
     return {
       ok: false,

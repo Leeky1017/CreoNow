@@ -387,7 +387,10 @@ export function createProviderResolver(deps: {
           env: args.env,
         });
         if (!primary) {
-          return ipcError("AI_NOT_CONFIGURED", "请先在设置中配置 AI 服务");
+          return ipcError(
+            "AI_NOT_CONFIGURED",
+            "AI service is not configured. Configure it in Settings first.",
+          );
         }
         const backup = resolveSettingsBackupProvider({
           settings: proxyFromSettings,
@@ -437,7 +440,10 @@ export function createProviderResolver(deps: {
         : undefined;
 
     if (!isE2E(args.env) && provider !== "proxy" && !apiKey) {
-      return ipcError("AI_NOT_CONFIGURED", "请先在设置中配置 AI 服务");
+      return ipcError(
+        "AI_NOT_CONFIGURED",
+        "AI service is not configured. Configure it in Settings first.",
+      );
     }
 
     return {

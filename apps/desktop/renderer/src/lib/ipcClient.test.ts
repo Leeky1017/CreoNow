@@ -62,6 +62,24 @@ describe("ipcClient.invoke", () => {
     expect(result).toEqual({ ok: true, data: {} });
   });
 
+  it("localizes backend error message by stable error code", async () => {
+    setCreonowInvoke(async () => ({
+      ok: false,
+      error: {
+        code: "AI_NOT_CONFIGURED",
+        message: "AI service is not configured",
+      },
+    }));
+
+    const result = await invoke("app:system:ping", {});
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.error.code).toBe("AI_NOT_CONFIGURED");
+    expect(result.error.message).toBe("请先在设置中配置 AI 服务");
+  });
+
   it("handles non-Error throwables", async () => {
     setCreonowInvoke(async () => {
       throw "boom";
