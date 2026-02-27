@@ -238,6 +238,73 @@ async function assembleContextPrompt(args: {
 }
 
 /**
+ * Validate resolved skill flags and dependency check.
+ * Returns an error result if invalid, or null if all checks pass.
+ */
+function validateResolvedSkill(
+  resolved: ResolvedRunnableSkill,
+  args: SkillExecutorRunArgs,
+  checkDependencies: SkillExecutorDeps["checkDependencies"],
+): ServiceResult<never> | null {
+  if (!resolved.enabled) {
+    return ipcError("UNSUPPORTED", "Skill is disabled", { id: args.skillId });
+  }
+  if (!resolved.valid) {
+    return ipcError(
+      resolved.error_code ?? "INVALID_ARGUMENT",
+      resolved.error_message ?? "Skill is invalid",
+      { id: args.skillId },
+    );
+  }
+  const dependsOn = resolved.dependsOn ?? [];
+  if (dependsOn.length > 0 && checkDependencies) {
+    const check = checkDependencies({ skillId: args.skillId, dependsOn });
+    if (!check.ok) return check;
+  }
+  return null;
+}
+
+/**
+ * Validate input presence for the given skill input type.
+ * Returns an error result if invalid, or null if all checks pass.
+ */
+function validateSkillInput(
+  resolved: ResolvedRunnableSkill,
+  args: SkillExecutorRunArgs,
+  trimmedInput: string,
+): ServiceResult<never> | null {
+  if (
+    requiresSelectionInput({ skillId: args.skillId, inputType: resolved.inputType }) &&
+    trimmedInput.length === 0
+  ) {
+    return ipcError("SKILL_INPUT_EMPTY", emptyInputMessage(args.skillId));
+  }
+  if (requiresDocumentContext({ skillId: args.skillId, inputType: resolved.inputType })) {
+    const projectId = args.context?.projectId?.trim() ?? "";
+    const documentId = args.context?.documentId?.trim() ?? "";
+    if (projectId.length === 0 || documentId.length === 0) {
+      return ipcError("SKILL_INPUT_EMPTY", "请先打开需要续写的文档");
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve the effective input string to pass to the prompt template.
+ */
+function resolveInputForPrompt(
+  resolved: ResolvedRunnableSkill,
+  args: SkillExecutorRunArgs,
+  trimmedInput: string,
+): string {
+  if (trimmedInput.length > 0) return args.input;
+  if (requiresDocumentContext({ skillId: args.skillId, inputType: resolved.inputType })) {
+    return "请基于当前文档上下文继续写作。";
+  }
+  return args.input;
+}
+
+/**
  * Build SkillExecutor with explicit dependency injection.
  */
 export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
@@ -248,64 +315,15 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
         return resolved;
       }
 
-      if (!resolved.data.enabled) {
-        return ipcError("UNSUPPORTED", "Skill is disabled", {
-          id: args.skillId,
-        });
-      }
-      if (!resolved.data.valid) {
-        return ipcError(
-          resolved.data.error_code ?? "INVALID_ARGUMENT",
-          resolved.data.error_message ?? "Skill is invalid",
-          { id: args.skillId },
-        );
-      }
-
-      const dependsOn = resolved.data.dependsOn ?? [];
-      if (dependsOn.length > 0 && deps.checkDependencies) {
-        const dependencyCheck = deps.checkDependencies({
-          skillId: args.skillId,
-          dependsOn,
-        });
-        if (!dependencyCheck.ok) {
-          return dependencyCheck;
-        }
-      }
+      const skillError = validateResolvedSkill(resolved.data, args, deps.checkDependencies);
+      if (skillError) return skillError;
 
       const trimmedInput = args.input.trim();
 
-      if (
-        requiresSelectionInput({
-          skillId: args.skillId,
-          inputType: resolved.data.inputType,
-        }) &&
-        trimmedInput.length === 0
-      ) {
-        return ipcError("SKILL_INPUT_EMPTY", emptyInputMessage(args.skillId));
-      }
+      const inputError = validateSkillInput(resolved.data, args, trimmedInput);
+      if (inputError) return inputError;
 
-      if (
-        requiresDocumentContext({
-          skillId: args.skillId,
-          inputType: resolved.data.inputType,
-        })
-      ) {
-        const projectId = args.context?.projectId?.trim() ?? "";
-        const documentId = args.context?.documentId?.trim() ?? "";
-        if (projectId.length === 0 || documentId.length === 0) {
-          return ipcError("SKILL_INPUT_EMPTY", "请先打开需要续写的文档");
-        }
-      }
-
-      const inputForPrompt =
-        trimmedInput.length > 0
-          ? args.input
-          : requiresDocumentContext({
-                skillId: args.skillId,
-                inputType: resolved.data.inputType,
-              })
-            ? "请基于当前文档上下文继续写作。"
-            : args.input;
+      const inputForPrompt = resolveInputForPrompt(resolved.data, args, trimmedInput);
 
       let contextPrompt: string | undefined;
       const contextAssemblyExecutionId = `${args.skillId}:${args.ts}`;
