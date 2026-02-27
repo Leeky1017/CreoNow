@@ -1,12 +1,12 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-27 11:55
+更新时间：2026-02-27 17:30
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **14**。
+- 当前活跃 change 数量为 **14**（已完成 9，剩余 5）。
 - 执行模式：**审计整改 3 Wave 推进**（基于 `docs/CN-审计整改-change拆解计划-2026-02-25.md`）。
 - 规则：
   - 任一 change 开始 Red 前，必须完成该 change 的依赖同步检查（Dependency Sync Check）。
@@ -15,36 +15,38 @@
 
 ## 执行顺序
 
-### Wave 1（P0，止血）
+### Wave 1（P0，止血）— 已完成
+
+| Lane | Change | 依赖 | 状态 | PR |
+|------|--------|------|------|-----|
+| A | `audit-fatal-error-visibility-guardrails`（C2） | 无 | DONE | #665 |
+| B | `audit-degradation-telemetry-escalation`（C3） | 无 | DONE | #666 |
+
+### Wave 2（P1 + C10，结构收敛）— 已完成
+
+| Lane | Change | 依赖 | 状态 | PR |
+|------|--------|------|------|-----|
+| A | `audit-ipc-result-unification`（C4） | C2 | DONE | #674 |
+| A | `audit-shared-runtime-utils-unification`（C5） | C4 | DONE | #684 |
+| B | `audit-contextfs-async-ssot`（C6） | C4 | DONE | #683 |
+| D | `audit-editor-save-queue-extraction`（C10） | 无 | DONE | #673 |
+| B | `audit-dead-code-and-path-resolution-cleanup`（C12） | C10 | DONE | #682 |
+| C | `audit-error-language-standardization`（C13） | C2 | DONE | #681 |
+| D | `audit-memory-leak-prevention`（C15） | 无 | DONE | #680 |
+
+> C12/C13/C15 原属 Wave 3，因依赖已满足且无文件冲突，提前并入 Wave 2 第二批执行。
+
+### Wave 3（P2/P3，质量抬升）— 进行中
 
 | Lane | Change | 依赖 | 状态 |
 |------|--------|------|------|
-| A | `audit-fatal-error-visibility-guardrails`（C2） | 无 | DONE |
-| B | `audit-degradation-telemetry-escalation`（C3） | 无 | DONE |
+| A | `audit-proxy-settings-normalization`（C7） | C4✅ | PENDING |
+| A | `audit-type-contract-alignment`（C8） | C7 | PENDING |
+| B | `audit-store-refresh-governance`（C9） | C1✅, C3✅ | PENDING |
+| C | `audit-legacy-adapter-retirement`（C11） | C8 | PENDING |
+| D | `audit-store-provider-style-unification`（C14） | C8, C11 | PENDING |
 
-### Wave 2（P1 + C10，结构收敛）
-
-| Lane | Change | 依赖 | 状态 |
-|------|--------|------|------|
-| A | `audit-ipc-result-unification`（C4） | C2 | PENDING |
-| A | `audit-shared-runtime-utils-unification`（C5） | C4 | PENDING |
-| B | `audit-contextfs-async-ssot`（C6） | C4 | PENDING |
-| B | `audit-proxy-settings-normalization`（C7） | C4 | PENDING |
-| C | `audit-type-contract-alignment`（C8） | C7 | PENDING |
-| D | `audit-editor-save-queue-extraction`（C10） | 无 | PENDING |
-
-> 关键路径：`C4 → (C5 ∥ C6) → C7 → C8`。Lane D 独立并行。
-
-### Wave 3（P2/P3，质量抬升）
-
-| Lane | Change | 依赖 | 状态 |
-|------|--------|------|------|
-| A | `audit-store-refresh-governance`（C9） | C3（C1 已归档） | PENDING |
-| A | `audit-legacy-adapter-retirement`（C11） | C8 | PENDING |
-| B | `audit-dead-code-and-path-resolution-cleanup`（C12） | C10 | PENDING |
-| C | `audit-error-language-standardization`（C13） | C2 | PENDING |
-| C | `audit-store-provider-style-unification`（C14） | C8 | PENDING |
-| D | `audit-memory-leak-prevention`（C15） | 无 | PENDING |
+> 关键路径：`C7 → C8 → C11 → C14`。C9 与 C7 并行（零文件重叠）。
 
 ## 依赖说明
 
@@ -57,30 +59,40 @@
 
 ```
 C1（已归档） ────────────────────────────→ C9 → C11
-C2 ──→ C4 ──→ C5                          ↑
-  │      ├──→ C6 ──→ C7 ──→ C8 ──────────┘──→ C14
-  │      │                    └──→ C11
-  └──→ C13
-C3 ─────────────────────────────────────→ C9
-C10（独立）──→ C12
-C15（独立）
+C2✅ ──→ C4✅ ──→ C5✅                      ↑
+  │        ├──→ C6✅ ──→ C7 ──→ C8 ────────┘──→ C14
+  │        │                    └──→ C11
+  └──→ C13✅
+C3✅ ─────────────────────────────────→ C9
+C10✅ ──→ C12✅
+C15✅
 ```
 
-## 波次并行建议
+## Wave 3 并行策略
 
-- Wave 1（P0 止血）：C1/C2/C3 全部完成归档，Wave 1 收口。Wave 2 可启动。
-- Wave 2（P1 结构收敛 + C10）：C4 是关键路径起点；C10 独立并行。
-- Wave 3（P2/P3 质量抬升）：C9/C11 串行（Lane A），C12 依赖 C10（Lane B），C13/C14 串行（Lane C），C15 独立（Lane D）。
+### Phase 1（立即启动）
+- **C7 + C9 并行**（零文件重叠）
+  - C7: `aiProxySettingsService.ts`, `providerResolver.ts`
+  - C9: `kgStore.ts`, `memoryStore.ts`, `projectStore.tsx`, `fireAndForget.ts`
+
+### Phase 2（C7 + C9 合并后）
+- **C8 串行**（触及 `kgStore.ts`, `memoryStore.ts` — 与 C9 冲突）
+
+### Phase 3（C8 合并后）
+- **C11 串行**（触及 `kgStore.ts`, `memoryStore.ts`）
+
+### Phase 4（C11 合并后）
+- **C14 串行**（触及 `kgStore.ts`, `memoryStore.ts` + 文件重命名 .ts→.tsx）
 
 ## 进度快照
 
-- 审计整改 Wave 1：C1/C2/C3 全部完成，Wave 1 收口。PR #661（C1）、#665（C2）、#666（C3）已合并，Issue #660/#663/#662 已关闭。
-- 审计整改 Wave 2：C4/C5/C6/C7/C8/C10 已创建 change 目录，状态 PENDING。
-- 审计整改 Wave 3：C9/C11/C12/C13/C14/C15 已创建 change 目录，状态 PENDING。
+- 审计整改 Wave 1：C1/C2/C3 全部完成。PR #661/#665/#666 已合并。
+- 审计整改 Wave 2：C4/C5/C6/C10/C12/C13/C15 全部完成。PR #673/#674/#680/#681/#682/#683/#684 已合并。
+- 审计整改 Wave 3：C7/C9 即将启动（Phase 1），C8/C11/C14 待后续串行推进。
 - 历史归档：ISSUE-606（Workbench lane 4 phases）、ISSUE-617（Backend lane 7 changes）已全部归档。
 
 ## 维护规则
 
 - 任一活跃 change 的范围、依赖、状态发生变化时，必须同步更新本文件。
-- 任一 Phase 依赖关系变化时，必须同步更新“执行顺序/依赖说明/进度快照”。
+- 任一 Phase 依赖关系变化时，必须同步更新"执行顺序/依赖说明/进度快照"。
 - 未同步本文件时，不得宣称多变更执行顺序已确认。
