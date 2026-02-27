@@ -28,8 +28,20 @@ function isValidDateKey(x: string): boolean {
   if (!DATE_RE.test(x)) {
     return false;
   }
-  const t = Date.parse(`${x}T00:00:00Z`);
-  return Number.isFinite(t);
+  const [yearRaw, monthRaw, dayRaw] = x.split("-");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return false;
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
 }
 
 /**

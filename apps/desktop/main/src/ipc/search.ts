@@ -31,6 +31,55 @@ function listProjectDocuments(args: {
     .all(args.projectId);
 }
 
+
+type SearchFtsQueryPayload = {
+  projectId: string;
+  query: string;
+  limit?: number;
+  offset?: number;
+};
+
+function normalizeSearchFtsQueryPayload(
+  payload: unknown,
+): IpcResponse<SearchFtsQueryPayload> {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return {
+      ok: false,
+      error: { code: "INVALID_ARGUMENT", message: "payload must be an object" },
+    };
+  }
+
+  const raw = payload as {
+    projectId?: unknown;
+    query?: unknown;
+    limit?: unknown;
+    offset?: unknown;
+  };
+
+  if (typeof raw.projectId !== "string" || raw.projectId.trim().length === 0) {
+    return {
+      ok: false,
+      error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+    };
+  }
+  if (typeof raw.query !== "string") {
+    return {
+      ok: false,
+      error: { code: "INVALID_ARGUMENT", message: "query is required" },
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      projectId: raw.projectId,
+      query: raw.query,
+      limit: typeof raw.limit === "number" ? raw.limit : undefined,
+      offset: typeof raw.offset === "number" ? raw.offset : undefined,
+    },
+  };
+}
+
 /**
  * Create semantic retriever for hybrid ranking.
  *
@@ -131,12 +180,7 @@ export function registerSearchIpcHandlers(deps: {
     "search:fts:query",
     async (
       _e,
-      payload: {
-        projectId: string;
-        query: string;
-        limit?: number;
-        offset?: number;
-      },
+      payload: unknown,
     ): Promise<
       IpcResponse<{
         results: Array<{
@@ -161,19 +205,12 @@ export function registerSearchIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      if (payload.projectId.trim().length === 0) {
-        return {
-          ok: false,
-          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
-        };
+      const normalizedPayload = normalizeSearchFtsQueryPayload(payload);
+      if (!normalizedPayload.ok) {
+        return normalizedPayload;
       }
 
-      const res = ftsService?.search({
-        projectId: payload.projectId,
-        query: payload.query,
-        limit: payload.limit,
-        offset: payload.offset,
-      });
+      const res = ftsService?.search(normalizedPayload.data);
       if (!res) {
         return {
           ok: false,
@@ -184,7 +221,7 @@ export function registerSearchIpcHandlers(deps: {
       if (!res.ok) {
         if (res.error.code === "INVALID_ARGUMENT") {
           deps.logger.info("search_fts_invalid_query", {
-            queryLength: payload.query.trim().length,
+            queryLength: normalizedPayload.data.query.trim().length,
           });
         } else {
           deps.logger.error("search_fts_failed", {
@@ -196,7 +233,7 @@ export function registerSearchIpcHandlers(deps: {
       }
 
       deps.logger.info("search_fts_query", {
-        queryLength: payload.query.trim().length,
+        queryLength: normalizedPayload.data.query.trim().length,
         resultCount: res.data.results.length,
         indexState: res.data.indexState,
       });

@@ -101,7 +101,7 @@ export function registerProjectIpcHandlers(deps: {
     "project:project:list",
     async (
       _e,
-      payload: { includeArchived?: boolean },
+      payload: { includeArchived?: boolean } = {},
     ): Promise<
       IpcResponse<{
         items: Array<{
