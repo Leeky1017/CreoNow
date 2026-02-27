@@ -10,6 +10,10 @@ const appMock = {
   setPath: vi.fn(),
 };
 
+vi.mock("../../../main/src/runtimePathResolver", () => ({
+  resolvePreloadEntryPathFromBuildConfig: vi.fn(() => "/tmp/mock-preload.cjs"),
+}));
+
 vi.mock("electron", () => {
   class BrowserWindowMock {
     static getAllWindows = vi.fn(() => []);

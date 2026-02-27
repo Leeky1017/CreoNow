@@ -135,6 +135,10 @@ async function bootIndexWithWhenReady(
   vi.doMock("../../../main/src/services/kg/kgRecognitionRuntime", () => ({
     createKgRecognitionRuntime: vi.fn(() => null),
   }));
+  vi.doMock("../../../main/src/runtimePathResolver", () => ({
+    resolvePreloadEntryPathFromBuildConfig: vi.fn(() => "/tmp/mock-preload.cjs"),
+  }));
+
   vi.doMock("../../../main/src/services/context/watchService", () => ({
     createCreonowWatchService: vi.fn(() => ({})),
   }));

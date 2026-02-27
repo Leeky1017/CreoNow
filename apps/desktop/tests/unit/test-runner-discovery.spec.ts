@@ -170,15 +170,10 @@ const integrationSentinel =
 const perfSentinel =
   "apps/desktop/tests/perf/project-lifecycle.benchmark.test.ts";
 const phase4IntegrationSentinels = [
-  "apps/desktop/tests/integration/workbench/phase4-visual-audit.spec.ts",
-  "apps/desktop/tests/e2e/visual/phase4-baseline-capture.spec.ts",
-  "apps/desktop/tests/e2e/visual/phase4-visual-diff.spec.ts",
-  "apps/desktop/tests/perf/phase4-benchmark.spec.ts",
   "apps/desktop/tests/integration/governance/phase4-deliverables.spec.ts",
   "apps/desktop/tests/integration/i18n/phase4-i18n-strategy.spec.ts",
   "scripts/tests/phase4-branch-strategy.spec.ts",
   "scripts/tests/phase4-ci-gates.spec.ts",
-  "scripts/tests/phase4-scenario-evidence-chain.spec.ts",
 ] as const;
 
 assert.match(

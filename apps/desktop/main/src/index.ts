@@ -40,6 +40,7 @@ import { createContextProjectScopedCache } from "./services/context/projectScope
 import { createCreonowWatchService } from "./services/context/watchService";
 import { createProjectLifecycle } from "./services/projects/projectLifecycle";
 import { createUtilityProcessFoundation } from "./services/utilityprocess/utilityProcessFoundation";
+import { resolvePreloadEntryPathFromBuildConfig } from "./runtimePathResolver";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,16 +65,9 @@ function enableE2EUserDataIsolation(): void {
  * Why: electron-vite may emit different extensions depending on config/environment.
  */
 function resolvePreloadPath(): string {
-  const dir = path.join(__dirname, "../preload");
-  const candidates = ["index.cjs", "index.js", "index.mjs"];
-  for (const fileName of candidates) {
-    const p = path.join(dir, fileName);
-    if (fs.existsSync(p)) {
-      return p;
-    }
-  }
-
-  return path.join(dir, "index.cjs");
+  return resolvePreloadEntryPathFromBuildConfig({
+    mainModuleDir: __dirname,
+  });
 }
 
 /**
