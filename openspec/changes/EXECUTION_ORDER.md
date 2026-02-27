@@ -1,12 +1,12 @@
 # Active Changes Execution Order
 
-更新时间：2026-02-27 19:00
+更新时间：2026-02-27 20:30
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **14**（已完成 11，剩余 3）。
+- 当前活跃 change 数量为 **14**（已完成 12，剩余 2）。
 - 执行模式：**审计整改 3 Wave 推进**（基于 `docs/CN-审计整改-change拆解计划-2026-02-25.md`）。
 - 规则：
   - 任一 change 开始 Red 前，必须完成该 change 的依赖同步检查（Dependency Sync Check）。
@@ -41,7 +41,7 @@
 | Lane | Change | 依赖 | 状态 | PR |
 |------|--------|------|------|-----|
 | A | `audit-proxy-settings-normalization`（C7） | C4✅ | DONE | #687 |
-| A | `audit-type-contract-alignment`（C8） | C7✅ | PENDING |  |
+| A | `audit-type-contract-alignment`（C8） | C7✅ | DONE | #690 |
 | B | `audit-store-refresh-governance`（C9） | C1✅, C3✅ | DONE | #688 |
 | C | `audit-legacy-adapter-retirement`（C11） | C8 | PENDING |  |
 | D | `audit-store-provider-style-unification`（C14） | C8, C11 | PENDING |  |
@@ -60,7 +60,7 @@
 ```
 C1（已归档） ────────────────────────────→ C9✅ → C11
 C2✅ ──→ C4✅ ──→ C5✅                      ↑
-  │        ├──→ C6✅ ──→ C7✅ ──→ C8 ───────┘──→ C14
+  │        ├──→ C6✅ ──→ C7✅ ──→ C8✅ ──────┘──→ C14
   │        │                    └──→ C11
   └──→ C13✅
 C3✅ ─────────────────────────────────→ C9✅
@@ -73,11 +73,11 @@ C15✅
 ### Phase 1（已完成）
 - **C7 + C9 并行** — PR #687/#688 已合并
 
-### Phase 2（立即启动）
-- **C8 串行**（C7✅ 依赖已满足；触及 `kgStore.ts`, `memoryStore.ts` — 与 C9✅ 无冲突）
+### Phase 2（已完成）
+- **C8 串行** — PR #690 已合并
 
-### Phase 3（C8 合并后）
-- **C11 串行**（触及 `kgStore.ts`, `memoryStore.ts`）
+### Phase 3（立即启动）
+- **C11 串行**（C8✅ 依赖已满足；触及 `kgStore.ts`, `memoryStore.ts`）
 
 ### Phase 4（C11 合并后）
 - **C14 串行**（触及 `kgStore.ts`, `memoryStore.ts` + 文件重命名 .ts→.tsx）
@@ -86,7 +86,7 @@ C15✅
 
 - 审计整改 Wave 1：C1/C2/C3 全部完成。PR #661/#665/#666 已合并。
 - 审计整改 Wave 2：C4/C5/C6/C10/C12/C13/C15 全部完成。PR #673/#674/#680/#681/#682/#683/#684 已合并。
-- 审计整改 Wave 3：C7/C9 已完成（PR #687/#688 已合并）。C8 即将启动（Phase 2），C11/C14 待后续串行推进。
+- 审计整改 Wave 3：C7/C8/C9 已完成（PR #687/#688/#690 已合并）。C11 即将启动（Phase 3），C14 待 C11 完成后推进。
 - 历史归档：ISSUE-606（Workbench lane 4 phases）、ISSUE-617（Backend lane 7 changes）已全部归档。
 
 ## 维护规则
