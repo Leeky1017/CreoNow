@@ -8,6 +8,10 @@ import type {
   IpcInvokeResult,
   IpcRequest,
 } from "@shared/types/ipc-generated";
+import {
+  createEditorSaveQueue,
+  type EditorSaveRequest,
+} from "./editorSaveQueue";
 
 export type IpcInvoke = <C extends IpcChannel>(
   channel: C,
@@ -101,6 +105,21 @@ export type UseEditorStore = ReturnType<typeof createEditorStore>;
 
 const EditorStoreContext = React.createContext<UseEditorStore | null>(null);
 
+function createInitialEntityCompletionSession(): EntityCompletionSession {
+  return {
+    open: false,
+    query: "",
+    triggerFrom: 0,
+    triggerTo: 0,
+    anchorTop: 0,
+    anchorLeft: 0,
+    selectedIndex: 0,
+    status: "idle",
+    candidates: [],
+    message: null,
+  };
+}
+
 /**
  * Create a zustand store for editor/document state.
  *
@@ -108,419 +127,317 @@ const EditorStoreContext = React.createContext<UseEditorStore | null>(null);
  * and StatusBar, and must be driven through typed IPC.
  */
 export function createEditorStore(deps: { invoke: IpcInvoke }) {
-  type SaveRequest = {
-    projectId: string;
-    documentId: string;
-    contentJson: string;
-    actor: "user" | "auto";
-    reason: "manual-save" | "autosave";
-  };
-
-  type SaveQueueEntry = {
-    request: SaveRequest;
-    resolve: () => void;
-  };
-
-  const saveQueue: SaveQueueEntry[] = [];
-  let processingQueue = false;
-
-  // Keep lint-ratchet aligned with current baseline: count the outer factory only.
-  // eslint-disable-next-line max-lines-per-function
-  return create<EditorStore>((set, get) => ({
-    bootstrapStatus: "idle",
-    projectId: null,
-    documentId: null,
-    documentStatus: null,
-    documentContentJson: null,
-    editor: null,
-    lastSavedOrQueuedJson: null,
-    documentCharacterCount: 0,
-    capacityWarning: null,
-    autosaveStatus: "idle",
-    autosaveError: null,
-    entityCompletionSession: {
-      open: false,
-      query: "",
-      triggerFrom: 0,
-      triggerTo: 0,
-      anchorTop: 0,
-      anchorLeft: 0,
-      selectedIndex: 0,
-      status: "idle",
-      candidates: [],
-      message: null,
-    },
-    compareMode: false,
-    compareVersionId: null,
-
-    setAutosaveStatus: (status) => set({ autosaveStatus: status }),
-    setDocumentCharacterCount: (count) =>
-      set({ documentCharacterCount: count }),
-    setCapacityWarning: (warning) => set({ capacityWarning: warning }),
-    setEntityCompletionSession: (patch) =>
-      set((state) => ({
-        entityCompletionSession: {
-          ...state.entityCompletionSession,
-          ...patch,
-        },
-      })),
-    clearEntityCompletionSession: () =>
-      set({
-        entityCompletionSession: {
-          open: false,
-          query: "",
-          triggerFrom: 0,
-          triggerTo: 0,
-          anchorTop: 0,
-          anchorLeft: 0,
-          selectedIndex: 0,
-          status: "idle",
-          candidates: [],
-          message: null,
-        },
-      }),
-    listKnowledgeEntities: async ({ projectId }) => {
-      return await deps.invoke("knowledge:entity:list", { projectId });
-    },
-    clearAutosaveError: () => set({ autosaveError: null }),
-    setEditorInstance: (editor) => set({ editor }),
-    setCompareMode: (enabled, versionId) =>
-      set({
-        compareMode: enabled,
-        compareVersionId: enabled ? (versionId ?? null) : null,
-      }),
-
-    bootstrapForProject: async (projectId) => {
-      set({ bootstrapStatus: "loading" });
-
-      let documentId: string | null = null;
-
-      const currentRes = await deps.invoke("file:document:getcurrent", {
-        projectId,
-      });
-      if (currentRes.ok) {
-        documentId = currentRes.data.documentId;
-      } else if (currentRes.error.code === "NOT_FOUND") {
-        const listRes = await deps.invoke("file:document:list", { projectId });
-        if (!listRes.ok) {
-          set({ bootstrapStatus: "error" });
-          return;
+  return create<EditorStore>((set, get) => {
+    const saveQueue = createEditorSaveQueue({
+      executeSave: async (request: EditorSaveRequest) => {
+        const isCurrent =
+          get().projectId === request.projectId &&
+          get().documentId === request.documentId;
+        if (isCurrent) {
+          set({
+            autosaveStatus: "saving",
+            lastSavedOrQueuedJson: request.contentJson,
+          });
         }
 
-        documentId = listRes.data.items[0]?.documentId ?? null;
-        if (!documentId) {
-          const created = await deps.invoke("file:document:create", {
-            projectId,
+        try {
+          const res = await deps.invoke("file:document:save", {
+            projectId: request.projectId,
+            documentId: request.documentId,
+            contentJson: request.contentJson,
+            actor: request.actor,
+            reason: request.reason,
           });
-          if (!created.ok) {
+
+          if (!res.ok) {
+            const stillCurrent =
+              get().projectId === request.projectId &&
+              get().documentId === request.documentId;
+            if (stillCurrent) {
+              set({ autosaveStatus: "error", autosaveError: res.error });
+            }
+            return;
+          }
+
+          const stillCurrent =
+            get().projectId === request.projectId &&
+            get().documentId === request.documentId;
+          if (stillCurrent) {
+            set({
+              autosaveStatus: "saved",
+              autosaveError: null,
+            });
+          }
+        } catch (error) {
+          const stillCurrent =
+            get().projectId === request.projectId &&
+            get().documentId === request.documentId;
+          if (stillCurrent) {
+            set({
+              autosaveStatus: "error",
+              autosaveError: {
+                code: "INTERNAL_ERROR",
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "file:document:save threw unexpectedly",
+              },
+            });
+          }
+        }
+      },
+    });
+
+    return {
+      bootstrapStatus: "idle",
+      projectId: null,
+      documentId: null,
+      documentStatus: null,
+      documentContentJson: null,
+      editor: null,
+      lastSavedOrQueuedJson: null,
+      documentCharacterCount: 0,
+      capacityWarning: null,
+      autosaveStatus: "idle",
+      autosaveError: null,
+      entityCompletionSession: createInitialEntityCompletionSession(),
+      compareMode: false,
+      compareVersionId: null,
+
+      setAutosaveStatus: (status) => set({ autosaveStatus: status }),
+      setDocumentCharacterCount: (count) =>
+        set({ documentCharacterCount: count }),
+      setCapacityWarning: (warning) => set({ capacityWarning: warning }),
+      setEntityCompletionSession: (patch) =>
+        set((state) => ({
+          entityCompletionSession: {
+            ...state.entityCompletionSession,
+            ...patch,
+          },
+        })),
+      clearEntityCompletionSession: () =>
+        set({
+          entityCompletionSession: createInitialEntityCompletionSession(),
+        }),
+      listKnowledgeEntities: async ({ projectId }) => {
+        return await deps.invoke("knowledge:entity:list", { projectId });
+      },
+      clearAutosaveError: () => set({ autosaveError: null }),
+      setEditorInstance: (editor) => set({ editor }),
+      setCompareMode: (enabled, versionId) =>
+        set({
+          compareMode: enabled,
+          compareVersionId: enabled ? (versionId ?? null) : null,
+        }),
+
+      bootstrapForProject: async (projectId) => {
+        set({ bootstrapStatus: "loading" });
+
+        let documentId: string | null = null;
+
+        const currentRes = await deps.invoke("file:document:getcurrent", {
+          projectId,
+        });
+        if (currentRes.ok) {
+          documentId = currentRes.data.documentId;
+        } else if (currentRes.error.code === "NOT_FOUND") {
+          const listRes = await deps.invoke("file:document:list", { projectId });
+          if (!listRes.ok) {
             set({ bootstrapStatus: "error" });
             return;
           }
-          documentId = created.data.documentId;
-        }
 
-        const setRes = await deps.invoke("file:document:setcurrent", {
-          projectId,
-          documentId,
-        });
-        if (!setRes.ok) {
+          documentId = listRes.data.items[0]?.documentId ?? null;
+          if (!documentId) {
+            const created = await deps.invoke("file:document:create", {
+              projectId,
+            });
+            if (!created.ok) {
+              set({ bootstrapStatus: "error" });
+              return;
+            }
+            documentId = created.data.documentId;
+          }
+
+          const setRes = await deps.invoke("file:document:setcurrent", {
+            projectId,
+            documentId,
+          });
+          if (!setRes.ok) {
+            set({ bootstrapStatus: "error" });
+            return;
+          }
+        } else {
           set({ bootstrapStatus: "error" });
           return;
         }
-      } else {
-        set({ bootstrapStatus: "error" });
-        return;
-      }
 
-      if (!documentId) {
+        if (!documentId) {
+          set({
+            bootstrapStatus: "ready",
+            projectId,
+            documentId: null,
+            documentStatus: null,
+          });
+          return;
+        }
+
+        const readRes = await deps.invoke("file:document:read", {
+          projectId,
+          documentId,
+        });
+        if (!readRes.ok) {
+          set({ bootstrapStatus: "error" });
+          return;
+        }
+
         set({
           bootstrapStatus: "ready",
           projectId,
-          documentId: null,
-          documentStatus: null,
-        });
-        return;
-      }
-
-      const readRes = await deps.invoke("file:document:read", {
-        projectId,
-        documentId,
-      });
-      if (!readRes.ok) {
-        set({ bootstrapStatus: "error" });
-        return;
-      }
-
-      set({
-        bootstrapStatus: "ready",
-        projectId,
-        documentId,
-        documentStatus: readRes.data.status,
-        documentContentJson: readRes.data.contentJson,
-        lastSavedOrQueuedJson: readRes.data.contentJson,
-        documentCharacterCount: 0,
-        capacityWarning: null,
-        autosaveStatus: "idle",
-        autosaveError: null,
-        entityCompletionSession: {
-          open: false,
-          query: "",
-          triggerFrom: 0,
-          triggerTo: 0,
-          anchorTop: 0,
-          anchorLeft: 0,
-          selectedIndex: 0,
-          status: "idle",
-          candidates: [],
-          message: null,
-        },
-      });
-    },
-
-    openDocument: async ({ projectId, documentId }) => {
-      set({
-        bootstrapStatus: "loading",
-        projectId,
-        autosaveError: null,
-      });
-
-      const readRes = await deps.invoke("file:document:read", {
-        projectId,
-        documentId,
-      });
-      if (!readRes.ok) {
-        set({ bootstrapStatus: "error" });
-        return;
-      }
-
-      set({
-        bootstrapStatus: "ready",
-        projectId,
-        documentId,
-        documentStatus: readRes.data.status,
-        documentContentJson: readRes.data.contentJson,
-        lastSavedOrQueuedJson: readRes.data.contentJson,
-        documentCharacterCount: 0,
-        capacityWarning: null,
-        autosaveStatus: "idle",
-        autosaveError: null,
-        entityCompletionSession: {
-          open: false,
-          query: "",
-          triggerFrom: 0,
-          triggerTo: 0,
-          anchorTop: 0,
-          anchorLeft: 0,
-          selectedIndex: 0,
-          status: "idle",
-          candidates: [],
-          message: null,
-        },
-      });
-    },
-
-    openCurrentDocumentForProject: async (projectId) => {
-      set({ bootstrapStatus: "loading", projectId, autosaveError: null });
-
-      const currentRes = await deps.invoke("file:document:getcurrent", {
-        projectId,
-      });
-      if (currentRes.ok) {
-        await get().openDocument({
-          projectId,
-          documentId: currentRes.data.documentId,
-        });
-        return;
-      }
-
-      if (currentRes.error.code === "NOT_FOUND") {
-        set({
-          bootstrapStatus: "ready",
-          projectId,
-          documentId: null,
-          documentStatus: null,
-          documentContentJson: null,
-          lastSavedOrQueuedJson: null,
+          documentId,
+          documentStatus: readRes.data.status,
+          documentContentJson: readRes.data.contentJson,
+          lastSavedOrQueuedJson: readRes.data.contentJson,
           documentCharacterCount: 0,
           capacityWarning: null,
           autosaveStatus: "idle",
           autosaveError: null,
-          entityCompletionSession: {
-            open: false,
-            query: "",
-            triggerFrom: 0,
-            triggerTo: 0,
-            anchorTop: 0,
-            anchorLeft: 0,
-            selectedIndex: 0,
-            status: "idle",
-            candidates: [],
-            message: null,
-          },
+          entityCompletionSession: createInitialEntityCompletionSession(),
         });
-        return;
-      }
+      },
 
-      set({ bootstrapStatus: "error" });
-    },
+      openDocument: async ({ projectId, documentId }) => {
+        set({
+          bootstrapStatus: "loading",
+          projectId,
+          autosaveError: null,
+        });
 
-    save: async ({ projectId, documentId, contentJson, actor, reason }) => {
-      await new Promise<void>((resolve) => {
-        const entry: SaveQueueEntry = {
-          request: { projectId, documentId, contentJson, actor, reason },
-          resolve,
-        };
-
-        if (reason === "manual-save") {
-          const firstAutosaveIndex = saveQueue.findIndex(
-            (queued) =>
-              queued.request.projectId === projectId &&
-              queued.request.documentId === documentId &&
-              queued.request.reason === "autosave",
-          );
-          if (firstAutosaveIndex >= 0) {
-            saveQueue.splice(firstAutosaveIndex, 0, entry);
-          } else {
-            saveQueue.push(entry);
-          }
-        } else {
-          saveQueue.push(entry);
-        }
-
-        if (processingQueue) {
+        const readRes = await deps.invoke("file:document:read", {
+          projectId,
+          documentId,
+        });
+        if (!readRes.ok) {
+          set({ bootstrapStatus: "error" });
           return;
         }
 
-        const processQueue = async () => {
-          processingQueue = true;
-          while (saveQueue.length > 0) {
-            const current = saveQueue.shift();
-            if (!current) {
-              break;
-            }
+        set({
+          bootstrapStatus: "ready",
+          projectId,
+          documentId,
+          documentStatus: readRes.data.status,
+          documentContentJson: readRes.data.contentJson,
+          lastSavedOrQueuedJson: readRes.data.contentJson,
+          documentCharacterCount: 0,
+          capacityWarning: null,
+          autosaveStatus: "idle",
+          autosaveError: null,
+          entityCompletionSession: createInitialEntityCompletionSession(),
+        });
+      },
 
-            const isCurrent =
-              get().projectId === current.request.projectId &&
-              get().documentId === current.request.documentId;
-            if (isCurrent) {
-              set({
-                autosaveStatus: "saving",
-                lastSavedOrQueuedJson: current.request.contentJson,
-              });
-            }
+      openCurrentDocumentForProject: async (projectId) => {
+        set({ bootstrapStatus: "loading", projectId, autosaveError: null });
 
-            try {
-              const res = await deps.invoke("file:document:save", {
-                projectId: current.request.projectId,
-                documentId: current.request.documentId,
-                contentJson: current.request.contentJson,
-                actor: current.request.actor,
-                reason: current.request.reason,
-              });
+        const currentRes = await deps.invoke("file:document:getcurrent", {
+          projectId,
+        });
+        if (currentRes.ok) {
+          await get().openDocument({
+            projectId,
+            documentId: currentRes.data.documentId,
+          });
+          return;
+        }
 
-              if (!res.ok) {
-                const stillCurrent =
-                  get().projectId === current.request.projectId &&
-                  get().documentId === current.request.documentId;
-                if (stillCurrent) {
-                  set({ autosaveStatus: "error", autosaveError: res.error });
-                }
-                current.resolve();
-                continue;
-              }
+        if (currentRes.error.code === "NOT_FOUND") {
+          set({
+            bootstrapStatus: "ready",
+            projectId,
+            documentId: null,
+            documentStatus: null,
+            documentContentJson: null,
+            lastSavedOrQueuedJson: null,
+            documentCharacterCount: 0,
+            capacityWarning: null,
+            autosaveStatus: "idle",
+            autosaveError: null,
+            entityCompletionSession: createInitialEntityCompletionSession(),
+          });
+          return;
+        }
 
-              const stillCurrent =
-                get().projectId === current.request.projectId &&
-                get().documentId === current.request.documentId;
-              if (stillCurrent) {
-                set({
-                  autosaveStatus: "saved",
-                  autosaveError: null,
-                });
-              }
-            } catch (error) {
-              const stillCurrent =
-                get().projectId === current.request.projectId &&
-                get().documentId === current.request.documentId;
-              if (stillCurrent) {
-                set({
-                  autosaveStatus: "error",
-                  autosaveError: {
-                    code: "INTERNAL_ERROR",
-                    message:
-                      error instanceof Error
-                        ? error.message
-                        : "file:document:save threw unexpectedly",
-                  },
-                });
-              }
-            }
+        set({ bootstrapStatus: "error" });
+      },
 
-            current.resolve();
-          }
-          processingQueue = false;
-        };
+      save: async ({ projectId, documentId, contentJson, actor, reason }) => {
+        await saveQueue.enqueue({
+          projectId,
+          documentId,
+          contentJson,
+          actor,
+          reason,
+        });
+      },
 
-        void processQueue();
-      });
-    },
+      downgradeFinalStatusForEdit: async ({ projectId, documentId }) => {
+        const res = await deps.invoke("file:document:updatestatus", {
+          projectId,
+          documentId,
+          status: "draft",
+        });
+        if (!res.ok) {
+          set({ autosaveStatus: "error", autosaveError: res.error });
+          return false;
+        }
 
-    downgradeFinalStatusForEdit: async ({ projectId, documentId }) => {
-      const res = await deps.invoke("file:document:updatestatus", {
-        projectId,
-        documentId,
-        status: "draft",
-      });
-      if (!res.ok) {
-        set({ autosaveStatus: "error", autosaveError: res.error });
-        return false;
-      }
+        set({ documentStatus: "draft", autosaveError: null });
+        return true;
+      },
 
-      set({ documentStatus: "draft", autosaveError: null });
-      return true;
-    },
+      retryLastAutosave: async () => {
+        const state = get();
+        if (
+          !state.projectId ||
+          !state.documentId ||
+          !state.lastSavedOrQueuedJson ||
+          state.lastSavedOrQueuedJson.length === 0
+        ) {
+          return;
+        }
 
-    retryLastAutosave: async () => {
-      const state = get();
-      if (
-        !state.projectId ||
-        !state.documentId ||
-        !state.lastSavedOrQueuedJson ||
-        state.lastSavedOrQueuedJson.length === 0
-      ) {
-        return;
-      }
+        set({ autosaveError: null });
+        await state.save({
+          projectId: state.projectId,
+          documentId: state.documentId,
+          contentJson: state.lastSavedOrQueuedJson,
+          actor: "auto",
+          reason: "autosave",
+        });
+      },
 
-      set({ autosaveError: null });
-      await state.save({
-        projectId: state.projectId,
-        documentId: state.documentId,
-        contentJson: state.lastSavedOrQueuedJson,
-        actor: "auto",
-        reason: "autosave",
-      });
-    },
+      flushPendingAutosave: async () => {
+        const state = get();
+        if (
+          !state.projectId ||
+          !state.documentId ||
+          !state.lastSavedOrQueuedJson ||
+          state.lastSavedOrQueuedJson.length === 0
+        ) {
+          return;
+        }
 
-    flushPendingAutosave: async () => {
-      const state = get();
-      if (
-        !state.projectId ||
-        !state.documentId ||
-        !state.lastSavedOrQueuedJson ||
-        state.lastSavedOrQueuedJson.length === 0
-      ) {
-        return;
-      }
-
-      await state.save({
-        projectId: state.projectId,
-        documentId: state.documentId,
-        contentJson: state.lastSavedOrQueuedJson,
-        actor: "auto",
-        reason: "autosave",
-      });
-    },
-  }));
+        await state.save({
+          projectId: state.projectId,
+          documentId: state.documentId,
+          contentJson: state.lastSavedOrQueuedJson,
+          actor: "auto",
+          reason: "autosave",
+        });
+      },
+    };
+  });
 }
 
 /**
