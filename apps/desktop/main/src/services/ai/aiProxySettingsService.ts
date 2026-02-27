@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 
 import type { IpcErrorCode } from "@shared/types/ipc-generated";
+import { nowTs } from "@shared/timeUtils";
 import type { Logger } from "../../logging/logger";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 export type { ServiceResult };
@@ -79,10 +80,6 @@ const KEY_ANTH_BYOK_BASE_URL =
 const KEY_ANTH_BYOK_API_KEY =
   "creonow.ai.provider.anthropicByok.apiKey" as const;
 const ENCRYPTED_SECRET_PREFIX = "__safe_storage_v1__:";
-
-function nowTs(): number {
-  return Date.now();
-}
 
 type SettingsRow = { valueJson: string };
 

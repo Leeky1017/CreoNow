@@ -12,6 +12,7 @@
  *
  * Design reference: audit/02 §3.2 — token budget management.
  */
+import { estimateUtf8TokenCount } from "@shared/tokenBudget";
 
 export type LLMMessage = {
   role: "system" | "user" | "assistant";
@@ -23,17 +24,7 @@ type HistoryMessage = {
   content: string;
 };
 
-/**
- * Estimate token count from text using deterministic UTF-8 byte approximation.
- *
- * Matches the existing estimateTokenCount in aiService.ts for consistency.
- */
-export function estimateMessageTokens(text: string): number {
-  if (text.length === 0) {
-    return 0;
-  }
-  return Math.max(1, Math.ceil(Buffer.byteLength(text, "utf8") / 4));
-}
+export const estimateMessageTokens = estimateUtf8TokenCount;
 
 export function buildLLMMessages(args: {
   systemPrompt: string;

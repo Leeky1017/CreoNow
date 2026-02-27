@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type Database from "better-sqlite3";
+import { nowTs } from "@shared/timeUtils";
 
 import type { Logger } from "../../logging/logger";
 import type { MemoryScope, MemorySettings, MemoryType } from "./memoryService";
@@ -23,10 +24,6 @@ const MIN_EVIDENCE_REF_LEN = 3;
 const MAX_EVIDENCE_REF_LEN = 240;
 const MAX_PRIVACY_TOKEN_LEN = 64;
 const PRIVACY_TOKEN_RE = /^[a-z0-9][a-z0-9._:-]{0,63}$/i;
-
-function nowTs(): number {
-  return Date.now();
-}
 
 type EvidenceNorm =
   | { ok: true; value: string }

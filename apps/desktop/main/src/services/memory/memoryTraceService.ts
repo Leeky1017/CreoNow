@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { nowTs } from "@shared/timeUtils";
 
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 export type { ServiceResult };
@@ -47,10 +48,6 @@ export type MemoryTraceService = {
     generationId: string;
   }) => GenerationTraceFeedback[];
 };
-
-function nowTs(): number {
-  return Date.now();
-}
 
 function cloneTrace(trace: GenerationTrace): GenerationTrace {
   return {

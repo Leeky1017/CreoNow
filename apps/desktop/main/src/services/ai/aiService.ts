@@ -791,7 +791,7 @@ export function createAiService(deps: {
         },
         body: JSON.stringify({
           model: args.model,
-          max_tokens: 256,
+          max_tokens: DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE,
           system: args.runtimeMessages.systemText,
           messages: args.runtimeMessages.anthropicMessages,
           stream: false,
@@ -964,7 +964,7 @@ export function createAiService(deps: {
         },
         body: JSON.stringify({
           model: args.model,
-          max_tokens: 256,
+          max_tokens: DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE,
           system: args.runtimeMessages.systemText,
           messages: args.runtimeMessages.anthropicMessages,
           stream: true,

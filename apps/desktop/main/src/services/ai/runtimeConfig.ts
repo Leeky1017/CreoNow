@@ -1,8 +1,9 @@
 import { assembleSystemPrompt } from "./assembleSystemPrompt";
 import { GLOBAL_IDENTITY_PROMPT } from "./identityPrompt";
+export { estimateUtf8TokenCount as estimateTokenCount } from "@shared/tokenBudget";
 
 export const DEFAULT_SKILL_TIMEOUT_MS = 30_000;
-const MAX_SKILL_TIMEOUT_MS = 120_000;
+export const MAX_SKILL_TIMEOUT_MS = 120_000;
 export const DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE = 256;
 const DEFAULT_MAX_SKILL_OUTPUT_CHARS = 120_000;
 const DEFAULT_CHAT_HISTORY_TOKEN_BUDGET = 16_000;
@@ -28,13 +29,6 @@ export function modeSystemHint(mode: "agent" | "plan" | "ask"): string | null {
     return "Mode: agent\nAct as an autonomous writing assistant and make concrete edits.";
   }
   return null;
-}
-
-export function estimateTokenCount(text: string): number {
-  if (text.length === 0) {
-    return 0;
-  }
-  return Math.max(1, Math.ceil(Buffer.byteLength(text, "utf8") / 4));
 }
 
 export function parseMaxSkillOutputChars(env: NodeJS.ProcessEnv): number {

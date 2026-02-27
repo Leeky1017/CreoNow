@@ -5,6 +5,7 @@ import type {
   IpcResponse,
 } from "@shared/types/ipc-generated";
 import { RUNTIME_GOVERNANCE_DEFAULTS } from "@shared/runtimeGovernance";
+import { nowTs } from "@shared/timeUtils";
 
 export const MAX_IPC_PAYLOAD_BYTES =
   RUNTIME_GOVERNANCE_DEFAULTS.ipc.maxPayloadBytes;
@@ -26,10 +27,6 @@ type CreatePreloadIpcGatewayArgs = {
   requestIdFactory?: () => string;
   auditLog?: (event: IpcSecurityAuditEvent) => void;
 };
-
-function nowTs(): number {
-  return Date.now();
-}
 
 function createRequestId(): string {
   if (

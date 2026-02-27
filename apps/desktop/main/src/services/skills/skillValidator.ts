@@ -1,3 +1,4 @@
+import { MAX_SKILL_TIMEOUT_MS } from "../ai/runtimeConfig";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 export type { ServiceResult };
 
@@ -204,10 +205,14 @@ function optionalIntegerField(
       },
     );
   }
-  if (fieldName === "timeoutMs" && value > 120000) {
-    return ipcError("INVALID_ARGUMENT", "timeoutMs must be <= 120000", {
+  if (fieldName === "timeoutMs" && value > MAX_SKILL_TIMEOUT_MS) {
+    return ipcError(
+      "INVALID_ARGUMENT",
+      `timeoutMs must be <= ${String(MAX_SKILL_TIMEOUT_MS)}`,
+      {
       fieldName,
-    });
+      },
+    );
   }
   return { ok: true, data: value };
 }
