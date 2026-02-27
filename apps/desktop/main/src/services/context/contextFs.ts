@@ -17,6 +17,130 @@ export function getCreonowRootPath(projectRootPath: string): string {
   return path.join(projectRootPath, ".creonow");
 }
 
+type CreonowDefaultFileTemplate = {
+  relativePath: string;
+  content: string;
+};
+
+type CreonowDefaultFile = {
+  absPath: string;
+  content: string;
+};
+
+type CreonowDirStructurePlan = {
+  dirs: string[];
+  defaultFiles: CreonowDefaultFile[];
+};
+
+const CREONOW_REQUIRED_SUBDIRS = [
+  "rules",
+  "settings",
+  "skills",
+  "characters",
+  "conversations",
+  "cache",
+] as const;
+
+const CREONOW_DEFAULT_FILE_TEMPLATES: ReadonlyArray<CreonowDefaultFileTemplate> =
+  [
+    {
+      relativePath: path.join("rules", "style.md"),
+      content: "# Style\n\n",
+    },
+    {
+      relativePath: path.join("rules", "terminology.json"),
+      content: JSON.stringify({ terms: [] }, null, 2) + "\n",
+    },
+    {
+      relativePath: path.join("rules", "constraints.json"),
+      content: JSON.stringify({ version: 1, items: [] }, null, 2) + "\n",
+    },
+  ];
+
+function buildCreonowDirStructurePlan(
+  projectRootPath: string,
+): CreonowDirStructurePlan {
+  const base = getCreonowRootPath(projectRootPath);
+  return {
+    dirs: [base, ...CREONOW_REQUIRED_SUBDIRS.map((dir) => path.join(base, dir))],
+    defaultFiles: CREONOW_DEFAULT_FILE_TEMPLATES.map((template) => ({
+      absPath: path.join(base, template.relativePath),
+      content: template.content,
+    })),
+  };
+}
+
+function ensureCreonowDirStructureSyncFromPlan(plan: CreonowDirStructurePlan): void {
+  for (const dirPath of plan.dirs) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+
+  for (const file of plan.defaultFiles) {
+    if (!fs.existsSync(file.absPath)) {
+      fs.writeFileSync(file.absPath, file.content, "utf8");
+    }
+  }
+}
+
+async function fileExistsAsync(absPath: string): Promise<boolean> {
+  try {
+    await fsPromises.access(absPath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function ensureCreonowDirStructureAsyncFromPlan(
+  plan: CreonowDirStructurePlan,
+): Promise<void> {
+  for (const dirPath of plan.dirs) {
+    await fsPromises.mkdir(dirPath, { recursive: true });
+  }
+
+  for (const file of plan.defaultFiles) {
+    if (await fileExistsAsync(file.absPath)) {
+      continue;
+    }
+    await fsPromises.writeFile(file.absPath, file.content, "utf8");
+  }
+}
+
+function toIoErrorDetails(error: unknown): { message: string } | { error: unknown } {
+  return error instanceof Error ? { message: error.message } : { error };
+}
+
+function isErrorWithCode(error: unknown, code: string): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error as NodeJS.ErrnoException).code === code
+  );
+}
+
+function toCreonowDirStatusResult(args: {
+  creonowRootPath: string;
+  exists: boolean;
+}): ServiceResult<CreonowDirStatus> {
+  return {
+    ok: true,
+    data: {
+      exists: args.exists,
+      creonowRootPath: args.creonowRootPath,
+    },
+  };
+}
+
+function mapCreonowDirStatusError(
+  error: unknown,
+  creonowRootPath: string,
+): ServiceResult<CreonowDirStatus> {
+  if (isErrorWithCode(error, "ENOENT")) {
+    return toCreonowDirStatusResult({ exists: false, creonowRootPath });
+  }
+  return ipcError("IO_ERROR", "Failed to read .creonow status", toIoErrorDetails(error));
+}
+
 /**
  * Ensure the `.creonow/` directory structure exists for a project.
  *
@@ -27,47 +151,12 @@ export function ensureCreonowDirStructure(
   projectRootPath: string,
 ): ServiceResult<true> {
   try {
-    const base = getCreonowRootPath(projectRootPath);
-    const dirs = [
-      base,
-      path.join(base, "rules"),
-      path.join(base, "settings"),
-      path.join(base, "skills"),
-      path.join(base, "characters"),
-      path.join(base, "conversations"),
-      path.join(base, "cache"),
-    ];
-    for (const d of dirs) {
-      fs.mkdirSync(d, { recursive: true });
-    }
-
-    const defaultFiles: Array<{ p: string; content: string }> = [
-      {
-        p: path.join(base, "rules", "style.md"),
-        content: "# Style\n\n",
-      },
-      {
-        p: path.join(base, "rules", "terminology.json"),
-        content: JSON.stringify({ terms: [] }, null, 2) + "\n",
-      },
-      {
-        p: path.join(base, "rules", "constraints.json"),
-        content: JSON.stringify({ version: 1, items: [] }, null, 2) + "\n",
-      },
-    ];
-    for (const f of defaultFiles) {
-      if (!fs.existsSync(f.p)) {
-        fs.writeFileSync(f.p, f.content, "utf8");
-      }
-    }
-
+    ensureCreonowDirStructureSyncFromPlan(
+      buildCreonowDirStructurePlan(projectRootPath),
+    );
     return { ok: true, data: true };
   } catch (error) {
-    return ipcError(
-      "IO_ERROR",
-      "Failed to initialize .creonow directory",
-      error instanceof Error ? { message: error.message } : { error },
-    );
+    return ipcError("IO_ERROR", "Failed to initialize .creonow directory", toIoErrorDetails(error));
   }
 }
 
@@ -82,16 +171,12 @@ export function getCreonowDirStatus(
   const creonowRootPath = getCreonowRootPath(projectRootPath);
   try {
     const stat = fs.statSync(creonowRootPath);
-    return { ok: true, data: { exists: stat.isDirectory(), creonowRootPath } };
+    return toCreonowDirStatusResult({
+      exists: stat.isDirectory(),
+      creonowRootPath,
+    });
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return { ok: true, data: { exists: false, creonowRootPath } };
-    }
-    return ipcError(
-      "IO_ERROR",
-      "Failed to read .creonow status",
-      error instanceof Error ? { message: error.message } : { error },
-    );
+    return mapCreonowDirStatusError(error, creonowRootPath);
   }
 }
 
@@ -163,6 +248,38 @@ function toAbsoluteCreonowPath(args: {
   return { ok: true, data: { absPath, creonowRootAbs } };
 }
 
+type FsStatLike = {
+  isFile: () => boolean;
+  size: number;
+  mtimeMs: number;
+};
+
+function toPosixRelativePath(prefixRel: string, entryName: string): string {
+  return `${prefixRel}/${entryName}`.split("\\").join("/");
+}
+
+function sortCreonowListItems(items: CreonowListItem[]): CreonowListItem[] {
+  items.sort((a, b) => a.path.localeCompare(b.path));
+  return items;
+}
+
+function buildCreonowListItemFromStat(args: {
+  relPath: string;
+  stat: FsStatLike;
+}): ServiceResult<CreonowListItem> {
+  if (!args.stat.isFile()) {
+    return ipcError("UNSUPPORTED", "Only files are supported");
+  }
+  return {
+    ok: true,
+    data: {
+      path: args.relPath,
+      sizeBytes: args.stat.size,
+      updatedAtMs: args.stat.mtimeMs,
+    },
+  };
+}
+
 /**
  * Read a stable list item from a stat result.
  *
@@ -174,24 +291,12 @@ function statToListItem(args: {
   relPath: string;
 }): ServiceResult<CreonowListItem> {
   try {
-    const stat = fs.statSync(args.absPath);
-    if (!stat.isFile()) {
-      return ipcError("UNSUPPORTED", "Only files are supported");
-    }
-    return {
-      ok: true,
-      data: {
-        path: args.relPath,
-        sizeBytes: stat.size,
-        updatedAtMs: stat.mtimeMs,
-      },
-    };
+    return buildCreonowListItemFromStat({
+      relPath: args.relPath,
+      stat: fs.statSync(args.absPath),
+    });
   } catch (error) {
-    return ipcError(
-      "IO_ERROR",
-      "Failed to stat file",
-      error instanceof Error ? { message: error.message } : { error },
-    );
+    return ipcError("IO_ERROR", "Failed to stat file", toIoErrorDetails(error));
   }
 }
 
@@ -210,7 +315,7 @@ function listFilesRecursive(args: {
     const items: CreonowListItem[] = [];
     for (const entry of entries) {
       const absPath = path.join(args.dirAbs, entry.name);
-      const relPath = `${args.prefixRel}/${entry.name}`.split("\\").join("/");
+      const relPath = toPosixRelativePath(args.prefixRel, entry.name);
       if (entry.isDirectory()) {
         const child = listFilesRecursive({
           dirAbs: absPath,
@@ -233,13 +338,12 @@ function listFilesRecursive(args: {
       items.push(item.data);
     }
 
-    items.sort((a, b) => a.path.localeCompare(b.path));
-    return { ok: true, data: items };
+    return { ok: true, data: sortCreonowListItems(items) };
   } catch (error) {
     return ipcError(
       "IO_ERROR",
       "Failed to list .creonow files",
-      error instanceof Error ? { message: error.message } : { error },
+      toIoErrorDetails(error),
     );
   }
 }
@@ -268,14 +372,10 @@ export function listCreonowFiles(args: {
       return ipcError("NOT_FOUND", "Directory not found");
     }
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (isErrorWithCode(error, "ENOENT")) {
       return { ok: true, data: { items: [] } };
     }
-    return ipcError(
-      "IO_ERROR",
-      "Failed to read directory",
-      error instanceof Error ? { message: error.message } : { error },
-    );
+    return ipcError("IO_ERROR", "Failed to read directory", toIoErrorDetails(error));
   }
 
   const listed = listFilesRecursive({ dirAbs, prefixRel: baseRel });
@@ -313,14 +413,10 @@ export function readCreonowTextFile(args: {
       data: { content, sizeBytes: stat.size, updatedAtMs: stat.mtimeMs },
     };
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (isErrorWithCode(error, "ENOENT")) {
       return ipcError("NOT_FOUND", "File not found");
     }
-    return ipcError(
-      "IO_ERROR",
-      "Failed to read file",
-      error instanceof Error ? { message: error.message } : { error },
-    );
+    return ipcError("IO_ERROR", "Failed to read file", toIoErrorDetails(error));
   }
 }
 
@@ -333,50 +429,15 @@ export async function ensureCreonowDirStructureAsync(
   projectRootPath: string,
 ): Promise<ServiceResult<true>> {
   try {
-    const base = getCreonowRootPath(projectRootPath);
-    const dirs = [
-      base,
-      path.join(base, "rules"),
-      path.join(base, "settings"),
-      path.join(base, "skills"),
-      path.join(base, "characters"),
-      path.join(base, "conversations"),
-      path.join(base, "cache"),
-    ];
-    for (const d of dirs) {
-      await fsPromises.mkdir(d, { recursive: true });
-    }
-
-    const defaultFiles: Array<{ p: string; content: string }> = [
-      {
-        p: path.join(base, "rules", "style.md"),
-        content: "# Style\n\n",
-      },
-      {
-        p: path.join(base, "rules", "terminology.json"),
-        content: JSON.stringify({ terms: [] }, null, 2) + "\n",
-      },
-      {
-        p: path.join(base, "rules", "constraints.json"),
-        content: JSON.stringify({ version: 1, items: [] }, null, 2) + "\n",
-      },
-    ];
-    for (const f of defaultFiles) {
-      const exists = await fsPromises
-        .access(f.p)
-        .then(() => true)
-        .catch(() => false);
-      if (!exists) {
-        await fsPromises.writeFile(f.p, f.content, "utf8");
-      }
-    }
-
+    await ensureCreonowDirStructureAsyncFromPlan(
+      buildCreonowDirStructurePlan(projectRootPath),
+    );
     return { ok: true, data: true };
   } catch (error) {
     return ipcError(
       "IO_ERROR",
       "Failed to initialize .creonow directory",
-      error instanceof Error ? { message: error.message } : { error },
+      toIoErrorDetails(error),
     );
   }
 }
@@ -390,16 +451,12 @@ export async function getCreonowDirStatusAsync(
   const creonowRootPath = getCreonowRootPath(projectRootPath);
   try {
     const stat = await fsPromises.stat(creonowRootPath);
-    return { ok: true, data: { exists: stat.isDirectory(), creonowRootPath } };
+    return toCreonowDirStatusResult({
+      exists: stat.isDirectory(),
+      creonowRootPath,
+    });
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return { ok: true, data: { exists: false, creonowRootPath } };
-    }
-    return ipcError(
-      "IO_ERROR",
-      "Failed to read .creonow status",
-      error instanceof Error ? { message: error.message } : { error },
-    );
+    return mapCreonowDirStatusError(error, creonowRootPath);
   }
 }
 
@@ -411,24 +468,12 @@ async function statToListItemAsync(args: {
   relPath: string;
 }): Promise<ServiceResult<CreonowListItem>> {
   try {
-    const stat = await fsPromises.stat(args.absPath);
-    if (!stat.isFile()) {
-      return ipcError("UNSUPPORTED", "Only files are supported");
-    }
-    return {
-      ok: true,
-      data: {
-        path: args.relPath,
-        sizeBytes: stat.size,
-        updatedAtMs: stat.mtimeMs,
-      },
-    };
+    return buildCreonowListItemFromStat({
+      relPath: args.relPath,
+      stat: await fsPromises.stat(args.absPath),
+    });
   } catch (error) {
-    return ipcError(
-      "IO_ERROR",
-      "Failed to stat file",
-      error instanceof Error ? { message: error.message } : { error },
-    );
+    return ipcError("IO_ERROR", "Failed to stat file", toIoErrorDetails(error));
   }
 }
 
@@ -447,7 +492,7 @@ async function listFilesRecursiveAsync(args: {
 
     for (const entry of entries) {
       const absPath = path.join(args.dirAbs, entry.name);
-      const relPath = `${args.prefixRel}/${entry.name}`.split("\\").join("/");
+      const relPath = toPosixRelativePath(args.prefixRel, entry.name);
       if (entry.isDirectory()) {
         const child = await listFilesRecursiveAsync({
           dirAbs: absPath,
@@ -470,13 +515,12 @@ async function listFilesRecursiveAsync(args: {
       items.push(item.data);
     }
 
-    items.sort((a, b) => a.path.localeCompare(b.path));
-    return { ok: true, data: items };
+    return { ok: true, data: sortCreonowListItems(items) };
   } catch (error) {
     return ipcError(
       "IO_ERROR",
       "Failed to list .creonow files",
-      error instanceof Error ? { message: error.message } : { error },
+      toIoErrorDetails(error),
     );
   }
 }
@@ -503,14 +547,10 @@ export async function listCreonowFilesAsync(args: {
       return ipcError("NOT_FOUND", "Directory not found");
     }
   } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (isErrorWithCode(error, "ENOENT")) {
       return { ok: true, data: { items: [] } };
     }
-    return ipcError(
-      "IO_ERROR",
-      "Failed to read directory",
-      error instanceof Error ? { message: error.message } : { error },
-    );
+    return ipcError("IO_ERROR", "Failed to read directory", toIoErrorDetails(error));
   }
 
   const listed = await listFilesRecursiveAsync({ dirAbs, prefixRel: baseRel });
@@ -584,13 +624,9 @@ export async function readCreonowTextFileAsync(args: {
         limitBytes: CONTEXT_FS_STREAM_READ_HARD_LIMIT_BYTES,
       });
     }
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+    if (isErrorWithCode(error, "ENOENT")) {
       return ipcError("NOT_FOUND", "File not found");
     }
-    return ipcError(
-      "IO_ERROR",
-      "Failed to read file",
-      error instanceof Error ? { message: error.message } : { error },
-    );
+    return ipcError("IO_ERROR", "Failed to read file", toIoErrorDetails(error));
   }
 }
