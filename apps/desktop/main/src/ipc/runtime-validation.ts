@@ -371,15 +371,17 @@ function sanitizeErrorEnvelope(rawError: IpcError): IpcError {
     code: rawError.code,
     message: rawError.message,
   };
+
   if ("details" in rawError) {
     sanitized.details = rawError.details;
   }
-  if ("retryable" in rawError) {
+  if (typeof rawError.retryable === "boolean") {
     sanitized.retryable = rawError.retryable;
   }
-  if ("traceId" in rawError) {
+  if (typeof rawError.traceId === "string") {
     sanitized.traceId = rawError.traceId;
   }
+
   return sanitized;
 }
 

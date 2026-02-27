@@ -168,3 +168,37 @@ async function invokeWrapped(
   assert.equal(res.error.code, "IPC_TIMEOUT");
   assert.equal(cleaned, true);
 }
+
+// S6: 非法错误字段类型会被清洗，避免错误映射漂移 [ADDED]
+{
+  const logger = createTestLogger();
+
+  const wrapped = wrapIpcRequestResponse({
+    channel: "test:error:sanitize-optional-fields",
+    requestSchema: s.object({}),
+    responseSchema: s.object({ ok: s.literal(true) }),
+    logger,
+    timeoutMs: 30_000,
+    handler: async () =>
+      ({
+        ok: false,
+        error: {
+          code: "NOT_FOUND",
+          message: "missing",
+          traceId: 123,
+          retryable: "yes",
+          details: { source: "test" },
+        },
+      }) as unknown as IpcResponse<unknown>,
+  });
+
+  const res = await invokeWrapped(wrapped, {});
+  assert.equal(res.ok, false);
+  if (res.ok) {
+    assert.fail("expected error envelope");
+  }
+  assert.equal(res.error.code, "NOT_FOUND");
+  assert.equal("traceId" in res.error, false);
+  assert.equal("retryable" in res.error, false);
+  assert.deepEqual(res.error.details, { source: "test" });
+}
