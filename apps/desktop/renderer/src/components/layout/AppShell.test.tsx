@@ -269,6 +269,42 @@ describe("AppShell", () => {
       expect(sidebar.style.transition).toContain("var(--duration-slow)");
     });
   });
+});
+
+describe("AppShell", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIpc = createMockIpc();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /**
+   * Render AppShell with all required providers.
+   *
+   * Why: Wraps render in act() and waits for initial bootstrap to complete,
+   * avoiding "not wrapped in act()" warnings from async state updates.
+   */
+  const renderWithWrapper = async (options?: {
+    layoutStoreOverride?: UseLayoutStore;
+  }) => {
+    let result: ReturnType<typeof render>;
+
+    await act(async () => {
+      result = render(
+        <AppShellTestWrapper layoutStoreOverride={options?.layoutStoreOverride}>
+          <AppShell />
+        </AppShellTestWrapper>,
+      );
+    });
+    await waitFor(() => {
+      expect(mockIpc.invoke).toHaveBeenCalled();
+    });
+
+    return result!;
+  };
 
   // ===========================================================================
   // 键盘快捷键测试
