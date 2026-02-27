@@ -170,7 +170,7 @@ function findSerializationIssue(payload: unknown): SerializationIssue | null {
   return visit(payload, "$");
 }
 
-function isIpcResponse(value: unknown): value is IpcResponse<unknown> {
+function isIpcResponse<TData>(value: unknown): value is IpcResponse<TData> {
   if (!isRecord(value) || typeof value.ok !== "boolean") {
     return false;
   }
@@ -336,7 +336,10 @@ function defaultAuditLog(event: IpcSecurityAuditEvent): void {
  * Build preload IPC gateway with whitelist + payload guard + audit hooks.
  */
 export function createPreloadIpcGateway(args: CreatePreloadIpcGatewayArgs): {
-  invoke: (channel: string, payload: unknown) => Promise<IpcResponse<unknown>>;
+  invoke: <TData>(
+    channel: string,
+    payload: unknown,
+  ) => Promise<IpcResponse<TData>>;
 } {
   const channelSet = new Set(args.allowedChannels);
   const limitBytes = args.maxPayloadBytes ?? MAX_IPC_PAYLOAD_BYTES;
@@ -345,7 +348,7 @@ export function createPreloadIpcGateway(args: CreatePreloadIpcGatewayArgs): {
   const auditLog = args.auditLog ?? defaultAuditLog;
 
   return {
-    invoke: async (channel: string, payload: unknown) => {
+    invoke: async <TData>(channel: string, payload: unknown) => {
       const timestamp = getNow();
       const requestId = getRequestId();
 
@@ -407,7 +410,7 @@ export function createPreloadIpcGateway(args: CreatePreloadIpcGatewayArgs): {
 
       try {
         const response = await args.invoke(channel, payload);
-        if (isIpcResponse(response)) {
+        if (isIpcResponse<TData>(response)) {
           return response;
         }
 

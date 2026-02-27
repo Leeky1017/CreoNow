@@ -2,18 +2,15 @@ import React from "react";
 import { create } from "zustand";
 
 import type {
-  IpcChannel,
   IpcError,
   IpcInvokeResult,
   IpcRequest,
   IpcResponse,
   IpcResponseData,
 } from "@shared/types/ipc-generated";
+import type { IpcInvoke } from "../lib/ipcTypes";
 
-export type IpcInvoke = <C extends IpcChannel>(
-  channel: C,
-  payload: IpcRequest<C>,
-) => Promise<IpcInvokeResult<C>>;
+export type { IpcInvoke };
 
 export type DocumentListItem =
   IpcResponseData<"file:document:list">["items"][number];

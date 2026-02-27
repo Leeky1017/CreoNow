@@ -1,4 +1,5 @@
 import React from "react";
+import type { IpcResponseData } from "@shared/types/ipc-generated";
 
 import { Button } from "../../components/primitives/Button";
 import { Card } from "../../components/primitives/Card";
@@ -7,18 +8,7 @@ import { Text } from "../../components/primitives/Text";
 import { invoke } from "../../lib/ipcClient";
 import { emitAiModelCatalogUpdated } from "../ai/modelCatalogEvents";
 
-type AiSettings = {
-  enabled: boolean;
-  baseUrl: string;
-  apiKeyConfigured: boolean;
-  providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
-  openAiCompatibleBaseUrl: string;
-  openAiCompatibleApiKeyConfigured: boolean;
-  openAiByokBaseUrl: string;
-  openAiByokApiKeyConfigured: boolean;
-  anthropicByokBaseUrl: string;
-  anthropicByokApiKeyConfigured: boolean;
-};
+type AiSettings = IpcResponseData<"ai:config:get">;
 
 /**
  * AI settings section for the Settings panel.
@@ -51,7 +41,7 @@ export function AiSettingsSection(): JSX.Element {
       return;
     }
 
-    const data = res.data as unknown as AiSettings;
+    const data = res.data;
     setStatus("idle");
     setSettings(data);
     setProviderMode(data.providerMode);
@@ -113,7 +103,7 @@ export function AiSettingsSection(): JSX.Element {
       return;
     }
 
-    const data = res.data as unknown as AiSettings;
+    const data = res.data;
     setSettings(data);
     setProviderMode(data.providerMode);
     setApiKeyDraft("");

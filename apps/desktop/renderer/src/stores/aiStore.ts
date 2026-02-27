@@ -2,13 +2,11 @@
 import { create } from "zustand";
 
 import type {
-  IpcChannel,
   IpcError,
-  IpcInvokeResult,
-  IpcRequest,
   IpcResponseData,
 } from "@shared/types/ipc-generated";
 import type { AiStreamEvent } from "@shared/types/ai";
+import type { IpcInvoke } from "../lib/ipcTypes";
 
 export type AiStatus =
   | "idle"
@@ -62,10 +60,7 @@ export type AiRunRequestSnapshot = {
   context?: { projectId?: string; documentId?: string };
 };
 
-export type IpcInvoke = <C extends IpcChannel>(
-  channel: C,
-  payload: IpcRequest<C>,
-) => Promise<IpcInvokeResult<C>>;
+export type { IpcInvoke };
 
 export type AiState = {
   status: AiStatus;

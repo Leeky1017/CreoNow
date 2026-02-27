@@ -3,7 +3,6 @@ import { create } from "zustand";
 import type { Editor } from "@tiptap/react";
 
 import type {
-  IpcChannel,
   IpcError,
   IpcInvokeResult,
   IpcRequest,
@@ -12,11 +11,9 @@ import {
   createEditorSaveQueue,
   type EditorSaveRequest,
 } from "./editorSaveQueue";
+import type { IpcInvoke } from "../lib/ipcTypes";
 
-export type IpcInvoke = <C extends IpcChannel>(
-  channel: C,
-  payload: IpcRequest<C>,
-) => Promise<IpcInvokeResult<C>>;
+export type { IpcInvoke };
 
 export type AutosaveStatus = "idle" | "saving" | "saved" | "error";
 export type DocumentStatus = IpcRequest<"file:document:updatestatus">["status"];

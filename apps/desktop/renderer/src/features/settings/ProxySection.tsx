@@ -1,4 +1,5 @@
 ﻿import React from "react";
+import type { IpcResponseData } from "@shared/types/ipc-generated";
 
 import { Button } from "../../components/primitives/Button";
 import { Card } from "../../components/primitives/Card";
@@ -8,23 +9,8 @@ import { Text } from "../../components/primitives/Text";
 import { invoke } from "../../lib/ipcClient";
 import { emitAiModelCatalogUpdated } from "../ai/modelCatalogEvents";
 
-type ProxySettings = {
-  enabled: boolean;
-  baseUrl: string;
-  apiKeyConfigured: boolean;
-  providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
-  openAiCompatibleBaseUrl: string;
-  openAiCompatibleApiKeyConfigured: boolean;
-  openAiByokBaseUrl: string;
-  openAiByokApiKeyConfigured: boolean;
-  anthropicByokBaseUrl: string;
-  anthropicByokApiKeyConfigured: boolean;
-};
-
-type ModelCatalog = {
-  source: "proxy" | "openai" | "anthropic";
-  items: Array<{ id: string; name: string; provider: string }>;
-};
+type ProxySettings = IpcResponseData<"ai:config:get">;
+type ModelCatalog = IpcResponseData<"ai:models:list">;
 
 /**
  * ProxySection controls optional OpenAI-compatible proxy settings.
@@ -74,7 +60,7 @@ export function ProxySection(): JSX.Element {
     }
 
     setModelsStatus("idle");
-    setModelCatalog(res.data as unknown as ModelCatalog);
+    setModelCatalog(res.data);
     emitAiModelCatalogUpdated();
   }, []);
 
@@ -91,7 +77,7 @@ export function ProxySection(): JSX.Element {
     }
 
     setStatus("idle");
-    setSettings(res.data as unknown as ProxySettings);
+    setSettings(res.data);
     setEnabled(res.data.enabled);
     setProviderMode(res.data.providerMode);
     setOpenAiCompatibleBaseUrl(
@@ -152,7 +138,7 @@ export function ProxySection(): JSX.Element {
       return;
     }
 
-    setSettings(res.data as unknown as ProxySettings);
+    setSettings(res.data);
     setEnabled(res.data.enabled);
     setProviderMode(res.data.providerMode);
     setOpenAiCompatibleApiKeyDraft("");
