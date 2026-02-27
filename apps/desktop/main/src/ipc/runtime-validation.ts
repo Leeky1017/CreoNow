@@ -287,7 +287,7 @@ function toValidationError(
       ok: false,
       error: {
         code: "PROJECT_IPC_SCHEMA_INVALID",
-        message: "项目请求参数不符合契约",
+        message: "Project request payload does not match IPC contract",
         traceId: randomUUID(),
         details: issues,
       },
@@ -298,7 +298,7 @@ function toValidationError(
     ok: false,
     error: {
       code: "VALIDATION_ERROR",
-      message: "请求参数不符合契约",
+      message: "Request payload does not match IPC contract",
       details: issues,
     },
   };
@@ -319,7 +319,7 @@ function toTimeoutError(timeoutMs: number): IpcResponse<never> {
     ok: false,
     error: {
       code: "IPC_TIMEOUT",
-      message: `请求超时（${timeoutMs}ms）`,
+      message: `Request timed out (${timeoutMs}ms)`,
     },
   };
 }
@@ -331,7 +331,7 @@ function toForbiddenError(
     ok: false,
     error: {
       code: "FORBIDDEN",
-      message: "调用方未授权",
+      message: "Caller is not authorized",
       details: {
         reason: decision.reason,
         ...decision.details,
@@ -363,7 +363,7 @@ function sanitizeErrorEnvelope(rawError: IpcError): IpcError {
   if (!isIpcErrorCode(rawError.code)) {
     return {
       code: "INTERNAL_ERROR",
-      message: "内部错误",
+      message: "Internal error",
     };
   }
 
@@ -476,7 +476,7 @@ export function wrapIpcRequestResponse(
           stage: "envelope",
           responseType: getValueType(raw),
         });
-        return toInternalError("响应数据不符合契约");
+        return toInternalError("Response payload does not match IPC contract");
       }
 
       if (!raw.ok) {
@@ -492,7 +492,7 @@ export function wrapIpcRequestResponse(
           channel: args.channel,
           issueCount: responseIssues.length,
         });
-        return toInternalError("响应数据不符合契约");
+        return toInternalError("Response payload does not match IPC contract");
       }
 
       return raw;
@@ -518,7 +518,7 @@ export function wrapIpcRequestResponse(
         channel: args.channel,
         message: error instanceof Error ? error.message : String(error),
       });
-      return toInternalError("内部错误");
+      return toInternalError("Internal error");
     }
   };
 }
@@ -553,7 +553,7 @@ export function createValidatedIpcMain(
         channel,
       });
       args.ipcMain.handle(channel, async () =>
-        toInternalError("IPC 通道缺少契约定义"),
+        toInternalError("IPC channel schema is missing from contract"),
       );
       return;
     }
