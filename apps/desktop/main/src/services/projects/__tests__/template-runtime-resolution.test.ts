@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
+import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 import {
@@ -10,59 +11,62 @@ import {
 async function main(): Promise<void> {
   resetBuiltInTemplateCacheForTests();
 
-  const bundledMainModulePath = path.resolve(
-    process.cwd(),
-    "apps/desktop/dist/main/index.js",
+  const runtimeRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), "creonow-c12-template-runtime-"),
   );
-  const bundledExpectedDir = path.resolve(
-    process.cwd(),
-    "apps/desktop/dist/main/templates/project",
-  );
-  const sourceFallbackDir = path.resolve(
-    process.cwd(),
-    "apps/desktop/main/templates/project",
-  );
-  const expectedDir = fs.existsSync(bundledExpectedDir)
-    ? bundledExpectedDir
-    : sourceFallbackDir;
 
-  const resolved = resolveBuiltInTemplateDirectory({
-    moduleFilePath: bundledMainModulePath,
-    cwd: process.cwd(),
-    env: {},
-  });
+  try {
+    const bundledMainModulePath = path.join(
+      runtimeRoot,
+      "dist/main/services/projects/templateService.js",
+    );
+    const bundledExpectedDir = path.join(
+      runtimeRoot,
+      "dist/main/templates/project",
+    );
 
-  assert.equal(
-    resolved.ok,
-    true,
-    "bundled runtime should resolve built-in template directory",
-  );
-  if (!resolved.ok) {
-    throw new Error(
+    await fs.mkdir(path.dirname(bundledMainModulePath), { recursive: true });
+    await fs.mkdir(bundledExpectedDir, { recursive: true });
+    await fs.writeFile(bundledMainModulePath, "// stub");
+
+    const resolved = resolveBuiltInTemplateDirectory({
+      moduleFilePath: bundledMainModulePath,
+      cwd: runtimeRoot,
+      env: {},
+    });
+
+    assert.equal(
+      resolved.ok,
+      true,
       "bundled runtime should resolve built-in template directory",
     );
-  }
-  assert.equal(path.resolve(resolved.data), expectedDir);
+    if (!resolved.ok) {
+      throw new Error(
+        "bundled runtime should resolve built-in template directory",
+      );
+    }
+    assert.equal(path.resolve(resolved.data), path.resolve(bundledExpectedDir));
 
-  const missingDir = path.resolve(
-    process.cwd(),
-    "apps/desktop/main/templates/__missing__",
-  );
-  const configured = resolveBuiltInTemplateDirectory({
-    moduleFilePath: bundledMainModulePath,
-    cwd: process.cwd(),
-    env: { CREONOW_TEMPLATE_DIR: missingDir },
-  });
+    const missingDir = path.join(runtimeRoot, "missing-template-dir");
+    const configured = resolveBuiltInTemplateDirectory({
+      moduleFilePath: bundledMainModulePath,
+      cwd: runtimeRoot,
+      env: { CREONOW_TEMPLATE_DIR: missingDir },
+    });
 
-  assert.equal(
-    configured.ok,
-    false,
-    "invalid explicit template directory must fail deterministically",
-  );
-  if (configured.ok) {
-    throw new Error("expected invalid configured template directory to fail");
+    assert.equal(
+      configured.ok,
+      false,
+      "invalid explicit template directory must fail deterministically",
+    );
+    if (configured.ok) {
+      throw new Error("expected invalid configured template directory to fail");
+    }
+    assert.equal(configured.error.field, "template.directory");
+  } finally {
+    resetBuiltInTemplateCacheForTests();
+    await fs.rm(runtimeRoot, { recursive: true, force: true });
   }
-  assert.equal(configured.error.field, "template.directory");
 }
 
 void main().catch((error) => {

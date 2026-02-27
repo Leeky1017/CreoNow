@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveTemplateDirectoryFromBuildConfig } from "../../runtimePathResolver";
 
 export type BuiltInTemplateId =
   | "novel"
@@ -60,20 +61,6 @@ function isDirectory(candidate: string): boolean {
   }
 }
 
-function uniquePaths(candidates: string[]): string[] {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const candidate of candidates) {
-    const normalized = path.resolve(candidate);
-    if (seen.has(normalized)) {
-      continue;
-    }
-    seen.add(normalized);
-    unique.push(normalized);
-  }
-  return unique;
-}
-
 export function resolveBuiltInTemplateDirectory(args?: {
   moduleFilePath?: string;
   cwd?: string;
@@ -94,25 +81,25 @@ export function resolveBuiltInTemplateDirectory(args?: {
       `Configured built-in template directory is unavailable: ${resolvedConfiguredDir}`,
     );
   }
+  let expectedTemplateDirectory: string;
+  try {
+    expectedTemplateDirectory = resolveTemplateDirectoryFromBuildConfig({
+      moduleFilePath,
+    });
+  } catch (error) {
+    return fail(
+      "template.directory",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 
-  const moduleDir = path.dirname(moduleFilePath);
-  const candidates = uniquePaths([
-    path.resolve(moduleDir, "../../../templates/project"),
-    path.resolve(moduleDir, "templates/project"),
-    path.resolve(moduleDir, "../../main/templates/project"),
-    path.resolve(cwd, "apps/desktop/main/templates/project"),
-    path.resolve(cwd, "main/templates/project"),
-  ]);
-
-  for (const candidate of candidates) {
-    if (isDirectory(candidate)) {
-      return { ok: true, data: candidate };
-    }
+  if (isDirectory(expectedTemplateDirectory)) {
+    return { ok: true, data: expectedTemplateDirectory };
   }
 
   return fail(
     "template.directory",
-    `Built-in template directory not found (checked ${candidates.join(", ")})`,
+    `Built-in template directory not found at ${expectedTemplateDirectory}`,
   );
 }
 

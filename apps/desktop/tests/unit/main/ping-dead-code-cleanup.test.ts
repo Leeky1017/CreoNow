@@ -1,10 +1,14 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const indexPath = path.resolve(__dirname, "../../../main/src/index.ts");
+const phase4GatePath = path.resolve(
+  __dirname,
+  "../../../main/src/services/workbench/phase4-delivery-gate.ts",
+);
 const indexSource = readFileSync(indexPath, "utf8");
 
 describe("ping dead-code cleanup", () => {
@@ -39,5 +43,26 @@ describe("ping dead-code cleanup", () => {
       pingBlock.includes("Ping failed"),
       "S2-DC-PING-S1: ping handler should not expose obsolete ping failure branch",
     ).toBe(false);
+  });
+
+  it("S2-DC-PING-S2 removes phase4 dead code and stale gate tests", () => {
+    expect(
+      existsSync(phase4GatePath),
+      "S2-DC-PING-S2: phase4-delivery-gate.ts must be removed when it has no production imports",
+    ).toBe(false);
+
+    const stalePhase4GateTests = [
+      path.resolve(__dirname, "../../e2e/visual/phase4-baseline-capture.spec.ts"),
+      path.resolve(__dirname, "../../e2e/visual/phase4-visual-diff.spec.ts"),
+      path.resolve(__dirname, "../../perf/phase4-benchmark.spec.ts"),
+      path.resolve(__dirname, "../../integration/workbench/phase4-visual-audit.spec.ts"),
+    ];
+
+    for (const staleTestPath of stalePhase4GateTests) {
+      expect(
+        existsSync(staleTestPath),
+        `S2-DC-PING-S2: stale phase4 gate test should be deleted: ${staleTestPath}`,
+      ).toBe(false);
+    }
   });
 });
