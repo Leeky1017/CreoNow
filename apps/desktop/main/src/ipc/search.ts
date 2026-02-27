@@ -13,6 +13,8 @@ import {
 } from "../services/search/hybridRankingService";
 import { createSearchReplaceService } from "../services/search/searchReplaceService";
 
+type SearchReplaceService = ReturnType<typeof createSearchReplaceService>;
+
 type DocumentIndexRow = {
   documentId: string;
   contentText: string;
@@ -91,6 +93,70 @@ function createSearchSemanticRetriever(args: {
   };
 }
 
+function toInternalSearchError(
+  logger: Logger,
+  event: string,
+  error: unknown,
+): IpcResponse<never> {
+  logger.error(event, {
+    message: error instanceof Error ? error.message : String(error),
+  });
+  return {
+    ok: false,
+    error: {
+      code: "INTERNAL_ERROR",
+      message: "Internal error",
+    },
+  };
+}
+
+function hasProjectId(payload: unknown): payload is { projectId: string } {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+  const projectId = (payload as { projectId?: unknown }).projectId;
+  return typeof projectId === "string" && projectId.trim().length > 0;
+}
+
+function registerSearchReplaceHandlers(
+  ipcMain: IpcMain,
+  db: Database.Database | null,
+  logger: Logger,
+  replaceService: SearchReplaceService | null,
+): void {
+  ipcMain.handle("search:replace:preview", async (_e, payload: Parameters<SearchReplaceService["preview"]>[0]) => {
+    if (!db || !replaceService) {
+      return { ok: false, error: { code: "DB_ERROR", message: "Database not ready" } };
+    }
+    try {
+      const res = replaceService.preview(payload);
+      if (!res.ok) {
+        logger.error("search_replace_preview_failed", { code: res.error.code, message: res.error.message });
+        return { ok: false, error: res.error };
+      }
+      return { ok: true, data: res.data };
+    } catch (error) {
+      return toInternalSearchError(logger, "search_replace_preview_exception", error);
+    }
+  });
+
+  ipcMain.handle("search:replace:execute", async (_e, payload: Parameters<SearchReplaceService["execute"]>[0]) => {
+    if (!db || !replaceService) {
+      return { ok: false, error: { code: "DB_ERROR", message: "Database not ready" } };
+    }
+    try {
+      const res = replaceService.execute(payload);
+      if (!res.ok) {
+        logger.error("search_replace_execute_failed", { code: res.error.code, message: res.error.message });
+        return { ok: false, error: res.error };
+      }
+      return { ok: true, data: res.data };
+    } catch (error) {
+      return toInternalSearchError(logger, "search_replace_execute_exception", error);
+    }
+  });
+}
+
 /**
  * Register `search:*` IPC handlers.
  *
@@ -131,12 +197,7 @@ export function registerSearchIpcHandlers(deps: {
     "search:fts:query",
     async (
       _e,
-      payload: {
-        projectId: string;
-        query: string;
-        limit?: number;
-        offset?: number;
-      },
+      payload: unknown,
     ): Promise<
       IpcResponse<{
         results: Array<{
@@ -161,46 +222,65 @@ export function registerSearchIpcHandlers(deps: {
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      if (payload.projectId.trim().length === 0) {
+      if (!hasProjectId(payload)) {
         return {
           ok: false,
           error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
         };
       }
 
-      const res = ftsService?.search({
-        projectId: payload.projectId,
-        query: payload.query,
-        limit: payload.limit,
-        offset: payload.offset,
-      });
-      if (!res) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
-      }
+      const safePayload = payload as {
+        projectId: string;
+        query: string;
+        limit?: number;
+        offset?: number;
+      };
+      const queryLength =
+        typeof safePayload.query === "string"
+          ? safePayload.query.trim().length
+          : 0;
 
-      if (!res.ok) {
-        if (res.error.code === "INVALID_ARGUMENT") {
-          deps.logger.info("search_fts_invalid_query", {
-            queryLength: payload.query.trim().length,
-          });
-        } else {
-          deps.logger.error("search_fts_failed", {
-            code: res.error.code,
-            message: res.error.message,
-          });
+      try {
+        const res = ftsService?.search({
+          projectId: safePayload.projectId,
+          query: safePayload.query,
+          limit: safePayload.limit,
+          offset: safePayload.offset,
+        });
+        if (!res) {
+          return {
+            ok: false,
+            error: { code: "DB_ERROR", message: "Database not ready" },
+          };
         }
-        return { ok: false, error: res.error };
-      }
 
-      deps.logger.info("search_fts_query", {
-        queryLength: payload.query.trim().length,
-        resultCount: res.data.results.length,
-        indexState: res.data.indexState,
-      });
-      return { ok: true, data: res.data };
+        if (!res.ok) {
+          if (res.error.code === "INVALID_ARGUMENT") {
+            deps.logger.info("search_fts_invalid_query", {
+              queryLength: queryLength,
+            });
+          } else {
+            deps.logger.error("search_fts_failed", {
+              code: res.error.code,
+              message: res.error.message,
+            });
+          }
+          return { ok: false, error: res.error };
+        }
+
+        deps.logger.info("search_fts_query", {
+          queryLength: queryLength,
+          resultCount: res.data.results.length,
+          indexState: res.data.indexState,
+        });
+        return { ok: true, data: res.data };
+      } catch (error) {
+        return toInternalSearchError(
+          deps.logger,
+          "search_fts_query_exception",
+          error,
+        );
+      }
     },
   );
 
@@ -208,7 +288,7 @@ export function registerSearchIpcHandlers(deps: {
     "search:fts:reindex",
     async (
       _e,
-      payload: { projectId: string },
+      payload: unknown,
     ): Promise<
       IpcResponse<{
         indexState: "ready";
@@ -222,25 +302,42 @@ export function registerSearchIpcHandlers(deps: {
         };
       }
 
-      const res = ftsService?.reindex({ projectId: payload.projectId });
-      if (!res) {
+      if (!hasProjectId(payload)) {
         return {
           ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
         };
       }
-      if (!res.ok) {
-        deps.logger.error("search_fts_reindex_failed", {
-          code: res.error.code,
-          message: res.error.message,
-        });
-        return { ok: false, error: res.error };
-      }
 
-      deps.logger.info("search_fts_reindex", {
-        reindexed: res.data.reindexed,
-      });
-      return { ok: true, data: res.data };
+      const safePayload = payload as { projectId: string };
+
+      try {
+        const res = ftsService?.reindex({ projectId: safePayload.projectId });
+        if (!res) {
+          return {
+            ok: false,
+            error: { code: "DB_ERROR", message: "Database not ready" },
+          };
+        }
+        if (!res.ok) {
+          deps.logger.error("search_fts_reindex_failed", {
+            code: res.error.code,
+            message: res.error.message,
+          });
+          return { ok: false, error: res.error };
+        }
+
+        deps.logger.info("search_fts_reindex", {
+          reindexed: res.data.reindexed,
+        });
+        return { ok: true, data: res.data };
+      } catch (error) {
+        return toInternalSearchError(
+          deps.logger,
+          "search_fts_reindex_exception",
+          error,
+        );
+      }
     },
   );
 
@@ -290,21 +387,29 @@ export function registerSearchIpcHandlers(deps: {
         };
       }
 
-      const res = hybridRankingService.queryByStrategy(payload);
-      if (!res.ok) {
-        deps.logger.error("search_query_strategy_failed", {
-          code: res.error.code,
-          message: res.error.message,
+      try {
+        const res = hybridRankingService.queryByStrategy(payload);
+        if (!res.ok) {
+          deps.logger.error("search_query_strategy_failed", {
+            code: res.error.code,
+            message: res.error.message,
+            strategy: payload.strategy,
+          });
+          return { ok: false, error: res.error };
+        }
+        deps.logger.info("search_query_strategy", {
           strategy: payload.strategy,
+          resultCount: res.data.results.length,
+          total: res.data.total,
         });
-        return { ok: false, error: res.error };
+        return { ok: true, data: res.data };
+      } catch (error) {
+        return toInternalSearchError(
+          deps.logger,
+          "search_query_strategy_exception",
+          error,
+        );
       }
-      deps.logger.info("search_query_strategy", {
-        strategy: payload.strategy,
-        resultCount: res.data.results.length,
-        total: res.data.total,
-      });
-      return { ok: true, data: res.data };
     },
   );
 
@@ -351,114 +456,30 @@ export function registerSearchIpcHandlers(deps: {
         };
       }
 
-      const res = hybridRankingService.rankExplain(payload);
-      if (!res.ok) {
-        deps.logger.error("search_rank_explain_failed", {
-          code: res.error.code,
-          message: res.error.message,
+      try {
+        const res = hybridRankingService.rankExplain(payload);
+        if (!res.ok) {
+          deps.logger.error("search_rank_explain_failed", {
+            code: res.error.code,
+            message: res.error.message,
+            strategy: payload.strategy,
+          });
+          return { ok: false, error: res.error };
+        }
+        deps.logger.info("search_rank_explain", {
           strategy: payload.strategy,
+          explanationCount: res.data.explanations.length,
         });
-        return { ok: false, error: res.error };
+        return { ok: true, data: res.data };
+      } catch (error) {
+        return toInternalSearchError(
+          deps.logger,
+          "search_rank_explain_exception",
+          error,
+        );
       }
-      deps.logger.info("search_rank_explain", {
-        strategy: payload.strategy,
-        explanationCount: res.data.explanations.length,
-      });
-      return { ok: true, data: res.data };
     },
   );
 
-  deps.ipcMain.handle(
-    "search:replace:preview",
-    async (
-      _e,
-      payload: {
-        projectId: string;
-        documentId?: string;
-        scope: "currentDocument" | "wholeProject";
-        query: string;
-        replaceWith: string;
-        regex?: boolean;
-        caseSensitive?: boolean;
-        wholeWord?: boolean;
-      },
-    ): Promise<
-      IpcResponse<{
-        affectedDocuments: number;
-        totalMatches: number;
-        items: Array<{
-          documentId: string;
-          title: string;
-          matchCount: number;
-          sample: string;
-        }>;
-        warnings: string[];
-        previewId?: string;
-      }>
-    > => {
-      if (!deps.db || !replaceService) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
-      }
-
-      const res = replaceService.preview(payload);
-      if (!res.ok) {
-        deps.logger.error("search_replace_preview_failed", {
-          code: res.error.code,
-          message: res.error.message,
-        });
-        return { ok: false, error: res.error };
-      }
-      return { ok: true, data: res.data };
-    },
-  );
-
-  deps.ipcMain.handle(
-    "search:replace:execute",
-    async (
-      _e,
-      payload: {
-        projectId: string;
-        documentId?: string;
-        scope: "currentDocument" | "wholeProject";
-        query: string;
-        replaceWith: string;
-        regex?: boolean;
-        caseSensitive?: boolean;
-        wholeWord?: boolean;
-        previewId?: string;
-        confirmed?: boolean;
-      },
-    ): Promise<
-      IpcResponse<{
-        replacedCount: number;
-        affectedDocumentCount: number;
-        snapshotIds: string[];
-        skipped: Array<{
-          documentId: string;
-          reason: string;
-          message?: string;
-        }>;
-      }>
-    > => {
-      if (!deps.db || !replaceService) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
-      }
-
-      const res = replaceService.execute(payload);
-      if (!res.ok) {
-        deps.logger.error("search_replace_execute_failed", {
-          code: res.error.code,
-          message: res.error.message,
-        });
-        return { ok: false, error: res.error };
-      }
-      return { ok: true, data: res.data };
-    },
-  );
+  registerSearchReplaceHandlers(deps.ipcMain, deps.db, deps.logger, replaceService);
 }
