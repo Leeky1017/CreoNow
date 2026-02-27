@@ -32,9 +32,16 @@ export function initializeI18n(): Promise<I18nInstance> {
       },
       returnNull: false,
     })
-    .then(() => i18n);
+    .then(() => i18n)
+    .catch((error: unknown) => {
+      initPromise = null;
+      console.error("I18N_INIT_FAILED", error);
+      throw error;
+    });
 
   return initPromise;
 }
 
-void initializeI18n();
+void initializeI18n().catch((error: unknown) => {
+  console.error("I18N_BOOTSTRAP_FAILED", error);
+});
