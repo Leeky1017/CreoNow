@@ -5,6 +5,7 @@ import {
   type IpcChannel,
   type IpcInvokeResult,
   type IpcRequest,
+  type IpcResponseData,
 } from "@shared/types/ipc-generated";
 import { createPreloadIpcGateway } from "./ipcGateway";
 import { resolveRuntimeGovernance } from "./runtimeGovernance";
@@ -19,7 +20,7 @@ function resolveRendererId(): string {
 }
 
 const gateway = createPreloadIpcGateway({
-  allowedChannels: IPC_CHANNELS as unknown as readonly string[],
+  allowedChannels: IPC_CHANNELS,
   rendererId: resolveRendererId(),
   maxPayloadBytes: resolveRuntimeGovernance().ipc.maxPayloadBytes,
   invoke: async (channel, payload) =>
@@ -35,5 +36,5 @@ export const creonowInvoke: CreonowInvoke = async <C extends IpcChannel>(
   channel: C,
   payload: IpcRequest<C>,
 ): Promise<IpcInvokeResult<C>> => {
-  return (await gateway.invoke(channel, payload)) as IpcInvokeResult<C>;
+  return await gateway.invoke<IpcResponseData<C>>(channel, payload);
 };

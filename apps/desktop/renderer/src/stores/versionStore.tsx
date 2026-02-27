@@ -2,16 +2,11 @@ import React from "react";
 import { create } from "zustand";
 
 import type {
-  IpcChannel,
   IpcError,
-  IpcInvokeResult,
-  IpcRequest,
 } from "@shared/types/ipc-generated";
+import type { IpcInvoke } from "../lib/ipcTypes";
 
-export type IpcInvoke = <C extends IpcChannel>(
-  channel: C,
-  payload: IpcRequest<C>,
-) => Promise<IpcInvokeResult<C>>;
+export type { IpcInvoke };
 
 /**
  * Version list item from the backend.

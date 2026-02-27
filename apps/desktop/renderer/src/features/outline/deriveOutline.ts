@@ -2,15 +2,6 @@ import type { JSONContent } from "@tiptap/react";
 import type { OutlineItem, OutlineLevel } from "./OutlinePanel";
 
 /**
- * Represents a heading node from the ProseMirror document.
- */
-interface HeadingNode {
-  type: "heading";
-  attrs?: { level?: number };
-  content?: Array<{ type: string; text?: string }>;
-}
-
-/**
  * Map heading level number (1-6) to OutlineLevel type.
  * We only support H1-H3 for outline display.
  */
@@ -32,17 +23,22 @@ function mapLevelToOutlineLevel(level: number): OutlineLevel | null {
  * Extract text content from a heading node.
  * Handles nested text nodes and concatenates them.
  */
-function extractHeadingText(node: HeadingNode): string {
+function extractHeadingText(node: JSONContent): string {
   if (!node.content || node.content.length === 0) {
     return "(untitled heading)";
   }
 
   const text = node.content
-    .filter((child) => child.type === "text" && child.text)
+    .filter((child) => child.type === "text" && typeof child.text === "string")
     .map((child) => child.text)
     .join("");
 
   return text.trim() || "(untitled heading)";
+}
+
+function resolveHeadingLevel(node: JSONContent): number {
+  const level = node.attrs?.level;
+  return typeof level === "number" ? level : 1;
 }
 
 /**
@@ -104,8 +100,7 @@ export function deriveOutline(
       continue;
     }
 
-    const headingNode = node as unknown as HeadingNode;
-    const level = headingNode.attrs?.level ?? 1;
+    const level = resolveHeadingLevel(node);
     const outlineLevel = mapLevelToOutlineLevel(level);
 
     // Skip H4-H6
@@ -113,7 +108,7 @@ export function deriveOutline(
       continue;
     }
 
-    const title = extractHeadingText(headingNode);
+    const title = extractHeadingText(node);
     const id = generateHeadingId(outlineLevel, headingIndex, title);
 
     items.push({
@@ -159,8 +154,7 @@ export function findActiveOutlineItem(
 
   for (const node of doc.content) {
     if (node.type === "heading") {
-      const headingNode = node as unknown as HeadingNode;
-      const level = headingNode.attrs?.level ?? 1;
+      const level = resolveHeadingLevel(node);
       const outlineLevel = mapLevelToOutlineLevel(level);
 
       if (outlineLevel && headingIndex < items.length) {
@@ -232,8 +226,7 @@ export function findHeadingPosition(
 
   for (const node of doc.content) {
     if (node.type === "heading") {
-      const headingNode = node as unknown as HeadingNode;
-      const level = headingNode.attrs?.level ?? 1;
+      const level = resolveHeadingLevel(node);
       const outlineLevel = mapLevelToOutlineLevel(level);
 
       if (outlineLevel) {

@@ -73,10 +73,12 @@ export function createReducedMotionMatchMediaMock(initialMatches: boolean): {
       }
       listeners.delete(listener as (event: MediaQueryListEvent) => void);
     },
-    dispatchEvent: (event: Event) => {
-      listeners.forEach((listener) =>
-        listener(event as unknown as MediaQueryListEvent),
-      );
+    dispatchEvent: (_event: Event) => {
+      const event = {
+        media: PREFERS_REDUCED_MOTION_QUERY,
+        matches,
+      } as MediaQueryListEvent;
+      listeners.forEach((listener) => listener(event));
       return true;
     },
     addListener: (listener: (event: MediaQueryListEvent) => void) => {

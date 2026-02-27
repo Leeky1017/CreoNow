@@ -24,22 +24,13 @@ type CreateIpcAclEvaluatorArgs = {
 
 const DEFAULT_PRIVILEGED_PREFIXES = ["db:", "ai:skill:run", "ai:skill:cancel"];
 
-type EventLike = {
-  senderFrame?: { url?: unknown };
-  sender?: { id?: unknown };
-};
-
-function asEventLike(event: IpcMainInvokeEvent): EventLike {
-  return event as unknown as EventLike;
-}
-
 function resolveSenderOrigin(event: IpcMainInvokeEvent): string | null {
-  const maybeUrl = asEventLike(event).senderFrame?.url;
+  const maybeUrl = event.senderFrame?.url;
   return typeof maybeUrl === "string" && maybeUrl.length > 0 ? maybeUrl : null;
 }
 
 function resolveWebContentsId(event: IpcMainInvokeEvent): number | null {
-  const maybeId = asEventLike(event).sender?.id;
+  const maybeId = event.sender.id;
   return typeof maybeId === "number" ? maybeId : null;
 }
 
