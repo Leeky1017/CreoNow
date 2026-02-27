@@ -44,6 +44,7 @@ const CAPACITY_WARNING_TEXT =
 const WRITE_CONTEXT_WINDOW = 240;
 const ENTITY_COMPLETION_LOOKBACK_CHARS = 96;
 const ENTITY_COMPLETION_TRIGGER = "@";
+const EMPTY_EDITOR_DOCUMENT = { type: "doc", content: [{ type: "paragraph" }] };
 
 type EntityListItem = IpcResponseData<"knowledge:entity:list">["items"][number];
 
@@ -468,7 +469,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
         class: "h-full outline-none p-4 text-[var(--color-fg-default)]",
       },
     },
-    content: { type: "doc", content: [{ type: "paragraph" }] },
+    content: EMPTY_EDITOR_DOCUMENT,
   });
 
   React.useEffect(() => {
@@ -498,7 +499,16 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     try {
       setContentReady(false);
       suppressAutosaveRef.current = true;
-      editor.commands.setContent(JSON.parse(activeContentJson));
+      const parsedContent = JSON.parse(activeContentJson) as Parameters<
+        Editor["commands"]["setContent"]
+      >[0];
+      editor.commands.setContent(parsedContent);
+    } catch (error) {
+      console.error("EditorPane document JSON parse failed", {
+        documentId,
+        error,
+      });
+      editor.commands.setContent(EMPTY_EDITOR_DOCUMENT);
     } finally {
       window.setTimeout(() => {
         suppressAutosaveRef.current = false;

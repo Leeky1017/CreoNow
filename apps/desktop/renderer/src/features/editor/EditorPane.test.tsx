@@ -5,7 +5,7 @@ import {
   waitFor,
   act,
 } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type {
   IpcChannel,
   IpcInvokeResult,
@@ -156,6 +156,42 @@ async function waitForEditorInstance(
 }
 
 describe("EditorPane", () => {
+  it("should fallback to empty document when activeContentJson is invalid JSON", async () => {
+    const store = createReadyEditorStore({
+      onSave: () => undefined,
+    });
+    const versionStore = createVersionStoreForEditorPaneTests();
+    const consoleErrorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    store.setState({
+      documentContentJson: "{bad-json",
+    });
+
+    render(
+      <VersionStoreProvider store={versionStore}>
+        <EditorStoreProvider store={store}>
+          <EditorPane projectId="project-1" />
+        </EditorStoreProvider>
+      </VersionStoreProvider>,
+    );
+
+    await screen.findByTestId("editor-pane");
+    await screen.findByTestId("tiptap-editor");
+
+    await waitFor(() => {
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "EditorPane document JSON parse failed",
+        expect.objectContaining({
+          documentId: "doc-1",
+        }),
+      );
+    });
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it("should trigger manual save with actor=user reason=manual-save on Ctrl/Cmd+S", async () => {
     const saveCalls: Array<{ actor: string; reason: string }> = [];
     const store = createReadyEditorStore({
