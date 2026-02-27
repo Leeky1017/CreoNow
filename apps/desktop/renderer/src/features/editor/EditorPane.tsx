@@ -499,6 +499,16 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       setContentReady(false);
       suppressAutosaveRef.current = true;
       editor.commands.setContent(JSON.parse(activeContentJson));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("[editor-pane] failed to parse active content", {
+        documentId,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      editor.commands.setContent({
+        type: "doc",
+        content: [{ type: "paragraph" }],
+      });
     } finally {
       window.setTimeout(() => {
         suppressAutosaveRef.current = false;
