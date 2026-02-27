@@ -1,4 +1,5 @@
 import type { AiStreamEvent } from "@shared/types/ai";
+import { nowTs } from "@shared/timeUtils";
 
 export type IpcPushBackpressureDropEvent = {
   droppedInWindow: number;
@@ -11,10 +12,6 @@ type CreateIpcPushBackpressureGateArgs = {
   now?: () => number;
   onDrop?: (event: IpcPushBackpressureDropEvent) => void;
 };
-
-function nowTs(): number {
-  return Date.now();
-}
 
 /**
  * Build an event-rate gate that drops low-priority `chunk` events under pressure.

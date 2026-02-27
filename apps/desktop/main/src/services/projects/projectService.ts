@@ -1,8 +1,10 @@
 import fs from "node:fs";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 import type Database from "better-sqlite3";
+import { hashJson } from "@shared/hashUtils";
+import { nowTs } from "@shared/timeUtils";
 
 import type { Logger } from "../../logging/logger";
 import { redactUserDataPath } from "../../db/paths";
@@ -182,10 +184,6 @@ const NARRATIVE_PERSON_SET = new Set<NarrativePerson>([
   "third-omniscient",
 ]);
 
-function nowTs(): number {
-  return Date.now();
-}
-
 /**
  * Compute the app-managed project root path.
  *
@@ -293,10 +291,6 @@ function createDefaultProjectMetadata(args: {
       knowledgeGraphId: null,
     },
   };
-}
-
-function hashJson(json: string): string {
-  return createHash("sha256").update(json, "utf8").digest("hex");
 }
 
 function buildDocumentContentJson(contentMd: string): string {

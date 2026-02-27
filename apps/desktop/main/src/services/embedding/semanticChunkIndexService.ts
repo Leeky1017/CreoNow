@@ -1,6 +1,5 @@
-import { createHash } from "node:crypto";
-
 import type { Logger } from "../../logging/logger";
+import { hashText } from "@shared/hashUtils";
 import type { EmbeddingService } from "./embeddingService";
 import {
   createSemanticChunkIndexCache,
@@ -84,10 +83,6 @@ function normalizeModel(args: {
 
 function makeChunkId(documentId: string, paragraphIndex: number): string {
   return `${documentId}:${paragraphIndex}`;
-}
-
-function hashText(text: string): string {
-  return createHash("sha256").update(text, "utf8").digest("hex");
 }
 
 function splitParagraphs(contentText: string): ParagraphSegment[] {

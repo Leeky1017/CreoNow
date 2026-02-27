@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type Database from "better-sqlite3";
+import { nowTs } from "@shared/timeUtils";
 
 import type { IpcErrorCode } from "@shared/types/ipc-generated";
 import type { Logger } from "../../logging/logger";
@@ -151,10 +152,6 @@ type CustomSkillOwnershipRow = {
 type SkillRegistryCacheEntry = {
   skills: LoadedSkill[];
 };
-
-function nowTs(): number {
-  return Date.now();
-}
 
 function normalizeCustomSkillId(id: string): string {
   if (id.startsWith("custom:")) {

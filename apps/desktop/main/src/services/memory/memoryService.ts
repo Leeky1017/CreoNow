@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type Database from "better-sqlite3";
+import { nowTs } from "@shared/timeUtils";
 
 import type { Logger } from "../../logging/logger";
 import { createUserMemoryVecService } from "./userMemoryVec";
@@ -113,10 +114,6 @@ const TYPE_RANK: Readonly<Record<MemoryType, number>> = {
   fact: 1,
   note: 2,
 };
-
-function nowTs(): number {
-  return Date.now();
-}
 
 function isMemoryType(x: string): x is MemoryType {
   return x === "preference" || x === "fact" || x === "note";

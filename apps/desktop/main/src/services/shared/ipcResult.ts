@@ -6,6 +6,7 @@
  */
 
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
+export { nowTs } from "@shared/timeUtils";
 
 export type Ok<T> = { ok: true; data: T };
 export type Err = { ok: false; error: IpcError };
@@ -38,12 +39,4 @@ export function ipcError(
 
 export function ipcOk<T>(data: T): Ok<T> {
   return { ok: true, data };
-}
-
-/**
- * Returns the current timestamp in milliseconds.
- * Centralised so fake-timer injection only needs one patch point.
- */
-export function nowTs(): number {
-  return Date.now();
 }

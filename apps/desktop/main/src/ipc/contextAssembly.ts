@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
+import { sha256Hex } from "@shared/hashUtils";
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import { redactText } from "@shared/redaction/redact";
 import type { Logger } from "../logging/logger";
@@ -40,10 +40,6 @@ function normalizeCallerRole(role: unknown): string {
   }
   const normalized = role.trim().toLowerCase();
   return normalized.length > 0 ? normalized : "unknown";
-}
-
-function sha256Hex(value: string): string {
-  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
 function buildInputAudit(args: {

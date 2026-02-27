@@ -1,6 +1,8 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import type Database from "better-sqlite3";
+import { hashJson } from "@shared/hashUtils";
+import { nowTs } from "@shared/timeUtils";
 
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "./derive";
@@ -50,10 +52,6 @@ const DOCUMENT_TYPE_SET = new Set<DocumentType>([
 
 const DOCUMENT_STATUS_SET = new Set<DocumentStatus>(["draft", "final"]);
 
-function nowTs(): number {
-  return Date.now();
-}
-
 /**
  * Build a stable document domain error object.
  *
@@ -65,10 +63,6 @@ function documentError(
   details?: unknown,
 ): Err {
   return { ok: false, error: { code, message, details } };
-}
-
-function hashJson(json: string): string {
-  return createHash("sha256").update(json, "utf8").digest("hex");
 }
 
 function countWords(text: string): number {

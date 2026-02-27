@@ -1,6 +1,7 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 
 import type Database from "better-sqlite3";
+import { hashJson } from "@shared/hashUtils";
 
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "../documents/derive";
@@ -98,10 +99,6 @@ type ReplaceJsonResult = {
 };
 
 type PreviewTokenStore = Map<string, StoredPreview>;
-
-function hashJson(contentJson: string): string {
-  return createHash("sha256").update(contentJson, "utf8").digest("hex");
-}
 
 function normalizeProjectId(projectId: string): ServiceResult<string> {
   const trimmed = projectId.trim();

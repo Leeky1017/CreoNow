@@ -5,6 +5,7 @@ import type {
   IpcErrorCode,
   IpcResponse,
 } from "@shared/types/ipc-generated";
+import { nowTs } from "@shared/timeUtils";
 
 export const MAX_AI_STREAM_SUBSCRIPTIONS = 500;
 
@@ -23,10 +24,6 @@ type CreateAiStreamSubscriptionRegistryArgs = {
   idFactory?: () => string;
   auditLog?: (event: IpcSecurityAuditEvent) => void;
 };
-
-function nowTs(): number {
-  return Date.now();
-}
 
 function createSubscriptionId(): string {
   if (

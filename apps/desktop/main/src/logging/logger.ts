@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { nowTs } from "@shared/timeUtils";
 
 export type LogLevel = "info" | "error";
 
@@ -15,13 +16,6 @@ export type Logger = {
   info: (event: string, data?: Record<string, unknown>) => void;
   error: (event: string, data?: Record<string, unknown>) => void;
 };
-
-/**
- * Return an epoch-ms timestamp for log records.
- */
-function nowTs(): number {
-  return Date.now();
-}
 
 /**
  * Best-effort append a JSONL record to disk.

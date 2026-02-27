@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type Database from "better-sqlite3";
 import { getLoadablePath } from "sqlite-vec";
+import { nowTs } from "@shared/timeUtils";
 
 import type { Logger } from "../../logging/logger";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
@@ -40,10 +41,6 @@ const DEFAULT_DIMENSION = 64;
 const DEFAULT_TOPK = 8;
 
 const LOADED_DBS = new WeakSet<Database.Database>();
-
-function nowTs(): number {
-  return Date.now();
-}
 
 function readSetting(db: Database.Database, key: string): unknown | null {
   try {

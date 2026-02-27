@@ -2,6 +2,8 @@
 import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
+import { estimateUtf8TokenCount as estimateTokenCount } from "@shared/tokenBudget";
+import { nowTs } from "@shared/timeUtils";
 import {
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
@@ -140,25 +142,6 @@ type ModelPricing = {
   promptPer1kTokens: number;
   completionPer1kTokens: number;
 };
-
-/**
- * Return an epoch-ms timestamp for AI stream events.
- */
-function nowTs(): number {
-  return Date.now();
-}
-
-/**
- * Estimate token usage deterministically from UTF-8 bytes.
- *
- * Why: keep usage accounting stable without introducing provider-specific tokenizers.
- */
-function estimateTokenCount(text: string): number {
-  if (text.length === 0) {
-    return 0;
-  }
-  return Math.max(1, Math.ceil(Buffer.byteLength(text, "utf8") / 4));
-}
 
 /**
  * Parse candidateCount input and enforce the fixed 1..5 range.
