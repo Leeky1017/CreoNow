@@ -1,11 +1,11 @@
 ## 1. Specification
 
-更新时间：2026-02-28 19:20
+更新时间：2026-02-28 20:55
 
-- [ ] 1.1 审阅并确认需求边界：修复 SearchPanel 关闭语义——`open=false` 短路不渲染 overlay，backdrop 点击触发 `onClose`。不引入弹出式改造。
-- [ ] 1.2 审阅并确认错误路径与边界路径：`open=false` 不渲染 overlay/backdrop；`onClose` 缺失时 backdrop 点击静默（不报错）。
-- [ ] 1.3 审阅并确认验收阈值与不可变契约：backdrop 必须可关闭；`open=false` 不渲染 overlay。
-- [ ] 1.4 依赖同步检查（Dependency Sync Check）：N/A
+- [x] 1.1 审阅并确认需求边界：修复 SearchPanel 关闭语义——`open=false` 短路不渲染 overlay，backdrop 点击触发 `onClose`。不引入弹出式改造。
+- [x] 1.2 审阅并确认错误路径与边界路径：`open=false` 不渲染 overlay/backdrop；`onClose` 缺失时 backdrop 点击静默（不报错）。
+- [x] 1.3 审阅并确认验收阈值与不可变契约：backdrop 必须可关闭；`open=false` 不渲染 overlay。
+- [x] 1.4 依赖同步检查（Dependency Sync Check）：N/A
 
 ### 1.5 预期实现触点
 
@@ -23,9 +23,9 @@
 
 ## 2. TDD Mapping（先测前提）
 
-- [ ] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试用例
-- [ ] 2.2 为每个测试标注对应 Scenario ID，建立可追踪关系
-- [ ] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
+- [x] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试用例
+- [x] 2.2 为每个测试标注对应 Scenario ID，建立可追踪关系
+- [x] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
 
 ### Scenario → 测试映射
 
@@ -41,29 +41,29 @@
 
 ## 3. Red（先写失败测试）
 
-- [ ] 3.1 `WB-FE-HF-SP-S1`：渲染 `<SearchPanel open={false} />`，断言无 overlay 元素。
+- [x] 3.1 `WB-FE-HF-SP-S1`：渲染 `<SearchPanel open={false} />`，断言无 overlay 元素。
   - 期望红灯原因：当前 `open` 可选且无短路，overlay 始终渲染。
-- [ ] 3.2 `WB-FE-HF-SP-S2`：渲染 `<SearchPanel open={true} onClose={fn} />`，点击 backdrop 区域，断言 fn 被调用。
+- [x] 3.2 `WB-FE-HF-SP-S2`：渲染 `<SearchPanel open={true} onClose={fn} />`，点击 backdrop 区域，断言 fn 被调用。
   - 期望红灯原因：当前 backdrop 容器无 onClick handler。
-- [ ] 3.3 `WB-FE-HF-SP-S2b`：按 Escape，断言 onClose 被调用。
+- [x] 3.3 `WB-FE-HF-SP-S2b`：按 Escape，断言 onClose 被调用。
   - 期望可能绿灯：L575-576 已有 Esc 处理（需验证）。
 - 运行：`pnpm -C apps/desktop test:run features/search/SearchPanel.visibility` / `SearchPanel.close`
 
 ## 4. Green（最小实现通过）
 
-- [ ] 4.1 `SearchPanel.tsx`：在渲染 overlay 前加 `if (!open) return null` 短路 → S1 转绿
-- [ ] 4.2 `SearchPanel.tsx` L625：backdrop 容器添加 `onClick={(e) => { if (e.target === e.currentTarget) onClose?.() }}` → S2 转绿
-- [ ] 4.3 Sidebar/AppShell：确保挂载 SearchPanel 时传入 `open` + `onClose`
+- [x] 4.1 `SearchPanel.tsx`：在渲染 overlay 前加 `if (!open) return null` 短路 → S1 转绿
+- [x] 4.2 `SearchPanel.tsx` L625：backdrop 容器添加 `data-testid="search-backdrop"`（已有 `onClick={onClose}`）→ S2 转绿
+- [x] 4.3 Sidebar/AppShell：确保挂载 SearchPanel 时传入 `open` + `onClose`
 
 ## 5. Refactor（保持绿灯）
 
-- [ ] 5.1 将 `open` 从可选改为必选 prop（`open: boolean`），强制调用方传入
-- [ ] 5.2 确认 Esc 关闭行为与 backdrop 关闭行为一致
+- [x] 5.1 将 `open` 从可选改为必选 prop（`open: boolean`），强制调用方传入
+- [x] 5.2 确认 Esc 关闭行为与 backdrop 关闭行为一致
 
 ## 6. Evidence
 
-- [ ] 6.1 记录 RUN_LOG：Red 阶段测试失败的输出
-- [ ] 6.2 记录 RUN_LOG：Green 阶段全部通过的输出
-- [ ] 6.3 记录 RUN_LOG：`pnpm -C apps/desktop test:run` 全量回归无新增失败
-- [ ] 6.4 记录 Dependency Sync Check（N/A）
-- [ ] 6.5 Main Session Audit（仅在 Apply 阶段需要）
+- [x] 6.1 记录 RUN_LOG：Red 阶段测试失败的输出
+- [x] 6.2 记录 RUN_LOG：Green 阶段全部通过的输出
+- [x] 6.3 记录 RUN_LOG：`pnpm -C apps/desktop test:run` 全量回归无新增失败
+- [x] 6.4 记录 Dependency Sync Check（N/A）
+- [x] 6.5 Main Session Audit（PASS，已落盘）
