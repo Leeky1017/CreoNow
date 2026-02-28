@@ -8,6 +8,10 @@ export type EditorSaveRequest = {
 
 export type EditorSaveQueueDeps = {
   executeSave: (request: EditorSaveRequest) => Promise<void>;
+  onExecuteSaveError?: (args: {
+    request: EditorSaveRequest;
+    error: unknown;
+  }) => void;
 };
 
 export type EditorSaveQueue = {
@@ -36,8 +40,11 @@ export function createEditorSaveQueue(
 
         try {
           await deps.executeSave(current.request);
-        } catch {
-          // Keep queue alive after unexpected failures from one task.
+        } catch (error) {
+          deps.onExecuteSaveError?.({
+            request: current.request,
+            error,
+          });
         }
 
         current.resolve();

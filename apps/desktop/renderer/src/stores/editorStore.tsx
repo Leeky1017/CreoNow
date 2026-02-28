@@ -137,51 +137,52 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
           });
         }
 
-        try {
-          const res = await deps.invoke("file:document:save", {
-            projectId: request.projectId,
-            documentId: request.documentId,
-            contentJson: request.contentJson,
-            actor: request.actor,
-            reason: request.reason,
-          });
+        const res = await deps.invoke("file:document:save", {
+          projectId: request.projectId,
+          documentId: request.documentId,
+          contentJson: request.contentJson,
+          actor: request.actor,
+          reason: request.reason,
+        });
 
-          if (!res.ok) {
-            const stillCurrent =
-              get().projectId === request.projectId &&
-              get().documentId === request.documentId;
-            if (stillCurrent) {
-              set({ autosaveStatus: "error", autosaveError: res.error });
-            }
-            return;
-          }
-
+        if (!res.ok) {
           const stillCurrent =
             get().projectId === request.projectId &&
             get().documentId === request.documentId;
           if (stillCurrent) {
-            set({
-              autosaveStatus: "saved",
-              autosaveError: null,
-            });
+            set({ autosaveStatus: "error", autosaveError: res.error });
           }
-        } catch (error) {
-          const stillCurrent =
-            get().projectId === request.projectId &&
-            get().documentId === request.documentId;
-          if (stillCurrent) {
-            set({
-              autosaveStatus: "error",
-              autosaveError: {
-                code: "INTERNAL_ERROR",
-                message:
-                  error instanceof Error
-                    ? error.message
-                    : "file:document:save threw unexpectedly",
-              },
-            });
-          }
+          return;
         }
+
+        const stillCurrent =
+          get().projectId === request.projectId &&
+          get().documentId === request.documentId;
+        if (stillCurrent) {
+          set({
+            autosaveStatus: "saved",
+            autosaveError: null,
+          });
+        }
+      },
+      onExecuteSaveError: ({ request, error }) => {
+        const stillCurrent =
+          get().projectId === request.projectId &&
+          get().documentId === request.documentId;
+        if (!stillCurrent) {
+          return;
+        }
+
+        set({
+          autosaveStatus: "error",
+          autosaveError: {
+            code: "INTERNAL_ERROR",
+            message:
+              error instanceof Error
+                ? error.message
+                : "file:document:save threw unexpectedly",
+          },
+        });
       },
     });
 

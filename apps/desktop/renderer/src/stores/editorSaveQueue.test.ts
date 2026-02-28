@@ -111,8 +111,9 @@ describe("editorSaveQueue", () => {
     expect(maxActive).toBe(1);
   });
 
-  it("should continue processing tasks after a task throws", async () => {
+  it("should continue processing tasks after a task throws and report the error", async () => {
     const order: string[] = [];
+    const onExecuteSaveError = vi.fn();
 
     const queue = createEditorSaveQueue({
       executeSave: async (request) => {
@@ -121,6 +122,7 @@ describe("editorSaveQueue", () => {
           throw new Error("save failed");
         }
       },
+      onExecuteSaveError,
     });
 
     const failed = queue.enqueue(makeRequest({ contentJson: "fail" }));
@@ -131,5 +133,10 @@ describe("editorSaveQueue", () => {
     await Promise.all([failed, after1, after2]);
 
     expect(order).toEqual(["fail", "after-1", "after-2"]);
+    expect(onExecuteSaveError).toHaveBeenCalledTimes(1);
+    expect(onExecuteSaveError).toHaveBeenCalledWith({
+      request: makeRequest({ contentJson: "fail" }),
+      error: expect.any(Error),
+    });
   });
 });
