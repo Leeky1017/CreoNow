@@ -375,6 +375,13 @@ def parse_markdown_checkbox_states(content: str) -> list[bool]:
     return states
 
 
+def build_archive_fix_commands(change_names: list[str]) -> list[str]:
+    return [
+        f"mv openspec/changes/{change_name} openspec/changes/archive/{change_name}"
+        for change_name in sorted(change_names)
+    ]
+
+
 def validate_no_completed_active_changes(repo: str) -> None:
     active_changes = list_active_changes(repo)
     if not active_changes:
@@ -396,10 +403,12 @@ def validate_no_completed_active_changes(repo: str) -> None:
 
     if completed_active:
         joined = ", ".join(sorted(completed_active))
+        fix_commands = build_archive_fix_commands(completed_active)
+        rerun_hint = "scripts/agent_pr_preflight.sh --mode fast"
         raise RuntimeError(
             "[OPENSPEC_CHANGE] change tasks.md checkboxes are all checked, so the change is completed "
             "and must be archived from openspec/changes/ to openspec/changes/archive/: "
-            f"{joined}"
+            f"{joined}. Fix (copy & run): {' ; '.join(fix_commands)}. Then rerun: {rerun_hint}"
         )
 
 
