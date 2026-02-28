@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：为 AI 面板错误卡片增加分流引导（DB_ERROR → rebuild 步骤，AI_NOT_CONFIGURED → Settings 跳转），移除内联 `<style>` 标签，降噪边框。不修复 native binding 打包问题本体。
 - [ ] 1.2 审阅并确认错误路径与边界路径：DB_ERROR 展示命令与重启提示；AI_NOT_CONFIGURED 引导跳转 Settings → AI；未知错误降级为通用错误卡片。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：错误卡片必须可操作（有明确下一步）；禁止内联 `<style>` 标签残留。

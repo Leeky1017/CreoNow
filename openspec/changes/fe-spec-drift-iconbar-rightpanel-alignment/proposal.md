@@ -1,5 +1,7 @@
 # 提案：fe-spec-drift-iconbar-rightpanel-alignment
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 `openspec/specs/workbench/spec.md` 与当前实现之间已出现可感知漂移，且 spec 内部也存在自相矛盾之处（例如：文字要求 RightPanel 仅 AI/Info，但同文件中又出现 `activeRightPanel` 包含 `quality` 的枚举）。

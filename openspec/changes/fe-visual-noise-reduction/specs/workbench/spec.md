@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-visual-noise-reduction
 
 ### Requirement: 信息层级不得依赖过度边框分割 [ADDED]

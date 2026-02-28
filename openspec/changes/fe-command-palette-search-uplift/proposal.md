@@ -1,5 +1,7 @@
 # 提案：fe-command-palette-search-uplift
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 Command Palette 已具备基础骨架与 i18n 范本价值，但深度审计指出两项核心能力缺失：

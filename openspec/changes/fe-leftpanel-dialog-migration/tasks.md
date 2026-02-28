@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：将 Sidebar 从"万物收纳"收敛为"结构化导航"——仅保留 files/outline 停靠，search 走 Spotlight，memory/characters/knowledgeGraph/versionHistory 走 Dialog。不做面板功能重写。
 - [ ] 1.2 审阅并确认错误路径与边界路径：Dialog 关闭（Esc/backdrop/关闭按钮）；多 Dialog 互斥（同时只开一个）；Spotlight 关闭同理。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：files/outline 保持停靠不变；其余不得再占用 Sidebar 宽度。

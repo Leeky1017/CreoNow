@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：新建 Layer 2 Composites 目录，落地 P0 三类组件（PanelContainer/SidebarItem/CommandItem），替换 Feature 层高频散装实现。不做 P1/P2 composites。
 - [ ] 1.2 审阅并确认错误路径与边界路径：无新增错误路径（纯 UI 组件抽取）。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：Feature 层不得继续复制 panel/item 结构；新增 Composite 必须有 Storybook story + 单元测试。

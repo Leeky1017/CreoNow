@@ -1,5 +1,7 @@
 # Editor Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-editor-tokenization-selection-and-spacing
 
 ### Requirement: 编辑器光标/选区与段间距必须走 Token [ADDED]

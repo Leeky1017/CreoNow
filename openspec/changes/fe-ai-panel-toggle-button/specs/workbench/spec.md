@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-ai-panel-toggle-button
 
 ### Requirement: 必须提供显式的 AI 面板 Toggle 入口 [ADDED]

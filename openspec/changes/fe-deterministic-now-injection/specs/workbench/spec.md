@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-deterministic-now-injection
 
 ### Requirement: 时间相关逻辑必须可注入 now 以保证测试确定性 [ADDED]

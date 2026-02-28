@@ -1,5 +1,7 @@
 # IPC Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-ipc-open-folder-contract
 
 ### Requirement: 新增 dialog:open-folder IPC 通道 [ADDED]

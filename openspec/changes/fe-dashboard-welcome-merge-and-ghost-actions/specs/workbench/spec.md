@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-dashboard-welcome-merge-and-ghost-actions
 
 ### Requirement: 禁止 Dashboard 入口存在可点无效的占位按钮 [ADDED]

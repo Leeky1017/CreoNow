@@ -1,5 +1,7 @@
 # 提案：fe-editor-tokenization-selection-and-spacing
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 编辑器是写作 IDE 的“砚台”。当前光标与选区高亮仍依赖浏览器默认，未走 Token，导致：

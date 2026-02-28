@@ -1,5 +1,7 @@
 # AI Service Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-desktop-native-binding-packaging
 
 ### Requirement: 打包产物必须包含 AI/Skills 依赖的 native bindings [ADDED]

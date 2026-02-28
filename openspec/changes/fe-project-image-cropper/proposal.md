@@ -1,5 +1,7 @@
 # 提案：fe-project-image-cropper
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 创建项目上传封面图后，当前只能 `object-cover` 裁剪填满容器，无法拖拽调整焦点，也无法缩放裁剪。对标 Notion 封面图，用户需要 Reposition 能力。

@@ -1,5 +1,7 @@
 # 提案：fe-leftpanel-dialog-migration
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 写作 IDE 的编辑区宽度是“寸土寸金”。当前 IconBar 的多项功能（search/memory/characters/KG/versionHistory）全部挤在左侧 Sidebar 内，以列表/面板形态长期占用空间，导致主编辑区被迫变窄。

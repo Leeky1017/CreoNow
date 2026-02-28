@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：将 Feature 层 126 处内联 `<svg>` 替换为 `lucide-react` 图标，统一 `strokeWidth={1.5}`、`size={16|20|24}`。不改交互逻辑。
 - [ ] 1.2 审阅并确认错误路径与边界路径：无新增错误路径，纯视觉替换。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：Feature 层（`features/`）不得残留内联 `<svg>` 图标实现。Primitives/Layout 层若有 SVG 可暂不处理。

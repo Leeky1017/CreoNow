@@ -1,5 +1,7 @@
 # 提案：fe-dashboard-herocard-responsive-layout
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 Dashboard 的 HeroCard 右侧装饰区使用固定 `w-[35%]`：超宽屏空旷、窄屏挤压文字，且 `min-h-[280px]` 在小窗口下可能溢出。

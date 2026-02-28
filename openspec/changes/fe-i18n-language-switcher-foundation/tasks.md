@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：为 Settings → General 新增 Language 下拉框，Onboarding Step 1 提供语言选择。语言选择持久化（localStorage），重启生效 + 尽可能即时切换。不做全量键值化。
 - [ ] 1.2 审阅并确认错误路径与边界路径：locale 文件缺失时 fallback 到 `en`；localStorage 损坏时 fallback 到 `zh-CN`。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：语言选择必须持久化；Settings 和 Onboarding 共享同一持久化 key；`i18n/index.ts` 的 `lng` 不再硬编码。

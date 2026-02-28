@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：重写 SearchPanel UI 回归设计系统——移除硬编码 hex/rgba、内联 style、原生 input/button，统一使用 Token + Primitives/Composites。不改搜索数据链路。
 - [ ] 1.2 审阅并确认错误路径与边界路径：空结果显示 EmptyState；加载态显示 Skeleton/Spinner；错误态显示 ErrorState。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：SearchPanel 不得残留 hex/rgba/内联 style/原生 input-button；动画遵循 `prefers-reduced-motion`。

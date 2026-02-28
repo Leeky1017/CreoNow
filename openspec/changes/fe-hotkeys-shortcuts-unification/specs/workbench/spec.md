@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-hotkeys-shortcuts-unification
 
 ### Requirement: 快捷键必须由 HotkeyManager 统一管理 [ADDED]

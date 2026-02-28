@@ -1,5 +1,7 @@
 # 提案：fe-ai-panel-toggle-button
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 当前右侧 AI 面板主要依赖快捷键 `Ctrl+L` 或手动拖拽展开，缺少“可见的门”。对标 Cursor/Windsurf，编辑器右上角通常存在明确的 AI toggle 按钮，既是入口也是状态提示。

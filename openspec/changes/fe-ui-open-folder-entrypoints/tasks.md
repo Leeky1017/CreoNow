@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：在四个关键位置新增 Open Folder UI 入口（Onboarding、Dashboard 空状态、CommandPalette、菜单栏 File），全部调用同一 `dialog:open-folder` IPC action。不修改 open-folder contract 本体。
 - [ ] 1.2 审阅并确认错误路径与边界路径：用户取消选择 → 各入口静默（不报错、不跳转）；IPC 返回路径 → 触发工作区加载（具体加载逻辑不在本 change 范围）。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：四处入口行为一致（同一 action）；入口文案统一为 "Open Folder"（或 i18n 等价）。

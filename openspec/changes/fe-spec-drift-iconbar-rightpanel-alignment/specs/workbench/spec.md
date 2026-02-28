@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-spec-drift-iconbar-rightpanel-alignment
 
 ### Requirement: IconBar 面板 ID 与顺序必须为 SSOT [MODIFIED]

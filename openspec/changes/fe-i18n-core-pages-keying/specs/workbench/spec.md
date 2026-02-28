@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-i18n-core-pages-keying
 
 ### Requirement: 核心 Feature 页面必须完成 i18n 键值化 [ADDED]

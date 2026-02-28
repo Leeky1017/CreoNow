@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：为编辑器补齐 `--color-selection`、`--color-caret`、`--text-editor-paragraph-spacing` Token，使选区/光标/段间距可被主题系统治理。不调整 TipTap 扩展体系。
 - [ ] 1.2 审阅并确认错误路径与边界路径：亮/暗主题下 Token 值需分别定义；CJK locale 下段间距可能需要不同值（可选）。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：选区颜色来自 `--color-selection`，光标颜色来自 `--color-caret`，段间距来自 `--text-editor-paragraph-spacing`，三者在亮/暗主题下均可读且无违和。

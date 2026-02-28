@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-feature-focus-visible-coverage
 
 ### Requirement: Feature 层交互元素必须具备 focus-visible 焦点反馈 [ADDED]

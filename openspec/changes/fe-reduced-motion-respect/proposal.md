@@ -1,5 +1,7 @@
 # 提案：fe-reduced-motion-respect
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 设计规范要求尊重 `prefers-reduced-motion`，但 Feature 层仍存在自定义动画（fade/slide/延迟）未做降级，导致对运动敏感用户体验不达标。

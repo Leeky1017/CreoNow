@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-reduced-motion-respect
 
 ### Requirement: 全局必须尊重 prefers-reduced-motion [ADDED]

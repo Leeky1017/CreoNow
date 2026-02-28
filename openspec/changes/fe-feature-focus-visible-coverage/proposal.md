@@ -1,5 +1,7 @@
 # 提案：fe-feature-focus-visible-coverage
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 Primitives 层已有较完整的 `focus-visible` 样式，但 Feature 层仍存在大量自定义按钮/列表项缺失焦点反馈，导致键盘用户“无迹可循”。

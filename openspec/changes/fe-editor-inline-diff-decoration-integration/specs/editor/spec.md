@@ -1,5 +1,7 @@
 # Editor Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-editor-inline-diff-decoration-integration
 
 ### Requirement: 编辑器必须支持版本差异 Decoration 渲染 [ADDED]

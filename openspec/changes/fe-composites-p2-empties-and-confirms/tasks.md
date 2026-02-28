@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：新增 P2 Composites（EmptyState/ConfirmDialog/InfoBar），迁移 Feature 层散装空状态和确认弹窗。不重构 Toast 队列。
 - [ ] 1.2 审阅并确认错误路径与边界路径：ConfirmDialog 需支持 destructive 语义（红色确认按钮）；EmptyState 需支持可选 action 按钮。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：空状态必须统一使用 EmptyState Composite；确认弹窗不得散写。

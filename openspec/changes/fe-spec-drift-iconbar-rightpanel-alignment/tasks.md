@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：对齐 `workbench/spec.md` 与实现之间的漂移——IconBar 入口、`graph`/`knowledgeGraph` 命名、RightPanel tab 枚举。只做 spec 对齐与决策落盘，不做功能实现。
 - [ ] 1.2 审阅并确认漂移点全集：
   - IconBar：`media` 面板 spec 要求存在但代码缺失

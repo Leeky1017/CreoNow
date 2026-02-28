@@ -1,5 +1,7 @@
 # 提案：fe-desktop-window-lifecycle-uplift
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 深度审计指出两项桌面产品底盘能力缺口：

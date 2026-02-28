@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：系统性清扫 Feature 层 Token 逃逸（hex/rgba、数字 z-index、transition-all、h/w-screen），建立 guard 防回潮。不引入新功能，不重写特定页面（SearchPanel 重写见独立 change）。
 - [ ] 1.2 审阅并确认错误路径与边界路径：允许极少数例外（第三方组件、系统色），需建立白名单。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：Feature 层 guard 测试全绿（hex/rgba=0、数字 z-index=0、transition-all=0，白名单除外）。

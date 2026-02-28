@@ -1,5 +1,7 @@
 # 提案：fe-hotfix-searchpanel-backdrop-close
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 当前 `SearchPanel` 在 Sidebar 内挂载时存在“覆水难收”的交互故障：面板渲染了 `fixed inset-0` 的全屏覆盖层，但挂载方未传入 `open`/`onClose`，导致用户点击 backdrop 无法关闭，只能依赖切换 IconBar 面板“曲线脱困”。

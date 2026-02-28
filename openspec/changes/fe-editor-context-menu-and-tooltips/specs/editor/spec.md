@@ -1,5 +1,7 @@
 # Editor Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-editor-context-menu-and-tooltips
 
 ### Requirement: 编辑区必须提供自定义右键菜单 [ADDED]

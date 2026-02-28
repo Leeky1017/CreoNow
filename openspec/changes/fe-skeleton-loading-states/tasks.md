@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：为关键 Feature 区域补齐骨架屏，替换当前居中 Spinner 或空白加载态。建立 >=200ms 阈值策略。不改数据加载层。
 - [ ] 1.2 审阅并确认错误路径与边界路径：加载失败仍需错误 UI（ErrorBoundary/fallback），骨架屏仅用于 loading 态。<200ms 不显示骨架（避免闪烁）。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：loading >=200ms 必须展示 `Skeleton` Primitive 构建的骨架屏；禁止散写 `<div className="animate-pulse">` 替代。

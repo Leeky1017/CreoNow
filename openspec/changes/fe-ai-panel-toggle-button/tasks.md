@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：在主编辑区右上角新增显式 AI toggle 按钮——点击展开/折叠 RightPanel 并自动切换 `activeRightPanel` 为 `ai`。不修改 AI 面板内部布局。
 - [ ] 1.2 审阅并确认错误路径与边界路径：RightPanel 已展开且 `activeRightPanel=ai` 时点击 → 折叠；RightPanel 折叠时点击 → 展开并激活 ai tab；RightPanel 展开但 `activeRightPanel≠ai` 时点击 → 切换到 ai tab（不折叠）。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：按钮必须有 Tooltip 提示 `AI Panel (Ctrl+L)`；按钮目标尺寸 >= 24px；必须复用现有 `toggleRightPanelVisibility` 逻辑。

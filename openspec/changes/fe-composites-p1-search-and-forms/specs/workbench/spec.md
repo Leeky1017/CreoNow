@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-composites-p1-search-and-forms
 
 ### Requirement: P1 Composites 必须统一搜索输入与表单字段结构 [ADDED]

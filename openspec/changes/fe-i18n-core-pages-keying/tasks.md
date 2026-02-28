@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：核心页面（Dashboard/Onboarding/SearchPanel/AiPanel）硬编码字符串全部迁移为 `t()` i18n key。修复日期/相对时间本地化（不硬编码 `en-US`）。不做全仓库 60+ 文件的 i18n。
 - [ ] 1.2 审阅并确认错误路径与边界路径：缺失 key 时 fallback 到 key 本身（i18next 默认行为）；日期格式随 `i18n.language` 切换。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：核心页面不得残留硬编码可见字符串（中文或英文）；日期格式不得硬编码 locale。

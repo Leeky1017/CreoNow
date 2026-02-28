@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-error-boundary-partitioning
 
 ### Requirement: 渲染层必须具备分区 ErrorBoundary [ADDED]

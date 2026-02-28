@@ -1,5 +1,7 @@
 # 提案：fe-composites-p0-panel-and-command-items
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 根因 R3 指向一个缺口：Layer 2（Composites）不足，导致 Feature 层要么直接绕过 Primitives 散写原生元素，要么复制粘贴 panel/list/command item 的结构与样式。

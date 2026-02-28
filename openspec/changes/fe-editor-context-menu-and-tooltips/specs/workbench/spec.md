@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-editor-context-menu-and-tooltips
 
 ### Requirement: Tooltip 必须统一使用 Radix Tooltip [ADDED]

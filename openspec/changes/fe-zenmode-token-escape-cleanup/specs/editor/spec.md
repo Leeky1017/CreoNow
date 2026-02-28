@@ -1,5 +1,7 @@
 # Editor Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-zenmode-token-escape-cleanup
 
 ### Requirement: ZenMode 必须彻底遵循 Token 体系 [MODIFIED]

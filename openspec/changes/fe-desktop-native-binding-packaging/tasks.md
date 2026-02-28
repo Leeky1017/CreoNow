@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：修复 `better-sqlite3` native binding 在打包产物中的包含与加载路径，确保打包版启动不报 `DB_ERROR`。不解决 Provider 未配置问题（`AI_NOT_CONFIGURED`）。
 - [ ] 1.2 审阅并确认错误路径与边界路径：开发态 vs 打包态路径差异；不同平台（win/mac/linux）ABI 差异；`asar` 内 `.node` 文件需 `asarUnpack`。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：打包版启动后 AI/Skills 初始化不因缺失 native binding 返回 `DB_ERROR`；CI 构建流程包含自动验证护栏。

@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：修复 SearchPanel 关闭语义——`open=false` 短路不渲染 overlay，backdrop 点击触发 `onClose`。不引入弹出式改造。
 - [ ] 1.2 审阅并确认错误路径与边界路径：`open=false` 不渲染 overlay/backdrop；`onClose` 缺失时 backdrop 点击静默（不报错）。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：backdrop 必须可关闭；`open=false` 不渲染 overlay。

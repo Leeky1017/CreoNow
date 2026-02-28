@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-command-palette-search-uplift
 
 ### Requirement: Command Palette 必须支持文件搜索与 fuzzy match [ADDED]

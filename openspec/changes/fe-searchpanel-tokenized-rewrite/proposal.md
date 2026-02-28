@@ -1,5 +1,7 @@
 # 提案：fe-searchpanel-tokenized-rewrite
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 `SearchPanel.tsx` 是当前前端最大且最“自成宇宙”的 Token 逃逸区：大量硬编码 hex/rgba、内联 style、原生 input/button、自建子组件，几乎不复用 Primitives/Composites。

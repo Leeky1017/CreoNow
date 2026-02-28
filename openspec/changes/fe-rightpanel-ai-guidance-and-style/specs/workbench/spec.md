@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-rightpanel-ai-guidance-and-style
 
 ### Requirement: AI 面板错误必须“指路”而非仅“报错” [ADDED]

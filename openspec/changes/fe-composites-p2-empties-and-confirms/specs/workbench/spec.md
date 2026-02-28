@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-composites-p2-empties-and-confirms
 
 ### Requirement: 空状态与确认弹窗必须通过 Composite 统一 [ADDED]

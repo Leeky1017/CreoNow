@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：在根节点增加主题切换过渡策略（background/color/border-color），消除切换闪烁。不改变主题 Token 体系本身。
 - [ ] 1.2 审阅并确认错误路径与边界路径：`prefers-reduced-motion: reduce` 启用时必须禁用该过渡。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：切换 dark↔light 时无明显闪烁；过渡时长 ≤200ms；reduced motion 下过渡时长为 0。

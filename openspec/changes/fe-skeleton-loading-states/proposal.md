@@ -1,5 +1,7 @@
 # 提案：fe-skeleton-loading-states
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 项目已有 `Skeleton` Primitive，但 Feature 层几乎完全未使用：加载态多为居中 Spinner 或空白。对写作 IDE 来说，加载反馈应更“安静而可预期”。

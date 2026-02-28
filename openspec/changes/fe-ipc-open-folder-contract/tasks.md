@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：新增 IPC 通道 `dialog:open-folder`，主进程调用 `dialog.showOpenDialog({ properties: ['openDirectory'] })`，返回 `string | null`（取消返回 null）。不做 UI 入口。
 - [ ] 1.2 审阅并确认错误路径与边界路径：用户取消 → 返回 null；选择目录 → 返回绝对路径字符串；`dialog.showOpenDialog` 异常 → IPC 错误响应（标准 IpcResponse 错误格式）。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：返回值类型严格为 `string | null`；仅允许 `openDirectory`（不允许 openFile）；通道名必须为 `dialog:open-folder`。

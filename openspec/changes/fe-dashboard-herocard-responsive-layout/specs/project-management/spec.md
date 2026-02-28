@@ -1,5 +1,7 @@
 # Project Management Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-dashboard-herocard-responsive-layout
 
 ### Requirement: Dashboard HeroCard 必须响应式适配极宽/极窄窗口 [ADDED]

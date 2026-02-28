@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-cleanup-proxysection-and-mocks
 
 ### Requirement: 禁止 Dead UI 与 Mock 结果进入生产路径 [ADDED]

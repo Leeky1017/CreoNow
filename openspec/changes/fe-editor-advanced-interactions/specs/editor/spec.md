@@ -1,5 +1,7 @@
 # Editor Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-editor-advanced-interactions
 
 ### Requirement: 编辑器必须支持块拖拽与原子撤销 [ADDED]

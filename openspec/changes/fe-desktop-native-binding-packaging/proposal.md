@@ -1,5 +1,7 @@
 # 提案：fe-desktop-native-binding-packaging
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 Owner 实测打包版出现 `DB_ERROR`：`better-sqlite3` native binding 缺失或路径不正确，导致 Skills 不可用。这属于“构建产物不完整”的硬故障。

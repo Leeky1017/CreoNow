@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-token-escape-sweep
 
 ### Requirement: Feature 层不得出现 Token 逃逸 [ADDED]

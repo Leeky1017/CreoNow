@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-theme-switch-smoothing
 
 ### Requirement: 主题切换必须平滑且尊重 reduced motion [ADDED]

@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-hotfix-searchpanel-backdrop-close
 
 ### Requirement: SearchPanel 可见性与关闭语义 [ADDED]

@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-skeleton-loading-states
 
 ### Requirement: 关键区域加载态必须使用 Skeleton [ADDED]

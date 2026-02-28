@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：建立统一 HotkeyManager（scope + 优先级 + 传播控制），迁移散装 keydown listener，新增快捷键参考面板。不新增大量快捷键。
 - [ ] 1.2 审阅并确认错误路径与边界路径：Dialog 打开时 editor scope 快捷键不触发；无注册快捷键时 HotkeyManager 静默。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：Feature 层不得再散写 `addEventListener("keydown")`；快捷键参考面板消费 `getAllShortcuts()` SSOT。

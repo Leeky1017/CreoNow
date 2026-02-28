@@ -1,5 +1,7 @@
 # Version Control Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-editor-inline-diff-decoration-integration
 
 ### Requirement: 版本对比必须支持 Inline Diff（编辑器内） [ADDED]

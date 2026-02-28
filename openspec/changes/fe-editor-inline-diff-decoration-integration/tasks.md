@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：将 Inline Diff 从独立面板渲染改为 TipTap/ProseMirror decoration 集成，使版本差异在编辑器正文中高亮呈现。不做多版本同时对比。
 - [ ] 1.2 审阅并确认错误路径与边界路径：diff 数据缺失时不渲染 decoration（静默降级）；关闭对比模式后 decoration 必须被完全移除。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：对比模式开启时，插入行绿色高亮、删除行红色高亮（走 Token `--color-success-subtle`/`--color-error-subtle`）；关闭后编辑器恢复正常。

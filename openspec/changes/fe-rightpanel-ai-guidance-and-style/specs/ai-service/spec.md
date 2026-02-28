@@ -1,5 +1,7 @@
 # AI Service Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-rightpanel-ai-guidance-and-style
 
 ### Requirement: AI 未就绪时必须提供可操作的错误码 [ADDED]

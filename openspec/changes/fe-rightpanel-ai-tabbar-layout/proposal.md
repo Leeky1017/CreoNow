@@ -1,5 +1,7 @@
 # 提案：fe-rightpanel-ai-tabbar-layout
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 当前 AI 面板存在三处“费墨”：

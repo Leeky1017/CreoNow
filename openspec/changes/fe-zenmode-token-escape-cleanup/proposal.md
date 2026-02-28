@@ -1,5 +1,7 @@
 # 提案：fe-zenmode-token-escape-cleanup
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 ZenMode 的核心 Token 化已完成（背景/发光/文字），但仍残留少量 Token 逃逸：hover rgba、魔法间距与字号、状态栏背景等。这些残余会在主题切换与视觉一致性上留下“暗礁”。

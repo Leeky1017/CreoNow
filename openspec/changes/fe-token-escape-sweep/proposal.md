@@ -1,5 +1,7 @@
 # 提案：fe-token-escape-sweep
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 前端已具备 Design Token 与 Primitives，但执行层仍存在系统性 Token 逃逸：硬编码 hex/rgba、数字 z-index、魔法阴影/间距、`transition-all` 滥用等。其后果不是“丑”这么简单，而是让主题、一致性、可访问性与可测试性都失去抓手。

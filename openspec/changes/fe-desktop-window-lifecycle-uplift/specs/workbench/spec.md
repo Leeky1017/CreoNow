@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-desktop-window-lifecycle-uplift
 
 ### Requirement: 桌面窗口状态必须持久化且应用必须为单实例 [ADDED]

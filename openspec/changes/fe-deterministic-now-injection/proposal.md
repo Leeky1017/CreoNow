@@ -1,5 +1,7 @@
 # 提案：fe-deterministic-now-injection
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 部分 UI helper 直接调用 `Date.now()`（如相对时间格式化、SearchPanel 的 flashKey 生成），会导致测试不确定：今天通过、明天可能失败。

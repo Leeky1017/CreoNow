@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：删除 `WelcomeScreen`，将其入口逻辑合并到 `DashboardPage` 空状态；清理所有无 handler 的幽灵按钮（补齐 handler 或移除 UI）。不引入新信息架构。
 - [ ] 1.2 审阅并确认错误路径与边界路径：空状态下 Create Project 按钮 → 触发创建流程；Open Folder 按钮 → 触发 `dialog:open-folder`；无项目时不再出现 WelcomeScreen 分支。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：禁止无 handler 按钮残留（每个可点击元素必须有闭环行为）；空状态必须提供至少 Create Project + Open Folder 两个入口。

@@ -1,5 +1,7 @@
 # 提案：fe-dashboard-welcome-merge-and-ghost-actions
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 Dashboard 是“第一眼”。但当前存在两类损伤信任的体验：

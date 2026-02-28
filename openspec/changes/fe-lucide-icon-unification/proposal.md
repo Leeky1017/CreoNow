@@ -1,5 +1,7 @@
 # 提案：fe-lucide-icon-unification
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 项目已引入 `lucide-react`，但 Feature 层仍大量手写内联 SVG，导致：

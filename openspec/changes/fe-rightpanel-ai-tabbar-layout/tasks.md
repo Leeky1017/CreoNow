@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：将 AI 面板 History/NewChat 从 AiPanel header 迁移到 RightPanel tab bar 右侧动作区；移除 candidateCount（`1x`）工具按钮。不引入新业务能力。
 - [ ] 1.2 审阅并确认错误路径与边界路径：activeRightPanel 非 ai 时动作区隐藏；candidateCount 持久化保留（默认 1），高级配置入口迁到 Settings。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：按钮可点击、目标尺寸 >= 24px；候选数 UI 不再污染主面板。

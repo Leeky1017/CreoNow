@@ -1,5 +1,7 @@
 # 提案：fe-ipc-open-folder-contract
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 当前产品无法打开已有文件夹：IPC 层缺失 `dialog.showOpenDialog` 通道，导致用户无法像 Cursor/Windsurf 一样“Open Folder”。这属于 P0 级缺失。

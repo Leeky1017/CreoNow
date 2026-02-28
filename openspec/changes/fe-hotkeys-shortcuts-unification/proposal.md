@@ -1,5 +1,7 @@
 # 提案：fe-hotkeys-shortcuts-unification
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 快捷键定义集中在 `config/shortcuts.ts`，但注册分散在 4+ 处 `window.addEventListener("keydown")`：EditorPane/AppShell/EntityCompletion 等各自为政，缺少优先级与传播控制。

@@ -1,5 +1,7 @@
 # 提案：fe-i18n-language-switcher-foundation
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 当前 UI 中英混杂且缺少语言切换入口。仓库已存在 `react-i18next` 基础设施与 `locales/` 目录，但未形成“用户可操作”的闭环。

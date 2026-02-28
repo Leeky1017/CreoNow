@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：将单层全局 `ErrorBoundary` 拆分为 4 层分区边界（App/Editor/Sidebar/Panel），使崩溃只影响自身区域。不改业务逻辑。
 - [ ] 1.2 审阅并确认错误路径与边界路径：每个分区 Boundary 提供可恢复的 fallback（提示 + 重新加载/关闭该区域）。全局 AppErrorBoundary 作为兜底。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：任一区域（Sidebar/RightPanel/Editor）崩溃不得导致全屏白屏；其余区域必须保持可用。

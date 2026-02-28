@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-ui-open-folder-entrypoints
 
 ### Requirement: Open Folder 必须提供多入口且行为一致 [ADDED]

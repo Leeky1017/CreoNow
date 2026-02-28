@@ -1,5 +1,7 @@
 # Project Management Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-ipc-open-folder-contract
 
 ### Requirement: 文件夹即工作区（Open Folder 语义） [ADDED]

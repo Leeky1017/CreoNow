@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：新增 P1 Composites（SearchInput/FormField/ToolbarGroup），替换 Feature 层散装搜索输入和表单字段。不做 P2 composites 和全量迁移。
 - [ ] 1.2 审阅并确认错误路径与边界路径：FormField 需支持 error/help 状态显示；SearchInput 空值时隐藏 clear 按钮。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：同语义搜索输入和表单字段结构必须一致；Composite 必须有测试 + Storybook story。

@@ -1,5 +1,7 @@
 # Project Management Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-ui-open-folder-entrypoints
 
 ### Requirement: Onboarding/Dashboard 必须提供 Open Folder 入口 [ADDED]

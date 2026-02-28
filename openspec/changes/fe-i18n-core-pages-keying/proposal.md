@@ -1,5 +1,7 @@
 # 提案：fe-i18n-core-pages-keying
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 核心页面（Dashboard/Onboarding/Search/AiPanel）仍大量硬编码字符串，导致中英混杂、日期/相对时间固化为 `en-US`。既然 i18n 基础设施已就绪，问题在“执行未覆盖”。

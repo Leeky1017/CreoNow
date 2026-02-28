@@ -1,5 +1,7 @@
 # 提案：fe-composites-p2-empties-and-confirms
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 项目已有 `EmptyState` 组件，但多处面板空状态仍自行实现；确认弹窗与信息条也存在重复造轮子。

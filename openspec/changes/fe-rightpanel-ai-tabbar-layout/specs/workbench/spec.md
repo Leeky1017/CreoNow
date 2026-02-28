@@ -1,5 +1,7 @@
 # Workbench Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-rightpanel-ai-tabbar-layout
 
 ### Requirement: AI 面板操作入口必须并入 RightPanel tab bar [ADDED]

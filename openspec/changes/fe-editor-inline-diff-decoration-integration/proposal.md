@@ -1,5 +1,7 @@
 # 提案：fe-editor-inline-diff-decoration-integration
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 深度审计指出：Inline Diff 当前脱离编辑器，作为独立面板渲染，无法提供“所见即所得”的版本对比体验。

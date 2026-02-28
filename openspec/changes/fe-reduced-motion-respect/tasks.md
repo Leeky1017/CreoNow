@@ -1,5 +1,7 @@
 ## 1. Specification
 
+更新时间：2026-02-28 19:20
+
 - [ ] 1.1 审阅并确认需求边界：将 `prefers-reduced-motion` 从"个别组件记得做"提升为"系统级默认"。所有自定义动画/过渡在 reduced motion 下必须被禁用或压缩为 0ms。不改变业务功能。
 - [ ] 1.2 审阅并确认错误路径与边界路径：reduced motion 未启用时行为不变。
 - [ ] 1.3 审阅并确认验收阈值与不可变契约：Feature 层 46 处 `transition-all`/`animate-*` 以及 2 处内联 `@keyframes`（SearchPanel/AiPanel）必须受 reduced motion 控制。

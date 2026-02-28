@@ -1,5 +1,7 @@
 # 提案：fe-error-boundary-partitioning
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 当前渲染层仅有单层 `ErrorBoundary` 包裹整个应用：任何子组件（SearchPanel/KG/AI 面板等）崩溃都会导致全屏白屏。对 IDE 产品而言，这是不可接受的“连坐”。

@@ -1,5 +1,7 @@
 # 提案：fe-ui-open-folder-entrypoints
 
+更新时间：2026-02-28 19:20
+
 ## Why（问题与目标）
 
 Open Folder 不是隐藏技能，而是第一性入口。即便 IPC 已打通，若没有足够多的 UI 入口，用户仍会困在“我该从哪里开始”。

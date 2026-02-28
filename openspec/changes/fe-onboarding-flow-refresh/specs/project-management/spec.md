@@ -1,5 +1,7 @@
 # Project Management Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-onboarding-flow-refresh
 
 ### Requirement: 首次启动必须提供可闭环的 Onboarding 流程 [MODIFIED]

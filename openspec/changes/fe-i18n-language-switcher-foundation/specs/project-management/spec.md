@@ -1,5 +1,7 @@
 # Project Management Specification Delta
 
+更新时间：2026-02-28 19:20
+
 ## Change: fe-i18n-language-switcher-foundation
 
 ### Requirement: Onboarding 必须提供语言选择入口 [ADDED]
