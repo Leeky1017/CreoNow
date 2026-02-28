@@ -1,20 +1,20 @@
 # ISSUE-753
 
-更新时间：2026-02-28 11:50
+更新时间：2026-02-28 11:56
 
 ## Links
 
 - Issue: #753
 - Issue URL: https://github.com/Leeky1017/CreoNow/issues/753
 - Branch: `task/753-controlplane-full-delivery-main-sync`
-- PR: https://github.com/Leeky1017/CreoNow/pull/PENDING
+- PR: https://github.com/Leeky1017/CreoNow/pull/756
 
 ## Plan
 
 - [x] 以用户确认的基线提交作为交付起点
 - [x] 补齐 Rulebook 任务文档与执行清单
 - [x] 补齐 RUN_LOG 并记录关键命令证据
-- [ ] 创建 PR 并开启 auto-merge
+- [x] 创建 PR 并开启 auto-merge
 - [ ] 等待 required checks 全绿并合并
 - [ ] 同步控制面 `main` 与 `origin/main`
 
@@ -50,9 +50,17 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: PENDING_SHA
+- Reviewed-HEAD-SHA: fae44cd2629ae37568208c3f995be58160f420b5
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
 - Blocking-Issues: 0
 - Decision: ACCEPT
+
+
+### 2026-02-28 GitHub 提交流程
+
+- Command: `gh pr create --base main --head task/753-controlplane-full-delivery-main-sync --title "Deliver controlplane pending files and sync main (#753)" --body-file /tmp/pr-753-body.md`
+- Exit code: `0`
+- Key output:
+  - `https://github.com/Leeky1017/CreoNow/pull/756`
