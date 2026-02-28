@@ -14,8 +14,12 @@ const runnerScript = readFileSync(runnerScriptPath, "utf8");
 
 // S1: unit/integration must use discovery runner entrypoint [ADDED]
 assert.equal(
+  packageJson.scripts?.["desktop:ensure-native-node-abi"],
+  "tsx scripts/ensure-desktop-native-node-abi.ts",
+);
+assert.equal(
   packageJson.scripts?.["test:unit"],
-  "tsx scripts/run-discovered-tests.ts --mode unit",
+  "pnpm desktop:ensure-native-node-abi && tsx scripts/run-discovered-tests.ts --mode unit",
 );
 assert.equal(
   packageJson.scripts?.["test:integration"],
