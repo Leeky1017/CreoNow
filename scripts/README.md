@@ -8,7 +8,7 @@
 | ---------------------------------- | ----------------------------------------------- | ------------------ |
 | `agent_controlplane_sync.sh`       | 同步控制面的 main 到最新                        | 阶段 3 前 + 阶段 6 |
 | `agent_worktree_setup.sh`          | 创建 worktree 隔离环境                          | 阶段 3：环境隔离   |
-| `agent_pr_preflight.sh`            | PR 前的预检查                                   | 阶段 5：提交前     |
+| `agent_pr_preflight.sh`            | 提交前 / PR 前的预检查                          | 阶段 5：提交前     |
 | `agent_pr_automerge_and_sync.sh`   | 创建 PR + auto-merge + 等待                     | 阶段 5：提交与合并 |
 | `main_audit_resign.sh`             | RUN_LOG 主会话审计重签（`Reviewed-HEAD-SHA`）   | BEHIND/sync 后修复 |
 | `agent_worktree_cleanup.sh`        | 清理 worktree                                   | 阶段 6：收口       |
@@ -33,9 +33,12 @@
   - `task/<N>-<slug>` 对应 GitHub Issue `#N` 必须为 `OPEN`（阻断复用已关闭/历史 Issue）
   - `openspec/_ops/task_runs/ISSUE-<N>.md` 的 `PR` 字段不得为占位符（必须为真实链接）
   - `## Main Session Audit` 的 `Reviewed-HEAD-SHA` 不得保留占位值（如 `PENDING_SHA` / `TBD`）；命中后会本地阻断并提示执行 `scripts/main_audit_resign.sh --issue <N> --preflight-mode fast`
-- `agent_pr_preflight.sh` 支持 `--mode fast|full`：
+- `agent_pr_preflight.sh` 支持 `--mode commit|fast|full`：
+  - `commit`：task 分支提交前本地快检（仅校验 staged 文件），拦截文档时间戳格式与 `openspec/_ops/task_runs/ISSUE-*.md` 缺少 `## Main Session Audit` 段落
   - `fast`：治理与签字链路快检（Issue/Rulebook/RUN_LOG/Main Audit/doc 时间戳/OpenSpec 结构）
   - `full`：在 `fast` 基础上再执行 `prettier/typecheck/lint/contract/cross-module/test:unit`
+- 一键提交前预检命令（可直接复制）：
+  - `scripts/agent_pr_preflight.sh --mode commit`
 - Main Session Audit 回填标准操作：
   - 回填时机：功能改动提交完成后、推送分支前执行一次重签；若后续又有代码提交，必须再次重签
   - 回填命令：`scripts/main_audit_resign.sh --issue <N> --preflight-mode fast`（会刷新 `Reviewed-HEAD-SHA` 并立即做本地快检）

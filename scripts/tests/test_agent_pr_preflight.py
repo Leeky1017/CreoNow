@@ -167,6 +167,57 @@ class MainSessionAuditValidationTests(unittest.TestCase):
             agent_pr_preflight.validate_main_session_audit(run_log, self.head_sha)
 
 
+class TaskRunLogMainAuditSectionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = self.tmp.name
+        self.run_log_rel = "openspec/_ops/task_runs/ISSUE-783.md"
+        self.run_log_abs = os.path.join(self.repo, self.run_log_rel)
+        os.makedirs(os.path.dirname(self.run_log_abs), exist_ok=True)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _write_run_log(self, content: str) -> None:
+        with open(self.run_log_abs, "w", encoding="utf-8") as fp:
+            fp.write(content)
+
+    def test_validate_staged_run_logs_main_audit_section_should_pass_when_section_exists(self) -> None:
+        self._write_run_log(
+            "# ISSUE-783\n\n"
+            "- Issue: #783\n"
+            "- Branch: task/783-local-precheck\n"
+            "- PR: https://github.com/Leeky1017/CreoNow/pull/999\n\n"
+            "## Main Session Audit\n"
+            "- Audit-Owner: main-session\n"
+        )
+
+        agent_pr_preflight.validate_staged_run_logs_main_audit_section(
+            self.repo,
+            {self.run_log_rel},
+        )
+
+    def test_validate_staged_run_logs_main_audit_section_should_fail_when_section_missing(self) -> None:
+        self._write_run_log(
+            "# ISSUE-783\n\n"
+            "- Issue: #783\n"
+            "- Branch: task/783-local-precheck\n"
+            "- PR: https://github.com/Leeky1017/CreoNow/pull/999\n"
+        )
+
+        with self.assertRaisesRegex(RuntimeError, r"^\[MAIN_AUDIT\].*missing required section"):
+            agent_pr_preflight.validate_staged_run_logs_main_audit_section(
+                self.repo,
+                {self.run_log_rel},
+            )
+
+    def test_validate_staged_run_logs_main_audit_section_should_skip_when_no_run_log_files(self) -> None:
+        agent_pr_preflight.validate_staged_run_logs_main_audit_section(
+            self.repo,
+            {"docs/delivery-skill.md"},
+        )
+
+
 class MainSessionAuditSignatureCommitTests(unittest.TestCase):
     def setUp(self) -> None:
         self.repo = "/tmp/repo"
@@ -219,6 +270,51 @@ class PreflightArgsTests(unittest.TestCase):
     def test_parse_args_accepts_fast_mode(self) -> None:
         args = agent_pr_preflight.parse_args(["--mode", "fast"])
         self.assertEqual("fast", args.mode)
+
+    def test_parse_args_accepts_commit_mode(self) -> None:
+        args = agent_pr_preflight.parse_args(["--mode", "commit"])
+        self.assertEqual("commit", args.mode)
+
+
+class CommitModeFlowTests(unittest.TestCase):
+    def test_main_should_skip_commit_mode_when_branch_is_not_task(self) -> None:
+        with mock.patch.object(agent_pr_preflight, "git_root", return_value="/tmp/repo"), mock.patch.object(
+            agent_pr_preflight,
+            "current_branch",
+            return_value="amano/issue-783-local-preflight",
+        ), mock.patch.object(agent_pr_preflight, "collect_staged_files") as collect_staged:
+            rc = agent_pr_preflight.main(["--mode", "commit"])
+
+        self.assertEqual(0, rc)
+        collect_staged.assert_not_called()
+
+    def test_main_should_run_commit_mode_guards_on_task_branch(self) -> None:
+        staged_files = {"docs/delivery-skill.md", "openspec/_ops/task_runs/ISSUE-783.md"}
+        with mock.patch.object(agent_pr_preflight, "git_root", return_value="/tmp/repo"), mock.patch.object(
+            agent_pr_preflight,
+            "current_branch",
+            return_value="task/783-local-preflight",
+        ), mock.patch.object(
+            agent_pr_preflight,
+            "collect_staged_files",
+            return_value=staged_files,
+        ), mock.patch.object(agent_pr_preflight, "must_run") as must_run, mock.patch.object(
+            agent_pr_preflight,
+            "validate_staged_run_logs_main_audit_section",
+        ) as validate_main_audit:
+            rc = agent_pr_preflight.main(["--mode", "commit"])
+
+        self.assertEqual(0, rc)
+        must_run.assert_called_once_with(
+            [
+                "python3",
+                "scripts/check_doc_timestamps.py",
+                "--files",
+                *sorted(staged_files),
+            ],
+            cwd="/tmp/repo",
+        )
+        validate_main_audit.assert_called_once_with("/tmp/repo", staged_files)
 
 
 if __name__ == "__main__":
