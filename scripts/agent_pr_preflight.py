@@ -190,6 +190,7 @@ def validate_runlog_pr_field(path: str) -> None:
 
 
 MAIN_AUDIT_SECTION_TITLE = "## Main Session Audit"
+TASK_RUN_LOG_PATH_RE = re.compile(r"^openspec/_ops/task_runs/ISSUE-\d+\.md$")
 MAIN_AUDIT_REQUIRED_FIELDS: tuple[str, ...] = (
     "Audit-Owner",
     "Reviewed-HEAD-SHA",
@@ -509,15 +510,49 @@ def collect_changed_files(repo: str) -> set[str]:
     return changed_files
 
 
+def collect_staged_files(repo: str) -> set[str]:
+    res = run(
+        ["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+        cwd=repo,
+    )
+    if res.code != 0:
+        print(res.out, file=sys.stderr)
+        raise RuntimeError("failed to list staged files: git diff --cached --name-only --diff-filter=ACMR")
+
+    staged: set[str] = set()
+    for line in res.out.splitlines():
+        rel_path = line.strip()
+        if rel_path:
+            staged.add(rel_path)
+    return staged
+
+
+def validate_staged_run_logs_main_audit_section(repo: str, staged_files: set[str]) -> None:
+    targets = sorted(path for path in staged_files if TASK_RUN_LOG_PATH_RE.match(path))
+    if not targets:
+        print("(skip) staged RUN_LOG main-audit-section check: no staged openspec/_ops/task_runs/ISSUE-*.md")
+        return
+
+    for rel_path in targets:
+        abs_path = os.path.join(repo, rel_path)
+        if not os.path.isfile(abs_path):
+            continue
+        with open(abs_path, "r", encoding="utf-8") as fp:
+            content = fp.read()
+        _extract_main_audit_section(content, rel_path)
+
+    print(f"OK: validated Main Session Audit section for {len(targets)} staged RUN_LOG file(s)")
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="CreoNow governed preflight checks"
     )
     parser.add_argument(
         "--mode",
-        choices=("fast", "full"),
+        choices=("commit", "fast", "full"),
         default="full",
-        help="fast: governance/signoff checks only; full: include lint/type/tests (default).",
+        help="commit: staged-file local commit guard; fast: governance/signoff checks only; full: include lint/type/tests (default).",
     )
     return parser.parse_args(argv)
 
@@ -527,6 +562,28 @@ def main(argv: list[str]) -> int:
     issue_number = "unknown"
     try:
         repo = git_root()
+        if args.mode == "commit":
+            branch = current_branch(repo)
+            if not re.match(r"^task/[0-9]+-[a-z0-9-]+$", branch):
+                print(
+                    f"(skip) commit preflight: branch is not task/<N>-<slug> ({branch})",
+                )
+                return 0
+
+            staged_files = collect_staged_files(repo)
+            if not staged_files:
+                print("(skip) commit preflight: no staged files")
+                return 0
+
+            print("== Preflight mode: commit ==")
+            must_run(
+                ["python3", "scripts/check_doc_timestamps.py", "--files", *sorted(staged_files)],
+                cwd=repo,
+            )
+            validate_staged_run_logs_main_audit_section(repo, staged_files)
+            print("\nOK: commit preflight checks passed")
+            return 0
+
         branch = current_branch(repo)
         m = re.match(r"^task/(?P<n>[0-9]+)-(?P<slug>[a-z0-9-]+)$", branch)
         if not m:
