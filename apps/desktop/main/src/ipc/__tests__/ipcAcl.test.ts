@@ -18,10 +18,15 @@ function createLogger(): TestLogger {
   };
 }
 
-function createEvent(url: string, webContentsId = 1): IpcMainInvokeEvent {
+function createEvent(args: {
+  url?: string;
+  webContentsId?: number;
+} = {}): IpcMainInvokeEvent {
+  const senderFrame = args.url === undefined ? {} : { url: args.url };
+
   return {
-    senderFrame: { url },
-    sender: { id: webContentsId },
+    senderFrame,
+    sender: { id: args.webContentsId ?? 1 },
   } as unknown as IpcMainInvokeEvent;
 }
 
@@ -62,7 +67,27 @@ async function main(): Promise<void> {
     "SIA-S1 should reject non-allowlisted origin with FORBIDDEN/origin_not_allowed",
     async () => {
       const response = await invokeWrapped({
-        event: createEvent("https://evil.com"),
+        event: createEvent({ url: "https://evil.com" }),
+        channel: "file:document:list",
+      });
+
+      assert.equal(response.ok, false);
+      if (response.ok) {
+        assert.fail("expected FORBIDDEN response");
+      }
+      assert.equal(response.error.code, "FORBIDDEN");
+      assert.equal(
+        (response.error.details as { reason?: string } | undefined)?.reason,
+        "origin_not_allowed",
+      );
+    },
+  );
+
+  await runScenario(
+    "SIA-S1 should reject caller when senderFrame.url is missing",
+    async () => {
+      const response = await invokeWrapped({
+        event: createEvent(),
         channel: "file:document:list",
       });
 
@@ -80,7 +105,7 @@ async function main(): Promise<void> {
 
   await runScenario("SIA-S2 should allow localhost dev origin", async () => {
     const response = await invokeWrapped({
-      event: createEvent("http://localhost:5173/index.html"),
+      event: createEvent({ url: "http://localhost:5173/index.html" }),
       channel: "file:document:list",
     });
 
@@ -91,7 +116,7 @@ async function main(): Promise<void> {
     "SIA-S2 should allow VITE_DEV_SERVER_URL origin",
     async () => {
       const response = await invokeWrapped({
-        event: createEvent("http://127.0.0.1:4173/editor"),
+        event: createEvent({ url: "http://127.0.0.1:4173/editor" }),
         channel: "file:document:list",
       });
 
@@ -101,12 +126,35 @@ async function main(): Promise<void> {
 
   await runScenario("SIA-S2 should allow production file origin", async () => {
     const response = await invokeWrapped({
-      event: createEvent("file:///Applications/CreoNow/index.html"),
+      event: createEvent({ url: "file:///Applications/CreoNow/index.html" }),
       channel: "file:document:list",
     });
 
     assert.equal(response.ok, true);
   });
+
+  await runScenario(
+    "SIA-S3 should reject privileged channel with illegal webContentsId",
+    async () => {
+      const response = await invokeWrapped({
+        event: createEvent({
+          url: "http://localhost:5173/index.html",
+          webContentsId: 0,
+        }),
+        channel: "db:debug:tablenames",
+      });
+
+      assert.equal(response.ok, false);
+      if (response.ok) {
+        assert.fail("expected FORBIDDEN response");
+      }
+      assert.equal(response.error.code, "FORBIDDEN");
+      assert.equal(
+        (response.error.details as { reason?: string } | undefined)?.reason,
+        "web_contents_not_allowed",
+      );
+    },
+  );
 }
 
 process.env.VITE_DEV_SERVER_URL = "http://127.0.0.1:4173";

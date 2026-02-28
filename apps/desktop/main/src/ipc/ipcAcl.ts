@@ -98,7 +98,7 @@ export function createIpcAclEvaluator(
   return ({ channel, event }): IpcAclDecision => {
     const senderOrigin = resolveSenderOrigin(event);
     if (
-      senderOrigin !== null &&
+      senderOrigin === null ||
       !isOriginAllowed({ senderOrigin, devServerOrigin })
     ) {
       return {
