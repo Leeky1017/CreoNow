@@ -1,12 +1,12 @@
 # ISSUE-807 Independent Review
 
-更新时间：2026-03-01 16:57
+更新时间：2026-03-01 17:28
 
 - Issue: #807
 - PR: https://github.com/Leeky1017/CreoNow/pull/808
 - Author-Agent: codex
 - Reviewer-Agent: copilot
-- Reviewed-HEAD-SHA: 01abb11c4fcab3fc5f1cbf293c78e1644a69ca87
+- Reviewed-HEAD-SHA: fdeeb93762f47938587feb8b76a3af600329f46e
 - Decision: PASS
 
 ## Scope
@@ -27,3 +27,4 @@
 - `pnpm -C apps/desktop test:run components/layout/__tests__/panel-id-ssot.guard`：通过（3/3）
 - `pnpm -C apps/desktop typecheck`：通过
 - `pnpm -C apps/desktop test:run`：通过（193 files / 1565 tests）
+- `pnpm -C apps/desktop test:e2e -- tests/e2e/knowledge-graph.spec.ts tests/e2e/system-dialog.spec.ts`：通过（2/2）

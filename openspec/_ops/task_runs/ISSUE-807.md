@@ -1,6 +1,6 @@
 # ISSUE-807
 
-更新时间：2026-03-01 17:11
+更新时间：2026-03-01 17:28
 
 - Issue: #807
 - Branch: task/807-fe-leftpanel-dialog-migration
@@ -124,6 +124,20 @@
   - `2 passed`
   - `0 failed`
   - `Duration 4.6s`
+
+### 2026-03-01 17:22 Gate Recovery — 同步 main 以恢复 PR checks 触发
+
+- Command: `git merge --no-edit origin/main`
+- Exit code: `1`（首次）
+- Key output: `CONFLICT (content): Merge conflict in openspec/changes/EXECUTION_ORDER.md`
+- Fix: 手工保留双方变更并以最新时间戳消解 `EXECUTION_ORDER.md` 冲突后完成 merge；随后 `git push`。
+
+### 2026-03-01 17:26 Gate Recovery — 审计签字与 guard 再校准
+
+- Command: `scripts/main_audit_resign.sh --issue 807 --preflight-mode fast`
+- Exit code: `0`
+- Key output: `OK: fast preflight checks passed`，并生成签字提交推送到任务分支。
+- Notes: 随 main 同步后，`openspec-log-guard` 再次校验暴露独立审计 `Reviewed-HEAD-SHA` 漂移，需要补齐审计记录基线并再次签字。
 
 ## Main Session Audit
 
