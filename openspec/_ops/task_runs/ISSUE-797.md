@@ -5,7 +5,7 @@
 - Issue: #797
 - Branch: task/797-fe-spec-drift-iconbar-rightpanel-alignment
 - PR: （未创建；本次仅本地 Green 阶段，不提交）
-- Reviewed-HEAD-SHA: ac81d35ca42af5f369ff4ace0d542ae742bf21c7
+- Reviewed-HEAD-SHA: 160857a234193fbaf235c4da3b5232d66b8e486c
 
 ## Plan
 
