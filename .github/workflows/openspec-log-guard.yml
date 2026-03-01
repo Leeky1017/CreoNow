@@ -50,11 +50,19 @@ jobs:
               completed_active.append(change_dir.name)
 
           if completed_active:
+            fix_commands = [
+              f"mv openspec/changes/{change} openspec/changes/archive/{change}"
+              for change in completed_active
+            ]
             print(
               "❌ tasks.md checkboxes are all checked, so completed changes must be archived to "
               "openspec/changes/archive/: "
               + ", ".join(completed_active)
             )
+            print("Fix suggestion (copy & run):")
+            for command in fix_commands:
+              print(command)
+            print("Then rerun checks: scripts/agent_pr_preflight.sh --mode fast")
             sys.exit(1)
 
           print("✅ Completed active change archive guard passed")

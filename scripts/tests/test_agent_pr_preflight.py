@@ -66,6 +66,45 @@ class RulebookTaskResolutionTests(unittest.TestCase):
             agent_pr_preflight.resolve_rulebook_task_location(self.repo, task_id)
 
 
+class OpenSpecCompletedActiveChangeGuardTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = self.tmp.name
+        os.makedirs(os.path.join(self.repo, "openspec", "changes", "archive"), exist_ok=True)
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def _write_change_tasks(self, change_name: str, body: str) -> None:
+        change_dir = os.path.join(self.repo, "openspec", "changes", change_name)
+        os.makedirs(change_dir, exist_ok=True)
+        with open(os.path.join(change_dir, "tasks.md"), "w", encoding="utf-8") as fp:
+            fp.write(body)
+
+    def test_validate_no_completed_active_changes_should_include_actionable_archive_command(self) -> None:
+        change_name = "issue-792-openspec-archive-guard"
+        self._write_change_tasks(
+            change_name,
+            "- [x] all done\n- [x] another done\n",
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            rf"mv openspec/changes/{change_name} openspec/changes/archive/{change_name}",
+        ) as exc:
+            agent_pr_preflight.validate_no_completed_active_changes(self.repo)
+
+        self.assertIn("scripts/agent_pr_preflight.sh --mode fast", str(exc.exception))
+
+    def test_validate_no_completed_active_changes_should_pass_when_not_all_checked(self) -> None:
+        self._write_change_tasks(
+            "issue-792-openspec-archive-guard",
+            "- [x] done\n- [ ] pending\n",
+        )
+
+        agent_pr_preflight.validate_no_completed_active_changes(self.repo)
+
+
 class MainSessionAuditValidationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
