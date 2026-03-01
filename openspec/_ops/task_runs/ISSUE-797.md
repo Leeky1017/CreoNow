@@ -4,7 +4,7 @@
 
 - Issue: #797
 - Branch: task/797-fe-spec-drift-iconbar-rightpanel-alignment
-- PR: （未创建；本次仅本地 Green 阶段，不提交）
+- PR: https://github.com/Leeky1017/CreoNow/pull/799
 - Reviewed-HEAD-SHA: 160857a234193fbaf235c4da3b5232d66b8e486c
 
 ## Plan
