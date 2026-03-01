@@ -152,6 +152,7 @@ export const IPC_CHANNELS = [
   "context:watch:start",
   "context:watch:stop",
   "db:debug:tablenames",
+  "dialog:folder:open",
   "embedding:index:reindex",
   "embedding:semantic:search",
   "embedding:text:generate",
@@ -909,6 +910,12 @@ export type IpcChannelSpec = {
     request: Record<string, never>;
     response: {
       tableNames: Array<string>;
+    };
+  };
+  "dialog:folder:open": {
+    request: Record<string, never>;
+    response: {
+      selectedPath?: string;
     };
   };
   "embedding:index:reindex": {

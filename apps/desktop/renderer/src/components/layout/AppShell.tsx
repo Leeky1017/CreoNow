@@ -34,7 +34,6 @@ import {
 import { DashboardPage } from "../../features/dashboard";
 import { DiffViewPanel } from "../../features/diff/DiffViewPanel";
 import { EditorPane } from "../../features/editor/EditorPane";
-import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
 import {
   SettingsDialog,
   type SettingsTab,
@@ -568,6 +567,16 @@ export function AppShell(): JSX.Element {
           setCommandPaletteOpen(false);
         },
       },
+      {
+        id: "open-folder",
+        label: "Open Folder",
+        group: "command",
+        category: "command",
+        onSelect: async () => {
+          await invoke("dialog:folder:open", {});
+          setCommandPaletteOpen(false);
+        },
+      },
     ];
 
     const safeFileItems = Array.isArray(fileItems) ? fileItems : [];
@@ -646,16 +655,12 @@ export function AppShell(): JSX.Element {
   /**
    * Determine which main content to render based on project state.
    *
-   * Why: Different views for no projects, dashboard, and editor states.
+   * Why: DashboardPage handles its own empty state, so no separate WelcomeScreen needed.
    */
   function renderMainContent(): JSX.Element {
-    // No projects at all - show welcome/create project screen
-    if (projectItems.length === 0 && bootstrapStatus === "ready") {
-      return <WelcomeScreen />;
-    }
-
-    // Projects exist but no current project - show dashboard
-    if (!currentProject) {
+    // No current project (or no projects at all) — show dashboard
+    // DashboardPage renders its own empty state with Create Project + Open Folder
+    if (!currentProject || projectItems.length === 0) {
       return <DashboardPage />;
     }
 

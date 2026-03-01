@@ -1,6 +1,6 @@
 # 提案：fe-ui-open-folder-entrypoints
 
-更新时间：2026-02-28 19:20
+更新时间：2026-03-01 22:00
 
 ## Why（问题与目标）
 
@@ -15,7 +15,7 @@ Open Folder 不是隐藏技能，而是第一性入口。即便 IPC 已打通，
 - Onboarding Step 3（打开文件夹）
 - Dashboard 空状态（Open Folder）
 - Command Palette 命令（Open Folder）
-- 菜单栏 File → Open Folder
+- 菜单栏 File → Open Folder（⚠️ 已推迟：当前应用尚无原生菜单系统，待菜单栏基础设施就绪后由后续 change 补充）
 
 ## Scope（影响范围）
 

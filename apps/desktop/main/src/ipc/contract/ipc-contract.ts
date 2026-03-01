@@ -1762,6 +1762,12 @@ export const ipcContract = {
       request: s.object({}),
       response: s.object({ tableNames: s.array(s.string()) }),
     },
+    "dialog:folder:open": {
+      request: s.object({}),
+      response: s.object({
+        selectedPath: s.optional(s.string()),
+      }),
+    },
     "project:project:create": {
       request: s.object({
         name: s.optional(s.string()),

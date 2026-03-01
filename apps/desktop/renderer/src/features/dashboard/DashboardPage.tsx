@@ -12,6 +12,7 @@ import {
   type ContextMenuItem,
 } from "../../components/primitives";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { invoke } from "../../lib/ipcClient";
 import { CreateProjectDialog } from "../projects/CreateProjectDialog";
 import { DeleteProjectDialog } from "../projects/DeleteProjectDialog";
 import { RenameProjectDialog } from "./RenameProjectDialog";
@@ -615,6 +616,17 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
           >
             新建项目
           </Button>
+          <Button
+            data-testid="dashboard-open-folder"
+            variant="secondary"
+            size="md"
+            className="mt-3"
+            onClick={async () => {
+              await invoke("dialog:folder:open", {});
+            }}
+          >
+            打开文件夹
+          </Button>
         </div>
 
         <CreateProjectDialog
@@ -668,11 +680,6 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
           {heroProject && (
             <>
               <SectionTitle
-                action={
-                  <button className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors cursor-pointer">
-                    View All
-                  </button>
-                }
                 className="animate-fade-in-up"
               >
                 Continue Writing
@@ -692,46 +699,6 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
           {(gridProjects.length > 0 || searchQuery) && (
             <>
               <SectionTitle
-                action={
-                  <div className="flex gap-3">
-                    <button
-                      className="text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
-                      title="Grid View"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                      >
-                        <rect x="3" y="3" width="7" height="7" />
-                        <rect x="14" y="3" width="7" height="7" />
-                        <rect x="14" y="14" width="7" height="7" />
-                        <rect x="3" y="14" width="7" height="7" />
-                      </svg>
-                    </button>
-                    <button
-                      className="text-[var(--color-fg-faint)] hover:text-[var(--color-fg-default)] transition-colors"
-                      title="List View"
-                    >
-                      <svg
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                      >
-                        <line x1="8" y1="6" x2="21" y2="6" />
-                        <line x1="8" y1="12" x2="21" y2="12" />
-                        <line x1="8" y1="18" x2="21" y2="18" />
-                        <line x1="3" y1="6" x2="3.01" y2="6" />
-                        <line x1="3" y1="12" x2="3.01" y2="12" />
-                        <line x1="3" y1="18" x2="3.01" y2="18" />
-                      </svg>
-                    </button>
-                  </div>
-                }
                 className="mt-8 animate-fade-in-up animation-delay-200"
               >
                 Recent Projects
