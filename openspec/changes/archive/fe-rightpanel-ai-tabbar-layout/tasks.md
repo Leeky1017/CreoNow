@@ -1,6 +1,6 @@
 ## 1. Specification
 
-更新时间：2026-03-01 10:21
+更新时间：2026-03-01 13:17
 
 - [x] 1.1 审阅并确认需求边界：将 AI 面板 History/NewChat 从 AiPanel header 迁移到 RightPanel tab bar 右侧动作区；移除 candidateCount（`1x`）工具按钮。不引入新业务能力。
   - 核对结论：delta spec 已定义三个新增场景，覆盖入口迁移与 candidateCount 主面板移除。
@@ -73,4 +73,4 @@
 - [x] 6.2 记录 RUN_LOG：Green 阶段全部通过的输出
 - [x] 6.3 记录 RUN_LOG：`pnpm -C apps/desktop test:run` 全量回归无新增失败
 - [x] 6.4 记录 Dependency Sync Check（N/A）
-- [ ] 6.5 Main Session Audit（仅在 Apply 阶段需要）
+- [x] 6.5 Main Session Audit（Apply 阶段已完成，详见 `openspec/_ops/task_runs/ISSUE-796.md`）
