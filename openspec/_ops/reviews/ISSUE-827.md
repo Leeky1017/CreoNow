@@ -6,7 +6,7 @@
 - PR: https://github.com/Leeky1017/CreoNow/pull/830
 - Author-Agent: claude
 - Reviewer-Agent: codex
-- Reviewed-HEAD-SHA: pending_sha
+- Reviewed-HEAD-SHA: cd77c6bba307f5fcf0c527b6c66fc9709dbf62d0
 - Decision: FAIL → 整改中
 
 ## Scope
