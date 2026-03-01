@@ -1,7 +1,7 @@
 # ISSUE-819
 - Issue: #819
 - Branch: task/819-eo-sync-after-817-818
-- PR: 待创建（创建后回填真实链接）
+- PR: https://github.com/Leeky1017/CreoNow/pull/820
 
 ## Plan
 - 同步 `openspec/changes/EXECUTION_ORDER.md`：更新第一批中 #817/#818 对应 change 状态
