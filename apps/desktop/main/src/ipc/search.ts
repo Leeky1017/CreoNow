@@ -12,6 +12,8 @@ import {
   type SemanticRetriever,
 } from "../services/search/hybridRankingService";
 import { createSearchReplaceService } from "../services/search/searchReplaceService";
+import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type SearchReplaceService = ReturnType<typeof createSearchReplaceService>;
 type FtsService = ReturnType<typeof createFtsService>;
@@ -119,42 +121,104 @@ function hasProjectId(payload: unknown): payload is { projectId: string } {
   return typeof projectId === "string" && projectId.trim().length > 0;
 }
 
-function registerSearchReplaceHandlers(
-  ipcMain: IpcMain,
-  db: Database.Database | null,
-  logger: Logger,
-  replaceService: SearchReplaceService | null,
-): void {
-  ipcMain.handle("search:replace:preview", async (_e, payload: Parameters<SearchReplaceService["preview"]>[0]) => {
-    if (!db || !replaceService) {
-      return { ok: false, error: { code: "DB_ERROR", message: "Database not ready" } };
+function handleWithProjectAccess<TPayload, TResponse>(args: {
+  ipcMain: IpcMain;
+  channel: string;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
+  listener: (
+    event: unknown,
+    payload: TPayload,
+  ) => Promise<IpcResponse<TResponse>>;
+}): void {
+  args.ipcMain.handle(args.channel, async (event, payload) => {
+    const guarded = guardAndNormalizeProjectAccess({
+      event,
+      payload,
+      projectSessionBinding: args.projectSessionBinding,
+    });
+    if (!guarded.ok) {
+      return guarded.response as IpcResponse<TResponse>;
     }
-    try {
-      const res = replaceService.preview(payload);
-      if (!res.ok) {
-        logger.error("search_replace_preview_failed", { code: res.error.code, message: res.error.message });
-        return { ok: false, error: res.error };
+
+    return args.listener(event, payload as TPayload);
+  });
+}
+
+function registerSearchReplaceHandlers(args: {
+  ipcMain: IpcMain;
+  db: Database.Database | null;
+  logger: Logger;
+  replaceService: SearchReplaceService | null;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
+}): void {
+  const { ipcMain, db, logger, replaceService, projectSessionBinding } = args;
+
+  handleWithProjectAccess<
+    Parameters<SearchReplaceService["preview"]>[0],
+    unknown
+  >({
+    ipcMain,
+    channel: "search:replace:preview",
+    projectSessionBinding,
+    listener: async (_e, payload) => {
+      if (!db || !replaceService) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
       }
-      return { ok: true, data: res.data };
-    } catch (error) {
-      return toInternalSearchError(logger, "search_replace_preview_exception", error);
-    }
+      try {
+        const res = replaceService.preview(payload);
+        if (!res.ok) {
+          logger.error("search_replace_preview_failed", {
+            code: res.error.code,
+            message: res.error.message,
+          });
+          return { ok: false, error: res.error };
+        }
+        return { ok: true, data: res.data };
+      } catch (error) {
+        return toInternalSearchError(
+          logger,
+          "search_replace_preview_exception",
+          error,
+        );
+      }
+    },
   });
 
-  ipcMain.handle("search:replace:execute", async (_e, payload: Parameters<SearchReplaceService["execute"]>[0]) => {
-    if (!db || !replaceService) {
-      return { ok: false, error: { code: "DB_ERROR", message: "Database not ready" } };
-    }
-    try {
-      const res = replaceService.execute(payload);
-      if (!res.ok) {
-        logger.error("search_replace_execute_failed", { code: res.error.code, message: res.error.message });
-        return { ok: false, error: res.error };
+  handleWithProjectAccess<
+    Parameters<SearchReplaceService["execute"]>[0],
+    unknown
+  >({
+    ipcMain,
+    channel: "search:replace:execute",
+    projectSessionBinding,
+    listener: async (_e, payload) => {
+      if (!db || !replaceService) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
       }
-      return { ok: true, data: res.data };
-    } catch (error) {
-      return toInternalSearchError(logger, "search_replace_execute_exception", error);
-    }
+      try {
+        const res = replaceService.execute(payload);
+        if (!res.ok) {
+          logger.error("search_replace_execute_failed", {
+            code: res.error.code,
+            message: res.error.message,
+          });
+          return { ok: false, error: res.error };
+        }
+        return { ok: true, data: res.data };
+      } catch (error) {
+        return toInternalSearchError(
+          logger,
+          "search_replace_execute_exception",
+          error,
+        );
+      }
+    },
   });
 }
 
@@ -163,13 +227,34 @@ function registerFtsHandlers(args: {
   db: Database.Database | null;
   logger: Logger;
   ftsService: FtsService | null;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
-  const { ipcMain, db, logger, ftsService } = args;
-  ipcMain.handle(
-    "search:fts:query",
-    async (
+  const { ipcMain, db, logger, ftsService, projectSessionBinding } = args;
+  handleWithProjectAccess<
+    unknown,
+    {
+      results: Array<{
+        projectId: string;
+        documentId: string;
+        documentTitle: string;
+        documentType: string;
+        snippet: string;
+        highlights: Array<{ start: number; end: number }>;
+        anchor: { start: number; end: number };
+        score: number;
+        updatedAt: number;
+      }>;
+      total: number;
+      hasMore: boolean;
+      indexState: "ready" | "rebuilding";
+    }
+  >({
+    ipcMain,
+    channel: "search:fts:query",
+    projectSessionBinding,
+    listener: async (
       _e,
-      payload: unknown,
+      payload,
     ): Promise<
       IpcResponse<{
         results: Array<{
@@ -247,16 +332,28 @@ function registerFtsHandlers(args: {
         });
         return { ok: true, data: res.data };
       } catch (error) {
-        return toInternalSearchError(logger, "search_fts_query_exception", error);
+        return toInternalSearchError(
+          logger,
+          "search_fts_query_exception",
+          error,
+        );
       }
     },
-  );
+  });
 
-  ipcMain.handle(
-    "search:fts:reindex",
-    async (
+  handleWithProjectAccess<
+    unknown,
+    {
+      indexState: "ready";
+      reindexed: number;
+    }
+  >({
+    ipcMain,
+    channel: "search:fts:reindex",
+    projectSessionBinding,
+    listener: async (
       _e,
-      payload: unknown,
+      payload,
     ): Promise<
       IpcResponse<{
         indexState: "ready";
@@ -307,7 +404,7 @@ function registerFtsHandlers(args: {
         );
       }
     },
-  );
+  });
 }
 
 function registerRankingHandlers(args: {
@@ -315,19 +412,52 @@ function registerRankingHandlers(args: {
   db: Database.Database | null;
   logger: Logger;
   hybridRankingService: HybridRankingService | null;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
-  const { ipcMain, db, logger, hybridRankingService } = args;
-  ipcMain.handle(
-    "search:query:strategy",
-    async (
+  const { ipcMain, db, logger, hybridRankingService, projectSessionBinding } =
+    args;
+
+  handleWithProjectAccess<
+    {
+      projectId: string;
+      query: string;
+      strategy: "fts" | "semantic" | "hybrid";
+      limit?: number;
+      offset?: number;
+    },
+    {
+      traceId: string;
+      costMs: number;
+      strategy: "fts" | "semantic" | "hybrid";
+      fallback: "fts" | "none";
+      notice?: string;
+      results: Array<{
+        documentId: string;
+        chunkId: string;
+        snippet: string;
+        finalScore: number;
+        scoreBreakdown: {
+          bm25: number;
+          semantic: number;
+          recency: number;
+        };
+        updatedAt: number;
+      }>;
+      total: number;
+      hasMore: boolean;
+      backpressure: {
+        candidateLimit: number;
+        candidateCount: number;
+        truncated: boolean;
+      };
+    }
+  >({
+    ipcMain,
+    channel: "search:query:strategy",
+    projectSessionBinding,
+    listener: async (
       _e,
-      payload: {
-        projectId: string;
-        query: string;
-        strategy: "fts" | "semantic" | "hybrid";
-        limit?: number;
-        offset?: number;
-      },
+      payload,
     ): Promise<
       IpcResponse<{
         traceId: string;
@@ -387,21 +517,46 @@ function registerRankingHandlers(args: {
         );
       }
     },
-  );
+  });
 
-  ipcMain.handle(
-    "search:rank:explain",
-    async (
+  handleWithProjectAccess<
+    {
+      projectId: string;
+      query: string;
+      strategy: "fts" | "semantic" | "hybrid";
+      documentId?: string;
+      chunkId?: string;
+      limit?: number;
+      offset?: number;
+    },
+    {
+      strategy: "fts" | "semantic" | "hybrid";
+      explanations: Array<{
+        documentId: string;
+        chunkId: string;
+        snippet: string;
+        finalScore: number;
+        scoreBreakdown: {
+          bm25: number;
+          semantic: number;
+          recency: number;
+        };
+        updatedAt: number;
+      }>;
+      total: number;
+      backpressure: {
+        candidateLimit: number;
+        candidateCount: number;
+        truncated: boolean;
+      };
+    }
+  >({
+    ipcMain,
+    channel: "search:rank:explain",
+    projectSessionBinding,
+    listener: async (
       _e,
-      payload: {
-        projectId: string;
-        query: string;
-        strategy: "fts" | "semantic" | "hybrid";
-        documentId?: string;
-        chunkId?: string;
-        limit?: number;
-        offset?: number;
-      },
+      payload,
     ): Promise<
       IpcResponse<{
         strategy: "fts" | "semantic" | "hybrid";
@@ -455,7 +610,7 @@ function registerRankingHandlers(args: {
         );
       }
     },
-  );
+  });
 }
 
 /**
@@ -470,6 +625,7 @@ export function registerSearchIpcHandlers(deps: {
   semanticIndex?: SemanticChunkIndexService;
   semanticRetriever?: SemanticRetriever;
   hybridRankingService?: HybridRankingService;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
   const ftsService = deps.db
     ? createFtsService({ db: deps.db, logger: deps.logger })
@@ -499,17 +655,20 @@ export function registerSearchIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     ftsService,
+    projectSessionBinding: deps.projectSessionBinding,
   });
   registerRankingHandlers({
     ipcMain: deps.ipcMain,
     db: deps.db,
     logger: deps.logger,
     hybridRankingService,
+    projectSessionBinding: deps.projectSessionBinding,
   });
-  registerSearchReplaceHandlers(
-    deps.ipcMain,
-    deps.db,
-    deps.logger,
+  registerSearchReplaceHandlers({
+    ipcMain: deps.ipcMain,
+    db: deps.db,
+    logger: deps.logger,
     replaceService,
-  );
+    projectSessionBinding: deps.projectSessionBinding,
+  });
 }
