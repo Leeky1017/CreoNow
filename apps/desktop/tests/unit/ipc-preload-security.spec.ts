@@ -210,3 +210,54 @@ type AuditEvent = {
   assert.equal(details?.serializationIssue?.path, "$.input.dangerousBigInt");
   assert.equal(details?.serializationIssue?.reason, "BIGINT_NOT_SERIALIZABLE");
 }
+
+// S6: structured-clone 不可克隆字段（function/symbol）必须在预检返回 INVALID_ARGUMENT [ADDED]
+{
+  const cases = [
+    {
+      name: "function",
+      payload: { input: { callback: () => "unsafe" } },
+      expectedPath: "$.input.callback",
+      expectedReason: "FUNCTION_NOT_SERIALIZABLE",
+    },
+    {
+      name: "symbol",
+      payload: { input: { token: Symbol("unsafe") } },
+      expectedPath: "$.input.token",
+      expectedReason: "SYMBOL_NOT_SERIALIZABLE",
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    let invoked = false;
+    const gateway = createPreloadIpcGateway({
+      allowedChannels: ["app:system:ping"],
+      rendererId: "renderer-6",
+      now: () => 1_717_171_000_600,
+      requestIdFactory: () => `req-invalid-structured-clone-${testCase.name}`,
+      invoke: async () => {
+        invoked = true;
+        throw new Error("DataCloneError");
+      },
+    });
+
+    const res = await gateway.invoke("app:system:ping", testCase.payload);
+    assert.equal(invoked, false);
+    assert.equal(res.ok, false);
+    if (res.ok) {
+      assert.fail("expected INVALID_ARGUMENT response");
+    }
+
+    assert.equal(res.error.code, "INVALID_ARGUMENT");
+    const details = res.error.details as
+      | {
+          serializationIssue?: { path?: string; reason?: string };
+        }
+      | undefined;
+    assert.equal(details?.serializationIssue?.path, testCase.expectedPath);
+    assert.equal(
+      details?.serializationIssue?.reason,
+      testCase.expectedReason,
+    );
+  }
+}

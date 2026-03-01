@@ -195,12 +195,11 @@ function estimatePayloadSize(
   payload: unknown,
   maxBytes?: number,
 ): number | null {
-  if (
-    payload === undefined ||
-    typeof payload === "function" ||
-    typeof payload === "symbol"
-  ) {
+  if (payload === undefined) {
     return 0;
+  }
+  if (typeof payload === "function" || typeof payload === "symbol") {
+    return null;
   }
 
   const encoder = new TextEncoder();
@@ -236,12 +235,11 @@ function estimatePayloadSize(
     if (valueType === "bigint") {
       return null;
     }
-    if (
-      valueType === "undefined" ||
-      valueType === "function" ||
-      valueType === "symbol"
-    ) {
+    if (valueType === "undefined") {
       return inArray ? 4 : 0;
+    }
+    if (valueType === "function" || valueType === "symbol") {
+      return null;
     }
     if (valueType !== "object" || value === null) {
       return null;
@@ -290,11 +288,7 @@ function estimatePayloadSize(
       const recordValue = value as Record<string, unknown>;
       for (const key of Object.keys(recordValue)) {
         const propertyValue = recordValue[key];
-        if (
-          propertyValue === undefined ||
-          typeof propertyValue === "function" ||
-          typeof propertyValue === "symbol"
-        ) {
+        if (propertyValue === undefined) {
           continue;
         }
 
