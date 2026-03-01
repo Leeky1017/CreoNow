@@ -146,6 +146,69 @@ async function shouldKeepDirectoryWhenDbDeleteFails(): Promise<void> {
   }
 }
 
+/**
+ * issue #846
+ * should reject sandbox root path pollution and keep sibling project directories
+ */
+async function shouldRejectSandboxRootPathPollution(): Promise<void> {
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "creonow-purge-sandbox-root-"),
+  );
+  const db = createProjectTestDb();
+  const service = createProjectService({
+    db,
+    userDataDir,
+    logger: createNoopLogger(),
+  });
+
+  try {
+    const projectA = service.create({ name: "Sandbox root polluted project" });
+    assert.equal(projectA.ok, true);
+    if (!projectA.ok) {
+      throw new Error("failed to create project A");
+    }
+
+    const projectB = service.create({ name: "Sibling project must survive" });
+    assert.equal(projectB.ok, true);
+    if (!projectB.ok) {
+      throw new Error("failed to create project B");
+    }
+
+    const markerPath = path.join(projectB.data.rootPath, "must-survive.txt");
+    await fs.writeFile(markerPath, "marker");
+
+    const archived = service.lifecycleArchive({
+      projectId: projectA.data.projectId,
+      traceId: "trace-sandbox-root-archive",
+    });
+    assert.equal(archived.ok, true);
+
+    const sandboxRootPath = path.join(userDataDir, "projects");
+    db.prepare("UPDATE projects SET root_path = ? WHERE project_id = ?").run(
+      sandboxRootPath,
+      projectA.data.projectId,
+    );
+
+    const purged = service.lifecyclePurge({
+      projectId: projectA.data.projectId,
+      traceId: "trace-sandbox-root-purge",
+    });
+    assert.equal(purged.ok, false);
+    if (purged.ok || !purged.error) {
+      throw new Error("expected PROJECT_PURGE_PERMISSION_DENIED");
+    }
+    assert.equal(purged.error.code, "PROJECT_PURGE_PERMISSION_DENIED");
+
+    await assertArchivedState({ db, projectId: projectA.data.projectId });
+    assert.equal(await pathExists(sandboxRootPath), true);
+    assert.equal(await pathExists(projectB.data.rootPath), true);
+    assert.equal(await pathExists(markerPath), true);
+  } finally {
+    db.close();
+    await fs.rm(userDataDir, { recursive: true, force: true });
+  }
+}
+
 async function main(): Promise<void> {
   const failures: Error[] = [];
 
@@ -161,6 +224,13 @@ async function main(): Promise<void> {
   } catch (error) {
     failures.push(error as Error);
     console.error("[issue-832]", error);
+  }
+
+  try {
+    await shouldRejectSandboxRootPathPollution();
+  } catch (error) {
+    failures.push(error as Error);
+    console.error("[issue-846]", error);
   }
 
   if (failures.length > 0) {
