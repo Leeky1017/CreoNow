@@ -52,6 +52,7 @@ const DOMAIN_REGISTRY: Readonly<Record<string, string>> = {
   constraints: "Context Engine",
   context: "Context Engine",
   db: "Database",
+  dialog: "Workbench",
   embedding: "Search and Retrieval",
   export: "Document Management",
   file: "Document Management",

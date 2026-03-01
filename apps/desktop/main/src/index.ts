@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { BrowserWindow, app, ipcMain, safeStorage } from "electron";
+import { BrowserWindow, app, dialog, ipcMain, safeStorage } from "electron";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import { applyBrowserWindowSecurityPolicy } from "./browserWindowSecurity";
@@ -12,6 +12,7 @@ import { registerAiIpcHandlers } from "./ipc/ai";
 import { registerAiProxyIpcHandlers } from "./ipc/aiProxy";
 import { registerContextIpcHandlers } from "./ipc/context";
 import { registerConstraintsIpcHandlers } from "./ipc/constraints";
+import { registerDialogIpcHandlers } from "./ipc/dialog";
 import { registerFileIpcHandlers } from "./ipc/file";
 import { registerExportIpcHandlers } from "./ipc/export";
 import { registerJudgeIpcHandlers } from "./ipc/judge";
@@ -312,6 +313,11 @@ function registerIpcHandlers(deps: {
     platform: process.platform,
     resolveWindowFromEvent: (event) =>
       BrowserWindow.fromWebContents(event.sender),
+  });
+
+  registerDialogIpcHandlers({
+    ipcMain: guardedIpcMain,
+    showOpenDialog: (options) => dialog.showOpenDialog(options),
   });
 
   registerDbDebugIpcHandlers({
