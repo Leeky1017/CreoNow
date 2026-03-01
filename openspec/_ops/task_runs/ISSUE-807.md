@@ -1,6 +1,6 @@
 # ISSUE-807
 
-更新时间：2026-03-01 16:03
+更新时间：2026-03-01 16:08
 
 - Issue: #807
 - Branch: task/807-fe-leftpanel-dialog-migration
@@ -50,6 +50,14 @@
 - D1（IconBar `media` 处置）: 已按 Owner 决策保留 `[FUTURE]`，本次不改该入口行为。
 - D2（`graph` vs `knowledgeGraph` 命名）: 统一使用 `knowledgeGraph`。
 - `fe-hotfix-searchpanel-backdrop-close`: 已归档于 `openspec/changes/archive/fe-hotfix-searchpanel-backdrop-close`，依赖状态无漂移。
+
+### 2026-03-01 16:06 Governance Fix — fast preflight 阻断修复
+
+- Command: `scripts/main_audit_resign.sh --issue 807 --preflight-mode fast`
+- Exit code: `1`
+- Key output: `PRE-FLIGHT FAILED: [OPENSPEC_CHANGE] active change content updated but openspec/changes/EXECUTION_ORDER.md not updated in this PR`
+- Root cause: 本次更新了活跃 change `tasks.md`，但未同步更新 `openspec/changes/EXECUTION_ORDER.md`。
+- Fix: 更新 `openspec/changes/EXECUTION_ORDER.md`（状态与更新时间同步），随后重新执行签字与 fast preflight。
 
 ## Main Session Audit
 
