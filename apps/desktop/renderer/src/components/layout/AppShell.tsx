@@ -1,9 +1,14 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 
-import { useLayoutStore, LAYOUT_DEFAULTS } from "../../stores/layoutStore";
+import {
+  useLayoutStore,
+  LAYOUT_DEFAULTS,
+  type DialogType,
+} from "../../stores/layoutStore";
 import { IconBar } from "./IconBar";
 import { LayoutShell } from "./LayoutShell";
+import { LeftPanelDialogShell } from "./LeftPanelDialogShell";
 import { NavigationController } from "./NavigationController";
 import {
   PanelOrchestrator,
@@ -12,6 +17,7 @@ import {
 import { RightPanel } from "./RightPanel";
 import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
+import { CharacterCardListContainer } from "../../features/character/CharacterCardListContainer";
 import { CommandPalette } from "../../features/commandPalette/CommandPalette";
 import type {
   CommandItem,
@@ -19,6 +25,8 @@ import type {
   CommandPaletteDialogActions,
   CommandPaletteDocumentActions,
 } from "../../features/commandPalette/CommandPalette";
+import { KnowledgeGraphPanel } from "../../features/kg/KnowledgeGraphPanel";
+import { MemoryPanel } from "../../features/memory/MemoryPanel";
 import {
   readRecentCommandIds,
   recordRecentCommandId,
@@ -33,6 +41,8 @@ import {
 } from "../../features/settings-dialog/SettingsDialog";
 import { ExportDialog } from "../../features/export/ExportDialog";
 import { CreateProjectDialog } from "../../features/projects/CreateProjectDialog";
+import { SearchPanel } from "../../features/search/SearchPanel";
+import { VersionHistoryContainer } from "../../features/version-history/VersionHistoryContainer";
 import { ZenMode } from "../../features/zen-mode/ZenMode";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
@@ -63,6 +73,10 @@ function warnInvalidZenContent(error: unknown): void {
   }
   hasWarnedInvalidZenContent = true;
   console.warn("[A2-L-001] Failed to parse ZenMode content JSON", error);
+}
+
+function assertNeverDialogType(value: never): never {
+  throw new Error(`Unhandled dialog type: ${String(value)}`);
 }
 
 /**
@@ -165,14 +179,16 @@ export function AppShell(): JSX.Element {
   const compareMode = useEditorStore((s) => s.compareMode);
   const compareVersionId = useEditorStore((s) => s.compareVersionId);
   const documentId = useEditorStore((s) => s.documentId);
-  const sidebarCollapsed = useLayoutStore((s) => s.sidebarCollapsed);
   const panelCollapsed = useLayoutStore((s) => s.panelCollapsed);
   const zenMode = useLayoutStore((s) => s.zenMode);
   const activeLeftPanel = useLayoutStore((s) => s.activeLeftPanel);
+  const dialogType = useLayoutStore((s) => s.dialogType);
+  const spotlightOpen = useLayoutStore((s) => s.spotlightOpen);
   const panelVisibility = usePanelVisibilityActions();
 
   const setZenMode = useLayoutStore((s) => s.setZenMode);
-  const setActiveLeftPanel = useLayoutStore((s) => s.setActiveLeftPanel);
+  const setDialogType = useLayoutStore((s) => s.setDialogType);
+  const setSpotlightOpen = useLayoutStore((s) => s.setSpotlightOpen);
   const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
   const setCompareMode = useEditorStore((s) => s.setCompareMode);
 
@@ -319,11 +335,9 @@ export function AppShell(): JSX.Element {
   ]);
 
   const openVersionHistoryPanel = React.useCallback(() => {
-    setActiveLeftPanel("versionHistory");
-    if (sidebarCollapsed) {
-      panelVisibility.expandSidebar();
-    }
-  }, [panelVisibility, setActiveLeftPanel, sidebarCollapsed]);
+    setDialogType("versionHistory");
+    setSpotlightOpen(false);
+  }, [setDialogType, setSpotlightOpen]);
 
   const toggleSidebarVisibility = React.useCallback(() => {
     panelVisibility.toggleSidebar();
@@ -716,6 +730,57 @@ export function AppShell(): JSX.Element {
     return <EditorPane projectId={currentProject.projectId} />;
   }
 
+  function renderDialogContent(activeDialogType: DialogType): JSX.Element {
+    switch (activeDialogType) {
+      case "memory":
+        return <MemoryPanel />;
+      case "characters":
+        if (!currentProjectId) {
+          return (
+            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+              Open a project to manage characters
+            </div>
+          );
+        }
+        return <CharacterCardListContainer projectId={currentProjectId} />;
+      case "knowledgeGraph":
+        if (!currentProjectId) {
+          return (
+            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+              Open a project to view knowledge graph
+            </div>
+          );
+        }
+        return <KnowledgeGraphPanel projectId={currentProjectId} />;
+      case "versionHistory":
+        if (!currentProjectId) {
+          return (
+            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+              Open a document to view history
+            </div>
+          );
+        }
+        return <VersionHistoryContainer projectId={currentProjectId} />;
+      default:
+        return assertNeverDialogType(activeDialogType);
+    }
+  }
+
+  function resolveDialogTitle(activeDialogType: DialogType): string {
+    switch (activeDialogType) {
+      case "memory":
+        return "Memory";
+      case "characters":
+        return "Characters";
+      case "knowledgeGraph":
+        return "Knowledge Graph";
+      case "versionHistory":
+        return "Version History";
+      default:
+        return assertNeverDialogType(activeDialogType);
+    }
+  }
+
   return (
     <>
       <NavigationController
@@ -787,6 +852,31 @@ export function AppShell(): JSX.Element {
             bottomBar={<StatusBar />}
             overlays={
               <>
+                {spotlightOpen ? (
+                  <div data-testid="leftpanel-spotlight-search">
+                    <SearchPanel
+                      projectId={currentProjectId ?? "__no_project__"}
+                      open={true}
+                      onClose={() => setSpotlightOpen(false)}
+                    />
+                  </div>
+                ) : null}
+
+                {dialogType ? (
+                  <LeftPanelDialogShell
+                    open={true}
+                    title={resolveDialogTitle(dialogType)}
+                    testId={`leftpanel-dialog-${dialogType}`}
+                    onOpenChange={(open) => {
+                      if (!open) {
+                        setDialogType(null);
+                      }
+                    }}
+                  >
+                    {renderDialogContent(dialogType)}
+                  </LeftPanelDialogShell>
+                ) : null}
+
                 <CommandPalette
                   key={commandPaletteKey}
                   open={commandPaletteOpen}

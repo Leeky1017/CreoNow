@@ -26,7 +26,7 @@
 | 1 | 1-2 | `fe-rightpanel-ai-guidance-and-style` | AiPanel 簇 | `fe-rightpanel-ai-tabbar-layout` | 执行中（PR #809，待独立审计） |
 | 1 | 1-3 | `fe-cleanup-proxysection-and-mocks` | AiPanel 簇 | — | 待执行 |
 | 2 | 2-1 | `fe-spec-drift-iconbar-rightpanel-alignment` | Layout 簇 | D1/D2/D3 已决策 | 已完成并归档（PR #799） |
-| 2 | 2-2 | `fe-leftpanel-dialog-migration` | Layout 簇 | `fe-spec-drift-iconbar-rightpanel-alignment`, D1/D2 已决策 | 待执行 |
+| 2 | 2-2 | `fe-leftpanel-dialog-migration` | Layout 簇 | `fe-spec-drift-iconbar-rightpanel-alignment`, D1/D2 已决策 | 执行中（ISSUE-807，PR #808） |
 | 2 | 2-3 | `fe-ai-panel-toggle-button` | Layout 簇 | — | 待执行 |
 | — | 收尾 | `fe-dashboard-welcome-merge-and-ghost-actions` | AppShell 簇 | `fe-cleanup-proxysection-and-mocks`, `fe-ui-open-folder-entrypoints`(第二批), 且与 leftpanel/toggle 共享 AppShell.tsx 需等其完成 | 待执行 |
 
@@ -221,7 +221,7 @@
 
 ## 依赖说明
 
-- 当前子任务：无（`ISSUE-796` / `ISSUE-797` 已完成并归档）。
+- 当前子任务：`ISSUE-807`（`fe-leftpanel-dialog-migration`，PR #808）。
 - 依赖关系：`fe-rightpanel-ai-guidance-and-style` 与 `fe-leftpanel-dialog-migration` 继续分别依赖已归档的 lane 起点 change。
 - 同步结论：归档后依赖关系保持成立，无新增漂移。
 

@@ -28,7 +28,7 @@ function extractIconBarCodeOrder(iconBarSource: string): string[] {
     throw new Error("Cannot locate MAIN_ICONS block in IconBar.tsx.");
   }
 
-  return Array.from(mainIconsBlock[1].matchAll(/panel:\s*"([^"]+)"/g)).map(
+  return Array.from(mainIconsBlock[1].matchAll(/(?:id|panel):\s*"([^"]+)"/g)).map(
     (match) => match[1],
   );
 }
