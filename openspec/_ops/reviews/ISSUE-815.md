@@ -6,7 +6,7 @@
 - PR: https://github.com/Leeky1017/CreoNow/pull/817
 - Author-Agent: leeky1017
 - Reviewer-Agent: codex
-- Reviewed-HEAD-SHA: 3726412fa444bde362010f23d8ce506e8c3e21e3
+- Reviewed-HEAD-SHA: ac9ccba6663c1ec0b0045c9d8cd007389778a73b
 - Decision: PASS
 
 ## Scope
@@ -23,6 +23,7 @@
 ## Verification
 
 - `pnpm typecheck`：通过（`tsc --noEmit` exit 0）
+- `pnpm exec tsx apps/desktop/tests/unit/audit-type-contract-alignment.spec.ts`：通过（unit-test-core 相关守卫）
 - `pnpm -C apps/desktop test:run features/__tests__/proxy-section-dead.guard.test.ts`：通过（1 file / 2 tests）
 - `pnpm -C apps/desktop test:run features/search/SearchPanel.no-mock.guard.test.ts`：通过（1 file / 1 test）
 - `pnpm -C apps/desktop test:run features/ai/AiPanel.history.interaction.test.tsx`：通过（1 file / 2 tests）
