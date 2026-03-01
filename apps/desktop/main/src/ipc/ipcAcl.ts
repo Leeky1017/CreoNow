@@ -20,9 +20,15 @@ export type IpcAclEvaluator = (args: {
 type CreateIpcAclEvaluatorArgs = {
   env?: NodeJS.ProcessEnv;
   privilegedChannelPrefixes?: readonly string[];
+  aboutBlankRestrictedChannelPrefixes?: readonly string[];
 };
 
 const DEFAULT_PRIVILEGED_PREFIXES = ["db:", "ai:skill:run", "ai:skill:cancel"];
+const DEFAULT_ABOUT_BLANK_RESTRICTED_PREFIXES = [
+  "project:",
+  "version:",
+  "export:",
+];
 
 function resolveSenderOrigin(event: IpcMainInvokeEvent): string | null {
   const maybeUrl = event.senderFrame?.url;
@@ -91,6 +97,13 @@ function isPrivilegedChannel(
   return privilegedPrefixes.some((prefix) => channel.startsWith(prefix));
 }
 
+function isAboutBlankRestrictedChannel(
+  channel: string,
+  restrictedPrefixes: readonly string[],
+): boolean {
+  return restrictedPrefixes.some((prefix) => channel.startsWith(prefix));
+}
+
 export function createIpcAclEvaluator(
   args: CreateIpcAclEvaluatorArgs = {},
 ): IpcAclEvaluator {
@@ -98,12 +111,30 @@ export function createIpcAclEvaluator(
   const devServerOrigin = resolveDevServerOrigin(env);
   const privilegedPrefixes =
     args.privilegedChannelPrefixes ?? DEFAULT_PRIVILEGED_PREFIXES;
+  const aboutBlankRestrictedPrefixes =
+    args.aboutBlankRestrictedChannelPrefixes ??
+    DEFAULT_ABOUT_BLANK_RESTRICTED_PREFIXES;
 
   return ({ channel, event }): IpcAclDecision => {
     const senderOrigin = resolveSenderOrigin(event);
     const isPrivileged = isPrivilegedChannel(channel, privilegedPrefixes);
 
     if (senderOrigin === null && isPrivileged) {
+      return {
+        allowed: false,
+        reason: "origin_not_allowed",
+        details: {
+          channel,
+          senderOrigin,
+        },
+      };
+    }
+
+    if (
+      senderOrigin !== null &&
+      isAboutBlankOrigin(senderOrigin) &&
+      isAboutBlankRestrictedChannel(channel, aboutBlankRestrictedPrefixes)
+    ) {
       return {
         allowed: false,
         reason: "origin_not_allowed",

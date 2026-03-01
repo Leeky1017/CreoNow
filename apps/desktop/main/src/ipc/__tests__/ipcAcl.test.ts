@@ -108,14 +108,44 @@ async function main(): Promise<void> {
     assert.equal(response.ok, true);
   });
 
-  await runScenario("SIA-S2 should allow about:blank for non-privileged channels", async () => {
-    const response = await invokeWrapped({
-      event: createEvent("about:blank"),
-      channel: "project:project:create",
-    });
+  await runScenario(
+    "SIA-S2 should allow about:blank for non-restricted channels",
+    async () => {
+      const response = await invokeWrapped({
+        event: createEvent("about:blank"),
+        channel: "file:document:list",
+      });
 
-    assert.equal(response.ok, true);
-  });
+      assert.equal(response.ok, true);
+    },
+  );
+
+  const blockedAboutBlankChannels = [
+    "project:project:create",
+    "version:snapshot:create",
+    "export:document:markdown",
+  ] as const;
+  for (const channel of blockedAboutBlankChannels) {
+    await runScenario(
+      `SIA-S4 should block about:blank for restricted channel ${channel}`,
+      async () => {
+        const response = await invokeWrapped({
+          event: createEvent("about:blank"),
+          channel,
+        });
+
+        assert.equal(response.ok, false);
+        if (response.ok) {
+          assert.fail("expected FORBIDDEN response");
+        }
+        assert.equal(response.error.code, "FORBIDDEN");
+        assert.equal(
+          (response.error.details as { reason?: string } | undefined)?.reason,
+          "origin_not_allowed",
+        );
+      },
+    );
+  }
 }
 
 process.env.VITE_DEV_SERVER_URL = "http://127.0.0.1:4173";

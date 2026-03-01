@@ -145,6 +145,48 @@ async function main(): Promise<void> {
       );
     },
   );
+
+  const restrictedAboutBlankChannels = [
+    "project:project:create",
+    "version:snapshot:create",
+    "export:document:markdown",
+  ] as const;
+  for (const channel of restrictedAboutBlankChannels) {
+    await runScenario(
+      `SIA-S4 should block restricted channel when sender origin is about:blank: ${channel}`,
+      async () => {
+        let called = false;
+
+        const wrapped = wrapIpcRequestResponse({
+          channel,
+          requestSchema: s.object({}),
+          responseSchema: s.object({ ok: s.literal(true) }),
+          logger: createLogger(),
+          timeoutMs: 5_000,
+          handler: async () => {
+            called = true;
+            return { ok: true, data: { ok: true } };
+          },
+        });
+
+        const response = (await wrapped(
+          createEvent("about:blank", 1),
+          {},
+        )) as IpcResponse<unknown>;
+
+        assert.equal(called, false);
+        assert.equal(response.ok, false);
+        if (response.ok) {
+          assert.fail("expected FORBIDDEN response");
+        }
+        assert.equal(response.error.code, "FORBIDDEN");
+        assert.equal(
+          (response.error.details as { reason?: string } | undefined)?.reason,
+          "origin_not_allowed",
+        );
+      },
+    );
+  }
 }
 
 void main().catch((error) => {
