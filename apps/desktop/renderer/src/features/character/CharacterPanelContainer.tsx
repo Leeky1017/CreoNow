@@ -11,6 +11,7 @@ import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { useKgStore } from "../../stores/kgStore";
 import { CharacterPanelContent } from "./CharacterPanel";
+import { CharacterPanelSkeleton } from "./CharacterPanelSkeleton";
 import {
   kgToCharacters,
   characterToMetadataJson,
@@ -136,14 +137,7 @@ export function CharacterPanelContainer(
 
   // Loading state
   if (bootstrapStatus === "loading") {
-    return (
-      <div
-        className="flex items-center justify-center h-full"
-        data-testid="character-panel-loading"
-      >
-        <span className="text-sm text-[var(--color-fg-muted)]">Loading...</span>
-      </div>
-    );
+    return <CharacterPanelSkeleton />;
   }
 
   // Error state
