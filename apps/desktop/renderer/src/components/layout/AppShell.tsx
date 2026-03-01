@@ -1,7 +1,11 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 
-import { useLayoutStore, LAYOUT_DEFAULTS } from "../../stores/layoutStore";
+import {
+  useLayoutStore,
+  LAYOUT_DEFAULTS,
+  type DialogType,
+} from "../../stores/layoutStore";
 import { IconBar } from "./IconBar";
 import { LayoutShell } from "./LayoutShell";
 import { LeftPanelDialogShell } from "./LeftPanelDialogShell";
@@ -66,6 +70,10 @@ function warnInvalidZenContent(error: unknown): void {
   }
   hasWarnedInvalidZenContent = true;
   console.warn("[A2-L-001] Failed to parse ZenMode content JSON", error);
+}
+
+function assertNeverDialogType(value: never): never {
+  throw new Error(`Unhandled dialog type: ${String(value)}`);
 }
 
 /**
@@ -711,55 +719,55 @@ export function AppShell(): JSX.Element {
     return <EditorPane projectId={currentProject.projectId} />;
   }
 
-  function renderDialogContent(): JSX.Element {
-    if (dialogType === "memory") {
-      return <MemoryPanel />;
+  function renderDialogContent(activeDialogType: DialogType): JSX.Element {
+    switch (activeDialogType) {
+      case "memory":
+        return <MemoryPanel />;
+      case "characters":
+        if (!currentProjectId) {
+          return (
+            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+              Open a project to manage characters
+            </div>
+          );
+        }
+        return <CharacterCardListContainer projectId={currentProjectId} />;
+      case "knowledgeGraph":
+        if (!currentProjectId) {
+          return (
+            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+              Open a project to view knowledge graph
+            </div>
+          );
+        }
+        return <KnowledgeGraphPanel projectId={currentProjectId} />;
+      case "versionHistory":
+        if (!currentProjectId) {
+          return (
+            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+              Open a document to view history
+            </div>
+          );
+        }
+        return <VersionHistoryContainer projectId={currentProjectId} />;
+      default:
+        return assertNeverDialogType(activeDialogType);
     }
-    if (dialogType === "characters") {
-      if (!currentProjectId) {
-        return (
-          <div className="p-3 text-sm text-[var(--color-fg-muted)]">
-            Open a project to manage characters
-          </div>
-        );
-      }
-      return <CharacterCardListContainer projectId={currentProjectId} />;
-    }
-    if (dialogType === "knowledgeGraph") {
-      if (!currentProjectId) {
-        return (
-          <div className="p-3 text-sm text-[var(--color-fg-muted)]">
-            Open a project to view knowledge graph
-          </div>
-        );
-      }
-      return <KnowledgeGraphPanel projectId={currentProjectId} />;
-    }
-    if (dialogType === "versionHistory") {
-      if (!currentProjectId) {
-        return (
-          <div className="p-3 text-sm text-[var(--color-fg-muted)]">
-            Open a document to view history
-          </div>
-        );
-      }
-      return <VersionHistoryContainer projectId={currentProjectId} />;
-    }
-
-    return <></>;
   }
 
-  function resolveDialogTitle(): string {
-    if (dialogType === "memory") {
-      return "Memory";
+  function resolveDialogTitle(activeDialogType: DialogType): string {
+    switch (activeDialogType) {
+      case "memory":
+        return "Memory";
+      case "characters":
+        return "Characters";
+      case "knowledgeGraph":
+        return "Knowledge Graph";
+      case "versionHistory":
+        return "Version History";
+      default:
+        return assertNeverDialogType(activeDialogType);
     }
-    if (dialogType === "characters") {
-      return "Characters";
-    }
-    if (dialogType === "knowledgeGraph") {
-      return "Knowledge Graph";
-    }
-    return "Version History";
   }
 
   return (
@@ -846,7 +854,7 @@ export function AppShell(): JSX.Element {
                 {dialogType ? (
                   <LeftPanelDialogShell
                     open={true}
-                    title={resolveDialogTitle()}
+                    title={resolveDialogTitle(dialogType)}
                     testId={`leftpanel-dialog-${dialogType}`}
                     onOpenChange={(open) => {
                       if (!open) {
@@ -854,7 +862,7 @@ export function AppShell(): JSX.Element {
                       }
                     }}
                   >
-                    {renderDialogContent()}
+                    {renderDialogContent(dialogType)}
                   </LeftPanelDialogShell>
                 ) : null}
 

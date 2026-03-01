@@ -46,14 +46,7 @@ const iconButtonActive =
  * Icon item type for panel navigation.
  */
 type IconItem = {
-  panel:
-    | "files"
-    | "search"
-    | "outline"
-    | "versionHistory"
-    | "memory"
-    | "characters"
-    | "knowledgeGraph";
+  id: LeftPanelType | DialogType | "search";
   behavior: "docked" | "spotlight" | "dialog";
   dockedPanel?: LeftPanelType;
   dialogType?: DialogType;
@@ -67,7 +60,7 @@ type IconItem = {
  */
 const MAIN_ICONS: IconItem[] = [
   {
-    panel: "files",
+    id: "files",
     behavior: "docked",
     dockedPanel: "files",
     Icon: FolderOpen,
@@ -75,14 +68,14 @@ const MAIN_ICONS: IconItem[] = [
     testId: "icon-bar-files",
   },
   {
-    panel: "search",
+    id: "search",
     behavior: "spotlight",
     Icon: Search,
     label: "Search",
     testId: "icon-bar-search",
   },
   {
-    panel: "outline",
+    id: "outline",
     behavior: "docked",
     dockedPanel: "outline",
     Icon: List,
@@ -90,7 +83,7 @@ const MAIN_ICONS: IconItem[] = [
     testId: "icon-bar-outline",
   },
   {
-    panel: "versionHistory",
+    id: "versionHistory",
     behavior: "dialog",
     dialogType: "versionHistory",
     Icon: History,
@@ -98,7 +91,7 @@ const MAIN_ICONS: IconItem[] = [
     testId: "icon-bar-version-history",
   },
   {
-    panel: "memory",
+    id: "memory",
     behavior: "dialog",
     dialogType: "memory",
     Icon: Brain,
@@ -106,7 +99,7 @@ const MAIN_ICONS: IconItem[] = [
     testId: "icon-bar-memory",
   },
   {
-    panel: "characters",
+    id: "characters",
     behavior: "dialog",
     dialogType: "characters",
     Icon: User,
@@ -114,7 +107,7 @@ const MAIN_ICONS: IconItem[] = [
     testId: "icon-bar-characters",
   },
   {
-    panel: "knowledgeGraph",
+    id: "knowledgeGraph",
     behavior: "dialog",
     dialogType: "knowledgeGraph",
     Icon: Network,
@@ -198,7 +191,7 @@ export function IconBar({
    * Render a single icon button.
    */
   const renderIconButton = (item: IconItem) => {
-    const { panel, Icon, label, testId } = item;
+    const { id, Icon, label, testId } = item;
     const isActive =
       (item.behavior === "docked" &&
         item.dockedPanel === activeLeftPanel &&
@@ -209,7 +202,7 @@ export function IconBar({
       (item.behavior === "spotlight" && spotlightOpen);
     return (
       <button
-        key={panel}
+        key={id}
         type="button"
         onClick={() => handleIconClick(item)}
         className={`${iconButtonBase} ${isActive ? iconButtonActive : iconButtonInactive}`}

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import React from "react";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -171,6 +171,53 @@ describe("IconBar dialog migration", () => {
       expect(screen.getByTestId("leftpanel-dialog-memory")).toBeInTheDocument();
     });
     expect(sidebar).toHaveStyle({ width: "240px" });
+  });
+
+  it("dialog closes with close button and Escape (WB-FE-S3-S3)", async () => {
+    await act(async () => {
+      render(
+        <AppShellTestWrapper>
+          <AppShell />
+        </AppShellTestWrapper>,
+      );
+    });
+
+    fireEvent.click(screen.getByTestId("icon-bar-memory"));
+
+    const memoryDialog = await screen.findByTestId("leftpanel-dialog-memory");
+    fireEvent.click(within(memoryDialog).getByRole("button", { name: "Close" }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId("leftpanel-dialog-memory")).not.toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("icon-bar-memory"));
+    await screen.findByTestId("leftpanel-dialog-memory");
+
+    await act(async () => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId("leftpanel-dialog-memory")).not.toBeInTheDocument();
+    });
+  });
+
+  it("dialogs are mutually exclusive when switching icons (WB-FE-S3-S3)", async () => {
+    await act(async () => {
+      render(
+        <AppShellTestWrapper>
+          <AppShell />
+        </AppShellTestWrapper>,
+      );
+    });
+
+    fireEvent.click(screen.getByTestId("icon-bar-memory"));
+    await screen.findByTestId("leftpanel-dialog-memory");
+
+    fireEvent.click(screen.getByTestId("icon-bar-characters"));
+    await screen.findByTestId("leftpanel-dialog-characters");
+
+    expect(screen.queryByTestId("leftpanel-dialog-memory")).not.toBeInTheDocument();
   });
 
   it("search icon opens spotlight and closes on escape (WB-FE-S3-S3)", async () => {
