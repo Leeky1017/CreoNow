@@ -30,6 +30,22 @@
 | 2 | 2-3 | `fe-ai-panel-toggle-button` | Layout 簇 | — | 待执行 |
 | — | 收尾 | `fe-dashboard-welcome-merge-and-ghost-actions` | AppShell 簇 | `fe-cleanup-proxysection-and-mocks`, `fe-ui-open-folder-entrypoints`(第二批), 且与 leftpanel/toggle 共享 AppShell.tsx 需等其完成 | 待执行 |
 
+#### 第一批文件冲突矩阵
+
+并行规则基于以下文件级冲突分析。共享源文件的 change 不可并行。
+
+| | cleanup | tabbar | guidance | iconbar | leftpanel | toggle | dashboard |
+|---|---|---|---|---|---|---|---|
+| cleanup | — | AiPanel.tsx | AiPanel.tsx | ✅ | ✅ | ✅ | ✅ |
+| tabbar | AiPanel.tsx | — | AiPanel.tsx | ✅ | ✅ | ✅ | ✅ |
+| guidance | AiPanel.tsx | AiPanel.tsx | — | ✅ | ✅ | ✅ | ✅ |
+| iconbar | ✅ | ✅ | ✅ | — | IconBar + layoutStore | layoutStore | ✅ |
+| leftpanel | ✅ | ✅ | ✅ | IconBar + layoutStore | — | AppShell + layoutStore | AppShell |
+| toggle | ✅ | ✅ | ✅ | layoutStore | AppShell + layoutStore | — | AppShell |
+| dashboard | ✅ | ✅ | ✅ | ✅ | AppShell | AppShell | — |
+
+✅ = 无共享文件，可并行。单元格内容 = 冲突文件，不可并行。
+
 ### 第二批：功能补全
 
 最大并行度：4 lane（开局）；`fe-ui-open-folder-entrypoints` 与 `fe-skeleton-loading-states` 因 `DashboardPage.tsx` 互斥。
@@ -190,22 +206,6 @@
 
 已归档前置：
 - `fe-hotfix-searchpanel-backdrop-close`：已归档到 `openspec/changes/archive/fe-hotfix-searchpanel-backdrop-close`（commit `c56a1eea`，PR #790）。
-
-## 第一批文件冲突矩阵
-
-并行规则基于以下文件级冲突分析。共享源文件的 change 不可并行。
-
-| | cleanup | tabbar | guidance | iconbar | leftpanel | toggle | dashboard |
-|---|---|---|---|---|---|---|---|
-| cleanup | — | AiPanel.tsx | AiPanel.tsx | ✅ | ✅ | ✅ | ✅ |
-| tabbar | AiPanel.tsx | — | AiPanel.tsx | ✅ | ✅ | ✅ | ✅ |
-| guidance | AiPanel.tsx | AiPanel.tsx | — | ✅ | ✅ | ✅ | ✅ |
-| iconbar | ✅ | ✅ | ✅ | — | IconBar + layoutStore | layoutStore | ✅ |
-| leftpanel | ✅ | ✅ | ✅ | IconBar + layoutStore | — | AppShell + layoutStore | AppShell |
-| toggle | ✅ | ✅ | ✅ | layoutStore | AppShell + layoutStore | — | AppShell |
-| dashboard | ✅ | ✅ | ✅ | ✅ | AppShell | AppShell | — |
-
-✅ = 无共享文件，可并行。单元格内容 = 冲突文件，不可并行。
 
 ## Owner 决策阻塞项
 
