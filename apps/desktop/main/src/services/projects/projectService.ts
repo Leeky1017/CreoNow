@@ -1198,13 +1198,22 @@ export function createProjectService(args: {
       }
 
       const sandboxRootPath = path.join(args.userDataDir, PROJECT_SANDBOX_DIR_NAME);
-      if (!isPathInsideDirectory(project.data.rootPath, sandboxRootPath)) {
+      const normalizedProjectRootPath = path.resolve(project.data.rootPath);
+      const normalizedSandboxRootPath = path.resolve(sandboxRootPath);
+      const isSandboxRootPath =
+        normalizedProjectRootPath === normalizedSandboxRootPath;
+      const isInsideSandbox = isPathInsideDirectory(
+        normalizedProjectRootPath,
+        normalizedSandboxRootPath,
+      );
+      if (isSandboxRootPath || !isInsideSandbox) {
         args.logger.error("project_lifecycle_purge_sandbox_violation", {
           code: "PROJECT_PURGE_PERMISSION_DENIED",
           trace_id: traceId,
           project_id: projectId,
           root_path: project.data.rootPath,
           sandbox_root: sandboxRootPath,
+          is_sandbox_root: isSandboxRootPath,
         });
         return ipcError(
           "PROJECT_PURGE_PERMISSION_DENIED",
