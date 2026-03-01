@@ -1,7 +1,7 @@
 # ISSUE-825
 - Issue: #825
 - Branch: task/825-enforce-progressive-governance-updates
-- PR: 待创建（创建后回填真实链接）
+- PR: https://github.com/Leeky1017/CreoNow/pull/826
 
 ## Plan
 - 在 preflight 增加“过程记录时序”门禁，阻断末尾一次性回填
@@ -35,6 +35,10 @@
 - Key output: 通过（exit 0）
 - Command: `rulebook task validate issue-825-enforce-progressive-governance-updates`
 - Key output: 通过（warning: no spec files）
+
+### 2026-03-01 20:49 PR created
+- Command: `gh pr create --base main --head task/825-enforce-progressive-governance-updates --title "ci: enforce progressive governance evidence timeline (#825)" --body-file ...`
+- Key output: PR created `https://github.com/Leeky1017/CreoNow/pull/826`
 
 ## Main Session Audit
 
