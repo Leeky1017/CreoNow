@@ -1,7 +1,7 @@
 # ISSUE-833
 - Issue: #833
 - Branch: task/833-archive-pr830-closeout
-- PR: https://github.com/Leeky1017/CreoNow/pull/TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/834
 
 ## Plan
 - 归档 PR #830 对应 3 个已合并 change，清空伪活跃状态。
