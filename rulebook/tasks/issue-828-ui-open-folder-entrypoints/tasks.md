@@ -1,5 +1,7 @@
 # Issue #828 — Open Folder UI Entry Points
 
+更新时间：2026-03-01 22:00
+
 ## Proposal
 
 在三个 UI 入口（Dashboard 空状态、CommandPalette、Onboarding）中新增 "Open Folder" 按钮/命令，全部调用 `dialog:folder:open` IPC。

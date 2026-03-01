@@ -69,8 +69,8 @@ async function runInput(page: Page, input: string): Promise<void> {
 }
 
 async function createProjectAndGetId(page: Page): Promise<string> {
-  await expect(page.getByTestId("welcome-screen")).toBeVisible();
-  await page.getByTestId("welcome-create-project").click();
+  await expect(page.getByTestId("dashboard-empty")).toBeVisible();
+  await page.getByTestId("dashboard-create-first").click();
   await expect(page.getByTestId("create-project-dialog")).toBeVisible();
   await page.getByTestId("create-project-name").fill("Demo Project");
   await page.getByTestId("create-project-submit").click();

@@ -64,7 +64,7 @@ test("memory semantic recall: preview mode=semantic + stablePrefixHash unchanged
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
 
-  await page.getByTestId("welcome-create-project").click();
+  await page.getByTestId("dashboard-create-first").click();
   await page.getByTestId("create-project-name").fill("Memory Semantic Project");
   await page.getByTestId("create-project-submit").click();
 

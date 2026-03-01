@@ -39,9 +39,9 @@ test("project lifecycle: create + ensure .creonow + restart restores current", a
   const page = await electronApp.firstWindow();
   await page.waitForFunction(() => window.__CN_E2E__?.ready === true);
   await expect(page.getByTestId("app-shell")).toBeVisible();
-  await expect(page.getByTestId("welcome-screen")).toBeVisible();
+  await expect(page.getByTestId("dashboard-empty")).toBeVisible();
 
-  await page.getByTestId("welcome-create-project").click();
+  await page.getByTestId("dashboard-create-first").click();
   await expect(page.getByTestId("create-project-dialog")).toBeVisible();
   await page.getByTestId("create-project-name").fill("Demo Project");
   await page.getByTestId("create-project-submit").click();

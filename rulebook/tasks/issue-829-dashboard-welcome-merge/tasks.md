@@ -1,5 +1,7 @@
 # Issue #829 — Dashboard WelcomeScreen Merge & Ghost Actions
 
+更新时间：2026-03-01 22:00
+
 ## Proposal
 
 删除 WelcomeScreen，将其入口逻辑合并到 DashboardPage 空状态；清理 3 个无 handler 的幽灵按钮。

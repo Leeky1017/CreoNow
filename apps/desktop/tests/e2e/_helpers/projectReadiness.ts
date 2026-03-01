@@ -41,18 +41,14 @@ export async function waitForProjectIpcReady(args: {
 export async function waitForCreateProjectEntry(args: {
   page: Page;
   timeoutMs?: number;
-}): Promise<"welcome" | "dashboard-empty" | "dashboard"> {
+}): Promise<"dashboard-empty" | "dashboard"> {
   const timeoutMs = args.timeoutMs ?? DEFAULT_EDITOR_READY_TIMEOUT_MS;
-  const welcomeCreate = args.page.getByTestId("welcome-create-project");
   const dashboardCreateFirst = args.page.getByTestId("dashboard-create-first");
   const dashboardCreateNew = args.page.getByTestId("dashboard-create-new");
 
   await expect
     .poll(
-      async (): Promise<"welcome" | "dashboard-empty" | "dashboard" | ""> => {
-        if (await welcomeCreate.isVisible()) {
-          return "welcome";
-        }
+      async (): Promise<"dashboard-empty" | "dashboard" | ""> => {
         if (await dashboardCreateFirst.isVisible()) {
           return "dashboard-empty";
         }
@@ -65,9 +61,6 @@ export async function waitForCreateProjectEntry(args: {
     )
     .not.toBe("");
 
-  if (await welcomeCreate.isVisible()) {
-    return "welcome";
-  }
   if (await dashboardCreateFirst.isVisible()) {
     return "dashboard-empty";
   }
@@ -124,9 +117,7 @@ export async function createProjectViaWelcomeAndWaitForEditor(args: {
     timeoutMs,
   });
 
-  if (createEntry === "welcome") {
-    await args.page.getByTestId("welcome-create-project").click();
-  } else if (createEntry === "dashboard-empty") {
+  if (createEntry === "dashboard-empty") {
     await args.page.getByTestId("dashboard-create-first").click();
   } else {
     await args.page.getByTestId("dashboard-create-new").click();

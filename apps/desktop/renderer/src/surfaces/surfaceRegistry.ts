@@ -541,13 +541,6 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
     storybookTitle: "Features/VersionHistoryPanel",
   },
   {
-    id: "welcomeScreen",
-    kind: "page",
-    entryPoints: [{ type: "navigation", description: "Welcome/intro screen" }],
-    testId: "welcome-screen",
-    storybookTitle: "Features/WelcomeScreen",
-  },
-  {
     id: "zenMode",
     kind: "overlay",
     entryPoints: [
