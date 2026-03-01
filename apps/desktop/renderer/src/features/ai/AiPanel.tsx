@@ -435,6 +435,7 @@ export function AiPanel(props: AiPanelProps = {}): JSX.Element {
 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const lastHandledNewChatSignalRef = React.useRef(props.newChatSignal ?? 0);
+  const handleNewChatRef = React.useRef<() => void>(() => {});
 
   const refreshModels = React.useCallback(async () => {
     setModelsStatus("loading");
@@ -1021,13 +1022,15 @@ export function AiPanel(props: AiPanelProps = {}): JSX.Element {
     textareaRef.current?.focus();
   }
 
+  handleNewChatRef.current = handleNewChat;
+
   React.useEffect(() => {
     const signal = props.newChatSignal ?? 0;
     if (signal === lastHandledNewChatSignalRef.current) {
       return;
     }
     lastHandledNewChatSignalRef.current = signal;
-    handleNewChat();
+    handleNewChatRef.current();
   }, [props.newChatSignal]);
 
   const working = isRunning(status);
