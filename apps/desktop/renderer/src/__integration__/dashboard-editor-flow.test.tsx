@@ -267,7 +267,7 @@ describe("Dashboard → Editor Flow", () => {
       expect(screen.getByText("测试小说")).toBeInTheDocument();
     });
 
-    it("should show WelcomeScreen when no projects exist", async () => {
+    it("should show Dashboard empty state when no projects exist", async () => {
       const mockIpc = createComprehensiveMockIpc({
         hasProjects: false,
         currentProjectId: null,
@@ -283,7 +283,7 @@ describe("Dashboard → Editor Flow", () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByTestId("welcome-screen")).toBeInTheDocument();
+        expect(screen.getByTestId("dashboard-empty")).toBeInTheDocument();
       });
     });
 
