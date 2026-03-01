@@ -62,7 +62,7 @@
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: <to-be-filled by signing commit head^>
+- Reviewed-HEAD-SHA: cf32b9e7ae00059c54c770937cc295e02ee7e7c4
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
