@@ -1,11 +1,20 @@
 import React from "react";
 
-export const OpenSettingsContext = React.createContext<(() => void) | null>(
-  null,
-);
+export type OpenSettingsTarget =
+  | "general"
+  | "appearance"
+  | "ai"
+  | "judge"
+  | "analytics"
+  | "account";
 
-const noopOpenSettings = () => {};
+type OpenSettingsHandler = (target?: OpenSettingsTarget) => void;
 
-export function useOpenSettings(): () => void {
+export const OpenSettingsContext =
+  React.createContext<OpenSettingsHandler | null>(null);
+
+const noopOpenSettings: OpenSettingsHandler = () => {};
+
+export function useOpenSettings(): OpenSettingsHandler {
   return React.useContext(OpenSettingsContext) ?? noopOpenSettings;
 }

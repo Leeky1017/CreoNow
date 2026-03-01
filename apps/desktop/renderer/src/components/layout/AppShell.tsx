@@ -27,7 +27,10 @@ import { DashboardPage } from "../../features/dashboard";
 import { DiffViewPanel } from "../../features/diff/DiffViewPanel";
 import { EditorPane } from "../../features/editor/EditorPane";
 import { WelcomeScreen } from "../../features/welcome/WelcomeScreen";
-import { SettingsDialog } from "../../features/settings-dialog/SettingsDialog";
+import {
+  SettingsDialog,
+  type SettingsTab,
+} from "../../features/settings-dialog/SettingsDialog";
 import { ExportDialog } from "../../features/export/ExportDialog";
 import { CreateProjectDialog } from "../../features/projects/CreateProjectDialog";
 import { ZenMode } from "../../features/zen-mode/ZenMode";
@@ -188,6 +191,8 @@ export function AppShell(): JSX.Element {
     readRecentCommandIds(),
   );
   const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
+  const [settingsDefaultTab, setSettingsDefaultTab] =
+    React.useState<SettingsTab>("general");
   const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
   const [createProjectDialogOpen, setCreateProjectDialogOpen] =
     React.useState(false);
@@ -389,6 +394,11 @@ export function AppShell(): JSX.Element {
     setCommandPaletteOpen(true);
   }, []);
 
+  const openSettingsDialog = React.useCallback((tab: SettingsTab = "general") => {
+    setSettingsDefaultTab(tab);
+    setSettingsDialogOpen(true);
+  }, []);
+
   // Callbacks for CommandPalette
   const layoutActions = React.useMemo<CommandPaletteLayoutActions>(
     () => ({
@@ -408,11 +418,11 @@ export function AppShell(): JSX.Element {
 
   const dialogActionCallbacks = React.useMemo<CommandPaletteDialogActions>(
     () => ({
-      onOpenSettings: () => setSettingsDialogOpen(true),
+      onOpenSettings: () => openSettingsDialog("general"),
       onOpenExport: () => setExportDialogOpen(true),
       onOpenCreateProject: () => setCreateProjectDialogOpen(true),
     }),
-    [],
+    [openSettingsDialog],
   );
 
   const documentActionCallbacks =
@@ -456,7 +466,7 @@ export function AppShell(): JSX.Element {
         group: "command",
         category: "command",
         onSelect: () => {
-          setSettingsDialogOpen(true);
+          openSettingsDialog("general");
           setCommandPaletteOpen(false);
         },
       },
@@ -602,6 +612,7 @@ export function AppShell(): JSX.Element {
     fileItems,
     modKey,
     openEditorDocument,
+    openSettingsDialog,
     openVersionHistoryPanel,
     recentCommandIds,
     setCurrentDocument,
@@ -715,7 +726,7 @@ export function AppShell(): JSX.Element {
         onToggleZenMode={() => setZenMode(!zenMode)}
         onExitZenMode={() => setZenMode(false)}
         onOpenCommandPalette={openCommandPalette}
-        onOpenSettings={() => setSettingsDialogOpen(true)}
+        onOpenSettings={() => openSettingsDialog("general")}
         onOpenCreateProject={() => setCreateProjectDialogOpen(true)}
         onCreateDocument={() => {
           if (!currentProjectId) {
@@ -731,7 +742,7 @@ export function AppShell(): JSX.Element {
             testId="app-shell"
             activityBar={
               <IconBar
-                onOpenSettings={() => setSettingsDialogOpen(true)}
+                onOpenSettings={() => openSettingsDialog("general")}
                 settingsOpen={settingsDialogOpen}
               />
             }
@@ -768,7 +779,7 @@ export function AppShell(): JSX.Element {
               <RightPanel
                 width={layout.effectivePanelWidth}
                 collapsed={layout.panelCollapsed}
-                onOpenSettings={() => setSettingsDialogOpen(true)}
+                onOpenSettings={(tab) => openSettingsDialog(tab ?? "general")}
                 onOpenVersionHistory={openVersionHistoryPanel}
                 onCollapse={layout.panelVisibility.collapseRightPanel}
               />
@@ -790,6 +801,7 @@ export function AppShell(): JSX.Element {
                 <SettingsDialog
                   open={settingsDialogOpen}
                   onOpenChange={setSettingsDialogOpen}
+                  defaultTab={settingsDefaultTab}
                 />
 
                 <ExportDialog
