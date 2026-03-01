@@ -1,10 +1,10 @@
 # ISSUE-812
 
-更新时间：2026-03-01 18:00
+更新时间：2026-03-01 18:05
 
 - Issue: #812
 - Branch: task/812-closeout-fe-leftpanel-dialog-migration
-- PR: https://github.com/Leeky1017/CreoNow/pull/TBD
+- PR: https://github.com/Leeky1017/CreoNow/pull/814
 
 ## Plan
 
