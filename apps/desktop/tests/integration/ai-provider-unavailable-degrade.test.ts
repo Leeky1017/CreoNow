@@ -35,7 +35,11 @@ try {
 
   const service = createAiService({
     logger: createLogger(),
-    env: {},
+    env: {
+      CREONOW_AI_API_KEY: "sk-env",
+      CREONOW_AI_PROVIDER: "openai",
+      CREONOW_AI_BASE_URL: primaryBaseUrl,
+    },
     sleep: async () => {},
     rateLimitPerMinute: 1_000,
     getProxySettings: () => ({
@@ -47,8 +51,16 @@ try {
       openAiCompatibleApiKey: null,
       openAiByokBaseUrl: primaryBaseUrl,
       openAiByokApiKey: "sk-primary",
+      openAiByok: {
+        baseUrl: primaryBaseUrl,
+        apiKey: "sk-primary",
+      },
       anthropicByokBaseUrl: backupBaseUrl,
       anthropicByokApiKey: "sk-backup",
+      anthropicByok: {
+        baseUrl: backupBaseUrl,
+        apiKey: "sk-backup",
+      },
     }),
   });
 
