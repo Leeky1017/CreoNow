@@ -33,6 +33,52 @@ async function assertArchivedState(args: {
   assert.equal(typeof row?.archivedAt, "number");
 }
 
+function toMixedCasePath(inputPath: string): string {
+  return Array.from(inputPath)
+    .map((char, index) => {
+      if (!/[a-zA-Z]/.test(char)) {
+        return char;
+      }
+      return index % 2 === 0 ? char.toUpperCase() : char.toLowerCase();
+    })
+    .join("");
+}
+
+async function withWindowsPathSemantics<T>(
+  run: () => Promise<T>,
+): Promise<T> {
+  const mutablePath = path as unknown as {
+    resolve: typeof path.resolve;
+    relative: typeof path.relative;
+    isAbsolute: typeof path.isAbsolute;
+  };
+
+  const originalResolve = mutablePath.resolve;
+  const originalRelative = mutablePath.relative;
+  const originalIsAbsolute = mutablePath.isAbsolute;
+  const originalPlatform = process.platform;
+
+  Object.defineProperty(process, "platform", {
+    value: "win32",
+    configurable: true,
+  });
+  mutablePath.resolve = path.win32.resolve.bind(path.win32);
+  mutablePath.relative = path.win32.relative.bind(path.win32);
+  mutablePath.isAbsolute = path.win32.isAbsolute.bind(path.win32);
+
+  try {
+    return await run();
+  } finally {
+    mutablePath.resolve = originalResolve;
+    mutablePath.relative = originalRelative;
+    mutablePath.isAbsolute = originalIsAbsolute;
+    Object.defineProperty(process, "platform", {
+      value: originalPlatform,
+      configurable: true,
+    });
+  }
+}
+
 /**
  * issue #831
  * should reject out-of-bound root_path and keep project archived
@@ -209,6 +255,75 @@ async function shouldRejectSandboxRootPathPollution(): Promise<void> {
   }
 }
 
+/**
+ * issue #862
+ * should reject mixed-case sandbox root pollution on windows-like semantics
+ */
+async function shouldRejectMixedCaseSandboxRootPathPollution(): Promise<void> {
+  const userDataDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), "creonow-purge-sandbox-root-mixed-case-"),
+  );
+  const db = createProjectTestDb();
+  const service = createProjectService({
+    db,
+    userDataDir,
+    logger: createNoopLogger(),
+  });
+
+  try {
+    const projectA = service.create({
+      name: "Mixed-case sandbox root polluted project",
+    });
+    assert.equal(projectA.ok, true);
+    if (!projectA.ok) {
+      throw new Error("failed to create project A");
+    }
+
+    const projectB = service.create({
+      name: "Sibling project survives mixed-case pollution",
+    });
+    assert.equal(projectB.ok, true);
+    if (!projectB.ok) {
+      throw new Error("failed to create project B");
+    }
+
+    const markerPath = path.join(projectB.data.rootPath, "must-survive.txt");
+    await fs.writeFile(markerPath, "marker");
+
+    const archived = service.lifecycleArchive({
+      projectId: projectA.data.projectId,
+      traceId: "trace-sandbox-root-mixed-case-archive",
+    });
+    assert.equal(archived.ok, true);
+
+    const sandboxRootPath = path.join(userDataDir, "projects");
+    const mixedCaseSandboxRootPath = toMixedCasePath(sandboxRootPath);
+    db.prepare("UPDATE projects SET root_path = ? WHERE project_id = ?").run(
+      mixedCaseSandboxRootPath,
+      projectA.data.projectId,
+    );
+
+    const purged = await withWindowsPathSemantics(async () =>
+      service.lifecyclePurge({
+        projectId: projectA.data.projectId,
+        traceId: "trace-sandbox-root-mixed-case-purge",
+      }),
+    );
+    assert.equal(purged.ok, false);
+    if (purged.ok || !purged.error) {
+      throw new Error("expected PROJECT_PURGE_PERMISSION_DENIED");
+    }
+    assert.equal(purged.error.code, "PROJECT_PURGE_PERMISSION_DENIED");
+
+    await assertArchivedState({ db, projectId: projectA.data.projectId });
+    assert.equal(await pathExists(projectB.data.rootPath), true);
+    assert.equal(await pathExists(markerPath), true);
+  } finally {
+    db.close();
+    await fs.rm(userDataDir, { recursive: true, force: true });
+  }
+}
+
 async function main(): Promise<void> {
   const failures: Error[] = [];
 
@@ -231,6 +346,13 @@ async function main(): Promise<void> {
   } catch (error) {
     failures.push(error as Error);
     console.error("[issue-846]", error);
+  }
+
+  try {
+    await shouldRejectMixedCaseSandboxRootPathPollution();
+  } catch (error) {
+    failures.push(error as Error);
+    console.error("[issue-862]", error);
   }
 
   if (failures.length > 0) {
