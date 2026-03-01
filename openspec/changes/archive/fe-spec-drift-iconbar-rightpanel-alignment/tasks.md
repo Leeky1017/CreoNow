@@ -1,6 +1,6 @@
 ## 1. Specification
 
-更新时间：2026-03-01 10:21
+更新时间：2026-03-01 13:17
 
 - [x] 1.1 审阅并确认需求边界：对齐 `workbench/spec.md` 与实现之间的漂移——IconBar 入口、`graph`/`knowledgeGraph` 命名、RightPanel tab 枚举。只做 spec 对齐与决策落盘，不做功能实现。
 - [x] 1.2 审阅并确认漂移点全集：
@@ -74,4 +74,4 @@
 - [x] 6.2 记录 RUN_LOG：guard 测试通过输出与“去活跃 change 路径耦合”说明
 - [x] 6.3 记录 RUN_LOG：`pnpm -C apps/desktop test:run` 全量回归通过（`Test Files 189 passed (189)`；`Tests 1555 passed (1555)`）
 - [x] 6.4 记录 Dependency Sync Check：D1/D2/D3 决策状态
-- [ ] 6.5 Main Session Audit（仅在提交/Apply 阶段需要，本轮不执行）
+- [x] 6.5 Main Session Audit（Apply 阶段已完成，详见 `openspec/_ops/task_runs/ISSUE-797.md`）
