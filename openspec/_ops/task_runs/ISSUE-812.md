@@ -1,6 +1,6 @@
 # ISSUE-812
 
-更新时间：2026-03-01 18:05
+更新时间：2026-03-01 18:10
 
 - Issue: #812
 - Branch: task/812-closeout-fe-leftpanel-dialog-migration
@@ -23,6 +23,13 @@
 - Command: `scripts/agent_pr_preflight.sh --mode fast`
 - Exit code: `TBD`
 - Key output: 待提交前执行并回填。
+
+### 2026-03-01 18:08 Sync — Rebase to latest main equivalent via merge
+
+- Command: `git merge --no-edit origin/main`
+- Exit code: `1`（首次）
+- Key output: `openspec/changes/EXECUTION_ORDER.md` 发生冲突（`已完成并归档` 与 `已完成待归档` 状态线冲突）。
+- Fix: 以 closeout 目标为准保留 `fe-leftpanel-dialog-migration` 为“已完成并归档（PR #808）”，并吸收 `fe-rightpanel-ai-guidance-and-style` 的最新状态后完成 merge 提交。
 
 ## Main Session Audit
 
