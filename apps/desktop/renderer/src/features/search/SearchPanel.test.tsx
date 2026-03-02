@@ -94,7 +94,7 @@ describe("SearchPanel", () => {
       expect(allButton).toBeInTheDocument();
 
       // All 按钮默认选中
-      expect(allButton.className).toContain("bg-[#3b82f6]");
+      expect(allButton.className).toContain("bg-[var(--color-info)]");
     });
   });
 
