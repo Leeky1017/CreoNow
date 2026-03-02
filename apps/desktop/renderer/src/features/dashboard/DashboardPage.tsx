@@ -5,12 +5,13 @@ import {
   Button,
   Input,
   Text,
-  Spinner,
   DropdownMenu,
   ContextMenu,
   type DropdownMenuItem,
   type ContextMenuItem,
 } from "../../components/primitives";
+import { useDeferredLoading } from "../../lib/useDeferredLoading";
+import { DashboardSkeleton } from "./DashboardSkeleton";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
 import { invoke } from "../../lib/ipcClient";
 import { CreateProjectDialog } from "../projects/CreateProjectDialog";
@@ -33,6 +34,26 @@ interface DashboardPageProps {
 // =============================================================================
 // Helper Components
 // =============================================================================
+
+/**
+ * DashboardLoadingState — shows nothing for the first 200ms,
+ * then fades in a skeleton layout to avoid flash.
+ */
+function DashboardLoadingState(): JSX.Element {
+  const showSkeleton = useDeferredLoading(true, 200);
+
+  if (!showSkeleton) {
+    return (
+      <div data-testid="dashboard-loading" className="flex-1 flex items-center justify-center" />
+    );
+  }
+
+  return (
+    <div data-testid="dashboard-loading" className="flex-1">
+      <DashboardSkeleton />
+    </div>
+  );
+}
 
 /**
  * SearchBar - Global search input for projects.
@@ -548,14 +569,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
 
   // Loading state
   if (bootstrapStatus === "loading") {
-    return (
-      <div
-        data-testid="dashboard-loading"
-        className="flex-1 flex items-center justify-center"
-      >
-        <Spinner size="lg" />
-      </div>
-    );
+    return <DashboardLoadingState />;
   }
 
   // Empty state (no projects)
