@@ -1,4 +1,3 @@
-import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, act } from "@testing-library/react";
 import { useOverflowDetection } from "./useOverflowDetection";
@@ -47,7 +46,8 @@ function OverflowHarness(props: {
             get: () => props.clientWidth,
             configurable: true,
           });
-          (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+          // Assign to containerRef.current for test harness (ref is mutable at runtime)
+          Object.defineProperty(containerRef, "current", { value: el, writable: true, configurable: true });
         }
       }}
       data-testid="overflow-container"

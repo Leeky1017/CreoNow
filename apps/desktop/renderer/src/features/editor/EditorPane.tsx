@@ -19,6 +19,7 @@ import {
 import { resolveFinalDocumentEditDecision } from "./finalDocumentEditGuard";
 import { WriteButton } from "./WriteButton";
 import { SlashCommandExtension } from "./extensions/slashCommand";
+import { DragHandleExtension } from "./extensions/dragHandle";
 import { SlashCommandPanel } from "./SlashCommandPanel";
 import { EntityCompletionPanel } from "./EntityCompletionPanel";
 import {
@@ -425,6 +426,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
         onOpenPanel: openSlashPanel,
         onClosePanel: closeSlashPanel,
       }),
+      DragHandleExtension,
       ...(!IS_VITEST_RUNTIME
         ? [
             BubbleMenuExtension.configure({
@@ -806,6 +808,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       // Capture pre-stream checkpoint for atomic undo (ED-FE-ADV-S2)
       aiStreamCheckpointRef.current = buildAiStreamUndoCheckpoint({
         preStreamContent: editor.state.doc.textContent,
+        docJson: editor.getJSON() as Record<string, unknown>,
         cursorPos: editor.state.selection.to,
       });
 

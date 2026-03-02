@@ -9,16 +9,27 @@
  * Usage:
  *   1. Before streaming starts → buildAiStreamUndoCheckpoint(...)
  *   2. During streaming → editor transactions use `addToHistory: false`
- *   3. After streaming ends → commit a single history entry
+ *   3. After streaming ends → call undoAiStream() to revert, or leave the
+ *      content in place (the checkpoint ensures atomic revert is possible).
  */
 
 export type AiStreamCheckpoint = {
   /** Editor text content before the AI stream began */
   preStreamContent: string;
+  /** Full document JSON for restoration via setContent */
+  docJson: Record<string, unknown>;
   /** Cursor position before the stream */
   cursorPos: number;
   /** Monotonic timestamp (Date.now()) when the checkpoint was created */
   timestamp: number;
+};
+
+/** Minimal editor interface required for undo operations */
+export type UndoableEditor = {
+  commands: {
+    setContent: (content: Record<string, unknown>) => boolean;
+    focus: (position: number) => boolean;
+  };
 };
 
 /**
@@ -29,11 +40,29 @@ export type AiStreamCheckpoint = {
  */
 export function buildAiStreamUndoCheckpoint(args: {
   preStreamContent: string;
+  docJson: Record<string, unknown>;
   cursorPos: number;
 }): AiStreamCheckpoint {
   return {
     preStreamContent: args.preStreamContent,
+    docJson: args.docJson,
     cursorPos: args.cursorPos,
     timestamp: Date.now(),
   };
+}
+
+/**
+ * Undo the AI stream by restoring the editor to the checkpoint state.
+ * Returns true if the restore was performed, false if no checkpoint exists.
+ */
+export function undoAiStream(
+  editor: UndoableEditor,
+  checkpoint: AiStreamCheckpoint | null,
+): boolean {
+  if (!checkpoint) return false;
+  const restored = editor.commands.setContent(checkpoint.docJson);
+  if (restored) {
+    editor.commands.focus(checkpoint.cursorPos);
+  }
+  return restored;
 }

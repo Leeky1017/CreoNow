@@ -37,8 +37,12 @@ describe("dragHandle extension", () => {
     expect(decorations).toHaveLength(0);
   });
 
-  it("[ED-FE-ADV-S1d] extension contract has correct shape", () => {
-    expect(DragHandleExtension.name).toBe("dragHandle");
-    expect(DragHandleExtension.decorations).toEqual([]);
+  it("[ED-FE-ADV-S1d] extension is a real TipTap Extension named dragHandle", () => {
+    // DragHandleExtension is created via Extension.create() — verify its config
+    expect(DragHandleExtension.config.name).toBe("dragHandle");
+    // It should have onUpdate for computing block positions
+    expect(DragHandleExtension.config.onUpdate).toBeDefined();
+    // It should have storage for block positions
+    expect(DragHandleExtension.config.addStorage).toBeDefined();
   });
 });

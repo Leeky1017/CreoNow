@@ -1,10 +1,16 @@
 /**
- * Drag Handle extension — pure-function contract shape.
+ * Drag Handle extension — pure-function contract shape + TipTap Extension.
  *
  * Produces decoration descriptors for block-level nodes so that the
  * rendering layer can position a drag handle to the left of each block.
  * Read-only editors suppress all decorations.
+ *
+ * The TipTap Extension computes block positions on every update and stores
+ * them in extension storage. CSS renders the visual drag handle via `::before`
+ * pseudo-elements on `.ProseMirror > *` when contenteditable="true".
  */
+
+import { Extension } from "@tiptap/react";
 
 export type DragHandleDecoration = {
   /** ProseMirror position of the block node */
@@ -29,16 +35,44 @@ export function createDragHandleDecorations(args: {
   }));
 }
 
-export type DragHandleExtensionContract = {
-  name: "dragHandle";
-  decorations: DragHandleDecoration[];
-};
+export interface DragHandleStorage {
+  /** Computed block positions. Empty when read-only. */
+  blockPositions: DragHandleDecoration[];
+}
 
 /**
- * Stable extension contract shape — mirroring the inlineDiff pattern.
- * Actual TipTap Extension integration deferred to editor bootstrap.
+ * Real TipTap Extension for block drag handles.
+ *
+ * On every editor update, computes the position and type of all top-level
+ * text blocks and stores them in `editor.storage.dragHandle.blockPositions`.
+ * When the editor is read-only, the storage is emptied (no handles rendered).
+ *
+ * Visual rendering is handled by CSS (see main.css `.drag-handle-zone`).
  */
-export const DragHandleExtension: DragHandleExtensionContract = {
+export const DragHandleExtension = Extension.create<
+  Record<string, never>,
+  DragHandleStorage
+>({
   name: "dragHandle",
-  decorations: [],
-};
+
+  addStorage(): DragHandleStorage {
+    return {
+      blockPositions: [],
+    };
+  },
+
+  onUpdate() {
+    if (!this.editor.isEditable) {
+      this.storage.blockPositions = [];
+      return;
+    }
+
+    const blocks: DragHandleDecoration[] = [];
+    this.editor.state.doc.descendants((node, pos) => {
+      if (node.isBlock && node.isTextblock) {
+        blocks.push({ blockPos: pos, blockType: node.type.name });
+      }
+    });
+    this.storage.blockPositions = blocks;
+  },
+});
