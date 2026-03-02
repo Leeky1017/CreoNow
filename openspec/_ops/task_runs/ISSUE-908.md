@@ -91,7 +91,7 @@ EXIT: 0
 - Rulebook task 存在: ✅
 - PR 链接已回填: ✅
 - 代码风格 & 无 any: ✅
-- Reviewed-HEAD-SHA: PLACEHOLDER
+- Reviewed-HEAD-SHA: ad586929116461a8965c5e20df9faa45828199be
 
 **审计结论**: PASS — windowState.ts 类型安全（isValidWindowState 防御性解析），debounce 节制 IO，single-instance lock 在 app.whenReady 前调用，既有测试 mock 兼容性已同步修复。
 
