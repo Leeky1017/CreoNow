@@ -9,7 +9,7 @@
 | Issue | #895 |
 | Branch | `task/895-searchpanel-tokenized-rewrite` |
 | Change | `fe-searchpanel-tokenized-rewrite` |
-| PR | 待回填 |
+| PR | https://github.com/Leeky1017/CreoNow/pull/898 |
 
 ## Dependency Sync Check
 
