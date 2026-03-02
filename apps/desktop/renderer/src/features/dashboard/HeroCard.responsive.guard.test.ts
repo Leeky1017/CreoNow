@@ -14,8 +14,10 @@ const heroCardSrc = heroCardMatch ? heroCardMatch[0] : "";
 describe("HeroCard responsive guard", () => {
   it("HeroCard decoration area has max-width constraint (PM-FE-HERO-S1)", () => {
     // Find the decoration div — the one with w-[35%]
-    // After fix, it should contain max-w- constraint
-    expect(heroCardSrc).toMatch(/max-w-\[/);
+    // The test must target this specific line to avoid matching max-w-[500px] in the text area
+    const decorationLine = heroCardSrc.split("\n").find(line => line.includes("w-[35%]"));
+    expect(decorationLine, "decoration div with w-[35%] not found in HeroCard").toBeDefined();
+    expect(decorationLine).toMatch(/max-w-\[/);
   });
 
   it("HeroCard decoration area is hidden on narrow screens (PM-FE-HERO-S2)", () => {
