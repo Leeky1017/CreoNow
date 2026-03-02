@@ -261,3 +261,41 @@ type AuditEvent = {
     );
   }
 }
+
+// S7: ArrayBuffer 超限必须在预检返回 IPC_PAYLOAD_TOO_LARGE 并阻断 invoke [ADDED]
+{
+  let invoked = false;
+  const limitBytes = 10 * 1024 * 1024;
+  const gateway = createPreloadIpcGateway({
+    allowedChannels: ["app:system:ping"],
+    rendererId: "renderer-7",
+    maxPayloadBytes: limitBytes,
+    now: () => 1_717_171_000_700,
+    requestIdFactory: () => "req-arraybuffer-too-large",
+    invoke: async () => {
+      invoked = true;
+      return { ok: true, data: { accepted: true } };
+    },
+  });
+
+  const payload = {
+    blob: new ArrayBuffer(20 * 1024 * 1024),
+  };
+
+  const res = await gateway.invoke("app:system:ping", payload);
+  assert.equal(invoked, false);
+  assert.equal(res.ok, false);
+  if (res.ok) {
+    assert.fail("expected IPC_PAYLOAD_TOO_LARGE response");
+  }
+  assert.equal(res.error.code, "IPC_PAYLOAD_TOO_LARGE");
+  const details = res.error.details as
+    | {
+        payloadBytes?: number;
+        limitBytes?: number;
+      }
+    | undefined;
+  assert.equal(details?.limitBytes, limitBytes);
+  assert.equal(typeof details?.payloadBytes, "number");
+  assert((details?.payloadBytes ?? 0) > limitBytes);
+}

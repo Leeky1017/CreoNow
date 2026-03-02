@@ -186,6 +186,16 @@ function isIpcResponse<TData>(value: unknown): value is IpcResponse<TData> {
   );
 }
 
+function estimateBinaryByteLength(value: unknown): number | null {
+  if (value instanceof ArrayBuffer) {
+    return value.byteLength;
+  }
+  if (ArrayBuffer.isView(value)) {
+    return value.byteLength;
+  }
+  return null;
+}
+
 /**
  * Estimate payload byte-size for preload boundary guarding.
  *
@@ -243,6 +253,11 @@ function estimatePayloadSize(
     }
     if (valueType !== "object" || value === null) {
       return null;
+    }
+
+    const binaryByteLength = estimateBinaryByteLength(value);
+    if (binaryByteLength !== null) {
+      return binaryByteLength;
     }
 
     const objectValue = value as object;
