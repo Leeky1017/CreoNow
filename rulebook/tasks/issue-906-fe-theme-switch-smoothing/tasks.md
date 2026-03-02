@@ -1,5 +1,7 @@
 # Tasks: fe-theme-switch-smoothing (#906)
 
+更新时间：2026-03-02 16:30
+
 ## Specification
 
 在根节点增加主题切换过渡策略（background-color / color / border-color），消除切换闪烁。

@@ -1,12 +1,12 @@
-# RUN_LOG — Issue #906: fe-theme-switch-smoothing
+# ISSUE-906
+- Issue: #906
+- Branch: task/906-fe-theme-switch-smoothing
+- PR: https://github.com/Leeky1017/CreoNow/pull/910
 
-| 字段     | 值                                            |
-| -------- | --------------------------------------------- |
-| Issue    | #906                                          |
-| Branch   | `task/906-fe-theme-switch-smoothing`          |
-| PR       | https://github.com/Leeky1017/CreoNow/pull/910 |
-| Agent    | Theme Transition Agent                        |
-| Date     | 2026-03-02                                    |
+## Plan
+- 在 `html` 根节点添加主题切换平滑过渡（background-color / color / border-color）
+- 使用 `var(--duration-fast)` token（100ms），消除 dark↔light 闪烁
+- `prefers-reduced-motion: reduce` 启用时，过渡时长归零
 
 ## Runs
 
@@ -56,19 +56,10 @@ $ pnpm vitest run (apps/desktop)
 
 ## Main Session Audit
 
-- Spec ↔ 实现一致性: ✅
-- Guard 测试覆盖 Scenario: ✅ 3 tests (S1/S2/S3)
-- Red → Green 证据: ✅ 全部记录
-- 全量回归通过: ✅ 217 files / 1643 tests
-- `pnpm typecheck` 通过: ✅ (零错误)
-- RUN_LOG 完整: ✅
-- Rulebook task 存在: ✅
-- PR 链接已回填: ✅
-- 代码风格 & 无 any: ✅
-- Reviewed-HEAD-SHA: 0348b48066055608c1e674c111a6b9b3e31d10aa
-
-**审计结论**: PASS — CSS 实现精确匹配 delta-spec 三项 Scenario，使用 design token 作为 duration，reduced-motion 优先级处理正确。
-
-## Blockers
-
-无。
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: PLACEHOLDER
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
