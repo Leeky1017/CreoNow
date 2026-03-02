@@ -75,7 +75,7 @@ pnpm -C apps/desktop typecheck
 | 字段 | 值 |
 |------|-----|
 | Audit-Owner | 待独立审计员指派 |
-| Reviewed-HEAD-SHA | 待 push 后更新 |
+| Reviewed-HEAD-SHA | `b5b49085` |
 | Spec-Compliance | S1 ✅（精度修正后） S2 ✅ S3 ✅ |
 | Code-Quality | Typecheck ✅ · 全量回归 214/214 ✅ |
 | Fresh-Verification | S1 测试精度修正，全量回归无新增失败 |
