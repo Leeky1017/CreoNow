@@ -172,6 +172,8 @@ export const DragHandleExtension = Extension.create<
     const storage = this.storage;
     const editor = this.editor;
     let dragSourcePos = -1;
+    /** The DOM block currently under the cursor — used by dragstart. */
+    let hoveredBlock: Element | null = null;
 
     const onMouseOver = (e: MouseEvent): void => {
       if (!editor.isEditable) return;
@@ -179,8 +181,10 @@ export const DragHandleExtension = Extension.create<
       const block = target.closest(".ProseMirror > *");
       if (!block || !(block instanceof HTMLElement)) {
         handleEl.style.display = "none";
+        hoveredBlock = null;
         return;
       }
+      hoveredBlock = block;
       const blockRect = block.getBoundingClientRect();
       const wrapperRect = wrapper.getBoundingClientRect();
       handleEl.style.display = "flex";
@@ -189,16 +193,17 @@ export const DragHandleExtension = Extension.create<
 
     const onMouseLeave = (): void => {
       handleEl.style.display = "none";
+      hoveredBlock = null;
     };
 
     const onDragStart = (e: DragEvent): void => {
-      const target = e.target as HTMLElement;
-      const block = target.closest(".ProseMirror > *");
-      if (!block) return;
-      const pos = editorView.posAtDOM(block, 0);
+      if (!hoveredBlock) return;
+      const pos = editorView.posAtDOM(hoveredBlock, 0);
       dragSourcePos = pos;
-      e.dataTransfer?.setData("application/x-drag-handle", String(pos));
-      e.dataTransfer?.setEffectAllowed?.("move");
+      if (e.dataTransfer) {
+        e.dataTransfer.setData("application/x-drag-handle", String(pos));
+        e.dataTransfer.effectAllowed = "move";
+      }
     };
 
     const onDragOver = (e: DragEvent): void => {
