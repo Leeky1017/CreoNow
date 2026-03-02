@@ -1,11 +1,12 @@
-# RUN_LOG — Issue #908: Window State Persistence & Single Instance Lock
+# ISSUE-908
+- Issue: #908
+- Branch: task/908-fe-desktop-window-lifecycle-uplift
+- PR: https://github.com/Leeky1017/CreoNow/pull/912
 
-| Field     | Value |
-|-----------|-------|
-| Issue     | #908 |
-| Branch    | `task/908-fe-desktop-window-lifecycle-uplift` |
-| PR        | https://github.com/Leeky1017/CreoNow/pull/912 |
-| Status    | COMPLETE |
+## Plan
+- 新增 `windowState.ts` 模块：`loadWindowState()` / `saveWindowState()` / `createDebouncedSaveWindowState()`
+- 修改 `index.ts`：集成窗口状态恢复、debounced 保存、单实例锁、second-instance 处理
+- 更新已有测试 mock 以兼容新窗口生命周期代码
 
 ## Runs
 
@@ -67,34 +68,32 @@ EXIT: 0
 
 **All tests green. TypeScript compilation clean.**
 
-## Files Changed
+### Run 4 — Fix second-instance 注册时机（审计修复）
 
-| Action   | File |
-|----------|------|
-| ADDED    | `apps/desktop/main/src/windowState.ts` |
-| ADDED    | `apps/desktop/main/src/__tests__/windowState.test.ts` |
-| ADDED    | `apps/desktop/main/src/__tests__/singleInstance.guard.test.ts` |
-| MODIFIED | `apps/desktop/main/src/index.ts` |
-| MODIFIED | `apps/desktop/tests/unit/main/window-load-catch.test.ts` |
-| MODIFIED | `apps/desktop/tests/unit/main/index.app-ready-catch.test.ts` |
-| ADDED    | `rulebook/tasks/issue-908-fe-desktop-window-lifecycle-uplift/proposal.md` |
-| ADDED    | `rulebook/tasks/issue-908-fe-desktop-window-lifecycle-uplift/tasks.md` |
+独立审计指出 `second-instance` 监听注册位于 `app.whenReady().then(...)` 内且绑定固定 `mainWindow` 引用，存在启动竞态和窗口重建后引用过期风险。
+
+修复：
+- 将 `app.on("second-instance", ...)` 移至 `requestSingleInstanceLock()` 成功后立即注册（早于 `whenReady`）
+- 使用 `BrowserWindow.getAllWindows()[0]` 动态获取当前窗口，避免闭包引用过期
+
+```
+$ pnpm exec tsx apps/desktop/main/src/__tests__/singleInstance.guard.test.ts
+  ✓ WB-FE-WIN-S3 index.ts calls requestSingleInstanceLock
+  ✓ WB-FE-WIN-S3b index.ts imports loadWindowState from windowState module
+  ✓ WB-FE-WIN-S3c index.ts uses debounced save from windowState module
+  ✓ WB-FE-WIN-S3d index.ts handles second-instance event
+✅ All singleInstance guard tests passed
+
+$ vitest run (216 files, 1640 tests — all passed)
+$ pnpm typecheck (clean)
+```
 
 ## Main Session Audit
 
-- Spec ↔ 实现一致性: ✅
-- Guard 测试覆盖 Scenario: ✅ 10 tests (windowState 6 + singleInstance guard 4)
-- Red → Green 证据: ✅ 全部记录
-- 全量回归通过: ✅ 267 tsx+vitest tests (含既有 mock 修复)
-- `pnpm typecheck` 通过: ✅ (零错误)
-- RUN_LOG 完整: ✅
-- Rulebook task 存在: ✅
-- PR 链接已回填: ✅
-- 代码风格 & 无 any: ✅
-- Reviewed-HEAD-SHA: ad586929116461a8965c5e20df9faa45828199be
-
-**审计结论**: PASS — windowState.ts 类型安全（isValidWindowState 防御性解析），debounce 节制 IO，single-instance lock 在 app.whenReady 前调用，既有测试 mock 兼容性已同步修复。
-
-## Blockers
-
-无。
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: PLACEHOLDER
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT

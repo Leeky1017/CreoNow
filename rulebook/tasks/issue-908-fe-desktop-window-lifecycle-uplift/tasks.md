@@ -1,5 +1,7 @@
 # Tasks: Window State Persistence & Single Instance Lock (#908)
 
+更新时间：2026-03-02 16:30
+
 ## Specification
 
 ### Scenario: 重启后必须恢复窗口位置与尺寸 [ADDED]

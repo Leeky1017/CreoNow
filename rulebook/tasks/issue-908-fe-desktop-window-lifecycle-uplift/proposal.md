@@ -1,5 +1,7 @@
 # Proposal: Window State Persistence & Single Instance Lock
 
+更新时间：2026-03-02 16:30
+
 ## Issue
 - **GitHub Issue**: #908
 - **Branch**: `task/908-fe-desktop-window-lifecycle-uplift`

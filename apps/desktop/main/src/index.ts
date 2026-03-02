@@ -531,6 +531,22 @@ if (!gotTheLock) {
   app.quit();
 }
 
+// ── Second-instance handling: focus existing window ──
+// Registered immediately after lock acquisition (before whenReady) to avoid
+// startup race: a second instance launched during the first's initialisation
+// must always find the listener already in place.
+app.on("second-instance", () => {
+  const wins = BrowserWindow.getAllWindows();
+  const win = wins.length > 0 ? wins[0] : null;
+  if (!win) {
+    return;
+  }
+  if (win.isMinimized()) {
+    win.restore();
+  }
+  win.focus();
+});
+
 app
   .whenReady()
   .then(() => {
@@ -562,15 +578,7 @@ app
       env: process.env,
     });
 
-    const mainWindow = createMainWindow(logger);
-
-    // ── Second-instance handling: focus existing window ──
-    app.on("second-instance", () => {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.focus();
-    });
+    createMainWindow(logger);
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
