@@ -1,12 +1,12 @@
 # Active Changes Execution Order
 
-更新时间：2026-03-02 16:15
+更新时间：2026-03-02 19:21
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **20**（前端整改拆分，基于 `docs/frontend-overhaul-plan.md` §七，`fe-rightpanel-ai-tabbar-layout`、`fe-rightpanel-ai-guidance-and-style`、`fe-spec-drift-iconbar-rightpanel-alignment`、`fe-hotfix-searchpanel-backdrop-close`、`fe-leftpanel-dialog-migration`、`fe-cleanup-proxysection-and-mocks`、`fe-ai-panel-toggle-button`、`fe-ipc-open-folder-contract`、`fe-ui-open-folder-entrypoints`、`fe-dashboard-welcome-merge-and-ghost-actions`、`fe-project-image-cropper`、`fe-error-boundary-partitioning`、`fe-skeleton-loading-states`、`fe-i18n-language-switcher-foundation`、`fe-onboarding-flow-refresh`、`fe-searchpanel-tokenized-rewrite`、`fe-zenmode-token-escape-cleanup`、`fe-dashboard-herocard-responsive-layout` 已归档）。
+- 当前活跃 change 数量为 **16**（前端整改拆分，基于 `docs/frontend-overhaul-plan.md` §七，`fe-rightpanel-ai-tabbar-layout`、`fe-rightpanel-ai-guidance-and-style`、`fe-spec-drift-iconbar-rightpanel-alignment`、`fe-hotfix-searchpanel-backdrop-close`、`fe-leftpanel-dialog-migration`、`fe-cleanup-proxysection-and-mocks`、`fe-ai-panel-toggle-button`、`fe-ipc-open-folder-contract`、`fe-ui-open-folder-entrypoints`、`fe-dashboard-welcome-merge-and-ghost-actions`、`fe-project-image-cropper`、`fe-error-boundary-partitioning`、`fe-skeleton-loading-states`、`fe-i18n-language-switcher-foundation`、`fe-onboarding-flow-refresh`、`fe-searchpanel-tokenized-rewrite`、`fe-zenmode-token-escape-cleanup`、`fe-dashboard-herocard-responsive-layout`、`fe-lucide-icon-unification`、`fe-theme-switch-smoothing`、`fe-desktop-native-binding-packaging`、`fe-desktop-window-lifecycle-uplift` 已归档）。
 - 执行模式：**4 批次渐进推进**（第一批核心体验 → 第二批功能补全 → 第三批设计系统回归 → 第四批独立 Issue 收口）。
 - 规则：
   - 任一 change 开始 Red 前，必须完成该 change 的依赖同步检查（Dependency Sync Check）。
@@ -81,8 +81,8 @@
 | A | 3a-1 | `fe-searchpanel-tokenized-rewrite` | SearchPanel + `main.css` 簇 | 前置 hotfix 已归档 | 已完成并归档（PR #898） |
 | B | 3a-1 | `fe-zenmode-token-escape-cleanup` | ZenMode + `tokens.css` 簇 | — | 已完成并归档（PR #899） |
 | C | 3a-1 | `fe-dashboard-herocard-responsive-layout` | DashboardPage 簇 | — | 已完成并归档（PR #900） |
-| A | 3b-1 | `fe-lucide-icon-unification` | icon import 广撒网簇 | Wave 3a 完成后（分别与 searchpanel/zenmode/herocard 共享文件） | PR #909 已创建，主会话审计 PASS，待独立审计 |
-| B | 3b-1 | `fe-theme-switch-smoothing` | `main.css` + `tokens.css` 簇 | Wave 3a 完成后（与 searchpanel/zenmode 共享样式文件） | PR #910 已创建，主会话审计 PASS，待独立审计 |
+| A | 3b-1 | `fe-lucide-icon-unification` | icon import 广撒网簇 | Wave 3a 完成后（分别与 searchpanel/zenmode/herocard 共享文件） | 已完成并归档（PR #909） |
+| B | 3b-1 | `fe-theme-switch-smoothing` | `main.css` + `tokens.css` 簇 | Wave 3a 完成后（与 searchpanel/zenmode 共享样式文件） | 已完成并归档（PR #910） |
 | A | 3c-1 | `fe-feature-focus-visible-coverage` | AiPanel/SearchPanel/Dashboard + `main.css` + `tokens.css` 簇 | Wave 3b 完成后 | 待执行 |
 | A | 3c-2 | `fe-visual-noise-reduction` | AiPanel/Dashboard + `tokens.css` 簇 | `fe-feature-focus-visible-coverage`；且需 `fe-rightpanel-ai-tabbar-layout`, `fe-rightpanel-ai-guidance-and-style`, `fe-leftpanel-dialog-migration` | 待执行 |
 | A | 3c-3 | `fe-reduced-motion-respect` | AiPanel/SearchPanel + `main.css` + `tokens.css` 簇 | `fe-visual-noise-reduction` | 待执行 |
@@ -108,8 +108,8 @@
 
 | Lane | 顺序 | Change | 文件冲突簇 | 依赖 | 状态 |
 |------|------|--------|-----------|------|------|
-| N1 | 4-0 | `fe-desktop-native-binding-packaging` | 主进程独立簇 | — | PR #911 已创建，主会话审计 PASS，待独立审计 |
-| N2 | 4-0 | `fe-desktop-window-lifecycle-uplift` | 主进程独立簇 | — | PR #912 已创建，主会话审计 PASS，待独立审计 |
+| N1 | 4-0 | `fe-desktop-native-binding-packaging` | 主进程独立簇 | — | 已完成并归档（PR #911） |
+| N2 | 4-0 | `fe-desktop-window-lifecycle-uplift` | 主进程独立簇 | — | 已完成并归档（PR #912） |
 | A | 4a-1 | `fe-i18n-language-switcher-foundation` | i18n/Onboarding/SettingsGeneral 簇 | — | 已完成并归档（PR #843） |
 | B | 4a-1 | `fe-composites-p0-panel-and-command-items` | SearchPanel/AiPanel/CommandPalette/FileTree 簇 | — | 待执行 |
 | C | 4a-1 | `fe-editor-tokenization-selection-and-spacing` | `tokens.css` + `main.css` + typography 簇 | — | 待执行 |
@@ -183,11 +183,11 @@
 
 第三批（3 波推进）
   Wave 3a: fe-searchpanel-tokenized-rewrite ∥ fe-zenmode-token-escape-cleanup ∥ fe-dashboard-herocard-responsive-layout（已完成并归档，PR #898/#899/#900）
-  Wave 3b: fe-lucide-icon-unification ∥ fe-theme-switch-smoothing
+  Wave 3b: fe-lucide-icon-unification ∥ fe-theme-switch-smoothing（已完成并归档，PR #909/#910）
   Wave 3c: fe-feature-focus-visible-coverage ──→ fe-visual-noise-reduction ──→ fe-reduced-motion-respect
 
 第四批（独立 lane + 冲突簇波次）
-  独立 lane: fe-desktop-native-binding-packaging ∥ fe-desktop-window-lifecycle-uplift
+  独立 lane: fe-desktop-native-binding-packaging ∥ fe-desktop-window-lifecycle-uplift（已完成并归档，PR #911/#912）
 
   Wave 4a:
     fe-i18n-language-switcher-foundation
