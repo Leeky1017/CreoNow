@@ -6,7 +6,7 @@
 - PR: https://github.com/Leeky1017/CreoNow/pull/919
 - Author-Agent: claude (subagent-A)
 - Reviewer-Agent: codex (independent audit)
-- Reviewed-HEAD-SHA: 0e82051a26dfcfce43b083641dedf107ef896f11
+- Reviewed-HEAD-SHA: e39d63cb88bb157c6b626dd4bf9a0136ca980295
 - Decision: PASS
 
 ## Scope
