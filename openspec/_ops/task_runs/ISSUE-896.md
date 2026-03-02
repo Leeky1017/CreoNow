@@ -9,7 +9,7 @@
 | Issue | #896 |
 | Branch | `task/896-zenmode-token-escape-cleanup` |
 | Change | `fe-zenmode-token-escape-cleanup` |
-| PR | 待回填 |
+| PR | https://github.com/Leeky1017/CreoNow/pull/899 |
 
 ## Dependency Sync Check
 
