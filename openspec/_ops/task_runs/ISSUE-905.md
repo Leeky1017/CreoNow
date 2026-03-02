@@ -2,7 +2,7 @@
 
 - Issue: #905
 - Branch: task/905-fe-lucide-icon-unification
-- PR: 待回填
+- PR: https://github.com/Leeky1017/CreoNow/pull/909
 
 ## Plan
 
