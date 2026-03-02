@@ -103,7 +103,7 @@ pnpm -C apps/desktop typecheck
 | 字段 | 值 |
 |------|-----|
 | Audit-Owner | 待独立审计员指派 |
-| Reviewed-HEAD-SHA | 待 push 后更新 |
+| Reviewed-HEAD-SHA | `a7c84453` |
 | Spec-Compliance | S1 ✅ S1b ✅ S2 ✅ S3 ✅ S3b ✅ |
 | Code-Quality | Typecheck ✅ · 全量回归 214/214 ✅ |
 | Fresh-Verification | 审计后补充 S2/S3b 完成，全量回归已通过 |
