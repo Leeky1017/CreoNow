@@ -9,16 +9,22 @@ export interface CommandItemProps {
   icon?: React.ReactNode;
   /** Command label text */
   label: string;
+  /** Override label rendering with custom React content (e.g. highlighted text) */
+  labelContent?: React.ReactNode;
   /** Optional keyboard shortcut hint */
   hint?: string;
   /** Callback when the command is selected */
   onSelect?: () => void;
   /** Whether this item is in active/highlighted state */
   active?: boolean;
+  /** Mouse enter handler (e.g. for hover-based active state tracking) */
+  onMouseEnter?: () => void;
   /** Additional CSS class */
   className?: string;
   /** data-testid for testing */
   "data-testid"?: string;
+  /** data-index for keyboard navigation tracking */
+  "data-index"?: number;
 }
 
 // =============================================================================
@@ -68,19 +74,24 @@ const inactiveStyles = [
 export function CommandItem({
   icon,
   label,
+  labelContent,
   hint,
   onSelect,
   active = false,
+  onMouseEnter,
   className = "",
   "data-testid": testId,
+  "data-index": dataIndex,
 }: CommandItemProps): JSX.Element {
   return (
     <div
       role="option"
       aria-selected={active}
       data-testid={testId}
+      data-index={dataIndex}
       className={`${baseStyles} ${active ? activeStyles : inactiveStyles} ${className}`}
       onClick={onSelect}
+      onMouseEnter={onMouseEnter}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -91,7 +102,7 @@ export function CommandItem({
     >
       {/* Active indicator bar */}
       {active && (
-        <div className="absolute left-0 top-2.5 bottom-2.5 w-0.5 bg-[color:var(--color-accent-blue)] rounded-r-sm" />
+        <div className="absolute left-0 top-2.5 bottom-2.5 w-0.5 bg-[var(--color-accent-blue)] rounded-r-sm" />
       )}
 
       {/* Icon */}
@@ -102,7 +113,7 @@ export function CommandItem({
       )}
 
       {/* Label */}
-      <span className="flex-1 text-[13px] truncate">{label}</span>
+      <span className="flex-1 text-[13px] truncate">{labelContent ?? label}</span>
 
       {/* Shortcut hint */}
       {hint && (
