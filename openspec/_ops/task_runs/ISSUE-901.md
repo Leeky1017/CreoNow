@@ -1,7 +1,7 @@
 # ISSUE-901
 - Issue: #901
 - Branch: task/901-wave3a-closeout
-- PR: <to-be-filled>
+- PR: https://github.com/Leeky1017/CreoNow/pull/902
 
 ## Plan
 - 归档 Wave 3a 已合并的三个 change 目录到 `openspec/changes/archive/`。
