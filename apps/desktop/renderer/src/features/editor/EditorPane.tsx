@@ -32,7 +32,6 @@ import {
   resolveEditorLineHeightToken,
   resolveEditorScaleFactor,
 } from "./typography";
-import { DragHandleExtension } from "./extensions/dragHandle";
 import { buildAiStreamUndoCheckpoint } from "./aiStreamUndo";
 import type { AiStreamCheckpoint } from "./aiStreamUndo";
 

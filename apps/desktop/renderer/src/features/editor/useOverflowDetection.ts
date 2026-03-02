@@ -13,10 +13,10 @@ import { useRef, useState, useEffect, useCallback } from "react";
  * ```
  */
 export function useOverflowDetection(): {
-  containerRef: React.RefObject<HTMLDivElement | null>;
+  containerRef: React.RefObject<HTMLDivElement>;
   isOverflowing: boolean;
 } {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
 
   const checkOverflow = useCallback(() => {

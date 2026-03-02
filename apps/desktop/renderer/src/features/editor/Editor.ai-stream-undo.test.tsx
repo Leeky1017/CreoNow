@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   buildAiStreamUndoCheckpoint,
-  type AiStreamCheckpoint,
 } from "./aiStreamUndo";
 
 describe("AI stream atomic undo", () => {
