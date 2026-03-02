@@ -5,6 +5,7 @@ import type { IpcMain } from "electron";
 
 import type { Logger } from "../../logging/logger";
 import type {
+  ContextAssembleResult,
   ContextInspectResult,
   ContextLayerAssemblyService,
 } from "../../services/context/layerAssemblyService";
@@ -30,8 +31,23 @@ function createDb(): Database.Database {
 }
 
 function createContextAssemblyService(args: {
+  assembleCalls?: { value: number };
   inspectCalls: { value: number };
 }): ContextLayerAssemblyService {
+  const assembleResult: ContextAssembleResult = {
+    prompt: "",
+    tokenCount: 0,
+    stablePrefixHash: "hash",
+    stablePrefixUnchanged: true,
+    warnings: [],
+    assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+    layers: {
+      rules: { source: [], tokenCount: 0, truncated: false },
+      settings: { source: [], tokenCount: 0, truncated: false },
+      retrieved: { source: [], tokenCount: 0, truncated: false },
+      immediate: { source: [], tokenCount: 0, truncated: false },
+    },
+  };
   const inspectResult: ContextInspectResult = {
     layersDetail: {
       rules: { content: "", source: [], tokenCount: 0, truncated: false },
@@ -67,7 +83,10 @@ function createContextAssemblyService(args: {
       error: { code: "NOT_IMPLEMENTED", message: "not used in this test" },
     }),
     assemble: async () => {
-      throw new Error("not used in this test");
+      if (args.assembleCalls) {
+        args.assembleCalls.value += 1;
+      }
+      return assembleResult;
     },
     inspect: async () => {
       args.inspectCalls.value += 1;
@@ -128,6 +147,58 @@ const viewerResponse = (await inspectHandler!(createEvent(42), {
 };
 assert.equal(viewerResponse.ok, false);
 assert.equal(viewerResponse.error?.code, "CONTEXT_INSPECT_FORBIDDEN");
+
+const assembleCalls = { value: 0 };
+const assembleHarness = createIpcHarness();
+const assembleBinding = createProjectSessionBindingRegistry();
+assembleBinding.bind({ webContentsId: 43, projectId: "project-1" });
+
+registerContextAssemblyHandlers({
+  ipcMain: assembleHarness.ipcMain,
+  db: createDb(),
+  logger: createLogger(),
+  contextAssemblyService: createContextAssemblyService({
+    assembleCalls,
+    inspectCalls: { value: 0 },
+  }),
+  inFlightByDocument: new Map<string, number>(),
+  projectSessionBinding: assembleBinding,
+});
+
+const assembleHandler = assembleHarness.handlers.get("context:prompt:assemble");
+assert.ok(
+  assembleHandler,
+  "context:prompt:assemble handler should be registered",
+);
+
+const assembleMismatchResponse = (await assembleHandler!(createEvent(43), {
+  projectId: "project-2",
+  documentId: "doc-1",
+  cursorPosition: 1,
+  skillId: "skill-1",
+})) as {
+  ok: boolean;
+  error?: { code?: string };
+};
+assert.equal(assembleMismatchResponse.ok, false);
+assert.equal(assembleMismatchResponse.error?.code, "FORBIDDEN");
+
+const assembleUnboundResponse = (await assembleHandler!(createEvent(404), {
+  projectId: "project-1",
+  documentId: "doc-1",
+  cursorPosition: 1,
+  skillId: "skill-1",
+})) as {
+  ok: boolean;
+  error?: { code?: string };
+};
+assert.equal(assembleUnboundResponse.ok, false);
+assert.equal(assembleUnboundResponse.error?.code, "FORBIDDEN");
+assert.equal(
+  assembleCalls.value,
+  0,
+  "forbidden assemble request must not call assemble()",
+);
 
 const ownerSelfAssertResponse = (await inspectHandler!(createEvent(42), {
   ...basePayload,

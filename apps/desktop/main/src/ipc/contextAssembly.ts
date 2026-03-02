@@ -174,7 +174,7 @@ export function registerContextAssemblyHandlers(
   deps.ipcMain.handle(
     "context:prompt:assemble",
     async (
-      _e,
+      event,
       payload: ContextAssembleRequest,
     ): Promise<IpcResponse<ContextAssembleResult>> => {
       if (!deps.db) {
@@ -183,6 +183,16 @@ export function registerContextAssemblyHandlers(
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
+
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding: deps.projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response;
+      }
+
       if (payload.projectId.trim().length === 0) {
         return {
           ok: false,
