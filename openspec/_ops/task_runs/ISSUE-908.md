@@ -79,3 +79,22 @@ EXIT: 0
 | MODIFIED | `apps/desktop/tests/unit/main/index.app-ready-catch.test.ts` |
 | ADDED    | `rulebook/tasks/issue-908-fe-desktop-window-lifecycle-uplift/proposal.md` |
 | ADDED    | `rulebook/tasks/issue-908-fe-desktop-window-lifecycle-uplift/tasks.md` |
+
+## Main Session Audit
+
+- Spec ↔ 实现一致性: ✅
+- Guard 测试覆盖 Scenario: ✅ 10 tests (windowState 6 + singleInstance guard 4)
+- Red → Green 证据: ✅ 全部记录
+- 全量回归通过: ✅ 267 tsx+vitest tests (含既有 mock 修复)
+- `pnpm typecheck` 通过: ✅ (零错误)
+- RUN_LOG 完整: ✅
+- Rulebook task 存在: ✅
+- PR 链接已回填: ✅
+- 代码风格 & 无 any: ✅
+- Reviewed-HEAD-SHA: PLACEHOLDER
+
+**审计结论**: PASS — windowState.ts 类型安全（isValidWindowState 防御性解析），debounce 节制 IO，single-instance lock 在 app.whenReady 前调用，既有测试 mock 兼容性已同步修复。
+
+## Blockers
+
+无。
