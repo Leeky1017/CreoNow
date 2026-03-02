@@ -1,7 +1,7 @@
 # ISSUE-914
 - Issue: #914
 - Branch: task/914-fe-composites-p0
-- PR: #919
+- PR: https://github.com/Leeky1017/CreoNow/pull/919
 
 ## Plan
 - 新增 PanelContainer/SidebarItem/CommandItem 三个 P0 Composite
