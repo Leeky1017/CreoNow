@@ -1,6 +1,6 @@
 # ISSUE-922
 
-更新时间：2026-03-02 23:28
+更新时间：2026-03-02 23:30
 
 - Issue: #922
 - Branch: task/922-wave4a-closeout
@@ -29,12 +29,17 @@
 - Key output: closeout PR 已创建（#923）。
 
 - Command: `scripts/agent_pr_preflight.sh --mode fast`
-- Exit code: `TBD`
-- Key output: 待执行后回填。
+- Exit code: `1`（首次）
+- Key output: 报错 `[MAIN_AUDIT] signing commit must only change RUN_LOG; found additional files: openspec/_ops/reviews/ISSUE-922.md`。
+- Fix: 先执行 `scripts/main_audit_resign.sh --issue 922 --preflight-mode fast` 生成仅修改 RUN_LOG 的签名提交，再复跑 preflight。
 
 - Command: `scripts/main_audit_resign.sh --issue 922 --preflight-mode fast`
-- Exit code: `TBD`
-- Key output: 待执行后回填。
+- Exit code: `0`
+- Key output: 已创建并推送签名提交 `e8f360af`，fast preflight 全绿。
+
+- Command: `find "rulebook/tasks/issue-922-wave4a-closeout\\" -type f -delete && rmdir "rulebook/tasks/issue-922-wave4a-closeout\\/specs" && rmdir "rulebook/tasks/issue-922-wave4a-closeout\\"`
+- Exit code: `0`
+- Key output: 已清理误生成的转义路径目录，工作区恢复 clean。
 
 ## Main Session Audit
 
