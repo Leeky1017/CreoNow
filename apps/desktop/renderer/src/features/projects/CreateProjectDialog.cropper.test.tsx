@@ -172,8 +172,10 @@ describe("CreateProjectDialog — ImageCropper integration", () => {
     await user.click(submitBtn);
 
     await waitFor(() => {
-      expect(createAndSetCurrent).toHaveBeenCalled();
+      expect(createAndSetCurrent).toHaveBeenCalledTimes(1);
     });
+    const callArgs = createAndSetCurrent.mock.calls[0][0] as Record<string, unknown>;
+    expect(callArgs).toHaveProperty("name", "My Novel");
   });
 
   it("does not show cropper when no image selected", () => {

@@ -63,13 +63,16 @@ export function ImageCropper({
     };
   }, [file]);
 
+  // ── Sync crop changes to parent ───────────────────────────────────────────
+  useEffect(() => {
+    onCropChange(crop);
+  }, [crop, onCropChange]);
+
   // ── Reset crop when file changes ──────────────────────────────────────────
   useEffect(() => {
-    const initial: CropArea = { x: 0, y: 0, zoom: 1 };
-    setCrop(initial);
-    onCropChange(initial);
-    // Only reset when file identity changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setCrop({ x: 0, y: 0, zoom: 1 });
+    // Only reset when file identity changes, not on onCropChange reference
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reset crop on file identity change, not on onCropChange reference
   }, [file]);
 
   // ── Drag handlers ─────────────────────────────────────────────────────────
@@ -91,17 +94,13 @@ export function ImageCropper({
       const dy = e.clientY - lastPointer.current.y;
       lastPointer.current = { x: e.clientX, y: e.clientY };
 
-      setCrop((prev) => {
-        const next: CropArea = {
-          x: prev.x + dx,
-          y: prev.y + dy,
-          zoom: prev.zoom,
-        };
-        onCropChange(next);
-        return next;
-      });
+      setCrop((prev) => ({
+        x: prev.x + dx,
+        y: prev.y + dy,
+        zoom: prev.zoom,
+      }));
     },
-    [onCropChange],
+    [],
   );
 
   const handlePointerUp = useCallback(() => {
@@ -118,12 +117,10 @@ export function ImageCropper({
         const rawZoom = prev.zoom + delta;
         const clampedZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, rawZoom));
 
-        const next: CropArea = { x: prev.x, y: prev.y, zoom: clampedZoom };
-        onCropChange(next);
-        return next;
+        return { x: prev.x, y: prev.y, zoom: clampedZoom };
       });
     },
-    [onCropChange],
+    [],
   );
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -133,7 +130,6 @@ export function ImageCropper({
     overflow: "hidden",
     position: "relative",
     width: "100%",
-    cursor: dragging.current ? "grabbing" : "grab",
     touchAction: "none",
     ...(aspectRatio ? { aspectRatio: `${aspectRatio}` } : { height: 200 }),
   };
@@ -156,7 +152,7 @@ export function ImageCropper({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onWheel={handleWheel}
-      className="rounded-[var(--radius-sm)] border border-[var(--color-border-default)]"
+      className="cursor-grab rounded-[var(--radius-sm)] border border-[var(--color-border-default)] active:cursor-grabbing"
     >
       {previewUrl && (
         <img

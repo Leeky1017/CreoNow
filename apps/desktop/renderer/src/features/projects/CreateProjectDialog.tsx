@@ -458,6 +458,7 @@ export function CreateProjectDialog({
               }
             : undefined;
 
+        // TODO: Thread coverImage/cropArea to createAndSetCurrent when IPC supports it
         const res = await createAndSetCurrent({
           name: data.name,
           type: data.type,
