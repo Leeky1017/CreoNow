@@ -1,7 +1,7 @@
 # ISSUE-915
 - Issue: #915
 - Branch: task/915-fe-editor-tokens
-- PR: <fill-after-created>
+- PR: https://github.com/Leeky1017/CreoNow/pull/917
 
 ## Plan
 - 新增 selection/caret/paragraph-spacing Token
