@@ -2,6 +2,10 @@
 
 引用自 `openspec/changes/fe-composites-p2-empties-and-confirms/proposal.md`。
 
+## Why
+
+Feature 层空状态和确认弹窗各自内联实现，样式与交互不一致。新增 P2 级 Composite 组件统一空状态、确认对话框、信息条的视觉语义和可访问性。
+
 ## 概要
 
 新增三个 P2 Composite 组件：
