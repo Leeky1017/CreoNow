@@ -7,6 +7,7 @@
  *
  * Scenario IDs: WB-FE-A11Y-FV-S1, S2, S3
  */
+import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { resolve, join, relative } from "node:path";
 
