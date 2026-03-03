@@ -5,7 +5,7 @@
 | Issue       | #927                                         |
 | Branch      | task/927-fe-hotkeys-unification               |
 | Change      | fe-hotkeys-shortcuts-unification              |
-| PR          | 待回填                                       |
+| PR          | https://github.com/Leeky1017/CreoNow/pull/931 |
 
 ## Dependency Sync Check
 - 上游 `fe-editor-advanced-interactions`: PR #918 已合并 main ✓，无漂移
