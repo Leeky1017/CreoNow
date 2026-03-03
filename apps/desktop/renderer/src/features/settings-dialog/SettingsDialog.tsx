@@ -124,7 +124,7 @@ const navButtonBaseStyles = [
   "py-3",
   "text-[13px]",
   "border-r-2",
-  "transition-all",
+  "transition-colors",
   "duration-[var(--duration-fast)]",
 ].join(" ");
 
@@ -140,7 +140,7 @@ const closeButtonStyles = [
   "text-[var(--color-fg-placeholder)]",
   "hover:text-[var(--color-fg-default)]",
   "transition-colors",
-  "z-10",
+  "z-[var(--z-overlay)]",
   "hover:bg-[var(--color-bg-hover)]",
   "rounded-full",
 ].join(" ");

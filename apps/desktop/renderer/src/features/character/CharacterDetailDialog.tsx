@@ -60,7 +60,7 @@ function getOverlayStyles(hasContainer: boolean): string {
     hasContainer ? "absolute" : "fixed",
     "inset-0",
     "z-[var(--z-modal)]",
-    "bg-[rgba(0,0,0,0.7)]",
+    "bg-[var(--color-scrim)]",
     "backdrop-blur-[4px]",
     "transition-opacity",
     "duration-[var(--duration-slow)]",
@@ -169,7 +169,7 @@ function ProfileTableRow({
 }) {
   return (
     <div className="grid grid-cols-[160px_1fr]">
-      <div className="px-4 py-3 bg-[#0c0c0c] border-r border-[var(--color-border-default)] text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-placeholder)] font-semibold">
+      <div className="px-4 py-3 bg-[var(--color-bg-base)] border-r border-[var(--color-border-default)] text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-placeholder)] font-semibold">
         {label}
       </div>
       <div className="px-4 py-3 min-w-0">{children}</div>
@@ -255,7 +255,7 @@ function TraitTag({
         "px-2.5",
         "py-1",
         "rounded",
-        "bg-[#151515]",
+        "bg-[var(--color-bg-raised)]",
         "border",
         "border-[var(--color-border-default)]",
         "text-xs",
@@ -265,7 +265,7 @@ function TraitTag({
         "gap-2",
         "hover:border-[var(--color-border-hover)]",
         "hover:bg-[var(--color-bg-hover)]",
-        "transition-all",
+        "transition-colors",
         "cursor-default",
         "select-none",
         "group",
@@ -282,7 +282,7 @@ function TraitTag({
             "group-hover:opacity-100",
             "text-[var(--color-fg-placeholder)]",
             "hover:text-[var(--color-error)]",
-            "transition-all",
+            "transition-[opacity,transform]",
             "scale-75",
             "group-hover:scale-100",
           ].join(" ")}
@@ -308,7 +308,7 @@ function RelationshipItem({
   const typeConfig = RELATIONSHIP_TYPE_DISPLAY[relationship.type];
 
   return (
-    <div className="flex items-center justify-between p-3 hover:bg-[#111] transition-colors group">
+    <div className="flex items-center justify-between p-3 hover:bg-[var(--color-bg-surface)] transition-colors group">
       <div className="flex items-center gap-3">
         <div className="relative">
           <Avatar
@@ -340,7 +340,7 @@ function RelationshipItem({
           <button
             type="button"
             onClick={onRemove}
-            className="focus-ring opacity-0 group-hover:opacity-100 text-[var(--color-fg-placeholder)] hover:text-[var(--color-error)] transition-all"
+            className="focus-ring opacity-0 group-hover:opacity-100 text-[var(--color-fg-placeholder)] hover:text-[var(--color-error)] transition-[opacity,color]"
             aria-label={`Remove relationship with ${relationship.characterName}`}
           >
             <CloseIcon />
@@ -374,12 +374,12 @@ function ChapterLink({
         "p-2.5",
         "w-full",
         "text-left",
-        "hover:bg-[#151515]",
+        "hover:bg-[var(--color-bg-raised)]",
         "rounded",
         "border",
         "border-transparent",
         "hover:border-[var(--color-border-default)]",
-        "transition-all",
+        "transition-colors",
       ].join(" ")}
     >
       <div className="flex items-center gap-3">
@@ -390,7 +390,7 @@ function ChapterLink({
           {appearance.title}
         </span>
       </div>
-      <span className="text-[var(--color-border-default)] group-hover:text-[var(--color-fg-placeholder)] opacity-0 group-hover:opacity-100 transition-all">
+      <span className="text-[var(--color-border-default)] group-hover:text-[var(--color-fg-placeholder)] opacity-0 group-hover:opacity-100 transition-[color,opacity]">
         <ArrowRightIcon />
       </span>
     </button>
@@ -584,12 +584,12 @@ export function CharacterDetailDialog({
           <div className="p-6 pb-0 flex items-start gap-6 shrink-0">
             {/* Avatar with upload overlay */}
             <div className="relative group cursor-pointer shrink-0">
-              <div className="w-16 h-16 rounded-full p-[1px] bg-gradient-to-b from-[var(--color-border-hover)] to-[#111]">
+              <div className="w-16 h-16 rounded-full p-[1px] bg-gradient-to-b from-[var(--color-border-hover)] to-[var(--color-bg-surface)]">
                 <Avatar
                   src={editedCharacter.avatarUrl}
                   fallback={editedCharacter.name}
                   size="lg"
-                  className="w-full h-full group-hover:brightness-75 transition-all"
+                  className="w-full h-full group-hover:brightness-75 transition-[filter]"
                 />
               </div>
               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -658,7 +658,7 @@ export function CharacterDetailDialog({
 
               <div id={profileContentId}>
                 {isProfileExpanded ? (
-                  <div className="rounded-lg overflow-hidden border border-[var(--color-border-default)] divide-y divide-[var(--color-border-default)] bg-[#0a0a0a]">
+                  <div className="rounded-lg overflow-hidden border border-[var(--color-border-default)] divide-y divide-[var(--color-border-default)] bg-[var(--color-bg-base)]">
                     <ProfileTableRow label="Age">
                       <Input
                         type="text"
@@ -739,7 +739,7 @@ export function CharacterDetailDialog({
                           onChange={(e) => setNewFeature(e.target.value)}
                           onKeyDown={handleFeatureKeyDown}
                           onBlur={handleAddFeature}
-                          className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[80px] py-1 px-1 ml-1 hover:bg-[#111] rounded transition-colors"
+                          className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[80px] py-1 px-1 ml-1 hover:bg-[var(--color-bg-surface)] rounded transition-colors"
                         />
                       </div>
                     </ProfileTableRow>
@@ -760,13 +760,13 @@ export function CharacterDetailDialog({
                           onChange={(e) => setNewTrait(e.target.value)}
                           onKeyDown={handleTraitKeyDown}
                           onBlur={handleAddTrait}
-                          className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[60px] py-1 px-1 ml-1 hover:bg-[#111] rounded transition-colors"
+                          className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[60px] py-1 px-1 ml-1 hover:bg-[var(--color-bg-surface)] rounded transition-colors"
                         />
                       </div>
                     </ProfileTableRow>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-[var(--color-border-default)] bg-[#0a0a0a] p-3">
+                  <div className="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-3">
                     <div className="flex flex-wrap gap-2">
                       <ProfileSummaryItem
                         label="Age"
@@ -809,7 +809,7 @@ export function CharacterDetailDialog({
                 onChange={(e) => handleFieldChange("description", e.target.value)}
                 placeholder="Describe the character..."
                 fullWidth
-                className="min-h-[80px] focus:min-h-[100px] transition-all resize-none"
+                className="min-h-[80px] focus:min-h-[100px] transition-[min-height] resize-none"
               />
             </div>
 
@@ -841,7 +841,7 @@ export function CharacterDetailDialog({
                 })()}
               </div>
               {editedCharacter.relationships.length > 0 ? (
-                <div className="rounded-lg overflow-hidden bg-[#0a0a0a] border border-[var(--color-bg-hover)] divide-y divide-[var(--color-bg-hover)]">
+                <div className="rounded-lg overflow-hidden bg-[var(--color-bg-base)] border border-[var(--color-bg-hover)] divide-y divide-[var(--color-bg-hover)]">
                   {editedCharacter.relationships.map((rel) => (
                     <RelationshipItem
                       key={rel.characterId}

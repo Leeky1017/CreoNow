@@ -524,7 +524,7 @@ export function SearchPanel(props: {
 
       {/* Glass Panel Modal */}
       <div
-        className="relative w-[640px] max-h-[80vh] flex flex-col rounded-xl overflow-hidden z-50 bg-[var(--color-bg-surface)] border border-[var(--color-separator)] shadow-[0_24px_48px_-12px_var(--color-shadow)] motion-safe:animate-[slideDown_0.3s_ease-out]"
+        className="relative w-[640px] max-h-[80vh] flex flex-col rounded-xl overflow-hidden z-[var(--z-modal)] bg-[var(--color-bg-surface)] border border-[var(--color-separator)] shadow-[0_24px_48px_-12px_var(--color-shadow)] motion-safe:animate-[slideDown_0.3s_ease-out]"
       >
         {/* Header */}
         <div

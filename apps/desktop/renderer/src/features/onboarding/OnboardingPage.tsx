@@ -64,7 +64,7 @@ function LanguageStep(props: {
             type="button"
             data-testid={`onboarding-lang-${lang.value}`}
             onClick={() => props.onSelect(lang.value)}
-            className={`focus-ring flex items-center gap-4 rounded-[var(--radius-lg)] border p-5 text-left transition-all duration-[var(--duration-fast)] ${
+            className={`focus-ring flex items-center gap-4 rounded-[var(--radius-lg)] border p-5 text-left transition-colors duration-[var(--duration-fast)] ${
               props.selected === lang.value
                 ? "border-[var(--color-fg-accent)] bg-[var(--color-bg-selected)]"
                 : "border-[var(--color-border-default)] bg-[var(--color-bg-surface)] hover:border-[var(--color-border-hover)]"
@@ -211,7 +211,7 @@ function StepIndicator(props: { current: OnboardingStep }): JSX.Element {
       {steps.map((s) => (
         <div
           key={s}
-          className={`h-2 rounded-full transition-all duration-[var(--duration-normal)] ${
+          className={`h-2 rounded-full transition-[width,background-color] duration-[var(--duration-normal)] ${
             s === props.current
               ? "w-6 bg-[var(--color-fg-accent)]"
               : s < props.current

@@ -285,7 +285,7 @@ export function EditorBubbleMenu(props: {
       tippyOptions={{
         placement,
         duration: bubbleDurations,
-        zIndex: 400,
+        zIndex: 400, // maps to --z-modal; tippy.js API requires number
         appendTo: () => document.body,
         popperOptions: {
           modifiers: [

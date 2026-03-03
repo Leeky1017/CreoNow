@@ -160,7 +160,7 @@ const closeButtonStyles = [
   "p-1",
   "-mr-1",
   "rounded-md",
-  "hover:bg-[rgba(255,255,255,0.05)]",
+  "hover:bg-[var(--color-zen-hover)]",
 ].join(" ");
 
 const scrollAreaStyles = ["flex-1", "overflow-y-auto", "p-3", "space-y-2"].join(
@@ -214,7 +214,7 @@ function AuthorBadge({
     case "auto-save":
       return (
         <div
-          className={`${baseClasses} bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.05)] text-[var(--color-fg-muted)]`}
+          className={`${baseClasses} bg-[var(--color-zen-hover)] border border-[var(--color-zen-hover)] text-[var(--color-fg-muted)]`}
         >
           <AutoSaveIcon />
           <span className="mt-px">{name}</span>
@@ -223,7 +223,7 @@ function AuthorBadge({
     default:
       return (
         <div
-          className={`${baseClasses} bg-[rgba(255,255,255,0.1)] border border-[rgba(255,255,255,0.05)] text-[var(--color-fg-default)]`}
+          className={`${baseClasses} bg-[var(--color-bg-overlay)] border border-[var(--color-zen-hover)] text-[var(--color-fg-default)]`}
         >
           <UserIcon />
           <span className="mt-px">{name}</span>
@@ -295,7 +295,7 @@ function DiffSummaryPreview({ summary }: { summary?: string }) {
   if (!summary) return null;
 
   return (
-    <div className="mt-2 p-2 bg-[rgba(255,255,255,0.02)] rounded border border-[var(--color-separator)] text-[11px] text-[var(--color-fg-muted)] font-mono leading-relaxed">
+    <div className="mt-2 p-2 bg-[var(--color-bg-raised)] rounded border border-[var(--color-separator)] text-[11px] text-[var(--color-fg-muted)] font-mono leading-relaxed">
       <span className="text-[var(--color-fg-placeholder)] text-[9px] uppercase tracking-wider block mb-1">
         变更预览
       </span>
@@ -310,7 +310,7 @@ function DiffSummaryPreview({ summary }: { summary?: string }) {
 function WordChangeBadge({ change }: { change: WordChange }) {
   if (change.type === "none") {
     return (
-      <span className="text-[10px] text-[var(--color-fg-muted)] font-mono bg-[rgba(255,255,255,0.05)] px-1 rounded">
+      <span className="text-[10px] text-[var(--color-fg-muted)] font-mono bg-[var(--color-zen-hover)] px-1 rounded">
         No changes
       </span>
     );
@@ -356,7 +356,7 @@ function HoverActions({
         "items-center",
         "justify-center",
         "gap-2",
-        "z-10",
+        "z-[var(--z-overlay)]",
         "opacity-0",
         "pointer-events-none",
         "group-hover:opacity-100",
@@ -369,7 +369,7 @@ function HoverActions({
         <button
           type="button"
           onClick={() => onRestore?.(versionId)}
-          className="focus-ring p-1.5 rounded-md hover:bg-[rgba(255,255,255,0.1)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
+          className="focus-ring p-1.5 rounded-md hover:bg-[var(--color-bg-overlay)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
         >
           <RestoreIcon />
         </button>
@@ -378,7 +378,7 @@ function HoverActions({
         <button
           type="button"
           onClick={() => onCompare?.(versionId)}
-          className="focus-ring p-1.5 rounded-md hover:bg-[rgba(255,255,255,0.1)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
+          className="focus-ring p-1.5 rounded-md hover:bg-[var(--color-bg-overlay)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
         >
           <CompareIcon />
         </button>
@@ -387,7 +387,7 @@ function HoverActions({
         <button
           type="button"
           onClick={() => onPreview?.(versionId)}
-          className="focus-ring p-1.5 rounded-md hover:bg-[rgba(255,255,255,0.1)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
+          className="focus-ring p-1.5 rounded-md hover:bg-[var(--color-bg-overlay)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
         >
           <PreviewIcon />
         </button>
@@ -427,7 +427,7 @@ function VersionCard({
   if (isSelected) {
     return (
       <div
-        className={`${baseCardStyles} rounded-r-lg rounded-l-none pl-[10px] bg-[#151515] border-l-2 border-[var(--color-accent)] border-t border-r border-b border-t-[var(--color-separator)] border-b-[var(--color-separator)] border-r-[var(--color-separator)]`}
+        className={`${baseCardStyles} rounded-r-lg rounded-l-none pl-[10px] bg-[var(--color-bg-raised)] border-l-2 border-[var(--color-accent)] border-t border-r border-b border-t-[var(--color-separator)] border-b-[var(--color-separator)] border-r-[var(--color-separator)]`}
         onClick={() => onSelect?.(version.id)}
         data-testid={`version-card-${version.id}`}
       >
@@ -464,7 +464,7 @@ function VersionCard({
             variant="secondary"
             size="sm"
             onClick={() => onRestore?.(version.id)}
-            className="!h-7 !text-[10px] !px-0 !bg-[#222] hover:!bg-[#2a2a2a]"
+            className="!h-7 !text-[10px] !px-0 !bg-[var(--color-bg-active)] hover:!bg-[var(--color-bg-selected)]"
           >
             Restore
           </Button>
@@ -472,7 +472,7 @@ function VersionCard({
             variant="secondary"
             size="sm"
             onClick={() => onCompare?.(version.id)}
-            className="!h-7 !text-[10px] !px-0 !bg-[#222] hover:!bg-[#2a2a2a]"
+            className="!h-7 !text-[10px] !px-0 !bg-[var(--color-bg-active)] hover:!bg-[var(--color-bg-selected)]"
           >
             Compare
           </Button>
@@ -480,7 +480,7 @@ function VersionCard({
             variant="secondary"
             size="sm"
             onClick={() => onPreview?.(version.id)}
-            className="!h-7 !text-[10px] !px-0 !bg-[#222] hover:!bg-[#2a2a2a]"
+            className="!h-7 !text-[10px] !px-0 !bg-[var(--color-bg-active)] hover:!bg-[var(--color-bg-selected)]"
           >
             Preview
           </Button>
@@ -492,7 +492,7 @@ function VersionCard({
   if (version.isCurrent) {
     return (
       <div
-        className={`${baseCardStyles} rounded-lg bg-[rgba(255,255,255,0.02)] border border-[var(--color-separator)] hover:bg-[var(--color-bg-hover)] cursor-pointer`}
+        className={`${baseCardStyles} rounded-lg bg-[var(--color-bg-raised)] border border-[var(--color-separator)] hover:bg-[var(--color-bg-hover)] cursor-pointer`}
         onClick={() => onSelect?.(version.id)}
         data-testid={`version-card-${version.id}`}
       >

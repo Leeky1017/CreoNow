@@ -19,9 +19,20 @@ const Z_INDEX_ESCAPE_PATTERNS = [
   },
 ] as const;
 
+/**
+ * Whitelist: files where numeric zIndex is required by a third-party API
+ * that only accepts `number` (not CSS variable strings).
+ *
+ * - EditorBubbleMenu.tsx: tippy.js `tippyOptions.zIndex` is typed as `number`.
+ *   The value `400` maps to `--z-modal`. See inline comment in file.
+ */
+const Z_INDEX_WHITELIST = ["EditorBubbleMenu.tsx"];
+
 describe("WB-FE-TOKEN-S2 z-index token escape guard", () => {
   it("rejects numeric z-index values in all feature files", () => {
-    const files = collectAllFeatureTsxFiles();
+    const files = collectAllFeatureTsxFiles().filter(
+      (f) => !Z_INDEX_WHITELIST.some((w) => f.endsWith(w)),
+    );
 
     const violations = collectPatternViolations(
       files,

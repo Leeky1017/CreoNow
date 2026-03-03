@@ -212,7 +212,7 @@ const closeButtonStyles = [
   "p-1",
   "-mr-1",
   "rounded-md",
-  "hover:bg-[rgba(255,255,255,0.05)]",
+  "hover:bg-[var(--color-zen-hover)]",
 ].join(" ");
 
 const scrollAreaStyles = ["flex-1", "overflow-y-auto", "p-3", "space-y-3"].join(
@@ -337,14 +337,14 @@ function SettingsToggle({
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative inline-flex items-center w-11 h-6 rounded-full border shrink-0 cursor-pointer transition-all duration-[var(--duration-slow)] ease-[var(--ease-default)] focus-visible:outline focus-visible:outline-[length:var(--ring-focus-width)] focus-visible:outline-offset-[var(--ring-focus-offset)] focus-visible:outline-[var(--color-ring-focus)] ${
+        className={`relative inline-flex items-center w-11 h-6 rounded-full border shrink-0 cursor-pointer transition-colors duration-[var(--duration-slow)] ease-[var(--ease-default)] focus-visible:outline focus-visible:outline-[length:var(--ring-focus-width)] focus-visible:outline-offset-[var(--ring-focus-offset)] focus-visible:outline-[var(--color-ring-focus)] ${
           checked
             ? "bg-[var(--color-fg-default)] border-[var(--color-fg-default)]"
             : "bg-[var(--color-bg-hover)] border-[var(--color-border-default)]"
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
         <span
-          className={`absolute left-[3px] w-[18px] h-[18px] rounded-full transition-all duration-[var(--duration-slow)] pointer-events-none ${
+          className={`absolute left-[3px] w-[18px] h-[18px] rounded-full transition-transform duration-[var(--duration-slow)] pointer-events-none ${
             checked
               ? "translate-x-[20px] bg-[var(--color-fg-inverse)]"
               : "translate-x-0 bg-[var(--color-fg-subtle)]"
@@ -375,7 +375,7 @@ function IssueCard({
 }) {
   if (issue.ignored) {
     return (
-      <div className="p-3 bg-[rgba(255,255,255,0.02)] rounded-lg border border-[var(--color-separator)] opacity-50">
+      <div className="p-3 bg-[var(--color-bg-raised)] rounded-lg border border-[var(--color-separator)] opacity-50">
         <p className="text-[12px] text-[var(--color-fg-muted)] line-through">
           {issue.description}
         </p>
@@ -569,7 +569,7 @@ function CheckGroupAccordion({
       className="bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] overflow-hidden"
       data-testid={`check-group-${group.id}`}
     >
-      <div className="px-4 py-3 bg-[rgba(255,255,255,0.02)] border-b border-[var(--color-separator)]">
+      <div className="px-4 py-3 bg-[var(--color-bg-raised)] border-b border-[var(--color-separator)]">
         <div className="flex items-center justify-between">
           <span className="text-[13px] font-medium text-[var(--color-fg-default)]">
             {group.name}

@@ -72,7 +72,7 @@ export function RoleSelector({
         <button
           type="button"
           className={[
-            "bg-[#1a2333]",
+            "bg-[var(--color-info-subtle)]",
             currentRole.color,
             "border",
             "border-[var(--color-info)]/30",
