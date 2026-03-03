@@ -1,12 +1,12 @@
 # Active Changes Execution Order
 
-更新时间：2026-03-03 16:10
+更新时间：2026-03-03 17:05
 
 适用范围：`openspec/changes/` 下所有非 `archive/`、非 `_template/` 的活跃 change。
 
 ## 执行策略
 
-- 当前活跃 change 数量为 **6**（`fe-accessibility-aria-live`、`fe-command-palette-search-uplift`、`fe-deterministic-now-injection`、`fe-reduced-motion-respect`、`fe-token-escape-sweep`、`fe-visual-noise-reduction`）。
+- 当前活跃 change 数量为 **4**（`fe-accessibility-aria-live`、`fe-deterministic-now-injection`、`fe-reduced-motion-respect`、`fe-token-escape-sweep`）。
 - 执行模式：**4 批次渐进推进**（第一批核心体验 → 第二批功能补全 → 第三批设计系统回归 → 第四批独立 Issue 收口）。
 - 规则：
   - 任一 change 开始 Red 前，必须完成该 change 的依赖同步检查（Dependency Sync Check）。
@@ -84,7 +84,7 @@
 | A | 3b-1 | `fe-lucide-icon-unification` | icon import 广撒网簇 | Wave 3a 完成后（分别与 searchpanel/zenmode/herocard 共享文件） | 已完成并归档（PR #909） |
 | B | 3b-1 | `fe-theme-switch-smoothing` | `main.css` + `tokens.css` 簇 | Wave 3a 完成后（与 searchpanel/zenmode 共享样式文件） | 已完成并归档（PR #910） |
 | A | 3c-1 | `fe-feature-focus-visible-coverage` | AiPanel/SearchPanel/Dashboard + `main.css` + `tokens.css` 簇 | Wave 3b 完成后 | 已完成并归档（PR #928） |
-| A | 3c-2 | `fe-visual-noise-reduction` | AiPanel/Dashboard + `tokens.css` 簇 | `fe-feature-focus-visible-coverage`；且需 `fe-rightpanel-ai-tabbar-layout`, `fe-rightpanel-ai-guidance-and-style`, `fe-leftpanel-dialog-migration` | 实现完成，PR #943 待审计 |
+| A | 3c-2 | `fe-visual-noise-reduction` | AiPanel/Dashboard + `tokens.css` 簇 | `fe-feature-focus-visible-coverage`；且需 `fe-rightpanel-ai-tabbar-layout`, `fe-rightpanel-ai-guidance-and-style`, `fe-leftpanel-dialog-migration` | 已完成并归档（PR #943） |
 | A | 3c-3 | `fe-reduced-motion-respect` | AiPanel/SearchPanel + `main.css` + `tokens.css` 簇 | `fe-visual-noise-reduction` | 待执行 |
 
 #### 第三批文件冲突矩阵
@@ -120,7 +120,7 @@
 | D | 4b-1 | `fe-editor-inline-diff-decoration-integration` | VersionHistoryContainer + `tokens.css` 簇 | — | 已完成并归档（PR #938） |
 | E | 4b-1 | `fe-hotkeys-shortcuts-unification` | EditorPane 簇 | `fe-editor-advanced-interactions` 完成后（共享 `EditorPane.tsx`） | 已完成并归档（PR #931） |
 | A | 4c-1 | `fe-accessibility-aria-live` | AiPanel/SearchPanel/ChatHistory 簇 | `fe-composites-p0-panel-and-command-items`, `fe-i18n-core-pages-keying`（已归档）完成后（共享 `AiPanel.tsx`/`SearchPanel.tsx`） | 待执行 |
-| B | 4c-1 | `fe-command-palette-search-uplift` | CommandPalette 簇 | `fe-composites-p0-panel-and-command-items`, `fe-i18n-core-pages-keying`（已归档）完成后（共享 `CommandPalette.tsx`） | 待执行 |
+| B | 4c-1 | `fe-command-palette-search-uplift` | CommandPalette 簇 | `fe-composites-p0-panel-and-command-items`, `fe-i18n-core-pages-keying`（已归档）完成后（共享 `CommandPalette.tsx`） | 已完成并归档（PR #944） |
 | C | 4c-1 | `fe-editor-context-menu-and-tooltips` | EditorPane + Tooltip 簇 | `fe-editor-advanced-interactions`, `fe-hotkeys-shortcuts-unification`（已归档）完成后（共享 `EditorPane.tsx`） | 已完成并归档（PR #939） |
 | A | 4d-1 | `fe-deterministic-now-injection` | SearchPanel/Dashboard/ChatHistory/VersionHistory 簇 | `fe-accessibility-aria-live`, `fe-i18n-core-pages-keying`（已归档）, `fe-editor-inline-diff-decoration-integration`（已归档）完成后 | 待执行 |
 | A | 4e-1 | `fe-token-escape-sweep` | SearchPanel + `tokens.css` + ZenMode 簇 | `fe-deterministic-now-injection`, `fe-accessibility-aria-live`, `fe-i18n-core-pages-keying`（已归档）, `fe-composites-p0-panel-and-command-items`, `fe-editor-tokenization-selection-and-spacing`, `fe-editor-inline-diff-decoration-integration`（已归档）完成后 | 待执行 |

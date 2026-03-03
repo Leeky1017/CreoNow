@@ -1,11 +1,11 @@
 ## 1. Specification
 
-更新时间：2026-02-28 19:20
+更新时间：2026-03-03 16:10
 
-- [ ] 1.1 审阅并确认需求边界：为 Command Palette 补齐文件搜索能力 + 将搜索匹配从 `includes` 升级为 fuzzy match。不扩展到跨项目搜索。
-- [ ] 1.2 审阅并确认错误路径与边界路径：无文件索引时降级为仅命令搜索（不报错）；空 query 时不显示文件项（保持现有行为）。
-- [ ] 1.3 审阅并确认验收阈值与不可变契约：fuzzy 搜索 p95 输入响应 < 120ms（或 workbench spec 阈值）；文件搜索结果必须包含文件名和路径。
-- [ ] 1.4 依赖同步检查（Dependency Sync Check）：建议先行 `fe-ipc-open-folder-contract`（确保工作区语义稳定）
+- [x] 1.1 审阅并确认需求边界：为 Command Palette 补齐文件搜索能力 + 将搜索匹配从 `includes` 升级为 fuzzy match。不扩展到跨项目搜索。
+- [x] 1.2 审阅并确认错误路径与边界路径：无文件索引时降级为仅命令搜索（不报错）；空 query 时不显示文件项（保持现有行为）。
+- [x] 1.3 审阅并确认验收阈值与不可变契约：fuzzy 搜索 p95 输入响应 < 120ms（或 workbench spec 阈值）；文件搜索结果必须包含文件名和路径。
+- [x] 1.4 依赖同步检查（Dependency Sync Check）：建议先行 `fe-ipc-open-folder-contract`（确保工作区语义稳定）
 
 ### 1.5 预期实现触点
 
@@ -23,9 +23,9 @@
 
 ## 2. TDD Mapping（先测前提）
 
-- [ ] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试用例
-- [ ] 2.2 为每个测试标注对应 Scenario ID，建立可追踪关系
-- [ ] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
+- [x] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试用例
+- [x] 2.2 为每个测试标注对应 Scenario ID，建立可追踪关系
+- [x] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
 
 ### Scenario → 测试映射
 
@@ -43,38 +43,38 @@
 
 ## 3. Red（先写失败测试）
 
-- [ ] 3.1 `WB-FE-CP-S1`：构造 CommandItem 数组，调用 `fuzzyFilter(items, "cmdplt")`，断言匹配到 label 含 "CommandPalette" 的项。
+- [x] 3.1 `WB-FE-CP-S1`：构造 CommandItem 数组，调用 `fuzzyFilter(items, "cmdplt")`，断言匹配到 label 含 "CommandPalette" 的项。
   - 期望红灯原因：`fuzzyMatch.ts` 模块不存在。
-- [ ] 3.2 `WB-FE-CP-S1b`：输入无关字符串，断言返回空数组。
+- [x] 3.2 `WB-FE-CP-S1b`：输入无关字符串，断言返回空数组。
   - 期望红灯原因：同上。
-- [ ] 3.3 `WB-FE-CP-S1c`：构造精确前缀和模糊匹配项，断言精确前缀排在前面。
+- [x] 3.3 `WB-FE-CP-S1c`：构造精确前缀和模糊匹配项，断言精确前缀排在前面。
   - 期望红灯原因：同上。
-- [ ] 3.4 `WB-FE-CP-S2`：mock fileStore 返回文件列表，渲染 CommandPalette，输入 query，断言文件项出现。
+- [x] 3.4 `WB-FE-CP-S2`：mock fileStore 返回文件列表，渲染 CommandPalette，输入 query，断言文件项出现。
   - 期望红灯原因：当前 CommandPalette 不接入文件数据源。
-- [ ] 3.5 `WB-FE-CP-S3`：mock fileStore 返回空，断言仅显示命令项且无报错。
+- [x] 3.5 `WB-FE-CP-S3`：mock fileStore 返回空，断言仅显示命令项且无报错。
   - 期望红灯原因：当前无文件搜索降级逻辑。
 - 运行：`pnpm -C apps/desktop test:run features/commandPalette/fuzzyMatch` / `CommandPalette.file-search`
 
 ## 4. Green（最小实现通过）
 
-- [ ] 4.1 新增 `fuzzyMatch.ts`：
+- [x] 4.1 新增 `fuzzyMatch.ts`：
   - `fuzzyFilter(items: CommandItem[], query: string): CommandItem[]`
   - 实现字符序列匹配 + 评分排序（或集成 fuse.js）
   → S1/S1b/S1c 转绿
-- [ ] 4.2 `CommandPalette.tsx`：`filterCommands()` L399-411 替换 `includes` 为 `fuzzyFilter` 调用
-- [ ] 4.3 `CommandPalette.tsx`：从 fileStore 获取文件列表，转为 `CommandItem[]`（category: "file"），合并到 commands
+- [x] 4.2 `CommandPalette.tsx`：`filterCommands()` L399-411 替换 `includes` 为 `fuzzyFilter` 调用
+- [x] 4.3 `CommandPalette.tsx`：从 fileStore 获取文件列表，转为 `CommandItem[]`（category: "file"），合并到 commands
   → S2 转绿
-- [ ] 4.4 文件索引为空时跳过合并，仅返回命令项 → S3 转绿
+- [x] 4.4 文件索引为空时跳过合并，仅返回命令项 → S3 转绿
 
 ## 5. Refactor（保持绿灯）
 
-- [ ] 5.1 抽取 search adapter 接口（`SearchSource`），便于未来扩展（命令/文件/设置）
-- [ ] 5.2 确认 fuzzy 引擎在 1000+ 项时 p95 < 120ms（可加 benchmark 测试）
+- [x] 5.1 抽取 search adapter 接口（`SearchSource`），便于未来扩展（命令/文件/设置）
+- [x] 5.2 确认 fuzzy 引擎在 1000+ 项时 p95 < 120ms（可加 benchmark 测试）
 
 ## 6. Evidence
 
-- [ ] 6.1 记录 RUN_LOG：Red 阶段测试失败的输出
-- [ ] 6.2 记录 RUN_LOG：Green 阶段全部通过的输出
-- [ ] 6.3 记录 RUN_LOG：`pnpm -C apps/desktop test:run` 全量回归无新增失败
-- [ ] 6.4 记录 Dependency Sync Check：确认 `fe-ipc-open-folder-contract` 状态
-- [ ] 6.5 Main Session Audit（仅在 Apply 阶段需要）
+- [x] 6.1 记录 RUN_LOG：Red 阶段测试失败的输出
+- [x] 6.2 记录 RUN_LOG：Green 阶段全部通过的输出
+- [x] 6.3 记录 RUN_LOG：`pnpm -C apps/desktop test:run` 全量回归无新增失败
+- [x] 6.4 记录 Dependency Sync Check：确认 `fe-ipc-open-folder-contract` 状态
+- [x] 6.5 Main Session Audit（仅在 Apply 阶段需要）
