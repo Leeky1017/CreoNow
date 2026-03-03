@@ -5,7 +5,10 @@
 - Change: fe-hotkeys-shortcuts-unification
 - PR: https://github.com/Leeky1017/CreoNow/pull/931
 
-## Dependency Sync Check
+## Plan
+- 建立统一 HotkeyManager（scope + 优先级 + 传播控制），迁移散装 keydown listener，新增快捷键参考面板。
+
+
 - 上游 `fe-editor-advanced-interactions`: PR #918 已合并 main ✓，无漂移
 
 ## Runs
