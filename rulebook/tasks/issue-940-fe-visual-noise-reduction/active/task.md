@@ -17,4 +17,4 @@ Change: `openspec/changes/fe-visual-noise-reduction`
 - [x] Green: Replace separator borders
 - [x] Refactor: visual regression check
 - [x] Full regression + typecheck
-- [ ] Commit + push
+- [x] Commit + push
