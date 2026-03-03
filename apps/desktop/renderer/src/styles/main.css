@@ -396,6 +396,29 @@ textarea:focus-visible {
   animation-delay: 0.4s;
 }
 
+/* SearchPanel slide-down animation (moved from inline) */
+@keyframes slideDown {
+  0% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* === 全局 Reduced Motion 降级 === */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* === ProseMirror editor token overrides === */
 
 .ProseMirror ::selection {

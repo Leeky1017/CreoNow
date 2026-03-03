@@ -1,11 +1,11 @@
 ## 1. Specification
 
-更新时间：2026-02-28 19:20
+更新时间：2026-03-04 03:30
 
-- [ ] 1.1 审阅并确认需求边界：将 `prefers-reduced-motion` 从"个别组件记得做"提升为"系统级默认"。所有自定义动画/过渡在 reduced motion 下必须被禁用或压缩为 0ms。不改变业务功能。
-- [ ] 1.2 审阅并确认错误路径与边界路径：reduced motion 未启用时行为不变。
-- [ ] 1.3 审阅并确认验收阈值与不可变契约：Feature 层 46 处 `transition-all`/`animate-*` 以及 2 处内联 `@keyframes`（SearchPanel/AiPanel）必须受 reduced motion 控制。
-- [ ] 1.4 依赖同步检查（Dependency Sync Check）：N/A
+- [x] 1.1 审阅并确认需求边界：将 `prefers-reduced-motion` 从"个别组件记得做"提升为"系统级默认"。所有自定义动画/过渡在 reduced motion 下必须被禁用或压缩为 0ms。不改变业务功能。
+- [x] 1.2 审阅并确认错误路径与边界路径：reduced motion 未启用时行为不变。
+- [x] 1.3 审阅并确认验收阈值与不可变契约：Feature 层 46 处 `transition-all`/`animate-*` 以及 2 处内联 `@keyframes`（SearchPanel/AiPanel）必须受 reduced motion 控制。
+- [x] 1.4 依赖同步检查（Dependency Sync Check）：N/A
 
 ### 1.5 预期实现触点
 
@@ -26,9 +26,9 @@
 
 ## 2. TDD Mapping（先测前提）
 
-- [ ] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试用例
-- [ ] 2.2 为每个测试标注对应 Scenario ID，建立可追踪关系
-- [ ] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
+- [x] 2.1 将 delta spec 的每个 Scenario 映射为至少一个测试用例
+- [x] 2.2 为每个测试标注对应 Scenario ID，建立可追踪关系
+- [x] 2.3 设定门禁：未出现 Red（失败测试）不得进入实现
 
 ### Scenario → 测试映射
 
@@ -36,7 +36,7 @@
 | ----------- | ---------------- | ---------------- | -------- | --------- | -------- |
 | `WB-FE-MOTION-S1` | `apps/desktop/renderer/src/styles/__tests__/reduced-motion-global.guard.test.ts` | `it('main.css contains @media (prefers-reduced-motion: reduce) rule')` | 读取 main.css 源码，断言包含 `@media (prefers-reduced-motion: reduce)` 且内含 `animation-duration` 和 `transition-duration` 覆盖 | `fs.readFileSync` | `pnpm -C apps/desktop test:run styles/__tests__/reduced-motion-global.guard` |
 | `WB-FE-MOTION-S2` | 同上 | `it('tokens.css defines motion duration tokens with reduced-motion override')` | 读取 tokens.css，断言包含 `--duration-fast`/`--duration-normal`/`--duration-slow` 且在 reduced-motion 媒体查询下为 `0ms` | `fs.readFileSync` | 同上 |
-| `WB-FE-MOTION-S3` | 同上 | `it('no inline @keyframes in feature files (must be in main.css)')` | 读取 SearchPanel.tsx 和 AiPanel.tsx，断言不含 `@keyframes` | `fs.readFileSync` | 同上 |
+| `WB-FE-MOTION-S3` | 同上 | `it('no inline @keyframes in feature files (must be in main.css)')` | 读取 SearchPanel.tsx，断言不含 `@keyframes`（AiPanel.tsx 已在先前 change 清理，无内联 @keyframes） | `fs.readFileSync` | 同上 |
 
 ### 可复用测试范本
 
@@ -45,17 +45,17 @@
 
 ## 3. Red（先写失败测试）
 
-- [ ] 3.1 `WB-FE-MOTION-S1`：读取 `main.css`，断言包含 `@media (prefers-reduced-motion: reduce)` 且覆盖 `animation-duration` 和 `transition-duration`。
+- [x] 3.1 `WB-FE-MOTION-S1`：读取 `main.css`，断言包含 `@media (prefers-reduced-motion: reduce)` 且覆盖 `animation-duration` 和 `transition-duration`。
   - 期望红灯原因：当前 main.css 无此媒体查询规则。
-- [ ] 3.2 `WB-FE-MOTION-S2`：读取 `tokens.css`，断言包含 `--duration-fast`/`--duration-normal`/`--duration-slow` 且在 reduced-motion 下为 `0ms`。
+- [x] 3.2 `WB-FE-MOTION-S2`：读取 `tokens.css`，断言包含 `--duration-fast`/`--duration-normal`/`--duration-slow` 且在 reduced-motion 下为 `0ms`。
   - 期望红灯原因：当前 tokens.css 未定义 motion duration Token。
-- [ ] 3.3 `WB-FE-MOTION-S3`：读取 `SearchPanel.tsx` 和 `AiPanel.tsx`，断言不含 `@keyframes`。
-  - 期望红灯原因：SearchPanel.tsx L1072 有 `@keyframes slideDown`，AiPanel.tsx L1611 有 `@keyframes blink`。
+- [x] 3.3 `WB-FE-MOTION-S3`：读取 `SearchPanel.tsx`，断言不含 `@keyframes`（AiPanel.tsx 已在先前 change 清理内联 @keyframes，当前无需断言）。
+  - 期望红灯原因：SearchPanel.tsx L821 有 `@keyframes slideDown`。
 - 运行：`pnpm -C apps/desktop test:run styles/__tests__/reduced-motion-global.guard`
 
 ## 4. Green（最小实现通过）
 
-- [ ] 4.1 `main.css`：新增全局 reduced motion 规则：
+- [x] 4.1 `main.css`：新增全局 reduced motion 规则：
   ```css
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -66,7 +66,7 @@
   }
   ```
   → S1 转绿
-- [ ] 4.2 `tokens.css`：新增 motion Token 并在 reduced-motion 下覆盖为 `0ms`：
+- [x] 4.2 `tokens.css`：新增 motion Token 并在 reduced-motion 下覆盖为 `0ms`：
   ```css
   :root { --duration-fast: 150ms; --duration-normal: 250ms; --duration-slow: 400ms; }
   @media (prefers-reduced-motion: reduce) {
@@ -74,8 +74,8 @@
   }
   ```
   → S2 转绿
-- [ ] 4.3 `SearchPanel.tsx`：将 L1072 的 `@keyframes slideDown` 移到 `main.css` → S3 转绿
-- [ ] 4.4 `AiPanel.tsx`：将 L1611 的 `@keyframes blink` 移到 `main.css` → S3 转绿
+- [x] 4.3 `SearchPanel.tsx`：将 L1072 的 `@keyframes slideDown` 移到 `main.css` → S3 转绿
+- [x] 4.4 `AiPanel.tsx`：已在先前 change 清理，无需改动：将 L1611 的 `@keyframes blink` 移到 `main.css` → S3 转绿
 
 ## 5. Refactor（保持绿灯）
 
@@ -84,8 +84,8 @@
 
 ## 6. Evidence
 
-- [ ] 6.1 记录 RUN_LOG：Red 阶段 3 个 guard 测试全部失败的输出
-- [ ] 6.2 记录 RUN_LOG：Green 阶段 3 个测试全部通过的输出
-- [ ] 6.3 记录 RUN_LOG：`pnpm -C apps/desktop test:run` 全量回归无新增失败
-- [ ] 6.4 记录 Dependency Sync Check（N/A）
+- [x] 6.1 记录 RUN_LOG：Red 阶段 3 个 guard 测试全部失败的输出
+- [x] 6.2 记录 RUN_LOG：Green 阶段 3 个测试全部通过的输出
+- [x] 6.3 记录 RUN_LOG：`pnpm -C apps/desktop test:run` 全量回归无新增失败
+- [x] 6.4 记录 Dependency Sync Check（N/A）
 - [ ] 6.5 Main Session Audit（仅在 Apply 阶段需要）

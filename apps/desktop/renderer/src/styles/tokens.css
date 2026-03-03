@@ -186,3 +186,14 @@
   --color-selection: rgba(59, 130, 246, 0.3);
   --color-caret: var(--color-fg-default);
 }
+
+/* Reduced motion override */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0ms;
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+    --duration-slower: 0ms;
+  }
+}
