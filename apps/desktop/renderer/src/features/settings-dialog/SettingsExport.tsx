@@ -75,7 +75,7 @@ const formatCardBaseStyles = [
   "rounded-[var(--radius-md)]",
   "border",
   "cursor-pointer",
-  "transition-all",
+  "transition-colors",
   "duration-[var(--duration-fast)]",
   "text-[var(--color-fg-muted)]",
 ].join(" ");

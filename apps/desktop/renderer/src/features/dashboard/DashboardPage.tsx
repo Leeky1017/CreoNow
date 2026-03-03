@@ -221,7 +221,7 @@ function ProjectCard(props: {
       onKeyDown={(e) => e.key === "Enter" && onClick()}
       role="button"
       tabIndex={0}
-      className="border border-transparent p-6 h-[200px] flex flex-col cursor-pointer transition-all duration-300 hover:border-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
+      className="border border-transparent p-6 h-[200px] flex flex-col cursor-pointer transition-colors duration-300 hover:border-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
     >
       <div className="flex justify-between items-start mb-4">
         <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-muted)]">
@@ -274,7 +274,7 @@ function NewDraftCard(props: { onClick: () => void }): JSX.Element {
       onKeyDown={(e) => e.key === "Enter" && props.onClick()}
       role="button"
       tabIndex={0}
-      className="border-2 border-dashed border-[var(--color-separator)] p-6 h-[200px] flex flex-col items-center justify-center cursor-pointer opacity-50 hover:opacity-100 hover:border-[var(--color-fg-muted)] transition-all duration-300"
+      className="border-2 border-dashed border-[var(--color-separator)] p-6 h-[200px] flex flex-col items-center justify-center cursor-pointer opacity-50 hover:opacity-100 hover:border-[var(--color-fg-muted)] transition-[opacity,border-color] duration-300"
     >
       <div className="text-[32px] font-light text-[var(--color-fg-faint)] mb-3">
         +

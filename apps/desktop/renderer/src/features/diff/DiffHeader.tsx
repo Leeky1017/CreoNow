@@ -80,10 +80,10 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
             <>
               <div
                 role="presentation"
-                className="fixed inset-0 z-20"
+                className="fixed inset-0 z-[var(--z-dropdown)]"
                 onClick={() => setBeforeDropdownOpen(false)}
               />
-              <div className="absolute top-full left-0 mt-2 w-64 bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-lg shadow-[0_18px_48px_rgba(0,0,0,0.45)] z-30 p-1 overflow-hidden">
+              <div className="absolute top-full left-0 mt-2 w-64 bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-lg shadow-[0_18px_48px_var(--color-shadow)] z-[var(--z-popover)] p-1 overflow-hidden">
                 <div className="px-3 py-2 text-[10px] text-[var(--color-fg-subtle)] uppercase tracking-wider font-medium">
                   History
                 </div>
@@ -140,7 +140,7 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
           className="flex items-center gap-2 px-3 py-1.5 bg-[var(--color-bg-hover)] rounded border border-[var(--color-border-default)] text-xs text-[var(--color-fg-default)] hover:border-[var(--color-border-hover)] transition-colors whitespace-nowrap"
         >
           {/* Green dot */}
-          <div className="w-2 h-2 rounded-full bg-[var(--color-success)] shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+          <div className="w-2 h-2 rounded-full bg-[var(--color-success)] shadow-[0_0_8px_var(--color-success-subtle)]" />
           <span>{selectedAfter?.label ?? "Current Version"}</span>
           <ChevronDown size={16} strokeWidth={1.5} className="text-[var(--color-fg-subtle)]" />
         </button>
@@ -154,7 +154,7 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
             type="button"
             onClick={() => props.onViewModeChange("split")}
             className={`
-              px-3 py-1 text-xs font-medium rounded transition-all
+              px-3 py-1 text-xs font-medium rounded transition-colors
               ${
                 props.viewMode === "split"
                   ? "bg-[var(--color-bg-raised)] shadow-sm text-[var(--color-fg-default)] border border-[var(--color-border-default)]"
@@ -168,7 +168,7 @@ export function DiffHeader(props: DiffHeaderProps): JSX.Element {
             type="button"
             onClick={() => props.onViewModeChange("unified")}
             className={`
-              px-3 py-1 text-xs font-medium rounded transition-all
+              px-3 py-1 text-xs font-medium rounded transition-colors
               ${
                 props.viewMode === "unified"
                   ? "bg-[var(--color-bg-raised)] shadow-sm text-[var(--color-fg-default)] border border-[var(--color-border-default)]"

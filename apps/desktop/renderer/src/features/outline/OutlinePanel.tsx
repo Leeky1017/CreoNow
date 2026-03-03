@@ -121,7 +121,7 @@ const levelStyles: Record<
     paddingLeft: 32,
     fontSize: "13px",
     fontWeight: "400",
-    color: "#d4d4d4",
+    color: "var(--color-fg-default)",
   },
   h3: {
     paddingLeft: 48,
@@ -196,7 +196,7 @@ function DragIndicator({ position }: { position: DropPosition | null }) {
 
   return (
     <div
-      className="absolute left-4 right-4 z-10 pointer-events-none"
+      className="absolute left-4 right-4 z-[var(--z-overlay)] pointer-events-none"
       style={{ top: topOffset }}
     >
       {isInto ? (
@@ -472,7 +472,7 @@ function OutlineItemRow({
 function EmptyState() {
   return (
     <div
-      className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-[var(--color-border-default)] rounded-[var(--radius-md)] bg-[#0b0b0b] mx-3 my-3"
+      className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-[var(--color-border-default)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] mx-3 my-3"
       data-testid="outline-empty-state"
     >
       <EmptyDocumentIcon />

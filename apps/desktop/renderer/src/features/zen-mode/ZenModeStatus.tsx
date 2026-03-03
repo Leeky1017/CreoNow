@@ -45,7 +45,7 @@ export function ZenModeStatus({
       data-testid="zen-status-area"
       className="absolute bottom-0 left-0 right-0 h-24 flex items-end justify-center pb-8 opacity-0 hover:opacity-100 transition-opacity"
       style={{
-        zIndex: 30,
+        zIndex: "var(--z-popover)",
         transitionDuration: "var(--duration-slow)",
         transitionTimingFunction: "var(--ease-default)",
       }}

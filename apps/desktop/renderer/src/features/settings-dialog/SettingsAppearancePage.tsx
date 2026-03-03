@@ -61,7 +61,7 @@ const themeButtonBaseStyles = [
   "rounded-[var(--radius-md)]",
   "border",
   "cursor-pointer",
-  "transition-all",
+  "transition-colors",
   "duration-[var(--duration-fast)]",
 ].join(" ");
 
@@ -188,7 +188,7 @@ export function SettingsAppearancePage({
                 <button
                   type="button"
                   onClick={() => updateSetting("accentColor", value)}
-                  className={`w-8 h-8 rounded-full border-2 transition-all duration-[var(--duration-fast)] ${
+                  className={`w-8 h-8 rounded-full border-2 transition-[box-shadow,transform] duration-[var(--duration-fast)] ${
                     isSelected
                       ? "ring-2 ring-offset-2 ring-offset-[var(--color-bg-surface)] ring-[var(--color-ring-focus)]"
                       : "hover:scale-110"

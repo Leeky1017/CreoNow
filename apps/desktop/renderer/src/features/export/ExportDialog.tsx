@@ -175,7 +175,7 @@ const overlayStyles = [
   "fixed",
   "inset-0",
   "z-[var(--z-modal)]",
-  "bg-[rgba(0,0,0,0.6)]",
+  "bg-[var(--color-scrim)]",
   "backdrop-blur-sm",
   "transition-opacity",
   "duration-[var(--duration-normal)]",
@@ -237,7 +237,7 @@ const formatCardStyles = (args: { isSelected: boolean; disabled: boolean }) =>
     "p-3",
     "rounded-[var(--radius-md)]",
     "border",
-    "transition-all",
+    "transition-colors",
     "duration-[var(--duration-fast)]",
     "h-full",
     "flex",
@@ -254,7 +254,7 @@ const formatCardStyles = (args: { isSelected: boolean; disabled: boolean }) =>
         ].join(" ")
       : [
           "border-[var(--color-border-default)]",
-          "bg-[rgba(8,8,8,0.5)]",
+          "bg-[var(--color-bg-disabled)]",
           args.disabled ? "" : "hover:bg-[var(--color-bg-hover)]",
         ].join(" "),
   ].join(" ");
@@ -360,7 +360,7 @@ function PreviewThumbnail({
           {formatLabel} • {pageSizeLabel}
         </span>
       </div>
-      <div className="w-full h-32 bg-[#050505] border border-[var(--color-border-default)] rounded-[var(--radius-md)] p-4 overflow-hidden relative">
+      <div className="w-full h-32 bg-[var(--color-bg-base)] border border-[var(--color-border-default)] rounded-[var(--radius-md)] p-4 overflow-hidden relative">
         <div className="opacity-50 select-none pointer-events-none transform scale-[0.8] origin-top-left w-[120%]">
           <div className="h-4 w-3/4 bg-[var(--color-fg-placeholder)]/40 rounded mb-3" />
           <div className="h-2 w-full bg-[var(--color-fg-placeholder)]/20 rounded mb-1.5" />
@@ -370,7 +370,7 @@ function PreviewThumbnail({
           <div className="h-2 w-4/5 bg-[var(--color-fg-placeholder)]/20 rounded mb-1.5" />
           <div className="w-full h-16 bg-[var(--color-fg-placeholder)]/10 rounded mt-4 border border-white/5" />
         </div>
-        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#050505] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[var(--color-bg-base)] to-transparent" />
       </div>
     </div>
   );
@@ -574,7 +574,7 @@ function ProgressView({
       <div className="w-full max-w-xs mb-2">
         <div className="h-1.5 w-full bg-[var(--color-bg-hover)] rounded-[var(--radius-full)] overflow-hidden">
           <div
-            className="h-full bg-[var(--color-accent)] rounded-[var(--radius-full)] transition-all duration-300"
+            className="h-full bg-[var(--color-accent)] rounded-[var(--radius-full)] transition-[width] duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>

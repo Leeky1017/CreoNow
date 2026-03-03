@@ -101,7 +101,7 @@ export function CharacterCard({
         "border",
         "cursor-pointer",
         "relative",
-        "transition-all",
+        "transition-colors",
         "duration-[var(--duration-normal)]",
         // Focus visible
         "focus-visible:outline",
@@ -116,7 +116,7 @@ export function CharacterCard({
             ].join(" ")
           : [
               "border-transparent",
-              "hover:bg-[#161616]",
+              "hover:bg-[var(--color-bg-raised)]",
               "hover:border-[var(--color-border-default)]",
             ].join(" "),
       ]
@@ -144,7 +144,7 @@ export function CharacterCard({
           selected
             ? "opacity-90"
             : "opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100",
-          "transition-all",
+          "transition-[filter,opacity]",
         ].join(" ")}
       />
 
@@ -170,7 +170,7 @@ export function CharacterCard({
             "mt-1.5",
             "truncate",
             "transition-colors",
-            selected ? roleColorClass : "text-[#555] group-hover:text-[#777]",
+            selected ? roleColorClass : "text-[var(--color-fg-subtle)] group-hover:text-[var(--color-fg-muted)]",
           ].join(" ")}
         >
           {roleLabel}
@@ -188,8 +188,8 @@ export function CharacterCard({
           "pl-2",
           selected
             ? "opacity-100 bg-[var(--color-bg-hover)]"
-            : "opacity-0 group-hover:opacity-100 bg-[#161616]",
-          "shadow-[-4px_0_4px_-2px_rgba(0,0,0,0.5)]",
+            : "opacity-0 group-hover:opacity-100 bg-[var(--color-bg-raised)]",
+          "shadow-[-4px_0_4px_-2px_var(--color-shadow)]",
         ].join(" ")}
       >
         {onEdit && (

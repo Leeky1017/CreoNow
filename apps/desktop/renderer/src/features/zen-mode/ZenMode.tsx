@@ -114,7 +114,7 @@ export function ZenMode({
       {/* Top hover area - exit controls */}
       <div
         data-testid="zen-top-area"
-        className="absolute top-0 left-0 right-0 h-24 z-30 transition-opacity opacity-0 hover:opacity-100"
+        className="absolute top-0 left-0 right-0 h-24 z-[var(--z-popover)] transition-opacity opacity-0 hover:opacity-100"
         style={{
           transitionDuration: "var(--duration-slow)",
           transitionTimingFunction: "var(--ease-default)",
@@ -153,7 +153,7 @@ export function ZenMode({
 
       {/* Persistent exit hint (always visible but subtle) */}
       <div
-        className="absolute top-8 right-8 z-20 pointer-events-none"
+        className="absolute top-8 right-8 z-[var(--z-dropdown)] pointer-events-none"
         aria-hidden="true"
       >
         <span
@@ -167,7 +167,7 @@ export function ZenMode({
       {/* Main content area - scrollable */}
       <main
         data-testid="zen-content"
-        className="absolute inset-0 overflow-y-auto z-10 flex flex-col items-center"
+        className="absolute inset-0 overflow-y-auto z-[var(--z-overlay)] flex flex-col items-center"
         style={{
           scrollbarWidth: "none",
           msOverflowStyle: "none",

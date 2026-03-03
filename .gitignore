@@ -55,3 +55,4 @@ test-results/
 # Misc
 *.bak
 *.tmp
+apps/desktop/nohup.out

@@ -703,7 +703,7 @@ export function CommandPalette({
         {/* Footer: 键盘提示 */}
         <div className="h-9 px-4 flex items-center justify-end gap-4 border-t border-[var(--color-border-default)] bg-[var(--color-bg-surface)]">
           <div className="flex items-center gap-1.5">
-            <span className="px-1 min-w-4 h-4 flex items-center justify-center text-[11px] text-[var(--color-fg-muted)] bg-[rgba(255,255,255,0.05)] rounded">
+            <span className="px-1 min-w-4 h-4 flex items-center justify-center text-[11px] text-[var(--color-fg-muted)] bg-[var(--color-zen-hover)] rounded">
               ↑↓
             </span>
             <Text size="tiny" color="placeholder">
@@ -711,7 +711,7 @@ export function CommandPalette({
             </Text>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="px-1 min-w-4 h-4 flex items-center justify-center text-[11px] text-[var(--color-fg-muted)] bg-[rgba(255,255,255,0.05)] rounded">
+            <span className="px-1 min-w-4 h-4 flex items-center justify-center text-[11px] text-[var(--color-fg-muted)] bg-[var(--color-zen-hover)] rounded">
               ↵
             </span>
             <Text size="tiny" color="placeholder">
@@ -719,7 +719,7 @@ export function CommandPalette({
             </Text>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="px-1 min-w-4 h-4 flex items-center justify-center text-[11px] text-[var(--color-fg-muted)] bg-[rgba(255,255,255,0.05)] rounded">
+            <span className="px-1 min-w-4 h-4 flex items-center justify-center text-[11px] text-[var(--color-fg-muted)] bg-[var(--color-zen-hover)] rounded">
               esc
             </span>
             <Text size="tiny" color="placeholder">

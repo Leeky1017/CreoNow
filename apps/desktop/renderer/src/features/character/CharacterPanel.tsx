@@ -83,9 +83,9 @@ function EmptyGroupState({ onClick }: { onClick?: () => void }) {
         "text-[var(--color-fg-placeholder)]",
         "hover:text-[var(--color-fg-muted)]",
         "hover:border-[var(--color-border-hover)]",
-        "hover:bg-[#111]",
+        "hover:bg-[var(--color-bg-surface)]",
         "cursor-pointer",
-        "transition-all",
+        "transition-colors",
       ].join(" ")}
     >
       <span className="text-[11px]">No characters</span>
