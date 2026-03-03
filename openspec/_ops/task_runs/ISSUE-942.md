@@ -54,7 +54,7 @@ No `aria-relevant` needed — defaults are appropriate.
 ## Main Session Audit
 
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: 5e49924ed7613b171b86a859ccf997ca73a77d5b
+- Reviewed-HEAD-SHA: cb6a8a50b663704294776bf29a3c29e0c9a61e99
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
