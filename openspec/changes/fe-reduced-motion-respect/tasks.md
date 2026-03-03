@@ -1,6 +1,6 @@
 ## 1. Specification
 
-更新时间：2026-02-28 19:20
+更新时间：2026-03-04 03:30
 
 - [x] 1.1 审阅并确认需求边界：将 `prefers-reduced-motion` 从"个别组件记得做"提升为"系统级默认"。所有自定义动画/过渡在 reduced motion 下必须被禁用或压缩为 0ms。不改变业务功能。
 - [x] 1.2 审阅并确认错误路径与边界路径：reduced motion 未启用时行为不变。
@@ -36,7 +36,7 @@
 | ----------- | ---------------- | ---------------- | -------- | --------- | -------- |
 | `WB-FE-MOTION-S1` | `apps/desktop/renderer/src/styles/__tests__/reduced-motion-global.guard.test.ts` | `it('main.css contains @media (prefers-reduced-motion: reduce) rule')` | 读取 main.css 源码，断言包含 `@media (prefers-reduced-motion: reduce)` 且内含 `animation-duration` 和 `transition-duration` 覆盖 | `fs.readFileSync` | `pnpm -C apps/desktop test:run styles/__tests__/reduced-motion-global.guard` |
 | `WB-FE-MOTION-S2` | 同上 | `it('tokens.css defines motion duration tokens with reduced-motion override')` | 读取 tokens.css，断言包含 `--duration-fast`/`--duration-normal`/`--duration-slow` 且在 reduced-motion 媒体查询下为 `0ms` | `fs.readFileSync` | 同上 |
-| `WB-FE-MOTION-S3` | 同上 | `it('no inline @keyframes in feature files (must be in main.css)')` | 读取 SearchPanel.tsx 和 AiPanel.tsx，断言不含 `@keyframes` | `fs.readFileSync` | 同上 |
+| `WB-FE-MOTION-S3` | 同上 | `it('no inline @keyframes in feature files (must be in main.css)')` | 读取 SearchPanel.tsx，断言不含 `@keyframes`（AiPanel.tsx 已在先前 change 清理，无内联 @keyframes） | `fs.readFileSync` | 同上 |
 
 ### 可复用测试范本
 
@@ -49,8 +49,8 @@
   - 期望红灯原因：当前 main.css 无此媒体查询规则。
 - [x] 3.2 `WB-FE-MOTION-S2`：读取 `tokens.css`，断言包含 `--duration-fast`/`--duration-normal`/`--duration-slow` 且在 reduced-motion 下为 `0ms`。
   - 期望红灯原因：当前 tokens.css 未定义 motion duration Token。
-- [x] 3.3 `WB-FE-MOTION-S3`：读取 `SearchPanel.tsx` 和 `AiPanel.tsx`，断言不含 `@keyframes`。
-  - 期望红灯原因：SearchPanel.tsx L1072 有 `@keyframes slideDown`，AiPanel.tsx L1611 有 `@keyframes blink`。
+- [x] 3.3 `WB-FE-MOTION-S3`：读取 `SearchPanel.tsx`，断言不含 `@keyframes`（AiPanel.tsx 已在先前 change 清理内联 @keyframes，当前无需断言）。
+  - 期望红灯原因：SearchPanel.tsx L821 有 `@keyframes slideDown`。
 - 运行：`pnpm -C apps/desktop test:run styles/__tests__/reduced-motion-global.guard`
 
 ## 4. Green（最小实现通过）
