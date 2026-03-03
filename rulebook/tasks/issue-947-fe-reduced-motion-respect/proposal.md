@@ -1,5 +1,7 @@
 # Proposal: fe-reduced-motion-respect
 
+更新时间：2026-03-03 22:00
+
 ## Why
 
 当前 CreoNow 对 `prefers-reduced-motion` 的支持是碎片化的——仅个别组件（如 typing-cursor）单独处理。46 处 `transition-all`/`animate-*` 和 2 处内联 `@keyframes` 均未受 reduced motion 控制，违反 WCAG 2.1 SC 2.3.3 建议和无障碍最佳实践。

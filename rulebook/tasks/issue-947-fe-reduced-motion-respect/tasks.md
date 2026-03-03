@@ -1,5 +1,7 @@
 # Tasks: issue-947-fe-reduced-motion-respect
 
+更新时间：2026-03-03 22:00
+
 ## Specification
 
 - [x] 审阅 `openspec/changes/fe-reduced-motion-respect/tasks.md` 确认需求边界
