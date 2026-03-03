@@ -22,13 +22,24 @@ type NavigationControllerProps = {
  * All shortcuts are registered via the unified HotkeyManager.
  * It must not perform width allocation or resizing orchestration.
  */
-export function NavigationController(props: NavigationControllerProps): null {
+export function NavigationController({
+  zenMode,
+  canCreateDocument,
+  onToggleSidebar,
+  onToggleRightPanel,
+  onToggleZenMode,
+  onExitZenMode,
+  onOpenCommandPalette,
+  onOpenSettings,
+  onOpenCreateProject,
+  onCreateDocument,
+}: NavigationControllerProps): null {
   const debouncedToggleSidebar = useDebouncedCallback(
-    props.onToggleSidebar,
+    onToggleSidebar,
     300,
   );
   const debouncedToggleRightPanel = useDebouncedCallback(
-    props.onToggleRightPanel,
+    onToggleRightPanel,
     300,
   );
 
@@ -39,9 +50,9 @@ export function NavigationController(props: NavigationControllerProps): null {
     React.useCallback(
       (e: KeyboardEvent) => {
         if (e.repeat) return;
-        props.onToggleZenMode();
+        onToggleZenMode();
       },
-      [props.onToggleZenMode],
+      [onToggleZenMode],
     ),
     "global",
     20,
@@ -52,11 +63,11 @@ export function NavigationController(props: NavigationControllerProps): null {
     "nav:exit-zen",
     { key: "Escape" },
     React.useCallback(() => {
-      props.onExitZenMode();
-    }, [props.onExitZenMode]),
+      onExitZenMode();
+    }, [onExitZenMode]),
     "global",
     20,
-    props.zenMode,
+    zenMode,
   );
 
   // Cmd/Ctrl+P: Command Palette
@@ -64,10 +75,10 @@ export function NavigationController(props: NavigationControllerProps): null {
     "nav:command-palette",
     { key: "p", modKey: true },
     React.useCallback(() => {
-      if (!props.zenMode) {
-        props.onOpenCommandPalette();
+      if (!zenMode) {
+        onOpenCommandPalette();
       }
-    }, [props.zenMode, props.onOpenCommandPalette]),
+    }, [zenMode, onOpenCommandPalette]),
     "global",
     15,
   );
@@ -77,10 +88,10 @@ export function NavigationController(props: NavigationControllerProps): null {
     "nav:toggle-sidebar",
     { key: "\\", modKey: true },
     React.useCallback(() => {
-      if (!props.zenMode) {
+      if (!zenMode) {
         debouncedToggleSidebar();
       }
-    }, [props.zenMode, debouncedToggleSidebar]),
+    }, [zenMode, debouncedToggleSidebar]),
     "global",
     15,
   );
@@ -90,10 +101,10 @@ export function NavigationController(props: NavigationControllerProps): null {
     "nav:toggle-right-panel",
     { key: "l", modKey: true },
     React.useCallback(() => {
-      if (!props.zenMode) {
+      if (!zenMode) {
         debouncedToggleRightPanel();
       }
-    }, [props.zenMode, debouncedToggleRightPanel]),
+    }, [zenMode, debouncedToggleRightPanel]),
     "global",
     15,
   );
@@ -103,10 +114,10 @@ export function NavigationController(props: NavigationControllerProps): null {
     "nav:open-settings",
     { key: ",", modKey: true },
     React.useCallback(() => {
-      if (!props.zenMode) {
-        props.onOpenSettings();
+      if (!zenMode) {
+        onOpenSettings();
       }
-    }, [props.zenMode, props.onOpenSettings]),
+    }, [zenMode, onOpenSettings]),
     "global",
     15,
   );
@@ -116,10 +127,10 @@ export function NavigationController(props: NavigationControllerProps): null {
     "nav:create-project",
     { key: "N", modKey: true, shiftKey: true },
     React.useCallback(() => {
-      if (!props.zenMode) {
-        props.onOpenCreateProject();
+      if (!zenMode) {
+        onOpenCreateProject();
       }
-    }, [props.zenMode, props.onOpenCreateProject]),
+    }, [zenMode, onOpenCreateProject]),
     "global",
     15,
   );
@@ -129,10 +140,10 @@ export function NavigationController(props: NavigationControllerProps): null {
     "nav:create-document",
     { key: "n", modKey: true },
     React.useCallback(() => {
-      if (!props.zenMode && props.canCreateDocument) {
-        props.onCreateDocument();
+      if (!zenMode && canCreateDocument) {
+        onCreateDocument();
       }
-    }, [props.zenMode, props.canCreateDocument, props.onCreateDocument]),
+    }, [zenMode, canCreateDocument, onCreateDocument]),
     "global",
     10,
   );
