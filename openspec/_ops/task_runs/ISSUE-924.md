@@ -1,11 +1,9 @@
 # ISSUE-924: fe-feature-focus-visible-coverage
 
-| 字段        | 值                                            |
-| ----------- | --------------------------------------------- |
-| Issue       | #924                                          |
-| Branch      | task/924-fe-focus-visible-coverage             |
-| Change      | fe-feature-focus-visible-coverage              |
-| PR          | https://github.com/Leeky1017/CreoNow/pull/928 |
+- Issue: #924
+- Branch: task/924-fe-focus-visible-coverage
+- Change: fe-feature-focus-visible-coverage
+- PR: https://github.com/Leeky1017/CreoNow/pull/928
 
 ## Dependency Sync Check
 - 上游 Wave 3b：lucide #909 ✓, theme-switch #910 ✓ — 均已合并 main，无漂移
@@ -49,3 +47,12 @@ Test Files  226 passed (226)
 Snapshots  11 written (workbench.stories + kg-views regenerated after focus-ring class additions)
 No regressions detected.
 ```
+
+## Main Session Audit
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: 079ca7e7f8b002afa269acbccc7ba1a56f8a541f
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
