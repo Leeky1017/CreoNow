@@ -126,7 +126,7 @@ export function ModelPicker(props: ModelPickerProps): JSX.Element | null {
         onClick={(e) => e.stopPropagation()}
         className="absolute bottom-full left-0 right-0 mb-1 z-[var(--z-popover)] bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-xl)] overflow-hidden"
       >
-        <div className="px-2.5 py-2 border-b border-[var(--color-border-default)] flex flex-col gap-2">
+        <div className="px-2.5 py-2 border-b border-[var(--color-separator)] flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <Input
               data-testid="ai-model-search"

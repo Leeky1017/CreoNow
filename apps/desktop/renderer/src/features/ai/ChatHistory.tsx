@@ -35,7 +35,7 @@ export function ChatHistory(props: ChatHistoryProps): JSX.Element | null {
         className="absolute top-full right-0 mt-1 w-64 z-[var(--z-popover)] bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-xl)] overflow-hidden"
       >
         {/* Header */}
-        <div className="px-3 py-2 border-b border-[var(--color-border-default)]">
+        <div className="px-3 py-2 border-b border-[var(--color-separator)]">
           <div className="flex items-center gap-2">
             <input
               type="text"

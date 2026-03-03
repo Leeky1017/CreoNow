@@ -98,7 +98,7 @@ function HeroCard(props: {
       onKeyDown={(e) => e.key === "Enter" && onClick()}
       role="button"
       tabIndex={0}
-      className="border border-[var(--color-border-default)] min-h-0 flex cursor-pointer transition-colors duration-300 hover:border-[var(--color-fg-muted)] animate-fade-in-up"
+      className="border border-transparent min-h-0 flex cursor-pointer transition-colors duration-300 hover:border-[var(--color-fg-muted)] animate-fade-in-up"
     >
       <div className="flex-1 min-w-0 p-10 flex flex-col justify-center">
         <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-faint)] mb-3">
@@ -111,12 +111,12 @@ function HeroCard(props: {
           {t("dashboard.heroSubtitle")}
         </p>
         <div className="flex gap-3">
-          <span className="text-[11px] uppercase tracking-[0.05em] text-[var(--color-fg-faint)] border border-[var(--color-border-default)] px-2.5 py-1 rounded-full">
+          <span className="text-[11px] uppercase tracking-[0.05em] text-[var(--color-fg-faint)] border border-[var(--color-separator)] px-2.5 py-1 rounded-full">
             {formatStageTag(project.stage, t)}
           </span>
         </div>
       </div>
-      <div className="w-[35%] max-w-[280px] hidden lg:block bg-[var(--color-bg-surface)] border-l border-[var(--color-border-default)] relative overflow-hidden">
+      <div className="w-[35%] max-w-[280px] hidden lg:block bg-[var(--color-bg-surface)] border-l border-[var(--color-separator)] relative overflow-hidden">
         <div className="absolute inset-0 flex items-center justify-center text-[var(--color-fg-faint)]">
           <PenTool className="w-16 h-16 opacity-20" size={24} strokeWidth={1.5} />
         </div>
@@ -221,7 +221,7 @@ function ProjectCard(props: {
       onKeyDown={(e) => e.key === "Enter" && onClick()}
       role="button"
       tabIndex={0}
-      className="border border-[var(--color-border-default)] p-6 h-[200px] flex flex-col cursor-pointer transition-all duration-300 hover:border-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
+      className="border border-transparent p-6 h-[200px] flex flex-col cursor-pointer transition-all duration-300 hover:border-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
     >
       <div className="flex justify-between items-start mb-4">
         <div className="text-[10px] uppercase tracking-[0.1em] text-[var(--color-fg-muted)]">
@@ -250,7 +250,7 @@ function ProjectCard(props: {
         {t("dashboard.openProjectHint")}
       </p>
 
-      <div className="mt-auto pt-4 border-t border-[var(--color-border-default)] flex justify-between items-center">
+      <div className="mt-auto pt-4 border-t border-[var(--color-separator)] flex justify-between items-center">
         <span className="text-[11px] uppercase tracking-[0.05em] text-[var(--color-fg-faint)]">
           {formatStageTag(project.stage, t)}
         </span>
@@ -274,7 +274,7 @@ function NewDraftCard(props: { onClick: () => void }): JSX.Element {
       onKeyDown={(e) => e.key === "Enter" && props.onClick()}
       role="button"
       tabIndex={0}
-      className="border-2 border-dashed border-[var(--color-border-default)] p-6 h-[200px] flex flex-col items-center justify-center cursor-pointer opacity-50 hover:opacity-100 hover:border-[var(--color-fg-muted)] transition-all duration-300"
+      className="border-2 border-dashed border-[var(--color-separator)] p-6 h-[200px] flex flex-col items-center justify-center cursor-pointer opacity-50 hover:opacity-100 hover:border-[var(--color-fg-muted)] transition-all duration-300"
     >
       <div className="text-[32px] font-light text-[var(--color-fg-faint)] mb-3">
         +
@@ -644,7 +644,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
         className="flex-1 flex flex-col min-h-0 bg-[var(--color-bg-base)]"
       >
         {/* Toolbar */}
-        <header className="h-20 border-b border-[var(--color-border-default)] flex items-center justify-between px-12">
+        <header className="h-20 border-b border-[var(--color-separator)] flex items-center justify-between px-12">
           <SearchBar value={searchQuery} onChange={setSearchQuery} />
           <div className="flex gap-4 items-center">
             <Button
@@ -662,7 +662,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
         {lastError ? (
           <div
             role="alert"
-            className="px-12 py-3 border-b border-[var(--color-border-default)]"
+            className="px-12 py-3 border-b border-[var(--color-separator)]"
           >
             <Text size="small" className="mb-2 block">
               {lastError.code}: {lastError.message}
