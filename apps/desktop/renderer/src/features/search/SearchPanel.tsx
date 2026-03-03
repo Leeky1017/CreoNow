@@ -42,6 +42,8 @@ export type NavigateSearchResultArgs = {
   setFlashKey: (value: string | null) => void;
   onClose?: () => void;
   setTimeoutFn?: (callback: () => void, delayMs: number) => unknown;
+  /** Optional injection point for deterministic timestamps in tests. */
+  now?: number;
 };
 
 /**
@@ -58,7 +60,7 @@ export async function navigateSearchResult(
   });
 
   const anchor = args.result.anchor ?? { start: 0, end: 0 };
-  const flashKey = `${args.result.documentId}:${anchor.start}:${anchor.end}:${Date.now()}`;
+  const flashKey = `${args.result.documentId}:${anchor.start}:${anchor.end}:${args.now ?? Date.now()}`;
   args.setFlashKey(flashKey);
 
   const schedule = args.setTimeoutFn ?? setTimeout;

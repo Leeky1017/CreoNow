@@ -42,12 +42,14 @@ export function buildAiStreamUndoCheckpoint(args: {
   preStreamContent: string;
   docJson: Record<string, unknown>;
   cursorPos: number;
+  /** Optional injection point for deterministic timestamps in tests. */
+  now?: number;
 }): AiStreamCheckpoint {
   return {
     preStreamContent: args.preStreamContent,
     docJson: args.docJson,
     cursorPos: args.cursorPos,
-    timestamp: Date.now(),
+    timestamp: args.now ?? Date.now(),
   };
 }
 

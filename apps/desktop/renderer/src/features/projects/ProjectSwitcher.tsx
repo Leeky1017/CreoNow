@@ -37,8 +37,11 @@ function ProjectTypeIcon(props: {
  *
  * Why: dropdown rows should show recency without a dense absolute datetime.
  */
-function formatRelativeTime(updatedAt: number): string {
-  const deltaMs = Math.max(0, Date.now() - updatedAt);
+export function formatRelativeTime(
+  updatedAt: number,
+  now: number = Date.now(),
+): string {
+  const deltaMs = Math.max(0, now - updatedAt);
   const deltaMinutes = Math.floor(deltaMs / 60_000);
 
   if (deltaMinutes < 1) {

@@ -54,8 +54,10 @@ function getAuthorName(actor: "user" | "auto" | "ai"): string {
 /**
  * Format timestamp for display.
  */
-function formatTimestamp(createdAt: number): string {
-  const now = Date.now();
+export function formatTimestamp(
+  createdAt: number,
+  now: number = Date.now(),
+): string {
   const diff = now - createdAt;
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
