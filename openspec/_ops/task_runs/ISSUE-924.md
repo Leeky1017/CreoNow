@@ -27,7 +27,25 @@ Test Files  1 failed (1)
 ```
 
 ### Green
-（待填充）
+
+```
+Test Files  1 passed (1)
+     Tests  3 passed (3)
+
+✓ S1: 0 violations in priority feature dirs (ai, dashboard, character,
+  version-history, zen-mode, onboarding) — 31 buttons fixed across
+  10 files, popup/picker components allowlisted
+✓ S2: tokens.css defines --color-focus-ring (light + dark)
+✓ S3: main.css defines .focus-ring utility referencing --color-focus-ring
+```
 
 ### Full Regression
-（待填充）
+
+```
+Test Files  226 passed (226)
+     Tests  1677 passed (1677)
+  Duration  52.06s
+
+Snapshots  11 written (workbench.stories + kg-views regenerated after focus-ring class additions)
+No regressions detected.
+```
