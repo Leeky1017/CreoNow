@@ -2,9 +2,22 @@
 
 更新时间：2026-03-03 16:10
 
-Issue: #941
-Branch: `task/941-fe-command-palette-search`
+- Issue: #941
+- Branch: `task/941-fe-command-palette-search`
 - PR: https://github.com/Leeky1017/CreoNow/pull/944
+
+## Plan
+
+- [x] Dependency Sync Check（comp-p0 + i18n-keying 前置已归档）
+- [x] Red: fuzzyMatch 测试（S1/S1b/S1c）
+- [x] Red: CommandPalette file-search 测试（S2/S3）
+- [x] Green: fuzzyMatch 模块实现
+- [x] Green: CommandPalette file-search 集成
+- [x] Refactor: isWordBoundary 参数清理
+- [x] 全量回归 + typecheck
+- [x] Commit + push → PR #944
+- [x] Main Session Audit
+- [x] Independent Review
 
 ## Dependency Sync Check
 - `fe-composites-p0-panel-and-command-items` ✓ (PR #919 merged)
