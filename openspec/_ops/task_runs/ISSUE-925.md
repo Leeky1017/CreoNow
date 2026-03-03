@@ -63,7 +63,7 @@ $ pnpm -C apps/desktop test:run 2>&1 | tail -5
 
 ## Main Session Audit
 - Audit-Owner: main-session
-- Reviewed-HEAD-SHA: a0e5d3db2582fe45f2a9a0bd9285f24d696fc210
+- Reviewed-HEAD-SHA: 038baba7fabf630ee1c6f50b2be1d01bb595893c
 - Spec-Compliance: PASS
 - Code-Quality: PASS
 - Fresh-Verification: PASS
