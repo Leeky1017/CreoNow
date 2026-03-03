@@ -6,7 +6,6 @@
  *
  * @module features/shortcuts/ShortcutsPanel
  */
-import React from "react";
 
 import { getAllShortcuts, type ShortcutDef } from "../../config/shortcuts";
 
