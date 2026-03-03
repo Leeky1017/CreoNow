@@ -5,7 +5,7 @@
 | Issue       | #924                                          |
 | Branch      | task/924-fe-focus-visible-coverage             |
 | Change      | fe-feature-focus-visible-coverage              |
-| PR          | 待回填                                        |
+| PR          | https://github.com/Leeky1017/CreoNow/pull/928 |
 
 ## Dependency Sync Check
 - 上游 Wave 3b：lucide #909 ✓, theme-switch #910 ✓ — 均已合并 main，无漂移
