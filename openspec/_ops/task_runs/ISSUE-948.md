@@ -74,3 +74,20 @@ Test Files  256 passed (256)
 pnpm -C apps/desktop exec tsc --noEmit
 # 零错误
 ```
+
+## Main Session Audit
+
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: 13939fb07bf4b88cd0ad55920a5a84c6c1d3b58f
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
+
+### 审计要点
+
+1. **Spec 对齐**：6 个 Scenario（S1 Dashboard / S2 ProjectSwitcher / S3 SearchPanel / S4 VersionHistory / S5 Analytics / S6 aiStreamUndo）全部由确定性测试覆盖并通过。
+2. **代码质量**：每个 Date.now() 调用点均添加可选 `now` 参数并以 `Date.now()` 为默认值，向后兼容；函数按需 export 以支持测试；AnalyticsPage 提取独立 `computeDateRange()` 纯函数。
+3. **回归验证**：256 test files / 1771 tests 全绿，tsc --noEmit 零报错。
+4. **治理完整性**：RUN_LOG 包含 Dependency Sync Check + Red/Green/回归/TypeCheck 证据；Rulebook task 结构完整（含 .metadata.json）。
