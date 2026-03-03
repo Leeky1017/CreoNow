@@ -1,11 +1,18 @@
-# ISSUE-935 — fe-editor-inline-diff-decoration-integration
+# ISSUE-935 RUN_LOG
 
-| Field   | Value |
-|---------|-------|
-| Issue   | #935 |
-| Branch  | `task/935-fe-editor-inline-diff` |
-| PR      | 待回填 |
-| Agent   | editor-diff-agent |
+- Issue: #935
+- Branch: task/935-fe-editor-inline-diff
+- PR: https://github.com/Leeky1017/CreoNow/pull/938
+- Change: fe-editor-inline-diff-decoration-integration
+
+## Plan
+
+1. 编写 5 个 TDD 测试（S1 纯函数基线 + S2 DecorationSet + S3 清除 + S4 CSS class）
+2. 重构 `inlineDiff.ts` 从空壳对象 → 真正 TipTap Extension
+3. 实现 `diffToDecorationSet()` 纯函数
+4. 添加 CSS 样式（`.inline-diff-added` / `.inline-diff-removed`）
+5. 确保向后兼容 `InlineDiffControls`
+6. 全量回归 + TypeScript 检查
 
 ## Dependency Sync Check
 
@@ -80,3 +87,23 @@ $ pnpm -C apps/desktop test:run InlineDiffControls
  Test Files  1 passed (1)
       Tests  3 passed (3)
 ```
+
+## Main Session Audit
+
+- Audit-Owner: main-session
+- Reviewed-HEAD-SHA: 340f7932c2a538f2efff4ad59c1075fec0a08658
+- Spec-Compliance: PASS
+- Code-Quality: PASS
+- Fresh-Verification: PASS
+- Blocking-Issues: 0
+- Decision: ACCEPT
+
+### 审查摘要
+
+1. Diff 审查：`InlineDiffExtension` 从空壳对象正确重构为 `Extension.create()` + `addProseMirrorPlugins()`
+2. `diffToDecorationSet()` 纯函数正确构建 `DecorationSet`
+3. CSS 样式使用语义化 token（`--color-success-subtle`, `--color-error-subtle`）
+4. 向后完全兼容：`createInlineDiffDecorations` / `resolveInlineDiffText` 保留
+5. 测试回归 236/236 文件、1716/1716 test 全绿
+6. TypeScript 0 errors
+7. `@tiptap/pm` 依赖正确添加到 `package.json`
