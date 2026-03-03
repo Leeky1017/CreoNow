@@ -12,6 +12,12 @@
 
 N/A — 所有前置依赖（`fe-accessibility-aria-live` PR #946, `fe-i18n-core-pages-keying` PR #937, `fe-editor-inline-diff-decoration-integration` PR #938）已归档合入 main。当前 worktree 已从最新 `origin/main`（72feb82c）创建。
 
+## Plan
+
+1. 补齐 RUN_LOG 的 `## Plan` 段，满足 openspec-log-guard 结构校验。
+2. 保持已有实现不变，仅做治理修复并重新校验 preflight（fast）。
+3. 重签 Main Session Audit 并更新独立审计记录 SHA，恢复合并门禁。
+
 ## Runs
 
 ### Red Phase
