@@ -5,7 +5,7 @@
 - Issue: #940
 - Branch: `task/940-fe-visual-noise-reduction`
 - Change: `fe-visual-noise-reduction`
-- PR: (待回填)
+- PR: https://github.com/Leeky1017/CreoNow/pull/943
 
 ## Dependency Sync Check
 
