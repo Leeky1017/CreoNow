@@ -107,7 +107,7 @@ const sidebarStyles = [
   "w-[260px]",
   "bg-[var(--color-bg-base)]",
   "border-r",
-  "border-[var(--color-border-default)]",
+  "border-[var(--color-separator)]",
   "flex",
   "flex-col",
   "py-8",

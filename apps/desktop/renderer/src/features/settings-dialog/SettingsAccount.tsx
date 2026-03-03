@@ -47,7 +47,7 @@ const sectionLabelStyles = [
 const dividerStyles = [
   "w-full",
   "h-px",
-  "bg-[var(--color-border-default)]",
+  "bg-[var(--color-separator)]",
   "my-12",
 ].join(" ");
 
@@ -57,8 +57,6 @@ const dividerStyles = [
 const cardStyles = [
   "p-4",
   "rounded-[var(--radius-md)]",
-  "border",
-  "border-[var(--color-border-default)]",
   "bg-[var(--color-bg-raised)]",
 ].join(" ");
 

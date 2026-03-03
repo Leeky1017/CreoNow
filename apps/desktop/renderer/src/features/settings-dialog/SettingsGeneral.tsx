@@ -55,7 +55,7 @@ const sectionLabelStyles = [
 const dividerStyles = [
   "w-full",
   "h-px",
-  "bg-[var(--color-border-default)]",
+  "bg-[var(--color-separator)]",
   "my-12",
 ].join(" ");
 

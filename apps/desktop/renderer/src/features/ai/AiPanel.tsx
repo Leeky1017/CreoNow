@@ -350,7 +350,7 @@ export function CodeBlock(props: {
     <div className="my-3 border border-[var(--color-border-default)] rounded-[var(--radius-md)] overflow-hidden bg-[var(--color-bg-base)]">
       {/* Header */}
 
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[var(--color-bg-raised)] border-b border-[var(--color-border-default)]">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[var(--color-bg-raised)] border-b border-[var(--color-separator)]">
         <span className="text-[11px] text-[var(--color-fg-muted)] uppercase tracking-wide">
           {props.language || "code"}
         </span>
@@ -1210,7 +1210,7 @@ export function AiPanel(props: AiPanelProps = {}): JSX.Element {
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
           {/* User Request - boxed */}
           {lastRequest && (
-            <div className="w-full p-3 border border-[var(--color-border-default)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)]">
+            <div className="w-full p-3 rounded-[var(--radius-md)] bg-[var(--color-bg-base)]">
               <div className="text-[13px] text-[var(--color-fg-default)] whitespace-pre-wrap">
                 {lastRequest}
               </div>
@@ -1364,7 +1364,7 @@ export function AiPanel(props: AiPanelProps = {}): JSX.Element {
           {judgeResult ? (
             <div
               data-testid="ai-judge-result"
-              className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-3 py-2 space-y-1"
+              className="w-full rounded-[var(--radius-md)] bg-[var(--color-bg-base)] px-3 py-2 space-y-1"
             >
               <div className="flex items-center gap-2 flex-wrap">
                 <span
@@ -1407,7 +1407,7 @@ export function AiPanel(props: AiPanelProps = {}): JSX.Element {
           {usageStats ? (
             <div
               data-testid="ai-usage-stats"
-              className="w-full rounded-[var(--radius-md)] border border-[var(--color-border-default)] bg-[var(--color-bg-base)] px-3 py-2"
+              className="w-full rounded-[var(--radius-md)] bg-[var(--color-bg-base)] px-3 py-2"
             >
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--color-fg-muted)]">
                 <span>
@@ -1501,7 +1501,7 @@ export function AiPanel(props: AiPanelProps = {}): JSX.Element {
             {hasSelectionReference ? (
               <div
                 data-testid="ai-selection-reference-card"
-                className="mx-2 mt-2 mb-1 rounded-[var(--radius-sm)] border border-[var(--color-border-default)] bg-[var(--color-bg-raised)] px-2 py-1.5"
+                className="mx-2 mt-2 mb-1 rounded-[var(--radius-sm)] bg-[var(--color-bg-raised)] px-2 py-1.5"
               >
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
