@@ -1,4 +1,5 @@
 # Tasks: issue-924-fe-focus-visible-coverage
+更新时间：2026-03-03 09:37
 
 ## Red Phase
 - [ ] 编写 guard 测试 `focus-visible-feature-guard.test.ts`
