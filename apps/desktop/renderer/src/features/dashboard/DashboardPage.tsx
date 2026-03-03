@@ -315,8 +315,11 @@ type TFunction = (key: string, options?: Record<string, unknown>) => string;
  *
  * Why: Relative time strings ("just now", "5 minutes ago") vary by locale.
  */
-function formatRelativeTime(timestamp: number, t: TFunction): string {
-  const now = Date.now();
+export function formatRelativeTime(
+  timestamp: number,
+  t: TFunction,
+  now: number = Date.now(),
+): string {
   const diff = now - timestamp;
 
   const minutes = Math.floor(diff / 60000);

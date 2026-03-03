@@ -24,6 +24,21 @@ function utcDateKey(ts: number): string {
   return new Date(ts).toISOString().slice(0, 10);
 }
 
+/**
+ * Compute the 7-day date range (from/to) for the analytics view.
+ *
+ * Accepts an optional `now` timestamp for deterministic testing.
+ */
+export function computeDateRange(now: number = Date.now()): {
+  from: string;
+  to: string;
+} {
+  return {
+    to: utcDateKey(now),
+    from: utcDateKey(now - 6 * 24 * 60 * 60 * 1000),
+  };
+}
+
 function formatSeconds(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   const m = Math.floor(s / 60);
@@ -98,8 +113,7 @@ export function AnalyticsPageContent(): JSX.Element {
     }
     setToday(todayRes.data);
 
-    const to = utcDateKey(Date.now());
-    const from = utcDateKey(Date.now() - 6 * 24 * 60 * 60 * 1000);
+    const { from, to } = computeDateRange();
     const rangeRes = await invoke("stats:range:get", { from, to });
     if (!rangeRes.ok) {
       setError(rangeRes.error);
