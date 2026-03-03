@@ -1,13 +1,17 @@
 # Proposal: fe-token-escape-sweep
-更新时间：2026-03-04 02:40
+更新时间：2026-03-04 03:00
 
-## Summary
+## Why
 
-Sweep all `features/**/*.tsx` files to replace hardcoded design escapes (hex/rgba colors, numeric z-index, `transition-all`, `h/w-screen`) with CSS custom property tokens defined in `tokens.css`.
+前端 Feature 层仍存在 37 处硬编码 hex/rgba 色值、10 处数字 z-index（`z-10`/`z-20`/`z-50`）、24 处 `transition-all` 滥用。这些 Token 逃逸绕过了 `tokens.css` 设计系统，导致主题切换不一致、视觉回归难以追溯、GPU 合成开销增大。本次清扫目标是将所有逃逸归零，并建立 guard 测试防止回潮。
 
-## Motivation
+## What
 
-Raw color values, magic z-index numbers, and `transition-all` in Tailwind classes bypass the design token system, making theme changes fragile and visual consistency hard to maintain. Guard tests will prevent future regressions.
+1. 创建 4 个 guard 测试（S1-S4）扫描 `features/**/*.tsx`，检测 hex/rgba、数字 z-index、`transition-all`、`h/w-screen` 逃逸
+2. 将 37 处硬编码色值替换为 `var(--color-*)` token
+3. 将 10 处数字 z-index 替换为 `var(--z-*)` 语义 token（`tokens.css` 已有定义）
+4. 将 24 处 `transition-all` 替换为具体属性（`transition-colors`/`transition-opacity`/`transition-transform`）
+5. 建立白名单机制覆盖合理例外（颜色选择器数据、第三方 API 约束等）
 
 ## Scope
 
