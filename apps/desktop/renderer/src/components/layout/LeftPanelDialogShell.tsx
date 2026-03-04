@@ -1,5 +1,6 @@
 import React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { useTranslation } from "react-i18next";
 
 type LeftPanelDialogShellProps = {
   open: boolean;
@@ -69,6 +70,7 @@ const closeButtonStyles = [
 export function LeftPanelDialogShell(
   props: LeftPanelDialogShellProps,
 ): JSX.Element {
+  const { t } = useTranslation();
   return (
     <DialogPrimitive.Root open={props.open} onOpenChange={props.onOpenChange}>
       <DialogPrimitive.Portal>
@@ -90,13 +92,13 @@ export function LeftPanelDialogShell(
               >
                 <path d="M4 4L12 12M12 4L4 12" />
               </svg>
-              <span className="sr-only">Close</span>
+              <span className="sr-only">{t("workbench.leftPanel.close")}</span>
             </DialogPrimitive.Close>
           </div>
 
           <div className="min-h-0 flex-1 overflow-auto p-6">{props.children}</div>
           <DialogPrimitive.Description className="sr-only">
-            Dialog panel for {props.title}
+            {t("workbench.leftPanel.dialogPanelDescription", { title: props.title })}
           </DialogPrimitive.Description>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
