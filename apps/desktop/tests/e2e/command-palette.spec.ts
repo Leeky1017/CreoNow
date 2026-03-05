@@ -110,11 +110,10 @@ test.describe("Command Palette + Shortcuts", () => {
   test("Search 'Settings' in Command Palette → SettingsDialog visible", async () => {
     const modKey = getModKey();
 
-    const searchInput = await openCommandPalette({ page, modKey });
-    await searchInput.fill("Settings");
+    await openCommandPalette({ page, modKey });
 
-    // Press Enter to select first result
-    await page.keyboard.press("Enter");
+    // Click the Settings command directly by testid (language-independent)
+    await page.getByTestId("command-item-open-settings").click();
 
     await expect(page.getByTestId("command-palette")).not.toBeVisible();
     await expect(page.getByTestId("settings-dialog")).toBeVisible();
@@ -244,11 +243,10 @@ test.describe("Command Palette + Shortcuts", () => {
   test("Export command opens ExportDialog with disabled export when no project", async () => {
     const modKey = getModKey();
 
-    const searchInput = await openCommandPalette({ page, modKey });
-    await searchInput.fill("Export");
+    await openCommandPalette({ page, modKey });
 
-    // Press Enter to select Export command
-    await page.keyboard.press("Enter");
+    // Click the Export command directly by testid (language-independent)
+    await page.getByTestId("command-item-export").click();
 
     // CommandPalette closes and ExportDialog opens
     await expect(page.getByTestId("command-palette")).not.toBeVisible();

@@ -149,6 +149,7 @@ function ViewModeToggle(props: {
         <button
           key={entry.mode}
           type="button"
+          data-testid={`kg-view-${entry.mode}`}
           onClick={() => props.onViewModeChange(entry.mode)}
           className={`px-2 py-1 text-xs rounded transition-colors ${
             props.viewMode === entry.mode

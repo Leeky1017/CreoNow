@@ -140,6 +140,7 @@ function JudgeStatusSection(props: {
             {t('rightPanel.quality.judgeModelLabel')}{" "}
             <span
               data-testid="quality-panel-judge-status"
+              data-status={status}
               className="font-medium"
             >
               {label}

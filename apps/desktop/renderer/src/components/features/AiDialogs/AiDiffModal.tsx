@@ -794,6 +794,7 @@ export function AiDiffModal({
               <div className="flex gap-2">
                 <button
                   type="button"
+                  data-testid="ai-reject-all"
                   className={rejectAllStyles}
                   onClick={handleRejectAll}
                   disabled={isApplying}
@@ -802,6 +803,7 @@ export function AiDiffModal({
                 </button>
                 <button
                   type="button"
+                  data-testid="ai-accept-all"
                   className={acceptAllStyles}
                   onClick={handleAcceptAll}
                   disabled={isApplying}

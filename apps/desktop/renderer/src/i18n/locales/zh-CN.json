@@ -7,6 +7,8 @@
       "currentDocument": "当前文档"
     },
     "commandPalette": {
+      "ariaLabel": "命令面板",
+      "searchAriaLabel": "搜索命令",
       "searchPlaceholder": "搜索命令或文件...",
       "emptyResult": "未找到匹配结果",
       "footer": {
@@ -112,6 +114,7 @@
       "aiRewrite": "改写"
     },
     "bubbleMenu": {
+      "link": "链接",
       "polish": "润色",
       "rewrite": "改写",
       "describe": "描写",
@@ -276,6 +279,7 @@
       "goToSettings": "前往设置"
     },
     "skillPicker": {
+      "ariaLabel": "技能",
       "builtin": "内置",
       "global": "全局",
       "project": "项目",
@@ -627,6 +631,10 @@
   },
   "projects": {
     "create": {
+      "dialogTitle": "创建新项目",
+      "dialogDescription": "使用模板开始一个新的创作项目。",
+      "descriptionPlaceholder": "简要描述你的项目...",
+      "imagePlaceholder": "点击或拖拽图片上传",
       "createFailed": "项目创建失败，请重试",
       "enterIntentFirst": "请先输入创作意图",
       "aiUnavailable": "AI 辅助创建暂时不可用，请手动创建或稍后重试",
@@ -717,6 +725,7 @@
       "history": "历史"
     },
     "panel": {
+      "closeAriaLabel": "关闭版本历史",
       "aiModify": "AI 修改",
       "autosave": "自动保存",
       "manualSave": "手动保存",
@@ -767,6 +776,23 @@
       "status": "状态：",
       "loading": "加载中",
       "ensure": "确认"
+    },
+    "general": {
+      "displayLanguage": "显示语言",
+      "displayLanguageHelp": "更改立即生效。",
+      "focusMode": "专注模式",
+      "focusModeDescription": "开始输入时，除编辑器外的所有界面元素会变暗，以减少干扰。",
+      "typewriterScroll": "打字机滚动",
+      "typewriterScrollDescription": "在你书写时，保持当前行在屏幕垂直居中。",
+      "smartPunctuation": "智能标点",
+      "smartPunctuationDescription": "自动将直引号转换为弯引号，双连字符转换为破折号。",
+      "localAutoSave": "本地自动保存",
+      "localAutoSaveDescription": "自动将更改保存到浏览器的本地存储。",
+      "backupInterval": "备份间隔",
+      "backupIntervalHelp": "上次备份：2 分钟前",
+      "differentiateAiEdits": "区分 AI 编辑",
+      "defaultTypography": "默认排版",
+      "interfaceScale": "界面缩放"
     }
   },
   "settingsDialog": {
@@ -1003,7 +1029,8 @@
       "srDescription": "导出已成功完成。"
     },
     "dialog": {
-      "title": "导出文档"
+      "title": "导出文档",
+      "close": "关闭"
     },
     "defaultDocumentTitle": "未命名文档",
     "error": {

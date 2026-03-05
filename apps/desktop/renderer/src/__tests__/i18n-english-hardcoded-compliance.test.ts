@@ -207,7 +207,6 @@ describe("i18n English hardcoded compliance (#970)", () => {
   for (const filePath of allFiles) {
     const content = readFileSync(filePath, "utf8");
     const lines = content.split("\n");
-    const hasUseTranslation = content.includes("useTranslation");
     const samples: Array<{ num: number; text: string }> = [];
 
     for (let i = 0; i < lines.length; i++) {
@@ -226,12 +225,11 @@ describe("i18n English hardcoded compliance (#970)", () => {
         continue;
       }
 
-      // Check for UI prop literals (only if file doesn't use useTranslation)
-      if (!hasUseTranslation) {
-        const propMatch = UI_PROP_LITERAL_REGEX.exec(line);
-        if (propMatch) {
-          samples.push({ num: i + 1, text: line.trim() });
-        }
+      // Check for UI prop literals (regardless of useTranslation presence —
+      // a file may import the hook but still have stale hardcoded props)
+      const propMatch = UI_PROP_LITERAL_REGEX.exec(line);
+      if (propMatch) {
+        samples.push({ num: i + 1, text: line.trim() });
       }
     }
 

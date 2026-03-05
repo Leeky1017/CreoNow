@@ -818,6 +818,7 @@ export function QualityGatesPanelContent({
       <div className={scrollAreaStyles}>
         {/* Run All Checks button */}
         <Button
+          data-testid="quality-run-all-checks"
           variant="secondary"
           size="sm"
           onClick={onRunAllChecks}

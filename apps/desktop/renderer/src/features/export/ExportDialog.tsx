@@ -655,6 +655,7 @@ function SuccessView(props: {
       </div>
 
       <Button
+        data-testid="export-done"
         variant="primary"
         onClick={props.onDone}
         className="!bg-white !text-black hover:!bg-gray-200"
@@ -887,7 +888,7 @@ export function ExportDialog({
                 </div>
                 <DialogPrimitive.Close
                   className={closeButtonStyles}
-                  aria-label="Close"
+                  aria-label={t('export.dialog.close')}
                 >
                   <X size={20} strokeWidth={1.5} aria-hidden="true" />
                 </DialogPrimitive.Close>

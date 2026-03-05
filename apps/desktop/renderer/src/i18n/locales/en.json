@@ -7,6 +7,8 @@
       "currentDocument": "Current Document"
     },
     "commandPalette": {
+      "ariaLabel": "Command Palette",
+      "searchAriaLabel": "Search commands",
       "searchPlaceholder": "Search commands or files...",
       "emptyResult": "No matching results",
       "footer": {
@@ -112,6 +114,7 @@
       "aiRewrite": "Rewrite"
     },
     "bubbleMenu": {
+      "link": "Link",
       "polish": "Polish",
       "rewrite": "Rewrite",
       "describe": "Describe",
@@ -276,6 +279,7 @@
       "goToSettings": "Go to Settings"
     },
     "skillPicker": {
+      "ariaLabel": "SKILL",
       "builtin": "Built-in",
       "global": "Global",
       "project": "Project",
@@ -627,6 +631,10 @@
   },
   "projects": {
     "create": {
+      "dialogTitle": "Create New Project",
+      "dialogDescription": "Start a new writing project with a template.",
+      "descriptionPlaceholder": "Brief description of your project...",
+      "imagePlaceholder": "Click or drag image to upload",
       "createFailed": "Failed to create project, please try again",
       "enterIntentFirst": "Please enter your creative intent first",
       "aiUnavailable": "AI-assisted creation is temporarily unavailable. Please create manually or try again later",
@@ -717,6 +725,7 @@
       "history": "History"
     },
     "panel": {
+      "closeAriaLabel": "Close version history",
       "aiModify": "AI Modification",
       "autosave": "Auto Save",
       "manualSave": "Manual Save",
@@ -767,6 +776,23 @@
       "status": "Status:",
       "loading": "loading",
       "ensure": "Ensure"
+    },
+    "general": {
+      "displayLanguage": "Display Language",
+      "displayLanguageHelp": "Changes take effect immediately.",
+      "focusMode": "Focus Mode",
+      "focusModeDescription": "Dims all interface elements except the editor when you start typing to reduce distractions.",
+      "typewriterScroll": "Typewriter Scroll",
+      "typewriterScrollDescription": "Keeps your active line of text vertically centered on the screen as you write.",
+      "smartPunctuation": "Smart Punctuation",
+      "smartPunctuationDescription": "Automatically convert straight quotes to curly quotes and double hyphens to em-dashes.",
+      "localAutoSave": "Local Auto-Save",
+      "localAutoSaveDescription": "Automatically save changes to your browser's local storage.",
+      "backupInterval": "Backup Interval",
+      "backupIntervalHelp": "Last backup: 2 minutes ago",
+      "differentiateAiEdits": "Differentiate AI edits",
+      "defaultTypography": "Default Typography",
+      "interfaceScale": "Interface Scale"
     }
   },
   "settingsDialog": {
@@ -1003,7 +1029,8 @@
       "srDescription": "Export completed successfully."
     },
     "dialog": {
-      "title": "Export Document"
+      "title": "Export Document",
+      "close": "Close"
     },
     "defaultDocumentTitle": "Untitled Document",
     "error": {

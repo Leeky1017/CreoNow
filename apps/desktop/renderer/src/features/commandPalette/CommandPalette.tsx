@@ -592,7 +592,7 @@ export function CommandPalette({
         data-testid="command-palette"
         role="dialog"
         aria-modal="true"
-        aria-label="Command Palette"
+        aria-label={t('workbench.commandPalette.ariaLabel')}
         onClick={(e) => e.stopPropagation()}
         className="w-[600px] max-w-[90vw] flex flex-col bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-xl overflow-hidden"
       >
@@ -613,7 +613,7 @@ export function CommandPalette({
             onKeyDown={handleKeyDown}
             placeholder={t("workbench.commandPalette.searchPlaceholder")}
             className="flex-1 bg-transparent border-none text-[15px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-placeholder)] outline-none"
-            aria-label="Search commands"
+            aria-label={t('workbench.commandPalette.searchAriaLabel')}
           />
         </div>
 

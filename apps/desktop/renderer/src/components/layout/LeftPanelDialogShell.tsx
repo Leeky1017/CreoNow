@@ -80,7 +80,7 @@ export function LeftPanelDialogShell(
             <DialogPrimitive.Title className="text-sm font-semibold tracking-wide text-[var(--color-fg-default)]">
               {props.title}
             </DialogPrimitive.Title>
-            <DialogPrimitive.Close className={closeButtonStyles}>
+            <DialogPrimitive.Close className={closeButtonStyles} data-testid="leftpanel-dialog-close">
               <svg
                 width="16"
                 height="16"
