@@ -177,42 +177,19 @@ function normalizeCandidateCount(raw: number | undefined): number {
   return rounded;
 }
 
-/**
- * Create a zustand store for AI runtime state.
- *
- * Why: UI must support stream/cancel/timeout/upstream-error with deterministic
- * state transitions for Windows E2E.
- */
-export function createAiStore(deps: { invoke: IpcInvoke }) {
-  return create<AiStore>((set, get) => ({
-    status: "idle",
-    stream: true,
-    selectedSkillId: "builtin:polish",
-    skills: [],
-    skillsStatus: "idle",
-    skillsLastError: null,
-    input: "",
-    outputText: "",
-    activeRunId: null,
-    activeChunkSeq: 0,
-    lastRunId: null,
-    lastError: null,
-    selectionRef: null,
-    selectionText: "",
-    proposal: null,
-    applyStatus: "idle",
-    lastCandidates: [],
-    usageStats: null,
-    selectedCandidateId: null,
-    lastRunRequest: null,
-    queuePosition: null,
-    queuedCount: 0,
-    globalRunningCount: 0,
+type AiStoreSetter = (
+  partial:
+    | Partial<AiStore>
+    | ((state: AiStore) => Partial<AiStore>),
+) => void;
+type AiStoreGetter = () => AiStore;
 
-    setStream: (enabled) => set({ stream: enabled }),
-
-    setSelectedSkillId: (skillId) => set({ selectedSkillId: skillId }),
-
+function createAiStoreSkillActions(
+  deps: { invoke: IpcInvoke },
+  set: AiStoreSetter,
+  get: AiStoreGetter,
+): Pick<AiActions, "refreshSkills"> {
+  return {
     refreshSkills: async () => {
       const state = get();
       if (state.skillsStatus === "loading") {
@@ -267,30 +244,15 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         skillsLastError: nextError,
       });
     },
+  };
+}
 
-    setInput: (input) => set({ input }),
-
-    clearError: () => set({ lastError: null }),
-    setError: (error) => set({ lastError: error }),
-
-    setSelectionSnapshot: (snapshot) => {
-      set({
-        selectionRef: snapshot?.selectionRef ?? null,
-        selectionText: snapshot?.selectionText ?? "",
-      });
-    },
-
-    setProposal: (proposal) =>
-      set({
-        proposal,
-        applyStatus: "idle",
-      }),
-
-    setSelectedCandidateId: (candidateId) =>
-      set({
-        selectedCandidateId: candidateId,
-      }),
-
+function createAiStoreRunActions(
+  deps: { invoke: IpcInvoke },
+  set: AiStoreSetter,
+  get: AiStoreGetter,
+): Pick<AiActions, "run" | "regenerateWithStrongNegative" | "cancel" | "persistAiApply" | "logAiApplyConflict"> {
+  return {
     persistAiApply: async (args) => {
       set({ applyStatus: "applying", lastError: null });
 
@@ -530,7 +492,14 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         set({ status: statusFromError(res.error), lastError: res.error });
       }
     },
+  };
+}
 
+function createAiStoreStreamHandler(
+  set: AiStoreSetter,
+  get: AiStoreGetter,
+): Pick<AiActions, "onStreamEvent"> {
+  return {
     onStreamEvent: (event) => {
       const state = get();
       if (!state.activeRunId || event.executionId !== state.activeRunId) {
@@ -637,6 +606,68 @@ export function createAiStore(deps: { invoke: IpcInvoke }) {
         globalRunningCount: 0,
       });
     },
+  };
+}
+
+/**
+ * Create a zustand store for AI runtime state.
+ *
+ * Why: UI must support stream/cancel/timeout/upstream-error with deterministic
+ * state transitions for Windows E2E.
+ */
+export function createAiStore(deps: { invoke: IpcInvoke }) {
+  return create<AiStore>((set, get) => ({
+    status: "idle",
+    stream: true,
+    selectedSkillId: "builtin:polish",
+    skills: [],
+    skillsStatus: "idle",
+    skillsLastError: null,
+    input: "",
+    outputText: "",
+    activeRunId: null,
+    activeChunkSeq: 0,
+    lastRunId: null,
+    lastError: null,
+    selectionRef: null,
+    selectionText: "",
+    proposal: null,
+    applyStatus: "idle",
+    lastCandidates: [],
+    usageStats: null,
+    selectedCandidateId: null,
+    lastRunRequest: null,
+    queuePosition: null,
+    queuedCount: 0,
+    globalRunningCount: 0,
+
+    setStream: (enabled) => set({ stream: enabled }),
+    setSelectedSkillId: (skillId) => set({ selectedSkillId: skillId }),
+    setInput: (input) => set({ input }),
+    clearError: () => set({ lastError: null }),
+    setError: (error) => set({ lastError: error }),
+
+    setSelectionSnapshot: (snapshot) => {
+      set({
+        selectionRef: snapshot?.selectionRef ?? null,
+        selectionText: snapshot?.selectionText ?? "",
+      });
+    },
+
+    setProposal: (proposal) =>
+      set({
+        proposal,
+        applyStatus: "idle",
+      }),
+
+    setSelectedCandidateId: (candidateId) =>
+      set({
+        selectedCandidateId: candidateId,
+      }),
+
+    ...createAiStoreSkillActions(deps, set, get),
+    ...createAiStoreRunActions(deps, set, get),
+    ...createAiStoreStreamHandler(set, get),
   }));
 }
 

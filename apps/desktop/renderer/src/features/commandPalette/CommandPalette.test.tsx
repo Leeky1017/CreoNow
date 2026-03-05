@@ -455,6 +455,12 @@ describe("CommandPalette", () => {
       ).not.toBeInTheDocument();
     });
   });
+});
+
+describe("CommandPalette — navigation and validation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   describe("分页", () => {
     it("查询Result超过 100 项时首屏只显示 100 项并可滚动加载下一批", async () => {
@@ -710,6 +716,12 @@ describe("CommandPalette", () => {
       expect(thirdItem).toHaveAttribute("aria-selected", "true");
       expect(firstItem).toHaveAttribute("aria-selected", "false");
     });
+  });
+});
+
+describe("CommandPalette — indicators and validation", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   // ===========================================================================

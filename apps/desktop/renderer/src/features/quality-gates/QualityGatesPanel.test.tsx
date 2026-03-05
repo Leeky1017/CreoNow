@@ -325,7 +325,9 @@ describe("QualityGatesPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "View in Editor" }));
     expect(onViewInEditor).toHaveBeenCalledWith("character-names", "issue-1");
   });
+});
 
+describe("QualityGatesPanel — display and settings", () => {
   it("renders result value for passed checks", () => {
     render(
       <QualityGatesPanel

@@ -8,6 +8,52 @@ import { resolveSkillsForPicker } from "./scopeResolver";
 import { Plus } from "lucide-react";
 
 /**
+ * SkillItemRow – renders one skill entry with optional action buttons.
+ */
+function SkillItemRow(props: {
+  item: SkillListItem;
+  selected: boolean;
+  subtitle: string;
+  onSelect: () => void;
+  actionButtons?: JSX.Element;
+}): JSX.Element {
+  const disabled = !props.item.enabled || !props.item.valid;
+
+  return (
+    <div className="flex items-center gap-1" data-testid={`ai-skill-row-${props.item.id}`}>
+      <button
+        type="button"
+        data-testid={`ai-skill-${props.item.id}`}
+        disabled={disabled}
+        onClick={props.onSelect}
+        className={`
+          flex-1 flex flex-col gap-0.5 text-left px-2.5 py-2 rounded-[10px] border
+          transition-colors duration-[var(--duration-fast)] ease-[var(--ease-default)]
+          ${
+            props.selected
+              ? "border-[var(--color-border-accent)] bg-[var(--color-bg-base)]"
+              : "border-[var(--color-border-default)] bg-[var(--color-bg-raised)]"
+          }
+          ${
+            disabled
+              ? "text-[var(--color-fg-muted)] opacity-50 cursor-not-allowed"
+              : "text-[var(--color-fg-default)] cursor-pointer hover:border-[var(--color-border-hover)]"
+          }
+        `}
+      >
+        <Text size="small" weight="semibold" color={disabled ? "muted" : "default"}>
+          {props.item.name}
+        </Text>
+        <Text size="tiny" color="muted">
+          {props.subtitle}
+        </Text>
+      </button>
+      {props.actionButtons}
+    </div>
+  );
+}
+
+/**
  * SkillPicker renders grouped skill entries and scope controls.
  */
 export function SkillPicker(props: {
@@ -81,7 +127,6 @@ export function SkillPicker(props: {
             <div className="mt-1.5 space-y-1.5">
               {grouped.builtin.map((item) => {
                 const selected = item.id === props.selectedSkillId;
-                const disabled = !item.enabled || !item.valid;
                 const subtitle = !item.enabled
                   ? "Disabled"
                   : !item.valid
@@ -91,57 +136,25 @@ export function SkillPicker(props: {
                       : scopeLabel(item.scope);
 
                 return (
-                  <div
+                  <SkillItemRow
                     key={item.id}
-                    className="flex items-center gap-1"
-                    data-testid={`ai-skill-row-${item.id}`}
-                  >
-                    <button
-                      type="button"
-                      data-testid={`ai-skill-${item.id}`}
-                      disabled={disabled}
-                      onClick={() => props.onSelectSkillId(item.id)}
-                      className={`
-                        flex-1 flex flex-col gap-0.5 text-left px-2.5 py-2 rounded-[10px] border
-                        transition-colors duration-[var(--duration-fast)] ease-[var(--ease-default)]
-                        ${
-                          selected
-                            ? "border-[var(--color-border-accent)] bg-[var(--color-bg-base)]"
-                            : "border-[var(--color-border-default)] bg-[var(--color-bg-raised)]"
-                        }
-                        ${
-                          disabled
-                            ? "text-[var(--color-fg-muted)] opacity-50 cursor-not-allowed"
-                            : "text-[var(--color-fg-default)] cursor-pointer hover:border-[var(--color-border-hover)]"
-                        }
-                      `}
-                    >
-                      <Text
-                        size="small"
-                        weight="semibold"
-                        color={disabled ? "muted" : "default"}
-                      >
-                        {item.name}
-                      </Text>
-
-                      <Text size="tiny" color="muted">
-                        {subtitle}
-                      </Text>
-                    </button>
-
-                    {props.onToggleSkill && (
-                      <button
-                        type="button"
-                        data-testid={`ai-skill-toggle-${item.id}`}
-                        className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
-                        onClick={() =>
-                          props.onToggleSkill?.(item.id, !item.enabled)
-                        }
-                      >
-                        {item.enabled ? t("ai.skillPicker.disable") : t("ai.skillPicker.enable")}
-                      </button>
-                    )}
-                  </div>
+                    item={item}
+                    selected={selected}
+                    subtitle={subtitle}
+                    onSelect={() => props.onSelectSkillId(item.id)}
+                    actionButtons={
+                      props.onToggleSkill ? (
+                        <button
+                          type="button"
+                          data-testid={`ai-skill-toggle-${item.id}`}
+                          className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
+                          onClick={() => props.onToggleSkill?.(item.id, !item.enabled)}
+                        >
+                          {item.enabled ? t("ai.skillPicker.disable") : t("ai.skillPicker.enable")}
+                        </button>
+                      ) : undefined
+                    }
+                  />
                 );
               })}
             </div>
@@ -185,7 +198,6 @@ export function SkillPicker(props: {
                     <div className="mt-1 space-y-1.5">
                       {grouped.global.map((item) => {
                         const selected = item.id === props.selectedSkillId;
-                        const disabled = !item.enabled || !item.valid;
                         const subtitle = !item.enabled
                           ? "Disabled"
                           : !item.valid
@@ -193,68 +205,37 @@ export function SkillPicker(props: {
                             : scopeLabel(item.scope);
 
                         return (
-                          <div
+                          <SkillItemRow
                             key={item.id}
-                            className="flex items-center gap-1"
-                          >
-                            <button
-                              type="button"
-                              data-testid={`ai-skill-${item.id}`}
-                              disabled={disabled}
-                              onClick={() => props.onSelectSkillId(item.id)}
-                              className={`
-                                flex-1 flex flex-col gap-0.5 text-left px-2.5 py-2 rounded-[10px] border
-                                transition-colors duration-[var(--duration-fast)] ease-[var(--ease-default)]
-                                ${
-                                  selected
-                                    ? "border-[var(--color-border-accent)] bg-[var(--color-bg-base)]"
-                                    : "border-[var(--color-border-default)] bg-[var(--color-bg-raised)]"
-                                }
-                                ${
-                                  disabled
-                                    ? "text-[var(--color-fg-muted)] opacity-50 cursor-not-allowed"
-                                    : "text-[var(--color-fg-default)] cursor-pointer hover:border-[var(--color-border-hover)]"
-                                }
-                              `}
-                            >
-                              <Text
-                                size="small"
-                                weight="semibold"
-                                color={disabled ? "muted" : "default"}
-                              >
-                                {item.name}
-                              </Text>
-                              <Text size="tiny" color="muted">
-                                {subtitle}
-                              </Text>
-                            </button>
-
-                            {props.onUpdateScope && (
-                              <button
-                                type="button"
-                                data-testid={`ai-skill-demote-${item.id}`}
-                                className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
-                                onClick={() =>
-                                  props.onUpdateScope?.(item.id, "project")
-                                }
-                              >
-                                {t("ai.skillPicker.demoteToProject")}
-                              </button>
-                            )}
-
-                            {props.onToggleSkill && (
-                              <button
-                                type="button"
-                                data-testid={`ai-skill-toggle-${item.id}`}
-                                className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
-                                onClick={() =>
-                                  props.onToggleSkill?.(item.id, !item.enabled)
-                                }
-                              >
-                                {item.enabled ? t("ai.skillPicker.disable") : t("ai.skillPicker.enable")}
-                              </button>
-                            )}
-                          </div>
+                            item={item}
+                            selected={selected}
+                            subtitle={subtitle}
+                            onSelect={() => props.onSelectSkillId(item.id)}
+                            actionButtons={
+                              <>
+                                {props.onUpdateScope && (
+                                  <button
+                                    type="button"
+                                    data-testid={`ai-skill-demote-${item.id}`}
+                                    className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
+                                    onClick={() => props.onUpdateScope?.(item.id, "project")}
+                                  >
+                                    {t("ai.skillPicker.demoteToProject")}
+                                  </button>
+                                )}
+                                {props.onToggleSkill && (
+                                  <button
+                                    type="button"
+                                    data-testid={`ai-skill-toggle-${item.id}`}
+                                    className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
+                                    onClick={() => props.onToggleSkill?.(item.id, !item.enabled)}
+                                  >
+                                    {item.enabled ? t("ai.skillPicker.disable") : t("ai.skillPicker.enable")}
+                                  </button>
+                                )}
+                              </>
+                            }
+                          />
                         );
                       })}
                     </div>
@@ -273,7 +254,6 @@ export function SkillPicker(props: {
                     <div className="mt-1 space-y-1.5">
                       {grouped.project.map((item) => {
                         const selected = item.id === props.selectedSkillId;
-                        const disabled = !item.enabled || !item.valid;
                         const subtitle = !item.enabled
                           ? "Disabled"
                           : !item.valid
@@ -283,68 +263,37 @@ export function SkillPicker(props: {
                               : scopeLabel(item.scope);
 
                         return (
-                          <div
+                          <SkillItemRow
                             key={item.id}
-                            className="flex items-center gap-1"
-                          >
-                            <button
-                              type="button"
-                              data-testid={`ai-skill-${item.id}`}
-                              disabled={disabled}
-                              onClick={() => props.onSelectSkillId(item.id)}
-                              className={`
-                                flex-1 flex flex-col gap-0.5 text-left px-2.5 py-2 rounded-[10px] border
-                                transition-colors duration-[var(--duration-fast)] ease-[var(--ease-default)]
-                                ${
-                                  selected
-                                    ? "border-[var(--color-border-accent)] bg-[var(--color-bg-base)]"
-                                    : "border-[var(--color-border-default)] bg-[var(--color-bg-raised)]"
-                                }
-                                ${
-                                  disabled
-                                    ? "text-[var(--color-fg-muted)] opacity-50 cursor-not-allowed"
-                                    : "text-[var(--color-fg-default)] cursor-pointer hover:border-[var(--color-border-hover)]"
-                                }
-                              `}
-                            >
-                              <Text
-                                size="small"
-                                weight="semibold"
-                                color={disabled ? "muted" : "default"}
-                              >
-                                {item.name}
-                              </Text>
-                              <Text size="tiny" color="muted">
-                                {subtitle}
-                              </Text>
-                            </button>
-
-                            {props.onUpdateScope && (
-                              <button
-                                type="button"
-                                data-testid={`ai-skill-promote-${item.id}`}
-                                className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
-                                onClick={() =>
-                                  props.onUpdateScope?.(item.id, "global")
-                                }
-                              >
-                                {t("ai.skillPicker.promoteToGlobal")}
-                              </button>
-                            )}
-
-                            {props.onToggleSkill && (
-                              <button
-                                type="button"
-                                data-testid={`ai-skill-toggle-${item.id}`}
-                                className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
-                                onClick={() =>
-                                  props.onToggleSkill?.(item.id, !item.enabled)
-                                }
-                              >
-                                {item.enabled ? t("ai.skillPicker.disable") : t("ai.skillPicker.enable")}
-                              </button>
-                            )}
-                          </div>
+                            item={item}
+                            selected={selected}
+                            subtitle={subtitle}
+                            onSelect={() => props.onSelectSkillId(item.id)}
+                            actionButtons={
+                              <>
+                                {props.onUpdateScope && (
+                                  <button
+                                    type="button"
+                                    data-testid={`ai-skill-promote-${item.id}`}
+                                    className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
+                                    onClick={() => props.onUpdateScope?.(item.id, "global")}
+                                  >
+                                    {t("ai.skillPicker.promoteToGlobal")}
+                                  </button>
+                                )}
+                                {props.onToggleSkill && (
+                                  <button
+                                    type="button"
+                                    data-testid={`ai-skill-toggle-${item.id}`}
+                                    className="px-2 py-1 text-[10px] rounded border border-[var(--color-border-default)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)]"
+                                    onClick={() => props.onToggleSkill?.(item.id, !item.enabled)}
+                                  >
+                                    {item.enabled ? t("ai.skillPicker.disable") : t("ai.skillPicker.enable")}
+                                  </button>
+                                )}
+                              </>
+                            }
+                          />
                         );
                       })}
                     </div>

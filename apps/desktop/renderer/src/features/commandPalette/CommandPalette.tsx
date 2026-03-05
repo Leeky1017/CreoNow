@@ -293,6 +293,166 @@ function filterCommands(commands: CommandItem[], query: string): CommandItem[] {
   return fuzzyFilter(searchable, normalizedQuery);
 }
 
+/**
+ * Build the default command palette items.
+ * Extracted to reduce CommandPalette function length.
+ */
+function buildDefaultCommands(ctx: {
+  modKey: string;
+  t: (key: string) => string;
+  currentProjectId: string | null;
+  onOpenChange: (open: boolean) => void;
+  setErrorText: (text: string | null) => void;
+  layoutActions: CommandPaletteProps["layoutActions"];
+  dialogActions: CommandPaletteProps["dialogActions"];
+  documentActions: CommandPaletteProps["documentActions"];
+}): CommandItem[] {
+  return [
+      // === Settings ===
+      {
+        id: "open-settings",
+        label: "Open Settings",
+        icon: <SettingsIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: `${ctx.modKey},`,
+        group: GROUP_IDS.suggestions,
+        onSelect: () => {
+          ctx.setErrorText(null);
+          if (ctx.dialogActions?.onOpenSettings) {
+            ctx.dialogActions.onOpenSettings();
+            ctx.onOpenChange(false);
+          } else {
+            ctx.setErrorText("ACTION_FAILED: Settings dialog not available");
+          }
+        },
+      },
+      // === Export ===
+      {
+        id: "export",
+        label: "Export…",
+        icon: <DownloadIcon className="text-[var(--color-fg-muted)]" />,
+        group: GROUP_IDS.suggestions,
+        onSelect: () => {
+          ctx.setErrorText(null);
+          // Always open ExportDialog; it handles NO_PROJECT error internally
+          if (ctx.dialogActions?.onOpenExport) {
+            ctx.dialogActions.onOpenExport();
+            ctx.onOpenChange(false);
+          } else {
+            ctx.setErrorText("ACTION_FAILED: Export dialog not available");
+          }
+        },
+      },
+      // === Layout: Toggle Sidebar ===
+      {
+        id: "toggle-sidebar",
+        label: "Toggle Sidebar",
+        icon: <SidebarIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: `${ctx.modKey}\\`,
+        group: GROUP_IDS.layout,
+        onSelect: () => {
+          ctx.setErrorText(null);
+          if (ctx.layoutActions?.onToggleSidebar) {
+            ctx.layoutActions.onToggleSidebar();
+            ctx.onOpenChange(false);
+          } else {
+            ctx.setErrorText("ACTION_FAILED: Layout actions not available");
+          }
+        },
+      },
+      // === Layout: Toggle Right Panel ===
+      {
+        id: "toggle-right-panel",
+        label: "Toggle Right Panel",
+        icon: <PanelRightIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: `${ctx.modKey}L`,
+        group: GROUP_IDS.layout,
+        onSelect: () => {
+          ctx.setErrorText(null);
+          if (ctx.layoutActions?.onToggleRightPanel) {
+            ctx.layoutActions.onToggleRightPanel();
+            ctx.onOpenChange(false);
+          } else {
+            ctx.setErrorText("ACTION_FAILED: Layout actions not available");
+          }
+        },
+      },
+      // === Layout: Zen Mode ===
+      {
+        id: "toggle-zen-mode",
+        label: "Toggle Zen Mode",
+        icon: <MaximizeIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: "F11",
+        group: GROUP_IDS.layout,
+        onSelect: () => {
+          ctx.setErrorText(null);
+          if (ctx.layoutActions?.onToggleZenMode) {
+            ctx.layoutActions.onToggleZenMode();
+            ctx.onOpenChange(false);
+          } else {
+            ctx.setErrorText("ACTION_FAILED: Layout actions not available");
+          }
+        },
+      },
+      // === Document: Create New Document ===
+      {
+        id: "create-new-document",
+        label: "Create New Document",
+        icon: <EditIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: `${ctx.modKey}N`,
+        group: GROUP_IDS.document,
+        onSelect: async () => {
+          ctx.setErrorText(null);
+          if (!ctx.currentProjectId) {
+            ctx.setErrorText("NO_PROJECT: Please open a project first");
+            return;
+          }
+          if (ctx.documentActions?.onCreateDocument) {
+            try {
+              await ctx.documentActions.onCreateDocument();
+              ctx.onOpenChange(false);
+            } catch {
+              ctx.setErrorText("ACTION_FAILED: Failed to create document");
+            }
+          } else {
+            ctx.setErrorText("ACTION_FAILED: Document actions not available");
+          }
+        },
+      },
+      {
+        id: "open-version-history",
+        label: "Open Version History",
+        icon: <HistoryIcon className="text-[var(--color-fg-muted)]" />,
+        group: GROUP_IDS.document,
+        onSelect: () => {
+          ctx.setErrorText(null);
+          if (ctx.layoutActions?.onOpenVersionHistory) {
+            ctx.layoutActions.onOpenVersionHistory();
+            ctx.onOpenChange(false);
+          } else {
+            ctx.setErrorText("ACTION_FAILED: Version history action not available");
+          }
+        },
+      },
+      // === Project: Create New Project ===
+      {
+        id: "create-new-project",
+        label: "Create New Project",
+        icon: <FolderPlusIcon className="text-[var(--color-fg-muted)]" />,
+        shortcut: `${ctx.modKey}⇧N`,
+        group: GROUP_IDS.project,
+        onSelect: () => {
+          ctx.setErrorText(null);
+          if (ctx.dialogActions?.onOpenCreateProject) {
+            ctx.dialogActions.onOpenCreateProject();
+            ctx.onOpenChange(false);
+          } else {
+            ctx.setErrorText("ACTION_FAILED: Create project dialog not available");
+          }
+        },
+      },
+  ];
+}
+
 // =============================================================================
 // Component
 // =============================================================================
@@ -319,152 +479,18 @@ export function CommandPalette({
   // 获取平台相关的修饰键
   const modKey = React.useMemo(() => getModKey(), []);
 
-  // 默认命令列表 - 对齐 design/DESIGN_DECISIONS.md 快捷键规范
   const defaultCommands = React.useMemo<CommandItem[]>(
-    () => [
-      // === Settings ===
-      {
-        id: "open-settings",
-        label: "Open Settings",
-        icon: <SettingsIcon className="text-[var(--color-fg-muted)]" />,
-        shortcut: `${modKey},`,
-        group: GROUP_IDS.suggestions,
-        onSelect: () => {
-          setErrorText(null);
-          if (dialogActions?.onOpenSettings) {
-            dialogActions.onOpenSettings();
-            onOpenChange(false);
-          } else {
-            setErrorText("ACTION_FAILED: Settings dialog not available");
-          }
-        },
-      },
-      // === Export ===
-      {
-        id: "export",
-        label: "Export…",
-        icon: <DownloadIcon className="text-[var(--color-fg-muted)]" />,
-        group: GROUP_IDS.suggestions,
-        onSelect: () => {
-          setErrorText(null);
-          // Always open ExportDialog; it handles NO_PROJECT error internally
-          if (dialogActions?.onOpenExport) {
-            dialogActions.onOpenExport();
-            onOpenChange(false);
-          } else {
-            setErrorText("ACTION_FAILED: Export dialog not available");
-          }
-        },
-      },
-      // === Layout: Toggle Sidebar ===
-      {
-        id: "toggle-sidebar",
-        label: "Toggle Sidebar",
-        icon: <SidebarIcon className="text-[var(--color-fg-muted)]" />,
-        shortcut: `${modKey}\\`,
-        group: GROUP_IDS.layout,
-        onSelect: () => {
-          setErrorText(null);
-          if (layoutActions?.onToggleSidebar) {
-            layoutActions.onToggleSidebar();
-            onOpenChange(false);
-          } else {
-            setErrorText("ACTION_FAILED: Layout actions not available");
-          }
-        },
-      },
-      // === Layout: Toggle Right Panel ===
-      {
-        id: "toggle-right-panel",
-        label: "Toggle Right Panel",
-        icon: <PanelRightIcon className="text-[var(--color-fg-muted)]" />,
-        shortcut: `${modKey}L`,
-        group: GROUP_IDS.layout,
-        onSelect: () => {
-          setErrorText(null);
-          if (layoutActions?.onToggleRightPanel) {
-            layoutActions.onToggleRightPanel();
-            onOpenChange(false);
-          } else {
-            setErrorText("ACTION_FAILED: Layout actions not available");
-          }
-        },
-      },
-      // === Layout: Zen Mode ===
-      {
-        id: "toggle-zen-mode",
-        label: "Toggle Zen Mode",
-        icon: <MaximizeIcon className="text-[var(--color-fg-muted)]" />,
-        shortcut: "F11",
-        group: GROUP_IDS.layout,
-        onSelect: () => {
-          setErrorText(null);
-          if (layoutActions?.onToggleZenMode) {
-            layoutActions.onToggleZenMode();
-            onOpenChange(false);
-          } else {
-            setErrorText("ACTION_FAILED: Layout actions not available");
-          }
-        },
-      },
-      // === Document: Create New Document ===
-      {
-        id: "create-new-document",
-        label: "Create New Document",
-        icon: <EditIcon className="text-[var(--color-fg-muted)]" />,
-        shortcut: `${modKey}N`,
-        group: GROUP_IDS.document,
-        onSelect: async () => {
-          setErrorText(null);
-          if (!currentProjectId) {
-            setErrorText("NO_PROJECT: Please open a project first");
-            return;
-          }
-          if (documentActions?.onCreateDocument) {
-            try {
-              await documentActions.onCreateDocument();
-              onOpenChange(false);
-            } catch {
-              setErrorText("ACTION_FAILED: Failed to create document");
-            }
-          } else {
-            setErrorText("ACTION_FAILED: Document actions not available");
-          }
-        },
-      },
-      {
-        id: "open-version-history",
-        label: "Open Version History",
-        icon: <HistoryIcon className="text-[var(--color-fg-muted)]" />,
-        group: GROUP_IDS.document,
-        onSelect: () => {
-          setErrorText(null);
-          if (layoutActions?.onOpenVersionHistory) {
-            layoutActions.onOpenVersionHistory();
-            onOpenChange(false);
-          } else {
-            setErrorText("ACTION_FAILED: Version history action not available");
-          }
-        },
-      },
-      // === Project: Create New Project ===
-      {
-        id: "create-new-project",
-        label: "Create New Project",
-        icon: <FolderPlusIcon className="text-[var(--color-fg-muted)]" />,
-        shortcut: `${modKey}⇧N`,
-        group: GROUP_IDS.project,
-        onSelect: () => {
-          setErrorText(null);
-          if (dialogActions?.onOpenCreateProject) {
-            dialogActions.onOpenCreateProject();
-            onOpenChange(false);
-          } else {
-            setErrorText("ACTION_FAILED: Create project dialog not available");
-          }
-        },
-      },
-    ],
+    () =>
+      buildDefaultCommands({
+        modKey,
+        t,
+        currentProjectId,
+        onOpenChange,
+        setErrorText,
+        layoutActions,
+        dialogActions,
+        documentActions,
+      }),
     [
       currentProjectId,
       dialogActions,
@@ -472,6 +498,7 @@ export function CommandPalette({
       layoutActions,
       modKey,
       onOpenChange,
+      t,
     ],
   );
 

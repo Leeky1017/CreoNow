@@ -348,6 +348,187 @@ function KeyHint(props: {
     </div>
   );
 }
+/**
+ * Renders the appropriate search results view based on the current state.
+ * Handles empty, rebuilding, error, no results, and results states.
+ */
+function SearchResultsArea(props: {
+  hasQuery: boolean;
+  hasResults: boolean;
+  hasError: boolean;
+  effectiveQuery: string;
+  effectiveStatus: SearchStatus;
+  effectiveIndexState: "ready" | "rebuilding";
+  lastError: { message: string } | null;
+  category: SearchCategory;
+  activeIndex: number;
+  flashKey: string | null;
+  totalResults: number;
+  documentItems: SearchResultItem[];
+  memoryItems: SearchResultItem[];
+  knowledgeItems: SearchResultItem[];
+  onItemClick: (documentId: string) => void;
+  onRetrySearch: () => void;
+  onClearQuery: () => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+
+  if (!props.hasQuery && !props.hasResults) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-8">
+        <Search className="w-16 h-16 text-[var(--color-fg-placeholder)] mb-4" size={24} strokeWidth={1.5} />
+        <p className="text-sm text-[var(--color-fg-muted)] text-center">
+          {t("search.emptyStateHint")}
+        </p>
+      </div>
+    );
+  }
+
+  if (props.hasQuery && props.effectiveIndexState === "rebuilding") {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-8">
+        <RefreshCw className="w-16 h-16 text-[var(--color-info)] mb-4 motion-safe:animate-pulse" size={24} strokeWidth={1.5} />
+        <p className="text-sm font-medium text-[var(--color-fg-default)] text-center mb-2">
+          {t("search.rebuildingIndex")}
+        </p>
+        <p className="text-xs text-[var(--color-fg-muted)] text-center">
+          {t("search.rebuildingQuery", { query: props.effectiveQuery })}
+        </p>
+      </div>
+    );
+  }
+
+  if (props.hasQuery && props.hasError) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-8">
+        <TriangleAlert className="w-16 h-16 text-[var(--color-error)] mb-4" size={24} strokeWidth={1.5} />
+        <p className="text-sm font-medium text-[var(--color-fg-default)] text-center mb-2">
+          {t("search.errorTitle")}
+        </p>
+        <p className="text-xs text-[var(--color-fg-muted)] text-center">
+          {props.lastError?.message}
+        </p>
+        <Button
+          variant="primary"
+          onClick={props.onRetrySearch}
+          className="mt-6 !px-4 !py-2 !h-auto !bg-[var(--color-info)] !text-[var(--color-fg-on-accent)] !text-sm !font-medium !rounded-lg hover:!bg-[var(--color-info)] hover:!brightness-110"
+        >
+          {t("search.retrySearch")}
+        </Button>
+      </div>
+    );
+  }
+
+  if (props.hasQuery && !props.hasResults && props.effectiveStatus !== "loading") {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-8">
+        <Frown className="w-16 h-16 text-[var(--color-fg-placeholder)] mb-4" size={24} strokeWidth={1.5} />
+        <p className="text-sm font-medium text-[var(--color-fg-default)] text-center mb-2">
+          {t("search.noResults")}
+        </p>
+        <p className="text-xs text-[var(--color-fg-muted)] text-center">
+          {t("search.noResultsQuery", { query: props.effectiveQuery })}
+        </p>
+        <div className="mt-6 p-4 bg-[var(--color-separator)] rounded-lg border border-[var(--color-separator)]">
+          <p className="text-[10px] text-[var(--color-fg-placeholder)] font-medium uppercase tracking-wider mb-2">
+            {t("search.suggestionsTitle")}
+          </p>
+          <p className="text-xs text-[var(--color-fg-muted)]">
+            {t("search.suggestionsText")}
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          className="mt-6 !px-4 !py-2 !h-auto !bg-[var(--color-info)] !text-[var(--color-fg-on-accent)] !text-sm !font-medium !rounded-lg hover:!bg-[var(--color-info)] hover:!brightness-110"
+        >
+          <Globe className="w-4 h-4" size={16} strokeWidth={1.5} />
+          {t("search.searchAllProjects")}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={props.onClearQuery}
+          className="mt-3 !h-auto !text-xs !text-[var(--color-fg-muted)] hover:!text-[var(--color-fg-default)]"
+        >
+          {t("search.clearSearch")}
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {props.documentItems.length > 0 &&
+        (props.category === "all" || props.category === "documents") && (
+          <ResultGroup title={t("search.resultTypes.documents")} count={props.documentItems.length}>
+            {props.documentItems.map((item, index) => (
+              <DocumentResultItem
+                key={item.id}
+                item={item}
+                query={props.effectiveQuery}
+                isActive={index === 0 && props.activeIndex === 0}
+                isFlashing={
+                  props.flashKey?.startsWith(
+                    `${item.documentId ?? item.id}:${item.anchor?.start ?? 0}:${item.anchor?.end ?? 0}:`,
+                  ) ?? false
+                }
+                onClick={() => props.onItemClick(item.id)}
+              />
+            ))}
+          </ResultGroup>
+        )}
+
+      {props.memoryItems.length > 0 &&
+        (props.category === "all" || props.category === "memories") && (
+          <ResultGroup
+            title={t("search.resultTypes.memories")}
+            count={props.memoryItems.length}
+            hasBorderTop={props.documentItems.length > 0}
+          >
+            {props.memoryItems.map((item) => (
+              <MemoryResultItem
+                key={item.id}
+                item={item}
+                query={props.effectiveQuery}
+                onClick={() => props.onItemClick(item.id)}
+              />
+            ))}
+          </ResultGroup>
+        )}
+
+      {props.knowledgeItems.length > 0 &&
+        (props.category === "all" || props.category === "knowledge") && (
+          <ResultGroup
+            title={t("search.resultTypes.knowledgeGraph")}
+            count={props.knowledgeItems.length}
+            hasBorderTop={
+              props.documentItems.length > 0 || props.memoryItems.length > 0
+            }
+          >
+            {props.knowledgeItems.map((item) => (
+              <KnowledgeResultItem
+                key={item.id}
+                item={item}
+                query={props.effectiveQuery}
+                onClick={() => props.onItemClick(item.id)}
+              />
+            ))}
+          </ResultGroup>
+        )}
+
+      {props.totalResults > 5 && (
+        <div className="p-2 text-center border-t border-[var(--color-separator)] mt-2">
+          <Button
+            variant="ghost"
+            className="!text-xs !text-[var(--color-fg-muted)] hover:!text-[var(--color-info)] !py-2 w-full !h-auto"
+          >
+            {t("search.results.viewMore", { count: props.totalResults - 5 })}
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
 
 /**
  * SearchPanel provides a modal search interface across documents, memories, and knowledge.
@@ -626,153 +807,26 @@ export function SearchPanel(props: {
           aria-live="polite"
           className="flex-1 overflow-y-auto bg-[var(--color-bg-surface)]"
         >
-          {!hasQuery && !hasResults ? (
-            /* Empty state - no query */
-            <div className="flex flex-col items-center justify-center py-16 px-8">
-              <Search className="w-16 h-16 text-[var(--color-fg-placeholder)] mb-4" size={24} strokeWidth={1.5} />
-              <p className="text-sm text-[var(--color-fg-muted)] text-center">
-                {t("search.emptyStateHint")}
-              </p>
-            </div>
-          ) : hasQuery && effectiveIndexState === "rebuilding" ? (
-            /* Reindex rebuilding state */
-            <div className="flex flex-col items-center justify-center py-16 px-8">
-              <RefreshCw className="w-16 h-16 text-[var(--color-info)] mb-4 motion-safe:animate-pulse" size={24} strokeWidth={1.5} />
-              <p className="text-sm font-medium text-[var(--color-fg-default)] text-center mb-2">
-                {t("search.rebuildingIndex")}
-              </p>
-              <p className="text-xs text-[var(--color-fg-muted)] text-center">
-                {t("search.rebuildingQuery", { query: effectiveQuery })}
-              </p>
-            </div>
-          ) : hasQuery && hasError ? (
-            /* Search error state */
-            <div className="flex flex-col items-center justify-center py-16 px-8">
-              <TriangleAlert className="w-16 h-16 text-[var(--color-error)] mb-4" size={24} strokeWidth={1.5} />
-              <p className="text-sm font-medium text-[var(--color-fg-default)] text-center mb-2">
-                {t("search.errorTitle")}
-              </p>
-              <p className="text-xs text-[var(--color-fg-muted)] text-center">
-                {lastError.message}
-              </p>
-              <Button
-                variant="primary"
-                onClick={handleRetrySearch}
-                className="mt-6 !px-4 !py-2 !h-auto !bg-[var(--color-info)] !text-[var(--color-fg-on-accent)] !text-sm !font-medium !rounded-lg hover:!bg-[var(--color-info)] hover:!brightness-110"
-              >
-                {t("search.retrySearch")}
-              </Button>
-            </div>
-          ) : hasQuery && !hasResults && effectiveStatus !== "loading" ? (
-            /* No results state */
-            <div className="flex flex-col items-center justify-center py-16 px-8">
-              <Frown className="w-16 h-16 text-[var(--color-fg-placeholder)] mb-4" size={24} strokeWidth={1.5} />
-              <p className="text-sm font-medium text-[var(--color-fg-default)] text-center mb-2">
-                {t("search.noResults")}
-              </p>
-              <p className="text-xs text-[var(--color-fg-muted)] text-center">
-                {t("search.noResultsQuery", { query: effectiveQuery })}
-              </p>
-              <div className="mt-6 p-4 bg-[var(--color-separator)] rounded-lg border border-[var(--color-separator)]">
-                <p className="text-[10px] text-[var(--color-fg-placeholder)] font-medium uppercase tracking-wider mb-2">
-                  {t("search.suggestionsTitle")}
-                </p>
-                <p className="text-xs text-[var(--color-fg-muted)]">
-                  {t("search.suggestionsText")}
-                </p>
-              </div>
-              <Button
-                variant="primary"
-                className="mt-6 !px-4 !py-2 !h-auto !bg-[var(--color-info)] !text-[var(--color-fg-on-accent)] !text-sm !font-medium !rounded-lg hover:!bg-[var(--color-info)] hover:!brightness-110"
-              >
-                <Globe className="w-4 h-4" size={16} strokeWidth={1.5} />
-                {t("search.searchAllProjects")}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setQuery("")}
-                className="mt-3 !h-auto !text-xs !text-[var(--color-fg-muted)] hover:!text-[var(--color-fg-default)]"
-              >
-                {t("search.clearSearch")}
-              </Button>
-            </div>
-          ) : (
-            /* Results */
-            <>
-              {/* Documents group */}
-              {documentItems.length > 0 &&
-                (category === "all" || category === "documents") && (
-                  <ResultGroup title={t("search.resultTypes.documents")} count={documentItems.length}>
-                    {documentItems.map((item, index) => (
-                      <DocumentResultItem
-                        key={item.id}
-                        item={item}
-                        query={effectiveQuery}
-                        isActive={index === 0 && activeIndex === 0}
-                        isFlashing={
-                          flashKey?.startsWith(
-                            `${item.documentId ?? item.id}:${item.anchor?.start ?? 0}:${item.anchor?.end ?? 0}:`,
-                          ) ?? false
-                        }
-                        onClick={() => handleItemClick(item.id)}
-                      />
-                    ))}
-                  </ResultGroup>
-                )}
+          <SearchResultsArea
+            hasQuery={hasQuery}
+            hasResults={hasResults}
+            hasError={hasError}
+            effectiveQuery={effectiveQuery}
+            effectiveStatus={effectiveStatus}
+            effectiveIndexState={effectiveIndexState}
+            lastError={lastError}
+            category={category}
+            activeIndex={activeIndex}
+            flashKey={flashKey}
+            totalResults={totalResults}
+            documentItems={documentItems}
+            memoryItems={memoryItems}
+            knowledgeItems={knowledgeItems}
+            onItemClick={handleItemClick}
+            onRetrySearch={handleRetrySearch}
+            onClearQuery={() => setQuery("")}
+          />
 
-              {/* Memories group */}
-              {memoryItems.length > 0 &&
-                (category === "all" || category === "memories") && (
-                  <ResultGroup
-                    title={t("search.resultTypes.memories")}
-                    count={memoryItems.length}
-                    hasBorderTop={documentItems.length > 0}
-                  >
-                    {memoryItems.map((item) => (
-                      <MemoryResultItem
-                        key={item.id}
-                        item={item}
-                        query={effectiveQuery}
-                        onClick={() => handleItemClick(item.id)}
-                      />
-                    ))}
-                  </ResultGroup>
-                )}
-
-              {/* Knowledge group */}
-              {knowledgeItems.length > 0 &&
-                (category === "all" || category === "knowledge") && (
-                  <ResultGroup
-                    title={t("search.resultTypes.knowledgeGraph")}
-                    count={knowledgeItems.length}
-                    hasBorderTop={
-                      documentItems.length > 0 || memoryItems.length > 0
-                    }
-                  >
-                    {knowledgeItems.map((item) => (
-                      <KnowledgeResultItem
-                        key={item.id}
-                        item={item}
-                        query={effectiveQuery}
-                        onClick={() => handleItemClick(item.id)}
-                      />
-                    ))}
-                  </ResultGroup>
-                )}
-
-              {/* View more */}
-              {totalResults > 5 && (
-                <div className="p-2 text-center border-t border-[var(--color-separator)] mt-2">
-                  <Button
-                    variant="ghost"
-                    className="!text-xs !text-[var(--color-fg-muted)] hover:!text-[var(--color-info)] !py-2 w-full !h-auto"
-                  >
-                    {t("search.results.viewMore", { count: totalResults - 5 })}
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
         </div>
 
         {/* Footer */}

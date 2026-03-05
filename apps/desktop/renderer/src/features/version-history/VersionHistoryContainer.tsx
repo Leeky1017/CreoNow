@@ -9,7 +9,9 @@ import {
 import { useVersionCompare } from "./useVersionCompare";
 import { useEditorStore } from "../../stores/editorStore";
 import {
+  type BranchMergeConflict,
   type VersionListItem,
+  type VersionStoreActions,
   useVersionStore,
 } from "../../stores/versionStore";
 import { invoke } from "../../lib/ipcClient";
@@ -179,6 +181,245 @@ function convertToTimeGroups(
   return groups;
 }
 
+
+type ConflictFormEntry = {
+  resolution: "ours" | "theirs" | "manual";
+  manualText: string;
+};
+
+function BranchConflictItem(props: {
+  conflict: BranchMergeConflict;
+  selected: ConflictFormEntry;
+  onResolutionChange: (conflictId: string, resolution: "ours" | "theirs" | "manual") => void;
+  onManualTextChange: (conflictId: string, manualText: string) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}): JSX.Element {
+  const { conflict, selected, onResolutionChange, onManualTextChange, t } = props;
+  return (
+    <div
+      key={conflict.conflictId}
+      data-testid={`branch-conflict-item-${conflict.conflictId}`}
+      className="space-y-2 rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2"
+    >
+      <div className="text-[11px] text-[var(--color-fg-muted)]">
+        {t('versionHistory.container.conflictNumber', { number: conflict.index + 1 })}
+      </div>
+      <div className="grid grid-cols-1 gap-2 text-xs text-[var(--color-fg-default)]">
+        <div>
+          <div className="text-[11px] text-[var(--color-fg-muted)]">
+            {t('versionHistory.container.base')}
+          </div>
+          <pre className="whitespace-pre-wrap font-mono text-xs">
+            {conflict.baseText}
+          </pre>
+        </div>
+        <div>
+          <div className="text-[11px] text-[var(--color-fg-muted)]">
+            {t('versionHistory.container.ours')}
+          </div>
+          <pre className="whitespace-pre-wrap font-mono text-xs">
+            {conflict.oursText}
+          </pre>
+        </div>
+        <div>
+          <div className="text-[11px] text-[var(--color-fg-muted)]">
+            {t('versionHistory.container.theirs')}
+          </div>
+          <pre className="whitespace-pre-wrap font-mono text-xs">
+            {conflict.theirsText}
+          </pre>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 text-[11px] text-[var(--color-fg-default)]">
+        <label className="inline-flex items-center gap-1">
+          <input
+            type="radio"
+            name={`resolution-${conflict.conflictId}`}
+            checked={selected.resolution === "ours"}
+            onChange={() =>
+              onResolutionChange(conflict.conflictId, "ours")
+            }
+          />
+          {t('versionHistory.container.useOurs')}
+        </label>
+        <label className="inline-flex items-center gap-1">
+          <input
+            type="radio"
+            name={`resolution-${conflict.conflictId}`}
+            checked={selected.resolution === "theirs"}
+            onChange={() =>
+              onResolutionChange(conflict.conflictId, "theirs")
+            }
+          />
+          {t('versionHistory.container.useTheirs')}
+        </label>
+        <label className="inline-flex items-center gap-1">
+          <input
+            data-testid={`branch-conflict-manual-${conflict.conflictId}`}
+            type="radio"
+            name={`resolution-${conflict.conflictId}`}
+            checked={selected.resolution === "manual"}
+            onChange={() =>
+              onResolutionChange(conflict.conflictId, "manual")
+            }
+          />
+          {t('versionHistory.container.useManual')}
+        </label>
+      </div>
+      {selected.resolution === "manual" ? (
+        <textarea
+          data-testid={`branch-conflict-manual-text-${conflict.conflictId}`}
+          className="h-20 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-raised)] p-2 font-mono text-xs text-[var(--color-fg-default)]"
+          value={selected.manualText}
+          onChange={(event) =>
+            onManualTextChange(
+              conflict.conflictId,
+              event.target.value,
+            )
+          }
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function useConflictResolution(
+  mergeConflicts: BranchMergeConflict[],
+  documentId: string | null,
+  mergeSessionId: string | null,
+  resolveBranchConflict: VersionStoreActions["resolveBranchConflict"],
+): {
+  conflictForm: Record<string, ConflictFormEntry>;
+  handleResolutionChange: (conflictId: string, resolution: "ours" | "theirs" | "manual") => void;
+  handleManualTextChange: (conflictId: string, manualText: string) => void;
+  hasInvalidManualResolution: boolean;
+  handleResolveConflicts: () => Promise<void>;
+} {
+  const [conflictForm, setConflictForm] = React.useState<
+    Record<
+      string,
+      {
+        resolution: "ours" | "theirs" | "manual";
+        manualText: string;
+      }
+    >
+  >({});
+
+  React.useEffect(() => {
+    if (mergeConflicts.length === 0) {
+      setConflictForm({});
+      return;
+    }
+    setConflictForm((prev) => {
+      const next: Record<
+        string,
+        {
+          resolution: "ours" | "theirs" | "manual";
+          manualText: string;
+        }
+      > = {};
+      for (const conflict of mergeConflicts) {
+        next[conflict.conflictId] = prev[conflict.conflictId] ?? {
+          resolution: "ours",
+          manualText: "",
+        };
+      }
+      return next;
+    });
+  }, [mergeConflicts]);
+
+  const handleResolutionChange = React.useCallback(
+    (conflictId: string, resolution: "ours" | "theirs" | "manual") => {
+      setConflictForm((prev) => ({
+        ...prev,
+        [conflictId]: {
+          resolution,
+          manualText: prev[conflictId]?.manualText ?? "",
+        },
+      }));
+    },
+    [],
+  );
+
+  const handleManualTextChange = React.useCallback(
+    (conflictId: string, manualText: string) => {
+      setConflictForm((prev) => ({
+        ...prev,
+        [conflictId]: {
+          resolution: prev[conflictId]?.resolution ?? "manual",
+          manualText,
+        },
+      }));
+    },
+    [],
+  );
+
+  const hasInvalidManualResolution = React.useMemo(
+    () =>
+      mergeConflicts.some((conflict) => {
+        const selected = conflictForm[conflict.conflictId];
+        if (selected?.resolution !== "manual") {
+          return false;
+        }
+        return selected.manualText.trim().length === 0;
+      }),
+    [conflictForm, mergeConflicts],
+  );
+
+  const handleResolveConflicts = React.useCallback(async () => {
+    if (!documentId || !mergeSessionId) {
+      return;
+    }
+    if (hasInvalidManualResolution) {
+      return;
+    }
+
+    const resolutions = mergeConflicts.map((conflict) => {
+      const selected = conflictForm[conflict.conflictId] ?? {
+        resolution: "ours" as const,
+        manualText: "",
+      };
+      if (selected.resolution === "manual") {
+        return {
+          conflictId: conflict.conflictId,
+          resolution: "manual" as const,
+          manualText: selected.manualText.trim(),
+        };
+      }
+      return {
+        conflictId: conflict.conflictId,
+        resolution: selected.resolution,
+      };
+    });
+
+    const result = await resolveBranchConflict({
+      documentId,
+      mergeSessionId,
+      resolutions,
+      resolvedBy: "user",
+    });
+
+    if (result.ok) {
+      setConflictForm({});
+    }
+  }, [
+    conflictForm,
+    documentId,
+    hasInvalidManualResolution,
+    mergeConflicts,
+    mergeSessionId,
+    resolveBranchConflict,
+  ]);
+
+  return {
+    conflictForm,
+    handleResolutionChange,
+    handleManualTextChange,
+    hasInvalidManualResolution,
+    handleResolveConflicts,
+  };
+}
 type VersionHistoryContainerProps = {
   projectId: string;
 };
@@ -219,15 +460,14 @@ export function VersionHistoryContainer(
   const [currentHash, setCurrentHash] = React.useState<string | null>(null);
   const [sourceBranchName, setSourceBranchName] = React.useState("alt-ending");
   const [targetBranchName, setTargetBranchName] = React.useState("main");
-  const [conflictForm, setConflictForm] = React.useState<
-    Record<
-      string,
-      {
-        resolution: "ours" | "theirs" | "manual";
-        manualText: string;
-      }
-    >
-  >({});
+const {
+  conflictForm,
+  handleResolutionChange,
+  handleManualTextChange,
+  hasInvalidManualResolution,
+  handleResolveConflicts,
+} = useConflictResolution(mergeConflicts, documentId, mergeSessionId, resolveBranchConflict);
+
 
   // Fetch version list when documentId changes
   React.useEffect(() => {
@@ -322,28 +562,6 @@ export function VersionHistoryContainer(
     [documentId, items, startPreview, t],
   );
 
-  React.useEffect(() => {
-    if (mergeConflicts.length === 0) {
-      setConflictForm({});
-      return;
-    }
-    setConflictForm((prev) => {
-      const next: Record<
-        string,
-        {
-          resolution: "ours" | "theirs" | "manual";
-          manualText: string;
-        }
-      > = {};
-      for (const conflict of mergeConflicts) {
-        next[conflict.conflictId] = prev[conflict.conflictId] ?? {
-          resolution: "ours",
-          manualText: "",
-        };
-      }
-      return next;
-    });
-  }, [mergeConflicts]);
 
   const handleMergeBranches = React.useCallback(async () => {
     if (!documentId) {
@@ -362,88 +580,9 @@ export function VersionHistoryContainer(
     });
   }, [documentId, mergeBranch, sourceBranchName, targetBranchName]);
 
-  const handleResolutionChange = React.useCallback(
-    (conflictId: string, resolution: "ours" | "theirs" | "manual") => {
-      setConflictForm((prev) => ({
-        ...prev,
-        [conflictId]: {
-          resolution,
-          manualText: prev[conflictId]?.manualText ?? "",
-        },
-      }));
-    },
-    [],
-  );
 
-  const handleManualTextChange = React.useCallback(
-    (conflictId: string, manualText: string) => {
-      setConflictForm((prev) => ({
-        ...prev,
-        [conflictId]: {
-          resolution: prev[conflictId]?.resolution ?? "manual",
-          manualText,
-        },
-      }));
-    },
-    [],
-  );
 
-  const hasInvalidManualResolution = React.useMemo(
-    () =>
-      mergeConflicts.some((conflict) => {
-        const selected = conflictForm[conflict.conflictId];
-        if (selected?.resolution !== "manual") {
-          return false;
-        }
-        return selected.manualText.trim().length === 0;
-      }),
-    [conflictForm, mergeConflicts],
-  );
 
-  const handleResolveConflicts = React.useCallback(async () => {
-    if (!documentId || !mergeSessionId) {
-      return;
-    }
-    if (hasInvalidManualResolution) {
-      return;
-    }
-
-    const resolutions = mergeConflicts.map((conflict) => {
-      const selected = conflictForm[conflict.conflictId] ?? {
-        resolution: "ours" as const,
-        manualText: "",
-      };
-      if (selected.resolution === "manual") {
-        return {
-          conflictId: conflict.conflictId,
-          resolution: "manual" as const,
-          manualText: selected.manualText.trim(),
-        };
-      }
-      return {
-        conflictId: conflict.conflictId,
-        resolution: selected.resolution,
-      };
-    });
-
-    const result = await resolveBranchConflict({
-      documentId,
-      mergeSessionId,
-      resolutions,
-      resolvedBy: "user",
-    });
-
-    if (result.ok) {
-      setConflictForm({});
-    }
-  }, [
-    conflictForm,
-    documentId,
-    hasInvalidManualResolution,
-    mergeConflicts,
-    mergeSessionId,
-    resolveBranchConflict,
-  ]);
 
   if (!documentId) {
     return (
@@ -555,99 +694,22 @@ export function VersionHistoryContainer(
             </button>
           </div>
 
-          {mergeConflicts.map((conflict) => {
-            const selected = conflictForm[conflict.conflictId] ?? {
-              resolution: "ours" as const,
-              manualText: "",
-            };
-            return (
-              <div
-                key={conflict.conflictId}
-                data-testid={`branch-conflict-item-${conflict.conflictId}`}
-                className="space-y-2 rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2"
-              >
-                <div className="text-[11px] text-[var(--color-fg-muted)]">
-                  {t('versionHistory.container.conflictNumber', { number: conflict.index + 1 })}
-                </div>
-                <div className="grid grid-cols-1 gap-2 text-xs text-[var(--color-fg-default)]">
-                  <div>
-                    <div className="text-[11px] text-[var(--color-fg-muted)]">
-                      {t('versionHistory.container.base')}
-                    </div>
-                    <pre className="whitespace-pre-wrap font-mono text-xs">
-                      {conflict.baseText}
-                    </pre>
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-[var(--color-fg-muted)]">
-                      {t('versionHistory.container.ours')}
-                    </div>
-                    <pre className="whitespace-pre-wrap font-mono text-xs">
-                      {conflict.oursText}
-                    </pre>
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-[var(--color-fg-muted)]">
-                      {t('versionHistory.container.theirs')}
-                    </div>
-                    <pre className="whitespace-pre-wrap font-mono text-xs">
-                      {conflict.theirsText}
-                    </pre>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-3 text-[11px] text-[var(--color-fg-default)]">
-                  <label className="inline-flex items-center gap-1">
-                    <input
-                      type="radio"
-                      name={`resolution-${conflict.conflictId}`}
-                      checked={selected.resolution === "ours"}
-                      onChange={() =>
-                        handleResolutionChange(conflict.conflictId, "ours")
-                      }
-                    />
-                    {t('versionHistory.container.useOurs')}
-                  </label>
-                  <label className="inline-flex items-center gap-1">
-                    <input
-                      type="radio"
-                      name={`resolution-${conflict.conflictId}`}
-                      checked={selected.resolution === "theirs"}
-                      onChange={() =>
-                        handleResolutionChange(conflict.conflictId, "theirs")
-                      }
-                    />
-                    {t('versionHistory.container.useTheirs')}
-                  </label>
-                  <label className="inline-flex items-center gap-1">
-                    <input
-                      data-testid={`branch-conflict-manual-${conflict.conflictId}`}
-                      type="radio"
-                      name={`resolution-${conflict.conflictId}`}
-                      checked={selected.resolution === "manual"}
-                      onChange={() =>
-                        handleResolutionChange(conflict.conflictId, "manual")
-                      }
-                    />
-                    {t('versionHistory.container.useManual')}
-                  </label>
-                </div>
-                {selected.resolution === "manual" ? (
-                  <textarea
-                    data-testid={`branch-conflict-manual-text-${conflict.conflictId}`}
-                    className="h-20 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-raised)] p-2 font-mono text-xs text-[var(--color-fg-default)]"
-                    value={selected.manualText}
-                    onChange={(event) =>
-                      handleManualTextChange(
-                        conflict.conflictId,
-                        event.target.value,
-                      )
-                    }
-                  />
-                ) : null}
-              </div>
-            );
-          })}
+{mergeConflicts.map((conflict) => {
+  const selected = conflictForm[conflict.conflictId] ?? {
+    resolution: "ours" as const,
+    manualText: "",
+  };
+  return (
+    <BranchConflictItem
+      key={conflict.conflictId}
+      conflict={conflict}
+      selected={selected}
+      onResolutionChange={handleResolutionChange}
+      onManualTextChange={handleManualTextChange}
+      t={t}
+    />
+  );
+})}
 
           <button
             type="button"

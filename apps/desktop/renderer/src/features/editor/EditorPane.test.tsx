@@ -409,7 +409,9 @@ describe("EditorPane", () => {
     expect(aiState.selectionRef?.range).toEqual({ from: 1, to: 8 });
     expect(aiState.selectionRef?.selectionTextHash).toBeTruthy();
   });
+});
 
+describe("EditorPane — advanced", () => {
   it("should suppress Bubble Menu in code block and disable inline toolbar buttons", async () => {
     const store = createReadyEditorStore({ onSave: () => {} });
     const versionStore = createVersionStoreForEditorPaneTests();

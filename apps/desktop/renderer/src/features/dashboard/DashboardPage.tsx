@@ -373,28 +373,18 @@ function formatStageTag(
 // =============================================================================
 
 /**
- * DashboardPage - Project overview and selection screen.
- *
- * Why: After onboarding, users need a central hub to see their projects,
- * continue recent work, or start new drafts. Based on design/Variant/designs/05-dashboard-sidebar-full.html.
+ * Encapsulates rename, duplicate, archive, and delete action state/handlers.
  */
-export function DashboardPage(props: DashboardPageProps): JSX.Element {
-  const { t } = useTranslation();
+function useDashboardActions() {
   const items = useProjectStore((s) => s.items);
-  const bootstrapStatus = useProjectStore((s) => s.bootstrapStatus);
-  const bootstrap = useProjectStore((s) => s.bootstrap);
-  const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
-  const deleteProject = useProjectStore((s) => s.deleteProject);
   const renameProject = useProjectStore((s) => s.renameProject);
   const duplicateProject = useProjectStore((s) => s.duplicateProject);
   const setProjectArchived = useProjectStore((s) => s.setProjectArchived);
-  const lastError = useProjectStore((s) => s.lastError);
-  const clearError = useProjectStore((s) => s.clearError);
-
+  const deleteProject = useProjectStore((s) => s.deleteProject);
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
   const { confirm, dialogProps } = useConfirmDialog();
+  const { t } = useTranslation();
 
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = React.useState(false);
   const [renameTargetProject, setRenameTargetProject] =
     React.useState<ProjectListItem | null>(null);
@@ -402,11 +392,184 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
   const [renameErrorText, setRenameErrorText] = React.useState<string | null>(
     null,
   );
-  const [archivedExpanded, setArchivedExpanded] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteSubmitting, setDeleteSubmitting] = React.useState(false);
   const [deleteTargetProject, setDeleteTargetProject] =
     React.useState<ProjectListItem | null>(null);
+
+  const handleRename = React.useCallback(
+    (projectId: string) => {
+      const project = items.find(
+        (candidate) => candidate.projectId === projectId,
+      );
+      if (!project) {
+        return;
+      }
+      setRenameTargetProject(project);
+      setRenameErrorText(null);
+      setRenameDialogOpen(true);
+    },
+    [items],
+  );
+
+  const handleRenameSubmit = React.useCallback(
+    async (name: string) => {
+      if (!renameTargetProject) {
+        return;
+      }
+      setRenameSubmitting(true);
+      setRenameErrorText(null);
+      const res = await renameProject({
+        projectId: renameTargetProject.projectId,
+        name,
+      });
+      setRenameSubmitting(false);
+      if (!res.ok) {
+        setRenameErrorText(`${res.error.code}: ${res.error.message}`);
+        return;
+      }
+      setRenameDialogOpen(false);
+      setRenameTargetProject(null);
+    },
+    [renameProject, renameTargetProject],
+  );
+
+  const handleDuplicate = React.useCallback(
+    async (projectId: string) => {
+      await duplicateProject({ projectId });
+    },
+    [duplicateProject],
+  );
+
+  const handleArchiveToggle = React.useCallback(
+    async (projectId: string, archived: boolean) => {
+      const project = items.find(
+        (candidate) => candidate.projectId === projectId,
+      );
+      const projectName =
+        project?.name?.trim().length && project.name
+          ? project.name
+          : t("dashboard.untitledProject");
+      const title = archived
+        ? t("dashboard.confirm.archiveTitle")
+        : t("dashboard.confirm.unarchiveTitle");
+      const description = archived
+        ? t("dashboard.confirm.archiveDesc", { name: projectName })
+        : t("dashboard.confirm.unarchiveDesc", { name: projectName });
+      const confirmed = await confirm({
+        title,
+        description,
+        primaryLabel: archived
+          ? t("dashboard.confirm.archiveAction")
+          : t("dashboard.confirm.unarchiveAction"),
+        secondaryLabel: t("dashboard.confirm.cancel"),
+      });
+      if (!confirmed) {
+        return;
+      }
+      await setProjectArchived({ projectId, archived });
+    },
+    [confirm, items, setProjectArchived, t],
+  );
+
+  const handleDelete = React.useCallback(
+    async (projectId: string) => {
+      const project = items.find(
+        (candidate) => candidate.projectId === projectId,
+      );
+      if (!project) {
+        return;
+      }
+      setDeleteTargetProject(project);
+      setDeleteDialogOpen(true);
+    },
+    [items],
+  );
+
+  const handleDeleteConfirm = React.useCallback(async () => {
+    if (!deleteTargetProject) {
+      return;
+    }
+    setDeleteSubmitting(true);
+    await deleteProject(deleteTargetProject.projectId);
+    setDeleteSubmitting(false);
+    setDeleteDialogOpen(false);
+    setDeleteTargetProject(null);
+  }, [deleteProject, deleteTargetProject]);
+
+  const handleProjectSelect = React.useCallback(
+    async (projectId: string, onSuccess?: (projectId: string) => void) => {
+      const res = await setCurrentProject(projectId);
+      if (res.ok) {
+        onSuccess?.(projectId);
+      }
+    },
+    [setCurrentProject],
+  );
+
+  return {
+    handleProjectSelect,
+    dialogProps,
+    renameDialogOpen,
+    setRenameDialogOpen,
+    renameTargetProject,
+    setRenameTargetProject,
+    renameSubmitting,
+    renameErrorText,
+    setRenameErrorText,
+    deleteDialogOpen,
+    setDeleteDialogOpen,
+    deleteSubmitting,
+    deleteTargetProject,
+    setDeleteTargetProject,
+    handleRename,
+    handleRenameSubmit,
+    handleDuplicate,
+    handleArchiveToggle,
+    handleDelete,
+    handleDeleteConfirm,
+  };
+}
+
+/**
+ * DashboardPage - Project overview and selection screen.
+ *
+ * Why: After onboarding, users need a central hub to see their projects,
+ * continue recent work, or start new drafts. Based on design/Variant/designs/05-dashboard-sidebar-full.html.
+ */
+export function DashboardPage(props: DashboardPageProps): JSX.Element {
+  const { t } = useTranslation();
+  const {
+    dialogProps,
+    renameDialogOpen,
+    setRenameDialogOpen,
+    renameTargetProject,
+    setRenameTargetProject,
+    renameSubmitting,
+    renameErrorText,
+    setRenameErrorText,
+    deleteDialogOpen,
+    setDeleteDialogOpen,
+    deleteSubmitting,
+    deleteTargetProject,
+    setDeleteTargetProject,
+    handleRename,
+    handleRenameSubmit,
+    handleDuplicate,
+    handleArchiveToggle,
+    handleDelete,
+    handleDeleteConfirm,
+    handleProjectSelect: hookHandleProjectSelect,
+  } = useDashboardActions();
+  const items = useProjectStore((s) => s.items);
+  const bootstrapStatus = useProjectStore((s) => s.bootstrapStatus);
+  const bootstrap = useProjectStore((s) => s.bootstrap);
+  const lastError = useProjectStore((s) => s.lastError);
+  const clearError = useProjectStore((s) => s.clearError);
+
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
+  const [archivedExpanded, setArchivedExpanded] = React.useState(false);
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -443,128 +606,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
   // Remaining active projects for grid (exclude hero)
   const gridProjects = activeProjects.slice(1);
 
-  /**
-   * Handle project selection.
-   */
-  const handleProjectSelect = React.useCallback(
-    async (projectId: string) => {
-      const res = await setCurrentProject(projectId);
-      if (res.ok) {
-        props.onProjectSelect?.(projectId);
-      }
-    },
-    [props, setCurrentProject],
-  );
 
-  /**
-   * Handle project rename.
-   */
-  const handleRename = React.useCallback(
-    (projectId: string) => {
-      const project = items.find(
-        (candidate) => candidate.projectId === projectId,
-      );
-      if (!project) {
-        return;
-      }
-      setRenameTargetProject(project);
-      setRenameErrorText(null);
-      setRenameDialogOpen(true);
-    },
-    [items],
-  );
-
-  /**
-   * Submit rename request to project store.
-   */
-  const handleRenameSubmit = React.useCallback(
-    async (name: string) => {
-      if (!renameTargetProject) {
-        return;
-      }
-      setRenameSubmitting(true);
-      setRenameErrorText(null);
-      const res = await renameProject({
-        projectId: renameTargetProject.projectId,
-        name,
-      });
-      setRenameSubmitting(false);
-      if (!res.ok) {
-        setRenameErrorText(`${res.error.code}: ${res.error.message}`);
-        return;
-      }
-      setRenameDialogOpen(false);
-      setRenameTargetProject(null);
-    },
-    [renameProject, renameTargetProject],
-  );
-
-  /**
-   * Handle project duplicate.
-   */
-  const handleDuplicate = React.useCallback(
-    async (projectId: string) => {
-      await duplicateProject({ projectId });
-    },
-    [duplicateProject],
-  );
-
-  /**
-   * Handle project archive/unarchive with confirmation dialog.
-   */
-  const handleArchiveToggle = React.useCallback(
-    async (projectId: string, archived: boolean) => {
-      const project = items.find(
-        (candidate) => candidate.projectId === projectId,
-      );
-      const projectName =
-        project?.name?.trim().length && project.name
-          ? project.name
-          : t("dashboard.untitledProject");
-      const title = archived ? t("dashboard.confirm.archiveTitle") : t("dashboard.confirm.unarchiveTitle");
-      const description = archived
-        ? t("dashboard.confirm.archiveDesc", { name: projectName })
-        : t("dashboard.confirm.unarchiveDesc", { name: projectName });
-      const confirmed = await confirm({
-        title,
-        description,
-        primaryLabel: archived ? t("dashboard.confirm.archiveAction") : t("dashboard.confirm.unarchiveAction"),
-        secondaryLabel: t("dashboard.confirm.cancel"),
-      });
-      if (!confirmed) {
-        return;
-      }
-      await setProjectArchived({ projectId, archived });
-    },
-    [confirm, items, setProjectArchived, t],
-  );
-
-  /**
-   * Handle project delete.
-   */
-  const handleDelete = React.useCallback(
-    async (projectId: string) => {
-      const project = items.find((candidate) => candidate.projectId === projectId);
-      if (!project) {
-        return;
-      }
-      setDeleteTargetProject(project);
-      setDeleteDialogOpen(true);
-    },
-    [items],
-  );
-
-  const handleDeleteConfirm = React.useCallback(async () => {
-    if (!deleteTargetProject) {
-      return;
-    }
-
-    setDeleteSubmitting(true);
-    await deleteProject(deleteTargetProject.projectId);
-    setDeleteSubmitting(false);
-    setDeleteDialogOpen(false);
-    setDeleteTargetProject(null);
-  }, [deleteProject, deleteTargetProject]);
 
   // Loading state
   if (bootstrapStatus === "loading") {
@@ -690,7 +732,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
                 <HeroCard
                   project={heroProject}
                   onClick={() =>
-                    void handleProjectSelect(heroProject.projectId)
+                    void hookHandleProjectSelect(heroProject.projectId, props.onProjectSelect)
                   }
                 />
               </div>
@@ -711,7 +753,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
                   <ProjectCard
                     key={project.projectId}
                     project={project}
-                    onClick={() => void handleProjectSelect(project.projectId)}
+                    onClick={() => void hookHandleProjectSelect(project.projectId, props.onProjectSelect)}
                     onRename={handleRename}
                     onDuplicate={handleDuplicate}
                     onArchiveToggle={handleArchiveToggle}
@@ -768,7 +810,7 @@ export function DashboardPage(props: DashboardPageProps): JSX.Element {
                       key={project.projectId}
                       project={project}
                       onClick={() =>
-                        void handleProjectSelect(project.projectId)
+                        void hookHandleProjectSelect(project.projectId, props.onProjectSelect)
                       }
                       onRename={handleRename}
                       onDuplicate={handleDuplicate}

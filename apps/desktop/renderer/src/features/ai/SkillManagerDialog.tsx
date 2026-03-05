@@ -80,6 +80,185 @@ function readFieldName(error: IpcError): string | null {
   return typeof fieldName === "string" ? fieldName : null;
 }
 
+// ============================================================================
+// Extracted sub-components
+// ============================================================================
+
+/**
+ * SkillFormFields – the form inputs for creating/editing a custom skill.
+ */
+function SkillFormFields(props: {
+  heading: string;
+  form: SkillFormState;
+  onFormChange: React.Dispatch<React.SetStateAction<SkillFormState>>;
+  fieldErrors: Record<string, string>;
+}): JSX.Element {
+  const { t } = useTranslation();
+
+  return (
+    <section className="space-y-2">
+      <Text size="tiny" color="muted" className="uppercase tracking-wide">
+        {props.heading}
+      </Text>
+
+      <label className="block text-xs text-[var(--color-fg-muted)]">
+        {t("ai.skillManager.fieldName")}
+        <input
+          value={props.form.name}
+          onChange={(e) => props.onFormChange((prev) => ({ ...prev, name: e.target.value }))}
+          className="mt-1 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
+          data-testid="skill-form-name"
+        />
+        {props.fieldErrors.name && (
+          <span className="mt-1 block text-xs text-[var(--color-error)]">{props.fieldErrors.name}</span>
+        )}
+      </label>
+
+      <label className="block text-xs text-[var(--color-fg-muted)]">
+        {t("ai.skillManager.fieldDescription")}
+        <input
+          value={props.form.description}
+          onChange={(e) => props.onFormChange((prev) => ({ ...prev, description: e.target.value }))}
+          className="mt-1 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
+          data-testid="skill-form-description"
+        />
+        {props.fieldErrors.description && (
+          <span className="mt-1 block text-xs text-[var(--color-error)]">{props.fieldErrors.description}</span>
+        )}
+      </label>
+
+      <label className="block text-xs text-[var(--color-fg-muted)]">
+        {t("ai.skillManager.fieldPromptTemplate")}
+        <textarea
+          value={props.form.promptTemplate}
+          onChange={(e) => props.onFormChange((prev) => ({ ...prev, promptTemplate: e.target.value }))}
+          placeholder={t("ai.skillManager.promptPlaceholder")}
+          className="mt-1 w-full min-h-20 rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
+          data-testid="skill-form-prompt-template"
+        />
+        {props.fieldErrors.promptTemplate && (
+          <span className="mt-1 block text-xs text-[var(--color-error)]" data-testid="skill-form-error-promptTemplate">
+            {props.fieldErrors.promptTemplate}
+          </span>
+        )}
+      </label>
+
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block text-xs text-[var(--color-fg-muted)]">
+          {t("ai.skillManager.fieldInputType")}
+          <select
+            value={props.form.inputType}
+            onChange={(e) => props.onFormChange((prev) => ({ ...prev, inputType: e.target.value as "selection" | "document" }))}
+            className="mt-1 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
+            data-testid="skill-form-input-type"
+          >
+            <option value="selection">{t("ai.skillManager.inputTypeSelection")}</option>
+            <option value="document">{t("ai.skillManager.inputTypeDocument")}</option>
+          </select>
+        </label>
+
+        <label className="block text-xs text-[var(--color-fg-muted)]">
+          {t("ai.skillManager.fieldScope")}
+          <select
+            value={props.form.scope}
+            onChange={(e) => props.onFormChange((prev) => ({ ...prev, scope: e.target.value as "global" | "project" }))}
+            className="mt-1 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
+            data-testid="skill-form-scope"
+          >
+            <option value="project">{t("ai.skillManager.scopeProject")}</option>
+            <option value="global">{t("ai.skillManager.scopeGlobal")}</option>
+          </select>
+        </label>
+      </div>
+
+      <label className="block text-xs text-[var(--color-fg-muted)]">
+        {t("ai.skillManager.fieldContextRules")}
+        <textarea
+          value={props.form.contextRulesText}
+          onChange={(e) => props.onFormChange((prev) => ({ ...prev, contextRulesText: e.target.value }))}
+          className="mt-1 w-full min-h-16 rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
+          data-testid="skill-form-context-rules"
+        />
+        {props.fieldErrors.contextRules && (
+          <span className="mt-1 block text-xs text-[var(--color-error)]">{props.fieldErrors.contextRules}</span>
+        )}
+      </label>
+
+      <label className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
+        <input
+          type="checkbox"
+          checked={props.form.enabled}
+          onChange={(e) => props.onFormChange((prev) => ({ ...prev, enabled: e.target.checked }))}
+          data-testid="skill-form-enabled"
+        />
+        {t("ai.skillManager.enableSkill")}
+      </label>
+    </section>
+  );
+}
+
+/**
+ * SkillItemList – the existing custom skill list with edit/delete buttons.
+ */
+function SkillItemList(props: {
+  items: CustomSkillListItem[];
+  loading: boolean;
+  onEdit: (item: CustomSkillListItem) => void;
+  onDelete: (item: CustomSkillListItem) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+
+  return (
+    <section className="space-y-2">
+      <Text size="tiny" color="muted" className="uppercase tracking-wide">
+        {t("ai.skillManager.customSkillList")}
+      </Text>
+      {props.loading ? (
+        <Text size="small" color="muted">{t("ai.skillManager.loading")}</Text>
+      ) : props.items.length === 0 ? (
+        <Text size="small" color="muted">{t("ai.skillManager.noCustomSkills")}</Text>
+      ) : (
+        <div className="space-y-2" data-testid="skill-manager-list">
+          {props.items.map((item) => (
+            <div key={item.id} className="rounded border border-[var(--color-border-default)] p-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <Text size="small" weight="semibold">{item.name}</Text>
+                  <Text size="tiny" color="muted">
+                    {item.scope === "project" ? t("ai.skillManager.scopeProject") : t("ai.skillManager.scopeGlobal")} · {item.inputType}
+                  </Text>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded border border-[var(--color-border-default)] text-xs"
+                    onClick={() => props.onEdit(item)}
+                    data-testid={`skill-item-edit-${item.id}`}
+                  >
+                    {t("ai.skillManager.edit")}
+                  </button>
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded border border-[var(--color-error)]/30 text-xs text-[var(--color-error)]"
+                    onClick={() => props.onDelete(item)}
+                    data-testid={`skill-item-delete-${item.id}`}
+                  >
+                    {t("ai.skillManager.delete")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ============================================================================
+// Main component
+// ============================================================================
+
 /**
  * SkillManagerDialog provides custom skill CRUD + AI-assisted drafting.
  *
@@ -322,139 +501,12 @@ export function SkillManagerDialog(props: {
             </button>
           </section>
 
-          <section className="space-y-2">
-            <Text size="tiny" color="muted" className="uppercase tracking-wide">
-              {title}
-            </Text>
-
-            <label className="block text-xs text-[var(--color-fg-muted)]">
-              {t("ai.skillManager.fieldName")}
-              <input
-                value={form.name}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, name: e.target.value }))
-                }
-                className="mt-1 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
-                data-testid="skill-form-name"
-              />
-              {fieldErrors.name && (
-                <span className="mt-1 block text-xs text-[var(--color-error)]">
-                  {fieldErrors.name}
-                </span>
-              )}
-            </label>
-
-            <label className="block text-xs text-[var(--color-fg-muted)]">
-              {t("ai.skillManager.fieldDescription")}
-              <input
-                value={form.description}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, description: e.target.value }))
-                }
-                className="mt-1 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
-                data-testid="skill-form-description"
-              />
-              {fieldErrors.description && (
-                <span className="mt-1 block text-xs text-[var(--color-error)]">
-                  {fieldErrors.description}
-                </span>
-              )}
-            </label>
-
-            <label className="block text-xs text-[var(--color-fg-muted)]">
-              {t("ai.skillManager.fieldPromptTemplate")}
-              <textarea
-                value={form.promptTemplate}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    promptTemplate: e.target.value,
-                  }))
-                }
-                placeholder={t("ai.skillManager.promptPlaceholder")}
-                className="mt-1 w-full min-h-20 rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
-                data-testid="skill-form-prompt-template"
-              />
-              {fieldErrors.promptTemplate && (
-                <span
-                  className="mt-1 block text-xs text-[var(--color-error)]"
-                  data-testid="skill-form-error-promptTemplate"
-                >
-                  {fieldErrors.promptTemplate}
-                </span>
-              )}
-            </label>
-
-            <div className="grid grid-cols-2 gap-2">
-              <label className="block text-xs text-[var(--color-fg-muted)]">
-                {t("ai.skillManager.fieldInputType")}
-                <select
-                  value={form.inputType}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      inputType: e.target.value as "selection" | "document",
-                    }))
-                  }
-                  className="mt-1 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
-                  data-testid="skill-form-input-type"
-                >
-                  <option value="selection">{t("ai.skillManager.inputTypeSelection")}</option>
-                  <option value="document">{t("ai.skillManager.inputTypeDocument")}</option>
-                </select>
-              </label>
-
-              <label className="block text-xs text-[var(--color-fg-muted)]">
-                {t("ai.skillManager.fieldScope")}
-                <select
-                  value={form.scope}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      scope: e.target.value as "global" | "project",
-                    }))
-                  }
-                  className="mt-1 w-full rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
-                  data-testid="skill-form-scope"
-                >
-                  <option value="project">{t("ai.skillManager.scopeProject")}</option>
-                  <option value="global">{t("ai.skillManager.scopeGlobal")}</option>
-                </select>
-              </label>
-            </div>
-
-            <label className="block text-xs text-[var(--color-fg-muted)]">
-              {t("ai.skillManager.fieldContextRules")}
-              <textarea
-                value={form.contextRulesText}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    contextRulesText: e.target.value,
-                  }))
-                }
-                className="mt-1 w-full min-h-16 rounded border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-2 text-sm"
-                data-testid="skill-form-context-rules"
-              />
-              {fieldErrors.contextRules && (
-                <span className="mt-1 block text-xs text-[var(--color-error)]">
-                  {fieldErrors.contextRules}
-                </span>
-              )}
-            </label>
-
-            <label className="flex items-center gap-2 text-xs text-[var(--color-fg-muted)]">
-              <input
-                type="checkbox"
-                checked={form.enabled}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, enabled: e.target.checked }))
-                }
-                data-testid="skill-form-enabled"
-              />
-              {t("ai.skillManager.enableSkill")}
-            </label>
-          </section>
+          <SkillFormFields
+            heading={title}
+            form={form}
+            onFormChange={setForm}
+            fieldErrors={fieldErrors}
+          />
 
           {formError && (
             <div
@@ -465,59 +517,12 @@ export function SkillManagerDialog(props: {
             </div>
           )}
 
-          <section className="space-y-2">
-            <Text size="tiny" color="muted" className="uppercase tracking-wide">
-              {t("ai.skillManager.customSkillList")}
-            </Text>
-            {loading ? (
-              <Text size="small" color="muted">
-                {t("ai.skillManager.loading")}
-              </Text>
-            ) : items.length === 0 ? (
-              <Text size="small" color="muted">
-                {t("ai.skillManager.noCustomSkills")}
-              </Text>
-            ) : (
-              <div className="space-y-2" data-testid="skill-manager-list">
-                {items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded border border-[var(--color-border-default)] p-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <Text size="small" weight="semibold">
-                          {item.name}
-                        </Text>
-                        <Text size="tiny" color="muted">
-                          {item.scope === "project" ? t("ai.skillManager.scopeProject") : t("ai.skillManager.scopeGlobal")} ·{" "}
-                          {item.inputType}
-                        </Text>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="px-2 py-1 rounded border border-[var(--color-border-default)] text-xs"
-                          onClick={() => handleEdit(item)}
-                          data-testid={`skill-item-edit-${item.id}`}
-                        >
-                          {t("ai.skillManager.edit")}
-                        </button>
-                        <button
-                          type="button"
-                          className="px-2 py-1 rounded border border-[var(--color-error)]/30 text-xs text-[var(--color-error)]"
-                          onClick={() => void handleDelete(item)}
-                          data-testid={`skill-item-delete-${item.id}`}
-                        >
-                          {t("ai.skillManager.delete")}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
+          <SkillItemList
+            items={items}
+            loading={loading}
+            onEdit={handleEdit}
+            onDelete={(item) => void handleDelete(item)}
+          />
         </div>
       </Dialog>
 

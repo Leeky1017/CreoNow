@@ -299,7 +299,9 @@ describe("deriveOutline", () => {
     expect(result[0].title).toBe("🚀 Getting Started");
     expect(result[1].title).toBe("📖 Chapter 1 📚");
   });
+});
 
+describe("deriveOutline — content edge cases", () => {
   it("handles headings with Chinese characters", () => {
     const doc: JSONContent = {
       type: "doc",

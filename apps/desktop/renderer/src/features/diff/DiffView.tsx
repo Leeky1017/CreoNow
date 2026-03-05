@@ -160,6 +160,113 @@ export function getChangePositions(lines: DiffLine[]): number[] {
  * - Colored backgrounds for added/removed lines
  * - Hover highlighting
  */
+
+function renderHeaderLine(line: DiffLine, index: number): JSX.Element {
+  return (
+    <div
+      key={index}
+      data-line-index={index}
+      className="flex bg-[var(--color-bg-raised)] border-y border-[var(--color-separator)]"
+    >
+      <div className="w-20 shrink-0 bg-[var(--color-bg-base)] border-r border-[var(--color-separator)]" />
+      <div className="flex-1 px-4 py-1 text-[var(--color-fg-subtle)] font-medium text-[11px]">
+        {line.content}
+      </div>
+    </div>
+  );
+}
+
+function renderDiffLine(
+  line: DiffLine,
+  index: number,
+  currentChangeIndex: number | undefined,
+  lineUnderlineStyle: LineUnderlineStyle | undefined,
+): JSX.Element {
+  const isRemoved = line.type === "removed";
+  const isAdded = line.type === "added";
+  const isContext = line.type === "context";
+  const underlineClass =
+    lineUnderlineStyle === "dashed"
+      ? "underline decoration-dashed underline-offset-[3px]"
+      : lineUnderlineStyle === "solid"
+        ? "underline decoration-solid underline-offset-[3px]"
+        : "";
+
+  const isCurrentChange =
+    currentChangeIndex !== undefined &&
+    line.hunkIndex !== null &&
+    line.hunkIndex === currentChangeIndex;
+
+  return (
+    <div
+      key={index}
+      data-line-index={index}
+      className={`
+        flex group transition-colors
+        ${isRemoved ? "bg-[var(--color-diff-removed-bg)]" : ""}
+        ${isAdded ? "bg-[var(--color-diff-added-bg)]" : ""}
+        ${isContext ? "hover:bg-[var(--color-bg-hover)]" : ""}
+        ${isCurrentChange ? "ring-1 ring-inset ring-[var(--color-accent)]" : ""}
+      `}
+    >
+      {/* Gutter: +/- indicator + old line number + new line number */}
+      <div
+        className={`
+          w-20 shrink-0 flex select-none text-[11px] border-r border-[var(--color-separator)]
+          ${isRemoved ? "bg-[var(--color-diff-removed-gutter-bg)]" : ""}
+          ${isAdded ? "bg-[var(--color-diff-added-gutter-bg)]" : ""}
+          ${isContext ? "bg-[var(--color-bg-base)]" : ""}
+        `}
+      >
+        {/* +/- indicator */}
+        <div className="w-4 flex items-center justify-center">
+          {isRemoved && (
+            <span className="text-[var(--color-error)] opacity-50">
+              -
+            </span>
+          )}
+          {isAdded && (
+            <span className="text-[var(--color-success)] opacity-50">
+              +
+            </span>
+          )}
+        </div>
+        {/* Old line number */}
+        <div
+          className={`
+            w-8 text-right pr-2 py-1
+            ${isRemoved ? "text-[var(--color-error)] opacity-50" : "text-[var(--color-fg-subtle)]"}
+          `}
+        >
+          {line.oldLineNumber ?? ""}
+        </div>
+        {/* New line number */}
+        <div
+          className={`
+            w-8 text-right pr-2 py-1
+            ${isAdded ? "text-[var(--color-success)] opacity-50" : "text-[var(--color-fg-subtle)]"}
+          `}
+        >
+          {line.newLineNumber ?? ""}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div
+        className={`
+          flex-1 px-4 py-1 whitespace-pre-wrap break-words
+          ${isRemoved ? "text-[var(--color-diff-removed-text)] line-through decoration-[var(--color-diff-removed-decoration)]" : ""}
+          ${isAdded ? "text-[var(--color-diff-added-text)]" : ""}
+          ${(isRemoved || isAdded) && underlineClass ? underlineClass : ""}
+          ${isContext ? "text-[var(--color-fg-muted)]" : ""}
+        `}
+      >
+        {line.content || "\u00A0"}
+      </div>
+    </div>
+  );
+}
+
 export function UnifiedDiffView(props: {
   lines: DiffLine[];
   currentChangeIndex?: number;
@@ -210,107 +317,11 @@ export function UnifiedDiffView(props: {
       className="flex-1 font-[var(--font-family-mono)] text-[13px] leading-6"
       viewportClassName="h-full w-full overflow-y-auto"
     >
-      {props.lines.map((line, index) => {
-        if (line.type === "header") {
-          return (
-            <div
-              key={index}
-              data-line-index={index}
-              className="flex bg-[var(--color-bg-raised)] border-y border-[var(--color-separator)]"
-            >
-              <div className="w-20 shrink-0 bg-[var(--color-bg-base)] border-r border-[var(--color-separator)]" />
-              <div className="flex-1 px-4 py-1 text-[var(--color-fg-subtle)] font-medium text-[11px]">
-                {line.content}
-              </div>
-            </div>
-          );
-        }
-
-        const isRemoved = line.type === "removed";
-        const isAdded = line.type === "added";
-        const isContext = line.type === "context";
-        const underlineClass =
-          props.lineUnderlineStyle === "dashed"
-            ? "underline decoration-dashed underline-offset-[3px]"
-            : props.lineUnderlineStyle === "solid"
-              ? "underline decoration-solid underline-offset-[3px]"
-              : "";
-
-        // Determine if this line is part of the currently highlighted change
-        const isCurrentChange =
-          props.currentChangeIndex !== undefined &&
-          line.hunkIndex !== null &&
-          line.hunkIndex === props.currentChangeIndex;
-
-        return (
-          <div
-            key={index}
-            data-line-index={index}
-            className={`
-              flex group transition-colors
-              ${isRemoved ? "bg-[var(--color-diff-removed-bg)]" : ""}
-              ${isAdded ? "bg-[var(--color-diff-added-bg)]" : ""}
-              ${isContext ? "hover:bg-[var(--color-bg-hover)]" : ""}
-              ${isCurrentChange ? "ring-1 ring-inset ring-[var(--color-accent)]" : ""}
-            `}
-          >
-            {/* Gutter: +/- indicator + old line number + new line number */}
-            <div
-              className={`
-                w-20 shrink-0 flex select-none text-[11px] border-r border-[var(--color-separator)]
-                ${isRemoved ? "bg-[var(--color-diff-removed-gutter-bg)]" : ""}
-                ${isAdded ? "bg-[var(--color-diff-added-gutter-bg)]" : ""}
-                ${isContext ? "bg-[var(--color-bg-base)]" : ""}
-              `}
-            >
-              {/* +/- indicator */}
-              <div className="w-4 flex items-center justify-center">
-                {isRemoved && (
-                  <span className="text-[var(--color-error)] opacity-50">
-                    -
-                  </span>
-                )}
-                {isAdded && (
-                  <span className="text-[var(--color-success)] opacity-50">
-                    +
-                  </span>
-                )}
-              </div>
-              {/* Old line number */}
-              <div
-                className={`
-                  w-8 text-right pr-2 py-1
-                  ${isRemoved ? "text-[var(--color-error)] opacity-50" : "text-[var(--color-fg-subtle)]"}
-                `}
-              >
-                {line.oldLineNumber ?? ""}
-              </div>
-              {/* New line number */}
-              <div
-                className={`
-                  w-8 text-right pr-2 py-1
-                  ${isAdded ? "text-[var(--color-success)] opacity-50" : "text-[var(--color-fg-subtle)]"}
-                `}
-              >
-                {line.newLineNumber ?? ""}
-              </div>
-            </div>
-
-            {/* Content */}
-            <div
-              className={`
-                flex-1 px-4 py-1 whitespace-pre-wrap break-words
-                ${isRemoved ? "text-[var(--color-diff-removed-text)] line-through decoration-[var(--color-diff-removed-decoration)]" : ""}
-                ${isAdded ? "text-[var(--color-diff-added-text)]" : ""}
-                ${(isRemoved || isAdded) && underlineClass ? underlineClass : ""}
-                ${isContext ? "text-[var(--color-fg-muted)]" : ""}
-              `}
-            >
-              {line.content || "\u00A0"}
-            </div>
-          </div>
-        );
-      })}
+      {props.lines.map((line, index) =>
+        line.type === "header"
+          ? renderHeaderLine(line, index)
+          : renderDiffLine(line, index, props.currentChangeIndex, props.lineUnderlineStyle),
+      )}
     </ScrollArea>
   );
 }
