@@ -112,7 +112,7 @@ function buildTaskErrorContext(args: {
 }
 
 function buildTaskPathError(args: {
-  logger?: SchedulerLogger;
+  logger: SchedulerLogger;
   task: SkillTask<unknown>;
   errorSource: SchedulerErrorSource;
   error: unknown;
@@ -126,11 +126,7 @@ function buildTaskPathError(args: {
     errorSource: args.errorSource,
     error: args.error,
   });
-  if (args.logger) {
-    args.logger.error(event, context);
-  } else {
-    console.error(event, context);
-  }
+  args.logger.error(event, context);
   return ipcError("INTERNAL", "Skill scheduler task failed", context);
 }
 
@@ -236,7 +232,11 @@ export function createSkillScheduler(args?: {
   const sessions = new Map<string, SessionQueueState>();
   const readySessionQueue: string[] = [];
   const readySessionSet = new Set<string>();
-  const logger = args?.logger;
+  const logger: SchedulerLogger = args?.logger ?? {
+    error: (event, data) => {
+      process.stderr.write(`${JSON.stringify({ event, ...data })}\n`);
+    },
+  };
   let globalRunning = 0;
 
   function getSessionState(sessionKey: string): SessionQueueState {
