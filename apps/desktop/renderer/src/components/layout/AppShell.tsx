@@ -45,13 +45,13 @@ import { SearchPanel } from "../../features/search/SearchPanel";
 import { VersionHistoryContainer } from "../../features/version-history/VersionHistoryContainer";
 import { ZenMode } from "../../features/zen-mode/ZenMode";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
-import { useConfirmDialog } from "../../hooks/useConfirmDialog";
+import { useConfirmDialog, type UseConfirmDialogReturn } from "../../hooks/useConfirmDialog";
 import { RESTORE_VERSION_CONFIRM_COPY } from "../../features/version-history/restoreConfirmCopy";
-import { useVersionCompare } from "../../features/version-history/useVersionCompare";
-import { useProjectStore } from "../../stores/projectStore";
+import { useVersionCompare, type CompareState } from "../../features/version-history/useVersionCompare";
+import { useProjectStore, type ProjectInfo, type ProjectListItem } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
 import { useEditorStore } from "../../stores/editorStore";
-import { useAiStore } from "../../stores/aiStore";
+import { useAiStore, type AiProposal } from "../../stores/aiStore";
 import { useVersionPreferencesStore } from "../../stores/versionPreferencesStore";
 import { applySelection } from "../../features/ai/applySelection";
 import {
@@ -64,6 +64,12 @@ import { runFireAndForget } from "../../lib/fireAndForget";
 import { invoke } from "../../lib/ipcClient";
 import { extractZenModeContent, getModKey } from "./appShellLayoutHelpers";
 import "../../i18n";
+
+type FileItem = {
+  documentId: string;
+  title: string;
+  type: string;
+};
 
 let hasWarnedInvalidZenContent = false;
 
@@ -160,78 +166,257 @@ function ZenModeOverlay(props: {
 }
 
 /**
- * AppShell renders the Workbench three-column layout (IconBar + Sidebar + Main
- * + RightPanel) and wires resizing, persistence, and P0 keyboard shortcuts.
+ * Build the static command palette entries (non-file items).
  */
-export function AppShell(): JSX.Element {
-  const { t } = useTranslation();
-  const currentProject = useProjectStore((s) => s.current);
-  const currentProjectId = currentProject?.projectId ?? null;
-  const projectItems = useProjectStore((s) => s.items);
-  const bootstrapStatus = useProjectStore((s) => s.bootstrapStatus);
-  const bootstrapProjects = useProjectStore((s) => s.bootstrap);
-  const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
-  const bootstrapFiles = useFileStore((s) => s.bootstrapForProject);
-  const fileItems = useFileStore((s) =>
-    Array.isArray(s.items) ? s.items : [],
+function buildCommandEntries(args: {
+  modKey: string;
+  t: ReturnType<typeof useTranslation>["t"];
+  currentProjectId: string | null;
+  zenMode: boolean;
+  openSettingsDialog: (tab: SettingsTab) => void;
+  setExportDialogOpen: (open: boolean) => void;
+  toggleSidebarVisibility: () => void;
+  toggleAiPanel: () => void;
+  setZenMode: (v: boolean) => void;
+  createDocument: (args: { projectId: string }) => Promise<{ ok: boolean }>;
+  openVersionHistoryPanel: () => void;
+  setCreateProjectDialogOpen: (open: boolean) => void;
+  close: () => void;
+}): CommandItem[] {
+  return [
+    {
+      id: "open-settings",
+      label: args.t("workbench.appShell.command.openSettings"),
+      shortcut: `${args.modKey},`,
+      group: "command",
+      category: "command",
+      onSelect: () => { args.openSettingsDialog("general"); args.close(); },
+    },
+    {
+      id: "export",
+      label: args.t("workbench.appShell.command.export"),
+      group: "command",
+      category: "command",
+      onSelect: () => { args.setExportDialogOpen(true); args.close(); },
+    },
+    {
+      id: "toggle-sidebar",
+      label: args.t("workbench.appShell.command.toggleSidebar"),
+      shortcut: `${args.modKey}\\`,
+      group: "command",
+      category: "command",
+      onSelect: () => { args.toggleSidebarVisibility(); args.close(); },
+    },
+    {
+      id: "toggle-right-panel",
+      label: args.t("workbench.appShell.command.toggleRightPanel"),
+      shortcut: `${args.modKey}L`,
+      group: "command",
+      category: "command",
+      onSelect: () => { args.toggleAiPanel(); args.close(); },
+    },
+    {
+      id: "toggle-zen-mode",
+      label: args.t("workbench.appShell.command.toggleZenMode"),
+      shortcut: "F11",
+      group: "command",
+      category: "command",
+      onSelect: () => { args.setZenMode(!args.zenMode); args.close(); },
+    },
+    {
+      id: "create-new-document",
+      label: args.t("workbench.appShell.command.createNewDocument"),
+      shortcut: `${args.modKey}N`,
+      group: "command",
+      category: "command",
+      onSelect: async () => {
+        if (!args.currentProjectId) return;
+        await args.createDocument({ projectId: args.currentProjectId });
+        args.close();
+      },
+    },
+    {
+      id: "open-version-history",
+      label: args.t("workbench.appShell.command.openVersionHistory"),
+      group: "command",
+      category: "command",
+      onSelect: () => { args.openVersionHistoryPanel(); args.close(); },
+    },
+    {
+      id: "create-new-project",
+      label: args.t("workbench.appShell.command.createNewProject"),
+      shortcut: `${args.modKey}Shift+N`,
+      group: "command",
+      category: "command",
+      onSelect: () => { args.setCreateProjectDialogOpen(true); args.close(); },
+    },
+    {
+      id: "open-folder",
+      label: args.t("workbench.appShell.command.openFolder"),
+      group: "command",
+      category: "command",
+      onSelect: async () => { await invoke("dialog:folder:open", {}); args.close(); },
+    },
+  ];
+}
+
+/**
+ * Build file entries for the command palette.
+ */
+function buildFileEntries(args: {
+  fileItems: FileItem[];
+  currentProjectId: string | null;
+  setCurrentDocument: (a: { projectId: string; documentId: string }) => Promise<{ ok: boolean }>;
+  openEditorDocument: (a: { projectId: string; documentId: string }) => Promise<void>;
+  close: () => void;
+}): CommandItem[] {
+  const safeFileItems = Array.isArray(args.fileItems) ? args.fileItems : [];
+  return [...safeFileItems]
+    .sort((a, b) => a.title.localeCompare(b.title))
+    .map<CommandItem>((item) => ({
+      id: `file-${item.documentId}`,
+      label: item.title,
+      subtext: item.type,
+      icon: (
+        <span
+          aria-hidden="true"
+          className="inline-flex h-4 w-4 items-center justify-center text-[9px] font-semibold text-[var(--color-fg-muted)]"
+        >
+          {item.type[0]?.toUpperCase() ?? "D"}
+        </span>
+      ),
+      group: "file",
+      category: "file",
+      onSelect: async () => {
+        if (!args.currentProjectId) return;
+        const res = await args.setCurrentDocument({
+          projectId: args.currentProjectId,
+          documentId: item.documentId,
+        });
+        if (!res.ok) return;
+        await args.openEditorDocument({
+          projectId: args.currentProjectId,
+          documentId: item.documentId,
+        });
+        args.close();
+      },
+    }));
+}
+
+/**
+ * AppShellOverlays – all overlay dialogs/panels rendered by AppShell.
+ */
+function AppShellOverlays(props: {
+  spotlightOpen: boolean;
+  currentProjectId: string | null;
+  onCloseSpotlight: () => void;
+  dialogType: DialogType | null;
+  onCloseDialog: () => void;
+  dialogTitleResolver: (d: DialogType) => string;
+  dialogContentRenderer: (d: DialogType) => JSX.Element;
+  commandPaletteKey: number;
+  commandPaletteOpen: boolean;
+  onCommandPaletteOpenChange: (open: boolean) => void;
+  commandPaletteCommands: CommandItem[];
+  layoutActions: CommandPaletteLayoutActions;
+  dialogActions: CommandPaletteDialogActions;
+  documentActions: CommandPaletteDocumentActions;
+  settingsDialogOpen: boolean;
+  onSettingsDialogOpenChange: (open: boolean) => void;
+  settingsDefaultTab: SettingsTab;
+  exportDialogOpen: boolean;
+  onExportDialogOpenChange: (open: boolean) => void;
+  documentId: string | null;
+  createProjectDialogOpen: boolean;
+  onCreateProjectDialogOpenChange: (open: boolean) => void;
+  zenMode: boolean;
+  onExitZenMode: () => void;
+  compareMode: boolean;
+  dialogProps: ReturnType<typeof useConfirmDialog>["dialogProps"];
+  t: ReturnType<typeof useTranslation>["t"];
+}): JSX.Element {
+  return (
+    <>
+      {props.spotlightOpen ? (
+        <div data-testid="leftpanel-spotlight-search">
+          <SearchPanel
+            projectId={props.currentProjectId ?? "__no_project__"}
+            open={true}
+            onClose={props.onCloseSpotlight}
+          />
+        </div>
+      ) : null}
+
+      {props.dialogType ? (
+        <LeftPanelDialogShell
+          open={true}
+          title={props.dialogTitleResolver(props.dialogType)}
+          testId={`leftpanel-dialog-${props.dialogType}`}
+          onOpenChange={(open) => { if (!open) props.onCloseDialog(); }}
+        >
+          {props.dialogContentRenderer(props.dialogType)}
+        </LeftPanelDialogShell>
+      ) : null}
+
+      <CommandPalette
+        key={props.commandPaletteKey}
+        open={props.commandPaletteOpen}
+        onOpenChange={props.onCommandPaletteOpenChange}
+        commands={props.commandPaletteCommands}
+        layoutActions={props.layoutActions}
+        dialogActions={props.dialogActions}
+        documentActions={props.documentActions}
+      />
+
+      <SettingsDialog
+        open={props.settingsDialogOpen}
+        onOpenChange={props.onSettingsDialogOpenChange}
+        defaultTab={props.settingsDefaultTab}
+      />
+
+      <ExportDialog
+        open={props.exportDialogOpen}
+        onOpenChange={props.onExportDialogOpenChange}
+        projectId={props.currentProjectId}
+        documentId={props.documentId}
+        documentTitle={props.t("workbench.export.currentDocument")}
+      />
+
+      <CreateProjectDialog
+        open={props.createProjectDialogOpen}
+        onOpenChange={props.onCreateProjectDialogOpenChange}
+      />
+
+      <ZenModeOverlay open={props.zenMode} onExit={props.onExitZenMode} />
+      {!props.compareMode ? <SystemDialog {...props.dialogProps} /> : null}
+    </>
   );
-  const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
-  const editor = useEditorStore((s) => s.editor);
-  const compareMode = useEditorStore((s) => s.compareMode);
-  const compareVersionId = useEditorStore((s) => s.compareVersionId);
-  const documentId = useEditorStore((s) => s.documentId);
-  const panelCollapsed = useLayoutStore((s) => s.panelCollapsed);
-  const zenMode = useLayoutStore((s) => s.zenMode);
-  const activeLeftPanel = useLayoutStore((s) => s.activeLeftPanel);
-  const dialogType = useLayoutStore((s) => s.dialogType);
-  const spotlightOpen = useLayoutStore((s) => s.spotlightOpen);
-  const panelVisibility = usePanelVisibilityActions();
+}
 
-  const setZenMode = useLayoutStore((s) => s.setZenMode);
-  const setDialogType = useLayoutStore((s) => s.setDialogType);
-  const setSpotlightOpen = useLayoutStore((s) => s.setSpotlightOpen);
-  const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
-  const activeRightPanel = useLayoutStore((s) => s.activeRightPanel);
-  const setCompareMode = useEditorStore((s) => s.setCompareMode);
-
+// ---------------------------------------------------------------------------
+// useAppShellAiCompare – AI compare state, memos, effects and callbacks
+// ---------------------------------------------------------------------------
+function useAppShellAiCompare() {
   const aiProposal = useAiStore((s) => s.proposal);
   const setAiProposal = useAiStore((s) => s.setProposal);
   const setAiSelectionSnapshot = useAiStore((s) => s.setSelectionSnapshot);
   const persistAiApply = useAiStore((s) => s.persistAiApply);
   const setAiError = useAiStore((s) => s.setError);
   const logAiApplyConflict = useAiStore((s) => s.logAiApplyConflict);
-  const showAiMarks = useVersionPreferencesStore((s) => s.showAiMarks);
+  const editor = useEditorStore((s) => s.editor);
+  const documentId = useEditorStore((s) => s.documentId);
+  const setCompareMode = useEditorStore((s) => s.setCompareMode);
+  const compareMode = useEditorStore((s) => s.compareMode);
+  const compareVersionId = useEditorStore((s) => s.compareVersionId);
+  const currentProjectId = useProjectStore((s) => s.current)?.projectId ?? null;
 
-  const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
-  // Counter to force CommandPalette remount on each open (ensures fresh state)
-  const [commandPaletteKey, setCommandPaletteKey] = React.useState(0);
-  const [recentCommandIds, setRecentCommandIds] = React.useState<string[]>(() =>
-    readRecentCommandIds(),
-  );
-  const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
-  const [settingsDefaultTab, setSettingsDefaultTab] =
-    React.useState<SettingsTab>("general");
-  const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
-  const [createProjectDialogOpen, setCreateProjectDialogOpen] =
-    React.useState(false);
   const lastMountedEditorRef = React.useRef<typeof editor>(null);
-
-  // File store for creating documents
-  const createDocument = useFileStore((s) => s.createAndSetCurrent);
-  const setCurrentDocument = useFileStore((s) => s.setCurrent);
-  const openEditorDocument = useEditorStore((s) => s.openDocument);
-
-  // Version compare hook
-  const { compareState, closeCompare } = useVersionCompare();
-  const { confirm, dialogProps } = useConfirmDialog();
   const [aiHunkDecisions, setAiHunkDecisions] = React.useState<
     DiffHunkDecision[]
   >([]);
 
   const aiDiffText = React.useMemo(() => {
-    if (!aiProposal) {
-      return "";
-    }
+    if (!aiProposal) return "";
     return unifiedDiff({
       oldText: aiProposal.selectionText,
       newText: aiProposal.replacementText,
@@ -239,9 +424,7 @@ export function AppShell(): JSX.Element {
   }, [aiProposal]);
 
   const aiHunks = React.useMemo(() => {
-    if (!aiProposal) {
-      return [];
-    }
+    if (!aiProposal) return [];
     return computeDiffHunks({
       oldText: aiProposal.selectionText,
       newText: aiProposal.replacementText,
@@ -249,16 +432,12 @@ export function AppShell(): JSX.Element {
   }, [aiProposal]);
 
   React.useEffect(() => {
-    if (editor) {
-      lastMountedEditorRef.current = editor;
-    }
+    if (editor) lastMountedEditorRef.current = editor;
   }, [editor]);
 
   React.useEffect(() => {
     if (!compareMode || compareVersionId) {
-      if (aiHunkDecisions.length > 0) {
-        setAiHunkDecisions([]);
-      }
+      if (aiHunkDecisions.length > 0) setAiHunkDecisions([]);
       return;
     }
     if (!aiProposal) {
@@ -268,7 +447,7 @@ export function AppShell(): JSX.Element {
     setAiHunkDecisions((prev) =>
       prev.length === aiHunks.length
         ? prev
-        : Array.from({ length: aiHunks.length }, () => "pending"),
+        : Array.from({ length: aiHunks.length }, () => "pending" as const),
     );
   }, [
     aiHunkDecisions.length,
@@ -288,9 +467,7 @@ export function AppShell(): JSX.Element {
 
   const handleAcceptAiSuggestion = React.useCallback(async () => {
     const effectiveEditor = editor ?? lastMountedEditorRef.current;
-    if (!effectiveEditor || !documentId || !currentProjectId || !aiProposal) {
-      return;
-    }
+    if (!effectiveEditor || !documentId || !currentProjectId || !aiProposal) return;
 
     const normalizedDecisions = aiHunks.map((_, idx) => {
       const decision = aiHunkDecisions[idx] ?? "pending";
@@ -324,17 +501,85 @@ export function AppShell(): JSX.Element {
     setCompareMode(false);
     setAiHunkDecisions([]);
   }, [
-    aiHunkDecisions,
-    aiHunks,
-    aiProposal,
-    currentProjectId,
-    documentId,
-    editor,
-    logAiApplyConflict,
-    persistAiApply,
-    setAiError,
-    setCompareMode,
+    aiHunkDecisions, aiHunks, aiProposal, currentProjectId, documentId,
+    editor, logAiApplyConflict, persistAiApply, setAiError, setCompareMode,
   ]);
+
+  return {
+    aiProposal, aiDiffText, aiHunks, aiHunkDecisions, setAiHunkDecisions,
+    handleRejectAiSuggestion, handleAcceptAiSuggestion,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// useAppShellController – all state, effects, callbacks and memos
+// ---------------------------------------------------------------------------
+function useAppShellController() {
+  const { t } = useTranslation();
+  const currentProject = useProjectStore((s) => s.current);
+  const currentProjectId = currentProject?.projectId ?? null;
+  const projectItems = useProjectStore((s) => s.items);
+  const bootstrapStatus = useProjectStore((s) => s.bootstrapStatus);
+  const bootstrapProjects = useProjectStore((s) => s.bootstrap);
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject);
+  const bootstrapFiles = useFileStore((s) => s.bootstrapForProject);
+  const fileItems = useFileStore((s) =>
+    Array.isArray(s.items) ? s.items : [],
+  );
+  const bootstrapEditor = useEditorStore((s) => s.bootstrapForProject);
+  const compareMode = useEditorStore((s) => s.compareMode);
+  const compareVersionId = useEditorStore((s) => s.compareVersionId);
+  const documentId = useEditorStore((s) => s.documentId);
+  const panelCollapsed = useLayoutStore((s) => s.panelCollapsed);
+  const zenMode = useLayoutStore((s) => s.zenMode);
+  const activeLeftPanel = useLayoutStore((s) => s.activeLeftPanel);
+  const dialogType = useLayoutStore((s) => s.dialogType);
+  const spotlightOpen = useLayoutStore((s) => s.spotlightOpen);
+  const panelVisibility = usePanelVisibilityActions();
+  const setZenMode = useLayoutStore((s) => s.setZenMode);
+  const setDialogType = useLayoutStore((s) => s.setDialogType);
+  const setSpotlightOpen = useLayoutStore((s) => s.setSpotlightOpen);
+  const setActiveRightPanel = useLayoutStore((s) => s.setActiveRightPanel);
+  const activeRightPanel = useLayoutStore((s) => s.activeRightPanel);
+  const setCompareMode = useEditorStore((s) => s.setCompareMode);
+  const showAiMarks = useVersionPreferencesStore((s) => s.showAiMarks);
+  const createDocument = useFileStore((s) => s.createAndSetCurrent);
+  const setCurrentDocument = useFileStore((s) => s.setCurrent);
+  const openEditorDocument = useEditorStore((s) => s.openDocument);
+
+  const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
+  const [commandPaletteKey, setCommandPaletteKey] = React.useState(0);
+  const [recentCommandIds, setRecentCommandIds] = React.useState<string[]>(() =>
+    readRecentCommandIds(),
+  );
+  const [settingsDialogOpen, setSettingsDialogOpen] = React.useState(false);
+  const [settingsDefaultTab, setSettingsDefaultTab] =
+    React.useState<SettingsTab>("general");
+  const [exportDialogOpen, setExportDialogOpen] = React.useState(false);
+  const [createProjectDialogOpen, setCreateProjectDialogOpen] =
+    React.useState(false);
+
+  const { compareState, closeCompare } = useVersionCompare();
+  const { confirm, dialogProps } = useConfirmDialog();
+  const aiCompare = useAppShellAiCompare();
+
+  // Bootstrap projects on mount
+  React.useEffect(() => {
+    if (bootstrapStatus === "idle") {
+      runFireAndForget(() => bootstrapProjects(), {
+        label: "appShell.bootstrapProjects",
+      });
+    }
+  }, [bootstrapProjects, bootstrapStatus]);
+
+  // Bootstrap files/editor when a project is selected
+  React.useEffect(() => {
+    if (!currentProjectId) return;
+    runFireAndForget(async () => {
+      await bootstrapFiles(currentProjectId);
+      await bootstrapEditor(currentProjectId);
+    });
+  }, [bootstrapEditor, bootstrapFiles, currentProjectId]);
 
   const openVersionHistoryPanel = React.useCallback(() => {
     setDialogType("versionHistory");
@@ -345,7 +590,6 @@ export function AppShell(): JSX.Element {
     panelVisibility.toggleSidebar();
   }, [panelVisibility]);
 
-  /** Three-way AI panel toggle: collapsed→expand+ai, expanded+ai→collapse, expanded+other→switch to ai */
   const toggleAiPanel = React.useCallback(() => {
     if (panelCollapsed) {
       setActiveRightPanel("ai");
@@ -360,58 +604,28 @@ export function AppShell(): JSX.Element {
   }, [panelCollapsed, activeRightPanel, panelVisibility, setActiveRightPanel]);
 
   const openVersionHistoryForDocument = React.useCallback(
-    (documentId: string) => {
+    (docId: string) => {
       if (!currentProjectId) {
         openVersionHistoryPanel();
         return;
       }
-
       runFireAndForget(async () => {
-        await setCurrentDocument({ projectId: currentProjectId, documentId });
-        await openEditorDocument({ projectId: currentProjectId, documentId });
+        await setCurrentDocument({ projectId: currentProjectId, documentId: docId });
+        await openEditorDocument({ projectId: currentProjectId, documentId: docId });
       });
-
       openVersionHistoryPanel();
     },
-    [
-      currentProjectId,
-      openEditorDocument,
-      openVersionHistoryPanel,
-      setCurrentDocument,
-    ],
+    [currentProjectId, openEditorDocument, openVersionHistoryPanel, setCurrentDocument],
   );
 
   const handleSwitchProject = React.useCallback(
-    async (projectId: string) => {
-      await setCurrentProject(projectId);
-    },
+    async (projectId: string) => { await setCurrentProject(projectId); },
     [setCurrentProject],
   );
 
-  // Bootstrap projects on mount
-  React.useEffect(() => {
-    if (bootstrapStatus === "idle") {
-      runFireAndForget(() => bootstrapProjects(), {
-        label: "appShell.bootstrapProjects",
-      });
-    }
-  }, [bootstrapProjects, bootstrapStatus]);
-
-  // Bootstrap files/editor when a project is selected
-  React.useEffect(() => {
-    if (!currentProjectId) {
-      return;
-    }
-
-    runFireAndForget(async () => {
-      await bootstrapFiles(currentProjectId);
-      await bootstrapEditor(currentProjectId);
-    });
-  }, [bootstrapEditor, bootstrapFiles, currentProjectId]);
-
   const openCommandPalette = React.useCallback(() => {
     setRecentCommandIds(readRecentCommandIds());
-    setCommandPaletteKey((k) => k + 1); // Force remount for fresh state
+    setCommandPaletteKey((k) => k + 1);
     setCommandPaletteOpen(true);
   }, []);
 
@@ -420,7 +634,6 @@ export function AppShell(): JSX.Element {
     setSettingsDialogOpen(true);
   }, []);
 
-  // Callbacks for CommandPalette
   const layoutActions = React.useMemo<CommandPaletteLayoutActions>(
     () => ({
       onToggleSidebar: toggleSidebarVisibility,
@@ -428,13 +641,7 @@ export function AppShell(): JSX.Element {
       onToggleZenMode: () => setZenMode(!zenMode),
       onOpenVersionHistory: openVersionHistoryPanel,
     }),
-    [
-      openVersionHistoryPanel,
-      setZenMode,
-      toggleAiPanel,
-      toggleSidebarVisibility,
-      zenMode,
-    ],
+    [openVersionHistoryPanel, setZenMode, toggleAiPanel, toggleSidebarVisibility, zenMode],
   );
 
   const dialogActionCallbacks = React.useMemo<CommandPaletteDialogActions>(
@@ -447,19 +654,13 @@ export function AppShell(): JSX.Element {
   );
 
   const documentActionCallbacks =
-    React.useMemo<CommandPaletteDocumentActions>(() => {
-      return {
-        onCreateDocument: async () => {
-          if (!currentProjectId) {
-            throw new Error("No project selected");
-          }
-          const res = await createDocument({ projectId: currentProjectId });
-          if (!res.ok) {
-            throw new Error(`${res.error.code}: ${res.error.message}`);
-          }
-        },
-      };
-    }, [createDocument, currentProjectId]);
+    React.useMemo<CommandPaletteDocumentActions>(() => ({
+      onCreateDocument: async () => {
+        if (!currentProjectId) throw new Error("No project selected");
+        const res = await createDocument({ projectId: currentProjectId });
+        if (!res.ok) throw new Error(`${res.error.code}: ${res.error.message}`);
+      },
+    }), [createDocument, currentProjectId]);
 
   const refreshRecentCommands = React.useCallback(() => {
     setRecentCommandIds(readRecentCommandIds());
@@ -479,144 +680,25 @@ export function AppShell(): JSX.Element {
 
   const modKey = React.useMemo(() => getModKey(), []);
   const commandPaletteCommands = React.useMemo<CommandItem[]>(() => {
-    const commandEntries: CommandItem[] = [
-      {
-        id: "open-settings",
-        label: t("workbench.appShell.command.openSettings"),
-        shortcut: `${modKey},`,
-        group: "command",
-        category: "command",
-        onSelect: () => {
-          openSettingsDialog("general");
-          setCommandPaletteOpen(false);
-        },
+    const close = () => setCommandPaletteOpen(false);
+    const commandEntries = buildCommandEntries({
+      modKey, t, currentProjectId, zenMode,
+      openSettingsDialog, setExportDialogOpen,
+      toggleSidebarVisibility, toggleAiPanel, setZenMode,
+      createDocument: async (a) => {
+        const r = await createDocument(a);
+        return { ok: r.ok };
       },
-      {
-        id: "export",
-        label: t("workbench.appShell.command.export"),
-        group: "command",
-        category: "command",
-        onSelect: () => {
-          setExportDialogOpen(true);
-          setCommandPaletteOpen(false);
-        },
+      openVersionHistoryPanel, setCreateProjectDialogOpen, close,
+    });
+    const fileEntries = buildFileEntries({
+      fileItems, currentProjectId,
+      setCurrentDocument: async (a) => {
+        const r = await setCurrentDocument(a);
+        return { ok: r.ok };
       },
-      {
-        id: "toggle-sidebar",
-        label: t("workbench.appShell.command.toggleSidebar"),
-        shortcut: `${modKey}\\`,
-        group: "command",
-        category: "command",
-        onSelect: () => {
-          toggleSidebarVisibility();
-          setCommandPaletteOpen(false);
-        },
-      },
-      {
-        id: "toggle-right-panel",
-        label: t("workbench.appShell.command.toggleRightPanel"),
-        shortcut: `${modKey}L`,
-        group: "command",
-        category: "command",
-        onSelect: () => {
-          toggleAiPanel();
-          setCommandPaletteOpen(false);
-        },
-      },
-      {
-        id: "toggle-zen-mode",
-        label: t("workbench.appShell.command.toggleZenMode"),
-        shortcut: "F11",
-        group: "command",
-        category: "command",
-        onSelect: () => {
-          setZenMode(!zenMode);
-          setCommandPaletteOpen(false);
-        },
-      },
-      {
-        id: "create-new-document",
-        label: t("workbench.appShell.command.createNewDocument"),
-        shortcut: `${modKey}N`,
-        group: "command",
-        category: "command",
-        onSelect: async () => {
-          if (!currentProjectId) {
-            return;
-          }
-          await createDocument({ projectId: currentProjectId });
-          setCommandPaletteOpen(false);
-        },
-      },
-      {
-        id: "open-version-history",
-        label: t("workbench.appShell.command.openVersionHistory"),
-        group: "command",
-        category: "command",
-        onSelect: () => {
-          openVersionHistoryPanel();
-          setCommandPaletteOpen(false);
-        },
-      },
-      {
-        id: "create-new-project",
-        label: t("workbench.appShell.command.createNewProject"),
-        shortcut: `${modKey}Shift+N`,
-        group: "command",
-        category: "command",
-        onSelect: () => {
-          setCreateProjectDialogOpen(true);
-          setCommandPaletteOpen(false);
-        },
-      },
-      {
-        id: "open-folder",
-        label: t("workbench.appShell.command.openFolder"),
-        group: "command",
-        category: "command",
-        onSelect: async () => {
-          await invoke("dialog:folder:open", {});
-          setCommandPaletteOpen(false);
-        },
-      },
-    ];
-
-    const safeFileItems = Array.isArray(fileItems) ? fileItems : [];
-    const fileEntries = [...safeFileItems]
-      .sort((a, b) => a.title.localeCompare(b.title))
-      .map<CommandItem>((item) => ({
-        id: `file-${item.documentId}`,
-        label: item.title,
-        subtext: item.type,
-        icon: (
-          <span
-            aria-hidden="true"
-            className="inline-flex h-4 w-4 items-center justify-center text-[9px] font-semibold text-[var(--color-fg-muted)]"
-          >
-            {item.type[0]?.toUpperCase() ?? "D"}
-          </span>
-        ),
-        group: "file",
-        category: "file",
-        onSelect: async () => {
-          if (!currentProjectId) {
-            return;
-          }
-          const setCurrentRes = await setCurrentDocument({
-            projectId: currentProjectId,
-            documentId: item.documentId,
-          });
-          if (!setCurrentRes.ok) {
-            return;
-          }
-          await openEditorDocument({
-            projectId: currentProjectId,
-            documentId: item.documentId,
-          });
-          setCommandPaletteOpen(false);
-        },
-      }));
-
+      openEditorDocument, close,
+    });
     const trackedCommands = [
       ...commandEntries.map(withRecentTracking),
       ...fileEntries.map(withRecentTracking),
@@ -626,161 +708,135 @@ export function AppShell(): JSX.Element {
       .map((id) => trackedById.get(id))
       .filter((item): item is CommandItem => Boolean(item))
       .slice(0, 5)
-      .map((item) => ({
-        ...item,
-        group: "recent",
-        category: "recent" as const,
-      }));
-
+      .map((item) => ({ ...item, group: "recent", category: "recent" as const }));
     return [
       ...recentEntries,
       ...fileEntries.map(withRecentTracking),
       ...commandEntries.map(withRecentTracking),
     ];
   }, [
-    createDocument,
-    currentProjectId,
-    fileItems,
-    modKey,
-    openEditorDocument,
-    openSettingsDialog,
-    openVersionHistoryPanel,
-    recentCommandIds,
-    setCurrentDocument,
-    setZenMode,
-    t,
-    toggleAiPanel,
-    toggleSidebarVisibility,
-    withRecentTracking,
-    zenMode,
+    createDocument, currentProjectId, fileItems, modKey,
+    openEditorDocument, openSettingsDialog, openVersionHistoryPanel,
+    recentCommandIds, setCurrentDocument, setZenMode, t,
+    toggleAiPanel, toggleSidebarVisibility, withRecentTracking, zenMode,
   ]);
 
-  /**
-   * Determine which main content to render based on project state.
-   *
-   * Why: DashboardPage handles its own empty state, so no separate WelcomeScreen needed.
-   */
-  function renderMainContent(): JSX.Element {
-    // No current project (or no projects at all) — show dashboard
-    // DashboardPage renders its own empty state with Create Project + Open Folder
-    if (!currentProject || projectItems.length === 0) {
-      return <DashboardPage />;
-    }
+  return {
+    t, currentProject, currentProjectId, projectItems,
+    compareMode, compareVersionId, documentId, showAiMarks,
+    panelCollapsed, zenMode, activeLeftPanel, dialogType,
+    spotlightOpen, setSpotlightOpen, activeRightPanel, setActiveRightPanel,
+    setZenMode, setDialogType, setCompareMode,
+    compareState, closeCompare, confirm, dialogProps,
+    bootstrapEditor, createDocument,
+    ...aiCompare,
+    toggleSidebarVisibility, toggleAiPanel,
+    openVersionHistoryPanel, openVersionHistoryForDocument,
+    handleSwitchProject, openCommandPalette, openSettingsDialog,
+    commandPaletteKey, commandPaletteOpen, setCommandPaletteOpen,
+    commandPaletteCommands, layoutActions, dialogActionCallbacks,
+    documentActionCallbacks,
+    settingsDialogOpen, setSettingsDialogOpen, settingsDefaultTab,
+    exportDialogOpen, setExportDialogOpen,
+    createProjectDialogOpen, setCreateProjectDialogOpen,
+  };
+}
 
-    // Current project in compare mode
-    if (compareMode) {
-      if (!compareVersionId && aiProposal) {
-        return (
-          <>
-            <DiffViewPanel
-              key={`ai-${aiProposal.runId}`}
-              diffText={aiDiffText}
-              mode="ai"
-              onClose={handleRejectAiSuggestion}
-              onRejectAll={handleRejectAiSuggestion}
-              onAcceptAll={() => void handleAcceptAiSuggestion()}
-              onAcceptHunk={(hunkIndex) =>
-                setAiHunkDecisions((prev) =>
-                  prev.map((item, idx) =>
-                    idx === hunkIndex ? "accepted" : item,
-                  ),
-                )
-              }
-              onRejectHunk={(hunkIndex) =>
-                setAiHunkDecisions((prev) =>
-                  prev.map((item, idx) =>
-                    idx === hunkIndex ? "rejected" : item,
-                  ),
-                )
-              }
-              hunkDecisions={aiHunkDecisions}
-            />
-            <SystemDialog {...dialogProps} />
-          </>
-        );
-      }
+// ---------------------------------------------------------------------------
+// AppShellMainContent – renders dashboard, diff, or editor pane
+// ---------------------------------------------------------------------------
+function AppShellMainContent(props: {
+  currentProject: ProjectInfo | null;
+  projectItems: ProjectListItem[];
+  compareMode: boolean;
+  compareVersionId: string | null;
+  aiProposal: AiProposal | null;
+  aiDiffText: string;
+  handleRejectAiSuggestion: () => void;
+  handleAcceptAiSuggestion: () => Promise<void>;
+  aiHunkDecisions: DiffHunkDecision[];
+  setAiHunkDecisions: React.Dispatch<React.SetStateAction<DiffHunkDecision[]>>;
+  compareState: CompareState;
+  closeCompare: () => void;
+  showAiMarks: boolean;
+  dialogProps: UseConfirmDialogReturn["dialogProps"];
+  documentId: string | null;
+  bootstrapEditor: (projectId: string) => Promise<void>;
+  confirm: UseConfirmDialogReturn["confirm"];
+}): JSX.Element {
+  if (!props.currentProject || props.projectItems.length === 0) {
+    return <DashboardPage />;
+  }
 
-      const handleRestore = async (): Promise<void> => {
-        if (!documentId || !compareVersionId) return;
-
-        const confirmed = await confirm(RESTORE_VERSION_CONFIRM_COPY);
-        if (!confirmed) {
-          return;
-        }
-
-        const res = await invoke("version:snapshot:rollback", {
-          documentId,
-          versionId: compareVersionId,
-        });
-        if (res.ok) {
-          closeCompare();
-          // Re-bootstrap editor to load restored content
-          await bootstrapEditor(currentProject.projectId);
-        }
-      };
-
+  if (props.compareMode) {
+    if (!props.compareVersionId && props.aiProposal) {
       return (
         <>
           <DiffViewPanel
-            key={compareVersionId ?? "compare"}
-            diffText={compareState.diffText}
-            onClose={closeCompare}
-            onRestore={() => void handleRestore()}
-            restoreInProgress={compareState.status === "loading"}
-            lineUnderlineStyle={
-              showAiMarks
-                ? compareState.aiMarked
-                  ? "dashed"
-                  : "solid"
-                : "none"
+            key={`ai-${props.aiProposal.runId}`}
+            diffText={props.aiDiffText}
+            mode="ai"
+            onClose={props.handleRejectAiSuggestion}
+            onRejectAll={props.handleRejectAiSuggestion}
+            onAcceptAll={() => void props.handleAcceptAiSuggestion()}
+            onAcceptHunk={(hunkIndex) =>
+              props.setAiHunkDecisions((prev) =>
+                prev.map((item, idx) => (idx === hunkIndex ? "accepted" : item)),
+              )
             }
+            onRejectHunk={(hunkIndex) =>
+              props.setAiHunkDecisions((prev) =>
+                prev.map((item, idx) => (idx === hunkIndex ? "rejected" : item)),
+              )
+            }
+            hunkDecisions={props.aiHunkDecisions}
           />
-          <SystemDialog {...dialogProps} />
+          <SystemDialog {...props.dialogProps} />
         </>
       );
     }
 
-    // Normal editor
-    return <EditorPane projectId={currentProject.projectId} />;
+    const handleRestore = async (): Promise<void> => {
+      if (!props.documentId || !props.compareVersionId) return;
+      const confirmed = await props.confirm(RESTORE_VERSION_CONFIRM_COPY);
+      if (!confirmed) return;
+      const res = await invoke("version:snapshot:rollback", {
+        documentId: props.documentId,
+        versionId: props.compareVersionId,
+      });
+      if (res.ok) {
+        props.closeCompare();
+        await props.bootstrapEditor(props.currentProject!.projectId);
+      }
+    };
+
+    return (
+      <>
+        <DiffViewPanel
+          key={props.compareVersionId ?? "compare"}
+          diffText={props.compareState.diffText}
+          onClose={props.closeCompare}
+          onRestore={() => void handleRestore()}
+          restoreInProgress={props.compareState.status === "loading"}
+          lineUnderlineStyle={
+            props.showAiMarks
+              ? props.compareState.aiMarked ? "dashed" : "solid"
+              : "none"
+          }
+        />
+        <SystemDialog {...props.dialogProps} />
+      </>
+    );
   }
 
-  function renderDialogContent(activeDialogType: DialogType): JSX.Element {
-    switch (activeDialogType) {
-      case "memory":
-        return <MemoryPanel />;
-      case "characters":
-        if (!currentProjectId) {
-          return (
-            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
-              Open a project to manage characters
-            </div>
-          );
-        }
-        return <CharacterCardListContainer projectId={currentProjectId} />;
-      case "knowledgeGraph":
-        if (!currentProjectId) {
-          return (
-            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
-              Open a project to view knowledge graph
-            </div>
-          );
-        }
-        return <KnowledgeGraphPanel projectId={currentProjectId} />;
-      case "versionHistory":
-        if (!currentProjectId) {
-          return (
-            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
-              Open a document to view history
-            </div>
-          );
-        }
-        return <VersionHistoryContainer projectId={currentProjectId} />;
-      default:
-        return assertNeverDialogType(activeDialogType);
-    }
-  }
+  return <EditorPane projectId={props.currentProject.projectId} />;
+}
 
-  function resolveDialogTitle(activeDialogType: DialogType): string {
+/**
+ * AppShell renders the Workbench three-column layout (IconBar + Sidebar + Main
+ * + RightPanel) and wires resizing, persistence, and P0 keyboard shortcuts.
+ */
+function resolveDialogTitle(activeDialogType: DialogType, t: (key: string) => string): string {
     switch (activeDialogType) {
       case "memory":
         return t("workbench.appShell.dialogTitle.memory");
@@ -795,23 +851,60 @@ export function AppShell(): JSX.Element {
     }
   }
 
+function renderDialogContent(activeDialogType: DialogType, currentProjectId: string | null, t: (key: string) => string): JSX.Element {
+    switch (activeDialogType) {
+      case "memory":
+        return <MemoryPanel />;
+      case "characters":
+        if (!currentProjectId) {
+          return (
+            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+              {t('workbench.appShell.noProjectCharacters')}
+            </div>
+          );
+        }
+        return <CharacterCardListContainer projectId={currentProjectId} />;
+      case "knowledgeGraph":
+        if (!currentProjectId) {
+          return (
+            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+              {t('workbench.appShell.noProjectKg')}
+            </div>
+          );
+        }
+        return <KnowledgeGraphPanel projectId={currentProjectId} />;
+      case "versionHistory":
+        if (!currentProjectId) {
+          return (
+            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+              {t('workbench.appShell.noDocumentHistory')}
+            </div>
+          );
+        }
+        return <VersionHistoryContainer projectId={currentProjectId} />;
+      default:
+        return assertNeverDialogType(activeDialogType);
+    }
+  }
+
+export function AppShell(): JSX.Element {
+  const ctrl = useAppShellController();
+
   return (
     <>
       <NavigationController
-        zenMode={zenMode}
-        canCreateDocument={Boolean(currentProjectId)}
-        onToggleSidebar={toggleSidebarVisibility}
-        onToggleRightPanel={toggleAiPanel}
-        onToggleZenMode={() => setZenMode(!zenMode)}
-        onExitZenMode={() => setZenMode(false)}
-        onOpenCommandPalette={openCommandPalette}
-        onOpenSettings={() => openSettingsDialog("general")}
-        onOpenCreateProject={() => setCreateProjectDialogOpen(true)}
+        zenMode={ctrl.zenMode}
+        canCreateDocument={Boolean(ctrl.currentProjectId)}
+        onToggleSidebar={ctrl.toggleSidebarVisibility}
+        onToggleRightPanel={ctrl.toggleAiPanel}
+        onToggleZenMode={() => ctrl.setZenMode(!ctrl.zenMode)}
+        onExitZenMode={() => ctrl.setZenMode(false)}
+        onOpenCommandPalette={ctrl.openCommandPalette}
+        onOpenSettings={() => ctrl.openSettingsDialog("general")}
+        onOpenCreateProject={() => ctrl.setCreateProjectDialogOpen(true)}
         onCreateDocument={() => {
-          if (!currentProjectId) {
-            return;
-          }
-          void createDocument({ projectId: currentProjectId });
+          if (!ctrl.currentProjectId) return;
+          void ctrl.createDocument({ projectId: ctrl.currentProjectId });
         }}
       />
 
@@ -821,8 +914,8 @@ export function AppShell(): JSX.Element {
             testId="app-shell"
             activityBar={
               <IconBar
-                onOpenSettings={() => openSettingsDialog("general")}
-                settingsOpen={settingsDialogOpen}
+                onOpenSettings={() => ctrl.openSettingsDialog("general")}
+                settingsOpen={ctrl.settingsDialogOpen}
               />
             }
             left={
@@ -830,13 +923,13 @@ export function AppShell(): JSX.Element {
                 <Sidebar
                   width={layout.effectiveSidebarWidth}
                   collapsed={layout.sidebarCollapsed}
-                  projectId={currentProjectId}
-                  activePanel={activeLeftPanel}
-                  currentProjectId={currentProjectId}
-                  projects={projectItems}
-                  onSwitchProject={handleSwitchProject}
-                  onCreateProject={() => setCreateProjectDialogOpen(true)}
-                  onOpenVersionHistoryDocument={openVersionHistoryForDocument}
+                  projectId={ctrl.currentProjectId}
+                  activePanel={ctrl.activeLeftPanel}
+                  currentProjectId={ctrl.currentProjectId}
+                  projects={ctrl.projectItems}
+                  onSwitchProject={ctrl.handleSwitchProject}
+                  onCreateProject={() => ctrl.setCreateProjectDialogOpen(true)}
+                  onOpenVersionHistoryDocument={ctrl.openVersionHistoryForDocument}
                 />
               </RegionErrorBoundary>
             }
@@ -844,24 +937,42 @@ export function AppShell(): JSX.Element {
             main={
               <main
                 className={`relative flex flex-1 bg-[var(--color-bg-base)] text-[var(--color-fg-muted)] text-[13px] ${
-                  currentProject
+                  ctrl.currentProject
                     ? "items-stretch justify-stretch"
-                    : projectItems.length > 0
+                    : ctrl.projectItems.length > 0
                       ? "items-stretch justify-stretch"
                       : "items-center justify-center"
                 }`}
                 style={{ minWidth: LAYOUT_DEFAULTS.mainMinWidth }}
               >
                 <RegionErrorBoundary region="editor">
-                  {renderMainContent()}
+                  <AppShellMainContent
+                    currentProject={ctrl.currentProject}
+                    projectItems={ctrl.projectItems}
+                    compareMode={ctrl.compareMode}
+                    compareVersionId={ctrl.compareVersionId}
+                    aiProposal={ctrl.aiProposal}
+                    aiDiffText={ctrl.aiDiffText}
+                    handleRejectAiSuggestion={ctrl.handleRejectAiSuggestion}
+                    handleAcceptAiSuggestion={ctrl.handleAcceptAiSuggestion}
+                    aiHunkDecisions={ctrl.aiHunkDecisions}
+                    setAiHunkDecisions={ctrl.setAiHunkDecisions}
+                    compareState={ctrl.compareState}
+                    closeCompare={ctrl.closeCompare}
+                    showAiMarks={ctrl.showAiMarks}
+                    dialogProps={ctrl.dialogProps}
+                    documentId={ctrl.documentId}
+                    bootstrapEditor={ctrl.bootstrapEditor}
+                    confirm={ctrl.confirm}
+                  />
                 </RegionErrorBoundary>
                 <button
                   type="button"
-                  aria-label={t("workbench.appShell.aiPanelLabel")}
-                  title={t("workbench.appShell.aiPanelLabel")}
-                  onClick={toggleAiPanel}
+                  aria-label={ctrl.t("workbench.appShell.aiPanelLabel")}
+                  title={ctrl.t("workbench.appShell.aiPanelLabel")}
+                  onClick={ctrl.toggleAiPanel}
                   className={`absolute top-2 right-2 min-w-6 min-h-6 flex items-center justify-center rounded-[var(--radius-sm)] transition-colors duration-[var(--duration-fast)] ease-[var(--ease-default)] z-10 ${
-                    !layout.panelCollapsed && activeRightPanel === "ai"
+                    !layout.panelCollapsed && ctrl.activeRightPanel === "ai"
                       ? "text-[var(--color-fg-accent)] bg-[var(--color-bg-selected)]"
                       : "text-[var(--color-fg-muted)] hover:bg-[var(--color-bg-hover)]"
                   }`}
@@ -888,77 +999,43 @@ export function AppShell(): JSX.Element {
                 <RightPanel
                   width={layout.effectivePanelWidth}
                   collapsed={layout.panelCollapsed}
-                  onOpenSettings={(tab) => openSettingsDialog(tab ?? "general")}
-                  onOpenVersionHistory={openVersionHistoryPanel}
+                  onOpenSettings={(tab) => ctrl.openSettingsDialog(tab ?? "general")}
+                  onOpenVersionHistory={ctrl.openVersionHistoryPanel}
                   onCollapse={layout.panelVisibility.collapseRightPanel}
                 />
               </RegionErrorBoundary>
             }
             bottomBar={<StatusBar />}
             overlays={
-              <>
-                {spotlightOpen ? (
-                  <div data-testid="leftpanel-spotlight-search">
-                    <SearchPanel
-                      projectId={currentProjectId ?? "__no_project__"}
-                      open={true}
-                      onClose={() => setSpotlightOpen(false)}
-                    />
-                  </div>
-                ) : null}
-
-                {dialogType ? (
-                  <LeftPanelDialogShell
-                    open={true}
-                    title={resolveDialogTitle(dialogType)}
-                    testId={`leftpanel-dialog-${dialogType}`}
-                    onOpenChange={(open) => {
-                      if (!open) {
-                        setDialogType(null);
-                      }
-                    }}
-                  >
-                    {renderDialogContent(dialogType)}
-                  </LeftPanelDialogShell>
-                ) : null}
-
-                <CommandPalette
-                  key={commandPaletteKey}
-                  open={commandPaletteOpen}
-                  onOpenChange={setCommandPaletteOpen}
-                  commands={commandPaletteCommands}
-                  layoutActions={layoutActions}
-                  dialogActions={dialogActionCallbacks}
-                  documentActions={documentActionCallbacks}
-                />
-
-                {/* Dialogs */}
-                <SettingsDialog
-                  open={settingsDialogOpen}
-                  onOpenChange={setSettingsDialogOpen}
-                  defaultTab={settingsDefaultTab}
-                />
-
-                <ExportDialog
-                  open={exportDialogOpen}
-                  onOpenChange={setExportDialogOpen}
-                  projectId={currentProjectId}
-                  documentId={documentId}
-                  documentTitle={t("workbench.export.currentDocument")}
-                />
-
-                <CreateProjectDialog
-                  open={createProjectDialogOpen}
-                  onOpenChange={setCreateProjectDialogOpen}
-                />
-
-                {/* Zen Mode Overlay */}
-                <ZenModeOverlay
-                  open={zenMode}
-                  onExit={() => setZenMode(false)}
-                />
-                {!compareMode ? <SystemDialog {...dialogProps} /> : null}
-              </>
+              <AppShellOverlays
+                spotlightOpen={ctrl.spotlightOpen}
+                currentProjectId={ctrl.currentProjectId}
+                onCloseSpotlight={() => ctrl.setSpotlightOpen(false)}
+                dialogType={ctrl.dialogType}
+                onCloseDialog={() => ctrl.setDialogType(null)}
+                dialogTitleResolver={(d) => resolveDialogTitle(d, ctrl.t)}
+                dialogContentRenderer={(d) => renderDialogContent(d, ctrl.currentProjectId, ctrl.t)}
+                commandPaletteKey={ctrl.commandPaletteKey}
+                commandPaletteOpen={ctrl.commandPaletteOpen}
+                onCommandPaletteOpenChange={ctrl.setCommandPaletteOpen}
+                commandPaletteCommands={ctrl.commandPaletteCommands}
+                layoutActions={ctrl.layoutActions}
+                dialogActions={ctrl.dialogActionCallbacks}
+                documentActions={ctrl.documentActionCallbacks}
+                settingsDialogOpen={ctrl.settingsDialogOpen}
+                onSettingsDialogOpenChange={ctrl.setSettingsDialogOpen}
+                settingsDefaultTab={ctrl.settingsDefaultTab}
+                exportDialogOpen={ctrl.exportDialogOpen}
+                onExportDialogOpenChange={ctrl.setExportDialogOpen}
+                documentId={ctrl.documentId}
+                createProjectDialogOpen={ctrl.createProjectDialogOpen}
+                onCreateProjectDialogOpenChange={ctrl.setCreateProjectDialogOpen}
+                zenMode={ctrl.zenMode}
+                onExitZenMode={() => ctrl.setZenMode(false)}
+                compareMode={ctrl.compareMode}
+                dialogProps={ctrl.dialogProps}
+                t={ctrl.t}
+              />
             }
           />
         )}

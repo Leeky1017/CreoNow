@@ -151,6 +151,25 @@ function AppShellTestWrapper({
   );
 }
 
+async function renderWithWrapper(options?: {
+  layoutStoreOverride?: UseLayoutStore;
+}) {
+  let result: ReturnType<typeof render>;
+
+  await act(async () => {
+    result = render(
+      <AppShellTestWrapper layoutStoreOverride={options?.layoutStoreOverride}>
+        <AppShell />
+      </AppShellTestWrapper>,
+    );
+  });
+  await waitFor(() => {
+    expect(mockIpc.invoke).toHaveBeenCalled();
+  });
+
+  return result!;
+}
+
 describe("AppShell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -160,31 +179,6 @@ describe("AppShell", () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
-
-  /**
-   * Render AppShell with all required providers.
-   *
-   * Why: Wraps render in act() and waits for initial bootstrap to complete,
-   * avoiding "not wrapped in act()" warnings from async state updates.
-   */
-  const renderWithWrapper = async (options?: {
-    layoutStoreOverride?: UseLayoutStore;
-  }) => {
-    let result: ReturnType<typeof render>;
-
-    await act(async () => {
-      result = render(
-        <AppShellTestWrapper layoutStoreOverride={options?.layoutStoreOverride}>
-          <AppShell />
-        </AppShellTestWrapper>,
-      );
-    });
-    await waitFor(() => {
-      expect(mockIpc.invoke).toHaveBeenCalled();
-    });
-
-    return result!;
-  };
 
   // ===========================================================================
   // 基础渲染测试
@@ -407,6 +401,17 @@ describe("AppShell", () => {
         expect(screen.getByTestId("command-palette")).toBeInTheDocument();
       });
     });
+  });
+});
+
+describe("AppShell — integration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIpc = createMockIpc();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
   describe("CommandPanelFiles集成", () => {

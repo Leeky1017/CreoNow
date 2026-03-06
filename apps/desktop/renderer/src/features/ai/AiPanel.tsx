@@ -1,5 +1,8 @@
 ﻿import React from "react";
 import { useTranslation } from "react-i18next";
+import type { Editor } from "@tiptap/react";
+import type { IpcError } from "@shared/types/ipc-generated";
+import type { SettingsTab } from "../settings-dialog/SettingsDialog";
 
 import {
   AiErrorCard,
@@ -14,8 +17,13 @@ import { useOpenSettings } from "../../contexts/OpenSettingsContext";
 
 import {
   useAiStore,
+  type AiApplyStatus,
+  type AiCandidate,
+  type AiProposal,
   type AiStatus,
+  type AiUsageStats,
   type SelectionRef,
+  type SkillListItem,
 } from "../../stores/aiStore";
 
 import { useEditorStore } from "../../stores/editorStore";
@@ -390,6 +398,887 @@ export function CodeBlock(props: {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Extracted helpers & sub-components
+// ---------------------------------------------------------------------------
+
+type ErrorLike = { code: string; message: string; details?: unknown };
+
+type AiErrorConfigs = {
+  skillsErrorConfig: AiErrorConfig | null;
+  modelsErrorConfig: AiErrorConfig | null;
+  runtimeErrorConfig: AiErrorConfig | null;
+  dbGuideError: ErrorLike | null;
+  dbGuideCommand: string;
+  showDbGuide: boolean;
+  providerGuideCode: string | null;
+  showProviderGuide: boolean;
+  shouldRenderGenericErrors: boolean;
+};
+
+function buildAiErrorConfigs(args: {
+  skillsLastError: ErrorLike | null;
+  modelsLastError: ModelsListError | null;
+  lastError: ErrorLike | null;
+  t: (key: string) => string;
+}): AiErrorConfigs {
+  const { skillsLastError, modelsLastError, lastError, t } = args;
+
+  const skillsErrorConfig: AiErrorConfig | null = skillsLastError
+    ? {
+        type: "service_error",
+        title: t('ai.panel.skillsUnavailable'),
+        description: skillsLastError.message,
+        errorCode: skillsLastError.code,
+      }
+    : null;
+
+  const modelsErrorConfig: AiErrorConfig | null = modelsLastError
+    ? {
+        type: "service_error",
+        title: t('ai.panel.modelsUnavailable'),
+        description: `${modelsLastError.code}: ${modelsLastError.message}`,
+        errorCode: modelsLastError.code,
+      }
+    : null;
+
+  const runtimeErrorConfig: AiErrorConfig | null = lastError
+    ? {
+        type:
+          lastError.code === "TIMEOUT" || lastError.code === "SKILL_TIMEOUT"
+            ? "timeout"
+            : lastError.code === "RATE_LIMITED" ||
+                lastError.code === "AI_RATE_LIMITED"
+              ? "rate_limit"
+              : "service_error",
+        title:
+          lastError.code === "TIMEOUT" || lastError.code === "SKILL_TIMEOUT"
+            ? t('ai.panel.timeout')
+            : lastError.code === "RATE_LIMITED" ||
+                lastError.code === "AI_RATE_LIMITED"
+              ? t('ai.panel.rateLimited')
+              : t('ai.panel.aiError'),
+        description: lastError.message,
+        errorCode: lastError.code,
+      }
+    : null;
+
+  const dbGuideError =
+    skillsLastError?.code === "DB_ERROR"
+      ? skillsLastError
+      : lastError?.code === "DB_ERROR"
+        ? lastError
+        : null;
+  const dbGuideCommand = resolveDbRemediationCommand(dbGuideError?.details);
+  const showDbGuide = dbGuideError !== null;
+
+  const providerGuideCode =
+    lastError && isProviderConfigErrorCode(lastError.code)
+      ? lastError.code
+      : modelsLastError && isProviderConfigErrorCode(modelsLastError.code)
+        ? modelsLastError.code
+        : skillsLastError && isProviderConfigErrorCode(skillsLastError.code)
+          ? skillsLastError.code
+          : null;
+  const showProviderGuide = !showDbGuide && providerGuideCode !== null;
+  const shouldRenderGenericErrors = !showDbGuide && !showProviderGuide;
+
+  return {
+    skillsErrorConfig,
+    modelsErrorConfig,
+    runtimeErrorConfig,
+    dbGuideError,
+    dbGuideCommand,
+    showDbGuide,
+    providerGuideCode,
+    showProviderGuide,
+    shouldRenderGenericErrors,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// useAiPanelEffects — all side-effects extracted from AiPanel
+// ---------------------------------------------------------------------------
+
+type AiPanelEffectsDeps = {
+  refreshSkills: () => Promise<void>;
+  selectedModel: string;
+  setModelsStatus: React.Dispatch<React.SetStateAction<"idle" | "loading" | "ready" | "error">>;
+  setModelsLastError: React.Dispatch<React.SetStateAction<ModelsListError | null>>;
+  setAvailableModels: React.Dispatch<React.SetStateAction<AiModelOption[]>>;
+  setSelectedModel: React.Dispatch<React.SetStateAction<AiModel>>;
+  setRecentModelIds: React.Dispatch<React.SetStateAction<string[]>>;
+  setCandidateCount: React.Dispatch<React.SetStateAction<number>>;
+  candidateCount: number;
+  editor: Editor | null;
+  bootstrapStatus: string;
+  setSelectionSnapshot: (snapshot: { selectionRef: SelectionRef; selectionText: string } | null) => void;
+  lastCandidates: AiCandidate[];
+  selectedCandidateId: string | null;
+  setSelectedCandidateId: (id: string | null) => void;
+  status: AiStatus;
+  proposal: AiProposal | null;
+  activeRunId: string | null;
+  activeOutputText: string;
+  selectionRef: SelectionRef | null;
+  selectionText: string;
+  setProposal: (p: AiProposal | null) => void;
+  setCompareMode: (enabled: boolean, versionId?: string | null) => void;
+  pendingSelectionSnapshotRef: React.MutableRefObject<{ selectionRef: SelectionRef; selectionText: string } | null>;
+  setInlineDiffConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  lastRunId: string | null;
+  projectId: string | null;
+  outputText: string;
+  lastRequest: string | null;
+  evaluatedRunIdRef: React.MutableRefObject<string | null>;
+  setJudgeResult: React.Dispatch<React.SetStateAction<JudgeResultEvent | null>>;
+  handleNewChatRef: React.MutableRefObject<() => void>;
+  lastHandledNewChatSignalRef: React.MutableRefObject<number>;
+  newChatSignal: number | undefined;
+  t: (key: string, args?: Record<string, unknown>) => string;
+};
+
+function useAiPanelEffects(d: AiPanelEffectsDeps): void {
+  const {
+    activeOutputText, activeRunId, bootstrapStatus, candidateCount, editor,
+    evaluatedRunIdRef, handleNewChatRef, lastCandidates, lastHandledNewChatSignalRef,
+    lastRequest, lastRunId, newChatSignal, outputText,
+    pendingSelectionSnapshotRef, projectId, proposal, refreshSkills,
+    selectedCandidateId, selectedModel, selectionRef, selectionText,
+    setAvailableModels, setCandidateCount, setCompareMode, setInlineDiffConfirmOpen,
+    setJudgeResult, setModelsLastError, setModelsStatus, setProposal,
+    setRecentModelIds, setSelectedCandidateId, setSelectedModel, setSelectionSnapshot,
+    status, t,
+  } = d;
+
+  const refreshModels = React.useCallback(async () => {
+    setModelsStatus("loading");
+    setModelsLastError(null);
+    try {
+      const res = await invoke("ai:models:list", {});
+      if (!res.ok) {
+        setModelsStatus("error");
+        setModelsLastError({ code: res.error.code, message: res.error.message });
+        return;
+      }
+      setAvailableModels(res.data.items);
+      setModelsStatus("ready");
+      if (res.data.items.length === 0) return;
+      const selectedExists = res.data.items.some((item) => item.id === selectedModel);
+      if (!selectedExists) setSelectedModel(res.data.items[0].id);
+    } catch (error) {
+      const cause = error instanceof Error ? error.message : String(error ?? "unknown");
+      setModelsStatus("error");
+      setModelsLastError({ code: "INTERNAL", message: cause });
+    }
+  }, [selectedModel, setAvailableModels, setModelsLastError, setModelsStatus, setSelectedModel]);
+
+  React.useEffect(() => {
+    void refreshSkills();
+    void refreshModels();
+  }, [refreshModels, refreshSkills]);
+
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(RECENT_MODELS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return;
+      const items = parsed.filter((item): item is string => typeof item === "string").slice(0, 8);
+      setRecentModelIds(items);
+    } catch (error) {
+      console.error("AiPanel localStorage read failed", {
+        operation: "read",
+        key: RECENT_MODELS_STORAGE_KEY,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [setRecentModelIds]);
+
+  React.useEffect(() => {
+    if (selectedModel.trim().length === 0) return;
+    setRecentModelIds((prev) => {
+      const next = [selectedModel, ...prev.filter((id) => id !== selectedModel)].slice(0, 8);
+      try {
+        window.localStorage.setItem(RECENT_MODELS_STORAGE_KEY, JSON.stringify(next));
+      } catch (error) {
+        console.error("AiPanel localStorage write failed", {
+          operation: "write",
+          key: RECENT_MODELS_STORAGE_KEY,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return next;
+    });
+  }, [selectedModel, setRecentModelIds]);
+
+  React.useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CANDIDATE_COUNT_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = Number.parseInt(raw, 10);
+      if (!Number.isFinite(parsed)) return;
+      if (parsed >= 1 && parsed <= 5) setCandidateCount(parsed);
+    } catch (error) {
+      console.error("AiPanel localStorage read failed", {
+        operation: "read",
+        key: CANDIDATE_COUNT_STORAGE_KEY,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [setCandidateCount]);
+
+  React.useEffect(() => {
+    try {
+      window.localStorage.setItem(CANDIDATE_COUNT_STORAGE_KEY, String(candidateCount));
+    } catch (error) {
+      console.error("AiPanel localStorage write failed", {
+        operation: "write",
+        key: CANDIDATE_COUNT_STORAGE_KEY,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [candidateCount]);
+
+  React.useEffect(() => {
+    return onAiModelCatalogUpdated(() => { void refreshModels(); });
+  }, [refreshModels]);
+
+  React.useEffect(() => {
+    if (!editor || bootstrapStatus !== "ready") return;
+    const onSelectionUpdate = (): void => {
+      const captured = captureSelectionRef(editor!);
+      if (!captured.ok) return;
+      const normalized = captured.data.selectionText.trim();
+      if (normalized.length === 0) return;
+      setSelectionSnapshot({ selectionRef: captured.data.selectionRef, selectionText: normalized });
+    };
+    editor.on("selectionUpdate", onSelectionUpdate);
+    return () => { editor?.off("selectionUpdate", onSelectionUpdate); };
+  }, [bootstrapStatus, editor, setSelectionSnapshot]);
+
+  React.useEffect(() => {
+    if (lastCandidates.length === 0) {
+      if (selectedCandidateId !== null) setSelectedCandidateId(null);
+      return;
+    }
+    const selectedExists = lastCandidates.some((item) => item.id === selectedCandidateId);
+    if (!selectedExists) setSelectedCandidateId(lastCandidates[0]?.id ?? null);
+  }, [lastCandidates, selectedCandidateId, setSelectedCandidateId]);
+
+  React.useEffect(() => {
+    if (status !== "idle") return;
+    if (proposal || !activeRunId || activeOutputText.trim().length === 0) return;
+    const effectiveSnapshot =
+      selectionRef && selectionText.length > 0
+        ? { selectionRef: selectionRef, selectionText: selectionText }
+        : pendingSelectionSnapshotRef.current;
+    if (!effectiveSnapshot || effectiveSnapshot.selectionText.length === 0) return;
+    setProposal({
+      runId: activeRunId,
+      selectionRef: effectiveSnapshot.selectionRef,
+      selectionText: effectiveSnapshot.selectionText,
+      replacementText: activeOutputText,
+    });
+    pendingSelectionSnapshotRef.current = null;
+    if (typeof setCompareMode === "function") setCompareMode(true, null);
+  }, [activeOutputText, activeRunId, setCompareMode, proposal, selectionRef, selectionText, setProposal, status, pendingSelectionSnapshotRef]);
+
+  React.useEffect(() => {
+    if (!proposal) setInlineDiffConfirmOpen(false);
+  }, [proposal, setInlineDiffConfirmOpen]);
+
+  React.useEffect(() => {
+    function onJudgeResultEvent(evt: Event): void {
+      const customEvent = evt as CustomEvent<unknown>;
+      if (!isJudgeResultEvent(customEvent.detail)) return;
+      const result = customEvent.detail;
+      if (projectId && result.projectId !== projectId) return;
+      if (lastRunId && result.traceId !== lastRunId) return;
+      setJudgeResult(result);
+    }
+    window.addEventListener(JUDGE_RESULT_CHANNEL, onJudgeResultEvent);
+    return () => { window.removeEventListener(JUDGE_RESULT_CHANNEL, onJudgeResultEvent); };
+  }, [lastRunId, projectId, setJudgeResult]);
+
+  React.useEffect(() => {
+    if (status !== "idle") return;
+    if (!projectId || !lastRunId || outputText.trim().length === 0) return;
+    if (evaluatedRunIdRef.current === lastRunId) return;
+    evaluatedRunIdRef.current = lastRunId;
+    runFireAndForget(async () => {
+      try {
+        const res = await invoke("judge:quality:evaluate", {
+          projectId: projectId!,
+          traceId: lastRunId!,
+          text: outputText,
+          contextSummary: lastRequest ?? t("ai.contextSummary"),
+        });
+        if (res.ok) return;
+        console.error("AiPanel judge evaluation failed", {
+          projectId,
+          traceId: lastRunId,
+          code: res.error.code,
+          message: res.error.message,
+        });
+      } catch (error) {
+        console.error("AiPanel judge evaluation failed", {
+          projectId,
+          traceId: lastRunId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+      if (evaluatedRunIdRef.current === lastRunId) evaluatedRunIdRef.current = null;
+    });
+  }, [lastRequest, lastRunId, outputText, projectId, status, t, evaluatedRunIdRef]);
+
+  React.useEffect(() => {
+    const signal = newChatSignal ?? 0;
+    if (signal === lastHandledNewChatSignalRef.current) return;
+    lastHandledNewChatSignalRef.current = signal;
+    handleNewChatRef.current();
+  }, [newChatSignal, lastHandledNewChatSignalRef, handleNewChatRef]);
+}
+
+// ---------------------------------------------------------------------------
+// createAiPanelActions — handler functions extracted from AiPanel
+// ---------------------------------------------------------------------------
+
+type AiPanelActionsDeps = {
+  input: string;
+  selectedSkillId: string;
+  selectionRef: SelectionRef | null;
+  selectionText: string;
+  editor: Editor | null;
+  bootstrapStatus: string;
+  status: AiStatus;
+  projectId: string | null;
+  documentId: string | null;
+  selectedMode: AiMode;
+  selectedModel: AiModel;
+  candidateCount: number;
+  currentProject: { projectId: string } | null;
+  proposal: AiProposal | null;
+  inlineDiffConfirmOpen: boolean;
+  applyStatus: AiApplyStatus;
+  setInput: (v: string) => void;
+  setSelectedSkillId: (id: string) => void;
+  setSelectionSnapshot: (s: { selectionRef: SelectionRef; selectionText: string } | null) => void;
+  setLastRequest: React.Dispatch<React.SetStateAction<string | null>>;
+  setJudgeResult: React.Dispatch<React.SetStateAction<JudgeResultEvent | null>>;
+  setProposal: (p: AiProposal | null) => void;
+  setCompareMode: (enabled: boolean, versionId?: string | null) => void;
+  setInlineDiffConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setSelectedCandidateId: (id: string | null) => void;
+  setError: (e: IpcError | null) => void;
+  clearError: () => void;
+  setSkillsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  run: (args?: {
+    inputOverride?: string;
+    context?: { projectId?: string; documentId?: string };
+    mode?: AiMode;
+    model?: AiModel;
+    candidateCount?: number;
+    streamOverride?: boolean;
+  }) => Promise<void>;
+  regenerateWithStrongNegative: (args?: { projectId?: string }) => Promise<void>;
+  refreshSkills: () => Promise<void>;
+  persistAiApply: (args: { projectId: string; documentId: string; contentJson: string; runId: string }) => Promise<void>;
+  logAiApplyConflict: (args: { documentId: string; runId: string }) => Promise<void>;
+  clearEvaluatedRunId: () => void;
+  setPendingSelectionSnapshot: (v: { selectionRef: SelectionRef; selectionText: string } | null) => void;
+  focusTextarea: () => void;
+  t: (key: string) => string;
+};
+
+function createAiPanelActions(a: AiPanelActionsDeps) {
+  async function onRun(args?: { inputOverride?: string; skillIdOverride?: string }): Promise<void> {
+    const effectiveSkillId = args?.skillIdOverride ?? a.selectedSkillId;
+    const inputToSend = (args?.inputOverride ?? a.input).trim();
+    const allowEmptyInput = isContinueSkill(effectiveSkillId);
+    let selectionSnapshotForRun: { selectionRef: SelectionRef; selectionText: string } | null =
+      a.selectionRef && a.selectionText.trim().length > 0
+        ? { selectionRef: a.selectionRef, selectionText: a.selectionText.trim() }
+        : null;
+    let selectionContextText = selectionSnapshotForRun?.selectionText ?? "";
+    if (!selectionContextText && a.editor && a.bootstrapStatus === "ready") {
+      const captured = captureSelectionRef(a.editor);
+      if (captured.ok) {
+        const normalized = captured.data.selectionText.trim();
+        if (normalized.length > 0) {
+          selectionContextText = normalized;
+          selectionSnapshotForRun = { selectionRef: captured.data.selectionRef, selectionText: normalized };
+          a.setSelectionSnapshot({ selectionRef: captured.data.selectionRef, selectionText: normalized });
+        }
+      }
+    }
+    const composedInput =
+      selectionContextText.length > 0
+        ? `Selection context:\n${selectionContextText}\n\n${inputToSend}`.trim()
+        : inputToSend;
+    if (!allowEmptyInput && composedInput.length === 0) return;
+    a.setLastRequest(inputToSend);
+    a.setJudgeResult(null);
+    a.clearEvaluatedRunId();
+    if (typeof a.setCompareMode === "function") a.setCompareMode(false);
+    a.setProposal(null);
+    a.setInlineDiffConfirmOpen(false);
+    a.setSelectedCandidateId(null);
+    a.setError(null);
+    a.setPendingSelectionSnapshot(selectionSnapshotForRun);
+    try {
+      await a.run({
+        inputOverride: composedInput,
+        context: { projectId: a.currentProject?.projectId ?? a.projectId ?? undefined, documentId: a.documentId ?? undefined },
+        mode: a.selectedMode,
+        model: a.selectedModel,
+        candidateCount: a.candidateCount,
+        streamOverride: a.candidateCount > 1 ? false : undefined,
+      });
+    } finally {
+      a.setSelectionSnapshot(null);
+    }
+  }
+
+  function onReject(): void {
+    a.setPendingSelectionSnapshot(null);
+    if (typeof a.setCompareMode === "function") a.setCompareMode(false);
+    a.setProposal(null);
+    a.setInlineDiffConfirmOpen(false);
+    a.setSelectionSnapshot(null);
+  }
+
+  function onSelectCandidate(candidateId: string): void {
+    a.setSelectedCandidateId(candidateId);
+    a.setProposal(null);
+    a.setInlineDiffConfirmOpen(false);
+  }
+
+  async function onRegenerateAll(): Promise<void> {
+    a.setProposal(null);
+    a.setInlineDiffConfirmOpen(false);
+    a.setSelectedCandidateId(null);
+    a.setJudgeResult(null);
+    a.clearEvaluatedRunId();
+    await a.regenerateWithStrongNegative({ projectId: a.currentProject?.projectId ?? a.projectId ?? undefined });
+  }
+
+  async function handleSkillSelect(skillId: string): Promise<void> {
+    a.setSelectedSkillId(skillId);
+    a.setSkillsOpen(false);
+    if (isRunning(a.status)) return;
+    let inputOverride = a.input;
+    if (isContinueSkill(skillId)) {
+      inputOverride = "";
+    } else if (a.editor) {
+      const captured = captureSelectionRef(a.editor);
+      if (captured.ok) inputOverride = captured.data.selectionText;
+    }
+    await onRun({ skillIdOverride: skillId, inputOverride });
+  }
+
+  async function handleSkillToggle(args: { skillId: string; enabled: boolean }): Promise<void> {
+    const toggled = await invoke("skill:registry:toggle", { skillId: args.skillId, enabled: args.enabled });
+    if (!toggled.ok) { a.setError(toggled.error); return; }
+    await a.refreshSkills();
+  }
+
+  async function handleSkillScopeUpdate(args: { id: string; scope: "global" | "project" }): Promise<void> {
+    const updated = await invoke("skill:custom:update", { id: args.id, scope: args.scope });
+    if (!updated.ok) { a.setError(updated.error); return; }
+    await a.refreshSkills();
+  }
+
+  async function onApply(): Promise<void> {
+    if (!a.editor || !a.proposal || !a.projectId || !a.documentId) return;
+    if (!a.inlineDiffConfirmOpen) { a.setInlineDiffConfirmOpen(true); return; }
+    const applied = applySelection({ editor: a.editor, selectionRef: a.proposal.selectionRef, replacementText: a.proposal.replacementText });
+    if (!applied.ok) {
+      a.setError(applied.error);
+      if (applied.error.code === "CONFLICT") void a.logAiApplyConflict({ documentId: a.documentId, runId: a.proposal.runId });
+      return;
+    }
+    const json = JSON.stringify(a.editor.getJSON());
+    await a.persistAiApply({ projectId: a.projectId, documentId: a.documentId, contentJson: json, runId: a.proposal.runId });
+    a.setInlineDiffConfirmOpen(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const allowEmptyInput = isContinueSkill(a.selectedSkillId);
+      if (!isRunning(a.status) && (allowEmptyInput || a.input.trim())) void onRun();
+    }
+  }
+
+  function handleNewChat(): void {
+    a.setLastRequest(null);
+    a.setJudgeResult(null);
+    a.clearEvaluatedRunId();
+    a.setInput("");
+    if (typeof a.setCompareMode === "function") a.setCompareMode(false);
+    a.setPendingSelectionSnapshot(null);
+    a.setProposal(null);
+    a.setInlineDiffConfirmOpen(false);
+    a.setSelectionSnapshot(null);
+    a.setError(null);
+    a.focusTextarea();
+  }
+
+  return { onRun, onReject, onSelectCandidate, onRegenerateAll, handleSkillSelect, handleSkillToggle, handleSkillScopeUpdate, onApply, handleKeyDown, handleNewChat };
+}
+
+// ---------------------------------------------------------------------------
+// AiPanelChatArea — scrollable content area
+// ---------------------------------------------------------------------------
+
+type AiPanelChatAreaProps = {
+  lastRequest: string | null;
+  working: boolean;
+  status: AiStatus;
+  queuePosition: number | null;
+  queuedCount: number;
+  errorConfigs: AiErrorConfigs;
+  lastCandidates: AiCandidate[];
+  selectedCandidate: AiCandidate | null;
+  activeOutputText: string;
+  judgeResult: JudgeResultEvent | null;
+  usageStats: AiUsageStats | null;
+  applyStatus: AiApplyStatus;
+  proposal: AiProposal | null;
+  compareMode: boolean;
+  diffText: string;
+  canApply: boolean;
+  inlineDiffConfirmOpen: boolean;
+  clearError: () => void;
+  openSettings: (section?: SettingsTab) => void;
+  onSelectCandidate: (id: string) => void;
+  onRegenerateAll: () => void;
+  onApply: () => void;
+  onReject: () => void;
+  setInlineDiffConfirmOpen: (open: boolean) => void;
+};
+
+function AiPanelErrorDisplay(props: {
+  errorConfigs: AiErrorConfigs;
+  clearError: () => void;
+  openSettings: (section?: SettingsTab) => void;
+}): JSX.Element | null {
+  const { t } = useTranslation();
+  const ec = props.errorConfigs;
+
+  if (ec.showDbGuide) {
+    return (
+      <ErrorGuideCard
+        testId="ai-error-guide-db"
+        title={t('ai.panel.dbErrorTitle')}
+        description={ec.dbGuideError?.message ?? t('ai.panel.dbErrorFallback')}
+        steps={[t('ai.panel.dbStep1'), t('ai.panel.dbStep2')]}
+        command={ec.dbGuideCommand}
+        errorCode="DB_ERROR"
+      />
+    );
+  }
+
+  if (ec.showProviderGuide) {
+    return (
+      <ErrorGuideCard
+        testId="ai-error-guide-provider"
+        title={t('ai.panel.providerTitle')}
+        description={t('ai.panel.providerDescription')}
+        steps={[t('ai.panel.providerStep1'), t('ai.panel.providerStep2'), t('ai.panel.providerStep3')]}
+        errorCode={ec.providerGuideCode ?? "AI_NOT_CONFIGURED"}
+        actionLabel={t('ai.panel.openSettingsAi')}
+        actionTestId="ai-error-guide-open-settings"
+        onAction={() => props.openSettings("ai")}
+      />
+    );
+  }
+
+  return (
+    <>
+      {ec.skillsErrorConfig ? <AiErrorCard error={ec.skillsErrorConfig} showDismiss={false} /> : null}
+      {ec.modelsErrorConfig ? <AiErrorCard error={ec.modelsErrorConfig} showDismiss={false} /> : null}
+      {ec.runtimeErrorConfig ? <AiErrorCard error={ec.runtimeErrorConfig} errorCodeTestId="ai-error-code" onDismiss={props.clearError} /> : null}
+    </>
+  );
+}
+
+function AiPanelProposalArea(props: {
+  proposal: AiProposal;
+  compareMode: boolean;
+  diffText: string;
+  canApply: boolean;
+  inlineDiffConfirmOpen: boolean;
+  applyStatus: AiApplyStatus;
+  onApply: () => void;
+  onReject: () => void;
+  setInlineDiffConfirmOpen: (open: boolean) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  return (
+    <>
+      {!props.compareMode ? <DiffView diffText={props.diffText} testId="ai-panel-diff" /> : null}
+      <div className="flex gap-2">
+        <Button data-testid="ai-apply" variant="secondary" size="md" onClick={() => void props.onApply()} disabled={!props.canApply} className="flex-1">
+          {props.inlineDiffConfirmOpen ? t('ai.panel.applyArmed') : t('ai.panel.apply')}
+        </Button>
+        {props.inlineDiffConfirmOpen ? (
+          <Button data-testid="ai-apply-confirm" variant="secondary" size="md" onClick={() => void props.onApply()} disabled={!props.canApply} className="flex-1">
+            {t('ai.panel.confirmApply')}
+          </Button>
+        ) : null}
+        <Button
+          data-testid="ai-reject" variant="ghost" size="md"
+          onClick={props.inlineDiffConfirmOpen ? () => props.setInlineDiffConfirmOpen(false) : props.onReject}
+          disabled={props.applyStatus === "applying"}
+        >
+          {props.inlineDiffConfirmOpen ? t('ai.panel.backToDiff') : t('ai.panel.reject')}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function AiPanelChatArea(props: AiPanelChatAreaProps): JSX.Element {
+  const { t } = useTranslation();
+
+  return (
+    <div className="flex-1 overflow-y-auto p-3 space-y-4">
+      {props.lastRequest && (
+        <div className="w-full p-3 rounded-[var(--radius-md)] bg-[var(--color-bg-base)]">
+          <div className="text-[13px] text-[var(--color-fg-default)] whitespace-pre-wrap">{props.lastRequest}</div>
+        </div>
+      )}
+
+      {props.working && (
+        <div className="flex items-center gap-2 text-[12px] text-[var(--color-fg-muted)]">
+          <Spinner size="sm" />
+          <span>{props.status === "streaming" ? t('ai.panel.generating') : t('ai.panel.thinking')}</span>
+          {typeof props.queuePosition === "number" && props.queuePosition > 0 ? (
+            <span data-testid="ai-queue-status">{t('ai.panel.queueStatus', { position: props.queuePosition, count: props.queuedCount })}</span>
+          ) : null}
+        </div>
+      )}
+
+      <AiPanelErrorDisplay errorConfigs={props.errorConfigs} clearError={props.clearError} openSettings={props.openSettings} />
+
+      {props.lastCandidates.length > 0 ? (
+        <div data-testid="ai-candidate-list" className="w-full grid grid-cols-1 gap-2">
+          {props.lastCandidates.map((candidate, index) => {
+            const isSelected = props.selectedCandidate?.id === candidate.id;
+            return (
+              <button
+                key={candidate.id}
+                data-testid={`ai-candidate-card-${index + 1}`}
+                type="button"
+                onClick={() => props.onSelectCandidate(candidate.id)}
+                className={`focus-ring w-full text-left rounded-[var(--radius-md)] border px-3 py-2 transition-colors ${
+                  isSelected
+                    ? "border-[var(--color-accent)] bg-[var(--color-bg-selected)]"
+                    : "border-[var(--color-border-default)] bg-[var(--color-bg-base)] hover:bg-[var(--color-bg-hover)]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[12px] font-semibold text-[var(--color-fg-default)]">{t("ai.candidate", { index: index + 1 })}</span>
+                  {isSelected ? (
+                    <span className="text-[11px] text-[var(--color-fg-accent)]">{t("ai.candidateSelected")}</span>
+                  ) : null}
+                </div>
+                <Text size="small" color="muted" className="mt-1 whitespace-pre-wrap">{candidate.summary}</Text>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {props.lastCandidates.length > 1 ? (
+        <div className="w-full flex justify-end">
+          <Button data-testid="ai-candidate-regenerate" variant="ghost" size="sm" onClick={() => void props.onRegenerateAll()} disabled={props.working}>
+            {t("ai.regenerateAll")}
+          </Button>
+        </div>
+      ) : null}
+
+      {props.activeOutputText ? (
+        <div data-testid="ai-output" className="w-full" aria-live="polite" aria-atomic="false">
+          <div className="text-[13px] leading-relaxed text-[var(--color-fg-default)] whitespace-pre-wrap">
+            {props.activeOutputText}
+            {props.status === "streaming" && <span className="typing-cursor" />}
+          </div>
+        </div>
+      ) : (
+        !props.lastRequest && !props.working && (
+          <div data-testid="ai-output" aria-live="polite" aria-atomic="false" className="flex-1 flex items-center justify-center text-center py-12">
+            <Text size="small" color="muted">{t("ai.emptyHint")}</Text>
+          </div>
+        )
+      )}
+
+      {props.judgeResult ? (
+        <div data-testid="ai-judge-result" className="w-full rounded-[var(--radius-md)] bg-[var(--color-bg-base)] px-3 py-2 space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span data-testid="ai-judge-severity" className={`text-[11px] font-semibold uppercase tracking-wide ${judgeSeverityClass(props.judgeResult.severity)}`}>
+              {props.judgeResult.severity}
+            </span>
+            {props.judgeResult.labels.length === 0 ? (
+              <span data-testid="ai-judge-pass" className="text-[12px] text-[var(--color-fg-default)]">{t("ai.judgePass")}</span>
+            ) : (
+              props.judgeResult.labels.map((label) => (
+                <span key={label} className="text-[12px] text-[var(--color-fg-default)]">{label}</span>
+              ))
+            )}
+          </div>
+          <Text data-testid="ai-judge-summary" size="small" color="muted">{props.judgeResult.summary}</Text>
+          {props.judgeResult.partialChecksSkipped ? (
+            <Text data-testid="ai-judge-partial" size="small" color="muted">{t("ai.judgePartialSkipped")}</Text>
+          ) : null}
+        </div>
+      ) : null}
+
+      {props.usageStats ? (
+        <div data-testid="ai-usage-stats" className="w-full rounded-[var(--radius-md)] bg-[var(--color-bg-base)] px-3 py-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--color-fg-muted)]">
+            <span>{t('ai.panel.usagePrompt')}{" "}<span data-testid="ai-usage-prompt-tokens">{formatTokenValue(props.usageStats.promptTokens)}</span></span>
+            <span>{t("ai.usageOutput")}{" "}<span data-testid="ai-usage-completion-tokens">{formatTokenValue(props.usageStats.completionTokens)}</span></span>
+            <span>{t("ai.usageSessionTotal")}{" "}<span data-testid="ai-usage-session-total-tokens">{formatTokenValue(props.usageStats.sessionTotalTokens)}</span></span>
+            {typeof props.usageStats.estimatedCostUsd === "number" ? (
+              <span>{t("ai.usageCostEstimate")}{" "}<span data-testid="ai-usage-estimated-cost">{formatUsd(props.usageStats.estimatedCostUsd)}</span></span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {props.applyStatus === "applied" && (
+        <Text data-testid="ai-apply-status" size="small" color="muted">{t("ai.appliedSaved")}</Text>
+      )}
+
+      {props.proposal && (
+        <AiPanelProposalArea
+          proposal={props.proposal}
+          compareMode={props.compareMode}
+          diffText={props.diffText}
+          canApply={props.canApply}
+          inlineDiffConfirmOpen={props.inlineDiffConfirmOpen}
+          applyStatus={props.applyStatus}
+          onApply={props.onApply}
+          onReject={props.onReject}
+          setInlineDiffConfirmOpen={props.setInlineDiffConfirmOpen}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AiPanelInputArea — fixed input section at the bottom
+// ---------------------------------------------------------------------------
+
+type AiPanelInputAreaProps = {
+  hasSelectionReference: boolean;
+  selectionPreview: string;
+  setSelectionSnapshot: (s: null) => void;
+  input: string;
+  setInput: (v: string) => void;
+  handleKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  working: boolean;
+  onRun: () => void;
+  cancel: () => Promise<void>;
+  modeOpen: boolean;
+  modelOpen: boolean;
+  skillsOpen: boolean;
+  setModeOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setModelOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setSkillsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  selectedMode: AiMode;
+  setSelectedMode: (mode: AiMode) => void;
+  modelsStatus: string;
+  selectedModel: AiModel;
+  setSelectedModel: (model: AiModel) => void;
+  skillsStatus: string;  availableModels: AiModelOption[];
+  recentModelIds: string[];
+  selectedSkillId: string;
+  skills: SkillListItem[];
+  handleSkillSelect: (skillId: string) => void;
+  handleSkillToggle: (args: { skillId: string; enabled: boolean }) => void;
+  handleSkillScopeUpdate: (args: { id: string; scope: "global" | "project" }) => void;
+  openSettings: (section?: SettingsTab) => void;
+  skillManagerOpen: boolean;
+  setSkillManagerOpen: (open: boolean) => void;
+  currentProject: { projectId: string } | null;
+  projectId: string | null;
+  refreshSkills: () => Promise<void>;
+};
+
+const AiPanelInputArea = React.forwardRef<HTMLTextAreaElement, AiPanelInputAreaProps>(function AiPanelInputArea(props, ref) {
+  const { t } = useTranslation();
+  return (
+    <div className="shrink-0 px-1.5 pb-1.5 pt-2 border-t border-[var(--color-separator)]">
+      <div className="relative border border-[var(--color-border-default)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] focus-within:border-[var(--color-border-focus)]">
+        {props.hasSelectionReference ? (
+          <div data-testid="ai-selection-reference-card" className="mx-2 mt-2 mb-1 rounded-[var(--radius-sm)] bg-[var(--color-bg-raised)] px-2 py-1.5">
+            <div className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] uppercase tracking-wide text-[var(--color-fg-muted)]">{t('ai.panel.selectionFromEditor')}</div>
+                <div data-testid="ai-selection-reference-preview" className="text-[12px] text-[var(--color-fg-default)] whitespace-pre-wrap break-words">{props.selectionPreview}</div>
+              </div>
+              <Tooltip content={t('ai.panel.dismissSelection')}>
+                <button type="button" data-testid="ai-selection-reference-close" className="focus-ring h-5 w-5 shrink-0 rounded text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)]" onClick={() => props.setSelectionSnapshot(null)}>×</button>
+              </Tooltip>
+            </div>
+          </div>
+        ) : null}
+        <textarea
+          ref={ref}
+          data-testid="ai-input"
+          value={props.input}
+          onChange={(e) => props.setInput(e.target.value)}
+          onKeyDown={props.handleKeyDown}
+          placeholder={t('ai.panel.inputPlaceholder')}
+          className="w-full min-h-[60px] max-h-[160px] px-3 py-2 bg-transparent border-none resize-none text-[13px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-placeholder)] focus:outline-none"
+        />
+        <div className="flex items-center justify-between px-2 pb-2">
+          <div className="flex items-center gap-1">
+            <ToolButton active={props.modeOpen} onClick={() => { props.setModeOpen((v) => !v); props.setModelOpen(false); props.setSkillsOpen(false); }}>
+              {getModeName(props.selectedMode, t)}
+            </ToolButton>
+            <ToolButton active={props.modelOpen} onClick={() => { props.setModelOpen((v) => !v); props.setModeOpen(false); props.setSkillsOpen(false); }}>
+              {props.modelsStatus === "loading" ? t('ai.panel.loading') : getModelName(props.selectedModel, props.availableModels)}
+            </ToolButton>
+            <ToolButton active={props.skillsOpen} testId="ai-skills-toggle" onClick={() => { props.setSkillsOpen((v) => !v); props.setModeOpen(false); props.setModelOpen(false); }}>
+              {props.skillsStatus === "loading" ? t('ai.panel.loading') : t('ai.panel.skill')}
+            </ToolButton>
+          </div>
+          <SendStopButton isWorking={props.working} disabled={!props.working && !props.input.trim()} onSend={() => void props.onRun()} onStop={() => void props.cancel()} />
+        </div>
+        <ModePicker open={props.modeOpen} selectedMode={props.selectedMode} onOpenChange={props.setModeOpen} onSelectMode={(mode) => { props.setSelectedMode(mode); props.setModeOpen(false); }} />
+        <ModelPicker open={props.modelOpen} models={props.availableModels} recentModelIds={props.recentModelIds} selectedModel={props.selectedModel} onOpenChange={props.setModelOpen} onSelectModel={(model) => { props.setSelectedModel(model); props.setModelOpen(false); }} />
+        <SkillPicker
+          open={props.skillsOpen}
+          items={props.skills}
+          selectedSkillId={props.selectedSkillId}
+          onOpenChange={props.setSkillsOpen}
+          onSelectSkillId={(skillId) => { void props.handleSkillSelect(skillId); }}
+          onOpenSettings={() => { props.setSkillsOpen(false); props.openSettings(); }}
+          onCreateSkill={() => { props.setSkillsOpen(false); props.setSkillManagerOpen(true); }}
+          onToggleSkill={(skillId, enabled) => { void props.handleSkillToggle({ skillId, enabled }); }}
+          onUpdateScope={(id, scope) => { void props.handleSkillScopeUpdate({ id, scope }); }}
+        />
+        <SkillManagerDialog
+          open={props.skillManagerOpen}
+          onOpenChange={props.setSkillManagerOpen}
+          projectId={props.currentProject?.projectId ?? props.projectId ?? null}
+          onSaved={async () => { await props.refreshSkills(); }}
+        />
+      </div>
+    </div>
+  );
+});
+
+// ---------------------------------------------------------------------------
+// AiPanel — main component (thin shell)
+// ---------------------------------------------------------------------------
+
 /**
 
  * AiPanel provides the AI assistant interface for text generation and editing.
@@ -534,604 +1423,55 @@ export function AiPanel(props: AiPanelProps = {}): JSX.Element {
   const lastHandledNewChatSignalRef = React.useRef(props.newChatSignal ?? 0);
   const handleNewChatRef = React.useRef<() => void>(() => {});
 
-  const refreshModels = React.useCallback(async () => {
-    setModelsStatus("loading");
-
-    setModelsLastError(null);
-    try {
-      const res = await invoke("ai:models:list", {});
-
-      if (!res.ok) {
-        setModelsStatus("error");
-
-        setModelsLastError({
-          code: res.error.code,
-          message: res.error.message,
-        });
-
-        return;
-      }
-
-      setAvailableModels(res.data.items);
-
-      setModelsStatus("ready");
-
-      if (res.data.items.length === 0) {
-        return;
-      }
-
-      const selectedExists = res.data.items.some(
-        (item) => item.id === selectedModel,
-      );
-
-      if (!selectedExists) {
-        setSelectedModel(res.data.items[0].id);
-      }
-    } catch (error) {
-      const cause =
-        error instanceof Error ? error.message : String(error ?? "unknown");
-      setModelsStatus("error");
-      setModelsLastError({ code: "INTERNAL", message: cause });
-    }
-  }, [selectedModel]);
-
-  React.useEffect(() => {
-    void refreshSkills();
-    void refreshModels();
-  }, [refreshModels, refreshSkills]);
-
-  React.useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(RECENT_MODELS_STORAGE_KEY);
-      if (!raw) {
-        return;
-      }
-      const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) {
-        return;
-      }
-      const items = parsed
-        .filter((item): item is string => typeof item === "string")
-        .slice(0, 8);
-      setRecentModelIds(items);
-    } catch (error) {
-      console.error("AiPanel localStorage read failed", {
-        operation: "read",
-        key: RECENT_MODELS_STORAGE_KEY,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return;
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (selectedModel.trim().length === 0) {
-      return;
-    }
-    setRecentModelIds((prev) => {
-      const next = [
-        selectedModel,
-        ...prev.filter((id) => id !== selectedModel),
-      ].slice(0, 8);
-      try {
-        window.localStorage.setItem(
-          RECENT_MODELS_STORAGE_KEY,
-          JSON.stringify(next),
-        );
-      } catch (error) {
-        console.error("AiPanel localStorage write failed", {
-          operation: "write",
-          key: RECENT_MODELS_STORAGE_KEY,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-      return next;
-    });
-  }, [selectedModel]);
-
-  React.useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(CANDIDATE_COUNT_STORAGE_KEY);
-      if (!raw) {
-        return;
-      }
-      const parsed = Number.parseInt(raw, 10);
-      if (!Number.isFinite(parsed)) {
-        return;
-      }
-      if (parsed >= 1 && parsed <= 5) {
-        setCandidateCount(parsed);
-      }
-    } catch (error) {
-      console.error("AiPanel localStorage read failed", {
-        operation: "read",
-        key: CANDIDATE_COUNT_STORAGE_KEY,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return;
-    }
-  }, []);
-
-  React.useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        CANDIDATE_COUNT_STORAGE_KEY,
-        String(candidateCount),
-      );
-    } catch (error) {
-      console.error("AiPanel localStorage write failed", {
-        operation: "write",
-        key: CANDIDATE_COUNT_STORAGE_KEY,
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return;
-    }
-  }, [candidateCount]);
-
-  React.useEffect(() => {
-    return onAiModelCatalogUpdated(() => {
-      void refreshModels();
-    });
-  }, [refreshModels]);
-
-  React.useEffect(() => {
-    if (!editor || bootstrapStatus !== "ready") {
-      return;
-    }
-
-    const onSelectionUpdate = (): void => {
-      const captured = captureSelectionRef(editor);
-      if (!captured.ok) {
-        return;
-      }
-      const normalized = captured.data.selectionText.trim();
-      if (normalized.length === 0) {
-        return;
-      }
-      setSelectionSnapshot({
-        selectionRef: captured.data.selectionRef,
-        selectionText: normalized,
-      });
-    };
-
-    editor.on("selectionUpdate", onSelectionUpdate);
-    return () => {
-      editor.off("selectionUpdate", onSelectionUpdate);
-    };
-  }, [bootstrapStatus, editor, setSelectionSnapshot]);
-
-  React.useEffect(() => {
-    if (lastCandidates.length === 0) {
-      if (selectedCandidateId !== null) {
-        setSelectedCandidateId(null);
-      }
-      return;
-    }
-
-    const selectedExists = lastCandidates.some(
-      (item) => item.id === selectedCandidateId,
-    );
-    if (!selectedExists) {
-      setSelectedCandidateId(lastCandidates[0]?.id ?? null);
-    }
-  }, [lastCandidates, selectedCandidateId, setSelectedCandidateId]);
-
-  React.useEffect(() => {
-    if (status !== "idle") {
-      return;
-    }
-
-    if (proposal || !activeRunId || activeOutputText.trim().length === 0) {
-      return;
-    }
-
-    const effectiveSelectionSnapshot =
-      selectionRef && selectionText.length > 0
-        ? { selectionRef, selectionText }
-        : pendingSelectionSnapshotRef.current;
-    if (
-      !effectiveSelectionSnapshot ||
-      effectiveSelectionSnapshot.selectionText.length === 0
-    ) {
-      return;
-    }
-
-    setProposal({
-      runId: activeRunId,
-
-      selectionRef: effectiveSelectionSnapshot.selectionRef,
-
-      selectionText: effectiveSelectionSnapshot.selectionText,
-
-      replacementText: activeOutputText,
-    });
-    pendingSelectionSnapshotRef.current = null;
-    if (typeof setCompareMode === "function") {
-      setCompareMode(true, null);
-    }
-  }, [
-    activeOutputText,
-    activeRunId,
-    setCompareMode,
-
-    proposal,
-
-    selectionRef,
-
-    selectionText,
-
-    setProposal,
-
-    status,
-  ]);
-
-  React.useEffect(() => {
-    if (!proposal) {
-      setInlineDiffConfirmOpen(false);
-    }
-  }, [proposal]);
-
-  React.useEffect(() => {
-    function onJudgeResultEvent(evt: Event): void {
-      const customEvent = evt as CustomEvent<unknown>;
-      if (!isJudgeResultEvent(customEvent.detail)) {
-        return;
-      }
-
-      const result = customEvent.detail;
-      if (projectId && result.projectId !== projectId) {
-        return;
-      }
-      if (lastRunId && result.traceId !== lastRunId) {
-        return;
-      }
-
-      setJudgeResult(result);
-    }
-
-    window.addEventListener(JUDGE_RESULT_CHANNEL, onJudgeResultEvent);
-    return () => {
-      window.removeEventListener(JUDGE_RESULT_CHANNEL, onJudgeResultEvent);
-    };
-  }, [lastRunId, projectId]);
-
-  React.useEffect(() => {
-    if (status !== "idle") {
-      return;
-    }
-    if (!projectId || !lastRunId || outputText.trim().length === 0) {
-      return;
-    }
-    if (evaluatedRunIdRef.current === lastRunId) {
-      return;
-    }
-
-    evaluatedRunIdRef.current = lastRunId;
-    runFireAndForget(async () => {
-      try {
-        const res = await invoke("judge:quality:evaluate", {
-          projectId,
-          traceId: lastRunId,
-          text: outputText,
-          contextSummary: lastRequest ?? t("ai.contextSummary"),
-        });
-        if (res.ok) {
-          return;
-        }
-        console.error("AiPanel judge evaluation failed", {
-          projectId,
-          traceId: lastRunId,
-          code: res.error.code,
-          message: res.error.message,
-        });
-      } catch (error) {
-        console.error("AiPanel judge evaluation failed", {
-          projectId,
-          traceId: lastRunId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-      if (evaluatedRunIdRef.current === lastRunId) {
-        evaluatedRunIdRef.current = null;
-      }
-    });
-  }, [lastRequest, lastRunId, outputText, projectId, status, t]);
-
-  const diffText = proposal
-    ? unifiedDiff({
-        oldText: proposal.selectionText,
-
-        newText: proposal.replacementText,
-      })
-    : "";
-
-  const canApply =
-    !!editor &&
-    !!proposal &&
-    !!projectId &&
-    !!documentId &&
-    applyStatus !== "applying";
-
-  /**
-   * Run the selected skill with deterministic input-source override support.
-   *
-   * Why: skill panel selection must be able to trigger execution immediately
-   * with selection/context-derived input, without waiting for manual Send.
-   */
-  async function onRun(args?: {
-    inputOverride?: string;
-    skillIdOverride?: string;
-  }): Promise<void> {
-    const effectiveSkillId = args?.skillIdOverride ?? selectedSkillId;
-    const inputToSend = (args?.inputOverride ?? input).trim();
-    const allowEmptyInput = isContinueSkill(effectiveSkillId);
-
-    let selectionSnapshotForRun: {
-      selectionRef: SelectionRef;
-      selectionText: string;
-    } | null =
-      selectionRef && selectionText.trim().length > 0
-        ? {
-            selectionRef,
-            selectionText: selectionText.trim(),
-          }
-        : null;
-
-    let selectionContextText = selectionSnapshotForRun?.selectionText ?? "";
-
-    if (!selectionContextText && editor && bootstrapStatus === "ready") {
-      const captured = captureSelectionRef(editor);
-      if (captured.ok) {
-        const normalized = captured.data.selectionText.trim();
-        if (normalized.length > 0) {
-          selectionContextText = normalized;
-          selectionSnapshotForRun = {
-            selectionRef: captured.data.selectionRef,
-            selectionText: normalized,
-          };
-          setSelectionSnapshot({
-            selectionRef: captured.data.selectionRef,
-            selectionText: normalized,
-          });
-        }
-      }
-    }
-
-    const composedInput =
-      selectionContextText.length > 0
-        ? `Selection context:\n${selectionContextText}\n\n${inputToSend}`.trim()
-        : inputToSend;
-    if (!allowEmptyInput && composedInput.length === 0) return;
-
-    setLastRequest(inputToSend);
-    setJudgeResult(null);
-    evaluatedRunIdRef.current = null;
-
-    if (typeof setCompareMode === "function") {
-      setCompareMode(false);
-    }
-    setProposal(null);
-    setInlineDiffConfirmOpen(false);
-    setSelectedCandidateId(null);
-
-    setError(null);
-
-    pendingSelectionSnapshotRef.current = selectionSnapshotForRun;
-    try {
-      await run({
-        inputOverride: composedInput,
-        context: {
-          projectId: currentProject?.projectId ?? projectId ?? undefined,
-          documentId: documentId ?? undefined,
-        },
-        mode: selectedMode,
-        model: selectedModel,
-        candidateCount,
-        streamOverride: candidateCount > 1 ? false : undefined,
-      });
-    } finally {
-      setSelectionSnapshot(null);
-    }
-  }
-
-  /**
-   * Drop current proposal and reset inline-diff confirmation state.
-   *
-   * Why: reject must leave panel in a deterministic idle state for next run.
-   */
-  function onReject(): void {
-    pendingSelectionSnapshotRef.current = null;
-    if (typeof setCompareMode === "function") {
-      setCompareMode(false);
-    }
-    setProposal(null);
-    setInlineDiffConfirmOpen(false);
-
-    setSelectionSnapshot(null);
-  }
-
-  function onSelectCandidate(candidateId: string): void {
-    setSelectedCandidateId(candidateId);
-    setProposal(null);
-    setInlineDiffConfirmOpen(false);
-  }
-
-  async function onRegenerateAll(): Promise<void> {
-    setProposal(null);
-    setInlineDiffConfirmOpen(false);
-    setSelectedCandidateId(null);
-    setJudgeResult(null);
-    evaluatedRunIdRef.current = null;
-
-    await regenerateWithStrongNegative({
-      projectId: currentProject?.projectId ?? projectId ?? undefined,
-    });
-  }
-
-  /**
-   * Execute a skill immediately from picker selection.
-   *
-   * Why: P1 trigger flow requires one-click skill execution from the panel.
-   */
-  async function handleSkillSelect(skillId: string): Promise<void> {
-    setSelectedSkillId(skillId);
-    setSkillsOpen(false);
-
-    if (isRunning(status)) {
-      return;
-    }
-
-    let inputOverride = input;
-    if (isContinueSkill(skillId)) {
-      inputOverride = "";
-    } else if (editor) {
-      const captured = captureSelectionRef(editor);
-      if (captured.ok) {
-        inputOverride = captured.data.selectionText;
-      }
-    }
-
-    await onRun({
-      skillIdOverride: skillId,
-      inputOverride,
-    });
-  }
-
-  /**
-   * Persist enable/disable state changes for a skill entry.
-   */
-  async function handleSkillToggle(args: {
-    skillId: string;
-    enabled: boolean;
-  }): Promise<void> {
-    const toggled = await invoke("skill:registry:toggle", {
-      skillId: args.skillId,
-      enabled: args.enabled,
-    });
-    if (!toggled.ok) {
-      setError(toggled.error);
-      return;
-    }
-
-    await refreshSkills();
-  }
-
-  /**
-   * Promote/demote a custom skill scope and refresh picker state.
-   */
-  async function handleSkillScopeUpdate(args: {
-    id: string;
-    scope: "global" | "project";
-  }): Promise<void> {
-    const updated = await invoke("skill:custom:update", {
-      id: args.id,
-      scope: args.scope,
-    });
-    if (!updated.ok) {
-      setError(updated.error);
-      return;
-    }
-
-    await refreshSkills();
-  }
-
-  /**
-   * Apply AI output through a two-step confirmation.
-   *
-   * Why: enforce "preview diff first, persist only after explicit confirm".
-   */
-  async function onApply(): Promise<void> {
-    if (!editor || !proposal || !projectId || !documentId) {
-      return;
-    }
-
-    if (!inlineDiffConfirmOpen) {
-      setInlineDiffConfirmOpen(true);
-      return;
-    }
-
-    const applied = applySelection({
-      editor,
-
-      selectionRef: proposal.selectionRef,
-
-      replacementText: proposal.replacementText,
-    });
-
-    if (!applied.ok) {
-      setError(applied.error);
-
-      if (applied.error.code === "CONFLICT") {
-        void logAiApplyConflict({ documentId, runId: proposal.runId });
-      }
-
-      return;
-    }
-
-    const json = JSON.stringify(editor.getJSON());
-
-    await persistAiApply({
-      projectId,
-
-      documentId,
-
-      contentJson: json,
-
-      runId: proposal.runId,
-    });
-
-    setInlineDiffConfirmOpen(false);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>): void {
-    // Enter to send (without Shift)
-
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-
-      const allowEmptyInput = isContinueSkill(selectedSkillId);
-      if (!isRunning(status) && (allowEmptyInput || input.trim())) {
-        void onRun();
-      }
-    }
-  }
-
-  /**
-
-   * Start a new chat: clear current conversation and focus input.
-
-   */
-
-  function handleNewChat(): void {
-    setLastRequest(null);
-    setJudgeResult(null);
-    evaluatedRunIdRef.current = null;
-
-    setInput("");
-
-    if (typeof setCompareMode === "function") {
-      setCompareMode(false);
-    }
-    pendingSelectionSnapshotRef.current = null;
-    setProposal(null);
-    setInlineDiffConfirmOpen(false);
-    setSelectionSnapshot(null);
-
-    setError(null);
-
+  const focusTextarea = React.useCallback(() => {
     textareaRef.current?.focus();
-  }
+  }, []);
+  const clearEvaluatedRunId = React.useCallback(() => {
+    evaluatedRunIdRef.current = null;
+  }, []);
+  const setPendingSelectionSnapshot = React.useCallback(
+    (v: { selectionRef: SelectionRef; selectionText: string } | null) => {
+      pendingSelectionSnapshotRef.current = v;
+    }, [],
+  );
 
-  handleNewChatRef.current = handleNewChat;
+  useAiPanelEffects({
+    refreshSkills, selectedModel, setModelsStatus, setModelsLastError,
+    setAvailableModels, setSelectedModel, setRecentModelIds, setCandidateCount,
+    candidateCount, editor, bootstrapStatus, setSelectionSnapshot, lastCandidates,
+    selectedCandidateId, setSelectedCandidateId, status, proposal,
+    activeRunId, activeOutputText, selectionRef, selectionText,
+    setProposal, setCompareMode, pendingSelectionSnapshotRef,
+    setInlineDiffConfirmOpen, lastRunId, projectId, outputText,
+    lastRequest, evaluatedRunIdRef, setJudgeResult,
+    handleNewChatRef, lastHandledNewChatSignalRef,
+    newChatSignal: props.newChatSignal, t,
+  });
 
+  // createAiPanelActions receives callbacks that write to refs, which the React
+  // compiler ref rule treats as "ref values" via taint tracking. The callbacks
+  // are only invoked from event handlers, never during render. Suppressed.
+  // eslint-disable-next-line react-hooks/refs
+  const actions = createAiPanelActions({
+    input, selectedSkillId, selectionRef, selectionText, editor, bootstrapStatus,
+    status, projectId, documentId, selectedMode, selectedModel, candidateCount,
+    currentProject, proposal, inlineDiffConfirmOpen, applyStatus,
+    setInput, setSelectedSkillId, setSelectionSnapshot, setLastRequest,
+    setJudgeResult, setProposal, setCompareMode, setInlineDiffConfirmOpen,
+    setSelectedCandidateId, setError, clearError, setSkillsOpen,
+    run, regenerateWithStrongNegative, refreshSkills, persistAiApply,
+    logAiApplyConflict,
+    clearEvaluatedRunId, setPendingSelectionSnapshot, focusTextarea, t,
+  });
+
+  // Sync the latest handleNewChat callback into a ref so effects can call it
+  // without re-triggering themselves. Writing .current inside useEffect is the
+  // standard "latest value" pattern; the lint rule flags it because `actions`
+  // is returned from a function that receives MutableRefObjects — false positive.
   React.useEffect(() => {
-    const signal = props.newChatSignal ?? 0;
-    if (signal === lastHandledNewChatSignalRef.current) {
-      return;
-    }
-    lastHandledNewChatSignalRef.current = signal;
-    handleNewChatRef.current();
-  }, [props.newChatSignal]);
+    // eslint-disable-next-line react-hooks/refs
+    handleNewChatRef.current = actions.handleNewChat;
+  }, [actions.handleNewChat]);
 
   const working = isRunning(status);
   const hasSelectionReference =
@@ -1139,517 +1479,87 @@ export function AiPanel(props: AiPanelProps = {}): JSX.Element {
   const selectionPreview = hasSelectionReference
     ? formatSelectionPreview(selectionText.trim())
     : "";
-
-  const skillsErrorConfig: AiErrorConfig | null = skillsLastError
-    ? {
-        type: "service_error",
-
-        title: t('ai.panel.skillsUnavailable'),
-        description: skillsLastError.message,
-        errorCode: skillsLastError.code,
-      }
-    : null;
-
-  const modelsErrorConfig: AiErrorConfig | null = modelsLastError
-    ? {
-        type: "service_error",
-
-        title: t('ai.panel.modelsUnavailable'),
-
-        description: `${modelsLastError.code}: ${modelsLastError.message}`,
-        errorCode: modelsLastError.code,
-      }
-    : null;
-
-  const runtimeErrorConfig: AiErrorConfig | null = lastError
-    ? {
-        type:
-          lastError.code === "TIMEOUT" || lastError.code === "SKILL_TIMEOUT"
-            ? "timeout"
-            : lastError.code === "RATE_LIMITED" ||
-                lastError.code === "AI_RATE_LIMITED"
-              ? "rate_limit"
-              : "service_error",
-
-        title:
-          lastError.code === "TIMEOUT" || lastError.code === "SKILL_TIMEOUT"
-            ? t('ai.panel.timeout')
-            : lastError.code === "RATE_LIMITED" ||
-                lastError.code === "AI_RATE_LIMITED"
-              ? t('ai.panel.rateLimited')
-              : t('ai.panel.aiError'),
-
-        description: lastError.message,
-
-        errorCode: lastError.code,
-      }
-    : null;
-
-  const dbGuideError =
-    skillsLastError?.code === "DB_ERROR"
-      ? skillsLastError
-      : lastError?.code === "DB_ERROR"
-        ? lastError
-        : null;
-  const dbGuideCommand = resolveDbRemediationCommand(dbGuideError?.details);
-  const showDbGuide = dbGuideError !== null;
-
-  const providerGuideCode =
-    lastError && isProviderConfigErrorCode(lastError.code)
-      ? lastError.code
-      : modelsLastError && isProviderConfigErrorCode(modelsLastError.code)
-        ? modelsLastError.code
-        : skillsLastError && isProviderConfigErrorCode(skillsLastError.code)
-          ? skillsLastError.code
-          : null;
-  const showProviderGuide = !showDbGuide && providerGuideCode !== null;
-
-  const shouldRenderGenericErrors = !showDbGuide && !showProviderGuide;
+  const errorConfigs = buildAiErrorConfigs({ skillsLastError, modelsLastError, lastError, t });
+  const diffText = proposal
+    ? unifiedDiff({
+        oldText: proposal.selectionText,
+        newText: proposal.replacementText,
+      })
+    : "";
+  const canApply =
+    !!editor &&
+    !!proposal &&
+    !!projectId &&
+    !!documentId &&
+    applyStatus !== "applying";
 
   return (
     <PanelContainer data-testid="ai-panel" title="AI">
       <div className="flex flex-col h-full min-h-0">
-      {/* Main content area */}
       <div className="flex-1 flex flex-col min-h-0">
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-4">
-          {/* User Request - boxed */}
-          {lastRequest && (
-            <div className="w-full p-3 rounded-[var(--radius-md)] bg-[var(--color-bg-base)]">
-              <div className="text-[13px] text-[var(--color-fg-default)] whitespace-pre-wrap">
-                {lastRequest}
-              </div>
-            </div>
-          )}
-
-          {/* Status indicator */}
-          {working && (
-            <div className="flex items-center gap-2 text-[12px] text-[var(--color-fg-muted)]">
-              <Spinner size="sm" />
-              <span>
-                {status === "streaming" ? t('ai.panel.generating') : t('ai.panel.thinking')}
-              </span>
-              {typeof queuePosition === "number" && queuePosition > 0 ? (
-                <span data-testid="ai-queue-status">
-                  {t('ai.panel.queueStatus', { position: queuePosition, count: queuedCount })}
-                </span>
-              ) : null}
-            </div>
-          )}
-
-          {/* Error Display */}
-          {showDbGuide ? (
-            <ErrorGuideCard
-              testId="ai-error-guide-db"
-              title={t('ai.panel.dbErrorTitle')}
-              description={
-                dbGuideError?.message ??
-                t('ai.panel.dbErrorFallback')
-              }
-              steps={[
-                t('ai.panel.dbStep1'),
-                t('ai.panel.dbStep2'),
-              ]}
-              command={dbGuideCommand}
-              errorCode="DB_ERROR"
-            />
-          ) : null}
-
-          {showProviderGuide ? (
-            <ErrorGuideCard
-              testId="ai-error-guide-provider"
-              title={t('ai.panel.providerTitle')}
-              description={t('ai.panel.providerDescription')}
-              steps={[
-                t('ai.panel.providerStep1'),
-                t('ai.panel.providerStep2'),
-                t('ai.panel.providerStep3'),
-              ]}
-              errorCode={providerGuideCode ?? "AI_NOT_CONFIGURED"}
-              actionLabel={t('ai.panel.openSettingsAi')}
-              actionTestId="ai-error-guide-open-settings"
-              onAction={() => openSettings("ai")}
-            />
-          ) : null}
-
-          {shouldRenderGenericErrors && skillsErrorConfig ? (
-            <AiErrorCard error={skillsErrorConfig} showDismiss={false} />
-          ) : null}
-
-          {shouldRenderGenericErrors && modelsErrorConfig ? (
-            <AiErrorCard error={modelsErrorConfig} showDismiss={false} />
-          ) : null}
-
-          {shouldRenderGenericErrors && runtimeErrorConfig ? (
-            <AiErrorCard
-              error={runtimeErrorConfig}
-              errorCodeTestId="ai-error-code"
-              onDismiss={clearError}
-            />
-          ) : null}
-
-          {lastCandidates.length > 0 ? (
-            <div
-              data-testid="ai-candidate-list"
-              className="w-full grid grid-cols-1 gap-2"
-            >
-              {lastCandidates.map((candidate, index) => {
-                const isSelected = selectedCandidate?.id === candidate.id;
-                return (
-                  <button
-                    key={candidate.id}
-                    data-testid={`ai-candidate-card-${index + 1}`}
-                    type="button"
-                    onClick={() => onSelectCandidate(candidate.id)}
-                    className={`focus-ring w-full text-left rounded-[var(--radius-md)] border px-3 py-2 transition-colors ${
-                      isSelected
-                        ? "border-[var(--color-accent)] bg-[var(--color-bg-selected)]"
-                        : "border-[var(--color-border-default)] bg-[var(--color-bg-base)] hover:bg-[var(--color-bg-hover)]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[12px] font-semibold text-[var(--color-fg-default)]">
-                        {t("ai.candidate", { index: index + 1 })}
-                      </span>
-                      {isSelected ? (
-                        <span className="text-[11px] text-[var(--color-fg-accent)]">
-                          {t("ai.candidateSelected")}
-                        </span>
-                      ) : null}
-                    </div>
-                    <Text
-                      size="small"
-                      color="muted"
-                      className="mt-1 whitespace-pre-wrap"
-                    >
-                      {candidate.summary}
-                    </Text>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {lastCandidates.length > 1 ? (
-            <div className="w-full flex justify-end">
-              <Button
-                data-testid="ai-candidate-regenerate"
-                variant="ghost"
-                size="sm"
-                onClick={() => void onRegenerateAll()}
-                disabled={working}
-              >
-                {t("ai.regenerateAll")}
-              </Button>
-            </div>
-          ) : null}
-
-          {/* AI Response - no box, just text flow */}
-          {activeOutputText ? (
-            <div data-testid="ai-output" className="w-full" aria-live="polite" aria-atomic="false">
-              <div className="text-[13px] leading-relaxed text-[var(--color-fg-default)] whitespace-pre-wrap">
-                {activeOutputText}
-                {status === "streaming" && <span className="typing-cursor" />}
-              </div>
-            </div>
-          ) : (
-            !lastRequest &&
-            !working && (
-              <div
-                data-testid="ai-output"
-                aria-live="polite"
-                aria-atomic="false"
-                className="flex-1 flex items-center justify-center text-center py-12"
-              >
-                <Text size="small" color="muted">
-                  {t("ai.emptyHint")}
-                </Text>
-              </div>
-            )
-          )}
-
-          {judgeResult ? (
-            <div
-              data-testid="ai-judge-result"
-              className="w-full rounded-[var(--radius-md)] bg-[var(--color-bg-base)] px-3 py-2 space-y-1"
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  data-testid="ai-judge-severity"
-                  className={`text-[11px] font-semibold uppercase tracking-wide ${judgeSeverityClass(
-                    judgeResult.severity,
-                  )}`}
-                >
-                  {judgeResult.severity}
-                </span>
-                {judgeResult.labels.length === 0 ? (
-                  <span
-                    data-testid="ai-judge-pass"
-                    className="text-[12px] text-[var(--color-fg-default)]"
-                  >
-                    {t("ai.judgePass")}
-                  </span>
-                ) : (
-                  judgeResult.labels.map((label) => (
-                    <span
-                      key={label}
-                      className="text-[12px] text-[var(--color-fg-default)]"
-                    >
-                      {label}
-                    </span>
-                  ))
-                )}
-              </div>
-              <Text data-testid="ai-judge-summary" size="small" color="muted">
-                {judgeResult.summary}
-              </Text>
-              {judgeResult.partialChecksSkipped ? (
-                <Text data-testid="ai-judge-partial" size="small" color="muted">
-                  {t("ai.judgePartialSkipped")}
-                </Text>
-              ) : null}
-            </div>
-          ) : null}
-
-          {usageStats ? (
-            <div
-              data-testid="ai-usage-stats"
-              className="w-full rounded-[var(--radius-md)] bg-[var(--color-bg-base)] px-3 py-2"
-            >
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--color-fg-muted)]">
-                <span>
-                  {t('ai.panel.usagePrompt')}{" "}
-                  <span data-testid="ai-usage-prompt-tokens">
-                    {formatTokenValue(usageStats.promptTokens)}
-                  </span>
-                </span>
-                <span>
-                  {t("ai.usageOutput")}{" "}
-                  <span data-testid="ai-usage-completion-tokens">
-                    {formatTokenValue(usageStats.completionTokens)}
-                  </span>
-                </span>
-                <span>
-                  {t("ai.usageSessionTotal")}{" "}
-                  <span data-testid="ai-usage-session-total-tokens">
-                    {formatTokenValue(usageStats.sessionTotalTokens)}
-                  </span>
-                </span>
-                {typeof usageStats.estimatedCostUsd === "number" ? (
-                  <span>
-                    {t("ai.usageCostEstimate")}{" "}
-                    <span data-testid="ai-usage-estimated-cost">
-                      {formatUsd(usageStats.estimatedCostUsd)}
-                    </span>
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          ) : null}
-
-          {/* Applied Status */}
-          {applyStatus === "applied" && (
-            <Text data-testid="ai-apply-status" size="small" color="muted">
-              {t("ai.appliedSaved")}
-            </Text>
-          )}
-
-          {/* Proposal Area (Diff + Apply/Reject) */}
-          {proposal && (
-            <>
-              {!compareMode ? (
-                <DiffView diffText={diffText} testId="ai-panel-diff" />
-              ) : null}
-              <div className="flex gap-2">
-                <Button
-                  data-testid="ai-apply"
-                  variant="secondary"
-                  size="md"
-                  onClick={() => void onApply()}
-                  disabled={!canApply}
-                  className="flex-1"
-                >
-                  {inlineDiffConfirmOpen ? t('ai.panel.applyArmed') : t('ai.panel.apply')}
-                </Button>
-                {inlineDiffConfirmOpen ? (
-                  <Button
-                    data-testid="ai-apply-confirm"
-                    variant="secondary"
-                    size="md"
-                    onClick={() => void onApply()}
-                    disabled={!canApply}
-                    className="flex-1"
-                  >
-                    {t('ai.panel.confirmApply')}
-                  </Button>
-                ) : null}
-                <Button
-                  data-testid="ai-reject"
-                  variant="ghost"
-                  size="md"
-                  onClick={
-                    inlineDiffConfirmOpen
-                      ? () => setInlineDiffConfirmOpen(false)
-                      : onReject
-                  }
-                  disabled={applyStatus === "applying"}
-                >
-                  {inlineDiffConfirmOpen ? t('ai.panel.backToDiff') : t('ai.panel.reject')}
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Input Area - Fixed at bottom, minimal padding like Cursor */}
-        <div className="shrink-0 px-1.5 pb-1.5 pt-2 border-t border-[var(--color-separator)]">
-          {/* Unified input wrapper */}
-          <div className="relative border border-[var(--color-border-default)] rounded-[var(--radius-md)] bg-[var(--color-bg-base)] focus-within:border-[var(--color-border-focus)]">
-            {hasSelectionReference ? (
-              <div
-                data-testid="ai-selection-reference-card"
-                className="mx-2 mt-2 mb-1 rounded-[var(--radius-sm)] bg-[var(--color-bg-raised)] px-2 py-1.5"
-              >
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[10px] uppercase tracking-wide text-[var(--color-fg-muted)]">
-                      {t('ai.panel.selectionFromEditor')}
-                    </div>
-                    <div
-                      data-testid="ai-selection-reference-preview"
-                      className="text-[12px] text-[var(--color-fg-default)] whitespace-pre-wrap break-words"
-                    >
-                      {selectionPreview}
-                    </div>
-                  </div>
-                  <Tooltip content={t('ai.panel.dismissSelection')}>
-                    <button
-                      type="button"
-                      data-testid="ai-selection-reference-close"
-                      className="focus-ring h-5 w-5 shrink-0 rounded text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] hover:bg-[var(--color-bg-hover)]"
-                      onClick={() => setSelectionSnapshot(null)}
-                    >
-                      ×
-                    </button>
-                  </Tooltip>
-                </div>
-              </div>
-            ) : null}
-            <textarea
-              ref={textareaRef}
-              data-testid="ai-input"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={t('ai.panel.inputPlaceholder')}
-              className="w-full min-h-[60px] max-h-[160px] px-3 py-2 bg-transparent border-none resize-none text-[13px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-placeholder)] focus:outline-none"
-            />
-
-            {/* Embedded toolbar - seamless, no separator */}
-            <div className="flex items-center justify-between px-2 pb-2">
-              <div className="flex items-center gap-1">
-                {/* Mode button */}
-                <ToolButton
-                  active={modeOpen}
-                  onClick={() => {
-                    setModeOpen((v) => !v);
-                    setModelOpen(false);
-                    setSkillsOpen(false);
-                  }}
-                >
-                  {getModeName(selectedMode, t)}
-                </ToolButton>
-
-                {/* Model button */}
-                <ToolButton
-                  active={modelOpen}
-                  onClick={() => {
-                    setModelOpen((v) => !v);
-                    setModeOpen(false);
-                    setSkillsOpen(false);
-                  }}
-                >
-                  {modelsStatus === "loading"
-                    ? t('ai.panel.loading')
-                    : getModelName(selectedModel, availableModels)}
-                </ToolButton>
-
-                {/* Skill button */}
-                <ToolButton
-                  active={skillsOpen}
-                  testId="ai-skills-toggle"
-                  onClick={() => {
-                    setSkillsOpen((v) => !v);
-                    setModeOpen(false);
-                    setModelOpen(false);
-                  }}
-                >
-                  {skillsStatus === "loading" ? t('ai.panel.loading') : t('ai.panel.skill')}
-                </ToolButton>
-              </div>
-
-              <SendStopButton
-                isWorking={working}
-                disabled={!working && !input.trim()}
-                onSend={() => void onRun()}
-                onStop={() => void cancel()}
-              />
-            </div>
-
-            {/* Pickers anchored to the input wrapper */}
-            <ModePicker
-              open={modeOpen}
-              selectedMode={selectedMode}
-              onOpenChange={setModeOpen}
-              onSelectMode={(mode) => {
-                setSelectedMode(mode);
-                setModeOpen(false);
-              }}
-            />
-            <ModelPicker
-              open={modelOpen}
-              models={availableModels}
-              recentModelIds={recentModelIds}
-              selectedModel={selectedModel}
-              onOpenChange={setModelOpen}
-              onSelectModel={(model) => {
-                setSelectedModel(model);
-                setModelOpen(false);
-              }}
-            />
-            <SkillPicker
-              open={skillsOpen}
-              items={skills}
-              selectedSkillId={selectedSkillId}
-              onOpenChange={setSkillsOpen}
-              onSelectSkillId={(skillId) => {
-                void handleSkillSelect(skillId);
-              }}
-              onOpenSettings={() => {
-                setSkillsOpen(false);
-                openSettings();
-              }}
-              onCreateSkill={() => {
-                setSkillsOpen(false);
-                setSkillManagerOpen(true);
-              }}
-              onToggleSkill={(skillId, enabled) => {
-                void handleSkillToggle({ skillId, enabled });
-              }}
-              onUpdateScope={(id, scope) => {
-                void handleSkillScopeUpdate({ id, scope });
-              }}
-            />
-            <SkillManagerDialog
-              open={skillManagerOpen}
-              onOpenChange={setSkillManagerOpen}
-              projectId={currentProject?.projectId ?? projectId ?? null}
-              onSaved={async () => {
-                await refreshSkills();
-              }}
-            />
-          </div>
-        </div>
+        <AiPanelChatArea
+          lastRequest={lastRequest}
+          working={working}
+          status={status}
+          queuePosition={queuePosition}
+          queuedCount={queuedCount}
+          errorConfigs={errorConfigs}
+          lastCandidates={lastCandidates}
+          selectedCandidate={selectedCandidate}
+          activeOutputText={activeOutputText}
+          judgeResult={judgeResult}
+          usageStats={usageStats}
+          applyStatus={applyStatus}
+          proposal={proposal}
+          compareMode={compareMode}
+          diffText={diffText}
+          canApply={canApply}
+          inlineDiffConfirmOpen={inlineDiffConfirmOpen}
+          clearError={clearError}
+          openSettings={openSettings}
+          onSelectCandidate={actions.onSelectCandidate}
+          onRegenerateAll={() => void actions.onRegenerateAll()}
+          onApply={() => void actions.onApply()}
+          onReject={actions.onReject}
+          setInlineDiffConfirmOpen={setInlineDiffConfirmOpen}
+        />
+        <AiPanelInputArea
+          ref={textareaRef}
+          hasSelectionReference={hasSelectionReference}
+          selectionPreview={selectionPreview}
+          setSelectionSnapshot={() => setSelectionSnapshot(null)}
+          input={input}
+          setInput={setInput}
+          handleKeyDown={actions.handleKeyDown}
+          working={working}
+          onRun={() => void actions.onRun()}
+          cancel={cancel}
+          modeOpen={modeOpen}
+          modelOpen={modelOpen}
+          skillsOpen={skillsOpen}
+          setModeOpen={setModeOpen}
+          setModelOpen={setModelOpen}
+          setSkillsOpen={setSkillsOpen}
+          selectedMode={selectedMode}
+          setSelectedMode={setSelectedMode}
+          modelsStatus={modelsStatus}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          skillsStatus={skillsStatus}
+          availableModels={availableModels}
+          recentModelIds={recentModelIds}
+          selectedSkillId={selectedSkillId}
+          skills={skills}
+          handleSkillSelect={(skillId) => void actions.handleSkillSelect(skillId)}
+          handleSkillToggle={(args) => void actions.handleSkillToggle(args)}
+          handleSkillScopeUpdate={(args) => void actions.handleSkillScopeUpdate(args)}
+          openSettings={openSettings}
+          skillManagerOpen={skillManagerOpen}
+          setSkillManagerOpen={setSkillManagerOpen}
+          currentProject={currentProject}
+          projectId={projectId}
+          refreshSkills={refreshSkills}
+        />
       </div>
       </div>
     </PanelContainer>

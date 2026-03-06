@@ -393,6 +393,13 @@ describe("CreateProjectDialog", () => {
       });
     });
   });
+});
+
+describe("CreateProjectDialog — error and edge cases", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    templateStoreState = createMockTemplateState();
+  });
 
   // ===========================================================================
   // 错误状态测试

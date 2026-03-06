@@ -106,6 +106,28 @@ function getContentStyles(hasContainer: boolean): string {
 }
 
 /**
+ * Zodiac date-range table (month×100+day bounds).
+ * Capricorn handled separately since it spans the year boundary.
+ */
+const ZODIAC_DATE_RANGES: ReadonlyArray<{
+  min: number;
+  max: number;
+  sign: ZodiacSign;
+}> = [
+  { min: 321, max: 419, sign: "aries" },
+  { min: 420, max: 520, sign: "taurus" },
+  { min: 521, max: 620, sign: "gemini" },
+  { min: 621, max: 722, sign: "cancer" },
+  { min: 723, max: 822, sign: "leo" },
+  { min: 823, max: 922, sign: "virgo" },
+  { min: 923, max: 1022, sign: "libra" },
+  { min: 1023, max: 1121, sign: "scorpio" },
+  { min: 1122, max: 1221, sign: "sagittarius" },
+  { min: 120, max: 218, sign: "aquarius" },
+  { min: 219, max: 320, sign: "pisces" },
+];
+
+/**
  * Compute zodiac sign from ISO birth date (YYYY-MM-DD).
  *
  * Returns undefined when birthDate is missing or invalid.
@@ -120,20 +142,10 @@ function getZodiacFromBirthDate(birthDate: string): ZodiacSign | undefined {
 
   const md = month * 100 + day;
 
-  if (md >= 321 && md <= 419) return "aries";
-  if (md >= 420 && md <= 520) return "taurus";
-  if (md >= 521 && md <= 620) return "gemini";
-  if (md >= 621 && md <= 722) return "cancer";
-  if (md >= 723 && md <= 822) return "leo";
-  if (md >= 823 && md <= 922) return "virgo";
-  if (md >= 923 && md <= 1022) return "libra";
-  if (md >= 1023 && md <= 1121) return "scorpio";
-  if (md >= 1122 && md <= 1221) return "sagittarius";
+  // Capricorn spans the year boundary (Dec 22 – Jan 19)
   if (md >= 1222 || md <= 119) return "capricorn";
-  if (md >= 120 && md <= 218) return "aquarius";
-  if (md >= 219 && md <= 320) return "pisces";
 
-  return undefined;
+  return ZODIAC_DATE_RANGES.find((r) => md >= r.min && md <= r.max)?.sign;
 }
 
 const labelStyles = [
@@ -402,31 +414,259 @@ function ChapterLink({
 }
 
 // ============================================================================
+// Extracted Section Components
+// ============================================================================
+
+/**
+ * CharacterProfileSection – expanded table / collapsed summary for character
+ * profile fields (age, birth, zodiac, archetype, features, traits).
+ */
+function CharacterProfileSection(props: {
+  character: Character;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  contentId: string;
+  zodiacLabel: string | undefined;
+  archetypeLabel: string | undefined;
+  newTrait: string;
+  onNewTraitChange: (v: string) => void;
+  onAddTrait: () => void;
+  onRemoveTrait: (trait: string) => void;
+  onTraitKeyDown: (e: React.KeyboardEvent) => void;
+  newFeature: string;
+  onNewFeatureChange: (v: string) => void;
+  onAddFeature: () => void;
+  onRemoveFeature: (feature: string) => void;
+  onFeatureKeyDown: (e: React.KeyboardEvent) => void;
+  onFieldChange: <K extends keyof Character>(field: K, value: Character[K]) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const c = props.character;
+
+  return (
+    <div className="space-y-3">
+      <div className={sectionHeaderStyles}>
+        <label className={labelStyles}>{t('character.detail.profile')}</label>
+        <button
+          type="button"
+          onClick={props.onToggleExpand}
+          aria-expanded={props.isExpanded}
+          aria-controls={props.contentId}
+          aria-label={props.isExpanded ? t('character.detail.collapseProfile') : t('character.detail.expandProfile')}
+          className="focus-ring text-[10px] text-[var(--color-fg-placeholder)] hover:text-[var(--color-fg-muted)] inline-flex items-center gap-1 font-medium transition-colors"
+        >
+          <span aria-hidden="true">
+            {props.isExpanded ? t('character.detail.collapse') : t('character.detail.expand')}
+          </span>
+          <ChevronDownIcon
+            className={[
+              "transition-transform duration-[var(--duration-fast)]",
+              props.isExpanded ? "rotate-180" : "",
+            ].join(" ")}
+          />
+        </button>
+      </div>
+
+      <div id={props.contentId}>
+        {props.isExpanded ? (
+          <div className="rounded-lg overflow-hidden border border-[var(--color-border-default)] divide-y divide-[var(--color-border-default)] bg-[var(--color-bg-base)]">
+            <ProfileTableRow label={t('character.detail.age')}>
+              <Input
+                type="text"
+                value={c.age?.toString() ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  props.onFieldChange("age", val ? parseInt(val, 10) : undefined);
+                }}
+                fullWidth
+              />
+            </ProfileTableRow>
+
+            <ProfileTableRow label={t('character.detail.birthDate')}>
+              <Input
+                type="date"
+                value={c.birthDate ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  props.onFieldChange("birthDate", val ? val : undefined);
+                  const zodiac = val ? getZodiacFromBirthDate(val) : undefined;
+                  if (zodiac) {
+                    props.onFieldChange("zodiac", zodiac);
+                  }
+                }}
+                fullWidth
+              />
+            </ProfileTableRow>
+
+            <ProfileTableRow label={t('character.detail.zodiac')}>
+              <Select
+                value={c.zodiac ?? ""}
+                onValueChange={(val) =>
+                  props.onFieldChange("zodiac", val ? (val as ZodiacSign) : undefined)
+                }
+                options={ZODIAC_OPTIONS.map((z) => ({ value: z.value, label: z.label }))}
+                placeholder={t('character.detail.selectZodiacPlaceholder')}
+                fullWidth
+                layer="modal"
+              />
+            </ProfileTableRow>
+
+            <ProfileTableRow label={t('character.detail.archetype')}>
+              <Select
+                value={c.archetype ?? ""}
+                onValueChange={(val) => props.onFieldChange("archetype", val)}
+                options={ARCHETYPE_OPTIONS.map((a) => ({ value: a.value, label: a.label }))}
+                placeholder={t('character.detail.selectArchetypePlaceholder')}
+                fullWidth
+                layer="modal"
+              />
+            </ProfileTableRow>
+
+            <ProfileTableRow label={t('character.detail.features')}>
+              <div className="flex flex-wrap gap-2">
+                {(c.features ?? []).map((feature) => (
+                  <TraitTag key={feature} trait={feature} onRemove={() => props.onRemoveFeature(feature)} />
+                ))}
+                <input
+                  type="text"
+                  placeholder={t('character.detail.addFeaturePlaceholder')}
+                  value={props.newFeature}
+                  onChange={(e) => props.onNewFeatureChange(e.target.value)}
+                  onKeyDown={props.onFeatureKeyDown}
+                  onBlur={props.onAddFeature}
+                  className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[80px] py-1 px-1 ml-1 hover:bg-[var(--color-bg-surface)] rounded transition-colors"
+                />
+              </div>
+            </ProfileTableRow>
+
+            <ProfileTableRow label={t('character.detail.personality')}>
+              <div className="flex flex-wrap gap-2">
+                {c.traits.map((trait) => (
+                  <TraitTag key={trait} trait={trait} onRemove={() => props.onRemoveTrait(trait)} />
+                ))}
+                <input
+                  type="text"
+                  placeholder={t('character.detail.addTraitPlaceholder')}
+                  value={props.newTrait}
+                  onChange={(e) => props.onNewTraitChange(e.target.value)}
+                  onKeyDown={props.onTraitKeyDown}
+                  onBlur={props.onAddTrait}
+                  className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[60px] py-1 px-1 ml-1 hover:bg-[var(--color-bg-surface)] rounded transition-colors"
+                />
+              </div>
+            </ProfileTableRow>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-3">
+            <div className="flex flex-wrap gap-2">
+              <ProfileSummaryItem label={t('character.detail.age')} value={c.age !== undefined ? String(c.age) : "—"} />
+              <ProfileSummaryItem label={t('character.detail.birth')} value={c.birthDate ?? "—"} />
+              <ProfileSummaryItem label={t('character.detail.zodiac')} value={props.zodiacLabel ?? "—"} />
+              <ProfileSummaryItem label={t('character.detail.archetype')} value={props.archetypeLabel ?? "—"} />
+              <ProfileSummaryItem label={t('character.detail.features')} value={String((c.features ?? []).length)} />
+              <ProfileSummaryItem label={t('character.detail.traits')} value={String(c.traits.length)} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * CharacterRelationshipsSection – relationship list with add/remove.
+ */
+function CharacterRelationshipsSection(props: {
+  character: Character;
+  availableCharacters: Character[] | undefined;
+  onFieldChange: <K extends keyof Character>(field: K, value: Character[K]) => void;
+  onRemoveRelationship: (characterId: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+  const c = props.character;
+
+  const candidates = (props.availableCharacters ?? []).filter((ch) => ch.id !== c.id);
+
+  return (
+    <div className="space-y-3">
+      <div className={sectionHeaderStyles}>
+        <label className={labelStyles}>{t('character.detail.relationships')}</label>
+        {candidates.length > 0 ? (
+          <AddRelationshipPopover
+            availableCharacters={candidates}
+            existingRelationships={c.relationships}
+            onAdd={(relationship) =>
+              props.onFieldChange("relationships", [...c.relationships, relationship])
+            }
+            layer="modal"
+          />
+        ) : (
+          <span className="text-[10px] text-[var(--color-fg-placeholder)]">
+            {t('character.detail.noOtherCharacters')}
+          </span>
+        )}
+      </div>
+      {c.relationships.length > 0 ? (
+        <div className="rounded-lg overflow-hidden bg-[var(--color-bg-base)] border border-[var(--color-bg-hover)] divide-y divide-[var(--color-bg-hover)]">
+          {c.relationships.map((rel) => (
+            <RelationshipItem
+              key={rel.characterId}
+              relationship={rel}
+              onRemove={() => props.onRemoveRelationship(rel.characterId)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-[var(--color-fg-placeholder)] py-4 text-center border border-dashed border-[var(--color-border-default)] rounded-lg">
+          {t('character.detail.noRelationships')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * CharacterAppearancesSection – chapter appearance links.
+ */
+function CharacterAppearancesSection(props: {
+  appearances: ChapterAppearance[];
+  onNavigateToChapter?: (chapterId: string) => void;
+}): JSX.Element {
+  const { t } = useTranslation();
+
+  return (
+    <div className="space-y-3 pb-2">
+      <div className={sectionHeaderStyles}>
+        <label className={labelStyles}>{t('character.detail.appearances')}</label>
+        <span className="text-[10px] text-[var(--color-fg-placeholder)]">
+          {props.appearances.length} {t('character.detail.chapters')}
+        </span>
+      </div>
+      {props.appearances.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          {props.appearances.map((appearance) => (
+            <ChapterLink
+              key={appearance.id}
+              appearance={appearance}
+              onNavigate={() => props.onNavigateToChapter?.(appearance.id)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-xs text-[var(--color-fg-placeholder)] py-4 text-center border border-dashed border-[var(--color-border-default)] rounded-lg">
+          {t('character.detail.noAppearances')}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
 /**
- * CharacterDetailDialog - Modal dialog for viewing and editing character details
- *
- * Features:
- * - Avatar with upload hover state
- * - Name, age, archetype editing
- * - Description textarea
- * - Personality traits with add/remove
- * - Relationship management
- * - Chapter appearances with navigation
- * - Save/Cancel/Delete actions
- *
- * @example
- * ```tsx
- * <CharacterDetailDialog
- *   open={isOpen}
- *   onOpenChange={setIsOpen}
- *   character={selectedCharacter}
- *   onSave={(updated) => updateCharacter(updated)}
- *   onDelete={(id) => deleteCharacter(id)}
- * />
- * ```
+ * CharacterDetailDialog - Modal dialog for viewing and editing character details.
  */
 export function CharacterDetailDialog({
   open,
@@ -638,172 +878,25 @@ export function CharacterDetailDialog({
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            {/* Profile */}
-            <div className="space-y-3">
-              <div className={sectionHeaderStyles}>
-                <label className={labelStyles}>{t('character.detail.profile')}</label>
-                <button
-                  type="button"
-                  onClick={() => setIsProfileExpanded((v) => !v)}
-                  aria-expanded={isProfileExpanded}
-                  aria-controls={profileContentId}
-                  aria-label={isProfileExpanded ? t('character.detail.collapseProfile') : t('character.detail.expandProfile')}
-                  className="focus-ring text-[10px] text-[var(--color-fg-placeholder)] hover:text-[var(--color-fg-muted)] inline-flex items-center gap-1 font-medium transition-colors"
-                >
-                  <span aria-hidden="true">
-                    {isProfileExpanded ? t('character.detail.collapse') : t('character.detail.expand')}
-                  </span>
-                  <ChevronDownIcon
-                    className={[
-                      "transition-transform duration-[var(--duration-fast)]",
-                      isProfileExpanded ? "rotate-180" : "",
-                    ].join(" ")}
-                  />
-                </button>
-              </div>
-
-              <div id={profileContentId}>
-                {isProfileExpanded ? (
-                  <div className="rounded-lg overflow-hidden border border-[var(--color-border-default)] divide-y divide-[var(--color-border-default)] bg-[var(--color-bg-base)]">
-                    <ProfileTableRow label={t('character.detail.age')}>
-                      <Input
-                        type="text"
-                        value={editedCharacter.age?.toString() ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          handleFieldChange(
-                            "age",
-                            val ? parseInt(val, 10) : undefined,
-                          );
-                        }}
-                        fullWidth
-                      />
-                    </ProfileTableRow>
-
-                    <ProfileTableRow label={t('character.detail.birthDate')}>
-                      <Input
-                        type="date"
-                        value={editedCharacter.birthDate ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          handleFieldChange("birthDate", val ? val : undefined);
-                          const zodiac = val ? getZodiacFromBirthDate(val) : undefined;
-                          if (zodiac) {
-                            handleFieldChange("zodiac", zodiac);
-                          }
-                        }}
-                        fullWidth
-                      />
-                    </ProfileTableRow>
-
-                    <ProfileTableRow label={t('character.detail.zodiac')}>
-                      <Select
-                        value={editedCharacter.zodiac ?? ""}
-                        onValueChange={(val) =>
-                          handleFieldChange(
-                            "zodiac",
-                            val ? (val as ZodiacSign) : undefined,
-                          )
-                        }
-                        options={ZODIAC_OPTIONS.map((z) => ({
-                          value: z.value,
-                          label: z.label,
-                        }))}
-                        placeholder={t('character.detail.selectZodiacPlaceholder')}
-                        fullWidth
-                        layer="modal"
-                      />
-                    </ProfileTableRow>
-
-                    <ProfileTableRow label={t('character.detail.archetype')}>
-                      <Select
-                        value={editedCharacter.archetype ?? ""}
-                        onValueChange={(val) => handleFieldChange("archetype", val)}
-                        options={ARCHETYPE_OPTIONS.map((a) => ({
-                          value: a.value,
-                          label: a.label,
-                        }))}
-                        placeholder={t('character.detail.selectArchetypePlaceholder')}
-                        fullWidth
-                        layer="modal"
-                      />
-                    </ProfileTableRow>
-
-                    <ProfileTableRow label={t('character.detail.features')}>
-                      <div className="flex flex-wrap gap-2">
-                        {(editedCharacter.features ?? []).map((feature) => (
-                          <TraitTag
-                            key={feature}
-                            trait={feature}
-                            onRemove={() => handleRemoveFeature(feature)}
-                          />
-                        ))}
-                        <input
-                          type="text"
-                          placeholder={t('character.detail.addFeaturePlaceholder')}
-                          value={newFeature}
-                          onChange={(e) => setNewFeature(e.target.value)}
-                          onKeyDown={handleFeatureKeyDown}
-                          onBlur={handleAddFeature}
-                          className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[80px] py-1 px-1 ml-1 hover:bg-[var(--color-bg-surface)] rounded transition-colors"
-                        />
-                      </div>
-                    </ProfileTableRow>
-
-                    <ProfileTableRow label={t('character.detail.personality')}>
-                      <div className="flex flex-wrap gap-2">
-                        {editedCharacter.traits.map((trait) => (
-                          <TraitTag
-                            key={trait}
-                            trait={trait}
-                            onRemove={() => handleRemoveTrait(trait)}
-                          />
-                        ))}
-                        <input
-                          type="text"
-                          placeholder={t('character.detail.addTraitPlaceholder')}
-                          value={newTrait}
-                          onChange={(e) => setNewTrait(e.target.value)}
-                          onKeyDown={handleTraitKeyDown}
-                          onBlur={handleAddTrait}
-                          className="bg-transparent text-xs text-[var(--color-fg-default)] placeholder-[var(--color-fg-placeholder)] focus:outline-none focus:placeholder-[var(--color-fg-muted)] min-w-[60px] py-1 px-1 ml-1 hover:bg-[var(--color-bg-surface)] rounded transition-colors"
-                        />
-                      </div>
-                    </ProfileTableRow>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-[var(--color-border-default)] bg-[var(--color-bg-base)] p-3">
-                    <div className="flex flex-wrap gap-2">
-                      <ProfileSummaryItem
-                        label={t('character.detail.age')}
-                        value={
-                          editedCharacter.age !== undefined
-                            ? String(editedCharacter.age)
-                            : "—"
-                        }
-                      />
-                      <ProfileSummaryItem
-                        label={t('character.detail.birth')}
-                        value={editedCharacter.birthDate ?? "—"}
-                      />
-                      <ProfileSummaryItem label={t('character.detail.zodiac')} value={zodiacLabel ?? "—"} />
-                      <ProfileSummaryItem
-                        label={t('character.detail.archetype')}
-                        value={archetypeLabel ?? "—"}
-                      />
-                      <ProfileSummaryItem
-                        label={t('character.detail.features')}
-                        value={String((editedCharacter.features ?? []).length)}
-                      />
-                      <ProfileSummaryItem
-                        label={t('character.detail.traits')}
-                        value={String(editedCharacter.traits.length)}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+            <CharacterProfileSection
+              character={editedCharacter}
+              isExpanded={isProfileExpanded}
+              onToggleExpand={() => setIsProfileExpanded((v) => !v)}
+              contentId={profileContentId}
+              zodiacLabel={zodiacLabel}
+              archetypeLabel={archetypeLabel}
+              newTrait={newTrait}
+              onNewTraitChange={setNewTrait}
+              onAddTrait={handleAddTrait}
+              onRemoveTrait={handleRemoveTrait}
+              onTraitKeyDown={handleTraitKeyDown}
+              newFeature={newFeature}
+              onNewFeatureChange={setNewFeature}
+              onAddFeature={handleAddFeature}
+              onRemoveFeature={handleRemoveFeature}
+              onFeatureKeyDown={handleFeatureKeyDown}
+              onFieldChange={handleFieldChange}
+            />
 
             {/* Appearance & Description */}
             <div className="space-y-3">
@@ -819,74 +912,17 @@ export function CharacterDetailDialog({
               />
             </div>
 
-            {/* Relationships */}
-            <div className="space-y-3">
-              <div className={sectionHeaderStyles}>
-                <label className={labelStyles}>{t('character.detail.relationships')}</label>
-                {(() => {
-                  const candidates = (availableCharacters ?? []).filter(
-                    (c) => c.id !== editedCharacter.id,
-                  );
-                  return candidates.length > 0 ? (
-                    <AddRelationshipPopover
-                      availableCharacters={candidates}
-                      existingRelationships={editedCharacter.relationships}
-                      onAdd={(relationship) =>
-                        handleFieldChange("relationships", [
-                          ...editedCharacter.relationships,
-                          relationship,
-                        ])
-                      }
-                      layer="modal"
-                    />
-                  ) : (
-                    <span className="text-[10px] text-[var(--color-fg-placeholder)]">
-                      {t('character.detail.noOtherCharacters')}
-                    </span>
-                  );
-                })()}
-              </div>
-              {editedCharacter.relationships.length > 0 ? (
-                <div className="rounded-lg overflow-hidden bg-[var(--color-bg-base)] border border-[var(--color-bg-hover)] divide-y divide-[var(--color-bg-hover)]">
-                  {editedCharacter.relationships.map((rel) => (
-                    <RelationshipItem
-                      key={rel.characterId}
-                      relationship={rel}
-                      onRemove={() => handleRemoveRelationship(rel.characterId)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-[var(--color-fg-placeholder)] py-4 text-center border border-dashed border-[var(--color-border-default)] rounded-lg">
-                  {t('character.detail.noRelationships')}
-                </div>
-              )}
-            </div>
+            <CharacterRelationshipsSection
+              character={editedCharacter}
+              availableCharacters={availableCharacters}
+              onFieldChange={handleFieldChange}
+              onRemoveRelationship={handleRemoveRelationship}
+            />
 
-            {/* Chapter Appearances */}
-            <div className="space-y-3 pb-2">
-              <div className={sectionHeaderStyles}>
-                <label className={labelStyles}>{t('character.detail.appearances')}</label>
-                <span className="text-[10px] text-[var(--color-fg-placeholder)]">
-                  {editedCharacter.appearances.length} {t('character.detail.chapters')}
-                </span>
-              </div>
-              {editedCharacter.appearances.length > 0 ? (
-                <div className="flex flex-col gap-1">
-                  {editedCharacter.appearances.map((appearance) => (
-                    <ChapterLink
-                      key={appearance.id}
-                      appearance={appearance}
-                      onNavigate={() => onNavigateToChapter?.(appearance.id)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-[var(--color-fg-placeholder)] py-4 text-center border border-dashed border-[var(--color-border-default)] rounded-lg">
-                  {t('character.detail.noAppearances')}
-                </div>
-              )}
-            </div>
+            <CharacterAppearancesSection
+              appearances={editedCharacter.appearances}
+              onNavigateToChapter={onNavigateToChapter}
+            />
           </div>
 
           {/* Footer */}

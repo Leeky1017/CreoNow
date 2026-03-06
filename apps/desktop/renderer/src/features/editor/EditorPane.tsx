@@ -8,7 +8,7 @@ import BubbleMenuExtension from "@tiptap/extension-bubble-menu";
 import type { IpcResponseData } from "@shared/types/ipc-generated";
 
 import { useOptionalAiStore } from "../../stores/aiStore";
-import { useEditorStore } from "../../stores/editorStore";
+import { useEditorStore, type EntityCompletionSession } from "../../stores/editorStore";
 import { useVersionStore } from "../../stores/versionStore";
 import { useAutosave } from "./useAutosave";
 import { useHotkey } from "../../lib/hotkeys/useHotkey";
@@ -336,226 +336,31 @@ export function sanitizePastedHtml(inputHtml: string): string {
   return body.innerHTML;
 }
 
-/**
- * EditorPane mounts TipTap editor and wires autosave to the DB SSOT.
- */
-export function EditorPane(props: { projectId: string }): JSX.Element {
-  const { t } = useTranslation();
-  const bootstrapStatus = useEditorStore((s) => s.bootstrapStatus);
-  const documentId = useEditorStore((s) => s.documentId);
-  const documentStatus = useEditorStore((s) => s.documentStatus);
-  const documentContentJson = useEditorStore((s) => s.documentContentJson);
-  const save = useEditorStore((s) => s.save);
-  const setDocumentCharacterCount = useEditorStore(
-    (s) => s.setDocumentCharacterCount,
-  );
-  const setCapacityWarning = useEditorStore((s) => s.setCapacityWarning);
-  const entityCompletionSession = useEditorStore(
-    (s) => s.entityCompletionSession,
-  );
-  const setEntityCompletionSession = useEditorStore(
-    (s) => s.setEntityCompletionSession,
-  );
-  const clearEntityCompletionSession = useEditorStore(
-    (s) => s.clearEntityCompletionSession,
-  );
-  const listKnowledgeEntities = useEditorStore((s) => s.listKnowledgeEntities);
-  const downgradeFinalStatusForEdit = useEditorStore(
-    (s) => s.downgradeFinalStatusForEdit,
-  );
-  const setEditorInstance = useEditorStore((s) => s.setEditorInstance);
-  const previewStatus = useVersionStore((s) => s.previewStatus);
-  const previewTimestamp = useVersionStore((s) => s.previewTimestamp);
-  const previewContentJson = useVersionStore((s) => s.previewContentJson);
-  const exitPreview = useVersionStore((s) => s.exitPreview);
-  const aiStatus = useOptionalAiStore((s) => s.status) ?? "idle";
-  const aiSetSelectedSkillId = useOptionalAiStore((s) => s.setSelectedSkillId);
-  const aiRun = useOptionalAiStore((s) => s.run);
+function useEntityCompletion(deps: {
+  editor: ReturnType<typeof useEditor>;
+  bootstrapStatus: string;
+  documentId: string | null;
+  contentReady: boolean;
+  isPreviewMode: boolean;
+  documentStatus: string | null;
+  entityCompletionSession: EntityCompletionSession;
+  setEntityCompletionSession: (patch: Partial<EntityCompletionSession>) => void;
+  clearEntityCompletionSession: () => void;
+  listKnowledgeEntities: (args: { projectId: string }) => Promise<{ ok: true; data: { items: EntityListItem[] } } | { ok: false }>;
+  projectId: string;
+}) {
+  const {
+    bootstrapStatus, clearEntityCompletionSession, contentReady, documentId,
+    documentStatus, editor, entityCompletionSession, isPreviewMode,
+    listKnowledgeEntities, projectId, setEntityCompletionSession,
+  } = deps;
 
-  const suppressAutosaveRef = React.useRef<boolean>(false);
-  const aiStreamCheckpointRef = React.useRef<AiStreamCheckpoint | null>(null);
-  const [contentReady, setContentReady] = React.useState(false);
-  const [writeHovering, setWriteHovering] = React.useState(false);
-  const [isSlashPanelOpen, setIsSlashPanelOpen] = React.useState(false);
-  const [slashSearchQuery, setSlashSearchQuery] = React.useState("");
-  const slashPanelOpenRef = React.useRef(false);
   const entityCompletionSessionRef = React.useRef(entityCompletionSession);
   const entityCompletionRequestIdRef = React.useRef(0);
-  const isPreviewMode =
-    previewStatus === "ready" && previewContentJson !== null;
-  const activeContentJson = isPreviewMode
-    ? previewContentJson
-    : documentContentJson;
-
-  const syncCapacityState = React.useCallback(
-    (nextCount: number) => {
-      setDocumentCharacterCount(nextCount);
-      setCapacityWarning(
-        shouldWarnDocumentCapacity(nextCount) ? t('editor.pane.charLimitReached') : null,
-      );
-    },
-    [setCapacityWarning, setDocumentCharacterCount, t],
-  );
-
-  React.useEffect(() => {
-    slashPanelOpenRef.current = isSlashPanelOpen;
-  }, [isSlashPanelOpen]);
 
   React.useEffect(() => {
     entityCompletionSessionRef.current = entityCompletionSession;
   }, [entityCompletionSession]);
-
-  const openSlashPanel = React.useCallback(() => {
-    setIsSlashPanelOpen(true);
-  }, []);
-
-  const closeSlashPanel = React.useCallback(() => {
-    setIsSlashPanelOpen(false);
-    setSlashSearchQuery("");
-  }, []);
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Underline,
-      Link.configure({
-        openOnClick: false,
-        autolink: false,
-        linkOnPaste: false,
-      }),
-      SlashCommandExtension.configure({
-        isPanelOpen: () => slashPanelOpenRef.current,
-        onOpenPanel: openSlashPanel,
-        onClosePanel: closeSlashPanel,
-      }),
-      DragHandleExtension,
-      ...(!IS_VITEST_RUNTIME
-        ? [
-            BubbleMenuExtension.configure({
-              pluginKey: EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY,
-            }),
-          ]
-        : []),
-    ],
-    autofocus: true,
-    editorProps: {
-      transformPastedHTML: sanitizePastedHtml,
-      handlePaste(view, event) {
-        const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
-        if (clipboardText.length < LARGE_PASTE_THRESHOLD_CHARS) {
-          return false;
-        }
-
-        event.preventDefault();
-
-        const currentLength = view.state.doc.textContent.length;
-        const chunks = chunkLargePasteText(clipboardText);
-        if (chunks.length === 0) {
-          return true;
-        }
-
-        const overflow = shouldConfirmOverflowPaste({
-          currentLength,
-          pasteLength: clipboardText.length,
-        });
-        const shouldContinueOverflow =
-          !overflow ||
-          window.confirm(
-            t('editor.pane.pasteLimitExceeded'),
-          );
-
-        const allowedLength = shouldContinueOverflow
-          ? clipboardText.length
-          : Math.max(EDITOR_DOCUMENT_CHARACTER_LIMIT - currentLength, 0);
-        if (allowedLength <= 0) {
-          return true;
-        }
-
-        let remaining = allowedLength;
-        for (const chunk of chunks) {
-          if (remaining <= 0) {
-            break;
-          }
-          const nextChunk = chunk.slice(0, remaining);
-          const tr = view.state.tr.insertText(
-            nextChunk,
-            view.state.selection.from,
-            view.state.selection.to,
-          );
-          view.dispatch(tr);
-          remaining -= nextChunk.length;
-        }
-        return true;
-      },
-      attributes: {
-        "data-testid": "tiptap-editor",
-        class: "h-full outline-none p-4 text-[var(--color-fg-default)]",
-      },
-    },
-    content: { type: "doc", content: [{ type: "paragraph" }] },
-  });
-
-  React.useEffect(() => {
-    setEditorInstance(editor ?? null);
-    return () => setEditorInstance(null);
-  }, [editor, setEditorInstance]);
-
-  React.useEffect(() => {
-    if (!contentReady || isPreviewMode) {
-      closeSlashPanel();
-    }
-  }, [closeSlashPanel, contentReady, isPreviewMode]);
-
-  React.useEffect(() => {
-    if (!editor) {
-      return;
-    }
-    editor.setEditable(documentStatus !== "final" && !isPreviewMode);
-  }, [documentStatus, editor, isPreviewMode]);
-
-  React.useEffect(() => {
-    if (!editor || !documentId || !activeContentJson) {
-      setContentReady(false);
-      return;
-    }
-
-    try {
-      setContentReady(false);
-      suppressAutosaveRef.current = true;
-      editor.commands.setContent(parseEditorContentJsonSafely(activeContentJson));
-    } finally {
-      window.setTimeout(() => {
-        suppressAutosaveRef.current = false;
-        setContentReady(true);
-        syncCapacityState(editor.state.doc.textContent.length);
-      }, 0);
-    }
-  }, [activeContentJson, documentId, editor, syncCapacityState]);
-
-  React.useEffect(() => {
-    if (!editor) {
-      return;
-    }
-
-    const onUpdate = () => {
-      syncCapacityState(editor.state.doc.textContent.length);
-
-      // Clear AI undo checkpoint on any manual edit — the user has
-      // implicitly accepted the AI output by continuing to type.
-      if (
-        aiStreamCheckpointRef.current &&
-        !isAiRunning(aiStatus)
-      ) {
-        aiStreamCheckpointRef.current = null;
-      }
-    };
-
-    onUpdate();
-    editor.on("update", onUpdate);
-    return () => {
-      editor.off("update", onUpdate);
-    };
-  }, [aiStatus, editor, syncCapacityState]);
 
   const resolveEntityCompletionCandidates = React.useCallback(
     async (args: {
@@ -580,7 +385,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       });
 
       const listed = await listKnowledgeEntities({
-        projectId: props.projectId,
+        projectId: projectId,
       });
       if (requestId !== entityCompletionRequestIdRef.current) {
         return;
@@ -617,7 +422,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
         message: null,
       });
     },
-    [listKnowledgeEntities, props.projectId, setEntityCompletionSession],
+    [listKnowledgeEntities, projectId, setEntityCompletionSession],
   );
 
   React.useEffect(() => {
@@ -774,18 +579,34 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     setEntityCompletionSession,
   ]);
 
-  useAutosave({
-    enabled:
-      bootstrapStatus === "ready" &&
-      !!documentId &&
-      contentReady &&
-      documentStatus !== "final" &&
-      !isPreviewMode,
-    projectId: props.projectId,
-    documentId: documentId ?? "",
-    editor,
-    suppressRef: suppressAutosaveRef,
-  });
+
+  return { applyEntityCompletionCandidate };
+}
+
+function useEditorCommands(deps: {
+  editor: ReturnType<typeof useEditor>;
+  aiSetSelectedSkillId: ((id: string) => void) | null;
+  aiRun: ((args?: { inputOverride?: string; context?: { projectId?: string; documentId?: string } }) => Promise<void>) | null;
+  aiStatus: string;
+  documentId: string | null;
+  projectId: string;
+  isPreviewMode: boolean;
+  documentStatus: string | null;
+  save: (args: { projectId: string; documentId: string; contentJson: string; actor: "user" | "auto"; reason: "manual-save" | "autosave" }) => Promise<void>;
+  closeSlashPanel: () => void;
+  contentReady: boolean;
+  bootstrapStatus: string;
+  downgradeFinalStatusForEdit: (args: { projectId: string; documentId: string }) => Promise<boolean>;
+  t: (key: string) => string;
+}) {
+  const {
+    aiRun, aiSetSelectedSkillId, aiStatus, bootstrapStatus,
+    closeSlashPanel, contentReady, documentId, documentStatus,
+    downgradeFinalStatusForEdit, editor, isPreviewMode, projectId,
+    save,
+  } = deps;
+
+  const aiStreamCheckpointRef = React.useRef<AiStreamCheckpoint | null>(null);
 
   async function requestEditFromFinal(): Promise<void> {
     if (!documentId || documentStatus !== "final") {
@@ -802,8 +623,8 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       return;
     }
     await downgradeFinalStatusForEdit({
-      projectId: props.projectId,
-      documentId,
+      projectId: projectId,
+      documentId: documentId,
     });
   }
 
@@ -830,8 +651,8 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       await aiRun({
         inputOverride: buildWriteInput(editor),
         context: {
-          projectId: props.projectId,
-          documentId,
+          projectId: projectId,
+          documentId: documentId,
         },
       });
 
@@ -845,7 +666,7 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
       aiStatus,
       documentId,
       editor,
-      props.projectId,
+      projectId,
     ],
   );
 
@@ -922,13 +743,13 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
 
       const json = JSON.stringify(editor.getJSON());
       void save({
-        projectId: props.projectId,
-        documentId,
+        projectId: projectId,
+        documentId: documentId,
         contentJson: json,
         actor: "user",
         reason: "manual-save",
       });
-    }, [editorReady, editor, documentId, isPreviewMode, props.projectId, save]),
+    }, [editorReady, editor, documentId, isPreviewMode, projectId, save]),
     "editor",
     10,
   );
@@ -962,26 +783,327 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
     [closeSlashPanel, onWriteClick, runSlashAiSkill],
   );
 
-  if (bootstrapStatus !== "ready") {
+
+
+  return { handleSlashCommandSelect, onWriteClick, requestEditFromFinal, aiStreamCheckpointRef };
+}
+
+function useEditorPaneCore(projectId: string) {
+  const { t } = useTranslation();
+  const bootstrapStatus = useEditorStore((s) => s.bootstrapStatus);
+  const documentId = useEditorStore((s) => s.documentId);
+  const documentStatus = useEditorStore((s) => s.documentStatus);
+  const documentContentJson = useEditorStore((s) => s.documentContentJson);
+  const save = useEditorStore((s) => s.save);
+  const setDocumentCharacterCount = useEditorStore(
+    (s) => s.setDocumentCharacterCount,
+  );
+  const setCapacityWarning = useEditorStore((s) => s.setCapacityWarning);
+  const entityCompletionSession = useEditorStore(
+    (s) => s.entityCompletionSession,
+  );
+  const setEntityCompletionSession = useEditorStore(
+    (s) => s.setEntityCompletionSession,
+  );
+  const clearEntityCompletionSession = useEditorStore(
+    (s) => s.clearEntityCompletionSession,
+  );
+  const listKnowledgeEntities = useEditorStore((s) => s.listKnowledgeEntities);
+  const downgradeFinalStatusForEdit = useEditorStore(
+    (s) => s.downgradeFinalStatusForEdit,
+  );
+  const setEditorInstance = useEditorStore((s) => s.setEditorInstance);
+  const previewStatus = useVersionStore((s) => s.previewStatus);
+  const previewTimestamp = useVersionStore((s) => s.previewTimestamp);
+  const previewContentJson = useVersionStore((s) => s.previewContentJson);
+  const exitPreview = useVersionStore((s) => s.exitPreview);
+  const aiStatus = useOptionalAiStore((s) => s.status) ?? "idle";
+  const aiSetSelectedSkillId = useOptionalAiStore((s) => s.setSelectedSkillId);
+  const aiRun = useOptionalAiStore((s) => s.run);
+
+  const suppressAutosaveRef = React.useRef<boolean>(false);
+  const [contentReady, setContentReady] = React.useState(false);
+  const [writeHovering, setWriteHovering] = React.useState(false);
+  const [isSlashPanelOpen, setIsSlashPanelOpen] = React.useState(false);
+  const [slashSearchQuery, setSlashSearchQuery] = React.useState("");
+  const slashPanelOpenRef = React.useRef(false);
+  const isPreviewMode =
+    previewStatus === "ready" && previewContentJson !== null;
+  const activeContentJson = isPreviewMode
+    ? previewContentJson
+    : documentContentJson;
+
+  const syncCapacityState = React.useCallback(
+    (nextCount: number) => {
+      setDocumentCharacterCount(nextCount);
+      setCapacityWarning(
+        shouldWarnDocumentCapacity(nextCount) ? t('editor.pane.charLimitReached') : null,
+      );
+    },
+    [setCapacityWarning, setDocumentCharacterCount, t],
+  );
+
+  React.useEffect(() => {
+    slashPanelOpenRef.current = isSlashPanelOpen;
+  }, [isSlashPanelOpen]);
+
+
+  const openSlashPanel = React.useCallback(() => {
+    setIsSlashPanelOpen(true);
+  }, []);
+
+  const closeSlashPanel = React.useCallback(() => {
+    setIsSlashPanelOpen(false);
+    setSlashSearchQuery("");
+  }, []);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        autolink: false,
+        linkOnPaste: false,
+      }),
+      SlashCommandExtension.configure({
+        isPanelOpen: () => slashPanelOpenRef.current,
+        onOpenPanel: openSlashPanel,
+        onClosePanel: closeSlashPanel,
+      }),
+      DragHandleExtension,
+      ...(!IS_VITEST_RUNTIME
+        ? [
+            BubbleMenuExtension.configure({
+              pluginKey: EDITOR_INLINE_BUBBLE_MENU_PLUGIN_KEY,
+            }),
+          ]
+        : []),
+    ],
+    autofocus: true,
+    editorProps: {
+      transformPastedHTML: sanitizePastedHtml,
+      handlePaste(view, event) {
+        const clipboardText = event.clipboardData?.getData("text/plain") ?? "";
+        if (clipboardText.length < LARGE_PASTE_THRESHOLD_CHARS) {
+          return false;
+        }
+
+        event.preventDefault();
+
+        const currentLength = view.state.doc.textContent.length;
+        const chunks = chunkLargePasteText(clipboardText);
+        if (chunks.length === 0) {
+          return true;
+        }
+
+        const overflow = shouldConfirmOverflowPaste({
+          currentLength,
+          pasteLength: clipboardText.length,
+        });
+        const shouldContinueOverflow =
+          !overflow ||
+          window.confirm(
+            t('editor.pane.pasteLimitExceeded'),
+          );
+
+        const allowedLength = shouldContinueOverflow
+          ? clipboardText.length
+          : Math.max(EDITOR_DOCUMENT_CHARACTER_LIMIT - currentLength, 0);
+        if (allowedLength <= 0) {
+          return true;
+        }
+
+        let remaining = allowedLength;
+        for (const chunk of chunks) {
+          if (remaining <= 0) {
+            break;
+          }
+          const nextChunk = chunk.slice(0, remaining);
+          const tr = view.state.tr.insertText(
+            nextChunk,
+            view.state.selection.from,
+            view.state.selection.to,
+          );
+          view.dispatch(tr);
+          remaining -= nextChunk.length;
+        }
+        return true;
+      },
+      attributes: {
+        "data-testid": "tiptap-editor",
+        class: "h-full outline-none p-4 text-[var(--color-fg-default)]",
+      },
+    },
+    content: { type: "doc", content: [{ type: "paragraph" }] },
+  });
+
+  React.useEffect(() => {
+    setEditorInstance(editor ?? null);
+    return () => setEditorInstance(null);
+  }, [editor, setEditorInstance]);
+
+  React.useEffect(() => {
+    if (!contentReady || isPreviewMode) {
+      closeSlashPanel();
+    }
+  }, [closeSlashPanel, contentReady, isPreviewMode]);
+
+  React.useEffect(() => {
+    if (!editor) {
+      return;
+    }
+    editor.setEditable(documentStatus !== "final" && !isPreviewMode);
+  }, [documentStatus, editor, isPreviewMode]);
+
+  React.useEffect(() => {
+    if (!editor || !documentId || !activeContentJson) {
+      setContentReady(false);
+      return;
+    }
+
+    try {
+      setContentReady(false);
+      suppressAutosaveRef.current = true;
+      editor.commands.setContent(parseEditorContentJsonSafely(activeContentJson));
+    } finally {
+      window.setTimeout(() => {
+        suppressAutosaveRef.current = false;
+        setContentReady(true);
+        syncCapacityState(editor.state.doc.textContent.length);
+      }, 0);
+    }
+  }, [activeContentJson, documentId, editor, syncCapacityState]);
+
+  const {
+    handleSlashCommandSelect,
+    onWriteClick,
+    requestEditFromFinal,
+    aiStreamCheckpointRef,
+  } = useEditorCommands({
+    editor,
+    aiSetSelectedSkillId,
+    aiRun,
+    aiStatus,
+    documentId,
+    projectId,
+    isPreviewMode,
+    documentStatus,
+    save,
+    closeSlashPanel,
+    contentReady,
+    bootstrapStatus,
+    downgradeFinalStatusForEdit,
+    t,
+  });
+
+  React.useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    const onUpdate = () => {
+      syncCapacityState(editor.state.doc.textContent.length);
+
+      // Clear AI undo checkpoint on any manual edit — the user has
+      // implicitly accepted the AI output by continuing to type.
+      if (
+        aiStreamCheckpointRef.current &&
+        !isAiRunning(aiStatus)
+      ) {
+        aiStreamCheckpointRef.current = null;
+      }
+    };
+
+    onUpdate();
+    editor.on("update", onUpdate);
+    return () => {
+      editor.off("update", onUpdate);
+    };
+  }, [aiStreamCheckpointRef, aiStatus, editor, syncCapacityState]);
+
+  const { applyEntityCompletionCandidate } = useEntityCompletion({
+    editor,
+    bootstrapStatus,
+    documentId,
+    contentReady,
+    isPreviewMode,
+    documentStatus,
+    entityCompletionSession,
+    setEntityCompletionSession,
+    clearEntityCompletionSession,
+    listKnowledgeEntities,
+    projectId,
+  });
+
+
+  useAutosave({
+    enabled:
+      bootstrapStatus === "ready" &&
+      !!documentId &&
+      contentReady &&
+      documentStatus !== "final" &&
+      !isPreviewMode,
+    projectId,
+    documentId: documentId ?? "",
+    editor,
+    suppressRef: suppressAutosaveRef,
+  });
+
+
+  return {
+    t,
+    bootstrapStatus,
+    documentId,
+    documentStatus,
+    contentReady,
+    editor,
+    previewTimestamp,
+    isPreviewMode,
+    entityCompletionSession,
+    applyEntityCompletionCandidate,
+    isSlashPanelOpen,
+    slashSearchQuery,
+    setSlashSearchQuery,
+    handleSlashCommandSelect,
+    closeSlashPanel,
+    writeHovering,
+    setWriteHovering,
+    exitPreview,
+    requestEditFromFinal,
+    aiSetSelectedSkillId,
+    aiRun,
+    aiStatus,
+    onWriteClick,
+  };
+}
+
+/**
+ * EditorPane mounts TipTap editor and wires autosave to the DB SSOT.
+ */
+export function EditorPane(props: { projectId: string }): JSX.Element {
+  const core = useEditorPaneCore(props.projectId);
+
+  if (core.bootstrapStatus !== "ready") {
     return (
       <Text as="div" size="body" color="muted" className="p-4">
-        Loading editor…
+        {core.t('editor.pane.loadingEditor')}
       </Text>
     );
   }
 
-  if (!documentId) {
+  if (!core.documentId) {
     return (
       <Text as="div" size="body" color="muted" className="p-4">
-        No document selected.
+        {core.t('editor.pane.noDocumentSelected')}
       </Text>
     );
   }
 
-  if (!contentReady) {
+  if (!core.contentReady) {
     return (
       <Text as="div" size="body" color="muted" className="p-4">
-        Loading document…
+        {core.t('editor.pane.loadingDocument')}
       </Text>
     );
   }
@@ -1005,101 +1127,101 @@ export function EditorPane(props: { projectId: string }): JSX.Element {
   return (
     <div
       data-testid="editor-pane"
-      data-document-id={documentId}
+      data-document-id={core.documentId}
       className="flex h-full w-full min-w-0 flex-col"
     >
-      {isPreviewMode ? (
+      {core.isPreviewMode ? (
         <div
           data-testid="editor-preview-banner"
           className="flex items-center justify-between gap-3 border-b border-[var(--color-border-default)] bg-[var(--color-bg-raised)] px-4 py-2"
         >
           <Text size="small" color="muted">
-            {t('editor.pane.previewingVersion', { timestamp: previewTimestamp ?? t('editor.pane.history') })}
+            {core.t('editor.pane.previewingVersion', { timestamp: core.previewTimestamp ?? core.t('editor.pane.history') })}
           </Text>
           <div className="flex items-center gap-2">
-            <Tooltip content={t('editor.pane.restoreTooltip')}>
+            <Tooltip content={core.t('editor.pane.restoreTooltip')}>
               <Button
                 data-testid="preview-restore-placeholder"
                 variant="secondary"
                 size="sm"
                 disabled={true}
               >
-                {t('editor.pane.restoreVersion')}
+                {core.t('editor.pane.restoreVersion')}
               </Button>
             </Tooltip>
             <Button
               data-testid="preview-return-current"
               variant="secondary"
               size="sm"
-              onClick={exitPreview}
+              onClick={core.exitPreview}
             >
-              {t('editor.pane.backToCurrent')}
+              {core.t('editor.pane.backToCurrent')}
             </Button>
           </div>
         </div>
       ) : null}
 
-      {documentStatus === "final" && !isPreviewMode ? (
+      {core.documentStatus === "final" && !core.isPreviewMode ? (
         <div
           data-testid="final-document-guard"
           className="flex items-center justify-between gap-3 border-b border-[var(--color-separator)] bg-[var(--color-bg-surface)] px-4 py-2"
         >
           <Text size="small" color="muted">
-            This document is final. Confirm before editing.
+            {core.t('editor.pane.finalDocumentHint')}
           </Text>
           <Button
             data-testid="final-document-edit-trigger"
             variant="secondary"
             size="sm"
-            onClick={() => void requestEditFromFinal()}
+            onClick={() => void core.requestEditFromFinal()}
           >
-            Edit Anyway
+            {core.t('editor.pane.editAnyway')}
           </Button>
         </div>
       ) : null}
-      <EditorBubbleMenu editor={editor} />
-      <EditorToolbar editor={editor} disabled={isPreviewMode} />
+      <EditorBubbleMenu editor={core.editor} />
+      <EditorToolbar editor={core.editor} disabled={core.isPreviewMode} />
       <SlashCommandPanel
-        open={isSlashPanelOpen}
-        query={slashSearchQuery}
+        open={core.isSlashPanelOpen}
+        query={core.slashSearchQuery}
         candidates={SLASH_COMMAND_REGISTRY}
-        onQueryChange={setSlashSearchQuery}
-        onSelectCommand={handleSlashCommandSelect}
-        onRequestClose={closeSlashPanel}
+        onQueryChange={core.setSlashSearchQuery}
+        onSelectCommand={core.handleSlashCommandSelect}
+        onRequestClose={core.closeSlashPanel}
       />
       <div
         data-testid="editor-content-region"
         className="relative flex-1 min-h-0 font-[var(--font-family-body)] text-[length:var(--editor-font-size)] leading-[var(--editor-line-height)]"
         style={editorTypographyVars}
-        onMouseEnter={() => setWriteHovering(true)}
-        onMouseLeave={() => setWriteHovering(false)}
+        onMouseEnter={() => core.setWriteHovering(true)}
+        onMouseLeave={() => core.setWriteHovering(false)}
       >
-        <EditorContextMenu editor={editor}>
+        <EditorContextMenu editor={core.editor}>
           <ScrollArea
             data-testid="editor-content-scroll"
             viewportTestId="editor-content-scroll-viewport"
             className="h-full"
           >
-            <EditorContent editor={editor} className="h-full" />
+            <EditorContent editor={core.editor} className="h-full" />
           </ScrollArea>
         </EditorContextMenu>
         <EntityCompletionPanel
-          session={entityCompletionSession}
-          onSelectCandidate={applyEntityCompletionCandidate}
+          session={core.entityCompletionSession}
+          onSelectCandidate={core.applyEntityCompletionCandidate}
         />
         <WriteButton
           visible={
-            writeHovering &&
-            !!editor &&
-            contentReady &&
-            documentStatus !== "final" &&
-            !isPreviewMode &&
-            editor.isEditable &&
-            editor.state.selection.empty
+            core.writeHovering &&
+            !!core.editor &&
+            core.contentReady &&
+            core.documentStatus !== "final" &&
+            !core.isPreviewMode &&
+            core.editor.isEditable &&
+            core.editor.state.selection.empty
           }
-          disabled={!aiSetSelectedSkillId || !aiRun || isAiRunning(aiStatus)}
-          running={isAiRunning(aiStatus)}
-          onClick={() => void onWriteClick()}
+          disabled={!core.aiSetSelectedSkillId || !core.aiRun || isAiRunning(core.aiStatus)}
+          running={isAiRunning(core.aiStatus)}
+          onClick={() => void core.onWriteClick()}
         />
       </div>
     </div>

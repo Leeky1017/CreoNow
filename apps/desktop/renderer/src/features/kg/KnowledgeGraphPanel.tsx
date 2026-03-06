@@ -10,7 +10,7 @@ import type {
   NodeType,
 } from "../../components/features/KnowledgeGraph/types";
 import { useConfirmDialog } from "../../hooks/useConfirmDialog";
-import { useKgStore } from "../../stores/kgStore";
+import { useKgStore, type KgEntity, type KgRelation, type KgActions } from "../../stores/kgStore";
 import { TimelineView, type TimelineEventItem } from "./TimelineView";
 import { buildForceDirectedGraph } from "./graphRenderAdapter";
 import {
@@ -170,8 +170,215 @@ function ViewModeToggle(props: {
  * Why: P0 requires KG discoverability (sidebar entry), CRUD, and predictable
  * data for context injection. Graph view provides visual exploration.
  */
-export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
-  const { t } = useTranslation();
+
+// --- Graph action callbacks (extracted for max-lines-per-function) ---
+
+interface KgGraphActionsDeps {
+  entities: KgEntity[];
+  entityCreate: KgActions["entityCreate"];
+  entityUpdate: KgActions["entityUpdate"];
+  onDeleteEntity: (entityId: string) => Promise<void>;
+  setSelectedNodeId: React.Dispatch<React.SetStateAction<string | null>>;
+  t: ReturnType<typeof useTranslation>["t"];
+  projectId: string;
+}
+
+function createKgGraphActions(deps: KgGraphActionsDeps) {
+  /**
+   * Handle node position change (drag) in graph view.
+   * Persists position to entity metadataJson.
+   */
+  async function onNodeMove(
+    nodeId: string,
+    position: { x: number; y: number },
+  ): Promise<void> {
+    const entity = deps.entities.find((e) => e.id === nodeId);
+    if (!entity) {
+      return;
+    }
+
+    const updatedMetadata = updatePositionInMetadata(
+      entity.metadataJson,
+      position,
+    );
+    if (updatedMetadata === entity.metadataJson) {
+      return;
+    }
+
+    try {
+      const res = await deps.entityUpdate({
+        id: nodeId,
+        patch: { metadataJson: updatedMetadata },
+      });
+      if (!res.ok) {
+        console.warn("[KnowledgeGraphPanel] deps.entityUpdate failed:", nodeId, res);
+        return;
+      }
+      saveKgViewPreferences(deps.projectId, { lastDraggedNodeId: nodeId });
+    } catch (error) {
+      console.warn(
+        "[KnowledgeGraphPanel] deps.entityUpdate rejected:",
+        nodeId,
+        error,
+      );
+      return;
+    }
+  }
+
+  async function onTimelineOrderChange(orderedIds: string[]): Promise<void> {
+    const byId = new Map(deps.entities.map((entity) => [entity.id, entity]));
+    const writeResults = await Promise.allSettled(
+      orderedIds.map(async (entityId, index) => {
+        const entity = byId.get(entityId);
+        if (!entity || entity.type !== "event") {
+          return { attempted: false as const, failed: false as const };
+        }
+        const metadataJson = updateTimelineOrderInMetadata(
+          entity.metadataJson,
+          index + 1,
+        );
+        if (metadataJson === entity.metadataJson) {
+          return { attempted: false as const, failed: false as const };
+        }
+        try {
+          const res = await deps.entityUpdate({
+            id: entityId,
+            patch: { metadataJson },
+          });
+          if (!res.ok) {
+            return {
+              attempted: true as const,
+              failed: true as const,
+              entityId,
+              detail: res,
+            };
+          }
+          return { attempted: true as const, failed: false as const };
+        } catch (error) {
+          return {
+            attempted: true as const,
+            failed: true as const,
+            entityId,
+            detail: error,
+          };
+        }
+      }),
+    );
+
+    const failures: unknown[] = [];
+    let attemptedCount = 0;
+
+    for (const result of writeResults) {
+      if (result.status === "rejected") {
+        attemptedCount += 1;
+        failures.push(result.reason);
+        continue;
+      }
+      if (result.value.attempted) {
+        attemptedCount += 1;
+      }
+      if (result.value.failed) {
+        failures.push(result.value);
+      }
+    }
+
+    if (failures.length > 0) {
+      console.warn(
+        `[KnowledgeGraphPanel] timeline reorder partially failed: ${failures.length}/${attemptedCount} entity updates failed`,
+        failures,
+      );
+      return;
+    }
+
+    saveKgViewPreferences(deps.projectId, { timelineOrder: orderedIds });
+  }
+
+  /**
+   * Handle add node from graph view.
+   */
+  async function onAddNode(nodeType: NodeType): Promise<void> {
+    // Calculate position for new node (center of visible area)
+    const position = { x: 300, y: 200 };
+
+    const res = await deps.entityCreate({
+      name: deps.t('kg.panel.newEntity'),
+      type: nodeTypeToEntityType(nodeType),
+      description: "",
+    });
+
+    if (res.ok) {
+      // Update with position metadata
+      const metadata = createEntityMetadataWithPosition(nodeType, position);
+      await deps.entityUpdate({
+        id: res.data.id,
+        patch: { metadataJson: metadata },
+      });
+      deps.setSelectedNodeId(res.data.id);
+    }
+  }
+
+  /**
+   * Handle node save from graph edit dialog.
+   */
+  async function onNodeSave(node: GraphNode, isNew: boolean): Promise<void> {
+    if (isNew) {
+      // Create new entity
+      const res = await deps.entityCreate({
+        name: node.label,
+        type: node.type,
+        description: node.metadata?.description ?? "",
+      });
+
+      if (res.ok) {
+        const metadata = createEntityMetadataWithPosition(
+          node.type,
+          node.position,
+        );
+        await deps.entityUpdate({
+          id: res.data.id,
+          patch: { metadataJson: metadata },
+        });
+        deps.setSelectedNodeId(res.data.id);
+      }
+    } else {
+      // Update existing entity
+      const entity = deps.entities.find((e) => e.id === node.id);
+      if (!entity) return;
+
+      const updatedMetadata = updatePositionInMetadata(
+        entity.metadataJson,
+        node.position,
+      );
+      if (updatedMetadata === entity.metadataJson) {
+        return;
+      }
+
+      await deps.entityUpdate({
+        id: node.id,
+        patch: {
+          name: node.label,
+          type: node.type,
+          description: node.metadata?.description ?? "",
+          metadataJson: updatedMetadata,
+        },
+      });
+    }
+  }
+
+  /**
+   * Handle node delete from graph view.
+   */
+  async function onNodeDeleteFromGraph(nodeId: string): Promise<void> {
+    await deps.onDeleteEntity(nodeId);
+    deps.setSelectedNodeId(null);
+  }
+
+  return { onNodeMove, onTimelineOrderChange, onAddNode, onNodeSave, onNodeDeleteFromGraph };
+}
+
+// --- State hook (extracted for max-lines-per-function) ---
+
+function useKgPanelState(projectId: string, t: ReturnType<typeof useTranslation>["t"]) {
   const bootstrapStatus = useKgStore((s) => s.bootstrapStatus);
   const entities = useKgStore((s) => s.entities);
   const relations = useKgStore((s) => s.relations);
@@ -212,14 +419,16 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
 
   const isReady = bootstrapStatus === "ready";
 
-  React.useEffect(() => {
-    void bootstrapForProject(props.projectId);
-  }, [bootstrapForProject, props.projectId]);
 
   React.useEffect(() => {
-    const preference = loadKgViewPreferences(props.projectId);
+
+    void bootstrapForProject(projectId);
+  }, [bootstrapForProject, projectId]);
+
+  React.useEffect(() => {
+    const preference = loadKgViewPreferences(projectId);
     setGraphTransform(preference.graphTransform);
-  }, [props.projectId]);
+  }, [projectId]);
 
   React.useEffect(() => {
     if (entities.length === 0) {
@@ -365,6 +574,7 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
     return e ? e.name : entityId;
   }
 
+
   const baseGraphData = React.useMemo(
     () => kgToGraph(entities, relations),
     [entities, relations],
@@ -399,47 +609,6 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
       });
   }, [entities]);
 
-  /**
-   * Handle node position change (drag) in graph view.
-   * Persists position to entity metadataJson.
-   */
-  async function onNodeMove(
-    nodeId: string,
-    position: { x: number; y: number },
-  ): Promise<void> {
-    const entity = entities.find((e) => e.id === nodeId);
-    if (!entity) {
-      return;
-    }
-
-    const updatedMetadata = updatePositionInMetadata(
-      entity.metadataJson,
-      position,
-    );
-    if (updatedMetadata === entity.metadataJson) {
-      return;
-    }
-
-    try {
-      const res = await entityUpdate({
-        id: nodeId,
-        patch: { metadataJson: updatedMetadata },
-      });
-      if (!res.ok) {
-        console.warn("[KnowledgeGraphPanel] entityUpdate failed:", nodeId, res);
-        return;
-      }
-      saveKgViewPreferences(props.projectId, { lastDraggedNodeId: nodeId });
-    } catch (error) {
-      console.warn(
-        "[KnowledgeGraphPanel] entityUpdate rejected:",
-        nodeId,
-        error,
-      );
-      return;
-    }
-  }
-
   function onGraphTransformChange(transform: CanvasTransform): void {
     setGraphTransform((current) => {
       if (
@@ -451,156 +620,485 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
       }
       return transform;
     });
-    saveKgViewPreferences(props.projectId, { graphTransform: transform });
+    saveKgViewPreferences(projectId, { graphTransform: transform });
   }
 
-  async function onTimelineOrderChange(orderedIds: string[]): Promise<void> {
-    const byId = new Map(entities.map((entity) => [entity.id, entity]));
-    const writeResults = await Promise.allSettled(
-      orderedIds.map(async (entityId, index) => {
-        const entity = byId.get(entityId);
-        if (!entity || entity.type !== "event") {
-          return { attempted: false as const, failed: false as const };
-        }
-        const metadataJson = updateTimelineOrderInMetadata(
-          entity.metadataJson,
-          index + 1,
-        );
-        if (metadataJson === entity.metadataJson) {
-          return { attempted: false as const, failed: false as const };
-        }
-        try {
-          const res = await entityUpdate({
-            id: entityId,
-            patch: { metadataJson },
-          });
-          if (!res.ok) {
-            return {
-              attempted: true as const,
-              failed: true as const,
-              entityId,
-              detail: res,
-            };
+  const graphActions = createKgGraphActions({
+    entities, entityCreate, entityUpdate,
+    onDeleteEntity, setSelectedNodeId, t, projectId,
+  });
+
+  return {
+    t, isReady, bootstrapStatus, entities, relations, lastError, clearError,
+    editing, setEditing, viewMode, setViewMode,
+    selectedNodeId, setSelectedNodeId, graphTransform, graphData, timelineEvents,
+    dialogProps, onGraphTransformChange, ...graphActions,
+    onCreateEntity, onDeleteEntity, onDeleteRelation, onSaveEdit, onCreateRelation,
+    getEntityName, createName, setCreateName, createType, setCreateType,
+    createDescription, setCreateDescription, createAliasesInput, setCreateAliasesInput,
+    relFromId, setRelFromId, relToId, setRelToId, relType, setRelType,
+  };
+}
+
+// --- Entity card sub-component (extracted for max-lines-per-function) ---
+
+function KgEntityCard(props: {
+  entity: KgEntity;
+  editing: EditingState;
+  setEditing: React.Dispatch<React.SetStateAction<EditingState>>;
+  onSaveEdit: () => Promise<void>;
+  onDeleteEntity: (entityId: string) => Promise<void>;
+  t: ReturnType<typeof useTranslation>["t"];
+}): JSX.Element {
+  const { entity: e, editing, setEditing, onSaveEdit, onDeleteEntity, t } = props;
+  const isEditing = editing.mode === "entity" && editing.id === e.id;
+  return (
+    <Card
+      key={e.id}
+      data-testid={`kg-entity-row-${e.id}`}
+      noPadding
+      className="p-2.5 flex flex-col gap-2"
+    >
+      {isEditing ? (
+        <>
+          <Input
+            value={editing.name}
+            onChange={(evt) =>
+              setEditing({
+                ...editing,
+                name: evt.target.value,
+              })
+            }
+            fullWidth
+          />
+          <Input
+            value={editing.type}
+            onChange={(evt) =>
+              setEditing({
+                ...editing,
+                type: evt.target.value,
+              })
+            }
+            fullWidth
+          />
+          <Input
+            value={editing.description}
+            onChange={(evt) =>
+              setEditing({
+                ...editing,
+                description: evt.target.value,
+              })
+            }
+            fullWidth
+          />
+          <Input
+            data-testid="kg-entity-last-seen-state"
+            value={editing.lastSeenState}
+            onChange={(evt) =>
+              setEditing({
+                ...editing,
+                lastSeenState: evt.target.value,
+              })
+            }
+            placeholder={t('kg.panel.lastSeenStatePlaceholder')}
+            fullWidth
+          />
+          <Input
+            value={editing.aliasesInput}
+            onChange={(evt) =>
+              setEditing({
+                ...editing,
+                aliasesInput: evt.target.value,
+              })
+            }
+            fullWidth
+          />
+          <Select
+            data-testid="kg-entity-ai-context-level"
+            value={editing.aiContextLevel}
+            onValueChange={(value) =>
+              setEditing({
+                ...editing,
+                aiContextLevel: value as AiContextLevel,
+              })
+            }
+            options={AI_CONTEXT_LEVEL_OPTIONS}
+            fullWidth
+          />
+        </>
+      ) : (
+        <>
+          <Text size="small">
+            {entityLabel({
+              name: e.name,
+              type: e.type,
+            })}
+          </Text>
+          {e.description ? (
+            <Text size="small" color="muted">
+              {e.description}
+            </Text>
+          ) : null}
+        </>
+      )}
+
+      <div className="flex gap-2">
+        {isEditing ? (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void onSaveEdit()}
+            >
+              {t('kg.panel.save')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditing({ mode: "idle" })}
+            >
+              {t('kg.panel.cancel')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setEditing({
+                  mode: "entity",
+                  id: e.id,
+                  name: e.name,
+                  type: e.type ?? "",
+                  description: e.description ?? "",
+                  lastSeenState: e.lastSeenState ?? "",
+                  aiContextLevel: e.aiContextLevel,
+                  aliasesInput: formatAliasesInput(e.aliases),
+                })
+              }
+            >
+              {t('kg.panel.edit')}
+            </Button>
+            <Button
+              data-testid={`kg-entity-delete-${e.id}`}
+              variant="ghost"
+              size="sm"
+              onClick={() => void onDeleteEntity(e.id)}
+            >
+              {t('kg.panel.delete')}
+            </Button>
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+// --- Relation card sub-component (extracted for max-lines-per-function) ---
+
+function KgRelationCard(props: {
+  relation: KgRelation;
+  editing: EditingState;
+  setEditing: React.Dispatch<React.SetStateAction<EditingState>>;
+  onSaveEdit: () => Promise<void>;
+  onDeleteRelation: (relationId: string) => Promise<void>;
+  getEntityName: (entityId: string) => string;
+  t: ReturnType<typeof useTranslation>["t"];
+}): JSX.Element {
+  const { relation: r, editing, setEditing, onSaveEdit, onDeleteRelation, getEntityName, t } = props;
+  const isEditing = editing.mode === "relation" && editing.id === r.id;
+  return (
+    <Card
+      key={r.id}
+      data-testid={`kg-relation-row-${r.id}`}
+      noPadding
+      className="p-2.5 flex flex-col gap-2"
+    >
+      {isEditing ? (
+        <Input
+          value={editing.relationType}
+          onChange={(evt) =>
+            setEditing({
+              ...editing,
+              relationType: evt.target.value,
+            })
           }
-          return { attempted: true as const, failed: false as const };
-        } catch (error) {
-          return {
-            attempted: true as const,
-            failed: true as const,
-            entityId,
-            detail: error,
-          };
-        }
-      }),
-    );
+          fullWidth
+        />
+      ) : (
+        <Text size="small">
+          {t('kg.panel.relationFormat', { source: getEntityName(r.sourceEntityId), type: r.relationType, target: getEntityName(r.targetEntityId) })}
+        </Text>
+      )}
 
-    const failures: unknown[] = [];
-    let attemptedCount = 0;
+      <div className="flex gap-2">
+        {isEditing ? (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void onSaveEdit()}
+            >
+              {t('kg.panel.save')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setEditing({ mode: "idle" })}
+            >
+              {t('kg.panel.cancel')}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+              setEditing({
+                mode: "relation",
+                id: r.id,
+                relationType: r.relationType,
+              })
+              }
+            >
+              {t('kg.panel.edit')}
+            </Button>
+            <Button
+              data-testid={`kg-relation-delete-${r.id}`}
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                void onDeleteRelation(r.id)
+              }
+            >
+              {t('kg.panel.delete')}
+            </Button>
+          </>
+        )}
+      </div>
+    </Card>
+  );
+}
 
-    for (const result of writeResults) {
-      if (result.status === "rejected") {
-        attemptedCount += 1;
-        failures.push(result.reason);
-        continue;
-      }
-      if (result.value.attempted) {
-        attemptedCount += 1;
-      }
-      if (result.value.failed) {
-        failures.push(result.value);
-      }
-    }
+// --- List view sub-component (extracted for max-lines-per-function) ---
 
-    if (failures.length > 0) {
-      console.warn(
-        `[KnowledgeGraphPanel] timeline reorder partially failed: ${failures.length}/${attemptedCount} entity updates failed`,
-        failures,
-      );
-      return;
-    }
+function KgListView(props: {
+  state: ReturnType<typeof useKgPanelState>;
+}): JSX.Element {
+  const {
+    t, isReady, entities, relations, lastError, clearError,
+    editing, setEditing, viewMode, setViewMode, dialogProps,
+    onCreateEntity, onDeleteEntity, onDeleteRelation,
+    onSaveEdit, onCreateRelation, getEntityName,
+    createName, setCreateName, createType, setCreateType,
+    createDescription, setCreateDescription,
+    createAliasesInput, setCreateAliasesInput,
+    relFromId, setRelFromId, relToId, setRelToId,
+    relType, setRelType,
+  } = props.state;
 
-    saveKgViewPreferences(props.projectId, { timelineOrder: orderedIds });
-  }
+  return (
+    <section data-testid="sidebar-kg" className="flex flex-col gap-3 min-h-0">
+      <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)]">
+        <Text size="small" color="muted">
+          {t('kg.panel.title')}
+        </Text>
+        <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
+      </div>
 
-  /**
-   * Handle add node from graph view.
-   */
-  async function onAddNode(nodeType: NodeType): Promise<void> {
-    // Calculate position for new node (center of visible area)
-    const position = { x: 300, y: 200 };
+      {lastError ? (
+        <div
+          role="alert"
+          className="p-3 border-b border-[var(--color-separator)]"
+        >
+          <div className="flex gap-2 items-center">
+            <Text data-testid="kg-error-code" size="code" color="muted">
+              {lastError.code}
+            </Text>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={clearError}
+              className="ml-auto"
+            >
+              {t('kg.panel.dismiss')}
+            </Button>
+          </div>
+          <Text size="small" className="mt-1.5 block">
+            {lastError.message}
+          </Text>
+        </div>
+      ) : null}
 
-    const res = await entityCreate({
-      name: t('kg.panel.newEntity'),
-      type: nodeTypeToEntityType(nodeType),
-      description: "",
-    });
+      <div className="flex-1 overflow-auto min-h-0">
+        <div className="p-3">
+          <Text size="small" color="muted">
+            {t('kg.panel.entities')}
+          </Text>
 
-    if (res.ok) {
-      // Update with position metadata
-      const metadata = createEntityMetadataWithPosition(nodeType, position);
-      await entityUpdate({
-        id: res.data.id,
-        patch: { metadataJson: metadata },
-      });
-      setSelectedNodeId(res.data.id);
-    }
-  }
+          <div className="flex flex-col gap-2 mt-2 pb-3 border-b border-[var(--color-separator)]">
+            <Input
+              data-testid="kg-entity-name"
+              placeholder={t('kg.panel.namePlaceholder')}
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              fullWidth
+            />
+            <Input
+              placeholder={t('kg.panel.typePlaceholder')}
+              value={createType}
+              onChange={(e) => setCreateType(e.target.value)}
+              fullWidth
+            />
+            <Input
+              placeholder={t('kg.panel.descriptionPlaceholder')}
+              value={createDescription}
+              onChange={(e) => setCreateDescription(e.target.value)}
+              fullWidth
+            />
+            <Input
+              data-testid="kg-entity-aliases"
+              placeholder={t('kg.panel.aliasesPlaceholder')}
+              value={createAliasesInput}
+              onChange={(e) => setCreateAliasesInput(e.target.value)}
+              fullWidth
+            />
+            <Button
+              data-testid="kg-entity-create"
+              variant="secondary"
+              size="sm"
+              onClick={() => void onCreateEntity()}
+              disabled={!isReady}
+              className="self-start"
+            >
+              {t('kg.panel.createEntity')}
+            </Button>
+          </div>
 
-  /**
-   * Handle node save from graph edit dialog.
-   */
-  async function onNodeSave(node: GraphNode, isNew: boolean): Promise<void> {
-    if (isNew) {
-      // Create new entity
-      const res = await entityCreate({
-        name: node.label,
-        type: node.type,
-        description: node.metadata?.description ?? "",
-      });
+          {entities.length === 0 ? (
+            <Text size="small" color="muted" className="mt-3 block">
+              {t('kg.panel.noEntities')}
+            </Text>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2">
+              {entities.map((e) => (
+                <KgEntityCard
+                  key={e.id}
+                  entity={e}
+                  editing={editing}
+                  setEditing={setEditing}
+                  onSaveEdit={onSaveEdit}
+                  onDeleteEntity={onDeleteEntity}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
 
-      if (res.ok) {
-        const metadata = createEntityMetadataWithPosition(
-          node.type,
-          node.position,
-        );
-        await entityUpdate({
-          id: res.data.id,
-          patch: { metadataJson: metadata },
-        });
-        setSelectedNodeId(res.data.id);
-      }
-    } else {
-      // Update existing entity
-      const entity = entities.find((e) => e.id === node.id);
-      if (!entity) return;
+          <div className="mt-4">
+            <Text size="small" color="muted">
+              {t('kg.panel.relations')}
+            </Text>
 
-      const updatedMetadata = updatePositionInMetadata(
-        entity.metadataJson,
-        node.position,
-      );
-      if (updatedMetadata === entity.metadataJson) {
-        return;
-      }
+            <div className="mt-2 flex flex-col gap-2 pb-3 border-b border-[var(--color-separator)]">
+              <Select
+                value={relFromId}
+                onValueChange={(value) => setRelFromId(value)}
+                disabled={!isReady || entities.length === 0}
+                options={entities.map((e) => ({
+                  value: e.id,
+                  label: entityLabel({
+                    name: e.name,
+                    type: e.type,
+                  }),
+                }))}
+                placeholder={t('kg.panel.selectEntityPlaceholder')}
+                fullWidth
+              />
 
-      await entityUpdate({
-        id: node.id,
-        patch: {
-          name: node.label,
-          type: node.type,
-          description: node.metadata?.description ?? "",
-          metadataJson: updatedMetadata,
-        },
-      });
-    }
-  }
+              <Select
+                value={relToId}
+                onValueChange={(value) => setRelToId(value)}
+                disabled={!isReady || entities.length === 0}
+                options={entities.map((e) => ({
+                  value: e.id,
+                  label: entityLabel({
+                    name: e.name,
+                    type: e.type,
+                  }),
+                }))}
+                placeholder={t('kg.panel.selectEntityPlaceholder')}
+                fullWidth
+              />
 
-  /**
-   * Handle node delete from graph view.
-   */
-  async function onNodeDeleteFromGraph(nodeId: string): Promise<void> {
-    await onDeleteEntity(nodeId);
-    setSelectedNodeId(null);
-  }
+              <Input
+                data-testid="kg-relation-type"
+                placeholder={t('kg.panel.relationTypePlaceholder')}
+                value={relType}
+                onChange={(e) => setRelType(e.target.value)}
+                disabled={!isReady}
+                fullWidth
+              />
+
+              <Button
+                data-testid="kg-relation-create"
+                variant="secondary"
+                size="sm"
+                onClick={() => void onCreateRelation()}
+                disabled={!isReady}
+                className="self-start"
+              >
+                {t('kg.panel.createRelation')}
+              </Button>
+            </div>
+
+            {relations.length === 0 ? (
+              <Text size="small" color="muted" className="mt-3 block">
+                {t('kg.panel.noRelations')}
+              </Text>
+            ) : (
+              <div className="mt-3 flex flex-col gap-2">
+                {relations.map((r) => (
+                  <KgRelationCard
+                    key={r.id}
+                    relation={r}
+                    editing={editing}
+                    setEditing={setEditing}
+                    onSaveEdit={onSaveEdit}
+                    onDeleteRelation={onDeleteRelation}
+                    getEntityName={getEntityName}
+                    t={t}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      <SystemDialog {...dialogProps} />
+    </section>
+  );
+}
+
+/**
+ * KnowledgeGraphPanel renders the KG CRUD surface with List and Graph views.
+ *
+ * Why: P0 requires KG discoverability (sidebar entry), CRUD, and predictable
+ * data for context injection. Graph view provides visual exploration.
+ */
+export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
+  const { t } = useTranslation();
+  const state = useKgPanelState(props.projectId, t);
+  const {
+    entities, lastError, clearError,
+    setEditing, viewMode, setViewMode,
+    selectedNodeId, setSelectedNodeId,
+    graphTransform, graphData, timelineEvents, dialogProps,
+    onGraphTransformChange, onNodeMove, onAddNode, onNodeSave,
+    onNodeDeleteFromGraph, onTimelineOrderChange,
+  } = state;
 
   // Render Graph view
   if (viewMode === "graph") {
@@ -709,385 +1207,5 @@ export function KnowledgeGraphPanel(props: { projectId: string }): JSX.Element {
   }
 
   // Render List view (original)
-  return (
-    <section data-testid="sidebar-kg" className="flex flex-col gap-3 min-h-0">
-      <div className="flex items-center justify-between p-3 border-b border-[var(--color-separator)]">
-        <Text size="small" color="muted">
-          {t('kg.panel.title')}
-        </Text>
-        <ViewModeToggle viewMode={viewMode} onViewModeChange={setViewMode} />
-      </div>
-
-      {lastError ? (
-        <div
-          role="alert"
-          className="p-3 border-b border-[var(--color-separator)]"
-        >
-          <div className="flex gap-2 items-center">
-            <Text data-testid="kg-error-code" size="code" color="muted">
-              {lastError.code}
-            </Text>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={clearError}
-              className="ml-auto"
-            >
-              {t('kg.panel.dismiss')}
-            </Button>
-          </div>
-          <Text size="small" className="mt-1.5 block">
-            {lastError.message}
-          </Text>
-        </div>
-      ) : null}
-
-      <div className="flex-1 overflow-auto min-h-0">
-        <div className="p-3">
-          <Text size="small" color="muted">
-            {t('kg.panel.entities')}
-          </Text>
-
-          <div className="flex flex-col gap-2 mt-2 pb-3 border-b border-[var(--color-separator)]">
-            <Input
-              data-testid="kg-entity-name"
-              placeholder={t('kg.panel.namePlaceholder')}
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              fullWidth
-            />
-            <Input
-              placeholder={t('kg.panel.typePlaceholder')}
-              value={createType}
-              onChange={(e) => setCreateType(e.target.value)}
-              fullWidth
-            />
-            <Input
-              placeholder={t('kg.panel.descriptionPlaceholder')}
-              value={createDescription}
-              onChange={(e) => setCreateDescription(e.target.value)}
-              fullWidth
-            />
-            <Input
-              data-testid="kg-entity-aliases"
-              placeholder={t('kg.panel.aliasesPlaceholder')}
-              value={createAliasesInput}
-              onChange={(e) => setCreateAliasesInput(e.target.value)}
-              fullWidth
-            />
-            <Button
-              data-testid="kg-entity-create"
-              variant="secondary"
-              size="sm"
-              onClick={() => void onCreateEntity()}
-              disabled={!isReady}
-              className="self-start"
-            >
-              {t('kg.panel.createEntity')}
-            </Button>
-          </div>
-
-          {entities.length === 0 ? (
-            <Text size="small" color="muted" className="mt-3 block">
-              {t('kg.panel.noEntities')}
-            </Text>
-          ) : (
-            <div className="mt-3 flex flex-col gap-2">
-              {entities.map((e) => {
-                const isEditing =
-                  editing.mode === "entity" && editing.id === e.id;
-                return (
-                  <Card
-                    key={e.id}
-                    data-testid={`kg-entity-row-${e.id}`}
-                    noPadding
-                    className="p-2.5 flex flex-col gap-2"
-                  >
-                    {isEditing ? (
-                      <>
-                        <Input
-                          value={editing.name}
-                          onChange={(evt) =>
-                            setEditing({
-                              ...editing,
-                              name: evt.target.value,
-                            })
-                          }
-                          fullWidth
-                        />
-                        <Input
-                          value={editing.type}
-                          onChange={(evt) =>
-                            setEditing({
-                              ...editing,
-                              type: evt.target.value,
-                            })
-                          }
-                          fullWidth
-                        />
-                        <Input
-                          value={editing.description}
-                          onChange={(evt) =>
-                            setEditing({
-                              ...editing,
-                              description: evt.target.value,
-                            })
-                          }
-                          fullWidth
-                        />
-                        <Input
-                          data-testid="kg-entity-last-seen-state"
-                          value={editing.lastSeenState}
-                          onChange={(evt) =>
-                            setEditing({
-                              ...editing,
-                              lastSeenState: evt.target.value,
-                            })
-                          }
-                          placeholder={t('kg.panel.lastSeenStatePlaceholder')}
-                          fullWidth
-                        />
-                        <Input
-                          value={editing.aliasesInput}
-                          onChange={(evt) =>
-                            setEditing({
-                              ...editing,
-                              aliasesInput: evt.target.value,
-                            })
-                          }
-                          fullWidth
-                        />
-                        <Select
-                          data-testid="kg-entity-ai-context-level"
-                          value={editing.aiContextLevel}
-                          onValueChange={(value) =>
-                            setEditing({
-                              ...editing,
-                              aiContextLevel: value as AiContextLevel,
-                            })
-                          }
-                          options={AI_CONTEXT_LEVEL_OPTIONS}
-                          fullWidth
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Text size="small">
-                          {entityLabel({
-                            name: e.name,
-                            type: e.type,
-                          })}
-                        </Text>
-                        {e.description ? (
-                          <Text size="small" color="muted">
-                            {e.description}
-                          </Text>
-                        ) : null}
-                      </>
-                    )}
-
-                    <div className="flex gap-2">
-                      {isEditing ? (
-                        <>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => void onSaveEdit()}
-                          >
-                            {t('kg.panel.save')}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditing({ mode: "idle" })}
-                          >
-                            {t('kg.panel.cancel')}
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              setEditing({
-                                mode: "entity",
-                                id: e.id,
-                                name: e.name,
-                                type: e.type ?? "",
-                                description: e.description ?? "",
-                                lastSeenState: e.lastSeenState ?? "",
-                                aiContextLevel: e.aiContextLevel,
-                                aliasesInput: formatAliasesInput(e.aliases),
-                              })
-                            }
-                          >
-                            {t('kg.panel.edit')}
-                          </Button>
-                          <Button
-                            data-testid={`kg-entity-delete-${e.id}`}
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => void onDeleteEntity(e.id)}
-                          >
-                            {t('kg.panel.delete')}
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="mt-4">
-            <Text size="small" color="muted">
-              {t('kg.panel.relations')}
-            </Text>
-
-            <div className="mt-2 flex flex-col gap-2 pb-3 border-b border-[var(--color-separator)]">
-              <Select
-                value={relFromId}
-                onValueChange={(value) => setRelFromId(value)}
-                disabled={!isReady || entities.length === 0}
-                options={entities.map((e) => ({
-                  value: e.id,
-                  label: entityLabel({
-                    name: e.name,
-                    type: e.type,
-                  }),
-                }))}
-                placeholder={t('kg.panel.selectEntityPlaceholder')}
-                fullWidth
-              />
-
-              <Select
-                value={relToId}
-                onValueChange={(value) => setRelToId(value)}
-                disabled={!isReady || entities.length === 0}
-                options={entities.map((e) => ({
-                  value: e.id,
-                  label: entityLabel({
-                    name: e.name,
-                    type: e.type,
-                  }),
-                }))}
-                placeholder={t('kg.panel.selectEntityPlaceholder')}
-                fullWidth
-              />
-
-              <Input
-                data-testid="kg-relation-type"
-                placeholder={t('kg.panel.relationTypePlaceholder')}
-                value={relType}
-                onChange={(e) => setRelType(e.target.value)}
-                disabled={!isReady}
-                fullWidth
-              />
-
-              <Button
-                data-testid="kg-relation-create"
-                variant="secondary"
-                size="sm"
-                onClick={() => void onCreateRelation()}
-                disabled={!isReady}
-                className="self-start"
-              >
-                {t('kg.panel.createRelation')}
-              </Button>
-            </div>
-
-            {relations.length === 0 ? (
-              <Text size="small" color="muted" className="mt-3 block">
-                {t('kg.panel.noRelations')}
-              </Text>
-            ) : (
-              <div className="mt-3 flex flex-col gap-2">
-                {relations.map((r) => {
-                  const isEditing =
-                    editing.mode === "relation" &&
-                    editing.id === r.id;
-                  return (
-                    <Card
-                      key={r.id}
-                      data-testid={`kg-relation-row-${r.id}`}
-                      noPadding
-                      className="p-2.5 flex flex-col gap-2"
-                    >
-                      {isEditing ? (
-                        <Input
-                          value={editing.relationType}
-                          onChange={(evt) =>
-                            setEditing({
-                              ...editing,
-                              relationType: evt.target.value,
-                            })
-                          }
-                          fullWidth
-                        />
-                      ) : (
-                        <Text size="small">
-                          {getEntityName(r.sourceEntityId)} -({r.relationType})→{" "}
-                          {getEntityName(r.targetEntityId)}
-                        </Text>
-                      )}
-
-                      <div className="flex gap-2">
-                        {isEditing ? (
-                          <>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => void onSaveEdit()}
-                            >
-                              {t('kg.panel.save')}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditing({ mode: "idle" })}
-                            >
-                              {t('kg.panel.cancel')}
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                              setEditing({
-                                mode: "relation",
-                                id: r.id,
-                                relationType: r.relationType,
-                              })
-                              }
-                            >
-                              {t('kg.panel.edit')}
-                            </Button>
-                            <Button
-                              data-testid={`kg-relation-delete-${r.id}`}
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                void onDeleteRelation(r.id)
-                              }
-                            >
-                              {t('kg.panel.delete')}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      <SystemDialog {...dialogProps} />
-    </section>
-  );
+  return <KgListView state={state} />;
 }

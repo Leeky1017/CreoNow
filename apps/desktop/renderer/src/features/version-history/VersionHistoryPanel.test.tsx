@@ -310,7 +310,9 @@ describe("VersionHistoryPanel", () => {
 
     expect(onConfigureAutoSave).toHaveBeenCalled();
   });
+});
 
+describe("VersionHistoryPanel — display and metadata", () => {
   it("applies custom width", () => {
     render(
       <VersionHistoryPanel

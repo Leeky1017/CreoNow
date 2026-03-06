@@ -50,18 +50,8 @@ function formatUpdatedAt(ts: number | null): string {
   return new Date(ts).toLocaleString("zh-CN", { hour12: false });
 }
 
-/**
- * MemoryPanel implements MS-3 semantic-rule interaction surface.
- *
- * Why: panel-level behaviors (confirm/edit/delete/manual-add/pause) must be
- * directly user-controllable and decoupled from legacy entry CRUD workflows.
- */
-export function MemoryPanel(): JSX.Element {
-  const { t } = useTranslation();
-  const projectId = useProjectStore(
-    (state) => state.current?.projectId ?? null,
-  );
 
+function useMemoryState(projectId: string | null, t: (key: string, opts?: Record<string, unknown>) => string) {
   const [status, setStatus] = React.useState<
     "idle" | "loading" | "ready" | "error"
   >("idle");
@@ -322,6 +312,119 @@ export function MemoryPanel(): JSX.Element {
     setSettings(res.data);
   }
 
+  return {
+    status,
+    error,
+    setError,
+    activeScope,
+    setActiveScope,
+    settings,
+    composerOpen,
+    setComposerOpen,
+    conflictCount,
+    groupedRules,
+    filteredRules,
+    editingRuleId,
+    editingText,
+    setEditingText,
+    setEditingRuleId,
+    interactionCount,
+    latestUpdateAt,
+    distilling,
+    draftRule,
+    setDraftRule,
+    draftCategory,
+    setDraftCategory,
+    handleConfirmRule,
+    startEdit,
+    handleSaveEdit,
+    handleDeleteRule,
+    handleCreateRule,
+    handleDistill,
+    handleLearningToggle,
+  };
+}
+
+
+function MemoryComposer(props: {
+  t: (key: string) => string;
+  draftRule: string;
+  setDraftRule: (v: string) => void;
+  draftCategory: SemanticCategory;
+  setDraftCategory: (v: SemanticCategory) => void;
+  handleCreateRule: () => Promise<void>;
+  onClose: () => void;
+}): JSX.Element {
+  return (
+    <Card
+      noPadding
+      className="shrink-0 p-2.5 bg-[var(--color-bg-raised)] rounded-[var(--radius-sm)]"
+    >
+      <div className="flex flex-col gap-2">
+        <label
+          className="text-xs text-[var(--color-fg-muted)]"
+          htmlFor="memory-rule-create-input"
+        >
+          {props.t('memory.panel.addRule')}
+        </label>
+        <textarea
+          id="memory-rule-create-input"
+          aria-label={props.t('memory.panel.addRule')}
+          value={props.draftRule}
+          onChange={(event) => props.setDraftRule(event.target.value)}
+          className="min-h-[72px] rounded-[var(--radius-sm)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm"
+        />
+        <label
+          className="text-xs text-[var(--color-fg-muted)]"
+          htmlFor="memory-rule-category"
+        >
+          {props.t('memory.panel.category')}
+        </label>
+        <select
+          id="memory-rule-category"
+          value={props.draftCategory}
+          onChange={(event) =>
+            props.setDraftCategory(event.target.value as SemanticCategory)
+          }
+          className="h-8 rounded-[var(--radius-sm)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2 text-sm"
+        >
+          {CATEGORY_GROUPS.map((group) => (
+            <option key={group.category} value={group.category}>
+              {props.t(group.labelKey)}
+            </option>
+          ))}
+        </select>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => void props.handleCreateRule()}>
+            {props.t('memory.panel.saveRule')}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={props.onClose}
+          >
+            {props.t('memory.panel.cancel')}
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * MemoryPanel implements MS-3 semantic-rule interaction surface.
+ *
+ * Why: panel-level behaviors (confirm/edit/delete/manual-add/pause) must be
+ * directly user-controllable and decoupled from legacy entry CRUD workflows.
+ */
+export function MemoryPanel(): JSX.Element {
+  const { t } = useTranslation();
+  const projectId = useProjectStore(
+    (state) => state.current?.projectId ?? null,
+  );
+
+  const state = useMemoryState(projectId, t);
+
   return (
     <section
       data-testid="memory-panel"
@@ -329,10 +432,10 @@ export function MemoryPanel(): JSX.Element {
     >
       <header className="shrink-0 flex items-center gap-2">
         <Text size="small" color="muted">
-          Memory
+          {t('memory.panel.title')}
         </Text>
         <Text size="tiny" color="muted" className="ml-auto">
-          {status}
+          {state.status}
         </Text>
       </header>
 
@@ -341,11 +444,11 @@ export function MemoryPanel(): JSX.Element {
           type="button"
           data-testid="memory-scope-global"
           className={`text-xs px-2 py-1 rounded-[var(--radius-sm)] border ${
-            activeScope === "global"
+            state.activeScope === "global"
               ? "border-[var(--color-border-focus)] bg-[var(--color-bg-raised)]"
               : "border-[var(--color-border-default)]"
           }`}
-          onClick={() => setActiveScope("global")}
+          onClick={() => state.setActiveScope("global")}
         >
           {t('memory.panel.globalTab')}
         </button>
@@ -354,17 +457,17 @@ export function MemoryPanel(): JSX.Element {
           data-testid="memory-scope-project"
           disabled={!projectId}
           className={`text-xs px-2 py-1 rounded-[var(--radius-sm)] border ${
-            activeScope === "project"
+            state.activeScope === "project"
               ? "border-[var(--color-border-focus)] bg-[var(--color-bg-raised)]"
               : "border-[var(--color-border-default)]"
           } disabled:opacity-50 disabled:cursor-not-allowed`}
-          onClick={() => setActiveScope("project")}
+          onClick={() => state.setActiveScope("project")}
         >
           {t('memory.panel.projectTab')}
         </button>
       </div>
 
-      {!settings?.preferenceLearningEnabled ? (
+      {!state.settings?.preferenceLearningEnabled ? (
         <Card
           noPadding
           data-testid="memory-learning-paused"
@@ -376,35 +479,35 @@ export function MemoryPanel(): JSX.Element {
         </Card>
       ) : null}
 
-      {conflictCount > 0 ? (
+      {state.conflictCount > 0 ? (
         <Card
           noPadding
           data-testid="memory-conflict-notice"
           className="shrink-0 px-2.5 py-2 border-[var(--color-warning)] text-[var(--color-warning)]"
         >
           <Text size="small" className="text-[var(--color-warning)]">
-            {t('memory.panel.conflictsDetected', { count: conflictCount })}
+            {t('memory.panel.conflictsDetected', { count: state.conflictCount })}
           </Text>
         </Card>
       ) : null}
 
-      {error ? (
+      {state.error ? (
         <Card noPadding className="shrink-0 p-2.5">
           <div className="flex items-center gap-2">
             <Text data-testid="memory-error-code" size="code" color="muted">
-              {error.code}
+              {state.error.code}
             </Text>
             <Button
               variant="ghost"
               size="sm"
               className="ml-auto"
-              onClick={() => setError(null)}
+              onClick={() => state.setError(null)}
             >
-              Dismiss
+              {t('memory.panel.dismissError')}
             </Button>
           </div>
           <Text size="small" color="muted" className="mt-1.5 block">
-            {error.message}
+            {state.error.message}
           </Text>
         </Card>
       ) : null}
@@ -413,33 +516,33 @@ export function MemoryPanel(): JSX.Element {
         noPadding
         className="flex-1 min-h-0 overflow-auto p-2.5 bg-[var(--color-bg-surface)]"
       >
-        {status === "loading" ? (
+        {state.status === "loading" ? (
           <div className="h-full flex items-center justify-center">
             <Text size="small" color="muted">
               {t('memory.panel.loading')}
             </Text>
           </div>
-        ) : filteredRules.length === 0 ? (
+        ) : state.filteredRules.length === 0 ? (
           <div className="h-full min-h-[180px] flex flex-col items-center justify-center gap-3 text-center">
             <div className="w-9 h-9 rounded-[var(--radius-sm)] bg-[var(--color-bg-raised)] flex items-center justify-center text-[var(--color-fg-muted)]">
-              ✦
+              {t('memory.panel.emptyIcon')}
             </div>
             <Text size="small" color="muted">
               {t('memory.panel.aiLearningHint')}
             </Text>
-            <Button size="sm" onClick={() => setComposerOpen(true)}>
+            <Button size="sm" onClick={() => state.setComposerOpen(true)}>
               {t('memory.panel.addRuleManually')}
             </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {groupedRules.map((group) => (
+            {state.groupedRules.map((group) => (
               <div key={group.category} className="flex flex-col gap-2">
                 <Text size="small" color="muted">
                   {t(group.labelKey)}
                 </Text>
                 {group.items.map((rule) => {
-                  const isEditing = editingRuleId === rule.id;
+                  const isEditing = state.editingRuleId === rule.id;
                   return (
                     <Card
                       key={rule.id}
@@ -460,16 +563,16 @@ export function MemoryPanel(): JSX.Element {
                               <textarea
                                 id={`memory-edit-${rule.id}`}
                                 aria-label={t('memory.panel.ruleText')}
-                                value={editingText}
+                                value={state.editingText}
                                 onChange={(event) =>
-                                  setEditingText(event.target.value)
+                                  state.setEditingText(event.target.value)
                                 }
                                 className="min-h-[70px] rounded-[var(--radius-sm)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm"
                               />
                               <div className="flex gap-2">
                                 <Button
                                   size="sm"
-                                  onClick={() => void handleSaveEdit(rule.id)}
+                                  onClick={() => void state.handleSaveEdit(rule.id)}
                                 >
                                   {t('memory.panel.saveChanges')}
                                 </Button>
@@ -477,8 +580,8 @@ export function MemoryPanel(): JSX.Element {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => {
-                                    setEditingRuleId(null);
-                                    setEditingText("");
+                                    state.setEditingRuleId(null);
+                                    state.setEditingText("");
                                   }}
                                 >
                                   {t('memory.panel.cancel')}
@@ -512,21 +615,21 @@ export function MemoryPanel(): JSX.Element {
                               size="sm"
                               variant="secondary"
                               disabled={rule.userConfirmed}
-                              onClick={() => void handleConfirmRule(rule.id)}
+                              onClick={() => void state.handleConfirmRule(rule.id)}
                             >
                               {t('memory.panel.confirm')}
                             </Button>
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => startEdit(rule)}
+                              onClick={() => state.startEdit(rule)}
                             >
                               {t('memory.panel.modify')}
                             </Button>
                             <Button
                               size="sm"
                               variant="danger"
-                              onClick={() => void handleDeleteRule(rule.id)}
+                              onClick={() => void state.handleDeleteRule(rule.id)}
                             >
                               {t('memory.panel.delete')}
                             </Button>
@@ -547,90 +650,47 @@ export function MemoryPanel(): JSX.Element {
         className="shrink-0 p-2.5 bg-[var(--color-bg-raised)] rounded-[var(--radius-sm)]"
       >
         <div className="flex items-center justify-between text-xs text-[var(--color-fg-muted)]">
-          <span>{t('memory.panel.interactionCount', { count: interactionCount })}</span>
-          <span>{t('memory.panel.lastUpdate', { time: formatUpdatedAt(latestUpdateAt) })}</span>
+          <span>{t('memory.panel.interactionCount', { count: state.interactionCount })}</span>
+          <span>{t('memory.panel.lastUpdate', { time: formatUpdatedAt(state.latestUpdateAt) })}</span>
         </div>
       </Card>
 
       <div className="shrink-0 flex items-center gap-2">
-        <Button size="sm" onClick={() => setComposerOpen(true)}>
+        <Button size="sm" onClick={() => state.setComposerOpen(true)}>
           {t('memory.panel.addRuleManually')}
         </Button>
         <Button
           size="sm"
           variant="secondary"
-          loading={distilling}
-          onClick={() => void handleDistill()}
+          loading={state.distilling}
+          onClick={() => void state.handleDistill()}
         >
           {t('memory.panel.updatePreferences')}
         </Button>
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => void handleLearningToggle()}
+          onClick={() => void state.handleLearningToggle()}
         >
-          {settings?.preferenceLearningEnabled === false
+          {state.settings?.preferenceLearningEnabled === false
             ? t('memory.panel.resumeLearning')
             : t('memory.panel.pauseLearning')}
         </Button>
       </div>
 
-      {composerOpen ? (
-        <Card
-          noPadding
-          className="shrink-0 p-2.5 bg-[var(--color-bg-raised)] rounded-[var(--radius-sm)]"
-        >
-          <div className="flex flex-col gap-2">
-            <label
-              className="text-xs text-[var(--color-fg-muted)]"
-              htmlFor="memory-rule-create-input"
-            >
-              {t('memory.panel.addRule')}
-            </label>
-            <textarea
-              id="memory-rule-create-input"
-              aria-label={t('memory.panel.addRule')}
-              value={draftRule}
-              onChange={(event) => setDraftRule(event.target.value)}
-              className="min-h-[72px] rounded-[var(--radius-sm)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2 py-1.5 text-sm"
-            />
-            <label
-              className="text-xs text-[var(--color-fg-muted)]"
-              htmlFor="memory-rule-category"
-            >
-              {t('memory.panel.category')}
-            </label>
-            <select
-              id="memory-rule-category"
-              value={draftCategory}
-              onChange={(event) =>
-                setDraftCategory(event.target.value as SemanticCategory)
-              }
-              className="h-8 rounded-[var(--radius-sm)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-2 text-sm"
-            >
-              {CATEGORY_GROUPS.map((group) => (
-                <option key={group.category} value={group.category}>
-                  {t(group.labelKey)}
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-2">
-              <Button size="sm" onClick={() => void handleCreateRule()}>
-                {t('memory.panel.saveRule')}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setComposerOpen(false);
-                  setDraftRule("");
-                }}
-              >
-                {t('memory.panel.cancel')}
-              </Button>
-            </div>
-          </div>
-        </Card>
+      {state.composerOpen ? (
+        <MemoryComposer
+          t={t}
+          draftRule={state.draftRule}
+          setDraftRule={state.setDraftRule}
+          draftCategory={state.draftCategory}
+          setDraftCategory={state.setDraftCategory}
+          handleCreateRule={state.handleCreateRule}
+          onClose={() => {
+            state.setComposerOpen(false);
+            state.setDraftRule("");
+          }}
+        />
       ) : null}
     </section>
   );
