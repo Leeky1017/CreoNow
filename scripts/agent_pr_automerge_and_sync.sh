@@ -42,6 +42,79 @@ GH_RETRY_MAX_SECONDS="30"
 GH_RETRY_MAX_ATTEMPTS="5"
 GH_LAST_TRANSIENT="false"
 
+json_get() {
+  local field="$1"
+  local payload
+  payload="$(cat)"
+  JSON_PAYLOAD="$payload" python3 - "$field" <<'PY2'
+import json
+import os
+import sys
+
+payload = json.loads(os.environ["JSON_PAYLOAD"])
+value = payload[sys.argv[1]]
+if value is None:
+    raise SystemExit(0)
+print(value, end="")
+PY2
+}
+
+require_gh_channel() {
+  local capabilities_json selected_channel blocker reason
+  capabilities_json="$(python3 scripts/agent_github_delivery.py capabilities --channel "${CODEX_GITHUB_CHANNEL:-auto}")"
+  selected_channel="$(json_get selected_channel <<<"$capabilities_json")"
+  blocker="$(json_get blocker <<<"$capabilities_json" || true)"
+  reason="$(json_get reason <<<"$capabilities_json")"
+
+  if [[ "$selected_channel" == "gh" ]]; then
+    return 0
+  fi
+
+  echo "ERROR: selected GitHub delivery channel is ${selected_channel:-none}; this shell entrypoint only supports gh." >&2
+  if [[ -n "$blocker" ]]; then
+    echo "INFO: blocker=${blocker}" >&2
+  fi
+  echo "INFO: ${reason}" >&2
+  echo "HINT: if GitHub MCP is available, use scripts/agent_github_delivery.py pr-payload / comment-payload with GitHub MCP tools for PR and comment operations." >&2
+  exit 1
+}
+
+build_pr_payload() {
+  local issue_number="$1"
+  local raw_title="$2"
+  local summary="${AGENT_PR_SUMMARY:-${raw_title}}"
+  local user_impact="${AGENT_PR_USER_IMPACT:-See linked issue #${issue_number} and verification evidence for concrete impact.}"
+  local worst_case="${AGENT_PR_WORST_CASE:-The task remains blocked on manual GitHub handoff in mixed agent environments.}"
+  local rollback_ref="${AGENT_PR_ROLLBACK_REF:-git revert <merge-commit>}"
+
+  python3 scripts/agent_github_delivery.py pr-payload     --issue-number "$issue_number"     --title "$raw_title"     --summary "$summary"     --user-impact "$user_impact"     --worst-case "$worst_case"     --rollback-ref "$rollback_ref"
+}
+
+comment_pr_with_kind() {
+  local pr_number="$1"
+  local kind="$2"
+  local pr_url="$3"
+  local merge_state="${4:-}"
+  local review_decision="${5:-}"
+  local timeout_seconds="${6:-}"
+  local -a command=(python3 scripts/agent_github_delivery.py comment-payload --kind "$kind" --pr-url "$pr_url")
+  local payload body
+
+  if [[ -n "$merge_state" ]]; then
+    command+=(--merge-state "$merge_state")
+  fi
+  if [[ -n "$review_decision" ]]; then
+    command+=(--review-decision "$review_decision")
+  fi
+  if [[ -n "$timeout_seconds" ]]; then
+    command+=(--timeout-seconds "$timeout_seconds")
+  fi
+
+  payload="$("${command[@]}")"
+  body="$(json_get body <<<"$payload")"
+  comment_pr "$pr_number" "$body"
+}
+
 is_transient_gh_error() {
   local output="$1"
   grep -qiE "TLS handshake timeout|i/o timeout|connection reset by peer|context deadline exceeded|unexpected EOF|temporary failure" <<<"$output"
@@ -223,6 +296,8 @@ fi
 ISSUE_NUMBER="${BASH_REMATCH[1]}"
 SLUG="${BASH_REMATCH[2]}"
 
+require_gh_channel
+
 PREFLIGHT_RC=0
 if [[ "$SKIP_PREFLIGHT" != "true" ]]; then
   set +e
@@ -242,19 +317,9 @@ if [[ -z "$PR_NUMBER" ]]; then
   fi
 
   TITLE="$(git log -1 --pretty=%s)"
-  BODY=$(
-    cat <<EOF
-Closes #${ISSUE_NUMBER}
-
-## Summary
-- (fill)
-
-## Test plan
-- \`pnpm typecheck\`
-- \`pnpm lint\`
-- \`pnpm test:unit\`
-EOF
-  )
+  PR_PAYLOAD="$(build_pr_payload "$ISSUE_NUMBER" "$TITLE")"
+  TITLE="$(json_get title <<<"$PR_PAYLOAD")"
+  BODY="$(json_get body <<<"$PR_PAYLOAD")"
 
   DRAFT_FLAG=""
   if [[ $PREFLIGHT_RC -ne 0 && "$FORCE" != "true" ]]; then
@@ -344,13 +409,13 @@ while true; do
 
   if [[ "$REVIEW_DECISION" == "REVIEW_REQUIRED" ]]; then
     echo "ERROR: PR #${PR_NUMBER} is blocked by review requirement; independent review must be completed before merge." >&2
-    comment_pr "$PR_NUMBER" "PR is blocked by \`reviewDecision=REVIEW_REQUIRED\`. Complete independent review before merge. PR: ${PR_URL}"
+    comment_pr_with_kind "$PR_NUMBER" "review-required" "$PR_URL"
     exit 1
   fi
 
   if [[ "$REVIEW_DECISION" == "CHANGES_REQUESTED" ]]; then
     echo "ERROR: PR #${PR_NUMBER} has changes requested; resolve the review feedback before merging." >&2
-    comment_pr "$PR_NUMBER" "PR is blocked by \`reviewDecision=CHANGES_REQUESTED\`; cannot auto-merge. PR: ${PR_URL}"
+    comment_pr_with_kind "$PR_NUMBER" "changes-requested" "$PR_URL"
     exit 1
   fi
 
@@ -364,7 +429,7 @@ while true; do
 
   if [[ "$MERGE_STATE" == "DIRTY" ]]; then
     echo "ERROR: PR #${PR_NUMBER} has merge conflicts; resolve conflicts then rerun checks." >&2
-    comment_pr "$PR_NUMBER" "PR is blocked by merge conflicts (\`mergeStateStatus=DIRTY\`). Manual conflict resolution is required. PR: ${PR_URL}"
+    comment_pr_with_kind "$PR_NUMBER" "merge-conflicts" "$PR_URL" "$MERGE_STATE"
     exit 1
   fi
 
@@ -372,7 +437,7 @@ while true; do
     NOW_TS="$(date +%s)"
     if (( NOW_TS - START_MERGE_TS >= MERGE_TIMEOUT_SECONDS )); then
       echo "ERROR: PR still not merged after ${MERGE_TIMEOUT_SECONDS}s: #${PR_NUMBER}" >&2
-      comment_pr "$PR_NUMBER" "Auto-merge is enabled and checks are green, but the PR has not merged after ${MERGE_TIMEOUT_SECONDS}s. Current status: ${STATUS_LINE}. PR: ${PR_URL}"
+      comment_pr_with_kind "$PR_NUMBER" "merge-timeout" "$PR_URL" "$MERGE_STATE" "$REVIEW_DECISION" "$MERGE_TIMEOUT_SECONDS"
       exit 1
     fi
   fi

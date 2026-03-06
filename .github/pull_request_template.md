@@ -9,7 +9,7 @@ Skip-Reason: <必填，按上方示例替换>
 - 简要说明本次改动解决的问题
 
 ## 关联 Issue
-- Fixes #<issue_number>
+- Closes #<issue_number>
 
 ## 用户影响
 - 本次改动对用户/交付链路的影响

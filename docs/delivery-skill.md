@@ -1,6 +1,6 @@
 # OpenSpec + GitHub 交付规则
 
-更新时间：2026-03-05 12:00
+更新时间：2026-03-06 22:35
 
 本文件是 CreoNow 的交付规则主源（Source of Truth）。
 本文件只定义约束条件和验收标准，不定义具体命令和脚本参数。
@@ -26,6 +26,7 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 
 ## 二、交付规则（硬约束）
 
+0. **GitHub 能力探测强制**：发起 Issue / PR / comment 前，必须先运行 `python3 scripts/agent_github_delivery.py capabilities`，明确当前使用 `gh` 还是 GitHub MCP 通道。
 1. **Spec-first**：任何功能变更必须先有 OpenSpec spec。
 2. **红灯先行**：测试必须先失败再通过（Red → Green → Refactor），禁止先写实现再补测试。
 3. **依赖同步检查**：若 change 依赖其他 change，进入实现前必须确认上游状态，发现漂移先更新文档再继续。
@@ -39,6 +40,13 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 
 ---
 
+### GitHub 控制面选择
+
+- `auto`：优先 `gh`；若 `gh` 不可用或未认证，则在 GitHub MCP 可写时回退到 GitHub MCP。
+- `gh`：仅当 `gh auth status` 正常时允许继续。
+- `mcp`：仅当当前会话具备 GitHub MCP 写权限时允许继续；当前主要覆盖远程 Issue / PR / comment 动作。
+- 若两条通道都不可写，必须立即阻断，并在交付记录中写清缺失的是 tool / auth / permission 哪一项。
+
 ## 三、工作流阶段
 
 | 阶段          | 完成条件                                                                                                           |
@@ -47,7 +55,7 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 | 2. 规格制定   | OpenSpec spec 已编写或更新；若有上游依赖则已确认上游状态                                                     |
 | 3. 环境隔离   | 控制面 `origin/main` 已同步，Worktree 已创建，工作目录已切换                                                       |
 | 4. 实现与测试 | 按 TDD 循环实现；所有测试通过                                            |
-| 5. 提交与合并 | PR 已创建；auto-merge 已开启；CI 全绿；PR 已确认合并                     |
+| 5. 提交与合并 | PR 已创建；所选 GitHub 通道已确认；gh 通道时 auto-merge 已开启；CI 全绿；PR 已确认合并                     |
 | 6. 收口与归档 | 控制面 `main` 已包含任务提交；worktree 已清理                                                                       |
 
 ---
@@ -56,7 +64,8 @@ Commit type：`feat` / `fix` / `refactor` / `test` / `docs` / `chore` / `ci`
 
 | 情况                                 | 规则                                                                                        |
 | ------------------------------------ | --------------------------------------------------------------------------------------- |
-| `gh` 命令超时                        | 最多重试 3 次（间隔 10s），仓失败必须在 PR comment 记录并升级                              |
+| `gh` 命令超时                        | 最多重试 3 次（间隔 10s），仍失败则在 GitHub MCP 可写时切到 MCP；否则必须记录并升级                              |
+| `gh` 缺失 / 未认证                    | 立即运行 `agent_github_delivery.py capabilities` 复核；若 MCP 可写则切换通道，否则阻断并升级                              |
 | PR 需要 review                       | 记录 blocker，通知 reviewer，等待处理，禁止 silent abandonment                              |
 | checks 失败                          | 修复后重新 push，重跑并记录失败原因和修复证据                                               |
 | Spec 不存在或不完整                  | 必须先补 spec 并确认，禁止猜测实现                                                          |
