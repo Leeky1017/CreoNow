@@ -1,6 +1,6 @@
 # 测试命令与 CI 映射
 
-更新时间：2026-03-07 11:44
+更新时间：2026-03-07 12:30
 
 ## 总览
 
@@ -43,7 +43,7 @@
 | `unit-test-core`             | `pnpm test:unit`                                            | root 侧单元测试计划    |
 | `unit-test-renderer`         | `pnpm -C apps/desktop test:run`                             | renderer/store vitest  |
 | `integration-test`           | `pnpm test:integration`                                     | root 侧集成测试        |
-| `test-discovery-consistency` | `pnpm test:discovery:consistency`                           | 发现与执行一致性（当前为 advisory） |
+| `test-discovery-consistency` | `pnpm test:discovery:consistency`                           | 发现与执行一致性（阻断） |
 | `coverage-gate`              | `pnpm test:coverage:desktop` / `pnpm test:coverage:core`    | 生成 coverage artifact |
 | `storybook-build`            | `pnpm -C apps/desktop storybook:build`                      | 视觉验收基础门禁       |
 | `windows-e2e`                | `pnpm -C apps/desktop test:e2e`                             | Windows 平台 E2E       |
@@ -52,8 +52,8 @@
 
 ### Discovery consistency
 
-- 当前 CI 中 `test-discovery-consistency` 以单独 job 运行，但仍配置为 `continue-on-error: true`。
-- 因此它目前更接近“治理告警 / 提醒型 job”，而不是严格阻断门禁；发现结果与执行计划不一致时，仍应尽快修复，但当前不会单独卡死 `ci`。
+- 当前 CI 中 `test-discovery-consistency` 以单独 job 运行，且作为阻断门禁进入 `ci` 汇总检查。
+- 因此发现结果与执行计划不一致时，应视为需要修复的治理问题，而不是可忽略告警。
 
 ### Coverage
 
