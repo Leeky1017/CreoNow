@@ -48,7 +48,8 @@
 6. 再读 `08-backend-module-health-audit.md`，逐模块掌握后端功能性健全程度与边缘场景缺口。
 7. 再读 `09-error-ux-audit.md`，了解错误消息对用户体验的全面伤害及修复方案。
 8. 再读 `05-implementation-backlog.md`，掌握阶段、任务、依赖与验收。
-9. 最后读 `10-phase-0-issue-execution-plan.md`，按统一模板创建 issue、派发 Agent 与组织审计闭环。
+9. 再读 `10-phase-0-issue-execution-plan.md`，按统一模板创建 issue、派发 Agent 与组织审计闭环。
+10. 最后读 `11-frontend-static-code-audit.md`，获取前端代码静态分析的全量数据、问题热力图与修复路线图——后续前端 Agent 必须使用 Impeccable Skills。
 
 ---
 
@@ -66,6 +67,7 @@
 | `docs/audit/amp/08-backend-module-health-audit.md` | 后端 20+ 模块逐一健康度审查：功能现状、边缘缺口、代码证据、时序分级 | 后端、审计 Agent |
 | `docs/audit/amp/09-error-ux-audit.md` | 错误体验审查：15+ 处错误码暴露、基础设施分析、全量错误码人话映射表、修复方案 | 前端、产品、全栈 |
 | `docs/audit/amp/06-windows-release-readiness.md` | Win 首发就绪度、WSL 本地运行依赖、签名/更新/备份/崩溃可观测性、数据安全与本地存储评估 | Founder、发布负责人、桌面端 Agent |
+| `docs/audit/amp/11-frontend-static-code-audit.md` | 前端静态代码全面审计：Impeccable Skills 深度版，量化问题规模、模块热力图、修复路线图 | 前端 Agent（**必须加载 Impeccable Skills**）、设计、审计 Agent |
 
 ---
 
