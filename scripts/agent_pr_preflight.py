@@ -63,14 +63,16 @@ def current_branch(repo_root: str) -> str:
     return result.out.strip()
 
 
+def validate_doc_timestamps(repo_root: str) -> None:
+    cmd = ["python3", "scripts/check_doc_timestamps.py"]
+    result = run(cmd, cwd=repo_root)
+    print_command_and_output(cmd, result)
+    if result.code != 0:
+        raise RuntimeError("[DOCS] governed markdown timestamps are invalid")
+
+
 def run_gh_json(repo: str, cmd: list[str], *, error_hint: str) -> object:
-    try:
-        result = run(cmd, cwd=repo)
-    except FileNotFoundError as exc:
-        missing_bin = cmd[0] if cmd else "command"
-        raise RuntimeError(
-            f"{error_hint}; GitHub CLI `{missing_bin}` is unavailable. If GitHub MCP is available in this session, switch to the MCP fallback for remote Issue/PR checks."
-        ) from exc
+    result = run(cmd, cwd=repo)
     print_command_and_output(cmd, result)
     if result.code != 0:
         raise RuntimeError(error_hint)
@@ -147,6 +149,10 @@ def main() -> int:
             raise RuntimeError(f"[CONTRACT] branch must be task/<N>-<slug>, got: {branch}")
         issue_number = match.group("n")
         print(f"Branch OK: {branch}")
+
+        print("\n== Doc timestamp checks ==")
+        validate_doc_timestamps(repo)
+        print("Doc timestamps OK")
 
         print("\n== Issue checks ==")
         validate_issue_is_open(repo, issue_number)

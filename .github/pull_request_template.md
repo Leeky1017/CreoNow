@@ -6,27 +6,31 @@
 Skip-Reason: <必填，按上方示例替换>
 
 ## 主题
+
 - 简要说明本次改动解决的问题
 
 ## 关联 Issue
-- Closes #<issue_number>
+
+- Fixes #<issue_number>
 
 ## 用户影响
+
 - 本次改动对用户/交付链路的影响
 
 ## 不修最坏后果
+
 - 若不合入该 PR，最坏会发生什么
 
 ## 验证证据
+
 - [ ] `pnpm typecheck`
 - [ ] `pnpm lint`
 - [ ] `pnpm test:unit`
+- [ ] `pnpm test:discovery:consistency`（若涉及测试脚本 / 测试发现 / 治理）
+- [ ] `pnpm -C apps/desktop storybook:build`（若涉及前端组件 / 样式 / 交互）
 - 其他补充验证：
 
 ## 回滚点
+
 - 回滚 commit/分支：
 - 回滚后需要恢复的数据或配置：
-
-## 审计门禁
-- [ ] 指定审计 Agent 已发布 `FINAL-VERDICT` 评论
-- [ ] `FINAL-VERDICT` 的最终判定为 `ACCEPT`

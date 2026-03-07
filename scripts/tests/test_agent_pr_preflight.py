@@ -80,15 +80,6 @@ class IssueStateTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, r"\[ISSUE\].*CLOSED.*expected OPEN"):
                 agent_pr_preflight.validate_issue_is_open("/tmp/repo", "42")
 
-    def test_validate_issue_is_open_should_fail_with_fallback_hint_when_gh_missing(self) -> None:
-        with mock.patch.object(
-            agent_pr_preflight,
-            "run",
-            side_effect=FileNotFoundError("gh"),
-        ):
-            with self.assertRaisesRegex(RuntimeError, r"GitHub CLI `gh` is unavailable.*GitHub MCP"):
-                agent_pr_preflight.validate_issue_is_open("/tmp/repo", "99")
-
     def test_validate_issue_is_open_should_fail_when_gh_errors(self) -> None:
         with mock.patch.object(
             agent_pr_preflight,
@@ -207,6 +198,55 @@ class EndToEndFlowTests(unittest.TestCase):
         with gm, bm, rm:
             rc = agent_pr_preflight.main()
         self.assertEqual(0, rc)
+
+    def test_main_should_run_doc_timestamp_check_before_issue_and_pr_checks(self) -> None:
+        commands: list[list[str]] = []
+
+        def run_side_effect(cmd, *, cwd=None):
+            commands.append(cmd)
+            if cmd[:2] == ["python3", "scripts/check_doc_timestamps.py"]:
+                return agent_pr_preflight.CmdResult(0, "OK: validated timestamps")
+            if "issue" in cmd:
+                return agent_pr_preflight.CmdResult(
+                    0,
+                    '{"number": 42, "state": "OPEN", "title": "test", "url": "https://example.com"}',
+                )
+            return agent_pr_preflight.CmdResult(
+                0,
+                '[{"number": 100, "body": "Closes #42", "url": "https://github.com/test/pull/100"}]',
+            )
+
+        with mock.patch.object(
+            agent_pr_preflight, "git_root", return_value="/tmp/repo"
+        ), mock.patch.object(
+            agent_pr_preflight, "current_branch", return_value="task/42-memory-decay"
+        ), mock.patch.object(agent_pr_preflight, "run", side_effect=run_side_effect):
+            rc = agent_pr_preflight.main()
+
+        self.assertEqual(0, rc)
+        self.assertIn(
+            ["python3", "scripts/check_doc_timestamps.py"],
+            commands,
+        )
+        self.assertLess(
+            commands.index(["python3", "scripts/check_doc_timestamps.py"]),
+            next(index for index, cmd in enumerate(commands) if "issue" in cmd),
+        )
+
+    def test_main_should_fail_when_doc_timestamp_check_fails(self) -> None:
+        def run_side_effect(cmd, *, cwd=None):
+            if cmd[:2] == ["python3", "scripts/check_doc_timestamps.py"]:
+                return agent_pr_preflight.CmdResult(1, "missing timestamp")
+            return agent_pr_preflight.CmdResult(0, "")
+
+        with mock.patch.object(
+            agent_pr_preflight, "git_root", return_value="/tmp/repo"
+        ), mock.patch.object(
+            agent_pr_preflight, "current_branch", return_value="task/42-memory-decay"
+        ), mock.patch.object(agent_pr_preflight, "run", side_effect=run_side_effect):
+            rc = agent_pr_preflight.main()
+
+        self.assertEqual(1, rc)
 
     def test_main_should_fail_when_issue_is_closed(self) -> None:
         closed_payload = '{"number": 42, "state": "closed", "title": "test", "url": "https://example.com"}'

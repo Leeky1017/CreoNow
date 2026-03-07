@@ -1,6 +1,6 @@
 # 文档时间戳治理
 
-更新时间：2026-03-04 16:00
+更新时间：2026-03-07 12:30
 
 ## 目标
 
@@ -37,9 +37,9 @@
 - 对受管范围内的 `.md` 文件验证时间戳存在与格式
 - 无受管文档变更时直接通过
 
-### CI 接入
+### CI 策略
 
-在 `.github/workflows/ci.yml` 中运行 `doc-timestamp-gate` job，并接入 required check `ci` 的 `needs` 列表。
+当前**不**单独接入 CI required check。文档时间戳采用本地 / preflight 前置校验，避免把文档治理与代码门禁混成两套来源。
 
 ### Preflight 接入
 
