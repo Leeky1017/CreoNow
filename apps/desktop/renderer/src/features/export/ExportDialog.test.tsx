@@ -137,3 +137,55 @@ describe("ExportDialog", () => {
     expect(screen.queryByTestId("export-success")).not.toBeInTheDocument();
   });
 });
+
+describe("ExportDialog format capability hints", () => {
+  it("shows plain text hint for PDF and DOCX format options", async () => {
+    await i18n.changeLanguage("en");
+    render(
+      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
+    );
+
+    const hints = screen.getAllByText("Plain text export · no formatting");
+    expect(hints).toHaveLength(2);
+  });
+
+  it("keeps Markdown format description as .md", async () => {
+    await i18n.changeLanguage("en");
+    render(
+      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
+    );
+
+    expect(screen.getByText(".md")).toBeInTheDocument();
+  });
+
+  it("keeps TXT format description as .txt", async () => {
+    await i18n.changeLanguage("en");
+    render(
+      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
+    );
+
+    expect(screen.getByText(".txt")).toBeInTheDocument();
+  });
+
+  it("shows Chinese hint when locale is zh-CN", async () => {
+    await i18n.changeLanguage("zh-CN");
+    render(
+      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
+    );
+
+    const hints = screen.getAllByText("纯文本导出 · 不含格式");
+    expect(hints.length).toBeGreaterThanOrEqual(2);
+
+    await i18n.changeLanguage("en");
+  });
+
+  it("shows English hint when locale is en", async () => {
+    await i18n.changeLanguage("en");
+    render(
+      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
+    );
+
+    const hints = screen.getAllByText("Plain text export · no formatting");
+    expect(hints.length).toBeGreaterThanOrEqual(2);
+  });
+});
