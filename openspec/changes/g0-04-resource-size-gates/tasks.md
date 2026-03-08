@@ -13,7 +13,7 @@ W0-GATE: 门禁基础设施
 
 ## 三层执行模型归属
 
-**Tier 1: CI 自动阻断** —— resource-size gate 从一开始即为 CI required；bundle-budget gate 初始以报告模式运行（`continue-on-error: true`），稳定后升级为 required。覆盖 Pattern #6。
+**Tier 1: CI 自动阻断** —— resource-size gate 与 bundle-budget gate 均已纳入 CI required；其中 bundle-budget 先生成真实桌面构建产物，再对非零 bundle 体积执行 baseline ratchet。覆盖 Pattern #6。
 
 公共约定见 `EXECUTION_ORDER.md` §二·五。
 
@@ -81,7 +81,7 @@ W0-GATE: 门禁基础设施
 - [ ] `package.json` 新增命令
 - [ ] `ci.yml` 新增 job（resource-size 在 code_changed 时运行，bundle-budget 在 PR + desktop_changed 时运行，先生成真实 build 产物再执行 gate）
 - [ ] 纳入 ci meta-job
-- [ ] **启动模式说明**：bundle-budget job 初始以 `continue-on-error: true` 运行（报告模式，不阻断 CI）；gate 本身始终输出 PASS/FAIL 结论，但 CI job 不阻断合并。待基线稳定 + 团队确认后，升级为 required（去除 `continue-on-error`）。resource-size gate 从一开始即为 required。
+- [ ] **当前模式说明**：bundle-budget job 已升级为 required gate；CI 需先执行 `pnpm -C apps/desktop build` 生成真实桌面构建产物，再运行 `pnpm gate:bundle-budget`。当构建产物缺失时，gate 必须直接 FAIL，不得回退为 `0B / 0B PASS`。
 
 ---
 
@@ -104,9 +104,12 @@ W0-GATE: 门禁基础设施
 
 **本地验证命令**：
 ```bash
-pnpm -C apps/desktop vitest run <test-file-pattern>   # Guard 测试（必须含 PASS + FAIL fixture）
-pnpm typecheck                                         # 类型检查
-pnpm lint                                              # ESLint
+pnpm exec tsx scripts/tests/resource-size-gate.test.ts  # resource-size Guard 测试
+pnpm exec tsx scripts/tests/bundle-size-budget.test.ts  # bundle budget Guard 测试
+pnpm -C apps/desktop build                              # 生成真实桌面构建产物
+pnpm gate:bundle-budget                                 # 非零 bundle 体积比对
+pnpm typecheck                                          # 类型检查
+pnpm lint                                               # ESLint
 ```
 
 **五大反模式（Red Line）**：
