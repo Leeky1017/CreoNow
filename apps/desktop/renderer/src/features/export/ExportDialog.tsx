@@ -5,6 +5,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
 import { Button, Checkbox, Select, Tooltip } from "../../components/primitives";
+import { useAppToast } from "../../components/providers/AppToastProvider";
 import { invoke } from "../../lib/ipcClient";
 
 import { Check, File, FileCode, FileOutput, FileText, X } from "lucide-react";
@@ -711,6 +712,7 @@ export function ExportDialog({
   error: controlledError,
 }: ExportDialogProps): JSX.Element {
   const { t } = useTranslation();
+  const { showToast } = useAppToast();
   const displayTitle = documentTitle ?? t('export.defaultDocumentTitle');
   // Internal state for uncontrolled mode
   const [internalView, setInternalView] = React.useState<ExportView>("config");
@@ -841,6 +843,7 @@ export function ExportDialog({
     setInternalProgress(100);
     setResult(res.data);
     setInternalView("success");
+    showToast({ title: t("toast.export.success.title"), variant: "success" });
     onExport?.(options);
   };
 

@@ -30,6 +30,8 @@ import {
   VersionStoreProvider,
 } from "./stores/versionStore";
 import { WindowTitleBar } from "./components/window/WindowTitleBar";
+import { AppToastProvider } from "./components/providers/AppToastProvider";
+import { ToastIntegrationBridge } from "./components/providers/ToastIntegrationBridge";
 
 /**
  * AppRouter decides which screen to show based on onboarding status.
@@ -144,32 +146,35 @@ export function App(): JSX.Element {
 
   return (
     <ThemeStoreProvider store={themeStore}>
-      <OnboardingStoreProvider store={onboardingStore}>
-        <AiStoreProvider store={aiStore}>
-          <ProjectStoreProvider store={projectStore}>
-            <EditorStoreProvider store={editorStore}>
-              <FileStoreProvider store={fileStore}>
-                <KgStoreProvider store={kgStore}>
-                  <SearchStoreProvider store={searchStore}>
-                    <MemoryStoreProvider store={memoryStore}>
-                      <VersionStoreProvider store={versionStore}>
-                        <LayoutStoreProvider store={layoutStore}>
-                          <div className="flex h-full min-h-0 flex-col">
-                            <WindowTitleBar />
-                            <div className="min-h-0 flex-1">
-                              <AppRouter />
+      <AppToastProvider>
+        <OnboardingStoreProvider store={onboardingStore}>
+          <AiStoreProvider store={aiStore}>
+            <ProjectStoreProvider store={projectStore}>
+              <EditorStoreProvider store={editorStore}>
+                <FileStoreProvider store={fileStore}>
+                  <KgStoreProvider store={kgStore}>
+                    <SearchStoreProvider store={searchStore}>
+                      <MemoryStoreProvider store={memoryStore}>
+                        <VersionStoreProvider store={versionStore}>
+                          <LayoutStoreProvider store={layoutStore}>
+                            <ToastIntegrationBridge />
+                            <div className="flex h-full min-h-0 flex-col">
+                              <WindowTitleBar />
+                              <div className="min-h-0 flex-1">
+                                <AppRouter />
+                              </div>
                             </div>
-                          </div>
-                        </LayoutStoreProvider>
-                      </VersionStoreProvider>
-                    </MemoryStoreProvider>
-                  </SearchStoreProvider>
-                </KgStoreProvider>
-              </FileStoreProvider>
-            </EditorStoreProvider>
-          </ProjectStoreProvider>
-        </AiStoreProvider>
-      </OnboardingStoreProvider>
+                          </LayoutStoreProvider>
+                        </VersionStoreProvider>
+                      </MemoryStoreProvider>
+                    </SearchStoreProvider>
+                  </KgStoreProvider>
+                </FileStoreProvider>
+              </EditorStoreProvider>
+            </ProjectStoreProvider>
+          </AiStoreProvider>
+        </OnboardingStoreProvider>
+      </AppToastProvider>
     </ThemeStoreProvider>
   );
 }

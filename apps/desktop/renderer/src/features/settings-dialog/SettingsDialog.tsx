@@ -18,6 +18,7 @@ import {
   type AccountSettings,
 } from "./SettingsAccount";
 import { useVersionPreferencesStore } from "../../stores/versionPreferencesStore";
+import { useAppToast } from "../../components/providers/AppToastProvider";
 
 import { X } from "lucide-react";
 /**
@@ -162,6 +163,7 @@ export function SettingsDialog({
   defaultTab = "general",
 }: SettingsDialogProps): JSX.Element {
   const { t } = useTranslation();
+  const { showToast } = useAppToast();
   const navItems = getNavItems(t);
   const [activeTab, setActiveTab] = React.useState<SettingsTab>(defaultTab);
   const [generalSettings, setGeneralSettings] = React.useState<GeneralSettings>(
@@ -172,6 +174,14 @@ export function SettingsDialog({
   );
   const showAiMarks = useVersionPreferencesStore((s) => s.showAiMarks);
   const setShowAiMarks = useVersionPreferencesStore((s) => s.setShowAiMarks);
+
+  const handleSettingsChange = React.useCallback(
+    (settings: GeneralSettings) => {
+      setGeneralSettings(settings);
+      showToast({ title: t("toast.settings.success.title"), variant: "success" });
+    },
+    [showToast, t],
+  );
 
   React.useEffect(() => {
     if (open) {
@@ -187,7 +197,7 @@ export function SettingsDialog({
             settings={generalSettings}
             showAiMarks={showAiMarks}
             onShowAiMarksChange={setShowAiMarks}
-            onSettingsChange={setGeneralSettings}
+            onSettingsChange={handleSettingsChange}
           />
         );
       case "appearance":
