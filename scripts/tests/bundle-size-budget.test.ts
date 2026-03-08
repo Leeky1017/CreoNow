@@ -8,22 +8,28 @@ import {
   readBaseline,
   writeBaseline,
   compareBundles,
+  runGate,
 } from "../bundle-size-budget";
 
 // ── Test: collect chunk sizes from build output ──
 {
   const root = mkdtempSync(path.join(tmpdir(), "bundle-collect-"));
-  const outDir = path.join(root, "apps", "desktop", "out");
-  mkdirSync(outDir, { recursive: true });
-  writeFileSync(path.join(outDir, "main.js"), "x".repeat(1000));
-  writeFileSync(path.join(outDir, "vendor.js"), "y".repeat(2000));
-  writeFileSync(path.join(outDir, "style.css"), "z".repeat(500)); // not JS, excluded
+  const distDir = path.join(root, "apps", "desktop", "dist");
+  mkdirSync(path.join(distDir, "renderer", "assets"), { recursive: true });
+  mkdirSync(path.join(distDir, "preload"), { recursive: true });
+  writeFileSync(path.join(distDir, "main.js"), "x".repeat(1000));
+  writeFileSync(path.join(distDir, "renderer", "assets", "vendor.js"), "y".repeat(2000));
+  writeFileSync(path.join(distDir, "preload", "index.cjs"), "p".repeat(750));
+  writeFileSync(path.join(distDir, "renderer", "assets", "style.css"), "z".repeat(500)); // not JS, excluded
 
   const chunks = collectChunkSizes(root);
-  assert.equal(chunks.length, 2, "Should collect 2 JS files");
+  assert.equal(chunks.length, 3, "Should collect 3 JS-like files");
   const mainChunk = chunks.find((c) => c.name === "main.js");
   assert.ok(mainChunk, "Should find main.js");
   assert.equal(mainChunk!.size, 1000);
+  const preloadChunk = chunks.find((c) => c.name === path.join("preload", "index.cjs"));
+  assert.ok(preloadChunk, "Should find preload/index.cjs");
+  assert.equal(preloadChunk!.size, 750);
 }
 
 // ── Test: no build output → empty chunks ──
@@ -31,6 +37,26 @@ import {
   const root = mkdtempSync(path.join(tmpdir(), "bundle-empty-"));
   const chunks = collectChunkSizes(root);
   assert.equal(chunks.length, 0, "No build output should return empty");
+}
+
+// ── Test: runGate fails when build output is missing ──
+{
+  const root = mkdtempSync(path.join(tmpdir(), "bundle-missing-output-"));
+  const guardsDir = path.join(root, "openspec", "guards");
+  mkdirSync(guardsDir, { recursive: true });
+  const baseline = {
+    totalSize: 1234,
+    chunks: [{ name: "renderer/assets/index.js", size: 1234 }],
+    updatedAt: "2024-01-01T00:00:00.000Z",
+  };
+  writeFileSync(
+    path.join(guardsDir, "bundle-size-baseline.json"),
+    JSON.stringify(baseline, null, 2) + "\n",
+  );
+
+  const result = runGate(root);
+  assert.equal(result.ok, false, "Missing build output should FAIL");
+  assert.equal(result.missingBuildOutput, true, "Should report missing build output");
 }
 
 // ── Test: total within budget → PASS ──

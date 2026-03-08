@@ -72,14 +72,14 @@ W0-GATE: 门禁基础设施
 ### Task 2.2: 实现 `bundle-size-budget.ts`
 
 - [ ] 创建 `scripts/bundle-size-budget.ts`
-- [ ] 读取 build output 目录（`apps/desktop/out/`），统计各 `.js` 文件大小
+- [ ] 读取 build output 目录（`apps/desktop/dist/`），统计各 `.js` / `.mjs` / `.cjs` 文件大小
 - [ ] 对比 baseline，计算差异百分比
 - [ ] 实现 baseline 读写（`openspec/guards/bundle-size-baseline.json`）
 
 ### Task 2.3: CI 集成
 
 - [ ] `package.json` 新增命令
-- [ ] `ci.yml` 新增 job（resource-size 在 code_changed 时运行，bundle-budget 在 PR + desktop_changed 时运行，需要 build 产物）
+- [ ] `ci.yml` 新增 job（resource-size 在 code_changed 时运行，bundle-budget 在 PR + desktop_changed 时运行，先生成真实 build 产物再执行 gate）
 - [ ] 纳入 ci meta-job
 - [ ] **启动模式说明**：bundle-budget job 初始以 `continue-on-error: true` 运行（报告模式，不阻断 CI）；gate 本身始终输出 PASS/FAIL 结论，但 CI job 不阻断合并。待基线稳定 + 团队确认后，升级为 required（去除 `continue-on-error`）。resource-size gate 从一开始即为 required。
 

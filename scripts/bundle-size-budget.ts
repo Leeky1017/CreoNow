@@ -42,11 +42,12 @@ export type BundleBudgetResult = {
   changes: BundleSizeChange[];
   newChunks: ChunkInfo[];
   removedChunks: string[];
+  missingBuildOutput: boolean;
 };
 
 // ── Constants ──────────────────────────────────────────────────────
 
-const BUILD_OUTPUT_DIR = path.join("apps", "desktop", "out");
+const BUILD_OUTPUT_DIR = path.join("apps", "desktop", "dist");
 const BASELINE_PATH = path.join(
   "openspec",
   "guards",
@@ -76,7 +77,7 @@ function walk(dir: string): string[] {
 }
 
 /**
- * Scan build output directory and collect JS chunk sizes.
+ * Scan build output directory and collect JS-like chunk sizes.
  */
 export function collectChunkSizes(rootDir: string = "."): ChunkInfo[] {
   const outputDir = path.join(rootDir, BUILD_OUTPUT_DIR);
@@ -84,7 +85,9 @@ export function collectChunkSizes(rootDir: string = "."): ChunkInfo[] {
 
   const files = walk(outputDir);
   return files
-    .filter((f) => f.endsWith(".js") || f.endsWith(".mjs"))
+    .filter(
+      (f) => f.endsWith(".js") || f.endsWith(".mjs") || f.endsWith(".cjs"),
+    )
     .map((f) => ({
       name: path.relative(path.join(rootDir, BUILD_OUTPUT_DIR), f),
       size: statSync(f).size,
@@ -161,10 +164,25 @@ export function compareBundles(
     changes,
     newChunks,
     removedChunks,
+    missingBuildOutput: false,
   };
 }
 
 export function runGate(rootDir: string = "."): BundleBudgetResult {
+  const outputDir = path.join(rootDir, BUILD_OUTPUT_DIR);
+  if (!existsSync(outputDir)) {
+    const baseline = readBaseline(rootDir);
+    return {
+      ok: false,
+      totalSize: 0,
+      baselineTotalSize: baseline.totalSize,
+      changes: [],
+      newChunks: [],
+      removedChunks: [],
+      missingBuildOutput: true,
+    };
+  }
+
   const chunks = collectChunkSizes(rootDir);
   const baseline = readBaseline(rootDir);
   return compareBundles(chunks, baseline);
@@ -186,6 +204,12 @@ if (
   const updateBaseline = process.argv.includes("--update-baseline");
 
   if (updateBaseline) {
+    const outputDir = path.join(process.cwd(), BUILD_OUTPUT_DIR);
+    if (!existsSync(outputDir)) {
+      console.log(`[${GATE_NAME}] FAIL  build output missing: ${BUILD_OUTPUT_DIR}`);
+      process.exit(1);
+    }
+
     const chunks = collectChunkSizes();
     writeBaseline(chunks);
     const total = chunks.reduce((sum, c) => sum + c.size, 0);
@@ -194,6 +218,11 @@ if (
   }
 
   const result = runGate();
+
+  if (result.missingBuildOutput) {
+    console.log(`[${GATE_NAME}] FAIL  build output missing: ${BUILD_OUTPUT_DIR}`);
+    process.exit(1);
+  }
 
   console.log(`[${GATE_NAME}] Total: ${formatBytes(result.totalSize)} (baseline: ${formatBytes(result.baselineTotalSize)})`);
 
