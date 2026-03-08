@@ -5,6 +5,8 @@ import { useEditorStore } from "../../stores/editorStore";
 import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
 import { SaveIndicator } from "./SaveIndicator";
+import { useToast, Toast, ToastProvider, ToastViewport } from "../primitives/Toast";
+import { useAutosaveToast } from "../../features/editor/useAutosaveToast";
 import "../../i18n";
 
 function formatCurrentTime(value: Date): string {
@@ -34,6 +36,15 @@ export function StatusBar(): JSX.Element {
   const autosaveStatus = useEditorStore((s) => s.autosaveStatus);
   const retryLastAutosave = useEditorStore((s) => s.retryLastAutosave);
   const capacityWarning = useEditorStore((s) => s.capacityWarning);
+
+  const { toast, showToast, setOpen } = useToast();
+
+  useAutosaveToast({
+    autosaveStatus,
+    documentId: documentId ?? currentDocumentId ?? null,
+    showToast,
+    retryLastAutosave,
+  });
 
   const [currentTime, setCurrentTime] = React.useState(() =>
     formatCurrentTime(new Date()),
@@ -76,40 +87,51 @@ export function StatusBar(): JSX.Element {
   );
 
   return (
-    <div
-      data-testid="layout-statusbar"
-      className="shrink-0 flex items-center justify-between gap-3 px-3 text-[11px] font-[var(--font-family-ui)] text-[var(--color-fg-muted)] bg-[var(--color-bg-surface)] border-t border-[var(--color-separator-bold)]"
-      style={{ height: LAYOUT_DEFAULTS.statusBarHeight }}
-    >
-      <div className="min-w-0 flex items-center gap-2">
-        <span data-testid="status-project-name" className="truncate">
-          {projectName}
-        </span>
-        <span aria-hidden="true">/</span>
-        <span data-testid="status-document-name" className="truncate">
-          {documentName}
-        </span>
-      </div>
-
-      <div className="ml-auto flex items-center gap-3">
-        <span data-testid="status-word-count">{wordCountText}</span>
-        <SaveIndicator
-          autosaveStatus={autosaveStatus}
-          onRetry={() => {
-            void retryLastAutosave();
-          }}
-        />
-        <span data-testid="status-current-time">{currentTime}</span>
-        {capacityWarning ? (
-          <span
-            data-testid="editor-capacity-warning"
-            className="text-[var(--color-warning)]"
-            role="status"
-          >
-            {capacityWarning}
+    <ToastProvider>
+      <div
+        data-testid="layout-statusbar"
+        className="shrink-0 flex items-center justify-between gap-3 px-3 text-[11px] font-[var(--font-family-ui)] text-[var(--color-fg-muted)] bg-[var(--color-bg-surface)] border-t border-[var(--color-separator-bold)]"
+        style={{ height: LAYOUT_DEFAULTS.statusBarHeight }}
+      >
+        <div className="min-w-0 flex items-center gap-2">
+          <span data-testid="status-project-name" className="truncate">
+            {projectName}
           </span>
-        ) : null}
+          <span aria-hidden="true">/</span>
+          <span data-testid="status-document-name" className="truncate">
+            {documentName}
+          </span>
+        </div>
+
+        <div className="ml-auto flex items-center gap-3">
+          <span data-testid="status-word-count">{wordCountText}</span>
+          <SaveIndicator
+            autosaveStatus={autosaveStatus}
+            onRetry={() => {
+              void retryLastAutosave();
+            }}
+          />
+          <span data-testid="status-current-time">{currentTime}</span>
+          {capacityWarning ? (
+            <span
+              data-testid="editor-capacity-warning"
+              className="text-[var(--color-warning)]"
+              role="status"
+            >
+              {capacityWarning}
+            </span>
+          ) : null}
+        </div>
       </div>
-    </div>
+      <Toast
+        title={toast.title}
+        description={toast.description}
+        variant={toast.variant}
+        action={toast.action}
+        open={toast.open}
+        onOpenChange={setOpen}
+      />
+      <ToastViewport />
+    </ToastProvider>
   );
 }

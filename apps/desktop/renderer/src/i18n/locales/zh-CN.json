@@ -39,6 +39,30 @@
       "saved": "已保存",
       "error": "保存失败"
     },
+    "autosave": {
+      "status": {
+        "saving": "保存中...",
+        "saved": "已保存",
+        "error": "保存失败"
+      },
+      "toast": {
+        "error": {
+          "title": "自动保存失败",
+          "description": "您的更改未能自动保存，请重试或手动保存。",
+          "retry": "重试"
+        },
+        "retrySuccess": {
+          "title": "保存已恢复"
+        },
+        "flushError": {
+          "title": "上一篇文档保存失败",
+          "description": "上一篇文档的更改可能未被保存。"
+        }
+      },
+      "a11y": {
+        "retryLabel": "重试保存"
+      }
+    },
     "infoPanel": {
       "openVersionHistory": "查看版本历史"
     },

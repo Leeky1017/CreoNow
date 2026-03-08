@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { StatusBar } from "./StatusBar";
+import { SaveIndicator } from "./SaveIndicator";
 import {
   ProjectStoreProvider,
   createProjectStore,
@@ -140,8 +141,96 @@ describe("StatusBar", () => {
 
     const indicator = screen.getByTestId("editor-autosave-status");
     expect(indicator).toHaveTextContent("Save failed");
-    fireEvent.click(indicator);
+    const retryButton = screen.getByRole("button", { name: "Retry save" });
+    fireEvent.click(retryButton);
 
     expect(retryLastAutosave).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SaveIndicator 四态映射 (AC-1, AC-7, AC-10)", () => {
+  it("idle 状态下不渲染可见文本", () => {
+    render(<SaveIndicator autosaveStatus="idle" onRetry={vi.fn()} />);
+    const indicator = screen.getByTestId("editor-autosave-status");
+    expect(indicator).toHaveTextContent("");
+    expect(indicator).toHaveAttribute("data-status", "idle");
+  });
+
+  it("saving 状态下渲染保存中文案和旋转图标", () => {
+    render(<SaveIndicator autosaveStatus="saving" onRetry={vi.fn()} />);
+    const indicator = screen.getByTestId("editor-autosave-status");
+    expect(indicator).toHaveTextContent("Saving...");
+    expect(indicator).toHaveAttribute("data-status", "saving");
+    // Spinner should be aria-hidden
+    const spinner = indicator.querySelector("svg[aria-hidden='true']");
+    expect(spinner).not.toBeNull();
+  });
+
+  it("saved 状态下渲染成功文案", () => {
+    render(<SaveIndicator autosaveStatus="saved" onRetry={vi.fn()} />);
+    const indicator = screen.getByTestId("editor-autosave-status");
+    expect(indicator).toHaveTextContent("Saved");
+    expect(indicator).toHaveAttribute("data-status", "saved");
+  });
+
+  it("saved 状态 2 秒后切换回 idle", () => {
+    vi.useFakeTimers();
+    render(
+      <SaveIndicator autosaveStatus="saved" onRetry={vi.fn()} />,
+    );
+    const indicator = screen.getByTestId("editor-autosave-status");
+    expect(indicator).toHaveAttribute("data-status", "saved");
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(screen.getByTestId("editor-autosave-status")).toHaveAttribute(
+      "data-status",
+      "idle",
+    );
+    expect(screen.getByTestId("editor-autosave-status")).toHaveTextContent("");
+  });
+
+  it("error 状态下渲染错误指示器，可点击触发重试", () => {
+    const onRetry = vi.fn();
+    render(<SaveIndicator autosaveStatus="error" onRetry={onRetry} />);
+    const indicator = screen.getByTestId("editor-autosave-status");
+    expect(indicator).toHaveTextContent("Save failed");
+    expect(indicator).toHaveAttribute("data-status", "error");
+
+    const retryButton = screen.getByRole("button", { name: "Retry save" });
+    fireEvent.click(retryButton);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("error 重试区域支持键盘 Enter 触发", () => {
+    const onRetry = vi.fn();
+    render(<SaveIndicator autosaveStatus="error" onRetry={onRetry} />);
+    const retryButton = screen.getByRole("button", { name: "Retry save" });
+    fireEvent.keyDown(retryButton, { key: "Enter" });
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SaveIndicator 无障碍 (AC-8)", () => {
+  it("保存指示区域具有 role=status 和 aria-live=polite", () => {
+    render(<SaveIndicator autosaveStatus="idle" onRetry={vi.fn()} />);
+    const indicator = screen.getByTestId("editor-autosave-status");
+    expect(indicator).toHaveAttribute("role", "status");
+    expect(indicator).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("error 态重试具有 role=button 和 aria-label", () => {
+    render(<SaveIndicator autosaveStatus="error" onRetry={vi.fn()} />);
+    const retryButton = screen.getByRole("button", { name: "Retry save" });
+    expect(retryButton).toHaveAttribute("aria-label", "Retry save");
+  });
+
+  it("saving 态旋转图标具有 aria-hidden=true", () => {
+    render(<SaveIndicator autosaveStatus="saving" onRetry={vi.fn()} />);
+    const indicator = screen.getByTestId("editor-autosave-status");
+    const svg = indicator.querySelector("svg");
+    expect(svg).toHaveAttribute("aria-hidden", "true");
   });
 });

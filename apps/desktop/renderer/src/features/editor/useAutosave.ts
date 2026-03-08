@@ -64,12 +64,14 @@ export function useAutosave(args: {
         timerRef.current = null;
         const queued = lastQueuedJsonRef.current;
         if (queued && queued.length > 0) {
-          void save({
+          save({
             projectId: args.projectId,
             documentId: args.documentId,
             contentJson: queued,
             actor: "auto",
             reason: "autosave",
+          }).catch(() => {
+            // Error state is handled inside editorStore.save/saveQueue
           });
         }
       }

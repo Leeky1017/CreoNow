@@ -3,20 +3,57 @@ import { useTranslation } from "react-i18next";
 import type { AutosaveStatus } from "../../stores/editorStore";
 import "../../i18n";
 
-function getSaveLabel(
-  status: AutosaveStatus,
-  t: (key: string) => string,
-): string {
-  if (status === "saving") {
-    return t("workbench.saveIndicator.saving");
-  }
-  if (status === "saved") {
-    return t("workbench.saveIndicator.saved");
-  }
-  if (status === "error") {
-    return t("workbench.saveIndicator.error");
-  }
-  return "";
+/**
+ * Spinning icon for "saving" state.
+ */
+function SavingSpinner(): JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      className="inline-block w-3 h-3 animate-spin"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle
+        cx="8"
+        cy="8"
+        r="6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeDasharray="28"
+        strokeDashoffset="8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Error icon for "error" state.
+ */
+function ErrorIcon(): JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      className="inline-block w-3 h-3"
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="2" />
+      <line
+        x1="8"
+        y1="4"
+        x2="8"
+        y2="9"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle cx="8" cy="12" r="1" fill="currentColor" />
+    </svg>
+  );
 }
 
 /**
@@ -47,25 +84,67 @@ export function SaveIndicator(props: {
   }, [props.autosaveStatus]);
 
   const isError = displayStatus === "error";
-  const label = getSaveLabel(displayStatus, t);
+  const isSaving = displayStatus === "saving";
+  const isSaved = displayStatus === "saved";
+
+  if (displayStatus === "idle") {
+    return (
+      <span
+        data-testid="editor-autosave-status"
+        role="status"
+        aria-live="polite"
+        data-status="idle"
+      />
+    );
+  }
+
+  if (isError) {
+    return (
+      <span
+        data-testid="editor-autosave-status"
+        role="status"
+        aria-live="polite"
+        data-status="error"
+      >
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label={t("workbench.autosave.a11y.retryLabel")}
+          onClick={() => props.onRetry()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              props.onRetry();
+            }
+          }}
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[var(--radius-sm)] text-[var(--color-error)] bg-[var(--color-error-subtle)] cursor-pointer"
+        >
+          <ErrorIcon />
+          {t("workbench.autosave.status.error")}
+        </span>
+      </span>
+    );
+  }
 
   return (
     <span
       data-testid="editor-autosave-status"
+      role="status"
       aria-live="polite"
       data-status={displayStatus}
-      onClick={() => {
-        if (isError) {
-          props.onRetry();
-        }
-      }}
       className={
-        isError
-          ? "text-[var(--color-error)] cursor-pointer underline"
-          : "text-[var(--color-fg-muted)] cursor-default"
+        isSaved
+          ? "text-[var(--color-success)]"
+          : "text-[var(--color-fg-muted)]"
       }
     >
-      {label}
+      {isSaving && (
+        <span className="inline-flex items-center gap-1">
+          <SavingSpinner />
+          {t("workbench.autosave.status.saving")}
+        </span>
+      )}
+      {isSaved && t("workbench.autosave.status.saved")}
     </span>
   );
 }

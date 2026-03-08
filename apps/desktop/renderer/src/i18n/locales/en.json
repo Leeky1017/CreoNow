@@ -39,6 +39,30 @@
       "saved": "Saved",
       "error": "Save failed"
     },
+    "autosave": {
+      "status": {
+        "saving": "Saving...",
+        "saved": "Saved",
+        "error": "Save failed"
+      },
+      "toast": {
+        "error": {
+          "title": "Auto-save failed",
+          "description": "Your changes could not be saved automatically. Please retry or save manually.",
+          "retry": "Retry"
+        },
+        "retrySuccess": {
+          "title": "Save recovered"
+        },
+        "flushError": {
+          "title": "Previous document save failed",
+          "description": "Changes to the previous document may not have been saved."
+        }
+      },
+      "a11y": {
+        "retryLabel": "Retry save"
+      }
+    },
     "infoPanel": {
       "openVersionHistory": "View Version History"
     },
