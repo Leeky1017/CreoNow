@@ -45,7 +45,7 @@ W0-GATE: 门禁基础设施
 - [ ] 测试：违规数 ≤ 基线 → PASS
 - [ ] 测试：违规数 > 基线 → FAIL
 
-**文件**: `scripts/__tests__/resource-size-gate.test.ts`（新建）
+**文件**: `scripts/tests/resource-size-gate.test.ts`（新建）
 
 ### Task 1.2: Bundle 大小 Gate 测试
 
@@ -56,7 +56,7 @@ W0-GATE: 门禁基础设施
 - [ ] 测试：--update-baseline 模式更新 baseline 文件
 - [ ] 测试：输出包含各 chunk 大小变化明细
 
-**文件**: `scripts/__tests__/bundle-size-budget.test.ts`（新建）
+**文件**: `scripts/tests/bundle-size-budget.test.ts`（新建）
 
 ---
 

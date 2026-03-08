@@ -77,6 +77,8 @@ jobs:
         run: pnpm lint
       - name: Lint warning budget
         run: pnpm lint:warning-budget
+      - name: ESLint rule tests
+        run: pnpm test:eslint-rules
       - name: Type check
         run: pnpm typecheck
 
@@ -285,6 +287,19 @@ jobs:
       - name: Spec-test mapping gate
         run: pnpm gate:spec-test-mapping
 
+  gate-bundle-budget:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code_changed == 'true'
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: Bundle size budget gate
+        run: pnpm gate:bundle-budget
+
   windows-e2e:
     runs-on: windows-latest
     needs: changes
@@ -398,6 +413,7 @@ jobs:
       - gate-error-boundary
       - gate-architecture-health
       - gate-spec-test-mapping
+      - gate-bundle-budget
       - windows-e2e
     timeout-minutes: 2
     steps:
