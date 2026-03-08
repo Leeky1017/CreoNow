@@ -1114,7 +1114,7 @@
     },
     "defaultDocumentTitle": "Untitled Document",
     "error": {
-      "noProject": "NO_PROJECT: Please open a project first",
+      "noProject": "Please open a project first",
       "unknown": "Export failed due to unknown error"
     }
   },
@@ -1275,7 +1275,7 @@
       "ready": "Ready",
       "downloading": "Downloading...",
       "notReady": "Not ready",
-      "errorWithCode": "Error ({{code}})",
+      "errorWithCode": "Quality check encountered an issue",
       "loadingJudgeStatus": "Loading judge status...",
       "judgeStatusUnavailable": "Judge status unavailable",
       "judgeModelLabel": "Judge Model:",

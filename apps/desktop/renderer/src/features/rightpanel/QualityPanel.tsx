@@ -38,7 +38,7 @@ function formatJudgeState(state: JudgeModelState, t: TFunction): {
     case "not_ready":
       return { label: t('rightPanel.quality.notReady'), status: "not_ready" };
     case "error":
-      return { label: t('rightPanel.quality.errorWithCode', { code: state.error.code }), status: "error" };
+      return { label: t('rightPanel.quality.errorWithCode'), status: "error" };
   }
 }
 
