@@ -18,7 +18,7 @@ import { invoke } from "./lib/ipcClient";
 installGlobalErrorHandlers({
   onError: (entry) => {
     try {
-      void invoke("log:renderer-error", {
+      void invoke("app:renderer:error", {
         source: entry.source,
         name: entry.name,
         message: entry.message,

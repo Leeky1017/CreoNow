@@ -128,6 +128,7 @@ export const IPC_CHANNELS = [
   "ai:skill:cancel",
   "ai:skill:feedback",
   "ai:skill:run",
+  "app:renderer:error",
   "app:system:ping",
   "app:window:close",
   "app:window:getstate",
@@ -194,7 +195,6 @@ export const IPC_CHANNELS = [
   "knowledge:rules:inject",
   "knowledge:suggestion:accept",
   "knowledge:suggestion:dismiss",
-  "log:renderer-error",
   "memory:clear:all",
   "memory:clear:project",
   "memory:distill:progress",
@@ -517,6 +517,16 @@ export type IpcChannelSpec = {
         sessionTotalTokens: number;
       };
     };
+  };
+  "app:renderer:error": {
+    request: {
+      message: string;
+      name: string;
+      source: "unhandledrejection" | "error";
+      stack?: string;
+      timestamp: string;
+    };
+    response: Record<string, never>;
   };
   "app:system:ping": {
     request: Record<string, never>;
@@ -1745,16 +1755,6 @@ export type IpcChannelSpec = {
     response: {
       dismissed: true;
     };
-  };
-  "log:renderer-error": {
-    request: {
-      source: "unhandledrejection" | "error";
-      name: string;
-      message: string;
-      stack: string | undefined;
-      timestamp: string;
-    };
-    response: Record<string, never>;
   };
   "memory:clear:all": {
     request: {

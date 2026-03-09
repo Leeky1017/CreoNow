@@ -22,7 +22,7 @@ interface RendererErrorPayload {
   timestamp: string;
 }
 
-function isRendererErrorPayload(
+function validateRendererErrorPayload(
   value: unknown,
 ): value is RendererErrorPayload {
   if (typeof value !== "object" || value === null) {
@@ -41,12 +41,12 @@ export function registerLogIpcHandlers(
   args: RegisterLogIpcHandlersArgs,
 ): void {
   args.ipcMain.handle(
-    "log:renderer-error",
+    "app:renderer:error",
     async (
       _event: Electron.IpcMainInvokeEvent,
       payload: unknown,
     ): Promise<IpcResponse<Record<string, never>>> => {
-      if (!isRendererErrorPayload(payload)) {
+      if (!validateRendererErrorPayload(payload)) {
         return {
           ok: false,
           error: {

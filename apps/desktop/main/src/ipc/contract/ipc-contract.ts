@@ -847,6 +847,14 @@ const APP_WINDOW_STATE_SCHEMA = s.object({
   platform: s.string(),
 });
 
+const RENDERER_ERROR_PAYLOAD_SCHEMA = s.object({
+  source: s.union(s.literal("unhandledrejection"), s.literal("error")),
+  name: s.string(),
+  message: s.string(),
+  stack: s.optional(s.string()),
+  timestamp: s.string(),
+});
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -1658,6 +1666,10 @@ export const ipcContract = {
       response: s.object({
         dismissed: s.literal(true),
       }),
+    },
+    "app:renderer:error": {
+      request: RENDERER_ERROR_PAYLOAD_SCHEMA,
+      response: s.object({}),
     },
     "knowledge:query:relevant": {
       request: s.object({
