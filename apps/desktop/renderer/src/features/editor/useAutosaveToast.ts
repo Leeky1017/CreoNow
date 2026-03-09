@@ -16,48 +16,54 @@ export function useAutosaveToast(args: {
   retryLastAutosave: () => Promise<void>;
 }): void {
   const { t } = useTranslation();
+  const {
+    autosaveStatus,
+    documentId,
+    showToast,
+    retryLastAutosave,
+  } = args;
   const prevStatusRef = React.useRef<AutosaveStatus>(args.autosaveStatus);
   const toastedDocRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     const prev = prevStatusRef.current;
-    prevStatusRef.current = args.autosaveStatus;
+    prevStatusRef.current = autosaveStatus;
 
-    if (args.autosaveStatus === "error" && prev !== "error") {
+    if (autosaveStatus === "error" && prev !== "error") {
       // Dedup: don't re-toast the same document
-      if (args.documentId && args.documentId === toastedDocRef.current) {
+      if (documentId && documentId === toastedDocRef.current) {
         return;
       }
-      toastedDocRef.current = args.documentId;
-      args.showToast({
+      toastedDocRef.current = documentId;
+      showToast({
         title: t("workbench.autosave.toast.error.title"),
         description: t("workbench.autosave.toast.error.description"),
         variant: "error",
         action: {
           label: t("workbench.autosave.toast.error.retry"),
           onClick: () => {
-            void args.retryLastAutosave();
+            void retryLastAutosave();
           },
         },
       });
     }
 
-    if (args.autosaveStatus === "saved" && prev === "saving") {
+    if (autosaveStatus === "saved" && prev === "saving") {
       // If we previously had a toast for this doc and it just recovered, notify
-      if (toastedDocRef.current === args.documentId && args.documentId) {
+      if (toastedDocRef.current === documentId && documentId) {
         toastedDocRef.current = null;
-        args.showToast({
+        showToast({
           title: t("workbench.autosave.toast.retrySuccess.title"),
           variant: "success",
         });
       }
     }
-  }, [args.autosaveStatus, args.documentId, args.showToast, args.retryLastAutosave, t]);
+  }, [autosaveStatus, documentId, showToast, retryLastAutosave, t]);
 
   // Reset dedup tracking when document changes
   React.useEffect(() => {
     toastedDocRef.current = null;
-  }, [args.documentId]);
+  }, [documentId]);
 }
 
 /**
@@ -68,14 +74,15 @@ export function useFlushErrorToast(args: {
   showToast: (toast: Omit<ToastState, "open">) => void;
 }): void {
   const { t } = useTranslation();
+  const { flushError, showToast } = args;
 
   React.useEffect(() => {
-    if (args.flushError) {
-      args.showToast({
+    if (flushError) {
+      showToast({
         title: t("workbench.autosave.toast.flushError.title"),
         description: t("workbench.autosave.toast.flushError.description"),
         variant: "warning",
       });
     }
-  }, [args.flushError, args.showToast, t]);
+  }, [flushError, showToast, t]);
 }
