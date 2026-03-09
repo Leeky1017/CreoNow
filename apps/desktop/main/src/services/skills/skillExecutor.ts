@@ -442,6 +442,38 @@ function validateSkillRunOutput(args: {
   });
 }
 
+function createValidatedStreamEmitter(args: {
+  emitEvent: (event: AiStreamEvent) => void;
+  skillId: string;
+  inputText: string;
+  output?: SkillOutputConstraints;
+}): (event: AiStreamEvent) => void {
+  return (event) => {
+    if (event.type !== "done" || event.terminal !== "completed") {
+      args.emitEvent(event);
+      return;
+    }
+
+    const validation = validateSkillRunOutput({
+      skillId: args.skillId,
+      outputText: event.outputText,
+      inputText: args.inputText,
+      output: args.output,
+    });
+    if (validation.ok) {
+      args.emitEvent(event);
+      return;
+    }
+
+    args.emitEvent({
+      ...event,
+      terminal: "error",
+      error: validation.error,
+      result: undefined,
+    });
+  };
+}
+
 /**
  * Assemble Context Engine prompt when project/document context exists.
  */
@@ -518,6 +550,14 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
         systemPrompt,
         input: userPrompt,
         timeoutMs: resolved.data.timeoutMs,
+        emitEvent: args.stream
+          ? createValidatedStreamEmitter({
+              emitEvent: args.emitEvent,
+              skillId: args.skillId,
+              inputText: args.input,
+              output: resolved.data.output,
+            })
+          : args.emitEvent,
       };
 
       let contextPrompt: string | undefined;
@@ -544,6 +584,16 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
 
       if (!run.ok) {
         return run;
+      }
+
+      if (args.stream && typeof run.data.outputText !== "string") {
+        return {
+          ok: true,
+          data: {
+            ...run.data,
+            ...(contextPrompt ? { contextPrompt } : {}),
+          },
+        };
       }
 
       const outputValidation = validateSkillRunOutput({
