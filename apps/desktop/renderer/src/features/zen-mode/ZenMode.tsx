@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { EditorContent, type Editor } from "@tiptap/react";
 import { ZenModeStatus } from "./ZenModeStatus";
 import { useHotkey } from "../../lib/hotkeys/useHotkey";
+import { Button } from "../../components/primitives/Button";
 
 import { X } from "lucide-react";
 
@@ -124,27 +125,16 @@ export function ZenMode({
           >
             {t("zenMode.pressEscToExit")}
           </span>
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             data-testid="zen-exit-button"
             onClick={onExit}
-            className="focus-ring w-8 h-8 rounded-full flex items-center justify-center transition-colors"
-            style={{
-              color: "var(--color-fg-muted)",
-              transitionDuration: "var(--duration-fast)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = "var(--color-fg-default)";
-              e.currentTarget.style.backgroundColor =
-                "var(--color-zen-hover)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = "var(--color-fg-muted)";
-              e.currentTarget.style.backgroundColor = "transparent";
-            }}
+            className="!rounded-full !w-8 !h-8 !p-0 flex items-center justify-center"
             aria-label={t("zenMode.exitAriaLabel")}
           >
             <X size={20} strokeWidth={1.5} />
-          </button>
+          </Button>
         </div>
       </div>
 
