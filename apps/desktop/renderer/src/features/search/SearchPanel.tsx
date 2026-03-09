@@ -530,6 +530,56 @@ function SearchResultsArea(props: {
   );
 }
 
+function SearchFooter(props: {
+  hasResults: boolean;
+  totalResults: number;
+  t: (key: string, opts?: Record<string, unknown>) => string;
+}): JSX.Element {
+  return (
+    <div
+      className="border-t border-[var(--color-separator)] px-4 py-3 flex items-center justify-between shrink-0 bg-[var(--color-bg-raised)]"
+    >
+      <div className="flex items-center gap-4">
+        {props.hasResults && (
+          <>
+            <span className="text-xs text-[var(--color-fg-muted)] font-medium">
+              {props.t("search.results.result", { count: props.totalResults })}
+            </span>
+            <div className="h-3 w-px bg-[var(--color-bg-overlay)]" />
+            <span className="text-[10px] text-[var(--color-fg-placeholder)]">
+              {props.t("search.results.searchTime", { time: "0.04s" })}
+            </span>
+          </>
+        )}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <KeyHint
+          icon={
+            <span className="flex gap-0.5">
+              <ChevronUp className="w-2.5 h-2.5" size={16} strokeWidth={1.5} />
+            </span>
+          }
+          label=""
+        />
+        <KeyHint
+          icon={
+            <ChevronDown className="w-2.5 h-2.5" size={16} strokeWidth={1.5} />
+          }
+          label={props.t("search.footer.toNavigate")}
+        />
+        <KeyHint
+          icon={
+            <CornerDownLeft className="w-3 h-3" size={16} strokeWidth={1.5} />
+          }
+          label={props.t("search.footer.toOpen")}
+        />
+        <KeyHint text="esc" label={props.t("search.footer.toClose")} />
+      </div>
+    </div>
+  );
+}
+
 
 /**
  * SearchPanel provides a modal search interface across documents, memories, and knowledge.
@@ -612,6 +662,37 @@ export function SearchPanel(props: {
   const hasQuery = effectiveQuery.trim().length > 0;
   const hasError = effectiveStatus === "error" && lastError !== null;
 
+  function handleInputKeyDown(e: React.KeyboardEvent): void {
+    if (e.key === "Enter") {
+      void runFulltext({ projectId, limit: 20 });
+    }
+  }
+
+  const handleItemClick = React.useCallback((documentId: string): void => {
+    const result = items.find((item) => item.id === documentId);
+    if (!result || result.type !== "document") {
+      onClose?.();
+      return;
+    }
+
+    const targetDocumentId = result.documentId ?? result.id;
+    void navigateSearchResult({
+      projectId,
+      result: {
+        documentId: targetDocumentId,
+        anchor: result.anchor,
+      },
+      setCurrent,
+      setFlashKey,
+      onClose,
+    });
+  }, [items, onClose, projectId, setCurrent, setFlashKey]);
+
+  function handleRetrySearch(): void {
+    clearError();
+    void runFulltext({ projectId, limit: 20 });
+  }
+
   // Auto-focus input when opened
   React.useEffect(() => {
     if (open) {
@@ -672,42 +753,11 @@ export function SearchPanel(props: {
       if (items.length > 0 && activeIndex >= 0 && activeIndex < items.length) {
         handleItemClick(items[activeIndex].id);
       }
-    }, [items, activeIndex]),
+    }, [items, activeIndex, handleItemClick]),
     "global",
     25,
     open && items.length > 0,
   );
-
-  function handleInputKeyDown(e: React.KeyboardEvent): void {
-    if (e.key === "Enter") {
-      void runFulltext({ projectId, limit: 20 });
-    }
-  }
-
-  function handleItemClick(documentId: string): void {
-    const result = items.find((item) => item.id === documentId);
-    if (!result || result.type !== "document") {
-      onClose?.();
-      return;
-    }
-
-    const targetDocumentId = result.documentId ?? result.id;
-    void navigateSearchResult({
-      projectId,
-      result: {
-        documentId: targetDocumentId,
-        anchor: result.anchor,
-      },
-      setCurrent,
-      setFlashKey,
-      onClose,
-    });
-  }
-
-  function handleRetrySearch(): void {
-    clearError();
-    void runFulltext({ projectId, limit: 20 });
-  }
 
   if (!open) return null;
 
@@ -850,50 +900,9 @@ export function SearchPanel(props: {
 
         </div>
 
-        {/* Footer */}
-        <div
-          className="border-t border-[var(--color-separator)] px-4 py-3 flex items-center justify-between shrink-0 bg-[var(--color-bg-raised)]"
-        >
-          <div className="flex items-center gap-4">
-            {hasResults && (
-              <>
-                <span className="text-xs text-[var(--color-fg-muted)] font-medium">
-                  {t("search.results.result", { count: totalResults })}
-                </span>
-                <div className="h-3 w-px bg-[var(--color-bg-overlay)]" />
-                <span className="text-[10px] text-[var(--color-fg-placeholder)]">
-                  {t("search.results.searchTime", { time: "0.04s" })}
-                </span>
-              </>
-            )}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <KeyHint
-              icon={
-                <span className="flex gap-0.5">
-                  <ChevronUp className="w-2.5 h-2.5" size={16} strokeWidth={1.5} />
-                </span>
-              }
-              label=""
-            />
-            <KeyHint
-              icon={
-                <ChevronDown className="w-2.5 h-2.5" size={16} strokeWidth={1.5} />
-              }
-              label={t("search.footer.toNavigate")}
-            />
-            <KeyHint
-              icon={
-                <CornerDownLeft className="w-3 h-3" size={16} strokeWidth={1.5} />
-              }
-              label={t("search.footer.toOpen")}
-            />
-            <KeyHint text="esc" label={t("search.footer.toClose")} />
-          </div>
+          <SearchFooter hasResults={hasResults} totalResults={totalResults} t={t} />
         </div>
-      </div>
 
-    </div>
-  );
-}
+      </div>
+    );
+  }

@@ -906,6 +906,7 @@ export function AppShell(): JSX.Element {
           if (!ctrl.currentProjectId) return;
           void ctrl.createDocument({ projectId: ctrl.currentProjectId });
         }}
+        onOpenGlobalSearch={() => ctrl.setSpotlightOpen(true)}
       />
 
       <PanelOrchestrator>

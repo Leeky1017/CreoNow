@@ -22,6 +22,7 @@ describe("WB-P2-S2 NavigationController boundary", () => {
     const onOpenSettings = vi.fn();
     const onOpenCreateProject = vi.fn();
     const onCreateDocument = vi.fn();
+    const onOpenGlobalSearch = vi.fn();
 
     render(
       <NavigationController
@@ -35,6 +36,7 @@ describe("WB-P2-S2 NavigationController boundary", () => {
         onOpenSettings={onOpenSettings}
         onOpenCreateProject={onOpenCreateProject}
         onCreateDocument={onCreateDocument}
+        onOpenGlobalSearch={onOpenGlobalSearch}
       />,
     );
 
@@ -70,6 +72,7 @@ describe("WB-P2-S2 NavigationController boundary", () => {
     const onOpenSettings = vi.fn();
     const onOpenCreateProject = vi.fn();
     const onCreateDocument = vi.fn();
+    const onOpenGlobalSearch = vi.fn();
 
     render(
       <NavigationController
@@ -83,6 +86,7 @@ describe("WB-P2-S2 NavigationController boundary", () => {
         onOpenSettings={onOpenSettings}
         onOpenCreateProject={onOpenCreateProject}
         onCreateDocument={onCreateDocument}
+        onOpenGlobalSearch={onOpenGlobalSearch}
       />,
     );
 
