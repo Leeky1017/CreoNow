@@ -18,6 +18,7 @@ export function useAutosave(args: {
 }): void {
   const save = useEditorStore((s) => s.save);
   const setAutosaveStatus = useEditorStore((s) => s.setAutosaveStatus);
+  const setFlushError = useEditorStore((s) => s.setFlushError);
 
   const timerRef = React.useRef<number | null>(null);
   const lastQueuedJsonRef = React.useRef<string | null>(null);
@@ -71,7 +72,7 @@ export function useAutosave(args: {
             actor: "auto",
             reason: "autosave",
           }).catch(() => {
-            // Error state is handled inside editorStore.save/saveQueue
+            setFlushError({ documentId: args.documentId });
           });
         }
       }
@@ -85,5 +86,6 @@ export function useAutosave(args: {
     args.suppressRef,
     save,
     setAutosaveStatus,
+    setFlushError,
   ]);
 }

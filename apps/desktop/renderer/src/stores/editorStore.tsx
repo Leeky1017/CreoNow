@@ -55,6 +55,7 @@ export type EditorState = {
   capacityWarning: string | null;
   autosaveStatus: AutosaveStatus;
   autosaveError: IpcError | null;
+  flushError: { documentId: string } | null;
   entityCompletionSession: EntityCompletionSession;
   /** Whether compare mode is active (showing DiffView instead of Editor) */
   compareMode: boolean;
@@ -88,6 +89,7 @@ export type EditorActions = {
     projectId: string;
   }) => Promise<IpcInvokeResult<"knowledge:entity:list">>;
   clearAutosaveError: () => void;
+  setFlushError: (error: { documentId: string } | null) => void;
   downgradeFinalStatusForEdit: (args: {
     projectId: string;
     documentId: string;
@@ -228,11 +230,13 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
       capacityWarning: null,
       autosaveStatus: "idle",
       autosaveError: null,
+      flushError: null,
       entityCompletionSession: createInitialEntityCompletionSession(),
       compareMode: false,
       compareVersionId: null,
 
       setAutosaveStatus: (status) => set({ autosaveStatus: status }),
+      setFlushError: (error) => set({ flushError: error }),
       setDocumentCharacterCount: (count) =>
         set({ documentCharacterCount: count }),
       setCapacityWarning: (warning) => set({ capacityWarning: warning }),

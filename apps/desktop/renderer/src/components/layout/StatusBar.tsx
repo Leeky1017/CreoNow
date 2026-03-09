@@ -6,7 +6,7 @@ import { useProjectStore } from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
 import { SaveIndicator } from "./SaveIndicator";
 import { useToast, Toast, ToastProvider, ToastViewport } from "../primitives/Toast";
-import { useAutosaveToast } from "../../features/editor/useAutosaveToast";
+import { useAutosaveToast, useFlushErrorToast } from "../../features/editor/useAutosaveToast";
 import "../../i18n";
 
 function formatCurrentTime(value: Date): string {
@@ -36,6 +36,7 @@ export function StatusBar(): JSX.Element {
   const autosaveStatus = useEditorStore((s) => s.autosaveStatus);
   const retryLastAutosave = useEditorStore((s) => s.retryLastAutosave);
   const capacityWarning = useEditorStore((s) => s.capacityWarning);
+  const flushError = useEditorStore((s) => s.flushError);
 
   const { toast, showToast, setOpen } = useToast();
 
@@ -44,6 +45,11 @@ export function StatusBar(): JSX.Element {
     documentId: documentId ?? currentDocumentId ?? null,
     showToast,
     retryLastAutosave,
+  });
+
+  useFlushErrorToast({
+    flushError,
+    showToast,
   });
 
   const [currentTime, setCurrentTime] = React.useState(() =>

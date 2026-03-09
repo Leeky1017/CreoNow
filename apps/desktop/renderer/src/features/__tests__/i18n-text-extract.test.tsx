@@ -54,13 +54,13 @@ describe("S3-I18N-EXTRACT-S1: hardcoded chinese literals are extracted to locale
     expect(saveIndicatorSource).not.toContain("已保存");
     expect(saveIndicatorSource).not.toContain("保存失败");
     expect(saveIndicatorSource).toMatch(
-      /t\(["']workbench\.saveIndicator\.saving["']\)/,
+      /t\(["']workbench\.autosave\.status\.saving["']\)/,
     );
     expect(saveIndicatorSource).toMatch(
-      /t\(["']workbench\.saveIndicator\.saved["']\)/,
+      /t\(["']workbench\.autosave\.status\.saved["']\)/,
     );
     expect(saveIndicatorSource).toMatch(
-      /t\(["']workbench\.saveIndicator\.error["']\)/,
+      /t\(["']workbench\.autosave\.status\.error["']\)/,
     );
 
     expect(appShellSource).not.toContain('group: "命令"');
