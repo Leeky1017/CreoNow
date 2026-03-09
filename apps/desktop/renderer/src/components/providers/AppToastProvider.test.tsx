@@ -1,3 +1,4 @@
+import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 
@@ -64,14 +65,24 @@ describe("AppToastProvider", () => {
   // AC-2: 未包裹 AppToastProvider 时返回 no-op（不抛错）
   // ===========================================================================
   it("未包裹 AppToastProvider 时调用 useAppToast() 返回 no-op，不抛错", () => {
-    let showToast: ReturnType<typeof useAppToast>["showToast"] | undefined;
+    const captured: {
+      showToast: ReturnType<typeof useAppToast>["showToast"] | undefined;
+    } = {
+      showToast: undefined,
+    };
+
     function Orphan(): JSX.Element {
-      ({ showToast } = useAppToast());
+      const { showToast } = useAppToast();
+
+      React.useEffect(() => {
+        captured.showToast = showToast;
+      }, [showToast]);
+
       return <div />;
     }
 
     expect(() => render(<Orphan />)).not.toThrow();
-    expect(typeof showToast).toBe("function");
+    expect(typeof captured.showToast).toBe("function");
   });
 
   // ===========================================================================

@@ -200,7 +200,8 @@ const contentStyles = [
   "-translate-x-1/2",
   "-translate-y-1/2",
   "z-[var(--z-modal)]",
-  "w-[480px]",
+  "w-[calc(100vw-2rem)]",
+  "max-w-xl",
   "bg-[var(--color-bg-surface)]",
   "border",
   "border-[var(--color-border-default)]",
@@ -570,7 +571,7 @@ function ProgressView({
   const formatLabel = format.toUpperCase();
 
   return (
-    <div className="flex flex-col h-[400px] items-center justify-center p-8 text-center">
+    <div className="flex min-h-[50vh] flex-col items-center justify-center p-8 text-center">
       {/* Icon with pulse animation */}
       <div className="w-16 h-16 rounded-2xl bg-[var(--color-accent-subtle)] flex items-center justify-center text-[var(--color-accent)] mb-6 relative">
         <FileOutput size={24} strokeWidth={1.5} />
@@ -615,7 +616,7 @@ function SuccessView(props: {
   return (
     <div
       data-testid="export-success"
-      className="flex flex-col h-[400px] items-center justify-center p-8 text-center"
+      className="flex min-h-[50vh] flex-col items-center justify-center p-8 text-center"
     >
       {/* Success icon */}
       <div className="w-16 h-16 rounded-[var(--radius-full)] bg-[var(--color-success-subtle)] flex items-center justify-center text-[var(--color-success)] mb-6 border border-[var(--color-success)]/20">
