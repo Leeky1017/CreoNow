@@ -604,7 +604,7 @@ function useEditorCommands(deps: {
     aiRun, aiSetSelectedSkillId, aiStatus, bootstrapStatus,
     closeSlashPanel, contentReady, documentId, documentStatus,
     downgradeFinalStatusForEdit, editor, isPreviewMode, projectId,
-    save,
+    save, t,
   } = deps;
 
   const aiStreamCheckpointRef = React.useRef<AiStreamCheckpoint | null>(null);
