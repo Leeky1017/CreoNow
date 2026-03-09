@@ -113,17 +113,15 @@ export function AppToastProvider({
   );
 }
 
+const NOOP_CONTEXT: AppToastContextValue = {
+  showToast: () => {},
+};
+
 /**
  * useAppToast — 从上下文获取 showToast 方法
  *
- * 必须在 AppToastProvider 内部调用。
+ * 在 AppToastProvider 外部调用时返回 no-op，不会抛错。
  */
 export function useAppToast(): AppToastContextValue {
-  const context = React.useContext(AppToastContext);
-  if (!context) {
-    throw new Error(
-      "useAppToast must be used within an AppToastProvider",
-    );
-  }
-  return context;
+  return React.useContext(AppToastContext) ?? NOOP_CONTEXT;
 }

@@ -61,17 +61,17 @@ describe("AppToastProvider", () => {
   });
 
   // ===========================================================================
-  // AC-2: 未包裹 AppToastProvider 时抛出错误
+  // AC-2: 未包裹 AppToastProvider 时返回 no-op（不抛错）
   // ===========================================================================
-  it("未包裹 AppToastProvider 时调用 useAppToast() 抛出有意义的错误", () => {
+  it("未包裹 AppToastProvider 时调用 useAppToast() 返回 no-op，不抛错", () => {
+    let showToast: ReturnType<typeof useAppToast>["showToast"] | undefined;
     function Orphan(): JSX.Element {
-      useAppToast();
+      ({ showToast } = useAppToast());
       return <div />;
     }
 
-    expect(() => render(<Orphan />)).toThrow(
-      "useAppToast must be used within an AppToastProvider",
-    );
+    expect(() => render(<Orphan />)).not.toThrow();
+    expect(typeof showToast).toBe("function");
   });
 
   // ===========================================================================
