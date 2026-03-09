@@ -26,7 +26,7 @@ describe("languagePreference", () => {
   });
 
   it("reads language from localStorage", () => {
-    mockStorage["creonow-language"] = "en";
+    mockStorage["creonow.settings.language"] = JSON.stringify("en");
     expect(getLanguagePreference()).toBe("en");
   });
 
@@ -35,7 +35,7 @@ describe("languagePreference", () => {
   });
 
   it("falls back to zh-CN for unsupported values", () => {
-    mockStorage["creonow-language"] = "fr";
+    mockStorage["creonow.settings.language"] = JSON.stringify("fr");
     expect(getLanguagePreference()).toBe("zh-CN");
   });
 
@@ -52,8 +52,8 @@ describe("languagePreference", () => {
   it("persists language to localStorage", () => {
     setLanguagePreference("en");
     expect(localStorage.setItem).toHaveBeenCalledWith(
-      "creonow-language",
-      "en",
+      "creonow.settings.language",
+      JSON.stringify("en"),
     );
   });
 

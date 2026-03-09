@@ -57,7 +57,6 @@ function isCreonowKey(key: string): key is PreferenceKey {
     key.startsWith(`${APP_ID}.theme.`) ||
     key.startsWith(`${APP_ID}.editor.`) ||
     key.startsWith(`${APP_ID}.onboarding.`) ||
-    key.startsWith(`${APP_ID}.settings.`) ||
     key.startsWith(`${APP_ID}.settings.`)
   );
 }

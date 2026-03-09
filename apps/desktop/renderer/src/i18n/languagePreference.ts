@@ -1,13 +1,12 @@
 /**
  * Language preference persistence — localStorage-only, no i18n dependency.
  *
- * Reading and writing are intentionally decoupled from the i18n instance
- * to avoid circular imports (index.ts → languagePreference → index.ts).
- * Callers that need to hot-switch the UI language should also call
- * `i18n.changeLanguage(lng)` after `setLanguagePreference(lng)`.
+ * Reads/writes the unified PreferenceStore key `creonow.settings.language`
+ * so that i18n init, onboarding, and Settings General all share one source.
+ * Values are JSON-serialized to match PreferenceStore conventions.
  */
 
-const STORAGE_KEY = "creonow-language";
+const STORAGE_KEY = "creonow.settings.language";
 const DEFAULT_LANGUAGE = "zh-CN";
 
 /**
@@ -17,9 +16,13 @@ const DEFAULT_LANGUAGE = "zh-CN";
  */
 export function getLanguagePreference(): string {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "en" || stored === "zh-CN") {
-      return stored;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw === null) {
+      return DEFAULT_LANGUAGE;
+    }
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed === "en" || parsed === "zh-CN") {
+      return parsed;
     }
     return DEFAULT_LANGUAGE;
   } catch {
@@ -33,7 +36,7 @@ export function getLanguagePreference(): string {
  */
 export function setLanguagePreference(lng: string): void {
   try {
-    localStorage.setItem(STORAGE_KEY, lng);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(lng));
   } catch {
     // localStorage may be unavailable in some environments
   }
