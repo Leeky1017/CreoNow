@@ -253,8 +253,8 @@ test.describe("Command Palette + Shortcuts", () => {
     // Export button should be disabled (no project)
     await expect(page.getByTestId("export-submit")).toBeDisabled();
 
-    // Should show NO_PROJECT message
-    await expect(page.getByText(/NO_PROJECT/)).toBeVisible();
+    // Should show the localized no-project message
+    await expect(page.getByText("Please open a project first")).toBeVisible();
 
     // Close dialog
     await page.keyboard.press("Escape");

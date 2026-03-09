@@ -48,7 +48,7 @@ describe("ExportDialog", () => {
     render(<ExportDialog open={true} onOpenChange={() => {}} />);
 
     expect(screen.getByTestId("export-submit")).toBeDisabled();
-    expect(screen.getByText(/NO_PROJECT:/)).toBeInTheDocument();
+    expect(screen.getByText("Please open a project first")).toBeInTheDocument();
   });
 
   it("renders controlled progress view", () => {
