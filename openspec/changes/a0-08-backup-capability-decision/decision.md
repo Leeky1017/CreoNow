@@ -82,7 +82,7 @@
 **结论**: ❌ 完全没有。
 
 **证据**:
-- 搜索 `backup.*restore|restore.*backup` 仅在 `storybook-static/` 构建产物中有间接文本匹配（i18n 字典拼接），非可执行代码。
+- 搜索 `backup.*restore|restore.*backup`：在源码中无任何命中。
 - 无恢复 UI，无恢复 IPC handler。
 
 ---
@@ -101,11 +101,17 @@
 
 ---
 
-### Q9: 备份大小限制？
+### Q9: i18n 文案中有多少条备份相关的 key？内容是否暗示备份已在工作？
 
-**结论**: ❌ 未定义。
+**结论**: ⚠️ 共 2 条备份相关 key，且内容暗示备份已在正常运行。
 
-**证据**: 无任何大小限制相关代码或配置。
+**证据**:
+- `en.json:851`：`"backupInterval": "Backup Interval"` — 暗示用户可配置备份间隔
+- `en.json:852`：`"backupIntervalHelp": "Last backup: 2 minutes ago"` — 暗示备份正在运行，且有真实时间戳
+- `zh-CN.json:851`：`"backupInterval": "备份间隔"`
+- `zh-CN.json:852`：`"backupIntervalHelp": "上次备份：2 分钟前"`
+- 搜索命令：`grep -rn -i 'backup' apps/desktop/renderer/src/i18n/locales/`
+- **结论**：2 条 key（`backupInterval` + `backupIntervalHelp`），en/zh-CN 各 2 条，共 4 条翻译条目。帮助文案以"上次备份：2 分钟前"暗示备份已在工作，实为硬编码假数据（同 Q8 结论）。
 
 ---
 
