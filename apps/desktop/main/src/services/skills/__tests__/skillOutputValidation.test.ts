@@ -407,55 +407,57 @@ describe("skillOutputValidation", () => {
     "输入为空时跳过膨胀检测，5000 字纯文本应通过",
   );
   });
+});
 
+describe("skillOutputValidation stream mode", () => {
   it("AC-9: 流式完成事件应校验最终输出", async () => {
-  const streamedEvents: AiStreamEvent[] = [];
-  const streamExecutor = createSkillExecutor({
-    resolveSkill: (id) => ({
-      ok: true,
-      data: {
-        id,
-        enabled: true,
-        valid: true,
-        prompt: { system: "system", user: "{{input}}" },
-      },
-    }),
-    runSkill: async (args) => {
-      args.emitEvent({
-        type: "done",
-        executionId: "ex-stream-invalid",
-        runId: "run-stream-invalid",
-        traceId: "trace-stream-invalid",
-        terminal: "completed",
-        outputText: "```html\n<div>bad</div>\n```",
-        ts: Date.now(),
-      });
-
-      return {
+    const streamedEvents: AiStreamEvent[] = [];
+    const streamExecutor = createSkillExecutor({
+      resolveSkill: (id) => ({
         ok: true,
         data: {
+          id,
+          enabled: true,
+          valid: true,
+          prompt: { system: "system", user: "{{input}}" },
+        },
+      }),
+      runSkill: async (args) => {
+        args.emitEvent({
+          type: "done",
           executionId: "ex-stream-invalid",
           runId: "run-stream-invalid",
-        },
-      };
-    },
-  });
+          traceId: "trace-stream-invalid",
+          terminal: "completed",
+          outputText: "```html\n<div>bad</div>\n```",
+          ts: Date.now(),
+        });
 
-  const result = await streamExecutor.execute(
-    buildStreamRunArgs(
-      "builtin:rewrite",
-      repeat("乙", 100),
-      (event) => streamedEvents.push(event),
-    ),
-  );
+        return {
+          ok: true,
+          data: {
+            executionId: "ex-stream-invalid",
+            runId: "run-stream-invalid",
+          },
+        };
+      },
+    });
 
-  assert.equal(result.ok, true, "流式运行应成功启动");
-  assert.equal(streamedEvents.length, 1);
-  const [doneEvent] = streamedEvents;
-  assert.equal(doneEvent.type, "done");
-  if (doneEvent.type === "done") {
-    assert.equal(doneEvent.terminal, "error");
-    assert.equal(doneEvent.error?.code, "SKILL_OUTPUT_INVALID");
-  }
+    const result = await streamExecutor.execute(
+      buildStreamRunArgs(
+        "builtin:rewrite",
+        repeat("乙", 100),
+        (event) => streamedEvents.push(event),
+      ),
+    );
+
+    assert.equal(result.ok, true, "流式运行应成功启动");
+    assert.equal(streamedEvents.length, 1);
+    const [doneEvent] = streamedEvents;
+    assert.equal(doneEvent.type, "done");
+    if (doneEvent.type === "done") {
+      assert.equal(doneEvent.terminal, "error");
+      assert.equal(doneEvent.error?.code, "SKILL_OUTPUT_INVALID");
+    }
   });
 });
