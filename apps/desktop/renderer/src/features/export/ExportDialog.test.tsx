@@ -285,7 +285,7 @@ describe("ExportDialog", () => {
     });
 
     it("shows Chinese hint after switching to zh-CN locale", async () => {
-      await i18n.changeLanguage("zh-CN");
+      await act(async () => { await i18n.changeLanguage("zh-CN"); });
       render(
         <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
       );
@@ -296,7 +296,7 @@ describe("ExportDialog", () => {
       const docxCard = screen.getByTestId("export-format-docx");
       expect(docxCard).toHaveTextContent("纯文本导出 · 不含格式");
 
-      await i18n.changeLanguage("en");
+      await act(async () => { await i18n.changeLanguage("en"); });
     });
   });
 
