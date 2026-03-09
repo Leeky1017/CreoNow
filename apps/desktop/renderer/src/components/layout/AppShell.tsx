@@ -18,6 +18,7 @@ import { RightPanel } from "./RightPanel";
 import { Sidebar } from "./Sidebar";
 import { StatusBar } from "./StatusBar";
 import { RegionErrorBoundary } from "../patterns/RegionErrorBoundary";
+import { Button } from "../primitives";
 import { CharacterCardListContainer } from "../../features/character/CharacterCardListContainer";
 import { CommandPalette } from "../../features/commandPalette/CommandPalette";
 import type {
@@ -964,11 +965,12 @@ export function AppShell(): JSX.Element {
                     confirm={ctrl.confirm}
                   />
                 </RegionErrorBoundary>
-                <button
-                  type="button"
+                <Button
                   aria-label={ctrl.t("workbench.appShell.aiPanelLabel")}
                   title={ctrl.t("workbench.appShell.aiPanelLabel")}
                   onClick={ctrl.toggleAiPanel}
+                  variant="ghost"
+                  size="sm"
                   className={`absolute top-2 right-2 min-w-6 min-h-6 flex items-center justify-center rounded-[var(--radius-sm)] transition-colors duration-[var(--duration-fast)] ease-[var(--ease-default)] z-10 ${
                     !layout.panelCollapsed && ctrl.activeRightPanel === "ai"
                       ? "text-[var(--color-fg-accent)] bg-[var(--color-bg-selected)]"
@@ -988,7 +990,7 @@ export function AppShell(): JSX.Element {
                   >
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                   </svg>
-                </button>
+                </Button>
               </main>
             }
             rightResizer={layout.panelResizer}

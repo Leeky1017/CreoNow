@@ -1085,11 +1085,12 @@ function useEditorPaneCore(projectId: string) {
 export function EditorPane(props: { projectId: string }): JSX.Element {
   const core = useEditorPaneCore(props.projectId);
   const zenMode = useLayoutStore((s) => s.zenMode);
+  const { closeSlashPanel } = core;
 
   // Close slash panel when zen mode activates
   React.useEffect(() => {
-    if (zenMode) core.closeSlashPanel();
-  }, [zenMode, core.closeSlashPanel]);
+    if (zenMode) closeSlashPanel();
+  }, [zenMode, closeSlashPanel]);
 
   if (core.bootstrapStatus !== "ready") {
     return (

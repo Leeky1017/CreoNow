@@ -4,6 +4,7 @@ import { BubbleMenu } from "@tiptap/react";
 import { useTranslation } from 'react-i18next';
 
 import { InlineFormatButton } from "./InlineFormatButton";
+import { Button } from "../../components/primitives";
 import { EDITOR_SHORTCUTS } from "../../config/shortcuts";
 import { captureSelectionRef } from "../ai/applySelection";
 import { useEditorStore } from "../../stores/editorStore";
@@ -142,6 +143,8 @@ export function EditorBubbleMenu(props: {
   // Suppress BubbleMenu entirely in zen mode (AC-3)
   const shouldShowBubble = visible && editor.isEditable && !zenMode;
   const inlineDisabled = !editor.isEditable || editor.isActive("codeBlock");
+  const inlineCodeShortcut = EDITOR_SHORTCUTS["code"];
+  const inlineCodeIcon = icons["code"];
 
   const toggleLink = () => {
     if (editor.isActive("link")) {
@@ -237,13 +240,13 @@ export function EditorBubbleMenu(props: {
       </InlineFormatButton>
       <InlineFormatButton
         testId="bubble-code"
-        label={EDITOR_SHORTCUTS.code.label}
-        shortcut={EDITOR_SHORTCUTS.code.display()}
+        label={inlineCodeShortcut.label}
+        shortcut={inlineCodeShortcut.display()}
         isActive={editor.isActive("code")}
         disabled={inlineDisabled}
         onClick={() => editor.chain().focus().toggleCode().run()}
       >
-        {icons.code}
+        {inlineCodeIcon}
       </InlineFormatButton>
       <InlineFormatButton
         testId="bubble-link"
@@ -257,17 +260,18 @@ export function EditorBubbleMenu(props: {
       <div className="mx-1 h-5 w-px bg-[var(--color-border-default)]" />
       <div className="flex items-center gap-1">
         {BUBBLE_AI_SKILLS.map((skill) => (
-          <button
+          <Button
             key={skill.id}
-            type="button"
             data-testid={skill.testId}
             aria-label={`AI ${t(skill.labelKey)}`}
             disabled={aiDisabled}
+            variant="ghost"
+            size="sm"
             className="rounded-[var(--radius-sm)] px-2 py-1 text-xs text-[var(--color-fg-default)] transition-colors duration-[var(--duration-fast)] hover:bg-[var(--color-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring-focus)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-bg-raised)] disabled:cursor-not-allowed disabled:opacity-40"
             onClick={() => handleAiSkillClick(skill.id)}
           >
             {t(skill.labelKey)}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
