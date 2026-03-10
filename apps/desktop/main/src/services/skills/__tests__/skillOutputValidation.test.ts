@@ -214,7 +214,9 @@ describe("skillOutputValidation", () => {
   ).execute(buildRunArgs("builtin:rewrite", repeat("乙", 100)));
   assert.equal(mathInequality.ok, true, "数学不等式不应被误伤");
   });
+});
 
+describe("skillOutputValidation inflation guards", () => {
   it("AC-5: strict 膨胀检测 (polish/rewrite ≤10x)", async () => {
   // polish: 输入 200 字，输出 2500 字（12.5 倍）→ 拦截
   const polishInflated = await buildExecutor(
