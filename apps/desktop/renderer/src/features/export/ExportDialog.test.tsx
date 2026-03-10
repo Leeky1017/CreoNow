@@ -1,6 +1,11 @@
 import { afterEach, beforeAll, describe, it, expect, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type {
+  ButtonHTMLAttributes,
+  HTMLAttributes,
+  ReactNode,
+} from "react";
 
 import type { IpcError } from "@shared/types/ipc-generated";
 import { ExportDialog } from "./ExportDialog";
@@ -8,26 +13,25 @@ import * as ipcClient from "../../lib/ipcClient";
 import { i18n } from "../../i18n";
 
 vi.mock("@radix-ui/react-dialog", async (importOriginal) => {
-  const React = await import("react");
-  const actual = await importOriginal();
+  const actual = (await importOriginal()) as Record<string, unknown>;
 
   return {
     ...actual,
-    Root: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-    Portal: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-    Overlay: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    Root: ({ children }: { children: ReactNode }) => <>{children}</>,
+    Portal: ({ children }: { children: ReactNode }) => <>{children}</>,
+    Overlay: ({ children, ...props }: HTMLAttributes<HTMLDivElement>) => (
       <div {...props}>{children}</div>
     ),
-    Content: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    Content: ({ children, ...props }: HTMLAttributes<HTMLDivElement>) => (
       <div {...props}>{children}</div>
     ),
-    Title: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+    Title: ({ children, ...props }: HTMLAttributes<HTMLHeadingElement>) => (
       <h2 {...props}>{children}</h2>
     ),
-    Description: ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
+    Description: ({ children, ...props }: HTMLAttributes<HTMLParagraphElement>) => (
       <p {...props}>{children}</p>
     ),
-    Close: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    Close: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
       <button type="button" {...props}>
         {children}
       </button>
