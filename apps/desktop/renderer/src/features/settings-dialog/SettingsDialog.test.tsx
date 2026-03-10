@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
+import { AppToastProvider } from "../../components/providers/AppToastProvider";
 import { SettingsDialog } from "./SettingsDialog";
 
 vi.mock("./SettingsGeneral", () => ({
@@ -48,9 +49,15 @@ vi.mock("../analytics/AnalyticsPage", () => ({
   ),
 }));
 
+function renderWithToastProvider(ui: JSX.Element) {
+  return render(<AppToastProvider>{ui}</AppToastProvider>);
+}
+
 describe("SettingsDialog", () => {
   it("renders when open is true", () => {
-    render(<SettingsDialog open={true} onOpenChange={vi.fn()} />);
+    renderWithToastProvider(
+      <SettingsDialog open={true} onOpenChange={vi.fn()} />,
+    );
 
     expect(screen.getByTestId("settings-dialog")).toBeInTheDocument();
     expect(screen.getByTestId("settings-nav-general")).toBeInTheDocument();
@@ -62,18 +69,24 @@ describe("SettingsDialog", () => {
   });
 
   it("does not render when open is false", () => {
-    render(<SettingsDialog open={false} onOpenChange={vi.fn()} />);
+    renderWithToastProvider(
+      <SettingsDialog open={false} onOpenChange={vi.fn()} />,
+    );
     expect(screen.queryByTestId("settings-dialog")).not.toBeInTheDocument();
   });
 
   it("shows general by default", () => {
-    render(<SettingsDialog open={true} onOpenChange={vi.fn()} />);
+    renderWithToastProvider(
+      <SettingsDialog open={true} onOpenChange={vi.fn()} />,
+    );
     expect(screen.getByTestId("mock-general-section")).toBeInTheDocument();
   });
 
   it("switches tabs on click", async () => {
     const user = userEvent.setup();
-    render(<SettingsDialog open={true} onOpenChange={vi.fn()} />);
+    renderWithToastProvider(
+      <SettingsDialog open={true} onOpenChange={vi.fn()} />,
+    );
 
     await user.click(screen.getByTestId("settings-nav-appearance"));
     expect(screen.getByTestId("mock-appearance-section")).toBeInTheDocument();
@@ -92,7 +105,7 @@ describe("SettingsDialog", () => {
   });
 
   it("respects defaultTab prop", () => {
-    render(
+    renderWithToastProvider(
       <SettingsDialog open={true} onOpenChange={vi.fn()} defaultTab="judge" />,
     );
     expect(screen.getByTestId("mock-judge-section")).toBeInTheDocument();
@@ -101,7 +114,9 @@ describe("SettingsDialog", () => {
   it("calls onOpenChange(false) when close button is clicked", async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
-    render(<SettingsDialog open={true} onOpenChange={onOpenChange} />);
+    renderWithToastProvider(
+      <SettingsDialog open={true} onOpenChange={onOpenChange} />,
+    );
 
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);

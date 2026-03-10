@@ -8,6 +8,7 @@ import type {
 } from "react";
 
 import type { IpcError } from "@shared/types/ipc-generated";
+import { AppToastProvider } from "../../components/providers/AppToastProvider";
 import { ExportDialog } from "./ExportDialog";
 import * as ipcClient from "../../lib/ipcClient";
 import { i18n } from "../../i18n";
@@ -142,9 +143,13 @@ afterEach(async () => {
   });
 });
 
+function renderWithToastProvider(ui: JSX.Element) {
+  return render(<AppToastProvider>{ui}</AppToastProvider>);
+}
+
 describe("ExportDialog", () => {
   it("renders config view with Markdown selected by default", () => {
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
@@ -165,7 +170,7 @@ describe("ExportDialog", () => {
   });
 
   it("enables all export formats (pdf/docx/txt/markdown)", () => {
-    render(
+    renderWithToastProvider(
       <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
     );
 
@@ -176,14 +181,16 @@ describe("ExportDialog", () => {
   });
 
   it("disables Export when projectId is missing", () => {
-    render(<ExportDialog open={true} onOpenChange={() => {}} />);
+    renderWithToastProvider(
+      <ExportDialog open={true} onOpenChange={() => {}} />,
+    );
 
     expect(screen.getByTestId("export-submit")).toBeDisabled();
     expect(screen.getByText(/NO_PROJECT:/)).toBeInTheDocument();
   });
 
   it("renders controlled progress view", () => {
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
@@ -200,7 +207,7 @@ describe("ExportDialog", () => {
   });
 
   it("renders controlled success view with result fields", () => {
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
@@ -222,7 +229,7 @@ describe("ExportDialog", () => {
   it("renders error banner in config view when error is provided", () => {
     const error: IpcError = { code: "IO_ERROR", message: "failed" };
 
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
@@ -247,7 +254,7 @@ describe("ExportDialog", () => {
       new Error("disk write permission denied"),
     );
 
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
