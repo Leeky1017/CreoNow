@@ -2,7 +2,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
-import { Text } from "../../components/primitives";
+import { Button, Text } from "../../components/primitives";
 import { AnalyticsPageContent } from "../analytics/AnalyticsPage";
 import { AppearanceSection } from "../settings/AppearanceSection";
 import { AiSettingsSection } from "../settings/AiSettingsSection";
@@ -18,6 +18,7 @@ import {
   type AccountSettings,
 } from "./SettingsAccount";
 import { useVersionPreferencesStore } from "../../stores/versionPreferencesStore";
+import { useAppToast } from "../../components/providers/AppToastProvider";
 
 import { X } from "lucide-react";
 /**
@@ -85,8 +86,10 @@ const contentStyles = [
   "-translate-x-1/2",
   "-translate-y-1/2",
   "z-[var(--z-modal)]",
-  "w-[1000px]",
-  "h-[700px]",
+  "w-[calc(100vw-2rem)]",
+  "max-w-5xl",
+  "h-[85vh]",
+  "max-h-[52rem]",
   "bg-[var(--color-bg-surface)]",
   "border",
   "border-[var(--color-border-default)]",
@@ -109,7 +112,7 @@ const contentStyles = [
  * Sidebar styles.
  */
 const sidebarStyles = [
-  "w-[260px]",
+  "w-64",
   "bg-[var(--color-bg-base)]",
   "border-r",
   "border-[var(--color-separator)]",
@@ -162,6 +165,7 @@ export function SettingsDialog({
   defaultTab = "general",
 }: SettingsDialogProps): JSX.Element {
   const { t } = useTranslation();
+  const { showToast } = useAppToast();
   const navItems = getNavItems(t);
   const [activeTab, setActiveTab] = React.useState<SettingsTab>(defaultTab);
   const [generalSettings, setGeneralSettings] = React.useState<GeneralSettings>(
@@ -172,6 +176,23 @@ export function SettingsDialog({
   );
   const showAiMarks = useVersionPreferencesStore((s) => s.showAiMarks);
   const setShowAiMarks = useVersionPreferencesStore((s) => s.setShowAiMarks);
+
+  const handleSettingsChange = React.useCallback((settings: GeneralSettings) => {
+    setGeneralSettings(settings);
+  }, []);
+
+  const handleShowAiMarksChange = React.useCallback(
+    (enabled: boolean) => {
+      const persisted = setShowAiMarks(enabled);
+      if (persisted) {
+        showToast({
+          title: t("toast.settings.success.title"),
+          variant: "success",
+        });
+      }
+    },
+    [setShowAiMarks, showToast, t],
+  );
 
   React.useEffect(() => {
     if (open) {
@@ -186,8 +207,8 @@ export function SettingsDialog({
           <SettingsGeneral
             settings={generalSettings}
             showAiMarks={showAiMarks}
-            onShowAiMarksChange={setShowAiMarks}
-            onSettingsChange={setGeneralSettings}
+            onShowAiMarksChange={handleShowAiMarksChange}
+            onSettingsChange={handleSettingsChange}
           />
         );
       case "appearance":
@@ -242,11 +263,11 @@ export function SettingsDialog({
               {navItems.map(({ value, label }) => {
                 const isActive = activeTab === value;
                 return (
-                  <button
+                  <Button
                     key={value}
-                    type="button"
                     onClick={() => setActiveTab(value)}
                     data-testid={`settings-nav-${value}`}
+                    variant="ghost"
                     className={`${navButtonBaseStyles} ${
                       isActive
                         ? "text-[var(--color-fg-default)] bg-[var(--color-bg-hover)] border-[var(--color-fg-default)]"
@@ -254,7 +275,7 @@ export function SettingsDialog({
                     }`}
                   >
                     {label}
-                  </button>
+                  </Button>
                 );
               })}
             </nav>

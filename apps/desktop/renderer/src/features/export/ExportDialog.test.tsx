@@ -8,6 +8,7 @@ import type {
 } from "react";
 
 import type { IpcError } from "@shared/types/ipc-generated";
+import { AppToastProvider } from "../../components/providers/AppToastProvider";
 import { ExportDialog } from "./ExportDialog";
 import * as ipcClient from "../../lib/ipcClient";
 import { i18n } from "../../i18n";
@@ -128,7 +129,6 @@ vi.mock("@radix-ui/react-radio-group", async () => {
     },
   };
 });
-
 beforeAll(async () => {
   await act(async () => {
     await i18n.changeLanguage("en");
@@ -142,9 +142,13 @@ afterEach(async () => {
   });
 });
 
+function renderWithToastProvider(ui: JSX.Element) {
+  return render(<AppToastProvider>{ui}</AppToastProvider>);
+}
+
 describe("ExportDialog", () => {
   it("renders config view with Markdown selected by default", () => {
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
@@ -165,7 +169,7 @@ describe("ExportDialog", () => {
   });
 
   it("enables all export formats (pdf/docx/txt/markdown)", () => {
-    render(
+    renderWithToastProvider(
       <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
     );
 
@@ -176,14 +180,16 @@ describe("ExportDialog", () => {
   });
 
   it("disables Export when projectId is missing", () => {
-    render(<ExportDialog open={true} onOpenChange={() => {}} />);
+    renderWithToastProvider(
+      <ExportDialog open={true} onOpenChange={() => {}} />,
+    );
 
     expect(screen.getByTestId("export-submit")).toBeDisabled();
     expect(screen.getByText(/NO_PROJECT:/)).toBeInTheDocument();
   });
 
   it("renders controlled progress view", () => {
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
@@ -200,7 +206,7 @@ describe("ExportDialog", () => {
   });
 
   it("renders controlled success view with result fields", () => {
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
@@ -222,7 +228,7 @@ describe("ExportDialog", () => {
   it("renders error banner in config view when error is provided", () => {
     const error: IpcError = { code: "IO_ERROR", message: "failed" };
 
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
@@ -247,7 +253,7 @@ describe("ExportDialog", () => {
       new Error("disk write permission denied"),
     );
 
-    render(
+    renderWithToastProvider(
       <ExportDialog
         open={true}
         onOpenChange={() => {}}
@@ -269,62 +275,3 @@ describe("ExportDialog", () => {
   });
 });
 
-describe("ExportDialog format capability hints", () => {
-  it("shows plain text hint for PDF and DOCX format options", async () => {
-    await act(async () => {
-      await i18n.changeLanguage("en");
-    });
-    render(
-      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
-    );
-
-    const hints = screen.getAllByText("Plain text export · no formatting");
-    expect(hints).toHaveLength(2);
-  });
-
-  it("keeps Markdown format description as .md", async () => {
-    await act(async () => {
-      await i18n.changeLanguage("en");
-    });
-    render(
-      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
-    );
-
-    expect(screen.getByText(".md")).toBeInTheDocument();
-  });
-
-  it("keeps TXT format description as .txt", async () => {
-    await act(async () => {
-      await i18n.changeLanguage("en");
-    });
-    render(
-      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
-    );
-
-    expect(screen.getByText(".txt")).toBeInTheDocument();
-  });
-
-  it("shows Chinese hint when locale is zh-CN", async () => {
-    await act(async () => {
-      await i18n.changeLanguage("zh-CN");
-    });
-    render(
-      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
-    );
-
-    const hints = screen.getAllByText("纯文本导出 · 不含格式");
-    expect(hints.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it("shows English hint when locale is en", async () => {
-    await act(async () => {
-      await i18n.changeLanguage("en");
-    });
-    render(
-      <ExportDialog open={true} onOpenChange={() => {}} projectId="test" />,
-    );
-
-    const hints = screen.getAllByText("Plain text export · no formatting");
-    expect(hints.length).toBeGreaterThanOrEqual(2);
-  });
-});

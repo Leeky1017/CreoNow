@@ -1316,6 +1316,34 @@
       "readTime": "{{minutes}} 分钟阅读"
     }
   },
+  "toast": {
+    "save": {
+      "success": {
+        "title": "文档已保存"
+      },
+      "error": {
+        "title": "保存失败",
+        "description": "无法保存文档，请重试。",
+        "retry": "重试"
+      }
+    },
+    "ai": {
+      "error": {
+        "title": "AI 请求失败",
+        "description": "AI 服务出现异常，请稍后重试。"
+      }
+    },
+    "export": {
+      "success": {
+        "title": "导出完成"
+      }
+    },
+    "settings": {
+      "success": {
+        "title": "设置已保存"
+      }
+    }
+  },
   "primitives": {
     "dialog": {
       "close": "关闭"

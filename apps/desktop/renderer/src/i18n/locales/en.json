@@ -1316,6 +1316,34 @@
       "readTime": "{{minutes}} min read"
     }
   },
+  "toast": {
+    "save": {
+      "success": {
+        "title": "Document saved"
+      },
+      "error": {
+        "title": "Save failed",
+        "description": "Unable to save document. Please try again.",
+        "retry": "Retry"
+      }
+    },
+    "ai": {
+      "error": {
+        "title": "AI request failed",
+        "description": "The AI service encountered an error. Please try again later."
+      }
+    },
+    "export": {
+      "success": {
+        "title": "Export completed"
+      }
+    },
+    "settings": {
+      "success": {
+        "title": "Settings saved"
+      }
+    }
+  },
   "primitives": {
     "dialog": {
       "close": "Close"

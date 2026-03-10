@@ -1,0 +1,76 @@
+import React from "react";
+import { useTranslation } from "react-i18next";
+
+import { useAppToast } from "../components/providers/AppToastProvider";
+import { useEditorStore } from "../stores/editorStore";
+import { useOptionalAiStore } from "../stores/aiStore";
+
+/**
+ * useAutoSaveToast — 监听 editorStore.autosaveStatus 变化，触发 Toast
+ *
+ * - "saved" → success toast
+ * - "error" → error toast with retry action
+ */
+export function useAutoSaveToast(): void {
+  const { t } = useTranslation();
+  const { showToast } = useAppToast();
+  const autosaveStatus = useEditorStore((s) => s.autosaveStatus);
+  const retryLastAutosave = useEditorStore((s) => s.retryLastAutosave);
+  const prevStatusRef = React.useRef(autosaveStatus);
+
+  React.useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = autosaveStatus;
+
+    // 只在状态真正变化时触发
+    if (prev === autosaveStatus) {
+      return;
+    }
+
+    if (autosaveStatus === "saved") {
+      showToast({
+        title: t("toast.save.success.title"),
+        variant: "success",
+      });
+    } else if (autosaveStatus === "error") {
+      showToast({
+        title: t("toast.save.error.title"),
+        description: t("toast.save.error.description"),
+        variant: "error",
+        action: {
+          label: t("toast.save.error.retry"),
+          onClick: () => {
+            retryLastAutosave();
+          },
+        },
+      });
+    }
+  }, [autosaveStatus, showToast, t, retryLastAutosave]);
+}
+
+/**
+ * useAiErrorToast — 监听 aiStore.status 变化到 "error"，触发 Toast
+ */
+export function useAiErrorToast(): void {
+  const { t } = useTranslation();
+  const { showToast } = useAppToast();
+  const aiStatus = useOptionalAiStore((s) => s.status) ?? "idle";
+  const prevStatusRef = React.useRef(aiStatus);
+
+  React.useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = aiStatus;
+
+    if (prev === aiStatus) {
+      return;
+    }
+
+    if (aiStatus === "error") {
+      showToast({
+        title: t("toast.ai.error.title"),
+        description: t("toast.ai.error.description"),
+        variant: "error",
+      });
+    }
+  }, [aiStatus, showToast, t]);
+}
