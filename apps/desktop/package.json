@@ -19,7 +19,9 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:coverage:core": "vitest run --coverage --config vitest.config.core.ts"
+    "test:coverage:core": "vitest run --coverage --config vitest.config.core.ts",
+    "test:visual": "playwright test -c tests/visual/playwright.visual.config.ts",
+    "test:visual:update": "playwright test -c tests/visual/playwright.visual.config.ts --update-snapshots"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
