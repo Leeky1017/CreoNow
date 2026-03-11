@@ -11,7 +11,7 @@ Skip-Reason: <必填，按上方示例替换>
 
 ## 关联 Issue
 
-- Fixes #<issue_number>
+- Closes #<issue_number>
 
 ## 用户影响
 
