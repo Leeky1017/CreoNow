@@ -102,22 +102,19 @@ CreoNow 的交付主平台是 Windows，因此 E2E 需要显式考虑：
 
 | # | 关键用户路径 | E2E 文件 | 覆盖状态 | 备注 |
 |---|-------------|----------|---------|------|
-| 1 | 启动与初始化 | `app-launch.spec.ts`, `db-bootstrap.spec.ts` | ✅ | 应用启动 + 安全沙箱校验 + 数据库初始化 |
-| 2 | 编辑与保存 | `editor-autosave.spec.ts` | ⚠️ | 见下方处理结论 |
-| 3 | AI 对话 | `ai-runtime.spec.ts`, `ai-apply.spec.ts`, `proxy-error-semantics.spec.ts` | ✅ | 成功/延迟/超时/上游错误/取消/冲突/代理配置 |
-| 4 | 导出 | `export-markdown.spec.ts` | ⚠️ | 见下方处理结论 |
-| 5 | 设置 | `settings-dialog.spec.ts`, `theme.spec.ts`, `layout-panels.spec.ts` | ✅ | 快捷键唤起 + 主题持久化 + 面板布局 |
-| 6 | 搜索 | `search-rag.spec.ts` | ✅ | FTS 命中 + 语义 RAG 检索 + 降级 + 截断 |
-| 7 | 版本/备份 | `version-history.spec.ts` | ✅ | 快照读取 + NOT_FOUND/INVALID_ARGUMENT 错误路径 |
+| 1 | 应用启动 | `app-launch.spec.ts`, `db-bootstrap.spec.ts` | ✅ | 应用启动 + 安全沙箱校验 + 数据库初始化 |
+| 2 | 项目切换 / 文档打开 | `project-lifecycle.spec.ts`, `documents-filetree.spec.ts`, `dashboard-project-actions.spec.ts` | ✅ | 项目创建/重启恢复 + 文件树 CRUD + 仪表盘操作 |
+| 3 | 编辑与保存 | `editor-autosave.spec.ts`, `version-history.spec.ts` | ✅ | autosave + 手动保存 Ctrl+S + 版本快照（见下方说明） |
+| 4 | 命令面板 | `command-palette.spec.ts` | ✅ | 命令面板唤起 + 9 条快捷键路径 |
+| 5 | AI 成功 / 失败 / 取消 | `ai-runtime.spec.ts`, `ai-apply.spec.ts`, `proxy-error-semantics.spec.ts` | ✅ | 成功/延迟/超时/上游错误/取消/冲突/代理配置 |
+| 6 | 导出 | `export-markdown.spec.ts` | ⚠️ | 见下方处理结论 |
+| 7 | 设置与关键面板 | `settings-dialog.spec.ts`, `theme.spec.ts`, `layout-panels.spec.ts` | ✅ | 快捷键唤起 + 主题持久化 + 面板布局 |
 
 ### 补充关联 E2E（未列入七条关键路径但覆盖产品核心功能）
 
 | E2E 文件 | 覆盖范围 |
 |----------|---------|
-| `command-palette.spec.ts` | 命令面板唤起 + 9 条快捷键路径 |
-| `project-lifecycle.spec.ts` | 项目创建 + `.creonow` 目录 + 重启恢复 |
-| `dashboard-project-actions.spec.ts` | 仪表盘项目操作（重命名/复制/归档/取消归档） |
-| `documents-filetree.spec.ts` | 文件树 CRUD + 当前文档恢复 |
+| `search-rag.spec.ts` | FTS 命中 + 语义 RAG 检索 + 降级 + 截断 |
 | `outline-panel.spec.ts` | 大纲面板导航 + 空态 + 动态更新 |
 | `rightpanel-info-quality.spec.ts` | 右侧信息与质量面板 |
 | `knowledge-graph.spec.ts` | 知识图谱侧边栏 CRUD + 上下文注入 |
@@ -130,19 +127,13 @@ CreoNow 的交付主平台是 Windows，因此 E2E 需要显式考虑：
 
 ### ⚠️ 空洞处理结论
 
-#### 编辑与保存（⚠️ 部分覆盖）
+#### 编辑与保存（✅ 完整覆盖）
 
-**现状**：`editor-autosave.spec.ts` 验证"输入文字 → autosave → 重启后内容保留"，即自动保存路径。缺少手动编辑 + 手动保存（Ctrl+S）的 E2E。
+**现状**：手动保存（Ctrl+S）已由现有 E2E 覆盖：
+- `editor-autosave.spec.ts` 第 112 行：显式测试 `${modKey}+S` 快捷键触发手动保存，并验证 `actor === "user"` 的版本快照生成
+- `version-history.spec.ts` 第 62 行：通过 `${modKey}+S` 创建用户版本后验证快照读取完整字段
 
-**处理结论：降级为单元/集成测试覆盖，E2E 补充为增强项。**
-
-理由：
-1. CreoNow 以 autosave 为主保存机制，手动保存（Ctrl+S）触发的是同一条 `editorSaveQueue` 写入管线
-2. 手动保存管线已由 `editorSaveQueue.test.ts`、`editorStore.saveQueue.test.ts`、`editorStore.test.ts` 三个单元测试覆盖
-3. autosave E2E 已验证了从编辑器输入到磁盘持久化的完整 IPC 通路
-4. 手动保存 E2E 的边际收益低于维护成本
-
-> 如后续需补充手动保存 E2E，可新建 `editor-manual-save.spec.ts`。
+**结论：编辑与保存路径已完整覆盖，包括 autosave 和手动保存两条管线。**
 
 #### 导出（⚠️ 部分覆盖）
 
