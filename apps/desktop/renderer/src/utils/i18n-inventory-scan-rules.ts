@@ -37,9 +37,20 @@ const P0_PATTERNS = [
 
 const DATE_TIME_STYLE_VALUES = new Set(["2-digit", "numeric", "short", "long", "narrow"]);
 const CSS_FUNCTION_PATTERN = /^(?:calc|color-mix|radial-gradient|linear-gradient|blur)\(/u;
+const CSS_ANIMATION_SHORTHAND_PATTERN = /^[a-z][\w-]*(?:\s+-?\d*\.?\d+(?:ms|s))(?:\s+(?:linear|ease|ease-in|ease-out|ease-in-out|step-start|step-end|infinite|normal|none|forwards|backwards|both|paused|running|alternate|reverse|alternate-reverse))*$/u;
+const CSS_TIME_PATTERN = /^-?\d*\.?\d+(?:ms|s)$/u;
+const CSS_DIMENSION_PATTERN = /^(?:-?\d*\.?\d+(?:px|em|rem|vh|vw|%))(?:\s+-?\d*\.?\d+(?:px|em|rem|vh|vw|%))*$/u;
+const CSS_BORDER_SHORTHAND_PATTERN = /^(?:-?\d*\.?\d+(?:px|em|rem))\s+(?:solid|dashed|dotted|double|none)\s+(?:var\(--[^)]+\)|#[0-9a-fA-F]{3,8}|[a-z-]+)$/u;
+const RELATIVE_PATH_PATTERN = /^(?:\.\.?(?:\/|$))+[\w./-]+$/u;
+const SVG_URL_PATTERN = /^url\(#[\w-]+\)$/u;
 const I18N_KEY_PATTERN = /^[a-z][\w-]*(?:\.[\w-]+){1,}$/u;
 const URL_LIKE_PATTERN = /^(?:https?:\/\/|mailto:|file:\/\/)/u;
 const SHELL_COMMAND_PATTERN = /^(?:pnpm|npm|yarn|git|node|tsx|bash)\b/u;
+const BARE_TW_TOKENS = new Set([
+  "absolute", "relative", "fixed", "sticky", "static", "block", "inline", "inline-block",
+  "inline-flex", "flex", "grid", "hidden", "table", "border", "truncate", "underline",
+  "line-through", "sr-only", "not-sr-only", "contents", "isolate", "visible", "invisible",
+]);
 const SHORT_USER_FACING = new Set(["AI", "OK", "NO", "ON", "GO"]);
 const USER_FACING_PASCAL_WORDS = new Set([
   "You", "Auto", "Today", "Yesterday", "Earlier", "Loading",
@@ -80,6 +91,9 @@ const TS_TYPES = new Set([
 const DIRECT_TECHNICAL_PATTERNS = [
   /^\\u[0-9a-fA-F]{4}$/u,
   /^\$\{[^}]+\}$/u,
+  /^Component stack:$/u,
+  /^\(no [^)]+\)$/u,
+  /^\[[A-Za-z][\w.-]+\]\s/u,
   /^--[a-z0-9-]+$/u,
   /^\/[a-z]/u,
   /^[a-z]+:[a-z]+/u,
@@ -105,7 +119,30 @@ function isDirectTechnicalConstant(str: string): boolean {
     SHELL_COMMAND_PATTERN.test(str) ||
     DATE_TIME_STYLE_VALUES.has(str) ||
     CSS_FUNCTION_PATTERN.test(str) ||
+    CSS_ANIMATION_SHORTHAND_PATTERN.test(str) ||
+    CSS_TIME_PATTERN.test(str) ||
+    CSS_DIMENSION_PATTERN.test(str) ||
+    CSS_BORDER_SHORTHAND_PATTERN.test(str) ||
+    RELATIVE_PATH_PATTERN.test(str) ||
+    SVG_URL_PATTERN.test(str) ||
     matchesAnyPattern(str, DIRECT_TECHNICAL_PATTERNS)
+  );
+}
+
+function isTailwindLikeToken(
+  token: string,
+  twPrefixes: RegExp,
+  singleTwPattern: RegExp,
+): boolean {
+  const variantStripped = token.replace(/^(?:[a-z-]+:)+/u, "");
+  const normalized = variantStripped.replace(/^!/, "");
+
+  return (
+    /^\[&.+\]:[\w-]+(?:\/[\d.]+)?$/u.test(token) ||
+    twPrefixes.test(token) ||
+    twPrefixes.test(normalized) ||
+    BARE_TW_TOKENS.has(normalized) ||
+    (singleTwPattern.test(normalized) && /[-[\]]/u.test(normalized))
   );
 }
 
@@ -231,18 +268,19 @@ export function isCssClassName(str: string): boolean {
   const tokens = trimmed.split(/\s+/u);
 
   if (tokens.length === 1) {
-    if (twPrefixes.test(tokens[0])) return true;
-    if (singleTwPattern.test(tokens[0]) && /[-[\]]/u.test(tokens[0])) return true;
+    if (isTailwindLikeToken(tokens[0], twPrefixes, singleTwPattern)) return true;
     if (/^-[a-z]+-/u.test(tokens[0])) return true;
   }
 
   const cssValues = /^(?:center|left|right|top|bottom|none|auto|inherit|initial|unset|normal|nowrap|wrap|visible|collapse|separate|contain|cover|fill|stretch)(?:\s+(?:center|left|right|top|bottom|none|auto))*$/u;
   if (cssValues.test(trimmed)) return true;
+  if (CSS_TIME_PATTERN.test(trimmed)) return true;
+  if (CSS_DIMENSION_PATTERN.test(trimmed)) return true;
+  if (CSS_BORDER_SHORTHAND_PATTERN.test(trimmed)) return true;
+  if (SVG_URL_PATTERN.test(trimmed)) return true;
 
   if (tokens.length >= 2) {
-    const cssLikeCount = tokens.filter(
-      (token) => twPrefixes.test(token) || (singleTwPattern.test(token) && /[-[\]]/u.test(token)),
-    ).length;
+    const cssLikeCount = tokens.filter((token) => isTailwindLikeToken(token, twPrefixes, singleTwPattern)).length;
     if (cssLikeCount >= tokens.length * 0.6) return true;
   }
 
@@ -266,7 +304,11 @@ export function isLikelyCodeFragment(str: string): boolean {
     /=>/u.test(str) ||
     /&&|\|\||===|!==/u.test(str) ||
     /props\.|\.length/u.test(str) ||
+    /\bas\s+(?:unknown|Parameters|Record|Partial|ReturnType)\b/u.test(str) ||
+    /\b(?:void|Promise|Parameters|Record|z\.ZodType)\b/u.test(str) ||
     /\b(?:string|number|boolean)\):\s*[A-Z]/u.test(str) ||
+    /^Component stack:$/u.test(str) ||
+    /^\([a-z]\)?$/u.test(str) ||
     /^=/u.test(str) ||
     /^\)\s*:/u.test(str) ||
     /^\)\s*:\s*null\}?$/u.test(str) ||

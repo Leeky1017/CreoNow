@@ -170,6 +170,11 @@ describe("AC-4: 排除规则", () => {
     expect(isCssClassName("shadow-[var(--shadow-lg)]")).toBe(true);
     expect(isCssClassName("data-[state=closed]:fade-out-0")).toBe(true);
     expect(isCssClassName("-translate-y-1/2")).toBe(true);
+    expect(isCssClassName("border border-[var(--color-border-default)]")).toBe(true);
+    expect(isCssClassName("url(#arrowhead-selected)")).toBe(true);
+    expect(isCssClassName("24px 24px")).toBe(true);
+    expect(isCssClassName("[&[data-state=open]>svg]:rotate-180")).toBe(true);
+    expect(isCssClassName("!bg-[var(--color-separator)] !text-[var(--color-fg-muted)] !border !border-transparent hover:!border-[var(--color-bg-overlay)] hover:!text-[var(--color-fg-default)] hover:!bg-[var(--color-bg-overlay)]")).toBe(true);
   });
 
   it("should not exclude user-visible text", () => {
@@ -225,6 +230,14 @@ describe("AC-4: 排除规则", () => {
     expect(isTechnicalConstant("pnpm -C apps/desktop rebuild:native")).toBe(true);
     expect(isTechnicalConstant("\\u00A0")).toBe(true);
     expect(isTechnicalConstant("${lineIndex}")).toBe(true);
+    expect(isTechnicalConstant("../../contexts/OpenSettingsContext")).toBe(true);
+    expect(isTechnicalConstant("1em")).toBe(true);
+    expect(isTechnicalConstant("14px")).toBe(true);
+    expect(isTechnicalConstant("progress-indeterminate 1.5s ease-in-out infinite")).toBe(true);
+    expect(isTechnicalConstant("[KnowledgeGraphPanel] deps.entityUpdate rejected:")).toBe(true);
+    expect(isTechnicalConstant("(no component stack)")).toBe(true);
+    expect(isTechnicalConstant("0.04s")).toBe(true);
+    expect(isTechnicalConstant("1px solid var(--color-separator)")).toBe(true);
   });
 
   it("should not exclude user-visible text as technical constants", () => {
@@ -277,6 +290,25 @@ describe("AC-4: 排除规则", () => {
     const fragments = results.filter((r) => r.rawString.includes("string): Record"));
     expect(fragments).toEqual([]);
   });
+
+  it("should exclude additional code fragments from parser leakage", () => {
+    const code = `<div>{createFileStore(mockIpc as Parameters<typeof ipc.invoke>[0])}{handler as z.ZodType<void | Promise<string>>}{/(s)/}</div>`;
+    const results = scanFileContent(code, "test.tsx");
+    const fragments = results.filter(
+      (r) =>
+        r.rawString.includes("as Parameters") ||
+        r.rawString.includes("void | Promise") ||
+        r.rawString === "(s",
+    );
+    expect(fragments).toEqual([]);
+  });
+
+  it("should exclude diagnostic labels that are not user copy", () => {
+    const code = `<div>{"Component stack:"}</div>`;
+    const results = scanFileContent(code, "test.tsx");
+    const fragments = results.filter((r) => r.rawString === "Component stack:");
+    expect(fragments).toEqual([]);
+  });
 });
 
 /* ================================================================== */
@@ -304,6 +336,13 @@ describe("PASS fixtures (should be skipped)", () => {
       expect(results.length).toBe(0);
     });
   }
+});
+
+describe("Source file collection", () => {
+  it("should exclude renderer test utility files", () => {
+    const files = collectSourceFiles(RENDERER_SRC);
+    expect(files.some((file) => file.endsWith("test-utils.tsx"))).toBe(false);
+  });
 });
 
 describe("FAIL fixtures (should be detected)", () => {

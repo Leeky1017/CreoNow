@@ -105,6 +105,7 @@ export function collectSourceFiles(rootDir: string): string[] {
       if (/\.(test|spec)\.(tsx?)$/u.test(entry.name)) continue;
       if (/\.stories\.(tsx?)$/u.test(entry.name)) continue;
       if (/\.d\.ts$/u.test(entry.name)) continue;
+      if (/test-utils\.(tsx?)$/u.test(entry.name)) continue;
 
       results.push(fullPath);
     }
