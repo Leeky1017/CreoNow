@@ -141,7 +141,7 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
   },
 
   // ============================================================
-  // Primitives（23 个）
+  // Primitives（26 個）
   // ============================================================
   {
     id: "accordion",
@@ -188,11 +188,29 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
     storybookTitle: "Primitives/Checkbox",
   },
   {
+    id: "contextMenu",
+    kind: "primitive",
+    entryPoints: [
+      { type: "storybookOnly", description: "ContextMenu primitive" },
+    ],
+    testId: "context-menu",
+    storybookTitle: "Primitives/ContextMenu",
+  },
+  {
     id: "dialog",
     kind: "primitive",
     entryPoints: [{ type: "storybookOnly", description: "Dialog primitive" }],
     testId: "dialog",
     storybookTitle: "Primitives/Dialog",
+  },
+  {
+    id: "dropdownMenu",
+    kind: "primitive",
+    entryPoints: [
+      { type: "storybookOnly", description: "DropdownMenu primitive" },
+    ],
+    testId: "dropdown-menu",
+    storybookTitle: "Primitives/DropdownMenu",
   },
   {
     id: "heading",
@@ -237,6 +255,15 @@ export const surfaceRegistry: SurfaceRegistryItem[] = [
     entryPoints: [{ type: "storybookOnly", description: "Radio primitive" }],
     testId: "radio",
     storybookTitle: "Primitives/Radio",
+  },
+  {
+    id: "scrollArea",
+    kind: "primitive",
+    entryPoints: [
+      { type: "storybookOnly", description: "ScrollArea primitive" },
+    ],
+    testId: "scroll-area",
+    storybookTitle: "Primitives/ScrollArea",
   },
   {
     id: "select",
