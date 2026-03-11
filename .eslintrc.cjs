@@ -152,10 +152,16 @@ module.exports = {
     },
     {
       // Legacy test directories: warn-only until T-MIG migration completes
+      // Each directory is listed explicitly — no blanket tests/**/*.spec.* wildcard
       files: [
         "apps/desktop/main/src/**/*.test.*",
-        "apps/desktop/tests/**/*.test.*",
-        "apps/desktop/tests/**/*.spec.*",
+        "apps/desktop/tests/unit/**/*.test.*",
+        "apps/desktop/tests/unit/**/*.spec.*",
+        "apps/desktop/tests/integration/**/*.test.*",
+        "apps/desktop/tests/integration/**/*.spec.*",
+        "apps/desktop/tests/e2e/**/*.spec.*",
+        "apps/desktop/tests/perf/**/*.test.*",
+        "apps/desktop/tests/perf/**/*.spec.*",
         "apps/desktop/renderer/src/**/*.snapshot.test.*",
         "scripts/tests/**/*.test.*",
       ],

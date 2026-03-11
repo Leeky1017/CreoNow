@@ -34,11 +34,39 @@ const rule = {
 
     return {
       CallExpression(node) {
-        if (
-          node.callee.type === "Identifier" &&
-          node.callee.name === "describe"
-        ) {
+        const callee = node.callee;
+
+        // Bare describe(...)
+        if (callee.type === "Identifier" && callee.name === "describe") {
           hasDescribe = true;
+          return;
+        }
+
+        if (callee.type === "MemberExpression") {
+          const obj = callee.object;
+          const prop = callee.property;
+
+          // test.describe(...) — Playwright style
+          if (
+            obj.type === "Identifier" &&
+            obj.name === "test" &&
+            prop.type === "Identifier" &&
+            prop.name === "describe"
+          ) {
+            hasDescribe = true;
+            return;
+          }
+
+          // describe.skip(...) / describe.only(...) / describe.each(...)
+          if (
+            obj.type === "Identifier" &&
+            obj.name === "describe" &&
+            prop.type === "Identifier" &&
+            ["skip", "only", "each"].includes(prop.name)
+          ) {
+            hasDescribe = true;
+            return;
+          }
         }
       },
 

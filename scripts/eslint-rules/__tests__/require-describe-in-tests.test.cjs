@@ -65,6 +65,33 @@ tester.run("creonow/require-describe-in-tests", rule, {
       `,
       filename: "src/cond.test.ts",
     },
+    // test.describe() — Playwright style
+    {
+      code: `
+        test.describe('suite', () => {
+          test('x', () => {});
+        });
+      `,
+      filename: "tests/e2e/foo.spec.ts",
+    },
+    // describe.skip()
+    {
+      code: `
+        describe.skip('suite', () => {
+          it('x', () => {});
+        });
+      `,
+      filename: "src/foo.test.ts",
+    },
+    // describe.only()
+    {
+      code: `
+        describe.only('suite', () => {
+          it('x', () => {});
+        });
+      `,
+      filename: "src/foo.test.ts",
+    },
   ],
   invalid: [
     // No describe() in .test.ts — should error
