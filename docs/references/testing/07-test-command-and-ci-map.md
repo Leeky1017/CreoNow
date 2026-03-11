@@ -48,6 +48,7 @@
 | `storybook-build`            | `pnpm -C apps/desktop storybook:build`                      | 视觉验收基础门禁       |
 | `windows-e2e`                | `pnpm -C apps/desktop test:e2e`                             | Windows 平台 E2E       |
 | `gate-ai-rate-limit`         | `pnpm gate:ai-rate-limit`                                   | AI 请求限流 + scheduler / queue coverage |
+| `format-check`               | delta `prettier --check`（仅检查 PR 变更文件）               | 格式一致性（始终运行，不受 docs-only 跳过） |
 
 ## Wave 0 Gate 命令
 
@@ -84,9 +85,10 @@
 
 ### Format check
 
-- `pnpm format:check` 当前是可用的根目录命令，可用于本地统一校验代码与文档的 Prettier 基线。
-- 截至当前 `main`，它**尚未**作为独立 CI job 接入 `.github/workflows/ci.yml`。
-- 若未来将其接入 CI，必须先同步更新工作流，再回写本文件。
+- `format-check` 已作为独立 CI job 接入 `.github/workflows/ci.yml`，并纳入 `ci` 汇总门禁。
+- 该 job **始终运行**（不受 `docs_only` 跳过条件影响），确保文档 PR 也受格式校验。
+- 采用 **delta 模式**：仅对 PR 中变更的文件执行 `prettier --check`，不全仓扫描。
+- 本地可通过 `pnpm format:check` 校验全仓格式，或手动对变更文件执行 `npx prettier --check <file>`。
 
 ## 本地验证建议
 
