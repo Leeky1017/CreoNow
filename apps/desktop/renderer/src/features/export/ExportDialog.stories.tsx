@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
+import { AppToastProvider } from "../../components/providers/AppToastProvider";
 import { ExportDialog, defaultExportOptions } from "./ExportDialog";
 
 /**
@@ -55,12 +56,14 @@ const meta: Meta<typeof ExportDialog> = {
   },
   decorators: [
     (Story) => (
-      <div
-        className="w-full h-screen bg-[var(--color-bg-base)]"
-        data-theme="dark"
-      >
-        <Story />
-      </div>
+      <AppToastProvider>
+        <div
+          className="w-full h-screen bg-[var(--color-bg-base)]"
+          data-theme="dark"
+        >
+          <Story />
+        </div>
+      </AppToastProvider>
     ),
   ],
 };
@@ -292,8 +295,7 @@ export const ProgressViewPreparing: Story = {
   parameters: {
     docs: {
       description: {
-        story:
-          "Export just started at 15%. Shows 'Preparing...' step label.",
+        story: "Export just started at 15%. Shows 'Preparing...' step label.",
       },
     },
   },
@@ -366,8 +368,7 @@ export const LegalPageSize: Story = {
   parameters: {
     docs: {
       description: {
-        story:
-          "PDF with Legal page size. Preview badge shows 'PDF • LEGAL'.",
+        story: "PDF with Legal page size. Preview badge shows 'PDF • LEGAL'.",
       },
     },
   },

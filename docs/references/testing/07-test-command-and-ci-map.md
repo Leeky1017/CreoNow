@@ -22,6 +22,8 @@
 | `pnpm typecheck`                  | 运行 TypeScript 检查                                                     |
 | `pnpm lint`                       | 运行 ESLint                                                              |
 | `pnpm format:check`               | 运行 Prettier 检查                                                       |
+| `pnpm test:visual`                | Playwright 视觉回归测试（需先 `storybook:build`）                        |
+| `pnpm test:visual:update`         | 更新视觉回归 baseline 截图                                               |
 
 ## `apps/desktop` 包内命令
 
@@ -32,6 +34,8 @@
 | `pnpm -C apps/desktop test:coverage:core` | 运行 main/core coverage       |
 | `pnpm -C apps/desktop test:e2e`           | 运行 Playwright Electron E2E  |
 | `pnpm -C apps/desktop storybook:build`    | 验证 Storybook 可构建         |
+| `pnpm -C apps/desktop test:visual`        | Playwright 视觉回归测试       |
+| `pnpm -C apps/desktop test:visual:update` | 更新视觉回归 baseline 截图    |
 
 ## CI 对应关系
 
@@ -45,6 +49,7 @@
 | `coverage-gate`              | `pnpm test:coverage:desktop` / `pnpm test:coverage:core`    | 生成 coverage artifact                                 |
 | `cross-module-check`         | `pnpm cross-module:check`                                   | cross-module 契约与 skill/api-key 门禁                 |
 | `storybook-build`            | `pnpm -C apps/desktop storybook:build`                      | 视觉验收基础门禁                                       |
+| `visual-regression`          | `pnpm test:visual`                                          | Playwright 视觉回归截图对比                            |
 | `windows-e2e`                | `pnpm -C apps/desktop test:e2e`                             | Windows 平台 E2E                                       |
 | `gate-ai-rate-limit`         | `pnpm gate:ai-rate-limit`                                   | AI 请求限流 + scheduler / queue coverage               |
 | `format-check`               | delta `prettier --check`（仅检查 PR 变更文件）              | 格式一致性（始终运行，不受 docs-only 跳过）            |
@@ -81,6 +86,14 @@
 
 - 前端任务的视觉验收最低线是：`pnpm -C apps/desktop storybook:build` 通过。
 - Storybook 是视觉验收门槛，不是行为测试替代。
+
+### Visual regression
+
+- `pnpm test:visual` 使用 Playwright 对 Storybook 产物做像素级截图对比。
+- 需先运行 `pnpm -C apps/desktop storybook:build` 生成静态产物。
+- baseline 截图存储在 `apps/desktop/tests/visual/__screenshots__/`，由 Git 追踪。
+- 更新 baseline：`pnpm test:visual:update`。
+- CI 中 `visual-regression` job 在 `storybook-build` 之后运行，截图差异将阻断合并。
 
 ### Format check
 

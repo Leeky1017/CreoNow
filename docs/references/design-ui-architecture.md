@@ -1,6 +1,5 @@
 # 设计与 UI 架构
 
-
 ## 设计基准
 
 - 设计 SSOT：`design/DESIGN_DECISIONS.md`
@@ -31,6 +30,16 @@
 - 每个可复用 UI 组件必须附带 Storybook Story（默认态、交互态、边界态、禁用态）
 - Story 是组件的可视化契约，没有 Story 的组件提交视为不完整
 - Storybook 全局样式必须加载与应用相同的 Tailwind CSS 入口文件，确保 Token 一致
+
+## 视觉回归测试
+
+- 基于 Playwright `toHaveScreenshot()` + Storybook 静态产物的像素级截图对比
+- baseline 截图存储在 `apps/desktop/tests/visual/__screenshots__/`（Git 追踪）
+- 每个被覆盖的 Story 在 dark + light 两个主题下各生成一张 baseline
+- 容差阈值：`maxDiffPixelRatio: 0.01`
+- 本地运行：先 `pnpm -C apps/desktop storybook:build`，再 `pnpm test:visual`
+- 更新 baseline：`pnpm test:visual:update`
+- CI 中 `visual-regression` job 在 `storybook-build` 之后运行，截图差异阻断合并
 
 ## Tailwind CSS 4 约束
 

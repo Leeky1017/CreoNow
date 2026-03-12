@@ -230,6 +230,50 @@ jobs:
       - name: Storybook build check
         run: pnpm -C apps/desktop storybook:build
 
+  visual-regression:
+    runs-on: ubuntu-latest
+    needs: [changes, storybook-build]
+    if: needs.changes.outputs.desktop_changed == 'true'
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/setup-node-pnpm
+      - name: Install Playwright browsers
+        run: pnpm -C apps/desktop exec playwright install chromium --with-deps
+      - name: Build Storybook
+        run: pnpm -C apps/desktop storybook:build
+      - name: Run visual regression tests
+        id: visual-test
+        run: |
+          if pnpm test:visual; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+            pnpm test:visual:update || true
+            if [ -n "$(git status --porcelain -- 'apps/desktop/tests/visual/__screenshots__/')" ]; then
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git add apps/desktop/tests/visual/__screenshots__/
+              git commit -m "chore: update visual baselines from CI [skip ci]"
+              git push
+              echo "::warning::Visual baselines were updated and committed. A new CI run will verify."
+            else
+              echo "::error::Visual test failed but no baseline changes detected — this is a real test failure"
+            fi
+            exit 1
+          fi
+      - name: Upload diff artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diff
+          path: apps/desktop/tests/visual/test-results/
+
   # ── Wave 0 Gate Jobs ──────────────────────────────────────────────
 
   gate-resource-size:
@@ -446,6 +490,7 @@ jobs:
       - contract-check
       - cross-module-check
       - storybook-build
+      - visual-regression
       - gate-resource-size
       - gate-ipc-validation
       - gate-service-stubs

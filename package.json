@@ -46,7 +46,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "desktop:ensure-native-node-abi": "tsx scripts/ensure-desktop-native-node-abi.ts",
-    "test:unit:after-desktop-rebuild": "pnpm -C apps/desktop rebuild:native && pnpm test:unit"
+    "test:unit:after-desktop-rebuild": "pnpm -C apps/desktop rebuild:native && pnpm test:unit",
+    "test:visual": "pnpm -C apps/desktop test:visual",
+    "test:visual:update": "pnpm -C apps/desktop test:visual:update"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
