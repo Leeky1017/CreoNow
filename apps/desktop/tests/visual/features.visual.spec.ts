@@ -24,29 +24,96 @@ interface FeatureStory {
 }
 
 const FEATURE_STORIES: FeatureStory[] = [
-  { component: "dashboard", storyId: "features-dashboard-dashboardpage--default", story: "default" },
-  { component: "dashboard", storyId: "features-dashboard-dashboardpage--empty", story: "empty" },
-  { component: "editor-pane", storyId: "features-editor-editorpane--default", story: "default", waitFor: "[data-testid='editor-pane']" },
-  { component: "editor-pane", storyId: "features-editor-editorpane--with-content", story: "with-content", waitFor: "[data-testid='editor-pane']" },
-  { component: "ai-panel", storyId: "features-aipanel--default", story: "default" },
-  { component: "ai-panel", storyId: "features-aipanel--empty-state", story: "empty-state" },
-  { component: "settings-dialog", storyId: "features-settingsdialog--general", story: "general", waitFor: "[role='dialog']", locator: "body" },
-  { component: "export-dialog", storyId: "features-exportdialog--config-view-default", story: "config-view-default", waitFor: "[role='dialog']", locator: "body" },
-  { component: "command-palette", storyId: "features-commandpalette--default", story: "default" },
-  { component: "file-tree", storyId: "features-filetreepanel--default", story: "default" },
-  { component: "outline", storyId: "features-outlinepanel--default-multi-level", story: "default-multi-level" },
-  { component: "version-history", storyId: "features-versionhistorypanel--default-with-history", story: "default-with-history" },
-  { component: "search", storyId: "features-searchpanel--default", story: "default" },
+  {
+    component: "dashboard",
+    storyId: "features-dashboard-dashboardpage--default",
+    story: "default",
+  },
+  {
+    component: "dashboard",
+    storyId: "features-dashboard-dashboardpage--empty",
+    story: "empty",
+  },
+  {
+    component: "editor-pane",
+    storyId: "features-editor-editorpane--default",
+    story: "default",
+    waitFor: "[data-testid='editor-pane']",
+  },
+  {
+    component: "editor-pane",
+    storyId: "features-editor-editorpane--with-content",
+    story: "with-content",
+    waitFor: "[data-testid='editor-pane']",
+  },
+  {
+    component: "ai-panel",
+    storyId: "features-aipanel--default",
+    story: "default",
+  },
+  {
+    component: "ai-panel",
+    storyId: "features-aipanel--empty-state",
+    story: "empty-state",
+  },
+  {
+    component: "settings-dialog",
+    storyId: "features-settingsdialog--general",
+    story: "general",
+    waitFor: "[role='dialog']",
+    locator: "body",
+  },
+  {
+    component: "export-dialog",
+    storyId: "features-exportdialog--config-view-default",
+    story: "config-view-default",
+    waitFor: "[role='dialog']",
+    locator: "body",
+  },
+  {
+    component: "command-palette",
+    storyId: "features-commandpalette--default",
+    story: "default",
+  },
+  {
+    component: "file-tree",
+    storyId: "features-filetreepanel--default",
+    story: "default",
+  },
+  {
+    component: "outline",
+    storyId: "features-outlinepanel--default-multi-level",
+    story: "default-multi-level",
+  },
+  {
+    component: "version-history",
+    storyId: "features-versionhistorypanel--default-with-history",
+    story: "default-with-history",
+  },
+  {
+    component: "search",
+    storyId: "features-searchpanel--default",
+    story: "default",
+  },
 ];
 
 test.describe("Features visual regression", () => {
-  for (const { component, storyId, story, waitFor, locator } of FEATURE_STORIES) {
+  for (const {
+    component,
+    storyId,
+    story,
+    waitFor,
+    locator,
+  } of FEATURE_STORIES) {
     test(`${component} / ${story}`, async ({ page }, testInfo) => {
       const theme = testInfo.project.name as "dark" | "light";
       await navigateToStory(page, storyId, theme);
 
       if (waitFor) {
-        await page.locator(waitFor).first().waitFor({ state: "visible", timeout: 10_000 });
+        await page
+          .locator(waitFor)
+          .first()
+          .waitFor({ state: "visible", timeout: 10_000 });
       }
 
       const target = page.locator(locator ?? "#storybook-root");

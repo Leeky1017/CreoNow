@@ -43,7 +43,9 @@ export const Horizontal: Story = {
   args: {
     style: { height: 100, width: 300 },
     children: (
-      <div style={{ display: "flex", gap: "1rem", padding: "1rem", width: 800 }}>
+      <div
+        style={{ display: "flex", gap: "1rem", padding: "1rem", width: 800 }}
+      >
         {Array.from({ length: 10 }, (_, i) => (
           <div
             key={i}

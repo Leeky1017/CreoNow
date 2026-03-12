@@ -1,6 +1,5 @@
 # 设计与 UI 架构
 
-
 ## 设计基准
 
 - 设计 SSOT：`design/DESIGN_DECISIONS.md`

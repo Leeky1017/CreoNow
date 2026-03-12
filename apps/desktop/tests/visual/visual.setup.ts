@@ -13,7 +13,10 @@ export function storyUrl(storyId: string): string {
 /**
  * 设置 Storybook iframe 的 data-theme 属性
  */
-export async function setTheme(page: Page, theme: "dark" | "light"): Promise<void> {
+export async function setTheme(
+  page: Page,
+  theme: "dark" | "light",
+): Promise<void> {
   await page.evaluate((t) => {
     document.documentElement.setAttribute("data-theme", t);
   }, theme);
