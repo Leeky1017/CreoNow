@@ -1121,7 +1121,7 @@
     },
     "defaultDocumentTitle": "未命名文档",
     "error": {
-      "noProject": "NO_PROJECT: 请先打开一个项目",
+      "noProject": "请先打开一个项目",
       "unsupportedStructure": "当前导出格式暂不支持写出：{{details}}",
       "unknown": "由于未知错误导出失败"
     }
@@ -1283,7 +1283,7 @@
       "ready": "就绪",
       "downloading": "下载中...",
       "notReady": "未就绪",
-      "errorWithCode": "错误 ({{code}})",
+      "errorWithCode": "质量检测遇到问题",
       "loadingJudgeStatus": "加载评判状态...",
       "judgeStatusUnavailable": "评判状态不可用",
       "judgeModelLabel": "评判模型：",
