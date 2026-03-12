@@ -6,10 +6,6 @@ import { Slider } from "../../components/primitives/Slider";
 import { Select } from "../../components/primitives";
 import { FormField } from "../../components/composites/FormField";
 import { i18n } from "../../i18n";
-import {
-  getLanguagePreference,
-  setLanguagePreference,
-} from "../../i18n/languagePreference";
 
 /**
  * Settings state for General page
@@ -22,6 +18,7 @@ export interface GeneralSettings {
   backupInterval: string;
   defaultTypography: string;
   interfaceScale: number;
+  language: string;
 }
 
 /**
@@ -97,22 +94,17 @@ export function SettingsGeneral({
     { value: "en", label: "English" },
   ], [t]);
 
-  const [currentLanguage, setCurrentLanguage] = React.useState(
-    () => getLanguagePreference(),
-  );
-
-  const handleLanguageChange = React.useCallback((value: string) => {
-    setCurrentLanguage(value);
-    setLanguagePreference(value);
-    void i18n.changeLanguage(value);
-  }, []);
-
-  const updateSetting = <K extends keyof GeneralSettings>(
+  const updateSetting = React.useCallback(<K extends keyof GeneralSettings>(
     key: K,
     value: GeneralSettings[K],
   ) => {
     onSettingsChange({ ...settings, [key]: value });
-  };
+  }, [settings, onSettingsChange]);
+
+  const handleLanguageChange = React.useCallback((value: string) => {
+    updateSetting("language", value);
+    void i18n.changeLanguage(value);
+  }, [updateSetting]);
 
   return (
     <div className="max-w-[560px]">
@@ -130,7 +122,7 @@ export function SettingsGeneral({
         <FormField label={t('settings.general.displayLanguage')} htmlFor="display-language" help={t('settings.general.displayLanguageHelp')}>
           <Select
             options={languageOptions}
-            value={currentLanguage}
+            value={settings.language}
             onValueChange={handleLanguageChange}
             fullWidth
           />
@@ -252,4 +244,5 @@ export const defaultGeneralSettings: GeneralSettings = {
   backupInterval: "5min",
   defaultTypography: "inter",
   interfaceScale: 100,
+  language: "zh-CN",
 };

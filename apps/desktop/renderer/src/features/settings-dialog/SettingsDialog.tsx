@@ -3,15 +3,19 @@ import { useTranslation } from "react-i18next";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 import { Button, Text } from "../../components/primitives";
+import { createPreferenceStore } from "../../lib/preferences";
 import { AnalyticsPageContent } from "../analytics/AnalyticsPage";
 import { AppearanceSection } from "../settings/AppearanceSection";
 import { AiSettingsSection } from "../settings/AiSettingsSection";
 import { JudgeSection } from "../settings/JudgeSection";
 import {
   SettingsGeneral,
-  defaultGeneralSettings,
   type GeneralSettings,
 } from "./SettingsGeneral";
+import {
+  loadGeneralSettings,
+  persistGeneralSetting,
+} from "./settingsGeneralPersistence";
 import {
   SettingsAccount,
   defaultAccountSettings,
@@ -168,8 +172,14 @@ export function SettingsDialog({
   const { showToast } = useAppToast();
   const navItems = getNavItems(t);
   const [activeTab, setActiveTab] = React.useState<SettingsTab>(defaultTab);
+
+  const preferences = React.useMemo(
+    () => createPreferenceStore(window.localStorage),
+    [],
+  );
+
   const [generalSettings, setGeneralSettings] = React.useState<GeneralSettings>(
-    defaultGeneralSettings,
+    () => loadGeneralSettings(preferences),
   );
   const [accountSettings] = React.useState<AccountSettings>(
     defaultAccountSettings,
@@ -178,8 +188,15 @@ export function SettingsDialog({
   const setShowAiMarks = useVersionPreferencesStore((s) => s.setShowAiMarks);
 
   const handleSettingsChange = React.useCallback((settings: GeneralSettings) => {
-    setGeneralSettings(settings);
-  }, []);
+    setGeneralSettings((prev) => {
+      for (const key of Object.keys(settings) as Array<keyof GeneralSettings>) {
+        if (settings[key] !== prev[key]) {
+          persistGeneralSetting(preferences, key, settings[key]);
+        }
+      }
+      return settings;
+    });
+  }, [preferences]);
 
   const handleShowAiMarksChange = React.useCallback(
     (enabled: boolean) => {
