@@ -51,8 +51,95 @@ const KEYWORD_RULES: ReadonlyArray<{
 ];
 
 const REWRITE_KEYWORDS: readonly string[] = [
-  "改", "重写", "改写", "rewrite", "修改",
+  "改",
+  "重写",
+  "改写",
+  "rewrite",
+  "修改",
 ];
+
+// ── 否定语境守卫 ─────────────────────────────────────────────────
+
+const CN_NEGATION_WORDS = [
+  "不需要",
+  "不要",
+  "不想",
+  "不用",
+  "不必",
+  "无需",
+  "停止",
+  "取消",
+  "禁止",
+  "别",
+];
+const EN_NEGATION_WORDS = [
+  "do not",
+  "don't",
+  "don\u2019t",
+  "stop",
+  "never",
+  "cancel",
+  "without",
+  "not",
+  "no",
+];
+
+const CN_DOUBLE_NEGATION_PREFIXES = [
+  "不是不想",
+  "不是不要",
+  "并非不要",
+  "并非不想",
+];
+
+const CN_WINDOW = 6;
+const EN_WINDOW = 12;
+
+/**
+ * 检查关键词在输入中是否处于否定上下文。
+ * 在关键词前方窗口内搜索否定词，同时识别双重否定（恢复正向）。
+ */
+export function isNegated(
+  input: string,
+  keywordIndex: number,
+  keyword: string,
+): boolean {
+  if (keywordIndex < 0) return false;
+
+  const prefix = input.slice(0, keywordIndex);
+  const isChinese = /[\u4e00-\u9fff]/.test(keyword);
+  const window = isChinese ? CN_WINDOW : EN_WINDOW;
+  const windowStart = Math.max(0, keywordIndex - window);
+  const windowText = input.slice(windowStart, keywordIndex);
+
+  // 双重否定检测（仅中文路径）
+  if (isChinese) {
+    for (const dn of CN_DOUBLE_NEGATION_PREFIXES) {
+      if (prefix.includes(dn)) return false;
+    }
+  }
+
+  // 单否定检测
+  if (isChinese) {
+    for (const neg of CN_NEGATION_WORDS) {
+      if (windowText.includes(neg)) return true;
+    }
+  } else {
+    const windowLower = windowText.toLowerCase();
+    for (const neg of EN_NEGATION_WORDS) {
+      if (windowLower.includes(neg)) return true;
+    }
+  }
+
+  return false;
+}
+
+function keywordMatchesWithoutNegation(input: string, kw: string): boolean {
+  const idx = input.indexOf(kw);
+  if (idx < 0) return false;
+  return !isNegated(input, idx, kw);
+}
+
+// ── 路由主函数 ───────────────────────────────────────────────────
 
 export function inferSkillFromInput(args: InferSkillArgs): string {
   // 1. Explicit override
@@ -68,7 +155,9 @@ export function inferSkillFromInput(args: InferSkillArgs): string {
       return "builtin:polish";
     }
 
-    const isRewriteIntent = REWRITE_KEYWORDS.some((kw) => input.includes(kw));
+    const isRewriteIntent = REWRITE_KEYWORDS.some((kw) =>
+      keywordMatchesWithoutNegation(input, kw),
+    );
     if (isRewriteIntent && input.length < 20) {
       return "builtin:rewrite";
     }
@@ -76,7 +165,7 @@ export function inferSkillFromInput(args: InferSkillArgs): string {
 
   // 3. Keyword matching
   for (const rule of KEYWORD_RULES) {
-    if (rule.keywords.some((kw) => input.includes(kw))) {
+    if (rule.keywords.some((kw) => keywordMatchesWithoutNegation(input, kw))) {
       return rule.skillId;
     }
   }
