@@ -339,7 +339,7 @@ function WordChangeBadge({ change }: { change: WordChange }) {
  */
 function HoverActions({
   versionId,
-  onRestore,
+  onRestore: _onRestore,
   onCompare,
   onPreview,
 }: {
@@ -372,8 +372,9 @@ function HoverActions({
       <Tooltip content="Restore">
         <button
           type="button"
-          onClick={() => onRestore?.(versionId)}
-          className="focus-ring p-1.5 rounded-md hover:bg-[var(--color-bg-overlay)] text-[var(--color-fg-muted)] hover:text-[var(--color-fg-default)] transition-colors"
+          disabled
+          aria-disabled="true"
+          className="focus-ring p-1.5 rounded-md text-[var(--color-fg-muted)] opacity-50 cursor-not-allowed transition-colors"
         >
           <RestoreIcon />
         </button>
@@ -468,8 +469,9 @@ function VersionCard({
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => onRestore?.(version.id)}
-            className="!h-7 !text-[10px] !px-0 !bg-[var(--color-bg-active)] hover:!bg-[var(--color-bg-selected)]"
+            disabled
+            aria-disabled="true"
+            className="!h-7 !text-[10px] !px-0 !bg-[var(--color-bg-active)] opacity-50 cursor-not-allowed"
           >
             {t("versionHistory.panel.restore")}
           </Button>

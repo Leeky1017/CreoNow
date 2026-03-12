@@ -879,7 +879,7 @@
       "writingExperience": "Writing Experience",
       "dataAndStorage": "Data & Storage",
       "editorDefaults": "Editor Defaults",
-      "differentiateAiEditsDescription": "When enabled, AI-generated entries in Version History show an extra \u201c{{marker}}\u201d marker."
+      "differentiateAiEditsDescription": "When enabled, AI-generated entries in Version History show an extra “{{marker}}” marker."
     },
     "appearance": {
       "colorWhite": "White",
@@ -1463,5 +1463,9 @@
       "VERSION_ROLLBACK_CONFLICT": "Version rollback conflict.",
       "VERSION_SNAPSHOT_COMPACTED": "Version snapshot has been compacted."
     }
+  },
+  "common": {
+    "comingSoon": "Coming Soon",
+    "featureInDevelopment": "This feature is under development"
   }
 }

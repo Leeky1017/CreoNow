@@ -195,12 +195,8 @@ export function RightPanel(props: {
               <ChatHistory
                 open={aiHistoryOpen}
                 onOpenChange={setAiHistoryOpen}
-                onSelectChat={(chatId) => {
+                onSelectChat={(_chatId) => {
                   setAiHistoryOpen(false);
-                  // TODO: Load chat by ID when chat persistence is implemented (P1 scope)
-                  console.info(
-                    `[ChatHistory] select chat: ${chatId} — chat persistence not yet available`,
-                  );
                 }}
               />
             </div>
