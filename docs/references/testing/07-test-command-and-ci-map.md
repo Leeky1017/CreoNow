@@ -35,19 +35,19 @@
 
 ## CI 对应关系
 
-| CI Job                       | 实际命令                                                    | 说明                                        |
-| ---------------------------- | ----------------------------------------------------------- | ------------------------------------------- |
-| `lint-and-typecheck`         | `pnpm lint` / `pnpm lint:warning-budget` / `pnpm typecheck` | 基础静态门禁（含 `creonow/require-describe-in-tests`）|
-| `unit-test-core`             | `pnpm test:unit`                                            | root 侧单元测试计划                         |
-| `unit-test-renderer`         | `pnpm -C apps/desktop test:run`                             | renderer/store vitest                       |
-| `integration-test`           | `pnpm test:integration`                                     | root 侧集成测试                             |
-| `test-discovery-consistency` | `pnpm test:discovery:consistency`                           | 发现与执行一致性（阻断）                    |
-| `coverage-gate`              | `pnpm test:coverage:desktop` / `pnpm test:coverage:core`    | 生成 coverage artifact                      |
-| `cross-module-check`         | `pnpm cross-module:check`                                   | cross-module 契约与 skill/api-key 门禁      |
-| `storybook-build`            | `pnpm -C apps/desktop storybook:build`                      | 视觉验收基础门禁                            |
-| `windows-e2e`                | `pnpm -C apps/desktop test:e2e`                             | Windows 平台 E2E                            |
-| `gate-ai-rate-limit`         | `pnpm gate:ai-rate-limit`                                   | AI 请求限流 + scheduler / queue coverage    |
-| `format-check`               | delta `prettier --check`（仅检查 PR 变更文件）              | 格式一致性（始终运行，不受 docs-only 跳过） |
+| CI Job                       | 实际命令                                                    | 说明                                                   |
+| ---------------------------- | ----------------------------------------------------------- | ------------------------------------------------------ |
+| `lint-and-typecheck`         | `pnpm lint` / `pnpm lint:warning-budget` / `pnpm typecheck` | 基础静态门禁（含 `creonow/require-describe-in-tests`） |
+| `unit-test-core`             | `pnpm test:unit`                                            | root 侧单元测试计划                                    |
+| `unit-test-renderer`         | `pnpm -C apps/desktop test:run`                             | renderer/store vitest                                  |
+| `integration-test`           | `pnpm test:integration`                                     | root 侧集成测试                                        |
+| `test-discovery-consistency` | `pnpm test:discovery:consistency`                           | 发现与执行一致性（阻断）                               |
+| `coverage-gate`              | `pnpm test:coverage:desktop` / `pnpm test:coverage:core`    | 生成 coverage artifact                                 |
+| `cross-module-check`         | `pnpm cross-module:check`                                   | cross-module 契约与 skill/api-key 门禁                 |
+| `storybook-build`            | `pnpm -C apps/desktop storybook:build`                      | 视觉验收基础门禁                                       |
+| `windows-e2e`                | `pnpm -C apps/desktop test:e2e`                             | Windows 平台 E2E                                       |
+| `gate-ai-rate-limit`         | `pnpm gate:ai-rate-limit`                                   | AI 请求限流 + scheduler / queue coverage               |
+| `format-check`               | delta `prettier --check`（仅检查 PR 变更文件）              | 格式一致性（始终运行，不受 docs-only 跳过）            |
 
 ## Wave 0 Gate 命令
 
