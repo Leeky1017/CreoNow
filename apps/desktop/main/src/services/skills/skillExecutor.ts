@@ -401,21 +401,21 @@ function validateSkillRunOutput(args: {
   inputText?: string;
   output?: SkillOutputConstraints;
 }): ServiceResult<true> {
+  const leaf = leafSkillId(args.skillId);
+
+  if (leaf === "synopsis") {
+    return validateSynopsisOutput({
+      outputText: typeof args.outputText === "string" ? args.outputText : "",
+      output: args.output,
+    });
+  }
+
   // V-EMPTY: undefined, null, or empty after trim → SKILL_OUTPUT_INVALID
   if (
     typeof args.outputText !== "string" ||
     args.outputText.trim().length === 0
   ) {
     return ipcError("SKILL_OUTPUT_INVALID", "AI 返回了空内容，请重试");
-  }
-
-  const leaf = leafSkillId(args.skillId);
-
-  if (leaf === "synopsis") {
-    return validateSynopsisOutput({
-      outputText: args.outputText,
-      output: args.output,
-    });
   }
 
   if (CREATIVE_SKILLS_STRICT.has(leaf) || CREATIVE_SKILLS_LOOSE.has(leaf)) {

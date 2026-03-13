@@ -362,6 +362,33 @@ describe("skillOutputValidation inflation guards", () => {
     if (!synopsisShortResult.ok) {
       assert.equal(synopsisShortResult.error.code, "INVALID_ARGUMENT");
     }
+
+    const synopsisEmpty = createSkillExecutor({
+      resolveSkill: (id) => ({
+        ok: true,
+        data: {
+          id,
+          enabled: true,
+          valid: true,
+          prompt: { system: "synopsis-system", user: "{{input}}" },
+        },
+      }),
+      runSkill: async () => ({
+        ok: true,
+        data: {
+          executionId: "ex-synopsis-empty",
+          runId: "run-synopsis-empty",
+          outputText: "   ",
+        },
+      }),
+    });
+    const synopsisEmptyResult = await synopsisEmpty.execute(
+      buildRunArgs("builtin:synopsis", "第十章完整内容"),
+    );
+    assert.equal(synopsisEmptyResult.ok, false, "synopsis 空输出应拦截");
+    if (!synopsisEmptyResult.ok) {
+      assert.equal(synopsisEmptyResult.error.code, "INVALID_ARGUMENT");
+    }
   });
 
   it("AC-8: 无输入基准时跳过膨胀检测", async () => {
