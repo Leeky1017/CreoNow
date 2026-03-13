@@ -204,7 +204,9 @@ describe("SearchPanel placeholder UI closure", () => {
       />,
     );
 
-    expect(screen.getAllByText(/coming soon/i).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/coming soon/i).length).toBeGreaterThanOrEqual(
+      2,
+    );
   });
 
   it("does not render View More button", () => {
@@ -247,16 +249,13 @@ describe("SearchPanel placeholder UI closure", () => {
   });
 });
 
-
 /* ================================================================== */
 /* 3. ChatHistory — no console.info, Coming Soon tooltip              */
 /* ================================================================== */
 
 describe("ChatHistory placeholder UI closure", () => {
   it("does not render a disabled fake search input", () => {
-    render(
-      <ChatHistory open onOpenChange={vi.fn()} onSelectChat={vi.fn()} />,
-    );
+    render(<ChatHistory open onOpenChange={vi.fn()} onSelectChat={vi.fn()} />);
 
     expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument();
   });
