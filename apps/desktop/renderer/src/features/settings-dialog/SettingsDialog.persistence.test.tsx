@@ -151,7 +151,10 @@ describe("SettingsDialog — persistence via PreferenceStore", () => {
     const preferences = createBrowserPreferences();
 
     window.localStorage.setItem("creonow.settings.focusMode", "{bad-json");
-    window.localStorage.setItem("creonow.settings.typewriterScroll", "not-a-bool");
+    window.localStorage.setItem(
+      "creonow.settings.typewriterScroll",
+      "not-a-bool",
+    );
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
