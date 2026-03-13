@@ -743,7 +743,6 @@ function useAppShellController() {
     }
   }, [setSpotlightOpen]);
 
-
   const layoutActions = React.useMemo<CommandPaletteLayoutActions>(
     () => ({
       onToggleSidebar: toggleSidebarVisibility,

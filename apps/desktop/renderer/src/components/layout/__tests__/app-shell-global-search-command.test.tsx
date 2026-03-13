@@ -27,7 +27,9 @@ describe("AppShell global search command discoverability", () => {
       close,
     });
 
-    const searchEntry = entries.find((item) => item.id === "open-global-search");
+    const searchEntry = entries.find(
+      (item) => item.id === "open-global-search",
+    );
     expect(searchEntry).toBeDefined();
     expect(searchEntry?.label).toBe("Global Search");
     expect(searchEntry?.shortcut).toBe(LAYOUT_SHORTCUTS.globalSearch.display());
