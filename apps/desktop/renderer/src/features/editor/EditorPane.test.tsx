@@ -123,7 +123,10 @@ function createPreferenceStub(
   initial: Partial<Record<PreferenceKey, unknown>> = {},
 ): PreferenceStore {
   const values = new Map<PreferenceKey, unknown>(
-    Object.entries(initial).map(([key, value]) => [key as PreferenceKey, value]),
+    Object.entries(initial).map(([key, value]) => [
+      key as PreferenceKey,
+      value,
+    ]),
   );
 
   return {
@@ -593,7 +596,10 @@ describe("EditorPane — advanced", () => {
       previewContentJson: JSON.stringify({
         type: "doc",
         content: [
-          { type: "paragraph", content: [{ type: "text", text: "History版本" }] },
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "History版本" }],
+          },
         ],
       }),
       previewError: null,
