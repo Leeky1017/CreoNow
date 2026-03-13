@@ -78,23 +78,26 @@ export function useAutoSaveToast(): void {
 export function useFlushErrorToast(): void {
   const { t } = useTranslation();
   const { showToast } = useAppToast();
-  const autosaveError = useEditorStore((s) => s.autosaveError);
   const documentId = useEditorStore((s) => s.documentId);
-  const prevDocIdRef = React.useRef(documentId);
+  const pendingFlushError = useEditorStore((s) => s.pendingFlushError);
+  const clearPendingFlushError = useEditorStore((s) => s.clearPendingFlushError);
 
   React.useEffect(() => {
-    const prevDocId = prevDocIdRef.current;
-    prevDocIdRef.current = documentId;
-
-    // 文档切换后，如果仍有 autosaveError，说明上一篇的 flush 失败
-    if (prevDocId !== null && documentId !== prevDocId && autosaveError) {
-      showToast({
-        title: t("toast.autosave.flushError.title"),
-        description: t("toast.autosave.flushError.description"),
-        variant: "warning",
-      });
+    if (!pendingFlushError || !documentId) {
+      return;
     }
-  }, [documentId, autosaveError, showToast, t]);
+
+    if (documentId === pendingFlushError.documentId) {
+      return;
+    }
+
+    showToast({
+      title: t("toast.autosave.flushError.title"),
+      description: t("toast.autosave.flushError.description"),
+      variant: "warning",
+    });
+    clearPendingFlushError();
+  }, [clearPendingFlushError, documentId, pendingFlushError, showToast, t]);
 }
 
 /**

@@ -30,6 +30,11 @@ export type EntityCompletionCandidate = {
   type: IpcRequest<"knowledge:entity:create">["type"];
 };
 
+export type PendingFlushError = {
+  documentId: string;
+  error: IpcError;
+};
+
 export type EntityCompletionSession = {
   open: boolean;
   query: string;
@@ -55,6 +60,7 @@ export type EditorState = {
   capacityWarning: string | null;
   autosaveStatus: AutosaveStatus;
   autosaveError: IpcError | null;
+  pendingFlushError: PendingFlushError | null;
   entityCompletionSession: EntityCompletionSession;
   /** Whether compare mode is active (showing DiffView instead of Editor) */
   compareMode: boolean;
@@ -79,6 +85,7 @@ export type EditorActions = {
   }) => Promise<void>;
   retryLastAutosave: () => Promise<void>;
   flushPendingAutosave: () => Promise<void>;
+  clearPendingFlushError: () => void;
   setAutosaveStatus: (status: AutosaveStatus) => void;
   setDocumentCharacterCount: (count: number) => void;
   setCapacityWarning: (warning: string | null) => void;
@@ -228,6 +235,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
       capacityWarning: null,
       autosaveStatus: "idle",
       autosaveError: null,
+      pendingFlushError: null,
       entityCompletionSession: createInitialEntityCompletionSession(),
       compareMode: false,
       compareVersionId: null,
@@ -340,6 +348,15 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
       },
 
       openDocument: async ({ projectId, documentId }) => {
+        const current = get();
+        if (
+          current.projectId === projectId &&
+          current.documentId &&
+          current.documentId !== documentId
+        ) {
+          await current.flushPendingAutosave();
+        }
+
         set({
           bootstrapStatus: "loading",
           projectId,
@@ -458,6 +475,7 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
           !state.lastSavedOrQueuedJson ||
           state.lastSavedOrQueuedJson.length === 0
         ) {
+          set({ pendingFlushError: null });
           return;
         }
 
@@ -468,6 +486,28 @@ export function createEditorStore(deps: { invoke: IpcInvoke }) {
           actor: "auto",
           reason: "autosave",
         });
+
+        const current = get();
+        if (
+          current.projectId === state.projectId &&
+          current.documentId === state.documentId &&
+          current.autosaveStatus === "error" &&
+          current.autosaveError
+        ) {
+          set({
+            pendingFlushError: {
+              documentId: state.documentId,
+              error: current.autosaveError,
+            },
+          });
+          return;
+        }
+
+        set({ pendingFlushError: null });
+      },
+
+      clearPendingFlushError: () => {
+        set({ pendingFlushError: null });
       },
     };
   });

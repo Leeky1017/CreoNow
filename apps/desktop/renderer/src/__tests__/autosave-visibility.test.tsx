@@ -260,9 +260,38 @@ describe("A0-02 文档切换 flush 失败 Toast", () => {
     vi.restoreAllMocks();
   });
 
-  it("文档切换时若有 autosaveError 则弹 warning Toast", async () => {
-    const store = createEditorStore({
-      invoke: createMockInvoke({ ok: true, data: {} }),
+  it("openDocument 前的 flush save 失败时，在新文档上下文弹 warning Toast", async () => {
+    const invoke = vi.fn(async (channel: string) => {
+      if (channel === "file:document:save") {
+        return {
+          ok: false,
+          error: { code: "IO_ERROR", message: "Disk full" },
+        };
+      }
+
+      if (channel === "file:document:read") {
+        return {
+          ok: true,
+          data: {
+            status: "draft",
+            contentJson: '{"type":"doc","content":[]}',
+          },
+        };
+      }
+
+      return { ok: true, data: {} };
+    });
+
+    const store = createEditorStore({ invoke: invoke as never });
+
+    await act(async () => {
+      store.setState({
+        projectId: "proj-1",
+        documentId: "doc-1",
+        lastSavedOrQueuedJson: '{"type":"doc","content":[{"type":"paragraph"}]}',
+        autosaveStatus: "idle",
+        autosaveError: null,
+      });
     });
 
     render(
@@ -273,22 +302,17 @@ describe("A0-02 文档切换 flush 失败 Toast", () => {
       </AppToastProvider>,
     );
 
-    // 设置初始文档
     await act(async () => {
-      store.setState({
-        documentId: "doc-1",
-        autosaveError: null,
-      });
-    });
-
-    // 模拟 flush 失败后切换文档：先设 error，然后切换 documentId
-    await act(async () => {
-      store.setState({
-        autosaveError: { code: "IO_ERROR", message: "Disk full" },
+      await store.getState().openDocument({
+        projectId: "proj-1",
         documentId: "doc-2",
       });
     });
 
+    expect(invoke).toHaveBeenCalledWith(
+      "file:document:save",
+      expect.objectContaining({ documentId: "doc-1", reason: "autosave" }),
+    );
     expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -297,7 +321,7 @@ describe("A0-02 文档切换 flush 失败 Toast", () => {
     ).toBeInTheDocument();
   });
 
-  it("文档切换时若无 autosaveError 则不弹 Toast", async () => {
+  it("普通 autosaveError 或文档切换本身不应误触 flush warning Toast", async () => {
     const store = createEditorStore({
       invoke: createMockInvoke({ ok: true, data: {} }),
     });
@@ -313,7 +337,7 @@ describe("A0-02 文档切换 flush 失败 Toast", () => {
     await act(async () => {
       store.setState({
         documentId: "doc-1",
-        autosaveError: null,
+        autosaveError: { code: "IO_ERROR", message: "Disk full" },
       });
     });
 
