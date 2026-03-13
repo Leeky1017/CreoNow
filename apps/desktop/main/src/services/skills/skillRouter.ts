@@ -91,6 +91,11 @@ const CN_DOUBLE_NEGATION_PREFIXES = [
   "并非不想",
 ];
 
+const EN_DOUBLE_NEGATION_PATTERNS = [
+  /not\s+that\s+i\s+don['’]t\s+want\s+to\s*$/i,
+  /not\s+that\s+i\s+do\s+not\s+want\s+to\s*$/i,
+];
+
 const CN_WINDOW = 6;
 const EN_WINDOW = 12;
 
@@ -111,10 +116,15 @@ export function isNegated(
   const windowStart = Math.max(0, keywordIndex - window);
   const windowText = input.slice(windowStart, keywordIndex);
 
-  // 双重否定检测（仅中文路径）
+  // 双重否定检测（中英文路径）
   if (isChinese) {
     for (const dn of CN_DOUBLE_NEGATION_PREFIXES) {
       if (prefix.includes(dn)) return false;
+    }
+  } else {
+    const normalizedPrefix = prefix.toLowerCase().replace(/\s+/g, " ").trimEnd();
+    for (const pattern of EN_DOUBLE_NEGATION_PATTERNS) {
+      if (pattern.test(normalizedPrefix)) return false;
     }
   }
 

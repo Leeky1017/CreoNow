@@ -198,6 +198,16 @@ describe("inferSkillFromInput — 否定场景", () => {
     ).toBe("builtin:continue");
   });
 
+  it("not that I do not want to continue writing → builtin:continue", () => {
+    expect(
+      inferSkillFromInput({
+        input: "not that I do not want to continue writing this chapter",
+        hasSelection: false,
+      }),
+    ).toBe("builtin:continue");
+  });
+
+
   // S-NEG-6: 窗口外否定不触发
   it("否定词距离超出窗口 → 正常匹配 builtin:continue", () => {
     expect(
