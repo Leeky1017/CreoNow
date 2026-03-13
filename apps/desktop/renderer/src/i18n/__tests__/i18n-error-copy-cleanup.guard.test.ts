@@ -121,4 +121,14 @@ describe("A0-22: i18n error copy cleanup", () => {
     scanDir(srcDir);
     expect(violations).toEqual([]);
   });
+
+  it("CommandPalette source no longer contains ACTION_FAILED / NO_PROJECT raw codes", () => {
+    const commandPalettePath = path.resolve(
+      __dirname,
+      "../../features/commandPalette/CommandPalette.tsx",
+    );
+    const content = fs.readFileSync(commandPalettePath, "utf-8");
+    expect(content).not.toContain("ACTION_FAILED:");
+    expect(content).not.toContain("NO_PROJECT:");
+  });
 });

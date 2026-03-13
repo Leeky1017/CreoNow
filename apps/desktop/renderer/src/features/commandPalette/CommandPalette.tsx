@@ -321,7 +321,7 @@ function buildDefaultCommands(ctx: {
             ctx.dialogActions.onOpenSettings();
             ctx.onOpenChange(false);
           } else {
-            ctx.setErrorText("ACTION_FAILED: Settings dialog not available");
+            ctx.setErrorText(ctx.t("workbench.commandPalette.errors.settingsUnavailable"));
           }
         },
       },
@@ -338,7 +338,7 @@ function buildDefaultCommands(ctx: {
             ctx.dialogActions.onOpenExport();
             ctx.onOpenChange(false);
           } else {
-            ctx.setErrorText("ACTION_FAILED: Export dialog not available");
+            ctx.setErrorText(ctx.t("workbench.commandPalette.errors.exportUnavailable"));
           }
         },
       },
@@ -355,7 +355,7 @@ function buildDefaultCommands(ctx: {
             ctx.layoutActions.onToggleSidebar();
             ctx.onOpenChange(false);
           } else {
-            ctx.setErrorText("ACTION_FAILED: Layout actions not available");
+            ctx.setErrorText(ctx.t("workbench.commandPalette.errors.layoutUnavailable"));
           }
         },
       },
@@ -372,7 +372,7 @@ function buildDefaultCommands(ctx: {
             ctx.layoutActions.onToggleRightPanel();
             ctx.onOpenChange(false);
           } else {
-            ctx.setErrorText("ACTION_FAILED: Layout actions not available");
+            ctx.setErrorText(ctx.t("workbench.commandPalette.errors.layoutUnavailable"));
           }
         },
       },
@@ -389,7 +389,7 @@ function buildDefaultCommands(ctx: {
             ctx.layoutActions.onToggleZenMode();
             ctx.onOpenChange(false);
           } else {
-            ctx.setErrorText("ACTION_FAILED: Layout actions not available");
+            ctx.setErrorText(ctx.t("workbench.commandPalette.errors.layoutUnavailable"));
           }
         },
       },
@@ -403,7 +403,7 @@ function buildDefaultCommands(ctx: {
         onSelect: async () => {
           ctx.setErrorText(null);
           if (!ctx.currentProjectId) {
-            ctx.setErrorText("NO_PROJECT: Please open a project first");
+            ctx.setErrorText(ctx.t("workbench.commandPalette.errors.noProject"));
             return;
           }
           if (ctx.documentActions?.onCreateDocument) {
@@ -411,10 +411,10 @@ function buildDefaultCommands(ctx: {
               await ctx.documentActions.onCreateDocument();
               ctx.onOpenChange(false);
             } catch {
-              ctx.setErrorText("ACTION_FAILED: Failed to create document");
+              ctx.setErrorText(ctx.t("workbench.commandPalette.errors.createDocumentFailed"));
             }
           } else {
-            ctx.setErrorText("ACTION_FAILED: Document actions not available");
+            ctx.setErrorText(ctx.t("workbench.commandPalette.errors.documentUnavailable"));
           }
         },
       },
@@ -429,7 +429,7 @@ function buildDefaultCommands(ctx: {
             ctx.layoutActions.onOpenVersionHistory();
             ctx.onOpenChange(false);
           } else {
-            ctx.setErrorText("ACTION_FAILED: Version history action not available");
+            ctx.setErrorText(ctx.t("workbench.commandPalette.errors.versionHistoryUnavailable"));
           }
         },
       },
@@ -446,7 +446,7 @@ function buildDefaultCommands(ctx: {
             ctx.dialogActions.onOpenCreateProject();
             ctx.onOpenChange(false);
           } else {
-            ctx.setErrorText("ACTION_FAILED: Create project dialog not available");
+            ctx.setErrorText(ctx.t("workbench.commandPalette.errors.createProjectUnavailable"));
           }
         },
       },
