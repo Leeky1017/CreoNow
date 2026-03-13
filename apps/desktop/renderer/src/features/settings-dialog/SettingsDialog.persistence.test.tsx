@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -39,33 +39,13 @@ vi.mock("../analytics/AnalyticsPage", () => ({
   ),
 }));
 
-vi.mock("../../i18n/languagePreference", () => ({
-  getLanguagePreference: vi.fn(() => "zh-CN"),
-  setLanguagePreference: vi.fn(),
-}));
-
 vi.mock("../../i18n", () => ({
   i18n: { changeLanguage: vi.fn(() => Promise.resolve()) },
 }));
 
-function createMockStorage(): Storage {
-  const store = new Map<string, string>();
-  return {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      store.set(key, value);
-    },
-    removeItem: (key: string) => {
-      store.delete(key);
-    },
-    clear: () => {
-      store.clear();
-    },
-    key: (index: number) => Array.from(store.keys())[index] ?? null,
-    get length() {
-      return store.size;
-    },
-  };
+function createBrowserPreferences(): PreferenceStore {
+  window.localStorage.clear();
+  return createPreferenceStore(window.localStorage);
 }
 
 function renderWithProviders(ui: JSX.Element, preferences: PreferenceStore) {
@@ -77,17 +57,19 @@ function renderWithProviders(ui: JSX.Element, preferences: PreferenceStore) {
 }
 
 describe("SettingsDialog — persistence via PreferenceStore", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it("A0-14-PERSIST-01 toggle writes to PreferenceStore", async () => {
     const user = userEvent.setup();
-    const storage = createMockStorage();
-    const preferences = createPreferenceStore(storage);
+    const preferences = createBrowserPreferences();
 
     renderWithProviders(
       <SettingsDialog open={true} onOpenChange={vi.fn()} />,
       preferences,
     );
 
-    // Focus Mode is ON by default, toggle it off
     const focusModeToggle = screen.getByRole("switch", {
       name: /focus mode/i,
     });
@@ -97,10 +79,8 @@ describe("SettingsDialog — persistence via PreferenceStore", () => {
   });
 
   it("A0-14-PERSIST-02 reads stored values on open instead of defaults", () => {
-    const storage = createMockStorage();
-    const preferences = createPreferenceStore(storage);
+    const preferences = createBrowserPreferences();
 
-    // Pre-set non-default values
     preferences.set("creonow.settings.focusMode", false);
     preferences.set("creonow.settings.typewriterScroll", true);
 
@@ -109,29 +89,53 @@ describe("SettingsDialog — persistence via PreferenceStore", () => {
       preferences,
     );
 
-    // Focus Mode should be off (non-default)
     const focusModeToggle = screen.getByRole("switch", {
       name: /focus mode/i,
     });
     expect(focusModeToggle).not.toBeChecked();
 
-    // Typewriter Scroll should be on (non-default)
     const typewriterToggle = screen.getByRole("switch", {
       name: /typewriter scroll/i,
     });
     expect(typewriterToggle).toBeChecked();
   });
 
-  it("A0-14-DEFAULT-02 shows defaults when no stored values exist", () => {
-    const storage = createMockStorage();
-    const preferences = createPreferenceStore(storage);
+  it("A0-14-PERSIST-03 display language reads from the shared PreferenceStore key", () => {
+    const preferences = createBrowserPreferences();
+    preferences.set("creonow.settings.language", "en");
 
     renderWithProviders(
       <SettingsDialog open={true} onOpenChange={vi.fn()} />,
       preferences,
     );
 
-    // defaults: focusMode=true, typewriterScroll=false
+    expect(screen.getByText("English")).toBeInTheDocument();
+  });
+
+  it("A0-14-PERSIST-04 changing language writes back to the shared PreferenceStore key", async () => {
+    const user = userEvent.setup();
+    const preferences = createBrowserPreferences();
+
+    renderWithProviders(
+      <SettingsDialog open={true} onOpenChange={vi.fn()} />,
+      preferences,
+    );
+
+    const trigger = screen.getAllByRole("combobox")[0];
+    await user.click(trigger);
+    await user.click(screen.getByRole("option", { name: "English" }));
+
+    expect(preferences.get<string>("creonow.settings.language")).toBe("en");
+  });
+
+  it("A0-14-DEFAULT-02 shows defaults when no stored values exist", () => {
+    const preferences = createBrowserPreferences();
+
+    renderWithProviders(
+      <SettingsDialog open={true} onOpenChange={vi.fn()} />,
+      preferences,
+    );
+
     const focusModeToggle = screen.getByRole("switch", {
       name: /focus mode/i,
     });
@@ -144,12 +148,10 @@ describe("SettingsDialog — persistence via PreferenceStore", () => {
   });
 
   it("A0-14-CORRUPT-02 shows defaults when stored values are corrupt", () => {
-    const storage = createMockStorage();
-    const preferences = createPreferenceStore(storage);
+    const preferences = createBrowserPreferences();
 
-    // Inject corrupt data directly
-    storage.setItem("creonow.settings.focusMode", "{bad-json");
-    storage.setItem("creonow.settings.typewriterScroll", "not-a-bool");
+    window.localStorage.setItem("creonow.settings.focusMode", "{bad-json");
+    window.localStorage.setItem("creonow.settings.typewriterScroll", "not-a-bool");
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
@@ -158,11 +160,10 @@ describe("SettingsDialog — persistence via PreferenceStore", () => {
       preferences,
     );
 
-    // Should fall back to defaults without crashing
     const focusModeToggle = screen.getByRole("switch", {
       name: /focus mode/i,
     });
-    expect(focusModeToggle).toBeChecked(); // default is true
+    expect(focusModeToggle).toBeChecked();
 
     errorSpy.mockRestore();
   });
