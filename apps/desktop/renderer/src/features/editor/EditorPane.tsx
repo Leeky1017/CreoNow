@@ -853,6 +853,7 @@ function useEditorPaneCore(projectId: string) {
   const aiStatus = useOptionalAiStore((s) => s.status) ?? "idle";
   const aiSetSelectedSkillId = useOptionalAiStore((s) => s.setSelectedSkillId);
   const aiRun = useOptionalAiStore((s) => s.run);
+  const zenMode = useOptionalLayoutStore((s) => s.zenMode) ?? false;
 
   const suppressAutosaveRef = React.useRef<boolean>(false);
   const [contentReady, setContentReady] = React.useState(false);
@@ -883,13 +884,22 @@ function useEditorPaneCore(projectId: string) {
   }, [isSlashPanelOpen]);
 
   const openSlashPanel = React.useCallback(() => {
+    if (zenMode) {
+      return;
+    }
     setIsSlashPanelOpen(true);
-  }, []);
+  }, [zenMode]);
 
   const closeSlashPanel = React.useCallback(() => {
     setIsSlashPanelOpen(false);
     setSlashSearchQuery("");
   }, []);
+
+  React.useEffect(() => {
+    if (zenMode && isSlashPanelOpen) {
+      closeSlashPanel();
+    }
+  }, [closeSlashPanel, isSlashPanelOpen, zenMode]);
 
   const editor = useEditor({
     extensions: [
@@ -1103,6 +1113,7 @@ function useEditorPaneCore(projectId: string) {
     aiRun,
     aiStatus,
     onWriteClick,
+    zenMode,
   };
 }
 
@@ -1111,7 +1122,7 @@ function useEditorPaneCore(projectId: string) {
  */
 export function EditorPane(props: { projectId: string }): JSX.Element {
   const core = useEditorPaneCore(props.projectId);
-  const zenMode = useOptionalLayoutStore((s) => s.zenMode) ?? false;
+  const zenMode = core.zenMode;
 
   if (core.bootstrapStatus !== "ready") {
     return (
