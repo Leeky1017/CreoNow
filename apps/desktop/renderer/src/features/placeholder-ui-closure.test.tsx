@@ -157,6 +157,56 @@ describe("SearchPanel placeholder UI closure", () => {
     SearchPanel = mod.SearchPanel;
   });
 
+  it("does not render a fake fixed search-time metric", () => {
+    render(
+      <SearchPanel
+        projectId="p1"
+        open
+        mockResults={[
+          {
+            id: "doc-1",
+            documentId: "doc-1",
+            type: "document" as const,
+            title: "Document 1",
+            snippet: "snippet",
+          },
+        ]}
+        mockQuery="test"
+        mockStatus="idle"
+      />,
+    );
+
+    expect(screen.queryByText(/search took/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0\.04s/i)).not.toBeInTheDocument();
+  });
+
+  it("marks memory and knowledge results as coming soon instead of pretending they jump", () => {
+    render(
+      <SearchPanel
+        projectId="p1"
+        open
+        mockResults={[
+          {
+            id: "memory-1",
+            type: "memory" as const,
+            title: "Memory item",
+            snippet: "memory snippet",
+          },
+          {
+            id: "knowledge-1",
+            type: "knowledge" as const,
+            title: "Knowledge item",
+            snippet: "knowledge snippet",
+          },
+        ]}
+        mockQuery="test"
+        mockStatus="idle"
+      />,
+    );
+
+    expect(screen.getAllByText(/coming soon/i).length).toBeGreaterThanOrEqual(2);
+  });
+
   it("does not render View More button", () => {
     render(
       <SearchPanel
@@ -197,11 +247,20 @@ describe("SearchPanel placeholder UI closure", () => {
   });
 });
 
+
 /* ================================================================== */
 /* 3. ChatHistory — no console.info, Coming Soon tooltip              */
 /* ================================================================== */
 
 describe("ChatHistory placeholder UI closure", () => {
+  it("does not render a disabled fake search input", () => {
+    render(
+      <ChatHistory open onOpenChange={vi.fn()} onSelectChat={vi.fn()} />,
+    );
+
+    expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument();
+  });
+
   it("click does nothing and does not call console.info", () => {
     const onSelectChat = vi.fn();
     const consoleSpy = vi.spyOn(console, "info").mockImplementation(() => {});

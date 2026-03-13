@@ -464,6 +464,43 @@ function SearchResultsArea(props: {
           {props.lastError?.message}
         </p>
         <Button
+          variant="primary"
+          onClick={props.onRetrySearch}
+          className="mt-6 !px-4 !py-2 !h-auto !bg-[var(--color-info)] !text-[var(--color-fg-on-accent)] !text-sm !font-medium !rounded-lg hover:!bg-[var(--color-info)] hover:!brightness-110"
+        >
+          {t("search.retrySearch")}
+        </Button>
+      </div>
+    );
+  }
+
+  if (
+    props.hasQuery &&
+    !props.hasResults &&
+    props.effectiveStatus !== "loading"
+  ) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 px-8">
+        <Frown
+          className="w-16 h-16 text-[var(--color-fg-placeholder)] mb-4"
+          size={24}
+          strokeWidth={1.5}
+        />
+        <p className="text-sm font-medium text-[var(--color-fg-default)] text-center mb-2">
+          {t("search.noResults.title")}
+        </p>
+        <p className="text-xs text-[var(--color-fg-muted)] text-center">
+          {t("search.noResultsQuery", { query: props.effectiveQuery })}
+        </p>
+        <div className="mt-6 p-4 bg-[var(--color-separator)] rounded-lg border border-[var(--color-separator)]">
+          <p className="text-[10px] text-[var(--color-fg-placeholder)] font-medium uppercase tracking-wider mb-2">
+            {t("search.suggestionsTitle")}
+          </p>
+          <p className="text-xs text-[var(--color-fg-muted)]">
+            {t("search.noResults.suggestion")}
+          </p>
+        </div>
+        <Button
           variant="ghost"
           onClick={props.onClearQuery}
           className="mt-3 !h-auto !text-xs !text-[var(--color-fg-muted)] hover:!text-[var(--color-fg-default)]"
@@ -534,9 +571,6 @@ function SearchResultsArea(props: {
             ))}
           </ResultGroup>
         )}
-          </Button>
-        </div>
-      )}
     </>
   );
 }

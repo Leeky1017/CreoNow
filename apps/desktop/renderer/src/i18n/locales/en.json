@@ -1,8 +1,4 @@
 {
-  "common": {
-    "comingSoon": "Coming soon",
-    "featureInDevelopment": "This feature is under development"
-  },
   "workbench": {
     "bootstrap": {
       "appShell": "Workbench Shell"
@@ -929,8 +925,7 @@
       "manageSubscription": "Manage Subscription",
       "dangerZone": "Danger Zone",
       "deleteAccount": "Delete Account",
-      "deleteAccountDescription": "Permanently delete your account and all associated data.",
-      "comingSoonTooltip": "Account features coming soon"
+      "deleteAccountDescription": "Permanently delete your account and all associated data."
     },
     "general": {
       "zhCN": "Chinese (Simplified)",
@@ -1523,12 +1518,13 @@
       "VERSION_SNAPSHOT_COMPACTED": "Version snapshot has been compacted."
     }
   },
-"globalError": {
+  "globalError": {
     "toast": {
       "title": "Unexpected system error",
       "description": "Some features may be affected. Please retry the operation. If the problem persists, restart the app."
     }
-  },
+  }
+,
   "versionControl": {
     "restoreComingSoon": "Version restore coming soon"
   }

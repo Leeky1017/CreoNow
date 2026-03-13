@@ -37,18 +37,6 @@ export function ChatHistory(props: ChatHistoryProps): JSX.Element | null {
         onClick={(e) => e.stopPropagation()}
         className="absolute top-full right-0 mt-1 w-64 z-[var(--z-popover)] bg-[var(--color-bg-raised)] border border-[var(--color-border-default)] rounded-[var(--radius-lg)] shadow-[var(--shadow-xl)] overflow-hidden"
       >
-        {/* Header */}
-        <div className="px-3 py-2 border-b border-[var(--color-separator)]">
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              placeholder={t('ai.chatHistory.searchPlaceholder')}
-              disabled
-              className="flex-1 bg-transparent border-none text-[12px] text-[var(--color-fg-default)] placeholder:text-[var(--color-fg-muted)] focus:outline-none opacity-50 cursor-not-allowed"
-            />
-          </div>
-        </div>
-
         {/* Empty state — chat persistence not yet available */}
         <div className="px-4 py-8 text-center">
           <Text size="tiny" color="muted">
