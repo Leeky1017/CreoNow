@@ -1534,4 +1534,8 @@
       "description": "部分功能可能受影响，请尝试重新操作。如问题持续，请重启应用。"
     }
   }
+,
+  "versionControl": {
+    "restoreComingSoon": "版本恢复功能即将推出"
+  }
 }

@@ -1534,4 +1534,8 @@
       "description": "Some features may be affected. Please retry the operation. If the problem persists, restart the app."
     }
   }
+,
+  "versionControl": {
+    "restoreComingSoon": "Version restore coming soon"
+  }
 }
