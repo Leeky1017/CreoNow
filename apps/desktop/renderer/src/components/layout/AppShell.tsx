@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 
+import { LAYOUT_SHORTCUTS } from "../../config/shortcuts";
 import {
   useLayoutStore,
   LAYOUT_DEFAULTS,
@@ -45,10 +46,20 @@ import { SearchPanel } from "../../features/search/SearchPanel";
 import { VersionHistoryContainer } from "../../features/version-history/VersionHistoryContainer";
 import { ZenMode } from "../../features/zen-mode/ZenMode";
 import { SystemDialog } from "../../components/features/AiDialogs/SystemDialog";
-import { useConfirmDialog, type UseConfirmDialogReturn } from "../../hooks/useConfirmDialog";
+import {
+  useConfirmDialog,
+  type UseConfirmDialogReturn,
+} from "../../hooks/useConfirmDialog";
 import { RESTORE_VERSION_CONFIRM_COPY } from "../../features/version-history/restoreConfirmCopy";
-import { useVersionCompare, type CompareState } from "../../features/version-history/useVersionCompare";
-import { useProjectStore, type ProjectInfo, type ProjectListItem } from "../../stores/projectStore";
+import {
+  useVersionCompare,
+  type CompareState,
+} from "../../features/version-history/useVersionCompare";
+import {
+  useProjectStore,
+  type ProjectInfo,
+  type ProjectListItem,
+} from "../../stores/projectStore";
 import { useFileStore } from "../../stores/fileStore";
 import { useEditorStore } from "../../stores/editorStore";
 import { useAiStore, type AiProposal } from "../../stores/aiStore";
@@ -168,7 +179,7 @@ function ZenModeOverlay(props: {
 /**
  * Build the static command palette entries (non-file items).
  */
-function buildCommandEntries(args: {
+export function buildCommandEntries(args: {
   modKey: string;
   t: ReturnType<typeof useTranslation>["t"];
   currentProjectId: string | null;
@@ -181,6 +192,7 @@ function buildCommandEntries(args: {
   createDocument: (args: { projectId: string }) => Promise<{ ok: boolean }>;
   openVersionHistoryPanel: () => void;
   setCreateProjectDialogOpen: (open: boolean) => void;
+  openGlobalSearch: () => void;
   close: () => void;
 }): CommandItem[] {
   return [
@@ -190,14 +202,20 @@ function buildCommandEntries(args: {
       shortcut: `${args.modKey},`,
       group: "command",
       category: "command",
-      onSelect: () => { args.openSettingsDialog("general"); args.close(); },
+      onSelect: () => {
+        args.openSettingsDialog("general");
+        args.close();
+      },
     },
     {
       id: "export",
       label: args.t("workbench.appShell.command.export"),
       group: "command",
       category: "command",
-      onSelect: () => { args.setExportDialogOpen(true); args.close(); },
+      onSelect: () => {
+        args.setExportDialogOpen(true);
+        args.close();
+      },
     },
     {
       id: "toggle-sidebar",
@@ -205,7 +223,10 @@ function buildCommandEntries(args: {
       shortcut: `${args.modKey}\\`,
       group: "command",
       category: "command",
-      onSelect: () => { args.toggleSidebarVisibility(); args.close(); },
+      onSelect: () => {
+        args.toggleSidebarVisibility();
+        args.close();
+      },
     },
     {
       id: "toggle-right-panel",
@@ -213,7 +234,10 @@ function buildCommandEntries(args: {
       shortcut: `${args.modKey}L`,
       group: "command",
       category: "command",
-      onSelect: () => { args.toggleAiPanel(); args.close(); },
+      onSelect: () => {
+        args.toggleAiPanel();
+        args.close();
+      },
     },
     {
       id: "toggle-zen-mode",
@@ -221,7 +245,21 @@ function buildCommandEntries(args: {
       shortcut: "F11",
       group: "command",
       category: "command",
-      onSelect: () => { args.setZenMode(!args.zenMode); args.close(); },
+      onSelect: () => {
+        args.setZenMode(!args.zenMode);
+        args.close();
+      },
+    },
+    {
+      id: "open-global-search",
+      label: args.t("search.shortcut.label"),
+      shortcut: LAYOUT_SHORTCUTS.globalSearch.display(),
+      group: "command",
+      category: "command",
+      onSelect: () => {
+        args.openGlobalSearch();
+        args.close();
+      },
     },
     {
       id: "create-new-document",
@@ -240,7 +278,10 @@ function buildCommandEntries(args: {
       label: args.t("workbench.appShell.command.openVersionHistory"),
       group: "command",
       category: "command",
-      onSelect: () => { args.openVersionHistoryPanel(); args.close(); },
+      onSelect: () => {
+        args.openVersionHistoryPanel();
+        args.close();
+      },
     },
     {
       id: "create-new-project",
@@ -248,14 +289,20 @@ function buildCommandEntries(args: {
       shortcut: `${args.modKey}Shift+N`,
       group: "command",
       category: "command",
-      onSelect: () => { args.setCreateProjectDialogOpen(true); args.close(); },
+      onSelect: () => {
+        args.setCreateProjectDialogOpen(true);
+        args.close();
+      },
     },
     {
       id: "open-folder",
       label: args.t("workbench.appShell.command.openFolder"),
       group: "command",
       category: "command",
-      onSelect: async () => { await invoke("dialog:folder:open", {}); args.close(); },
+      onSelect: async () => {
+        await invoke("dialog:folder:open", {});
+        args.close();
+      },
     },
   ];
 }
@@ -266,8 +313,14 @@ function buildCommandEntries(args: {
 function buildFileEntries(args: {
   fileItems: FileItem[];
   currentProjectId: string | null;
-  setCurrentDocument: (a: { projectId: string; documentId: string }) => Promise<{ ok: boolean }>;
-  openEditorDocument: (a: { projectId: string; documentId: string }) => Promise<void>;
+  setCurrentDocument: (a: {
+    projectId: string;
+    documentId: string;
+  }) => Promise<{ ok: boolean }>;
+  openEditorDocument: (a: {
+    projectId: string;
+    documentId: string;
+  }) => Promise<void>;
   close: () => void;
 }): CommandItem[] {
   const safeFileItems = Array.isArray(args.fileItems) ? args.fileItems : [];
@@ -308,6 +361,7 @@ function buildFileEntries(args: {
  */
 function AppShellOverlays(props: {
   spotlightOpen: boolean;
+  searchFocusNonce: number;
   currentProjectId: string | null;
   onCloseSpotlight: () => void;
   dialogType: DialogType | null;
@@ -342,6 +396,7 @@ function AppShellOverlays(props: {
           <SearchPanel
             projectId={props.currentProjectId ?? "__no_project__"}
             open={true}
+            focusNonce={props.searchFocusNonce}
             onClose={props.onCloseSpotlight}
           />
         </div>
@@ -352,7 +407,9 @@ function AppShellOverlays(props: {
           open={true}
           title={props.dialogTitleResolver(props.dialogType)}
           testId={`leftpanel-dialog-${props.dialogType}`}
-          onOpenChange={(open) => { if (!open) props.onCloseDialog(); }}
+          onOpenChange={(open) => {
+            if (!open) props.onCloseDialog();
+          }}
         >
           {props.dialogContentRenderer(props.dialogType)}
         </LeftPanelDialogShell>
@@ -467,7 +524,8 @@ function useAppShellAiCompare() {
 
   const handleAcceptAiSuggestion = React.useCallback(async () => {
     const effectiveEditor = editor ?? lastMountedEditorRef.current;
-    if (!effectiveEditor || !documentId || !currentProjectId || !aiProposal) return;
+    if (!effectiveEditor || !documentId || !currentProjectId || !aiProposal)
+      return;
 
     const normalizedDecisions = aiHunks.map((_, idx) => {
       const decision = aiHunkDecisions[idx] ?? "pending";
@@ -501,13 +559,61 @@ function useAppShellAiCompare() {
     setCompareMode(false);
     setAiHunkDecisions([]);
   }, [
-    aiHunkDecisions, aiHunks, aiProposal, currentProjectId, documentId,
-    editor, logAiApplyConflict, persistAiApply, setAiError, setCompareMode,
+    aiHunkDecisions,
+    aiHunks,
+    aiProposal,
+    currentProjectId,
+    documentId,
+    editor,
+    logAiApplyConflict,
+    persistAiApply,
+    setAiError,
+    setCompareMode,
   ]);
 
   return {
-    aiProposal, aiDiffText, aiHunks, aiHunkDecisions, setAiHunkDecisions,
-    handleRejectAiSuggestion, handleAcceptAiSuggestion,
+    aiProposal,
+    aiDiffText,
+    aiHunks,
+    aiHunkDecisions,
+    setAiHunkDecisions,
+    handleRejectAiSuggestion,
+    handleAcceptAiSuggestion,
+  };
+}
+
+function useGlobalSearchFocusController(args: {
+  setSpotlightOpen: (open: boolean) => void;
+}) {
+  const { setSpotlightOpen } = args;
+  const [searchFocusNonce, setSearchFocusNonce] = React.useState(0);
+  const [searchRestoreTarget, setSearchRestoreTarget] =
+    React.useState<HTMLElement | null>(null);
+
+  const openGlobalSearch = React.useCallback(() => {
+    const activeElement =
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setSearchRestoreTarget(activeElement);
+    setSpotlightOpen(true);
+    setSearchFocusNonce((value) => value + 1);
+  }, [setSpotlightOpen]);
+
+  const closeGlobalSearch = React.useCallback(() => {
+    setSpotlightOpen(false);
+    if (searchRestoreTarget) {
+      queueMicrotask(() => {
+        searchRestoreTarget.focus();
+      });
+    }
+  }, [searchRestoreTarget, setSpotlightOpen]);
+
+  return {
+    searchFocusNonce,
+    openGlobalSearch,
+    closeGlobalSearch,
   };
 }
 
@@ -562,6 +668,8 @@ function useAppShellController() {
   const { compareState, closeCompare } = useVersionCompare();
   const { confirm, dialogProps } = useConfirmDialog();
   const aiCompare = useAppShellAiCompare();
+  const { searchFocusNonce, openGlobalSearch, closeGlobalSearch } =
+    useGlobalSearchFocusController({ setSpotlightOpen });
 
   // Bootstrap projects on mount
   React.useEffect(() => {
@@ -610,16 +718,29 @@ function useAppShellController() {
         return;
       }
       runFireAndForget(async () => {
-        await setCurrentDocument({ projectId: currentProjectId, documentId: docId });
-        await openEditorDocument({ projectId: currentProjectId, documentId: docId });
+        await setCurrentDocument({
+          projectId: currentProjectId,
+          documentId: docId,
+        });
+        await openEditorDocument({
+          projectId: currentProjectId,
+          documentId: docId,
+        });
       });
       openVersionHistoryPanel();
     },
-    [currentProjectId, openEditorDocument, openVersionHistoryPanel, setCurrentDocument],
+    [
+      currentProjectId,
+      openEditorDocument,
+      openVersionHistoryPanel,
+      setCurrentDocument,
+    ],
   );
 
   const handleSwitchProject = React.useCallback(
-    async (projectId: string) => { await setCurrentProject(projectId); },
+    async (projectId: string) => {
+      await setCurrentProject(projectId);
+    },
     [setCurrentProject],
   );
 
@@ -629,10 +750,13 @@ function useAppShellController() {
     setCommandPaletteOpen(true);
   }, []);
 
-  const openSettingsDialog = React.useCallback((tab: SettingsTab = "general") => {
-    setSettingsDefaultTab(tab);
-    setSettingsDialogOpen(true);
-  }, []);
+  const openSettingsDialog = React.useCallback(
+    (tab: SettingsTab = "general") => {
+      setSettingsDefaultTab(tab);
+      setSettingsDialogOpen(true);
+    },
+    [],
+  );
 
   const layoutActions = React.useMemo<CommandPaletteLayoutActions>(
     () => ({
@@ -641,7 +765,13 @@ function useAppShellController() {
       onToggleZenMode: () => setZenMode(!zenMode),
       onOpenVersionHistory: openVersionHistoryPanel,
     }),
-    [openVersionHistoryPanel, setZenMode, toggleAiPanel, toggleSidebarVisibility, zenMode],
+    [
+      openVersionHistoryPanel,
+      setZenMode,
+      toggleAiPanel,
+      toggleSidebarVisibility,
+      zenMode,
+    ],
   );
 
   const dialogActionCallbacks = React.useMemo<CommandPaletteDialogActions>(
@@ -653,14 +783,16 @@ function useAppShellController() {
     [openSettingsDialog],
   );
 
-  const documentActionCallbacks =
-    React.useMemo<CommandPaletteDocumentActions>(() => ({
+  const documentActionCallbacks = React.useMemo<CommandPaletteDocumentActions>(
+    () => ({
       onCreateDocument: async () => {
         if (!currentProjectId) throw new Error("No project selected");
         const res = await createDocument({ projectId: currentProjectId });
         if (!res.ok) throw new Error(`${res.error.code}: ${res.error.message}`);
       },
-    }), [createDocument, currentProjectId]);
+    }),
+    [createDocument, currentProjectId],
+  );
 
   const refreshRecentCommands = React.useCallback(() => {
     setRecentCommandIds(readRecentCommandIds());
@@ -682,22 +814,33 @@ function useAppShellController() {
   const commandPaletteCommands = React.useMemo<CommandItem[]>(() => {
     const close = () => setCommandPaletteOpen(false);
     const commandEntries = buildCommandEntries({
-      modKey, t, currentProjectId, zenMode,
-      openSettingsDialog, setExportDialogOpen,
-      toggleSidebarVisibility, toggleAiPanel, setZenMode,
+      modKey,
+      t,
+      currentProjectId,
+      zenMode,
+      openSettingsDialog,
+      setExportDialogOpen,
+      toggleSidebarVisibility,
+      toggleAiPanel,
+      setZenMode,
       createDocument: async (a) => {
         const r = await createDocument(a);
         return { ok: r.ok };
       },
-      openVersionHistoryPanel, setCreateProjectDialogOpen, close,
+      openVersionHistoryPanel,
+      setCreateProjectDialogOpen,
+      openGlobalSearch,
+      close,
     });
     const fileEntries = buildFileEntries({
-      fileItems, currentProjectId,
+      fileItems,
+      currentProjectId,
       setCurrentDocument: async (a) => {
         const r = await setCurrentDocument(a);
         return { ok: r.ok };
       },
-      openEditorDocument, close,
+      openEditorDocument,
+      close,
     });
     const trackedCommands = [
       ...commandEntries.map(withRecentTracking),
@@ -708,37 +851,86 @@ function useAppShellController() {
       .map((id) => trackedById.get(id))
       .filter((item): item is CommandItem => Boolean(item))
       .slice(0, 5)
-      .map((item) => ({ ...item, group: "recent", category: "recent" as const }));
+      .map((item) => ({
+        ...item,
+        group: "recent",
+        category: "recent" as const,
+      }));
     return [
       ...recentEntries,
       ...fileEntries.map(withRecentTracking),
       ...commandEntries.map(withRecentTracking),
     ];
   }, [
-    createDocument, currentProjectId, fileItems, modKey,
-    openEditorDocument, openSettingsDialog, openVersionHistoryPanel,
-    recentCommandIds, setCurrentDocument, setZenMode, t,
-    toggleAiPanel, toggleSidebarVisibility, withRecentTracking, zenMode,
+    createDocument,
+    currentProjectId,
+    fileItems,
+    modKey,
+    openEditorDocument,
+    openSettingsDialog,
+    openVersionHistoryPanel,
+    recentCommandIds,
+    setCurrentDocument,
+    setZenMode,
+    t,
+    toggleAiPanel,
+    toggleSidebarVisibility,
+    withRecentTracking,
+    zenMode,
+    openGlobalSearch,
   ]);
 
   return {
-    t, currentProject, currentProjectId, projectItems,
-    compareMode, compareVersionId, documentId, showAiMarks,
-    panelCollapsed, zenMode, activeLeftPanel, dialogType,
-    spotlightOpen, setSpotlightOpen, activeRightPanel, setActiveRightPanel,
-    setZenMode, setDialogType, setCompareMode,
-    compareState, closeCompare, confirm, dialogProps,
-    bootstrapEditor, createDocument,
+    t,
+    currentProject,
+    currentProjectId,
+    projectItems,
+    compareMode,
+    compareVersionId,
+    documentId,
+    showAiMarks,
+    panelCollapsed,
+    zenMode,
+    activeLeftPanel,
+    dialogType,
+    spotlightOpen,
+    setSpotlightOpen,
+    activeRightPanel,
+    setActiveRightPanel,
+    setZenMode,
+    setDialogType,
+    setCompareMode,
+    compareState,
+    closeCompare,
+    confirm,
+    dialogProps,
+    bootstrapEditor,
+    createDocument,
     ...aiCompare,
-    toggleSidebarVisibility, toggleAiPanel,
-    openVersionHistoryPanel, openVersionHistoryForDocument,
-    handleSwitchProject, openCommandPalette, openSettingsDialog,
-    commandPaletteKey, commandPaletteOpen, setCommandPaletteOpen,
-    commandPaletteCommands, layoutActions, dialogActionCallbacks,
+    toggleSidebarVisibility,
+    toggleAiPanel,
+    openVersionHistoryPanel,
+    openVersionHistoryForDocument,
+    handleSwitchProject,
+    openCommandPalette,
+    openSettingsDialog,
+    openGlobalSearch,
+    closeGlobalSearch,
+    searchFocusNonce,
+    commandPaletteKey,
+    commandPaletteOpen,
+    setCommandPaletteOpen,
+    commandPaletteCommands,
+    layoutActions,
+    dialogActionCallbacks,
     documentActionCallbacks,
-    settingsDialogOpen, setSettingsDialogOpen, settingsDefaultTab,
-    exportDialogOpen, setExportDialogOpen,
-    createProjectDialogOpen, setCreateProjectDialogOpen,
+    settingsDialogOpen,
+    setSettingsDialogOpen,
+    settingsDefaultTab,
+    exportDialogOpen,
+    setExportDialogOpen,
+    createProjectDialogOpen,
+    setCreateProjectDialogOpen,
   };
 }
 
@@ -781,12 +973,16 @@ function AppShellMainContent(props: {
             onAcceptAll={() => void props.handleAcceptAiSuggestion()}
             onAcceptHunk={(hunkIndex) =>
               props.setAiHunkDecisions((prev) =>
-                prev.map((item, idx) => (idx === hunkIndex ? "accepted" : item)),
+                prev.map((item, idx) =>
+                  idx === hunkIndex ? "accepted" : item,
+                ),
               )
             }
             onRejectHunk={(hunkIndex) =>
               props.setAiHunkDecisions((prev) =>
-                prev.map((item, idx) => (idx === hunkIndex ? "rejected" : item)),
+                prev.map((item, idx) =>
+                  idx === hunkIndex ? "rejected" : item,
+                ),
               )
             }
             hunkDecisions={props.aiHunkDecisions}
@@ -820,7 +1016,9 @@ function AppShellMainContent(props: {
           restoreInProgress={props.compareState.status === "loading"}
           lineUnderlineStyle={
             props.showAiMarks
-              ? props.compareState.aiMarked ? "dashed" : "solid"
+              ? props.compareState.aiMarked
+                ? "dashed"
+                : "solid"
               : "none"
           }
         />
@@ -836,56 +1034,63 @@ function AppShellMainContent(props: {
  * AppShell renders the Workbench three-column layout (IconBar + Sidebar + Main
  * + RightPanel) and wires resizing, persistence, and P0 keyboard shortcuts.
  */
-function resolveDialogTitle(activeDialogType: DialogType, t: (key: string) => string): string {
-    switch (activeDialogType) {
-      case "memory":
-        return t("workbench.appShell.dialogTitle.memory");
-      case "characters":
-        return t("workbench.appShell.dialogTitle.characters");
-      case "knowledgeGraph":
-        return t("workbench.appShell.dialogTitle.knowledgeGraph");
-      case "versionHistory":
-        return t("workbench.appShell.dialogTitle.versionHistory");
-      default:
-        return assertNeverDialogType(activeDialogType);
-    }
+function resolveDialogTitle(
+  activeDialogType: DialogType,
+  t: (key: string) => string,
+): string {
+  switch (activeDialogType) {
+    case "memory":
+      return t("workbench.appShell.dialogTitle.memory");
+    case "characters":
+      return t("workbench.appShell.dialogTitle.characters");
+    case "knowledgeGraph":
+      return t("workbench.appShell.dialogTitle.knowledgeGraph");
+    case "versionHistory":
+      return t("workbench.appShell.dialogTitle.versionHistory");
+    default:
+      return assertNeverDialogType(activeDialogType);
   }
+}
 
-function renderDialogContent(activeDialogType: DialogType, currentProjectId: string | null, t: (key: string) => string): JSX.Element {
-    switch (activeDialogType) {
-      case "memory":
-        return <MemoryPanel />;
-      case "characters":
-        if (!currentProjectId) {
-          return (
-            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
-              {t('workbench.appShell.noProjectCharacters')}
-            </div>
-          );
-        }
-        return <CharacterCardListContainer projectId={currentProjectId} />;
-      case "knowledgeGraph":
-        if (!currentProjectId) {
-          return (
-            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
-              {t('workbench.appShell.noProjectKg')}
-            </div>
-          );
-        }
-        return <KnowledgeGraphPanel projectId={currentProjectId} />;
-      case "versionHistory":
-        if (!currentProjectId) {
-          return (
-            <div className="p-3 text-xs text-[var(--color-fg-muted)]">
-              {t('workbench.appShell.noDocumentHistory')}
-            </div>
-          );
-        }
-        return <VersionHistoryContainer projectId={currentProjectId} />;
-      default:
-        return assertNeverDialogType(activeDialogType);
-    }
+function renderDialogContent(
+  activeDialogType: DialogType,
+  currentProjectId: string | null,
+  t: (key: string) => string,
+): JSX.Element {
+  switch (activeDialogType) {
+    case "memory":
+      return <MemoryPanel />;
+    case "characters":
+      if (!currentProjectId) {
+        return (
+          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+            {t("workbench.appShell.noProjectCharacters")}
+          </div>
+        );
+      }
+      return <CharacterCardListContainer projectId={currentProjectId} />;
+    case "knowledgeGraph":
+      if (!currentProjectId) {
+        return (
+          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+            {t("workbench.appShell.noProjectKg")}
+          </div>
+        );
+      }
+      return <KnowledgeGraphPanel projectId={currentProjectId} />;
+    case "versionHistory":
+      if (!currentProjectId) {
+        return (
+          <div className="p-3 text-xs text-[var(--color-fg-muted)]">
+            {t("workbench.appShell.noDocumentHistory")}
+          </div>
+        );
+      }
+      return <VersionHistoryContainer projectId={currentProjectId} />;
+    default:
+      return assertNeverDialogType(activeDialogType);
   }
+}
 
 export function AppShell(): JSX.Element {
   const ctrl = useAppShellController();
@@ -906,6 +1111,7 @@ export function AppShell(): JSX.Element {
           if (!ctrl.currentProjectId) return;
           void ctrl.createDocument({ projectId: ctrl.currentProjectId });
         }}
+        onOpenGlobalSearch={ctrl.openGlobalSearch}
       />
 
       <PanelOrchestrator>
@@ -929,7 +1135,9 @@ export function AppShell(): JSX.Element {
                   projects={ctrl.projectItems}
                   onSwitchProject={ctrl.handleSwitchProject}
                   onCreateProject={() => ctrl.setCreateProjectDialogOpen(true)}
-                  onOpenVersionHistoryDocument={ctrl.openVersionHistoryForDocument}
+                  onOpenVersionHistoryDocument={
+                    ctrl.openVersionHistoryForDocument
+                  }
                 />
               </RegionErrorBoundary>
             }
@@ -999,7 +1207,9 @@ export function AppShell(): JSX.Element {
                 <RightPanel
                   width={layout.effectivePanelWidth}
                   collapsed={layout.panelCollapsed}
-                  onOpenSettings={(tab) => ctrl.openSettingsDialog(tab ?? "general")}
+                  onOpenSettings={(tab) =>
+                    ctrl.openSettingsDialog(tab ?? "general")
+                  }
                   onOpenVersionHistory={ctrl.openVersionHistoryPanel}
                   onCollapse={layout.panelVisibility.collapseRightPanel}
                 />
@@ -1009,12 +1219,15 @@ export function AppShell(): JSX.Element {
             overlays={
               <AppShellOverlays
                 spotlightOpen={ctrl.spotlightOpen}
+                searchFocusNonce={ctrl.searchFocusNonce}
                 currentProjectId={ctrl.currentProjectId}
-                onCloseSpotlight={() => ctrl.setSpotlightOpen(false)}
+                onCloseSpotlight={ctrl.closeGlobalSearch}
                 dialogType={ctrl.dialogType}
                 onCloseDialog={() => ctrl.setDialogType(null)}
                 dialogTitleResolver={(d) => resolveDialogTitle(d, ctrl.t)}
-                dialogContentRenderer={(d) => renderDialogContent(d, ctrl.currentProjectId, ctrl.t)}
+                dialogContentRenderer={(d) =>
+                  renderDialogContent(d, ctrl.currentProjectId, ctrl.t)
+                }
                 commandPaletteKey={ctrl.commandPaletteKey}
                 commandPaletteOpen={ctrl.commandPaletteOpen}
                 onCommandPaletteOpenChange={ctrl.setCommandPaletteOpen}
@@ -1029,7 +1242,9 @@ export function AppShell(): JSX.Element {
                 onExportDialogOpenChange={ctrl.setExportDialogOpen}
                 documentId={ctrl.documentId}
                 createProjectDialogOpen={ctrl.createProjectDialogOpen}
-                onCreateProjectDialogOpenChange={ctrl.setCreateProjectDialogOpen}
+                onCreateProjectDialogOpenChange={
+                  ctrl.setCreateProjectDialogOpen
+                }
                 zenMode={ctrl.zenMode}
                 onExitZenMode={() => ctrl.setZenMode(false)}
                 compareMode={ctrl.compareMode}
