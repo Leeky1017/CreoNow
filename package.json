@@ -1,0 +1,42 @@
+{
+  "name": "creonow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-native creative writing IDE backend migration",
+  "type": "module",
+  "scripts": {
+    "desktop:build": "pnpm -C apps/desktop build",
+    "desktop:ensure-native-node-abi": "node --import tsx scripts/ensure-desktop-native-node-abi.ts",
+    "contract:generate": "node --import tsx scripts/contract-generate.ts",
+    "contract:check": "pnpm contract:generate && git diff --exit-code packages/shared/types/ipc-generated.ts",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "pnpm desktop:ensure-native-node-abi && node --import tsx scripts/run-discovered-tests.ts --mode unit",
+    "test:integration": "node --import tsx scripts/run-discovered-tests.ts --mode integration",
+    "test": "pnpm test:unit && pnpm test:integration"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "prettier": "^3.2.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "pnpm": {
+    "overrides": {
+      "@electron/rebuild": "4.0.3",
+      "@isaacs/brace-expansion@<=5.0.0": "5.0.1",
+      "ajv@<6.14.0": "6.14.0",
+      "markdown-it@>=13.0.0 <14.1.1": "14.1.1",
+      "minimatch@<3.1.4": "3.1.4",
+      "minimatch@>=10.0.0 <10.2.3": "10.2.4",
+      "minimatch@>=5.0.0 <5.1.8": "5.1.8",
+      "minimatch@>=9.0.0 <9.0.7": "9.0.7",
+      "rollup@>=4.0.0 <4.59.0": "4.59.0",
+      "tar@<7.5.8": "7.5.9"
+    }
+  }
+}

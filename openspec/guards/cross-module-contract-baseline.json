@@ -1,0 +1,41 @@
+{
+  "version": "2026-02-09",
+  "sourceSpec": "openspec/specs/cross-module-integration-spec.md",
+  "expectedChannels": [
+    "memory:episode:record",
+    "memory:trace:get",
+    "memory:trace:feedback",
+    "knowledge:query:relevant",
+    "knowledge:query:byids",
+    "knowledge:query:subgraph",
+    "project:project:switch",
+    "ai:skill:run",
+    "skill:stream:chunk",
+    "skill:stream:done",
+    "ai:skill:cancel",
+    "ai:chat:send",
+    "export:project:bundle"
+  ],
+  "expectedErrorCodes": [
+    "KG_QUERY_TIMEOUT",
+    "VALIDATION_ERROR",
+    "IPC_TIMEOUT",
+    "PROJECT_SWITCH_TIMEOUT",
+    "DOCUMENT_SAVE_CONFLICT",
+    "MEMORY_BACKPRESSURE",
+    "SKILL_TIMEOUT",
+    "SKILL_CAPACITY_EXCEEDED",
+    "SKILL_SCOPE_VIOLATION",
+    "AI_PROVIDER_UNAVAILABLE",
+    "VERSION_MERGE_TIMEOUT",
+    "SEARCH_TIMEOUT",
+    "CONTEXT_SCOPE_VIOLATION"
+  ],
+  "desiredEnvelope": "ok",
+  "skillOutputValidation": {
+    "approvedUnvalidatedCount": 0
+  },
+  "apiKeyFormatValidation": {
+    "approvedWeakCount": 0
+  }
+}

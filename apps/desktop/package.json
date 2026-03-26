@@ -1,0 +1,37 @@
+{
+  "name": "@creonow/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/main/index.js",
+  "scripts": {
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --config vitest.config.core.ts",
+    "test:run": "vitest run --config vitest.config.core.ts",
+    "test:coverage:core": "vitest run --coverage --config vitest.config.core.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "docx": "^9.5.1",
+    "pdfkit": "^0.17.2",
+    "sqlite-vec": "0.1.7-alpha.2",
+    "yaml": "^2.4.5",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20.11.0",
+    "@types/pdfkit": "^0.17.4",
+    "@vitest/coverage-v8": "^4.0.18",
+    "electron": "^40.1.0",
+    "electron-builder": "^26.4.0",
+    "electron-rebuild": "^3.2.9",
+    "electron-vite": "^5.0.0",
+    "jszip": "^3.10.1",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  }
+}

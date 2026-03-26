@@ -1,0 +1,19 @@
+{
+  "version": "2026-03-16",
+  "generatedAt": "2026-03-16T14:39:51.689Z",
+  "source": "eslint-json",
+  "governance": {
+    "issue": "#1124",
+    "reason": "visual-compliance-complete-all-4-rules-promoted-to-error"
+  },
+  "snapshot": {
+    "totalViolations": 401,
+    "byRule": {
+      "creonow/no-hardcoded-dimension": 0,
+      "creonow/no-native-html-element": 0,
+      "creonow/no-raw-error-code-in-ui": 0,
+      "creonow/no-raw-tailwind-tokens": 0,
+      "creonow/require-describe-in-tests": 401
+    }
+  }
+}
