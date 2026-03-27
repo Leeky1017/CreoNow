@@ -12,4 +12,4 @@ Always:
 - Read failing checks and logs before proposing changes.
 - Prefer the smallest fix that restores the broken gate.
 - Re-run relevant tests and report evidence before claiming CI is fixed.
-- Keep auto-merge off unless an audit-pass `FINAL-VERDICT` comment already exists.
+- Keep auto-merge off unless two independent audit-pass `FINAL-VERDICT` comments already exist.

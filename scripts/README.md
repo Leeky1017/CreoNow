@@ -32,6 +32,8 @@
 
 ## 使用约定
 
+- 主会话 Agent 只负责编排，不直接写代码、不直接做审计结论；实现工作交给工程 Subagent，审计工作交给独立审计 Subagent。
+- 每一轮实现完成后，必须由 2 个独立审计 Subagent 对同一变更做交叉审计；任一审计未通过，就必须回到工程 Subagent 修复，再次双审。
 - 所有脚本使用 `set -euo pipefail`
 - 退出码：`0` 成功，`1` 可恢复失败，`2` 不可恢复失败
 - 输出前缀：`[OK]` / `[FAIL]` / `[SKIP]` / `[WARN]`
@@ -46,7 +48,7 @@
 - 一键提交前预检命令（可直接复制）：
   - `scripts/agent_pr_preflight.sh`
 - `agent_worktree_setup.sh` 默认会在新 worktree 内执行 `pnpm install --frozen-lockfile`（可用 `--no-bootstrap` 关闭）。
-- `agent_pr_automerge_and_sync.sh` 默认只创建/更新 PR，不自动开启 auto-merge；必须在指定审计 Agent 留下 `FINAL-VERDICT` + `ACCEPT` 评论后，显式传入 `--enable-auto-merge` 才会继续。
+- `agent_pr_automerge_and_sync.sh` 默认只创建/更新 PR，不自动开启 auto-merge；必须在两个独立审计 Agent 都留下 `FINAL-VERDICT` + `ACCEPT` 评论后，显式传入 `--enable-auto-merge` 才会继续。
 - 若脚本 rerun 时发现当前 PR 已合并，则应将其视为终局成功：允许直接收口并同步控制面，不再等待 preflight 中的 OPEN Issue 条件恢复。
 - `agent_github_delivery.py capabilities` 会输出结构化能力探测结果：`gh` 是否安装/认证、GitHub MCP 是否可用/可写、以及当前应选通道。
 - `agent_pr_automerge_and_sync.sh` 进入 GitHub 远程操作前会先校验所选通道；若结果不是 `gh`，会明确阻断并提示改用 GitHub MCP + `agent_github_delivery.py` 生成的 payload。
