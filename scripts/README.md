@@ -1,6 +1,6 @@
 # Scripts
 
-自动化脚本，供 Agent 在交付流程中调用。交付规则见 `docs/delivery-skill.md`，测试规范主源见 `docs/references/testing/README.md`。
+自动化脚本，供 Agent 在交付流程中调用。交付规则见 `AGENTS.md` §四（工作流），测试规范详见 `docs/references/testing-guide.md`。
 
 ## 脚本清单
 

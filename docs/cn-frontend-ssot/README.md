@@ -34,7 +34,7 @@
 
 ## 关联文档
 
-- 源文件：[docs/CN-设计文稿.md](../CN-设计文稿.md)（V3 完整规范原件）
-- 架构文件：[docs/前端决策.md](../前端决策.md)（前端架构完整原件）
+- 源文件：[docs/CN-设计文稿.md](../CN-设计文稿.md)（V3 融合原稿，供追溯。当与 SSOT 文档矛盾时以 SSOT 为准）
+- 架构文件：[docs/前端决策.md](../前端决策.md)（前端架构原稿，供追溯。当与 SSOT 文档矛盾时以 SSOT 为准）
 - 视觉规范：[docs/references/frontend-visual-quality.md](../references/frontend-visual-quality.md)
 - Agent 宪法：[AGENTS.md](../../AGENTS.md)
