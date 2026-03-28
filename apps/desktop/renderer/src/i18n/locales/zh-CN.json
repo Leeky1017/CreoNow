@@ -96,6 +96,7 @@
   },
   "settings": {
     "title": "设置",
+    "description": "应用偏好设置与配置选项。",
     "tabs": {
       "appearance": "外观",
       "editor": "编辑器",
@@ -136,7 +137,7 @@
         "title": "模型",
         "description": "选择用于写作辅助的 AI 模型。",
         "selector": "模型",
-      "defaultModel": "GPT-4o"
+        "defaultModel": "GPT-4o"
       },
       "parameters": {
         "title": "参数",

@@ -80,6 +80,9 @@ export function SettingsModal() {
               <Dialog.Title className="px-4 pb-3 text-sm font-medium text-foreground">
                 {t('settings.title')}
               </Dialog.Title>
+              <Dialog.Description className="sr-only">
+                {t('settings.description')}
+              </Dialog.Description>
               <nav className="flex flex-col gap-0.5 px-2">
                 {TABS.map((tab) => {
                   const Icon = tab.icon;

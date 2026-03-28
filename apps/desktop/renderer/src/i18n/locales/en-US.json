@@ -96,6 +96,7 @@
   },
   "settings": {
     "title": "Settings",
+    "description": "Application preferences and configuration.",
     "tabs": {
       "appearance": "Appearance",
       "editor": "Editor",

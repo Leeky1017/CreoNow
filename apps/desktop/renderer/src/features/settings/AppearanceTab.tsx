@@ -3,6 +3,7 @@ import { Slider } from '@/components/primitives';
 import { SettingsSection } from '@/components/composites/SettingsSection';
 import { FormField } from '@/components/composites/FormField';
 import { useSettingsStore } from '@/stores/ui/settingsStore';
+import { useThemeStore } from '@/stores/ui/themeStore';
 import { cn } from '@/lib/cn';
 
 const THEME_OPTIONS = ['dark', 'light', 'system'] as const;
@@ -11,6 +12,8 @@ export function AppearanceTab() {
   const { t } = useTranslation();
   const fontSize = useSettingsStore((s) => s.fontSize);
   const updateSetting = useSettingsStore((s) => s.updateSetting);
+  const currentTheme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
 
   return (
     <div className="flex flex-col gap-6">
@@ -22,10 +25,11 @@ export function AppearanceTab() {
           {THEME_OPTIONS.map((theme) => (
             <button
               key={theme}
+              onClick={() => setTheme(theme)}
               className={cn(
                 'flex-1 rounded-md border px-3 py-2 text-sm transition-colors duration-fast ease-out',
                 'border-border hover:bg-hover-overlay',
-                theme === 'dark' && 'bg-accent-subtle border-accent text-accent',
+                currentTheme === theme && 'bg-accent-subtle border-accent text-accent',
               )}
             >
               {t(`settings.appearance.theme.${theme}`)}
