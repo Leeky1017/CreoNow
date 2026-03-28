@@ -11,3 +11,4 @@ apps/desktop/dist/
 apps/desktop/dist-electron/
 __pycache__/
 .pytest_cache/
+.worktrees/
