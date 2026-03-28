@@ -16,5 +16,12 @@
     "characters": "角色",
     "calendar": "日历",
     "settings": "设置"
+  },
+  "common": {
+    "loading": "加载中…",
+    "save": "保存",
+    "cancel": "取消",
+    "delete": "删除",
+    "confirm": "确认"
   }
 }

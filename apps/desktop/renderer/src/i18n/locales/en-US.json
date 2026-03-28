@@ -16,5 +16,12 @@
     "characters": "Characters",
     "calendar": "Calendar",
     "settings": "Settings"
+  },
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "confirm": "Confirm"
   }
 }
