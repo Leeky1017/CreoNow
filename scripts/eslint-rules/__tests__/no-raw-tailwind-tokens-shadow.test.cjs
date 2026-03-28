@@ -5,10 +5,10 @@ const { RuleTester } = require("eslint");
 const rule = require("../no-raw-tailwind-tokens.cjs");
 
 const tester = new RuleTester({
-  parserOptions: {
+  languageOptions: {
     ecmaVersion: 2022,
     sourceType: "module",
-    ecmaFeatures: { jsx: true },
+    parserOptions: { ecmaFeatures: { jsx: true } },
   },
 });
 
