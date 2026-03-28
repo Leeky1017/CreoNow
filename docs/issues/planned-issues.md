@@ -49,7 +49,7 @@
 - [ ] CI 中作为 required check 运行
 - [ ] 不一致时输出包含文件路径、行号和差异详情的 diff 报告
 - [ ] Guard 本身有对应测试文件（`scripts/tests/token-sync-gate.test.ts`）
-- [ ] 验证命令：`pnpm -C apps/desktop tsx scripts/token-sync-gate.ts`
+- [ ] 验证命令：`pnpm tsx scripts/token-sync-gate.ts`
 
 **Spec 引用**:
 - `openspec/specs/design-system/spec.md` §Requirement: Token 同步契约（L177–L183）
@@ -70,11 +70,11 @@
 对照 `docs/cn-frontend-ssot/20-design-v3/20.3-component-states.md` 状态矩阵，补全 Button 和 Input 组件的交互状态视觉表达。
 
 **AC**:
-- [ ] Button 覆盖 Default / Hover / Active / Focus / Disabled / Loading / Error 7 种状态（对应 `20.3-component-states.md` §AI FAB 按钮 的状态定义）
+- [ ] Button 覆盖 Default / Hover / Active / Focus / Disabled / Loading / Error 7 种状态（对应 `20.3-component-states.md` 通用要求：「所有交互组件必须覆盖以下 7 种状态」）
 - [ ] Input 覆盖 Default / Hover / Focus / Filled / Disabled / Error 6 种状态（对应 `20.3-component-states.md` §输入框（AI 面板 + 搜索面板）的 6 行状态矩阵）
 - [ ] 每种状态有对应 Storybook Story（文件 `*.stories.tsx`）
 - [ ] 交互状态有过渡动画（使用 Token `--duration-fast` / `--ease-out`，参见 `openspec/specs/design-system/spec.md` §Token 命名规范 中动效时长和曲线行）
-- [ ] 验证命令：`pnpm -C apps/desktop storybook:build && pnpm -C apps/desktop vitest run Button && pnpm -C apps/desktop vitest run Input`
+- [ ] 验证命令：`pnpm -C apps/desktop vitest run Button && pnpm -C apps/desktop vitest run Input`（注：`storybook:build` 脚本尚未配置，Storybook 构建验证需待 Storybook 集成完成后补充）
 
 **Spec 引用**:
 - `docs/cn-frontend-ssot/20-design-v3/20.3-component-states.md`（完整文件，涵盖 6 类组件的状态矩阵）
@@ -129,14 +129,14 @@
 **AC**:
 - [ ] `design/system/01-tokens.css` 文件存在于仓库中
 - [ ] 包含 `openspec/specs/design-system/spec.md` §Typography 预设 Token 完整清单 中定义的全部 14 个 Token 族（display / page-title / heading / card-title / subtitle / body / editor / nav / caption / metadata / label / tree / status / mono）
-- [ ] 包含 §Token 命名规范 中定义的颜色、间距、圆角、阴影、动效、字重、字间距、行高、字体族、布局尺寸、z-index 共 12 类 Token
+- [ ] 包含 §Token 命名规范 中定义的颜色、间距、圆角、阴影、动效、预设 Typography、字重、字间距、行高、字体族、布局尺寸、z-index 共 12 类 Token（注：「间距」合并了「间距+语义间距」，「动效」合并了「动效时长+动效曲线」，spec 表格共 14 行）
 - [ ] 变量名和值与运行时文件完全一致
 - [ ] 验证命令：`diff <(grep -oP '^\s*--[\w-]+' design/system/01-tokens.css | sort) <(grep -oP '^\s*--[\w-]+' apps/desktop/renderer/src/styles/tokens.css | sort)`（确认变量名集合一致）
 
 **Spec 引用**:
 - `openspec/specs/design-system/spec.md` §Requirement: Token 分层架构（L21–L31，源文件层定义）
 - `openspec/specs/design-system/spec.md` §Requirement: Token 同步契约（L177–L183）
-- `openspec/specs/design-system/spec.md` §Requirement: Token 命名规范（L33–L55，12 类命名模式）
+- `openspec/specs/design-system/spec.md` §Requirement: Token 命名规范（L33–L55，14 行命名模式，合并后 12 类）
 - `openspec/specs/design-system/spec.md` §Typography 预设 Token 完整清单（L56–L81，14 族完整清单）
 
 **依赖**: 无
@@ -161,7 +161,7 @@
 - [ ] 验证命令：`pnpm lint`（ESLint 可配置自定义规则 `scripts/eslint-rules/` 拦截裸字符串）或 `grep -rn ">[^{<]*[a-zA-Z]" apps/desktop/renderer/src/components/ --include="*.tsx" | grep -v "className\|data-\|aria-\|testid"` 确认无遗漏
 
 **Spec 引用**:
-- `AGENTS.md` §五、禁令（L185–L195，第 3 条：「禁止 JSX 裸字符串——所有文本走 `t()` / i18n」）
+- `AGENTS.md` §五、禁令（L182–L190，第 3 条：「禁止 JSX 裸字符串——所有文本走 `t()` / i18n」）
 - `docs/references/frontend-visual-quality.md`（视觉合格标准：「文本走 `t()` i18n」）
 
 **依赖**: i18n library setup（需先选型并集成 i18n 框架，如 `react-i18next`）
