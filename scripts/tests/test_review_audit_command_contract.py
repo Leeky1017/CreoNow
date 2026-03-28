@@ -77,7 +77,7 @@ class ReviewAuditCommandContractTests(unittest.TestCase):
             )
 
             log_text = log_path.read_text()
-            self.assertIn('pnpm:-C apps/desktop exec vitest run', log_text)
+            self.assertIn('pnpm:test', log_text)
             self.assertNotIn('pnpm:-C apps/desktop vitest run', log_text)
             self.assertNotIn('pnpm:-C apps/desktop tsx ', log_text)
             self.assertIn('node:--import tsx scripts/architecture-health-gate.ts', log_text)
