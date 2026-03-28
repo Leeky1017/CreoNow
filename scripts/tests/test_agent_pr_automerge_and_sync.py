@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import stat
@@ -18,7 +19,15 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
         path.write_text(content)
         path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
-    def _make_sandbox(self, *, pr_merged: bool) -> tuple[Path, Path]:
+    def _make_sandbox(
+        self,
+        *,
+        pr_merged: bool,
+        preflight_success: bool = False,
+        audit_pass: bool = True,
+        matching_comments: int = 2,
+        distinct_authors: int = 2,
+    ) -> tuple[Path, Path]:
         temp_dir = Path(tempfile.mkdtemp(prefix="automerge-script-"))
         controlplane_root = temp_dir / "repo"
         worktree = controlplane_root / ".worktrees" / "issue-42-demo"
@@ -35,37 +44,55 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
             (scripts_dir / "agent_pr_automerge_and_sync.sh").stat().st_mode | stat.S_IXUSR
         )
 
+        if preflight_success:
+            preflight_script = "#!/usr/bin/env bash\n" "echo 'OK: preflight checks passed'\n" "exit 0\n"
+        else:
+            preflight_script = (
+                "#!/usr/bin/env bash\n"
+                "echo 'PRE-FLIGHT FAILED: [ISSUE] issue #42 state is CLOSED; expected OPEN' >&2\n"
+                "exit 1\n"
+            )
+
         self._write_executable(
             scripts_dir / "agent_pr_preflight.sh",
-            "#!/usr/bin/env bash\n"
-            "echo 'PRE-FLIGHT FAILED: [ISSUE] issue #42 state is CLOSED; expected OPEN' >&2\n"
-            "exit 1\n",
+            preflight_script,
         )
         self._write_executable(
             scripts_dir / "agent_controlplane_sync.sh",
             "#!/usr/bin/env bash\n"
             "echo sync >> \"${SYNC_LOG:?}\"\n",
         )
+        audit_payload = json.dumps(
+            {
+                "audit_pass": audit_pass,
+                "matching_comments": matching_comments,
+                "distinct_authors": distinct_authors,
+                "author_check_enforced": True,
+            }
+        )
+        capabilities_payload = json.dumps(
+            {
+                "selected_channel": "gh",
+                "blocker": None,
+                "reason": "test",
+            }
+        )
+        blocker_comment_payload = json.dumps({"body": "comment"})
         (scripts_dir / "agent_github_delivery.py").write_text(
             textwrap.dedent(
-                """
+                f"""
                 #!/usr/bin/env python3
-                import json
                 import sys
 
                 command = sys.argv[1]
                 if command == "capabilities":
-                    print(json.dumps({
-                        "selected_channel": "gh",
-                        "blocker": None,
-                        "reason": "test",
-                    }))
+                    print({capabilities_payload!r})
                 elif command == "comment-payload":
-                    print(json.dumps({"body": "comment"}))
+                    print({blocker_comment_payload!r})
                 elif command == "audit-pass":
-                    print(json.dumps({"audit_pass": True}))
+                    print({audit_payload!r})
                 else:
-                    raise SystemExit(f"unsupported command: {command}")
+                    raise SystemExit(f"unsupported command: {{command}}")
                 """
             ).strip()
             + "\n"
@@ -111,26 +138,44 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
         )
 
         merged_at = "2026-03-11T00:53:12Z" if pr_merged else ""
+        comments_payload = json.dumps(
+            [
+                {
+                    "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
+                    "author": "audit-agent-a",
+                },
+                {
+                    "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
+                    "author": "audit-agent-b",
+                },
+            ]
+        )
         self._write_executable(
             fake_bin / "gh",
             textwrap.dedent(
                 f"""
                 #!/usr/bin/env python3
-                import json
                 import sys
 
                 merged_at = {repr(merged_at)}
                 pr_url = "https://example.com/pr/7"
+                comments_payload = {comments_payload!r}
 
                 args = sys.argv[1:]
-                if args[:3] == ["pr", "view", "7"] and "--jq" in args:
-                    jq = args[args.index("--jq") + 1]
-                    if jq.startswith(".mergedAt //"):
-                        print(merged_at)
-                    elif jq == ".url":
-                        print(pr_url)
+                if args[:3] == ["pr", "view", "7"] and "--json" in args:
+                    json_field = args[args.index("--json") + 1]
+                    if json_field == "comments":
+                        print(comments_payload)
+                    elif "--jq" in args:
+                        jq = args[args.index("--jq") + 1]
+                        if jq.startswith(".mergedAt //"):
+                            print(merged_at)
+                        elif jq == ".url":
+                            print(pr_url)
+                        else:
+                            raise SystemExit(f"unexpected gh jq: {{jq}}")
                     else:
-                        raise SystemExit(f"unexpected gh jq: {{jq}}")
+                        raise SystemExit(f"unexpected gh args: {{args}}")
                 elif args[:2] == ["pr", "list"] and "--jq" in args:
                     print("")
                 elif args[:3] == ["pr", "comment", "7"]:
@@ -188,6 +233,25 @@ class AgentPRAutomergeAndSyncTests(unittest.TestCase):
             result = self._run_script(worktree, temp_dir, extra_args=["--no-wait-preflight"])
             self.assertEqual(1, result.returncode, result.stdout)
             self.assertIn("preflight reported issues", result.stdout)
+            self.assertFalse((temp_dir / "sync.log").exists(), result.stdout)
+        finally:
+            shutil.rmtree(temp_dir)
+
+    def test_should_block_auto_merge_until_two_independent_zero_findings_audits_exist(self) -> None:
+        temp_dir, worktree = self._make_sandbox(
+            pr_merged=False,
+            preflight_success=True,
+            audit_pass=False,
+            matching_comments=1,
+            distinct_authors=1,
+        )
+        try:
+            result = self._run_script(worktree, temp_dir, extra_args=["--enable-auto-merge"])
+            self.assertEqual(1, result.returncode, result.stdout)
+            self.assertIn("double-audit zero-findings gate", result.stdout)
+            self.assertIn("two independent audit agents", result.stdout.lower())
+            self.assertIn("matching_comments=1", result.stdout)
+            self.assertIn("distinct_authors=1", result.stdout)
             self.assertFalse((temp_dir / "sync.log").exists(), result.stdout)
         finally:
             shutil.rmtree(temp_dir)

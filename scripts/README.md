@@ -10,10 +10,10 @@
 | `agent_git_hooks_install.sh`         | 为当前 repo/worktree 安装 repo-managed git hooks                         | 阶段 3：环境隔离   |
 | `agent_task_begin.sh`                | gh-only fail-closed 任务入口：capabilities + sync + worktree + hook 安装 | 阶段 3：环境隔离   |
 | `agent_worktree_setup.sh`            | 创建 worktree 隔离环境                                                   | 阶段 3：环境隔离   |
-| `agent_pr_preflight.sh`              | 提交前 / PR 前的预检查                                                   | 阶段 5：提交前     |
-| `agent_pr_automerge_and_sync.sh`     | 创建 PR；默认不开 auto-merge，显式开启时需审计通过（仅 gh 通道）         | 阶段 5：提交与合并 |
+| `agent_pr_preflight.sh`              | 提交前 / 请求审计前的预检查（必要不充分）                                | 阶段 5：提交前     |
+| `agent_pr_automerge_and_sync.sh`     | 创建 / 更新 PR；默认不开 auto-merge，zero findings 双审通过后才可显式开启（仅 gh 通道） | 阶段 5：提交与合并 |
 | `agent_github_delivery.py`           | GitHub 能力探测、PR/评论模板、gh/MCP 通道选择                            | 阶段 5：提交与合并 |
-| `review-audit.sh`                    | 分层自适应审计命令入口（Tier L/S/D），AGENTS.md §6.4                     | 审计：分类后执行   |
+| `review-audit.sh`                    | 分层自适应审计命令入口（Tier L/S/D），仅用于已达可交审条件的 PR          | 审计：分类后执行   |
 | `agent_worktree_cleanup.sh`          | 清理 worktree                                                            | 阶段 6：收口       |
 | `ipc-acceptance-gate.ts`             | IPC acceptance SLO 门禁                                                  | 阶段 4：实现与测试 |
 | `test-discovery-consistency-gate.ts` | 测试发现与执行计划一致性校验                                             | 阶段 4：实现与测试 |
@@ -30,10 +30,23 @@
 | `ai-rate-limit-coverage-gate.ts`     | AI 请求限流 + scheduler / queue coverage gate                            | CI / preflight     |
 | `lint-ratchet.ts`                    | ESLint warning budget ratchet                                            | CI / preflight     |
 
+## 工程 Subagent 可交审定义
+
+工程 Subagent 的“完成”不是“代码写完”，而是已经达到可交审条件。以下条件必须全部满足，才可请求审计：
+
+1. 全程在 `.worktrees/issue-<N>-<slug>` 中完成实现、提 PR、修 CI、回应审计。
+2. PR 已创建或更新，正文包含 `Closes #N`、验证证据、回滚点、审计门禁。
+3. `scripts/agent_pr_preflight.sh` 通过。
+4. required checks / CI / 门禁全部为绿。
+5. 前端 PR 正文直接嵌入至少 1 张截图，并附可点击 Storybook artifact/link（适用）与视觉验收说明。
+6. 任一条件缺失，工程阶段都不得宣称完成，也不得把任务转交审计 Agent。
+
 ## 使用约定
 
 - 主会话 Agent 只负责编排，不直接写代码、不直接做审计结论；实现工作交给工程 Subagent，审计工作交给独立审计 Subagent。
-- 每一轮实现完成后，必须由 2 个独立审计 Subagent 对同一变更做交叉审计；任一审计未通过，就必须回到工程 Subagent 修复，再次双审。
+- 主会话 Agent 只有在工程 Subagent 达到“可交审条件”后，才可转给审计 Subagent。
+- 每一轮实现完成后，必须由 2 个独立审计 Subagent 对同一变更做交叉审计；任一审计报告任何问题，就必须回到工程 Subagent 修复，再次双审。
+- 所有实现、提 PR、修 CI、回应审计都必须在 `.worktrees/issue-<N>-<slug>` 内完成；控制面根目录不负责“补最后一步”。
 - 所有脚本使用 `set -euo pipefail`
 - 退出码：`0` 成功，`1` 可恢复失败，`2` 不可恢复失败
 - 输出前缀：`[OK]` / `[FAIL]` / `[SKIP]` / `[WARN]`
@@ -47,8 +60,9 @@
   - `scripts/agent_pr_preflight.sh`
 - 一键提交前预检命令（可直接复制）：
   - `scripts/agent_pr_preflight.sh`
+- `agent_pr_preflight.sh` 通过只是必要条件，不等于已经可交审；工程 Agent 仍需自行确认 PR 文案齐全、required checks 全绿、前端可见视觉证据齐全。
 - `agent_worktree_setup.sh` 默认会在新 worktree 内执行 `pnpm install --frozen-lockfile`（可用 `--no-bootstrap` 关闭）。
-- `agent_pr_automerge_and_sync.sh` 默认只创建/更新 PR，不自动开启 auto-merge；必须在两个独立审计 Agent 都留下 `FINAL-VERDICT` + `ACCEPT` 评论后，显式传入 `--enable-auto-merge` 才会继续。
+- `agent_pr_automerge_and_sync.sh` 默认只创建/更新 PR，不自动开启 auto-merge；必须在两个独立审计 Agent 都留下 zero-findings `FINAL-VERDICT` + `ACCEPT` 评论后，显式传入 `--enable-auto-merge` 才会继续。
 - 若脚本 rerun 时发现当前 PR 已合并，则应将其视为终局成功：允许直接收口并同步控制面，不再等待 preflight 中的 OPEN Issue 条件恢复。
 - `agent_github_delivery.py capabilities` 会输出结构化能力探测结果：`gh` 是否安装/认证、GitHub MCP 是否可用/可写、以及当前应选通道。
 - `agent_pr_automerge_and_sync.sh` 进入 GitHub 远程操作前会先校验所选通道；若结果不是 `gh`，会明确阻断并提示改用 GitHub MCP + `agent_github_delivery.py` 生成的 payload。
@@ -56,6 +70,7 @@
 - `agent_github_delivery.py pr-payload` / `comment-payload` 负责统一 PR title/body 与阻断评论文案，避免不同通道各写一套模板。
 - 可选环境变量：`AGENT_PR_SUMMARY`、`AGENT_PR_USER_IMPACT`、`AGENT_PR_WORST_CASE`、`AGENT_PR_ROLLBACK_REF`，用于在自动创建 PR 时覆盖默认占位文案。
 - `agent_pr_automerge_and_sync.sh` 在 GitHub TLS 抖动时会标记 `transient` 并自动重试，必要时回退到 `gh run list` 快照通道。
+- `review-audit.sh` 的结论口径为零问题收口：只要存在任何 finding，包括 `non-blocking`，都必须维持 `REJECT`；禁止 `Accept with risk`。
 
 - 控制面根目录（controlplane root）禁止直接提交受管改动；在运行 `agent_task_begin.sh`、`agent_worktree_setup.sh` 或 `agent_controlplane_sync.sh` 后，由 `.githooks/pre-commit` / `.githooks/pre-push` 阻止。
 - 紧急热修若必须绕过，需显式设置 `CREONOW_ALLOW_CONTROLPLANE_BYPASS=1`，并在 PR / 审计记录中说明原因。

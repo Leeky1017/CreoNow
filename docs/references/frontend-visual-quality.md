@@ -53,9 +53,9 @@
 
 ---
 
-## 三、视觉验收标准清单
+## 三、视觉验收与交付清单
 
-每个前端 PR 必须满足以下全部 7 项：
+每个前端 PR 只有同时满足以下全部 10 项，才具备可交审资格；缺任何一项都视为未完成：
 
 | # | 检查项 | 验证方式 |
 |---|--------|---------|
@@ -66,6 +66,9 @@
 | 5 | 过渡使用 Token | `var(--duration-fast) var(--ease-default)` |
 | 6 | 新组件有 Storybook Story | `.stories.tsx` 文件存在 |
 | 7 | Storybook 可构建 | `pnpm -C apps/desktop storybook:build` |
+| 8 | PR 正文直接嵌入至少 1 张截图 | Reviewer 打开 PR 即可见 |
+| 9 | PR 提供可点击 Storybook artifact/link | Reviewer 可直接打开 |
+| 10 | PR 写明视觉验收说明 | 说明截图 / Storybook 验收了哪些状态 |
 
 ---
 
@@ -150,6 +153,9 @@ pnpm -C apps/desktop storybook:build  # 必须通过
 pnpm test:visual                       # 视觉回归截图对比
 ```
 
+- 将 Storybook artifact / 预览链接填入 PR 正文，确保 reviewer 可直接点击。
+- 将至少 1 张关键状态截图直接嵌入 PR 正文；仅写“本地有截图”或“之后补”都不算完成。
+
 ### 视觉迭代建议
 
 1. 构建 Storybook → 检查组件渲染
@@ -168,3 +174,5 @@ pnpm test:visual                       # 视觉回归截图对比
 | 动效 Token | grep `transition` | 未使用 `--duration-*` / `--ease-*` |
 | 无障碍 | 检查 ARIA 属性 | 图标按钮无 `aria-label` |
 | 阴影规范 | grep `shadow-lg\|shadow-xl` | 使用 Tailwind 内置阴影类 |
+| PR 视觉证据 | 检查 PR 正文 | 无直接可见截图，或仅声明“稍后补” |
+| Storybook 交付 | 检查 PR 正文中的链接 | 无可点击 artifact/link，或缺少视觉验收说明 |

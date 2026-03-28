@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""CreoNow PR preflight checks (simplified).
+"""CreoNow PR preflight checks.
 
-Validates only the delivery contract below:
+Validates the delivery contract below:
 - Branch naming: task/<N>-<slug>
 - Issue state: must be OPEN
-- PR body: must contain Closes #<N>
+- PR body: must contain the audit-ready delivery sections
 """
 from __future__ import annotations
 
@@ -27,6 +27,15 @@ class PullRequest:
     number: int
     body: str
     url: str
+
+
+HTML_COMMENT_PATTERN = re.compile(r"<!--[\s\S]*?-->", re.MULTILINE)
+URL_PATTERN = re.compile(r"https?://\S+", re.IGNORECASE)
+IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\([^)]+\)|<img\b[^>]*>", re.IGNORECASE)
+NA_VALUE_PATTERN = re.compile(r"(?i)^(?:-\s*\[[xX]\]\s*)?N/A(?:（[^）]+）|\([^)]+\))?$")
+EMPTY_BULLET_PATTERN = re.compile(r"^-\s*$")
+EMPTY_CHECKBOX_PATTERN = re.compile(r"^-\s*\[[ xX]\]\s*$")
+EMPTY_LABEL_PATTERN = re.compile(r"^-\s*[^:]+:\s*$")
 
 
 def run(cmd: list[str], *, cwd: str | None = None) -> CmdResult:
@@ -145,12 +154,142 @@ def query_open_pr_for_branch(repo: str, branch: str) -> PullRequest:
     return PullRequest(number=number_raw, body=body_raw, url=url_raw)
 
 
+def strip_html_comments(text: str) -> str:
+    return HTML_COMMENT_PATTERN.sub("", text)
+
+
+def extract_section(body: str, heading: str, *, level: int) -> str | None:
+    target = f"{'#' * level} {heading}"
+    lines = body.splitlines()
+    start = None
+    for index, line in enumerate(lines):
+        if line.strip() == target:
+            start = index + 1
+            break
+    if start is None:
+        return None
+
+    stop_prefixes = tuple(f"{'#' * current_level} " for current_level in range(1, level + 1))
+    collected: list[str] = []
+    for line in lines[start:]:
+        if line.lstrip().startswith(stop_prefixes):
+            break
+        collected.append(line)
+    return "\n".join(collected)
+
+
+def normalize_section_content(content: str | None) -> str:
+    if content is None:
+        return ""
+    return strip_html_comments(content).strip()
+
+
+def has_meaningful_content(content: str | None) -> bool:
+    normalized = normalize_section_content(content)
+    if not normalized:
+        return False
+
+    for line in normalized.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if EMPTY_BULLET_PATTERN.fullmatch(stripped):
+            continue
+        if EMPTY_CHECKBOX_PATTERN.fullmatch(stripped):
+            continue
+        if EMPTY_LABEL_PATTERN.fullmatch(stripped):
+            continue
+        return True
+    return False
+
+
+def require_section(
+    pr: PullRequest,
+    heading: str,
+    *,
+    level: int = 2,
+    require_content: bool = True,
+) -> str:
+    content = extract_section(pr.body, heading, level=level)
+    section_name = f"{'#' * level} {heading}"
+    if content is None:
+        raise RuntimeError(f"[PR] #{pr.number} body is missing `{section_name}` (url: {pr.url})")
+    if require_content and not has_meaningful_content(content):
+        raise RuntimeError(f"[PR] #{pr.number} section `{section_name}` must not be blank (url: {pr.url})")
+    return content
+
+
+def extract_labeled_value(content: str, label: str) -> str:
+    prefix = f"- {label}:"
+    normalized = normalize_section_content(content)
+    for line in normalized.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(prefix):
+            return stripped[len(prefix):].strip()
+    return ""
+
+
+def is_na_value(value: str | None) -> bool:
+    normalized = normalize_section_content(value)
+    if not normalized:
+        return False
+    return NA_VALUE_PATTERN.fullmatch(normalized) is not None
+
+
+def validate_visual_evidence(pr: PullRequest) -> None:
+    require_section(pr, "Visual Evidence", level=2, require_content=False)
+    screenshots_section = require_section(pr, "Embedded Screenshots", level=3)
+    storybook_section = require_section(pr, "Storybook Artifact / Link", level=3)
+
+    storybook_link = extract_labeled_value(storybook_section, "Link")
+    visual_acceptance_note = extract_labeled_value(storybook_section, "Visual acceptance note")
+
+    if (
+        is_na_value(screenshots_section)
+        and is_na_value(storybook_link)
+        and is_na_value(visual_acceptance_note)
+    ):
+        return
+
+    if IMAGE_PATTERN.search(normalize_section_content(screenshots_section)) is None:
+        raise RuntimeError(
+            f"[PR] #{pr.number} visual evidence must embed at least one screenshot image (url: {pr.url})"
+        )
+    if URL_PATTERN.search(storybook_link) is None:
+        raise RuntimeError(
+            f"[PR] #{pr.number} visual evidence must include a clickable Storybook link (url: {pr.url})"
+        )
+    if not has_meaningful_content(visual_acceptance_note) or is_na_value(visual_acceptance_note):
+        raise RuntimeError(
+            f"[PR] #{pr.number} visual evidence must include a non-empty Visual acceptance note (url: {pr.url})"
+        )
+
+
+def validate_audit_gate(pr: PullRequest) -> None:
+    audit_gate = require_section(pr, "Audit Gate", level=2)
+    preflight_status = extract_labeled_value(audit_gate, "`scripts/agent_pr_preflight.sh`")
+    if not has_meaningful_content(preflight_status):
+        raise RuntimeError(
+            f"[PR] #{pr.number} audit gate must include a non-empty `scripts/agent_pr_preflight.sh` entry (url: {pr.url})"
+        )
+
+    required_checks = extract_labeled_value(audit_gate, "Required checks")
+    if not has_meaningful_content(required_checks):
+        raise RuntimeError(
+            f"[PR] #{pr.number} audit gate must include a non-empty `Required checks` entry (url: {pr.url})"
+        )
+
+
 def validate_pr_body_format(pr: PullRequest, issue_number: str) -> None:
     pattern = re.compile(rf"(?i)\bcloses\s+#\s*{re.escape(issue_number)}\b")
     if not pattern.search(pr.body):
         raise RuntimeError(
             f"[PR] #{pr.number} body must contain `Closes #{issue_number}` (url: {pr.url})"
         )
+    require_section(pr, "Validation Evidence", level=2)
+    require_section(pr, "Risk & Rollback", level=2)
+    validate_visual_evidence(pr)
+    validate_audit_gate(pr)
 
 
 def main() -> int:
@@ -174,7 +313,7 @@ def main() -> int:
         print("\n== PR checks ==")
         pr = query_open_pr_for_branch(repo, branch)
         validate_pr_body_format(pr, issue_number)
-        print(f"PR body OK: #{pr.number} contains Closes #{issue_number}")
+        print(f"PR body OK: #{pr.number} satisfies the delivery contract for issue #{issue_number}")
 
         print("\nOK: preflight checks passed")
         return 0
