@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "CreoNow",
+    "loading": "Loading...",
+    "error": {
+      "crash": "Application crashed",
+      "reload": "Reload"
+    }
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "editor": "Editor",
+    "files": "Files",
+    "analytics": "Analytics",
+    "knowledgeGraph": "Knowledge Graph",
+    "characters": "Characters",
+    "calendar": "Calendar",
+    "settings": "Settings"
+  }
+}

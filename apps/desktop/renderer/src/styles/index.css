@@ -1,0 +1,11 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./fonts.css";
+@import "./animations.css";
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "CreoNow",
+    "loading": "加载中…",
+    "error": {
+      "crash": "应用崩溃",
+      "reload": "重新加载"
+    }
+  },
+  "nav": {
+    "dashboard": "仪表盘",
+    "editor": "编辑器",
+    "files": "文件",
+    "analytics": "数据分析",
+    "knowledgeGraph": "知识图谱",
+    "characters": "角色",
+    "calendar": "日历",
+    "settings": "设置"
+  }
+}
