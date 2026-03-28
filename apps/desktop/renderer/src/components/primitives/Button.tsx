@@ -4,13 +4,13 @@ import { cn } from '@/lib/cn';
 
 const variantStyles = {
   default:
-    'bg-accent text-white hover:bg-accent-hover active:brightness-90',
+    'bg-accent text-accent-foreground hover:bg-accent-hover active:brightness-90',
   outline:
     'border border-border bg-transparent text-foreground hover:bg-muted active:bg-muted/80',
   ghost:
     'bg-transparent text-foreground hover:bg-muted active:bg-muted/80',
   destructive:
-    'bg-destructive text-white hover:brightness-110 active:brightness-90',
+    'bg-destructive text-destructive-foreground hover:brightness-110 active:brightness-90',
 } as const;
 
 const sizeStyles = {

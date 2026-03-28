@@ -16,7 +16,7 @@ export const Slider = forwardRef<HTMLSpanElement, SliderProps>(
       )}
       {...props}
     >
-      <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-white/15">
+      <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-slider-track">
         <SliderPrimitive.Range className="absolute h-full bg-accent" />
       </SliderPrimitive.Track>
       {(props.value ?? props.defaultValue ?? [0]).map((_, i) => (

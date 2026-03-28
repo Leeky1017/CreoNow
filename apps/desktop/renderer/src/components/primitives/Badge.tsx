@@ -1,4 +1,4 @@
-import type { HTMLAttributes } from 'react';
+import { forwardRef, type HTMLAttributes } from 'react';
 import { cn } from '@/lib/cn';
 
 const variantStyles = {
@@ -14,23 +14,23 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: BadgeVariant;
 }
 
-export function Badge({
-  variant = 'default',
-  className,
-  children,
-  ...props
-}: BadgeProps) {
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        'transition-colors duration-fast ease-out',
-        variantStyles[variant],
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </span>
-  );
-}
+export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
+  ({ variant = 'default', className, children, ...props }, ref) => {
+    return (
+      <span
+        ref={ref}
+        className={cn(
+          'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+          'transition-colors duration-fast ease-out',
+          variantStyles[variant],
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </span>
+    );
+  },
+);
+
+Badge.displayName = 'Badge';
