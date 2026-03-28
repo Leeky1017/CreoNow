@@ -14,7 +14,8 @@
     "test:integration": "node --import tsx scripts/run-discovered-tests.ts --mode integration",
     "test": "pnpm test:unit && pnpm test:integration",
     "test:renderer": "cd apps/desktop && npx vitest run --config vitest.config.ts",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "gate:design-token": "npx tsx scripts/design-token-gate.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

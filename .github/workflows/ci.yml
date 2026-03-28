@@ -27,6 +27,8 @@ jobs:
         run: pnpm lint
       - name: Type check
         run: pnpm typecheck
+      - name: Design Token Gate
+        run: pnpm gate:design-token
 
   test-core:
     runs-on: ubuntu-latest
