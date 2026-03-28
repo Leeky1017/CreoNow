@@ -12,9 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --config vitest.config.core.ts",
     "test:run": "vitest run --config vitest.config.core.ts",
-    "test:coverage:core": "vitest run --coverage --config vitest.config.core.ts",
-    "storybook": "storybook dev -p 6006",
-    "storybook:build": "storybook build"
+    "test:coverage:core": "vitest run --coverage --config vitest.config.core.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",

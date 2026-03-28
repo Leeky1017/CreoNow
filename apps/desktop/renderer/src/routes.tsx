@@ -1,23 +1,25 @@
-import { createBrowserRouter } from 'react-router';
+import { createHashRouter } from 'react-router';
+import { useTranslation } from 'react-i18next';
 import { LayoutShell } from './shell/LayoutShell';
 
-function PlaceholderPage({ name }: { name: string }) {
-  return <div className="flex items-center justify-center h-full text-muted-foreground">{name}</div>;
+function PlaceholderPage({ nameKey }: { nameKey: string }) {
+  const { t } = useTranslation();
+  return <div className="flex items-center justify-center h-full text-muted-foreground">{t(nameKey)}</div>;
 }
 
-export const router = createBrowserRouter([
+export const router = createHashRouter([
   {
     path: '/',
     element: <LayoutShell />,
     children: [
-      { index: true, element: <PlaceholderPage name="Dashboard" /> },
-      { path: 'editor', element: <PlaceholderPage name="Editor" /> },
-      { path: 'files', element: <PlaceholderPage name="Files" /> },
-      { path: 'analytics', element: <PlaceholderPage name="Analytics" /> },
-      { path: 'kg', element: <PlaceholderPage name="Knowledge Graph" /> },
-      { path: 'characters', element: <PlaceholderPage name="Characters" /> },
-      { path: 'calendar', element: <PlaceholderPage name="Calendar" /> },
-      { path: 'settings', element: <PlaceholderPage name="Settings" /> },
+      { index: true, element: <PlaceholderPage nameKey="nav.dashboard" /> },
+      { path: 'editor', element: <PlaceholderPage nameKey="nav.editor" /> },
+      { path: 'files', element: <PlaceholderPage nameKey="nav.files" /> },
+      { path: 'analytics', element: <PlaceholderPage nameKey="nav.analytics" /> },
+      { path: 'kg', element: <PlaceholderPage nameKey="nav.knowledgeGraph" /> },
+      { path: 'characters', element: <PlaceholderPage nameKey="nav.characters" /> },
+      { path: 'calendar', element: <PlaceholderPage nameKey="nav.calendar" /> },
+      { path: 'settings', element: <PlaceholderPage nameKey="nav.settings" /> },
     ],
   },
 ]);

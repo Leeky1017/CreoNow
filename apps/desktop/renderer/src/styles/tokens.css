@@ -11,9 +11,8 @@
   --color-accent-subtle: rgba(122, 162, 247, 0.08);
   --color-accent-muted: rgba(122, 162, 247, 0.20);
   --color-destructive: #ef4444;
-  --color-destructive-hover: #dc2626;
-  --color-border: #1f1f1f;
-  --color-ring: rgba(122, 162, 247, 0.40);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-ring: rgba(122, 162, 247, 0.30);
   --color-raised: #111111;
   --color-overlay: #161616;
   --color-modal: #1a1a1a;
@@ -30,7 +29,7 @@
   --spacing-16: 64px;
 
   /* === Border Radius === */
-  --radius-sm: 4px;
+  --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
@@ -45,8 +44,9 @@
 
   /* === Font Families === */
   --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-serif: 'Source Serif 4', 'Georgia', serif;
+  --font-serif: 'Playfair Display', 'Georgia', serif;
   --font-display: 'Playfair Display', 'Georgia', serif;
+  --font-editor: 'Source Serif 4', 'Georgia', serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   /* === Duration === */
@@ -61,4 +61,8 @@
   --ease-in: cubic-bezier(0.4, 0.0, 1.0, 1.0);
   --ease-in-out: cubic-bezier(0.4, 0.0, 0.2, 1.0);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1.0);
+  --ease-linear: linear;
+
+  /* === Stagger === */
+  --stagger-base: 40ms;
 }
