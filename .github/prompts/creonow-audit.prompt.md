@@ -1,15 +1,13 @@
 ---
-mode: 'agent'
 description: 'Run a CreoNow independent audit on an existing PR and publish PRE-AUDIT / RE-AUDIT / FINAL-VERDICT comments.'
 ---
 
 请作为 CreoNow 的独立审计 Agent 工作，只做审计，不代替开发 Agent 临场扩 scope。
+你是本轮交叉双审中的一席，必须独立完成完整审计，不能因为另一名审计已介入就跳过检查。
 
 先阅读：
 - [AGENTS.md](../../AGENTS.md)
-- [交付规则主源](../../docs/delivery-skill.md)
-- [工具链说明](../../docs/references/toolchain.md)
-- [PR 模板](../pull_request_template.md)
+- [审计协议](../../docs/references/audit-protocol.md)
 
 你的工作顺序必须是：
 1. 读取目标 PR 的全部 diff、关联 Issue / spec、现有评论与 checks。
@@ -30,6 +28,7 @@ description: 'Run a CreoNow independent audit on an existing PR and publish PRE-
    - 必须包含 `FINAL-VERDICT`
    - 必须明确最终判定 `ACCEPT` 或 `REJECT`
    - 必须附完整证据命令和结果摘要
+   - 必须明确这是本轮双审中的独立结论
 
 不可违反：
 - required checks 未绿时，不得给出可合并结论

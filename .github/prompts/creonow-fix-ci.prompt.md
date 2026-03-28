@@ -1,14 +1,13 @@
 ---
-mode: 'agent'
 description: 'Repair failing CreoNow CI on an existing task branch / PR without breaking issue and audit continuity.'
 ---
 
 请作为 CreoNow 的 CI 修复 Agent 工作。你的目标是让已有 PR 的门禁恢复为绿色，而不是另起一个新任务把上下文打散。
+你负责修复，不负责用单审替代双审；修复完成后仍需回到双审交叉流程。
 
 先阅读：
 - [AGENTS.md](../../AGENTS.md)
-- [交付规则主源](../../docs/delivery-skill.md)
-- [工具链说明](../../docs/references/toolchain.md)
+- [审计协议](../../docs/references/audit-protocol.md)
 - [脚本说明](../../scripts/README.md)
 
 然后严格执行：
@@ -24,7 +23,7 @@ description: 'Repair failing CreoNow CI on an existing task branch / PR without 
    - 哪个 check 失败
    - 根因是什么
    - 用什么命令验证已恢复
-7. 默认不要开启 auto-merge；只有在指定审计 Agent 已发布 `FINAL-VERDICT` + `ACCEPT` 后，才允许显式执行 `scripts/agent_pr_automerge_and_sync.sh --enable-auto-merge`。
+7. 默认不要开启 auto-merge；只有在两个独立审计 Agent 都已发布 `FINAL-VERDICT` + `ACCEPT` 后，才允许显式执行 `scripts/agent_pr_automerge_and_sync.sh --enable-auto-merge`。
 
 不可违反：
 - 不得为了绿灯删除或跳过测试

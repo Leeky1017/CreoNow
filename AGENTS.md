@@ -1,8 +1,6 @@
-# CreoNow — Agent 宪法 v2
+# CreoNow — Agent 宪法 v3
 
 **CreoNow（CN）** 是一个 AI 驱动的文字创作 IDE，定位为「创作者的 Cursor」。
-
-技术选型已锁定，详见 `docs/references/tech-stack.md`。
 
 所有 AI Agent 在执行任务前，必须先阅读本文件。
 
@@ -14,57 +12,81 @@
 
 ---
 
+## 目录
+
+- [零、快速查阅表](#零快速查阅表)
+- [一、阅读链](#一阅读链)
+- [二、核心原则](#二核心原则)
+- [三、架构](#三架构)
+- [四、工作流](#四工作流)
+- [五、禁令](#五禁令)
+- [六、审计协议](#六审计协议)
+- [七、参考文档](#七参考文档)
+
+---
+
+## 零、快速查阅表
+
+| 任务类型 | 必读章节 | 参考文档 |
+|---------|---------|---------|
+| 实现功能 | §一、§二(P0-P4)、§四 | `testing-guide.md`、`test-commands.md` |
+| 前端任务 | §一、§二(P0-P4, P-Visual)、§四 | `frontend-visual-quality.md` |
+| 审计/Review | §二(P0、P3)、§六 | `audit-protocol.md` |
+| 写测试 | §二(P2、P4) | `testing-guide.md`、`test-commands.md` |
+| 修复 CI | §二(P3)、§四 | `test-commands.md` |
+| 文档/Spec | §二(P1、P5) | 对应 `openspec/specs/<module>/spec.md` |
+
+> 所有参考文档位于 `docs/references/`，完整索引见 [§七](#七参考文档)。
+
+---
+
 ## 一、阅读链
 
 ```
-1. AGENTS.md                                        ← 本文件（如已读可跳过）
-2. openspec/project.md                              ← 项目概述与模块索引
-3. openspec/specs/<module>/spec.md                  ← 任务相关模块行为规范
-4. design/DESIGN_DECISIONS.md                       ← 设计决策（前端任务必读）
+1. AGENTS.md                              ← 本文件（如已读可跳过）
+2. openspec/specs/<module>/spec.md        ← 任务相关模块行为规范
+3. docs/references/<相关文档>.md           ← 按 §零 查阅表找到对应文档
 ```
 
 ---
 
 ## 二、核心原则
 
+### P0. Orchestrator-First（主会话只编排）
+
+用户的原始指令默认发给主会话 Agent。主会话 Agent 负责拆任务、设边界、汇总结论，**不直接写代码，不直接做审计结论**。
+
+- 实现工作必须委派给工程 Subagent 执行
+- 工程 Subagent 必须与主会话 Agent 使用同一模型
+- 每一轮实现完成后，主会话 Agent 必须再委派 **2 个独立审计 Subagent** 交叉审计同一变更
+- 两个审计 Subagent 必须与主会话 Agent 使用同一模型，且独立出具结论，不得互相代审
+- 只要任一审计报告任何问题，主会话 Agent 就必须汇总问题并重新派回工程 Subagent 修复，然后再次发起双审
+- 只有当两个审计 Subagent 都不再报告问题时，本轮任务才算收口
+
 ### P1. Spec-First（规范优先）
 
 收到任务后，第一步阅读 `openspec/specs/<module>/spec.md`。
 
-- 如果 spec 不存在或不完整，通知 Owner 补充后再动手
-- 如果开发中发现 spec 遗漏场景，先更新 spec 再实现
-- 超出 spec 范围的行为需要 Owner 确认
+- Spec 不存在或不完整 → 通知 Owner 补充后再动手
+- 开发中发现 spec 遗漏场景 → 先更新 spec 再实现
 - 修改模块对外行为 → 必须更新 spec.md
 - 修复 bug（行为回归到 spec 定义）→ 不需要更新 spec
 
 ### P2. Test-First（测试先行）
 
-先写测试，再写实现。Red → Green → Refactor。
+先写测试，再写实现。Red → Green → Refactor。详见 `docs/references/testing-guide.md`。
 
-- **写测试前，必须阅读 `docs/references/testing/README.md` 及其子文档**
-- Spec 中的 Scenario 必须有对应测试（`spec-test-mapping-gate` CI 自动验证）
-- 测试验证行为，不验证实现细节
-- 测试必须独立、确定、有意义
-- Red phase 必须看到测试因"行为缺失"而失败；Green phase 必须重新运行测试确认通过
+- Spec Scenario 必须有对应测试（`spec-test-mapping-gate` CI 自动验证）
+- 测试验证行为，不验证实现细节；测试必须独立、确定、有意义
+- Red phase 看到测试因"行为缺失"而失败；Green phase 重新运行确认通过
 
-**测试类型决策**（详见 `docs/references/testing/02-test-type-decision-guide.md`）：
+**测试类型速查**：单函数→单元 | 多模块协作→集成 | 关键用户路径→E2E | 跨层约束→Guard
 
-- 单函数/Store/Hook → 单元测试
-- 多模块协作 → 集成测试
-- 关键用户路径（启动/编辑/保存/AI/导出/设置） → E2E 测试
-- 跨文件/跨层/跨进程约束 → Guard；能用 ESLint 解决的不写 Guard
-
-**五大反模式（必须避免）**（详见 `docs/references/testing/01-philosophy-and-anti-patterns.md`）：
-
-1. 字符串匹配源码检测实现（`source.includes('xxx')`）→ 用行为断言
-2. 只验证存在性（`toBeTruthy()`）→ 验证具体值（`toEqual()`）
-3. 过度 mock 导致测的是 mock 本身 → 只 mock 边界依赖
-4. 仅测 happy path → 必须覆盖 edge + error 路径
-5. 无意义测试名称（`test1`、`should work`） → 名称说明前置条件和预期行为
+**五大反模式**：❶ 字符串匹配源码 ❷ 只验证 `toBeTruthy()` ❸ 过度 mock ❹ 仅测 happy path ❺ 无意义测试名
 
 **前端测试查询优先级**：`getByRole` > `getByLabelText` > `getByTestId` >> `getByText`
 
-**本地验证命令**（详见 `docs/references/testing/07-test-command-and-ci-map.md`）：
+**本地验证命令**（详见 `docs/references/test-commands.md`）：
 
 ```bash
 pnpm -C apps/desktop vitest run <pattern>   # 单元/集成测试
@@ -75,275 +97,172 @@ pnpm -C apps/desktop storybook:build         # Storybook（前端）
 
 ### P3. Gates（门禁全绿）
 
-PR 必须通过所有 required checks；auto-merge 默认关闭，仅可在指定审计 Agent 已发布 `FINAL-VERDICT` 且结论为 `ACCEPT` 后显式开启。
-
-- Required checks：`ci`、`merge-serial`
+- PR 必须通过 required checks（`ci`、`merge-serial`）；auto-merge 默认关闭
+- 仅在两个独立审计 Agent 都发布 `FINAL-VERDICT` + `ACCEPT` 后显式开启 auto-merge
 - GitHub 远程动作前先运行 `python3 scripts/agent_github_delivery.py capabilities`
-- CI 不绿不合并，不得「先合并再修」
-- 交付完成 = 代码已合并到 `main`
-- OPEN Issue 只用于新任务准入；若 PR 已因 `Closes #N` 成功合并并自动关闭 Issue，`scripts/agent_pr_automerge_and_sync.sh` 的 rerun 必须识别为终局成功，不得卡死在 Issue reopen 等待上。
+- CI 不绿不合并，不得「先合并再修」；交付完成 = 代码已合并到 `main`
 
 ### P4. Deterministic & Isolated（确定性与隔离）
 
-测试不得依赖真实时间、随机数、网络请求。
-
-- 使用 fake timer、固定种子、mock
+- 测试不得依赖真实时间、随机数、网络请求——用 fake timer、固定种子、mock
 - LLM 在测试中必须 mock
-- 分支从最新 `origin/main` 创建
-- `pnpm install --frozen-lockfile`
-- **禁止**在控制面 `main` 直接编辑受管文件；必须先通过 `scripts/agent_task_begin.sh <N> <slug>` 或 `scripts/agent_worktree_setup.sh <N> <slug>` 进入 `.worktrees/issue-<N>-<slug>` 后再实施
-- repo-managed git hooks（`.githooks/pre-commit` / `.githooks/pre-push`）在执行 `scripts/agent_task_begin.sh`、`scripts/agent_worktree_setup.sh` 或 `scripts/agent_controlplane_sync.sh` 后启用，并阻止控制面根目录提交与直接推送 `main`；仅允许紧急热修通过 `CREONOW_ALLOW_CONTROLPLANE_BYPASS=1` 临时绕过
+- 分支从最新 `origin/main` 创建；`pnpm install --frozen-lockfile`
+- **禁止**在控制面 `main` 直接编辑——先运行 `scripts/agent_task_begin.sh <N> <slug>` 进入 worktree
 
 ### P5. Escalate, Don't Improvise（上报，不要即兴发挥）
 
-遇到不确定的情况，停下来通知 Owner。
-
-- Spec 不存在或矛盾 → 停下来
-- 任务超出 spec 范围 → 停下来
-- 上游依赖不一致 → 停下来
+Spec 不存在/矛盾、任务超出 spec 范围、上游依赖不一致 → 停下来，通知 Owner。
 
 ### P-Visual. 视觉驱动（前端任务专用）
 
-> 「测试通过 + CI 绿灯」≠「视觉合格」。
-> 前端的交付标准是「看起来对」，不仅是「跑得通」。
+> 「测试通过 + CI 绿灯」≠「视觉合格」。前端的交付标准是「看起来对」，不仅是「跑得通」。
 
-#### 视觉上下文注入（实现前必做）
+**视觉上下文注入（实现前必做）**：详见 `docs/references/frontend-visual-quality.md`（Token 路径、Figma 设计稿、组件复用等完整流程）。
 
-前端任务开始前，Agent 必须：
-
-1. **读取 Token 文件**：`apps/desktop/renderer/src/styles/tokens.css`（540 行，完整的颜色/间距/字体/动画 Token）
-2. **读取组件规范卡片**：`design/system/02-component-cards/<组件名>.md`（如果卡片存在）
-3. **通过 Figma MCP 读取设计上下文**：如果 Issue 附带了 Figma 文件链接，优先通过 MCP 的 `add_figma_file` 工具加载设计文件，获取组件结构、样式值、布局信息（优先级高于截图和 HTML 设计稿）
-4. **检查视觉参考**：`design/references/<feature>/`（有参考截图时，以截图的视觉风格为目标）
-5. **读取 HTML 设计稿**：`design/Variant/designs/<对应文件>.html`（如果文件存在，作为过渡期参考）
-6. **检查可复用组件**：`apps/desktop/renderer/src/components/`（优先复用已有 Primitive/Composite，禁止重复实现）
-
-#### Figma Make 优先原则
-
-前端设计侧工作优先在 Figma Make 中完成，而非手写代码试错：
-
-- **能在 Figma Make 中先完成的设计优化，不要在代码中反复试错**
-- Issue 附带 Figma 文件链接时，Agent 通过 Figma MCP 读取设计上下文后再写代码
-- Agent 不应在没有设计输入的情况下做视觉决策（截图、Figma 设计稿、HTML 设计稿，至少有其一）
-- 双向管线：代码→Figma（上游同步基线）→ Figma Make 优化 → Figma MCP→代码（下游实现）
-
-#### CreoNow 视觉 DNA
+**CreoNow 视觉 DNA**：
 
 | 维度 | 风格 | 关键词 |
 |------|------|--------|
 | 色温 | 冷灰色调，中性偏冷 | cool gray, neutral |
 | 密度 | 紧凑但有呼吸感 | compact, breathable |
-| 边界 | 轻微分割线，不是厚重边框 | subtle separators |
-| 圆角 | 中等圆角（8px），非直角非胶囊 | rounded-md |
-| 阴影 | 轻柔阴影，层次靠颜色区分 | subtle shadows |
-| 动效 | 快速精确，不拖泥带水 | 0.15–0.2s, ease-out |
-| 字体 | Inter（UI）+ Lora（正文）+ JetBrains Mono（代码） | 已本地打包 woff2 |
-| 图标 | Lucide 线性图标，1.5px stroke | thin, consistent |
-| 留白 | 4px/8px 网格，密集但不拥挤 | 8px rhythm |
-| 品牌 | 克制的强调色，靠排版和空间表达品牌 | typography-led |
+| 圆角 | 中等圆角（8px） | rounded-md |
+| 动效 | 快速精确 | 0.15–0.2s, ease-out |
+| 字体 | Inter(UI) + Lora(正文) + JetBrains Mono(代码) | woff2 |
+| 图标 | Lucide 线性，1.5px stroke | thin |
+| 留白 | 4px/8px 网格 | 8px rhythm |
 
-Agent 做视觉决策时应参照此表（如犹豫 `rounded-sm` 还是 `rounded-md`，答案是 `rounded-md`）。
+**视觉合格标准**：颜色/间距用 Token（无硬编码）| 文本走 `t()` i18n | 交互状态有过渡 | 新组件有 Story | Storybook 可构建
 
-#### 视觉合格标准
-
-| 检查项 | 必须 |
-|--------|------|
-| 所有颜色使用 Token（无 hex/rgba 硬编码） | ✅ |
-| 所有间距使用 Token 或 4px 网格 | ✅ |
-| 所有文本使用 `t()` i18n | ✅ |
-| hover/focus/active/disabled 状态有过渡 | ✅ |
-| 过渡使用 `--duration-*` 和 `--ease-*` Token | ✅ |
-| 新组件有 Storybook Story | ✅ |
-| Storybook 可构建（`pnpm -C apps/desktop storybook:build`） | ✅ |
-
-#### 视觉迭代（推荐）
-
-实现完成后，Agent 应自行进行视觉打磨：
-1. 构建 Storybook → 检查组件在 Story 中的渲染
-2. 发现间距不均匀、颜色不协调 → 自行微调
-3. 确认 Dark + Light 两个主题下都正常
+完整视觉规范详见 `docs/references/frontend-visual-quality.md`。
 
 ---
 
 ## 三、架构
 
-| 架构层  | 路径                     | 运行环境          |
-| ------- | ------------------------ | ----------------- |
-| 前端    | `apps/desktop/renderer/` | Electron 渲染进程 |
-| Preload | `apps/desktop/preload/`  | Electron Preload  |
-| 后端    | `apps/desktop/main/`     | Electron 主进程   |
-| 共享层  | `packages/shared/`       | 跨进程            |
+| 架构层 | 路径 | 运行环境 |
+|-------|------|---------|
+| 前端 | `apps/desktop/renderer/` | Electron 渲染进程 |
+| Preload | `apps/desktop/preload/` | Electron Preload |
+| 后端 | `apps/desktop/main/` | Electron 主进程 |
+| 共享层 | `packages/shared/` | 跨进程 |
 
-模块索引详见 `openspec/project.md`。
+模块列表（`openspec/specs/` 下）：ai-service · context-engine · design-system · document-management · editor · ipc · knowledge-graph · memory-system · project-management · search-and-retrieval · skill-system · version-control · workbench
 
 ---
 
 ## 四、工作流
 
-详细步骤与命令见 `docs/delivery-skill.md`。
+### 主会话编排链路
+
+1. 主会话 Agent 只负责拆分任务、指定工程范围、控制循环、综合结论
+2. 写代码、改代码、补测试等实现动作，必须交给工程 Subagent
+3. 每一轮工程 Subagent 完成后，主会话 Agent 必须调派 2 个独立审计 Subagent 对同一结果做交叉审计
+4. 任一审计 Subagent 发现任何问题，都必须回到工程 Subagent 修复，再进入下一轮双审
+5. 只有两个审计 Subagent 都确认无问题，主会话 Agent 才能结束循环并进入交付
+
+审计任务本身也遵循同样原则：主会话 Agent 不直接审计，而是组织双审 Subagent 完成。
 
 ### 接到任务时
 
 1. 阅读本文件（如已读可跳过）
 2. 阅读 `openspec/specs/<module>/spec.md`
 3. 确认 Issue 号和分支名（`task/<N>-<slug>`）
-4. 运行 `scripts/agent_task_begin.sh <N> <slug>`（或至少执行 controlplane sync + worktree setup），进入 `.worktrees/issue-<N>-<slug>` 后再开始实现
+4. 运行 `scripts/agent_task_begin.sh <N> <slug>`，进入 `.worktrees/issue-<N>-<slug>` 后开始实现
 
 ### 开发流程
 
-| 阶段     | 完成条件                                                                                                                                      |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **准备** | Issue 已创建；spec 已阅读（如需变更则已更新）；分支已创建                                                                                     |
-| **实现** | 按 TDD 循环实现；所有测试通过；前端任务有视觉验收                                                                                             |
-| **交付** | PR 已创建（含 `Closes #N`）；auto-merge 默认关闭；仅在指定审计 Agent 已发布 `FINAL-VERDICT` + `ACCEPT` 评论后显式开启；CI 全绿；已合并到 main |
-
-规则冲突时，以 `docs/delivery-skill.md` 为主源。
+| 阶段 | 完成条件 |
+|------|---------|
+| **准备** | Issue 已创建；spec 已阅读/更新；分支已创建 |
+| **实现** | 工程 Subagent 完成 TDD 循环；所有测试通过；前端任务有视觉验收 |
+| **交付** | PR 已创建（含 `Closes #N`）；CI 全绿；双审通过后合并到 main |
 
 ---
 
-## 五、补充禁令
+## 五、禁令
 
 1. 禁止 `any` 类型——TypeScript strict mode 必须编译通过
-2. 禁止在组件中使用 Tailwind 原始色值——必须通过语义化 Design Token（详见 `docs/references/design-ui-architecture.md`）
-3. 禁止在 JSX 中使用裸字符串字面量——所有用户可见文本必须走 `t()` / i18n
-4. 禁止使用 Tailwind 内置阴影类（`shadow-lg`、`shadow-xl`、`shadow-2xl`）——必须走 `--shadow-*` Design Token
-5. 禁止提交 CRLF/LF 噪音型大 diff——无语义改动却整文件替换视为格式风暴，必须阻断
+2. 禁止 Tailwind 原始色值——必须通过语义化 Design Token
+3. 禁止 JSX 裸字符串——所有文本走 `t()` / i18n
+4. 禁止 Tailwind 内置阴影类（`shadow-lg` 等）——走 `--shadow-*` Token
+5. 禁止 CRLF/LF 噪音型大 diff——无语义改动却整文件替换
 6. 禁止删除/跳过测试来换取 CI 通过
-7. 禁止在活跃内容中保留已废止治理体系的引用，并声称"已收口"
+7. 禁止在活跃内容中保留已废止治理体系的引用
 
 ---
 
-## 六、独立审计 Agent 强制协议（分层自适应审计）
-
-适用对象：被指派为 reviewer 或执行独立审计的 Agent。
-详细审计步骤见 `docs/delivery-skill.md` 第八节（审计协议主源）。
+## 六、审计协议
 
 > 「明者因时而变，知者随事而制。」——桓宽《盐铁论》
-> 审计不是一成不变的流水线，而是因任务类型、风险等级、影响面而自适应的质量守护。
 
-### 6.0 审计四律
+适用对象：被指派为 reviewer 或执行独立审计的 Agent。
 
-1. **CI 能查的，信任 CI；CI 不能查的，才是审计 Agent 的主战场。** 你的核心价值：语义正确性、spec 对齐、架构合理性、安全性、测试质量。
-2. **每条结论必须有证据。没有 diff 引用或命令输出，不要开口。**
-3. **问自己：如果这个 PR 合并了，最有可能出什么问题？** 然后去验证那个场景。
-4. **代码写了不等于功能生效。** 必须验证：用户操作路径是否连通？Spec Scenario 的预期行为是否真的出现？
+**双审编排原则**：
 
-### 6.0.1 变更分类（审计第一步）
+1. 同一轮变更必须由 2 个独立审计 Agent 交叉审计，不能少
+2. 主会话 Agent 负责汇总双审意见，但不替代任何一席审计
+3. 任一审计未通过，整体结论即未通过
+4. 只有双审都不再报告问题，才能结束修复-复审循环
 
-审计 Agent 在一切检查之前，必须先分析 PR diff，判定三个维度：
+**审计四律**：
 
-- **变更层（WHERE）**：`backend` / `frontend` / `preload` / `shared` / `infra` / `docs`
-- **风险等级（RISK）**：`critical` / `high` / `medium` / `low` / `minimal`
-- **影响面（SCOPE）**：`cross-module` / `single-module` / `isolated`
+1. CI 能查的信任 CI；CI 不能查的才是审计主战场（语义正确性、spec 对齐、架构合理性）
+2. 每条结论必须有证据（diff 引用或命令输出）
+3. 问自己：这个 PR 合并后最可能出什么问题？然后去验证
+4. 代码写了不等于功能生效——必须验证用户操作路径是否连通
 
-各维度的具体判定依据见 `docs/delivery-skill.md` §8.0。
+**审计层级**：
 
-### 6.0.2 审计层级（Tiered Audit Protocol）
+| 层级 | 适用条件 | 评论模型 | 命令 |
+|------|---------|---------|------|
+| **L** | risk=low/minimal, scope=isolated | 单条 FINAL-VERDICT | `scripts/review-audit.sh L` |
+| **S** | risk=medium, scope=single-module | PRE-AUDIT → FINAL-VERDICT | `scripts/review-audit.sh S` |
+| **D** | risk=critical/high 或 cross-module | PRE → RE(多轮) → FINAL | `scripts/review-audit.sh D` |
 
-根据分类结果，选择对应审计深度。**层级选择不可降级**。
+**关键禁令**（违反 → REJECT）：
 
-| 层级       | 适用条件                                      | 评论模型                                                | 入口命令                    |
-| ---------- | --------------------------------------------- | ------------------------------------------------------- | --------------------------- |
-| **Tier L** | `risk=low\|minimal` 且 `scope=isolated`       | 单条 FINAL-VERDICT                                      | `scripts/review-audit.sh L` |
-| **Tier S** | `risk=medium` 且 `scope=single-module`        | PRE-AUDIT + FINAL-VERDICT（有 BLOCKER 时插入 RE-AUDIT） | `scripts/review-audit.sh S` |
-| **Tier D** | `risk=critical\|high` 或 `scope=cross-module` | PRE → RE（可多轮）→ FINAL                               | `scripts/review-audit.sh D` |
+1. 不能只给建议不给结论（必须 `ACCEPT/REJECT`）
+2. 不能无证据下结论
+3. 不能 required checks 未通过时给可合并结论
+4. 不能把审计结果只写本地不发 PR 评论
+5. 不能用"后续再看"替代当前阻断问题
+6. 不能以单审替代双审
 
-### 6.0.3 审计 Playbook
-
-根据变更层，加载 `docs/references/audit-playbooks/` 下对应文件执行专项检查：
-
-| 变更层                   | Playbook                     |
-| ------------------------ | ---------------------------- |
-| `backend`                | `backend-service.md`         |
-| `frontend`               | `frontend-component.md`      |
-| `preload` / IPC          | `ipc-channel.md`             |
-| `infra`                  | `ci-infra.md`                |
-| `docs`                   | `docs-only.md`               |
-| 安全相关（Tier D 追加）  | `security-electron.md`       |
-| 性能相关（Tier D 追加）  | `performance.md`             |
-| 行为变更（Tier S+ 必做） | `functional-verification.md` |
-
-多层变更时，加载所有涉及层的 Playbook。功能性验证是横切关注点，补充而非替代各变更层的专项 Playbook。索引详见 `docs/references/audit-playbooks/README.md`。
-
-### 6.1 不能做清单（违反任一项 → 审计结论必须 REJECT）
-
-1. **不能**提交 CRLF/LF 噪音型大 diff（无语义改动却整文件替换）
-2. **不能**删除/跳过测试来换取 CI 通过
-3. **不能**保留过时治理术语并声称"已收口"
-4. **不能**只给建议不给结论（必须给 `ACCEPT/REJECT`）
-5. **不能**无证据下结论（每条结论必须附命令或 diff 证据）
-6. **不能**把审计结果只写本地文件不发 PR 评论
-7. **不能**在 required checks 未通过时给出可合并结论
-8. **不能**用"后续再看"替代当前阻断问题
-9. **不能**跳过 Tier 2 测试质量验证——涉及 G0-05 覆盖的 6 类问题时，必须验证测试内容是否真正覆盖行为（不是只检查测试文件存在）
-10. **不能**跳过 Tier 3 协议检查项——涉及 UI 改动的 PR 必须验证字体渲染、Design Token 使用率、品牌一致性；PRE-AUDIT 必须包含至少 1 条产品行为验证（不能全是 diff review）
-
-### 6.1.1 必须做白名单（审计质量底线）
-
-审计 Agent 至少必须完成以下动作，否则审计无效：
-
-1. **必须**实际读取 PR 变更的每一个文件（不可只看 commit message 或 PR 标题）
-2. **必须**运行 `scripts/review-audit.sh <TIER>`（分层审计命令入口）
-3. **必须**在评论中声明审计层级和变更分类结果
-4. **必须**声明实际执行了哪些验证命令（附输出）
-5. **必须**加载并执行对应 Playbook 的每一条检查项（标注 ✅/❌/N/A）
-6. **必须**验证新增 public 行为是否有对应测试（Tier S/D）
-7. **必须**验证测试是否测了行为而非实现（Tier S/D，涉及测试变更时）
-8. **必须**执行功能性验证（Tier S/D，涉及行为变更时）——加载 `functional-verification.md`，验证 Spec Scenario 与实现的行为对照，确认功能真的生效
-
-### 6.2 根因排查格式（每条问题必须包含）
-
-1. **现象（Symptom）**
-2. **根因（Root Cause）**
-3. **影响面（Impact）**
-4. **复现/检测命令（Reproduce）**
-5. **阻断级别（Blocking / Non-blocking）**
-6. **处理结论（Reject / Accept with risk）**
-
-### 6.3 PR 评论强制要求（按层级自适应）
-
-评论模型根据审计层级自适应：
-
-- **Tier L**：单条 FINAL-VERDICT
-- **Tier S**：PRE-AUDIT + FINAL-VERDICT（有 BLOCKER 时插入 RE-AUDIT）
-- **Tier D**：PRE-AUDIT → RE-AUDIT（可多轮，最多 5 轮）→ FINAL-VERDICT
-
-所有评论必须包含结构化元数据头（`<!-- audit-meta tier: ... -->`）。
-
-评论模板见 `docs/delivery-skill.md` §8.4。
-
-### 6.4 审计命令（分层执行）
-
-审计命令已整合为分层入口脚本：
-
-```bash
-scripts/review-audit.sh L [<base-ref>]   # Tier L：CRLF + diff 概览
-scripts/review-audit.sh S [<base-ref>]   # Tier S：+ typecheck + 相关测试 + Storybook + 脚本检查
-scripts/review-audit.sh D [<base-ref>]   # Tier D：+ 全量测试 + lint + 架构门禁 + contract
-```
-
-### 6.5 审计交付口径
-
-> "能发现问题、能定位根因、能明确阻断"优先于"写一堆建议"。
-> 审计的第一职责是划红线，不是润色方案。
-
-详细审计步骤、判定标准、评论模板见 `docs/delivery-skill.md` 第八节。
+完整审计协议（变更分类、检查项索引、评论模板、根因排查格式、必做白名单）详见 `docs/references/audit-protocol.md`。
 
 ---
 
 ## 七、参考文档
 
-| 文档           | 路径                                        | 查阅时机         |
-| -------------- | ------------------------------------------- | ---------------- |
-| 测试规范主源   | `docs/references/testing/README.md`         | 写测试前         |
-| 设计与 UI 架构 | `docs/references/design-ui-architecture.md` | 写前端组件前     |
-| 代码标准       | `docs/references/coding-standards.md`       | 写代码前         |
-| 异常处理       | `docs/references/exception-handling.md`     | 遇到阻塞/异常时  |
-| 技术选型       | `docs/references/tech-stack.md`             | 选型疑问时       |
-| 工具链         | `docs/references/toolchain.md`              | 构建/CI/脚本相关 |
-| 命名约定       | `docs/references/naming-conventions.md`     | 命名不确定时     |
-| 文件组织       | `docs/references/file-structure.md`         | 创建新文件时     |
+> 以下为真实存在的文档索引。所有参考文档位于 `docs/references/`。
+
+| 文档 | 路径 | 查阅时机 |
+|------|------|---------|
+| 测试指南 | `docs/references/testing-guide.md` | 写测试前 |
+| 测试命令 | `docs/references/test-commands.md` | 跑测试时 |
+| 前端视觉规范 | `docs/references/frontend-visual-quality.md` | 写前端组件前 |
+| 审计协议 | `docs/references/audit-protocol.md` | 审计/Review 时 |
+| 架构经验 | `docs/references/architecture-lessons.md` | 架构决策时 |
+| 产品质量清单 | `docs/references/product-quality-checklist.md` | PR 自检时 |
+| UI Prompt 工程 | `docs/references/prompt-engineering-for-ui.md` | AI UI 生成时 |
+
+**Spec 模块索引**（位于 `openspec/specs/`）：
+
+ai-service · context-engine · design-system · document-management · editor · ipc · knowledge-graph · memory-system · project-management · search-and-retrieval · skill-system · version-control · workbench
+
+**脚本索引**（位于 `scripts/`）：
+
+| 脚本 | 用途 |
+|------|------|
+| `agent_task_begin.sh` | 创建 worktree 并开始任务 |
+| `agent_worktree_setup.sh` | 仅创建 worktree |
+| `agent_controlplane_sync.sh` | 控制面同步 |
+| `agent_git_hooks_install.sh` | 安装 git hooks |
+| `agent_pr_preflight.sh` | PR 预检 |
+| `agent_pr_automerge_and_sync.sh` | auto-merge（需审计通过） |
+| `agent_github_delivery.py` | GitHub 交付工具 |
+| `review-audit.sh` | 分层审计入口 |
 
 ---
 
-**读完本文件后，请阅读 `openspec/project.md`，然后阅读任务相关模块的 `spec.md` 和 `docs/delivery-skill.md`，再开始工作。**
+**读完本文件后，阅读任务相关模块的 `openspec/specs/<module>/spec.md`，按 §零 查阅表找到对应参考文档，再开始工作。**
