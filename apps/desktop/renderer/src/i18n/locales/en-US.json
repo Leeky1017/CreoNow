@@ -8,6 +8,7 @@
     }
   },
   "nav": {
+    "search": "Search",
     "dashboard": "Dashboard",
     "editor": "Editor",
     "files": "Files",
@@ -23,5 +24,39 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "confirm": "Confirm"
+  },
+  "editor": {
+    "placeholder": "Start writing…",
+    "toolbar": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "heading1": "Heading 1",
+      "heading2": "Heading 2",
+      "bulletList": "Bullet List",
+      "orderedList": "Ordered List"
+    },
+    "error": {
+      "title": "Editor failed to load",
+      "retry": "Retry"
+    }
+  },
+  "fileTree": {
+    "newFile": "New File",
+    "newFolder": "New Folder",
+    "rename": "Rename",
+    "delete": "Delete"
+  },
+  "shell": {
+    "contextPanel": {
+      "files": "Files",
+      "outline": "Outline"
+    }
+  },
+  "pages": {
+    "dashboard": "Dashboard",
+    "analytics": "Analytics",
+    "characters": "Characters",
+    "knowledgeGraph": "Knowledge Graph",
+    "calendar": "Calendar"
   }
 }
