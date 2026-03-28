@@ -64,6 +64,16 @@ section() {
   printf '────────────────────────────────────────\n'
 }
 
+has_pnpm_script() {
+  local script_name="$1"
+
+  if ! command -v node &>/dev/null || [[ ! -f package.json ]]; then
+    return 1
+  fi
+
+  node -e 'const fs = require("node:fs"); const p = JSON.parse(fs.readFileSync("package.json", "utf8")); process.exit(p.scripts && p.scripts[process.argv[1]] ? 0 : 1);' "$script_name" >/dev/null 2>&1
+}
+
 # ══════════════════════════════════════════════════════
 # 共享层：所有 Tier 都执行
 # ══════════════════════════════════════════════════════
@@ -129,8 +139,12 @@ run_tier_s() {
 
   # TypeScript 类型检查
   if command -v pnpm &>/dev/null; then
-    run_step "pnpm typecheck（类型安全验证）" \
-      pnpm typecheck
+    if has_pnpm_script "typecheck"; then
+      run_step "pnpm typecheck（类型安全验证）" \
+        pnpm typecheck
+    else
+      skip_step "pnpm typecheck" "package.json has no typecheck script"
+    fi
   else
     skip_step "pnpm typecheck" "pnpm not found in PATH"
   fi
@@ -172,13 +186,22 @@ run_tier_d() {
   section "深度检查（Tier D）"
 
   if command -v pnpm &>/dev/null; then
-    # 全量测试
-    run_step "vitest run（全量测试）" \
-      pnpm -C apps/desktop exec vitest run
+    # 全量测试优先走仓库声明脚本，避免与项目测试入口漂移
+    if has_pnpm_script "test"; then
+      run_step "pnpm test（全量测试）" \
+        pnpm test
+    else
+      run_step "vitest run（全量测试）" \
+        pnpm -C apps/desktop exec vitest run
+    fi
 
-    # ESLint
-    run_step "pnpm lint（代码规范）" \
-      pnpm lint
+    # ESLint（若仓库未声明 lint 脚本则跳过）
+    if has_pnpm_script "lint"; then
+      run_step "pnpm lint（代码规范）" \
+        pnpm lint
+    else
+      skip_step "pnpm lint" "package.json has no lint script"
+    fi
 
     # 架构健康门禁
     if [[ -f "scripts/architecture-health-gate.ts" ]]; then

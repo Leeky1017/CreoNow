@@ -1,13 +1,62 @@
-"""Tests for agent_pr_preflight.py (simplified delivery contract).
-
-"""
+"""Tests for agent_pr_preflight.py delivery contract."""
+import json
 import os
 import sys
+import textwrap
 import unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import agent_pr_preflight  # noqa: E402
+
+
+def make_pr_body(issue_number: str = "42", *, frontend: bool = False) -> str:
+    if frontend:
+        screenshots = "![Renderer panel](https://example.com/screenshot.png)"
+        storybook_link = "https://storybook.example.com/?path=/story/renderer-panel"
+        visual_note = "Checked default, loading, and error states."
+        non_frontend_checkbox = "- [ ] N/A（非前端改动）"
+    else:
+        screenshots = "N/A（非前端改动）"
+        storybook_link = "N/A（非前端改动）"
+        visual_note = "N/A（非前端改动）"
+        non_frontend_checkbox = "- [x] N/A（非前端改动）"
+
+    return textwrap.dedent(
+        f"""\
+        ## Summary
+        - Delivery script contract update.
+
+        Closes #{issue_number}
+
+        ## Validation Evidence
+        - [x] `pytest -q scripts/tests/test_agent_pr_preflight.py`
+        - Additional validation note: local preflight contract verified.
+
+        ## Visual Evidence
+
+        ### Embedded Screenshots
+        {screenshots}
+
+        ### Storybook Artifact / Link
+        - Link: {storybook_link}
+        - Visual acceptance note: {visual_note}
+
+        {non_frontend_checkbox}
+
+        ## Test Coverage
+        - Covers delivery script contract regressions.
+
+        ## Risk & Rollback
+        - Worst case if not fixed: stale delivery gates stay bypassable.
+        - Rollback ref: git revert HEAD
+        - Recovery note: none
+
+        ## Audit Gate
+        - `scripts/agent_pr_preflight.sh`: PASS (local)
+        - Required checks: check=green
+        """
+    )
 
 
 class WorktreeIsolationTests(unittest.TestCase):
@@ -116,12 +165,12 @@ class IssueStateTests(unittest.TestCase):
 
 
 class PRBodyFormatTests(unittest.TestCase):
-    """PR body must contain Closes #<N>."""
+    """PR body must satisfy the tightened delivery contract."""
 
-    def test_validate_pr_body_format_should_pass_with_closes(self) -> None:
+    def test_validate_pr_body_format_should_pass_with_non_frontend_na_visual_evidence(self) -> None:
         pr = agent_pr_preflight.PullRequest(
             number=100,
-            body="Some description\n\nCloses #42\n",
+            body=make_pr_body(),
             url="https://github.com/test/test/pull/100",
         )
         agent_pr_preflight.validate_pr_body_format(pr, "42")
@@ -129,27 +178,143 @@ class PRBodyFormatTests(unittest.TestCase):
     def test_validate_pr_body_format_should_pass_case_insensitive(self) -> None:
         pr = agent_pr_preflight.PullRequest(
             number=100,
-            body="closes #42",
+            body=make_pr_body().replace("Closes #42", "closes #42", 1),
             url="https://github.com/test/test/pull/100",
         )
         agent_pr_preflight.validate_pr_body_format(pr, "42")
 
+    def test_validate_pr_body_format_should_accept_fullwidth_colon_labels(self) -> None:
+        body = make_pr_body().replace(
+            "- `scripts/agent_pr_preflight.sh`: PASS (local)",
+            "- `scripts/agent_pr_preflight.sh`：PASS (local)",
+            1,
+        ).replace(
+            "- Required checks: check=green",
+            "- Required checks：check=green",
+            1,
+        )
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=body,
+            url="https://github.com/test/test/pull/100",
+        )
+        agent_pr_preflight.validate_pr_body_format(pr, "42")
+
+    def test_validate_pr_body_format_should_pass_with_frontend_visual_evidence(self) -> None:
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=make_pr_body(frontend=True),
+            url="https://github.com/test/test/pull/100",
+        )
+        agent_pr_preflight.validate_pr_body_format(pr, "42", frontend_required=True)
+
+    def test_validate_pr_body_format_should_fail_when_frontend_marked_na(self) -> None:
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=make_pr_body(frontend=False),
+            url="https://github.com/test/test/pull/100",
+        )
+        with self.assertRaisesRegex(RuntimeError, r"frontend changes require screenshots"):
+            agent_pr_preflight.validate_pr_body_format(pr, "42", frontend_required=True)
+
     def test_validate_pr_body_format_should_fail_without_closes(self) -> None:
         pr = agent_pr_preflight.PullRequest(
             number=100,
-            body="No issue reference here",
+            body=make_pr_body().replace("Closes #42", "Refs #42", 1),
             url="https://github.com/test/test/pull/100",
         )
         with self.assertRaisesRegex(RuntimeError, r"\[PR\].*must contain.*Closes #42"):
             agent_pr_preflight.validate_pr_body_format(pr, "42")
 
-    def test_validate_pr_body_format_should_fail_with_wrong_issue(self) -> None:
+    def test_validate_pr_body_format_should_fail_with_blank_validation_evidence(self) -> None:
         pr = agent_pr_preflight.PullRequest(
             number=100,
-            body="Closes #99",
+            body=make_pr_body().replace(
+                "- [x] `pytest -q scripts/tests/test_agent_pr_preflight.py`\n- Additional validation note: local preflight contract verified.",
+                "-",
+                1,
+            ),
             url="https://github.com/test/test/pull/100",
         )
-        with self.assertRaisesRegex(RuntimeError, r"\[PR\].*must contain.*Closes #42"):
+        with self.assertRaisesRegex(RuntimeError, r"Validation Evidence"):
+            agent_pr_preflight.validate_pr_body_format(pr, "42")
+
+    def test_validate_pr_body_format_should_fail_when_frontend_screenshot_is_missing(self) -> None:
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=make_pr_body(frontend=True).replace(
+                "![Renderer panel](https://example.com/screenshot.png)",
+                "Screenshot pending upload",
+                1,
+            ),
+            url="https://github.com/test/test/pull/100",
+        )
+        with self.assertRaisesRegex(RuntimeError, r"embed at least one screenshot image"):
+            agent_pr_preflight.validate_pr_body_format(pr, "42")
+
+    def test_validate_pr_body_format_should_fail_when_frontend_storybook_link_is_missing(self) -> None:
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=make_pr_body(frontend=True).replace(
+                "https://storybook.example.com/?path=/story/renderer-panel",
+                "pending",
+                1,
+            ),
+            url="https://github.com/test/test/pull/100",
+        )
+        with self.assertRaisesRegex(RuntimeError, r"Storybook link"):
+            agent_pr_preflight.validate_pr_body_format(pr, "42")
+
+    def test_validate_pr_body_format_should_fail_when_visual_acceptance_note_is_missing(self) -> None:
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=make_pr_body(frontend=True).replace(
+                "Checked default, loading, and error states.",
+                "",
+                1,
+            ),
+            url="https://github.com/test/test/pull/100",
+        )
+        with self.assertRaisesRegex(RuntimeError, r"Visual acceptance note"):
+            agent_pr_preflight.validate_pr_body_format(pr, "42")
+
+    def test_validate_pr_body_format_should_fail_when_required_checks_entry_is_blank(self) -> None:
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=make_pr_body().replace(
+                "- Required checks: check=green",
+                "- Required checks:",
+                1,
+            ),
+            url="https://github.com/test/test/pull/100",
+        )
+        with self.assertRaisesRegex(RuntimeError, r"Required checks"):
+            agent_pr_preflight.validate_pr_body_format(pr, "42")
+
+    def test_validate_pr_body_format_should_fail_when_required_checks_are_not_green(self) -> None:
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=make_pr_body().replace(
+                "- Required checks: check=green",
+                "- Required checks: check=pending",
+                1,
+            ),
+            url="https://github.com/test/test/pull/100",
+        )
+        with self.assertRaisesRegex(RuntimeError, r"required checks must indicate GREEN"):
+            agent_pr_preflight.validate_pr_body_format(pr, "42")
+
+    def test_validate_pr_body_format_should_fail_when_preflight_status_is_not_pass(self) -> None:
+        pr = agent_pr_preflight.PullRequest(
+            number=100,
+            body=make_pr_body().replace(
+                "- `scripts/agent_pr_preflight.sh`: PASS (local)",
+                "- `scripts/agent_pr_preflight.sh`: pending",
+                1,
+            ),
+            url="https://github.com/test/test/pull/100",
+        )
+        with self.assertRaisesRegex(RuntimeError, r"preflight status must be PASS"):
             agent_pr_preflight.validate_pr_body_format(pr, "42")
 
 
@@ -166,7 +331,9 @@ class QueryOpenPRTests(unittest.TestCase):
                 agent_pr_preflight.query_open_pr_for_branch("/tmp/repo", "task/42-test")
 
     def test_query_open_pr_should_parse_valid_payload(self) -> None:
-        payload = '[{"number": 100, "body": "Closes #42", "url": "https://github.com/test/pull/100"}]'
+        payload = json.dumps(
+            [{"number": 100, "body": make_pr_body(), "url": "https://github.com/test/pull/100"}]
+        )
         with mock.patch.object(
             agent_pr_preflight,
             "run",
@@ -174,7 +341,7 @@ class QueryOpenPRTests(unittest.TestCase):
         ):
             pr = agent_pr_preflight.query_open_pr_for_branch("/tmp/repo", "task/42-test")
         self.assertEqual(100, pr.number)
-        self.assertEqual("Closes #42", pr.body)
+        self.assertIn("Closes #42", pr.body)
 
     def test_query_open_pr_should_fail_on_invalid_json(self) -> None:
         with mock.patch.object(
@@ -196,12 +363,27 @@ class QueryOpenPRTests(unittest.TestCase):
         self.assertEqual("", pr.body)
 
 
+class FrontendDetectionTests(unittest.TestCase):
+    """Frontend change detection must fail closed on git diff errors."""
+
+    def test_branch_touches_frontend_should_fail_when_git_diff_errors(self) -> None:
+        with mock.patch.object(
+            agent_pr_preflight,
+            "run",
+            return_value=agent_pr_preflight.CmdResult(1, "fatal: bad revision 'origin/main...HEAD'"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, r"failed to detect frontend file changes"):
+                agent_pr_preflight.branch_touches_frontend("/tmp/repo")
+
+
 class EndToEndFlowTests(unittest.TestCase):
     """Full main() success and failure paths."""
 
     def _mock_valid_flow(self) -> tuple:
         issue_payload = '{"number": 42, "state": "OPEN", "title": "test", "url": "https://example.com"}'
-        pr_payload = '[{"number": 100, "body": "Closes #42", "url": "https://github.com/test/pull/100"}]'
+        pr_payload = json.dumps(
+            [{"number": 100, "body": make_pr_body(), "url": "https://github.com/test/pull/100"}]
+        )
 
         git_root_mock = mock.patch.object(
             agent_pr_preflight, "git_root", return_value="/tmp/repo"
@@ -217,11 +399,12 @@ class EndToEndFlowTests(unittest.TestCase):
 
         run_mock = mock.patch.object(agent_pr_preflight, "run", side_effect=run_side_effect)
         worktree_mock = mock.patch.object(agent_pr_preflight, "ensure_isolated_worktree")
-        return git_root_mock, branch_mock, run_mock, worktree_mock
+        frontend_mock = mock.patch.object(agent_pr_preflight, "branch_touches_frontend", return_value=False)
+        return git_root_mock, branch_mock, run_mock, worktree_mock, frontend_mock
 
     def test_main_should_pass_with_valid_flow(self) -> None:
-        gm, bm, rm, wm = self._mock_valid_flow()
-        with gm, bm, rm, wm:
+        gm, bm, rm, wm, fm = self._mock_valid_flow()
+        with gm, bm, rm, wm, fm:
             rc = agent_pr_preflight.main()
         self.assertEqual(0, rc)
 
@@ -237,6 +420,10 @@ class EndToEndFlowTests(unittest.TestCase):
             agent_pr_preflight,
             "run",
             return_value=agent_pr_preflight.CmdResult(0, closed_payload),
+        ), mock.patch.object(
+            agent_pr_preflight,
+            "branch_touches_frontend",
+            return_value=False,
         ):
             rc = agent_pr_preflight.main()
         self.assertEqual(1, rc)

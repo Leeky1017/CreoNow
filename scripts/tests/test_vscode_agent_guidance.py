@@ -37,19 +37,57 @@ class VsCodeAgentGuidanceTests(unittest.TestCase):
         self.assertTrue(path.exists(), ".github/copilot-instructions.md must exist")
         text = path.read_text(encoding="utf-8")
         self.assertIn("python3 scripts/agent_github_delivery.py capabilities", text)
+        self.assertIn(".worktrees/issue-<N>-<slug>", text)
+        self.assertIn("scripts/agent_pr_preflight.sh", text)
         self.assertIn("FINAL-VERDICT", text)
         self.assertIn("--enable-auto-merge", text)
+        self.assertIn("zero findings", text)
+        self.assertIn("required checks", text)
+        self.assertIn("截图", text)
+        self.assertIn("Storybook artifact/link", text)
+        self.assertIn("REJECT", text)
         self.assertIn("missing_tool / missing_auth / missing_permission", text)
         self.assertIn("scripts/agent_task_begin.sh", text)
 
     def test_delivery_prompt_should_exist_for_vscode_agent_mode(self) -> None:
-        path = REPO_ROOT / ".github" / "prompts" / "creonow-delivery.prompt.md"
-        self.assertTrue(path.exists(), ".github/prompts/creonow-delivery.prompt.md must exist")
+        prompt_path = REPO_ROOT / ".github" / "prompts" / "creonow-delivery.prompt.md"
+        agent_path = REPO_ROOT / ".github" / "agents" / "creonow-delivery.agent.md"
+        self.assertTrue(prompt_path.exists(), ".github/prompts/creonow-delivery.prompt.md must exist")
+        self.assertTrue(agent_path.exists(), ".github/agents/creonow-delivery.agent.md must exist")
+
+        prompt_text = prompt_path.read_text(encoding="utf-8")
+        self.assertIn("scripts/agent_task_begin.sh", prompt_text)
+        self.assertIn(".worktrees/issue-<N>-<slug>", prompt_text)
+        self.assertIn("scripts/agent_pr_preflight.sh", prompt_text)
+        self.assertIn("required checks", prompt_text)
+        self.assertIn("截图", prompt_text)
+        self.assertIn("Storybook artifact/link", prompt_text)
+        self.assertIn("scripts/agent_github_delivery.py pr-payload", prompt_text)
+        self.assertIn("FINAL-VERDICT", prompt_text)
+        self.assertIn("zero findings", prompt_text)
+
+        agent_text = agent_path.read_text(encoding="utf-8")
+        self.assertIn(".worktrees/issue-<N>-<slug>", agent_text)
+        self.assertIn("scripts/agent_pr_preflight.sh", agent_text)
+        self.assertIn("required checks", agent_text)
+        self.assertIn("Storybook artifact/link", agent_text)
+        self.assertIn("screenshots", agent_text.lower())
+        self.assertIn("FINAL-VERDICT", agent_text)
+        self.assertIn("zero-findings", agent_text)
+
+    def test_pr_template_should_require_delivery_and_visual_gate_sections(self) -> None:
+        path = REPO_ROOT / ".github" / "PULL_REQUEST_TEMPLATE.md"
+        self.assertTrue(path.exists(), ".github/PULL_REQUEST_TEMPLATE.md must exist")
         text = path.read_text(encoding="utf-8")
-        self.assertIn("scripts/agent_task_begin.sh", text)
-        self.assertIn("scripts/agent_pr_preflight.sh", text)
-        self.assertIn("scripts/agent_github_delivery.py pr-payload", text)
-        self.assertIn("FINAL-VERDICT", text)
+        for phrase in (
+            "## Validation Evidence",
+            "## Visual Evidence",
+            "### Embedded Screenshots",
+            "### Storybook Artifact / Link",
+            "## Audit Gate",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
 
     def test_agents_and_claude_should_match_audit_first_policy(self) -> None:
         expected_phrases = (
@@ -70,14 +108,30 @@ class VsCodeAgentGuidanceTests(unittest.TestCase):
         self.assertTrue(agent_path.exists(), ".github/agents/creonow-audit.agent.md must exist")
 
         prompt_text = prompt_path.read_text(encoding="utf-8")
+        self.assertIn(".worktrees/issue-<N>-<slug>", prompt_text)
+        self.assertIn("scripts/agent_pr_preflight.sh", prompt_text)
+        self.assertIn("required checks", prompt_text)
+        self.assertIn("截图", prompt_text)
+        self.assertIn("Storybook artifact/link", prompt_text)
         self.assertIn("PRE-AUDIT", prompt_text)
         self.assertIn("RE-AUDIT", prompt_text)
         self.assertIn("FINAL-VERDICT", prompt_text)
+        self.assertIn("zero findings", prompt_text)
+        self.assertIn("REJECT", prompt_text)
+        self.assertIn("Accept with risk", prompt_text)
         self.assertIn("git diff --numstat", prompt_text)
 
         agent_text = agent_path.read_text(encoding="utf-8")
+        self.assertIn(".worktrees/issue-<N>-<slug>", agent_text)
+        self.assertIn("scripts/agent_pr_preflight.sh", agent_text)
+        self.assertIn("required checks", agent_text)
+        self.assertIn("截图", agent_text)
+        self.assertIn("Storybook artifact/link", agent_text)
         self.assertIn("FINAL-VERDICT", agent_text)
+        self.assertIn("zero findings", agent_text)
         self.assertIn("ACCEPT", agent_text)
+        self.assertIn("REJECT", agent_text)
+        self.assertIn("Accept with risk", agent_text)
 
     def test_fix_ci_prompt_and_agent_should_exist(self) -> None:
         prompt_path = REPO_ROOT / ".github" / "prompts" / "creonow-fix-ci.prompt.md"
@@ -86,12 +140,25 @@ class VsCodeAgentGuidanceTests(unittest.TestCase):
         self.assertTrue(agent_path.exists(), ".github/agents/creonow-fix-ci.agent.md must exist")
 
         prompt_text = prompt_path.read_text(encoding="utf-8")
+        self.assertIn(".worktrees/issue-<N>-<slug>", prompt_text)
         self.assertIn("scripts/agent_pr_preflight.sh", prompt_text)
         self.assertIn("python3 scripts/agent_github_delivery.py capabilities", prompt_text)
+        self.assertIn("required checks", prompt_text)
+        self.assertIn("截图", prompt_text)
+        self.assertIn("Storybook artifact/link", prompt_text)
+        self.assertIn("FINAL-VERDICT", prompt_text)
+        self.assertIn("zero findings", prompt_text)
         self.assertIn("evidence", prompt_text.lower())
         self.assertIn("ci", prompt_text.lower())
 
         agent_text = agent_path.read_text(encoding="utf-8")
+        self.assertIn(".worktrees/issue-<N>-<slug>", agent_text)
+        self.assertIn("scripts/agent_pr_preflight.sh", agent_text)
+        self.assertIn("required checks", agent_text)
+        self.assertIn("Storybook artifact/link", agent_text)
+        self.assertIn("screenshots", agent_text.lower())
+        self.assertIn("FINAL-VERDICT", agent_text)
+        self.assertIn("zero-findings", agent_text)
         self.assertIn("ci", agent_text.lower())
         self.assertIn("Issue", agent_text)
 

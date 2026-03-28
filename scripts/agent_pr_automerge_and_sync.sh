@@ -12,12 +12,12 @@ Behavior:
     - If preflight fails: creates/keeps PR as draft and waits by default
   - Ensures a PR exists (creates one unless --no-create)
   - Keeps auto-merge disabled by default; only enables it when --enable-auto-merge is passed
-  - --enable-auto-merge requires a designated audit comment with FINAL-VERDICT + ACCEPT
+  - --enable-auto-merge requires two independent audit comments with zero findings + FINAL-VERDICT + ACCEPT
   - Syncs local controlplane main to origin/main (unless --no-sync)
 
 Options:
   --skip-preflight           Skip preflight entirely
-  --enable-auto-merge        Explicitly enable auto-merge after audit-pass comment is present
+  --enable-auto-merge        Explicitly enable auto-merge after two independent zero-findings audit comments are present
   --force                   Proceed even if preflight fails
   --no-wait-preflight        Fail fast if preflight fails (still creates draft PR)
   --wait-interval <seconds>  Preflight polling interval (default: 60)
@@ -125,17 +125,25 @@ comment_pr_with_kind() {
 require_audit_pass_comment() {
   local pr_number="$1"
   local pr_url="$2"
-  local comments_json audit_payload audit_pass
+  local comments_json audit_payload audit_pass matching_comments distinct_authors author_check_enforced stats_summary
 
-  comments_json="$(run_gh_with_retry gh pr view "$pr_number" --json comments --jq '.comments | map(.body // "")')"
+  comments_json="$(run_gh_with_retry gh pr view "$pr_number" --json comments --jq '.comments | map({body: (.body // ""), author: (.author.login? // .author.name? // "")})')"
   audit_payload="$(python3 scripts/agent_github_delivery.py audit-pass --comments-json "$comments_json")"
   audit_pass="$(json_get audit_pass <<<"$audit_payload")"
+  matching_comments="$(json_get matching_comments <<<"$audit_payload" || true)"
+  distinct_authors="$(json_get distinct_authors <<<"$audit_payload" || true)"
+  author_check_enforced="$(json_get author_check_enforced <<<"$audit_payload" || true)"
 
   if [[ "$audit_pass" == "true" ]]; then
     return 0
   fi
 
-  echo "ERROR: PR #${pr_number} has no audit-pass comment (`FINAL-VERDICT` + `ACCEPT`); designated audit must finish before auto-merge." >&2
+  stats_summary="matching_comments=${matching_comments:-0}"
+  if [[ "$author_check_enforced" == "true" ]]; then
+    stats_summary="${stats_summary}, distinct_authors=${distinct_authors:-0}"
+  fi
+
+  echo "ERROR: PR #${pr_number} does not yet satisfy the double-audit zero-findings gate (`FINAL-VERDICT` + `ACCEPT`; ${stats_summary}). Two independent audit agents must each post a qualifying comment before auto-merge." >&2
   comment_pr_with_kind "$pr_number" "audit-required" "$pr_url"
   exit 1
 }
@@ -482,7 +490,7 @@ fi
 PR_URL="$(run_gh_with_retry gh pr view "$PR_NUMBER" --json url --jq '.url')"
 
 if [[ "$ENABLE_AUTO_MERGE" != "true" ]]; then
-  echo "INFO: PR #${PR_NUMBER} is ready. Auto-merge is disabled by default; rerun with --enable-auto-merge after the designated audit comment (`FINAL-VERDICT` + `ACCEPT`) is present." >&2
+  echo "INFO: PR #${PR_NUMBER} is ready. Auto-merge is disabled by default; rerun with --enable-auto-merge after two independent zero-findings audit comments (`FINAL-VERDICT` + `ACCEPT`) are present." >&2
   exit 0
 fi
 
