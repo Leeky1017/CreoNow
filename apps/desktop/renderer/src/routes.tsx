@@ -17,7 +17,7 @@ export const router = createHashRouter([
       { index: true, element: <Navigate to="/app/dashboard" replace /> },
       { path: 'app/dashboard', element: <DashboardPage /> },
       { path: 'app/files', element: <FilesPage /> },
-      { path: 'app/editor', element: <EditorPage /> },
+      { path: 'app/editor/:docId?', element: <EditorPage /> },
       { path: 'app/analytics', element: <AnalyticsPage /> },
       { path: 'app/characters', element: <CharactersPage /> },
       { path: 'app/knowledge-graph', element: <KnowledgeGraphPage /> },

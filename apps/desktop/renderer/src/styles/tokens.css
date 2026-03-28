@@ -21,6 +21,8 @@
   --color-popover-foreground: #f0f0f0;
   --color-accent-foreground: #ffffff;
   --color-destructive-foreground: #ffffff;
+  --color-hover-overlay: rgba(255, 255, 255, 0.06);
+  --color-hover-subtle: rgba(255, 255, 255, 0.04);
   --color-scrollbar: rgba(255, 255, 255, 0.10);
   --color-scrollbar-hover: rgba(255, 255, 255, 0.20);
   --color-slider-track: rgba(255, 255, 255, 0.15);

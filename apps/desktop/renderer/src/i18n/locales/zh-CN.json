@@ -8,6 +8,7 @@
     }
   },
   "nav": {
+    "search": "搜索",
     "dashboard": "仪表盘",
     "editor": "编辑器",
     "files": "文件",

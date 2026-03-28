@@ -30,7 +30,7 @@ export function FolderNode({
         className={cn(
           'flex items-center gap-1 w-full h-8 px-2 text-sm text-left',
           'transition-colors duration-fast ease-out',
-          'hover:bg-[rgba(255,255,255,0.04)]',
+          'hover:bg-hover-subtle',
           selected && 'bg-accent-subtle border-l-2 border-accent',
           !selected && 'border-l-2 border-transparent',
         )}
@@ -44,7 +44,7 @@ export function FolderNode({
           )}
         />
         <Folder size={16} strokeWidth={1.5} className="shrink-0 text-muted-foreground" />
-        <span className="truncate text-foreground">{name}</span>
+        <span className={cn('truncate', selected ? 'text-foreground' : 'text-muted-foreground')}>{name}</span>
       </button>
       {open && <div className="pl-3">{children}</div>}
     </div>

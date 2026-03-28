@@ -8,6 +8,7 @@
     }
   },
   "nav": {
+    "search": "Search",
     "dashboard": "Dashboard",
     "editor": "Editor",
     "files": "Files",
