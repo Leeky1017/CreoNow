@@ -168,6 +168,43 @@ class AuditGateTests(unittest.TestCase):
         self.assertEqual(2, evaluation.distinct_authors)
         self.assertTrue(evaluation.author_check_enforced)
 
+    def test_audit_pass_should_fail_when_comments_include_non_blocking_findings(self) -> None:
+        evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+            [
+                {
+                    "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT\n\nnon-blocking: wording tweak",
+                    "author": "audit-agent-a",
+                },
+                {
+                    "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
+                    "author": "audit-agent-b",
+                },
+            ]
+        )
+
+        self.assertFalse(evaluation.audit_pass)
+        self.assertEqual(1, evaluation.matching_comments)
+        self.assertEqual(1, evaluation.distinct_authors)
+        self.assertTrue(evaluation.author_check_enforced)
+
+    def test_audit_pass_should_fail_when_comments_include_finding_word_variants(self) -> None:
+        variants = ["nonblocking", "suggestions", "nitpick"]
+        for variant in variants:
+            with self.subTest(variant=variant):
+                evaluation = agent_github_delivery.evaluate_audit_pass_comments(
+                    [
+                        {
+                            "body": f"## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT\n\n{variant}: follow-up",
+                            "author": "audit-agent-a",
+                        },
+                        {
+                            "body": "## FINAL-VERDICT\n\nzero findings\n\n### 最终判定：ACCEPT",
+                            "author": "audit-agent-b",
+                        },
+                    ]
+                )
+                self.assertFalse(evaluation.audit_pass)
+
     def test_audit_pass_should_fail_without_zero_findings_or_accept(self) -> None:
         self.assertFalse(
             agent_github_delivery.has_audit_pass_comment(

@@ -35,7 +35,12 @@ IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\([^)]+\)|<img\b[^>]*>", re.IGNORECASE)
 NA_VALUE_PATTERN = re.compile(r"(?i)^(?:-\s*\[[xX]\]\s*)?N/A(?:（[^）]+）|\([^)]+\))?$")
 EMPTY_BULLET_PATTERN = re.compile(r"^-\s*$")
 EMPTY_CHECKBOX_PATTERN = re.compile(r"^-\s*\[[ xX]\]\s*$")
-EMPTY_LABEL_PATTERN = re.compile(r"^-\s*[^:]+:\s*$")
+EMPTY_LABEL_PATTERN = re.compile(r"^-\s*[^:：]+[:：]\s*$")
+POSITIVE_STATUS_PATTERN = re.compile(r"\b(pass|passed|ok|green|success)\b", re.IGNORECASE)
+NEGATIVE_STATUS_PATTERN = re.compile(
+    r"\b(pending|running|fail|failed|error|red|blocked|cancelled|canceled)\b",
+    re.IGNORECASE,
+)
 
 
 def run(cmd: list[str], *, cwd: str | None = None) -> CmdResult:
@@ -220,12 +225,13 @@ def require_section(
 
 
 def extract_labeled_value(content: str, label: str) -> str:
-    prefix = f"- {label}:"
     normalized = normalize_section_content(content)
     for line in normalized.splitlines():
         stripped = line.strip()
-        if stripped.startswith(prefix):
-            return stripped[len(prefix):].strip()
+        for sep in (":", "："):
+            prefix = f"- {label}{sep}"
+            if stripped.startswith(prefix):
+                return stripped[len(prefix):].strip()
     return ""
 
 
@@ -236,7 +242,7 @@ def is_na_value(value: str | None) -> bool:
     return NA_VALUE_PATTERN.fullmatch(normalized) is not None
 
 
-def validate_visual_evidence(pr: PullRequest) -> None:
+def validate_visual_evidence(pr: PullRequest, *, frontend_required: bool) -> None:
     require_section(pr, "Visual Evidence", level=2, require_content=False)
     screenshots_section = require_section(pr, "Embedded Screenshots", level=3)
     storybook_section = require_section(pr, "Storybook Artifact / Link", level=3)
@@ -249,6 +255,10 @@ def validate_visual_evidence(pr: PullRequest) -> None:
         and is_na_value(storybook_link)
         and is_na_value(visual_acceptance_note)
     ):
+        if frontend_required:
+            raise RuntimeError(
+                f"[PR] #{pr.number} frontend changes require screenshots + Storybook link + visual acceptance note; N/A is not allowed (url: {pr.url})"
+            )
         return
 
     if IMAGE_PATTERN.search(normalize_section_content(screenshots_section)) is None:
@@ -272,15 +282,43 @@ def validate_audit_gate(pr: PullRequest) -> None:
         raise RuntimeError(
             f"[PR] #{pr.number} audit gate must include a non-empty `scripts/agent_pr_preflight.sh` entry (url: {pr.url})"
         )
+    preflight_normalized = normalize_section_content(preflight_status)
+    if NEGATIVE_STATUS_PATTERN.search(preflight_normalized) or not POSITIVE_STATUS_PATTERN.search(preflight_normalized):
+        raise RuntimeError(
+            f"[PR] #{pr.number} audit gate preflight status must be PASS/OK/GREEN (url: {pr.url})"
+        )
 
     required_checks = extract_labeled_value(audit_gate, "Required checks")
     if not has_meaningful_content(required_checks):
         raise RuntimeError(
             f"[PR] #{pr.number} audit gate must include a non-empty `Required checks` entry (url: {pr.url})"
         )
+    checks_normalized = normalize_section_content(required_checks)
+    if NEGATIVE_STATUS_PATTERN.search(checks_normalized) or not POSITIVE_STATUS_PATTERN.search(checks_normalized):
+        raise RuntimeError(
+            f"[PR] #{pr.number} audit gate required checks must indicate GREEN/SUCCESS status (url: {pr.url})"
+        )
 
 
-def validate_pr_body_format(pr: PullRequest, issue_number: str) -> None:
+def branch_touches_frontend(repo: str) -> bool:
+    cmd = ["git", "diff", "--name-only", "origin/main...HEAD"]
+    result = run(cmd, cwd=repo)
+    print_command_and_output(cmd, result)
+    if result.code != 0:
+        raise RuntimeError(
+            "[PR] failed to detect frontend file changes from `origin/main...HEAD`; run preflight from a synced task worktree"
+        )
+
+    for raw_line in result.out.splitlines():
+        file_path = raw_line.strip()
+        if not file_path:
+            continue
+        if file_path.startswith("apps/desktop/renderer/") or file_path.startswith("apps/desktop/.storybook/"):
+            return True
+    return False
+
+
+def validate_pr_body_format(pr: PullRequest, issue_number: str, *, frontend_required: bool = False) -> None:
     pattern = re.compile(rf"(?i)\bcloses\s+#\s*{re.escape(issue_number)}\b")
     if not pattern.search(pr.body):
         raise RuntimeError(
@@ -288,7 +326,7 @@ def validate_pr_body_format(pr: PullRequest, issue_number: str) -> None:
         )
     require_section(pr, "Validation Evidence", level=2)
     require_section(pr, "Risk & Rollback", level=2)
-    validate_visual_evidence(pr)
+    validate_visual_evidence(pr, frontend_required=frontend_required)
     validate_audit_gate(pr)
 
 
@@ -312,7 +350,7 @@ def main() -> int:
 
         print("\n== PR checks ==")
         pr = query_open_pr_for_branch(repo, branch)
-        validate_pr_body_format(pr, issue_number)
+        validate_pr_body_format(pr, issue_number, frontend_required=branch_touches_frontend(repo))
         print(f"PR body OK: #{pr.number} satisfies the delivery contract for issue #{issue_number}")
 
         print("\nOK: preflight checks passed")

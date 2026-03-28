@@ -63,6 +63,9 @@ DEFAULT_FRONTEND_VISUAL_NOTE_PLACEHOLDER = "TODO: describe the states covered by
 AUDIT_PASS_COMMENT_PATTERN = re.compile(
     r"(?is)(?=.*\bFINAL-VERDICT\b)(?=.*\bACCEPT\b)(?=.*\bzero(?:\s+|-)findings\b)"
 )
+AUDIT_DISQUALIFY_PATTERN = re.compile(
+    r"(?is)\b(non[-\s]?blocking|suggestions?|nits?|nitpick(?:s|ing)?|tiny\s+issues?|accept\s+with\s+risk|accept\s+but|\bREJECT\b)\b"
+)
 
 
 def run(cmd: Sequence[str], *, cwd: str | None = None) -> CmdResult:
@@ -380,7 +383,12 @@ def _normalize_audit_comments(raw_comments: Sequence[object]) -> list[AuditComme
 
 def evaluate_audit_pass_comments(raw_comments: Sequence[object]) -> AuditPassEvaluation:
     comments = _normalize_audit_comments(raw_comments)
-    matching_comments = [comment for comment in comments if AUDIT_PASS_COMMENT_PATTERN.search(comment.body)]
+    matching_comments = [
+        comment
+        for comment in comments
+        if AUDIT_PASS_COMMENT_PATTERN.search(comment.body)
+        and not AUDIT_DISQUALIFY_PATTERN.search(comment.body)
+    ]
     author_check_enforced = any(comment.author for comment in comments)
     distinct_authors = len({comment.author.casefold() for comment in matching_comments if comment.author})
 

@@ -97,9 +97,9 @@ pnpm -C apps/desktop storybook:build         # Storybook（前端）
 
 ### P3. Gates（门禁全绿）
 
-- 工程 Agent 只有在 PR 已创建或更新，且正文含 `Closes #N`、验证证据、回滚点、审计门禁，`scripts/agent_pr_preflight.sh` 已通过，required checks（`ci`、`merge-serial` 等）全绿后，才具备“可交审”资格
+- 工程 Agent 只有在 PR 已创建或更新，且正文含 `Closes #N`、验证证据、回滚点、审计门禁，`scripts/agent_pr_preflight.sh` 已通过，required checks（例如 `check` 与仓库分支保护要求）全绿后，才具备“可交审”资格
 - 前端改动若未在 PR 正文直接嵌入至少 1 张截图，或未附可点击 Storybook artifact/link（适用时）与视觉验收说明，视为未完成，不得交审
-- PR 必须通过 required checks（`ci`、`merge-serial`）；auto-merge 默认关闭
+- PR 必须通过 required checks（例如 `check` 与仓库分支保护要求）；auto-merge 默认关闭
 - 仅在两个独立审计 Agent 都对 zero findings 的 PR 发布 `FINAL-VERDICT` + `ACCEPT` 后，才可显式开启 auto-merge
 - GitHub 远程动作前先运行 `python3 scripts/agent_github_delivery.py capabilities`
 - CI 不绿不合并，不得「先合并再修」；交付完成 = 代码已合并到 `main`

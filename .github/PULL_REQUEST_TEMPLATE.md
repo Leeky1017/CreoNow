@@ -61,8 +61,8 @@ N/A
 
 <!-- 只有达到可交审条件后才请求审计 -->
 
-- `scripts/agent_pr_preflight.sh`：
-- Required checks：
+- `scripts/agent_pr_preflight.sh`:
+- Required checks:
 
 ## Checklist
 
