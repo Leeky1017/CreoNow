@@ -1,11 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "types": ["node"],
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./renderer/src/*"],
+      "@shared/*": ["../../packages/shared/*"]
+    }
   },
   "include": [
     "electron.vite.config.ts",
+    ".storybook/**/*.ts",
     "main/src/**/*.ts",
     "preload/src/**/*.ts",
     "renderer/src/**/*.ts",

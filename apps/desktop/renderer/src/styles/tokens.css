@@ -17,6 +17,13 @@
   --color-overlay: #161616;
   --color-modal: #1a1a1a;
   --color-toast: #222222;
+  --color-popover: #0a0a0a;
+  --color-popover-foreground: #f0f0f0;
+  --color-accent-foreground: #ffffff;
+  --color-destructive-foreground: #ffffff;
+  --color-scrollbar: rgba(255, 255, 255, 0.10);
+  --color-scrollbar-hover: rgba(255, 255, 255, 0.20);
+  --color-slider-track: rgba(255, 255, 255, 0.15);
 
   /* === Spacing (4px grid) === */
   --spacing-1: 4px;
