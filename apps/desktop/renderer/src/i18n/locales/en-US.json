@@ -49,7 +49,11 @@
   "shell": {
     "contextPanel": {
       "files": "Files",
-      "outline": "Outline"
+      "outline": "Outline",
+      "outlinePlaceholder": "No document open",
+      "quickStats": "Quick Stats",
+      "quickStatsPlaceholder": "Stats will appear here",
+      "resize": "Resize sidebar"
     }
   },
   "pages": {
@@ -58,5 +62,103 @@
     "characters": "Characters",
     "knowledgeGraph": "Knowledge Graph",
     "calendar": "Calendar"
+  },
+  "dashboard": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "night": "Late night writing?"
+    },
+    "date": "{{date}}",
+    "kpi": {
+      "todayWords": "Today's Words",
+      "weeklyWords": "Weekly Words",
+      "activeProjects": "Active Projects",
+      "writingStreak": "Writing Streak"
+    },
+    "heatmap": {
+      "title": "Writing Activity",
+      "words": "{{count}} words",
+      "less": "Less",
+      "more": "More"
+    },
+    "recentDocs": {
+      "title": "Recent Documents",
+      "words": "{{count}} words"
+    },
+    "suggestions": {
+      "title": "AI Suggestions",
+      "continueLast": "Continue where you left off in Chapter 12",
+      "reviewCharacter": "Review and enrich Aria's character arc",
+      "expandOutline": "Expand the plot outline for Act 3"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+      "appearance": "Appearance",
+      "editor": "Editor",
+      "ai": "AI",
+      "account": "Account",
+      "shortcuts": "Shortcuts"
+    },
+    "appearance": {
+      "theme": {
+        "title": "Theme",
+        "description": "Choose your preferred color theme.",
+        "dark": "Dark",
+        "light": "Light",
+        "system": "System"
+      },
+      "fontSize": {
+        "title": "Interface Font Size",
+        "label": "Font Size",
+        "description": "Current: {{value}}px"
+      }
+    },
+    "editor": {
+      "font": {
+        "title": "Font Settings",
+        "family": "Font Family",
+        "size": "Font Size",
+        "sizeDescription": "Current: {{value}}px",
+        "lineHeight": "Line Height",
+        "lineHeightDescription": "Current: {{value}}"
+      },
+      "behavior": {
+        "title": "Behavior",
+        "autoSave": "Auto Save"
+      }
+    },
+    "ai": {
+      "model": {
+        "title": "Model",
+        "description": "Select the AI model for writing assistance.",
+        "selector": "Model"
+      },
+      "parameters": {
+        "title": "Parameters",
+        "temperature": "Temperature",
+        "temperatureDescription": "Current: {{value}}"
+      }
+    },
+    "account": {
+      "profile": {
+        "title": "Profile",
+        "description": "Your account information.",
+        "guest": "Guest User",
+        "localMode": "Local mode — no cloud sync"
+      }
+    },
+    "shortcuts": {
+      "title": "Keyboard Shortcuts",
+      "toggleSidebar": "Toggle Sidebar",
+      "openSettings": "Open Settings",
+      "save": "Save",
+      "undo": "Undo",
+      "redo": "Redo",
+      "newFile": "New File"
+    }
   }
 }

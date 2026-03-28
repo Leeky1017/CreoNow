@@ -27,6 +27,17 @@
   --color-scrollbar-hover: rgba(255, 255, 255, 0.20);
   --color-slider-track: rgba(255, 255, 255, 0.15);
 
+  /* === Heatmap === */
+  --color-heatmap-0: #0a0a0a;
+  --color-heatmap-1: rgba(122, 162, 247, 0.15);
+  --color-heatmap-2: rgba(122, 162, 247, 0.35);
+  --color-heatmap-3: rgba(122, 162, 247, 0.60);
+  --color-heatmap-4: #7aa2f7;
+
+  /* === Modal / Form === */
+  --color-modal-overlay: rgba(0, 0, 0, 0.6);
+  --color-input-bg: rgba(255, 255, 255, 0.08);
+
   /* === Spacing (4px grid) === */
   --spacing-1: 4px;
   --spacing-2: 8px;

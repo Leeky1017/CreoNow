@@ -5,7 +5,7 @@ const mockEditor = {
   getHTML: () => '<p>Hello world</p>',
 } as unknown as Parameters<typeof EditorView>[0]['editor'];
 
-const meta = {
+const meta: Meta<typeof EditorView> = {
   title: 'Features/EditorView',
   component: EditorView,
   tags: ['autodocs'],
@@ -16,7 +16,7 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof EditorView>;
+};
 
 export default meta;
 type Story = StoryObj<typeof meta>;
