@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
+import tailwindcss from "@tailwindcss/vite";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sharedAliasPath = path.join(__dirname, "../../packages/shared");
@@ -69,6 +70,22 @@ export default defineConfig({
           format: "cjs",
           entryFileNames: "[name].cjs",
         },
+      },
+    },
+  },
+  renderer: {
+    root: path.join(__dirname, 'renderer'),
+    plugins: [tailwindcss()],
+    resolve: {
+      alias: {
+        '@': path.join(__dirname, 'renderer/src'),
+        '@shared': sharedAliasPath,
+      },
+    },
+    build: {
+      outDir: path.join(__dirname, 'dist/renderer'),
+      rollupOptions: {
+        input: path.join(__dirname, 'renderer/index.html'),
       },
     },
   },
