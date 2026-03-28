@@ -12,13 +12,19 @@
     "typecheck": "tsc --noEmit",
     "test:unit": "pnpm desktop:ensure-native-node-abi && node --import tsx scripts/run-discovered-tests.ts --mode unit",
     "test:integration": "node --import tsx scripts/run-discovered-tests.ts --mode integration",
-    "test": "pnpm test:unit && pnpm test:integration"
+    "test": "pnpm test:unit && pnpm test:integration",
+    "test:renderer": "cd apps/desktop && npx vitest run --config vitest.config.ts",
+    "lint": "eslint ."
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/node": "^20.11.0",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "prettier": "^3.2.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.57.2"
   },
   "engines": {
     "node": ">=18.0.0",

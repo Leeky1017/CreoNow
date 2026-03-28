@@ -6,46 +6,109 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  check:
+  lint-and-typecheck:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
         with:
           version: 8
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
-
       - run: pnpm install --frozen-lockfile
-
+      - name: Lint
+        run: pnpm lint
       - name: Type check
         run: pnpm typecheck
 
+  test-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - name: IPC contract check
         run: pnpm contract:check
-
       - name: Stub gate
         run: node --import tsx scripts/service-stub-detector-gate.ts
-
       - name: Unit tests
         run: pnpm test:unit
-
       - name: Integration tests
         run: pnpm test:integration
 
+  test-renderer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Renderer tests
+        run: cd apps/desktop && npx vitest run --config vitest.config.ts
+
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Python tests
         run: |
           pip install -r scripts/requirements.txt 2>/dev/null || true
           pytest -q scripts/tests
 
+  storybook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Build Storybook
+        run: cd apps/desktop && pnpm storybook:build
+      - name: Upload Storybook artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: storybook
+          path: apps/desktop/storybook-static
+          retention-days: 14
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, test-core, test-renderer]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - name: Electron build
         run: pnpm desktop:build

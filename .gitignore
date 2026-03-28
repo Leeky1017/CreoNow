@@ -1,13 +1,37 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
+storybook-static/
+apps/desktop/dist/
+apps/desktop/dist-electron/
 coverage/
+
+# Database
 *.db
 *.db-wal
 *.db-shm
+
+# Environment
 .env
 .env.local
+
+# Models
 *.onnx
-apps/desktop/dist/
-apps/desktop/dist-electron/
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Zone.Identifier (WSL artifacts)
+*:Zone.Identifier
+
+# Python
 __pycache__/
 .pytest_cache/

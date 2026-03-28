@@ -25,6 +25,10 @@
 | 查看 V1/V2 源码 | [30-reference-v1-v2/](30-reference-v1-v2/) |
 | 了解构建路线 | [40.1 分阶段路线](40-implementation-guides/40.1-build-roadmap.md) |
 | 了解前端量化指标 | [10.5 量化目标](10-architecture/10.5-quantitative-targets.md) |
+| 查阅术语定义 | [99.4 术语表](99-appendix/99.4-glossary.md) |
+| 了解明确不做什么 | [99.5 Non-Goals](99-appendix/99.5-non-goals.md) |
+| 查找模块对应文档 | [99.6 模块索引](99-appendix/99.6-module-index.md) |
+| 写测试 | [40.4 测试规范](40-implementation-guides/40.4-testing-ssot.md) → [testing-guide.md](../references/testing-guide.md) |
 
 ## 权威与变更规则
 
