@@ -1,19 +1,27 @@
 /**
  * Custom ESLint rule: no-raw-tailwind-tokens
  *
- * Forbids raw Tailwind color values (e.g., bg-red-600, text-gray-300)
- * in ANY string literal or template literal. This covers all usage patterns:
- *   - className="bg-red-600"           (direct JSX attribute)
- *   - className={`shadow-lg ${x}`}     (template literal)
- *   - ["shadow-2xl", ...].join(" ")    (array → join)
- *   - cn("hover:bg-red-600", ...)      (clsx/cn helper)
- *   - { color: "text-blue-400" }       (object property value)
+ * Forbids raw Tailwind color values in ANY string literal or template literal.
  *
- * Note: shadow-xs/sm/md/lg/xl/2xl are exported via @theme and map to
- * our design tokens. They are no longer flagged.
+ * Two categories of violations:
  *
- * The regex patterns are specific enough (e.g., bg-red-600) that false
- * positives on non-Tailwind strings are essentially impossible.
+ * 1. **Shaded color utilities** (rawColor):
+ *    bg-red-600, text-gray-300, border-blue-500, ring-emerald-200, etc.
+ *    Also with modifiers (hover:bg-red-600) and opacity (bg-red-600/50).
+ *
+ * 2. **Named raw color utilities** (rawNamedColor):
+ *    text-white, text-black, bg-white, bg-black, border-white, etc.
+ *    These bypass the design token system by using CSS named colors directly.
+ *
+ * Allowed exceptions:
+ *   - shadow-xs/sm/md/lg/xl/2xl — exported via @theme, map to design tokens
+ *   - bg-transparent, text-transparent — CSS keyword, not a design color
+ *   - text-current, border-current — CSS keyword
+ *   - text-inherit — CSS keyword
+ *   - Explicit allowlist via rule options
+ *
+ * Coverage: applies to all .ts/.tsx files including *.stories.tsx.
+ * The lint-ratchet runner uses `--ext .ts,.tsx` which includes stories.
  *
  * @see docs/references/design-ui-architecture.md
  */
@@ -28,17 +36,53 @@ const rule = {
     },
     messages: {
       rawColor:
-        "Avoid raw Tailwind color '{{value}}'. Use a semantic Design Token instead. See docs/references/design-ui-architecture.md.",
+        "[shaded-color] Avoid raw Tailwind color '{{value}}'. Use a semantic Design Token instead. See docs/references/design-ui-architecture.md.",
+      rawNamedColor:
+        "[named-color] Avoid raw Tailwind color '{{value}}'. Use a semantic Design Token (e.g. text-foreground, bg-surface) instead. See docs/references/design-ui-architecture.md.",
     },
-    schema: [],
+    schema: [
+      {
+        type: "object",
+        properties: {
+          allowlist: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Explicit list of raw color utilities to allow (e.g. ['text-white'] for a known exception). The base utility without modifier prefix is matched.",
+          },
+        },
+        additionalProperties: false,
+      },
+    ],
   },
 
   create(context) {
-    // Matches: bg-red-600, text-gray-300, border-blue-500, ring-emerald-200, etc.
-    // Also matches modifier prefixes: hover:bg-red-600, focus:text-gray-300
-    // Also matches opacity suffixes: shadow-red-500/20, bg-red-600/50
+    const options = context.options[0] || {};
+    const allowlist = new Set(options.allowlist || []);
+
+    // ── Pattern 1: Shaded color utilities ──────────────────────────
+    // Matches: bg-red-600, text-gray-300, border-blue-500, etc.
+    // Also matches modifier prefixes: hover:bg-red-600
+    // Also matches opacity suffixes: shadow-red-500/20
     const RAW_COLOR_RE =
-      /\b(?:[\w-]*:)?(?:bg|text|border|ring|shadow|outline|fill|stroke|from|via|to|divide|placeholder|accent|caret|decoration)-(?:red|blue|green|yellow|purple|pink|indigo|violet|cyan|teal|emerald|lime|amber|orange|fuchsia|rose|sky|slate|gray|zinc|neutral|stone|warm)-\d{1,3}(?:\/\d{1,3})?\b/g;
+      /\b(?:([\w-]*):)?(?:bg|text|border|ring|shadow|outline|fill|stroke|from|via|to|divide|placeholder|accent|caret|decoration)-(?:red|blue|green|yellow|purple|pink|indigo|violet|cyan|teal|emerald|lime|amber|orange|fuchsia|rose|sky|slate|gray|zinc|neutral|stone|warm)-\d{1,3}(?:\/\d{1,3})?\b/g;
+
+    // ── Pattern 2: Named raw color utilities ───────────────────────
+    // Matches: text-white, bg-black, border-white, ring-black, etc.
+    // Does NOT match: bg-transparent, text-current, text-inherit (CSS keywords)
+    // Does NOT match: whitespace-nowrap (not a color utility prefix)
+    const RAW_NAMED_COLOR_RE =
+      /\b(?:([\w-]*):)?(bg|text|border|ring|shadow|outline|fill|stroke|from|via|to|divide|placeholder|accent|caret|decoration)-(white|black)(?:\/(\d{1,3}))?\b/g;
+
+    /**
+     * Strip modifier prefix to get the base utility for allowlist matching.
+     * "hover:text-white" → "text-white"
+     */
+    function stripModifier(matched) {
+      const colonIdx = matched.lastIndexOf(":");
+      if (colonIdx === -1) return matched;
+      return matched.slice(colonIdx + 1);
+    }
 
     /**
      * Check a string value for raw Tailwind tokens.
@@ -46,12 +90,27 @@ const rule = {
      * @param {string} value
      */
     function checkValue(node, value) {
+      // Check shaded colors (bg-red-600 etc.)
       let match;
       RAW_COLOR_RE.lastIndex = 0;
       while ((match = RAW_COLOR_RE.exec(value)) !== null) {
+        const base = stripModifier(match[0]);
+        if (allowlist.has(base)) continue;
         context.report({
           node,
           messageId: "rawColor",
+          data: { value: match[0] },
+        });
+      }
+
+      // Check named colors (text-white, bg-black etc.)
+      RAW_NAMED_COLOR_RE.lastIndex = 0;
+      while ((match = RAW_NAMED_COLOR_RE.exec(value)) !== null) {
+        const base = stripModifier(match[0]);
+        if (allowlist.has(base)) continue;
+        context.report({
+          node,
+          messageId: "rawNamedColor",
           data: { value: match[0] },
         });
       }
@@ -64,8 +123,6 @@ const rule = {
      */
     function isInsideComment(node) {
       const parent = node.parent;
-      // Skip string literals that are the expression of an ExpressionStatement
-      // at the Program/top level (often stray doc strings that got parsed).
       return (
         parent &&
         parent.type === "ExpressionStatement" &&
