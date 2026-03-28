@@ -23,5 +23,39 @@
     "cancel": "取消",
     "delete": "删除",
     "confirm": "确认"
+  },
+  "editor": {
+    "placeholder": "开始写作…",
+    "toolbar": {
+      "bold": "加粗",
+      "italic": "斜体",
+      "heading1": "标题 1",
+      "heading2": "标题 2",
+      "bulletList": "无序列表",
+      "orderedList": "有序列表"
+    },
+    "error": {
+      "title": "编辑器加载失败",
+      "retry": "重试"
+    }
+  },
+  "fileTree": {
+    "newFile": "新建文件",
+    "newFolder": "新建文件夹",
+    "rename": "重命名",
+    "delete": "删除"
+  },
+  "shell": {
+    "contextPanel": {
+      "files": "文件",
+      "outline": "大纲"
+    }
+  },
+  "pages": {
+    "dashboard": "仪表盘",
+    "analytics": "数据分析",
+    "characters": "角色",
+    "knowledgeGraph": "知识图谱",
+    "calendar": "日历"
   }
 }

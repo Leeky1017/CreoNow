@@ -1,25 +1,28 @@
-import { createHashRouter } from 'react-router';
-import { useTranslation } from 'react-i18next';
+import { createHashRouter, Navigate } from 'react-router';
 import { LayoutShell } from './shell/LayoutShell';
-
-function PlaceholderPage({ nameKey }: { nameKey: string }) {
-  const { t } = useTranslation();
-  return <div className="flex items-center justify-center h-full text-muted-foreground">{t(nameKey)}</div>;
-}
+import { DashboardPage } from './pages/DashboardPage';
+import { FilesPage } from './pages/FilesPage';
+import { EditorPage } from './pages/EditorPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { CharactersPage } from './pages/CharactersPage';
+import { KnowledgeGraphPage } from './pages/KnowledgeGraphPage';
+import { CalendarPage } from './pages/CalendarPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 export const router = createHashRouter([
   {
     path: '/',
     element: <LayoutShell />,
     children: [
-      { index: true, element: <PlaceholderPage nameKey="nav.dashboard" /> },
-      { path: 'editor', element: <PlaceholderPage nameKey="nav.editor" /> },
-      { path: 'files', element: <PlaceholderPage nameKey="nav.files" /> },
-      { path: 'analytics', element: <PlaceholderPage nameKey="nav.analytics" /> },
-      { path: 'kg', element: <PlaceholderPage nameKey="nav.knowledgeGraph" /> },
-      { path: 'characters', element: <PlaceholderPage nameKey="nav.characters" /> },
-      { path: 'calendar', element: <PlaceholderPage nameKey="nav.calendar" /> },
-      { path: 'settings', element: <PlaceholderPage nameKey="nav.settings" /> },
+      { index: true, element: <Navigate to="/app/dashboard" replace /> },
+      { path: 'app/dashboard', element: <DashboardPage /> },
+      { path: 'app/files', element: <FilesPage /> },
+      { path: 'app/editor', element: <EditorPage /> },
+      { path: 'app/analytics', element: <AnalyticsPage /> },
+      { path: 'app/characters', element: <CharactersPage /> },
+      { path: 'app/knowledge-graph', element: <KnowledgeGraphPage /> },
+      { path: 'app/calendar', element: <CalendarPage /> },
+      { path: 'settings', element: <SettingsPage /> },
     ],
   },
 ]);
