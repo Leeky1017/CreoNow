@@ -20,7 +20,7 @@ export function AITab() {
             disabled
             className="h-9 w-full rounded-md border border-border bg-input-bg px-3 text-sm text-muted-foreground transition-colors duration-fast ease-out"
           >
-            <option>GPT-4o</option>
+            <option>{t('settings.ai.model.defaultModel')}</option>
           </select>
         </FormField>
       </SettingsSection>

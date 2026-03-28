@@ -55,11 +55,11 @@ export function SettingsModal() {
   return (
     <Dialog.Root open onOpenChange={(open) => !open && handleClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-modal-overlay backdrop-blur-sm animate-in fade-in-0 duration-normal" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-modal-overlay backdrop-blur-sm animate-overlay-show" />
         <Dialog.Content
           className={cn(
             'fixed inset-0 z-50 flex items-center justify-center',
-            'animate-in fade-in-0 zoom-in-95 duration-normal ease-out',
+            'animate-content-show',
           )}
           onEscapeKeyDown={handleClose}
         >

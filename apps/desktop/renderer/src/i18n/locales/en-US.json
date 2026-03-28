@@ -135,7 +135,8 @@
       "model": {
         "title": "Model",
         "description": "Select the AI model for writing assistance.",
-        "selector": "Model"
+        "selector": "Model",
+        "defaultModel": "GPT-4o"
       },
       "parameters": {
         "title": "Parameters",

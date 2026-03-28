@@ -114,7 +114,7 @@ export function ContextPanel() {
         <div
           className={cn(
             'absolute top-0 right-0 w-1 h-full cursor-col-resize',
-            'hover:bg-accent/30 active:bg-accent/50',
+            'hover:bg-accent-subtle active:bg-accent-muted',
             'transition-colors duration-fast ease-out',
           )}
           onMouseDown={handleMouseDown}

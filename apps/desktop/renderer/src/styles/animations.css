@@ -1,1 +1,19 @@
 /* Animation utilities using duration/easing tokens */
+
+@keyframes overlay-show {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes content-show {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-overlay-show {
+  animation: overlay-show var(--duration-normal) var(--ease-out);
+}
+
+.animate-content-show {
+  animation: content-show var(--duration-normal) var(--ease-out);
+}
