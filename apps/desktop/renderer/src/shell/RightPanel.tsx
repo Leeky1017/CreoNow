@@ -1,7 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Bot, Info, CheckCircle, Send } from 'lucide-react';
+import { Bot, Info, CheckCircle } from 'lucide-react';
 import { useLayoutStore } from '@/stores/ui/layoutStore';
+import { useDocumentStore } from '@/stores/business/documentStore';
 import { ScrollArea } from '@/components/primitives';
+import { AIPanel } from '@/features/ai-panel/AIPanel';
 import { cn } from '@/lib/cn';
 import type { LucideIcon } from 'lucide-react';
 
@@ -17,60 +19,23 @@ const tabs: TabDef[] = [
   { id: 'quality', icon: CheckCircle, labelKey: 'rightPanel.tabs.quality' },
 ];
 
-function AITab() {
-  const { t } = useTranslation();
-
-  const mockMessages = [
-    { role: 'user' as const, text: '帮我改写这段描写' },
-    { role: 'assistant' as const, text: '这段描写可以更加生动，试试增加感官细节...' },
-  ];
-
-  return (
-    <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1 px-3 py-2">
-        <div className="flex flex-col gap-3">
-          {mockMessages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={cn(
-                'rounded-lg px-3 py-2 text-sm',
-                msg.role === 'user'
-                  ? 'bg-accent-subtle text-foreground ml-6'
-                  : 'bg-muted text-foreground mr-6',
-              )}
-            >
-              {msg.text}
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
-      <div className="flex items-center gap-2 px-3 py-2 border-t border-border">
-        <input
-          type="text"
-          placeholder={t('rightPanel.ai.placeholder')}
-          className="flex-1 h-8 px-3 rounded-md bg-muted text-sm text-foreground placeholder:text-muted-foreground outline-none border border-border focus:border-accent transition-colors duration-fast"
-        />
-        <button
-          type="button"
-          aria-label={t('rightPanel.ai.send')}
-          className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:text-accent hover:bg-hover-overlay transition-colors duration-fast"
-        >
-          <Send size={14} strokeWidth={1.5} />
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function InfoTab() {
   const { t } = useTranslation();
+  const activeDocId = useDocumentStore((s) => s.activeDocId);
+  const currentContent = useDocumentStore((s) => s.currentContent);
+  const unsavedChanges = useDocumentStore((s) => s.unsavedChanges);
+
+  const wordCount = currentContent ? currentContent.length.toLocaleString() : '12,450';
+  const paragraphCount = currentContent
+    ? currentContent.split(/\n\s*\n/).filter(Boolean).length.toString()
+    : '86';
 
   const fields = [
-    { label: t('rightPanel.info.title'), value: '第一章：序幕' },
+    { label: t('rightPanel.info.title'), value: activeDocId ?? t('rightPanel.info.defaultTitle') },
     { label: t('rightPanel.info.created'), value: '2026-03-15 14:30' },
-    { label: t('rightPanel.info.modified'), value: '2026-03-29 10:22' },
-    { label: t('rightPanel.info.wordCount'), value: '12,450' },
-    { label: t('rightPanel.info.paragraphs'), value: '86' },
+    { label: t('rightPanel.info.modified'), value: unsavedChanges ? t('rightPanel.info.unsaved') : '2026-03-29 10:22' },
+    { label: t('rightPanel.info.wordCount'), value: wordCount },
+    { label: t('rightPanel.info.paragraphs'), value: paragraphCount },
   ];
 
   return (
@@ -123,7 +88,7 @@ function QualityTab() {
 }
 
 const panelContent: Record<'ai' | 'info' | 'quality', () => JSX.Element> = {
-  ai: AITab,
+  ai: AIPanel,
   info: InfoTab,
   quality: QualityTab,
 };
