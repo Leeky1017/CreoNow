@@ -58,10 +58,17 @@ const STORIES = [
   ['composites-formfield--default', 'composite-formfield'],
   ['composites-searchpanel--default', 'composite-searchpanel'],
   ['composites-outlinepanel--default', 'composite-outlinepanel'],
+  ['composites-projectswitcher--default', 'composite-projectswitcher'],
+  ['composites-dragresizehandle--default', 'composite-dragresizehandle'],
   // Features
   ['features-editortoolbar--default', 'feature-editor-toolbar'],
   ['features-settingsmodal--default', 'feature-settings-modal'],
   ['features-editorerrorboundary--normal', 'feature-errorboundary-normal'],
+  ['features-commandpalette--open', 'feature-commandpalette'],
+  ['features-filetree--default', 'feature-filetree'],
+  // Shell (new Round 3)
+  ['shell-statusbar--default', 'shell-statusbar'],
+  ['shell-rightpanel--default', 'shell-rightpanel'],
   // Pages
   ['pages-dashboardpage--default', 'page-dashboard'],
   ['pages-editorpage--default', 'page-editor'],
