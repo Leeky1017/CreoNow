@@ -229,6 +229,25 @@
     "restore": "Restore",
     "noVersions": "No version history yet"
   },
+  "stats": {
+    "title": "Writing Statistics",
+    "todayWords": "Today",
+    "weekWords": "This Week",
+    "monthWords": "This Month",
+    "totalWords": "Total",
+    "avgSession": "Avg. Session",
+    "trend": "Trend",
+    "noData": "No writing data yet"
+  },
+  "files": {
+    "title": "Files",
+    "newFile": "New File",
+    "newFolder": "New Folder",
+    "search": "Search files...",
+    "empty": "No files yet",
+    "modified": "Modified",
+    "created": "Created"
+  },
   "memory": {
     "title": "Project Memory",
     "search": "Search memories...",

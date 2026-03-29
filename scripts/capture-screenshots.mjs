@@ -89,6 +89,10 @@ const STORIES = [
   ['features-exportdialog--default', 'feature-exportdialog'],
   ['features-versionhistory--default', 'feature-versionhistory'],
   ['features-memorypanel--default', 'feature-memorypanel'],
+  // Features (Round 6)
+  ['features-searchfeature--default', 'feature-searchfeature'],
+  ['features-knowledgegraphfeature--default', 'feature-knowledgegraphfeature'],
+  ['features-statsfeature--default', 'feature-statsfeature'],
   // Shell (new Round 3)
   ['shell-statusbar--default', 'shell-statusbar'],
   ['shell-rightpanel--default', 'shell-rightpanel'],
