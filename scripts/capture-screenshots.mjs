@@ -34,7 +34,7 @@ const MIME = {
 
 // Stories to capture: [storyId, filename]
 const STORIES = [
-  // Primitives
+  // Primitives (original 10)
   ['primitives-button--all-variants', 'button-all-variants'],
   ['primitives-badge--all-variants', 'badge-all-variants'],
   ['primitives-input--all-states', 'input-all-states'],
@@ -45,6 +45,24 @@ const STORIES = [
   ['primitives-scrollarea--vertical', 'scrollarea-vertical'],
   ['primitives-separator--horizontal', 'separator-horizontal'],
   ['primitives-tooltip--top', 'tooltip-top'],
+  // Primitives (Round 5 — 17 new)
+  ['primitives-dialog--default', 'prim-dialog'],
+  ['primitives-alertdialog--confirm-delete', 'prim-alertdialog'],
+  ['primitives-accordion--faq', 'prim-accordion'],
+  ['primitives-avatar--all-sizes', 'prim-avatar'],
+  ['primitives-checkbox--with-label', 'prim-checkbox'],
+  ['primitives-radiogroup--default', 'prim-radiogroup'],
+  ['primitives-contextmenu--default', 'prim-contextmenu'],
+  ['primitives-dropdownmenu--default', 'prim-dropdownmenu'],
+  ['primitives-hovercard--user-profile', 'prim-hovercard'],
+  ['primitives-tabs--default', 'prim-tabs'],
+  ['primitives-card--default', 'prim-card'],
+  ['primitives-skeleton--card-layout', 'prim-skeleton'],
+  ['primitives-textarea--with-placeholder', 'prim-textarea'],
+  ['primitives-select--language-selector', 'prim-select'],
+  ['primitives-label--with-input', 'prim-label'],
+  ['primitives-typography--headings', 'prim-typography'],
+  ['primitives-surface--all-variants', 'prim-surface'],
   // Shell
   ['shell-iconrail--default', 'shell-iconrail'],
   ['shell-contextpanel--files-route', 'shell-contextpanel'],
