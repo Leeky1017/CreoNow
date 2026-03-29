@@ -66,6 +66,11 @@ const STORIES = [
   ['features-editorerrorboundary--normal', 'feature-errorboundary-normal'],
   ['features-commandpalette--open', 'feature-commandpalette'],
   ['features-filetree--default', 'feature-filetree'],
+  // Features (Round 4)
+  ['features-aipanel--with-messages', 'feature-aipanel'],
+  ['features-exportdialog--default', 'feature-exportdialog'],
+  ['features-versionhistory--default', 'feature-versionhistory'],
+  ['features-memorypanel--default', 'feature-memorypanel'],
   // Shell (new Round 3)
   ['shell-statusbar--default', 'shell-statusbar'],
   ['shell-rightpanel--default', 'shell-rightpanel'],
