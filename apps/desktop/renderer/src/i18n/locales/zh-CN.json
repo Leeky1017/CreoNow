@@ -177,6 +177,36 @@
     "empty": "暂无标题",
     "hint": "在文档中添加标题以生成大纲"
   },
+  "statusBar": {
+    "words": "字",
+    "line": "行",
+    "column": "列",
+    "encoding": "编码",
+    "branch": "分支"
+  },
+  "rightPanel": {
+    "tabs": { "ai": "AI 助手", "info": "文档信息", "quality": "质量检查" },
+    "ai": { "placeholder": "输入消息...", "send": "发送", "thinking": "思考中..." },
+    "info": { "title": "标题", "created": "创建时间", "modified": "修改时间", "wordCount": "字数", "paragraphs": "段落数" },
+    "quality": { "readability": "可读性", "precision": "用词精确度", "structure": "结构完整性", "score": "评分" }
+  },
+  "commandPalette": {
+    "placeholder": "输入命令或搜索...",
+    "categories": { "commands": "命令", "documents": "文档", "settings": "设置", "actions": "操作" },
+    "commands": {
+      "newDocument": "新建文档",
+      "openFile": "打开文件",
+      "toggleTheme": "切换主题",
+      "export": "导出",
+      "openSettings": "打开设置",
+      "toggleRightPanel": "切换右侧面板",
+      "toggleZenMode": "禅模式"
+    }
+  },
+  "projectSwitcher": {
+    "label": "切换项目",
+    "currentProject": "当前项目"
+  },
   "settings": {
     "title": "设置",
     "tabs": {

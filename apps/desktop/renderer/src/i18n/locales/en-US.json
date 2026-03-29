@@ -177,6 +177,36 @@
     "empty": "No headings yet",
     "hint": "Add headings to your document to generate an outline"
   },
+  "statusBar": {
+    "words": "words",
+    "line": "Ln",
+    "column": "Col",
+    "encoding": "Encoding",
+    "branch": "Branch"
+  },
+  "rightPanel": {
+    "tabs": { "ai": "AI Assistant", "info": "Doc Info", "quality": "Quality" },
+    "ai": { "placeholder": "Type a message...", "send": "Send", "thinking": "Thinking..." },
+    "info": { "title": "Title", "created": "Created", "modified": "Modified", "wordCount": "Word Count", "paragraphs": "Paragraphs" },
+    "quality": { "readability": "Readability", "precision": "Word Precision", "structure": "Structural Integrity", "score": "Score" }
+  },
+  "commandPalette": {
+    "placeholder": "Type a command or search...",
+    "categories": { "commands": "Commands", "documents": "Documents", "settings": "Settings", "actions": "Actions" },
+    "commands": {
+      "newDocument": "New Document",
+      "openFile": "Open File",
+      "toggleTheme": "Toggle Theme",
+      "export": "Export",
+      "openSettings": "Open Settings",
+      "toggleRightPanel": "Toggle Right Panel",
+      "toggleZenMode": "Zen Mode"
+    }
+  },
+  "projectSwitcher": {
+    "label": "Switch Project",
+    "currentProject": "Current Project"
+  },
   "settings": {
     "title": "Settings",
     "tabs": {
