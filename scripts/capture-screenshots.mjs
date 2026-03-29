@@ -3,11 +3,15 @@
  * every story as a retina-quality PNG for visual verification.
  */
 import { createRequire } from 'module';
-const require = createRequire('/home/leeky/.nvm/versions/node/v22.22.1/lib/node_modules/');
-const { chromium } = require('playwright');
 import { createServer } from 'http';
 import { readFile } from 'fs/promises';
-import { join, extname } from 'path';
+import { join, dirname, extname } from 'path';
+
+// Derive global node_modules from the running Node binary
+// e.g. .../bin/node → .../lib/node_modules/
+const globalModules = join(dirname(dirname(process.execPath)), 'lib', 'node_modules');
+const require = createRequire(globalModules + '/');
+const { chromium } = require('playwright');
 import { mkdir } from 'fs/promises';
 
 const STORYBOOK_DIR = join(
