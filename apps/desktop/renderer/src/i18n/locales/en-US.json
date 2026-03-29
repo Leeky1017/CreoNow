@@ -101,6 +101,82 @@
       "tip3": "Your writing efficiency improved by 23% this week — keep it up!"
     }
   },
+  "analytics": {
+    "title": "Writing Analytics",
+    "totalWords": "Total Words",
+    "totalDocs": "Total Documents",
+    "avgDaily": "Avg. Daily Words",
+    "longestStreak": "Longest Streak",
+    "trend": "Writing Trend",
+    "weeklyHabits": "Writing Habits",
+    "words": "words",
+    "docs": "docs",
+    "days": "days",
+    "thisWeek": "This Week",
+    "weekdays": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
+  },
+  "characters": {
+    "title": "Characters",
+    "searchPlaceholder": "Search characters…",
+    "addCharacter": "New Character",
+    "protagonist": "Protagonist",
+    "supporting": "Supporting",
+    "antagonist": "Antagonist",
+    "noResults": "No matching characters found"
+  },
+  "knowledgeGraph": {
+    "title": "Knowledge Graph",
+    "searchPlaceholder": "Search nodes…",
+    "filter": "Filter",
+    "canvasPlaceholder": "Knowledge Graph Visualization",
+    "canvasHint": "Node connections will be rendered here",
+    "nodeList": "Node List",
+    "nodeTypes": {
+      "character": "Character",
+      "location": "Location",
+      "event": "Event",
+      "item": "Item"
+    }
+  },
+  "calendar": {
+    "title": "Writing Calendar",
+    "today": "Today",
+    "noData": "No data",
+    "wordsWritten": "words",
+    "weekdays": {
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat",
+      "sun": "Sun"
+    }
+  },
+  "search": {
+    "placeholder": "Search documents, characters, settings…",
+    "noResults": "No results found",
+    "hint": "Type to start searching",
+    "categories": {
+      "document": "Document",
+      "character": "Character",
+      "setting": "Setting",
+      "action": "Action"
+    }
+  },
+  "outline": {
+    "title": "Document Outline",
+    "empty": "No headings yet",
+    "hint": "Add headings to your document to generate an outline"
+  },
   "settings": {
     "title": "Settings",
     "tabs": {

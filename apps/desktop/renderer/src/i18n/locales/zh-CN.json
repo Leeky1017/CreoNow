@@ -101,6 +101,82 @@
       "tip3": "本周写作效率提升了 23%，继续保持！"
     }
   },
+  "analytics": {
+    "title": "写作统计",
+    "totalWords": "总字数",
+    "totalDocs": "总文档数",
+    "avgDaily": "日均字数",
+    "longestStreak": "最长连续天数",
+    "trend": "写作趋势",
+    "weeklyHabits": "写作习惯",
+    "words": "字",
+    "docs": "篇",
+    "days": "天",
+    "thisWeek": "本周",
+    "weekdays": {
+      "mon": "周一",
+      "tue": "周二",
+      "wed": "周三",
+      "thu": "周四",
+      "fri": "周五",
+      "sat": "周六",
+      "sun": "周日"
+    }
+  },
+  "characters": {
+    "title": "角色管理",
+    "searchPlaceholder": "搜索角色…",
+    "addCharacter": "新建角色",
+    "protagonist": "主角",
+    "supporting": "配角",
+    "antagonist": "反派",
+    "noResults": "没有找到匹配的角色"
+  },
+  "knowledgeGraph": {
+    "title": "知识图谱",
+    "searchPlaceholder": "搜索节点…",
+    "filter": "筛选",
+    "canvasPlaceholder": "知识图谱可视化区域",
+    "canvasHint": "节点连接将在此处渲染",
+    "nodeList": "节点列表",
+    "nodeTypes": {
+      "character": "人物",
+      "location": "地点",
+      "event": "事件",
+      "item": "物品"
+    }
+  },
+  "calendar": {
+    "title": "写作日历",
+    "today": "今天",
+    "noData": "无数据",
+    "wordsWritten": "字",
+    "weekdays": {
+      "mon": "一",
+      "tue": "二",
+      "wed": "三",
+      "thu": "四",
+      "fri": "五",
+      "sat": "六",
+      "sun": "日"
+    }
+  },
+  "search": {
+    "placeholder": "搜索文档、角色、设置…",
+    "noResults": "没有找到结果",
+    "hint": "输入关键词开始搜索",
+    "categories": {
+      "document": "文档",
+      "character": "角色",
+      "setting": "设置",
+      "action": "操作"
+    }
+  },
+  "outline": {
+    "title": "文档大纲",
+    "empty": "暂无标题",
+    "hint": "在文档中添加标题以生成大纲"
+  },
   "settings": {
     "title": "设置",
     "tabs": {
