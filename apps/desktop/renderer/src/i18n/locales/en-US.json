@@ -207,6 +207,34 @@
     "label": "Switch Project",
     "currentProject": "Current Project"
   },
+  "aiPanel": {
+    "placeholder": "Send a message to AI assistant...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "welcome": "Hello! I'm your writing assistant. How can I help you?"
+  },
+  "export": {
+    "title": "Export Document",
+    "format": "Export Format",
+    "formats": { "markdown": "Markdown", "docx": "Word Document", "pdf": "PDF", "txt": "Plain Text" },
+    "path": "Output Path",
+    "cancel": "Cancel",
+    "export": "Export",
+    "exporting": "Exporting..."
+  },
+  "version": {
+    "title": "Version History",
+    "version": "Version",
+    "current": "Current",
+    "restore": "Restore",
+    "noVersions": "No version history yet"
+  },
+  "memory": {
+    "title": "Project Memory",
+    "search": "Search memories...",
+    "noMemories": "No memories yet",
+    "tags": { "character": "Character", "plot": "Plot", "setting": "Setting", "note": "Note" }
+  },
   "settings": {
     "title": "Settings",
     "tabs": {
