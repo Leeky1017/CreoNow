@@ -58,5 +58,89 @@
     "characters": "Characters",
     "knowledgeGraph": "Knowledge Graph",
     "calendar": "Calendar"
+  },
+  "dashboard": {
+    "greeting": "Hello, Creator",
+    "todayWords": "Today's Words",
+    "weekWords": "This Week",
+    "streak": "Writing Streak",
+    "totalDocs": "Total Docs",
+    "heatmap": "Writing Heatmap",
+    "words": "words",
+    "days": "days",
+    "docs": "docs",
+    "months": {
+      "jan": "Jan",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Apr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Aug",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dec"
+    },
+    "recentDocs": {
+      "title": "Recent Documents",
+      "doc1": "Chapter 1: Prologue",
+      "doc2": "Character Profile: Lin Xia",
+      "doc3": "Worldbuilding Notes",
+      "doc4": "Chapter 2: First Encounter",
+      "time1": "2 hours ago",
+      "time2": "5 hours ago",
+      "time3": "Yesterday",
+      "time4": "2 days ago"
+    },
+    "aiSuggestions": {
+      "title": "AI Suggestions",
+      "tip1": "Try adding more environmental descriptions to Chapter 1 for better immersion",
+      "tip2": "Character dialogues could be more natural — consider adding colloquial expressions",
+      "tip3": "Your writing efficiency improved by 23% this week — keep it up!"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+      "appearance": "Appearance",
+      "editor": "Editor",
+      "ai": "AI & Creo",
+      "account": "Account",
+      "shortcuts": "Shortcuts"
+    },
+    "appearance": {
+      "theme": "Theme",
+      "themeDark": "Dark",
+      "language": "Language"
+    },
+    "languages": {
+      "zhCN": "中文",
+      "enUS": "EN"
+    },
+    "editor": {
+      "fontSize": "Font Size",
+      "lineHeight": "Line Height",
+      "autoSave": "Auto Save",
+      "autoSaveDescription": "Automatically save when editor loses focus"
+    },
+    "ai": {
+      "provider": "AI Provider",
+      "model": "Model"
+    },
+    "account": {
+      "comingSoon": "Coming Soon"
+    },
+    "shortcuts": {
+      "title": "Shortcuts",
+      "action": "Action",
+      "shortcut": "Shortcut",
+      "save": "Save",
+      "search": "Search",
+      "toggleSidebar": "Toggle Sidebar",
+      "newFile": "New File",
+      "settings": "Settings"
+    }
   }
 }
