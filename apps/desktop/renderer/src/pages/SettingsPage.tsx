@@ -1,10 +1,12 @@
-import { useTranslation } from 'react-i18next';
+import { SettingsModal } from '@/features/settings/SettingsModal';
+import { useNavigate } from 'react-router';
 
 export function SettingsPage() {
-  const { t } = useTranslation();
+  const navigate = useNavigate();
   return (
-    <div className="flex items-center justify-center h-full text-muted-foreground">
-      {t('nav.settings')}
-    </div>
+    <SettingsModal
+      open
+      onClose={() => navigate(-1)}
+    />
   );
 }

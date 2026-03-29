@@ -58,5 +58,56 @@
     "characters": "Characters",
     "knowledgeGraph": "Knowledge Graph",
     "calendar": "Calendar"
+  },
+  "dashboard": {
+    "greeting": "Hello, Creator",
+    "todayWords": "Today's Words",
+    "weekWords": "This Week",
+    "streak": "Writing Streak",
+    "totalDocs": "Total Docs",
+    "heatmap": "Writing Heatmap",
+    "recentDocs": "Recent Documents",
+    "aiSuggestions": "AI Suggestions",
+    "words": "words",
+    "days": "days",
+    "docs": "docs"
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+      "appearance": "Appearance",
+      "editor": "Editor",
+      "ai": "AI & Creo",
+      "account": "Account",
+      "shortcuts": "Shortcuts"
+    },
+    "appearance": {
+      "theme": "Theme",
+      "themeDark": "Dark",
+      "language": "Language"
+    },
+    "editor": {
+      "fontSize": "Font Size",
+      "lineHeight": "Line Height",
+      "autoSave": "Auto Save",
+      "autoSaveDescription": "Automatically save when editor loses focus"
+    },
+    "ai": {
+      "provider": "AI Provider",
+      "model": "Model"
+    },
+    "account": {
+      "comingSoon": "Coming Soon"
+    },
+    "shortcuts": {
+      "title": "Shortcuts",
+      "action": "Action",
+      "shortcut": "Shortcut",
+      "save": "Save",
+      "search": "Search",
+      "toggleSidebar": "Toggle Sidebar",
+      "newFile": "New File",
+      "settings": "Settings"
+    }
   }
 }

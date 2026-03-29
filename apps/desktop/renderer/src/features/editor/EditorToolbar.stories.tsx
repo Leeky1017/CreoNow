@@ -19,7 +19,7 @@ const mockEditorWithActive = {
   isActive: (type: string) => type === 'bold',
 } as unknown as Parameters<typeof EditorToolbar>[0]['editor'];
 
-const meta = {
+const meta: Meta<typeof EditorToolbar> = {
   title: 'Features/EditorToolbar',
   component: EditorToolbar,
   tags: ['autodocs'],
@@ -30,7 +30,7 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof EditorToolbar>;
+};
 
 export default meta;
 type Story = StoryObj<typeof meta>;

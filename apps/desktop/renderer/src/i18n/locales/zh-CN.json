@@ -58,5 +58,56 @@
     "characters": "角色",
     "knowledgeGraph": "知识图谱",
     "calendar": "日历"
+  },
+  "dashboard": {
+    "greeting": "你好，创作者",
+    "todayWords": "今日字数",
+    "weekWords": "本周字数",
+    "streak": "连续写作天数",
+    "totalDocs": "总文档数",
+    "heatmap": "创作热力图",
+    "recentDocs": "最近文档",
+    "aiSuggestions": "AI 建议",
+    "words": "字",
+    "days": "天",
+    "docs": "篇"
+  },
+  "settings": {
+    "title": "设置",
+    "tabs": {
+      "appearance": "外观",
+      "editor": "编辑器",
+      "ai": "AI 与 Creo",
+      "account": "账户",
+      "shortcuts": "快捷键"
+    },
+    "appearance": {
+      "theme": "主题",
+      "themeDark": "深色",
+      "language": "语言"
+    },
+    "editor": {
+      "fontSize": "字体大小",
+      "lineHeight": "行高",
+      "autoSave": "自动保存",
+      "autoSaveDescription": "在编辑器失去焦点时自动保存"
+    },
+    "ai": {
+      "provider": "AI 提供商",
+      "model": "模型"
+    },
+    "account": {
+      "comingSoon": "即将推出"
+    },
+    "shortcuts": {
+      "title": "快捷键",
+      "action": "操作",
+      "shortcut": "快捷键",
+      "save": "保存",
+      "search": "搜索",
+      "toggleSidebar": "切换侧栏",
+      "newFile": "新建文件",
+      "settings": "设置"
+    }
   }
 }

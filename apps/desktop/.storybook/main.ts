@@ -12,11 +12,14 @@ const config: StorybookConfig = {
   },
   viteFinal: async (config) => {
     const path = await import('path');
+    const tailwindcss = await import('@tailwindcss/vite');
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...config.resolve.alias,
       '@': path.resolve(__dirname, '../renderer/src'),
     };
+    config.plugins = config.plugins || [];
+    config.plugins.push(tailwindcss.default());
     return config;
   },
 };
