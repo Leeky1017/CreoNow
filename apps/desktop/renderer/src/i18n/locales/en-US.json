@@ -144,7 +144,8 @@
       "location": "Location",
       "event": "Event",
       "item": "Item"
-    }
+    },
+    "connections": "{{count}} connections"
   },
   "calendar": {
     "title": "Writing Calendar",

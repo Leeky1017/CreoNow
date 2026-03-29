@@ -144,7 +144,8 @@
       "location": "地点",
       "event": "事件",
       "item": "物品"
-    }
+    },
+    "connections": "{{count}} 个连接"
   },
   "calendar": {
     "title": "写作日历",

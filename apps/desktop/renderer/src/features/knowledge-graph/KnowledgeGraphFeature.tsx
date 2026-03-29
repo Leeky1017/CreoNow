@@ -139,7 +139,7 @@ export const KnowledgeGraphFeature = forwardRef<HTMLDivElement, KnowledgeGraphFe
                 {selectedNode.description}
               </p>
               <p className="text-xs text-muted-foreground">
-                {selectedConnections} connections
+                {t('knowledgeGraph.connections', { count: selectedConnections })}
               </p>
             </div>
           )}
