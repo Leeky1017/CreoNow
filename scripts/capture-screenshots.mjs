@@ -4,7 +4,7 @@
  */
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
-const { chromium } = require('/home/leeky/.nvm/versions/node/v22.22.1/lib/node_modules/playwright');
+const { chromium } = require('playwright');
 import { createServer } from 'http';
 import { readFile } from 'fs/promises';
 import { join, extname } from 'path';

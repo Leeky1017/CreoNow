@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Palette, FileEdit, Bot, User, Keyboard } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -29,6 +29,15 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>('appearance');
   const settings = useSettingsStore();
 
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   const handleLanguageChange = (lang: 'zh-CN' | 'en-US') => {
@@ -44,7 +53,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       aria-modal="true"
       aria-label={t('settings.title')}
     >
-      <div className="w-[720px] max-h-[85vh] bg-modal rounded-xl border border-border shadow-xl flex flex-col overflow-hidden">
+      <div className="w-[720px] max-h-[85vh] bg-modal rounded-xl border border-border shadow-(--shadow-xl) flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">
@@ -125,14 +134,14 @@ function AppearanceTab({
             size="sm"
             onClick={() => onLanguageChange('zh-CN')}
           >
-            中文
+            {t('settings.languages.zhCN')}
           </Button>
           <Button
             variant={language === 'en-US' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onLanguageChange('en-US')}
           >
-            EN
+            {t('settings.languages.enUS')}
           </Button>
         </div>
       </FormField>

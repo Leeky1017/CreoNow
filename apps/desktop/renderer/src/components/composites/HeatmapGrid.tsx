@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/cn';
 
 export interface HeatmapGridProps {
@@ -13,23 +14,24 @@ const intensityClasses = [
   'bg-accent',
 ] as const;
 
-const MONTH_LABELS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
+const MONTH_KEYS = [
+  'jan', 'feb', 'mar', 'apr', 'may', 'jun',
+  'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+] as const;
 
 export function HeatmapGrid({ data, className }: HeatmapGridProps) {
+  const { t } = useTranslation();
   return (
     <div className={cn('flex flex-col gap-1', className)}>
       {/* Month labels */}
       <div className="flex ml-0">
-        {MONTH_LABELS.map((month) => (
+        {MONTH_KEYS.map((key) => (
           <span
-            key={month}
+            key={key}
             className="text-[10px] text-muted-foreground"
             style={{ width: `${(52 / 12) * 12}px` }}
           >
-            {month}
+            {t(`dashboard.months.${key}`)}
           </span>
         ))}
       </div>

@@ -13,16 +13,16 @@ const MOCK_HEATMAP: number[][] = Array.from({ length: 52 }, (_, w) =>
 );
 
 const MOCK_RECENT_DOCS = [
-  { id: '1', name: '第一章：序幕', updatedAt: '2 小时前' },
-  { id: '2', name: '角色设定：林夏', updatedAt: '5 小时前' },
-  { id: '3', name: '世界观笔记', updatedAt: '昨天' },
-  { id: '4', name: '第二章：初遇', updatedAt: '2 天前' },
+  { id: '1', nameKey: 'dashboard.recentDocs.doc1', timeKey: 'dashboard.recentDocs.time1' },
+  { id: '2', nameKey: 'dashboard.recentDocs.doc2', timeKey: 'dashboard.recentDocs.time2' },
+  { id: '3', nameKey: 'dashboard.recentDocs.doc3', timeKey: 'dashboard.recentDocs.time3' },
+  { id: '4', nameKey: 'dashboard.recentDocs.doc4', timeKey: 'dashboard.recentDocs.time4' },
 ];
 
-const MOCK_AI_SUGGESTIONS = [
-  '尝试为第一章增加环境描写，让读者更有沉浸感',
-  '角色对话可以更自然，考虑加入口语化表达',
-  '本周写作效率提升了 23%，继续保持！',
+const MOCK_AI_SUGGESTION_KEYS = [
+  'dashboard.aiSuggestions.tip1',
+  'dashboard.aiSuggestions.tip2',
+  'dashboard.aiSuggestions.tip3',
 ];
 
 export function DashboardPage() {
@@ -84,7 +84,7 @@ export function DashboardPage() {
           {/* Recent Docs — 6 cols */}
           <section className="col-span-6 bg-card rounded-lg border border-border p-4">
             <h2 className="text-sm font-medium text-foreground mb-3">
-              {t('dashboard.recentDocs')}
+              {t('dashboard.recentDocs.title')}
             </h2>
             <ul className="space-y-2">
               {MOCK_RECENT_DOCS.map((doc) => (
@@ -93,8 +93,8 @@ export function DashboardPage() {
                   className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/50 transition-colors duration-fast ease-out cursor-pointer"
                 >
                   <FileIcon size={14} strokeWidth={1.5} className="text-muted-foreground shrink-0" />
-                  <span className="text-sm text-foreground truncate flex-1">{doc.name}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">{doc.updatedAt}</span>
+                  <span className="text-sm text-foreground truncate flex-1">{t(doc.nameKey)}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{t(doc.timeKey)}</span>
                 </li>
               ))}
             </ul>
@@ -104,15 +104,15 @@ export function DashboardPage() {
           <section className="col-span-4 bg-card rounded-lg border border-border p-4">
             <h2 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
               <Sparkles size={14} strokeWidth={1.5} className="text-accent" />
-              {t('dashboard.aiSuggestions')}
+              {t('dashboard.aiSuggestions.title')}
             </h2>
             <ul className="space-y-2">
-              {MOCK_AI_SUGGESTIONS.map((suggestion, i) => (
+              {MOCK_AI_SUGGESTION_KEYS.map((key, i) => (
                 <li
                   key={i}
                   className="text-xs text-muted-foreground leading-relaxed border-l-2 border-accent/30 pl-3 py-1"
                 >
-                  {suggestion}
+                  {t(key)}
                 </li>
               ))}
             </ul>

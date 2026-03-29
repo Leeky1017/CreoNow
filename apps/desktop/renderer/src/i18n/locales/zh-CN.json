@@ -66,11 +66,40 @@
     "streak": "连续写作天数",
     "totalDocs": "总文档数",
     "heatmap": "创作热力图",
-    "recentDocs": "最近文档",
-    "aiSuggestions": "AI 建议",
     "words": "字",
     "days": "天",
-    "docs": "篇"
+    "docs": "篇",
+    "months": {
+      "jan": "1月",
+      "feb": "2月",
+      "mar": "3月",
+      "apr": "4月",
+      "may": "5月",
+      "jun": "6月",
+      "jul": "7月",
+      "aug": "8月",
+      "sep": "9月",
+      "oct": "10月",
+      "nov": "11月",
+      "dec": "12月"
+    },
+    "recentDocs": {
+      "title": "最近文档",
+      "doc1": "第一章：序幕",
+      "doc2": "角色设定：林夏",
+      "doc3": "世界观笔记",
+      "doc4": "第二章：初遇",
+      "time1": "2 小时前",
+      "time2": "5 小时前",
+      "time3": "昨天",
+      "time4": "2 天前"
+    },
+    "aiSuggestions": {
+      "title": "AI 建议",
+      "tip1": "尝试为第一章增加环境描写，让读者更有沉浸感",
+      "tip2": "角色对话可以更自然，考虑加入口语化表达",
+      "tip3": "本周写作效率提升了 23%，继续保持！"
+    }
   },
   "settings": {
     "title": "设置",
@@ -85,6 +114,10 @@
       "theme": "主题",
       "themeDark": "深色",
       "language": "语言"
+    },
+    "languages": {
+      "zhCN": "中文",
+      "enUS": "EN"
     },
     "editor": {
       "fontSize": "字体大小",
