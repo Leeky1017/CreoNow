@@ -144,7 +144,8 @@
       "location": "地点",
       "event": "事件",
       "item": "物品"
-    }
+    },
+    "connections": "{{count}} 个连接"
   },
   "calendar": {
     "title": "写作日历",
@@ -228,6 +229,25 @@
     "current": "当前版本",
     "restore": "恢复",
     "noVersions": "暂无版本历史"
+  },
+  "stats": {
+    "title": "写作统计",
+    "todayWords": "今日",
+    "weekWords": "本周",
+    "monthWords": "本月",
+    "totalWords": "总计",
+    "avgSession": "平均每次",
+    "trend": "趋势",
+    "noData": "暂无写作数据"
+  },
+  "files": {
+    "title": "文件",
+    "newFile": "新建文件",
+    "newFolder": "新建文件夹",
+    "search": "搜索文件...",
+    "empty": "还没有文件",
+    "modified": "修改时间",
+    "created": "创建时间"
   },
   "memory": {
     "title": "项目记忆",
