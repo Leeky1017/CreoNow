@@ -3,11 +3,15 @@
  * every story as a retina-quality PNG for visual verification.
  */
 import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const { chromium } = require('playwright');
 import { createServer } from 'http';
 import { readFile } from 'fs/promises';
-import { join, extname } from 'path';
+import { join, dirname, extname } from 'path';
+
+// Derive global node_modules from the running Node binary
+// e.g. .../bin/node → .../lib/node_modules/
+const globalModules = join(dirname(dirname(process.execPath)), 'lib', 'node_modules');
+const require = createRequire(globalModules + '/');
+const { chromium } = require('playwright');
 import { mkdir } from 'fs/promises';
 
 const STORYBOOK_DIR = join(
@@ -30,6 +34,7 @@ const MIME = {
 
 // Stories to capture: [storyId, filename]
 const STORIES = [
+  // Primitives
   ['primitives-button--all-variants', 'button-all-variants'],
   ['primitives-badge--all-variants', 'badge-all-variants'],
   ['primitives-input--all-states', 'input-all-states'],
@@ -40,17 +45,32 @@ const STORIES = [
   ['primitives-scrollarea--vertical', 'scrollarea-vertical'],
   ['primitives-separator--horizontal', 'separator-horizontal'],
   ['primitives-tooltip--top', 'tooltip-top'],
+  // Shell
   ['shell-iconrail--default', 'shell-iconrail'],
   ['shell-contextpanel--files-route', 'shell-contextpanel'],
+  ['shell-layoutshell--default', 'shell-layoutshell'],
+  // Composites
   ['composites-filenode--default', 'composite-filenode'],
   ['composites-foldernode--open', 'composite-foldernode-open'],
   ['composites-kpicard--with-trend', 'composite-kpicard'],
   ['composites-heatmapgrid--default', 'composite-heatmapgrid'],
   ['composites-settingssection--default', 'composite-settingssection'],
   ['composites-formfield--default', 'composite-formfield'],
+  ['composites-searchpanel--default', 'composite-searchpanel'],
+  ['composites-outlinepanel--default', 'composite-outlinepanel'],
+  // Features
   ['features-editortoolbar--default', 'feature-editor-toolbar'],
   ['features-settingsmodal--default', 'feature-settings-modal'],
+  ['features-editorerrorboundary--normal', 'feature-errorboundary-normal'],
+  // Pages
   ['pages-dashboardpage--default', 'page-dashboard'],
+  ['pages-editorpage--default', 'page-editor'],
+  ['pages-filespage--default', 'page-files'],
+  ['pages-settingspage--default', 'page-settings'],
+  ['pages-analyticspage--default', 'page-analytics'],
+  ['pages-characterspage--default', 'page-characters'],
+  ['pages-knowledgegraphpage--default', 'page-knowledgegraph'],
+  ['pages-calendarpage--default', 'page-calendar'],
 ];
 
 async function serve(port) {
