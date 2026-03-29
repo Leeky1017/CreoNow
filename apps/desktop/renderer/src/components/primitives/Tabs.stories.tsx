@@ -16,7 +16,7 @@ export const Default: Story = {
       <TabsList>
         <TabsTrigger value="tab1">General</TabsTrigger>
         <TabsTrigger value="tab2">Editor</TabsTrigger>
-        <TabsTrigger value="tab3">AI</TabsTrigger>
+        <TabsTrigger value="tab3">Creo</TabsTrigger>
       </TabsList>
       <TabsContent value="tab1">
         <div className="rounded-lg border border-border p-4 text-sm text-foreground">
@@ -30,7 +30,7 @@ export const Default: Story = {
       </TabsContent>
       <TabsContent value="tab3">
         <div className="rounded-lg border border-border p-4 text-sm text-foreground">
-          AI assistant preferences.
+          Creo assistant preferences.
         </div>
       </TabsContent>
     </Tabs>

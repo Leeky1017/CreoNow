@@ -44,14 +44,15 @@ export const AlertDialogContent = forwardRef<
 ));
 AlertDialogContent.displayName = 'AlertDialogContent';
 
-export function AlertDialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
+export const AlertDialogHeader = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
     <div
+      ref={ref}
       className={cn('flex flex-col gap-1.5 text-center sm:text-left', className)}
       {...props}
     />
-  );
-}
+  ),
+);
 AlertDialogHeader.displayName = 'AlertDialogHeader';
 
 export const AlertDialogTitle = forwardRef<
@@ -78,14 +79,15 @@ export const AlertDialogDescription = forwardRef<
 ));
 AlertDialogDescription.displayName = 'AlertDialogDescription';
 
-export function AlertDialogFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
+export const AlertDialogFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
     <div
+      ref={ref}
       className={cn('mt-4 flex justify-end gap-2', className)}
       {...props}
     />
-  );
-}
+  ),
+);
 AlertDialogFooter.displayName = 'AlertDialogFooter';
 
 export const AlertDialogAction = forwardRef<

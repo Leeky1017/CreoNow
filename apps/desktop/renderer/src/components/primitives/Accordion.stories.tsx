@@ -17,13 +17,13 @@ export const FAQ: Story = {
       <AccordionItem value="item-1">
         <AccordionTrigger>What is CreoNow?</AccordionTrigger>
         <AccordionContent>
-          CreoNow is an AI-powered creative writing IDE, designed as "Cursor for creators".
+          CreoNow is a creative writing IDE, designed as "Cursor for creators".
         </AccordionContent>
       </AccordionItem>
       <AccordionItem value="item-2">
-        <AccordionTrigger>How does the AI assist writing?</AccordionTrigger>
+        <AccordionTrigger>How does Creo assist writing?</AccordionTrigger>
         <AccordionContent>
-          The AI provides contextual suggestions, style matching, and intelligent editing
+          Creo provides contextual suggestions, style matching, and intelligent editing
           capabilities to enhance your writing workflow.
         </AccordionContent>
       </AccordionItem>

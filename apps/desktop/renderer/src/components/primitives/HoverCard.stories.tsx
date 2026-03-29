@@ -27,7 +27,7 @@ export const UserProfile: Story = {
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium text-foreground">CreoNow</p>
             <p className="text-xs text-muted-foreground">
-              AI-powered creative writing IDE.
+              Creative writing IDE for modern creators.
             </p>
           </div>
         </div>

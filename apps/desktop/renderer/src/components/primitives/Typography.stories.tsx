@@ -25,7 +25,7 @@ export const Headings: Story = {
 export const BodyText: Story = {
   render: () => (
     <Text>
-      CreoNow is an AI-powered creative writing IDE built for modern creators. 
+      CreoNow is a creative writing IDE built for modern creators.
       It combines the precision of a code editor with the fluidity of a writing tool.
     </Text>
   ),
