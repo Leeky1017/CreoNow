@@ -281,7 +281,9 @@
     },
     "ai": {
       "provider": "Provider",
-      "model": "Model"
+      "model": "Model",
+      "providerPlaceholder": "e.g. OpenAI",
+      "modelPlaceholder": "e.g. gpt-4"
     },
     "account": {
       "comingSoon": "Coming Soon"
