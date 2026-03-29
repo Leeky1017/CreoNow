@@ -19,7 +19,7 @@ const MOCK_RECENT_DOCS = [
   { id: '4', nameKey: 'dashboard.recentDocs.doc4', timeKey: 'dashboard.recentDocs.time4' },
 ];
 
-const MOCK_AI_SUGGESTION_KEYS = [
+const MOCK_SUGGESTION_KEYS = [
   'dashboard.aiSuggestions.tip1',
   'dashboard.aiSuggestions.tip2',
   'dashboard.aiSuggestions.tip3',
@@ -79,7 +79,7 @@ export function DashboardPage() {
           </div>
         </section>
 
-        {/* Bottom: Recent + AI */}
+        {/* Bottom: Recent + Suggestions */}
         <div className="grid grid-cols-10 gap-4">
           {/* Recent Docs — 6 cols */}
           <section className="col-span-6 bg-card rounded-lg border border-border p-4">
@@ -100,14 +100,14 @@ export function DashboardPage() {
             </ul>
           </section>
 
-          {/* AI Suggestions — 4 cols */}
+          {/* Suggestions — 4 cols */}
           <section className="col-span-4 bg-card rounded-lg border border-border p-4">
             <h2 className="text-sm font-medium text-foreground mb-3 flex items-center gap-1.5">
               <Sparkles size={14} strokeWidth={1.5} className="text-accent" />
               {t('dashboard.aiSuggestions.title')}
             </h2>
             <ul className="space-y-2">
-              {MOCK_AI_SUGGESTION_KEYS.map((key, i) => (
+              {MOCK_SUGGESTION_KEYS.map((key, i) => (
                 <li
                   key={i}
                   className="text-xs text-muted-foreground leading-relaxed border-l-2 border-accent/30 pl-3 py-1"

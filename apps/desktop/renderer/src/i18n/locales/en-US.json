@@ -95,7 +95,7 @@
       "time4": "2 days ago"
     },
     "aiSuggestions": {
-      "title": "AI Suggestions",
+      "title": "Suggestions",
       "tip1": "Try adding more environmental descriptions to Chapter 1 for better immersion",
       "tip2": "Character dialogues could be more natural — consider adding colloquial expressions",
       "tip3": "Your writing efficiency improved by 23% this week — keep it up!"
@@ -185,7 +185,7 @@
     "branch": "Branch"
   },
   "rightPanel": {
-    "tabs": { "ai": "AI Assistant", "info": "Doc Info", "quality": "Quality" },
+    "tabs": { "ai": "Creo", "info": "Doc Info", "quality": "Quality" },
     "ai": { "placeholder": "Type a message...", "send": "Send", "thinking": "Thinking..." },
     "info": { "title": "Title", "created": "Created", "modified": "Modified", "wordCount": "Word Count", "paragraphs": "Paragraphs", "defaultTitle": "Chapter 1: Prologue", "unsaved": "(Unsaved)" },
     "quality": { "readability": "Readability", "precision": "Word Precision", "structure": "Structural Integrity", "score": "Score" }
@@ -208,7 +208,7 @@
     "currentProject": "Current Project"
   },
   "aiPanel": {
-    "placeholder": "Send a message to AI assistant...",
+    "placeholder": "Send a message...",
     "send": "Send",
     "thinking": "Thinking...",
     "welcome": "Hello! I'm your writing assistant. How can I help you?"
@@ -240,7 +240,7 @@
     "tabs": {
       "appearance": "Appearance",
       "editor": "Editor",
-      "ai": "AI & Creo",
+      "ai": "Creo",
       "account": "Account",
       "shortcuts": "Shortcuts"
     },
@@ -260,7 +260,7 @@
       "autoSaveDescription": "Automatically save when editor loses focus"
     },
     "ai": {
-      "provider": "AI Provider",
+      "provider": "Provider",
       "model": "Model"
     },
     "account": {
