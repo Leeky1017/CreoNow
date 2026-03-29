@@ -187,7 +187,7 @@
   "rightPanel": {
     "tabs": { "ai": "AI Assistant", "info": "Doc Info", "quality": "Quality" },
     "ai": { "placeholder": "Type a message...", "send": "Send", "thinking": "Thinking..." },
-    "info": { "title": "Title", "created": "Created", "modified": "Modified", "wordCount": "Word Count", "paragraphs": "Paragraphs" },
+    "info": { "title": "Title", "created": "Created", "modified": "Modified", "wordCount": "Word Count", "paragraphs": "Paragraphs", "defaultTitle": "Chapter 1: Prologue", "unsaved": "(Unsaved)" },
     "quality": { "readability": "Readability", "precision": "Word Precision", "structure": "Structural Integrity", "score": "Score" }
   },
   "commandPalette": {

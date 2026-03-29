@@ -31,9 +31,9 @@ function InfoTab() {
     : '86';
 
   const fields = [
-    { label: t('rightPanel.info.title'), value: activeDocId ? `doc-${activeDocId}` : '第一章：序幕' },
+    { label: t('rightPanel.info.title'), value: activeDocId ?? t('rightPanel.info.defaultTitle') },
     { label: t('rightPanel.info.created'), value: '2026-03-15 14:30' },
-    { label: t('rightPanel.info.modified'), value: unsavedChanges ? '(未保存)' : '2026-03-29 10:22' },
+    { label: t('rightPanel.info.modified'), value: unsavedChanges ? t('rightPanel.info.unsaved') : '2026-03-29 10:22' },
     { label: t('rightPanel.info.wordCount'), value: wordCount },
     { label: t('rightPanel.info.paragraphs'), value: paragraphCount },
   ];
