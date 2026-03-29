@@ -281,7 +281,9 @@
     },
     "ai": {
       "provider": "提供商",
-      "model": "模型"
+      "model": "模型",
+      "providerPlaceholder": "如 OpenAI",
+      "modelPlaceholder": "如 gpt-4"
     },
     "account": {
       "comingSoon": "即将推出"

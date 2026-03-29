@@ -197,7 +197,7 @@ function AITab() {
           className="w-48"
           value={aiProvider}
           onChange={(e) => setAiProvider(e.target.value)}
-          placeholder="OpenAI"
+          placeholder={t('settings.ai.providerPlaceholder')}
         />
       </FormField>
       <Separator />
@@ -206,7 +206,7 @@ function AITab() {
           className="w-48"
           value={aiModel}
           onChange={(e) => setAiModel(e.target.value)}
-          placeholder="gpt-4"
+          placeholder={t('settings.ai.modelPlaceholder')}
         />
       </FormField>
     </SettingsSection>

@@ -6,20 +6,20 @@
   --color-muted: #1a1a1a;
   --color-muted-foreground: #737373;
   --color-sidebar: #000000;
-  --color-accent: #c9a96e;
-  --color-accent-hover: #d4b87d;
-  --color-accent-subtle: rgba(201, 169, 110, 0.08);
-  --color-accent-muted: rgba(201, 169, 110, 0.20);
+  --color-accent: #ffffff;
+  --color-accent-hover: #e0e0e0;
+  --color-accent-subtle: rgba(255, 255, 255, 0.08);
+  --color-accent-muted: rgba(255, 255, 255, 0.20);
   --color-destructive: #ef4444;
   --color-border: rgba(255, 255, 255, 0.08);
-  --color-ring: rgba(201, 169, 110, 0.30);
+  --color-ring: rgba(255, 255, 255, 0.30);
   --color-raised: #111111;
   --color-overlay: #161616;
   --color-modal: #1a1a1a;
   --color-toast: #222222;
   --color-popover: #0a0a0a;
   --color-popover-foreground: #f0f0f0;
-  --color-accent-foreground: #ffffff;
+  --color-accent-foreground: #050505;
   --color-destructive-foreground: #ffffff;
   --color-hover-overlay: rgba(255, 255, 255, 0.06);
   --color-hover-subtle: rgba(255, 255, 255, 0.04);
@@ -49,7 +49,7 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.7);
-  --shadow-accent: 0 0 0 6px rgba(201, 169, 110, 0.15);
+  --shadow-accent: 0 0 0 6px rgba(255, 255, 255, 0.15);
 
   /* === Font Families === */
   --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
@@ -74,4 +74,38 @@
 
   /* === Stagger === */
   --stagger-base: 40ms;
+}
+
+:root.light {
+  --color-background: #fafafa;
+  --color-foreground: #111111;
+  --color-card: #ffffff;
+  --color-muted: #f0f0f0;
+  --color-muted-foreground: #737373;
+  --color-sidebar: #f5f5f5;
+  --color-accent: #000000;
+  --color-accent-hover: #333333;
+  --color-accent-subtle: rgba(0, 0, 0, 0.06);
+  --color-accent-muted: rgba(0, 0, 0, 0.15);
+  --color-destructive: #dc2626;
+  --color-border: rgba(0, 0, 0, 0.10);
+  --color-ring: rgba(0, 0, 0, 0.25);
+  --color-raised: #ffffff;
+  --color-overlay: #f0f0f0;
+  --color-modal: #ffffff;
+  --color-toast: #ffffff;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #111111;
+  --color-accent-foreground: #ffffff;
+  --color-destructive-foreground: #ffffff;
+  --color-hover-overlay: rgba(0, 0, 0, 0.04);
+  --color-hover-subtle: rgba(0, 0, 0, 0.03);
+  --color-scrollbar: rgba(0, 0, 0, 0.12);
+  --color-scrollbar-hover: rgba(0, 0, 0, 0.20);
+  --color-slider-track: rgba(0, 0, 0, 0.15);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.15);
+  --shadow-accent: 0 0 0 6px rgba(0, 0, 0, 0.10);
 }
