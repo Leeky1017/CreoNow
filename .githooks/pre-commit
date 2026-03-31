@@ -23,3 +23,14 @@ if [[ "$BRANCH" == "main" ]]; then
   echo "Override only for emergency hotfixes with CREONOW_ALLOW_CONTROLPLANE_BYPASS=1." >&2
   exit 1
 fi
+
+# ── lint-staged for creonow-app ──────────────────────────────
+CREONOW_APP_DIR="$TOPLEVEL/creonow-app"
+if [ -d "$CREONOW_APP_DIR/node_modules/.bin" ]; then
+  # Only run if there are staged .ts/.tsx files under creonow-app/
+  STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR -- 'creonow-app/src/**/*.ts' 'creonow-app/src/**/*.tsx' | head -1)
+  if [ -n "$STAGED_TS" ]; then
+    echo "Running lint-staged for creonow-app..."
+    cd "$CREONOW_APP_DIR" && npx lint-staged
+  fi
+fi

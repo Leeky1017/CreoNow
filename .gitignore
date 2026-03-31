@@ -12,3 +12,8 @@ apps/desktop/dist-electron/
 __pycache__/
 .pytest_cache/
 .worktrees/
+
+# Claude Code source code (reference only, not for commit)
+docs/references/cc-source/
+docs/references/cc-source-verified/
+docs/references/cc-best-meta/

@@ -122,6 +122,8 @@ Spec 不存在/矛盾、任务超出 spec 范围、上游依赖不一致 → 停
 
 **视觉上下文注入（实现前必做）**：详见 `docs/references/frontend-visual-quality.md`（Token 路径、Figma 设计稿、组件复用等完整流程）。
 
+**黄金组件库 Figma**：https://www.figma.com/design/qgCo8ZV53IUGlYRbElaYv5/CreoNow黄金组件?node-id=169-3
+
 **CreoNow 视觉 DNA**：
 
 | 维度 | 风格 | 关键词 |
@@ -255,6 +257,7 @@ Spec 不存在/矛盾、任务超出 spec 范围、上游依赖不一致 → 停
 | 架构经验 | `docs/references/architecture-lessons.md` | 架构决策时 |
 | 产品质量清单 | `docs/references/product-quality-checklist.md` | PR 自检时 |
 | UI Prompt 工程 | `docs/references/prompt-engineering-for-ui.md` | AI UI 生成时 |
+| WSL 开发指南 | `docs/references/wsl-development-guide.md` | 启动服务/浏览器访问时 |
 
 **Spec 模块索引**（位于 `openspec/specs/`）：
 

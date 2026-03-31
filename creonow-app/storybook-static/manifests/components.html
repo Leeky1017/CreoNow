@@ -1,0 +1,2442 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Components Manifest</title>
+  <style>
+      :root {
+          --bg: #0b0c10;
+          --panel: #121318;
+          --muted: #9aa0a6;
+          --fg: #e8eaed;
+          --ok: #22c55e;
+          --info: #1e88e5;
+          --err: #c62828;
+          --ok-bg: #0c1a13;
+          --info-bg: #0c1624;
+          --err-bg: #1a0e0e;
+          --chip: #1f2330;
+          --border: #2b2f3a;
+          --link: #8ab4f8;
+          --active-ring: 1px; /* 1px active ring for pills and toggles */
+      }
+
+      * {
+          box-sizing: border-box;
+      }
+
+      html,
+      body {
+          margin: 0;
+          background: var(--bg);
+          color: var(--fg);
+          font: 14px/1.5 system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          Ubuntu,
+          Cantarell,
+          'Helvetica Neue',
+          Arial,
+          'Noto Sans';
+      }
+
+      .wrap {
+          max-width: 1100px;
+          margin: 0 auto;
+          padding: 16px 20px;
+      }
+
+      header {
+          position: sticky;
+          top: 0;
+          backdrop-filter: blur(6px);
+          background: color-mix(in srgb, var(--bg) 84%, transparent);
+          border-bottom: 1px solid var(--border);
+          z-index: 10;
+      }
+
+      h1 {
+          font-size: 20px;
+          margin: 0 0 6px;
+      }
+
+      .summary {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+          align-items: center;
+      }
+
+      /* Top filter pills */
+      .filter-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          background: var(--panel);
+          text-decoration: none;
+          cursor: pointer;
+          user-select: none;
+          color: var(--fg);
+      }
+
+      .filter-pill.ok {
+          color: #b9f6ca;
+          border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+          background: color-mix(in srgb, var(--ok) 18%, #000);
+      }
+
+      .filter-pill.info {
+          color: #b3d9ff;
+          border-color: color-mix(in srgb, var(--info) 55%, var(--border));
+          background: var(--info-bg);
+      }
+
+      .filter-pill.err {
+          color: #ff9aa0;
+          border-color: color-mix(in srgb, var(--err) 55%, var(--border));
+          background: var(--err-bg);
+      }
+
+      .filter-pill.all {
+          color: #d7dbe0;
+          border-color: var(--border);
+          background: var(--panel);
+      }
+
+      .filter-pill[aria-disabled='true'] {
+          cursor: default;
+          text-decoration: none;
+      }
+
+      .filter-pill:focus,
+      .filter-pill:active {
+          outline: none;
+          box-shadow: none;
+      }
+
+      /* Selected top pill ring via :target */
+      #filter-all:target ~ header .filter-pill[data-k='all'],
+      #filter-errors:target ~ header .filter-pill[data-k='errors'],
+      #filter-infos:target ~ header .filter-pill[data-k='infos'],
+      #filter-story-errors:target ~ header .filter-pill[data-k='story-errors'],
+      #filter-doc-errors:target ~ header .filter-pill[data-k='docs'],
+      #filter-docs:target ~ header .filter-pill[data-k='docs'] {
+          box-shadow: 0 0 0 var(--active-ring) currentColor;
+          border-color: currentColor;
+      }
+
+      /* Hidden targets for filtering */
+      #filter-all,
+      #filter-errors,
+      #filter-infos,
+      #filter-story-errors,
+      #filter-doc-errors,
+      #filter-docs {
+          display: none;
+      }
+
+      main {
+          padding: 36px 0 40px;
+      }
+
+      .grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 18px;
+      }
+
+      /* one card per row */
+
+      .card {
+          border: 1px solid var(--border);
+          background: var(--panel);
+          border-radius: 14px;
+          padding: 14px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+      }
+
+      .head {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+      }
+
+      .title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+      }
+
+      .title h2 {
+          font-size: 16px;
+          margin: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+      }
+
+      .meta {
+          font-size: 12px;
+          color: var(--muted);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+      }
+
+      .kv {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+      }
+
+      .chip {
+          font-size: 12px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          background: var(--chip);
+          border: 1px solid var(--border);
+      }
+
+      .hint {
+          color: var(--muted);
+          font-size: 12px;
+      }
+
+      .badges {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+      }
+
+      /* Per-card badges: labels become toggles when clickable */
+      .badge {
+          font-size: 12px;
+          padding: 3px 8px;
+          border-radius: 999px;
+          border: 1px solid var(--border);
+          background: var(--chip);
+          color: #d7dbe0;
+      }
+
+      .badge.ok {
+          color: #b9f6ca;
+          border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+      }
+
+      .badge.info {
+          color: #b3d9ff;
+          border-color: color-mix(in srgb, var(--info) 55%, var(--border));
+      }
+
+      .badge.err {
+          color: #ff9aa0;
+          border-color: color-mix(in srgb, var(--err) 55%, var(--border));
+      }
+
+      .as-toggle {
+          cursor: pointer;
+      }
+
+      /* 1px ring on active toggle */
+      .tg-err:checked + label.as-toggle,
+      .tg-info:checked + label.as-toggle,
+      .tg-stories:checked + label.as-toggle,
+      .tg-docs:checked + label.as-toggle,
+      .tg-content:checked + label.as-toggle,
+      .tg-props:checked + label.as-toggle {
+          box-shadow: 0 0 0 var(--active-ring) currentColor;
+          border-color: currentColor;
+      }
+
+      /* Panels: hidden by default, shown when respective toggle checked */
+      .panels {
+          display: grid;
+          gap: 10px;
+      }
+
+      .panel {
+          display: none;
+      }
+
+      .tg-err:checked ~ .panels .panel-err {
+          display: grid;
+      }
+
+      .tg-info:checked ~ .panels .panel-info {
+          display: grid;
+          gap: 8px;
+      }
+
+      .tg-stories:checked ~ .panels .panel-stories {
+          display: grid;
+          gap: 8px;
+      }
+
+      .tg-docs:checked ~ .panels .panel-docs {
+          display: grid;
+          gap: 8px;
+      }
+
+      .tg-content:checked ~ .panels .panel-content {
+          display: grid;
+          gap: 8px;
+      }
+
+      .tg-props:checked ~ .panels .panel-props {
+          display: grid;
+      }
+
+      /* Colored notes for prop type error + info */
+      .note {
+          padding: 12px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+      }
+
+      .note.err {
+          border-color: color-mix(in srgb, var(--err) 55%, var(--border));
+          background: var(--err-bg);
+          color: #ffd1d4;
+      }
+
+      .note.info {
+          border-color: color-mix(in srgb, var(--info) 55%, var(--border));
+          background: var(--info-bg);
+          color: #d6e8ff;
+      }
+
+      .note.ok {
+          border-color: color-mix(in srgb, var(--ok) 55%, var(--border));
+          background: var(--ok-bg);
+          color: var(--fg);
+      }
+
+      .note-title {
+          font-weight: 600;
+          margin-bottom: 6px;
+      }
+
+      .note-body {
+          white-space: normal;
+      }
+
+      /* Story error cards */
+      .ex {
+          padding: 10px;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          background: #0f131b;
+      }
+
+      .ex.err {
+          border-color: color-mix(in srgb, var(--err) 55%, var(--border));
+      }
+
+      .row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+      }
+
+      .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          display: inline-block;
+      }
+
+      .dot-ok {
+          background: var(--ok);
+      }
+
+      .dot-err {
+          background: var(--err);
+      }
+
+      .ex-name {
+          font-weight: 600;
+      }
+
+      /* Error groups (visible in errors filter) */
+      .error-groups {
+          display: none;
+          margin-bottom: 16px;
+      }
+
+      .group {
+          border: 1px solid var(--border);
+          background: var(--panel);
+          border-radius: 14px;
+          overflow: hidden;
+      }
+
+      .group + .group {
+          margin-top: 12px;
+      }
+
+      .group-header {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 12px 14px;
+          cursor: pointer;
+          border-bottom: 1px solid var(--border);
+      }
+
+      .group-header:hover {
+          background: #141722;
+      }
+
+      .group-title {
+          font-weight: 600;
+          flex: 1;
+      }
+
+      .group-count {
+          font-size: 12px;
+          color: var(--muted);
+      }
+
+      .group-cards {
+          display: none;
+          padding: 12px;
+      }
+
+      .group .card {
+          margin: 12px 0;
+      }
+
+      .group .card:first-child {
+          margin-top: 0;
+      }
+
+      .group .card:last-child {
+          margin-bottom: 0;
+      }
+
+      /* caret rotation */
+      .group-tg:checked + label .caret {
+          transform: rotate(90deg);
+      }
+
+      .caret {
+          transition: transform 0.15s ease;
+      }
+
+      /* toggle body */
+      .group-tg:checked ~ .group-cards {
+          display: block;
+      }
+
+      /* CSS-only filtering of cards via top pills */
+      #filter-errors:target ~ main .card:not(.has-error):not(.has-story-error) {
+          display: none;
+      }
+
+      #filter-infos:target ~ main .card:not(.has-info) {
+          display: none;
+      }
+
+      #filter-story-errors:target ~ main .card:not(.has-story-error) {
+          display: none;
+      }
+
+      #filter-doc-errors:target ~ main .card:not(.has-doc-error) {
+          display: none;
+      }
+
+      #filter-docs:target ~ main .card:has(> .tg-docs),
+      #filter-docs:target ~ main .card.is-doc {
+          display: block;
+      }
+
+      #filter-docs:target ~ main .card:not(:has(> .tg-docs)):not(.is-doc) {
+          display: none;
+      }
+
+      #filter-all:target ~ main .card {
+          display: block;
+      }
+
+      /* In errors view, hide standalone component-error cards in the regular grid (they will appear in groups) */
+      #filter-errors:target ~ main .grid .card.has-error {
+          display: none;
+      }
+
+      /* Show grouped section only in errors view */
+      #filter-errors:target ~ main .error-groups {
+          display: block;
+      }
+
+      /* Section titles */
+      .section-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--muted);
+          margin: 24px 0 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid var(--border);
+      }
+      .section-title:first-child {
+          margin-top: 0;
+      }
+
+      /* When a toggle is checked, show the corresponding panel */
+      .card > .tg-err:checked ~ .panels .panel-err {
+          display: grid;
+      }
+      
+      .card > .tg-info:checked ~ .panels .panel-info {
+          display: grid;
+      }
+      
+      .card > .tg-stories:checked ~ .panels .panel-stories {
+          display: grid;
+      }
+
+      .card > .tg-docs:checked ~ .panels .panel-docs {
+          display: grid;
+      }
+
+      .card > .tg-content:checked ~ .panels .panel-content {
+          display: grid;
+      }
+
+      /* Add vertical spacing around panels only when any panel is visible */
+      .card > .tg-err:checked ~ .panels,
+      .card > .tg-info:checked ~ .panels,
+      .card > .tg-stories:checked ~ .panels,
+      .card > .tg-docs:checked ~ .panels,
+      .card > .tg-content:checked ~ .panels,
+      .card > .tg-props:checked ~ .panels {
+          margin: 10px 0;
+      }
+
+      /* Optional: a subtle 1px ring on the active badge, using :has() if available */
+      @supports selector(.card:has(.tg-err:checked)) {
+          .card:has(.tg-err:checked) label[for$='-err'],
+          .card:has(.tg-info:checked) label[for$='-info'],
+          .card:has(.tg-stories:checked) label[for$='-stories'],
+          .card:has(.tg-docs:checked) label[for$='-docs'],
+          .card:has(.tg-content:checked) label[for$='-content'],
+          .card:has(.tg-props:checked) label[for$='-props'] {
+              box-shadow: 0 0 0 1px currentColor;
+              border-color: currentColor;
+          }
+      }
+
+      /* Wrap long lines in code blocks at ~120 characters */
+      pre, code {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      }
+      pre {
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+          overflow-x: auto; /* fallback for extremely long tokens */
+          margin: 8px 0 0;
+      }
+      pre > code {
+          display: block;
+          white-space: inherit;
+          overflow-wrap: inherit;
+          word-break: inherit;
+          inline-size: min(100%, 120ch);
+      }
+
+      /* MDX content container for docs */
+      .mdx-content {
+          background: #0f131b;
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 12px;
+          max-height: 400px;
+          overflow-y: auto;
+          margin-top: 8px;
+      }
+  </style>
+</head>
+<body>
+<!-- Hidden targets for the top-level filters -->
+<span id="filter-all"></span>
+<span id="filter-errors"></span>
+<span id="filter-infos"></span>
+<span id="filter-story-errors"></span>
+<span id="filter-doc-errors"></span>
+<span id="filter-docs"></span>
+<header>
+  <div class="wrap">
+    <h1>Manifest Debugger</h1>
+    <div class="summary"><a class="filter-pill all" data-k="all" href="#filter-all">All</a><a class="filter-pill err" data-k="errors" href="#filter-errors">2/7 prop type errors</a><a class="filter-pill info" data-k="infos" href="#filter-infos">7/7 infos</a><a class="filter-pill err" data-k="story-errors" href="#filter-story-errors">1/27 story errors</a></div>
+  </div>
+</header>
+<main>
+  <div class="wrap">
+    <div class="note ok" style="margin-bottom: 16px;">
+              Using <code>react-docgen-typescript</code>. Generation took <strong>2.3s</strong>.
+            </div>
+    <h2 class="section-title">Components</h2>
+    <div class="grid" role="list">
+      
+<article
+  class="card 
+  no-error 
+  has-info 
+  no-story-error
+  no-doc-error"
+  role="listitem"
+  aria-label="CnButton">
+  <div class="head">
+    <div class="title">
+      <h2><span class="status-dot dot-ok"></span> CnButton</h2>
+      <div class="badges">
+        <label for="c-0-ui-cnbutton-props" class="badge ok as-toggle">286 prop types</label>
+        <label for="c-0-ui-cnbutton-info" class="badge info as-toggle">1 info</label>
+        <label for="c-0-ui-cnbutton-stories" class="badge ok as-toggle">7 stories</label>
+        
+      </div>
+    </div>
+    <div class="meta" title="./src/stories/CnButton.stories.tsx">ui-cnbutton · ./src/stories/CnButton.stories.tsx</div>
+    
+    
+    
+  </div>
+
+  <!-- ⬇️ Hidden toggles must be siblings BEFORE .panels -->
+  
+  <input id="c-0-ui-cnbutton-info" class="tg tg-info" type="checkbox" hidden />
+  <input id="c-0-ui-cnbutton-stories" class="tg tg-stories" type="checkbox" hidden />
+  
+  <input id="c-0-ui-cnbutton-props" class="tg tg-props" type="checkbox" hidden />
+
+  <div class="panels">
+    
+    
+        <div class="panel panel-info">
+          
+    <div class="note info">
+      <div class="note-title">Info</div>
+      <div class="note-body">No description found. Write a jsdoc comment such as /** Component description */.</div>
+    </div>
+        </div>
+    
+        <div class="panel panel-props">
+          <div class="note ok">
+            <div class="row">
+              <span class="ex-name">Prop types <small>(react-docgen-typescript)</small></span>
+              <span class="badge ok">286 prop types</span>
+            </div>
+            <pre><code>Component: src/components/ui/cn-button.tsx::CnButton</code></pre>
+            <pre><code>Props:</code></pre>
+            <pre><code>about?: string
+
+accessKey?: string
+
+aria-activedescendant?: string
+
+aria-atomic?: Booleanish
+
+aria-autocomplete?: &quot;none&quot; | &quot;list&quot; | &quot;inline&quot; | &quot;both&quot;
+
+aria-braillelabel?: string
+
+aria-brailleroledescription?: string
+
+aria-busy?: Booleanish
+
+aria-checked?: boolean | &quot;true&quot; | &quot;false&quot; | &quot;mixed&quot;
+
+aria-colcount?: number
+
+aria-colindex?: number
+
+aria-colindextext?: string
+
+aria-colspan?: number
+
+aria-controls?: string
+
+aria-current?: boolean | &quot;page&quot; | &quot;true&quot; | &quot;false&quot; | &quot;step&quot; | &quot;location&quot; | &quot;date&quot; | &quot;time&quot;
+
+aria-describedby?: string
+
+aria-description?: string
+
+aria-details?: string
+
+aria-disabled?: Booleanish
+
+aria-dropeffect?: &quot;link&quot; | &quot;none&quot; | &quot;copy&quot; | &quot;execute&quot; | &quot;move&quot; | &quot;popup&quot;
+
+aria-errormessage?: string
+
+aria-expanded?: Booleanish
+
+aria-flowto?: string
+
+aria-grabbed?: Booleanish
+
+aria-haspopup?: boolean | &quot;grid&quot; | &quot;true&quot; | &quot;false&quot; | &quot;dialog&quot; | &quot;listbox&quot; | &quot;menu&quot; | &quot;tree&quot;
+
+aria-hidden?: Booleanish
+
+aria-invalid?: boolean | &quot;true&quot; | &quot;false&quot; | &quot;grammar&quot; | &quot;spelling&quot;
+
+aria-keyshortcuts?: string
+
+aria-label?: string
+
+aria-labelledby?: string
+
+aria-level?: number
+
+aria-live?: &quot;off&quot; | &quot;assertive&quot; | &quot;polite&quot;
+
+aria-modal?: Booleanish
+
+aria-multiline?: Booleanish
+
+aria-multiselectable?: Booleanish
+
+aria-orientation?: &quot;horizontal&quot; | &quot;vertical&quot;
+
+aria-owns?: string
+
+aria-placeholder?: string
+
+aria-posinset?: number
+
+aria-pressed?: boolean | &quot;true&quot; | &quot;false&quot; | &quot;mixed&quot;
+
+aria-readonly?: Booleanish
+
+aria-relevant?: &quot;all&quot; | &quot;text&quot; | &quot;additions&quot; | &quot;additions removals&quot; | &quot;additions text&quot; | &quot;removals&quot; | &quot;removals additions&quot; | &quot;removals text&quot; | &quot;text additions&quot; | &quot;text removals&quot;
+
+aria-required?: Booleanish
+
+aria-roledescription?: string
+
+aria-rowcount?: number
+
+aria-rowindex?: number
+
+aria-rowindextext?: string
+
+aria-rowspan?: number
+
+aria-selected?: Booleanish
+
+aria-setsize?: number
+
+aria-sort?: &quot;none&quot; | &quot;ascending&quot; | &quot;descending&quot; | &quot;other&quot;
+
+aria-valuemax?: number
+
+aria-valuemin?: number
+
+aria-valuenow?: number
+
+aria-valuetext?: string
+
+autoCapitalize?: &quot;off&quot; | &quot;none&quot; | &quot;on&quot; | &quot;sentences&quot; | &quot;words&quot; | &quot;characters&quot; | (string &amp; {})
+
+autoCorrect?: string
+
+autoFocus?: boolean
+
+autoSave?: string
+
+className?: string
+
+color?: string
+
+content?: string
+
+contentEditable?: &quot;inherit&quot; | Booleanish | &quot;plaintext-only&quot;
+
+contextMenu?: string
+
+dangerouslySetInnerHTML?: { __html: string | TrustedHTML; }
+
+datatype?: string
+
+defaultChecked?: boolean
+
+defaultValue?: string | number | readonly string[]
+
+dir?: string
+
+disabled?: boolean = false
+
+draggable?: Booleanish
+
+enterKeyHint?: &quot;search&quot; | &quot;enter&quot; | &quot;done&quot; | &quot;go&quot; | &quot;next&quot; | &quot;previous&quot; | &quot;send&quot;
+
+exportparts?: string
+
+form?: string
+
+formAction?: string | ((formData: FormData) =&gt; void | Promise&lt;void&gt;)
+
+formEncType?: string
+
+formMethod?: string
+
+formNoValidate?: boolean
+
+formTarget?: string
+
+hidden?: boolean
+
+id?: string
+
+inert?: boolean
+
+inlist?: any
+
+inputMode?: &quot;search&quot; | &quot;none&quot; | &quot;text&quot; | &quot;tel&quot; | &quot;url&quot; | &quot;email&quot; | &quot;numeric&quot; | &quot;decimal&quot;
+
+is?: string
+
+itemID?: string
+
+itemProp?: string
+
+itemRef?: string
+
+itemScope?: boolean
+
+itemType?: string
+
+lang?: string
+
+loading?: boolean = false
+
+name?: string
+
+nonce?: string
+
+onAbort?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onAbortCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onAnimationEnd?: AnimationEventHandler&lt;HTMLButtonElement&gt;
+
+onAnimationEndCapture?: AnimationEventHandler&lt;HTMLButtonElement&gt;
+
+onAnimationIteration?: AnimationEventHandler&lt;HTMLButtonElement&gt;
+
+onAnimationIterationCapture?: AnimationEventHandler&lt;HTMLButtonElement&gt;
+
+onAnimationStartCapture?: AnimationEventHandler&lt;HTMLButtonElement&gt;
+
+onAuxClick?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onAuxClickCapture?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onBeforeInput?: InputEventHandler&lt;HTMLButtonElement&gt;
+
+onBeforeInputCapture?: InputEventHandler&lt;HTMLButtonElement&gt;
+
+onBeforeToggle?: ToggleEventHandler&lt;HTMLButtonElement&gt;
+
+onBlur?: FocusEventHandler&lt;HTMLButtonElement&gt;
+
+onBlurCapture?: FocusEventHandler&lt;HTMLButtonElement&gt;
+
+onCanPlay?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onCanPlayCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onCanPlayThrough?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onCanPlayThroughCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onChange?: ChangeEventHandler&lt;HTMLButtonElement, Element&gt;
+
+onChangeCapture?: ChangeEventHandler&lt;HTMLButtonElement, Element&gt;
+
+onClick?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onClickCapture?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onCompositionEnd?: CompositionEventHandler&lt;HTMLButtonElement&gt;
+
+onCompositionEndCapture?: CompositionEventHandler&lt;HTMLButtonElement&gt;
+
+onCompositionStart?: CompositionEventHandler&lt;HTMLButtonElement&gt;
+
+onCompositionStartCapture?: CompositionEventHandler&lt;HTMLButtonElement&gt;
+
+onCompositionUpdate?: CompositionEventHandler&lt;HTMLButtonElement&gt;
+
+onCompositionUpdateCapture?: CompositionEventHandler&lt;HTMLButtonElement&gt;
+
+onContextMenu?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onContextMenuCapture?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onCopy?: ClipboardEventHandler&lt;HTMLButtonElement&gt;
+
+onCopyCapture?: ClipboardEventHandler&lt;HTMLButtonElement&gt;
+
+onCut?: ClipboardEventHandler&lt;HTMLButtonElement&gt;
+
+onCutCapture?: ClipboardEventHandler&lt;HTMLButtonElement&gt;
+
+onDoubleClick?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onDoubleClickCapture?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onDragCapture?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragEndCapture?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragEnter?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragEnterCapture?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragExit?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragExitCapture?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragLeave?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragLeaveCapture?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragOver?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragOverCapture?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDragStartCapture?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDrop?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDropCapture?: DragEventHandler&lt;HTMLButtonElement&gt;
+
+onDurationChange?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onDurationChangeCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onEmptied?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onEmptiedCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onEncrypted?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onEncryptedCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onEnded?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onEndedCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onError?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onErrorCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onFocus?: FocusEventHandler&lt;HTMLButtonElement&gt;
+
+onFocusCapture?: FocusEventHandler&lt;HTMLButtonElement&gt;
+
+onGotPointerCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onGotPointerCaptureCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onInput?: InputEventHandler&lt;HTMLButtonElement&gt;
+
+onInputCapture?: InputEventHandler&lt;HTMLButtonElement&gt;
+
+onInvalid?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onInvalidCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onKeyDown?: KeyboardEventHandler&lt;HTMLButtonElement&gt;
+
+onKeyDownCapture?: KeyboardEventHandler&lt;HTMLButtonElement&gt;
+
+onKeyPress?: KeyboardEventHandler&lt;HTMLButtonElement&gt;
+
+onKeyPressCapture?: KeyboardEventHandler&lt;HTMLButtonElement&gt;
+
+onKeyUp?: KeyboardEventHandler&lt;HTMLButtonElement&gt;
+
+onKeyUpCapture?: KeyboardEventHandler&lt;HTMLButtonElement&gt;
+
+onLoad?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onLoadCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onLoadedData?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onLoadedDataCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onLoadedMetadata?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onLoadedMetadataCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onLoadStart?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onLoadStartCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onLostPointerCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onLostPointerCaptureCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseDown?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseDownCapture?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseEnter?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseLeave?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseMove?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseMoveCapture?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseOut?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseOutCapture?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseOver?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseOverCapture?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseUp?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onMouseUpCapture?: MouseEventHandler&lt;HTMLButtonElement&gt;
+
+onPaste?: ClipboardEventHandler&lt;HTMLButtonElement&gt;
+
+onPasteCapture?: ClipboardEventHandler&lt;HTMLButtonElement&gt;
+
+onPause?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onPauseCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onPlay?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onPlayCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onPlaying?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onPlayingCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerCancel?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerCancelCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerDown?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerDownCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerEnter?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerLeave?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerMove?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerMoveCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerOut?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerOutCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerOver?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerOverCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerUp?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onPointerUpCapture?: PointerEventHandler&lt;HTMLButtonElement&gt;
+
+onProgress?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onProgressCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onRateChange?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onRateChangeCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onReset?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onResetCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onScroll?: UIEventHandler&lt;HTMLButtonElement&gt;
+
+onScrollCapture?: UIEventHandler&lt;HTMLButtonElement&gt;
+
+onScrollEnd?: UIEventHandler&lt;HTMLButtonElement&gt;
+
+onScrollEndCapture?: UIEventHandler&lt;HTMLButtonElement&gt;
+
+onSeeked?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onSeekedCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onSeeking?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onSeekingCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onSelect?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onSelectCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onStalled?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onStalledCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onSubmit?: SubmitEventHandler&lt;HTMLButtonElement&gt;
+
+onSubmitCapture?: SubmitEventHandler&lt;HTMLButtonElement&gt;
+
+onSuspend?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onSuspendCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onTimeUpdate?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onTimeUpdateCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onToggle?: ToggleEventHandler&lt;HTMLButtonElement&gt;
+
+onTouchCancel?: TouchEventHandler&lt;HTMLButtonElement&gt;
+
+onTouchCancelCapture?: TouchEventHandler&lt;HTMLButtonElement&gt;
+
+onTouchEnd?: TouchEventHandler&lt;HTMLButtonElement&gt;
+
+onTouchEndCapture?: TouchEventHandler&lt;HTMLButtonElement&gt;
+
+onTouchMove?: TouchEventHandler&lt;HTMLButtonElement&gt;
+
+onTouchMoveCapture?: TouchEventHandler&lt;HTMLButtonElement&gt;
+
+onTouchStart?: TouchEventHandler&lt;HTMLButtonElement&gt;
+
+onTouchStartCapture?: TouchEventHandler&lt;HTMLButtonElement&gt;
+
+onTransitionCancel?: TransitionEventHandler&lt;HTMLButtonElement&gt;
+
+onTransitionCancelCapture?: TransitionEventHandler&lt;HTMLButtonElement&gt;
+
+onTransitionEnd?: TransitionEventHandler&lt;HTMLButtonElement&gt;
+
+onTransitionEndCapture?: TransitionEventHandler&lt;HTMLButtonElement&gt;
+
+onTransitionRun?: TransitionEventHandler&lt;HTMLButtonElement&gt;
+
+onTransitionRunCapture?: TransitionEventHandler&lt;HTMLButtonElement&gt;
+
+onTransitionStart?: TransitionEventHandler&lt;HTMLButtonElement&gt;
+
+onTransitionStartCapture?: TransitionEventHandler&lt;HTMLButtonElement&gt;
+
+onVolumeChange?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onVolumeChangeCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onWaiting?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onWaitingCapture?: ReactEventHandler&lt;HTMLButtonElement&gt;
+
+onWheel?: WheelEventHandler&lt;HTMLButtonElement&gt;
+
+onWheelCapture?: WheelEventHandler&lt;HTMLButtonElement&gt;
+
+part?: string
+
+popover?: &quot;&quot; | &quot;auto&quot; | &quot;manual&quot; | &quot;hint&quot;
+
+popoverTarget?: string
+
+popoverTargetAction?: &quot;toggle&quot; | &quot;show&quot; | &quot;hide&quot;
+
+prefix?: string
+
+property?: string
+
+radioGroup?: string
+
+rel?: string
+
+resource?: string
+
+results?: number
+
+rev?: string
+
+role?: AriaRole
+
+security?: string
+
+size?: &quot;sm&quot; | &quot;md&quot; | &quot;lg&quot; = md
+
+slot?: string
+
+spellCheck?: Booleanish
+
+suppressContentEditableWarning?: boolean
+
+suppressHydrationWarning?: boolean
+
+tabIndex?: number
+
+title?: string
+
+translate?: &quot;yes&quot; | &quot;no&quot;
+
+tw?: string
+
+type?: &quot;button&quot; | &quot;submit&quot; | &quot;reset&quot;
+
+typeof?: string
+
+unselectable?: &quot;off&quot; | &quot;on&quot;
+
+value?: string | number | readonly string[]
+
+variant?: &quot;primary&quot; | &quot;ghost&quot; | &quot;danger&quot; = primary
+
+vocab?: string</code></pre>
+          </div>
+        </div>
+    
+        <div class="panel panel-stories">
+          
+          
+          
+          <div class="note ok">
+                <div class="row">
+                  <span class="ex-name">Imports</span>
+                </div>
+                <pre><code>import { CnButton } from "creonow-app";</code></pre>
+              </div>
+          
+          
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Playground</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Playground = () =&gt; &lt;CnButton variant=&quot;primary&quot; size=&quot;md&quot; disabled={false} loading={false}&gt;Button&lt;/CnButton&gt;;</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">All Variants</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const AllVariants = () =&gt; (
+  &lt;div className=&quot;grid grid-cols-3 gap-cn-4 items-end&quot;&gt;
+    {variants.map((v) =&gt;
+      sizes.map((s) =&gt; (
+        &lt;CnButton key={`${v}-${s}`} variant={v} size={s}&gt;
+          {v} {s}
+        &lt;/CnButton&gt;
+      ))
+    )}
+  &lt;/div&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Disabled States</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const DisabledStates = () =&gt; (
+  &lt;div className=&quot;flex gap-cn-4 items-center&quot;&gt;
+    {variants.map((v) =&gt; (
+      &lt;CnButton key={v} variant={v} disabled&gt;
+        {v}
+      &lt;/CnButton&gt;
+    ))}
+  &lt;/div&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Loading States</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const LoadingStates = () =&gt; (
+  &lt;div className=&quot;flex gap-cn-4 items-center&quot;&gt;
+    {variants.map((v) =&gt; (
+      &lt;CnButton key={v} variant={v} loading&gt;
+        {v}
+      &lt;/CnButton&gt;
+    ))}
+  &lt;/div&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Primary</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Primary = () =&gt; &lt;CnButton variant=&quot;primary&quot; size=&quot;md&quot; disabled={false} loading={false}&gt;Primary Button&lt;/CnButton&gt;;</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Ghost</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Ghost = () =&gt; &lt;CnButton variant=&quot;ghost&quot; size=&quot;md&quot; disabled={false} loading={false}&gt;Ghost Button&lt;/CnButton&gt;;</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Danger</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Danger = () =&gt; &lt;CnButton variant=&quot;danger&quot; size=&quot;md&quot; disabled={false} loading={false}&gt;Danger Button&lt;/CnButton&gt;;</code></pre>
+            </div>
+        </div>
+    
+  </div>
+</article>
+<article
+  class="card 
+  no-error 
+  has-info 
+  no-story-error
+  no-doc-error"
+  role="listitem"
+  aria-label="CnDialog">
+  <div class="head">
+    <div class="title">
+      <h2><span class="status-dot dot-ok"></span> CnDialog</h2>
+      <div class="badges">
+        
+        <label for="c-1-ui-cndialog-info" class="badge info as-toggle">1 info</label>
+        <label for="c-1-ui-cndialog-stories" class="badge ok as-toggle">4 stories</label>
+        
+      </div>
+    </div>
+    <div class="meta" title="./src/stories/CnDialog.stories.tsx">ui-cndialog · ./src/stories/CnDialog.stories.tsx</div>
+    
+    
+    
+  </div>
+
+  <!-- ⬇️ Hidden toggles must be siblings BEFORE .panels -->
+  
+  <input id="c-1-ui-cndialog-info" class="tg tg-info" type="checkbox" hidden />
+  <input id="c-1-ui-cndialog-stories" class="tg tg-stories" type="checkbox" hidden />
+  
+  
+
+  <div class="panels">
+    
+    
+        <div class="panel panel-info">
+          
+    <div class="note info">
+      <div class="note-title">Info</div>
+      <div class="note-body">No description found. Write a jsdoc comment such as /** Component description */.</div>
+    </div>
+        </div>
+    
+    
+        <div class="panel panel-stories">
+          
+          
+          
+          <div class="note ok">
+                <div class="row">
+                  <span class="ex-name">Imports</span>
+                </div>
+                <pre><code>import {
+    CnButton,
+    CnDialog,
+    CnDialogBody,
+    CnDialogClose,
+    CnDialogContent,
+    CnDialogDescription,
+    CnDialogFooter,
+    CnDialogHeader,
+    CnDialogTitle,
+    CnDialogTrigger,
+} from "creonow-app";</code></pre>
+              </div>
+          
+          
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Base Dialog</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const BaseDialog = () =&gt; (
+  &lt;CnDialog&gt;
+    &lt;CnDialogTrigger render={&lt;CnButton variant=&quot;primary&quot;&gt;Open Dialog&lt;/CnButton&gt;} /&gt;
+    &lt;CnDialogContent&gt;
+      &lt;CnDialogHeader&gt;
+        &lt;CnDialogTitle&gt;Confirm Action&lt;/CnDialogTitle&gt;
+        &lt;CnDialogDescription&gt;Are you sure you want to proceed?&lt;/CnDialogDescription&gt;
+      &lt;/CnDialogHeader&gt;
+      &lt;div className=&quot;border-t border-cn-separator&quot; /&gt;
+      &lt;CnDialogBody&gt;
+        This action will apply the changes you&amp;apos;ve made. Once confirmed, the operation cannot
+        be undone. Please review your changes carefully before proceeding.
+      &lt;/CnDialogBody&gt;
+      &lt;CnDialogFooter&gt;
+        &lt;CnDialogClose render={&lt;CnButton variant=&quot;ghost&quot;&gt;Cancel&lt;/CnButton&gt;} /&gt;
+        &lt;CnDialogClose render={&lt;CnButton variant=&quot;primary&quot;&gt;Confirm&lt;/CnButton&gt;} /&gt;
+      &lt;/CnDialogFooter&gt;
+    &lt;/CnDialogContent&gt;
+  &lt;/CnDialog&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">With Close Button</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const WithCloseButton = () =&gt; (
+  &lt;CnDialog&gt;
+    &lt;CnDialogTrigger render={&lt;CnButton variant=&quot;primary&quot;&gt;Open Dialog&lt;/CnButton&gt;} /&gt;
+    &lt;CnDialogContent showCloseButton&gt;
+      &lt;CnDialogHeader&gt;
+        &lt;CnDialogTitle&gt;Confirm Action&lt;/CnDialogTitle&gt;
+        &lt;CnDialogDescription&gt;Are you sure you want to proceed?&lt;/CnDialogDescription&gt;
+      &lt;/CnDialogHeader&gt;
+      &lt;div className=&quot;border-t border-cn-separator&quot; /&gt;
+      &lt;CnDialogBody&gt;
+        This dialog has an X button in the top-right corner. You can close it by clicking the X,
+        pressing Escape, or clicking the overlay.
+      &lt;/CnDialogBody&gt;
+      &lt;CnDialogFooter&gt;
+        &lt;CnDialogClose render={&lt;CnButton variant=&quot;ghost&quot;&gt;Cancel&lt;/CnButton&gt;} /&gt;
+        &lt;CnDialogClose render={&lt;CnButton variant=&quot;primary&quot;&gt;Confirm&lt;/CnButton&gt;} /&gt;
+      &lt;/CnDialogFooter&gt;
+    &lt;/CnDialogContent&gt;
+  &lt;/CnDialog&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Long Content</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const LongContent = () =&gt; (
+  &lt;CnDialog&gt;
+    &lt;CnDialogTrigger render={&lt;CnButton variant=&quot;primary&quot;&gt;Open Dialog&lt;/CnButton&gt;} /&gt;
+    &lt;CnDialogContent showCloseButton&gt;
+      &lt;CnDialogHeader&gt;
+        &lt;CnDialogTitle&gt;Terms of Service&lt;/CnDialogTitle&gt;
+        &lt;CnDialogDescription&gt;Please read the following terms carefully.&lt;/CnDialogDescription&gt;
+      &lt;/CnDialogHeader&gt;
+      &lt;div className=&quot;border-t border-cn-separator&quot; /&gt;
+      &lt;CnDialogBody scrollable&gt;
+        &lt;div className=&quot;flex flex-col gap-cn-3&quot;&gt;
+          &lt;p&gt;
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
+            incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud
+            exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+          &lt;/p&gt;
+          &lt;p&gt;
+            Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat
+            nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui
+            officia deserunt mollit anim id est laborum.
+          &lt;/p&gt;
+          &lt;p&gt;
+            Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque
+            laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi
+            architecto beatae vitae dicta sunt explicabo.
+          &lt;/p&gt;
+          &lt;p&gt;
+            Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia
+            consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro
+            quisquam est, qui dolorem ipsum quia dolor sit amet.
+          &lt;/p&gt;
+          &lt;p&gt;
+            At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium
+            voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint
+            occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt
+            mollitia animi, id est laborum et dolorum fuga.
+          &lt;/p&gt;
+          &lt;p&gt;
+            Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum
+            soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat
+            facere possimus, omnis voluptas assumenda est, omnis dolor repellendus.
+          &lt;/p&gt;
+        &lt;/div&gt;
+      &lt;/CnDialogBody&gt;
+      &lt;CnDialogFooter&gt;
+        &lt;CnDialogClose render={&lt;CnButton variant=&quot;ghost&quot;&gt;Decline&lt;/CnButton&gt;} /&gt;
+        &lt;CnDialogClose render={&lt;CnButton variant=&quot;primary&quot;&gt;Accept&lt;/CnButton&gt;} /&gt;
+      &lt;/CnDialogFooter&gt;
+    &lt;/CnDialogContent&gt;
+  &lt;/CnDialog&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Single Action</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const SingleAction = () =&gt; (
+  &lt;CnDialog&gt;
+    &lt;CnDialogTrigger render={&lt;CnButton variant=&quot;primary&quot;&gt;Open Dialog&lt;/CnButton&gt;} /&gt;
+    &lt;CnDialogContent&gt;
+      &lt;CnDialogHeader&gt;
+        &lt;CnDialogTitle&gt;Information&lt;/CnDialogTitle&gt;
+        &lt;CnDialogDescription&gt;Your changes have been saved successfully.&lt;/CnDialogDescription&gt;
+      &lt;/CnDialogHeader&gt;
+      &lt;div className=&quot;border-t border-cn-separator&quot; /&gt;
+      &lt;CnDialogBody&gt;
+        All modifications have been applied and synced. You can continue working on your project.
+      &lt;/CnDialogBody&gt;
+      &lt;CnDialogFooter&gt;
+        &lt;CnDialogClose render={&lt;CnButton variant=&quot;primary&quot;&gt;OK&lt;/CnButton&gt;} /&gt;
+      &lt;/CnDialogFooter&gt;
+    &lt;/CnDialogContent&gt;
+  &lt;/CnDialog&gt;
+);</code></pre>
+            </div>
+        </div>
+    
+  </div>
+</article>
+<article
+  class="card 
+  no-error 
+  has-info 
+  no-story-error
+  no-doc-error"
+  role="listitem"
+  aria-label="CnDropdownMenu">
+  <div class="head">
+    <div class="title">
+      <h2><span class="status-dot dot-ok"></span> CnDropdownMenu</h2>
+      <div class="badges">
+        
+        <label for="c-2-ui-cndropdownmenu-info" class="badge info as-toggle">1 info</label>
+        <label for="c-2-ui-cndropdownmenu-stories" class="badge ok as-toggle">3 stories</label>
+        
+      </div>
+    </div>
+    <div class="meta" title="./src/stories/CnDropdownMenu.stories.tsx">ui-cndropdownmenu · ./src/stories/CnDropdownMenu.stories.tsx</div>
+    
+    
+    
+  </div>
+
+  <!-- ⬇️ Hidden toggles must be siblings BEFORE .panels -->
+  
+  <input id="c-2-ui-cndropdownmenu-info" class="tg tg-info" type="checkbox" hidden />
+  <input id="c-2-ui-cndropdownmenu-stories" class="tg tg-stories" type="checkbox" hidden />
+  
+  
+
+  <div class="panels">
+    
+    
+        <div class="panel panel-info">
+          
+    <div class="note info">
+      <div class="note-title">Info</div>
+      <div class="note-body">No description found. Write a jsdoc comment such as /** Component description */.</div>
+    </div>
+        </div>
+    
+    
+        <div class="panel panel-stories">
+          
+          
+          
+          <div class="note ok">
+                <div class="row">
+                  <span class="ex-name">Imports</span>
+                </div>
+                <pre><code>import { Archive, Copy, FolderOpen, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import {
+    CnButton,
+    CnDropdownMenu,
+    CnDropdownMenuContent,
+    CnDropdownMenuItem,
+    CnDropdownMenuLabel,
+    CnDropdownMenuSeparator,
+    CnDropdownMenuShortcut,
+    CnDropdownMenuTrigger,
+} from "creonow-app";
+import { Menu as MenuPrimitive } from "@base-ui/react/menu";</code></pre>
+              </div>
+          
+          
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Default</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Default = () =&gt; (
+  &lt;CnDropdownMenu&gt;
+    &lt;CnDropdownMenuTrigger&gt;
+      &lt;CnButton variant=&quot;ghost&quot; size=&quot;md&quot;&gt;
+        Options
+      &lt;/CnButton&gt;
+    &lt;/CnDropdownMenuTrigger&gt;
+    &lt;CnDropdownMenuContent&gt;
+      &lt;MenuPrimitive.Group&gt;
+        &lt;CnDropdownMenuLabel&gt;Actions&lt;/CnDropdownMenuLabel&gt;
+        &lt;CnDropdownMenuItem&gt;
+          &lt;Pencil /&gt;
+          Edit
+          &lt;CnDropdownMenuShortcut&gt;⌘E&lt;/CnDropdownMenuShortcut&gt;
+        &lt;/CnDropdownMenuItem&gt;
+        &lt;CnDropdownMenuItem&gt;
+          &lt;Copy /&gt;
+          Duplicate
+          &lt;CnDropdownMenuShortcut&gt;⌘D&lt;/CnDropdownMenuShortcut&gt;
+        &lt;/CnDropdownMenuItem&gt;
+        &lt;CnDropdownMenuItem&gt;
+          &lt;Archive /&gt;
+          Archive
+        &lt;/CnDropdownMenuItem&gt;
+      &lt;/MenuPrimitive.Group&gt;
+      &lt;CnDropdownMenuSeparator /&gt;
+      &lt;CnDropdownMenuItem&gt;
+        &lt;FolderOpen /&gt;
+        Move to...
+      &lt;/CnDropdownMenuItem&gt;
+      &lt;CnDropdownMenuItem variant=&quot;danger&quot;&gt;
+        &lt;Trash2 /&gt;
+        Delete
+      &lt;/CnDropdownMenuItem&gt;
+    &lt;/CnDropdownMenuContent&gt;
+  &lt;/CnDropdownMenu&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Simple Menu</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const SimpleMenu = () =&gt; (
+  &lt;CnDropdownMenu&gt;
+    &lt;CnDropdownMenuTrigger&gt;
+      &lt;CnButton variant=&quot;ghost&quot; size=&quot;sm&quot;&gt;
+        &lt;MoreHorizontal /&gt;
+      &lt;/CnButton&gt;
+    &lt;/CnDropdownMenuTrigger&gt;
+    &lt;CnDropdownMenuContent&gt;
+      &lt;CnDropdownMenuItem&gt;New file&lt;/CnDropdownMenuItem&gt;
+      &lt;CnDropdownMenuItem&gt;Open recent&lt;/CnDropdownMenuItem&gt;
+      &lt;CnDropdownMenuItem&gt;Save&lt;/CnDropdownMenuItem&gt;
+      &lt;CnDropdownMenuSeparator /&gt;
+      &lt;CnDropdownMenuItem&gt;Export&lt;/CnDropdownMenuItem&gt;
+      &lt;CnDropdownMenuItem&gt;Print&lt;/CnDropdownMenuItem&gt;
+    &lt;/CnDropdownMenuContent&gt;
+  &lt;/CnDropdownMenu&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">With Danger Item</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const WithDangerItem = () =&gt; (
+  &lt;CnDropdownMenu&gt;
+    &lt;CnDropdownMenuTrigger&gt;
+      &lt;CnButton variant=&quot;ghost&quot; size=&quot;md&quot;&gt;
+        Manage
+      &lt;/CnButton&gt;
+    &lt;/CnDropdownMenuTrigger&gt;
+    &lt;CnDropdownMenuContent&gt;
+      &lt;CnDropdownMenuItem&gt;
+        &lt;Pencil /&gt;
+        Rename
+      &lt;/CnDropdownMenuItem&gt;
+      &lt;CnDropdownMenuItem&gt;
+        &lt;Archive /&gt;
+        Archive
+      &lt;/CnDropdownMenuItem&gt;
+      &lt;CnDropdownMenuSeparator /&gt;
+      &lt;CnDropdownMenuItem variant=&quot;danger&quot;&gt;
+        &lt;Trash2 /&gt;
+        Delete permanently
+      &lt;/CnDropdownMenuItem&gt;
+    &lt;/CnDropdownMenuContent&gt;
+  &lt;/CnDropdownMenu&gt;
+);</code></pre>
+            </div>
+        </div>
+    
+  </div>
+</article>
+<article
+  class="card 
+  no-error 
+  has-info 
+  no-story-error
+  no-doc-error"
+  role="listitem"
+  aria-label="CnInput">
+  <div class="head">
+    <div class="title">
+      <h2><span class="status-dot dot-ok"></span> CnInput</h2>
+      <div class="badges">
+        <label for="c-3-ui-cninput-props" class="badge ok as-toggle">4 prop types</label>
+        <label for="c-3-ui-cninput-info" class="badge info as-toggle">1 info</label>
+        <label for="c-3-ui-cninput-stories" class="badge ok as-toggle">7 stories</label>
+        
+      </div>
+    </div>
+    <div class="meta" title="./src/stories/CnInput.stories.tsx">ui-cninput · ./src/stories/CnInput.stories.tsx</div>
+    
+    
+    
+  </div>
+
+  <!-- ⬇️ Hidden toggles must be siblings BEFORE .panels -->
+  
+  <input id="c-3-ui-cninput-info" class="tg tg-info" type="checkbox" hidden />
+  <input id="c-3-ui-cninput-stories" class="tg tg-stories" type="checkbox" hidden />
+  
+  <input id="c-3-ui-cninput-props" class="tg tg-props" type="checkbox" hidden />
+
+  <div class="panels">
+    
+    
+        <div class="panel panel-info">
+          
+    <div class="note info">
+      <div class="note-title">Info</div>
+      <div class="note-body">No description found. Write a jsdoc comment such as /** Component description */.</div>
+    </div>
+        </div>
+    
+        <div class="panel panel-props">
+          <div class="note ok">
+            <div class="row">
+              <span class="ex-name">Prop types <small>(react-docgen-typescript)</small></span>
+              <span class="badge ok">4 prop types</span>
+            </div>
+            <pre><code>Component: src/components/ui/cn-input.tsx::CnInput</code></pre>
+            <pre><code>Props:</code></pre>
+            <pre><code>error?: boolean = false
+
+errorMessage?: string
+
+label?: string
+
+size?: &quot;sm&quot; | &quot;md&quot; = md</code></pre>
+          </div>
+        </div>
+    
+        <div class="panel panel-stories">
+          
+          
+          
+          <div class="note ok">
+                <div class="row">
+                  <span class="ex-name">Imports</span>
+                </div>
+                <pre><code>import { CnInput } from "creonow-app";</code></pre>
+              </div>
+          
+          
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Playground</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Playground = () =&gt; &lt;CnInput placeholder=&quot;Enter text...&quot; size=&quot;md&quot; error={false} disabled={false} /&gt;;</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Default</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Default = () =&gt; &lt;CnInput placeholder=&quot;Enter text...&quot; size=&quot;md&quot; error={false} disabled={false} /&gt;;</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">With Label</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const WithLabel = () =&gt; &lt;CnInput
+    placeholder=&quot;you@example.com&quot;
+    size=&quot;md&quot;
+    error={false}
+    disabled={false}
+    label=&quot;Email Address&quot; /&gt;;</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Error State</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const ErrorState = () =&gt; &lt;CnInput
+    placeholder=&quot;Enter text...&quot;
+    size=&quot;md&quot;
+    error
+    disabled={false}
+    errorMessage=&quot;This field is required&quot; /&gt;;</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Disabled</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Disabled = () =&gt; &lt;CnInput placeholder=&quot;Disabled input&quot; size=&quot;md&quot; error={false} disabled /&gt;;</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Small Size</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const SmallSize = () =&gt; &lt;CnInput placeholder=&quot;Small input&quot; size=&quot;sm&quot; error={false} disabled={false} /&gt;;</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">All States</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const AllStates = () =&gt; (
+  &lt;div className=&quot;grid grid-cols-2 gap-cn-6 max-w-lg&quot;&gt;
+    &lt;CnInput label=&quot;Default&quot; placeholder=&quot;Type here...&quot; /&gt;
+    &lt;CnInput label=&quot;With value&quot; defaultValue=&quot;Hello world&quot; /&gt;
+    &lt;CnInput label=&quot;Error&quot; error errorMessage=&quot;This field is required&quot; placeholder=&quot;Invalid...&quot; /&gt;
+    &lt;CnInput label=&quot;Disabled&quot; disabled placeholder=&quot;Disabled&quot; /&gt;
+  &lt;/div&gt;
+);</code></pre>
+            </div>
+        </div>
+    
+  </div>
+</article>
+<article
+  class="card 
+  no-error 
+  has-info 
+  no-story-error
+  no-doc-error"
+  role="listitem"
+  aria-label="CnTooltip">
+  <div class="head">
+    <div class="title">
+      <h2><span class="status-dot dot-ok"></span> CnTooltip</h2>
+      <div class="badges">
+        
+        <label for="c-4-ui-cntooltip-info" class="badge info as-toggle">1 info</label>
+        <label for="c-4-ui-cntooltip-stories" class="badge ok as-toggle">4 stories</label>
+        
+      </div>
+    </div>
+    <div class="meta" title="./src/stories/CnTooltip.stories.tsx">ui-cntooltip · ./src/stories/CnTooltip.stories.tsx</div>
+    
+    
+    
+  </div>
+
+  <!-- ⬇️ Hidden toggles must be siblings BEFORE .panels -->
+  
+  <input id="c-4-ui-cntooltip-info" class="tg tg-info" type="checkbox" hidden />
+  <input id="c-4-ui-cntooltip-stories" class="tg tg-stories" type="checkbox" hidden />
+  
+  
+
+  <div class="panels">
+    
+    
+        <div class="panel panel-info">
+          
+    <div class="note info">
+      <div class="note-title">Info</div>
+      <div class="note-body">No description found. Write a jsdoc comment such as /** Component description */.</div>
+    </div>
+        </div>
+    
+    
+        <div class="panel panel-stories">
+          
+          
+          
+          <div class="note ok">
+                <div class="row">
+                  <span class="ex-name">Imports</span>
+                </div>
+                <pre><code>import { CnButton, CnTooltip, CnTooltipContent, CnTooltipProvider, CnTooltipTrigger } from "creonow-app";</code></pre>
+              </div>
+          
+          
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Default</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Default = () =&gt; (
+  &lt;CnTooltip&gt;
+    &lt;CnTooltipTrigger render={&lt;CnButton variant=&quot;ghost&quot;&gt;Hover me&lt;/CnButton&gt;} /&gt;
+    &lt;CnTooltipContent&gt;This is a tooltip&lt;/CnTooltipContent&gt;
+  &lt;/CnTooltip&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">All Directions</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const AllDirections = () =&gt; (
+  &lt;div className=&quot;grid grid-cols-2 gap-cn-6 p-cn-8&quot;&gt;
+    &lt;CnTooltip&gt;
+      &lt;CnTooltipTrigger render={&lt;CnButton variant=&quot;ghost&quot;&gt;Top&lt;/CnButton&gt;} /&gt;
+      &lt;CnTooltipContent side=&quot;top&quot;&gt;Tooltip on top&lt;/CnTooltipContent&gt;
+    &lt;/CnTooltip&gt;
+
+    &lt;CnTooltip&gt;
+      &lt;CnTooltipTrigger render={&lt;CnButton variant=&quot;ghost&quot;&gt;Bottom&lt;/CnButton&gt;} /&gt;
+      &lt;CnTooltipContent side=&quot;bottom&quot;&gt;Tooltip on bottom&lt;/CnTooltipContent&gt;
+    &lt;/CnTooltip&gt;
+
+    &lt;CnTooltip&gt;
+      &lt;CnTooltipTrigger render={&lt;CnButton variant=&quot;ghost&quot;&gt;Left&lt;/CnButton&gt;} /&gt;
+      &lt;CnTooltipContent side=&quot;left&quot;&gt;Tooltip on left&lt;/CnTooltipContent&gt;
+    &lt;/CnTooltip&gt;
+
+    &lt;CnTooltip&gt;
+      &lt;CnTooltipTrigger render={&lt;CnButton variant=&quot;ghost&quot;&gt;Right&lt;/CnButton&gt;} /&gt;
+      &lt;CnTooltipContent side=&quot;right&quot;&gt;Tooltip on right&lt;/CnTooltipContent&gt;
+    &lt;/CnTooltip&gt;
+  &lt;/div&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Long Text</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const LongText = () =&gt; (
+  &lt;CnTooltip&gt;
+    &lt;CnTooltipTrigger render={&lt;CnButton variant=&quot;ghost&quot;&gt;Hover for long tooltip&lt;/CnButton&gt;} /&gt;
+    &lt;CnTooltipContent&gt;
+      This is a longer tooltip message that demonstrates automatic text wrapping when the content
+      exceeds the maximum width.
+    &lt;/CnTooltipContent&gt;
+  &lt;/CnTooltip&gt;
+);</code></pre>
+            </div>
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Custom Delay</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const CustomDelay = () =&gt; (
+  &lt;CnTooltipProvider delay={100}&gt;
+    &lt;CnTooltip&gt;
+      &lt;CnTooltipTrigger render={&lt;CnButton variant=&quot;ghost&quot;&gt;Quick tooltip (100ms)&lt;/CnButton&gt;} /&gt;
+      &lt;CnTooltipContent&gt;This tooltip appears faster&lt;/CnTooltipContent&gt;
+    &lt;/CnTooltip&gt;
+  &lt;/CnTooltipProvider&gt;
+);</code></pre>
+            </div>
+        </div>
+    
+  </div>
+</article>
+<article
+  class="card 
+  has-error 
+  has-info 
+  has-story-error
+  no-doc-error"
+  role="listitem"
+  aria-label="Introduction">
+  <div class="head">
+    <div class="title">
+      <h2><span class="status-dot dot-err"></span> Introduction</h2>
+      <div class="badges">
+        <label for="c-5-introduction-err" class="badge err as-toggle">prop type error</label>
+        <label for="c-5-introduction-info" class="badge info as-toggle">1 info</label>
+        <label for="c-5-introduction-stories" class="badge err as-toggle">1/1 story errors</label>
+        
+      </div>
+    </div>
+    <div class="meta" title="./src/stories/Introduction.stories.tsx">introduction · ./src/stories/Introduction.stories.tsx</div>
+    
+    
+    
+  </div>
+
+  <!-- ⬇️ Hidden toggles must be siblings BEFORE .panels -->
+  <input id="c-5-introduction-err" class="tg tg-err" type="checkbox" hidden />
+  <input id="c-5-introduction-info" class="tg tg-info" type="checkbox" hidden />
+  <input id="c-5-introduction-stories" class="tg tg-stories" type="checkbox" hidden />
+  
+  
+
+  <div class="panels">
+    
+        <div class="panel panel-err">
+          
+    <div class="note err">
+      <div class="note-title">Prop type error</div>
+      <div class="note-body"><pre><code>No component file found for the &quot;Introduction&quot; component.
+  19 | }
+  20 |
+&gt; 21 | const meta = {
+     | ^
+  22 |   title: &#39;Introduction&#39;,
+  23 |   component: Introduction,
+  24 | } satisfies Meta&lt;typeof Introduction&gt;
+
+./src/stories/Introduction.stories.tsx:
+import type { Meta, StoryObj } from &#39;@storybook/react&#39;
+
+function Introduction() {
+  return (
+    &lt;div className=&quot;p-cn-8 max-w-lg&quot;&gt;
+      &lt;h1 className=&quot;text-cn-lg font-semibold text-cn-text-primary mb-cn-4&quot;&gt;
+        CreoNow Design System
+      &lt;/h1&gt;
+      &lt;p className=&quot;text-cn-sm text-cn-text-secondary mb-cn-6&quot;&gt;
+        Agent-native creative writing IDE. Extreme minimalism meets creative power.
+      &lt;/p&gt;
+      &lt;div className=&quot;flex gap-cn-2&quot;&gt;
+        &lt;div className=&quot;w-16 h-16 rounded-cn-md bg-cn-accent&quot; /&gt;
+        &lt;div className=&quot;w-16 h-16 rounded-cn-md bg-cn-bg-hover border border-cn-border-default&quot; /&gt;
+        &lt;div className=&quot;w-16 h-16 rounded-cn-md bg-cn-danger&quot; /&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  )
+}
+
+const meta = {
+  title: &#39;Introduction&#39;,
+  component: Introduction,
+} satisfies Meta&lt;typeof Introduction&gt;
+
+export default meta
+type Story = StoryObj&lt;typeof meta&gt;
+
+export const Default: Story = {}
+</code></pre></div>
+    </div>
+        </div>
+    
+        <div class="panel panel-info">
+          
+    <div class="note info">
+      <div class="note-title">Info</div>
+      <div class="note-body">No description found. Write a jsdoc comment such as /** Component description */.</div>
+    </div>
+        </div>
+    
+    
+        <div class="panel panel-stories">
+          
+            <div class="note err">
+              <div class="row">
+                <span class="ex-name">Default</span>
+                <span class="badge err">story error</span>
+              </div>
+              
+              
+              
+              <pre><code>Could not generate snippet without component name.</code></pre>
+            </div>
+          
+          
+          <div class="note ok">
+                <div class="row">
+                  <span class="ex-name">Imports</span>
+                </div>
+                <pre><code>import { Introduction } from "creonow-app";</code></pre>
+              </div>
+          
+          
+        </div>
+    
+  </div>
+</article>
+<article
+  class="card 
+  has-error 
+  has-info 
+  no-story-error
+  no-doc-error"
+  role="listitem"
+  aria-label="LayoutShell">
+  <div class="head">
+    <div class="title">
+      <h2><span class="status-dot dot-err"></span> LayoutShell</h2>
+      <div class="badges">
+        <label for="c-6-layout-layoutshell-err" class="badge err as-toggle">prop type error</label>
+        <label for="c-6-layout-layoutshell-info" class="badge info as-toggle">1 info</label>
+        <label for="c-6-layout-layoutshell-stories" class="badge ok as-toggle">1 story</label>
+        
+      </div>
+    </div>
+    <div class="meta" title="./src/stories/LayoutShell.stories.tsx">layout-layoutshell · ./src/stories/LayoutShell.stories.tsx</div>
+    
+    
+    
+  </div>
+
+  <!-- ⬇️ Hidden toggles must be siblings BEFORE .panels -->
+  <input id="c-6-layout-layoutshell-err" class="tg tg-err" type="checkbox" hidden />
+  <input id="c-6-layout-layoutshell-info" class="tg tg-info" type="checkbox" hidden />
+  <input id="c-6-layout-layoutshell-stories" class="tg tg-stories" type="checkbox" hidden />
+  
+  
+
+  <div class="panels">
+    
+        <div class="panel panel-err">
+          
+    <div class="note err">
+      <div class="note-title">Prop type error</div>
+      <div class="note-body"><pre><code>No component file found for the &quot;LayoutShell&quot; component.
+  2 | import LayoutShell from &#39;@/components/layout/layout-shell&#39;
+  3 |
+&gt; 4 | const meta: Meta&lt;typeof LayoutShell&gt; = {
+    | ^
+  5 |   title: &#39;Layout/LayoutShell&#39;,
+  6 |   component: LayoutShell,
+  7 |   parameters: {
+
+./src/stories/LayoutShell.stories.tsx:
+import type { Meta, StoryObj } from &#39;@storybook/react&#39;
+import LayoutShell from &#39;@/components/layout/layout-shell&#39;
+
+const meta: Meta&lt;typeof LayoutShell&gt; = {
+  title: &#39;Layout/LayoutShell&#39;,
+  component: LayoutShell,
+  parameters: {
+    layout: &#39;fullscreen&#39;,
+  },
+}
+
+export default meta
+type Story = StoryObj&lt;typeof LayoutShell&gt;
+
+export const Default: Story = {}
+</code></pre></div>
+    </div>
+        </div>
+    
+        <div class="panel panel-info">
+          
+    <div class="note info">
+      <div class="note-title">Info</div>
+      <div class="note-body">No description found. Write a jsdoc comment such as /** Component description */.</div>
+    </div>
+        </div>
+    
+    
+        <div class="panel panel-stories">
+          
+          
+          
+          <div class="note ok">
+                <div class="row">
+                  <span class="ex-name">Imports</span>
+                </div>
+                <pre><code>import { LayoutShell } from "creonow-app";</code></pre>
+              </div>
+          
+          
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Default</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Default = () =&gt; &lt;LayoutShell /&gt;;</code></pre>
+            </div>
+        </div>
+    
+  </div>
+</article>
+    </div>
+    <div class="error-groups" role="region" aria-label="Prop type error groups">
+        <section class="group">
+          <input id="no-component-import-found-toggle" class="group-tg" type="checkbox" hidden />
+          <label for="no-component-import-found-toggle" class="group-header">
+            <span class="caret">▸</span>
+            <span class="group-title">No component import found</span>
+            <span class="group-count">2</span>
+          </label>
+          <div class="group-cards">
+<article
+  class="card 
+  has-error 
+  has-info 
+  has-story-error
+  no-doc-error"
+  role="listitem"
+  aria-label="Introduction">
+  <div class="head">
+    <div class="title">
+      <h2><span class="status-dot dot-err"></span> Introduction</h2>
+      <div class="badges">
+        <label for="c-error-0-introduction-err" class="badge err as-toggle">prop type error</label>
+        <label for="c-error-0-introduction-info" class="badge info as-toggle">1 info</label>
+        <label for="c-error-0-introduction-stories" class="badge err as-toggle">1/1 story errors</label>
+        
+      </div>
+    </div>
+    <div class="meta" title="./src/stories/Introduction.stories.tsx">introduction · ./src/stories/Introduction.stories.tsx</div>
+    
+    
+    
+  </div>
+
+  <!-- ⬇️ Hidden toggles must be siblings BEFORE .panels -->
+  <input id="c-error-0-introduction-err" class="tg tg-err" type="checkbox" hidden />
+  <input id="c-error-0-introduction-info" class="tg tg-info" type="checkbox" hidden />
+  <input id="c-error-0-introduction-stories" class="tg tg-stories" type="checkbox" hidden />
+  
+  
+
+  <div class="panels">
+    
+        <div class="panel panel-err">
+          
+    <div class="note err">
+      <div class="note-title">Prop type error</div>
+      <div class="note-body"><pre><code>No component file found for the &quot;Introduction&quot; component.
+  19 | }
+  20 |
+&gt; 21 | const meta = {
+     | ^
+  22 |   title: &#39;Introduction&#39;,
+  23 |   component: Introduction,
+  24 | } satisfies Meta&lt;typeof Introduction&gt;
+
+./src/stories/Introduction.stories.tsx:
+import type { Meta, StoryObj } from &#39;@storybook/react&#39;
+
+function Introduction() {
+  return (
+    &lt;div className=&quot;p-cn-8 max-w-lg&quot;&gt;
+      &lt;h1 className=&quot;text-cn-lg font-semibold text-cn-text-primary mb-cn-4&quot;&gt;
+        CreoNow Design System
+      &lt;/h1&gt;
+      &lt;p className=&quot;text-cn-sm text-cn-text-secondary mb-cn-6&quot;&gt;
+        Agent-native creative writing IDE. Extreme minimalism meets creative power.
+      &lt;/p&gt;
+      &lt;div className=&quot;flex gap-cn-2&quot;&gt;
+        &lt;div className=&quot;w-16 h-16 rounded-cn-md bg-cn-accent&quot; /&gt;
+        &lt;div className=&quot;w-16 h-16 rounded-cn-md bg-cn-bg-hover border border-cn-border-default&quot; /&gt;
+        &lt;div className=&quot;w-16 h-16 rounded-cn-md bg-cn-danger&quot; /&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  )
+}
+
+const meta = {
+  title: &#39;Introduction&#39;,
+  component: Introduction,
+} satisfies Meta&lt;typeof Introduction&gt;
+
+export default meta
+type Story = StoryObj&lt;typeof meta&gt;
+
+export const Default: Story = {}
+</code></pre></div>
+    </div>
+        </div>
+    
+        <div class="panel panel-info">
+          
+    <div class="note info">
+      <div class="note-title">Info</div>
+      <div class="note-body">No description found. Write a jsdoc comment such as /** Component description */.</div>
+    </div>
+        </div>
+    
+    
+        <div class="panel panel-stories">
+          
+            <div class="note err">
+              <div class="row">
+                <span class="ex-name">Default</span>
+                <span class="badge err">story error</span>
+              </div>
+              
+              
+              
+              <pre><code>Could not generate snippet without component name.</code></pre>
+            </div>
+          
+          
+          <div class="note ok">
+                <div class="row">
+                  <span class="ex-name">Imports</span>
+                </div>
+                <pre><code>import { Introduction } from "creonow-app";</code></pre>
+              </div>
+          
+          
+        </div>
+    
+  </div>
+</article>
+<article
+  class="card 
+  has-error 
+  has-info 
+  no-story-error
+  no-doc-error"
+  role="listitem"
+  aria-label="LayoutShell">
+  <div class="head">
+    <div class="title">
+      <h2><span class="status-dot dot-err"></span> LayoutShell</h2>
+      <div class="badges">
+        <label for="c-error-1-layout-layoutshell-err" class="badge err as-toggle">prop type error</label>
+        <label for="c-error-1-layout-layoutshell-info" class="badge info as-toggle">1 info</label>
+        <label for="c-error-1-layout-layoutshell-stories" class="badge ok as-toggle">1 story</label>
+        
+      </div>
+    </div>
+    <div class="meta" title="./src/stories/LayoutShell.stories.tsx">layout-layoutshell · ./src/stories/LayoutShell.stories.tsx</div>
+    
+    
+    
+  </div>
+
+  <!-- ⬇️ Hidden toggles must be siblings BEFORE .panels -->
+  <input id="c-error-1-layout-layoutshell-err" class="tg tg-err" type="checkbox" hidden />
+  <input id="c-error-1-layout-layoutshell-info" class="tg tg-info" type="checkbox" hidden />
+  <input id="c-error-1-layout-layoutshell-stories" class="tg tg-stories" type="checkbox" hidden />
+  
+  
+
+  <div class="panels">
+    
+        <div class="panel panel-err">
+          
+    <div class="note err">
+      <div class="note-title">Prop type error</div>
+      <div class="note-body"><pre><code>No component file found for the &quot;LayoutShell&quot; component.
+  2 | import LayoutShell from &#39;@/components/layout/layout-shell&#39;
+  3 |
+&gt; 4 | const meta: Meta&lt;typeof LayoutShell&gt; = {
+    | ^
+  5 |   title: &#39;Layout/LayoutShell&#39;,
+  6 |   component: LayoutShell,
+  7 |   parameters: {
+
+./src/stories/LayoutShell.stories.tsx:
+import type { Meta, StoryObj } from &#39;@storybook/react&#39;
+import LayoutShell from &#39;@/components/layout/layout-shell&#39;
+
+const meta: Meta&lt;typeof LayoutShell&gt; = {
+  title: &#39;Layout/LayoutShell&#39;,
+  component: LayoutShell,
+  parameters: {
+    layout: &#39;fullscreen&#39;,
+  },
+}
+
+export default meta
+type Story = StoryObj&lt;typeof LayoutShell&gt;
+
+export const Default: Story = {}
+</code></pre></div>
+    </div>
+        </div>
+    
+        <div class="panel panel-info">
+          
+    <div class="note info">
+      <div class="note-title">Info</div>
+      <div class="note-body">No description found. Write a jsdoc comment such as /** Component description */.</div>
+    </div>
+        </div>
+    
+    
+        <div class="panel panel-stories">
+          
+          
+          
+          <div class="note ok">
+                <div class="row">
+                  <span class="ex-name">Imports</span>
+                </div>
+                <pre><code>import { LayoutShell } from "creonow-app";</code></pre>
+              </div>
+          
+          
+            <div class="note ok">
+              <div class="row">
+                <span class="ex-name">Default</span>
+                <span class="badge ok">story ok</span>
+              </div>
+              
+              
+              <pre><code>const Default = () =&gt; &lt;LayoutShell /&gt;;</code></pre>
+            </div>
+        </div>
+    
+  </div>
+</article></div>
+        </section>
+      </div>
+    
+    
+  </div>
+</main>
+</body>
+</html>  

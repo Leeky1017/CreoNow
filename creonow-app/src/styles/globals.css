@@ -1,0 +1,325 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   CreoNow Design Tokens — CSS Custom Properties
+   Source: .cn/design-system.md
+   ============================================================ */
+
+:root {
+  /* -- Surface & Background -- */
+  --cn-bg-surface: #ffffff;
+  --cn-bg-hover: #f7f7f7;
+  --cn-bg-selected: rgba(0, 0, 0, 0.08);
+  --cn-bg-hover-subtle: rgba(0, 0, 0, 0.04);
+
+  /* -- Text -- */
+  --cn-text-primary: #1a1a1a;
+  --cn-text-secondary: rgba(26, 26, 26, 0.6);
+  --cn-text-tertiary: rgba(26, 26, 26, 0.4);
+  --cn-text-placeholder: rgba(26, 26, 26, 0.4);
+  --cn-text-disabled: rgba(26, 26, 26, 0.3);
+
+  /* -- Accent & Border -- */
+  --cn-accent: #000000;
+  --cn-border-default: rgba(0, 0, 0, 0.12);
+  --cn-border-focus: #000000;
+
+  /* -- Danger -- */
+  --cn-danger: #d63030;
+  --cn-danger-bg: #fde8e8;
+
+  /* -- Tooltip -- */
+  --cn-tooltip-bg: #1a1a1a;
+  --cn-tooltip-text: #ffffff;
+
+  /* -- Overlay & Separator -- */
+  --cn-overlay: rgba(0, 0, 0, 0.5);
+  --cn-separator: rgba(0, 0, 0, 0.08);
+
+  /* -- Typography -- */
+  --cn-font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --cn-font-body: 'Source Han Sans', 'Noto Sans SC', sans-serif;
+  --cn-font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  --cn-text-xs: 12px;
+  --cn-text-sm: 14px;
+  --cn-text-base: 16px;
+  --cn-text-lg: 20px;
+
+  --cn-leading-xs: 16px;
+  --cn-leading-sm: 20px;
+  --cn-leading-base: 22px;
+  --cn-leading-lg: 28px;
+
+  /* -- Spacing -- */
+  --cn-space-1: 4px;
+  --cn-space-2: 8px;
+  --cn-space-3: 12px;
+  --cn-space-4: 16px;
+  --cn-space-6: 24px;
+  --cn-space-8: 32px;
+
+  /* -- Border Radius -- */
+  --cn-radius-sm: 4px;
+  --cn-radius-md: 8px;
+  --cn-radius-lg: 12px;
+  --cn-radius-full: 9999px;
+
+  /* -- Shadows -- */
+  --cn-shadow-float: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --cn-shadow-overlay: 0 8px 32px rgba(0, 0, 0, 0.24);
+
+  /* -- Animation -- */
+  --cn-duration-fast: 80ms;
+  --cn-duration-normal: 120ms;
+  --cn-duration-slow: 300ms;
+  --cn-ease-default: cubic-bezier(0.2, 0, 0, 1);
+  --cn-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --cn-ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  /* -- Z-Index -- */
+  --cn-z-base: 0;
+  --cn-z-dropdown: 100;
+  --cn-z-overlay: 200;
+  --cn-z-modal: 300;
+  --cn-z-tooltip: 400;
+}
+
+/* Dark Theme */
+.dark {
+  --cn-bg-surface: #1a1a1a;
+  --cn-bg-hover: #3a3a3a;
+  --cn-bg-selected: rgba(255, 255, 255, 0.12);
+  --cn-bg-hover-subtle: rgba(255, 255, 255, 0.06);
+
+  --cn-text-primary: #ffffff;
+  --cn-text-secondary: rgba(255, 255, 255, 0.6);
+  --cn-text-tertiary: rgba(255, 255, 255, 0.4);
+  --cn-text-placeholder: rgba(255, 255, 255, 0.4);
+  --cn-text-disabled: rgba(255, 255, 255, 0.3);
+
+  --cn-accent: #ffffff;
+  --cn-border-default: rgba(255, 255, 255, 0.12);
+  --cn-border-focus: #ffffff;
+
+  --cn-danger: #cc4444;
+  --cn-danger-bg: #cc4444;
+
+  --cn-tooltip-bg: #f5f5f5;
+  --cn-tooltip-text: #1a1a1a;
+
+  --cn-overlay: rgba(0, 0, 0, 0.5);
+  --cn-separator: rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================================
+   shadcn default tokens (needed for shadcn components)
+   ============================================================ */
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* ============================================================
+   Tailwind v4 Theme Extension — CN Design Token Utilities
+   Maps --cn-* CSS vars to Tailwind utility classes with cn- prefix
+   ============================================================ */
+
+@theme inline {
+  /* shadcn defaults */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* ====== CreoNow (CN) Design Token Utilities ====== */
+
+  /* Colors */
+  --color-cn-bg-surface: var(--cn-bg-surface);
+  --color-cn-bg-hover: var(--cn-bg-hover);
+  --color-cn-bg-selected: var(--cn-bg-selected);
+  --color-cn-bg-hover-subtle: var(--cn-bg-hover-subtle);
+  --color-cn-text-primary: var(--cn-text-primary);
+  --color-cn-text-secondary: var(--cn-text-secondary);
+  --color-cn-text-tertiary: var(--cn-text-tertiary);
+  --color-cn-text-placeholder: var(--cn-text-placeholder);
+  --color-cn-text-disabled: var(--cn-text-disabled);
+  --color-cn-accent: var(--cn-accent);
+  --color-cn-border-default: var(--cn-border-default);
+  --color-cn-border-focus: var(--cn-border-focus);
+  --color-cn-danger: var(--cn-danger);
+  --color-cn-danger-bg: var(--cn-danger-bg);
+  --color-cn-tooltip-bg: var(--cn-tooltip-bg);
+  --color-cn-tooltip-text: var(--cn-tooltip-text);
+  --color-cn-overlay: var(--cn-overlay);
+  --color-cn-separator: var(--cn-separator);
+
+  /* Spacing */
+  --spacing-cn-1: var(--cn-space-1);
+  --spacing-cn-2: var(--cn-space-2);
+  --spacing-cn-3: var(--cn-space-3);
+  --spacing-cn-4: var(--cn-space-4);
+  --spacing-cn-6: var(--cn-space-6);
+  --spacing-cn-8: var(--cn-space-8);
+
+  /* Border Radius */
+  --radius-cn-sm: var(--cn-radius-sm);
+  --radius-cn-md: var(--cn-radius-md);
+  --radius-cn-lg: var(--cn-radius-lg);
+  --radius-cn-full: var(--cn-radius-full);
+
+  /* Shadows */
+  --shadow-cn-float: var(--cn-shadow-float);
+  --shadow-cn-overlay: var(--cn-shadow-overlay);
+
+  /* Font Size (Tailwind v4: --text-* maps to text-* utility) */
+  --text-cn-xs: var(--cn-text-xs);
+  --text-cn-xs--line-height: var(--cn-leading-xs);
+  --text-cn-sm: var(--cn-text-sm);
+  --text-cn-sm--line-height: var(--cn-leading-sm);
+  --text-cn-base: var(--cn-text-base);
+  --text-cn-base--line-height: var(--cn-leading-base);
+  --text-cn-lg: var(--cn-text-lg);
+  --text-cn-lg--line-height: var(--cn-leading-lg);
+
+  /* Font Family */
+  --font-cn-ui: var(--cn-font-ui);
+  --font-cn-body: var(--cn-font-body);
+  --font-cn-mono: var(--cn-font-mono);
+
+  /* Z-Index */
+  --z-cn-base: var(--cn-z-base);
+  --z-cn-dropdown: var(--cn-z-dropdown);
+  --z-cn-overlay: var(--cn-z-overlay);
+  --z-cn-modal: var(--cn-z-modal);
+  --z-cn-tooltip: var(--cn-z-tooltip);
+
+  /* Transition Duration */
+  --transition-duration-cn-fast: var(--cn-duration-fast);
+  --transition-duration-cn-normal: var(--cn-duration-normal);
+  --transition-duration-cn-slow: var(--cn-duration-slow);
+
+  /* Transition Timing */
+  --transition-timing-function-cn-default: var(--cn-ease-default);
+  --transition-timing-function-cn-spring: var(--cn-ease-spring);
+  --transition-timing-function-cn-out: var(--cn-ease-out);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-cn-bg-surface text-cn-text-primary;
+    font-family: var(--cn-font-ui);
+  }
+  html {
+    @apply antialiased;
+  }
+}
