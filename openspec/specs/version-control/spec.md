@@ -1,5 +1,24 @@
 # Version Control Specification
 
+## P1 变更摘要
+
+本次为 P1（系统脊柱）阶段新增以下变更：
+
+| 变更 | 描述 |
+|------|------|
+| P1 — 线性快照 | 简化版本管理，去掉分支/合并/冲突，只保留线性快照序列 |
+| P1 — 三阶段提交 | AI 写入的安全保障：快照 → 写入 → 确认/回退 |
+| P1 — content 格式变更 | 从 TipTap JSON 改为 ProseMirror State JSON |
+| P1 — 推迟项 | 分支管理、三方合并、冲突解决推迟到 P3+ |
+
+### ⚠️ P1 与现有 Spec 的差异
+
+1. **content 格式**：现有 spec 定义 content 为"TipTap JSON 完整内容"，P1 改为 ProseMirror State JSON（因编辑器从 TipTap 迁移到 ProseMirror）
+2. **分支管理**：现有 spec 的「分支管理、合并与冲突解决」Requirement 在 P1 阶段不实现，推迟到 P3+
+3. **多版本对比**：现有 spec 支持最多 4 版本对比，P1 仅支持 2 版本对比
+
+---
+
 ## Purpose
 
 管理写作版本：快照生成与存储、AI 修改标记（actor=ai）、任意两版本 Diff 对比、一键恢复历史版本。
@@ -15,6 +34,134 @@
 
 ## Requirements
 
+### Requirement: P1 — 线性快照（简化版本管理）
+
+> **P1 决策**：V1 版本控制大幅简化——不做分支管理、不做三方合并、不做冲突解决。只做线性快照。
+
+系统**必须**在每次 AI 写入前自动创建快照。快照为线性序列，无分支结构，通过 `parentSnapshotId` 形成链表。
+
+快照内容**必须**存储为 ProseMirror State JSON（非 TipTap JSON——P1 决策：编辑器从 TipTap 迁移到 ProseMirror）。
+
+#### 数据模型
+
+```typescript
+interface LinearSnapshot {
+  id: string;
+  documentId: string;
+  projectId: string;
+  content: ProseMirrorStateJSON; // P1 变更：不是 TipTap JSON
+  actor: 'user' | 'auto' | 'ai';
+  reason: 'manual-save' | 'autosave' | 'ai-accept' | 'pre-write' | 'rollback' | 'pre-rollback';
+  wordCount: number;
+  parentSnapshotId: string | null; // 线性链表，指向上一个快照
+  createdAt: string; // ISO8601
+}
+```
+
+#### 快照触发时机
+
+| 触发时机                   | actor  | reason        |
+| -------------------------- | ------ | ------------- |
+| 用户手动保存（Cmd/Ctrl+S） | `user` | `manual-save` |
+| 自动保存（debounce 500ms） | `auto` | `autosave`    |
+| AI 写入前                  | `auto` | `pre-write`   |
+| AI 修改被用户接受后        | `ai`   | `ai-accept`   |
+| 回滚前保存当前状态         | `user` | `pre-rollback`|
+| 回滚完成                   | `user` | `rollback`    |
+
+#### 线性约束
+
+- 每个快照的 `parentSnapshotId` 指向前一个快照，形成单链表
+- 不存在分叉——同一个 `parentSnapshotId` 最多被一个后续快照引用
+- 快照一旦创建不可修改（append-only）
+
+#### Scenario: AI 写入前自动创建快照
+
+- **假设** 用户在文档「第三章」中触发 AI 润色
+- **当** AI 开始写入前
+- **则** 系统自动创建快照，actor 为 `auto`，reason 为 `pre-write`
+- **并且** 该快照的 `parentSnapshotId` 指向上一个最新快照
+
+#### Scenario: 快照链表完整性
+
+- **假设** 文档已有 10 个线性快照
+- **当** 用户手动保存创建第 11 个快照
+- **则** 第 11 个快照的 `parentSnapshotId` 等于第 10 个快照的 `id`
+- **并且** 从最新快照沿 `parentSnapshotId` 可遍历到第 1 个快照（`parentSnapshotId = null`）
+
+---
+
+### Requirement: P1 — 三阶段提交（AI 写入安全保障）
+
+AI 写入**必须**遵循三阶段提交流程，确保用户始终可以回退到 AI 写入前的状态。
+
+#### 数据模型
+
+```typescript
+interface ThreeStageCommit {
+  stage: 'snapshot-created' | 'ai-writing' | 'user-confirmed' | 'user-rejected';
+  preWriteSnapshotId: string;
+  documentId: string;
+  executionId: string; // 关联到 Skill 执行
+}
+```
+
+#### 三阶段流程
+
+| 阶段 | 动作 | 系统行为 |
+|------|------|---------|
+| Stage 1: 创建快照 | AI 写入前 | 创建 `pre-write` 快照，记录当前文档状态 |
+| Stage 2: AI 写入 | AI 将内容写入编辑器 | 以 Inline Diff 形式展示变更，stage 变为 `ai-writing` |
+| Stage 3: 用户确认 | 用户 Accept 或 Reject | Accept → 创建 `ai-accept` 快照；Reject → 回退到 `pre-write` 快照 |
+
+#### Scenario: 用户接受 AI 写入
+
+- **假设** AI 已完成对「第三章」的润色，Inline Diff 正在展示
+- **当** 用户点击 Accept
+- **则** 系统创建 `ai-accept` 快照，actor 为 `ai`
+- **并且** Inline Diff 消失，AI 修改内容融入文档
+- **并且** `ThreeStageCommit.stage` 变为 `user-confirmed`
+
+#### Scenario: 用户拒绝 AI 写入
+
+- **假设** AI 已完成对「第三章」的润色，Inline Diff 正在展示
+- **当** 用户点击 Reject
+- **则** 系统回退文档到 `preWriteSnapshotId` 对应的快照内容
+- **并且** Inline Diff 消失，文档恢复到 AI 写入前的状态
+- **并且** `ThreeStageCommit.stage` 变为 `user-rejected`
+
+#### Scenario: AI 写入过程中断（异常安全）
+
+- **假设** AI 写入过程中发生异常（如网络断开）
+- **当** 系统检测到写入中断
+- **则** 文档可通过 `preWriteSnapshotId` 回退到写入前状态
+- **并且** `ThreeStageCommit.stage` 保持 `ai-writing`，供恢复流程使用
+
+---
+
+### Requirement: P1 — 推迟项声明
+
+以下功能在 P1 阶段**不实现**，推迟到 P3+ 阶段：
+
+| 推迟项 | 现有 Spec 位置 | 推迟原因 |
+|--------|---------------|---------|
+| 分支管理 | 「分支管理、合并与冲突解决」Requirement | V1 只做线性快照，不需要分支 |
+| 三方合并 | 同上 | 无分支则无合并需求 |
+| 冲突解决 | 同上 | 无合并则无冲突 |
+| 4 版本同时对比 | 「版本对比（Diff）」Requirement | P1 仅支持 2 版本对比 |
+
+#### P1 content 格式变更
+
+现有 spec 中 `content` 字段定义为"TipTap JSON 完整内容"。P1 起，`content` 字段类型变更为 **ProseMirror State JSON**，原因是编辑器从 TipTap 迁移到 ProseMirror。
+
+此变更影响以下接口：
+- `version:snapshot:create` 的请求体
+- `version:snapshot:read` 的响应体
+- `version:diff` 的输入输出
+- `version:rollback` 的恢复内容
+
+---
+
 ### Requirement: 版本快照生成与存储
 
 系统**必须**在以下时机自动生成文档版本快照：
@@ -26,7 +173,9 @@
 | AI 修改被用户接受后        | `ai`   | `ai-accept`     |
 | 文档状态变更（草稿↔定稿）  | `user` | `status-change` |
 
-每个版本快照**必须**包含：`id`、`documentId`、`projectId`、`content`（TipTap JSON 完整内容）、`actor`（`user` | `auto` | `ai`）、`reason`、`wordCount`、`createdAt`。
+> **P1 新增 reason**：`pre-write`（AI 写入前快照）、`pre-rollback`（回滚前快照）、`rollback`（回滚操作）。这些定义在本 spec P1 section 的 `LinearSnapshot` 接口中。`status-change` 在 V1 保留，用于文档状态变更场景。
+
+每个版本快照**必须**包含：`id`、`documentId`、`projectId`、`content`（ProseMirror State JSON）、`actor`（`user` | `auto` | `ai`）、`reason`、`wordCount`、`createdAt`。
 
 版本快照通过以下 IPC 通道管理：
 
@@ -228,6 +377,8 @@ AI 的修改和用户的修改**默认不区分**显示。用户**可以**在设
 - **并且** 不创建任何新版本快照
 
 ---
+
+> **⚠️ P1 推迟**：以下「分支管理、合并与冲突解决」Requirement 在 P1 阶段不实现，推迟到 P3+。P1 只做线性快照，不需要分支、合并和冲突解决。参见上方「P1 — 推迟项声明」。
 
 ### Requirement: 分支管理、合并与冲突解决
 

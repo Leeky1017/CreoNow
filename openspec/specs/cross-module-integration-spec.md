@@ -213,6 +213,49 @@ interface SkillExecutionEnvelope {
 
 ---
 
+### Requirement: P1 编排层跨模块数据流
+
+> **阶段**: P1（系统脊柱）
+
+P1 编排层定义了从用户选区到 AI 写回的端到端跨模块数据流。此链路是 P1 验收的核心路径。
+
+**主链路模块交互**:
+
+| 序号 | 发送方 | 接收方 | IPC 通道 / 内部调用 | 数据 | 说明 |
+|------|--------|--------|---------------------|------|------|
+| 1 | Editor | Skill System | `WritingOrchestrator.execute(request)` | `WritingRequest`（含 `SelectionRef`） | 用户触发 AI Skill 后，Editor 通过 WritingOrchestrator 发起编排 |
+| 2 | Skill System | AI Service | `AIServiceAdapter.streamChat(messages, options)` | `Message[]` + `StreamOptions` | WritingOrchestrator 组装上下文后调用 AI 适配器 |
+| 3 | AI Service | Skill System | `AsyncGenerator<StreamChunk>` | `StreamChunk`（delta, finishReason, accumulatedTokens） | LLMProxy 流式返回 chunk，WritingOrchestrator 逐 chunk 消费 |
+| 4 | Skill System | Editor (IPC) | `skill:stream:chunk` (Push) | `StreamChunk` | 每个 chunk 通过 IPC push 推送到渲染进程 |
+| 5 | Skill System | Version Control | `version:snapshot:create` (RR) | `LinearSnapshot`（reason: `pre-write`） | AI 写入前创建安全快照 |
+| 6 | Skill System | Editor | `EditorView.dispatch(tr)` | ProseMirror Transaction | 用户确认后写回编辑器 |
+| 7 | Skill System | Version Control | `version:snapshot:create` (RR) | `LinearSnapshot`（reason: `ai-accept`） | 写回完成后创建版本快照 |
+
+**数据流时序**:
+
+```
+Editor（用户选区 + 触发 Skill）
+  → Skill System: WritingOrchestrator.execute(WritingRequest)
+    → AI Service: AIServiceAdapter.streamChat(messages, options)
+      ← AsyncGenerator<StreamChunk>（流式返回）
+    → Editor (IPC): skill:stream:chunk（逐 chunk 推送）
+    → Version Control: version:snapshot:create（pre-write 快照）
+    → Editor: dispatch(tr)（用户确认后写回）
+    → Version Control: version:snapshot:create（ai-accept 快照）
+  ← WritingEvent: write-back-done
+```
+
+#### Scenario: P1 端到端选区改写链路
+
+- **假设** 用户在 Editor 中选中文本并触发「润色」Skill
+- **当** WritingOrchestrator 编排完整链路
+- **则** AI Service 通过 LLMProxy 发起流式 LLM 调用
+- **并且** chunk 通过 `skill:stream:chunk` 实时推送到前端
+- **并且** 用户确认后，Version Control 创建 `pre-write` 和 `ai-accept` 两个快照
+- **并且** Editor 通过 ProseMirror Transaction 完成写回
+
+---
+
 ### Non-Functional Requirements
 
 **Performance**

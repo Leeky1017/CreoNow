@@ -1,5 +1,14 @@
 # Context Engine Specification
 
+## P1 变更摘要
+
+本次为 P1（系统脊柱）阶段新增以下变更：
+
+| 变更 | 描述 |
+|------|------|
+| P1 — 中文 Token 估算 | CJK ≈ 1.5 tokens/char，非 CJK ≈ 0.25 tokens/byte |
+| P1 — 容量警戒策略 | 87% 警告 + 95% 强制裁剪 |
+| P1 — V1 简化层级 | 只启用 Rules + Immediate 两层，Retrieved/Settings 为空 |
 
 ## Purpose
 
@@ -13,6 +22,198 @@
 | IPC     | `main/src/ipc/context.ts`, `main/src/ipc/constraints.ts` |
 
 ## Requirements
+
+### Requirement: P1 — 中文 Token 估算修正
+
+CC（Cursor/Copilot 等英文优先的编辑器）使用 `UTF8_BYTES_PER_TOKEN ≈ 4` 估算 token 数，该假设面向英文文本。CreoNow 作为中文创作 IDE，**必须**提供 CJK 感知的 token 估算函数，以确保上下文预算在中文场景下准确。
+
+估算规则：
+
+| 字符类型 | 估算系数 | 依据 |
+|----------|----------|------|
+| CJK 字符（汉字、假名、韩文、全角符号等） | 1.5 tokens/char | 主流 BPE tokenizer 对中日韩字符的平均编码长度 |
+| 非 CJK 字节（ASCII、Latin 等） | 0.25 tokens/byte（即 4 bytes/token） | 与英文估算一致 |
+
+函数签名：
+
+```typescript
+/**
+ * CJK 感知的 token 估算。
+ * CJK 字符按 1.5 tokens/char，非 CJK 按 0.25 tokens/byte。
+ */
+function estimateTokens(text: string): number {
+  const bytes = new TextEncoder().encode(text).length;
+  const cjkChars = (text.match(/[\u4e00-\u9fff\u3400-\u4dbf\u20000-\u2a6df\u3040-\u30ff\u31f0-\u31ff\uac00-\ud7af\u3000-\u303f\uff00-\uffef]/gu) || []).length;
+  // V1 仅覆盖常用 CJK 字符（BMP + Extension B），罕用字（Extension C-H）可能低估 ~5%
+  const nonCjkBytes = bytes - cjkChars * 3; // CJK char = 3 bytes in UTF-8
+  return Math.ceil(cjkChars * 1.5 + nonCjkBytes / 4);
+}
+```
+
+此函数用于上下文预算计算、容量阈值检测、裁剪决策等所有涉及 token 计数的环节。当精确 tokenizer（如 tiktoken）可用时，优先使用精确结果；`estimateTokens` 作为快速估算的 fallback。
+
+#### Scenario: 纯中文文本的 token 估算
+
+- **假设** 输入文本为 1000 个汉字的纯中文段落
+- **当** 调用 `estimateTokens(text)`
+- **则** 返回值为 `Math.ceil(1000 * 1.5)` = 1500
+- **并且** 该值用于上下文预算扣减
+
+#### Scenario: 中英混合文本的 token 估算
+
+- **假设** 输入文本包含 500 个汉字和 200 bytes 的英文（含空格标点）
+- **当** 调用 `estimateTokens(text)`
+- **则** CJK 部分贡献 `500 * 1.5` = 750 tokens
+- **并且** 非 CJK 部分贡献 `200 / 4` = 50 tokens
+- **并且** 总估算为 800 tokens
+
+#### Scenario: 纯英文文本保持兼容
+
+- **假设** 输入文本为 400 bytes 的纯英文
+- **当** 调用 `estimateTokens(text)`
+- **则** 返回值为 `400 / 4` = 100
+- **并且** 与 CC 的 `UTF8_BYTES_PER_TOKEN=4` 估算一致
+
+---
+
+### Requirement: P1 — 上下文容量警戒策略
+
+系统**必须**实现两级容量警戒策略，在上下文预算接近极限时提前干预，避免 prompt 被模型截断。
+
+容量阈值定义：
+
+| 阈值 | 百分比 | 行为 |
+|------|--------|------|
+| 警告阈值 | 87% | `warnings` 中添加 `CONTEXT_CAPACITY_WARNING`，通知上层可能需要缩减输入 |
+| 强制裁剪阈值 | 95% | 立即执行强制裁剪，按优先级从低到高裁剪直到总量 ≤ 95% 预算 |
+
+容量策略接口：
+
+```typescript
+interface CapacityPolicy {
+  warnThreshold: 0.87;   // 87% 时触发警告
+  forceThreshold: 0.95;  // 95% 时强制裁剪
+  maxBudget: number;     // 模型上下文窗口 - system prompt - 输出预留
+}
+```
+
+容量百分比计算：`capacityPercent = (totalTokens / maxBudget) * 100`。
+
+强制裁剪流程：
+
+1. 计算组装后总 token 数
+2. 若 `capacityPercent` ≥ 95%，触发强制裁剪
+3. 裁剪顺序按优先级从低到高：Retrieved → Settings → Immediate（尾部裁剪）
+4. Rules 层**不可裁剪**
+5. 裁剪后重新计算 `capacityPercent`，确保 ≤ 95%
+6. 若 87% ≤ `capacityPercent` < 95%，不裁剪但在 `warnings` 中记录 `CONTEXT_CAPACITY_WARNING`
+
+#### Scenario: 容量达到 87% 触发警告
+
+- **假设** `maxBudget` = 6000 tokens
+- **当** 组装后总 token 为 5250（87.5%）
+- **则** `warnings` 包含 `CONTEXT_CAPACITY_WARNING`
+- **并且** 不执行裁剪，所有层内容完整
+
+#### Scenario: 容量超过 95% 强制裁剪
+
+- **假设** `maxBudget` = 6000 tokens
+- **当** 组装后总 token 为 5850（97.5%）
+- **则** 系统按优先级从低到高执行强制裁剪
+- **并且** 裁剪后 `capacityPercent` ≤ 95%
+- **并且** `warnings` 包含 `CONTEXT_CAPACITY_FORCE_TRIM`
+
+#### Scenario: 容量在安全范围内无动作
+
+- **假设** `maxBudget` = 6000 tokens
+- **当** 组装后总 token 为 4800（80%）
+- **则** 不触发任何警告或裁剪
+- **并且** `warnings` 为空（无容量相关项）
+
+---
+
+### Requirement: P1 — V1 简化版上下文层级与组装
+
+V1 阶段（最小可闭环系统）对四层上下文架构做以下简化：**只启用 Rules 层和 Immediate 层**，Retrieved 层和 Settings 层在 V1 为空，不参与组装和排序。
+
+> 四层架构的完整定义不变（见后续「四层上下文架构」Requirement），V1 简化仅约束当前阶段的实现范围。
+
+V1 层级状态：
+
+| 层级 | V1 状态 | 说明 |
+|------|---------|------|
+| Rules | ✅ 启用 | 注入基础创作规则和用户约束，不可裁剪 |
+| Settings | ⬜ 空 | 语义记忆等功能在 V1 未实现，该层始终为空 |
+| Retrieved | ⬜ 空 | RAG 召回在 V1 未实现，该层始终为空 |
+| Immediate | ✅ 启用 | 当前文档上下文，支持尾部裁剪 |
+
+V1 简化版裁剪优先级：
+
+1. Rules 层：**不裁剪**
+2. Immediate 层：**尾部裁剪**（保留光标前最近内容）
+3. Retrieved / Settings 层为空，不参与排序
+
+V1 简化版组装 API：
+
+```typescript
+interface P1ContextAssembleRequest {
+  projectId: string;
+  documentId: string;
+  cursorPosition: number;
+  skillId: string;
+  selectedText?: string;
+}
+
+interface P1ContextAssembleResult {
+  prompt: string;
+  tokenCount: number;
+  stablePrefixHash: string;
+  stablePrefixUnchanged: boolean;
+  layers: {
+    rules: { tokens: number; content: string };
+    immediate: { tokens: number; truncated: boolean };
+  };
+  warnings: string[];
+  capacityPercent: number; // 0-100，用于 87%/95% 阈值检测
+}
+```
+
+V1 组装流程：
+
+1. 加载 Rules 层内容（基础创作规则 + 用户约束）
+2. 加载 Immediate 层内容（当前文档光标前后文）
+3. 使用 `estimateTokens()` 计算各层 token 数
+4. 计算 `capacityPercent`，按容量警戒策略处理
+5. 若需裁剪，仅裁剪 Immediate 层尾部
+6. 计算 `stablePrefixHash`（V1 中 Stable Prefix = Rules 层内容）
+7. 返回 `P1ContextAssembleResult`
+
+#### Scenario: V1 两层正常组装
+
+- **假设** 用户在编辑器中触发续写，项目有基础创作规则
+- **当** V1 Context Engine 组装上下文
+- **则** Rules 层注入基础创作规则
+- **并且** Immediate 层注入当前文档光标前内容
+- **并且** Settings 层和 Retrieved 层为空，不出现在 `layers` 中
+- **并且** `capacityPercent` 正确反映两层总 token 占比
+
+#### Scenario: V1 Immediate 层尾部裁剪
+
+- **假设** 当前文档有 20000 字，Rules 层占 300 tokens，`maxBudget` = 4000 tokens
+- **当** Immediate 层原始 token 数超出剩余预算
+- **则** Immediate 层执行尾部裁剪，保留光标前最近的内容
+- **并且** 裁剪后 `capacityPercent` ≤ 95%
+- **并且** `layers.immediate.truncated` = `true`
+
+#### Scenario: V1 新项目——Rules 为空，仅有 Immediate
+
+- **假设** 用户刚创建项目，未设定任何创作规则
+- **当** V1 Context Engine 组装上下文
+- **则** Rules 层为空（仅有基础 system prompt）
+- **并且** Immediate 层包含当前编辑内容
+- **并且** AI 以通用模式生成，功能正常
+
+---
 
 ### Requirement: 四层上下文架构
 

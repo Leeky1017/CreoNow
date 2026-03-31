@@ -1,5 +1,22 @@
 # Skill System Specification
 
+## P1 变更摘要
+
+P1 阶段目标：**最小可闭环系统**——哪怕只有"润色"一个能力，系统也能从请求走到结果应用，全程安全可控。
+
+验收标准：打开应用 → 在编辑器中写字 → 选中文本 → 触发润色 → 看到 diff 预览 → 确认写回 → 查看历史 → 一键回退。全程可跑通。
+
+本次新增以下 P1 Requirement：
+
+| Section | 概要 |
+| ------- | ---- |
+| P1 — WritingOrchestrator 编排层 | 统一入口，串联全链路：请求 → 上下文 → 模型 → 回传 → 确认 → 写回 → 存版本 |
+| P1 — Tool 注册表 | toolRegistry + toolTypes，V1 仅 3 个基础 Tool |
+| P1 — Skill 三件套（续写/润色/改写） | continue / polish / rewrite 的 P1 管线定义 |
+| P1 — Permission Gate（分级权限） | auto-allow / preview-confirm / must-confirm-snapshot / budget-confirm |
+| P1 — Post-Writing Hooks | auto-save-version 启用，其余注册但不执行 |
+| P1 — 任务状态机 | pending → running → completed/failed/killed，含 paused 中间态 |
+
 ## Purpose
 
 将 AI 能力抽象为可组合的「技能」（续写、改写、扩写、缩写、风格迁移等），每个技能有独立的 `context_rules` 和执行逻辑，支持 builtin → global → project 三级作用域。
@@ -15,6 +32,873 @@
 | Store    | `renderer/src/stores/skillStore.ts` |
 
 ## Requirements
+
+### Requirement: P1 — WritingOrchestrator 编排层
+
+#### 目标
+
+提供 Skill System 的统一执行入口。WritingOrchestrator 是一个有状态类，接收 `WritingRequest`，经过内部管线（识别意图 → 组装上下文 → 选模型 → 调 AI → 流式回传 → 协调确认 → 写回 → 存版本 → 处理失败），以 `AsyncGenerator<WritingEvent>` 的形式向调用方推送全链路事件流。
+
+P1 目标：让"选中文本 → 触发润色 → diff 预览 → 确认写回 → 存版本 → 可回退"这条端到端路径完整可跑。
+
+#### 接口契约
+
+```typescript
+/** 编排器配置 */
+interface OrchestratorConfig {
+  /** AI 服务适配器（接口定义见 ai-service/spec.md § AIServiceAdapter） */
+  aiService: AIServiceAdapter
+  /** Tool 注册表 */
+  toolRegistry: ToolRegistry
+  /** 权限门禁 */
+  permissionGate: PermissionGate
+  /** Post-Writing Hook 注册表 */
+  postWritingHooks: PostWritingHook[]
+  /** 默认超时（毫秒），默认 30_000 */
+  defaultTimeoutMs?: number
+}
+
+/** 写作请求 */
+interface WritingRequest {
+  /** 请求唯一 ID（幂等键） */
+  requestId: string
+  /** 技能 ID，如 'polish' | 'rewrite' | 'continue' */
+  skillId: string
+  /** 输入内容（选中文本或文档上下文） */
+  input: SkillInput
+  /** 用户附加指令（如改写指令） */
+  userInstruction?: string
+  /** 所属文档 ID */
+  documentId: string
+  /** 选区引用（续写时可为空），定义见 editor/spec.md SelectionRef */
+  selection?: SelectionRef
+}
+
+/** 技能输入 */
+interface SkillInput {
+  /** 选中文本 */
+  selectedText?: string
+  /** 光标前文本（续写场景） */
+  precedingText?: string
+  /** 光标后文本（续写场景） */
+  followingText?: string
+}
+
+/** 写作事件——管线中每个阶段的状态推送 */
+type WritingEvent =
+  | { type: 'intent-resolved'; timestamp: number; skillId: string }
+  | { type: 'context-assembled'; timestamp: number; tokenCount: number }
+  | { type: 'model-selected'; timestamp: number; modelId: string }
+  | { type: 'ai-chunk'; timestamp: number; delta: string }
+  | { type: 'ai-done'; timestamp: number; fullText: string; usage: TokenUsage }
+  | { type: 'permission-requested'; timestamp: number; level: PermissionLevel; description: string }
+  | { type: 'permission-granted'; timestamp: number }
+  | { type: 'permission-denied'; timestamp: number }
+  | { type: 'write-back-done'; timestamp: number; versionId: string }
+  | { type: 'hooks-done'; timestamp: number; executed: string[] }
+  | { type: 'error'; timestamp: number; error: WritingError }
+  | { type: 'aborted'; timestamp: number; reason: string }
+
+/** Token 用量 */
+interface TokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+/** 写作错误 */
+interface WritingError {
+  code: string
+  message: string
+  retryable: boolean
+}
+
+/** 编排器——有状态类，参考 CC QueryEngine.ts */
+class WritingOrchestrator {
+  constructor(config: OrchestratorConfig) {}
+
+  /**
+   * 执行写作请求，返回事件流。
+   * 调用方通过 for-await-of 消费事件，可随时 return() 中止。
+   */
+  execute(request: WritingRequest): AsyncGenerator<WritingEvent>
+
+  /** 中止当前正在执行的请求 */
+  abort(requestId: string): void
+
+  /** 销毁编排器，释放资源 */
+  dispose(): void
+}
+```
+
+#### 数据流
+
+```
+用户操作
+  → WritingRequest
+    → [1] 识别意图（解析 skillId → 加载 SkillDefinition）
+    → [2] 组装上下文（Context Engine 注入 Immediate/Rules/Settings/Retrieved 层）
+    → [3] 选模型（根据 SkillDefinition.modelPreference 和可用模型列表）
+    → [4] 调 AI（流式请求 AIServiceAdapter，逐 chunk yield WritingEvent）
+    → [5] 流式回传（前端 Inline Diff 实时渲染）
+    → [6] 协调确认（触发 PermissionGate，等待用户确认/拒绝）
+    → [7] 写回（通过 documentWrite Tool 将确认文本写入文档）
+    → [8] 存版本（通过 versionSnapshot Tool 创建可回退版本快照）
+    → [9] Post-Writing Hooks（依次执行已注册且条件满足的 Hook）
+    → [E] 处理失败（任意阶段失败 → yield error 事件 → 状态机进入 failed）
+```
+
+#### 状态管理
+
+编排器内部维护每个 `requestId` 对应的 `TaskState`（见"P1 — 任务状态机"一节）。管线各阶段的状态转换由编排器统一驱动。
+
+#### 错误处理
+
+| 错误类型 | code | retryable | 恢复策略 |
+| -------- | ---- | --------- | -------- |
+| 输入校验失败 | `SKILL_INPUT_INVALID` | false | 向用户展示具体校验错误 |
+| 上下文组装超限 | `CONTEXT_TOKEN_OVERFLOW` | false | 提示用户缩短选区或调整上下文策略 |
+| AI 调用失败 | `AI_SERVICE_ERROR` | true | 最多重试 2 次，间隔指数退避 |
+| AI 调用超时 | `AI_SERVICE_TIMEOUT` | true | 最多重试 1 次 |
+| 权限被拒 | `PERMISSION_DENIED` | false | 中止管线，不写回 |
+| 写回失败 | `WRITE_BACK_FAILED` | true | 重试 1 次，仍失败则保留 AI 输出在剪贴板 |
+| 版本快照失败 | `VERSION_SNAPSHOT_FAILED` | true | 重试 1 次，仍失败则写回成功但警告用户"未创建版本快照" |
+
+#### CC 架构提炼
+
+- **有状态类设计**：参考 CC `QueryEngine.ts`，WritingOrchestrator 持有配置和运行时状态，不是无状态函数。生命周期由 `constructor → execute()*N → dispose()` 管理。
+- **AsyncGenerator 模式**：管线各阶段通过 `yield` 推送事件，调用方用 `for-await-of` 消费，天然支持背压和中止（`generator.return()`）。
+- **配置注入**：所有依赖（AI 服务、工具注册表、权限门禁、Hook 列表）通过构造函数注入，便于测试时 mock。
+- **幂等键**：`requestId` 保证同一请求不会被重复执行。
+
+#### 不做清单
+
+- ❌ 不做 Agentic Loop（多轮工具调用循环），V1 只走单次管线
+- ❌ 不做多模型 fallback 链
+- ❌ 不做并行技能编排（一次只处理一个请求）
+- ❌ 不做跨文档批量操作
+- ❌ 不做 streaming 中途切换模型
+
+#### Scenario: 用户触发润色并确认写回
+
+- **假设** 用户在编辑器中选中了一段文本"他走到门前"
+- **当** 用户触发 `polish` 技能
+- **则** WritingOrchestrator 依次 yield 事件：`intent-resolved` → `context-assembled` → `model-selected` → 多个 `ai-chunk` → `ai-done` → `permission-requested`（level: `preview-confirm`）
+- **并且** 前端展示 Inline Diff，用户可预览润色结果
+- **当** 用户点击「接受」
+- **则** 继续 yield：`permission-granted` → `write-back-done`（含 versionId）→ `hooks-done`
+- **并且** 文档内容已更新，版本历史中可见本次润色记录
+
+#### Scenario: 用户触发润色但拒绝写回
+
+- **假设** 用户在编辑器中选中文本并触发 `polish` 技能
+- **当** AI 返回润色结果后，`permission-requested` 事件推送到前端
+- **并且** 用户在 Inline Diff 预览中点击「拒绝」
+- **则** WritingOrchestrator yield `permission-denied` 事件
+- **并且** 管线中止，文档内容不变，不创建版本快照
+
+#### Scenario: AI 调用超时后自动重试
+
+- **假设** 用户触发 `polish` 技能，编排器配置 `defaultTimeoutMs: 30000`
+- **当** AI 服务在 30 秒内未响应
+- **则** WritingOrchestrator 自动重试 1 次
+- **如果** 重试仍超时
+- **则** yield `error` 事件（code: `AI_SERVICE_TIMEOUT`, retryable: true）
+- **并且** 任务状态转为 `failed`，前端展示超时提示
+
+---
+
+### Requirement: P1 — Tool 注册表
+
+#### 目标
+
+提供统一的 Tool 注册、查找和执行机制。V1 阶段仅注册 3 个基础 Tool：`documentRead`、`documentWrite`、`versionSnapshot`。Tool 注册表是 WritingOrchestrator 的核心依赖，管线中"写回"和"存版本"阶段通过 Tool 执行。
+
+#### 接口契约
+
+```typescript
+/** Tool 上下文——每次 Tool 执行时注入 */
+interface ToolContext {
+  /** 当前文档 ID */
+  documentId: string
+  /** 当前请求 ID */
+  requestId: string
+  /** 选区引用（定义见 editor/spec.md SelectionRef） */
+  selection?: SelectionRef
+}
+
+/** Tool 执行结果 */
+interface ToolResult {
+  success: boolean
+  data?: unknown
+  error?: { code: string; message: string }
+}
+
+/** Tool 配置——用于 buildTool 工厂 */
+interface ToolConfig {
+  name: string
+  description: string
+  /** 是否并发安全，默认 false（fail-closed） */
+  isConcurrencySafe?: boolean
+  execute: (ctx: ToolContext) => Promise<ToolResult>
+}
+
+/**
+ * Tool 接口——参考 CC Tool.ts
+ * isConcurrencySafe 默认 false，遵循 fail-closed 原则
+ */
+interface WritingTool {
+  readonly name: string
+  readonly description: string
+  readonly isConcurrencySafe: boolean
+  execute(ctx: ToolContext): Promise<ToolResult>
+}
+
+/** Tool 工厂——参考 CC buildTool() */
+function buildTool(config: ToolConfig): WritingTool
+
+/** Tool 注册表 */
+class ToolRegistry {
+  /** 注册一个 Tool，name 重复时抛出 DuplicateToolError */
+  register(tool: WritingTool): void
+
+  /** 按 name 查找 Tool，不存在时返回 undefined */
+  get(name: string): WritingTool | undefined
+
+  /** 获取所有已注册 Tool 列表 */
+  list(): ReadonlyArray<WritingTool>
+
+  /** 注销一个 Tool */
+  unregister(name: string): boolean
+}
+```
+
+#### V1 内置 Tool 定义
+
+| Tool 名称 | 描述 | isConcurrencySafe | 用途 |
+| ---------- | ---- | ----------------- | ---- |
+| `documentRead` | 读取文档指定范围的文本 | true | 上下文组装阶段读取文档内容 |
+| `documentWrite` | 将文本写入文档指定范围 | false | 写回阶段替换选区内容 |
+| `versionSnapshot` | 创建当前文档的版本快照 | false | 写回后创建可回退的版本记录 |
+
+#### 数据流
+
+```
+WritingOrchestrator 管线阶段 [2] 组装上下文
+  → toolRegistry.get('documentRead')
+    → tool.execute({ documentId, requestId, selectionRange })
+      → 返回 { success: true, data: { text: '...' } }
+
+WritingOrchestrator 管线阶段 [7] 写回
+  → toolRegistry.get('documentWrite')
+    → tool.execute({ documentId, requestId, selectionRange })
+      → 返回 { success: true, data: { bytesWritten: 42 } }
+
+WritingOrchestrator 管线阶段 [8] 存版本
+  → toolRegistry.get('versionSnapshot')
+    → tool.execute({ documentId, requestId })
+      → 返回 { success: true, data: { versionId: 'v-xxx' } }
+```
+
+#### 状态管理
+
+ToolRegistry 本身无状态，仅作为 Tool 实例的容器。Tool 的执行状态由 WritingOrchestrator 的任务状态机管理。
+
+#### 错误处理
+
+| 错误类型 | code | 恢复策略 |
+| -------- | ---- | -------- |
+| Tool 未找到 | `TOOL_NOT_FOUND` | 管线中止，yield error 事件 |
+| Tool 名称重复注册 | `DUPLICATE_TOOL` | 注册阶段抛出异常，阻止启动 |
+| Tool 执行失败 | `TOOL_EXECUTION_FAILED` | 由调用方（编排器）根据错误类型决定重试或中止 |
+
+#### CC 架构提炼
+
+- **fail-closed 安全默认值**：参考 CC `Tool.ts`，`isConcurrencySafe` 默认为 `false`。未声明安全的 Tool 不允许并发执行，防止竞态写入。
+- **工厂模式**：`buildTool()` 工厂确保 `isConcurrencySafe` 缺省值被正确填充，避免开发者遗忘。
+- **注册表模式**：集中管理 Tool 实例，编排器通过 name 查找，不直接依赖具体 Tool 实现。
+
+#### 不做清单
+
+- ❌ 不做动态 Tool 加载（V1 所有 Tool 启动时静态注册）
+- ❌ 不做 Tool 权限隔离（V1 所有 Tool 共享编排器上下文）
+- ❌ 不做 Tool 版本管理
+- ❌ 不做用户自定义 Tool
+
+#### Scenario: 编排器通过注册表查找并执行 documentWrite Tool
+
+- **假设** ToolRegistry 中已注册 `documentRead`、`documentWrite`、`versionSnapshot` 三个 Tool
+- **当** WritingOrchestrator 在写回阶段调用 `toolRegistry.get('documentWrite')`
+- **则** 返回 `documentWrite` Tool 实例
+- **并且** 调用 `tool.execute(ctx)` 成功后返回 `{ success: true }`
+
+#### Scenario: 查找未注册的 Tool
+
+- **假设** ToolRegistry 中仅注册了 V1 的 3 个基础 Tool
+- **当** 编排器调用 `toolRegistry.get('nonExistentTool')`
+- **则** 返回 `undefined`
+- **并且** 编排器 yield `error` 事件（code: `TOOL_NOT_FOUND`）
+
+#### Scenario: 重复注册同名 Tool
+
+- **假设** ToolRegistry 中已注册 `documentWrite` Tool
+- **当** 再次调用 `registry.register(anotherDocumentWriteTool)`（name 也是 `documentWrite`）
+- **则** 抛出 `DuplicateToolError`，注册表状态不变
+
+---
+
+### Requirement: P1 — Skill 三件套（续写/润色/改写）
+
+#### 目标
+
+定义 P1 阶段三个基础 Skill 的完整管线配置。每个 Skill 只走**简单管线**（无 Agentic Loop），由 WritingOrchestrator 按固定步骤执行。三个 Skill 覆盖创作者最核心的三种操作：续写新内容、润色已有文本、按指令改写。
+
+#### 接口契约
+
+```typescript
+/** Skill 定义 */
+interface SkillDefinition {
+  /** 技能唯一标识 */
+  skillId: string
+  /** 显示名称 */
+  displayName: string
+  /** 技能描述 */
+  description: string
+  /** 所需输入类型 */
+  requiredInput: SkillInputRequirement
+  /** 管线步骤配置 */
+  pipeline: PipelineConfig
+  /** 权限门禁级别 */
+  permissionLevel: PermissionLevel
+  /** 模型偏好 */
+  modelPreference: ModelPreference
+}
+
+/** 输入要求 */
+interface SkillInputRequirement {
+  /** 是否需要选中文本 */
+  needsSelection: boolean
+  /** 是否需要文档上下文（光标前后文） */
+  needsDocumentContext: boolean
+  /** 是否需要用户附加指令 */
+  needsUserInstruction: boolean
+  /** 最小输入长度（字符数） */
+  minInputLength?: number
+}
+
+/** 管线配置 */
+interface PipelineConfig {
+  /** 管线步骤（V1 固定顺序执行，不支持跳步或分支） */
+  steps: PipelineStep[]
+  /** 是否启用 Agentic Loop（V1 始终为 false） */
+  agenticLoop: false
+}
+
+type PipelineStep =
+  | 'validate-input'
+  | 'assemble-context'
+  | 'select-model'
+  | 'call-ai'
+  | 'stream-response'
+  | 'permission-gate'
+  | 'write-back'
+  | 'version-snapshot'
+  | 'post-hooks'
+
+/** 模型偏好 */
+interface ModelPreference {
+  /** 首选模型能力级别 */
+  capability: 'fast' | 'balanced' | 'advanced'
+  /** 最大输出 token 数 */
+  maxOutputTokens: number
+}
+```
+
+#### V1 Skill 定义
+
+| Skill | skillId | needsSelection | needsDocumentContext | needsUserInstruction | permissionLevel | capability | maxOutputTokens |
+| ----- | ------- | -------------- | -------------------- | -------------------- | --------------- | ---------- | --------------- |
+| 润色 | `polish` | true | false | false | `preview-confirm` | `balanced` | 2048 |
+| 改写 | `rewrite` | true | false | true | `preview-confirm` | `balanced` | 2048 |
+| 续写 | `continue` | false | true | false | `preview-confirm` | `advanced` | 4096 |
+
+三个 Skill 共享同一管线步骤序列：
+
+```
+validate-input → assemble-context → select-model → call-ai
+  → stream-response → permission-gate → write-back
+  → version-snapshot → post-hooks
+```
+
+#### 数据流
+
+```
+[润色] 选中文本 → 原文 + System Prompt("保持原意、优化表达") → AI → diff → 确认 → 替换选区
+[改写] 选中文本 + 用户指令 → 原文 + 指令 + System Prompt → AI → diff → 确认 → 替换选区
+[续写] 光标位置 → 前文上下文 + System Prompt("匹配风格、续写") → AI → 追加文本 → 确认 → 插入光标位置
+```
+
+#### 状态管理
+
+Skill 本身无状态。每次执行由 WritingOrchestrator 分配独立的 `TaskState`，通过任务状态机管理生命周期。
+
+#### 错误处理
+
+| 错误类型 | code | 适用 Skill | 恢复策略 |
+| -------- | ---- | ---------- | -------- |
+| 润色/改写未选中文本 | `SKILL_INPUT_EMPTY` | polish, rewrite | 提示"请先选中需要处理的文本" |
+| 改写未提供指令 | `SKILL_INSTRUCTION_MISSING` | rewrite | 提示"请输入改写指令" |
+| 续写无前文上下文 | `SKILL_CONTEXT_EMPTY` | continue | 提示"文档内容为空，无法续写" |
+| 输入文本过短 | `SKILL_INPUT_TOO_SHORT` | polish, rewrite | 提示"选中文本过短，请选择更多内容" |
+
+#### CC 架构提炼
+
+- **声明式 Skill 定义**：每个 Skill 是纯配置数据（`SkillDefinition`），不包含执行逻辑。执行逻辑统一由 WritingOrchestrator 管线驱动，Skill 只描述"我需要什么输入、走什么管线、要什么权限级别"。
+- **管线步骤固定序列**：V1 不支持步骤跳跃或条件分支，降低复杂度。所有 Skill 共享同一管线模板，仅通过配置差异化行为。
+
+#### 不做清单
+
+- ❌ 不做 Agentic Loop（多轮工具调用），V1 所有 Skill 只走单次管线
+- ❌ 不做 Skill 间链式调用（如"先续写再润色"）
+- ❌ 不做 Skill 自定义管线步骤
+- ❌ 不做 expand / condense / style-transfer / translate / summarize（这些 Skill 留到 P2+）
+- ❌ 不做 Skill 参数 UI（改写指令通过 AI 面板输入框传递，不做独立参数表单）
+
+#### Scenario: 用户触发润色技能端到端流程
+
+- **假设** 用户在编辑器中选中了文本"他慢慢地走到了那扇门的前面"
+- **当** 用户触发 `polish` 技能
+- **则** 编排器校验输入：`needsSelection: true` → 选区非空 ✓
+- **并且** 组装上下文：原文 + System Prompt（"保持原意、优化表达、不改变叙事视角"）
+- **并且** AI 返回润色结果"他缓步走向那扇门"
+- **并且** 前端以 Inline Diff 展示：删除线标注原文，高亮标注新文本
+- **当** 用户点击「接受」
+- **则** 选区内容被替换为润色结果，创建版本快照
+
+#### Scenario: 用户触发改写技能并提供指令
+
+- **假设** 用户选中文本"她笑了笑"，并在 AI 面板输入框中输入改写指令"改为更忧伤的语气"
+- **当** 用户触发 `rewrite` 技能
+- **则** 编排器校验输入：`needsSelection: true` → 选区非空 ✓，`needsUserInstruction: true` → 指令非空 ✓
+- **并且** 组装上下文：原文 + 用户指令 + System Prompt
+- **并且** AI 返回改写结果"她勉强扯出一丝苦涩的微笑"
+- **并且** 前端以 Inline Diff 展示差异，用户确认后写回
+
+#### Scenario: 用户触发续写技能
+
+- **假设** 用户正在编辑文档，光标位于段落末尾"夜幕降临，街灯次第亮起。"之后
+- **当** 用户触发 `continue` 技能
+- **则** 编排器校验输入：`needsDocumentContext: true` → 光标前文非空 ✓
+- **并且** 组装上下文：光标前文（最多 N tokens）+ System Prompt（"匹配前文风格、遵守知识图谱约束"）
+- **并且** AI 以流式返回续写内容，前端在光标位置实时追加渲染
+- **并且** 流式完成后，用户可在 Inline Diff 中审阅并确认/拒绝
+
+---
+
+### Requirement: P1 — Permission Gate（分级权限）
+
+#### 目标
+
+为 Skill 执行管线提供分级权限门禁。根据操作的风险等级，决定是否需要用户确认以及确认的方式。V1 所有写操作都**至少**经过 `preview-confirm` 级别，确保用户对 AI 输出拥有完全控制权。
+
+#### 接口契约
+
+```typescript
+/**
+ * 权限级别——从低到高
+ * auto-allow: 纯读操作，无需确认
+ * preview-confirm: 展示 diff 预览，用户确认后执行
+ * must-confirm-snapshot: 确认前强制创建版本快照
+ * budget-confirm: 涉及 token 预算消耗时的二次确认
+ */
+type PermissionLevel =
+  | 'auto-allow'
+  | 'preview-confirm'
+  | 'must-confirm-snapshot'
+  | 'budget-confirm'
+
+/** 权限请求 */
+interface PermissionRequest {
+  /** 请求 ID */
+  requestId: string
+  /** 权限级别 */
+  level: PermissionLevel
+  /** 操作描述（展示给用户） */
+  description: string
+  /** 预览数据（diff 内容） */
+  preview?: DiffPreview
+  /** 预估 token 消耗（budget-confirm 时使用） */
+  estimatedTokenCost?: number
+}
+
+/** Diff 预览数据 */
+interface DiffPreview {
+  /** 原文 */
+  original: string
+  /** 修改后文本 */
+  modified: string
+  /** 变更类型 */
+  changeType: 'replace' | 'insert' | 'delete'
+}
+
+/** 权限门禁 */
+interface PermissionGate {
+  /**
+   * 请求权限。
+   * 对于 auto-allow，立即返回 true。
+   * 对于其他级别，向前端推送确认请求，等待用户响应。
+   * 超时未响应返回 false。
+   */
+  requestPermission(request: PermissionRequest): Promise<boolean>
+
+  /** 确认超时时间（毫秒），默认 120_000（2 分钟） */
+  readonly confirmTimeoutMs: number
+}
+```
+
+#### 权限级别详细定义
+
+| 级别 | 适用操作 | UI 交互 | V1 使用场景 |
+| ---- | -------- | ------- | ----------- |
+| `auto-allow` | 纯读操作（如 documentRead） | 无交互，静默通过 | 上下文组装阶段读取文档 |
+| `preview-confirm` | 文本修改（润色、改写、续写） | Inline Diff 预览 + 接受/拒绝按钮 | 所有写回操作 |
+| `must-confirm-snapshot` | 批量修改或高风险操作 | 强制先创建版本快照，再展示 Diff 确认 | V1 暂不触发，预留 |
+| `budget-confirm` | 高 token 消耗操作 | 展示预估 token 成本，用户确认后执行 | V1 暂不触发，预留 |
+
+#### 数据流
+
+```
+WritingOrchestrator 管线阶段 [6] 协调确认
+  → 构建 PermissionRequest（含 DiffPreview）
+    → permissionGate.requestPermission(request)
+      → [auto-allow] 立即返回 true
+      → [preview-confirm] IPC 推送到前端 → 前端展示 Diff → 用户点击接受/拒绝 → 返回 boolean
+      → [超时] 返回 false → 编排器 yield permission-denied
+```
+
+#### 状态管理
+
+PermissionGate 不维护持久状态。每个权限请求是一次性的 Promise，由 `requestId` 关联到对应的任务。
+
+#### 错误处理
+
+| 错误类型 | code | 恢复策略 |
+| -------- | ---- | -------- |
+| 确认超时 | `PERMISSION_TIMEOUT` | 视为拒绝，管线中止 |
+| IPC 通道断开 | `PERMISSION_IPC_ERROR` | 视为拒绝，管线中止，提示用户重试 |
+
+#### CC 架构提炼
+
+- **分级权限模型**：参考 CC Permission 系统的分级思路。不同风险的操作对应不同级别的确认要求，低风险静默通过、高风险强制确认。
+- **超时即拒绝**：用户未在超时时间内响应时，默认拒绝（fail-closed），避免无人值守时 AI 自动写入文档。
+- **preview-confirm 作为 V1 默认**：所有写操作都展示 diff 预览让用户确认，保障用户的控制感。
+
+#### 不做清单
+
+- ❌ 不做权限级别的动态调整（V1 每个 Skill 的权限级别固定）
+- ❌ 不做"记住我的选择"跳过确认
+- ❌ 不做基于用户角色的权限差异
+- ❌ 不做 `must-confirm-snapshot` 和 `budget-confirm` 的完整 UI 流程（V1 仅定义接口，不触发）
+
+#### Scenario: preview-confirm 权限流程
+
+- **假设** 用户触发 `polish` 技能，AI 已返回润色结果
+- **当** WritingOrchestrator 进入权限确认阶段
+- **则** 构建 `PermissionRequest`（level: `preview-confirm`，preview: `{ original, modified, changeType: 'replace' }`）
+- **并且** 通过 IPC 推送到前端，前端以 Inline Diff 展示
+- **当** 用户点击「接受」
+- **则** `requestPermission()` 返回 `true`，管线继续执行写回
+
+#### Scenario: 用户未在超时时间内响应
+
+- **假设** 用户触发 `rewrite` 技能，AI 已返回改写结果，权限确认已推送到前端
+- **当** 用户在 120 秒内未做出响应（未点击接受或拒绝）
+- **则** `requestPermission()` 返回 `false`
+- **并且** WritingOrchestrator yield `permission-denied` 事件
+- **并且** 管线中止，AI 输出被丢弃，文档不变
+
+#### Scenario: auto-allow 级别静默通过
+
+- **假设** WritingOrchestrator 在上下文组装阶段调用 `documentRead` Tool
+- **当** 该操作的权限级别为 `auto-allow`
+- **则** `requestPermission()` 立即返回 `true`，不触发任何 UI 交互
+
+---
+
+### Requirement: P1 — Post-Writing Hooks
+
+#### 目标
+
+在 Skill 执行的写回阶段完成后，自动触发一系列后处理操作。每个 Hook 有独立的触发条件，满足条件时才执行。V1 阶段仅启用 `auto-save-version`，其他 Hook 注册但不执行（`enabled: false`）。
+
+#### 接口契约
+
+```typescript
+/** Hook 触发条件上下文 */
+interface HookConditionContext {
+  /** 是否有文档变更 */
+  hasDocumentChanges: boolean
+  /** 是否提及角色名 */
+  mentionsCharacters: boolean
+  /** 是否提及地点 */
+  mentionsLocations: boolean
+  /** 是否为会话结束 */
+  isSessionEnd: boolean
+  /** 本次输出字数 */
+  wordCount: number
+}
+
+/** Post-Writing Hook 定义 */
+interface PostWritingHook {
+  /** Hook 名称 */
+  name: string
+  /** 是否启用 */
+  enabled: boolean
+  /** 触发条件（返回 true 时执行） */
+  condition: (ctx: HookConditionContext) => boolean
+  /** 执行函数 */
+  execute: (ctx: HookExecutionContext) => Promise<HookResult>
+  /** 执行优先级（数字越小越先执行） */
+  priority: number
+}
+
+/** Hook 执行上下文 */
+interface HookExecutionContext {
+  /** 文档 ID */
+  documentId: string
+  /** 请求 ID */
+  requestId: string
+  /** 写回后的文档内容（或变更范围） */
+  writtenContent: string
+  /** 技能 ID */
+  skillId: string
+}
+
+/** Hook 执行结果 */
+interface HookResult {
+  success: boolean
+  /** 错误信息（失败时） */
+  error?: string
+}
+```
+
+#### V1 Hook 注册表
+
+| Hook 名称 | enabled | 触发条件 | 优先级 | V1 行为 |
+| ---------- | ------- | -------- | ------ | ------- |
+| `auto-save-version` | **true** | `hasDocumentChanges === true` | 10 | 调用 `versionSnapshot` Tool 创建版本快照 |
+| `update-kg` | false | `mentionsCharacters \|\| mentionsLocations` | 20 | 注册但不执行 |
+| `extract-memories` | false | `isSessionEnd === true` | 30 | 注册但不执行 |
+| `quality-check` | false | `wordCount > 500` | 40 | 注册但不执行 |
+
+#### 数据流
+
+```
+WritingOrchestrator 管线阶段 [9] Post-Writing Hooks
+  → 遍历已注册 Hook（按 priority 升序）
+    → [enabled === false] 跳过
+    → [condition(ctx) === false] 跳过
+    → [enabled && condition(ctx)] 执行 hook.execute(ctx)
+      → 记录执行结果
+  → yield hooks-done 事件（列出已执行的 Hook 名称列表）
+```
+
+#### 状态管理
+
+Hook 执行状态不持久化。每次管线执行时，Hook 列表从 `OrchestratorConfig.postWritingHooks` 中读取，按优先级排序后依次执行。
+
+#### 错误处理
+
+| 错误类型 | 恢复策略 |
+| -------- | -------- |
+| 单个 Hook 执行失败 | 记录错误日志，继续执行后续 Hook（非阻塞） |
+| `auto-save-version` 失败 | 写回已完成，向用户发出警告"版本快照未创建"，不回滚写回 |
+
+Hook 的失败**不阻塞**管线完成。写回成功即视为核心操作完成，Hook 失败仅记录日志和警告。
+
+#### CC 架构提炼
+
+- **条件触发模式**：每个 Hook 声明自己的触发条件函数，由编排器在管线末尾统一评估和执行。条件不满足的 Hook 直接跳过，零开销。
+- **enabled 开关**：V1 通过 `enabled: false` 注册但禁用未实现的 Hook，为 P2+ 预留扩展点，无需修改注册逻辑。
+- **非阻塞执行**：Hook 失败不影响核心管线（写回）的结果，遵循"核心路径优先"原则。
+
+#### 不做清单
+
+- ❌ 不做 `update-kg` Hook 的实际执行逻辑（V1 仅注册）
+- ❌ 不做 `extract-memories` Hook 的实际执行逻辑（V1 仅注册）
+- ❌ 不做 `quality-check` Hook 的实际执行逻辑（V1 仅注册）
+- ❌ 不做 Hook 的用户自定义注册
+- ❌ 不做 Hook 的异步并行执行（V1 串行执行）
+
+#### Scenario: 写回成功后自动保存版本
+
+- **假设** 用户通过 `polish` 技能完成润色并确认写回
+- **当** 写回阶段成功完成
+- **则** 编排器遍历 Hook 列表，`auto-save-version` 的 `enabled: true` 且 `hasDocumentChanges: true`
+- **并且** 执行 `auto-save-version` → 调用 `versionSnapshot` Tool → 创建版本快照
+- **并且** yield `hooks-done` 事件，`executed` 列表包含 `['auto-save-version']`
+
+#### Scenario: 禁用的 Hook 不执行
+
+- **假设** 用户通过 `continue` 技能完成续写并确认写回
+- **当** 编排器遍历 Hook 列表
+- **则** `update-kg` 的 `enabled: false` → 跳过
+- **并且** `extract-memories` 的 `enabled: false` → 跳过
+- **并且** `quality-check` 的 `enabled: false` → 跳过
+- **并且** 仅 `auto-save-version` 被执行
+
+#### Scenario: auto-save-version Hook 执行失败
+
+- **假设** 用户确认写回后，`auto-save-version` Hook 触发
+- **当** `versionSnapshot` Tool 执行失败（如磁盘空间不足）
+- **则** Hook 返回 `{ success: false, error: '磁盘空间不足' }`
+- **并且** 编排器记录警告日志，向前端发出"版本快照未创建"提示
+- **并且** 管线仍然 yield `hooks-done` 事件（写回本身不回滚）
+
+---
+
+### Requirement: P1 — 任务状态机
+
+#### 目标
+
+定义 Skill 执行全生命周期的状态模型。每个 `WritingRequest` 对应一个独立的 `TaskState` 实例，由 WritingOrchestrator 统一管理状态转换。状态机保证任务生命周期的确定性：任何时刻任务都处于明确的状态，且状态转换遵循预定义规则。
+
+#### 接口契约
+
+```typescript
+/** 任务状态 */
+type TaskStatus =
+  | 'pending'     // 已创建，等待执行
+  | 'running'     // 管线执行中
+  | 'paused'      // 等待用户确认（权限门禁阶段）
+  | 'completed'   // 成功完成（写回 + Hook 均完成）
+  | 'failed'      // 执行失败（不可恢复错误或重试耗尽）
+  | 'killed'      // 被用户或系统主动中止
+
+/** 任务状态实例 */
+interface TaskState {
+  /** 请求 ID */
+  requestId: string
+  /** 当前状态 */
+  status: TaskStatus
+  /** 当前管线阶段（running 时有效） */
+  currentStep?: PipelineStep
+  /** 创建时间 */
+  createdAt: number
+  /** 最后状态变更时间 */
+  updatedAt: number
+  /** 错误信息（failed 时有效） */
+  error?: WritingError
+  /** 中止原因（killed 时有效） */
+  abortReason?: string
+}
+
+/** 状态转换事件 */
+interface TaskStateTransition {
+  from: TaskStatus
+  to: TaskStatus
+  reason: string
+  timestamp: number
+}
+
+/** 终态判断 */
+function isTerminal(status: TaskStatus): boolean {
+  return status === 'completed' || status === 'failed' || status === 'killed'
+}
+```
+
+#### 状态转换规则
+
+```
+pending ──[execute()调用]──→ running
+running ──[权限门禁等待]──→ paused
+running ──[管线全部完成]──→ completed
+running ──[不可恢复错误]──→ failed
+running ──[用户中止]────→ killed
+paused  ──[用户确认]────→ running
+paused  ──[用户拒绝]────→ killed
+paused  ──[确认超时]────→ killed
+```
+
+合法转换矩阵：
+
+| 当前状态 → | pending | running | paused | completed | failed | killed |
+| ---------- | ------- | ------- | ------ | --------- | ------ | ------ |
+| **pending** | — | ✓ | — | — | — | ✓ |
+| **running** | — | — | ✓ | ✓ | ✓ | ✓ |
+| **paused** | — | ✓ | — | — | — | ✓ |
+| **completed** | — | — | — | — | — | — |
+| **failed** | — | — | — | — | — | — |
+| **killed** | — | — | — | — | — | — |
+
+终态（`completed` / `failed` / `killed`）不可再转换。非法转换**必须**抛出 `InvalidStateTransitionError`。
+
+#### 数据流
+
+```
+WritingOrchestrator.execute(request)
+  → 创建 TaskState { requestId, status: 'pending' }
+  → 转为 running → 管线依次执行各阶段
+  → 到达 permission-gate → 转为 paused → 等待用户响应
+    → 用户确认 → 转为 running → 继续管线
+    → 用户拒绝/超时 → 转为 killed → 管线中止
+  → 管线全部完成 → 转为 completed
+  → 任意阶段异常 → 转为 failed
+```
+
+#### 状态管理
+
+WritingOrchestrator 维护一个 `Map<string, TaskState>`（key 为 `requestId`），用于追踪所有活跃任务。终态任务在保留一段时间（供 UI 查询）后可被清理。
+
+#### 错误处理
+
+| 错误类型 | code | 恢复策略 |
+| -------- | ---- | -------- |
+| 非法状态转换 | `INVALID_STATE_TRANSITION` | 抛出异常，不改变当前状态 |
+| 重复 requestId | `DUPLICATE_REQUEST_ID` | 拒绝创建，返回已有任务状态 |
+
+#### CC 架构提炼
+
+- **显式状态机**：所有状态和合法转换以矩阵形式定义，杜绝隐式状态和无效转换。非法转换直接抛异常而非静默忽略。
+- **终态不可逆**：`completed` / `failed` / `killed` 是终态，一旦进入不可再转换，保证生命周期的确定性。
+- **paused 中间态**：专门为权限门禁设计。管线在等待用户确认时进入 `paused`，区别于 `running`（还在执行）和 `killed`（已中止）。
+
+#### 不做清单
+
+- ❌ 不做任务持久化（V1 任务状态仅存在于内存，应用重启后丢失）
+- ❌ 不做任务队列（V1 一次只执行一个任务，新请求在前一个完成前被拒绝）
+- ❌ 不做任务恢复（failed/killed 后不支持"从断点继续"）
+- ❌ 不做任务优先级
+
+#### Scenario: 完整的任务状态转换（成功路径）
+
+- **假设** 用户触发 `polish` 技能
+- **则** 创建 TaskState，status = `pending`
+- **当** WritingOrchestrator 开始执行管线
+- **则** status 转为 `running`，currentStep 依次更新为各阶段名称
+- **当** 管线到达 `permission-gate` 阶段
+- **则** status 转为 `paused`
+- **当** 用户点击「接受」
+- **则** status 转回 `running`，继续执行 `write-back` → `version-snapshot` → `post-hooks`
+- **当** 所有阶段完成
+- **则** status 转为 `completed`（终态）
+
+#### Scenario: 用户中止任务
+
+- **假设** 用户触发 `continue` 技能，管线正在 `call-ai` 阶段（status = `running`）
+- **当** 用户点击「取消」按钮
+- **则** WritingOrchestrator 调用 `abort(requestId)`
+- **并且** status 转为 `killed`，abortReason = '用户主动取消'
+- **并且** AI 请求被中止，管线不再继续
+
+#### Scenario: 非法状态转换被拒绝
+
+- **假设** 一个任务已处于 `completed` 终态
+- **当** 尝试将其转为 `running`
+- **则** 抛出 `InvalidStateTransitionError`（message: '不允许从 completed 转为 running'）
+- **并且** 任务状态保持 `completed` 不变
+
+---
 
 ### Requirement: 内置技能清单与 I/O 定义
 

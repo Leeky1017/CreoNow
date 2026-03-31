@@ -185,6 +185,9 @@ importers:
       pdfkit:
         specifier: ^0.17.2
         version: 0.17.2
+      prosemirror-model:
+        specifier: 1.25.4
+        version: 1.25.4
       re-resizable:
         specifier: ^6.11.2
         version: 6.11.2(react-dom@18.3.1)(react@18.3.1)

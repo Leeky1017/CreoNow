@@ -1,5 +1,32 @@
 # Editor Specification
 
+## P1 变更摘要
+
+本次为 P1（系统脊柱）阶段新增以下变更：
+
+| 变更 | 描述 |
+|------|------|
+| P1 — ProseMirror 迁移 | 从 TipTap 2 迁移到原生 ProseMirror |
+| P1 — 基础 Schema | 文档/段落/标题/列表/引用/代码块 + inline marks |
+| P1 — EditorView 集成 | Electron 渲染进程入口 + React 桥接 |
+| P1 — Markdown 输入规则 | 基础 Markdown 语法的 ProseMirror inputrules |
+| P1 — 选区 → AI 管线 | 选中文本后通过 WritingOrchestrator 触发 Skill |
+
+### ⚠️ P1 与现有 Spec 的重大差异
+
+**编辑器核心从 TipTap 2 迁移到 ProseMirror**
+
+现有 spec 基于 TipTap 2（`@tiptap/starter-kit`, `@tiptap/extension-*`）。P1 决定迁移到原生 ProseMirror，原因：
+1. 对 Transaction 和 Step 有更细粒度控制，这是 AI Diff 预览的基础
+2. 避免 TipTap 抽象层带来的性能开销和定制限制
+3. 为 P2 的 ProseMirror Step → 建议标记 → Accept/Reject UI 做准备
+
+迁移影响：
+- 所有 TipTap 相关 API 引用（`useEditor`, `EditorContent`, `@tiptap/extension-*`）替换为 ProseMirror 原生 API（`EditorView`, `EditorState`, `Schema`, `Plugin`）
+- 存储格式从 TipTap JSON 改为 ProseMirror State JSON
+- 自动保存内容格式变更（影响 version-control 模块）
+- Bubble Menu 从 `@tiptap/extension-bubble-menu` 改为自定义 ProseMirror Plugin
+
 ## Purpose
 
 基于 TipTap 2 的富文本编辑器集成，覆盖创作场景下的文本编辑、格式化、AI 协作交互、文档大纲、Diff 对比和禅模式。
@@ -13,15 +40,354 @@
 
 ## Requirements
 
+### Requirement: P1 — ProseMirror 基础 Schema
+
+> **阶段**: P1（系统脊柱）  
+> **迁移说明**: 本 Requirement 替代现有基于 TipTap 2 的 Schema 设计，使用原生 ProseMirror API。
+
+The system SHALL provide a rich text editor based on ProseMirror (not TipTap 2), with the following document schema:
+
+**Node 定义** (`prosemirror-model` `Schema`):
+
+| Node | Content Expression | Group | 说明 |
+|------|-------------------|-------|------|
+| `doc` | `block+` | — | 顶层文档节点 |
+| `paragraph` | `inline*` | `block` | 段落 |
+| `heading` | `inline*` | `block` | 标题，`attrs: { level: { default: 1 } }`，支持 1–6 |
+| `blockquote` | `block+` | `block` | 引用块 |
+| `code_block` | `text*` | `block` | 代码块，`code: true`，禁止 inline marks |
+| `horizontal_rule` | — | `block` | 分割线，leaf node |
+| `bullet_list` | `list_item+` | `block` | 无序列表 |
+| `ordered_list` | `list_item+` | `block` | 有序列表，`attrs: { order: { default: 1 } }` |
+| `list_item` | `paragraph block*` | — | 列表项 |
+| `text` | — | `inline` | 文本节点 |
+
+**Mark 定义**:
+
+| Mark | 键盘快捷键 | HTML 标签 |
+|------|-----------|----------|
+| `bold` | `Mod-b` | `<strong>` |
+| `italic` | `Mod-i` | `<em>` |
+| `underline` | `Mod-u` | `<u>` |
+| `strikethrough` | `Mod-Shift-s` | `<s>` |
+| `code` | `Mod-e` | `<code>` |
+
+该 Schema 在功能上必须与原 TipTap `@tiptap/starter-kit` + `@tiptap/extension-underline` 等价，但使用原生 ProseMirror NodeSpec/MarkSpec 实现，不使用 TipTap 扩展系统。
+
+**关键接口**:
+
+```typescript
+import { Schema, NodeSpec, MarkSpec } from 'prosemirror-model';
+
+const nodes: Record<string, NodeSpec> = {
+  doc: { content: 'block+' },
+  paragraph: { content: 'inline*', group: 'block', parseDOM: [{ tag: 'p' }], toDOM() { return ['p', 0]; } },
+  heading: {
+    attrs: { level: { default: 1 } },
+    content: 'inline*',
+    group: 'block',
+    parseDOM: [1, 2, 3, 4, 5, 6].map(level => ({ tag: `h${level}`, attrs: { level } })),
+    toDOM(node) { return [`h${node.attrs.level}`, 0]; },
+  },
+  blockquote: { content: 'block+', group: 'block', parseDOM: [{ tag: 'blockquote' }], toDOM() { return ['blockquote', 0]; } },
+  code_block: { content: 'text*', group: 'block', code: true, parseDOM: [{ tag: 'pre', preserveWhitespace: 'full' }], toDOM() { return ['pre', ['code', 0]]; } },
+  horizontal_rule: { group: 'block', parseDOM: [{ tag: 'hr' }], toDOM() { return ['hr']; } },
+  bullet_list: { content: 'list_item+', group: 'block', parseDOM: [{ tag: 'ul' }], toDOM() { return ['ul', 0]; } },
+  ordered_list: { content: 'list_item+', group: 'block', attrs: { order: { default: 1 } }, parseDOM: [{ tag: 'ol', getAttrs: dom => ({ order: (dom as HTMLElement).getAttribute('start') ? +(dom as HTMLElement).getAttribute('start')! : 1 }) }], toDOM(node) { return node.attrs.order === 1 ? ['ol', 0] : ['ol', { start: node.attrs.order }, 0]; } },
+  list_item: { content: 'paragraph block*', parseDOM: [{ tag: 'li' }], toDOM() { return ['li', 0]; } },
+  text: { group: 'inline' },
+};
+
+const marks: Record<string, MarkSpec> = {
+  bold: { parseDOM: [{ tag: 'strong' }, { tag: 'b' }, { style: 'font-weight=bold' }], toDOM() { return ['strong', 0]; } },
+  italic: { parseDOM: [{ tag: 'em' }, { tag: 'i' }, { style: 'font-style=italic' }], toDOM() { return ['em', 0]; } },
+  underline: { parseDOM: [{ tag: 'u' }, { style: 'text-decoration=underline' }], toDOM() { return ['u', 0]; } },
+  strikethrough: { parseDOM: [{ tag: 's' }, { tag: 'del' }, { style: 'text-decoration=line-through' }], toDOM() { return ['s', 0]; } },
+  code: { parseDOM: [{ tag: 'code' }], toDOM() { return ['code', 0]; } },
+};
+
+export const editorSchema = new Schema({ nodes, marks });
+```
+
+#### Scenario: 使用 ProseMirror Schema 创建文档
+
+- **GIVEN** `editorSchema` 已定义
+- **WHEN** 系统调用 `editorSchema.node('doc', null, [editorSchema.node('paragraph', null, [editorSchema.text('Hello')])])`
+- **THEN** 返回一个合法的 ProseMirror `Node`，类型为 `doc`，包含一个 `paragraph` 子节点
+- **AND** 该 `paragraph` 节点包含文本 `"Hello"`
+
+#### Scenario: Schema 验证拒绝非法内容
+
+- **GIVEN** `editorSchema` 已定义
+- **WHEN** 尝试在 `code_block` 节点中插入 `bold` mark
+- **THEN** Schema 验证拒绝该操作（`code_block` 设置 `code: true`，禁止 inline marks）
+
+#### Scenario: Schema 支持所有 inline marks
+
+- **GIVEN** 一个包含文本的 `paragraph` 节点
+- **WHEN** 对文本范围依次应用 `bold`, `italic`, `underline`, `strikethrough`, `code` marks
+- **THEN** 每个 mark 都成功应用
+- **AND** marks 可以叠加（除 `code` mark 外，`code` 与其他 marks 互斥由 `excludes` 控制）
+
+---
+
+### Requirement: P1 — EditorView 集成
+
+> **阶段**: P1（系统脊柱）
+
+The system SHALL initialize and manage ProseMirror `EditorView` within Electron 渲染进程，并通过 `EditorBridge` 接口与 React 组件集成。
+
+**集成策略**:
+
+ProseMirror `EditorView` 不是 React 组件，需要通过 `ref` 桥接模式集成：
+1. React 组件提供一个 `<div ref={containerRef} />` 作为挂载点
+2. `EditorBridge` 在 `useEffect` 中调用 `mount(containerRef.current)` 初始化 `EditorView`
+3. 组件卸载时调用 `destroy()` 清理 `EditorView` 及所有 Plugin
+
+**生命周期管理**:
+
+| 阶段 | 动作 |
+|------|------|
+| 挂载 | 创建 `EditorState`（含 Schema + Plugins），创建 `EditorView`，绑定到 DOM 容器 |
+| 更新 | 通过 `EditorView.updateState()` 或 `dispatch(transaction)` 更新 |
+| 卸载 | 调用 `EditorView.destroy()`，解除所有事件监听和 Plugin |
+
+**关键接口**:
+
+```typescript
+import { EditorView } from 'prosemirror-view';
+import { EditorState } from 'prosemirror-state';
+import { Node as ProseMirrorNode } from 'prosemirror-model';
+
+type ProseMirrorStateJSON = ReturnType<EditorState['toJSON']>;
+
+interface EditorBridge {
+  /** 当前 EditorView 实例，未挂载时为 null */
+  view: EditorView | null;
+
+  /** 将 EditorView 挂载到指定 DOM 容器 */
+  mount(container: HTMLElement, initialDoc?: ProseMirrorNode): void;
+
+  /** 销毁 EditorView，释放资源 */
+  destroy(): void;
+
+  /** 获取当前编辑器内容的 JSON 序列化 */
+  getContent(): ProseMirrorStateJSON;
+
+  /** 从 JSON 恢复编辑器内容（替换当前 State） */
+  setContent(json: ProseMirrorStateJSON): void;
+
+  /** 获取当前选区信息，无选区时返回 null */
+  getSelection(): SelectionRef | null;
+}
+```
+
+**React 集成示例**:
+
+```typescript
+function EditorComponent({ bridge }: { bridge: EditorBridge }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      bridge.mount(containerRef.current);
+    }
+    return () => bridge.destroy();
+  }, [bridge]);
+
+  return <div ref={containerRef} className="cn-editor-root" />;
+}
+```
+
+#### Scenario: EditorView 挂载到 DOM 容器
+
+- **GIVEN** 一个空的 `<div>` DOM 元素作为容器
+- **WHEN** 调用 `bridge.mount(container)`
+- **THEN** `bridge.view` 不为 `null`
+- **AND** 容器内渲染出 ProseMirror 编辑器 DOM 结构（`.ProseMirror` class）
+- **AND** 编辑器可获取焦点并接受键盘输入
+
+#### Scenario: EditorView 组件卸载时销毁
+
+- **GIVEN** `EditorView` 已挂载并处于活跃状态
+- **WHEN** React 组件卸载，触发 `bridge.destroy()`
+- **THEN** `bridge.view` 变为 `null`
+- **AND** 所有 ProseMirror Plugin 被清理
+- **AND** DOM 容器内的编辑器 DOM 结构被移除
+
+#### Scenario: 通过 EditorBridge 序列化和恢复内容
+
+- **GIVEN** 编辑器包含文本 `"Hello World"` 和一个 `bold` mark
+- **WHEN** 调用 `bridge.getContent()` 获取 JSON
+- **AND** 随后调用 `bridge.setContent(json)` 恢复内容
+- **THEN** 恢复后的编辑器内容与原始内容完全一致（包括 marks 和 node 结构）
+
+---
+
+### Requirement: P1 — Markdown 输入规则
+
+> **阶段**: P1（系统脊柱）
+
+The system SHALL support Markdown 语法快捷输入 via ProseMirror `inputrules` plugin, enabling users to type familiar Markdown syntax which is automatically converted to rich text formatting in real-time.
+
+**行内快捷语法（Inline Input Rules）**:
+
+| 输入 | 效果 | 触发条件 |
+|------|------|---------|
+| `**text**` | 应用 `bold` mark | 输入闭合的 `**` 时触发 |
+| `*text*` | 应用 `italic` mark | 输入闭合的 `*` 时触发 |
+| `` `text` `` | 应用 `code` mark | 输入闭合的 `` ` `` 时触发 |
+
+**块级快捷语法（Block Input Rules）**:
+
+| 输入 | 效果 | 触发条件 |
+|------|------|---------|
+| `# ` + Space | 转换为 `heading` level 1 | 行首输入 `# ` |
+| `## ` + Space | 转换为 `heading` level 2 | 行首输入 `## ` |
+| `### ` + Space | 转换为 `heading` level 3 | 行首输入 `### ` |
+| `> ` + Space | 转换为 `blockquote` | 行首输入 `> ` |
+| `- ` + Space | 转换为 `bullet_list` | 行首输入 `- ` |
+| `* ` + Space | 转换为 `bullet_list` | 行首输入 `* ` |
+| `1. ` + Space | 转换为 `ordered_list` | 行首输入 `1. ` |
+| `---` + Enter | 转换为 `horizontal_rule` | 行首输入 `---` 后回车 |
+| ` ``` ` + Enter | 转换为 `code_block` | 行首输入 ` ``` ` 后回车 |
+
+**实现要求**:
+
+- 使用 `prosemirror-inputrules` 包的 `inputRule` / `wrappingInputRule` / `textblockTypeInputRule` API
+- 行内 marks 使用自定义 `InputRule`，在匹配时通过 `tr.addMark()` 应用
+- 块级转换使用 `wrappingInputRule`（列表、引用）或 `textblockTypeInputRule`（标题、代码块）
+- 所有 input rules 打包为单个 ProseMirror Plugin（`inputRulesPlugin`）
+
+#### Scenario: 用户输入 `**text**` 触发 bold
+
+- **GIVEN** 编辑器光标在空段落内
+- **WHEN** 用户依次输入 `**hello**`
+- **THEN** 输入的 `**` 标记被移除
+- **AND** 文本 `hello` 被应用 `bold` mark
+- **AND** 光标停留在 bold 文本之后
+
+#### Scenario: 用户输入 `# ` 触发标题转换
+
+- **GIVEN** 编辑器光标在空段落行首
+- **WHEN** 用户输入 `# `（井号 + 空格）
+- **THEN** 当前段落被转换为 `heading` level 1
+- **AND** `# ` 文本被移除，光标停留在标题内
+
+#### Scenario: 用户输入 `- ` 触发无序列表
+
+- **GIVEN** 编辑器光标在空段落行首
+- **WHEN** 用户输入 `- `（短横线 + 空格）
+- **THEN** 当前段落被包裹为 `bullet_list > list_item > paragraph`
+- **AND** `- ` 文本被移除，光标停留在列表项内
+
+#### Scenario: 代码块内不触发 input rules
+
+- **GIVEN** 编辑器光标在 `code_block` 内
+- **WHEN** 用户输入 `**text**` 或 `# `
+- **THEN** 文本原样保留，不触发任何 input rule 转换
+
+---
+
+### Requirement: P1 — 选区 → AI 管线
+
+> **阶段**: P1（系统脊柱）  
+> **依赖**: WritingOrchestrator（`skill-system` 模块）
+
+The system SHALL capture editor selection information and pass it to `WritingOrchestrator` to trigger AI writing skills. This is the core pipeline for P1 验收标准："选中文本 → 触发润色 → 看到 diff 预览 → 确认写回"。
+
+**选区信息捕获**:
+
+```typescript
+interface SelectionRef {
+  /** 选区起始位置（ProseMirror resolved position） */
+  from: number;
+  /** 选区结束位置 */
+  to: number;
+  /** 选中的纯文本内容 */
+  text: string;
+  /** 选中文本的 SHA-256 哈希，用于验证写回时内容未变 */
+  selectionTextHash: string;
+}
+```
+
+**管线流程**:
+
+1. 用户在编辑器中选中文本
+2. 系统通过 `EditorBridge.getSelection()` 捕获 `SelectionRef`
+3. 用户触发 AI Skill（通过浮动工具栏或快捷键）
+4. 系统将 `SelectionRef` + Skill 类型传递给 `WritingOrchestrator`
+5. `WritingOrchestrator` 返回 AI 建议结果
+6. 系统在编辑器中展示 diff 预览（P1 基础预览；P2 扩展为 ProseMirror Decoration）
+7. 用户确认后，系统通过 `EditorView.dispatch(tr)` 将建议写回编辑器
+
+**写回安全机制**:
+
+- 写回前重新计算当前选区位置的文本哈希
+- 与 `SelectionRef.selectionTextHash` 对比
+- 若哈希不匹配（内容已被用户修改），中止写回并提示用户
+
+**`EditorBridge.getSelection()` 行为**:
+
+| 状态 | 返回值 |
+|------|--------|
+| 有文本选区（`from !== to`） | `SelectionRef` 对象 |
+| 光标选区（`from === to`） | `null` |
+| 编辑器未挂载 | `null` |
+
+#### Scenario: 捕获选区信息
+
+- **GIVEN** 编辑器包含文本 `"The quick brown fox"`
+- **WHEN** 用户选中 `"quick brown"`
+- **THEN** `bridge.getSelection()` 返回 `SelectionRef`
+- **AND** `text` 字段等于 `"quick brown"`
+- **AND** `from` 和 `to` 对应 ProseMirror 文档中的正确位置
+- **AND** `selectionTextHash` 是 `"quick brown"` 的 SHA-256 哈希
+
+#### Scenario: 选区信息传递给 WritingOrchestrator
+
+- **GIVEN** 用户已选中文本，`SelectionRef` 已捕获
+- **WHEN** 用户触发「润色」Skill
+- **THEN** 系统调用 `WritingOrchestrator.execute({ selection: selectionRef, skill: 'polish' })`
+- **AND** `WritingOrchestrator` 接收到完整的 `SelectionRef`（含 `from`, `to`, `text`, `selectionTextHash`）
+
+#### Scenario: 写回时哈希验证通过
+
+- **GIVEN** AI 返回了润色建议，`selectionTextHash` 匹配当前编辑器内容
+- **WHEN** 用户点击「接受」按钮
+- **THEN** 系统通过 `view.dispatch(tr.replaceWith(from, to, newContent))` 将建议写回
+- **AND** 编辑器内容更新为 AI 建议的文本
+
+#### Scenario: 写回时哈希验证失败
+
+- **GIVEN** AI 返回了润色建议
+- **AND** 在 AI 处理期间用户修改了选中区域的文本
+- **WHEN** 用户点击「接受」按钮
+- **THEN** 系统检测到 `selectionTextHash` 与当前内容的哈希不匹配
+- **AND** 中止写回操作
+- **AND** 向用户显示提示：「选中内容已变更，请重新选择后再试」
+
+#### Scenario: 无文本选区时返回 null
+
+- **GIVEN** 编辑器已挂载，光标位于段落中（无选区）
+- **WHEN** 调用 `bridge.getSelection()`
+- **THEN** 返回 `null`
+
+---
+
 ### Requirement: 富文本编辑器基础排版
 
-The system SHALL provide a WYSIWYG rich text editor based on TipTap 2, with bottom storage format as TipTap JSON (users need not be aware of this). The editor SHALL support the following formatting capabilities via toolbar buttons and keyboard shortcuts:
+⚠️ P1 迁移：以下 TipTap 引用在 P1 实施时替换为 ProseMirror 等价实现（参见本 spec 顶部 P1 迁移说明）。
+
+The system SHALL provide a WYSIWYG rich text editor based on ProseMirror, with bottom storage format as ProseMirror State JSON (users need not be aware of this). The editor SHALL support the following formatting capabilities via toolbar buttons and keyboard shortcuts:
 
 - **Inline marks**: Bold, Italic, Underline, Strikethrough, Inline Code
 - **Block nodes**: Heading (H1–H3), Bullet List, Ordered List, Blockquote, Code Block, Horizontal Rule
 - **History**: Undo, Redo
 
-The editor SHALL use `@tiptap/starter-kit` as the base extension bundle. Underline SHALL be provided via the `@tiptap/extension-underline` extension (not included in StarterKit). Additional extensions MAY be added as separate TipTap extensions when needed.
+⚠️ P1 迁移：TipTap 扩展替换为 ProseMirror Plugin/NodeSpec/MarkSpec。
+
+The editor SHALL use ProseMirror plugins to provide equivalent functionality to `@tiptap/starter-kit`. Underline SHALL be provided via a custom ProseMirror MarkSpec (not a TipTap extension). Additional capabilities MAY be added as separate ProseMirror plugins when needed.
 
 The editor body text SHALL use the `--font-family-body` font family at `--text-editor-size` (16px) with `--text-editor-line-height` (1.8), as defined in `design/system/01-tokens.css`.
 
@@ -88,7 +454,7 @@ The toolbar background SHALL use `--color-bg-surface` with a bottom border using
 
 ### Requirement: 选中文本浮动工具栏（Floating Toolbar / Bubble Menu）
 
-The system SHALL provide a floating toolbar (Bubble Menu) that appears above the user's text selection, offering quick access to inline formatting operations. The implementation SHALL use TipTap's `@tiptap/extension-bubble-menu` extension.
+The system SHALL provide a floating toolbar (Bubble Menu) that appears above the user's text selection, offering quick access to inline formatting operations. ⚠️ P1 迁移：实现方式从 `@tiptap/extension-bubble-menu` 替换为自定义 ProseMirror Plugin（参见本 spec 顶部 P1 迁移说明）。
 
 **Visibility rules:**
 
@@ -245,7 +611,7 @@ The system SHALL automatically capture the user's editor text selection and pres
 
 The system SHALL automatically save editor content to the database via IPC after content changes, with the following behavior:
 
-- Autosave SHALL be debounced with a 500ms delay after the last `update` event from TipTap
+- Autosave SHALL be debounced with a 500ms delay after the last `update` event from ProseMirror EditorView（⚠️ P1 迁移：原 TipTap `update` 事件替换为 ProseMirror `dispatchTransaction` 回调）
 - Autosave SHALL use `actor: "auto"` and `reason: "autosave"` when invoking the save IPC channel (`file:document:save`)
 - The autosave state machine SHALL track four states: `idle` → `saving` → `saved` | `error`
 - On component unmount, if there is a pending (queued but unsent) change, the system SHALL flush it immediately
@@ -286,7 +652,7 @@ The system SHALL load and persist document content through typed IPC channels fo
 | `file:document:getCurrent` | Request-Response | Renderer → Main | Get the current document ID for a project |
 | `file:document:list`       | Request-Response | Renderer → Main | List all documents in a project           |
 | `file:document:create`     | Request-Response | Renderer → Main | Create a new document                     |
-| `file:document:read`       | Request-Response | Renderer → Main | Read document content (TipTap JSON)       |
+| `file:document:read`       | Request-Response | Renderer → Main | Read document content (ProseMirror State JSON)（⚠️ P1 迁移：格式从 TipTap JSON 变更为 ProseMirror State JSON） |
 | `file:document:save`       | Request-Response | Renderer → Main | Save document content                     |
 
 All IPC calls SHALL go through the typed `invoke` function exposed via `contextBridge`. The editor store (`editorStore`) SHALL orchestrate the bootstrap sequence:
@@ -486,7 +852,7 @@ The system SHALL support comparing document versions in a dedicated diff view, w
 
 ### Requirement: 禅模式（Zen Mode）
 
-系统**必须**提供应用内全屏的沉浸式写作模式。禅模式当前不是静态展示层，而是复用正常编辑态的 TipTap 编辑器实例，让用户在沉浸视图中继续真实写作。
+系统**必须**提供应用内全屏的沉浸式写作模式。禅模式当前不是静态展示层，而是复用正常编辑态的 ProseMirror EditorView 实例，让用户在沉浸视图中继续真实写作。（⚠️ P1 迁移：原 TipTap 编辑器实例替换为 ProseMirror EditorView）
 
 禅模式行为：
 
@@ -546,7 +912,7 @@ The system SHALL support comparing document versions in a dedicated diff view, w
 
 The system SHALL provide an outline view as an accessory feature of the editor (not a standalone module). The outline SHALL be derived from headings in the current document.
 
-- The `deriveOutline()` function SHALL extract all H1–H3 heading nodes from the TipTap document JSON and return a flat array of `OutlineItem` objects with stable IDs
+- The `deriveOutline()` function SHALL extract all H1–H3 heading nodes from the ProseMirror document JSON and return a flat array of `OutlineItem` objects with stable IDs（⚠️ P1 迁移：原 TipTap document JSON 替换为 ProseMirror State JSON）
 - H4–H6 headings SHALL be ignored in the outline
 - Empty headings SHALL display the text "(untitled heading)"
 - The outline SHALL be displayed in the `OutlinePanel` component in the left sidebar (under the "outline" Icon Bar entry)
@@ -704,7 +1070,7 @@ The editor and its sub-components SHALL meet basic accessibility requirements:
 | 类别         | 最低覆盖要求                                |
 | ------------ | ------------------------------------------- |
 | 网络/IO 失败 | IPC 保存失败、文档读取失败                  |
-| 数据异常     | TipTap JSON 非法、selectionRef 失配         |
+| 数据异常     | ProseMirror State JSON 非法、selectionRef 失配（⚠️ P1 迁移：原 TipTap JSON 替换为 ProseMirror State JSON） |
 | 并发冲突     | 自动保存与手动保存并发、Diff 应用与撤销并发 |
 | 容量溢出     | 超长文档、超大粘贴内容                      |
 | 权限/安全    | 非当前项目文档写入、非法快捷键注入          |
