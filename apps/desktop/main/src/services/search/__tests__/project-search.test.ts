@@ -507,10 +507,16 @@ describe("ProjectSearch P3", () => {
   // ── Index corruption recovery ───────────────────────────────────
 
   describe("index corruption recovery", () => {
-    it("索引损坏时自动触发重建并返回 rebuilding 状态", async () => {
-      // 模拟索引损坏：第一次 prepare 抛错，后续调用正常（重建后恢复）
-      db.prepare.mockImplementationOnce(() => {
-        throw new Error("FTS index corrupted");
+    it("索引损坏且重建成功时返回 rebuilding 状态", async () => {
+      db.prepare.mockImplementation((sql: string) => {
+        if (/search_fts MATCH/i.test(sql) || /SELECT COUNT\(\*\) as total/i.test(sql)) {
+          throw new Error("FTS index corrupted");
+        }
+        return {
+          run: vi.fn(),
+          get: vi.fn(),
+          all: vi.fn().mockReturnValue([]),
+        };
       });
 
       const result = await search.search(makeSearchRequest({ query: "测试" }));
@@ -522,18 +528,46 @@ describe("ProjectSearch P3", () => {
         hasMore: false,
         indexState: "rebuilding",
       });
-      // 验证 rebuildIndex 相关的 SQL 被调用（重建行为）
+
       const stmts = db.prepare.mock.calls.map((c: any) => c[0]);
-      const hasRebuild =
+      expect(
         stmts.some(
-          (s: string) =>
-            typeof s === "string" && /rebuild|drop|create.*fts/i.test(s),
-        ) ||
-        db.exec.mock.calls.some(
-          (c: any) =>
-            typeof c[0] === "string" && /rebuild|drop|create.*fts/i.test(c[0]),
-        );
-      expect(hasRebuild).toBe(true);
+          (statement: string) =>
+            statement === "DELETE FROM search_fts WHERE projectId = ?",
+        ),
+      ).toBe(true);
+    });
+
+    it("索引损坏且重建遇到 IO 错误时透传 SEARCH_REINDEX_IO_ERROR", async () => {
+      db.prepare.mockImplementation((sql: string) => {
+        if (/search_fts MATCH/i.test(sql) || /SELECT COUNT\(\*\) as total/i.test(sql)) {
+          throw new Error("FTS index corrupted");
+        }
+        if (sql === "DELETE FROM search_fts WHERE projectId = ?") {
+          return {
+            run: vi.fn(() => {
+              throw new Error("disk I/O error");
+            }),
+            get: vi.fn(),
+            all: vi.fn().mockReturnValue([]),
+          };
+        }
+        return {
+          run: vi.fn(),
+          get: vi.fn(),
+          all: vi.fn().mockReturnValue([]),
+        };
+      });
+
+      const result = await search.search(
+        makeSearchRequest({ query: "测试重建失败" }),
+      );
+      const error = unwrapErr(result);
+
+      expect(error.code).toBe("SEARCH_REINDEX_IO_ERROR");
+      expect(error.message).toBe("Fulltext reindex failed due to IO error");
+      expect(error.retryable).toBe(true);
+      expect(error.details).toEqual({ cause: "disk I/O error" });
     });
   });
 
@@ -602,22 +636,6 @@ describe("ProjectSearch P3", () => {
       const error = unwrapErr(result);
 
       expect(error.code).toBe("SEARCH_INDEX_NOT_FOUND");
-    });
-
-    it("FTS 索引损坏时返回 rebuilding 响应而非错误码", async () => {
-      db.prepare.mockImplementation(() => {
-        const err = new Error("FTS index corrupted");
-        (err as any).code = "SQLITE_CORRUPT";
-        throw err;
-      });
-
-      const result = await search.search(
-        makeSearchRequest({ query: "测试索引损坏" }),
-      );
-      const data = unwrapOk(result);
-
-      expect(data.indexState).toBe("rebuilding");
-      expect(data.results).toEqual([]);
     });
 
     it("搜索反压时返回 SEARCH_BACKPRESSURE 并携带 retryAfterMs details", async () => {

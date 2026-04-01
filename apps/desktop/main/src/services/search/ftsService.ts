@@ -205,7 +205,7 @@ export function isFtsCorruptionError(message: string): boolean {
   );
 }
 
-function isReindexIoError(message: string): boolean {
+export function isReindexIoError(message: string): boolean {
   const m = message.toLowerCase();
   return (
     m.includes("i/o error") ||

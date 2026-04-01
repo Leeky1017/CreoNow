@@ -298,6 +298,25 @@ function createDbStub(args?: {
   assert.equal(res.data.reindexed, 42);
 }
 
+// S8a: corruption + reindex IO failure propagates SEARCH_REINDEX_IO_ERROR
+{
+  const svc = createFtsService({
+    db: createDbStub({
+      searchError: new Error("database disk image is malformed"),
+      reindexError: new Error("disk I/O error"),
+    }),
+    logger: createLogger(),
+  });
+
+  const res = svc.search({ projectId: "proj-1", query: "test" });
+  assert.equal(res.ok, false);
+  if (res.ok) throw new Error("unreachable");
+  assert.equal(res.error.code, "SEARCH_REINDEX_IO_ERROR");
+  assert.equal(res.error.message, "Fulltext reindex failed due to IO error");
+  assert.equal(res.error.retryable, true);
+  assert.deepStrictEqual(res.error.details, { cause: "disk I/O error" });
+}
+
 // S8b: reindex with empty projectId returns INVALID_ARGUMENT
 {
   const svc = createFtsService({
@@ -309,6 +328,20 @@ function createDbStub(args?: {
   assert.equal(res.ok, false);
   if (res.ok) throw new Error("unreachable");
   assert.equal(res.error.code, "INVALID_ARGUMENT");
+}
+
+// S8c: direct reindex IO failure returns SEARCH_REINDEX_IO_ERROR
+{
+  const svc = createFtsService({
+    db: createDbStub({ reindexError: new Error("disk I/O error") }),
+    logger: createLogger(),
+  });
+
+  const res = svc.reindex({ projectId: "proj-1" });
+  assert.equal(res.ok, false);
+  if (res.ok) throw new Error("unreachable");
+  assert.equal(res.error.code, "SEARCH_REINDEX_IO_ERROR");
+  assert.equal(res.error.message, "Fulltext reindex failed due to IO error");
 }
 
 // S9: searchFulltext maps results to FulltextSearchItem format

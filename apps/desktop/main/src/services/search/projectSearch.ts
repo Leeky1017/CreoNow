@@ -7,6 +7,7 @@ import {
   ensureProjectScopedRows,
   isFtsCorruptionError,
   isFtsSyntaxError,
+  isReindexIoError,
   normalizeFtsLimit,
   normalizeFtsOffset,
   normalizeFtsProjectId,
@@ -269,23 +270,27 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
     return created;
   }
 
+  function writeIndexRowStrict(doc: IndexedDocument): void {
+    db.prepare(
+      "INSERT OR REPLACE INTO search_index (projectId, documentId, documentTitle, documentType, content) VALUES (?, ?, ?, ?, ?)",
+    ).run(
+      doc.projectId,
+      doc.documentId,
+      doc.documentTitle,
+      doc.documentType,
+      doc.text,
+    );
+    db.prepare(
+      "DELETE FROM search_fts WHERE projectId = ? AND documentId = ?",
+    ).run(doc.projectId, doc.documentId);
+    db.prepare(
+      "INSERT INTO search_fts (projectId, documentId, content) VALUES (?, ?, ?)",
+    ).run(doc.projectId, doc.documentId, doc.text);
+  }
+
   function writeIndexRow(doc: IndexedDocument): void {
     try {
-      db.prepare(
-        "INSERT OR REPLACE INTO search_index (projectId, documentId, documentTitle, documentType, content) VALUES (?, ?, ?, ?, ?)",
-      ).run(
-        doc.projectId,
-        doc.documentId,
-        doc.documentTitle,
-        doc.documentType,
-        doc.text,
-      );
-      db.prepare(
-        "DELETE FROM search_fts WHERE projectId = ? AND documentId = ?",
-      ).run(doc.projectId, doc.documentId);
-      db.prepare(
-        "INSERT INTO search_fts (projectId, documentId, content) VALUES (?, ?, ?)",
-      ).run(doc.projectId, doc.documentId, doc.text);
+      writeIndexRowStrict(doc);
     } catch {
       // mock db
     }
@@ -363,25 +368,42 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
     async rebuildIndex(projectId: string): Promise<Result> {
       assertNotDisposed();
 
-      const projectDocs = getProjectIndex(projectId);
+      const projectIdRes = normalizeFtsProjectId(projectId);
+      if (!projectIdRes.ok) {
+        return projectIdRes;
+      }
+
+      const normalizedProjectId = projectIdRes.data;
+      const projectDocs = getProjectIndex(normalizedProjectId);
       try {
         db.exec(
           "CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(projectId UNINDEXED, documentId UNINDEXED, content)",
         );
-        db.prepare("DELETE FROM search_fts WHERE projectId = ?").run(projectId);
-        db.prepare("DELETE FROM search_index WHERE projectId = ?").run(
-          projectId,
+        db.prepare("DELETE FROM search_fts WHERE projectId = ?").run(
+          normalizedProjectId,
         );
-      } catch {
-        // mock db
+        db.prepare("DELETE FROM search_index WHERE projectId = ?").run(
+          normalizedProjectId,
+        );
+
+        for (const doc of projectDocs.values()) {
+          writeIndexRowStrict(doc);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (isReindexIoError(message)) {
+          return err(
+            "SEARCH_REINDEX_IO_ERROR",
+            "Fulltext reindex failed due to IO error",
+            { cause: message },
+            { retryable: true },
+          );
+        }
+        return err("DB_ERROR", "Fulltext reindex failed");
       }
 
-      for (const doc of projectDocs.values()) {
-        writeIndexRow(doc);
-      }
-
-      indexedProjects.add(projectId);
-      emitIndexEvent("rebuilt", projectId, "*");
+      indexedProjects.add(normalizedProjectId);
+      emitIndexEvent("rebuilt", normalizedProjectId, "*");
       return ok(undefined);
     },
 
@@ -507,7 +529,10 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
         }
         const message = error instanceof Error ? error.message : String(error);
         if (isFtsCorruptionError(message)) {
-          await search.rebuildIndex(projectId);
+          const rebuildResult = await search.rebuildIndex(projectId);
+          if (!rebuildResult.ok) {
+            return rebuildResult;
+          }
           return ok({
             results: [],
             total: 0,
