@@ -73,3 +73,58 @@ type EntityDto = {
     harness.close();
   }
 }
+
+// KG1-X-S4
+// should reject rename to duplicated name within same project/type
+{
+  const harness = createKnowledgeGraphIpcHarness();
+  try {
+    const first = await harness.invoke<EntityDto>(
+      "knowledge:entity:create",
+      {
+        projectId: harness.projectId,
+        type: "character",
+        name: "林远",
+        description: "主角",
+      },
+    );
+    assert.equal(first.ok, true);
+    if (!first.ok) {
+      assert.fail("expected first create success");
+    }
+
+    const second = await harness.invoke<EntityDto>(
+      "knowledge:entity:create",
+      {
+        projectId: harness.projectId,
+        type: "character",
+        name: "张薇",
+        description: "搭档",
+      },
+    );
+    assert.equal(second.ok, true);
+    if (!second.ok) {
+      assert.fail("expected second create success");
+    }
+
+    const renamed = await harness.invoke<EntityDto>(
+      "knowledge:entity:update",
+      {
+        projectId: harness.projectId,
+        id: second.data.id,
+        expectedVersion: second.data.version,
+        patch: {
+          name: "林远",
+        },
+      },
+    );
+
+    assert.equal(renamed.ok, false);
+    if (renamed.ok) {
+      assert.fail("expected KG_ENTITY_DUPLICATE");
+    }
+    assert.equal(renamed.error.code, "KG_ENTITY_DUPLICATE");
+  } finally {
+    harness.close();
+  }
+}

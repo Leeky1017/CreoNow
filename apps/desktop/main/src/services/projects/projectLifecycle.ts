@@ -40,6 +40,8 @@ export type ProjectLifecycle = {
   }) => Promise<T>;
 };
 
+const GLOBAL_PROJECT_SWITCH_SCOPE = "__project_switch__";
+
 function normalizeTimeoutMs(timeoutMs: number | undefined): number {
   if (typeof timeoutMs !== "number" || !Number.isFinite(timeoutMs)) {
     return 5_000;
@@ -250,9 +252,21 @@ export function createProjectLifecycle(deps: {
     }) => {
       const normalizedFrom = fromProjectId.trim();
       const normalizedTo = toProjectId.trim();
-      const scopeKey = resolveScopeKey(normalizedFrom);
+      const scopeKey =
+        normalizedFrom.length === 0
+          ? GLOBAL_PROJECT_SWITCH_SCOPE
+          : resolveScopeKey(normalizedFrom) ||
+            resolveScopeKey(normalizedTo) ||
+            normalizedFrom ||
+            normalizedTo ||
+            GLOBAL_PROJECT_SWITCH_SCOPE;
       if (scopeKey.length > 0) {
-        scopeByProjectId.set(normalizedFrom, scopeKey);
+        if (normalizedFrom.length > 0) {
+          scopeByProjectId.set(normalizedFrom, scopeKey);
+        }
+        if (normalizedTo.length > 0) {
+          scopeByProjectId.set(normalizedTo, scopeKey);
+        }
       }
 
       const dedupeKey = `${scopeKey}->${normalizedTo}`;
@@ -265,7 +279,12 @@ export function createProjectLifecycle(deps: {
         const currentFrom =
           activeProjectByScope.get(scopeKey) ?? normalizedFrom;
         if (scopeKey.length > 0) {
-          scopeByProjectId.set(currentFrom, scopeKey);
+          if (currentFrom.length > 0) {
+            scopeByProjectId.set(currentFrom, scopeKey);
+          }
+          if (normalizedTo.length > 0) {
+            scopeByProjectId.set(normalizedTo, scopeKey);
+          }
         }
 
         const shouldRunLifecycleSteps = currentFrom !== normalizedTo;
@@ -303,8 +322,11 @@ export function createProjectLifecycle(deps: {
               traceId,
             });
           }
-          if (scopeKey.length > 0) {
-            activeProjectByScope.set(scopeKey, nextProjectId);
+        }
+
+        if (scopeKey.length > 0) {
+          activeProjectByScope.set(scopeKey, nextProjectId);
+          if (nextProjectId.length > 0) {
             scopeByProjectId.set(nextProjectId, scopeKey);
           }
         }

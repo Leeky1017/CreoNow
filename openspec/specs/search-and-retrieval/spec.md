@@ -439,8 +439,10 @@ interface ProjectSearchResult {
 interface SearchMatch {
   /** 匹配片段（含高亮标记） */
   snippet: string
-  /** 匹配位置在文档中的 offset */
-  offset: number
+  /** 首个匹配位置在文档纯文本中的 offset */
+  documentOffset: number
+  /** 片段内锚点，用于 UI 高亮 */
+  anchor: { start: number; end: number }
   /** 匹配关键词 */
   matchedTerms: string[]
 }
@@ -503,7 +505,7 @@ interface TextExtractor {
 
   /**
    * 将纯文本 offset 反向映射为 ProseMirror 文档中的 node position。
-   * 用于搜索结果跳转：SearchMatch.offset → ProseMirror position → 滚动到匹配位置。
+   * 用于搜索结果跳转：SearchMatch.documentOffset → ProseMirror position → 滚动到匹配位置。
    * 返回 ProseMirror 的绝对位置（可直接用于 EditorView.dispatch 的 scrollIntoView）。
    */
   mapOffsetToPosition(doc: ProseMirrorDocument, offset: number): number
@@ -512,8 +514,8 @@ interface TextExtractor {
 interface TextDiff {
   /** 变更类型 */
   type: 'added' | 'removed' | 'modified'
-  /** 文本位置 offset */
-  offset: number
+  /** 文本位置 documentOffset */
+  documentOffset: number
   /** 变更后的文本 */
   text: string
 }

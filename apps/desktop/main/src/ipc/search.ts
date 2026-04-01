@@ -206,6 +206,7 @@ function registerFtsHandlers(args: {
           snippet: string;
           highlights: Array<{ start: number; end: number }>;
           anchor: { start: number; end: number };
+          documentOffset: number;
           score: number;
           updatedAt: number;
         }>;

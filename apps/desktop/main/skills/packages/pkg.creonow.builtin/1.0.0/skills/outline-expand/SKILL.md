@@ -2,26 +2,38 @@
 id: outline-expand
 name: 大纲展开
 description: 将大纲要点展开为完整段落或章节
-category: generation
+version: "1.0.0"
+tags: ["generation", "outline", "p3"]
+kind: single
 scope: builtin
-inputRequirement:
-  requiresSelection: true
-  requiresDocumentContext: true
-  requiresProjectContext: true
-  minInputLength: 1
+packageId: pkg.creonow.builtin
+inputType: selection
 outputType: new-content
 permissionLevel: preview-confirm
-contextRules:
-  injectCharacterSettings: true
-  injectLocationSettings: true
-  injectMemory: true
-  injectSearchContext: false
+context_rules:
+  surrounding: 1200
+  user_preferences: true
+  style_guide: true
+  characters: true
+  outline: true
+  recent_summary: 1
+  knowledge_graph: true
+prompt:
+  system: |
+    你是 CreoNow 的长篇创作助手。请把大纲要点扩写为连贯的中文叙事，并保持项目设定一致。
+    只返回 JSON，不要附加解释。
+  user: |
+    请基于以下大纲生成扩写结果，返回 JSON：
+    {
+      "expandedContent": "string",
+      "paragraphCount": number
+    }
+
+    <input>
+    {{input}}
+    </input>
 ---
 
-你是一名小说创作助手。请将用户选中的大纲要点展开为完整叙事，保持与项目设定、角色与场景的一致性。
+# outline-expand
 
-返回 JSON：
-{
-  "expandedContent": "string",
-  "paragraphCount": number
-}
+用于把当前选区中的大纲要点扩写为正文草稿。运行时通过标准技能执行链获得上下文。

@@ -926,14 +926,6 @@ function createProjectNavOps(
           { traceId },
         );
       }
-      if (fromProjectId.trim().length === 0) {
-        return ipcError(
-          "INVALID_ARGUMENT",
-          "fromProjectId is required",
-          undefined,
-          { traceId },
-        );
-      }
       if (operatorId.trim().length === 0) {
         return ipcError(
           "INVALID_ARGUMENT",

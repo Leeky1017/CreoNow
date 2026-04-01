@@ -324,6 +324,7 @@ const SEARCH_FTS_ITEM_SCHEMA = s.object({
   snippet: s.string(),
   highlights: s.array(SEARCH_FTS_HIGHLIGHT_SCHEMA),
   anchor: SEARCH_FTS_ANCHOR_SCHEMA,
+  documentOffset: s.number(),
   score: s.number(),
   updatedAt: s.number(),
 });

@@ -19,6 +19,7 @@ type FulltextRow = {
   documentTitle: string;
   documentType: string;
   snippet: string;
+  documentOffset: number;
   score: number;
   updatedAt: number;
 };
@@ -96,6 +97,7 @@ function createDbStub(args?: {
       documentTitle: "第一章",
       documentType: "chapter",
       snippet: "月光照在古道上",
+      documentOffset: 12,
       score: 1.5,
       updatedAt: 1000,
     },
@@ -105,6 +107,7 @@ function createDbStub(args?: {
       documentTitle: "第二章",
       documentType: "chapter",
       snippet: "月光穿过窗棂",
+      documentOffset: 28,
       score: 1.2,
       updatedAt: 2000,
     },
@@ -133,7 +136,8 @@ function createDbStub(args?: {
   assert.equal(first.snippet, "月光照在古道上");
   assert.ok(first.highlights.length > 0, "should have highlights");
   assert.equal(first.highlights[0]!.start, 0);
-  assert.deepStrictEqual(first.anchor, { start: 0, end: 1 });
+  assert.deepStrictEqual(first.anchor, { start: 0, end: 2 });
+  assert.equal(first.documentOffset, 12);
 }
 
 // S2: search with empty projectId returns INVALID_ARGUMENT
@@ -316,6 +320,7 @@ function createDbStub(args?: {
       documentTitle: "序章",
       documentType: "chapter",
       snippet: "白日依山尽",
+      documentOffset: 4,
       score: 2.0,
       updatedAt: 3000,
     },

@@ -25,6 +25,7 @@ function makeFtsResult(overrides?: Partial<FtsSearchResult>): FtsSearchResult {
     snippet: "hello world",
     highlights: [{ start: 0, end: 5 }],
     anchor: { start: 0, end: 100 },
+    documentOffset: 0,
     score: 5.0,
     updatedAt: 1_700_000_000,
     ...overrides,

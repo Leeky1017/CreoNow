@@ -22,6 +22,7 @@ export type FtsSearchResult = {
   snippet: string;
   highlights: FtsHighlightRange[];
   anchor: FtsAnchor;
+  documentOffset: number;
   score: number;
   updatedAt: number;
 };
@@ -276,6 +277,7 @@ type FulltextRow = {
   documentTitle: string;
   documentType: string;
   snippet: string;
+  documentOffset: number;
   score: number;
   updatedAt: number;
 };
@@ -309,7 +311,9 @@ export function createFtsService(deps: {
     if (!projectIdRes.ok) {
       return projectIdRes;
     }
-    const queryRes = normalizeQuery(args.query);
+    const rawQuery = args.query;
+    const highlightTerm = extractHighlightTerm(rawQuery);
+    const queryRes = normalizeQuery(rawQuery);
     if (!queryRes.ok) {
       return queryRes;
     }
@@ -332,13 +336,18 @@ export function createFtsService(deps: {
     try {
       const rows = isAllScope
         ? deps.db
-            .prepare<[string, number, number], FulltextRow>(
+            .prepare<[string, string, string, string, number, number], FulltextRow>(
               `SELECT
                 d.project_id as projectId,
                 d.document_id as documentId,
                 d.title as documentTitle,
                 COALESCE(d.type, 'chapter') as documentType,
                 snippet(documents_fts, -1, '', '', '…', 24) as snippet,
+                CASE
+                  WHEN ? != '' AND instr(d.content_text, ?) > 0
+                    THEN instr(d.content_text, ?) - 1
+                  ELSE 0
+                END as documentOffset,
                 (-bm25(documents_fts)) as score,
                 d.updated_at as updatedAt
               FROM documents_fts
@@ -347,15 +356,20 @@ export function createFtsService(deps: {
               ORDER BY bm25(documents_fts)
               LIMIT ? OFFSET ?`,
             )
-            .all(query, limit, offset)
+            .all(highlightTerm, highlightTerm, highlightTerm, query, limit, offset)
         : deps.db
-            .prepare<[string, string, number, number], FulltextRow>(
+            .prepare<[string, string, string, string, string, number, number], FulltextRow>(
               `SELECT
                 d.project_id as projectId,
                 d.document_id as documentId,
                 d.title as documentTitle,
                 COALESCE(d.type, 'chapter') as documentType,
                 snippet(documents_fts, -1, '', '', '…', 24) as snippet,
+                CASE
+                  WHEN ? != '' AND instr(d.content_text, ?) > 0
+                    THEN instr(d.content_text, ?) - 1
+                  ELSE 0
+                END as documentOffset,
                 (-bm25(documents_fts)) as score,
                 d.updated_at as updatedAt
               FROM documents_fts
@@ -364,7 +378,15 @@ export function createFtsService(deps: {
               ORDER BY bm25(documents_fts)
               LIMIT ? OFFSET ?`,
             )
-            .all(projectId, query, limit, offset);
+            .all(
+              highlightTerm,
+              highlightTerm,
+              highlightTerm,
+              projectId,
+              query,
+              limit,
+              offset,
+            );
 
       const count = isAllScope
         ? deps.db
@@ -402,7 +424,6 @@ export function createFtsService(deps: {
         }
       }
 
-      const highlightTerm = extractHighlightTerm(query);
       const results: FtsSearchResult[] = rows.map((row) => {
         const snippet = typeof row.snippet === "string" ? row.snippet : "";
         const highlights = computeHighlights(snippet, highlightTerm);
@@ -414,6 +435,7 @@ export function createFtsService(deps: {
           snippet,
           highlights,
           anchor: toAnchor(highlights),
+          documentOffset: row.documentOffset,
           score: row.score,
           updatedAt: row.updatedAt,
         };

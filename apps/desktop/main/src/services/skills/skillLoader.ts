@@ -8,6 +8,7 @@ import type { Logger } from "../../logging/logger";
 import {
   validateSkillFrontmatter,
   type SkillFrontmatter,
+  type SkillInputType,
   type SkillOutputConstraints,
   type SkillPrompt,
   type SkillScope,
@@ -39,6 +40,7 @@ export type LoadedSkill = {
   bodyMd?: string;
   dependsOn?: string[];
   timeoutMs?: number;
+  inputType?: SkillInputType;
 };
 
 export type DirectoryScanError = {
@@ -323,6 +325,7 @@ function toLoadedSkill(args: {
     bodyMd: args.bodyMd,
     dependsOn: args.frontmatter.dependsOn,
     timeoutMs: args.frontmatter.timeoutMs,
+    inputType: args.frontmatter.inputType,
   };
 }
 
