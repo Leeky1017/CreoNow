@@ -32,6 +32,13 @@ interface MockEventBus {
   off: Mock;
 }
 
+interface MockParticipant {
+  name: string;
+  bind?: Mock;
+  unbind?: Mock;
+  timeoutMs?: number;
+}
+
 // ─── helpers ────────────────────────────────────────────────────────
 
 function createMockDb(): MockDb {
@@ -106,6 +113,66 @@ function makeProjectDocument(overrides: Partial<ProjectDocument> = {}): ProjectD
   };
 }
 
+function makeSeedProjects(): ProjectConfig[] {
+  return [
+    makeProjectConfig(),
+    makeProjectConfig({
+      id: "proj-2",
+      name: "星际迷航",
+      description: "一部科幻冒险小说",
+    }),
+    makeProjectConfig({
+      id: "proj-active",
+      name: "活跃项目",
+      lifecycleStatus: "active",
+    }),
+    makeProjectConfig({
+      id: "proj-archived",
+      name: "旧项目",
+      lifecycleStatus: "archived",
+    }),
+  ];
+}
+
+function makeSeedDocuments(): ProjectDocument[] {
+  return [
+    makeProjectDocument(),
+    makeProjectDocument({
+      id: "doc-2",
+      title: "第二章",
+      order: 2,
+      wordCount: 1800,
+    }),
+    makeProjectDocument({
+      id: "doc-note-1",
+      type: "note",
+      title: "角色笔记",
+      order: 3,
+      wordCount: 300,
+    }),
+  ];
+}
+
+function createManager(args: {
+  db: MockDb;
+  eventBus: MockEventBus;
+  participants?: MockParticipant[];
+  flushPendingAutosave?: Mock;
+  persistActiveProjectId?: Mock;
+  permissionProbe?: Mock;
+}): ProjectManager {
+  return createProjectManager({
+    db: args.db as any,
+    eventBus: args.eventBus as any,
+    initialProjects: makeSeedProjects(),
+    initialDocuments: makeSeedDocuments(),
+    switchParticipants: args.participants as any,
+    flushPendingAutosave: args.flushPendingAutosave as any,
+    persistActiveProjectId: args.persistActiveProjectId as any,
+    permissionProbe: args.permissionProbe as any,
+  });
+}
+
 // ─── tests ──────────────────────────────────────────────────────────
 
 describe("ProjectManager P3", () => {
@@ -118,7 +185,7 @@ describe("ProjectManager P3", () => {
     vi.setSystemTime(new Date("2024-06-01T00:00:00Z"));
     db = createMockDb();
     eventBus = createMockEventBus();
-    manager = createProjectManager({ db: db as any, eventBus: eventBus as any });
+    manager = createManager({ db, eventBus });
   });
 
   afterEach(() => {
@@ -131,15 +198,17 @@ describe("ProjectManager P3", () => {
 
   describe("create project", () => {
     it("创建项目时持久化完整 ProjectConfig", async () => {
-      const config = makeProjectConfig();
+      const config = makeProjectConfig({ id: "proj-new-1", name: "新建项目一" });
       const result = await manager.createProject(config);
 
       expect(result.success).toBe(true);
-      expect(result.data?.id).toBe("proj-1");
+      expect(result.data?.id).toBe("proj-new-1");
     });
 
     it("创建项目时 ProjectStyleConfig 一并持久化", async () => {
       const config = makeProjectConfig({
+        id: "proj-new-2",
+        name: "新建项目二",
         style: makeStyleConfig({ genre: "校园推理", tone: "温暖" }),
       });
       const result = await manager.createProject(config);
@@ -148,14 +217,36 @@ describe("ProjectManager P3", () => {
     });
 
     it("创建项目后发射 project-config-updated 事件", async () => {
-      await manager.createProject(makeProjectConfig());
+      await manager.createProject(
+        makeProjectConfig({ id: "proj-new-3", name: "事件项目" }),
+      );
 
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "project-config-updated",
-          projectId: "proj-1",
+          projectId: "proj-new-3",
           changedFields: expect.arrayContaining(["name", "style", "goals"]),
         }),
+      );
+    });
+
+    it("创建项目时自动创建默认空白章节", async () => {
+      const result = await manager.createProject(
+        makeProjectConfig({ id: "proj-new", name: "新项目" }),
+      );
+
+      expect(result.success).toBe(true);
+      const docs = await manager.listDocuments("proj-new");
+      expect(docs.success).toBe(true);
+      expect(docs.data).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            projectId: "proj-new",
+            type: "chapter",
+            title: "未命名章节",
+            wordCount: 0,
+          }),
+        ]),
       );
     });
   });
@@ -247,16 +338,27 @@ describe("ProjectManager P3", () => {
     });
 
     it("项目名称冲突时返回 PROJECT_NAME_CONFLICT", async () => {
-      await manager.createProject(makeProjectConfig({ name: "暗流" }));
-      const result = await manager.createProject(makeProjectConfig({ id: "proj-2", name: "暗流" }));
+      await manager.createProject(
+        makeProjectConfig({ id: "proj-duplicate-1", name: "同名项目" }),
+      );
+      const result = await manager.createProject(
+        makeProjectConfig({ id: "proj-duplicate-2", name: "同名项目" }),
+      );
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("PROJECT_NAME_CONFLICT");
     });
 
     it("项目数量超限时返回 PROJECT_CAPACITY_EXCEEDED", async () => {
+      db.prepare.mockImplementation((sql: string) => ({
+        run: vi.fn(),
+        get: vi.fn().mockReturnValue(
+          /COUNT\(\*\)/i.test(sql) ? { count: 2000 } : undefined,
+        ),
+        all: vi.fn().mockReturnValue([]),
+      }));
       const result = await manager.createProject(
-        makeProjectConfig({ id: "proj-exceed" }),
+        makeProjectConfig({ id: "proj-over-capacity", name: "超限项目" }),
       );
 
       expect(result.success).toBe(false);
@@ -279,7 +381,7 @@ describe("ProjectManager P3", () => {
       for (const person of ["first", "third-limited", "third-omniscient"] as const) {
         const config = makeProjectConfig({
           id: `proj-${person}`,
-          name: `项目-${person}`,
+          name: `项目-${person}-${Date.now()}`,
           style: makeStyleConfig({ narrativePerson: person }),
         });
         const result = await manager.createProject(config);
@@ -461,36 +563,112 @@ describe("ProjectManager P3", () => {
     });
 
     it("清除权限不足时返回 PROJECT_PURGE_PERMISSION_DENIED", async () => {
-      const result = await manager.purgeProject("proj-archived", {
+      const restrictedManager = createManager({
+        db,
+        eventBus,
+        permissionProbe: vi.fn().mockRejectedValue(
+          Object.assign(new Error("permission denied"), { code: "EACCES" }),
+        ),
+      });
+      const result = await restrictedManager.purgeProject("proj-archived", {
         outputPath: "/restricted/path",
       });
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("PROJECT_PURGE_PERMISSION_DENIED");
+      restrictedManager.dispose();
     });
 
     it("项目切换超时时返回 PROJECT_SWITCH_TIMEOUT", async () => {
-      const result = await manager.switchProject("proj-timeout");
+      const timeoutManager = createManager({
+        db,
+        eventBus,
+        participants: [
+          {
+            name: "settings",
+            unbind: vi.fn().mockRejectedValue(new Error("switch timeout")),
+          },
+        ],
+      });
+      const result = await timeoutManager.switchProject("proj-2");
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("PROJECT_SWITCH_TIMEOUT");
+      timeoutManager.dispose();
     });
   });
 
   // ── Project switch (spec L657-663) ─────────────────────────────
 
   describe("project switch", () => {
-    it("切换项目时重绑定 Settings/Memory/Search scope", async () => {
-      const result = await manager.switchProject("proj-2");
+    it("切换项目时执行 unbind → persist → bind 顺序", async () => {
+      const steps: string[] = [];
+      const boundManager = createManager({
+        db,
+        eventBus,
+        flushPendingAutosave: vi.fn().mockImplementation(async (projectId: string) => {
+          steps.push(`flush:${projectId}`);
+        }),
+        persistActiveProjectId: vi.fn().mockImplementation(async (projectId: string) => {
+          steps.push(`persist:${projectId}`);
+        }),
+        participants: [
+          {
+            name: "settings",
+            unbind: vi.fn().mockImplementation(async (projectId: string) => {
+              steps.push(`unbind:${projectId}`);
+            }),
+            bind: vi.fn().mockImplementation(async (projectId: string) => {
+              steps.push(`bind:${projectId}`);
+            }),
+          },
+        ],
+      });
+      const result = await boundManager.switchProject("proj-2");
 
       expect(result.success).toBe(true);
+      expect(steps).toEqual([
+        "flush:proj-1",
+        "unbind:proj-1",
+        "persist:proj-2",
+        "bind:proj-2",
+      ]);
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "project-switched",
-          fromProjectId: expect.any(String),
+          fromProjectId: "proj-1",
           toProjectId: "proj-2",
         }),
       );
+      boundManager.dispose();
+    });
+
+    it("并发 switchProject 串行执行且同目标幂等", async () => {
+      const steps: string[] = [];
+      const serialManager = createManager({
+        db,
+        eventBus,
+        participants: [
+          {
+            name: "memory",
+            unbind: vi.fn().mockImplementation(async (projectId: string) => {
+              steps.push(`unbind:${projectId}`);
+            }),
+            bind: vi.fn().mockImplementation(async (projectId: string) => {
+              steps.push(`bind:${projectId}`);
+            }),
+          },
+        ],
+      });
+
+      const first = serialManager.switchProject("proj-2");
+      const second = serialManager.switchProject("proj-2");
+      const [firstResult, secondResult] = await Promise.all([first, second]);
+
+      expect(firstResult.success).toBe(true);
+      expect(secondResult.success).toBe(true);
+      expect(steps).toEqual(["unbind:proj-1", "bind:proj-2"]);
+      serialManager.dispose();
     });
   });
 

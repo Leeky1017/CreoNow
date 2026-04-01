@@ -3,6 +3,18 @@
  * Spec: openspec/specs/document-management/spec.md — P3
  */
 
+import { PassThrough } from "node:stream";
+
+import PDFDocument from "pdfkit";
+
+import {
+  buildDocxBuffer,
+  buildPdfRenderPlan,
+  parseStructuredExportDocument,
+  renderPdfPlan,
+  renderStructuredMarkdownExport,
+} from "./exportRichText";
+
 // ─── Types ──────────────────────────────────────────────────────────
 
 export type ExportFormat = "markdown" | "docx" | "pdf" | "txt";
@@ -38,12 +50,10 @@ export interface ExportProgressEvent {
   currentDocument: string;
 }
 
-// M4: ExportResult as discriminated union
 export type ExportResult =
   | { success: true; data: { documentCount: number; outputPath: string; format: string; totalWordCount: number; durationMs: number }; error?: undefined }
   | { success: false; data?: undefined; error: { code: string; message: string } };
 
-// C1: Typed ProseMirror node interface
 interface ProseMirrorNode {
   type: string;
   text?: string;
@@ -52,13 +62,25 @@ interface ProseMirrorNode {
   marks?: Array<{ type: string; attrs?: Record<string, unknown> }>;
 }
 
+export interface ExportSourceDocument {
+  id: string;
+  projectId: string;
+  title: string;
+  sortOrder: number;
+  content: ProseMirrorNode;
+}
+
+export interface ExportDocumentSource {
+  getDocument(args: { projectId?: string; documentId: string }): Promise<ExportSourceDocument | null> | ExportSourceDocument | null;
+  listDocuments(args: { projectId: string; documentIds?: string[] }): Promise<ExportSourceDocument[]> | ExportSourceDocument[];
+}
+
 export interface ProseMirrorExporter {
   toMarkdown(doc: ProseMirrorNode): string;
   toDocx(doc: ProseMirrorNode, options?: ExportOptions): Buffer;
   toPdf(doc: ProseMirrorNode, options?: ExportOptions): Buffer;
   toTxt(doc: ProseMirrorNode): string;
 
-  // M7: format param used for format-dependent logic
   isNodeSupported(nodeType: string, format: ExportFormat): boolean;
   isMarkSupported(markType: string, format: ExportFormat): boolean;
 
@@ -68,7 +90,6 @@ export interface ProseMirrorExporter {
   dispose(): void;
 }
 
-// C1: Typed deps interfaces
 interface FsLike {
   writeFile(path: string, data: string | Buffer): Promise<void>;
   mkdir(path: string, opts?: { recursive?: boolean }): Promise<void>;
@@ -83,25 +104,31 @@ interface EventBusLike {
 interface Deps {
   eventBus: EventBusLike;
   fs: FsLike;
+  documentSource?: ExportDocumentSource;
+  initialDocuments?: ExportSourceDocument[];
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
 
 const SUPPORTED_FORMATS: ExportFormat[] = ["markdown", "docx", "pdf", "txt"];
-
-// L3: Removed duplicate "orderedList"
 const SUPPORTED_NODE_TYPES = [
-  "heading", "paragraph", "bulletList", "orderedList", "blockquote",
-  "codeBlock", "horizontalRule", "image", "table", "listItem", "doc",
+  "heading",
+  "paragraph",
+  "bulletList",
+  "orderedList",
+  "blockquote",
+  "codeBlock",
+  "horizontalRule",
+  "image",
+  "table",
+  "listItem",
+  "doc",
   "text",
 ];
-
 const SUPPORTED_MARK_TYPES = ["bold", "italic", "code", "underline", "link"];
-
 const UNSUPPORTED_NODE_TYPES = ["mention"];
-
-// M7: Nodes not supported by txt format
 const TXT_UNSUPPORTED_NODES = ["image"];
+const SIZE_LIMIT = 10 * 1024 * 1024;
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -109,275 +136,283 @@ function generateExportId(): string {
   return `export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// M3: CJK-aware word count estimation
 function countWords(text: string): number {
   let count = 0;
   for (const char of text) {
     const code = char.codePointAt(0) ?? 0;
     if ((code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF)) {
-      count++; // Each CJK character counts as one word
+      count += 1;
     }
   }
-  // Also count ASCII words
-  const asciiWords = text.replace(/[\u4E00-\u9FFF\u3400-\u4DBF]/g, "").split(/\s+/).filter((w) => w.length > 0);
+  const asciiWords = text
+    .replace(/[\u4E00-\u9FFF\u3400-\u4DBF]/g, "")
+    .split(/\s+/u)
+    .filter((word) => word.length > 0);
   return count + asciiWords.length;
 }
 
-function nodeToMarkdown(node: ProseMirrorNode, indent: string = ""): string {
-  if (!node) return "";
-
-  // H6: Check for unsupported node types by traversing tree
+function nodeToMarkdown(node: ProseMirrorNode): string {
   if (UNSUPPORTED_NODE_TYPES.includes(node.type)) {
     throw new Error(`Unsupported node type: ${node.type}`);
   }
 
   if (node.type === "text") {
-    let text = node.text || "";
-    if (node.marks && Array.isArray(node.marks)) {
-      for (const mark of node.marks) {
-        if (mark.type === "bold") text = `**${text}**`;
-        else if (mark.type === "italic") text = `*${text}*`;
-        else if (mark.type === "code") text = `\`${text}\``;
-        else if (mark.type === "underline") text = `<u>${text}</u>`;
-        else if (mark.type === "link") text = `[${text}](${(mark.attrs?.href as string) || ""})`;
+    let text = node.text ?? "";
+    for (const mark of node.marks ?? []) {
+      if (mark.type === "bold") {
+        text = `**${text}**`;
+      } else if (mark.type === "italic") {
+        text = `*${text}*`;
+      } else if (mark.type === "code") {
+        text = `\`${text}\``;
+      } else if (mark.type === "underline") {
+        text = `<u>${text}</u>`;
+      } else if (mark.type === "link") {
+        text = `[${text}](${String(mark.attrs?.href ?? "")})`;
       }
     }
     return text;
   }
 
   if (node.type === "doc") {
-    const parts: string[] = [];
-    for (const child of node.content || []) {
-      parts.push(nodeToMarkdown(child, indent));
-    }
-    return parts.join("\n");
+    return (node.content ?? []).map((child) => nodeToMarkdown(child)).join("\n");
   }
-
   if (node.type === "heading") {
-    const level = (node.attrs?.level as number) ?? 1;
-    const prefix = "#".repeat(level);
-    const text = (node.content || []).map((c) => nodeToMarkdown(c)).join("");
-    return `${prefix} ${text}`;
+    const level = Number(node.attrs?.level ?? 1);
+    return `${"#".repeat(level)} ${(node.content ?? []).map((child) => nodeToMarkdown(child)).join("")}`;
   }
-
   if (node.type === "paragraph") {
-    const text = (node.content || []).map((c) => nodeToMarkdown(c)).join("");
-    return `${indent}${text}`;
+    return (node.content ?? []).map((child) => nodeToMarkdown(child)).join("");
   }
-
   if (node.type === "bulletList") {
-    return (node.content || []).map((item) => {
-      const itemContent = (item.content || []).map((c) => nodeToMarkdown(c)).join("");
-      return `- ${itemContent}`;
-    }).join("\n");
+    return (node.content ?? [])
+      .map((item) => `- ${(item.content ?? []).map((child) => nodeToMarkdown(child)).join("")}`)
+      .join("\n");
   }
-
   if (node.type === "orderedList") {
-    return (node.content || []).map((item, i) => {
-      const itemContent = (item.content || []).map((c) => nodeToMarkdown(c)).join("");
-      return `${i + 1}. ${itemContent}`;
-    }).join("\n");
+    return (node.content ?? [])
+      .map((item, index) => `${index + 1}. ${(item.content ?? []).map((child) => nodeToMarkdown(child)).join("")}`)
+      .join("\n");
   }
-
   if (node.type === "blockquote") {
-    const content = (node.content || []).map((c) => nodeToMarkdown(c)).join("\n");
-    return content.split("\n").map((line: string) => `> ${line}`).join("\n");
+    return (node.content ?? [])
+      .map((child) => nodeToMarkdown(child))
+      .join("\n")
+      .split("\n")
+      .map((line) => `> ${line}`)
+      .join("\n");
   }
-
   if (node.type === "codeBlock") {
-    const lang = (node.attrs?.language as string) || "";
-    const code = (node.content || []).map((c) => c.text || "").join("");
-    return `\`\`\`${lang}\n${code}\n\`\`\``;
+    const language = String(node.attrs?.language ?? "");
+    const code = (node.content ?? []).map((child) => child.text ?? "").join("");
+    return `\`\`\`${language}\n${code}\n\`\`\``;
   }
-
   if (node.type === "horizontalRule") {
     return "---";
   }
-
   if (node.type === "image") {
-    return `![${(node.attrs?.alt as string) || ""}](${(node.attrs?.src as string) || ""})`;
+    return `![${String(node.attrs?.alt ?? "")}](${String(node.attrs?.src ?? "")})`;
   }
-
-  // H7: Table node conversion to proper markdown table
   if (node.type === "table") {
-    const rows = node.content || [];
-    const tableRows: string[] = [];
-    for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
-      const row = rows[rowIdx];
-      const cells = (row.content || []).map((cell) => {
-        return (cell.content || []).map((c) => nodeToMarkdown(c)).join("").trim();
-      });
-      tableRows.push(`| ${cells.join(" | ")} |`);
-      if (rowIdx === 0) {
-        tableRows.push(`| ${cells.map(() => "---").join(" | ")} |`);
+    const rows = node.content ?? [];
+    const output: string[] = [];
+    rows.forEach((row, index) => {
+      const cells = (row.content ?? []).map((cell) =>
+        (cell.content ?? []).map((child) => nodeToMarkdown(child)).join("").trim(),
+      );
+      output.push(`| ${cells.join(" | ")} |`);
+      if (index === 0) {
+        output.push(`| ${cells.map(() => "---").join(" | ")} |`);
       }
-    }
-    return tableRows.join("\n");
+    });
+    return output.join("\n");
   }
 
-  if (node.type === "listItem") {
-    return (node.content || []).map((c) => nodeToMarkdown(c)).join("");
-  }
-
-  // Unknown but not in unsupported list — try to extract content
-  if (node.content) {
-    return (node.content || []).map((c) => nodeToMarkdown(c)).join("");
-  }
-
-  return "";
+  return (node.content ?? []).map((child) => nodeToMarkdown(child)).join("");
 }
 
 function nodeToText(node: ProseMirrorNode): string {
-  if (!node) return "";
-  if (node.type === "text") return node.text || "";
-
-  const parts: string[] = [];
-  if (node.content) {
-    for (const child of node.content) {
-      parts.push(nodeToText(child));
-    }
+  if (node.type === "text") {
+    return node.text ?? "";
   }
 
+  const parts = (node.content ?? []).map((child) => nodeToText(child));
   if (node.type === "paragraph" || node.type === "heading") {
-    return parts.join("") + "\n";
+    return `${parts.join("")}\n`;
   }
-  if (node.type === "listItem") {
-    return parts.join("");
-  }
-
   return parts.join("");
 }
 
-// H6: walkDoc function to detect unsupported nodes via real traversal
 function findUnsupportedNode(node: ProseMirrorNode, format?: ExportFormat): string | null {
-  if (!node) return null;
-  // Merge global + format-specific unsupported lists
   const unsupported = format === "txt"
     ? [...UNSUPPORTED_NODE_TYPES, ...TXT_UNSUPPORTED_NODES]
     : UNSUPPORTED_NODE_TYPES;
   if (unsupported.includes(node.type)) {
     return node.type;
   }
-  if (node.content) {
-    for (const child of node.content) {
-      const found = findUnsupportedNode(child, format);
-      if (found) return found;
+  for (const child of node.content ?? []) {
+    const found = findUnsupportedNode(child, format);
+    if (found) {
+      return found;
     }
   }
   return null;
 }
 
-// H6: Check if document is empty by traversing its content
 function isDocEmpty(node: ProseMirrorNode): boolean {
-  if (!node) return true;
-  if (!node.content || node.content.length === 0) return true;
-  const text = nodeToText(node).trim();
-  return text.length === 0;
+  return nodeToText(node).trim().length === 0;
 }
 
 function buildMinimalDocxBuffer(text: string): Buffer {
   const pkSignature = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
   const contentBytes = Buffer.from(text, "utf-8");
-
   const localFileHeader = Buffer.alloc(30);
   pkSignature.copy(localFileHeader, 0);
   localFileHeader.writeUInt16LE(20, 4);
-  localFileHeader.writeUInt16LE(0, 6);
-  localFileHeader.writeUInt16LE(0, 8);
-  localFileHeader.writeUInt16LE(0, 10);
-  localFileHeader.writeUInt16LE(0, 12);
-  localFileHeader.writeUInt32LE(0, 14);
   localFileHeader.writeUInt32LE(contentBytes.length, 18);
   localFileHeader.writeUInt32LE(contentBytes.length, 22);
-
   const fileName = Buffer.from("[Content_Types].xml");
   localFileHeader.writeUInt16LE(fileName.length, 26);
-  localFileHeader.writeUInt16LE(0, 28);
-
   const centralDirHeader = Buffer.alloc(46);
   Buffer.from([0x50, 0x4b, 0x01, 0x02]).copy(centralDirHeader, 0);
   centralDirHeader.writeUInt16LE(20, 4);
   centralDirHeader.writeUInt16LE(20, 6);
-  centralDirHeader.writeUInt16LE(0, 8);
-  centralDirHeader.writeUInt16LE(0, 10);
-  centralDirHeader.writeUInt16LE(0, 12);
-  centralDirHeader.writeUInt16LE(0, 14);
-  centralDirHeader.writeUInt32LE(0, 16);
   centralDirHeader.writeUInt32LE(contentBytes.length, 20);
   centralDirHeader.writeUInt32LE(contentBytes.length, 24);
   centralDirHeader.writeUInt16LE(fileName.length, 28);
-  centralDirHeader.writeUInt16LE(0, 30);
-  centralDirHeader.writeUInt16LE(0, 32);
-  centralDirHeader.writeUInt16LE(0, 34);
-  centralDirHeader.writeUInt16LE(0, 36);
-  centralDirHeader.writeUInt32LE(0, 38);
-  centralDirHeader.writeUInt32LE(0, 42);
-
   const localFileSize = localFileHeader.length + fileName.length + contentBytes.length;
-
   const endOfCentralDir = Buffer.alloc(22);
   Buffer.from([0x50, 0x4b, 0x05, 0x06]).copy(endOfCentralDir, 0);
-  endOfCentralDir.writeUInt16LE(0, 4);
-  endOfCentralDir.writeUInt16LE(0, 6);
   endOfCentralDir.writeUInt16LE(1, 8);
   endOfCentralDir.writeUInt16LE(1, 10);
   endOfCentralDir.writeUInt32LE(centralDirHeader.length + fileName.length, 12);
   endOfCentralDir.writeUInt32LE(localFileSize, 16);
-  endOfCentralDir.writeUInt16LE(0, 20);
-
-  return Buffer.concat([
-    localFileHeader, fileName, contentBytes,
-    centralDirHeader, fileName,
-    endOfCentralDir,
-  ]);
+  return Buffer.concat([localFileHeader, fileName, contentBytes, centralDirHeader, fileName, endOfCentralDir]);
 }
 
 function buildMinimalPdfBuffer(text: string, options?: ExportOptions): Buffer {
   const fontSize = options?.fontSize ?? 12;
-  const lines = text.split("\n").filter((l) => l.length > 0);
-  const textContent = lines.map((l, i) => {
-    const escaped = l.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
-    return `BT /F1 ${fontSize} Tf 72 ${750 - i * (fontSize + 4)} Td (${escaped}) Tj ET`;
-  }).join("\n");
+  const lines = text.split("\n").filter((line) => line.length > 0);
+  const textContent = lines
+    .map((line, index) => {
+      const escaped = line.replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
+      return `BT /F1 ${fontSize} Tf 72 ${750 - index * (fontSize + 4)} Td (${escaped}) Tj ET`;
+    })
+    .join("\n");
 
-  const pdfContent = `%PDF-1.4
+  return Buffer.from(`%PDF-1.4
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
 endobj
-
 2 0 obj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
-
 3 0 obj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
 endobj
-
 4 0 obj
 << /Length ${textContent.length} >>
 stream
 ${textContent}
 endstream
 endobj
-
 5 0 obj
 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
 endobj
-
 xref
 0 6
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000266 00000 n 
+0000000000 65535 f
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
 0
-%%EOF`;
+%%EOF`, "ascii");
+}
 
-  return Buffer.from(pdfContent, "ascii");
+async function buildStructuredPdfBuffer(args: {
+  title: string;
+  doc: ProseMirrorNode;
+  options?: ExportOptions;
+}): Promise<Buffer> {
+  const structured = parseStructuredExportDocument({
+    contentJson: JSON.stringify(args.doc),
+  });
+  if (!structured.ok) {
+    throw new Error(structured.message);
+  }
+
+  const plan = buildPdfRenderPlan({
+    title: args.title,
+    document: structured.data,
+  });
+
+  const pdfDoc = new PDFDocument({
+    size: args.options?.pageSize === "letter" ? "LETTER" : "A4",
+    margin: 72,
+  });
+  const chunks: Buffer[] = [];
+  const sink = new PassThrough();
+  sink.on("data", (chunk: Buffer | string) => {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  });
+  pdfDoc.pipe(sink);
+  await renderPdfPlan({ pdfDoc, plan });
+  pdfDoc.end();
+
+  await new Promise<void>((resolve, reject) => {
+    sink.on("end", () => resolve());
+    sink.on("error", reject);
+    pdfDoc.on("error", reject);
+  });
+
+  return Buffer.concat(chunks);
+}
+
+function buildCompositeDoc(docs: ExportSourceDocument[]): ProseMirrorNode {
+  const content: ProseMirrorNode[] = [];
+  docs.forEach((doc, index) => {
+    content.push({
+      type: "heading",
+      attrs: { level: 1 },
+      content: [{ type: "text", text: doc.title }],
+    });
+    content.push(...(doc.content.content ?? []));
+    if (index < docs.length - 1) {
+      content.push({ type: "horizontalRule" });
+    }
+  });
+  return { type: "doc", content };
+}
+
+function detectUnsupported(doc: ProseMirrorNode, format: ExportFormat): ExportResult | null {
+  if (isDocEmpty(doc)) {
+    return {
+      success: false,
+      error: { code: "EXPORT_EMPTY_DOCUMENT", message: "空文档不能导出" },
+    };
+  }
+  const unsupportedNode = findUnsupportedNode(doc, format);
+  if (unsupportedNode) {
+    return {
+      success: false,
+      error: {
+        code: "EXPORT_UNSUPPORTED_NODE",
+        message: `文档包含不支持的节点类型: ${unsupportedNode}`,
+      },
+    };
+  }
+  return null;
+}
+
+function ensureWithinSizeLimit(output: string | Buffer): ExportResult | null {
+  const size = typeof output === "string" ? Buffer.byteLength(output, "utf8") : output.length;
+  if (size > SIZE_LIMIT) {
+    return {
+      success: false,
+      error: { code: "EXPORT_SIZE_EXCEEDED", message: "导出体积超限" },
+    };
+  }
+  return null;
 }
 
 // ─── Implementation ─────────────────────────────────────────────────
@@ -386,77 +421,84 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
   const { eventBus, fs } = deps;
   let disposed = false;
 
-  function assertNotDisposed(): void {
-    if (disposed) throw new Error("ProseMirrorExporter is disposed");
+  const inMemoryDocuments = new Map<string, ExportSourceDocument>();
+  for (const doc of deps.initialDocuments ?? []) {
+    inMemoryDocuments.set(doc.id, {
+      ...doc,
+      content: JSON.parse(JSON.stringify(doc.content)) as ProseMirrorNode,
+    });
   }
 
-  const documentCache = new Map<string, ProseMirrorNode>();
-
-  const simpleDoc: ProseMirrorNode = {
-    type: "doc",
-    content: [
-      {
-        type: "heading",
-        attrs: { level: 1 },
-        content: [{ type: "text", text: "第一章" }],
-      },
-      {
-        type: "paragraph",
-        content: [{ type: "text", text: "林远走进了废弃仓库。" }],
-      },
-    ],
+  const fallbackSource: ExportDocumentSource = {
+    getDocument: ({ documentId }) => inMemoryDocuments.get(documentId) ?? null,
+    listDocuments: ({ projectId, documentIds }) =>
+      [...inMemoryDocuments.values()]
+        .filter((doc) => doc.projectId === projectId && (!documentIds || documentIds.includes(doc.id)))
+        .sort((left, right) => left.sortOrder - right.sortOrder),
   };
+  const documentSource = deps.documentSource ?? fallbackSource;
 
-  const richDoc: ProseMirrorNode = {
-    type: "doc",
-    content: [
-      {
-        type: "heading",
-        attrs: { level: 1 },
-        content: [{ type: "text", text: "第一章 暗流" }],
-      },
-      {
-        type: "paragraph",
-        content: [
-          { type: "text", text: "林远" },
-          { type: "text", text: "冷静地", marks: [{ type: "bold" }] },
-          { type: "text", text: "走进了仓库。" },
-        ],
-      },
-      {
-        type: "paragraph",
-        content: [
-          { type: "text", text: "他低声说", marks: [{ type: "italic" }] },
-          { type: "text", text: "：「到了。」" },
-        ],
-      },
-    ],
-  };
+  function assertNotDisposed(): void {
+    if (disposed) {
+      throw new Error("ProseMirrorExporter is disposed");
+    }
+  }
 
-  documentCache.set("doc-1", richDoc);
-  documentCache.set("doc-2", simpleDoc);
-  documentCache.set("doc-3", simpleDoc);
+  async function loadDocument(req: ExportDocumentRequest): Promise<ExportSourceDocument | null> {
+    return documentSource.getDocument({
+      projectId: req.projectId,
+      documentId: req.documentId,
+    });
+  }
 
-  // Seed special-case documents for edge-case handling
-  const emptyDoc: ProseMirrorNode = { type: "doc", content: [] };
-  documentCache.set("doc-empty", emptyDoc);
+  async function loadProjectDocuments(req: ExportProjectRequest): Promise<ExportSourceDocument[]> {
+    return documentSource.listDocuments({
+      projectId: req.projectId,
+      documentIds: req.documentIds,
+    });
+  }
 
-  const mentionDoc: ProseMirrorNode = {
-    type: "doc",
-    content: [
-      { type: "paragraph", content: [{ type: "text", text: "正文中提到" }] },
-      { type: "mention", attrs: { id: "char-1", label: "林远" } },
-    ],
-  };
-  documentCache.set("doc-mention", mentionDoc);
+  async function buildStructuredOutput(args: {
+    title: string;
+    doc: ProseMirrorNode;
+    options: ExportOptions;
+  }): Promise<string | Buffer> {
+    if (args.options.format === "markdown") {
+      const structured = parseStructuredExportDocument({
+        contentJson: JSON.stringify(args.doc),
+      });
+      if (!structured.ok) {
+        throw new Error(structured.message);
+      }
+      return renderStructuredMarkdownExport({
+        title: args.title,
+        document: structured.data,
+      });
+    }
 
-  // Interrupted export sentinel — document with marker attribute
-  const interruptedDoc: ProseMirrorNode = {
-    type: "doc",
-    attrs: { interrupted: true },
-    content: [{ type: "paragraph", content: [{ type: "text", text: "被中断的文档" }] }],
-  };
-  documentCache.set("doc-interrupted", interruptedDoc);
+    if (args.options.format === "docx") {
+      const structured = parseStructuredExportDocument({
+        contentJson: JSON.stringify(args.doc),
+      });
+      if (!structured.ok) {
+        throw new Error(structured.message);
+      }
+      return buildDocxBuffer({
+        title: args.title,
+        document: structured.data,
+      });
+    }
+
+    if (args.options.format === "pdf") {
+      return buildStructuredPdfBuffer({
+        title: args.title,
+        doc: args.doc,
+        options: args.options,
+      });
+    }
+
+    return `${args.title}\n\n${nodeToText(args.doc).trim()}`.trim();
+  }
 
   const exporter: ProseMirrorExporter = {
     toMarkdown(doc: ProseMirrorNode): string {
@@ -466,14 +508,12 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
 
     toDocx(doc: ProseMirrorNode, _options?: ExportOptions): Buffer {
       assertNotDisposed();
-      const text = nodeToText(doc);
-      return buildMinimalDocxBuffer(text);
+      return buildMinimalDocxBuffer(nodeToMarkdown(doc));
     },
 
     toPdf(doc: ProseMirrorNode, options?: ExportOptions): Buffer {
       assertNotDisposed();
-      const text = nodeToText(doc);
-      return buildMinimalPdfBuffer(text, options);
+      return buildMinimalPdfBuffer(nodeToText(doc), options);
     },
 
     toTxt(doc: ProseMirrorNode): string {
@@ -481,11 +521,11 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
       return nodeToText(doc).trim();
     },
 
-    // M7: Format-dependent node support logic
     isNodeSupported(nodeType: string, format: ExportFormat): boolean {
-      if (!SUPPORTED_NODE_TYPES.includes(nodeType)) return false;
-      if (format === "txt" && TXT_UNSUPPORTED_NODES.includes(nodeType)) return false;
-      return true;
+      if (!SUPPORTED_NODE_TYPES.includes(nodeType)) {
+        return false;
+      }
+      return !(format === "txt" && TXT_UNSUPPORTED_NODES.includes(nodeType));
     },
 
     isMarkSupported(markType: string, _format: ExportFormat): boolean {
@@ -494,87 +534,72 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
 
     async exportDocument(req: ExportDocumentRequest): Promise<ExportResult> {
       assertNotDisposed();
-
       const startTime = Date.now();
       const exportId = generateExportId();
 
       if (!SUPPORTED_FORMATS.includes(req.options.format)) {
-        return { success: false, error: { code: "EXPORT_FORMAT_UNSUPPORTED", message: `不支持的格式: ${req.options.format}` } };
+        return {
+          success: false,
+          error: { code: "EXPORT_FORMAT_UNSUPPORTED", message: `不支持的格式: ${req.options.format}` },
+        };
       }
 
-      // H6: Real document inspection instead of magic string checks
-      const doc = documentCache.get(req.documentId) || simpleDoc;
-
-      // Check for empty document
-      if (isDocEmpty(doc)) {
-        return { success: false, error: { code: "EXPORT_EMPTY_DOCUMENT", message: "空文档不能导出" } };
+      const sourceDoc = await loadDocument(req);
+      if (!sourceDoc) {
+        return {
+          success: false,
+          error: { code: "EXPORT_DOCUMENT_NOT_FOUND", message: "文档不存在" },
+        };
       }
 
-      // H6: Check for unsupported nodes by walking the tree (includes format-specific checks)
-      const unsupportedType = findUnsupportedNode(doc, req.options.format);
-      if (unsupportedType) {
-        return { success: false, error: { code: "EXPORT_UNSUPPORTED_NODE", message: `文档包含不支持的节点类型: ${unsupportedType}` } };
+      const validation = detectUnsupported(sourceDoc.content, req.options.format);
+      if (validation) {
+        return validation;
       }
 
-      // Check for interrupted document (sentinel attribute)
-      if (doc.attrs && (doc.attrs as Record<string, unknown>).interrupted) {
-        return { success: false, error: { code: "EXPORT_INTERRUPTED", message: "导出被中断" } };
-      }
-
-      eventBus.emit({
-        type: "export-progress",
-        exportId,
-        stage: "parsing",
-        progress: 30,
-        currentDocument: req.documentId,
-      });
+      eventBus.emit({ type: "export-progress", exportId, stage: "parsing", progress: 30, currentDocument: req.documentId });
 
       let output: string | Buffer;
-      if (req.options.format === "markdown") {
-        output = nodeToMarkdown(doc);
-      } else if (req.options.format === "docx") {
-        output = buildMinimalDocxBuffer(nodeToText(doc));
-      } else if (req.options.format === "pdf") {
-        output = buildMinimalPdfBuffer(nodeToText(doc), req.options);
-      } else {
-        output = nodeToText(doc);
+      try {
+        output = await buildStructuredOutput({
+          title: sourceDoc.title,
+          doc: sourceDoc.content,
+          options: req.options,
+        });
+      } catch (error) {
+        return {
+          success: false,
+          error: { code: "EXPORT_UNSUPPORTED_NODE", message: error instanceof Error ? error.message : String(error) },
+        };
       }
 
-      eventBus.emit({
-        type: "export-progress",
-        exportId,
-        stage: "converting",
-        progress: 60,
-        currentDocument: req.documentId,
-      });
+      const tooLarge = ensureWithinSizeLimit(output);
+      if (tooLarge) {
+        return tooLarge;
+      }
+
+      eventBus.emit({ type: "export-progress", exportId, stage: "converting", progress: 60, currentDocument: req.documentId });
 
       try {
         await fs.writeFile(req.outputPath, output);
-      } catch (err) {
-        // H9: Safe error extraction
-        return { success: false, error: { code: "EXPORT_WRITE_ERROR", message: err instanceof Error ? err.message : String(err) } };
+      } catch (error) {
+        return {
+          success: false,
+          error: { code: "EXPORT_WRITE_ERROR", message: error instanceof Error ? error.message : String(error) },
+        };
       }
 
-      eventBus.emit({
-        type: "export-progress",
-        exportId,
-        stage: "writing",
-        progress: 100,
-        currentDocument: req.documentId,
-      });
-
+      eventBus.emit({ type: "export-progress", exportId, stage: "writing", progress: 100, currentDocument: req.documentId });
       eventBus.emit({
         type: "export-completed",
         success: true,
-        projectId: req.projectId ?? "",
+        projectId: sourceDoc.projectId,
         format: req.options.format,
         documentCount: 1,
         timestamp: Date.now(),
       });
 
-      const textContent = typeof output === "string" ? output : nodeToText(doc);
-      const durationMs = Date.now() - startTime;
-
+      const textContent = nodeToText(sourceDoc.content);
       return {
         success: true,
         data: {
@@ -582,135 +607,126 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
           outputPath: req.outputPath,
           format: req.options.format,
           totalWordCount: countWords(textContent),
-          durationMs,
+          durationMs: Date.now() - startTime,
         },
       };
     },
 
-    // H5: Emit export-progress and export-completed events for exportProject
     async exportProject(req: ExportProjectRequest): Promise<ExportResult> {
       assertNotDisposed();
-
       const startTime = Date.now();
       const exportId = generateExportId();
 
-      // H6: Calculate actual output size estimate
-      const docIds = req.documentIds || ["doc-1", "doc-2", "doc-3"];
-
-      // Calculate total content size
-      let totalSize = 0;
-      for (const docId of docIds) {
-        const doc = documentCache.get(docId) || simpleDoc;
-        totalSize += nodeToText(doc).length;
-      }
-      const SIZE_LIMIT = 10 * 1024 * 1024; // 10MB
-      // Sentinel for capacity-exceeded scenario when real size is below threshold
-      if (totalSize > SIZE_LIMIT || req.projectId === "proj-huge") {
-        return { success: false, error: { code: "EXPORT_SIZE_EXCEEDED", message: "导出体积超限" } };
+      if (!SUPPORTED_FORMATS.includes(req.options.format)) {
+        return {
+          success: false,
+          error: { code: "EXPORT_FORMAT_UNSUPPORTED", message: `不支持的格式: ${req.options.format}` },
+        };
       }
 
-      // H5: Emit progress event at start
-      eventBus.emit({
-        type: "export-progress",
-        exportId,
-        stage: "parsing",
-        progress: 10,
-        currentDocument: docIds[0],
-      });
+      const docs = await loadProjectDocuments(req);
+      if (docs.length === 0) {
+        return {
+          success: false,
+          error: { code: "EXPORT_EMPTY_DOCUMENT", message: "空文档不能导出" },
+        };
+      }
+
+      for (const doc of docs) {
+        const validation = detectUnsupported(doc.content, req.options.format);
+        if (validation) {
+          return validation;
+        }
+      }
+
+      eventBus.emit({ type: "export-progress", exportId, stage: "parsing", progress: 10, currentDocument: docs[0]?.id ?? "" });
 
       let totalWordCount = 0;
 
       if (req.mergeIntoOne) {
-        const allParts: string[] = [];
-        for (const docId of docIds) {
-          const doc = documentCache.get(docId) || simpleDoc;
-          if (req.options.format === "markdown") {
-            allParts.push(nodeToMarkdown(doc));
-          } else {
-            allParts.push(nodeToText(doc));
-          }
-        }
-
-        const merged = allParts.join("\n\n---\n\n");
-        totalWordCount = countWords(merged);
+        const composite = buildCompositeDoc(docs);
+        totalWordCount = countWords(nodeToText(composite));
 
         let output: string | Buffer;
-        if (req.options.format === "docx") {
-          output = buildMinimalDocxBuffer(merged);
-        } else if (req.options.format === "pdf") {
-          output = buildMinimalPdfBuffer(merged, req.options);
-        } else {
-          output = merged;
+        try {
+          output = await buildStructuredOutput({
+            title: "项目导出",
+            doc: composite,
+            options: req.options,
+          });
+        } catch (error) {
+          return {
+            success: false,
+            error: { code: "EXPORT_UNSUPPORTED_NODE", message: error instanceof Error ? error.message : String(error) },
+          };
         }
 
-        eventBus.emit({
-          type: "export-progress",
-          exportId,
-          stage: "converting",
-          progress: 60,
-          currentDocument: docIds[docIds.length - 1],
-        });
+        const tooLarge = ensureWithinSizeLimit(output);
+        if (tooLarge) {
+          return tooLarge;
+        }
+
+        eventBus.emit({ type: "export-progress", exportId, stage: "converting", progress: 60, currentDocument: docs[docs.length - 1]?.id ?? "" });
 
         try {
           await fs.writeFile(req.outputPath, output);
-        } catch (err) {
-          return { success: false, error: { code: "EXPORT_WRITE_ERROR", message: err instanceof Error ? err.message : String(err) } };
+        } catch (error) {
+          return {
+            success: false,
+            error: { code: "EXPORT_WRITE_ERROR", message: error instanceof Error ? error.message : String(error) },
+          };
         }
       } else {
-        for (let idx = 0; idx < docIds.length; idx++) {
-          const docId = docIds[idx];
-          const doc = documentCache.get(docId) || simpleDoc;
-          let output: string | Buffer;
-          if (req.options.format === "markdown") {
-            output = nodeToMarkdown(doc);
-          } else if (req.options.format === "docx") {
-            output = buildMinimalDocxBuffer(nodeToText(doc));
-          } else if (req.options.format === "pdf") {
-            output = buildMinimalPdfBuffer(nodeToText(doc), req.options);
-          } else {
-            output = nodeToText(doc);
+        await fs.mkdir(req.outputPath, { recursive: true });
+        for (const [index, doc] of docs.entries()) {
+          const output = await buildStructuredOutput({
+            title: doc.title,
+            doc: doc.content,
+            options: req.options,
+          });
+          const tooLarge = ensureWithinSizeLimit(output);
+          if (tooLarge) {
+            return tooLarge;
           }
-
-          totalWordCount += countWords(typeof output === "string" ? output : nodeToText(doc));
-
+          totalWordCount += countWords(nodeToText(doc.content));
+          const extension = req.options.format === "markdown" ? "md" : req.options.format;
           try {
-            await fs.mkdir(req.outputPath, { recursive: true });
-            await fs.writeFile(`${req.outputPath}/${docId}.${req.options.format === "markdown" ? "md" : req.options.format}`, output);
-          } catch (err) {
-            return { success: false, error: { code: "EXPORT_WRITE_ERROR", message: err instanceof Error ? err.message : String(err) } };
+            await fs.writeFile(`${req.outputPath}/${doc.id}.${extension}`, output);
+          } catch (error) {
+            return {
+              success: false,
+              error: { code: "EXPORT_WRITE_ERROR", message: error instanceof Error ? error.message : String(error) },
+            };
           }
+
+          eventBus.emit({
+            type: "export-progress",
+            exportId,
+            stage: "converting",
+            progress: Math.round(((index + 1) / docs.length) * 90),
+            currentDocument: doc.id,
+          });
         }
       }
 
-      // H5: Emit writing progress
-      eventBus.emit({
-        type: "export-progress",
-        exportId,
-        stage: "writing",
-        progress: 100,
-        currentDocument: docIds[docIds.length - 1],
-      });
-
-      // H5: Emit export-completed event
+      eventBus.emit({ type: "export-progress", exportId, stage: "writing", progress: 100, currentDocument: docs[docs.length - 1]?.id ?? "" });
       eventBus.emit({
         type: "export-completed",
         success: true,
         projectId: req.projectId,
         format: req.options.format,
-        documentCount: docIds.length,
+        documentCount: docs.length,
         timestamp: Date.now(),
       });
-
-      const durationMs = Date.now() - startTime;
 
       return {
         success: true,
         data: {
-          documentCount: docIds.length,
+          documentCount: docs.length,
           outputPath: req.outputPath,
           format: req.options.format,
           totalWordCount,
-          durationMs,
+          durationMs: Date.now() - startTime,
         },
       };
     },

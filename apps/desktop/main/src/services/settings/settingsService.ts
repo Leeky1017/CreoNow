@@ -145,36 +145,6 @@ export function createSettingsService(deps: Deps): SettingsService {
     return null;
   }
 
-  function getDefaultCharacter(id: string): CharacterEntry | null {
-    if (id === "char-1") {
-      return {
-        id: "char-1",
-        projectId: "proj-1",
-        name: "林远",
-        description: "28 岁，退休刑警",
-        attributes: { 年龄: "28", 性格: "冷静理性" },
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-    }
-    return null;
-  }
-
-  function getDefaultLocation(id: string): LocationEntry | null {
-    if (id === "loc-1") {
-      return {
-        id: "loc-1",
-        projectId: "proj-1",
-        name: "废弃仓库",
-        description: "城郊一处废弃多年的物流仓库",
-        attributes: { 气氛: "阴冷压抑", 灯光: "昏暗" },
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-    }
-    return null;
-  }
-
   function rowToCharacterEntry(r: Record<string, unknown>): CharacterEntry {
     const attrs = r.attributes;
     return {
@@ -231,9 +201,7 @@ export function createSettingsService(deps: Deps): SettingsService {
       } catch {
         // DB not available
       }
-      // Capacity guard: real DB count check + test sentinel (mock DB returns 0, so name-based
-      // sentinel is needed to exercise the capacity-exceeded path without creating 500 records)
-      if (charCount >= MAX_CHARACTERS || req.name.includes("第501个")) {
+      if (charCount >= MAX_CHARACTERS) {
         return { success: false, error: { code: "CHARACTER_CAPACITY_EXCEEDED", message: "角色数量已达上限" } };
       }
 
@@ -276,10 +244,14 @@ export function createSettingsService(deps: Deps): SettingsService {
 
       let cached = characters.get(id);
       if (!cached) {
-        const def = getDefaultCharacter(id);
-        if (def) {
-          characters.set(id, def);
-          cached = def;
+        try {
+          const row = db.prepare("SELECT * FROM settings WHERE id = ? AND type = 'character'").get(id);
+          if (row) {
+            cached = rowToCharacterEntry(row);
+            characters.set(id, cached);
+          }
+        } catch {
+          // mock db
         }
       }
 
@@ -295,10 +267,14 @@ export function createSettingsService(deps: Deps): SettingsService {
 
       let existing = characters.get(req.id);
       if (!existing) {
-        const def = getDefaultCharacter(req.id);
-        if (def) {
-          characters.set(req.id, def);
-          existing = def;
+        try {
+          const row = db.prepare("SELECT * FROM settings WHERE id = ? AND type = 'character'").get(req.id);
+          if (row) {
+            existing = rowToCharacterEntry(row);
+            characters.set(req.id, existing);
+          }
+        } catch {
+          // mock db
         }
       }
 
@@ -345,10 +321,14 @@ export function createSettingsService(deps: Deps): SettingsService {
 
       let existing = characters.get(id);
       if (!existing) {
-        const def = getDefaultCharacter(id);
-        if (def) {
-          characters.set(id, def);
-          existing = def;
+        try {
+          const row = db.prepare("SELECT * FROM settings WHERE id = ? AND type = 'character'").get(id);
+          if (row) {
+            existing = rowToCharacterEntry(row);
+            characters.set(id, existing);
+          }
+        } catch {
+          // mock db
         }
       }
 
@@ -423,9 +403,7 @@ export function createSettingsService(deps: Deps): SettingsService {
       } catch {
         // DB not available
       }
-      // Capacity guard: real DB count check + test sentinel (mock DB returns 0, so name-based
-      // sentinel is needed to exercise the capacity-exceeded path without creating 200 records)
-      if (locCount >= MAX_LOCATIONS || req.name === "超限地点") {
+      if (locCount >= MAX_LOCATIONS) {
         return { success: false, error: { code: "LOCATION_CAPACITY_EXCEEDED", message: "地点数量已达上限" } };
       }
 
@@ -467,10 +445,14 @@ export function createSettingsService(deps: Deps): SettingsService {
 
       let cached = locations.get(id);
       if (!cached) {
-        const def = getDefaultLocation(id);
-        if (def) {
-          locations.set(id, def);
-          cached = def;
+        try {
+          const row = db.prepare("SELECT * FROM settings WHERE id = ? AND type = 'location'").get(id);
+          if (row) {
+            cached = rowToLocationEntry(row);
+            locations.set(id, cached);
+          }
+        } catch {
+          // mock db
         }
       }
 
@@ -487,10 +469,14 @@ export function createSettingsService(deps: Deps): SettingsService {
 
       let existing = locations.get(req.id);
       if (!existing) {
-        const def = getDefaultLocation(req.id);
-        if (def) {
-          locations.set(req.id, def);
-          existing = def;
+        try {
+          const row = db.prepare("SELECT * FROM settings WHERE id = ? AND type = 'location'").get(req.id);
+          if (row) {
+            existing = rowToLocationEntry(row);
+            locations.set(req.id, existing);
+          }
+        } catch {
+          // mock db
         }
       }
 
@@ -538,10 +524,14 @@ export function createSettingsService(deps: Deps): SettingsService {
 
       let existing = locations.get(id);
       if (!existing) {
-        const def = getDefaultLocation(id);
-        if (def) {
-          locations.set(id, def);
-          existing = def;
+        try {
+          const row = db.prepare("SELECT * FROM settings WHERE id = ? AND type = 'location'").get(id);
+          if (row) {
+            existing = rowToLocationEntry(row);
+            locations.set(id, existing);
+          }
+        } catch {
+          // mock db
         }
       }
 

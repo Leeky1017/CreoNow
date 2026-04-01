@@ -115,7 +115,12 @@ describe("ProjectSearch P3", () => {
   beforeEach(() => {
     db = createMockDb();
     eventBus = createMockEventBus();
-    search = createProjectSearch({ db: db as any, eventBus: eventBus as any });
+    search = createProjectSearch({
+      db: db as any,
+      eventBus: eventBus as any,
+      projectExists: (projectId) => projectId !== "nonexistent",
+      backpressureGuard: (req) => (req.query === "反压测试" ? 200 : null),
+    });
   });
 
   afterEach(() => {
@@ -458,7 +463,7 @@ describe("ProjectSearch P3", () => {
   // ── Index corruption recovery ───────────────────────────────────
 
   describe("index corruption recovery", () => {
-    it("索引损坏时自动触发重建", async () => {
+    it("索引损坏时自动触发重建并返回 SEARCH_INDEX_CORRUPTED", async () => {
       // 模拟索引损坏：第一次 prepare 抛错，后续调用正常（重建后恢复）
       db.prepare.mockImplementationOnce(() => {
         throw new Error("FTS index corrupted");
@@ -466,8 +471,8 @@ describe("ProjectSearch P3", () => {
 
       const result = await search.search(makeSearchRequest({ query: "测试" }));
 
-      // 应自动尝试重建索引
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe("SEARCH_INDEX_CORRUPTED");
       // 验证 rebuildIndex 相关的 SQL 被调用（重建行为）
       const stmts = db.prepare.mock.calls.map((c: any) => c[0]);
       const hasRebuild = stmts.some(

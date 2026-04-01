@@ -14,6 +14,7 @@ import type {
   ExportOptions,
   ExportDocumentRequest,
   ExportProjectRequest,
+  ExportSourceDocument,
 } from "../prosemirrorExporter";
 import { createProseMirrorExporter } from "../prosemirrorExporter";
 
@@ -160,6 +161,16 @@ function makeRichDoc(): MockProseMirrorNode {
   };
 }
 
+function makeSourceDocuments(): ExportSourceDocument[] {
+  return [
+    { id: "doc-1", projectId: "proj-1", title: "第一章 暗流", sortOrder: 1, content: makeRichDoc() as any },
+    { id: "doc-2", projectId: "proj-1", title: "第二章", sortOrder: 2, content: makeSimpleDoc() as any },
+    { id: "doc-3", projectId: "proj-1", title: "第三章", sortOrder: 3, content: makeSimpleDoc() as any },
+    { id: "doc-empty", projectId: "proj-empty", title: "空白", sortOrder: 1, content: { type: "doc", content: [] } as any },
+    { id: "doc-mention", projectId: "proj-invalid", title: "引用", sortOrder: 1, content: makeUnsupportedDoc() as any },
+  ];
+}
+
 /** 包含不支持节点的文档 */
 function makeUnsupportedDoc(): MockProseMirrorNode {
   return {
@@ -191,6 +202,7 @@ describe("ProseMirrorExporter P3", () => {
     exporter = createProseMirrorExporter({
       eventBus: eventBus as any,
       fs: fs as any,
+      initialDocuments: makeSourceDocuments(),
     });
   });
 
@@ -560,26 +572,47 @@ describe("ProseMirrorExporter P3", () => {
     });
 
     it("导出体积超限时返回 EXPORT_SIZE_EXCEEDED", async () => {
-      const result = await exporter.exportProject({
+      const hugeDoc: ExportSourceDocument = {
+        id: "doc-huge",
         projectId: "proj-huge",
-        options: makeExportOptions({ format: "pdf" }),
-        outputPath: "/output/huge.pdf",
+        title: "超长章节",
+        sortOrder: 1,
+        content: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "很长的文本".repeat(2_000_000) }],
+            },
+          ],
+        } as any,
+      };
+      const hugeExporter = createProseMirrorExporter({
+        eventBus: eventBus as any,
+        fs: fs as any,
+        initialDocuments: [hugeDoc],
+      });
+      const result = await hugeExporter.exportProject({
+        projectId: "proj-huge",
+        options: makeExportOptions({ format: "markdown" }),
+        outputPath: "/output/huge.md",
         mergeIntoOne: true,
       } as ExportProjectRequest);
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("EXPORT_SIZE_EXCEEDED");
+      hugeExporter.dispose();
     });
 
-    it("导出中断时返回 EXPORT_INTERRUPTED", async () => {
+    it("文档不存在时返回 EXPORT_DOCUMENT_NOT_FOUND", async () => {
       const result = await exporter.exportDocument({
-        documentId: "doc-interrupted",
+        documentId: "doc-missing",
         options: makeExportOptions(),
         outputPath: "/output/test.md",
       } as ExportDocumentRequest);
 
       expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("EXPORT_INTERRUPTED");
+      expect(result.error?.code).toBe("EXPORT_DOCUMENT_NOT_FOUND");
     });
   });
 

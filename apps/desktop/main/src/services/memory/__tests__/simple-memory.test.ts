@@ -100,6 +100,12 @@ describe("SimpleMemoryService P3", () => {
     vi.restoreAllMocks();
   });
 
+  async function seedMemory(overrides: Partial<WriteMemoryRequest> = {}): Promise<MemoryRecord> {
+    const created = await service.write(makeWriteRequest(overrides));
+    expect(created.success).toBe(true);
+    return created.data!;
+  }
+
   // ── CRUD ────────────────────────────────────────────────────────
 
   describe("write", () => {
@@ -147,12 +153,8 @@ describe("SimpleMemoryService P3", () => {
 
   describe("read", () => {
     it("读取已存在的记忆条目", async () => {
-      db.prepare.mockReturnValueOnce({
-        run: vi.fn(),
-        get: vi.fn().mockReturnValue(makeMemoryRecord()),
-        all: vi.fn().mockReturnValue([]),
-      });
-      const result = await service.read("mem-1");
+      const record = await seedMemory();
+      const result = await service.read(record.id);
 
       expect(result.success).toBe(true);
       expect(result.data?.id).toEqual(expect.any(String));
@@ -171,13 +173,16 @@ describe("SimpleMemoryService P3", () => {
 
   describe("delete", () => {
     it("删除记忆条目成功", async () => {
-      const result = await service.delete("mem-1");
+      const record = await seedMemory();
+      const result = await service.delete(record.id);
 
       expect(result.success).toBe(true);
     });
 
     it("删除后发射 memory-updated 事件（action=deleted）", async () => {
-      await service.delete("mem-1");
+      const record = await seedMemory();
+      eventBus.emit.mockClear();
+      await service.delete(record.id);
 
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -377,8 +382,22 @@ describe("SimpleMemoryService P3", () => {
     });
 
     it("角色注入上限为 10 个", async () => {
-      const result = await service.inject("proj-many-chars", {
-        documentText: "所有角色都在场",
+      const manyCharacters = Array.from({ length: 12 }, (_, index) =>
+        makeMemoryRecord({
+          id: `mem-char-${index}`,
+          projectId: "proj-1",
+          key: `char:角色${index}`,
+          value: `角色${index}设定`,
+          category: "character-setting",
+        }),
+      );
+      db.prepare.mockReturnValueOnce({
+        run: vi.fn(),
+        get: vi.fn(),
+        all: vi.fn().mockReturnValue(manyCharacters),
+      });
+      const result = await service.inject("proj-1", {
+        documentText: Array.from({ length: 12 }, (_, index) => `角色${index}`).join("、"),
       });
 
       expect(result.success).toBe(true);
@@ -389,8 +408,22 @@ describe("SimpleMemoryService P3", () => {
     });
 
     it("地点注入上限为 5 个", async () => {
-      const result = await service.inject("proj-many-locs", {
-        documentText: "所有地点都被提及",
+      const manyLocations = Array.from({ length: 8 }, (_, index) =>
+        makeMemoryRecord({
+          id: `mem-loc-${index}`,
+          projectId: "proj-1",
+          key: `loc:地点${index}`,
+          value: `地点${index}设定`,
+          category: "location-setting",
+        }),
+      );
+      db.prepare.mockReturnValueOnce({
+        run: vi.fn(),
+        get: vi.fn(),
+        all: vi.fn().mockReturnValue(manyLocations),
+      });
+      const result = await service.inject("proj-1", {
+        documentText: Array.from({ length: 8 }, (_, index) => `地点${index}`).join("、"),
       });
 
       expect(result.success).toBe(true);
@@ -446,6 +479,9 @@ describe("SimpleMemoryService P3", () => {
     });
 
     it("记忆服务不可用时返回降级结果", async () => {
+      db.prepare.mockImplementationOnce(() => {
+        throw new Error("database unavailable");
+      });
       const result = await service.inject("proj-broken", {
         documentText: "任何文本",
       });
@@ -458,6 +494,24 @@ describe("SimpleMemoryService P3", () => {
     });
 
     it("inject 返回格式化的注入文本", async () => {
+      db.prepare.mockReturnValueOnce({
+        run: vi.fn(),
+        get: vi.fn(),
+        all: vi.fn().mockReturnValue([
+          makeMemoryRecord({
+            id: "mem-char-1",
+            key: "char:林远",
+            value: "28 岁，退休刑警",
+            category: "character-setting",
+          }),
+          makeMemoryRecord({
+            id: "mem-loc-1",
+            key: "loc:废弃仓库",
+            value: "城郊废弃仓库",
+            category: "location-setting",
+          }),
+        ]),
+      });
       const result = await service.inject("proj-1", {
         documentText: "林远走进了废弃仓库",
       });
@@ -483,8 +537,12 @@ describe("SimpleMemoryService P3", () => {
     });
 
     it("记忆反压时返回 MEMORY_BACKPRESSURE 含 retryAfterMs", async () => {
-      // 模拟高并发导致反压
-      const result = await service.write(
+      const throttledService = createSimpleMemoryService({
+        db: db as any,
+        eventBus: eventBus as any,
+        backpressureGuard: () => 100,
+      });
+      const result = await throttledService.write(
         makeWriteRequest({ key: "backpressure-test" }),
       );
 
@@ -492,6 +550,7 @@ describe("SimpleMemoryService P3", () => {
       expect(result.error?.code).toBe("MEMORY_BACKPRESSURE");
       expect(typeof result.error?.retryAfterMs).toBe("number");
       expect(result.error!.retryAfterMs).toBeGreaterThan(0);
+      throttledService.dispose();
     });
 
     it("清理失败时返回 MEMORY_CLEANUP_FAILED", async () => {

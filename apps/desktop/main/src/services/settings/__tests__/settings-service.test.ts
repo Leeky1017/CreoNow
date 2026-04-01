@@ -94,6 +94,22 @@ describe("SettingsService P3", () => {
     vi.restoreAllMocks();
   });
 
+  async function seedCharacter(overrides: Partial<CreateCharacterRequest> = {}): Promise<string> {
+    const created = await service.createCharacter(
+      makeCreateCharacterReq(overrides),
+    );
+    expect(created.success).toBe(true);
+    return created.data!.id;
+  }
+
+  async function seedLocation(overrides: Partial<CreateLocationRequest> = {}): Promise<string> {
+    const created = await service.createLocation(
+      makeCreateLocationReq(overrides),
+    );
+    expect(created.success).toBe(true);
+    return created.data!.id;
+  }
+
   // ── Character CRUD ──────────────────────────────────────────────
 
   describe("character:create", () => {
@@ -148,10 +164,11 @@ describe("SettingsService P3", () => {
 
   describe("character:read", () => {
     it("读取已存在的角色条目", async () => {
-      const result = await service.getCharacter("char-1");
+      const characterId = await seedCharacter();
+      const result = await service.getCharacter(characterId);
 
       expect(result.success).toBe(true);
-      expect(result.data?.id).toBe("char-1");
+      expect(result.data?.id).toBe(characterId);
       expect(result.data?.name).toBe("林远");
       expect(result.data?.projectId).toBe("proj-1");
       expect(result.data?.description).toBe("28 岁，退休刑警");
@@ -170,8 +187,9 @@ describe("SettingsService P3", () => {
 
   describe("character:update", () => {
     it("更新角色名称成功", async () => {
+      const characterId = await seedCharacter();
       const result = await service.updateCharacter({
-        id: "char-1",
+        id: characterId,
         name: "林远（化名）",
       });
 
@@ -179,8 +197,9 @@ describe("SettingsService P3", () => {
     });
 
     it("更新角色属性成功（添加新属性）", async () => {
+      const characterId = await seedCharacter();
       const result = await service.updateCharacter({
-        id: "char-1",
+        id: characterId,
         attributes: { 职业: "退休刑警", 年龄: "28" },
       });
 
@@ -188,12 +207,14 @@ describe("SettingsService P3", () => {
     });
 
     it("更新角色后发射 character-updated 事件（action=updated）", async () => {
-      await service.updateCharacter({ id: "char-1", name: "新名字" });
+      const characterId = await seedCharacter();
+      eventBus.emit.mockClear();
+      await service.updateCharacter({ id: characterId, name: "新名字" });
 
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "character-updated",
-          characterId: "char-1",
+          characterId,
           action: "updated",
           timestamp: expect.any(Number),
         }),
@@ -210,18 +231,21 @@ describe("SettingsService P3", () => {
 
   describe("character:delete", () => {
     it("删除角色成功", async () => {
-      const result = await service.deleteCharacter("char-1");
+      const characterId = await seedCharacter();
+      const result = await service.deleteCharacter(characterId);
 
       expect(result.success).toBe(true);
     });
 
     it("删除角色后发射 character-updated 事件（action=deleted）", async () => {
-      await service.deleteCharacter("char-1");
+      const characterId = await seedCharacter();
+      eventBus.emit.mockClear();
+      await service.deleteCharacter(characterId);
 
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "character-updated",
-          characterId: "char-1",
+          characterId,
           action: "deleted",
           timestamp: expect.any(Number),
         }),
@@ -296,9 +320,15 @@ describe("SettingsService P3", () => {
     });
 
     it("角色数量达到 500 上限时返回 CHARACTER_CAPACITY_EXCEEDED", async () => {
-      // 模拟已有 500 个角色
+      db.prepare.mockImplementation((sql: string) => ({
+        run: vi.fn(),
+        get: vi.fn().mockReturnValue(
+          /COUNT\(\*\)/i.test(sql) ? { count: 500 } : undefined,
+        ),
+        all: vi.fn().mockReturnValue([]),
+      }));
       const result = await service.createCharacter(
-        makeCreateCharacterReq({ name: "第501个角色" }),
+        makeCreateCharacterReq({ name: "容量边界角色" }),
       );
 
       expect(result.success).toBe(false);
@@ -333,10 +363,11 @@ describe("SettingsService P3", () => {
 
   describe("location:read", () => {
     it("读取已存在的地点条目", async () => {
-      const result = await service.getLocation("loc-1");
+      const locationId = await seedLocation();
+      const result = await service.getLocation(locationId);
 
       expect(result.success).toBe(true);
-      expect(result.data?.id).toBe("loc-1");
+      expect(result.data?.id).toBe(locationId);
       expect(result.data?.name).toBe("废弃仓库");
       expect(result.data?.projectId).toBe("proj-1");
       expect(result.data?.description).toBe("城郊一处废弃多年的物流仓库");
@@ -355,8 +386,9 @@ describe("SettingsService P3", () => {
 
   describe("location:update", () => {
     it("更新地点属性成功", async () => {
+      const locationId = await seedLocation();
       const result = await service.updateLocation({
-        id: "loc-1",
+        id: locationId,
         attributes: { 气氛: "温暖明亮" },
       });
 
@@ -364,13 +396,15 @@ describe("SettingsService P3", () => {
     });
 
     it("更新地点后发射 location-updated 事件", async () => {
-      await service.updateLocation({ id: "loc-1", name: "新地点名" });
+      const locationId = await seedLocation();
+      eventBus.emit.mockClear();
+      await service.updateLocation({ id: locationId, name: "新地点名" });
 
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "location-updated",
           projectId: expect.any(String),
-          locationId: "loc-1",
+          locationId,
           timestamp: expect.any(Number),
         }),
       );
@@ -379,19 +413,22 @@ describe("SettingsService P3", () => {
 
   describe("location:delete", () => {
     it("删除地点成功", async () => {
-      const result = await service.deleteLocation("loc-1");
+      const locationId = await seedLocation();
+      const result = await service.deleteLocation(locationId);
 
       expect(result.success).toBe(true);
     });
 
     it("删除地点后发射 location-deleted 事件", async () => {
-      await service.deleteLocation("loc-1");
+      const locationId = await seedLocation();
+      eventBus.emit.mockClear();
+      await service.deleteLocation(locationId);
 
       expect(eventBus.emit).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "location-deleted",
           projectId: expect.any(String),
-          locationId: "loc-1",
+          locationId,
           timestamp: expect.any(Number),
         }),
       );
@@ -458,8 +495,15 @@ describe("SettingsService P3", () => {
     });
 
     it("地点数量超限时返回 LOCATION_CAPACITY_EXCEEDED", async () => {
+      db.prepare.mockImplementation((sql: string) => ({
+        run: vi.fn(),
+        get: vi.fn().mockReturnValue(
+          /COUNT\(\*\)/i.test(sql) ? { count: 200 } : undefined,
+        ),
+        all: vi.fn().mockReturnValue([]),
+      }));
       const result = await service.createLocation(
-        makeCreateLocationReq({ name: "超限地点" }),
+        makeCreateLocationReq({ name: "容量边界地点" }),
       );
 
       expect(result.success).toBe(false);

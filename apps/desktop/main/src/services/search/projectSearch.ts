@@ -34,7 +34,6 @@ export interface ProjectSearchRequest {
   documentTypes?: string[];
 }
 
-// C1: Typed ProseMirror node interface
 interface ProseMirrorNode {
   type: string;
   text?: string;
@@ -57,7 +56,6 @@ interface TextDiff {
   text: string;
 }
 
-// M5: Discriminated union with literal types
 type Result<T = void> =
   | { success: true; data?: T; error?: undefined }
   | { success: false; data?: undefined; error: { code: string; message: string; retryAfterMs?: number } };
@@ -78,7 +76,6 @@ export interface ProjectSearch {
   dispose(): void;
 }
 
-// C1: Typed deps interfaces
 interface DbStatement {
   run(...args: unknown[]): unknown;
   get(...args: unknown[]): Record<string, unknown> | undefined;
@@ -97,9 +94,21 @@ interface EventBusLike {
   off(event: string, handler: (payload: Record<string, unknown>) => void): void;
 }
 
+interface IndexedDocument {
+  projectId: string;
+  documentId: string;
+  documentTitle: string;
+  documentType: string;
+  content: ProseMirrorNode;
+  text: string;
+}
+
 interface Deps {
   db: DbLike;
   eventBus: EventBusLike;
+  projectExists?: (projectId: string) => boolean;
+  backpressureGuard?: (req: ProjectSearchRequest) => number | null;
+  now?: () => number;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -107,35 +116,98 @@ interface Deps {
 const MAX_QUERY_LEN = 200;
 const MAX_LIMIT = 100;
 
+// ─── Helpers ────────────────────────────────────────────────────────
+
+function normalizeQueryTerms(query: string): string[] {
+  return query
+    .trim()
+    .split(/\s+/u)
+    .map((term) => term.trim())
+    .filter((term) => term.length > 0);
+}
+
+function buildSnippet(text: string, offset: number, matchedTerms: string[]): string {
+  const start = Math.max(0, offset - 12);
+  const end = Math.min(text.length, offset + 24);
+  const raw = text.slice(start, end);
+  if (raw.length === 0) {
+    return matchedTerms.length > 0 ? `...${matchedTerms[0]}...` : "...";
+  }
+  return `${start > 0 ? "..." : ""}${raw}${end < text.length ? "..." : ""}`;
+}
+
+function hasCorruptionSignal(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  const maybeCode = "code" in error ? error.code : undefined;
+  const maybeMessage = "message" in error ? error.message : undefined;
+  return (
+    maybeCode === "SQLITE_CORRUPT" ||
+    (typeof maybeMessage === "string" && /corrupt/i.test(maybeMessage))
+  );
+}
+
 // ─── Implementation ─────────────────────────────────────────────────
 
 export function createProjectSearch(deps: Deps): ProjectSearch {
   const { db, eventBus } = deps;
-  let disposed = false;
+  const now = deps.now ?? (() => Date.now());
 
+  let disposed = false;
   const indexedProjects = new Set<string>();
-  let backpressureTriggered = false;
+  const documentsByProject = new Map<string, Map<string, IndexedDocument>>();
 
   function assertNotDisposed(): void {
-    if (disposed) throw new Error("ProjectSearch is disposed");
+    if (disposed) {
+      throw new Error("ProjectSearch is disposed");
+    }
   }
 
   function extractText(node: ProseMirrorNode): string {
-    if (!node) return "";
-    if (node.type === "text") return node.text || "";
-
-    const parts: string[] = [];
-    if (node.content && Array.isArray(node.content)) {
-      for (const child of node.content) {
-        parts.push(extractText(child));
-      }
+    if (node.type === "text") {
+      return node.text ?? "";
     }
 
+    const parts = (node.content ?? []).map((child) => extractText(child));
     if (node.type === "paragraph" || node.type === "heading") {
-      return parts.join("") + "\n";
+      return `${parts.join("")}\n`;
     }
-
     return parts.join("");
+  }
+
+  function getProjectIndex(projectId: string): Map<string, IndexedDocument> {
+    const existing = documentsByProject.get(projectId);
+    if (existing) {
+      return existing;
+    }
+    const created = new Map<string, IndexedDocument>();
+    documentsByProject.set(projectId, created);
+    return created;
+  }
+
+  function writeIndexRow(doc: IndexedDocument): void {
+    try {
+      db.prepare(
+        "INSERT OR REPLACE INTO search_index (projectId, documentId, documentTitle, documentType, content) VALUES (?, ?, ?, ?, ?)",
+      ).run(doc.projectId, doc.documentId, doc.documentTitle, doc.documentType, doc.text);
+      db.prepare("DELETE FROM search_fts WHERE projectId = ? AND documentId = ?").run(doc.projectId, doc.documentId);
+      db.prepare(
+        "INSERT INTO search_fts (projectId, documentId, content) VALUES (?, ?, ?)",
+      ).run(doc.projectId, doc.documentId, doc.text);
+    } catch {
+      // mock db
+    }
+  }
+
+  function emitIndexEvent(action: "indexed" | "removed" | "rebuilt", projectId: string, documentId: string): void {
+    eventBus.emit({
+      type: "search-index-updated",
+      projectId,
+      documentId,
+      action,
+      timestamp: now(),
+    });
   }
 
   const search: ProjectSearch = {
@@ -143,223 +215,221 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       assertNotDisposed();
 
       try {
-        // Create the regular metadata table
-        db.exec("CREATE TABLE IF NOT EXISTS search_index (projectId TEXT, documentId TEXT, documentTitle TEXT, documentType TEXT, content TEXT, PRIMARY KEY (projectId, documentId))");
-        // Create FTS5 virtual table for full-text search
-        db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(documentId, content)");
-        indexedProjects.add(projectId);
+        db.exec(
+          "CREATE TABLE IF NOT EXISTS search_index (projectId TEXT, documentId TEXT, documentTitle TEXT, documentType TEXT, content TEXT, PRIMARY KEY (projectId, documentId))",
+        );
+        db.exec(
+          "CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(projectId UNINDEXED, documentId UNINDEXED, content)",
+        );
       } catch {
-        // Mock
-        indexedProjects.add(projectId);
+        // mock db
       }
 
+      indexedProjects.add(projectId);
+      getProjectIndex(projectId);
       return { success: true };
     },
 
     async rebuildIndex(projectId: string): Promise<Result> {
       assertNotDisposed();
 
+      const projectDocs = getProjectIndex(projectId);
       try {
-        db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(documentId, content)");
-        db.prepare("DELETE FROM search_fts WHERE documentId IN (SELECT documentId FROM search_index WHERE projectId = ?)").run(projectId);
+        db.exec(
+          "CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(projectId UNINDEXED, documentId UNINDEXED, content)",
+        );
+        db.prepare("DELETE FROM search_fts WHERE projectId = ?").run(projectId);
         db.prepare("DELETE FROM search_index WHERE projectId = ?").run(projectId);
       } catch {
-        // Mock
+        // mock db
+      }
+
+      for (const doc of projectDocs.values()) {
+        writeIndexRow(doc);
       }
 
       indexedProjects.add(projectId);
-
-      eventBus.emit({
-        type: "search-index-updated",
-        projectId,
-        action: "rebuilt",
-        documentId: "*",
-        timestamp: Date.now(),
-      });
-
+      emitIndexEvent("rebuilt", projectId, "*");
       return { success: true };
     },
 
     async indexDocument(req: IndexDocumentRequest): Promise<Result> {
       assertNotDisposed();
 
-      const text = extractText(req.content);
-
-      try {
-        db.prepare(
-          "INSERT OR REPLACE INTO search_index (projectId, documentId, documentTitle, documentType, content) VALUES (?, ?, ?, ?, ?)",
-        ).run(req.projectId, req.documentId, req.documentTitle, req.documentType, text);
-        // Also write to FTS table for full-text search
-        // FTS5 has no UNIQUE constraint — DELETE first to prevent duplicate rows
-        db.prepare("DELETE FROM search_fts WHERE documentId = ?").run(req.documentId);
-        db.prepare("INSERT INTO search_fts (documentId, content) VALUES (?, ?)").run(req.documentId, text);
-      } catch {
-        // Mock
-      }
-
+      const text = extractText(req.content).trim();
+      const indexedDoc: IndexedDocument = {
+        ...req,
+        text,
+      };
+      getProjectIndex(req.projectId).set(req.documentId, indexedDoc);
+      writeIndexRow(indexedDoc);
       indexedProjects.add(req.projectId);
-
-      // H4: action "indexed" per spec (not "updated")
-      eventBus.emit({
-        type: "search-index-updated",
-        projectId: req.projectId,
-        documentId: req.documentId,
-        action: "indexed",
-        timestamp: Date.now(),
-      });
-
+      emitIndexEvent("indexed", req.projectId, req.documentId);
       return { success: true };
     },
 
     async updateDocument(req: IndexDocumentRequest): Promise<Result> {
       assertNotDisposed();
-
-      const text = extractText(req.content);
-
-      try {
-        db.prepare(
-          "UPDATE search_index SET content = ?, documentTitle = ?, documentType = ? WHERE projectId = ? AND documentId = ?",
-        ).run(text, req.documentTitle, req.documentType, req.projectId, req.documentId);
-        // FTS5 has no UNIQUE constraint — DELETE first to prevent duplicate rows
-        db.prepare("DELETE FROM search_fts WHERE documentId = ?").run(req.documentId);
-        db.prepare("INSERT INTO search_fts (documentId, content) VALUES (?, ?)").run(req.documentId, text);
-      } catch {
-        // Mock
-      }
-
-      // H4: action "indexed" per spec (spec allows: 'indexed' | 'removed' | 'rebuilt')
-      eventBus.emit({
-        type: "search-index-updated",
-        projectId: req.projectId,
-        documentId: req.documentId,
-        action: "indexed",
-        timestamp: Date.now(),
-      });
-
-      return { success: true };
+      return search.indexDocument(req);
     },
 
     async removeDocument(projectId: string, documentId: string): Promise<Result> {
       assertNotDisposed();
 
+      getProjectIndex(projectId).delete(documentId);
       try {
-        db.prepare("DELETE FROM search_fts WHERE documentId = ?").run(documentId);
-        db.prepare("DELETE FROM search_index WHERE projectId = ? AND documentId = ?")
-          .run(projectId, documentId);
+        db.prepare("DELETE FROM search_fts WHERE projectId = ? AND documentId = ?").run(projectId, documentId);
+        db.prepare("DELETE FROM search_index WHERE projectId = ? AND documentId = ?").run(projectId, documentId);
       } catch {
-        // Mock
+        // mock db
       }
 
-      eventBus.emit({
-        type: "search-index-updated",
-        projectId,
-        documentId,
-        action: "removed",
-        timestamp: Date.now(),
-      });
-
+      emitIndexEvent("removed", projectId, documentId);
       return { success: true };
     },
 
     async search(req: ProjectSearchRequest): Promise<Result<ProjectSearchResponse>> {
       assertNotDisposed();
 
-      if (!req.query || req.query.trim() === "") {
+      if (req.query.trim().length === 0) {
         return { success: false, error: { code: "SEARCH_QUERY_EMPTY", message: "搜索词不能为空" } };
       }
-
       if (req.query.length > MAX_QUERY_LEN) {
         return { success: false, error: { code: "SEARCH_QUERY_TOO_LONG", message: "搜索词过长" } };
       }
 
-      // M10: Sentinel for project-not-found (mock DB can't resolve project existence;
-      // indexedProjects check would break tests that search without calling createIndex first)
-      if (req.projectId === "nonexistent") {
-        return { success: false, error: { code: "SEARCH_PROJECT_NOT_FOUND", message: "项目不存在" } };
+      const retryAfterMs = deps.backpressureGuard?.(req) ?? null;
+      if (retryAfterMs !== null) {
+        return {
+          success: false,
+          error: {
+            code: "SEARCH_BACKPRESSURE",
+            message: "搜索反压",
+            retryAfterMs,
+          },
+        };
       }
 
-      // C2: Real backpressure detection
-      if (req.query === "反压测试" && !backpressureTriggered) {
-        backpressureTriggered = true;
-        return { success: false, error: { code: "SEARCH_BACKPRESSURE", message: "搜索反压", retryAfterMs: 200 } };
+      const projectDocs = documentsByProject.get(req.projectId);
+      const projectKnown =
+        indexedProjects.has(req.projectId) ||
+        (projectDocs !== undefined && projectDocs.size > 0) ||
+        deps.projectExists?.(req.projectId) === true;
+
+      if (!projectKnown) {
+        return {
+          success: false,
+          error: { code: "SEARCH_PROJECT_NOT_FOUND", message: "项目不存在" },
+        };
       }
 
-      const startTime = Date.now();
+      const startTime = now();
       const limit = Math.min(req.limit ?? 20, MAX_LIMIT);
       const offset = req.offset ?? 0;
 
-      // C2: Use FTS5 MATCH via search_fts joined with search_index for metadata
-      let rows: Record<string, unknown>[] = [];
+      let rows: Record<string, unknown>[] | null = null;
       try {
-        let sql: string;
         const params: unknown[] = [req.projectId];
+        let sql =
+          "SELECT si.*, bm25(search_fts) as rank FROM search_fts JOIN search_index si ON search_fts.projectId = si.projectId AND search_fts.documentId = si.documentId WHERE si.projectId = ?";
 
         if (req.documentTypes && req.documentTypes.length > 0) {
           const placeholders = req.documentTypes.map(() => "?").join(",");
-          sql = `SELECT si.*, bm25(search_fts) as rank FROM search_fts sf JOIN search_index si ON sf.documentId = si.documentId WHERE si.projectId = ? AND si.documentType IN (${placeholders}) AND search_fts MATCH ? ORDER BY rank LIMIT ? OFFSET ?`;
-          params.push(...req.documentTypes, req.query, limit, offset);
-        } else {
-          sql = `SELECT si.*, bm25(search_fts) as rank FROM search_fts sf JOIN search_index si ON sf.documentId = si.documentId WHERE si.projectId = ? AND search_fts MATCH ? ORDER BY rank LIMIT ? OFFSET ?`;
-          params.push(req.query, limit, offset);
+          sql += ` AND si.documentType IN (${placeholders})`;
+          params.push(...req.documentTypes);
         }
 
+        sql += " AND search_fts MATCH ? ORDER BY rank LIMIT ? OFFSET ?";
+        params.push(req.query, limit, offset);
         rows = db.prepare(sql).all(...params);
-      } catch (err: unknown) {
-        // M3: Safe error narrowing without unsafe cast
-        const errMsg = err instanceof Error ? err.message : String(err);
-        const errCode = err && typeof err === "object" && "code" in err ? (err as Record<string, unknown>).code : undefined;
-        if (errMsg === "SEARCH_TIMEOUT") {
+      } catch (error) {
+        if (error instanceof Error && error.message === "SEARCH_TIMEOUT") {
           return { success: false, error: { code: "SEARCH_TIMEOUT", message: "搜索超时" } };
         }
-        if (errCode === "SQLITE_CORRUPT") {
-          return { success: false, error: { code: "SEARCH_INDEX_CORRUPTED", message: "FTS 索引损坏" } };
-        }
-
-        // LIKE fallback when FTS5 is unavailable (e.g. mock DB)
-        try {
+        if (hasCorruptionSignal(error)) {
           await search.rebuildIndex(req.projectId);
-          try {
-            const retrySql = `SELECT * FROM search_index WHERE projectId = ? AND content LIKE ? LIMIT ? OFFSET ?`;
-            rows = db.prepare(retrySql).all(req.projectId, `%${req.query}%`, limit, offset);
-          } catch {
-            rows = [];
-          }
-        } catch {
-          rows = [];
+          return {
+            success: false,
+            error: {
+              code: "SEARCH_INDEX_CORRUPTED",
+              message: "正在重建索引，请稍后重试",
+            },
+          };
         }
+        rows = null;
       }
 
-      const resultsByDoc = new Map<string, ProjectSearchResult>();
-      for (const row of rows) {
-        const docId = row.documentId as string;
-        if (!resultsByDoc.has(docId)) {
-          resultsByDoc.set(docId, {
-            documentId: docId,
-            documentTitle: row.documentTitle as string,
-            documentType: row.documentType as string,
-            matches: [],
+      const terms = normalizeQueryTerms(req.query);
+      let results: ProjectSearchResult[] = [];
+
+      if (rows !== null) {
+        const grouped = new Map<string, ProjectSearchResult>();
+        for (const row of rows) {
+          const documentId = String(row.documentId ?? "");
+          if (!grouped.has(documentId)) {
+            grouped.set(documentId, {
+              documentId,
+              documentTitle: String(row.documentTitle ?? ""),
+              documentType: String(row.documentType ?? ""),
+              matches: [],
+            });
+          }
+          grouped.get(documentId)?.matches.push({
+            snippet: String(row.snippet ?? buildSnippet(String(row.content ?? ""), Number(row.offset ?? 0), terms)),
+            offset: Number(row.offset ?? 0),
+            matchedTerms: Array.isArray(row.matchedTerms)
+              ? (row.matchedTerms as string[])
+              : typeof row.matchedTerms === "string"
+                ? [row.matchedTerms]
+                : terms,
           });
         }
-        const result = resultsByDoc.get(docId)!;
-        const matchedTerms = row.matchedTerms;
-        result.matches.push({
-          snippet: (row.snippet as string) || `...${req.query}...`,
-          offset: (row.offset as number) ?? 0,
-          matchedTerms: matchedTerms ? (Array.isArray(matchedTerms) ? matchedTerms as string[] : [matchedTerms as string]) : [req.query],
+        results = Array.from(grouped.values());
+      } else {
+        const docEntries = Array.from(projectDocs?.values() ?? []).filter((doc) => {
+          if (!req.documentTypes || req.documentTypes.length === 0) {
+            return true;
+          }
+          return req.documentTypes.includes(doc.documentType);
         });
+
+        const matchedDocs = docEntries
+          .map((doc) => {
+            const matches: SearchMatch[] = [];
+            for (const term of terms) {
+              const offsetInText = doc.text.indexOf(term);
+              if (offsetInText >= 0) {
+                matches.push({
+                  snippet: buildSnippet(doc.text, offsetInText, [term]),
+                  offset: offsetInText,
+                  matchedTerms: [term],
+                });
+              }
+            }
+            if (matches.length === 0) {
+              return null;
+            }
+            return {
+              documentId: doc.documentId,
+              documentTitle: doc.documentTitle,
+              documentType: doc.documentType,
+              matches,
+            } satisfies ProjectSearchResult;
+          })
+          .filter((item): item is ProjectSearchResult => item !== null);
+
+        results = matchedDocs.slice(offset, offset + limit);
       }
 
-      const results = Array.from(resultsByDoc.values());
-      const totalMatches = results.reduce((sum, r) => sum + r.matches.length, 0);
-
+      const totalMatches = results.reduce((sum, result) => sum + result.matches.length, 0);
       return {
         success: true,
         data: {
           results,
           totalDocuments: results.length,
           totalMatches,
-          searchTimeMs: Date.now() - startTime,
-          hasMore: rows.length >= limit,
+          searchTimeMs: now() - startTime,
+          hasMore: results.length >= limit,
         },
       };
     },
@@ -368,7 +438,10 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       assertNotDisposed();
 
       if (!indexedProjects.has(projectId)) {
-        return { success: false, error: { code: "SEARCH_INDEX_NOT_FOUND", message: "FTS 索引不存在" } };
+        return {
+          success: false,
+          error: { code: "SEARCH_INDEX_NOT_FOUND", message: "FTS 索引不存在" },
+        };
       }
 
       return { success: true, data: { status: "ready" } };
@@ -384,46 +457,51 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
 
       const oldText = extractText(oldDoc);
       const newText = extractText(newDoc);
-
-      if (oldText === newText) return [];
-
-      let i = 0;
-      while (i < oldText.length && i < newText.length && oldText[i] === newText[i]) {
-        i++;
+      if (oldText === newText) {
+        return [];
       }
 
-      if (oldText.length === newText.length) {
-        let j = oldText.length - 1;
-        let k = newText.length - 1;
-        while (j > i && k > i && oldText[j] === newText[k]) {
-          j--;
-          k--;
+      let start = 0;
+      while (
+        start < oldText.length &&
+        start < newText.length &&
+        oldText[start] === newText[start]
+      ) {
+        start += 1;
+      }
+
+      if (newText.length === oldText.length) {
+        let oldEnd = oldText.length - 1;
+        let newEnd = newText.length - 1;
+        while (oldEnd > start && newEnd > start && oldText[oldEnd] === newText[newEnd]) {
+          oldEnd -= 1;
+          newEnd -= 1;
         }
-        return [{
-          type: "modified",
-          offset: i,
-          text: newText.slice(i, k + 1),
-        }];
+        return [{ type: "modified", offset: start, text: newText.slice(start, newEnd + 1) }];
       }
 
       if (newText.length > oldText.length) {
-        return [{
-          type: "added",
-          offset: i,
-          text: newText.slice(i, i + (newText.length - oldText.length)),
-        }];
+        return [
+          {
+            type: "added",
+            offset: start,
+            text: newText.slice(start, start + (newText.length - oldText.length)),
+          },
+        ];
       }
 
-      return [{
-        type: "removed",
-        offset: i,
-        text: oldText.slice(i, i + (oldText.length - newText.length)),
-      }];
+      return [
+        {
+          type: "removed",
+          offset: start,
+          text: oldText.slice(start, start + (oldText.length - newText.length)),
+        },
+      ];
     },
 
     mapOffsetToPosition(_doc: ProseMirrorNode, offset: number): number {
       assertNotDisposed();
-      return offset + 2;
+      return Math.max(0, offset);
     },
 
     dispose(): void {

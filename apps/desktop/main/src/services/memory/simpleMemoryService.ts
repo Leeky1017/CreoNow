@@ -75,6 +75,7 @@ interface EventBusLike {
 interface Deps {
   db: DbLike;
   eventBus: EventBusLike;
+  backpressureGuard?: (req: WriteMemoryRequest) => number | null;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -139,31 +140,6 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
       updatedAt: row.updatedAt as number,
     };
   }
-
-  // Seed default memory records
-  const seedRecords: MemoryRecord[] = [
-    {
-      id: "mem-1", projectId: "proj-1", key: "pref:dialogue-style",
-      value: "口语化，避免书面语气", source: "user", category: "preference",
-      createdAt: Date.now(), updatedAt: Date.now(),
-    },
-    {
-      id: "mem-seed-2", projectId: "proj-1", key: "char:林远",
-      value: "28 岁，退休刑警", source: "system", category: "character-setting",
-      createdAt: Date.now(), updatedAt: Date.now(),
-    },
-    {
-      id: "mem-seed-3", projectId: "proj-1", key: "loc:废弃仓库",
-      value: "城郊废弃多年的物流仓库", source: "system", category: "location-setting",
-      createdAt: Date.now(), updatedAt: Date.now(),
-    },
-  ];
-  for (const r of seedRecords) {
-    store.set(r.id, r);
-    keyIndex.set(getKeyIndexKey(r.projectId, r.key), r.id);
-  }
-
-  let backpressureTriggered = false;
 
   // M6: Typed function signature instead of `Function`
   const eventHandlers: Array<{ event: string; handler: (payload: Record<string, unknown>) => void }> = [];
@@ -253,6 +229,18 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
         return { success: false, error: { code: "MEMORY_VALUE_TOO_LONG", message: "value 超过长度限制" } };
       }
 
+      const retryAfterMs = deps.backpressureGuard?.(req) ?? null;
+      if (retryAfterMs !== null) {
+        return {
+          success: false,
+          error: {
+            code: "MEMORY_BACKPRESSURE",
+            message: "反压",
+            retryAfterMs,
+          },
+        };
+      }
+
       // Check capacity
       try {
         const countResult = db.prepare("SELECT COUNT(*) as count FROM memory").get();
@@ -261,12 +249,6 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
         }
       } catch {
         // db not available
-      }
-
-      // C2: Real backpressure detection — trigger on first write of specific key
-      if (req.key === "backpressure-test" && !backpressureTriggered) {
-        backpressureTriggered = true;
-        return { success: false, error: { code: "MEMORY_BACKPRESSURE", message: "反压", retryAfterMs: 100 } };
       }
 
       const indexKey = getKeyIndexKey(req.projectId, req.key);

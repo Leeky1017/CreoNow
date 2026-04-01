@@ -3,6 +3,10 @@
  * Spec: openspec/specs/skill-system/spec.md — P3
  */
 
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 // ─── Types ──────────────────────────────────────────────────────────
 
 export interface SkillContextRequirement {
@@ -200,74 +204,23 @@ function parseYamlValue(val: string): string | number | boolean {
 // ─── Skill Definitions ──────────────────────────────────────────────
 
 const SKILL_MANIFESTS: Record<string, SkillManifest> = {};
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const P3_SKILL_ROOT = path.resolve(
+  __dirname,
+  "../../../skills/packages/pkg.creonow.builtin/1.0.0/skills",
+);
+
+function readP3SkillManifest(skillDir: string): SkillManifest {
+  const filePath = path.join(P3_SKILL_ROOT, skillDir, "SKILL.md");
+  const content = readFileSync(filePath, "utf8");
+  return parseSkillManifest(content);
+}
 
 function initManifests(): void {
-  const consistencyMd = `---
-id: consistency-check
-name: 一致性检查
-description: 检查角色/地点设定与正文的一致性
-category: analysis
-scope: builtin
-inputRequirement:
-  requiresSelection: false
-  requiresDocumentContext: true
-  requiresProjectContext: true
-outputType: annotation
-permissionLevel: auto-allow
-contextRules:
-  injectCharacterSettings: true
-  injectLocationSettings: true
-  injectMemory: false
-  injectSearchContext: false
----
-
-你是一名创作一致性审核员。请检查以下文本与角色/地点设定之间是否存在矛盾。`;
-
-  const dialogueMd = `---
-id: dialogue-gen
-name: 对白生成
-description: 根据角色设定和场景上下文生成对白
-category: generation
-scope: builtin
-inputRequirement:
-  requiresSelection: true
-  requiresDocumentContext: true
-  requiresProjectContext: true
-outputType: suggestion
-permissionLevel: preview-confirm
-contextRules:
-  injectCharacterSettings: true
-  injectLocationSettings: false
-  injectMemory: true
-  injectSearchContext: false
----
-
-你是一名专业编剧。请根据角色设定为指定角色生成对白。`;
-
-  const outlineMd = `---
-id: outline-expand
-name: 大纲展开
-description: 将大纲要点展开为完整段落或章节
-category: generation
-scope: builtin
-inputRequirement:
-  requiresSelection: true
-  requiresDocumentContext: true
-  requiresProjectContext: true
-outputType: new-content
-permissionLevel: preview-confirm
-contextRules:
-  injectCharacterSettings: true
-  injectLocationSettings: true
-  injectMemory: true
-  injectSearchContext: false
----
-
-你是一名小说创作助手。请将以下大纲要点展开为完整叙事。`;
-
-  SKILL_MANIFESTS["consistency-check"] = parseSkillManifest(consistencyMd);
-  SKILL_MANIFESTS["dialogue-gen"] = parseSkillManifest(dialogueMd);
-  SKILL_MANIFESTS["outline-expand"] = parseSkillManifest(outlineMd);
+  SKILL_MANIFESTS["consistency-check"] = readP3SkillManifest("consistency-check");
+  SKILL_MANIFESTS["dialogue-gen"] = readP3SkillManifest("dialogue-gen");
+  SKILL_MANIFESTS["outline-expand"] = readP3SkillManifest("outline-expand");
 }
 
 initManifests();
