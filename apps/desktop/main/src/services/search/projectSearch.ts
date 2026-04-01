@@ -421,7 +421,7 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       }];
     },
 
-    mapOffsetToPosition(doc: ProseMirrorNode, offset: number): number {
+    mapOffsetToPosition(_doc: ProseMirrorNode, offset: number): number {
       assertNotDisposed();
       return offset + 2;
     },

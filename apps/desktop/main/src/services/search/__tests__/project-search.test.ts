@@ -7,29 +7,26 @@
  * 增量更新、索引重建、类型过滤、错误码、dispose 清理。
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import type {
   ProjectSearch,
   ProjectSearchRequest,
-  ProjectSearchResult,
-  ProjectSearchResponse,
-  SearchMatch,
 } from "../projectSearch";
 import { createProjectSearch } from "../projectSearch";
 
 // ─── mock types ─────────────────────────────────────────────────────
 
 interface MockDb {
-  prepare: vi.Mock;
-  exec: vi.Mock;
-  transaction: vi.Mock;
+  prepare: Mock;
+  exec: Mock;
+  transaction: Mock;
 }
 
 interface MockEventBus {
-  emit: vi.Mock;
-  on: vi.Mock;
-  off: vi.Mock;
+  emit: Mock;
+  on: Mock;
+  off: Mock;
 }
 
 /** Minimal ProseMirror document mock */

@@ -7,31 +7,27 @@
  * AI 注入、注入限制、错误码、dispose 清理。
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import type {
   SettingsService,
-  CharacterEntry,
-  LocationEntry,
   CreateCharacterRequest,
-  UpdateCharacterRequest,
   CreateLocationRequest,
-  UpdateLocationRequest,
 } from "../settingsService";
 import { createSettingsService } from "../settingsService";
 
 // ─── mock types ─────────────────────────────────────────────────────
 
 interface MockDb {
-  prepare: vi.Mock;
-  exec: vi.Mock;
-  transaction: vi.Mock;
+  prepare: Mock;
+  exec: Mock;
+  transaction: Mock;
 }
 
 interface MockEventBus {
-  emit: vi.Mock;
-  on: vi.Mock;
-  off: vi.Mock;
+  emit: Mock;
+  on: Mock;
+  off: Mock;
 }
 
 // ─── helpers ────────────────────────────────────────────────────────

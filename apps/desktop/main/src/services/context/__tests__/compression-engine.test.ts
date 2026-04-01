@@ -7,13 +7,11 @@
  * stablePrefixHash 不含 compressed-history。
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import type {
   CompressionEngine,
   CompressionRequest,
-  CompressionResult,
-  CompressionStats,
   CompressionConfig,
   NarrativeElements,
   CompressionLayer,
@@ -27,9 +25,9 @@ interface LLMMessage {
   content: string;
 }
 
-interface MockLLMService {
-  streamChat: vi.Mock;
-  complete: vi.Mock;
+interface MockLLMService extends Record<string, unknown> {
+  streamChat: Mock;
+  complete: Mock;
 }
 
 // ─── helpers ────────────────────────────────────────────────────────
@@ -405,7 +403,10 @@ describe("CompressionEngine — 叙事感知上下文压缩", () => {
       const request = makeCompressionRequest({ targetTokens: 100 });
 
       // Start 4 concurrent compressions
-      const promises = Array.from({ length: 4 }, () => engine.compress(request));
+      const promises = Array.from(
+        { length: 4 },
+        () => engine.compress(request).catch((error) => error),
+      );
 
       // 5th should be rejected
       await expect(engine.compress(request)).rejects.toThrow(
@@ -414,7 +415,7 @@ describe("CompressionEngine — 叙事感知上下文压缩", () => {
 
       // Cleanup
       await vi.advanceTimersByTimeAsync(60_000);
-      await Promise.allSettled(promises);
+      await Promise.all(promises);
     });
   });
 
@@ -433,12 +434,13 @@ describe("CompressionEngine — 叙事感知上下文压缩", () => {
 
       const request = makeCompressionRequest({ targetTokens: 100 });
       const compressPromise = shortTimeoutEngine.compress(request);
+      const rejection = expect(compressPromise).rejects.toThrow(
+        expect.objectContaining({ code: "COMPRESSION_FAILED" }),
+      );
 
       await vi.advanceTimersByTimeAsync(6_000);
 
-      await expect(compressPromise).rejects.toThrow(
-        expect.objectContaining({ code: "COMPRESSION_FAILED" }),
-      );
+      await rejection;
 
       shortTimeoutEngine.dispose();
     });

@@ -499,7 +499,7 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
         records: injectedRecords,
         injectedText: injectedText || (injectedRecords.length > 0 ? injectedRecords.map((r) => `${r.key}: ${r.value}`).join("\n") : ""),
         tokenCount,
-        degraded: false,
+        degraded,
       };
 
       eventBus.emit({
@@ -507,7 +507,7 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
         projectId,
         recordCount: injectedRecords.length,
         tokenCount,
-        degraded: false,
+        degraded,
         timestamp: Date.now(),
       });
 

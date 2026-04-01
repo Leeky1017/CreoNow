@@ -7,30 +7,27 @@
  * 进度事件、不支持节点检测、空文档处理、dispose 清理。
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import type {
   ProseMirrorExporter,
-  ExportFormat,
   ExportOptions,
   ExportDocumentRequest,
   ExportProjectRequest,
-  ExportProgressEvent,
-  ExportResult,
 } from "../prosemirrorExporter";
 import { createProseMirrorExporter } from "../prosemirrorExporter";
 
 // ─── mock types ─────────────────────────────────────────────────────
 
 interface MockEventBus {
-  emit: vi.Mock;
-  on: vi.Mock;
-  off: vi.Mock;
+  emit: Mock;
+  on: Mock;
+  off: Mock;
 }
 
 interface MockFs {
-  writeFile: vi.Mock;
-  mkdir: vi.Mock;
+  writeFile: Mock;
+  mkdir: Mock;
 }
 
 /** Minimal ProseMirror document mock */
@@ -180,13 +177,6 @@ function makeUnsupportedDoc(): MockProseMirrorNode {
   };
 }
 
-/** 空文档 */
-function makeEmptyDoc(): MockProseMirrorNode {
-  return {
-    type: "doc",
-    content: [],
-  };
-}
 
 // ─── tests ──────────────────────────────────────────────────────────
 
@@ -446,7 +436,6 @@ describe("ProseMirrorExporter P3", () => {
   describe("export options", () => {
     it("includeMetadata 为 true 时包含标题页", () => {
       const doc = makeSimpleDoc();
-      const options = makeExportOptions({ includeMetadata: true });
       const md = exporter.toMarkdown(doc as any);
 
       expect(typeof md).toBe("string");
@@ -462,7 +451,6 @@ describe("ProseMirrorExporter P3", () => {
 
   describe("progress events", () => {
     it("导出过程中发射 export-progress 事件", async () => {
-      const doc = makeRichDoc();
       await exporter.exportDocument({
         documentId: "doc-1",
         options: makeExportOptions(),
@@ -480,7 +468,6 @@ describe("ProseMirrorExporter P3", () => {
     });
 
     it("导出完成后发射 export-completed 事件", async () => {
-      const doc = makeRichDoc();
       await exporter.exportDocument({
         documentId: "doc-1",
         projectId: "proj-1",

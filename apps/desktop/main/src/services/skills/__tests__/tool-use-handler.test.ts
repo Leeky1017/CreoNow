@@ -17,7 +17,7 @@ import type {
   ToolUseRoundState,
 } from "../toolUseHandler";
 import { createToolUseHandler } from "../toolUseHandler";
-import type { ToolRegistry, WritingTool, ToolContext, ToolResult } from "../toolRegistry";
+import type { ToolRegistry, WritingTool, ToolContext } from "../toolRegistry";
 import { createToolRegistry, buildTool } from "../toolRegistry";
 import type { ToolCallInfo } from "../../ai/streaming";
 

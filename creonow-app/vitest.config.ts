@@ -17,6 +17,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/components/**'],
+      exclude: ['src/components/**/.gitkeep'],
       thresholds: {
         statements: 50,
         branches: 40,

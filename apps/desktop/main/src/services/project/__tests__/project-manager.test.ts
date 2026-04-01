@@ -7,7 +7,7 @@
  * 项目生命周期、删除级联、事件发射、错误码、dispose 清理。
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import type {
   ProjectManager,
@@ -15,22 +15,21 @@ import type {
   ProjectStyleConfig,
   ProjectGoals,
   ProjectDocument,
-  ProjectOverview,
 } from "../projectManager";
 import { createProjectManager } from "../projectManager";
 
 // ─── mock types ─────────────────────────────────────────────────────
 
 interface MockDb {
-  prepare: vi.Mock;
-  exec: vi.Mock;
-  transaction: vi.Mock;
+  prepare: Mock;
+  exec: Mock;
+  transaction: Mock;
 }
 
 interface MockEventBus {
-  emit: vi.Mock;
-  on: vi.Mock;
-  off: vi.Mock;
+  emit: Mock;
+  on: Mock;
+  off: Mock;
 }
 
 // ─── helpers ────────────────────────────────────────────────────────

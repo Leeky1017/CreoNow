@@ -7,14 +7,12 @@
  * Step.map() 重基、降级模式、空 diff 行为、版本快照集成。
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import type {
   DiffEngine,
   DiffResult,
-  DiffChange,
   DiffStats,
-  ChangeKind,
 } from "../diffEngine";
 import { createDiffEngine } from "../diffEngine";
 
@@ -31,35 +29,17 @@ interface MockEditorState {
 interface MockTransaction {
   steps: unknown[];
   doc: { textContent: string };
-  replaceWith: vi.Mock;
-  delete: vi.Mock;
-  insert: vi.Mock;
-  setMeta: vi.Mock;
-  getMeta: vi.Mock;
+  replaceWith: Mock;
+  delete: Mock;
+  insert: Mock;
+  setMeta: Mock;
+  getMeta: Mock;
 }
 
 /** Minimal snapshot store mock */
 interface MockSnapshotStore {
-  getSnapshot: vi.Mock;
-  createSnapshot: vi.Mock;
-}
-
-/** Minimal ProseMirror DecorationSet mock — mirrors `.find(start, end)` API */
-interface MockDecorationSet {
-  find: (start: number, end: number) => Array<{ from: number; to: number; className: string }>;
-}
-
-function createEmptyDecorationSet(): MockDecorationSet {
-  return { find: () => [] };
-}
-
-function createDecorationSet(
-  items: Array<{ from: number; to: number; className: string }>,
-): MockDecorationSet {
-  return {
-    find: (start: number, end: number) =>
-      items.filter((d) => d.from < end && d.to > start),
-  };
+  getSnapshot: Mock;
+  createSnapshot: Mock;
 }
 
 // ─── helpers ────────────────────────────────────────────────────────
@@ -679,7 +659,6 @@ describe("DiffEngine — Diff 预览引擎", () => {
         "req-001",
       );
 
-      const firstCount = engine.getPendingChanges().length;
 
       engine.createSuggestionTransaction(
         state as unknown as Parameters<DiffEngine["createSuggestionTransaction"]>[0],

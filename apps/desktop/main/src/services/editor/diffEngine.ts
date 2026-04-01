@@ -350,7 +350,7 @@ export function createDiffEngine(config: DiffEngineConfig): DiffEngine {
     createSuggestionTransaction(
       state: EditorState,
       aiOutput: string,
-      selection: { from: number; to: number },
+      _selection: { from: number; to: number },
       preWriteSnapshotId: string,
       requestId: string,
     ): DiffResult {

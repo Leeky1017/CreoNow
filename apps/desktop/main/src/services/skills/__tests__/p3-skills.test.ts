@@ -8,14 +8,10 @@
  * 技能注册到 ToolRegistry。
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import type {
-  SkillManifest,
-  SkillContextRequirement,
-  SkillContextRules,
   ConsistencyCheckResult,
-  ConsistencyIssue,
   DialogueGenResult,
   OutlineExpandResult,
   P3SkillExecutor,
@@ -28,23 +24,23 @@ import {
 // ─── mock types ─────────────────────────────────────────────────────
 
 interface MockAiService {
-  complete: vi.Mock;
-  stream: vi.Mock;
+  complete: Mock;
+  stream: Mock;
 }
 
 interface MockContextEngine {
-  assembleContext: vi.Mock;
+  assembleContext: Mock;
 }
 
 interface MockEventBus {
-  emit: vi.Mock;
-  on: vi.Mock;
-  off: vi.Mock;
+  emit: Mock;
+  on: Mock;
+  off: Mock;
 }
 
 interface MockToolRegistry {
-  register: vi.Mock;
-  get: vi.Mock;
+  register: Mock;
+  get: Mock;
 }
 
 // ─── helpers ────────────────────────────────────────────────────────

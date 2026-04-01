@@ -8,29 +8,27 @@
  * 错误码、dispose 清理。
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 import type {
   SimpleMemoryService,
   MemoryRecord,
   WriteMemoryRequest,
-  QueryMemoryRequest,
-  MemoryInjection,
 } from "../simpleMemoryService";
 import { createSimpleMemoryService } from "../simpleMemoryService";
 
 // ─── mock types ─────────────────────────────────────────────────────
 
 interface MockDb {
-  prepare: vi.Mock;
-  exec: vi.Mock;
-  transaction: vi.Mock;
+  prepare: Mock;
+  exec: Mock;
+  transaction: Mock;
 }
 
 interface MockEventBus {
-  emit: vi.Mock;
-  on: vi.Mock;
-  off: vi.Mock;
+  emit: Mock;
+  on: Mock;
+  off: Mock;
 }
 
 // ─── helpers ────────────────────────────────────────────────────────
@@ -667,7 +665,6 @@ describe("SimpleMemoryService P3", () => {
       expect(handler).toBeDefined();
 
       // 模拟 handler 抛出错误后 service 不崩溃
-      const mockLogger = { warn: vi.fn() };
       db.prepare.mockImplementationOnce(() => {
         throw new Error("sync failure");
       });
