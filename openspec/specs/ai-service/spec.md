@@ -58,8 +58,8 @@ interface StreamOptions {
 interface StreamResult {
   /** 完整的生成文本 */
   content: string;
-  /** 总 token 用量 */
-  usage: { promptTokens: number; completionTokens: number };
+  /** 总 token 用量（与 TokenUsage 对齐：含 totalTokens） */
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number };
   /** 是否为重试后的结果 */
   wasRetried: boolean;
   /** V1 预留：如果 finishReason 为 tool_use，此处携带 tool call 信息 */
@@ -1046,7 +1046,13 @@ Token 预算裁剪规则：
 函数签名：
 
 ```typescript
-type LLMMessage = { role: "system" | "user" | "assistant"; content: string };
+/** P2 更新：新增 'tool' role 以支持 Agentic Loop tool-use 结果注入 */
+type LLMMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  /** tool role 消息的关联 tool call ID（仅当 role === 'tool' 时必填） */
+  toolCallId?: string;
+};
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 
 function buildLLMMessages(args: {
@@ -1101,3 +1107,446 @@ REQ-ID: `REQ-AIS-MULTITURN`
 - **则** result 包含 system + currentUser（强制保留）
 - **并且** 仅保留预算范围内的最近历史消息
 - **并且** `result[result.length - 1].role === "user"`（当前输入在最后）
+
+---
+
+## P2: Cost Tracker
+
+> **阶段**: P2（端到端闭环）
+> **依赖**: P1 — Streaming 主链路、P1 — 中文 Token 估算（context-engine/spec.md）、P1 — Post-Writing Hooks（skill-system/spec.md）
+> **CC 参考**: `cost-tracker.ts`（成本追踪核心）+ `costHook.ts`（Post-hook 集成）
+
+### P2 变更摘要
+
+| 变更 | 描述 |
+|------|------|
+| P2 — CostTracker | 基于模型定价表计算单次/累计费用 |
+| P2 — ModelPricingTable | 可配置的模型计价表（每 1K tokens 单价） |
+| P2 — BudgetAlert | 预算预警（warning）+ 硬停（hard-stop） |
+| P2 — PostWritingHook 集成 | 作为 `cost-tracking` Hook 注册到 WritingOrchestrator |
+| P2 — CJK Token 系数 | 使用 context-engine 的 `estimateTokens()` 进行 CJK 感知费用估算 |
+
+### P1 → P2 演进说明
+
+P1 阶段的 "AI 使用统计" Requirement 定义了 AI 面板底部展示 token 统计和费用的 UI 需求。但 P1 未定义后端的费用计算逻辑、模型定价表结构、预算控制机制。
+
+P2 的 CostTracker 为 P1 的前端统计提供完整的后端支撑：
+- P1 的 `TokenUsage`（promptTokens + completionTokens）→ P2 的 `CostTracker.recordUsage()` 计算费用
+- P1 的 "单会话累计 token 上限 200,000" → P2 的 `BudgetPolicy.hardStopLimit` 精确控制
+- P1 的 "估算费用（基于配置的模型价格，可选显示）" → P2 的 `ModelPricingTable` 提供定价数据
+
+---
+
+### Requirement: P2 — CostTracker 核心接口
+
+The system SHALL provide a `CostTracker` that calculates per-request and cumulative session costs based on a configurable model pricing table, with budget alerts and hard-stop enforcement.
+
+**核心数据类型**:
+
+```typescript
+/** 模型定价条目 */
+interface ModelPricing {
+  /** 模型标识（如 'gpt-4o', 'claude-sonnet-4-20250514'） */
+  modelId: string;
+  /** 模型显示名称 */
+  displayName: string;
+  /** 输入 token 单价（美元/1K tokens） */
+  inputPricePer1K: number;
+  /** 输出 token 单价（美元/1K tokens） */
+  outputPricePer1K: number;
+  /** 缓存 token 单价（美元/1K tokens，使用 prompt caching 时） */
+  cachedInputPricePer1K?: number;
+  /** 定价有效期（用于提示用户更新） */
+  effectiveDate: string; // ISO8601
+}
+
+/** 模型定价表 */
+interface ModelPricingTable {
+  /** 定价条目，按 modelId 索引 */
+  prices: Record<string, ModelPricing>;
+  /** 默认货币 */
+  currency: 'USD';
+  /** 上次更新时间 */
+  lastUpdated: string; // ISO8601
+}
+
+/** 单次请求的费用记录 */
+interface RequestCost {
+  /** 请求 ID */
+  requestId: string;
+  /** 使用的模型 */
+  modelId: string;
+  /** 输入 token 数（实际值，来自 LLM API 返回） */
+  inputTokens: number;
+  /** 输出 token 数 */
+  outputTokens: number;
+  /** 缓存命中的 token 数 */
+  cachedTokens: number;
+  /** 本次请求费用（美元） */
+  cost: number;
+  /** 计算时间 */
+  timestamp: number;
+  /** 关联的技能 ID */
+  skillId: string;
+  /** 警告信息（如模型不在定价表中时为 'COST_MODEL_NOT_FOUND'） */
+  warning?: string;
+}
+
+/** 会话费用汇总 */
+interface SessionCostSummary {
+  /** 会话开始时间 */
+  sessionStartedAt: number;
+  /** 总请求次数 */
+  totalRequests: number;
+  /** 总输入 token 数 */
+  totalInputTokens: number;
+  /** 总输出 token 数 */
+  totalOutputTokens: number;
+  /** 总缓存命中 token 数 */
+  totalCachedTokens: number;
+  /** 总费用（美元） */
+  totalCost: number;
+  /** 按模型分组的费用明细 */
+  costByModel: Record<string, { requests: number; cost: number }>;
+  /** 按技能分组的费用明细 */
+  costBySkill: Record<string, { requests: number; cost: number }>;
+}
+
+/** 预算策略 */
+interface BudgetPolicy {
+  /** 警告阈值（美元），达到时发出 warning 事件 */
+  warningThreshold: number;
+  /** 硬停阈值（美元），达到时阻止新请求 */
+  hardStopLimit: number;
+  /** 是否启用预算控制 */
+  enabled: boolean;
+}
+
+/** 预算告警事件 */
+type BudgetAlertKind = 'warning' | 'hard-stop';
+
+interface BudgetAlert {
+  kind: BudgetAlertKind;
+  /** 当前累计费用 */
+  currentCost: number;
+  /** 触发的阈值 */
+  threshold: number;
+  /** 告警消息 */
+  message: string;
+  timestamp: number;
+}
+```
+
+**CostTracker 接口**:
+
+```typescript
+/** 费用追踪错误码 */
+type CostTrackerErrorCode =
+  | 'COST_MODEL_NOT_FOUND'      // 模型不在定价表中
+  | 'COST_BUDGET_EXCEEDED'      // 超过硬停预算
+  | 'COST_PRICING_STALE';       // 定价表过期（超过 30 天未更新）
+
+/** 费用追踪器 */
+interface CostTracker {
+  /**
+   * 记录一次请求的 token 用量并计算费用。
+   * 在 WritingOrchestrator 的 `ai-done` 事件后调用。
+   *
+   * @param usage token 用量（来自 StreamResult.usage）
+   * @param modelId 使用的模型
+   * @param requestId 请求 ID
+   * @param skillId 技能 ID
+   * @param cachedTokens 缓存命中的 token 数（来自 prompt caching，默认 0）
+   * @returns 本次请求的费用记录。模型不在定价表中时，返回 `cost: 0` 并附带 `warning` 字段，不抛出异常。
+   */
+  recordUsage(
+    usage: TokenUsage,
+    modelId: string,
+    requestId: string,
+    skillId: string,
+    cachedTokens?: number,
+  ): RequestCost;
+
+  /**
+   * 获取累计会话费用汇总。
+   */
+  getSessionCost(): SessionCostSummary;
+
+  /**
+   * 获取指定请求的费用记录。
+   *
+   * @param requestId 请求 ID
+   * @returns 费用记录，不存在时返回 null
+   */
+  getRequestCost(requestId: string): RequestCost | null;
+
+  /**
+   * 检查当前预算状态。
+   * 在发起新的 AI 请求前调用。
+   *
+   * @returns null 表示预算充足；BudgetAlert 表示需要告警或阻止
+   */
+  checkBudget(): BudgetAlert | null;
+
+  /**
+   * 使用 CJK 感知的 token 估算，预估一次请求的费用。
+   * 在 AI 请求发起前调用，用于 budget-confirm 级别的权限确认。
+   *
+   * @param inputText 输入文本（用于估算输入 token）
+   * @param modelId 目标模型
+   * @param estimatedOutputTokens 预估输出 token 数
+   * @returns 预估费用（美元）
+   */
+  estimateCost(
+    inputText: string,
+    modelId: string,
+    estimatedOutputTokens: number,
+  ): number;
+
+  /**
+   * 更新模型定价表。
+   *
+   * @param table 新的定价表
+   */
+  updatePricingTable(table: ModelPricingTable): void;
+
+  /**
+   * 更新预算策略。
+   *
+   * @param policy 新的预算策略
+   */
+  updateBudgetPolicy(policy: BudgetPolicy): void;
+
+  /**
+   * 重置会话费用（用户开启新会话时调用）。
+   */
+  resetSession(): void;
+
+  /**
+   * 注册预算告警回调。
+   *
+   * @param callback 告警触发时的回调函数
+   * @returns 取消订阅函数，调用后移除该回调
+   */
+  onBudgetAlert(callback: (alert: BudgetAlert) => void): () => void;
+
+  /**
+   * 销毁 CostTracker，释放所有资源和回调。
+   */
+  dispose(): void;
+}
+```
+
+**预算硬停管线集成**:
+
+`checkBudget()` 是一个查询方法，**必须**在 WritingOrchestrator 管线的 `call-ai` 阶段之前作为预算守卫调用。管线集成要求如下：
+
+1. **插入点**：在 `select-model` 完成后、`call-ai` 发起前，WritingOrchestrator 调用 `costTracker.checkBudget()`
+2. **硬停行为**：当 `checkBudget()` 返回 `BudgetAlert { kind: 'hard-stop' }` 时：
+   - WritingOrchestrator 将 `TaskState.status` 转换为 `failed`
+   - yield `WritingError { code: 'BUDGET_EXCEEDED', message: '...', retryable: false }`
+   - yield `WritingEvent { type: 'budget-exceeded', timestamp, requestId, currentCost, hardStopLimit }`
+   - 不发起 AI 调用，管线立即终止
+3. **Agentic Loop 中的逐轮检查**：每一轮 tool-use 循环重新调用 AI 之前，也必须调用 `checkBudget()`。若硬停触发，使用当前最新的 partial content 作为最终结果，进入 `ai-done`
+
+```typescript
+/** P2 新增 WritingEvent——预算超限 */
+type BudgetExceededEvent = {
+  type: 'budget-exceeded';
+  timestamp: number;
+  requestId: string;
+  /** 当前累计费用 */
+  currentCost: number;
+  /** 硬停阈值 */
+  hardStopLimit: number;
+};
+```
+
+**费用记录与 RequestCost 存储约束**:
+
+- CostTracker 内部维护一个 `RequestCost` 记录列表，最大容量 `maxRecords`（默认 500 条）
+- 当记录数达到上限时，按 `timestamp` 最早优先逐条淘汰
+- `SessionCostSummary` 的累计值不受淘汰影响（仅明细被淘汰）
+
+**多轮 AI 用量聚合**:
+
+- Agentic Loop 中每一轮 AI 调用都使用同一个 `requestId` 调用 `recordUsage()`
+- `CostTracker` 对同一 `requestId` 的多次 `recordUsage()` 累加费用到同一个 `RequestCost` 记录
+- `getRequestCost(requestId)` 返回该 `requestId` 的聚合费用（所有轮次之和）
+```
+
+#### Scenario: 记录一次润色请求的费用
+
+- **假设** 用户触发 `polish` 技能，AI 使用 `gpt-4o` 模型
+- **并且** 定价表中 `gpt-4o` 的 inputPricePer1K = 0.0025, outputPricePer1K = 0.01
+- **当** AI 完成后，`usage = { promptTokens: 2000, completionTokens: 500, totalTokens: 2500 }`
+- **并且** 调用 `costTracker.recordUsage(usage, 'gpt-4o', 'req-001', 'polish')`
+- **则** 返回 `RequestCost`，`cost = (2000/1000 * 0.0025) + (500/1000 * 0.01) = 0.005 + 0.005 = 0.01`
+- **并且** `getSessionCost().totalCost` 增加 0.01
+
+#### Scenario: 预算达到警告阈值
+
+- **假设** `budgetPolicy = { warningThreshold: 1.0, hardStopLimit: 5.0, enabled: true }`
+- **并且** 当前累计费用为 0.95 美元
+- **当** 记录一次费用 0.1 美元后，累计达到 1.05 美元
+- **则** `checkBudget()` 返回 `BudgetAlert { kind: 'warning', currentCost: 1.05, threshold: 1.0, message: '本次会话费用已超过 $1.00 警告阈值' }`
+- **并且** 触发 `onBudgetAlert` 回调
+- **并且** 不阻止新请求
+
+#### Scenario: 预算达到硬停阈值
+
+- **假设** `budgetPolicy = { warningThreshold: 1.0, hardStopLimit: 5.0, enabled: true }`
+- **并且** 当前累计费用为 5.01 美元
+- **当** 尝试发起新的 AI 请求前调用 `checkBudget()`
+- **则** 返回 `BudgetAlert { kind: 'hard-stop', currentCost: 5.01, threshold: 5.0, message: '本次会话费用已超过 $5.00 上限，新请求已被阻止' }`
+- **并且** WritingOrchestrator 拒绝执行新请求
+- **并且** 前端显示费用超限提示，引导用户开启新会话或调高预算
+
+> **硬停触发条件**: `currentCost >= hardStopLimit`。等于阈值时即触发硬停。
+
+#### Scenario: CJK 文本的费用预估
+
+- **假设** 用户选中 1000 个汉字准备润色
+- **当** 调用 `costTracker.estimateCost(selectedText, 'gpt-4o', 500)`
+- **则** 系统使用 `estimateTokens()` 估算输入 token = `Math.ceil(1000 * 1.5)` = 1500
+- **并且** 预估费用 = `(1500/1000 * 0.0025) + (500/1000 * 0.01)` = 0.00375 + 0.005 = 0.00875
+- **并且** 该预估值用于 `budget-confirm` 级别的权限确认
+
+#### Scenario: 模型不在定价表中
+
+- **假设** 用户配置了自定义 API 端点，模型 ID 为 `custom-model-v1`
+- **当** AI 完成后调用 `recordUsage(usage, 'custom-model-v1', ...)`
+- **则** 返回 `RequestCost`，`cost = 0`，`warning = 'COST_MODEL_NOT_FOUND'`
+- **并且** 费用记录为 0（不阻塞管线，但费用统计不准确）
+- **并且** yield warning 事件 "模型 custom-model-v1 无定价信息，费用统计可能不准确"
+
+---
+
+### Requirement: P2 — CostTracker 作为 PostWritingHook 集成
+
+CostTracker **必须**在 `ai-done` 事件触发时记录费用，**而非**仅在 PostWritingHook 中记录。这确保了以下场景中费用都被正确记录：
+
+- ✅ 正常完成（permission-granted → write-back → post-hooks）
+- ✅ 权限拒绝（permission-denied → 不执行 write-back，但费用已在 `ai-done` 时记录）
+- ✅ 管线中断（abort → 部分 token 已消耗，费用已在 `ai-done` 时记录）
+
+**费用记录时机**:
+
+```
+WritingOrchestrator 管线
+  → ... → stream-response → [tool-use-loop]
+  → ai-done
+    → 🆕 CostTracker.recordUsage()    ← 费用在此处记录（always-run，不受后续管线结果影响）
+    → yield CostRecordedEvent
+  → diff-preview → permission-gate
+  → write-back → version-snapshot → post-hooks
+```
+
+`cost-tracking` PostWritingHook **仍然注册**，但其职责改为：检查预算告警并触发通知（不再负责 `recordUsage()`）。
+
+**Hook 注册**:
+
+```typescript
+/** cost-tracking Hook 定义 */
+const costTrackingHook: PostWritingHook = {
+  name: 'cost-tracking',
+  enabled: true,   // P2 启用
+  condition: (ctx: HookConditionContext) => true, // 每次 AI 调用后检查预算
+  execute: async (ctx: HookExecutionContext): Promise<HookResult> => {
+    // 从 CostTracker 获取最新费用统计
+    // 检查 budget alert threshold
+    // 触发通知（如需要）
+    // 返回 { success: true }
+  },
+  priority: 5, // 优先级高于 auto-save-version（priority: 10）
+};
+```
+
+**P2 Hook 注册表更新**:
+
+| Hook 名称 | V1 enabled | P2 enabled | 优先级 | 说明 |
+|-----------|------------|------------|--------|------|
+| `cost-tracking` | — | **true** | 5 | P2 新增 |
+| `auto-save-version` | true | true | 10 | 不变 |
+| `update-kg` | false | false | 20 | 不变 |
+| `extract-memories` | false | false | 30 | 不变 |
+| `quality-check` | false | false | 40 | 不变 |
+
+**新增 WritingEvent 类型**:
+
+```typescript
+/** 费用记录完成事件——随 hooks-done 一起推送，附带费用信息 */
+type CostRecordedEvent = {
+  type: 'cost-recorded';
+  timestamp: number;
+  requestId: string;
+  /** 本次请求费用 */
+  requestCost: number;
+  /** 累计会话费用 */
+  sessionTotalCost: number;
+  /** 预算告警（如果有） */
+  budgetAlert?: BudgetAlert;
+};
+```
+
+#### Scenario: 每次 AI 调用后自动记录费用
+
+- **假设** 用户触发 `polish` 技能，AI 完成并通过权限确认写回
+- **当** 管线进入 post-hooks 阶段
+- **则** `cost-tracking` Hook 被执行（priority: 5，最先执行）
+- **并且** 计算并记录本次请求费用
+- **并且** 随后 `auto-save-version` Hook 执行（priority: 10）
+- **并且** yield `hooks-done` 事件，`executed` 包含 `['cost-tracking', 'auto-save-version']`
+
+#### Scenario: 费用记录失败不阻塞管线
+
+- **假设** CostTracker 因定价表缺失导致费用计算失败
+- **当** `cost-tracking` Hook 执行
+- **则** Hook 返回 `{ success: false, error: '模型 xxx 无定价信息' }`
+- **并且** 编排器记录警告日志
+- **并且** 管线继续执行后续 Hook（`auto-save-version`）
+- **并且** 写回本身不受影响
+
+---
+
+### Requirement: P2 — 费用数据的 IPC 通道
+
+CostTracker 的数据通过以下 IPC 通道暴露给前端：
+
+| IPC 通道 | 通信模式 | 方向 | 用途 |
+|----------|---------|------|------|
+| `cost:session:get` | Request-Response | Renderer → Main | 获取当前会话费用汇总 |
+| `cost:request:get` | Request-Response | Renderer → Main | 获取指定请求的费用记录 |
+| `cost:budget:get` | Request-Response | Renderer → Main | 获取当前预算策略 |
+| `cost:budget:update` | Request-Response | Renderer → Main | 更新预算策略 |
+| `cost:pricing:get` | Request-Response | Renderer → Main | 获取当前定价表 |
+| `cost:pricing:update` | Request-Response | Renderer → Main | 更新定价表 |
+| `cost:alert` | Push Notification | Main → Renderer | 推送预算告警 |
+
+前端 AI 面板底部的统计信息（P1 Requirement "AI 使用统计"）通过 `cost:session:get` 获取数据。
+
+#### Scenario: 前端实时展示费用统计
+
+- **假设** 用户完成一次续写，AI 面板底部展示统计信息
+- **当** 前端调用 `cost:session:get`
+- **则** 返回 `SessionCostSummary`，包含 `totalInputTokens`, `totalOutputTokens`, `totalCost`
+- **并且** AI 面板底部显示 "Prompt: 2,100 tokens | 输出: 450 tokens | 费用: $0.01 | 本会话累计: $0.05"
+
+#### Scenario: 前端收到预算告警推送
+
+- **假设** 费用达到 warning 阈值
+- **当** CostTracker 通过 `cost:alert` 推送告警
+- **则** 前端收到 Push Notification
+- **并且** 状态栏显示黄色警告图标 + "本次会话费用已超过 $1.00"
+- **并且** 用户可点击查看详细费用明细
+
+---
+
+### P2 Cost Tracker 不做清单
+
+- ❌ 不做历史费用持久化（P2 费用仅追踪当前会话，应用重启后清零）
+- ❌ 不做费用图表可视化（P2 仅展示文字统计）
+- ❌ 不做多币种支持（P2 固定使用 USD）
+- ❌ 不做精确 tokenizer 集成（P2 使用 estimateTokens() 估算 + LLM API 返回的实际值混合）
+- ❌ 不做团队/组织级别的费用汇总
+- ❌ 不做自动定价表更新（P2 需用户手动更新或使用内置默认值）

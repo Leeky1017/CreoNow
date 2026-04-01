@@ -51,7 +51,7 @@ interface LinearSnapshot {
   projectId: string;
   content: ProseMirrorStateJSON; // P1 变更：不是 TipTap JSON
   actor: 'user' | 'auto' | 'ai';
-  reason: 'manual-save' | 'autosave' | 'ai-accept' | 'pre-write' | 'rollback' | 'pre-rollback';
+  reason: 'manual-save' | 'autosave' | 'ai-accept' | 'ai-partial-accept' | 'pre-write' | 'rollback' | 'pre-rollback';
   wordCount: number;
   parentSnapshotId: string | null; // 线性链表，指向上一个快照
   createdAt: string; // ISO8601
@@ -66,6 +66,7 @@ interface LinearSnapshot {
 | 自动保存（debounce 500ms） | `auto` | `autosave`    |
 | AI 写入前                  | `auto` | `pre-write`   |
 | AI 修改被用户接受后        | `ai`   | `ai-accept`   |
+| AI 修改被部分接受后（P2）  | `ai`   | `ai-partial-accept` |
 | 回滚前保存当前状态         | `user` | `pre-rollback`|
 | 回滚完成                   | `user` | `rollback`    |
 

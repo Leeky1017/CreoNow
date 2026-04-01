@@ -1130,3 +1130,524 @@ The editor and its sub-components SHALL meet basic accessibility requirements:
 - **当** 用户继续输入
 - **则** 状态栏提示容量上限并建议拆分文档
 - **并且** 不出现崩溃
+
+---
+
+## P2: Diff Preview Engine
+
+> **阶段**: P2（端到端闭环）
+> **依赖**: P1 — ProseMirror 基础 Schema、P1 — EditorView 集成、P1 — 选区 → AI 管线、WritingOrchestrator（skill-system/spec.md）、线性快照（version-control/spec.md）
+> **CC 参考**: 无直接对标——Diff Preview Engine 是 CreoNow 的独有能力。Claude Code 没有编辑器内建议标记系统，因为 CLI 环境无需 inline diff。
+
+### P2 变更摘要
+
+| 变更 | 描述 |
+|------|------|
+| P2 — DiffEngine | ProseMirror Transaction → suggestion decoration marks → Accept/Reject per-change |
+| P2 — SuggestionMark | 三类建议装饰：insertion / deletion / replacement |
+| P2 — Accept/Reject 粒度 | 逐条 accept/reject 单个变更，或 acceptAll/rejectAll 批量操作 |
+| P2 — WritingOrchestrator 集成 | 接入 `ai-done` → `permission-requested` 流程，替代 P1 的基础预览 |
+
+### P1 → P2 演进说明
+
+P1 阶段的 "AI 协作 Inline Diff" 和 "Inline AI 快捷协作" 使用组件级 diff 展示（`DiffViewPanel`、`InlineAiDiffPreview`）。P2 将其**升级为 ProseMirror 原生 Decoration 方案**：
+
+- P1：AI 结果在独立面板中展示 diff → 用户整体 accept/reject → `replaceWith` 写回
+- P2：AI 结果直接以 ProseMirror Decoration Marks 渲染在编辑器内 → 用户逐条或批量 accept/reject → 精确 Step 级别写回
+
+P1 的 `DiffViewPanel` 和 `InlineAiDiffPreview` 作为降级方案保留，但 P2 完成后，主链路默认使用 ProseMirror Decoration 方案。
+
+---
+
+### Requirement: P2 — DiffEngine 核心接口
+
+The system SHALL provide a `DiffEngine` that converts AI-generated text changes into ProseMirror suggestion decorations, supporting per-change accept/reject operations within the editor.
+
+**核心数据类型**:
+
+```typescript
+/** 单个变更的类型 */
+type ChangeKind = 'insertion' | 'deletion' | 'replacement';
+
+/** 单个变更 */
+interface DiffChange {
+  /** 变更唯一 ID */
+  changeId: string;
+  /** 变更类型 */
+  kind: ChangeKind;
+  /** 变更在文档中的起始位置（ProseMirror resolved position） */
+  from: number;
+  /** 变更在文档中的结束位置（deletion/replacement 的原文结束位置） */
+  to: number;
+  /** 插入/替换的新文本内容（deletion 时为空） */
+  newContent?: string;
+  /** 被删除/替换的原文本内容（insertion 时为空） */
+  oldContent?: string;
+  /** 对应的 ProseMirror Step，用于精确回放 */
+  step: Step;
+}
+
+/** 建议装饰的视觉配置 */
+interface SuggestionDecoration {
+  /** 关联的 changeId */
+  changeId: string;
+  /** 装饰类型 */
+  kind: ChangeKind;
+  /** ProseMirror Decoration 实例 */
+  decoration: Decoration;
+  /** 装饰的 CSS class */
+  className: string;
+}
+
+/** Diff 计算结果 */
+interface DiffResult {
+  /** 所有变更列表 */
+  changes: DiffChange[];
+  /** 所有装饰列表 */
+  decorations: SuggestionDecoration[];
+  /** 包含所有装饰的 DecorationSet */
+  decorationSet: DecorationSet;
+  /** 变更统计 */
+  stats: DiffStats;
+  /** 关联的写入前快照 ID（用于 reject 时回滚） */
+  preWriteSnapshotId: string;
+  /** 关联的 WritingOrchestrator requestId */
+  requestId: string;
+}
+
+/** Diff 统计（所有计数统一为实例计数） */
+interface DiffStats {
+  /** 插入变更数（实例计数） */
+  insertions: number;
+  /** 删除变更数（实例计数） */
+  deletions: number;
+  /** 替换变更数（实例计数） */
+  replacements: number;
+  /** 总变更数（= insertions + deletions + replacements） */
+  totalChanges: number;
+  /** 插入的字符总数 */
+  insertedChars: number;
+  /** 删除的字符总数 */
+  deletedChars: number;
+}
+```
+
+**DiffEngine 接口**:
+
+```typescript
+import { EditorState, Transaction } from 'prosemirror-state';
+import { Step } from 'prosemirror-transform';
+import { Decoration, DecorationSet } from 'prosemirror-view';
+
+/** Diff 预览引擎错误码 */
+type DiffErrorCode =
+  | 'DIFF_COMPUTE_FAILED'       // diff 计算失败
+  | 'DIFF_APPLY_FAILED'         // 变更应用失败
+  | 'DIFF_REJECT_FAILED'        // 变更回退失败
+  | 'DIFF_STALE_DOCUMENT'       // 文档在 diff 展示期间被修改
+  | 'DIFF_CHANGE_NOT_FOUND'     // 指定 changeId 不存在
+  | 'DIFF_SNAPSHOT_MISSING';    // 回滚所需快照不存在
+
+/** Diff 预览引擎 */
+interface DiffEngine {
+  /**
+   * 将 AI 输出转换为建议 Transaction。
+   * 计算原文与 AI 输出之间的最小差异，生成 DiffChange 列表和 Decoration 集合。
+   * 不直接修改文档——变更以装饰标记形式悬浮展示。
+   *
+   * @param state 当前 EditorState
+   * @param aiOutput AI 返回的完整文本
+   * @param selection 原始选区引用（from/to），定义 AI 修改的范围
+   * @param preWriteSnapshotId 写入前的版本快照 ID
+   * @param requestId 关联的 WritingOrchestrator requestId
+   * @returns DiffResult，含变更列表、装饰集合和统计信息
+   * @throws DiffError(DIFF_COMPUTE_FAILED) 当 diff 算法失败时
+   */
+  createSuggestionTransaction(
+    state: EditorState,
+    aiOutput: string,
+    selection: { from: number; to: number },
+    preWriteSnapshotId: string,
+    requestId: string,
+  ): DiffResult;
+
+  /**
+   * 接受单个变更。
+   * 将指定 changeId 对应的 Step 永久应用到文档，并移除该变更的装饰标记。
+   * **重要**：应用后，必须对所有剩余 DiffChange 的 Step 执行 `Step.map()` 重基（rebase），
+   * 使用应用操作产生的 `StepMap` 更新位置信息，确保后续 accept/reject 操作的位置正确。
+   *
+   * @param state 当前 EditorState
+   * @param changeId 要接受的变更 ID
+   * @returns 应用变更后的 Transaction
+   * @throws DiffError(DIFF_CHANGE_NOT_FOUND) 当 changeId 不存在时
+   * @throws DiffError(DIFF_APPLY_FAILED) 当 Step 应用失败时
+   */
+  acceptChange(state: EditorState, changeId: string): Transaction;
+
+  /**
+   * 拒绝单个变更。
+   * 移除指定 changeId 的装饰标记。如果是 insertion，移除插入内容；
+   * 如果是 deletion，恢复原文；如果是 replacement，恢复原文并移除新文。
+   * **重要**：拒绝后，必须对所有剩余 DiffChange 的 Step 执行 `Step.map()` 重基（rebase），
+   * 使用拒绝操作产生的 `StepMap` 更新位置信息。
+   *
+   * @param state 当前 EditorState
+   * @param changeId 要拒绝的变更 ID
+   * @returns 回退变更后的 Transaction
+   * @throws DiffError(DIFF_CHANGE_NOT_FOUND) 当 changeId 不存在时
+   * @throws DiffError(DIFF_REJECT_FAILED) 当回退失败时
+   */
+  rejectChange(state: EditorState, changeId: string): Transaction;
+
+  /**
+   * 接受所有变更。
+   * 将全部未处理的 DiffChange 的 Step 永久应用到文档，清除所有装饰标记。
+   *
+   * @param state 当前 EditorState
+   * @returns 应用全部变更后的 Transaction
+   * @throws DiffError(DIFF_APPLY_FAILED) 当任意 Step 应用失败时
+   */
+  acceptAll(state: EditorState): Transaction;
+
+  /**
+   * 拒绝所有变更。
+   * 回滚到 preWriteSnapshotId 对应的版本快照内容，清除所有装饰标记。
+   *
+   * @param state 当前 EditorState
+   * @returns 回滚后的 Transaction
+   * @throws DiffError(DIFF_SNAPSHOT_MISSING) 当快照不存在时
+   */
+  rejectAll(state: EditorState): Transaction;
+
+  /**
+   * 获取当前活跃的建议装饰集合（用于 ProseMirror Plugin 渲染）。
+   */
+  getDecorations(): DecorationSet;
+
+  /**
+   * 获取当前待处理的变更列表。
+   */
+  getPendingChanges(): ReadonlyArray<DiffChange>;
+
+  /**
+   * 获取当前 diff 统计信息。
+   */
+  getStats(): DiffStats;
+
+  /**
+   * 销毁引擎，释放所有装饰和内部状态。
+   */
+  dispose(): void;
+}
+```
+
+#### Scenario: AI 润色结果转换为 Suggestion Decorations
+
+- **假设** 编辑器包含文本 `"他慢慢地走到了那扇门的前面"`，用户选中全文并触发润色
+- **当** AI 返回 `"他缓步走向那扇门"`
+- **并且** 系统调用 `diffEngine.createSuggestionTransaction(state, aiOutput, selection, snapshotId, requestId)`
+- **则** 返回 `DiffResult`，其中 `changes` 包含若干 `DiffChange`
+- **并且** `decorationSet` 包含：删除装饰（`cn-diff-deletion` class）标记被移除的文字、插入装饰（`cn-diff-insertion` class）标记新增的文字
+- **并且** `stats.deletions > 0` 且 `stats.insertions > 0`
+
+#### Scenario: 用户逐条接受单个变更
+
+- **假设** DiffEngine 中有 3 个 pending 变更（change-1, change-2, change-3）
+- **当** 用户点击 change-2 的「接受」按钮
+- **则** 系统调用 `diffEngine.acceptChange(state, 'change-2')`
+- **并且** 返回的 Transaction 永久应用 change-2 对应的 Step
+- **并且** change-2 的装饰标记从编辑器中移除
+- **并且** change-1 和 change-3 的装饰标记保持不变
+- **并且** `getPendingChanges()` 返回 2 个变更
+
+#### Scenario: 用户拒绝单个删除变更
+
+- **假设** DiffEngine 中有一个 deletion 变更（删除了 "慢慢地"）
+- **当** 用户点击该变更的「拒绝」按钮
+- **则** 系统调用 `diffEngine.rejectChange(state, changeId)`
+- **并且** 返回的 Transaction 恢复被删除的 "慢慢地" 文本
+- **并且** 该变更的装饰标记从编辑器中移除
+
+#### Scenario: 用户一键拒绝所有变更回滚到快照
+
+- **假设** AI 润色产生了 5 个变更，`preWriteSnapshotId` 已记录
+- **当** 用户点击「全部拒绝」
+- **则** 系统调用 `diffEngine.rejectAll(state)`
+- **并且** 文档内容回滚到 `preWriteSnapshotId` 对应的快照内容
+- **并且** 所有装饰标记被清除
+- **并且** 编辑器恢复到 AI 写入前的状态
+
+#### Scenario: 指定 changeId 不存在时抛出错误
+
+- **假设** DiffEngine 中不存在 `changeId = "non-existent"`
+- **当** 调用 `diffEngine.acceptChange(state, 'non-existent')`
+- **则** 抛出 `DiffError`，code 为 `DIFF_CHANGE_NOT_FOUND`
+
+---
+
+### Requirement: P2 — SuggestionMark 装饰规范
+
+The system SHALL render AI suggestion changes as ProseMirror Decorations with the following visual specifications:
+
+**装饰类型与样式**:
+
+| 变更类型 | CSS Class | 视觉表现 | 说明 |
+|---------|-----------|---------|------|
+| `insertion` | `cn-diff-insertion` | 绿色背景（`--color-success-subtle`）+ 绿色文字 | 新增文本高亮，表示 AI 添加的内容 |
+| `deletion` | `cn-diff-deletion` | 红色背景（`--color-error-subtle`）+ 删除线 + 红色文字 | 被删除文本保留展示但带删除线 |
+| `replacement` | `cn-diff-replacement-old` / `cn-diff-replacement-new` | old: 同 deletion 样式；new: 同 insertion 样式 | 替换操作拆分为「旧文本删除」+「新文本插入」两个装饰 |
+
+**交互装饰**:
+
+| 元素 | CSS Class | 行为 |
+|------|-----------|------|
+| 当前变更高亮 | `cn-diff-active` | 用户导航到的当前变更，使用 `--color-accent` 边框 |
+| Accept 按钮 | `cn-diff-action-accept` | 内联 widget decoration，点击接受该变更 |
+| Reject 按钮 | `cn-diff-action-reject` | 内联 widget decoration，点击拒绝该变更 |
+
+**ProseMirror Plugin 实现要求**:
+
+```typescript
+import { Plugin, PluginKey } from 'prosemirror-state';
+import { DecorationSet } from 'prosemirror-view';
+
+/** Suggestion Plugin Key */
+const suggestionPluginKey = new PluginKey<SuggestionPluginState>('suggestion');
+
+/** Plugin 状态 */
+interface SuggestionPluginState {
+  /** 当前活跃的装饰集合 */
+  decorations: DecorationSet;
+  /** 当前活跃变更的 ID（导航高亮用） */
+  activeChangeId: string | null;
+  /** 是否处于建议预览模式 */
+  isActive: boolean;
+}
+
+/**
+ * 创建 Suggestion Plugin。
+ * 该 Plugin 管理 AI 建议的装饰标记，并拦截用户在建议模式下的编辑操作。
+ *
+ * 建议模式激活时：
+ * - 用户的直接编辑操作（键入、删除）被拦截并提示先处理建议
+ * - Undo/Redo 在建议范围内禁用
+ * - 光标可自由移动
+ */
+function createSuggestionPlugin(diffEngine: DiffEngine): Plugin;
+```
+
+**装饰的样式规则**：
+
+- 所有颜色使用语义化 Design Token，不使用硬编码颜色值
+- `insertion` 和 `deletion` 装饰使用 Inline Decoration（`Decoration.inline()`）
+- Accept/Reject 按钮使用 Widget Decoration（`Decoration.widget()`），渲染在每个变更块的右侧
+- 装饰的 z-index 低于浮动工具栏（`--z-dropdown` 以下）
+
+#### Scenario: 插入变更的装饰渲染
+
+- **假设** AI 在 "走到" 后插入了 "缓缓" 两个字
+- **当** Suggestion Plugin 渲染装饰
+- **则** "缓缓" 文本以 `cn-diff-insertion` class 渲染
+- **并且** 背景色为 `--color-success-subtle`，文字颜色为 `--color-success`
+- **并且** 紧邻文本右侧出现 Accept ✓ 和 Reject ✗ 按钮
+
+#### Scenario: 删除变更的装饰渲染
+
+- **假设** AI 将 "慢慢地" 删除
+- **当** Suggestion Plugin 渲染装饰
+- **则** "慢慢地" 文本以 `cn-diff-deletion` class 渲染
+- **并且** 文本带删除线，背景色为 `--color-error-subtle`
+- **并且** 原文保持可见（只是样式标记为删除态）
+
+#### Scenario: 建议模式下用户输入被拦截
+
+- **假设** DiffEngine 有活跃的建议装饰
+- **当** 用户尝试在建议区域内键入新文本
+- **则** Suggestion Plugin 拦截输入
+- **并且** 弹出轻量提示 "请先处理 AI 建议后再编辑"
+- **并且** 建议区域外的编辑不受影响
+
+---
+
+### Requirement: P2 — DiffEngine 与 WritingOrchestrator 集成
+
+The system SHALL integrate `DiffEngine` into `WritingOrchestrator` 的 `ai-done` → `permission-requested` 流程，替代 P1 的面板级 diff 预览。
+
+**集成流程**:
+
+```
+WritingOrchestrator 管线
+  → ... → [4] call-ai → [5] stream-response
+  → [5.5] 🆕 diff-preview（P2 新增阶段）
+    → DiffEngine.createSuggestionTransaction(state, fullText, selection, snapshotId, requestId)
+    → Suggestion Plugin 激活，编辑器渲染 inline 装饰
+    → yield { type: 'diff-ready', timestamp, changeCount, stats }
+  → [6] permission-gate
+    → 用户在编辑器内逐条 accept/reject 或 acceptAll/rejectAll
+    → accept: → yield permission-granted → [7] write-back（由 acceptAll 的 Transaction 完成）
+    → reject: → yield permission-denied → DiffEngine.rejectAll() → 回滚到快照
+```
+
+**新增 WritingEvent 类型**:
+
+```typescript
+/** P2 新增事件——Diff 预览就绪 */
+type DiffReadyEvent = {
+  type: 'diff-ready';
+  timestamp: number;
+  requestId: string;
+  /** 变更总数 */
+  changeCount: number;
+  /** 变更统计 */
+  stats: DiffStats;
+  /** 是否降级到 P1 面板方案（DiffEngine 失败时为 true） */
+  fallback?: boolean;
+};
+
+/** P2 新增事件——单个变更被接受 */
+type ChangeAcceptedEvent = {
+  type: 'change-accepted';
+  timestamp: number;
+  requestId: string;
+  changeId: string;
+  /** 剩余待处理变更数 */
+  remainingChanges: number;
+};
+
+/** P2 新增事件——单个变更被拒绝 */
+type ChangeRejectedEvent = {
+  type: 'change-rejected';
+  timestamp: number;
+  requestId: string;
+  changeId: string;
+  remainingChanges: number;
+};
+
+/** P2 新增事件——AI 输出与原文相同，无变更 */
+type NoChangesEvent = {
+  type: 'no-changes';
+  timestamp: number;
+  requestId: string;
+};
+```
+
+**P1/P2 模式共存**:
+
+- P2 完成后，`DiffEngine` inline 方案为默认
+- 当 `DiffEngine.createSuggestionTransaction()` 失败（如文档结构不兼容）时，自动降级到 P1 的 `DiffViewPanel` 面板方案
+- 降级时 yield `{ type: 'diff-ready', ... }` 事件仍然推送，附加 `fallback: true` 标记
+
+**Diff IPC 通道（跨进程集成）**:
+
+DiffEngine 运行在 Renderer 进程中（与 ProseMirror EditorView 同进程），WritingOrchestrator 运行在 Main 进程中。两者通过 IPC 通道协作：
+
+| IPC 通道 | 通信模式 | 方向 | 用途 |
+|----------|---------|------|------|
+| `diff:create-suggestions` | Request-Response | Main → Renderer | 编排器将 AI 输出发送给 DiffEngine 创建建议 |
+| `diff:accept-change` | Request-Response | Renderer → Main | 用户接受单个变更，通知编排器更新状态 |
+| `diff:reject-change` | Request-Response | Renderer → Main | 用户拒绝单个变更，通知编排器更新状态 |
+| `diff:accept-all` | Request-Response | Renderer → Main | 用户接受全部变更 |
+| `diff:reject-all` | Request-Response | Renderer → Main | 用户拒绝全部变更 |
+| `diff:ready` | Push Notification | Renderer → Main | DiffEngine 完成 diff 计算，通知编排器推进管线 |
+
+集成时序：
+1. Main 进程 WritingOrchestrator 在 `ai-done` 后通过 `diff:create-suggestions` 将 AI 输出文本、选区、快照 ID、requestId 发送给 Renderer
+2. Renderer 的 DiffEngine 计算 diff、创建装饰标记、激活建议模式
+3. Renderer 通过 `diff:ready` 通知 Main，Main yield `diff-ready` 事件
+4. 用户在 Renderer 中逐条 accept/reject，每个操作通过 `diff:accept-change` / `diff:reject-change` 通知 Main
+5. 所有变更处理完毕后，Main yield `permission-granted` 或 `permission-denied`
+
+**P2 DiffPermissionResult（扩展 PermissionGate）**:
+
+P1 的 `PermissionGate` 返回 `Promise<boolean>` 无法表达逐条 accept/reject 的结果。P2 定义：
+
+```typescript
+/** P2 Diff 权限结果（替代 PermissionGate 的 boolean 返回） */
+interface DiffPermissionResult {
+  /** 是否有任何变更被接受 */
+  granted: boolean;
+  /** 被接受的变更 ID 列表 */
+  acceptedChangeIds: string[];
+  /** 被拒绝的变更 ID 列表 */
+  rejectedChangeIds: string[];
+}
+
+/** P2 Diff 权限门禁（用于 diff-preview 流程） */
+interface DiffPermissionGate {
+  /**
+   * 等待用户完成所有变更的 accept/reject 操作。
+   * 当所有变更处理完毕（或用户点击 acceptAll/rejectAll）时 resolve。
+   *
+   * @returns DiffPermissionResult，granted = true 表示至少有一个变更被接受
+   */
+  waitForDecision(): Promise<DiffPermissionResult>;
+}
+```
+
+**空 diff 行为**:
+
+当 AI 输出与原文完全相同（`stats.totalChanges === 0`）时：
+- 跳过 diff-preview 阶段
+- 自动视为 permission-granted（无需用户操作）
+- yield `{ type: 'no-changes', timestamp, requestId }` 事件
+- 不创建版本快照（无实际变更）
+
+#### Scenario: AI 完成后自动进入 Diff 预览模式
+
+- **假设** 用户触发 `polish` 技能，WritingOrchestrator 正在执行
+- **当** AI 流式完成，yield `ai-done` 事件
+- **则** 编排器自动调用 `DiffEngine.createSuggestionTransaction()`
+- **并且** 编辑器进入建议模式，inline 装饰渲染在原位
+- **并且** yield `diff-ready` 事件，前端据此更新 UI 状态
+
+#### Scenario: 用户逐条处理后自动完成
+
+- **假设** AI 产生了 3 个变更，用户接受了 change-1 和 change-3，拒绝了 change-2
+- **当** 最后一个变更被处理（剩余 0）
+- **则** DiffEngine 自动退出建议模式
+- **并且** 编排器 yield `permission-granted`（部分接受视为确认）
+- **并且** 继续执行 write-back 阶段（已通过 acceptChange 的 Transaction 完成实际写入）
+
+#### Scenario: DiffEngine 失败时降级到面板方案
+
+- **假设** AI 输出包含复杂的块级结构变更（如将段落转为列表），DiffEngine 无法计算精确 Step
+- **当** `createSuggestionTransaction()` 抛出 `DIFF_COMPUTE_FAILED`
+- **则** 编排器捕获错误，切换到 P1 的 `DiffViewPanel` 面板展示
+- **并且** yield `diff-ready` 事件附带 `fallback: true`
+
+---
+
+### Requirement: P2 — Diff 预览的版本快照集成
+
+DiffEngine **必须**与 version-control 模块的线性快照协同工作：
+
+- `rejectAll()` 回滚到 `preWriteSnapshotId` 对应的快照内容（非 Undo 栈回退）
+- `acceptAll()` 完成后触发 `auto-save-version` Hook，创建 `ai-accept` 快照
+- 逐条 accept/reject 混合操作完成后，最终文档状态创建 `ai-partial-accept` 快照（reason 新增值）
+- 如果 `preWriteSnapshotId` 对应的快照不存在（罕见异常），`rejectAll()` 应通过 ProseMirror Undo 栈回退，并 yield warning 事件
+
+#### Scenario: rejectAll 通过快照回滚而非 Undo
+
+- **假设** AI 写入前已创建快照 `snap-pre-001`
+- **当** 用户点击「全部拒绝」
+- **则** DiffEngine 读取 `snap-pre-001` 的 content（ProseMirror State JSON）
+- **并且** 通过 `EditorBridge.setContent()` 恢复到快照内容
+- **并且** 不依赖 ProseMirror 的 history plugin undo 栈
+
+#### Scenario: 部分接受后创建 ai-partial-accept 快照
+
+- **假设** AI 产生 5 个变更，用户接受 3 个、拒绝 2 个
+- **当** 所有变更处理完毕
+- **则** 系统创建版本快照，reason 为 `ai-partial-accept`
+- **并且** 快照内容反映部分接受后的文档状态
+
+---
+
+### P2 Diff Preview Engine 不做清单
+
+- ❌ 不做多候选 diff 对比（一次只展示一个 AI 输出的 diff）
+- ❌ 不做跨文档批量 diff（P2 只支持单文档内的选区级 diff）
+- ❌ 不做 chunk 级别流式 diff（AI 流式过程中不逐步更新 diff，等 `ai-done` 后一次性计算）
+- ❌ 不做三方合并（diff 只在原文和 AI 输出之间计算）
+- ❌ 不做 diff 的 Undo/Redo（accept/reject 操作不可撤销——如需回退，使用版本快照）

@@ -227,6 +227,12 @@ interface ToolContext {
   selection?: SelectionRef
 }
 
+/** P2 扩展：Agentic Loop 中 AI 自主调用 tool 时的上下文，携带 AI 传入的参数 */
+interface AgenticToolContext extends ToolContext {
+  /** AI 传入的 tool 参数（来自 ParsedToolCall.arguments） */
+  args: Record<string, unknown>
+}
+
 /** Tool 执行结果 */
 interface ToolResult {
   success: boolean
@@ -672,6 +678,16 @@ interface HookExecutionContext {
   writtenContent: string
   /** 技能 ID */
   skillId: string
+}
+
+/** P2 扩展：为 cost-tracking Hook 提供 AI 用量信息 */
+interface P2HookExecutionContext extends HookExecutionContext {
+  /** AI 响应的 token 用量（来自 StreamResult.usage） */
+  usage?: TokenUsage
+  /** 使用的模型 ID */
+  modelId?: string
+  /** 缓存命中的 token 数（来自 prompt caching） */
+  cachedTokens?: number
 }
 
 /** Hook 执行结果 */
@@ -1433,3 +1449,408 @@ REQ-ID: `REQ-SKL-ROUTE`
 - **假设** `args = { input: "不要续写", hasSelection: false, explicitSkillId: "builtin:continue" }`
 - **当** 调用 `inferSkillFromInput(args)`
 - **则** 返回值 === `"builtin:continue"`
+
+---
+
+## P2: Agentic Loop（Tool-Use 循环）
+
+> **阶段**: P2（端到端闭环）
+> **依赖**: P1 — WritingOrchestrator 编排层、P1 — Tool 注册表、P1 — Streaming 主链路（ai-service/spec.md）
+> **CC 参考**: `query.ts`（tool-use 主循环）+ `services/tools/toolOrchestration.ts`（并发分区 + tool call 解析）
+
+### P2 变更摘要
+
+| 变更 | 描述 |
+|------|------|
+| P2 — ToolUseHandler | 解析 AI 返回的 tool_use finish reason，执行 tool 调用，将结果注入消息流 |
+| P2 — 并发分区执行 | `isConcurrencySafe` 工具并行执行，不安全工具串行执行 |
+| P2 — Max Rounds 限制 | 单次请求最多 5 轮 tool-use 循环 |
+| P2 — 管线扩展 | 在 `ai-chunk*` 和 `ai-done` 之间插入 tool-use 阶段 |
+| P2 — 新增 WritingEvent | `tool-use-started` / `tool-use-completed` / `tool-use-failed` |
+
+### P1 → P2 演进说明
+
+P1 阶段 WritingOrchestrator 执行**单次 LLM 调用**（不含 tool-use 循环），管线步骤中 `agenticLoop: false`。P1 的 `StreamChunk.finishReason` 预留了 `'tool_use'` 枚举值但不处理。
+
+P2 激活 Agentic Loop：当 AI 返回 `finishReason === 'tool_use'` 时，系统解析 tool calls → 执行 tools → 将结果注入消息流 → 继续 AI 生成。此循环最多重复 `maxToolRounds` 次。
+
+**影响范围**:
+- `SkillDefinition.pipeline.agenticLoop` 从 `false` 变为 `boolean`（P2 Skill 可选择启用）
+- `WritingOrchestrator` 管线在 `call-ai` → `stream-response` 之后新增 `tool-use` 阶段
+- P2 新增的 `kgTool`、`memTool`、`docTool` 可在 Agentic Loop 中被 AI 自主调用。P1 的 `documentRead` 同样以只读方式可用；`documentWrite` 和 `versionSnapshot` 不暴露给 AI 自主调用
+
+---
+
+### Requirement: P2 — ToolUseHandler 接口
+
+The system SHALL provide a `ToolUseHandler` that parses AI tool calls, executes tools via `ToolRegistry`, and injects results back into the conversation for continued AI generation.
+
+**核心数据类型**:
+
+```typescript
+/** AI 返回的 tool call 信息（从 StreamResult.toolCalls 解析） */
+interface ParsedToolCall {
+  /** tool call 唯一 ID（由模型生成） */
+  callId: string;
+  /** tool 名称（对应 ToolRegistry 中的 name） */
+  toolName: string;
+  /** tool 参数 */
+  arguments: Record<string, unknown>;
+}
+
+/** 单个 tool call 的执行结果 */
+interface ToolCallResult {
+  callId: string;
+  toolName: string;
+  /** 执行是否成功 */
+  success: boolean;
+  /** 返回数据（注入到消息流中） */
+  data?: unknown;
+  /** 错误信息 */
+  error?: { code: string; message: string };
+  /** 执行耗时（毫秒） */
+  durationMs: number;
+}
+
+/** Tool-use 循环配置 */
+interface ToolUseConfig {
+  /** 单次请求最大 tool-use 轮数，默认 5 */
+  maxToolRounds: number;
+  /** 单个 tool 执行超时（毫秒），默认 10_000 */
+  toolTimeoutMs: number;
+  /** 并行 batch 内最大并发数，默认 4 */
+  maxConcurrentTools: number;
+}
+
+/** Tool-use 循环状态 */
+interface ToolUseRoundState {
+  /** 当前轮次（从 1 开始） */
+  round: number;
+  /** 本轮解析出的 tool calls */
+  toolCalls: ParsedToolCall[];
+  /** 本轮执行结果 */
+  results: ToolCallResult[];
+  /** 累计消耗的 tool-use 轮次 */
+  totalRounds: number;
+}
+```
+
+**ToolUseHandler 接口**:
+
+```typescript
+/** Agentic Loop 错误码 */
+type ToolUseErrorCode =
+  | 'TOOL_USE_MAX_ROUNDS_EXCEEDED'   // 超过最大轮次限制
+  | 'TOOL_USE_PARSE_FAILED'          // tool call 解析失败
+  | 'TOOL_USE_EXECUTION_FAILED'      // tool 执行失败（单个）
+  | 'TOOL_USE_BATCH_FAILED'          // 整个 batch 执行失败
+  | 'TOOL_USE_TIMEOUT'               // tool 执行超时
+  | 'TOOL_USE_TOOL_NOT_FOUND'        // AI 请求的 tool 不在注册表中
+  | 'TOOL_USE_ALL_FAILED';           // 单轮中所有 tool call 均失败
+
+/** Tool-Use 处理器 */
+interface ToolUseHandler {
+  /**
+   * 从 StreamResult 中解析 tool calls。
+   * 当 finishReason === 'tool_use' 且 toolCalls 非空时调用。
+   *
+   * @param toolCalls 原始 ToolCallInfo 数组（来自 StreamResult）
+   * @returns 解析后的 ParsedToolCall 数组
+   * @throws ToolUseError(TOOL_USE_PARSE_FAILED) 参数格式非法时
+   */
+  parseToolCalls(toolCalls: ToolCallInfo[]): ParsedToolCall[];
+
+  /**
+   * 按并发分区策略批量执行 tools。
+   * isConcurrencySafe === true 的 tools 并行执行，false 的串行执行。
+   *
+   * @param parsedCalls 解析后的 tool call 列表
+   * @param context 当前执行上下文
+   * @returns 执行结果数组（顺序与 parsedCalls 对应）
+   */
+  executeToolBatch(
+    parsedCalls: ParsedToolCall[],
+    context: ToolContext,
+  ): Promise<ToolCallResult[]>;
+
+  /**
+   * 将 tool 执行结果注入消息流，构造下一轮 AI 调用的 messages。
+   * 格式：每个 tool call 结果作为一条 role=tool 的消息。
+   *
+   * @param currentMessages 当前消息数组
+   * @param results tool 执行结果
+   * @returns 注入结果后的新消息数组
+   */
+  injectResults(
+    currentMessages: LLMMessage[],
+    results: ToolCallResult[],
+  ): LLMMessage[];
+}
+```
+
+#### Scenario: AI 返回 tool_use 后解析 tool calls
+
+- **假设** 用户触发 `continue`（续写）技能，AI 在续写过程中决定查询角色设定
+- **当** AI 返回 `finishReason === 'tool_use'`，`toolCalls` 包含 `{ name: 'kgTool', arguments: { query: '林远的性格特点' } }`
+- **则** `toolUseHandler.parseToolCalls(toolCalls)` 返回 `ParsedToolCall` 数组
+- **并且** `parsedCalls[0].toolName === 'kgTool'`
+- **并且** `parsedCalls[0].arguments.query === '林远的性格特点'`
+
+#### Scenario: 并发分区——安全 tool 并行，不安全 tool 串行
+
+- **假设** AI 同时请求调用 `kgTool`（isConcurrencySafe: true）和 `memTool`（isConcurrencySafe: true）和 `docTool`（isConcurrencySafe: true）
+- **当** `executeToolBatch()` 执行
+- **则** `kgTool`、`memTool` 和 `docTool` 作为并行 batch 同时执行
+- **并且** 所有结果按原始顺序返回
+
+> **注意**：P2 Agentic Loop 中 AI 可调用的工具**仅限只读工具**（kgTool、memTool、docTool）。`documentWrite` 不暴露给 AI 自主调用——文档写入必须走建议 → 用户确认流程。如 AI 请求调用 `documentWrite`，系统应返回 `{ success: false, error: { code: 'TOOL_USE_TOOL_NOT_FOUND' } }`。
+
+#### Scenario: Tool 执行结果注入消息流
+
+- **假设** `kgTool` 返回 `{ success: true, data: { traits: ['冷静', '理性'] } }`
+- **当** 调用 `injectResults(currentMessages, results)`
+- **则** 返回的消息数组新增一条 `{ role: 'tool', content: '{"traits":["冷静","理性"]}' }`
+- **并且** 新消息的位置在 assistant 消息之后、下一轮 user 消息之前
+
+---
+
+### Requirement: P2 — Agentic Loop 管线集成
+
+The system SHALL extend `WritingOrchestrator` 的管线，在 `stream-response` 和 `ai-done` 之间插入 tool-use 循环阶段。
+
+**更新后的管线步骤**:
+
+```
+validate-input → assemble-context → select-model
+  → call-ai → stream-response
+  → [🆕 tool-use-loop]            ← P2 新增
+    → 检测 finishReason
+    → if 'tool_use' && round < maxToolRounds:
+        → parseToolCalls → executeToolBatch → injectResults
+        → 🆕 如果本轮所有 tool call 均 success === false，立即退出循环
+          → yield error(TOOL_USE_ALL_FAILED)
+          → 使用当前 partial content 继续到 ai-done
+        → 🆕 检查消息数组总 token 是否超出上下文窗口预算
+          → 若超出，触发 CompressionEngine 或退出循环并使用 partial content
+        → 重新 call-ai → stream-response → recordUsage(本轮 usage) → checkBudget()
+        → 再次检测 finishReason
+        → 循环直到 finishReason === 'stop' 或达到 maxToolRounds
+    → if 'stop':
+        → 继续到 ai-done
+    → if round >= maxToolRounds:
+        → yield error(TOOL_USE_MAX_ROUNDS_EXCEEDED)
+        → 使用最后一轮的 partial content 作为结果继续到 ai-done
+  → ai-done
+  → diff-preview（P2 editor 新增）
+  → permission-gate → write-back → version-snapshot → post-hooks
+```
+
+**P2 PipelineConfig 更新（替换 P1 定义）**:
+
+```typescript
+/** P2 更新：管线配置支持 agenticLoop（替换 P1 PipelineConfig 定义） */
+interface PipelineConfig {
+  steps: PipelineStep[];
+  /** P2 更新：是否启用 Agentic Loop */
+  agenticLoop: boolean;
+  /** Agentic Loop 配置（仅当 agenticLoop === true 时生效） */
+  toolUseConfig?: ToolUseConfig;
+}
+
+/** P2 管线步骤（替换 P1 PipelineStep 定义） */
+type PipelineStep =
+  | 'validate-input'
+  | 'assemble-context'
+  | 'select-model'
+  | 'call-ai'
+  | 'stream-response'
+  | 'tool-use-loop'       // 🆕 P2
+  | 'diff-preview'        // 🆕 P2（来自 editor/spec.md）
+  | 'permission-gate'
+  | 'write-back'
+  | 'version-snapshot'
+  | 'post-hooks';
+```
+
+**P2 新增 WritingEvent 类型**:
+
+```typescript
+/** tool-use 循环开始 */
+type ToolUseStartedEvent = {
+  type: 'tool-use-started';
+  timestamp: number;
+  requestId: string;
+  /** 当前轮次 */
+  round: number;
+  /** 本轮要执行的 tool 名称列表 */
+  toolNames: string[];
+};
+
+/** tool-use 循环完成（单轮） */
+type ToolUseCompletedEvent = {
+  type: 'tool-use-completed';
+  timestamp: number;
+  requestId: string;
+  round: number;
+  /** 本轮执行结果摘要 */
+  results: Array<{ toolName: string; success: boolean; durationMs: number }>;
+  /** 是否还有下一轮 */
+  hasNextRound: boolean;
+};
+
+/** tool-use 执行失败 */
+type ToolUseFailedEvent = {
+  type: 'tool-use-failed';
+  timestamp: number;
+  requestId: string;
+  round: number;
+  error: WritingError;
+};
+```
+
+**P2 WritingEvent union 更新**:
+
+P2 阶段 `WritingEvent` 类型扩展如下（在 P1 的 12 个变体基础上新增 P2 变体）：
+
+```typescript
+/** P2 完整 WritingEvent 联合类型（替换 P1 定义） */
+type WritingEvent =
+  // --- P1 原有事件 ---
+  | { type: 'intent-resolved'; timestamp: number; skillId: string }
+  | { type: 'context-assembled'; timestamp: number; tokenCount: number }
+  | { type: 'model-selected'; timestamp: number; modelId: string }
+  | { type: 'ai-chunk'; timestamp: number; delta: string }
+  | { type: 'ai-done'; timestamp: number; fullText: string; usage: TokenUsage }
+  | { type: 'permission-requested'; timestamp: number; level: PermissionLevel; description: string }
+  | { type: 'permission-granted'; timestamp: number }
+  | { type: 'permission-denied'; timestamp: number }
+  | { type: 'write-back-done'; timestamp: number; versionId: string }
+  | { type: 'hooks-done'; timestamp: number; executed: string[] }
+  | { type: 'error'; timestamp: number; error: WritingError }
+  | { type: 'aborted'; timestamp: number; reason: string }
+  // --- P2 Agentic Loop 事件 ---
+  | ToolUseStartedEvent
+  | ToolUseCompletedEvent
+  | ToolUseFailedEvent
+  // --- P2 Diff Preview 事件（来自 editor/spec.md） ---
+  | DiffReadyEvent
+  | ChangeAcceptedEvent
+  | ChangeRejectedEvent
+  | NoChangesEvent
+  // --- P2 Cost Tracker 事件（来自 ai-service/spec.md） ---
+  | CostRecordedEvent
+  | BudgetExceededEvent;
+```
+
+**P2 Skill 定义更新**:
+
+| Skill | agenticLoop | toolUseConfig |
+|-------|-------------|---------------|
+| `polish` | false | — |
+| `rewrite` | false | — |
+| `continue` | **true** | `{ maxToolRounds: 5, toolTimeoutMs: 10_000, maxConcurrentTools: 4 }` |
+
+> P2 阶段仅 `continue`（续写）启用 Agentic Loop，因为续写最需要自动查询角色设定和前文记忆。`polish` 和 `rewrite` 保持单次 LLM 调用。
+
+#### Scenario: 续写技能触发 Agentic Loop
+
+- **假设** 用户触发 `continue` 技能（agenticLoop: true），光标在第十章末尾
+- **当** AI 在生成续写内容时决定查询知识图谱
+- **则** AI 返回 `finishReason: 'tool_use'`，toolCalls 包含 `kgTool` 查询
+- **并且** WritingOrchestrator yield `tool-use-started` 事件（round: 1）
+- **并且** ToolUseHandler 执行 `kgTool`，获取角色设定
+- **并且** yield `tool-use-completed` 事件，results 包含 kgTool 成功
+- **并且** 将结果注入消息流，重新调用 AI
+- **并且** AI 基于角色设定继续生成续写内容
+- **并且** 第二轮 AI 返回 `finishReason: 'stop'`，进入 `ai-done`
+
+#### Scenario: 达到最大轮次限制
+
+- **假设** `continue` 技能执行中，AI 持续请求 tool calls
+- **当** tool-use 循环达到第 5 轮（maxToolRounds = 5），AI 仍返回 `tool_use`
+- **则** WritingOrchestrator yield `tool-use-failed` 事件，code 为 `TOOL_USE_MAX_ROUNDS_EXCEEDED`
+- **并且** 使用第 5 轮 AI 已生成的 partial content 作为最终结果
+- **并且** 继续进入 `ai-done` → `diff-preview` → `permission-gate` 流程
+- **并且** 前端提示 "AI 工具调用已达上限，使用部分结果"
+
+#### Scenario: AI 请求不存在的 tool
+
+- **假设** AI 返回 `toolCalls` 中包含 `{ name: 'unknownTool', arguments: {} }`
+- **当** `executeToolBatch()` 查找 ToolRegistry
+- **则** 该 tool call 返回 `{ success: false, error: { code: 'TOOL_USE_TOOL_NOT_FOUND', message: 'unknownTool 未注册' } }`
+- **并且** 错误结果仍然注入消息流（告知 AI 该 tool 不可用）
+- **并且** AI 可根据错误信息调整策略（如跳过或使用替代 tool）
+
+#### Scenario: 润色技能不触发 Agentic Loop
+
+- **假设** 用户触发 `polish` 技能（agenticLoop: false）
+- **当** AI 意外返回 `finishReason: 'tool_use'`
+- **则** WritingOrchestrator 忽略 toolCalls（不执行 tool-use 循环）
+- **并且** 使用 AI 已生成的文本作为最终结果
+- **并且** yield warning 事件 "AI 返回 tool_use 但当前 Skill 未启用 Agentic Loop"
+
+---
+
+### Requirement: P2 — V2 内置 Tool（KG / Memory / Doc）
+
+P2 阶段在 ToolRegistry 中新增 3 个 Tool，供 Agentic Loop 中 AI 自主调用：
+
+| Tool 名称 | 描述 | isConcurrencySafe | 用途 |
+|-----------|------|-------------------|------|
+| `kgTool` | 查询知识图谱中的角色/地点/设定 | true | AI 续写时自动查询角色性格、关系等 |
+| `memTool` | 查询用户写作偏好和语义记忆 | true | AI 生成时参考用户的风格偏好 |
+| `docTool` | 读取指定文档/章节的内容片段 | true | AI 需要参考其他章节的情节时 |
+
+```typescript
+/** kgTool 参数 */
+interface KgToolArgs {
+  /** 查询文本（如"林远的性格"） */
+  query: string;
+  /** 实体类型过滤（可选） */
+  entityType?: 'character' | 'location' | 'worldSetting';
+}
+
+/** memTool 参数 */
+interface MemToolArgs {
+  /** 查询文本（如"用户喜欢什么样的动作描写"） */
+  query: string;
+  /** 记忆类型过滤（可选） */
+  memoryType?: 'preference' | 'style' | 'rule';
+}
+
+/** docTool 参数 */
+interface DocToolArgs {
+  /** 目标文档 ID（可选，默认当前文档） */
+  documentId?: string;
+  /** 查询关键词 */
+  query: string;
+  /** 返回的最大 token 数 */
+  maxTokens?: number;
+}
+```
+
+> 注意：P2 阶段 KG 和 Memory 模块的完整实现在 Phase 3。P2 的 `kgTool` 和 `memTool` 使用简化版本——如果底层数据不可用，返回空结果（不阻塞 AI 生成）。
+
+#### Scenario: AI 通过 kgTool 查询角色设定
+
+- **假设** `continue` 技能执行中，AI 决定查询角色
+- **当** AI 调用 `kgTool({ query: '林远的性格特点', entityType: 'character' })`
+- **则** kgTool 查询知识图谱，返回 `{ success: true, data: { name: '林远', traits: ['冷静', '理性', '偶尔冷幽默'] } }`
+- **并且** 结果注入消息流后，AI 的后续生成会体现角色性格
+
+#### Scenario: memTool 底层数据不可用时的降级
+
+- **假设** Memory 模块在 P2 阶段尚未完整实现
+- **当** AI 调用 `memTool({ query: '用户写作风格偏好' })`
+- **则** memTool 返回 `{ success: true, data: { memories: [] } }`（空结果，非错误）
+- **并且** AI 继续生成，不因数据缺失而中断
+
+---
+
+### P2 Agentic Loop 不做清单
+
+- ❌ 不做 AI 自主写入文档的 tool（AI 只能通过建议 → 用户确认流程写入）
+- ❌ 不做跨文档批量 tool 调用
+- ❌ 不做 Coordinator/蜂群模式（多 AI 实例并行）
+- ❌ 不做自定义 tool 开发接口（P2 仅内置 tool）
+- ❌ 不做 tool call 的用户级权限确认（P2 所有 tool 为 auto-allow 级别）
