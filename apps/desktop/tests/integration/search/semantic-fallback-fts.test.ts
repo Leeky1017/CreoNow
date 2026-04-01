@@ -24,6 +24,13 @@ type FulltextRow = {
   updatedAt: number;
 };
 
+function getTrailingPagination(args: unknown[]): { limit: number; offset: number } {
+  const numericArgs = args.filter((arg): arg is number => typeof arg === "number");
+  const limit = numericArgs.at(-2) ?? numericArgs.at(-1) ?? 0;
+  const offset = numericArgs.at(-1) ?? 0;
+  return { limit, offset };
+}
+
 function createLogger(): Logger {
   return {
     logPath: "<test>",
@@ -67,8 +74,10 @@ function createDbStub(): Database.Database {
 
     if (sql.includes("FROM documents_fts")) {
       return {
-        all: (_projectId: string, _query: string, limit: number) =>
-          rows.slice(0, limit),
+        all: (...args: unknown[]) => {
+          const { limit, offset } = getTrailingPagination(args);
+          return rows.slice(offset, offset + limit);
+        },
       };
     }
 

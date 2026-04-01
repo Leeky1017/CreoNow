@@ -19,6 +19,13 @@ type FtsRow = {
   updatedAt: number;
 };
 
+function getTrailingPagination(args: unknown[]): { limit: number; offset: number } {
+  const numericArgs = args.filter((arg): arg is number => typeof arg === "number");
+  const limit = numericArgs.at(-2) ?? numericArgs.at(-1) ?? 0;
+  const offset = numericArgs.at(-1) ?? 0;
+  return { limit, offset };
+}
+
 export function createLogger(): Logger {
   return {
     logPath: "<test>",
@@ -76,15 +83,16 @@ export function createFtsDbStub(args: {
 
     if (sql.includes("FROM documents_fts")) {
       return {
-        all: (
-          projectId: string,
-          _query: string,
-          limit: number,
-          offset: number,
-        ) =>
-          normalizedRows
+        all: (...args: unknown[]) => {
+          const projectId = args.find(
+            (arg): arg is string =>
+              typeof arg === "string" && normalizedRows.some((row) => row.projectId === arg),
+          );
+          const { limit, offset } = getTrailingPagination(args);
+          return normalizedRows
             .filter((row) => row.projectId === projectId)
-            .slice(offset, offset + limit),
+            .slice(offset, offset + limit);
+        },
       };
     }
 

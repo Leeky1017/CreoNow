@@ -17,6 +17,13 @@ type FakeIpcMain = {
   handle: (channel: string, handler: Handler) => void;
 };
 
+function getTrailingPagination(args: unknown[]): { limit: number; offset: number } {
+  const numericArgs = args.filter((arg): arg is number => typeof arg === "number");
+  const limit = numericArgs.at(-2) ?? numericArgs.at(-1) ?? 0;
+  const offset = numericArgs.at(-1) ?? 0;
+  return { limit, offset };
+}
+
 function percentile(values: number[], p: number): number {
   const sorted = [...values].sort((a, b) => a - b);
   const index = Math.min(
@@ -79,12 +86,10 @@ function createDbStub(): Database.Database {
 
     if (sql.includes("FROM documents_fts")) {
       return {
-        all: (
-          _projectId: string,
-          _query: string,
-          limit: number,
-          offset: number,
-        ) => rows.slice(offset, offset + limit),
+        all: (...args: unknown[]) => {
+          const { limit, offset } = getTrailingPagination(args);
+          return rows.slice(offset, offset + limit);
+        },
       };
     }
 
