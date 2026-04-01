@@ -106,6 +106,7 @@ interface Deps {
   contextEngine: ContextEngineLike;
   eventBus: EventBusLike;
   toolRegistry: ToolRegistryLike;
+  manifestRegistry?: SkillManifestRegistry;
 }
 
 // ─── Manifest Parsing ───────────────────────────────────────────────
@@ -203,7 +204,6 @@ function parseYamlValue(val: string): string | number | boolean {
 
 // ─── Skill Definitions ──────────────────────────────────────────────
 
-const SKILL_MANIFESTS: Record<string, SkillManifest> = {};
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const P3_SKILL_ROOT = path.resolve(
@@ -211,19 +211,50 @@ const P3_SKILL_ROOT = path.resolve(
   "../../../skills/packages/pkg.creonow.builtin/1.0.0/skills",
 );
 
-function readP3SkillManifest(skillDir: string): SkillManifest {
+type SkillManifestRegistry = {
+  manifests: Record<string, SkillManifest>;
+  errors: Record<string, { code: "SKILL_PARSE_FAILED"; message: string }>;
+};
+
+function readP3SkillManifest(
+  skillDir: string,
+  readFile: (filePath: string) => string = (filePath) => readFileSync(filePath, "utf8"),
+): SkillManifest {
   const filePath = path.join(P3_SKILL_ROOT, skillDir, "SKILL.md");
-  const content = readFileSync(filePath, "utf8");
+  const content = readFile(filePath);
   return parseSkillManifest(content);
 }
 
-function initManifests(): void {
-  SKILL_MANIFESTS["consistency-check"] = readP3SkillManifest("consistency-check");
-  SKILL_MANIFESTS["dialogue-gen"] = readP3SkillManifest("dialogue-gen");
-  SKILL_MANIFESTS["outline-expand"] = readP3SkillManifest("outline-expand");
+export function loadP3SkillManifestRegistry(options?: {
+  skillDirs?: string[];
+  readFile?: (filePath: string) => string;
+  onWarning?: (message: string) => void;
+}): SkillManifestRegistry {
+  const manifests: Record<string, SkillManifest> = {};
+  const errors: SkillManifestRegistry["errors"] = {};
+  const skillDirs = options?.skillDirs ?? [
+    "consistency-check",
+    "dialogue-gen",
+    "outline-expand",
+  ];
+
+  for (const skillDir of skillDirs) {
+    try {
+      manifests[skillDir] = readP3SkillManifest(skillDir, options?.readFile);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      errors[skillDir] = {
+        code: "SKILL_PARSE_FAILED",
+        message,
+      };
+      options?.onWarning?.(`SKILL_PARSE_FAILED: ${skillDir}: ${message}`);
+    }
+  }
+
+  return { manifests, errors };
 }
 
-initManifests();
+const DEFAULT_MANIFEST_REGISTRY = loadP3SkillManifestRegistry();
 
 // ─── Implementation ─────────────────────────────────────────────────
 
@@ -241,6 +272,9 @@ function extractJsonFromContent(content: string): Record<string, unknown> {
 
 export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
   const { aiService, contextEngine, eventBus, toolRegistry } = deps;
+  const manifestRegistry = deps.manifestRegistry ?? DEFAULT_MANIFEST_REGISTRY;
+  const skillManifests = manifestRegistry.manifests;
+  const manifestErrors = manifestRegistry.errors;
   let disposed = false;
 
   const executor: P3SkillExecutor = {
@@ -249,8 +283,15 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
         return { success: false, error: { code: "SKILL_DISPOSED", message: "技能执行器已销毁" } };
       }
 
-      const manifest = SKILL_MANIFESTS[skillId];
+      const manifest = skillManifests[skillId];
       if (!manifest) {
+        const manifestError = manifestErrors[skillId];
+        if (manifestError) {
+          return {
+            success: false,
+            error: { code: "SKILL_MANIFEST_INVALID", message: manifestError.message },
+          };
+        }
         return { success: false, error: { code: "SKILL_NOT_FOUND", message: `技能 ${skillId} 不存在` } };
       }
 
@@ -344,7 +385,7 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
     },
 
     registerSkills(): void {
-      for (const [id, manifest] of Object.entries(SKILL_MANIFESTS)) {
+      for (const [id, manifest] of Object.entries(skillManifests)) {
         toolRegistry.register({
           id,
           name: id,
@@ -357,7 +398,7 @@ export function createP3SkillExecutor(deps: Deps): P3SkillExecutor {
 
     dispose(): void {
       disposed = true;
-      for (const id of Object.keys(SKILL_MANIFESTS)) {
+      for (const id of Object.keys(skillManifests)) {
         toolRegistry.unregister?.(id);
       }
     },

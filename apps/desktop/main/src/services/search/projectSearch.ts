@@ -136,6 +136,23 @@ function buildSnippet(text: string, offset: number, matchedTerms: string[]): str
   return `${start > 0 ? "..." : ""}${raw}${end < text.length ? "..." : ""}`;
 }
 
+function resolveMatchOffset(
+  text: string,
+  matchedTerms: string[],
+  rawOffset: unknown,
+): number {
+  if (typeof rawOffset === "number" && Number.isFinite(rawOffset) && rawOffset >= 0) {
+    return rawOffset;
+  }
+
+  const firstHit = matchedTerms
+    .map((term) => text.indexOf(term))
+    .filter((offset) => offset >= 0)
+    .sort((a, b) => a - b)[0];
+
+  return firstHit ?? 0;
+}
+
 function hasCorruptionSignal(error: unknown): boolean {
   if (typeof error !== "object" || error === null) {
     return false;
@@ -366,6 +383,13 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
         const grouped = new Map<string, ProjectSearchResult>();
         for (const row of rows) {
           const documentId = String(row.documentId ?? "");
+          const rowContent = String(row.content ?? "");
+          const matchedTerms = Array.isArray(row.matchedTerms)
+            ? (row.matchedTerms as string[])
+            : typeof row.matchedTerms === "string"
+              ? [row.matchedTerms]
+              : terms;
+          const resolvedOffset = resolveMatchOffset(rowContent, matchedTerms, row.offset);
           if (!grouped.has(documentId)) {
             grouped.set(documentId, {
               documentId,
@@ -375,13 +399,9 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
             });
           }
           grouped.get(documentId)?.matches.push({
-            snippet: String(row.snippet ?? buildSnippet(String(row.content ?? ""), Number(row.offset ?? 0), terms)),
-            offset: Number(row.offset ?? 0),
-            matchedTerms: Array.isArray(row.matchedTerms)
-              ? (row.matchedTerms as string[])
-              : typeof row.matchedTerms === "string"
-                ? [row.matchedTerms]
-                : terms,
+            snippet: String(row.snippet ?? buildSnippet(rowContent, resolvedOffset, matchedTerms)),
+            offset: resolvedOffset,
+            matchedTerms,
           });
         }
         results = Array.from(grouped.values());

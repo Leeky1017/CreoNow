@@ -289,6 +289,28 @@ describe("ProjectSearch P3", () => {
       expect(firstMatch.offset).toBeGreaterThanOrEqual(0);
     });
 
+    it("FTS 路径会从文档内容中计算真实命中 offset", async () => {
+      db.prepare.mockReturnValueOnce({
+        run: vi.fn(),
+        get: vi.fn(),
+        all: vi.fn().mockReturnValue([{
+          documentId: "doc-1",
+          documentTitle: "第一章",
+          documentType: "chapter",
+          content: "前文铺垫后，林远终于推开门。",
+          matchedTerms: ["林远"],
+        }]),
+      });
+
+      const result = await search.search(makeSearchRequest({ query: "林远" }));
+
+      expect(result.success).toBe(true);
+      expect(result.data!.results[0].matches[0]).toMatchObject({
+        offset: "前文铺垫后，".length,
+        matchedTerms: ["林远"],
+      });
+    });
+
     it("搜索无结果时返回空数组", async () => {
       const result = await search.search(
         makeSearchRequest({ query: "不存在的关键词xyz" }),

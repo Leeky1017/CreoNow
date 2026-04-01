@@ -19,6 +19,7 @@ import type {
 import {
   parseSkillManifest,
   createP3SkillExecutor,
+  loadP3SkillManifestRegistry,
 } from "../p3Skills";
 
 // ─── mock types ─────────────────────────────────────────────────────
@@ -263,6 +264,24 @@ id: test
 ---
 prompt content`;
       expect(() => parseSkillManifest(incomplete)).toThrow();
+    });
+
+    it("坏 manifest 会被降级跳过，不拖垮其他技能加载", () => {
+      const registry = loadP3SkillManifestRegistry({
+        skillDirs: ["consistency-check", "dialogue-gen"],
+        readFile: (filePath) => {
+          if (filePath.includes("consistency-check")) {
+            return "invalid content";
+          }
+          return DIALOGUE_GEN_SKILL_MD;
+        },
+        onWarning: () => {},
+      });
+
+      expect(Object.keys(registry.manifests)).toEqual(["dialogue-gen"]);
+      expect(registry.errors["consistency-check"]).toMatchObject({
+        code: "SKILL_PARSE_FAILED",
+      });
     });
 
     it("contextRules.minInputLength 为可选数值字段", () => {
@@ -730,6 +749,45 @@ System prompt.`;
       const data = result.data as ConsistencyCheckResult;
       expect(data.passed).toBe(false);
       expect(data.issues).toHaveLength(1);
+    });
+
+    it("坏 manifest 对应技能返回 SKILL_MANIFEST_INVALID，其他技能仍可执行", async () => {
+      const manifestRegistry = loadP3SkillManifestRegistry({
+        skillDirs: ["consistency-check", "dialogue-gen"],
+        readFile: (filePath) => {
+          if (filePath.includes("consistency-check")) {
+            return "invalid content";
+          }
+          return DIALOGUE_GEN_SKILL_MD;
+        },
+        onWarning: () => {},
+      });
+      const degradedExecutor = createP3SkillExecutor({
+        aiService: aiService as any,
+        contextEngine: contextEngine as any,
+        eventBus: eventBus as any,
+        toolRegistry: toolRegistry as any,
+        manifestRegistry,
+      });
+
+      const invalidResult = await degradedExecutor.executeSkill("consistency-check", {
+        projectId: "proj-1",
+        documentId: "doc-1",
+        documentContent: "文本",
+      });
+      expect(invalidResult.success).toBe(false);
+      expect(invalidResult.error?.code).toBe("SKILL_MANIFEST_INVALID");
+
+      aiService.complete.mockResolvedValue({
+        content: JSON.stringify({ dialogue: "对白内容" }),
+      });
+      const validResult = await degradedExecutor.executeSkill("dialogue-gen", {
+        projectId: "proj-1",
+        documentId: "doc-1",
+        documentContent: "文本",
+        selection: { from: 0, to: 3, text: "他说" },
+      });
+      expect(validResult.success).toBe(true);
     });
   });
 

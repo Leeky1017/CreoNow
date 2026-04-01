@@ -227,6 +227,16 @@ describe("SettingsService P3", () => {
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("CHARACTER_NOT_FOUND");
     });
+
+    it("同项目内角色 rename 成已存在名称时返回 CHARACTER_NAME_DUPLICATE", async () => {
+      const sourceId = await seedCharacter({ name: "林远" });
+      await seedCharacter({ name: "张薇" });
+
+      const result = await service.updateCharacter({ id: sourceId, name: "张薇" });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe("CHARACTER_NAME_DUPLICATE");
+    });
   });
 
   describe("character:delete", () => {
@@ -408,6 +418,16 @@ describe("SettingsService P3", () => {
           timestamp: expect.any(Number),
         }),
       );
+    });
+
+    it("同项目内地点 rename 成已存在名称时返回 LOCATION_NAME_DUPLICATE", async () => {
+      const sourceId = await seedLocation({ name: "废弃仓库" });
+      await seedLocation({ name: "旧码头" });
+
+      const result = await service.updateLocation({ id: sourceId, name: "旧码头" });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe("LOCATION_NAME_DUPLICATE");
     });
   });
 

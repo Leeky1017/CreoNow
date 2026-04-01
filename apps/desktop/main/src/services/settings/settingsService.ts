@@ -171,6 +171,33 @@ export function createSettingsService(deps: Deps): SettingsService {
     };
   }
 
+  function hasNameConflict(args: {
+    type: "character" | "location";
+    projectId: string;
+    name: string;
+    excludeId?: string;
+  }): boolean {
+    const source = args.type === "character" ? characters.values() : locations.values();
+    for (const entry of source) {
+      if (
+        entry.projectId === args.projectId &&
+        entry.name === args.name &&
+        entry.id !== args.excludeId
+      ) {
+        return true;
+      }
+    }
+
+    try {
+      const row = db.prepare(
+        "SELECT id FROM settings WHERE projectId = ? AND type = ? AND name = ? AND id != ? LIMIT 1",
+      ).get(args.projectId, args.type, args.name, args.excludeId ?? "");
+      return typeof row?.id === "string";
+    } catch {
+      return false;
+    }
+  }
+
   const service: SettingsService = {
     async createCharacter(req: CreateCharacterRequest): Promise<Result<CharacterEntry>> {
       assertNotDisposed();
@@ -285,6 +312,22 @@ export function createSettingsService(deps: Deps): SettingsService {
       if (req.attributes) {
         const attrErr = validateAttributes(req.attributes, "CHARACTER");
         if (attrErr) return attrErr as Result<CharacterEntry>;
+      }
+
+      if (
+        typeof req.name === "string" &&
+        req.name !== existing.name &&
+        hasNameConflict({
+          type: "character",
+          projectId: existing.projectId,
+          name: req.name,
+          excludeId: req.id,
+        })
+      ) {
+        return {
+          success: false,
+          error: { code: "CHARACTER_NAME_DUPLICATE", message: "角色名称重复" },
+        };
       }
 
       const updated: CharacterEntry = {
@@ -487,6 +530,22 @@ export function createSettingsService(deps: Deps): SettingsService {
       if (req.attributes) {
         const attrErr = validateAttributes(req.attributes, "LOCATION");
         if (attrErr) return attrErr as Result<LocationEntry>;
+      }
+
+      if (
+        typeof req.name === "string" &&
+        req.name !== existing.name &&
+        hasNameConflict({
+          type: "location",
+          projectId: existing.projectId,
+          name: req.name,
+          excludeId: req.id,
+        })
+      ) {
+        return {
+          success: false,
+          error: { code: "LOCATION_NAME_DUPLICATE", message: "地点名称重复" },
+        };
       }
 
       const updated: LocationEntry = {
