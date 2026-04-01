@@ -19,6 +19,7 @@ type FtsRow = {
   documentTitle: string;
   documentType: string;
   snippet: string;
+  documentOffset: number;
   score: number;
   updatedAt: number;
 };
@@ -52,6 +53,7 @@ function createDbStub(): Database.Database {
       documentTitle: "Chapter One",
       documentType: "chapter",
       snippet: "Hero enters the archive room.",
+      documentOffset: 5,
       score: 1.4,
       updatedAt: 1739030400,
     },
@@ -61,6 +63,7 @@ function createDbStub(): Database.Database {
       documentTitle: "Chapter Two",
       documentType: "chapter",
       snippet: "A hidden hero clue appears.",
+      documentOffset: 18,
       score: 1.1,
       updatedAt: 1739030401,
     },
@@ -74,12 +77,11 @@ function createDbStub(): Database.Database {
     }
 
     return {
-      all: (
-        _projectId: string,
-        _query: string,
-        limit: number,
-        offset: number,
-      ) => rows.slice(offset, offset + limit),
+      all: (...params: unknown[]) => {
+        const offset = Number(params[params.length - 1] ?? 0);
+        const limit = Number(params[params.length - 2] ?? rows.length);
+        return rows.slice(offset, offset + limit);
+      },
     };
   };
 
@@ -112,6 +114,7 @@ function createDbStub(): Database.Database {
       snippet: string;
       highlights: Array<{ start: number; end: number }>;
       anchor: { start: number; end: number };
+      documentOffset: number;
       score: number;
       updatedAt: number;
     }>;
@@ -135,6 +138,7 @@ function createDbStub(): Database.Database {
     assert.ok((first?.highlights.length ?? 0) > 0);
     assert.ok((first?.anchor.start ?? -1) >= 0);
     assert.ok((first?.anchor.end ?? -1) > (first?.anchor.start ?? 0));
+    assert.equal(first?.documentOffset, 5);
     assert.ok((first?.score ?? 0) >= (second?.score ?? 0));
   }
 }

@@ -1434,7 +1434,14 @@ function executeResolveForRun(
   }
 
   const enabled = loaded.data.enabledMap.get(id) ?? true;
-  return { ok: true, data: { skill, enabled } };
+  return {
+    ok: true,
+    data: {
+      skill,
+      enabled,
+      inputType: skill.inputType,
+    },
+  };
 }
 
 /**

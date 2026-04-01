@@ -206,6 +206,7 @@ function registerFtsHandlers(args: {
           snippet: string;
           highlights: Array<{ start: number; end: number }>;
           anchor: { start: number; end: number };
+          documentOffset: number;
           score: number;
           updatedAt: number;
         }>;
@@ -232,8 +233,17 @@ function registerFtsHandlers(args: {
         query: string;
         limit?: number;
         offset?: number;
-        scope?: "current" | "all";
       };
+      if (payload && typeof payload === "object" && "scope" in payload) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message:
+              "scope is not supported; search is limited to the current project",
+          },
+        };
+      }
       const queryLength =
         typeof safePayload.query === "string"
           ? safePayload.query.trim().length
@@ -245,7 +255,6 @@ function registerFtsHandlers(args: {
           query: safePayload.query,
           limit: safePayload.limit,
           offset: safePayload.offset,
-          scope: safePayload.scope,
         });
         if (!res) {
           return {

@@ -1,8 +1,18 @@
 # Search & Retrieval Specification
 
+## P3 变更摘要
+
+P3 阶段将搜索降级为**纯全文检索**——仅保留 SQLite FTS5，不做向量嵌入、语义搜索、RAG。这是有意的范围控制：「先让用户能找到内容，再谈语义理解」。
+
+| 变更                | 描述                                   |
+| ------------------- | -------------------------------------- |
+| P3 — 项目级全文搜索 | 项目 scope 的 FTS5 全文检索 + 跳转定位 |
+
+**P3 明确降级**：向量嵌入、语义搜索、RAG 检索增强、融合排序均推迟到 P4+。P3 只做 FTS。
+
 ## Purpose
 
-全文检索（FTS）、RAG 检索增强生成、向量嵌入与语义搜索。为 AI 续写和用户搜索提供相关上下文片段。
+本规格覆盖 Search & Retrieval 模块的长期路线图；**当前 P3 可验收合同仅限项目级全文检索（FTS）**。向量嵌入、语义搜索、RAG 与融合排序仍保留为 P4+ 规划，不构成 P3 的必需实现或验收门槛。
 
 ### Scope
 
@@ -78,9 +88,9 @@
 
 ---
 
-### Requirement: 向量嵌入与语义搜索
+### Requirement: 向量嵌入与语义搜索（P4+ 规划，非 P3 验收）
 
-系统**必须**为文档内容生成向量嵌入（Embedding），支持基于语义相似度的搜索。
+在 P4+ 阶段，系统**必须**为文档内容生成向量嵌入（Embedding），支持基于语义相似度的搜索。以下 IPC 为 P4+ 合约预留，不属于 P3 当前交付范围。当前 P3 不要求实现该能力。
 
 嵌入策略：
 
@@ -100,15 +110,15 @@
 
 | IPC 通道             | 通信模式         | 方向            | 用途               |
 | -------------------- | ---------------- | --------------- | ------------------ |
-| `embedding:generate` | Request-Response | Renderer → Main | 为文本生成嵌入向量 |
-| `embedding:search`   | Request-Response | Renderer → Main | 语义搜索           |
-| `embedding:reindex`  | Request-Response | Renderer → Main | 重建向量索引       |
+| `embedding:text:generate` | Request-Response | Renderer → Main | 为文本生成嵌入向量 |
+| `embedding:semantic:search`   | Request-Response | Renderer → Main | 语义搜索           |
+| `embedding:index:reindex`  | Request-Response | Renderer → Main | 重建向量索引       |
 
 #### Scenario: 语义搜索——查找相似内容
 
 - **假设** 用户想找到项目中所有描写「孤独感」的段落
 - **当** 用户在搜索面板切换到「语义搜索」模式，输入「角色内心的孤独与迷茫」
-- **则** 系统通过 `embedding:search` 计算语义相似度
+- **则** 系统通过 `embedding:semantic:search` 计算语义相似度
 - **并且** 返回语义最接近的段落列表，即使它们不包含「孤独」这个词
 
 #### Scenario: 嵌入模型不可用时的降级
@@ -128,9 +138,9 @@
 
 ---
 
-### Requirement: RAG 检索增强生成
+### Requirement: RAG 检索增强生成（P4+ 规划，非 P3 验收）
 
-系统**必须**支持 RAG（Retrieval-Augmented Generation）模式，为 AI 技能执行提供检索增强的上下文。
+在 P4+ 阶段，系统**必须**支持 RAG（Retrieval-Augmented Generation）模式，为 AI 技能执行提供检索增强的上下文。当前 P3 不要求实现该能力。
 
 RAG 流程：
 
@@ -149,7 +159,7 @@ RAG 的 IPC 通道：
 
 | IPC 通道            | 通信模式         | 方向            | 用途                 |
 | ------------------- | ---------------- | --------------- | -------------------- |
-| `rag:retrieve`      | Request-Response | Renderer → Main | 根据查询检索相关内容 |
+| `rag:context:retrieve`      | Request-Response | Renderer → Main | 根据查询检索相关内容 |
 | `rag:config:get`    | Request-Response | Renderer → Main | 获取 RAG 配置参数    |
 | `rag:config:update` | Request-Response | Renderer → Main | 更新 RAG 配置参数    |
 
@@ -157,7 +167,7 @@ RAG 的 IPC 通道：
 
 - **假设** 用户在第十章触发续写，内容涉及「废弃仓库」
 - **当** 系统执行 RAG 检索
-- **则** 通过 `rag:retrieve` 语义搜索，召回第二章中描写「废弃仓库」环境的段落
+- **则** 通过 `rag:context:retrieve` 语义搜索，召回第二章中描写「废弃仓库」环境的段落
 - **并且** 召回内容注入 Context Engine 的 Retrieved 层
 - **并且** AI 续写结果与前文对「废弃仓库」的描述保持一致
 
@@ -225,9 +235,9 @@ RAG 的 IPC 通道：
 
 ---
 
-### Requirement: 检索算法与排序策略
+### Requirement: 检索算法与排序策略（P4+ 规划，非 P3 验收）
 
-检索必须采用“两阶段召回 + 融合重排”策略，明确排序可解释性，禁止不透明排序。
+在 P4+ 阶段，检索**必须**采用“两阶段召回 + 融合重排”策略，明确排序可解释性，禁止不透明排序。当前 P3 不要求实现该排序链路。
 
 算法流程：
 
@@ -280,7 +290,7 @@ finalScore = 0.55 * bm25Norm + 0.35 * semanticScore + 0.10 * recencyScore
 - 量化阈值：
   - 首次结果返回 p95 < 300ms（FTS）
   - hybrid 检索首屏返回 p95 < 650ms
-  - `rag:retrieve` 返回 p95 < 450ms
+  - `rag:context:retrieve` 返回 p95 < 450ms
   - 索引重建吞吐 >= 2,000 chunks/s
 - 边界与类型安全：
   - `TypeScript strict` 必须开启
@@ -374,3 +384,245 @@ finalScore = 0.55 * bm25Norm + 0.35 * semanticScore + 0.10 * recencyScore
 - **当** 超出并发上限 64
 - **则** 超限请求返回 `{ code: "SEARCH_BACKPRESSURE", retryAfterMs: 200 }`
 - **并且** 已受理请求不被饿死
+
+---
+
+## P3: 项目级全文搜索
+
+> **阶段**: P3（项目制长篇创作）
+> **设计决策**: P3 仅实现 FTS5 全文检索，复用已有 FTS 基础设施，新增项目 scope 约束和 ProseMirror 文档适配。
+
+### Requirement: P3 — 项目范围全文搜索
+
+系统**必须**在 P3 阶段提供项目范围内的全文搜索功能，从 ProseMirror JSON 格式的文档中提取纯文本并建立 FTS5 索引。
+
+#### 接口契约
+
+```typescript
+/**
+ * ProseMirrorDocument 类型别名——引用 editor/spec.md 中的 ProseMirrorNode。
+ * ProseMirror 中文档本身就是一个 Node（type: 'doc'），因此 ProseMirrorDocument = ProseMirrorNode。
+ * 定义见 editor/spec.md: `import { Node as ProseMirrorNode } from 'prosemirror-model'`
+ */
+type ProseMirrorDocument = ProseMirrorNode;
+
+/** P3 `search:fts:query` 请求——仅当前项目 */
+interface SearchFtsQueryRequest {
+  /** 项目 ID */
+  projectId: string;
+  /** 搜索关键词 */
+  query: string;
+  /** 分页偏移 */
+  offset?: number;
+  /** 分页大小（默认 20，最大 100） */
+  limit?: number;
+}
+
+/** P3 单条搜索结果 */
+interface SearchFtsItem {
+  /** 所属项目 ID（必须与请求 projectId 一致） */
+  projectId: string;
+  /** 文档 ID */
+  documentId: string;
+  /** 文档标题 */
+  documentTitle: string;
+  /** 文档类型 */
+  documentType: string;
+  /** 匹配片段（含高亮标记） */
+  snippet: string;
+  /** 片段中的高亮范围 */
+  highlights: Array<{ start: number; end: number }>;
+  /** 首个高亮范围，用于 UI 跳转后闪烁 */
+  anchor: { start: number; end: number };
+  /** 首个匹配位置在文档纯文本中的 offset */
+  documentOffset: number;
+  /** BM25 相关度分数 */
+  score: number;
+  /** 文档更新时间戳 */
+  updatedAt: number;
+}
+
+/** `search:fts:query` 响应 */
+interface SearchFtsQueryResponse {
+  /** 搜索结果列表（按相关度排序） */
+  results: SearchFtsItem[];
+  /** 当前项目中总命中数 */
+  total: number;
+  /** 是否还有更多结果 */
+  hasMore: boolean;
+  /** 索引状态 */
+  indexState: "ready" | "rebuilding";
+}
+```
+
+#### IPC 通道
+
+| IPC 通道             | 通信模式         | 方向            | 用途                  |
+| -------------------- | ---------------- | --------------- | --------------------- |
+| `search:fts:query`   | Request-Response | Renderer → Main | 当前项目全文搜索      |
+| `search:fts:reindex` | Request-Response | Renderer → Main | 重建当前项目 FTS 索引 |
+
+#### 数据流
+
+```
+文档保存（autosave 触发后）
+  → ProseMirror JSON → 纯文本提取
+    → 增量更新 FTS5 索引
+
+用户搜索
+  → search:fts:query IPC
+    → FTS5 查询（WHERE projectId = ?）
+    → 结果排序（BM25 相关度）
+    → 片段高亮（FTS5 snippet 函数）
+    → 返回 SearchFtsQueryResponse
+```
+
+#### ProseMirror 文档的文本提取
+
+```typescript
+/** P3 从 ProseMirror JSON 提取可索引文本 */
+interface TextExtractor {
+  /**
+   * 将 ProseMirror JSON 转换为可索引的纯文本。
+   * 保留段落分隔，去除格式标记（bold/italic/link 等）。
+   * 保留标题层级（作为上下文信息）。
+   */
+  extractFromProseMirror(doc: ProseMirrorDocument): string;
+
+  /**
+   * 增量提取：仅提取变更的文本块。
+   * 用于避免全文重建索引。
+   */
+  extractDiff(
+    oldDoc: ProseMirrorDocument,
+    newDoc: ProseMirrorDocument,
+  ): TextDiff[];
+
+  /**
+   * 将纯文本 offset 反向映射为 ProseMirror 文档中的 node position。
+   * 用于搜索结果跳转：SearchMatch.documentOffset → ProseMirror position → 滚动到匹配位置。
+   * 返回 ProseMirror 的绝对位置（可直接用于 EditorView.dispatch 的 scrollIntoView）。
+   */
+  mapOffsetToPosition(doc: ProseMirrorDocument, offset: number): number;
+}
+
+interface TextDiff {
+  /** 变更类型 */
+  type: "added" | "removed" | "modified";
+  /** 文本位置 documentOffset */
+  documentOffset: number;
+  /** 变更后的文本 */
+  text: string;
+}
+```
+
+#### 错误处理
+
+| 错误场景                | code                           | 处理策略                                |
+| ----------------------- | ------------------------------ | --------------------------------------- |
+| 搜索词为空              | `INVALID_ARGUMENT`             | 立即拒绝，请求消息为 `query is required`                                 |
+| 搜索词过长（>1024 字符） | `INVALID_ARGUMENT`            | 立即拒绝，请求消息为 `query is too long`，并返回 `details.maxLength=1024` |
+| `projectId` / `limit` / `offset` 非法 | `INVALID_ARGUMENT` | 立即拒绝，请求消息与 `ftsService` 校验保持一致                            |
+| FTS 索引不存在          | `SEARCH_INDEX_NOT_FOUND`       | 非运行时主路径的 seam/status helper 可返回该错误                           |
+| FTS 索引损坏            | `ok: true` + `indexState=rebuilding` | 自动触发重建，提示稍后重试                                             |
+| 项目不存在              | `SEARCH_PROJECT_NOT_FOUND`     | 返回错误                                                                  |
+| 跨项目结果泄漏          | `SEARCH_PROJECT_FORBIDDEN`     | 立即拒绝，不得成功返回 foreign project 数据                                |
+| 搜索超时                | `SEARCH_TIMEOUT`               | 返回已有部分结果（若实现了超时降级）                                      |
+| 搜索反压                | `SEARCH_BACKPRESSURE`          | 超限请求排队，返回可重试信息                                              |
+| 向量维度不匹配          | `EMBEDDING_DIMENSION_MISMATCH` | 隔离该批次，返回错误（预留，P3 不使用） |
+
+#### WritingEvent 扩展
+
+```typescript
+/** P3 新增 WritingEvent——搜索索引更新 */
+type SearchIndexUpdatedEvent = {
+  type: "search-index-updated";
+  timestamp: number;
+  projectId: string;
+  documentId: string;
+  action: "indexed" | "removed" | "rebuilt";
+};
+```
+
+#### Scenario: P3 用户在项目内搜索关键词
+
+- **假设** 项目「暗流」有 12 个章节文档
+- **当** 用户按下 `Cmd/Ctrl+Shift+F`，输入「林远」
+- **则** 系统通过 `search:fts:query` 搜索，且查询固定限定为当前项目
+- **并且** 搜索结果显示所有包含「林远」的文档片段，关键词高亮
+- **并且** 结果按 BM25 相关度排序
+
+#### Scenario: P3 搜索结果跳转到匹配位置
+
+- **假设** 搜索结果显示「第三章」中有匹配
+- **当** 用户点击该结果
+- **则** 编辑器加载「第三章」并滚动到匹配位置
+- **并且** 匹配关键词短暂高亮闪烁
+
+#### Scenario: P3 禁止跨项目搜索
+
+- **假设** Renderer 发起 `search:fts:query`
+- **当** 请求 payload 试图携带额外 `scope` 字段或其他跨项目扩权参数
+- **则** IPC 校验立即拒绝该请求
+- **并且** FTS 查询仍必须带 `WHERE projectId = ?`
+- **并且** 若底层 DB / seam 意外回传 `projectId != requestedProjectId` 的行，系统必须返回 `SEARCH_PROJECT_FORBIDDEN`，而不是成功返回 foreign project 数据
+
+#### Scenario: P3 搜索无结果
+
+- **假设** 用户搜索项目中不存在的关键词
+- **当** FTS 查询返回空结果
+- **则** 搜索面板显示「未找到匹配结果」
+- **并且** 建议检查拼写或使用不同关键词
+
+#### Scenario: P3 文档保存后增量更新索引
+
+- **假设** 用户编辑了「第五章」并触发 autosave
+- **当** 文档保存完成
+- **则** 系统从 ProseMirror JSON 提取纯文本
+- **并且** 增量更新该文档的 FTS5 索引
+- **并且** 不阻塞编辑器操作
+
+#### Scenario: P3 FTS 索引损坏自动重建
+
+- **假设** FTS 索引文件损坏
+- **当** 用户执行搜索
+- **则** 系统检测到索引异常，自动触发 `search:fts:reindex`
+- **并且** 搜索面板显示「正在重建索引，请稍后重试」
+- **并且** 重建完成后搜索功能恢复
+
+---
+
+### P3 Search 模块级可验收标准
+
+- 量化阈值：
+  - `search:fts:query` p95 < 300ms（1000 文档、200K chunks）
+  - 增量索引更新 p95 < 100ms（单文档）
+  - 全量索引重建 p95 < 10s（1000 文档）
+- 边界与类型安全：
+  - `TypeScript strict` + zod
+  - `search:fts:*` 通道返回统一 `IPCResponse`
+- 失败处理策略：
+  - FTS 索引损坏时自动重建，并以 `ok: true` + `indexState=rebuilding` 降级返回
+  - 超时返回已有部分结果（若该路径实现超时控制）
+  - 不得静默失败
+- Owner 决策边界：
+  - 搜索面板 UI 规范由 Owner 固定
+  - Agent 不可引入向量搜索或 RAG
+
+#### Scenario: P3 大规模文档搜索性能
+
+- **假设** 项目有 1000 个文档
+- **当** 用户搜索常见关键词
+- **则** p95 < 300ms
+- **并且** 结果正确且完整
+
+---
+
+### P3 不做清单（Search Module）
+
+- ❌ 不做向量嵌入（Embedding）
+- ❌ 不做语义搜索
+- ❌ 不做 RAG 检索增强生成
+- ❌ 不做两阶段召回 + 融合重排
+- ❌ 不做搜索结果的 scoreBreakdown
+- ❌ 不做跨项目搜索

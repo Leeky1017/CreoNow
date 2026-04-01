@@ -2776,7 +2776,6 @@ export type IpcChannelSpec = {
       offset?: number;
       projectId: string;
       query: string;
-      scope?: "current" | "all";
     };
     response: {
       hasMore: boolean;
@@ -2787,6 +2786,7 @@ export type IpcChannelSpec = {
           start: number;
         };
         documentId: string;
+        documentOffset: number;
         documentTitle: string;
         documentType: string;
         highlights: Array<{

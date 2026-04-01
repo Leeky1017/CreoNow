@@ -23,10 +23,32 @@ function measureElapsedMs(operation: () => void): number {
   return performance.now() - startedAt;
 }
 
+function measureAverageElapsedMs(
+  operation: () => void,
+  iterations: number,
+): number {
+  return (
+    measureElapsedMs(() => {
+      for (let index = 0; index < iterations; index += 1) {
+        operation();
+      }
+    }) / iterations
+  );
+}
+
 function median(values: number[]): number {
   const sorted = [...values].sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
   return sorted[middle]!;
+}
+
+function trimmedMedian(values: number[], trimCount: number): number {
+  const sorted = [...values].sort((left, right) => left - right);
+  const trimmed =
+    sorted.length > trimCount * 2
+      ? sorted.slice(trimCount, sorted.length - trimCount)
+      : sorted;
+  return median(trimmed);
 }
 
 // Scenario: BE-KGQ-S4
@@ -78,32 +100,48 @@ function median(values: number[]): number {
   const small = buildEntities(500);
   const large = buildEntities(2500);
 
-  // Warm up to reduce one-time JIT noise.
+  // Warm up both data sets so JIT/caches settle before sampling.
   matchEntities(text, buildEntities(16));
+  const sampleIterations = 3;
+  for (let index = 0; index < 2; index += 1) {
+    matchEntities(text, small);
+    matchEntities(text, large);
+  }
 
-  const rounds = 7;
+  const rounds = 9;
   const smallSamples: number[] = [];
   const largeSamples: number[] = [];
   for (let index = 0; index < rounds; index += 1) {
-    smallSamples.push(
-      measureElapsedMs(() => {
-        matchEntities(text, small);
-      }),
-    );
-    largeSamples.push(
-      measureElapsedMs(() => {
-        matchEntities(text, large);
-      }),
-    );
+    const measureSmall = () =>
+      smallSamples.push(
+        measureAverageElapsedMs(() => {
+          matchEntities(text, small);
+        }, sampleIterations),
+      );
+    const measureLarge = () =>
+      largeSamples.push(
+        measureAverageElapsedMs(() => {
+          matchEntities(text, large);
+        }, sampleIterations),
+      );
+
+    if (index % 2 === 0) {
+      measureSmall();
+      measureLarge();
+      continue;
+    }
+
+    measureLarge();
+    measureSmall();
   }
 
-  const smallElapsedMs = median(smallSamples);
-  const largeElapsedMs = median(largeSamples);
+  const smallElapsedMs = trimmedMedian(smallSamples, 1);
+  const largeElapsedMs = trimmedMedian(largeSamples, 1);
 
   assert.equal(
     largeElapsedMs <= smallElapsedMs * 3.5,
     true,
-    `expected sublinear-ish scaling, smallMedian=${smallElapsedMs.toFixed(2)}ms largeMedian=${largeElapsedMs.toFixed(2)}ms`,
+    `expected sublinear-ish scaling after warmup/trimmed sampling, smallTrimmedMedian=${smallElapsedMs.toFixed(2)}ms largeTrimmedMedian=${largeElapsedMs.toFixed(2)}ms sampleIterations=${sampleIterations}`,
   );
 }
 

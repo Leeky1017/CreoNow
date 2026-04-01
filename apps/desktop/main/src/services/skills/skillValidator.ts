@@ -4,6 +4,7 @@ export type { ServiceResult };
 
 export type SkillScope = "builtin" | "global" | "project";
 export type SkillKind = "single" | "chat";
+export type SkillInputType = "selection" | "document";
 
 export type SkillContextRules = {
   surrounding?: number;
@@ -41,6 +42,7 @@ export type SkillFrontmatter = {
   prompt: SkillPrompt;
   dependsOn?: string[];
   timeoutMs?: number;
+  inputType?: SkillInputType;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -148,6 +150,23 @@ function optionalEnumField<T extends string>(args: {
     });
   }
   return { ok: true, data: asAllowed };
+}
+
+function optionalInputTypeField(
+  obj: JsonObject,
+  fieldName: string,
+): ServiceResult<SkillInputType | undefined> {
+  const value = obj[fieldName];
+  if (value === undefined) {
+    return { ok: true, data: undefined };
+  }
+  if (value === "selection" || value === "document") {
+    return { ok: true, data: value };
+  }
+  return ipcError("INVALID_ARGUMENT", `${fieldName} is invalid`, {
+    fieldName,
+    allowed: ["selection", "document"],
+  });
 }
 
 /**
@@ -584,6 +603,11 @@ export function validateSkillFrontmatter(args: {
     return timeoutMsRes;
   }
 
+  const inputTypeRes = optionalInputTypeField(obj, "inputType");
+  if (!inputTypeRes.ok) {
+    return inputTypeRes;
+  }
+
   const kindRes = optionalEnumField({
     obj,
     fieldName: "kind",
@@ -631,6 +655,7 @@ export function validateSkillFrontmatter(args: {
       prompt: promptRes.data,
       dependsOn: dependsOnRes.data.length ? dependsOnRes.data : undefined,
       timeoutMs: timeoutMsRes.data,
+      inputType: inputTypeRes.data,
     },
   };
 }

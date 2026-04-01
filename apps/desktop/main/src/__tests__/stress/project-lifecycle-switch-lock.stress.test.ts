@@ -145,6 +145,60 @@ async function main(): Promise<void> {
     );
   }
 
+  // Scenario: AUD-C1-S6
+  // concurrent startup switches with empty fromProjectId should still serialize.
+  {
+    const lifecycle = createProjectLifecycle({
+      logger: createLogger(),
+      timeoutMs: 500,
+    });
+
+    let maxInflightBinds = 0;
+    let inflightBinds = 0;
+
+    lifecycle.register({
+      id: "participant-c",
+      unbind: async () => {
+        await wait(5);
+      },
+      bind: async () => {
+        inflightBinds += 1;
+        maxInflightBinds = Math.max(maxInflightBinds, inflightBinds);
+        await wait(20);
+        inflightBinds -= 1;
+      },
+    });
+
+    const first = lifecycle.switchProject({
+      fromProjectId: "",
+      toProjectId: "A",
+      traceId: "trace-empty-1",
+      persist: async () => {
+        await wait(10);
+        return "startup-a";
+      },
+    });
+
+    const second = lifecycle.switchProject({
+      fromProjectId: "",
+      toProjectId: "B",
+      traceId: "trace-empty-2",
+      persist: async () => {
+        await wait(10);
+        return "startup-b";
+      },
+    });
+
+    const [left, right] = await Promise.all([first, second]);
+    assert.equal(left, "startup-a");
+    assert.equal(right, "startup-b");
+    assert.equal(
+      maxInflightBinds,
+      1,
+      "startup switches should not overlap bind phases when source project is empty",
+    );
+  }
+
   console.log(
     "project-lifecycle-switch-lock.stress.test.ts: all assertions passed",
   );

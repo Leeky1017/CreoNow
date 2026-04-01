@@ -324,6 +324,7 @@ const SEARCH_FTS_ITEM_SCHEMA = s.object({
   snippet: s.string(),
   highlights: s.array(SEARCH_FTS_HIGHLIGHT_SCHEMA),
   anchor: SEARCH_FTS_ANCHOR_SCHEMA,
+  documentOffset: s.number(),
   score: s.number(),
   updatedAt: s.number(),
 });
@@ -1404,7 +1405,6 @@ export const ipcContract = {
         query: s.string(),
         limit: s.optional(s.number()),
         offset: s.optional(s.number()),
-        scope: s.optional(s.union(s.literal("current"), s.literal("all"))),
       }),
       response: s.object({
         results: s.array(SEARCH_FTS_ITEM_SCHEMA),
