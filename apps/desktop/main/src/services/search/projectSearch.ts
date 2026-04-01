@@ -3,6 +3,16 @@
  * Spec: openspec/specs/search-and-retrieval/spec.md — P3
  */
 
+import {
+  ensureProjectScopedRows,
+  isFtsCorruptionError,
+  isFtsSyntaxError,
+  normalizeFtsLimit,
+  normalizeFtsOffset,
+  normalizeFtsProjectId,
+  normalizeFtsQuery,
+} from "./ftsService";
+
 export interface SearchHighlightRange {
   start: number;
   end: number;
@@ -60,13 +70,39 @@ interface TextDiff {
   text: string;
 }
 
+type ProjectSearchError = {
+  code: string;
+  message: string;
+  details?: unknown;
+  retryable?: boolean;
+};
+
 type Result<T = void> =
-  | { success: true; data?: T; error?: undefined }
-  | {
-      success: false;
-      data?: undefined;
-      error: { code: string; message: string; retryAfterMs?: number };
-    };
+  | { ok: true; data: T }
+  | { ok: false; error: ProjectSearchError };
+
+function ok<T>(data: T): Result<T> {
+  return { ok: true, data };
+}
+
+function err(
+  code: string,
+  message: string,
+  details?: unknown,
+  options?: { retryable?: boolean },
+): Result<never> {
+  return {
+    ok: false,
+    error: {
+      code,
+      message,
+      ...(details === undefined ? {} : { details }),
+      ...(options?.retryable === undefined
+        ? {}
+        : { retryable: options.retryable }),
+    },
+  };
+}
 
 export interface ProjectSearch {
   createIndex(projectId: string): Promise<Result>;
@@ -118,11 +154,6 @@ interface Deps {
   backpressureGuard?: (req: ProjectSearchRequest) => number | null;
   now?: () => number;
 }
-
-const MAX_QUERY_LEN = 200;
-const MAX_LIMIT = 100;
-const DEFAULT_LIMIT = 20;
-const DEFAULT_OFFSET = 0;
 
 function normalizeQueryTerms(query: string): string[] {
   return query
@@ -192,18 +223,6 @@ function toAnchor(highlights: SearchHighlightRange[]): SearchAnchor {
   return { start: first.start, end: first.end };
 }
 
-function hasCorruptionSignal(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
-  const maybeCode = "code" in error ? error.code : undefined;
-  const maybeMessage = "message" in error ? error.message : undefined;
-  return (
-    maybeCode === "SQLITE_CORRUPT" ||
-    (typeof maybeMessage === "string" && /corrupt/i.test(maybeMessage))
-  );
-}
-
 function getNumericField(
   value: Record<string, unknown> | undefined,
   key: string,
@@ -212,20 +231,6 @@ function getNumericField(
   return typeof field === "number" && Number.isFinite(field)
     ? field
     : undefined;
-}
-
-function clampLimit(limit?: number): number {
-  if (typeof limit !== "number" || !Number.isFinite(limit) || limit <= 0) {
-    return DEFAULT_LIMIT;
-  }
-  return Math.min(Math.trunc(limit), MAX_LIMIT);
-}
-
-function clampOffset(offset?: number): number {
-  if (typeof offset !== "number" || !Number.isFinite(offset) || offset < 0) {
-    return DEFAULT_OFFSET;
-  }
-  return Math.trunc(offset);
 }
 
 export function createProjectSearch(deps: Deps): ProjectSearch {
@@ -352,7 +357,7 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
 
       indexedProjects.add(projectId);
       getProjectIndex(projectId);
-      return { success: true };
+      return ok(undefined);
     },
 
     async rebuildIndex(projectId: string): Promise<Result> {
@@ -377,7 +382,7 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
 
       indexedProjects.add(projectId);
       emitIndexEvent("rebuilt", projectId, "*");
-      return { success: true };
+      return ok(undefined);
     },
 
     async indexDocument(req: IndexDocumentRequest): Promise<Result> {
@@ -392,7 +397,7 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       writeIndexRow(indexedDoc);
       indexedProjects.add(req.projectId);
       emitIndexEvent("indexed", req.projectId, req.documentId);
-      return { success: true };
+      return ok(undefined);
     },
 
     async updateDocument(req: IndexDocumentRequest): Promise<Result> {
@@ -419,7 +424,7 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       }
 
       emitIndexEvent("removed", projectId, documentId);
-      return { success: true };
+      return ok(undefined);
     },
 
     async search(
@@ -427,46 +432,48 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
     ): Promise<Result<ProjectSearchResponse>> {
       assertNotDisposed();
 
-      if (req.query.trim().length === 0) {
-        return {
-          success: false,
-          error: { code: "SEARCH_QUERY_EMPTY", message: "搜索词不能为空" },
-        };
+      const projectIdRes = normalizeFtsProjectId(req.projectId);
+      if (!projectIdRes.ok) {
+        return projectIdRes;
       }
-      if (req.query.length > MAX_QUERY_LEN) {
-        return {
-          success: false,
-          error: { code: "SEARCH_QUERY_TOO_LONG", message: "搜索词过长" },
-        };
+      const queryRes = normalizeFtsQuery(req.query);
+      if (!queryRes.ok) {
+        return queryRes;
       }
+      const limitRes = normalizeFtsLimit(req.limit);
+      if (!limitRes.ok) {
+        return limitRes;
+      }
+      const offsetRes = normalizeFtsOffset(req.offset);
+      if (!offsetRes.ok) {
+        return offsetRes;
+      }
+
+      const projectId = projectIdRes.data;
+      const normalizedQuery = queryRes.data;
+      const limit = limitRes.data;
+      const offset = offsetRes.data;
 
       const retryAfterMs = deps.backpressureGuard?.(req) ?? null;
       if (retryAfterMs !== null) {
-        return {
-          success: false,
-          error: {
-            code: "SEARCH_BACKPRESSURE",
-            message: "搜索反压",
-            retryAfterMs,
-          },
-        };
+        return err(
+          "SEARCH_BACKPRESSURE",
+          "搜索反压",
+          { retryAfterMs },
+          { retryable: true },
+        );
       }
 
-      const projectDocs = documentsByProject.get(req.projectId);
+      const projectDocs = documentsByProject.get(projectId);
       const projectKnown =
-        indexedProjects.has(req.projectId) ||
+        indexedProjects.has(projectId) ||
         (projectDocs !== undefined && projectDocs.size > 0) ||
-        deps.projectExists?.(req.projectId) === true;
+        deps.projectExists?.(projectId) === true;
 
       if (!projectKnown) {
-        return {
-          success: false,
-          error: { code: "SEARCH_PROJECT_NOT_FOUND", message: "项目不存在" },
-        };
+        return err("SEARCH_PROJECT_NOT_FOUND", "项目不存在");
       }
 
-      const limit = clampLimit(req.limit);
-      const offset = clampOffset(req.offset);
       const terms = normalizeQueryTerms(req.query);
 
       let results: ProjectSearchResult[] | null = null;
@@ -476,31 +483,44 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
           .prepare(
             "SELECT si.projectId, si.documentId, si.documentTitle, si.documentType, si.content, bm25(search_fts) as rank FROM search_fts JOIN search_index si ON search_fts.projectId = si.projectId AND search_fts.documentId = si.documentId WHERE si.projectId = ? AND search_fts MATCH ? ORDER BY rank LIMIT ? OFFSET ?",
           )
-          .all(req.projectId, req.query, limit, offset);
+          .all(projectId, normalizedQuery, limit, offset);
         const countRow = db
           .prepare(
             "SELECT COUNT(*) as total FROM search_fts JOIN search_index si ON search_fts.projectId = si.projectId AND search_fts.documentId = si.documentId WHERE si.projectId = ? AND search_fts MATCH ?",
           )
-          .get(req.projectId, req.query);
-        results = rows.map((row) => rowToResult(row, req.projectId, terms));
+          .get(projectId, normalizedQuery);
+        const scopedRowsRes = ensureProjectScopedRows({
+          rows,
+          requestedProjectId: projectId,
+          operation: "project-search:search",
+        });
+        if (!scopedRowsRes.ok) {
+          return scopedRowsRes;
+        }
+        results = scopedRowsRes.data.map((row) =>
+          rowToResult(row, projectId, terms),
+        );
         total = getNumericField(countRow, "total") ?? results.length;
       } catch (error) {
         if (error instanceof Error && error.message === "SEARCH_TIMEOUT") {
-          return {
-            success: false,
-            error: { code: "SEARCH_TIMEOUT", message: "搜索超时" },
-          };
+          return err("SEARCH_TIMEOUT", "搜索超时");
         }
-        if (hasCorruptionSignal(error)) {
-          await search.rebuildIndex(req.projectId);
-          return {
-            success: false,
-            error: {
-              code: "SEARCH_INDEX_CORRUPTED",
-              message: "正在重建索引，请稍后重试",
-            },
-          };
+        const message = error instanceof Error ? error.message : String(error);
+        if (isFtsCorruptionError(message)) {
+          await search.rebuildIndex(projectId);
+          return ok({
+            results: [],
+            total: 0,
+            hasMore: false,
+            indexState: "rebuilding",
+          });
         }
+        if (isFtsSyntaxError(message)) {
+          return err("INVALID_ARGUMENT", "Invalid fulltext query syntax", {
+            cause: message,
+          });
+        }
+        return err("DB_ERROR", "Fulltext search failed");
       }
 
       if (results === null) {
@@ -531,18 +551,24 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
           .filter((item): item is ProjectSearchResult => item !== null);
 
         total = matchedDocs.length;
-        results = matchedDocs.slice(offset, offset + limit);
+        const scopedRowsRes = ensureProjectScopedRows({
+          rows: matchedDocs,
+          requestedProjectId: projectId,
+          operation: "project-search:memory-fallback",
+        });
+        if (!scopedRowsRes.ok) {
+          return scopedRowsRes;
+        }
+        total = scopedRowsRes.data.length;
+        results = [...scopedRowsRes.data].slice(offset, offset + limit);
       }
 
-      return {
-        success: true,
-        data: {
-          results,
-          total,
-          hasMore: offset + results.length < total,
-          indexState: "ready",
-        },
-      };
+      return ok({
+        results,
+        total,
+        hasMore: offset + results.length < total,
+        indexState: "ready",
+      });
     },
 
     async getIndexStatus(
@@ -551,13 +577,10 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       assertNotDisposed();
 
       if (!indexedProjects.has(projectId)) {
-        return {
-          success: false,
-          error: { code: "SEARCH_INDEX_NOT_FOUND", message: "FTS 索引不存在" },
-        };
+        return err("SEARCH_INDEX_NOT_FOUND", "FTS 索引不存在");
       }
 
-      return { success: true, data: { status: "ready" } };
+      return ok({ status: "ready" });
     },
 
     extractFromProseMirror(doc: ProseMirrorNode): string {

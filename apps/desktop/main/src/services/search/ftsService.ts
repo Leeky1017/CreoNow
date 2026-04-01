@@ -59,10 +59,10 @@ export type FtsService = {
   }) => ServiceResult<{ items: FulltextSearchItem[] }>;
 };
 
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT = 100;
-const MAX_QUERY_LENGTH = 1024;
-const DEFAULT_OFFSET = 0;
+export const FTS_DEFAULT_LIMIT = 20;
+export const FTS_MAX_LIMIT = 100;
+export const FTS_MAX_QUERY_LENGTH = 1024;
+export const FTS_DEFAULT_OFFSET = 0;
 
 /**
  * Normalize and validate a user query.
@@ -107,14 +107,14 @@ export function expandCjkQuery(query: string): string {
   return parts.join(" OR ");
 }
 
-function normalizeQuery(query: string): ServiceResult<string> {
+export function normalizeFtsQuery(query: string): ServiceResult<string> {
   const trimmed = query.trim();
   if (trimmed.length === 0) {
     return ipcError("INVALID_ARGUMENT", "query is required");
   }
-  if (trimmed.length > MAX_QUERY_LENGTH) {
+  if (trimmed.length > FTS_MAX_QUERY_LENGTH) {
     return ipcError("INVALID_ARGUMENT", "query is too long", {
-      maxLength: MAX_QUERY_LENGTH,
+      maxLength: FTS_MAX_QUERY_LENGTH,
     });
   }
   const normalized = containsCjk(trimmed) ? expandCjkQuery(trimmed) : trimmed;
@@ -126,7 +126,7 @@ function normalizeQuery(query: string): ServiceResult<string> {
  *
  * Why: IPC boundaries must reject empty identifiers deterministically.
  */
-function normalizeProjectId(projectId: string): ServiceResult<string> {
+export function normalizeFtsProjectId(projectId: string): ServiceResult<string> {
   const trimmed = projectId.trim();
   if (trimmed.length === 0) {
     return ipcError("INVALID_ARGUMENT", "projectId is required");
@@ -139,9 +139,9 @@ function normalizeProjectId(projectId: string): ServiceResult<string> {
  *
  * Why: uncontrolled limits can cause slow queries and unstable UI.
  */
-function normalizeLimit(limit?: number): ServiceResult<number> {
+export function normalizeFtsLimit(limit?: number): ServiceResult<number> {
   if (typeof limit === "undefined") {
-    return { ok: true, data: DEFAULT_LIMIT };
+    return { ok: true, data: FTS_DEFAULT_LIMIT };
   }
   if (!Number.isFinite(limit) || !Number.isInteger(limit)) {
     return ipcError("INVALID_ARGUMENT", "limit must be an integer");
@@ -149,9 +149,9 @@ function normalizeLimit(limit?: number): ServiceResult<number> {
   if (limit <= 0) {
     return ipcError("INVALID_ARGUMENT", "limit must be positive");
   }
-  if (limit > MAX_LIMIT) {
+  if (limit > FTS_MAX_LIMIT) {
     return ipcError("INVALID_ARGUMENT", "limit is too large", {
-      maxLimit: MAX_LIMIT,
+      maxLimit: FTS_MAX_LIMIT,
     });
   }
   return { ok: true, data: limit };
@@ -162,9 +162,9 @@ function normalizeLimit(limit?: number): ServiceResult<number> {
  *
  * Why: pagination cursor must be deterministic and non-negative.
  */
-function normalizeOffset(offset?: number): ServiceResult<number> {
+export function normalizeFtsOffset(offset?: number): ServiceResult<number> {
   if (typeof offset === "undefined") {
-    return { ok: true, data: DEFAULT_OFFSET };
+    return { ok: true, data: FTS_DEFAULT_OFFSET };
   }
   if (!Number.isFinite(offset) || !Number.isInteger(offset)) {
     return ipcError("INVALID_ARGUMENT", "offset must be an integer");
@@ -180,7 +180,7 @@ function normalizeOffset(offset?: number): ServiceResult<number> {
  *
  * Why: invalid FTS syntax must map to INVALID_ARGUMENT (CNWB-REQ-100).
  */
-function isFtsSyntaxError(message: string): boolean {
+export function isFtsSyntaxError(message: string): boolean {
   const m = message.toLowerCase();
   return (
     m.includes("fts5:") ||
@@ -195,7 +195,7 @@ function isFtsSyntaxError(message: string): boolean {
  *
  * Why: broken index must trigger reindex and return a retriable rebuilding state.
  */
-function isFtsCorruptionError(message: string): boolean {
+export function isFtsCorruptionError(message: string): boolean {
   const m = message.toLowerCase();
   return (
     m.includes("database disk image is malformed") ||
@@ -285,6 +285,41 @@ type CountRow = {
   total: number;
 };
 
+export function ensureProjectScopedRows<
+  Row extends { projectId?: unknown; documentId?: unknown },
+>(args: {
+  rows: readonly Row[];
+  requestedProjectId: string;
+  operation: string;
+  logger?: Pick<Logger, "error">;
+}): ServiceResult<readonly Row[]> {
+  const crossProjectRow = args.rows.find(
+    (row) =>
+      typeof row.projectId === "string" && row.projectId !== args.requestedProjectId,
+  );
+  if (!crossProjectRow) {
+    return { ok: true, data: args.rows };
+  }
+
+  args.logger?.error("search_project_forbidden_audit", {
+    operation: args.operation,
+    requestedProjectId: args.requestedProjectId,
+    rowProjectId: crossProjectRow.projectId,
+    documentId:
+      typeof crossProjectRow.documentId === "string"
+        ? crossProjectRow.documentId
+        : undefined,
+  });
+  return ipcError(
+    "SEARCH_PROJECT_FORBIDDEN",
+    "Cross-project search query is forbidden",
+    {
+      requestedProjectId: args.requestedProjectId,
+      rowProjectId: crossProjectRow.projectId,
+    },
+  );
+}
+
 /**
  * Create a minimal full-text search (FTS5) service.
  *
@@ -305,21 +340,21 @@ export function createFtsService(deps: {
     hasMore: boolean;
     indexState: "ready" | "rebuilding";
   }> {
-    const projectIdRes = normalizeProjectId(args.projectId);
+    const projectIdRes = normalizeFtsProjectId(args.projectId);
     if (!projectIdRes.ok) {
       return projectIdRes;
     }
     const rawQuery = args.query;
     const highlightTerm = extractHighlightTerm(rawQuery);
-    const queryRes = normalizeQuery(rawQuery);
+    const queryRes = normalizeFtsQuery(rawQuery);
     if (!queryRes.ok) {
       return queryRes;
     }
-    const limitRes = normalizeLimit(args.limit);
+    const limitRes = normalizeFtsLimit(args.limit);
     if (!limitRes.ok) {
       return limitRes;
     }
-    const offsetRes = normalizeOffset(args.offset);
+    const offsetRes = normalizeFtsOffset(args.offset);
     if (!offsetRes.ok) {
       return offsetRes;
     }
@@ -372,25 +407,17 @@ export function createFtsService(deps: {
         )
         .get(projectId, query);
 
-      const crossProjectRow = rows.find((row) => row.projectId !== projectId);
-      if (crossProjectRow) {
-        deps.logger.error("search_project_forbidden_audit", {
-          operation: "search:fts:query",
-          requestedProjectId: projectId,
-          rowProjectId: crossProjectRow.projectId,
-          documentId: crossProjectRow.documentId,
-        });
-        return ipcError(
-          "SEARCH_PROJECT_FORBIDDEN",
-          "Cross-project search query is forbidden",
-          {
-            requestedProjectId: projectId,
-            rowProjectId: crossProjectRow.projectId,
-          },
-        );
+      const scopedRowsRes = ensureProjectScopedRows({
+        rows,
+        requestedProjectId: projectId,
+        operation: "search:fts:query",
+        logger: deps.logger,
+      });
+      if (!scopedRowsRes.ok) {
+        return scopedRowsRes;
       }
 
-      const results: FtsSearchResult[] = rows.map((row) => {
+      const results: FtsSearchResult[] = scopedRowsRes.data.map((row) => {
         const snippet = typeof row.snippet === "string" ? row.snippet : "";
         const highlights = computeHighlights(snippet, highlightTerm);
         return {
@@ -452,7 +479,7 @@ export function createFtsService(deps: {
   function runReindex(args: {
     projectId: string;
   }): ServiceResult<{ indexState: "ready"; reindexed: number }> {
-    const projectIdRes = normalizeProjectId(args.projectId);
+    const projectIdRes = normalizeFtsProjectId(args.projectId);
     if (!projectIdRes.ok) {
       return projectIdRes;
     }

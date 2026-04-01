@@ -110,6 +110,22 @@ function makeProseMirrorDocWithHeading(
   };
 }
 
+function unwrapOk<T>(result: { ok: boolean; data?: T }): T {
+  expect(result.ok).toBe(true);
+  if (!result.ok) {
+    throw new Error("expected ok result");
+  }
+  return result.data as T;
+}
+
+function unwrapErr<E>(result: { ok: boolean; error?: E }): E {
+  expect(result.ok).toBe(false);
+  if (result.ok) {
+    throw new Error("expected error result");
+  }
+  return result.error as E;
+}
+
 // ─── tests ──────────────────────────────────────────────────────────
 
 describe("ProjectSearch P3", () => {
@@ -139,13 +155,13 @@ describe("ProjectSearch P3", () => {
     it("创建项目的 FTS5 索引", async () => {
       const result = await search.createIndex("proj-1");
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
     });
 
     it("重建项目的 FTS5 索引", async () => {
       const result = await search.rebuildIndex("proj-1");
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
     });
 
     it("重建索引后发射 search-index-updated 事件（action=rebuilt）", async () => {
@@ -172,7 +188,7 @@ describe("ProjectSearch P3", () => {
         content: doc as any,
       });
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
     });
 
     it("索引后发射 search-index-updated 事件", async () => {
@@ -199,7 +215,7 @@ describe("ProjectSearch P3", () => {
     it("从索引中移除文档", async () => {
       const result = await search.removeDocument("proj-1", "doc-1");
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
     });
 
     it("移除后发射 search-index-updated 事件（action=removed）", async () => {
@@ -222,12 +238,12 @@ describe("ProjectSearch P3", () => {
   describe("search query", () => {
     it("基本关键词搜索返回 ProjectSearchResponse", async () => {
       const result = await search.search(makeSearchRequest({ query: "林远" }));
+      const data = unwrapOk(result);
 
-      expect(result.success).toBe(true);
-      expect(result.data).toHaveProperty("results");
-      expect(result.data).toHaveProperty("total");
-      expect(result.data).toHaveProperty("hasMore");
-      expect(result.data).toHaveProperty("indexState");
+      expect(data).toHaveProperty("results");
+      expect(data).toHaveProperty("total");
+      expect(data).toHaveProperty("hasMore");
+      expect(data).toHaveProperty("indexState");
     });
 
     it("多词搜索正确匹配", async () => {
@@ -235,7 +251,7 @@ describe("ProjectSearch P3", () => {
         makeSearchRequest({ query: "废弃仓库 林远" }),
       );
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
     });
 
     it("CJK 中文搜索正确匹配", async () => {
@@ -243,7 +259,7 @@ describe("ProjectSearch P3", () => {
         makeSearchRequest({ query: "退休刑警" }),
       );
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
     });
 
     it("搜索结果包含匹配高亮", async () => {
@@ -265,10 +281,10 @@ describe("ProjectSearch P3", () => {
       });
 
       const result = await search.search(makeSearchRequest({ query: "林远" }));
+      const data = unwrapOk(result);
 
-      expect(result.success).toBe(true);
-      expect(result.data!.results.length).toBeGreaterThan(0);
-      const firstResult = result.data!.results[0];
+      expect(data.results.length).toBeGreaterThan(0);
+      const firstResult = data.results[0];
       expect(firstResult.snippet).toContain("林远");
       expect(firstResult.highlights.length).toBeGreaterThan(0);
       expect(firstResult.anchor).toEqual(firstResult.highlights[0]);
@@ -292,10 +308,10 @@ describe("ProjectSearch P3", () => {
       });
 
       const result = await search.search(makeSearchRequest({ query: "林远" }));
+      const data = unwrapOk(result);
 
-      expect(result.success).toBe(true);
-      expect(result.data!.results.length).toBeGreaterThan(0);
-      const firstResult = result.data!.results[0];
+      expect(data.results.length).toBeGreaterThan(0);
+      const firstResult = data.results[0];
       expect(typeof firstResult.documentOffset).toBe("number");
       expect(firstResult.documentOffset).toBeGreaterThanOrEqual(0);
       expect(firstResult.anchor.start).toBeGreaterThanOrEqual(0);
@@ -319,25 +335,23 @@ describe("ProjectSearch P3", () => {
       });
 
       const result = await search.search(makeSearchRequest({ query: "林远" }));
+      const data = unwrapOk(result);
 
-      expect(result.success).toBe(true);
-      expect(result.data!.results[0]).toMatchObject({
+      expect(data.results[0]).toMatchObject({
         documentOffset: "前文铺垫后，".length,
       });
-      expect(result.data!.results[0].anchor.end).toBeGreaterThan(
-        result.data!.results[0].anchor.start,
-      );
+      expect(data.results[0].anchor.end).toBeGreaterThan(data.results[0].anchor.start);
     });
 
     it("搜索无结果时返回空数组", async () => {
       const result = await search.search(
         makeSearchRequest({ query: "不存在的关键词xyz" }),
       );
+      const data = unwrapOk(result);
 
-      expect(result.success).toBe(true);
-      expect(result.data?.results).toEqual([]);
-      expect(result.data?.total).toBe(0);
-      expect(result.data?.indexState).toBe("ready");
+      expect(data.results).toEqual([]);
+      expect(data.total).toBe(0);
+      expect(data.indexState).toBe("ready");
     });
 
     it("分页参数生效", async () => {
@@ -345,33 +359,15 @@ describe("ProjectSearch P3", () => {
         makeSearchRequest({ offset: 10, limit: 5 }),
       );
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
     });
 
-    it("limit 最大值为 100", async () => {
-      // 模拟搜索返回成功结果
-      db.prepare.mockReturnValueOnce({
-        run: vi.fn(),
-        get: vi.fn(),
-        all: vi.fn().mockReturnValue([]),
-      });
+    it("limit 超过 runtime 上限时返回 INVALID_ARGUMENT", async () => {
+      const result = await search.search(makeSearchRequest({ limit: 101 }));
+      const error = unwrapErr(result);
 
-      const result = await search.search(makeSearchRequest({ limit: 200 }));
-
-      // 应当截断到 100
-      expect(result.success).toBe(true);
-      // 验证传递给 db 的 limit 被截断为 100（SQL 级断言）
-      const prepareCall = db.prepare.mock.calls.find(
-        (call: any) => typeof call[0] === "string" && /LIMIT/i.test(call[0]),
-      );
-      expect(prepareCall).toBeDefined();
-      expect(prepareCall![0]).toMatch(/LIMIT\s+\?/i);
-      // SQL LIMIT ? 证明使用了参数化限制；实现层负责绑定 ≤ 100 的值
-      const limitIdx = db.prepare.mock.calls.findIndex(
-        (call: any) => typeof call[0] === "string" && /LIMIT/i.test(call[0]),
-      );
-      const limitStmt = db.prepare.mock.results[limitIdx].value;
-      expect(limitStmt.all).toHaveBeenCalled();
+      expect(error.code).toBe("INVALID_ARGUMENT");
+      expect(error.message).toBe("limit is too large");
     });
   });
 
@@ -401,15 +397,15 @@ describe("ProjectSearch P3", () => {
       }));
 
       const result = await search.search(makeSearchRequest());
+      const data = unwrapOk(result);
 
-      expect(result.success).toBe(true);
-      expect(result.data?.results[0]).toMatchObject({
+      expect(data.results[0]).toMatchObject({
         projectId: "proj-1",
         documentId: "doc-1",
         documentOffset: 5,
       });
-      expect(result.data?.total).toBe(1);
-      expect(result.data?.indexState).toBe("ready");
+      expect(data.total).toBe(1);
+      expect(data.indexState).toBe("ready");
     });
   });
 
@@ -504,23 +500,28 @@ describe("ProjectSearch P3", () => {
         content: newDoc as any,
       });
 
-      expect(result.success).toBe(true);
+      expect(result.ok).toBe(true);
     });
   });
 
   // ── Index corruption recovery ───────────────────────────────────
 
   describe("index corruption recovery", () => {
-    it("索引损坏时自动触发重建并返回 SEARCH_INDEX_CORRUPTED", async () => {
+    it("索引损坏时自动触发重建并返回 rebuilding 状态", async () => {
       // 模拟索引损坏：第一次 prepare 抛错，后续调用正常（重建后恢复）
       db.prepare.mockImplementationOnce(() => {
         throw new Error("FTS index corrupted");
       });
 
       const result = await search.search(makeSearchRequest({ query: "测试" }));
+      const data = unwrapOk(result);
 
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("SEARCH_INDEX_CORRUPTED");
+      expect(data).toEqual({
+        results: [],
+        total: 0,
+        hasMore: false,
+        indexState: "rebuilding",
+      });
       // 验证 rebuildIndex 相关的 SQL 被调用（重建行为）
       const stmts = db.prepare.mock.calls.map((c: any) => c[0]);
       const hasRebuild =
@@ -539,30 +540,49 @@ describe("ProjectSearch P3", () => {
   // ── Error codes ─────────────────────────────────────────────────
 
   describe("error handling", () => {
-    it("搜索词为空时返回 SEARCH_QUERY_EMPTY", async () => {
+    it("搜索词为空时返回 INVALID_ARGUMENT", async () => {
       const result = await search.search(makeSearchRequest({ query: "" }));
+      const error = unwrapErr(result);
 
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("SEARCH_QUERY_EMPTY");
+      expect(error.code).toBe("INVALID_ARGUMENT");
+      expect(error.message).toBe("query is required");
     });
 
-    it("搜索词超过 200 字符时返回 SEARCH_QUERY_TOO_LONG", async () => {
-      const longQuery = "搜".repeat(201);
+    it("搜索词超过 runtime 上限 1024 字符时返回 INVALID_ARGUMENT", async () => {
+      const longQuery = "搜".repeat(1025);
       const result = await search.search(
         makeSearchRequest({ query: longQuery }),
       );
+      const error = unwrapErr(result);
 
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("SEARCH_QUERY_TOO_LONG");
+      expect(error.code).toBe("INVALID_ARGUMENT");
+      expect(error.message).toBe("query is too long");
+      expect(error.details).toEqual({ maxLength: 1024 });
+    });
+
+    it("空 projectId 时按 runtime 口径返回 INVALID_ARGUMENT", async () => {
+      const result = await search.search(makeSearchRequest({ projectId: "  " }));
+      const error = unwrapErr(result);
+
+      expect(error.code).toBe("INVALID_ARGUMENT");
+      expect(error.message).toBe("projectId is required");
+    });
+
+    it("offset 非法时按 runtime 口径返回 INVALID_ARGUMENT", async () => {
+      const result = await search.search(makeSearchRequest({ offset: -1 }));
+      const error = unwrapErr(result);
+
+      expect(error.code).toBe("INVALID_ARGUMENT");
+      expect(error.message).toBe("offset must be non-negative");
     });
 
     it("项目不存在时返回 SEARCH_PROJECT_NOT_FOUND", async () => {
       const result = await search.search(
         makeSearchRequest({ projectId: "nonexistent" }),
       );
+      const error = unwrapErr(result);
 
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("SEARCH_PROJECT_NOT_FOUND");
+      expect(error.code).toBe("SEARCH_PROJECT_NOT_FOUND");
     });
 
     it("搜索超时时返回 SEARCH_TIMEOUT", async () => {
@@ -572,19 +592,19 @@ describe("ProjectSearch P3", () => {
       });
 
       const result = await search.search(makeSearchRequest({ query: "超时" }));
+      const error = unwrapErr(result);
 
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("SEARCH_TIMEOUT");
+      expect(error.code).toBe("SEARCH_TIMEOUT");
     });
 
     it("FTS 索引不存在时返回 SEARCH_INDEX_NOT_FOUND", async () => {
       const result = await search.getIndexStatus("proj-new");
+      const error = unwrapErr(result);
 
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("SEARCH_INDEX_NOT_FOUND");
+      expect(error.code).toBe("SEARCH_INDEX_NOT_FOUND");
     });
 
-    it("FTS 索引损坏时返回 SEARCH_INDEX_CORRUPTED", async () => {
+    it("FTS 索引损坏时返回 rebuilding 响应而非错误码", async () => {
       db.prepare.mockImplementation(() => {
         const err = new Error("FTS index corrupted");
         (err as any).code = "SQLITE_CORRUPT";
@@ -594,20 +614,21 @@ describe("ProjectSearch P3", () => {
       const result = await search.search(
         makeSearchRequest({ query: "测试索引损坏" }),
       );
+      const data = unwrapOk(result);
 
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("SEARCH_INDEX_CORRUPTED");
+      expect(data.indexState).toBe("rebuilding");
+      expect(data.results).toEqual([]);
     });
 
-    it("搜索反压时返回 SEARCH_BACKPRESSURE 含 retryAfterMs", async () => {
+    it("搜索反压时返回 SEARCH_BACKPRESSURE 并携带 retryAfterMs details", async () => {
       const result = await search.search(
         makeSearchRequest({ query: "反压测试" }),
       );
+      const error = unwrapErr(result);
 
-      expect(result.success).toBe(false);
-      expect(result.error?.code).toBe("SEARCH_BACKPRESSURE");
-      expect(typeof result.error?.retryAfterMs).toBe("number");
-      expect(result.error!.retryAfterMs).toBeGreaterThan(0);
+      expect(error.code).toBe("SEARCH_BACKPRESSURE");
+      expect(error.retryable).toBe(true);
+      expect(error.details).toEqual({ retryAfterMs: 200 });
     });
 
     it("SQL 注入类输入被安全处理", async () => {
@@ -617,10 +638,38 @@ describe("ProjectSearch P3", () => {
       );
 
       // 应返回正常结果或安全的错误，不应崩溃
-      expect(typeof result.success).toBe("boolean");
+      expect(typeof result.ok).toBe("boolean");
       // db.prepare 应使用参数化查询，不会直接拼接
-      expect(result.success).toBe(true);
-      expect(Array.isArray(result.data?.results)).toBe(true);
+      const data = unwrapOk(result);
+      expect(Array.isArray(data.results)).toBe(true);
+    });
+
+    it("DB 回传跨项目结果时返回 SEARCH_PROJECT_FORBIDDEN", async () => {
+      db.prepare.mockImplementation((sql: string) => ({
+        run: vi.fn(),
+        get: vi.fn().mockReturnValue({ total: 1 }),
+        all: vi.fn().mockImplementation(() => {
+          if (/COUNT/i.test(sql)) {
+            return [];
+          }
+          return [
+            {
+              projectId: "proj-2",
+              documentId: "doc-foreign",
+              documentTitle: "越界文档",
+              documentType: "chapter",
+              snippet: "forbidden result",
+              documentOffset: 0,
+            },
+          ];
+        }),
+      }));
+
+      const result = await search.search(makeSearchRequest());
+      const error = unwrapErr(result);
+
+      expect(error.code).toBe("SEARCH_PROJECT_FORBIDDEN");
+      expect(error.message).toBe("Cross-project search query is forbidden");
     });
   });
 
