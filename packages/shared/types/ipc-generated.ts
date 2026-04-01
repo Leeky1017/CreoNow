@@ -2786,8 +2786,8 @@ export type IpcChannelSpec = {
           end: number;
           start: number;
         };
-        documentOffset: number;
         documentId: string;
+        documentOffset: number;
         documentTitle: string;
         documentType: string;
         highlights: Array<{
