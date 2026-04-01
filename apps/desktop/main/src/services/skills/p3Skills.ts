@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseDocument } from "yaml";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -36,6 +37,8 @@ export interface SkillManifest {
   contextRules: SkillContextRules;
   systemPromptTemplate: string;
 }
+
+type JsonObject = Record<string, unknown>;
 
 // L1: severity union type instead of string
 export interface ConsistencyIssue {
@@ -111,95 +114,154 @@ interface Deps {
 
 // ─── Manifest Parsing ───────────────────────────────────────────────
 
+function asObject(value: unknown): JsonObject | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  return value as JsonObject;
+}
+
+function requireString(
+  frontmatter: JsonObject,
+  field: string,
+  options?: { allowInferred?: boolean; fallback?: () => string | undefined },
+): string {
+  const value = frontmatter[field];
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value;
+  }
+
+  if (options?.allowInferred) {
+    const inferred = options.fallback?.();
+    if (typeof inferred === "string" && inferred.trim().length > 0) {
+      return inferred;
+    }
+  }
+
+  throw new Error(`Invalid SKILL.md: missing required field '${field}'`);
+}
+
+function optionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function inferCategory(frontmatter: JsonObject): string | undefined {
+  const tags = Array.isArray(frontmatter.tags)
+    ? frontmatter.tags.filter((tag): tag is string => typeof tag === "string")
+    : [];
+  if (tags.includes("analysis")) {
+    return "analysis";
+  }
+  if (tags.includes("generation")) {
+    return "generation";
+  }
+
+  const outputType = frontmatter.outputType;
+  if (outputType === "annotation") {
+    return "analysis";
+  }
+
+  return undefined;
+}
+
+function inferProjectContextRequirement(contextRules: JsonObject | null): boolean {
+  if (!contextRules) {
+    return false;
+  }
+
+  return (
+    contextRules.characters === true ||
+    contextRules.outline === true ||
+    contextRules.knowledge_graph === true ||
+    contextRules.style_guide === true ||
+    contextRules.user_preferences === true ||
+    optionalNumber(contextRules.recent_summary) !== undefined
+  );
+}
+
 export function parseSkillManifest(content: string): SkillManifest {
-  const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  const normalized = content.replace(/\r\n/g, "\n");
+  const frontmatterMatch = normalized.match(/^---\n([\s\S]*?)\n---/);
   if (!frontmatterMatch) {
     throw new Error("Invalid SKILL.md: missing frontmatter");
   }
 
-  const frontmatter = frontmatterMatch[1];
-  const body = content.slice(frontmatterMatch[0].length).trim();
-
-  const lines = frontmatter.split("\n");
-  const data: Record<string, Record<string, unknown> | string | number | boolean> = {};
-  let currentSection: string | null = null;
-
-  // L4: Removed unused currentSubSection variable
-
-  for (const line of lines) {
-    if (line.trim() === "") continue;
-
-    const indent = line.search(/\S/);
-
-    if (indent === 0) {
-      const match = line.match(/^(\w+):\s*(.*)/);
-      if (match) {
-        currentSection = match[1];
-        const val = match[2].trim();
-        if (val) {
-          data[currentSection] = parseYamlValue(val);
-        } else {
-          data[currentSection] = {};
-        }
-      }
-    } else if (indent >= 2 && currentSection) {
-      const match = line.trim().match(/^(\w+):\s*(.*)/);
-      if (match) {
-        const key = match[1];
-        const val = match[2].trim();
-        const section = data[currentSection];
-        if (typeof section === "object" && section !== null) {
-          (section as Record<string, unknown>)[key] = parseYamlValue(val);
-        }
-      }
-    }
+  const doc = parseDocument(frontmatterMatch[1]);
+  if (doc.errors.length > 0) {
+    throw new Error(`Invalid SKILL.md: ${doc.errors[0]?.message ?? "invalid YAML frontmatter"}`);
   }
 
-  const required = ["id", "name", "description", "category", "scope", "outputType", "permissionLevel"];
-  for (const field of required) {
-    if (!(field in data) || data[field] === undefined || data[field] === "") {
-      throw new Error(`Invalid SKILL.md: missing required field '${field}'`);
-    }
+  const parsed = doc.toJSON();
+  const frontmatter = asObject(parsed);
+  if (!frontmatter) {
+    throw new Error("Invalid SKILL.md: frontmatter must be an object");
   }
 
-  if (!data.inputRequirement || !data.contextRules) {
-    throw new Error("Invalid SKILL.md: missing inputRequirement or contextRules");
+  const body = normalized.slice(frontmatterMatch[0].length).trim();
+  const inputRequirement = asObject(frontmatter.inputRequirement);
+  const legacyContextRules = asObject(frontmatter.contextRules);
+  const runtimeContextRules = asObject(frontmatter.context_rules);
+  const prompt = asObject(frontmatter.prompt);
+
+  if (!inputRequirement && !frontmatter.inputType) {
+    throw new Error("Invalid SKILL.md: missing inputRequirement or inputType");
   }
 
-  const inputReq = data.inputRequirement as Record<string, unknown>;
-  const ctxRules = data.contextRules as Record<string, unknown>;
+  if (!legacyContextRules && !runtimeContextRules) {
+    throw new Error("Invalid SKILL.md: missing contextRules or context_rules");
+  }
+
+  const inferredInputType =
+    frontmatter.inputType === "selection" || frontmatter.inputType === "document"
+      ? frontmatter.inputType
+      : undefined;
 
   return {
-    id: data.id as string,
-    name: data.name as string,
-    description: data.description as string,
-    category: data.category as string,
-    scope: data.scope as string,
-    outputType: data.outputType as string,
-    permissionLevel: data.permissionLevel as string,
+    id: requireString(frontmatter, "id"),
+    name: requireString(frontmatter, "name"),
+    description: requireString(frontmatter, "description"),
+    category: requireString(frontmatter, "category", {
+      allowInferred: true,
+      fallback: () => inferCategory(frontmatter),
+    }),
+    scope: requireString(frontmatter, "scope"),
+    outputType: requireString(frontmatter, "outputType"),
+    permissionLevel: requireString(frontmatter, "permissionLevel"),
     contextRequirement: {
-      requiresSelection: inputReq.requiresSelection === true,
-      requiresDocumentContext: inputReq.requiresDocumentContext === true,
-      requiresProjectContext: inputReq.requiresProjectContext === true,
-      minInputLength: inputReq.minInputLength as number | undefined,
+      requiresSelection:
+        inputRequirement?.requiresSelection === true || inferredInputType === "selection",
+      requiresDocumentContext:
+        inputRequirement?.requiresDocumentContext === true ||
+        inferredInputType === "selection" ||
+        inferredInputType === "document",
+      requiresProjectContext:
+        inputRequirement?.requiresProjectContext === true ||
+        (!inputRequirement && inferProjectContextRequirement(runtimeContextRules)),
+      minInputLength: optionalNumber(inputRequirement?.minInputLength),
     },
     contextRules: {
-      injectCharacterSettings: ctxRules.injectCharacterSettings === true,
-      injectLocationSettings: ctxRules.injectLocationSettings === true,
-      injectMemory: ctxRules.injectMemory === true,
-      injectSearchContext: ctxRules.injectSearchContext === true,
-      contextWindowSize: ctxRules.contextWindowSize as number | undefined,
+      injectCharacterSettings:
+        legacyContextRules?.injectCharacterSettings === true ||
+        runtimeContextRules?.characters === true,
+      injectLocationSettings:
+        legacyContextRules?.injectLocationSettings === true ||
+        runtimeContextRules?.knowledge_graph === true,
+      injectMemory:
+        legacyContextRules?.injectMemory === true ||
+        runtimeContextRules?.outline === true ||
+        (optionalNumber(runtimeContextRules?.recent_summary) ?? 0) > 0,
+      injectSearchContext:
+        legacyContextRules?.injectSearchContext === true ||
+        runtimeContextRules?.knowledge_graph === true,
+      contextWindowSize:
+        optionalNumber(legacyContextRules?.contextWindowSize) ??
+        optionalNumber(runtimeContextRules?.surrounding),
     },
-    systemPromptTemplate: body,
+    systemPromptTemplate:
+      (typeof prompt?.system === "string" && prompt.system.trim().length > 0
+        ? prompt.system
+        : body),
   };
-}
-
-function parseYamlValue(val: string): string | number | boolean {
-  if (val === "true") return true;
-  if (val === "false") return false;
-  if (/^\d+$/.test(val)) return parseInt(val, 10);
-  if (/^\d+\.\d+$/.test(val)) return parseFloat(val);
-  return val;
 }
 
 // ─── Skill Definitions ──────────────────────────────────────────────
