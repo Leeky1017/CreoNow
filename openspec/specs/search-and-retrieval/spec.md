@@ -4,8 +4,8 @@
 
 P3 阶段将搜索降级为**纯全文检索**——仅保留 SQLite FTS5，不做向量嵌入、语义搜索、RAG。这是有意的范围控制：「先让用户能找到内容，再谈语义理解」。
 
-| 变更 | 描述 |
-|------|------|
+| 变更                | 描述                                   |
+| ------------------- | -------------------------------------- |
 | P3 — 项目级全文搜索 | 项目 scope 的 FTS5 全文检索 + 跳转定位 |
 
 **P3 明确降级**：向量嵌入、语义搜索、RAG 检索增强、融合排序均推迟到 P4+。P3 只做 FTS。
@@ -404,71 +404,63 @@ finalScore = 0.55 * bm25Norm + 0.35 * semanticScore + 0.10 * recencyScore
  * ProseMirror 中文档本身就是一个 Node（type: 'doc'），因此 ProseMirrorDocument = ProseMirrorNode。
  * 定义见 editor/spec.md: `import { Node as ProseMirrorNode } from 'prosemirror-model'`
  */
-type ProseMirrorDocument = ProseMirrorNode
+type ProseMirrorDocument = ProseMirrorNode;
 
-/** 项目内文档类型——统一枚举，请求和响应共用 */
-type ProjectDocumentType = 'chapter' | 'note' | 'setting' | 'timeline' | 'character'
-
-/** P3 搜索请求——项目范围 */
-interface ProjectSearchRequest {
+/** P3 `search:fts:query` 请求——仅当前项目 */
+interface SearchFtsQueryRequest {
   /** 项目 ID */
-  projectId: string
+  projectId: string;
   /** 搜索关键词 */
-  query: string
-  /** 文档类型过滤（可选） */
-  documentTypes?: ProjectDocumentType[]
+  query: string;
   /** 分页偏移 */
-  offset?: number
+  offset?: number;
   /** 分页大小（默认 20，最大 100） */
-  limit?: number
+  limit?: number;
 }
 
-/** P3 搜索结果 */
-interface ProjectSearchResult {
+/** P3 单条搜索结果 */
+interface SearchFtsItem {
+  /** 所属项目 ID（必须与请求 projectId 一致） */
+  projectId: string;
   /** 文档 ID */
-  documentId: string
+  documentId: string;
   /** 文档标题 */
-  documentTitle: string
+  documentTitle: string;
   /** 文档类型 */
-  documentType: ProjectDocumentType
-  /** 匹配列表 */
-  matches: SearchMatch[]
-}
-
-/** 单个匹配 */
-interface SearchMatch {
+  documentType: string;
   /** 匹配片段（含高亮标记） */
-  snippet: string
+  snippet: string;
+  /** 片段中的高亮范围 */
+  highlights: Array<{ start: number; end: number }>;
+  /** 首个高亮范围，用于 UI 跳转后闪烁 */
+  anchor: { start: number; end: number };
   /** 首个匹配位置在文档纯文本中的 offset */
-  documentOffset: number
-  /** 片段内锚点，用于 UI 高亮 */
-  anchor: { start: number; end: number }
-  /** 匹配关键词 */
-  matchedTerms: string[]
+  documentOffset: number;
+  /** BM25 相关度分数 */
+  score: number;
+  /** 文档更新时间戳 */
+  updatedAt: number;
 }
 
-/** 搜索响应 */
-interface ProjectSearchResponse {
-  /** 搜索结果列表 */
-  results: ProjectSearchResult[]
-  /** 总匹配文档数 */
-  totalDocuments: number
-  /** 总匹配数 */
-  totalMatches: number
-  /** 搜索耗时（ms） */
-  searchTimeMs: number
+/** `search:fts:query` 响应 */
+interface SearchFtsQueryResponse {
+  /** 搜索结果列表（按相关度排序） */
+  results: SearchFtsItem[];
+  /** 当前项目中总命中数 */
+  total: number;
   /** 是否还有更多结果 */
-  hasMore: boolean
+  hasMore: boolean;
+  /** 索引状态 */
+  indexState: "ready" | "rebuilding";
 }
 ```
 
 #### IPC 通道
 
-| IPC 通道 | 通信模式 | 方向 | 用途 |
-|----------|---------|------|------|
-| `search:project:query` | Request-Response | Renderer → Main | 项目范围全文搜索 |
-| `search:project:reindex` | Request-Response | Renderer → Main | 重建项目 FTS 索引 |
-| `search:project:index-status` | Request-Response | Renderer → Main | 查询索引状态 |
+| IPC 通道             | 通信模式         | 方向            | 用途                  |
+| -------------------- | ---------------- | --------------- | --------------------- |
+| `search:fts:query`   | Request-Response | Renderer → Main | 当前项目全文搜索      |
+| `search:fts:reindex` | Request-Response | Renderer → Main | 重建当前项目 FTS 索引 |
 
 #### 数据流
 
@@ -478,11 +470,11 @@ interface ProjectSearchResponse {
     → 增量更新 FTS5 索引
 
 用户搜索
-  → search:project:query IPC
+  → search:fts:query IPC
     → FTS5 查询（WHERE projectId = ?）
     → 结果排序（BM25 相关度）
     → 片段高亮（FTS5 snippet 函数）
-    → 返回 ProjectSearchResponse
+    → 返回 SearchFtsQueryResponse
 ```
 
 #### ProseMirror 文档的文本提取
@@ -495,63 +487,66 @@ interface TextExtractor {
    * 保留段落分隔，去除格式标记（bold/italic/link 等）。
    * 保留标题层级（作为上下文信息）。
    */
-  extractFromProseMirror(doc: ProseMirrorDocument): string
+  extractFromProseMirror(doc: ProseMirrorDocument): string;
 
   /**
    * 增量提取：仅提取变更的文本块。
    * 用于避免全文重建索引。
    */
-  extractDiff(oldDoc: ProseMirrorDocument, newDoc: ProseMirrorDocument): TextDiff[]
+  extractDiff(
+    oldDoc: ProseMirrorDocument,
+    newDoc: ProseMirrorDocument,
+  ): TextDiff[];
 
   /**
    * 将纯文本 offset 反向映射为 ProseMirror 文档中的 node position。
    * 用于搜索结果跳转：SearchMatch.documentOffset → ProseMirror position → 滚动到匹配位置。
    * 返回 ProseMirror 的绝对位置（可直接用于 EditorView.dispatch 的 scrollIntoView）。
    */
-  mapOffsetToPosition(doc: ProseMirrorDocument, offset: number): number
+  mapOffsetToPosition(doc: ProseMirrorDocument, offset: number): number;
 }
 
 interface TextDiff {
   /** 变更类型 */
-  type: 'added' | 'removed' | 'modified'
+  type: "added" | "removed" | "modified";
   /** 文本位置 documentOffset */
-  documentOffset: number
+  documentOffset: number;
   /** 变更后的文本 */
-  text: string
+  text: string;
 }
 ```
 
 #### 错误处理
 
-| 错误场景 | code | 处理策略 |
-|---------|------|---------|
-| 搜索词为空 | `SEARCH_QUERY_EMPTY` | 返回空结果 |
-| 搜索词过长（>200 字符） | `SEARCH_QUERY_TOO_LONG` | 校验阻断 |
-| FTS 索引不存在 | `SEARCH_INDEX_NOT_FOUND` | 自动触发建索引 |
-| FTS 索引损坏 | `SEARCH_INDEX_CORRUPTED` | 自动重建 |
-| 项目不存在 | `SEARCH_PROJECT_NOT_FOUND` | 返回错误 |
-| 搜索超时 | `SEARCH_TIMEOUT` | 返回已有部分结果 |
-| 搜索反压 | `SEARCH_BACKPRESSURE` | 超限请求排队，返回 retryAfterMs |
-| 向量维度不匹配 | `EMBEDDING_DIMENSION_MISMATCH` | 隔离该批次，返回错误（预留，P3 不使用） |
+| 错误场景                | code                           | 处理策略                                |
+| ----------------------- | ------------------------------ | --------------------------------------- |
+| 搜索词为空              | `SEARCH_QUERY_EMPTY`           | 返回空结果                              |
+| 搜索词过长（>200 字符） | `SEARCH_QUERY_TOO_LONG`        | 校验阻断                                |
+| FTS 索引不存在          | `SEARCH_INDEX_NOT_FOUND`       | 自动触发建索引                          |
+| FTS 索引损坏            | `SEARCH_INDEX_CORRUPTED`       | 自动重建                                |
+| 项目不存在              | `SEARCH_PROJECT_NOT_FOUND`     | 返回错误                                |
+| 搜索超时                | `SEARCH_TIMEOUT`               | 返回已有部分结果                        |
+| 搜索反压                | `SEARCH_BACKPRESSURE`          | 超限请求排队，返回 retryAfterMs         |
+| 向量维度不匹配          | `EMBEDDING_DIMENSION_MISMATCH` | 隔离该批次，返回错误（预留，P3 不使用） |
 
 #### WritingEvent 扩展
 
 ```typescript
 /** P3 新增 WritingEvent——搜索索引更新 */
 type SearchIndexUpdatedEvent = {
-  type: 'search-index-updated'
-  timestamp: number
-  projectId: string
-  documentId: string
-  action: 'indexed' | 'removed' | 'rebuilt'
-}
+  type: "search-index-updated";
+  timestamp: number;
+  projectId: string;
+  documentId: string;
+  action: "indexed" | "removed" | "rebuilt";
+};
 ```
 
 #### Scenario: P3 用户在项目内搜索关键词
 
 - **假设** 项目「暗流」有 12 个章节文档
 - **当** 用户按下 `Cmd/Ctrl+Shift+F`，输入「林远」
-- **则** 系统通过 `search:project:query` 搜索，scope 限定为当前项目
+- **则** 系统通过 `search:fts:query` 搜索，且查询固定限定为当前项目
 - **并且** 搜索结果显示所有包含「林远」的文档片段，关键词高亮
 - **并且** 结果按 BM25 相关度排序
 
@@ -562,11 +557,12 @@ type SearchIndexUpdatedEvent = {
 - **则** 编辑器加载「第三章」并滚动到匹配位置
 - **并且** 匹配关键词短暂高亮闪烁
 
-#### Scenario: P3 按文档类型过滤搜索
+#### Scenario: P3 禁止跨项目搜索
 
-- **假设** 用户只想搜索笔记中的内容
-- **当** 用户在搜索面板中勾选类型过滤「笔记」
-- **则** 搜索结果仅包含类型为 `note` 的文档
+- **假设** Renderer 发起 `search:fts:query`
+- **当** 请求 payload 试图携带额外 `scope` 字段或其他跨项目扩权参数
+- **则** IPC 校验立即拒绝该请求
+- **并且** FTS 查询仍必须带 `WHERE projectId = ?`
 
 #### Scenario: P3 搜索无结果
 
@@ -587,7 +583,7 @@ type SearchIndexUpdatedEvent = {
 
 - **假设** FTS 索引文件损坏
 - **当** 用户执行搜索
-- **则** 系统检测到索引异常，自动触发 `search:project:reindex`
+- **则** 系统检测到索引异常，自动触发 `search:fts:reindex`
 - **并且** 搜索面板显示「正在重建索引，请稍后重试」
 - **并且** 重建完成后搜索功能恢复
 
@@ -596,12 +592,12 @@ type SearchIndexUpdatedEvent = {
 ### P3 Search 模块级可验收标准
 
 - 量化阈值：
-  - `search:project:query` p95 < 300ms（1000 文档、200K chunks）
+  - `search:fts:query` p95 < 300ms（1000 文档、200K chunks）
   - 增量索引更新 p95 < 100ms（单文档）
   - 全量索引重建 p95 < 10s（1000 文档）
 - 边界与类型安全：
   - `TypeScript strict` + zod
-  - `search:project:*` 通道返回统一 `IPCResponse`
+  - `search:fts:*` 通道返回统一 `IPCResponse`
 - 失败处理策略：
   - FTS 索引损坏时自动重建
   - 超时返回已有部分结果

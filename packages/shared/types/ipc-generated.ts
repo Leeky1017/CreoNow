@@ -2776,7 +2776,6 @@ export type IpcChannelSpec = {
       offset?: number;
       projectId: string;
       query: string;
-      scope?: "current" | "all";
     };
     response: {
       hasMore: boolean;

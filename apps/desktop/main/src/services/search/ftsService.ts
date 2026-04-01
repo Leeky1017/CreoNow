@@ -42,7 +42,6 @@ export type FtsService = {
     query: string;
     limit?: number;
     offset?: number;
-    scope?: "current" | "all";
   }) => ServiceResult<{
     results: FtsSearchResult[];
     total: number;
@@ -300,7 +299,6 @@ export function createFtsService(deps: {
     query: string;
     limit?: number;
     offset?: number;
-    scope?: "current" | "all";
   }): ServiceResult<{
     results: FtsSearchResult[];
     total: number;
@@ -331,97 +329,65 @@ export function createFtsService(deps: {
     const limit = limitRes.data;
     const offset = offsetRes.data;
 
-    const isAllScope = args.scope === "all";
-
     try {
-      const rows = isAllScope
-        ? deps.db
-            .prepare<[string, string, string, string, number, number], FulltextRow>(
-              `SELECT
-                d.project_id as projectId,
-                d.document_id as documentId,
-                d.title as documentTitle,
-                COALESCE(d.type, 'chapter') as documentType,
-                snippet(documents_fts, -1, '', '', '…', 24) as snippet,
-                CASE
-                  WHEN ? != '' AND instr(d.content_text, ?) > 0
-                    THEN instr(d.content_text, ?) - 1
-                  ELSE 0
-                END as documentOffset,
-                (-bm25(documents_fts)) as score,
-                d.updated_at as updatedAt
-              FROM documents_fts
-              JOIN documents d ON d.rowid = documents_fts.rowid
-              WHERE documents_fts MATCH ?
-              ORDER BY bm25(documents_fts)
-              LIMIT ? OFFSET ?`,
-            )
-            .all(highlightTerm, highlightTerm, highlightTerm, query, limit, offset)
-        : deps.db
-            .prepare<[string, string, string, string, string, number, number], FulltextRow>(
-              `SELECT
-                d.project_id as projectId,
-                d.document_id as documentId,
-                d.title as documentTitle,
-                COALESCE(d.type, 'chapter') as documentType,
-                snippet(documents_fts, -1, '', '', '…', 24) as snippet,
-                CASE
-                  WHEN ? != '' AND instr(d.content_text, ?) > 0
-                    THEN instr(d.content_text, ?) - 1
-                  ELSE 0
-                END as documentOffset,
-                (-bm25(documents_fts)) as score,
-                d.updated_at as updatedAt
-              FROM documents_fts
-              JOIN documents d ON d.rowid = documents_fts.rowid
-              WHERE documents_fts.project_id = ? AND documents_fts MATCH ?
-              ORDER BY bm25(documents_fts)
-              LIMIT ? OFFSET ?`,
-            )
-            .all(
-              highlightTerm,
-              highlightTerm,
-              highlightTerm,
-              projectId,
-              query,
-              limit,
-              offset,
-            );
+      const rows = deps.db
+        .prepare<
+          [string, string, string, string, string, number, number],
+          FulltextRow
+        >(
+          `SELECT
+            d.project_id as projectId,
+            d.document_id as documentId,
+            d.title as documentTitle,
+            COALESCE(d.type, 'chapter') as documentType,
+            snippet(documents_fts, -1, '', '', '…', 24) as snippet,
+            CASE
+              WHEN ? != '' AND instr(d.content_text, ?) > 0
+                THEN instr(d.content_text, ?) - 1
+              ELSE 0
+            END as documentOffset,
+            (-bm25(documents_fts)) as score,
+            d.updated_at as updatedAt
+          FROM documents_fts
+          JOIN documents d ON d.rowid = documents_fts.rowid
+          WHERE documents_fts.project_id = ? AND documents_fts MATCH ?
+          ORDER BY bm25(documents_fts)
+          LIMIT ? OFFSET ?`,
+        )
+        .all(
+          highlightTerm,
+          highlightTerm,
+          highlightTerm,
+          projectId,
+          query,
+          limit,
+          offset,
+        );
 
-      const count = isAllScope
-        ? deps.db
-            .prepare<[string], CountRow>(
-              `SELECT COUNT(*) as total
-               FROM documents_fts
-               WHERE documents_fts MATCH ?`,
-            )
-            .get(query)
-        : deps.db
-            .prepare<[string, string], CountRow>(
-              `SELECT COUNT(*) as total
-               FROM documents_fts
-               WHERE project_id = ? AND documents_fts MATCH ?`,
-            )
-            .get(projectId, query);
+      const count = deps.db
+        .prepare<[string, string], CountRow>(
+          `SELECT COUNT(*) as total
+           FROM documents_fts
+           WHERE project_id = ? AND documents_fts MATCH ?`,
+        )
+        .get(projectId, query);
 
-      if (!isAllScope) {
-        const crossProjectRow = rows.find((row) => row.projectId !== projectId);
-        if (crossProjectRow) {
-          deps.logger.error("search_project_forbidden_audit", {
-            operation: "search:fts:query",
+      const crossProjectRow = rows.find((row) => row.projectId !== projectId);
+      if (crossProjectRow) {
+        deps.logger.error("search_project_forbidden_audit", {
+          operation: "search:fts:query",
+          requestedProjectId: projectId,
+          rowProjectId: crossProjectRow.projectId,
+          documentId: crossProjectRow.documentId,
+        });
+        return ipcError(
+          "SEARCH_PROJECT_FORBIDDEN",
+          "Cross-project search query is forbidden",
+          {
             requestedProjectId: projectId,
             rowProjectId: crossProjectRow.projectId,
-            documentId: crossProjectRow.documentId,
-          });
-          return ipcError(
-            "SEARCH_PROJECT_FORBIDDEN",
-            "Cross-project search query is forbidden",
-            {
-              requestedProjectId: projectId,
-              rowProjectId: crossProjectRow.projectId,
-            },
-          );
-        }
+          },
+        );
       }
 
       const results: FtsSearchResult[] = rows.map((row) => {

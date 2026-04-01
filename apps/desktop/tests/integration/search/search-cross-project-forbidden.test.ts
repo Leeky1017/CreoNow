@@ -177,6 +177,26 @@ function createCrossProjectSemanticIndex(): SemanticChunkIndexService {
     throw new Error("Missing handler search:fts:query");
   }
 
+  const scopeBypassRes = (await ftsQuery(
+    {},
+    {
+      projectId: "proj_1",
+      query: "cross project leak",
+      limit: 10,
+      offset: 0,
+      scope: "all",
+    },
+  )) as IpcResponse<unknown>;
+
+  assert.equal(scopeBypassRes.ok, false);
+  if (!scopeBypassRes.ok) {
+    assert.equal(scopeBypassRes.error.code, "INVALID_ARGUMENT");
+    assert.equal(
+      scopeBypassRes.error.message,
+      "scope is not supported; search is limited to the current project",
+    );
+  }
+
   const searchRes = (await ftsQuery(
     {},
     {

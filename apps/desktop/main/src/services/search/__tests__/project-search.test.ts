@@ -3,16 +3,21 @@
  * Spec: openspec/specs/search-and-retrieval/spec.md — P3: 项目级全文搜索
  *
  * TDD Red Phase：测试应编译但因实现不存在而失败。
- * 验证 FTS5 索引管理、搜索查询、CJK 支持、结果结构、offset 映射、
- * 增量更新、索引重建、类型过滤、错误码、dispose 清理。
+ * 验证 FTS5 索引管理、搜索查询、CJK 支持、结果结构、documentOffset 映射、
+ * 增量更新、索引重建、runtime 对齐、错误码、dispose 清理。
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type Mock,
+} from "vitest";
 
-import type {
-  ProjectSearch,
-  ProjectSearchRequest,
-} from "../projectSearch";
+import type { ProjectSearch, ProjectSearchRequest } from "../projectSearch";
 import { createProjectSearch } from "../projectSearch";
 
 // ─── mock types ─────────────────────────────────────────────────────
@@ -220,10 +225,9 @@ describe("ProjectSearch P3", () => {
 
       expect(result.success).toBe(true);
       expect(result.data).toHaveProperty("results");
-      expect(result.data).toHaveProperty("totalDocuments");
-      expect(result.data).toHaveProperty("totalMatches");
-      expect(result.data).toHaveProperty("searchTimeMs");
+      expect(result.data).toHaveProperty("total");
       expect(result.data).toHaveProperty("hasMore");
+      expect(result.data).toHaveProperty("indexState");
     });
 
     it("多词搜索正确匹配", async () => {
@@ -247,68 +251,82 @@ describe("ProjectSearch P3", () => {
       db.prepare.mockReturnValueOnce({
         run: vi.fn(),
         get: vi.fn(),
-        all: vi.fn().mockReturnValue([{
-          documentId: "doc-1",
-          documentTitle: "第一章",
-          documentType: "chapter",
-          snippet: "...林远走进了...",
-          offset: 5,
-          matchedTerms: ["林远"],
-        }]),
+        all: vi.fn().mockReturnValue([
+          {
+            projectId: "proj-1",
+            documentId: "doc-1",
+            documentTitle: "第一章",
+            documentType: "chapter",
+            snippet: "...林远走进了...",
+            documentOffset: 5,
+            matchedTerms: ["林远"],
+          },
+        ]),
       });
 
       const result = await search.search(makeSearchRequest({ query: "林远" }));
 
       expect(result.success).toBe(true);
       expect(result.data!.results.length).toBeGreaterThan(0);
-      const firstMatch = result.data!.results[0].matches[0];
-      expect(firstMatch.snippet).toContain("林远");
-      expect(firstMatch.matchedTerms).toContain("林远");
+      const firstResult = result.data!.results[0];
+      expect(firstResult.snippet).toContain("林远");
+      expect(firstResult.highlights.length).toBeGreaterThan(0);
+      expect(firstResult.anchor).toEqual(firstResult.highlights[0]);
     });
 
-    it("搜索结果包含 offset 定位", async () => {
+    it("搜索结果包含 documentOffset 与 anchor 定位", async () => {
       db.prepare.mockReturnValueOnce({
         run: vi.fn(),
         get: vi.fn(),
-        all: vi.fn().mockReturnValue([{
-          documentId: "doc-1",
-          documentTitle: "第一章",
-          documentType: "chapter",
-          snippet: "...林远走进了...",
-          offset: 5,
-          matchedTerms: ["林远"],
-        }]),
+        all: vi.fn().mockReturnValue([
+          {
+            projectId: "proj-1",
+            documentId: "doc-1",
+            documentTitle: "第一章",
+            documentType: "chapter",
+            snippet: "...林远走进了...",
+            documentOffset: 5,
+            matchedTerms: ["林远"],
+          },
+        ]),
       });
 
       const result = await search.search(makeSearchRequest({ query: "林远" }));
 
       expect(result.success).toBe(true);
       expect(result.data!.results.length).toBeGreaterThan(0);
-      const firstMatch = result.data!.results[0].matches[0];
-      expect(typeof firstMatch.offset).toBe("number");
-      expect(firstMatch.offset).toBeGreaterThanOrEqual(0);
+      const firstResult = result.data!.results[0];
+      expect(typeof firstResult.documentOffset).toBe("number");
+      expect(firstResult.documentOffset).toBeGreaterThanOrEqual(0);
+      expect(firstResult.anchor.start).toBeGreaterThanOrEqual(0);
+      expect(firstResult.anchor.end).toBeGreaterThan(firstResult.anchor.start);
     });
 
-    it("FTS 路径会从文档内容中计算真实命中 offset", async () => {
+    it("FTS 路径会从文档内容中计算真实命中 documentOffset", async () => {
       db.prepare.mockReturnValueOnce({
         run: vi.fn(),
         get: vi.fn(),
-        all: vi.fn().mockReturnValue([{
-          documentId: "doc-1",
-          documentTitle: "第一章",
-          documentType: "chapter",
-          content: "前文铺垫后，林远终于推开门。",
-          matchedTerms: ["林远"],
-        }]),
+        all: vi.fn().mockReturnValue([
+          {
+            projectId: "proj-1",
+            documentId: "doc-1",
+            documentTitle: "第一章",
+            documentType: "chapter",
+            content: "前文铺垫后，林远终于推开门。",
+            matchedTerms: ["林远"],
+          },
+        ]),
       });
 
       const result = await search.search(makeSearchRequest({ query: "林远" }));
 
       expect(result.success).toBe(true);
-      expect(result.data!.results[0].matches[0]).toMatchObject({
-        offset: "前文铺垫后，".length,
-        matchedTerms: ["林远"],
+      expect(result.data!.results[0]).toMatchObject({
+        documentOffset: "前文铺垫后，".length,
       });
+      expect(result.data!.results[0].anchor.end).toBeGreaterThan(
+        result.data!.results[0].anchor.start,
+      );
     });
 
     it("搜索无结果时返回空数组", async () => {
@@ -318,8 +336,8 @@ describe("ProjectSearch P3", () => {
 
       expect(result.success).toBe(true);
       expect(result.data?.results).toEqual([]);
-      expect(result.data?.totalDocuments).toBe(0);
-      expect(result.data?.totalMatches).toBe(0);
+      expect(result.data?.total).toBe(0);
+      expect(result.data?.indexState).toBe("ready");
     });
 
     it("分页参数生效", async () => {
@@ -338,9 +356,7 @@ describe("ProjectSearch P3", () => {
         all: vi.fn().mockReturnValue([]),
       });
 
-      const result = await search.search(
-        makeSearchRequest({ limit: 200 }),
-      );
+      const result = await search.search(makeSearchRequest({ limit: 200 }));
 
       // 应当截断到 100
       expect(result.success).toBe(true);
@@ -359,31 +375,41 @@ describe("ProjectSearch P3", () => {
     });
   });
 
-  // ── Document type filtering ─────────────────────────────────────
+  // ── Runtime-aligned response shape ──────────────────────────────
 
-  describe("document type filtering", () => {
-    it("按单一类型过滤搜索结果", async () => {
-      const result = await search.search(
-        makeSearchRequest({ documentTypes: ["chapter"] }),
-      );
+  describe("runtime-aligned response shape", () => {
+    it("search 返回当前项目 scope 的扁平化结果项", async () => {
+      db.prepare.mockImplementation((sql: string) => ({
+        run: vi.fn(),
+        get: vi.fn().mockReturnValue({ total: 1 }),
+        all: vi.fn().mockImplementation(() => {
+          if (!/WHERE si\.projectId = \?/i.test(sql)) {
+            throw new Error("query must stay project-scoped");
+          }
+          return [
+            {
+              projectId: "proj-1",
+              documentId: "doc-1",
+              documentTitle: "第一章",
+              documentType: "chapter",
+              snippet: "...林远走进了...",
+              documentOffset: 5,
+              matchedTerms: ["林远"],
+            },
+          ];
+        }),
+      }));
+
+      const result = await search.search(makeSearchRequest());
 
       expect(result.success).toBe(true);
-    });
-
-    it("按多种类型过滤搜索结果", async () => {
-      const result = await search.search(
-        makeSearchRequest({ documentTypes: ["chapter", "note"] }),
-      );
-
-      expect(result.success).toBe(true);
-    });
-
-    it("不设置过滤时搜索所有类型", async () => {
-      const result = await search.search(
-        makeSearchRequest({ documentTypes: undefined }),
-      );
-
-      expect(result.success).toBe(true);
+      expect(result.data?.results[0]).toMatchObject({
+        projectId: "proj-1",
+        documentId: "doc-1",
+        documentOffset: 5,
+      });
+      expect(result.data?.total).toBe(1);
+      expect(result.data?.indexState).toBe("ready");
     });
   });
 
@@ -447,7 +473,7 @@ describe("ProjectSearch P3", () => {
       expect(Array.isArray(diffs)).toBe(true);
       expect(diffs.length).toBeGreaterThan(0);
       expect(diffs[0]).toHaveProperty("type");
-      expect(diffs[0]).toHaveProperty("offset");
+      expect(diffs[0]).toHaveProperty("documentOffset");
       expect(diffs[0]).toHaveProperty("text");
       expect(["added", "removed", "modified"]).toContain(diffs[0].type);
     });
@@ -497,11 +523,15 @@ describe("ProjectSearch P3", () => {
       expect(result.error?.code).toBe("SEARCH_INDEX_CORRUPTED");
       // 验证 rebuildIndex 相关的 SQL 被调用（重建行为）
       const stmts = db.prepare.mock.calls.map((c: any) => c[0]);
-      const hasRebuild = stmts.some(
-        (s: string) => typeof s === "string" && (/rebuild|drop|create.*fts/i.test(s)),
-      ) || db.exec.mock.calls.some(
-        (c: any) => typeof c[0] === "string" && (/rebuild|drop|create.*fts/i.test(c[0])),
-      );
+      const hasRebuild =
+        stmts.some(
+          (s: string) =>
+            typeof s === "string" && /rebuild|drop|create.*fts/i.test(s),
+        ) ||
+        db.exec.mock.calls.some(
+          (c: any) =>
+            typeof c[0] === "string" && /rebuild|drop|create.*fts/i.test(c[0]),
+        );
       expect(hasRebuild).toBe(true);
     });
   });

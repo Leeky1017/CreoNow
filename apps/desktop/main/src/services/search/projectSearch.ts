@@ -1,29 +1,34 @@
 /**
- * ProjectSearch — 项目级全文搜索
+ * ProjectSearch — in-memory seam mirroring the runtime `search:fts:*` contract.
  * Spec: openspec/specs/search-and-retrieval/spec.md — P3
  */
 
-// ─── Types ──────────────────────────────────────────────────────────
+export interface SearchHighlightRange {
+  start: number;
+  end: number;
+}
 
-export interface SearchMatch {
-  snippet: string;
-  offset: number;
-  matchedTerms: string[];
+export interface SearchAnchor {
+  start: number;
+  end: number;
 }
 
 export interface ProjectSearchResult {
+  projectId: string;
   documentId: string;
   documentTitle: string;
   documentType: string;
-  matches: SearchMatch[];
+  snippet: string;
+  highlights: SearchHighlightRange[];
+  anchor: SearchAnchor;
+  documentOffset: number;
 }
 
 export interface ProjectSearchResponse {
   results: ProjectSearchResult[];
-  totalDocuments: number;
-  totalMatches: number;
-  searchTimeMs: number;
+  total: number;
   hasMore: boolean;
+  indexState: "ready" | "rebuilding";
 }
 
 export interface ProjectSearchRequest {
@@ -31,7 +36,6 @@ export interface ProjectSearchRequest {
   query: string;
   offset?: number;
   limit?: number;
-  documentTypes?: string[];
 }
 
 interface ProseMirrorNode {
@@ -52,13 +56,17 @@ interface IndexDocumentRequest {
 
 interface TextDiff {
   type: "added" | "removed" | "modified";
-  offset: number;
+  documentOffset: number;
   text: string;
 }
 
 type Result<T = void> =
   | { success: true; data?: T; error?: undefined }
-  | { success: false; data?: undefined; error: { code: string; message: string; retryAfterMs?: number } };
+  | {
+      success: false;
+      data?: undefined;
+      error: { code: string; message: string; retryAfterMs?: number };
+    };
 
 export interface ProjectSearch {
   createIndex(projectId: string): Promise<Result>;
@@ -111,12 +119,10 @@ interface Deps {
   now?: () => number;
 }
 
-// ─── Constants ──────────────────────────────────────────────────────
-
 const MAX_QUERY_LEN = 200;
 const MAX_LIMIT = 100;
-
-// ─── Helpers ────────────────────────────────────────────────────────
+const DEFAULT_LIMIT = 20;
+const DEFAULT_OFFSET = 0;
 
 function normalizeQueryTerms(query: string): string[] {
   return query
@@ -126,9 +132,13 @@ function normalizeQueryTerms(query: string): string[] {
     .filter((term) => term.length > 0);
 }
 
-function buildSnippet(text: string, offset: number, matchedTerms: string[]): string {
-  const start = Math.max(0, offset - 12);
-  const end = Math.min(text.length, offset + 24);
+function buildSnippet(
+  text: string,
+  documentOffset: number,
+  matchedTerms: string[],
+): string {
+  const start = Math.max(0, documentOffset - 12);
+  const end = Math.min(text.length, documentOffset + 24);
   const raw = text.slice(start, end);
   if (raw.length === 0) {
     return matchedTerms.length > 0 ? `...${matchedTerms[0]}...` : "...";
@@ -141,7 +151,11 @@ function resolveMatchOffset(
   matchedTerms: string[],
   rawOffset: unknown,
 ): number {
-  if (typeof rawOffset === "number" && Number.isFinite(rawOffset) && rawOffset >= 0) {
+  if (
+    typeof rawOffset === "number" &&
+    Number.isFinite(rawOffset) &&
+    rawOffset >= 0
+  ) {
     return rawOffset;
   }
 
@@ -151,6 +165,31 @@ function resolveMatchOffset(
     .sort((a, b) => a - b)[0];
 
   return firstHit ?? 0;
+}
+
+function computeHighlights(
+  snippet: string,
+  matchedTerms: string[],
+): SearchHighlightRange[] {
+  const ranges: SearchHighlightRange[] = [];
+  for (const term of matchedTerms) {
+    if (term.length === 0) {
+      continue;
+    }
+    const start = snippet.indexOf(term);
+    if (start >= 0) {
+      ranges.push({ start, end: start + term.length });
+    }
+  }
+  return ranges.sort((left, right) => left.start - right.start);
+}
+
+function toAnchor(highlights: SearchHighlightRange[]): SearchAnchor {
+  const first = highlights[0];
+  if (!first) {
+    return { start: 0, end: 0 };
+  }
+  return { start: first.start, end: first.end };
 }
 
 function hasCorruptionSignal(error: unknown): boolean {
@@ -165,7 +204,29 @@ function hasCorruptionSignal(error: unknown): boolean {
   );
 }
 
-// ─── Implementation ─────────────────────────────────────────────────
+function getNumericField(
+  value: Record<string, unknown> | undefined,
+  key: string,
+): number | undefined {
+  const field = value?.[key];
+  return typeof field === "number" && Number.isFinite(field)
+    ? field
+    : undefined;
+}
+
+function clampLimit(limit?: number): number {
+  if (typeof limit !== "number" || !Number.isFinite(limit) || limit <= 0) {
+    return DEFAULT_LIMIT;
+  }
+  return Math.min(Math.trunc(limit), MAX_LIMIT);
+}
+
+function clampOffset(offset?: number): number {
+  if (typeof offset !== "number" || !Number.isFinite(offset) || offset < 0) {
+    return DEFAULT_OFFSET;
+  }
+  return Math.trunc(offset);
+}
 
 export function createProjectSearch(deps: Deps): ProjectSearch {
   const { db, eventBus } = deps;
@@ -207,8 +268,16 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
     try {
       db.prepare(
         "INSERT OR REPLACE INTO search_index (projectId, documentId, documentTitle, documentType, content) VALUES (?, ?, ?, ?, ?)",
-      ).run(doc.projectId, doc.documentId, doc.documentTitle, doc.documentType, doc.text);
-      db.prepare("DELETE FROM search_fts WHERE projectId = ? AND documentId = ?").run(doc.projectId, doc.documentId);
+      ).run(
+        doc.projectId,
+        doc.documentId,
+        doc.documentTitle,
+        doc.documentType,
+        doc.text,
+      );
+      db.prepare(
+        "DELETE FROM search_fts WHERE projectId = ? AND documentId = ?",
+      ).run(doc.projectId, doc.documentId);
       db.prepare(
         "INSERT INTO search_fts (projectId, documentId, content) VALUES (?, ?, ?)",
       ).run(doc.projectId, doc.documentId, doc.text);
@@ -217,7 +286,11 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
     }
   }
 
-  function emitIndexEvent(action: "indexed" | "removed" | "rebuilt", projectId: string, documentId: string): void {
+  function emitIndexEvent(
+    action: "indexed" | "removed" | "rebuilt",
+    projectId: string,
+    documentId: string,
+  ): void {
     eventBus.emit({
       type: "search-index-updated",
       projectId,
@@ -225,6 +298,41 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       action,
       timestamp: now(),
     });
+  }
+
+  function rowToResult(
+    row: Record<string, unknown>,
+    projectId: string,
+    fallbackTerms: string[],
+  ): ProjectSearchResult {
+    const contentText = typeof row.content === "string" ? row.content : "";
+    const matchedTerms = Array.isArray(row.matchedTerms)
+      ? row.matchedTerms.filter(
+          (term): term is string => typeof term === "string",
+        )
+      : typeof row.matchedTerms === "string"
+        ? [row.matchedTerms]
+        : fallbackTerms;
+    const documentOffset = resolveMatchOffset(
+      contentText,
+      matchedTerms,
+      row.documentOffset ?? row.offset,
+    );
+    const snippet = String(
+      row.snippet ?? buildSnippet(contentText, documentOffset, matchedTerms),
+    );
+    const highlights = computeHighlights(snippet, matchedTerms);
+
+    return {
+      projectId: typeof row.projectId === "string" ? row.projectId : projectId,
+      documentId: String(row.documentId ?? ""),
+      documentTitle: String(row.documentTitle ?? ""),
+      documentType: String(row.documentType ?? ""),
+      snippet,
+      highlights,
+      anchor: toAnchor(highlights),
+      documentOffset,
+    };
   }
 
   const search: ProjectSearch = {
@@ -256,7 +364,9 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
           "CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(projectId UNINDEXED, documentId UNINDEXED, content)",
         );
         db.prepare("DELETE FROM search_fts WHERE projectId = ?").run(projectId);
-        db.prepare("DELETE FROM search_index WHERE projectId = ?").run(projectId);
+        db.prepare("DELETE FROM search_index WHERE projectId = ?").run(
+          projectId,
+        );
       } catch {
         // mock db
       }
@@ -290,13 +400,20 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       return search.indexDocument(req);
     },
 
-    async removeDocument(projectId: string, documentId: string): Promise<Result> {
+    async removeDocument(
+      projectId: string,
+      documentId: string,
+    ): Promise<Result> {
       assertNotDisposed();
 
       getProjectIndex(projectId).delete(documentId);
       try {
-        db.prepare("DELETE FROM search_fts WHERE projectId = ? AND documentId = ?").run(projectId, documentId);
-        db.prepare("DELETE FROM search_index WHERE projectId = ? AND documentId = ?").run(projectId, documentId);
+        db.prepare(
+          "DELETE FROM search_fts WHERE projectId = ? AND documentId = ?",
+        ).run(projectId, documentId);
+        db.prepare(
+          "DELETE FROM search_index WHERE projectId = ? AND documentId = ?",
+        ).run(projectId, documentId);
       } catch {
         // mock db
       }
@@ -305,14 +422,22 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       return { success: true };
     },
 
-    async search(req: ProjectSearchRequest): Promise<Result<ProjectSearchResponse>> {
+    async search(
+      req: ProjectSearchRequest,
+    ): Promise<Result<ProjectSearchResponse>> {
       assertNotDisposed();
 
       if (req.query.trim().length === 0) {
-        return { success: false, error: { code: "SEARCH_QUERY_EMPTY", message: "搜索词不能为空" } };
+        return {
+          success: false,
+          error: { code: "SEARCH_QUERY_EMPTY", message: "搜索词不能为空" },
+        };
       }
       if (req.query.length > MAX_QUERY_LEN) {
-        return { success: false, error: { code: "SEARCH_QUERY_TOO_LONG", message: "搜索词过长" } };
+        return {
+          success: false,
+          error: { code: "SEARCH_QUERY_TOO_LONG", message: "搜索词过长" },
+        };
       }
 
       const retryAfterMs = deps.backpressureGuard?.(req) ?? null;
@@ -340,28 +465,31 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
         };
       }
 
-      const startTime = now();
-      const limit = Math.min(req.limit ?? 20, MAX_LIMIT);
-      const offset = req.offset ?? 0;
+      const limit = clampLimit(req.limit);
+      const offset = clampOffset(req.offset);
+      const terms = normalizeQueryTerms(req.query);
 
-      let rows: Record<string, unknown>[] | null = null;
+      let results: ProjectSearchResult[] | null = null;
+      let total = 0;
       try {
-        const params: unknown[] = [req.projectId];
-        let sql =
-          "SELECT si.*, bm25(search_fts) as rank FROM search_fts JOIN search_index si ON search_fts.projectId = si.projectId AND search_fts.documentId = si.documentId WHERE si.projectId = ?";
-
-        if (req.documentTypes && req.documentTypes.length > 0) {
-          const placeholders = req.documentTypes.map(() => "?").join(",");
-          sql += ` AND si.documentType IN (${placeholders})`;
-          params.push(...req.documentTypes);
-        }
-
-        sql += " AND search_fts MATCH ? ORDER BY rank LIMIT ? OFFSET ?";
-        params.push(req.query, limit, offset);
-        rows = db.prepare(sql).all(...params);
+        const rows = db
+          .prepare(
+            "SELECT si.projectId, si.documentId, si.documentTitle, si.documentType, si.content, bm25(search_fts) as rank FROM search_fts JOIN search_index si ON search_fts.projectId = si.projectId AND search_fts.documentId = si.documentId WHERE si.projectId = ? AND search_fts MATCH ? ORDER BY rank LIMIT ? OFFSET ?",
+          )
+          .all(req.projectId, req.query, limit, offset);
+        const countRow = db
+          .prepare(
+            "SELECT COUNT(*) as total FROM search_fts JOIN search_index si ON search_fts.projectId = si.projectId AND search_fts.documentId = si.documentId WHERE si.projectId = ? AND search_fts MATCH ?",
+          )
+          .get(req.projectId, req.query);
+        results = rows.map((row) => rowToResult(row, req.projectId, terms));
+        total = getNumericField(countRow, "total") ?? results.length;
       } catch (error) {
         if (error instanceof Error && error.message === "SEARCH_TIMEOUT") {
-          return { success: false, error: { code: "SEARCH_TIMEOUT", message: "搜索超时" } };
+          return {
+            success: false,
+            error: { code: "SEARCH_TIMEOUT", message: "搜索超时" },
+          };
         }
         if (hasCorruptionSignal(error)) {
           await search.rebuildIndex(req.projectId);
@@ -373,88 +501,53 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
             },
           };
         }
-        rows = null;
       }
 
-      const terms = normalizeQueryTerms(req.query);
-      let results: ProjectSearchResult[] = [];
-
-      if (rows !== null) {
-        const grouped = new Map<string, ProjectSearchResult>();
-        for (const row of rows) {
-          const documentId = String(row.documentId ?? "");
-          const rowContent = String(row.content ?? "");
-          const matchedTerms = Array.isArray(row.matchedTerms)
-            ? (row.matchedTerms as string[])
-            : typeof row.matchedTerms === "string"
-              ? [row.matchedTerms]
-              : terms;
-          const resolvedOffset = resolveMatchOffset(rowContent, matchedTerms, row.offset);
-          if (!grouped.has(documentId)) {
-            grouped.set(documentId, {
-              documentId,
-              documentTitle: String(row.documentTitle ?? ""),
-              documentType: String(row.documentType ?? ""),
-              matches: [],
-            });
-          }
-          grouped.get(documentId)?.matches.push({
-            snippet: String(row.snippet ?? buildSnippet(rowContent, resolvedOffset, matchedTerms)),
-            offset: resolvedOffset,
-            matchedTerms,
-          });
-        }
-        results = Array.from(grouped.values());
-      } else {
-        const docEntries = Array.from(projectDocs?.values() ?? []).filter((doc) => {
-          if (!req.documentTypes || req.documentTypes.length === 0) {
-            return true;
-          }
-          return req.documentTypes.includes(doc.documentType);
-        });
-
-        const matchedDocs = docEntries
+      if (results === null) {
+        const matchedDocs = Array.from(projectDocs?.values() ?? [])
           .map((doc) => {
-            const matches: SearchMatch[] = [];
-            for (const term of terms) {
-              const offsetInText = doc.text.indexOf(term);
-              if (offsetInText >= 0) {
-                matches.push({
-                  snippet: buildSnippet(doc.text, offsetInText, [term]),
-                  offset: offsetInText,
-                  matchedTerms: [term],
-                });
-              }
-            }
-            if (matches.length === 0) {
+            const firstTerm = terms
+              .map((term) => ({ term, offset: doc.text.indexOf(term) }))
+              .filter((entry) => entry.offset >= 0)
+              .sort((left, right) => left.offset - right.offset)[0];
+            if (!firstTerm) {
               return null;
             }
+            const snippet = buildSnippet(doc.text, firstTerm.offset, [
+              firstTerm.term,
+            ]);
+            const highlights = computeHighlights(snippet, [firstTerm.term]);
             return {
+              projectId: doc.projectId,
               documentId: doc.documentId,
               documentTitle: doc.documentTitle,
               documentType: doc.documentType,
-              matches,
+              snippet,
+              highlights,
+              anchor: toAnchor(highlights),
+              documentOffset: firstTerm.offset,
             } satisfies ProjectSearchResult;
           })
           .filter((item): item is ProjectSearchResult => item !== null);
 
+        total = matchedDocs.length;
         results = matchedDocs.slice(offset, offset + limit);
       }
 
-      const totalMatches = results.reduce((sum, result) => sum + result.matches.length, 0);
       return {
         success: true,
         data: {
           results,
-          totalDocuments: results.length,
-          totalMatches,
-          searchTimeMs: now() - startTime,
-          hasMore: results.length >= limit,
+          total,
+          hasMore: offset + results.length < total,
+          indexState: "ready",
         },
       };
     },
 
-    async getIndexStatus(projectId: string): Promise<Result<{ status: string }>> {
+    async getIndexStatus(
+      projectId: string,
+    ): Promise<Result<{ status: string }>> {
       assertNotDisposed();
 
       if (!indexedProjects.has(projectId)) {
@@ -493,19 +586,32 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       if (newText.length === oldText.length) {
         let oldEnd = oldText.length - 1;
         let newEnd = newText.length - 1;
-        while (oldEnd > start && newEnd > start && oldText[oldEnd] === newText[newEnd]) {
+        while (
+          oldEnd > start &&
+          newEnd > start &&
+          oldText[oldEnd] === newText[newEnd]
+        ) {
           oldEnd -= 1;
           newEnd -= 1;
         }
-        return [{ type: "modified", offset: start, text: newText.slice(start, newEnd + 1) }];
+        return [
+          {
+            type: "modified",
+            documentOffset: start,
+            text: newText.slice(start, newEnd + 1),
+          },
+        ];
       }
 
       if (newText.length > oldText.length) {
         return [
           {
             type: "added",
-            offset: start,
-            text: newText.slice(start, start + (newText.length - oldText.length)),
+            documentOffset: start,
+            text: newText.slice(
+              start,
+              start + (newText.length - oldText.length),
+            ),
           },
         ];
       }
@@ -513,7 +619,7 @@ export function createProjectSearch(deps: Deps): ProjectSearch {
       return [
         {
           type: "removed",
-          offset: start,
+          documentOffset: start,
           text: oldText.slice(start, start + (oldText.length - newText.length)),
         },
       ];
