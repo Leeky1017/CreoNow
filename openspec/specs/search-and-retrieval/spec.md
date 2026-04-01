@@ -1,5 +1,15 @@
 # Search & Retrieval Specification
 
+## P3 变更摘要
+
+P3 阶段将搜索降级为**纯全文检索**——仅保留 SQLite FTS5，不做向量嵌入、语义搜索、RAG。这是有意的范围控制：「先让用户能找到内容，再谈语义理解」。
+
+| 变更 | 描述 |
+|------|------|
+| P3 — 项目级全文搜索 | 项目 scope 的 FTS5 全文检索 + 跳转定位 |
+
+**P3 明确降级**：向量嵌入、语义搜索、RAG 检索增强、融合排序均推迟到 P4+。P3 只做 FTS。
+
 ## Purpose
 
 全文检索（FTS）、RAG 检索增强生成、向量嵌入与语义搜索。为 AI 续写和用户搜索提供相关上下文片段。
@@ -374,3 +384,244 @@ finalScore = 0.55 * bm25Norm + 0.35 * semanticScore + 0.10 * recencyScore
 - **当** 超出并发上限 64
 - **则** 超限请求返回 `{ code: "SEARCH_BACKPRESSURE", retryAfterMs: 200 }`
 - **并且** 已受理请求不被饿死
+
+---
+
+## P3: 项目级全文搜索
+
+> **阶段**: P3（项目制长篇创作）
+> **设计决策**: P3 仅实现 FTS5 全文检索，复用已有 FTS 基础设施，新增项目 scope 约束和 ProseMirror 文档适配。
+
+### Requirement: P3 — 项目范围全文搜索
+
+系统**必须**在 P3 阶段提供项目范围内的全文搜索功能，从 ProseMirror JSON 格式的文档中提取纯文本并建立 FTS5 索引。
+
+#### 接口契约
+
+```typescript
+/**
+ * ProseMirrorDocument 类型别名——引用 editor/spec.md 中的 ProseMirrorNode。
+ * ProseMirror 中文档本身就是一个 Node（type: 'doc'），因此 ProseMirrorDocument = ProseMirrorNode。
+ * 定义见 editor/spec.md: `import { Node as ProseMirrorNode } from 'prosemirror-model'`
+ */
+type ProseMirrorDocument = ProseMirrorNode
+
+/** 项目内文档类型——统一枚举，请求和响应共用 */
+type ProjectDocumentType = 'chapter' | 'note' | 'setting' | 'timeline' | 'character'
+
+/** P3 搜索请求——项目范围 */
+interface ProjectSearchRequest {
+  /** 项目 ID */
+  projectId: string
+  /** 搜索关键词 */
+  query: string
+  /** 文档类型过滤（可选） */
+  documentTypes?: ProjectDocumentType[]
+  /** 分页偏移 */
+  offset?: number
+  /** 分页大小（默认 20，最大 100） */
+  limit?: number
+}
+
+/** P3 搜索结果 */
+interface ProjectSearchResult {
+  /** 文档 ID */
+  documentId: string
+  /** 文档标题 */
+  documentTitle: string
+  /** 文档类型 */
+  documentType: ProjectDocumentType
+  /** 匹配列表 */
+  matches: SearchMatch[]
+}
+
+/** 单个匹配 */
+interface SearchMatch {
+  /** 匹配片段（含高亮标记） */
+  snippet: string
+  /** 匹配位置在文档中的 offset */
+  offset: number
+  /** 匹配关键词 */
+  matchedTerms: string[]
+}
+
+/** 搜索响应 */
+interface ProjectSearchResponse {
+  /** 搜索结果列表 */
+  results: ProjectSearchResult[]
+  /** 总匹配文档数 */
+  totalDocuments: number
+  /** 总匹配数 */
+  totalMatches: number
+  /** 搜索耗时（ms） */
+  searchTimeMs: number
+  /** 是否还有更多结果 */
+  hasMore: boolean
+}
+```
+
+#### IPC 通道
+
+| IPC 通道 | 通信模式 | 方向 | 用途 |
+|----------|---------|------|------|
+| `search:project:query` | Request-Response | Renderer → Main | 项目范围全文搜索 |
+| `search:project:reindex` | Request-Response | Renderer → Main | 重建项目 FTS 索引 |
+| `search:project:index-status` | Request-Response | Renderer → Main | 查询索引状态 |
+
+#### 数据流
+
+```
+文档保存（autosave 触发后）
+  → ProseMirror JSON → 纯文本提取
+    → 增量更新 FTS5 索引
+
+用户搜索
+  → search:project:query IPC
+    → FTS5 查询（WHERE projectId = ?）
+    → 结果排序（BM25 相关度）
+    → 片段高亮（FTS5 snippet 函数）
+    → 返回 ProjectSearchResponse
+```
+
+#### ProseMirror 文档的文本提取
+
+```typescript
+/** P3 从 ProseMirror JSON 提取可索引文本 */
+interface TextExtractor {
+  /**
+   * 将 ProseMirror JSON 转换为可索引的纯文本。
+   * 保留段落分隔，去除格式标记（bold/italic/link 等）。
+   * 保留标题层级（作为上下文信息）。
+   */
+  extractFromProseMirror(doc: ProseMirrorDocument): string
+
+  /**
+   * 增量提取：仅提取变更的文本块。
+   * 用于避免全文重建索引。
+   */
+  extractDiff(oldDoc: ProseMirrorDocument, newDoc: ProseMirrorDocument): TextDiff[]
+
+  /**
+   * 将纯文本 offset 反向映射为 ProseMirror 文档中的 node position。
+   * 用于搜索结果跳转：SearchMatch.offset → ProseMirror position → 滚动到匹配位置。
+   * 返回 ProseMirror 的绝对位置（可直接用于 EditorView.dispatch 的 scrollIntoView）。
+   */
+  mapOffsetToPosition(doc: ProseMirrorDocument, offset: number): number
+}
+
+interface TextDiff {
+  /** 变更类型 */
+  type: 'added' | 'removed' | 'modified'
+  /** 文本位置 offset */
+  offset: number
+  /** 变更后的文本 */
+  text: string
+}
+```
+
+#### 错误处理
+
+| 错误场景 | code | 处理策略 |
+|---------|------|---------|
+| 搜索词为空 | `SEARCH_QUERY_EMPTY` | 返回空结果 |
+| 搜索词过长（>200 字符） | `SEARCH_QUERY_TOO_LONG` | 校验阻断 |
+| FTS 索引不存在 | `SEARCH_INDEX_NOT_FOUND` | 自动触发建索引 |
+| FTS 索引损坏 | `SEARCH_INDEX_CORRUPTED` | 自动重建 |
+| 项目不存在 | `SEARCH_PROJECT_NOT_FOUND` | 返回错误 |
+| 搜索超时 | `SEARCH_TIMEOUT` | 返回已有部分结果 |
+| 搜索反压 | `SEARCH_BACKPRESSURE` | 超限请求排队，返回 retryAfterMs |
+| 向量维度不匹配 | `EMBEDDING_DIMENSION_MISMATCH` | 隔离该批次，返回错误（预留，P3 不使用） |
+
+#### WritingEvent 扩展
+
+```typescript
+/** P3 新增 WritingEvent——搜索索引更新 */
+type SearchIndexUpdatedEvent = {
+  type: 'search-index-updated'
+  timestamp: number
+  projectId: string
+  documentId: string
+  action: 'indexed' | 'removed' | 'rebuilt'
+}
+```
+
+#### Scenario: P3 用户在项目内搜索关键词
+
+- **假设** 项目「暗流」有 12 个章节文档
+- **当** 用户按下 `Cmd/Ctrl+Shift+F`，输入「林远」
+- **则** 系统通过 `search:project:query` 搜索，scope 限定为当前项目
+- **并且** 搜索结果显示所有包含「林远」的文档片段，关键词高亮
+- **并且** 结果按 BM25 相关度排序
+
+#### Scenario: P3 搜索结果跳转到匹配位置
+
+- **假设** 搜索结果显示「第三章」中有匹配
+- **当** 用户点击该结果
+- **则** 编辑器加载「第三章」并滚动到匹配位置
+- **并且** 匹配关键词短暂高亮闪烁
+
+#### Scenario: P3 按文档类型过滤搜索
+
+- **假设** 用户只想搜索笔记中的内容
+- **当** 用户在搜索面板中勾选类型过滤「笔记」
+- **则** 搜索结果仅包含类型为 `note` 的文档
+
+#### Scenario: P3 搜索无结果
+
+- **假设** 用户搜索项目中不存在的关键词
+- **当** FTS 查询返回空结果
+- **则** 搜索面板显示「未找到匹配结果」
+- **并且** 建议检查拼写或使用不同关键词
+
+#### Scenario: P3 文档保存后增量更新索引
+
+- **假设** 用户编辑了「第五章」并触发 autosave
+- **当** 文档保存完成
+- **则** 系统从 ProseMirror JSON 提取纯文本
+- **并且** 增量更新该文档的 FTS5 索引
+- **并且** 不阻塞编辑器操作
+
+#### Scenario: P3 FTS 索引损坏自动重建
+
+- **假设** FTS 索引文件损坏
+- **当** 用户执行搜索
+- **则** 系统检测到索引异常，自动触发 `search:project:reindex`
+- **并且** 搜索面板显示「正在重建索引，请稍后重试」
+- **并且** 重建完成后搜索功能恢复
+
+---
+
+### P3 Search 模块级可验收标准
+
+- 量化阈值：
+  - `search:project:query` p95 < 300ms（1000 文档、200K chunks）
+  - 增量索引更新 p95 < 100ms（单文档）
+  - 全量索引重建 p95 < 10s（1000 文档）
+- 边界与类型安全：
+  - `TypeScript strict` + zod
+  - `search:project:*` 通道返回统一 `IPCResponse`
+- 失败处理策略：
+  - FTS 索引损坏时自动重建
+  - 超时返回已有部分结果
+  - 不得静默失败
+- Owner 决策边界：
+  - 搜索面板 UI 规范由 Owner 固定
+  - Agent 不可引入向量搜索或 RAG
+
+#### Scenario: P3 大规模文档搜索性能
+
+- **假设** 项目有 1000 个文档
+- **当** 用户搜索常见关键词
+- **则** p95 < 300ms
+- **并且** 结果正确且完整
+
+---
+
+### P3 不做清单（Search Module）
+
+- ❌ 不做向量嵌入（Embedding）
+- ❌ 不做语义搜索
+- ❌ 不做 RAG 检索增强生成
+- ❌ 不做两阶段召回 + 融合重排
+- ❌ 不做搜索结果的 scoreBreakdown
+- ❌ 不做跨项目搜索

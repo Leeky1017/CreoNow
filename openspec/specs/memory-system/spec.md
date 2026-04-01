@@ -1,5 +1,15 @@
 # Memory System Specification
 
+## P3 变更摘要
+
+P3 阶段将三层记忆架构降级为**简单记忆系统**——仅保留用户偏好存储 + 项目级角色设定自动注入。这是有意的范围控制：「先让 AI 记住用户偏好和角色设定，再谈情景蒸馏和衰减模型」。
+
+| 变更 | 描述 |
+|------|------|
+| P3 — 简单记忆（Simple Memory） | 用户偏好 key-value 存储 + 项目级角色/地点设定自动注入 AI |
+| P3 — Forked Agent 注入 | 参考 CC memdir/ 模式，precision > recall |
+
+**P3 明确降级**：三层记忆架构（工作记忆/情景记忆/语义记忆）、记忆衰减、蒸馏、溯源、冲突检测均推迟到 P4+。P3 只做 key-value 偏好 + 角色设定注入。
 
 ## Purpose
 
@@ -670,3 +680,290 @@ importanceBoost = 1 + 0.3 × importance
 - **当** 超出并发上限 32
 - **则** 超限请求返回 `MEMORY_BACKPRESSURE`
 - **并且** 已执行查询不超时
+
+---
+
+## P3: 简单记忆系统（Simple Memory）
+
+> **阶段**: P3（项目制长篇创作）
+> **设计决策**: P3 仅实现 key-value 偏好存储 + 角色设定自动注入。不做三层架构、情景记忆、语义蒸馏、衰减模型。
+> **CC 参考**: `memdir/` Forked Agent 模式——共享 parent message prefix 获取 prompt cache hit；precision > recall 策略。
+
+### Requirement: P3 — MemoryRecord（简单记忆条目）
+
+系统**必须**提供简单的 key-value 记忆存储，支持用户偏好和系统生成的记忆条目。
+
+#### 接口契约
+
+```typescript
+/** P3 简单记忆条目——key-value 存储 */
+interface MemoryRecord {
+  /** 记录 ID */
+  id: string
+  /** 所属项目 ID（null 表示全局） */
+  projectId: string | null
+  /** 记忆键（语义化键名，如 'pref:narrative-person'、'pref:sentence-style'） */
+  key: string
+  /** 记忆值（自然语言描述） */
+  value: string
+  /** 来源 */
+  source: 'user' | 'system'
+  /** 分类 */
+  category: 'preference' | 'character-setting' | 'location-setting' | 'style-rule'
+  /** 创建时间 */
+  createdAt: number
+  /** 更新时间 */
+  updatedAt: number
+}
+
+/** 记忆写入请求 */
+interface WriteMemoryRequest {
+  projectId: string | null
+  key: string
+  value: string
+  source: 'user' | 'system'
+  category: MemoryRecord['category']
+}
+
+/** 记忆查询请求 */
+interface QueryMemoryRequest {
+  projectId: string | null
+  category?: MemoryRecord['category']
+  /** 模糊匹配 key 前缀 */
+  keyPrefix?: string
+}
+
+/** 记忆注入结果——用于 Context Engine */
+interface MemoryInjection {
+  /** 注入的记忆条目 */
+  records: MemoryRecord[]
+  /** 序列化后的注入文本 */
+  injectedText: string
+  /** 总 token 数 */
+  tokenCount: number
+  /** 是否降级（记忆服务不可用） */
+  degraded: boolean
+}
+```
+
+#### IPC 通道
+
+| IPC 通道 | 通信模式 | 方向 | 用途 |
+|----------|---------|------|------|
+| `memory:simple:write` | Request-Response | Renderer → Main | 写入/更新记忆条目 |
+| `memory:simple:read` | Request-Response | Renderer → Main | 读取记忆条目 |
+| `memory:simple:delete` | Request-Response | Renderer → Main | 删除记忆条目 |
+| `memory:simple:list` | Request-Response | Renderer → Main | 列出记忆条目 |
+| `memory:simple:inject` | Request-Response | Renderer → Main | 获取 AI 注入记忆 |
+| `memory:simple:clear-project` | Request-Response | Renderer → Main | 清除项目级记忆 |
+
+#### 数据流
+
+```
+用户设置偏好
+  → memory:simple:write IPC
+    → Zod 校验
+    → SQLite 持久化（memory_records 表）
+    → 写入成功
+
+AI 续写时注入记忆
+  → Context Engine 请求 memory:simple:inject
+    → 查询 project-scope + global-scope 记忆
+    → precision > recall 过滤：仅注入与当前文档相关的条目
+    → 序列化为结构化文本
+    → 注入 Context Engine Settings 层
+```
+
+#### 注入格式
+
+```
+[用户写作偏好]
+- 叙述人称：严格第一人称
+- 动作场景：偏好短句，节奏紧凑
+- 对白风格：口语化，避免书面语气
+
+[角色设定 - 自动注入]
+- 林远：28 岁，退休刑警，性格冷静理性
+- 林小雨：林远的妹妹，活泼开朗
+
+[地点设定 - 自动注入]
+- 废弃仓库：气氛阴冷压抑，灯光昏暗
+```
+
+#### 注入策略（precision > recall）
+
+参考 CC `memdir/` Forked Agent 的 precision > recall 策略：
+
+1. **宁缺毋滥**：注入不相关的记忆比遗漏相关记忆更有害——不相关记忆会误导 AI 生成
+2. **相关性筛选**：仅注入当前文档文本中提及的角色/地点设定
+3. **用户偏好全量注入**：`category: 'preference'` 和 `category: 'style-rule'` 的记忆始终注入（因为它们是全局风格指令）
+4. **双重截断策略**：先按相关度选取最多 10 个角色 + 5 个地点（初始选择上限），再按 40% token 预算截断。即：数量上限是初始筛选门控，token 预算是最终硬约束
+5. **项目级优先**：项目级记忆覆盖同 key 的全局记忆
+
+#### 错误处理
+
+| 错误场景 | code | 处理策略 |
+|---------|------|---------|
+| key 为空 | `MEMORY_KEY_REQUIRED` | 阻断写入 |
+| key 超长（>200 字符） | `MEMORY_KEY_TOO_LONG` | 校验阻断 |
+| value 超长（>2000 字符） | `MEMORY_VALUE_TOO_LONG` | 校验阻断 |
+| 记忆不存在 | `MEMORY_NOT_FOUND` | 返回错误 |
+| 记忆服务不可用 | `MEMORY_SERVICE_UNAVAILABLE` | 降级为无记忆模式 |
+| 记忆条目超限 | `MEMORY_CAPACITY_EXCEEDED` | 引导用户整理已有记忆 |
+| 记忆反压 | `MEMORY_BACKPRESSURE` | 超限请求排队，返回 retryAfterMs |
+| 清理失败 | `MEMORY_CLEANUP_FAILED` | 记录告警，不阻断主流程 |
+| 清除需确认 | `MEMORY_CLEAR_CONFIRM_REQUIRED` | 返回确认提示，等待用户二次确认 |
+
+#### WritingEvent 扩展
+
+```typescript
+/** P3 新增 WritingEvent——记忆注入完成 */
+type MemoryInjectedEvent = {
+  type: 'memory-injected'
+  timestamp: number
+  projectId: string
+  recordCount: number
+  tokenCount: number
+  degraded: boolean
+}
+
+/** P3 新增 WritingEvent——记忆变更 */
+type MemoryUpdatedEvent = {
+  type: 'memory-updated'
+  timestamp: number
+  projectId: string | null
+  key: string
+  action: 'written' | 'deleted' | 'cleared'
+}
+```
+
+#### Scenario: P3 用户手动设置写作偏好
+
+- **假设** 用户打开记忆/偏好面板
+- **当** 用户点击「添加偏好」，输入 key「对白风格」、value「口语化，避免书面语气」
+- **则** 系统通过 `memory:simple:write` 存储为 `{ key: 'pref:dialogue-style', value: '口语化，避免书面语气', category: 'preference', source: 'user' }`
+- **并且** 后续 AI 续写时，该偏好自动注入 Settings 层
+
+#### Scenario: P3 角色设定自动同步到记忆
+
+- **假设** 用户在 Settings Module 中更新了角色「林远」的描述
+- **当** 角色设定更新完成
+- **则** 系统自动通过 `memory:simple:write` 更新对应的 `category: 'character-setting'` 记忆条目
+- **并且** 下次 AI 续写时注入最新的角色设定
+
+#### 同步机制
+
+角色/地点设定与简单记忆系统之间的同步采用事件驱动、异步 fire-and-forget 模式：
+
+```
+Settings Module 角色/地点 CRUD 操作
+  → 发射 CharacterUpdatedEvent / LocationCreatedEvent / LocationUpdatedEvent / LocationDeletedEvent
+  → SimpleMemoryService 监听上述 WritingEvent
+    → 'created' / 'updated' action:
+        → 读取最新 CharacterEntry / LocationEntry
+        → 通过 memory:simple:write 写入/更新对应 MemoryRecord
+          （key: 'char:{characterName}' 或 'loc:{locationName}'）
+          （category: 'character-setting' 或 'location-setting'）
+          注：使用名称而非 ID 作为 key，使注入时可直接对文档文本做子串匹配（`documentText.includes(name)`），
+          避免额外的查找表开销。id 字段用作 MemoryRecord 的主键以保证幂等性。
+    → 'deleted' action:
+        → 通过 memory:simple:delete 删除对应 MemoryRecord
+```
+
+同步约束：
+- **异步、fire-and-forget**：同步失败仅记录警告日志，不阻塞角色/地点的 CRUD 操作
+- **最终一致性**：允许短暂不一致（角色更新后、记忆同步前触发的 AI 续写可能使用旧设定）
+- **幂等**：重复同步同一条目等价于覆盖写入，不产生副作用
+
+#### Scenario: P3 AI 续写时注入记忆
+
+- **假设** 用户在第十章触发续写，内容涉及林远
+- **当** Context Engine 组装上下文
+- **则** 通过 `memory:simple:inject` 查询相关记忆
+- **并且** 注入用户偏好（全量）+ 林远的角色设定（相关筛选）
+- **并且** 不注入当前文档未提及的其他角色设定
+
+#### Scenario: P3 记忆服务不可用时的降级
+
+- **假设** 记忆 SQLite 数据库不可读
+- **当** Context Engine 请求记忆注入
+- **则** 返回 `{ records: [], injectedText: '', tokenCount: 0, degraded: true }`
+- **并且** AI 续写继续工作，仅依赖 Rules 层和 Immediate 层
+- **并且** 状态栏提示「记忆系统暂时不可用」
+
+#### Scenario: P3 项目级记忆覆盖全局记忆
+
+- **假设** 全局记忆有「叙述人称: 第一人称」，项目级记忆有「叙述人称: 第三人称全知」
+- **当** AI 续写时注入记忆
+- **则** 注入项目级的「第三人称全知」
+- **并且** 全局的「第一人称」在此项目中被覆盖
+
+#### Scenario: P3 清除项目级记忆
+
+- **假设** 用户想重置项目「实验小说」的所有记忆
+- **当** 用户点击「清除项目记忆」并确认
+- **则** 系统通过 `memory:simple:clear-project` 删除该项目的所有记忆条目
+- **并且** 全局记忆不受影响
+- **并且** Toast 通知「已清除项目记忆」
+
+---
+
+### Requirement: P3 — 偏好面板（简化版记忆面板）
+
+系统**必须**提供简化的偏好面板，供用户管理写作偏好和查看自动注入的角色/地点设定。
+
+面板位于左侧栏或项目设置中，包含：
+
+- **偏好列表**：按分类显示所有偏好条目
+- **作用域切换**：「全局」/「本项目」
+- **操作**：添加、编辑、删除偏好
+- **角色/地点设定预览**：只读展示当前项目的角色/地点设定（编辑入口跳转到 Settings Module）
+
+偏好面板组件**必须**有 Storybook Story，覆盖：有多条偏好的默认态、空态（新用户）、项目级视图。
+
+#### Scenario: P3 偏好面板空状态
+
+- **假设** 新用户或新项目，没有任何偏好
+- **当** 用户打开偏好面板
+- **则** 显示空状态：图标 + 文案「添加写作偏好后，AI 将更懂你的写作风格」
+- **并且** 提供「添加偏好」按钮
+
+---
+
+### P3 Simple Memory 模块级可验收标准
+
+- 量化阈值：
+  - `memory:simple:write` p95 < 100ms
+  - `memory:simple:list` p95 < 120ms
+  - `memory:simple:inject` p95 < 150ms（含相关性筛选）
+- 边界与类型安全：
+  - `TypeScript strict` + zod
+  - `memory:simple:*` 通道返回统一 `IPCResponse`
+- 失败处理策略：
+  - 写入失败硬失败并返回错误码
+  - 注入失败可降级（AI 续写不注入记忆）
+  - 降级必须可见（状态栏提示）
+- Owner 决策边界：
+  - 注入策略（precision > recall）和 token 预算比例由 Owner 固定
+  - Agent 不可新增 category 枚举值
+
+#### Scenario: P3 记忆容量上限
+
+- **假设** 项目记忆条目已达 1000（单项目上限）
+- **当** 用户继续添加记忆
+- **则** 返回 `{ code: "MEMORY_CAPACITY_EXCEEDED", message: "记忆条目已达上限" }`
+- **并且** 引导用户整理或删除旧条目
+
+---
+
+### P3 不做清单（Memory Module）
+
+- ❌ 不做三层记忆架构（工作记忆/情景记忆/语义记忆）
+- ❌ 不做 AI 自动提取偏好（无蒸馏）
+- ❌ 不做隐式反馈信号提取
+- ❌ 不做记忆衰减与遗忘曲线
+- ❌ 不做记忆冲突检测与解决
+- ❌ 不做记忆溯源（GenerationTrace）
+- ❌ 不做记忆压缩策略
+- ❌ 不做向量索引和语义召回
+- ❌ 不做记忆面板的「暂停学习」「查看学习历史」等高级功能
