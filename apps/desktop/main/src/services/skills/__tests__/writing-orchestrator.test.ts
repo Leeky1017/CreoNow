@@ -601,6 +601,36 @@ describe("WritingOrchestrator", () => {
       expect(rejectGate.pending.size).toBe(0);
       rejectOrch.dispose();
     });
+
+    it("paused 状态调用 abort → pending.size===0 且 releasePendingPermission 被调用", async () => {
+      const permissionGate = createTrackablePermissionGate();
+      const cfg = buildConfig({ permissionGate });
+      const orch = createWritingOrchestrator(cfg);
+      const gen = orch.execute(makeRequest({ requestId: "req-abort-paused" }));
+
+      // Advance until permission-requested (task enters paused state)
+      let result = await gen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        result = await gen.next();
+      }
+      expect(result.done).toBe(false);
+      expect(permissionGate.pending.size).toBe(1);
+
+      // Abort while task is paused waiting for permission
+      const waiting = gen.next();
+      await Promise.resolve();
+      orch.abort("req-abort-paused");
+      await Promise.resolve();
+
+      expect(permissionGate.pending.size).toBe(0);
+      expect(permissionGate.releasePendingPermission).toHaveBeenCalledWith(
+        "req-abort-paused",
+      );
+
+      await vi.advanceTimersByTimeAsync(120_000);
+      await waiting;
+      orch.dispose();
+    });
   });
 
   // ── 错误恢复 ──────────────────────────────────────────────────
