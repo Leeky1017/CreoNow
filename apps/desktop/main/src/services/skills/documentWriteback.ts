@@ -1,4 +1,4 @@
-import { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
+import { Fragment, Node as ProseMirrorNode, Slice } from "prosemirror-model";
 import { Transform } from "@tiptap/pm/transform";
 
 import { editorSchema } from "../editor/prosemirrorSchema";
@@ -65,11 +65,19 @@ export function appendSuggestionToDocument(args: {
       args.cursorPosition >= 0
     ) {
       const insertionPoint = Math.min(args.cursorPosition, doc.content.size);
-      tr.replaceWith(
-        insertionPoint,
-        insertionPoint,
-        editorSchema.text(normalizedSuggestion),
-      );
+      if (appendedNodes.length === 1) {
+        tr.replaceWith(
+          insertionPoint,
+          insertionPoint,
+          editorSchema.text(normalizedSuggestion),
+        );
+      } else {
+        tr.replace(
+          insertionPoint,
+          insertionPoint,
+          new Slice(Fragment.fromArray(appendedNodes), 1, 1),
+        );
+      }
     } else {
       tr.insert(doc.content.size, Fragment.fromArray(appendedNodes));
     }
