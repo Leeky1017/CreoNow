@@ -82,13 +82,14 @@ function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const,
 function createApiMock(): PreloadApi {
   return {
     ai: {
-      confirmSkill: vi.fn(async ({ executionId, action }) => ({
+      confirmSkill: vi.fn(async ({ executionId, action, projectId }) => ({
         ok: true,
         data: {
           executionId,
           runId: "run-1",
           status: action === "accept" ? "completed" : "rejected",
           outputText: "改写后的句子",
+          projectId,
         },
       })),
       cancelSkill: vi.fn(async () => ({ ok: true, data: { canceled: true } })),
@@ -217,14 +218,9 @@ describe("WorkbenchApp", () => {
       ok: false;
       error: { code: string; message: string };
     }>();
-    const acceptResult = createDeferred<{
-      ok: true;
-      data: { executionId: string; runId: string; status: "completed"; outputText: string };
-    }>();
     const saveDocument = vi.fn()
       .mockImplementationOnce(async () => autosaveResult.promise);
     window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
-    window.api.ai.confirmSkill = vi.fn(async () => acceptResult.promise) as typeof window.api.ai.confirmSkill;
 
     const staleDraft = {
       type: "doc",
@@ -285,24 +281,9 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    expect(window.api.ai.confirmSkill).toHaveBeenCalledTimes(1);
-    expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
-      executionId: "exec-1",
-      action: "accept",
-    });
-
-    await act(async () => {
-      acceptResult.resolve({
-        ok: true,
-        data: { executionId: "exec-1", runId: "run-1", status: "completed", outputText: "改写后的句子" },
-      });
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-
+    expect(window.api.ai.confirmSkill).not.toHaveBeenCalled();
     expect(screen.queryByText("改写后的句子")).toBeNull();
-    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
-    expect(screen.queryByText("数据层暂时不可用，请稍后重试。")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("文稿在预览生成后已发生变更，请重新生成建议。");
   });
 
   it("preserves autosave protection for real edits made while accept is still running", async () => {
@@ -357,6 +338,7 @@ describe("WorkbenchApp", () => {
     expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
       executionId: "exec-1",
       action: "accept",
+      projectId: "project-1",
     });
 
     await act(async () => {
@@ -451,6 +433,7 @@ describe("WorkbenchApp", () => {
     expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
       executionId: "exec-1",
       action: "accept",
+      projectId: "project-1",
     });
 
     await act(async () => {
@@ -536,6 +519,7 @@ describe("WorkbenchApp", () => {
     expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
       executionId: "exec-1",
       action: "accept",
+      projectId: "project-1",
     });
 
     await act(async () => {
@@ -599,7 +583,7 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    expect(confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
+    expect(confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept", projectId: "project-1" });
     expect(await screen.findByText("数据层暂时不可用，请稍后重试。")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "接受" })).toBeInTheDocument();
@@ -660,7 +644,7 @@ describe("WorkbenchApp", () => {
     });
 
     expect(confirmSkill).toHaveBeenCalledTimes(1);
-    expect(confirmSkill).toHaveBeenNthCalledWith(1, { executionId: "exec-1", action: "accept" });
+    expect(confirmSkill).toHaveBeenNthCalledWith(1, { executionId: "exec-1", action: "accept", projectId: "project-1" });
     expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
     expect(screen.getAllByText("数据层暂时不可用，请稍后重试。").length).toBeGreaterThan(0);
 
@@ -671,7 +655,7 @@ describe("WorkbenchApp", () => {
     });
 
     expect(confirmSkill).toHaveBeenCalledTimes(2);
-    expect(confirmSkill).toHaveBeenNthCalledWith(2, { executionId: "exec-1", action: "accept" });
+    expect(confirmSkill).toHaveBeenNthCalledWith(2, { executionId: "exec-1", action: "accept", projectId: "project-1" });
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
     expect(screen.queryByText("改写后的句子")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -2420,6 +2404,7 @@ describe("WorkbenchApp", () => {
     expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
       executionId: "exec-1",
       action: "accept",
+      projectId: "project-1",
     });
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
@@ -2577,6 +2562,7 @@ describe("WorkbenchApp", () => {
     expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
       executionId: "exec-1",
       action: "reject",
+      projectId: "project-1",
     });
   });
 
