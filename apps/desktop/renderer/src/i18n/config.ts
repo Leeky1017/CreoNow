@@ -112,6 +112,7 @@ const resources = {
       "messages.createdDocument": "已创建新文档。",
       "messages.createdProject": "已创建默认项目。",
       "messages.previewUnavailable": "AI 没有返回可预览的文本。",
+      "messages.previewStale": "文稿在预览生成后已发生变更，请重新生成建议。",
       "globalError.toast.title": "工作台发生异常",
       "globalError.toast.description": "系统已记录该异常，请稍后再试或重新执行刚才的操作。",
       "project.defaultName": "未命名项目",

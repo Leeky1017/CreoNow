@@ -19,6 +19,7 @@ import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurfa
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
   SelectionChangedError,
+  StaleAiPreviewError,
   acceptAiPreview,
   bootstrapWorkspace,
   createDocumentAndOpen,
@@ -891,6 +892,7 @@ function WorkbenchShell() {
         selection: stickySelection,
         instruction,
         model,
+        userEditRevision: userEditRevisionRef.current,
       });
       if (isCurrentContextToken(previewContext)) {
         clearAcceptSaveFailure();
@@ -955,22 +957,28 @@ function WorkbenchShell() {
     } catch (error) {
       const acceptPathStillActive = acceptSaveRetryControllerRef.current.saveState === "saving"
         && acceptSaveRetryControllerRef.current.preview?.runId === acceptingPreview.runId;
+      const stalePreviewError = error instanceof StaleAiPreviewError;
       const acceptPathInvalidated = userEditRevisionRef.current !== acceptStartedAtUserEditRevision
         || editorContextRevisionRef.current !== acceptStartedAtEditorContextRevision;
-      if (acceptPathStillActive && acceptPathInvalidated) {
+      if (acceptPathStillActive && (stalePreviewError || acceptPathInvalidated)) {
         clearAcceptSaveRetryController();
       }
-      if (isCurrentContextToken(acceptingPreview.context) && acceptPathStillActive && acceptPathInvalidated) {
+      if (isCurrentContextToken(acceptingPreview.context) && acceptPathStillActive && stalePreviewError) {
+        setPreview((currentPreview) => currentPreview?.runId === acceptingPreview.runId ? null : currentPreview);
+        setWorkbenchError(t("messages.previewStale"), "accept");
+      } else if (isCurrentContextToken(acceptingPreview.context) && acceptPathStillActive && acceptPathInvalidated) {
         setPreview((currentPreview) => currentPreview?.runId === acceptingPreview.runId ? null : currentPreview);
       }
-      if (isCurrentContextToken(acceptingPreview.context) && acceptPathStillActive && acceptPathInvalidated === false) {
+      if (isCurrentContextToken(acceptingPreview.context) && acceptPathStillActive && stalePreviewError === false && acceptPathInvalidated === false) {
         if (error instanceof SelectionChangedError) {
           setWorkbenchError(t("messages.selectionChanged"), "accept");
         } else {
           setWorkbenchError(getHumanErrorMessage(error as Error, t), "accept");
         }
       }
-      if (isLatestSaveRequest(saveRequestId) && acceptPathStillActive && acceptPathInvalidated === false) {
+      if (isLatestSaveRequest(saveRequestId) && acceptPathStillActive && stalePreviewError) {
+        setSaveUiState("idle");
+      } else if (isLatestSaveRequest(saveRequestId) && acceptPathStillActive && acceptPathInvalidated === false) {
         acceptSaveRetryControllerRef.current = { preview: acceptingPreview, saveState: "error" };
         setSaveUiState("error", "accept");
       }

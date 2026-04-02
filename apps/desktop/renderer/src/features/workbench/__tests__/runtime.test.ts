@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { acceptAiPreview, bootstrapWorkspace, rejectAiPreview, requestAiPreview, type AiPreview } from "@/features/workbench/runtime";
+import {
+  StaleAiPreviewError,
+  acceptAiPreview,
+  bootstrapWorkspace,
+  rejectAiPreview,
+  requestAiPreview,
+  type AiPreview,
+} from "@/features/workbench/runtime";
 import type { PreloadApi } from "@/lib/preloadApi";
 
 function createDeferred<TResult>() {
@@ -30,6 +37,7 @@ function createPreview(overrides: Partial<AiPreview> = {}): AiPreview {
     originalText: "原文",
     suggestedText: "rewritten",
     runId: "run-1",
+    sourceUserEditRevision: 0,
     selection: {
       from: 1,
       to: 3,
@@ -61,13 +69,14 @@ function createApiMock(): PreloadApi {
       setCurrentDocument: vi.fn(async () => ({ ok: true, data: { documentId: "doc-1" } })),
     },
     ai: {
-      confirmSkill: vi.fn(async ({ executionId, action }) => ({
+      confirmSkill: vi.fn(async ({ executionId, action, projectId }) => ({
         ok: true,
         data: {
           executionId,
           runId: "run-1",
           status: action === "accept" ? "completed" : "rejected",
           outputText: "rewritten",
+          projectId,
         },
       })),
       cancelSkill: vi.fn(async () => ({ ok: true, data: { canceled: true } })),
@@ -114,10 +123,12 @@ describe("workbench runtime helpers", () => {
         text: "原文",
         selectionTextHash: "hash",
       },
+      userEditRevision: 0,
     });
 
     expect(preview.suggestedText).toBe("rewritten");
     expect(preview.executionId).toBe("exec-1");
+    expect(preview.sourceUserEditRevision).toBe(0);
     expect(api.ai.runSkill).toHaveBeenCalledWith(
       expect.objectContaining({
         hasSelection: true,
@@ -141,6 +152,7 @@ describe("workbench runtime helpers", () => {
     expect(api.ai.confirmSkill).toHaveBeenCalledWith({
       executionId: "exec-1",
       action: "accept",
+      projectId: "project-1",
     });
     expect(api.file.saveDocument).not.toHaveBeenCalled();
     expect(api.ai.submitSkillFeedback).toHaveBeenCalledWith(
@@ -169,6 +181,7 @@ describe("workbench runtime helpers", () => {
     expect(api.ai.confirmSkill).toHaveBeenCalledWith({
       executionId: "exec-1",
       action: "accept",
+      projectId: "project-preview",
     });
     expect(api.file.readDocument).toHaveBeenCalledWith(expect.objectContaining({
       projectId: "project-preview",
@@ -196,7 +209,11 @@ describe("workbench runtime helpers", () => {
       getEditorContextRevision: () => 0,
     });
 
-    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+      projectId: "project-1",
+    });
     expect(bridge.setContent).toHaveBeenCalledWith({ type: "doc", content: [{ type: "paragraph" }] });
     expect(result.updatedAt).toBe(1);
     expect(result.feedbackError).toMatchObject({ code: "DB_ERROR", message: "feedback failed" });
@@ -234,11 +251,15 @@ describe("workbench runtime helpers", () => {
       getEditorContextRevision: () => 0,
     })).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
-    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+      projectId: "project-1",
+    });
     expect(bridge.setContent).toHaveBeenCalledWith(beforeApply);
   });
 
-  it("rolls back the applied accept draft when confirm resolves ok:true but status rejected", async () => {
+  it("does not accept when confirm resolves ok:true but status rejected", async () => {
     const api = createApiMock();
     api.ai.confirmSkill = vi.fn(async () => ({
       ok: true as const,
@@ -274,8 +295,33 @@ describe("workbench runtime helpers", () => {
       getEditorContextRevision: () => 0,
     })).rejects.toMatchObject({ code: "PERMISSION_DENIED", message: "AI preview confirmation was rejected" });
 
-    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+      projectId: "project-1",
+    });
     expect(bridge.setContent).toHaveBeenCalledWith(beforeApply);
+  });
+
+  it("blocks accept when document was edited after preview generation", async () => {
+    const api = createApiMock();
+    const bridge = {
+      getContent: vi.fn(() => ({ type: "doc" })),
+      replaceSelection: vi.fn(() => ({ ok: true as const })),
+      setContent: vi.fn(),
+    } as unknown as Parameters<typeof acceptAiPreview>[0]["bridge"];
+
+    await expect(acceptAiPreview({
+      api,
+      bridge,
+      preview: createPreview({ sourceUserEditRevision: 3 }),
+      getUserEditRevision: () => 4,
+      getEditorContextRevision: () => 0,
+    })).rejects.toBeInstanceOf(StaleAiPreviewError);
+
+    expect(bridge.getContent).not.toHaveBeenCalled();
+    expect(bridge.replaceSelection).not.toHaveBeenCalled();
+    expect(api.ai.confirmSkill).not.toHaveBeenCalled();
   });
 
   it("does not roll back when real post-accept edits happened but content later returns to the accepted payload", async () => {
@@ -315,7 +361,11 @@ describe("workbench runtime helpers", () => {
 
     await expect(acceptPromise).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
-    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+      projectId: "project-1",
+    });
     expect(bridge.setContent).not.toHaveBeenCalled();
   });
 
@@ -362,7 +412,11 @@ describe("workbench runtime helpers", () => {
 
     await expect(acceptPromise).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
-    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+      projectId: "project-1",
+    });
     expect(currentContent).toEqual(switchedDocument);
     expect(bridge.setContent).toHaveBeenCalledTimes(1);
     expect(bridge.setContent).toHaveBeenCalledWith(switchedDocument);
@@ -409,7 +463,11 @@ describe("workbench runtime helpers", () => {
 
     await expect(acceptPromise).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
-    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+      projectId: "project-1",
+    });
     expect(bridge.setContent).not.toHaveBeenCalled();
   });
 
@@ -421,7 +479,11 @@ describe("workbench runtime helpers", () => {
     })) as typeof api.ai.confirmSkill;
 
     await expect(rejectAiPreview(api, createPreview())).rejects.toMatchObject({ code: "DB_ERROR", message: "feedback failed" });
-    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "reject" });
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "reject",
+      projectId: "project-1",
+    });
     expect(api.ai.submitSkillFeedback).not.toHaveBeenCalled();
   });
 });

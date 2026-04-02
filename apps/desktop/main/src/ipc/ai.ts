@@ -125,6 +125,7 @@ type SkillRunResponseDataInput = SkillRunResponse & {
 type SkillRunConfirmPayload = {
   executionId: string;
   action: "accept" | "reject";
+  projectId: string;
 };
 
 type SkillRunConfirmResponse = {
@@ -788,6 +789,45 @@ function resolveChatProjectId(args: {
   return { ok: true, data: requestedProjectId };
 }
 
+function resolveSkillProjectId(args: {
+  projectId?: string;
+  boundProjectId?: string | null;
+  requireExplicitProjectId?: boolean;
+}):
+  | { ok: true; data: string }
+  | {
+      ok: false;
+      error:
+        | { code: "INVALID_ARGUMENT"; message: string }
+        | { code: "FORBIDDEN"; message: string };
+    } {
+  const requestedProjectId = args.projectId?.trim() ?? "";
+  if (args.requireExplicitProjectId && requestedProjectId.length === 0) {
+    return {
+      ok: false,
+      error: {
+        code: "INVALID_ARGUMENT",
+        message: "projectId is required",
+      },
+    };
+  }
+
+  return resolveChatProjectId({
+    projectId: args.projectId,
+    boundProjectId: args.boundProjectId,
+  });
+}
+
+function forbiddenPreviewSessionAccess(): {
+  code: "FORBIDDEN";
+  message: string;
+} {
+  return {
+    code: "FORBIDDEN",
+    message: "preview session is not active for this renderer session",
+  };
+}
+
 /**
  * Best-effort emit a stream event to the renderer that invoked the skill.
  *
@@ -847,6 +887,7 @@ type AiIpcContext = {
     number,
     ReturnType<typeof createIpcPushBackpressureGate>
   >;
+  previewLifecycleRegisteredRendererIds: Set<number>;
 };
 
 type PendingPreviewSession = {
@@ -868,6 +909,59 @@ type PendingPermissionGate = {
   releasePendingPermission: (requestId: string) => void;
   rejectAll: () => void;
 };
+
+function cleanupPreviewSessionsForRenderer(args: {
+  ctx: AiIpcContext;
+  webContentsId: number;
+  reason: "destroyed" | "did-navigate";
+}): void {
+  const sessions = [...args.ctx.previewSessions.values()].filter(
+    (session) => session.sender.id === args.webContentsId,
+  );
+  if (sessions.length === 0) {
+    return;
+  }
+
+  for (const session of sessions) {
+    args.ctx.previewSessions.delete(session.executionId);
+    args.ctx.permissionGate.resolve(session.executionId, false);
+    void session.completion.catch(() => undefined);
+  }
+
+  args.ctx.deps.logger.info("ai_preview_sessions_renderer_cleanup", {
+    webContentsId: args.webContentsId,
+    reason: args.reason,
+    cleanedSessions: sessions.length,
+  });
+}
+
+function ensurePreviewSessionRendererLifecycle(args: {
+  ctx: AiIpcContext;
+  sender: Electron.WebContents;
+}): void {
+  if (args.ctx.previewLifecycleRegisteredRendererIds.has(args.sender.id)) {
+    return;
+  }
+
+  args.ctx.previewLifecycleRegisteredRendererIds.add(args.sender.id);
+  args.sender.on("did-navigate", () => {
+    cleanupPreviewSessionsForRenderer({
+      ctx: args.ctx,
+      webContentsId: args.sender.id,
+      reason: "did-navigate",
+    });
+    args.ctx.pushBackpressureByRenderer.delete(args.sender.id);
+  });
+  args.sender.once("destroyed", () => {
+    cleanupPreviewSessionsForRenderer({
+      ctx: args.ctx,
+      webContentsId: args.sender.id,
+      reason: "destroyed",
+    });
+    args.ctx.pushBackpressureByRenderer.delete(args.sender.id);
+    args.ctx.previewLifecycleRegisteredRendererIds.delete(args.sender.id);
+  });
+}
 
 function getOrCreatePushBackpressureGate(
   ctx: AiIpcContext,
@@ -974,6 +1068,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     number,
     ReturnType<typeof createIpcPushBackpressureGate>
   >();
+  const previewLifecycleRegisteredRendererIds = new Set<number>();
 
   const aiService = createAiService({
     logger: deps.logger,
@@ -1239,6 +1334,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           sessionTokenTotalsByContext,
           modelPricingByModel,
           pushBackpressureByRenderer,
+          previewLifecycleRegisteredRendererIds: new Set<number>(),
         },
         payload: {
           skillId: request.skillId,
@@ -1378,6 +1474,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     sessionTokenTotalsByContext,
     modelPricingByModel,
     pushBackpressureByRenderer,
+    previewLifecycleRegisteredRendererIds,
   };
 
   deps.ipcMain.handle(
@@ -1722,9 +1819,20 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         };
       }
 
-      const projectId = payload.context?.projectId?.trim() ?? "";
+      const projectId = resolveSkillProjectId({
+        projectId: payload.context?.projectId,
+        boundProjectId: ctx.deps.projectSessionBinding?.resolveProjectId({
+          webContentsId: e.sender.id,
+        }),
+      });
+      if (!projectId.ok) {
+        return {
+          ok: false,
+          error: projectId.error,
+        };
+      }
       const documentId = payload.context?.documentId?.trim() ?? "";
-      if (projectId.length === 0 || documentId.length === 0) {
+      if (documentId.length === 0) {
         return {
           ok: false,
           error: {
@@ -1774,24 +1882,36 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
       const runId = randomUUID();
       const traceId = executionId;
       const cursorPosition = resolveCursorPosition(payload);
+      const normalizedPayload: SkillRunPayload = {
+        ...payload,
+        context: {
+          ...(payload.context ?? {}),
+          projectId: projectId.data,
+          documentId,
+        },
+      };
+      ensurePreviewSessionRendererLifecycle({
+        ctx,
+        sender: e.sender,
+      });
       const generator = ctx.writingOrchestrator.execute({
         requestId: executionId,
-        skillId: payload.skillId,
+        skillId: normalizedPayload.skillId,
         input: {
-          selectedText: payload.input,
-          ...(payload.precedingText !== undefined ? { precedingText: payload.precedingText } : {}),
+          selectedText: normalizedPayload.input,
+          ...(normalizedPayload.precedingText !== undefined ? { precedingText: normalizedPayload.precedingText } : {}),
         },
         documentId,
-        projectId,
-        modelId: payload.model,
-        ...(payload.selection ? { selection: payload.selection } : {}),
+        projectId: projectId.data,
+        modelId: normalizedPayload.model,
+        ...(normalizedPayload.selection ? { selection: normalizedPayload.selection } : {}),
         ...(cursorPosition === undefined ? {} : { cursorPosition }),
       });
 
       rememberRunInRegistry(ctx, {
         runId,
         executionId,
-        context: payload.context,
+        context: normalizedPayload.context,
       });
 
       try {
@@ -1801,7 +1921,7 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
           executionId,
           runId,
           traceId,
-          payload,
+          payload: normalizedPayload,
           generator,
         });
       } catch (error) {
@@ -1820,14 +1940,44 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
   ctx.deps.ipcMain.handle(
     "ai:skill:confirm",
     async (
-      _e,
+      e,
       payload: SkillRunConfirmPayload,
     ): Promise<IpcResponse<SkillRunConfirmResponse>> => {
+      const requestedProjectId = resolveSkillProjectId({
+        projectId: payload.projectId,
+        boundProjectId: ctx.deps.projectSessionBinding?.resolveProjectId({
+          webContentsId: e.sender.id,
+        }),
+        requireExplicitProjectId: true,
+      });
+      if (!requestedProjectId.ok) {
+        return {
+          ok: false,
+          error: requestedProjectId.error,
+        };
+      }
+
       const session = ctx.previewSessions.get(payload.executionId);
       if (!session) {
         return {
           ok: false,
           error: { code: "NOT_FOUND", message: "Preview session not found" },
+        };
+      }
+      if (session.sender.id !== e.sender.id) {
+        return {
+          ok: false,
+          error: forbiddenPreviewSessionAccess(),
+        };
+      }
+      const sessionProjectId = session.payload.context?.projectId?.trim() ?? "";
+      if (
+        sessionProjectId.length === 0
+        || sessionProjectId !== requestedProjectId.data
+      ) {
+        return {
+          ok: false,
+          error: forbiddenPreviewSessionAccess(),
         };
       }
 

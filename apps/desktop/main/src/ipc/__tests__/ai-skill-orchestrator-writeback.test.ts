@@ -9,12 +9,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Logger } from "../../logging/logger";
 import { registerAiIpcHandlers } from "../ai";
+import { createProjectSessionBindingRegistry } from "../projectSessionBinding";
 import { registerVersionIpcHandlers } from "../version";
 import { createDocumentService } from "../../services/documents/documentService";
 import { computeSelectionTextHash, editorSchema } from "../../services/editor/prosemirrorSchema";
 import * as writingTooling from "../../services/skills/writingTooling";
 
 type Handler = (event: unknown, payload: unknown) => Promise<unknown>;
+type MockSender = {
+  id: number;
+  send: (channel: string, payload: unknown) => void;
+  on: (event: string, listener: (...args: unknown[]) => void) => MockSender;
+  once: (event: string, listener: (...args: unknown[]) => void) => MockSender;
+  emit: (event: string, ...args: unknown[]) => void;
+};
 
 const MIGRATIONS_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -39,12 +47,63 @@ function applyAllMigrations(db: Database.Database): void {
   }
 }
 
-function createHarness() {
+function createMockSender(args: {
+  id: number;
+  sentEvents: Array<{ channel: string; payload: unknown }>;
+}): MockSender {
+  const listeners = new Map<
+    string,
+    Array<{ listener: (...eventArgs: unknown[]) => void; once: boolean }>
+  >();
+
+  const sender: MockSender = {
+    id: args.id,
+    send: (channel: string, payload: unknown) => {
+      args.sentEvents.push({ channel, payload });
+    },
+    on: (event, listener) => {
+      const registered = listeners.get(event) ?? [];
+      registered.push({ listener, once: false });
+      listeners.set(event, registered);
+      return sender;
+    },
+    once: (event, listener) => {
+      const registered = listeners.get(event) ?? [];
+      registered.push({ listener, once: true });
+      listeners.set(event, registered);
+      return sender;
+    },
+    emit: (event, ...eventArgs) => {
+      const registered = listeners.get(event) ?? [];
+      const keep: Array<{
+        listener: (...listenerArgs: unknown[]) => void;
+        once: boolean;
+      }> = [];
+      for (const entry of registered) {
+        entry.listener(...eventArgs);
+        if (!entry.once) {
+          keep.push(entry);
+        }
+      }
+      listeners.set(event, keep);
+    },
+  };
+
+  return sender;
+}
+
+function createHarness(args?: {
+  useProjectSessionBinding?: boolean;
+}) {
   const handlers = new Map<string, Handler>();
   const sentEvents: Array<{ channel: string; payload: unknown }> = [];
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
   applyAllMigrations(db);
+  const binding = args?.useProjectSessionBinding
+    ? createProjectSessionBindingRegistry()
+    : null;
+  const senders = new Map<number, MockSender>();
 
   const ipcMain = {
     handle: (channel: string, listener: Handler) => {
@@ -67,6 +126,7 @@ function createHarness() {
       CREONOW_AI_PROVIDER: "openai",
       CREONOW_AI_MODEL: "gpt-5.2",
     },
+    ...(binding ? { projectSessionBinding: binding } : {}),
   });
   registerVersionIpcHandlers({
     ipcMain,
@@ -74,22 +134,38 @@ function createHarness() {
     logger: createLogger(),
   });
 
-  const sender = {
-    id: 1,
-    send: (channel: string, payload: unknown) => {
-      sentEvents.push({ channel, payload });
-    },
-  };
-
   return {
     db,
-    sender,
+    binding,
     sentEvents,
-    async invoke<T>(channel: string, payload: unknown): Promise<T> {
+    bindProject(webContentsId: number, projectId: string) {
+      binding?.bind({ webContentsId, projectId });
+    },
+    emitRendererEvent(
+      event: "destroyed" | "did-navigate",
+      options?: { webContentsId?: number },
+    ) {
+      const webContentsId = options?.webContentsId ?? 1;
+      const sender =
+        senders.get(webContentsId)
+        ?? createMockSender({ id: webContentsId, sentEvents });
+      senders.set(webContentsId, sender);
+      sender.emit(event);
+    },
+    async invoke<T>(
+      channel: string,
+      payload: unknown,
+      options?: { webContentsId?: number },
+    ): Promise<T> {
       const handler = handlers.get(channel);
       if (!handler) {
         throw new Error(`Missing handler: ${channel}`);
       }
+      const webContentsId = options?.webContentsId ?? 1;
+      const sender =
+        senders.get(webContentsId)
+        ?? createMockSender({ id: webContentsId, sentEvents });
+      senders.set(webContentsId, sender);
       return (await handler({ sender }, payload)) as T;
     },
   };
@@ -214,6 +290,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
 
     expect(confirm.ok).toBe(true);
@@ -294,6 +371,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "reject",
+    projectId,
     });
 
     expect(confirm.ok).toBe(true);
@@ -351,6 +429,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
 
     expect(confirm.ok).toBe(false);
@@ -412,6 +491,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
 
     expect(confirm.ok).toBe(false);
@@ -469,6 +549,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
 
     expect(confirm.ok).toBe(false);
@@ -527,6 +608,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
 
     expect(confirm.ok).toBe(false);
@@ -650,6 +732,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
 
     expect(confirm.ok).toBe(true);
@@ -697,6 +780,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
 
     expect(confirm.ok).toBe(true);
@@ -757,6 +841,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
 
     expect(confirm.ok).toBe(true);
@@ -825,6 +910,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
 
     expect(confirm.ok).toBe(true);
@@ -846,6 +932,119 @@ describe("ai:skill:run orchestrator writeback flow", () => {
         },
       ],
     });
+  });
+
+  it("ai:skill:confirm from different renderer session is rejected", async () => {
+    const harness = createHarness({ useProjectSessionBinding: true });
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+    harness.bindProject(1, projectId);
+    harness.bindProject(2, projectId);
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: { executionId: string; status: "preview" | "completed" | "rejected" };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "原文",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: true,
+    }, {
+      webContentsId: 1,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      error?: { code: string; message: string };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+      projectId,
+    }, {
+      webContentsId: 2,
+    });
+
+    expect(confirm.ok).toBe(false);
+    expect(confirm.error).toMatchObject({
+      code: "FORBIDDEN",
+      message: "preview session is not active for this renderer session",
+    });
+
+    const service = createDocumentService({ db: harness.db, logger: createLogger() });
+    const read = service.read({ projectId, documentId });
+    expect(read.ok).toBe(true);
+    expect(read.ok && read.data.contentText).toBe("原文");
+  });
+
+  it("preview session is cleaned up immediately when renderer is destroyed", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: { executionId: string; status: "preview" | "completed" | "rejected" };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "原文",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: false,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+
+    harness.emitRendererEvent("destroyed");
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      error?: { code: string; message: string };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+      projectId,
+    });
+    expect(confirm.ok).toBe(false);
+    expect(confirm.error?.code).toBe("NOT_FOUND");
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const doneEvent = harness.sentEvents.find(
+      (event) =>
+        event.channel === "skill:stream:done" &&
+        (event.payload as { executionId?: string; terminal?: string }).executionId ===
+          run.data?.executionId,
+    );
+    expect(doneEvent).toBeTruthy();
+    expect((doneEvent?.payload as { terminal?: string }).terminal).toBe("cancelled");
   });
 
   it("preview 超时在等待期间自动收口，并清理 preview session", async () => {
@@ -915,6 +1114,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
     expect(confirm.ok).toBe(false);
     expect(confirm.error?.code).toBe("NOT_FOUND");
@@ -979,6 +1179,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
     expect(confirm.ok).toBe(false);
     expect(confirm.error?.code).toBe("NOT_FOUND");
@@ -1034,6 +1235,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:confirm", {
       executionId: run.data?.executionId,
       action: "accept",
+    projectId,
     });
     expect(confirm.ok).toBe(false);
     expect(confirm.error?.code).toBe("NOT_FOUND");

@@ -1046,6 +1046,7 @@ export const ipcContract = {
       request: s.object({
         executionId: s.string(),
         action: s.union(s.literal("accept"), s.literal("reject")),
+        projectId: s.string(),
       }),
       response: s.object({
         executionId: s.string(),

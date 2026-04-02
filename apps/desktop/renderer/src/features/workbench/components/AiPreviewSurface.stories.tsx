@@ -37,6 +37,7 @@ export const Ready: Story = {
       originalText: reference.text,
       runId: "run-demo",
       selection: reference,
+      sourceUserEditRevision: 1,
       suggestedText: "北地的风掠过山谷，把草原残存的暖意吹成一声轻而冷的叹息。",
     },
   },
