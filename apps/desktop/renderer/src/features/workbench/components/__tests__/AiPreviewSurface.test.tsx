@@ -11,19 +11,22 @@ const reference = {
 };
 
 describe("AiPreviewSurface", () => {
-  it("submits on Enter and keeps Shift+Enter as a newline path", () => {
-    const onGenerate = vi.fn();
+  it("submits rewrite on Enter and keeps Shift+Enter as a newline path", () => {
+    const onLaunchSkill = vi.fn();
 
     render(
       <AiPreviewSurface
         busy={false}
+        canContinue={true}
+        canPolish={true}
+        canRewrite={true}
         errorMessage={null}
         instruction="润色这段文字"
         model="gpt-4.1-mini"
         onAccept={() => undefined}
         onClearReference={() => undefined}
-        onGenerate={onGenerate}
         onInstructionChange={() => undefined}
+        onLaunchSkill={onLaunchSkill}
         onModelChange={() => undefined}
         onReject={() => undefined}
         preview={null}
@@ -33,9 +36,10 @@ describe("AiPreviewSurface", () => {
 
     const textarea = screen.getByLabelText("指令");
     fireEvent.keyDown(textarea, { key: "Enter" });
-    expect(onGenerate).toHaveBeenCalledTimes(1);
+    expect(onLaunchSkill).toHaveBeenCalledTimes(1);
+    expect(onLaunchSkill).toHaveBeenCalledWith("rewrite");
 
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
-    expect(onGenerate).toHaveBeenCalledTimes(1);
+    expect(onLaunchSkill).toHaveBeenCalledTimes(1);
   });
 });
