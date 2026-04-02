@@ -4,6 +4,11 @@ export type ContextAssembleRequest = {
   projectId: string;
   documentId: string;
   cursorPosition: number;
+  /** Plain-text character offset of the cursor (number of text chars before cursor).
+   * When provided, the immediate layer fetcher uses this for text slicing instead of
+   * `cursorPosition` (which is a ProseMirror document position, not a text offset).
+   * Set by the IPC layer after converting PM pos → text offset via the document model. */
+  textOffset?: number;
   skillId: string;
   additionalInput?: string;
   provider?: string;

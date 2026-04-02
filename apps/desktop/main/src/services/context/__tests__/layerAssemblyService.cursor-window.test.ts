@@ -41,7 +41,7 @@ describe("createContextLayerAssemblyService cursor window regression", () => {
     // even when additionalInput is the same non-empty string.  Previously the immediate layer
     // used additionalInput verbatim, completely ignoring cursorPosition.
 
-    it("cursorPosition=3 with additionalInput produces preceding-text slice as cursor window", async () => {
+    it("cursorPosition=3 with additionalInput produces preceding-text slice as cursor window (backwards compat: no textOffset)", async () => {
       const service = makeService();
       const result = await service.assemble({
         projectId: "p",
@@ -60,12 +60,51 @@ describe("createContextLayerAssemblyService cursor window regression", () => {
         requestedBy: "unit-test",
       });
 
-      // immediate layer must contain the text BEFORE cursor (first 3 chars), not the full text
+      // Without textOffset, cursorPosition=3 is used directly as text offset → "甲乙丙"
       expect(inspect.layersDetail.immediate.content).toBe("甲乙丙");
       expect(inspect.layersDetail.immediate.source).toEqual(["editor:cursor-window"]);
       expect(result.prompt).toContain("甲乙丙");
       // must NOT contain the char after cursor
       expect(result.prompt).not.toContain("丁");
+    });
+
+    // RED TEST: Alignment regression - when the IPC layer passes textOffset (plain-text chars)
+    // alongside cursorPosition (PM position), the immediate layer MUST use textOffset for slicing,
+    // not cursorPosition.  This locks the fix for the semantic mismatch where:
+    //   - cursorPosition=3 (PM pos in single-para doc) = cursor after 乙 (text offset 2)
+    //   - But without textOffset, text.slice(0, 3) = "甲乙丙" (wrong - shows 3 chars, not 2)
+    //   - With textOffset=2, text.slice(0, 2) = "甲乙" (correct)
+    it("textOffset=2 overrides cursorPosition=3 for text slicing (PM pos vs plain-text offset fix)", async () => {
+      const service = makeService();
+      const inspect = await service.inspect({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 3, // PM pos (raw, unused for slicing when textOffset present)
+        textOffset: 2,     // plain text chars before cursor (computed from PM pos in IPC layer)
+        skillId: "builtin:continue",
+        additionalInput: "甲乙丙丁",
+        debugMode: true,
+        requestedBy: "unit-test",
+      });
+      // Must use textOffset=2, not cursorPosition=3 — "甲乙" not "甲乙丙"
+      expect(inspect.layersDetail.immediate.content).toBe("甲乙");
+      expect(inspect.layersDetail.immediate.source).toEqual(["editor:cursor-window"]);
+    });
+
+    it("textOffset=0 with cursorPosition=3 falls back to cursor=3 (no preceding text)", async () => {
+      const service = makeService();
+      const inspect = await service.inspect({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 3,
+        textOffset: 0,
+        skillId: "builtin:continue",
+        additionalInput: "甲乙丙丁",
+        debugMode: true,
+        requestedBy: "unit-test",
+      });
+      // textOffset=0 means cursor is at document start — no preceding text, fall back to cursor marker
+      expect(inspect.layersDetail.immediate.content).toBe("cursor=3");
     });
 
     it("different cursorPosition values on same additionalInput produce different prompts", async () => {

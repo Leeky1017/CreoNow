@@ -1131,12 +1131,12 @@ function defaultFetchers(
       const text = request.additionalInput?.trim();
       let content: string;
       if (text !== undefined && text.length > 0) {
-        // Slice to the cursor position so different cursor positions in the same
-        // document produce different context windows.  For builtin:continue the
-        // cursor determines how much preceding text the AI sees; without this
-        // slice every call with non-empty additionalInput would produce an
-        // identical immediate layer regardless of where the cursor sits.
-        const pos = Math.min(request.cursorPosition, text.length);
+        // Use textOffset (plain-text chars before cursor) when available; it is set by the IPC
+        // layer after converting the ProseMirror document position to a plain-text offset.
+        // Fall back to cursorPosition for callers that do not yet provide textOffset.
+        const sliceAt =
+          request.textOffset !== undefined ? request.textOffset : request.cursorPosition;
+        const pos = Math.min(sliceAt, text.length);
         const preceding = text.slice(0, pos);
         content =
           preceding.length > 0

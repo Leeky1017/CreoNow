@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
+import { Node as ProseMirrorNode } from "prosemirror-model";
 
 import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
 import { nowTs } from "@shared/timeUtils";
@@ -39,6 +40,32 @@ import {
 } from "../services/skills/orchestrator";
 import { createWritingToolRegistry } from "../services/skills/writingTooling";
 import { estimateTokens } from "../services/context/tokenEstimation";
+import { createDocumentService } from "../services/documents/documentService";
+import { editorSchema } from "../services/editor/prosemirrorSchema";
+
+/**
+ * Convert a ProseMirror document position to a plain-text character offset.
+ *
+ * ProseMirror positions count node boundaries (paragraph open/close) as positions,
+ * whereas plain-text offsets count only text characters.  For a single-paragraph
+ * document: textOffset = pmPos - 1.  For multi-paragraph documents each additional
+ * paragraph boundary shifts the mapping by 2 extra PM positions.
+ *
+ * Returns the number of plain-text characters that appear before `pmPos` in the doc.
+ */
+function pmPosToTextOffset(doc: ProseMirrorNode, pmPos: number): number {
+  const clampedPos = Math.min(pmPos, doc.content.size);
+  let textCount = 0;
+  doc.nodesBetween(0, clampedPos, (node, nodePos) => {
+    if (node.isText && node.text !== undefined) {
+      const nodeEnd = nodePos + node.nodeSize;
+      const overlapEnd = Math.min(nodeEnd, clampedPos);
+      textCount += overlapEnd - nodePos;
+    }
+    return true;
+  });
+  return textCount;
+}
 
 type SkillRunPayload = {
   skillId: string;
@@ -450,12 +477,42 @@ async function prepareWritingRequest(args: {
   const documentId = args.payload.context?.documentId?.trim() ?? "";
   const cursorPosition = resolveCursorPosition(args.payload);
 
+  // Compute plain-text cursor offset for context assembly: PM positions include node
+  // boundary markers that inflate the offset versus raw character counts.  Load the
+  // document and resolve the position so the immediate-layer fetcher slices the
+  // correct number of characters rather than the inflated PM position value.
+  let textOffset: number | undefined;
+  if (
+    cursorPosition !== undefined &&
+    projectId.length > 0 &&
+    documentId.length > 0 &&
+    args.ctx.deps.db !== null
+  ) {
+    try {
+      const docSvc = createDocumentService({
+        db: args.ctx.deps.db,
+        logger: args.ctx.deps.logger,
+      });
+      const docRead = docSvc.read({ projectId, documentId });
+      if (docRead.ok && docRead.data.contentJson) {
+        const pmDoc = ProseMirrorNode.fromJSON(
+          editorSchema,
+          JSON.parse(docRead.data.contentJson) as Record<string, unknown>,
+        );
+        textOffset = pmPosToTextOffset(pmDoc, cursorPosition);
+      }
+    } catch {
+      // Non-fatal: fall through without textOffset; immediate layer falls back to cursorPosition
+    }
+  }
+
   if (projectId.length > 0 && documentId.length > 0) {
     try {
       const assembled = await args.ctx.contextAssemblyService.assemble({
         projectId,
         documentId,
         cursorPosition: cursorPosition ?? 0,
+        ...(textOffset !== undefined ? { textOffset } : {}),
         skillId: args.payload.skillId,
         additionalInput: input,
         provider: "ai-service",
@@ -1075,7 +1132,36 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       return await aiService.runSkill(args);
     },
     assembleContext: async (args) => {
-      return await contextAssemblyService.assemble(args);
+      // Compute plain-text textOffset from PM position so the immediate layer fetcher
+      // slices the correct number of characters (see pmPosToTextOffset).
+      let textOffset: number | undefined;
+      if (
+        args.cursorPosition !== 0 &&
+        args.projectId.length > 0 &&
+        args.documentId.length > 0 &&
+        deps.db !== null
+      ) {
+        try {
+          const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
+          const docRead = docSvc.read({
+            projectId: args.projectId,
+            documentId: args.documentId,
+          });
+          if (docRead.ok && docRead.data.contentJson) {
+            const pmDoc = ProseMirrorNode.fromJSON(
+              editorSchema,
+              JSON.parse(docRead.data.contentJson) as Record<string, unknown>,
+            );
+            textOffset = pmPosToTextOffset(pmDoc, args.cursorPosition);
+          }
+        } catch {
+          // Non-fatal: fall through without textOffset
+        }
+      }
+      return await contextAssemblyService.assemble({
+        ...args,
+        ...(textOffset !== undefined ? { textOffset } : {}),
+      });
     },
     logger: {
       warn: (event, data) => deps.logger.info(event, data),

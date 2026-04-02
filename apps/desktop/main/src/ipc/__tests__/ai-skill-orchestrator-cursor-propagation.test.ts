@@ -244,4 +244,31 @@ describe("ai:skill:run cursor propagation regression", () => {
       ],
     ]);
   });
+
+  // RED TEST: IPC must convert PM pos to text offset and pass textOffset to context assembly.
+  // For document "甲乙丙丁" (single paragraph), PM pos 3 = after 乙 = text offset 2.
+  // This ensures the immediate layer slices "甲乙" (not "甲乙丙") for cursorPosition=3.
+  it("builtin:continue IPC 层把 PM pos 转换为 textOffset 并传给 context assembly", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "甲乙丙丁",
+    });
+
+    await harness.invoke("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      cursorPosition: 3,
+      input: "甲乙丙丁",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    // PM pos 3 in single-para doc "甲乙丙丁" → text offset 2 (after 乙)
+    // Both calls (prepareRequest + skillExecutor) must receive textOffset=2
+    expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([2, 2]);
+  });
 });
