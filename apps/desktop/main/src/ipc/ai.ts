@@ -345,11 +345,11 @@ function resolveP1BuiltinSkill(skillId: string):
   if (normalized === "continue") {
     return {
       id: "builtin:continue",
-      prompt: {
-        system:
-          "You are CreoNow's writing assistant. Continue writing from provided context, matching style and narrative constraints.",
-        user: "Continue the draft based on current context and constraints.\n\n<input>\n{{input}}\n</input>",
-      },
+        prompt: {
+          system:
+            "You are CreoNow's writing assistant. Continue writing from provided context, matching style and narrative constraints.",
+          user: "Continue the draft based on current context and constraints.\n\n<text>\n{{input}}\n</text>",
+        },
       inputType: "document",
       enabled: true,
       valid: true,
@@ -740,7 +740,11 @@ type AiIpcContext = {
   contextAssemblyService: ReturnType<typeof createContextLayerAssemblyService>;
   runRegistry: Map<
     string,
-    { startedAt: number; context?: SkillRunPayload["context"] }
+    {
+      startedAt: number;
+      executionId: string;
+      context?: SkillRunPayload["context"];
+    }
   >;
   previewSessions: Map<string, PendingPreviewSession>;
   permissionGate: PendingPermissionGate;
@@ -761,6 +765,7 @@ type PendingPreviewSession = {
   generator: AsyncGenerator<WritingEvent>;
   outputText: string;
   usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  completion: Promise<IpcResponse<SkillRunConfirmResponse>>;
 };
 
 type PendingPermissionGate = {
@@ -796,10 +801,15 @@ function getOrCreatePushBackpressureGate(
 
 function rememberRunInRegistry(
   ctx: AiIpcContext,
-  args: { runId: string; context?: SkillRunPayload["context"] },
+  args: {
+    runId: string;
+    executionId: string;
+    context?: SkillRunPayload["context"];
+  },
 ): void {
   ctx.runRegistry.set(args.runId, {
     startedAt: nowTs(),
+    executionId: args.executionId,
     context: args.context,
   });
   const cutoff = nowTs() - 24 * 60 * 60 * 1000;
@@ -897,7 +907,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   });
   const runRegistry = new Map<
     string,
-    { startedAt: number; context?: SkillRunPayload["context"] }
+    {
+      startedAt: number;
+      executionId: string;
+      context?: SkillRunPayload["context"];
+    }
   >();
   const sessionTokenTotalsByContext = new Map<string, number>();
   const modelPricingByModel = parseModelPricingMap(deps.env);
@@ -1354,7 +1368,7 @@ async function drainPreviewUntilPause(args: {
     }
 
     if (event.type === "permission-requested") {
-      args.ctx.previewSessions.set(args.executionId, {
+      const session = {
         executionId: args.executionId,
         runId: args.runId,
         traceId: args.traceId,
@@ -1363,7 +1377,23 @@ async function drainPreviewUntilPause(args: {
         generator: args.generator,
         outputText,
         usage,
-      });
+      } as PendingPreviewSession;
+      session.completion = Promise.resolve()
+        .then(() =>
+          continuePreviewSession({
+            ctx: args.ctx,
+            session,
+          }),
+        )
+        .catch((error) => ({
+          ok: false,
+          error: {
+            code: "INTERNAL",
+            message:
+              error instanceof Error ? error.message : "AI skill confirmation failed",
+          },
+        }));
+      args.ctx.previewSessions.set(args.executionId, session);
       return {
         ok: true,
         data: {
@@ -1433,28 +1463,22 @@ async function drainPreviewUntilPause(args: {
   }
 }
 
-async function finalizePreviewSession(args: {
+async function continuePreviewSession(args: {
   ctx: AiIpcContext;
   session: PendingPreviewSession;
-  action: "accept" | "reject";
 }): Promise<IpcResponse<SkillRunConfirmResponse>> {
-  args.ctx.permissionGate.resolve(
-    args.session.executionId,
-    args.action === "accept",
-  );
-
   let versionId: string | undefined;
+
   while (true) {
     const next = await args.session.generator.next();
     if (next.done) {
-      const status = args.action === "accept" ? "completed" : "rejected";
       emitOrchestratorDone({
         ctx: args.ctx,
         sender: args.session.sender,
         executionId: args.session.executionId,
         runId: args.session.runId,
         traceId: args.session.traceId,
-        terminal: status === "completed" ? "completed" : "cancelled",
+        terminal: "completed",
         outputText: args.session.outputText,
         model: args.session.payload.model,
         usage: args.session.usage
@@ -1472,7 +1496,7 @@ async function finalizePreviewSession(args: {
         data: {
           executionId: args.session.executionId,
           runId: args.session.runId,
-          status,
+          status: "completed",
           ...(versionId ? { versionId } : {}),
           outputText: args.session.outputText,
         },
@@ -1485,7 +1509,26 @@ async function finalizePreviewSession(args: {
       continue;
     }
     if (event.type === "permission-denied") {
-      continue;
+      emitOrchestratorDone({
+        ctx: args.ctx,
+        sender: args.session.sender,
+        executionId: args.session.executionId,
+        runId: args.session.runId,
+        traceId: args.session.traceId,
+        terminal: "cancelled",
+        outputText: args.session.outputText,
+        model: args.session.payload.model,
+      });
+      args.ctx.previewSessions.delete(args.session.executionId);
+      return {
+        ok: true,
+        data: {
+          executionId: args.session.executionId,
+          runId: args.session.runId,
+          status: "rejected",
+          outputText: args.session.outputText,
+        },
+      };
     }
     if (event.type === "error") {
       args.ctx.previewSessions.delete(args.session.executionId);
@@ -1499,6 +1542,18 @@ async function finalizePreviewSession(args: {
       };
     }
   }
+}
+
+async function finalizePreviewSession(args: {
+  ctx: AiIpcContext;
+  session: PendingPreviewSession;
+  action: "accept" | "reject";
+}): Promise<IpcResponse<SkillRunConfirmResponse>> {
+  args.ctx.permissionGate.resolve(
+    args.session.executionId,
+    args.action === "accept",
+  );
+  return await args.session.completion;
 }
 
 function registerAiSkillRunHandler(ctx: AiIpcContext): void {
@@ -1589,6 +1644,7 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
 
       rememberRunInRegistry(ctx, {
         runId,
+        executionId,
         context: payload.context,
       });
 
@@ -1657,14 +1713,18 @@ function registerAiSkillLifecycleHandlers(ctx: AiIpcContext): void {
           field: "runId",
         });
       }
+      const runEntry =
+        runIdValue.length > 0 ? ctx.runRegistry.get(runIdValue) : undefined;
       const executionId =
-        executionIdValue.length > 0 ? executionIdValue : runIdValue;
-      if (executionId.length === 0) {
+        executionIdValue.length > 0
+          ? executionIdValue
+          : (runEntry?.executionId ?? "");
+      if (executionId.length === 0 && runIdValue.length === 0) {
         return {
           ok: false,
           error: {
             code: "INVALID_ARGUMENT",
-            message: "executionId is required",
+            message: "executionId or runId is required",
           },
         };
       }
@@ -1673,12 +1733,14 @@ function registerAiSkillLifecycleHandlers(ctx: AiIpcContext): void {
         const previewSession = ctx.previewSessions.get(executionId);
         if (previewSession) {
           ctx.permissionGate.resolve(executionId, false);
-          ctx.previewSessions.delete(executionId);
-          ctx.writingOrchestrator.abort(executionId);
+          const completion = await previewSession.completion;
+          if (!completion.ok) {
+            return completion;
+          }
           return { ok: true, data: { canceled: true } };
         }
         const res = ctx.aiService.cancel({
-          executionId,
+          executionId: executionId.length > 0 ? executionId : undefined,
           runId: runIdValue.length > 0 ? runIdValue : undefined,
           ts: nowTs(),
         });

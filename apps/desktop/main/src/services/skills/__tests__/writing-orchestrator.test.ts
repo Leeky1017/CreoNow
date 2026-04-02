@@ -102,13 +102,13 @@ function buildConfig(
     name: "documentWrite",
     description: "Write text to document",
     isConcurrencySafe: false,
-    execute: vi.fn().mockResolvedValue({ success: true, data: { snapshotId: "snap-accept-001" } }),
+    execute: vi.fn().mockResolvedValue({ success: true, data: { versionId: "snap-accept-001" } }),
   });
   toolRegistry.register({
     name: "versionSnapshot",
     description: "Create version snapshot",
     isConcurrencySafe: false,
-    execute: vi.fn().mockResolvedValue({ success: true, data: { snapshotId: "snap-prewrite-001" } }),
+    execute: vi.fn().mockResolvedValue({ success: true, data: { versionId: "snap-prewrite-001" } }),
   });
 
   return {

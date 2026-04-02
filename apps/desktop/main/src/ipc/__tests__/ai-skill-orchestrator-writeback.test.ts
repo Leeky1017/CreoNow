@@ -601,4 +601,250 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(run.error?.message).toBe("请先提供需要处理的文本");
     expect(run.error?.code).not.toBe("INTERNAL");
   });
+
+  it("builtin:continue accept 走文档级写回，不再卡死在 selection-only 路径", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        runId: string;
+        status: "preview" | "completed" | "rejected";
+        outputText?: string;
+      };
+    }>("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      input: "原文",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+    expect(run.data?.outputText?.length ?? 0).toBeGreaterThan(0);
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        status: "completed" | "rejected";
+        versionId?: string;
+      };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+    });
+
+    expect(confirm.ok).toBe(true);
+    expect(confirm.data?.status).toBe("completed");
+    expect(confirm.data?.versionId).toBeTruthy();
+
+    const service = createDocumentService({ db: harness.db, logger: createLogger() });
+    const read = service.read({ projectId, documentId });
+    expect(read.ok).toBe(true);
+    expect(read.ok && read.data.contentText.startsWith("原文")).toBe(true);
+    expect(read.ok && read.data.contentText.endsWith(run.data?.outputText ?? "")).toBe(
+      true,
+    );
+  });
+
+  it("preview 超时在等待期间自动收口，并清理 preview session", async () => {
+    const realSetTimeout = global.setTimeout;
+    vi.spyOn(global, "setTimeout").mockImplementation(
+      ((
+        handler: TimerHandler,
+        delay?: number,
+        ...args: Parameters<typeof realSetTimeout> extends [
+          TimerHandler,
+          number?,
+          ...infer Rest,
+        ]
+          ? Rest
+          : never
+      ) =>
+        realSetTimeout(
+          handler,
+          delay === 120_000 ? 1 : delay,
+          ...args,
+        )) as typeof global.setTimeout,
+    );
+
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: { executionId: string; status: "preview" | "completed" | "rejected" };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "原文",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: false,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+
+    await new Promise((resolve) => realSetTimeout(resolve, 20));
+
+    const doneEvent = harness.sentEvents.find(
+      (event) =>
+        event.channel === "skill:stream:done" &&
+        (event.payload as { executionId?: string; terminal?: string }).executionId ===
+          run.data?.executionId,
+    );
+    expect(doneEvent).toBeTruthy();
+    expect((doneEvent?.payload as { terminal?: string }).terminal).toBe("cancelled");
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      error?: { code: string; message: string };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+    });
+    expect(confirm.ok).toBe(false);
+    expect(confirm.error?.code).toBe("NOT_FOUND");
+  });
+
+  it("ai:skill:cancel 仅给 runId 也能取消 preview session 并完成清理", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        runId: string;
+        status: "preview" | "completed" | "rejected";
+      };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "原文",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+
+    const cancel = await harness.invoke<{
+      ok: boolean;
+      data?: { canceled: true };
+    }>("ai:skill:cancel", {
+      runId: run.data?.runId,
+    });
+
+    expect(cancel.ok).toBe(true);
+    expect(cancel.data?.canceled).toBe(true);
+
+    const doneEvent = harness.sentEvents.find(
+      (event) =>
+        event.channel === "skill:stream:done" &&
+        (event.payload as { executionId?: string; terminal?: string }).executionId ===
+          run.data?.executionId,
+    );
+    expect(doneEvent).toBeTruthy();
+    expect((doneEvent?.payload as { terminal?: string }).terminal).toBe("cancelled");
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      error?: { code: string; message: string };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+    });
+    expect(confirm.ok).toBe(false);
+    expect(confirm.error?.code).toBe("NOT_FOUND");
+  });
+
+  it("ai:skill:cancel 给 executionId 时也会 drain paused generator", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        runId: string;
+        status: "preview" | "completed" | "rejected";
+      };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "原文",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+
+    const cancel = await harness.invoke<{
+      ok: boolean;
+      data?: { canceled: true };
+    }>("ai:skill:cancel", {
+      executionId: run.data?.executionId,
+    });
+
+    expect(cancel.ok).toBe(true);
+    expect(cancel.data?.canceled).toBe(true);
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      error?: { code: string; message: string };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+    });
+    expect(confirm.ok).toBe(false);
+    expect(confirm.error?.code).toBe("NOT_FOUND");
+  });
 });

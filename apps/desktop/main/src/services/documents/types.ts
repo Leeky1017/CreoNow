@@ -157,6 +157,7 @@ export type DocumentService = {
   }) => ServiceResult<{
     updatedAt: number;
     contentHash: string;
+    versionId?: string;
     compaction?: SnapshotCompactionEvent;
   }>;
   delete: (args: {

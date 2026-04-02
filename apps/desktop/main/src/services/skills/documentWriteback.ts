@@ -1,0 +1,73 @@
+import { Fragment, Node as ProseMirrorNode } from "prosemirror-model";
+import { Transform } from "@tiptap/pm/transform";
+
+import { editorSchema } from "../editor/prosemirrorSchema";
+
+export type DocumentWritebackResult =
+  | { ok: true; data: { contentJson: unknown } }
+  | {
+      ok: false;
+      error: { code: "WRITE_BACK_FAILED"; message: string; details?: unknown };
+    };
+
+function fail(message: string, details?: unknown): DocumentWritebackResult {
+  return {
+    ok: false,
+    error: {
+      code: "WRITE_BACK_FAILED",
+      message,
+      ...(details === undefined ? {} : { details }),
+    },
+  };
+}
+
+function createParagraphNodes(text: string) {
+  const normalized = text.replace(/\r\n/g, "\n");
+  const blocks = normalized
+    .split(/\n{2,}/)
+    .map((block) => block.replace(/^\n+|\n+$/g, ""))
+    .filter((block) => block.length > 0);
+
+  if (blocks.length === 0) {
+    return [];
+  }
+
+  return blocks.map((block) =>
+    editorSchema.nodes.paragraph.create(
+      null,
+      block.length > 0 ? editorSchema.text(block) : undefined,
+    ),
+  );
+}
+
+export function appendSuggestionToDocument(args: {
+  contentJson: unknown;
+  suggestion: string;
+}): DocumentWritebackResult {
+  try {
+    const doc = ProseMirrorNode.fromJSON(editorSchema, args.contentJson);
+    const appendedNodes = createParagraphNodes(args.suggestion);
+    if (appendedNodes.length === 0) {
+      return {
+        ok: true,
+        data: {
+          contentJson: doc.toJSON(),
+        },
+      };
+    }
+
+    const tr = new Transform(doc);
+    tr.insert(doc.content.size, Fragment.fromArray(appendedNodes));
+
+    return {
+      ok: true,
+      data: {
+        contentJson: tr.doc.toJSON(),
+      },
+    };
+  } catch (error) {
+    return fail(
+      error instanceof Error ? error.message : "Failed to append AI continuation",
+    );
+  }
+}

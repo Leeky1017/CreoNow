@@ -2,6 +2,7 @@ import type Database from "better-sqlite3";
 
 import type { Logger } from "../../logging/logger";
 import { createDocumentService } from "../documents/documentService";
+import { appendSuggestionToDocument } from "./documentWriteback";
 import { buildTool, createToolRegistry, type ToolRegistry } from "./toolRegistry";
 import { applySuggestionToSelection } from "./selectionWriteback";
 
@@ -9,24 +10,6 @@ type WritingToolingArgs = {
   db: Database.Database;
   logger: Logger;
 };
-
-function readLatestVersionId(args: {
-  db: Database.Database;
-  documentId: string;
-}): string | null {
-  const row = args.db
-    .prepare<
-      [string],
-      {
-        versionId: string;
-      }
-    >(
-      "SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1",
-    )
-    .get(args.documentId);
-
-  return row?.versionId ?? null;
-}
 
 export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistry {
   const registry = createToolRegistry();
@@ -43,16 +26,6 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
           return {
             success: false,
             error: { code: "WRITE_BACK_FAILED", message: "projectId is required" },
-          };
-        }
-
-        if (!ctx.selection) {
-          return {
-            success: false,
-            error: {
-              code: "WRITE_BACK_FAILED",
-              message: "selection is required for AI suggestion writeback",
-            },
           };
         }
 
@@ -87,11 +60,16 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
           };
         }
 
-        const applied = applySuggestionToSelection({
-          contentJson: parsedContent,
-          selection: ctx.selection,
-          suggestion,
-        });
+        const applied = ctx.selection
+          ? applySuggestionToSelection({
+              contentJson: parsedContent,
+              selection: ctx.selection,
+              suggestion,
+            })
+          : appendSuggestionToDocument({
+              contentJson: parsedContent,
+              suggestion,
+            });
         if (!applied.ok) {
           return {
             success: false,
@@ -118,15 +96,10 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
           };
         }
 
-        const versionId = readLatestVersionId({
-          db: args.db,
-          documentId: ctx.documentId,
-        });
-
         return {
           success: true,
           data: {
-            snapshotId: versionId ?? "unknown",
+            versionId: saved.data.versionId,
             contentHash: saved.data.contentHash,
           },
         };
@@ -213,15 +186,10 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
           };
         }
 
-        const versionId = readLatestVersionId({
-          db: args.db,
-          documentId: ctx.documentId,
-        });
-
         return {
           success: true,
           data: {
-            snapshotId: versionId ?? "unknown",
+            versionId: saved.data.versionId,
             contentHash: saved.data.contentHash,
           },
         };

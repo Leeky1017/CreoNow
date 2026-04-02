@@ -71,15 +71,15 @@ type GeneratedTextResult = {
   usage: { promptTokens: number; completionTokens: number; totalTokens: number };
 };
 
-function readSnapshotId(data: unknown): string | null {
+function readVersionId(data: unknown): string | null {
   if (!data || typeof data !== "object") {
     return null;
   }
-  const snapshotId = (data as Record<string, unknown>).snapshotId;
-  if (typeof snapshotId !== "string") {
+  const versionId = (data as Record<string, unknown>).versionId;
+  if (typeof versionId !== "string") {
     return null;
   }
-  const normalized = snapshotId.trim();
+  const normalized = versionId.trim();
   return normalized.length > 0 ? normalized : null;
 }
 
@@ -423,24 +423,22 @@ export function createWritingOrchestrator(
           // Need explicit permission
           taskStates.set(requestId, "paused");
 
-          // Start timeout BEFORE yielding so fake timers can advance it
           let timeoutId: ReturnType<typeof setTimeout>;
-          const timeoutPromise = new Promise<boolean>((resolve) => {
-            timeoutId = setTimeout(() => resolve(false), PERMISSION_TIMEOUT_MS);
-          });
+          const permissionDecision = Promise.race<boolean>([
+            config.permissionGate.requestPermission(request).catch(() => false),
+            new Promise<boolean>((resolve) => {
+              timeoutId = setTimeout(() => resolve(false), PERMISSION_TIMEOUT_MS);
+            }),
+          ]);
 
           yield makeEvent("permission-requested", requestId, {
             level: evalResult.level,
             description: "Operation requires user confirmation",
           });
 
-          // Wait for permission with already-registered timeout
           let granted: boolean;
           try {
-            granted = await Promise.race([
-              config.permissionGate.requestPermission(request),
-              timeoutPromise,
-            ]);
+            granted = await permissionDecision;
           } catch {
             granted = false;
           } finally {
@@ -493,11 +491,11 @@ export function createWritingOrchestrator(
           });
           return;
         }
-        if (!readSnapshotId(snapshotResult.data)) {
+        if (!readVersionId(snapshotResult.data)) {
           yield makeFailureEvent({
             requestId,
             code: "VERSION_SNAPSHOT_FAILED",
-            message: "Pre-write snapshot did not return snapshotId",
+            message: "Pre-write snapshot did not return versionId",
           });
           return;
         }
@@ -530,12 +528,12 @@ export function createWritingOrchestrator(
           });
           return;
         }
-        const versionId = readSnapshotId(writeResult.data);
+        const versionId = readVersionId(writeResult.data);
         if (!versionId) {
           yield makeFailureEvent({
             requestId,
             code: "WRITE_BACK_FAILED",
-            message: "Document write-back did not return snapshotId",
+            message: "Document write-back did not return versionId",
           });
           return;
         }
