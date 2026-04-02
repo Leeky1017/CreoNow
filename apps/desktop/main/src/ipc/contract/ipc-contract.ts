@@ -1118,6 +1118,35 @@ export const ipcContract = {
         ),
       }),
     },
+    // P1 writing orchestration — WritingOrchestrator entry points.
+    // ai:writing:execute starts a writing task and returns a requestId immediately;
+    // the pipeline runs in the background and emits stream events.
+    "ai:writing:execute": {
+      request: s.object({
+        skillId: s.string(),
+        model: s.optional(s.string()),
+        projectId: s.optional(s.string()),
+        documentId: s.string(),
+        selectedText: s.optional(s.string()),
+        precedingText: s.optional(s.string()),
+        followingText: s.optional(s.string()),
+        selection: s.optional(
+          s.object({
+            from: s.number(),
+            to: s.number(),
+            text: s.string(),
+            selectionTextHash: s.string(),
+          }),
+        ),
+      }),
+      response: s.object({ requestId: s.string() }),
+    },
+    // ai:writing:permission:respond — renderer confirms / rejects the pending AI write.
+    // Note: 4-segment channel name; validation accepts 2-4 segments (see contract-generate.ts).
+    "ai:writing:permission:respond": {
+      request: s.object({ requestId: s.string(), granted: s.boolean() }),
+      response: s.object({ acknowledged: s.literal(true) }),
+    },
     "memory:entry:create": {
       request: s.object({
         type: MEMORY_TYPE_SCHEMA,
@@ -2396,6 +2425,12 @@ export const ipcContract = {
     "version:aiapply:logconflict": {
       request: s.object({ documentId: s.string(), runId: s.string() }),
       response: s.object({ logged: s.literal(true) }),
+    },
+    // P1 alias: stable short-form for the writing pipeline; delegates to
+    // version:snapshot:rollback internally but returns a simpler { snapshotId }.
+    "version:rollback": {
+      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      response: s.object({ snapshotId: s.string() }),
     },
     "app:renderer:logerror": {
       request: s.object({

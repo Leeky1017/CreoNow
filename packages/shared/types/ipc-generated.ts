@@ -136,6 +136,8 @@ export const IPC_CHANNELS = [
   "ai:skill:cancel",
   "ai:skill:feedback",
   "ai:skill:run",
+  "ai:writing:execute",
+  "ai:writing:permission:respond",
   "app:renderer:logerror",
   "app:system:ping",
   "app:window:close",
@@ -269,6 +271,7 @@ export const IPC_CHANNELS = [
   "version:branch:merge",
   "version:branch:switch",
   "version:conflict:resolve",
+  "version:rollback",
   "version:snapshot:create",
   "version:snapshot:diff",
   "version:snapshot:list",
@@ -564,6 +567,35 @@ export type IpcChannelSpec = {
         promptTokens: number;
         sessionTotalTokens: number;
       };
+    };
+  };
+  "ai:writing:execute": {
+    request: {
+      documentId: string;
+      followingText?: string;
+      model?: string;
+      precedingText?: string;
+      projectId?: string;
+      selectedText?: string;
+      selection?: {
+        from: number;
+        selectionTextHash: string;
+        text: string;
+        to: number;
+      };
+      skillId: string;
+    };
+    response: {
+      requestId: string;
+    };
+  };
+  "ai:writing:permission:respond": {
+    request: {
+      granted: boolean;
+      requestId: string;
+    };
+    response: {
+      acknowledged: true;
     };
   };
   "app:renderer:logerror": {
@@ -3247,6 +3279,15 @@ export type IpcChannelSpec = {
     response: {
       mergeSnapshotId: string;
       status: "merged";
+    };
+  };
+  "version:rollback": {
+    request: {
+      documentId: string;
+      versionId: string;
+    };
+    response: {
+      snapshotId: string;
     };
   };
   "version:snapshot:create": {

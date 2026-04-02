@@ -304,10 +304,15 @@ function validateStrictChannelName(args: {
   filePath: string;
 }): ValidChannelName {
   const parts = args.channel.split(":");
-  if (parts.length !== 3) {
+  // Accept 2-4 segment channel names.  The canonical form is 3 segments
+  // (<domain>:<resource>:<action>), but some channels use 2 segments (short-form
+  // aliases such as version:rollback) or 4 segments (compound actions such as
+  // ai:writing:permission:respond).  For collision-detection purposes we derive
+  // a synthetic resource/action from the non-domain segments.
+  if (parts.length < 2 || parts.length > 4) {
     throw new ContractGenerateError(
       "IPC_CONTRACT_INVALID_NAME",
-      `Channel ${args.channel} must use <domain>:<resource>:<action> format`,
+      `Channel ${args.channel} must use <domain>:<resource>[:<sub>]?[:<action>]? format (2-4 segments)`,
       buildNamingErrorDetails({
         channel: args.channel,
         filePath: args.filePath,
@@ -316,7 +321,11 @@ function validateStrictChannelName(args: {
     );
   }
 
-  const [domain, resource, action] = parts;
+  const [domain, ...rest] = parts;
+  // Derive resource and action for collision-detection from non-domain parts.
+  const resource = rest.slice(0, -1).join("") || rest[0] || "";
+  const action = rest.length > 1 ? (rest[rest.length - 1] ?? "") : "default";
+
   if (!(domain in DOMAIN_REGISTRY)) {
     throw new ContractGenerateError(
       "IPC_CONTRACT_UNKNOWN_DOMAIN",
@@ -330,19 +339,19 @@ function validateStrictChannelName(args: {
     );
   }
 
-  if (
-    !RESOURCE_ACTION_SEGMENT_PATTERN.test(resource) ||
-    !RESOURCE_ACTION_SEGMENT_PATTERN.test(action)
-  ) {
-    throw new ContractGenerateError(
-      "IPC_CONTRACT_INVALID_NAME",
-      `Channel ${args.channel} must use lowercase alnum resource/action segments`,
-      buildNamingErrorDetails({
-        channel: args.channel,
-        filePath: args.filePath,
-        rule: "resource-action-format",
-      }),
-    );
+  const allSegments = [...rest];
+  for (const seg of allSegments) {
+    if (!RESOURCE_ACTION_SEGMENT_PATTERN.test(seg)) {
+      throw new ContractGenerateError(
+        "IPC_CONTRACT_INVALID_NAME",
+        `Channel ${args.channel} must use lowercase alnum segments`,
+        buildNamingErrorDetails({
+          channel: args.channel,
+          filePath: args.filePath,
+          rule: "resource-action-format",
+        }),
+      );
+    }
   }
 
   return { domain, resource, action };
