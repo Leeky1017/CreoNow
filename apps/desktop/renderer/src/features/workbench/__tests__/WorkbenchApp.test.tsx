@@ -1,12 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EditorBridge, EditorBridgeOptions } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import { WorkbenchApp } from "@/features/workbench/WorkbenchApp";
-import type { PreloadApi } from "@/lib/preloadApi";
+import { GLOBAL_ERROR_TOAST_EVENT, installGlobalErrorHandlers } from "@/lib/globalErrorBridge";
+import type { LegacyCreonowBridge, PreloadApi } from "@/lib/preloadApi";
 
 let bridgeOptions: EditorBridgeOptions | undefined;
+let globalErrorCleanup: (() => void) | null = null;
 
 const bridgeMock: EditorBridge = {
   destroy: vi.fn(),
@@ -36,6 +38,19 @@ function createSelection(text: string, from = 1): SelectionRef {
   };
 }
 
+function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }))) {
+  window.creonow = {
+    api: window.api as PreloadApi,
+    invoke: invoke as LegacyCreonowBridge["invoke"],
+    stream: {
+      registerAiStreamConsumer: () => ({ ok: true, data: { subscriptionId: "sub-1" } }),
+      releaseAiStreamConsumer: () => undefined,
+    },
+  };
+
+  return invoke;
+}
+
 function createApiMock(): PreloadApi {
   return {
     ai: {
@@ -63,6 +78,12 @@ function createApiMock(): PreloadApi {
 }
 
 describe("WorkbenchApp", () => {
+  afterEach(() => {
+    globalErrorCleanup?.();
+    globalErrorCleanup = null;
+    delete window.creonow;
+  });
+
   beforeEach(() => {
     bridgeOptions = undefined;
     vi.clearAllMocks();
@@ -243,6 +264,77 @@ describe("WorkbenchApp", () => {
       expect(frame.style.getPropertyValue("--right-panel-width")).toBe("320px");
       expect(window.localStorage.getItem("creonow.layout.panelWidth")).toBe("320");
     });
+  });
+
+  it("shows a user-visible toast when cn:global-error-toast is dispatched", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent(GLOBAL_ERROR_TOAST_EVENT, {
+        detail: {
+          source: "error",
+          name: "WindowError",
+          message: "boom",
+          timestamp: new Date(0).toISOString(),
+        },
+      }));
+    });
+
+    const toast = await screen.findByRole("alert");
+    expect(toast).toHaveTextContent("工作台发生异常");
+    expect(toast).toHaveTextContent("系统已记录该异常，请稍后再试或重新执行刚才的操作。");
+  });
+
+  it("logs unhandled rejections and surfaces a visible global error toast", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const invoke = installLegacyLogBridge();
+    globalErrorCleanup = installGlobalErrorHandlers();
+
+    const event = new Event("unhandledrejection") as Event & { reason: unknown };
+    Object.defineProperty(event, "reason", { value: new Error("preview exploded") });
+    await act(async () => {
+      window.dispatchEvent(event);
+    });
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "app:renderer:logerror",
+        expect.objectContaining({
+          source: "unhandledrejection",
+          message: "preview exploded",
+        }),
+      );
+    });
+
+    const toast = await screen.findByRole("alert");
+    expect(toast).toHaveTextContent("工作台发生异常");
+  });
+
+  it("deduplicates duplicate window.error toasts while preserving both log entries", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const invoke = installLegacyLogBridge();
+    let now = 1_700_000_000_000;
+    globalErrorCleanup = installGlobalErrorHandlers({ now: () => now });
+
+    await act(async () => {
+      window.dispatchEvent(new ErrorEvent("error", { error: new Error("same boom"), message: "same boom" }));
+      now += 500;
+      window.dispatchEvent(new ErrorEvent("error", { error: new Error("same boom"), message: "same boom" }));
+    });
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledTimes(2);
+    });
+
+    expect(await screen.findAllByText("工作台发生异常")).toHaveLength(1);
   });
 
   it("implements the workbench shell icon order, sidebar toggle, right tabs, and panel collapse", async () => {

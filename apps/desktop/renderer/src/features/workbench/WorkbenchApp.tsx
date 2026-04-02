@@ -30,7 +30,9 @@ import {
   type DocumentRead,
   type ProjectListItem,
 } from "@/features/workbench/runtime";
+import { AppToastProvider } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
+import { GlobalErrorToastBridge } from "@/lib/globalErrorToastBridge";
 import { getPreloadApi } from "@/lib/preloadApi";
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
@@ -174,6 +176,13 @@ function readStoredWidth(
 }
 
 export function WorkbenchApp() {
+  return <AppToastProvider>
+    <GlobalErrorToastBridge />
+    <WorkbenchShell />
+  </AppToastProvider>;
+}
+
+function WorkbenchShell() {
   const { t } = useTranslation();
   const api = useMemo(() => getPreloadApi(), []);
   const containerRef = useRef<HTMLDivElement | null>(null);
