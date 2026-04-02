@@ -1,14 +1,12 @@
 import { Node as ProseMirrorNode } from "prosemirror-model";
 import { Transform } from "prosemirror-transform";
 
-import { editorSchema, verifySelectionHash } from "../editor/prosemirrorSchema";
-
-type SelectionRef = {
-  from: number;
-  to: number;
-  text: string;
-  selectionTextHash: string;
-};
+import {
+  editorSchema,
+  replaceSelectionWithPlainText,
+  type SelectionRef,
+  verifySelectionHash,
+} from "../editor/prosemirrorSchema";
 
 export type SelectionWritebackResult =
   | { ok: true; data: { contentJson: unknown } }
@@ -47,15 +45,11 @@ export function applySuggestionToSelection(args: {
     }
 
     const tr = new Transform(doc);
-    if (args.suggestion.length > 0) {
-      tr.replaceWith(
-        args.selection.from,
-        args.selection.to,
-        editorSchema.text(args.suggestion),
-      );
-    } else {
-      tr.delete(args.selection.from, args.selection.to);
-    }
+    replaceSelectionWithPlainText({
+      tr,
+      selection: args.selection,
+      text: args.suggestion,
+    });
 
     return {
       ok: true,

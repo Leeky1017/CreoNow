@@ -2,6 +2,7 @@ import { InputRule, inputRules, textblockTypeInputRule, wrappingInputRule } from
 import {
   Fragment,
   Schema,
+  Slice,
   type MarkType,
   type Node as ProseMirrorNode,
 } from "prosemirror-model";
@@ -11,6 +12,7 @@ import {
   type EditorState,
   type Transaction,
 } from "prosemirror-state";
+import { Transform } from "prosemirror-transform";
 
 import { sha256Hex } from "../sha256";
 
@@ -166,6 +168,50 @@ export function createSelectionRef(params: {
 
 export function verifySelectionHash(ref: SelectionRef, currentText: string): boolean {
   return ref.selectionTextHash === computeSelectionTextHash(currentText);
+}
+
+function normalizePlainText(text: string): string {
+  return text.replaceAll("\r\n", "\n");
+}
+
+function createParagraphNodesFromPlainText(text: string): ProseMirrorNode[] {
+  if (text.length === 0) {
+    return [];
+  }
+
+  return normalizePlainText(text).split("\n").map((line) =>
+    editorSchema.nodes.paragraph.create(
+      null,
+      line.length > 0 ? editorSchema.text(line) : undefined,
+    ),
+  );
+}
+
+export function replaceSelectionWithPlainText(args: {
+  tr: Transform;
+  selection: SelectionRef;
+  text: string;
+}): void {
+  const paragraphs = createParagraphNodesFromPlainText(args.text);
+  if (paragraphs.length === 0) {
+    args.tr.delete(args.selection.from, args.selection.to);
+    return;
+  }
+
+  if (paragraphs.length === 1) {
+    args.tr.replaceWith(
+      args.selection.from,
+      args.selection.to,
+      editorSchema.text(normalizePlainText(args.text)),
+    );
+    return;
+  }
+
+  args.tr.replace(
+    args.selection.from,
+    args.selection.to,
+    new Slice(Fragment.fromArray(paragraphs), 1, 1),
+  );
 }
 
 export interface InputRuleDescriptor {

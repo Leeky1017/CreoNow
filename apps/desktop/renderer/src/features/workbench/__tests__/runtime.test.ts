@@ -197,7 +197,7 @@ describe("workbench runtime helpers", () => {
     });
 
     expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
-    expect(bridge.setContent).not.toHaveBeenCalled();
+    expect(bridge.setContent).toHaveBeenCalledWith({ type: "doc", content: [{ type: "paragraph" }] });
     expect(result.updatedAt).toBe(1);
     expect(result.feedbackError).toMatchObject({ code: "DB_ERROR", message: "feedback failed" });
   });

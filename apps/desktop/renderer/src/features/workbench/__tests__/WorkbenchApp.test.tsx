@@ -2140,7 +2140,7 @@ describe("WorkbenchApp", () => {
     expect(statusBarView.queryByRole("button", { name: "已保存" })).toBeNull();
     expect(statusBarView.queryByText(formatWorkbenchTimestamp(staleAcceptUpdatedAt))).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(bridgeMock.setContent).not.toHaveBeenCalledWith(beforeApply);
+    expect(vi.mocked(bridgeMock.setContent).mock.lastCall?.[0]).toEqual(secondDocumentContent);
   });
 
   it("does not let a failed accept rollback overwrite a document switch", async () => {
@@ -2257,7 +2257,7 @@ describe("WorkbenchApp", () => {
 
     expect(screen.getByRole("heading", { name: "第二章" })).toBeInTheDocument();
     expect(currentContent).toEqual(secondDocumentContent);
-    expect(bridgeMock.setContent).not.toHaveBeenCalledWith(beforeApply);
+    expect(vi.mocked(bridgeMock.setContent).mock.lastCall?.[0]).toEqual(secondDocumentContent);
   });
 
   it("does not let a failed accept rollback overwrite a newly created document", async () => {
@@ -2389,7 +2389,7 @@ describe("WorkbenchApp", () => {
     expect(statusBarView.getByText(formatWorkbenchTimestamp(createdDocumentUpdatedAt))).toBeInTheDocument();
     expect(statusBarView.queryByRole("button", { name: "保存失败" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(bridgeMock.setContent).not.toHaveBeenCalledWith(beforeApply);
+    expect(vi.mocked(bridgeMock.setContent).mock.lastCall?.[0]).toEqual(createdDocumentContent);
   });
 
   it("keeps the accept flow saved but surfaces feedback failure when submitSkillFeedback returns ok:false", async () => {
@@ -2455,6 +2455,101 @@ describe("WorkbenchApp", () => {
     expect(screen.queryByRole("button", { name: "已保存" })).toBeNull();
     expect(screen.getByText("改写后的句子")).toBeInTheDocument();
     expect(bridgeMock.setContent).toHaveBeenCalled();
+  });
+
+  it("reconciles accept preview with the persisted multi-paragraph document structure", async () => {
+    window.api = createApiMock();
+    const previewText = "第一段\n第二段";
+    const beforeApply = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "原文" }] }],
+    };
+    const previewDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: previewText }] }],
+    };
+    const persistedDocument = {
+      type: "doc",
+      content: [
+        { type: "paragraph", content: [{ type: "text", text: "第一段" }] },
+        { type: "paragraph", content: [{ type: "text", text: "第二段" }] },
+      ],
+    };
+    window.api.ai.runSkill = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        executionId: "exec-1",
+        runId: "run-1",
+        status: "preview" as const,
+        previewId: "exec-1",
+        outputText: previewText,
+      },
+    })) as typeof window.api.ai.runSkill;
+    window.api.file.readDocument = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true as const,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify(beforeApply),
+          contentText: "原文",
+          contentMd: "",
+          contentHash: "hash-initial",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      })
+      .mockResolvedValue({
+        ok: true as const,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify(persistedDocument),
+          contentText: previewText,
+          contentMd: previewText,
+          contentHash: "hash-accepted",
+          createdAt: 1,
+          updatedAt: 5,
+        },
+      }) as typeof window.api.file.readDocument;
+
+    let currentContent = beforeApply;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      currentContent = content as typeof currentContent;
+    });
+    vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      currentContent = previewDocument;
+      bridgeOptions?.onDocumentChange?.(previewDocument);
+      return { ok: true as const };
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("需要保持 preview 与落库结构一致。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByRole("button", { name: "接受" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "接受" }));
+
+    await waitFor(() => {
+      expect(bridgeMock.setContent).toHaveBeenCalledWith(persistedDocument);
+    });
+    expect(currentContent).toEqual(persistedDocument);
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
   it("surfaces reject confirm failures without dismissing the preview", async () => {

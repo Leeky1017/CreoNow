@@ -4,13 +4,14 @@ import { fileURLToPath } from "node:url";
 
 import Database from "better-sqlite3";
 import type { IpcMain } from "electron";
+import { Node as ProseMirrorNode } from "prosemirror-model";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Logger } from "../../logging/logger";
 import { registerAiIpcHandlers } from "../ai";
 import { registerVersionIpcHandlers } from "../version";
 import { createDocumentService } from "../../services/documents/documentService";
-import { computeSelectionTextHash } from "../../services/editor/prosemirrorSchema";
+import { computeSelectionTextHash, editorSchema } from "../../services/editor/prosemirrorSchema";
 import * as writingTooling from "../../services/skills/writingTooling";
 
 type Handler = (event: unknown, payload: unknown) => Promise<unknown>;
@@ -765,6 +766,86 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     const read = service.read({ projectId, documentId });
     expect(read.ok).toBe(true);
     expect(read.ok && read.data.contentText).toBe(`甲\n乙${run.data?.outputText ?? ""}丙`);
+  });
+
+  it("builtin:polish accept 对多段落选区使用与 preview 相同的 block-aware writeback", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const contentJson = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "甲" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "乙" }],
+        },
+      ],
+    };
+    const doc = ProseMirrorNode.fromJSON(editorSchema, contentJson);
+    const fullSelectionText = doc.textBetween(1, doc.content.size - 1, "\n", "\n");
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: fullSelectionText,
+      contentJson,
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        status: "preview" | "completed" | "rejected";
+        outputText?: string;
+      };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: fullSelectionText,
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: doc.content.size - 1,
+        text: fullSelectionText,
+        selectionTextHash: computeSelectionTextHash(fullSelectionText),
+      },
+      stream: false,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+    expect(run.data?.outputText).toBe(`E2E_RESULT: ${fullSelectionText}`);
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      data?: { status: "completed" | "rejected" };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+    });
+
+    expect(confirm.ok).toBe(true);
+    expect(confirm.data?.status).toBe("completed");
+
+    const service = createDocumentService({ db: harness.db, logger: createLogger() });
+    const read = service.read({ projectId, documentId });
+    expect(read.ok).toBe(true);
+    expect(read.ok && JSON.parse(read.data.contentJson)).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "E2E_RESULT: 甲" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "乙" }],
+        },
+      ],
+    });
   });
 
   it("preview 超时在等待期间自动收口，并清理 preview session", async () => {

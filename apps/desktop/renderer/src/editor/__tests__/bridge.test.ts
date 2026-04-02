@@ -108,4 +108,38 @@ describe("createEditorBridge", () => {
       reason: "selection-changed",
     });
   });
+
+  it("replaces a selection with multi-paragraph text using block-aware structure", () => {
+    const bridge = createEditorBridge();
+    const container = document.createElement("div");
+    document.body.append(container);
+
+    bridge.mount(container, createDoc("甲乙丙丁"));
+
+    const view = bridge.view;
+    if (view === null) {
+      throw new Error("EditorView missing");
+    }
+
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 5)));
+    const selection = bridge.getSelection();
+    if (selection === null) {
+      throw new Error("Selection missing");
+    }
+
+    expect(bridge.replaceSelection(selection, "第一段\n第二段")).toEqual({ ok: true });
+    expect(bridge.getContent()).toEqual({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "第一段" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "第二段" }],
+        },
+      ],
+    });
+  });
 });

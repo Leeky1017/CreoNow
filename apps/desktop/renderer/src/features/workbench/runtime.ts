@@ -31,6 +31,7 @@ export interface AiPreview {
   originalText: string;
   runId: string;
   selection: SelectionRef;
+  sourceUserEditRevision: number;
   suggestedText: string;
 }
 
@@ -61,20 +62,33 @@ export class SelectionChangedError extends Error {
   }
 }
 
-async function readConfirmedDocumentUpdatedAt(
+export class StaleAiPreviewError extends Error {
+  public constructor() {
+    super("ai-preview-stale");
+    this.name = "StaleAiPreviewError";
+  }
+}
+
+function isAcceptedPreviewConfirmation(
+  confirmResult: Awaited<ReturnType<PreloadApi["ai"]["confirmSkill"]>>,
+): boolean {
+  return confirmResult.ok === true && confirmResult.data.status === "completed";
+}
+
+async function readConfirmedDocument(
   api: PreloadApi,
   context: WorkbenchContextToken,
-): Promise<number> {
+): Promise<DocumentRead> {
   const readResult = await api.file.readDocument({
     projectId: context.projectId,
     documentId: context.documentId,
   });
 
   if (readResult.ok === false) {
-    return Date.now();
+    throw new RendererIpcError(readResult.error);
   }
 
-  return readResult.data.updatedAt;
+  return readResult.data;
 }
 
 function toFeedbackError(error: IpcError | Error): Error {
@@ -261,6 +275,7 @@ export async function requestAiPreview(args: {
   instruction: string;
   model: string;
   selection: SelectionRef;
+  userEditRevision: number;
 }): Promise<AiPreview> {
   const prompt = [
     "Selection context:",
@@ -296,6 +311,7 @@ export async function requestAiPreview(args: {
     executionId: result.data.executionId,
     originalText: args.selection.text,
     selection: args.selection,
+    sourceUserEditRevision: args.userEditRevision,
     suggestedText,
     runId: result.data.runId,
   };
@@ -309,6 +325,13 @@ export async function acceptAiPreview(args: {
   getUserEditRevision: GetUserEditRevision;
   getEditorContextRevision: GetEditorContextRevision;
 }): Promise<AcceptAiPreviewResult> {
+  if (
+    args.getUserEditRevision() !== args.preview.sourceUserEditRevision
+    || args.getEditorContextRevision() !== args.preview.context.revision
+  ) {
+    throw new StaleAiPreviewError();
+  }
+
   const beforeApply = args.bridge.getContent();
   const runWithoutAutosave = args.runWithoutAutosave ?? ((operation) => operation());
   const replaceResult = runWithoutAutosave(() => args.bridge.replaceSelection(args.preview.selection, args.preview.suggestedText));
@@ -321,9 +344,10 @@ export async function acceptAiPreview(args: {
   const confirmResult = await args.api.ai.confirmSkill({
     executionId: args.preview.executionId,
     action: "accept",
+    projectId: args.preview.context.projectId,
   });
 
-  if (confirmResult.ok === false || confirmResult.data.status !== "completed") {
+  if (!isAcceptedPreviewConfirmation(confirmResult)) {
     runWithoutAutosave(() => {
       if (
         args.getUserEditRevision() === appliedAtUserEditRevision
@@ -335,7 +359,15 @@ export async function acceptAiPreview(args: {
     throw toAcceptConfirmationError(confirmResult);
   }
 
-  const updatedAt = await readConfirmedDocumentUpdatedAt(args.api, args.preview.context);
+  const confirmedDocument = await readConfirmedDocument(args.api, args.preview.context);
+  if (
+    args.getUserEditRevision() === appliedAtUserEditRevision
+    && args.getEditorContextRevision() === appliedAtEditorContextRevision
+  ) {
+    runWithoutAutosave(() => {
+      args.bridge.setContent(JSON.parse(confirmedDocument.contentJson));
+    });
+  }
 
   let feedbackError: Error | null = null;
   try {
@@ -354,7 +386,7 @@ export async function acceptAiPreview(args: {
 
   return {
     feedbackError,
-    updatedAt,
+    updatedAt: confirmedDocument.updatedAt,
   };
 }
 
@@ -362,6 +394,7 @@ export async function rejectAiPreview(api: PreloadApi, preview: AiPreview): Prom
   const confirmResult = await api.ai.confirmSkill({
     executionId: preview.executionId,
     action: "reject",
+    projectId: preview.context.projectId,
   });
 
   if (confirmResult.ok === false) {

@@ -10,6 +10,7 @@ import {
   createSelectionRef,
   docFromJson,
   editorSchema,
+  replaceSelectionWithPlainText,
   verifySelectionHash,
   type ProseMirrorJson,
   type SelectionRef,
@@ -176,7 +177,13 @@ export function createEditorBridge(options: EditorBridgeOptions = {}): EditorBri
         return { ok: false, reason: "selection-changed" };
       }
 
-      dispatchTransaction(view.state.tr.insertText(nextText, selection.from, selection.to));
+      const transaction = view.state.tr;
+      replaceSelectionWithPlainText({
+        tr: transaction,
+        selection,
+        text: nextText,
+      });
+      dispatchTransaction(transaction);
       return { ok: true };
     },
 

@@ -8,6 +8,7 @@ export {
   docFromJson,
   editorSchema,
   getInputRules,
+  replaceSelectionWithPlainText,
   verifySelectionHash,
   type InputRuleDescriptor,
   type ProseMirrorJson,
