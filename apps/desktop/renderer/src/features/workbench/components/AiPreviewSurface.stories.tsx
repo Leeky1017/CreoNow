@@ -32,6 +32,7 @@ export const Ready: Story = {
     onReject: () => undefined,
     reference,
     preview: {
+      context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
       originalText: reference.text,
       runId: "run-demo",
       selection: reference,

@@ -18,6 +18,27 @@ function createDeferred<TResult>() {
   };
 }
 
+
+function createPreview(overrides: Partial<AiPreview> = {}): AiPreview {
+  return {
+    context: {
+      documentId: "doc-1",
+      projectId: "project-1",
+      revision: 0,
+    },
+    originalText: "原文",
+    suggestedText: "rewritten",
+    runId: "run-1",
+    selection: {
+      from: 1,
+      to: 3,
+      text: "原文",
+      selectionTextHash: "hash",
+    },
+    ...overrides,
+  };
+}
+
 function createApiMock(): PreloadApi {
   const api = {
     project: {
@@ -73,8 +94,7 @@ describe("workbench runtime helpers", () => {
 
     const preview = await requestAiPreview({
       api,
-      projectId: "project-1",
-      documentId: "doc-1",
+      context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
       instruction: "润色",
       model: "gpt-4.1-mini",
       selection: {
@@ -101,8 +121,6 @@ describe("workbench runtime helpers", () => {
     await acceptAiPreview({
       api,
       bridge,
-      projectId: "project-1",
-      documentId: "doc-1",
       preview: preview as AiPreview,
       getUserEditRevision: () => 0,
       getEditorContextRevision: () => 0,
@@ -114,6 +132,32 @@ describe("workbench runtime helpers", () => {
     expect(api.ai.submitSkillFeedback).toHaveBeenCalledWith(
       expect.objectContaining({ action: "accept", runId: "run-1" }),
     );
+  });
+
+  it("saves accept back to the preview context instead of any caller-side active document", async () => {
+    const api = createApiMock();
+    const bridge = {
+      getContent: vi.fn()
+        .mockImplementationOnce(() => ({ type: "doc" }))
+        .mockImplementationOnce(() => ({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "跨文档 accept" }] }] })),
+      replaceSelection: vi.fn(() => ({ ok: true as const })),
+      setContent: vi.fn(),
+    } as unknown as Parameters<typeof acceptAiPreview>[0]["bridge"];
+
+    await acceptAiPreview({
+      api,
+      bridge,
+      preview: createPreview({ context: { documentId: "doc-preview", projectId: "project-preview", revision: 7 } }),
+      getUserEditRevision: () => 0,
+      getEditorContextRevision: () => 7,
+    });
+
+    expect(api.file.saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: "project-preview",
+      documentId: "doc-preview",
+      actor: "ai",
+      reason: "ai-accept",
+    }));
   });
 
   it("returns a visible feedback error when accept feedback responds with ok:false after save", async () => {
@@ -131,19 +175,7 @@ describe("workbench runtime helpers", () => {
     const result = await acceptAiPreview({
       api,
       bridge,
-      projectId: "project-1",
-      documentId: "doc-1",
-      preview: {
-        originalText: "原文",
-        suggestedText: "rewritten",
-        runId: "run-1",
-        selection: {
-          from: 1,
-          to: 3,
-          text: "原文",
-          selectionTextHash: "hash",
-        },
-      },
+      preview: createPreview(),
       getUserEditRevision: () => 0,
       getEditorContextRevision: () => 0,
     });
@@ -183,19 +215,7 @@ describe("workbench runtime helpers", () => {
     await expect(acceptAiPreview({
       api,
       bridge,
-      projectId: "project-1",
-      documentId: "doc-1",
-      preview: {
-        originalText: "原文",
-        suggestedText: "rewritten",
-        runId: "run-1",
-        selection: {
-          from: 1,
-          to: 3,
-          text: "原文",
-          selectionTextHash: "hash",
-        },
-      },
+      preview: createPreview(),
       getUserEditRevision: () => 0,
       getEditorContextRevision: () => 0,
     })).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
@@ -232,19 +252,7 @@ describe("workbench runtime helpers", () => {
     const acceptPromise = acceptAiPreview({
       api,
       bridge,
-      projectId: "project-1",
-      documentId: "doc-1",
-      preview: {
-        originalText: "原文",
-        suggestedText: "rewritten",
-        runId: "run-1",
-        selection: {
-          from: 1,
-          to: 3,
-          text: "原文",
-          selectionTextHash: "hash",
-        },
-      },
+      preview: createPreview(),
       getUserEditRevision: () => userEditRevision,
       getEditorContextRevision: () => 0,
     });
@@ -293,19 +301,7 @@ describe("workbench runtime helpers", () => {
     const acceptPromise = acceptAiPreview({
       api,
       bridge,
-      projectId: "project-1",
-      documentId: "doc-1",
-      preview: {
-        originalText: "原文",
-        suggestedText: "rewritten",
-        runId: "run-1",
-        selection: {
-          from: 1,
-          to: 3,
-          text: "原文",
-          selectionTextHash: "hash",
-        },
-      },
+      preview: createPreview(),
       getUserEditRevision: () => 0,
       getEditorContextRevision: () => editorContextRevision,
     });
@@ -354,19 +350,7 @@ describe("workbench runtime helpers", () => {
     const acceptPromise = acceptAiPreview({
       api,
       bridge,
-      projectId: "project-1",
-      documentId: "doc-1",
-      preview: {
-        originalText: "原文",
-        suggestedText: "rewritten",
-        runId: "run-1",
-        selection: {
-          from: 1,
-          to: 3,
-          text: "原文",
-          selectionTextHash: "hash",
-        },
-      },
+      preview: createPreview(),
       getUserEditRevision: () => userEditRevision,
       getEditorContextRevision: () => 0,
     });
@@ -390,16 +374,6 @@ describe("workbench runtime helpers", () => {
       error: { code: "DB_ERROR", message: "feedback failed" },
     })) as typeof api.ai.submitSkillFeedback;
 
-    await expect(rejectAiPreview(api, {
-      originalText: "原文",
-      suggestedText: "rewritten",
-      runId: "run-1",
-      selection: {
-        from: 1,
-        to: 3,
-        text: "原文",
-        selectionTextHash: "hash",
-      },
-    })).rejects.toMatchObject({ code: "DB_ERROR", message: "feedback failed" });
+    await expect(rejectAiPreview(api, createPreview())).rejects.toMatchObject({ code: "DB_ERROR", message: "feedback failed" });
   });
 });

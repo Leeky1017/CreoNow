@@ -19,7 +19,14 @@ export interface WorkspaceBootstrap {
   project: ProjectListItem;
 }
 
+export interface WorkbenchContextToken {
+  documentId: string;
+  projectId: string;
+  revision: number;
+}
+
 export interface AiPreview {
+  context: WorkbenchContextToken;
   originalText: string;
   runId: string;
   selection: SelectionRef;
@@ -222,10 +229,9 @@ export async function openDocument(args: {
 
 export async function requestAiPreview(args: {
   api: PreloadApi;
-  documentId: string;
+  context: WorkbenchContextToken;
   instruction: string;
   model: string;
-  projectId: string;
   selection: SelectionRef;
 }): Promise<AiPreview> {
   const prompt = [
@@ -244,8 +250,8 @@ export async function requestAiPreview(args: {
     model: args.model,
     stream: false,
     context: {
-      projectId: args.projectId,
-      documentId: args.documentId,
+      projectId: args.context.projectId,
+      documentId: args.context.documentId,
     },
   });
   if (result.ok === false) {
@@ -258,6 +264,7 @@ export async function requestAiPreview(args: {
   }
 
   return {
+    context: args.context,
     originalText: args.selection.text,
     selection: args.selection,
     suggestedText,
@@ -268,9 +275,7 @@ export async function requestAiPreview(args: {
 export async function acceptAiPreview(args: {
   api: PreloadApi;
   bridge: EditorBridge;
-  documentId: string;
   preview: AiPreview;
-  projectId: string;
   runWithoutAutosave?: RunWithoutAutosave;
   getUserEditRevision: GetUserEditRevision;
   getEditorContextRevision: GetEditorContextRevision;
@@ -287,8 +292,8 @@ export async function acceptAiPreview(args: {
   const appliedAtUserEditRevision = args.getUserEditRevision();
   const appliedAtEditorContextRevision = args.getEditorContextRevision();
   const saveResult = await args.api.file.saveDocument({
-    projectId: args.projectId,
-    documentId: args.documentId,
+    projectId: args.preview.context.projectId,
+    documentId: args.preview.context.documentId,
     actor: "ai",
     reason: "ai-accept",
     contentJson: appliedContentJson,

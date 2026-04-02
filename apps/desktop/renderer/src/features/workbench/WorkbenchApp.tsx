@@ -29,6 +29,7 @@ import {
   type DocumentListItem,
   type DocumentRead,
   type ProjectListItem,
+  type WorkbenchContextToken,
 } from "@/features/workbench/runtime";
 import { AppToastProvider } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
@@ -78,9 +79,25 @@ type DragState =
   | null;
 
 type SaveRequestToken = {
-  editorContextRevision: number;
+  context: WorkbenchContextToken | null;
   requestId: number;
 };
+
+type PendingAutosaveDraft = {
+  contentJson: string;
+  context: WorkbenchContextToken;
+  request: SaveRequestToken;
+};
+
+function isSameContextToken(left: WorkbenchContextToken | null, right: WorkbenchContextToken | null): boolean {
+  if (left === null || right === null) {
+    return false;
+  }
+
+  return left.projectId === right.projectId
+    && left.documentId === right.documentId
+    && left.revision === right.revision;
+}
 
 const LEFT_PANEL_ITEMS: Array<{
   icon: typeof FolderTree;
@@ -195,10 +212,11 @@ function WorkbenchShell() {
   const autosaveSuppressionDepthRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const latestSaveRequestRef = useRef(0);
+  const latestBusyOperationRef = useRef(0);
   const userEditRevisionRef = useRef(0);
   const editorContextRevisionRef = useRef(0);
-  const projectRef = useRef<ProjectListItem | null>(null);
-  const activeDocumentRef = useRef<DocumentRead | null>(null);
+  const activeContextTokenRef = useRef<WorkbenchContextToken | null>(null);
+  const pendingAutosaveDraftRef = useRef<PendingAutosaveDraft | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
 
   const clearPendingAutosaveTimer = useCallback(() => {
@@ -221,18 +239,31 @@ function WorkbenchShell() {
     latestSaveRequestRef.current += 1;
     return {
       requestId: latestSaveRequestRef.current,
-      editorContextRevision: editorContextRevisionRef.current,
+      context: activeContextTokenRef.current,
     };
   }, []);
 
+  const reserveBusyOperation = useCallback(() => {
+    latestBusyOperationRef.current += 1;
+    return latestBusyOperationRef.current;
+  }, []);
+
   const isCurrentSaveContext = useCallback((request: SaveRequestToken) => (
-    editorContextRevisionRef.current === request.editorContextRevision
+    isSameContextToken(activeContextTokenRef.current, request.context)
   ), []);
 
   const isLatestSaveRequest = useCallback((request: SaveRequestToken) => (
     latestSaveRequestRef.current === request.requestId
     && isCurrentSaveContext(request)
   ), [isCurrentSaveContext]);
+
+  const isCurrentContextToken = useCallback((context: WorkbenchContextToken | null) => (
+    isSameContextToken(activeContextTokenRef.current, context)
+  ), []);
+
+  const isLatestBusyOperation = useCallback((operationId: number) => (
+    latestBusyOperationRef.current === operationId
+  ), []);
 
   const queueSaveRequest = useCallback(<TResult,>(operation: () => Promise<TResult>): Promise<TResult> => {
     const task = saveQueueRef.current.then(operation, operation);
@@ -272,14 +303,6 @@ function WorkbenchShell() {
     readStoredWidth(LAYOUT_STORAGE_KEYS.panelWidth, RIGHT_PANEL_BOUNDS),
   );
   const [dragState, setDragState] = useState<DragState>(null);
-
-  useEffect(() => {
-    projectRef.current = project;
-  }, [project]);
-
-  useEffect(() => {
-    activeDocumentRef.current = activeDocument;
-  }, [activeDocument]);
 
   useEffect(() => {
     bootstrapStatusRef.current = bootstrapStatus;
@@ -350,6 +373,62 @@ function WorkbenchShell() {
     clearReference();
   };
 
+  const persistAutosaveDraft = useCallback((draft: PendingAutosaveDraft) => (
+    queueSaveRequest(async () => {
+      if (isLatestSaveRequest(draft.request)) {
+        setSaveState("saving");
+      }
+
+      const result = await api.file.saveDocument({
+        projectId: draft.context.projectId,
+        documentId: draft.context.documentId,
+        actor: "auto",
+        reason: "autosave",
+        contentJson: draft.contentJson,
+      });
+
+      if (result.ok === false) {
+        if (isLatestSaveRequest(draft.request)) {
+          setSaveState("error");
+          setErrorMessage(getHumanErrorMessage(result.error, t));
+        }
+        return result;
+      }
+
+      if (isLatestSaveRequest(draft.request)) {
+        setSaveState("saved");
+        setLastSavedAt(result.data.updatedAt);
+      }
+
+      return result;
+    })
+  ), [api.file, isLatestSaveRequest, queueSaveRequest, t]);
+
+  const flushPendingAutosaveDraft = useCallback(async (draft: PendingAutosaveDraft | null) => {
+    if (draft === null) {
+      return null;
+    }
+
+    if (pendingAutosaveDraftRef.current === draft) {
+      pendingAutosaveDraftRef.current = null;
+    }
+
+    return persistAutosaveDraft(draft);
+  }, [persistAutosaveDraft]);
+
+  const flushDirtyDraftBeforeContextSwitch = useCallback(async () => {
+    clearPendingAutosaveTimer();
+    const pendingDraft = pendingAutosaveDraftRef.current;
+    if (pendingDraft === null || isCurrentContextToken(pendingDraft.context) === false) {
+      return;
+    }
+
+    const result = await flushPendingAutosaveDraft(pendingDraft);
+    if (result?.ok === false) {
+      throw result.error;
+    }
+  }, [clearPendingAutosaveTimer, flushPendingAutosaveDraft, isCurrentContextToken]);
+
   const editorBridge = useMemo(
     () =>
       createEditorBridge({
@@ -365,9 +444,8 @@ function WorkbenchShell() {
           setErrorMessage(null);
         },
         onDocumentChange: (content) => {
-          const currentProject = projectRef.current;
-          const currentDocument = activeDocumentRef.current;
-          if (autosaveSuppressionDepthRef.current > 0 || currentProject === null || currentDocument === null) {
+          const currentContext = activeContextTokenRef.current;
+          if (autosaveSuppressionDepthRef.current > 0 || currentContext === null) {
             return;
           }
 
@@ -375,47 +453,39 @@ function WorkbenchShell() {
           userEditRevisionRef.current += 1;
 
           setSaveState("idle");
-          const contentJson = JSON.stringify(content);
-          const saveRequestId = reserveSaveRequest();
+          const nextDraft = {
+            contentJson: JSON.stringify(content),
+            context: currentContext,
+            request: reserveSaveRequest(),
+          } satisfies PendingAutosaveDraft;
+          pendingAutosaveDraftRef.current = nextDraft;
           autosaveTimerRef.current = window.setTimeout(() => {
             autosaveTimerRef.current = null;
-            void queueSaveRequest(async () => {
-              if (isLatestSaveRequest(saveRequestId)) {
-                setSaveState("saving");
-              }
-
-              const result = await api.file.saveDocument({
-                projectId: currentProject.projectId,
-                documentId: currentDocument.documentId,
-                actor: "auto",
-                reason: "autosave",
-                contentJson,
-              });
-
-              if (result.ok === false) {
-                if (isLatestSaveRequest(saveRequestId)) {
-                  setSaveState("error");
-                  setErrorMessage(getHumanErrorMessage(result.error, t));
-                }
-                return;
-              }
-
-              if (isLatestSaveRequest(saveRequestId)) {
-                setSaveState("saved");
-                setLastSavedAt(result.data.updatedAt);
-              }
-            });
+            if (pendingAutosaveDraftRef.current !== nextDraft) {
+              return;
+            }
+            void flushPendingAutosaveDraft(nextDraft);
           }, AUTOSAVE_DELAY_MS);
         },
       }),
-    [api.file, clearPendingAutosaveTimer, t],
+    [clearPendingAutosaveTimer, flushPendingAutosaveDraft, reserveSaveRequest],
   );
 
-  const replaceEditorContextContent = useCallback((contentJson: string) => {
+  const replaceEditorContextContent = useCallback((nextContext: {
+    contentJson: string;
+    documentId: string;
+    projectId: string;
+  }) => {
     clearPendingAutosaveTimer();
+    pendingAutosaveDraftRef.current = null;
     editorContextRevisionRef.current += 1;
+    activeContextTokenRef.current = {
+      documentId: nextContext.documentId,
+      projectId: nextContext.projectId,
+      revision: editorContextRevisionRef.current,
+    };
     runWithoutAutosave(() => {
-      editorBridge.setContent(JSON.parse(contentJson));
+      editorBridge.setContent(JSON.parse(nextContext.contentJson));
     });
   }, [clearPendingAutosaveTimer, editorBridge, runWithoutAutosave]);
 
@@ -479,7 +549,11 @@ function WorkbenchShell() {
           return;
         }
 
-        replaceEditorContextContent(workspace.activeDocument.contentJson);
+        replaceEditorContextContent({
+          contentJson: workspace.activeDocument.contentJson,
+          documentId: workspace.activeDocument.documentId,
+          projectId: workspace.project.projectId,
+        });
         setProject(workspace.project);
         setDocuments(workspace.documents);
         setActiveDocument(workspace.activeDocument);
@@ -509,14 +583,20 @@ function WorkbenchShell() {
       return;
     }
 
+    const busyOperationId = reserveBusyOperation();
     try {
-      clearPendingAutosaveTimer();
+      setBusy(true);
+      await flushDirtyDraftBeforeContextSwitch();
       const result = await createDocumentAndOpen({
         api,
         projectId: project.projectId,
         defaultDocumentTitle: t("document.defaultTitle"),
       });
-      replaceEditorContextContent(result.activeDocument.contentJson);
+      replaceEditorContextContent({
+        contentJson: result.activeDocument.contentJson,
+        documentId: result.activeDocument.documentId,
+        projectId: result.activeDocument.projectId,
+      });
       setDocuments(result.documents);
       setActiveDocument(result.activeDocument);
       setPreview(null);
@@ -529,6 +609,10 @@ function WorkbenchShell() {
       setSidebarCollapsed(false);
     } catch (error) {
       setErrorMessage(getHumanErrorMessage(error as Error, t));
+    } finally {
+      if (isLatestBusyOperation(busyOperationId)) {
+        setBusy(false);
+      }
     }
   };
 
@@ -541,14 +625,20 @@ function WorkbenchShell() {
       return;
     }
 
+    const busyOperationId = reserveBusyOperation();
     try {
-      clearPendingAutosaveTimer();
+      setBusy(true);
+      await flushDirtyDraftBeforeContextSwitch();
       const readDocument = await openDocument({
         api,
         projectId: project.projectId,
         documentId,
       });
-      replaceEditorContextContent(readDocument.contentJson);
+      replaceEditorContextContent({
+        contentJson: readDocument.contentJson,
+        documentId: readDocument.documentId,
+        projectId: readDocument.projectId,
+      });
       setActiveDocument(readDocument);
       setPreview(null);
       setStickySelection(null);
@@ -560,44 +650,61 @@ function WorkbenchShell() {
       setSidebarCollapsed(false);
     } catch (error) {
       setErrorMessage(getHumanErrorMessage(error as Error, t));
+    } finally {
+      if (isLatestBusyOperation(busyOperationId)) {
+        setBusy(false);
+      }
     }
   };
 
   const handleGeneratePreview = async () => {
-    if (project === null || activeDocument === null || stickySelection === null) {
+    if (stickySelection === null) {
       return;
     }
 
+    const previewContext = activeContextTokenRef.current;
+    if (previewContext === null) {
+      return;
+    }
+
+    const busyOperationId = reserveBusyOperation();
     try {
       setBusy(true);
       setErrorMessage(null);
       const nextPreview = await requestAiPreview({
         api,
-        projectId: project.projectId,
-        documentId: activeDocument.documentId,
+        context: previewContext,
         selection: stickySelection,
         instruction,
         model,
       });
-      setPreview(nextPreview);
-      setStickySelection(null);
+      if (isCurrentContextToken(previewContext)) {
+        setPreview(nextPreview);
+        setStickySelection(null);
+      }
     } catch (error) {
-      if (error instanceof Error && error.message === "preview-unavailable") {
-        setErrorMessage(t("messages.previewUnavailable"));
-      } else {
-        setErrorMessage(getHumanErrorMessage(error as Error, t));
+      if (isCurrentContextToken(previewContext)) {
+        if (error instanceof Error && error.message === "preview-unavailable") {
+          setErrorMessage(t("messages.previewUnavailable"));
+        } else {
+          setErrorMessage(getHumanErrorMessage(error as Error, t));
+        }
       }
     } finally {
-      setBusy(false);
+      if (isLatestBusyOperation(busyOperationId)) {
+        setBusy(false);
+      }
     }
   };
 
   const handleAcceptPreview = async () => {
-    if (project === null || activeDocument === null || preview === null) {
+    if (preview === null || isCurrentContextToken(preview.context) === false) {
       return;
     }
 
+    const busyOperationId = reserveBusyOperation();
     clearPendingAutosaveTimer();
+    pendingAutosaveDraftRef.current = null;
     const saveRequestId = reserveSaveRequest();
 
     try {
@@ -606,14 +713,12 @@ function WorkbenchShell() {
       const result = await queueSaveRequest(() => acceptAiPreview({
         api,
         bridge: editorBridge,
-        projectId: project.projectId,
-        documentId: activeDocument.documentId,
         preview,
         runWithoutAutosave,
         getUserEditRevision: () => userEditRevisionRef.current,
         getEditorContextRevision: () => editorContextRevisionRef.current,
       }));
-      if (isCurrentSaveContext(saveRequestId)) {
+      if (isCurrentContextToken(preview.context)) {
         setPreview(null);
         setErrorMessage(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null);
       }
@@ -622,7 +727,7 @@ function WorkbenchShell() {
         setLastSavedAt(result.updatedAt);
       }
     } catch (error) {
-      if (isCurrentSaveContext(saveRequestId)) {
+      if (isCurrentContextToken(preview.context)) {
         if (error instanceof SelectionChangedError) {
           setErrorMessage(t("messages.selectionChanged"));
         } else {
@@ -633,7 +738,9 @@ function WorkbenchShell() {
         setSaveState("error");
       }
     } finally {
-      setBusy(false);
+      if (isLatestBusyOperation(busyOperationId)) {
+        setBusy(false);
+      }
     }
   };
 
@@ -642,15 +749,23 @@ function WorkbenchShell() {
       return;
     }
 
+    const previewContext = preview.context;
+    const busyOperationId = reserveBusyOperation();
     try {
       setBusy(true);
       await rejectAiPreview(api, preview);
-      setPreview(null);
-      setErrorMessage(null);
+      if (isCurrentContextToken(previewContext)) {
+        setPreview(null);
+        setErrorMessage(null);
+      }
     } catch (error) {
-      setErrorMessage(getHumanErrorMessage(error as Error, t));
+      if (isCurrentContextToken(previewContext)) {
+        setErrorMessage(getHumanErrorMessage(error as Error, t));
+      }
     } finally {
-      setBusy(false);
+      if (isLatestBusyOperation(busyOperationId)) {
+        setBusy(false);
+      }
     }
   };
 

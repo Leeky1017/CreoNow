@@ -532,11 +532,16 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
-  it("clears a pending autosave before switching documents so the new document save UI stays untouched", async () => {
+  it("flushes a pending autosave before switching documents so doc A draft persists and doc B UI stays untouched", async () => {
     window.api = createApiMock();
 
     const docAUpdatedAt = Date.UTC(2024, 0, 1, 8, 0);
     const docBUpdatedAt = Date.UTC(2024, 0, 2, 9, 30);
+    const flushedUpdatedAt = Date.UTC(2024, 0, 4, 10, 45);
+    const autosaveFlush = createDeferred<{
+      ok: true;
+      data: { updatedAt: number; contentHash: string };
+    }>();
     const firstDocument = {
       documentId: "doc-1",
       title: "第一章",
@@ -596,10 +601,7 @@ describe("WorkbenchApp", () => {
           updatedAt: docAUpdatedAt,
         },
     })) as typeof window.api.file.readDocument;
-    const saveDocument = vi.fn(async () => ({
-      ok: false as const,
-      error: { code: "DB_ERROR", message: "stale autosave failed" },
-    }));
+    const saveDocument = vi.fn(async () => autosaveFlush.promise);
     window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
 
     let currentContent = { type: "doc" };
@@ -624,7 +626,25 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByRole("heading", { name: "第二章" })).toBeInTheDocument();
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(docAEditedContent),
+    }));
+    expect(window.api.file.setCurrentDocument).not.toHaveBeenCalledWith(expect.objectContaining({ documentId: "doc-2" }));
+    expect(screen.queryByRole("heading", { name: "第二章" })).toBeNull();
+
+    await act(async () => {
+      autosaveFlush.resolve({ ok: true, data: { updatedAt: flushedUpdatedAt, contentHash: "hash-doc-a-flushed" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(await screen.findByRole("heading", { name: "第二章" })).toBeInTheDocument();
     expect(currentContent).toEqual(docBContent);
 
     const statusBar = container.querySelector(".status-bar");
@@ -632,27 +652,20 @@ describe("WorkbenchApp", () => {
     const statusBarView = within(statusBar as HTMLElement);
     expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
     expect(statusBarView.getByText(formatWorkbenchTimestamp(docBUpdatedAt))).toBeInTheDocument();
-    expect(screen.queryByRole("alert")).toBeNull();
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(800);
-      await Promise.resolve();
-    });
-
-    expect(saveDocument).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "第二章" })).toBeInTheDocument();
-    expect(currentContent).toEqual(docBContent);
-    expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
-    expect(statusBarView.getByText(formatWorkbenchTimestamp(docBUpdatedAt))).toBeInTheDocument();
-    expect(statusBarView.queryByRole("button", { name: "保存失败" })).toBeNull();
+    expect(statusBarView.queryByText(formatWorkbenchTimestamp(flushedUpdatedAt))).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("clears a pending autosave before creating a document so the new document save UI stays untouched", async () => {
+  it("flushes a pending autosave before creating a document so doc A draft persists and the new document UI stays untouched", async () => {
     window.api = createApiMock();
 
     const docAUpdatedAt = Date.UTC(2024, 0, 1, 8, 0);
     const createdDocumentUpdatedAt = Date.UTC(2024, 0, 3, 11, 15);
+    const flushedUpdatedAt = Date.UTC(2024, 0, 4, 10, 45);
+    const autosaveFlush = createDeferred<{
+      ok: true;
+      data: { updatedAt: number; contentHash: string };
+    }>();
     const firstDocument = {
       documentId: "doc-1",
       title: "第一章",
@@ -715,10 +728,7 @@ describe("WorkbenchApp", () => {
           updatedAt: docAUpdatedAt,
         },
     })) as typeof window.api.file.readDocument;
-    const saveDocument = vi.fn(async () => ({
-      ok: false as const,
-      error: { code: "DB_ERROR", message: "stale autosave failed" },
-    }));
+    const saveDocument = vi.fn(async () => autosaveFlush.promise);
     window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
 
     let currentContent = { type: "doc" };
@@ -743,7 +753,25 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByRole("heading", { name: "新建文档" })).toBeInTheDocument();
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(docAEditedContent),
+    }));
+    expect(window.api.file.createDocument).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "新建文档" })).toBeNull();
+
+    await act(async () => {
+      autosaveFlush.resolve({ ok: true, data: { updatedAt: flushedUpdatedAt, contentHash: "hash-doc-a-flushed" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(await screen.findByRole("heading", { name: "新建文档" })).toBeInTheDocument();
     expect(currentContent).toEqual(createdDocumentContent);
 
     const statusBar = container.querySelector(".status-bar");
@@ -751,20 +779,227 @@ describe("WorkbenchApp", () => {
     const statusBarView = within(statusBar as HTMLElement);
     expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
     expect(statusBarView.getByText(formatWorkbenchTimestamp(createdDocumentUpdatedAt))).toBeInTheDocument();
+    expect(statusBarView.queryByText(formatWorkbenchTimestamp(flushedUpdatedAt))).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("ignores a stale preview response after switching documents", async () => {
+    window.api = createApiMock();
+
+    const previewResult = createDeferred<{
+      ok: true;
+      data: { executionId: string; runId: string; outputText: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: 1,
+    } as const;
+    const secondDocument = {
+      documentId: "doc-2",
+      title: "第二章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: 2,
+    } as const;
+    const docAContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 原文" }] }],
+    };
+    const docBContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 B 当前内容" }] }],
+    };
+
+    window.api.ai.runSkill = vi.fn(async () => previewResult.promise) as typeof window.api.ai.runSkill;
+    window.api.file.listDocuments = vi.fn(async () => ({ ok: true, data: { items: [firstDocument, secondDocument] } })) as typeof window.api.file.listDocuments;
+    window.api.file.setCurrentDocument = vi.fn(async ({ documentId }) => ({ ok: true, data: { documentId } })) as typeof window.api.file.setCurrentDocument;
+    window.api.file.readDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: documentId === "doc-2"
+        ? {
+          documentId: "doc-2",
+          projectId: "project-1",
+          title: "第二章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 1,
+          contentJson: JSON.stringify(docBContent),
+          contentText: "文档 B 当前内容",
+          contentMd: "",
+          contentHash: "hash-b",
+          createdAt: 2,
+          updatedAt: 2,
+        }
+        : {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify(docAContent),
+          contentText: "文档 A 原文",
+          contentMd: "",
+          contentHash: "hash-a",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+    })) as typeof window.api.file.readDocument;
+
+    let currentContent = docAContent;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      currentContent = content as typeof currentContent;
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(800);
+      bridgeOptions?.onSelectionChange?.(createSelection("文档 A 的选区", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    await waitFor(() => {
+      expect(window.api?.ai.runSkill).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /第二章/ }));
+    expect(await screen.findByRole("heading", { name: "第二章" })).toBeInTheDocument();
+    expect(currentContent).toEqual(docBContent);
+
+    await act(async () => {
+      previewResult.resolve({ ok: true, data: { executionId: "exec-stale", runId: "run-stale", outputText: "文档 A 晚到建议" } });
+      await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(saveDocument).not.toHaveBeenCalled();
-    expect(screen.getByRole("heading", { name: "新建文档" })).toBeInTheDocument();
-    expect(currentContent).toEqual(createdDocumentContent);
-    expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
-    expect(statusBarView.getByText(formatWorkbenchTimestamp(createdDocumentUpdatedAt))).toBeInTheDocument();
-    expect(statusBarView.queryByRole("button", { name: "保存失败" })).toBeNull();
+    expect(screen.queryByText("文档 A 晚到建议")).toBeNull();
+    expect(screen.queryByRole("button", { name: "接受" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
+    expect(currentContent).toEqual(docBContent);
+    expect(window.api.file.saveDocument).not.toHaveBeenCalledWith(expect.objectContaining({
+      actor: "ai",
+      reason: "ai-accept",
+      documentId: "doc-2",
+    }));
+  });
+
+  it("ignores a stale preview response after creating a new document so accept cannot save into the new active doc", async () => {
+    window.api = createApiMock();
+
+    const previewResult = createDeferred<{
+      ok: true;
+      data: { executionId: string; runId: string; outputText: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: 1,
+    } as const;
+    const createdDocument = {
+      documentId: "doc-3",
+      title: "新建文档",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: 3,
+    } as const;
+    const docAContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 原文" }] }],
+    };
+    const createdDocumentContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "新建文档内容" }] }],
+    };
+
+    window.api.ai.runSkill = vi.fn(async () => previewResult.promise) as typeof window.api.ai.runSkill;
+    window.api.file.createDocument = vi.fn(async () => ({ ok: true, data: { documentId: "doc-3" } })) as typeof window.api.file.createDocument;
+    window.api.file.listDocuments = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { items: [firstDocument] } })
+      .mockResolvedValue({ ok: true, data: { items: [firstDocument, createdDocument] } }) as typeof window.api.file.listDocuments;
+    window.api.file.setCurrentDocument = vi.fn(async ({ documentId }) => ({ ok: true, data: { documentId } })) as typeof window.api.file.setCurrentDocument;
+    window.api.file.readDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: documentId === "doc-3"
+        ? {
+          documentId: "doc-3",
+          projectId: "project-1",
+          title: "新建文档",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 1,
+          contentJson: JSON.stringify(createdDocumentContent),
+          contentText: "新建文档内容",
+          contentMd: "",
+          contentHash: "hash-c",
+          createdAt: 3,
+          updatedAt: 3,
+        }
+        : {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify(docAContent),
+          contentText: "文档 A 原文",
+          contentMd: "",
+          contentHash: "hash-a",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+    })) as typeof window.api.file.readDocument;
+
+    let currentContent = docAContent;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      currentContent = content as typeof currentContent;
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("文档 A 的选区", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    await waitFor(() => {
+      expect(window.api?.ai.runSkill).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新建文档" }));
+    expect(await screen.findByRole("heading", { name: "新建文档" })).toBeInTheDocument();
+    expect(currentContent).toEqual(createdDocumentContent);
+
+    await act(async () => {
+      previewResult.resolve({ ok: true, data: { executionId: "exec-stale", runId: "run-stale", outputText: "文档 A 晚到建议" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText("文档 A 晚到建议")).toBeNull();
+    expect(screen.queryByRole("button", { name: "接受" })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(currentContent).toEqual(createdDocumentContent);
+    expect(window.api.file.saveDocument).not.toHaveBeenCalledWith(expect.objectContaining({
+      actor: "ai",
+      reason: "ai-accept",
+      documentId: "doc-3",
+    }));
   });
 
   it("keeps a switched document save UI isolated from an earlier accept save success", async () => {
