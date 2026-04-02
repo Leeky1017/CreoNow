@@ -271,4 +271,61 @@ describe("ai:skill:run cursor propagation regression", () => {
     // Both calls (prepareRequest + skillExecutor) must receive textOffset=2
     expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([2, 2]);
   });
+
+  // RED→GREEN regression: Audit-B BLOCKING FINDING — selection skills (polish/rewrite) must
+  // pass additionalInputIsSelection=true so the immediate layer does NOT slice selection text.
+  it("builtin:polish 的 context assembly 请求必须携带 additionalInputIsSelection=true", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "First paragraph\nSecond paragraph",
+    });
+
+    const selectionText = "First paragraph\nSecond paragraph";
+    await harness.invoke("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: selectionText,
+      selection: {
+        from: 1,
+        to: 35,
+        text: selectionText,
+        selectionTextHash: "abc123",
+      },
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    // Both assemble calls must carry additionalInputIsSelection=true
+    const flags = assembleSpy.mock.calls.map(([request]) => request.additionalInputIsSelection);
+    expect(flags.every((f: unknown) => f === true)).toBe(true);
+    // textOffset may still be set but the immediate layer guard ensures it is ignored
+  });
+
+  it("builtin:continue の context assembly 请求 additionalInputIsSelection 为 false 或 undefined", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "甲乙丙丁",
+    });
+
+    await harness.invoke("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      cursorPosition: 3,
+      input: "甲乙丙丁",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    // Document-window skill: additionalInputIsSelection must be false (not true)
+    const flags = assembleSpy.mock.calls.map(([request]) => request.additionalInputIsSelection);
+    expect(flags.every((f: unknown) => f !== true)).toBe(true);
+  });
 });

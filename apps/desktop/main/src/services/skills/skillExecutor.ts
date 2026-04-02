@@ -77,6 +77,7 @@ type SkillExecutorDeps = {
     cursorPosition: number;
     skillId: string;
     additionalInput?: string;
+    additionalInputIsSelection?: boolean;
     provider?: string;
     model?: string;
   }) => Promise<ContextAssembleResult>;
@@ -540,6 +541,7 @@ async function assembleContextPrompt(args: {
   assembleContext?: SkillExecutorDeps["assembleContext"];
   run: SkillExecutorRunArgs;
   additionalInput: string;
+  inputType: "selection" | "document";
 }): Promise<ContextAssembleResult | null> {
   if (!args.assembleContext) {
     return null;
@@ -557,6 +559,8 @@ async function assembleContextPrompt(args: {
     cursorPosition: args.run.cursorPosition ?? 0,
     skillId: args.run.skillId,
     additionalInput: args.additionalInput,
+    // Selection-based skills must not have their selection text truncated at textOffset.
+    additionalInputIsSelection: args.inputType === "selection",
     provider: "ai-service",
     model: args.run.model,
   });
@@ -618,6 +622,7 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
           assembleContext: deps.assembleContext,
           run: { ...args, skillId: effectiveSkillId },
           additionalInput: inputForPrompt,
+          inputType: resolved.data.inputType ?? "selection",
         });
         if (assembled && assembled.prompt.trim().length > 0) {
           contextPrompt = assembled.prompt;

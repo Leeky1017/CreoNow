@@ -9,6 +9,12 @@ export type ContextAssembleRequest = {
    * `cursorPosition` (which is a ProseMirror document position, not a text offset).
    * Set by the IPC layer after converting PM pos → text offset via the document model. */
   textOffset?: number;
+  /**
+   * When true, `additionalInput` contains the user's selection text and must NOT be
+   * truncated at textOffset.  Selection-based skills (polish, rewrite, etc.) set this
+   * so the immediate layer returns the full selection text as-is.
+   */
+  additionalInputIsSelection?: boolean;
   skillId: string;
   additionalInput?: string;
   provider?: string;

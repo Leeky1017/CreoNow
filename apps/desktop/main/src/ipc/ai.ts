@@ -515,6 +515,7 @@ async function prepareWritingRequest(args: {
         ...(textOffset !== undefined ? { textOffset } : {}),
         skillId: args.payload.skillId,
         additionalInput: input,
+        additionalInputIsSelection: inputType === "selection",
         provider: "ai-service",
         model: args.payload.model,
       });

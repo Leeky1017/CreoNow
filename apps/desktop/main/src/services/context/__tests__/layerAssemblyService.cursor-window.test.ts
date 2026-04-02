@@ -155,4 +155,110 @@ describe("createContextLayerAssemblyService cursor window regression", () => {
       expect(inspect.layersDetail.immediate.content).toBe("甲乙丙丁");
     });
   });
+
+  // ── Selection-skill immediate layer regression ────────────────────────────
+  // Audit-B BLOCKING FINDING: selection-based skills (polish / rewrite) had their
+  // additionalInput sliced at textOffset, causing multi-paragraph selections to lose
+  // the last few characters.  When additionalInputIsSelection=true the immediate layer
+  // must return the full text regardless of textOffset or cursorPosition.
+
+  describe("selection-skill immediate layer: additionalInputIsSelection guard", () => {
+    it("single-paragraph selection: full text is preserved even when textOffset is smaller", async () => {
+      const service = makeService();
+      const selectionText = "Hello World";
+      const inspect = await service.inspect({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 12,
+        textOffset: 5, // 5 < selectionText.length(11) — would truncate without the guard
+        skillId: "builtin:polish",
+        additionalInput: selectionText,
+        additionalInputIsSelection: true,
+        debugMode: true,
+        requestedBy: "unit-test",
+      });
+
+      // Must return the full selection text, NOT "Hello" (slice at 5)
+      expect(inspect.layersDetail.immediate.content).toBe(selectionText);
+    });
+
+    it("multi-paragraph selection: textBetween separators do NOT cause truncation", async () => {
+      // Simulate a selection spanning two paragraphs captured via textBetween(from,to,"\n","\n").
+      // The "\n" separator inflates selection.text.length above what pmPosToTextOffset would
+      // return for selection.to — which is exactly the truncation scenario Audit-B caught.
+      const service = makeService();
+      // Two paragraphs, 10 chars each, joined with "\n" (inserted by textBetween) = 21 chars
+      const selectionText = "First para\nSecond par";
+      // Simulate textOffset = 20 (the 20 text-node chars before selection.to, no "\n" counted)
+      const inspect = await service.inspect({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 24, // PM pos at end of second paragraph
+        textOffset: 20,     // 20 < selectionText.length(21) → would chop last char without guard
+        skillId: "builtin:polish",
+        additionalInput: selectionText,
+        additionalInputIsSelection: true,
+        debugMode: true,
+        requestedBy: "unit-test",
+      });
+
+      // Without the guard: slice(0,20) = "First para\nSecond pa" — loses trailing "r"
+      // With the guard: full selection text must be returned intact
+      expect(inspect.layersDetail.immediate.content).toBe(selectionText);
+    });
+
+    it("rewrite skill with multi-paragraph selection preserves full text", async () => {
+      const service = makeService();
+      const selectionText = "Chapter one opening.\nChapter continues here.";
+      const inspect = await service.inspect({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 47,
+        textOffset: 43, // 43 < 44 — would slice "Chapter one opening.\nChapter continues her"
+        skillId: "builtin:rewrite",
+        additionalInput: selectionText,
+        additionalInputIsSelection: true,
+        debugMode: true,
+        requestedBy: "unit-test",
+      });
+
+      expect(inspect.layersDetail.immediate.content).toBe(selectionText);
+    });
+
+    it("continue skill (additionalInputIsSelection=false) is NOT affected: still slices at textOffset", async () => {
+      const service = makeService();
+      const docText = "甲乙丙丁";
+      const inspect = await service.inspect({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 3,
+        textOffset: 2,
+        skillId: "builtin:continue",
+        additionalInput: docText,
+        additionalInputIsSelection: false, // explicit false = document-window skill
+        debugMode: true,
+        requestedBy: "unit-test",
+      });
+
+      // cursor skill: must still slice at textOffset=2 → "甲乙"
+      expect(inspect.layersDetail.immediate.content).toBe("甲乙");
+    });
+
+    it("selection with empty additionalInput falls back to cursor marker (same as document path)", async () => {
+      const service = makeService();
+      const inspect = await service.inspect({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 10,
+        textOffset: 5,
+        skillId: "builtin:polish",
+        additionalInput: "",
+        additionalInputIsSelection: true,
+        debugMode: true,
+        requestedBy: "unit-test",
+      });
+
+      expect(inspect.layersDetail.immediate.content).toBe("cursor=10");
+    });
+  });
 });

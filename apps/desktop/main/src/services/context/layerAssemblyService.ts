@@ -1131,17 +1131,27 @@ function defaultFetchers(
       const text = request.additionalInput?.trim();
       let content: string;
       if (text !== undefined && text.length > 0) {
-        // Use textOffset (plain-text chars before cursor) when available; it is set by the IPC
-        // layer after converting the ProseMirror document position to a plain-text offset.
-        // Fall back to cursorPosition for callers that do not yet provide textOffset.
-        const sliceAt =
-          request.textOffset !== undefined ? request.textOffset : request.cursorPosition;
-        const pos = Math.min(sliceAt, text.length);
-        const preceding = text.slice(0, pos);
-        content =
-          preceding.length > 0
-            ? preceding
-            : `cursor=${request.cursorPosition.toString()}`;
+        if (request.additionalInputIsSelection) {
+          // Selection-based skills (polish, rewrite, etc.): additionalInput IS the selected
+          // text and must be returned whole.  textOffset is a document-level cursor position
+          // that is unrelated to the selection boundaries — slicing at it would truncate the
+          // selection, causing semantic regression on multi-paragraph selections.
+          content = text;
+        } else {
+          // Document-window skills (continue, etc.): slice the document text at the cursor
+          // offset so the immediate layer shows only the text preceding the cursor.
+          // Use textOffset (plain-text chars before cursor) when available; it is set by the
+          // IPC layer after converting the ProseMirror document position to a plain-text
+          // offset.  Fall back to cursorPosition for callers that do not yet provide it.
+          const sliceAt =
+            request.textOffset !== undefined ? request.textOffset : request.cursorPosition;
+          const pos = Math.min(sliceAt, text.length);
+          const preceding = text.slice(0, pos);
+          content =
+            preceding.length > 0
+              ? preceding
+              : `cursor=${request.cursorPosition.toString()}`;
+        }
       } else {
         content = `cursor=${request.cursorPosition.toString()}`;
       }
