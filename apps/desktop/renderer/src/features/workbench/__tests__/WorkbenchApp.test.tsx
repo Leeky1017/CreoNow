@@ -783,6 +783,478 @@ describe("WorkbenchApp", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("waits for an in-flight autosave before switching documents so doc A finishes saving and doc B UI stays untouched", async () => {
+    window.api = createApiMock();
+
+    const docAUpdatedAt = Date.UTC(2024, 0, 1, 8, 0);
+    const docBUpdatedAt = Date.UTC(2024, 0, 2, 9, 30);
+    const flushedUpdatedAt = Date.UTC(2024, 0, 4, 10, 45);
+    const autosaveInFlight = createDeferred<{
+      ok: true;
+      data: { updatedAt: number; contentHash: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: docAUpdatedAt,
+    } as const;
+    const secondDocument = {
+      documentId: "doc-2",
+      title: "第二章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: docBUpdatedAt,
+    } as const;
+    const docAEditedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 定时器已触发，保存仍在路上" }] }],
+    };
+    const docBContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 B 当前内容" }] }],
+    };
+
+    window.api.file.listDocuments = vi.fn(async () => ({ ok: true, data: { items: [firstDocument, secondDocument] } })) as typeof window.api.file.listDocuments;
+    window.api.file.setCurrentDocument = vi.fn(async ({ documentId }) => ({ ok: true, data: { documentId } })) as typeof window.api.file.setCurrentDocument;
+    window.api.file.readDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: documentId === "doc-2"
+        ? {
+          documentId: "doc-2",
+          projectId: "project-1",
+          title: "第二章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 1,
+          contentJson: JSON.stringify(docBContent),
+          contentText: "文档 B 当前内容",
+          contentMd: "",
+          contentHash: "hash-b",
+          createdAt: docBUpdatedAt,
+          updatedAt: docBUpdatedAt,
+        }
+        : {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "文档 A 原文",
+          contentMd: "",
+          contentHash: "hash-a",
+          createdAt: docAUpdatedAt,
+          updatedAt: docAUpdatedAt,
+        },
+    })) as typeof window.api.file.readDocument;
+    const saveDocument = vi.fn(async () => autosaveInFlight.promise);
+    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+
+    let currentContent = { type: "doc" };
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      currentContent = content as typeof currentContent;
+    });
+
+    const { container } = render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      currentContent = docAEditedContent;
+      bridgeOptions?.onDocumentChange?.(docAEditedContent);
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(docAEditedContent),
+    }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /第二章/ }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.api.file.setCurrentDocument).not.toHaveBeenCalledWith(expect.objectContaining({ documentId: "doc-2" }));
+    expect(screen.queryByRole("heading", { name: "第二章" })).toBeNull();
+    expect(currentContent).toEqual(docAEditedContent);
+
+    await act(async () => {
+      autosaveInFlight.resolve({ ok: true, data: { updatedAt: flushedUpdatedAt, contentHash: "hash-doc-a-flushed" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(await screen.findByRole("heading", { name: "第二章" })).toBeInTheDocument();
+    expect(currentContent).toEqual(docBContent);
+
+    const statusBar = container.querySelector(".status-bar");
+    expect(statusBar).not.toBeNull();
+    const statusBarView = within(statusBar as HTMLElement);
+    expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+    expect(statusBarView.getByText(formatWorkbenchTimestamp(docBUpdatedAt))).toBeInTheDocument();
+    expect(statusBarView.queryByText(formatWorkbenchTimestamp(flushedUpdatedAt))).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("waits for an in-flight autosave before creating a document so doc A finishes saving and the new document UI stays untouched", async () => {
+    window.api = createApiMock();
+
+    const docAUpdatedAt = Date.UTC(2024, 0, 1, 8, 0);
+    const createdDocumentUpdatedAt = Date.UTC(2024, 0, 3, 11, 15);
+    const flushedUpdatedAt = Date.UTC(2024, 0, 4, 10, 45);
+    const autosaveInFlight = createDeferred<{
+      ok: true;
+      data: { updatedAt: number; contentHash: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: docAUpdatedAt,
+    } as const;
+    const createdDocument = {
+      documentId: "doc-3",
+      title: "新建文档",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: createdDocumentUpdatedAt,
+    } as const;
+    const docAEditedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 定时器已触发，创建前仍要等它落盘" }] }],
+    };
+    const createdDocumentContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "新建文档内容" }] }],
+    };
+
+    window.api.file.createDocument = vi.fn(async () => ({ ok: true, data: { documentId: "doc-3" } })) as typeof window.api.file.createDocument;
+    window.api.file.listDocuments = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { items: [firstDocument] } })
+      .mockResolvedValue({ ok: true, data: { items: [firstDocument, createdDocument] } }) as typeof window.api.file.listDocuments;
+    window.api.file.setCurrentDocument = vi.fn(async ({ documentId }) => ({ ok: true, data: { documentId } })) as typeof window.api.file.setCurrentDocument;
+    window.api.file.readDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: documentId === "doc-3"
+        ? {
+          documentId: "doc-3",
+          projectId: "project-1",
+          title: "新建文档",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 1,
+          contentJson: JSON.stringify(createdDocumentContent),
+          contentText: "新建文档内容",
+          contentMd: "",
+          contentHash: "hash-c",
+          createdAt: createdDocumentUpdatedAt,
+          updatedAt: createdDocumentUpdatedAt,
+        }
+        : {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "文档 A 原文",
+          contentMd: "",
+          contentHash: "hash-a",
+          createdAt: docAUpdatedAt,
+          updatedAt: docAUpdatedAt,
+        },
+    })) as typeof window.api.file.readDocument;
+    const saveDocument = vi.fn(async () => autosaveInFlight.promise);
+    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+
+    let currentContent = { type: "doc" };
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      currentContent = content as typeof currentContent;
+    });
+
+    const { container } = render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      currentContent = docAEditedContent;
+      bridgeOptions?.onDocumentChange?.(docAEditedContent);
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(docAEditedContent),
+    }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建文档" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.api.file.createDocument).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "新建文档" })).toBeNull();
+    expect(currentContent).toEqual(docAEditedContent);
+
+    await act(async () => {
+      autosaveInFlight.resolve({ ok: true, data: { updatedAt: flushedUpdatedAt, contentHash: "hash-doc-a-flushed" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(await screen.findByRole("heading", { name: "新建文档" })).toBeInTheDocument();
+    expect(currentContent).toEqual(createdDocumentContent);
+
+    const statusBar = container.querySelector(".status-bar");
+    expect(statusBar).not.toBeNull();
+    const statusBarView = within(statusBar as HTMLElement);
+    expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+    expect(statusBarView.getByText(formatWorkbenchTimestamp(createdDocumentUpdatedAt))).toBeInTheDocument();
+    expect(statusBarView.queryByText(formatWorkbenchTimestamp(flushedUpdatedAt))).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("blocks document switching when an in-flight autosave fails so doc A loss is surfaced instead of dropped as stale", async () => {
+    window.api = createApiMock();
+
+    const autosaveInFlight = createDeferred<{
+      ok: false;
+      error: { code: string; message: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: 1,
+    } as const;
+    const secondDocument = {
+      documentId: "doc-2",
+      title: "第二章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: 2,
+    } as const;
+    const docAEditedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A in-flight autosave 失败必须阻断切换" }] }],
+    };
+
+    window.api.file.listDocuments = vi.fn(async () => ({ ok: true, data: { items: [firstDocument, secondDocument] } })) as typeof window.api.file.listDocuments;
+    window.api.file.setCurrentDocument = vi.fn(async ({ documentId }) => ({ ok: true, data: { documentId } })) as typeof window.api.file.setCurrentDocument;
+    const saveDocument = vi.fn(async () => autosaveInFlight.promise);
+    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+
+    let currentContent = { type: "doc" };
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      currentContent = docAEditedContent;
+      bridgeOptions?.onDocumentChange?.(docAEditedContent);
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /第二章/ }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.api.file.setCurrentDocument).not.toHaveBeenCalledWith(expect.objectContaining({ documentId: "doc-2" }));
+
+    await act(async () => {
+      autosaveInFlight.resolve({ ok: false, error: { code: "DB_ERROR", message: "autosave failed before switch" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(screen.getByRole("heading", { name: "第一章" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "第二章" })).toBeNull();
+    expect(currentContent).toEqual(docAEditedContent);
+    expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+  });
+
+  it("blocks document creation when an in-flight autosave fails so doc A loss is surfaced instead of dropped as stale", async () => {
+    window.api = createApiMock();
+
+    const autosaveInFlight = createDeferred<{
+      ok: false;
+      error: { code: string; message: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: 1,
+    } as const;
+    const docAEditedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A in-flight autosave 失败必须阻断新建" }] }],
+    };
+
+    window.api.file.listDocuments = vi.fn(async () => ({ ok: true, data: { items: [firstDocument] } })) as typeof window.api.file.listDocuments;
+    const saveDocument = vi.fn(async () => autosaveInFlight.promise);
+    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+
+    let currentContent = { type: "doc" };
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      currentContent = docAEditedContent;
+      bridgeOptions?.onDocumentChange?.(docAEditedContent);
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "新建文档" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.api.file.createDocument).not.toHaveBeenCalled();
+
+    await act(async () => {
+      autosaveInFlight.resolve({ ok: false, error: { code: "DB_ERROR", message: "autosave failed before create" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(screen.getByRole("heading", { name: "第一章" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "新建文档" })).toBeNull();
+    expect(currentContent).toEqual(docAEditedContent);
+    expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+  });
+
+  it("shows the saved badge for 2 seconds after autosave succeeds, then returns to idle on the same document", async () => {
+    window.api = createApiMock();
+
+    const editedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "自动保存成功后应在 2 秒后回到空闲" }] }],
+    };
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      bridgeOptions?.onDocumentChange?.(editedContent);
+      await vi.advanceTimersByTimeAsync(800);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1999);
+    });
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    vi.useRealTimers();
+
+    expect(screen.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "已保存" })).toBeNull();
+  });
+
+  it("cancels the previous saved decay when a newer save succeeds so the latest badge keeps its own 2 second window", async () => {
+    window.api = createApiMock();
+
+    const firstEditedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "第一次保存" }] }],
+    };
+    const secondEditedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "第二次保存应重置倒计时" }] }],
+    };
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      bridgeOptions?.onDocumentChange?.(firstEditedContent);
+      await vi.advanceTimersByTimeAsync(800);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+      bridgeOptions?.onDocumentChange?.(secondEditedContent);
+      await vi.advanceTimersByTimeAsync(800);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    vi.useRealTimers();
+
+    expect(screen.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "已保存" })).toBeNull();
+  });
+
   it("ignores a stale preview response after switching documents", async () => {
     window.api = createApiMock();
 

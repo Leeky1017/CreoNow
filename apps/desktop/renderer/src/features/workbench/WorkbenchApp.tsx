@@ -34,10 +34,11 @@ import {
 import { AppToastProvider } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { GlobalErrorToastBridge } from "@/lib/globalErrorToastBridge";
-import { getPreloadApi } from "@/lib/preloadApi";
+import { getPreloadApi, type PreloadApi } from "@/lib/preloadApi";
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const AUTOSAVE_DELAY_MS = 800;
+const SAVE_SUCCESS_DECAY_MS = 2000;
 const MAX_REFERENCE_LENGTH = 120;
 
 const LAYOUT_STORAGE_KEYS = {
@@ -86,6 +87,14 @@ type SaveRequestToken = {
 type PendingAutosaveDraft = {
   contentJson: string;
   context: WorkbenchContextToken;
+  request: SaveRequestToken;
+};
+
+type SaveDocumentResult = Awaited<ReturnType<PreloadApi["file"]["saveDocument"]>>;
+
+type InFlightAutosave = {
+  context: WorkbenchContextToken;
+  promise: Promise<SaveDocumentResult>;
   request: SaveRequestToken;
 };
 
@@ -217,12 +226,21 @@ function WorkbenchShell() {
   const editorContextRevisionRef = useRef(0);
   const activeContextTokenRef = useRef<WorkbenchContextToken | null>(null);
   const pendingAutosaveDraftRef = useRef<PendingAutosaveDraft | null>(null);
+  const inFlightAutosaveRef = useRef<InFlightAutosave | null>(null);
+  const savedStateDecayTimerRef = useRef<number | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
 
   const clearPendingAutosaveTimer = useCallback(() => {
     if (autosaveTimerRef.current !== null) {
       window.clearTimeout(autosaveTimerRef.current);
       autosaveTimerRef.current = null;
+    }
+  }, []);
+
+  const clearSavedStateDecayTimer = useCallback(() => {
+    if (savedStateDecayTimerRef.current !== null) {
+      window.clearTimeout(savedStateDecayTimerRef.current);
+      savedStateDecayTimerRef.current = null;
     }
   }, []);
 
@@ -236,12 +254,13 @@ function WorkbenchShell() {
   }, []);
 
   const reserveSaveRequest = useCallback((): SaveRequestToken => {
+    clearSavedStateDecayTimer();
     latestSaveRequestRef.current += 1;
     return {
       requestId: latestSaveRequestRef.current,
       context: activeContextTokenRef.current,
     };
-  }, []);
+  }, [clearSavedStateDecayTimer]);
 
   const reserveBusyOperation = useCallback(() => {
     latestBusyOperationRef.current += 1;
@@ -264,6 +283,16 @@ function WorkbenchShell() {
   const isLatestBusyOperation = useCallback((operationId: number) => (
     latestBusyOperationRef.current === operationId
   ), []);
+
+  const armSavedStateDecayTimer = useCallback((request: SaveRequestToken) => {
+    clearSavedStateDecayTimer();
+    savedStateDecayTimerRef.current = window.setTimeout(() => {
+      savedStateDecayTimerRef.current = null;
+      if (isLatestSaveRequest(request)) {
+        setSaveState("idle");
+      }
+    }, SAVE_SUCCESS_DECAY_MS);
+  }, [clearSavedStateDecayTimer, isLatestSaveRequest]);
 
   const queueSaveRequest = useCallback(<TResult,>(operation: () => Promise<TResult>): Promise<TResult> => {
     const task = saveQueueRef.current.then(operation, operation);
@@ -373,8 +402,8 @@ function WorkbenchShell() {
     clearReference();
   };
 
-  const persistAutosaveDraft = useCallback((draft: PendingAutosaveDraft) => (
-    queueSaveRequest(async () => {
+  const persistAutosaveDraft = useCallback((draft: PendingAutosaveDraft) => {
+    const task = queueSaveRequest(async () => {
       if (isLatestSaveRequest(draft.request)) {
         setSaveState("saving");
       }
@@ -398,11 +427,26 @@ function WorkbenchShell() {
       if (isLatestSaveRequest(draft.request)) {
         setSaveState("saved");
         setLastSavedAt(result.data.updatedAt);
+        armSavedStateDecayTimer(draft.request);
       }
 
       return result;
-    })
-  ), [api.file, isLatestSaveRequest, queueSaveRequest, t]);
+    });
+
+    const trackedTask = task.finally(() => {
+      if (inFlightAutosaveRef.current?.promise === trackedTask) {
+        inFlightAutosaveRef.current = null;
+      }
+    });
+
+    inFlightAutosaveRef.current = {
+      context: draft.context,
+      promise: trackedTask,
+      request: draft.request,
+    };
+
+    return trackedTask;
+  }, [api.file, armSavedStateDecayTimer, isLatestSaveRequest, queueSaveRequest, t]);
 
   const flushPendingAutosaveDraft = useCallback(async (draft: PendingAutosaveDraft | null) => {
     if (draft === null) {
@@ -419,12 +463,21 @@ function WorkbenchShell() {
   const flushDirtyDraftBeforeContextSwitch = useCallback(async () => {
     clearPendingAutosaveTimer();
     const pendingDraft = pendingAutosaveDraftRef.current;
-    if (pendingDraft === null || isCurrentContextToken(pendingDraft.context) === false) {
+    if (pendingDraft !== null && isCurrentContextToken(pendingDraft.context)) {
+      const result = await flushPendingAutosaveDraft(pendingDraft);
+      if (result?.ok === false) {
+        throw result.error;
+      }
       return;
     }
 
-    const result = await flushPendingAutosaveDraft(pendingDraft);
-    if (result?.ok === false) {
+    const inFlightAutosave = inFlightAutosaveRef.current;
+    if (inFlightAutosave === null || isCurrentContextToken(inFlightAutosave.context) === false) {
+      return;
+    }
+
+    const result = await inFlightAutosave.promise;
+    if (result.ok === false) {
       throw result.error;
     }
   }, [clearPendingAutosaveTimer, flushPendingAutosaveDraft, isCurrentContextToken]);
@@ -478,6 +531,7 @@ function WorkbenchShell() {
   }) => {
     clearPendingAutosaveTimer();
     pendingAutosaveDraftRef.current = null;
+    clearSavedStateDecayTimer();
     editorContextRevisionRef.current += 1;
     activeContextTokenRef.current = {
       documentId: nextContext.documentId,
@@ -487,7 +541,7 @@ function WorkbenchShell() {
     runWithoutAutosave(() => {
       editorBridge.setContent(JSON.parse(nextContext.contentJson));
     });
-  }, [clearPendingAutosaveTimer, editorBridge, runWithoutAutosave]);
+  }, [clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
 
   useEffect(() => {
     if (containerRef.current === null) {
@@ -499,9 +553,10 @@ function WorkbenchShell() {
 
     return () => {
       clearPendingAutosaveTimer();
+      clearSavedStateDecayTimer();
       editorBridge.destroy();
     };
-  }, [clearPendingAutosaveTimer, editorBridge]);
+  }, [clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -539,6 +594,7 @@ function WorkbenchShell() {
     const run = async () => {
       try {
         clearPendingAutosaveTimer();
+        clearSavedStateDecayTimer();
         setBootstrapStatus("loading");
         setErrorMessage(null);
         const workspace = await bootstrapWorkspace(api, {
@@ -576,7 +632,7 @@ function WorkbenchShell() {
     return () => {
       disposed = true;
     };
-  }, [api, replaceEditorContextContent, t]);
+  }, [api, clearSavedStateDecayTimer, replaceEditorContextContent, t]);
 
   const handleCreateDocument = async () => {
     if (project === null) {
@@ -725,6 +781,7 @@ function WorkbenchShell() {
       if (isLatestSaveRequest(saveRequestId)) {
         setSaveState("saved");
         setLastSavedAt(result.updatedAt);
+        armSavedStateDecayTimer(saveRequestId);
       }
     } catch (error) {
       if (isCurrentContextToken(preview.context)) {
