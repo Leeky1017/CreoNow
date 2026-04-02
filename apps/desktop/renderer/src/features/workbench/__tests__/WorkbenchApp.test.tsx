@@ -445,7 +445,7 @@ describe("WorkbenchApp", () => {
       reason: "autosave",
       contentJson: JSON.stringify(acceptedDocument),
     }));
-    expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+    expect(screen.getAllByText("数据层暂时不可用，请稍后重试。").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
@@ -528,7 +528,7 @@ describe("WorkbenchApp", () => {
       reason: "autosave",
       contentJson: JSON.stringify(continuedDraft),
     }));
-    expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+    expect(screen.getAllByText("数据层暂时不可用，请稍后重试。").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
@@ -1107,7 +1107,7 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("heading", { name: "第一章" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "第二章" })).toBeNull();
     expect(currentContent).toEqual(docAEditedContent);
-    expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+    expect(screen.getAllByText("数据层暂时不可用，请稍后重试。").length).toBeGreaterThan(0);
   });
 
   it("blocks document creation when an in-flight autosave fails so doc A loss is surfaced instead of dropped as stale", async () => {
@@ -1168,7 +1168,7 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("heading", { name: "第一章" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "新建文档" })).toBeNull();
     expect(currentContent).toEqual(docAEditedContent);
-    expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+    expect(screen.getAllByText("数据层暂时不可用，请稍后重试。").length).toBeGreaterThan(0);
   });
 
   it("shows the saved badge for 2 seconds after autosave succeeds, then returns to idle on the same document", async () => {
@@ -1253,6 +1253,248 @@ describe("WorkbenchApp", () => {
 
     expect(screen.getByRole("button", { name: "就绪" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "已保存" })).toBeNull();
+  });
+
+  it("retries the failed autosave from the status bar and returns to idle after the success decay", async () => {
+    window.api = createApiMock();
+
+    const retriedUpdatedAt = Date.UTC(2024, 0, 4, 9, 45);
+    const editedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "状态栏重试必须重新提交同一份 autosave 草稿" }] }],
+    };
+
+    window.api.file.saveDocument = vi.fn()
+      .mockResolvedValueOnce({ ok: false as const, error: { code: "DB_ERROR", message: "autosave failed" } })
+      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: retriedUpdatedAt, contentHash: "hash-retried" } }) as typeof window.api.file.saveDocument;
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      bridgeOptions?.onDocumentChange?.(editedContent);
+      await vi.advanceTimersByTimeAsync(800);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.api.file.saveDocument).toHaveBeenCalledTimes(1);
+    expect(window.api.file.saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(editedContent),
+    }));
+    expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存失败" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.api.file.saveDocument).toHaveBeenCalledTimes(2);
+    expect(window.api.file.saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(editedContent),
+    }));
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    vi.useRealTimers();
+
+    expect(screen.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+  });
+
+  it("retries the failed autosave from the toast action and closes the loop with a success toast", async () => {
+    window.api = createApiMock();
+
+    const retriedUpdatedAt = Date.UTC(2024, 0, 4, 10, 30);
+    const editedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "toast 上的重试动作必须闭合 autosave 成功链路" }] }],
+    };
+
+    window.api.file.saveDocument = vi.fn()
+      .mockResolvedValueOnce({ ok: false as const, error: { code: "DB_ERROR", message: "autosave failed" } })
+      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: retriedUpdatedAt, contentHash: "hash-toast-retried" } }) as typeof window.api.file.saveDocument;
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      bridgeOptions?.onDocumentChange?.(editedContent);
+      await vi.advanceTimersByTimeAsync(800);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("自动保存失败")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "重试" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.api.file.saveDocument).toHaveBeenCalledTimes(2);
+    expect(window.api.file.saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(editedContent),
+    }));
+    expect(screen.getByText("自动保存完成")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    vi.useRealTimers();
+
+    expect(screen.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+  });
+
+  it("retries the blocked doc A autosave from the error state instead of targeting a later document", async () => {
+    window.api = createApiMock();
+
+    const autosaveInFlight = createDeferred<{
+      ok: false;
+      error: { code: string; message: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: 1,
+    } as const;
+    const secondDocument = {
+      documentId: "doc-2",
+      title: "第二章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: 2,
+    } as const;
+    const docAEditedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 的失败 autosave 必须由文档 A 自己完成重试" }] }],
+    };
+
+    window.api.file.listDocuments = vi.fn(async () => ({ ok: true, data: { items: [firstDocument, secondDocument] } })) as typeof window.api.file.listDocuments;
+    window.api.file.setCurrentDocument = vi.fn(async ({ documentId }) => ({ ok: true, data: { documentId } })) as typeof window.api.file.setCurrentDocument;
+    window.api.file.saveDocument = vi.fn()
+      .mockImplementationOnce(async () => autosaveInFlight.promise)
+      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: 9, contentHash: "hash-doc-a-retried" } }) as typeof window.api.file.saveDocument;
+
+    let currentContent = { type: "doc" };
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      currentContent = docAEditedContent;
+      bridgeOptions?.onDocumentChange?.(docAEditedContent);
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /第二章/ }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      autosaveInFlight.resolve({ ok: false, error: { code: "DB_ERROR", message: "autosave failed before switch" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("heading", { name: "第一章" })).toBeInTheDocument();
+    expect(window.api.file.setCurrentDocument).not.toHaveBeenCalledWith(expect.objectContaining({ documentId: "doc-2" }));
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存失败" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    expect(window.api.file.saveDocument).toHaveBeenCalledTimes(2);
+    expect(window.api.file.saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(docAEditedContent),
+    }));
+    expect(screen.getByRole("heading", { name: "第一章" })).toBeInTheDocument();
+  });
+
+  it("ignores a stale retry handle after a newer autosave request has already succeeded", async () => {
+    window.api = createApiMock();
+
+    const firstEditedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "第一次 autosave 失败后会留下旧的 retry handle" }] }],
+    };
+    const secondEditedContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "新的 autosave 成功后旧 retry handle 不得再发请求" }] }],
+    };
+
+    window.api.file.saveDocument = vi.fn()
+      .mockResolvedValueOnce({ ok: false as const, error: { code: "DB_ERROR", message: "first autosave failed" } })
+      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: 10, contentHash: "hash-second-success" } }) as typeof window.api.file.saveDocument;
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.useFakeTimers();
+
+    await act(async () => {
+      bridgeOptions?.onDocumentChange?.(firstEditedContent);
+      await vi.advanceTimersByTimeAsync(800);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const staleRetryButton = screen.getByRole("button", { name: "重试" });
+
+    await act(async () => {
+      bridgeOptions?.onDocumentChange?.(secondEditedContent);
+      await vi.advanceTimersByTimeAsync(800);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.api.file.saveDocument).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(staleRetryButton);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(window.api.file.saveDocument).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 
   it("ignores a stale preview response after switching documents", async () => {

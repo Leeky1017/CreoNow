@@ -31,7 +31,7 @@ import {
   type ProjectListItem,
   type WorkbenchContextToken,
 } from "@/features/workbench/runtime";
-import { AppToastProvider } from "@/lib/appToast";
+import { AppToastProvider, useAppToast } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { GlobalErrorToastBridge } from "@/lib/globalErrorToastBridge";
 import { getPreloadApi, type PreloadApi } from "@/lib/preloadApi";
@@ -96,6 +96,17 @@ type InFlightAutosave = {
   context: WorkbenchContextToken;
   promise: Promise<SaveDocumentResult>;
   request: SaveRequestToken;
+};
+
+type AutosaveControllerState = {
+  draft: PendingAutosaveDraft | null;
+  saveState: SaveState;
+};
+
+type AutosaveToastEvent = {
+  eventId: number;
+  errorMessage?: string;
+  kind: "error" | "success";
 };
 
 function isSameContextToken(left: WorkbenchContextToken | null, right: WorkbenchContextToken | null): boolean {
@@ -206,6 +217,44 @@ function readStoredWidth(
   return bounds.defaultWidth;
 }
 
+function ToastIntegrationBridge(props: {
+  autosaveEvent: AutosaveToastEvent | null;
+  retryLastAutosave: () => void;
+}) {
+  const { showToast } = useAppToast();
+  const { t } = useTranslation();
+  const latestHandledEventRef = useRef(0);
+
+  useEffect(() => {
+    if (props.autosaveEvent === null || props.autosaveEvent.eventId === latestHandledEventRef.current) {
+      return;
+    }
+
+    latestHandledEventRef.current = props.autosaveEvent.eventId;
+
+    if (props.autosaveEvent.kind === "error") {
+      showToast({
+        action: {
+          label: t("actions.retry"),
+          onClick: props.retryLastAutosave,
+        },
+        description: props.autosaveEvent.errorMessage ?? t("toast.autosaveError.description"),
+        title: t("toast.autosaveError.title"),
+        variant: "error",
+      });
+      return;
+    }
+
+    showToast({
+      description: t("toast.autosaveSuccess.description"),
+      title: t("toast.autosaveSuccess.title"),
+      variant: "success",
+    });
+  }, [props.autosaveEvent, props.retryLastAutosave, showToast, t]);
+
+  return null;
+}
+
 export function WorkbenchApp() {
   return <AppToastProvider>
     <GlobalErrorToastBridge />
@@ -227,6 +276,9 @@ function WorkbenchShell() {
   const activeContextTokenRef = useRef<WorkbenchContextToken | null>(null);
   const pendingAutosaveDraftRef = useRef<PendingAutosaveDraft | null>(null);
   const inFlightAutosaveRef = useRef<InFlightAutosave | null>(null);
+  const autosaveControllerRef = useRef<AutosaveControllerState>({ draft: null, saveState: "idle" });
+  const autosaveToastEventIdRef = useRef(0);
+  const errorMessageSourceRef = useRef<"autosave" | "general" | null>(null);
   const savedStateDecayTimerRef = useRef<number | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
 
@@ -300,6 +352,30 @@ function WorkbenchShell() {
     return task;
   }, []);
 
+  const publishAutosaveToast = useCallback((event: Omit<AutosaveToastEvent, "eventId">) => {
+    autosaveToastEventIdRef.current += 1;
+    setAutosaveToastEvent({
+      eventId: autosaveToastEventIdRef.current,
+      ...event,
+    });
+  }, []);
+
+  const clearAutosaveController = useCallback(() => {
+    autosaveControllerRef.current = { draft: null, saveState: "idle" };
+  }, []);
+
+  const setWorkbenchError = useCallback((message: string | null, source: "autosave" | "general" | null) => {
+    errorMessageSourceRef.current = source;
+    setErrorMessage(message);
+  }, []);
+
+  const clearAutosaveError = useCallback(() => {
+    if (errorMessageSourceRef.current === "autosave") {
+      errorMessageSourceRef.current = null;
+      setErrorMessage(null);
+    }
+  }, []);
+
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>("loading");
   const [project, setProject] = useState<ProjectListItem | null>(null);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
@@ -312,6 +388,7 @@ function WorkbenchShell() {
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [autosaveToastEvent, setAutosaveToastEvent] = useState<AutosaveToastEvent | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [activeLeftPanel, setActiveLeftPanel] = useState<LeftPanelId>(() =>
     readStoredPanelId(LAYOUT_STORAGE_KEYS.activeLeftPanel, LEFT_PANEL_IDS, "files"),
@@ -398,14 +475,17 @@ function WorkbenchShell() {
   const resetAiConversation = () => {
     setInstruction("");
     setPreview(null);
-    setErrorMessage(null);
+    setWorkbenchError(null, null);
     clearReference();
   };
 
   const persistAutosaveDraft = useCallback((draft: PendingAutosaveDraft) => {
+    autosaveControllerRef.current = { draft, saveState: "saving" };
+
     const task = queueSaveRequest(async () => {
       if (isLatestSaveRequest(draft.request)) {
         setSaveState("saving");
+        clearAutosaveError();
       }
 
       const result = await api.file.saveDocument({
@@ -418,15 +498,21 @@ function WorkbenchShell() {
 
       if (result.ok === false) {
         if (isLatestSaveRequest(draft.request)) {
+          const humanErrorMessage = getHumanErrorMessage(result.error, t);
+          autosaveControllerRef.current = { draft, saveState: "error" };
           setSaveState("error");
-          setErrorMessage(getHumanErrorMessage(result.error, t));
+          setWorkbenchError(humanErrorMessage, "autosave");
+          publishAutosaveToast({ kind: "error", errorMessage: humanErrorMessage });
         }
         return result;
       }
 
       if (isLatestSaveRequest(draft.request)) {
+        autosaveControllerRef.current = { draft, saveState: "saved" };
         setSaveState("saved");
+        clearAutosaveError();
         setLastSavedAt(result.data.updatedAt);
+        publishAutosaveToast({ kind: "success" });
         armSavedStateDecayTimer(draft.request);
       }
 
@@ -446,7 +532,7 @@ function WorkbenchShell() {
     };
 
     return trackedTask;
-  }, [api.file, armSavedStateDecayTimer, isLatestSaveRequest, queueSaveRequest, t]);
+  }, [api.file, armSavedStateDecayTimer, clearAutosaveError, isLatestSaveRequest, publishAutosaveToast, queueSaveRequest, setWorkbenchError, t]);
 
   const flushPendingAutosaveDraft = useCallback(async (draft: PendingAutosaveDraft | null) => {
     if (draft === null) {
@@ -459,6 +545,25 @@ function WorkbenchShell() {
 
     return persistAutosaveDraft(draft);
   }, [persistAutosaveDraft]);
+
+  const retryLastAutosave = useCallback(() => {
+    const latestAutosave = autosaveControllerRef.current;
+    if (latestAutosave.draft === null || latestAutosave.saveState !== "error") {
+      return;
+    }
+
+    clearPendingAutosaveTimer();
+    pendingAutosaveDraftRef.current = null;
+    clearAutosaveError();
+
+    const retryDraft = {
+      ...latestAutosave.draft,
+      request: reserveSaveRequest(),
+    } satisfies PendingAutosaveDraft;
+
+    autosaveControllerRef.current = { draft: retryDraft, saveState: "saving" };
+    void persistAutosaveDraft(retryDraft);
+  }, [clearAutosaveError, clearPendingAutosaveTimer, persistAutosaveDraft, reserveSaveRequest]);
 
   const flushDirtyDraftBeforeContextSwitch = useCallback(async () => {
     clearPendingAutosaveTimer();
@@ -494,7 +599,7 @@ function WorkbenchShell() {
 
           setStickySelection(nextSelection);
           setPreview(null);
-          setErrorMessage(null);
+          setWorkbenchError(null, null);
         },
         onDocumentChange: (content) => {
           const currentContext = activeContextTokenRef.current;
@@ -511,6 +616,7 @@ function WorkbenchShell() {
             context: currentContext,
             request: reserveSaveRequest(),
           } satisfies PendingAutosaveDraft;
+          autosaveControllerRef.current = { draft: nextDraft, saveState: "idle" };
           pendingAutosaveDraftRef.current = nextDraft;
           autosaveTimerRef.current = window.setTimeout(() => {
             autosaveTimerRef.current = null;
@@ -532,6 +638,7 @@ function WorkbenchShell() {
     clearPendingAutosaveTimer();
     pendingAutosaveDraftRef.current = null;
     clearSavedStateDecayTimer();
+    clearAutosaveController();
     editorContextRevisionRef.current += 1;
     activeContextTokenRef.current = {
       documentId: nextContext.documentId,
@@ -541,7 +648,7 @@ function WorkbenchShell() {
     runWithoutAutosave(() => {
       editorBridge.setContent(JSON.parse(nextContext.contentJson));
     });
-  }, [clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
+  }, [clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
 
   useEffect(() => {
     if (containerRef.current === null) {
@@ -596,7 +703,7 @@ function WorkbenchShell() {
         clearPendingAutosaveTimer();
         clearSavedStateDecayTimer();
         setBootstrapStatus("loading");
-        setErrorMessage(null);
+        setWorkbenchError(null, null);
         const workspace = await bootstrapWorkspace(api, {
           defaultProjectName: t("project.defaultName"),
           defaultDocumentTitle: t("document.defaultTitle"),
@@ -621,7 +728,7 @@ function WorkbenchShell() {
         setBootstrapStatus("ready");
       } catch (error) {
         if (disposed === false) {
-          setErrorMessage(getHumanErrorMessage(error as Error, t));
+          setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
           setBootstrapStatus("error");
         }
       }
@@ -660,11 +767,11 @@ function WorkbenchShell() {
       setLiveSelection(null);
       setSaveState("idle");
       setLastSavedAt(result.activeDocument.updatedAt);
-      setErrorMessage(null);
+      setWorkbenchError(null, null);
       setActiveLeftPanel("files");
       setSidebarCollapsed(false);
     } catch (error) {
-      setErrorMessage(getHumanErrorMessage(error as Error, t));
+      setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
     } finally {
       if (isLatestBusyOperation(busyOperationId)) {
         setBusy(false);
@@ -699,13 +806,13 @@ function WorkbenchShell() {
       setPreview(null);
       setStickySelection(null);
       setLiveSelection(null);
-      setErrorMessage(null);
+      setWorkbenchError(null, null);
       setSaveState("idle");
       setLastSavedAt(readDocument.updatedAt);
       setActiveLeftPanel("files");
       setSidebarCollapsed(false);
     } catch (error) {
-      setErrorMessage(getHumanErrorMessage(error as Error, t));
+      setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
     } finally {
       if (isLatestBusyOperation(busyOperationId)) {
         setBusy(false);
@@ -726,7 +833,7 @@ function WorkbenchShell() {
     const busyOperationId = reserveBusyOperation();
     try {
       setBusy(true);
-      setErrorMessage(null);
+      setWorkbenchError(null, null);
       const nextPreview = await requestAiPreview({
         api,
         context: previewContext,
@@ -741,9 +848,9 @@ function WorkbenchShell() {
     } catch (error) {
       if (isCurrentContextToken(previewContext)) {
         if (error instanceof Error && error.message === "preview-unavailable") {
-          setErrorMessage(t("messages.previewUnavailable"));
+          setWorkbenchError(t("messages.previewUnavailable"), "general");
         } else {
-          setErrorMessage(getHumanErrorMessage(error as Error, t));
+          setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
         }
       }
     } finally {
@@ -761,6 +868,7 @@ function WorkbenchShell() {
     const busyOperationId = reserveBusyOperation();
     clearPendingAutosaveTimer();
     pendingAutosaveDraftRef.current = null;
+    clearAutosaveController();
     const saveRequestId = reserveSaveRequest();
 
     try {
@@ -776,7 +884,7 @@ function WorkbenchShell() {
       }));
       if (isCurrentContextToken(preview.context)) {
         setPreview(null);
-        setErrorMessage(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null);
+        setWorkbenchError(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null, result.feedbackError ? "general" : null);
       }
       if (isLatestSaveRequest(saveRequestId)) {
         setSaveState("saved");
@@ -786,9 +894,9 @@ function WorkbenchShell() {
     } catch (error) {
       if (isCurrentContextToken(preview.context)) {
         if (error instanceof SelectionChangedError) {
-          setErrorMessage(t("messages.selectionChanged"));
+          setWorkbenchError(t("messages.selectionChanged"), "general");
         } else {
-          setErrorMessage(getHumanErrorMessage(error as Error, t));
+          setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
         }
       }
       if (isLatestSaveRequest(saveRequestId)) {
@@ -813,11 +921,11 @@ function WorkbenchShell() {
       await rejectAiPreview(api, preview);
       if (isCurrentContextToken(previewContext)) {
         setPreview(null);
-        setErrorMessage(null);
+        setWorkbenchError(null, null);
       }
     } catch (error) {
       if (isCurrentContextToken(previewContext)) {
-        setErrorMessage(getHumanErrorMessage(error as Error, t));
+        setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
       }
     } finally {
       if (isLatestBusyOperation(busyOperationId)) {
@@ -857,6 +965,12 @@ function WorkbenchShell() {
     }
 
     setDragState({ panel, startX: event.clientX, startWidth: rightPanelWidth });
+  };
+
+  const handleStatusBarAction = () => {
+    if (saveState === "error") {
+      retryLastAutosave();
+    }
   };
 
   const saveLabel =
@@ -990,18 +1104,26 @@ function WorkbenchShell() {
   };
 
   if (bootstrapStatus === "loading") {
-    return <main className="workbench-shell workbench-shell--state">{t("bootstrap.loading")}</main>;
+    return <>
+      <ToastIntegrationBridge autosaveEvent={autosaveToastEvent} retryLastAutosave={retryLastAutosave} />
+      <main className="workbench-shell workbench-shell--state">{t("bootstrap.loading")}</main>
+    </>;
   }
 
   if (bootstrapStatus === "error") {
-    return <main className="workbench-shell workbench-shell--state">
-      <h1 className="screen-title">{t("bootstrap.errorTitle")}</h1>
-      {errorMessage ? <p className="panel-error">{errorMessage}</p> : null}
-      <Button tone="primary" onClick={() => window.location.reload()}>{t("actions.reload")}</Button>
-    </main>;
+    return <>
+      <ToastIntegrationBridge autosaveEvent={autosaveToastEvent} retryLastAutosave={retryLastAutosave} />
+      <main className="workbench-shell workbench-shell--state">
+        <h1 className="screen-title">{t("bootstrap.errorTitle")}</h1>
+        {errorMessage ? <p className="panel-error">{errorMessage}</p> : null}
+        <Button tone="primary" onClick={() => window.location.reload()}>{t("actions.reload")}</Button>
+      </main>
+    </>;
   }
 
-  return <main className="workbench-shell">
+  return <>
+    <ToastIntegrationBridge autosaveEvent={autosaveToastEvent} retryLastAutosave={retryLastAutosave} />
+    <main className="workbench-shell">
     <div
       className={dragState === null ? "workbench-frame" : "workbench-frame workbench-frame--resizing"}
       data-testid="workbench-frame"
@@ -1115,10 +1237,11 @@ function WorkbenchShell() {
         })}
       </span>
       <span className="status-bar__group">{t("status.wordCount", { count: wordCount })}</span>
-      <Button className="status-bar__group status-bar__action" tone="ghost" onClick={() => setErrorMessage(null)}>
+      <Button className="status-bar__group status-bar__action" tone="ghost" onClick={handleStatusBarAction}>
         {saveLabel}
       </Button>
       <span className="status-bar__group">{formatTimestamp(lastSavedAt)}</span>
     </footer>
-  </main>;
+    </main>
+  </>;
 }
