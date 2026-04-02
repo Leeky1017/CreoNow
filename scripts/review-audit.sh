@@ -163,7 +163,7 @@ run_tier_s() {
 
     if (( has_main > 0 )); then
       run_step "vitest run main（后端测试）" \
-        pnpm -C apps/desktop exec vitest run --reporter=verbose main/
+        pnpm -C apps/desktop exec vitest run --config vitest.config.core.ts --reporter=verbose main/
     fi
 
     # 前端变更追加 Storybook 构建验证
@@ -192,7 +192,7 @@ run_tier_d() {
         pnpm test
     else
       run_step "vitest run（全量测试）" \
-        pnpm -C apps/desktop exec vitest run
+        pnpm -C apps/desktop exec vitest run --config vitest.config.core.ts
     fi
 
     # ESLint（若仓库未声明 lint 脚本则跳过）
