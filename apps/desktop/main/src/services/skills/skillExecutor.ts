@@ -34,6 +34,7 @@ export type ResolvedRunnableSkill = {
 export type SkillExecutorRunArgs = {
   skillId: string;
   hasSelection?: boolean;
+  cursorPosition?: number;
   systemPrompt?: string;
   input: string;
   timeoutMs?: number;
@@ -553,7 +554,7 @@ async function assembleContextPrompt(args: {
   return await args.assembleContext({
     projectId,
     documentId,
-    cursorPosition: 0,
+    cursorPosition: args.run.cursorPosition ?? 0,
     skillId: args.run.skillId,
     additionalInput: args.additionalInput,
     provider: "ai-service",

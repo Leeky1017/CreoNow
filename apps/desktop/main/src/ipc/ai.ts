@@ -1145,6 +1145,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           input: request.input.selectedText ?? "",
           mode: "ask",
           model: request.modelId ?? "default",
+          ...(request.cursorPosition === undefined
+            ? {}
+            : { cursorPosition: request.cursorPosition }),
           context: {
             projectId: request.projectId,
             documentId: request.documentId,
@@ -1183,6 +1186,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         skillId: request.skillId,
         hasSelection: Boolean(request.selection),
         input: request.input.selectedText ?? "",
+        ...(request.cursorPosition === undefined
+          ? {}
+          : { cursorPosition: request.cursorPosition }),
         mode: "ask",
         model: request.modelId ?? "default",
         context: {
