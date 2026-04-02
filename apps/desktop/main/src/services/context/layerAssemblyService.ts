@@ -1127,16 +1127,28 @@ function defaultFetchers(
         semanticRulesResult,
       ]);
     },
-    immediate: async (request) => ({
-      chunks: [
-        {
-          source: "editor:cursor-window",
-          content:
-            request.additionalInput?.trim() ??
-            `cursor=${request.cursorPosition.toString()}`,
-        },
-      ],
-    }),
+    immediate: async (request) => {
+      const text = request.additionalInput?.trim();
+      let content: string;
+      if (text !== undefined && text.length > 0) {
+        // Slice to the cursor position so different cursor positions in the same
+        // document produce different context windows.  For builtin:continue the
+        // cursor determines how much preceding text the AI sees; without this
+        // slice every call with non-empty additionalInput would produce an
+        // identical immediate layer regardless of where the cursor sits.
+        const pos = Math.min(request.cursorPosition, text.length);
+        const preceding = text.slice(0, pos);
+        content =
+          preceding.length > 0
+            ? preceding
+            : `cursor=${request.cursorPosition.toString()}`;
+      } else {
+        content = `cursor=${request.cursorPosition.toString()}`;
+      }
+      return {
+        chunks: [{ source: "editor:cursor-window", content }],
+      };
+    },
   };
 }
 
