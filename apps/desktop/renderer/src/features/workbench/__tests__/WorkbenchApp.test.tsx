@@ -208,10 +208,10 @@ describe("WorkbenchApp", () => {
       content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
     };
 
-    vi.mocked(bridgeMock.getContent)
-      .mockImplementationOnce(() => ({ type: "doc" }))
-      .mockImplementationOnce(() => acceptedDocument);
+    let currentContent = { type: "doc" };
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
     vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      currentContent = acceptedDocument;
       bridgeOptions?.onDocumentChange?.(acceptedDocument);
       return { ok: true as const };
     });
@@ -297,10 +297,10 @@ describe("WorkbenchApp", () => {
       content: [{ type: "paragraph", content: [{ type: "text", text: "接受过程中继续写下去" }] }],
     };
 
-    vi.mocked(bridgeMock.getContent)
-      .mockImplementationOnce(() => ({ type: "doc" }))
-      .mockImplementationOnce(() => acceptedDocument);
+    let currentContent = { type: "doc" };
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
     vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      currentContent = acceptedDocument;
       bridgeOptions?.onDocumentChange?.(acceptedDocument);
       return { ok: true as const };
     });
@@ -332,6 +332,7 @@ describe("WorkbenchApp", () => {
     }));
 
     await act(async () => {
+      currentContent = continuedDraft;
       bridgeOptions?.onDocumentChange?.(continuedDraft);
       await vi.advanceTimersByTimeAsync(800);
     });
@@ -353,6 +354,91 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
+
+  it("does not roll back when users edit after accept and later return to the accepted content", async () => {
+    window.api = createApiMock();
+
+    const acceptResult = createDeferred<{
+      ok: false;
+      error: { code: "DB_ERROR"; message: string };
+    }>();
+    const saveDocument = vi.fn()
+      .mockImplementationOnce(async () => acceptResult.promise)
+      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: 4, contentHash: "hash-4" } });
+    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+
+    const beforeApply = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "原文" }] }],
+    };
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
+    };
+    const continuedDraft = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "接受失败前先改成别的" }] }],
+    };
+
+    let currentContent = beforeApply;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      currentContent = acceptedDocument;
+      bridgeOptions?.onDocumentChange?.(acceptedDocument);
+      return { ok: true as const };
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.mocked(bridgeMock.setContent).mockClear();
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("接受失败前回到同值也不能被误回滚。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    vi.useFakeTimers();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "接受" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      currentContent = continuedDraft;
+      bridgeOptions?.onDocumentChange?.(continuedDraft);
+      currentContent = acceptedDocument;
+      bridgeOptions?.onDocumentChange?.(acceptedDocument);
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      actor: "ai",
+      reason: "ai-accept",
+      contentJson: JSON.stringify(acceptedDocument),
+    }));
+
+    await act(async () => {
+      acceptResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "accept save failed" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(bridgeMock.setContent).not.toHaveBeenCalled();
+    expect(saveDocument).toHaveBeenCalledTimes(2);
+    expect(saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(acceptedDocument),
+    }));
+    expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+  });
 
   it("does not roll back newer user edits when accept save fails after later typing", async () => {
     window.api = createApiMock();
@@ -379,11 +465,10 @@ describe("WorkbenchApp", () => {
       content: [{ type: "paragraph", content: [{ type: "text", text: "接受失败时继续写下去" }] }],
     };
 
-    vi.mocked(bridgeMock.getContent)
-      .mockImplementationOnce(() => beforeApply)
-      .mockImplementationOnce(() => acceptedDocument)
-      .mockImplementationOnce(() => continuedDraft);
+    let currentContent = beforeApply;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
     vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      currentContent = acceptedDocument;
       bridgeOptions?.onDocumentChange?.(acceptedDocument);
       return { ok: true as const };
     });
@@ -409,6 +494,7 @@ describe("WorkbenchApp", () => {
     });
 
     await act(async () => {
+      currentContent = continuedDraft;
       bridgeOptions?.onDocumentChange?.(continuedDraft);
       await vi.advanceTimersByTimeAsync(800);
     });

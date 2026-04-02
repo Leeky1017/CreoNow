@@ -3,6 +3,21 @@ import { describe, expect, it, vi } from "vitest";
 import { acceptAiPreview, bootstrapWorkspace, rejectAiPreview, requestAiPreview, type AiPreview } from "@/features/workbench/runtime";
 import type { PreloadApi } from "@/lib/preloadApi";
 
+function createDeferred<TResult>() {
+  let resolvePromise!: (value: TResult | PromiseLike<TResult>) => void;
+  let rejectPromise!: (reason?: unknown) => void;
+  const promise = new Promise<TResult>((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
+
+  return {
+    promise,
+    reject: rejectPromise,
+    resolve: resolvePromise,
+  };
+}
+
 function createApiMock(): PreloadApi {
   const api = {
     project: {
@@ -89,6 +104,7 @@ describe("workbench runtime helpers", () => {
       projectId: "project-1",
       documentId: "doc-1",
       preview: preview as AiPreview,
+      getUserEditRevision: () => 0,
     });
 
     expect(api.file.saveDocument).toHaveBeenCalledWith(
@@ -127,6 +143,7 @@ describe("workbench runtime helpers", () => {
           selectionTextHash: "hash",
         },
       },
+      getUserEditRevision: () => 0,
     });
 
     expect(api.file.saveDocument).toHaveBeenCalledWith(
@@ -177,6 +194,7 @@ describe("workbench runtime helpers", () => {
           selectionTextHash: "hash",
         },
       },
+      getUserEditRevision: () => 0,
     })).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
     expect(api.file.saveDocument).toHaveBeenCalledWith(
@@ -185,12 +203,8 @@ describe("workbench runtime helpers", () => {
     expect(bridge.setContent).toHaveBeenCalledWith(beforeApply);
   });
 
-  it("keeps newer user edits visible when accept save fails after later typing", async () => {
+  it("does not roll back when real post-accept edits happened but content later returns to the accepted payload", async () => {
     const api = createApiMock();
-    api.file.saveDocument = vi.fn(async () => ({
-      ok: false,
-      error: { code: "DB_ERROR", message: "save failed" },
-    })) as typeof api.file.saveDocument;
     const beforeApply = {
       type: "doc",
       content: [{ type: "paragraph", content: [{ type: "text", text: "原文" }] }],
@@ -199,20 +213,20 @@ describe("workbench runtime helpers", () => {
       type: "doc",
       content: [{ type: "paragraph", content: [{ type: "text", text: "接受后的文稿" }] }],
     };
-    const continuedDraft = {
-      type: "doc",
-      content: [{ type: "paragraph", content: [{ type: "text", text: "接受失败时用户继续输入" }] }],
-    };
+    let currentContent = beforeApply;
+    let userEditRevision = 0;
+    const saveResult = createDeferred<{ ok: false; error: { code: "DB_ERROR"; message: string } }>();
+    api.file.saveDocument = vi.fn(async () => saveResult.promise) as typeof api.file.saveDocument;
     const bridge = {
-      getContent: vi.fn()
-        .mockImplementationOnce(() => beforeApply)
-        .mockImplementationOnce(() => acceptedDocument)
-        .mockImplementationOnce(() => continuedDraft),
-      replaceSelection: vi.fn(() => ({ ok: true as const })),
+      getContent: vi.fn(() => currentContent),
+      replaceSelection: vi.fn(() => {
+        currentContent = acceptedDocument;
+        return { ok: true as const };
+      }),
       setContent: vi.fn(),
     } as unknown as Parameters<typeof acceptAiPreview>[0]["bridge"];
 
-    await expect(acceptAiPreview({
+    const acceptPromise = acceptAiPreview({
       api,
       bridge,
       projectId: "project-1",
@@ -228,7 +242,72 @@ describe("workbench runtime helpers", () => {
           selectionTextHash: "hash",
         },
       },
-    })).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
+      getUserEditRevision: () => userEditRevision,
+    });
+
+    userEditRevision = 2;
+    currentContent = acceptedDocument;
+    saveResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "save failed" } });
+
+    await expect(acceptPromise).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
+
+    expect(api.file.saveDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ actor: "ai", reason: "ai-accept", contentJson: JSON.stringify(acceptedDocument) }),
+    );
+    expect(bridge.setContent).not.toHaveBeenCalled();
+  });
+
+  it("keeps newer user edits visible when accept save fails after later typing", async () => {
+    const api = createApiMock();
+    const beforeApply = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "原文" }] }],
+    };
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "接受后的文稿" }] }],
+    };
+    const continuedDraft = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "接受失败时用户继续输入" }] }],
+    };
+    let currentContent = beforeApply;
+    let userEditRevision = 0;
+    const saveResult = createDeferred<{ ok: false; error: { code: "DB_ERROR"; message: string } }>();
+    api.file.saveDocument = vi.fn(async () => saveResult.promise) as typeof api.file.saveDocument;
+    const bridge = {
+      getContent: vi.fn(() => currentContent),
+      replaceSelection: vi.fn(() => {
+        currentContent = acceptedDocument;
+        return { ok: true as const };
+      }),
+      setContent: vi.fn(),
+    } as unknown as Parameters<typeof acceptAiPreview>[0]["bridge"];
+
+    const acceptPromise = acceptAiPreview({
+      api,
+      bridge,
+      projectId: "project-1",
+      documentId: "doc-1",
+      preview: {
+        originalText: "原文",
+        suggestedText: "rewritten",
+        runId: "run-1",
+        selection: {
+          from: 1,
+          to: 3,
+          text: "原文",
+          selectionTextHash: "hash",
+        },
+      },
+      getUserEditRevision: () => userEditRevision,
+    });
+
+    userEditRevision = 1;
+    currentContent = continuedDraft;
+    saveResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "save failed" } });
+
+    await expect(acceptPromise).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
     expect(api.file.saveDocument).toHaveBeenCalledWith(
       expect.objectContaining({ actor: "ai", reason: "ai-accept", contentJson: JSON.stringify(acceptedDocument) }),

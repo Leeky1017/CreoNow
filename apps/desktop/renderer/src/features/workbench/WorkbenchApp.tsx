@@ -190,6 +190,7 @@ function WorkbenchShell() {
   const autosaveSuppressionDepthRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const latestSaveRequestRef = useRef(0);
+  const userEditRevisionRef = useRef(0);
   const projectRef = useRef<ProjectListItem | null>(null);
   const activeDocumentRef = useRef<DocumentRead | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
@@ -355,6 +356,7 @@ function WorkbenchShell() {
           }
 
           clearPendingAutosaveTimer();
+          userEditRevisionRef.current += 1;
 
           setSaveState("idle");
           const contentJson = JSON.stringify(content);
@@ -584,6 +586,7 @@ function WorkbenchShell() {
         documentId: activeDocument.documentId,
         preview,
         runWithoutAutosave,
+        getUserEditRevision: () => userEditRevisionRef.current,
       }));
       setPreview(null);
       setErrorMessage(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null);
