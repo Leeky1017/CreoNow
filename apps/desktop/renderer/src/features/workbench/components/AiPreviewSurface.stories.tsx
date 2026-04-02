@@ -57,6 +57,9 @@ export const ReferenceOnly: Story = {
 export const Empty: Story = {
   args: {
     ...Ready.args,
+    canPolish: false,
+    canRewrite: false,
+    instruction: "",
     preview: null,
     reference: null,
   },
