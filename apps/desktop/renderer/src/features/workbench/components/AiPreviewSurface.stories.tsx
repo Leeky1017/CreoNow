@@ -98,12 +98,6 @@ export const ErrorState: Story = {
   },
 };
 
-/**
- * DisabledActions: empty-selection state — no reference selected, so polish and
- * rewrite are gated (disabled={true}).  Verifies that disabled buttons are
- * visually distinct (opacity: 0.5, cursor: not-allowed, dashed border) per spec
- * §disabled and frontend-visual-quality §六.
- */
 export const DisabledActions: Story = {
   args: {
     ...Empty.args,
