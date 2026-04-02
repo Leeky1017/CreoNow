@@ -1055,6 +1055,7 @@ export const ipcContract = {
             selectionTextHash: s.string(),
           }),
         ),
+        precedingText: s.optional(s.string()),
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
         stream: s.boolean(),
       }),
