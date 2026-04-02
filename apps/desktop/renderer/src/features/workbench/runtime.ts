@@ -39,6 +39,17 @@ export interface AcceptAiPreviewResult {
   updatedAt: number;
 }
 
+function toAcceptConfirmationError(confirmResult: Awaited<ReturnType<PreloadApi["ai"]["confirmSkill"]>>): RendererIpcError {
+  if (confirmResult.ok === false) {
+    return new RendererIpcError(confirmResult.error);
+  }
+
+  return new RendererIpcError({
+    code: "PERMISSION_DENIED",
+    message: "AI preview confirmation was rejected",
+  });
+}
+
 export type RunWithoutAutosave = <TResult>(operation: () => TResult) => TResult;
 export type GetUserEditRevision = () => number;
 export type GetEditorContextRevision = () => number;
@@ -312,7 +323,7 @@ export async function acceptAiPreview(args: {
     action: "accept",
   });
 
-  if (confirmResult.ok === false) {
+  if (confirmResult.ok === false || confirmResult.data.status !== "completed") {
     runWithoutAutosave(() => {
       if (
         args.getUserEditRevision() === appliedAtUserEditRevision
@@ -321,7 +332,7 @@ export async function acceptAiPreview(args: {
         args.bridge.setContent(beforeApply);
       }
     });
-    throw confirmResult.error;
+    throw toAcceptConfirmationError(confirmResult);
   }
 
   const updatedAt = await readConfirmedDocumentUpdatedAt(args.api, args.preview.context);

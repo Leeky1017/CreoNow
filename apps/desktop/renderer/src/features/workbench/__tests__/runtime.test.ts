@@ -238,6 +238,46 @@ describe("workbench runtime helpers", () => {
     expect(bridge.setContent).toHaveBeenCalledWith(beforeApply);
   });
 
+  it("rolls back the applied accept draft when confirm resolves ok:true but status rejected", async () => {
+    const api = createApiMock();
+    api.ai.confirmSkill = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        executionId: "exec-1",
+        runId: "run-1",
+        status: "rejected" as const,
+        outputText: "rewritten",
+      },
+    })) as typeof api.ai.confirmSkill;
+    const beforeApply = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "原文" }] }],
+    };
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "接受后的文稿" }] }],
+    };
+    const bridge = {
+      getContent: vi.fn()
+        .mockImplementationOnce(() => beforeApply)
+        .mockImplementationOnce(() => acceptedDocument)
+        .mockImplementationOnce(() => acceptedDocument),
+      replaceSelection: vi.fn(() => ({ ok: true as const })),
+      setContent: vi.fn(),
+    } as unknown as Parameters<typeof acceptAiPreview>[0]["bridge"];
+
+    await expect(acceptAiPreview({
+      api,
+      bridge,
+      preview: createPreview(),
+      getUserEditRevision: () => 0,
+      getEditorContextRevision: () => 0,
+    })).rejects.toMatchObject({ code: "PERMISSION_DENIED", message: "AI preview confirmation was rejected" });
+
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
+    expect(bridge.setContent).toHaveBeenCalledWith(beforeApply);
+  });
+
   it("does not roll back when real post-accept edits happened but content later returns to the accepted payload", async () => {
     const api = createApiMock();
     const beforeApply = {

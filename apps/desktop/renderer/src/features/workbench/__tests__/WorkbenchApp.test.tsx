@@ -146,16 +146,22 @@ describe("WorkbenchApp", () => {
     await act(async () => {
       bridgeOptions?.onSelectionChange?.(null);
     });
-    expect(screen.getByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第一段风从北方来。");
+    await waitFor(() => {
+      expect(screen.getByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第一段风从北方来。");
+    });
 
     const replacementSelection = createSelection("第二段已经接管上下文。", 24);
     await act(async () => {
       bridgeOptions?.onSelectionChange?.(replacementSelection);
     });
-    expect(screen.getByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第二段已经接管上下文。");
+    await waitFor(() => {
+      expect(screen.getByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第二段已经接管上下文。");
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "清除引用" }));
-    expect(screen.queryByRole("note", { name: "引用自编辑器" })).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByRole("note", { name: "引用自编辑器" })).toBeNull();
+    });
 
     await act(async () => {
       bridgeOptions?.onSelectionChange?.(replacementSelection);
@@ -174,8 +180,10 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第三段在新对话前挂住。");
 
     fireEvent.click(screen.getByRole("button", { name: "新对话" }));
-    expect(screen.queryByRole("note", { name: "引用自编辑器" })).toBeNull();
-    expect(screen.queryByText("改写后的句子")).toBeNull();
+    await waitFor(() => {
+      expect(screen.queryByRole("note", { name: "引用自编辑器" })).toBeNull();
+      expect(screen.queryByText("改写后的句子")).toBeNull();
+    });
   });
 
   it("submits the AI request on Enter and clears the sticky selection", async () => {
@@ -2415,6 +2423,38 @@ describe("WorkbenchApp", () => {
     });
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+  });
+
+  it("treats ok:true rejected accept as a failed rollback path instead of saved success", async () => {
+    window.api = createApiMock();
+    window.api.ai.confirmSkill = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        executionId: "exec-1",
+        runId: "run-1",
+        status: "rejected" as const,
+        outputText: "改写后的句子",
+      },
+    })) as typeof window.api.ai.confirmSkill;
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("accept 被权限拒绝时不能伪装成已保存。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "接受" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("当前账号没有执行该操作的权限。");
+    expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "已保存" })).toBeNull();
+    expect(screen.getByText("改写后的句子")).toBeInTheDocument();
+    expect(bridgeMock.setContent).toHaveBeenCalled();
   });
 
   it("surfaces reject confirm failures without dismissing the preview", async () => {
