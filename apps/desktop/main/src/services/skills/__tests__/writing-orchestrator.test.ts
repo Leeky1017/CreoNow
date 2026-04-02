@@ -75,6 +75,33 @@ function createMockPermissionGate(autoGrant = true) {
       autoGrant ? { level: "preview-confirm", granted: true } : { level: "must-confirm-snapshot", granted: false },
     ),
     requestPermission: vi.fn().mockResolvedValue(autoGrant),
+    releasePendingPermission: vi.fn(),
+  };
+}
+
+function createTrackablePermissionGate() {
+  const pending = new Map<string, (granted: boolean) => void>();
+
+  return {
+    pending,
+    evaluate: vi.fn().mockResolvedValue({
+      level: "must-confirm-snapshot",
+      granted: false,
+    }),
+    requestPermission: vi.fn().mockImplementation((request: { requestId?: string }) => {
+      const requestId = request.requestId ?? "";
+      return new Promise<boolean>((resolve) => {
+        pending.set(requestId, resolve);
+      });
+    }),
+    releasePendingPermission: vi.fn().mockImplementation((requestId: string) => {
+      pending.delete(requestId);
+    }),
+    settle(requestId: string, granted: boolean) {
+      const resolver = pending.get(requestId);
+      pending.delete(requestId);
+      resolver?.(granted);
+    },
   };
 }
 
@@ -102,13 +129,13 @@ function buildConfig(
     name: "documentWrite",
     description: "Write text to document",
     isConcurrencySafe: false,
-    execute: vi.fn().mockResolvedValue({ success: true }),
+    execute: vi.fn().mockResolvedValue({ success: true, data: { versionId: "snap-accept-001" } }),
   });
   toolRegistry.register({
     name: "versionSnapshot",
     description: "Create version snapshot",
     isConcurrencySafe: false,
-    execute: vi.fn().mockResolvedValue({ success: true, data: { snapshotId: "snap-001" } }),
+    execute: vi.fn().mockResolvedValue({ success: true, data: { versionId: "snap-prewrite-001" } }),
   });
 
   return {
@@ -203,8 +230,68 @@ describe("WritingOrchestrator", () => {
         | undefined;
 
       expect(writeEvent).toBeDefined();
-      expect(writeEvent!.versionId).toBeDefined();
-      expect(typeof writeEvent!.versionId).toBe("string");
+      expect(writeEvent!.versionId).toBe("snap-accept-001");
+    });
+
+    it("写回前先创建 pre-write 快照，再执行 documentWrite", async () => {
+      await collectEvents(orchestrator.execute(makeRequest()));
+
+      const versionTool = config.toolRegistry.get("versionSnapshot") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      const writeTool = config.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+
+      expect(versionTool?.execute).toHaveBeenCalledTimes(1);
+      expect(writeTool?.execute).toHaveBeenCalledTimes(1);
+      expect(versionTool?.execute.mock.invocationCallOrder[0]).toBeLessThan(
+        writeTool?.execute.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+      );
+      expect(versionTool?.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: "doc-001",
+          actor: "auto",
+          reason: "pre-write",
+        }),
+      );
+      expect(writeTool?.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: "doc-001",
+          content: "润色后的文字。",
+          selection: expect.objectContaining({
+            from: 0,
+            to: 12,
+            selectionTextHash: "abc123",
+          }),
+        }),
+      );
+    });
+
+    it("continue 无 selection 但有 cursorPosition 时，会把光标位置透传给 documentWrite", async () => {
+      await collectEvents(
+        orchestrator.execute(
+          makeRequest({
+            skillId: "continue",
+            input: { selectedText: "甲乙丙丁" },
+            selection: undefined,
+            cursorPosition: 3,
+          }),
+        ),
+      );
+
+      const writeTool = config.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+
+      expect(writeTool?.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: "doc-001",
+          content: "润色后的文字。",
+          cursorPosition: 3,
+          selection: undefined,
+        }),
+      );
     });
 
     it("hooks-done 事件列出已执行的 hook 名称", async () => {
@@ -223,6 +310,39 @@ describe("WritingOrchestrator", () => {
       for (let i = 1; i < events.length; i++) {
         expect(events[i].timestamp).toBeGreaterThanOrEqual(events[i - 1].timestamp);
       }
+    });
+
+    it("generateText 路径也会实时产出 ai-chunk 事件", async () => {
+      const cfg = buildConfig({
+        generateText: async ({ emitChunk }) => {
+          emitChunk("润色", 2);
+          await Promise.resolve();
+          emitChunk("后的", 4);
+          await Promise.resolve();
+          emitChunk("文字。", 6);
+          return {
+            fullText: "润色后的文字。",
+            usage: {
+              promptTokens: 10,
+              completionTokens: 6,
+              totalTokens: 16,
+            },
+          };
+        },
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const chunkEvents = events.filter((event) => event.type === "ai-chunk");
+
+      expect(chunkEvents).toHaveLength(3);
+      expect(chunkEvents.map((event) => event.delta)).toEqual([
+        "润色",
+        "后的",
+        "文字。",
+      ]);
+      expect(eventTypes(events)).toContain("ai-done");
+      orch.dispose();
     });
   });
 
@@ -272,6 +392,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "auto-allow", granted: true }),
           requestPermission: vi.fn(),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -288,6 +409,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "must-confirm-snapshot", granted: false }),
           requestPermission: vi.fn().mockResolvedValue(true),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -307,6 +429,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "preview-confirm", granted: false }),
           requestPermission: vi.fn().mockResolvedValue(false),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -324,6 +447,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "must-confirm-snapshot", granted: false }),
           requestPermission: vi.fn().mockImplementation(() => new Promise(() => {})),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -360,6 +484,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "preview-confirm", granted: false }),
           requestPermission: vi.fn().mockResolvedValue(true),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -370,6 +495,140 @@ describe("WritingOrchestrator", () => {
       expect(types).toContain("permission-requested");
       expect(types).toContain("permission-granted");
       expect(types).toContain("write-back-done");
+      orch.dispose();
+    });
+
+    it("权限请求 120 秒超时后会显式释放 pending resolver", async () => {
+      const permissionGate = createTrackablePermissionGate();
+      const cfg = buildConfig({ permissionGate });
+      const orch = createWritingOrchestrator(cfg);
+      const events: WritingEvent[] = [];
+      const gen = orch.execute(makeRequest({ requestId: "req-timeout-release" }));
+
+      let result = await gen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        events.push(result.value);
+        result = await gen.next();
+      }
+      expect(result.done).toBe(false);
+      events.push(result.value);
+      expect(permissionGate.pending.size).toBe(1);
+
+      const waitForPermissionResolution = gen.next();
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      result = await waitForPermissionResolution;
+      while (!result.done) {
+        events.push(result.value);
+        result = await gen.next();
+      }
+
+      expect(eventTypes(events)).toContain("permission-denied");
+      expect(permissionGate.pending.size).toBe(0);
+      expect(permissionGate.releasePendingPermission).toHaveBeenCalledWith(
+        "req-timeout-release",
+      );
+      orch.dispose();
+    });
+
+    it("paused preview 在 teardown 时会释放 pending resolver", async () => {
+      const permissionGate = createTrackablePermissionGate();
+      const cfg = buildConfig({ permissionGate });
+      const orch = createWritingOrchestrator(cfg);
+      const gen = orch.execute(makeRequest({ requestId: "req-teardown-release" }));
+
+      let result = await gen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        result = await gen.next();
+      }
+      expect(result.done).toBe(false);
+      expect(permissionGate.pending.size).toBe(1);
+
+      const waiting = gen.next();
+      await Promise.resolve();
+      orch.dispose();
+      await Promise.resolve();
+
+      expect(permissionGate.pending.size).toBe(0);
+      expect(permissionGate.releasePendingPermission).toHaveBeenCalledWith(
+        "req-teardown-release",
+      );
+
+      await vi.advanceTimersByTimeAsync(120_000);
+      await waiting;
+    });
+
+    it("正常 grant / reject 路径都会清空 pending resolver", async () => {
+      const grantGate = createTrackablePermissionGate();
+      const grantCfg = buildConfig({ permissionGate: grantGate });
+      const grantOrch = createWritingOrchestrator(grantCfg);
+      const grantGen = grantOrch.execute(makeRequest({ requestId: "req-grant-release" }));
+
+      let result = await grantGen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        result = await grantGen.next();
+      }
+      expect(result.done).toBe(false);
+      expect(grantGate.pending.size).toBe(1);
+      const grantWait = grantGen.next();
+      await Promise.resolve();
+      grantGate.settle("req-grant-release", true);
+      await grantWait;
+      while (!(await grantGen.next()).done) {
+        // drain
+      }
+      expect(grantGate.pending.size).toBe(0);
+      grantOrch.dispose();
+
+      const rejectGate = createTrackablePermissionGate();
+      const rejectCfg = buildConfig({ permissionGate: rejectGate });
+      const rejectOrch = createWritingOrchestrator(rejectCfg);
+      const rejectGen = rejectOrch.execute(makeRequest({ requestId: "req-reject-release" }));
+
+      result = await rejectGen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        result = await rejectGen.next();
+      }
+      expect(result.done).toBe(false);
+      expect(rejectGate.pending.size).toBe(1);
+      const rejectWait = rejectGen.next();
+      await Promise.resolve();
+      rejectGate.settle("req-reject-release", false);
+      await rejectWait;
+      while (!(await rejectGen.next()).done) {
+        // drain
+      }
+      expect(rejectGate.pending.size).toBe(0);
+      rejectOrch.dispose();
+    });
+
+    it("paused 状态调用 abort → pending.size===0 且 releasePendingPermission 被调用", async () => {
+      const permissionGate = createTrackablePermissionGate();
+      const cfg = buildConfig({ permissionGate });
+      const orch = createWritingOrchestrator(cfg);
+      const gen = orch.execute(makeRequest({ requestId: "req-abort-paused" }));
+
+      // Advance until permission-requested (task enters paused state)
+      let result = await gen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        result = await gen.next();
+      }
+      expect(result.done).toBe(false);
+      expect(permissionGate.pending.size).toBe(1);
+
+      // Abort while task is paused waiting for permission
+      const waiting = gen.next();
+      await Promise.resolve();
+      orch.abort("req-abort-paused");
+      await Promise.resolve();
+
+      expect(permissionGate.pending.size).toBe(0);
+      expect(permissionGate.releasePendingPermission).toHaveBeenCalledWith(
+        "req-abort-paused",
+      );
+
+      await vi.advanceTimersByTimeAsync(120_000);
+      await waiting;
       orch.dispose();
     });
   });
@@ -451,6 +710,121 @@ describe("WritingOrchestrator", () => {
       expect((errorEvent as unknown as { error: { code: string; retryable: boolean } }).error.code).toBe("SKILL_INPUT_INVALID");
       expect((errorEvent as unknown as { error: { code: string; retryable: boolean } }).error.retryable).toBe(false);
     });
+
+    it("缺少 versionSnapshot tool → 立刻失败且不进入 write-back-done/hooks-done", async () => {
+      const cfg = buildConfig();
+      cfg.toolRegistry.unregister("versionSnapshot");
+      const writeTool = cfg.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((event) => event.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(errorEvent).toBeDefined();
+      expect(
+        (errorEvent as unknown as { error: { code: string } }).error,
+      ).toMatchObject({
+        code: "VERSION_SNAPSHOT_FAILED",
+      });
+      expect(eventTypes(events)).not.toContain("write-back-done");
+      expect(eventTypes(events)).not.toContain("hooks-done");
+      expect(writeTool?.execute).not.toHaveBeenCalled();
+      orch.dispose();
+    });
+
+    it("versionSnapshot 失败 → 立刻失败且不执行 documentWrite", async () => {
+      const cfg = buildConfig();
+      const versionTool = cfg.toolRegistry.get("versionSnapshot") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      const writeTool = cfg.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      versionTool?.execute.mockResolvedValue({
+        success: false,
+        error: { code: "VERSION_SNAPSHOT_FAILED", message: "snapshot broken" },
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((event) => event.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(
+        (errorEvent as unknown as { error: { code: string; message: string } })
+          .error,
+      ).toMatchObject({
+        code: "VERSION_SNAPSHOT_FAILED",
+        message: "snapshot broken",
+      });
+      expect(writeTool?.execute).not.toHaveBeenCalled();
+      expect(eventTypes(events)).not.toContain("write-back-done");
+      expect(eventTypes(events)).not.toContain("hooks-done");
+      orch.dispose();
+    });
+
+    it("缺少 documentWrite tool → accept 后硬失败，不得伪装 completed", async () => {
+      const cfg = buildConfig();
+      cfg.toolRegistry.unregister("documentWrite");
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((event) => event.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(
+        (errorEvent as unknown as { error: { code: string } }).error,
+      ).toMatchObject({
+        code: "WRITE_BACK_FAILED",
+      });
+      expect(eventTypes(events)).not.toContain("write-back-done");
+      expect(eventTypes(events)).not.toContain("hooks-done");
+      orch.dispose();
+    });
+
+    it("documentWrite 失败时透传 selection mismatch 细节并停止", async () => {
+      const cfg = buildConfig();
+      const writeTool = cfg.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      writeTool?.execute.mockResolvedValue({
+        success: false,
+        error: {
+          code: "WRITE_BACK_FAILED",
+          message: "Selection changed before AI writeback",
+          details: { currentText: "用户已改动" },
+        },
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((event) => event.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(
+        (errorEvent as unknown as {
+          error: {
+            code: string;
+            message: string;
+            details: { currentText: string };
+          };
+        }).error,
+      ).toMatchObject({
+        code: "WRITE_BACK_FAILED",
+        message: "Selection changed before AI writeback",
+        details: { currentText: "用户已改动" },
+      });
+      expect(eventTypes(events)).not.toContain("write-back-done");
+      expect(eventTypes(events)).not.toContain("hooks-done");
+      orch.dispose();
+    });
   });
 
   // ── 任务状态机 ──────────────────────────────────────────────────
@@ -512,6 +886,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "must-confirm-snapshot", granted: false }),
           requestPermission: vi.fn().mockReturnValue(permissionPromise),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);

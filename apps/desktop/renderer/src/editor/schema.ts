@@ -1,0 +1,16 @@
+export {
+  computeSelectionTextHash,
+  createEnterTriggeredMarkdownPlugin,
+  createEditorInputRules,
+  createEditorInputRulesPlugin,
+  createEmptyDoc,
+  createSelectionRef,
+  docFromJson,
+  editorSchema,
+  getInputRules,
+  replaceSelectionWithPlainText,
+  verifySelectionHash,
+  type InputRuleDescriptor,
+  type ProseMirrorJson,
+  type SelectionRef,
+} from "../../../shared/editor/prosemirror";

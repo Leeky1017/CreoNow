@@ -74,3 +74,9 @@ jobs:
       - name: Storybook build
         run: npm run storybook:build
         working-directory: creonow-app
+      - name: Upload Storybook artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: creonow-app-storybook-static
+          path: creonow-app/storybook-static/
+          retention-days: 14

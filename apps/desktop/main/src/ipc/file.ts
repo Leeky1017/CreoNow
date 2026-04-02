@@ -26,7 +26,15 @@ import {
 import { createStatsService } from "../services/stats/statsService";
 
 type Actor = "user" | "auto" | "ai";
-type SaveReason = "manual-save" | "autosave" | "ai-accept" | "status-change";
+type SaveReason =
+  | "manual-save"
+  | "autosave"
+  | "ai-accept"
+  | "ai-partial-accept"
+  | "pre-write"
+  | "pre-rollback"
+  | "rollback"
+  | "status-change";
 
 const WORDS_PER_SECOND = 3;
 
@@ -148,12 +156,17 @@ export function mapDocumentErrorToIpcError(error: DocumentError): IpcError {
 
 function isSaveReasonValidForActor(actor: Actor, reason: SaveReason): boolean {
   if (actor === "auto") {
-    return reason === "autosave";
+    return reason === "autosave" || reason === "pre-write";
   }
   if (actor === "ai") {
-    return reason === "ai-accept";
+    return reason === "ai-accept" || reason === "ai-partial-accept";
   }
-  return reason === "manual-save" || reason === "status-change";
+  return (
+    reason === "manual-save" ||
+    reason === "status-change" ||
+    reason === "pre-rollback" ||
+    reason === "rollback"
+  );
 }
 
 function countWords(text: string): number {

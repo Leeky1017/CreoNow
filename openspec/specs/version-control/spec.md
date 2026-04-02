@@ -158,8 +158,8 @@ interface ThreeStageCommit {
 此变更影响以下接口：
 - `version:snapshot:create` 的请求体
 - `version:snapshot:read` 的响应体
-- `version:diff` 的输入输出
-- `version:rollback` 的恢复内容
+- `version:snapshot:diff` 的输入输出
+- `version:snapshot:rollback` / `version:snapshot:restore` 的恢复内容
 
 ---
 
@@ -317,13 +317,13 @@ AI 的修改和用户的修改**默认不区分**显示。用户**可以**在设
 - 支持最多 4 个版本同时对比（`MultiVersionCompare` 2×2 网格）
 - 支持同步滚动
 
-版本对比通过 IPC 通道 `version:diff`（Request-Response）获取 diff 数据。
+版本对比通过 IPC 通道 `version:snapshot:diff`（Request-Response）获取 diff 数据。
 
 #### Scenario: 用户对比历史版本与当前版本
 
 - **假设** 用户在版本历史中选中「3 天前」的版本
 - **当** 用户点击「与当前版本对比」
-- **则** 系统通过 `version:diff` 获取两个版本的差异
+- **则** 系统通过 `version:snapshot:diff` 获取两个版本的差异
 - **并且** `DiffViewPanel` 渲染，显示删除和新增内容
 - **并且** 底部统计显示变化行数
 
@@ -350,7 +350,12 @@ AI 的修改和用户的修改**默认不区分**显示。用户**可以**在设
    c. 再创建一个恢复版本快照（actor: `user`，reason: `rollback`）
 4. 编辑器加载恢复后的内容
 
-回滚通过 IPC 通道 `version:rollback`（Request-Response）完成。
+恢复历史版本的公开 IPC 当前包含两条通道：
+
+- `version:snapshot:rollback`：执行安全回滚，并返回 `preRollbackVersionId` / `rollbackVersionId`，供审计与后续可撤销操作追踪
+- `version:snapshot:restore`：执行同一恢复动作，但只返回 `{ restored: true }`，供只关心成功状态的调用方使用
+
+其中，用户触发「恢复到此版本」时，系统**必须**满足本 Requirement 定义的安全回滚语义；实现上可以使用上述任一公开通道，只要最终行为与快照产物保持一致。
 
 回滚操作本身可撤销——因为中间版本未被删除，用户可以再次回滚到回滚前的版本。
 
@@ -379,51 +384,41 @@ AI 的修改和用户的修改**默认不区分**显示。用户**可以**在设
 
 ---
 
-> **⚠️ P1 推迟**：以下「分支管理、合并与冲突解决」Requirement 在 P1 阶段不实现，推迟到 P3+。P1 只做线性快照，不需要分支、合并和冲突解决。参见上方「P1 — 推迟项声明」。
+### Requirement: P1 公开表面不包含 branch / conflict IPC
 
-### Requirement: 分支管理、合并与冲突解决
+P1 版本系统的公开行为**必须**限定在线性快照、两版本 Diff 与回滚。
 
-版本系统必须支持文档级分支工作流，覆盖分支创建、切换、合并和冲突解决全链路。
+当前阶段对 renderer 暴露的版本管理 IPC surface 仅包括：
 
-分支模型：
+| IPC 通道                | 通信模式         | 方向            | 用途               |
+| ----------------------- | ---------------- | --------------- | ------------------ |
+| `version:snapshot:create` | Request-Response | Renderer → Main | 创建版本快照       |
+| `version:snapshot:list`   | Request-Response | Renderer → Main | 列出文档的版本历史 |
+| `version:snapshot:read`   | Request-Response | Renderer → Main | 读取某个版本内容   |
+| `version:snapshot:diff`     | Request-Response | Renderer → Main | 计算两个版本差异   |
+| `version:snapshot:restore`  | Request-Response | Renderer → Main | 恢复历史版本（最小响应） |
+| `version:snapshot:rollback` | Request-Response | Renderer → Main | 安全回滚并返回恢复锚点 |
 
-- 每个文档默认存在 `main` 分支
-- 分支命名规则：`[a-z0-9-]{3,32}`，同文档内唯一
-- 分支元数据：`id`、`documentId`、`name`、`baseSnapshotId`、`headSnapshotId`、`createdBy`、`createdAt`
+以下能力在 P1 **明确不属于公开 IPC surface**，仅保留为未来阶段说明：
 
-分支 IPC 通道：
+- `version:branch:*`
+- `version:conflict:*`
+- 分支创建 / 切换 / 合并
+- 冲突检测与人工解决 UI
 
-| IPC 通道                   | 通信模式         | 方向            | 用途             |
-| -------------------------- | ---------------- | --------------- | ---------------- |
-| `version:branch:create`    | Request-Response | Renderer → Main | 创建分支         |
-| `version:branch:list`      | Request-Response | Renderer → Main | 列出分支         |
-| `version:branch:switch`    | Request-Response | Renderer → Main | 切换分支         |
-| `version:branch:merge`     | Request-Response | Renderer → Main | 合并分支         |
-| `version:conflict:resolve` | Request-Response | Renderer → Main | 提交冲突解决结果 |
+#### Scenario: P1 renderer 只能使用线性版本通道
 
-合并策略：
+- **假设** renderer 需要展示版本历史、对比两个版本并执行回滚
+- **当** 它接入版本管理模块
+- **则** 只依赖 `version:snapshot:create`、`version:snapshot:list`、`version:snapshot:read`、`version:snapshot:diff`、`version:snapshot:restore`、`version:snapshot:rollback`
+- **并且** 不要求也不假定 `version:branch:*` / `version:conflict:*` 存在
 
-- 默认三方合并（base / source / target）
-- 无冲突时自动合并并生成 `reason=branch-merge` 快照
-- 有冲突时返回冲突块列表，禁止自动落盘
-- 单次合并超时阈值 5s，超时返回 `VERSION_MERGE_TIMEOUT`
+#### Scenario: 分支与冲突能力保留到未来阶段
 
-#### Scenario: 创建分支并无冲突合并
-
-- **假设** 用户在 `main` 分支基础上创建 `alt-ending`
-- **当** 用户在 `alt-ending` 完成修改并触发合并到 `main`
-- **则** 系统通过 `version:branch:merge` 执行三方合并
-- **并且** 无冲突时自动提交合并结果
-- **并且** 版本历史新增 `reason=branch-merge` 快照
-
-#### Scenario: 合并冲突进入人工解决流程
-
-- **假设** `main` 与 `alt-ending` 同时修改同一段落
-- **当** 用户执行合并
-- **则** 系统返回 `CONFLICT` 与冲突块列表
-- **并且** Diff 面板进入冲突解决模式（逐块选取 ours/theirs/manual）
-- **当** 用户提交解决结果
-- **则** 系统通过 `version:conflict:resolve` 落盘并生成合并快照
+- **假设** Owner 规划 P3+ 的分支写作工作流
+- **当** 本 spec 描述未来扩展
+- **则** 相关分支 / 合并 / 冲突能力仅作为未来阶段说明
+- **并且** 不构成 P1 的当前 must requirement
 
 ---
 
@@ -435,10 +430,10 @@ AI 的修改和用户的修改**默认不区分**显示。用户**可以**在设
   - 快照写入 p95 < 120ms
   - 历史列表查询 p95 < 200ms
   - 两版本 Diff 计算 p95 < 350ms
-  - 分支合并（无冲突）p95 < 900ms
 - 边界与类型安全：
   - `TypeScript strict` 必须开启
-  - `version:*`/`version:branch:*`/`version:conflict:*` 通道必须由 zod 校验
+  - 当前公开的 `version:snapshot:create` / `version:snapshot:list` / `version:snapshot:read` / `version:snapshot:diff` / `version:snapshot:restore` / `version:snapshot:rollback` 通道必须由 zod 校验
+  - `version:branch:*` / `version:conflict:*` 为未来阶段预留，不属于 P1 公开校验面
 - 失败处理策略：
   - 数据一致性相关失败一律硬失败并阻断（不静默降级）
   - 可重试 IO 失败最多重试 3 次，超时 5s
@@ -467,18 +462,18 @@ AI 的修改和用户的修改**默认不区分**显示。用户**可以**在设
 
 | 类别         | 最低覆盖要求                                 |
 | ------------ | -------------------------------------------- |
-| 网络/IO 失败 | 快照写入失败、历史读取失败、合并结果写入失败 |
-| 数据异常     | 快照损坏、Diff 输入非法、分支 head 缺失      |
-| 并发冲突     | 同文档双分支并发合并、并发回滚               |
+| 网络/IO 失败 | 快照写入失败、历史读取失败、回滚结果写入失败 |
+| 数据异常     | 快照损坏、Diff 输入非法、回滚目标缺失        |
+| 并发冲突     | 同文档快照/回滚并发、并发回滚               |
 | 容量溢出     | 单文档快照超过 50,000 条                     |
-| 权限/安全    | 非当前项目分支访问、跨项目快照读取越权       |
+| 权限/安全    | 非当前项目快照访问、跨项目快照读取越权       |
 
-#### Scenario: 并发合并触发串行锁
+#### Scenario: 并发版本写操作触发串行锁
 
-- **假设** 两个请求同时将不同分支合并到 `main`
+- **假设** 两个请求同时对同一文档执行 snapshot/rollback
 - **当** 请求同时到达主进程
 - **则** 系统按 `documentId` 加锁串行执行
-- **并且** 后到请求读取前一次合并后的最新 head 再计算
+- **并且** 后到请求必须等待前一次版本写操作完成后再继续
 
 #### Scenario: 快照容量超限自动压缩
 
@@ -495,23 +490,21 @@ AI 的修改和用户的修改**默认不区分**显示。用户**可以**在设
 
 - `version:snapshot:create`：p50 < 60ms，p95 < 120ms，p99 < 250ms
 - `version:snapshot:list`：p50 < 80ms，p95 < 200ms，p99 < 400ms
-- `version:branch:merge`（无冲突）：p50 < 450ms，p95 < 900ms，p99 < 1.5s
 
 **Capacity**
 
 - 单文档快照上限：50,000（超限自动压缩 autosave）
-- 单文档分支上限：128
 - 单次 Diff 最大输入：2 MB 文本（超限需分块）
 
 **Security & Privacy**
 
 - 快照内容必须按项目隔离存储，禁止跨项目读取
 - 日志中仅记录 `snapshotId/documentId`，禁止记录正文原文
-- 冲突解决结果必须记录操作人和时间戳用于审计
+- 未来阶段若引入冲突解决，届时再补充操作人审计字段要求
 
 **Concurrency**
 
-- 同一 `documentId` 的 merge/rollback/snapshot 操作必须串行
+- 同一 `documentId` 的 rollback/snapshot 操作必须串行
 - 跨文档操作可并行，最大并发 8
 - 并发回滚冲突返回 `VERSION_ROLLBACK_CONFLICT`
 
@@ -525,6 +518,6 @@ AI 的修改和用户的修改**默认不区分**显示。用户**可以**在设
 #### Scenario: 超大 Diff 输入分块处理
 
 - **假设** 用户对比两版总文本 3 MB
-- **当** 触发 `version:diff`
+- **当** 触发 `version:snapshot:diff`
 - **则** 系统返回 `{ code: "VERSION_DIFF_PAYLOAD_TOO_LARGE" }` 并提示启用分块对比
 - **并且** 不发生主进程崩溃或 UI 卡死

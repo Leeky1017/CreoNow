@@ -97,11 +97,9 @@ function createDeferred<T>(): Deferred<T> {
         stablePrefixHash: "hash",
         stablePrefixUnchanged: false,
         warnings: [],
-        assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+        capacityPercent: 0.2,
         layers: {
           rules: { source: ["kg:entities"], tokenCount: 3, truncated: false },
-          settings: { source: [], tokenCount: 0, truncated: false },
-          retrieved: { source: [], tokenCount: 0, truncated: false },
           immediate: {
             source: ["editor:cursor-window"],
             tokenCount: 9,
@@ -115,18 +113,6 @@ function createDeferred<T>(): Deferred<T> {
     ): Promise<ContextInspectResult> => ({
       layersDetail: {
         rules: {
-          content: "",
-          source: [],
-          tokenCount: 0,
-          truncated: false,
-        },
-        settings: {
-          content: "",
-          source: [],
-          tokenCount: 0,
-          truncated: false,
-        },
-        retrieved: {
           content: "",
           source: [],
           tokenCount: 0,

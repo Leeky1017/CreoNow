@@ -24,8 +24,8 @@ case "$TIER" in
   *) printf '❌ 未知审计层级: %s（可选：L / S / D）\n' "$TIER"; exit 1 ;;
 esac
 
-if ! git rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
-  BASE_REF=$(git hash-object -t tree /dev/null)
+if ! git --no-pager rev-parse --verify "$BASE_REF" >/dev/null 2>&1; then
+  BASE_REF=$(git --no-pager hash-object -t tree /dev/null)
 fi
 
 TOTAL=0
@@ -81,30 +81,30 @@ run_common() {
   section "共享检查（Common）"
 
   run_step "git diff --numstat" \
-    git diff --numstat "$BASE_REF"
+    git --no-pager diff --numstat "$BASE_REF"
 
   run_step "git diff --check（CRLF/LF 噪音检测）" \
-    git diff --check "$BASE_REF"
+    git --no-pager diff --check "$BASE_REF"
 
   run_step "git diff --ignore-cr-at-eol --name-status" \
-    git diff --ignore-cr-at-eol --name-status "$BASE_REF"
+    git --no-pager diff --ignore-cr-at-eol --name-status "$BASE_REF"
 
   # 变更分类概览
   section "变更分类概览"
   printf '变更文件清单:\n'
-  git diff --name-only "$BASE_REF" | head -50
+  git --no-pager diff --name-only "$BASE_REF" | head -50
   local file_count
-  file_count=$(git diff --name-only "$BASE_REF" | wc -l)
+  file_count=$(git --no-pager diff --name-only "$BASE_REF" | wc -l)
   printf '\n共 %d 个文件变更\n' "$file_count"
 
   # 变更层分布
   printf '\n变更层分布:\n'
-  git diff --name-only "$BASE_REF" | grep -c '^apps/desktop/main/' | xargs -I{} printf '  backend:  %s 文件\n' "{}" || true
-  git diff --name-only "$BASE_REF" | grep -c '^apps/desktop/renderer/' | xargs -I{} printf '  frontend: %s 文件\n' "{}" || true
-  git diff --name-only "$BASE_REF" | grep -c '^apps/desktop/preload/' | xargs -I{} printf '  preload:  %s 文件\n' "{}" || true
-  git diff --name-only "$BASE_REF" | grep -c '^packages/shared/' | xargs -I{} printf '  shared:   %s 文件\n' "{}" || true
-  git diff --name-only "$BASE_REF" | grep -cE '^(scripts/|\.github/|.*\.config\.)' | xargs -I{} printf '  infra:    %s 文件\n' "{}" || true
-  git diff --name-only "$BASE_REF" | grep -cE '^(docs/|openspec/|.*\.md$)' | xargs -I{} printf '  docs:     %s 文件\n' "{}" || true
+  git --no-pager diff --name-only "$BASE_REF" | grep -c '^apps/desktop/main/' | xargs -I{} printf '  backend:  %s 文件\n' "{}" || true
+  git --no-pager diff --name-only "$BASE_REF" | grep -c '^apps/desktop/renderer/' | xargs -I{} printf '  frontend: %s 文件\n' "{}" || true
+  git --no-pager diff --name-only "$BASE_REF" | grep -c '^apps/desktop/preload/' | xargs -I{} printf '  preload:  %s 文件\n' "{}" || true
+  git --no-pager diff --name-only "$BASE_REF" | grep -c '^packages/shared/' | xargs -I{} printf '  shared:   %s 文件\n' "{}" || true
+  git --no-pager diff --name-only "$BASE_REF" | grep -cE '^(scripts/|\.github/|.*\.config\.)' | xargs -I{} printf '  infra:    %s 文件\n' "{}" || true
+  git --no-pager diff --name-only "$BASE_REF" | grep -cE '^(docs/|openspec/|.*\.md$)' | xargs -I{} printf '  docs:     %s 文件\n' "{}" || true
 }
 
 # ══════════════════════════════════════════════════════
@@ -152,18 +152,18 @@ run_tier_s() {
   # 动态测试选择：根据变更文件选择测试范围
   section "动态测试（按变更文件选择）"
   local has_renderer has_main
-  has_renderer=$(git diff --name-only "$BASE_REF" | grep -c '^apps/desktop/renderer/' || true)
-  has_main=$(git diff --name-only "$BASE_REF" | grep -c '^apps/desktop/main/' || true)
+  has_renderer=$(git --no-pager diff --name-only "$BASE_REF" | grep -c '^apps/desktop/renderer/' || true)
+  has_main=$(git --no-pager diff --name-only "$BASE_REF" | grep -c '^apps/desktop/main/' || true)
 
   if command -v pnpm &>/dev/null; then
     if (( has_renderer > 0 )); then
       run_step "vitest run renderer（前端测试）" \
-        pnpm -C apps/desktop exec vitest run --reporter=verbose renderer/
+        pnpm -C apps/desktop exec vitest run --config vitest.config.ts --reporter=verbose renderer/
     fi
 
     if (( has_main > 0 )); then
       run_step "vitest run main（后端测试）" \
-        pnpm -C apps/desktop exec vitest run --reporter=verbose main/
+        pnpm -C apps/desktop exec vitest run --config vitest.config.core.ts --reporter=verbose main/
     fi
 
     # 前端变更追加 Storybook 构建验证
@@ -188,11 +188,18 @@ run_tier_d() {
   if command -v pnpm &>/dev/null; then
     # 全量测试优先走仓库声明脚本，避免与项目测试入口漂移
     if has_pnpm_script "test"; then
-      run_step "pnpm test（全量测试）" \
+      run_step "pnpm test（仓库发现式全量测试）" \
         pnpm test
     else
       run_step "vitest run（全量测试）" \
-        pnpm -C apps/desktop exec vitest run
+        pnpm -C apps/desktop exec vitest run --config vitest.config.core.ts
+    fi
+
+    local has_renderer
+    has_renderer=$(git --no-pager diff --name-only "$BASE_REF" | grep -c '^apps/desktop/renderer/' || true)
+    if (( has_renderer > 0 )); then
+      run_step "pnpm -C apps/desktop test:renderer（renderer 全量测试）" \
+        pnpm -C apps/desktop test:renderer
     fi
 
     # ESLint（若仓库未声明 lint 脚本则跳过）
@@ -217,7 +224,7 @@ run_tier_d() {
 
     # IPC 验收门禁
     local has_ipc
-    has_ipc=$(git diff --name-only "$BASE_REF" | grep -cE '(ipc|preload|shared)' || true)
+    has_ipc=$(git --no-pager diff --name-only "$BASE_REF" | grep -cE '(ipc|preload|shared)' || true)
     if (( has_ipc > 0 )) && [[ -f "scripts/ipc-acceptance-gate.ts" ]]; then
       run_step "ipc-acceptance-gate（IPC 验收）" \
         node --import tsx scripts/ipc-acceptance-gate.ts

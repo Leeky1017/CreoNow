@@ -36,6 +36,9 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
+      - name: Renderer tests
+        run: pnpm -C apps/desktop test:renderer
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -51,3 +54,13 @@ jobs:
 
       - name: Electron build
         run: pnpm desktop:build
+
+      - name: Desktop Storybook build
+        run: pnpm -C apps/desktop storybook:build
+
+      - name: Upload desktop Storybook artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-storybook-static
+          path: apps/desktop/storybook-static/
+          retention-days: 14

@@ -88,10 +88,10 @@ type FakeIpcMain = {
     },
   )) as IpcResponse<{
     warnings: string[];
+    capacityPercent: number;
     layers: {
-      retrieved: {
-        source: string[];
-      };
+      rules: { source: string[] };
+      immediate: { source: string[] };
     };
   }>;
 
@@ -109,13 +109,11 @@ type FakeIpcMain = {
 
   assert.equal(response.ok, true);
   if (response.ok) {
-    assert.equal(
-      response.data.layers.retrieved.source.length,
-      CONTEXT_CAPACITY_LIMITS.maxRetrievedChunks,
-    );
+    assert.equal("retrieved" in response.data.layers, false);
     assert.equal(
       response.data.warnings.includes("CONTEXT_RETRIEVED_CHUNK_LIMIT"),
       true,
     );
+    assert.equal(response.data.capacityPercent > 0, true);
   }
 }

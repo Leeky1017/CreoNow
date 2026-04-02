@@ -4,6 +4,17 @@ export type ContextAssembleRequest = {
   projectId: string;
   documentId: string;
   cursorPosition: number;
+  /** Plain-text character offset of the cursor (number of text chars before cursor).
+   * When provided, the immediate layer fetcher uses this for text slicing instead of
+   * `cursorPosition` (which is a ProseMirror document position, not a text offset).
+   * Set by the IPC layer after converting PM pos → text offset via the document model. */
+  textOffset?: number;
+  /**
+   * When true, `additionalInput` contains the user's selection text and must NOT be
+   * truncated at textOffset.  Selection-based skills (polish, rewrite, etc.) set this
+   * so the immediate layer returns the full selection text as-is.
+   */
+  additionalInputIsSelection?: boolean;
   skillId: string;
   additionalInput?: string;
   provider?: string;
@@ -69,18 +80,28 @@ export type ContextLayerDetail = ContextLayerSummary & {
   content: string;
 };
 
+export type ContextAssembleLayers = {
+  rules: ContextLayerSummary;
+  immediate: ContextLayerSummary;
+};
+
 export type ContextAssembleResult = {
   prompt: string;
   tokenCount: number;
   stablePrefixHash: string;
   stablePrefixUnchanged: boolean;
   warnings: string[];
-  assemblyOrder: ContextLayerId[];
-  layers: Record<ContextLayerId, ContextLayerSummary>;
+  capacityPercent: number;
+  layers: ContextAssembleLayers;
+};
+
+export type ContextInspectLayerDetails = {
+  rules: ContextLayerDetail;
+  immediate: ContextLayerDetail;
 };
 
 export type ContextInspectResult = {
-  layersDetail: Record<ContextLayerId, ContextLayerDetail>;
+  layersDetail: ContextInspectLayerDetails;
   totals: {
     tokenCount: number;
     warningsCount: number;

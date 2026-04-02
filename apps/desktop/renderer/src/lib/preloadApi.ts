@@ -1,0 +1,86 @@
+import type { IpcChannel, IpcError, IpcInvokeResult, IpcRequest, IpcResponseData } from "@shared/types/ipc-generated";
+
+export type InvokeHandler<C extends IpcChannel> = (payload: IpcRequest<C>) => Promise<IpcInvokeResult<C>>;
+export type StreamSubscriptionResult = {
+  ok: true;
+  data: { subscriptionId: string };
+} | {
+  ok: false;
+  error: IpcError;
+};
+
+export interface PreloadStreamApi {
+  registerAiStreamConsumer: () => StreamSubscriptionResult;
+  releaseAiStreamConsumer: (subscriptionId: string) => void;
+}
+
+export interface PreloadApi {
+  project: {
+    create: InvokeHandler<"project:project:create">;
+    getCurrent: () => Promise<IpcInvokeResult<"project:project:getcurrent">>;
+    list: InvokeHandler<"project:project:list">;
+    setCurrent: InvokeHandler<"project:project:setcurrent">;
+  };
+  file: {
+    createDocument: InvokeHandler<"file:document:create">;
+    getCurrentDocument: InvokeHandler<"file:document:getcurrent">;
+    listDocuments: InvokeHandler<"file:document:list">;
+    readDocument: InvokeHandler<"file:document:read">;
+    saveDocument: InvokeHandler<"file:document:save">;
+    setCurrentDocument: InvokeHandler<"file:document:setcurrent">;
+  };
+  ai: {
+    confirmSkill: InvokeHandler<"ai:skill:confirm">;
+    cancelSkill: InvokeHandler<"ai:skill:cancel">;
+    runSkill: InvokeHandler<"ai:skill:run">;
+    submitSkillFeedback: InvokeHandler<"ai:skill:feedback">;
+  };
+  version: {
+    listSnapshots: InvokeHandler<"version:snapshot:list">;
+  };
+}
+
+export interface LegacyCreonowBridge {
+  api: PreloadApi;
+  invoke: <C extends IpcChannel>(channel: C, payload: IpcRequest<C>) => Promise<IpcInvokeResult<C>>;
+  stream: PreloadStreamApi;
+}
+
+export class RendererIpcError extends Error {
+  public readonly code: string;
+  public readonly details?: unknown;
+
+  public constructor(error: IpcError) {
+    super(error.message);
+    this.name = "RendererIpcError";
+    this.code = error.code;
+    this.details = error.details;
+  }
+}
+
+export function getPreloadApi(): PreloadApi {
+  const api = window.api ?? window.creonow?.api;
+  if (!api) {
+    throw new Error("Preload API is unavailable");
+  }
+
+  return api;
+}
+
+export function unwrapIpcResult<C extends IpcChannel>(result: IpcInvokeResult<C>): IpcResponseData<C> {
+  if (!result.ok) {
+    throw new RendererIpcError(result.error);
+  }
+
+  return result.data;
+}
+
+export async function invokeThroughBridge<C extends IpcChannel>(channel: C, payload: IpcRequest<C>): Promise<IpcResponseData<C>> {
+  const invoke = window.creonow?.invoke;
+  if (!invoke) {
+    throw new Error("Legacy invoke bridge is unavailable");
+  }
+
+  const result = await invoke(channel, payload);
+  return unwrapIpcResult(result);
+}

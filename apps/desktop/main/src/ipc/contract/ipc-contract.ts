@@ -56,6 +56,7 @@ export const IPC_ERROR_CODES = [
   "SKILL_CAPACITY_EXCEEDED",
   "SKILL_SCOPE_VIOLATION",
   "SKILL_INPUT_EMPTY",
+  "SKILL_INPUT_INVALID",
   "SKILL_OUTPUT_INVALID",
   "AI_AUTH_FAILED",
   "AI_NOT_CONFIGURED",
@@ -63,6 +64,8 @@ export const IPC_ERROR_CODES = [
   "AI_SESSION_TOKEN_BUDGET_EXCEEDED",
   "LLM_API_ERROR",
   "AI_PROVIDER_UNAVAILABLE",
+  "WRITE_BACK_FAILED",
+  "VERSION_SNAPSHOT_FAILED",
   "VERSION_MERGE_TIMEOUT",
   "VERSION_SNAPSHOT_COMPACTED",
   "VERSION_DIFF_PAYLOAD_TOO_LARGE",
@@ -172,13 +175,6 @@ const CREONOW_LIST_ITEM_SCHEMA = s.object({
   updatedAtMs: s.number(),
 });
 
-const CONTEXT_LAYER_ID_SCHEMA = s.union(
-  s.literal("rules"),
-  s.literal("settings"),
-  s.literal("retrieved"),
-  s.literal("immediate"),
-);
-
 const CONTEXT_ASSEMBLE_REQUEST_SCHEMA = s.object({
   projectId: s.string(),
   documentId: s.string(),
@@ -225,11 +221,9 @@ const CONTEXT_ASSEMBLE_RESPONSE_SCHEMA = s.object({
   stablePrefixHash: s.string(),
   stablePrefixUnchanged: s.boolean(),
   warnings: s.array(s.string()),
-  assemblyOrder: s.array(CONTEXT_LAYER_ID_SCHEMA),
+  capacityPercent: s.number(),
   layers: s.object({
     rules: CONTEXT_LAYER_SUMMARY_SCHEMA,
-    settings: CONTEXT_LAYER_SUMMARY_SCHEMA,
-    retrieved: CONTEXT_LAYER_SUMMARY_SCHEMA,
     immediate: CONTEXT_LAYER_SUMMARY_SCHEMA,
   }),
 });
@@ -237,8 +231,6 @@ const CONTEXT_ASSEMBLE_RESPONSE_SCHEMA = s.object({
 const CONTEXT_INSPECT_RESPONSE_SCHEMA = s.object({
   layersDetail: s.object({
     rules: CONTEXT_LAYER_DETAIL_SCHEMA,
-    settings: CONTEXT_LAYER_DETAIL_SCHEMA,
-    retrieved: CONTEXT_LAYER_DETAIL_SCHEMA,
     immediate: CONTEXT_LAYER_DETAIL_SCHEMA,
   }),
   totals: s.object({
@@ -792,6 +784,10 @@ const VERSION_SNAPSHOT_REASON_SCHEMA = s.union(
   s.literal("manual-save"),
   s.literal("autosave"),
   s.literal("ai-accept"),
+  s.literal("ai-partial-accept"),
+  s.literal("pre-write"),
+  s.literal("pre-rollback"),
+  s.literal("rollback"),
   s.literal("status-change"),
 );
 
@@ -799,29 +795,6 @@ const VERSION_DIFF_STATS_SCHEMA = s.object({
   addedLines: s.number(),
   removedLines: s.number(),
   changedHunks: s.number(),
-});
-
-const VERSION_BRANCH_ITEM_SCHEMA = s.object({
-  id: s.string(),
-  documentId: s.string(),
-  name: s.string(),
-  baseSnapshotId: s.string(),
-  headSnapshotId: s.string(),
-  createdBy: s.string(),
-  createdAt: s.number(),
-  isCurrent: s.boolean(),
-});
-
-const VERSION_BRANCH_CONFLICT_RESOLUTION_SCHEMA = s.union(
-  s.literal("ours"),
-  s.literal("theirs"),
-  s.literal("manual"),
-);
-
-const VERSION_BRANCH_CONFLICT_RESOLUTION_ITEM_SCHEMA = s.object({
-  conflictId: s.string(),
-  resolution: VERSION_BRANCH_CONFLICT_RESOLUTION_SCHEMA,
-  manualText: s.optional(s.string()),
 });
 
 const DOCUMENT_LIST_ITEM_SCHEMA = s.object({
@@ -1030,6 +1003,7 @@ export const ipcContract = {
       request: s.object({
         skillId: s.string(),
         hasSelection: s.optional(s.boolean()),
+        cursorPosition: s.optional(s.number()),
         input: s.string(),
         mode: s.union(s.literal("agent"), s.literal("plan"), s.literal("ask")),
         model: s.string(),
@@ -1040,16 +1014,46 @@ export const ipcContract = {
             documentId: s.optional(s.string()),
           }),
         ),
+        selection: s.optional(
+          s.object({
+            from: s.number(),
+            to: s.number(),
+            text: s.string(),
+            selectionTextHash: s.string(),
+          }),
+        ),
+        precedingText: s.optional(s.string()),
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
         stream: s.boolean(),
       }),
       response: s.object({
         executionId: s.string(),
         runId: s.string(),
+        status: s.union(
+          s.literal("preview"),
+          s.literal("completed"),
+          s.literal("rejected"),
+        ),
+        previewId: s.optional(s.string()),
+        versionId: s.optional(s.string()),
         outputText: s.optional(s.string()),
         candidates: s.optional(s.array(AI_CANDIDATE_SCHEMA)),
         usage: s.optional(AI_USAGE_STATS_SCHEMA),
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
+      }),
+    },
+    "ai:skill:confirm": {
+      request: s.object({
+        executionId: s.string(),
+        action: s.union(s.literal("accept"), s.literal("reject")),
+        projectId: s.string(),
+      }),
+      response: s.object({
+        executionId: s.string(),
+        runId: s.string(),
+        status: s.union(s.literal("completed"), s.literal("rejected")),
+        versionId: s.optional(s.string()),
+        outputText: s.optional(s.string()),
       }),
     },
     "ai:config:get": {
@@ -2295,7 +2299,7 @@ export const ipcContract = {
           s.object({
             versionId: s.string(),
             actor: VERSION_SNAPSHOT_ACTOR_SCHEMA,
-            reason: s.string(),
+            reason: VERSION_SNAPSHOT_REASON_SCHEMA,
             contentHash: s.string(),
             wordCount: s.number(),
             createdAt: s.number(),
@@ -2310,7 +2314,7 @@ export const ipcContract = {
         projectId: s.string(),
         versionId: s.string(),
         actor: s.union(s.literal("user"), s.literal("auto"), s.literal("ai")),
-        reason: s.string(),
+        reason: VERSION_SNAPSHOT_REASON_SCHEMA,
         contentJson: s.string(),
         contentText: s.string(),
         contentMd: s.string(),
@@ -2340,62 +2344,9 @@ export const ipcContract = {
         rollbackVersionId: s.string(),
       }),
     },
-    "version:branch:create": {
-      request: s.object({
-        documentId: s.string(),
-        name: s.string(),
-        createdBy: s.string(),
-      }),
-      response: s.object({
-        branch: VERSION_BRANCH_ITEM_SCHEMA,
-      }),
-    },
-    "version:branch:list": {
-      request: s.object({ documentId: s.string() }),
-      response: s.object({
-        branches: s.array(VERSION_BRANCH_ITEM_SCHEMA),
-      }),
-    },
-    "version:branch:switch": {
-      request: s.object({
-        documentId: s.string(),
-        name: s.string(),
-      }),
-      response: s.object({
-        currentBranch: s.string(),
-        headSnapshotId: s.string(),
-      }),
-    },
-    "version:branch:merge": {
-      request: s.object({
-        documentId: s.string(),
-        sourceBranchName: s.string(),
-        targetBranchName: s.string(),
-      }),
-      response: s.object({
-        status: s.literal("merged"),
-        mergeSnapshotId: s.string(),
-      }),
-    },
-    "version:conflict:resolve": {
-      request: s.object({
-        documentId: s.string(),
-        mergeSessionId: s.string(),
-        resolutions: s.array(VERSION_BRANCH_CONFLICT_RESOLUTION_ITEM_SCHEMA),
-        resolvedBy: s.string(),
-      }),
-      response: s.object({
-        status: s.literal("merged"),
-        mergeSnapshotId: s.string(),
-      }),
-    },
     "version:snapshot:restore": {
       request: s.object({ documentId: s.string(), versionId: s.string() }),
       response: s.object({ restored: s.literal(true) }),
-    },
-    "version:aiapply:logconflict": {
-      request: s.object({ documentId: s.string(), runId: s.string() }),
-      response: s.object({ logged: s.literal(true) }),
     },
     "app:renderer:logerror": {
       request: s.object({

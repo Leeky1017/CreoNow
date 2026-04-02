@@ -31,7 +31,49 @@ window.addEventListener("beforeunload", () => {
   aiStreamBridge.dispose();
 });
 
+const api = {
+  project: {
+    create: (payload: Parameters<typeof creonowInvoke<"project:project:create">>[1]) =>
+      creonowInvoke("project:project:create", payload),
+    getCurrent: () => creonowInvoke("project:project:getcurrent", {}),
+    list: (payload: Parameters<typeof creonowInvoke<"project:project:list">>[1]) =>
+      creonowInvoke("project:project:list", payload),
+    setCurrent: (payload: Parameters<typeof creonowInvoke<"project:project:setcurrent">>[1]) =>
+      creonowInvoke("project:project:setcurrent", payload),
+  },
+  file: {
+    createDocument: (payload: Parameters<typeof creonowInvoke<"file:document:create">>[1]) =>
+      creonowInvoke("file:document:create", payload),
+    getCurrentDocument: (payload: Parameters<typeof creonowInvoke<"file:document:getcurrent">>[1]) =>
+      creonowInvoke("file:document:getcurrent", payload),
+    listDocuments: (payload: Parameters<typeof creonowInvoke<"file:document:list">>[1]) =>
+      creonowInvoke("file:document:list", payload),
+    readDocument: (payload: Parameters<typeof creonowInvoke<"file:document:read">>[1]) =>
+      creonowInvoke("file:document:read", payload),
+    saveDocument: (payload: Parameters<typeof creonowInvoke<"file:document:save">>[1]) =>
+      creonowInvoke("file:document:save", payload),
+    setCurrentDocument: (payload: Parameters<typeof creonowInvoke<"file:document:setcurrent">>[1]) =>
+      creonowInvoke("file:document:setcurrent", payload),
+  },
+  ai: {
+    confirmSkill: (payload: Parameters<typeof creonowInvoke<"ai:skill:confirm">>[1]) =>
+      creonowInvoke("ai:skill:confirm", payload),
+    cancelSkill: (payload: Parameters<typeof creonowInvoke<"ai:skill:cancel">>[1]) =>
+      creonowInvoke("ai:skill:cancel", payload),
+    runSkill: (payload: Parameters<typeof creonowInvoke<"ai:skill:run">>[1]) =>
+      creonowInvoke("ai:skill:run", payload),
+    submitSkillFeedback: (payload: Parameters<typeof creonowInvoke<"ai:skill:feedback">>[1]) =>
+      creonowInvoke("ai:skill:feedback", payload),
+  },
+  version: {
+    listSnapshots: (payload: Parameters<typeof creonowInvoke<"version:snapshot:list">>[1]) =>
+      creonowInvoke("version:snapshot:list", payload),
+  },
+};
+
+contextBridge.exposeInMainWorld("api", api);
 contextBridge.exposeInMainWorld("creonow", {
+  api,
   invoke: creonowInvoke,
   stream: {
     registerAiStreamConsumer: aiStreamBridge.registerAiStreamConsumer,
@@ -39,11 +81,4 @@ contextBridge.exposeInMainWorld("creonow", {
   },
 });
 
-/**
- * Expose E2E mode flag to renderer via separate property.
- *
- * Why: E2E tests need to skip onboarding and other flows.
- * We use a separate property because contextBridge objects are frozen
- * and main.tsx needs to manage __CN_E2E__.ready separately.
- */
 contextBridge.exposeInMainWorld("__CN_E2E_ENABLED__", isE2EEnabled());

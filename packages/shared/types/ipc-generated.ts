@@ -83,6 +83,7 @@ export type IpcErrorCode =
   | "SKILL_CAPACITY_EXCEEDED"
   | "SKILL_DEPENDENCY_MISSING"
   | "SKILL_INPUT_EMPTY"
+  | "SKILL_INPUT_INVALID"
   | "SKILL_OUTPUT_INVALID"
   | "SKILL_QUEUE_OVERFLOW"
   | "SKILL_SCOPE_VIOLATION"
@@ -94,7 +95,9 @@ export type IpcErrorCode =
   | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
   | "VERSION_MERGE_TIMEOUT"
   | "VERSION_ROLLBACK_CONFLICT"
-  | "VERSION_SNAPSHOT_COMPACTED";
+  | "VERSION_SNAPSHOT_COMPACTED"
+  | "VERSION_SNAPSHOT_FAILED"
+  | "WRITE_BACK_FAILED";
 
 export type IpcMeta = {
   requestId: string;
@@ -134,6 +137,7 @@ export const IPC_CHANNELS = [
   "ai:config:update",
   "ai:models:list",
   "ai:skill:cancel",
+  "ai:skill:confirm",
   "ai:skill:feedback",
   "ai:skill:run",
   "app:renderer:logerror",
@@ -263,12 +267,6 @@ export const IPC_CHANNELS = [
   "skill:registry:write",
   "stats:day:gettoday",
   "stats:range:get",
-  "version:aiapply:logconflict",
-  "version:branch:create",
-  "version:branch:list",
-  "version:branch:merge",
-  "version:branch:switch",
-  "version:conflict:resolve",
   "version:snapshot:create",
   "version:snapshot:diff",
   "version:snapshot:list",
@@ -420,6 +418,7 @@ export type IpcChannelSpec = {
           | "SKILL_CAPACITY_EXCEEDED"
           | "SKILL_SCOPE_VIOLATION"
           | "SKILL_INPUT_EMPTY"
+          | "SKILL_INPUT_INVALID"
           | "SKILL_OUTPUT_INVALID"
           | "AI_AUTH_FAILED"
           | "AI_NOT_CONFIGURED"
@@ -427,6 +426,8 @@ export type IpcChannelSpec = {
           | "AI_SESSION_TOKEN_BUDGET_EXCEEDED"
           | "LLM_API_ERROR"
           | "AI_PROVIDER_UNAVAILABLE"
+          | "WRITE_BACK_FAILED"
+          | "VERSION_SNAPSHOT_FAILED"
           | "VERSION_MERGE_TIMEOUT"
           | "VERSION_SNAPSHOT_COMPACTED"
           | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
@@ -508,6 +509,20 @@ export type IpcChannelSpec = {
       canceled: true;
     };
   };
+  "ai:skill:confirm": {
+    request: {
+      action: "accept" | "reject";
+      executionId: string;
+      projectId: string;
+    };
+    response: {
+      executionId: string;
+      outputText?: string;
+      runId: string;
+      status: "completed" | "rejected";
+      versionId?: string;
+    };
+  };
   "ai:skill:feedback": {
     request: {
       action: "accept" | "reject" | "partial";
@@ -533,13 +548,21 @@ export type IpcChannelSpec = {
         documentId?: string;
         projectId?: string;
       };
+      cursorPosition?: number;
       hasSelection?: boolean;
       input: string;
       mode: "agent" | "plan" | "ask";
       model: string;
+      precedingText?: string;
       promptDiagnostics?: {
         promptHash: string;
         stablePrefixHash: string;
+      };
+      selection?: {
+        from: number;
+        selectionTextHash: string;
+        text: string;
+        to: number;
       };
       skillId: string;
       stream: boolean;
@@ -553,17 +576,20 @@ export type IpcChannelSpec = {
       }>;
       executionId: string;
       outputText?: string;
+      previewId?: string;
       promptDiagnostics?: {
         promptHash: string;
         stablePrefixHash: string;
       };
       runId: string;
+      status: "preview" | "completed" | "rejected";
       usage?: {
         completionTokens: number;
         estimatedCostUsd?: number;
         promptTokens: number;
         sessionTotalTokens: number;
       };
+      versionId?: string;
     };
   };
   "app:renderer:logerror": {
@@ -848,7 +874,7 @@ export type IpcChannelSpec = {
       tokenizerVersion?: string;
     };
     response: {
-      assemblyOrder: Array<"rules" | "settings" | "retrieved" | "immediate">;
+      capacityPercent: number;
       layers: {
         immediate: {
           source: Array<string>;
@@ -856,19 +882,7 @@ export type IpcChannelSpec = {
           truncated: boolean;
           warnings?: Array<string>;
         };
-        retrieved: {
-          source: Array<string>;
-          tokenCount: number;
-          truncated: boolean;
-          warnings?: Array<string>;
-        };
         rules: {
-          source: Array<string>;
-          tokenCount: number;
-          truncated: boolean;
-          warnings?: Array<string>;
-        };
-        settings: {
           source: Array<string>;
           tokenCount: number;
           truncated: boolean;
@@ -910,21 +924,7 @@ export type IpcChannelSpec = {
           truncated: boolean;
           warnings?: Array<string>;
         };
-        retrieved: {
-          content: string;
-          source: Array<string>;
-          tokenCount: number;
-          truncated: boolean;
-          warnings?: Array<string>;
-        };
         rules: {
-          content: string;
-          source: Array<string>;
-          tokenCount: number;
-          truncated: boolean;
-          warnings?: Array<string>;
-        };
-        settings: {
           content: string;
           source: Array<string>;
           tokenCount: number;
@@ -1206,7 +1206,15 @@ export type IpcChannelSpec = {
       contentJson: string;
       documentId: string;
       projectId: string;
-      reason: "manual-save" | "autosave" | "ai-accept" | "status-change";
+      reason:
+        | "manual-save"
+        | "autosave"
+        | "ai-accept"
+        | "ai-partial-accept"
+        | "pre-write"
+        | "pre-rollback"
+        | "rollback"
+        | "status-change";
     };
     response: {
       compaction?: {
@@ -1325,6 +1333,7 @@ export type IpcChannelSpec = {
                 | "SKILL_CAPACITY_EXCEEDED"
                 | "SKILL_SCOPE_VIOLATION"
                 | "SKILL_INPUT_EMPTY"
+                | "SKILL_INPUT_INVALID"
                 | "SKILL_OUTPUT_INVALID"
                 | "AI_AUTH_FAILED"
                 | "AI_NOT_CONFIGURED"
@@ -1332,6 +1341,8 @@ export type IpcChannelSpec = {
                 | "AI_SESSION_TOKEN_BUDGET_EXCEEDED"
                 | "LLM_API_ERROR"
                 | "AI_PROVIDER_UNAVAILABLE"
+                | "WRITE_BACK_FAILED"
+                | "VERSION_SNAPSHOT_FAILED"
                 | "VERSION_MERGE_TIMEOUT"
                 | "VERSION_SNAPSHOT_COMPACTED"
                 | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
@@ -1436,6 +1447,7 @@ export type IpcChannelSpec = {
                 | "SKILL_CAPACITY_EXCEEDED"
                 | "SKILL_SCOPE_VIOLATION"
                 | "SKILL_INPUT_EMPTY"
+                | "SKILL_INPUT_INVALID"
                 | "SKILL_OUTPUT_INVALID"
                 | "AI_AUTH_FAILED"
                 | "AI_NOT_CONFIGURED"
@@ -1443,6 +1455,8 @@ export type IpcChannelSpec = {
                 | "AI_SESSION_TOKEN_BUDGET_EXCEEDED"
                 | "LLM_API_ERROR"
                 | "AI_PROVIDER_UNAVAILABLE"
+                | "WRITE_BACK_FAILED"
+                | "VERSION_SNAPSHOT_FAILED"
                 | "VERSION_MERGE_TIMEOUT"
                 | "VERSION_SNAPSHOT_COMPACTED"
                 | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
@@ -1981,6 +1995,7 @@ export type IpcChannelSpec = {
         | "SKILL_CAPACITY_EXCEEDED"
         | "SKILL_SCOPE_VIOLATION"
         | "SKILL_INPUT_EMPTY"
+        | "SKILL_INPUT_INVALID"
         | "SKILL_OUTPUT_INVALID"
         | "AI_AUTH_FAILED"
         | "AI_NOT_CONFIGURED"
@@ -1988,6 +2003,8 @@ export type IpcChannelSpec = {
         | "AI_SESSION_TOKEN_BUDGET_EXCEEDED"
         | "LLM_API_ERROR"
         | "AI_PROVIDER_UNAVAILABLE"
+        | "WRITE_BACK_FAILED"
+        | "VERSION_SNAPSHOT_FAILED"
         | "VERSION_MERGE_TIMEOUT"
         | "VERSION_SNAPSHOT_COMPACTED"
         | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
@@ -2085,6 +2102,7 @@ export type IpcChannelSpec = {
         | "SKILL_CAPACITY_EXCEEDED"
         | "SKILL_SCOPE_VIOLATION"
         | "SKILL_INPUT_EMPTY"
+        | "SKILL_INPUT_INVALID"
         | "SKILL_OUTPUT_INVALID"
         | "AI_AUTH_FAILED"
         | "AI_NOT_CONFIGURED"
@@ -2092,6 +2110,8 @@ export type IpcChannelSpec = {
         | "AI_SESSION_TOKEN_BUDGET_EXCEEDED"
         | "LLM_API_ERROR"
         | "AI_PROVIDER_UNAVAILABLE"
+        | "WRITE_BACK_FAILED"
+        | "VERSION_SNAPSHOT_FAILED"
         | "VERSION_MERGE_TIMEOUT"
         | "VERSION_SNAPSHOT_COMPACTED"
         | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
@@ -3055,6 +3075,7 @@ export type IpcChannelSpec = {
           | "SKILL_CAPACITY_EXCEEDED"
           | "SKILL_SCOPE_VIOLATION"
           | "SKILL_INPUT_EMPTY"
+          | "SKILL_INPUT_INVALID"
           | "SKILL_OUTPUT_INVALID"
           | "AI_AUTH_FAILED"
           | "AI_NOT_CONFIGURED"
@@ -3062,6 +3083,8 @@ export type IpcChannelSpec = {
           | "AI_SESSION_TOKEN_BUDGET_EXCEEDED"
           | "LLM_API_ERROR"
           | "AI_PROVIDER_UNAVAILABLE"
+          | "WRITE_BACK_FAILED"
+          | "VERSION_SNAPSHOT_FAILED"
           | "VERSION_MERGE_TIMEOUT"
           | "VERSION_SNAPSHOT_COMPACTED"
           | "VERSION_DIFF_PAYLOAD_TOO_LARGE"
@@ -3167,95 +3190,21 @@ export type IpcChannelSpec = {
       to: string;
     };
   };
-  "version:aiapply:logconflict": {
-    request: {
-      documentId: string;
-      runId: string;
-    };
-    response: {
-      logged: true;
-    };
-  };
-  "version:branch:create": {
-    request: {
-      createdBy: string;
-      documentId: string;
-      name: string;
-    };
-    response: {
-      branch: {
-        baseSnapshotId: string;
-        createdAt: number;
-        createdBy: string;
-        documentId: string;
-        headSnapshotId: string;
-        id: string;
-        isCurrent: boolean;
-        name: string;
-      };
-    };
-  };
-  "version:branch:list": {
-    request: {
-      documentId: string;
-    };
-    response: {
-      branches: Array<{
-        baseSnapshotId: string;
-        createdAt: number;
-        createdBy: string;
-        documentId: string;
-        headSnapshotId: string;
-        id: string;
-        isCurrent: boolean;
-        name: string;
-      }>;
-    };
-  };
-  "version:branch:merge": {
-    request: {
-      documentId: string;
-      sourceBranchName: string;
-      targetBranchName: string;
-    };
-    response: {
-      mergeSnapshotId: string;
-      status: "merged";
-    };
-  };
-  "version:branch:switch": {
-    request: {
-      documentId: string;
-      name: string;
-    };
-    response: {
-      currentBranch: string;
-      headSnapshotId: string;
-    };
-  };
-  "version:conflict:resolve": {
-    request: {
-      documentId: string;
-      mergeSessionId: string;
-      resolutions: Array<{
-        conflictId: string;
-        manualText?: string;
-        resolution: "ours" | "theirs" | "manual";
-      }>;
-      resolvedBy: string;
-    };
-    response: {
-      mergeSnapshotId: string;
-      status: "merged";
-    };
-  };
   "version:snapshot:create": {
     request: {
       actor: "user" | "auto" | "ai";
       contentJson: string;
       documentId: string;
       projectId: string;
-      reason: "manual-save" | "autosave" | "ai-accept" | "status-change";
+      reason:
+        | "manual-save"
+        | "autosave"
+        | "ai-accept"
+        | "ai-partial-accept"
+        | "pre-write"
+        | "pre-rollback"
+        | "rollback"
+        | "status-change";
     };
     response: {
       compaction?: {
@@ -3295,7 +3244,15 @@ export type IpcChannelSpec = {
         actor: "user" | "auto" | "ai";
         contentHash: string;
         createdAt: number;
-        reason: string;
+        reason:
+          | "manual-save"
+          | "autosave"
+          | "ai-accept"
+          | "ai-partial-accept"
+          | "pre-write"
+          | "pre-rollback"
+          | "rollback"
+          | "status-change";
         versionId: string;
         wordCount: number;
       }>;
@@ -3315,7 +3272,15 @@ export type IpcChannelSpec = {
       createdAt: number;
       documentId: string;
       projectId: string;
-      reason: string;
+      reason:
+        | "manual-save"
+        | "autosave"
+        | "ai-accept"
+        | "ai-partial-accept"
+        | "pre-write"
+        | "pre-rollback"
+        | "rollback"
+        | "status-change";
       versionId: string;
       wordCount: number;
     };
