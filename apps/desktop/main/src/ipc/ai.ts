@@ -46,25 +46,14 @@ import { editorSchema } from "../services/editor/prosemirrorSchema";
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
  *
- * ProseMirror positions count node boundaries (paragraph open/close) as positions,
- * whereas plain-text offsets count only text characters.  For a single-paragraph
- * document: textOffset = pmPos - 1.  For multi-paragraph documents each additional
- * paragraph boundary shifts the mapping by 2 extra PM positions.
- *
- * Returns the number of plain-text characters that appear before `pmPos` in the doc.
+ * The "plain text" here must use the exact same coordinate semantics as
+ * `deriveContent()` / `contentText`, including newline separators between blocks.
+ * Otherwise continue's prompt window and the writeback anchor drift apart on
+ * multi-paragraph documents.
  */
 function pmPosToTextOffset(doc: ProseMirrorNode, pmPos: number): number {
   const clampedPos = Math.min(pmPos, doc.content.size);
-  let textCount = 0;
-  doc.nodesBetween(0, clampedPos, (node, nodePos) => {
-    if (node.isText && node.text !== undefined) {
-      const nodeEnd = nodePos + node.nodeSize;
-      const overlapEnd = Math.min(nodeEnd, clampedPos);
-      textCount += overlapEnd - nodePos;
-    }
-    return true;
-  });
-  return textCount;
+  return doc.textBetween(0, clampedPos, "\n", "\n").length;
 }
 
 type SkillRunPayload = {
@@ -457,9 +446,9 @@ async function prepareWritingRequest(args: {
     };
   }
 
-  const input = args.payload.input.trim();
+  const input = args.payload.input;
   const inputType = resolvedData.inputType ?? "selection";
-  if (inputType === "selection" && input.length === 0) {
+  if (inputType === "selection" && input.trim().length === 0) {
     return {
       ok: false,
       error: {

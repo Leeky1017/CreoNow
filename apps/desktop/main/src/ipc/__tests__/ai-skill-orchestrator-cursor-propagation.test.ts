@@ -62,6 +62,7 @@ function applyAllMigrations(db: Database.Database): void {
 function createProjectAndDocument(args: {
   db: Database.Database;
   text: string;
+  contentJson?: unknown;
 }): { projectId: string; documentId: string } {
   const projectId = "proj-cursor-propagation";
   args.db
@@ -85,15 +86,16 @@ function createProjectAndDocument(args: {
     documentId: created.data.documentId,
     actor: "user",
     reason: "manual-save",
-    contentJson: {
-      type: "doc",
-      content: [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: args.text }],
-        },
-      ],
-    },
+    contentJson:
+      args.contentJson ?? {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: args.text }],
+          },
+        ],
+      },
   });
   if (!saved.ok) {
     throw new Error(saved.error.message);
@@ -270,6 +272,64 @@ describe("ai:skill:run cursor propagation regression", () => {
     // PM pos 3 in single-para doc "甲乙丙丁" → text offset 2 (after 乙)
     // Both calls (prepareRequest + skillExecutor) must receive textOffset=2
     expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([2, 2]);
+  });
+
+  it("builtin:continue 保留 leading whitespace 的 anchor：PM pos 4 → textOffset 3", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: " 甲乙 ",
+    });
+
+    await harness.invoke("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      cursorPosition: 4,
+      input: " 甲乙 ",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([3, 3]);
+  });
+
+  it("builtin:continue 跨段落时会把 deriveContent 的换行计入 textOffset", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const contentJson = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "甲" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "乙丙" }],
+        },
+      ],
+    };
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "甲\n乙丙",
+      contentJson,
+    });
+
+    await harness.invoke("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      cursorPosition: 5,
+      input: "甲\n乙丙",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([3, 3]);
   });
 
   // RED→GREEN regression: Audit-B BLOCKING FINDING — selection skills (polish/rewrite) must

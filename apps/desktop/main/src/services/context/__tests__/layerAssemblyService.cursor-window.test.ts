@@ -91,6 +91,40 @@ describe("createContextLayerAssemblyService cursor window regression", () => {
       expect(inspect.layersDetail.immediate.source).toEqual(["editor:cursor-window"]);
     });
 
+    it("leading/trailing whitespace stays in the immediate window when anchor points into raw document text", async () => {
+      const service = makeService();
+      const inspect = await service.inspect({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 4,
+        textOffset: 3,
+        skillId: "builtin:continue",
+        additionalInput: " 甲乙 ",
+        debugMode: true,
+        requestedBy: "unit-test",
+      });
+
+      expect(inspect.layersDetail.immediate.content).toBe(" 甲乙");
+      expect(inspect.layersDetail.immediate.source).toEqual(["editor:cursor-window"]);
+    });
+
+    it("multi-paragraph continue counts deriveContent newline separators in textOffset", async () => {
+      const service = makeService();
+      const inspect = await service.inspect({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 5,
+        textOffset: 3,
+        skillId: "builtin:continue",
+        additionalInput: "甲\n乙丙",
+        debugMode: true,
+        requestedBy: "unit-test",
+      });
+
+      expect(inspect.layersDetail.immediate.content).toBe("甲\n乙");
+      expect(inspect.layersDetail.immediate.source).toEqual(["editor:cursor-window"]);
+    });
+
     it("textOffset=0 with cursorPosition=3 falls back to cursor=3 (no preceding text)", async () => {
       const service = makeService();
       const inspect = await service.inspect({

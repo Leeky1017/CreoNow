@@ -198,8 +198,8 @@ function assertLayerChunkScope(args: {
  */
 function mergeLayerContent(chunks: readonly ContextLayerChunk[]): string {
   return chunks
-    .map((chunk) => chunk.content.trim())
-    .filter((content) => content.length > 0)
+    .map((chunk) => chunk.content)
+    .filter((content) => content.trim().length > 0)
     .join("\n\n");
 }
 
@@ -1128,7 +1128,7 @@ function defaultFetchers(
       ]);
     },
     immediate: async (request) => {
-      const text = request.additionalInput?.trim();
+      const text = request.additionalInput;
       let content: string;
       if (text !== undefined && text.length > 0) {
         if (request.additionalInputIsSelection) {

@@ -94,7 +94,11 @@ function createHarness() {
   };
 }
 
-function createProjectAndDocument(args: { db: Database.Database; text: string }) {
+function createProjectAndDocument(args: {
+  db: Database.Database;
+  text: string;
+  contentJson?: unknown;
+}) {
   const projectId = "proj-1";
   args.db
     .prepare(
@@ -112,15 +116,17 @@ function createProjectAndDocument(args: { db: Database.Database; text: string })
     throw new Error(created.error.message);
   }
 
-  const contentJson = {
-    type: "doc",
-    content: [
-      {
-        type: "paragraph",
-        content: [{ type: "text", text: args.text }],
-      },
-    ],
-  };
+  const contentJson =
+    args.contentJson ??
+    {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: args.text }],
+        },
+      ],
+    };
   const saved = service.save({
     projectId,
     documentId: created.data.documentId,
@@ -653,6 +659,112 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     const read = service.read({ projectId, documentId });
     expect(read.ok).toBe(true);
     expect(read.ok && read.data.contentText).toBe(`甲乙${run.data?.outputText ?? ""}丙丁`);
+  });
+
+  it("builtin:continue accept 在 leading/trailing whitespace 文档中保持与 context window 同一锚点", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: " 甲乙 ",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        status: "preview" | "completed" | "rejected";
+        outputText?: string;
+      };
+    }>("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      cursorPosition: 4,
+      input: " 甲乙 ",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      data?: { status: "completed" | "rejected" };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+    });
+
+    expect(confirm.ok).toBe(true);
+    expect(confirm.data?.status).toBe("completed");
+
+    const service = createDocumentService({ db: harness.db, logger: createLogger() });
+    const read = service.read({ projectId, documentId });
+    expect(read.ok).toBe(true);
+    expect(read.ok && read.data.contentText).toBe(` 甲乙${run.data?.outputText ?? ""} `);
+  });
+
+  it("builtin:continue accept 在多段落文档中按 deriveContent 换行锚点写回", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const contentJson = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "甲" }],
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "乙丙" }],
+        },
+      ],
+    };
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "甲\n乙丙",
+      contentJson,
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        status: "preview" | "completed" | "rejected";
+        outputText?: string;
+      };
+    }>("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      cursorPosition: 5,
+      input: "甲\n乙丙",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      data?: { status: "completed" | "rejected" };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+    });
+
+    expect(confirm.ok).toBe(true);
+    expect(confirm.data?.status).toBe("completed");
+
+    const service = createDocumentService({ db: harness.db, logger: createLogger() });
+    const read = service.read({ projectId, documentId });
+    expect(read.ok).toBe(true);
+    expect(read.ok && read.data.contentText).toBe(`甲\n乙${run.data?.outputText ?? ""}丙`);
   });
 
   it("preview 超时在等待期间自动收口，并清理 preview session", async () => {
