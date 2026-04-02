@@ -97,3 +97,12 @@ export const ErrorState: Story = {
     errorMessage: "AI 服务暂时不可用，请稍后再试。",
   },
 };
+
+export const DisabledActions: Story = {
+  args: {
+    ...Empty.args,
+    canContinue: true,
+    canPolish: false,
+    canRewrite: false,
+  },
+};
