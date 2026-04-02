@@ -40,6 +40,9 @@ export type VersionSnapshotReason =
   | "manual-save"
   | "autosave"
   | "ai-accept"
+  | "pre-write"
+  | "pre-rollback"
+  | "rollback"
   | "status-change"
   | "branch-merge";
 
@@ -154,6 +157,7 @@ export type DocumentService = {
   }) => ServiceResult<{
     updatedAt: number;
     contentHash: string;
+    versionId?: string;
     compaction?: SnapshotCompactionEvent;
   }>;
   delete: (args: {

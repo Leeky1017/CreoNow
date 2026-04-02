@@ -18,6 +18,9 @@ export interface WritingRequest {
   skillId: string;
   input: { selectedText?: string; precedingText?: string; followingText?: string; [key: string]: unknown };
   documentId: string;
+  projectId?: string;
+  modelId?: string;
+  cursorPosition?: number;
   selection?: {
     from: number;
     to: number;
@@ -58,9 +61,33 @@ interface AIService {
   abort(): void;
 }
 
+interface PreparedRequest {
+  messages: Array<{ role: string; content: string }>;
+  tokenCount: number;
+  modelId: string;
+}
+
+type GeneratedTextResult = {
+  fullText: string;
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+};
+
+function readVersionId(data: unknown): string | null {
+  if (!data || typeof data !== "object") {
+    return null;
+  }
+  const versionId = (data as Record<string, unknown>).versionId;
+  if (typeof versionId !== "string") {
+    return null;
+  }
+  const normalized = versionId.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
 interface PermissionGate {
   evaluate(request: unknown): Promise<{ level: string; granted: boolean }>;
   requestPermission(request: unknown): Promise<boolean>;
+  releasePendingPermission(requestId: string): void;
 }
 
 interface PostWritingHook {
@@ -75,6 +102,15 @@ export interface OrchestratorConfig {
   permissionGate: PermissionGate;
   postWritingHooks: PostWritingHook[];
   defaultTimeoutMs: number;
+  prepareRequest?: (request: WritingRequest) => Promise<PreparedRequest>;
+  generateText?: (args: {
+    request: WritingRequest;
+    signal: AbortSignal;
+    emitChunk: (delta: string, accumulatedTokens: number) => void;
+  }) => Promise<{
+    fullText: string;
+    usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  }>;
 }
 
 export interface WritingOrchestrator {
@@ -94,6 +130,11 @@ export function createWritingOrchestrator(
   const taskStates = new Map<string, TaskState>();
   const abortControllers = new Map<string, AbortController>();
 
+  function normalizeSkillId(skillId: string): string {
+    const parts = skillId.split(":");
+    return parts[parts.length - 1] ?? skillId;
+  }
+
   function pruneTaskStates(): void {
     if (taskStates.size > MAX_TASK_ENTRIES) {
       for (const [id, state] of taskStates) {
@@ -111,6 +152,25 @@ export function createWritingOrchestrator(
     extra: Record<string, unknown> = {},
   ): WritingEvent {
     return { type, timestamp: Date.now(), requestId, ...extra };
+  }
+
+  function makeFailureEvent(args: {
+    requestId: string;
+    code: string;
+    message: string;
+    retryable?: boolean;
+    details?: unknown;
+  }): WritingEvent {
+    taskStates.set(args.requestId, "failed");
+    pruneTaskStates();
+    return makeEvent("error", args.requestId, {
+      error: {
+        code: args.code,
+        message: args.message,
+        retryable: args.retryable ?? false,
+        ...(args.details === undefined ? {} : { details: args.details }),
+      },
+    });
   }
 
   return {
@@ -139,7 +199,7 @@ export function createWritingOrchestrator(
       return (async function* () {
       try {
         // Validate skillId
-        if (!VALID_SKILL_IDS.includes(request.skillId)) {
+        if (!VALID_SKILL_IDS.includes(normalizeSkillId(request.skillId))) {
           taskStates.set(requestId, "failed");
           yield makeEvent("error", requestId, {
             error: {
@@ -163,7 +223,19 @@ export function createWritingOrchestrator(
         }
 
         // Stage 2: context-assembled
-        const tokenCount = config.aiService.estimateTokens(request.input.selectedText ?? "");
+        const prepared = config.prepareRequest
+          ? await config.prepareRequest(request)
+          : {
+              messages: [
+                {
+                  role: "user",
+                  content: request.input.selectedText ?? "",
+                },
+              ],
+              tokenCount: config.aiService.estimateTokens(request.input.selectedText ?? ""),
+              modelId: request.modelId ?? "default",
+            };
+        const tokenCount = prepared.tokenCount;
         yield makeEvent("context-assembled", requestId, { tokenCount });
 
         if (abortController.signal.aborted) {
@@ -173,7 +245,7 @@ export function createWritingOrchestrator(
         }
 
         // Stage 3: model-selected
-        yield makeEvent("model-selected", requestId, { modelId: "default" });
+        yield makeEvent("model-selected", requestId, { modelId: prepared.modelId });
 
         if (abortController.signal.aborted) {
           taskStates.set(requestId, "killed");
@@ -181,7 +253,7 @@ export function createWritingOrchestrator(
           return;
         }
 
-        // Stage 4: AI streaming
+         // Stage 4: AI streaming
         let fullText = "";
         let lastTokens = 0;
         let aiError: unknown = null;
@@ -191,32 +263,109 @@ export function createWritingOrchestrator(
 
         while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
           try {
-            const gen = config.aiService.streamChat(
-              [{ role: "user", content: request.input.selectedText ?? "" }],
-              {
-                signal: abortController.signal,
-                onComplete: () => {},
-                onError: () => {},
-              },
-            );
-
             fullText = "";
             lastTokens = 0;
 
-            for await (const chunk of gen) {
-              if (abortController.signal.aborted) {
-                taskStates.set(requestId, "killed");
-                yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
-                config.aiService.abort();
-                return;
+            if (config.generateText) {
+              const chunkQueue: Array<{
+                delta: string;
+                accumulatedTokens: number;
+              }> = [];
+              let generatedResult: GeneratedTextResult | undefined;
+              let generatedError: unknown = null;
+              let generationSettled = false;
+              let notifyChange: (() => void) | null = null;
+              const wake = () => {
+                const resolver = notifyChange;
+                notifyChange = null;
+                resolver?.();
+              };
+              const generationPromise = config
+                .generateText({
+                  request,
+                  signal: abortController.signal,
+                  emitChunk: (delta, accumulatedTokens) => {
+                    chunkQueue.push({ delta, accumulatedTokens });
+                    wake();
+                  },
+                })
+                .then(
+                  (result) => {
+                    generatedResult = result;
+                    generationSettled = true;
+                    wake();
+                  },
+                  (error: unknown) => {
+                    generatedError = error;
+                    generationSettled = true;
+                    wake();
+                  },
+                );
+
+              while (!generationSettled || chunkQueue.length > 0) {
+                if (abortController.signal.aborted) {
+                  taskStates.set(requestId, "killed");
+                  yield makeEvent("aborted", requestId, {
+                    reason: "abort-during-ai",
+                  });
+                  return;
+                }
+
+                const nextChunk = chunkQueue.shift();
+                if (nextChunk) {
+                  fullText += nextChunk.delta;
+                  lastTokens = nextChunk.accumulatedTokens;
+                  yield makeEvent("ai-chunk", requestId, {
+                    delta: nextChunk.delta,
+                    accumulatedTokens: nextChunk.accumulatedTokens,
+                  });
+                  continue;
+                }
+
+                await new Promise<void>((resolve) => {
+                  const onAbort = () => resolve();
+                  notifyChange = resolve;
+                  abortController.signal.addEventListener("abort", onAbort, {
+                    once: true,
+                  });
+                });
               }
 
-              fullText += chunk.delta;
-              lastTokens = chunk.accumulatedTokens;
-              yield makeEvent("ai-chunk", requestId, {
-                delta: chunk.delta,
-                accumulatedTokens: chunk.accumulatedTokens,
-              });
+              await generationPromise;
+              if (generatedError) {
+                throw generatedError;
+              }
+              if (!generatedResult) {
+                throw new Error("generateText completed without result");
+              }
+
+              fullText = generatedResult.fullText;
+              lastTokens = generatedResult.usage.completionTokens;
+            } else {
+              const gen = config.aiService.streamChat(
+                prepared.messages,
+                {
+                  signal: abortController.signal,
+                  onComplete: () => {},
+                  onError: () => {},
+                },
+              );
+
+              for await (const chunk of gen) {
+                if (abortController.signal.aborted) {
+                  taskStates.set(requestId, "killed");
+                  yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
+                  config.aiService.abort();
+                  return;
+                }
+
+                fullText += chunk.delta;
+                lastTokens = chunk.accumulatedTokens;
+                yield makeEvent("ai-chunk", requestId, {
+                  delta: chunk.delta,
+                  accumulatedTokens: chunk.accumulatedTokens,
+                });
+              }
             }
 
             aiSuccess = true;
@@ -276,31 +425,49 @@ export function createWritingOrchestrator(
           // Need explicit permission
           taskStates.set(requestId, "paused");
 
-          // Start timeout BEFORE yielding so fake timers can advance it
-          let timeoutId: ReturnType<typeof setTimeout>;
-          const timeoutPromise = new Promise<boolean>((resolve) => {
-            timeoutId = setTimeout(() => resolve(false), PERMISSION_TIMEOUT_MS);
-          });
+          let timeoutId: ReturnType<typeof setTimeout> | undefined;
+          let removeAbortListener: (() => void) | undefined;
+          const permissionDecision = Promise.race<boolean>([
+            config.permissionGate.requestPermission(request).catch(() => false),
+            new Promise<boolean>((resolve) => {
+              timeoutId = setTimeout(() => resolve(false), PERMISSION_TIMEOUT_MS);
+            }),
+            new Promise<boolean>((resolve) => {
+              const handleAbort = () => resolve(false);
+              abortController.signal.addEventListener("abort", handleAbort, {
+                once: true,
+              });
+              removeAbortListener = () => {
+                abortController.signal.removeEventListener("abort", handleAbort);
+              };
+            }),
+          ]);
 
           yield makeEvent("permission-requested", requestId, {
             level: evalResult.level,
             description: "Operation requires user confirmation",
           });
 
-          // Wait for permission with already-registered timeout
           let granted: boolean;
           try {
-            granted = await Promise.race([
-              config.permissionGate.requestPermission(request),
-              timeoutPromise,
-            ]);
+            granted = await permissionDecision;
           } catch {
             granted = false;
           } finally {
-            clearTimeout(timeoutId!);
+            if (timeoutId !== undefined) {
+              clearTimeout(timeoutId);
+            }
+            removeAbortListener?.();
+            config.permissionGate.releasePendingPermission(requestId);
           }
 
           taskStates.set(requestId, "running");
+
+          if (abortController.signal.aborted) {
+            taskStates.set(requestId, "killed");
+            yield makeEvent("aborted", requestId, { reason: "user-abort" });
+            return;
+          }
 
           if (!granted) {
             taskStates.set(requestId, "killed");
@@ -318,26 +485,80 @@ export function createWritingOrchestrator(
           return;
         }
 
-        // Stage 7: Write-back
-        const writeTool = config.toolRegistry.get("documentWrite");
-        if (writeTool) {
-          await writeTool.execute({
-            documentId: request.documentId,
-            content: fullText,
+        const versionTool = config.toolRegistry.get("versionSnapshot");
+        if (!versionTool) {
+          yield makeFailureEvent({
             requestId,
+            code: "VERSION_SNAPSHOT_FAILED",
+            message: 'Required tool "versionSnapshot" is not registered',
           });
+          return;
+        }
+        const snapshotResult = await versionTool.execute({
+          projectId: request.projectId,
+          documentId: request.documentId,
+          requestId,
+          actor: "auto",
+          reason: "pre-write",
+        });
+        if (!snapshotResult.success) {
+          yield makeFailureEvent({
+            requestId,
+            code: snapshotResult.error?.code ?? "VERSION_SNAPSHOT_FAILED",
+            message:
+              snapshotResult.error?.message ??
+              "Pre-write snapshot failed before document write",
+            retryable: snapshotResult.error?.retryable,
+            details: snapshotResult.error?.details,
+          });
+          return;
+        }
+        if (!readVersionId(snapshotResult.data)) {
+          yield makeFailureEvent({
+            requestId,
+            code: "VERSION_SNAPSHOT_FAILED",
+            message: "Pre-write snapshot did not return versionId",
+          });
+          return;
         }
 
-        const versionTool = config.toolRegistry.get("versionSnapshot");
-        let versionId = "unknown";
-        if (versionTool) {
-          const result = await versionTool.execute({
-            documentId: request.documentId,
+        const writeTool = config.toolRegistry.get("documentWrite");
+        if (!writeTool) {
+          yield makeFailureEvent({
             requestId,
+            code: "WRITE_BACK_FAILED",
+            message: 'Required tool "documentWrite" is not registered',
           });
-          if (result.success && result.data) {
-            versionId = (result.data as Record<string, string>).snapshotId ?? "unknown";
-          }
+          return;
+        }
+        const writeResult = await writeTool.execute({
+          projectId: request.projectId,
+          documentId: request.documentId,
+          requestId,
+          content: fullText,
+          cursorPosition: request.cursorPosition,
+          selection: request.selection,
+        });
+        if (!writeResult.success) {
+          yield makeFailureEvent({
+            requestId,
+            code: writeResult.error?.code ?? "WRITE_BACK_FAILED",
+            message:
+              writeResult.error?.message ??
+              "Document write-back failed after permission grant",
+            retryable: writeResult.error?.retryable,
+            details: writeResult.error?.details,
+          });
+          return;
+        }
+        const versionId = readVersionId(writeResult.data);
+        if (!versionId) {
+          yield makeFailureEvent({
+            requestId,
+            code: "WRITE_BACK_FAILED",
+            message: "Document write-back did not return versionId",
+          });
+          return;
         }
 
         yield makeEvent("write-back-done", requestId, { versionId });
@@ -359,8 +580,22 @@ export function createWritingOrchestrator(
 
         taskStates.set(requestId, "completed");
         pruneTaskStates();
-      } catch {
+      } catch (error) {
         taskStates.set(requestId, "failed");
+        const errObj = error as Record<string, unknown>;
+        const errCode =
+          typeof errObj?.code === "string" && errObj.code.length > 0
+            ? errObj.code
+            : "INTERNAL";
+        const errDetails = errObj?.details;
+        yield makeEvent("error", requestId, {
+          error: {
+            code: errCode,
+            message: error instanceof Error ? error.message : String(error),
+            retryable: false,
+            ...(errDetails !== undefined ? { details: errDetails } : {}),
+          },
+        });
       } finally {
         abortControllers.delete(requestId);
       }
@@ -372,6 +607,7 @@ export function createWritingOrchestrator(
       if (controller) {
         controller.abort();
         config.aiService.abort();
+        config.permissionGate.releasePendingPermission(requestId);
       }
     },
 
@@ -380,8 +616,9 @@ export function createWritingOrchestrator(
     },
 
     dispose(): void {
-      for (const [, controller] of abortControllers) {
+      for (const [requestId, controller] of abortControllers) {
         controller.abort();
+        config.permissionGate.releasePendingPermission(requestId);
       }
       abortControllers.clear();
       taskStates.clear();

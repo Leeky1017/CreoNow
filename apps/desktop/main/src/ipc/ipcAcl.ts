@@ -22,7 +22,12 @@ type CreateIpcAclEvaluatorArgs = {
   privilegedChannelPrefixes?: readonly string[];
 };
 
-const DEFAULT_PRIVILEGED_PREFIXES = ["db:", "ai:skill:run", "ai:skill:cancel"];
+const DEFAULT_PRIVILEGED_PREFIXES = [
+  "db:",
+  "ai:skill:run",
+  "ai:skill:confirm",
+  "ai:skill:cancel",
+];
 
 function resolveSenderOrigin(event: IpcMainInvokeEvent): string | null {
   const maybeUrl = event.senderFrame?.url;

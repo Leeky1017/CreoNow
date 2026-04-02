@@ -2,6 +2,10 @@ import type { IpcErrorCode } from "@shared/types/ipc-generated";
 import type { AiStreamEvent } from "@shared/types/ai";
 import type { ContextAssembleResult } from "../context/layerAssemblyService";
 import { inferSkillFromInput } from "./skillRouter";
+import {
+  normalizeAssembledContextPrompt,
+  resolveContinueValidationInput,
+} from "./contextPromptPolicy";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 export type { ServiceResult };
 
@@ -34,6 +38,7 @@ export type ResolvedRunnableSkill = {
 export type SkillExecutorRunArgs = {
   skillId: string;
   hasSelection?: boolean;
+  cursorPosition?: number;
   selection?: {
     from: number;
     to: number;
@@ -82,6 +87,7 @@ type SkillExecutorDeps = {
     cursorPosition: number;
     skillId: string;
     additionalInput?: string;
+    additionalInputIsSelection?: boolean;
     provider?: string;
     model?: string;
   }) => Promise<ContextAssembleResult>;
@@ -497,10 +503,10 @@ function resolveValidationInputText(args: {
   contextPrompt?: string;
 }): string {
   if (leafSkillId(args.skillId) === "continue") {
-    const contextPrompt = args.contextPrompt?.trim() ?? "";
-    if (contextPrompt.length > 0) {
-      return contextPrompt;
-    }
+    return resolveContinueValidationInput({
+      rawInputText: args.rawInputText,
+      contextPrompt: args.contextPrompt,
+    });
   }
 
   return args.rawInputText;
@@ -545,6 +551,7 @@ async function assembleContextPrompt(args: {
   assembleContext?: SkillExecutorDeps["assembleContext"];
   run: SkillExecutorRunArgs;
   additionalInput: string;
+  inputType: "selection" | "document";
 }): Promise<ContextAssembleResult | null> {
   if (!args.assembleContext) {
     return null;
@@ -559,9 +566,11 @@ async function assembleContextPrompt(args: {
   return await args.assembleContext({
     projectId,
     documentId,
-    cursorPosition: 0,
+    cursorPosition: args.run.cursorPosition ?? 0,
     skillId: args.run.skillId,
     additionalInput: args.additionalInput,
+    // Selection-based skills must not have their selection text truncated at textOffset.
+    additionalInputIsSelection: args.inputType === "selection",
     provider: "ai-service",
     model: args.run.model,
   });
@@ -623,9 +632,16 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
           assembleContext: deps.assembleContext,
           run: { ...args, skillId: effectiveSkillId },
           additionalInput: inputForPrompt,
+          inputType: resolved.data.inputType ?? "selection",
         });
-        if (assembled && assembled.prompt.trim().length > 0) {
-          contextPrompt = assembled.prompt;
+        const normalizedContextPrompt = assembled
+          ? normalizeAssembledContextPrompt({
+              prompt: assembled.prompt,
+              inputType: resolved.data.inputType,
+            })
+          : undefined;
+        if (normalizedContextPrompt !== undefined) {
+          contextPrompt = normalizedContextPrompt;
         }
       } catch (error) {
         deps.logger?.warn("context_assembly_degraded", {

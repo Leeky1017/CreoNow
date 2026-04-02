@@ -198,8 +198,8 @@ function assertLayerChunkScope(args: {
  */
 function mergeLayerContent(chunks: readonly ContextLayerChunk[]): string {
   return chunks
-    .map((chunk) => chunk.content.trim())
-    .filter((content) => content.length > 0)
+    .map((chunk) => chunk.content)
+    .filter((content) => content.trim().length > 0)
     .join("\n\n");
 }
 
@@ -1127,16 +1127,38 @@ function defaultFetchers(
         semanticRulesResult,
       ]);
     },
-    immediate: async (request) => ({
-      chunks: [
-        {
-          source: "editor:cursor-window",
-          content:
-            request.additionalInput?.trim() ??
-            `cursor=${request.cursorPosition.toString()}`,
-        },
-      ],
-    }),
+    immediate: async (request) => {
+      const text = request.additionalInput;
+      let content: string;
+      if (text !== undefined && text.length > 0) {
+        if (request.additionalInputIsSelection) {
+          // Selection-based skills (polish, rewrite, etc.): additionalInput IS the selected
+          // text and must be returned whole.  textOffset is a document-level cursor position
+          // that is unrelated to the selection boundaries — slicing at it would truncate the
+          // selection, causing semantic regression on multi-paragraph selections.
+          content = text;
+        } else {
+          // Document-window skills (continue, etc.): slice the document text at the cursor
+          // offset so the immediate layer shows only the text preceding the cursor.
+          // Use textOffset (plain-text chars before cursor) when available; it is set by the
+          // IPC layer after converting the ProseMirror document position to a plain-text
+          // offset.  Fall back to cursorPosition for callers that do not yet provide it.
+          const sliceAt =
+            request.textOffset !== undefined ? request.textOffset : request.cursorPosition;
+          const pos = Math.min(sliceAt, text.length);
+          const preceding = text.slice(0, pos);
+          content =
+            preceding.length > 0
+              ? preceding
+              : `cursor=${request.cursorPosition.toString()}`;
+        }
+      } else {
+        content = `cursor=${request.cursorPosition.toString()}`;
+      }
+      return {
+        chunks: [{ source: "editor:cursor-window", content }],
+      };
+    },
   };
 }
 

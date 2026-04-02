@@ -93,7 +93,7 @@ function isReasonValidForActor(
   reason: VersionSnapshotReason,
 ): boolean {
   if (actor === "auto") {
-    return reason === "autosave";
+    return reason === "autosave" || reason === "pre-write";
   }
   if (actor === "ai") {
     return reason === "ai-accept";
@@ -101,6 +101,8 @@ function isReasonValidForActor(
   return (
     reason === "manual-save" ||
     reason === "status-change" ||
+    reason === "pre-rollback" ||
+    reason === "rollback" ||
     reason === "branch-merge"
   );
 }
@@ -1214,6 +1216,7 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
       });
 
       let compaction: SnapshotCompactionEvent | undefined;
+      let versionId: string | undefined;
       try {
         args.db.transaction(() => {
           const exists = args.db
@@ -1272,20 +1275,25 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
               document_id: documentId,
               content_hash: contentHash,
             });
+            versionId = latest.versionId;
           } else {
             const shouldInsertVersion =
-              actor === "auto" ? latest?.contentHash !== contentHash : true;
+              actor === "auto"
+                ? reason === "pre-write"
+                  ? true
+                  : latest?.contentHash !== contentHash
+                : true;
             if (!shouldInsertVersion) {
               return;
             }
 
-            const versionId = randomUUID();
+            const insertedVersionId = randomUUID();
             args.db
               .prepare(
                 "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
               )
               .run(
-                versionId,
+                insertedVersionId,
                 projectId,
                 documentId,
                 actor,
@@ -1301,12 +1309,13 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
               );
 
             args.logger.info("version_created", {
-              version_id: versionId,
+              version_id: insertedVersionId,
               actor,
               reason,
               document_id: documentId,
               content_hash: contentHash,
             });
+            versionId = insertedVersionId;
           }
 
           const totalSnapshots = args.db
@@ -1383,7 +1392,7 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
           content_hash: contentHash,
         });
       }
-      return { ok: true, data: { updatedAt: ts, contentHash, compaction } };
+      return { ok: true, data: { updatedAt: ts, contentHash, versionId, compaction } };
     },
   };
 }

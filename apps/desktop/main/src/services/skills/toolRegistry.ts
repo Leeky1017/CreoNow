@@ -8,12 +8,13 @@
 export interface ToolResult {
   success: boolean;
   data?: unknown;
-  error?: { code: string; message: string };
+  error?: { code: string; message: string; details?: unknown; retryable?: boolean };
 }
 
 export interface ToolContext {
   documentId: string;
   requestId: string;
+  cursorPosition?: number;
   selection?: { from: number; to: number; text: string; selectionTextHash: string };
   [key: string]: unknown;
 }
