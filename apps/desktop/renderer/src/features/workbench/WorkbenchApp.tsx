@@ -9,13 +9,14 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
 import { createEditorBridge } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
+import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
   SelectionChangedError,
   acceptAiPreview,
@@ -34,9 +35,28 @@ import { getPreloadApi } from "@/lib/preloadApi";
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const AUTOSAVE_DELAY_MS = 800;
-const DEFAULT_SIDEBAR_WIDTH = 240;
-const DEFAULT_RIGHT_PANEL_WIDTH = 320;
 const MAX_REFERENCE_LENGTH = 120;
+
+const LAYOUT_STORAGE_KEYS = {
+  activeLeftPanel: "creonow.layout.activeLeftPanel",
+  activeRightPanel: "creonow.layout.activePanelTab",
+  panelCollapsed: "creonow.layout.panelCollapsed",
+  panelWidth: "creonow.layout.panelWidth",
+  sidebarCollapsed: "creonow.layout.sidebarCollapsed",
+  sidebarWidth: "creonow.layout.sidebarWidth",
+} as const;
+
+const LEFT_SIDEBAR_BOUNDS = {
+  defaultWidth: 240,
+  minWidth: 180,
+  maxWidth: 400,
+} as const;
+
+const RIGHT_PANEL_BOUNDS = {
+  defaultWidth: 320,
+  minWidth: 280,
+  maxWidth: 480,
+} as const;
 
 type BootstrapStatus = "loading" | "ready" | "error";
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -50,6 +70,10 @@ type LeftPanelId =
   | "knowledgeGraph"
   | "settings";
 type RightPanelId = "ai" | "info" | "quality";
+type DragState =
+  | { panel: "left"; startWidth: number; startX: number }
+  | { panel: "right"; startWidth: number; startX: number }
+  | null;
 
 const LEFT_PANEL_ITEMS: Array<{
   icon: typeof FolderTree;
@@ -66,6 +90,9 @@ const LEFT_PANEL_ITEMS: Array<{
   { id: "knowledgeGraph", icon: Network, labelKey: "iconBar.knowledgeGraph", placement: "top" },
   { id: "settings", icon: Settings, labelKey: "iconBar.settings", placement: "bottom" },
 ];
+
+const LEFT_PANEL_IDS = LEFT_PANEL_ITEMS.map((item) => item.id) as LeftPanelId[];
+const RIGHT_PANEL_IDS = ["ai", "info", "quality"] as const satisfies readonly RightPanelId[];
 
 function formatTimestamp(value: number | null): string {
   if (value === null) {
@@ -92,6 +119,60 @@ function truncateReference(text: string): string {
   return text.slice(0, MAX_REFERENCE_LENGTH).trimEnd() + "...";
 }
 
+function clampWidth(value: number, bounds: { minWidth: number; maxWidth: number }): number {
+  return Math.min(bounds.maxWidth, Math.max(bounds.minWidth, Math.round(value)));
+}
+
+function readLayoutValue(key: string): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLayoutValue(key: string, value: boolean | number | string): void {
+  try {
+    window.localStorage.setItem(key, String(value));
+  } catch {
+    // Ignore storage failures in constrained environments.
+  }
+}
+
+function readStoredBoolean(key: string, fallback: boolean): boolean {
+  const value = readLayoutValue(key);
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
+  return fallback;
+}
+
+function readStoredPanelId<TPanel extends string>(key: string, allowed: readonly TPanel[], fallback: TPanel): TPanel {
+  const value = readLayoutValue(key);
+  if (value !== null && allowed.includes(value as TPanel)) {
+    return value as TPanel;
+  }
+  return fallback;
+}
+
+function readStoredWidth(
+  key: string,
+  bounds: { defaultWidth: number; minWidth: number; maxWidth: number },
+): number {
+  const value = Number(readLayoutValue(key));
+  if (Number.isFinite(value)) {
+    return clampWidth(value, bounds);
+  }
+  return bounds.defaultWidth;
+}
+
 export function WorkbenchApp() {
   const { t } = useTranslation();
   const api = useMemo(() => getPreloadApi(), []);
@@ -115,10 +196,25 @@ export function WorkbenchApp() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
-  const [activeLeftPanel, setActiveLeftPanel] = useState<LeftPanelId>("files");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeRightPanel, setActiveRightPanel] = useState<RightPanelId>("ai");
-  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [activeLeftPanel, setActiveLeftPanel] = useState<LeftPanelId>(() =>
+    readStoredPanelId(LAYOUT_STORAGE_KEYS.activeLeftPanel, LEFT_PANEL_IDS, "files"),
+  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() =>
+    readStoredBoolean(LAYOUT_STORAGE_KEYS.sidebarCollapsed, false),
+  );
+  const [sidebarWidth, setSidebarWidth] = useState(() =>
+    readStoredWidth(LAYOUT_STORAGE_KEYS.sidebarWidth, LEFT_SIDEBAR_BOUNDS),
+  );
+  const [activeRightPanel, setActiveRightPanel] = useState<RightPanelId>(() =>
+    readStoredPanelId(LAYOUT_STORAGE_KEYS.activeRightPanel, RIGHT_PANEL_IDS, "ai"),
+  );
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(() =>
+    readStoredBoolean(LAYOUT_STORAGE_KEYS.panelCollapsed, false),
+  );
+  const [rightPanelWidth, setRightPanelWidth] = useState(() =>
+    readStoredWidth(LAYOUT_STORAGE_KEYS.panelWidth, RIGHT_PANEL_BOUNDS),
+  );
+  const [dragState, setDragState] = useState<DragState>(null);
 
   useEffect(() => {
     projectRef.current = project;
@@ -131,6 +227,60 @@ export function WorkbenchApp() {
   useEffect(() => {
     bootstrapStatusRef.current = bootstrapStatus;
   }, [bootstrapStatus]);
+
+  useEffect(() => {
+    writeLayoutValue(LAYOUT_STORAGE_KEYS.activeLeftPanel, activeLeftPanel);
+  }, [activeLeftPanel]);
+
+  useEffect(() => {
+    writeLayoutValue(LAYOUT_STORAGE_KEYS.sidebarCollapsed, sidebarCollapsed);
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    writeLayoutValue(LAYOUT_STORAGE_KEYS.sidebarWidth, sidebarWidth);
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    writeLayoutValue(LAYOUT_STORAGE_KEYS.activeRightPanel, activeRightPanel);
+  }, [activeRightPanel]);
+
+  useEffect(() => {
+    writeLayoutValue(LAYOUT_STORAGE_KEYS.panelCollapsed, rightPanelCollapsed);
+  }, [rightPanelCollapsed]);
+
+  useEffect(() => {
+    writeLayoutValue(LAYOUT_STORAGE_KEYS.panelWidth, rightPanelWidth);
+  }, [rightPanelWidth]);
+
+  useEffect(() => {
+    if (dragState === null) {
+      return;
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (dragState.panel === "left") {
+        setSidebarWidth(clampWidth(dragState.startWidth + (event.clientX - dragState.startX), LEFT_SIDEBAR_BOUNDS));
+        return;
+      }
+
+      setRightPanelWidth(clampWidth(dragState.startWidth + (dragState.startX - event.clientX), RIGHT_PANEL_BOUNDS));
+    };
+
+    const handleMouseUp = () => {
+      setDragState(null);
+    };
+
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [dragState]);
 
   const clearReference = () => {
     setStickySelection(null);
@@ -432,6 +582,20 @@ export function WorkbenchApp() {
     setRightPanelCollapsed((current) => !current);
   };
 
+  const startResize = (panel: "left" | "right") => (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    if (panel === "left") {
+      setDragState({ panel, startX: event.clientX, startWidth: sidebarWidth });
+      return;
+    }
+
+    setDragState({ panel, startX: event.clientX, startWidth: rightPanelWidth });
+  };
+
   const saveLabel =
     saveState === "saving"
       ? t("status.saving")
@@ -448,8 +612,10 @@ export function WorkbenchApp() {
       ? t("panel.ai.selectionLength", { count: liveSelection.text.length })
       : t("editor.selectionHint");
   const frameStyle = {
-    "--left-sidebar-width": sidebarCollapsed ? "0px" : `${DEFAULT_SIDEBAR_WIDTH}px`,
-    "--right-panel-width": rightPanelCollapsed ? "0px" : `${DEFAULT_RIGHT_PANEL_WIDTH}px`,
+    "--left-resizer-width": sidebarCollapsed ? "0px" : "8px",
+    "--left-sidebar-width": sidebarCollapsed ? "0px" : `${sidebarWidth}px`,
+    "--right-panel-width": rightPanelCollapsed ? "0px" : `${rightPanelWidth}px`,
+    "--right-resizer-width": rightPanelCollapsed ? "0px" : "8px",
   } as CSSProperties;
 
   const renderSidebarContent = () => {
@@ -521,36 +687,15 @@ export function WorkbenchApp() {
     }
 
     if (activeRightPanel === "info") {
-      return <section className="panel-surface" aria-label={t("tabs.info")}>
-        <header className="panel-section">
-          <div>
-            <h2 className="panel-title">{t("tabs.info")}</h2>
-            <p className="panel-subtitle">{t("panel.info.subtitle")}</p>
-          </div>
-        </header>
-        <dl className="details-grid">
-          <div className="details-row">
-            <dt>{t("panel.info.project")}</dt>
-            <dd>{project?.name ?? t("project.defaultName")}</dd>
-          </div>
-          <div className="details-row">
-            <dt>{t("panel.info.document")}</dt>
-            <dd>{activeDocument?.title ?? t("document.defaultTitle")}</dd>
-          </div>
-          <div className="details-row">
-            <dt>{t("panel.info.wordCount")}</dt>
-            <dd>{t("status.wordCount", { count: wordCount })}</dd>
-          </div>
-          <div className="details-row">
-            <dt>{t("panel.info.updatedAt")}</dt>
-            <dd>{formatTimestamp(lastSavedAt)}</dd>
-          </div>
-          <div className="details-row">
-            <dt>{t("panel.info.status")}</dt>
-            <dd>{saveLabel}</dd>
-          </div>
-        </dl>
-      </section>;
+      return <InfoPanelSurface
+        documentTitle={activeDocument?.title ?? null}
+        errorMessage={errorMessage}
+        loading={bootstrapStatus !== "ready"}
+        projectName={project?.name ?? null}
+        statusLabel={saveLabel}
+        updatedAt={formatTimestamp(lastSavedAt)}
+        wordCount={wordCount}
+      />;
     }
 
     return <section className="panel-surface" aria-label={t("tabs.quality")}>
@@ -594,7 +739,11 @@ export function WorkbenchApp() {
   }
 
   return <main className="workbench-shell">
-    <div className="workbench-frame" style={frameStyle}>
+    <div
+      className={dragState === null ? "workbench-frame" : "workbench-frame workbench-frame--resizing"}
+      data-testid="workbench-frame"
+      style={frameStyle}
+    >
       <aside className="icon-rail" aria-label={t("app.title")}>
         <div className="icon-rail__group">
           {LEFT_PANEL_ITEMS.filter((item) => item.placement === "top").map((item) => {
@@ -632,6 +781,15 @@ export function WorkbenchApp() {
         {renderSidebarContent()}
       </aside>}
 
+      {sidebarCollapsed ? null : <div
+        className={dragState?.panel === "left" ? "panel-resizer panel-resizer--dragging" : "panel-resizer"}
+        role="separator"
+        aria-label={t("sidebar.resizeHandle")}
+        aria-orientation="vertical"
+        onDoubleClick={() => setSidebarWidth(LEFT_SIDEBAR_BOUNDS.defaultWidth)}
+        onMouseDown={startResize("left")}
+      />}
+
       <section className="editor-column">
         <header className="editor-header">
           <div>
@@ -647,10 +805,19 @@ export function WorkbenchApp() {
         </div>
       </section>
 
+      {rightPanelCollapsed ? null : <div
+        className={dragState?.panel === "right" ? "panel-resizer panel-resizer--dragging" : "panel-resizer"}
+        role="separator"
+        aria-label={t("panel.resizeHandle")}
+        aria-orientation="vertical"
+        onDoubleClick={() => setRightPanelWidth(RIGHT_PANEL_BOUNDS.defaultWidth)}
+        onMouseDown={startResize("right")}
+      />}
+
       {rightPanelCollapsed ? null : <aside className="right-panel" aria-label={t("panel.title")}>
         <div className="right-tabs">
           <div className="right-tabs__list" role="tablist" aria-label={t("panel.tabs")}>
-            {(["ai", "info", "quality"] as RightPanelId[]).map((panelId) => (
+            {RIGHT_PANEL_IDS.map((panelId) => (
               <Button
                 key={panelId}
                 tone="ghost"

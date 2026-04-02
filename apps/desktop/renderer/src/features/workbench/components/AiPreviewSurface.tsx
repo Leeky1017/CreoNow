@@ -77,6 +77,18 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         value={props.instruction}
         placeholder={t("panel.ai.instructionPlaceholder")}
         onChange={(event) => props.onInstructionChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
+            return;
+          }
+
+          event.preventDefault();
+          if (props.busy || props.reference === null) {
+            return;
+          }
+
+          props.onGenerate();
+        }}
       />
       <p className="panel-meta">{selectionHint}</p>
       <Button tone="primary" disabled={props.busy || props.reference === null} onClick={props.onGenerate}>

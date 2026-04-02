@@ -66,6 +66,7 @@ describe("WorkbenchApp", () => {
   beforeEach(() => {
     bridgeOptions = undefined;
     vi.clearAllMocks();
+    window.localStorage.clear();
     window.api = createApiMock();
   });
 
@@ -116,6 +117,77 @@ describe("WorkbenchApp", () => {
     expect(screen.queryByText("改写后的句子")).toBeNull();
   });
 
+  it("submits the AI request on Enter and clears the sticky selection", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const selection = createSelection("按下回车后也要消费选区。", 12);
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(selection);
+    });
+
+    const textarea = screen.getByLabelText("指令");
+    fireEvent.change(textarea, { target: { value: "请直接润色" } });
+    fireEvent.keyDown(textarea, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+        input: expect.stringContaining("请直接润色"),
+        selection,
+      }));
+    });
+    expect(screen.queryByRole("note", { name: "引用自编辑器" })).toBeNull();
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+  });
+
+  it("restores persisted shell layout and supports resizing with clamp and reset", async () => {
+    window.localStorage.setItem("creonow.layout.activeLeftPanel", "knowledgeGraph");
+    window.localStorage.setItem("creonow.layout.sidebarWidth", "300");
+    window.localStorage.setItem("creonow.layout.activePanelTab", "info");
+    window.localStorage.setItem("creonow.layout.panelWidth", "360");
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    const frame = screen.getByTestId("workbench-frame");
+    expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe("300px");
+    expect(frame.style.getPropertyValue("--right-panel-width")).toBe("360px");
+    expect(screen.getByRole("heading", { name: "知识图谱" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "信息" })).toHaveAttribute("aria-selected", "true");
+
+    const leftHandle = screen.getByRole("separator", { name: "调整左侧边栏宽度" });
+    fireEvent.mouseDown(leftHandle, { button: 0, clientX: 300 });
+    fireEvent.mouseMove(window, { clientX: 700 });
+    expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe("400px");
+    fireEvent.mouseUp(window);
+    await waitFor(() => {
+      expect(window.localStorage.getItem("creonow.layout.sidebarWidth")).toBe("400");
+    });
+
+    fireEvent.doubleClick(leftHandle);
+    await waitFor(() => {
+      expect(frame.style.getPropertyValue("--left-sidebar-width")).toBe("240px");
+      expect(window.localStorage.getItem("creonow.layout.sidebarWidth")).toBe("240");
+    });
+
+    const rightHandle = screen.getByRole("separator", { name: "调整右侧面板宽度" });
+    fireEvent.mouseDown(rightHandle, { button: 0, clientX: 900 });
+    fireEvent.mouseMove(window, { clientX: 1200 });
+    expect(frame.style.getPropertyValue("--right-panel-width")).toBe("280px");
+    fireEvent.mouseUp(window);
+    await waitFor(() => {
+      expect(window.localStorage.getItem("creonow.layout.panelWidth")).toBe("280");
+    });
+
+    fireEvent.doubleClick(rightHandle);
+    await waitFor(() => {
+      expect(frame.style.getPropertyValue("--right-panel-width")).toBe("320px");
+      expect(window.localStorage.getItem("creonow.layout.panelWidth")).toBe("320");
+    });
+  });
+
   it("implements the workbench shell icon order, sidebar toggle, right tabs, and panel collapse", async () => {
     render(<WorkbenchApp />);
 
@@ -137,28 +209,35 @@ describe("WorkbenchApp", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "文件" }));
     expect(screen.queryByLabelText("左侧边栏")).toBeNull();
+    expect(window.localStorage.getItem("creonow.layout.sidebarCollapsed")).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "知识图谱" }));
     expect(await screen.findByLabelText("左侧边栏")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "知识图谱" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "知识图谱" })).toHaveClass("rail-button--active");
+    expect(window.localStorage.getItem("creonow.layout.activeLeftPanel")).toBe("knowledgeGraph");
 
     fireEvent.click(screen.getByRole("tab", { name: "信息" }));
     expect(screen.getByRole("heading", { name: "信息" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "历史记录" })).toBeNull();
     expect(screen.queryByRole("button", { name: "新对话" })).toBeNull();
+    expect(window.localStorage.getItem("creonow.layout.activePanelTab")).toBe("info");
 
     fireEvent.click(screen.getByRole("tab", { name: "质量" }));
     expect(screen.getByRole("heading", { name: "质量" })).toBeInTheDocument();
+    expect(window.localStorage.getItem("creonow.layout.activePanelTab")).toBe("quality");
 
     fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
     expect(screen.queryByLabelText("右侧面板")).toBeNull();
     expect(screen.getByRole("button", { name: "打开 AI 面板" })).toBeInTheDocument();
+    expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).toBe("true");
 
     fireEvent.keyDown(window, { ctrlKey: true, key: "l" });
     expect(await screen.findByLabelText("右侧面板")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "AI" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: "历史记录" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "新对话" })).toBeInTheDocument();
+    expect(window.localStorage.getItem("creonow.layout.activePanelTab")).toBe("ai");
+    expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).toBe("false");
   });
 });

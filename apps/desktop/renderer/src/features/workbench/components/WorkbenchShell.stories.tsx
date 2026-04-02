@@ -14,6 +14,7 @@ import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
+import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 
 const leftItems = [
   { id: "files", icon: FolderTree, labelKey: "iconBar.files", placement: "top" },
@@ -30,7 +31,9 @@ type WorkbenchShellStoryProps = {
   activeLeftPanel: string;
   activeRightPanel: "ai" | "info" | "quality";
   rightPanelCollapsed: boolean;
+  rightPanelWidth: number;
   sidebarCollapsed: boolean;
+  sidebarWidth: number;
 };
 
 function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
@@ -40,8 +43,10 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
     <div
       className="workbench-frame"
       style={{
-        "--left-sidebar-width": args.sidebarCollapsed ? "0px" : "240px",
-        "--right-panel-width": args.rightPanelCollapsed ? "0px" : "320px",
+        "--left-resizer-width": args.sidebarCollapsed ? "0px" : "8px",
+        "--left-sidebar-width": args.sidebarCollapsed ? "0px" : `${args.sidebarWidth}px`,
+        "--right-panel-width": args.rightPanelCollapsed ? "0px" : `${args.rightPanelWidth}px`,
+        "--right-resizer-width": args.rightPanelCollapsed ? "0px" : "8px",
       } as CSSProperties}
     >
       <aside className="icon-rail" aria-label={t("app.title")}>
@@ -83,6 +88,8 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
         </div>
       </aside>}
 
+      {args.sidebarCollapsed ? null : <div className="panel-resizer" role="separator" aria-label={t("sidebar.resizeHandle")} aria-orientation="vertical" />}
+
       <section className="editor-column">
         <header className="editor-header">
           <div>
@@ -98,11 +105,13 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
         </div>
       </section>
 
+      {args.rightPanelCollapsed ? null : <div className="panel-resizer" role="separator" aria-label={t("panel.resizeHandle")} aria-orientation="vertical" />}
+
       {args.rightPanelCollapsed ? null : <aside className="right-panel" aria-label={t("panel.title")}>
         <div className="right-tabs">
           <div className="right-tabs__list" role="tablist" aria-label={t("panel.tabs")}>
             {(["ai", "info", "quality"] as const).map((panelId) => (
-              <Button key={panelId} tone="ghost" className={panelId === args.activeRightPanel ? "right-tab right-tab--active" : "right-tab"}>
+              <Button key={panelId} tone="ghost" role="tab" className={panelId === args.activeRightPanel ? "right-tab right-tab--active" : "right-tab"} aria-selected={panelId === args.activeRightPanel}>
                 {t(`tabs.${panelId}`)}
               </Button>
             ))}
@@ -115,24 +124,26 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
             <Button tone="ghost" className="right-action" aria-label={t("panel.actions.collapse")}><ChevronLeft size={16} /></Button>
           </div>
         </div>
-        <section className="panel-surface">
-          <header className="panel-section">
-            <div>
-              <h2 className="panel-title">{t(`tabs.${args.activeRightPanel}`)}</h2>
-              <p className="panel-subtitle">{args.activeRightPanel === "ai" ? t("panel.ai.subtitle") : args.activeRightPanel === "info" ? t("panel.info.subtitle") : t("panel.quality.subtitle")}</p>
-            </div>
-          </header>
-          <dl className="details-grid">
-            <div className="details-row">
-              <dt>{t("panel.info.document")}</dt>
-              <dd>{t("document.defaultTitle")}</dd>
-            </div>
-            <div className="details-row">
-              <dt>{t("panel.info.wordCount")}</dt>
-              <dd>{t("status.wordCount", { count: 128 })}</dd>
-            </div>
-          </dl>
-        </section>
+        {args.activeRightPanel === "info"
+          ? <InfoPanelSurface documentTitle={t("document.defaultTitle")} errorMessage={null} loading={false} projectName={t("project.defaultName")} statusLabel={t("status.saved")} updatedAt="01/01 12:00" wordCount={128} />
+          : <section className="panel-surface">
+              <header className="panel-section">
+                <div>
+                  <h2 className="panel-title">{t(`tabs.${args.activeRightPanel}`)}</h2>
+                  <p className="panel-subtitle">{args.activeRightPanel === "ai" ? t("panel.ai.subtitle") : t("panel.quality.subtitle")}</p>
+                </div>
+              </header>
+              <dl className="details-grid">
+                <div className="details-row">
+                  <dt>{t("panel.info.document")}</dt>
+                  <dd>{t("document.defaultTitle")}</dd>
+                </div>
+                <div className="details-row">
+                  <dt>{t("panel.info.wordCount")}</dt>
+                  <dd>{t("status.wordCount", { count: 128 })}</dd>
+                </div>
+              </dl>
+            </section>}
       </aside>}
     </div>
     <footer className="status-bar">
@@ -151,7 +162,9 @@ const meta = {
     activeLeftPanel: "files",
     activeRightPanel: "ai",
     rightPanelCollapsed: false,
+    rightPanelWidth: 320,
     sidebarCollapsed: false,
+    sidebarWidth: 240,
   },
 } satisfies Meta<WorkbenchShellStoryProps>;
 
@@ -163,6 +176,19 @@ export const Default: Story = {};
 
 export const SidebarCollapsed: Story = {
   args: {
+    sidebarCollapsed: true,
+  },
+};
+
+export const RightPanelCollapsed: Story = {
+  args: {
+    rightPanelCollapsed: true,
+  },
+};
+
+export const BothCollapsed: Story = {
+  args: {
+    rightPanelCollapsed: true,
     sidebarCollapsed: true,
   },
 };
@@ -179,8 +205,11 @@ export const QualityPanel: Story = {
   },
 };
 
-export const RightPanelCollapsed: Story = {
+export const ResizedPanels: Story = {
   args: {
-    rightPanelCollapsed: true,
+    activeLeftPanel: "knowledgeGraph",
+    activeRightPanel: "info",
+    rightPanelWidth: 420,
+    sidebarWidth: 320,
   },
 };
