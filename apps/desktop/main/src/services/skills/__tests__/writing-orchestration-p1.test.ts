@@ -302,7 +302,7 @@ describe("P1 context layers — Rules + Immediate only", () => {
   it("assembleContextLayers produces Rules and Immediate layers, settings and retrieved disabled", () => {
     // Import the P1 assembler from tokenEstimation (which only uses rules + immediate)
     // This mirrors the WritingOrchestrator's expected context model.
-    
+
 
     const result = assembleContextLayers({
       rules: "创作规则：保持简洁，避免重复",
@@ -321,7 +321,7 @@ describe("P1 context layers — Rules + Immediate only", () => {
   });
 
   it("P1 layer assembly uses CJK-aware token counts", () => {
-    
+
 
     const rules = "创作约束：第一人称叙事，现代白话文风格。";
     const immediate = "当前文字：月光洒在水面上，波纹荡漾。";
