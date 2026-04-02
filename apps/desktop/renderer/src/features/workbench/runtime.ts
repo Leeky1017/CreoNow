@@ -293,7 +293,7 @@ export async function requestAiPreview(args: {
     if (typeof args.cursorPosition !== "number" || args.precedingText === undefined || args.precedingText.trim().length === 0) {
       throw new Error("context-required");
     }
-    originalText = args.precedingText;
+    originalText = "";
     input = args.precedingText;
     skillId = "builtin:continue";
   } else {

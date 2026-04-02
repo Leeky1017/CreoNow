@@ -340,6 +340,9 @@ describe("WorkbenchApp", () => {
       }));
     });
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "写回位置" })).toBeInTheDocument();
+    expect(screen.getByText("将在当前光标处追加建议内容，不替换已有文字。")).toBeInTheDocument();
+    expect(screen.queryByText("风从北方来")).toBeNull();
   });
 
   it("serializes an in-flight autosave behind accept so stale content cannot overwrite the accepted save", async () => {

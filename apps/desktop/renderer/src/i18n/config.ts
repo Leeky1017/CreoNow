@@ -80,6 +80,8 @@ const resources = {
       "panel.ai.continue": "续写",
       "panel.ai.generating": "生成中……",
       "panel.ai.previewOriginal": "原文",
+      "panel.ai.previewInsertion": "写回位置",
+      "panel.ai.previewInsertionHint": "将在当前光标处追加建议内容，不替换已有文字。",
       "panel.ai.previewSuggestion": "建议",
       "panel.ai.accept": "接受",
       "panel.ai.reject": "拒绝",

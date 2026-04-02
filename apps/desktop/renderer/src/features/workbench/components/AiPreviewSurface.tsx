@@ -39,6 +39,15 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
   const selectionHint = props.reference
     ? t("panel.ai.selectionLength", { count: props.reference.text.length })
     : t("editor.selectionHint");
+  const previewOriginalHeading = props.preview?.skill === "continue"
+    ? t("panel.ai.previewInsertion")
+    : t("panel.ai.previewOriginal");
+  const previewOriginalBody = props.preview?.skill === "continue"
+    ? t("panel.ai.previewInsertionHint")
+    : props.preview?.originalText ?? "";
+  const previewOriginalBodyClassName = props.preview?.skill === "continue"
+    ? "preview-body preview-body--insertion"
+    : "preview-body preview-body--original";
 
   return <section className="ai-preview-surface" aria-label={t("panel.ai.title")}>
     <header className="panel-section">
@@ -140,8 +149,8 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         <p className="panel-meta">{t("panel.ai.ready")}</p>
         <div className="preview-grid">
           <article className="preview-column preview-column--original">
-            <h3 className="preview-heading">{t("panel.ai.previewOriginal")}</h3>
-            <p className="preview-body preview-body--original">{props.preview.originalText}</p>
+            <h3 className="preview-heading">{previewOriginalHeading}</h3>
+            <p className={previewOriginalBodyClassName}>{previewOriginalBody}</p>
           </article>
           <article className="preview-column preview-column--suggestion">
             <h3 className="preview-heading">{t("panel.ai.previewSuggestion")}</h3>

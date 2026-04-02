@@ -65,6 +65,22 @@ export const Empty: Story = {
   },
 };
 
+export const ContinuePreview: Story = {
+  args: {
+    ...Empty.args,
+    preview: {
+      context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
+      executionId: "exec-continue",
+      originalText: "",
+      runId: "run-continue",
+      selection: null,
+      skill: "continue",
+      sourceUserEditRevision: 1,
+      suggestedText: "她抬头望见远处灯火，忽然意识到这一夜还远未结束。",
+    },
+  },
+};
+
 export const Loading: Story = {
   args: {
     ...ReferenceOnly.args,

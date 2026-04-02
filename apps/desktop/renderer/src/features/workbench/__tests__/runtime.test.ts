@@ -224,7 +224,7 @@ describe("workbench runtime helpers", () => {
 
     expect(preview.skill).toBe("continue");
     expect(preview.selection).toBeNull();
-    expect(preview.originalText).toBe("夜幕降临，街灯次第亮起。");
+    expect(preview.originalText).toBe("");
     expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
       skillId: "builtin:continue",
       hasSelection: false,
