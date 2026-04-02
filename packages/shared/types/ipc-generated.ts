@@ -513,6 +513,7 @@ export type IpcChannelSpec = {
     request: {
       action: "accept" | "reject";
       executionId: string;
+      projectId: string;
     };
     response: {
       executionId: string;

@@ -939,6 +939,12 @@ function ensurePreviewSessionRendererLifecycle(args: {
   ctx: AiIpcContext;
   sender: Electron.WebContents;
 }): void {
+  if (
+    typeof (args.sender as Electron.WebContents & { on?: unknown }).on !== "function"
+    || typeof (args.sender as Electron.WebContents & { once?: unknown }).once !== "function"
+  ) {
+    return;
+  }
   if (args.ctx.previewLifecycleRegisteredRendererIds.has(args.sender.id)) {
     return;
   }
