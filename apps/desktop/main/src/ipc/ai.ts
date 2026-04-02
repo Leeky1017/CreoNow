@@ -419,7 +419,7 @@ async function prepareWritingRequest(args: {
       error: {
         code: "SKILL_INPUT_EMPTY",
         message:
-          args.payload.skillId === "polish"
+          leafSkillId(args.payload.skillId) === "polish"
             ? "请先选中需要润色的文本"
             : "请先提供需要处理的文本",
       },

@@ -564,6 +564,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
 
     expect(run.ok).toBe(false);
     expect(run.error?.code).toBe("SKILL_INPUT_EMPTY");
+    expect(run.error?.message).toBe("请先选中需要润色的文本");
     // must NOT be flattened to INTERNAL
     expect(run.error?.code).not.toBe("INTERNAL");
   });
@@ -597,6 +598,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
 
     expect(run.ok).toBe(false);
     expect(run.error?.code).toBe("SKILL_INPUT_EMPTY");
+    expect(run.error?.message).toBe("请先提供需要处理的文本");
     expect(run.error?.code).not.toBe("INTERNAL");
   });
 });
