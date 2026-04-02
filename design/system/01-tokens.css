@@ -1,0 +1,89 @@
+:root {
+  color-scheme: light;
+
+  --color-bg-base: #ffffff;
+  --color-bg-surface: #ffffff;
+  --color-bg-panel: #ffffff;
+  --color-bg-hover: #f7f7f7;
+  --color-bg-selected: rgba(0, 0, 0, 0.08);
+  --color-bg-muted: rgba(0, 0, 0, 0.04);
+
+  --color-fg-base: #1a1a1a;
+  --color-fg-muted: rgba(26, 26, 26, 0.6);
+  --color-fg-subtle: rgba(26, 26, 26, 0.4);
+
+  --color-accent: #000000;
+  --color-accent-strong: #000000;
+  --color-success: #156f4a;
+  --color-success-subtle: rgba(21, 111, 74, 0.12);
+  --color-error: #d63030;
+  --color-error-subtle: #fde8e8;
+  --color-separator: rgba(0, 0, 0, 0.08);
+  --color-separator-bold: rgba(0, 0, 0, 0.12);
+  --color-focus-ring: #000000;
+
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.24);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-panel-padding: var(--space-4);
+  --space-section-gap: var(--space-6);
+  --space-item-gap: var(--space-2);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --font-family-ui: "Inter", system-ui, -apple-system, sans-serif;
+  --font-family-body: "Source Han Sans", "Noto Sans SC", sans-serif;
+  --font-family-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
+
+  --text-page-title-size: 24px;
+  --text-page-title-line-height: 1.2;
+  --text-page-title-weight: 600;
+  --text-body-size: 13px;
+  --text-body-line-height: 1.5;
+  --text-editor-size: 16px;
+  --text-editor-line-height: 1.8;
+  --text-editor-weight: 400;
+  --text-status-size: 11px;
+
+  --duration-fast: 120ms;
+  --duration-slow: 300ms;
+  --ease-default: cubic-bezier(0.2, 0, 0, 1);
+}
+
+.dark {
+  color-scheme: dark;
+
+  --color-bg-base: #0f0f10;
+  --color-bg-surface: #1a1a1a;
+  --color-bg-panel: #1a1a1a;
+  --color-bg-hover: #3a3a3a;
+  --color-bg-selected: rgba(255, 255, 255, 0.12);
+  --color-bg-muted: rgba(255, 255, 255, 0.06);
+
+  --color-fg-base: #ffffff;
+  --color-fg-muted: rgba(255, 255, 255, 0.6);
+  --color-fg-subtle: rgba(255, 255, 255, 0.4);
+
+  --color-accent: #ffffff;
+  --color-accent-strong: #ffffff;
+  --color-success: #8ad4af;
+  --color-success-subtle: rgba(138, 212, 175, 0.12);
+  --color-error: #ffb4b4;
+  --color-error-subtle: rgba(255, 180, 180, 0.12);
+  --color-separator: rgba(255, 255, 255, 0.08);
+  --color-separator-bold: rgba(255, 255, 255, 0.12);
+  --color-focus-ring: #ffffff;
+
+  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.36);
+}

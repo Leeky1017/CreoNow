@@ -2,11 +2,17 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "jsx": "react-jsx",
     "paths": {
-      "@/*": ["./renderer/src/*"],
-      "@shared/*": ["../../packages/shared/*"]
+      "@/*": [
+        "./renderer/src/*"
+      ],
+      "@shared/*": [
+        "../../packages/shared/*"
+      ]
     }
   },
   "include": [
@@ -16,7 +22,12 @@
     "preload/src/**/*.ts",
     "renderer/src/**/*.ts",
     "renderer/src/**/*.tsx",
+    "shared/**/*.ts",
     "tests/**/*.ts",
-    "vitest.config.core.ts"
+    "vitest.config.core.ts",
+    "renderer/src/**/*.d.ts",
+    "renderer/src/**/*.test.ts",
+    "renderer/src/**/*.test.tsx",
+    "vitest.config.ts"
   ]
 }

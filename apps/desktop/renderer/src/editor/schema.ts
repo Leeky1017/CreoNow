@@ -11,4 +11,4 @@ export {
   type InputRuleDescriptor,
   type ProseMirrorJson,
   type SelectionRef,
-} from "../../../../shared/editor/prosemirror";
+} from "../../../shared/editor/prosemirror";

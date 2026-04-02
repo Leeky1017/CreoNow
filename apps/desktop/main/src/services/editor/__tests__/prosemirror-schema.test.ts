@@ -149,7 +149,7 @@ describe("ProseMirror Editor Schema", () => {
 
       const resultText = doc.content.firstChild!.content.firstChild!;
       expect(resultText.marks).toHaveLength(2);
-      const markNames = resultText.marks.map((m) => m.type.name);
+      const markNames = resultText.marks.map((mark: { type: { name: string } }) => mark.type.name);
       expect(markNames).toContain("bold");
       expect(markNames).toContain("italic");
     });
