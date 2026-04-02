@@ -108,6 +108,44 @@ describe("createContextLayerAssemblyService cursor window regression", () => {
       expect(inspect.layersDetail.immediate.source).toEqual(["editor:cursor-window"]);
     });
 
+    // Regression lock: assembled.prompt must NOT trim trailing whitespace from the immediate layer.
+    // Before the fix, ai.ts did `assembled.prompt.trim()` which stripped the trailing space,
+    // making the AI context window one character shorter than the writeback anchor.
+    it("single-para continue: assemble().prompt preserves trailing whitespace anchor (trim regression)", async () => {
+      const service = makeService();
+      // Cursor at end of "甲乙 " — the trailing space is before the cursor
+      const assembled = await service.assemble({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 4,
+        textOffset: 3,
+        skillId: "builtin:continue",
+        additionalInput: "甲乙 ",
+      });
+      // immediate layer = "甲乙 " (slice(0,3) of "甲乙 " = "甲乙 ")
+      expect(assembled.prompt).toContain("甲乙 ");
+      // The final assembled prompt must end with the trailing space — not trimmed
+      expect(assembled.prompt.endsWith("甲乙 ")).toBe(true);
+    });
+
+    // Cross-paragraph continue: trailing space after newline must survive assembly
+    it("cross-para continue: assemble().prompt preserves trailing whitespace across paragraph boundary", async () => {
+      const service = makeService();
+      // Document: "第一段\n第二段 " (8 chars). Cursor is after the trailing space → textOffset=8.
+      const docText = "第一段\n第二段 ";
+      const assembled = await service.assemble({
+        projectId: "p",
+        documentId: "d",
+        cursorPosition: 10,
+        textOffset: 8,  // slice(0,8) = "第一段\n第二段 " — includes trailing space
+        skillId: "builtin:continue",
+        additionalInput: docText,
+      });
+      // immediate layer = "第一段\n第二段 " (full string, trailing space preserved)
+      expect(assembled.prompt).toContain("第二段 ");
+      expect(assembled.prompt.endsWith("第二段 ")).toBe(true);
+    });
+
     it("multi-paragraph continue counts deriveContent newline separators in textOffset", async () => {
       const service = makeService();
       const inspect = await service.inspect({
