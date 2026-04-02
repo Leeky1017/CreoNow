@@ -58,86 +58,6 @@ function createDeferred<TResult>() {
   };
 }
 
-function setEditorCursorContext(args: {
-  cursorPosition: number;
-  precedingText: string;
-}) {
-  Object.defineProperty(bridgeMock, "view", {
-    configurable: true,
-    value: {
-      state: {
-        doc: {
-          textBetween: vi.fn(() => args.precedingText),
-        },
-        selection: {
-          from: args.cursorPosition,
-          to: args.cursorPosition,
-        },
-      },
-    } as unknown as EditorBridge["view"],
-  });
-}
-
-function setEditorSelectionRange(args: {
-  from: number;
-  to: number;
-  precedingText: string;
-}) {
-  Object.defineProperty(bridgeMock, "view", {
-    configurable: true,
-    value: {
-      state: {
-        doc: {
-          textBetween: vi.fn(() => args.precedingText),
-        },
-        selection: {
-          from: args.from,
-          to: args.to,
-        },
-      },
-    } as unknown as EditorBridge["view"],
-  });
-}
-
-function clearEditorView() {
-  Object.defineProperty(bridgeMock, "view", {
-    configurable: true,
-    value: null,
-  });
-}
-
-afterEach(() => {
-  clearEditorView();
-});
-
-function restoreDefaultEditorView() {
-  setEditorCursorContext({
-    cursorPosition: 6,
-    precedingText: "风从北方来",
-  });
-}
-
-function syncSelectionWithView(selection: SelectionRef | null) {
-  if (selection === null) {
-    setEditorCursorContext({
-      cursorPosition: 6,
-      precedingText: "风从北方来",
-    });
-    return;
-  }
-
-  setEditorSelectionRange({
-    from: selection.from,
-    to: selection.to,
-    precedingText: selection.text,
-  });
-}
-
-function emitSelectionChange(selection: SelectionRef | null) {
-  syncSelectionWithView(selection);
-  bridgeOptions?.onSelectionChange?.(selection);
-}
-
 function formatWorkbenchTimestamp(value: number): string {
   return new Intl.DateTimeFormat("zh-CN", {
     hour: "2-digit",
@@ -212,7 +132,6 @@ describe("WorkbenchApp", () => {
     vi.mocked(bridgeMock.getCursorContext).mockReturnValue({ cursorPosition: 5, precedingText: "风从北方来" });
     window.localStorage.clear();
     window.api = createApiMock();
-    restoreDefaultEditorView();
   });
 
 
@@ -263,6 +182,22 @@ describe("WorkbenchApp", () => {
     });
   });
 
+  it("shows continue previews as insert-at-cursor diffs before accept writes back", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "续写" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+
+    expect(await screen.findByText("写回方式")).toBeInTheDocument();
+    expect(screen.getByText("将在当前光标处插入，不会替换任何原文。")).toBeInTheDocument();
+    expect(screen.getByText("将插入的内容")).toBeInTheDocument();
+
+    const originalColumn = screen.getByRole("heading", { name: "写回方式" }).closest("article");
+    expect(originalColumn).not.toBeNull();
+    expect(within(originalColumn as HTMLElement).queryByText("风从北方来")).toBeNull();
+  });
+
   it("keeps the AI reference sticky until clear, replacement, send, and new chat", async () => {
     render(<WorkbenchApp />);
 
@@ -270,13 +205,13 @@ describe("WorkbenchApp", () => {
 
     const firstSelection = createSelection("第一段风从北方来。", 1);
     await act(async () => {
-      emitSelectionChange(firstSelection);
+      bridgeOptions?.onSelectionChange?.(firstSelection);
     });
 
     expect(await screen.findByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第一段风从北方来。");
 
     await act(async () => {
-      emitSelectionChange(null);
+      bridgeOptions?.onSelectionChange?.(null);
     });
     await waitFor(() => {
       expect(screen.getByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第一段风从北方来。");
@@ -284,7 +219,7 @@ describe("WorkbenchApp", () => {
 
     const replacementSelection = createSelection("第二段已经接管上下文。", 24);
     await act(async () => {
-      emitSelectionChange(replacementSelection);
+      bridgeOptions?.onSelectionChange?.(replacementSelection);
     });
     await waitFor(() => {
       expect(screen.getByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第二段已经接管上下文。");
@@ -296,9 +231,9 @@ describe("WorkbenchApp", () => {
     });
 
     await act(async () => {
-      emitSelectionChange(replacementSelection);
+      bridgeOptions?.onSelectionChange?.(replacementSelection);
     });
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
 
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({ selection: replacementSelection }));
@@ -307,7 +242,7 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     await act(async () => {
-      emitSelectionChange(createSelection("第三段在新对话前挂住。", 48));
+      bridgeOptions?.onSelectionChange?.(createSelection("第三段在新对话前挂住。", 48));
     });
     expect(await screen.findByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第三段在新对话前挂住。");
 
@@ -318,40 +253,14 @@ describe("WorkbenchApp", () => {
     });
   });
 
-  it("shows the P1 skill launcher and enforces each launcher gate", async () => {
-    render(<WorkbenchApp />);
-
-    await screen.findByRole("heading", { name: "第一章" });
-
-    const polishButton = screen.getByRole("button", { name: "润色" });
-    const rewriteButton = screen.getByRole("button", { name: "改写" });
-    const continueButton = screen.getByRole("button", { name: "续写" });
-
-    expect(polishButton).toBeDisabled();
-    expect(rewriteButton).toBeDisabled();
-    expect(continueButton).toBeEnabled();
-
-    await act(async () => {
-      emitSelectionChange(createSelection("需要处理的段落", 12));
-    });
-
-    expect(screen.getByRole("button", { name: "润色" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "改写" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "续写" })).toBeEnabled();
-
-    fireEvent.change(screen.getByLabelText("指令"), { target: { value: "改成更冷峻的语气" } });
-
-    expect(screen.getByRole("button", { name: "改写" })).toBeEnabled();
-  });
-
-  it("submits rewrite on Enter and clears the sticky selection", async () => {
+  it("submits the AI request on Enter and clears the sticky selection", async () => {
     render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
 
     const selection = createSelection("按下回车后也要消费选区。", 12);
     await act(async () => {
-      emitSelectionChange(selection);
+      bridgeOptions?.onSelectionChange?.(selection);
     });
 
     const textarea = screen.getByLabelText("指令");
@@ -360,39 +269,12 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
-        skillId: "builtin:rewrite",
         input: expect.stringContaining("请直接润色"),
         selection,
       }));
     });
     expect(screen.queryByRole("note", { name: "引用自编辑器" })).toBeNull();
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
-  });
-
-  it("runs continue without selection and forwards precedingText plus cursorPosition", async () => {
-    render(<WorkbenchApp />);
-
-    await screen.findByRole("heading", { name: "第一章" });
-
-    await act(async () => {
-      emitSelectionChange(null);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "续写" }));
-
-    await waitFor(() => {
-      expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
-        skillId: "builtin:continue",
-        hasSelection: false,
-        cursorPosition: 6,
-        precedingText: "风从北方来",
-        input: "风从北方来",
-      }));
-    });
-    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "写回位置" })).toBeInTheDocument();
-    expect(screen.getByText("将在当前光标处追加建议内容，不替换已有文字。")).toBeInTheDocument();
-    expect(screen.queryByText("风从北方来")).toBeNull();
   });
 
   it("serializes an in-flight autosave behind accept so stale content cannot overwrite the accepted save", async () => {
@@ -431,7 +313,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("已起跑 autosave 完成后也不能盖掉 accept。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     vi.useFakeTimers();
@@ -507,7 +389,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("accept 期间继续输入也必须保留 autosave 保护。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     vi.useFakeTimers();
@@ -594,7 +476,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("接受失败前回到同值也不能被误回滚。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     vi.useFakeTimers();
@@ -682,7 +564,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("accept 保存失败时，继续输入不能被回滚。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     vi.useFakeTimers();
@@ -758,7 +640,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("reset AI 会话必须清掉旧 accept 失败残留。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     await act(async () => {
@@ -818,7 +700,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("accept 保存失败后，状态栏必须重试 accept 本身。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     await act(async () => {
@@ -1524,7 +1406,7 @@ describe("WorkbenchApp", () => {
     render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
-    const aiPreviewPanel = screen.getByRole("region", { name: "AI 技能" });
+    const aiPreviewPanel = screen.getByRole("region", { name: "AI 预览" });
     vi.useFakeTimers();
 
     await act(async () => {
@@ -1597,7 +1479,7 @@ describe("WorkbenchApp", () => {
     render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
-    const aiPreviewPanel = screen.getByRole("region", { name: "AI 技能" });
+    const aiPreviewPanel = screen.getByRole("region", { name: "AI 预览" });
     vi.useFakeTimers();
 
     await act(async () => {
@@ -1807,7 +1689,7 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    const aiPreviewPanel = screen.getByRole("region", { name: "AI 技能" });
+    const aiPreviewPanel = screen.getByRole("region", { name: "AI 预览" });
     expect(within(aiPreviewPanel).getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
     expect(screen.getByText("自动保存失败")).toBeInTheDocument();
 
@@ -2050,7 +1932,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("文档 A 的选区", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledTimes(1);
     });
@@ -2157,7 +2039,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("文档 A 的选区", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledTimes(1);
     });
@@ -2275,7 +2157,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("切文档后旧 accept 成功也不能污染新文档状态。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     await act(async () => {
@@ -2404,7 +2286,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("切文档期间不能再被旧 accept 回滚。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     await act(async () => {
@@ -2525,7 +2407,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("新建文档期间不能再被旧 accept 回滚。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     await act(async () => {
@@ -2575,7 +2457,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("接受建议后应该仍然视为已保存。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
 
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
@@ -2614,7 +2496,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("accept 被权限拒绝时不能伪装成已保存。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "接受" }));
@@ -2709,7 +2591,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("需要保持 preview 与落库结构一致。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByRole("button", { name: "接受" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "接受" }));
@@ -2736,7 +2618,7 @@ describe("WorkbenchApp", () => {
       bridgeOptions?.onSelectionChange?.(createSelection("拒绝建议时反馈失败不能假装成功。", 8));
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "拒绝" }));

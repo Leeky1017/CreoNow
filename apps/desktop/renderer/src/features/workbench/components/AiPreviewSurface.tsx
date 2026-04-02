@@ -12,9 +12,6 @@ const SKILL_OPTIONS: WorkbenchSkillId[] = ["builtin:polish", "builtin:rewrite", 
 interface AiPreviewSurfaceProps {
   activeSkill: WorkbenchSkillId;
   busy: boolean;
-  canContinue: boolean;
-  canPolish: boolean;
-  canRewrite: boolean;
   errorMessage: string | null;
   generateDisabled: boolean;
   instruction: string;
@@ -22,8 +19,8 @@ interface AiPreviewSurfaceProps {
   model: string;
   onAccept: () => void;
   onClearReference: () => void;
+  onGenerate: () => void;
   onInstructionChange: (value: string) => void;
-  onLaunchSkill: (skill: AiLauncherSkill) => void;
   onModelChange: (value: string) => void;
   onReject: () => void;
   onSkillChange: (skillId: WorkbenchSkillId) => void;
@@ -53,6 +50,11 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
   const { t } = useTranslation();
   const skillKey = toSkillKey(props.activeSkill);
   const reference = props.activeSkill !== "builtin:continue" ? props.reference : null;
+  const insertionPreview = props.preview?.changeType === "insert";
+  const previewOriginalHeading = insertionPreview ? t("panel.ai.previewInsertionTarget") : t("panel.ai.previewOriginal");
+  const previewOriginalBody = insertionPreview ? t("panel.ai.previewInsertionBody") : props.preview?.originalText ?? "";
+  const previewOriginalBodyClassName = insertionPreview ? "preview-body preview-body--anchor" : "preview-body preview-body--original";
+  const previewSuggestionHeading = insertionPreview ? t("panel.ai.previewInsertionSuggestion") : t("panel.ai.previewSuggestion");
 
   return <section className="ai-preview-surface" aria-label={t("panel.ai.title")}>
     <header className="panel-section">
@@ -129,14 +131,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
             return;
           }
 
-          if (props.canRewrite) {
-            props.onLaunchSkill("rewrite");
-            return;
-          }
-
-          if (props.canPolish) {
-            props.onLaunchSkill("polish");
-          }
+          props.onGenerate();
         }}
       />
       <p className="panel-meta">{props.instructionHint}</p>
@@ -156,7 +151,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
             <p className={previewOriginalBodyClassName}>{previewOriginalBody}</p>
           </article>
           <article className="preview-column preview-column--suggestion">
-            <h3 className="preview-heading">{t("panel.ai.previewSuggestion")}</h3>
+            <h3 className="preview-heading">{previewSuggestionHeading}</h3>
             <p className="preview-body preview-body--suggestion">{props.preview.suggestedText}</p>
           </article>
         </div>

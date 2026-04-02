@@ -28,13 +28,13 @@ function createDeferred<TResult>() {
 
 function createPreview(overrides: Partial<AiPreview> = {}): AiPreview {
   return {
+    changeType: "replace",
     context: {
       documentId: "doc-1",
       projectId: "project-1",
       revision: 0,
     },
     executionId: "exec-1",
-    skill: "polish",
     originalText: "原文",
     suggestedText: "rewritten",
     runId: "run-1",
@@ -105,7 +105,7 @@ describe("workbench runtime helpers", () => {
     expect(workspace.activeDocument.documentId).toBe("doc-1");
   });
 
-  it("requests polish preview and confirms accept through the preview contract", async () => {
+  it("requests AI preview and confirms accept through the preview contract", async () => {
     const api = createApiMock();
     const bridge = {
       getContent: vi.fn(() => ({ type: "doc" })),
@@ -131,7 +131,6 @@ describe("workbench runtime helpers", () => {
     expect(preview.suggestedText).toBe("rewritten");
     expect(preview.executionId).toBe("exec-1");
     expect(preview.sourceUserEditRevision).toBe(0);
-    expect(preview.skill).toBe("polish");
     expect(api.ai.runSkill).toHaveBeenCalledWith(
       expect.objectContaining({
         skillId: "builtin:rewrite",
@@ -218,13 +217,48 @@ describe("workbench runtime helpers", () => {
       cursorPosition: 7,
       precedingText: "夜幕降临，街灯次第亮起。",
     }));
-    expect(preview.originalText).toBe("夜幕降临，街灯次第亮起。");
+    expect(preview.changeType).toBe("insert");
+    expect(preview.originalText).toBe("");
     expect(preview.selection).toMatchObject({
       from: 7,
       to: 7,
       text: "",
     });
     expect(preview.selection.selectionTextHash).toEqual(expect.any(String));
+  });
+
+  it("keeps continue preview insertion semantics aligned with zero-width writeback", async () => {
+    const api = createApiMock();
+    const bridge = {
+      getContent: vi.fn(() => ({ type: "doc" })),
+      replaceSelection: vi.fn(() => ({ ok: true as const })),
+      setContent: vi.fn(),
+    } as unknown as Parameters<typeof acceptAiPreview>[0]["bridge"];
+
+    const preview = await requestAiPreview({
+      api,
+      context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
+      skillId: "builtin:continue",
+      instruction: "",
+      model: "gpt-4.1-mini",
+      cursorPosition: 7,
+      precedingText: "夜幕降临，街灯次第亮起。",
+      userEditRevision: 0,
+    });
+
+    expect(preview.changeType).toBe("insert");
+    expect(preview.originalText).toBe("");
+    expect(preview.selection).toMatchObject({ from: 7, to: 7, text: "" });
+
+    await acceptAiPreview({
+      api,
+      bridge,
+      preview,
+      getUserEditRevision: () => 0,
+      getEditorContextRevision: () => 0,
+    });
+
+    expect(bridge.replaceSelection).toHaveBeenCalledWith(preview.selection, "rewritten");
   });
 
   it("reads accept state back from the preview context instead of any caller-side active document", async () => {

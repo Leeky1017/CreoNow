@@ -29,17 +29,15 @@ export const WORKBENCH_SKILL_IDS = ["builtin:polish", "builtin:rewrite", "builti
 export type WorkbenchSkillId = typeof WORKBENCH_SKILL_IDS[number];
 
 export interface AiPreview {
+  changeType: "insert" | "replace";
   context: WorkbenchContextToken;
   executionId: string;
   originalText: string;
   runId: string;
-  selection: SelectionRef | null;
-  skill: AiLauncherSkill;
+  selection: SelectionRef;
   sourceUserEditRevision: number;
   suggestedText: string;
 }
-
-export type AiLauncherSkill = "polish" | "rewrite" | "continue";
 
 export interface AcceptAiPreviewResult {
   feedbackError: Error | null;
@@ -278,7 +276,6 @@ export async function openDocument(args: {
 type SelectionPreviewRequest = {
   api: PreloadApi;
   context: WorkbenchContextToken;
-  cursorPosition?: number;
   instruction: string;
   model: string;
   skillId: Extract<WorkbenchSkillId, "builtin:polish" | "builtin:rewrite">;
@@ -337,9 +334,10 @@ export async function requestAiPreview(args: SelectionPreviewRequest | ContinueP
   }
 
   return {
+    changeType: args.skillId === "builtin:continue" ? "insert" : "replace",
     context: args.context,
     executionId: result.data.executionId,
-    originalText: args.skillId === "builtin:continue" ? args.precedingText : args.selection.text,
+    originalText: args.skillId === "builtin:continue" ? "" : args.selection.text,
     selection: args.skillId === "builtin:continue" ? createInsertionSelection(args.cursorPosition) : args.selection,
     sourceUserEditRevision: args.userEditRevision,
     suggestedText,
@@ -362,13 +360,11 @@ export async function acceptAiPreview(args: {
     throw new StaleAiPreviewError();
   }
 
+  const beforeApply = args.bridge.getContent();
   const runWithoutAutosave = args.runWithoutAutosave ?? ((operation) => operation());
-  const beforeApply = args.preview.selection === null ? null : args.bridge.getContent();
-  if (args.preview.selection !== null) {
-    const replaceResult = runWithoutAutosave(() => args.bridge.replaceSelection(args.preview.selection!, args.preview.suggestedText));
-    if (replaceResult.ok === false) {
-      throw new SelectionChangedError();
-    }
+  const replaceResult = runWithoutAutosave(() => args.bridge.replaceSelection(args.preview.selection, args.preview.suggestedText));
+  if (replaceResult.ok === false) {
+    throw new SelectionChangedError();
   }
 
   const appliedAtUserEditRevision = args.getUserEditRevision();
@@ -380,16 +376,14 @@ export async function acceptAiPreview(args: {
   });
 
   if (!isAcceptedPreviewConfirmation(confirmResult)) {
-    if (beforeApply !== null) {
-      runWithoutAutosave(() => {
-        if (
-          args.getUserEditRevision() === appliedAtUserEditRevision
-          && args.getEditorContextRevision() === appliedAtEditorContextRevision
-        ) {
-          args.bridge.setContent(beforeApply);
-        }
-      });
-    }
+    runWithoutAutosave(() => {
+      if (
+        args.getUserEditRevision() === appliedAtUserEditRevision
+        && args.getEditorContextRevision() === appliedAtEditorContextRevision
+      ) {
+        args.bridge.setContent(beforeApply);
+      }
+    });
     throw toAcceptConfirmationError(confirmResult);
   }
 

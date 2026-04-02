@@ -457,7 +457,7 @@ button {
   text-decoration: line-through;
 }
 
-.preview-body--insertion {
+.preview-body--anchor {
   color: var(--color-fg-muted);
   background: var(--color-bg-muted);
 }
@@ -478,27 +478,6 @@ button {
 
 .panel-actions {
   justify-content: flex-end;
-}
-
-.panel-actions--launcher {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-}
-
-.launcher-action.cn-button {
-  min-width: 72px;
-}
-
-.launcher-action.cn-button:disabled {
-  cursor: not-allowed;
-}
-
-.launcher-action--selection-gated.cn-button:disabled {
-  border-style: dashed;
-  border-color: var(--color-separator);
-  background: var(--color-bg-muted);
-  color: var(--color-fg-muted);
-  opacity: 0.56;
 }
 
 .details-grid {
@@ -615,15 +594,6 @@ button {
 .cn-button--danger {
   background: var(--color-error-subtle);
   color: var(--color-error);
-}
-
-/* Disabled state: visually gate all cn-button elements per spec §disabled and
-   frontend-visual-quality §六. More-specific .launcher-action rules below can
-   override for the selection-gated case. */
-.cn-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
 }
 
 .cn-input,

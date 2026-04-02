@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
-import { createEditorBridge, type EditorBridge } from "@/editor/bridge";
+import { createEditorBridge } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
@@ -26,7 +26,6 @@ import {
   openDocument,
   rejectAiPreview,
   requestAiPreview,
-  type AiLauncherSkill,
   type AiPreview,
   type DocumentListItem,
   type DocumentRead,
@@ -91,11 +90,6 @@ type PendingAutosaveDraft = {
   contentJson: string;
   context: WorkbenchContextToken;
   request: SaveRequestToken;
-};
-
-type ContinueCursorContext = {
-  cursorPosition: number;
-  precedingText: string;
 };
 
 type SaveDocumentResult = Awaited<ReturnType<PreloadApi["file"]["saveDocument"]>>;
@@ -286,7 +280,6 @@ function WorkbenchShell() {
   const { t } = useTranslation();
   const api = useMemo(() => getPreloadApi(), []);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const editorBridgeRef = useRef<EditorBridge | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
   const autosaveSuppressionDepthRef = useRef(0);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -461,19 +454,6 @@ function WorkbenchShell() {
       setWorkbenchError(null, null);
     }
   }, [clearAcceptSaveRetryController, setPreview, setSaveUiState, setWorkbenchError]);
-
-  const syncContinueCursorContext = useCallback((selectionFallback: SelectionRef | null = null) => {
-    const view = editorBridgeRef.current?.view;
-    if (!view) {
-      setContinueCursorContext(null);
-      return;
-    }
-    const cursorPosition = selectionFallback?.to ?? view.state.selection.to;
-    setContinueCursorContext({
-      cursorPosition,
-      precedingText: view.state.doc.textBetween(0, cursorPosition, "\n", "\n"),
-    });
-  }, []);
 
   useEffect(() => {
     bootstrapStatusRef.current = bootstrapStatus;
@@ -661,11 +641,10 @@ function WorkbenchShell() {
   }, [clearPendingAutosaveTimer, flushPendingAutosaveDraft, isCurrentContextToken]);
 
   const editorBridge = useMemo(
-    () => {
-      const nextBridge = createEditorBridge({
+    () =>
+      createEditorBridge({
         onSelectionChange: (nextSelection) => {
           setLiveSelection(nextSelection);
-          syncContinueCursorContext(nextSelection);
 
           if (bootstrapStatusRef.current !== "ready" || isMeaningfulSelection(nextSelection) === false) {
             return;
@@ -702,11 +681,8 @@ function WorkbenchShell() {
             void flushPendingAutosaveDraft(nextDraft);
           }, AUTOSAVE_DELAY_MS);
         },
-      });
-      editorBridgeRef.current = nextBridge;
-      return nextBridge;
-    },
-    [clearAcceptSaveFailure, clearPendingAutosaveTimer, flushPendingAutosaveDraft, reserveSaveRequest, setSaveUiState, syncContinueCursorContext],
+      }),
+    [clearAcceptSaveFailure, clearPendingAutosaveTimer, flushPendingAutosaveDraft, reserveSaveRequest, setSaveUiState],
   );
 
   const replaceEditorContextContent = useCallback((nextContext: {
@@ -728,8 +704,7 @@ function WorkbenchShell() {
     runWithoutAutosave(() => {
       editorBridge.setContent(JSON.parse(nextContext.contentJson));
     });
-    syncContinueCursorContext();
-  }, [clearAcceptSaveFailure, clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave, syncContinueCursorContext]);
+  }, [clearAcceptSaveFailure, clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
 
   useEffect(() => {
     if (containerRef.current === null) {
@@ -927,18 +902,6 @@ function WorkbenchShell() {
       setWorkbenchError(t("messages.continueContextEmpty"), "general");
       return;
     }
-    const selection = skill === "continue" ? undefined : stickySelection ?? undefined;
-    const continueContext = skill === "continue" ? continueCursorContext : null;
-    const requiresInstruction = skill === "rewrite";
-    if (skill !== "continue" && selection === undefined) {
-      return;
-    }
-    if (requiresInstruction && instruction.trim().length === 0) {
-      return;
-    }
-    if (skill === "continue" && (continueContext === null || continueContext.precedingText.trim().length === 0)) {
-      return;
-    }
 
     const busyOperationId = reserveBusyOperation();
     try {
@@ -967,18 +930,12 @@ function WorkbenchShell() {
       if (isCurrentContextToken(previewContext)) {
         clearAcceptSaveFailure();
         setPreview(nextPreview);
-        if (skill !== "continue") {
-          setStickySelection(null);
-        }
+        setStickySelection(null);
       }
     } catch (error) {
       if (isCurrentContextToken(previewContext)) {
         if (error instanceof Error && error.message === "preview-unavailable") {
           setWorkbenchError(t("messages.previewUnavailable"), "general");
-        } else if (error instanceof Error && error.message === "instruction-required") {
-          setWorkbenchError(t("messages.rewriteInstructionRequired"), "general");
-        } else if (error instanceof Error && error.message === "context-required") {
-          setWorkbenchError(t("messages.continueContextRequired"), "general");
         } else {
           setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
         }
@@ -1240,9 +1197,6 @@ function WorkbenchShell() {
       return <AiPreviewSurface
         activeSkill={activeSkill}
         busy={busy}
-        canContinue={Boolean(continueCursorContext && continueCursorContext.precedingText.trim().length > 0)}
-        canPolish={stickySelection !== null}
-        canRewrite={stickySelection !== null && instruction.trim().length > 0}
         errorMessage={errorMessage}
         generateDisabled={activeSkill === "builtin:continue" ? continueReady === false : stickySelection === null}
         instruction={instruction}
@@ -1250,8 +1204,8 @@ function WorkbenchShell() {
         model={model}
         onAccept={() => void handleAcceptPreview()}
         onClearReference={clearReference}
+        onGenerate={() => void handleGeneratePreview()}
         onInstructionChange={setInstruction}
-        onLaunchSkill={(skill) => void handleLaunchSkill(skill)}
         onModelChange={setModel}
         onReject={() => void handleRejectPreview()}
         onSkillChange={selectAiSkill}
