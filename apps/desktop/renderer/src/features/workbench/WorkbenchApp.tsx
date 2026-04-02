@@ -508,10 +508,11 @@ export function WorkbenchApp() {
       setPreview(nextPreview);
       setStickySelection(null);
     } catch (error) {
-      const normalizedError = error instanceof Error && error.message === "preview-unavailable"
-        ? new Error(t("messages.previewUnavailable"))
-        : (error as Error);
-      setErrorMessage(getHumanErrorMessage(normalizedError, t));
+      if (error instanceof Error && error.message === "preview-unavailable") {
+        setErrorMessage(t("messages.previewUnavailable"));
+      } else {
+        setErrorMessage(getHumanErrorMessage(error as Error, t));
+      }
     } finally {
       setBusy(false);
     }
@@ -536,10 +537,11 @@ export function WorkbenchApp() {
       setSaveState("saved");
       setLastSavedAt(Date.now());
     } catch (error) {
-      const normalizedError = error instanceof SelectionChangedError
-        ? new Error(t("messages.selectionChanged"))
-        : (error as Error);
-      setErrorMessage(getHumanErrorMessage(normalizedError, t));
+      if (error instanceof SelectionChangedError) {
+        setErrorMessage(t("messages.selectionChanged"));
+      } else {
+        setErrorMessage(getHumanErrorMessage(error as Error, t));
+      }
       setSaveState("error");
     } finally {
       setBusy(false);
