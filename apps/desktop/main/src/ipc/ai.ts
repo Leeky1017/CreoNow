@@ -37,6 +37,12 @@ import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 type SkillRunPayload = {
   skillId: string;
   hasSelection?: boolean;
+  selection?: {
+    from: number;
+    to: number;
+    text: string;
+    selectionTextHash: string;
+  };
   input: string;
   mode: "agent" | "plan" | "ask";
   model: string;
@@ -796,6 +802,7 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
           const res = await ctx.skillExecutor.execute({
             skillId: payload.skillId,
             hasSelection: payload.hasSelection,
+            selection: payload.selection,
             input: payload.input,
             mode: payload.mode,
             model: payload.model,
@@ -863,6 +870,7 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
           const res = await ctx.skillExecutor.execute({
             skillId: payload.skillId,
             hasSelection: payload.hasSelection,
+            selection: payload.selection,
             input: payload.input,
             mode: payload.mode,
             model: payload.model,

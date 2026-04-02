@@ -1030,6 +1030,14 @@ export const ipcContract = {
       request: s.object({
         skillId: s.string(),
         hasSelection: s.optional(s.boolean()),
+        selection: s.optional(
+          s.object({
+            from: s.number(),
+            to: s.number(),
+            text: s.string(),
+            selectionTextHash: s.string(),
+          }),
+        ),
         input: s.string(),
         mode: s.union(s.literal("agent"), s.literal("plan"), s.literal("ask")),
         model: s.string(),

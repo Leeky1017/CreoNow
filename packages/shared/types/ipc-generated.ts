@@ -541,6 +541,12 @@ export type IpcChannelSpec = {
         promptHash: string;
         stablePrefixHash: string;
       };
+      selection?: {
+        from: number;
+        selectionTextHash: string;
+        text: string;
+        to: number;
+      };
       skillId: string;
       stream: boolean;
     };

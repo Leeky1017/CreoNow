@@ -1,6 +1,16 @@
 import { InputRule, inputRules, textblockTypeInputRule, wrappingInputRule } from "prosemirror-inputrules";
-import { Schema, type MarkType, type Node as ProseMirrorNode } from "prosemirror-model";
-import { Plugin, type EditorState, type Transaction } from "prosemirror-state";
+import {
+  Fragment,
+  Schema,
+  type MarkType,
+  type Node as ProseMirrorNode,
+} from "prosemirror-model";
+import {
+  Plugin,
+  Selection,
+  type EditorState,
+  type Transaction,
+} from "prosemirror-state";
 
 import { sha256Hex } from "../sha256";
 
@@ -224,12 +234,87 @@ function createDelimitedMarkInputRule(
   );
 }
 
-function createHorizontalRuleInputRule(schema: Schema): InputRule {
-  return new InputRule(
-    inputRuleDescriptors[7].pattern,
-    (state: EditorState, _match: RegExpMatchArray, start: number, end: number): Transaction =>
-      state.tr.replaceRangeWith(start, end, schema.nodes.horizontal_rule.create()),
-  );
+function createEnterTriggeredBlockTransform(args: {
+  schema: Schema;
+  state: EditorState;
+  marker: string;
+}): Transaction | null {
+  const { schema, state, marker } = args;
+  const { selection } = state;
+  if (selection.empty === false) {
+    return null;
+  }
+
+  const { $from } = selection;
+  const parent = $from.parent;
+  if (parent.type !== schema.nodes.paragraph) {
+    return null;
+  }
+
+  const lineText = parent.textContent;
+  if (lineText !== marker || $from.parentOffset !== parent.content.size) {
+    return null;
+  }
+
+  const blockFrom = $from.before();
+  const blockTo = $from.after();
+
+  if (marker === "---") {
+    const horizontalRule = schema.nodes.horizontal_rule.create();
+    const paragraph = schema.nodes.paragraph.create();
+    const tr = state.tr.replaceWith(
+      blockFrom,
+      blockTo,
+      Fragment.fromArray([horizontalRule, paragraph]),
+    );
+    return tr
+      .setSelection(
+        Selection.near(tr.doc.resolve(blockFrom + horizontalRule.nodeSize), 1),
+      )
+      .scrollIntoView();
+  }
+
+  if (marker === "```") {
+    const codeBlock = schema.nodes.code_block.create();
+    const tr = state.tr.replaceWith(blockFrom, blockTo, codeBlock);
+    return tr
+      .setSelection(Selection.near(tr.doc.resolve(blockFrom + 1), 1))
+      .scrollIntoView();
+  }
+
+  return null;
+}
+
+function buildEnterTriggeredMarkdownPlugin(schema: Schema): Plugin {
+  return new Plugin({
+    props: {
+      handleKeyDown(view, event) {
+        if (event.key !== "Enter") {
+          return false;
+        }
+
+        const tr =
+          createEnterTriggeredBlockTransform({
+            schema,
+            state: view.state,
+            marker: "---",
+          }) ??
+          createEnterTriggeredBlockTransform({
+            schema,
+            state: view.state,
+            marker: "```",
+          });
+
+        if (tr === null) {
+          return false;
+        }
+
+        event.preventDefault();
+        view.dispatch(tr);
+        return true;
+      },
+    },
+  });
 }
 
 export function createEditorInputRules(schema: Schema = editorSchema): InputRule[] {
@@ -245,8 +330,6 @@ export function createEditorInputRules(schema: Schema = editorSchema): InputRule
     wrappingInputRule(inputRuleDescriptors[6].pattern, schema.nodes.ordered_list, (match: RegExpMatchArray) => ({
       order: Number(match[1]),
     })),
-    createHorizontalRuleInputRule(schema),
-    textblockTypeInputRule(inputRuleDescriptors[8].pattern, schema.nodes.code_block),
   ];
 }
 
@@ -254,6 +337,12 @@ export function createEditorInputRulesPlugin(schema: Schema = editorSchema): Plu
   return inputRules({
     rules: createEditorInputRules(schema),
   });
+}
+
+export function createEnterTriggeredMarkdownPlugin(
+  schema: Schema = editorSchema,
+): Plugin {
+  return buildEnterTriggeredMarkdownPlugin(schema);
 }
 
 export function getInputRules(): InputRuleDescriptor[] {

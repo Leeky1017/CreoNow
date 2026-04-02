@@ -1,5 +1,6 @@
 export {
   computeSelectionTextHash,
+  createEnterTriggeredMarkdownPlugin,
   createEditorInputRules,
   createEditorInputRulesPlugin,
   createEmptyDoc,

@@ -5,6 +5,7 @@ import { EditorState, Plugin, type Transaction } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 
 import {
+  createEnterTriggeredMarkdownPlugin,
   createEditorInputRulesPlugin,
   createSelectionRef,
   docFromJson,
@@ -51,6 +52,7 @@ function createPlugins(onSelectionChange?: (selection: SelectionRef | null) => v
   return [
     history(),
     createEditorInputRulesPlugin(editorSchema),
+    createEnterTriggeredMarkdownPlugin(editorSchema),
     keymap(baseKeymap),
     new Plugin({
       view(view) {

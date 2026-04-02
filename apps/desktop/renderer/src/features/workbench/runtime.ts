@@ -221,6 +221,7 @@ export async function requestAiPreview(args: {
   const result = await args.api.ai.runSkill({
     skillId: "builtin:rewrite",
     hasSelection: true,
+    selection: args.selection,
     input: prompt,
     mode: "ask",
     model: args.model,

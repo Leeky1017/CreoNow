@@ -34,6 +34,12 @@ export type ResolvedRunnableSkill = {
 export type SkillExecutorRunArgs = {
   skillId: string;
   hasSelection?: boolean;
+  selection?: {
+    from: number;
+    to: number;
+    text: string;
+    selectionTextHash: string;
+  };
   systemPrompt?: string;
   input: string;
   timeoutMs?: number;

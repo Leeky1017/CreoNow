@@ -71,6 +71,17 @@ describe("workbench runtime helpers", () => {
     });
 
     expect(preview.suggestedText).toBe("rewritten");
+    expect(api.ai.runSkill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasSelection: true,
+        selection: expect.objectContaining({
+          from: 1,
+          to: 3,
+          text: "原文",
+          selectionTextHash: "hash",
+        }),
+      }),
+    );
 
     await acceptAiPreview({
       api,
