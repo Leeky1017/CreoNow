@@ -1118,7 +1118,13 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         },
       });
       if (!prepared.ok) {
-        throw new Error(prepared.error.message);
+        const err = Object.assign(new Error(prepared.error.message), {
+          code: prepared.error.code,
+          ...(prepared.error.details !== undefined
+            ? { details: prepared.error.details }
+            : {}),
+        });
+        throw err;
       }
       return prepared.data;
     },

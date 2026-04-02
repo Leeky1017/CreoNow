@@ -533,4 +533,70 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(read.ok).toBe(true);
     expect(read.ok && read.data.contentText).toBe("原文");
   });
+
+  it("空 input 经 IPC seam 返回 SKILL_INPUT_EMPTY，不被压扁为 INTERNAL", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      error?: { code: string; message: string };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      // empty input — selection-based skill requires non-empty input
+      input: "",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "",
+        selectionTextHash: computeSelectionTextHash(""),
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(false);
+    expect(run.error?.code).toBe("SKILL_INPUT_EMPTY");
+    // must NOT be flattened to INTERNAL
+    expect(run.error?.code).not.toBe("INTERNAL");
+  });
+
+  it("空 input 通过 rewrite skill 同样返回 SKILL_INPUT_EMPTY", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      error?: { code: string; message: string };
+    }>("ai:skill:run", {
+      skillId: "builtin:rewrite",
+      hasSelection: true,
+      input: "   ",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "   ",
+        selectionTextHash: computeSelectionTextHash("   "),
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(false);
+    expect(run.error?.code).toBe("SKILL_INPUT_EMPTY");
+    expect(run.error?.code).not.toBe("INTERNAL");
+  });
 });

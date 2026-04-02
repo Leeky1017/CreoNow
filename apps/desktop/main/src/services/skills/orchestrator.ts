@@ -561,11 +561,18 @@ export function createWritingOrchestrator(
         pruneTaskStates();
       } catch (error) {
         taskStates.set(requestId, "failed");
+        const errObj = error as Record<string, unknown>;
+        const errCode =
+          typeof errObj?.code === "string" && errObj.code.length > 0
+            ? errObj.code
+            : "INTERNAL";
+        const errDetails = errObj?.details;
         yield makeEvent("error", requestId, {
           error: {
-            code: "INTERNAL",
+            code: errCode,
             message: error instanceof Error ? error.message : String(error),
             retryable: false,
+            ...(errDetails !== undefined ? { details: errDetails } : {}),
           },
         });
       } finally {
