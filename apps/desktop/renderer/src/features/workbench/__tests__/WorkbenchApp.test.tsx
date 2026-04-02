@@ -141,12 +141,12 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
   });
 
-  it("keeps the accept flow saved when feedback submission fails", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("keeps the accept flow saved but surfaces feedback failure when submitSkillFeedback returns ok:false", async () => {
     window.api = createApiMock();
-    window.api.ai.submitSkillFeedback = vi.fn(async () => {
-      throw new Error("feedback failed");
-    });
+    window.api.ai.submitSkillFeedback = vi.fn(async () => ({
+      ok: false as const,
+      error: { code: "DB_ERROR", message: "feedback failed" },
+    })) as typeof window.api.ai.submitSkillFeedback;
 
     render(<WorkbenchApp />);
 
@@ -171,9 +171,31 @@ describe("WorkbenchApp", () => {
       reason: "ai-accept",
     }));
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "保存失败" })).toBeNull();
-    expect(screen.queryByRole("alert")).toBeNull();
-    consoleError.mockRestore();
+    expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+  });
+
+  it("keeps the preview visible when reject feedback returns ok:false", async () => {
+    window.api = createApiMock();
+    window.api.ai.submitSkillFeedback = vi.fn(async () => ({
+      ok: false as const,
+      error: { code: "DB_ERROR", message: "feedback failed" },
+    })) as typeof window.api.ai.submitSkillFeedback;
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("拒绝建议时反馈失败不能假装成功。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "拒绝" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
+    expect(screen.getByText("改写后的句子")).toBeInTheDocument();
   });
 
   it("restores persisted shell layout and supports resizing with clamp and reset", async () => {

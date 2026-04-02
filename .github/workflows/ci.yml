@@ -36,6 +36,9 @@ jobs:
       - name: Integration tests
         run: pnpm test:integration
 
+      - name: Renderer tests
+        run: pnpm -C apps/desktop test:renderer
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

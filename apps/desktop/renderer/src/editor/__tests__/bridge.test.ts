@@ -1,4 +1,6 @@
+import { render } from "@testing-library/react";
 import { TextSelection } from "prosemirror-state";
+import { createElement, useEffect, useRef } from "react";
 import { describe, expect, it } from "vitest";
 
 import { createEditorBridge } from "@/editor/bridge";
@@ -13,6 +15,20 @@ function createDoc(text: string) {
       },
     ],
   };
+}
+
+function BridgeHost({ bridge }: { bridge: ReturnType<typeof createEditorBridge> }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      bridge.mount(containerRef.current);
+    }
+
+    return () => bridge.destroy();
+  }, [bridge]);
+
+  return createElement("div", { ref: containerRef });
 }
 
 describe("createEditorBridge", () => {
@@ -36,6 +52,35 @@ describe("createEditorBridge", () => {
     const selection = bridge.getSelection();
     expect(selection).not.toBeNull();
     expect(selection?.text).toBe("hello");
+  });
+
+  it("returns null when there is no text selection", () => {
+    const bridge = createEditorBridge();
+    const container = document.createElement("div");
+    document.body.append(container);
+
+    bridge.mount(container, createDoc("hello world"));
+
+    const view = bridge.view;
+    if (view === null) {
+      throw new Error("EditorView missing");
+    }
+
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1)));
+
+    expect(bridge.getSelection()).toBeNull();
+  });
+
+  it("destroys the EditorView when the hosting component unmounts", () => {
+    const bridge = createEditorBridge();
+    const rendered = render(createElement(BridgeHost, { bridge }));
+
+    expect(rendered.container.querySelector(".ProseMirror")).not.toBeNull();
+
+    rendered.unmount();
+
+    expect(bridge.view).toBeNull();
+    expect(rendered.container.querySelector(".ProseMirror")).toBeNull();
   });
 
   it("blocks write-back when selection hash no longer matches", () => {

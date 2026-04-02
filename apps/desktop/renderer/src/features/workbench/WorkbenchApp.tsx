@@ -525,7 +525,7 @@ export function WorkbenchApp() {
 
     try {
       setBusy(true);
-      await acceptAiPreview({
+      const result = await acceptAiPreview({
         api,
         bridge: editorBridge,
         projectId: project.projectId,
@@ -533,9 +533,9 @@ export function WorkbenchApp() {
         preview,
       });
       setPreview(null);
-      setErrorMessage(null);
+      setErrorMessage(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null);
       setSaveState("saved");
-      setLastSavedAt(Date.now());
+      setLastSavedAt(result.updatedAt);
     } catch (error) {
       if (error instanceof SelectionChangedError) {
         setErrorMessage(t("messages.selectionChanged"));

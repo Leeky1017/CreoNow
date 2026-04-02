@@ -1,8 +1,8 @@
-import type { IpcResponseData } from "@shared/types/ipc-generated";
+import type { IpcError, IpcResponseData } from "@shared/types/ipc-generated";
 
 import type { EditorBridge } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
-import type { PreloadApi } from "@/lib/preloadApi";
+import { RendererIpcError, type PreloadApi } from "@/lib/preloadApi";
 
 export type ProjectListItem = IpcResponseData<"project:project:list">["items"][number];
 export type DocumentListItem = IpcResponseData<"file:document:list">["items"][number];
@@ -26,11 +26,24 @@ export interface AiPreview {
   suggestedText: string;
 }
 
+export interface AcceptAiPreviewResult {
+  feedbackError: Error | null;
+  updatedAt: number;
+}
+
 export class SelectionChangedError extends Error {
   public constructor() {
     super("selection-changed");
     this.name = "SelectionChangedError";
   }
+}
+
+function toFeedbackError(error: IpcError | Error): Error {
+  if ("code" in error) {
+    return new RendererIpcError(error);
+  }
+
+  return error;
 }
 
 export async function bootstrapWorkspace(api: PreloadApi, labels: BootstrapLabels): Promise<WorkspaceBootstrap> {
@@ -254,7 +267,7 @@ export async function acceptAiPreview(args: {
   documentId: string;
   preview: AiPreview;
   projectId: string;
-}): Promise<void> {
+}): Promise<AcceptAiPreviewResult> {
   const beforeApply = args.bridge.getContent();
   const replaceResult = args.bridge.replaceSelection(args.preview.selection, args.preview.suggestedText);
   if (replaceResult.ok === false) {
@@ -274,21 +287,35 @@ export async function acceptAiPreview(args: {
     throw saveResult.error;
   }
 
+  let feedbackError: Error | null = null;
   try {
-    await args.api.ai.submitSkillFeedback({
+    const feedbackResult = await args.api.ai.submitSkillFeedback({
       runId: args.preview.runId,
       action: "accept",
       evidenceRef: "renderer-p1-accept",
     });
+
+    if (feedbackResult.ok === false) {
+      feedbackError = toFeedbackError(feedbackResult.error);
+    }
   } catch (error) {
-    console.error("Failed to submit AI accept feedback", error);
+    feedbackError = error instanceof Error ? error : new Error("AI feedback failed");
   }
+
+  return {
+    feedbackError,
+    updatedAt: saveResult.data.updatedAt,
+  };
 }
 
 export async function rejectAiPreview(api: PreloadApi, preview: AiPreview): Promise<void> {
-  await api.ai.submitSkillFeedback({
+  const feedbackResult = await api.ai.submitSkillFeedback({
     runId: preview.runId,
     action: "reject",
     evidenceRef: "renderer-p1-reject",
   });
+
+  if (feedbackResult.ok === false) {
+    throw new RendererIpcError(feedbackResult.error);
+  }
 }

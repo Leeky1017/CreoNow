@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import { WorkbenchApp } from "@/features/workbench/WorkbenchApp";
 import "@/i18n/config";
+import { installGlobalErrorHandlers } from "@/lib/globalErrorBridge";
 import "@/styles/index.css";
 
 const rootElement = document.getElementById("root");
@@ -12,6 +13,7 @@ if (rootElement === null) {
 }
 
 document.documentElement.classList.add("dark");
+installGlobalErrorHandlers();
 
 createRoot(rootElement).render(
   <StrictMode>

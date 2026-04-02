@@ -152,6 +152,35 @@ describe("markdown input rules", () => {
     expect(textNode?.marks.map((mark) => mark.type.name)).toEqual(["code"]);
   });
 
+
+  it("does not apply markdown input rules inside a code block", () => {
+    const bridge = createEditorBridge();
+    const container = document.createElement("div");
+    document.body.append(container);
+
+    bridge.mount(container, {
+      type: "doc",
+      content: [
+        {
+          type: "code_block",
+          content: [{ type: "text", text: "seed" }],
+        },
+      ],
+    });
+
+    const view = bridge.view;
+    if (view === null) {
+      throw new Error("EditorView missing");
+    }
+
+    const endOfCodeBlock = view.state.doc.content.size - 1;
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, endOfCodeBlock)));
+    typeText(view, "**bold**");
+
+    expect(view.state.doc.firstChild?.type.name).toBe("code_block");
+    expect(view.state.doc.firstChild?.textContent).toBe("seed**bold**");
+  });
+
   it("keeps selection hash verification on authoritative schema after shortcut transforms", () => {
     const bridge = createEditorBridge();
     const container = document.createElement("div");

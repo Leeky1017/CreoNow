@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { acceptAiPreview, bootstrapWorkspace, requestAiPreview, type AiPreview } from "@/features/workbench/runtime";
+import { acceptAiPreview, bootstrapWorkspace, rejectAiPreview, requestAiPreview, type AiPreview } from "@/features/workbench/runtime";
 import type { PreloadApi } from "@/lib/preloadApi";
 
 function createApiMock(): PreloadApi {
@@ -99,19 +99,19 @@ describe("workbench runtime helpers", () => {
     );
   });
 
-  it("keeps accept successful when feedback submission fails after save", async () => {
+  it("returns a visible feedback error when accept feedback responds with ok:false after save", async () => {
     const api = createApiMock();
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    api.ai.submitSkillFeedback = vi.fn(async () => {
-      throw new Error("feedback failed");
-    }) as typeof api.ai.submitSkillFeedback;
+    api.ai.submitSkillFeedback = vi.fn(async () => ({
+      ok: false,
+      error: { code: "DB_ERROR", message: "feedback failed" },
+    })) as typeof api.ai.submitSkillFeedback;
     const bridge = {
       getContent: vi.fn(() => ({ type: "doc" })),
       replaceSelection: vi.fn(() => ({ ok: true as const })),
       setContent: vi.fn(),
     } as unknown as Parameters<typeof acceptAiPreview>[0]["bridge"];
 
-    await expect(acceptAiPreview({
+    const result = await acceptAiPreview({
       api,
       bridge,
       projectId: "project-1",
@@ -127,13 +127,33 @@ describe("workbench runtime helpers", () => {
           selectionTextHash: "hash",
         },
       },
-    })).resolves.toBeUndefined();
+    });
 
     expect(api.file.saveDocument).toHaveBeenCalledWith(
       expect.objectContaining({ actor: "ai", reason: "ai-accept" }),
     );
     expect(bridge.setContent).not.toHaveBeenCalled();
-    expect(consoleError).toHaveBeenCalledWith("Failed to submit AI accept feedback", expect.any(Error));
-    consoleError.mockRestore();
+    expect(result.updatedAt).toBe(2);
+    expect(result.feedbackError).toMatchObject({ code: "DB_ERROR", message: "feedback failed" });
+  });
+
+  it("rejects preview dismissal when feedback responds with ok:false", async () => {
+    const api = createApiMock();
+    api.ai.submitSkillFeedback = vi.fn(async () => ({
+      ok: false,
+      error: { code: "DB_ERROR", message: "feedback failed" },
+    })) as typeof api.ai.submitSkillFeedback;
+
+    await expect(rejectAiPreview(api, {
+      originalText: "原文",
+      suggestedText: "rewritten",
+      runId: "run-1",
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: "hash",
+      },
+    })).rejects.toMatchObject({ code: "DB_ERROR", message: "feedback failed" });
   });
 });
