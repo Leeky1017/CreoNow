@@ -42,11 +42,13 @@ function createParagraphNodes(text: string) {
 
 export function appendSuggestionToDocument(args: {
   contentJson: unknown;
+  cursorPosition?: number;
   suggestion: string;
 }): DocumentWritebackResult {
   try {
     const doc = ProseMirrorNode.fromJSON(editorSchema, args.contentJson);
-    const appendedNodes = createParagraphNodes(args.suggestion);
+    const normalizedSuggestion = args.suggestion.replace(/\r\n/g, "\n");
+    const appendedNodes = createParagraphNodes(normalizedSuggestion);
     if (appendedNodes.length === 0) {
       return {
         ok: true,
@@ -57,7 +59,20 @@ export function appendSuggestionToDocument(args: {
     }
 
     const tr = new Transform(doc);
-    tr.insert(doc.content.size, Fragment.fromArray(appendedNodes));
+    if (
+      typeof args.cursorPosition === "number" &&
+      Number.isSafeInteger(args.cursorPosition) &&
+      args.cursorPosition >= 0
+    ) {
+      const insertionPoint = Math.min(args.cursorPosition, doc.content.size);
+      tr.replaceWith(
+        insertionPoint,
+        insertionPoint,
+        editorSchema.text(normalizedSuggestion),
+      );
+    } else {
+      tr.insert(doc.content.size, Fragment.fromArray(appendedNodes));
+    }
 
     return {
       ok: true,

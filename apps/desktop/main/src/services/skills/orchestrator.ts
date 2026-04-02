@@ -20,6 +20,7 @@ export interface WritingRequest {
   documentId: string;
   projectId?: string;
   modelId?: string;
+  cursorPosition?: number;
   selection?: {
     from: number;
     to: number;
@@ -514,6 +515,7 @@ export function createWritingOrchestrator(
           documentId: request.documentId,
           requestId,
           content: fullText,
+          cursorPosition: request.cursorPosition,
           selection: request.selection,
         });
         if (!writeResult.success) {

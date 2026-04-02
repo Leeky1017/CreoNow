@@ -43,6 +43,7 @@ import { estimateTokens } from "../services/context/tokenEstimation";
 type SkillRunPayload = {
   skillId: string;
   hasSelection?: boolean;
+  cursorPosition?: number;
   input: string;
   mode: "agent" | "plan" | "ask";
   model: string;
@@ -57,6 +58,20 @@ type SkillRunPayload = {
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
   stream: boolean;
 };
+
+function resolveCursorPosition(payload: SkillRunPayload): number | undefined {
+  if (payload.selection) {
+    return payload.selection.to;
+  }
+  if (
+    typeof payload.cursorPosition === "number" &&
+    Number.isSafeInteger(payload.cursorPosition) &&
+    payload.cursorPosition >= 0
+  ) {
+    return payload.cursorPosition;
+  }
+  return undefined;
+}
 
 type SkillRunUsage = {
   promptTokens: number;
@@ -429,12 +444,14 @@ async function prepareWritingRequest(args: {
   let contextPrompt = "";
   const projectId = args.payload.context?.projectId?.trim() ?? "";
   const documentId = args.payload.context?.documentId?.trim() ?? "";
+  const cursorPosition = resolveCursorPosition(args.payload);
+
   if (projectId.length > 0 && documentId.length > 0) {
     try {
       const assembled = await args.ctx.contextAssemblyService.assemble({
         projectId,
         documentId,
-        cursorPosition: args.payload.selection?.to ?? 0,
+        cursorPosition: cursorPosition ?? 0,
         skillId: args.payload.skillId,
         additionalInput: input,
         provider: "ai-service",
@@ -1613,6 +1630,18 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
           },
         };
       }
+      if (
+        payload.cursorPosition !== undefined &&
+        (!Number.isSafeInteger(payload.cursorPosition) || payload.cursorPosition < 0)
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "cursorPosition must be a non-negative integer",
+          },
+        };
+      }
 
       const stats = createStatsService({
         db: ctx.deps.db,
@@ -1632,6 +1661,7 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
       const executionId = randomUUID();
       const runId = randomUUID();
       const traceId = executionId;
+      const cursorPosition = resolveCursorPosition(payload);
       const generator = ctx.writingOrchestrator.execute({
         requestId: executionId,
         skillId: payload.skillId,
@@ -1640,6 +1670,7 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         projectId,
         modelId: payload.model,
         ...(payload.selection ? { selection: payload.selection } : {}),
+        ...(cursorPosition === undefined ? {} : { cursorPosition }),
       });
 
       rememberRunInRegistry(ctx, {

@@ -602,12 +602,12 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(run.error?.code).not.toBe("INTERNAL");
   });
 
-  it("builtin:continue accept 走文档级写回，不再卡死在 selection-only 路径", async () => {
+  it("builtin:continue accept 会把续写结果插入到显式光标位置，而不是文末", async () => {
     const harness = createHarness();
     opened.push(harness.db);
     const { projectId, documentId } = createProjectAndDocument({
       db: harness.db,
-      text: "原文",
+      text: "甲乙丙丁",
     });
 
     const run = await harness.invoke<{
@@ -621,7 +621,8 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     }>("ai:skill:run", {
       skillId: "builtin:continue",
       hasSelection: false,
-      input: "原文",
+      cursorPosition: 3,
+      input: "甲乙丙丁",
       mode: "ask",
       model: "gpt-5.2",
       context: { projectId, documentId },
@@ -651,10 +652,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     const service = createDocumentService({ db: harness.db, logger: createLogger() });
     const read = service.read({ projectId, documentId });
     expect(read.ok).toBe(true);
-    expect(read.ok && read.data.contentText.startsWith("原文")).toBe(true);
-    expect(read.ok && read.data.contentText.endsWith(run.data?.outputText ?? "")).toBe(
-      true,
-    );
+    expect(read.ok && read.data.contentText).toBe(`甲乙${run.data?.outputText ?? ""}丙丁`);
   });
 
   it("preview 超时在等待期间自动收口，并清理 preview session", async () => {

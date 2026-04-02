@@ -241,6 +241,32 @@ describe("WritingOrchestrator", () => {
       );
     });
 
+    it("continue 无 selection 但有 cursorPosition 时，会把光标位置透传给 documentWrite", async () => {
+      await collectEvents(
+        orchestrator.execute(
+          makeRequest({
+            skillId: "continue",
+            input: { selectedText: "甲乙丙丁" },
+            selection: undefined,
+            cursorPosition: 3,
+          }),
+        ),
+      );
+
+      const writeTool = config.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+
+      expect(writeTool?.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: "doc-001",
+          content: "润色后的文字。",
+          cursorPosition: 3,
+          selection: undefined,
+        }),
+      );
+    });
+
     it("hooks-done 事件列出已执行的 hook 名称", async () => {
       const events = await collectEvents(orchestrator.execute(makeRequest()));
       const hooksEvent = events.find((e) => e.type === "hooks-done") as

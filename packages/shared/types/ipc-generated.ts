@@ -553,6 +553,7 @@ export type IpcChannelSpec = {
         documentId?: string;
         projectId?: string;
       };
+      cursorPosition?: number;
       hasSelection?: boolean;
       input: string;
       mode: "agent" | "plan" | "ask";

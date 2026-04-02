@@ -68,6 +68,8 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
             })
           : appendSuggestionToDocument({
               contentJson: parsedContent,
+              cursorPosition:
+                typeof ctx.cursorPosition === "number" ? ctx.cursorPosition : undefined,
               suggestion,
             });
         if (!applied.ok) {
