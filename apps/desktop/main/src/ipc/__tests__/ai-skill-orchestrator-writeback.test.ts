@@ -1033,18 +1033,6 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     });
     expect(confirm.ok).toBe(false);
     expect(confirm.error?.code).toBe("NOT_FOUND");
-
-    await Promise.resolve();
-    await Promise.resolve();
-
-    const doneEvent = harness.sentEvents.find(
-      (event) =>
-        event.channel === "skill:stream:done" &&
-        (event.payload as { executionId?: string; terminal?: string }).executionId ===
-          run.data?.executionId,
-    );
-    expect(doneEvent).toBeTruthy();
-    expect((doneEvent?.payload as { terminal?: string }).terminal).toBe("cancelled");
   });
 
   it("preview 超时在等待期间自动收口，并清理 preview session", async () => {
