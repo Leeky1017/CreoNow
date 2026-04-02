@@ -1035,6 +1035,50 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(confirm.error?.code).toBe("NOT_FOUND");
   });
 
+  it("preview session is cleaned up immediately when renderer navigates", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: { executionId: string; status: "preview" | "completed" | "rejected" };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "原文",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: false,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+
+    harness.emitRendererEvent("did-navigate");
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      error?: { code: string; message: string };
+    }>("ai:skill:confirm", {
+      executionId: run.data?.executionId,
+      action: "accept",
+      projectId,
+    });
+    expect(confirm.ok).toBe(false);
+    expect(confirm.error?.code).toBe("NOT_FOUND");
+  });
+
   it("preview 超时在等待期间自动收口，并清理 preview session", async () => {
     const realSetTimeout = global.setTimeout;
     vi.spyOn(global, "setTimeout").mockImplementation(
