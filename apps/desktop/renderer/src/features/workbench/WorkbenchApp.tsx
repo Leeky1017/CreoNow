@@ -30,6 +30,7 @@ import {
   type DocumentListItem,
   type DocumentRead,
   type ProjectListItem,
+  type SkillId,
   type WorkbenchContextToken,
 } from "@/features/workbench/runtime";
 import { AppToastProvider, useAppToast } from "@/lib/appToast";
@@ -404,6 +405,7 @@ function WorkbenchShell() {
   const [stickySelection, setStickySelection] = useState<SelectionRef | null>(null);
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [instruction, setInstruction] = useState("");
+  const [activeSkill, setActiveSkill] = useState<SkillId>("rewrite");
   const [preview, setPreview] = useState<AiPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -872,7 +874,9 @@ function WorkbenchShell() {
   };
 
   const handleGeneratePreview = async () => {
-    if (stickySelection === null) {
+    // continue 技能不需要选区；polish / rewrite 需要选区
+    const needsSelection = activeSkill !== "continue";
+    if (needsSelection && stickySelection === null) {
       return;
     }
 
@@ -886,10 +890,18 @@ function WorkbenchShell() {
       setBusy(true);
       clearAcceptSaveFailure();
       setWorkbenchError(null, null);
+
+      // continue 技能：取光标前文作为上下文
+      const cursorContext = activeSkill === "continue"
+        ? editorBridge.getCursorContext()
+        : null;
+
       const nextPreview = await requestAiPreview({
         api,
         context: previewContext,
-        selection: stickySelection,
+        skillId: activeSkill,
+        selection: needsSelection ? stickySelection : null,
+        cursorContext,
         instruction,
         model,
         userEditRevision: userEditRevisionRef.current,
@@ -897,12 +909,16 @@ function WorkbenchShell() {
       if (isCurrentContextToken(previewContext)) {
         clearAcceptSaveFailure();
         setPreview(nextPreview);
-        setStickySelection(null);
+        if (needsSelection) {
+          setStickySelection(null);
+        }
       }
     } catch (error) {
       if (isCurrentContextToken(previewContext)) {
         if (error instanceof Error && error.message === "preview-unavailable") {
           setWorkbenchError(t("messages.previewUnavailable"), "general");
+        } else if (error instanceof Error && error.message === "skill-context-empty") {
+          setWorkbenchError(t("messages.skillContextEmpty"), "general");
         } else {
           setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
         }
@@ -1155,6 +1171,7 @@ function WorkbenchShell() {
   const renderRightPanelContent = () => {
     if (activeRightPanel === "ai") {
       return <AiPreviewSurface
+        activeSkill={activeSkill}
         busy={busy}
         errorMessage={errorMessage}
         instruction={instruction}
@@ -1165,6 +1182,7 @@ function WorkbenchShell() {
         onInstructionChange={setInstruction}
         onModelChange={setModel}
         onReject={() => void handleRejectPreview()}
+        onSkillChange={setActiveSkill}
         preview={preview}
         reference={stickySelection}
       />;

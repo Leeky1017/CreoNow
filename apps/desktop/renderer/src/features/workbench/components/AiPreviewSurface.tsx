@@ -4,11 +4,12 @@ import { Button } from "@/components/primitives/Button";
 import { Input } from "@/components/primitives/Input";
 import { Textarea } from "@/components/primitives/Textarea";
 import type { SelectionRef } from "@/editor/schema";
-import type { AiPreview } from "@/features/workbench/runtime";
+import type { AiPreview, SkillId } from "@/features/workbench/runtime";
 
 const MAX_REFERENCE_LENGTH = 120;
 
 interface AiPreviewSurfaceProps {
+  activeSkill: SkillId;
   busy: boolean;
   errorMessage: string | null;
   instruction: string;
@@ -19,6 +20,7 @@ interface AiPreviewSurfaceProps {
   onInstructionChange: (value: string) => void;
   onModelChange: (value: string) => void;
   onReject: () => void;
+  onSkillChange: (skill: SkillId) => void;
   preview: AiPreview | null;
   reference: SelectionRef | null;
 }
@@ -33,9 +35,22 @@ function truncateReference(text: string): string {
 
 export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
   const { t } = useTranslation();
+
+  // continue 不需要选区；polish / rewrite 依赖选区
+  const needsSelection = props.activeSkill !== "continue";
   const selectionHint = props.reference
     ? t("panel.ai.selectionLength", { count: props.reference.text.length })
-    : t("editor.selectionHint");
+    : needsSelection
+      ? t("editor.selectionHint")
+      : t("panel.ai.continueHint");
+
+  // 生成按钮可用性：continue 不需选区；polish / rewrite 需选区；rewrite 还需指令
+  const generateDisabled = props.busy
+    || (needsSelection && props.reference === null)
+    || (props.activeSkill === "rewrite" && !props.instruction.trim());
+
+  // 仅改写需要指令输入框
+  const showInstruction = props.activeSkill === "rewrite";
 
   return <section className="ai-preview-surface" aria-label={t("panel.ai.title")}>
     <header className="panel-section">
@@ -44,6 +59,39 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         <p className="panel-subtitle">{t("panel.ai.subtitle")}</p>
       </div>
     </header>
+
+    {/* 技能选择器：三入口 */}
+    <div className="panel-section">
+      <fieldset className="skill-selector" aria-label={t("panel.ai.skillLabel")}>
+        <legend className="field-label">{t("panel.ai.skillLabel")}</legend>
+        <div className="skill-selector__buttons" role="group">
+          <Button
+            tone={props.activeSkill === "polish" ? "primary" : "ghost"}
+            aria-pressed={props.activeSkill === "polish"}
+            disabled={props.busy}
+            onClick={() => props.onSkillChange("polish")}
+          >
+            {t("panel.ai.skillPolish")}
+          </Button>
+          <Button
+            tone={props.activeSkill === "rewrite" ? "primary" : "ghost"}
+            aria-pressed={props.activeSkill === "rewrite"}
+            disabled={props.busy}
+            onClick={() => props.onSkillChange("rewrite")}
+          >
+            {t("panel.ai.skillRewrite")}
+          </Button>
+          <Button
+            tone={props.activeSkill === "continue" ? "primary" : "ghost"}
+            aria-pressed={props.activeSkill === "continue"}
+            disabled={props.busy}
+            onClick={() => props.onSkillChange("continue")}
+          >
+            {t("panel.ai.skillContinue")}
+          </Button>
+        </div>
+      </fieldset>
+    </div>
 
     {props.reference ? <div className="panel-section">
       <div className="reference-card" role="note" aria-label={t("panel.ai.referenceSource")}>
@@ -69,7 +117,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
       />
     </div>
 
-    <div className="panel-section">
+    {showInstruction ? <div className="panel-section">
       <label className="field-label" htmlFor="ai-instruction">{t("panel.ai.instruction")}</label>
       <Textarea
         id="ai-instruction"
@@ -83,7 +131,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
           }
 
           event.preventDefault();
-          if (props.busy || props.reference === null) {
+          if (generateDisabled) {
             return;
           }
 
@@ -91,7 +139,10 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         }}
       />
       <p className="panel-meta">{selectionHint}</p>
-      <Button tone="primary" disabled={props.busy || props.reference === null} onClick={props.onGenerate}>
+    </div> : <p className="panel-meta">{selectionHint}</p>}
+
+    <div className="panel-section">
+      <Button tone="primary" disabled={generateDisabled} onClick={props.onGenerate}>
         {props.busy ? t("panel.ai.generating") : t("panel.ai.generate")}
       </Button>
     </div>
