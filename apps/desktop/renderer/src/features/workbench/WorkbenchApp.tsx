@@ -77,6 +77,11 @@ type DragState =
   | { panel: "right"; startWidth: number; startX: number }
   | null;
 
+type SaveRequestToken = {
+  editorContextRevision: number;
+  requestId: number;
+};
+
 const LEFT_PANEL_ITEMS: Array<{
   icon: typeof FolderTree;
   id: LeftPanelId;
@@ -212,12 +217,22 @@ function WorkbenchShell() {
     }
   }, []);
 
-  const reserveSaveRequest = useCallback(() => {
+  const reserveSaveRequest = useCallback((): SaveRequestToken => {
     latestSaveRequestRef.current += 1;
-    return latestSaveRequestRef.current;
+    return {
+      requestId: latestSaveRequestRef.current,
+      editorContextRevision: editorContextRevisionRef.current,
+    };
   }, []);
 
-  const isLatestSaveRequest = useCallback((requestId: number) => latestSaveRequestRef.current === requestId, []);
+  const isCurrentSaveContext = useCallback((request: SaveRequestToken) => (
+    editorContextRevisionRef.current === request.editorContextRevision
+  ), []);
+
+  const isLatestSaveRequest = useCallback((request: SaveRequestToken) => (
+    latestSaveRequestRef.current === request.requestId
+    && isCurrentSaveContext(request)
+  ), [isCurrentSaveContext]);
 
   const queueSaveRequest = useCallback(<TResult,>(operation: () => Promise<TResult>): Promise<TResult> => {
     const task = saveQueueRef.current.then(operation, operation);
@@ -466,6 +481,7 @@ function WorkbenchShell() {
         setProject(workspace.project);
         setDocuments(workspace.documents);
         setActiveDocument(workspace.activeDocument);
+        setSaveState("idle");
         setLastSavedAt(workspace.activeDocument.updatedAt);
         setPreview(null);
         setStickySelection(null);
@@ -503,6 +519,7 @@ function WorkbenchShell() {
       setPreview(null);
       setStickySelection(null);
       setLiveSelection(null);
+      setSaveState("idle");
       setLastSavedAt(result.activeDocument.updatedAt);
       setErrorMessage(null);
       setActiveLeftPanel("files");
@@ -533,6 +550,7 @@ function WorkbenchShell() {
       setStickySelection(null);
       setLiveSelection(null);
       setErrorMessage(null);
+      setSaveState("idle");
       setLastSavedAt(readDocument.updatedAt);
       setActiveLeftPanel("files");
       setSidebarCollapsed(false);
@@ -591,17 +609,21 @@ function WorkbenchShell() {
         getUserEditRevision: () => userEditRevisionRef.current,
         getEditorContextRevision: () => editorContextRevisionRef.current,
       }));
-      setPreview(null);
-      setErrorMessage(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null);
+      if (isCurrentSaveContext(saveRequestId)) {
+        setPreview(null);
+        setErrorMessage(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null);
+      }
       if (isLatestSaveRequest(saveRequestId)) {
         setSaveState("saved");
         setLastSavedAt(result.updatedAt);
       }
     } catch (error) {
-      if (error instanceof SelectionChangedError) {
-        setErrorMessage(t("messages.selectionChanged"));
-      } else {
-        setErrorMessage(getHumanErrorMessage(error as Error, t));
+      if (isCurrentSaveContext(saveRequestId)) {
+        if (error instanceof SelectionChangedError) {
+          setErrorMessage(t("messages.selectionChanged"));
+        } else {
+          setErrorMessage(getHumanErrorMessage(error as Error, t));
+        }
       }
       if (isLatestSaveRequest(saveRequestId)) {
         setSaveState("error");

@@ -57,6 +57,15 @@ function createDeferred<TResult>() {
   };
 }
 
+function formatWorkbenchTimestamp(value: number): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(value);
+}
+
 function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }))) {
   window.creonow = {
     api: window.api as PreloadApi,
@@ -523,6 +532,138 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
+  it("keeps a switched document save UI isolated from an earlier accept save success", async () => {
+    window.api = createApiMock();
+
+    const docAUpdatedAt = Date.UTC(2024, 0, 1, 8, 0);
+    const docBUpdatedAt = Date.UTC(2024, 0, 2, 9, 30);
+    const staleAcceptUpdatedAt = Date.UTC(2024, 0, 5, 18, 45);
+    const acceptResult = createDeferred<{
+      ok: true;
+      data: { updatedAt: number; contentHash: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: docAUpdatedAt,
+    } as const;
+    const secondDocument = {
+      documentId: "doc-2",
+      title: "第二章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: docBUpdatedAt,
+    } as const;
+    const beforeApply = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 原文" }] }],
+    };
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 接受后的文稿" }] }],
+    };
+    const secondDocumentContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 B 当前内容" }] }],
+    };
+
+    window.api.file.listDocuments = vi.fn(async () => ({ ok: true, data: { items: [firstDocument, secondDocument] } })) as typeof window.api.file.listDocuments;
+    window.api.file.setCurrentDocument = vi.fn(async ({ documentId }) => ({ ok: true, data: { documentId } })) as typeof window.api.file.setCurrentDocument;
+    window.api.file.readDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: documentId === "doc-2"
+        ? {
+          documentId: "doc-2",
+          projectId: "project-1",
+          title: "第二章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 1,
+          contentJson: JSON.stringify(secondDocumentContent),
+          contentText: "文档 B 当前内容",
+          contentMd: "",
+          contentHash: "hash-b",
+          createdAt: docBUpdatedAt,
+          updatedAt: docBUpdatedAt,
+        }
+        : {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify(beforeApply),
+          contentText: "文档 A 原文",
+          contentMd: "",
+          contentHash: "hash-a",
+          createdAt: docAUpdatedAt,
+          updatedAt: docAUpdatedAt,
+        },
+    })) as typeof window.api.file.readDocument;
+    window.api.file.saveDocument = vi.fn()
+      .mockImplementationOnce(async () => acceptResult.promise) as typeof window.api.file.saveDocument;
+
+    let currentContent = beforeApply;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      currentContent = content as typeof currentContent;
+    });
+    vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      currentContent = acceptedDocument;
+      bridgeOptions?.onDocumentChange?.(acceptedDocument);
+      return { ok: true as const };
+    });
+
+    const { container } = render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.mocked(bridgeMock.setContent).mockClear();
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("切文档后旧 accept 成功也不能污染新文档状态。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "接受" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /第二章/ }));
+    await screen.findByRole("heading", { name: "第二章" });
+    expect(currentContent).toEqual(secondDocumentContent);
+
+    const statusBar = container.querySelector(".status-bar");
+    expect(statusBar).not.toBeNull();
+    const statusBarView = within(statusBar as HTMLElement);
+    expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+    expect(statusBarView.getByText(formatWorkbenchTimestamp(docBUpdatedAt))).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await act(async () => {
+      acceptResult.resolve({ ok: true, data: { updatedAt: staleAcceptUpdatedAt, contentHash: "hash-stale" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("heading", { name: "第二章" })).toBeInTheDocument();
+    expect(currentContent).toEqual(secondDocumentContent);
+    expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+    expect(statusBarView.getByText(formatWorkbenchTimestamp(docBUpdatedAt))).toBeInTheDocument();
+    expect(statusBarView.queryByRole("button", { name: "已保存" })).toBeNull();
+    expect(statusBarView.queryByText(formatWorkbenchTimestamp(staleAcceptUpdatedAt))).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(bridgeMock.setContent).not.toHaveBeenCalledWith(beforeApply);
+  });
+
   it("does not let a failed accept rollback overwrite a document switch", async () => {
     window.api = createApiMock();
 
@@ -647,6 +788,7 @@ describe("WorkbenchApp", () => {
       ok: false;
       error: { code: "DB_ERROR"; message: string };
     }>();
+    const createdDocumentUpdatedAt = Date.UTC(2024, 0, 3, 11, 15);
     const firstDocument = {
       documentId: "doc-1",
       title: "第一章",
@@ -661,7 +803,7 @@ describe("WorkbenchApp", () => {
       type: "chapter",
       status: "draft",
       sortOrder: 1,
-      updatedAt: 3,
+      updatedAt: createdDocumentUpdatedAt,
     } as const;
     const beforeApply = {
       type: "doc",
@@ -695,8 +837,8 @@ describe("WorkbenchApp", () => {
           contentText: "新建文档内容",
           contentMd: "",
           contentHash: "hash-c",
-          createdAt: 3,
-          updatedAt: 3,
+          createdAt: createdDocumentUpdatedAt,
+          updatedAt: createdDocumentUpdatedAt,
         }
         : {
           documentId: "doc-1",
@@ -727,7 +869,7 @@ describe("WorkbenchApp", () => {
       return { ok: true as const };
     });
 
-    render(<WorkbenchApp />);
+    const { container } = render(<WorkbenchApp />);
 
     await screen.findByRole("heading", { name: "第一章" });
     vi.mocked(bridgeMock.setContent).mockClear();
@@ -749,6 +891,13 @@ describe("WorkbenchApp", () => {
     await screen.findByRole("heading", { name: "新建文档" });
     expect(currentContent).toEqual(createdDocumentContent);
 
+    const statusBar = container.querySelector(".status-bar");
+    expect(statusBar).not.toBeNull();
+    const statusBarView = within(statusBar as HTMLElement);
+    expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+    expect(statusBarView.getByText(formatWorkbenchTimestamp(createdDocumentUpdatedAt))).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+
     await act(async () => {
       acceptResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "accept save failed" } });
       await Promise.resolve();
@@ -757,6 +906,10 @@ describe("WorkbenchApp", () => {
 
     expect(screen.getByRole("heading", { name: "新建文档" })).toBeInTheDocument();
     expect(currentContent).toEqual(createdDocumentContent);
+    expect(statusBarView.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+    expect(statusBarView.getByText(formatWorkbenchTimestamp(createdDocumentUpdatedAt))).toBeInTheDocument();
+    expect(statusBarView.queryByRole("button", { name: "保存失败" })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
     expect(bridgeMock.setContent).not.toHaveBeenCalledWith(beforeApply);
   });
 
