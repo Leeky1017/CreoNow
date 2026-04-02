@@ -8,9 +8,6 @@ export type ProjectListItem = IpcResponseData<"project:project:list">["items"][n
 export type DocumentListItem = IpcResponseData<"file:document:list">["items"][number];
 export type DocumentRead = IpcResponseData<"file:document:read">;
 
-/** V1 技能 ID：润色 / 改写 / 续写 */
-export type SkillId = "polish" | "rewrite" | "continue";
-
 export interface BootstrapLabels {
   defaultProjectName: string;
   defaultDocumentTitle: string;
@@ -33,21 +30,13 @@ export interface AiPreview {
   executionId: string;
   originalText: string;
   runId: string;
-  /** 触发此预览的技能。 */
-  skillId: SkillId;
-  /**
-   * 对于 polish / rewrite：替换的选区。
-   * 对于 continue：null（使用 cursorPosition 插入）。
-   */
   selection: SelectionRef | null;
-  /**
-   * 对于 continue：接受时写回的光标位置。
-   * 对于 polish / rewrite：null。
-   */
-  cursorPosition: number | null;
+  skill: AiLauncherSkill;
   sourceUserEditRevision: number;
   suggestedText: string;
 }
+
+export type AiLauncherSkill = "polish" | "rewrite" | "continue";
 
 export interface AcceptAiPreviewResult {
   feedbackError: Error | null;
@@ -286,77 +275,67 @@ export async function openDocument(args: {
 export async function requestAiPreview(args: {
   api: PreloadApi;
   context: WorkbenchContextToken;
-  /** 触发的技能：润色 / 改写 / 续写。 */
-  skillId: SkillId;
-  /** polish / rewrite 必传；continue 传 null。 */
-  selection: SelectionRef | null;
-  /**
-   * 仅 continue 需要：光标前文与光标位置。
-   * polish / rewrite 忽略此参数。
-   */
-  cursorContext?: { precedingText: string; position: number } | null;
-  /** 仅 rewrite 使用指令；polish / continue 忽略。 */
+  cursorPosition?: number;
   instruction: string;
   model: string;
+  precedingText?: string;
+  selection?: SelectionRef;
+  skill: AiLauncherSkill;
   userEditRevision: number;
 }): Promise<AiPreview> {
-  let input: string;
-  let runSkillPayload: Parameters<PreloadApi["ai"]["runSkill"]>[0];
+  const instruction = args.instruction.trim();
+  let originalText = "";
+  let input = "";
+  let skillId = "";
+  let hasSelection = false;
 
-  if (args.skillId === "continue") {
-    const precedingText = args.cursorContext?.precedingText ?? "";
-    if (precedingText.trim().length === 0) {
-      throw new Error("skill-context-empty");
+  if (args.skill === "continue") {
+    if (typeof args.cursorPosition !== "number" || args.precedingText === undefined || args.precedingText.trim().length === 0) {
+      throw new Error("context-required");
     }
-    input = precedingText;
-    runSkillPayload = {
-      skillId: "builtin:continue",
-      hasSelection: false,
-      cursorPosition: args.cursorContext?.position ?? 0,
-      precedingText,
-      input,
-      mode: "ask",
-      model: args.model,
-      stream: false,
-      context: {
-        projectId: args.context.projectId,
-        documentId: args.context.documentId,
-      },
-    };
+    originalText = "";
+    input = args.precedingText;
+    skillId = "builtin:continue";
   } else {
-    if (args.selection === null) {
-      throw new Error("skill-input-empty");
+    if (args.selection === undefined) {
+      throw new Error("selection-required");
     }
-    if (args.skillId === "polish") {
-      input = args.selection.text;
-    } else {
-      // rewrite requires a non-empty instruction (spec §skill-rewrite)
-      if (args.instruction.trim().length === 0) {
-        throw new Error("skill-instruction-missing");
+    originalText = args.selection.text;
+    hasSelection = true;
+
+    if (args.skill === "rewrite") {
+      if (instruction.length === 0) {
+        throw new Error("instruction-required");
       }
       input = [
-        "Selection context:",
-        args.selection.text,
+        "Instruction:",
+        instruction,
         "",
-        args.instruction.trim(),
+        "Text:",
+        args.selection.text,
       ].join(String.fromCharCode(10));
+      skillId = "builtin:rewrite";
+    } else {
+      input = args.selection.text;
+      skillId = "builtin:polish";
     }
-    runSkillPayload = {
-      skillId: args.skillId === "polish" ? "builtin:polish" : "builtin:rewrite",
-      hasSelection: true,
-      selection: args.selection,
-      input,
-      mode: "ask",
-      model: args.model,
-      stream: false,
-      context: {
-        projectId: args.context.projectId,
-        documentId: args.context.documentId,
-      },
-    };
   }
 
-  const result = await args.api.ai.runSkill(runSkillPayload);
+  const result = await args.api.ai.runSkill({
+    skillId,
+    hasSelection,
+    ...(args.selection === undefined ? {} : { selection: args.selection }),
+    ...(args.cursorPosition === undefined ? {} : { cursorPosition: args.cursorPosition }),
+    ...(args.precedingText === undefined ? {} : { precedingText: args.precedingText }),
+    input,
+    mode: "ask",
+    model: args.model,
+    stream: false,
+    context: {
+      projectId: args.context.projectId,
+      documentId: args.context.documentId,
+    },
+  });
   if (result.ok === false) {
     throw result.error;
   }
@@ -369,12 +348,9 @@ export async function requestAiPreview(args: {
   return {
     context: args.context,
     executionId: result.data.executionId,
-    originalText: args.skillId === "continue"
-      ? (args.cursorContext?.precedingText ?? "")
-      : (args.selection?.text ?? ""),
-    skillId: args.skillId,
-    selection: args.skillId === "continue" ? null : (args.selection ?? null),
-    cursorPosition: args.skillId === "continue" ? (args.cursorContext?.position ?? 0) : null,
+    originalText,
+    selection: args.selection ?? null,
+    skill: args.skill,
     sourceUserEditRevision: args.userEditRevision,
     suggestedText,
     runId: result.data.runId,
@@ -396,25 +372,13 @@ export async function acceptAiPreview(args: {
     throw new StaleAiPreviewError();
   }
 
-  const beforeApply = args.bridge.getContent();
   const runWithoutAutosave = args.runWithoutAutosave ?? ((operation) => operation());
-
-  // continue 技能：在光标位置插入文本（无选区替换）
-  // polish / rewrite 技能：替换选区
-  let applyResult: { ok: boolean };
-  if (args.preview.skillId === "continue") {
-    const cursorPosition = args.preview.cursorPosition ?? 0;
-    applyResult = runWithoutAutosave(() => args.bridge.insertAtCursor(cursorPosition, args.preview.suggestedText));
-  } else {
-    if (args.preview.selection === null) {
+  const beforeApply = args.preview.selection === null ? null : args.bridge.getContent();
+  if (args.preview.selection !== null) {
+    const replaceResult = runWithoutAutosave(() => args.bridge.replaceSelection(args.preview.selection!, args.preview.suggestedText));
+    if (replaceResult.ok === false) {
       throw new SelectionChangedError();
     }
-    const sel = args.preview.selection;
-    applyResult = runWithoutAutosave(() => args.bridge.replaceSelection(sel, args.preview.suggestedText));
-  }
-
-  if (applyResult.ok === false) {
-    throw new SelectionChangedError();
   }
 
   const appliedAtUserEditRevision = args.getUserEditRevision();
@@ -426,14 +390,16 @@ export async function acceptAiPreview(args: {
   });
 
   if (!isAcceptedPreviewConfirmation(confirmResult)) {
-    runWithoutAutosave(() => {
-      if (
-        args.getUserEditRevision() === appliedAtUserEditRevision
-        && args.getEditorContextRevision() === appliedAtEditorContextRevision
-      ) {
-        args.bridge.setContent(beforeApply);
-      }
-    });
+    if (beforeApply !== null) {
+      runWithoutAutosave(() => {
+        if (
+          args.getUserEditRevision() === appliedAtUserEditRevision
+          && args.getEditorContextRevision() === appliedAtEditorContextRevision
+        ) {
+          args.bridge.setContent(beforeApply);
+        }
+      });
+    }
     throw toAcceptConfirmationError(confirmResult);
   }
 

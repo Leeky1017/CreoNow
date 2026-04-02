@@ -27,17 +27,6 @@ export type ReplaceSelectionResult =
   | { ok: true }
   | { ok: false; reason: "selection-changed" };
 
-export type InsertAtCursorResult =
-  | { ok: true }
-  | { ok: false; reason: "cursor-moved" };
-
-export interface CursorContext {
-  /** ProseMirror document position of the cursor head. */
-  position: number;
-  /** All text that precedes the cursor in the document. */
-  precedingText: string;
-}
-
 export interface EditorBridge {
   readonly view: EditorView | null;
   mount(container: HTMLElement, initialDoc?: unknown): void;
@@ -45,10 +34,8 @@ export interface EditorBridge {
   focus(): void;
   getContent(): ProseMirrorJson;
   getSelection(): SelectionRef | null;
-  getCursorContext(): CursorContext | null;
   setContent(content: unknown): void;
   replaceSelection(selection: SelectionRef, nextText: string): ReplaceSelectionResult;
-  insertAtCursor(position: number, text: string): InsertAtCursorResult;
   getTextContent(): string;
 }
 
@@ -165,16 +152,6 @@ export function createEditorBridge(options: EditorBridgeOptions = {}): EditorBri
       return createSelectionFromView(view);
     },
 
-    getCursorContext() {
-      if (view === null) {
-        return null;
-      }
-
-      const { head } = view.state.selection;
-      const precedingText = view.state.doc.textBetween(0, head, LINE_BREAK, LINE_BREAK);
-      return { position: head, precedingText };
-    },
-
     setContent(content) {
       if (view === null) {
         return;
@@ -206,23 +183,6 @@ export function createEditorBridge(options: EditorBridgeOptions = {}): EditorBri
         selection,
         text: nextText,
       });
-      dispatchTransaction(transaction);
-      return { ok: true };
-    },
-
-    insertAtCursor(position, text) {
-      if (view === null) {
-        return { ok: false, reason: "cursor-moved" };
-      }
-
-      const currentHead = view.state.selection.head;
-      if (currentHead !== position) {
-        return { ok: false, reason: "cursor-moved" };
-      }
-
-      const normalizedText = text.replaceAll("\r\n", "\n");
-      const transaction = view.state.tr;
-      transaction.insertText(normalizedText, position);
       dispatchTransaction(transaction);
       return { ok: true };
     },

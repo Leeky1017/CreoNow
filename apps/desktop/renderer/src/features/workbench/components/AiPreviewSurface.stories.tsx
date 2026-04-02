@@ -20,27 +20,27 @@ const reference = {
 
 export const Ready: Story = {
   args: {
-    activeSkill: "rewrite",
     busy: false,
+    canContinue: true,
+    canPolish: true,
+    canRewrite: true,
     errorMessage: null,
     instruction: "润色这段文字，让节奏更紧凑。",
     model: "gpt-4.1-mini",
     onAccept: () => undefined,
     onClearReference: () => undefined,
-    onGenerate: () => undefined,
     onInstructionChange: () => undefined,
+    onLaunchSkill: () => undefined,
     onModelChange: () => undefined,
     onReject: () => undefined,
-    onSkillChange: () => undefined,
     reference,
     preview: {
       context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
       executionId: "exec-demo",
       originalText: reference.text,
       runId: "run-demo",
-      skillId: "rewrite" as const,
       selection: reference,
-      cursorPosition: null,
+      skill: "polish",
       sourceUserEditRevision: 1,
       suggestedText: "北地的风掠过山谷，把草原残存的暖意吹成一声轻而冷的叹息。",
     },
@@ -57,8 +57,27 @@ export const ReferenceOnly: Story = {
 export const Empty: Story = {
   args: {
     ...Ready.args,
+    canPolish: false,
+    canRewrite: false,
+    instruction: "",
     preview: null,
     reference: null,
+  },
+};
+
+export const ContinuePreview: Story = {
+  args: {
+    ...Empty.args,
+    preview: {
+      context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
+      executionId: "exec-continue",
+      originalText: "",
+      runId: "run-continue",
+      selection: null,
+      skill: "continue",
+      sourceUserEditRevision: 1,
+      suggestedText: "她抬头望见远处灯火，忽然意识到这一夜还远未结束。",
+    },
   },
 };
 
@@ -66,6 +85,9 @@ export const Loading: Story = {
   args: {
     ...ReferenceOnly.args,
     busy: true,
+    canContinue: false,
+    canPolish: false,
+    canRewrite: false,
   },
 };
 
@@ -76,95 +98,13 @@ export const ErrorState: Story = {
   },
 };
 
-export const PolishReady: Story = {
-  args: {
-    activeSkill: "polish",
-    busy: false,
-    errorMessage: null,
-    instruction: "",
-    model: "gpt-4.1-mini",
-    onAccept: () => undefined,
-    onClearReference: () => undefined,
-    onGenerate: () => undefined,
-    onInstructionChange: () => undefined,
-    onModelChange: () => undefined,
-    onReject: () => undefined,
-    onSkillChange: () => undefined,
-    reference,
-    preview: {
-      context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
-      executionId: "exec-demo",
-      originalText: reference.text,
-      runId: "run-demo",
-      skillId: "polish" as const,
-      selection: reference,
-      cursorPosition: null,
-      sourceUserEditRevision: 1,
-      suggestedText: "北地的寒风穿越草原，带走了最后一缕余温。",
-    },
-  },
-};
-
-export const PolishNoReference: Story = {
-  args: {
-    ...PolishReady.args,
-    reference: null,
-    preview: null,
-  },
-};
-
-export const ContinueReady: Story = {
-  args: {
-    activeSkill: "continue",
-    busy: false,
-    errorMessage: null,
-    instruction: "",
-    model: "gpt-4.1-mini",
-    onAccept: () => undefined,
-    onClearReference: () => undefined,
-    onGenerate: () => undefined,
-    onInstructionChange: () => undefined,
-    onModelChange: () => undefined,
-    onReject: () => undefined,
-    onSkillChange: () => undefined,
-    reference: null,
-    preview: {
-      context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
-      executionId: "exec-demo",
-      originalText: "",
-      runId: "run-demo",
-      skillId: "continue" as const,
-      selection: null,
-      cursorPosition: 42,
-      sourceUserEditRevision: 1,
-      suggestedText: "她推开窗，听见远处的犬吠渐渐沉入夜色里。",
-    },
-  },
-};
-
-export const ContinueNoPreview: Story = {
-  args: {
-    ...ContinueReady.args,
-    preview: null,
-  },
-};
-
-/** rewrite + 空指令 → 生成按钮 disabled；用于视觉验收截图 */
+/** rewrite 可触发（canRewrite=true）但指令为空 → 仅用于视觉验收截图 */
 export const RewriteEmptyInstructionDisabled: Story = {
   args: {
-    activeSkill: "rewrite",
-    busy: false,
-    errorMessage: null,
+    ...ReferenceOnly.args,
+    canContinue: false,
+    canPolish: false,
+    canRewrite: true,
     instruction: "",
-    model: "gpt-4.1-mini",
-    onAccept: () => undefined,
-    onClearReference: () => undefined,
-    onGenerate: () => undefined,
-    onInstructionChange: () => undefined,
-    onModelChange: () => undefined,
-    onReject: () => undefined,
-    onSkillChange: () => undefined,
-    reference,
-    preview: null,
   },
 };
