@@ -454,11 +454,9 @@ describe("skillOutputValidation inflation guards", () => {
         stablePrefixHash: "hash-continue-context",
         stablePrefixUnchanged: false,
         warnings: [],
-        assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+        capacityPercent: (contextPrompt.length / 6000) * 100,
         layers: {
           rules: { source: [], tokenCount: 0, truncated: false },
-          settings: { source: [], tokenCount: 0, truncated: false },
-          retrieved: { source: [], tokenCount: 0, truncated: false },
           immediate: {
             source: ["immediate:ai_panel_input"],
             tokenCount: contextPrompt.length,

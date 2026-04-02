@@ -80,18 +80,28 @@ export type ContextLayerDetail = ContextLayerSummary & {
   content: string;
 };
 
+export type ContextAssembleLayers = {
+  rules: ContextLayerSummary;
+  immediate: ContextLayerSummary;
+};
+
 export type ContextAssembleResult = {
   prompt: string;
   tokenCount: number;
   stablePrefixHash: string;
   stablePrefixUnchanged: boolean;
   warnings: string[];
-  assemblyOrder: ContextLayerId[];
-  layers: Record<ContextLayerId, ContextLayerSummary>;
+  capacityPercent: number;
+  layers: ContextAssembleLayers;
+};
+
+export type ContextInspectLayerDetails = {
+  rules: ContextLayerDetail;
+  immediate: ContextLayerDetail;
 };
 
 export type ContextInspectResult = {
-  layersDetail: Record<ContextLayerId, ContextLayerDetail>;
+  layersDetail: ContextInspectLayerDetails;
   totals: {
     tokenCount: number;
     warningsCount: number;

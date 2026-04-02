@@ -543,9 +543,10 @@ function createKnowledgeEntity(args: {
           ?.content ?? "";
 
       assert.match(systemText, /## Rules/);
-      assert.match(systemText, /## Settings/);
+      assert.doesNotMatch(systemText, /## Settings/);
+      assert.doesNotMatch(systemText, /## Retrieved/);
       assert.match(systemText, /林远/);
-      assert.match(systemText, /偏好短句，节奏紧凑/);
+      assert.doesNotMatch(systemText, /偏好短句，节奏紧凑/);
     },
   });
 }
@@ -786,7 +787,7 @@ function createKnowledgeEntity(args: {
     assembled.warnings.some((warning) =>
       warning.startsWith("MEMORY_UNAVAILABLE"),
     ),
-    true,
+    false,
   );
 
   const originalFetch = globalThis.fetch;

@@ -40,11 +40,11 @@ export type VersionSnapshotReason =
   | "manual-save"
   | "autosave"
   | "ai-accept"
+  | "ai-partial-accept"
   | "pre-write"
   | "pre-rollback"
   | "rollback"
-  | "status-change"
-  | "branch-merge";
+  | "status-change";
 
 export type DocumentListItem = {
   documentId: string;
@@ -77,7 +77,7 @@ export type DocumentRead = {
 export type VersionListItem = {
   versionId: string;
   actor: VersionSnapshotActor;
-  reason: string;
+  reason: VersionSnapshotReason;
   contentHash: string;
   wordCount: number;
   createdAt: number;
@@ -88,7 +88,7 @@ export type VersionRead = {
   projectId: string;
   versionId: string;
   actor: VersionSnapshotActor;
-  reason: string;
+  reason: VersionSnapshotReason;
   contentJson: string;
   contentText: string;
   contentMd: string;
@@ -204,30 +204,6 @@ export type DocumentService = {
     documentId: string;
     versionId: string;
   }) => ServiceResult<{ restored: true }>;
-  createBranch: (args: {
-    documentId: string;
-    name: string;
-    createdBy: string;
-  }) => ServiceResult<{ branch: BranchListItem }>;
-  listBranches: (args: { documentId: string }) => ServiceResult<{
-    branches: BranchListItem[];
-  }>;
-  switchBranch: (args: {
-    documentId: string;
-    name: string;
-  }) => ServiceResult<{ currentBranch: string; headSnapshotId: string }>;
-  mergeBranch: (args: {
-    documentId: string;
-    sourceBranchName: string;
-    targetBranchName: string;
-    timeoutMs?: number;
-  }) => ServiceResult<{ status: "merged"; mergeSnapshotId: string }>;
-  resolveMergeConflict: (args: {
-    documentId: string;
-    mergeSessionId: string;
-    resolutions: BranchConflictResolutionInput[];
-    resolvedBy: string;
-  }) => ServiceResult<{ status: "merged"; mergeSnapshotId: string }>;
 };
 
 export type DocumentServiceFactoryArgs = {
@@ -261,15 +237,37 @@ export type VersionService = Pick<
   | "restoreVersion"
 >;
 
-export type BranchService = Pick<
-  DocumentService,
-  | "createBranch"
-  | "listBranches"
-  | "switchBranch"
-  | "mergeBranch"
-  | "resolveMergeConflict"
->;
+export type InternalBranchService = {
+  createBranch: (args: {
+    documentId: string;
+    name: string;
+    createdBy: string;
+  }) => ServiceResult<{ branch: BranchListItem }>;
+  listBranches: (args: { documentId: string }) => ServiceResult<{
+    branches: BranchListItem[];
+  }>;
+  switchBranch: (args: {
+    documentId: string;
+    name: string;
+  }) => ServiceResult<{ currentBranch: string; headSnapshotId: string }>;
+  mergeBranch: (args: {
+    documentId: string;
+    sourceBranchName: string;
+    targetBranchName: string;
+    timeoutMs?: number;
+  }) => ServiceResult<{ status: "merged"; mergeSnapshotId: string }>;
+  resolveMergeConflict: (args: {
+    documentId: string;
+    mergeSessionId: string;
+    resolutions: BranchConflictResolutionInput[];
+    resolvedBy: string;
+  }) => ServiceResult<{ status: "merged"; mergeSnapshotId: string }>;
+};
+
+export type BranchService = InternalBranchService;
+
+export type InternalDocumentService = DocumentService & InternalBranchService;
 
 export type SubServiceFactoryArgs = DocumentServiceFactoryArgs & {
-  baseService?: DocumentService;
+  baseService?: InternalDocumentService;
 };

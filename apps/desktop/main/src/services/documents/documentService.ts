@@ -1,13 +1,9 @@
-import { createBranchService } from "./branchService";
 import { createDocumentCoreService } from "./documentCoreService";
 import { createDocumentCrudService } from "./documentCrudService";
 import { createVersionService } from "./versionService";
 import type { DocumentService, DocumentServiceFactoryArgs } from "./types";
 
 export type {
-  BranchConflictResolutionInput,
-  BranchListItem,
-  BranchMergeConflict,
   DocumentError,
   DocumentErrorCode,
   DocumentListItem,
@@ -36,11 +32,9 @@ export function createDocumentService(
   const core = createDocumentCoreService(args);
   const crud = createDocumentCrudService({ ...args, baseService: core });
   const version = createVersionService({ ...args, baseService: core });
-  const branch = createBranchService({ ...args, baseService: core });
 
   return {
     ...crud,
     ...version,
-    ...branch,
   };
 }

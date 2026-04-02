@@ -159,7 +159,8 @@ function createDbStub(): Database.Database {
   });
 
   // Assert
-  assert.deepEqual(assembled.layers.retrieved.source, ["rag:context:retrieve"]);
-  assert.equal(assembled.layers.retrieved.tokenCount > 0, true);
-  assert.ok(assembled.prompt.includes("abandoned warehouse"));
+  assert.equal("retrieved" in assembled.layers, false);
+  assert.equal(assembled.prompt.includes("## Retrieved"), false);
+  assert.equal(assembled.prompt.includes("abandoned warehouse"), false);
+  assert.equal(assembled.capacityPercent > 0, true);
 }

@@ -136,67 +136,13 @@ function buildProviderConfigFromCredentials(args: {
   };
 }
 
-function resolveSettingsBackupProvider(args: {
+function resolveSettingsBackupProvider(_args: {
   settings: ProxySettings;
   primary: ProviderConfig;
   timeoutMs: number;
   env: NodeJS.ProcessEnv;
 }): ProviderConfig | null {
-  const openAiCompatible: ProviderCredentials = args.settings
-    .openAiCompatible ?? {
-    baseUrl: null,
-    apiKey: null,
-  };
-  const openAiByok: ProviderCredentials = args.settings.openAiByok ?? {
-    baseUrl: null,
-    apiKey: null,
-  };
-  const anthropicByok: ProviderCredentials = args.settings.anthropicByok ?? {
-    baseUrl: null,
-    apiKey: null,
-  };
-
-  const candidates: ProviderConfig[] = [];
-
-  const pushCandidate = (
-    provider: AiProvider,
-    credentials: ProviderCredentials,
-  ) => {
-    const cfg = buildProviderConfigFromCredentials({
-      provider,
-      credentials,
-      timeoutMs: args.timeoutMs,
-      env: args.env,
-    });
-    if (!cfg) {
-      return;
-    }
-    if (
-      cfg.provider === args.primary.provider &&
-      cfg.baseUrl === args.primary.baseUrl &&
-      cfg.apiKey === args.primary.apiKey
-    ) {
-      return;
-    }
-    candidates.push(cfg);
-  };
-
-  if (args.primary.provider !== "anthropic") {
-    pushCandidate("anthropic", anthropicByok);
-  }
-  if (args.primary.provider !== "openai") {
-    pushCandidate("openai", openAiByok);
-  }
-
-  const mode = resolveSettingsProviderMode(args.settings);
-  if (
-    args.primary.provider !== "proxy" &&
-    (mode === "openai-compatible" || args.settings.enabled)
-  ) {
-    pushCandidate("proxy", openAiCompatible);
-  }
-
-  return candidates[0] ?? null;
+  return null;
 }
 
 export function createProviderResolver(deps: {

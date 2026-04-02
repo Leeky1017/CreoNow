@@ -12,6 +12,7 @@ import type {
   BranchListItem,
   DocumentError,
   DocumentErrorCode,
+  InternalDocumentService,
   DocumentListItem,
   DocumentService,
   DocumentStatus,
@@ -40,6 +41,7 @@ const AUTOSAVE_COMPACT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_MAX_SNAPSHOTS_PER_DOCUMENT = 50_000;
 const DEFAULT_MAX_DIFF_PAYLOAD_BYTES = 2 * 1024 * 1024;
 const DEFAULT_BRANCH_MERGE_TIMEOUT_MS = 5_000;
+type InternalVersionSnapshotReason = VersionSnapshotReason | "branch-merge";
 
 /** 文档最大字节体积（5 MB），IPC 层与 Service 层共用 */
 export const MAX_DOCUMENT_SIZE_BYTES = 5 * 1024 * 1024;
@@ -90,13 +92,13 @@ function splitLines(text: string): string[] {
 
 function isReasonValidForActor(
   actor: VersionSnapshotActor,
-  reason: VersionSnapshotReason,
+  reason: InternalVersionSnapshotReason,
 ): boolean {
   if (actor === "auto") {
     return reason === "autosave" || reason === "pre-write";
   }
   if (actor === "ai") {
-    return reason === "ai-accept";
+    return reason === "ai-accept" || reason === "ai-partial-accept";
   }
   return (
     reason === "manual-save" ||
@@ -105,6 +107,30 @@ function isReasonValidForActor(
     reason === "rollback" ||
     reason === "branch-merge"
   );
+}
+
+function normalizePublicSnapshotReason(args: {
+  actor: VersionSnapshotActor;
+  reason: string;
+}): VersionSnapshotReason {
+  switch (args.actor) {
+    case "auto":
+      return args.reason === "pre-write" ? "pre-write" : "autosave";
+    case "ai":
+      return args.reason === "ai-partial-accept"
+        ? "ai-partial-accept"
+        : "ai-accept";
+    case "user":
+    default:
+      if (
+        args.reason === "status-change" ||
+        args.reason === "pre-rollback" ||
+        args.reason === "rollback"
+      ) {
+        return args.reason;
+      }
+      return "manual-save";
+  }
 }
 
 function serializeJson(value: unknown): ServiceResult<string> {
@@ -1749,7 +1775,15 @@ function createVersionOps(
             VersionListRow
           >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
           .all(documentId);
-        return { ok: true, data: { items: rows } };
+        return {
+          ok: true,
+          data: {
+            items: rows.map((row) => ({
+              ...row,
+              reason: normalizePublicSnapshotReason(row),
+            })),
+          },
+        };
       } catch (error) {
         args.logger.error("version_list_failed", {
           code: "DB_ERROR",
@@ -1775,7 +1809,13 @@ function createVersionOps(
           document_id: documentId,
           version_id: versionId,
         });
-        return { ok: true, data: row };
+        return {
+          ok: true,
+          data: {
+            ...row,
+            reason: normalizePublicSnapshotReason(row),
+          },
+        };
       } catch (error) {
         args.logger.error("version_read_failed", {
           code: "DB_ERROR",
@@ -1883,7 +1923,7 @@ function createVersionOps(
 
 function createBranchCrudOps(
   ctx: DocCoreCtx,
-): Pick<DocumentService, "createBranch" | "listBranches" | "switchBranch"> {
+): Pick<InternalDocumentService, "createBranch" | "listBranches" | "switchBranch"> {
   const args = ctx;
   const { readBranch, ensureMainBranch, resolveCurrentBranchName } = ctx;
   return {
@@ -2090,7 +2130,7 @@ function createBranchCrudOps(
 
 function createBranchMergeOps(
   ctx: DocCoreCtx,
-): Pick<DocumentService, "mergeBranch" | "resolveMergeConflict"> {
+): Pick<InternalDocumentService, "mergeBranch" | "resolveMergeConflict"> {
   const args = ctx;
   const { readBranch, ensureMainBranch, persistBranchMerge } = ctx;
   return {
@@ -2357,7 +2397,7 @@ export function createDocumentCoreService(args: {
   maxSnapshotsPerDocument?: number;
   autosaveCompactionAgeMs?: number;
   maxDiffPayloadBytes?: number;
-}): DocumentService {
+}): InternalDocumentService {
   const maxSnapshotsPerDocument = Math.max(
     1,
     args.maxSnapshotsPerDocument ?? DEFAULT_MAX_SNAPSHOTS_PER_DOCUMENT,
