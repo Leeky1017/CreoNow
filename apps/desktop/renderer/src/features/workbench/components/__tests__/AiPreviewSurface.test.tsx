@@ -33,11 +33,26 @@ function renderSurface(overrides: Partial<Parameters<typeof AiPreviewSurface>[0]
   );
 }
 
-describe("AiPreviewSurface", () => {
-  it("submits rewrite on Enter and keeps Shift+Enter as a newline path", () => {
-    const onLaunchSkill = vi.fn();
-
-    renderSurface({ onLaunchSkill });
+    render(
+      <AiPreviewSurface
+        activeSkill="builtin:polish"
+        busy={false}
+        errorMessage={null}
+        generateDisabled={false}
+        instruction="润色这段文字"
+        instructionHint="已选 10 个字符"
+        model="gpt-4.1-mini"
+        onAccept={() => undefined}
+        onClearReference={() => undefined}
+        onGenerate={onGenerate}
+        onInstructionChange={() => undefined}
+        onModelChange={() => undefined}
+        onReject={() => undefined}
+        onSkillChange={() => undefined}
+        preview={null}
+        reference={reference}
+      />,
+    );
 
     const textarea = screen.getByLabelText("指令");
     fireEvent.keyDown(textarea, { key: "Enter" });

@@ -4,17 +4,21 @@ import { Button } from "@/components/primitives/Button";
 import { Input } from "@/components/primitives/Input";
 import { Textarea } from "@/components/primitives/Textarea";
 import type { SelectionRef } from "@/editor/schema";
-import type { AiLauncherSkill, AiPreview } from "@/features/workbench/runtime";
+import type { AiPreview, WorkbenchSkillId } from "@/features/workbench/runtime";
 
 const MAX_REFERENCE_LENGTH = 120;
+const SKILL_OPTIONS: WorkbenchSkillId[] = ["builtin:polish", "builtin:rewrite", "builtin:continue"];
 
 interface AiPreviewSurfaceProps {
+  activeSkill: WorkbenchSkillId;
   busy: boolean;
   canContinue: boolean;
   canPolish: boolean;
   canRewrite: boolean;
   errorMessage: string | null;
+  generateDisabled: boolean;
   instruction: string;
+  instructionHint: string;
   model: string;
   onAccept: () => void;
   onClearReference: () => void;
@@ -22,6 +26,7 @@ interface AiPreviewSurfaceProps {
   onLaunchSkill: (skill: AiLauncherSkill) => void;
   onModelChange: (value: string) => void;
   onReject: () => void;
+  onSkillChange: (skillId: WorkbenchSkillId) => void;
   preview: AiPreview | null;
   reference: SelectionRef | null;
 }
@@ -34,20 +39,20 @@ function truncateReference(text: string): string {
   return text.slice(0, MAX_REFERENCE_LENGTH).trimEnd() + "...";
 }
 
+function toSkillKey(skillId: WorkbenchSkillId): "polish" | "rewrite" | "continue" {
+  if (skillId === "builtin:continue") {
+    return "continue";
+  }
+  if (skillId === "builtin:rewrite") {
+    return "rewrite";
+  }
+  return "polish";
+}
+
 export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
   const { t } = useTranslation();
-  const selectionHint = props.reference
-    ? t("panel.ai.selectionLength", { count: props.reference.text.length })
-    : t("editor.selectionHint");
-  const previewOriginalHeading = props.preview?.skill === "continue"
-    ? t("panel.ai.previewInsertion")
-    : t("panel.ai.previewOriginal");
-  const previewOriginalBody = props.preview?.skill === "continue"
-    ? t("panel.ai.previewInsertionHint")
-    : props.preview?.originalText ?? "";
-  const previewOriginalBodyClassName = props.preview?.skill === "continue"
-    ? "preview-body preview-body--insertion"
-    : "preview-body preview-body--original";
+  const skillKey = toSkillKey(props.activeSkill);
+  const reference = props.activeSkill !== "builtin:continue" ? props.reference : null;
 
   return <section className="ai-preview-surface" aria-label={t("panel.ai.title")}>
     <header className="panel-section">
@@ -57,14 +62,36 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
       </div>
     </header>
 
-    {props.reference ? <div className="panel-section">
+    <div className="panel-section skill-launcher">
+      <div className="panel-row">
+        <span className="field-label">{t("panel.ai.skillLauncher")}</span>
+        <span className="panel-meta">{t(`panel.ai.skillHints.${skillKey}`)}</span>
+      </div>
+      <div className="skill-launcher__options" role="group" aria-label={t("panel.ai.skillLauncher")}>
+        {SKILL_OPTIONS.map((skillId) => {
+          const optionKey = toSkillKey(skillId);
+          const active = props.activeSkill === skillId;
+          return <Button
+            key={skillId}
+            tone={active ? "secondary" : "ghost"}
+            className={active ? "skill-launcher__button skill-launcher__button--active" : "skill-launcher__button"}
+            aria-pressed={active}
+            onClick={() => props.onSkillChange(skillId)}
+          >
+            {t(`panel.ai.skills.${optionKey}`)}
+          </Button>;
+        })}
+      </div>
+    </div>
+
+    {reference ? <div className="panel-section">
       <div className="reference-card" role="note" aria-label={t("panel.ai.referenceSource")}>
         <div className="reference-card__content">
           <div className="panel-row">
             <span className="field-label">{t("panel.ai.referenceSource")}</span>
-            <span className="panel-meta">{selectionHint}</span>
+            <span className="panel-meta">{t("panel.ai.selectionLength", { count: reference.text.length })}</span>
           </div>
-          <p className="reference-card__text">{truncateReference(props.reference.text)}</p>
+          <p className="reference-card__text">{truncateReference(reference.text)}</p>
         </div>
         <Button tone="ghost" className="reference-card__dismiss" aria-label={t("panel.ai.clearSelection")} onClick={props.onClearReference}>
           ×
@@ -82,12 +109,15 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
     </div>
 
     <div className="panel-section">
-      <label className="field-label" htmlFor="ai-instruction">{t("panel.ai.instruction")}</label>
+      <div className="panel-row">
+        <label className="field-label" htmlFor="ai-instruction">{t("panel.ai.instruction")}</label>
+        <span className="panel-meta">{t(`panel.ai.instructionRequirement.${skillKey}`)}</span>
+      </div>
       <Textarea
         id="ai-instruction"
         rows={4}
         value={props.instruction}
-        placeholder={t("panel.ai.instructionPlaceholder")}
+        placeholder={t(`panel.ai.instructionPlaceholder.${skillKey}`)}
         onChange={(event) => props.onInstructionChange(event.target.value)}
         onKeyDown={(event) => {
           if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
@@ -95,7 +125,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
           }
 
           event.preventDefault();
-          if (props.busy) {
+          if (props.busy || props.generateDisabled) {
             return;
           }
 
@@ -109,40 +139,10 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
           }
         }}
       />
-      <p className="panel-meta">{t("panel.ai.instructionHint")}</p>
-    </div>
-
-    <div className="panel-section preview-stack">
-      <div className="panel-row">
-        <span className="field-label">{t("panel.ai.launcher")}</span>
-        <span className="panel-meta">{selectionHint}</span>
-      </div>
-      <div className="panel-actions panel-actions--launcher">
-        <Button
-          tone="primary"
-          className="launcher-action launcher-action--selection-gated"
-          disabled={props.busy || props.canPolish === false}
-          onClick={() => props.onLaunchSkill("polish")}
-        >
-          {props.busy ? t("panel.ai.generating") : t("panel.ai.polish")}
-        </Button>
-        <Button
-          tone="ghost"
-          className="launcher-action launcher-action--selection-gated"
-          disabled={props.busy || props.canRewrite === false}
-          onClick={() => props.onLaunchSkill("rewrite")}
-        >
-          {t("panel.ai.rewrite")}
-        </Button>
-        <Button
-          tone="ghost"
-          className="launcher-action"
-          disabled={props.busy || props.canContinue === false}
-          onClick={() => props.onLaunchSkill("continue")}
-        >
-          {t("panel.ai.continue")}
-        </Button>
-      </div>
+      <p className="panel-meta">{props.instructionHint}</p>
+      <Button tone="primary" disabled={props.busy || props.generateDisabled} onClick={props.onGenerate}>
+        {props.busy ? t("panel.ai.generating") : t("panel.ai.generate")}
+      </Button>
     </div>
 
     {props.errorMessage ? <p className="panel-error" role="alert">{props.errorMessage}</p> : null}

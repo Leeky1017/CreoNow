@@ -18,22 +18,27 @@ const reference = {
   selectionTextHash: "demo",
 };
 
+const baseArgs = {
+  activeSkill: "builtin:polish" as const,
+  busy: false,
+  errorMessage: null,
+  generateDisabled: false,
+  instruction: "润色这段文字，让节奏更紧凑。",
+  instructionHint: "已选 21 个字符",
+  model: "gpt-4.1-mini",
+  onAccept: () => undefined,
+  onClearReference: () => undefined,
+  onGenerate: () => undefined,
+  onInstructionChange: () => undefined,
+  onModelChange: () => undefined,
+  onReject: () => undefined,
+  onSkillChange: () => undefined,
+  reference,
+};
+
 export const Ready: Story = {
   args: {
-    busy: false,
-    canContinue: true,
-    canPolish: true,
-    canRewrite: true,
-    errorMessage: null,
-    instruction: "润色这段文字，让节奏更紧凑。",
-    model: "gpt-4.1-mini",
-    onAccept: () => undefined,
-    onClearReference: () => undefined,
-    onInstructionChange: () => undefined,
-    onLaunchSkill: () => undefined,
-    onModelChange: () => undefined,
-    onReject: () => undefined,
-    reference,
+    ...baseArgs,
     preview: {
       context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
       executionId: "exec-demo",
@@ -49,17 +54,28 @@ export const Ready: Story = {
 
 export const ReferenceOnly: Story = {
   args: {
-    ...Ready.args,
+    ...baseArgs,
     preview: null,
   },
 };
 
 export const Empty: Story = {
   args: {
-    ...Ready.args,
-    canPolish: false,
-    canRewrite: false,
+    ...baseArgs,
     instruction: "",
+    generateDisabled: true,
+    instructionHint: "先在编辑器中选中一段文字，再请求 AI 建议。",
+    preview: null,
+    reference: null,
+  },
+};
+
+export const ContinueMode: Story = {
+  args: {
+    ...baseArgs,
+    activeSkill: "builtin:continue",
+    instruction: "",
+    instructionHint: "将基于光标前 27 个字符续写。",
     preview: null,
     reference: null,
   },

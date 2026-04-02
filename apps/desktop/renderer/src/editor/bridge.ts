@@ -33,6 +33,7 @@ export interface EditorBridge {
   destroy(): void;
   focus(): void;
   getContent(): ProseMirrorJson;
+  getCursorContext(): { cursorPosition: number; precedingText: string } | null;
   getSelection(): SelectionRef | null;
   setContent(content: unknown): void;
   replaceSelection(selection: SelectionRef, nextText: string): ReplaceSelectionResult;
@@ -142,6 +143,18 @@ export function createEditorBridge(options: EditorBridgeOptions = {}): EditorBri
 
     getContent() {
       return view?.state.doc.toJSON() ?? docFromJson(null).toJSON();
+    },
+
+    getCursorContext() {
+      if (view === null) {
+        return null;
+      }
+
+      const cursorPosition = view.state.selection.from;
+      return {
+        cursorPosition,
+        precedingText: view.state.doc.textBetween(0, cursorPosition, LINE_BREAK, LINE_BREAK),
+      };
     },
 
     getSelection() {

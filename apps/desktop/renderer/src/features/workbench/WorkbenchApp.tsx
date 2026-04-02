@@ -32,6 +32,7 @@ import {
   type DocumentRead,
   type ProjectListItem,
   type WorkbenchContextToken,
+  type WorkbenchSkillId,
 } from "@/features/workbench/runtime";
 import { AppToastProvider, useAppToast } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
@@ -409,7 +410,7 @@ function WorkbenchShell() {
   const [activeDocument, setActiveDocument] = useState<DocumentRead | null>(null);
   const [liveSelection, setLiveSelection] = useState<SelectionRef | null>(null);
   const [stickySelection, setStickySelection] = useState<SelectionRef | null>(null);
-  const [continueCursorContext, setContinueCursorContext] = useState<ContinueCursorContext | null>(null);
+  const [activeSkill, setActiveSkill] = useState<WorkbenchSkillId>("builtin:polish");
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [instruction, setInstruction] = useState("");
   const [preview, setPreview] = useState<AiPreview | null>(null);
@@ -535,6 +536,13 @@ function WorkbenchShell() {
   const clearReference = () => {
     setStickySelection(null);
   };
+
+  const selectAiSkill = useCallback((skillId: WorkbenchSkillId) => {
+    setActiveSkill(skillId);
+    setPreview(null);
+    clearAcceptSaveFailure();
+    setWorkbenchError(null, null);
+  }, [clearAcceptSaveFailure, setWorkbenchError]);
 
   const resetAiConversation = () => {
     setInstruction("");
@@ -897,9 +905,26 @@ function WorkbenchShell() {
     }
   };
 
-  const handleLaunchSkill = async (skill: AiLauncherSkill) => {
+  const handleGeneratePreview = async () => {
     const previewContext = activeContextTokenRef.current;
     if (previewContext === null) {
+      return;
+    }
+
+    clearAcceptSaveFailure();
+
+    if (activeSkill === "builtin:rewrite" && instruction.trim().length === 0) {
+      setWorkbenchError(t("messages.rewriteInstructionRequired"), "general");
+      return;
+    }
+
+    if (activeSkill !== "builtin:continue" && stickySelection === null) {
+      return;
+    }
+
+    const cursorContext = activeSkill === "builtin:continue" ? editorBridge.getCursorContext() : null;
+    if (activeSkill === "builtin:continue" && (cursorContext === null || cursorContext.precedingText.trim().length === 0)) {
+      setWorkbenchError(t("messages.continueContextEmpty"), "general");
       return;
     }
     const selection = skill === "continue" ? undefined : stickySelection ?? undefined;
@@ -918,19 +943,27 @@ function WorkbenchShell() {
     const busyOperationId = reserveBusyOperation();
     try {
       setBusy(true);
-      clearAcceptSaveFailure();
       setWorkbenchError(null, null);
-      const nextPreview = await requestAiPreview({
-        api,
-        context: previewContext,
-        cursorPosition: continueContext?.cursorPosition,
-        instruction,
-        model,
-        precedingText: continueContext?.precedingText,
-        selection,
-        skill,
-        userEditRevision: userEditRevisionRef.current,
-      });
+      const nextPreview = activeSkill === "builtin:continue"
+        ? await requestAiPreview({
+            api,
+            context: previewContext,
+            cursorPosition: cursorContext!.cursorPosition,
+            instruction,
+            model,
+            precedingText: cursorContext!.precedingText,
+            skillId: activeSkill,
+            userEditRevision: userEditRevisionRef.current,
+          })
+        : await requestAiPreview({
+            api,
+            context: previewContext,
+            selection: stickySelection!,
+            instruction,
+            model,
+            skillId: activeSkill,
+            userEditRevision: userEditRevisionRef.current,
+          });
       if (isCurrentContextToken(previewContext)) {
         clearAcceptSaveFailure();
         setPreview(nextPreview);
@@ -1138,6 +1171,13 @@ function WorkbenchShell() {
     : liveSelection
       ? t("panel.ai.selectionLength", { count: liveSelection.text.length })
       : t("editor.selectionHint");
+  const cursorContext = activeSkill === "builtin:continue" ? editorBridge.getCursorContext() : null;
+  const continueReady = (cursorContext?.precedingText.trim().length ?? 0) > 0;
+  const instructionHint = activeSkill === "builtin:continue"
+    ? continueReady
+      ? t("panel.ai.continueContextLength", { count: cursorContext?.precedingText.length ?? 0 })
+      : t("messages.continueContextEmpty")
+    : selectionHint;
   const frameStyle = {
     "--left-resizer-width": sidebarCollapsed ? "0px" : "8px",
     "--left-sidebar-width": sidebarCollapsed ? "0px" : `${sidebarWidth}px`,
@@ -1198,12 +1238,15 @@ function WorkbenchShell() {
   const renderRightPanelContent = () => {
     if (activeRightPanel === "ai") {
       return <AiPreviewSurface
+        activeSkill={activeSkill}
         busy={busy}
         canContinue={Boolean(continueCursorContext && continueCursorContext.precedingText.trim().length > 0)}
         canPolish={stickySelection !== null}
         canRewrite={stickySelection !== null && instruction.trim().length > 0}
         errorMessage={errorMessage}
+        generateDisabled={activeSkill === "builtin:continue" ? continueReady === false : stickySelection === null}
         instruction={instruction}
+        instructionHint={instructionHint}
         model={model}
         onAccept={() => void handleAcceptPreview()}
         onClearReference={clearReference}
@@ -1211,6 +1254,7 @@ function WorkbenchShell() {
         onLaunchSkill={(skill) => void handleLaunchSkill(skill)}
         onModelChange={setModel}
         onReject={() => void handleRejectPreview()}
+        onSkillChange={selectAiSkill}
         preview={preview}
         reference={stickySelection}
       />;

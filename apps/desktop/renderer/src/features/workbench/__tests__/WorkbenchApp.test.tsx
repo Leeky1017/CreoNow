@@ -18,6 +18,7 @@ const bridgeMock: EditorBridge = {
   destroy: vi.fn(),
   focus: vi.fn(),
   getContent: vi.fn(() => ({ type: "doc" })),
+  getCursorContext: vi.fn(() => ({ cursorPosition: 5, precedingText: "风从北方来" })),
   getSelection: vi.fn(() => null),
   getTextContent: vi.fn(() => "风从北方来"),
   mount: vi.fn(),
@@ -208,9 +209,58 @@ describe("WorkbenchApp", () => {
   beforeEach(() => {
     bridgeOptions = undefined;
     vi.clearAllMocks();
+    vi.mocked(bridgeMock.getCursorContext).mockReturnValue({ cursorPosition: 5, precedingText: "风从北方来" });
     window.localStorage.clear();
     window.api = createApiMock();
     restoreDefaultEditorView();
+  });
+
+
+  it("renders the P1 polish rewrite continue launcher and keeps rewrite instruction-gated", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    expect(screen.getByRole("button", { name: "润色" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "改写" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "续写" })).toBeInTheDocument();
+
+    const selection = createSelection("需要显式改写的一段文字。", 16);
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(selection);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "改写" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+
+    expect(window.api?.ai.runSkill).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("请输入改写指令。");
+
+    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+
+    await waitFor(() => {
+      expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+        skillId: "builtin:polish",
+        selection,
+      }));
+    });
+  });
+
+  it("runs continue from cursor context without any selection", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "续写" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+
+    await waitFor(() => {
+      expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+        skillId: "builtin:continue",
+        hasSelection: false,
+        cursorPosition: 5,
+        precedingText: "风从北方来",
+      }));
+    });
   });
 
   it("keeps the AI reference sticky until clear, replacement, send, and new chat", async () => {

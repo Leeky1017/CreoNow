@@ -1,7 +1,7 @@
 import type { IpcError, IpcResponseData } from "@shared/types/ipc-generated";
 
 import type { EditorBridge } from "@/editor/bridge";
-import type { SelectionRef } from "@/editor/schema";
+import { computeSelectionTextHash, type SelectionRef } from "@/editor/schema";
 import { RendererIpcError, type PreloadApi } from "@/lib/preloadApi";
 
 export type ProjectListItem = IpcResponseData<"project:project:list">["items"][number];
@@ -24,6 +24,9 @@ export interface WorkbenchContextToken {
   projectId: string;
   revision: number;
 }
+
+export const WORKBENCH_SKILL_IDS = ["builtin:polish", "builtin:rewrite", "builtin:continue"] as const;
+export type WorkbenchSkillId = typeof WORKBENCH_SKILL_IDS[number];
 
 export interface AiPreview {
   context: WorkbenchContextToken;
@@ -272,62 +275,50 @@ export async function openDocument(args: {
   return readResult.data;
 }
 
-export async function requestAiPreview(args: {
+type SelectionPreviewRequest = {
   api: PreloadApi;
   context: WorkbenchContextToken;
   cursorPosition?: number;
   instruction: string;
   model: string;
-  precedingText?: string;
-  selection?: SelectionRef;
-  skill: AiLauncherSkill;
+  skillId: Extract<WorkbenchSkillId, "builtin:polish" | "builtin:rewrite">;
+  selection: SelectionRef;
   userEditRevision: number;
-}): Promise<AiPreview> {
-  const instruction = args.instruction.trim();
-  let originalText = "";
-  let input = "";
-  let skillId = "";
-  let hasSelection = false;
+};
 
-  if (args.skill === "continue") {
-    if (typeof args.cursorPosition !== "number" || args.precedingText === undefined || args.precedingText.trim().length === 0) {
-      throw new Error("context-required");
-    }
-    originalText = "";
-    input = args.precedingText;
-    skillId = "builtin:continue";
-  } else {
-    if (args.selection === undefined) {
-      throw new Error("selection-required");
-    }
-    originalText = args.selection.text;
-    hasSelection = true;
+type ContinuePreviewRequest = {
+  api: PreloadApi;
+  context: WorkbenchContextToken;
+  cursorPosition: number;
+  instruction: string;
+  model: string;
+  precedingText: string;
+  skillId: Extract<WorkbenchSkillId, "builtin:continue">;
+  userEditRevision: number;
+};
 
-    if (args.skill === "rewrite") {
-      if (instruction.length === 0) {
-        throw new Error("instruction-required");
-      }
-      input = [
-        "Instruction:",
-        instruction,
-        "",
-        "Text:",
-        args.selection.text,
-      ].join(String.fromCharCode(10));
-      skillId = "builtin:rewrite";
-    } else {
-      input = args.selection.text;
-      skillId = "builtin:polish";
-    }
-  }
+function createInsertionSelection(cursorPosition: number): SelectionRef {
+  return {
+    from: cursorPosition,
+    to: cursorPosition,
+    text: "",
+    selectionTextHash: computeSelectionTextHash(""),
+  };
+}
 
+export async function requestAiPreview(args: SelectionPreviewRequest | ContinuePreviewRequest): Promise<AiPreview> {
   const result = await args.api.ai.runSkill({
-    skillId,
-    hasSelection,
-    ...(args.selection === undefined ? {} : { selection: args.selection }),
-    ...(args.cursorPosition === undefined ? {} : { cursorPosition: args.cursorPosition }),
-    ...(args.precedingText === undefined ? {} : { precedingText: args.precedingText }),
-    input,
+    skillId: args.skillId,
+    hasSelection: args.skillId !== "builtin:continue",
+    ...(args.skillId === "builtin:continue"
+      ? {
+          cursorPosition: args.cursorPosition,
+          precedingText: args.precedingText,
+        }
+      : {
+          selection: args.selection,
+        }),
+    input: args.instruction.trim(),
     mode: "ask",
     model: args.model,
     stream: false,
@@ -348,9 +339,8 @@ export async function requestAiPreview(args: {
   return {
     context: args.context,
     executionId: result.data.executionId,
-    originalText,
-    selection: args.selection ?? null,
-    skill: args.skill,
+    originalText: args.skillId === "builtin:continue" ? args.precedingText : args.selection.text,
+    selection: args.skillId === "builtin:continue" ? createInsertionSelection(args.cursorPosition) : args.selection,
     sourceUserEditRevision: args.userEditRevision,
     suggestedText,
     runId: result.data.runId,
