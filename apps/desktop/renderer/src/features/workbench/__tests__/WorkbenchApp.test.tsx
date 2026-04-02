@@ -523,6 +523,243 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
+  it("does not let a failed accept rollback overwrite a document switch", async () => {
+    window.api = createApiMock();
+
+    const acceptResult = createDeferred<{
+      ok: false;
+      error: { code: "DB_ERROR"; message: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: 1,
+    } as const;
+    const secondDocument = {
+      documentId: "doc-2",
+      title: "第二章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: 2,
+    } as const;
+    const beforeApply = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 原文" }] }],
+    };
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 接受后的文稿" }] }],
+    };
+    const secondDocumentContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 B 当前内容" }] }],
+    };
+
+    window.api.file.listDocuments = vi.fn(async () => ({ ok: true, data: { items: [firstDocument, secondDocument] } })) as typeof window.api.file.listDocuments;
+    window.api.file.setCurrentDocument = vi.fn(async ({ documentId }) => ({ ok: true, data: { documentId } })) as typeof window.api.file.setCurrentDocument;
+    window.api.file.readDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: documentId === "doc-2"
+        ? {
+          documentId: "doc-2",
+          projectId: "project-1",
+          title: "第二章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 1,
+          contentJson: JSON.stringify(secondDocumentContent),
+          contentText: "文档 B 当前内容",
+          contentMd: "",
+          contentHash: "hash-b",
+          createdAt: 2,
+          updatedAt: 2,
+        }
+        : {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify(beforeApply),
+          contentText: "文档 A 原文",
+          contentMd: "",
+          contentHash: "hash-a",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+    })) as typeof window.api.file.readDocument;
+    window.api.file.saveDocument = vi.fn()
+      .mockImplementationOnce(async () => acceptResult.promise) as typeof window.api.file.saveDocument;
+
+    let currentContent = beforeApply;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      currentContent = content as typeof currentContent;
+    });
+    vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      currentContent = acceptedDocument;
+      bridgeOptions?.onDocumentChange?.(acceptedDocument);
+      return { ok: true as const };
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.mocked(bridgeMock.setContent).mockClear();
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("切文档期间不能再被旧 accept 回滚。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "接受" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /第二章/ }));
+    await screen.findByRole("heading", { name: "第二章" });
+    expect(currentContent).toEqual(secondDocumentContent);
+
+    await act(async () => {
+      acceptResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "accept save failed" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("heading", { name: "第二章" })).toBeInTheDocument();
+    expect(currentContent).toEqual(secondDocumentContent);
+    expect(bridgeMock.setContent).not.toHaveBeenCalledWith(beforeApply);
+  });
+
+  it("does not let a failed accept rollback overwrite a newly created document", async () => {
+    window.api = createApiMock();
+
+    const acceptResult = createDeferred<{
+      ok: false;
+      error: { code: "DB_ERROR"; message: string };
+    }>();
+    const firstDocument = {
+      documentId: "doc-1",
+      title: "第一章",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 0,
+      updatedAt: 1,
+    } as const;
+    const createdDocument = {
+      documentId: "doc-3",
+      title: "新建文档",
+      type: "chapter",
+      status: "draft",
+      sortOrder: 1,
+      updatedAt: 3,
+    } as const;
+    const beforeApply = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 原文" }] }],
+    };
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "文档 A 接受后的文稿" }] }],
+    };
+    const createdDocumentContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "新建文档内容" }] }],
+    };
+
+    window.api.file.createDocument = vi.fn(async () => ({ ok: true, data: { documentId: "doc-3" } })) as typeof window.api.file.createDocument;
+    window.api.file.listDocuments = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: { items: [firstDocument] } })
+      .mockResolvedValue({ ok: true, data: { items: [firstDocument, createdDocument] } }) as typeof window.api.file.listDocuments;
+    window.api.file.setCurrentDocument = vi.fn(async ({ documentId }) => ({ ok: true, data: { documentId } })) as typeof window.api.file.setCurrentDocument;
+    window.api.file.readDocument = vi.fn(async ({ documentId }) => ({
+      ok: true,
+      data: documentId === "doc-3"
+        ? {
+          documentId: "doc-3",
+          projectId: "project-1",
+          title: "新建文档",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 1,
+          contentJson: JSON.stringify(createdDocumentContent),
+          contentText: "新建文档内容",
+          contentMd: "",
+          contentHash: "hash-c",
+          createdAt: 3,
+          updatedAt: 3,
+        }
+        : {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify(beforeApply),
+          contentText: "文档 A 原文",
+          contentMd: "",
+          contentHash: "hash-a",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+    })) as typeof window.api.file.readDocument;
+    window.api.file.saveDocument = vi.fn()
+      .mockImplementationOnce(async () => acceptResult.promise) as typeof window.api.file.saveDocument;
+
+    let currentContent = beforeApply;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      currentContent = content as typeof currentContent;
+    });
+    vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      currentContent = acceptedDocument;
+      bridgeOptions?.onDocumentChange?.(acceptedDocument);
+      return { ok: true as const };
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.mocked(bridgeMock.setContent).mockClear();
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("新建文档期间不能再被旧 accept 回滚。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "接受" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "新建文档" }));
+    await screen.findByRole("heading", { name: "新建文档" });
+    expect(currentContent).toEqual(createdDocumentContent);
+
+    await act(async () => {
+      acceptResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "accept save failed" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("heading", { name: "新建文档" })).toBeInTheDocument();
+    expect(currentContent).toEqual(createdDocumentContent);
+    expect(bridgeMock.setContent).not.toHaveBeenCalledWith(beforeApply);
+  });
+
   it("keeps the accept flow saved but surfaces feedback failure when submitSkillFeedback returns ok:false", async () => {
     window.api = createApiMock();
     window.api.ai.submitSkillFeedback = vi.fn(async () => ({

@@ -33,6 +33,7 @@ export interface AcceptAiPreviewResult {
 
 export type RunWithoutAutosave = <TResult>(operation: () => TResult) => TResult;
 export type GetUserEditRevision = () => number;
+export type GetEditorContextRevision = () => number;
 
 export class SelectionChangedError extends Error {
   public constructor() {
@@ -272,6 +273,7 @@ export async function acceptAiPreview(args: {
   projectId: string;
   runWithoutAutosave?: RunWithoutAutosave;
   getUserEditRevision: GetUserEditRevision;
+  getEditorContextRevision: GetEditorContextRevision;
 }): Promise<AcceptAiPreviewResult> {
   const beforeApply = args.bridge.getContent();
   const runWithoutAutosave = args.runWithoutAutosave ?? ((operation) => operation());
@@ -283,6 +285,7 @@ export async function acceptAiPreview(args: {
   const appliedContent = args.bridge.getContent();
   const appliedContentJson = JSON.stringify(appliedContent);
   const appliedAtUserEditRevision = args.getUserEditRevision();
+  const appliedAtEditorContextRevision = args.getEditorContextRevision();
   const saveResult = await args.api.file.saveDocument({
     projectId: args.projectId,
     documentId: args.documentId,
@@ -293,7 +296,10 @@ export async function acceptAiPreview(args: {
 
   if (saveResult.ok === false) {
     runWithoutAutosave(() => {
-      if (args.getUserEditRevision() === appliedAtUserEditRevision) {
+      if (
+        args.getUserEditRevision() === appliedAtUserEditRevision
+        && args.getEditorContextRevision() === appliedAtEditorContextRevision
+      ) {
         args.bridge.setContent(beforeApply);
       }
     });

@@ -191,6 +191,7 @@ function WorkbenchShell() {
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const latestSaveRequestRef = useRef(0);
   const userEditRevisionRef = useRef(0);
+  const editorContextRevisionRef = useRef(0);
   const projectRef = useRef<ProjectListItem | null>(null);
   const activeDocumentRef = useRef<DocumentRead | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
@@ -395,6 +396,13 @@ function WorkbenchShell() {
     [api.file, clearPendingAutosaveTimer, t],
   );
 
+  const replaceEditorContextContent = useCallback((contentJson: string) => {
+    editorContextRevisionRef.current += 1;
+    runWithoutAutosave(() => {
+      editorBridge.setContent(JSON.parse(contentJson));
+    });
+  }, [editorBridge, runWithoutAutosave]);
+
   useEffect(() => {
     if (containerRef.current === null) {
       return;
@@ -454,9 +462,7 @@ function WorkbenchShell() {
           return;
         }
 
-        runWithoutAutosave(() => {
-          editorBridge.setContent(JSON.parse(workspace.activeDocument.contentJson));
-        });
+        replaceEditorContextContent(workspace.activeDocument.contentJson);
         setProject(workspace.project);
         setDocuments(workspace.documents);
         setActiveDocument(workspace.activeDocument);
@@ -478,7 +484,7 @@ function WorkbenchShell() {
     return () => {
       disposed = true;
     };
-  }, [api, editorBridge, t]);
+  }, [api, replaceEditorContextContent, t]);
 
   const handleCreateDocument = async () => {
     if (project === null) {
@@ -491,9 +497,7 @@ function WorkbenchShell() {
         projectId: project.projectId,
         defaultDocumentTitle: t("document.defaultTitle"),
       });
-      runWithoutAutosave(() => {
-        editorBridge.setContent(JSON.parse(result.activeDocument.contentJson));
-      });
+      replaceEditorContextContent(result.activeDocument.contentJson);
       setDocuments(result.documents);
       setActiveDocument(result.activeDocument);
       setPreview(null);
@@ -523,9 +527,7 @@ function WorkbenchShell() {
         projectId: project.projectId,
         documentId,
       });
-      runWithoutAutosave(() => {
-        editorBridge.setContent(JSON.parse(readDocument.contentJson));
-      });
+      replaceEditorContextContent(readDocument.contentJson);
       setActiveDocument(readDocument);
       setPreview(null);
       setStickySelection(null);
@@ -587,6 +589,7 @@ function WorkbenchShell() {
         preview,
         runWithoutAutosave,
         getUserEditRevision: () => userEditRevisionRef.current,
+        getEditorContextRevision: () => editorContextRevisionRef.current,
       }));
       setPreview(null);
       setErrorMessage(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null);
