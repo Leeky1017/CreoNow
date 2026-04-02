@@ -117,9 +117,10 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         <span className="field-label">{t("panel.ai.launcher")}</span>
         <span className="panel-meta">{selectionHint}</span>
       </div>
-      <div className="panel-actions">
+      <div className="panel-actions panel-actions--launcher">
         <Button
           tone="primary"
+          className="launcher-action launcher-action--selection-gated"
           disabled={props.busy || props.canPolish === false}
           onClick={() => props.onLaunchSkill("polish")}
         >
@@ -127,6 +128,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         </Button>
         <Button
           tone="ghost"
+          className="launcher-action launcher-action--selection-gated"
           disabled={props.busy || props.canRewrite === false}
           onClick={() => props.onLaunchSkill("rewrite")}
         >
@@ -134,6 +136,7 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         </Button>
         <Button
           tone="ghost"
+          className="launcher-action"
           disabled={props.busy || props.canContinue === false}
           onClick={() => props.onLaunchSkill("continue")}
         >

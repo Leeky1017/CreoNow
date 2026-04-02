@@ -48,6 +48,26 @@ describe("AiPreviewSurface", () => {
     expect(onLaunchSkill).toHaveBeenCalledTimes(1);
   });
 
+  it("renders empty-selection launcher actions with explicit gated styling", () => {
+    renderSurface({ canPolish: false, canRewrite: false, reference: null });
+
+    expect(screen.getByRole("button", { name: "润色" })).toHaveClass("launcher-action--selection-gated");
+    expect(screen.getByRole("button", { name: "润色" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "改写" })).toHaveClass("launcher-action--selection-gated");
+    expect(screen.getByRole("button", { name: "改写" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "续写" })).toBeEnabled();
+  });
+
+  it("does not fire onLaunchSkill when selection-gated buttons are disabled", () => {
+    const onLaunchSkill = vi.fn();
+    renderSurface({ canPolish: false, canRewrite: false, reference: null, onLaunchSkill });
+
+    fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.click(screen.getByRole("button", { name: "改写" }));
+
+    expect(onLaunchSkill).not.toHaveBeenCalled();
+  });
+
   it("shows continue preview as an insertion instead of echoing preceding text as original", () => {
     renderSurface({
       preview: {
