@@ -143,7 +143,11 @@ export function parseVitestJsonReport(
       }
       const normalized = resolveReportedVitestFile(suite.name);
       outcome.executed.add(normalized);
-      if (suite.status === "failed") {
+      // Only "passed" is considered a successful execution.
+      // "failed", "skipped", "todo", "pending", "cancelled", or any other
+      // non-passed status must be treated as a failure so the gate does not
+      // silently accept fully-skipped suites.
+      if (suite.status !== "passed") {
         outcome.failed.add(normalized);
       }
     }
