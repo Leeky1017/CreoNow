@@ -295,6 +295,10 @@ function createPendingPermissionGate(): PendingPermissionGate {
       resolver(granted);
       return true;
     },
+    releasePendingPermission(requestId: string) {
+      pending.delete(requestId);
+      settled.delete(requestId);
+    },
     rejectAll() {
       for (const [requestId, resolver] of pending) {
         pending.delete(requestId);
@@ -789,6 +793,7 @@ type PendingPermissionGate = {
   evaluate: (request: unknown) => Promise<{ level: string; granted: boolean }>;
   requestPermission: (request: unknown) => Promise<boolean>;
   resolve: (requestId: string, granted: boolean) => boolean;
+  releasePendingPermission: (requestId: string) => void;
   rejectAll: () => void;
 };
 

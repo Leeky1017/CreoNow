@@ -75,6 +75,33 @@ function createMockPermissionGate(autoGrant = true) {
       autoGrant ? { level: "preview-confirm", granted: true } : { level: "must-confirm-snapshot", granted: false },
     ),
     requestPermission: vi.fn().mockResolvedValue(autoGrant),
+    releasePendingPermission: vi.fn(),
+  };
+}
+
+function createTrackablePermissionGate() {
+  const pending = new Map<string, (granted: boolean) => void>();
+
+  return {
+    pending,
+    evaluate: vi.fn().mockResolvedValue({
+      level: "must-confirm-snapshot",
+      granted: false,
+    }),
+    requestPermission: vi.fn().mockImplementation((request: { requestId?: string }) => {
+      const requestId = request.requestId ?? "";
+      return new Promise<boolean>((resolve) => {
+        pending.set(requestId, resolve);
+      });
+    }),
+    releasePendingPermission: vi.fn().mockImplementation((requestId: string) => {
+      pending.delete(requestId);
+    }),
+    settle(requestId: string, granted: boolean) {
+      const resolver = pending.get(requestId);
+      pending.delete(requestId);
+      resolver?.(granted);
+    },
   };
 }
 
@@ -365,6 +392,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "auto-allow", granted: true }),
           requestPermission: vi.fn(),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -381,6 +409,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "must-confirm-snapshot", granted: false }),
           requestPermission: vi.fn().mockResolvedValue(true),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -400,6 +429,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "preview-confirm", granted: false }),
           requestPermission: vi.fn().mockResolvedValue(false),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -417,6 +447,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "must-confirm-snapshot", granted: false }),
           requestPermission: vi.fn().mockImplementation(() => new Promise(() => {})),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -453,6 +484,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "preview-confirm", granted: false }),
           requestPermission: vi.fn().mockResolvedValue(true),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);
@@ -464,6 +496,110 @@ describe("WritingOrchestrator", () => {
       expect(types).toContain("permission-granted");
       expect(types).toContain("write-back-done");
       orch.dispose();
+    });
+
+    it("权限请求 120 秒超时后会显式释放 pending resolver", async () => {
+      const permissionGate = createTrackablePermissionGate();
+      const cfg = buildConfig({ permissionGate });
+      const orch = createWritingOrchestrator(cfg);
+      const events: WritingEvent[] = [];
+      const gen = orch.execute(makeRequest({ requestId: "req-timeout-release" }));
+
+      let result = await gen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        events.push(result.value);
+        result = await gen.next();
+      }
+      expect(result.done).toBe(false);
+      events.push(result.value);
+      expect(permissionGate.pending.size).toBe(1);
+
+      const waitForPermissionResolution = gen.next();
+      await vi.advanceTimersByTimeAsync(120_000);
+
+      result = await waitForPermissionResolution;
+      while (!result.done) {
+        events.push(result.value);
+        result = await gen.next();
+      }
+
+      expect(eventTypes(events)).toContain("permission-denied");
+      expect(permissionGate.pending.size).toBe(0);
+      expect(permissionGate.releasePendingPermission).toHaveBeenCalledWith(
+        "req-timeout-release",
+      );
+      orch.dispose();
+    });
+
+    it("paused preview 在 teardown 时会释放 pending resolver", async () => {
+      const permissionGate = createTrackablePermissionGate();
+      const cfg = buildConfig({ permissionGate });
+      const orch = createWritingOrchestrator(cfg);
+      const gen = orch.execute(makeRequest({ requestId: "req-teardown-release" }));
+
+      let result = await gen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        result = await gen.next();
+      }
+      expect(result.done).toBe(false);
+      expect(permissionGate.pending.size).toBe(1);
+
+      const waiting = gen.next();
+      await Promise.resolve();
+      orch.dispose();
+      await Promise.resolve();
+
+      expect(permissionGate.pending.size).toBe(0);
+      expect(permissionGate.releasePendingPermission).toHaveBeenCalledWith(
+        "req-teardown-release",
+      );
+
+      await vi.advanceTimersByTimeAsync(120_000);
+      await waiting;
+    });
+
+    it("正常 grant / reject 路径都会清空 pending resolver", async () => {
+      const grantGate = createTrackablePermissionGate();
+      const grantCfg = buildConfig({ permissionGate: grantGate });
+      const grantOrch = createWritingOrchestrator(grantCfg);
+      const grantGen = grantOrch.execute(makeRequest({ requestId: "req-grant-release" }));
+
+      let result = await grantGen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        result = await grantGen.next();
+      }
+      expect(result.done).toBe(false);
+      expect(grantGate.pending.size).toBe(1);
+      const grantWait = grantGen.next();
+      await Promise.resolve();
+      grantGate.settle("req-grant-release", true);
+      await grantWait;
+      while (!(await grantGen.next()).done) {
+        // drain
+      }
+      expect(grantGate.pending.size).toBe(0);
+      grantOrch.dispose();
+
+      const rejectGate = createTrackablePermissionGate();
+      const rejectCfg = buildConfig({ permissionGate: rejectGate });
+      const rejectOrch = createWritingOrchestrator(rejectCfg);
+      const rejectGen = rejectOrch.execute(makeRequest({ requestId: "req-reject-release" }));
+
+      result = await rejectGen.next();
+      while (!result.done && result.value.type !== "permission-requested") {
+        result = await rejectGen.next();
+      }
+      expect(result.done).toBe(false);
+      expect(rejectGate.pending.size).toBe(1);
+      const rejectWait = rejectGen.next();
+      await Promise.resolve();
+      rejectGate.settle("req-reject-release", false);
+      await rejectWait;
+      while (!(await rejectGen.next()).done) {
+        // drain
+      }
+      expect(rejectGate.pending.size).toBe(0);
+      rejectOrch.dispose();
     });
   });
 
@@ -720,6 +856,7 @@ describe("WritingOrchestrator", () => {
         permissionGate: {
           evaluate: vi.fn().mockResolvedValue({ level: "must-confirm-snapshot", granted: false }),
           requestPermission: vi.fn().mockReturnValue(permissionPromise),
+          releasePendingPermission: vi.fn(),
         },
       });
       const orch = createWritingOrchestrator(cfg);

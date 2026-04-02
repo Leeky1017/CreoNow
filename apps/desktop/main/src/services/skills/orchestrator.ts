@@ -87,6 +87,7 @@ function readVersionId(data: unknown): string | null {
 interface PermissionGate {
   evaluate(request: unknown): Promise<{ level: string; granted: boolean }>;
   requestPermission(request: unknown): Promise<boolean>;
+  releasePendingPermission(requestId: string): void;
 }
 
 interface PostWritingHook {
@@ -424,11 +425,21 @@ export function createWritingOrchestrator(
           // Need explicit permission
           taskStates.set(requestId, "paused");
 
-          let timeoutId: ReturnType<typeof setTimeout>;
+          let timeoutId: ReturnType<typeof setTimeout> | undefined;
+          let removeAbortListener: (() => void) | undefined;
           const permissionDecision = Promise.race<boolean>([
             config.permissionGate.requestPermission(request).catch(() => false),
             new Promise<boolean>((resolve) => {
               timeoutId = setTimeout(() => resolve(false), PERMISSION_TIMEOUT_MS);
+            }),
+            new Promise<boolean>((resolve) => {
+              const handleAbort = () => resolve(false);
+              abortController.signal.addEventListener("abort", handleAbort, {
+                once: true,
+              });
+              removeAbortListener = () => {
+                abortController.signal.removeEventListener("abort", handleAbort);
+              };
             }),
           ]);
 
@@ -443,10 +454,20 @@ export function createWritingOrchestrator(
           } catch {
             granted = false;
           } finally {
-            clearTimeout(timeoutId!);
+            if (timeoutId !== undefined) {
+              clearTimeout(timeoutId);
+            }
+            removeAbortListener?.();
+            config.permissionGate.releasePendingPermission(requestId);
           }
 
           taskStates.set(requestId, "running");
+
+          if (abortController.signal.aborted) {
+            taskStates.set(requestId, "killed");
+            yield makeEvent("aborted", requestId, { reason: "user-abort" });
+            return;
+          }
 
           if (!granted) {
             taskStates.set(requestId, "killed");
@@ -586,6 +607,7 @@ export function createWritingOrchestrator(
       if (controller) {
         controller.abort();
         config.aiService.abort();
+        config.permissionGate.releasePendingPermission(requestId);
       }
     },
 
@@ -594,8 +616,9 @@ export function createWritingOrchestrator(
     },
 
     dispose(): void {
-      for (const [, controller] of abortControllers) {
+      for (const [requestId, controller] of abortControllers) {
         controller.abort();
+        config.permissionGate.releasePendingPermission(requestId);
       }
       abortControllers.clear();
       taskStates.clear();
