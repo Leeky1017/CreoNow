@@ -278,17 +278,22 @@ export async function acceptAiPreview(args: {
     throw new SelectionChangedError();
   }
 
+  const appliedContent = args.bridge.getContent();
+  const appliedContentJson = JSON.stringify(appliedContent);
   const saveResult = await args.api.file.saveDocument({
     projectId: args.projectId,
     documentId: args.documentId,
     actor: "ai",
     reason: "ai-accept",
-    contentJson: JSON.stringify(args.bridge.getContent()),
+    contentJson: appliedContentJson,
   });
 
   if (saveResult.ok === false) {
     runWithoutAutosave(() => {
-      args.bridge.setContent(beforeApply);
+      const currentContentJson = JSON.stringify(args.bridge.getContent());
+      if (currentContentJson === appliedContentJson) {
+        args.bridge.setContent(beforeApply);
+      }
     });
     throw saveResult.error;
   }
