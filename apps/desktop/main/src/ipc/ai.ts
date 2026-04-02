@@ -33,6 +33,11 @@ import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { DegradationCounter } from "../services/shared/degradationCounter";
 import { createDbNotReadyError } from "./dbError";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
+import {
+  registerWritingOrchestrationHandlers,
+  type OrchestratorAiAdapter,
+} from "./writingOrchestrationIpc";
+import { estimateTokens as estimateCjkTokens } from "../services/context/tokenEstimation";
 
 type SkillRunPayload = {
   skillId: string;
@@ -709,6 +714,48 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   registerAiSkillRunHandler(ctx);
   registerAiSkillLifecycleHandlers(ctx);
   registerAiChatHandlers(ctx);
+
+  // P1 production entrypoint: route writing operations through WritingOrchestrator.
+  const aiAdapter: OrchestratorAiAdapter = {
+    estimateTokens: estimateCjkTokens,
+    abort() {
+      ctx.aiService.cancel({ ts: nowTs() });
+    },
+    async complete(input: string, model: string, signal: AbortSignal) {
+      if (signal.aborted) throw new Error("aborted");
+
+      let outputText = "";
+      const res = await ctx.aiService.runSkill({
+        skillId: "writing-p1",
+        input,
+        mode: "agent",
+        model: model || "default",
+        stream: false,
+        ts: nowTs(),
+        emitEvent: (event: AiStreamEvent) => {
+          if (event.type === "done" && event.outputText) {
+            outputText = event.outputText;
+          }
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(res.error.message);
+      }
+
+      return {
+        text: outputText || res.data.outputText || "",
+        tokens: estimateCjkTokens(outputText || res.data.outputText || ""),
+      };
+    },
+  };
+
+  registerWritingOrchestrationHandlers({
+    ipcMain: ctx.deps.ipcMain,
+    db: ctx.deps.db,
+    logger: ctx.deps.logger,
+    aiAdapter,
+  });
 }
 
 function registerAiSkillRunHandler(ctx: AiIpcContext): void {

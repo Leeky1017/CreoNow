@@ -16,8 +16,12 @@ import type { StreamChunk } from "../ai/streaming";
 export interface WritingRequest {
   requestId: string;
   skillId: string;
+  /** Optional model identifier forwarded to the AI adapter. */
+  model?: string;
   input: { selectedText?: string; precedingText?: string; followingText?: string; [key: string]: unknown };
   documentId: string;
+  /** Optional project ID required by tools that need document-service access. */
+  projectId?: string;
   selection?: {
     from: number;
     to: number;
@@ -318,11 +322,27 @@ export function createWritingOrchestrator(
           return;
         }
 
-        // Stage 7: Write-back
+        // Stage 7: Write-back (snapshot original BEFORE write, then write AI result)
+        // P1 manuscript protection: the pre-write snapshot is what users roll back to.
+        const preWriteTool = config.toolRegistry.get("preWriteSnapshot");
+        let preWriteSnapshotId = "unknown";
+        if (preWriteTool) {
+          const preResult = await preWriteTool.execute({
+            documentId: request.documentId,
+            projectId: request.projectId,
+            requestId,
+          });
+          if (preResult.success && preResult.data) {
+            preWriteSnapshotId =
+              (preResult.data as Record<string, string>).snapshotId ?? "unknown";
+          }
+        }
+
         const writeTool = config.toolRegistry.get("documentWrite");
         if (writeTool) {
           await writeTool.execute({
             documentId: request.documentId,
+            projectId: request.projectId,
             content: fullText,
             requestId,
           });
@@ -333,6 +353,7 @@ export function createWritingOrchestrator(
         if (versionTool) {
           const result = await versionTool.execute({
             documentId: request.documentId,
+            projectId: request.projectId,
             requestId,
           });
           if (result.success && result.data) {
@@ -340,7 +361,10 @@ export function createWritingOrchestrator(
           }
         }
 
-        yield makeEvent("write-back-done", requestId, { versionId });
+        yield makeEvent("write-back-done", requestId, {
+          versionId,
+          preWriteSnapshotId,
+        });
 
         // Stage 8: Post-writing hooks
         const executedHooks: string[] = [];

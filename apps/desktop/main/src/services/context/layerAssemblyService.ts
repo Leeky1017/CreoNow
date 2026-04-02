@@ -11,10 +11,8 @@ import { createSynopsisFetcher } from "./fetchers/synopsisFetcher";
 import type { SynopsisStore } from "./synopsisStore";
 import type { Logger } from "../../logging/logger";
 import { DegradationCounter } from "../shared/degradationCounter";
-import {
-  estimateUtf8TokenCount as estimateTokenCount,
-  trimUtf8ToTokenBudget as trimTextToTokenBudget,
-} from "@shared/tokenBudget";
+import { trimUtf8ToTokenBudget as trimTextToTokenBudget } from "@shared/tokenBudget";
+import { estimateTokens as estimateTokenCount } from "./tokenEstimation";
 import type {
   ContextAssembleRequest,
   ContextBudgetLayerConfig,
