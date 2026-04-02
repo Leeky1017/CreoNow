@@ -40,6 +40,9 @@ export type VersionSnapshotReason =
   | "manual-save"
   | "autosave"
   | "ai-accept"
+  | "pre-write"
+  | "pre-rollback"
+  | "rollback"
   | "status-change"
   | "branch-merge";
 

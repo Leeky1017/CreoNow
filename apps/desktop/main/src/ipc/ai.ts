@@ -1,8 +1,8 @@
+import { randomUUID } from "node:crypto";
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
-import type { IpcResponse } from "@shared/types/ipc-generated";
-import { estimateUtf8TokenCount as estimateTokenCount } from "@shared/tokenBudget";
+import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
 import { nowTs } from "@shared/timeUtils";
 import {
   SKILL_QUEUE_STATUS_CHANNEL,
@@ -33,6 +33,12 @@ import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { DegradationCounter } from "../services/shared/degradationCounter";
 import { createDbNotReadyError } from "./dbError";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
+import {
+  createWritingOrchestrator,
+  type WritingEvent,
+} from "../services/skills/orchestrator";
+import { createWritingToolRegistry } from "../services/skills/writingTooling";
+import { estimateTokens } from "../services/context/tokenEstimation";
 
 type SkillRunPayload = {
   skillId: string;
@@ -42,6 +48,12 @@ type SkillRunPayload = {
   model: string;
   candidateCount?: number;
   context?: { projectId?: string; documentId?: string };
+  selection?: {
+    from: number;
+    to: number;
+    text: string;
+    selectionTextHash: string;
+  };
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
   stream: boolean;
 };
@@ -63,6 +75,9 @@ type SkillRunCandidate = {
 type SkillRunResponse = {
   executionId: string;
   runId: string;
+  status: "preview" | "completed" | "rejected";
+  previewId?: string;
+  versionId?: string;
   outputText?: string;
   candidates?: SkillRunCandidate[];
   usage?: SkillRunUsage;
@@ -71,6 +86,19 @@ type SkillRunResponse = {
 
 type SkillRunResponseDataInput = SkillRunResponse & {
   contextPrompt?: string;
+};
+
+type SkillRunConfirmPayload = {
+  executionId: string;
+  action: "accept" | "reject";
+};
+
+type SkillRunConfirmResponse = {
+  executionId: string;
+  runId: string;
+  status: "completed" | "rejected";
+  versionId?: string;
+  outputText?: string;
 };
 
 type ModelCatalogResponse = {
@@ -218,6 +246,322 @@ function summarizeCandidateText(text: string): string {
   return `${normalized.slice(0, 117)}...`;
 }
 
+function createPendingPermissionGate(): PendingPermissionGate {
+  const pending = new Map<string, (granted: boolean) => void>();
+  const settled = new Map<string, boolean>();
+
+  return {
+    async evaluate() {
+      return { level: "preview-confirm", granted: false };
+    },
+    async requestPermission(request: unknown) {
+      const maybeRequest = request as { requestId?: unknown };
+      const requestId =
+        typeof maybeRequest?.requestId === "string" ? maybeRequest.requestId : "";
+      if (requestId.length === 0) {
+        return false;
+      }
+      const preResolved = settled.get(requestId);
+      if (typeof preResolved === "boolean") {
+        settled.delete(requestId);
+        return preResolved;
+      }
+      return await new Promise<boolean>((resolve) => {
+        pending.set(requestId, resolve);
+      });
+    },
+    resolve(requestId: string, granted: boolean) {
+      const resolver = pending.get(requestId);
+      if (!resolver) {
+        settled.set(requestId, granted);
+        return true;
+      }
+      pending.delete(requestId);
+      resolver(granted);
+      return true;
+    },
+    rejectAll() {
+      for (const [requestId, resolver] of pending) {
+        pending.delete(requestId);
+        resolver(false);
+      }
+      settled.clear();
+    },
+  };
+}
+
+function renderSkillUserPrompt(args: {
+  template: string;
+  input: string;
+}): string {
+  if (args.template.includes("{{input}}")) {
+    return args.template.split("{{input}}").join(args.input);
+  }
+  if (args.template.trim().length === 0) {
+    return args.input;
+  }
+  return `${args.template}\n\n${args.input}`;
+}
+
+function resolveP1BuiltinSkill(skillId: string):
+  | {
+      id: string;
+      prompt: { system: string; user: string };
+      inputType: "selection" | "document";
+      enabled: true;
+      valid: true;
+      output?: Record<string, unknown>;
+      dependsOn?: string[];
+      timeoutMs?: number;
+    }
+  | null {
+  const normalized = leafSkillId(skillId);
+  if (normalized === "polish") {
+    return {
+      id: "builtin:polish",
+      prompt: {
+        system:
+          "You are CreoNow's writing assistant. Follow the user's intent exactly. Preserve meaning and factual claims. Do not add new information.",
+        user: "Polish the following text for clarity and style.\n\n<text>\n{{input}}\n</text>",
+      },
+      inputType: "selection",
+      enabled: true,
+      valid: true,
+    };
+  }
+  if (normalized === "rewrite") {
+    return {
+      id: "builtin:rewrite",
+      prompt: {
+        system:
+          "You are CreoNow's writing assistant. Rewrite the input while preserving meaning and factual claims. Follow all explicit rewrite instructions from the input.",
+        user: "Rewrite the following text according to the user's instruction.\n\n<input>\n{{input}}\n</input>",
+      },
+      inputType: "selection",
+      enabled: true,
+      valid: true,
+    };
+  }
+  if (normalized === "continue") {
+    return {
+      id: "builtin:continue",
+      prompt: {
+        system:
+          "You are CreoNow's writing assistant. Continue writing from provided context, matching style and narrative constraints.",
+        user: "Continue the draft based on current context and constraints.\n\n<input>\n{{input}}\n</input>",
+      },
+      inputType: "document",
+      enabled: true,
+      valid: true,
+    };
+  }
+  return null;
+}
+
+async function prepareWritingRequest(args: {
+  ctx: AiIpcContext;
+  payload: SkillRunPayload;
+}): Promise<
+  | {
+      ok: true;
+      data: {
+        messages: Array<{ role: string; content: string }>;
+        tokenCount: number;
+        modelId: string;
+      };
+    }
+  | { ok: false; error: { code: string; message: string; details?: unknown } }
+> {
+  const skillSvc = args.ctx.skillServiceFactory();
+  const resolved = skillSvc.resolveForRun({ id: args.payload.skillId });
+  const resolvedData = resolved.ok
+    ? resolved.data
+    : (() => {
+        const fallback = resolveP1BuiltinSkill(args.payload.skillId);
+        if (!fallback) {
+          return null;
+        }
+        return {
+          skill: fallback,
+          enabled: true,
+          inputType: fallback.inputType,
+        };
+      })();
+  if (!resolvedData) {
+    return {
+      ok: false,
+      error: resolved.ok
+        ? { code: "NOT_FOUND", message: "Skill not found" }
+        : resolved.error,
+    };
+  }
+  if (!resolvedData.enabled) {
+    return {
+      ok: false,
+      error: { code: "UNSUPPORTED", message: "Skill is disabled" },
+    };
+  }
+  if (!resolvedData.skill.valid) {
+    return {
+      ok: false,
+      error: {
+        code: resolvedData.skill.error_code ?? "INVALID_ARGUMENT",
+        message: resolvedData.skill.error_message ?? "Skill is invalid",
+      },
+    };
+  }
+
+  const input = args.payload.input.trim();
+  const inputType = resolvedData.inputType ?? "selection";
+  if (inputType === "selection" && input.length === 0) {
+    return {
+      ok: false,
+      error: {
+        code: "SKILL_INPUT_EMPTY",
+        message:
+          args.payload.skillId === "polish"
+            ? "请先选中需要润色的文本"
+            : "请先提供需要处理的文本",
+      },
+    };
+  }
+
+  let contextPrompt = "";
+  const projectId = args.payload.context?.projectId?.trim() ?? "";
+  const documentId = args.payload.context?.documentId?.trim() ?? "";
+  if (projectId.length > 0 && documentId.length > 0) {
+    try {
+      const assembled = await args.ctx.contextAssemblyService.assemble({
+        projectId,
+        documentId,
+        cursorPosition: args.payload.selection?.to ?? 0,
+        skillId: args.payload.skillId,
+        additionalInput: input,
+        provider: "ai-service",
+        model: args.payload.model,
+      });
+      contextPrompt = assembled.prompt.trim();
+    } catch (error) {
+      args.ctx.deps.logger.info("context_assembly_degraded", {
+        skillId: args.payload.skillId,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  const systemPrompt = resolvedData.skill.prompt?.system?.trim() ?? "";
+  const userPrompt = renderSkillUserPrompt({
+    template: resolvedData.skill.prompt?.user ?? "",
+    input,
+  });
+
+  const messages = [
+    {
+      role: "system",
+      content: [systemPrompt, contextPrompt].filter(Boolean).join("\n\n"),
+    },
+    {
+      role: "user",
+      content: userPrompt,
+    },
+  ];
+
+  const tokenCount = estimateTokens(
+    messages.map((message) => message.content).join("\n\n"),
+  );
+
+  return {
+    ok: true,
+    data: {
+      messages,
+      tokenCount,
+      modelId: args.payload.model,
+    },
+  };
+}
+
+function buildPreviewCandidates(args: {
+  runId: string;
+  outputText: string;
+}): SkillRunCandidate[] {
+  return [
+    {
+      id: "candidate-1",
+      runId: args.runId,
+      text: args.outputText,
+      summary: summarizeCandidateText(args.outputText),
+    },
+  ];
+}
+
+function emitOrchestratorChunk(args: {
+  ctx: AiIpcContext;
+  sender: Electron.WebContents;
+  executionId: string;
+  runId: string;
+  traceId: string;
+  seq: number;
+  delta: string;
+}): void {
+  const pushBackpressure = getOrCreatePushBackpressureGate(args.ctx, args.sender);
+  const event: AiStreamEvent = {
+    type: "chunk",
+    executionId: args.executionId,
+    runId: args.runId,
+    traceId: args.traceId,
+    seq: args.seq,
+    chunk: args.delta,
+    ts: nowTs(),
+  };
+  if (!pushBackpressure.shouldDeliver(event)) {
+    return;
+  }
+  safeEmitToRenderer({
+    logger: args.ctx.deps.logger,
+    sender: args.sender,
+    event,
+  });
+}
+
+function emitOrchestratorDone(args: {
+  ctx: AiIpcContext;
+  sender: Electron.WebContents;
+  executionId: string;
+  runId: string;
+  traceId: string;
+  terminal: "completed" | "cancelled" | "error";
+  outputText: string;
+  error?: IpcError;
+  model: string;
+  usage?: SkillRunResponse["usage"];
+}): void {
+  safeEmitToRenderer({
+    logger: args.ctx.deps.logger,
+    sender: args.sender,
+    event: {
+      type: "done",
+      executionId: args.executionId,
+      runId: args.runId,
+      traceId: args.traceId,
+      terminal: args.terminal,
+      outputText: args.outputText,
+      ...(args.error ? { error: args.error } : {}),
+      result: {
+        success: args.terminal === "completed",
+        output: args.outputText,
+        metadata: {
+          model: args.model,
+          promptTokens: args.usage?.promptTokens ?? 0,
+          completionTokens: args.usage?.completionTokens ?? 0,
+        },
+        traceId: args.traceId,
+        ...(args.error ? { error: args.error } : {}),
+      },
+      ts: nowTs(),
+    },
+  });
+}
+
 /**
  * Normalize AI run response payload to the IPC contract surface.
  *
@@ -230,6 +574,9 @@ export function toSkillRunResponseData(
   return {
     executionId: data.executionId,
     runId: data.runId,
+    status: data.status,
+    ...(typeof data.previewId === "string" ? { previewId: data.previewId } : {}),
+    ...(typeof data.versionId === "string" ? { versionId: data.versionId } : {}),
     ...(typeof data.outputText === "string"
       ? { outputText: data.outputText }
       : {}),
@@ -241,25 +588,9 @@ export function toSkillRunResponseData(
   };
 }
 
-/**
- * Normalize skill id to the leaf token.
- */
 function leafSkillId(skillId: string): string {
   const parts = skillId.split(":");
   return parts[parts.length - 1] ?? skillId;
-}
-
-/**
- * Derive deterministic prompt-token input text for usage accounting.
- */
-function promptInputForUsage(payload: SkillRunPayload): string {
-  if (payload.input.trim().length > 0) {
-    return payload.input;
-  }
-  if (leafSkillId(payload.skillId) === "continue") {
-    return "请基于当前文档上下文继续写作。";
-  }
-  return payload.input;
 }
 
 /**
@@ -404,17 +735,39 @@ type AiIpcContext = {
   deps: AiIpcDeps;
   runtimeGovernance: ReturnType<typeof resolveRuntimeGovernanceFromEnv>;
   aiService: ReturnType<typeof createAiService>;
-  skillExecutor: ReturnType<typeof createSkillExecutor>;
+  writingOrchestrator: ReturnType<typeof createWritingOrchestrator>;
+  skillServiceFactory: () => ReturnType<typeof createSkillService>;
+  contextAssemblyService: ReturnType<typeof createContextLayerAssemblyService>;
   runRegistry: Map<
     string,
     { startedAt: number; context?: SkillRunPayload["context"] }
   >;
+  previewSessions: Map<string, PendingPreviewSession>;
+  permissionGate: PendingPermissionGate;
   sessionTokenTotalsByContext: Map<string, number>;
   modelPricingByModel: Map<string, ModelPricing>;
   pushBackpressureByRenderer: Map<
     number,
     ReturnType<typeof createIpcPushBackpressureGate>
   >;
+};
+
+type PendingPreviewSession = {
+  executionId: string;
+  runId: string;
+  traceId: string;
+  sender: Electron.WebContents;
+  payload: SkillRunPayload;
+  generator: AsyncGenerator<WritingEvent>;
+  outputText: string;
+  usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+};
+
+type PendingPermissionGate = {
+  evaluate: (request: unknown) => Promise<{ level: string; granted: boolean }>;
+  requestPermission: (request: unknown) => Promise<boolean>;
+  resolve: (requestId: string, granted: boolean) => boolean;
+  rejectAll: () => void;
 };
 
 function getOrCreatePushBackpressureGate(
@@ -601,25 +954,42 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         logger: deps.logger,
       });
       const resolved = skillSvc.resolveForRun({ id: skillId });
-      if (!resolved.ok) {
+      const resolvedData = resolved.ok
+        ? resolved.data
+        : (() => {
+            const fallback = resolveP1BuiltinSkill(skillId);
+            if (!fallback) {
+              return null;
+            }
+            return {
+              skill: fallback,
+              enabled: true,
+              inputType: fallback.inputType,
+            };
+          })();
+      if (!resolvedData) {
         return {
           ok: false,
-          error: resolved.error,
+          error: resolved.ok
+            ? { code: "NOT_FOUND", message: "Skill not found" }
+            : resolved.error,
         };
       }
+      const fallbackSkill =
+        "error_code" in resolvedData.skill ? resolvedData.skill : undefined;
       return {
         ok: true,
         data: {
-          id: resolved.data.skill.id,
-          prompt: resolved.data.skill.prompt,
-          output: resolved.data.skill.output,
-          enabled: resolved.data.enabled,
-          valid: resolved.data.skill.valid,
-          inputType: resolved.data.inputType,
-          dependsOn: resolved.data.skill.dependsOn,
-          timeoutMs: resolved.data.skill.timeoutMs,
-          error_code: resolved.data.skill.error_code,
-          error_message: resolved.data.skill.error_message,
+          id: resolvedData.skill.id,
+          prompt: resolvedData.skill.prompt,
+          output: resolvedData.skill.output,
+          enabled: resolvedData.enabled,
+          valid: resolvedData.skill.valid,
+          inputType: resolvedData.inputType,
+          dependsOn: resolvedData.skill.dependsOn,
+          timeoutMs: resolvedData.skill.timeoutMs,
+          error_code: fallbackSkill?.error_code,
+          error_message: fallbackSkill?.error_message,
         },
       };
     },
@@ -675,13 +1045,187 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       warn: (event, data) => deps.logger.info(event, data),
     },
   });
+  const permissionGate = createPendingPermissionGate();
+  const skillServiceFactory = () => {
+    if (!deps.db) {
+      throw new Error("Database not ready");
+    }
+    return createSkillService({
+      db: deps.db,
+      userDataDir: deps.userDataDir,
+      builtinSkillsDir: deps.builtinSkillsDir,
+      logger: deps.logger,
+    });
+  };
+  const writingOrchestrator = createWritingOrchestrator({
+    aiService: {
+      async *streamChat() {
+        return;
+      },
+      estimateTokens,
+      abort() {
+        return;
+      },
+    },
+    toolRegistry:
+      deps.db === null
+        ? createWritingToolRegistry({
+            db: {} as Database.Database,
+            logger: deps.logger,
+          })
+        : createWritingToolRegistry({
+            db: deps.db,
+            logger: deps.logger,
+          }),
+    permissionGate,
+    postWritingHooks: [
+      {
+        name: "auto-save-version",
+        async execute() {
+          return;
+        },
+      },
+    ],
+    defaultTimeoutMs: 30_000,
+    prepareRequest: async (request) => {
+      const prepared = await prepareWritingRequest({
+        ctx: {
+          deps,
+          runtimeGovernance,
+          aiService,
+          writingOrchestrator: undefined as never,
+          skillServiceFactory,
+          contextAssemblyService,
+          runRegistry: new Map(),
+          previewSessions: new Map(),
+          permissionGate,
+          sessionTokenTotalsByContext,
+          modelPricingByModel,
+          pushBackpressureByRenderer,
+        },
+        payload: {
+          skillId: request.skillId,
+          hasSelection: Boolean(request.selection),
+          input: request.input.selectedText ?? "",
+          mode: "ask",
+          model: request.modelId ?? "default",
+          context: {
+            projectId: request.projectId,
+            documentId: request.documentId,
+          },
+          selection: request.selection,
+          stream: true,
+        },
+      });
+      if (!prepared.ok) {
+        throw new Error(prepared.error.message);
+      }
+      return prepared.data;
+    },
+    generateText: async ({ request, signal, emitChunk }) => {
+      let outputText = "";
+      let usage = {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+      };
+      let sawStreamChunk = false;
+      let streamTerminalSeen = false;
+      let settleStreamCompletion: (() => void) | null = null;
+      let rejectStreamCompletion: ((error: Error) => void) | null = null;
+      const streamCompletion = new Promise<void>((resolve, reject) => {
+        settleStreamCompletion = resolve;
+        rejectStreamCompletion = reject;
+      });
+      const res = await skillExecutor.execute({
+        skillId: request.skillId,
+        hasSelection: Boolean(request.selection),
+        input: request.input.selectedText ?? "",
+        mode: "ask",
+        model: request.modelId ?? "default",
+        context: {
+          projectId: request.projectId,
+          documentId: request.documentId,
+        },
+        stream: true,
+        ts: nowTs(),
+        emitEvent: (event) => {
+          if (signal.aborted) {
+            return;
+          }
+          if (event.type === "chunk") {
+            sawStreamChunk = true;
+            outputText += event.chunk;
+            const accumulatedTokens = estimateTokens(outputText);
+            emitChunk(event.chunk, accumulatedTokens);
+            return;
+          }
+          if (event.type === "done") {
+            if (!sawStreamChunk && event.outputText.length > 0) {
+              outputText = event.outputText;
+              emitChunk(event.outputText, estimateTokens(event.outputText));
+              sawStreamChunk = true;
+            } else {
+              outputText = event.outputText;
+            }
+            usage = {
+              promptTokens: event.result?.metadata.promptTokens ?? estimateTokens(request.input.selectedText ?? ""),
+              completionTokens:
+                event.result?.metadata.completionTokens ?? estimateTokens(event.outputText),
+              totalTokens:
+                (event.result?.metadata.promptTokens ?? estimateTokens(request.input.selectedText ?? "")) +
+                (event.result?.metadata.completionTokens ?? estimateTokens(event.outputText)),
+            };
+            streamTerminalSeen = true;
+            if (event.terminal === "completed") {
+              settleStreamCompletion?.();
+            } else {
+              rejectStreamCompletion?.(
+                Object.assign(
+                  new Error(
+                    event.error?.message ??
+                      (event.terminal === "cancelled"
+                        ? "AI request canceled"
+                        : "AI stream failed"),
+                  ),
+                  {
+                    code: event.error?.code ?? "AI_SERVICE_ERROR",
+                    terminal: event.terminal,
+                  },
+                ),
+              );
+            }
+          }
+        },
+      });
+      if (!res.ok) {
+        throw res.error;
+      }
+      if (!streamTerminalSeen) {
+        await streamCompletion;
+      }
+      if (!sawStreamChunk && (res.data.outputText?.length ?? 0) > 0) {
+        const finalOutput = res.data.outputText ?? "";
+        outputText = finalOutput;
+        emitChunk(finalOutput, estimateTokens(finalOutput));
+      }
+      return {
+        fullText: outputText || res.data.outputText || "",
+        usage,
+      };
+    },
+  });
 
   const ctx: AiIpcContext = {
     deps,
     runtimeGovernance,
     aiService,
-    skillExecutor,
+    writingOrchestrator,
+    skillServiceFactory,
+    contextAssemblyService,
     runRegistry,
+    previewSessions: new Map(),
+    permissionGate,
     sessionTokenTotalsByContext,
     modelPricingByModel,
     pushBackpressureByRenderer,
@@ -711,6 +1255,246 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   registerAiChatHandlers(ctx);
 }
 
+async function drainPreviewUntilPause(args: {
+  ctx: AiIpcContext;
+  sender: Electron.WebContents;
+  executionId: string;
+  runId: string;
+  traceId: string;
+  payload: SkillRunPayload;
+  generator: AsyncGenerator<WritingEvent>;
+}): Promise<IpcResponse<SkillRunResponse>> {
+  let seq = 0;
+  let outputText = "";
+  let usage:
+    | {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+      }
+    | undefined;
+  let versionId: string | undefined;
+
+  while (true) {
+    const next = await args.generator.next();
+    if (next.done) {
+      emitOrchestratorDone({
+        ctx: args.ctx,
+        sender: args.sender,
+        executionId: args.executionId,
+        runId: args.runId,
+        traceId: args.traceId,
+        terminal: "completed",
+        outputText,
+        model: args.payload.model,
+        usage: usage
+          ? buildSkillRunUsage(args.ctx, {
+              model: args.payload.model,
+              context: args.payload.context,
+              promptTokens: usage.promptTokens,
+              completionTokens: usage.completionTokens,
+            })
+          : undefined,
+      });
+      return {
+        ok: true,
+        data: {
+          executionId: args.executionId,
+          runId: args.runId,
+          status: "completed",
+          ...(versionId ? { versionId } : {}),
+          outputText,
+          candidates: buildPreviewCandidates({ runId: args.runId, outputText }),
+          ...(usage
+            ? {
+                usage: buildSkillRunUsage(args.ctx, {
+                  model: args.payload.model,
+                  context: args.payload.context,
+                  promptTokens: usage.promptTokens,
+                  completionTokens: usage.completionTokens,
+                }),
+              }
+            : {}),
+          ...(args.payload.promptDiagnostics
+            ? { promptDiagnostics: args.payload.promptDiagnostics }
+            : {}),
+        },
+      };
+    }
+
+    const event = next.value;
+    if (event.type === "ai-chunk") {
+      seq += 1;
+      emitOrchestratorChunk({
+        ctx: args.ctx,
+        sender: args.sender,
+        executionId: args.executionId,
+        runId: args.runId,
+        traceId: args.traceId,
+        seq,
+        delta: String(event.delta ?? ""),
+      });
+      continue;
+    }
+
+    if (event.type === "ai-done") {
+      outputText = String(event.fullText ?? "");
+      usage = event.usage as {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+      };
+      continue;
+    }
+
+    if (event.type === "permission-requested") {
+      args.ctx.previewSessions.set(args.executionId, {
+        executionId: args.executionId,
+        runId: args.runId,
+        traceId: args.traceId,
+        sender: args.sender,
+        payload: args.payload,
+        generator: args.generator,
+        outputText,
+        usage,
+      });
+      return {
+        ok: true,
+        data: {
+          executionId: args.executionId,
+          runId: args.runId,
+          status: "preview",
+          previewId: args.executionId,
+          outputText,
+          candidates: buildPreviewCandidates({ runId: args.runId, outputText }),
+          ...(usage
+            ? {
+                usage: buildSkillRunUsage(args.ctx, {
+                  model: args.payload.model,
+                  context: args.payload.context,
+                  promptTokens: usage.promptTokens,
+                  completionTokens: usage.completionTokens,
+                }),
+              }
+            : {}),
+          ...(args.payload.promptDiagnostics
+            ? { promptDiagnostics: args.payload.promptDiagnostics }
+            : {}),
+        },
+      };
+    }
+
+    if (event.type === "write-back-done") {
+      versionId = typeof event.versionId === "string" ? event.versionId : undefined;
+      continue;
+    }
+
+    if (event.type === "permission-denied") {
+      emitOrchestratorDone({
+        ctx: args.ctx,
+        sender: args.sender,
+        executionId: args.executionId,
+        runId: args.runId,
+        traceId: args.traceId,
+        terminal: "cancelled",
+        outputText,
+        model: args.payload.model,
+      });
+      return {
+        ok: true,
+        data: {
+          executionId: args.executionId,
+          runId: args.runId,
+          status: "rejected",
+          outputText,
+          ...(args.payload.promptDiagnostics
+            ? { promptDiagnostics: args.payload.promptDiagnostics }
+            : {}),
+        },
+      };
+    }
+
+    if (event.type === "error") {
+      return {
+        ok: false,
+        error:
+          (event.error as IpcError) ?? {
+            code: "INTERNAL",
+            message: "AI skill run failed",
+          },
+      };
+    }
+  }
+}
+
+async function finalizePreviewSession(args: {
+  ctx: AiIpcContext;
+  session: PendingPreviewSession;
+  action: "accept" | "reject";
+}): Promise<IpcResponse<SkillRunConfirmResponse>> {
+  args.ctx.permissionGate.resolve(
+    args.session.executionId,
+    args.action === "accept",
+  );
+
+  let versionId: string | undefined;
+  while (true) {
+    const next = await args.session.generator.next();
+    if (next.done) {
+      const status = args.action === "accept" ? "completed" : "rejected";
+      emitOrchestratorDone({
+        ctx: args.ctx,
+        sender: args.session.sender,
+        executionId: args.session.executionId,
+        runId: args.session.runId,
+        traceId: args.session.traceId,
+        terminal: status === "completed" ? "completed" : "cancelled",
+        outputText: args.session.outputText,
+        model: args.session.payload.model,
+        usage: args.session.usage
+          ? buildSkillRunUsage(args.ctx, {
+              model: args.session.payload.model,
+              context: args.session.payload.context,
+              promptTokens: args.session.usage.promptTokens,
+              completionTokens: args.session.usage.completionTokens,
+            })
+          : undefined,
+      });
+      args.ctx.previewSessions.delete(args.session.executionId);
+      return {
+        ok: true,
+        data: {
+          executionId: args.session.executionId,
+          runId: args.session.runId,
+          status,
+          ...(versionId ? { versionId } : {}),
+          outputText: args.session.outputText,
+        },
+      };
+    }
+
+    const event = next.value;
+    if (event.type === "write-back-done") {
+      versionId = typeof event.versionId === "string" ? event.versionId : versionId;
+      continue;
+    }
+    if (event.type === "permission-denied") {
+      continue;
+    }
+    if (event.type === "error") {
+      args.ctx.previewSessions.delete(args.session.executionId);
+      return {
+        ok: false,
+        error:
+          (event.error as IpcError) ?? {
+            code: "INTERNAL",
+            message: "AI skill confirmation failed",
+          },
+      };
+    }
+  }
+}
+
 function registerAiSkillRunHandler(ctx: AiIpcContext): void {
   ctx.deps.ipcMain.handle(
     "ai:skill:run",
@@ -738,43 +1522,36 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
           error: candidateCountRes.error,
         };
       }
-      const candidateCount = candidateCountRes.data;
-      const effectiveStream = candidateCount > 1 ? false : payload.stream;
-      const promptTokensForResult = estimateTokenCount(
-        promptInputForUsage(payload),
-      );
+      if (candidateCountRes.data !== 1) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "Phase 1 only supports a single candidate",
+          },
+        };
+      }
 
-      const pushBackpressure = getOrCreatePushBackpressureGate(ctx, e.sender);
-
-      const emitEvent = (event: AiStreamEvent): void => {
-        const eventToSend: AiStreamEvent =
-          event.type === "done"
-            ? {
-                ...event,
-                result: {
-                  success: event.terminal === "completed",
-                  output: event.outputText,
-                  metadata: {
-                    model: payload.model,
-                    promptTokens: promptTokensForResult,
-                    completionTokens: estimateTokenCount(event.outputText),
-                  },
-                  traceId: event.traceId,
-                  ...(event.error ? { error: event.error } : {}),
-                },
-              }
-            : event;
-
-        if (!pushBackpressure.shouldDeliver(eventToSend)) {
-          return;
-        }
-
-        safeEmitToRenderer({
-          logger: ctx.deps.logger,
-          sender: e.sender,
-          event: eventToSend,
-        });
-      };
+      const projectId = payload.context?.projectId?.trim() ?? "";
+      const documentId = payload.context?.documentId?.trim() ?? "";
+      if (projectId.length === 0 || documentId.length === 0) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "projectId/documentId is required",
+          },
+        };
+      }
+      if (payload.hasSelection && !payload.selection) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "selection is required for selection-based skills",
+          },
+        };
+      }
 
       const stats = createStatsService({
         db: ctx.deps.db,
@@ -791,145 +1568,66 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         });
       }
 
+      const executionId = randomUUID();
+      const runId = randomUUID();
+      const traceId = executionId;
+      const generator = ctx.writingOrchestrator.execute({
+        requestId: executionId,
+        skillId: payload.skillId,
+        input: { selectedText: payload.input },
+        documentId,
+        projectId,
+        modelId: payload.model,
+        ...(payload.selection ? { selection: payload.selection } : {}),
+      });
+
+      rememberRunInRegistry(ctx, {
+        runId,
+        context: payload.context,
+      });
+
       try {
-        if (candidateCount === 1) {
-          const res = await ctx.skillExecutor.execute({
-            skillId: payload.skillId,
-            hasSelection: payload.hasSelection,
-            input: payload.input,
-            mode: payload.mode,
-            model: payload.model,
-            context: payload.context,
-            stream: effectiveStream,
-            ts: nowTs(),
-            emitEvent,
-          });
-          if (!res.ok) {
-            return { ok: false, error: res.error };
-          }
-
-          rememberRunInRegistry(ctx, {
-            runId: res.data.runId,
-            context: payload.context,
-          });
-
-          const outputText = res.data.outputText;
-          if (typeof outputText === "string") {
-            const promptTokens = estimateTokenCount(
-              promptInputForUsage(payload),
-            );
-            const completionTokens = estimateTokenCount(outputText);
-            const usage = buildSkillRunUsage(ctx, {
-              model: payload.model,
-              context: payload.context,
-              promptTokens,
-              completionTokens,
-            });
-            const candidates: SkillRunCandidate[] = [
-              {
-                id: "candidate-1",
-                runId: res.data.runId,
-                text: outputText,
-                summary: summarizeCandidateText(outputText),
-              },
-            ];
-
-            return {
-              ok: true,
-              data: toSkillRunResponseData({
-                ...res.data,
-                candidates,
-                usage,
-                promptDiagnostics: payload.promptDiagnostics,
-              }),
-            };
-          }
-
-          return {
-            ok: true,
-            data: toSkillRunResponseData({
-              ...res.data,
-              promptDiagnostics: payload.promptDiagnostics,
-            }),
-          };
-        }
-
-        const runs: Array<{
-          executionId: string;
-          runId: string;
-          outputText: string;
-        }> = [];
-        for (let index = 0; index < candidateCount; index += 1) {
-          const res = await ctx.skillExecutor.execute({
-            skillId: payload.skillId,
-            hasSelection: payload.hasSelection,
-            input: payload.input,
-            mode: payload.mode,
-            model: payload.model,
-            context: payload.context,
-            stream: false,
-            ts: nowTs(),
-            emitEvent,
-          });
-          if (!res.ok) {
-            return { ok: false, error: res.error };
-          }
-          rememberRunInRegistry(ctx, {
-            runId: res.data.runId,
-            context: payload.context,
-          });
-          runs.push({
-            executionId: res.data.executionId,
-            runId: res.data.runId,
-            outputText: res.data.outputText ?? "",
-          });
-        }
-
-        const candidates: SkillRunCandidate[] = runs.map((item, index) => ({
-          id: `candidate-${index + 1}`,
-          runId: item.runId,
-          text: item.outputText,
-          summary: summarizeCandidateText(item.outputText),
-        }));
-        const completionTokens = runs.reduce(
-          (sum, item) => sum + estimateTokenCount(item.outputText),
-          0,
-        );
-        const promptTokens =
-          estimateTokenCount(promptInputForUsage(payload)) * candidateCount;
-        const usage = buildSkillRunUsage(ctx, {
-          model: payload.model,
-          context: payload.context,
-          promptTokens,
-          completionTokens,
+        return await drainPreviewUntilPause({
+          ctx,
+          sender: e.sender,
+          executionId,
+          runId,
+          traceId,
+          payload,
+          generator,
         });
-        const primary = runs[0];
-        if (!primary) {
-          return {
-            ok: false,
-            error: { code: "INTERNAL", message: "No candidates generated" },
-          };
-        }
-        return {
-          ok: true,
-          data: toSkillRunResponseData({
-            executionId: primary.executionId,
-            runId: primary.runId,
-            outputText: primary.outputText,
-            candidates,
-            usage,
-            promptDiagnostics: payload.promptDiagnostics,
-          }),
-        };
       } catch (error) {
-        ctx.deps.logger.error("ai_run_ipc_failed", {
+        ctx.previewSessions.delete(executionId);
+        ctx.deps.logger.error("ai_skill_run_ipc_failed", {
           message: error instanceof Error ? error.message : String(error),
         });
         return {
           ok: false,
-          error: { code: "INTERNAL", message: "AI run failed" },
+          error: { code: "INTERNAL", message: "AI skill run failed" },
         };
       }
+    },
+  );
+
+  ctx.deps.ipcMain.handle(
+    "ai:skill:confirm",
+    async (
+      _e,
+      payload: SkillRunConfirmPayload,
+    ): Promise<IpcResponse<SkillRunConfirmResponse>> => {
+      const session = ctx.previewSessions.get(payload.executionId);
+      if (!session) {
+        return {
+          ok: false,
+          error: { code: "NOT_FOUND", message: "Preview session not found" },
+        };
+      }
+
+      return await finalizePreviewSession({
+        ctx,
+        session,
+        action: payload.action,
+      });
     },
   );
 }
@@ -966,6 +1664,13 @@ function registerAiSkillLifecycleHandlers(ctx: AiIpcContext): void {
       }
 
       try {
+        const previewSession = ctx.previewSessions.get(executionId);
+        if (previewSession) {
+          ctx.permissionGate.resolve(executionId, false);
+          ctx.previewSessions.delete(executionId);
+          ctx.writingOrchestrator.abort(executionId);
+          return { ok: true, data: { canceled: true } };
+        }
         const res = ctx.aiService.cancel({
           executionId,
           runId: runIdValue.length > 0 ? runIdValue : undefined,

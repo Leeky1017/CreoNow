@@ -93,7 +93,7 @@ function isReasonValidForActor(
   reason: VersionSnapshotReason,
 ): boolean {
   if (actor === "auto") {
-    return reason === "autosave";
+    return reason === "autosave" || reason === "pre-write";
   }
   if (actor === "ai") {
     return reason === "ai-accept";
@@ -101,6 +101,8 @@ function isReasonValidForActor(
   return (
     reason === "manual-save" ||
     reason === "status-change" ||
+    reason === "pre-rollback" ||
+    reason === "rollback" ||
     reason === "branch-merge"
   );
 }
@@ -1274,7 +1276,11 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
             });
           } else {
             const shouldInsertVersion =
-              actor === "auto" ? latest?.contentHash !== contentHash : true;
+              actor === "auto"
+                ? reason === "pre-write"
+                  ? true
+                  : latest?.contentHash !== contentHash
+                : true;
             if (!shouldInsertVersion) {
               return;
             }

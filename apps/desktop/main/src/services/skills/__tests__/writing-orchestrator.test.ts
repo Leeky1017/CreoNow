@@ -102,13 +102,13 @@ function buildConfig(
     name: "documentWrite",
     description: "Write text to document",
     isConcurrencySafe: false,
-    execute: vi.fn().mockResolvedValue({ success: true }),
+    execute: vi.fn().mockResolvedValue({ success: true, data: { snapshotId: "snap-accept-001" } }),
   });
   toolRegistry.register({
     name: "versionSnapshot",
     description: "Create version snapshot",
     isConcurrencySafe: false,
-    execute: vi.fn().mockResolvedValue({ success: true, data: { snapshotId: "snap-001" } }),
+    execute: vi.fn().mockResolvedValue({ success: true, data: { snapshotId: "snap-prewrite-001" } }),
   });
 
   return {
@@ -203,8 +203,42 @@ describe("WritingOrchestrator", () => {
         | undefined;
 
       expect(writeEvent).toBeDefined();
-      expect(writeEvent!.versionId).toBeDefined();
-      expect(typeof writeEvent!.versionId).toBe("string");
+      expect(writeEvent!.versionId).toBe("snap-accept-001");
+    });
+
+    it("写回前先创建 pre-write 快照，再执行 documentWrite", async () => {
+      await collectEvents(orchestrator.execute(makeRequest()));
+
+      const versionTool = config.toolRegistry.get("versionSnapshot") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      const writeTool = config.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+
+      expect(versionTool?.execute).toHaveBeenCalledTimes(1);
+      expect(writeTool?.execute).toHaveBeenCalledTimes(1);
+      expect(versionTool?.execute.mock.invocationCallOrder[0]).toBeLessThan(
+        writeTool?.execute.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+      );
+      expect(versionTool?.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: "doc-001",
+          actor: "auto",
+          reason: "pre-write",
+        }),
+      );
+      expect(writeTool?.execute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          documentId: "doc-001",
+          content: "润色后的文字。",
+          selection: expect.objectContaining({
+            from: 0,
+            to: 12,
+            selectionTextHash: "abc123",
+          }),
+        }),
+      );
     });
 
     it("hooks-done 事件列出已执行的 hook 名称", async () => {
@@ -223,6 +257,39 @@ describe("WritingOrchestrator", () => {
       for (let i = 1; i < events.length; i++) {
         expect(events[i].timestamp).toBeGreaterThanOrEqual(events[i - 1].timestamp);
       }
+    });
+
+    it("generateText 路径也会实时产出 ai-chunk 事件", async () => {
+      const cfg = buildConfig({
+        generateText: async ({ emitChunk }) => {
+          emitChunk("润色", 2);
+          await Promise.resolve();
+          emitChunk("后的", 4);
+          await Promise.resolve();
+          emitChunk("文字。", 6);
+          return {
+            fullText: "润色后的文字。",
+            usage: {
+              promptTokens: 10,
+              completionTokens: 6,
+              totalTokens: 16,
+            },
+          };
+        },
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const chunkEvents = events.filter((event) => event.type === "ai-chunk");
+
+      expect(chunkEvents).toHaveLength(3);
+      expect(chunkEvents.map((event) => event.delta)).toEqual([
+        "润色",
+        "后的",
+        "文字。",
+      ]);
+      expect(eventTypes(events)).toContain("ai-done");
+      orch.dispose();
     });
   });
 
@@ -450,6 +517,121 @@ describe("WritingOrchestrator", () => {
       expect(errorEvent).toBeDefined();
       expect((errorEvent as unknown as { error: { code: string; retryable: boolean } }).error.code).toBe("SKILL_INPUT_INVALID");
       expect((errorEvent as unknown as { error: { code: string; retryable: boolean } }).error.retryable).toBe(false);
+    });
+
+    it("缺少 versionSnapshot tool → 立刻失败且不进入 write-back-done/hooks-done", async () => {
+      const cfg = buildConfig();
+      cfg.toolRegistry.unregister("versionSnapshot");
+      const writeTool = cfg.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((event) => event.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(errorEvent).toBeDefined();
+      expect(
+        (errorEvent as unknown as { error: { code: string } }).error,
+      ).toMatchObject({
+        code: "VERSION_SNAPSHOT_FAILED",
+      });
+      expect(eventTypes(events)).not.toContain("write-back-done");
+      expect(eventTypes(events)).not.toContain("hooks-done");
+      expect(writeTool?.execute).not.toHaveBeenCalled();
+      orch.dispose();
+    });
+
+    it("versionSnapshot 失败 → 立刻失败且不执行 documentWrite", async () => {
+      const cfg = buildConfig();
+      const versionTool = cfg.toolRegistry.get("versionSnapshot") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      const writeTool = cfg.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      versionTool?.execute.mockResolvedValue({
+        success: false,
+        error: { code: "VERSION_SNAPSHOT_FAILED", message: "snapshot broken" },
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((event) => event.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(
+        (errorEvent as unknown as { error: { code: string; message: string } })
+          .error,
+      ).toMatchObject({
+        code: "VERSION_SNAPSHOT_FAILED",
+        message: "snapshot broken",
+      });
+      expect(writeTool?.execute).not.toHaveBeenCalled();
+      expect(eventTypes(events)).not.toContain("write-back-done");
+      expect(eventTypes(events)).not.toContain("hooks-done");
+      orch.dispose();
+    });
+
+    it("缺少 documentWrite tool → accept 后硬失败，不得伪装 completed", async () => {
+      const cfg = buildConfig();
+      cfg.toolRegistry.unregister("documentWrite");
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((event) => event.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(
+        (errorEvent as unknown as { error: { code: string } }).error,
+      ).toMatchObject({
+        code: "WRITE_BACK_FAILED",
+      });
+      expect(eventTypes(events)).not.toContain("write-back-done");
+      expect(eventTypes(events)).not.toContain("hooks-done");
+      orch.dispose();
+    });
+
+    it("documentWrite 失败时透传 selection mismatch 细节并停止", async () => {
+      const cfg = buildConfig();
+      const writeTool = cfg.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      writeTool?.execute.mockResolvedValue({
+        success: false,
+        error: {
+          code: "WRITE_BACK_FAILED",
+          message: "Selection changed before AI writeback",
+          details: { currentText: "用户已改动" },
+        },
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(orch.execute(makeRequest()));
+      const errorEvent = events.find((event) => event.type === "error") as
+        | (WritingEvent & { type: "error" })
+        | undefined;
+
+      expect(
+        (errorEvent as unknown as {
+          error: {
+            code: string;
+            message: string;
+            details: { currentText: string };
+          };
+        }).error,
+      ).toMatchObject({
+        code: "WRITE_BACK_FAILED",
+        message: "Selection changed before AI writeback",
+        details: { currentText: "用户已改动" },
+      });
+      expect(eventTypes(events)).not.toContain("write-back-done");
+      expect(eventTypes(events)).not.toContain("hooks-done");
+      orch.dispose();
     });
   });
 

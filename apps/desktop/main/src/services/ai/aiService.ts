@@ -597,6 +597,10 @@ function createAiEmitHelpers(deps: AiServiceDeps, state: AiInternalState) {
       clearChunkBuffer(entry);
     } else {
       clearChunkFlushTimer(entry);
+      flushChunkBuffer(entry);
+      if (entry.terminal !== null) {
+        return;
+      }
     }
 
     entry.terminal = args.terminal;

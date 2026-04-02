@@ -56,6 +56,7 @@ export const IPC_ERROR_CODES = [
   "SKILL_CAPACITY_EXCEEDED",
   "SKILL_SCOPE_VIOLATION",
   "SKILL_INPUT_EMPTY",
+  "SKILL_INPUT_INVALID",
   "SKILL_OUTPUT_INVALID",
   "AI_AUTH_FAILED",
   "AI_NOT_CONFIGURED",
@@ -63,6 +64,8 @@ export const IPC_ERROR_CODES = [
   "AI_SESSION_TOKEN_BUDGET_EXCEEDED",
   "LLM_API_ERROR",
   "AI_PROVIDER_UNAVAILABLE",
+  "WRITE_BACK_FAILED",
+  "VERSION_SNAPSHOT_FAILED",
   "VERSION_MERGE_TIMEOUT",
   "VERSION_SNAPSHOT_COMPACTED",
   "VERSION_DIFF_PAYLOAD_TOO_LARGE",
@@ -792,6 +795,9 @@ const VERSION_SNAPSHOT_REASON_SCHEMA = s.union(
   s.literal("manual-save"),
   s.literal("autosave"),
   s.literal("ai-accept"),
+  s.literal("pre-write"),
+  s.literal("pre-rollback"),
+  s.literal("rollback"),
   s.literal("status-change"),
 );
 
@@ -1040,16 +1046,44 @@ export const ipcContract = {
             documentId: s.optional(s.string()),
           }),
         ),
+        selection: s.optional(
+          s.object({
+            from: s.number(),
+            to: s.number(),
+            text: s.string(),
+            selectionTextHash: s.string(),
+          }),
+        ),
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
         stream: s.boolean(),
       }),
       response: s.object({
         executionId: s.string(),
         runId: s.string(),
+        status: s.union(
+          s.literal("preview"),
+          s.literal("completed"),
+          s.literal("rejected"),
+        ),
+        previewId: s.optional(s.string()),
+        versionId: s.optional(s.string()),
         outputText: s.optional(s.string()),
         candidates: s.optional(s.array(AI_CANDIDATE_SCHEMA)),
         usage: s.optional(AI_USAGE_STATS_SCHEMA),
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
+      }),
+    },
+    "ai:skill:confirm": {
+      request: s.object({
+        executionId: s.string(),
+        action: s.union(s.literal("accept"), s.literal("reject")),
+      }),
+      response: s.object({
+        executionId: s.string(),
+        runId: s.string(),
+        status: s.union(s.literal("completed"), s.literal("rejected")),
+        versionId: s.optional(s.string()),
+        outputText: s.optional(s.string()),
       }),
     },
     "ai:config:get": {
