@@ -491,6 +491,164 @@ describe("skillOutputValidation inflation guards", () => {
       assert.ok(result.error.message.includes("20"));
     }
   });
+
+  it("continue 会把 trailing whitespace 完整带到最终 context prompt", async () => {
+    const runSkillCalls: Array<{ system?: string }> = [];
+    const executor = createSkillExecutor({
+      resolveSkill: (id) => ({
+        ok: true,
+        data: {
+          id,
+          enabled: true,
+          valid: true,
+          inputType: "document" as const,
+          prompt: { system: "system", user: "{{input}}" },
+        },
+      }),
+      assembleContext: async () => ({
+        prompt: "## Immediate\n甲乙 ",
+        tokenCount: 12,
+        stablePrefixHash: "hash-trailing",
+        stablePrefixUnchanged: false,
+        warnings: [],
+        assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+        layers: {
+          rules: { source: [], tokenCount: 0, truncated: false },
+          settings: { source: [], tokenCount: 0, truncated: false },
+          retrieved: { source: [], tokenCount: 0, truncated: false },
+          immediate: {
+            source: ["editor:cursor-window"],
+            tokenCount: 4,
+            truncated: false,
+          },
+        },
+      }),
+      runSkill: async (args) => {
+        runSkillCalls.push({ system: args.system });
+        return {
+          ok: true,
+          data: {
+            executionId: "ex-continue-trailing",
+            runId: "run-continue-trailing",
+            outputText: repeat("甲", 100),
+          },
+        };
+      },
+    });
+
+    const result = await executor.execute({
+      ...buildRunArgs("builtin:continue", ""),
+      context: { projectId: "p1", documentId: "d1" },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(runSkillCalls[0]?.system, "## Immediate\n甲乙 ");
+  });
+
+  it("continue 会把 leading whitespace 与多段落换行完整带到最终 context prompt", async () => {
+    const runSkillCalls: Array<{ system?: string }> = [];
+    const executor = createSkillExecutor({
+      resolveSkill: (id) => ({
+        ok: true,
+        data: {
+          id,
+          enabled: true,
+          valid: true,
+          inputType: "document" as const,
+          prompt: { system: "system", user: "{{input}}" },
+        },
+      }),
+      assembleContext: async () => ({
+        prompt: "## Immediate\n 甲\n乙 ",
+        tokenCount: 12,
+        stablePrefixHash: "hash-leading-multi",
+        stablePrefixUnchanged: false,
+        warnings: [],
+        assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+        layers: {
+          rules: { source: [], tokenCount: 0, truncated: false },
+          settings: { source: [], tokenCount: 0, truncated: false },
+          retrieved: { source: [], tokenCount: 0, truncated: false },
+          immediate: {
+            source: ["editor:cursor-window"],
+            tokenCount: 5,
+            truncated: false,
+          },
+        },
+      }),
+      runSkill: async (args) => {
+        runSkillCalls.push({ system: args.system });
+        return {
+          ok: true,
+          data: {
+            executionId: "ex-continue-leading-multi",
+            runId: "run-continue-leading-multi",
+            outputText: repeat("甲", 100),
+          },
+        };
+      },
+    });
+
+    const result = await executor.execute({
+      ...buildRunArgs("builtin:continue", ""),
+      context: { projectId: "p1", documentId: "d1" },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(runSkillCalls[0]?.system, "## Immediate\n 甲\n乙 ");
+  });
+
+  it("selection 技能仍会忽略纯空白 context prompt，避免误伤非 continue 路径", async () => {
+    const runSkillCalls: Array<{ system?: string }> = [];
+    const executor = createSkillExecutor({
+      resolveSkill: (id) => ({
+        ok: true,
+        data: {
+          id,
+          enabled: true,
+          valid: true,
+          inputType: "selection" as const,
+          prompt: { system: "system", user: "{{input}}" },
+        },
+      }),
+      assembleContext: async () => ({
+        prompt: "   \n  ",
+        tokenCount: 2,
+        stablePrefixHash: "hash-selection-empty",
+        stablePrefixUnchanged: false,
+        warnings: [],
+        assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+        layers: {
+          rules: { source: [], tokenCount: 0, truncated: false },
+          settings: { source: [], tokenCount: 0, truncated: false },
+          retrieved: { source: [], tokenCount: 0, truncated: false },
+          immediate: {
+            source: ["editor:selection"],
+            tokenCount: 2,
+            truncated: false,
+          },
+        },
+      }),
+      runSkill: async (args) => {
+        runSkillCalls.push({ system: args.system });
+        return {
+          ok: true,
+          data: {
+            executionId: "ex-selection-context",
+            runId: "run-selection-context",
+            outputText: repeat("甲", 20),
+          },
+        };
+      },
+    });
+
+    const result = await executor.execute(
+      buildRunArgs("builtin:polish", "原文"),
+    );
+
+    assert.equal(result.ok, true);
+    assert.equal(runSkillCalls[0]?.system, undefined);
+  });
 });
 
 describe("skillOutputValidation stream mode", () => {

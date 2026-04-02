@@ -29,6 +29,7 @@ import {
 import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
 import { createSkillExecutor } from "../services/skills/skillExecutor";
+import { normalizeAssembledContextPrompt } from "../services/skills/contextPromptPolicy";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { DegradationCounter } from "../services/shared/degradationCounter";
@@ -508,7 +509,11 @@ async function prepareWritingRequest(args: {
         provider: "ai-service",
         model: args.payload.model,
       });
-      contextPrompt = assembled.prompt.trim();
+      contextPrompt =
+        normalizeAssembledContextPrompt({
+          prompt: assembled.prompt,
+          inputType,
+        }) ?? "";
     } catch (error) {
       args.ctx.deps.logger.info("context_assembly_degraded", {
         skillId: args.payload.skillId,
