@@ -23,6 +23,7 @@ import {
 import { createToolRegistry, buildTool } from "../toolRegistry";
 import { estimateTokens } from "../../context/tokenEstimation";
 import { estimateCjkAwareTokenCount } from "@shared/tokenBudget";
+import { checkCapacityThreshold } from "../../context/tokenEstimation";
 import type { StreamChunk } from "../../ai/streaming";
 import { assembleContextLayers } from "../../context/tokenEstimation";
 
@@ -391,6 +392,212 @@ describe("P1 version IPC gate — branch/merge/conflict gated as UNSUPPORTED", (
     assert.ok(
       gatedResponse.error.message.includes("V2"),
       "error message must mention V2 to guide users",
+    );
+  });
+});
+
+describe("CJK token estimation — Chinese text vs ASCII cost", () => {
+  it("Chinese text costs more tokens than equivalent-length ASCII", () => {
+    // 10 Chinese characters vs 10 ASCII characters of same char count
+    const chineseText = "人工智能辅助写作创意";
+    const asciiText  = "abcdefghij";
+
+    assert.equal([...chineseText].length, [...asciiText].length, "same character count");
+
+    const chineseTokens = estimateCjkAwareTokenCount(chineseText);
+    const asciiTokens   = estimateCjkAwareTokenCount(asciiText);
+
+    // CJK: 1.5 tokens/char vs ASCII: ~1 byte/4 = 0.25 tokens/char
+    assert.ok(
+      chineseTokens > asciiTokens,
+      `Chinese (${chineseTokens}) must cost more tokens than same-length ASCII (${asciiTokens})`,
+    );
+  });
+
+  it("estimateTokens delegates to shared estimateCjkAwareTokenCount and agrees on CJK", () => {
+    const text = CJK_SAMPLE;
+    assert.equal(
+      estimateTokens(text),
+      estimateCjkAwareTokenCount(text),
+      "estimateTokens must delegate to estimateCjkAwareTokenCount",
+    );
+  });
+});
+
+describe("CJK 87% budget threshold — warn at capacity", () => {
+  it("warns when CJK token usage exceeds 87% of budget", () => {
+    const budget = 1000;
+
+    // At exactly 87% — should be normal (not warning)
+    const at87 = checkCapacityThreshold(870, budget);
+    assert.equal(at87.status, "normal", "exactly 87% is still normal");
+
+    // At 88% — should warn
+    const at88 = checkCapacityThreshold(880, budget);
+    assert.equal(at88.status, "warning", "88% should trigger warning");
+
+    // At 96% — should be critical
+    const at96 = checkCapacityThreshold(960, budget);
+    assert.equal(at96.status, "critical", "96% should be critical");
+  });
+
+  it("CJK heavy text at 88%+ budget triggers warning", () => {
+    // Generate enough CJK text to exceed 88% of a budget
+    const cjkText = "人工智能辅助写作创意文字".repeat(10); // ~100 CJK chars
+    const used = estimateCjkAwareTokenCount(cjkText);
+    const budget = Math.floor(used / 0.9); // set budget so usage ≈ 90%
+
+    const result = checkCapacityThreshold(used, budget);
+    assert.ok(
+      result.status === "warning" || result.status === "critical",
+      `Heavy CJK text at ${Math.round(result.ratio * 100)}% should be warning or critical`,
+    );
+  });
+});
+
+describe("Version snapshot create/list/rollback round-trip", () => {
+  it("pre-write snapshot is captured BEFORE document write in accept flow", async () => {
+    const callOrder: string[] = [];
+
+    const { orchestrator } = makeOrchestrator({
+      resolvePermission: () => Promise.resolve(true),
+      onPreWriteSnapshot: (id) => callOrder.push(`snapshot:${id}`),
+      onDocumentWrite:    (id) => callOrder.push(`write:${id}`),
+      onVersionSnapshot:  (id) => callOrder.push(`post:${id}`),
+    });
+
+    const docId = `doc-order-${randomUUID()}`;
+    await collectEvents(
+      orchestrator.execute({
+        requestId: randomUUID(),
+        skillId: "polish",
+        documentId: docId,
+        input: { selectedText: "需要润色的文字" },
+      }),
+    );
+
+    const snapshotIdx = callOrder.findIndex((e) => e.startsWith("snapshot:"));
+    const writeIdx    = callOrder.findIndex((e) => e.startsWith("write:"));
+
+    assert.ok(snapshotIdx !== -1, "pre-write snapshot must be recorded");
+    assert.ok(writeIdx !== -1,    "document write must be recorded");
+    assert.ok(
+      snapshotIdx < writeIdx,
+      `pre-write snapshot (idx=${snapshotIdx}) must precede document write (idx=${writeIdx})`,
+    );
+  });
+
+  it("permission-requested event includes preWriteSnapshotId for rollback wiring", async () => {
+    let capturedPermissionEvent: (WritingEvent & Record<string, unknown>) | null = null;
+
+    const mockAiService = {
+      estimateTokens,
+      abort: () => {},
+      async *streamChat(
+        _messages: Array<{ role: string; content: string }>,
+        opts: { signal: AbortSignal; onComplete: (r: unknown) => void; onError: (e: unknown) => void },
+      ): AsyncGenerator<StreamChunk> {
+        if (opts.signal.aborted) return;
+        const text = "AI output text";
+        yield { delta: text, finishReason: "stop", accumulatedTokens: estimateTokens(text) };
+        opts.onComplete({ content: text });
+      },
+    };
+
+    const toolRegistry = createToolRegistry();
+    toolRegistry.register(
+      buildTool({
+        name: "preWriteSnapshot",
+        description: "Snapshot before write",
+        execute: async (ctx) => ({ success: true, data: { snapshotId: `pre-${ctx.documentId}` } }),
+      }),
+    );
+    toolRegistry.register(
+      buildTool({
+        name: "documentWrite",
+        description: "Write",
+        execute: async () => ({ success: true }),
+      }),
+    );
+    toolRegistry.register(
+      buildTool({
+        name: "versionSnapshot",
+        description: "Post-write snapshot",
+        execute: async (ctx) => ({ success: true, data: { snapshotId: `post-${ctx.documentId}` } }),
+      }),
+    );
+
+    const permissionGate = {
+      evaluate: async () => ({ level: "confirm-required", granted: false }),
+      requestPermission: async () => true,
+    };
+
+    const config: OrchestratorConfig = {
+      aiService: mockAiService,
+      toolRegistry,
+      permissionGate,
+      postWritingHooks: [],
+      defaultTimeoutMs: 5_000,
+    };
+
+    const orchestrator = createWritingOrchestrator(config);
+    const docId = `doc-perm-${randomUUID()}`;
+
+    for await (const event of orchestrator.execute({
+      requestId: randomUUID(),
+      skillId: "rewrite",
+      documentId: docId,
+      input: { selectedText: "test" },
+    })) {
+      if (event.type === "permission-requested") {
+        capturedPermissionEvent = event as WritingEvent & Record<string, unknown>;
+      }
+    }
+
+    assert.ok(capturedPermissionEvent, "permission-requested event must be emitted");
+    assert.ok(
+      typeof capturedPermissionEvent.preWriteSnapshotId === "string" &&
+        (capturedPermissionEvent.preWriteSnapshotId as string).length > 0,
+      "permission-requested must carry preWriteSnapshotId so renderer can wire rollback",
+    );
+    assert.ok(
+      (capturedPermissionEvent.preWriteSnapshotId as string).includes(docId),
+      "preWriteSnapshotId must reference the documentId",
+    );
+  });
+
+  it("rollback target: preWriteSnapshotId from write-back-done differs from post-write versionId", async () => {
+    const { orchestrator } = makeOrchestrator({
+      resolvePermission: () => Promise.resolve(true),
+    });
+
+    const docId = `doc-rollback-${randomUUID()}`;
+    const events = await collectEvents(
+      orchestrator.execute({
+        requestId: randomUUID(),
+        skillId: "summarize",
+        documentId: docId,
+        input: { selectedText: "长篇文字需要摘要" },
+      }),
+    );
+
+    const wbd = events.find((e) => e.type === "write-back-done") as WritingEvent & {
+      preWriteSnapshotId?: string;
+      versionId?: string;
+    };
+
+    assert.ok(wbd, "write-back-done must be emitted");
+    assert.ok(wbd.preWriteSnapshotId, "preWriteSnapshotId must be set");
+    assert.ok(wbd.versionId, "versionId must be set");
+    assert.notEqual(
+      wbd.preWriteSnapshotId,
+      wbd.versionId,
+      "rollback target (pre-write) must differ from accepted state (post-write)",
+    );
+    // preWriteSnapshotId is the ID to pass to version:rollback channel
+    assert.ok(
+      wbd.preWriteSnapshotId!.startsWith("pre-"),
+      "pre-write snapshot ID should be identifiable as a pre-write snapshot",
     );
   });
 });

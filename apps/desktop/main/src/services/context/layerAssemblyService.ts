@@ -65,6 +65,18 @@ export type ContextLayerAssemblyDeps = {
   };
   degradationCounter?: DegradationCounter;
   degradationEscalationThreshold?: number;
+  /**
+   * P1 hard gate.
+   *
+   * When true, the context assembler operates in Phase 1 surface mode:
+   *   - Only `rules` and `immediate` layers are active
+   *   - `settings`, `retrieved`, and memory-semantic layers are disabled
+   *   - kg/memory/episodic services are not invoked even if provided
+   *
+   * Why: P1 spec mandates Rules + Immediate only; advanced RAG/KG/Memory
+   * integrations are V2+ features and must not leak into P1 context budgets.
+   */
+  p1Mode?: boolean;
 };
 
 const LAYER_ORDER: ContextLayerId[] = [
@@ -1148,17 +1160,30 @@ export function createContextLayerAssemblyService(
   fetchers?: Partial<ContextLayerFetcherMap>,
   deps?: ContextLayerAssemblyDeps,
 ): ContextLayerAssemblyService {
+  const p1Mode = deps?.p1Mode === true;
+
+  // P1 hard gate: when p1Mode is enabled, exclude all advanced services so
+  // kg/memory/episodic code paths are never executed during Phase 1 context assembly.
   const fetcherMap = {
-    ...defaultFetchers({
-      kgService: deps?.kgService,
-      memoryService: deps?.memoryService,
-      synopsisStore: deps?.synopsisStore,
-      episodicMemoryService: deps?.episodicMemoryService,
-      matchEntities: deps?.matchEntities,
-      logger: deps?.logger,
-      degradationCounter: deps?.degradationCounter,
-      degradationEscalationThreshold: deps?.degradationEscalationThreshold,
-    }),
+    ...defaultFetchers(
+      p1Mode
+        ? {
+            logger: deps?.logger,
+            degradationCounter: deps?.degradationCounter,
+            degradationEscalationThreshold: deps?.degradationEscalationThreshold,
+            // Explicitly omit kgService, memoryService, synopsisStore, episodicMemoryService
+          }
+        : {
+            kgService: deps?.kgService,
+            memoryService: deps?.memoryService,
+            synopsisStore: deps?.synopsisStore,
+            episodicMemoryService: deps?.episodicMemoryService,
+            matchEntities: deps?.matchEntities,
+            logger: deps?.logger,
+            degradationCounter: deps?.degradationCounter,
+            degradationEscalationThreshold: deps?.degradationEscalationThreshold,
+          },
+    ),
     ...(fetchers ?? {}),
   };
   const previousStablePrefixByRequest = new Map<string, string>();

@@ -39,6 +39,7 @@ export type VersionSnapshotActor = "user" | "auto" | "ai";
 export type VersionSnapshotReason =
   | "manual-save"
   | "autosave"
+  | "pre-write"
   | "ai-accept"
   | "status-change"
   | "branch-merge";

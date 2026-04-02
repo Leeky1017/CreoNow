@@ -2,7 +2,7 @@ import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
-import { estimateUtf8TokenCount as estimateTokenCount } from "@shared/tokenBudget";
+import { estimateCjkAwareTokenCount as estimateTokenCount } from "@shared/tokenBudget";
 import { nowTs } from "@shared/timeUtils";
 import {
   SKILL_QUEUE_STATUS_CHANNEL,
@@ -20,7 +20,6 @@ import {
   createAiProxySettingsService,
 } from "../services/ai/aiProxySettingsService";
 import { createMemoryService } from "../services/memory/memoryService";
-import { createEpisodicMemoryService, createSqliteEpisodeRepository } from "../services/memory/episodicMemoryService";
 import {
   recordSkillFeedbackAndLearn,
   type SkillFeedbackAction,
@@ -29,7 +28,6 @@ import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
 import { createSkillExecutor } from "../services/skills/skillExecutor";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
-import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { DegradationCounter } from "../services/shared/degradationCounter";
 import { createDbNotReadyError } from "./dbError";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
@@ -554,40 +552,14 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   const sessionTokenTotalsByContext = new Map<string, number>();
   const modelPricingByModel = parseModelPricingMap(deps.env);
   const degradationCounter = new DegradationCounter();
-  const memoryServiceForContext =
-    deps.db !== null
-      ? createMemoryService({
-          db: deps.db,
-          logger: deps.logger,
-          degradationCounter,
-        })
-      : undefined;
-  const episodicMemoryServiceForContext =
-    deps.db !== null
-      ? createEpisodicMemoryService({
-          repository: createSqliteEpisodeRepository({
-            db: deps.db,
-            logger: deps.logger,
-          }),
-          logger: deps.logger,
-        })
-      : undefined;
   const contextAssemblyService = createContextLayerAssemblyService(
     undefined,
     deps.db
       ? {
           logger: deps.logger,
           degradationCounter,
-          kgService: createKnowledgeGraphService({
-            db: deps.db,
-            logger: deps.logger,
-          }),
-          ...(memoryServiceForContext
-            ? { memoryService: memoryServiceForContext }
-            : {}),
-          ...(episodicMemoryServiceForContext
-            ? { episodicMemoryService: episodicMemoryServiceForContext }
-            : {}),
+          // P1 hard gate: kg/memory/episodic services are V2+ features; disable in P1.
+          p1Mode: true,
         }
       : undefined,
   );

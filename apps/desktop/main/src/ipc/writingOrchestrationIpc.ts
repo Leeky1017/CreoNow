@@ -141,7 +141,7 @@ function buildPreWriteSnapshotTool(getDocSvc: () => DocumentService | null) {
         documentId: ctx.documentId,
         contentJson,
         actor: "auto",
-        reason: "autosave",
+        reason: "pre-write",
       });
 
       if (!saveRes.ok) {
@@ -395,10 +395,17 @@ export function registerWritingOrchestrationHandlers(
                   // Non-standard field: renderers aware of writing orchestration
                   // should react to this.
                 };
+                const permWritingEvent = event as WritingEvent & {
+                  level?: string;
+                  preWriteSnapshotId?: string;
+                };
                 (permEvent as Record<string, unknown>).writingPermission = {
                   requestId,
-                  level: (event as WritingEvent & { level?: string }).level,
+                  level: permWritingEvent.level,
                   previewText: outputText,
+                  // Pre-write snapshot ID for rollback: available from this event
+                  // so the renderer can wire the rollback button before user confirms.
+                  preWriteSnapshotId: permWritingEvent.preWriteSnapshotId,
                 };
                 safeEmit(permEvent);
                 break;

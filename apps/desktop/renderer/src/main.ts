@@ -10,9 +10,9 @@
  * process.  creonow-app is NOT the runtime UI.
  */
 
-import { Schema } from "@tiptap/pm/model";
-import { EditorState } from "@tiptap/pm/state";
-import { EditorView } from "@tiptap/pm/view";
+import { Schema } from "prosemirror-model";
+import { EditorState } from "prosemirror-state";
+import { EditorView } from "prosemirror-view";
 
 // ── P1 Document Schema ─────────────────────────────────────────────────────
 
@@ -94,7 +94,7 @@ function bootstrap(): void {
     "display:grid",
     "place-items:start center",
     "min-height:100vh",
-    "background:#0f1115",
+    "background:var(--cn-color-bg-base, #0f1115)",
     "padding:48px 24px",
   ].join(";");
 
@@ -103,10 +103,10 @@ function bootstrap(): void {
     "width:100%",
     "max-width:680px",
     "min-height:400px",
-    "background:#161b22",
-    "border-radius:8px",
+    "background:var(--cn-color-bg-elevated, #161b22)",
+    "border-radius:var(--cn-radius-md, 8px)",
     "padding:24px",
-    "color:#f5f7fa",
+    "color:var(--cn-color-text-primary, #f5f7fa)",
     "font-family:\"Source Han Sans\",\"Noto Sans SC\",Inter,sans-serif",
     "font-size:16px",
     "line-height:1.75",

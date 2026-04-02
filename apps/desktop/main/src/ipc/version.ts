@@ -543,6 +543,61 @@ function registerVersionSnapshotLifecycleHandlers(
     },
   );
 
+  // version:rollback — canonical short-form alias for version:snapshot:rollback.
+  // Accepts { documentId, versionId } and returns { snapshotId } (the rolled-back version ID).
+  // Introduced so the P1 writing pipeline can reference a stable channel name for rollbacks.
+  ipcMain.handle(
+    "version:rollback",
+    async (
+      _e,
+      payload: { documentId: string; versionId: string },
+    ): Promise<IpcResponse<{ snapshotId: string }>> => {
+      if (!db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (
+        payload.documentId.trim().length === 0 ||
+        payload.versionId.trim().length === 0
+      ) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "documentId/versionId is required",
+          },
+        };
+      }
+
+      if (coordinator.isBusy(payload.documentId)) {
+        return rollbackConflict(payload.documentId);
+      }
+
+      return coordinator.withSerializedDocument(
+        payload.documentId,
+        async () => {
+          await sleep(simulateLatencyMs?.rollback);
+          return withIoRetry({
+            operation: "version:rollback",
+            documentId: payload.documentId,
+            run: async () => {
+              const svc = createService();
+              const res = svc.rollbackVersion({
+                documentId: payload.documentId,
+                versionId: payload.versionId,
+              });
+              return res.ok
+                ? { ok: true, data: { snapshotId: res.data.rollbackVersionId } }
+                : { ok: false, error: res.error };
+            },
+          });
+        },
+      );
+    },
+  );
+
   ipcMain.handle(
     "version:snapshot:restore",
     async (

@@ -272,6 +272,23 @@ export function createWritingOrchestrator(
         }
 
         // Stage 6: Permission gate
+        // Pre-write snapshot is taken BEFORE requesting permission so that the
+        // snapshot ID can be surfaced in the permission-requested event, giving the
+        // renderer a rollback target even before the user decides to accept.
+        const preWriteTool = config.toolRegistry.get("preWriteSnapshot");
+        let preWriteSnapshotId = "unknown";
+        if (preWriteTool) {
+          const preResult = await preWriteTool.execute({
+            documentId: request.documentId,
+            projectId: request.projectId,
+            requestId,
+          });
+          if (preResult.success && preResult.data) {
+            preWriteSnapshotId =
+              (preResult.data as Record<string, string>).snapshotId ?? "unknown";
+          }
+        }
+
         const evalResult = await config.permissionGate.evaluate(request);
 
         if (evalResult.level === "auto-allow") {
@@ -289,6 +306,10 @@ export function createWritingOrchestrator(
           yield makeEvent("permission-requested", requestId, {
             level: evalResult.level,
             description: "Operation requires user confirmation",
+            // Surface the pre-write snapshot so the renderer can wire up rollback
+            // before the user confirms. This lets the UI show "revert to this state"
+            // in the confirmation dialog.
+            preWriteSnapshotId,
           });
 
           // Wait for permission with already-registered timeout
@@ -322,22 +343,7 @@ export function createWritingOrchestrator(
           return;
         }
 
-        // Stage 7: Write-back (snapshot original BEFORE write, then write AI result)
-        // P1 manuscript protection: the pre-write snapshot is what users roll back to.
-        const preWriteTool = config.toolRegistry.get("preWriteSnapshot");
-        let preWriteSnapshotId = "unknown";
-        if (preWriteTool) {
-          const preResult = await preWriteTool.execute({
-            documentId: request.documentId,
-            projectId: request.projectId,
-            requestId,
-          });
-          if (preResult.success && preResult.data) {
-            preWriteSnapshotId =
-              (preResult.data as Record<string, string>).snapshotId ?? "unknown";
-          }
-        }
-
+        // Stage 7: Write-back (write AI result, then snapshot the accepted state)
         const writeTool = config.toolRegistry.get("documentWrite");
         if (writeTool) {
           await writeTool.execute({
