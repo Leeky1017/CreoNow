@@ -574,6 +574,34 @@ describe("skill-specific requestAiPreview paths", () => {
     );
   });
 
+  it("rewrite: throws skill-instruction-missing when instruction is empty string", async () => {
+    const api = createApiMock();
+
+    await expect(requestAiPreview({
+      api,
+      context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
+      skillId: "rewrite",
+      selection: { from: 0, to: 5, text: "测试文本", selectionTextHash: "hash" },
+      instruction: "",
+      model: "gpt-4.1-mini",
+      userEditRevision: 0,
+    })).rejects.toThrow("skill-instruction-missing");
+  });
+
+  it("rewrite: throws skill-instruction-missing when instruction is whitespace only", async () => {
+    const api = createApiMock();
+
+    await expect(requestAiPreview({
+      api,
+      context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
+      skillId: "rewrite",
+      selection: { from: 0, to: 5, text: "测试文本", selectionTextHash: "hash" },
+      instruction: "   ",
+      model: "gpt-4.1-mini",
+      userEditRevision: 0,
+    })).rejects.toThrow("skill-instruction-missing");
+  });
+
   it("continue: throws skill-context-empty when precedingText is empty", async () => {
     const api = createApiMock();
 

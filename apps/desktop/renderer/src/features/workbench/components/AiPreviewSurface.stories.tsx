@@ -148,3 +148,23 @@ export const ContinueNoPreview: Story = {
     preview: null,
   },
 };
+
+/** rewrite + 空指令 → 生成按钮 disabled；用于视觉验收截图 */
+export const RewriteEmptyInstructionDisabled: Story = {
+  args: {
+    activeSkill: "rewrite",
+    busy: false,
+    errorMessage: null,
+    instruction: "",
+    model: "gpt-4.1-mini",
+    onAccept: () => undefined,
+    onClearReference: () => undefined,
+    onGenerate: () => undefined,
+    onInstructionChange: () => undefined,
+    onModelChange: () => undefined,
+    onReject: () => undefined,
+    onSkillChange: () => undefined,
+    reference,
+    preview: null,
+  },
+};

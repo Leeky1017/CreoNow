@@ -330,15 +330,16 @@ export async function requestAiPreview(args: {
     if (args.skillId === "polish") {
       input = args.selection.text;
     } else {
-      // rewrite - instruction is optional; include if provided
-      input = args.instruction.trim().length > 0
-        ? [
-          "Selection context:",
-          args.selection.text,
-          "",
-          args.instruction.trim(),
-        ].join(String.fromCharCode(10))
-        : args.selection.text;
+      // rewrite requires a non-empty instruction (spec §skill-rewrite)
+      if (args.instruction.trim().length === 0) {
+        throw new Error("skill-instruction-missing");
+      }
+      input = [
+        "Selection context:",
+        args.selection.text,
+        "",
+        args.instruction.trim(),
+      ].join(String.fromCharCode(10));
     }
     runSkillPayload = {
       skillId: args.skillId === "polish" ? "builtin:polish" : "builtin:rewrite",
