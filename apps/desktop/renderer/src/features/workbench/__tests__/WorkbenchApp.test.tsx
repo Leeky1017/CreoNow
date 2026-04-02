@@ -82,6 +82,16 @@ function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const,
 function createApiMock(): PreloadApi {
   return {
     ai: {
+      confirmSkill: vi.fn(async ({ executionId, action }) => ({
+        ok: true,
+        data: {
+          executionId,
+          runId: "run-1",
+          status: action === "accept" ? "completed" : "rejected",
+          outputText: "改写后的句子",
+        },
+      })),
+      cancelSkill: vi.fn(async () => ({ ok: true, data: { canceled: true } })),
       runSkill: vi.fn(async () => ({ ok: true, data: { executionId: "exec-1", runId: "run-1", status: "preview" as const, previewId: "exec-1", outputText: "改写后的句子" } })),
       submitSkillFeedback: vi.fn(async () => ({ ok: true, data: { recorded: true } })),
     },
@@ -201,12 +211,12 @@ describe("WorkbenchApp", () => {
     }>();
     const acceptResult = createDeferred<{
       ok: true;
-      data: { updatedAt: number; contentHash: string };
+      data: { executionId: string; runId: string; status: "completed"; outputText: string };
     }>();
     const saveDocument = vi.fn()
-      .mockImplementationOnce(async () => autosaveResult.promise)
-      .mockImplementationOnce(async () => acceptResult.promise);
+      .mockImplementationOnce(async () => autosaveResult.promise);
     window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+    window.api.ai.confirmSkill = vi.fn(async () => acceptResult.promise) as typeof window.api.ai.confirmSkill;
 
     const staleDraft = {
       type: "doc",
@@ -267,15 +277,17 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    expect(saveDocument).toHaveBeenCalledTimes(2);
-    expect(saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      actor: "ai",
-      reason: "ai-accept",
-      contentJson: JSON.stringify(acceptedDocument),
-    }));
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledTimes(1);
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+    });
 
     await act(async () => {
-      acceptResult.resolve({ ok: true, data: { updatedAt: 3, contentHash: "hash-3" } });
+      acceptResult.resolve({
+        ok: true,
+        data: { executionId: "exec-1", runId: "run-1", status: "completed", outputText: "改写后的句子" },
+      });
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -290,12 +302,12 @@ describe("WorkbenchApp", () => {
 
     const acceptResult = createDeferred<{
       ok: true;
-      data: { updatedAt: number; contentHash: string };
+      data: { executionId: string; runId: string; status: "completed"; outputText: string };
     }>();
     const saveDocument = vi.fn()
-      .mockImplementationOnce(async () => acceptResult.promise)
       .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: 4, contentHash: "hash-4" } });
     window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+    window.api.ai.confirmSkill = vi.fn(async () => acceptResult.promise) as typeof window.api.ai.confirmSkill;
 
     const acceptedDocument = {
       type: "doc",
@@ -333,12 +345,11 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    expect(saveDocument).toHaveBeenCalledTimes(1);
-    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      actor: "ai",
-      reason: "ai-accept",
-      contentJson: JSON.stringify(acceptedDocument),
-    }));
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledTimes(1);
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+    });
 
     await act(async () => {
       currentContent = continuedDraft;
@@ -346,16 +357,19 @@ describe("WorkbenchApp", () => {
       await vi.advanceTimersByTimeAsync(800);
     });
 
-    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenCalledTimes(0);
 
     await act(async () => {
-      acceptResult.resolve({ ok: true, data: { updatedAt: 3, contentHash: "hash-3" } });
+      acceptResult.resolve({
+        ok: true,
+        data: { executionId: "exec-1", runId: "run-1", status: "completed", outputText: "改写后的句子" },
+      });
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(saveDocument).toHaveBeenCalledTimes(2);
-    expect(saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
       actor: "auto",
       reason: "autosave",
       contentJson: JSON.stringify(continuedDraft),
@@ -372,9 +386,9 @@ describe("WorkbenchApp", () => {
       error: { code: "DB_ERROR"; message: string };
     }>();
     const saveDocument = vi.fn()
-      .mockImplementationOnce(async () => acceptResult.promise)
       .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: 4, contentHash: "hash-4" } });
     window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+    window.api.ai.confirmSkill = vi.fn(async () => acceptResult.promise) as typeof window.api.ai.confirmSkill;
 
     const beforeApply = {
       type: "doc",
@@ -425,12 +439,11 @@ describe("WorkbenchApp", () => {
       await vi.advanceTimersByTimeAsync(800);
     });
 
-    expect(saveDocument).toHaveBeenCalledTimes(1);
-    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      actor: "ai",
-      reason: "ai-accept",
-      contentJson: JSON.stringify(acceptedDocument),
-    }));
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledTimes(1);
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+    });
 
     await act(async () => {
       acceptResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "accept save failed" } });
@@ -439,8 +452,8 @@ describe("WorkbenchApp", () => {
     });
 
     expect(bridgeMock.setContent).not.toHaveBeenCalled();
-    expect(saveDocument).toHaveBeenCalledTimes(2);
-    expect(saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
       actor: "auto",
       reason: "autosave",
       contentJson: JSON.stringify(acceptedDocument),
@@ -460,9 +473,9 @@ describe("WorkbenchApp", () => {
       error: { code: "DB_ERROR"; message: string };
     }>();
     const saveDocument = vi.fn()
-      .mockImplementationOnce(async () => acceptResult.promise)
       .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: 4, contentHash: "hash-4" } });
     window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+    window.api.ai.confirmSkill = vi.fn(async () => acceptResult.promise) as typeof window.api.ai.confirmSkill;
 
     const beforeApply = {
       type: "doc",
@@ -511,12 +524,11 @@ describe("WorkbenchApp", () => {
       await vi.advanceTimersByTimeAsync(800);
     });
 
-    expect(saveDocument).toHaveBeenCalledTimes(1);
-    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      actor: "ai",
-      reason: "ai-accept",
-      contentJson: JSON.stringify(acceptedDocument),
-    }));
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledTimes(1);
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+    });
 
     await act(async () => {
       acceptResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "accept save failed" } });
@@ -525,8 +537,8 @@ describe("WorkbenchApp", () => {
     });
 
     expect(bridgeMock.setContent).not.toHaveBeenCalled();
-    expect(saveDocument).toHaveBeenCalledTimes(2);
-    expect(saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
       actor: "auto",
       reason: "autosave",
       contentJson: JSON.stringify(continuedDraft),
@@ -550,9 +562,9 @@ describe("WorkbenchApp", () => {
       content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
     };
 
-    const saveDocument = vi.fn()
+    const confirmSkill = vi.fn()
       .mockResolvedValueOnce({ ok: false as const, error: { code: "DB_ERROR", message: "accept save failed" } });
-    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+    window.api.ai.confirmSkill = confirmSkill as typeof window.api.ai.confirmSkill;
 
     let currentContent = beforeApply;
     vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
@@ -579,11 +591,7 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    expect(saveDocument).toHaveBeenCalledWith(expect.objectContaining({
-      actor: "ai",
-      reason: "ai-accept",
-      contentJson: JSON.stringify(acceptedDocument),
-    }));
+    expect(confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
     expect(await screen.findByText("数据层暂时不可用，请稍后重试。")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "接受" })).toBeInTheDocument();
@@ -601,7 +609,6 @@ describe("WorkbenchApp", () => {
   it("retries the failed accept save from the status bar through the accept controller", async () => {
     window.api = createApiMock();
 
-    const retriedUpdatedAt = Date.UTC(2024, 0, 5, 12, 0);
     const beforeApply = {
       type: "doc",
       content: [{ type: "paragraph", content: [{ type: "text", text: "原文" }] }],
@@ -611,10 +618,10 @@ describe("WorkbenchApp", () => {
       content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
     };
 
-    const saveDocument = vi.fn()
+    const confirmSkill = vi.fn()
       .mockResolvedValueOnce({ ok: false as const, error: { code: "DB_ERROR", message: "accept save failed" } })
-      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: retriedUpdatedAt, contentHash: "hash-accept-retried" } });
-    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+      .mockResolvedValueOnce({ ok: true as const, data: { executionId: "exec-1", runId: "run-1", status: "completed", outputText: "改写后的句子" } });
+    window.api.ai.confirmSkill = confirmSkill as typeof window.api.ai.confirmSkill;
 
     let currentContent = beforeApply;
     vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
@@ -644,14 +651,8 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    expect(saveDocument).toHaveBeenCalledTimes(1);
-    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
-      projectId: "project-1",
-      documentId: "doc-1",
-      actor: "ai",
-      reason: "ai-accept",
-      contentJson: JSON.stringify(acceptedDocument),
-    }));
+    expect(confirmSkill).toHaveBeenCalledTimes(1);
+    expect(confirmSkill).toHaveBeenNthCalledWith(1, { executionId: "exec-1", action: "accept" });
     expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
     expect(screen.getAllByText("数据层暂时不可用，请稍后重试。").length).toBeGreaterThan(0);
 
@@ -661,14 +662,8 @@ describe("WorkbenchApp", () => {
       await Promise.resolve();
     });
 
-    expect(saveDocument).toHaveBeenCalledTimes(2);
-    expect(saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      projectId: "project-1",
-      documentId: "doc-1",
-      actor: "ai",
-      reason: "ai-accept",
-      contentJson: JSON.stringify(acceptedDocument),
-    }));
+    expect(confirmSkill).toHaveBeenCalledTimes(2);
+    expect(confirmSkill).toHaveBeenNthCalledWith(2, { executionId: "exec-1", action: "accept" });
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
     expect(screen.queryByText("改写后的句子")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -1898,11 +1893,7 @@ describe("WorkbenchApp", () => {
     expect(screen.queryByRole("button", { name: "接受" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(currentContent).toEqual(docBContent);
-    expect(window.api.file.saveDocument).not.toHaveBeenCalledWith(expect.objectContaining({
-      actor: "ai",
-      reason: "ai-accept",
-      documentId: "doc-2",
-    }));
+    expect(window.api.ai.confirmSkill).not.toHaveBeenCalled();
   });
 
   it("ignores a stale preview response after creating a new document so accept cannot save into the new active doc", async () => {
@@ -2009,11 +2000,7 @@ describe("WorkbenchApp", () => {
     expect(screen.queryByRole("button", { name: "接受" })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(currentContent).toEqual(createdDocumentContent);
-    expect(window.api.file.saveDocument).not.toHaveBeenCalledWith(expect.objectContaining({
-      actor: "ai",
-      reason: "ai-accept",
-      documentId: "doc-3",
-    }));
+    expect(window.api.ai.confirmSkill).not.toHaveBeenCalled();
   });
 
   it("keeps a switched document save UI isolated from an earlier accept save success", async () => {
@@ -2422,20 +2409,20 @@ describe("WorkbenchApp", () => {
       expect(screen.queryByText("改写后的句子")).toBeNull();
     });
 
-    expect(window.api.file.saveDocument).toHaveBeenCalledWith(expect.objectContaining({
-      actor: "ai",
-      reason: "ai-accept",
-    }));
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+    });
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
   });
 
-  it("keeps the preview visible when reject feedback returns ok:false", async () => {
+  it("surfaces reject confirm failures without dismissing the preview", async () => {
     window.api = createApiMock();
-    window.api.ai.submitSkillFeedback = vi.fn(async () => ({
+    window.api.ai.confirmSkill = vi.fn(async () => ({
       ok: false as const,
       error: { code: "DB_ERROR", message: "feedback failed" },
-    })) as typeof window.api.ai.submitSkillFeedback;
+    })) as typeof window.api.ai.confirmSkill;
 
     render(<WorkbenchApp />);
 
@@ -2452,6 +2439,10 @@ describe("WorkbenchApp", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("数据层暂时不可用，请稍后重试。");
     expect(screen.getByText("改写后的句子")).toBeInTheDocument();
+    expect(window.api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "reject",
+    });
   });
 
   it("restores persisted shell layout and supports resizing with clamp and reset", async () => {

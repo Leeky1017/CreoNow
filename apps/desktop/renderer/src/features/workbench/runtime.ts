@@ -27,6 +27,7 @@ export interface WorkbenchContextToken {
 
 export interface AiPreview {
   context: WorkbenchContextToken;
+  executionId: string;
   originalText: string;
   runId: string;
   selection: SelectionRef;
@@ -47,6 +48,22 @@ export class SelectionChangedError extends Error {
     super("selection-changed");
     this.name = "SelectionChangedError";
   }
+}
+
+async function readConfirmedDocumentUpdatedAt(
+  api: PreloadApi,
+  context: WorkbenchContextToken,
+): Promise<number> {
+  const readResult = await api.file.readDocument({
+    projectId: context.projectId,
+    documentId: context.documentId,
+  });
+
+  if (readResult.ok === false) {
+    return Date.now();
+  }
+
+  return readResult.data.updatedAt;
 }
 
 function toFeedbackError(error: IpcError | Error): Error {
@@ -265,6 +282,7 @@ export async function requestAiPreview(args: {
 
   return {
     context: args.context,
+    executionId: result.data.executionId,
     originalText: args.selection.text,
     selection: args.selection,
     suggestedText,
@@ -287,19 +305,14 @@ export async function acceptAiPreview(args: {
     throw new SelectionChangedError();
   }
 
-  const appliedContent = args.bridge.getContent();
-  const appliedContentJson = JSON.stringify(appliedContent);
   const appliedAtUserEditRevision = args.getUserEditRevision();
   const appliedAtEditorContextRevision = args.getEditorContextRevision();
-  const saveResult = await args.api.file.saveDocument({
-    projectId: args.preview.context.projectId,
-    documentId: args.preview.context.documentId,
-    actor: "ai",
-    reason: "ai-accept",
-    contentJson: appliedContentJson,
+  const confirmResult = await args.api.ai.confirmSkill({
+    executionId: args.preview.executionId,
+    action: "accept",
   });
 
-  if (saveResult.ok === false) {
+  if (confirmResult.ok === false) {
     runWithoutAutosave(() => {
       if (
         args.getUserEditRevision() === appliedAtUserEditRevision
@@ -308,8 +321,10 @@ export async function acceptAiPreview(args: {
         args.bridge.setContent(beforeApply);
       }
     });
-    throw saveResult.error;
+    throw confirmResult.error;
   }
+
+  const updatedAt = await readConfirmedDocumentUpdatedAt(args.api, args.preview.context);
 
   let feedbackError: Error | null = null;
   try {
@@ -328,18 +343,17 @@ export async function acceptAiPreview(args: {
 
   return {
     feedbackError,
-    updatedAt: saveResult.data.updatedAt,
+    updatedAt,
   };
 }
 
 export async function rejectAiPreview(api: PreloadApi, preview: AiPreview): Promise<void> {
-  const feedbackResult = await api.ai.submitSkillFeedback({
-    runId: preview.runId,
+  const confirmResult = await api.ai.confirmSkill({
+    executionId: preview.executionId,
     action: "reject",
-    evidenceRef: "renderer-p1-reject",
   });
 
-  if (feedbackResult.ok === false) {
-    throw new RendererIpcError(feedbackResult.error);
+  if (confirmResult.ok === false) {
+    throw new RendererIpcError(confirmResult.error);
   }
 }

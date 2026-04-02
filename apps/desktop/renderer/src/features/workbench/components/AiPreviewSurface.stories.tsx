@@ -33,6 +33,7 @@ export const Ready: Story = {
     reference,
     preview: {
       context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
+      executionId: "exec-demo",
       originalText: reference.text,
       runId: "run-demo",
       selection: reference,

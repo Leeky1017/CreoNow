@@ -30,6 +30,8 @@ export interface PreloadApi {
     setCurrentDocument: InvokeHandler<"file:document:setcurrent">;
   };
   ai: {
+    confirmSkill: InvokeHandler<"ai:skill:confirm">;
+    cancelSkill: InvokeHandler<"ai:skill:cancel">;
     runSkill: InvokeHandler<"ai:skill:run">;
     submitSkillFeedback: InvokeHandler<"ai:skill:feedback">;
   };

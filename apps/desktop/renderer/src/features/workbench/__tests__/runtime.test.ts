@@ -26,6 +26,7 @@ function createPreview(overrides: Partial<AiPreview> = {}): AiPreview {
       projectId: "project-1",
       revision: 0,
     },
+    executionId: "exec-1",
     originalText: "原文",
     suggestedText: "rewritten",
     runId: "run-1",
@@ -60,6 +61,16 @@ function createApiMock(): PreloadApi {
       setCurrentDocument: vi.fn(async () => ({ ok: true, data: { documentId: "doc-1" } })),
     },
     ai: {
+      confirmSkill: vi.fn(async ({ executionId, action }) => ({
+        ok: true,
+        data: {
+          executionId,
+          runId: "run-1",
+          status: action === "accept" ? "completed" : "rejected",
+          outputText: "rewritten",
+        },
+      })),
+      cancelSkill: vi.fn(async () => ({ ok: true, data: { canceled: true } })),
       runSkill: vi.fn(async () => ({ ok: true, data: { executionId: "exec-1", runId: "run-1", outputText: "rewritten" } })),
       submitSkillFeedback: vi.fn(async () => ({ ok: true, data: { recorded: true } })),
     },
@@ -84,7 +95,7 @@ describe("workbench runtime helpers", () => {
     expect(workspace.activeDocument.documentId).toBe("doc-1");
   });
 
-  it("requests AI preview and persists accept with ai-accept reason", async () => {
+  it("requests AI preview and confirms accept through the preview contract", async () => {
     const api = createApiMock();
     const bridge = {
       getContent: vi.fn(() => ({ type: "doc" })),
@@ -106,6 +117,7 @@ describe("workbench runtime helpers", () => {
     });
 
     expect(preview.suggestedText).toBe("rewritten");
+    expect(preview.executionId).toBe("exec-1");
     expect(api.ai.runSkill).toHaveBeenCalledWith(
       expect.objectContaining({
         hasSelection: true,
@@ -126,15 +138,17 @@ describe("workbench runtime helpers", () => {
       getEditorContextRevision: () => 0,
     });
 
-    expect(api.file.saveDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: "ai", reason: "ai-accept" }),
-    );
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+    });
+    expect(api.file.saveDocument).not.toHaveBeenCalled();
     expect(api.ai.submitSkillFeedback).toHaveBeenCalledWith(
       expect.objectContaining({ action: "accept", runId: "run-1" }),
     );
   });
 
-  it("saves accept back to the preview context instead of any caller-side active document", async () => {
+  it("reads accept state back from the preview context instead of any caller-side active document", async () => {
     const api = createApiMock();
     const bridge = {
       getContent: vi.fn()
@@ -152,11 +166,13 @@ describe("workbench runtime helpers", () => {
       getEditorContextRevision: () => 7,
     });
 
-    expect(api.file.saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
+      executionId: "exec-1",
+      action: "accept",
+    });
+    expect(api.file.readDocument).toHaveBeenCalledWith(expect.objectContaining({
       projectId: "project-preview",
       documentId: "doc-preview",
-      actor: "ai",
-      reason: "ai-accept",
     }));
   });
 
@@ -180,21 +196,19 @@ describe("workbench runtime helpers", () => {
       getEditorContextRevision: () => 0,
     });
 
-    expect(api.file.saveDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: "ai", reason: "ai-accept" }),
-    );
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
     expect(bridge.setContent).not.toHaveBeenCalled();
-    expect(result.updatedAt).toBe(2);
+    expect(result.updatedAt).toBe(1);
     expect(result.feedbackError).toMatchObject({ code: "DB_ERROR", message: "feedback failed" });
   });
 
 
-  it("rolls back the applied accept draft when save fails before any later edits", async () => {
+  it("rolls back the applied accept draft when confirm fails before any later edits", async () => {
     const api = createApiMock();
-    api.file.saveDocument = vi.fn(async () => ({
+    api.ai.confirmSkill = vi.fn(async () => ({
       ok: false,
       error: { code: "DB_ERROR", message: "save failed" },
-    })) as typeof api.file.saveDocument;
+    })) as typeof api.ai.confirmSkill;
     const beforeApply = {
       type: "doc",
       content: [{ type: "paragraph", content: [{ type: "text", text: "原文" }] }],
@@ -220,9 +234,7 @@ describe("workbench runtime helpers", () => {
       getEditorContextRevision: () => 0,
     })).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
-    expect(api.file.saveDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: "ai", reason: "ai-accept", contentJson: JSON.stringify(acceptedDocument) }),
-    );
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
     expect(bridge.setContent).toHaveBeenCalledWith(beforeApply);
   });
 
@@ -238,8 +250,8 @@ describe("workbench runtime helpers", () => {
     };
     let currentContent = beforeApply;
     let userEditRevision = 0;
-    const saveResult = createDeferred<{ ok: false; error: { code: "DB_ERROR"; message: string } }>();
-    api.file.saveDocument = vi.fn(async () => saveResult.promise) as typeof api.file.saveDocument;
+    const confirmResult = createDeferred<{ ok: false; error: { code: "DB_ERROR"; message: string } }>();
+    api.ai.confirmSkill = vi.fn(async () => confirmResult.promise) as typeof api.ai.confirmSkill;
     const bridge = {
       getContent: vi.fn(() => currentContent),
       replaceSelection: vi.fn(() => {
@@ -259,13 +271,11 @@ describe("workbench runtime helpers", () => {
 
     userEditRevision = 2;
     currentContent = acceptedDocument;
-    saveResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "save failed" } });
+    confirmResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "save failed" } });
 
     await expect(acceptPromise).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
-    expect(api.file.saveDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: "ai", reason: "ai-accept", contentJson: JSON.stringify(acceptedDocument) }),
-    );
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
     expect(bridge.setContent).not.toHaveBeenCalled();
   });
 
@@ -285,8 +295,8 @@ describe("workbench runtime helpers", () => {
     };
     let currentContent = beforeApply;
     let editorContextRevision = 0;
-    const saveResult = createDeferred<{ ok: false; error: { code: "DB_ERROR"; message: string } }>();
-    api.file.saveDocument = vi.fn(async () => saveResult.promise) as typeof api.file.saveDocument;
+    const confirmResult = createDeferred<{ ok: false; error: { code: "DB_ERROR"; message: string } }>();
+    api.ai.confirmSkill = vi.fn(async () => confirmResult.promise) as typeof api.ai.confirmSkill;
     const bridge = {
       getContent: vi.fn(() => currentContent),
       replaceSelection: vi.fn(() => {
@@ -308,13 +318,11 @@ describe("workbench runtime helpers", () => {
 
     editorContextRevision = 1;
     bridge.setContent(switchedDocument);
-    saveResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "save failed" } });
+    confirmResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "save failed" } });
 
     await expect(acceptPromise).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
-    expect(api.file.saveDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: "ai", reason: "ai-accept", contentJson: JSON.stringify(acceptedDocument) }),
-    );
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
     expect(currentContent).toEqual(switchedDocument);
     expect(bridge.setContent).toHaveBeenCalledTimes(1);
     expect(bridge.setContent).toHaveBeenCalledWith(switchedDocument);
@@ -336,8 +344,8 @@ describe("workbench runtime helpers", () => {
     };
     let currentContent = beforeApply;
     let userEditRevision = 0;
-    const saveResult = createDeferred<{ ok: false; error: { code: "DB_ERROR"; message: string } }>();
-    api.file.saveDocument = vi.fn(async () => saveResult.promise) as typeof api.file.saveDocument;
+    const confirmResult = createDeferred<{ ok: false; error: { code: "DB_ERROR"; message: string } }>();
+    api.ai.confirmSkill = vi.fn(async () => confirmResult.promise) as typeof api.ai.confirmSkill;
     const bridge = {
       getContent: vi.fn(() => currentContent),
       replaceSelection: vi.fn(() => {
@@ -357,23 +365,23 @@ describe("workbench runtime helpers", () => {
 
     userEditRevision = 1;
     currentContent = continuedDraft;
-    saveResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "save failed" } });
+    confirmResult.resolve({ ok: false, error: { code: "DB_ERROR", message: "save failed" } });
 
     await expect(acceptPromise).rejects.toMatchObject({ code: "DB_ERROR", message: "save failed" });
 
-    expect(api.file.saveDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ actor: "ai", reason: "ai-accept", contentJson: JSON.stringify(acceptedDocument) }),
-    );
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "accept" });
     expect(bridge.setContent).not.toHaveBeenCalled();
   });
 
-  it("rejects preview dismissal when feedback responds with ok:false", async () => {
+  it("routes preview rejection through the confirm contract", async () => {
     const api = createApiMock();
-    api.ai.submitSkillFeedback = vi.fn(async () => ({
+    api.ai.confirmSkill = vi.fn(async () => ({
       ok: false,
       error: { code: "DB_ERROR", message: "feedback failed" },
-    })) as typeof api.ai.submitSkillFeedback;
+    })) as typeof api.ai.confirmSkill;
 
     await expect(rejectAiPreview(api, createPreview())).rejects.toMatchObject({ code: "DB_ERROR", message: "feedback failed" });
+    expect(api.ai.confirmSkill).toHaveBeenCalledWith({ executionId: "exec-1", action: "reject" });
+    expect(api.ai.submitSkillFeedback).not.toHaveBeenCalled();
   });
 });

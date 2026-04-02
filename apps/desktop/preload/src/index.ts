@@ -56,6 +56,10 @@ const api = {
       creonowInvoke("file:document:setcurrent", payload),
   },
   ai: {
+    confirmSkill: (payload: Parameters<typeof creonowInvoke<"ai:skill:confirm">>[1]) =>
+      creonowInvoke("ai:skill:confirm", payload),
+    cancelSkill: (payload: Parameters<typeof creonowInvoke<"ai:skill:cancel">>[1]) =>
+      creonowInvoke("ai:skill:cancel", payload),
     runSkill: (payload: Parameters<typeof creonowInvoke<"ai:skill:run">>[1]) =>
       creonowInvoke("ai:skill:run", payload),
     submitSkillFeedback: (payload: Parameters<typeof creonowInvoke<"ai:skill:feedback">>[1]) =>
