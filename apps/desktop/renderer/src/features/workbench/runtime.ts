@@ -30,10 +30,13 @@ export interface AiPreview {
   executionId: string;
   originalText: string;
   runId: string;
-  selection: SelectionRef;
+  selection: SelectionRef | null;
+  skill: AiLauncherSkill;
   sourceUserEditRevision: number;
   suggestedText: string;
 }
+
+export type AiLauncherSkill = "polish" | "rewrite" | "continue";
 
 export interface AcceptAiPreviewResult {
   feedbackError: Error | null;
@@ -272,23 +275,59 @@ export async function openDocument(args: {
 export async function requestAiPreview(args: {
   api: PreloadApi;
   context: WorkbenchContextToken;
+  cursorPosition?: number;
   instruction: string;
   model: string;
-  selection: SelectionRef;
+  precedingText?: string;
+  selection?: SelectionRef;
+  skill: AiLauncherSkill;
   userEditRevision: number;
 }): Promise<AiPreview> {
-  const prompt = [
-    "Selection context:",
-    args.selection.text,
-    "",
-    args.instruction.trim(),
-  ].join(String.fromCharCode(10));
+  const instruction = args.instruction.trim();
+  let originalText = "";
+  let input = "";
+  let skillId = "";
+  let hasSelection = false;
+
+  if (args.skill === "continue") {
+    if (typeof args.cursorPosition !== "number" || args.precedingText === undefined || args.precedingText.trim().length === 0) {
+      throw new Error("context-required");
+    }
+    originalText = "";
+    input = args.precedingText;
+    skillId = "builtin:continue";
+  } else {
+    if (args.selection === undefined) {
+      throw new Error("selection-required");
+    }
+    originalText = args.selection.text;
+    hasSelection = true;
+
+    if (args.skill === "rewrite") {
+      if (instruction.length === 0) {
+        throw new Error("instruction-required");
+      }
+      input = [
+        "Instruction:",
+        instruction,
+        "",
+        "Text:",
+        args.selection.text,
+      ].join(String.fromCharCode(10));
+      skillId = "builtin:rewrite";
+    } else {
+      input = args.selection.text;
+      skillId = "builtin:polish";
+    }
+  }
 
   const result = await args.api.ai.runSkill({
-    skillId: "builtin:rewrite",
-    hasSelection: true,
-    selection: args.selection,
-    input: prompt,
+    skillId,
+    hasSelection,
+    ...(args.selection === undefined ? {} : { selection: args.selection }),
+    ...(args.cursorPosition === undefined ? {} : { cursorPosition: args.cursorPosition }),
+    ...(args.precedingText === undefined ? {} : { precedingText: args.precedingText }),
+    input,
     mode: "ask",
     model: args.model,
     stream: false,
@@ -309,8 +348,9 @@ export async function requestAiPreview(args: {
   return {
     context: args.context,
     executionId: result.data.executionId,
-    originalText: args.selection.text,
-    selection: args.selection,
+    originalText,
+    selection: args.selection ?? null,
+    skill: args.skill,
     sourceUserEditRevision: args.userEditRevision,
     suggestedText,
     runId: result.data.runId,
@@ -332,11 +372,13 @@ export async function acceptAiPreview(args: {
     throw new StaleAiPreviewError();
   }
 
-  const beforeApply = args.bridge.getContent();
   const runWithoutAutosave = args.runWithoutAutosave ?? ((operation) => operation());
-  const replaceResult = runWithoutAutosave(() => args.bridge.replaceSelection(args.preview.selection, args.preview.suggestedText));
-  if (replaceResult.ok === false) {
-    throw new SelectionChangedError();
+  const beforeApply = args.preview.selection === null ? null : args.bridge.getContent();
+  if (args.preview.selection !== null) {
+    const replaceResult = runWithoutAutosave(() => args.bridge.replaceSelection(args.preview.selection!, args.preview.suggestedText));
+    if (replaceResult.ok === false) {
+      throw new SelectionChangedError();
+    }
   }
 
   const appliedAtUserEditRevision = args.getUserEditRevision();
@@ -348,14 +390,16 @@ export async function acceptAiPreview(args: {
   });
 
   if (!isAcceptedPreviewConfirmation(confirmResult)) {
-    runWithoutAutosave(() => {
-      if (
-        args.getUserEditRevision() === appliedAtUserEditRevision
-        && args.getEditorContextRevision() === appliedAtEditorContextRevision
-      ) {
-        args.bridge.setContent(beforeApply);
-      }
-    });
+    if (beforeApply !== null) {
+      runWithoutAutosave(() => {
+        if (
+          args.getUserEditRevision() === appliedAtUserEditRevision
+          && args.getEditorContextRevision() === appliedAtEditorContextRevision
+        ) {
+          args.bridge.setContent(beforeApply);
+        }
+      });
+    }
     throw toAcceptConfirmationError(confirmResult);
   }
 

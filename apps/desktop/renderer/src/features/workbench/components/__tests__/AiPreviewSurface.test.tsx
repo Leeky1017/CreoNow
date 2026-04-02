@@ -10,32 +10,61 @@ const reference = {
   selectionTextHash: "demo-hash",
 };
 
-describe("AiPreviewSurface", () => {
-  it("submits on Enter and keeps Shift+Enter as a newline path", () => {
-    const onGenerate = vi.fn();
+function renderSurface(overrides: Partial<Parameters<typeof AiPreviewSurface>[0]> = {}) {
+  return render(
+    <AiPreviewSurface
+      busy={false}
+      canContinue={true}
+      canPolish={true}
+      canRewrite={true}
+      errorMessage={null}
+      instruction="润色这段文字"
+      model="gpt-4.1-mini"
+      onAccept={() => undefined}
+      onClearReference={() => undefined}
+      onInstructionChange={() => undefined}
+      onLaunchSkill={() => undefined}
+      onModelChange={() => undefined}
+      onReject={() => undefined}
+      preview={null}
+      reference={reference}
+      {...overrides}
+    />,
+  );
+}
 
-    render(
-      <AiPreviewSurface
-        busy={false}
-        errorMessage={null}
-        instruction="润色这段文字"
-        model="gpt-4.1-mini"
-        onAccept={() => undefined}
-        onClearReference={() => undefined}
-        onGenerate={onGenerate}
-        onInstructionChange={() => undefined}
-        onModelChange={() => undefined}
-        onReject={() => undefined}
-        preview={null}
-        reference={reference}
-      />,
-    );
+describe("AiPreviewSurface", () => {
+  it("submits rewrite on Enter and keeps Shift+Enter as a newline path", () => {
+    const onLaunchSkill = vi.fn();
+
+    renderSurface({ onLaunchSkill });
 
     const textarea = screen.getByLabelText("指令");
     fireEvent.keyDown(textarea, { key: "Enter" });
-    expect(onGenerate).toHaveBeenCalledTimes(1);
+    expect(onLaunchSkill).toHaveBeenCalledTimes(1);
+    expect(onLaunchSkill).toHaveBeenCalledWith("rewrite");
 
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
-    expect(onGenerate).toHaveBeenCalledTimes(1);
+    expect(onLaunchSkill).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows continue preview as an insertion instead of echoing preceding text as original", () => {
+    renderSurface({
+      preview: {
+        context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
+        executionId: "exec-demo",
+        originalText: "",
+        runId: "run-demo",
+        selection: null,
+        skill: "continue",
+        sourceUserEditRevision: 1,
+        suggestedText: "她抬头望见远处灯火，忽然意识到这一夜还远未结束。",
+      },
+      reference: null,
+    });
+
+    expect(screen.getByRole("heading", { name: "写回位置" })).toBeInTheDocument();
+    expect(screen.getByText("将在当前光标处追加建议内容，不替换已有文字。")).toBeInTheDocument();
+    expect(screen.queryByText("风从北方来，带着草原上最后一丝温暖。")).toBeNull();
   });
 });

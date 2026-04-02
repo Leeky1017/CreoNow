@@ -4,19 +4,22 @@ import { Button } from "@/components/primitives/Button";
 import { Input } from "@/components/primitives/Input";
 import { Textarea } from "@/components/primitives/Textarea";
 import type { SelectionRef } from "@/editor/schema";
-import type { AiPreview } from "@/features/workbench/runtime";
+import type { AiLauncherSkill, AiPreview } from "@/features/workbench/runtime";
 
 const MAX_REFERENCE_LENGTH = 120;
 
 interface AiPreviewSurfaceProps {
   busy: boolean;
+  canContinue: boolean;
+  canPolish: boolean;
+  canRewrite: boolean;
   errorMessage: string | null;
   instruction: string;
   model: string;
   onAccept: () => void;
   onClearReference: () => void;
-  onGenerate: () => void;
   onInstructionChange: (value: string) => void;
+  onLaunchSkill: (skill: AiLauncherSkill) => void;
   onModelChange: (value: string) => void;
   onReject: () => void;
   preview: AiPreview | null;
@@ -36,6 +39,15 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
   const selectionHint = props.reference
     ? t("panel.ai.selectionLength", { count: props.reference.text.length })
     : t("editor.selectionHint");
+  const previewOriginalHeading = props.preview?.skill === "continue"
+    ? t("panel.ai.previewInsertion")
+    : t("panel.ai.previewOriginal");
+  const previewOriginalBody = props.preview?.skill === "continue"
+    ? t("panel.ai.previewInsertionHint")
+    : props.preview?.originalText ?? "";
+  const previewOriginalBodyClassName = props.preview?.skill === "continue"
+    ? "preview-body preview-body--insertion"
+    : "preview-body preview-body--original";
 
   return <section className="ai-preview-surface" aria-label={t("panel.ai.title")}>
     <header className="panel-section">
@@ -83,17 +95,51 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
           }
 
           event.preventDefault();
-          if (props.busy || props.reference === null) {
+          if (props.busy) {
             return;
           }
 
-          props.onGenerate();
+          if (props.canRewrite) {
+            props.onLaunchSkill("rewrite");
+            return;
+          }
+
+          if (props.canPolish) {
+            props.onLaunchSkill("polish");
+          }
         }}
       />
-      <p className="panel-meta">{selectionHint}</p>
-      <Button tone="primary" disabled={props.busy || props.reference === null} onClick={props.onGenerate}>
-        {props.busy ? t("panel.ai.generating") : t("panel.ai.generate")}
-      </Button>
+      <p className="panel-meta">{t("panel.ai.instructionHint")}</p>
+    </div>
+
+    <div className="panel-section preview-stack">
+      <div className="panel-row">
+        <span className="field-label">{t("panel.ai.launcher")}</span>
+        <span className="panel-meta">{selectionHint}</span>
+      </div>
+      <div className="panel-actions">
+        <Button
+          tone="primary"
+          disabled={props.busy || props.canPolish === false}
+          onClick={() => props.onLaunchSkill("polish")}
+        >
+          {props.busy ? t("panel.ai.generating") : t("panel.ai.polish")}
+        </Button>
+        <Button
+          tone="ghost"
+          disabled={props.busy || props.canRewrite === false}
+          onClick={() => props.onLaunchSkill("rewrite")}
+        >
+          {t("panel.ai.rewrite")}
+        </Button>
+        <Button
+          tone="ghost"
+          disabled={props.busy || props.canContinue === false}
+          onClick={() => props.onLaunchSkill("continue")}
+        >
+          {t("panel.ai.continue")}
+        </Button>
+      </div>
     </div>
 
     {props.errorMessage ? <p className="panel-error" role="alert">{props.errorMessage}</p> : null}
@@ -103,8 +149,8 @@ export function AiPreviewSurface(props: AiPreviewSurfaceProps) {
         <p className="panel-meta">{t("panel.ai.ready")}</p>
         <div className="preview-grid">
           <article className="preview-column preview-column--original">
-            <h3 className="preview-heading">{t("panel.ai.previewOriginal")}</h3>
-            <p className="preview-body preview-body--original">{props.preview.originalText}</p>
+            <h3 className="preview-heading">{previewOriginalHeading}</h3>
+            <p className={previewOriginalBodyClassName}>{previewOriginalBody}</p>
           </article>
           <article className="preview-column preview-column--suggestion">
             <h3 className="preview-heading">{t("panel.ai.previewSuggestion")}</h3>

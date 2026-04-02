@@ -21,13 +21,16 @@ const reference = {
 export const Ready: Story = {
   args: {
     busy: false,
+    canContinue: true,
+    canPolish: true,
+    canRewrite: true,
     errorMessage: null,
     instruction: "润色这段文字，让节奏更紧凑。",
     model: "gpt-4.1-mini",
     onAccept: () => undefined,
     onClearReference: () => undefined,
-    onGenerate: () => undefined,
     onInstructionChange: () => undefined,
+    onLaunchSkill: () => undefined,
     onModelChange: () => undefined,
     onReject: () => undefined,
     reference,
@@ -37,6 +40,7 @@ export const Ready: Story = {
       originalText: reference.text,
       runId: "run-demo",
       selection: reference,
+      skill: "polish",
       sourceUserEditRevision: 1,
       suggestedText: "北地的风掠过山谷，把草原残存的暖意吹成一声轻而冷的叹息。",
     },
@@ -53,8 +57,27 @@ export const ReferenceOnly: Story = {
 export const Empty: Story = {
   args: {
     ...Ready.args,
+    canPolish: false,
+    canRewrite: false,
+    instruction: "",
     preview: null,
     reference: null,
+  },
+};
+
+export const ContinuePreview: Story = {
+  args: {
+    ...Empty.args,
+    preview: {
+      context: { documentId: "doc-demo", projectId: "project-demo", revision: 1 },
+      executionId: "exec-continue",
+      originalText: "",
+      runId: "run-continue",
+      selection: null,
+      skill: "continue",
+      sourceUserEditRevision: 1,
+      suggestedText: "她抬头望见远处灯火，忽然意识到这一夜还远未结束。",
+    },
   },
 };
 
@@ -62,6 +85,9 @@ export const Loading: Story = {
   args: {
     ...ReferenceOnly.args,
     busy: true,
+    canContinue: false,
+    canPolish: false,
+    canRewrite: false,
   },
 };
 

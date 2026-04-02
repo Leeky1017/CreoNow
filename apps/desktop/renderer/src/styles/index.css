@@ -433,6 +433,11 @@ button {
   text-decoration: line-through;
 }
 
+.preview-body--insertion {
+  color: var(--color-fg-muted);
+  background: var(--color-bg-muted);
+}
+
 .preview-body--suggestion {
   color: var(--color-success);
   background: var(--color-success-subtle);
