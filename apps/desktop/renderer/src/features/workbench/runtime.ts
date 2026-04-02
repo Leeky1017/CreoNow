@@ -31,6 +31,8 @@ export interface AcceptAiPreviewResult {
   updatedAt: number;
 }
 
+export type RunWithoutAutosave = <TResult>(operation: () => TResult) => TResult;
+
 export class SelectionChangedError extends Error {
   public constructor() {
     super("selection-changed");
@@ -267,9 +269,11 @@ export async function acceptAiPreview(args: {
   documentId: string;
   preview: AiPreview;
   projectId: string;
+  runWithoutAutosave?: RunWithoutAutosave;
 }): Promise<AcceptAiPreviewResult> {
   const beforeApply = args.bridge.getContent();
-  const replaceResult = args.bridge.replaceSelection(args.preview.selection, args.preview.suggestedText);
+  const runWithoutAutosave = args.runWithoutAutosave ?? ((operation) => operation());
+  const replaceResult = runWithoutAutosave(() => args.bridge.replaceSelection(args.preview.selection, args.preview.suggestedText));
   if (replaceResult.ok === false) {
     throw new SelectionChangedError();
   }
@@ -283,7 +287,9 @@ export async function acceptAiPreview(args: {
   });
 
   if (saveResult.ok === false) {
-    args.bridge.setContent(beforeApply);
+    runWithoutAutosave(() => {
+      args.bridge.setContent(beforeApply);
+    });
     throw saveResult.error;
   }
 

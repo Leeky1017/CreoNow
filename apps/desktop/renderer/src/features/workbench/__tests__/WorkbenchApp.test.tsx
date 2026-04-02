@@ -42,6 +42,21 @@ function createSelection(text: string, from = 1): SelectionRef {
   };
 }
 
+function createDeferred<TResult>() {
+  let resolvePromise!: (value: TResult | PromiseLike<TResult>) => void;
+  let rejectPromise!: (reason?: unknown) => void;
+  const promise = new Promise<TResult>((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
+
+  return {
+    promise,
+    reject: rejectPromise,
+    resolve: resolvePromise,
+  };
+}
+
 function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }))) {
   window.creonow = {
     api: window.api as PreloadApi,
@@ -168,22 +183,36 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
   });
 
-  it("prevents stale autosave timers from overwriting a successful AI accept", async () => {
+  it("serializes an in-flight autosave behind accept so stale content cannot overwrite the accepted save", async () => {
     window.api = createApiMock();
 
+    const autosaveResult = createDeferred<{
+      ok: false;
+      error: { code: string; message: string };
+    }>();
+    const acceptResult = createDeferred<{
+      ok: true;
+      data: { updatedAt: number; contentHash: string };
+    }>();
     const saveDocument = vi.fn()
-      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: 2, contentHash: "hash-2" } })
-      .mockResolvedValueOnce({
-        ok: false as const,
-        error: { code: "DB_ERROR", message: "stale autosave failed" },
-      });
+      .mockImplementationOnce(async () => autosaveResult.promise)
+      .mockImplementationOnce(async () => acceptResult.promise);
     window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
 
+    const staleDraft = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "接受前的旧草稿" }] }],
+    };
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
+    };
+
+    vi.mocked(bridgeMock.getContent)
+      .mockImplementationOnce(() => ({ type: "doc" }))
+      .mockImplementationOnce(() => acceptedDocument);
     vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
-      bridgeOptions?.onDocumentChange?.({
-        type: "doc",
-        content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
-      });
+      bridgeOptions?.onDocumentChange?.(acceptedDocument);
       return { ok: true as const };
     });
 
@@ -192,7 +221,7 @@ describe("WorkbenchApp", () => {
     await screen.findByRole("heading", { name: "第一章" });
 
     await act(async () => {
-      bridgeOptions?.onSelectionChange?.(createSelection("接受建议后不能再被旧 autosave 翻成失败。", 8));
+      bridgeOptions?.onSelectionChange?.(createSelection("已起跑 autosave 完成后也不能盖掉 accept。", 8));
     });
 
     fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
@@ -201,11 +230,16 @@ describe("WorkbenchApp", () => {
     vi.useFakeTimers();
 
     await act(async () => {
-      bridgeOptions?.onDocumentChange?.({
-        type: "doc",
-        content: [{ type: "paragraph", content: [{ type: "text", text: "编辑中的草稿" }] }],
-      });
+      bridgeOptions?.onDocumentChange?.(staleDraft);
+      await vi.advanceTimersByTimeAsync(800);
     });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(staleDraft),
+    }));
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "接受" }));
@@ -214,18 +248,109 @@ describe("WorkbenchApp", () => {
     });
 
     expect(saveDocument).toHaveBeenCalledTimes(1);
-    expect(saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+
+    await act(async () => {
+      autosaveResult.resolve({
+        ok: false,
+        error: { code: "DB_ERROR", message: "stale autosave failed" },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(2);
+    expect(saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
       actor: "ai",
       reason: "ai-accept",
+      contentJson: JSON.stringify(acceptedDocument),
     }));
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
+      acceptResult.resolve({ ok: true, data: { updatedAt: 3, contentHash: "hash-3" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText("改写后的句子")).toBeNull();
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+    expect(screen.queryByText("数据层暂时不可用，请稍后重试。")).toBeNull();
+  });
+
+  it("preserves autosave protection for real edits made while accept is still running", async () => {
+    window.api = createApiMock();
+
+    const acceptResult = createDeferred<{
+      ok: true;
+      data: { updatedAt: number; contentHash: string };
+    }>();
+    const saveDocument = vi.fn()
+      .mockImplementationOnce(async () => acceptResult.promise)
+      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: 4, contentHash: "hash-4" } });
+    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
+    };
+    const continuedDraft = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "接受过程中继续写下去" }] }],
+    };
+
+    vi.mocked(bridgeMock.getContent)
+      .mockImplementationOnce(() => ({ type: "doc" }))
+      .mockImplementationOnce(() => acceptedDocument);
+    vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      bridgeOptions?.onDocumentChange?.(acceptedDocument);
+      return { ok: true as const };
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("accept 期间继续输入也必须保留 autosave 保护。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    vi.useFakeTimers();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "接受" }));
+      await Promise.resolve();
+      await Promise.resolve();
     });
 
     expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      actor: "ai",
+      reason: "ai-accept",
+      contentJson: JSON.stringify(acceptedDocument),
+    }));
+
+    await act(async () => {
+      bridgeOptions?.onDocumentChange?.(continuedDraft);
+      await vi.advanceTimersByTimeAsync(800);
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      acceptResult.resolve({ ok: true, data: { updatedAt: 3, contentHash: "hash-3" } });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(2);
+    expect(saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      actor: "auto",
+      reason: "autosave",
+      contentJson: JSON.stringify(continuedDraft),
+    }));
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
-    expect(screen.queryByText("数据层暂时不可用，请稍后重试。" )).toBeNull();
   });
 
   it("keeps the accept flow saved but surfaces feedback failure when submitSkillFeedback returns ok:false", async () => {

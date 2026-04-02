@@ -187,7 +187,9 @@ function WorkbenchShell() {
   const api = useMemo(() => getPreloadApi(), []);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autosaveTimerRef = useRef<number | null>(null);
-  const suppressAutosaveRef = useRef(true);
+  const autosaveSuppressionDepthRef = useRef(0);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const latestSaveRequestRef = useRef(0);
   const projectRef = useRef<ProjectListItem | null>(null);
   const activeDocumentRef = useRef<DocumentRead | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
@@ -199,17 +201,27 @@ function WorkbenchShell() {
     }
   }, []);
 
-  const runWithAutosaveSuppressed = useCallback(async <TResult,>(operation: () => Promise<TResult>): Promise<TResult> => {
-    clearPendingAutosaveTimer();
-    suppressAutosaveRef.current = true;
-
+  const runWithoutAutosave = useCallback(<TResult,>(operation: () => TResult): TResult => {
+    autosaveSuppressionDepthRef.current += 1;
     try {
-      return await operation();
+      return operation();
     } finally {
-      suppressAutosaveRef.current = false;
-      clearPendingAutosaveTimer();
+      autosaveSuppressionDepthRef.current -= 1;
     }
-  }, [clearPendingAutosaveTimer]);
+  }, []);
+
+  const reserveSaveRequest = useCallback(() => {
+    latestSaveRequestRef.current += 1;
+    return latestSaveRequestRef.current;
+  }, []);
+
+  const isLatestSaveRequest = useCallback((requestId: number) => latestSaveRequestRef.current === requestId, []);
+
+  const queueSaveRequest = useCallback(<TResult,>(operation: () => Promise<TResult>): Promise<TResult> => {
+    const task = saveQueueRef.current.then(operation, operation);
+    saveQueueRef.current = task.then(() => undefined, () => undefined);
+    return task;
+  }, []);
 
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>("loading");
   const [project, setProject] = useState<ProjectListItem | null>(null);
@@ -338,31 +350,43 @@ function WorkbenchShell() {
         onDocumentChange: (content) => {
           const currentProject = projectRef.current;
           const currentDocument = activeDocumentRef.current;
-          if (suppressAutosaveRef.current || currentProject === null || currentDocument === null) {
+          if (autosaveSuppressionDepthRef.current > 0 || currentProject === null || currentDocument === null) {
             return;
           }
 
           clearPendingAutosaveTimer();
 
           setSaveState("idle");
-          autosaveTimerRef.current = window.setTimeout(async () => {
-            setSaveState("saving");
-            const result = await api.file.saveDocument({
-              projectId: currentProject.projectId,
-              documentId: currentDocument.documentId,
-              actor: "auto",
-              reason: "autosave",
-              contentJson: JSON.stringify(content),
+          const contentJson = JSON.stringify(content);
+          autosaveTimerRef.current = window.setTimeout(() => {
+            autosaveTimerRef.current = null;
+            const saveRequestId = reserveSaveRequest();
+            void queueSaveRequest(async () => {
+              if (isLatestSaveRequest(saveRequestId)) {
+                setSaveState("saving");
+              }
+
+              const result = await api.file.saveDocument({
+                projectId: currentProject.projectId,
+                documentId: currentDocument.documentId,
+                actor: "auto",
+                reason: "autosave",
+                contentJson,
+              });
+
+              if (result.ok === false) {
+                if (isLatestSaveRequest(saveRequestId)) {
+                  setSaveState("error");
+                  setErrorMessage(getHumanErrorMessage(result.error, t));
+                }
+                return;
+              }
+
+              if (isLatestSaveRequest(saveRequestId)) {
+                setSaveState("saved");
+                setLastSavedAt(result.data.updatedAt);
+              }
             });
-
-            if (result.ok === false) {
-              setSaveState("error");
-              setErrorMessage(getHumanErrorMessage(result.error, t));
-              return;
-            }
-
-            setSaveState("saved");
-            setLastSavedAt(result.data.updatedAt);
           }, AUTOSAVE_DELAY_MS);
         },
       }),
@@ -428,9 +452,9 @@ function WorkbenchShell() {
           return;
         }
 
-        suppressAutosaveRef.current = true;
-        editorBridge.setContent(JSON.parse(workspace.activeDocument.contentJson));
-        suppressAutosaveRef.current = false;
+        runWithoutAutosave(() => {
+          editorBridge.setContent(JSON.parse(workspace.activeDocument.contentJson));
+        });
         setProject(workspace.project);
         setDocuments(workspace.documents);
         setActiveDocument(workspace.activeDocument);
@@ -465,9 +489,9 @@ function WorkbenchShell() {
         projectId: project.projectId,
         defaultDocumentTitle: t("document.defaultTitle"),
       });
-      suppressAutosaveRef.current = true;
-      editorBridge.setContent(JSON.parse(result.activeDocument.contentJson));
-      suppressAutosaveRef.current = false;
+      runWithoutAutosave(() => {
+        editorBridge.setContent(JSON.parse(result.activeDocument.contentJson));
+      });
       setDocuments(result.documents);
       setActiveDocument(result.activeDocument);
       setPreview(null);
@@ -497,9 +521,9 @@ function WorkbenchShell() {
         projectId: project.projectId,
         documentId,
       });
-      suppressAutosaveRef.current = true;
-      editorBridge.setContent(JSON.parse(readDocument.contentJson));
-      suppressAutosaveRef.current = false;
+      runWithoutAutosave(() => {
+        editorBridge.setContent(JSON.parse(readDocument.contentJson));
+      });
       setActiveDocument(readDocument);
       setPreview(null);
       setStickySelection(null);
@@ -547,27 +571,35 @@ function WorkbenchShell() {
       return;
     }
 
+    clearPendingAutosaveTimer();
+    const saveRequestId = reserveSaveRequest();
+
     try {
       setBusy(true);
       setSaveState("saving");
-      const result = await runWithAutosaveSuppressed(() => acceptAiPreview({
+      const result = await queueSaveRequest(() => acceptAiPreview({
         api,
         bridge: editorBridge,
         projectId: project.projectId,
         documentId: activeDocument.documentId,
         preview,
+        runWithoutAutosave,
       }));
       setPreview(null);
       setErrorMessage(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null);
-      setSaveState("saved");
-      setLastSavedAt(result.updatedAt);
+      if (isLatestSaveRequest(saveRequestId)) {
+        setSaveState("saved");
+        setLastSavedAt(result.updatedAt);
+      }
     } catch (error) {
       if (error instanceof SelectionChangedError) {
         setErrorMessage(t("messages.selectionChanged"));
       } else {
         setErrorMessage(getHumanErrorMessage(error as Error, t));
       }
-      setSaveState("error");
+      if (isLatestSaveRequest(saveRequestId)) {
+        setSaveState("error");
+      }
     } finally {
       setBusy(false);
     }
