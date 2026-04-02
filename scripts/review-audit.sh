@@ -158,12 +158,12 @@ run_tier_s() {
   if command -v pnpm &>/dev/null; then
     if (( has_renderer > 0 )); then
       run_step "vitest run renderer（前端测试）" \
-        pnpm -C apps/desktop exec vitest run --reporter=verbose renderer/
+        pnpm -C apps/desktop exec vitest run --config vitest.config.ts --reporter=verbose renderer/
     fi
 
     if (( has_main > 0 )); then
       run_step "vitest run main（后端测试）" \
-        pnpm -C apps/desktop exec vitest run --reporter=verbose main/
+        pnpm -C apps/desktop exec vitest run --config vitest.config.core.ts --reporter=verbose main/
     fi
 
     # 前端变更追加 Storybook 构建验证
@@ -188,11 +188,18 @@ run_tier_d() {
   if command -v pnpm &>/dev/null; then
     # 全量测试优先走仓库声明脚本，避免与项目测试入口漂移
     if has_pnpm_script "test"; then
-      run_step "pnpm test（全量测试）" \
+      run_step "pnpm test（仓库发现式全量测试）" \
         pnpm test
     else
       run_step "vitest run（全量测试）" \
-        pnpm -C apps/desktop exec vitest run
+        pnpm -C apps/desktop exec vitest run --config vitest.config.core.ts
+    fi
+
+    local has_renderer
+    has_renderer=$(git diff --name-only "$BASE_REF" | grep -c '^apps/desktop/renderer/' || true)
+    if (( has_renderer > 0 )); then
+      run_step "pnpm -C apps/desktop test:renderer（renderer 全量测试）" \
+        pnpm -C apps/desktop test:renderer
     fi
 
     # ESLint（若仓库未声明 lint 脚本则跳过）

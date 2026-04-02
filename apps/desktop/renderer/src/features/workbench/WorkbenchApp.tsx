@@ -1,5 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FileText, Sparkles } from "lucide-react";
+import {
+  Brain,
+  ChevronLeft,
+  FolderTree,
+  History,
+  ListTree,
+  Network,
+  Search,
+  Settings,
+  Users,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
@@ -24,9 +34,38 @@ import { getPreloadApi } from "@/lib/preloadApi";
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const AUTOSAVE_DELAY_MS = 800;
+const DEFAULT_SIDEBAR_WIDTH = 240;
+const DEFAULT_RIGHT_PANEL_WIDTH = 320;
+const MAX_REFERENCE_LENGTH = 120;
 
 type BootstrapStatus = "loading" | "ready" | "error";
 type SaveState = "idle" | "saving" | "saved" | "error";
+type LeftPanelId =
+  | "files"
+  | "search"
+  | "outline"
+  | "versionHistory"
+  | "memory"
+  | "characters"
+  | "knowledgeGraph"
+  | "settings";
+type RightPanelId = "ai" | "info" | "quality";
+
+const LEFT_PANEL_ITEMS: Array<{
+  icon: typeof FolderTree;
+  id: LeftPanelId;
+  labelKey: string;
+  placement: "top" | "bottom";
+}> = [
+  { id: "files", icon: FolderTree, labelKey: "iconBar.files", placement: "top" },
+  { id: "search", icon: Search, labelKey: "iconBar.search", placement: "top" },
+  { id: "outline", icon: ListTree, labelKey: "iconBar.outline", placement: "top" },
+  { id: "versionHistory", icon: History, labelKey: "iconBar.versionHistory", placement: "top" },
+  { id: "memory", icon: Brain, labelKey: "iconBar.memory", placement: "top" },
+  { id: "characters", icon: Users, labelKey: "iconBar.characters", placement: "top" },
+  { id: "knowledgeGraph", icon: Network, labelKey: "iconBar.knowledgeGraph", placement: "top" },
+  { id: "settings", icon: Settings, labelKey: "iconBar.settings", placement: "bottom" },
+];
 
 function formatTimestamp(value: number | null): string {
   if (value === null) {
@@ -41,6 +80,18 @@ function formatTimestamp(value: number | null): string {
   }).format(value);
 }
 
+function isMeaningfulSelection(selection: SelectionRef | null): selection is SelectionRef {
+  return selection !== null && selection.text.trim().length > 0;
+}
+
+function truncateReference(text: string): string {
+  if (text.length <= MAX_REFERENCE_LENGTH) {
+    return text;
+  }
+
+  return text.slice(0, MAX_REFERENCE_LENGTH).trimEnd() + "...";
+}
+
 export function WorkbenchApp() {
   const { t } = useTranslation();
   const api = useMemo(() => getPreloadApi(), []);
@@ -49,12 +100,14 @@ export function WorkbenchApp() {
   const suppressAutosaveRef = useRef(true);
   const projectRef = useRef<ProjectListItem | null>(null);
   const activeDocumentRef = useRef<DocumentRead | null>(null);
+  const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
 
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>("loading");
   const [project, setProject] = useState<ProjectListItem | null>(null);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
   const [activeDocument, setActiveDocument] = useState<DocumentRead | null>(null);
-  const [selection, setSelection] = useState<SelectionRef | null>(null);
+  const [liveSelection, setLiveSelection] = useState<SelectionRef | null>(null);
+  const [stickySelection, setStickySelection] = useState<SelectionRef | null>(null);
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [instruction, setInstruction] = useState("");
   const [preview, setPreview] = useState<AiPreview | null>(null);
@@ -62,6 +115,10 @@ export function WorkbenchApp() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [activeLeftPanel, setActiveLeftPanel] = useState<LeftPanelId>("files");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeRightPanel, setActiveRightPanel] = useState<RightPanelId>("ai");
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
 
   useEffect(() => {
     projectRef.current = project;
@@ -71,11 +128,34 @@ export function WorkbenchApp() {
     activeDocumentRef.current = activeDocument;
   }, [activeDocument]);
 
+  useEffect(() => {
+    bootstrapStatusRef.current = bootstrapStatus;
+  }, [bootstrapStatus]);
+
+  const clearReference = () => {
+    setStickySelection(null);
+  };
+
+  const resetAiConversation = () => {
+    setInstruction("");
+    setPreview(null);
+    setErrorMessage(null);
+    clearReference();
+  };
+
   const editorBridge = useMemo(
     () =>
       createEditorBridge({
         onSelectionChange: (nextSelection) => {
-          setSelection(nextSelection);
+          setLiveSelection(nextSelection);
+
+          if (bootstrapStatusRef.current !== "ready" || isMeaningfulSelection(nextSelection) === false) {
+            return;
+          }
+
+          setStickySelection(nextSelection);
+          setPreview(null);
+          setErrorMessage(null);
         },
         onDocumentChange: (content) => {
           const currentProject = projectRef.current;
@@ -130,6 +210,36 @@ export function WorkbenchApp() {
   }, [editorBridge]);
 
   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) === false || event.altKey || event.shiftKey) {
+        return;
+      }
+
+      if (event.key === "\\") {
+        event.preventDefault();
+        setSidebarCollapsed((current) => !current);
+        return;
+      }
+
+      if (event.key.toLowerCase() === "l") {
+        event.preventDefault();
+        if (rightPanelCollapsed) {
+          setActiveRightPanel("ai");
+          setRightPanelCollapsed(false);
+          return;
+        }
+
+        setRightPanelCollapsed(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [rightPanelCollapsed]);
+
+  useEffect(() => {
     let disposed = false;
 
     const run = async () => {
@@ -151,6 +261,9 @@ export function WorkbenchApp() {
         setDocuments(workspace.documents);
         setActiveDocument(workspace.activeDocument);
         setLastSavedAt(workspace.activeDocument.updatedAt);
+        setPreview(null);
+        setStickySelection(null);
+        setLiveSelection(null);
         setBootstrapStatus("ready");
       } catch (error) {
         if (disposed === false) {
@@ -184,8 +297,12 @@ export function WorkbenchApp() {
       setDocuments(result.documents);
       setActiveDocument(result.activeDocument);
       setPreview(null);
+      setStickySelection(null);
+      setLiveSelection(null);
       setLastSavedAt(result.activeDocument.updatedAt);
       setErrorMessage(null);
+      setActiveLeftPanel("files");
+      setSidebarCollapsed(false);
     } catch (error) {
       setErrorMessage(getHumanErrorMessage(error as Error, t));
     }
@@ -211,15 +328,19 @@ export function WorkbenchApp() {
       suppressAutosaveRef.current = false;
       setActiveDocument(readDocument);
       setPreview(null);
+      setStickySelection(null);
+      setLiveSelection(null);
       setErrorMessage(null);
       setLastSavedAt(readDocument.updatedAt);
+      setActiveLeftPanel("files");
+      setSidebarCollapsed(false);
     } catch (error) {
       setErrorMessage(getHumanErrorMessage(error as Error, t));
     }
   };
 
   const handleGeneratePreview = async () => {
-    if (project === null || activeDocument === null || selection === null) {
+    if (project === null || activeDocument === null || stickySelection === null) {
       return;
     }
 
@@ -230,11 +351,12 @@ export function WorkbenchApp() {
         api,
         projectId: project.projectId,
         documentId: activeDocument.documentId,
-        selection,
+        selection: stickySelection,
         instruction,
         model,
       });
       setPreview(nextPreview);
+      setStickySelection(null);
     } catch (error) {
       const normalizedError = error instanceof Error && error.message === "preview-unavailable"
         ? new Error(t("messages.previewUnavailable"))
@@ -291,6 +413,25 @@ export function WorkbenchApp() {
     }
   };
 
+  const handleLeftPanelSelect = (panelId: LeftPanelId) => {
+    if (activeLeftPanel === panelId) {
+      setSidebarCollapsed((current) => !current);
+      return;
+    }
+
+    setActiveLeftPanel(panelId);
+    setSidebarCollapsed(false);
+  };
+
+  const handleRightPanelSelect = (panelId: RightPanelId) => {
+    setActiveRightPanel(panelId);
+    setRightPanelCollapsed(false);
+  };
+
+  const handleToggleRightPanel = () => {
+    setRightPanelCollapsed((current) => !current);
+  };
+
   const saveLabel =
     saveState === "saving"
       ? t("status.saving")
@@ -301,33 +442,24 @@ export function WorkbenchApp() {
           : t("status.ready");
 
   const wordCount = editorBridge.getTextContent().trim().length;
+  const selectionHint = stickySelection
+    ? t("panel.ai.selectionLength", { count: stickySelection.text.length })
+    : liveSelection
+      ? t("panel.ai.selectionLength", { count: liveSelection.text.length })
+      : t("editor.selectionHint");
+  const frameStyle = {
+    "--left-sidebar-width": sidebarCollapsed ? "0px" : `${DEFAULT_SIDEBAR_WIDTH}px`,
+    "--right-panel-width": rightPanelCollapsed ? "0px" : `${DEFAULT_RIGHT_PANEL_WIDTH}px`,
+  } as CSSProperties;
 
-  if (bootstrapStatus === "loading") {
-    return <main className="workbench-shell workbench-shell--state">{t("bootstrap.loading")}</main>;
-  }
-
-  if (bootstrapStatus === "error") {
-    return <main className="workbench-shell workbench-shell--state">
-      <h1 className="screen-title">{t("bootstrap.errorTitle")}</h1>
-      {errorMessage ? <p className="panel-error">{errorMessage}</p> : null}
-      <Button tone="primary" onClick={() => window.location.reload()}>{t("actions.reload")}</Button>
-    </main>;
-  }
-
-  return <main className="workbench-shell">
-    <div className="workbench-frame">
-      <aside className="icon-rail" aria-label={t("app.title")}>
-        <Button className="rail-button rail-button--active" tone="ghost" aria-label={t("sidebar.documents")}>
-          <FileText size={16} />
-        </Button>
-        <Button className="rail-button" tone="ghost" aria-label={t("tabs.ai")}>
-          <Sparkles size={16} />
-        </Button>
-      </aside>
-
-      <aside className="sidebar">
+  const renderSidebarContent = () => {
+    if (activeLeftPanel === "files") {
+      return <>
         <div className="sidebar-header">
-          <h1 className="screen-title">{project?.name ?? t("project.defaultName")}</h1>
+          <div>
+            <h1 className="screen-title">{project?.name ?? t("project.defaultName")}</h1>
+            <p className="panel-subtitle">{t("sidebar.files.subtitle")}</p>
+          </div>
           <Button tone="ghost" onClick={() => void handleCreateDocument()}>{t("sidebar.newDocument")}</Button>
         </div>
         <div className="sidebar-list">
@@ -344,37 +476,205 @@ export function WorkbenchApp() {
             </Button>
           ))}
         </div>
+      </>;
+    }
+
+    const surfaceKey = `sidebar.${activeLeftPanel}`;
+    return <div className="sidebar-surface">
+      <div className="panel-section">
+        <h1 className="screen-title">{t(`${surfaceKey}.title`)}</h1>
+        <p className="panel-subtitle">{t(`${surfaceKey}.subtitle`)}</p>
+      </div>
+      <dl className="details-grid">
+        <div className="details-row">
+          <dt>{t("panel.info.document")}</dt>
+          <dd>{activeDocument?.title ?? t("document.defaultTitle")}</dd>
+        </div>
+        <div className="details-row">
+          <dt>{t("panel.info.wordCount")}</dt>
+          <dd>{t("status.wordCount", { count: wordCount })}</dd>
+        </div>
+        <div className="details-row">
+          <dt>{t("sidebar.surfaceState")}</dt>
+          <dd>{t(`${surfaceKey}.state`)}</dd>
+        </div>
+      </dl>
+    </div>;
+  };
+
+  const renderRightPanelContent = () => {
+    if (activeRightPanel === "ai") {
+      return <AiPreviewSurface
+        busy={busy}
+        errorMessage={errorMessage}
+        instruction={instruction}
+        model={model}
+        onAccept={() => void handleAcceptPreview()}
+        onClearReference={clearReference}
+        onGenerate={() => void handleGeneratePreview()}
+        onInstructionChange={setInstruction}
+        onModelChange={setModel}
+        onReject={() => void handleRejectPreview()}
+        preview={preview}
+        reference={stickySelection}
+      />;
+    }
+
+    if (activeRightPanel === "info") {
+      return <section className="panel-surface" aria-label={t("tabs.info")}>
+        <header className="panel-section">
+          <div>
+            <h2 className="panel-title">{t("tabs.info")}</h2>
+            <p className="panel-subtitle">{t("panel.info.subtitle")}</p>
+          </div>
+        </header>
+        <dl className="details-grid">
+          <div className="details-row">
+            <dt>{t("panel.info.project")}</dt>
+            <dd>{project?.name ?? t("project.defaultName")}</dd>
+          </div>
+          <div className="details-row">
+            <dt>{t("panel.info.document")}</dt>
+            <dd>{activeDocument?.title ?? t("document.defaultTitle")}</dd>
+          </div>
+          <div className="details-row">
+            <dt>{t("panel.info.wordCount")}</dt>
+            <dd>{t("status.wordCount", { count: wordCount })}</dd>
+          </div>
+          <div className="details-row">
+            <dt>{t("panel.info.updatedAt")}</dt>
+            <dd>{formatTimestamp(lastSavedAt)}</dd>
+          </div>
+          <div className="details-row">
+            <dt>{t("panel.info.status")}</dt>
+            <dd>{saveLabel}</dd>
+          </div>
+        </dl>
+      </section>;
+    }
+
+    return <section className="panel-surface" aria-label={t("tabs.quality")}>
+      <header className="panel-section">
+        <div>
+          <h2 className="panel-title">{t("tabs.quality")}</h2>
+          <p className="panel-subtitle">{t("panel.quality.subtitle")}</p>
+        </div>
+      </header>
+      <dl className="details-grid">
+        <div className="details-row">
+          <dt>{t("panel.quality.selection")}</dt>
+          <dd>{stickySelection ? truncateReference(stickySelection.text) : t("panel.quality.selectionEmpty")}</dd>
+        </div>
+        <div className="details-row">
+          <dt>{t("panel.quality.preview")}</dt>
+          <dd>{preview ? t("panel.quality.previewReady") : t("panel.quality.previewIdle")}</dd>
+        </div>
+        <div className="details-row">
+          <dt>{t("panel.quality.saveState")}</dt>
+          <dd>{saveLabel}</dd>
+        </div>
+        <div className="details-row">
+          <dt>{t("panel.quality.wordCount")}</dt>
+          <dd>{t("status.wordCount", { count: wordCount })}</dd>
+        </div>
+      </dl>
+    </section>;
+  };
+
+  if (bootstrapStatus === "loading") {
+    return <main className="workbench-shell workbench-shell--state">{t("bootstrap.loading")}</main>;
+  }
+
+  if (bootstrapStatus === "error") {
+    return <main className="workbench-shell workbench-shell--state">
+      <h1 className="screen-title">{t("bootstrap.errorTitle")}</h1>
+      {errorMessage ? <p className="panel-error">{errorMessage}</p> : null}
+      <Button tone="primary" onClick={() => window.location.reload()}>{t("actions.reload")}</Button>
+    </main>;
+  }
+
+  return <main className="workbench-shell">
+    <div className="workbench-frame" style={frameStyle}>
+      <aside className="icon-rail" aria-label={t("app.title")}>
+        <div className="icon-rail__group">
+          {LEFT_PANEL_ITEMS.filter((item) => item.placement === "top").map((item) => {
+            const Icon = item.icon;
+            return <Button
+              key={item.id}
+              className={activeLeftPanel === item.id ? "rail-button rail-button--active" : "rail-button"}
+              tone="ghost"
+              aria-label={t(item.labelKey)}
+              aria-pressed={activeLeftPanel === item.id && sidebarCollapsed === false}
+              onClick={() => handleLeftPanelSelect(item.id)}
+            >
+              <Icon size={18} />
+            </Button>;
+          })}
+        </div>
+        <div className="icon-rail__group icon-rail__group--bottom">
+          {LEFT_PANEL_ITEMS.filter((item) => item.placement === "bottom").map((item) => {
+            const Icon = item.icon;
+            return <Button
+              key={item.id}
+              className={activeLeftPanel === item.id ? "rail-button rail-button--active" : "rail-button"}
+              tone="ghost"
+              aria-label={t(item.labelKey)}
+              aria-pressed={activeLeftPanel === item.id && sidebarCollapsed === false}
+              onClick={() => handleLeftPanelSelect(item.id)}
+            >
+              <Icon size={18} />
+            </Button>;
+          })}
+        </div>
       </aside>
+
+      {sidebarCollapsed ? null : <aside className="sidebar" aria-label={t("sidebar.title")}>
+        {renderSidebarContent()}
+      </aside>}
 
       <section className="editor-column">
         <header className="editor-header">
-          <h2 className="screen-title">{activeDocument?.title ?? t("document.defaultTitle")}</h2>
-          <p className="panel-meta">{t("editor.selectionHint")}</p>
+          <div>
+            <h2 className="screen-title">{activeDocument?.title ?? t("document.defaultTitle")}</h2>
+            <p className="panel-meta">{selectionHint}</p>
+          </div>
+          {rightPanelCollapsed ? (
+            <Button tone="ghost" onClick={() => handleRightPanelSelect("ai")}>{t("panel.actions.openAi")}</Button>
+          ) : null}
         </header>
         <div className="editor-scroll">
           <div ref={containerRef} className="editor-host" />
         </div>
       </section>
 
-      <aside className="right-panel">
+      {rightPanelCollapsed ? null : <aside className="right-panel" aria-label={t("panel.title")}>
         <div className="right-tabs">
-          <span className="right-tab right-tab--active">{t("tabs.ai")}</span>
-          <span className="right-tab">{t("tabs.info")}</span>
+          <div className="right-tabs__list" role="tablist" aria-label={t("panel.tabs")}>
+            {(["ai", "info", "quality"] as RightPanelId[]).map((panelId) => (
+              <Button
+                key={panelId}
+                tone="ghost"
+                role="tab"
+                className={activeRightPanel === panelId ? "right-tab right-tab--active" : "right-tab"}
+                aria-selected={activeRightPanel === panelId}
+                onClick={() => handleRightPanelSelect(panelId)}
+              >
+                {t(`tabs.${panelId}`)}
+              </Button>
+            ))}
+          </div>
+          <div className="right-tabs__actions">
+            {activeRightPanel === "ai" ? <>
+              <Button tone="ghost" className="right-action" onClick={() => undefined}>{t("panel.ai.history")}</Button>
+              <Button tone="ghost" className="right-action" onClick={resetAiConversation}>{t("panel.ai.newChat")}</Button>
+            </> : null}
+            <Button tone="ghost" className="right-action" aria-label={t("panel.actions.collapse")} onClick={handleToggleRightPanel}>
+              <ChevronLeft size={16} />
+            </Button>
+          </div>
         </div>
-        <AiPreviewSurface
-          busy={busy}
-          errorMessage={errorMessage}
-          instruction={instruction}
-          model={model}
-          onAccept={() => void handleAcceptPreview()}
-          onGenerate={() => void handleGeneratePreview()}
-          onInstructionChange={setInstruction}
-          onModelChange={setModel}
-          onReject={() => void handleRejectPreview()}
-          preview={preview}
-          selection={selection}
-        />
-      </aside>
+        {renderRightPanelContent()}
+      </aside>}
     </div>
 
     <footer className="status-bar">
