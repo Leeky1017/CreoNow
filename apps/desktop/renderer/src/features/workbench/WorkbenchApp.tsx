@@ -109,6 +109,13 @@ type AutosaveToastEvent = {
   kind: "error" | "success";
 };
 
+class BlockedAutosaveError extends Error {
+  constructor() {
+    super("blocked-autosave");
+    this.name = "BlockedAutosaveError";
+  }
+}
+
 function isSameContextToken(left: WorkbenchContextToken | null, right: WorkbenchContextToken | null): boolean {
   if (left === null || right === null) {
     return false;
@@ -571,7 +578,7 @@ function WorkbenchShell() {
     if (pendingDraft !== null && isCurrentContextToken(pendingDraft.context)) {
       const result = await flushPendingAutosaveDraft(pendingDraft);
       if (result?.ok === false) {
-        throw result.error;
+        throw new BlockedAutosaveError();
       }
       return;
     }
@@ -583,7 +590,7 @@ function WorkbenchShell() {
 
     const result = await inFlightAutosave.promise;
     if (result.ok === false) {
-      throw result.error;
+      throw new BlockedAutosaveError();
     }
   }, [clearPendingAutosaveTimer, flushPendingAutosaveDraft, isCurrentContextToken]);
 
@@ -771,7 +778,9 @@ function WorkbenchShell() {
       setActiveLeftPanel("files");
       setSidebarCollapsed(false);
     } catch (error) {
-      setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
+      if (error instanceof BlockedAutosaveError === false) {
+        setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
+      }
     } finally {
       if (isLatestBusyOperation(busyOperationId)) {
         setBusy(false);
@@ -812,7 +821,9 @@ function WorkbenchShell() {
       setActiveLeftPanel("files");
       setSidebarCollapsed(false);
     } catch (error) {
-      setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
+      if (error instanceof BlockedAutosaveError === false) {
+        setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
+      }
     } finally {
       if (isLatestBusyOperation(busyOperationId)) {
         setBusy(false);
