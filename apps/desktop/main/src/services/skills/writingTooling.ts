@@ -194,3 +194,131 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
 
   return registry;
 }
+}
+
+/**
+ * P2: Create a read-only agentic tool registry for use in the Agentic Loop.
+ *
+ * Only exposes tools that AI is permitted to call autonomously:
+ * - kgTool: query knowledge graph (read-only)
+ * - memTool: query writing memory (read-only)
+ * - docTool: read document content (read-only)
+ * - documentRead: read document text (P1 built-in, read-only)
+ *
+ * Intentionally EXCLUDES: documentWrite, versionSnapshot
+ * (AI must not be able to write documents autonomously)
+ */
+export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistry {
+  const registry = createToolRegistry();
+  const service = createDocumentService({ db: args.db, logger: args.logger });
+
+  // kgTool: query knowledge graph
+  // P2 stub — returns empty result when KG data is unavailable
+  registry.register(
+    buildTool({
+      name: "kgTool",
+      description: "Query the knowledge graph for character traits, locations, and world settings",
+      isConcurrencySafe: true,
+      execute: async (ctx) => {
+        const query = typeof ctx["query"] === "string" ? ctx["query"] : "";
+        args.logger.info("agentic_tool_kg_query", { query, requestId: ctx.requestId });
+        // P2 stub: KG module not yet implemented, return empty
+        return {
+          success: true,
+          data: { entities: [], query },
+        };
+      },
+    }),
+  );
+
+  // memTool: query writing memory
+  // P2 stub — returns empty memories when Memory module is unavailable
+  registry.register(
+    buildTool({
+      name: "memTool",
+      description: "Query writing memory for style preferences and past writing patterns",
+      isConcurrencySafe: true,
+      execute: async (ctx) => {
+        const query = typeof ctx["query"] === "string" ? ctx["query"] : "";
+        args.logger.info("agentic_tool_mem_query", { query, requestId: ctx.requestId });
+        // P2 stub: Memory module not yet fully implemented, return empty
+        return {
+          success: true,
+          data: { memories: [], query },
+        };
+      },
+    }),
+  );
+
+  // docTool: read document content
+  registry.register(
+    buildTool({
+      name: "docTool",
+      description: "Read the content of a document or chapter for context",
+      isConcurrencySafe: true,
+      execute: async (ctx) => {
+        const targetDocId =
+          typeof ctx["targetDocumentId"] === "string"
+            ? ctx["targetDocumentId"]
+            : ctx.documentId;
+        const projectId =
+          typeof ctx["projectId"] === "string" ? ctx["projectId"].trim() : "";
+
+        if (!projectId) {
+          return {
+            success: true,
+            data: { content: "", documentId: targetDocId },
+          };
+        }
+
+        const result = service.read({ projectId, documentId: targetDocId });
+        if (!result.ok) {
+          return {
+            success: false,
+            error: { code: result.error.code, message: result.error.message },
+          };
+        }
+
+        return {
+          success: true,
+          data: { content: result.data.contentJson, documentId: targetDocId },
+        };
+      },
+    }),
+  );
+
+  // documentRead: read document text (P1 built-in, agentic-accessible)
+  registry.register(
+    buildTool({
+      name: "documentRead",
+      description: "Read the raw text of the current document",
+      isConcurrencySafe: true,
+      execute: async (ctx) => {
+        const projectId =
+          typeof ctx["projectId"] === "string" ? ctx["projectId"].trim() : "";
+
+        if (!projectId) {
+          return {
+            success: true,
+            data: { text: "", documentId: ctx.documentId },
+          };
+        }
+
+        const result = service.read({ projectId, documentId: ctx.documentId });
+        if (!result.ok) {
+          return {
+            success: false,
+            error: { code: result.error.code, message: result.error.message },
+          };
+        }
+
+        return {
+          success: true,
+          data: { text: result.data.contentJson, documentId: ctx.documentId },
+        };
+      },
+    }),
+  );
+
+  return registry;
+}
