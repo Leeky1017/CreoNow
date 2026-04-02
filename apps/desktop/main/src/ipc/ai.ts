@@ -62,6 +62,8 @@ type SkillRunPayload = {
   hasSelection?: boolean;
   cursorPosition?: number;
   input: string;
+  /** Cursor-preceding text for document-window skills (e.g. continue). */
+  precedingText?: string;
   mode: "agent" | "plan" | "ask";
   model: string;
   candidateCount?: number;
@@ -667,6 +669,24 @@ function leafSkillId(skillId: string): string {
 }
 
 /**
+ * Resolve the effective input string for a WritingRequest's skill.
+ *
+ * For document-window skills (continue), the primary input is the cursor-preceding
+ * text (`precedingText`). Selection-based skills use `selectedText`.
+ * This bridges the WritingRequest rich input type back to the flat string expected
+ * by SkillRunPayload / skillExecutor without losing precedingText.
+ */
+function resolveWritingRequestInput(request: {
+  skillId: string;
+  input: { selectedText?: string; precedingText?: string };
+}): string {
+  if (leafSkillId(request.skillId) === "continue") {
+    return request.input.precedingText ?? request.input.selectedText ?? "";
+  }
+  return request.input.selectedText ?? "";
+}
+
+/**
  * Parse per-model pricing from env JSON.
  *
  * Format:
@@ -1223,7 +1243,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         payload: {
           skillId: request.skillId,
           hasSelection: Boolean(request.selection),
-          input: request.input.selectedText ?? "",
+          input: resolveWritingRequestInput(request),
           mode: "ask",
           model: request.modelId ?? "default",
           ...(request.cursorPosition === undefined
@@ -1266,7 +1286,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       const res = await skillExecutor.execute({
         skillId: request.skillId,
         hasSelection: Boolean(request.selection),
-        input: request.input.selectedText ?? "",
+        input: resolveWritingRequestInput(request),
         ...(request.cursorPosition === undefined
           ? {}
           : { cursorPosition: request.cursorPosition }),
@@ -1298,11 +1318,11 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
               outputText = event.outputText;
             }
             usage = {
-              promptTokens: event.result?.metadata.promptTokens ?? estimateTokens(request.input.selectedText ?? ""),
+              promptTokens: event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request)),
               completionTokens:
                 event.result?.metadata.completionTokens ?? estimateTokens(event.outputText),
               totalTokens:
-                (event.result?.metadata.promptTokens ?? estimateTokens(request.input.selectedText ?? "")) +
+                (event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request))) +
                 (event.result?.metadata.completionTokens ?? estimateTokens(event.outputText)),
             };
             streamTerminalSeen = true;
@@ -1757,7 +1777,10 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
       const generator = ctx.writingOrchestrator.execute({
         requestId: executionId,
         skillId: payload.skillId,
-        input: { selectedText: payload.input },
+        input: {
+          selectedText: payload.input,
+          ...(payload.precedingText !== undefined ? { precedingText: payload.precedingText } : {}),
+        },
         documentId,
         projectId,
         modelId: payload.model,

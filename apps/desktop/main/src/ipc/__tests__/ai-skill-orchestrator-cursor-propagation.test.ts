@@ -388,4 +388,98 @@ describe("ai:skill:run cursor propagation regression", () => {
     const flags = assembleSpy.mock.calls.map(([request]) => request.additionalInputIsSelection);
     expect(flags.every((f: unknown) => f !== true)).toBe(true);
   });
+
+  // RED TEST: P1 input-bridge blocker — when the IPC payload carries an explicit
+  // `precedingText` field (document-window semantic), both assemble() calls must
+  // receive that text as additionalInput instead of falling back to an empty string.
+  it("builtin:continue precedingText 通过 IPC payload 传入时，两路 assemble 均收到 precedingText 作为 additionalInput", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "夜幕降临，街灯次第亮起。",
+    });
+
+    await harness.invoke("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      cursorPosition: 5,
+      input: "",
+      precedingText: "夜幕降临，街灯次第亮起。",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    // Both prepareRequest and generateText/skillExecutor assemble calls must use precedingText
+    expect(assembleSpy).toHaveBeenCalledTimes(2);
+    const additionalInputs = assembleSpy.mock.calls.map((args: unknown[]) => (args[0] as { additionalInput: unknown }).additionalInput);
+    expect(additionalInputs).toEqual([
+      "夜幕降临，街灯次第亮起。",
+      "夜幕降临，街灯次第亮起。",
+    ]);
+  });
+
+  // RED TEST: selection skills must NOT pick up precedingText — their input stays in `input`.
+  it("builtin:polish 存在 precedingText 字段时，additionalInput 仍然取自 input 字段", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "First paragraph",
+    });
+
+    const selectionText = "First paragraph";
+    await harness.invoke("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: selectionText,
+      precedingText: "should-be-ignored",
+      selection: {
+        from: 1,
+        to: 16,
+        text: selectionText,
+        selectionTextHash: "abc123",
+      },
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    // Selection skill: additionalInput must come from `input`, not `precedingText`
+    expect(assembleSpy).toHaveBeenCalledTimes(2);
+    const additionalInputs = assembleSpy.mock.calls.map((args: unknown[]) => (args[0] as { additionalInput: unknown }).additionalInput);
+    expect(additionalInputs.every((ai: unknown) => ai === selectionText)).toBe(true);
+  });
+
+  // RED TEST: WritingRequest.input.precedingText bridge — when the orchestrator is given
+  // a WritingRequest that already carries precedingText (and no selectedText), the
+  // prepareRequest and generateText callbacks must not discard it by returning "".
+  it("builtin:continue IPC payload precedingText 非空、input 为空时 assembleContext 不得收到空 additionalInput", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "她笑了笑，转身离去。",
+    });
+
+    await harness.invoke("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      cursorPosition: 3,
+      input: "",
+      precedingText: "她笑了笑，转身离去。",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      stream: false,
+    });
+
+    expect(assembleSpy).toHaveBeenCalledTimes(2);
+    // Neither call may receive empty-string additionalInput when precedingText is non-empty
+    const additionalInputs = assembleSpy.mock.calls.map((args: unknown[]) => (args[0] as { additionalInput: unknown }).additionalInput);
+    expect(additionalInputs.every((ai: unknown) => typeof ai === "string" && ai.length > 0)).toBe(true);
+  });
 });
