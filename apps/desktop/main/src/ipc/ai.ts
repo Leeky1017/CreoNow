@@ -9,6 +9,7 @@ import {
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
+  SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
 } from "@shared/types/ai";
 import type { Logger } from "../logging/logger";
@@ -39,7 +40,8 @@ import {
   createWritingOrchestrator,
   type WritingEvent,
 } from "../services/skills/orchestrator";
-import { createWritingToolRegistry } from "../services/skills/writingTooling";
+import { createWritingToolRegistry, createAgenticToolRegistry } from "../services/skills/writingTooling";
+import { createToolUseHandler } from "../services/skills/toolUseHandler";
 import { estimateTokens } from "../services/context/tokenEstimation";
 import { createDocumentService } from "../services/documents/documentService";
 import { editorSchema } from "../services/editor/prosemirrorSchema";
@@ -597,6 +599,42 @@ function emitOrchestratorChunk(args: {
     sender: args.sender,
     event,
   });
+}
+
+/** P2: Emit a tool-use event to the renderer via SKILL_TOOL_USE_CHANNEL */
+function emitOrchestratorToolUse(args: {
+  ctx: AiIpcContext;
+  sender: Electron.WebContents;
+  executionId: string;
+  runId: string;
+  event: WritingEvent;
+}): void {
+  const { event } = args;
+  if (
+    event.type !== "tool-use-started" &&
+    event.type !== "tool-use-completed" &&
+    event.type !== "tool-use-failed"
+  ) {
+    return;
+  }
+  const base = {
+    executionId: args.executionId,
+    runId: args.runId,
+    ts: nowTs(),
+  };
+  const payload =
+    event.type === "tool-use-started"
+      ? { ...base, type: "tool-use-started" as const, round: Number(event.round), toolNames: (event.toolNames as string[]) ?? [] }
+      : event.type === "tool-use-completed"
+      ? { ...base, type: "tool-use-completed" as const, round: Number(event.round), results: (event.results as Array<{ toolName: string; success: boolean; durationMs: number }>) ?? [], hasNextRound: Boolean(event.hasNextRound) }
+      : { ...base, type: "tool-use-failed" as const, round: Number(event.round), error: (event.error as { code: string; message: string; retryable: boolean }) };
+  try {
+    args.sender.send(SKILL_TOOL_USE_CHANNEL, payload);
+  } catch (error) {
+    args.ctx.deps.logger.error("ai_tool_use_send_failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 function emitOrchestratorDone(args: {
@@ -1315,6 +1353,24 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             db: deps.db,
             logger: deps.logger,
           }),
+    // P2: Agentic tool-use handler backed by read-only tools only
+    toolUseHandler: createToolUseHandler(
+      deps.db === null
+        ? createAgenticToolRegistry({
+            db: {} as Database.Database,
+            logger: deps.logger,
+          })
+        : createAgenticToolRegistry({
+            db: deps.db,
+            logger: deps.logger,
+          }),
+      {
+        maxToolRounds: 5,
+        toolTimeoutMs: 10_000,
+        maxConcurrentTools: 4,
+        agenticLoop: true,
+      },
+    ),
     permissionGate,
     postWritingHooks: [
       {
@@ -1657,6 +1713,22 @@ async function drainPreviewUntilPause(args: {
       continue;
     }
 
+    // P2: Forward tool-use events to renderer
+    if (
+      event.type === "tool-use-started" ||
+      event.type === "tool-use-completed" ||
+      event.type === "tool-use-failed"
+    ) {
+      emitOrchestratorToolUse({
+        ctx: args.ctx,
+        sender: args.sender,
+        executionId: args.executionId,
+        runId: args.runId,
+        event,
+      });
+      continue;
+    }
+
     if (event.type === "permission-denied") {
       emitOrchestratorDone({
         ctx: args.ctx,
@@ -1912,6 +1984,8 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         modelId: normalizedPayload.model,
         ...(normalizedPayload.selection ? { selection: normalizedPayload.selection } : {}),
         ...(cursorPosition === undefined ? {} : { cursorPosition }),
+        // P2: enable agentic loop for the 'continue' skill
+        agenticLoop: leafSkillId(normalizedPayload.skillId) === "continue",
       });
 
       rememberRunInRegistry(ctx, {
