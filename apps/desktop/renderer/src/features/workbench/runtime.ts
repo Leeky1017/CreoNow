@@ -274,11 +274,15 @@ export async function acceptAiPreview(args: {
     throw saveResult.error;
   }
 
-  await args.api.ai.submitSkillFeedback({
-    runId: args.preview.runId,
-    action: "accept",
-    evidenceRef: "renderer-p1-accept",
-  });
+  try {
+    await args.api.ai.submitSkillFeedback({
+      runId: args.preview.runId,
+      action: "accept",
+      evidenceRef: "renderer-p1-accept",
+    });
+  } catch (error) {
+    console.error("Failed to submit AI accept feedback", error);
+  }
 }
 
 export async function rejectAiPreview(api: PreloadApi, preview: AiPreview): Promise<void> {

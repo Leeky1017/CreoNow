@@ -141,6 +141,41 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
   });
 
+  it("keeps the accept flow saved when feedback submission fails", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    window.api = createApiMock();
+    window.api.ai.submitSkillFeedback = vi.fn(async () => {
+      throw new Error("feedback failed");
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("接受建议后应该仍然视为已保存。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "接受" }));
+
+    await waitFor(() => {
+      expect(screen.queryByText("改写后的句子")).toBeNull();
+    });
+
+    expect(window.api.file.saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+      actor: "ai",
+      reason: "ai-accept",
+    }));
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "保存失败" })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    consoleError.mockRestore();
+  });
+
   it("restores persisted shell layout and supports resizing with clamp and reset", async () => {
     window.localStorage.setItem("creonow.layout.activeLeftPanel", "knowledgeGraph");
     window.localStorage.setItem("creonow.layout.sidebarWidth", "300");
