@@ -955,18 +955,19 @@ function createAiNonStreamHelpers(
     });
 
     if (state.status !== "degraded") {
-      if (args.backup !== null) {
-        return buildProviderUnavailableError({
-          traceId: args.entry.traceId,
-          primary: args.primary,
-          backup: args.backup,
-        });
-      }
-      return primaryRes;
+      return buildProviderUnavailableError({
+        traceId: args.entry.traceId,
+        primary: args.primary,
+        backup: args.backup,
+      });
     }
 
     if (args.backup === null) {
-      return primaryRes;
+      return buildProviderUnavailableError({
+        traceId: args.entry.traceId,
+        primary: args.primary,
+        backup: null,
+      });
     }
 
     deps.logger.info("ai_provider_failover", {

@@ -1,13 +1,9 @@
 import { createHash } from "node:crypto";
 import type { MatchResult, MatchableEntity } from "../kg/entityMatcher";
-import { matchEntities as defaultMatchEntities } from "../kg/entityMatcher";
 import type { KnowledgeGraphService } from "../kg/kgService";
 import type { MemoryService } from "../memory/memoryService";
 import type { EpisodicMemoryService } from "../memory/episodicMemoryService";
-import { createRetrievedFetcher } from "./fetchers/retrievedFetcher";
 import { createRulesFetcher } from "./fetchers/rulesFetcher";
-import { createSettingsFetcher } from "./fetchers/settingsFetcher";
-import { createSynopsisFetcher } from "./fetchers/synopsisFetcher";
 import type { SynopsisStore } from "./synopsisStore";
 import type { Logger } from "../../logging/logger";
 import { DegradationCounter } from "../shared/degradationCounter";
@@ -25,7 +21,6 @@ import type {
   ContextLayerChunk,
   ContextLayerDetail,
   ContextLayerFetcher,
-  ContextLayerFetchResult,
   ContextLayerFetcherMap,
   ContextLayerId,
   ContextLayerSummary,
@@ -105,6 +100,7 @@ export const CONTEXT_CAPACITY_LIMITS = {
 const DEFAULT_TOTAL_BUDGET_TOKENS = 6000;
 const DEFAULT_TOKENIZER_ID = "cn-byte-estimator";
 const DEFAULT_TOKENIZER_VERSION = "1.0.0";
+const PUBLIC_CONTEXT_PROMPT_LAYERS = ["rules", "immediate"] as const;
 const NON_DETERMINISTIC_PREFIX_FIELDS = new Set([
   "timestamp",
   "requestId",
@@ -148,26 +144,6 @@ function uniqueNonEmpty(values: readonly string[]): string[] {
     }
   }
   return [...deduped];
-}
-
-/**
- * Why: composed fetchers need one deterministic merge strategy for chunks,
- * warnings, and truncation flags.
- */
-function mergeFetchResults(
-  results: readonly ContextLayerFetchResult[],
-): ContextLayerFetchResult {
-  const chunks = results.flatMap((result) => result.chunks);
-  const warnings = uniqueNonEmpty(
-    results.flatMap((result) => result.warnings ?? []),
-  );
-  const truncated = results.some((result) => result.truncated === true);
-
-  return {
-    chunks,
-    ...(truncated ? { truncated: true } : {}),
-    ...(warnings.length > 0 ? { warnings } : {}),
-  };
 }
 
 /**
@@ -485,11 +461,9 @@ function canonicalizeLayerForStablePrefix(content: string): unknown {
  */
 function hashStablePrefix(
   rulesContent: string,
-  settingsContent: string,
 ): string {
   const canonicalizedPayload = canonicalizeStablePrefixValue({
     rules: canonicalizeLayerForStablePrefix(rulesContent),
-    settings: canonicalizeLayerForStablePrefix(settingsContent),
   });
 
   return createHash("sha256")
@@ -764,6 +738,21 @@ function totalLayerTokens(
   );
 }
 
+function totalPublicLayerTokens(layers: {
+  rules: ContextLayerDetail;
+  immediate: ContextLayerDetail;
+}): number {
+  return layers.rules.tokenCount + layers.immediate.tokenCount;
+}
+
+function calculateCapacityPercent(totalTokens: number, maxBudget: number): number {
+  if (!Number.isFinite(maxBudget) || maxBudget <= 0) {
+    return 100;
+  }
+
+  return Math.max(0, Math.min(100, (totalTokens / maxBudget) * 100));
+}
+
 /**
  * Why: CE2 requires fixed truncation order and a non-trimmable Rules layer.
  */
@@ -880,6 +869,26 @@ function toPublicLayerDetail(
   };
 }
 
+function buildPublicAssembleLayers(layers: {
+  rules: ContextLayerDetail;
+  immediate: ContextLayerDetail;
+}) {
+  return {
+    rules: layerSummary(layers.rules),
+    immediate: layerSummary(layers.immediate),
+  };
+}
+
+function buildPublicInspectLayers(layers: {
+  rules: ContextLayerDetail;
+  immediate: ContextLayerDetail;
+}) {
+  return {
+    rules: layers.rules,
+    immediate: layers.immediate,
+  };
+}
+
 /**
  * Why: `source` and `tokenCount` are hard-required fields in CE contract.
  */
@@ -953,39 +962,30 @@ async function buildContextSnapshot(args: {
     ...budgetApplied.warnings,
   ]);
 
-  const prompt = [
-    toLayerPrompt({
-      layer: "rules",
-      content: budgetApplied.layers.rules.content,
-    }),
-    toLayerPrompt({
-      layer: "settings",
-      content: budgetApplied.layers.settings.content,
-    }),
-    toLayerPrompt({
-      layer: "retrieved",
-      content: budgetApplied.layers.retrieved.content,
-    }),
-    toLayerPrompt({
-      layer: "immediate",
-      content: budgetApplied.layers.immediate.content,
-    }),
-  ].join("\n\n");
+  const layersDetail = {
+    rules: toPublicLayerDetail(budgetApplied.layers.rules),
+    settings: toPublicLayerDetail(budgetApplied.layers.settings),
+    retrieved: toPublicLayerDetail(budgetApplied.layers.retrieved),
+    immediate: toPublicLayerDetail(budgetApplied.layers.immediate),
+  };
+  const prompt = PUBLIC_CONTEXT_PROMPT_LAYERS
+    .map((layerId) =>
+      toLayerPrompt({
+        layer: layerId,
+        content: layersDetail[layerId].content,
+      }),
+    )
+    .join("\n\n");
 
   return {
-    layersDetail: {
-      rules: toPublicLayerDetail(budgetApplied.layers.rules),
-      settings: toPublicLayerDetail(budgetApplied.layers.settings),
-      retrieved: toPublicLayerDetail(budgetApplied.layers.retrieved),
-      immediate: toPublicLayerDetail(budgetApplied.layers.immediate),
-    },
+    layersDetail,
     warnings,
     prompt,
-    tokenCount: totalLayerTokens(budgetApplied.layers),
-    stablePrefixHash: hashStablePrefix(
-      budgetApplied.layers.rules.content,
-      budgetApplied.layers.settings.content,
-    ),
+    tokenCount: totalPublicLayerTokens({
+      rules: layersDetail.rules,
+      immediate: layersDetail.immediate,
+    }),
+    stablePrefixHash: hashStablePrefix(budgetApplied.layers.rules.content),
   };
 }
 
@@ -1021,82 +1021,6 @@ function defaultFetchers(
     ],
   });
 
-  const synopsisFetcher: ContextLayerFetcher = deps?.synopsisStore
-    ? createSynopsisFetcher({
-        synopsisStore: deps.synopsisStore,
-      })
-    : async () => ({
-        chunks: [],
-      });
-
-  const retrievedFetcher: ContextLayerFetcher = deps?.kgService
-    ? createRetrievedFetcher({
-        kgService: deps.kgService,
-        matchEntities: deps.matchEntities ?? defaultMatchEntities,
-        logger: deps.logger,
-        degradationCounter,
-        degradationEscalationThreshold: deps.degradationEscalationThreshold,
-      })
-    : async () => ({
-        chunks: [],
-      });
-
-  const semanticRulesFetcher: ContextLayerFetcher = deps?.episodicMemoryService
-    ? async (request) => {
-        const episodicMemoryService = deps.episodicMemoryService;
-        if (!episodicMemoryService) {
-          return { chunks: [] };
-        }
-        try {
-          const listed = episodicMemoryService.listSemanticMemory({
-            projectId: request.projectId,
-          });
-          if (!listed.ok) {
-            return {
-              chunks: [],
-              warnings: ["MEMORY_SEMANTIC_UNAVAILABLE: 蒸馏记忆未注入"],
-            };
-          }
-
-          const prioritized = [...listed.data.items]
-            .filter((rule) => rule.confidence >= 0.5)
-            .sort((left, right) => {
-              if (right.confidence !== left.confidence) {
-                return right.confidence - left.confidence;
-              }
-              return right.updatedAt - left.updatedAt;
-            })
-            .slice(0, 10);
-
-          if (prioritized.length === 0) {
-            return { chunks: [] };
-          }
-
-          const content = [
-            "[创作偏好规则 — 从历史创作中蒸馏]",
-            ...prioritized.map(
-              (rule) => `- ${rule.rule} (confidence: ${rule.confidence.toFixed(2)})`,
-            ),
-          ].join("\n");
-
-          return {
-            chunks: [
-              {
-                source: "memory:semantic-rules",
-                projectId: request.projectId,
-                content,
-              },
-            ],
-          };
-        } catch {
-          return {
-            chunks: [],
-            warnings: ["MEMORY_SEMANTIC_UNAVAILABLE: 蒸馏记忆未注入"],
-          };
-        }
-      }
-    : async () => ({ chunks: [] });
-
   return {
     rules: deps?.kgService
       ? createRulesFetcher({
@@ -1106,27 +1030,8 @@ function defaultFetchers(
           degradationEscalationThreshold: deps.degradationEscalationThreshold,
         })
       : fallbackRulesFetcher,
-    settings: deps?.memoryService
-      ? createSettingsFetcher({
-          memoryService: deps.memoryService,
-          logger: deps.logger,
-          degradationCounter,
-          degradationEscalationThreshold: deps.degradationEscalationThreshold,
-        })
-      : async () => ({
-          chunks: [],
-        }),
-    retrieved: async (request) => {
-      const synopsisResult = await synopsisFetcher(request);
-      const retrievedResult = await retrievedFetcher(request);
-      const semanticRulesResult = await semanticRulesFetcher(request);
-
-      return mergeFetchResults([
-        synopsisResult,
-        retrievedResult,
-        semanticRulesResult,
-      ]);
-    },
+    settings: async () => ({ chunks: [] }),
+    retrieved: async () => ({ chunks: [] }),
     immediate: async (request) => ({
       chunks: [
         {
@@ -1189,13 +1094,14 @@ export function createContextLayerAssemblyService(
         stablePrefixHash: snapshot.stablePrefixHash,
         stablePrefixUnchanged,
         warnings: snapshot.warnings,
-        assemblyOrder: [...LAYER_ORDER],
-        layers: {
-          rules: layerSummary(snapshot.layersDetail.rules),
-          settings: layerSummary(snapshot.layersDetail.settings),
-          retrieved: layerSummary(snapshot.layersDetail.retrieved),
-          immediate: layerSummary(snapshot.layersDetail.immediate),
-        },
+        capacityPercent: calculateCapacityPercent(
+          snapshot.tokenCount,
+          budgetProfile.totalBudgetTokens,
+        ),
+        layers: buildPublicAssembleLayers({
+          rules: snapshot.layersDetail.rules,
+          immediate: snapshot.layersDetail.immediate,
+        }),
       };
     },
     inspect: async (request) => {
@@ -1207,7 +1113,10 @@ export function createContextLayerAssemblyService(
       });
 
       return {
-        layersDetail: snapshot.layersDetail,
+        layersDetail: buildPublicInspectLayers({
+          rules: snapshot.layersDetail.rules,
+          immediate: snapshot.layersDetail.immediate,
+        }),
         totals: {
           tokenCount: snapshot.tokenCount,
           warningsCount: snapshot.warnings.length,

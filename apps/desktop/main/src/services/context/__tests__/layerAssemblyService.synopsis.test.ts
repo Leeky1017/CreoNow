@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+import { describe, expect, it } from "vitest";
 
 import { createContextLayerAssemblyService } from "../layerAssemblyService";
 import type { SynopsisStore } from "../synopsisStore";
@@ -11,37 +11,38 @@ const request = {
   additionalInput: "继续写下去",
 };
 
-// Scenario: S3-SYN-INJ-S2
-// keeps continue flow valid when no synopsis exists.
-{
-  let listCalls = 0;
+describe("createContextLayerAssemblyService synopsis fallback", () => {
+  it("keeps the default P1 public result on the rules + immediate path", async () => {
+    let listCalls = 0;
 
-  const synopsisStore: SynopsisStore = {
-    upsert: () => {
-      throw new Error("not used in this test");
-    },
-    listRecentByProject: () => {
-      listCalls += 1;
-      return {
-        ok: true,
-        data: {
-          items: [],
-        },
-      };
-    },
-  };
+    const synopsisStore: SynopsisStore = {
+      upsert: () => {
+        throw new Error("not used in this test");
+      },
+      listRecentByProject: () => {
+        listCalls += 1;
+        return {
+          ok: true,
+          data: {
+            items: [],
+          },
+        };
+      },
+    };
 
-  const service = createContextLayerAssemblyService(undefined, {
-    synopsisStore,
+    const service = createContextLayerAssemblyService(undefined, {
+      synopsisStore,
+    });
+
+    const assembled = await service.assemble(request);
+
+    expect(listCalls).toBe(0);
+    expect(assembled.prompt.includes("## Retrieved")).toBe(false);
+    expect("retrieved" in assembled.layers).toBe(false);
+    expect(assembled.warnings.includes("SYNOPSIS_UNAVAILABLE")).toBe(false);
+    expect(assembled.tokenCount > 0).toBe(true);
+    expect(assembled.capacityPercent).toBeCloseTo(
+      (assembled.tokenCount / 6000) * 100,
+    );
   });
-
-  const assembled = await service.assemble(request);
-
-  assert.equal(listCalls, 1);
-  assert.equal(assembled.prompt.includes("## Retrieved"), true);
-  assert.deepEqual(assembled.layers.retrieved.source, []);
-  assert.equal(assembled.warnings.includes("SYNOPSIS_UNAVAILABLE"), false);
-  assert.equal(assembled.tokenCount > 0, true);
-}
-
-console.log("layerAssemblyService.synopsis.test.ts: all assertions passed");
+});

@@ -263,12 +263,6 @@ export const IPC_CHANNELS = [
   "skill:registry:write",
   "stats:day:gettoday",
   "stats:range:get",
-  "version:aiapply:logconflict",
-  "version:branch:create",
-  "version:branch:list",
-  "version:branch:merge",
-  "version:branch:switch",
-  "version:conflict:resolve",
   "version:snapshot:create",
   "version:snapshot:diff",
   "version:snapshot:list",
@@ -848,7 +842,7 @@ export type IpcChannelSpec = {
       tokenizerVersion?: string;
     };
     response: {
-      assemblyOrder: Array<"rules" | "settings" | "retrieved" | "immediate">;
+      capacityPercent: number;
       layers: {
         immediate: {
           source: Array<string>;
@@ -856,19 +850,7 @@ export type IpcChannelSpec = {
           truncated: boolean;
           warnings?: Array<string>;
         };
-        retrieved: {
-          source: Array<string>;
-          tokenCount: number;
-          truncated: boolean;
-          warnings?: Array<string>;
-        };
         rules: {
-          source: Array<string>;
-          tokenCount: number;
-          truncated: boolean;
-          warnings?: Array<string>;
-        };
-        settings: {
           source: Array<string>;
           tokenCount: number;
           truncated: boolean;
@@ -910,21 +892,7 @@ export type IpcChannelSpec = {
           truncated: boolean;
           warnings?: Array<string>;
         };
-        retrieved: {
-          content: string;
-          source: Array<string>;
-          tokenCount: number;
-          truncated: boolean;
-          warnings?: Array<string>;
-        };
         rules: {
-          content: string;
-          source: Array<string>;
-          tokenCount: number;
-          truncated: boolean;
-          warnings?: Array<string>;
-        };
-        settings: {
           content: string;
           source: Array<string>;
           tokenCount: number;
@@ -1206,7 +1174,15 @@ export type IpcChannelSpec = {
       contentJson: string;
       documentId: string;
       projectId: string;
-      reason: "manual-save" | "autosave" | "ai-accept" | "status-change";
+      reason:
+        | "manual-save"
+        | "autosave"
+        | "ai-accept"
+        | "ai-partial-accept"
+        | "pre-write"
+        | "pre-rollback"
+        | "rollback"
+        | "status-change";
     };
     response: {
       compaction?: {
@@ -3167,95 +3143,21 @@ export type IpcChannelSpec = {
       to: string;
     };
   };
-  "version:aiapply:logconflict": {
-    request: {
-      documentId: string;
-      runId: string;
-    };
-    response: {
-      logged: true;
-    };
-  };
-  "version:branch:create": {
-    request: {
-      createdBy: string;
-      documentId: string;
-      name: string;
-    };
-    response: {
-      branch: {
-        baseSnapshotId: string;
-        createdAt: number;
-        createdBy: string;
-        documentId: string;
-        headSnapshotId: string;
-        id: string;
-        isCurrent: boolean;
-        name: string;
-      };
-    };
-  };
-  "version:branch:list": {
-    request: {
-      documentId: string;
-    };
-    response: {
-      branches: Array<{
-        baseSnapshotId: string;
-        createdAt: number;
-        createdBy: string;
-        documentId: string;
-        headSnapshotId: string;
-        id: string;
-        isCurrent: boolean;
-        name: string;
-      }>;
-    };
-  };
-  "version:branch:merge": {
-    request: {
-      documentId: string;
-      sourceBranchName: string;
-      targetBranchName: string;
-    };
-    response: {
-      mergeSnapshotId: string;
-      status: "merged";
-    };
-  };
-  "version:branch:switch": {
-    request: {
-      documentId: string;
-      name: string;
-    };
-    response: {
-      currentBranch: string;
-      headSnapshotId: string;
-    };
-  };
-  "version:conflict:resolve": {
-    request: {
-      documentId: string;
-      mergeSessionId: string;
-      resolutions: Array<{
-        conflictId: string;
-        manualText?: string;
-        resolution: "ours" | "theirs" | "manual";
-      }>;
-      resolvedBy: string;
-    };
-    response: {
-      mergeSnapshotId: string;
-      status: "merged";
-    };
-  };
   "version:snapshot:create": {
     request: {
       actor: "user" | "auto" | "ai";
       contentJson: string;
       documentId: string;
       projectId: string;
-      reason: "manual-save" | "autosave" | "ai-accept" | "status-change";
+      reason:
+        | "manual-save"
+        | "autosave"
+        | "ai-accept"
+        | "ai-partial-accept"
+        | "pre-write"
+        | "pre-rollback"
+        | "rollback"
+        | "status-change";
     };
     response: {
       compaction?: {
@@ -3295,7 +3197,15 @@ export type IpcChannelSpec = {
         actor: "user" | "auto" | "ai";
         contentHash: string;
         createdAt: number;
-        reason: string;
+        reason:
+          | "manual-save"
+          | "autosave"
+          | "ai-accept"
+          | "ai-partial-accept"
+          | "pre-write"
+          | "pre-rollback"
+          | "rollback"
+          | "status-change";
         versionId: string;
         wordCount: number;
       }>;
@@ -3315,7 +3225,15 @@ export type IpcChannelSpec = {
       createdAt: number;
       documentId: string;
       projectId: string;
-      reason: string;
+      reason:
+        | "manual-save"
+        | "autosave"
+        | "ai-accept"
+        | "ai-partial-accept"
+        | "pre-write"
+        | "pre-rollback"
+        | "rollback"
+        | "status-change";
       versionId: string;
       wordCount: number;
     };
