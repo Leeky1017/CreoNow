@@ -105,6 +105,7 @@ export const IPC_ERROR_MESSAGE_KEYS = {
   SKILL_CAPACITY_EXCEEDED: "errors.capacityExceeded",
   SKILL_DEPENDENCY_MISSING: "errors.notFound",
   SKILL_INPUT_EMPTY: "errors.invalidArgument",
+  SKILL_INPUT_INVALID: "errors.invalidArgument",
   SKILL_OUTPUT_INVALID: "errors.upstream",
   SKILL_QUEUE_OVERFLOW: "errors.capacityExceeded",
   SKILL_SCOPE_VIOLATION: "errors.forbidden",
@@ -116,7 +117,9 @@ export const IPC_ERROR_MESSAGE_KEYS = {
   VERSION_DIFF_PAYLOAD_TOO_LARGE: "errors.payloadTooLarge",
   VERSION_MERGE_TIMEOUT: "errors.timeout",
   VERSION_ROLLBACK_CONFLICT: "errors.conflict",
+  VERSION_SNAPSHOT_FAILED: "errors.upstream",
   VERSION_SNAPSHOT_COMPACTED: "errors.conflict",
+  WRITE_BACK_FAILED: "errors.upstream",
 } satisfies Record<IpcErrorCode, ErrorMessageKey>;
 
 function getIpcErrorMessageKey(code: unknown): ErrorMessageKey {

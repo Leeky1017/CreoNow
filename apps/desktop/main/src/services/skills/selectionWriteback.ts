@@ -1,5 +1,5 @@
 import { Node as ProseMirrorNode } from "prosemirror-model";
-import { Transform } from "@tiptap/pm/transform";
+import { Transform } from "prosemirror-transform";
 
 import { editorSchema, verifySelectionHash } from "../editor/prosemirrorSchema";
 

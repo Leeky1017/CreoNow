@@ -1,5 +1,5 @@
 import { Fragment, Node as ProseMirrorNode, Slice } from "prosemirror-model";
-import { Transform } from "@tiptap/pm/transform";
+import { Transform } from "prosemirror-transform";
 
 import { editorSchema } from "../editor/prosemirrorSchema";
 

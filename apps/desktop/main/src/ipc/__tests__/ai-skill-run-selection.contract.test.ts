@@ -2,18 +2,21 @@ import { describe, expect, it, vi } from "vitest";
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
-const executeSpy = vi.fn(async () => ({
-  ok: true as const,
-  data: {
-    executionId: "exec-1",
-    runId: "run-1",
-    outputText: "rewritten",
-  },
+const { orchestratorExecuteSpy } = vi.hoisted(() => ({
+  orchestratorExecuteSpy: vi.fn(),
 }));
 
 vi.mock("../../services/skills/skillExecutor", () => ({
   createSkillExecutor: vi.fn(() => ({
-    execute: executeSpy,
+    execute: vi.fn(),
+  })),
+}));
+
+vi.mock("../../services/skills/orchestrator", () => ({
+  createWritingOrchestrator: vi.fn(() => ({
+    execute: orchestratorExecuteSpy,
+    abort: vi.fn(),
+    dispose: vi.fn(),
   })),
 }));
 
@@ -69,6 +72,26 @@ function createLogger() {
 
 describe("ai:skill:run selection contract", () => {
   it("forwards full SelectionRef into the main-process execution seam", async () => {
+    orchestratorExecuteSpy.mockReset();
+    orchestratorExecuteSpy.mockImplementation(async function* () {
+      yield {
+        type: "ai-done",
+        timestamp: Date.now(),
+        fullText: "rewritten",
+        usage: {
+          promptTokens: 10,
+          completionTokens: 3,
+          totalTokens: 13,
+        },
+      };
+      yield {
+        type: "permission-requested",
+        timestamp: Date.now(),
+        level: "preview-confirm",
+        description: "confirm writeback",
+      };
+    });
+
     const handlers = new Map<string, Handler>();
     const ipcMain = {
       handle: (channel: string, listener: Handler) => {
@@ -120,6 +143,8 @@ describe("ai:skill:run selection contract", () => {
       data?: {
         executionId: string;
         runId: string;
+        status: "preview" | "completed" | "rejected";
+        previewId?: string;
         outputText?: string;
       };
     };
@@ -127,14 +152,21 @@ describe("ai:skill:run selection contract", () => {
     expect(result).toMatchObject({
       ok: true,
       data: {
-        executionId: "exec-1",
-        runId: "run-1",
+        status: "preview",
         outputText: "rewritten",
       },
     });
-    expect(executeSpy).toHaveBeenCalledWith(
+    expect(result.data?.executionId).toBeTruthy();
+    expect(result.data?.runId).toBeTruthy();
+    expect(result.data?.previewId).toBe(result.data?.executionId);
+    expect(orchestratorExecuteSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        hasSelection: true,
+        skillId: "builtin:rewrite",
+        documentId: "doc-1",
+        projectId: "project-1",
+        input: expect.objectContaining({
+          selectedText: "Selection context:\n原文片段\n\n润色",
+        }),
         selection,
       }),
     );

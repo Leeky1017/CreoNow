@@ -2,6 +2,7 @@ import type Database from "better-sqlite3";
 
 import type { Logger } from "../../logging/logger";
 import { createDocumentService } from "../documents/documentService";
+import type { VersionSnapshotReason } from "../documents/documentService";
 import { appendSuggestionToDocument } from "./documentWriteback";
 import { buildTool, createToolRegistry, type ToolRegistry } from "./toolRegistry";
 import { applySuggestionToSelection } from "./selectionWriteback";
@@ -166,15 +167,7 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
           documentId: ctx.documentId,
           contentJson: parsedContent,
           actor,
-          reason: reason as
-            | "manual-save"
-            | "autosave"
-            | "ai-accept"
-            | "pre-write"
-            | "pre-rollback"
-            | "rollback"
-            | "status-change"
-            | "branch-merge",
+          reason: reason as VersionSnapshotReason,
         });
         if (!saved.ok) {
           return {

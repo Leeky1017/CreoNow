@@ -509,11 +509,9 @@ describe("skillOutputValidation inflation guards", () => {
         stablePrefixHash: "hash-trailing",
         stablePrefixUnchanged: false,
         warnings: [],
-        assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+        capacityPercent: 12 / 6000 * 100,
         layers: {
           rules: { source: [], tokenCount: 0, truncated: false },
-          settings: { source: [], tokenCount: 0, truncated: false },
-          retrieved: { source: [], tokenCount: 0, truncated: false },
           immediate: {
             source: ["editor:cursor-window"],
             tokenCount: 4,
@@ -562,11 +560,9 @@ describe("skillOutputValidation inflation guards", () => {
         stablePrefixHash: "hash-leading-multi",
         stablePrefixUnchanged: false,
         warnings: [],
-        assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+        capacityPercent: 12 / 6000 * 100,
         layers: {
           rules: { source: [], tokenCount: 0, truncated: false },
-          settings: { source: [], tokenCount: 0, truncated: false },
-          retrieved: { source: [], tokenCount: 0, truncated: false },
           immediate: {
             source: ["editor:cursor-window"],
             tokenCount: 5,
@@ -615,11 +611,9 @@ describe("skillOutputValidation inflation guards", () => {
         stablePrefixHash: "hash-selection-empty",
         stablePrefixUnchanged: false,
         warnings: [],
-        assemblyOrder: ["rules", "settings", "retrieved", "immediate"],
+        capacityPercent: 2 / 6000 * 100,
         layers: {
           rules: { source: [], tokenCount: 0, truncated: false },
-          settings: { source: [], tokenCount: 0, truncated: false },
-          retrieved: { source: [], tokenCount: 0, truncated: false },
           immediate: {
             source: ["editor:selection"],
             tokenCount: 2,

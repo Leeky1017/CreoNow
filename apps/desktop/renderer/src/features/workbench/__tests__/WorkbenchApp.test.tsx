@@ -82,7 +82,7 @@ function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const,
 function createApiMock(): PreloadApi {
   return {
     ai: {
-      runSkill: vi.fn(async () => ({ ok: true, data: { executionId: "exec-1", runId: "run-1", outputText: "改写后的句子" } })),
+      runSkill: vi.fn(async () => ({ ok: true, data: { executionId: "exec-1", runId: "run-1", status: "preview" as const, previewId: "exec-1", outputText: "改写后的句子" } })),
       submitSkillFeedback: vi.fn(async () => ({ ok: true, data: { recorded: true } })),
     },
     file: {
@@ -1802,7 +1802,7 @@ describe("WorkbenchApp", () => {
 
     const previewResult = createDeferred<{
       ok: true;
-      data: { executionId: string; runId: string; outputText: string };
+      data: { executionId: string; runId: string; status: "preview"; previewId: string; outputText: string };
     }>();
     const firstDocument = {
       documentId: "doc-1",
@@ -1889,7 +1889,7 @@ describe("WorkbenchApp", () => {
     expect(currentContent).toEqual(docBContent);
 
     await act(async () => {
-      previewResult.resolve({ ok: true, data: { executionId: "exec-stale", runId: "run-stale", outputText: "文档 A 晚到建议" } });
+      previewResult.resolve({ ok: true, data: { executionId: "exec-stale", runId: "run-stale", status: "preview", previewId: "exec-stale", outputText: "文档 A 晚到建议" } });
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -1910,7 +1910,7 @@ describe("WorkbenchApp", () => {
 
     const previewResult = createDeferred<{
       ok: true;
-      data: { executionId: string; runId: string; outputText: string };
+      data: { executionId: string; runId: string; status: "preview"; previewId: string; outputText: string };
     }>();
     const firstDocument = {
       documentId: "doc-1",
@@ -2000,7 +2000,7 @@ describe("WorkbenchApp", () => {
     expect(currentContent).toEqual(createdDocumentContent);
 
     await act(async () => {
-      previewResult.resolve({ ok: true, data: { executionId: "exec-stale", runId: "run-stale", outputText: "文档 A 晚到建议" } });
+      previewResult.resolve({ ok: true, data: { executionId: "exec-stale", runId: "run-stale", status: "preview", previewId: "exec-stale", outputText: "文档 A 晚到建议" } });
       await Promise.resolve();
       await Promise.resolve();
     });
