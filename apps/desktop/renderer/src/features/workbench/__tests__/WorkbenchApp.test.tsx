@@ -4,7 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EditorBridge, EditorBridgeOptions } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import { WorkbenchApp } from "@/features/workbench/WorkbenchApp";
-import { GLOBAL_ERROR_TOAST_EVENT, installGlobalErrorHandlers } from "@/lib/globalErrorBridge";
+import {
+  GLOBAL_ERROR_TOAST_EVENT,
+  installGlobalErrorHandlers,
+  resetGlobalErrorToastStateForTests,
+} from "@/lib/globalErrorBridge";
 import type { LegacyCreonowBridge, PreloadApi } from "@/lib/preloadApi";
 
 let bridgeOptions: EditorBridgeOptions | undefined;
@@ -81,6 +85,8 @@ describe("WorkbenchApp", () => {
   afterEach(() => {
     globalErrorCleanup?.();
     globalErrorCleanup = null;
+    resetGlobalErrorToastStateForTests();
+    vi.useRealTimers();
     delete window.creonow;
   });
 
@@ -160,6 +166,66 @@ describe("WorkbenchApp", () => {
     });
     expect(screen.queryByRole("note", { name: "引用自编辑器" })).toBeNull();
     expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+  });
+
+  it("prevents stale autosave timers from overwriting a successful AI accept", async () => {
+    window.api = createApiMock();
+
+    const saveDocument = vi.fn()
+      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: 2, contentHash: "hash-2" } })
+      .mockResolvedValueOnce({
+        ok: false as const,
+        error: { code: "DB_ERROR", message: "stale autosave failed" },
+      });
+    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+
+    vi.mocked(bridgeMock.replaceSelection).mockImplementationOnce(() => {
+      bridgeOptions?.onDocumentChange?.({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
+      });
+      return { ok: true as const };
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("接受建议后不能再被旧 autosave 翻成失败。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    vi.useFakeTimers();
+
+    await act(async () => {
+      bridgeOptions?.onDocumentChange?.({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "编辑中的草稿" }] }],
+      });
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "接受" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+      actor: "ai",
+      reason: "ai-accept",
+    }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+    expect(screen.queryByText("数据层暂时不可用，请稍后重试。" )).toBeNull();
   });
 
   it("keeps the accept flow saved but surfaces feedback failure when submitSkillFeedback returns ok:false", async () => {
@@ -285,6 +351,63 @@ describe("WorkbenchApp", () => {
     const toast = await screen.findByRole("alert");
     expect(toast).toHaveTextContent("工作台发生异常");
     expect(toast).toHaveTextContent("系统已记录该异常，请稍后再试或重新执行刚才的操作。");
+  });
+
+  it("replays a pre-mount window.error into a visible toast after the app mounts", async () => {
+    const invoke = installLegacyLogBridge();
+    globalErrorCleanup = installGlobalErrorHandlers();
+
+    await act(async () => {
+      window.dispatchEvent(new ErrorEvent("error", {
+        error: new Error("startup boom"),
+        message: "startup boom",
+      }));
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "app:renderer:logerror",
+        expect.objectContaining({
+          source: "error",
+          message: "startup boom",
+        }),
+      );
+    });
+
+    const toast = await screen.findByRole("alert");
+    expect(toast).toHaveTextContent("工作台发生异常");
+  });
+
+  it("replays a pre-mount unhandled rejection into a visible toast after the app mounts", async () => {
+    const invoke = installLegacyLogBridge();
+    globalErrorCleanup = installGlobalErrorHandlers();
+
+    const event = new Event("unhandledrejection") as Event & { reason: unknown };
+    Object.defineProperty(event, "reason", { value: new Error("startup rejection") });
+    await act(async () => {
+      window.dispatchEvent(event);
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith(
+        "app:renderer:logerror",
+        expect.objectContaining({
+          source: "unhandledrejection",
+          message: "startup rejection",
+        }),
+      );
+    });
+
+    const toast = await screen.findByRole("alert");
+    expect(toast).toHaveTextContent("工作台发生异常");
   });
 
   it("logs unhandled rejections and surfaces a visible global error toast", async () => {

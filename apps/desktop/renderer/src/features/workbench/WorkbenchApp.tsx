@@ -9,7 +9,7 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
@@ -192,6 +192,25 @@ function WorkbenchShell() {
   const activeDocumentRef = useRef<DocumentRead | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
 
+  const clearPendingAutosaveTimer = useCallback(() => {
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+  }, []);
+
+  const runWithAutosaveSuppressed = useCallback(async <TResult,>(operation: () => Promise<TResult>): Promise<TResult> => {
+    clearPendingAutosaveTimer();
+    suppressAutosaveRef.current = true;
+
+    try {
+      return await operation();
+    } finally {
+      suppressAutosaveRef.current = false;
+      clearPendingAutosaveTimer();
+    }
+  }, [clearPendingAutosaveTimer]);
+
   const [bootstrapStatus, setBootstrapStatus] = useState<BootstrapStatus>("loading");
   const [project, setProject] = useState<ProjectListItem | null>(null);
   const [documents, setDocuments] = useState<DocumentListItem[]>([]);
@@ -323,9 +342,7 @@ function WorkbenchShell() {
             return;
           }
 
-          if (autosaveTimerRef.current !== null) {
-            window.clearTimeout(autosaveTimerRef.current);
-          }
+          clearPendingAutosaveTimer();
 
           setSaveState("idle");
           autosaveTimerRef.current = window.setTimeout(async () => {
@@ -349,7 +366,7 @@ function WorkbenchShell() {
           }, AUTOSAVE_DELAY_MS);
         },
       }),
-    [api.file, t],
+    [api.file, clearPendingAutosaveTimer, t],
   );
 
   useEffect(() => {
@@ -361,12 +378,10 @@ function WorkbenchShell() {
     editorBridge.focus();
 
     return () => {
-      if (autosaveTimerRef.current !== null) {
-        window.clearTimeout(autosaveTimerRef.current);
-      }
+      clearPendingAutosaveTimer();
       editorBridge.destroy();
     };
-  }, [editorBridge]);
+  }, [clearPendingAutosaveTimer, editorBridge]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -534,13 +549,14 @@ function WorkbenchShell() {
 
     try {
       setBusy(true);
-      const result = await acceptAiPreview({
+      setSaveState("saving");
+      const result = await runWithAutosaveSuppressed(() => acceptAiPreview({
         api,
         bridge: editorBridge,
         projectId: project.projectId,
         documentId: activeDocument.documentId,
         preview,
-      });
+      }));
       setPreview(null);
       setErrorMessage(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null);
       setSaveState("saved");

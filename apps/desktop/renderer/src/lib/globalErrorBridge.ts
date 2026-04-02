@@ -11,6 +11,9 @@ export interface GlobalErrorEntry {
 export const GLOBAL_ERROR_TOAST_EVENT = "cn:global-error-toast";
 const TOAST_DEDUP_WINDOW_MS = 1000;
 
+let globalErrorToastConsumerCount = 0;
+let pendingGlobalErrorToasts: GlobalErrorEntry[] = [];
+
 type InstallGlobalErrorHandlersOptions = {
   now?: () => number;
   target?: Window;
@@ -66,6 +69,35 @@ function getToastDedupKey(entry: GlobalErrorEntry): string {
   return `${entry.name}:${entry.message}`;
 }
 
+function publishGlobalErrorToast(target: Window, entry: GlobalErrorEntry): void {
+  target.dispatchEvent(new CustomEvent<GlobalErrorEntry>(GLOBAL_ERROR_TOAST_EVENT, {
+    detail: entry,
+  }));
+
+  if (globalErrorToastConsumerCount === 0) {
+    pendingGlobalErrorToasts = [...pendingGlobalErrorToasts, entry];
+  }
+}
+
+export function registerGlobalErrorToastConsumer(): () => void {
+  globalErrorToastConsumerCount += 1;
+
+  return () => {
+    globalErrorToastConsumerCount = Math.max(0, globalErrorToastConsumerCount - 1);
+  };
+}
+
+export function consumePendingGlobalErrorToasts(): GlobalErrorEntry[] {
+  const queuedEntries = pendingGlobalErrorToasts;
+  pendingGlobalErrorToasts = [];
+  return queuedEntries;
+}
+
+export function resetGlobalErrorToastStateForTests(): void {
+  globalErrorToastConsumerCount = 0;
+  pendingGlobalErrorToasts = [];
+}
+
 async function invokeRendererLog(entry: GlobalErrorEntry): Promise<void> {
   const invoke = window.creonow?.invoke as undefined | (<C extends IpcChannel>(channel: C, payload: IpcRequest<C>) => Promise<IpcInvokeResult<C>>);
   if (!invoke) {
@@ -97,9 +129,7 @@ export function installGlobalErrorHandlers(options: InstallGlobalErrorHandlersOp
       return;
     }
 
-    target.dispatchEvent(new CustomEvent<GlobalErrorEntry>(GLOBAL_ERROR_TOAST_EVENT, {
-      detail: entry,
-    }));
+    publishGlobalErrorToast(target, entry);
   };
 
   const handleWindowError = (event: ErrorEvent): void => {
