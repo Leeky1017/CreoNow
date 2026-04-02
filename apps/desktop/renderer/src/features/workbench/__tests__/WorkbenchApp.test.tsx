@@ -532,6 +532,83 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
+
+  it("retries the failed accept save from the status bar through the accept controller", async () => {
+    window.api = createApiMock();
+
+    const retriedUpdatedAt = Date.UTC(2024, 0, 5, 12, 0);
+    const beforeApply = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "原文" }] }],
+    };
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
+    };
+
+    const saveDocument = vi.fn()
+      .mockResolvedValueOnce({ ok: false as const, error: { code: "DB_ERROR", message: "accept save failed" } })
+      .mockResolvedValueOnce({ ok: true as const, data: { updatedAt: retriedUpdatedAt, contentHash: "hash-accept-retried" } });
+    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+
+    let currentContent = beforeApply;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      currentContent = content as typeof currentContent;
+    });
+    vi.mocked(bridgeMock.replaceSelection).mockImplementation(() => {
+      currentContent = acceptedDocument;
+      bridgeOptions?.onDocumentChange?.(acceptedDocument);
+      return { ok: true as const };
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("accept 保存失败后，状态栏必须重试 accept 本身。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "接受" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(1);
+    expect(saveDocument).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "ai",
+      reason: "ai-accept",
+      contentJson: JSON.stringify(acceptedDocument),
+    }));
+    expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
+    expect(screen.getAllByText("数据层暂时不可用，请稍后重试。").length).toBeGreaterThan(0);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "保存失败" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(saveDocument).toHaveBeenCalledTimes(2);
+    expect(saveDocument).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      projectId: "project-1",
+      documentId: "doc-1",
+      actor: "ai",
+      reason: "ai-accept",
+      contentJson: JSON.stringify(acceptedDocument),
+    }));
+    expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
+    expect(screen.queryByText("改写后的句子")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("flushes a pending autosave before switching documents so doc A draft persists and doc B UI stays untouched", async () => {
     window.api = createApiMock();
 
