@@ -376,9 +376,9 @@ function WorkbenchShell() {
 
           setSaveState("idle");
           const contentJson = JSON.stringify(content);
+          const saveRequestId = reserveSaveRequest();
           autosaveTimerRef.current = window.setTimeout(() => {
             autosaveTimerRef.current = null;
-            const saveRequestId = reserveSaveRequest();
             void queueSaveRequest(async () => {
               if (isLatestSaveRequest(saveRequestId)) {
                 setSaveState("saving");
@@ -412,11 +412,12 @@ function WorkbenchShell() {
   );
 
   const replaceEditorContextContent = useCallback((contentJson: string) => {
+    clearPendingAutosaveTimer();
     editorContextRevisionRef.current += 1;
     runWithoutAutosave(() => {
       editorBridge.setContent(JSON.parse(contentJson));
     });
-  }, [editorBridge, runWithoutAutosave]);
+  }, [clearPendingAutosaveTimer, editorBridge, runWithoutAutosave]);
 
   useEffect(() => {
     if (containerRef.current === null) {
@@ -467,6 +468,7 @@ function WorkbenchShell() {
 
     const run = async () => {
       try {
+        clearPendingAutosaveTimer();
         setBootstrapStatus("loading");
         setErrorMessage(null);
         const workspace = await bootstrapWorkspace(api, {
@@ -508,6 +510,7 @@ function WorkbenchShell() {
     }
 
     try {
+      clearPendingAutosaveTimer();
       const result = await createDocumentAndOpen({
         api,
         projectId: project.projectId,
@@ -539,6 +542,7 @@ function WorkbenchShell() {
     }
 
     try {
+      clearPendingAutosaveTimer();
       const readDocument = await openDocument({
         api,
         projectId: project.projectId,
