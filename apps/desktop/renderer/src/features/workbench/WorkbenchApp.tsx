@@ -291,7 +291,7 @@ function WorkbenchShell() {
   const autosaveControllerRef = useRef<AutosaveControllerState>({ draft: null, saveState: "idle" });
   const autosaveToastEventIdRef = useRef(0);
   const acceptSaveRetryControllerRef = useRef<AcceptSaveRetryControllerState>({ preview: null, saveState: "idle" });
-  const errorMessageSourceRef = useRef<"autosave" | "general" | null>(null);
+  const errorMessageSourceRef = useRef<"accept" | "autosave" | "general" | null>(null);
   const saveErrorSourceRef = useRef<"autosave" | "accept" | null>(null);
   const savedStateDecayTimerRef = useRef<number | null>(null);
   const bootstrapStatusRef = useRef<BootstrapStatus>("loading");
@@ -383,7 +383,7 @@ function WorkbenchShell() {
     acceptSaveRetryControllerRef.current = { preview: null, saveState: "idle" };
   }, []);
 
-  const setWorkbenchError = useCallback((message: string | null, source: "autosave" | "general" | null) => {
+  const setWorkbenchError = useCallback((message: string | null, source: "accept" | "autosave" | "general" | null) => {
     errorMessageSourceRef.current = source;
     setErrorMessage(message);
   }, []);
@@ -435,11 +435,22 @@ function WorkbenchShell() {
   }, []);
 
   const clearAcceptSaveFailure = useCallback(() => {
+    const hasAcceptFailure = acceptSaveRetryControllerRef.current.saveState === "error"
+      || saveErrorSourceRef.current === "accept"
+      || errorMessageSourceRef.current === "accept";
+    if (hasAcceptFailure === false) {
+      return;
+    }
+
     clearAcceptSaveRetryController();
+    setPreview(null);
     if (saveErrorSourceRef.current === "accept") {
       setSaveUiState("idle");
     }
-  }, [clearAcceptSaveRetryController, setSaveUiState]);
+    if (errorMessageSourceRef.current === "accept") {
+      setWorkbenchError(null, null);
+    }
+  }, [clearAcceptSaveRetryController, setPreview, setSaveUiState, setWorkbenchError]);
 
   useEffect(() => {
     bootstrapStatusRef.current = bootstrapStatus;
@@ -643,7 +654,7 @@ function WorkbenchShell() {
           clearPendingAutosaveTimer();
           userEditRevisionRef.current += 1;
 
-          clearAcceptSaveRetryController();
+          clearAcceptSaveFailure();
           setSaveUiState("idle");
           const nextDraft = {
             contentJson: JSON.stringify(content),
@@ -661,7 +672,7 @@ function WorkbenchShell() {
           }, AUTOSAVE_DELAY_MS);
         },
       }),
-    [clearAcceptSaveFailure, clearAcceptSaveRetryController, clearPendingAutosaveTimer, flushPendingAutosaveDraft, reserveSaveRequest, setSaveUiState],
+    [clearAcceptSaveFailure, clearPendingAutosaveTimer, flushPendingAutosaveDraft, reserveSaveRequest, setSaveUiState],
   );
 
   const replaceEditorContextContent = useCallback((nextContext: {
@@ -673,7 +684,7 @@ function WorkbenchShell() {
     pendingAutosaveDraftRef.current = null;
     clearSavedStateDecayTimer();
     clearAutosaveController();
-    clearAcceptSaveRetryController();
+    clearAcceptSaveFailure();
     editorContextRevisionRef.current += 1;
     activeContextTokenRef.current = {
       documentId: nextContext.documentId,
@@ -683,7 +694,7 @@ function WorkbenchShell() {
     runWithoutAutosave(() => {
       editorBridge.setContent(JSON.parse(nextContext.contentJson));
     });
-  }, [clearAcceptSaveRetryController, clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
+  }, [clearAcceptSaveFailure, clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
 
   useEffect(() => {
     if (containerRef.current === null) {
@@ -912,6 +923,8 @@ function WorkbenchShell() {
     clearAutosaveController();
     acceptSaveRetryControllerRef.current = { preview: acceptingPreview, saveState: "saving" };
     const saveRequestId = reserveSaveRequest();
+    const acceptStartedAtUserEditRevision = userEditRevisionRef.current;
+    const acceptStartedAtEditorContextRevision = editorContextRevisionRef.current;
 
     try {
       setBusy(true);
@@ -925,25 +938,39 @@ function WorkbenchShell() {
         getUserEditRevision: () => userEditRevisionRef.current,
         getEditorContextRevision: () => editorContextRevisionRef.current,
       }));
-      clearAcceptSaveRetryController();
-      if (isCurrentContextToken(acceptingPreview.context)) {
+      const acceptPathStillActive = acceptSaveRetryControllerRef.current.saveState === "saving"
+        && acceptSaveRetryControllerRef.current.preview?.runId === acceptingPreview.runId;
+      if (acceptPathStillActive) {
+        clearAcceptSaveRetryController();
+      }
+      if (isCurrentContextToken(acceptingPreview.context) && acceptPathStillActive) {
         setPreview((currentPreview) => currentPreview?.runId === acceptingPreview.runId ? null : currentPreview);
         setWorkbenchError(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null, result.feedbackError ? "general" : null);
       }
-      if (isLatestSaveRequest(saveRequestId)) {
+      if (isLatestSaveRequest(saveRequestId) && acceptPathStillActive) {
         setSaveUiState("saved");
         setLastSavedAt(result.updatedAt);
         armSavedStateDecayTimer(saveRequestId);
       }
     } catch (error) {
-      if (isCurrentContextToken(acceptingPreview.context)) {
+      const acceptPathStillActive = acceptSaveRetryControllerRef.current.saveState === "saving"
+        && acceptSaveRetryControllerRef.current.preview?.runId === acceptingPreview.runId;
+      const acceptPathInvalidated = userEditRevisionRef.current !== acceptStartedAtUserEditRevision
+        || editorContextRevisionRef.current !== acceptStartedAtEditorContextRevision;
+      if (acceptPathStillActive && acceptPathInvalidated) {
+        clearAcceptSaveRetryController();
+      }
+      if (isCurrentContextToken(acceptingPreview.context) && acceptPathStillActive && acceptPathInvalidated) {
+        setPreview((currentPreview) => currentPreview?.runId === acceptingPreview.runId ? null : currentPreview);
+      }
+      if (isCurrentContextToken(acceptingPreview.context) && acceptPathStillActive && acceptPathInvalidated === false) {
         if (error instanceof SelectionChangedError) {
-          setWorkbenchError(t("messages.selectionChanged"), "general");
+          setWorkbenchError(t("messages.selectionChanged"), "accept");
         } else {
-          setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
+          setWorkbenchError(getHumanErrorMessage(error as Error, t), "accept");
         }
       }
-      if (isLatestSaveRequest(saveRequestId)) {
+      if (isLatestSaveRequest(saveRequestId) && acceptPathStillActive && acceptPathInvalidated === false) {
         acceptSaveRetryControllerRef.current = { preview: acceptingPreview, saveState: "error" };
         setSaveUiState("error", "accept");
       }

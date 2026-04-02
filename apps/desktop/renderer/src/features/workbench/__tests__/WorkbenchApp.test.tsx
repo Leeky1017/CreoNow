@@ -445,11 +445,14 @@ describe("WorkbenchApp", () => {
       reason: "autosave",
       contentJson: JSON.stringify(acceptedDocument),
     }));
-    expect(screen.getAllByText("数据层暂时不可用，请稍后重试。").length).toBeGreaterThan(0);
+    expect(screen.queryByText("数据层暂时不可用，请稍后重试。")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "保存失败" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "接受" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "拒绝" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
-  it("does not roll back newer user edits when accept save fails after later typing", async () => {
+  it("clears stale accept failure UI after later edits invalidate the accept path", async () => {
     window.api = createApiMock();
 
     const acceptResult = createDeferred<{
@@ -528,10 +531,72 @@ describe("WorkbenchApp", () => {
       reason: "autosave",
       contentJson: JSON.stringify(continuedDraft),
     }));
-    expect(screen.getAllByText("数据层暂时不可用，请稍后重试。").length).toBeGreaterThan(0);
+    expect(screen.queryByText("数据层暂时不可用，请稍后重试。")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "保存失败" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "接受" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "拒绝" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "已保存" })).toBeInTheDocument();
   });
 
+  it("clears accept-scoped failure UI when resetting the AI conversation", async () => {
+    window.api = createApiMock();
+
+    const beforeApply = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "原文" }] }],
+    };
+    const acceptedDocument = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "改写后的句子" }] }],
+    };
+
+    const saveDocument = vi.fn()
+      .mockResolvedValueOnce({ ok: false as const, error: { code: "DB_ERROR", message: "accept save failed" } });
+    window.api.file.saveDocument = saveDocument as typeof window.api.file.saveDocument;
+
+    let currentContent = beforeApply;
+    vi.mocked(bridgeMock.getContent).mockImplementation(() => currentContent);
+    vi.mocked(bridgeMock.replaceSelection).mockImplementation(() => {
+      currentContent = acceptedDocument;
+      bridgeOptions?.onDocumentChange?.(acceptedDocument);
+      return { ok: true as const };
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+
+    await act(async () => {
+      bridgeOptions?.onSelectionChange?.(createSelection("reset AI 会话必须清掉旧 accept 失败残留。", 8));
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
+    expect(await screen.findByText("改写后的句子")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "接受" }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(saveDocument).toHaveBeenCalledWith(expect.objectContaining({
+      actor: "ai",
+      reason: "ai-accept",
+      contentJson: JSON.stringify(acceptedDocument),
+    }));
+    expect(await screen.findByText("数据层暂时不可用，请稍后重试。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "保存失败" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "接受" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "拒绝" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "新对话" }));
+
+    expect(screen.queryByText("数据层暂时不可用，请稍后重试。")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "保存失败" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "接受" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "拒绝" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "就绪" })).toBeInTheDocument();
+  });
 
   it("retries the failed accept save from the status bar through the accept controller", async () => {
     window.api = createApiMock();
