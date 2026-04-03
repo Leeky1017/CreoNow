@@ -41,6 +41,10 @@ export type AiStreamDoneEvent = {
   outputText: string;
   error?: IpcError;
   result?: SkillResult;
+  /** P2: AI finish reason — 'stop' = normal completion, 'tool_use' = AI wants to call tools */
+  finishReason?: "stop" | "tool_use";
+  /** P2: Tool calls requested by the AI when finishReason === 'tool_use' */
+  toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
   ts: number;
 };
 

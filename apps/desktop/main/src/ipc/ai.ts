@@ -38,9 +38,11 @@ import { createDbNotReadyError } from "./dbError";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 import {
   createWritingOrchestrator,
+  AGENTIC_MAX_ROUNDS,
   type WritingEvent,
 } from "../services/skills/orchestrator";
 import { createWritingToolRegistry, createAgenticToolRegistry } from "../services/skills/writingTooling";
+import { createToolRegistry } from "../services/skills/toolRegistry";
 import { createToolUseHandler } from "../services/skills/toolUseHandler";
 import { estimateTokens } from "../services/context/tokenEstimation";
 import { createDocumentService } from "../services/documents/documentService";
@@ -1345,10 +1347,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     },
     toolRegistry:
       deps.db === null
-        ? createWritingToolRegistry({
-            db: {} as Database.Database,
-            logger: deps.logger,
-          })
+        ? createToolRegistry()
         : createWritingToolRegistry({
             db: deps.db,
             logger: deps.logger,
@@ -1356,16 +1355,13 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     // P2: Agentic tool-use handler backed by read-only tools only
     toolUseHandler: createToolUseHandler(
       deps.db === null
-        ? createAgenticToolRegistry({
-            db: {} as Database.Database,
-            logger: deps.logger,
-          })
+        ? createToolRegistry()
         : createAgenticToolRegistry({
             db: deps.db,
             logger: deps.logger,
           }),
       {
-        maxToolRounds: 5,
+        maxToolRounds: AGENTIC_MAX_ROUNDS,
         toolTimeoutMs: 10_000,
         maxConcurrentTools: 4,
         agenticLoop: true,
@@ -1426,13 +1422,15 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
       return prepared.data;
     },
-    generateText: async ({ request, signal, emitChunk }) => {
+    generateText: async ({ request, signal, emitChunk, messages }) => {
       let outputText = "";
       let usage = {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
       };
+      let capturedFinishReason: "stop" | "tool_use" | undefined;
+      let capturedToolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> | undefined;
       let sawStreamChunk = false;
       let streamTerminalSeen = false;
       let settleStreamCompletion: (() => void) | null = null;
@@ -1441,6 +1439,96 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         settleStreamCompletion = resolve;
         rejectStreamCompletion = reject;
       });
+
+      const onDoneEvent = (event: { type: "done"; outputText: string; terminal: string; error?: { message?: string; code?: string }; result?: { metadata: { promptTokens: number; completionTokens: number } }; finishReason?: "stop" | "tool_use"; toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }> }) => {
+        if (!sawStreamChunk && event.outputText.length > 0) {
+          outputText = event.outputText;
+          emitChunk(event.outputText, estimateTokens(event.outputText));
+          sawStreamChunk = true;
+        } else {
+          outputText = event.outputText;
+        }
+        usage = {
+          promptTokens: event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request)),
+          completionTokens:
+            event.result?.metadata.completionTokens ?? estimateTokens(event.outputText),
+          totalTokens:
+            (event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request))) +
+            (event.result?.metadata.completionTokens ?? estimateTokens(event.outputText)),
+        };
+        // F1: capture finishReason and toolCalls from the done event
+        if (event.finishReason !== undefined) {
+          capturedFinishReason = event.finishReason;
+        }
+        if (event.toolCalls !== undefined) {
+          capturedToolCalls = event.toolCalls;
+        }
+        streamTerminalSeen = true;
+        if (event.terminal === "completed") {
+          settleStreamCompletion?.();
+        } else {
+          rejectStreamCompletion?.(
+            Object.assign(
+              new Error(
+                event.error?.message ??
+                  (event.terminal === "cancelled"
+                    ? "AI request canceled"
+                    : "AI stream failed"),
+              ),
+              {
+                code: event.error?.code ?? "AI_SERVICE_ERROR",
+                terminal: event.terminal,
+              },
+            ),
+          );
+        }
+      };
+
+      // F2: when messages is provided (agentic loop rounds 2+), call aiService directly
+      // bypassing skillExecutor so that the accumulated tool-result messages are forwarded
+      if (messages && messages.length > 0) {
+        const res = await aiService.runSkill({
+          skillId: request.skillId,
+          input: messages[messages.length - 1]?.content ?? "",
+          mode: "ask",
+          model: request.modelId ?? "default",
+          context: {
+            projectId: request.projectId,
+            documentId: request.documentId,
+          },
+          stream: true,
+          ts: nowTs(),
+          overrideMessages: messages,
+          emitEvent: (event) => {
+            if (signal.aborted) return;
+            if (event.type === "chunk") {
+              sawStreamChunk = true;
+              outputText += event.chunk;
+              const accumulatedTokens = estimateTokens(outputText);
+              emitChunk(event.chunk, accumulatedTokens);
+              return;
+            }
+            if (event.type === "done") {
+              onDoneEvent(event as Parameters<typeof onDoneEvent>[0]);
+            }
+          },
+        });
+        if (!res.ok) throw res.error;
+        if (!streamTerminalSeen) await streamCompletion;
+        if (!sawStreamChunk && (res.data.outputText?.length ?? 0) > 0) {
+          const finalOutput = res.data.outputText ?? "";
+          outputText = finalOutput;
+          emitChunk(finalOutput, estimateTokens(finalOutput));
+        }
+        return {
+          fullText: outputText || res.data.outputText || "",
+          usage,
+          finishReason: capturedFinishReason,
+          toolCalls: capturedToolCalls,
+        };
+      }
+
+      // First call: use skillExecutor for full context assembly
       const res = await skillExecutor.execute({
         skillId: request.skillId,
         hasSelection: Boolean(request.selection),
@@ -1468,40 +1556,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             return;
           }
           if (event.type === "done") {
-            if (!sawStreamChunk && event.outputText.length > 0) {
-              outputText = event.outputText;
-              emitChunk(event.outputText, estimateTokens(event.outputText));
-              sawStreamChunk = true;
-            } else {
-              outputText = event.outputText;
-            }
-            usage = {
-              promptTokens: event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request)),
-              completionTokens:
-                event.result?.metadata.completionTokens ?? estimateTokens(event.outputText),
-              totalTokens:
-                (event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request))) +
-                (event.result?.metadata.completionTokens ?? estimateTokens(event.outputText)),
-            };
-            streamTerminalSeen = true;
-            if (event.terminal === "completed") {
-              settleStreamCompletion?.();
-            } else {
-              rejectStreamCompletion?.(
-                Object.assign(
-                  new Error(
-                    event.error?.message ??
-                      (event.terminal === "cancelled"
-                        ? "AI request canceled"
-                        : "AI stream failed"),
-                  ),
-                  {
-                    code: event.error?.code ?? "AI_SERVICE_ERROR",
-                    terminal: event.terminal,
-                  },
-                ),
-              );
-            }
+            onDoneEvent(event as Parameters<typeof onDoneEvent>[0]);
           }
         },
       });
@@ -1519,6 +1574,8 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       return {
         fullText: outputText || res.data.outputText || "",
         usage,
+        finishReason: capturedFinishReason,
+        toolCalls: capturedToolCalls,
       };
     },
   });

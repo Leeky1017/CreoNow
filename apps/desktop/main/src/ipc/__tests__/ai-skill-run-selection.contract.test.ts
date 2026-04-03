@@ -13,6 +13,7 @@ vi.mock("../../services/skills/skillExecutor", () => ({
 }));
 
 vi.mock("../../services/skills/orchestrator", () => ({
+  AGENTIC_MAX_ROUNDS: 5,
   createWritingOrchestrator: vi.fn(() => ({
     execute: orchestratorExecuteSpy,
     abort: vi.fn(),

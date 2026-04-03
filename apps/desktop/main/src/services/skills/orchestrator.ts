@@ -142,6 +142,8 @@ export interface WritingOrchestrator {
 const VALID_SKILL_IDS = ["polish", "expand", "summarize", "translate", "rewrite", "continue"];
 const PERMISSION_TIMEOUT_MS = 120_000;
 const MAX_TASK_ENTRIES = 1000;
+/** P2: Maximum agentic tool-use rounds — exported so ToolUseConfig.maxToolRounds stays in sync */
+export const AGENTIC_MAX_ROUNDS = 5;
 
 export function createWritingOrchestrator(
   config: OrchestratorConfig,
@@ -434,7 +436,6 @@ export function createWritingOrchestrator(
         // Only runs when request.agenticLoop is true AND toolUseHandler is configured
         // AND the AI returned finishReason === 'tool_use'
         if (request.agenticLoop && config.toolUseHandler && config.generateText) {
-          const AGENTIC_MAX_ROUNDS = 5;
           let agenticRound = 0;
           let agenticMessages: Array<{ role: string; content: string }> | undefined;
 

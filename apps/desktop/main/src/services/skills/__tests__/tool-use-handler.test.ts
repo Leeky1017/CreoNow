@@ -235,6 +235,59 @@ describe("ToolUseHandler — Agentic Loop", () => {
       expect(results[0].success).toBe(true);
     });
 
+    it("多个 isConcurrencySafe=false tools 严格串行执行（F5：spec 并发分区）", async () => {
+      // Two unsafe tools — the second must not start until the first finishes
+      const executionOrder: string[] = [];
+
+      registry.register(buildTool({
+        name: "unsafeA",
+        description: "Unsafe tool A",
+        isConcurrencySafe: false,
+        execute: vi.fn().mockImplementation(async () => {
+          executionOrder.push("unsafeA-start");
+          await new Promise((r) => setTimeout(r, 100));
+          executionOrder.push("unsafeA-end");
+          return { success: true, data: { tool: "A" } };
+        }),
+      }));
+
+      registry.register(buildTool({
+        name: "unsafeB",
+        description: "Unsafe tool B",
+        isConcurrencySafe: false,
+        execute: vi.fn().mockImplementation(async () => {
+          executionOrder.push("unsafeB-start");
+          await new Promise((r) => setTimeout(r, 50));
+          executionOrder.push("unsafeB-end");
+          return { success: true, data: { tool: "B" } };
+        }),
+      }));
+
+      const calls: ParsedToolCall[] = [
+        { callId: "c1", toolName: "unsafeA", arguments: {} },
+        { callId: "c2", toolName: "unsafeB", arguments: {} },
+      ];
+
+      const resultPromise = handler.executeToolBatch(calls, makeToolContext());
+      await vi.advanceTimersByTimeAsync(200);
+      const results = await resultPromise;
+
+      expect(results).toHaveLength(2);
+      expect(results[0].success).toBe(true);
+      expect(results[1].success).toBe(true);
+
+      // Serial: A must fully complete before B starts
+      expect(executionOrder.indexOf("unsafeA-start")).toBeLessThan(
+        executionOrder.indexOf("unsafeA-end"),
+      );
+      expect(executionOrder.indexOf("unsafeA-end")).toBeLessThan(
+        executionOrder.indexOf("unsafeB-start"),
+      );
+      expect(executionOrder.indexOf("unsafeB-start")).toBeLessThan(
+        executionOrder.indexOf("unsafeB-end"),
+      );
+    });
+
     it("结果按原始顺序返回", async () => {
       const calls: ParsedToolCall[] = [
         { callId: "c1", toolName: "kgTool", arguments: { query: "first" } },

@@ -4,7 +4,9 @@ import {
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
+  SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
+  type SkillToolUseEvent,
 } from "@shared/types/ai";
 import {
   JUDGE_RESULT_CHANNEL,
@@ -93,6 +95,28 @@ function isJudgeResultEvent(x: unknown): x is JudgeResultEvent {
   );
 }
 
+/**
+ * Best-effort runtime validation for tool-use push payload.
+ *
+ * Why: malformed push payloads must be ignored safely in preload.
+ */
+function isSkillToolUseEvent(x: unknown): x is SkillToolUseEvent {
+  if (!isRecord(x)) {
+    return false;
+  }
+  if (typeof x.executionId !== "string" || typeof x.runId !== "string" || typeof x.ts !== "number") {
+    return false;
+  }
+  if (typeof x.round !== "number") {
+    return false;
+  }
+  return (
+    x.type === "tool-use-started" ||
+    x.type === "tool-use-completed" ||
+    x.type === "tool-use-failed"
+  );
+}
+
 export type AiStreamBridgeApi = {
   registerAiStreamConsumer: () => IpcResponse<{ subscriptionId: string }>;
   releaseAiStreamConsumer: (subscriptionId: string) => void;
@@ -144,6 +168,19 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
   const onSkillQueueStatus = (_evt: unknown, payload: unknown) => {
     forwardEvent(SKILL_QUEUE_STATUS_CHANNEL, payload);
   };
+  const onSkillToolUse = (_evt: unknown, payload: unknown) => {
+    if (subscriptions.count() === 0) {
+      return;
+    }
+    if (!isSkillToolUseEvent(payload)) {
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent<SkillToolUseEvent>(SKILL_TOOL_USE_CHANNEL, {
+        detail: payload,
+      }),
+    );
+  };
   const onJudgeResult = (_evt: unknown, payload: unknown) => {
     if (subscriptions.count() === 0) {
       return;
@@ -162,6 +199,7 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
   ipcRenderer.on(SKILL_STREAM_CHUNK_CHANNEL, onSkillStreamChunk);
   ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, onSkillStreamDone);
   ipcRenderer.on(SKILL_QUEUE_STATUS_CHANNEL, onSkillQueueStatus);
+  ipcRenderer.on(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
   ipcRenderer.on(JUDGE_RESULT_CHANNEL, onJudgeResult);
 
   return {
@@ -179,6 +217,7 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
         SKILL_QUEUE_STATUS_CHANNEL,
         onSkillQueueStatus,
       );
+      ipcRenderer.removeListener(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
       ipcRenderer.removeListener(JUDGE_RESULT_CHANNEL, onJudgeResult);
     },
   };

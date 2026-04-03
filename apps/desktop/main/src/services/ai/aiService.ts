@@ -74,6 +74,8 @@ export type AiService = {
     stream: boolean;
     ts: number;
     emitEvent: (event: AiStreamEvent) => void;
+    /** P2: when provided, bypass internal message building and use these messages directly */
+    overrideMessages?: Array<{ role: string; content: string }>;
   }) => Promise<
     ServiceResult<{
       executionId: string;
@@ -123,6 +125,10 @@ type RunEntry = {
   pendingChunkBuffer: string;
   pendingChunkCount: number;
   emitEvent: (event: AiStreamEvent) => void;
+  /** P2: finish reason captured from the AI provider streaming response */
+  finishReason?: "stop" | "tool_use";
+  /** P2: tool calls captured from the AI provider streaming response */
+  toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
 };
 
 const PROVIDER_HALF_OPEN_AFTER_MS = 15 * 60 * 1000;
@@ -555,6 +561,8 @@ function createAiEmitHelpers(deps: AiServiceDeps, state: AiInternalState) {
       terminal: args.terminal,
       outputText: entry.outputText,
       ...(args.error ? { error: args.error } : {}),
+      ...(entry.finishReason !== undefined ? { finishReason: entry.finishReason } : {}),
+      ...(entry.toolCalls !== undefined ? { toolCalls: entry.toolCalls } : {}),
       ts: args.ts ?? Date.now(),
     });
   }
@@ -1071,6 +1079,8 @@ function createAiStreamHelpers(
     }
 
     let sawDone = false;
+    // P2: accumulators for tool call streaming (OpenAI tool_calls delta format)
+    const toolCallAccumulator = new Map<number, { id: string; name: string; argumentsRaw: string }>();
     try {
       for await (const msg of readSse({ body: res.body })) {
         if (args.entry.terminal !== null) {
@@ -1099,6 +1109,44 @@ function createAiStreamHelpers(
           );
           continue;
         }
+
+        // P2: capture finish_reason and tool_calls from OpenAI streaming chunks
+        const parsedObj = typeof parsed === "object" && parsed !== null ? parsed as JsonObject : null;
+        if (parsedObj) {
+          const choices = Array.isArray(parsedObj.choices) ? parsedObj.choices : [];
+          const firstChoice = choices.length > 0 && typeof choices[0] === "object" && choices[0] !== null
+            ? choices[0] as JsonObject
+            : null;
+          if (firstChoice) {
+            // Capture finish_reason
+            if (typeof firstChoice.finish_reason === "string" && firstChoice.finish_reason !== null) {
+              args.entry.finishReason = firstChoice.finish_reason === "tool_calls" ? "tool_use" : "stop";
+            }
+            // Accumulate tool_calls from delta
+            const delta = typeof firstChoice.delta === "object" && firstChoice.delta !== null
+              ? firstChoice.delta as JsonObject
+              : null;
+            if (delta && Array.isArray(delta.tool_calls)) {
+              for (const tcDelta of delta.tool_calls) {
+                if (typeof tcDelta !== "object" || tcDelta === null) continue;
+                const tc = tcDelta as JsonObject;
+                const idx = typeof tc.index === "number" ? tc.index : -1;
+                if (idx < 0) continue;
+                if (!toolCallAccumulator.has(idx)) {
+                  toolCallAccumulator.set(idx, { id: "", name: "", argumentsRaw: "" });
+                }
+                const acc = toolCallAccumulator.get(idx)!;
+                if (typeof tc.id === "string") acc.id = tc.id;
+                const fn = typeof tc.function === "object" && tc.function !== null ? tc.function as JsonObject : null;
+                if (fn) {
+                  if (typeof fn.name === "string") acc.name = fn.name;
+                  if (typeof fn.arguments === "string") acc.argumentsRaw += fn.arguments;
+                }
+              }
+            }
+          }
+        }
+
         const delta = extractOpenAiDelta(parsed);
         if (typeof delta !== "string" || delta.length === 0) {
           continue;
@@ -1115,6 +1163,24 @@ function createAiStreamHelpers(
         retryable: true,
         message: error instanceof Error ? error.message : String(error),
       });
+    }
+
+    // P2: finalise accumulated tool calls
+    if (toolCallAccumulator.size > 0) {
+      const toolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = [];
+      for (const [, acc] of toolCallAccumulator) {
+        let parsedArgs: Record<string, unknown> = {};
+        try {
+          const rawParsed = JSON.parse(acc.argumentsRaw);
+          if (typeof rawParsed === "object" && rawParsed !== null) {
+            parsedArgs = rawParsed as Record<string, unknown>;
+          }
+        } catch {
+          // Malformed arguments — leave as empty object
+        }
+        toolCalls.push({ id: acc.id, name: acc.name, arguments: parsedArgs });
+      }
+      args.entry.toolCalls = toolCalls;
     }
 
     if (args.entry.controller.signal.aborted) {
@@ -1184,6 +1250,8 @@ function createAiStreamHelpers(
     }
 
     let sawMessageStop = false;
+    // P2: accumulators for Anthropic tool_use streaming (content_block_start/delta format)
+    const anthropicToolBlocks = new Map<number, { id: string; name: string; inputRaw: string }>();
     try {
       for await (const msg of readSse({ body: res.body })) {
         if (args.entry.terminal !== null) {
@@ -1193,6 +1261,41 @@ function createAiStreamHelpers(
         if (msg.event === "message_stop") {
           sawMessageStop = true;
           break;
+        }
+
+        // P2: capture stop_reason from message_delta events
+        if (msg.event === "message_delta") {
+          try {
+            const parsed = JSON.parse(msg.data) as JsonObject;
+            const delta = typeof parsed.delta === "object" && parsed.delta !== null ? parsed.delta as JsonObject : null;
+            if (delta && typeof delta.stop_reason === "string") {
+              args.entry.finishReason = delta.stop_reason === "tool_use" ? "tool_use" : "stop";
+            }
+          } catch {
+            // ignore parse failures
+          }
+          continue;
+        }
+
+        // P2: capture tool_use content block starts
+        if (msg.event === "content_block_start") {
+          try {
+            const parsed = JSON.parse(msg.data) as JsonObject;
+            const idx = typeof parsed.index === "number" ? parsed.index : -1;
+            const block = typeof parsed.content_block === "object" && parsed.content_block !== null
+              ? parsed.content_block as JsonObject
+              : null;
+            if (block && block.type === "tool_use" && idx >= 0) {
+              anthropicToolBlocks.set(idx, {
+                id: typeof block.id === "string" ? block.id : "",
+                name: typeof block.name === "string" ? block.name : "",
+                inputRaw: "",
+              });
+            }
+          } catch {
+            // ignore parse failures
+          }
+          continue;
         }
 
         if (msg.event !== "content_block_delta") {
@@ -1217,6 +1320,22 @@ function createAiStreamHelpers(
           );
           continue;
         }
+
+        // P2: accumulate input_json_delta for tool_use blocks
+        const parsedObj = typeof parsed === "object" && parsed !== null ? parsed as JsonObject : null;
+        if (parsedObj) {
+          const blockIdx = typeof parsedObj.index === "number" ? parsedObj.index : -1;
+          const blockDelta = typeof parsedObj.delta === "object" && parsedObj.delta !== null
+            ? parsedObj.delta as JsonObject
+            : null;
+          if (blockDelta && blockDelta.type === "input_json_delta" && typeof blockDelta.partial_json === "string" && blockIdx >= 0) {
+            const acc = anthropicToolBlocks.get(blockIdx);
+            if (acc) {
+              acc.inputRaw += blockDelta.partial_json;
+            }
+          }
+        }
+
         const delta = extractAnthropicDelta(parsed);
         if (typeof delta !== "string" || delta.length === 0) {
           continue;
@@ -1233,6 +1352,24 @@ function createAiStreamHelpers(
         retryable: true,
         message: error instanceof Error ? error.message : String(error),
       });
+    }
+
+    // P2: finalise accumulated Anthropic tool blocks
+    if (anthropicToolBlocks.size > 0) {
+      const toolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = [];
+      for (const [, acc] of anthropicToolBlocks) {
+        let parsedInput: Record<string, unknown> = {};
+        try {
+          const rawParsed = JSON.parse(acc.inputRaw);
+          if (typeof rawParsed === "object" && rawParsed !== null) {
+            parsedInput = rawParsed as Record<string, unknown>;
+          }
+        } catch {
+          // Malformed input — leave as empty object
+        }
+        toolCalls.push({ id: acc.id, name: acc.name, arguments: parsedInput });
+      }
+      args.entry.toolCalls = toolCalls;
     }
 
     if (args.entry.controller.signal.aborted) {
@@ -1658,13 +1795,29 @@ function createAiRunSkillOp(
       role: message.role,
       content: message.content,
     }));
-    const runtimeMessages = buildRuntimeMessages({
-      systemPrompt: args.systemPrompt,
-      mode: args.mode,
-      system: args.system,
-      input: args.input,
-      history,
-    });
+    // P2: when overrideMessages is provided, use them directly bypassing internal message assembly
+    const runtimeMessages: RuntimeMessages = args.overrideMessages && args.overrideMessages.length > 0
+      ? (() => {
+          const openAiMessages: LLMMessage[] = args.overrideMessages!.map((m) => ({
+            role: m.role as "system" | "user" | "assistant",
+            content: m.content,
+          }));
+          const systemText = openAiMessages
+            .filter((m) => m.role === "system")
+            .map((m) => m.content)
+            .join("\n");
+          const anthropicMessages: RuntimeMessages["anthropicMessages"] = openAiMessages
+            .filter((m) => m.role === "user" || m.role === "assistant")
+            .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+          return { systemText, openAiMessages, anthropicMessages };
+        })()
+      : buildRuntimeMessages({
+          systemPrompt: args.systemPrompt,
+          mode: args.mode,
+          system: args.system,
+          input: args.input,
+          history,
+        });
     const promptTokens = estimateTokenCount(args.input);
     const projectedTokens = promptTokens + DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE;
     const hasExplicitEnvTimeout =
