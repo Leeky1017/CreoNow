@@ -15,7 +15,7 @@
 import { estimateUtf8TokenCount } from "@shared/tokenBudget";
 
 export type LLMMessage = {
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
 };
 

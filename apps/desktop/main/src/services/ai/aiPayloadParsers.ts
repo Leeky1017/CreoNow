@@ -1,5 +1,12 @@
 type JsonObject = Record<string, unknown>;
 
+export type ParsedAiFinishReason = "stop" | "tool_use" | null;
+export type ParsedAiToolCall = {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+};
+
 export type AiProvider = "anthropic" | "openai" | "proxy";
 
 function asObject(x: unknown): JsonObject | null {
@@ -37,6 +44,77 @@ export function extractOpenAiDelta(json: unknown): string | null {
   const delta = asObject(first?.delta);
   const content = delta?.content;
   return extractOpenAiContentText(content);
+}
+
+function parseToolCallArguments(value: unknown): Record<string, unknown> {
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      if (typeof parsed === "object" && parsed !== null) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  if (typeof value === "object" && value !== null) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+function normalizeOpenAiToolCall(value: unknown): ParsedAiToolCall | null {
+  const row = asObject(value);
+  const id = typeof row?.id === "string" ? row.id : "";
+  const fn = asObject(row?.function);
+  const name = typeof fn?.name === "string" ? fn.name : "";
+  if (id.length === 0 || name.length === 0) {
+    return null;
+  }
+  return {
+    id,
+    name,
+    arguments: parseToolCallArguments(fn?.arguments),
+  };
+}
+
+function extractOpenAiChoice(json: unknown): JsonObject | null {
+  const obj = asObject(json);
+  const choices = obj ? obj.choices : null;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return null;
+  }
+  return asObject(choices[0]);
+}
+
+export function extractOpenAiFinishReason(
+  json: unknown,
+): ParsedAiFinishReason {
+  const first = extractOpenAiChoice(json);
+  const finishReason = first?.finish_reason;
+  if (finishReason === "stop") {
+    return "stop";
+  }
+  if (finishReason === "tool_calls" || finishReason === "tool_use") {
+    return "tool_use";
+  }
+  return null;
+}
+
+export function extractOpenAiToolCalls(json: unknown): ParsedAiToolCall[] {
+  const first = extractOpenAiChoice(json);
+  if (!first) {
+    return [];
+  }
+  const message = asObject(first.message);
+  const delta = asObject(first.delta);
+  const toolCalls = message?.tool_calls ?? delta?.tool_calls;
+  if (!Array.isArray(toolCalls)) {
+    return [];
+  }
+  return toolCalls
+    .map(normalizeOpenAiToolCall)
+    .filter((toolCall): toolCall is ParsedAiToolCall => toolCall !== null);
 }
 
 /**

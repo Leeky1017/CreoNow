@@ -311,6 +311,7 @@ export function createWritingOrchestrator(
                     chunkQueue.push({ delta, accumulatedTokens });
                     wake();
                   },
+                  messages: prepared.messages,
                 })
                 .then(
                   (result) => {
@@ -474,19 +475,7 @@ export function createWritingOrchestrator(
             };
             const results = await config.toolUseHandler.executeToolBatch(parsedCalls, toolCtx);
 
-            // Check all-failed
             const summary = config.toolUseHandler.getBatchSummary(results);
-            if (summary.allFailed) {
-              yield makeEvent("tool-use-failed", requestId, {
-                round: agenticRound,
-                error: {
-                  code: "TOOL_USE_ALL_FAILED",
-                  message: "All tool calls in this round failed",
-                  retryable: false,
-                },
-              });
-              break;
-            }
 
             // Inject tool results into message history
             const baseMsgs = agenticMessages ?? prepared.messages;
@@ -503,6 +492,17 @@ export function createWritingOrchestrator(
               msgsWithAssistant,
               results,
             ) as Array<{ role: string; content: string }>;
+
+            if (summary.allFailed) {
+              yield makeEvent("tool-use-failed", requestId, {
+                round: agenticRound,
+                error: {
+                  code: "TOOL_USE_ALL_FAILED",
+                  message: "All tool calls in this round failed",
+                  retryable: false,
+                },
+              });
+            }
 
             if (abortController.signal.aborted) {
               taskStates.set(requestId, "killed");

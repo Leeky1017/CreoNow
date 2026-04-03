@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
-import type { AiStreamEvent, AiStreamTerminal } from "@shared/types/ai";
+import type { AiStreamEvent, AiStreamTerminal, AiToolCall } from "@shared/types/ai";
 import type { Logger } from "../../logging/logger";
 import { resolveRuntimeGovernanceFromEnv } from "../../config/runtimeGovernance";
 import {
@@ -9,7 +9,7 @@ import {
   type SkillSchedulerTerminal,
 } from "../skills/skillScheduler";
 import { startFakeAiServer, type FakeAiServer } from "./fakeAiServer";
-import { buildLLMMessages, type LLMMessage } from "./buildLLMMessages";
+import { buildLLMMessages } from "./buildLLMMessages";
 import {
   createChatMessageManager,
   type ChatMessageManager,
@@ -38,8 +38,10 @@ import {
   extractAnthropicDelta,
   extractAnthropicText,
   extractOpenAiDelta,
+  extractOpenAiFinishReason,
   extractOpenAiModels,
   extractOpenAiText,
+  extractOpenAiToolCalls,
   providerDisplayName,
 } from "./aiPayloadParsers";
 import { validateProviderPreflight } from "./providerPreflight";
@@ -71,6 +73,7 @@ export type AiService = {
     model: string;
     system?: string;
     context?: { projectId?: string; documentId?: string };
+    messages?: Array<{ role: string; content: string; toolCallId?: string }>;
     stream: boolean;
     ts: number;
     emitEvent: (event: AiStreamEvent) => void;
@@ -80,6 +83,8 @@ export type AiService = {
       runId: string;
       traceId: string;
       outputText?: string;
+      finishReason?: "stop" | "tool_use" | null;
+      toolCalls?: AiToolCall[];
       degradation?: TracePersistenceDegradation;
     }>
   >;
@@ -120,6 +125,9 @@ type RunEntry = {
   resolveSchedulerTerminal: (terminal: SkillSchedulerTerminal) => void;
   seq: number;
   outputText: string;
+  finishReason: "stop" | "tool_use" | null;
+  toolCalls: AiToolCall[];
+  promptTokens: number;
   pendingChunkBuffer: string;
   pendingChunkCount: number;
   emitEvent: (event: AiStreamEvent) => void;
@@ -133,7 +141,7 @@ const SSE_PARSE_RAW_MAX_LEN = 200;
 
 type RuntimeMessages = {
   systemText: string;
-  openAiMessages: LLMMessage[];
+  openAiMessages: Array<{ role: string; content: string }>;
   anthropicMessages: Array<{ role: "user" | "assistant"; content: string }>;
 };
 
@@ -330,7 +338,27 @@ function createAiSessionHelpers(state: AiInternalState) {
     system?: string;
     input: string;
     history: Array<{ role: "user" | "assistant"; content: string }>;
+    messages?: Array<{ role: string; content: string; toolCallId?: string }>;
   }): RuntimeMessages {
+    if (Array.isArray(args.messages) && args.messages.length > 0) {
+      const openAiMessages = args.messages.map((message) => ({
+        role: message.role,
+        content: message.content,
+      }));
+      return {
+        systemText: openAiMessages
+          .filter((message) => message.role === "system")
+          .map((message) => message.content)
+          .join("\n\n"),
+        openAiMessages,
+        anthropicMessages: openAiMessages
+          .filter((message) => message.role !== "system")
+          .map((message) => ({
+            role: message.role === "assistant" ? "assistant" : "user",
+            content: message.content,
+          })),
+      };
+    }
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
       modeHint: modeSystemHint(args.mode) ?? undefined,
@@ -554,6 +582,8 @@ function createAiEmitHelpers(deps: AiServiceDeps, state: AiInternalState) {
       traceId: entry.traceId,
       terminal: args.terminal,
       outputText: entry.outputText,
+      finishReason: entry.finishReason,
+      toolCalls: entry.toolCalls,
       ...(args.error ? { error: args.error } : {}),
       ts: args.ts ?? Date.now(),
     });
@@ -675,6 +705,8 @@ function createAiEmitHelpers(deps: AiServiceDeps, state: AiInternalState) {
   function resetForFullPromptReplay(entry: RunEntry): void {
     entry.seq = 0;
     entry.outputText = "";
+    entry.finishReason = null;
+    entry.toolCalls = [];
     clearChunkBuffer(entry);
   }
 
@@ -1100,6 +1132,14 @@ function createAiStreamHelpers(
           continue;
         }
         const delta = extractOpenAiDelta(parsed);
+        const finishReason = extractOpenAiFinishReason(parsed);
+        const toolCalls = extractOpenAiToolCalls(parsed);
+        if (finishReason !== null) {
+          args.entry.finishReason = finishReason;
+        }
+        if (toolCalls.length > 0) {
+          args.entry.toolCalls = toolCalls;
+        }
         if (typeof delta !== "string" || delta.length === 0) {
           continue;
         }
@@ -1119,6 +1159,9 @@ function createAiStreamHelpers(
 
     if (args.entry.controller.signal.aborted) {
       return ipcError("CANCELED", "AI request canceled");
+    }
+    if (sawDone && args.entry.finishReason === null) {
+      args.entry.finishReason = "stop";
     }
     if (args.entry.terminal === null && !sawDone) {
       return ipcError("LLM_API_ERROR", "Streaming connection interrupted", {
@@ -1300,6 +1343,8 @@ function createAiRunPipelineHelpers(
       runId: string;
       traceId: string;
       outputText?: string;
+      finishReason?: "stop" | "tool_use" | null;
+      toolCalls?: AiToolCall[];
       degradation?: TracePersistenceDegradation;
     }>
   > {
@@ -1386,6 +1431,8 @@ function createAiRunPipelineHelpers(
           runId,
           traceId,
           outputText: res.data,
+          finishReason: "stop",
+          toolCalls: [],
           ...(degradation ? { degradation } : {}),
         },
       };
@@ -1664,8 +1711,14 @@ function createAiRunSkillOp(
       system: args.system,
       input: args.input,
       history,
+      messages: args.messages,
     });
-    const promptTokens = estimateTokenCount(args.input);
+    const promptTokens =
+      Array.isArray(args.messages) && args.messages.length > 0
+        ? estimateTokenCount(
+            args.messages.map((message) => message.content).join("\n\n"),
+          )
+        : estimateTokenCount(args.input);
     const projectedTokens = promptTokens + DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE;
     const hasExplicitEnvTimeout =
       (typeof deps.env.CN_AI_TIMEOUT_MS === "string" &&
@@ -1699,6 +1752,9 @@ function createAiRunSkillOp(
       resolveSchedulerTerminal: resolveCompletion,
       seq: 0,
       outputText: "",
+      finishReason: null,
+      toolCalls: [],
+      promptTokens,
       pendingChunkBuffer: "",
       pendingChunkCount: 0,
       emitEvent: args.emitEvent,
@@ -1892,6 +1948,8 @@ function createAiRunSkillOp(
                   runId: string;
                   traceId: string;
                   outputText?: string;
+                  finishReason?: "stop" | "tool_use" | null;
+                  toolCalls?: AiToolCall[];
                   degradation?: TracePersistenceDegradation;
                 }>,
               ),
@@ -1915,10 +1973,20 @@ function createAiRunSkillOp(
           });
 
           return {
-            response: Promise.resolve({
-              ok: true,
-              data: { executionId, runId, traceId },
-            }),
+            response: (async () => {
+              await completionPromise;
+              return {
+                ok: true,
+                data: {
+                  executionId,
+                  runId,
+                  traceId,
+                  outputText: entry.outputText,
+                  finishReason: entry.finishReason,
+                  toolCalls: entry.toolCalls,
+                },
+              };
+            })(),
             completion: completionPromise,
           };
         }

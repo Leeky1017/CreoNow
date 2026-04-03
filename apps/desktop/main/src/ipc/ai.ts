@@ -1426,13 +1426,15 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
       return prepared.data;
     },
-    generateText: async ({ request, signal, emitChunk }) => {
+    generateText: async ({ request, signal, emitChunk, messages }) => {
       let outputText = "";
       let usage = {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
       };
+      let finishReason: "stop" | "tool_use" | null = null;
+      let toolCalls: Array<{ id: string; name: string; arguments: Record<string, unknown> }> = [];
       let sawStreamChunk = false;
       let streamTerminalSeen = false;
       let settleStreamCompletion: (() => void) | null = null;
@@ -1454,6 +1456,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           projectId: request.projectId,
           documentId: request.documentId,
         },
+        ...(messages ? { messages } : {}),
         stream: true,
         ts: nowTs(),
         emitEvent: (event) => {
@@ -1483,6 +1486,8 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
                 (event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request))) +
                 (event.result?.metadata.completionTokens ?? estimateTokens(event.outputText)),
             };
+            finishReason = event.finishReason ?? null;
+            toolCalls = event.toolCalls ?? [];
             streamTerminalSeen = true;
             if (event.terminal === "completed") {
               settleStreamCompletion?.();
@@ -1519,6 +1524,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       return {
         fullText: outputText || res.data.outputText || "",
         usage,
+        finishReason: finishReason ?? res.data.finishReason ?? null,
+        toolCalls:
+          toolCalls.length > 0 ? toolCalls : (res.data.toolCalls ?? []),
       };
     },
   });

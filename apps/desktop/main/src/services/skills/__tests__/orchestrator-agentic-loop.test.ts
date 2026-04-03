@@ -332,6 +332,7 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       let callCount = 0;
       const generateText = vi.fn().mockImplementation(async (args: {
         emitChunk: (delta: string, tokens: number) => void;
+        messages?: Array<{ role: string; content: string }>;
       }) => {
         callCount++;
         if (callCount === 1) {
@@ -343,10 +344,12 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
             toolCalls: [makeToolCallInfo("kgTool", { query: "林远" }, "call-fail")],
           };
         }
-        // Should NOT be called after all-failed
+        expect(args.messages).toBeDefined();
+        const failedToolMessage = args.messages?.find((message) => message.role === "tool");
+        expect(failedToolMessage?.content).toContain("KG_ERROR");
         return {
-          fullText: "不应该到这里",
-          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          fullText: "工具失败后继续续写",
+          usage: { promptTokens: 6, completionTokens: 8, totalTokens: 14 },
           finishReason: "stop" as const,
           toolCalls: [],
         };
@@ -374,13 +377,13 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       expect((failedEvent!.error as { code: string }).code).toBe("TOOL_USE_ALL_FAILED");
       expect(failedEvent!.round).toBe(1);
 
-      // Pipeline should NOT call AI again after all-failed
-      expect(callCount).toBe(1);
+      // Failure result must be injected and the AI must get another turn
+      expect(callCount).toBe(2);
 
-      // Should continue to ai-done with partial text
+      // Should continue to ai-done with the second-round text instead of breaking on partial text
       expect(types).toContain("ai-done");
       const aiDoneEvent = events.find((e) => e.type === "ai-done");
-      expect((aiDoneEvent!.fullText as string)).toBe("部分续写");
+      expect((aiDoneEvent!.fullText as string)).toBe("工具失败后继续续写");
 
       // Should still complete write-back (permission auto-allow)
       expect(types).toContain("write-back-done");
@@ -403,11 +406,17 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
           finishReason: "tool_use" as const,
           toolCalls: [makeToolCallInfo("unknownTool", {}, "call-unknown")],
         })
-        .mockResolvedValueOnce({
-          fullText: "不应调用第二次",
-          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-          finishReason: "stop" as const,
-          toolCalls: [],
+        .mockImplementationOnce(async (args: {
+          messages?: Array<{ role: string; content: string }>;
+        }) => {
+          const toolMessage = args.messages?.find((message) => message.role === "tool");
+          expect(toolMessage?.content).toContain("TOOL_USE_TOOL_NOT_FOUND");
+          return {
+            fullText: "未知工具失败后仍继续生成",
+            usage: { promptTokens: 4, completionTokens: 6, totalTokens: 10 },
+            finishReason: "stop" as const,
+            toolCalls: [],
+          };
         });
 
       const orchestrator = createWritingOrchestrator({
@@ -424,9 +433,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const failedEvent = events.find((e) => e.type === "tool-use-failed");
       expect(failedEvent).toBeDefined();
       expect((failedEvent!.error as { code: string }).code).toBe("TOOL_USE_ALL_FAILED");
-
-      // AI was only called once (no re-call after all-failed)
-      expect(generateText).toHaveBeenCalledTimes(1);
+      expect(generateText).toHaveBeenCalledTimes(2);
+      const aiDoneEvent = events.find((e) => e.type === "ai-done");
+      expect(aiDoneEvent?.fullText).toBe("未知工具失败后仍继续生成");
     });
   });
 
@@ -532,6 +541,18 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
           usage: { promptTokens: 5, completionTokens: 3, totalTokens: 8 },
           finishReason: "tool_use" as const,
           toolCalls: [makeToolCallInfo("versionSnapshot", {}, "call-snap")],
+        })
+        .mockImplementationOnce(async (args: {
+          messages?: Array<{ role: string; content: string }>;
+        }) => {
+          const toolMessage = args.messages?.find((message) => message.role === "tool");
+          expect(toolMessage?.content).toContain("TOOL_USE_TOOL_NOT_FOUND");
+          return {
+            fullText: "未知工具失败后仍继续生成",
+            usage: { promptTokens: 4, completionTokens: 6, totalTokens: 10 },
+            finishReason: "stop" as const,
+            toolCalls: [],
+          };
         });
 
       const orchestrator = createWritingOrchestrator({
@@ -548,9 +569,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       const failedEvent = events.find((e) => e.type === "tool-use-failed");
       expect(failedEvent).toBeDefined();
       expect((failedEvent!.error as { code: string }).code).toBe("TOOL_USE_ALL_FAILED");
-
-      // AI was only called once (no re-call after all-failed)
-      expect(generateText).toHaveBeenCalledTimes(1);
+      expect(generateText).toHaveBeenCalledTimes(2);
+      const aiDoneEvent = events.find((e) => e.type === "ai-done");
+      expect(aiDoneEvent?.fullText).toBe("未知工具失败后仍继续生成");
     });
 
     it("agentic registry 中不包含 documentWrite（只读约束验证）", () => {
@@ -673,9 +694,9 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
     });
   });
 
-  // ── finishReason === null (IPC production case) ─────────────────
+  // ── finishReason === null（非 tool_use 返回） ─────────────────
 
-  describe("finishReason === null 时不触发 loop（生产 IPC 路径）", () => {
+  describe("finishReason === null 时不触发 loop（非 tool_use 返回）", () => {
     it("generateText 返回 finishReason: null → 正常走完 ai-done，不触发 tool-use", async () => {
       const generateText = vi.fn().mockResolvedValue({
         fullText: "续写结果",

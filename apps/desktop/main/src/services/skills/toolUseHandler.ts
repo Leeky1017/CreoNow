@@ -7,7 +7,12 @@
  */
 
 import type { ToolCallInfo } from "../ai/streaming";
-import type { ToolRegistry, ToolContext, WritingTool } from "./toolRegistry";
+import type {
+  AgenticToolContext,
+  ToolRegistry,
+  ToolContext,
+  WritingTool,
+} from "./toolRegistry";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -312,9 +317,9 @@ export function createToolUseHandler(
       if (safeCalls.length > 0) {
         const tasks = safeCalls.map(({ idx, call }) => async () => {
           const tool = registry.get(call.toolName)!;
-          const agenticCtx: ToolContext = {
+          const agenticCtx: AgenticToolContext = {
             ...context,
-            arguments: call.arguments,
+            args: call.arguments,
           };
           const startTime = Date.now();
           const result = await executeWithTimeout(
@@ -340,9 +345,9 @@ export function createToolUseHandler(
       // Execute unsafe tools serially
       for (const { idx, call } of unsafeCalls) {
         const tool = registry.get(call.toolName)!;
-        const agenticCtx: ToolContext = {
+        const agenticCtx: AgenticToolContext = {
           ...context,
-          arguments: call.arguments,
+          args: call.arguments,
         };
         const startTime = Date.now();
         const result = await executeWithTimeout(
@@ -392,12 +397,20 @@ export function createToolUseHandler(
       for (const result of results) {
         let content: string;
         if (result.success) {
-          content =
-            result.data !== null && result.data !== undefined
-              ? JSON.stringify(result.data)
-              : "{}";
+          if (typeof result.data === "string") {
+            content = result.data;
+          } else {
+            content =
+              result.data !== null && result.data !== undefined
+                ? JSON.stringify(result.data)
+                : "{}";
+          }
         } else {
-          content = JSON.stringify(result.error ?? { code: "UNKNOWN", message: "Unknown error" });
+          const error = result.error ?? {
+            code: "UNKNOWN",
+            message: "Unknown error",
+          };
+          content = `Tool ${result.toolName} failed (${error.code}): ${error.message}`;
         }
 
         const toolMsg: ToolMessage = {

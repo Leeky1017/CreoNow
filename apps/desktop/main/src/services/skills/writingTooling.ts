@@ -4,13 +4,31 @@ import type { Logger } from "../../logging/logger";
 import { createDocumentService } from "../documents/documentService";
 import type { VersionSnapshotReason } from "../documents/documentService";
 import { appendSuggestionToDocument } from "./documentWriteback";
-import { buildTool, createToolRegistry, type ToolRegistry } from "./toolRegistry";
+import {
+  buildTool,
+  createToolRegistry,
+  type AgenticToolContext,
+  type ToolRegistry,
+} from "./toolRegistry";
 import { applySuggestionToSelection } from "./selectionWriteback";
 
 type WritingToolingArgs = {
   db: Database.Database;
   logger: Logger;
 };
+
+function readAgenticArgs(ctx: unknown): Record<string, unknown> {
+  if (
+    typeof ctx === "object" &&
+    ctx !== null &&
+    "args" in ctx &&
+    typeof (ctx as { args?: unknown }).args === "object" &&
+    (ctx as { args?: unknown }).args !== null
+  ) {
+    return (ctx as AgenticToolContext).args;
+  }
+  return {};
+}
 
 export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistry {
   const registry = createToolRegistry();
@@ -211,17 +229,19 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
   const registry = createToolRegistry();
   const service = createDocumentService({ db: args.db, logger: args.logger });
 
-  // kgTool: query knowledge graph
-  // P2 stub — returns empty result when KG data is unavailable
   registry.register(
     buildTool({
       name: "kgTool",
-      description: "Query the knowledge graph for character traits, locations, and world settings",
+      description:
+        "Query the knowledge graph for character traits, locations, and world settings",
       isConcurrencySafe: true,
       execute: async (ctx) => {
-        const query = typeof ctx["query"] === "string" ? ctx["query"] : "";
-        args.logger.info("agentic_tool_kg_query", { query, requestId: ctx.requestId });
-        // P2 stub: KG module not yet implemented, return empty
+        const toolArgs = readAgenticArgs(ctx);
+        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
+        args.logger.info("agentic_tool_kg_query", {
+          query,
+          requestId: ctx.requestId,
+        });
         return {
           success: true,
           data: { entities: [], query },
@@ -230,17 +250,19 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
     }),
   );
 
-  // memTool: query writing memory
-  // P2 stub — returns empty memories when Memory module is unavailable
   registry.register(
     buildTool({
       name: "memTool",
-      description: "Query writing memory for style preferences and past writing patterns",
+      description:
+        "Query writing memory for style preferences and past writing patterns",
       isConcurrencySafe: true,
       execute: async (ctx) => {
-        const query = typeof ctx["query"] === "string" ? ctx["query"] : "";
-        args.logger.info("agentic_tool_mem_query", { query, requestId: ctx.requestId });
-        // P2 stub: Memory module not yet fully implemented, return empty
+        const toolArgs = readAgenticArgs(ctx);
+        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
+        args.logger.info("agentic_tool_mem_query", {
+          query,
+          requestId: ctx.requestId,
+        });
         return {
           success: true,
           data: { memories: [], query },
@@ -249,25 +271,22 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
     }),
   );
 
-  // docTool: read document content
   registry.register(
     buildTool({
       name: "docTool",
       description: "Read the content of a document or chapter for context",
       isConcurrencySafe: true,
       execute: async (ctx) => {
+        const toolArgs = readAgenticArgs(ctx);
         const targetDocId =
-          typeof ctx["targetDocumentId"] === "string"
-            ? ctx["targetDocumentId"]
+          typeof toolArgs.targetDocumentId === "string"
+            ? toolArgs.targetDocumentId
             : ctx.documentId;
         const projectId =
-          typeof ctx["projectId"] === "string" ? ctx["projectId"].trim() : "";
+          typeof ctx.projectId === "string" ? ctx.projectId.trim() : "";
 
         if (!projectId) {
-          return {
-            success: true,
-            data: { content: "", documentId: targetDocId },
-          };
+          return { success: true, data: "" };
         }
 
         const result = service.read({ projectId, documentId: targetDocId });
@@ -280,13 +299,12 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
 
         return {
           success: true,
-          data: { content: result.data.contentJson, documentId: targetDocId },
+          data: result.data.contentText,
         };
       },
     }),
   );
 
-  // documentRead: read document text (P1 built-in, agentic-accessible)
   registry.register(
     buildTool({
       name: "documentRead",
@@ -294,13 +312,10 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
       isConcurrencySafe: true,
       execute: async (ctx) => {
         const projectId =
-          typeof ctx["projectId"] === "string" ? ctx["projectId"].trim() : "";
+          typeof ctx.projectId === "string" ? ctx.projectId.trim() : "";
 
         if (!projectId) {
-          return {
-            success: true,
-            data: { text: "", documentId: ctx.documentId },
-          };
+          return { success: true, data: "" };
         }
 
         const result = service.read({ projectId, documentId: ctx.documentId });
@@ -313,7 +328,7 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
 
         return {
           success: true,
-          data: { text: result.data.contentJson, documentId: ctx.documentId },
+          data: result.data.contentText,
         };
       },
     }),

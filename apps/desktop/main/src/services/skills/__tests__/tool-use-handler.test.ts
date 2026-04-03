@@ -677,10 +677,10 @@ describe("ToolUseHandler — Agentic Loop", () => {
           requestId: "req-001",
         }),
       );
-      // Verify AI-provided arguments are forwarded
+      // Verify AI-provided arguments are forwarded via AgenticToolContext.args
       expect(executeSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          arguments: { query: "林远", entityType: "character" },
+          args: { query: "林远", entityType: "character" },
         }),
       );
     });

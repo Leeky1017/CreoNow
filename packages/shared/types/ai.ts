@@ -8,6 +8,12 @@ export const SKILL_TOOL_USE_CHANNEL = "skill:tool-use" as const;
 
 export type AiStreamTerminal = "completed" | "cancelled" | "error";
 
+export type AiToolCall = {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+};
+
 export type SkillResultMetadata = {
   model: string;
   promptTokens: number;
@@ -39,6 +45,8 @@ export type AiStreamDoneEvent = {
   traceId: string;
   terminal: AiStreamTerminal;
   outputText: string;
+  finishReason?: "stop" | "tool_use" | null;
+  toolCalls?: AiToolCall[];
   error?: IpcError;
   result?: SkillResult;
   ts: number;

@@ -52,6 +52,7 @@ export type SkillExecutorRunArgs = {
   model: string;
   system?: string;
   context?: { projectId?: string; documentId?: string };
+  messages?: Array<{ role: string; content: string; toolCallId?: string }>;
   stream: boolean;
   ts: number;
   emitEvent: (event: AiStreamEvent) => void;
@@ -63,6 +64,8 @@ export type SkillExecutor = {
       executionId: string;
       runId: string;
       outputText?: string;
+      finishReason?: "stop" | "tool_use" | null;
+      toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
       contextPrompt?: string;
     }>
   >;
@@ -79,6 +82,8 @@ type SkillExecutorDeps = {
       executionId: string;
       runId: string;
       outputText?: string;
+      finishReason?: "stop" | "tool_use" | null;
+      toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
     }>
   >;
   assembleContext?: (args: {
