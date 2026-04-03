@@ -19,6 +19,10 @@ export interface ToolContext {
   [key: string]: unknown;
 }
 
+export interface AgenticToolContext extends ToolContext {
+  args: Record<string, unknown>;
+}
+
 export interface WritingTool {
   readonly name: string;
   readonly description: string;

@@ -475,7 +475,6 @@ export function createWritingOrchestrator(
             };
             const results = await config.toolUseHandler.executeToolBatch(parsedCalls, toolCtx);
 
-            // Check all-failed
             const summary = config.toolUseHandler.getBatchSummary(results);
             if (summary.allFailed) {
               yield makeEvent("tool-use-failed", requestId, {
@@ -486,7 +485,6 @@ export function createWritingOrchestrator(
                   retryable: false,
                 },
               });
-              break;
             }
 
             // Inject tool results into message history

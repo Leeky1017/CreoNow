@@ -69,6 +69,48 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
   );
 }
 
+function isSkillToolUseEvent(x: unknown): x is SkillToolUseEvent {
+  if (!isRecord(x)) {
+    return false;
+  }
+  if (
+    (x.type !== "tool-use-started" &&
+      x.type !== "tool-use-completed" &&
+      x.type !== "tool-use-failed") ||
+    typeof x.executionId !== "string" ||
+    typeof x.runId !== "string" ||
+    typeof x.round !== "number" ||
+    typeof x.ts !== "number"
+  ) {
+    return false;
+  }
+
+  if (x.type === "tool-use-started") {
+    return Array.isArray(x.toolNames) && x.toolNames.every((item) => typeof item === "string");
+  }
+
+  if (x.type === "tool-use-completed") {
+    return (
+      Array.isArray(x.results) &&
+      x.results.every(
+        (item) =>
+          isRecord(item) &&
+          typeof item.toolName === "string" &&
+          typeof item.success === "boolean" &&
+          typeof item.durationMs === "number",
+      ) &&
+      typeof x.hasNextRound === "boolean"
+    );
+  }
+
+  return (
+    isRecord(x.error) &&
+    typeof x.error.code === "string" &&
+    typeof x.error.message === "string" &&
+    typeof x.error.retryable === "boolean"
+  );
+}
+
 /**
  * Best-effort runtime validation for judge result push payload.
  *

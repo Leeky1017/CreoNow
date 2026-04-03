@@ -1542,6 +1542,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           projectId: request.projectId,
           documentId: request.documentId,
         },
+        ...(messages ? { messages } : {}),
         stream: true,
         ts: nowTs(),
         emitEvent: (event) => {

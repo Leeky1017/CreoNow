@@ -3,13 +3,14 @@ import { randomUUID } from "node:crypto";
 import type { IpcError, IpcErrorCode } from "@shared/types/ipc-generated";
 import type { AiStreamEvent, AiStreamTerminal } from "@shared/types/ai";
 import type { Logger } from "../../logging/logger";
+import type { ToolCallInfo } from "./streaming";
 import { resolveRuntimeGovernanceFromEnv } from "../../config/runtimeGovernance";
 import {
   createSkillScheduler,
   type SkillSchedulerTerminal,
 } from "../skills/skillScheduler";
 import { startFakeAiServer, type FakeAiServer } from "./fakeAiServer";
-import { buildLLMMessages, type LLMMessage } from "./buildLLMMessages";
+import { buildLLMMessages } from "./buildLLMMessages";
 import {
   createChatMessageManager,
   type ChatMessageManager,
@@ -71,6 +72,11 @@ export type AiService = {
     model: string;
     system?: string;
     context?: { projectId?: string; documentId?: string };
+    messages?: Array<{
+      role: "system" | "user" | "assistant" | "tool";
+      content: string;
+      toolCallId?: string;
+    }>;
     stream: boolean;
     ts: number;
     emitEvent: (event: AiStreamEvent) => void;
@@ -82,6 +88,8 @@ export type AiService = {
       runId: string;
       traceId: string;
       outputText?: string;
+      finishReason?: "stop" | "tool_use" | null;
+      toolCalls?: ToolCallInfo[];
       degradation?: TracePersistenceDegradation;
     }>
   >;
@@ -124,6 +132,8 @@ type RunEntry = {
   outputText: string;
   pendingChunkBuffer: string;
   pendingChunkCount: number;
+  finishReason: "stop" | "tool_use" | null;
+  toolCalls: ToolCallInfo[];
   emitEvent: (event: AiStreamEvent) => void;
   /** P2: finish reason captured from the AI provider streaming response */
   finishReason?: "stop" | "tool_use";
@@ -205,6 +215,72 @@ async function parseJsonResponse(
   } catch {
     return ipcError("LLM_API_ERROR", "Non-JSON upstream response");
   }
+}
+
+function extractOpenAiFinishReason(
+  json: unknown,
+): "stop" | "tool_use" | null {
+  const obj = asObject(json);
+  const choices = obj?.choices;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return null;
+  }
+  const first = asObject(choices[0]);
+  const finishReason = first?.finish_reason;
+  if (finishReason === "stop") {
+    return "stop";
+  }
+  if (
+    finishReason === "tool_use" ||
+    finishReason === "tool_calls" ||
+    finishReason === "function_call"
+  ) {
+    return "tool_use";
+  }
+  return null;
+}
+
+function collectOpenAiToolCallChunks(json: unknown): Array<{
+  index: number;
+  id?: string;
+  name?: string;
+  argumentsChunk?: string;
+}> {
+  const obj = asObject(json);
+  const choices = obj?.choices;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return [];
+  }
+  const first = asObject(choices[0]);
+  const delta = asObject(first?.delta);
+  const toolCalls = delta?.tool_calls;
+  if (!Array.isArray(toolCalls)) {
+    return [];
+  }
+
+  return toolCalls
+    .map((raw) => {
+      const row = asObject(raw);
+      const fn = asObject(row?.function);
+      const index = row?.index;
+      if (typeof index !== "number") {
+        return null;
+      }
+      return {
+        index,
+        ...(typeof row?.id === "string" ? { id: row.id } : {}),
+        ...(typeof fn?.name === "string" ? { name: fn.name } : {}),
+        ...(typeof fn?.arguments === "string"
+          ? { argumentsChunk: fn.arguments }
+          : {}),
+      };
+    })
+    .filter((item): item is {
+      index: number;
+      id?: string;
+      name?: string;
+      argumentsChunk?: string;
+    } => item !== null);
 }
 
 /**
@@ -352,7 +428,44 @@ function createAiSessionHelpers(state: AiInternalState) {
     system?: string;
     input: string;
     history: Array<{ role: "user" | "assistant"; content: string }>;
+    explicitMessages?: Array<{
+      role: "system" | "user" | "assistant" | "tool";
+      content: string;
+      toolCallId?: string;
+    }>;
   }): RuntimeMessages {
+    if (args.explicitMessages && args.explicitMessages.length > 0) {
+      const systemText = args.explicitMessages
+        .filter((message) => message.role === "system")
+        .map((message) => message.content)
+        .join("\n\n");
+      const openAiMessages = args.explicitMessages.map((message) => ({
+        role: message.role,
+        content: message.content,
+        ...(message.role === "tool" && message.toolCallId
+          ? { tool_call_id: message.toolCallId }
+          : {}),
+      }));
+      const anthropicMessages = args.explicitMessages
+        .filter((message) => message.role !== "system")
+        .map((message) => {
+          const role: "user" | "assistant" =
+            message.role === "assistant" ? "assistant" : "user";
+          return {
+            role,
+            content:
+              message.role === "tool"
+                ? `tool:${message.toolCallId ?? "unknown"}\n${message.content}`
+                : message.content,
+          };
+        });
+      return {
+        systemText,
+        openAiMessages,
+        anthropicMessages,
+      };
+    }
+
     const systemText = combineSystemText({
       systemPrompt: args.systemPrompt,
       modeHint: modeSystemHint(args.mode) ?? undefined,
@@ -363,7 +476,10 @@ function createAiSessionHelpers(state: AiInternalState) {
       history: args.history,
       currentUserMessage: args.input,
       maxTokenBudget: chatHistoryTokenBudget,
-    });
+    }).map((message) => ({
+      role: message.role,
+      content: message.content,
+    }));
     const anthropicMessages: RuntimeMessages["anthropicMessages"] = [];
     for (const message of openAiMessages) {
       if (message.role !== "user" && message.role !== "assistant") {
@@ -699,6 +815,8 @@ function createAiEmitHelpers(deps: AiServiceDeps, state: AiInternalState) {
   function resetForFullPromptReplay(entry: RunEntry): void {
     entry.seq = 0;
     entry.outputText = "";
+    entry.finishReason = null;
+    entry.toolCalls = [];
     clearChunkBuffer(entry);
   }
 
@@ -1165,10 +1283,53 @@ function createAiStreamHelpers(
 
         const delta = extractOpenAiDelta(parsed);
         if (typeof delta !== "string" || delta.length === 0) {
-          continue;
+          // continue below after finish/tool parsing
+        } else {
+          emitChunk(args.entry, delta);
         }
-
-        emitChunk(args.entry, delta);
+        for (const chunk of collectOpenAiToolCallChunks(parsed)) {
+          const existing = pendingToolCalls.get(chunk.index) ?? {
+            id: chunk.id ?? `tool-call-${chunk.index}`,
+            name: chunk.name ?? "",
+            argumentsText: "",
+          };
+          pendingToolCalls.set(chunk.index, {
+            id: chunk.id ?? existing.id,
+            name: chunk.name ?? existing.name,
+            argumentsText: `${existing.argumentsText}${chunk.argumentsChunk ?? ""}`,
+          });
+        }
+        const finishReason = extractOpenAiFinishReason(parsed);
+        if (finishReason !== null) {
+          args.entry.finishReason = finishReason;
+          if (finishReason === "tool_use") {
+            args.entry.toolCalls = [...pendingToolCalls.entries()]
+              .sort((a, b) => a[0] - b[0])
+              .flatMap(([, value]) => {
+                try {
+                  const parsedArgs = JSON.parse(value.argumentsText) as unknown;
+                  if (
+                    !parsedArgs ||
+                    typeof parsedArgs !== "object" ||
+                    Array.isArray(parsedArgs)
+                  ) {
+                    return [];
+                  }
+                  return [
+                    {
+                      id: value.id,
+                      name: value.name,
+                      arguments: parsedArgs as Record<string, unknown>,
+                    },
+                  ];
+                } catch {
+                  return [];
+                }
+              });
+          } else {
+            args.entry.toolCalls = [];
+          }
+        }
       }
     } catch (error) {
       if (args.entry.controller.signal.aborted) {
@@ -1453,6 +1614,8 @@ function createAiRunPipelineHelpers(
       runId: string;
       traceId: string;
       outputText?: string;
+      finishReason?: "stop" | "tool_use" | null;
+      toolCalls?: ToolCallInfo[];
       degradation?: TracePersistenceDegradation;
     }>
   > {
@@ -1519,6 +1682,8 @@ function createAiRunPipelineHelpers(
       }
 
       entry.outputText = res.data;
+      entry.finishReason = "stop";
+      entry.toolCalls = [];
       const completionTokens = estimateTokenCount(res.data);
       sessionTokenTotalsByKey.set(
         sessionKey,
@@ -1539,6 +1704,8 @@ function createAiRunPipelineHelpers(
           runId,
           traceId,
           outputText: res.data,
+          finishReason: entry.finishReason,
+          toolCalls: entry.toolCalls,
           ...(degradation ? { degradation } : {}),
         },
       };
@@ -1904,6 +2071,8 @@ function createAiRunSkillOp(
       outputText: "",
       pendingChunkBuffer: "",
       pendingChunkCount: 0,
+      finishReason: null,
+      toolCalls: [],
       emitEvent: args.emitEvent,
     };
     runs.set(runId, entry);
@@ -2095,6 +2264,8 @@ function createAiRunSkillOp(
                   runId: string;
                   traceId: string;
                   outputText?: string;
+                  finishReason?: "stop" | "tool_use" | null;
+                  toolCalls?: ToolCallInfo[];
                   degradation?: TracePersistenceDegradation;
                 }>,
               ),
