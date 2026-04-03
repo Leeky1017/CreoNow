@@ -121,7 +121,11 @@ export interface OrchestratorConfig {
     signal: AbortSignal;
     emitChunk: (delta: string, accumulatedTokens: number) => void;
     /** P2: updated messages for subsequent agentic loop rounds */
-    messages?: Array<{ role: string; content: string }>;
+    messages?: Array<{
+      role: "system" | "user" | "assistant" | "tool";
+      content: string;
+      toolCallId?: string;
+    }>;
   }) => Promise<{
     fullText: string;
     usage: { promptTokens: number; completionTokens: number; totalTokens: number };
@@ -436,7 +440,13 @@ export function createWritingOrchestrator(
         if (request.agenticLoop && config.toolUseHandler && config.generateText) {
           const AGENTIC_MAX_ROUNDS = 5;
           let agenticRound = 0;
-          let agenticMessages: Array<{ role: string; content: string }> | undefined;
+          let agenticMessages:
+            | Array<{
+                role: "system" | "user" | "assistant" | "tool";
+                content: string;
+                toolCallId?: string;
+              }>
+            | undefined;
 
           while (lastFinishReason === "tool_use" && agenticRound < AGENTIC_MAX_ROUNDS) {
             agenticRound++;
@@ -474,7 +484,6 @@ export function createWritingOrchestrator(
             };
             const results = await config.toolUseHandler.executeToolBatch(parsedCalls, toolCtx);
 
-            // Check all-failed
             const summary = config.toolUseHandler.getBatchSummary(results);
             if (summary.allFailed) {
               yield makeEvent("tool-use-failed", requestId, {
@@ -485,7 +494,6 @@ export function createWritingOrchestrator(
                   retryable: false,
                 },
               });
-              break;
             }
 
             // Inject tool results into message history
@@ -502,7 +510,11 @@ export function createWritingOrchestrator(
             agenticMessages = config.toolUseHandler.injectResults(
               msgsWithAssistant,
               results,
-            ) as Array<{ role: string; content: string }>;
+            ) as Array<{
+              role: "system" | "user" | "assistant" | "tool";
+              content: string;
+              toolCallId?: string;
+            }>;
 
             if (abortController.signal.aborted) {
               taskStates.set(requestId, "killed");

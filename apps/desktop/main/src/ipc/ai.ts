@@ -1426,13 +1426,21 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
       return prepared.data;
     },
-    generateText: async ({ request, signal, emitChunk }) => {
+    generateText: async ({ request, signal, emitChunk, messages }) => {
       let outputText = "";
       let usage = {
         promptTokens: 0,
         completionTokens: 0,
         totalTokens: 0,
       };
+      let finishReason: "stop" | "tool_use" | null = null;
+      let toolCalls:
+        | Array<{
+            id: string;
+            name: string;
+            arguments: Record<string, unknown>;
+          }>
+        | undefined;
       let sawStreamChunk = false;
       let streamTerminalSeen = false;
       let settleStreamCompletion: (() => void) | null = null;
@@ -1454,6 +1462,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           projectId: request.projectId,
           documentId: request.documentId,
         },
+        ...(messages ? { messages } : {}),
         stream: true,
         ts: nowTs(),
         emitEvent: (event) => {
@@ -1475,6 +1484,8 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
             } else {
               outputText = event.outputText;
             }
+            finishReason = event.finishReason ?? finishReason;
+            toolCalls = event.toolCalls ?? toolCalls;
             usage = {
               promptTokens: event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request)),
               completionTokens:
@@ -1519,6 +1530,8 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       return {
         fullText: outputText || res.data.outputText || "",
         usage,
+        finishReason,
+        toolCalls,
       };
     },
   });

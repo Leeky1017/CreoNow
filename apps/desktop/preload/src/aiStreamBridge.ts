@@ -4,7 +4,9 @@ import {
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
+  SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
+  type SkillToolUseEvent,
 } from "@shared/types/ai";
 import {
   JUDGE_RESULT_CHANNEL,
@@ -64,6 +66,48 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
       x.terminal === "cancelled" ||
       x.terminal === "error") &&
     typeof x.outputText === "string"
+  );
+}
+
+function isSkillToolUseEvent(x: unknown): x is SkillToolUseEvent {
+  if (!isRecord(x)) {
+    return false;
+  }
+  if (
+    (x.type !== "tool-use-started" &&
+      x.type !== "tool-use-completed" &&
+      x.type !== "tool-use-failed") ||
+    typeof x.executionId !== "string" ||
+    typeof x.runId !== "string" ||
+    typeof x.round !== "number" ||
+    typeof x.ts !== "number"
+  ) {
+    return false;
+  }
+
+  if (x.type === "tool-use-started") {
+    return Array.isArray(x.toolNames) && x.toolNames.every((item) => typeof item === "string");
+  }
+
+  if (x.type === "tool-use-completed") {
+    return (
+      Array.isArray(x.results) &&
+      x.results.every(
+        (item) =>
+          isRecord(item) &&
+          typeof item.toolName === "string" &&
+          typeof item.success === "boolean" &&
+          typeof item.durationMs === "number",
+      ) &&
+      typeof x.hasNextRound === "boolean"
+    );
+  }
+
+  return (
+    isRecord(x.error) &&
+    typeof x.error.code === "string" &&
+    typeof x.error.message === "string" &&
+    typeof x.error.retryable === "boolean"
   );
 }
 
@@ -144,6 +188,20 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
   const onSkillQueueStatus = (_evt: unknown, payload: unknown) => {
     forwardEvent(SKILL_QUEUE_STATUS_CHANNEL, payload);
   };
+  const onSkillToolUse = (_evt: unknown, payload: unknown) => {
+    if (subscriptions.count() === 0) {
+      return;
+    }
+    if (!isSkillToolUseEvent(payload)) {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<SkillToolUseEvent>(SKILL_TOOL_USE_CHANNEL, {
+        detail: payload,
+      }),
+    );
+  };
   const onJudgeResult = (_evt: unknown, payload: unknown) => {
     if (subscriptions.count() === 0) {
       return;
@@ -162,6 +220,7 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
   ipcRenderer.on(SKILL_STREAM_CHUNK_CHANNEL, onSkillStreamChunk);
   ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, onSkillStreamDone);
   ipcRenderer.on(SKILL_QUEUE_STATUS_CHANNEL, onSkillQueueStatus);
+  ipcRenderer.on(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
   ipcRenderer.on(JUDGE_RESULT_CHANNEL, onJudgeResult);
 
   return {
@@ -179,6 +238,7 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
         SKILL_QUEUE_STATUS_CHANNEL,
         onSkillQueueStatus,
       );
+      ipcRenderer.removeListener(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
       ipcRenderer.removeListener(JUDGE_RESULT_CHANNEL, onJudgeResult);
     },
   };

@@ -12,6 +12,14 @@ type WritingToolingArgs = {
   logger: Logger;
 };
 
+function readAgenticArgs(ctx: Record<string, unknown>): Record<string, unknown> {
+  const args = ctx.args;
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    return {};
+  }
+  return args as Record<string, unknown>;
+}
+
 export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistry {
   const registry = createToolRegistry();
 
@@ -219,7 +227,8 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
       description: "Query the knowledge graph for character traits, locations, and world settings",
       isConcurrencySafe: true,
       execute: async (ctx) => {
-        const query = typeof ctx["query"] === "string" ? ctx["query"] : "";
+        const toolArgs = readAgenticArgs(ctx);
+        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
         args.logger.info("agentic_tool_kg_query", { query, requestId: ctx.requestId });
         // P2 stub: KG module not yet implemented, return empty
         return {
@@ -238,7 +247,8 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
       description: "Query writing memory for style preferences and past writing patterns",
       isConcurrencySafe: true,
       execute: async (ctx) => {
-        const query = typeof ctx["query"] === "string" ? ctx["query"] : "";
+        const toolArgs = readAgenticArgs(ctx);
+        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
         args.logger.info("agentic_tool_mem_query", { query, requestId: ctx.requestId });
         // P2 stub: Memory module not yet fully implemented, return empty
         return {
@@ -256,17 +266,19 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
       description: "Read the content of a document or chapter for context",
       isConcurrencySafe: true,
       execute: async (ctx) => {
+        const toolArgs = readAgenticArgs(ctx);
         const targetDocId =
-          typeof ctx["targetDocumentId"] === "string"
-            ? ctx["targetDocumentId"]
+          typeof toolArgs.documentId === "string" && toolArgs.documentId.trim().length > 0
+            ? toolArgs.documentId.trim()
             : ctx.documentId;
         const projectId =
           typeof ctx["projectId"] === "string" ? ctx["projectId"].trim() : "";
+        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
 
         if (!projectId) {
           return {
             success: true,
-            data: { content: "", documentId: targetDocId },
+            data: { content: "", documentId: targetDocId, query },
           };
         }
 
@@ -280,7 +292,11 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
 
         return {
           success: true,
-          data: { content: result.data.contentJson, documentId: targetDocId },
+          data: {
+            content: result.data.contentText,
+            documentId: targetDocId,
+            query,
+          },
         };
       },
     }),
@@ -313,7 +329,7 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
 
         return {
           success: true,
-          data: { text: result.data.contentJson, documentId: ctx.documentId },
+          data: { text: result.data.contentText, documentId: ctx.documentId },
         };
       },
     }),

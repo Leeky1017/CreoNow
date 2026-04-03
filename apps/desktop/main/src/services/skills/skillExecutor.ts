@@ -52,6 +52,11 @@ export type SkillExecutorRunArgs = {
   model: string;
   system?: string;
   context?: { projectId?: string; documentId?: string };
+  messages?: Array<{
+    role: "system" | "user" | "assistant" | "tool";
+    content: string;
+    toolCallId?: string;
+  }>;
   stream: boolean;
   ts: number;
   emitEvent: (event: AiStreamEvent) => void;
@@ -64,6 +69,12 @@ export type SkillExecutor = {
       runId: string;
       outputText?: string;
       contextPrompt?: string;
+      finishReason?: "stop" | "tool_use" | null;
+      toolCalls?: Array<{
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+      }>;
     }>
   >;
 };
@@ -79,6 +90,12 @@ type SkillExecutorDeps = {
       executionId: string;
       runId: string;
       outputText?: string;
+      finishReason?: "stop" | "tool_use" | null;
+      toolCalls?: Array<{
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+      }>;
     }>
   >;
   assembleContext?: (args: {
@@ -626,29 +643,31 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
       });
 
       let contextPrompt: string | undefined;
-      const contextAssemblyExecutionId = `${effectiveSkillId}:${args.ts}`;
-      try {
-        const assembled = await assembleContextPrompt({
-          assembleContext: deps.assembleContext,
-          run: { ...args, skillId: effectiveSkillId },
-          additionalInput: inputForPrompt,
-          inputType: resolved.data.inputType ?? "selection",
-        });
-        const normalizedContextPrompt = assembled
-          ? normalizeAssembledContextPrompt({
-              prompt: assembled.prompt,
-              inputType: resolved.data.inputType,
-            })
-          : undefined;
-        if (normalizedContextPrompt !== undefined) {
-          contextPrompt = normalizedContextPrompt;
+      if (!args.messages) {
+        const contextAssemblyExecutionId = `${effectiveSkillId}:${args.ts}`;
+        try {
+          const assembled = await assembleContextPrompt({
+            assembleContext: deps.assembleContext,
+            run: { ...args, skillId: effectiveSkillId },
+            additionalInput: inputForPrompt,
+            inputType: resolved.data.inputType ?? "selection",
+          });
+          const normalizedContextPrompt = assembled
+            ? normalizeAssembledContextPrompt({
+                prompt: assembled.prompt,
+                inputType: resolved.data.inputType,
+              })
+            : undefined;
+          if (normalizedContextPrompt !== undefined) {
+            contextPrompt = normalizedContextPrompt;
+          }
+        } catch (error) {
+          deps.logger?.warn("context_assembly_degraded", {
+            executionId: contextAssemblyExecutionId,
+            skillId: effectiveSkillId,
+            error: normalizeErrorMessage(error),
+          });
         }
-      } catch (error) {
-        deps.logger?.warn("context_assembly_degraded", {
-          executionId: contextAssemblyExecutionId,
-          skillId: effectiveSkillId,
-          error: normalizeErrorMessage(error),
-        });
       }
 
       const validationInputText = resolveValidationInputText({
@@ -657,22 +676,36 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
         contextPrompt,
       });
 
-      const runArgs: SkillExecutorRunArgs = {
-        ...args,
-        skillId: effectiveSkillId,
-        systemPrompt,
-        input: userPrompt,
-        timeoutMs: resolved.data.timeoutMs,
-        ...(contextPrompt ? { system: contextPrompt } : {}),
-        emitEvent: args.stream
-          ? createValidatedStreamEmitter({
-              emitEvent: args.emitEvent,
-              skillId: effectiveSkillId,
-              inputText: validationInputText,
-              output: resolved.data.output,
-            })
-          : args.emitEvent,
-      };
+      const runArgs: SkillExecutorRunArgs = args.messages
+        ? {
+            ...args,
+            skillId: effectiveSkillId,
+            timeoutMs: resolved.data.timeoutMs,
+            emitEvent: args.stream
+              ? createValidatedStreamEmitter({
+                  emitEvent: args.emitEvent,
+                  skillId: effectiveSkillId,
+                  inputText: validationInputText,
+                  output: resolved.data.output,
+                })
+              : args.emitEvent,
+          }
+        : {
+            ...args,
+            skillId: effectiveSkillId,
+            systemPrompt,
+            input: userPrompt,
+            timeoutMs: resolved.data.timeoutMs,
+            ...(contextPrompt ? { system: contextPrompt } : {}),
+            emitEvent: args.stream
+              ? createValidatedStreamEmitter({
+                  emitEvent: args.emitEvent,
+                  skillId: effectiveSkillId,
+                  inputText: validationInputText,
+                  output: resolved.data.output,
+                })
+              : args.emitEvent,
+          };
 
       const run = await deps.runSkill(runArgs);
 

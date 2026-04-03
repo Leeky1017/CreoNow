@@ -41,6 +41,12 @@ export type AiStreamDoneEvent = {
   outputText: string;
   error?: IpcError;
   result?: SkillResult;
+  finishReason?: "stop" | "tool_use" | null;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+  }>;
   ts: number;
 };
 

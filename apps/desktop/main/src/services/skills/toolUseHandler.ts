@@ -7,7 +7,12 @@
  */
 
 import type { ToolCallInfo } from "../ai/streaming";
-import type { ToolRegistry, ToolContext, WritingTool } from "./toolRegistry";
+import type {
+  AgenticToolContext,
+  ToolRegistry,
+  ToolContext,
+  WritingTool,
+} from "./toolRegistry";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -312,9 +317,9 @@ export function createToolUseHandler(
       if (safeCalls.length > 0) {
         const tasks = safeCalls.map(({ idx, call }) => async () => {
           const tool = registry.get(call.toolName)!;
-          const agenticCtx: ToolContext = {
+          const agenticCtx: AgenticToolContext = {
             ...context,
-            arguments: call.arguments,
+            args: call.arguments,
           };
           const startTime = Date.now();
           const result = await executeWithTimeout(
@@ -340,9 +345,9 @@ export function createToolUseHandler(
       // Execute unsafe tools serially
       for (const { idx, call } of unsafeCalls) {
         const tool = registry.get(call.toolName)!;
-        const agenticCtx: ToolContext = {
+        const agenticCtx: AgenticToolContext = {
           ...context,
-          arguments: call.arguments,
+          args: call.arguments,
         };
         const startTime = Date.now();
         const result = await executeWithTimeout(
