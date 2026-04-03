@@ -191,7 +191,7 @@ describe("ai:skill:run cursor propagation regression", () => {
     vi.restoreAllMocks();
   });
 
-  it("builtin:continue 显式 cursorPosition 会同时透传给 prepareRequest 与 skillExecutor 的 context assembly", async () => {
+  it("builtin:continue 显式 cursorPosition 会透传给 context assembly", async () => {
     const harness = createHarness();
     opened.push(harness.db);
     const { projectId, documentId } = createProjectAndDocument({
@@ -216,23 +216,11 @@ describe("ai:skill:run cursor propagation regression", () => {
 
     expect(run.ok).toBe(true);
     expect(run.data?.status).toBe("preview");
-    expect(assembleSpy).toHaveBeenCalledTimes(2);
+    expect(assembleSpy).toHaveBeenCalledTimes(1);
     expect(assembleSpy.mock.calls.map(([request]) => request.cursorPosition)).toEqual([
-      3,
       3,
     ]);
     expect(assembleSpy.mock.calls).toEqual([
-      [
-        expect.objectContaining({
-          projectId,
-          documentId,
-          cursorPosition: 3,
-          skillId: "builtin:continue",
-          additionalInput: "甲乙丙丁",
-          provider: "ai-service",
-          model: "gpt-5.2",
-        }),
-      ],
       [
         expect.objectContaining({
           projectId,
@@ -270,8 +258,7 @@ describe("ai:skill:run cursor propagation regression", () => {
     });
 
     // PM pos 3 in single-para doc "甲乙丙丁" → text offset 2 (after 乙)
-    // Both calls (prepareRequest + skillExecutor) must receive textOffset=2
-    expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([2, 2]);
+    expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([2]);
   });
 
   it("builtin:continue 保留 leading whitespace 的 anchor：PM pos 4 → textOffset 3", async () => {
@@ -293,7 +280,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       stream: false,
     });
 
-    expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([3, 3]);
+    expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([3]);
   });
 
   it("builtin:continue 跨段落时会把 deriveContent 的换行计入 textOffset", async () => {
@@ -329,7 +316,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       stream: false,
     });
 
-    expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([3, 3]);
+    expect(assembleSpy.mock.calls.map(([request]) => request.textOffset)).toEqual([3]);
   });
 
   // RED→GREEN regression: Audit-B BLOCKING FINDING — selection skills (polish/rewrite) must
@@ -390,9 +377,9 @@ describe("ai:skill:run cursor propagation regression", () => {
   });
 
   // RED TEST: P1 input-bridge blocker — when the IPC payload carries an explicit
-  // `precedingText` field (document-window semantic), both assemble() calls must
+  // `precedingText` field (document-window semantic), assemble() must
   // receive that text as additionalInput instead of falling back to an empty string.
-  it("builtin:continue precedingText 通过 IPC payload 传入时，两路 assemble 均收到 precedingText 作为 additionalInput", async () => {
+  it("builtin:continue precedingText 通过 IPC payload 传入时，assemble 收到 precedingText 作为 additionalInput", async () => {
     const harness = createHarness();
     opened.push(harness.db);
     const { projectId, documentId } = createProjectAndDocument({
@@ -412,13 +399,9 @@ describe("ai:skill:run cursor propagation regression", () => {
       stream: false,
     });
 
-    // Both prepareRequest and generateText/skillExecutor assemble calls must use precedingText
-    expect(assembleSpy).toHaveBeenCalledTimes(2);
+    expect(assembleSpy).toHaveBeenCalledTimes(1);
     const additionalInputs = assembleSpy.mock.calls.map((args: unknown[]) => (args[0] as { additionalInput: unknown }).additionalInput);
-    expect(additionalInputs).toEqual([
-      "夜幕降临，街灯次第亮起。",
-      "夜幕降临，街灯次第亮起。",
-    ]);
+    expect(additionalInputs).toEqual(["夜幕降临，街灯次第亮起。"]);
   });
 
   // RED TEST: selection skills must NOT pick up precedingText — their input stays in `input`.
@@ -449,15 +432,15 @@ describe("ai:skill:run cursor propagation regression", () => {
     });
 
     // Selection skill: additionalInput must come from `input`, not `precedingText`
-    expect(assembleSpy).toHaveBeenCalledTimes(2);
+    expect(assembleSpy).toHaveBeenCalledTimes(1);
     const additionalInputs = assembleSpy.mock.calls.map((args: unknown[]) => (args[0] as { additionalInput: unknown }).additionalInput);
     expect(additionalInputs.every((ai: unknown) => ai === selectionText)).toBe(true);
   });
 
   // RED TEST: WritingRequest.input.precedingText bridge — when the orchestrator is given
-  // a WritingRequest that already carries precedingText (and no selectedText), the
-  // prepareRequest and generateText callbacks must not discard it by returning "".
-  it("builtin:continue IPC payload precedingText 非空、input 为空时 assembleContext 不得收到空 additionalInput", async () => {
+   // a WritingRequest that already carries precedingText (and no selectedText), the
+   // prepareRequest callback must not discard it by returning "".
+   it("builtin:continue IPC payload precedingText 非空、input 为空时 assembleContext 不得收到空 additionalInput", async () => {
     const harness = createHarness();
     opened.push(harness.db);
     const { projectId, documentId } = createProjectAndDocument({
@@ -477,8 +460,7 @@ describe("ai:skill:run cursor propagation regression", () => {
       stream: false,
     });
 
-    expect(assembleSpy).toHaveBeenCalledTimes(2);
-    // Neither call may receive empty-string additionalInput when precedingText is non-empty
+    expect(assembleSpy).toHaveBeenCalledTimes(1);
     const additionalInputs = assembleSpy.mock.calls.map((args: unknown[]) => (args[0] as { additionalInput: unknown }).additionalInput);
     expect(additionalInputs.every((ai: unknown) => typeof ai === "string" && ai.length > 0)).toBe(true);
   });

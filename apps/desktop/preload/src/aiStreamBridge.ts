@@ -4,7 +4,9 @@ import {
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
+  SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
+  type AiToolUseEvent,
 } from "@shared/types/ai";
 import {
   JUDGE_RESULT_CHANNEL,
@@ -65,6 +67,40 @@ function isAiStreamEvent(x: unknown): x is AiStreamEvent {
       x.terminal === "error") &&
     typeof x.outputText === "string"
   );
+}
+
+function isAiToolUseEvent(x: unknown): x is AiToolUseEvent {
+  if (!isRecord(x)) {
+    return false;
+  }
+  if (
+    (x.type !== "tool-use-started"
+      && x.type !== "tool-use-completed"
+      && x.type !== "tool-use-failed")
+    || typeof x.executionId !== "string"
+    || typeof x.runId !== "string"
+    || typeof x.traceId !== "string"
+    || typeof x.round !== "number"
+    || typeof x.ts !== "number"
+  ) {
+    return false;
+  }
+
+  if (x.type === "tool-use-started") {
+    return Array.isArray(x.toolNames) && x.toolNames.every((item) => typeof item === "string");
+  }
+  if (x.type === "tool-use-completed") {
+    return (
+      Array.isArray(x.results)
+      && x.results.every((item) =>
+        isRecord(item)
+        && typeof item.toolName === "string"
+        && typeof item.success === "boolean"
+        && typeof item.durationMs === "number")
+      && typeof x.hasNextRound === "boolean"
+    );
+  }
+  return isRecord(x.error) && typeof x.error.code === "string" && typeof x.error.message === "string";
 }
 
 /**
@@ -135,6 +171,22 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
     );
   }
 
+  function forwardToolUseEvent(channel: string, payload: unknown): void {
+    if (subscriptions.count() === 0) {
+      return;
+    }
+
+    if (!isAiToolUseEvent(payload)) {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<AiToolUseEvent>(channel, {
+        detail: payload,
+      }),
+    );
+  }
+
   const onSkillStreamChunk = (_evt: unknown, payload: unknown) => {
     forwardEvent(SKILL_STREAM_CHUNK_CHANNEL, payload);
   };
@@ -143,6 +195,9 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
   };
   const onSkillQueueStatus = (_evt: unknown, payload: unknown) => {
     forwardEvent(SKILL_QUEUE_STATUS_CHANNEL, payload);
+  };
+  const onSkillToolUse = (_evt: unknown, payload: unknown) => {
+    forwardToolUseEvent(SKILL_TOOL_USE_CHANNEL, payload);
   };
   const onJudgeResult = (_evt: unknown, payload: unknown) => {
     if (subscriptions.count() === 0) {
@@ -162,6 +217,7 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
   ipcRenderer.on(SKILL_STREAM_CHUNK_CHANNEL, onSkillStreamChunk);
   ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, onSkillStreamDone);
   ipcRenderer.on(SKILL_QUEUE_STATUS_CHANNEL, onSkillQueueStatus);
+  ipcRenderer.on(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
   ipcRenderer.on(JUDGE_RESULT_CHANNEL, onJudgeResult);
 
   return {
@@ -179,6 +235,7 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
         SKILL_QUEUE_STATUS_CHANNEL,
         onSkillQueueStatus,
       );
+      ipcRenderer.removeListener(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
       ipcRenderer.removeListener(JUDGE_RESULT_CHANNEL, onJudgeResult);
     },
   };

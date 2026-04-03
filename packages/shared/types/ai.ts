@@ -3,6 +3,7 @@ import type { IpcError } from "./ipc-generated";
 export const SKILL_STREAM_CHUNK_CHANNEL = "skill:stream:chunk" as const;
 export const SKILL_STREAM_DONE_CHANNEL = "skill:stream:done" as const;
 export const SKILL_QUEUE_STATUS_CHANNEL = "skill:queue:status" as const;
+export const SKILL_TOOL_USE_CHANNEL = "skill:tool-use" as const;
 
 export type AiStreamTerminal = "completed" | "cancelled" | "error";
 
@@ -60,7 +61,47 @@ export type AiQueueStatusEvent = {
   ts: number;
 };
 
+export type AiToolUseStartedEvent = {
+  type: "tool-use-started";
+  executionId: string;
+  runId: string;
+  traceId: string;
+  round: number;
+  toolNames: string[];
+  ts: number;
+};
+
+export type AiToolUseCompletedEvent = {
+  type: "tool-use-completed";
+  executionId: string;
+  runId: string;
+  traceId: string;
+  round: number;
+  results: Array<{
+    toolName: string;
+    success: boolean;
+    durationMs: number;
+  }>;
+  hasNextRound: boolean;
+  ts: number;
+};
+
+export type AiToolUseFailedEvent = {
+  type: "tool-use-failed";
+  executionId: string;
+  runId: string;
+  traceId: string;
+  round: number;
+  error: IpcError;
+  ts: number;
+};
+
 export type AiStreamEvent =
   | AiStreamChunkEvent
   | AiStreamDoneEvent
   | AiQueueStatusEvent;
+
+export type AiToolUseEvent =
+  | AiToolUseStartedEvent
+  | AiToolUseCompletedEvent
+  | AiToolUseFailedEvent;

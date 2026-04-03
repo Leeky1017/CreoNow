@@ -68,6 +68,85 @@ function createMockAIService() {
   };
 }
 
+function createMockToolUseAIService(rounds: Array<{
+  chunks?: Array<{ delta: string; finishReason: "stop" | "tool_use" | null; accumulatedTokens: number }>;
+  result: {
+    content: string;
+    finishReason: "stop" | "tool_use";
+    toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
+    messages?: Array<{
+      role: "system" | "user" | "assistant" | "tool";
+      content: string;
+      toolCallId?: string;
+      toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
+    }>;
+  };
+}>) {
+  let round = 0;
+  return {
+    streamChat: vi.fn().mockImplementation(
+      (
+        messages: Array<{
+          role: "system" | "user" | "assistant" | "tool";
+          content: string;
+          toolCallId?: string;
+          toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
+        }>,
+        options: {
+          onComplete: (result: {
+            content: string;
+            usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+            wasRetried: boolean;
+            finishReason: "stop" | "tool_use";
+            toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
+            messages?: Array<{
+              role: "system" | "user" | "assistant" | "tool";
+              content: string;
+              toolCallId?: string;
+              toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown> }>;
+            }>;
+          }) => void;
+        },
+      ) => {
+        const currentRound = rounds[round] ?? rounds[rounds.length - 1];
+        round += 1;
+        return (async function* () {
+          for (const chunk of currentRound.chunks ?? []) {
+            yield chunk;
+          }
+          options.onComplete({
+            content: currentRound.result.content,
+            usage: {
+              promptTokens: 10,
+              completionTokens: Math.max(1, currentRound.result.content.length),
+              totalTokens: 10 + Math.max(1, currentRound.result.content.length),
+            },
+            wasRetried: false,
+            finishReason: currentRound.result.finishReason,
+            ...(currentRound.result.toolCalls
+              ? { toolCalls: currentRound.result.toolCalls }
+              : {}),
+            messages:
+              currentRound.result.messages
+              ?? [
+                ...messages,
+                {
+                  role: "assistant",
+                  content: currentRound.result.content,
+                  ...(currentRound.result.toolCalls
+                    ? { toolCalls: currentRound.result.toolCalls }
+                    : {}),
+                },
+              ],
+          });
+        })();
+      },
+    ),
+    estimateTokens: vi.fn().mockReturnValue(10),
+    abort: vi.fn(),
+  };
+}
+
 /** Create mock PermissionGate */
 function createMockPermissionGate(autoGrant = true) {
   return {
@@ -118,6 +197,7 @@ function buildConfig(
   overrides: Partial<OrchestratorConfig> = {},
 ): OrchestratorConfig {
   const toolRegistry = createToolRegistry();
+  const agenticToolRegistry = createToolRegistry();
   // Register V1 built-in tools
   toolRegistry.register({
     name: "documentRead",
@@ -137,10 +217,17 @@ function buildConfig(
     isConcurrencySafe: false,
     execute: vi.fn().mockResolvedValue({ success: true, data: { versionId: "snap-prewrite-001" } }),
   });
+  agenticToolRegistry.register({
+    name: "documentRead",
+    description: "Read document text",
+    isConcurrencySafe: true,
+    execute: vi.fn().mockResolvedValue({ success: true, data: { content: "最新稿件" } }),
+  });
 
   return {
     aiService: createMockAIService(),
     toolRegistry,
+    agenticToolRegistry,
     permissionGate: createMockPermissionGate(),
     postWritingHooks: [createMockHook("auto-save-version")],
     defaultTimeoutMs: 30_000,
@@ -342,6 +429,267 @@ describe("WritingOrchestrator", () => {
         "文字。",
       ]);
       expect(eventTypes(events)).toContain("ai-done");
+      orch.dispose();
+    });
+  });
+
+  describe("Agentic Loop — P2 tool-use", () => {
+    it("continue 遇到 tool_use → 执行只读工具 → 注入结果 → 第二轮完成", async () => {
+      const aiService = createMockToolUseAIService([
+        {
+          chunks: [
+            { delta: "我先查设定。", finishReason: null, accumulatedTokens: 4 },
+          ],
+          result: {
+            content: "我先查设定。",
+            finishReason: "tool_use",
+            toolCalls: [
+              {
+                id: "call-read-1",
+                name: "documentRead",
+                arguments: { scope: "cursor" },
+              },
+            ],
+          },
+        },
+        {
+          chunks: [
+            { delta: "最终续写。", finishReason: "stop", accumulatedTokens: 5 },
+          ],
+          result: {
+            content: "最终续写。",
+            finishReason: "stop",
+          },
+        },
+      ]);
+      const cfg = buildConfig({ aiService });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(
+        orch.execute(
+          makeRequest({
+            skillId: "continue",
+            selection: undefined,
+            cursorPosition: 4,
+            input: { selectedText: "甲乙丙丁", precedingText: "甲乙丙丁" },
+          }),
+        ),
+      );
+
+      expect(eventTypes(events)).toContain("tool-use-started");
+      expect(eventTypes(events)).toContain("tool-use-completed");
+      expect(aiService.streamChat).toHaveBeenCalledTimes(2);
+      const firstCallOptions = aiService.streamChat.mock.calls[0]?.[1] as
+        | {
+            tools?: Array<{ name: string }>;
+          }
+        | undefined;
+      expect(firstCallOptions?.tools?.map((tool) => tool.name)).toContain(
+        "documentRead",
+      );
+      expect(firstCallOptions?.tools?.map((tool) => tool.name)).not.toContain(
+        "documentWrite",
+      );
+
+      const secondCallMessages = aiService.streamChat.mock.calls[1]?.[0] as
+        | Array<{ role: string; toolCallId?: string; content: string }>
+        | undefined;
+      expect(secondCallMessages?.some((message) => message.role === "tool")).toBe(
+        true,
+      );
+      expect(
+        secondCallMessages?.some(
+          (message) =>
+            message.role === "tool" && message.toolCallId === "call-read-1",
+        ),
+      ).toBe(true);
+
+      const readTool = cfg.agenticToolRegistry?.get("documentRead") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      expect(readTool?.execute).toHaveBeenCalledTimes(1);
+
+      const doneEvent = events.find((event) => event.type === "ai-done") as
+        | (WritingEvent & { type: "ai-done" })
+        | undefined;
+      expect(doneEvent?.fullText).toBe("最终续写。");
+
+      orch.dispose();
+    });
+
+    it("continue 请求未知只读工具时 → tool-use-failed(all-failed) → 使用本轮 partial 进入 ai-done", async () => {
+      const aiService = createMockToolUseAIService([
+        {
+          chunks: [
+            { delta: "先查工具。", finishReason: null, accumulatedTokens: 4 },
+          ],
+          result: {
+            content: "先查工具。",
+            finishReason: "tool_use",
+            toolCalls: [
+              {
+                id: "call-unknown-1",
+                name: "unknownTool",
+                arguments: {},
+              },
+            ],
+          },
+        },
+      ]);
+      const cfg = buildConfig({
+        aiService,
+        permissionGate: createMockPermissionGate(false),
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(
+        orch.execute(
+          makeRequest({
+            skillId: "continue",
+            selection: undefined,
+            cursorPosition: 4,
+            input: { selectedText: "甲乙丙丁", precedingText: "甲乙丙丁" },
+          }),
+        ),
+      );
+
+      expect(eventTypes(events)).toContain("tool-use-started");
+      expect(eventTypes(events)).not.toContain("tool-use-completed");
+      expect(eventTypes(events)).toContain("tool-use-failed");
+      expect(aiService.streamChat).toHaveBeenCalledTimes(1);
+
+      const failedEvent = events.find(
+        (event) => event.type === "tool-use-failed",
+      ) as (WritingEvent & { type: "tool-use-failed" }) | undefined;
+      expect(
+        (failedEvent as unknown as { error: { code: string } }).error.code,
+      ).toBe("TOOL_USE_ALL_FAILED");
+
+      const doneEvent = events.find((event) => event.type === "ai-done") as
+        | (WritingEvent & { type: "ai-done" })
+        | undefined;
+      expect(doneEvent?.fullText).toBe("先查工具。");
+
+      orch.dispose();
+    });
+
+    it("tool-use 超过最大轮次时熔断，并使用最后一轮 partial 进入 ai-done", async () => {
+      const aiService = createMockToolUseAIService([
+        {
+          result: {
+            content: "第一轮查询。",
+            finishReason: "tool_use",
+            toolCalls: [
+              {
+                id: "call-read-1",
+                name: "documentRead",
+                arguments: { scope: "cursor" },
+              },
+            ],
+          },
+        },
+        {
+          result: {
+            content: "第二轮仍想查。",
+            finishReason: "tool_use",
+            toolCalls: [
+              {
+                id: "call-read-2",
+                name: "documentRead",
+                arguments: { scope: "cursor" },
+              },
+            ],
+          },
+        },
+      ]);
+      const cfg = buildConfig({
+        aiService,
+        permissionGate: createMockPermissionGate(false),
+        resolveToolUseConfig: () => ({
+          maxToolRounds: 1,
+          toolTimeoutMs: 10_000,
+          maxConcurrentTools: 4,
+          agenticLoop: true,
+        }),
+      });
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(
+        orch.execute(
+          makeRequest({
+            skillId: "continue",
+            selection: undefined,
+            cursorPosition: 4,
+            input: { selectedText: "甲乙丙丁", precedingText: "甲乙丙丁" },
+          }),
+        ),
+      );
+
+      expect(aiService.streamChat).toHaveBeenCalledTimes(2);
+      const failedEvent = events.find(
+        (event) => event.type === "tool-use-failed",
+      ) as (WritingEvent & { type: "tool-use-failed" }) | undefined;
+      expect(
+        (failedEvent as unknown as { error: { code: string } }).error.code,
+      ).toBe("TOOL_USE_MAX_ROUNDS_EXCEEDED");
+
+      const doneEvent = events.find((event) => event.type === "ai-done") as
+        | (WritingEvent & { type: "ai-done" })
+        | undefined;
+      expect(doneEvent?.fullText).toBe("第二轮仍想查。");
+
+      const readTool = cfg.agenticToolRegistry?.get("documentRead") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      expect(readTool?.execute).toHaveBeenCalledTimes(1);
+
+      orch.dispose();
+    });
+
+    it("AI 试图调用 documentWrite 时只读边界生效，不会把写工具暴露给 agentic loop", async () => {
+      const aiService = createMockToolUseAIService([
+        {
+          result: {
+            content: "我想直接改文档。",
+            finishReason: "tool_use",
+            toolCalls: [
+              {
+                id: "call-write-1",
+                name: "documentWrite",
+                arguments: { content: "hack" },
+              },
+            ],
+          },
+        },
+      ]);
+      const cfg = buildConfig({
+        aiService,
+        permissionGate: createMockPermissionGate(false),
+      });
+      const writeTool = cfg.toolRegistry.get("documentWrite") as
+        | { execute: ReturnType<typeof vi.fn> }
+        | undefined;
+      const orch = createWritingOrchestrator(cfg);
+
+      const events = await collectEvents(
+        orch.execute(
+          makeRequest({
+            skillId: "continue",
+            selection: undefined,
+            cursorPosition: 4,
+            input: { selectedText: "甲乙丙丁", precedingText: "甲乙丙丁" },
+          }),
+        ),
+      );
+
+      const failedEvent = events.find(
+        (event) => event.type === "tool-use-failed",
+      ) as (WritingEvent & { type: "tool-use-failed" }) | undefined;
+      expect(
+        (failedEvent as unknown as { error: { code: string } }).error.code,
+      ).toBe("TOOL_USE_ALL_FAILED");
+      expect(writeTool?.execute).not.toHaveBeenCalled();
+
       orch.dispose();
     });
   });

@@ -18,11 +18,30 @@ export interface ToolCallInfo {
   arguments: Record<string, unknown>;
 }
 
+export interface ChatMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  toolCallId?: string;
+  toolCalls?: ToolCallInfo[];
+}
+
+export interface ChatToolDefinition {
+  name: string;
+  description: string;
+  inputSchema?: Record<string, unknown>;
+}
+
 export interface StreamResult {
   content: string;
-  usage: { promptTokens: number; completionTokens: number };
+  usage: {
+    promptTokens: number;
+    completionTokens: number;
+    totalTokens: number;
+  };
   wasRetried: boolean;
+  finishReason?: "stop" | "tool_use" | null;
   toolCalls?: ToolCallInfo[];
+  messages?: ChatMessage[];
 }
 
 export interface StreamError {
@@ -34,13 +53,10 @@ export interface StreamError {
 
 export interface StreamOptions {
   signal?: AbortSignal;
+  modelId?: string;
+  tools?: ChatToolDefinition[];
   onComplete: (result: StreamResult) => void;
   onError: (error: StreamError) => void;
-}
-
-interface ChatMessage {
-  role: string;
-  content: string;
 }
 
 interface LLMProxy {
@@ -160,8 +176,14 @@ export function createStreamingService(
             usage: {
               promptTokens,
               completionTokens: lastTokens,
+              totalTokens: promptTokens + lastTokens,
             },
             wasRetried,
+            finishReason: "stop",
+            messages: [
+              ...messages,
+              { role: "assistant", content: accumulatedContent },
+            ],
           });
           return;
         } catch (err: unknown) {

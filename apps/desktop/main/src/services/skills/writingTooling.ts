@@ -12,6 +12,48 @@ type WritingToolingArgs = {
   logger: Logger;
 };
 
+function readDocument(args: WritingToolingArgs, ctx: Record<string, unknown>) {
+  const projectId =
+    typeof ctx.projectId === "string" ? ctx.projectId.trim() : "";
+  if (projectId.length === 0) {
+    return {
+      success: false as const,
+      error: { code: "DOCUMENT_READ_FAILED", message: "projectId is required" },
+    };
+  }
+
+  const service = createDocumentService({ db: args.db, logger: args.logger });
+  const current = service.read({
+    projectId,
+    documentId: String(ctx.documentId ?? ""),
+  });
+  if (!current.ok) {
+    return {
+      success: false as const,
+      error: {
+        code: current.error.code,
+        message: current.error.message,
+        details: current.error.details,
+        retryable: current.error.retryable,
+      },
+    };
+  }
+
+  return {
+    success: true as const,
+    data: {
+      projectId,
+      documentId: String(ctx.documentId ?? ""),
+      title: current.data.title,
+      content: current.data.contentText,
+      contentJson: current.data.contentJson,
+      cursorPosition:
+        typeof ctx.cursorPosition === "number" ? ctx.cursorPosition : null,
+      selection: ctx.selection ?? null,
+    },
+  };
+}
+
 export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistry {
   const registry = createToolRegistry();
 
@@ -189,6 +231,75 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
           },
         };
       },
+    }),
+  );
+
+  return registry;
+}
+
+export function createAgenticToolRegistry(
+  args: WritingToolingArgs,
+): ToolRegistry {
+  const registry = createToolRegistry();
+
+  const buildReadDocumentTool = (name: string, description: string) =>
+    buildTool({
+      name,
+      description,
+      isConcurrencySafe: true,
+      execute: async (ctx) => readDocument(args, ctx),
+    });
+
+  registry.register(
+    buildReadDocumentTool(
+      "documentRead",
+      "Read current document content for agentic reasoning",
+    ),
+  );
+  registry.register(
+    buildReadDocumentTool(
+      "docTool",
+      "Read current document context for agentic reasoning",
+    ),
+  );
+
+  registry.register(
+    buildTool({
+      name: "kgTool",
+      description: "Read-only knowledge graph lookup",
+      isConcurrencySafe: true,
+      execute: async (ctx) => ({
+        success: true,
+        data: {
+          query:
+            typeof ctx.arguments === "object" &&
+            ctx.arguments !== null &&
+            typeof (ctx.arguments as Record<string, unknown>).query === "string"
+              ? (ctx.arguments as Record<string, unknown>).query
+              : "",
+          items: [],
+        },
+      }),
+    }),
+  );
+
+  registry.register(
+    buildTool({
+      name: "memTool",
+      description: "Read-only memory lookup",
+      isConcurrencySafe: true,
+      execute: async (ctx) => ({
+        success: true,
+        data: {
+          query:
+            typeof ctx.arguments === "object" &&
+            ctx.arguments !== null &&
+            typeof (ctx.arguments as Record<string, unknown>).query === "string"
+              ? (ctx.arguments as Record<string, unknown>).query
+              : "",
+          memories: [],
+        },
+      }),
     }),
   );
 

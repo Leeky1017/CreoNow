@@ -9,7 +9,17 @@
  */
 
 import type { ToolRegistry } from "./toolRegistry";
-import type { StreamChunk } from "../ai/streaming";
+import type {
+  ChatMessage,
+  ChatToolDefinition,
+  StreamChunk,
+  StreamOptions,
+  StreamResult,
+} from "../ai/streaming";
+import {
+  createToolUseHandler,
+  type ToolUseConfig,
+} from "./toolUseHandler";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -35,6 +45,9 @@ export type WritingEventType =
   | "model-selected"
   | "ai-chunk"
   | "ai-done"
+  | "tool-use-started"
+  | "tool-use-completed"
+  | "tool-use-failed"
   | "permission-requested"
   | "permission-granted"
   | "permission-denied"
@@ -54,15 +67,15 @@ type TaskState = "pending" | "running" | "paused" | "completed" | "failed" | "ki
 
 interface AIService {
   streamChat(
-    messages: Array<{ role: string; content: string }>,
-    options: { signal: AbortSignal; onComplete: (r: unknown) => void; onError: (e: unknown) => void },
+    messages: ChatMessage[],
+    options: StreamOptions,
   ): AsyncGenerator<StreamChunk>;
   estimateTokens(text: string): number;
   abort(): void;
 }
 
 interface PreparedRequest {
-  messages: Array<{ role: string; content: string }>;
+  messages: ChatMessage[];
   tokenCount: number;
   modelId: string;
 }
@@ -99,10 +112,12 @@ interface PostWritingHook {
 export interface OrchestratorConfig {
   aiService: AIService;
   toolRegistry: ToolRegistry;
+  agenticToolRegistry?: ToolRegistry;
   permissionGate: PermissionGate;
   postWritingHooks: PostWritingHook[];
   defaultTimeoutMs: number;
   prepareRequest?: (request: WritingRequest) => Promise<PreparedRequest>;
+  resolveToolUseConfig?: (request: WritingRequest) => ToolUseConfig | null;
   generateText?: (args: {
     request: WritingRequest;
     signal: AbortSignal;
@@ -154,24 +169,266 @@ export function createWritingOrchestrator(
     return { type, timestamp: Date.now(), requestId, ...extra };
   }
 
-  function makeFailureEvent(args: {
-    requestId: string;
-    code: string;
-    message: string;
-    retryable?: boolean;
+function makeFailureEvent(args: {
+  requestId: string;
+  code: string;
+  message: string;
+  retryable?: boolean;
     details?: unknown;
   }): WritingEvent {
     taskStates.set(args.requestId, "failed");
     pruneTaskStates();
-    return makeEvent("error", args.requestId, {
-      error: {
-        code: args.code,
-        message: args.message,
+  return makeEvent("error", args.requestId, {
+    error: {
+      code: args.code,
+      message: args.message,
         retryable: args.retryable ?? false,
         ...(args.details === undefined ? {} : { details: args.details }),
       },
-    });
+  });
+}
+
+function leafSkillId(skillId: string): string {
+  const parts = skillId.split(":");
+  return parts[parts.length - 1] ?? skillId;
+}
+
+function resolveDefaultToolUseConfig(
+  request: WritingRequest,
+): ToolUseConfig | null {
+  if (leafSkillId(request.skillId) !== "continue") {
+    return null;
   }
+  return {
+    maxToolRounds: 5,
+    toolTimeoutMs: 10_000,
+    maxConcurrentTools: 4,
+    agenticLoop: true,
+  };
+}
+
+function toAgenticToolDefinitions(
+  registry: ToolRegistry | undefined,
+): ChatToolDefinition[] {
+  if (!registry) {
+    return [];
+  }
+  return registry.list().map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: {
+      type: "object",
+      additionalProperties: true,
+    },
+  }));
+}
+
+function appendAssistantMessage(
+  messages: ChatMessage[],
+  result: StreamResult,
+): ChatMessage[] {
+  return [
+    ...messages,
+    {
+      role: "assistant",
+      content: result.content,
+      ...(Array.isArray(result.toolCalls) && result.toolCalls.length > 0
+        ? { toolCalls: result.toolCalls }
+        : {}),
+    },
+  ];
+}
+
+function normalizeUsage(args: {
+  result: StreamResult;
+  estimateTokens: (text: string) => number;
+  messages: ChatMessage[];
+}): {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+} {
+  const promptTokens =
+    typeof args.result.usage?.promptTokens === "number"
+      ? args.result.usage.promptTokens
+      : args.estimateTokens(args.messages.map((message) => message.content).join("\n\n"));
+  const completionTokens =
+    typeof args.result.usage?.completionTokens === "number"
+      ? args.result.usage.completionTokens
+      : args.estimateTokens(args.result.content);
+  const totalTokens =
+    typeof args.result.usage?.totalTokens === "number"
+      ? args.result.usage.totalTokens
+      : promptTokens + completionTokens;
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens,
+  };
+}
+
+async function* executeAiRound(args: {
+  config: OrchestratorConfig;
+  request: WritingRequest;
+  messages: ChatMessage[];
+  modelId: string;
+  signal: AbortSignal;
+  tools?: ChatToolDefinition[];
+}): AsyncGenerator<StreamChunk, StreamResult, void> {
+  if (args.config.generateText) {
+    const chunkQueue: Array<{
+      delta: string;
+      accumulatedTokens: number;
+    }> = [];
+    let generatedResult: GeneratedTextResult | undefined;
+    let generatedError: unknown = null;
+    let generationSettled = false;
+    let notifyChange: (() => void) | null = null;
+    const wake = () => {
+      const resolver = notifyChange;
+      notifyChange = null;
+      resolver?.();
+    };
+    const generationPromise = args.config
+      .generateText({
+        request: args.request,
+        signal: args.signal,
+        emitChunk: (delta, accumulatedTokens) => {
+          chunkQueue.push({ delta, accumulatedTokens });
+          wake();
+        },
+      })
+      .then(
+        (result) => {
+          generatedResult = result;
+          generationSettled = true;
+          wake();
+        },
+        (error: unknown) => {
+          generatedError = error;
+          generationSettled = true;
+          wake();
+        },
+      );
+
+    while (!generationSettled || chunkQueue.length > 0) {
+      if (args.signal.aborted) {
+        return {
+          content: "",
+          usage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          },
+          wasRetried: false,
+          finishReason: null,
+          messages: args.messages,
+        };
+      }
+
+      const nextChunk = chunkQueue.shift();
+      if (nextChunk) {
+        yield {
+          delta: nextChunk.delta,
+          finishReason: null,
+          accumulatedTokens: nextChunk.accumulatedTokens,
+        };
+        continue;
+      }
+
+      await new Promise<void>((resolve) => {
+        const onAbort = () => resolve();
+        notifyChange = resolve;
+        args.signal.addEventListener("abort", onAbort, { once: true });
+      });
+    }
+
+    await generationPromise;
+    if (generatedError) {
+      throw generatedError;
+    }
+    if (!generatedResult) {
+      throw new Error("generateText completed without result");
+    }
+
+    return {
+      content: generatedResult.fullText,
+      usage: generatedResult.usage,
+      wasRetried: false,
+      finishReason: "stop",
+      messages: appendAssistantMessage(args.messages, {
+        content: generatedResult.fullText,
+        usage: generatedResult.usage,
+        wasRetried: false,
+      }),
+    };
+  }
+
+  let completionResult: StreamResult | null = null;
+  let content = "";
+  let lastTokens = 0;
+  let finishReason: "stop" | "tool_use" | null = null;
+
+  const gen = args.config.aiService.streamChat(args.messages, {
+    signal: args.signal,
+    modelId: args.modelId,
+    ...(args.tools ? { tools: args.tools } : {}),
+    onComplete: (result) => {
+      completionResult = result;
+    },
+    onError: () => {},
+  });
+
+  for await (const chunk of gen) {
+    content += chunk.delta;
+    lastTokens = chunk.accumulatedTokens;
+    if (chunk.finishReason !== null) {
+      finishReason = chunk.finishReason;
+    }
+    yield chunk;
+  }
+
+  if (completionResult) {
+    const completedResult = completionResult as StreamResult;
+    return {
+      ...completedResult,
+      finishReason:
+        completedResult.finishReason
+        ?? (Array.isArray(completedResult.toolCalls) && completedResult.toolCalls.length > 0
+          ? "tool_use"
+          : finishReason ?? "stop"),
+      messages: completedResult.messages ?? appendAssistantMessage(
+        args.messages,
+        completedResult,
+      ),
+    };
+  }
+
+  const promptTokens = args.config.aiService.estimateTokens(
+    args.messages.map((message) => message.content).join("\n\n"),
+  );
+  const fallbackResult: StreamResult = {
+    content,
+    usage: {
+      promptTokens,
+      completionTokens: lastTokens,
+      totalTokens: promptTokens + lastTokens,
+    },
+    wasRetried: false,
+    finishReason: finishReason ?? "stop",
+    messages: appendAssistantMessage(args.messages, {
+      content,
+      usage: {
+        promptTokens,
+        completionTokens: lastTokens,
+        totalTokens: promptTokens + lastTokens,
+      },
+      wasRetried: false,
+      finishReason: finishReason ?? "stop",
+    }),
+  };
+  return fallbackResult;
+}
 
   return {
     execute(request: WritingRequest): AsyncGenerator<WritingEvent> {
@@ -231,7 +488,7 @@ export function createWritingOrchestrator(
                   role: "user",
                   content: request.input.selectedText ?? "",
                 },
-              ],
+              ] as ChatMessage[],
               tokenCount: config.aiService.estimateTokens(request.input.selectedText ?? ""),
               modelId: request.modelId ?? "default",
             };
@@ -253,105 +510,55 @@ export function createWritingOrchestrator(
           return;
         }
 
-         // Stage 4: AI streaming
+        // Stage 4: AI streaming + P2 tool-use loop
         let fullText = "";
-        let lastTokens = 0;
+        let conversationMessages = prepared.messages;
         let aiError: unknown = null;
+        let toolRoundCount = 0;
+        const aggregateUsage = {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        };
         const MAX_AI_RETRIES = 2;
-        let aiAttempt = 0;
-        let aiSuccess = false;
+        const toolUseConfig =
+          config.resolveToolUseConfig?.(request)
+          ?? resolveDefaultToolUseConfig(request);
+        const toolUseHandler =
+          toolUseConfig && config.agenticToolRegistry
+            ? createToolUseHandler(config.agenticToolRegistry, {
+                ...toolUseConfig,
+                agenticLoop: true,
+              })
+            : null;
+        const agenticTools =
+          toolUseHandler && config.agenticToolRegistry
+            ? toAgenticToolDefinitions(config.agenticToolRegistry)
+            : undefined;
 
-        while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
-          try {
-            fullText = "";
-            lastTokens = 0;
+        while (true) {
+          let aiAttempt = 0;
+          let aiSuccess = false;
+          let roundResult: StreamResult | null = null;
 
-            if (config.generateText) {
-              const chunkQueue: Array<{
-                delta: string;
-                accumulatedTokens: number;
-              }> = [];
-              let generatedResult: GeneratedTextResult | undefined;
-              let generatedError: unknown = null;
-              let generationSettled = false;
-              let notifyChange: (() => void) | null = null;
-              const wake = () => {
-                const resolver = notifyChange;
-                notifyChange = null;
-                resolver?.();
-              };
-              const generationPromise = config
-                .generateText({
-                  request,
-                  signal: abortController.signal,
-                  emitChunk: (delta, accumulatedTokens) => {
-                    chunkQueue.push({ delta, accumulatedTokens });
-                    wake();
-                  },
-                })
-                .then(
-                  (result) => {
-                    generatedResult = result;
-                    generationSettled = true;
-                    wake();
-                  },
-                  (error: unknown) => {
-                    generatedError = error;
-                    generationSettled = true;
-                    wake();
-                  },
-                );
+          while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
+            try {
+              const roundGen = executeAiRound({
+                config,
+                request,
+                messages: conversationMessages,
+                modelId: prepared.modelId,
+                signal: abortController.signal,
+                ...(agenticTools ? { tools: agenticTools } : {}),
+              });
 
-              while (!generationSettled || chunkQueue.length > 0) {
-                if (abortController.signal.aborted) {
-                  taskStates.set(requestId, "killed");
-                  yield makeEvent("aborted", requestId, {
-                    reason: "abort-during-ai",
-                  });
-                  return;
+              while (true) {
+                const nextChunk = await roundGen.next();
+                if (nextChunk.done) {
+                  roundResult = nextChunk.value;
+                  break;
                 }
 
-                const nextChunk = chunkQueue.shift();
-                if (nextChunk) {
-                  fullText += nextChunk.delta;
-                  lastTokens = nextChunk.accumulatedTokens;
-                  yield makeEvent("ai-chunk", requestId, {
-                    delta: nextChunk.delta,
-                    accumulatedTokens: nextChunk.accumulatedTokens,
-                  });
-                  continue;
-                }
-
-                await new Promise<void>((resolve) => {
-                  const onAbort = () => resolve();
-                  notifyChange = resolve;
-                  abortController.signal.addEventListener("abort", onAbort, {
-                    once: true,
-                  });
-                });
-              }
-
-              await generationPromise;
-              if (generatedError) {
-                throw generatedError;
-              }
-              if (!generatedResult) {
-                throw new Error("generateText completed without result");
-              }
-
-              fullText = generatedResult.fullText;
-              lastTokens = generatedResult.usage.completionTokens;
-            } else {
-              const gen = config.aiService.streamChat(
-                prepared.messages,
-                {
-                  signal: abortController.signal,
-                  onComplete: () => {},
-                  onError: () => {},
-                },
-              );
-
-              for await (const chunk of gen) {
                 if (abortController.signal.aborted) {
                   taskStates.set(requestId, "killed");
                   yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
@@ -359,55 +566,166 @@ export function createWritingOrchestrator(
                   return;
                 }
 
-                fullText += chunk.delta;
-                lastTokens = chunk.accumulatedTokens;
                 yield makeEvent("ai-chunk", requestId, {
-                  delta: chunk.delta,
-                  accumulatedTokens: chunk.accumulatedTokens,
+                  delta: nextChunk.value.delta,
+                  accumulatedTokens: nextChunk.value.accumulatedTokens,
                 });
               }
-            }
 
-            aiSuccess = true;
-          } catch (err: unknown) {
-            aiError = err;
-            const errObj = err as Record<string, unknown>;
+              aiSuccess = true;
+            } catch (err: unknown) {
+              aiError = err;
+              const errObj = err as Record<string, unknown>;
 
-            if (errObj?.kind === "non-retryable") {
+              if (errObj?.kind === "non-retryable") {
+                break;
+              }
+
+              if (errObj?.kind === "retryable") {
+                const retryCount = (errObj.retryCount as number) ?? 0;
+                if (retryCount >= MAX_AI_RETRIES) {
+                  break;
+                }
+                aiAttempt++;
+                continue;
+              }
+
               break;
             }
+          }
 
-            if (errObj?.kind === "retryable") {
-              const retryCount = (errObj.retryCount as number) ?? 0;
-              if (retryCount >= MAX_AI_RETRIES) break;
-              aiAttempt++;
-              continue;
-            }
+          if (!aiSuccess || !roundResult) {
+            taskStates.set(requestId, "failed");
+            yield makeEvent("error", requestId, {
+              error: {
+                code: "AI_SERVICE_ERROR",
+                message: String(aiError),
+                retryable: false,
+              },
+            });
+            return;
+          }
 
+          if (abortController.signal.aborted) {
+            taskStates.set(requestId, "killed");
+            yield makeEvent("aborted", requestId, { reason: "abort-during-ai" });
+            return;
+          }
+
+          const usage = normalizeUsage({
+            result: roundResult,
+            estimateTokens: config.aiService.estimateTokens,
+            messages: conversationMessages,
+          });
+          aggregateUsage.promptTokens += usage.promptTokens;
+          aggregateUsage.completionTokens += usage.completionTokens;
+          aggregateUsage.totalTokens += usage.totalTokens;
+
+          fullText = roundResult.content;
+          conversationMessages =
+            roundResult.messages ?? appendAssistantMessage(conversationMessages, roundResult);
+
+          const finishReason =
+            roundResult.finishReason
+            ?? (Array.isArray(roundResult.toolCalls) && roundResult.toolCalls.length > 0
+              ? "tool_use"
+              : "stop");
+
+          if (
+            finishReason !== "tool_use"
+            || !toolUseHandler
+            || !toolUseConfig
+            || !Array.isArray(roundResult.toolCalls)
+            || roundResult.toolCalls.length === 0
+          ) {
             break;
           }
-        }
 
-        if (!aiSuccess) {
-          taskStates.set(requestId, "failed");
-          yield makeEvent("error", requestId, {
-            error: {
-              code: "AI_SERVICE_ERROR",
-              message: String(aiError),
-              retryable: false,
-            },
+          const nextRound = toolRoundCount + 1;
+          if (nextRound > toolUseConfig.maxToolRounds) {
+            yield makeEvent("tool-use-failed", requestId, {
+              round: nextRound,
+              error: {
+                code: "TOOL_USE_MAX_ROUNDS_EXCEEDED",
+                message: `Maximum tool rounds (${toolUseConfig.maxToolRounds}) exceeded`,
+                retryable: false,
+              },
+            });
+            break;
+          }
+
+          let parsedCalls;
+          try {
+            parsedCalls = toolUseHandler.parseToolCalls(roundResult.toolCalls);
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            yield makeEvent("tool-use-failed", requestId, {
+              round: nextRound,
+              error: {
+                code: "TOOL_USE_PARSE_FAILED",
+                message,
+                retryable: false,
+              },
+            });
+            break;
+          }
+
+          yield makeEvent("tool-use-started", requestId, {
+            round: nextRound,
+            toolNames: parsedCalls.map((call) => call.toolName),
           });
-          return;
+
+          const results = await toolUseHandler.executeToolBatch(parsedCalls, {
+            documentId: request.documentId,
+            requestId,
+            ...(request.projectId ? { projectId: request.projectId } : {}),
+            ...(request.cursorPosition === undefined
+              ? {}
+              : { cursorPosition: request.cursorPosition }),
+            ...(request.selection ? { selection: request.selection } : {}),
+          });
+          toolRoundCount = nextRound;
+
+          const summary = toolUseHandler.getBatchSummary(results);
+          if (summary.allFailed) {
+            yield makeEvent("tool-use-failed", requestId, {
+              round: nextRound,
+              error: {
+                code: summary.errorCode ?? "TOOL_USE_ALL_FAILED",
+                message: "All requested tools failed or were not eligible",
+                retryable: false,
+              },
+            });
+            break;
+          }
+
+          yield makeEvent("tool-use-completed", requestId, {
+            round: nextRound,
+            results: results.map((result) => ({
+              toolName: result.toolName,
+              success: result.success,
+              durationMs: result.durationMs,
+            })),
+            hasNextRound: true,
+          });
+
+          conversationMessages = toolUseHandler.injectResults(
+            conversationMessages,
+            results,
+          );
         }
 
         // Stage 5: ai-done
         yield makeEvent("ai-done", requestId, {
           fullText,
-          usage: {
-            promptTokens: tokenCount,
-            completionTokens: lastTokens,
-            totalTokens: tokenCount + lastTokens,
-          },
+          usage: aggregateUsage.totalTokens > 0
+            ? aggregateUsage
+            : {
+                promptTokens: tokenCount,
+                completionTokens: 0,
+                totalTokens: tokenCount,
+              },
         });
 
         if (abortController.signal.aborted) {

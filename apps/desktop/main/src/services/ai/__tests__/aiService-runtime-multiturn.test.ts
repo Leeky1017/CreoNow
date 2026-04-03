@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { Logger } from "../../../logging/logger";
 import type { AiStreamDoneEvent, AiStreamEvent } from "@shared/types/ai";
 import { createAiService } from "../aiService";
+import type { StreamResult } from "../streaming";
 
 function createLogger(): Logger {
   return {
@@ -10,6 +11,132 @@ function createLogger(): Logger {
     info: () => {},
     error: () => {},
   };
+}
+
+// --- hidden streamChat passes tools and parses tool_use for OpenAI ---
+{
+  const originalFetch = globalThis.fetch;
+
+  try {
+    let requestBody: Record<string, unknown> | null = null;
+
+    globalThis.fetch = (async (_input, init) => {
+      requestBody = JSON.parse(
+        typeof init?.body === "string" ? init.body : JSON.stringify({}),
+      ) as Record<string, unknown>;
+
+      return new Response(
+        `data: ${JSON.stringify({
+          choices: [
+            {
+              delta: {
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call-read-1",
+                    function: {
+                      name: "documentRead",
+                      arguments: "{\"scope\":\"cursor\"}",
+                    },
+                  },
+                ],
+              },
+            },
+          ],
+        })}\n\n`
+          + `data: ${JSON.stringify({
+            choices: [
+              {
+                delta: { content: "查完继续。" },
+                finish_reason: "tool_calls",
+              },
+            ],
+          })}\n\n`
+          + "data: [DONE]\n\n",
+        {
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+        },
+      );
+    }) as typeof fetch;
+
+    const service = createAiService({
+      logger: createLogger(),
+      env: {
+        CREONOW_AI_PROVIDER: "openai",
+        CREONOW_AI_BASE_URL: "https://api.openai.com",
+        CREONOW_AI_API_KEY: "sk-test",
+      },
+      sleep: async () => {},
+      rateLimitPerMinute: 1_000,
+    }) as unknown as {
+      streamChat: (
+        messages: Array<{ role: "system" | "user" | "assistant" | "tool"; content: string }>,
+        options: {
+          modelId: string;
+          tools?: Array<{ name: string; description: string }>;
+          onComplete: (result: StreamResult) => void;
+          onError: (error: { message: string }) => void;
+        },
+      ) => AsyncGenerator<{ finishReason: "stop" | "tool_use" | null }>;
+    };
+
+    let completed: StreamResult | null = null;
+    const finishReasons: Array<"stop" | "tool_use" | null> = [];
+
+    await (async () => {
+      for await (const chunk of service.streamChat(
+        [
+          { role: "system", content: "你是写作助手" },
+          { role: "user", content: "继续写下去" },
+        ],
+        {
+          modelId: "gpt-5.2",
+          tools: [
+            {
+              name: "documentRead",
+              description: "Read current document",
+            },
+          ],
+          onComplete: (result) => {
+            completed = result;
+          },
+          onError: (error) => {
+            throw new Error(error.message);
+          },
+        },
+      )) {
+        finishReasons.push(chunk.finishReason);
+      }
+    })();
+
+    if (requestBody === null) {
+      throw new Error("request body should be captured");
+    }
+    if (completed === null) {
+      throw new Error("streamChat should complete with final result");
+    }
+    const sentBody = requestBody as unknown as Record<string, unknown>;
+    const result = completed as unknown as StreamResult;
+
+    assert.equal(Array.isArray(sentBody.tools), true);
+    assert.equal(
+      (sentBody.tools as Array<{ function: { name: string } }>)[0]?.function.name,
+      "documentRead",
+    );
+    assert.equal(sentBody.tool_choice, "auto");
+    assert.equal(finishReasons.includes("tool_use"), true);
+    assert.equal(result.finishReason, "tool_use");
+    assert.deepEqual(result.toolCalls, [
+      {
+        id: "call-read-1",
+        name: "documentRead",
+        arguments: { scope: "cursor" },
+      },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 }
 
 function createDoneWaiter(): {

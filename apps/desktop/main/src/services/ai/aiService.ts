@@ -47,6 +47,14 @@ import type { TraceStore } from "./traceStore";
 import { createAiWriteTransaction } from "./aiWriteTransaction";
 import { logWarn } from "../shared/degradationCounter";
 import { ipcError, type ServiceResult, type Err } from "../shared/ipcResult";
+import type {
+  ChatMessage as AiChatMessage,
+  ChatToolDefinition,
+  StreamChunk,
+  StreamOptions,
+  StreamResult,
+  ToolCallInfo,
+} from "./streaming";
 export type { ServiceResult };
 
 export { assembleSystemPrompt, GLOBAL_IDENTITY_PROMPT };
@@ -100,6 +108,27 @@ export type AiService = {
     evidenceRef: string;
     ts: number;
   }) => ServiceResult<{ recorded: true }>;
+};
+
+type StreamChatCapableAiService = AiService & {
+  streamChat?: (
+    messages: AiChatMessage[],
+    options: StreamOptions,
+  ) => AsyncGenerator<StreamChunk>;
+};
+
+type OpenAiToolCallFragment = {
+  index: number;
+  id?: string;
+  name?: string;
+  argumentsChunk?: string;
+};
+
+type AnthropicToolCallState = {
+  id?: string;
+  name?: string;
+  inputChunks: string[];
+  inputObject?: Record<string, unknown>;
 };
 
 type JsonObject = Record<string, unknown>;
@@ -183,6 +212,295 @@ async function parseJsonResponse(
   } catch {
     return ipcError("LLM_API_ERROR", "Non-JSON upstream response");
   }
+}
+
+function extractOpenAiFinishReason(
+  json: unknown,
+): "stop" | "tool_use" | null {
+  const obj = asObject(json);
+  const choices = obj ? obj.choices : null;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return null;
+  }
+  const first = asObject(choices[0]);
+  const finishReason = first?.finish_reason;
+  if (finishReason === "stop") {
+    return "stop";
+  }
+  if (finishReason === "tool_calls") {
+    return "tool_use";
+  }
+  return null;
+}
+
+function extractOpenAiToolCallFragments(
+  json: unknown,
+): OpenAiToolCallFragment[] {
+  const obj = asObject(json);
+  const choices = obj ? obj.choices : null;
+  if (!Array.isArray(choices) || choices.length === 0) {
+    return [];
+  }
+  const first = asObject(choices[0]);
+  const delta = asObject(first?.delta);
+  const toolCalls = delta?.tool_calls;
+  if (!Array.isArray(toolCalls)) {
+    return [];
+  }
+
+  const fragments: OpenAiToolCallFragment[] = [];
+  for (const rawCall of toolCalls) {
+    const call = asObject(rawCall);
+    const fn = asObject(call?.function);
+    const rawIndex = call?.index;
+    if (typeof rawIndex !== "number" || !Number.isInteger(rawIndex)) {
+      continue;
+    }
+    fragments.push({
+      index: rawIndex,
+      ...(typeof call?.id === "string" ? { id: call.id } : {}),
+      ...(typeof fn?.name === "string" ? { name: fn.name } : {}),
+      ...(typeof fn?.arguments === "string"
+        ? { argumentsChunk: fn.arguments }
+        : {}),
+    });
+  }
+  return fragments;
+}
+
+function finalizeOpenAiToolCalls(
+  fragmentsByIndex: Map<
+    number,
+    { id?: string; name?: string; argumentsChunks: string[] }
+  >,
+): ToolCallInfo[] {
+  return [...fragmentsByIndex.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([index, fragment]) => {
+      const rawArguments = fragment.argumentsChunks.join("").trim();
+      let parsedArguments: Record<string, unknown> = {};
+      if (rawArguments.length > 0) {
+        try {
+          const parsed = JSON.parse(rawArguments) as unknown;
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            parsedArguments = parsed as Record<string, unknown>;
+          } else {
+            parsedArguments = { value: parsed };
+          }
+        } catch {
+          parsedArguments = { raw: rawArguments };
+        }
+      }
+
+      return {
+        id: fragment.id ?? `tool-call-${index}`,
+        name: fragment.name ?? `tool-${index}`,
+        arguments: parsedArguments,
+      };
+    });
+}
+
+function extractAnthropicStopReason(
+  json: unknown,
+): "stop" | "tool_use" | null {
+  const obj = asObject(json);
+  const delta = asObject(obj?.delta);
+  const stopReason = delta?.stop_reason ?? obj?.stop_reason;
+  if (stopReason === "tool_use") {
+    return "tool_use";
+  }
+  if (
+    stopReason === "end_turn"
+    || stopReason === "stop_sequence"
+    || stopReason === "max_tokens"
+  ) {
+    return "stop";
+  }
+  return null;
+}
+
+function finalizeAnthropicToolCalls(
+  toolCallsByIndex: Map<number, AnthropicToolCallState>,
+): ToolCallInfo[] {
+  return [...toolCallsByIndex.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([index, state]) => {
+      const rawArguments = state.inputChunks.join("").trim();
+      let argumentsValue: Record<string, unknown> =
+        state.inputObject ?? {};
+
+      if (rawArguments.length > 0) {
+        try {
+          const parsed = JSON.parse(rawArguments) as unknown;
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            argumentsValue = parsed as Record<string, unknown>;
+          } else {
+            argumentsValue = { value: parsed };
+          }
+        } catch {
+          argumentsValue = { raw: rawArguments };
+        }
+      }
+
+      return {
+        id: state.id ?? `anthropic-tool-${index}`,
+        name: state.name ?? `tool-${index}`,
+        arguments: argumentsValue,
+      };
+    });
+}
+
+function toOpenAiMessages(messages: AiChatMessage[]): unknown[] {
+  return messages.map((message) => {
+    if (message.role === "tool") {
+      return {
+        role: "tool",
+        content: message.content,
+        ...(typeof message.toolCallId === "string"
+          ? { tool_call_id: message.toolCallId }
+          : {}),
+      };
+    }
+
+    if (
+      message.role === "assistant"
+      && Array.isArray(message.toolCalls)
+      && message.toolCalls.length > 0
+    ) {
+      return {
+        role: "assistant",
+        content: message.content,
+        tool_calls: message.toolCalls.map((toolCall) => ({
+          id: toolCall.id,
+          type: "function",
+          function: {
+            name: toolCall.name,
+            arguments: JSON.stringify(toolCall.arguments),
+          },
+        })),
+      };
+    }
+
+    return {
+      role: message.role,
+      content: message.content,
+    };
+  });
+}
+
+function toOpenAiTools(
+  tools: ChatToolDefinition[] | undefined,
+): unknown[] | undefined {
+  if (!Array.isArray(tools) || tools.length === 0) {
+    return undefined;
+  }
+  return tools.map((tool) => ({
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.inputSchema ?? {
+        type: "object",
+        additionalProperties: true,
+      },
+    },
+  }));
+}
+
+function toAnthropicRequest(
+  messages: AiChatMessage[],
+  tools: ChatToolDefinition[] | undefined,
+): {
+  systemText: string;
+  messages: Array<{
+    role: "user" | "assistant";
+    content: string | Array<Record<string, unknown>>;
+  }>;
+  tools?: Array<{
+    name: string;
+    description: string;
+    input_schema: Record<string, unknown>;
+  }>;
+} {
+  const systemParts: string[] = [];
+  const requestMessages: Array<{
+    role: "user" | "assistant";
+    content: string | Array<Record<string, unknown>>;
+  }> =
+    [];
+
+  for (const message of messages) {
+    if (message.role === "system") {
+      systemParts.push(message.content);
+      continue;
+    }
+
+    if (message.role === "assistant") {
+      if (Array.isArray(message.toolCalls) && message.toolCalls.length > 0) {
+        const contentBlocks: Array<Record<string, unknown>> = [];
+        if (message.content.length > 0) {
+          contentBlocks.push({
+            type: "text",
+            text: message.content,
+          });
+        }
+        for (const toolCall of message.toolCalls) {
+          contentBlocks.push({
+            type: "tool_use",
+            id: toolCall.id,
+            name: toolCall.name,
+            input: toolCall.arguments,
+          });
+        }
+        requestMessages.push({
+          role: "assistant",
+          content: contentBlocks,
+        });
+        continue;
+      }
+      requestMessages.push({
+        role: "assistant",
+        content: message.content,
+      });
+      continue;
+    }
+
+    if (message.role === "tool") {
+      requestMessages.push({
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: message.toolCallId ?? "unknown",
+            content: message.content,
+          },
+        ],
+      });
+      continue;
+    }
+
+    requestMessages.push({
+      role: "user",
+      content: message.content,
+    });
+  }
+
+  return {
+    systemText: systemParts.join("\n\n"),
+    messages: requestMessages,
+    ...(Array.isArray(tools) && tools.length > 0
+      ? {
+          tools: tools.map((tool) => ({
+            name: tool.name,
+            description: tool.description,
+            input_schema: tool.inputSchema ?? {
+              type: "object",
+              additionalProperties: true,
+            },
+          })),
+        }
+      : {}),
+  };
 }
 
 /**
@@ -2093,6 +2411,393 @@ function createAiMethodOps(
   return { listModels, cancel, feedback };
 }
 
+function createAiStreamChatOp(
+  deps: AiServiceDeps,
+  state: AiInternalState,
+  nonStreamHelpers: ReturnType<typeof createAiNonStreamHelpers>,
+): {
+  streamChat: (
+    messages: AiChatMessage[],
+    options: StreamOptions,
+  ) => AsyncGenerator<StreamChunk>;
+} {
+  async function* streamChat(
+    messages: AiChatMessage[],
+    options: StreamOptions,
+  ): AsyncGenerator<StreamChunk> {
+    const cfgRes = await state.providerResolver.resolveProviderConfig({
+      env: deps.env,
+      runtimeAiTimeoutMs: state.runtimeGovernance.ai.timeoutMs,
+      getFakeServer: state.getFakeServer,
+      getProxySettings: deps.getProxySettings,
+    });
+
+    if (!cfgRes.ok) {
+      const error = {
+        kind: "non-retryable" as const,
+        message: cfgRes.error.message,
+        retryCount: 0,
+      };
+      options.onError(error);
+      throw Object.assign(new Error(cfgRes.error.message), error);
+    }
+
+    const model =
+      options.modelId?.trim()
+      ?? deps.env.CREONOW_AI_MODEL?.trim()
+      ?? "";
+    const preflight = validateProviderPreflight({
+      provider: cfgRes.data.primary.provider,
+      model,
+      apiKey: cfgRes.data.primary.apiKey,
+      allowMissingApiKey: deps.env.CREONOW_E2E === "1",
+    });
+    if (!preflight.ok) {
+      const error = {
+        kind: "non-retryable" as const,
+        message: preflight.error.message,
+        retryCount: 0,
+      };
+      options.onError(error);
+      throw Object.assign(new Error(preflight.error.message), error);
+    }
+
+    const promptTokens = estimateTokenCount(
+      messages.map((message) => message.content).join("\n\n"),
+    );
+    const controller = new AbortController();
+    const abortFromOuter = () => controller.abort();
+    if (options.signal?.aborted) {
+      controller.abort();
+    } else {
+      options.signal?.addEventListener("abort", abortFromOuter, { once: true });
+    }
+
+    try {
+      const cfg = cfgRes.data.primary;
+      let content = "";
+      let finishReason: "stop" | "tool_use" | null = null;
+      let toolCalls: ToolCallInfo[] = [];
+      const anthropicToolCalls = new Map<number, AnthropicToolCallState>();
+
+      if (cfg.provider === "anthropic") {
+        const anthropicRequest = toAnthropicRequest(messages, options.tools);
+        const url = buildApiUrl({
+          baseUrl: cfg.baseUrl,
+          endpointPath: "/v1/messages",
+        });
+        const fetchRes = await nonStreamHelpers.fetchWithPolicy({
+          url,
+          init: {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "anthropic-version": "2023-06-01",
+              ...(cfg.apiKey ? { "x-api-key": cfg.apiKey } : {}),
+            },
+            body: JSON.stringify({
+              model,
+              max_tokens: DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE,
+              system: anthropicRequest.systemText,
+              messages: anthropicRequest.messages,
+              stream: true,
+              ...(anthropicRequest.tools
+                ? { tools: anthropicRequest.tools }
+                : {}),
+            }),
+            signal: controller.signal,
+          },
+        });
+        if (!fetchRes.ok) {
+          const retryable =
+            fetchRes.error.code === "LLM_API_ERROR"
+            || fetchRes.error.code === "TIMEOUT";
+          const error = {
+            kind: retryable ? ("retryable" as const) : ("non-retryable" as const),
+            message: fetchRes.error.message,
+            retryCount: 0,
+          };
+          options.onError(error);
+          throw Object.assign(new Error(fetchRes.error.message), error);
+        }
+
+        const res = fetchRes.data;
+        if (!res.ok) {
+          const mapped = await buildUpstreamHttpError({
+            res,
+            fallbackMessage: "AI upstream request failed",
+          });
+          const error = {
+            kind: mapped.code === "LLM_API_ERROR" ? ("retryable" as const) : ("non-retryable" as const),
+            message: mapped.message,
+            retryCount: 0,
+          };
+          options.onError(error);
+          throw Object.assign(new Error(mapped.message), error);
+        }
+        if (!res.body) {
+          const error = {
+            kind: "non-retryable" as const,
+            message: "Missing streaming response body",
+            retryCount: 0,
+          };
+          options.onError(error);
+          throw Object.assign(new Error(error.message), error);
+        }
+
+        for await (const msg of readSse({ body: res.body })) {
+          if (controller.signal.aborted) {
+            return;
+          }
+
+          let parsed: unknown;
+          if (msg.data.length > 0) {
+            try {
+              parsed = JSON.parse(msg.data);
+            } catch {
+              parsed = null;
+            }
+          }
+
+          if (msg.event === "content_block_start") {
+            const obj = asObject(parsed);
+            const block = asObject(obj?.content_block);
+            if (block?.type === "tool_use") {
+              const index =
+                typeof obj?.index === "number" && Number.isInteger(obj.index)
+                  ? obj.index
+                  : 0;
+              const existing = anthropicToolCalls.get(index) ?? {
+                inputChunks: [],
+              };
+              if (typeof block.id === "string") {
+                existing.id = block.id;
+              }
+              if (typeof block.name === "string") {
+                existing.name = block.name;
+              }
+              const input = block.input;
+              if (input && typeof input === "object" && !Array.isArray(input)) {
+                existing.inputObject = input as Record<string, unknown>;
+              }
+              anthropicToolCalls.set(index, existing);
+            }
+            continue;
+          }
+
+          if (msg.event === "content_block_delta") {
+            const obj = asObject(parsed);
+            const delta = asObject(obj?.delta);
+            if (delta?.type === "input_json_delta") {
+              const index =
+                typeof obj?.index === "number" && Number.isInteger(obj.index)
+                  ? obj.index
+                  : 0;
+              const existing = anthropicToolCalls.get(index) ?? {
+                inputChunks: [],
+              };
+              if (typeof delta.partial_json === "string") {
+                existing.inputChunks.push(delta.partial_json);
+              }
+              anthropicToolCalls.set(index, existing);
+              continue;
+            }
+
+            const deltaText = extractAnthropicDelta(parsed);
+            if (!deltaText) {
+              continue;
+            }
+            content += deltaText;
+            yield {
+              delta: deltaText,
+              finishReason: null,
+              accumulatedTokens: estimateTokenCount(content),
+            };
+            continue;
+          }
+
+          if (msg.event === "message_delta") {
+            const parsedFinishReason = extractAnthropicStopReason(parsed);
+            if (parsedFinishReason !== null) {
+              finishReason = parsedFinishReason;
+              yield {
+                delta: "",
+                finishReason: parsedFinishReason,
+                accumulatedTokens: estimateTokenCount(content),
+              };
+            }
+            continue;
+          }
+
+          if (msg.event === "message_stop") {
+            toolCalls = finalizeAnthropicToolCalls(anthropicToolCalls);
+            if (finishReason === null) {
+              finishReason = toolCalls.length > 0 ? "tool_use" : "stop";
+            }
+            if (toolCalls.length === 0) {
+              yield {
+                delta: "",
+                finishReason: finishReason,
+                accumulatedTokens: estimateTokenCount(content),
+              };
+            }
+            break;
+          }
+        }
+      } else {
+        const url = buildApiUrl({
+          baseUrl: cfg.baseUrl,
+          endpointPath: "/v1/chat/completions",
+        });
+        const fetchRes = await nonStreamHelpers.fetchWithPolicy({
+          url,
+          init: {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(cfg.apiKey
+                ? { Authorization: `Bearer ${cfg.apiKey}` }
+                : {}),
+            },
+            body: JSON.stringify({
+              model,
+              messages: toOpenAiMessages(messages),
+              stream: true,
+              ...(toOpenAiTools(options.tools)
+                ? {
+                    tools: toOpenAiTools(options.tools),
+                    tool_choice: "auto",
+                  }
+                : {}),
+            }),
+            signal: controller.signal,
+          },
+        });
+        if (!fetchRes.ok) {
+          const retryable =
+            fetchRes.error.code === "LLM_API_ERROR"
+            || fetchRes.error.code === "TIMEOUT";
+          const error = {
+            kind: retryable ? ("retryable" as const) : ("non-retryable" as const),
+            message: fetchRes.error.message,
+            retryCount: 0,
+          };
+          options.onError(error);
+          throw Object.assign(new Error(fetchRes.error.message), error);
+        }
+
+        const res = fetchRes.data;
+        if (!res.ok) {
+          const mapped = await buildUpstreamHttpError({
+            res,
+            fallbackMessage: "AI upstream request failed",
+          });
+          const error = {
+            kind: mapped.code === "LLM_API_ERROR" ? ("retryable" as const) : ("non-retryable" as const),
+            message: mapped.message,
+            retryCount: 0,
+          };
+          options.onError(error);
+          throw Object.assign(new Error(mapped.message), error);
+        }
+        if (!res.body) {
+          const error = {
+            kind: "non-retryable" as const,
+            message: "Missing streaming response body",
+            retryCount: 0,
+          };
+          options.onError(error);
+          throw Object.assign(new Error(error.message), error);
+        }
+
+        const toolFragments = new Map<
+          number,
+          { id?: string; name?: string; argumentsChunks: string[] }
+        >();
+
+        for await (const msg of readSse({ body: res.body })) {
+          if (controller.signal.aborted) {
+            return;
+          }
+          if (msg.data === "[DONE]") {
+            break;
+          }
+
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(msg.data);
+          } catch {
+            continue;
+          }
+
+          const delta = extractOpenAiDelta(parsed) ?? "";
+          const parsedFinishReason = extractOpenAiFinishReason(parsed);
+          if (parsedFinishReason !== null) {
+            finishReason = parsedFinishReason;
+          }
+          for (const fragment of extractOpenAiToolCallFragments(parsed)) {
+            const current = toolFragments.get(fragment.index) ?? {
+              argumentsChunks: [],
+            };
+            if (fragment.id) {
+              current.id = fragment.id;
+            }
+            if (fragment.name) {
+              current.name = fragment.name;
+            }
+            if (fragment.argumentsChunk) {
+              current.argumentsChunks.push(fragment.argumentsChunk);
+            }
+            toolFragments.set(fragment.index, current);
+          }
+
+          if (delta.length > 0) {
+            content += delta;
+          }
+
+          if (delta.length > 0 || parsedFinishReason !== null) {
+            yield {
+              delta,
+              finishReason: parsedFinishReason,
+              accumulatedTokens: estimateTokenCount(content),
+            };
+          }
+        }
+
+        toolCalls = finalizeOpenAiToolCalls(toolFragments);
+        if (finishReason === null) {
+          finishReason = toolCalls.length > 0 ? "tool_use" : "stop";
+        }
+      }
+
+      const completionTokens = estimateTokenCount(content);
+      const assistantMessage: AiChatMessage = {
+        role: "assistant",
+        content,
+        ...(toolCalls.length > 0 ? { toolCalls } : {}),
+      };
+      const resultMessages: AiChatMessage[] = [...messages, assistantMessage];
+      const result: StreamResult = {
+        content,
+        usage: {
+          promptTokens,
+          completionTokens,
+          totalTokens: promptTokens + completionTokens,
+        },
+        wasRetried: false,
+        finishReason: finishReason ?? "stop",
+        ...(toolCalls.length > 0 ? { toolCalls } : {}),
+        messages: resultMessages,
+      };
+      options.onComplete(result);
+    } finally {
+      options.signal?.removeEventListener("abort", abortFromOuter);
+    }
+  }
+
+  return { streamChat };
+}
+
 export function createAiService(deps: AiServiceDeps): AiService {
   const runtimeGovernance = resolveRuntimeGovernanceFromEnv(deps.env);
   const runs = new Map<string, RunEntry>();
@@ -2179,6 +2884,23 @@ export function createAiService(deps: AiServiceDeps): AiService {
     state,
     helpers,
   );
+  const { streamChat } = createAiStreamChatOp(
+    deps,
+    state,
+    nonStreamHelpers,
+  );
+  const service: StreamChatCapableAiService = {
+    runSkill,
+    listModels,
+    cancel,
+    feedback,
+  };
+  Object.defineProperty(service, "streamChat", {
+    value: streamChat,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
 
-  return { runSkill, listModels, cancel, feedback };
+  return service;
 }

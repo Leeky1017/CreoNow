@@ -9,7 +9,9 @@ import {
   SKILL_QUEUE_STATUS_CHANNEL,
   SKILL_STREAM_CHUNK_CHANNEL,
   SKILL_STREAM_DONE_CHANNEL,
+  SKILL_TOOL_USE_CHANNEL,
   type AiStreamEvent,
+  type AiToolUseEvent,
 } from "@shared/types/ai";
 import type { Logger } from "../logging/logger";
 import { createIpcPushBackpressureGate } from "./pushBackpressure";
@@ -28,7 +30,6 @@ import {
 } from "../services/memory/preferenceLearning";
 import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
-import { createSkillExecutor } from "../services/skills/skillExecutor";
 import { normalizeAssembledContextPrompt } from "../services/skills/contextPromptPolicy";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
@@ -39,10 +40,15 @@ import {
   createWritingOrchestrator,
   type WritingEvent,
 } from "../services/skills/orchestrator";
-import { createWritingToolRegistry } from "../services/skills/writingTooling";
+import {
+  createAgenticToolRegistry,
+  createWritingToolRegistry,
+} from "../services/skills/writingTooling";
 import { estimateTokens } from "../services/context/tokenEstimation";
 import { createDocumentService } from "../services/documents/documentService";
 import { editorSchema } from "../services/editor/prosemirrorSchema";
+import { createAIServiceAdapter } from "../services/ai/aiServiceAdapter";
+import type { ChatMessage } from "../services/ai/aiServiceAdapter";
 
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
@@ -404,7 +410,7 @@ async function prepareWritingRequest(args: {
   | {
       ok: true;
       data: {
-        messages: Array<{ role: string; content: string }>;
+        messages: ChatMessage[];
         tokenCount: number;
         modelId: string;
       };
@@ -448,6 +454,33 @@ async function prepareWritingRequest(args: {
         message: resolvedData.skill.error_message ?? "Skill is invalid",
       },
     };
+  }
+
+  const dependsOn = resolvedData.skill.dependsOn ?? [];
+  if (dependsOn.length > 0) {
+    const missing: string[] = [];
+    for (const dependencyId of dependsOn) {
+      const available = skillSvc.isDependencyAvailable({ dependencyId });
+      if (!available.ok) {
+        return {
+          ok: false,
+          error: available.error,
+        };
+      }
+      if (!available.data.available) {
+        missing.push(dependencyId);
+      }
+    }
+    if (missing.length > 0) {
+      return {
+        ok: false,
+        error: {
+          code: "SKILL_DEPENDENCY_MISSING",
+          message: "Skill dependency missing",
+          details: missing,
+        },
+      };
+    }
   }
 
   const input = args.payload.input;
@@ -540,7 +573,7 @@ async function prepareWritingRequest(args: {
       role: "user",
       content: userPrompt,
     },
-  ];
+  ] as ChatMessage[];
 
   const tokenCount = estimateTokens(
     messages.map((message) => message.content).join("\n\n"),
@@ -635,6 +668,76 @@ function emitOrchestratorDone(args: {
       },
       ts: nowTs(),
     },
+  });
+}
+
+function emitOrchestratorToolUseEvent(args: {
+  ctx: AiIpcContext;
+  sender: Electron.WebContents;
+  executionId: string;
+  runId: string;
+  traceId: string;
+  event: WritingEvent;
+}): void {
+  let payload: AiToolUseEvent;
+  if (args.event.type === "tool-use-started") {
+    payload = {
+      type: "tool-use-started",
+      executionId: args.executionId,
+      runId: args.runId,
+      traceId: args.traceId,
+      round: Number(args.event.round ?? 0),
+      toolNames: Array.isArray(args.event.toolNames)
+        ? args.event.toolNames.map((name) => String(name))
+        : [],
+      ts: nowTs(),
+    };
+  } else if (args.event.type === "tool-use-completed") {
+    payload = {
+      type: "tool-use-completed",
+      executionId: args.executionId,
+      runId: args.runId,
+      traceId: args.traceId,
+      round: Number(args.event.round ?? 0),
+      results: Array.isArray(args.event.results)
+        ? args.event.results.map((result) => {
+            const record = result as Record<string, unknown>;
+            return {
+              toolName: String(record.toolName ?? ""),
+              success: Boolean(record.success),
+              durationMs:
+                typeof record.durationMs === "number" ? record.durationMs : 0,
+            };
+          })
+        : [],
+      hasNextRound: Boolean(args.event.hasNextRound),
+      ts: nowTs(),
+    };
+  } else {
+    const error =
+      typeof args.event.error === "object" && args.event.error !== null
+        ? (args.event.error as Record<string, unknown>)
+        : {};
+    payload = {
+      type: "tool-use-failed",
+      executionId: args.executionId,
+      runId: args.runId,
+      traceId: args.traceId,
+      round: Number(args.event.round ?? 0),
+      error: {
+        code: (error.code as IpcError["code"]) ?? "INTERNAL",
+        message: String(error.message ?? "Tool use failed"),
+        retryable:
+          typeof error.retryable === "boolean" ? error.retryable : false,
+      },
+      ts: nowTs(),
+    };
+  }
+
+  safeEmitToRenderer({
+    logger: args.ctx.deps.logger,
+    sender: args.sender,
+    event: payload,
   });
 }
 
@@ -836,13 +939,17 @@ function forbiddenPreviewSessionAccess(): {
 function safeEmitToRenderer(args: {
   logger: Logger;
   sender: Electron.WebContents;
-  event: AiStreamEvent;
+  event: AiStreamEvent | AiToolUseEvent;
 }): void {
   const channel =
     args.event.type === "chunk"
       ? SKILL_STREAM_CHUNK_CHANNEL
       : args.event.type === "queue"
         ? SKILL_QUEUE_STATUS_CHANNEL
+        : args.event.type === "tool-use-started"
+          || args.event.type === "tool-use-completed"
+          || args.event.type === "tool-use-failed"
+          ? SKILL_TOOL_USE_CHANNEL
         : SKILL_STREAM_DONE_CHANNEL;
   try {
     args.sender.send(channel, args.event);
@@ -1148,141 +1255,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         }
       : undefined,
   );
-  const skillExecutor = createSkillExecutor({
-    resolveSkill: (skillId) => {
-      if (!deps.db) {
-        return {
-          ok: false,
-          error: createDbNotReadyError(),
-        };
-      }
-      const skillSvc = createSkillService({
-        db: deps.db,
-        userDataDir: deps.userDataDir,
-        builtinSkillsDir: deps.builtinSkillsDir,
-        logger: deps.logger,
-      });
-      const resolved = skillSvc.resolveForRun({ id: skillId });
-      const resolvedData = resolved.ok
-        ? resolved.data
-        : (() => {
-            const fallback = resolveP1BuiltinSkill(skillId);
-            if (!fallback) {
-              return null;
-            }
-            return {
-              skill: fallback,
-              enabled: true,
-              inputType: fallback.inputType,
-            };
-          })();
-      if (!resolvedData) {
-        return {
-          ok: false,
-          error: resolved.ok
-            ? { code: "NOT_FOUND", message: "Skill not found" }
-            : resolved.error,
-        };
-      }
-      const fallbackSkill =
-        "error_code" in resolvedData.skill ? resolvedData.skill : undefined;
-      return {
-        ok: true,
-        data: {
-          id: resolvedData.skill.id,
-          prompt: resolvedData.skill.prompt,
-          output: resolvedData.skill.output,
-          enabled: resolvedData.enabled,
-          valid: resolvedData.skill.valid,
-          inputType: resolvedData.inputType,
-          dependsOn: resolvedData.skill.dependsOn,
-          timeoutMs: resolvedData.skill.timeoutMs,
-          error_code: fallbackSkill?.error_code,
-          error_message: fallbackSkill?.error_message,
-        },
-      };
-    },
-    checkDependencies: ({ dependsOn }) => {
-      if (!deps.db) {
-        return {
-          ok: false,
-          error: createDbNotReadyError(),
-        };
-      }
-
-      const skillSvc = createSkillService({
-        db: deps.db,
-        userDataDir: deps.userDataDir,
-        builtinSkillsDir: deps.builtinSkillsDir,
-        logger: deps.logger,
-      });
-
-      const missing: string[] = [];
-      for (const dependencyId of dependsOn) {
-        const available = skillSvc.isDependencyAvailable({ dependencyId });
-        if (!available.ok) {
-          return {
-            ok: false,
-            error: available.error,
-          };
-        }
-        if (!available.data.available) {
-          missing.push(dependencyId);
-        }
-      }
-
-      if (missing.length > 0) {
-        return {
-          ok: false,
-          error: {
-            code: "SKILL_DEPENDENCY_MISSING",
-            message: "Skill dependency missing",
-            details: missing,
-          },
-        };
-      }
-
-      return { ok: true, data: true };
-    },
-    runSkill: async (args) => {
-      return await aiService.runSkill(args);
-    },
-    assembleContext: async (args) => {
-      // Compute plain-text textOffset from PM position so the immediate layer fetcher
-      // slices the correct number of characters (see pmPosToTextOffset).
-      let textOffset: number | undefined;
-      if (
-        args.cursorPosition !== 0 &&
-        args.projectId.length > 0 &&
-        args.documentId.length > 0 &&
-        deps.db !== null
-      ) {
-        try {
-          const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
-          const docRead = docSvc.read({
-            projectId: args.projectId,
-            documentId: args.documentId,
-          });
-          if (docRead.ok && docRead.data.contentJson) {
-            const pmDoc = ProseMirrorNode.fromJSON(
-              editorSchema,
-              JSON.parse(docRead.data.contentJson) as Record<string, unknown>,
-            );
-            textOffset = pmPosToTextOffset(pmDoc, args.cursorPosition);
-          }
-        } catch {
-          // Non-fatal: fall through without textOffset
-        }
-      }
-      return await contextAssemblyService.assemble({
-        ...args,
-        ...(textOffset !== undefined ? { textOffset } : {}),
-      });
-    },
-    logger: {
-      warn: (event, data) => deps.logger.info(event, data),
-    },
-  });
   const permissionGate = createPendingPermissionGate();
   const skillServiceFactory = () => {
     if (!deps.db) {
@@ -1295,26 +1267,32 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       logger: deps.logger,
     });
   };
+  const writingToolRegistry =
+    deps.db === null
+      ? createWritingToolRegistry({
+          db: {} as Database.Database,
+          logger: deps.logger,
+        })
+      : createWritingToolRegistry({
+          db: deps.db,
+          logger: deps.logger,
+        });
+  const agenticToolRegistry =
+    deps.db === null
+      ? createAgenticToolRegistry({
+          db: {} as Database.Database,
+          logger: deps.logger,
+        })
+      : createAgenticToolRegistry({
+          db: deps.db,
+          logger: deps.logger,
+        });
   const writingOrchestrator = createWritingOrchestrator({
-    aiService: {
-      async *streamChat() {
-        return;
-      },
-      estimateTokens,
-      abort() {
-        return;
-      },
-    },
-    toolRegistry:
-      deps.db === null
-        ? createWritingToolRegistry({
-            db: {} as Database.Database,
-            logger: deps.logger,
-          })
-        : createWritingToolRegistry({
-            db: deps.db,
-            logger: deps.logger,
-          }),
+    aiService: createAIServiceAdapter(
+      aiService as Parameters<typeof createAIServiceAdapter>[0],
+    ),
+    toolRegistry: writingToolRegistry,
+    agenticToolRegistry,
     permissionGate,
     postWritingHooks: [
       {
@@ -1369,101 +1347,6 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         throw err;
       }
       return prepared.data;
-    },
-    generateText: async ({ request, signal, emitChunk }) => {
-      let outputText = "";
-      let usage = {
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-      };
-      let sawStreamChunk = false;
-      let streamTerminalSeen = false;
-      let settleStreamCompletion: (() => void) | null = null;
-      let rejectStreamCompletion: ((error: Error) => void) | null = null;
-      const streamCompletion = new Promise<void>((resolve, reject) => {
-        settleStreamCompletion = resolve;
-        rejectStreamCompletion = reject;
-      });
-      const res = await skillExecutor.execute({
-        skillId: request.skillId,
-        hasSelection: Boolean(request.selection),
-        input: resolveWritingRequestInput(request),
-        ...(request.cursorPosition === undefined
-          ? {}
-          : { cursorPosition: request.cursorPosition }),
-        mode: "ask",
-        model: request.modelId ?? "default",
-        context: {
-          projectId: request.projectId,
-          documentId: request.documentId,
-        },
-        stream: true,
-        ts: nowTs(),
-        emitEvent: (event) => {
-          if (signal.aborted) {
-            return;
-          }
-          if (event.type === "chunk") {
-            sawStreamChunk = true;
-            outputText += event.chunk;
-            const accumulatedTokens = estimateTokens(outputText);
-            emitChunk(event.chunk, accumulatedTokens);
-            return;
-          }
-          if (event.type === "done") {
-            if (!sawStreamChunk && event.outputText.length > 0) {
-              outputText = event.outputText;
-              emitChunk(event.outputText, estimateTokens(event.outputText));
-              sawStreamChunk = true;
-            } else {
-              outputText = event.outputText;
-            }
-            usage = {
-              promptTokens: event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request)),
-              completionTokens:
-                event.result?.metadata.completionTokens ?? estimateTokens(event.outputText),
-              totalTokens:
-                (event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request))) +
-                (event.result?.metadata.completionTokens ?? estimateTokens(event.outputText)),
-            };
-            streamTerminalSeen = true;
-            if (event.terminal === "completed") {
-              settleStreamCompletion?.();
-            } else {
-              rejectStreamCompletion?.(
-                Object.assign(
-                  new Error(
-                    event.error?.message ??
-                      (event.terminal === "cancelled"
-                        ? "AI request canceled"
-                        : "AI stream failed"),
-                  ),
-                  {
-                    code: event.error?.code ?? "AI_SERVICE_ERROR",
-                    terminal: event.terminal,
-                  },
-                ),
-              );
-            }
-          }
-        },
-      });
-      if (!res.ok) {
-        throw res.error;
-      }
-      if (!streamTerminalSeen) {
-        await streamCompletion;
-      }
-      if (!sawStreamChunk && (res.data.outputText?.length ?? 0) > 0) {
-        const finalOutput = res.data.outputText ?? "";
-        outputText = finalOutput;
-        emitChunk(finalOutput, estimateTokens(finalOutput));
-      }
-      return {
-        fullText: outputText || res.data.outputText || "",
-        usage,
-      };
     },
   });
 
@@ -1596,6 +1479,22 @@ async function drainPreviewUntilPause(args: {
         completionTokens: number;
         totalTokens: number;
       };
+      continue;
+    }
+
+    if (
+      event.type === "tool-use-started"
+      || event.type === "tool-use-completed"
+      || event.type === "tool-use-failed"
+    ) {
+      emitOrchestratorToolUseEvent({
+        ctx: args.ctx,
+        sender: args.sender,
+        executionId: args.executionId,
+        runId: args.runId,
+        traceId: args.traceId,
+        event,
+      });
       continue;
     }
 
@@ -1736,6 +1635,21 @@ async function continuePreviewSession(args: {
     }
 
     const event = next.value;
+    if (
+      event.type === "tool-use-started"
+      || event.type === "tool-use-completed"
+      || event.type === "tool-use-failed"
+    ) {
+      emitOrchestratorToolUseEvent({
+        ctx: args.ctx,
+        sender: args.session.sender,
+        executionId: args.session.executionId,
+        runId: args.session.runId,
+        traceId: args.session.traceId,
+        event,
+      });
+      continue;
+    }
     if (event.type === "write-back-done") {
       versionId = typeof event.versionId === "string" ? event.versionId : versionId;
       continue;
