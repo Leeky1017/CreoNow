@@ -56,6 +56,11 @@ export type SkillExecutorRunArgs = {
     role: "system" | "user" | "assistant" | "tool";
     content: string;
     toolCallId?: string;
+    toolCalls?: Array<{
+      id: string;
+      name: string;
+      arguments: unknown;
+    }>;
   }>;
   stream: boolean;
   ts: number;
@@ -73,7 +78,7 @@ export type SkillExecutor = {
       toolCalls?: Array<{
         id: string;
         name: string;
-        arguments: Record<string, unknown>;
+        arguments: unknown;
       }>;
     }>
   >;
@@ -94,7 +99,7 @@ type SkillExecutorDeps = {
       toolCalls?: Array<{
         id: string;
         name: string;
-        arguments: Record<string, unknown>;
+        arguments: unknown;
       }>;
     }>
   >;

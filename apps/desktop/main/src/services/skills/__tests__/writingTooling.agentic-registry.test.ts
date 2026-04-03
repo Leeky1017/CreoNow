@@ -134,6 +134,7 @@ describe("createAgenticToolRegistry", () => {
       content: "参考正文。",
       documentId: referenceDocumentId,
       query: "参考",
+      truncated: false,
     });
 
     const documentReadResult = await documentRead!.execute({
@@ -145,6 +146,70 @@ describe("createAgenticToolRegistry", () => {
     expect(documentReadResult.data).toEqual({
       text: "当前正文。",
       documentId: currentDocumentId,
+      query: "",
+      truncated: false,
     });
+  });
+
+  it("docTool/documentRead 遵守 maxTokens/snippetChars，不把整篇文档注入下一轮", async () => {
+    const db = new Database(":memory:");
+    opened.push(db);
+    db.pragma("foreign_keys = ON");
+    applyAllMigrations(db);
+
+    const projectId = "proj-1";
+    const longText =
+      "第一段铺垫。林远先观察门缝里的光，再听见门后的脚步声。随后他没有立刻推门，而是退半步让呼吸平稳。";
+    const currentDocumentId = createProjectAndDocument({
+      db,
+      projectId,
+      title: "当前章节",
+      text: longText,
+    });
+
+    const registry = createAgenticToolRegistry({
+      db,
+      logger: createLogger(),
+    });
+    const docTool = registry.get("docTool");
+    const documentRead = registry.get("documentRead");
+    expect(docTool).toBeDefined();
+    expect(documentRead).toBeDefined();
+
+    const docToolResult = await docTool!.execute({
+      documentId: currentDocumentId,
+      requestId: "req-doc-snippet",
+      projectId,
+      args: {
+        documentId: currentDocumentId,
+        query: "林远",
+        maxTokens: 12,
+        snippetChars: 18,
+      },
+    });
+    expect(docToolResult.success).toBe(true);
+    expect(docToolResult.data).toMatchObject({
+      documentId: currentDocumentId,
+      query: "林远",
+    });
+    expect(JSON.stringify(docToolResult.data)).toContain("林远");
+    expect(JSON.stringify(docToolResult.data)).not.toContain("随后他没有立刻推门");
+
+    const documentReadResult = await documentRead!.execute({
+      documentId: currentDocumentId,
+      requestId: "req-document-read-snippet",
+      projectId,
+      args: {
+        query: "门后",
+        maxTokens: 12,
+        snippetChars: 12,
+      },
+    });
+    expect(documentReadResult.success).toBe(true);
+    expect(documentReadResult.data).toMatchObject({
+      documentId: currentDocumentId,
+    });
+    expect(JSON.stringify(documentReadResult.data)).toContain("门后");
+    expect(JSON.stringify(documentReadResult.data)).not.toContain("随后他没有立刻推门");
   });
 });

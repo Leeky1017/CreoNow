@@ -14,6 +14,13 @@ import type { ToolUseHandler } from "./toolUseHandler";
 
 // ── Types ──────────────────────────────────────────────────────────
 
+type AgenticMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  toolCallId?: string;
+  toolCalls?: Array<{ id: string; name: string; arguments: unknown }>;
+};
+
 export interface WritingRequest {
   requestId: string;
   skillId: string;
@@ -488,15 +495,21 @@ export function createWritingOrchestrator(
             }
 
             // Inject tool results into message history
-            const baseMsgs = agenticMessages ?? prepared.messages;
+            const baseMsgs = (agenticMessages ??
+              prepared.messages) as AgenticMessage[];
             // Append assistant message (partial AI text before tool_use) then tool results
-            type ToolMsg = { role: "system" | "user" | "assistant" | "tool"; content: string; toolCallId?: string };
-            const msgsWithAssistant: ToolMsg[] = [
+            const msgsWithAssistant: AgenticMessage[] = [
               ...(baseMsgs.map((m) => ({
-                role: m.role as "system" | "user" | "assistant" | "tool",
+                role: m.role,
                 content: m.content,
+                ...(m.toolCallId ? { toolCallId: m.toolCallId } : {}),
+                ...(m.toolCalls ? { toolCalls: m.toolCalls } : {}),
               }))),
-              { role: "assistant" as const, content: fullText },
+              {
+                role: "assistant" as const,
+                content: fullText,
+                ...(lastToolCalls.length > 0 ? { toolCalls: lastToolCalls } : {}),
+              },
             ];
             agenticMessages = config.toolUseHandler.injectResults(
               msgsWithAssistant,
@@ -582,9 +595,11 @@ export function createWritingOrchestrator(
             yield makeEvent("tool-use-completed", requestId, {
               round: agenticRound,
               results: results.map((r) => ({
+                callId: r.callId,
                 toolName: r.toolName,
                 success: r.success,
                 durationMs: r.durationMs,
+                ...(r.error ? { error: r.error } : {}),
               })),
               hasNextRound,
             });

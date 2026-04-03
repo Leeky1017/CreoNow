@@ -87,7 +87,13 @@ export type SkillToolUseCompletedEvent = {
   executionId: string;
   runId: string;
   round: number;
-  results: Array<{ toolName: string; success: boolean; durationMs: number }>;
+  results: Array<{
+    callId: string;
+    toolName: string;
+    success: boolean;
+    durationMs: number;
+    error?: { code: string; message: string };
+  }>;
   hasNextRound: boolean;
   ts: number;
 };

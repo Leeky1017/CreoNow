@@ -29,7 +29,7 @@ import {
 } from "../services/memory/preferenceLearning";
 import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
-import { createSkillExecutor } from "../services/skills/skillExecutor";
+import { createSkillExecutor, type SkillExecutorRunArgs } from "../services/skills/skillExecutor";
 import { normalizeAssembledContextPrompt } from "../services/skills/contextPromptPolicy";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
@@ -628,7 +628,20 @@ function emitOrchestratorToolUse(args: {
     event.type === "tool-use-started"
       ? { ...base, type: "tool-use-started" as const, round: Number(event.round), toolNames: (event.toolNames as string[]) ?? [] }
       : event.type === "tool-use-completed"
-      ? { ...base, type: "tool-use-completed" as const, round: Number(event.round), results: (event.results as Array<{ toolName: string; success: boolean; durationMs: number }>) ?? [], hasNextRound: Boolean(event.hasNextRound) }
+      ? {
+          ...base,
+          type: "tool-use-completed" as const,
+          round: Number(event.round),
+          results:
+            (event.results as Array<{
+              callId: string;
+              toolName: string;
+              success: boolean;
+              durationMs: number;
+              error?: { code: string; message: string };
+            }>) ?? [],
+          hasNextRound: Boolean(event.hasNextRound),
+        }
       : { ...base, type: "tool-use-failed" as const, round: Number(event.round), error: (event.error as { code: string; message: string; retryable: boolean }) };
   try {
     args.sender.send(SKILL_TOOL_USE_CHANNEL, payload);
@@ -1542,7 +1555,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           projectId: request.projectId,
           documentId: request.documentId,
         },
-        ...(messages ? { messages } : {}),
+        ...(messages ? { messages: messages as SkillExecutorRunArgs["messages"] } : {}),
         stream: true,
         ts: nowTs(),
         emitEvent: (event) => {

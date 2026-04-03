@@ -15,7 +15,7 @@ export interface StreamChunk {
 export interface ToolCallInfo {
   id: string;
   name: string;
-  arguments: Record<string, unknown>;
+  arguments: unknown;
 }
 
 export interface StreamResult {

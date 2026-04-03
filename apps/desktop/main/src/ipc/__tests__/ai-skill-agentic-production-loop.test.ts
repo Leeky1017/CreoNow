@@ -28,7 +28,14 @@ type MockSender = {
 };
 
 type FetchBody = {
-  messages?: Array<{ role?: string; content?: unknown; tool_call_id?: string }>;
+  tools?: unknown[];
+  messages?: Array<{
+    role?: string;
+    content?: unknown;
+    tool_call_id?: string;
+    tool_calls?: unknown;
+  }>;
+  system?: unknown;
 };
 
 function createLogger(): Logger {
@@ -49,7 +56,9 @@ function applyAllMigrations(db: Database.Database): void {
   }
 }
 
-function createHarness() {
+function createHarness(args?: {
+  env?: Partial<NodeJS.ProcessEnv>;
+}) {
   const handlers = new Map<string, Handler>();
   const sentEvents: Array<{ channel: string; payload: unknown }> = [];
   const db = new Database(":memory:");
@@ -77,6 +86,7 @@ function createHarness() {
       CREONOW_AI_MODEL: "gpt-5.2",
       CREONOW_AI_API_KEY: "sk-test",
       CREONOW_AI_BASE_URL: "https://api.openai.com",
+      ...args?.env,
     },
   });
   registerVersionIpcHandlers({
@@ -223,6 +233,91 @@ function openAiStopFrame(text: string): unknown[] {
   ];
 }
 
+function anthropicStreamResponse(events: Array<{ event: string; data: unknown }>): Response {
+  const body = `${events
+    .map(
+      (item) =>
+        `event: ${item.event}\n` +
+        `data: ${JSON.stringify(item.data)}\n\n`,
+    )
+    .join("")}`;
+  return new Response(body, {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+  });
+}
+
+function anthropicToolUseFrames(args: {
+  text: string;
+  toolName: string;
+  toolUseId: string;
+  toolArgs: Record<string, unknown>;
+}): Array<{ event: string; data: unknown }> {
+  return [
+    {
+      event: "content_block_delta",
+      data: {
+        index: 0,
+        delta: {
+          type: "text_delta",
+          text: args.text,
+        },
+      },
+    },
+    {
+      event: "content_block_start",
+      data: {
+        index: 1,
+        content_block: {
+          type: "tool_use",
+          id: args.toolUseId,
+          name: args.toolName,
+          input: args.toolArgs,
+        },
+      },
+    },
+    {
+      event: "message_delta",
+      data: {
+        delta: {
+          stop_reason: "tool_use",
+        },
+      },
+    },
+    {
+      event: "message_stop",
+      data: {},
+    },
+  ];
+}
+
+function anthropicStopFrames(text: string): Array<{ event: string; data: unknown }> {
+  return [
+    {
+      event: "content_block_delta",
+      data: {
+        index: 0,
+        delta: {
+          type: "text_delta",
+          text,
+        },
+      },
+    },
+    {
+      event: "message_delta",
+      data: {
+        delta: {
+          stop_reason: "end_turn",
+        },
+      },
+    },
+    {
+      event: "message_stop",
+      data: {},
+    },
+  ];
+}
+
 describe("ai:skill:run P2 生产闭环", () => {
   const opened: Database.Database[] = [];
   const originalFetch = globalThis.fetch;
@@ -285,6 +380,7 @@ describe("ai:skill:run P2 生产闭环", () => {
         executionId: string;
         status: "preview" | "completed" | "rejected";
         outputText?: string;
+        usage?: { promptTokens: number; completionTokens: number };
       };
       error?: { code: string; message: string };
     }>("ai:skill:run", {
@@ -312,16 +408,33 @@ describe("ai:skill:run P2 生产闭环", () => {
       "tool-use-started",
       "tool-use-completed",
     ]);
+    expect(requestBodies[0]?.tools).toBeTruthy();
+    expect(requestBodies[1]?.tools).toBeTruthy();
 
     expect(requestBodies).toHaveLength(2);
     const secondMessages = requestBodies[1]?.messages ?? [];
-    expect(secondMessages.some((message) => message.role === "assistant" && message.content === "他抬眼看见档案柜。"))
-      .toBe(true);
+    const assistantMessage = secondMessages.find(
+      (message) => message.role === "assistant",
+    );
+    expect(assistantMessage).toBeDefined();
+    expect(assistantMessage?.content).toBe("他抬眼看见档案柜。");
+    expect(Array.isArray(assistantMessage?.tool_calls)).toBe(true);
     const toolMessage = secondMessages.find((message) => message.role === "tool");
     expect(toolMessage).toBeDefined();
+    expect(toolMessage?.tool_call_id).toBe("call-doc-1");
     expect(JSON.stringify(toolMessage?.content)).toContain("林远一向冷静，先观察再行动。");
     expect(JSON.stringify(toolMessage?.content)).not.toContain('"type":"doc"');
     expect(JSON.stringify(toolMessage?.content)).toContain(reference.documentId);
+    expect(run.data?.usage?.promptTokens).toBeGreaterThan(3);
+
+    const completedEvent = toolEvents[1]?.payload as {
+      type: "tool-use-completed";
+      results: Array<{ callId?: string; toolName: string }>;
+      hasNextRound: boolean;
+    };
+    expect(completedEvent.type).toBe("tool-use-completed");
+    expect(completedEvent.results[0]?.callId).toBe("call-doc-1");
+    expect(completedEvent.hasNextRound).toBe(false);
 
     const confirm = await harness.invoke<{
       ok: boolean;
@@ -421,6 +534,84 @@ describe("ai:skill:run P2 生产闭环", () => {
     expect(JSON.stringify(toolMessage?.content)).toContain("unknownTool 未注册");
   });
 
+  it("tool args 非法时 fail-closed 为 TOOL_USE_PARSE_FAILED，不继续第二轮", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const current = createProjectAndDocument({
+      db: harness.db,
+      title: "当前章节",
+      text: "她站在门外。",
+    });
+
+    const requestBodies: FetchBody[] = [];
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      requestBodies.push(JSON.parse(String(init?.body ?? "{}")) as FetchBody);
+      return openAiStreamResponse([
+        {
+          choices: [
+            {
+              delta: {
+                content: "她屏住呼吸。",
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: "call-bad-1",
+                    type: "function",
+                    function: {
+                      name: "docTool",
+                      arguments: "{\"query\":",
+                    },
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        },
+        {
+          choices: [
+            {
+              delta: {},
+              finish_reason: "tool_use",
+            },
+          ],
+        },
+      ]);
+    }) as typeof fetch;
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: { status: "preview" | "completed" | "rejected"; outputText?: string };
+    }>("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      input: "她站在门外。",
+      precedingText: "她站在门外。",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: {
+        projectId: current.projectId,
+        documentId: current.documentId,
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+    expect(run.data?.outputText).toBe("她屏住呼吸。");
+    expect(requestBodies).toHaveLength(1);
+
+    const toolEvents = harness.sentEvents.filter(
+      (event) => event.channel === SKILL_TOOL_USE_CHANNEL,
+    );
+    expect(toolEvents).toHaveLength(1);
+    const failedEvent = toolEvents[0]?.payload as SkillToolUseEvent;
+    expect(failedEvent.type).toBe("tool-use-failed");
+    if (failedEvent.type === "tool-use-failed") {
+      expect(failedEvent.error.code).toBe("TOOL_USE_PARSE_FAILED");
+    }
+  });
+
   it("达到 max rounds 后熔断，并保留最后一轮 partial content", async () => {
     const harness = createHarness();
     opened.push(harness.db);
@@ -476,5 +667,98 @@ describe("ai:skill:run P2 生产闭环", () => {
       expect(failedEvent.error.code).toBe("TOOL_USE_MAX_ROUNDS_EXCEEDED");
       expect(failedEvent.round).toBe(5);
     }
+  });
+
+  it("Anthropic 真实走通 tool_use → tool_result → ai-done", async () => {
+    const harness = createHarness({
+      env: {
+        CREONOW_AI_PROVIDER: "anthropic",
+        CREONOW_AI_MODEL: "claude-3-5-sonnet",
+        CREONOW_AI_API_KEY: "sk-ant-test",
+        CREONOW_AI_BASE_URL: "https://api.anthropic.com",
+      },
+    });
+    opened.push(harness.db);
+    const current = createProjectAndDocument({
+      db: harness.db,
+      title: "当前章节",
+      text: "雨下得更急了。",
+    });
+    const reference = createProjectAndDocument({
+      db: harness.db,
+      title: "参考章节",
+      text: "林远总会先观察风向，再行动。",
+    });
+
+    const requestBodies: FetchBody[] = [];
+    let callNo = 0;
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      requestBodies.push(JSON.parse(String(init?.body ?? "{}")) as FetchBody);
+      callNo += 1;
+      if (callNo === 1) {
+        return anthropicStreamResponse(
+          anthropicToolUseFrames({
+            text: "他摸了摸门框。",
+            toolName: "docTool",
+            toolUseId: "toolu_doc_1",
+            toolArgs: {
+              documentId: reference.documentId,
+              query: "林远",
+              maxTokens: 128,
+            },
+          }),
+        );
+      }
+      if (callNo === 2) {
+        return anthropicStreamResponse(
+          anthropicStopFrames("他先听风声，再推门而入。"),
+        );
+      }
+      throw new Error(`unexpected fetch call #${callNo}`);
+    }) as typeof fetch;
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        status: "preview" | "completed" | "rejected";
+        outputText?: string;
+        usage?: { promptTokens: number; completionTokens: number };
+      };
+    }>("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      input: "雨下得更急了。",
+      precedingText: "雨下得更急了。",
+      mode: "ask",
+      model: "claude-3-5-sonnet",
+      context: {
+        projectId: current.projectId,
+        documentId: current.documentId,
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+    expect(run.data?.outputText).toBe("他先听风声，再推门而入。");
+    expect(run.data?.usage?.promptTokens).toBeGreaterThan(3);
+    expect(requestBodies).toHaveLength(2);
+    expect(requestBodies[0]?.tools).toBeTruthy();
+    expect(requestBodies[1]?.tools).toBeTruthy();
+
+    const secondMessages = requestBodies[1]?.messages ?? [];
+    const assistantMessage = secondMessages.find(
+      (message) => message.role === "assistant",
+    );
+    const toolResultMessage = secondMessages.find(
+      (message) => message.role === "user" && Array.isArray(message.content),
+    );
+    expect(Array.isArray(assistantMessage?.content)).toBe(true);
+    expect(JSON.stringify(assistantMessage?.content)).toContain("\"type\":\"tool_use\"");
+    expect(JSON.stringify(assistantMessage?.content)).toContain("toolu_doc_1");
+    expect(Array.isArray(toolResultMessage?.content)).toBe(true);
+    expect(JSON.stringify(toolResultMessage?.content)).toContain("\"type\":\"tool_result\"");
+    expect(JSON.stringify(toolResultMessage?.content)).toContain("\"tool_use_id\":\"toolu_doc_1\"");
+    expect(JSON.stringify(toolResultMessage?.content)).toContain(reference.documentId);
   });
 });

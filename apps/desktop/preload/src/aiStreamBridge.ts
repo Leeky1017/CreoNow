@@ -95,6 +95,7 @@ function isSkillToolUseEvent(x: unknown): x is SkillToolUseEvent {
       x.results.every(
         (item) =>
           isRecord(item) &&
+          typeof item.callId === "string" &&
           typeof item.toolName === "string" &&
           typeof item.success === "boolean" &&
           typeof item.durationMs === "number",
@@ -137,27 +138,6 @@ function isJudgeResultEvent(x: unknown): x is JudgeResultEvent {
   );
 }
 
-/**
- * Best-effort runtime validation for tool-use push payload.
- *
- * Why: malformed push payloads must be ignored safely in preload.
- */
-function isSkillToolUseEvent(x: unknown): x is SkillToolUseEvent {
-  if (!isRecord(x)) {
-    return false;
-  }
-  if (typeof x.executionId !== "string" || typeof x.runId !== "string" || typeof x.ts !== "number") {
-    return false;
-  }
-  if (typeof x.round !== "number") {
-    return false;
-  }
-  return (
-    x.type === "tool-use-started" ||
-    x.type === "tool-use-completed" ||
-    x.type === "tool-use-failed"
-  );
-}
 
 export type AiStreamBridgeApi = {
   registerAiStreamConsumer: () => IpcResponse<{ subscriptionId: string }>;
