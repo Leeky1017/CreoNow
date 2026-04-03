@@ -55,6 +55,7 @@
 - Use `creonow-delivery` for end-to-end Issue / PR handoff.
 - Use `creonow-audit` when the task is review-only and you must publish tiered audit comments (`PRE-AUDIT`, `RE-AUDIT`, `FINAL-VERDICT`) per the adaptive audit protocol in `AGENTS.md` §六.
 - Use `creonow-fix-ci` when the task is to repair failing CI on an existing Issue / PR chain without breaking audit continuity.
+- Use `creonow-reviewer` when consolidating audit findings into a single structured PR Review Comment. This is the only agent permitted to publish PR review comments; all audit sub-agents submit opinions to it for unified publication.
 
 ## Audit system
 
