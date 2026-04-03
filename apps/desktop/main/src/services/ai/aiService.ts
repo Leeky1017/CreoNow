@@ -1320,6 +1320,33 @@ function createAiRunPipelineHelpers(
     flushChunkBuffer,
   } = helpers;
 
+  function getResponseOutputText(entry: RunEntry): ServiceResult<string | undefined> {
+    if (entry.pendingChunkBuffer.length === 0) {
+      return {
+        ok: true,
+        data: entry.outputText.length > 0 ? entry.outputText : undefined,
+      };
+    }
+    const nextOutputLength =
+      entry.outputText.length + entry.pendingChunkBuffer.length;
+    if (nextOutputLength > maxSkillOutputChars) {
+      entry.controller.abort();
+      const oversizedError = buildSkillOutputTooLargeError(nextOutputLength);
+      setTerminal({
+        entry,
+        terminal: "error",
+        error: oversizedError,
+        logEvent: "ai_run_failed",
+        errorCode: oversizedError.code,
+      });
+      return { ok: false, error: oversizedError };
+    }
+    return {
+      ok: true,
+      data: `${entry.outputText}${entry.pendingChunkBuffer}`,
+    };
+  }
+
   async function executeNonStreamImpl(runCtx: {
     entry: RunEntry;
     primaryCfg: ProviderConfig;
@@ -1485,7 +1512,16 @@ function createAiRunPipelineHelpers(
     persistTraceAndGetDegradation: (
       output: string,
     ) => TracePersistenceDegradation | undefined;
-  }): Promise<void> {
+  }): Promise<
+    ServiceResult<{
+      executionId: string;
+      runId: string;
+      traceId: string;
+      outputText?: string;
+      finishReason?: "stop" | "tool_use" | null;
+      toolCalls?: AiToolCall[];
+    }>
+  > {
     const {
       entry,
       primaryCfg,
@@ -1523,7 +1559,7 @@ function createAiRunPipelineHelpers(
         }
 
         if (entry.terminal !== null) {
-          return;
+          return ipcError("CANCELED", "AI request canceled");
         }
 
         const normalizedError = normalizeSkillError(res.error);
@@ -1544,7 +1580,7 @@ function createAiRunPipelineHelpers(
                   : "ai_run_failed",
             errorCode: normalizedError.code,
           });
-          return;
+          return { ok: false, error: normalizedError };
         }
 
         replayAttempts += 1;
@@ -1566,14 +1602,27 @@ function createAiRunPipelineHelpers(
       }
 
       if (entry.terminal !== null) {
-        return;
+        return ipcError("CANCELED", "AI request canceled");
       }
 
       if (entry.completionTimer !== null) {
-        return;
+        return {
+          ok: true,
+          data: {
+            executionId,
+            runId,
+            traceId,
+            finishReason: entry.finishReason,
+            toolCalls: entry.toolCalls,
+          },
+        };
       }
 
       clearChunkFlushTimer(entry);
+      const responseOutputText = getResponseOutputText(entry);
+      if (!responseOutputText.ok) {
+        return responseOutputText;
+      }
       // Completion is deferred briefly so a near-simultaneous cancel can win.
       entry.completionTimer = setTimeout(() => {
         entry.completionTimer = null;
@@ -1606,9 +1655,26 @@ function createAiRunPipelineHelpers(
           });
         }, 0);
       }, STREAM_COMPLETION_SETTLE_MS);
+      return {
+        ok: true,
+        data: {
+          executionId,
+          runId,
+          traceId,
+          ...(typeof responseOutputText.data === "string"
+            ? { outputText: responseOutputText.data }
+            : {}),
+          ...(entry.finishReason === "tool_use"
+            ? {
+                finishReason: entry.finishReason,
+                toolCalls: entry.toolCalls,
+              }
+            : {}),
+        },
+      };
     } catch (error) {
       if (entry.terminal !== null) {
-        return;
+        return ipcError("CANCELED", "AI request canceled");
       }
 
       const aborted = controller.signal.aborted;
@@ -1619,22 +1685,24 @@ function createAiRunPipelineHelpers(
           logEvent: "ai_run_canceled",
           errorCode: "CANCELED",
         });
-        return;
+        return ipcError("CANCELED", "AI request canceled");
       }
 
+      const internalError = {
+        code: "INTERNAL" as const,
+        message: "AI request failed",
+        details: {
+          message: error instanceof Error ? error.message : String(error),
+        },
+      };
       setTerminal({
         entry,
         terminal: "error",
-        error: {
-          code: "INTERNAL",
-          message: "AI request failed",
-          details: {
-            message: error instanceof Error ? error.message : String(error),
-          },
-        },
+        error: internalError,
         logEvent: "ai_run_failed",
         errorCode: "INTERNAL",
       });
+      return { ok: false, error: internalError };
     }
   }
 
@@ -1957,36 +2025,21 @@ function createAiRunSkillOp(
             };
           }
 
-          void executeStreamImpl({
-            entry,
-            primaryCfg,
-            runtimeMessages,
-            model: args.model,
-            runId,
-            executionId,
-            traceId,
-            sessionKey,
-            promptTokens,
-            controller,
-            persistSuccessfulTurn,
-            persistTraceAndGetDegradation,
-          });
-
           return {
-            response: (async () => {
-              await completionPromise;
-              return {
-                ok: true,
-                data: {
-                  executionId,
-                  runId,
-                  traceId,
-                  outputText: entry.outputText,
-                  finishReason: entry.finishReason,
-                  toolCalls: entry.toolCalls,
-                },
-              };
-            })(),
+            response: executeStreamImpl({
+              entry,
+              primaryCfg,
+              runtimeMessages,
+              model: args.model,
+              runId,
+              executionId,
+              traceId,
+              sessionKey,
+              promptTokens,
+              controller,
+              persistSuccessfulTurn,
+              persistTraceAndGetDegradation,
+            }),
             completion: completionPromise,
           };
         }
