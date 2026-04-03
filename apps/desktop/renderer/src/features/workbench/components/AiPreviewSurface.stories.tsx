@@ -98,6 +98,17 @@ export const ErrorState: Story = {
   },
 };
 
+/** rewrite 可触发（canRewrite=true）但指令为空 → 仅用于视觉验收截图 */
+export const RewriteEmptyInstructionDisabled: Story = {
+  args: {
+    ...ReferenceOnly.args,
+    canContinue: false,
+    canPolish: false,
+    canRewrite: true,
+    instruction: "",
+  },
+};
+
 export const DisabledActions: Story = {
   args: {
     ...Empty.args,
