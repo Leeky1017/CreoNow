@@ -268,6 +268,55 @@ describe("WorkbenchApp", () => {
     });
   });
 
+  it("keeps a selection emitted on the first ready paint instead of dropping it behind bootstrap ref lag", async () => {
+    const deferredRead = createDeferred<Awaited<ReturnType<PreloadApi["file"]["readDocument"]>>>();
+    window.api = createApiMock();
+    window.api.file.readDocument = vi.fn(() => deferredRead.promise);
+
+    const firstSelection = createSelection("第一段风从北方来。", 1);
+    let deliveredOnReadyPaint = false;
+    const observer = new MutationObserver(() => {
+      if (deliveredOnReadyPaint) {
+        return;
+      }
+
+      if (screen.queryByRole("heading", { name: "第一章" }) === null) {
+        return;
+      }
+
+      deliveredOnReadyPaint = true;
+      emitSelectionChange(firstSelection);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    render(<WorkbenchApp />);
+
+    await act(async () => {
+      deferredRead.resolve({
+        ok: true,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "风从北方来",
+          contentMd: "",
+          contentHash: "hash",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      });
+      await deferredRead.promise;
+    });
+
+    expect(await screen.findByRole("note", { name: "引用自编辑器" })).toHaveTextContent("第一段风从北方来。");
+
+    observer.disconnect();
+  });
+
   it("shows the P1 skill launcher and enforces each launcher gate", async () => {
     render(<WorkbenchApp />);
 

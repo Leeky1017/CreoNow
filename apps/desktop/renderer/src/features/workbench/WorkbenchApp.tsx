@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/primitives/Button";
 import { createEditorBridge, type EditorBridge } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
+import { applyBootstrapStatus, type BootstrapStatus } from "@/features/workbench/bootstrapStatus";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
@@ -64,7 +65,6 @@ const RIGHT_PANEL_BOUNDS = {
   maxWidth: 480,
 } as const;
 
-type BootstrapStatus = "loading" | "ready" | "error";
 type SaveState = "idle" | "saving" | "saved" | "error";
 type LeftPanelId =
   | "files"
@@ -475,10 +475,6 @@ function WorkbenchShell() {
   }, []);
 
   useEffect(() => {
-    bootstrapStatusRef.current = bootstrapStatus;
-  }, [bootstrapStatus]);
-
-  useEffect(() => {
     writeLayoutValue(LAYOUT_STORAGE_KEYS.activeLeftPanel, activeLeftPanel);
   }, [activeLeftPanel]);
 
@@ -775,7 +771,7 @@ function WorkbenchShell() {
       try {
         clearPendingAutosaveTimer();
         clearSavedStateDecayTimer();
-        setBootstrapStatus("loading");
+        applyBootstrapStatus("loading", bootstrapStatusRef, setBootstrapStatus);
         setWorkbenchError(null, null);
         const workspace = await bootstrapWorkspace(api, {
           defaultProjectName: t("project.defaultName"),
@@ -798,11 +794,11 @@ function WorkbenchShell() {
         setPreview(null);
         setStickySelection(null);
         setLiveSelection(null);
-        setBootstrapStatus("ready");
+        applyBootstrapStatus("ready", bootstrapStatusRef, setBootstrapStatus);
       } catch (error) {
         if (disposed === false) {
           setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
-          setBootstrapStatus("error");
+          applyBootstrapStatus("error", bootstrapStatusRef, setBootstrapStatus);
         }
       }
     };
