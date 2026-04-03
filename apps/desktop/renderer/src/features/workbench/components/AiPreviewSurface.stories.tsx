@@ -108,3 +108,12 @@ export const RewriteEmptyInstructionDisabled: Story = {
     instruction: "",
   },
 };
+
+export const DisabledActions: Story = {
+  args: {
+    ...Empty.args,
+    canContinue: true,
+    canPolish: false,
+    canRewrite: false,
+  },
+};
