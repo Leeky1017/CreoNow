@@ -27,6 +27,7 @@ export type SkillQueueStatus = {
 type SkillTaskStartResult<T> = {
   response: Promise<ServiceResult<T>>;
   completion: Promise<SkillSchedulerTerminal>;
+  preserveResponseOnTerminalError?: boolean;
 };
 
 type SkillTask<T> = {
@@ -239,7 +240,7 @@ function driveTaskSettlement(ctx: {
   ): void => {
     if (result.ok) {
       const terminalError = completionTerminalResultError();
-      if (terminalError) {
+      if (terminalError && !ctx.started.preserveResponseOnTerminalError) {
         resolveResultOnce(terminalError);
         return;
       }
@@ -272,6 +273,13 @@ function driveTaskSettlement(ctx: {
       completionState.terminal !== "completed" &&
       responseState.kind === "pending"
     ) {
+      if (
+        ctx.started.preserveResponseOnTerminalError &&
+        (completionState.terminal === "cancelled" ||
+          completionState.terminal === "timeout")
+      ) {
+        return;
+      }
       if (
         completionState.terminal === "cancelled" ||
         completionState.terminal === "timeout"

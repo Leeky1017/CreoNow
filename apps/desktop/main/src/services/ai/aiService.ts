@@ -2025,22 +2025,44 @@ function createAiRunSkillOp(
             };
           }
 
+          const streamResponse = executeStreamImpl({
+            entry,
+            primaryCfg,
+            runtimeMessages,
+            model: args.model,
+            runId,
+            executionId,
+            traceId,
+            sessionKey,
+            promptTokens,
+            controller,
+            persistSuccessfulTurn,
+            persistTraceAndGetDegradation,
+          });
+          const terminalAck = completionPromise.then((terminal) => {
+            if (terminal !== "cancelled" && terminal !== "timeout") {
+              return new Promise<
+                ServiceResult<{
+                  executionId: string;
+                  runId: string;
+                  traceId: string;
+                  outputText?: string;
+                  finishReason?: "stop" | "tool_use" | null;
+                  toolCalls?: AiToolCall[];
+                  degradation?: TracePersistenceDegradation;
+                }>
+              >(() => undefined);
+            }
+            return {
+              ok: true as const,
+              data: { executionId, runId, traceId },
+            };
+          });
+
           return {
-            response: executeStreamImpl({
-              entry,
-              primaryCfg,
-              runtimeMessages,
-              model: args.model,
-              runId,
-              executionId,
-              traceId,
-              sessionKey,
-              promptTokens,
-              controller,
-              persistSuccessfulTurn,
-              persistTraceAndGetDegradation,
-            }),
+            response: Promise.race([streamResponse, terminalAck]),
             completion: completionPromise,
+            preserveResponseOnTerminalError: true,
           };
         }
 
