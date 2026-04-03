@@ -2,6 +2,7 @@ import type { IpcErrorCode } from "@shared/types/ipc-generated";
 import type { AiStreamEvent } from "@shared/types/ai";
 import type { ContextAssembleResult } from "../context/layerAssemblyService";
 import { inferSkillFromInput } from "./skillRouter";
+import type { ToolCallInfo } from "../ai/streaming";
 import {
   normalizeAssembledContextPrompt,
   resolveContinueValidationInput,
@@ -56,6 +57,12 @@ export type SkillExecutorRunArgs = {
     role: "system" | "user" | "assistant" | "tool";
     content: string;
     toolCallId?: string;
+    toolCalls?: ToolCallInfo[];
+  }>;
+  tools?: Array<{
+    name: string;
+    description: string;
+    inputSchema: Record<string, unknown>;
   }>;
   stream: boolean;
   ts: number;

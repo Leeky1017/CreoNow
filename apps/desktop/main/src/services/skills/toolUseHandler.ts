@@ -65,6 +65,13 @@ interface ToolMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: string;
   toolCallId?: string;
+  toolCalls?: ToolCallInfo[];
+}
+
+export interface AgenticToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
 }
 
 type EventType =
@@ -85,6 +92,7 @@ export interface ToolUseHandler {
     currentMessages: ToolMessage[],
     results: ToolCallResult[],
   ): ToolMessage[];
+  getRegisteredTools(): AgenticToolDefinition[];
   getBatchSummary(results: ToolCallResult[]): BatchSummary;
   getLastRoundState(): ToolUseRoundState;
   on(event: EventType, callback: EventCallback): void;
@@ -414,6 +422,18 @@ export function createToolUseHandler(
       }
 
       return updated;
+    },
+
+    getRegisteredTools(): AgenticToolDefinition[] {
+      return registry.list().map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        inputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: true,
+        },
+      }));
     },
 
     getBatchSummary(results: ToolCallResult[]): BatchSummary {

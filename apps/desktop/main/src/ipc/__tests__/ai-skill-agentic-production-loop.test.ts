@@ -28,7 +28,27 @@ type MockSender = {
 };
 
 type FetchBody = {
-  messages?: Array<{ role?: string; content?: unknown; tool_call_id?: string }>;
+  messages?: Array<{
+    role?: string;
+    content?: unknown;
+    tool_call_id?: string;
+    tool_calls?: Array<{
+      id?: string;
+      type?: string;
+      function?: { name?: string; arguments?: string };
+    }>;
+  }>;
+  tools?: Array<{
+    type?: string;
+    name?: string;
+    description?: string;
+    function?: {
+      name?: string;
+      description?: string;
+      parameters?: unknown;
+    };
+    input_schema?: unknown;
+  }>;
 };
 
 function createLogger(): Logger {
@@ -49,7 +69,7 @@ function applyAllMigrations(db: Database.Database): void {
   }
 }
 
-function createHarness() {
+function createHarness(envOverrides?: Record<string, string>) {
   const handlers = new Map<string, Handler>();
   const sentEvents: Array<{ channel: string; payload: unknown }> = [];
   const db = new Database(":memory:");
@@ -77,6 +97,7 @@ function createHarness() {
       CREONOW_AI_MODEL: "gpt-5.2",
       CREONOW_AI_API_KEY: "sk-test",
       CREONOW_AI_BASE_URL: "https://api.openai.com",
+      ...envOverrides,
     },
   });
   registerVersionIpcHandlers({
@@ -223,6 +244,125 @@ function openAiStopFrame(text: string): unknown[] {
   ];
 }
 
+function anthropicStreamResponse(frames: Array<{ event: string; data: unknown }>): Response {
+  const body = frames
+    .map(
+      (frame) =>
+        `event: ${frame.event}\n` + `data: ${JSON.stringify(frame.data)}\n\n`,
+    )
+    .join("");
+  return new Response(body, {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+  });
+}
+
+function anthropicToolUseFrame(args: {
+  text: string;
+  toolName: string;
+  toolCallId: string;
+  toolArgs: Record<string, unknown>;
+}): Array<{ event: string; data: unknown }> {
+  return [
+    {
+      event: "content_block_start",
+      data: {
+        type: "content_block_start",
+        index: 0,
+        content_block: { type: "text", text: "" },
+      },
+    },
+    {
+      event: "content_block_delta",
+      data: {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "text_delta", text: args.text },
+      },
+    },
+    {
+      event: "content_block_stop",
+      data: { type: "content_block_stop", index: 0 },
+    },
+    {
+      event: "content_block_start",
+      data: {
+        type: "content_block_start",
+        index: 1,
+        content_block: {
+          type: "tool_use",
+          id: args.toolCallId,
+          name: args.toolName,
+        },
+      },
+    },
+    {
+      event: "content_block_delta",
+      data: {
+        type: "content_block_delta",
+        index: 1,
+        delta: {
+          type: "input_json_delta",
+          partial_json: JSON.stringify(args.toolArgs),
+        },
+      },
+    },
+    {
+      event: "content_block_stop",
+      data: { type: "content_block_stop", index: 1 },
+    },
+    {
+      event: "message_delta",
+      data: {
+        type: "message_delta",
+        delta: { stop_reason: "tool_use" },
+      },
+    },
+    {
+      event: "message_stop",
+      data: { type: "message_stop" },
+    },
+  ];
+}
+
+function anthropicStopFrame(
+  text: string,
+): Array<{ event: string; data: unknown }> {
+  return [
+    {
+      event: "content_block_start",
+      data: {
+        type: "content_block_start",
+        index: 0,
+        content_block: { type: "text", text: "" },
+      },
+    },
+    {
+      event: "content_block_delta",
+      data: {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "text_delta", text },
+      },
+    },
+    {
+      event: "content_block_stop",
+      data: { type: "content_block_stop", index: 0 },
+    },
+    {
+      event: "message_delta",
+      data: {
+        type: "message_delta",
+        delta: { stop_reason: "end_turn" },
+      },
+    },
+    {
+      event: "message_stop",
+      data: { type: "message_stop" },
+    },
+  ];
+}
+
 describe("ai:skill:run P2 生产闭环", () => {
   const opened: Database.Database[] = [];
   const originalFetch = globalThis.fetch;
@@ -314,11 +454,34 @@ describe("ai:skill:run P2 生产闭环", () => {
     ]);
 
     expect(requestBodies).toHaveLength(2);
+    expect(requestBodies[0]?.tools?.map((tool) => tool.function?.name)).toEqual([
+      "kgTool",
+      "memTool",
+      "docTool",
+      "documentRead",
+    ]);
     const secondMessages = requestBodies[1]?.messages ?? [];
-    expect(secondMessages.some((message) => message.role === "assistant" && message.content === "他抬眼看见档案柜。"))
-      .toBe(true);
+    const assistantMessage = secondMessages.find(
+      (message) => message.role === "assistant",
+    );
+    expect(assistantMessage?.content).toBe("他抬眼看见档案柜。");
+    expect(assistantMessage?.tool_calls).toEqual([
+      {
+        id: "call-doc-1",
+        type: "function",
+        function: {
+          name: "docTool",
+          arguments: JSON.stringify({
+            documentId: reference.documentId,
+            query: "林远",
+            maxTokens: 128,
+          }),
+        },
+      },
+    ]);
     const toolMessage = secondMessages.find((message) => message.role === "tool");
     expect(toolMessage).toBeDefined();
+    expect(toolMessage?.tool_call_id).toBe("call-doc-1");
     expect(JSON.stringify(toolMessage?.content)).toContain("林远一向冷静，先观察再行动。");
     expect(JSON.stringify(toolMessage?.content)).not.toContain('"type":"doc"');
     expect(JSON.stringify(toolMessage?.content)).toContain(reference.documentId);
@@ -419,6 +582,125 @@ describe("ai:skill:run P2 生产闭环", () => {
     expect(toolMessage).toBeDefined();
     expect(JSON.stringify(toolMessage?.content)).toContain("TOOL_USE_TOOL_NOT_FOUND");
     expect(JSON.stringify(toolMessage?.content)).toContain("unknownTool 未注册");
+  });
+
+  it("continue 在 Anthropic 真实链路中注册 tools，并回放 tool_use / tool_result 语义", async () => {
+    const harness = createHarness({
+      CREONOW_AI_PROVIDER: "anthropic",
+      CREONOW_AI_MODEL: "claude-3-5-sonnet",
+      CREONOW_AI_API_KEY: "sk-ant-test",
+      CREONOW_AI_BASE_URL: "https://api.anthropic.com",
+    });
+    opened.push(harness.db);
+    const current = createProjectAndDocument({
+      db: harness.db,
+      title: "当前章节",
+      text: "雨声敲打着窗棂。",
+    });
+    const reference = createProjectAndDocument({
+      db: harness.db,
+      title: "设定参考",
+      text: "林远先判断局势，再决定是否行动。",
+    });
+
+    const requestBodies: FetchBody[] = [];
+    let callNo = 0;
+    globalThis.fetch = vi.fn(async (_input, init) => {
+      requestBodies.push(JSON.parse(String(init?.body ?? "{}")) as FetchBody);
+      callNo += 1;
+      if (callNo === 1) {
+        return anthropicStreamResponse(
+          anthropicToolUseFrame({
+            text: "他听见走廊尽头传来脚步。",
+            toolName: "docTool",
+            toolCallId: "ant-call-doc-1",
+            toolArgs: {
+              documentId: reference.documentId,
+              query: "林远",
+            },
+          }),
+        );
+      }
+      if (callNo === 2) {
+        return anthropicStreamResponse(
+          anthropicStopFrame("他先屏息判断，再贴着门框缓缓前行。"),
+        );
+      }
+      throw new Error(`unexpected fetch call #${callNo}`);
+    }) as typeof fetch;
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        status: "preview" | "completed" | "rejected";
+        outputText?: string;
+      };
+      error?: { code: string; message: string };
+    }>("ai:skill:run", {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      input: "雨声敲打着窗棂。",
+      precedingText: "雨声敲打着窗棂。",
+      mode: "ask",
+      model: "claude-3-5-sonnet",
+      context: {
+        projectId: current.projectId,
+        documentId: current.documentId,
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+    expect(run.data?.outputText).toBe("他先屏息判断，再贴着门框缓缓前行。");
+
+    expect(requestBodies).toHaveLength(2);
+    expect(requestBodies[0]?.tools?.map((tool) => tool.name)).toEqual([
+      "kgTool",
+      "memTool",
+      "docTool",
+      "documentRead",
+    ]);
+
+    const secondMessages = requestBodies[1]?.messages ?? [];
+    const assistantMessage = secondMessages.find(
+      (message) => message.role === "assistant",
+    );
+    expect(Array.isArray(assistantMessage?.content)).toBe(true);
+    expect(assistantMessage?.content).toEqual([
+      { type: "text", text: "他听见走廊尽头传来脚步。" },
+      {
+        type: "tool_use",
+        id: "ant-call-doc-1",
+        name: "docTool",
+        input: {
+          documentId: reference.documentId,
+          query: "林远",
+        },
+      },
+    ]);
+
+    const toolResultMessage = secondMessages.find(
+      (message) =>
+        message.role === "user" &&
+        Array.isArray(message.content) &&
+        (message.content as Array<{ type?: string }>).some(
+          (block) => block.type === "tool_result",
+        ),
+    );
+    expect(toolResultMessage).toBeDefined();
+    expect(toolResultMessage?.content).toEqual([
+      {
+        type: "tool_result",
+        tool_use_id: "ant-call-doc-1",
+        content: JSON.stringify({
+          content: "林远先判断局势，再决定是否行动。",
+          documentId: reference.documentId,
+          query: "林远",
+        }),
+      },
+    ]);
   });
 
   it("达到 max rounds 后熔断，并保留最后一轮 partial content", async () => {

@@ -83,6 +83,13 @@ type GeneratedTextResult = {
   toolCalls?: ToolCallInfo[];
 };
 
+type AgenticMessage = {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string;
+  toolCallId?: string;
+  toolCalls?: ToolCallInfo[];
+};
+
 function readVersionId(data: unknown): string | null {
   if (!data || typeof data !== "object") {
     return null;
@@ -116,17 +123,18 @@ export interface OrchestratorConfig {
   /** P2: handler for Agentic Loop tool execution (read-only registry) */
   toolUseHandler?: ToolUseHandler;
   prepareRequest?: (request: WritingRequest) => Promise<PreparedRequest>;
-  generateText?: (args: {
-    request: WritingRequest;
-    signal: AbortSignal;
-    emitChunk: (delta: string, accumulatedTokens: number) => void;
-    /** P2: updated messages for subsequent agentic loop rounds */
-    messages?: Array<{
-      role: "system" | "user" | "assistant" | "tool";
-      content: string;
-      toolCallId?: string;
-    }>;
-  }) => Promise<{
+    generateText?: (args: {
+      request: WritingRequest;
+      signal: AbortSignal;
+      emitChunk: (delta: string, accumulatedTokens: number) => void;
+      /** P2: updated messages for subsequent agentic loop rounds */
+      messages?: AgenticMessage[];
+      tools?: Array<{
+        name: string;
+        description: string;
+        inputSchema: Record<string, unknown>;
+      }>;
+    }) => Promise<{
     fullText: string;
     usage: { promptTokens: number; completionTokens: number; totalTokens: number };
     /** P2: finish reason from the AI (null = streaming, stop = done, tool_use = wants tools) */
@@ -315,6 +323,9 @@ export function createWritingOrchestrator(
                     chunkQueue.push({ delta, accumulatedTokens });
                     wake();
                   },
+                  ...(request.agenticLoop && config.toolUseHandler
+                    ? { tools: config.toolUseHandler.getRegisteredTools() }
+                    : {}),
                 })
                 .then(
                   (result) => {
@@ -440,13 +451,7 @@ export function createWritingOrchestrator(
         if (request.agenticLoop && config.toolUseHandler && config.generateText) {
           const AGENTIC_MAX_ROUNDS = 5;
           let agenticRound = 0;
-          let agenticMessages:
-            | Array<{
-                role: "system" | "user" | "assistant" | "tool";
-                content: string;
-                toolCallId?: string;
-              }>
-            | undefined;
+          let agenticMessages: AgenticMessage[] | undefined;
 
           while (lastFinishReason === "tool_use" && agenticRound < AGENTIC_MAX_ROUNDS) {
             agenticRound++;
@@ -497,24 +502,23 @@ export function createWritingOrchestrator(
             }
 
             // Inject tool results into message history
-            const baseMsgs = agenticMessages ?? prepared.messages;
-            // Append assistant message (partial AI text before tool_use) then tool results
-            type ToolMsg = { role: "system" | "user" | "assistant" | "tool"; content: string; toolCallId?: string };
-            const msgsWithAssistant: ToolMsg[] = [
-              ...(baseMsgs.map((m) => ({
-                role: m.role as "system" | "user" | "assistant" | "tool",
-                content: m.content,
-              }))),
-              { role: "assistant" as const, content: fullText },
+            const baseMsgs = (agenticMessages ??
+              prepared.messages.map((message) => ({
+                role: message.role as AgenticMessage["role"],
+                content: message.content,
+              }))) as AgenticMessage[];
+            const msgsWithAssistant: AgenticMessage[] = [
+              ...baseMsgs.map((message) => ({ ...message })),
+              {
+                role: "assistant",
+                content: fullText,
+                ...(lastToolCalls.length > 0 ? { toolCalls: lastToolCalls } : {}),
+              },
             ];
             agenticMessages = config.toolUseHandler.injectResults(
               msgsWithAssistant,
               results,
-            ) as Array<{
-              role: "system" | "user" | "assistant" | "tool";
-              content: string;
-              toolCallId?: string;
-            }>;
+            ) as AgenticMessage[];
 
             if (abortController.signal.aborted) {
               taskStates.set(requestId, "killed");
@@ -543,6 +547,7 @@ export function createWritingOrchestrator(
                   nextWake();
                 },
                 messages: agenticMessages,
+                tools: config.toolUseHandler.getRegisteredTools(),
               })
               .then(
                 (r) => { nextResult = r; nextSettled = true; nextWake(); },

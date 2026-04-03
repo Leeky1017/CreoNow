@@ -1426,7 +1426,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       }
       return prepared.data;
     },
-    generateText: async ({ request, signal, emitChunk, messages }) => {
+    generateText: async ({ request, signal, emitChunk, messages, tools }) => {
       let outputText = "";
       let usage = {
         promptTokens: 0,
@@ -1463,6 +1463,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           documentId: request.documentId,
         },
         ...(messages ? { messages } : {}),
+        ...(tools ? { tools } : {}),
         stream: true,
         ts: nowTs(),
         emitEvent: (event) => {

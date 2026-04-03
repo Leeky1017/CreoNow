@@ -76,6 +76,12 @@ export type AiService = {
       role: "system" | "user" | "assistant" | "tool";
       content: string;
       toolCallId?: string;
+      toolCalls?: ToolCallInfo[];
+    }>;
+    tools?: Array<{
+      name: string;
+      description: string;
+      inputSchema: Record<string, unknown>;
     }>;
     stream: boolean;
     ts: number;
@@ -147,8 +153,40 @@ type RuntimeMessages = {
     role: "system" | "user" | "assistant" | "tool";
     content: string;
     tool_call_id?: string;
+    tool_calls?: Array<{
+      id: string;
+      type: "function";
+      function: { name: string; arguments: string };
+    }>;
   }>;
-  anthropicMessages: Array<{ role: "user" | "assistant"; content: string }>;
+  anthropicMessages: Array<{
+    role: "user" | "assistant";
+    content:
+      | string
+      | Array<
+          | { type: "text"; text: string }
+          | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
+          | {
+              type: "tool_result";
+              tool_use_id: string;
+              content: string;
+              is_error?: boolean;
+            }
+        >;
+  }>;
+  openAiTools: Array<{
+    type: "function";
+    function: {
+      name: string;
+      description: string;
+      parameters: Record<string, unknown>;
+    };
+  }>;
+  anthropicTools: Array<{
+    name: string;
+    description: string;
+    input_schema: Record<string, unknown>;
+  }>;
 };
 
 /**
@@ -159,6 +197,57 @@ function asObject(x: unknown): JsonObject | null {
     return null;
   }
   return x as JsonObject;
+}
+
+function buildOpenAiTools(
+  tools?: Array<{
+    name: string;
+    description: string;
+    inputSchema: Record<string, unknown>;
+  }>,
+): RuntimeMessages["openAiTools"] {
+  if (!tools || tools.length === 0) {
+    return [];
+  }
+  return tools.map((tool) => ({
+    type: "function",
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.inputSchema,
+    },
+  }));
+}
+
+function buildAnthropicTools(
+  tools?: Array<{
+    name: string;
+    description: string;
+    inputSchema: Record<string, unknown>;
+  }>,
+): RuntimeMessages["anthropicTools"] {
+  if (!tools || tools.length === 0) {
+    return [];
+  }
+  return tools.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    input_schema: tool.inputSchema,
+  }));
+}
+
+function maybeParseJsonObject(
+  value: string,
+): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -414,8 +503,16 @@ function createAiSessionHelpers(state: AiInternalState) {
       role: "system" | "user" | "assistant" | "tool";
       content: string;
       toolCallId?: string;
+      toolCalls?: ToolCallInfo[];
+    }>;
+    tools?: Array<{
+      name: string;
+      description: string;
+      inputSchema: Record<string, unknown>;
     }>;
   }): RuntimeMessages {
+    const openAiTools = buildOpenAiTools(args.tools);
+    const anthropicTools = buildAnthropicTools(args.tools);
     if (args.explicitMessages && args.explicitMessages.length > 0) {
       const systemText = args.explicitMessages
         .filter((message) => message.role === "system")
@@ -424,6 +521,18 @@ function createAiSessionHelpers(state: AiInternalState) {
       const openAiMessages = args.explicitMessages.map((message) => ({
         role: message.role,
         content: message.content,
+        ...(message.role === "assistant" && message.toolCalls
+          ? {
+              tool_calls: message.toolCalls.map((toolCall) => ({
+                id: toolCall.id,
+                type: "function" as const,
+                function: {
+                  name: toolCall.name,
+                  arguments: JSON.stringify(toolCall.arguments),
+                },
+              })),
+            }
+          : {}),
         ...(message.role === "tool" && message.toolCallId
           ? { tool_call_id: message.toolCallId }
           : {}),
@@ -433,18 +542,53 @@ function createAiSessionHelpers(state: AiInternalState) {
         .map((message) => {
           const role: "user" | "assistant" =
             message.role === "assistant" ? "assistant" : "user";
+          if (message.role === "assistant" && message.toolCalls) {
+            const content: NonNullable<
+              RuntimeMessages["anthropicMessages"][number]["content"]
+            > extends infer T
+              ? T
+              : never = [
+              ...(message.content.length > 0
+                ? [{ type: "text" as const, text: message.content }]
+                : []),
+              ...message.toolCalls.map((toolCall) => ({
+                type: "tool_use" as const,
+                id: toolCall.id,
+                name: toolCall.name,
+                input: toolCall.arguments,
+              })),
+            ];
+            return { role, content };
+          }
+          if (message.role === "tool") {
+            const maybeError = maybeParseJsonObject(message.content);
+            return {
+              role,
+              content: [
+                {
+                  type: "tool_result" as const,
+                  tool_use_id: message.toolCallId ?? "unknown",
+                  content: message.content,
+                  ...(maybeError &&
+                  typeof maybeError.code === "string" &&
+                  typeof maybeError.message === "string"
+                    ? { is_error: true }
+                    : {}),
+                },
+              ],
+            };
+          }
           return {
             role,
-            content:
-              message.role === "tool"
-                ? `tool:${message.toolCallId ?? "unknown"}\n${message.content}`
-                : message.content,
+            content: message.content,
           };
         });
       return {
         systemText,
         openAiMessages,
         anthropicMessages,
+        openAiTools,
+        anthropicTools,
       };
     }
 
@@ -476,6 +620,8 @@ function createAiSessionHelpers(state: AiInternalState) {
       systemText,
       openAiMessages,
       anthropicMessages,
+      openAiTools,
+      anthropicTools,
     };
   }
 
@@ -909,6 +1055,9 @@ function createAiNonStreamHelpers(
         body: JSON.stringify({
           model: args.model,
           messages: args.runtimeMessages.openAiMessages,
+          ...(args.runtimeMessages.openAiTools.length > 0
+            ? { tools: args.runtimeMessages.openAiTools }
+            : {}),
           stream: false,
         }),
         signal: args.entry.controller.signal,
@@ -970,6 +1119,9 @@ function createAiNonStreamHelpers(
           max_tokens: DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE,
           system: args.runtimeMessages.systemText,
           messages: args.runtimeMessages.anthropicMessages,
+          ...(args.runtimeMessages.anthropicTools.length > 0
+            ? { tools: args.runtimeMessages.anthropicTools }
+            : {}),
           stream: false,
         }),
         signal: args.entry.controller.signal,
@@ -1173,6 +1325,9 @@ function createAiStreamHelpers(
         body: JSON.stringify({
           model: args.model,
           messages: args.runtimeMessages.openAiMessages,
+          ...(args.runtimeMessages.openAiTools.length > 0
+            ? { tools: args.runtimeMessages.openAiTools }
+            : {}),
           stream: true,
         }),
         signal: args.entry.controller.signal,
@@ -1333,6 +1488,9 @@ function createAiStreamHelpers(
           max_tokens: DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE,
           system: args.runtimeMessages.systemText,
           messages: args.runtimeMessages.anthropicMessages,
+          ...(args.runtimeMessages.anthropicTools.length > 0
+            ? { tools: args.runtimeMessages.anthropicTools }
+            : {}),
           stream: true,
         }),
         signal: args.entry.controller.signal,
@@ -1359,19 +1517,15 @@ function createAiStreamHelpers(
     }
 
     let sawMessageStop = false;
+    let finishReason: "stop" | "tool_use" | null = null;
+    const pendingToolCalls = new Map<
+      number,
+      { id: string; name: string; argumentsText: string }
+    >();
     try {
       for await (const msg of readSse({ body: res.body })) {
         if (args.entry.terminal !== null) {
           break;
-        }
-
-        if (msg.event === "message_stop") {
-          sawMessageStop = true;
-          break;
-        }
-
-        if (msg.event !== "content_block_delta") {
-          continue;
         }
 
         let parsed: unknown;
@@ -1392,6 +1546,65 @@ function createAiStreamHelpers(
           );
           continue;
         }
+
+        if (msg.event === "message_stop") {
+          sawMessageStop = true;
+          break;
+        }
+
+        if (msg.event === "message_delta") {
+          const obj = asObject(parsed);
+          const delta = asObject(obj?.delta);
+          const stopReason = delta?.stop_reason;
+          if (stopReason === "tool_use") {
+            finishReason = "tool_use";
+          } else if (typeof stopReason === "string" && stopReason.length > 0) {
+            finishReason = "stop";
+          }
+          continue;
+        }
+
+        if (msg.event === "content_block_start") {
+          const obj = asObject(parsed);
+          const index = typeof obj?.index === "number" ? obj.index : -1;
+          const contentBlock = asObject(obj?.content_block);
+          if (
+            index >= 0 &&
+            contentBlock?.type === "tool_use" &&
+            typeof contentBlock.id === "string" &&
+            typeof contentBlock.name === "string"
+          ) {
+            const input = contentBlock.input;
+            pendingToolCalls.set(index, {
+              id: contentBlock.id,
+              name: contentBlock.name,
+              argumentsText:
+                input && typeof input === "object" && !Array.isArray(input)
+                  ? JSON.stringify(input)
+                  : "",
+            });
+          }
+          continue;
+        }
+
+        if (msg.event !== "content_block_delta") {
+          continue;
+        }
+
+        const obj = asObject(parsed);
+        const index = typeof obj?.index === "number" ? obj.index : -1;
+        const deltaObj = asObject(obj?.delta);
+        if (deltaObj?.type === "input_json_delta" && index >= 0) {
+          const existing = pendingToolCalls.get(index);
+          if (existing) {
+            pendingToolCalls.set(index, {
+              ...existing,
+              argumentsText: `${existing.argumentsText}${typeof deltaObj.partial_json === "string" ? deltaObj.partial_json : ""}`,
+            });
+          }
+          continue;
+        }
+
         const delta = extractAnthropicDelta(parsed);
         if (typeof delta !== "string" || delta.length === 0) {
           continue;
@@ -1419,6 +1632,26 @@ function createAiStreamHelpers(
         retryable: true,
       });
     }
+
+    args.entry.finishReason = finishReason ?? "stop";
+    args.entry.toolCalls =
+      args.entry.finishReason === "tool_use"
+        ? [...pendingToolCalls.entries()]
+            .sort((a, b) => a[0] - b[0])
+            .flatMap(([, value]) => {
+              const parsedArgs = maybeParseJsonObject(value.argumentsText);
+              if (!parsedArgs) {
+                return [];
+              }
+              return [
+                {
+                  id: value.id,
+                  name: value.name,
+                  arguments: parsedArgs,
+                },
+              ];
+            })
+        : [];
 
     return { ok: true, data: true };
   }
@@ -1846,6 +2079,7 @@ function createAiRunSkillOp(
       input: args.input,
       history,
       explicitMessages: args.messages,
+      tools: args.tools,
     });
     const promptTokens = estimateTokenCount(args.input);
     const projectedTokens = promptTokens + DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE;
