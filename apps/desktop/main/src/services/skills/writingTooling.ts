@@ -194,7 +194,6 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
 
   return registry;
 }
-}
 
 /**
  * P2: Create a read-only agentic tool registry for use in the Agentic Loop.

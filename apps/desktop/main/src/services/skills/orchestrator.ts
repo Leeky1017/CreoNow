@@ -121,7 +121,7 @@ export interface OrchestratorConfig {
     signal: AbortSignal;
     emitChunk: (delta: string, accumulatedTokens: number) => void;
     /** P2: updated messages for subsequent agentic loop rounds */
-    messages?: Array<{ role: string; content: string }>;
+    messages?: Array<{ role: string; content: string; toolCallId?: string }>;
   }) => Promise<{
     fullText: string;
     usage: { promptTokens: number; completionTokens: number; totalTokens: number };
@@ -437,7 +437,7 @@ export function createWritingOrchestrator(
         // AND the AI returned finishReason === 'tool_use'
         if (request.agenticLoop && config.toolUseHandler && config.generateText) {
           let agenticRound = 0;
-          let agenticMessages: Array<{ role: string; content: string }> | undefined;
+          let agenticMessages: Array<{ role: string; content: string; toolCallId?: string }> | undefined;
 
           while (lastFinishReason === "tool_use" && agenticRound < AGENTIC_MAX_ROUNDS) {
             agenticRound++;
@@ -503,7 +503,7 @@ export function createWritingOrchestrator(
             agenticMessages = config.toolUseHandler.injectResults(
               msgsWithAssistant,
               results,
-            ) as Array<{ role: string; content: string }>;
+            ) as Array<{ role: string; content: string; toolCallId?: string }>;
 
             if (abortController.signal.aborted) {
               taskStates.set(requestId, "killed");

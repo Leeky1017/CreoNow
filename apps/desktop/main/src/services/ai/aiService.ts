@@ -75,7 +75,7 @@ export type AiService = {
     ts: number;
     emitEvent: (event: AiStreamEvent) => void;
     /** P2: when provided, bypass internal message building and use these messages directly */
-    overrideMessages?: Array<{ role: string; content: string }>;
+    overrideMessages?: Array<{ role: string; content: string; toolCallId?: string }>;
   }) => Promise<
     ServiceResult<{
       executionId: string;
@@ -137,10 +137,26 @@ const STREAM_CHUNK_MAX_BATCH_COUNT = 4;
 const STREAM_COMPLETION_SETTLE_MS = 20;
 const SSE_PARSE_RAW_MAX_LEN = 200;
 
+/** OpenAI tool-result message shape (role="tool" requires tool_call_id). */
+type OpenAiToolMessage = { role: "tool"; content: string; tool_call_id: string };
+
+/** Anthropic tool-result content block (wrapped in a user message). */
+type AnthropicToolResultBlock = {
+  type: "tool_result";
+  tool_use_id: string;
+  content: string;
+};
+
 type RuntimeMessages = {
   systemText: string;
-  openAiMessages: LLMMessage[];
-  anthropicMessages: Array<{ role: "user" | "assistant"; content: string }>;
+  /** May include tool-result messages for agentic-loop rounds. */
+  openAiMessages: Array<LLMMessage | OpenAiToolMessage>;
+  /** Anthropic messages; tool results are represented as user messages with
+   * content blocks instead of plain strings. */
+  anthropicMessages: Array<{
+    role: "user" | "assistant";
+    content: string | AnthropicToolResultBlock[];
+  }>;
 };
 
 /**
@@ -1798,17 +1814,51 @@ function createAiRunSkillOp(
     // P2: when overrideMessages is provided, use them directly bypassing internal message assembly
     const runtimeMessages: RuntimeMessages = args.overrideMessages && args.overrideMessages.length > 0
       ? (() => {
-          const openAiMessages: LLMMessage[] = args.overrideMessages!.map((m) => ({
-            role: m.role as "system" | "user" | "assistant",
-            content: m.content,
-          }));
+          // OpenAI: preserve role="tool" messages with their tool_call_id
+          const openAiMessages: RuntimeMessages["openAiMessages"] = args.overrideMessages!.map((m) => {
+            if (m.role === "tool") {
+              return {
+                role: "tool" as const,
+                content: m.content,
+                tool_call_id: m.toolCallId ?? "",
+              };
+            }
+            return {
+              role: m.role as "system" | "user" | "assistant",
+              content: m.content,
+            };
+          });
           const systemText = openAiMessages
             .filter((m) => m.role === "system")
-            .map((m) => m.content)
+            .map((m) => (m as LLMMessage).content)
             .join("\n");
-          const anthropicMessages: RuntimeMessages["anthropicMessages"] = openAiMessages
-            .filter((m) => m.role === "user" || m.role === "assistant")
-            .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+          // Anthropic: group consecutive tool messages into user messages with
+          // tool_result content blocks; skip system messages (sent separately).
+          const anthropicMessages: RuntimeMessages["anthropicMessages"] = [];
+          let pendingToolResults: AnthropicToolResultBlock[] = [];
+          const flushToolResults = (): void => {
+            if (pendingToolResults.length > 0) {
+              anthropicMessages.push({ role: "user", content: [...pendingToolResults] });
+              pendingToolResults = [];
+            }
+          };
+          for (const m of args.overrideMessages!) {
+            if (m.role === "system") {
+              flushToolResults();
+              continue;
+            }
+            if (m.role === "tool") {
+              pendingToolResults.push({
+                type: "tool_result",
+                tool_use_id: m.toolCallId ?? "",
+                content: m.content,
+              });
+            } else if (m.role === "user" || m.role === "assistant") {
+              flushToolResults();
+              anthropicMessages.push({ role: m.role, content: m.content });
+            }
+          }
+          flushToolResults();
           return { systemText, openAiMessages, anthropicMessages };
         })()
       : buildRuntimeMessages({
