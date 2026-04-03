@@ -235,4 +235,43 @@ describe("ai:skill:run tool-use IPC forwarding", () => {
       },
     });
   });
+
+  it("preview 前通过 skill:tool-use 透出 warning", async () => {
+    orchestratorExecuteSpy.mockReset();
+    orchestratorExecuteSpy.mockImplementation(async function* () {
+      yield {
+        type: "warning",
+        timestamp: Date.now(),
+        message: "AI 返回 tool_use 但当前 Skill 未启用 Agentic Loop",
+      };
+      yield {
+        type: "ai-done",
+        timestamp: Date.now(),
+        fullText: "最终润色。",
+        usage: {
+          promptTokens: 10,
+          completionTokens: 4,
+          totalTokens: 14,
+        },
+      };
+      yield {
+        type: "permission-requested",
+        timestamp: Date.now(),
+        level: "preview-confirm",
+        description: "confirm writeback",
+      };
+    });
+
+    const harness = createHarness();
+    await harness.invokeSkillRun();
+
+    const toolEvents = harness.sentEvents.filter(
+      (event) => event.channel === "skill:tool-use",
+    );
+    expect(toolEvents).toHaveLength(1);
+    expect(toolEvents[0]?.payload).toMatchObject({
+      type: "tool-use-warning",
+      message: "AI 返回 tool_use 但当前 Skill 未启用 Agentic Loop",
+    });
+  });
 });

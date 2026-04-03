@@ -45,6 +45,7 @@ export type WritingEventType =
   | "model-selected"
   | "ai-chunk"
   | "ai-done"
+  | "warning"
   | "tool-use-started"
   | "tool-use-completed"
   | "tool-use-failed"
@@ -630,16 +631,28 @@ async function* executeAiRound(args: {
             ?? (Array.isArray(roundResult.toolCalls) && roundResult.toolCalls.length > 0
               ? "tool_use"
               : "stop");
+          const hasToolCalls =
+            Array.isArray(roundResult.toolCalls) && roundResult.toolCalls.length > 0;
+          const agenticLoopEnabled = Boolean(toolUseHandler && toolUseConfig);
+
+          if (finishReason === "tool_use" && !agenticLoopEnabled) {
+            yield makeEvent("warning", requestId, {
+              message: "AI 返回 tool_use 但当前 Skill 未启用 Agentic Loop",
+            });
+            break;
+          }
 
           if (
             finishReason !== "tool_use"
             || !toolUseHandler
             || !toolUseConfig
-            || !Array.isArray(roundResult.toolCalls)
-            || roundResult.toolCalls.length === 0
+            || !hasToolCalls
           ) {
             break;
           }
+          const toolCalls = roundResult.toolCalls as NonNullable<
+            StreamResult["toolCalls"]
+          >;
 
           const nextRound = toolRoundCount + 1;
           if (nextRound > toolUseConfig.maxToolRounds) {
@@ -656,7 +669,7 @@ async function* executeAiRound(args: {
 
           let parsedCalls;
           try {
-            parsedCalls = toolUseHandler.parseToolCalls(roundResult.toolCalls);
+            parsedCalls = toolUseHandler.parseToolCalls(toolCalls);
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error);

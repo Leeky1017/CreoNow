@@ -434,6 +434,39 @@ describe("WritingOrchestrator", () => {
   });
 
   describe("Agentic Loop — P2 tool-use", () => {
+    it("polish 遇到意外 tool_use 时 → 忽略 toolCalls 并产出 warning", async () => {
+      const aiService = createMockToolUseAIService([
+        {
+          chunks: [{ delta: "润色后的段落", finishReason: "tool_use", accumulatedTokens: 6 }],
+          result: {
+            content: "润色后的段落",
+            finishReason: "tool_use",
+            toolCalls: [{ id: "call-1", name: "documentRead", arguments: { scope: "cursor" } }],
+          },
+        },
+      ]);
+      orchestrator.dispose();
+      config = buildConfig({ aiService });
+      orchestrator = createWritingOrchestrator(config);
+
+      const events = await collectEvents(
+        orchestrator.execute(makeRequest({ skillId: "polish" })),
+      );
+
+      const warningEvent = events.find((event) => event.type === "warning");
+      expect(warningEvent).toMatchObject({
+        type: "warning",
+        message: "AI 返回 tool_use 但当前 Skill 未启用 Agentic Loop",
+      });
+      expect(eventTypes(events)).not.toContain("tool-use-started");
+      expect(eventTypes(events)).not.toContain("tool-use-completed");
+      expect(eventTypes(events)).not.toContain("tool-use-failed");
+      expect(events.find((event) => event.type === "ai-done")).toMatchObject({
+        type: "ai-done",
+        fullText: "润色后的段落",
+      });
+    });
+
     it("continue 遇到 tool_use → 执行只读工具 → 注入结果 → 第二轮完成", async () => {
       const aiService = createMockToolUseAIService([
         {

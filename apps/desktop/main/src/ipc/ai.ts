@@ -741,6 +741,35 @@ function emitOrchestratorToolUseEvent(args: {
   });
 }
 
+function emitOrchestratorWarningEvent(args: {
+  ctx: AiIpcContext;
+  sender: Electron.WebContents;
+  executionId: string;
+  runId: string;
+  traceId: string;
+  event: WritingEvent;
+}): void {
+  safeEmitToRenderer({
+    logger: args.ctx.deps.logger,
+    sender: args.sender,
+    event: {
+      type: "tool-use-warning",
+      executionId: args.executionId,
+      runId: args.runId,
+      traceId: args.traceId,
+      message: String(args.event.message ?? ""),
+      ...(Array.isArray(args.event.discardedToolNames)
+        ? {
+            discardedToolNames: args.event.discardedToolNames.map((name) =>
+              String(name),
+            ),
+          }
+        : {}),
+      ts: nowTs(),
+    },
+  });
+}
+
 /**
  * Normalize AI run response payload to the IPC contract surface.
  *
@@ -949,6 +978,7 @@ function safeEmitToRenderer(args: {
         : args.event.type === "tool-use-started"
           || args.event.type === "tool-use-completed"
           || args.event.type === "tool-use-failed"
+          || args.event.type === "tool-use-warning"
           ? SKILL_TOOL_USE_CHANNEL
         : SKILL_STREAM_DONE_CHANNEL;
   try {
@@ -1498,6 +1528,18 @@ async function drainPreviewUntilPause(args: {
       continue;
     }
 
+    if (event.type === "warning") {
+      emitOrchestratorWarningEvent({
+        ctx: args.ctx,
+        sender: args.sender,
+        executionId: args.executionId,
+        runId: args.runId,
+        traceId: args.traceId,
+        event,
+      });
+      continue;
+    }
+
     if (event.type === "permission-requested") {
       const session = {
         executionId: args.executionId,
@@ -1641,6 +1683,17 @@ async function continuePreviewSession(args: {
       || event.type === "tool-use-failed"
     ) {
       emitOrchestratorToolUseEvent({
+        ctx: args.ctx,
+        sender: args.session.sender,
+        executionId: args.session.executionId,
+        runId: args.session.runId,
+        traceId: args.session.traceId,
+        event,
+      });
+      continue;
+    }
+    if (event.type === "warning") {
+      emitOrchestratorWarningEvent({
         ctx: args.ctx,
         sender: args.session.sender,
         executionId: args.session.executionId,

@@ -96,6 +96,16 @@ export type AiToolUseFailedEvent = {
   ts: number;
 };
 
+export type AiToolUseWarningEvent = {
+  type: "tool-use-warning";
+  executionId: string;
+  runId: string;
+  traceId: string;
+  message: string;
+  discardedToolNames?: string[];
+  ts: number;
+};
+
 export type AiStreamEvent =
   | AiStreamChunkEvent
   | AiStreamDoneEvent
@@ -104,4 +114,5 @@ export type AiStreamEvent =
 export type AiToolUseEvent =
   | AiToolUseStartedEvent
   | AiToolUseCompletedEvent
-  | AiToolUseFailedEvent;
+  | AiToolUseFailedEvent
+  | AiToolUseWarningEvent;
