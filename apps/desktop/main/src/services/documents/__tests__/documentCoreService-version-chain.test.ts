@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { initDb } from "../../../db/init";
 import { createDocumentCoreService } from "../documentCoreService";
 
 const MIGRATIONS_DIR = path.resolve(
@@ -14,8 +15,13 @@ const MIGRATIONS_DIR = path.resolve(
 const VERSION_PARENT_SNAPSHOT_MIGRATION = "0026_version_parent_snapshot_id.sql";
 const VERSION_PARENT_SNAPSHOT_ROWID_FIX_MIGRATION =
   "0027_version_parent_snapshot_rowid_order.sql";
+const TEST_ARTIFACTS_DIR = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "__artifacts__",
+);
 
 const fakeLogger = {
+  logPath: "<test>",
   info: () => {},
   error: () => {},
   warn: () => {},
@@ -122,6 +128,11 @@ function insertLegacyVersion(args: {
     args.wordCount,
     args.createdAt,
   );
+}
+
+function createInitDbUserDataDir(): string {
+  fs.mkdirSync(TEST_ARTIFACTS_DIR, { recursive: true });
+  return fs.mkdtempSync(path.join(TEST_ARTIFACTS_DIR, "db-init-"));
 }
 
 describe("documentCoreService 线性快照链", () => {
@@ -231,6 +242,106 @@ describe("documentCoreService 线性快照链", () => {
       ]);
     } finally {
       legacyDb.close();
+    }
+  });
+
+  it("通过生产 initDb 注册链路执行 0027 migration，并把 legacy parentSnapshotId 回填到最新顺序", () => {
+    const userDataDir = createInitDbUserDataDir();
+    const dbPath = path.join(userDataDir, "data", "creonow.db");
+
+    try {
+      fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+      const legacyDb = new Database(dbPath);
+      legacyDb.pragma("foreign_keys = ON");
+
+      try {
+        applyMigrations(
+          legacyDb,
+          (file) => file !== VERSION_PARENT_SNAPSHOT_ROWID_FIX_MIGRATION,
+        );
+        insertProject(legacyDb, "proj-init");
+        insertDocument({
+          db: legacyDb,
+          projectId: "proj-init",
+          documentId: "doc-init",
+          title: "initDb 迁移链路",
+          contentText: "迁移前文稿",
+        });
+        insertLegacyVersion({
+          db: legacyDb,
+          projectId: "proj-init",
+          documentId: "doc-init",
+          versionId: "legacy-1",
+          contentText: "初稿",
+          wordCount: 2,
+          createdAt: 1_000,
+        });
+        insertLegacyVersion({
+          db: legacyDb,
+          projectId: "proj-init",
+          documentId: "doc-init",
+          versionId: "aaa-old",
+          contentText: "三稿",
+          wordCount: 4,
+          createdAt: 2_000,
+        });
+        insertLegacyVersion({
+          db: legacyDb,
+          projectId: "proj-init",
+          documentId: "doc-init",
+          versionId: "zzz-newer",
+          contentText: "四稿",
+          wordCount: 5,
+          createdAt: 2_000,
+        });
+        insertLegacyVersion({
+          db: legacyDb,
+          projectId: "proj-init",
+          documentId: "doc-init",
+          versionId: "legacy-final",
+          contentText: "终稿",
+          wordCount: 6,
+          createdAt: 3_000,
+        });
+        legacyDb.exec(`
+          CREATE TABLE schema_version (version INTEGER NOT NULL);
+          INSERT INTO schema_version (version) VALUES (27);
+        `);
+      } finally {
+        legacyDb.close();
+      }
+
+      const initResult = initDb({
+        userDataDir,
+        logger: fakeLogger,
+      });
+      expect(initResult.ok).toBe(true);
+      if (!initResult.ok) {
+        return;
+      }
+
+      try {
+        expect(initResult.schemaVersion).toBe(28);
+        const rows = initResult.db
+          .prepare<
+            [string],
+            { versionId: string; parentSnapshotId: string | null }
+          >(
+            "SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC",
+          )
+          .all("doc-init");
+
+        expect(rows).toEqual([
+          { versionId: "legacy-final", parentSnapshotId: "zzz-newer" },
+          { versionId: "zzz-newer", parentSnapshotId: "aaa-old" },
+          { versionId: "aaa-old", parentSnapshotId: "legacy-1" },
+          { versionId: "legacy-1", parentSnapshotId: null },
+        ]);
+      } finally {
+        initResult.db.close();
+      }
+    } finally {
+      fs.rmSync(userDataDir, { recursive: true, force: true });
     }
   });
 
