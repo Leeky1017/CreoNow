@@ -25,7 +25,12 @@ export type IpcErrorCode =
   | "CONTEXT_INSPECT_FORBIDDEN"
   | "CONTEXT_SCOPE_VIOLATION"
   | "CONTEXT_TOKENIZER_MISMATCH"
+  | "COST_BUDGET_EXCEEDED"
+  | "COST_MODEL_NOT_FOUND"
+  | "COST_PRICING_STALE"
   | "DB_ERROR"
+  | "DIFF_COMPUTE_FAILED"
+  | "DIFF_INPUT_TOO_LARGE"
   | "DOCUMENT_SAVE_CONFLICT"
   | "DOCUMENT_SIZE_EXCEEDED"
   | "EMBEDDING_PROVIDER_UNAVAILABLE"
@@ -127,6 +132,7 @@ export type IpcErr = {
 export type IpcResponse<TData> = IpcOk<TData> | IpcErr;
 
 export const IPC_CHANNELS = [
+  "ai:agentic:run",
   "ai:chat:clear",
   "ai:chat:list",
   "ai:chat:send",
@@ -135,6 +141,8 @@ export const IPC_CHANNELS = [
   "ai:config:get",
   "ai:config:test",
   "ai:config:update",
+  "ai:cost:list",
+  "ai:cost:summary",
   "ai:models:list",
   "ai:skill:cancel",
   "ai:skill:confirm",
@@ -267,6 +275,7 @@ export const IPC_CHANNELS = [
   "skill:registry:write",
   "stats:day:gettoday",
   "stats:range:get",
+  "version:diff:transaction",
   "version:snapshot:create",
   "version:snapshot:diff",
   "version:snapshot:list",
@@ -278,6 +287,41 @@ export const IPC_CHANNELS = [
 export type IpcChannel = (typeof IPC_CHANNELS)[number];
 
 export type IpcChannelSpec = {
+  "ai:agentic:run": {
+    request: {
+      context?: {
+        documentId?: string;
+        projectId?: string;
+      };
+      input: string;
+      maxToolRounds?: number;
+      model: string;
+      selection?: {
+        from: number;
+        selectionTextHash: string;
+        text: string;
+        to: number;
+      };
+      skillId: string;
+      stream: boolean;
+      userInstruction?: string;
+    };
+    response: {
+      executionId: string;
+      outputText?: string;
+      previewId?: string;
+      runId: string;
+      status: "preview" | "completed" | "rejected";
+      toolRoundsUsed?: number;
+      usage?: {
+        completionTokens: number;
+        estimatedCostUsd?: number;
+        promptTokens: number;
+        sessionTotalTokens: number;
+      };
+      versionId?: string;
+    };
+  };
   "ai:chat:clear": {
     request: {
       projectId: string;
@@ -454,7 +498,12 @@ export type IpcChannelSpec = {
           | "PREFLIGHT_MISSING_API_KEY"
           | "PREFLIGHT_INVALID_API_KEY_FORMAT"
           | "PREFLIGHT_MISSING_MODEL"
-          | "PREFLIGHT_MODEL_PROVIDER_MISMATCH";
+          | "PREFLIGHT_MODEL_PROVIDER_MISMATCH"
+          | "DIFF_INPUT_TOO_LARGE"
+          | "DIFF_COMPUTE_FAILED"
+          | "COST_MODEL_NOT_FOUND"
+          | "COST_BUDGET_EXCEEDED"
+          | "COST_PRICING_STALE";
         message: string;
       };
       latencyMs: number;
@@ -487,6 +536,55 @@ export type IpcChannelSpec = {
       openAiCompatibleApiKeyConfigured: boolean;
       openAiCompatibleBaseUrl: string;
       providerMode: "openai-compatible" | "openai-byok" | "anthropic-byok";
+    };
+  };
+  "ai:cost:list": {
+    request: {
+      limit?: number;
+      since?: number;
+      skillId?: string;
+    };
+    response: {
+      records: Array<{
+        cachedTokens: number;
+        cost: number;
+        inputTokens: number;
+        modelId: string;
+        outputTokens: number;
+        requestId: string;
+        skillId: string;
+        timestamp: number;
+        warning?: string;
+      }>;
+      totalCount: number;
+    };
+  };
+  "ai:cost:summary": {
+    request: {
+      since?: number;
+      skillId?: string;
+    };
+    response: {
+      costByModel: Record<
+        string,
+        {
+          cost: number;
+          requests: number;
+        }
+      >;
+      costBySkill: Record<
+        string,
+        {
+          cost: number;
+          requests: number;
+        }
+      >;
+      sessionStartedAt: number;
+      totalCachedTokens: number;
+      totalCost: number;
+      totalInputTokens: number;
+      totalOutputTokens: number;
+      totalRequests: number;
     };
   };
   "ai:models:list": {
@@ -1370,7 +1468,12 @@ export type IpcChannelSpec = {
                 | "PREFLIGHT_MISSING_API_KEY"
                 | "PREFLIGHT_INVALID_API_KEY_FORMAT"
                 | "PREFLIGHT_MISSING_MODEL"
-                | "PREFLIGHT_MODEL_PROVIDER_MISMATCH";
+                | "PREFLIGHT_MODEL_PROVIDER_MISMATCH"
+                | "DIFF_INPUT_TOO_LARGE"
+                | "DIFF_COMPUTE_FAILED"
+                | "COST_MODEL_NOT_FOUND"
+                | "COST_BUDGET_EXCEEDED"
+                | "COST_PRICING_STALE";
               message: string;
             };
             status: "error";
@@ -1484,7 +1587,12 @@ export type IpcChannelSpec = {
                 | "PREFLIGHT_MISSING_API_KEY"
                 | "PREFLIGHT_INVALID_API_KEY_FORMAT"
                 | "PREFLIGHT_MISSING_MODEL"
-                | "PREFLIGHT_MODEL_PROVIDER_MISMATCH";
+                | "PREFLIGHT_MODEL_PROVIDER_MISMATCH"
+                | "DIFF_INPUT_TOO_LARGE"
+                | "DIFF_COMPUTE_FAILED"
+                | "COST_MODEL_NOT_FOUND"
+                | "COST_BUDGET_EXCEEDED"
+                | "COST_PRICING_STALE";
               message: string;
             };
             status: "error";
@@ -2032,7 +2140,12 @@ export type IpcChannelSpec = {
         | "PREFLIGHT_MISSING_API_KEY"
         | "PREFLIGHT_INVALID_API_KEY_FORMAT"
         | "PREFLIGHT_MISSING_MODEL"
-        | "PREFLIGHT_MODEL_PROVIDER_MISMATCH";
+        | "PREFLIGHT_MODEL_PROVIDER_MISMATCH"
+        | "DIFF_INPUT_TOO_LARGE"
+        | "DIFF_COMPUTE_FAILED"
+        | "COST_MODEL_NOT_FOUND"
+        | "COST_BUDGET_EXCEEDED"
+        | "COST_PRICING_STALE";
       message?: string;
       progress: number;
       projectId: string;
@@ -2139,7 +2252,12 @@ export type IpcChannelSpec = {
         | "PREFLIGHT_MISSING_API_KEY"
         | "PREFLIGHT_INVALID_API_KEY_FORMAT"
         | "PREFLIGHT_MISSING_MODEL"
-        | "PREFLIGHT_MODEL_PROVIDER_MISMATCH";
+        | "PREFLIGHT_MODEL_PROVIDER_MISMATCH"
+        | "DIFF_INPUT_TOO_LARGE"
+        | "DIFF_COMPUTE_FAILED"
+        | "COST_MODEL_NOT_FOUND"
+        | "COST_BUDGET_EXCEEDED"
+        | "COST_PRICING_STALE";
       message?: string;
       progress: number;
       projectId: string;
@@ -3112,7 +3230,12 @@ export type IpcChannelSpec = {
           | "PREFLIGHT_MISSING_API_KEY"
           | "PREFLIGHT_INVALID_API_KEY_FORMAT"
           | "PREFLIGHT_MISSING_MODEL"
-          | "PREFLIGHT_MODEL_PROVIDER_MISMATCH";
+          | "PREFLIGHT_MODEL_PROVIDER_MISMATCH"
+          | "DIFF_INPUT_TOO_LARGE"
+          | "DIFF_COMPUTE_FAILED"
+          | "COST_MODEL_NOT_FOUND"
+          | "COST_BUDGET_EXCEEDED"
+          | "COST_PRICING_STALE";
         error_message?: string;
         id: string;
         name: string;
@@ -3189,6 +3312,30 @@ export type IpcChannelSpec = {
         writingSeconds: number;
       };
       to: string;
+    };
+  };
+  "version:diff:transaction": {
+    request: {
+      after: string;
+      before: string;
+    };
+    response: {
+      after: string;
+      before: string;
+      stats: {
+        deletedChars: number;
+        deletions: number;
+        insertedChars: number;
+        insertions: number;
+        replacements: number;
+        totalChanges: number;
+      };
+      steps: Array<{
+        from: number;
+        text?: string;
+        to: number;
+        type: "insert" | "delete" | "replace";
+      }>;
     };
   };
   "version:snapshot:create": {

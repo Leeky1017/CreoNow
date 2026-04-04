@@ -321,7 +321,7 @@ describe("documentCoreService 线性快照链", () => {
       }
 
       try {
-        expect(initResult.schemaVersion).toBe(28);
+        expect(initResult.schemaVersion).toBe(29);
         const rows = initResult.db
           .prepare<
             [string],

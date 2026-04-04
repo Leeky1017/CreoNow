@@ -76,6 +76,11 @@ export interface CostTracker {
 
   getSessionCost(): SessionCostSummary;
   getRequestCost(requestId: string): RequestCost | null;
+  listRecords(filter?: {
+    skillId?: string;
+    since?: number;
+    limit?: number;
+  }): ReadonlyArray<RequestCost>;
   checkBudget(): BudgetAlert | null;
   estimateCost(text: string, modelId: string, expectedOutputTokens: number): number;
   onBudgetAlert(callback: (alert: BudgetAlert) => void): () => void;
@@ -297,6 +302,30 @@ export function createCostTracker(config: CostTrackerConfig): CostTracker {
 
     getRequestCost(requestId: string): RequestCost | null {
       return records.get(requestId) ?? null;
+    },
+
+    listRecords(filter?: {
+      skillId?: string;
+      since?: number;
+      limit?: number;
+    }): ReadonlyArray<RequestCost> {
+      let result = Array.from(records.values());
+
+      if (filter?.skillId) {
+        result = result.filter((r) => r.skillId === filter.skillId);
+      }
+      if (filter?.since !== undefined) {
+        result = result.filter((r) => r.timestamp >= filter.since!);
+      }
+
+      // Newest first
+      result.sort((a, b) => b.timestamp - a.timestamp);
+
+      if (filter?.limit !== undefined && filter.limit > 0) {
+        result = result.slice(0, filter.limit);
+      }
+
+      return result;
     },
 
     checkBudget(): BudgetAlert | null {

@@ -93,6 +93,11 @@ export const IPC_ERROR_CODES = [
   "PREFLIGHT_INVALID_API_KEY_FORMAT",
   "PREFLIGHT_MISSING_MODEL",
   "PREFLIGHT_MODEL_PROVIDER_MISMATCH",
+  "DIFF_INPUT_TOO_LARGE",
+  "DIFF_COMPUTE_FAILED",
+  "COST_MODEL_NOT_FOUND",
+  "COST_BUDGET_EXCEEDED",
+  "COST_PRICING_STALE",
 ] as const;
 
 export type IpcErrorCode = (typeof IPC_ERROR_CODES)[number];
@@ -2360,6 +2365,124 @@ export const ipcContract = {
         timestamp: s.string(),
       }),
       response: s.object({ logged: s.literal(true) }),
+    },
+    "version:diff:transaction": {
+      request: s.object({
+        before: s.string(),
+        after: s.string(),
+      }),
+      response: s.object({
+        steps: s.array(
+          s.object({
+            type: s.union(
+              s.literal("insert"),
+              s.literal("delete"),
+              s.literal("replace"),
+            ),
+            from: s.number(),
+            to: s.number(),
+            text: s.optional(s.string()),
+          }),
+        ),
+        before: s.string(),
+        after: s.string(),
+        stats: s.object({
+          insertions: s.number(),
+          deletions: s.number(),
+          replacements: s.number(),
+          totalChanges: s.number(),
+          insertedChars: s.number(),
+          deletedChars: s.number(),
+        }),
+      }),
+    },
+    "ai:cost:list": {
+      request: s.object({
+        skillId: s.optional(s.string()),
+        since: s.optional(s.number()),
+        limit: s.optional(s.number()),
+      }),
+      response: s.object({
+        records: s.array(
+          s.object({
+            requestId: s.string(),
+            modelId: s.string(),
+            skillId: s.string(),
+            inputTokens: s.number(),
+            outputTokens: s.number(),
+            cachedTokens: s.number(),
+            cost: s.number(),
+            warning: s.optional(s.string()),
+            timestamp: s.number(),
+          }),
+        ),
+        totalCount: s.number(),
+      }),
+    },
+    "ai:cost:summary": {
+      request: s.object({
+        skillId: s.optional(s.string()),
+        since: s.optional(s.number()),
+      }),
+      response: s.object({
+        totalCost: s.number(),
+        totalRequests: s.number(),
+        totalInputTokens: s.number(),
+        totalOutputTokens: s.number(),
+        totalCachedTokens: s.number(),
+        costByModel: s.record(
+          s.object({ cost: s.number(), requests: s.number() }),
+        ),
+        costBySkill: s.record(
+          s.object({ cost: s.number(), requests: s.number() }),
+        ),
+        sessionStartedAt: s.number(),
+      }),
+    },
+    "ai:agentic:run": {
+      request: s.object({
+        skillId: s.string(),
+        input: s.string(),
+        userInstruction: s.optional(s.string()),
+        model: s.string(),
+        context: s.optional(
+          s.object({
+            projectId: s.optional(s.string()),
+            documentId: s.optional(s.string()),
+          }),
+        ),
+        selection: s.optional(
+          s.object({
+            from: s.number(),
+            to: s.number(),
+            text: s.string(),
+            selectionTextHash: s.string(),
+          }),
+        ),
+        maxToolRounds: s.optional(s.number()),
+        stream: s.boolean(),
+      }),
+      response: s.object({
+        executionId: s.string(),
+        runId: s.string(),
+        status: s.union(
+          s.literal("preview"),
+          s.literal("completed"),
+          s.literal("rejected"),
+        ),
+        previewId: s.optional(s.string()),
+        versionId: s.optional(s.string()),
+        outputText: s.optional(s.string()),
+        usage: s.optional(
+          s.object({
+            promptTokens: s.number(),
+            completionTokens: s.number(),
+            sessionTotalTokens: s.number(),
+            estimatedCostUsd: s.optional(s.number()),
+          }),
+        ),
+        toolRoundsUsed: s.optional(s.number()),
+      }),
     },
   },
 } as const;
