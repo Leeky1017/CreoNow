@@ -66,6 +66,7 @@ type SkillRunPayload = {
   hasSelection?: boolean;
   cursorPosition?: number;
   input: string;
+  userInstruction?: string;
   /** Cursor-preceding text for document-window skills (e.g. continue). */
   precedingText?: string;
   mode: "agent" | "plan" | "ask";
@@ -335,15 +336,22 @@ function createPendingPermissionGate(): PendingPermissionGate {
 
 function renderSkillUserPrompt(args: {
   template: string;
-  input: string;
+  values: Record<string, string>;
 }): string {
-  if (args.template.includes("{{input}}")) {
-    return args.template.split("{{input}}").join(args.input);
+  const usedPlaceholder = Object.keys(args.values).some((key) =>
+    args.template.includes(`{{${key}}}`),
+  );
+  let rendered = args.template;
+  for (const [key, value] of Object.entries(args.values)) {
+    rendered = rendered.split(`{{${key}}}`).join(value);
   }
-  if (args.template.trim().length === 0) {
-    return args.input;
+  if (rendered.trim().length === 0) {
+    return args.values.input ?? "";
   }
-  return `${args.template}\n\n${args.input}`;
+  if (!usedPlaceholder) {
+    return `${rendered}\n\n${args.values.input ?? ""}`;
+  }
+  return rendered;
 }
 
 function resolveP1BuiltinSkill(skillId: string):
@@ -364,8 +372,9 @@ function resolveP1BuiltinSkill(skillId: string):
       id: "builtin:polish",
       prompt: {
         system:
-          "You are CreoNow's writing assistant. Follow the user's intent exactly. Preserve meaning and factual claims. Do not add new information.",
-        user: "Polish the following text for clarity and style.\n\n<text>\n{{input}}\n</text>",
+          "You are CreoNow's writing assistant. Follow the user's intent exactly. Preserve meaning and factual claims. Do not add new information. Return exactly one polished replacement in plain prose, with no XML, HTML, markdown labels, or code fences. Keep the output close in length to the selected text unless the user instruction explicitly says otherwise.",
+        user:
+          "Polish the following text for clarity and style.\n\nUser instruction:\n{{userInstruction}}\n\n<text>\n{{input}}\n</text>",
       },
       inputType: "selection",
       enabled: true,
@@ -377,8 +386,9 @@ function resolveP1BuiltinSkill(skillId: string):
       id: "builtin:rewrite",
       prompt: {
         system:
-          "You are CreoNow's writing assistant. Rewrite the input while preserving meaning and factual claims. Follow all explicit rewrite instructions from the input.",
-        user: "Rewrite the following text according to the user's instruction.\n\n<input>\n{{input}}\n</input>",
+          "You are CreoNow's writing assistant. Rewrite the selected text while preserving meaning and factual claims. Follow all explicit rewrite instructions from the user instruction block. Return exactly one rewritten replacement in plain prose, with no XML, HTML, markdown labels, or code fences. Keep the output close in length to the selected text unless the user instruction explicitly says otherwise.",
+        user:
+          "Rewrite the following text according to the user's instruction.\n\nUser instruction:\n{{userInstruction}}\n\n<text>\n{{input}}\n</text>",
       },
       inputType: "selection",
       enabled: true,
@@ -456,7 +466,10 @@ async function prepareWritingRequest(args: {
 
   const input = args.payload.input;
   const inputType = resolvedData.inputType ?? "selection";
-  if (inputType === "selection" && input.trim().length === 0) {
+  const selectedText = args.payload.selection?.text ?? input;
+  const userInstruction = args.payload.userInstruction?.trim() ?? "";
+  const effectiveInput = inputType === "selection" ? selectedText : input;
+  if (inputType === "selection" && effectiveInput.trim().length === 0) {
     return {
       ok: false,
       error: {
@@ -511,7 +524,7 @@ async function prepareWritingRequest(args: {
         cursorPosition: cursorPosition ?? 0,
         ...(textOffset !== undefined ? { textOffset } : {}),
         skillId: args.payload.skillId,
-        additionalInput: input,
+        additionalInput: effectiveInput,
         additionalInputIsSelection: inputType === "selection",
         provider: "ai-service",
         model: args.payload.model,
@@ -532,7 +545,11 @@ async function prepareWritingRequest(args: {
   const systemPrompt = resolvedData.skill.prompt?.system?.trim() ?? "";
   const userPrompt = renderSkillUserPrompt({
     template: resolvedData.skill.prompt?.user ?? "",
-    input,
+    values: {
+      input: effectiveInput,
+      selectedText,
+      userInstruction,
+    },
   });
 
   const messages = [
@@ -733,11 +750,12 @@ function leafSkillId(skillId: string): string {
 function resolveWritingRequestInput(request: {
   skillId: string;
   input: { selectedText?: string; precedingText?: string };
+  selection?: { text: string };
 }): string {
   if (leafSkillId(request.skillId) === "continue") {
     return request.input.precedingText ?? request.input.selectedText ?? "";
   }
-  return request.input.selectedText ?? "";
+  return request.selection?.text ?? request.input.selectedText ?? "";
 }
 
 /**
@@ -1411,6 +1429,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           skillId: request.skillId,
           hasSelection: Boolean(request.selection),
           input: resolveWritingRequestInput(request),
+          ...(request.userInstruction === undefined
+            ? {}
+            : { userInstruction: request.userInstruction }),
           mode: "ask",
           model: request.modelId ?? "default",
           ...(request.cursorPosition === undefined
@@ -2033,6 +2054,9 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
       const cursorPosition = resolveCursorPosition(payload);
       const normalizedPayload: SkillRunPayload = {
         ...payload,
+        ...(leafSkillId(payload.skillId) === "continue"
+          ? {}
+          : { input: payload.selection?.text ?? payload.input }),
         context: {
           ...(payload.context ?? {}),
           projectId: projectId.data,
@@ -2047,9 +2071,13 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         requestId: executionId,
         skillId: normalizedPayload.skillId,
         input: {
-          selectedText: normalizedPayload.input,
+          selectedText:
+            normalizedPayload.selection?.text ?? normalizedPayload.input,
           ...(normalizedPayload.precedingText !== undefined ? { precedingText: normalizedPayload.precedingText } : {}),
         },
+        ...(normalizedPayload.userInstruction === undefined
+          ? {}
+          : { userInstruction: normalizedPayload.userInstruction }),
         documentId,
         projectId: projectId.data,
         modelId: normalizedPayload.model,

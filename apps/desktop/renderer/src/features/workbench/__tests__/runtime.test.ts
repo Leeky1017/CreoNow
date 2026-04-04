@@ -86,6 +86,25 @@ function createApiMock(): PreloadApi {
     },
     version: {
       listSnapshots: vi.fn(async () => ({ ok: true, data: { items: [] } })),
+      readSnapshot: vi.fn(async () => ({
+        ok: true,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          versionId: "version-1",
+          actor: "user",
+          reason: "manual-save",
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "原文",
+          contentMd: "原文",
+          contentHash: "hash",
+          wordCount: 1,
+          parentSnapshotId: null,
+          createdAt: 1,
+        },
+      })),
+      rollbackSnapshot: vi.fn(async () => ({ ok: true, data: { restored: true, preRollbackVersionId: "pre-1", rollbackVersionId: "rollback-1" } })),
+      restoreSnapshot: vi.fn(async () => ({ ok: true, data: { restored: true } })),
     },
   };
 
@@ -135,7 +154,8 @@ describe("workbench runtime helpers", () => {
       expect.objectContaining({
         skillId: "builtin:rewrite",
         hasSelection: true,
-        input: "改得更凝练",
+        input: "原文",
+        userInstruction: "改得更凝练",
         selection: expect.objectContaining({
           from: 1,
           to: 3,
@@ -186,7 +206,8 @@ describe("workbench runtime helpers", () => {
     expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
       skillId: "builtin:polish",
       hasSelection: true,
-      input: "",
+      input: "原文",
+      userInstruction: "",
       selection: expect.objectContaining({
         from: 1,
         to: 3,

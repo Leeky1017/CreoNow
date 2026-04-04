@@ -41,6 +41,7 @@ import kgTypeOtherToFactionSql from "./migrations/0023_kg_type_other_to_faction.
 import backupSnapshotsSql from "./migrations/0024_backup_snapshots.sql?raw";
 import chatHistoryPersistenceSql from "./migrations/0024_chat_history_persistence.sql?raw";
 import documentCoverImageSql from "./migrations/0025_document_cover_image.sql?raw";
+import versionParentSnapshotSql from "./migrations/0026_version_parent_snapshot_id.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -158,6 +159,11 @@ const MIGRATIONS_BASE: readonly Migration[] = [
     version: 26,
     name: "0025_document_cover_image",
     sql: documentCoverImageSql,
+  },
+  {
+    version: 27,
+    name: "0026_version_parent_snapshot_id",
+    sql: versionParentSnapshotSql,
   },
 ];
 

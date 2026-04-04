@@ -18,6 +18,10 @@ import type { SelectionRef } from "@/editor/schema";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
+  VersionHistorySurface,
+  type VersionHistoryItem,
+} from "@/features/workbench/components/VersionHistorySurface";
+import {
   SelectionChangedError,
   StaleAiPreviewError,
   acceptAiPreview,
@@ -409,6 +413,12 @@ function WorkbenchShell() {
   const [preview, setPreview] = useState<AiPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyItems, setHistoryItems] = useState<VersionHistoryItem[]>([]);
+  const [pendingRollbackVersionId, setPendingRollbackVersionId] = useState<string | null>(null);
+  const [rollbackingVersionId, setRollbackingVersionId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [autosaveToastEvent, setAutosaveToastEvent] = useState<AutosaveToastEvent | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
@@ -705,6 +715,121 @@ function WorkbenchShell() {
       editorBridge.setContent(JSON.parse(nextContext.contentJson));
     });
   }, [clearAcceptSaveFailure, clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
+
+  const loadHistorySnapshots = useCallback(async (documentId: string | null) => {
+    if (documentId === null) {
+      setHistoryItems([]);
+      setHistoryError(null);
+      return;
+    }
+
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const result = await api.version.listSnapshots({ documentId });
+      if (result.ok === false) {
+        throw result.error;
+      }
+      setHistoryItems(result.data.items.map((item) => ({
+        ...item,
+        createdAtLabel: formatTimestamp(item.createdAt),
+      })));
+    } catch (error) {
+      setHistoryError(getHumanErrorMessage(error as Error, t));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [api.version, t]);
+
+  const handleToggleHistoryPanel = useCallback(async () => {
+    if (historyOpen) {
+      setHistoryOpen(false);
+      setPendingRollbackVersionId(null);
+      setHistoryError(null);
+      return;
+    }
+
+    setHistoryOpen(true);
+    setPendingRollbackVersionId(null);
+    await loadHistorySnapshots(activeDocument?.documentId ?? null);
+  }, [activeDocument?.documentId, historyOpen, loadHistorySnapshots]);
+
+  const handleConfirmRollbackSnapshot = useCallback(async (versionId: string) => {
+    if (activeDocument === null) {
+      return;
+    }
+
+    const busyOperationId = reserveBusyOperation();
+    try {
+      setBusy(true);
+      setWorkbenchError(null, null);
+      setRollbackingVersionId(versionId);
+      await flushDirtyDraftBeforeContextSwitch();
+      const rollbackResult = await api.version.rollbackSnapshot({
+        documentId: activeDocument.documentId,
+        versionId,
+      });
+      if (rollbackResult.ok === false) {
+        throw rollbackResult.error;
+      }
+
+      const [readResult, documentsResult] = await Promise.all([
+        api.file.readDocument({
+          projectId: activeDocument.projectId,
+          documentId: activeDocument.documentId,
+        }),
+        api.file.listDocuments({ projectId: activeDocument.projectId }),
+      ]);
+      if (readResult.ok === false) {
+        throw readResult.error;
+      }
+      if (documentsResult.ok === false) {
+        throw documentsResult.error;
+      }
+
+      replaceEditorContextContent({
+        contentJson: readResult.data.contentJson,
+        documentId: readResult.data.documentId,
+        projectId: readResult.data.projectId,
+      });
+      setDocuments(documentsResult.data.items);
+      setActiveDocument(readResult.data);
+      setPreview(null);
+      setStickySelection(null);
+      setLiveSelection(null);
+      setSaveUiState("saved");
+      setLastSavedAt(readResult.data.updatedAt);
+      setPendingRollbackVersionId(null);
+      await loadHistorySnapshots(activeDocument.documentId);
+    } catch (error) {
+      setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
+    } finally {
+      setRollbackingVersionId(null);
+      if (isLatestBusyOperation(busyOperationId)) {
+        setBusy(false);
+      }
+    }
+  }, [
+    activeDocument,
+    api.file,
+    api.version,
+    flushDirtyDraftBeforeContextSwitch,
+    isLatestBusyOperation,
+    loadHistorySnapshots,
+    replaceEditorContextContent,
+    reserveBusyOperation,
+    setSaveUiState,
+    setWorkbenchError,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (historyOpen === false) {
+      return;
+    }
+
+    void loadHistorySnapshots(activeDocument?.documentId ?? null);
+  }, [activeDocument?.documentId, historyOpen, loadHistorySnapshots]);
 
   useEffect(() => {
     if (containerRef.current === null) {
@@ -1197,6 +1322,18 @@ function WorkbenchShell() {
 
   const renderRightPanelContent = () => {
     if (activeRightPanel === "ai") {
+      if (historyOpen) {
+        return <VersionHistorySurface
+          errorMessage={historyError}
+          items={historyItems}
+          loading={historyLoading}
+          pendingRollbackVersionId={pendingRollbackVersionId}
+          rollbackingVersionId={rollbackingVersionId}
+          onCancelRollback={() => setPendingRollbackVersionId(null)}
+          onConfirmRollback={handleConfirmRollbackSnapshot}
+          onRequestRollback={(versionId) => setPendingRollbackVersionId(versionId)}
+        />;
+      }
       return <AiPreviewSurface
         activeSkill={activeSkill}
         busy={busy}
@@ -1371,7 +1508,9 @@ function WorkbenchShell() {
           </div>
           <div className="right-tabs__actions">
             {activeRightPanel === "ai" ? <>
-              <Button tone="ghost" className="right-action" onClick={() => undefined}>{t("panel.ai.history")}</Button>
+              <Button tone="ghost" className="right-action" onClick={() => void handleToggleHistoryPanel()}>
+                {historyOpen ? t("panel.ai.closeHistory") : t("panel.ai.history")}
+              </Button>
               <Button tone="ghost" className="right-action" onClick={resetAiConversation}>{t("panel.ai.newChat")}</Button>
             </> : null}
             <Button tone="ghost" className="right-action" aria-label={t("panel.actions.collapse")} onClick={handleToggleRightPanel}>

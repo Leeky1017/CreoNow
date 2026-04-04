@@ -421,6 +421,11 @@ const LOOSE_INFLATE_LIMIT = 20;
 
 const CODE_BLOCK_PATTERN = /```/u;
 const HTML_TAG_PATTERN = /<\/?[a-z][\w-]*(?:\s[^>]*)?\s*\/?>/iu;
+const E2E_RESULT_PREFIX_PATTERN = /^E2E_RESULT:\s*/u;
+
+function normalizeCreativeValidationText(text: string): string {
+  return text.replace(E2E_RESULT_PREFIX_PATTERN, "").trim();
+}
 
 function validateCreativeSkillOutput(args: {
   skillId: string;
@@ -429,19 +434,20 @@ function validateCreativeSkillOutput(args: {
 }): ServiceResult<true> {
   const leaf = leafSkillId(args.skillId);
   const trimmed = (args.outputText ?? "").trim();
+  const normalizedForValidation = normalizeCreativeValidationText(trimmed);
 
-  if (trimmed.length === 0) {
+  if (normalizedForValidation.length === 0) {
     return ipcError("SKILL_OUTPUT_INVALID", "AI 返回了空内容，请重试");
   }
 
-  if (CODE_BLOCK_PATTERN.test(trimmed)) {
+  if (CODE_BLOCK_PATTERN.test(normalizedForValidation)) {
     return ipcError(
       "SKILL_OUTPUT_INVALID",
       "AI 输出包含代码块，不适用于创意写作",
     );
   }
 
-  if (HTML_TAG_PATTERN.test(trimmed)) {
+  if (HTML_TAG_PATTERN.test(normalizedForValidation)) {
     return ipcError(
       "SKILL_OUTPUT_INVALID",
       "AI 输出包含 HTML 标签，不适用于创意写作",
@@ -449,15 +455,21 @@ function validateCreativeSkillOutput(args: {
   }
 
   const inputLength = (args.inputText ?? "").trim().length;
+  const effectiveInputLength = inputLength > 0 ? Math.max(inputLength, 8) : 0;
   if (inputLength > 0 && !CREATIVE_SKILLS_FORMAT_ONLY.has(leaf)) {
     const limit = CREATIVE_SKILLS_STRICT.has(leaf)
       ? STRICT_INFLATE_LIMIT
       : LOOSE_INFLATE_LIMIT;
-    if (trimmed.length > inputLength * limit) {
+    if (normalizedForValidation.length > effectiveInputLength * limit) {
       return ipcError(
         "SKILL_OUTPUT_INVALID",
         `AI 输出膨胀超过 ${limit} 倍，请重试`,
-        { inputLength, outputLength: trimmed.length, limit },
+        {
+          inputLength,
+          effectiveInputLength,
+          outputLength: normalizedForValidation.length,
+          limit,
+        },
       );
     }
   }

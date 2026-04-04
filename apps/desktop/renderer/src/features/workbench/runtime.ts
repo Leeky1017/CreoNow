@@ -315,7 +315,12 @@ export async function requestAiPreview(args: SelectionPreviewRequest | ContinueP
       : {
           selection: args.selection,
         }),
-    input: args.instruction.trim(),
+    input: args.skillId === "builtin:continue" ? "" : args.selection.text,
+    ...(args.skillId === "builtin:continue"
+      ? {}
+      : {
+          userInstruction: args.instruction.trim(),
+        }),
     mode: "ask",
     model: args.model,
     stream: false,

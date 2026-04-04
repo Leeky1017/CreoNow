@@ -164,7 +164,7 @@ function extractTextBlockPayload(userText: string): string | null {
   const open = "<text>";
   const close = "</text>";
 
-  const start = userText.indexOf(open);
+  const start = userText.lastIndexOf(open);
   if (start < 0) {
     return null;
   }

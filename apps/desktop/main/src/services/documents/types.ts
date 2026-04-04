@@ -80,6 +80,7 @@ export type VersionListItem = {
   reason: VersionSnapshotReason;
   contentHash: string;
   wordCount: number;
+  parentSnapshotId: string | null;
   createdAt: number;
 };
 
@@ -94,6 +95,7 @@ export type VersionRead = {
   contentMd: string;
   contentHash: string;
   wordCount: number;
+  parentSnapshotId: string | null;
   createdAt: number;
 };
 

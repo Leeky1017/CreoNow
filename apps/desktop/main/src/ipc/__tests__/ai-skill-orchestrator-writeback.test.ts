@@ -221,6 +221,22 @@ function createProjectAndDocument(args: {
   };
 }
 
+function readSnapshotChain(
+  db: Database.Database,
+  documentId: string,
+): Array<{
+  versionId: string;
+  parentSnapshotId: string | null;
+  reason: string;
+}> {
+  return db
+    .prepare<
+      [string],
+      { versionId: string; parentSnapshotId: string | null; reason: string }
+    >("SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId, reason FROM document_versions WHERE document_id = ? ORDER BY created_at ASC, version_id ASC")
+    .all(documentId);
+}
+
 describe("ai:skill:run orchestrator writeback flow", () => {
   const opened: Database.Database[] = [];
 
@@ -333,6 +349,53 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     const readAfterRollback = service.read({ projectId, documentId });
     expect(readAfterRollback.ok).toBe(true);
     expect(readAfterRollback.ok && readAfterRollback.data.contentText).toBe("原文");
+
+    const snapshotChain = readSnapshotChain(harness.db, documentId);
+    expect(snapshotChain).toHaveLength(5);
+    const snapshotByReason = new Map(
+      snapshotChain.map((snapshot) => [snapshot.reason, snapshot]),
+    );
+    const manualSaveSnapshot = snapshotByReason.get("manual-save");
+    const preWriteSnapshot = snapshotByReason.get("pre-write");
+    const aiAcceptSnapshot = snapshotByReason.get("ai-accept");
+    const preRollbackSnapshot = snapshotByReason.get("pre-rollback");
+    const rollbackSnapshot = snapshotByReason.get("rollback");
+
+    expect(manualSaveSnapshot).toMatchObject({
+      reason: "manual-save",
+      parentSnapshotId: null,
+    });
+    expect(preWriteSnapshot).toMatchObject({
+      reason: "pre-write",
+      parentSnapshotId: manualSaveSnapshot?.versionId,
+    });
+    expect(aiAcceptSnapshot).toMatchObject({
+      reason: "ai-accept",
+      parentSnapshotId: preWriteSnapshot?.versionId,
+    });
+    expect(preRollbackSnapshot).toMatchObject({
+      reason: "pre-rollback",
+      parentSnapshotId: aiAcceptSnapshot?.versionId,
+    });
+    expect(rollbackSnapshot).toMatchObject({
+      reason: "rollback",
+      parentSnapshotId: preRollbackSnapshot?.versionId,
+    });
+
+    const listedVersions = service.listVersions({ documentId });
+    expect(listedVersions.ok).toBe(true);
+    expect(listedVersions.ok && listedVersions.data.items[0]?.parentSnapshotId).toBe(
+      rollback.data?.preRollbackVersionId,
+    );
+
+    const rollbackVersion = service.readVersion({
+      documentId,
+      versionId: rollback.data!.rollbackVersionId,
+    });
+    expect(rollbackVersion.ok).toBe(true);
+    expect(rollbackVersion.ok && rollbackVersion.data.parentSnapshotId).toBe(
+      rollback.data?.preRollbackVersionId,
+    );
   });
 
   it("reject 时保持原稿不变，且不写入 ai-accept snapshot", async () => {
@@ -689,6 +752,72 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(run.error?.code).toBe("SKILL_INPUT_EMPTY");
     expect(run.error?.message).toBe("请先提供需要处理的文本");
     expect(run.error?.code).not.toBe("INTERNAL");
+  });
+
+  it("selection skill 优先使用 selection.text，rewrite 指令走 userInstruction", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: { status: "preview" | "completed" | "rejected" };
+      error?: { code: string; message: string };
+    }>("ai:skill:run", {
+      skillId: "builtin:rewrite",
+      hasSelection: true,
+      input: "   ",
+      userInstruction: "改得更凝练",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
+  });
+
+  it("polish 在 instruction 为空但 selection.text 非空时仍可运行", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const run = await harness.invoke<{
+      ok: boolean;
+      data?: { status: "preview" | "completed" | "rejected" };
+      error?: { code: string; message: string };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "",
+      userInstruction: "",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: true,
+    });
+
+    expect(run.ok).toBe(true);
+    expect(run.data?.status).toBe("preview");
   });
 
   it("builtin:continue accept 会把续写结果插入到显式光标位置，而不是文末", async () => {

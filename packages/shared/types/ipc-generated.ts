@@ -566,6 +566,7 @@ export type IpcChannelSpec = {
       };
       skillId: string;
       stream: boolean;
+      userInstruction?: string;
     };
     response: {
       candidates?: Array<{
@@ -3244,6 +3245,7 @@ export type IpcChannelSpec = {
         actor: "user" | "auto" | "ai";
         contentHash: string;
         createdAt: number;
+        parentSnapshotId: string | null;
         reason:
           | "manual-save"
           | "autosave"
@@ -3271,6 +3273,7 @@ export type IpcChannelSpec = {
       contentText: string;
       createdAt: number;
       documentId: string;
+      parentSnapshotId: string | null;
       projectId: string;
       reason:
         | "manual-save"

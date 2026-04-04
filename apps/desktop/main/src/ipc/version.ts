@@ -340,6 +340,7 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
           reason: VersionSnapshotReason;
           contentHash: string;
           wordCount: number;
+          parentSnapshotId: string | null;
           createdAt: number;
         }>;
       }>
@@ -385,6 +386,7 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
         contentMd: string;
         contentHash: string;
         wordCount: number;
+        parentSnapshotId: string | null;
         createdAt: number;
       }>
     > => {

@@ -113,6 +113,25 @@ function createApiMock(): PreloadApi {
     },
     version: {
       listSnapshots: vi.fn(async () => ({ ok: true, data: { items: [] } })),
+      readSnapshot: vi.fn(async () => ({
+        ok: true,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          versionId: "version-1",
+          actor: "user",
+          reason: "manual-save" as const,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "风从北方来",
+          contentMd: "风从北方来",
+          contentHash: "hash",
+          wordCount: 5,
+          parentSnapshotId: null,
+          createdAt: 1,
+        },
+      })),
+      rollbackSnapshot: vi.fn(async () => ({ ok: true, data: { restored: true, preRollbackVersionId: "pre-1", rollbackVersionId: "rollback-1" } })),
+      restoreSnapshot: vi.fn(async () => ({ ok: true, data: { restored: true } })),
     },
   } as PreloadApi;
 }
@@ -179,6 +198,71 @@ describe("WorkbenchApp", () => {
         cursorPosition: 5,
         precedingText: "风从北方来",
       }));
+    });
+  });
+
+  it("opens history and rolls back the current document through IPC", async () => {
+    window.api = createApiMock();
+    window.api.version.listSnapshots = vi.fn(async () => ({
+      ok: true,
+      data: {
+        items: [
+          {
+            versionId: "version-rollback",
+            actor: "user",
+            reason: "manual-save",
+            contentHash: "hash-rollback",
+            wordCount: 12,
+            parentSnapshotId: null,
+            createdAt: 1,
+          },
+        ],
+      },
+    })) as typeof window.api.version.listSnapshots;
+    window.api.file.readDocument = vi.fn(async () => ({
+      ok: true,
+      data: {
+        documentId: "doc-1",
+        projectId: "project-1",
+        title: "第一章",
+        type: "chapter",
+        status: "draft",
+        sortOrder: 0,
+        contentJson: JSON.stringify({
+          type: "doc",
+          content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的文本" }] }],
+        }),
+        contentText: "回退后的文本",
+        contentMd: "回退后的文本",
+        contentHash: "hash-restored",
+        createdAt: 1,
+        updatedAt: 5,
+      },
+    })) as typeof window.api.file.readDocument;
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    vi.mocked(bridgeMock.setContent).mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "历史记录" }));
+
+    expect(await screen.findByRole("heading", { name: "历史记录" })).toBeInTheDocument();
+    expect(window.api.version.listSnapshots).toHaveBeenCalledWith({ documentId: "doc-1" });
+
+    fireEvent.click(screen.getByRole("button", { name: "恢复到此版本" }));
+    expect(screen.getByText("将先保留当前文稿，再回退到此版本。")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "确认恢复" }));
+
+    await waitFor(() => {
+      expect(window.api!.version.rollbackSnapshot).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        versionId: "version-rollback",
+      });
+      expect(bridgeMock.setContent).toHaveBeenCalledWith({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的文本" }] }],
+      });
     });
   });
 
@@ -269,7 +353,8 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
-        input: expect.stringContaining("请直接润色"),
+        input: "按下回车后也要消费选区。",
+        userInstruction: "请直接润色",
         selection,
       }));
     });
