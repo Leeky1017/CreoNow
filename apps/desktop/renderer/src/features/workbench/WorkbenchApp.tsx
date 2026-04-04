@@ -15,6 +15,9 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/primitives/Button";
 import { createEditorBridge } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
+import { VersionHistoryPanel } from "@/features/version-history/VersionHistoryPanel";
+import type { VersionHistorySnapshotDetail } from "@/features/version-history/types";
+import { useVersionHistoryController } from "@/features/version-history/useVersionHistoryController";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
 import {
@@ -114,6 +117,11 @@ type AutosaveToastEvent = {
   eventId: number;
   errorMessage?: string;
   kind: "error" | "success";
+};
+
+type VersionPreviewState = {
+  currentContentJson: string;
+  snapshot: VersionHistorySnapshotDetail;
 };
 
 class BlockedAutosaveError extends Error {
@@ -407,6 +415,8 @@ function WorkbenchShell() {
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [instruction, setInstruction] = useState("");
   const [preview, setPreview] = useState<AiPreview | null>(null);
+  const [versionPreviewState, setVersionPreviewState] = useState<VersionPreviewState | null>(null);
+  const [restoreDialogSnapshot, setRestoreDialogSnapshot] = useState<VersionHistorySnapshotDetail | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -431,6 +441,22 @@ function WorkbenchShell() {
     readStoredWidth(LAYOUT_STORAGE_KEYS.panelWidth, RIGHT_PANEL_BOUNDS),
   );
   const [dragState, setDragState] = useState<DragState>(null);
+  const versionHistoryDocument = useMemo(
+    () => activeDocument === null
+      ? null
+      : {
+          documentId: activeDocument.documentId,
+          projectId: activeDocument.projectId,
+        },
+    [activeDocument?.documentId, activeDocument?.projectId],
+  );
+  const versionHistory = useVersionHistoryController({
+    activeDocument: versionHistoryDocument,
+    api: api.version,
+    enabled: activeLeftPanel === "versionHistory" && sidebarCollapsed === false,
+  });
+  const versionPreviewSnapshot = versionPreviewState?.snapshot ?? null;
+  const isVersionPreviewActive = versionPreviewSnapshot !== null;
 
   const setSaveUiState = useCallback((nextState: SaveState, source: "autosave" | "accept" | null = null) => {
     saveErrorSourceRef.current = nextState === "error" ? source : null;
@@ -701,10 +727,46 @@ function WorkbenchShell() {
       projectId: nextContext.projectId,
       revision: editorContextRevisionRef.current,
     };
+    setRestoreDialogSnapshot(null);
+    setVersionPreviewState(null);
     runWithoutAutosave(() => {
+      editorBridge.setEditable(true);
       editorBridge.setContent(JSON.parse(nextContext.contentJson));
     });
-  }, [clearAcceptSaveFailure, clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
+  }, [
+    clearAcceptSaveFailure,
+    clearAutosaveController,
+    clearPendingAutosaveTimer,
+    clearSavedStateDecayTimer,
+    editorBridge,
+    runWithoutAutosave,
+  ]);
+
+  const startVersionPreview = useCallback((snapshot: VersionHistorySnapshotDetail) => {
+    setWorkbenchError(null, null);
+    setRestoreDialogSnapshot(null);
+    setVersionPreviewState((currentPreview) => ({
+      currentContentJson: currentPreview?.currentContentJson ?? JSON.stringify(editorBridge.getContent()),
+      snapshot,
+    }));
+    runWithoutAutosave(() => {
+      editorBridge.setContent(JSON.parse(snapshot.contentJson));
+      editorBridge.setEditable(false);
+    });
+  }, [editorBridge, runWithoutAutosave, setWorkbenchError]);
+
+  const handleReturnToCurrentVersion = useCallback(() => {
+    if (versionPreviewState === null) {
+      return;
+    }
+
+    setRestoreDialogSnapshot(null);
+    setVersionPreviewState(null);
+    runWithoutAutosave(() => {
+      editorBridge.setContent(JSON.parse(versionPreviewState.currentContentJson));
+      editorBridge.setEditable(true);
+    });
+  }, [editorBridge, runWithoutAutosave, versionPreviewState]);
 
   useEffect(() => {
     if (containerRef.current === null) {
@@ -879,6 +941,83 @@ function WorkbenchShell() {
       }
     }
   };
+
+  const refreshActiveDocumentFromDisk = useCallback(async () => {
+    if (activeDocument === null) {
+      return null;
+    }
+
+    const readDocument = await api.file.readDocument({
+      documentId: activeDocument.documentId,
+      projectId: activeDocument.projectId,
+    });
+    if (readDocument.ok === false) {
+      throw readDocument.error;
+    }
+
+    replaceEditorContextContent({
+      contentJson: readDocument.data.contentJson,
+      documentId: readDocument.data.documentId,
+      projectId: readDocument.data.projectId,
+    });
+    setActiveDocument(readDocument.data);
+    setDocuments((currentDocuments) => currentDocuments.map((document) =>
+      document.documentId === readDocument.data.documentId
+        ? {
+            ...document,
+            status: readDocument.data.status,
+            title: readDocument.data.title,
+            updatedAt: readDocument.data.updatedAt,
+          }
+        : document,
+    ));
+    setPreview(null);
+    setStickySelection(null);
+    setLiveSelection(null);
+    setSaveUiState("idle");
+    setLastSavedAt(readDocument.data.updatedAt);
+    return readDocument.data;
+  }, [activeDocument, api.file, replaceEditorContextContent, setSaveUiState]);
+
+  const handleVersionHistoryRestore = useCallback(async () => {
+    const busyOperationId = reserveBusyOperation();
+    try {
+      setBusy(true);
+      setWorkbenchError(null, null);
+      setRestoreDialogSnapshot(null);
+      await flushDirtyDraftBeforeContextSwitch();
+      const result = await versionHistory.restoreSelected();
+      if (result === null) {
+        return;
+      }
+      await refreshActiveDocumentFromDisk();
+      await versionHistory.refresh();
+    } catch (error) {
+      if (error instanceof BlockedAutosaveError === false) {
+        setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
+      }
+    } finally {
+      if (isLatestBusyOperation(busyOperationId)) {
+        setBusy(false);
+      }
+    }
+  }, [
+    flushDirtyDraftBeforeContextSwitch,
+    isLatestBusyOperation,
+    refreshActiveDocumentFromDisk,
+    reserveBusyOperation,
+    setWorkbenchError,
+    t,
+    versionHistory,
+  ]);
+
+  const handleRequestVersionRestore = useCallback(() => {
+    if (versionHistory.selectedSnapshot === null) {
+      return;
+    }
+
+    setRestoreDialogSnapshot(versionHistory.selectedSnapshot);
+  }, [versionHistory.selectedSnapshot]);
 
   const handleGeneratePreview = async () => {
     const previewContext = activeContextTokenRef.current;
@@ -1123,11 +1262,13 @@ function WorkbenchShell() {
           : t("status.ready");
 
   const wordCount = editorBridge.getTextContent().trim().length;
-  const selectionHint = stickySelection
-    ? t("panel.ai.selectionLength", { count: stickySelection.text.length })
-    : liveSelection
-      ? t("panel.ai.selectionLength", { count: liveSelection.text.length })
-      : t("editor.selectionHint");
+  const selectionHint = isVersionPreviewActive
+    ? t("versionHistory.previewReadonlyHint")
+    : stickySelection
+      ? t("panel.ai.selectionLength", { count: stickySelection.text.length })
+      : liveSelection
+        ? t("panel.ai.selectionLength", { count: liveSelection.text.length })
+        : t("editor.selectionHint");
   const cursorContext = useMemo(
     () => activeSkill === "builtin:continue" ? editorBridge.getCursorContext() : null,
     [activeSkill, liveSelection, editorBridge],
@@ -1144,6 +1285,12 @@ function WorkbenchShell() {
     "--right-panel-width": rightPanelCollapsed ? "0px" : `${rightPanelWidth}px`,
     "--right-resizer-width": rightPanelCollapsed ? "0px" : "8px",
   } as CSSProperties;
+
+  const previewBannerLabel = versionPreviewSnapshot === null
+    ? null
+    : t("versionHistory.previewingVersion", {
+        timestamp: formatTimestamp(versionPreviewSnapshot.createdAt),
+      });
 
   const renderSidebarContent = () => {
     if (activeLeftPanel === "files") {
@@ -1170,6 +1317,27 @@ function WorkbenchShell() {
           ))}
         </div>
       </>;
+    }
+
+    if (activeLeftPanel === "versionHistory") {
+      return <VersionHistoryPanel
+        errorMessage={versionHistory.errorMessage}
+        items={versionHistory.items}
+        onRefresh={() => {
+          void versionHistory.refresh();
+        }}
+        onSelectVersion={(versionId) => {
+          void versionHistory.selectVersion(versionId).then((snapshot) => {
+            if (snapshot !== null) {
+              startVersionPreview(snapshot);
+            }
+          });
+        }}
+        previewStatus={versionHistory.previewStatus}
+        selectedSnapshot={versionHistory.selectedSnapshot}
+        selectedVersionId={versionHistory.selectedVersionId}
+        status={versionHistory.status}
+      />;
     }
 
     const surfaceKey = `sidebar.${activeLeftPanel}`;
@@ -1199,7 +1367,7 @@ function WorkbenchShell() {
     if (activeRightPanel === "ai") {
       return <AiPreviewSurface
         activeSkill={activeSkill}
-        busy={busy}
+        busy={busy || isVersionPreviewActive}
         errorMessage={errorMessage}
         generateDisabled={activeSkill === "builtin:continue" ? continueReady === false : stickySelection === null}
         instruction={instruction}
@@ -1336,11 +1504,27 @@ function WorkbenchShell() {
             <p className="panel-meta">{selectionHint}</p>
           </div>
           {rightPanelCollapsed ? (
-            <Button tone="ghost" onClick={() => handleRightPanelSelect("ai")}>{t("panel.actions.openAi")}</Button>
+            <Button tone="ghost" disabled={isVersionPreviewActive} onClick={() => handleRightPanelSelect("ai")}>{t("panel.actions.openAi")}</Button>
           ) : null}
         </header>
+        {versionPreviewSnapshot !== null && previewBannerLabel !== null ? <div className="version-preview-banner" role="status" aria-live="polite">
+          <div className="version-preview-banner__copy">
+            <p className="version-preview-banner__title">{previewBannerLabel}</p>
+            <p className="version-preview-banner__subtitle">{t("versionHistory.previewReadonlyHint")}</p>
+          </div>
+          <div className="panel-actions">
+            <Button
+              tone="primary"
+              disabled={versionHistory.action !== null}
+              onClick={handleRequestVersionRestore}
+            >
+              {versionHistory.action === "restore" ? t("versionHistory.restoring") : t("versionHistory.restoreToThisVersion")}
+            </Button>
+            <Button tone="ghost" onClick={handleReturnToCurrentVersion}>{t("versionHistory.returnToCurrentVersion")}</Button>
+          </div>
+        </div> : null}
         <div className="editor-scroll">
-          <div ref={containerRef} className="editor-host" />
+          <div ref={containerRef} className={versionPreviewSnapshot === null ? "editor-host" : "editor-host editor-host--readonly"} />
         </div>
       </section>
 
@@ -1382,6 +1566,21 @@ function WorkbenchShell() {
         {renderRightPanelContent()}
       </aside>}
     </div>
+
+    {restoreDialogSnapshot === null ? null : <div className="version-restore-dialog-backdrop">
+      <section className="version-restore-dialog" role="dialog" aria-modal="true" aria-labelledby="version-restore-dialog-title">
+        <div className="panel-section">
+          <h2 id="version-restore-dialog-title" className="panel-title">{t("versionHistory.restoreDialogTitle")}</h2>
+          <p className="panel-subtitle">{t("versionHistory.restoreDialogDescription", {
+            timestamp: formatTimestamp(restoreDialogSnapshot.createdAt),
+          })}</p>
+        </div>
+        <div className="panel-actions">
+          <Button tone="ghost" onClick={() => setRestoreDialogSnapshot(null)}>{t("actions.cancel")}</Button>
+          <Button tone="danger" onClick={() => void handleVersionHistoryRestore()}>{t("versionHistory.confirmRestore")}</Button>
+        </div>
+      </section>
+    </div>}
 
     <footer className="status-bar">
       <span className="status-bar__group">

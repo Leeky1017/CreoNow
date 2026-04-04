@@ -35,6 +35,7 @@ export interface EditorBridge {
   getContent(): ProseMirrorJson;
   getCursorContext(): { cursorPosition: number; precedingText: string } | null;
   getSelection(): SelectionRef | null;
+  setEditable(editable: boolean): void;
   setContent(content: unknown): void;
   replaceSelection(selection: SelectionRef, nextText: string): ReplaceSelectionResult;
   getTextContent(): string;
@@ -82,6 +83,7 @@ function createState(initialDoc: unknown, onSelectionChange?: (selection: Select
 export function createEditorBridge(options: EditorBridgeOptions = {}): EditorBridge {
   let view: EditorView | null = null;
   let currentContainer: HTMLElement | null = null;
+  let editable = true;
 
   const notifyDocumentChange = (state: EditorState): void => {
     options.onDocumentChange?.(state.doc.toJSON());
@@ -114,6 +116,7 @@ export function createEditorBridge(options: EditorBridgeOptions = {}): EditorBri
       view = new EditorView(container, {
         state: createState(initialDoc, options.onSelectionChange),
         dispatchTransaction,
+        editable: () => editable,
         attributes: {
           class: "cn-editor-surface",
           spellcheck: "false",
@@ -163,6 +166,13 @@ export function createEditorBridge(options: EditorBridgeOptions = {}): EditorBri
       }
 
       return createSelectionFromView(view);
+    },
+
+    setEditable(nextEditable) {
+      editable = nextEditable;
+      view?.setProps({
+        editable: () => editable,
+      });
     },
 
     setContent(content) {
