@@ -33,7 +33,7 @@ import {
   type WorkbenchContextToken,
   type WorkbenchSkillId,
 } from "@/features/workbench/runtime";
-import { VersionHistoryPanel } from "@/features/version-history/VersionHistoryPanel";
+import { VersionHistoryPanel, type SnapshotDetail } from "@/features/version-history/VersionHistoryPanel";
 import { AppToastProvider, useAppToast } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { GlobalErrorToastBridge } from "@/lib/globalErrorToastBridge";
@@ -81,6 +81,18 @@ type DragState =
   | { panel: "left"; startWidth: number; startX: number }
   | { panel: "right"; startWidth: number; startX: number }
   | null;
+
+/** State for an active "preview a historical version in the main editor" session. */
+type VersionPreviewSession = {
+  /** The full snapshot that was selected for preview. */
+  snapshot: SnapshotDetail;
+  /** The editor content that was active before entering preview mode. */
+  originalContent: unknown;
+  /** Whether the restore-confirmation dialog is open. */
+  confirmOpen: boolean;
+  /** Whether the restore IPC call is in progress. */
+  confirmBusy: boolean;
+};
 
 type SaveRequestToken = {
   context: WorkbenchContextToken | null;
@@ -432,6 +444,7 @@ function WorkbenchShell() {
     readStoredWidth(LAYOUT_STORAGE_KEYS.panelWidth, RIGHT_PANEL_BOUNDS),
   );
   const [dragState, setDragState] = useState<DragState>(null);
+  const [versionPreviewSession, setVersionPreviewSession] = useState<VersionPreviewSession | null>(null);
 
   const setSaveUiState = useCallback((nextState: SaveState, source: "autosave" | "accept" | null = null) => {
     saveErrorSourceRef.current = nextState === "error" ? source : null;
@@ -881,6 +894,104 @@ function WorkbenchShell() {
     }
   };
 
+  /**
+   * Called by VersionHistoryPanel when user clicks "预览" for a snapshot.
+   * Saves current editor content, loads historical content in read-only mode,
+   * and records the preview session so the banner can be shown.
+   */
+  const handlePreviewVersion = useCallback((snapshot: SnapshotDetail) => {
+    const originalContent = editorBridge.getContent();
+    runWithoutAutosave(() => {
+      editorBridge.setContent(JSON.parse(snapshot.contentJson));
+    });
+    editorBridge.setReadOnly(true);
+    setVersionPreviewSession({
+      snapshot,
+      originalContent,
+      confirmOpen: false,
+      confirmBusy: false,
+    });
+  }, [editorBridge, runWithoutAutosave]);
+
+  /**
+   * Called by the preview banner "返回当前版本" button.
+   * Restores original content and re-enables editing.
+   */
+  const handleExitVersionPreview = useCallback(() => {
+    if (versionPreviewSession === null) {
+      return;
+    }
+    runWithoutAutosave(() => {
+      editorBridge.setContent(versionPreviewSession.originalContent);
+    });
+    editorBridge.setReadOnly(false);
+    setVersionPreviewSession(null);
+  }, [versionPreviewSession, editorBridge, runWithoutAutosave]);
+
+  /**
+   * Called by the preview banner "恢复到此版本" button.
+   * Opens the confirmation dialog.
+   */
+  const handleRequestVersionRestore = useCallback(() => {
+    if (versionPreviewSession === null) {
+      return;
+    }
+    setVersionPreviewSession({ ...versionPreviewSession, confirmOpen: true });
+  }, [versionPreviewSession]);
+
+  /**
+   * Called when user cancels the restore confirmation dialog.
+   */
+  const handleCancelVersionRestore = useCallback(() => {
+    if (versionPreviewSession === null) {
+      return;
+    }
+    setVersionPreviewSession({ ...versionPreviewSession, confirmOpen: false });
+  }, [versionPreviewSession]);
+
+  /**
+   * Called when user confirms the restore in the confirmation dialog.
+   * Calls restoreSnapshot IPC, reloads document, exits preview.
+   */
+  const handleConfirmVersionRestore = useCallback(async () => {
+    if (versionPreviewSession === null) {
+      return;
+    }
+    const documentId = activeDocument?.documentId;
+    const projectId = project?.projectId;
+    if (documentId === undefined || projectId === undefined) {
+      return;
+    }
+
+    setVersionPreviewSession({ ...versionPreviewSession, confirmBusy: true });
+
+    const result = await api.version.restoreSnapshot({
+      documentId,
+      projectId,
+      versionId: versionPreviewSession.snapshot.versionId,
+    });
+
+    if (!result.ok) {
+      setVersionPreviewSession({ ...versionPreviewSession, confirmBusy: false });
+      return;
+    }
+
+    // Restore succeeded — reload the document content and exit preview
+    const readResult = await api.file.readDocument({ documentId, projectId });
+    if (readResult.ok) {
+      replaceEditorContextContent({
+        contentJson: readResult.data.contentJson,
+        documentId: readResult.data.documentId,
+        projectId: readResult.data.projectId,
+      });
+      setActiveDocument(readResult.data);
+      setLastSavedAt(readResult.data.updatedAt);
+    }
+
+    editorBridge.setReadOnly(false);
+    setVersionPreviewSession(null);
+  }, [api, activeDocument, project, versionPreviewSession, editorBridge, replaceEditorContextContent]);
+
   const handleGeneratePreview = async () => {
     const previewContext = activeContextTokenRef.current;
     if (previewContext === null) {
@@ -1182,7 +1293,8 @@ function WorkbenchShell() {
           documentId={documentId}
           projectId={projectId}
           versionApi={api.version}
-          onRestored={() => void handleOpenDocument(documentId)}
+          activePreviewVersionId={versionPreviewSession?.snapshot.versionId ?? null}
+          onPreviewVersion={handlePreviewVersion}
         />;
       }
     }
@@ -1345,6 +1457,69 @@ function WorkbenchShell() {
       />}
 
       <section className="editor-column">
+        {versionPreviewSession !== null && (
+          <div className="version-preview-banner" role="status" aria-live="polite">
+            <span className="version-preview-banner__message">
+              {t("versionHistory.previewingBanner", {
+                time: formatTimestamp(versionPreviewSession.snapshot.createdAt),
+              })}
+            </span>
+            <div className="version-preview-banner__actions">
+              <Button
+                tone="ghost"
+                className="version-preview-banner__action"
+                onClick={handleExitVersionPreview}
+                disabled={versionPreviewSession.confirmBusy}
+              >
+                {t("versionHistory.backToCurrent")}
+              </Button>
+              <Button
+                tone="primary"
+                className="version-preview-banner__action"
+                onClick={handleRequestVersionRestore}
+                disabled={versionPreviewSession.confirmBusy}
+              >
+                {t("versionHistory.restore")}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {versionPreviewSession?.confirmOpen === true && (
+          <div
+            className="version-restore-dialog-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("versionHistory.confirmRestoreDialogLabel")}
+          >
+            <div className="version-restore-dialog">
+              <p className="version-restore-dialog__message">
+                {t("versionHistory.confirmRestoreMessage", {
+                  time: formatTimestamp(versionPreviewSession.snapshot.createdAt),
+                })}
+              </p>
+              <div className="version-restore-dialog__actions">
+                <Button
+                  tone="ghost"
+                  onClick={handleCancelVersionRestore}
+                  disabled={versionPreviewSession.confirmBusy}
+                >
+                  {t("actions.close")}
+                </Button>
+                <Button
+                  tone="primary"
+                  onClick={() => void handleConfirmVersionRestore()}
+                  disabled={versionPreviewSession.confirmBusy}
+                >
+                  {versionPreviewSession.confirmBusy
+                    ? t("versionHistory.restoringSnapshot")
+                    : t("versionHistory.confirmRestoreAction")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <header className="editor-header">
           <div>
             <h2 className="screen-title">{activeDocument?.title ?? t("document.defaultTitle")}</h2>

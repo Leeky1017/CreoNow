@@ -4,6 +4,7 @@
   --color-bg-base: #ffffff;
   --color-bg-surface: #ffffff;
   --color-bg-panel: #ffffff;
+  --color-bg-raised: #f4f4f5;
   --color-bg-hover: #f7f7f7;
   --color-bg-selected: rgba(0, 0, 0, 0.08);
   --color-bg-muted: rgba(0, 0, 0, 0.04);
@@ -20,6 +21,7 @@
   --color-error-subtle: #fde8e8;
   --color-separator: rgba(0, 0, 0, 0.08);
   --color-separator-bold: rgba(0, 0, 0, 0.12);
+  --color-border-default: rgba(0, 0, 0, 0.12);
   --color-focus-ring: #000000;
 
   --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.12);
@@ -66,6 +68,7 @@
   --color-bg-base: #0f0f10;
   --color-bg-surface: #1a1a1a;
   --color-bg-panel: #1a1a1a;
+  --color-bg-raised: #2a2a2e;
   --color-bg-hover: #3a3a3a;
   --color-bg-selected: rgba(255, 255, 255, 0.12);
   --color-bg-muted: rgba(255, 255, 255, 0.06);
@@ -82,6 +85,7 @@
   --color-error-subtle: rgba(255, 180, 180, 0.12);
   --color-separator: rgba(255, 255, 255, 0.08);
   --color-separator-bold: rgba(255, 255, 255, 0.12);
+  --color-border-default: rgba(255, 255, 255, 0.12);
   --color-focus-ring: #ffffff;
 
   --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.28);

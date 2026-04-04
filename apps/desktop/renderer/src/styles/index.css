@@ -276,6 +276,7 @@ button {
   display: flex;
   flex-direction: column;
   background: var(--color-bg-base);
+  position: relative;
 }
 
 .editor-scroll {
@@ -651,4 +652,206 @@ button {
     width: 100%;
     justify-content: flex-end;
   }
+}
+
+/* ─────────────────────────────────────────────────────────
+   Version History — timeline panel (left sidebar)
+   ───────────────────────────────────────────────────────── */
+
+.version-history-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-panel-padding);
+  overflow-y: auto;
+}
+
+.version-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.version-timeline-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.version-timeline-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.version-timeline-item--active {
+  background: var(--color-bg-selected);
+  border-color: var(--color-border-default);
+}
+
+.version-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.version-item-actor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-status-size);
+  font-weight: 500;
+  color: var(--color-fg-muted);
+}
+
+.version-actor-icon {
+  flex-shrink: 0;
+}
+
+.version-actor-icon--ai {
+  color: var(--color-accent);
+}
+
+.version-actor-icon--auto {
+  color: var(--color-fg-subtle);
+}
+
+.version-actor-icon--user {
+  color: var(--color-fg-muted);
+}
+
+.version-item-actor-label {
+  font-size: var(--text-status-size);
+}
+
+.version-item-time {
+  font-size: var(--text-status-size);
+  color: var(--color-fg-subtle);
+  white-space: nowrap;
+}
+
+.version-item-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.version-item-reason {
+  font-size: var(--text-status-size);
+  color: var(--color-fg-muted);
+}
+
+.version-item-words {
+  font-size: var(--text-status-size);
+  color: var(--color-fg-subtle);
+}
+
+.version-word-delta {
+  font-size: var(--text-status-size);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.version-word-delta--added {
+  color: var(--color-success);
+}
+
+.version-word-delta--removed {
+  color: var(--color-error);
+}
+
+.version-word-delta--neutral {
+  color: var(--color-fg-subtle);
+}
+
+.version-item-preview-btn.cn-button {
+  align-self: flex-start;
+  padding: 0;
+  min-height: 0;
+  font-size: var(--text-status-size);
+  color: var(--color-accent);
+}
+
+/* ─────────────────────────────────────────────────────────
+   Version Preview Banner — above the main editor
+   ───────────────────────────────────────────────────────── */
+
+.version-preview-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-bg-raised);
+  border-bottom: 1px solid var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.version-preview-banner__message {
+  font-size: var(--text-body-size);
+  color: var(--color-fg-muted);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-preview-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.version-preview-banner__action.cn-button {
+  font-size: var(--text-body-size);
+}
+
+/* ─────────────────────────────────────────────────────────
+   Version Restore Confirmation Dialog
+   ───────────────────────────────────────────────────────── */
+
+.version-restore-dialog-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.version-restore-dialog {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  max-width: 400px;
+  width: 90%;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.version-restore-dialog__message {
+  font-size: var(--text-body-size);
+  color: var(--color-fg-base);
+  line-height: var(--text-body-line-height);
+  margin: 0;
+}
+
+.version-restore-dialog__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }

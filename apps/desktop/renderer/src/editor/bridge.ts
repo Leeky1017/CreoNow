@@ -36,6 +36,7 @@ export interface EditorBridge {
   getCursorContext(): { cursorPosition: number; precedingText: string } | null;
   getSelection(): SelectionRef | null;
   setContent(content: unknown): void;
+  setReadOnly(readOnly: boolean): void;
   replaceSelection(selection: SelectionRef, nextText: string): ReplaceSelectionResult;
   getTextContent(): string;
 }
@@ -202,6 +203,13 @@ export function createEditorBridge(options: EditorBridgeOptions = {}): EditorBri
 
     getTextContent() {
       return view?.state.doc.textContent ?? "";
+    },
+
+    setReadOnly(readOnly) {
+      if (view === null) {
+        return;
+      }
+      view.setProps({ editable: () => !readOnly });
     },
   };
 }

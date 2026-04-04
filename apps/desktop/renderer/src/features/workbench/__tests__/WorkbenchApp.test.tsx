@@ -24,6 +24,7 @@ const bridgeMock: EditorBridge = {
   mount: vi.fn(),
   replaceSelection: vi.fn(() => ({ ok: true as const })),
   setContent: vi.fn(),
+  setReadOnly: vi.fn(),
   view: null,
 };
 
@@ -2883,4 +2884,273 @@ describe("WorkbenchApp", () => {
     expect(window.localStorage.getItem("creonow.layout.activePanelTab")).toBe("ai");
     expect(window.localStorage.getItem("creonow.layout.panelCollapsed")).toBe("false");
   });
+
+  // ─── Version History Preview Integration ──────────────────────────────────
+
+  it("opens version history panel when clicking the 历史版本 icon", async () => {
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+
+    // The version history panel section should appear in the sidebar
+    expect(await screen.findByRole("region", { name: "历史版本" })).toBeInTheDocument();
+    expect(window.api?.version.listSnapshots).toHaveBeenCalledWith(
+      expect.objectContaining({ documentId: "doc-1" }),
+    );
+  });
+
+  it("calls editorBridge.setContent with historical content and setReadOnly(true) when previewing a snapshot", async () => {
+    const snapshotContent = JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "历史内容" }] }] });
+    vi.mocked(window.api!.version.listSnapshots).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          { versionId: "v2", actor: "user" as const, reason: "manual-save" as const, wordCount: 120, createdAt: 1_700_000_002_000, contentHash: "h2", parentSnapshotId: "v1" },
+          { versionId: "v1", actor: "user" as const, reason: "manual-save" as const, wordCount: 100, createdAt: 1_700_000_001_000, contentHash: "h1", parentSnapshotId: null },
+        ],
+      },
+    });
+    vi.mocked(window.api!.version.readSnapshot).mockResolvedValue({
+      ok: true,
+      data: {
+        versionId: "v2",
+        documentId: "doc-1",
+        projectId: "project-1",
+        actor: "user" as const,
+        reason: "manual-save" as const,
+        wordCount: 120,
+        createdAt: 1_700_000_002_000,
+        contentHash: "h2",
+        contentJson: snapshotContent,
+        contentMd: "",
+        contentText: "历史内容",
+        parentSnapshotId: "v1",
+      },
+    });
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Open version history panel
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    await screen.findByRole("region", { name: "历史版本" });
+
+    // Click preview on the first snapshot in the list
+    const previewButtons = await screen.findAllByRole("button", { name: /预览/i });
+    await act(async () => {
+      fireEvent.click(previewButtons[0]);
+    });
+
+    await waitFor(() => {
+      expect(window.api?.version.readSnapshot).toHaveBeenCalled();
+    });
+
+    // editorBridge.setContent should have been called with the historical content
+    await waitFor(() => {
+      expect(bridgeMock.setContent).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "doc" }),
+      );
+    });
+
+    // setReadOnly(true) should be called to prevent editing
+    expect(bridgeMock.setReadOnly).toHaveBeenCalledWith(true);
+
+    // The preview banner should be visible
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/正在预览/);
+    expect(screen.getByRole("button", { name: "返回当前版本" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "恢复到此版本" })).toBeInTheDocument();
+  });
+
+  it("restores original content and re-enables editing when 返回当前版本 is clicked", async () => {
+    const snapshotContent = JSON.stringify({ type: "doc", content: [] });
+    vi.mocked(window.api!.version.listSnapshots).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [{ versionId: "v1", actor: "user" as const, reason: "manual-save" as const, wordCount: 100, createdAt: 1_700_000_001_000, contentHash: "h1", parentSnapshotId: null }],
+      },
+    });
+    vi.mocked(window.api!.version.readSnapshot).mockResolvedValue({
+      ok: true,
+      data: {
+        versionId: "v1", documentId: "doc-1", projectId: "project-1",
+        actor: "user" as const, reason: "manual-save" as const, wordCount: 100,
+        createdAt: 1_700_000_001_000, contentHash: "h1",
+        contentJson: snapshotContent, contentMd: "", contentText: "",
+        parentSnapshotId: null,
+      },
+    });
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Open version panel and click preview
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    const previewButtons = await screen.findAllByRole("button", { name: /预览/i });
+    await act(async () => { fireEvent.click(previewButtons[0]); });
+
+    // Wait for banner to appear
+    await screen.findByRole("status");
+
+    // Click 返回当前版本
+    vi.mocked(bridgeMock.setContent).mockClear();
+    vi.mocked(bridgeMock.setReadOnly).mockClear();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "返回当前版本" }));
+    });
+
+    // Banner should be gone
+    expect(screen.queryByRole("status")).toBeNull();
+
+    // setReadOnly(false) should be called
+    expect(bridgeMock.setReadOnly).toHaveBeenCalledWith(false);
+
+    // setContent should have been called with the original doc content
+    expect(bridgeMock.setContent).toHaveBeenCalled();
+  });
+
+  it("shows confirmation dialog when 恢复到此版本 is clicked from preview banner", async () => {
+    const snapshotContent = JSON.stringify({ type: "doc", content: [] });
+    vi.mocked(window.api!.version.listSnapshots).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [{ versionId: "v1", actor: "user" as const, reason: "manual-save" as const, wordCount: 100, createdAt: 1_700_000_001_000, contentHash: "h1", parentSnapshotId: null }],
+      },
+    });
+    vi.mocked(window.api!.version.readSnapshot).mockResolvedValue({
+      ok: true,
+      data: {
+        versionId: "v1", documentId: "doc-1", projectId: "project-1",
+        actor: "user" as const, reason: "manual-save" as const, wordCount: 100,
+        createdAt: 1_700_000_001_000, contentHash: "h1",
+        contentJson: snapshotContent, contentMd: "", contentText: "",
+        parentSnapshotId: null,
+      },
+    });
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Enter preview mode
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    const previewButtons = await screen.findAllByRole("button", { name: /预览/i });
+    await act(async () => { fireEvent.click(previewButtons[0]); });
+
+    await screen.findByRole("status");
+
+    // Click "恢复到此版本"
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "恢复到此版本" }));
+    });
+
+    // Confirmation dialog should appear
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toHaveTextContent(/当前内容将被保存为新版本/);
+    expect(screen.getByRole("button", { name: "确认恢复" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "关闭" })).toBeInTheDocument();
+  });
+
+  it("calls restoreSnapshot and reloads document when user confirms restore", async () => {
+    const snapshotContent = JSON.stringify({ type: "doc", content: [] });
+    vi.mocked(window.api!.version.listSnapshots).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [{ versionId: "v1", actor: "user" as const, reason: "manual-save" as const, wordCount: 100, createdAt: 1_700_000_001_000, contentHash: "h1", parentSnapshotId: null }],
+      },
+    });
+    vi.mocked(window.api!.version.readSnapshot).mockResolvedValue({
+      ok: true,
+      data: {
+        versionId: "v1", documentId: "doc-1", projectId: "project-1",
+        actor: "user" as const, reason: "manual-save" as const, wordCount: 100,
+        createdAt: 1_700_000_001_000, contentHash: "h1",
+        contentJson: snapshotContent, contentMd: "", contentText: "",
+        parentSnapshotId: null,
+      },
+    });
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Enter preview mode
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    const previewButtons = await screen.findAllByRole("button", { name: /预览/i });
+    await act(async () => { fireEvent.click(previewButtons[0]); });
+
+    await screen.findByRole("status");
+
+    // Open confirm dialog
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "恢复到此版本" }));
+    });
+
+    await screen.findByRole("dialog");
+
+    // Confirm
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "确认恢复" }));
+    });
+
+    await waitFor(() => {
+      expect(window.api?.version.restoreSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({ versionId: "v1", documentId: "doc-1" }),
+      );
+    });
+
+    // After restore: dialog and banner should be gone, editor re-enabled
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+    expect(bridgeMock.setReadOnly).toHaveBeenCalledWith(false);
+  });
+
+  it("does not call restoreSnapshot and closes dialog when user cancels confirmation", async () => {
+    const snapshotContent = JSON.stringify({ type: "doc", content: [] });
+    vi.mocked(window.api!.version.listSnapshots).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [{ versionId: "v1", actor: "user" as const, reason: "manual-save" as const, wordCount: 100, createdAt: 1_700_000_001_000, contentHash: "h1", parentSnapshotId: null }],
+      },
+    });
+    vi.mocked(window.api!.version.readSnapshot).mockResolvedValue({
+      ok: true,
+      data: {
+        versionId: "v1", documentId: "doc-1", projectId: "project-1",
+        actor: "user" as const, reason: "manual-save" as const, wordCount: 100,
+        createdAt: 1_700_000_001_000, contentHash: "h1",
+        contentJson: snapshotContent, contentMd: "", contentText: "",
+        parentSnapshotId: null,
+      },
+    });
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Enter preview mode
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    const previewButtons = await screen.findAllByRole("button", { name: /预览/i });
+    await act(async () => { fireEvent.click(previewButtons[0]); });
+
+    await screen.findByRole("status");
+
+    // Open confirm dialog
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "恢复到此版本" }));
+    });
+    await screen.findByRole("dialog");
+
+    // Cancel
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    });
+
+    // Dialog closed but preview banner still visible, no restore call
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(window.api?.version.restoreSnapshot).not.toHaveBeenCalled();
+  });
 });
+
