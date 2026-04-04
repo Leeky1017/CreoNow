@@ -98,17 +98,7 @@ function resolveUserInstruction(payload: SkillRunPayload): string | undefined {
 }
 
 function resolveDocumentInstruction(payload: SkillRunPayload): string | undefined {
-  const explicitInstruction = resolveUserInstruction(payload);
-  if (explicitInstruction) {
-    return explicitInstruction;
-  }
-
-  if (payload.precedingText === undefined) {
-    return undefined;
-  }
-
-  const fallbackInstruction = payload.input.trim();
-  return fallbackInstruction.length > 0 ? fallbackInstruction : undefined;
+  return resolveUserInstruction(payload);
 }
 
 function resolveSkillInputType(args: {

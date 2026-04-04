@@ -28,9 +28,14 @@ import {
     ],
     failSnapshotForDocumentIds: ["doc_2"],
   });
-  const manualSaveVersionId = db.seedVersion({
+  const manualSaveVersionId1 = db.seedVersion({
     documentId: "doc_1",
-    reason: "manual-save",
+    reason: "manual-save-1",
+  });
+  const manualSaveVersionId2 = db.seedVersion({
+    documentId: "doc_1",
+    reason: "manual-save-2",
+    parentVersionId: manualSaveVersionId1,
   });
   const { ipcMain, handlers } = createIpcHarness();
 
@@ -105,13 +110,16 @@ import {
   assert.equal(db.readDocument("doc_2")?.contentText, "warehouse remains here");
 
   const doc1Versions = db.listVersions("doc_1");
-  assert.equal(doc1Versions.length, 3);
-  const manualSaveVersion = doc1Versions.find((version) => version.reason === "manual-save");
+  assert.equal(doc1Versions.length, 4);
+  const manualSaveVersion1 = doc1Versions.find((version) => version.reason === "manual-save-1");
+  const manualSaveVersion2 = doc1Versions.find((version) => version.reason === "manual-save-2");
   const preSearchReplaceVersion = doc1Versions.find((version) => version.reason === "pre-search-replace");
   const searchReplaceVersion = doc1Versions.find((version) => version.reason === "search-replace");
-  assert.equal(manualSaveVersion?.versionId, manualSaveVersionId);
-  assert.equal(manualSaveVersion?.parentVersionId, null);
-  assert.equal(preSearchReplaceVersion?.parentVersionId, manualSaveVersionId);
+  assert.equal(manualSaveVersion1?.versionId, manualSaveVersionId1);
+  assert.equal(manualSaveVersion1?.parentVersionId, null);
+  assert.equal(manualSaveVersion2?.versionId, manualSaveVersionId2);
+  assert.equal(manualSaveVersion2?.parentVersionId, manualSaveVersionId1);
+  assert.equal(preSearchReplaceVersion?.parentVersionId, manualSaveVersionId2);
   assert.equal(searchReplaceVersion?.parentVersionId, preSearchReplaceVersion?.versionId ?? null);
   assert.equal(preSearchReplaceVersion?.wordCount, 3);
   assert.equal(searchReplaceVersion?.wordCount, 3);

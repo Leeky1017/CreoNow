@@ -2963,6 +2963,12 @@ describe("WorkbenchApp", () => {
     expect(await screen.findByText("AI 接受")).toBeInTheDocument();
     expect(screen.getByText("前序：version-pre-write")).toBeInTheDocument();
     expect(screen.getByText("面板最多展示最近 200 条快照。")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.api?.version.listSnapshots).toHaveBeenNthCalledWith(1, {
+        documentId: "doc-1",
+        limit: 200,
+      });
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "回退到 AI 接受" }));
     expect(await screen.findByText("将先保存当前内容，再回退到「AI 接受」。取消则不会触发任何回退。")).toBeInTheDocument();
