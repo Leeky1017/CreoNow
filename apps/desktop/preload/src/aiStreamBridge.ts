@@ -13,6 +13,7 @@ import {
   type JudgeResultEvent,
 } from "@shared/types/judge";
 import type { IpcResponse } from "@shared/types/ipc-generated";
+import { COST_ALERT_CHANNEL, type CostAlertEvent } from "@shared/types/cost";
 import { createAiStreamSubscriptionRegistry } from "./aiStreamSubscriptions";
 
 type UnknownRecord = Record<string, unknown>;
@@ -138,6 +139,20 @@ function isJudgeResultEvent(x: unknown): x is JudgeResultEvent {
   );
 }
 
+function isCostAlertEvent(x: unknown): x is CostAlertEvent {
+  if (!isRecord(x)) {
+    return false;
+  }
+
+  return (
+    (x.kind === "warning" || x.kind === "hard-stop") &&
+    typeof x.currentCost === "number" &&
+    typeof x.threshold === "number" &&
+    typeof x.message === "string" &&
+    typeof x.timestamp === "number"
+  );
+}
+
 
 export type AiStreamBridgeApi = {
   registerAiStreamConsumer: () => IpcResponse<{ subscriptionId: string }>;
@@ -217,12 +232,27 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
       }),
     );
   };
+  const onCostAlert = (_evt: unknown, payload: unknown) => {
+    if (subscriptions.count() === 0) {
+      return;
+    }
+    if (!isCostAlertEvent(payload)) {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<CostAlertEvent>(COST_ALERT_CHANNEL, {
+        detail: payload,
+      }),
+    );
+  };
 
   ipcRenderer.on(SKILL_STREAM_CHUNK_CHANNEL, onSkillStreamChunk);
   ipcRenderer.on(SKILL_STREAM_DONE_CHANNEL, onSkillStreamDone);
   ipcRenderer.on(SKILL_QUEUE_STATUS_CHANNEL, onSkillQueueStatus);
   ipcRenderer.on(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
   ipcRenderer.on(JUDGE_RESULT_CHANNEL, onJudgeResult);
+  ipcRenderer.on(COST_ALERT_CHANNEL, onCostAlert);
 
   return {
     registerAiStreamConsumer: () => subscriptions.register(),
@@ -241,6 +271,7 @@ export function registerAiStreamBridge(): AiStreamBridgeApi {
       );
       ipcRenderer.removeListener(SKILL_TOOL_USE_CHANNEL, onSkillToolUse);
       ipcRenderer.removeListener(JUDGE_RESULT_CHANNEL, onJudgeResult);
+      ipcRenderer.removeListener(COST_ALERT_CHANNEL, onCostAlert);
     },
   };
 }

@@ -3,6 +3,10 @@ import type Database from "better-sqlite3";
 import type { Logger } from "../../logging/logger";
 import { createDocumentService } from "../documents/documentService";
 import type { VersionSnapshotReason } from "../documents/documentService";
+import { createKnowledgeGraphService } from "../kg/kgService";
+import type { KnowledgeGraphService } from "../kg/types";
+import { createMemoryService } from "../memory/memoryService";
+import type { MemoryService } from "../memory/memoryService";
 import { registerAgenticTools } from "./agenticTools";
 import { appendSuggestionToDocument } from "./documentWriteback";
 import { buildTool, createToolRegistry, type ToolRegistry } from "./toolRegistry";
@@ -11,6 +15,8 @@ import { applySuggestionToSelection } from "./selectionWriteback";
 type WritingToolingArgs = {
   db: Database.Database;
   logger: Logger;
+  kgService?: Pick<KnowledgeGraphService, "queryRelevant">;
+  memoryService?: Pick<MemoryService, "previewInjection">;
 };
 
 export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistry {
@@ -211,28 +217,91 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
 export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistry {
   const registry = createToolRegistry();
   const service = createDocumentService({ db: args.db, logger: args.logger });
+  const kgService =
+    args.kgService ??
+    createKnowledgeGraphService({
+      db: args.db,
+      logger: args.logger,
+    });
+  const memoryService =
+    args.memoryService ??
+    createMemoryService({
+      db: args.db,
+      logger: args.logger,
+    });
 
   registerAgenticTools(registry, {
     kgTool: {
-      query: async ({ query, entityType, requestId, documentId }) => {
+      query: async ({ query, entityType, requestId, documentId, projectId }) => {
         args.logger.info("agentic_tool_kg_query", {
           query,
           entityType,
           requestId,
           documentId,
         });
-        return { entities: [], query };
+        const scopedProjectId =
+          typeof projectId === "string" ? projectId.trim() : "";
+        if (scopedProjectId.length === 0 || query.trim().length === 0) {
+          return { entities: [], query };
+        }
+
+        const relevant = kgService.queryRelevant({
+          projectId: scopedProjectId,
+          excerpt: query,
+        });
+        if (!relevant.ok) {
+          args.logger.info("agentic_tool_kg_query_degraded", {
+            query,
+            entityType,
+            requestId,
+            documentId,
+            code: relevant.error.code,
+          });
+          return { entities: [], query };
+        }
+
+        const entities =
+          entityType === "character" || entityType === "location"
+            ? relevant.data.items.filter((item) => item.type === entityType)
+            : relevant.data.items;
+        return { entities, query };
       },
     },
     memTool: {
-      query: async ({ query, memoryType, requestId, documentId }) => {
+      query: async ({ query, memoryType, requestId, documentId, projectId }) => {
         args.logger.info("agentic_tool_mem_query", {
           query,
           memoryType,
           requestId,
           documentId,
         });
-        return { memories: [], query };
+        const scopedProjectId =
+          typeof projectId === "string" ? projectId.trim() : "";
+        if (scopedProjectId.length === 0) {
+          return { memories: [], query };
+        }
+
+        const preview = memoryService.previewInjection({
+          projectId: scopedProjectId,
+          documentId,
+          queryText: query,
+        });
+        if (!preview.ok) {
+          args.logger.info("agentic_tool_mem_query_degraded", {
+            query,
+            memoryType,
+            requestId,
+            documentId,
+            code: preview.error.code,
+          });
+          return { memories: [], query };
+        }
+
+        const memories =
+          memoryType === "preference"
+            ? preview.data.items.filter((item) => item.type === "preference")
+            : preview.data.items;
+        return { memories, query };
       },
     },
     documentReader: {

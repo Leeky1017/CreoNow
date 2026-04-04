@@ -5,6 +5,7 @@ import type { ToolContext, ToolRegistry, ToolResult, WritingTool } from "./toolR
 type AgenticArgs = Record<string, unknown>;
 
 export interface KgToolQuery {
+  projectId?: string;
   documentId: string;
   query: string;
   entityType?: "character" | "location" | "worldSetting";
@@ -12,6 +13,7 @@ export interface KgToolQuery {
 }
 
 export interface MemToolQuery {
+  projectId?: string;
   documentId: string;
   query: string;
   memoryType?: "preference" | "style" | "rule";
@@ -142,6 +144,7 @@ function buildKgTool(deps: AgenticToolDeps): WritingTool {
         return {
           success: true,
           data: await deps.kgTool.query({
+            projectId: readProjectId(ctx),
             documentId: ctx.documentId,
             query,
             ...(entityType ? { entityType } : {}),
@@ -178,6 +181,7 @@ function buildMemTool(deps: AgenticToolDeps): WritingTool {
         return {
           success: true,
           data: await deps.memTool.query({
+            projectId: readProjectId(ctx),
             documentId: ctx.documentId,
             query,
             ...(memoryType ? { memoryType } : {}),

@@ -1165,6 +1165,13 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
   const sessionTokenTotalsByContext = new Map<string, number>();
   const modelPricingByModel = parseModelPricingMap(deps.env);
   const degradationCounter = new DegradationCounter();
+  const kgServiceForContext =
+    deps.db !== null
+      ? createKnowledgeGraphService({
+          db: deps.db,
+          logger: deps.logger,
+        })
+      : undefined;
   const memoryServiceForContext =
     deps.db !== null
       ? createMemoryService({
@@ -1189,10 +1196,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       ? {
           logger: deps.logger,
           degradationCounter,
-          kgService: createKnowledgeGraphService({
-            db: deps.db,
-            logger: deps.logger,
-          }),
+          ...(kgServiceForContext ? { kgService: kgServiceForContext } : {}),
           ...(memoryServiceForContext
             ? { memoryService: memoryServiceForContext }
             : {}),
@@ -1373,6 +1377,8 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         : createAgenticToolRegistry({
             db: deps.db,
             logger: deps.logger,
+            ...(kgServiceForContext ? { kgService: kgServiceForContext } : {}),
+            ...(memoryServiceForContext ? { memoryService: memoryServiceForContext } : {}),
           }),
       {
         maxToolRounds: AGENTIC_MAX_ROUNDS,

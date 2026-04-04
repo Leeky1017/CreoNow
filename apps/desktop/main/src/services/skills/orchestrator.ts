@@ -297,6 +297,36 @@ export function createWritingOrchestrator(
           });
         };
 
+        let totalPromptTokens = 0;
+        let totalCompletionTokens = 0;
+        const pendingCostEvents: WritingEvent[] = [];
+        const recordUsage = (usage: {
+          promptTokens: number;
+          completionTokens: number;
+          totalTokens: number;
+        }): void => {
+          totalPromptTokens += usage.promptTokens;
+          totalCompletionTokens += usage.completionTokens;
+
+          if (!config.costTracker) {
+            return;
+          }
+
+          const requestCost = config.costTracker.recordUsage(
+            usage,
+            prepared.modelId,
+            requestId,
+            normalizeSkillId(request.skillId),
+          );
+          const summary = config.costTracker.getSessionCost();
+          const budgetAlert = config.costTracker.checkBudget() ?? undefined;
+          pendingCostEvents.push(makeEvent("cost-recorded", requestId, {
+            requestCost: requestCost.cost,
+            sessionTotalCost: summary.totalCost,
+            ...(budgetAlert ? { budgetAlert } : {}),
+          }));
+        };
+
         const budgetExceeded = checkBudgetGuard();
         if (budgetExceeded) {
           taskStates.set(requestId, "failed");
@@ -318,6 +348,7 @@ export function createWritingOrchestrator(
         let aiSuccess = false;
         let lastFinishReason: "stop" | "tool_use" | null = null;
         let lastToolCalls: ToolCallInfo[] = [];
+        let lastPromptTokens = tokenCount;
 
         while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
           try {
@@ -400,6 +431,7 @@ export function createWritingOrchestrator(
               }
 
               fullText = generatedResult.fullText;
+              lastPromptTokens = generatedResult.usage.promptTokens;
               lastTokens = generatedResult.usage.completionTokens;
               lastFinishReason = generatedResult.finishReason ?? null;
               lastToolCalls = generatedResult.toolCalls ?? [];
@@ -433,6 +465,7 @@ export function createWritingOrchestrator(
                 });
               }
               lastFinishReason = streamFinishReason;
+              lastPromptTokens = tokenCount;
             }
 
             aiSuccess = true;
@@ -466,6 +499,12 @@ export function createWritingOrchestrator(
           });
           return;
         }
+
+        recordUsage({
+          promptTokens: lastPromptTokens,
+          completionTokens: lastTokens,
+          totalTokens: lastPromptTokens + lastTokens,
+        });
 
         // Stage 4.5 (P2): Agentic tool-use loop
         // Only runs when request.agenticLoop is true AND toolUseHandler is configured
@@ -618,9 +657,16 @@ export function createWritingOrchestrator(
             }
 
             fullText = nextResult.fullText || roundFullText;
+            lastPromptTokens = nextResult.usage.promptTokens;
             lastTokens = nextResult.usage.completionTokens;
             lastFinishReason = nextResult.finishReason ?? null;
             lastToolCalls = nextResult.toolCalls ?? [];
+
+            recordUsage({
+              promptTokens: lastPromptTokens,
+              completionTokens: lastTokens,
+              totalTokens: lastPromptTokens + lastTokens,
+            });
 
             const hasNextRound =
               lastFinishReason === "tool_use" && agenticRound < AGENTIC_MAX_ROUNDS;
@@ -656,31 +702,13 @@ export function createWritingOrchestrator(
         yield makeEvent("ai-done", requestId, {
           fullText,
           usage: {
-            promptTokens: tokenCount,
-            completionTokens: lastTokens,
-            totalTokens: tokenCount + lastTokens,
+            promptTokens: totalPromptTokens,
+            completionTokens: totalCompletionTokens,
+            totalTokens: totalPromptTokens + totalCompletionTokens,
           },
         });
-
-        if (config.costTracker) {
-          const usage = {
-            promptTokens: tokenCount,
-            completionTokens: lastTokens,
-            totalTokens: tokenCount + lastTokens,
-          };
-          const requestCost = config.costTracker.recordUsage(
-            usage,
-            prepared.modelId,
-            requestId,
-            normalizeSkillId(request.skillId),
-          );
-          const summary = config.costTracker.getSessionCost();
-          const budgetAlert = config.costTracker.checkBudget() ?? undefined;
-          yield makeEvent("cost-recorded", requestId, {
-            requestCost: requestCost.cost,
-            sessionTotalCost: summary.totalCost,
-            ...(budgetAlert ? { budgetAlert } : {}),
-          });
+        for (const costEvent of pendingCostEvents) {
+          yield costEvent;
         }
 
         if (abortController.signal.aborted) {

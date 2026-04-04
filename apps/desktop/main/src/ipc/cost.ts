@@ -1,6 +1,7 @@
 import { BrowserWindow, type IpcMain } from "electron";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
+import { COST_ALERT_CHANNEL } from "@shared/types/cost";
 import type { Logger } from "../logging/logger";
 import type {
   BudgetPolicy,
@@ -114,7 +115,7 @@ export function registerCostIpcHandlers(deps: {
   deps.tracker.onBudgetAlert((alert) => {
     for (const win of BrowserWindow.getAllWindows()) {
       try {
-        win.webContents.send("cost:alert", alert);
+        win.webContents.send(COST_ALERT_CHANNEL, alert);
       } catch (error) {
         deps.logger.error("cost:alert send failed", {
           reason: error instanceof Error ? error.message : String(error),

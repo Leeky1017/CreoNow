@@ -2,7 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import type { IpcMain } from "electron";
 
 import { registerCostIpcHandlers } from "../cost";
+import { COST_ALERT_CHANNEL } from "@shared/types/cost";
 import type {
+  BudgetAlert,
   BudgetPolicy,
   CostTracker,
   ModelPricingTable,
@@ -11,9 +13,17 @@ import type {
 } from "../../services/ai/costTracker";
 
 type Handler = (event: unknown, payload?: unknown) => Promise<unknown>;
+const browserWindows: Array<{ webContents: { send: ReturnType<typeof vi.fn> } }> = [];
+
+vi.mock("electron", () => ({
+  BrowserWindow: {
+    getAllWindows: () => browserWindows,
+  },
+}));
 
 function createHarness(trackerOverrides: Partial<CostTracker> = {}) {
   const handlers = new Map<string, Handler>();
+  let budgetAlertListener: ((alert: BudgetAlert) => void) | null = null;
 
   const ipcMain = {
     handle: (channel: string, listener: Handler) => {
@@ -47,7 +57,12 @@ function createHarness(trackerOverrides: Partial<CostTracker> = {}) {
     listRecords: vi.fn().mockReturnValue([]),
     checkBudget: vi.fn().mockReturnValue(null),
     estimateCost: vi.fn().mockReturnValue(0),
-    onBudgetAlert: vi.fn().mockReturnValue(() => {}),
+    onBudgetAlert: vi.fn().mockImplementation((callback: (alert: BudgetAlert) => void) => {
+      budgetAlertListener = callback;
+      return () => {
+        budgetAlertListener = null;
+      };
+    }),
     onCostRecorded: vi.fn().mockReturnValue(() => {}),
     updatePricingTable: vi.fn(),
     updateBudgetPolicy: vi.fn(),
@@ -77,10 +92,36 @@ function createHarness(trackerOverrides: Partial<CostTracker> = {}) {
     },
     tracker,
     logger,
+    emitBudgetAlert: (alert: BudgetAlert) => budgetAlertListener?.(alert),
   };
 }
 
 describe("cost IPC handlers", () => {
+  it("budget alert 会推送到 renderer 的 cost:alert channel", async () => {
+    browserWindows.length = 0;
+    const send = vi.fn();
+    browserWindows.push({
+      webContents: { send },
+    });
+    const harness = createHarness();
+
+    harness.emitBudgetAlert({
+      kind: "warning",
+      currentCost: 1.5,
+      threshold: 2,
+      message: "Budget warning",
+      timestamp: 1_735_000_000_000,
+    });
+
+    expect(send).toHaveBeenCalledWith(
+      COST_ALERT_CHANNEL,
+      expect.objectContaining({
+        kind: "warning",
+        currentCost: 1.5,
+      }),
+    );
+  });
+
   describe("cost:usage:list", () => {
     it("正常调用返回 records + totalCount", async () => {
       const mockRecords: RequestCost[] = [

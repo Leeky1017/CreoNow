@@ -21,6 +21,7 @@ import { createWritingOrchestrator } from "../orchestrator";
 import { createToolRegistry, buildTool, type ToolRegistry } from "../toolRegistry";
 import type { ToolCallInfo } from "../../ai/streaming";
 import { createToolUseHandler, type ToolUseHandler } from "../toolUseHandler";
+import { createCostTracker } from "../../ai/costTracker";
 
 // ─── helpers ────────────────────────────────────────────────────────
 
@@ -303,6 +304,94 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
 
       expect(callCount).toBe(3);
       expect(types).toContain("ai-done");
+    });
+
+    it("两轮 agentic AI 调用逐轮记录费用，并按同一 requestId 累计预算", async () => {
+      const tracker = createCostTracker({
+        pricingTable: {
+          currency: "USD",
+          lastUpdated: "2025-01-01T00:00:00.000Z",
+          prices: {
+            default: {
+              modelId: "default",
+              displayName: "Default",
+              inputPricePer1K: 0.001,
+              outputPricePer1K: 0.002,
+              effectiveDate: "2025-01-01",
+            },
+          },
+        },
+        budgetPolicy: {
+          warningThreshold: 10,
+          hardStopLimit: 20,
+          enabled: true,
+        },
+        estimateTokens: (text) => text.length,
+      });
+      const checkBudget = vi.fn(() => tracker.checkBudget());
+
+      let callCount = 0;
+      const generateText = vi.fn().mockImplementation(async (args: {
+        messages?: Array<{ role: string; content: string }>;
+        emitChunk: (delta: string, tokens: number) => void;
+      }) => {
+        callCount++;
+        if (callCount === 1) {
+          args.emitChunk("第一轮", 3);
+          return {
+            fullText: "第一轮",
+            usage: { promptTokens: 12, completionTokens: 3, totalTokens: 15 },
+            finishReason: "tool_use" as const,
+            toolCalls: [makeToolCallInfo("kgTool", { query: "林远" }, "call-usage-r1")],
+          };
+        }
+
+        const toolMsg = args.messages?.find((message) => message.role === "tool");
+        expect(toolMsg).toBeDefined();
+        args.emitChunk("最终续写", 7);
+        return {
+          fullText: "最终续写",
+          usage: { promptTokens: 18, completionTokens: 7, totalTokens: 25 },
+          finishReason: "stop" as const,
+          toolCalls: [],
+        };
+      });
+
+      const orchestrator = createWritingOrchestrator({
+        aiService: { async *streamChat() { return; }, estimateTokens: () => 10, abort: vi.fn() },
+        toolRegistry: writeRegistry,
+        toolUseHandler: agenticHandler,
+        permissionGate,
+        postWritingHooks: [],
+        defaultTimeoutMs: 30_000,
+        generateText,
+        costTracker: {
+          recordUsage: tracker.recordUsage,
+          getSessionCost: tracker.getSessionCost,
+          checkBudget,
+        },
+      });
+
+      const events = await collectEvents(orchestrator.execute(makeRequest({
+        requestId: "req-agentic-cost-001",
+      })));
+      const costEvents = events.filter((event) => event.type === "cost-recorded");
+      const requestCost = tracker.getRequestCost("req-agentic-cost-001");
+      const sessionCost = tracker.getSessionCost();
+
+      expect(callCount).toBe(2);
+      expect(costEvents).toHaveLength(2);
+      expect(checkBudget.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(requestCost).toMatchObject({
+        requestId: "req-agentic-cost-001",
+        inputTokens: 30,
+        outputTokens: 10,
+      });
+      expect(sessionCost).toMatchObject({
+        totalRequests: 1,
+        totalInputTokens: 30,
+        totalOutputTokens: 10,
+      });
     });
   });
 
