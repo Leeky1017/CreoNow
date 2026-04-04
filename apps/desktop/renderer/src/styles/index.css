@@ -278,6 +278,12 @@ button {
   background: var(--color-bg-base);
 }
 
+.editor-header__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .editor-scroll {
   flex: 1;
   min-height: 0;
@@ -548,9 +554,88 @@ button {
   text-align: right;
 }
 
+.panel-link.cn-button {
+  align-self: flex-start;
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  color: var(--color-accent);
+}
+
 .panel-error {
   margin: 0;
   color: var(--color-error);
+}
+
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-bg-base) 64%, transparent);
+  padding: var(--space-8) var(--space-4);
+}
+
+.overlay-backdrop--transparent {
+  background: transparent;
+  padding: 0;
+}
+
+.command-palette,
+.context-menu {
+  border: 1px solid var(--color-separator-bold);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.command-palette {
+  width: min(520px, calc(100vw - var(--space-8)));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.command-palette__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.command-palette__item.cn-button,
+.context-menu__item.cn-button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.command-palette__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.command-palette__label {
+  color: var(--color-fg-base);
+  font-size: var(--text-body-size);
+}
+
+.command-palette__description {
+  color: var(--color-fg-muted);
+  font-size: var(--text-status-size);
+}
+
+.context-menu {
+  position: fixed;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
 }
 
 .toast-viewport {

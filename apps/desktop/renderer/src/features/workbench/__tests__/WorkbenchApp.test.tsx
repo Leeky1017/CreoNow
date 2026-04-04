@@ -387,6 +387,55 @@ describe("WorkbenchApp", () => {
     });
   });
 
+  it("opens version history from the info panel link", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("tab", { name: "信息" }));
+    fireEvent.click(screen.getByRole("button", { name: "查看版本历史" }));
+
+    expect(await screen.findByRole("heading", { name: "历史记录" })).toBeInTheDocument();
+    expect(window.api!.version.listSnapshots).toHaveBeenCalledWith({
+      projectId: "project-1",
+      documentId: "doc-1",
+    });
+  });
+
+  it("opens version history from the document context menu", async () => {
+    render(<WorkbenchApp />);
+
+    const activeDocumentButton = await screen.findByRole("button", { name: /第一章/ });
+    fireEvent.contextMenu(activeDocumentButton);
+
+    const menu = await screen.findByRole("menu", { name: "文档菜单" });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "版本历史" }));
+
+    expect(await screen.findByRole("heading", { name: "历史记录" })).toBeInTheDocument();
+    expect(window.api!.version.listSnapshots).toHaveBeenCalledWith({
+      projectId: "project-1",
+      documentId: "doc-1",
+    });
+  });
+
+  it("opens version history from the command palette search", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.keyDown(window, { ctrlKey: true, key: "k" });
+
+    const dialog = await screen.findByRole("dialog", { name: "快捷操作" });
+    fireEvent.change(within(dialog).getByLabelText("搜索快捷操作"), {
+      target: { value: "版本历史" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: /版本历史/ }));
+
+    expect(await screen.findByRole("heading", { name: "历史记录" })).toBeInTheDocument();
+    expect(window.api!.version.listSnapshots).toHaveBeenCalledWith({
+      projectId: "project-1",
+      documentId: "doc-1",
+    });
+  });
+
   it("shows continue previews as insert-at-cursor diffs before accept writes back", async () => {
     render(<WorkbenchApp />);
 

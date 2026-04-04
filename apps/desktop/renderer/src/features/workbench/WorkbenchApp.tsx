@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/primitives/Button";
+import { Input } from "@/components/primitives/Input";
 import { createEditorBridge } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
@@ -84,6 +85,17 @@ type DragState =
   | { panel: "left"; startWidth: number; startX: number }
   | { panel: "right"; startWidth: number; startX: number }
   | null;
+type CommandAction = {
+  description: string;
+  keywords: string[];
+  label: string;
+  run: () => Promise<void> | void;
+};
+type DocumentContextMenuState = {
+  documentId: string;
+  x: number;
+  y: number;
+} | null;
 
 type SaveRequestToken = {
   context: WorkbenchContextToken | null;
@@ -429,6 +441,9 @@ function WorkbenchShell() {
   const [historyItems, setHistoryItems] = useState<VersionHistoryItem[]>([]);
   const [pendingRollbackVersionId, setPendingRollbackVersionId] = useState<string | null>(null);
   const [rollbackingVersionId, setRollbackingVersionId] = useState<string | null>(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
+  const [documentContextMenu, setDocumentContextMenu] = useState<DocumentContextMenuState>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [autosaveToastEvent, setAutosaveToastEvent] = useState<AutosaveToastEvent | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
@@ -737,7 +752,7 @@ function WorkbenchShell() {
     }
 
     setHistoryLoading(true);
-      setHistoryError(null);
+    setHistoryError(null);
     try {
       const result = await api.version.listSnapshots({
         projectId: args.projectId,
@@ -757,25 +772,31 @@ function WorkbenchShell() {
     }
   }, [api.version, t]);
 
+  const hideVersionHistory = useCallback(() => {
+    setHistoryOpen(false);
+    setPendingRollbackVersionId(null);
+    setHistoryError(null);
+  }, []);
+
   const handleToggleHistoryPanel = useCallback(async () => {
     if (rollbackingVersionId !== null) {
       return;
     }
 
     if (historyOpen) {
-      setHistoryOpen(false);
-      setPendingRollbackVersionId(null);
-      setHistoryError(null);
+      hideVersionHistory();
       return;
     }
 
+    setActiveRightPanel("ai");
+    setRightPanelCollapsed(false);
     setHistoryOpen(true);
     setPendingRollbackVersionId(null);
     await loadHistorySnapshots({
       documentId: activeDocument?.documentId ?? null,
       projectId: activeDocument?.projectId ?? null,
     });
-  }, [activeDocument?.documentId, activeDocument?.projectId, historyOpen, loadHistorySnapshots, rollbackingVersionId]);
+  }, [activeDocument?.documentId, activeDocument?.projectId, hideVersionHistory, historyOpen, loadHistorySnapshots, rollbackingVersionId]);
 
   const handleConfirmRollbackSnapshot = useCallback(async (versionId: string) => {
     if (activeDocument === null || rollbackingVersionId !== null) {
@@ -907,6 +928,14 @@ function WorkbenchShell() {
         return;
       }
 
+      if (event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandPaletteQuery("");
+        setCommandPaletteOpen(true);
+        setDocumentContextMenu(null);
+        return;
+      }
+
       if (event.key.toLowerCase() === "l") {
         event.preventDefault();
         if (rightPanelCollapsed) {
@@ -924,6 +953,26 @@ function WorkbenchShell() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [rightPanelCollapsed]);
+
+  useEffect(() => {
+    if (commandPaletteOpen === false && documentContextMenu === null) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setCommandPaletteOpen(false);
+      setDocumentContextMenu(null);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [commandPaletteOpen, documentContextMenu]);
 
   useEffect(() => {
     let disposed = false;
@@ -1011,13 +1060,13 @@ function WorkbenchShell() {
     }
   };
 
-  const handleOpenDocument = async (documentId: string) => {
+  const openDocumentInWorkbench = useCallback(async (documentId: string) => {
     if (project === null || rollbackingVersionId !== null) {
-      return;
+      return null;
     }
 
     if (activeDocument !== null && documentId === activeDocument.documentId) {
-      return;
+      return activeDocument;
     }
 
     const busyOperationId = reserveBusyOperation();
@@ -1043,16 +1092,60 @@ function WorkbenchShell() {
       setLastSavedAt(readDocument.updatedAt);
       setActiveLeftPanel("files");
       setSidebarCollapsed(false);
+      return readDocument;
     } catch (error) {
       if (error instanceof BlockedAutosaveError === false) {
         setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
       }
+      return null;
     } finally {
       if (isLatestBusyOperation(busyOperationId)) {
         setBusy(false);
       }
     }
-  };
+  }, [
+    activeDocument,
+    api,
+    flushDirtyDraftBeforeContextSwitch,
+    isLatestBusyOperation,
+    project,
+    replaceEditorContextContent,
+    reserveBusyOperation,
+    rollbackingVersionId,
+    setSaveUiState,
+    setWorkbenchError,
+    t,
+  ]);
+
+  const handleOpenDocument = useCallback(async (documentId: string) => {
+    setDocumentContextMenu(null);
+    await openDocumentInWorkbench(documentId);
+  }, [openDocumentInWorkbench]);
+
+  const showVersionHistory = useCallback(async (documentId: string | null = activeDocument?.documentId ?? null) => {
+    if (rollbackingVersionId !== null) {
+      return;
+    }
+
+    const historyDocument = documentId === null
+      ? activeDocument
+      : await openDocumentInWorkbench(documentId);
+    if (documentId !== null && historyDocument === null) {
+      return;
+    }
+    const nextDocumentId = historyDocument?.documentId ?? null;
+    const nextProjectId = historyDocument?.projectId ?? null;
+
+    setActiveRightPanel("ai");
+    setRightPanelCollapsed(false);
+    setHistoryOpen(true);
+    setPendingRollbackVersionId(null);
+    setHistoryError(null);
+    await loadHistorySnapshots({
+      documentId: nextDocumentId,
+      projectId: nextProjectId,
+    });
+  }, [activeDocument, loadHistorySnapshots, openDocumentInWorkbench, rollbackingVersionId]);
 
   const handleGeneratePreview = async () => {
     const previewContext = activeContextTokenRef.current;
@@ -1287,6 +1380,25 @@ function WorkbenchShell() {
     }
   };
 
+  const commandActions = useMemo<CommandAction[]>(() => [
+    {
+      description: t("commandPalette.versionHistoryDescription"),
+      keywords: ["版本历史", "历史", "history", "snapshot"],
+      label: t("commandPalette.versionHistory"),
+      run: () => showVersionHistory(),
+    },
+  ], [showVersionHistory, t]);
+  const normalizedCommandQuery = commandPaletteQuery.trim().toLowerCase();
+  const filteredCommandActions = commandActions.filter((action) => {
+    if (normalizedCommandQuery.length === 0) {
+      return true;
+    }
+
+    return [action.label, action.description, ...action.keywords].some((value) =>
+      value.toLowerCase().includes(normalizedCommandQuery),
+    );
+  });
+
   const saveLabel =
     saveState === "saving"
       ? t("status.saving")
@@ -1339,6 +1451,14 @@ function WorkbenchShell() {
               disabled={documentSwitchLocked}
               className={document.documentId === activeDocument?.documentId ? "sidebar-item sidebar-item--active" : "sidebar-item"}
               onClick={() => void handleOpenDocument(document.documentId)}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                setDocumentContextMenu({
+                  documentId: document.documentId,
+                  x: event.clientX,
+                  y: event.clientY,
+                });
+              }}
             >
               <span className="sidebar-item__title">{document.title}</span>
               <span className="sidebar-item__meta">{formatTimestamp(document.updatedAt)}</span>
@@ -1410,6 +1530,7 @@ function WorkbenchShell() {
         documentTitle={activeDocument?.title ?? null}
         errorMessage={errorMessage}
         loading={bootstrapStatus !== "ready"}
+        onViewHistory={() => void showVersionHistory()}
         projectName={project?.name ?? null}
         statusLabel={saveLabel}
         updatedAt={formatTimestamp(lastSavedAt)}
@@ -1523,9 +1644,19 @@ function WorkbenchShell() {
             <h2 className="screen-title">{activeDocument?.title ?? t("document.defaultTitle")}</h2>
             <p className="panel-meta">{selectionHint}</p>
           </div>
-          {rightPanelCollapsed ? (
-            <Button tone="ghost" onClick={() => handleRightPanelSelect("ai")}>{t("panel.actions.openAi")}</Button>
-          ) : null}
+          <div className="editor-header__actions">
+            <Button tone="ghost" onClick={() => {
+              setCommandPaletteQuery("");
+              setCommandPaletteOpen(true);
+              setDocumentContextMenu(null);
+            }}
+            >
+              {t("commandPalette.open")}
+            </Button>
+            {rightPanelCollapsed ? (
+              <Button tone="ghost" onClick={() => handleRightPanelSelect("ai")}>{t("panel.actions.openAi")}</Button>
+            ) : null}
+          </div>
         </header>
         <div className="editor-scroll">
           <div ref={containerRef} className="editor-host" />
@@ -1586,6 +1717,80 @@ function WorkbenchShell() {
       </Button>
       <span className="status-bar__group">{formatTimestamp(lastSavedAt)}</span>
     </footer>
+
+    {documentContextMenu ? <div
+      className="overlay-backdrop overlay-backdrop--transparent"
+      onClick={() => setDocumentContextMenu(null)}
+    >
+      <div
+        className="context-menu"
+        role="menu"
+        aria-label={t("sidebar.documentMenu.label")}
+        onClick={(event) => event.stopPropagation()}
+        style={{
+          left: `${documentContextMenu.x}px`,
+          top: `${documentContextMenu.y}px`,
+        }}
+      >
+        <Button
+          className="context-menu__item"
+          onClick={() => {
+            setDocumentContextMenu(null);
+            void showVersionHistory(documentContextMenu.documentId);
+          }}
+          role="menuitem"
+          tone="ghost"
+        >
+          {t("sidebar.documentMenu.versionHistory")}
+        </Button>
+      </div>
+    </div> : null}
+
+    {commandPaletteOpen ? <div
+      className="overlay-backdrop"
+      onClick={() => setCommandPaletteOpen(false)}
+    >
+      <section
+        aria-label={t("commandPalette.title")}
+        aria-modal="true"
+        className="command-palette"
+        onClick={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <header className="panel-section">
+          <div>
+            <h2 className="panel-title">{t("commandPalette.title")}</h2>
+            <p className="panel-subtitle">{t("commandPalette.subtitle")}</p>
+          </div>
+        </header>
+
+        <Input
+          aria-label={t("commandPalette.searchLabel")}
+          autoFocus
+          onChange={(event) => setCommandPaletteQuery(event.target.value)}
+          placeholder={t("commandPalette.searchPlaceholder")}
+          value={commandPaletteQuery}
+        />
+
+        <div className="command-palette__list" role="list">
+          {filteredCommandActions.length === 0 ? <p className="panel-meta">{t("commandPalette.empty")}</p> : null}
+          {filteredCommandActions.map((action) => (
+            <Button
+              key={action.label}
+              className="command-palette__item"
+              onClick={() => {
+                setCommandPaletteOpen(false);
+                void action.run();
+              }}
+              tone="ghost"
+            >
+              <span className="command-palette__label">{action.label}</span>
+              <span className="command-palette__description">{action.description}</span>
+            </Button>
+          ))}
+        </div>
+      </section>
+    </div> : null}
     </main>
   </>;
 }

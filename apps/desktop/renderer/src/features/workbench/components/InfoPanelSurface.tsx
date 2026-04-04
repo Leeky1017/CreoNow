@@ -1,9 +1,12 @@
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/primitives/Button";
+
 interface InfoPanelSurfaceProps {
   documentTitle: string | null;
   errorMessage?: string | null;
   loading?: boolean;
+  onViewHistory?: () => void;
   projectName: string | null;
   statusLabel: string | null;
   updatedAt: string | null;
@@ -47,5 +50,13 @@ export function InfoPanelSurface(props: InfoPanelSurfaceProps) {
         <dd>{props.statusLabel ?? "—"}</dd>
       </div>
     </dl>}
+
+    {props.loading || props.errorMessage || props.documentTitle === null || props.onViewHistory === undefined ? null : <Button
+      className="panel-link"
+      onClick={props.onViewHistory}
+      tone="ghost"
+    >
+      {t("panel.info.viewHistory")}
+    </Button>}
   </section>;
 }
