@@ -191,11 +191,12 @@ class WritingOrchestrator {
 
 #### 不做清单
 
-- ❌ 不做 Agentic Loop（多轮工具调用循环），V1 只走单次管线
 - ❌ 不做多模型 fallback 链
 - ❌ 不做并行技能编排（一次只处理一个请求）
 - ❌ 不做跨文档批量操作
 - ❌ 不做 streaming 中途切换模型
+
+> 注：以上为 **P1 历史基线**。自本文件 `P2: Agentic Loop（Tool-Use 循环）` 起，P2 agentic-loop 行为是当前生效的法律锚点；凡与 P2 冲突的 `agenticLoop: false / 不做 Agentic Loop` 语义，均仅表示 P1 当时的阶段约束，不再作为当前实现约束。
 
 #### Scenario: 用户触发润色并确认写回
 
@@ -417,11 +418,11 @@ interface SkillInputRequirement {
   requiresProjectContext?: boolean
 }
 
-/** 管线配置 */
+/** 管线配置（P1 历史基线；P2 生效定义见后文同名接口） */
 interface PipelineConfig {
   /** 管线步骤（V1 固定顺序执行，不支持跳步或分支） */
   steps: PipelineStep[]
-  /** 是否启用 Agentic Loop（V1 始终为 false） */
+  /** P1 历史值；P2 起由后文 boolean 定义接管 */
   agenticLoop: false
 }
 
@@ -489,11 +490,12 @@ Skill 本身无状态。每次执行由 WritingOrchestrator 分配独立的 `Tas
 
 #### 不做清单
 
-- ❌ 不做 Agentic Loop（多轮工具调用），V1 所有 Skill 只走单次管线
 - ❌ 不做 Skill 间链式调用（如"先续写再润色"）
 - ❌ 不做 Skill 自定义管线步骤
 - ❌ 不做 expand / condense / style-transfer / translate / summarize（这些 Skill 留到 P2+）
 - ❌ 不做 Skill 参数 UI（改写指令通过 AI 面板输入框传递，不做独立参数表单）
+
+> 注：此处 `V1` 限制仅描述历史阶段；当前仓库的 agentic-loop 合法行为以后文 `P2` 章节为准。
 
 #### Scenario: 用户触发润色技能端到端流程
 
@@ -1495,7 +1497,7 @@ REQ-ID: `REQ-SKL-ROUTE`
 
 ### P1 → P2 演进说明
 
-P1 阶段 WritingOrchestrator 执行**单次 LLM 调用**（不含 tool-use 循环），管线步骤中 `agenticLoop: false`。P1 的 `StreamChunk.finishReason` 预留了 `'tool_use'` 枚举值但不处理。
+P1 阶段 WritingOrchestrator 执行**单次 LLM 调用**（不含 tool-use 循环），管线步骤中 `agenticLoop: false`。该语义仅是 P1 历史快照。P2 起，凡涉及 agentic-loop、provider contract、tool event、usage accounting 的实现与测试，均以后续 P2 条款为唯一合法锚点。P1 的 `StreamChunk.finishReason` 预留了 `'tool_use'` 枚举值但不处理。
 
 P2 激活 Agentic Loop：当 AI 返回 `finishReason === 'tool_use'` 时，系统解析 tool calls → 执行 tools → 将结果注入消息流 → 继续 AI 生成。此循环最多重复 `maxToolRounds` 次。
 
@@ -1613,6 +1615,16 @@ interface ToolUseHandler {
 }
 ```
 
+**Provider-specific conversation contract（P2 生效）**:
+
+- OpenAI 第二轮及后续请求 **必须**继续声明 `tools`
+- OpenAI 第二轮消息数组 **必须**保留上一轮 `assistant` 的 `tool_calls`
+- OpenAI 每条 `role: 'tool'` 消息 **必须**带 `tool_call_id`
+- Anthropic 第二轮及后续请求 **必须**继续声明 `tools`
+- Anthropic 第二轮消息数组 **必须**保留上一轮 `assistant.content` 中的 `tool_use` block
+- Anthropic 工具结果 **必须**以 `tool_result` block 回传，且 `tool_use_id` 与上一轮 `tool_use.id` 一致
+- Provider-specific assistant/tool blocks 不得被压平成 plain text；否则视为 contract violation
+
 #### Scenario: AI 返回 tool_use 后解析 tool calls
 
 - **假设** 用户触发 `continue`（续写）技能，AI 在续写过程中决定查询角色设定
@@ -1636,6 +1648,34 @@ interface ToolUseHandler {
 - **当** 调用 `injectResults(currentMessages, results)`
 - **则** 返回的消息数组新增一条 `{ role: 'tool', content: '{"traits":["冷静","理性"]}' }`
 - **并且** 新消息的位置在 assistant 消息之后、下一轮 user 消息之前
+
+#### Scenario: OpenAI 第二轮请求保留 provider contract
+
+- **假设** OpenAI 第一轮返回 `finishReason: 'tool_use'`
+- **并且** assistant delta 中包含 `tool_calls[0].id = 'call-doc-1'`
+- **当** 系统发起第二轮请求
+- **则** request body 仍包含 `tools`
+- **并且** `messages` 中存在上一轮 `assistant` 消息，且其 `tool_calls[0].id === 'call-doc-1'`
+- **并且** `messages` 中存在 `role: 'tool'` 消息，且 `tool_call_id === 'call-doc-1'`
+- **并且** 不得把 assistant tool call 压平成普通文本消息
+
+#### Scenario: Anthropic 第二轮请求保留 provider contract
+
+- **假设** Anthropic 第一轮返回 `stop_reason: 'tool_use'`
+- **并且** assistant content block 中包含 `{ type: 'tool_use', id: 'toolu_1', name: 'docTool', input: { query: '林远' } }`
+- **当** 系统发起第二轮请求
+- **则** request body 仍包含 `tools`
+- **并且** `messages` 中保留上一轮 `assistant` 的 `tool_use` block
+- **并且** 新增 `role: 'user'` 消息，其 `content` 中包含 `{ type: 'tool_result', tool_use_id: 'toolu_1', content: '...' }`
+- **并且** 不得把 `tool_use` / `tool_result` block 压平成普通文本
+
+#### Scenario: 非法 tool arguments fail-closed
+
+- **假设** provider 返回的 tool args 不是合法对象（如截断 JSON、数组、`null`）
+- **当** `parseToolCalls()` 解析该 tool call
+- **则** 立即抛出 `TOOL_USE_PARSE_FAILED`
+- **并且** 本轮不得执行任何 tool
+- **并且** 错误必须通过 `tool-use-failed` 事件向前端暴露，不允许吞掉后继续当作无工具请求处理
 
 ---
 
@@ -1718,7 +1758,13 @@ type ToolUseCompletedEvent = {
   requestId: string;
   round: number;
   /** 本轮执行结果摘要 */
-  results: Array<{ toolName: string; success: boolean; durationMs: number }>;
+  results: Array<{
+    callId: string;
+    toolName: string;
+    success: boolean;
+    durationMs: number;
+    error?: { code: string; message: string };
+  }>;
   /** 是否还有下一轮 */
   hasNextRound: boolean;
 };
@@ -1732,6 +1778,8 @@ type ToolUseFailedEvent = {
   error: WritingError;
 };
 ```
+
+> Preload/runtime contract：preload 对 `skill:tool-use` 只做最小 runtime shape 校验后原样转发，测试必须断言“原始 payload 被转发”，而不是先手工构造并信任类型对象。
 
 **P2 WritingEvent union 更新**:
 
@@ -1789,6 +1837,14 @@ type WritingEvent =
 - **并且** AI 基于角色设定继续生成续写内容
 - **并且** 第二轮 AI 返回 `finishReason: 'stop'`，进入 `ai-done`
 
+#### Scenario: Anthropic 流式 `tool_use` 也能驱动闭环
+
+- **假设** 当前 provider 为 Anthropic
+- **当** SSE 先返回文本 delta，随后返回 `tool_use` block 与 `message_delta.stop_reason = 'tool_use'`
+- **则** AI service 必须解析出 `finishReason: 'tool_use'`
+- **并且** `toolCalls` 中保留 `id / name / arguments`
+- **并且** WritingOrchestrator 进入下一轮 tool-use 循环，而不是误判为普通 stop
+
 #### Scenario: 达到最大轮次限制
 
 - **假设** `continue` 技能执行中，AI 持续请求 tool calls
@@ -1806,13 +1862,13 @@ type WritingEvent =
 - **并且** 错误结果仍然注入消息流（告知 AI 该 tool 不可用）
 - **并且** AI 可根据错误信息调整策略（如跳过或使用替代 tool）
 
-#### Scenario: 润色技能不触发 Agentic Loop
+#### Scenario: P2 provider/runtime usage 以真实注入消息计费
 
-- **假设** 用户触发 `polish` 技能（agenticLoop: false）
-- **当** AI 意外返回 `finishReason: 'tool_use'`
-- **则** WritingOrchestrator 忽略 toolCalls（不执行 tool-use 循环）
-- **并且** 使用 AI 已生成的文本作为最终结果
-- **并且** yield warning 事件 "AI 返回 tool_use 但当前 Skill 未启用 Agentic Loop"
+- **假设** 第二轮请求前消息数组新增了 assistant tool-call block 与 tool/tool_result block
+- **当** 系统计算 `promptTokens` / budget / cost
+- **则** 必须基于真实发送给 provider 的 runtime messages 计算
+- **并且** 不得仅按第一轮原始 `input` 或初始 prompt 估算
+- **并且** UI/IPC 返回的 usage 必须反映这些新增消息带来的预算消耗
 
 ---
 
@@ -1851,6 +1907,8 @@ interface DocToolArgs {
   query: string;
   /** 返回的最大 token 数 */
   maxTokens?: number;
+  /** 返回的文本摘要/片段长度（字符语义），用于避免整文注入 */
+  snippetChars?: number;
 }
 ```
 
@@ -1869,6 +1927,25 @@ interface DocToolArgs {
 - **当** AI 调用 `memTool({ query: '用户写作风格偏好' })`
 - **则** memTool 返回 `{ success: true, data: { memories: [] } }`（空结果，非错误）
 - **并且** AI 继续生成，不因数据缺失而中断
+
+#### Scenario: docTool / documentRead 必须 obey maxTokens/snippet 语义
+
+- **假设** 目标文档正文很长，AI 调用 `docTool({ documentId: 'doc-2', query: '林远', maxTokens: 128, snippetChars: 240 })`
+- **当** tool 读取文档
+- **则** 返回值必须只包含与查询相关的 snippet / summary
+- **并且** snippet 的长度不得超过 `snippetChars`
+- **并且** 注入下一轮模型消息的内容预算不得超过 `maxTokens` 对应上限
+- **并且** 不得把整篇文档原样塞入下一轮消息流
+
+#### Scenario: tool-use IPC payload shape 可审计
+
+- **假设** 主进程向 preload / renderer 发送 `tool-use-started`
+- **则** payload 至少包含 `type / executionId / runId / round / toolNames / ts`
+- **当** 发送 `tool-use-completed`
+- **则** payload 至少包含 `type / executionId / runId / round / results / hasNextRound / ts`
+- **当** 发送 `tool-use-failed`
+- **则** payload 至少包含 `type / executionId / runId / round / error / ts`
+- **并且** `results[*]` 至少包含 `callId / toolName / success / durationMs`
 
 ---
 

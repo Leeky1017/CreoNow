@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 
 import type { Logger } from "../../logging/logger";
+import { estimateTokens } from "../context/tokenEstimation";
 import { createDocumentService } from "../documents/documentService";
 import type { VersionSnapshotReason } from "../documents/documentService";
 import { appendSuggestionToDocument } from "./documentWriteback";
@@ -11,6 +12,55 @@ type WritingToolingArgs = {
   db: Database.Database;
   logger: Logger;
 };
+
+function readAgenticArgs(ctx: Record<string, unknown>): Record<string, unknown> {
+  const args = ctx.args;
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    return {};
+  }
+  return args as Record<string, unknown>;
+}
+
+function sliceSnippet(args: {
+  text: string;
+  query?: string;
+  snippetChars?: number;
+  maxTokens?: number;
+}): string {
+  const normalized = args.text.trim();
+  if (normalized.length === 0) {
+    return "";
+  }
+
+  const tokenBound =
+    typeof args.maxTokens === "number" &&
+    Number.isFinite(args.maxTokens) &&
+    args.maxTokens > 0
+      ? Math.max(1, Math.floor(args.maxTokens) * 4)
+      : normalized.length;
+  const charBound =
+    typeof args.snippetChars === "number" &&
+    Number.isFinite(args.snippetChars) &&
+    args.snippetChars > 0
+      ? Math.max(1, Math.floor(args.snippetChars))
+      : normalized.length;
+  const limit = Math.min(normalized.length, tokenBound, charBound);
+  const query = args.query?.trim() ?? "";
+  if (query.length === 0) {
+    return normalized.slice(0, limit);
+  }
+
+  const hitIndex = normalized.indexOf(query);
+  if (hitIndex < 0) {
+    return normalized.slice(0, limit);
+  }
+
+  const leftBudget = Math.max(0, Math.floor((limit - query.length) / 2));
+  const start = Math.max(0, hitIndex - leftBudget);
+  const end = Math.min(normalized.length, start + limit);
+  const alignedStart = Math.max(0, end - limit);
+  return normalized.slice(alignedStart, end);
+}
 
 export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistry {
   const registry = createToolRegistry();
@@ -219,7 +269,8 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
       description: "Query the knowledge graph for character traits, locations, and world settings",
       isConcurrencySafe: true,
       execute: async (ctx) => {
-        const query = typeof ctx["query"] === "string" ? ctx["query"] : "";
+        const toolArgs = readAgenticArgs(ctx);
+        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
         args.logger.info("agentic_tool_kg_query", { query, requestId: ctx.requestId });
         // P2 stub: KG module not yet implemented, return empty
         return {
@@ -238,7 +289,8 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
       description: "Query writing memory for style preferences and past writing patterns",
       isConcurrencySafe: true,
       execute: async (ctx) => {
-        const query = typeof ctx["query"] === "string" ? ctx["query"] : "";
+        const toolArgs = readAgenticArgs(ctx);
+        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
         args.logger.info("agentic_tool_mem_query", { query, requestId: ctx.requestId });
         // P2 stub: Memory module not yet fully implemented, return empty
         return {
@@ -256,17 +308,25 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
       description: "Read the content of a document or chapter for context",
       isConcurrencySafe: true,
       execute: async (ctx) => {
+        const toolArgs = readAgenticArgs(ctx);
         const targetDocId =
-          typeof ctx["targetDocumentId"] === "string"
-            ? ctx["targetDocumentId"]
+          typeof toolArgs.documentId === "string" && toolArgs.documentId.trim().length > 0
+            ? toolArgs.documentId.trim()
             : ctx.documentId;
         const projectId =
           typeof ctx["projectId"] === "string" ? ctx["projectId"].trim() : "";
+        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
+        const maxTokens =
+          typeof toolArgs.maxTokens === "number" ? toolArgs.maxTokens : undefined;
+        const snippetChars =
+          typeof toolArgs.snippetChars === "number"
+            ? toolArgs.snippetChars
+            : undefined;
 
         if (!projectId) {
           return {
             success: true,
-            data: { content: "", documentId: targetDocId },
+            data: { content: "", documentId: targetDocId, query, truncated: false },
           };
         }
 
@@ -280,7 +340,26 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
 
         return {
           success: true,
-          data: { content: result.data.contentJson, documentId: targetDocId },
+          data: {
+            content: sliceSnippet({
+              text: result.data.contentText,
+              query,
+              maxTokens,
+              snippetChars,
+            }),
+            documentId: targetDocId,
+            query,
+            truncated:
+              estimateTokens(result.data.contentText) >
+              estimateTokens(
+                sliceSnippet({
+                  text: result.data.contentText,
+                  query,
+                  maxTokens,
+                  snippetChars,
+                }),
+              ),
+          },
         };
       },
     }),
@@ -295,11 +374,19 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
       execute: async (ctx) => {
         const projectId =
           typeof ctx["projectId"] === "string" ? ctx["projectId"].trim() : "";
+        const toolArgs = readAgenticArgs(ctx);
+        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
+        const maxTokens =
+          typeof toolArgs.maxTokens === "number" ? toolArgs.maxTokens : undefined;
+        const snippetChars =
+          typeof toolArgs.snippetChars === "number"
+            ? toolArgs.snippetChars
+            : undefined;
 
         if (!projectId) {
           return {
             success: true,
-            data: { text: "", documentId: ctx.documentId },
+            data: { text: "", documentId: ctx.documentId, query, truncated: false },
           };
         }
 
@@ -313,7 +400,26 @@ export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistr
 
         return {
           success: true,
-          data: { text: result.data.contentJson, documentId: ctx.documentId },
+          data: {
+            text: sliceSnippet({
+              text: result.data.contentText,
+              query,
+              maxTokens,
+              snippetChars,
+            }),
+            documentId: ctx.documentId,
+            query,
+            truncated:
+              estimateTokens(result.data.contentText) >
+              estimateTokens(
+                sliceSnippet({
+                  text: result.data.contentText,
+                  query,
+                  maxTokens,
+                  snippetChars,
+                }),
+              ),
+          },
         };
       },
     }),

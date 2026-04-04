@@ -7,7 +7,12 @@
  */
 
 import type { ToolCallInfo } from "../ai/streaming";
-import type { ToolRegistry, ToolContext, WritingTool } from "./toolRegistry";
+import type {
+  AgenticToolContext,
+  ToolRegistry,
+  ToolContext,
+  WritingTool,
+} from "./toolRegistry";
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -197,7 +202,12 @@ export function createToolUseHandler(
   const handler: ToolUseHandler = {
     parseToolCalls(raw: ToolCallInfo[]): ParsedToolCall[] {
       return raw.map((tc) => {
-        if (tc.arguments === null || tc.arguments === undefined) {
+        if (
+          tc.arguments === null ||
+          tc.arguments === undefined ||
+          typeof tc.arguments !== "object" ||
+          Array.isArray(tc.arguments)
+        ) {
           throw makeError(
             "TOOL_USE_PARSE_FAILED",
             `Tool call "${tc.id}" has invalid arguments`,
@@ -206,7 +216,7 @@ export function createToolUseHandler(
         return {
           callId: tc.id,
           toolName: tc.name,
-          arguments: tc.arguments,
+          arguments: tc.arguments as Record<string, unknown>,
         };
       });
     },
@@ -312,9 +322,9 @@ export function createToolUseHandler(
       if (safeCalls.length > 0) {
         const tasks = safeCalls.map(({ idx, call }) => async () => {
           const tool = registry.get(call.toolName)!;
-          const agenticCtx: ToolContext = {
+          const agenticCtx: AgenticToolContext = {
             ...context,
-            arguments: call.arguments,
+            args: call.arguments,
           };
           const startTime = Date.now();
           const result = await executeWithTimeout(
@@ -340,10 +350,10 @@ export function createToolUseHandler(
       // Execute unsafe tools serially
       for (const { idx, call } of unsafeCalls) {
         const tool = registry.get(call.toolName)!;
-        const agenticCtx: ToolContext = {
+        const agenticCtx: AgenticToolContext = {
           ...context,
-          arguments: call.arguments,
-        };
+            args: call.arguments,
+          };
         const startTime = Date.now();
         const result = await executeWithTimeout(
           tool,
@@ -376,7 +386,13 @@ export function createToolUseHandler(
         timestamp: Date.now(),
         requestId: context.requestId,
         round: currentRound,
-        results,
+        results: results.map((result) => ({
+          callId: result.callId,
+          toolName: result.toolName,
+          success: result.success,
+          durationMs: result.durationMs,
+          ...(result.error ? { error: result.error } : {}),
+        })),
         hasNextRound: summary.shouldContinueLoop,
       });
 
