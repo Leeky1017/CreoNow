@@ -31,6 +31,7 @@ import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
 import { createSkillExecutor, type SkillExecutorRunArgs } from "../services/skills/skillExecutor";
 import { normalizeAssembledContextPrompt } from "../services/skills/contextPromptPolicy";
+import { renderPromptTemplate } from "../services/skills/promptTemplate";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { DegradationCounter } from "../services/shared/degradationCounter";
@@ -334,26 +335,6 @@ function createPendingPermissionGate(): PendingPermissionGate {
   };
 }
 
-function renderSkillUserPrompt(args: {
-  template: string;
-  values: Record<string, string>;
-}): string {
-  const usedPlaceholder = Object.keys(args.values).some((key) =>
-    args.template.includes(`{{${key}}}`),
-  );
-  let rendered = args.template;
-  for (const [key, value] of Object.entries(args.values)) {
-    rendered = rendered.split(`{{${key}}}`).join(value);
-  }
-  if (rendered.trim().length === 0) {
-    return args.values.input ?? "";
-  }
-  if (!usedPlaceholder) {
-    return `${rendered}\n\n${args.values.input ?? ""}`;
-  }
-  return rendered;
-}
-
 function resolveP1BuiltinSkill(skillId: string):
   | {
       id: string;
@@ -411,7 +392,7 @@ function resolveP1BuiltinSkill(skillId: string):
   return null;
 }
 
-async function prepareWritingRequest(args: {
+export async function prepareWritingRequest(args: {
   ctx: AiIpcContext;
   payload: SkillRunPayload;
 }): Promise<
@@ -543,7 +524,7 @@ async function prepareWritingRequest(args: {
   }
 
   const systemPrompt = resolvedData.skill.prompt?.system?.trim() ?? "";
-  const userPrompt = renderSkillUserPrompt({
+  const userPrompt = renderPromptTemplate({
     template: resolvedData.skill.prompt?.user ?? "",
     values: {
       input: effectiveInput,

@@ -6,6 +6,7 @@ import {
   normalizeAssembledContextPrompt,
   resolveContinueValidationInput,
 } from "./contextPromptPolicy";
+import { renderPromptTemplate } from "./promptTemplate";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 export type { ServiceResult };
 
@@ -168,36 +169,6 @@ function emptyInputMessage(skillId: string): string {
     return "请先选中需要润色的文本";
   }
   return "请先提供需要处理的文本";
-}
-
-/**
- * Render user prompt template with deterministic placeholder injection.
- */
-function renderUserPrompt(args: {
-  template: string;
-  input: string;
-  selectedText?: string;
-  userInstruction?: string;
-}): string {
-  const values = {
-    input: args.input,
-    selectedText: args.selectedText ?? args.input,
-    userInstruction: args.userInstruction ?? "",
-  } as const;
-  const usedPlaceholder = Object.keys(values).some((key) =>
-    args.template.includes(`{{${key}}}`),
-  );
-  let rendered = args.template;
-  for (const [key, value] of Object.entries(values)) {
-    rendered = rendered.split(`{{${key}}}`).join(value);
-  }
-  if (args.template.trim().length === 0) {
-    return args.input;
-  }
-  if (usedPlaceholder) {
-    return rendered;
-  }
-  return `${args.template}\n\n${args.input}`;
 }
 
 /**
@@ -673,11 +644,13 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
 
       const { inputForPrompt } = inputValidation.data;
       const systemPrompt = resolved.data.prompt?.system ?? "";
-      const userPrompt = renderUserPrompt({
+      const userPrompt = renderPromptTemplate({
         template: resolved.data.prompt?.user ?? "",
-        input: inputForPrompt,
-        selectedText: args.selection?.text ?? args.selectedText ?? inputForPrompt,
-        userInstruction: args.userInstruction,
+        values: {
+          input: inputForPrompt,
+          selectedText: args.selection?.text ?? args.selectedText ?? inputForPrompt,
+          userInstruction: args.userInstruction ?? "",
+        },
       });
 
       let contextPrompt: string | undefined;

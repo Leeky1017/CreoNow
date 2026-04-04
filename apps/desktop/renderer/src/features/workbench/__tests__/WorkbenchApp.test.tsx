@@ -297,6 +297,94 @@ describe("WorkbenchApp", () => {
     });
   });
 
+  it("locks document-switching controls while rollback is in flight", async () => {
+    window.api = createApiMock();
+    const rollbackResult = createDeferred<{
+      ok: true;
+      data: {
+        restored: true;
+        preRollbackVersionId: string;
+        rollbackVersionId: string;
+      };
+    }>();
+    window.api.file.listDocuments = vi.fn(async () => ({
+      ok: true,
+      data: {
+        items: [
+          { documentId: "doc-1", title: "第一章", type: "chapter", status: "draft", sortOrder: 0, updatedAt: 1 },
+          { documentId: "doc-2", title: "第二章", type: "chapter", status: "draft", sortOrder: 1, updatedAt: 2 },
+        ],
+      },
+    })) as typeof window.api.file.listDocuments;
+    window.api.version.listSnapshots = vi.fn(async () => ({
+      ok: true,
+      data: {
+        items: [
+          {
+            versionId: "version-rollback",
+            actor: "user",
+            reason: "manual-save" as const,
+            contentHash: "hash-rollback",
+            wordCount: 12,
+            parentSnapshotId: null,
+            createdAt: 1,
+          },
+        ],
+      },
+    })) as typeof window.api.version.listSnapshots;
+    window.api.version.rollbackSnapshot = vi.fn(async () => rollbackResult.promise) as typeof window.api.version.rollbackSnapshot;
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "历史记录" }));
+    expect(await screen.findByRole("heading", { name: "历史记录" })).toBeInTheDocument();
+
+    const rollbackArticle = screen
+      .getByText("快照 ID：version-rollback")
+      .closest("article");
+    expect(rollbackArticle).not.toBeNull();
+    fireEvent.click(
+      within(rollbackArticle as HTMLElement).getByRole("button", {
+        name: "恢复到此版本",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "确认恢复" }));
+
+    await waitFor(() => {
+      expect(window.api!.version.rollbackSnapshot).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        versionId: "version-rollback",
+      });
+    });
+
+    const newDocumentButton = screen.getByRole("button", { name: "新建文档" });
+    const secondDocumentButton = screen.getByRole("button", { name: /第二章/ });
+    const historyButton = screen.getByRole("button", { name: "返回 AI" });
+    expect(newDocumentButton).toBeDisabled();
+    expect(secondDocumentButton).toBeDisabled();
+    expect(historyButton).toBeDisabled();
+
+    fireEvent.click(newDocumentButton);
+    fireEvent.click(secondDocumentButton);
+    expect(window.api.file.createDocument).not.toHaveBeenCalled();
+    expect(window.api.file.setCurrentDocument).toHaveBeenCalledTimes(1);
+
+    rollbackResult.resolve({
+      ok: true,
+      data: {
+        restored: true,
+        preRollbackVersionId: "pre-1",
+        rollbackVersionId: "rollback-1",
+      },
+    });
+
+    await waitFor(() => {
+      expect(newDocumentButton).not.toBeDisabled();
+      expect(secondDocumentButton).not.toBeDisabled();
+    });
+  });
+
   it("shows continue previews as insert-at-cursor diffs before accept writes back", async () => {
     render(<WorkbenchApp />);
 

@@ -289,6 +289,7 @@ function WorkbenchShell() {
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const latestSaveRequestRef = useRef(0);
   const latestBusyOperationRef = useRef(0);
+  const latestRollbackRequestRef = useRef(0);
   const userEditRevisionRef = useRef(0);
   const editorContextRevisionRef = useRef(0);
   const activeContextTokenRef = useRef<WorkbenchContextToken | null>(null);
@@ -339,6 +340,11 @@ function WorkbenchShell() {
     return latestBusyOperationRef.current;
   }, []);
 
+  const reserveRollbackRequest = useCallback(() => {
+    latestRollbackRequestRef.current += 1;
+    return latestRollbackRequestRef.current;
+  }, []);
+
   const isCurrentSaveContext = useCallback((request: SaveRequestToken) => (
     isSameContextToken(activeContextTokenRef.current, request.context)
   ), []);
@@ -354,6 +360,10 @@ function WorkbenchShell() {
 
   const isLatestBusyOperation = useCallback((operationId: number) => (
     latestBusyOperationRef.current === operationId
+  ), []);
+
+  const isLatestRollbackRequest = useCallback((requestId: number) => (
+    latestRollbackRequestRef.current === requestId
   ), []);
 
   const armSavedStateDecayTimer = useCallback((request: SaveRequestToken) => {
@@ -742,6 +752,10 @@ function WorkbenchShell() {
   }, [api.version, t]);
 
   const handleToggleHistoryPanel = useCallback(async () => {
+    if (rollbackingVersionId !== null) {
+      return;
+    }
+
     if (historyOpen) {
       setHistoryOpen(false);
       setPendingRollbackVersionId(null);
@@ -752,14 +766,19 @@ function WorkbenchShell() {
     setHistoryOpen(true);
     setPendingRollbackVersionId(null);
     await loadHistorySnapshots(activeDocument?.documentId ?? null);
-  }, [activeDocument?.documentId, historyOpen, loadHistorySnapshots]);
+  }, [activeDocument?.documentId, historyOpen, loadHistorySnapshots, rollbackingVersionId]);
 
   const handleConfirmRollbackSnapshot = useCallback(async (versionId: string) => {
-    if (activeDocument === null) {
+    if (activeDocument === null || rollbackingVersionId !== null) {
       return;
     }
 
     const busyOperationId = reserveBusyOperation();
+    const rollbackRequestId = reserveRollbackRequest();
+    const rollbackContext = activeContextTokenRef.current;
+    if (rollbackContext === null) {
+      return;
+    }
     try {
       setBusy(true);
       setWorkbenchError(null, null);
@@ -771,6 +790,10 @@ function WorkbenchShell() {
       });
       if (rollbackResult.ok === false) {
         throw rollbackResult.error;
+      }
+
+      if (isLatestRollbackRequest(rollbackRequestId) === false || isCurrentContextToken(rollbackContext) === false) {
+        return;
       }
 
       const [readResult, documentsResult] = await Promise.all([
@@ -787,6 +810,10 @@ function WorkbenchShell() {
         throw documentsResult.error;
       }
 
+      if (isLatestRollbackRequest(rollbackRequestId) === false || isCurrentContextToken(rollbackContext) === false) {
+        return;
+      }
+
       replaceEditorContextContent({
         contentJson: readResult.data.contentJson,
         documentId: readResult.data.documentId,
@@ -800,12 +827,14 @@ function WorkbenchShell() {
       setSaveUiState("saved");
       setLastSavedAt(readResult.data.updatedAt);
       setPendingRollbackVersionId(null);
-      await loadHistorySnapshots(activeDocument.documentId);
+      await loadHistorySnapshots(readResult.data.documentId);
     } catch (error) {
       setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
     } finally {
-      setRollbackingVersionId(null);
-      if (isLatestBusyOperation(busyOperationId)) {
+      if (isLatestRollbackRequest(rollbackRequestId)) {
+        setRollbackingVersionId(null);
+      }
+      if (isLatestBusyOperation(busyOperationId) && isLatestRollbackRequest(rollbackRequestId)) {
         setBusy(false);
       }
     }
@@ -815,9 +844,13 @@ function WorkbenchShell() {
     api.version,
     flushDirtyDraftBeforeContextSwitch,
     isLatestBusyOperation,
+    isLatestRollbackRequest,
+    isCurrentContextToken,
     loadHistorySnapshots,
     replaceEditorContextContent,
     reserveBusyOperation,
+    reserveRollbackRequest,
+    rollbackingVersionId,
     setSaveUiState,
     setWorkbenchError,
     t,
@@ -923,7 +956,7 @@ function WorkbenchShell() {
   }, [api, clearSavedStateDecayTimer, replaceEditorContextContent, setSaveUiState, t]);
 
   const handleCreateDocument = async () => {
-    if (project === null) {
+    if (project === null || rollbackingVersionId !== null) {
       return;
     }
 
@@ -963,7 +996,7 @@ function WorkbenchShell() {
   };
 
   const handleOpenDocument = async (documentId: string) => {
-    if (project === null) {
+    if (project === null || rollbackingVersionId !== null) {
       return;
     }
 
@@ -1269,6 +1302,7 @@ function WorkbenchShell() {
     "--right-panel-width": rightPanelCollapsed ? "0px" : `${rightPanelWidth}px`,
     "--right-resizer-width": rightPanelCollapsed ? "0px" : "8px",
   } as CSSProperties;
+  const documentSwitchLocked = rollbackingVersionId !== null;
 
   const renderSidebarContent = () => {
     if (activeLeftPanel === "files") {
@@ -1278,7 +1312,7 @@ function WorkbenchShell() {
             <h1 className="screen-title">{project?.name ?? t("project.defaultName")}</h1>
             <p className="panel-subtitle">{t("sidebar.files.subtitle")}</p>
           </div>
-          <Button tone="ghost" onClick={() => void handleCreateDocument()}>{t("sidebar.newDocument")}</Button>
+          <Button tone="ghost" disabled={documentSwitchLocked} onClick={() => void handleCreateDocument()}>{t("sidebar.newDocument")}</Button>
         </div>
         <div className="sidebar-list">
           {documents.length === 0 ? <p className="panel-meta">{t("sidebar.empty")}</p> : null}
@@ -1286,6 +1320,7 @@ function WorkbenchShell() {
             <Button
               key={document.documentId}
               tone="ghost"
+              disabled={documentSwitchLocked}
               className={document.documentId === activeDocument?.documentId ? "sidebar-item sidebar-item--active" : "sidebar-item"}
               onClick={() => void handleOpenDocument(document.documentId)}
             >
@@ -1508,7 +1543,7 @@ function WorkbenchShell() {
           </div>
           <div className="right-tabs__actions">
             {activeRightPanel === "ai" ? <>
-              <Button tone="ghost" className="right-action" onClick={() => void handleToggleHistoryPanel()}>
+              <Button tone="ghost" className="right-action" disabled={documentSwitchLocked} onClick={() => void handleToggleHistoryPanel()}>
                 {historyOpen ? t("panel.ai.closeHistory") : t("panel.ai.history")}
               </Button>
               <Button tone="ghost" className="right-action" onClick={resetAiConversation}>{t("panel.ai.newChat")}</Button>
