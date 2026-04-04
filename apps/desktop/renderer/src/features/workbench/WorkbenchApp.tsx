@@ -33,6 +33,7 @@ import {
   type WorkbenchContextToken,
   type WorkbenchSkillId,
 } from "@/features/workbench/runtime";
+import { VersionHistoryPanel } from "@/features/version-history/VersionHistoryPanel";
 import { AppToastProvider, useAppToast } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { GlobalErrorToastBridge } from "@/lib/globalErrorToastBridge";
@@ -1170,6 +1171,20 @@ function WorkbenchShell() {
           ))}
         </div>
       </>;
+    }
+
+    if (activeLeftPanel === "versionHistory") {
+      const documentId = activeDocument?.documentId ?? null;
+      const projectId = project?.projectId ?? null;
+      if (documentId !== null && projectId !== null) {
+        return <VersionHistoryPanel
+          key={`${projectId}/${documentId}`}
+          documentId={documentId}
+          projectId={projectId}
+          versionApi={api.version}
+          onRestored={() => void handleOpenDocument(documentId)}
+        />;
+      }
     }
 
     const surfaceKey = `sidebar.${activeLeftPanel}`;

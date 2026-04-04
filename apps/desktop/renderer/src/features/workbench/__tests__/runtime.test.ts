@@ -131,11 +131,13 @@ describe("workbench runtime helpers", () => {
     expect(preview.suggestedText).toBe("rewritten");
     expect(preview.executionId).toBe("exec-1");
     expect(preview.sourceUserEditRevision).toBe(0);
+    // Correct contract: selection text goes into `input`; user instruction travels in `userInstruction`
     expect(api.ai.runSkill).toHaveBeenCalledWith(
       expect.objectContaining({
         skillId: "builtin:rewrite",
         hasSelection: true,
-        input: "改得更凝练",
+        input: "原文",
+        userInstruction: "改得更凝练",
         selection: expect.objectContaining({
           from: 1,
           to: 3,
@@ -183,17 +185,70 @@ describe("workbench runtime helpers", () => {
       userEditRevision: 0,
     });
 
-    expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+    const callArg = (api.ai.runSkill as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+    // selection text travels in `input`; empty instruction must NOT produce a `userInstruction` field
+    expect(callArg).toMatchObject({
       skillId: "builtin:polish",
       hasSelection: true,
-      input: "",
+      input: "原文",
       selection: expect.objectContaining({
         from: 1,
         to: 3,
         text: "原文",
         selectionTextHash: "hash",
       }),
-    }));
+    });
+    expect(callArg).not.toHaveProperty("userInstruction");
+  });
+
+  it("rewrite with a non-empty instruction forwards userInstruction separately from input", async () => {
+    const api = createApiMock();
+
+    await requestAiPreview({
+      api,
+      context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
+      skillId: "builtin:rewrite",
+      instruction: "改为更克制的语气",
+      model: "gpt-4.1-mini",
+      selection: {
+        from: 0,
+        to: 5,
+        text: "选中片段",
+        selectionTextHash: "hash2",
+      },
+      userEditRevision: 0,
+    });
+
+    expect(api.ai.runSkill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skillId: "builtin:rewrite",
+        input: "选中片段",
+        userInstruction: "改为更克制的语气",
+      }),
+    );
+  });
+
+  it("continue skill never emits userInstruction even when instruction field is populated", async () => {
+    const api = createApiMock();
+
+    await requestAiPreview({
+      api,
+      context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
+      skillId: "builtin:continue",
+      instruction: "延续悬疑感",
+      model: "gpt-4.1-mini",
+      cursorPosition: 5,
+      precedingText: "夜幕降临",
+      userEditRevision: 0,
+    });
+
+    const callArg = (api.ai.runSkill as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+    expect(callArg).toMatchObject({
+      skillId: "builtin:continue",
+      hasSelection: false,
+    });
+    // continue path must NOT forward instruction as userInstruction to avoid prompt injection
+    expect(callArg).not.toHaveProperty("userInstruction");
   });
 
   it("routes continue through precedingText and cursorPosition without any selection", async () => {

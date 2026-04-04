@@ -304,10 +304,18 @@ function createInsertionSelection(cursorPosition: number): SelectionRef {
 }
 
 export async function requestAiPreview(args: SelectionPreviewRequest | ContinuePreviewRequest): Promise<AiPreview> {
+  const isContinue = args.skillId === "builtin:continue";
+  const trimmedInstruction = args.instruction.trim();
+
+  // For selection-based skills (rewrite/polish): `input` carries the selected text so the main
+  // process does not need to re-derive it from the selection object; the user's freeform directive
+  // travels separately in `userInstruction` so it is never silently overwritten.
+  // For the continue skill: `input` is an unused placeholder; userInstruction is intentionally
+  // absent to avoid leaking it into a prompt-injection surface.
   const result = await args.api.ai.runSkill({
     skillId: args.skillId,
-    hasSelection: args.skillId !== "builtin:continue",
-    ...(args.skillId === "builtin:continue"
+    hasSelection: !isContinue,
+    ...(isContinue
       ? {
           cursorPosition: args.cursorPosition,
           precedingText: args.precedingText,
@@ -315,7 +323,10 @@ export async function requestAiPreview(args: SelectionPreviewRequest | ContinueP
       : {
           selection: args.selection,
         }),
-    input: args.instruction.trim(),
+    input: isContinue ? trimmedInstruction : args.selection.text,
+    ...(!isContinue && trimmedInstruction.length > 0
+      ? { userInstruction: trimmedInstruction }
+      : {}),
     mode: "ask",
     model: args.model,
     stream: false,

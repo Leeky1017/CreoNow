@@ -113,6 +113,28 @@ function createApiMock(): PreloadApi {
     },
     version: {
       listSnapshots: vi.fn(async () => ({ ok: true, data: { items: [] } })),
+      readSnapshot: vi.fn(async () => ({
+        ok: true,
+        data: {
+          versionId: "v1",
+          documentId: "doc-1",
+          projectId: "project-1",
+          actor: "user" as const,
+          reason: "manual-save" as const,
+          wordCount: 50,
+          createdAt: 1_700_000_001_000,
+          contentHash: "hash1",
+          contentJson: JSON.stringify({ type: "doc", content: [] }),
+          contentMd: "",
+          contentText: "",
+          parentSnapshotId: null,
+        },
+      })),
+      rollbackSnapshot: vi.fn(async () => ({
+        ok: true,
+        data: { restored: true as const, preRollbackVersionId: "pre-v", rollbackVersionId: "roll-v" },
+      })),
+      restoreSnapshot: vi.fn(async () => ({ ok: true, data: { restored: true as const } })),
     },
   } as PreloadApi;
 }
@@ -269,7 +291,9 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
-        input: expect.stringContaining("请直接润色"),
+        // user instruction travels in `userInstruction`; `input` carries the selected text
+        userInstruction: "请直接润色",
+        input: selection.text,
         selection,
       }));
     });
