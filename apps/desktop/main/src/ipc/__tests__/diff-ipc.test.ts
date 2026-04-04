@@ -50,8 +50,21 @@ describe("diff IPC handlers", () => {
       });
 
       expect(result.ok).toBe(true);
-      expect(result.data.steps).toHaveLength(1);
-      expect(result.data.stats.totalChanges).toBe(1);
+      expect(result.data.steps).toEqual([
+        {
+          type: "replace",
+          from: 6,
+          to: 8,
+          text: "the",
+        },
+        {
+          type: "replace",
+          from: 9,
+          to: 11,
+          text: "e",
+        },
+      ]);
+      expect(result.data.stats.totalChanges).toBe(2);
     });
 
     it("相同文本返回空步骤", async () => {

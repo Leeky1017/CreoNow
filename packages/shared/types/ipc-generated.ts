@@ -173,6 +173,10 @@ export const IPC_CHANNELS = [
   "context:settings:read",
   "context:watch:start",
   "context:watch:stop",
+  "cost:budget:get",
+  "cost:budget:update",
+  "cost:pricing:get",
+  "cost:pricing:update",
   "cost:usage:list",
   "cost:usage:summary",
   "db:debug:tablenames",
@@ -889,7 +893,16 @@ export type IpcChannelSpec = {
     };
     response: {
       capacityPercent: number;
+      compressionApplied?: boolean;
       layers: {
+        compressedHistory: {
+          compressed: boolean;
+          compressionRatio?: number;
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
         immediate: {
           source: Array<string>;
           tokenCount: number;
@@ -931,6 +944,15 @@ export type IpcChannelSpec = {
         requestedBy: string;
       };
       layersDetail: {
+        compressedHistory: {
+          compressed: boolean;
+          compressionRatio?: number;
+          content: string;
+          source: Array<string>;
+          tokenCount: number;
+          truncated: boolean;
+          warnings?: Array<string>;
+        };
         immediate: {
           content: string;
           source: Array<string>;
@@ -1024,6 +1046,76 @@ export type IpcChannelSpec = {
     };
     response: {
       watching: false;
+    };
+  };
+  "cost:budget:get": {
+    request: Record<string, never>;
+    response: {
+      enabled: boolean;
+      hardStopLimit: number;
+      warningThreshold: number;
+    };
+  };
+  "cost:budget:update": {
+    request: {
+      enabled: boolean;
+      hardStopLimit: number;
+      warningThreshold: number;
+    };
+    response: {
+      enabled: boolean;
+      hardStopLimit: number;
+      warningThreshold: number;
+    };
+  };
+  "cost:pricing:get": {
+    request: Record<string, never>;
+    response: {
+      currency: "USD";
+      lastUpdated: string;
+      prices: Record<
+        string,
+        {
+          cachedInputPricePer1K?: number;
+          displayName: string;
+          effectiveDate: string;
+          inputPricePer1K: number;
+          modelId: string;
+          outputPricePer1K: number;
+        }
+      >;
+    };
+  };
+  "cost:pricing:update": {
+    request: {
+      currency: "USD";
+      lastUpdated: string;
+      prices: Record<
+        string,
+        {
+          cachedInputPricePer1K?: number;
+          displayName: string;
+          effectiveDate: string;
+          inputPricePer1K: number;
+          modelId: string;
+          outputPricePer1K: number;
+        }
+      >;
+    };
+    response: {
+      currency: "USD";
+      lastUpdated: string;
+      prices: Record<
+        string,
+        {
+          cachedInputPricePer1K?: number;
+          displayName: string;
+          effectiveDate: string;
+          inputPricePer1K: number;
+          modelId: string;
+          outputPricePer1K: number;
+        }
+      >;
     };
   };
   "cost:usage:list": {

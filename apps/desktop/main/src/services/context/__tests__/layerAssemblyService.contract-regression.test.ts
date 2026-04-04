@@ -114,7 +114,7 @@ describe("createContextLayerAssemblyService contract regression", () => {
     expect(cyclePath, cyclePath?.join(" -> ")).toBeNull();
   });
 
-  it("keeps the public P1 contract phase-cut to rules + immediate even when later layers are populated", async () => {
+  it("P2 组装结果暴露 compressed-history 与 compressionApplied", async () => {
     const service = createContextLayerAssemblyService({
       rules: async () => ({
         chunks: [{ source: "rules:test", content: "Rule content" }],
@@ -141,18 +141,214 @@ describe("createContextLayerAssemblyService contract regression", () => {
     const second = await service.assemble(request);
 
     expect(first.prompt.includes("## Rules")).toBe(true);
-    expect(first.prompt.includes("## Settings")).toBe(false);
-    expect(first.prompt.includes("## Retrieved")).toBe(false);
+    expect(first.prompt.includes("## Compressed History")).toBe(true);
     expect(first.prompt.includes("## Immediate")).toBe(true);
     expect(first.layers.rules.source[0]).toBe("rules:test");
-    expect("settings" in first.layers).toBe(false);
-    expect("retrieved" in first.layers).toBe(false);
+    expect(first.layers.compressedHistory.source).toContain("compressed-history");
+    expect(first.layers.compressedHistory.compressed).toBe(false);
     expect(first.layers.immediate.source[0]).toBe("immediate:test");
+    expect(first.compressionApplied).toBe(false);
     expect(first.stablePrefixHash.length > 0).toBe(true);
     expect(first.stablePrefixUnchanged).toBe(false);
     expect(second.stablePrefixUnchanged).toBe(true);
     expect(first.tokenCount > 0).toBe(true);
     expect(first.capacityPercent).toBeCloseTo((first.tokenCount / 6000) * 100);
     expect(Array.isArray(first.warnings)).toBe(true);
+  });
+
+  it("超长上下文会在真实 assemble 路径生成 compressed-history", async () => {
+    const service = createContextLayerAssemblyService({
+      rules: async () => ({
+        chunks: [{ source: "rules:test", content: "Rule content" }],
+      }),
+      immediate: async () => ({
+        chunks: [
+          {
+            source: "editor:cursor-window",
+            content: Array.from({ length: 8 }, (_, index) =>
+              `第${index + 1}段：${"林远先观察门缝里的光，再听见门后的脚步声。".repeat(8)}`,
+            ).join("\n"),
+          },
+        ],
+      }),
+    });
+
+    const result = await service.assemble({
+      projectId: "proj-long",
+      documentId: "doc-long",
+      cursorPosition: 4096,
+      skillId: "continue-writing",
+        additionalInput: "林远先观察门缝里的光，再听见门后的脚步声。".repeat(8),
+        conversationMessages: Array.from({ length: 18 }, (_, index) => ({
+          role: index % 2 === 0 ? "user" : "assistant",
+          content: `第${index + 1}轮：${"林远先观察门缝里的光，再听见门后的脚步声。".repeat(28)}`,
+        })),
+      });
+
+    expect(result.compressionApplied).toBe(true);
+    expect(result.layers.compressedHistory.compressed).toBe(true);
+    expect(result.layers.compressedHistory.tokenCount).toBeGreaterThan(0);
+    expect(result.layers.compressedHistory.compressionRatio).toBeLessThan(1);
+    expect(result.prompt).toContain("## Compressed History");
+    expect(result.layers.compressedHistory.source).toContain("compressed-history");
+  });
+
+  it("低 token 多轮对话在 shouldCompress=false 时仍以原文注入 compressed-history", async () => {
+    const service = createContextLayerAssemblyService({
+      rules: async () => ({
+        chunks: [{ source: "rules:test", content: "Rule content" }],
+      }),
+      immediate: async () => ({
+        chunks: [
+          {
+            source: "editor:cursor-window",
+            content: "EDITOR_SURFACE_LOW_TOKEN",
+          },
+        ],
+      }),
+    });
+
+    const conversationMessages = [
+      { role: "user" as const, content: "LOW_TOKEN_USER_1：先别推门。" },
+      { role: "assistant" as const, content: "LOW_TOKEN_ASSISTANT_1：我先记住门轴声。" },
+      { role: "user" as const, content: "LOW_TOKEN_USER_2：再看地上的灰。" },
+      { role: "assistant" as const, content: "LOW_TOKEN_ASSISTANT_2：灰里只有一串脚印。" },
+      { role: "user" as const, content: "LOW_TOKEN_USER_3：窗缝也记下来。" },
+      { role: "assistant" as const, content: "LOW_TOKEN_ASSISTANT_3：窗缝透着冷风。" },
+      { role: "user" as const, content: "LOW_TOKEN_USER_4：最后只写手背发凉。" },
+    ];
+    const rawHistory = conversationMessages.map((message) => message.content).join("\n");
+    const request = {
+      projectId: "proj-low-token-many-rounds",
+      documentId: "doc-low-token-many-rounds",
+      cursorPosition: 96,
+      skillId: "continue-writing",
+      conversationMessages,
+    };
+
+    const assembled = await service.assemble(request);
+    const inspected = await service.inspect(request);
+
+    expect(assembled.compressionApplied).toBe(false);
+    expect(assembled.layers.compressedHistory.compressed).toBe(false);
+    expect(assembled.prompt).toContain("## Compressed History");
+    expect(assembled.prompt).toContain(rawHistory);
+    expect(assembled.prompt).not.toContain("[最近保留的");
+    expect(assembled.prompt).toContain("EDITOR_SURFACE_LOW_TOKEN");
+
+    expect(inspected.layersDetail.compressedHistory.compressed).toBe(false);
+    expect(inspected.layersDetail.compressedHistory.content).toBe(rawHistory);
+    expect(inspected.layersDetail.compressedHistory.content).not.toContain(
+      "[最近保留的",
+    );
+    expect(inspected.layersDetail.immediate.content).toBe("EDITOR_SURFACE_LOW_TOKEN");
+  });
+
+  it("长对话压缩时仍保留最近 keepRecentRounds 轮原始对话", async () => {
+    const service = createContextLayerAssemblyService({
+      rules: async () => ({
+        chunks: [{ source: "rules:test", content: "Rule content" }],
+      }),
+      immediate: async () => ({
+        chunks: [
+          {
+            source: "editor:cursor-window",
+            content: "EDITOR_IMMEDIATE_UNCHANGED",
+          },
+        ],
+      }),
+    });
+
+    const conversationMessages = [
+      ...Array.from({ length: 8 }, (_, index) => ({
+        role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+        content: `早期历史第${index + 1}条：${"林远在旧楼里反复核对脚步声。".repeat(80)}`,
+      })),
+      { role: "user" as const, content: "UNIQUE_RECENT_USER_ROUND_1：别动门把，先记住走廊尽头的滴水声。" },
+      { role: "assistant" as const, content: "UNIQUE_RECENT_ASSISTANT_ROUND_1：我会保留滴水声与走廊方位。" },
+      { role: "user" as const, content: "UNIQUE_RECENT_USER_ROUND_2：把那枚铜钥匙藏进左侧口袋，不要写成右侧。" },
+      { role: "assistant" as const, content: "UNIQUE_RECENT_ASSISTANT_ROUND_2：铜钥匙在左侧口袋，这一细节不会丢。" },
+      { role: "user" as const, content: "UNIQUE_RECENT_USER_ROUND_3：最后一轮暂时没有助手回复，也必须原样保留。" },
+    ];
+
+    const request = {
+      projectId: "proj-recent-rounds",
+      documentId: "doc-recent-rounds",
+      cursorPosition: 2048,
+      skillId: "continue-writing",
+      additionalInput: "林远在门后听见了第二个人的呼吸。".repeat(6),
+      conversationMessages,
+    };
+
+    const assembled = await service.assemble(request);
+    const inspected = await service.inspect(request);
+
+    expect(assembled.compressionApplied).toBe(true);
+    expect(assembled.layers.compressedHistory.compressed).toBe(true);
+    expect(assembled.prompt).toContain("## Compressed History");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_USER_ROUND_1");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_ASSISTANT_ROUND_1");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_USER_ROUND_2");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_ASSISTANT_ROUND_2");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_USER_ROUND_3");
+    expect(assembled.prompt).toContain("EDITOR_IMMEDIATE_UNCHANGED");
+    expect(assembled.layers.immediate.source).toContain("editor:cursor-window");
+
+    expect(inspected.layersDetail.compressedHistory.compressed).toBe(true);
+    expect(inspected.layersDetail.compressedHistory.content).toContain(
+      "UNIQUE_RECENT_USER_ROUND_1",
+    );
+    expect(inspected.layersDetail.compressedHistory.content).toContain(
+      "UNIQUE_RECENT_ASSISTANT_ROUND_2",
+    );
+    expect(inspected.layersDetail.compressedHistory.content).toContain(
+      "UNIQUE_RECENT_USER_ROUND_3",
+    );
+    expect(inspected.layersDetail.immediate.content).toContain(
+      "EDITOR_IMMEDIATE_UNCHANGED",
+    );
+    expect(inspected.layersDetail.immediate.content).not.toContain(
+      "UNIQUE_RECENT_USER_ROUND_1",
+    );
+  });
+
+  it("短对话在不压缩时仍以原文注入 compressed-history", async () => {
+    const service = createContextLayerAssemblyService({
+      rules: async () => ({
+        chunks: [{ source: "rules:test", content: "Rule content" }],
+      }),
+      immediate: async () => ({
+        chunks: [{ source: "immediate:test", content: "Immediate content" }],
+      }),
+    });
+
+    const conversationMessages = [
+      { role: "user" as const, content: "第一问：门缝后的风声是不是有人在呼吸？" },
+      { role: "assistant" as const, content: "第一答：像呼吸，但更像旧楼管道里回转的气。 " },
+      { role: "user" as const, content: "第二问：那我先别推门，继续听三秒。" },
+    ];
+    const rawHistory = conversationMessages.map((message) => message.content).join("\n");
+    const request = {
+      projectId: "proj-short",
+      documentId: "doc-short",
+      cursorPosition: 64,
+      skillId: "continue-writing",
+      conversationMessages,
+    };
+
+    const assembled = await service.assemble(request);
+    const inspected = await service.inspect(request);
+
+    expect(assembled.compressionApplied).toBe(false);
+    expect(assembled.layers.compressedHistory.compressed).toBe(false);
+    expect(assembled.prompt).toContain("## Compressed History");
+    expect(assembled.prompt).not.toContain("## Compressed History\n(none)");
+    expect(assembled.prompt).toContain(rawHistory);
+
+    expect(inspected.layersDetail.compressedHistory.compressed).toBe(false);
+    expect(inspected.layersDetail.compressedHistory.content).toBe(rawHistory);
+    expect(inspected.layersDetail.compressedHistory.content).not.toBe("");
+    expect(inspected.layersDetail.compressedHistory.truncated).toBe(false);
+    expect(inspected.layersDetail.compressedHistory.tokenCount).toBeGreaterThan(0);
   });
 });

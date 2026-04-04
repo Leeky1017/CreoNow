@@ -6,7 +6,10 @@ import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { Logger } from "../../../logging/logger";
+import { estimateTokens } from "../../context/tokenEstimation";
 import { createDocumentService } from "../../documents/documentService";
+import { createKnowledgeGraphService } from "../../kg/kgService";
+import { createMemoryService } from "../../memory/memoryService";
 import { createAgenticToolRegistry } from "../writingTooling";
 
 const MIGRATIONS_DIR = path.resolve(
@@ -192,8 +195,11 @@ describe("createAgenticToolRegistry", () => {
       documentId: currentDocumentId,
       query: "林远",
     });
-    expect(JSON.stringify(docToolResult.data)).toContain("林远");
-    expect(JSON.stringify(docToolResult.data)).not.toContain("随后他没有立刻推门");
+    const docToolData = docToolResult.data as { content: string };
+    expect(docToolData.content).toContain("林远");
+    expect(docToolData.content).not.toContain("随后他没有立刻推门");
+    expect(docToolData.content.length).toBeLessThanOrEqual(18);
+    expect(estimateTokens(docToolData.content)).toBeLessThanOrEqual(12);
 
     const documentReadResult = await documentRead!.execute({
       documentId: currentDocumentId,
@@ -209,7 +215,106 @@ describe("createAgenticToolRegistry", () => {
     expect(documentReadResult.data).toMatchObject({
       documentId: currentDocumentId,
     });
-    expect(JSON.stringify(documentReadResult.data)).toContain("门后");
-    expect(JSON.stringify(documentReadResult.data)).not.toContain("随后他没有立刻推门");
+    const documentReadData = documentReadResult.data as { text: string };
+    expect(documentReadData.text).toContain("门后");
+    expect(documentReadData.text).not.toContain("随后他没有立刻推门");
+    expect(documentReadData.text.length).toBeLessThanOrEqual(12);
+    expect(estimateTokens(documentReadData.text)).toBeLessThanOrEqual(12);
+  });
+
+  it("kgTool / memTool 在有数据时返回真实查询结果，而不是永久空壳", async () => {
+    const db = new Database(":memory:");
+    opened.push(db);
+    db.pragma("foreign_keys = ON");
+    applyAllMigrations(db);
+
+    const projectId = "proj-kg-mem";
+    const documentId = createProjectAndDocument({
+      db,
+      projectId,
+      title: "当前章节",
+      text: "林远站在门前，想起自己一贯偏好的冷静克制语气。",
+    });
+
+    const kgService = createKnowledgeGraphService({
+      db,
+      logger: createLogger(),
+    });
+    const entity = kgService.entityCreate({
+      projectId,
+      type: "character",
+      name: "林远",
+      description: "冷静理性，偶尔冷幽默",
+      attributes: {
+        traits: "冷静, 理性, 冷幽默",
+      },
+    });
+    if (!entity.ok) {
+      throw new Error(entity.error.message);
+    }
+
+    const memoryService = createMemoryService({
+      db,
+      logger: createLogger(),
+    });
+    const memory = memoryService.create({
+      type: "preference",
+      scope: "project",
+      projectId,
+      content: "偏好短句、冷调、克制描写",
+    });
+    if (!memory.ok) {
+      throw new Error(memory.error.message);
+    }
+
+    const registry = createAgenticToolRegistry({
+      db,
+      logger: createLogger(),
+    });
+    const kgTool = registry.get("kgTool");
+    const memTool = registry.get("memTool");
+
+    expect(kgTool).toBeDefined();
+    expect(memTool).toBeDefined();
+
+    const kgToolResult = await kgTool!.execute({
+      documentId,
+      requestId: "req-kg-real",
+      projectId,
+      args: {
+        query: "林远的性格特点",
+        entityType: "character",
+      },
+    });
+    expect(kgToolResult.success).toBe(true);
+    expect(kgToolResult.data).toMatchObject({
+      query: "林远的性格特点",
+      entities: [
+        expect.objectContaining({
+          name: "林远",
+          type: "character",
+        }),
+      ],
+    });
+
+    const memToolResult = await memTool!.execute({
+      documentId,
+      requestId: "req-mem-real",
+      projectId,
+      args: {
+        query: "冷调短句偏好",
+        memoryType: "preference",
+      },
+    });
+    expect(memToolResult.success).toBe(true);
+    expect(memToolResult.data).toMatchObject({
+      query: "冷调短句偏好",
+      memories: [
+        expect.objectContaining({
+          type: "preference",
+          content: "偏好短句、冷调、克制描写",
+        }),
+      ],
+    });
   });
 });

@@ -212,12 +212,31 @@ const CONTEXT_LAYER_SUMMARY_SCHEMA = s.object({
   warnings: s.optional(s.array(s.string())),
 });
 
+const CONTEXT_COMPRESSED_HISTORY_SUMMARY_SCHEMA = s.object({
+  source: s.array(s.string()),
+  tokenCount: s.number(),
+  truncated: s.boolean(),
+  warnings: s.optional(s.array(s.string())),
+  compressed: s.boolean(),
+  compressionRatio: s.optional(s.number()),
+});
+
 const CONTEXT_LAYER_DETAIL_SCHEMA = s.object({
   content: s.string(),
   source: s.array(s.string()),
   tokenCount: s.number(),
   truncated: s.boolean(),
   warnings: s.optional(s.array(s.string())),
+});
+
+const CONTEXT_COMPRESSED_HISTORY_DETAIL_SCHEMA = s.object({
+  content: s.string(),
+  source: s.array(s.string()),
+  tokenCount: s.number(),
+  truncated: s.boolean(),
+  warnings: s.optional(s.array(s.string())),
+  compressed: s.boolean(),
+  compressionRatio: s.optional(s.number()),
 });
 
 const CONTEXT_ASSEMBLE_RESPONSE_SCHEMA = s.object({
@@ -227,8 +246,10 @@ const CONTEXT_ASSEMBLE_RESPONSE_SCHEMA = s.object({
   stablePrefixUnchanged: s.boolean(),
   warnings: s.array(s.string()),
   capacityPercent: s.number(),
+  compressionApplied: s.optional(s.boolean()),
   layers: s.object({
     rules: CONTEXT_LAYER_SUMMARY_SCHEMA,
+    compressedHistory: CONTEXT_COMPRESSED_HISTORY_SUMMARY_SCHEMA,
     immediate: CONTEXT_LAYER_SUMMARY_SCHEMA,
   }),
 });
@@ -236,6 +257,7 @@ const CONTEXT_ASSEMBLE_RESPONSE_SCHEMA = s.object({
 const CONTEXT_INSPECT_RESPONSE_SCHEMA = s.object({
   layersDetail: s.object({
     rules: CONTEXT_LAYER_DETAIL_SCHEMA,
+    compressedHistory: CONTEXT_COMPRESSED_HISTORY_DETAIL_SCHEMA,
     immediate: CONTEXT_LAYER_DETAIL_SCHEMA,
   }),
   totals: s.object({
@@ -247,6 +269,27 @@ const CONTEXT_INSPECT_RESPONSE_SCHEMA = s.object({
     requestedBy: s.string(),
     requestedAt: s.number(),
   }),
+});
+
+const COST_BUDGET_POLICY_SCHEMA = s.object({
+  warningThreshold: s.number(),
+  hardStopLimit: s.number(),
+  enabled: s.boolean(),
+});
+
+const COST_MODEL_PRICING_SCHEMA = s.object({
+  modelId: s.string(),
+  displayName: s.string(),
+  inputPricePer1K: s.number(),
+  outputPricePer1K: s.number(),
+  cachedInputPricePer1K: s.optional(s.number()),
+  effectiveDate: s.string(),
+});
+
+const COST_MODEL_PRICING_TABLE_SCHEMA = s.object({
+  currency: s.literal("USD"),
+  lastUpdated: s.string(),
+  prices: s.record(COST_MODEL_PRICING_SCHEMA),
 });
 
 const CONTEXT_BUDGET_LAYER_SCHEMA = s.object({
@@ -2438,6 +2481,22 @@ export const ipcContract = {
         ),
         sessionStartedAt: s.number(),
       }),
+    },
+    "cost:budget:get": {
+      request: s.object({}),
+      response: COST_BUDGET_POLICY_SCHEMA,
+    },
+    "cost:budget:update": {
+      request: COST_BUDGET_POLICY_SCHEMA,
+      response: COST_BUDGET_POLICY_SCHEMA,
+    },
+    "cost:pricing:get": {
+      request: s.object({}),
+      response: COST_MODEL_PRICING_TABLE_SCHEMA,
+    },
+    "cost:pricing:update": {
+      request: COST_MODEL_PRICING_TABLE_SCHEMA,
+      response: COST_MODEL_PRICING_TABLE_SCHEMA,
     },
   },
 } as const;

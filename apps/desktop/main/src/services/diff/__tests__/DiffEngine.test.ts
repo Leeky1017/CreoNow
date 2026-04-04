@@ -41,17 +41,24 @@ describe("DiffEngine — computeTransaction", () => {
     expect(result.stats.deletedChars).toBe(11);
   });
 
-  it("混合替换（部分修改）", () => {
+  it("中间保留未改字符的替换 → 拆分为多个 replace", () => {
     const result = computeTransaction("hello world", "hello there");
 
-    expect(result.steps).toHaveLength(1);
-    expect(result.steps[0]).toEqual({
-      type: "replace",
-      from: 6,
-      to: 11,
-      text: "there",
-    });
-    expect(result.stats.replacements).toBe(1);
+    expect(result.steps).toEqual([
+      {
+        type: "replace",
+        from: 6,
+        to: 8,
+        text: "the",
+      },
+      {
+        type: "replace",
+        from: 9,
+        to: 11,
+        text: "e",
+      },
+    ]);
+    expect(result.stats.replacements).toBe(2);
   });
 
   it("相同字符串 → 步骤为空", () => {
@@ -91,32 +98,79 @@ describe("DiffEngine — computeTransaction", () => {
   });
 
   it("stats 正确计算", () => {
-    // Replace: "world" → "there" (delete 5, insert 5)
     const result = computeTransaction("hello world", "hello there");
 
     expect(result.stats).toEqual({
       insertions: 0,
       deletions: 0,
-      replacements: 1,
-      totalChanges: 1,
-      insertedChars: 5,
-      deletedChars: 5,
+      replacements: 2,
+      totalChanges: 2,
+      insertedChars: 4,
+      deletedChars: 4,
     });
   });
 
-  it("多段不连续修改 → 单个 replace（算法局限性）", () => {
-    // "foo bar baz" → "FOO bar BAZ" has two non-contiguous changes,
-    // but the prefix/suffix algorithm collapses them into one replace step.
+  it("多段不连续修改 → 拆分为逐段 replace", () => {
     const result = computeTransaction("foo bar baz", "FOO bar BAZ");
 
-    expect(result.steps).toHaveLength(1);
-    expect(result.steps[0].type).toBe("replace");
-    // The single replace covers the entire span from first diff to last
-    expect(result.steps[0].from).toBe(0);
-    expect(result.steps[0].to).toBe(11);
-    expect(result.steps[0].text).toBe("FOO bar BAZ");
-    expect(result.stats.replacements).toBe(1);
-    expect(result.stats.totalChanges).toBe(1);
+    expect(result.steps).toEqual([
+      {
+        type: "replace",
+        from: 0,
+        to: 3,
+        text: "FOO",
+      },
+      {
+        type: "replace",
+        from: 8,
+        to: 11,
+        text: "BAZ",
+      },
+    ]);
+    expect(result.stats.replacements).toBe(2);
+    expect(result.stats.totalChanges).toBe(2);
+  });
+
+  it("两个修改之间隔着未改字符 → 保留为两个 replace step", () => {
+    const result = computeTransaction("abcde", "aXcYe");
+
+    expect(result.steps).toEqual([
+      {
+        type: "replace",
+        from: 1,
+        to: 2,
+        text: "X",
+      },
+      {
+        type: "replace",
+        from: 3,
+        to: 4,
+        text: "Y",
+      },
+    ]);
+    expect(result.stats.replacements).toBe(2);
+    expect(result.stats.totalChanges).toBe(2);
+  });
+
+  it("多字符修改之间隔着 1 个未改字符 → 仍保留边界", () => {
+    const result = computeTransaction("abXXcYYf", "ab11c22f");
+
+    expect(result.steps).toEqual([
+      {
+        type: "replace",
+        from: 2,
+        to: 4,
+        text: "11",
+      },
+      {
+        type: "replace",
+        from: 5,
+        to: 7,
+        text: "22",
+      },
+    ]);
+    expect(result.stats.replacements).toBe(2);
+    expect(result.stats.totalChanges).toBe(2);
   });
 
   it("首尾均不变、仅中间修改 → 精确 replace", () => {

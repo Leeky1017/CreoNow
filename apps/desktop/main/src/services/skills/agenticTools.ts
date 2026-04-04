@@ -1,133 +1,350 @@
-/**
- * V1 Agentic Read-Only Tools
- *
- * read_document_section — 读取文档片段
- * search_versions — 搜索版本历史
- * get_word_count — 获取字数统计
- *
- * 这些工具仅限只读操作。documentWrite 不暴露给 AI 自主调用。
- */
-
+import { estimateTokens } from "../context/tokenEstimation";
 import { buildTool } from "./toolRegistry";
-import type { WritingTool, ToolContext, ToolResult, ToolRegistry } from "./toolRegistry";
+import type { ToolContext, ToolRegistry, ToolResult, WritingTool } from "./toolRegistry";
 
-// ─── Tool names ─────────────────────────────────────────────────────
+type AgenticArgs = Record<string, unknown>;
 
-const TOOL_NAME_READ_SECTION = "read_document_section";
-const TOOL_NAME_SEARCH_VERSIONS = "search_versions";
-const TOOL_NAME_GET_WORD_COUNT = "get_word_count";
+export interface KgToolQuery {
+  projectId?: string;
+  documentId: string;
+  query: string;
+  entityType?: "character" | "location" | "worldSetting";
+  requestId: string;
+}
 
-/** Blocked tool names — never registered in the agentic tool registry */
-const BLOCKED_TOOLS = new Set(["documentWrite", "document_write"]);
+export interface MemToolQuery {
+  projectId?: string;
+  documentId: string;
+  query: string;
+  memoryType?: "preference" | "style" | "rule";
+  requestId: string;
+}
+
+export interface ReadDocumentArgs {
+  projectId?: string;
+  documentId: string;
+  requestId: string;
+}
+
+export interface AgenticToolDeps {
+  kgTool: {
+    query(args: KgToolQuery): Promise<unknown>;
+  };
+  memTool: {
+    query(args: MemToolQuery): Promise<unknown>;
+  };
+  documentReader: {
+    readDocument(args: ReadDocumentArgs): Promise<{
+      documentId: string;
+      text: string;
+    }>;
+  };
+}
+
+const BLOCKED_TOOLS = new Set(["documentWrite", "document_write", "versionSnapshot"]);
+
+export const AGENTIC_TOOL_NAMES = [
+  "kgTool",
+  "memTool",
+  "docTool",
+  "documentRead",
+] as const;
 
 export function isToolBlocked(name: string): boolean {
   return BLOCKED_TOOLS.has(name);
 }
 
-// ─── Service interfaces ─────────────────────────────────────────────
-
-export interface DocumentReader {
-  readSection(documentId: string, from: number, to: number): Promise<{ text: string; wordCount: number }>;
+function readAgenticArgs(ctx: ToolContext): AgenticArgs {
+  const args = ctx["args"];
+  if (!args || typeof args !== "object" || Array.isArray(args)) {
+    return {};
+  }
+  return args as AgenticArgs;
 }
 
-export interface VersionSearcher {
-  searchVersions(
-    documentId: string,
-    query: string,
-    limit: number,
-  ): Promise<ReadonlyArray<{ versionId: string; summary: string; createdAt: number }>>;
+function readProjectId(ctx: ToolContext): string | undefined {
+  const projectId = ctx["projectId"];
+  if (typeof projectId !== "string") {
+    return undefined;
+  }
+  const normalized = projectId.trim();
+  return normalized.length > 0 ? normalized : undefined;
 }
 
-export interface WordCounter {
-  getWordCount(documentId: string): Promise<{ wordCount: number; charCount: number }>;
-}
+function sliceSnippet(args: {
+  text: string;
+  query: string;
+  maxTokens?: number;
+  snippetChars?: number;
+}): { snippet: string; truncated: boolean } {
+  function buildWindow(limit: number): { start: number; end: number; queryStart?: number; queryEnd?: number } {
+    if (query.length === 0) {
+      return { start: 0, end: limit };
+    }
 
-export interface AgenticToolDeps {
-  documentReader: DocumentReader;
-  versionSearcher: VersionSearcher;
-  wordCounter: WordCounter;
-}
+    const hitIndex = normalized.indexOf(query);
+    if (hitIndex < 0) {
+      return { start: 0, end: limit };
+    }
 
-// ─── Tool factories ─────────────────────────────────────────────────
+    const leftBudget = Math.max(0, Math.floor((limit - query.length) / 2));
+    const start = Math.max(0, hitIndex - leftBudget);
+    const end = Math.min(normalized.length, start + limit);
+    const alignedStart = Math.max(0, end - limit);
+    return {
+      start: alignedStart,
+      end,
+      queryStart: hitIndex,
+      queryEnd: hitIndex + query.length,
+    };
+  }
 
-function createReadDocumentSectionTool(deps: AgenticToolDeps): WritingTool {
-  return buildTool({
-    name: TOOL_NAME_READ_SECTION,
-    description: "Read a section of the current document by character offset range",
-    isConcurrencySafe: true,
-    execute: async (ctx: ToolContext): Promise<ToolResult> => {
-      const args = (ctx as { args?: Record<string, unknown> }).args ?? {};
-      const from = typeof args.from === "number" ? args.from : 0;
-      const to = typeof args.to === "number" ? args.to : 1000;
+  function shrinkWindowToTokenBudget(window: {
+    start: number;
+    end: number;
+    queryStart?: number;
+    queryEnd?: number;
+  }): { start: number; end: number } {
+    if (tokenBudget === undefined) {
+      return { start: window.start, end: window.end };
+    }
 
-      try {
-        const result = await deps.documentReader.readSection(ctx.documentId, from, to);
-        return { success: true, data: result };
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        return { success: false, error: { code: "READ_SECTION_FAILED", message } };
+    let start = window.start;
+    let end = window.end;
+    while (start < end && estimateTokens(normalized.slice(start, end)) > tokenBudget) {
+      const canTrimLeft =
+        typeof window.queryStart === "number" ? start < window.queryStart : false;
+      const canTrimRight =
+        typeof window.queryEnd === "number" ? end > window.queryEnd : true;
+
+      if (canTrimLeft && canTrimRight && typeof window.queryStart === "number" && typeof window.queryEnd === "number") {
+        const leftContext = window.queryStart - start;
+        const rightContext = end - window.queryEnd;
+        if (rightContext > leftContext) {
+          end--;
+        } else {
+          start++;
+        }
+        continue;
       }
-    },
-  });
+
+      if (canTrimRight) {
+        end--;
+        continue;
+      }
+
+      if (canTrimLeft) {
+        start++;
+        continue;
+      }
+
+      end--;
+    }
+
+    return { start, end };
+  }
+
+  const normalized = args.text.trim();
+  if (normalized.length === 0) {
+    return { snippet: "", truncated: false };
+  }
+
+  const tokenBudget =
+    typeof args.maxTokens === "number" &&
+    Number.isFinite(args.maxTokens) &&
+    args.maxTokens > 0
+      ? Math.max(1, Math.floor(args.maxTokens))
+      : undefined;
+  const charBound =
+    typeof args.snippetChars === "number" &&
+    Number.isFinite(args.snippetChars) &&
+    args.snippetChars > 0
+      ? Math.max(1, Math.floor(args.snippetChars))
+      : normalized.length;
+  const limit = Math.min(normalized.length, charBound);
+  const query = args.query.trim();
+  const initialWindow = buildWindow(limit);
+  const finalWindow = shrinkWindowToTokenBudget(initialWindow);
+  const snippet = normalized.slice(finalWindow.start, finalWindow.end);
+  return {
+    snippet,
+    truncated: finalWindow.start > 0 || finalWindow.end < normalized.length,
+  };
 }
 
-function createSearchVersionsTool(deps: AgenticToolDeps): WritingTool {
+function buildKgTool(deps: AgenticToolDeps): WritingTool {
   return buildTool({
-    name: TOOL_NAME_SEARCH_VERSIONS,
-    description: "Search the version history of the current document",
+    name: "kgTool",
+    description: "Query the knowledge graph for character traits, locations, and world settings",
     isConcurrencySafe: true,
-    execute: async (ctx: ToolContext): Promise<ToolResult> => {
-      const args = (ctx as { args?: Record<string, unknown> }).args ?? {};
+    execute: async (ctx): Promise<ToolResult> => {
+      const args = readAgenticArgs(ctx);
       const query = typeof args.query === "string" ? args.query : "";
-      const limit = typeof args.limit === "number" ? args.limit : 10;
+      const entityType =
+        args.entityType === "character" ||
+        args.entityType === "location" ||
+        args.entityType === "worldSetting"
+          ? args.entityType
+          : undefined;
 
       try {
-        const results = await deps.versionSearcher.searchVersions(ctx.documentId, query, limit);
-        return { success: true, data: results };
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        return { success: false, error: { code: "SEARCH_VERSIONS_FAILED", message } };
+        return {
+          success: true,
+          data: await deps.kgTool.query({
+            projectId: readProjectId(ctx),
+            documentId: ctx.documentId,
+            query,
+            ...(entityType ? { entityType } : {}),
+            requestId: ctx.requestId,
+          }),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          error: { code: "KG_TOOL_FAILED", message },
+        };
       }
     },
   });
 }
 
-function createGetWordCountTool(deps: AgenticToolDeps): WritingTool {
+function buildMemTool(deps: AgenticToolDeps): WritingTool {
   return buildTool({
-    name: TOOL_NAME_GET_WORD_COUNT,
-    description: "Get the current word count and character count of the document",
+    name: "memTool",
+    description: "Query user writing preferences and semantic memory",
     isConcurrencySafe: true,
-    execute: async (ctx: ToolContext): Promise<ToolResult> => {
+    execute: async (ctx): Promise<ToolResult> => {
+      const args = readAgenticArgs(ctx);
+      const query = typeof args.query === "string" ? args.query : "";
+      const memoryType =
+        args.memoryType === "preference" ||
+        args.memoryType === "style" ||
+        args.memoryType === "rule"
+          ? args.memoryType
+          : undefined;
+
       try {
-        const result = await deps.wordCounter.getWordCount(ctx.documentId);
-        return { success: true, data: result };
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        return { success: false, error: { code: "WORD_COUNT_FAILED", message } };
+        return {
+          success: true,
+          data: await deps.memTool.query({
+            projectId: readProjectId(ctx),
+            documentId: ctx.documentId,
+            query,
+            ...(memoryType ? { memoryType } : {}),
+            requestId: ctx.requestId,
+          }),
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          success: false,
+          error: { code: "MEM_TOOL_FAILED", message },
+        };
       }
     },
   });
 }
 
-// ─── Registration ───────────────────────────────────────────────────
+async function executeDocumentRead(args: {
+  ctx: ToolContext;
+  deps: AgenticToolDeps;
+  targetDocumentId: string;
+  responseKey: "content" | "text";
+}): Promise<ToolResult> {
+  const toolArgs = readAgenticArgs(args.ctx);
+  const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
+  const maxTokens =
+    typeof toolArgs.maxTokens === "number" ? toolArgs.maxTokens : undefined;
+  const snippetChars =
+    typeof toolArgs.snippetChars === "number" ? toolArgs.snippetChars : undefined;
 
-/**
- * Register all V1 read-only tools into the given registry.
- * Returns a cleanup function that unregisters all tools.
- */
+  try {
+    const result = await args.deps.documentReader.readDocument({
+      projectId: readProjectId(args.ctx),
+      documentId: args.targetDocumentId,
+      requestId: args.ctx.requestId,
+    });
+    const { snippet, truncated } = sliceSnippet({
+      text: result.text,
+      query,
+      maxTokens,
+      snippetChars,
+    });
+
+    return {
+      success: true,
+      data: {
+        [args.responseKey]: snippet,
+        documentId: args.targetDocumentId,
+        query,
+        truncated,
+      },
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      success: false,
+      error: {
+        code:
+          args.responseKey === "content" ? "DOC_TOOL_FAILED" : "DOCUMENT_READ_FAILED",
+        message,
+      },
+    };
+  }
+}
+
+function buildDocTool(deps: AgenticToolDeps): WritingTool {
+  return buildTool({
+    name: "docTool",
+    description: "Read a snippet of another document or chapter for context",
+    isConcurrencySafe: true,
+    execute: async (ctx) => {
+      const args = readAgenticArgs(ctx);
+      const documentId =
+        typeof args.documentId === "string" && args.documentId.trim().length > 0
+          ? args.documentId.trim()
+          : ctx.documentId;
+      return await executeDocumentRead({
+        ctx,
+        deps,
+        targetDocumentId: documentId,
+        responseKey: "content",
+      });
+    },
+  });
+}
+
+function buildDocumentReadTool(deps: AgenticToolDeps): WritingTool {
+  return buildTool({
+    name: "documentRead",
+    description: "Read the current document text with snippet budgeting",
+    isConcurrencySafe: true,
+    execute: async (ctx) =>
+      await executeDocumentRead({
+        ctx,
+        deps,
+        targetDocumentId: ctx.documentId,
+        responseKey: "text",
+      }),
+  });
+}
+
 export function registerAgenticTools(
   registry: ToolRegistry,
   deps: AgenticToolDeps,
 ): () => void {
   const tools = [
-    createReadDocumentSectionTool(deps),
-    createSearchVersionsTool(deps),
-    createGetWordCountTool(deps),
+    buildKgTool(deps),
+    buildMemTool(deps),
+    buildDocTool(deps),
+    buildDocumentReadTool(deps),
   ];
 
   for (const tool of tools) {
-    if (isToolBlocked(tool.name)) continue;
-    registry.register(tool);
+    if (!isToolBlocked(tool.name)) {
+      registry.register(tool);
+    }
   }
 
   return () => {
@@ -136,10 +353,3 @@ export function registerAgenticTools(
     }
   };
 }
-
-/** Names of all V1 agentic tools (for documentation/validation) */
-export const V1_TOOL_NAMES = [
-  TOOL_NAME_READ_SECTION,
-  TOOL_NAME_SEARCH_VERSIONS,
-  TOOL_NAME_GET_WORD_COUNT,
-] as const;

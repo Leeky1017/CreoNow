@@ -1,9 +1,13 @@
 import type Database from "better-sqlite3";
 
 import type { Logger } from "../../logging/logger";
-import { estimateTokens } from "../context/tokenEstimation";
 import { createDocumentService } from "../documents/documentService";
 import type { VersionSnapshotReason } from "../documents/documentService";
+import { createKnowledgeGraphService } from "../kg/kgService";
+import type { KnowledgeGraphService } from "../kg/types";
+import { createMemoryService } from "../memory/memoryService";
+import type { MemoryService } from "../memory/memoryService";
+import { registerAgenticTools } from "./agenticTools";
 import { appendSuggestionToDocument } from "./documentWriteback";
 import { buildTool, createToolRegistry, type ToolRegistry } from "./toolRegistry";
 import { applySuggestionToSelection } from "./selectionWriteback";
@@ -11,56 +15,9 @@ import { applySuggestionToSelection } from "./selectionWriteback";
 type WritingToolingArgs = {
   db: Database.Database;
   logger: Logger;
+  kgService?: Pick<KnowledgeGraphService, "queryRelevant">;
+  memoryService?: Pick<MemoryService, "previewInjection">;
 };
-
-function readAgenticArgs(ctx: Record<string, unknown>): Record<string, unknown> {
-  const args = ctx.args;
-  if (!args || typeof args !== "object" || Array.isArray(args)) {
-    return {};
-  }
-  return args as Record<string, unknown>;
-}
-
-function sliceSnippet(args: {
-  text: string;
-  query?: string;
-  snippetChars?: number;
-  maxTokens?: number;
-}): string {
-  const normalized = args.text.trim();
-  if (normalized.length === 0) {
-    return "";
-  }
-
-  const tokenBound =
-    typeof args.maxTokens === "number" &&
-    Number.isFinite(args.maxTokens) &&
-    args.maxTokens > 0
-      ? Math.max(1, Math.floor(args.maxTokens) * 4)
-      : normalized.length;
-  const charBound =
-    typeof args.snippetChars === "number" &&
-    Number.isFinite(args.snippetChars) &&
-    args.snippetChars > 0
-      ? Math.max(1, Math.floor(args.snippetChars))
-      : normalized.length;
-  const limit = Math.min(normalized.length, tokenBound, charBound);
-  const query = args.query?.trim() ?? "";
-  if (query.length === 0) {
-    return normalized.slice(0, limit);
-  }
-
-  const hitIndex = normalized.indexOf(query);
-  if (hitIndex < 0) {
-    return normalized.slice(0, limit);
-  }
-
-  const leftBudget = Math.max(0, Math.floor((limit - query.length) / 2));
-  const start = Math.max(0, hitIndex - leftBudget);
-  const end = Math.min(normalized.length, start + limit);
-  const alignedStart = Math.max(0, end - limit);
-  return normalized.slice(alignedStart, end);
-}
 
 export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistry {
   const registry = createToolRegistry();
@@ -260,170 +217,116 @@ export function createWritingToolRegistry(args: WritingToolingArgs): ToolRegistr
 export function createAgenticToolRegistry(args: WritingToolingArgs): ToolRegistry {
   const registry = createToolRegistry();
   const service = createDocumentService({ db: args.db, logger: args.logger });
+  const kgService =
+    args.kgService ??
+    createKnowledgeGraphService({
+      db: args.db,
+      logger: args.logger,
+    });
+  const memoryService =
+    args.memoryService ??
+    createMemoryService({
+      db: args.db,
+      logger: args.logger,
+    });
 
-  // kgTool: query knowledge graph
-  // P2 stub — returns empty result when KG data is unavailable
-  registry.register(
-    buildTool({
-      name: "kgTool",
-      description: "Query the knowledge graph for character traits, locations, and world settings",
-      isConcurrencySafe: true,
-      execute: async (ctx) => {
-        const toolArgs = readAgenticArgs(ctx);
-        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
-        args.logger.info("agentic_tool_kg_query", { query, requestId: ctx.requestId });
-        // P2 stub: KG module not yet implemented, return empty
-        return {
-          success: true,
-          data: { entities: [], query },
-        };
-      },
-    }),
-  );
-
-  // memTool: query writing memory
-  // P2 stub — returns empty memories when Memory module is unavailable
-  registry.register(
-    buildTool({
-      name: "memTool",
-      description: "Query writing memory for style preferences and past writing patterns",
-      isConcurrencySafe: true,
-      execute: async (ctx) => {
-        const toolArgs = readAgenticArgs(ctx);
-        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
-        args.logger.info("agentic_tool_mem_query", { query, requestId: ctx.requestId });
-        // P2 stub: Memory module not yet fully implemented, return empty
-        return {
-          success: true,
-          data: { memories: [], query },
-        };
-      },
-    }),
-  );
-
-  // docTool: read document content
-  registry.register(
-    buildTool({
-      name: "docTool",
-      description: "Read the content of a document or chapter for context",
-      isConcurrencySafe: true,
-      execute: async (ctx) => {
-        const toolArgs = readAgenticArgs(ctx);
-        const targetDocId =
-          typeof toolArgs.documentId === "string" && toolArgs.documentId.trim().length > 0
-            ? toolArgs.documentId.trim()
-            : ctx.documentId;
-        const projectId =
-          typeof ctx["projectId"] === "string" ? ctx["projectId"].trim() : "";
-        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
-        const maxTokens =
-          typeof toolArgs.maxTokens === "number" ? toolArgs.maxTokens : undefined;
-        const snippetChars =
-          typeof toolArgs.snippetChars === "number"
-            ? toolArgs.snippetChars
-            : undefined;
-
-        if (!projectId) {
-          return {
-            success: true,
-            data: { content: "", documentId: targetDocId, query, truncated: false },
-          };
+  registerAgenticTools(registry, {
+    kgTool: {
+      query: async ({ query, entityType, requestId, documentId, projectId }) => {
+        args.logger.info("agentic_tool_kg_query", {
+          query,
+          entityType,
+          requestId,
+          documentId,
+        });
+        const scopedProjectId =
+          typeof projectId === "string" ? projectId.trim() : "";
+        if (scopedProjectId.length === 0 || query.trim().length === 0) {
+          return { entities: [], query };
         }
 
-        const result = service.read({ projectId, documentId: targetDocId });
-        if (!result.ok) {
-          return {
-            success: false,
-            error: { code: result.error.code, message: result.error.message },
-          };
-        }
-
-        return {
-          success: true,
-          data: {
-            content: sliceSnippet({
-              text: result.data.contentText,
-              query,
-              maxTokens,
-              snippetChars,
-            }),
-            documentId: targetDocId,
+        const relevant = kgService.queryRelevant({
+          projectId: scopedProjectId,
+          excerpt: query,
+        });
+        if (!relevant.ok) {
+          args.logger.info("agentic_tool_kg_query_degraded", {
             query,
-            truncated:
-              estimateTokens(result.data.contentText) >
-              estimateTokens(
-                sliceSnippet({
-                  text: result.data.contentText,
-                  query,
-                  maxTokens,
-                  snippetChars,
-                }),
-              ),
-          },
-        };
+            entityType,
+            requestId,
+            documentId,
+            code: relevant.error.code,
+          });
+          return { entities: [], query };
+        }
+
+        const entities =
+          entityType === "character" || entityType === "location"
+            ? relevant.data.items.filter((item) => item.type === entityType)
+            : relevant.data.items;
+        return { entities, query };
       },
-    }),
-  );
-
-  // documentRead: read document text (P1 built-in, agentic-accessible)
-  registry.register(
-    buildTool({
-      name: "documentRead",
-      description: "Read the raw text of the current document",
-      isConcurrencySafe: true,
-      execute: async (ctx) => {
-        const projectId =
-          typeof ctx["projectId"] === "string" ? ctx["projectId"].trim() : "";
-        const toolArgs = readAgenticArgs(ctx);
-        const query = typeof toolArgs.query === "string" ? toolArgs.query : "";
-        const maxTokens =
-          typeof toolArgs.maxTokens === "number" ? toolArgs.maxTokens : undefined;
-        const snippetChars =
-          typeof toolArgs.snippetChars === "number"
-            ? toolArgs.snippetChars
-            : undefined;
-
-        if (!projectId) {
-          return {
-            success: true,
-            data: { text: "", documentId: ctx.documentId, query, truncated: false },
-          };
+    },
+    memTool: {
+      query: async ({ query, memoryType, requestId, documentId, projectId }) => {
+        args.logger.info("agentic_tool_mem_query", {
+          query,
+          memoryType,
+          requestId,
+          documentId,
+        });
+        const scopedProjectId =
+          typeof projectId === "string" ? projectId.trim() : "";
+        if (scopedProjectId.length === 0) {
+          return { memories: [], query };
         }
 
-        const result = service.read({ projectId, documentId: ctx.documentId });
-        if (!result.ok) {
-          return {
-            success: false,
-            error: { code: result.error.code, message: result.error.message },
-          };
-        }
-
-        return {
-          success: true,
-          data: {
-            text: sliceSnippet({
-              text: result.data.contentText,
-              query,
-              maxTokens,
-              snippetChars,
-            }),
-            documentId: ctx.documentId,
+        const preview = memoryService.previewInjection({
+          projectId: scopedProjectId,
+          documentId,
+          queryText: query,
+        });
+        if (!preview.ok) {
+          args.logger.info("agentic_tool_mem_query_degraded", {
             query,
-            truncated:
-              estimateTokens(result.data.contentText) >
-              estimateTokens(
-                sliceSnippet({
-                  text: result.data.contentText,
-                  query,
-                  maxTokens,
-                  snippetChars,
-                }),
-              ),
-          },
+            memoryType,
+            requestId,
+            documentId,
+            code: preview.error.code,
+          });
+          return { memories: [], query };
+        }
+
+        const memories =
+          memoryType === "preference"
+            ? preview.data.items.filter((item) => item.type === "preference")
+            : preview.data.items;
+        return { memories, query };
+      },
+    },
+    documentReader: {
+      readDocument: async ({ projectId, documentId, requestId }) => {
+        if (!projectId) {
+          return { documentId, text: "" };
+        }
+
+        const result = service.read({ projectId, documentId });
+        if (!result.ok) {
+          throw new Error(result.error.message);
+        }
+
+        args.logger.info("agentic_tool_doc_read", {
+          documentId,
+          projectId,
+          requestId,
+        });
+        return {
+          documentId,
+          text: result.data.contentText,
         };
       },
-    }),
-  );
+    },
+  });
 
   return registry;
 }

@@ -458,6 +458,12 @@ describe("skillOutputValidation inflation guards", () => {
         capacityPercent: (contextPrompt.length / 6000) * 100,
         layers: {
           rules: { source: [], tokenCount: 0, truncated: false },
+          compressedHistory: {
+            source: ["compressed-history"],
+            tokenCount: 0,
+            truncated: false,
+            compressed: false,
+          },
           immediate: {
             source: ["immediate:ai_panel_input"],
             tokenCount: contextPrompt.length,
@@ -513,6 +519,12 @@ describe("skillOutputValidation inflation guards", () => {
         capacityPercent: 12 / 6000 * 100,
         layers: {
           rules: { source: [], tokenCount: 0, truncated: false },
+          compressedHistory: {
+            source: ["compressed-history"],
+            tokenCount: 0,
+            truncated: false,
+            compressed: false,
+          },
           immediate: {
             source: ["editor:cursor-window"],
             tokenCount: 4,
@@ -564,6 +576,12 @@ describe("skillOutputValidation inflation guards", () => {
         capacityPercent: 12 / 6000 * 100,
         layers: {
           rules: { source: [], tokenCount: 0, truncated: false },
+          compressedHistory: {
+            source: ["compressed-history"],
+            tokenCount: 0,
+            truncated: false,
+            compressed: false,
+          },
           immediate: {
             source: ["editor:cursor-window"],
             tokenCount: 5,
@@ -615,6 +633,12 @@ describe("skillOutputValidation inflation guards", () => {
         capacityPercent: 2 / 6000 * 100,
         layers: {
           rules: { source: [], tokenCount: 0, truncated: false },
+          compressedHistory: {
+            source: ["compressed-history"],
+            tokenCount: 0,
+            truncated: false,
+            compressed: false,
+          },
           immediate: {
             source: ["editor:selection"],
             tokenCount: 2,

@@ -10,6 +10,7 @@
 
 import type { ToolRegistry } from "./toolRegistry";
 import type { StreamChunk, ToolCallInfo } from "../ai/streaming";
+import type { CostTracker } from "../ai/costTracker";
 import type { ToolUseHandler } from "./toolUseHandler";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -53,6 +54,8 @@ export type WritingEventType =
   | "hooks-done"
   | "aborted"
   | "error"
+  | "budget-exceeded"
+  | "cost-recorded"
   // P2 Agentic Loop events
   | "tool-use-started"
   | "tool-use-completed"
@@ -121,6 +124,7 @@ export interface OrchestratorConfig {
   permissionGate: PermissionGate;
   postWritingHooks: PostWritingHook[];
   defaultTimeoutMs: number;
+  costTracker?: Pick<CostTracker, "checkBudget" | "recordUsage" | "getSessionCost">;
   /** P2: handler for Agentic Loop tool execution (read-only registry) */
   toolUseHandler?: ToolUseHandler;
   prepareRequest?: (request: WritingRequest) => Promise<PreparedRequest>;
@@ -282,7 +286,60 @@ export function createWritingOrchestrator(
           return;
         }
 
-         // Stage 4: AI streaming
+        const checkBudgetGuard = (): WritingEvent | null => {
+          const alert = config.costTracker?.checkBudget();
+          if (!alert || alert.kind !== "hard-stop") {
+            return null;
+          }
+          return makeEvent("budget-exceeded", requestId, {
+            currentCost: alert.currentCost,
+            hardStopLimit: alert.threshold,
+          });
+        };
+
+        let totalPromptTokens = 0;
+        let totalCompletionTokens = 0;
+        const pendingCostEvents: WritingEvent[] = [];
+        const recordUsage = (usage: {
+          promptTokens: number;
+          completionTokens: number;
+          totalTokens: number;
+        }): void => {
+          totalPromptTokens += usage.promptTokens;
+          totalCompletionTokens += usage.completionTokens;
+
+          if (!config.costTracker) {
+            return;
+          }
+
+          const requestCost = config.costTracker.recordUsage(
+            usage,
+            prepared.modelId,
+            requestId,
+            normalizeSkillId(request.skillId),
+          );
+          const summary = config.costTracker.getSessionCost();
+          const budgetAlert = config.costTracker.checkBudget() ?? undefined;
+          pendingCostEvents.push(makeEvent("cost-recorded", requestId, {
+            requestCost: requestCost.cost,
+            sessionTotalCost: summary.totalCost,
+            ...(budgetAlert ? { budgetAlert } : {}),
+          }));
+        };
+
+        const budgetExceeded = checkBudgetGuard();
+        if (budgetExceeded) {
+          taskStates.set(requestId, "failed");
+          yield budgetExceeded;
+          yield makeFailureEvent({
+            requestId,
+            code: "BUDGET_EXCEEDED",
+            message: "Budget hard-stop reached before AI execution",
+          });
+          return;
+        }
+
+          // Stage 4: AI streaming
         let fullText = "";
         let lastTokens = 0;
         let aiError: unknown = null;
@@ -291,6 +348,7 @@ export function createWritingOrchestrator(
         let aiSuccess = false;
         let lastFinishReason: "stop" | "tool_use" | null = null;
         let lastToolCalls: ToolCallInfo[] = [];
+        let lastPromptTokens = tokenCount;
 
         while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
           try {
@@ -373,6 +431,7 @@ export function createWritingOrchestrator(
               }
 
               fullText = generatedResult.fullText;
+              lastPromptTokens = generatedResult.usage.promptTokens;
               lastTokens = generatedResult.usage.completionTokens;
               lastFinishReason = generatedResult.finishReason ?? null;
               lastToolCalls = generatedResult.toolCalls ?? [];
@@ -406,6 +465,7 @@ export function createWritingOrchestrator(
                 });
               }
               lastFinishReason = streamFinishReason;
+              lastPromptTokens = tokenCount;
             }
 
             aiSuccess = true;
@@ -439,6 +499,12 @@ export function createWritingOrchestrator(
           });
           return;
         }
+
+        recordUsage({
+          promptTokens: lastPromptTokens,
+          completionTokens: lastTokens,
+          totalTokens: lastPromptTokens + lastTokens,
+        });
 
         // Stage 4.5 (P2): Agentic tool-use loop
         // Only runs when request.agenticLoop is true AND toolUseHandler is configured
@@ -523,6 +589,12 @@ export function createWritingOrchestrator(
               return;
             }
 
+            const roundBudgetExceeded = checkBudgetGuard();
+            if (roundBudgetExceeded) {
+              yield roundBudgetExceeded;
+              break;
+            }
+
             // Re-call AI with injected messages
             const nextChunkQueue: Array<{ delta: string; accumulatedTokens: number }> = [];
             let nextResult: GeneratedTextResult | undefined;
@@ -585,9 +657,16 @@ export function createWritingOrchestrator(
             }
 
             fullText = nextResult.fullText || roundFullText;
+            lastPromptTokens = nextResult.usage.promptTokens;
             lastTokens = nextResult.usage.completionTokens;
             lastFinishReason = nextResult.finishReason ?? null;
             lastToolCalls = nextResult.toolCalls ?? [];
+
+            recordUsage({
+              promptTokens: lastPromptTokens,
+              completionTokens: lastTokens,
+              totalTokens: lastPromptTokens + lastTokens,
+            });
 
             const hasNextRound =
               lastFinishReason === "tool_use" && agenticRound < AGENTIC_MAX_ROUNDS;
@@ -623,11 +702,14 @@ export function createWritingOrchestrator(
         yield makeEvent("ai-done", requestId, {
           fullText,
           usage: {
-            promptTokens: tokenCount,
-            completionTokens: lastTokens,
-            totalTokens: tokenCount + lastTokens,
+            promptTokens: totalPromptTokens,
+            completionTokens: totalCompletionTokens,
+            totalTokens: totalPromptTokens + totalCompletionTokens,
           },
         });
+        for (const costEvent of pendingCostEvents) {
+          yield costEvent;
+        }
 
         if (abortController.signal.aborted) {
           taskStates.set(requestId, "killed");

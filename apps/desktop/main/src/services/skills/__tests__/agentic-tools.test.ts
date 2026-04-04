@@ -1,35 +1,33 @@
-/**
- * agenticTools V1 测试
- * Spec: openspec/specs/skill-system/spec.md — V1 Agentic Read-Only Tools
- *
- * 验证三个只读工具的注册、执行、错误处理、阻止列表与清理。
- */
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
+import { estimateTokens } from "../../context/tokenEstimation";
 import { createToolRegistry } from "../toolRegistry";
 import type { ToolRegistry } from "../toolRegistry";
 import {
-  registerAgenticTools,
+  AGENTIC_TOOL_NAMES,
   isToolBlocked,
-  V1_TOOL_NAMES,
+  registerAgenticTools,
 } from "../agenticTools";
 import type { AgenticToolDeps } from "../agenticTools";
 
-// ─── helpers ────────────────────────────────────────────────────────
-
 function makeDeps(overrides: Partial<AgenticToolDeps> = {}): AgenticToolDeps {
   return {
+    kgTool: {
+      query: vi.fn().mockResolvedValue({
+        name: "林远",
+        traits: ["冷静", "理性"],
+      }),
+    },
+    memTool: {
+      query: vi.fn().mockResolvedValue({
+        memories: [{ id: "mem-1", text: "偏爱冷静克制的动作描写" }],
+      }),
+    },
     documentReader: {
-      readSection: vi.fn().mockResolvedValue({ text: "hello", wordCount: 1 }),
-    },
-    versionSearcher: {
-      searchVersions: vi
-        .fn()
-        .mockResolvedValue([{ versionId: "v1", summary: "init", createdAt: 1000 }]),
-    },
-    wordCounter: {
-      getWordCount: vi.fn().mockResolvedValue({ wordCount: 42, charCount: 200 }),
+      readDocument: vi.fn().mockResolvedValue({
+        documentId: "doc-1",
+        text: "林远先观察门缝里的光，再听见门后的脚步声。随后他没有立刻推门，而是退半步让呼吸平稳。",
+      }),
     },
     ...overrides,
   };
@@ -39,9 +37,7 @@ function makeCtx(extra: Record<string, unknown> = {}) {
   return { documentId: "doc-1", requestId: "req-1", ...extra };
 }
 
-// ─── tests ──────────────────────────────────────────────────────────
-
-describe("agenticTools — V1 Read-Only Tools", () => {
+describe("agenticTools — P2 Read-Only Tools", () => {
   let registry: ToolRegistry;
   let deps: AgenticToolDeps;
 
@@ -50,133 +46,198 @@ describe("agenticTools — V1 Read-Only Tools", () => {
     deps = makeDeps();
   });
 
-  // ── 注册 ──────────────────────────────────────────────────────
-
-  it("registerAgenticTools 注册三个只读工具", () => {
+  it("registerAgenticTools 注册 spec 对齐的四个只读工具", () => {
     registerAgenticTools(registry, deps);
 
-    const names = registry.list().map((t) => t.name).sort();
-    expect(names).toEqual([...V1_TOOL_NAMES].sort());
-    expect(names).toHaveLength(3);
+    const names = registry.list().map((tool) => tool.name).sort();
+    expect(names).toEqual([...AGENTIC_TOOL_NAMES].sort());
   });
 
-  // ── 执行成功 ──────────────────────────────────────────────────
-
-  it("read_document_section 执行成功", async () => {
+  it("kgTool 执行成功并透传 query / entityType", async () => {
     registerAgenticTools(registry, deps);
-    const tool = registry.get("read_document_section")!;
+    const tool = registry.get("kgTool");
 
-    const result = await tool.execute(makeCtx({ args: { from: 0, to: 100 } }));
+    const result = await tool!.execute(
+      makeCtx({
+        args: { query: "林远的性格特点", entityType: "character" },
+      }),
+    );
 
     expect(result.success).toBe(true);
-    expect(result.data).toEqual({ text: "hello", wordCount: 1 });
-    expect(deps.documentReader.readSection).toHaveBeenCalledWith("doc-1", 0, 100);
-  });
-
-  it("search_versions 执行成功", async () => {
-    registerAgenticTools(registry, deps);
-    const tool = registry.get("search_versions")!;
-
-    const result = await tool.execute(makeCtx({ args: { query: "chapter", limit: 5 } }));
-
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual([{ versionId: "v1", summary: "init", createdAt: 1000 }]);
-    expect(deps.versionSearcher.searchVersions).toHaveBeenCalledWith("doc-1", "chapter", 5);
-  });
-
-  it("get_word_count 执行成功", async () => {
-    registerAgenticTools(registry, deps);
-    const tool = registry.get("get_word_count")!;
-
-    const result = await tool.execute(makeCtx());
-
-    expect(result.success).toBe(true);
-    expect(result.data).toEqual({ wordCount: 42, charCount: 200 });
-    expect(deps.wordCounter.getWordCount).toHaveBeenCalledWith("doc-1");
-  });
-
-  // ── 执行失败 ──────────────────────────────────────────────────
-
-  it("read_document_section 执行失败 → 返回错误", async () => {
-    const failingDeps = makeDeps({
-      documentReader: {
-        readSection: vi.fn().mockRejectedValue(new Error("not found")),
-      },
+    expect(result.data).toEqual({
+      name: "林远",
+      traits: ["冷静", "理性"],
     });
-    registerAgenticTools(registry, failingDeps);
-    const tool = registry.get("read_document_section")!;
+    expect(deps.kgTool.query).toHaveBeenCalledWith({
+      documentId: "doc-1",
+      query: "林远的性格特点",
+      entityType: "character",
+      requestId: "req-1",
+    });
+  });
 
-    const result = await tool.execute(makeCtx({ args: { from: 0, to: 50 } }));
+  it("memTool 执行成功并在底层不可用时允许空结果", async () => {
+    registerAgenticTools(registry, deps);
+    const tool = registry.get("memTool");
+
+    const result = await tool!.execute(
+      makeCtx({
+        args: { query: "用户写作风格偏好", memoryType: "style" },
+      }),
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({
+      memories: [{ id: "mem-1", text: "偏爱冷静克制的动作描写" }],
+    });
+    expect(deps.memTool.query).toHaveBeenCalledWith({
+      documentId: "doc-1",
+      query: "用户写作风格偏好",
+      memoryType: "style",
+      requestId: "req-1",
+    });
+  });
+
+  it("docTool / documentRead obey query + maxTokens + snippetChars 语义", async () => {
+    registerAgenticTools(registry, deps);
+    const docTool = registry.get("docTool");
+    const documentRead = registry.get("documentRead");
+
+    const docToolResult = await docTool!.execute(
+      makeCtx({
+        documentId: "doc-current",
+        args: {
+          documentId: "doc-ref",
+          query: "门后",
+          maxTokens: 8,
+          snippetChars: 12,
+        },
+      }),
+    );
+    const documentReadResult = await documentRead!.execute(
+      makeCtx({
+        args: {
+          query: "林远",
+          maxTokens: 8,
+          snippetChars: 10,
+        },
+      }),
+    );
+
+    expect(docToolResult.success).toBe(true);
+    expect(docToolResult.data).toMatchObject({
+      documentId: "doc-ref",
+      query: "门后",
+      truncated: true,
+    });
+    const docToolData = docToolResult.data as { content: string };
+    expect(docToolData.content).toContain("门后");
+    expect(docToolData.content).not.toContain("随后他没有立刻推门");
+    expect(docToolData.content.length).toBeLessThanOrEqual(12);
+    expect(estimateTokens(docToolData.content)).toBeLessThanOrEqual(8);
+
+    expect(documentReadResult.success).toBe(true);
+    expect(documentReadResult.data).toMatchObject({
+      documentId: "doc-1",
+      query: "林远",
+      truncated: true,
+    });
+    const documentReadData = documentReadResult.data as { text: string };
+    expect(documentReadData.text).toContain("林远");
+    expect(documentReadData.text).not.toContain("随后他没有立刻推门");
+    expect(documentReadData.text.length).toBeLessThanOrEqual(10);
+    expect(estimateTokens(documentReadData.text)).toBeLessThanOrEqual(8);
+    expect(deps.documentReader.readDocument).toHaveBeenCalledTimes(2);
+  });
+
+  it("kgTool 底层失败 → 返回错误", async () => {
+    registerAgenticTools(
+      registry,
+      makeDeps({
+        kgTool: {
+          query: vi.fn().mockRejectedValue(new Error("kg offline")),
+        },
+      }),
+    );
+    const tool = registry.get("kgTool");
+
+    const result = await tool!.execute(makeCtx({ args: { query: "林远" } }));
 
     expect(result.success).toBe(false);
     expect(result.error).toMatchObject({
-      code: "READ_SECTION_FAILED",
-      message: "not found",
+      code: "KG_TOOL_FAILED",
+      message: "kg offline",
     });
   });
 
-  it("search_versions 执行失败 → 返回错误", async () => {
-    const failingDeps = makeDeps({
-      versionSearcher: {
-        searchVersions: vi.fn().mockRejectedValue(new Error("db timeout")),
-      },
-    });
-    registerAgenticTools(registry, failingDeps);
-    const tool = registry.get("search_versions")!;
+  it("memTool 底层失败 → 返回错误", async () => {
+    registerAgenticTools(
+      registry,
+      makeDeps({
+        memTool: {
+          query: vi.fn().mockRejectedValue(new Error("memory unavailable")),
+        },
+      }),
+    );
+    const tool = registry.get("memTool");
 
-    const result = await tool.execute(makeCtx({ args: { query: "chapter", limit: 5 } }));
+    const result = await tool!.execute(makeCtx({ args: { query: "风格" } }));
 
     expect(result.success).toBe(false);
     expect(result.error).toMatchObject({
-      code: "SEARCH_VERSIONS_FAILED",
-      message: "db timeout",
+      code: "MEM_TOOL_FAILED",
+      message: "memory unavailable",
     });
   });
 
-  it("get_word_count 执行失败 → 返回错误", async () => {
-    const failingDeps = makeDeps({
-      wordCounter: {
-        getWordCount: vi.fn().mockRejectedValue(new Error("document missing")),
-      },
+  it("docTool / documentRead 读取失败 → 返回错误", async () => {
+    registerAgenticTools(
+      registry,
+      makeDeps({
+        documentReader: {
+          readDocument: vi.fn().mockRejectedValue(new Error("document missing")),
+        },
+      }),
+    );
+    const docTool = registry.get("docTool");
+    const documentRead = registry.get("documentRead");
+
+    const docToolResult = await docTool!.execute(makeCtx({ args: { query: "门后" } }));
+    const documentReadResult = await documentRead!.execute(
+      makeCtx({ args: { query: "林远" } }),
+    );
+
+    expect(docToolResult.success).toBe(false);
+    expect(docToolResult.error).toMatchObject({
+      code: "DOC_TOOL_FAILED",
+      message: "document missing",
     });
-    registerAgenticTools(registry, failingDeps);
-    const tool = registry.get("get_word_count")!;
-
-    const result = await tool.execute(makeCtx());
-
-    expect(result.success).toBe(false);
-    expect(result.error).toMatchObject({
-      code: "WORD_COUNT_FAILED",
+    expect(documentReadResult.success).toBe(false);
+    expect(documentReadResult.error).toMatchObject({
+      code: "DOCUMENT_READ_FAILED",
       message: "document missing",
     });
   });
 
-  // ── 阻止列表 ─────────────────────────────────────────────────
-
-  it("isToolBlocked 拒绝 documentWrite", () => {
+  it("isToolBlocked 拒绝 documentWrite / versionSnapshot", () => {
     expect(isToolBlocked("documentWrite")).toBe(true);
-    expect(isToolBlocked("document_write")).toBe(true);
-    expect(isToolBlocked("read_document_section")).toBe(false);
+    expect(isToolBlocked("versionSnapshot")).toBe(true);
+    expect(isToolBlocked("kgTool")).toBe(false);
   });
-
-  // ── cleanup ───────────────────────────────────────────────────
 
   it("cleanup 函数取消注册所有工具", () => {
     const cleanup = registerAgenticTools(registry, deps);
 
-    expect(registry.list()).toHaveLength(3);
-
+    expect(registry.list()).toHaveLength(4);
     cleanup();
-
     expect(registry.list()).toHaveLength(0);
-    for (const name of V1_TOOL_NAMES) {
+
+    for (const name of AGENTIC_TOOL_NAMES) {
       expect(registry.get(name)).toBeUndefined();
     }
   });
 
-  // ── concurrency-safe ──────────────────────────────────────────
-
-  it("工具是 concurrency-safe", () => {
+  it("工具都是 concurrency-safe", () => {
     registerAgenticTools(registry, deps);
 
     for (const tool of registry.list()) {
