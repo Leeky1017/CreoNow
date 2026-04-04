@@ -24,6 +24,7 @@ const bridgeMock: EditorBridge = {
   getTextContent: vi.fn(() => "风从北方来"),
   mount: vi.fn(),
   replaceSelection: vi.fn(() => ({ ok: true as const })),
+  setEditable: vi.fn(),
   setContent: vi.fn(),
   view: null,
 };
@@ -256,7 +257,7 @@ describe("WorkbenchApp", () => {
     expect(within(originalColumn as HTMLElement).queryByText("风从北方来")).toBeNull();
   });
 
-  it("opens version history, renders the timeline, previews a snapshot, and rolls back through the renderer flow", async () => {
+  it("switches the main editor into read-only snapshot preview and can return to the current version", async () => {
     const listSnapshots = vi.fn(async () => ({
       ok: true as const,
       data: {
@@ -308,7 +309,7 @@ describe("WorkbenchApp", () => {
           type: "chapter" as const,
           status: "draft" as const,
           sortOrder: 0,
-          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "风从北方来" }] }] }),
           contentText: "风从北方来",
           contentMd: "",
           contentHash: "hash",
@@ -354,31 +355,31 @@ describe("WorkbenchApp", () => {
     fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
 
     expect(await screen.findByText("AI 改写版本")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /AI 接受/ }));
 
-    fireEvent.click(screen.getByRole("button", { name: "回退到此版本" }));
+    expect(await screen.findByText(`正在预览 ${formatWorkbenchTimestamp(2)} 的版本`)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(bridgeMock.setEditable).toHaveBeenCalledWith(false);
+    });
+    expect(bridgeMock.setContent).toHaveBeenLastCalledWith({
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "AI 改写版本" }] }],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "返回当前版本" }));
 
     await waitFor(() => {
-      expect(window.api?.version.rollbackSnapshot).toHaveBeenCalledWith({
-        documentId: "doc-1",
-        projectId: "project-1",
-        versionId: "snapshot-2",
-      });
-    });
-    await waitFor(() => {
-      expect(window.api?.file.readDocument).toHaveBeenLastCalledWith({
-        documentId: "doc-1",
-        projectId: "project-1",
-      });
-    });
-    await waitFor(() => {
+      expect(bridgeMock.setEditable).toHaveBeenLastCalledWith(true);
       expect(bridgeMock.setContent).toHaveBeenCalledWith({
         type: "doc",
         content: [{ type: "paragraph", content: [{ type: "text", text: "风从北方来" }] }],
       });
     });
+    expect(screen.queryByText(`正在预览 ${formatWorkbenchTimestamp(2)} 的版本`)).not.toBeInTheDocument();
+    expect(window.api?.version.rollbackSnapshot).not.toHaveBeenCalled();
   });
 
-  it("restores the selected snapshot from version history and reloads the document into the editor", async () => {
+  it("requires confirmation before restoring a previewed snapshot and allows canceling", async () => {
     const listSnapshots = vi.fn(async () => ({
       ok: true as const,
       data: {
@@ -423,7 +424,7 @@ describe("WorkbenchApp", () => {
           type: "chapter" as const,
           status: "draft" as const,
           sortOrder: 0,
-          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "风从北方来" }] }] }),
           contentText: "风从北方来",
           contentMd: "",
           contentHash: "hash",
@@ -468,8 +469,20 @@ describe("WorkbenchApp", () => {
     await screen.findByRole("heading", { name: "第一章" });
     fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
     expect(await screen.findByText("回退后的版本")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /回退结果/ }));
 
-    fireEvent.click(screen.getByRole("button", { name: "恢复此快照" }));
+    fireEvent.click(await screen.findByRole("button", { name: "恢复到此版本" }));
+    expect(await screen.findByRole("dialog", { name: "确认恢复历史版本" })).toBeInTheDocument();
+    expect(window.api?.version.restoreSnapshot).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "确认恢复历史版本" })).not.toBeInTheDocument();
+    });
+    expect(window.api?.version.restoreSnapshot).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "恢复到此版本" }));
+    fireEvent.click(await screen.findByRole("button", { name: "确认恢复" }));
 
     await waitFor(() => {
       expect(window.api?.version.restoreSnapshot).toHaveBeenCalledWith({
@@ -479,6 +492,7 @@ describe("WorkbenchApp", () => {
       });
     });
     await waitFor(() => {
+      expect(bridgeMock.setEditable).toHaveBeenLastCalledWith(true);
       expect(bridgeMock.setContent).toHaveBeenCalledWith({
         type: "doc",
         content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的版本" }] }],

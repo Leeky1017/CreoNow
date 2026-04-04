@@ -54,12 +54,9 @@ const meta = {
   title: "VersionHistory/Panel",
   component: VersionHistoryPanel,
   args: {
-    action: null,
     errorMessage: null,
     items,
     onRefresh: () => undefined,
-    onRollback: () => undefined,
-    onRestore: () => undefined,
     onSelectVersion: () => undefined,
     previewStatus: "ready",
     selectedSnapshot,

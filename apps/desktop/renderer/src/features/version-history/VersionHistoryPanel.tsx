@@ -5,19 +5,15 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/primitives/Button";
 
 import type {
-  VersionHistoryAction,
   VersionHistorySnapshotDetail,
   VersionHistorySnapshotSummary,
   VersionHistoryStatus,
 } from "./types";
 
 interface VersionHistoryPanelProps {
-  action: VersionHistoryAction;
   errorMessage: string | null;
   items: VersionHistorySnapshotSummary[];
   onRefresh: () => void;
-  onRollback: () => void;
-  onRestore: () => void;
   onSelectVersion: (versionId: string) => void;
   previewStatus: VersionHistoryStatus;
   selectedSnapshot: VersionHistorySnapshotDetail | null;
@@ -163,12 +159,6 @@ export function VersionHistoryPanel(props: VersionHistoryPanelProps) {
           </div>
 
           <div className="panel-actions">
-            <Button tone="primary" disabled={props.action !== null} onClick={props.onRollback}>
-              {props.action === "rollback" ? t("versionHistory.rollingBack") : t("versionHistory.rollback")}
-            </Button>
-            <Button tone="ghost" disabled={props.action !== null} onClick={props.onRestore}>
-              {props.action === "restore" ? t("versionHistory.restoring") : t("versionHistory.restore")}
-            </Button>
             <Button tone="ghost" className="version-history-preview__refresh" onClick={props.onRefresh}>
               <RotateCcw size={14} aria-hidden="true" />
               <span>{t("versionHistory.refresh")}</span>

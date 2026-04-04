@@ -147,6 +147,24 @@ describe("createEditorBridge", () => {
     expect(context!.precedingText).toBe("");
   });
 
+  it("toggles editor editability for preview mode", () => {
+    const bridge = createEditorBridge();
+    const container = document.createElement("div");
+    document.body.append(container);
+
+    bridge.mount(container, createDoc("hello world"));
+
+    const surface = container.querySelector(".ProseMirror");
+    expect(surface).not.toBeNull();
+    expect(surface?.getAttribute("contenteditable")).toBe("true");
+
+    bridge.setEditable(false);
+    expect(surface?.getAttribute("contenteditable")).toBe("false");
+
+    bridge.setEditable(true);
+    expect(surface?.getAttribute("contenteditable")).toBe("true");
+  });
+
   it("replaces a selection with multi-paragraph text using block-aware structure", () => {
     const bridge = createEditorBridge();
     const container = document.createElement("div");

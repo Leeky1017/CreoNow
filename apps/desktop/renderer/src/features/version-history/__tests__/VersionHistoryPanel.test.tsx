@@ -25,20 +25,15 @@ const items = [
 ];
 
 describe("VersionHistoryPanel", () => {
-  it("renders timeline items and routes user actions through dedicated callbacks", () => {
+  it("renders timeline items and routes selection and refresh actions", () => {
     const onRefresh = vi.fn();
-    const onRollback = vi.fn();
-    const onRestore = vi.fn();
     const onSelectVersion = vi.fn();
 
     render(
       <VersionHistoryPanel
-        action={null}
         errorMessage={null}
         items={items}
         onRefresh={onRefresh}
-        onRollback={onRollback}
-        onRestore={onRestore}
         onSelectVersion={onSelectVersion}
         previewStatus="ready"
         selectedSnapshot={{
@@ -65,12 +60,6 @@ describe("VersionHistoryPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /手动保存/ }));
     expect(onSelectVersion).toHaveBeenCalledWith("snapshot-1");
-
-    fireEvent.click(screen.getByRole("button", { name: "回退到此版本" }));
-    expect(onRollback).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByRole("button", { name: "恢复此快照" }));
-    expect(onRestore).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("button", { name: /刷新历史/ }));
     expect(onRefresh).toHaveBeenCalledTimes(1);

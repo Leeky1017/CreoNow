@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
+import { getHumanErrorMessage } from "@/lib/errorMessages";
 import type { PreloadApi } from "@/lib/preloadApi";
 
 import type {
@@ -26,11 +28,8 @@ interface LoadSnapshotOptions {
   keepSelection?: boolean;
 }
 
-function readErrorMessage(error: { message: string }): string {
-  return error.message;
-}
-
 export function useVersionHistoryController(args: UseVersionHistoryControllerArgs) {
+  const { t } = useTranslation();
   const [action, setAction] = useState<VersionHistoryAction>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [items, setItems] = useState<VersionHistorySnapshotSummary[]>([]);
@@ -79,14 +78,14 @@ export function useVersionHistoryController(args: UseVersionHistoryControllerArg
     if (result.ok === false) {
       setPreviewStatus("error");
       setSelectedSnapshot(null);
-      setErrorMessage(readErrorMessage(result.error));
+      setErrorMessage(getHumanErrorMessage(result.error, t));
       return null;
     }
 
     setPreviewStatus("ready");
     setSelectedSnapshot(result.data);
     return result.data;
-  }, [args.activeDocument, args.api]);
+  }, [args.activeDocument, args.api, t]);
 
   const refresh = useCallback(async (options?: RefreshOptions): Promise<VersionHistorySnapshotSummary[] | null> => {
     if (args.activeDocument === null) {
@@ -113,7 +112,7 @@ export function useVersionHistoryController(args: UseVersionHistoryControllerArg
       setPreviewStatus("idle");
       setSelectedSnapshot(null);
       setSelectedVersionId(null);
-      setErrorMessage(readErrorMessage(result.error));
+      setErrorMessage(getHumanErrorMessage(result.error, t));
       return null;
     }
 
@@ -135,7 +134,7 @@ export function useVersionHistoryController(args: UseVersionHistoryControllerArg
     setSelectedVersionId(initialVersionId);
     await loadSnapshot(initialVersionId, { keepSelection: true });
     return result.data.items;
-  }, [args.activeDocument, args.api, loadSnapshot, reset]);
+  }, [args.activeDocument, args.api, loadSnapshot, reset, t]);
 
   const rollbackSelected = useCallback(async () => {
     if (args.activeDocument === null || selectedVersionId === null) {
@@ -152,12 +151,12 @@ export function useVersionHistoryController(args: UseVersionHistoryControllerArg
     setAction(null);
 
     if (result.ok === false) {
-      setErrorMessage(readErrorMessage(result.error));
+      setErrorMessage(getHumanErrorMessage(result.error, t));
       return null;
     }
 
     return result.data;
-  }, [args.activeDocument, args.api, selectedVersionId]);
+  }, [args.activeDocument, args.api, selectedVersionId, t]);
 
   const restoreSelected = useCallback(async () => {
     if (args.activeDocument === null || selectedVersionId === null) {
@@ -174,12 +173,12 @@ export function useVersionHistoryController(args: UseVersionHistoryControllerArg
     setAction(null);
 
     if (result.ok === false) {
-      setErrorMessage(readErrorMessage(result.error));
+      setErrorMessage(getHumanErrorMessage(result.error, t));
       return null;
     }
 
     return result.data;
-  }, [args.activeDocument, args.api, selectedVersionId]);
+  }, [args.activeDocument, args.api, selectedVersionId, t]);
 
   useEffect(() => {
     if (args.enabled === false) {
