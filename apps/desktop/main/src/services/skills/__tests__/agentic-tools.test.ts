@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { estimateTokens } from "../../context/tokenEstimation";
 import { createToolRegistry } from "../toolRegistry";
 import type { ToolRegistry } from "../toolRegistry";
 import {
@@ -129,8 +130,11 @@ describe("agenticTools — P2 Read-Only Tools", () => {
       query: "门后",
       truncated: true,
     });
-    expect(JSON.stringify(docToolResult.data)).toContain("门后");
-    expect(JSON.stringify(docToolResult.data)).not.toContain("随后他没有立刻推门");
+    const docToolData = docToolResult.data as { content: string };
+    expect(docToolData.content).toContain("门后");
+    expect(docToolData.content).not.toContain("随后他没有立刻推门");
+    expect(docToolData.content.length).toBeLessThanOrEqual(12);
+    expect(estimateTokens(docToolData.content)).toBeLessThanOrEqual(8);
 
     expect(documentReadResult.success).toBe(true);
     expect(documentReadResult.data).toMatchObject({
@@ -138,8 +142,11 @@ describe("agenticTools — P2 Read-Only Tools", () => {
       query: "林远",
       truncated: true,
     });
-    expect(JSON.stringify(documentReadResult.data)).toContain("林远");
-    expect(JSON.stringify(documentReadResult.data)).not.toContain("随后他没有立刻推门");
+    const documentReadData = documentReadResult.data as { text: string };
+    expect(documentReadData.text).toContain("林远");
+    expect(documentReadData.text).not.toContain("随后他没有立刻推门");
+    expect(documentReadData.text.length).toBeLessThanOrEqual(10);
+    expect(estimateTokens(documentReadData.text)).toBeLessThanOrEqual(8);
     expect(deps.documentReader.readDocument).toHaveBeenCalledTimes(2);
   });
 

@@ -77,51 +77,98 @@ function sliceSnippet(args: {
   maxTokens?: number;
   snippetChars?: number;
 }): { snippet: string; truncated: boolean } {
+  function buildWindow(limit: number): { start: number; end: number; queryStart?: number; queryEnd?: number } {
+    if (query.length === 0) {
+      return { start: 0, end: limit };
+    }
+
+    const hitIndex = normalized.indexOf(query);
+    if (hitIndex < 0) {
+      return { start: 0, end: limit };
+    }
+
+    const leftBudget = Math.max(0, Math.floor((limit - query.length) / 2));
+    const start = Math.max(0, hitIndex - leftBudget);
+    const end = Math.min(normalized.length, start + limit);
+    const alignedStart = Math.max(0, end - limit);
+    return {
+      start: alignedStart,
+      end,
+      queryStart: hitIndex,
+      queryEnd: hitIndex + query.length,
+    };
+  }
+
+  function shrinkWindowToTokenBudget(window: {
+    start: number;
+    end: number;
+    queryStart?: number;
+    queryEnd?: number;
+  }): { start: number; end: number } {
+    if (tokenBudget === undefined) {
+      return { start: window.start, end: window.end };
+    }
+
+    let start = window.start;
+    let end = window.end;
+    while (start < end && estimateTokens(normalized.slice(start, end)) > tokenBudget) {
+      const canTrimLeft =
+        typeof window.queryStart === "number" ? start < window.queryStart : false;
+      const canTrimRight =
+        typeof window.queryEnd === "number" ? end > window.queryEnd : true;
+
+      if (canTrimLeft && canTrimRight && typeof window.queryStart === "number" && typeof window.queryEnd === "number") {
+        const leftContext = window.queryStart - start;
+        const rightContext = end - window.queryEnd;
+        if (rightContext > leftContext) {
+          end--;
+        } else {
+          start++;
+        }
+        continue;
+      }
+
+      if (canTrimRight) {
+        end--;
+        continue;
+      }
+
+      if (canTrimLeft) {
+        start++;
+        continue;
+      }
+
+      end--;
+    }
+
+    return { start, end };
+  }
+
   const normalized = args.text.trim();
   if (normalized.length === 0) {
     return { snippet: "", truncated: false };
   }
 
-  const tokenBound =
+  const tokenBudget =
     typeof args.maxTokens === "number" &&
     Number.isFinite(args.maxTokens) &&
     args.maxTokens > 0
-      ? Math.max(1, Math.floor(args.maxTokens) * 4)
-      : normalized.length;
+      ? Math.max(1, Math.floor(args.maxTokens))
+      : undefined;
   const charBound =
     typeof args.snippetChars === "number" &&
     Number.isFinite(args.snippetChars) &&
     args.snippetChars > 0
       ? Math.max(1, Math.floor(args.snippetChars))
       : normalized.length;
-  const limit = Math.min(normalized.length, tokenBound, charBound);
+  const limit = Math.min(normalized.length, charBound);
   const query = args.query.trim();
-
-  if (query.length === 0) {
-    const snippet = normalized.slice(0, limit);
-    return {
-      snippet,
-      truncated: estimateTokens(normalized) > estimateTokens(snippet),
-    };
-  }
-
-  const hitIndex = normalized.indexOf(query);
-  if (hitIndex < 0) {
-    const snippet = normalized.slice(0, limit);
-    return {
-      snippet,
-      truncated: estimateTokens(normalized) > estimateTokens(snippet),
-    };
-  }
-
-  const leftBudget = Math.max(0, Math.floor((limit - query.length) / 2));
-  const start = Math.max(0, hitIndex - leftBudget);
-  const end = Math.min(normalized.length, start + limit);
-  const alignedStart = Math.max(0, end - limit);
-  const snippet = normalized.slice(alignedStart, end);
+  const initialWindow = buildWindow(limit);
+  const finalWindow = shrinkWindowToTokenBudget(initialWindow);
+  const snippet = normalized.slice(finalWindow.start, finalWindow.end);
   return {
     snippet,
-    truncated: estimateTokens(normalized) > estimateTokens(snippet),
+    truncated: finalWindow.start > 0 || finalWindow.end < normalized.length,
   };
 }
 

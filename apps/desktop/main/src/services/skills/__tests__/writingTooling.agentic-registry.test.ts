@@ -6,6 +6,7 @@ import Database from "better-sqlite3";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { Logger } from "../../../logging/logger";
+import { estimateTokens } from "../../context/tokenEstimation";
 import { createDocumentService } from "../../documents/documentService";
 import { createKnowledgeGraphService } from "../../kg/kgService";
 import { createMemoryService } from "../../memory/memoryService";
@@ -194,8 +195,11 @@ describe("createAgenticToolRegistry", () => {
       documentId: currentDocumentId,
       query: "林远",
     });
-    expect(JSON.stringify(docToolResult.data)).toContain("林远");
-    expect(JSON.stringify(docToolResult.data)).not.toContain("随后他没有立刻推门");
+    const docToolData = docToolResult.data as { content: string };
+    expect(docToolData.content).toContain("林远");
+    expect(docToolData.content).not.toContain("随后他没有立刻推门");
+    expect(docToolData.content.length).toBeLessThanOrEqual(18);
+    expect(estimateTokens(docToolData.content)).toBeLessThanOrEqual(12);
 
     const documentReadResult = await documentRead!.execute({
       documentId: currentDocumentId,
@@ -211,8 +215,11 @@ describe("createAgenticToolRegistry", () => {
     expect(documentReadResult.data).toMatchObject({
       documentId: currentDocumentId,
     });
-    expect(JSON.stringify(documentReadResult.data)).toContain("门后");
-    expect(JSON.stringify(documentReadResult.data)).not.toContain("随后他没有立刻推门");
+    const documentReadData = documentReadResult.data as { text: string };
+    expect(documentReadData.text).toContain("门后");
+    expect(documentReadData.text).not.toContain("随后他没有立刻推门");
+    expect(documentReadData.text.length).toBeLessThanOrEqual(12);
+    expect(estimateTokens(documentReadData.text)).toBeLessThanOrEqual(12);
   });
 
   it("kgTool / memTool 在有数据时返回真实查询结果，而不是永久空壳", async () => {
