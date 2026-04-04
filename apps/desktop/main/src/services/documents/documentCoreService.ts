@@ -89,9 +89,7 @@ function readLatestVersionId(
     .prepare<
       [string],
       { versionId: string }
-    >(
-      `SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER} LIMIT 1`,
-    )
+    >(`SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER} LIMIT 1`)
     .get(documentId);
   return latest?.versionId ?? null;
 }
@@ -795,9 +793,7 @@ function createDocBranchHelpers(
           .prepare<
             [string],
             { versionId: string }
-          >(
-            `SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER} LIMIT 1`,
-          )
+          >(`SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER} LIMIT 1`)
           .get(params.documentId);
 
         let headSnapshotId = latest?.versionId ?? "";
@@ -924,7 +920,10 @@ function createDocBranchHelpers(
           throw new Error("ENCODING_FAILED");
         }
         const contentHash = hashJson(encoded.data);
-        const parentSnapshotId = readLatestVersionId(args.db, params.documentId);
+        const parentSnapshotId = readLatestVersionId(
+          args.db,
+          params.documentId,
+        );
 
         const updated = args.db
           .prepare<
@@ -1333,9 +1332,7 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
             .prepare<
               [string],
               LatestVersionRow
-            >(
-              `SELECT version_id as versionId, reason, content_hash as contentHash, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER} LIMIT 1`,
-            )
+            >(`SELECT version_id as versionId, reason, content_hash as contentHash, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER} LIMIT 1`)
             .get(documentId);
 
           const shouldMergeAutosave =
@@ -1413,46 +1410,51 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
 
           if (overflowCount > 0) {
             const compactBeforeTs = ts - autosaveCompactionAgeMs;
-              const candidates = args.db
-                .prepare<
-                  [string, number, number],
-                  { versionId: string; parentSnapshotId: string | null }
-                >(
-                  `SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId FROM document_versions WHERE document_id = ? AND reason = 'autosave' AND created_at < ? ORDER BY ${DOCUMENT_VERSION_OLDEST_ORDER} LIMIT ?`,
-                )
-                .all(documentId, compactBeforeTs, overflowCount);
+            const candidates = args.db
+              .prepare<
+                [string, number, number],
+                { versionId: string; parentSnapshotId: string | null }
+              >(`SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId FROM document_versions WHERE document_id = ? AND reason = 'autosave' AND created_at < ? ORDER BY ${DOCUMENT_VERSION_OLDEST_ORDER} LIMIT ?`)
+              .all(documentId, compactBeforeTs, overflowCount);
 
-              if (candidates.length > 0) {
-                const candidateIds = new Set(
-                  candidates.map((candidate) => candidate.versionId),
+            if (candidates.length > 0) {
+              const candidateIds = new Set(
+                candidates.map((candidate) => candidate.versionId),
+              );
+              const candidateById = new Map(
+                candidates.map(
+                  (candidate) => [candidate.versionId, candidate] as const,
+                ),
+              );
+              const reparentTargets = new Map(
+                candidates.map(
+                  (candidate) =>
+                    [
+                      candidate.versionId,
+                      resolveRetainedParentSnapshotId({
+                        candidateById,
+                        candidateIds,
+                        parentSnapshotId: candidate.parentSnapshotId,
+                      }),
+                    ] as const,
+                ),
+              );
+              const reparentStmt = args.db.prepare<
+                [string | null, string, string]
+              >(
+                "UPDATE document_versions SET parent_snapshot_id = ? WHERE document_id = ? AND parent_snapshot_id = ?",
+              );
+              const deleteStmt = args.db.prepare<[string]>(
+                "DELETE FROM document_versions WHERE version_id = ?",
+              );
+              for (const candidate of candidates) {
+                reparentStmt.run(
+                  reparentTargets.get(candidate.versionId) ?? null,
+                  documentId,
+                  candidate.versionId,
                 );
-                const candidateById = new Map(
-                  candidates.map((candidate) => [candidate.versionId, candidate] as const),
-                );
-                const reparentTargets = new Map(
-                  candidates.map((candidate) => [
-                    candidate.versionId,
-                    resolveRetainedParentSnapshotId({
-                      candidateById,
-                      candidateIds,
-                      parentSnapshotId: candidate.parentSnapshotId,
-                    }),
-                  ] as const),
-                );
-                const reparentStmt = args.db.prepare<
-                  [string | null, string, string]
-                >("UPDATE document_versions SET parent_snapshot_id = ? WHERE document_id = ? AND parent_snapshot_id = ?");
-                const deleteStmt = args.db.prepare<[string]>(
-                  "DELETE FROM document_versions WHERE version_id = ?",
-                );
-                for (const candidate of candidates) {
-                  reparentStmt.run(
-                    reparentTargets.get(candidate.versionId) ?? null,
-                    documentId,
-                    candidate.versionId,
-                  );
-                  deleteStmt.run(candidate.versionId);
-                }
+                deleteStmt.run(candidate.versionId);
+              }
 
               const remainingSnapshots = args.db
                 .prepare<
@@ -1502,7 +1504,10 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
           content_hash: contentHash,
         });
       }
-      return { ok: true, data: { updatedAt: ts, contentHash, versionId, compaction } };
+      return {
+        ok: true,
+        data: { updatedAt: ts, contentHash, versionId, compaction },
+      };
     },
   };
 }
@@ -1853,9 +1858,7 @@ function createVersionOps(
           .prepare<
             [string, string],
             VersionListRow
-          >(
-            `SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE project_id = ? AND document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER}`,
-          )
+          >(`SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE project_id = ? AND document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER}`)
           .all(projectId, documentId);
         return {
           ok: true,
@@ -2005,7 +2008,10 @@ function createVersionOps(
 
 function createBranchCrudOps(
   ctx: DocCoreCtx,
-): Pick<InternalDocumentService, "createBranch" | "listBranches" | "switchBranch"> {
+): Pick<
+  InternalDocumentService,
+  "createBranch" | "listBranches" | "switchBranch"
+> {
   const args = ctx;
   const { readBranch, ensureMainBranch, resolveCurrentBranchName } = ctx;
   return {
