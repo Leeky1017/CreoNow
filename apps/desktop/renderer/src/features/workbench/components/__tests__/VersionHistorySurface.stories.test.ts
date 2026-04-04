@@ -7,4 +7,10 @@ describe("VersionHistorySurface stories", () => {
     expect(stories.SingleVersion).toBeDefined();
     expect(stories.SingleVersion.args?.items).toHaveLength(1);
   });
+
+  it("暴露 review-ready 审计截图 story", () => {
+    expect(stories.ReviewReady).toBeDefined();
+    expect(stories.ReviewReady.args?.items).toHaveLength(5);
+    expect(stories.ReviewReady.args?.pendingRollbackVersionId).toBe("rollback-2");
+  });
 });
