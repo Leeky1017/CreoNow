@@ -116,7 +116,7 @@ function readProjectScopedVersionPayload(args: {
   event: unknown;
   payload: unknown;
   projectSessionBinding?: ProjectSessionBindingRegistry;
-}): 
+}):
   | {
       ok: true;
       projectId: string;
