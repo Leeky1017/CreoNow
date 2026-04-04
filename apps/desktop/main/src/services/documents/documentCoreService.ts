@@ -92,6 +92,18 @@ function readLatestVersionId(
   return latest?.versionId ?? null;
 }
 
+function resolveRetainedParentSnapshotId(args: {
+  candidateById: ReadonlyMap<string, { parentSnapshotId: string | null }>;
+  candidateIds: ReadonlySet<string>;
+  parentSnapshotId: string | null;
+}): string | null {
+  let cursor = args.parentSnapshotId;
+  while (cursor !== null && args.candidateIds.has(cursor)) {
+    cursor = args.candidateById.get(cursor)?.parentSnapshotId ?? null;
+  }
+  return cursor;
+}
+
 function insertDocumentVersionSnapshot(args: {
   actor: VersionSnapshotActor;
   contentHash: string;
@@ -1400,6 +1412,22 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
                 .all(documentId, compactBeforeTs, overflowCount);
 
               if (candidates.length > 0) {
+                const candidateIds = new Set(
+                  candidates.map((candidate) => candidate.versionId),
+                );
+                const candidateById = new Map(
+                  candidates.map((candidate) => [candidate.versionId, candidate] as const),
+                );
+                const reparentTargets = new Map(
+                  candidates.map((candidate) => [
+                    candidate.versionId,
+                    resolveRetainedParentSnapshotId({
+                      candidateById,
+                      candidateIds,
+                      parentSnapshotId: candidate.parentSnapshotId,
+                    }),
+                  ] as const),
+                );
                 const reparentStmt = args.db.prepare<
                   [string | null, string, string]
                 >("UPDATE document_versions SET parent_snapshot_id = ? WHERE document_id = ? AND parent_snapshot_id = ?");
@@ -1408,7 +1436,7 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
                 );
                 for (const candidate of candidates) {
                   reparentStmt.run(
-                    candidate.parentSnapshotId,
+                    reparentTargets.get(candidate.versionId) ?? null,
                     documentId,
                     candidate.versionId,
                   );

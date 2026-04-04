@@ -208,6 +208,24 @@ describe("WorkbenchApp", () => {
       data: {
         items: [
           {
+            versionId: "version-ai",
+            actor: "ai",
+            reason: "ai-accept",
+            contentHash: "hash-ai",
+            wordCount: 20,
+            parentSnapshotId: "version-auto",
+            createdAt: 3,
+          },
+          {
+            versionId: "version-auto",
+            actor: "auto",
+            reason: "autosave",
+            contentHash: "hash-auto",
+            wordCount: 15,
+            parentSnapshotId: "version-rollback",
+            createdAt: 2,
+          },
+          {
             versionId: "version-rollback",
             actor: "user",
             reason: "manual-save",
@@ -249,8 +267,21 @@ describe("WorkbenchApp", () => {
 
     expect(await screen.findByRole("heading", { name: "历史记录" })).toBeInTheDocument();
     expect(window.api.version.listSnapshots).toHaveBeenCalledWith({ documentId: "doc-1" });
+    expect(screen.getByText("字数变化 +5")).toBeInTheDocument();
+    expect(screen.getByText("字数变化 +3")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "AI 写入" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "系统快照" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "手动操作" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "恢复到此版本" }));
+    const rollbackArticle = screen
+      .getByText("快照 ID：version-rollback")
+      .closest("article");
+    expect(rollbackArticle).not.toBeNull();
+    fireEvent.click(
+      within(rollbackArticle as HTMLElement).getByRole("button", {
+        name: "恢复到此版本",
+      }),
+    );
     expect(screen.getByText("将先保留当前文稿，再回退到此版本。")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "确认恢复" }));
 

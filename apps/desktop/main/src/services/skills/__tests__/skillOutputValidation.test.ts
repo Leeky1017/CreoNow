@@ -641,6 +641,54 @@ describe("skillOutputValidation inflation guards", () => {
     assert.equal(result.ok, true);
     assert.equal(runSkillCalls[0]?.system, undefined);
   });
+
+  it("rewrite 首轮 preview 会把 selectedText 与 userInstruction 真正注入发送给模型的 prompt", async () => {
+    const runSkillCalls: Array<{ input: string }> = [];
+    const executor = createSkillExecutor({
+      resolveSkill: (id) => ({
+        ok: true,
+        data: {
+          id,
+          enabled: true,
+          valid: true,
+          prompt: {
+            system: "system",
+            user: "选中文本：{{selectedText}}\n用户要求：{{userInstruction}}\n兼容输入：{{input}}",
+          },
+        },
+      }),
+      runSkill: async (args) => {
+        runSkillCalls.push({ input: args.input });
+        return {
+          ok: true,
+          data: {
+            executionId: "ex-selection-template",
+            runId: "run-selection-template",
+            outputText: repeat("甲", 32),
+          },
+        };
+      },
+    });
+
+    const result = await executor.execute({
+      ...buildRunArgs("builtin:rewrite", "旧 input"),
+      hasSelection: true,
+      selectedText: "真正的选中文本",
+      userInstruction: "请收紧语气",
+      selection: {
+        from: 2,
+        to: 8,
+        text: "真正的选中文本",
+        selectionTextHash: "selection-hash",
+      },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(
+      runSkillCalls[0]?.input,
+      "选中文本：真正的选中文本\n用户要求：请收紧语气\n兼容输入：旧 input",
+    );
+  });
 });
 
 describe("skillOutputValidation stream mode", () => {

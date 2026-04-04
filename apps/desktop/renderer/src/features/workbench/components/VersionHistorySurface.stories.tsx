@@ -40,6 +40,21 @@ type Story = StoryObj<typeof VersionHistorySurface>;
 
 export const Default: Story = {};
 
+export const SingleVersion: Story = {
+  args: {
+    items: [
+      {
+        versionId: "manual-1",
+        actor: "user",
+        reason: "manual-save",
+        wordCount: 138,
+        parentSnapshotId: null,
+        createdAtLabel: "04/04 22:30",
+      },
+    ],
+  },
+};
+
 export const Empty: Story = {
   args: {
     items: [],

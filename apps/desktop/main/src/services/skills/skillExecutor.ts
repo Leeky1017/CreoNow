@@ -39,6 +39,7 @@ export type SkillExecutorRunArgs = {
   skillId: string;
   hasSelection?: boolean;
   cursorPosition?: number;
+  selectedText?: string;
   selection?: {
     from: number;
     to: number;
@@ -47,6 +48,7 @@ export type SkillExecutorRunArgs = {
   };
   systemPrompt?: string;
   input: string;
+  userInstruction?: string;
   timeoutMs?: number;
   mode: "agent" | "plan" | "ask";
   model: string;
@@ -169,14 +171,31 @@ function emptyInputMessage(skillId: string): string {
 }
 
 /**
- * Render user prompt template with deterministic `{{input}}` injection.
+ * Render user prompt template with deterministic placeholder injection.
  */
-function renderUserPrompt(args: { template: string; input: string }): string {
-  if (args.template.includes("{{input}}")) {
-    return args.template.split("{{input}}").join(args.input);
+function renderUserPrompt(args: {
+  template: string;
+  input: string;
+  selectedText?: string;
+  userInstruction?: string;
+}): string {
+  const values = {
+    input: args.input,
+    selectedText: args.selectedText ?? args.input,
+    userInstruction: args.userInstruction ?? "",
+  } as const;
+  const usedPlaceholder = Object.keys(values).some((key) =>
+    args.template.includes(`{{${key}}}`),
+  );
+  let rendered = args.template;
+  for (const [key, value] of Object.entries(values)) {
+    rendered = rendered.split(`{{${key}}}`).join(value);
   }
   if (args.template.trim().length === 0) {
     return args.input;
+  }
+  if (usedPlaceholder) {
+    return rendered;
   }
   return `${args.template}\n\n${args.input}`;
 }
@@ -657,6 +676,8 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
       const userPrompt = renderUserPrompt({
         template: resolved.data.prompt?.user ?? "",
         input: inputForPrompt,
+        selectedText: args.selection?.text ?? args.selectedText ?? inputForPrompt,
+        userInstruction: args.userInstruction,
       });
 
       let contextPrompt: string | undefined;

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Clock3, Sparkles, UserRound } from "lucide-react";
 
 import { Button } from "@/components/primitives/Button";
 
@@ -30,8 +31,17 @@ interface VersionHistorySurfaceProps {
   onRequestRollback: (versionId: string) => void;
 }
 
+const ACTOR_ICONS = {
+  user: UserRound,
+  auto: Clock3,
+  ai: Sparkles,
+} as const;
+
 export function VersionHistorySurface(props: VersionHistorySurfaceProps) {
   const { t } = useTranslation();
+  const itemsById = new Map(
+    props.items.map((item) => [item.versionId, item] as const),
+  );
 
   return <section className="panel-surface" aria-label={t("panel.history.title")}>
     <header className="panel-section">
@@ -51,18 +61,36 @@ export function VersionHistorySurface(props: VersionHistorySurfaceProps) {
       {props.items.map((item) => {
         const pending = props.pendingRollbackVersionId === item.versionId;
         const rollingBack = props.rollbackingVersionId === item.versionId;
+        const ActorIcon = ACTOR_ICONS[item.actor];
+        const parentWordCount = item.parentSnapshotId
+          ? itemsById.get(item.parentSnapshotId)?.wordCount ?? 0
+          : 0;
+        const wordDelta = item.wordCount - parentWordCount;
+        const formattedWordDelta =
+          wordDelta === 0 ? "0" : `${wordDelta > 0 ? "+" : ""}${wordDelta}`;
         return <article key={item.versionId} className="history-item">
           <div className="history-item__header">
             <div className="history-item__summary">
               <strong>{item.createdAtLabel}</strong>
-              <span className="panel-meta">
-                {t(`panel.history.actor.${item.actor}`)}
+              <span className="history-item__meta">
+                <span
+                  className="history-item__actor"
+                  role="img"
+                  aria-label={t(`panel.history.actor.${item.actor}`)}
+                >
+                  <ActorIcon aria-hidden="true" size={14} />
+                </span>
+                <span className="panel-meta">
+                  {t(`panel.history.actor.${item.actor}`)}
+                </span>
                 {" · "}
-                {t(`panel.history.reason.${item.reason}`)}
+                <span className="panel-meta">
+                  {t(`panel.history.reason.${item.reason}`)}
+                </span>
               </span>
             </div>
             <span className="history-item__word-count">
-              {t("status.wordCount", { count: item.wordCount })}
+              {t("panel.history.wordDelta", { delta: formattedWordDelta })}
             </span>
           </div>
           <p className="panel-meta">{t("panel.history.snapshotId", { id: item.versionId })}</p>

@@ -522,6 +522,18 @@ button {
   gap: var(--space-2);
 }
 
+.history-item__meta,
+.history-item__actor {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.history-item__actor {
+  color: var(--color-fg-muted);
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
 .history-item__word-count {
   color: var(--color-fg-muted);
   font-size: var(--text-body-size);

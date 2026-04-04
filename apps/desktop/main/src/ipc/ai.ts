@@ -1567,11 +1567,18 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         skillId: request.skillId,
         hasSelection: Boolean(request.selection),
         input: resolveWritingRequestInput(request),
+        selectedText:
+          request.selection?.text
+          ?? request.input.selectedText
+          ?? resolveWritingRequestInput(request),
         ...(request.cursorPosition === undefined
           ? {}
           : { cursorPosition: request.cursorPosition }),
         mode: "ask",
         model: request.modelId ?? "default",
+        ...(request.userInstruction === undefined
+          ? {}
+          : { userInstruction: request.userInstruction }),
         context: {
           projectId: request.projectId,
           documentId: request.documentId,

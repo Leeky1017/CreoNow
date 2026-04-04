@@ -113,6 +113,7 @@ const resources = {
       "panel.history.actor.user": "手动操作",
       "panel.history.actor.auto": "系统快照",
       "panel.history.actor.ai": "AI 写入",
+      "panel.history.wordDelta": "字数变化 {{delta}}",
       "panel.history.reason.manual-save": "手动保存",
       "panel.history.reason.autosave": "自动保存",
       "panel.history.reason.ai-accept": "接受 AI 建议",
