@@ -29,6 +29,7 @@ type StoredVersion = {
   documentId: string;
   actor: "user" | "auto" | "ai";
   reason: string;
+  parentVersionId: string | null;
   contentJson: string;
   contentText: string;
   contentMd: string;
@@ -182,22 +183,44 @@ export function createReplaceDbStub(args: {
         };
       }
 
+      if (sql.startsWith("SELECT version_id as versionId FROM document_versions")) {
+        return {
+          get: (documentId: string) => {
+            const found = [...versions]
+              .filter((item) => item.documentId === documentId)
+              .sort((left, right) => left.createdAt - right.createdAt || left.versionId.localeCompare(right.versionId))
+              .at(-1);
+            return found ? { versionId: found.versionId } : undefined;
+          },
+        };
+      }
+
       if (sql.startsWith("INSERT INTO document_versions")) {
         return {
-          run: (
-            versionId: string,
-            projectId: string,
-            documentId: string,
-            actor: "user" | "auto" | "ai",
-            reason: string,
-            contentJson: string,
-            contentText: string,
-            contentMd: string,
-            contentHash: string,
-            _diffFormat: string,
-            _diffText: string,
-            createdAt: number,
-          ) => {
+          run: (...params: unknown[]) => {
+            const [
+              versionId,
+              projectId,
+              documentId,
+              actor,
+              reason,
+              maybeParentVersionId,
+              maybeContentJson,
+              maybeContentText,
+              maybeContentMd,
+              maybeContentHash,
+              maybeDiffFormat,
+              maybeDiffText,
+              maybeCreatedAt,
+            ] = params as [string, string, string, "user" | "auto" | "ai", string, unknown, unknown, unknown, unknown, unknown, unknown, unknown, unknown];
+            const hasParentVersionId = typeof maybeCreatedAt === "number";
+            const parentVersionId = hasParentVersionId ? (maybeParentVersionId as string | null) : null;
+            const contentJson = (hasParentVersionId ? maybeContentJson : maybeParentVersionId) as string;
+            const contentText = (hasParentVersionId ? maybeContentText : maybeContentJson) as string;
+            const contentMd = (hasParentVersionId ? maybeContentMd : maybeContentText) as string;
+            const contentHash = (hasParentVersionId ? maybeContentHash : maybeContentMd) as string;
+            const createdAt = (hasParentVersionId ? maybeCreatedAt : maybeDiffText) as number;
+            void maybeDiffFormat;
             if (
               reason === "pre-search-replace" &&
               failSnapshotSet.has(documentId)
@@ -210,6 +233,7 @@ export function createReplaceDbStub(args: {
               documentId,
               actor,
               reason,
+              parentVersionId,
               contentJson,
               contentText,
               contentMd,
