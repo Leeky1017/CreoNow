@@ -1067,9 +1067,10 @@ async function buildCompressedHistoryDetail(args: {
       args.immediate.tokenCount,
       estimateTokenCount(sourceMessages.map((message) => message.content).join("\n")),
     );
-  const shouldCompress =
-    args.compressionEngine.shouldCompress(currentTotal, args.maxBudget) ||
-    conversationMessages.length > 6;
+  const shouldCompress = args.compressionEngine.shouldCompress(
+    currentTotal,
+    args.maxBudget,
+  );
 
   if (conversationMessages.length === 0 && !shouldCompress) {
     return {

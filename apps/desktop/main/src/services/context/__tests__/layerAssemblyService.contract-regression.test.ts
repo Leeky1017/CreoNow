@@ -178,12 +178,12 @@ describe("createContextLayerAssemblyService contract regression", () => {
       documentId: "doc-long",
       cursorPosition: 4096,
       skillId: "continue-writing",
-      additionalInput: "林远先观察门缝里的光，再听见门后的脚步声。".repeat(8),
-      conversationMessages: Array.from({ length: 18 }, (_, index) => ({
-        role: index % 2 === 0 ? "user" : "assistant",
-        content: `第${index + 1}轮：${"林远先观察门缝里的光，再听见门后的脚步声。".repeat(6)}`,
-      })),
-    });
+        additionalInput: "林远先观察门缝里的光，再听见门后的脚步声。".repeat(8),
+        conversationMessages: Array.from({ length: 18 }, (_, index) => ({
+          role: index % 2 === 0 ? "user" : "assistant",
+          content: `第${index + 1}轮：${"林远先观察门缝里的光，再听见门后的脚步声。".repeat(28)}`,
+        })),
+      });
 
     expect(result.compressionApplied).toBe(true);
     expect(result.layers.compressedHistory.compressed).toBe(true);
@@ -191,6 +191,57 @@ describe("createContextLayerAssemblyService contract regression", () => {
     expect(result.layers.compressedHistory.compressionRatio).toBeLessThan(1);
     expect(result.prompt).toContain("## Compressed History");
     expect(result.layers.compressedHistory.source).toContain("compressed-history");
+  });
+
+  it("低 token 多轮对话在 shouldCompress=false 时仍以原文注入 compressed-history", async () => {
+    const service = createContextLayerAssemblyService({
+      rules: async () => ({
+        chunks: [{ source: "rules:test", content: "Rule content" }],
+      }),
+      immediate: async () => ({
+        chunks: [
+          {
+            source: "editor:cursor-window",
+            content: "EDITOR_SURFACE_LOW_TOKEN",
+          },
+        ],
+      }),
+    });
+
+    const conversationMessages = [
+      { role: "user" as const, content: "LOW_TOKEN_USER_1：先别推门。" },
+      { role: "assistant" as const, content: "LOW_TOKEN_ASSISTANT_1：我先记住门轴声。" },
+      { role: "user" as const, content: "LOW_TOKEN_USER_2：再看地上的灰。" },
+      { role: "assistant" as const, content: "LOW_TOKEN_ASSISTANT_2：灰里只有一串脚印。" },
+      { role: "user" as const, content: "LOW_TOKEN_USER_3：窗缝也记下来。" },
+      { role: "assistant" as const, content: "LOW_TOKEN_ASSISTANT_3：窗缝透着冷风。" },
+      { role: "user" as const, content: "LOW_TOKEN_USER_4：最后只写手背发凉。" },
+    ];
+    const rawHistory = conversationMessages.map((message) => message.content).join("\n");
+    const request = {
+      projectId: "proj-low-token-many-rounds",
+      documentId: "doc-low-token-many-rounds",
+      cursorPosition: 96,
+      skillId: "continue-writing",
+      conversationMessages,
+    };
+
+    const assembled = await service.assemble(request);
+    const inspected = await service.inspect(request);
+
+    expect(assembled.compressionApplied).toBe(false);
+    expect(assembled.layers.compressedHistory.compressed).toBe(false);
+    expect(assembled.prompt).toContain("## Compressed History");
+    expect(assembled.prompt).toContain(rawHistory);
+    expect(assembled.prompt).not.toContain("[最近保留的");
+    expect(assembled.prompt).toContain("EDITOR_SURFACE_LOW_TOKEN");
+
+    expect(inspected.layersDetail.compressedHistory.compressed).toBe(false);
+    expect(inspected.layersDetail.compressedHistory.content).toBe(rawHistory);
+    expect(inspected.layersDetail.compressedHistory.content).not.toContain(
+      "[最近保留的",
+    );
+    expect(inspected.layersDetail.immediate.content).toBe("EDITOR_SURFACE_LOW_TOKEN");
   });
 
   it("长对话压缩时仍保留最近 keepRecentRounds 轮原始对话", async () => {
@@ -211,7 +262,7 @@ describe("createContextLayerAssemblyService contract regression", () => {
     const conversationMessages = [
       ...Array.from({ length: 8 }, (_, index) => ({
         role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
-        content: `早期历史第${index + 1}条：${"林远在旧楼里反复核对脚步声。".repeat(10)}`,
+        content: `早期历史第${index + 1}条：${"林远在旧楼里反复核对脚步声。".repeat(80)}`,
       })),
       { role: "user" as const, content: "UNIQUE_RECENT_USER_ROUND_1：别动门把，先记住走廊尽头的滴水声。" },
       { role: "assistant" as const, content: "UNIQUE_RECENT_ASSISTANT_ROUND_1：我会保留滴水声与走廊方位。" },
