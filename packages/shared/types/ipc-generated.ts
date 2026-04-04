@@ -3239,6 +3239,7 @@ export type IpcChannelSpec = {
   "version:snapshot:list": {
     request: {
       documentId: string;
+      projectId: string;
     };
     response: {
       items: Array<{
@@ -3263,6 +3264,7 @@ export type IpcChannelSpec = {
   "version:snapshot:read": {
     request: {
       documentId: string;
+      projectId: string;
       versionId: string;
     };
     response: {
@@ -3291,6 +3293,7 @@ export type IpcChannelSpec = {
   "version:snapshot:restore": {
     request: {
       documentId: string;
+      projectId: string;
       versionId: string;
     };
     response: {
@@ -3300,6 +3303,7 @@ export type IpcChannelSpec = {
   "version:snapshot:rollback": {
     request: {
       documentId: string;
+      projectId: string;
       versionId: string;
     };
     response: {

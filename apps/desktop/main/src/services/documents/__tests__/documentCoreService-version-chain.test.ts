@@ -421,7 +421,7 @@ describe("documentCoreService 线性快照链", () => {
     expect(byId.get(save2.data.versionId)).toBe(save1.data.versionId);
     expect(byId.get(save3.data.versionId)).toBe(save2.data.versionId);
 
-    const listed = service.listVersions({ documentId });
+    const listed = service.listVersions({ projectId, documentId });
     expect(listed.ok).toBe(true);
     if (!listed.ok) {
       return;
@@ -520,7 +520,7 @@ describe("documentCoreService 线性快照链", () => {
     }
     const version3 = manualSave2.data.versionId;
 
-    const listBeforeRollback = service.listVersions({ documentId });
+    const listBeforeRollback = service.listVersions({ projectId, documentId });
     expect(listBeforeRollback.ok).toBe(true);
     if (!listBeforeRollback.ok) {
       return;
@@ -534,6 +534,7 @@ describe("documentCoreService 线性快照链", () => {
     expect(beforeRollbackMap.get(version3)?.parentSnapshotId).toBe(version2);
 
     const mergedAutosaveRead = service.readVersion({
+      projectId,
       documentId,
       versionId: version2,
     });
@@ -546,6 +547,7 @@ describe("documentCoreService 线性快照链", () => {
 
     vi.advanceTimersByTime(60_000);
     const rollback = service.rollbackVersion({
+      projectId,
       documentId,
       versionId: version1,
     });
@@ -555,10 +557,12 @@ describe("documentCoreService 线性快照链", () => {
     }
 
     const preRollbackRead = service.readVersion({
+      projectId,
       documentId,
       versionId: rollback.data.preRollbackVersionId,
     });
     const rollbackRead = service.readVersion({
+      projectId,
       documentId,
       versionId: rollback.data.rollbackVersionId,
     });
@@ -580,7 +584,7 @@ describe("documentCoreService 线性快照链", () => {
     }
     expect(readCurrent.data.contentText).toBe("初稿");
 
-    const listAfterRollback = service.listVersions({ documentId });
+    const listAfterRollback = service.listVersions({ projectId, documentId });
     expect(listAfterRollback.ok).toBe(true);
     if (!listAfterRollback.ok) {
       return;
@@ -623,7 +627,7 @@ describe("documentCoreService 线性快照链", () => {
       return;
     }
     const documentId = created.data.documentId;
-    const initialSnapshots = bootstrapService.listVersions({ documentId });
+    const initialSnapshots = bootstrapService.listVersions({ projectId, documentId });
     expect(initialSnapshots.ok).toBe(true);
     if (!initialSnapshots.ok) {
       return;
@@ -719,7 +723,7 @@ describe("documentCoreService 线性快照链", () => {
       return;
     }
 
-    const versions = compactionService.listVersions({ documentId });
+    const versions = compactionService.listVersions({ projectId, documentId });
     expect(versions.ok).toBe(true);
     if (!versions.ok) {
       return;
@@ -832,6 +836,7 @@ describe("documentCoreService 线性快照链", () => {
     expect(autosave2.data.versionId).toBe(autosave1.data.versionId);
 
     const rollback = service.rollbackVersion({
+      projectId,
       documentId,
       versionId: manualSave.data.versionId,
     });

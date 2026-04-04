@@ -726,17 +726,23 @@ function WorkbenchShell() {
     });
   }, [clearAcceptSaveFailure, clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
 
-  const loadHistorySnapshots = useCallback(async (documentId: string | null) => {
-    if (documentId === null) {
+  const loadHistorySnapshots = useCallback(async (args: {
+    documentId: string | null;
+    projectId: string | null;
+  }) => {
+    if (args.documentId === null || args.projectId === null) {
       setHistoryItems([]);
       setHistoryError(null);
       return;
     }
 
     setHistoryLoading(true);
-    setHistoryError(null);
+      setHistoryError(null);
     try {
-      const result = await api.version.listSnapshots({ documentId });
+      const result = await api.version.listSnapshots({
+        projectId: args.projectId,
+        documentId: args.documentId,
+      });
       if (result.ok === false) {
         throw result.error;
       }
@@ -765,8 +771,11 @@ function WorkbenchShell() {
 
     setHistoryOpen(true);
     setPendingRollbackVersionId(null);
-    await loadHistorySnapshots(activeDocument?.documentId ?? null);
-  }, [activeDocument?.documentId, historyOpen, loadHistorySnapshots, rollbackingVersionId]);
+    await loadHistorySnapshots({
+      documentId: activeDocument?.documentId ?? null,
+      projectId: activeDocument?.projectId ?? null,
+    });
+  }, [activeDocument?.documentId, activeDocument?.projectId, historyOpen, loadHistorySnapshots, rollbackingVersionId]);
 
   const handleConfirmRollbackSnapshot = useCallback(async (versionId: string) => {
     if (activeDocument === null || rollbackingVersionId !== null) {
@@ -785,6 +794,7 @@ function WorkbenchShell() {
       setRollbackingVersionId(versionId);
       await flushDirtyDraftBeforeContextSwitch();
       const rollbackResult = await api.version.rollbackSnapshot({
+        projectId: activeDocument.projectId,
         documentId: activeDocument.documentId,
         versionId,
       });
@@ -827,7 +837,10 @@ function WorkbenchShell() {
       setSaveUiState("saved");
       setLastSavedAt(readResult.data.updatedAt);
       setPendingRollbackVersionId(null);
-      await loadHistorySnapshots(readResult.data.documentId);
+      await loadHistorySnapshots({
+        documentId: readResult.data.documentId,
+        projectId: readResult.data.projectId,
+      });
     } catch (error) {
       setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
     } finally {
@@ -861,8 +874,11 @@ function WorkbenchShell() {
       return;
     }
 
-    void loadHistorySnapshots(activeDocument?.documentId ?? null);
-  }, [activeDocument?.documentId, historyOpen, loadHistorySnapshots]);
+    void loadHistorySnapshots({
+      documentId: activeDocument?.documentId ?? null,
+      projectId: activeDocument?.projectId ?? null,
+    });
+  }, [activeDocument?.documentId, activeDocument?.projectId, historyOpen, loadHistorySnapshots]);
 
   useEffect(() => {
     if (containerRef.current === null) {

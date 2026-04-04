@@ -2294,7 +2294,7 @@ export const ipcContract = {
       }),
     },
     "version:snapshot:list": {
-      request: s.object({ documentId: s.string() }),
+      request: s.object({ projectId: s.string(), documentId: s.string() }),
       response: s.object({
         items: s.array(
           s.object({
@@ -2310,7 +2310,7 @@ export const ipcContract = {
       }),
     },
     "version:snapshot:read": {
-      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      request: s.object({ projectId: s.string(), documentId: s.string(), versionId: s.string() }),
       response: s.object({
         documentId: s.string(),
         projectId: s.string(),
@@ -2340,7 +2340,7 @@ export const ipcContract = {
       }),
     },
     "version:snapshot:rollback": {
-      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      request: s.object({ projectId: s.string(), documentId: s.string(), versionId: s.string() }),
       response: s.object({
         restored: s.literal(true),
         preRollbackVersionId: s.string(),
@@ -2348,7 +2348,7 @@ export const ipcContract = {
       }),
     },
     "version:snapshot:restore": {
-      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      request: s.object({ projectId: s.string(), documentId: s.string(), versionId: s.string() }),
       response: s.object({ restored: s.literal(true) }),
     },
     "app:renderer:logerror": {

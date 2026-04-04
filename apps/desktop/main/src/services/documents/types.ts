@@ -182,10 +182,11 @@ export type DocumentService = {
     projectId: string;
     documentId: string;
   }) => ServiceResult<{ documentId: string }>;
-  listVersions: (args: { documentId: string }) => ServiceResult<{
+  listVersions: (args: { projectId: string; documentId: string }) => ServiceResult<{
     items: VersionListItem[];
   }>;
   readVersion: (args: {
+    projectId: string;
     documentId: string;
     versionId: string;
   }) => ServiceResult<VersionRead>;
@@ -195,6 +196,7 @@ export type DocumentService = {
     targetVersionId?: string;
   }) => ServiceResult<VersionDiffPayload>;
   rollbackVersion: (args: {
+    projectId: string;
     documentId: string;
     versionId: string;
   }) => ServiceResult<{
@@ -203,6 +205,7 @@ export type DocumentService = {
     rollbackVersionId: string;
   }>;
   restoreVersion: (args: {
+    projectId: string;
     documentId: string;
     versionId: string;
   }) => ServiceResult<{ restored: true }>;

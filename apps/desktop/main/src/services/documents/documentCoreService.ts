@@ -609,6 +609,7 @@ function createDocUtilityHelpers(args: {
   logger: Logger;
 }) {
   const rollbackToVersion = (params: {
+    projectId: string;
     documentId: string;
     versionId: string;
   }): ServiceResult<{
@@ -625,20 +626,20 @@ function createDocUtilityHelpers(args: {
       args.db.transaction(() => {
         const target = args.db
           .prepare<
-            [string, string],
+            [string, string, string],
             VersionRestoreRow
-          >("SELECT project_id as projectId, document_id as documentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM document_versions WHERE document_id = ? AND version_id = ?")
-          .get(params.documentId, params.versionId);
+          >("SELECT project_id as projectId, document_id as documentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM document_versions WHERE project_id = ? AND document_id = ? AND version_id = ?")
+          .get(params.projectId, params.documentId, params.versionId);
         if (!target) {
           throw new Error("NOT_FOUND");
         }
 
         const current = args.db
           .prepare<
-            [string],
+            [string, string],
             RollbackCurrentDocumentRow
-          >("SELECT project_id as projectId, document_id as documentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM documents WHERE document_id = ?")
-          .get(params.documentId);
+          >("SELECT project_id as projectId, document_id as documentId, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash FROM documents WHERE project_id = ? AND document_id = ?")
+          .get(params.projectId, params.documentId);
         if (!current) {
           throw new Error("NOT_FOUND");
         }
@@ -1846,16 +1847,16 @@ function createVersionOps(
   const args = ctx;
   const { maxDiffPayloadBytes, rollbackToVersion } = ctx;
   return {
-    listVersions: ({ documentId }) => {
+    listVersions: ({ projectId, documentId }) => {
       try {
         const rows = args.db
           .prepare<
-            [string],
+            [string, string],
             VersionListRow
           >(
-            `SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER}`,
+            `SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE project_id = ? AND document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER}`,
           )
-          .all(documentId);
+          .all(projectId, documentId);
         return {
           ok: true,
           data: {
@@ -1874,14 +1875,14 @@ function createVersionOps(
       }
     },
 
-    readVersion: ({ documentId, versionId }) => {
+    readVersion: ({ projectId, documentId, versionId }) => {
       try {
         const row = args.db
           .prepare<
-            [string, string],
+            [string, string, string],
             VersionRead
-          >("SELECT document_id as documentId, project_id as projectId, version_id as versionId, actor, reason, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? AND version_id = ?")
-          .get(documentId, versionId);
+          >("SELECT document_id as documentId, project_id as projectId, version_id as versionId, actor, reason, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE project_id = ? AND document_id = ? AND version_id = ?")
+          .get(projectId, documentId, versionId);
         if (!row) {
           return documentError("NOT_FOUND", "Version not found");
         }
@@ -1989,11 +1990,11 @@ function createVersionOps(
       }
     },
 
-    rollbackVersion: ({ documentId, versionId }) =>
-      rollbackToVersion({ documentId, versionId }),
+    rollbackVersion: ({ projectId, documentId, versionId }) =>
+      rollbackToVersion({ projectId, documentId, versionId }),
 
-    restoreVersion: ({ documentId, versionId }) => {
-      const rollback = rollbackToVersion({ documentId, versionId });
+    restoreVersion: ({ projectId, documentId, versionId }) => {
+      const rollback = rollbackToVersion({ projectId, documentId, versionId });
       if (!rollback.ok) {
         return rollback;
       }

@@ -74,6 +74,78 @@ function readNonEmptyStringField(payload: unknown, key: string): string | null {
   return value;
 }
 
+function readProjectScopedDocumentPayload(args: {
+  event: unknown;
+  payload: unknown;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
+}):
+  | {
+      ok: true;
+      projectId: string;
+      documentId: string;
+    }
+  | { ok: false; response: IpcResponse<never> } {
+  const guarded = guardAndNormalizeProjectAccess({
+    event: args.event,
+    payload: args.payload,
+    projectSessionBinding: args.projectSessionBinding,
+  });
+  if (!guarded.ok) {
+    return guarded;
+  }
+
+  const projectId = readNonEmptyStringField(args.payload, "projectId");
+  const documentId = readNonEmptyStringField(args.payload, "documentId");
+  if (!projectId || !documentId) {
+    return {
+      ok: false,
+      response: {
+        ok: false,
+        error: {
+          code: "INVALID_ARGUMENT",
+          message: "projectId/documentId is required",
+        },
+      },
+    };
+  }
+
+  return { ok: true, projectId, documentId };
+}
+
+function readProjectScopedVersionPayload(args: {
+  event: unknown;
+  payload: unknown;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
+}): 
+  | {
+      ok: true;
+      projectId: string;
+      documentId: string;
+      versionId: string;
+    }
+  | { ok: false; response: IpcResponse<never> } {
+  const request = readProjectScopedDocumentPayload(args);
+  if (!request.ok) {
+    return request;
+  }
+
+  const versionId = readNonEmptyStringField(args.payload, "versionId");
+  if (!versionId) {
+    return {
+      ok: false,
+      response: {
+        ok: false,
+        error: {
+          code: "INVALID_ARGUMENT",
+          message: "projectId/documentId/versionId is required",
+        },
+      },
+    };
+  }
+
+  return { ok: true, projectId: request.projectId, documentId: request.documentId, versionId };
+}
+
 async function withTimeout<T>(
   run: () => Promise<T>,
   timeoutMs: number,
@@ -295,6 +367,7 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
             }
 
             const listed = svc.listVersions({
+              projectId,
               documentId,
             });
             if (!listed.ok) {
@@ -330,8 +403,8 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
   ipcMain.handle(
     "version:snapshot:list",
     async (
-      _e,
-      payload: { documentId: string },
+      event,
+      payload: unknown,
     ): Promise<
       IpcResponse<{
         items: Array<{
@@ -345,24 +418,27 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
         }>;
       }>
     > => {
+      const request = readProjectScopedDocumentPayload({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!request.ok) {
+        return request.response;
+      }
+
       if (!db) {
         return {
           ok: false,
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      if (payload.documentId.trim().length === 0) {
-        return {
-          ok: false,
-          error: {
-            code: "INVALID_ARGUMENT",
-            message: "documentId is required",
-          },
-        };
-      }
 
       const svc = createService();
-      const res = svc.listVersions({ documentId: payload.documentId });
+      const res = svc.listVersions({
+        projectId: request.projectId,
+        documentId: request.documentId,
+      });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -372,8 +448,8 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
   ipcMain.handle(
     "version:snapshot:read",
     async (
-      _e,
-      payload: { documentId: string; versionId: string },
+      event,
+      payload: unknown,
     ): Promise<
       IpcResponse<{
         documentId: string;
@@ -390,29 +466,27 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
         createdAt: number;
       }>
     > => {
+      const request = readProjectScopedVersionPayload({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!request.ok) {
+        return request.response;
+      }
+
       if (!db) {
         return {
           ok: false,
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      if (
-        payload.documentId.trim().length === 0 ||
-        payload.versionId.trim().length === 0
-      ) {
-        return {
-          ok: false,
-          error: {
-            code: "INVALID_ARGUMENT",
-            message: "documentId/versionId is required",
-          },
-        };
-      }
 
       const svc = createService();
       const res = svc.readVersion({
-        documentId: payload.documentId,
-        versionId: payload.versionId,
+        projectId: request.projectId,
+        documentId: request.documentId,
+        versionId: request.versionId,
       });
       return res.ok
         ? { ok: true, data: res.data }
@@ -485,13 +559,14 @@ function registerVersionSnapshotLifecycleHandlers(
     rollbackConflict,
     withIoRetry,
     simulateLatencyMs,
+    projectSessionBinding,
   } = ctx;
 
   ipcMain.handle(
     "version:snapshot:rollback",
     async (
-      _e,
-      payload: { documentId: string; versionId: string },
+      event,
+      payload: unknown,
     ): Promise<
       IpcResponse<{
         restored: true;
@@ -499,41 +574,39 @@ function registerVersionSnapshotLifecycleHandlers(
         rollbackVersionId: string;
       }>
     > => {
+      const request = readProjectScopedVersionPayload({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!request.ok) {
+        return request.response;
+      }
+
       if (!db) {
         return {
           ok: false,
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      if (
-        payload.documentId.trim().length === 0 ||
-        payload.versionId.trim().length === 0
-      ) {
-        return {
-          ok: false,
-          error: {
-            code: "INVALID_ARGUMENT",
-            message: "documentId/versionId is required",
-          },
-        };
-      }
 
-      if (coordinator.isBusy(payload.documentId)) {
-        return rollbackConflict(payload.documentId);
+      if (coordinator.isBusy(request.documentId)) {
+        return rollbackConflict(request.documentId);
       }
 
       return coordinator.withSerializedDocument(
-        payload.documentId,
+        request.documentId,
         async () => {
           await sleep(simulateLatencyMs?.rollback);
           return withIoRetry({
             operation: "version:snapshot:rollback",
-            documentId: payload.documentId,
+            documentId: request.documentId,
             run: async () => {
               const svc = createService();
               const res = svc.rollbackVersion({
-                documentId: payload.documentId,
-                versionId: payload.versionId,
+                projectId: request.projectId,
+                documentId: request.documentId,
+                versionId: request.versionId,
               });
               return res.ok
                 ? { ok: true, data: res.data }
@@ -548,44 +621,42 @@ function registerVersionSnapshotLifecycleHandlers(
   ipcMain.handle(
     "version:snapshot:restore",
     async (
-      _e,
-      payload: { documentId: string; versionId: string },
+      event,
+      payload: unknown,
     ): Promise<IpcResponse<{ restored: true }>> => {
+      const request = readProjectScopedVersionPayload({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!request.ok) {
+        return request.response;
+      }
+
       if (!db) {
         return {
           ok: false,
           error: { code: "DB_ERROR", message: "Database not ready" },
         };
       }
-      if (
-        payload.documentId.trim().length === 0 ||
-        payload.versionId.trim().length === 0
-      ) {
-        return {
-          ok: false,
-          error: {
-            code: "INVALID_ARGUMENT",
-            message: "documentId/versionId is required",
-          },
-        };
-      }
 
-      if (coordinator.isBusy(payload.documentId)) {
-        return rollbackConflict(payload.documentId);
+      if (coordinator.isBusy(request.documentId)) {
+        return rollbackConflict(request.documentId);
       }
 
       return coordinator.withSerializedDocument(
-        payload.documentId,
+        request.documentId,
         async () => {
           await sleep(simulateLatencyMs?.rollback);
           return withIoRetry({
             operation: "version:snapshot:restore",
-            documentId: payload.documentId,
+            documentId: request.documentId,
             run: async () => {
               const svc = createService();
               const res = svc.restoreVersion({
-                documentId: payload.documentId,
-                versionId: payload.versionId,
+                projectId: request.projectId,
+                documentId: request.documentId,
+                versionId: request.versionId,
               });
               return res.ok
                 ? { ok: true, data: res.data }

@@ -322,7 +322,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       run.data?.outputText,
     );
 
-    const versions = service.listVersions({ documentId });
+    const versions = service.listVersions({ projectId, documentId });
     expect(versions.ok).toBe(true);
     const reasons =
       versions.ok ? versions.data.items.map((item) => item.reason) : [];
@@ -343,6 +343,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
         rollbackVersionId: string;
       };
     }>("version:snapshot:rollback", {
+      projectId,
       documentId,
       versionId: preWriteVersionId!,
     });
@@ -384,13 +385,14 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       parentSnapshotId: preRollbackSnapshot?.versionId,
     });
 
-    const listedVersions = service.listVersions({ documentId });
+    const listedVersions = service.listVersions({ projectId, documentId });
     expect(listedVersions.ok).toBe(true);
     expect(listedVersions.ok && listedVersions.data.items[0]?.parentSnapshotId).toBe(
       rollback.data?.preRollbackVersionId,
     );
 
     const rollbackVersion = service.readVersion({
+      projectId,
       documentId,
       versionId: rollback.data!.rollbackVersionId,
     });
@@ -447,7 +449,7 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(read.ok).toBe(true);
     expect(read.ok && read.data.contentText).toBe("原文");
 
-    const versions = service.listVersions({ documentId });
+    const versions = service.listVersions({ projectId, documentId });
     expect(versions.ok).toBe(true);
     const reasons =
       versions.ok ? versions.data.items.map((item) => item.reason) : [];

@@ -266,7 +266,7 @@ describe("WorkbenchApp", () => {
     fireEvent.click(screen.getByRole("button", { name: "历史记录" }));
 
     expect(await screen.findByRole("heading", { name: "历史记录" })).toBeInTheDocument();
-    expect(window.api.version.listSnapshots).toHaveBeenCalledWith({ documentId: "doc-1" });
+    expect(window.api.version.listSnapshots).toHaveBeenCalledWith({ projectId: "project-1", documentId: "doc-1" });
     expect(screen.getByText("字数变化 +5")).toBeInTheDocument();
     expect(screen.getByText("字数变化 +3")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "AI 写入" })).toBeInTheDocument();
@@ -287,6 +287,7 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(window.api!.version.rollbackSnapshot).toHaveBeenCalledWith({
+        projectId: "project-1",
         documentId: "doc-1",
         versionId: "version-rollback",
       });
@@ -353,6 +354,7 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(window.api!.version.rollbackSnapshot).toHaveBeenCalledWith({
+        projectId: "project-1",
         documentId: "doc-1",
         versionId: "version-rollback",
       });
