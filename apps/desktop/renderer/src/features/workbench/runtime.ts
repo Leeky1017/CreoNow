@@ -304,6 +304,7 @@ function createInsertionSelection(cursorPosition: number): SelectionRef {
 }
 
 export async function requestAiPreview(args: SelectionPreviewRequest | ContinuePreviewRequest): Promise<AiPreview> {
+  const userInstruction = args.instruction.trim();
   const result = await args.api.ai.runSkill({
     skillId: args.skillId,
     hasSelection: args.skillId !== "builtin:continue",
@@ -315,9 +316,9 @@ export async function requestAiPreview(args: SelectionPreviewRequest | ContinueP
       : {
           selection: args.selection,
         }),
-    input: args.skillId === "builtin:continue" ? args.instruction.trim() : args.selection.text,
-    ...(args.skillId !== "builtin:continue" && args.instruction.trim().length > 0
-      ? { userInstruction: args.instruction.trim() }
+    input: args.skillId === "builtin:continue" ? args.precedingText : args.selection.text,
+    ...(userInstruction.length > 0
+      ? { userInstruction }
       : {}),
     mode: "ask",
     model: args.model,

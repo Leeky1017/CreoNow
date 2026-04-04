@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { VersionDiffPayload } from "@shared/types/version-diff";
+import { VERSION_HISTORY_RECENT_LIMIT } from "@shared/versionHistory";
 import type { Logger } from "../logging/logger";
 import {
   createDocumentService,
@@ -26,8 +27,6 @@ const DEFAULT_IO_RETRY_MAX_ATTEMPTS = 3;
 const DEFAULT_IO_TIMEOUT_MS = 5_000;
 const DEFAULT_MAX_PARALLEL_DOCUMENT_OPS = 8;
 const DEFAULT_MAX_DIFF_PAYLOAD_BYTES = 2 * 1024 * 1024;
-const ROLLBACK_HISTORY_VISIBLE_LIMIT = 50;
-
 class IoTimeoutError extends Error {
   constructor(message: string) {
     super(message);
@@ -471,7 +470,14 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
       }
 
       const svc = createService();
-      const res = svc.listVersions({ documentId: payload.documentId, limit: limit ?? undefined });
+      const normalizedLimit =
+        typeof limit === "number"
+          ? Math.min(limit, VERSION_HISTORY_RECENT_LIMIT)
+          : VERSION_HISTORY_RECENT_LIMIT;
+      const res = svc.listVersions({
+        documentId: payload.documentId,
+        limit: normalizedLimit,
+      });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -704,7 +710,7 @@ function registerVersionSnapshotLifecycleHandlers(
 
               const history = svc.listVersions({
                 documentId: payload.documentId,
-                limit: ROLLBACK_HISTORY_VISIBLE_LIMIT,
+                limit: VERSION_HISTORY_RECENT_LIMIT,
               });
               if (!history.ok) {
                 return { ok: false, error: history.error };

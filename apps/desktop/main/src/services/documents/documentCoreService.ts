@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import { hashJson } from "@shared/hashUtils";
 import { nowTs } from "@shared/timeUtils";
+import { VERSION_HISTORY_RECENT_LIMIT } from "@shared/versionHistory";
 
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "./derive";
@@ -77,6 +78,13 @@ function countWords(text: string): number {
     return 0;
   }
   return trimmed.split(/\s+/u).length;
+}
+
+function normalizeVersionHistoryLimit(limit?: number | null): number {
+  if (typeof limit !== "number" || !Number.isInteger(limit) || limit <= 0) {
+    return VERSION_HISTORY_RECENT_LIMIT;
+  }
+  return Math.min(limit, VERSION_HISTORY_RECENT_LIMIT);
 }
 
 function normalizeNewlines(text: string): string {
@@ -1795,23 +1803,13 @@ function createVersionOps(
   return {
     listVersions: ({ documentId, limit }) => {
       try {
-        const normalizedLimit =
-          typeof limit === "number" && Number.isInteger(limit) && limit > 0
-            ? limit
-            : null;
-        const rows = normalizedLimit === null
-          ? args.db
-              .prepare<
-                [string],
-                VersionListRow
-              >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC")
-              .all(documentId)
-          : args.db
-              .prepare<
-                [string, number],
-                VersionListRow
-              >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?")
-              .all(documentId, normalizedLimit);
+        const normalizedLimit = normalizeVersionHistoryLimit(limit);
+        const rows = args.db
+          .prepare<
+            [string, number],
+            VersionListRow
+          >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?")
+          .all(documentId, normalizedLimit);
         return {
           ok: true,
           data: {

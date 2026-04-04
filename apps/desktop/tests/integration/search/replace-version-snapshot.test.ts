@@ -28,6 +28,10 @@ import {
     ],
     failSnapshotForDocumentIds: ["doc_2"],
   });
+  const manualSaveVersionId = db.seedVersion({
+    documentId: "doc_1",
+    reason: "manual-save",
+  });
   const { ipcMain, handlers } = createIpcHarness();
 
   registerSearchIpcHandlers({
@@ -101,11 +105,14 @@ import {
   assert.equal(db.readDocument("doc_2")?.contentText, "warehouse remains here");
 
   const doc1Versions = db.listVersions("doc_1");
-  assert.equal(doc1Versions.length, 2);
-  assert.equal(doc1Versions[0]?.reason, "pre-search-replace");
-  assert.equal(doc1Versions[1]?.reason, "search-replace");
-  assert.equal(doc1Versions[0]?.parentVersionId, null);
-  assert.equal(doc1Versions[1]?.parentVersionId, doc1Versions[0]?.versionId);
-  assert.equal(doc1Versions[0]?.wordCount, 3);
-  assert.equal(doc1Versions[1]?.wordCount, 3);
+  assert.equal(doc1Versions.length, 3);
+  const manualSaveVersion = doc1Versions.find((version) => version.reason === "manual-save");
+  const preSearchReplaceVersion = doc1Versions.find((version) => version.reason === "pre-search-replace");
+  const searchReplaceVersion = doc1Versions.find((version) => version.reason === "search-replace");
+  assert.equal(manualSaveVersion?.versionId, manualSaveVersionId);
+  assert.equal(manualSaveVersion?.parentVersionId, null);
+  assert.equal(preSearchReplaceVersion?.parentVersionId, manualSaveVersionId);
+  assert.equal(searchReplaceVersion?.parentVersionId, preSearchReplaceVersion?.versionId ?? null);
+  assert.equal(preSearchReplaceVersion?.wordCount, 3);
+  assert.equal(searchReplaceVersion?.wordCount, 3);
 }

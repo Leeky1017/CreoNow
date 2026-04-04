@@ -2983,6 +2983,11 @@ describe("WorkbenchApp", () => {
     });
     expect(currentTextContent).toBe("回退后的文稿");
     expect(await screen.findByText("回退完成")).toBeInTheDocument();
+    expect(await screen.findByText("回退前快照")).toBeInTheDocument();
+    expect(screen.getByText("前序：version-pre-rollback")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("前序：version-pre-write")).not.toBeInTheDocument();
+    });
 
     const statusBar = container.querySelector(".status-bar");
     expect(statusBar).not.toBeNull();

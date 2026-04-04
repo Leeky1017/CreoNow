@@ -87,6 +87,12 @@ export function createReplaceDbStub(args: {
 }): Database.Database & {
   readDocument: (documentId: string) => StoredDocument | undefined;
   listVersions: (documentId: string) => StoredVersion[];
+  seedVersion: (args: {
+    documentId: string;
+    actor?: "user" | "auto" | "ai";
+    reason: string;
+    parentVersionId?: string | null;
+  }) => string;
 } {
   const failSnapshotSet = new Set(args.failSnapshotForDocumentIds ?? []);
   const conflictOnUpdateSet = new Set(args.conflictOnUpdateDocumentIds ?? []);
@@ -269,11 +275,41 @@ export function createReplaceDbStub(args: {
   } as unknown as Database.Database & {
     readDocument: (documentId: string) => StoredDocument | undefined;
     listVersions: (documentId: string) => StoredVersion[];
+    seedVersion: (args: {
+      documentId: string;
+      actor?: "user" | "auto" | "ai";
+      reason: string;
+      parentVersionId?: string | null;
+    }) => string;
   };
 
   db.readDocument = (documentId: string) => documents.get(documentId);
   db.listVersions = (documentId: string) =>
     versions.filter((item) => item.documentId === documentId);
+  db.seedVersion = ({ documentId, actor = "user", reason, parentVersionId = null }) => {
+    const document = documents.get(documentId);
+    if (!document) {
+      throw new Error(`Unknown document for seedVersion: ${documentId}`);
+    }
+    const versionId = `seed-${documentId}-${versions.length + 1}`;
+    versions.push({
+      versionId,
+      projectId: document.projectId,
+      documentId,
+      actor,
+      reason,
+      parentVersionId,
+      contentJson: document.contentJson,
+      contentText: document.contentText,
+      contentMd: document.contentMd,
+      contentHash: document.contentHash,
+      wordCount: document.contentText.trim().length === 0
+        ? 0
+        : document.contentText.trim().split(/\s+/u).length,
+      createdAt: now++,
+    });
+    return versionId;
+  };
   return db;
 }
 

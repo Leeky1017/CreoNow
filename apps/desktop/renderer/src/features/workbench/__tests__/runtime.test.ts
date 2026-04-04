@@ -218,7 +218,7 @@ describe("workbench runtime helpers", () => {
     expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
       skillId: "builtin:continue",
       hasSelection: false,
-      input: "",
+      input: "夜幕降临，街灯次第亮起。",
       cursorPosition: 7,
       precedingText: "夜幕降临，街灯次第亮起。",
     }));
@@ -230,6 +230,28 @@ describe("workbench runtime helpers", () => {
       text: "",
     });
     expect(preview.selection.selectionTextHash).toEqual(expect.any(String));
+  });
+
+  it("forwards continue optional instruction through userInstruction while preserving raw precedingText input", async () => {
+    const api = createApiMock();
+
+    await requestAiPreview({
+      api,
+      context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
+      skillId: "builtin:continue",
+      instruction: "延续上一段的悬疑感",
+      model: "gpt-4.1-mini",
+      cursorPosition: 7,
+      precedingText: "夜幕降临，街灯次第亮起。",
+      userEditRevision: 0,
+    });
+
+    expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+      skillId: "builtin:continue",
+      input: "夜幕降临，街灯次第亮起。",
+      precedingText: "夜幕降临，街灯次第亮起。",
+      userInstruction: "延续上一段的悬疑感",
+    }));
   });
 
   it("keeps continue preview insertion semantics aligned with zero-width writeback", async () => {

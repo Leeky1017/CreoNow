@@ -8,6 +8,7 @@ import { Node as ProseMirrorNode } from "prosemirror-model";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { Logger } from "../../logging/logger";
+import { VERSION_HISTORY_RECENT_LIMIT } from "@shared/versionHistory";
 import { registerAiIpcHandlers } from "../ai";
 import { createProjectSessionBindingRegistry } from "../projectSessionBinding";
 import { registerVersionIpcHandlers } from "../version";
@@ -406,6 +407,91 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     const readAfterRollback = service.read({ projectId, documentId });
     expect(readAfterRollback.ok).toBe(true);
     expect(readAfterRollback.ok && readAfterRollback.data.contentText).toBe("原文");
+  });
+
+  it("version history list 与 rollback 共用最近 200 条上限，并在缺省 limit 时默认封口", async () => {
+    let now = new Date("2025-01-01T00:00:00Z").valueOf();
+    vi.spyOn(Date, "now").mockImplementation(() => now++);
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "版本 0",
+    });
+
+    const service = createDocumentService({ db: harness.db, logger: createLogger() });
+    for (let index = 1; index <= VERSION_HISTORY_RECENT_LIMIT + 20; index += 1) {
+      const saved = service.save({
+        projectId,
+        documentId,
+        contentJson: {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: `版本 ${index}` }],
+            },
+          ],
+        },
+        actor: "user",
+        reason: "manual-save",
+      });
+      expect(saved.ok).toBe(true);
+    }
+
+    const listDefault = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        items: Array<{
+          versionId: string;
+          reason: string;
+        }>;
+      };
+    }>("version:snapshot:list", {
+      documentId,
+    });
+    expect(listDefault.ok).toBe(true);
+    expect(listDefault.data?.items).toHaveLength(VERSION_HISTORY_RECENT_LIMIT);
+
+    const listSmall = await harness.invoke<{
+      ok: boolean;
+      data?: { items: Array<unknown> };
+    }>("version:snapshot:list", {
+      documentId,
+      limit: 25,
+    });
+    expect(listSmall.ok).toBe(true);
+    expect(listSmall.data?.items).toHaveLength(25);
+
+    const listLarge = await harness.invoke<{
+      ok: boolean;
+      data?: { items: Array<unknown> };
+    }>("version:snapshot:list", {
+      documentId,
+      limit: VERSION_HISTORY_RECENT_LIMIT + 50,
+    });
+    expect(listLarge.ok).toBe(true);
+    expect(listLarge.data?.items).toHaveLength(VERSION_HISTORY_RECENT_LIMIT);
+
+    const rollbackTargetVersionId =
+      listDefault.ok
+        ? listDefault.data?.items[VERSION_HISTORY_RECENT_LIMIT - 1]?.versionId
+        : undefined;
+    expect(rollbackTargetVersionId).toBeTruthy();
+
+    const rollback = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        historyItems: Array<{ reason: string }>;
+      };
+    }>("version:snapshot:rollback", {
+      documentId,
+      versionId: rollbackTargetVersionId!,
+    });
+    expect(rollback.ok).toBe(true);
+    expect(rollback.data?.historyItems).toHaveLength(VERSION_HISTORY_RECENT_LIMIT);
+    expect(rollback.data?.historyItems[0]?.reason).toBe("rollback");
+    expect(rollback.data?.historyItems[1]?.reason).toBe("pre-rollback");
   });
 
   it("reject 时保持原稿不变，且不写入 ai-accept snapshot", async () => {

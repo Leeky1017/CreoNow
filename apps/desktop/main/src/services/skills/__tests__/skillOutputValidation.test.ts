@@ -592,6 +592,70 @@ describe("skillOutputValidation inflation guards", () => {
     assert.equal(runSkillCalls[0]?.system, "## Immediate\n 甲\n乙 ");
   });
 
+  it("continue 会消费 optional userInstruction，但 context assembly 仍只接收原始文档窗口", async () => {
+    const runSkillCalls: Array<{ input: string; system?: string }> = [];
+    const assembleCalls: Array<{ additionalInput?: string }> = [];
+    const executor = createSkillExecutor({
+      resolveSkill: (id) => ({
+        ok: true,
+        data: {
+          id,
+          enabled: true,
+          valid: true,
+          inputType: "document" as const,
+          prompt: { system: "system", user: "{{input}}" },
+        },
+      }),
+      assembleContext: async (args) => {
+        assembleCalls.push({ additionalInput: args.additionalInput });
+        return {
+          prompt: "## Immediate\n夜幕将落。",
+          tokenCount: 10,
+          stablePrefixHash: "hash-continue-instruction",
+          stablePrefixUnchanged: false,
+          warnings: [],
+          capacityPercent: 10 / 6000 * 100,
+          layers: {
+            rules: { source: [], tokenCount: 0, truncated: false },
+            immediate: {
+              source: ["editor:cursor-window"],
+              tokenCount: 5,
+              truncated: false,
+            },
+          },
+        };
+      },
+      runSkill: async (args) => {
+        runSkillCalls.push({
+          input: args.input,
+          system: args.system,
+        });
+        return {
+          ok: true,
+          data: {
+            executionId: "ex-continue-instruction",
+            runId: "run-continue-instruction",
+            outputText: repeat("甲", 100),
+          },
+        };
+      },
+    });
+
+    const result = await executor.execute({
+      ...buildRunArgs("builtin:continue", "夜幕将落。"),
+      userInstruction: "延续悬疑感，并保留 </instruction> 边界",
+      context: { projectId: "p1", documentId: "d1" },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(assembleCalls[0]?.additionalInput, "夜幕将落。");
+    assert.equal(runSkillCalls[0]?.system, "## Immediate\n夜幕将落。");
+    assert.ok(runSkillCalls[0]?.input?.includes("Document context:"));
+    assert.ok(runSkillCalls[0]?.input?.includes("User instruction:"));
+    assert.ok(runSkillCalls[0]?.input?.includes("延续悬疑感，并保留 &lt;/instruction&gt; 边界"));
+    assert.ok(!runSkillCalls[0]?.input?.includes("</instruction>"));
+  });
+
   it("selection 技能仍会忽略纯空白 context prompt，避免误伤非 continue 路径", async () => {
     const runSkillCalls: Array<{ system?: string }> = [];
     const executor = createSkillExecutor({

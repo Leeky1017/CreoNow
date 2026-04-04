@@ -41,13 +41,12 @@ import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { GlobalErrorToastBridge } from "@/lib/globalErrorToastBridge";
 import { getPreloadApi, type PreloadApi } from "@/lib/preloadApi";
 import type { IpcResponseData } from "@shared/types/ipc-generated";
+import { VERSION_HISTORY_RECENT_LIMIT } from "@shared/versionHistory";
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const AUTOSAVE_DELAY_MS = 800;
 const SAVE_SUCCESS_DECAY_MS = 2000;
 const MAX_REFERENCE_LENGTH = 120;
-const VERSION_HISTORY_VISIBLE_LIMIT = 200;
-
 const LAYOUT_STORAGE_KEYS = {
   activeLeftPanel: "creonow.layout.activeLeftPanel",
   activeRightPanel: "creonow.layout.activePanelTab",
@@ -803,10 +802,10 @@ function WorkbenchShell() {
     setVersionHistoryLoading(true);
     setVersionHistoryError(null);
     setPendingRollbackVersionId(null);
-    void api.version.listSnapshots({
-      documentId: activeVersionHistoryDocumentId,
-      limit: VERSION_HISTORY_VISIBLE_LIMIT,
-    })
+      void api.version.listSnapshots({
+        documentId: activeVersionHistoryDocumentId,
+        limit: VERSION_HISTORY_RECENT_LIMIT,
+      })
       .then((result) => {
         if (cancelled) {
           return;
@@ -1274,7 +1273,7 @@ function WorkbenchShell() {
   } as CSSProperties;
 
   const visibleVersionHistoryItems = useMemo(
-    () => versionHistoryItems.slice(0, VERSION_HISTORY_VISIBLE_LIMIT),
+    () => versionHistoryItems.slice(0, VERSION_HISTORY_RECENT_LIMIT),
     [versionHistoryItems],
   );
   const versionHistoryWordDeltaById = useMemo(() => {
@@ -1409,7 +1408,7 @@ function WorkbenchShell() {
           </div>
         </dl>
         {versionHistoryItems.length === 0 ? <p className="panel-subtitle">{versionHistoryLoading ? t("sidebar.versionHistory.loading") : versionHistoryError ?? t(`${surfaceKey}.state`)}</p> : null}
-        {versionHistoryItems.length > 0 ? <p className="panel-meta">{t("sidebar.versionHistory.recentLimit", { count: VERSION_HISTORY_VISIBLE_LIMIT })}</p> : null}
+        {versionHistoryItems.length > 0 ? <p className="panel-meta">{t("sidebar.versionHistory.recentLimit", { count: VERSION_HISTORY_RECENT_LIMIT })}</p> : null}
         <div className="panel-section">
           {visibleVersionHistoryItems.map((item) => {
             const reasonLabel = formatVersionReason(item.reason, t);

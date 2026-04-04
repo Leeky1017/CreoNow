@@ -7,6 +7,7 @@ import { createRulesFetcher } from "./fetchers/rulesFetcher";
 import type { SynopsisStore } from "./synopsisStore";
 import type { Logger } from "../../logging/logger";
 import { DegradationCounter } from "../shared/degradationCounter";
+import { renderSafeContextLayer } from "../skills/promptSafety";
 import {
   estimateUtf8TokenCount as estimateTokenCount,
   trimUtf8ToTokenBudget as trimTextToTokenBudget,
@@ -505,7 +506,10 @@ function toLayerPrompt(args: {
   content: string;
 }): string {
   const title = args.layer[0].toUpperCase() + args.layer.slice(1);
-  return `## ${title}\n${args.content.length > 0 ? args.content : "(none)"}`;
+  return renderSafeContextLayer({
+    title,
+    content: args.content,
+  });
 }
 
 /**
@@ -736,13 +740,6 @@ function totalLayerTokens(
     layers.retrieved.tokenCount +
     layers.immediate.tokenCount
   );
-}
-
-function totalPublicLayerTokens(layers: {
-  rules: ContextLayerDetail;
-  immediate: ContextLayerDetail;
-}): number {
-  return layers.rules.tokenCount + layers.immediate.tokenCount;
 }
 
 function calculateCapacityPercent(totalTokens: number, maxBudget: number): number {
@@ -976,15 +973,13 @@ async function buildContextSnapshot(args: {
       }),
     )
     .join("\n\n");
+  const promptTokenCount = estimateTokenCount(prompt);
 
   return {
     layersDetail,
     warnings,
     prompt,
-    tokenCount: totalPublicLayerTokens({
-      rules: layersDetail.rules,
-      immediate: layersDetail.immediate,
-    }),
+    tokenCount: promptTokenCount,
     stablePrefixHash: hashStablePrefix(budgetApplied.layers.rules.content),
   };
 }

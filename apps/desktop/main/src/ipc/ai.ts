@@ -32,6 +32,7 @@ import { createSkillService } from "../services/skills/skillService";
 import { createSkillExecutor, type SkillExecutorRunArgs } from "../services/skills/skillExecutor";
 import { normalizeAssembledContextPrompt } from "../services/skills/contextPromptPolicy";
 import {
+  renderDocumentPromptInput,
   renderSafePromptTemplate,
   renderSelectionPromptInput,
 } from "../services/skills/promptSafety";
@@ -96,11 +97,35 @@ function resolveUserInstruction(payload: SkillRunPayload): string | undefined {
   return normalized && normalized.length > 0 ? normalized : undefined;
 }
 
-function renderSelectionSkillInput(payload: SkillRunPayload): string {
-  return renderSelectionPromptInput({
-    selectedText: resolveSelectionPrimaryInput(payload),
-    userInstruction: resolveUserInstruction(payload),
-  });
+function resolveDocumentInstruction(payload: SkillRunPayload): string | undefined {
+  const explicitInstruction = resolveUserInstruction(payload);
+  if (explicitInstruction) {
+    return explicitInstruction;
+  }
+
+  if (payload.precedingText === undefined) {
+    return undefined;
+  }
+
+  const fallbackInstruction = payload.input.trim();
+  return fallbackInstruction.length > 0 ? fallbackInstruction : undefined;
+}
+
+function resolveSkillInputType(args: {
+  skillId: string;
+  inputType?: "selection" | "document";
+}): "selection" | "document" {
+  if (args.inputType === "selection" || args.inputType === "document") {
+    return args.inputType;
+  }
+  return leafSkillId(args.skillId) === "continue" ? "document" : "selection";
+}
+
+function resolveDocumentPrimaryInput(payload: Pick<
+  SkillRunPayload,
+  "input" | "precedingText"
+>): string {
+  return payload.precedingText ?? payload.input;
 }
 
 function resolveCursorPosition(payload: SkillRunPayload): number | undefined {
@@ -469,11 +494,26 @@ async function prepareWritingRequest(args: {
     };
   }
 
-  const inputType = resolvedData.inputType ?? "selection";
+  const inputType = resolveSkillInputType({
+    skillId: args.payload.skillId,
+    inputType: resolvedData.inputType,
+  });
+  const userInstruction = inputType === "selection"
+    ? resolveUserInstruction(args.payload)
+    : resolveDocumentInstruction(args.payload);
   const selectionInput = resolveSelectionPrimaryInput(args.payload);
+  const primaryInput = inputType === "selection"
+    ? selectionInput
+    : resolveDocumentPrimaryInput(args.payload);
   const promptInput = inputType === "selection"
-    ? renderSelectionSkillInput(args.payload)
-    : (args.payload.precedingText ?? args.payload.input);
+    ? renderSelectionPromptInput({
+        selectedText: primaryInput,
+        userInstruction,
+      })
+    : renderDocumentPromptInput({
+        documentContext: primaryInput,
+        userInstruction,
+      });
   if (inputType === "selection" && selectionInput.trim().length === 0) {
     return {
       ok: false,
@@ -529,7 +569,7 @@ async function prepareWritingRequest(args: {
         cursorPosition: cursorPosition ?? 0,
         ...(textOffset !== undefined ? { textOffset } : {}),
         skillId: args.payload.skillId,
-        additionalInput: inputType === "selection" ? selectionInput : promptInput,
+        additionalInput: primaryInput,
         additionalInputIsSelection: inputType === "selection",
         provider: "ai-service",
         model: args.payload.model,
@@ -741,7 +781,7 @@ function leafSkillId(skillId: string): string {
 }
 
 /**
- * Resolve the effective input string for a WritingRequest's skill.
+ * Resolve the raw primary input string for a WritingRequest's skill.
  *
  * For document-window skills (continue), the primary input is the cursor-preceding
  * text (`precedingText`). Selection-based skills use `selectedText`.
@@ -750,14 +790,28 @@ function leafSkillId(skillId: string): string {
  */
 function resolveWritingRequestInput(request: {
   skillId: string;
-  userInstruction?: string;
   input: { selectedText?: string; precedingText?: string };
 }): string {
   if (leafSkillId(request.skillId) === "continue") {
     return request.input.precedingText ?? request.input.selectedText ?? "";
   }
+  return request.input.selectedText ?? "";
+}
+
+function resolveWritingRequestPromptInput(request: {
+  skillId: string;
+  userInstruction?: string;
+  input: { selectedText?: string; precedingText?: string };
+}): string {
+  const primaryInput = resolveWritingRequestInput(request);
+  if (leafSkillId(request.skillId) === "continue") {
+    return renderDocumentPromptInput({
+      documentContext: primaryInput,
+      userInstruction: request.userInstruction,
+    });
+  }
   return renderSelectionPromptInput({
-    selectedText: request.input.selectedText ?? "",
+    selectedText: primaryInput,
     userInstruction: request.userInstruction,
   });
 }
@@ -1485,11 +1539,14 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           outputText = event.outputText;
         }
         usage = {
-          promptTokens: event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request)),
+          promptTokens:
+            event.result?.metadata.promptTokens ??
+            estimateTokens(resolveWritingRequestPromptInput(request)),
           completionTokens:
             event.result?.metadata.completionTokens ?? estimateTokens(event.outputText),
           totalTokens:
-            (event.result?.metadata.promptTokens ?? estimateTokens(resolveWritingRequestInput(request))) +
+            (event.result?.metadata.promptTokens ??
+              estimateTokens(resolveWritingRequestPromptInput(request))) +
             (event.result?.metadata.completionTokens ?? estimateTokens(event.outputText)),
         };
         // F1: capture finishReason and toolCalls from the done event
@@ -1569,6 +1626,10 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
         skillId: request.skillId,
         hasSelection: Boolean(request.selection),
         input: resolveWritingRequestInput(request),
+        ...(request.userInstruction ? { userInstruction: request.userInstruction } : {}),
+        ...(request.input.precedingText === undefined
+          ? {}
+          : { precedingText: request.input.precedingText }),
         ...(request.cursorPosition === undefined
           ? {}
           : { cursorPosition: request.cursorPosition }),
@@ -2062,6 +2123,10 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
           documentId,
         },
       };
+      const resolvedUserInstruction =
+        leafSkillId(normalizedPayload.skillId) === "continue"
+          ? resolveDocumentInstruction(normalizedPayload)
+          : resolveUserInstruction(normalizedPayload);
       ensurePreviewSessionRendererLifecycle({
         ctx,
         sender: e.sender,
@@ -2073,7 +2138,7 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
           selectedText: normalizedPayload.selection?.text ?? normalizedPayload.input,
           ...(normalizedPayload.precedingText !== undefined ? { precedingText: normalizedPayload.precedingText } : {}),
         },
-        ...(resolveUserInstruction(normalizedPayload) ? { userInstruction: resolveUserInstruction(normalizedPayload) } : {}),
+        ...(resolvedUserInstruction ? { userInstruction: resolvedUserInstruction } : {}),
         documentId,
         projectId: projectId.data,
         modelId: normalizedPayload.model,

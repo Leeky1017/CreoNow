@@ -6,7 +6,11 @@ import {
   normalizeAssembledContextPrompt,
   resolveContinueValidationInput,
 } from "./contextPromptPolicy";
-import { renderSafePromptTemplate } from "./promptSafety";
+import {
+  renderDocumentPromptInput,
+  renderSafePromptTemplate,
+  renderSelectionPromptInput,
+} from "./promptSafety";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 export type { ServiceResult };
 
@@ -40,6 +44,7 @@ export type SkillExecutorRunArgs = {
   skillId: string;
   hasSelection?: boolean;
   cursorPosition?: number;
+  precedingText?: string;
   selection?: {
     from: number;
     to: number;
@@ -48,6 +53,7 @@ export type SkillExecutorRunArgs = {
   };
   systemPrompt?: string;
   input: string;
+  userInstruction?: string;
   timeoutMs?: number;
   mode: "agent" | "plan" | "ask";
   model: string;
@@ -311,18 +317,22 @@ function resolveInputForPrompt(args: {
   run: SkillExecutorRunArgs;
   inputType?: SkillInputType;
 }): string {
-  const trimmedInput = args.run.input.trim();
-  if (trimmedInput.length > 0) {
-    return args.run.input;
-  }
-
   if (
     requiresDocumentContext({
       skillId: args.run.skillId,
       inputType: args.inputType,
     })
   ) {
+    const primaryInput = args.run.precedingText ?? args.run.input;
+    if (primaryInput.trim().length > 0) {
+      return primaryInput;
+    }
     return "请基于当前文档上下文继续写作。";
+  }
+
+  const trimmedInput = args.run.input.trim();
+  if (trimmedInput.length > 0) {
+    return args.run.input;
   }
 
   return args.run.input;
@@ -331,8 +341,14 @@ function resolveInputForPrompt(args: {
 function validateSkillInput(args: {
   run: SkillExecutorRunArgs;
   inputType?: SkillInputType;
-}): ServiceResult<{ inputForPrompt: string }> {
-  const trimmedInput = args.run.input.trim();
+}): ServiceResult<{ inputForPrompt: string; contextInput?: string }> {
+  const primaryInput = requiresDocumentContext({
+    skillId: args.run.skillId,
+    inputType: args.inputType,
+  })
+    ? args.run.precedingText ?? args.run.input
+    : args.run.input;
+  const trimmedInput = primaryInput.trim();
   if (
     requiresSelectionInput({
       skillId: args.run.skillId,
@@ -363,6 +379,7 @@ function validateSkillInput(args: {
         run: args.run,
         inputType: args.inputType,
       }),
+      ...(trimmedInput.length > 0 ? { contextInput: primaryInput } : {}),
     },
   };
 }
@@ -560,7 +577,7 @@ function createValidatedStreamEmitter(args: {
 async function assembleContextPrompt(args: {
   assembleContext?: SkillExecutorDeps["assembleContext"];
   run: SkillExecutorRunArgs;
-  additionalInput: string;
+  additionalInput?: string;
   inputType: "selection" | "document";
 }): Promise<ContextAssembleResult | null> {
   if (!args.assembleContext) {
@@ -628,11 +645,24 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
         return inputValidation;
       }
 
-      const { inputForPrompt } = inputValidation.data;
+      const resolvedInputType = resolveInputType({
+        skillId: effectiveSkillId,
+        inputType: resolved.data.inputType,
+      });
+      const { inputForPrompt, contextInput } = inputValidation.data;
+      const promptInput = resolvedInputType === "document"
+        ? renderDocumentPromptInput({
+            documentContext: inputForPrompt,
+            userInstruction: args.userInstruction,
+          })
+        : renderSelectionPromptInput({
+            selectedText: inputForPrompt,
+            userInstruction: args.userInstruction,
+          });
       const systemPrompt = resolved.data.prompt?.system ?? "";
       const userPrompt = renderSafePromptTemplate({
         template: resolved.data.prompt?.user ?? "",
-        input: inputForPrompt,
+        input: promptInput,
       });
 
       let contextPrompt: string | undefined;
@@ -642,13 +672,13 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
           const assembled = await assembleContextPrompt({
             assembleContext: deps.assembleContext,
             run: { ...args, skillId: effectiveSkillId },
-            additionalInput: inputForPrompt,
-            inputType: resolved.data.inputType ?? "selection",
+            additionalInput: contextInput,
+            inputType: resolvedInputType,
           });
           const normalizedContextPrompt = assembled
             ? normalizeAssembledContextPrompt({
                 prompt: assembled.prompt,
-                inputType: resolved.data.inputType,
+                inputType: resolvedInputType,
               })
             : undefined;
           if (normalizedContextPrompt !== undefined) {
