@@ -1024,6 +1024,7 @@ type PendingPreviewSession = {
   generator: AsyncGenerator<WritingEvent>;
   outputText: string;
   usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  accountedUsage?: SkillRunUsage;
   completion: Promise<IpcResponse<SkillRunConfirmResponse>>;
 };
 
@@ -1737,6 +1738,14 @@ async function drainPreviewUntilPause(args: {
   while (true) {
     const next = await args.generator.next();
     if (next.done) {
+      const finalizedUsage = usage
+        ? buildSkillRunUsage(args.ctx, {
+            model: args.payload.model,
+            context: args.payload.context,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+          })
+        : undefined;
       emitOrchestratorDone({
         ctx: args.ctx,
         sender: args.sender,
@@ -1746,14 +1755,7 @@ async function drainPreviewUntilPause(args: {
         terminal: "completed",
         outputText,
         model: args.payload.model,
-        usage: usage
-          ? buildSkillRunUsage(args.ctx, {
-              model: args.payload.model,
-              context: args.payload.context,
-              promptTokens: usage.promptTokens,
-              completionTokens: usage.completionTokens,
-            })
-          : undefined,
+        usage: finalizedUsage,
       });
       return {
         ok: true,
@@ -1766,12 +1768,7 @@ async function drainPreviewUntilPause(args: {
           candidates: buildPreviewCandidates({ runId: args.runId, outputText }),
           ...(usage
             ? {
-                usage: buildSkillRunUsage(args.ctx, {
-                  model: args.payload.model,
-                  context: args.payload.context,
-                  promptTokens: usage.promptTokens,
-                  completionTokens: usage.completionTokens,
-                }),
+                usage: finalizedUsage,
               }
             : {}),
           ...(args.payload.promptDiagnostics
@@ -1807,6 +1804,14 @@ async function drainPreviewUntilPause(args: {
     }
 
     if (event.type === "permission-requested") {
+      const previewUsage = usage
+        ? buildSkillRunUsage(args.ctx, {
+            model: args.payload.model,
+            context: args.payload.context,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+          })
+        : undefined;
       const session = {
         executionId: args.executionId,
         runId: args.runId,
@@ -1816,6 +1821,7 @@ async function drainPreviewUntilPause(args: {
         generator: args.generator,
         outputText,
         usage,
+        accountedUsage: previewUsage,
       } as PendingPreviewSession;
       session.completion = Promise.resolve()
         .then(() =>
@@ -1842,14 +1848,9 @@ async function drainPreviewUntilPause(args: {
           previewId: args.executionId,
           outputText,
           candidates: buildPreviewCandidates({ runId: args.runId, outputText }),
-          ...(usage
+          ...(previewUsage
             ? {
-                usage: buildSkillRunUsage(args.ctx, {
-                  model: args.payload.model,
-                  context: args.payload.context,
-                  promptTokens: usage.promptTokens,
-                  completionTokens: usage.completionTokens,
-                }),
+                usage: previewUsage,
               }
             : {}),
           ...(args.payload.promptDiagnostics
@@ -1936,14 +1937,7 @@ async function continuePreviewSession(args: {
         terminal: "completed",
         outputText: args.session.outputText,
         model: args.session.payload.model,
-        usage: args.session.usage
-          ? buildSkillRunUsage(args.ctx, {
-              model: args.session.payload.model,
-              context: args.session.payload.context,
-              promptTokens: args.session.usage.promptTokens,
-              completionTokens: args.session.usage.completionTokens,
-            })
-          : undefined,
+        usage: args.session.accountedUsage,
       });
       args.ctx.previewSessions.delete(args.session.executionId);
       return {

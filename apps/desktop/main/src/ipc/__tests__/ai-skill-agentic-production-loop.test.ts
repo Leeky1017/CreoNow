@@ -555,7 +555,11 @@ describe("ai:skill:run P2 生产闭环", () => {
         executionId: string;
         status: "preview" | "completed" | "rejected";
         outputText?: string;
-        usage?: { promptTokens: number; completionTokens: number };
+        usage?: {
+          promptTokens: number;
+          completionTokens: number;
+          sessionTotalTokens: number;
+        };
       };
       error?: { code: string; message: string };
     }>("ai:skill:run", {
@@ -639,6 +643,14 @@ describe("ai:skill:run P2 生产闭环", () => {
     expect((doneEvents[0]?.payload as { outputText?: string }).outputText).toBe(
       "他先停步观察，再轻轻推门而入。",
     );
+    expect(
+      (doneEvents[0]?.payload as {
+        result?: { metadata?: { promptTokens?: number; completionTokens?: number } };
+      }).result?.metadata,
+    ).toMatchObject({
+      promptTokens: run.data?.usage?.promptTokens ?? 0,
+      completionTokens: run.data?.usage?.completionTokens ?? 0,
+    });
   });
 
   it("unknown tool / all-failed 仍注入失败结果并继续完成", async () => {

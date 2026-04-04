@@ -249,6 +249,11 @@ describe("ai:skill:run orchestrator writeback flow", () => {
         runId: string;
         status: "preview" | "completed" | "rejected";
         outputText?: string;
+        usage?: {
+          promptTokens: number;
+          completionTokens: number;
+          sessionTotalTokens: number;
+        };
       };
       error?: { code: string; message: string };
     }>("ai:skill:run", {
@@ -272,6 +277,9 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(run.data?.executionId).toBeTruthy();
     expect(typeof run.data?.outputText).toBe("string");
     expect(run.data?.outputText?.length ?? 0).toBeGreaterThan(0);
+    expect(run.data?.usage?.sessionTotalTokens).toBe(
+      (run.data?.usage?.promptTokens ?? 0) + (run.data?.usage?.completionTokens ?? 0),
+    );
     const chunkEvents = harness.sentEvents.filter(
       (event) => event.channel === "skill:stream:chunk",
     );
@@ -299,6 +307,21 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(confirm.ok).toBe(true);
     expect(confirm.data?.status).toBe("completed");
     expect(confirm.data?.versionId).toBeTruthy();
+
+    const doneEvent = harness.sentEvents.find(
+      (event) =>
+        event.channel === "skill:stream:done" &&
+        (event.payload as { executionId?: string }).executionId === run.data?.executionId,
+    );
+    expect(doneEvent).toBeTruthy();
+    expect(
+      (doneEvent?.payload as {
+        result?: { metadata?: { promptTokens?: number; completionTokens?: number } };
+      }).result?.metadata,
+    ).toMatchObject({
+      promptTokens: run.data?.usage?.promptTokens ?? 0,
+      completionTokens: run.data?.usage?.completionTokens ?? 0,
+    });
 
     const service = createDocumentService({ db: harness.db, logger: createLogger() });
     const readAfterAccept = service.read({ projectId, documentId });
@@ -407,6 +430,110 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     const readAfterRollback = service.read({ projectId, documentId });
     expect(readAfterRollback.ok).toBe(true);
     expect(readAfterRollback.ok && readAfterRollback.data.contentText).toBe("原文");
+  });
+
+  it("accepted preview 不会把同一 execution 的 sessionTotalTokens 重复累计", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const { projectId, documentId } = createProjectAndDocument({
+      db: harness.db,
+      text: "原文",
+    });
+
+    const firstRun = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        status: "preview" | "completed" | "rejected";
+        usage?: {
+          promptTokens: number;
+          completionTokens: number;
+          sessionTotalTokens: number;
+        };
+      };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "原文",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: true,
+    });
+
+    expect(firstRun.ok).toBe(true);
+    expect(firstRun.data?.status).toBe("preview");
+    const firstUsage = firstRun.data?.usage;
+    expect(firstUsage).toBeDefined();
+
+    const firstConfirm = await harness.invoke<{
+      ok: boolean;
+      data?: { status: "completed" | "rejected" };
+    }>("ai:skill:confirm", {
+      executionId: firstRun.data?.executionId,
+      action: "accept",
+      projectId,
+    });
+
+    expect(firstConfirm.ok).toBe(true);
+    expect(firstConfirm.data?.status).toBe("completed");
+
+    const firstDoneEvent = harness.sentEvents.find(
+      (event) =>
+        event.channel === "skill:stream:done" &&
+        (event.payload as { executionId?: string }).executionId === firstRun.data?.executionId,
+    );
+    expect(firstDoneEvent).toBeTruthy();
+    expect(
+      (firstDoneEvent?.payload as {
+        result?: { metadata?: { promptTokens?: number; completionTokens?: number } };
+      }).result?.metadata,
+    ).toMatchObject({
+      promptTokens: firstUsage?.promptTokens ?? 0,
+      completionTokens: firstUsage?.completionTokens ?? 0,
+    });
+
+    const secondRun = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        status: "preview" | "completed" | "rejected";
+        usage?: {
+          promptTokens: number;
+          completionTokens: number;
+          sessionTotalTokens: number;
+        };
+      };
+    }>("ai:skill:run", {
+      skillId: "builtin:polish",
+      hasSelection: true,
+      input: "原文",
+      mode: "ask",
+      model: "gpt-5.2",
+      context: { projectId, documentId },
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: computeSelectionTextHash("原文"),
+      },
+      stream: true,
+    });
+
+    expect(secondRun.ok).toBe(true);
+    expect(secondRun.data?.status).toBe("preview");
+    const secondUsage = secondRun.data?.usage;
+    expect(secondUsage).toBeDefined();
+    const secondDelta =
+      (secondUsage?.promptTokens ?? 0) + (secondUsage?.completionTokens ?? 0);
+    expect(secondUsage?.sessionTotalTokens).toBe(
+      (firstUsage?.sessionTotalTokens ?? 0) + secondDelta,
+    );
   });
 
   it("version history list 与 rollback 共用最近 200 条上限，并在缺省 limit 时默认封口", async () => {

@@ -282,15 +282,30 @@ export function createWritingOrchestrator(
           return;
         }
 
-         // Stage 4: AI streaming
+        // Stage 4: AI streaming
         let fullText = "";
         let lastTokens = 0;
+        let usageTotals = {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+        };
         let aiError: unknown = null;
         const MAX_AI_RETRIES = 2;
         let aiAttempt = 0;
         let aiSuccess = false;
         let lastFinishReason: "stop" | "tool_use" | null = null;
         let lastToolCalls: ToolCallInfo[] = [];
+
+        const addUsage = (usage: GeneratedTextResult["usage"]): void => {
+          const promptTokens = Math.max(0, usage.promptTokens);
+          const completionTokens = Math.max(0, usage.completionTokens);
+          usageTotals = {
+            promptTokens: usageTotals.promptTokens + promptTokens,
+            completionTokens: usageTotals.completionTokens + completionTokens,
+            totalTokens: usageTotals.totalTokens + promptTokens + completionTokens,
+          };
+        };
 
         while (aiAttempt <= MAX_AI_RETRIES && !aiSuccess) {
           try {
@@ -374,6 +389,7 @@ export function createWritingOrchestrator(
 
               fullText = generatedResult.fullText;
               lastTokens = generatedResult.usage.completionTokens;
+              addUsage(generatedResult.usage);
               lastFinishReason = generatedResult.finishReason ?? null;
               lastToolCalls = generatedResult.toolCalls ?? [];
             } else {
@@ -586,6 +602,7 @@ export function createWritingOrchestrator(
 
             fullText = nextResult.fullText || roundFullText;
             lastTokens = nextResult.usage.completionTokens;
+            addUsage(nextResult.usage);
             lastFinishReason = nextResult.finishReason ?? null;
             lastToolCalls = nextResult.toolCalls ?? [];
 
@@ -619,14 +636,19 @@ export function createWritingOrchestrator(
           }
         }
 
+        const finalUsage =
+          usageTotals.totalTokens > 0
+            ? usageTotals
+            : {
+                promptTokens: tokenCount,
+                completionTokens: Math.max(0, lastTokens),
+                totalTokens: tokenCount + Math.max(0, lastTokens),
+              };
+
         // Stage 5: ai-done
         yield makeEvent("ai-done", requestId, {
           fullText,
-          usage: {
-            promptTokens: tokenCount,
-            completionTokens: lastTokens,
-            totalTokens: tokenCount + lastTokens,
-          },
+          usage: finalUsage,
         });
 
         if (abortController.signal.aborted) {

@@ -225,6 +225,11 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       // Final fullText should be from round 2
       const aiDoneEvent = events[aiDoneIdx];
       expect(aiDoneEvent.fullText).toBe("缓步走向那扇门，眼神沉静。");
+      expect(aiDoneEvent.usage).toMatchObject({
+        promptTokens: 40,
+        completionTokens: 17,
+        totalTokens: 57,
+      });
 
       // generateText was called twice
       expect(callCount).toBe(2);
@@ -303,6 +308,12 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
 
       expect(callCount).toBe(3);
       expect(types).toContain("ai-done");
+      const aiDoneEvent = events.find((event) => event.type === "ai-done");
+      expect(aiDoneEvent?.usage).toMatchObject({
+        promptTokens: 60,
+        completionTokens: 21,
+        totalTokens: 81,
+      });
     });
   });
 
@@ -383,6 +394,11 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       expect(types).toContain("ai-done");
       const aiDoneEvent = events.find((e) => e.type === "ai-done");
       expect((aiDoneEvent!.fullText as string)).toBe("基于失败结果继续完成");
+      expect(aiDoneEvent?.usage).toMatchObject({
+        promptTokens: 16,
+        completionTokens: 11,
+        totalTokens: 27,
+      });
 
       // Should still complete write-back (permission auto-allow)
       expect(types).toContain("write-back-done");
@@ -708,6 +724,12 @@ describe("WritingOrchestrator P2 — Agentic Loop 集成测试", () => {
       expect(types).not.toContain("tool-use-started");
       expect(generateText).toHaveBeenCalledTimes(1);
       expect(types).toContain("ai-done");
+      const aiDoneEvent = events.find((event) => event.type === "ai-done");
+      expect(aiDoneEvent?.usage).toMatchObject({
+        promptTokens: 10,
+        completionTokens: 8,
+        totalTokens: 18,
+      });
     });
   });
 });
