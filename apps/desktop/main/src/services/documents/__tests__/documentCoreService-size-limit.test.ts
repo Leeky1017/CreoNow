@@ -51,6 +51,7 @@ function createInMemoryDb(): Database.Database {
       content_md TEXT NOT NULL DEFAULT '',
       content_hash TEXT NOT NULL DEFAULT '',
       word_count INTEGER NOT NULL DEFAULT 0,
+      parent_snapshot_id TEXT,
       diff_format TEXT NOT NULL DEFAULT '',
       diff_text TEXT NOT NULL DEFAULT '',
       created_at INTEGER NOT NULL DEFAULT 0

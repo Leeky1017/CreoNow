@@ -68,6 +68,12 @@ const api = {
   version: {
     listSnapshots: (payload: Parameters<typeof creonowInvoke<"version:snapshot:list">>[1]) =>
       creonowInvoke("version:snapshot:list", payload),
+    readSnapshot: (payload: Parameters<typeof creonowInvoke<"version:snapshot:read">>[1]) =>
+      creonowInvoke("version:snapshot:read", payload),
+    rollbackSnapshot: (payload: Parameters<typeof creonowInvoke<"version:snapshot:rollback">>[1]) =>
+      creonowInvoke("version:snapshot:rollback", payload),
+    restoreSnapshot: (payload: Parameters<typeof creonowInvoke<"version:snapshot:restore">>[1]) =>
+      creonowInvoke("version:snapshot:restore", payload),
   },
 };
 

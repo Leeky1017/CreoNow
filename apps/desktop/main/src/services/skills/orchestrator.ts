@@ -25,6 +25,7 @@ export interface WritingRequest {
   requestId: string;
   skillId: string;
   input: { selectedText?: string; precedingText?: string; followingText?: string; [key: string]: unknown };
+  userInstruction?: string;
   documentId: string;
   projectId?: string;
   modelId?: string;

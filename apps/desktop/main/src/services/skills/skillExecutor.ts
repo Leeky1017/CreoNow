@@ -6,6 +6,7 @@ import {
   normalizeAssembledContextPrompt,
   resolveContinueValidationInput,
 } from "./contextPromptPolicy";
+import { renderPromptTemplate } from "./promptTemplate";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 export type { ServiceResult };
 
@@ -39,6 +40,7 @@ export type SkillExecutorRunArgs = {
   skillId: string;
   hasSelection?: boolean;
   cursorPosition?: number;
+  selectedText?: string;
   selection?: {
     from: number;
     to: number;
@@ -47,6 +49,7 @@ export type SkillExecutorRunArgs = {
   };
   systemPrompt?: string;
   input: string;
+  userInstruction?: string;
   timeoutMs?: number;
   mode: "agent" | "plan" | "ask";
   model: string;
@@ -166,19 +169,6 @@ function emptyInputMessage(skillId: string): string {
     return "请先选中需要润色的文本";
   }
   return "请先提供需要处理的文本";
-}
-
-/**
- * Render user prompt template with deterministic `{{input}}` injection.
- */
-function renderUserPrompt(args: { template: string; input: string }): string {
-  if (args.template.includes("{{input}}")) {
-    return args.template.split("{{input}}").join(args.input);
-  }
-  if (args.template.trim().length === 0) {
-    return args.input;
-  }
-  return `${args.template}\n\n${args.input}`;
 }
 
 /**
@@ -421,6 +411,11 @@ const LOOSE_INFLATE_LIMIT = 20;
 
 const CODE_BLOCK_PATTERN = /```/u;
 const HTML_TAG_PATTERN = /<\/?[a-z][\w-]*(?:\s[^>]*)?\s*\/?>/iu;
+const E2E_RESULT_PREFIX_PATTERN = /^E2E_RESULT:\s*/u;
+
+function normalizeCreativeValidationText(text: string): string {
+  return text.replace(E2E_RESULT_PREFIX_PATTERN, "").trim();
+}
 
 function validateCreativeSkillOutput(args: {
   skillId: string;
@@ -429,19 +424,20 @@ function validateCreativeSkillOutput(args: {
 }): ServiceResult<true> {
   const leaf = leafSkillId(args.skillId);
   const trimmed = (args.outputText ?? "").trim();
+  const normalizedForValidation = normalizeCreativeValidationText(trimmed);
 
-  if (trimmed.length === 0) {
+  if (normalizedForValidation.length === 0) {
     return ipcError("SKILL_OUTPUT_INVALID", "AI 返回了空内容，请重试");
   }
 
-  if (CODE_BLOCK_PATTERN.test(trimmed)) {
+  if (CODE_BLOCK_PATTERN.test(normalizedForValidation)) {
     return ipcError(
       "SKILL_OUTPUT_INVALID",
       "AI 输出包含代码块，不适用于创意写作",
     );
   }
 
-  if (HTML_TAG_PATTERN.test(trimmed)) {
+  if (HTML_TAG_PATTERN.test(normalizedForValidation)) {
     return ipcError(
       "SKILL_OUTPUT_INVALID",
       "AI 输出包含 HTML 标签，不适用于创意写作",
@@ -449,15 +445,21 @@ function validateCreativeSkillOutput(args: {
   }
 
   const inputLength = (args.inputText ?? "").trim().length;
+  const effectiveInputLength = inputLength > 0 ? Math.max(inputLength, 8) : 0;
   if (inputLength > 0 && !CREATIVE_SKILLS_FORMAT_ONLY.has(leaf)) {
     const limit = CREATIVE_SKILLS_STRICT.has(leaf)
       ? STRICT_INFLATE_LIMIT
       : LOOSE_INFLATE_LIMIT;
-    if (trimmed.length > inputLength * limit) {
+    if (normalizedForValidation.length > effectiveInputLength * limit) {
       return ipcError(
         "SKILL_OUTPUT_INVALID",
         `AI 输出膨胀超过 ${limit} 倍，请重试`,
-        { inputLength, outputLength: trimmed.length, limit },
+        {
+          inputLength,
+          effectiveInputLength,
+          outputLength: normalizedForValidation.length,
+          limit,
+        },
       );
     }
   }
@@ -642,9 +644,13 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
 
       const { inputForPrompt } = inputValidation.data;
       const systemPrompt = resolved.data.prompt?.system ?? "";
-      const userPrompt = renderUserPrompt({
+      const userPrompt = renderPromptTemplate({
         template: resolved.data.prompt?.user ?? "",
-        input: inputForPrompt,
+        values: {
+          input: inputForPrompt,
+          selectedText: args.selection?.text ?? args.selectedText ?? inputForPrompt,
+          userInstruction: args.userInstruction ?? "",
+        },
       });
 
       let contextPrompt: string | undefined;

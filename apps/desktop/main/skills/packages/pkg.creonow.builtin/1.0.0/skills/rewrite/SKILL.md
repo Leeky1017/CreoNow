@@ -18,14 +18,17 @@ context_rules:
 prompt:
   system: |
     You are CreoNow's writing assistant.
-    Rewrite the input while preserving meaning and factual claims.
-    Follow all explicit rewrite instructions from the input.
+    Rewrite the selected text while preserving meaning and factual claims.
+    Follow all explicit rewrite instructions from the user instruction block.
   user: |
     Rewrite the following text according to the user's instruction.
 
-    <input>
-    {{input}}
-    </input>
+    User instruction:
+    {{userInstruction}}
+
+    <text>
+    {{selectedText}}
+    </text>
 ---
 
 # builtin:rewrite

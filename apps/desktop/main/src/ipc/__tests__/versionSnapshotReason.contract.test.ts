@@ -30,7 +30,10 @@ function createNoopLogger(): Logger {
 function createSnapshotDb(reason: string): Database.Database {
   return {
     prepare(sql: string) {
-      if (sql.includes("ORDER BY created_at DESC")) {
+      if (
+        sql.includes("WHERE project_id = ? AND document_id = ? ORDER BY") &&
+        sql.includes("created_at DESC")
+      ) {
         return {
           all() {
             return [
@@ -47,7 +50,7 @@ function createSnapshotDb(reason: string): Database.Database {
         };
       }
 
-      if (sql.includes("WHERE document_id = ? AND version_id = ?")) {
+      if (sql.includes("WHERE project_id = ? AND document_id = ? AND version_id = ?")) {
         return {
           get() {
             return {
@@ -116,7 +119,7 @@ describe("Version snapshot reason P1 contract", () => {
       logger: createNoopLogger(),
     });
 
-    const listed = service.listVersions({ documentId: "doc-1" });
+    const listed = service.listVersions({ projectId: "project-1", documentId: "doc-1" });
     expect(listed.ok).toBe(true);
     if (!listed.ok) {
       throw new Error("expected listVersions to succeed");
@@ -124,6 +127,7 @@ describe("Version snapshot reason P1 contract", () => {
     expect(listed.data.items[0]?.reason).toBe("manual-save");
 
     const read = service.readVersion({
+      projectId: "project-1",
       documentId: "doc-1",
       versionId: "version-1",
     });

@@ -23,8 +23,11 @@ prompt:
   user: |
     Polish the following text for clarity and style.
 
+    User instruction:
+    {{userInstruction}}
+
     <text>
-    {{input}}
+    {{selectedText}}
     </text>
 ---
 
