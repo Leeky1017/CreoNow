@@ -1005,6 +1005,7 @@ export const ipcContract = {
         hasSelection: s.optional(s.boolean()),
         cursorPosition: s.optional(s.number()),
         input: s.string(),
+        userInstruction: s.optional(s.string()),
         mode: s.union(s.literal("agent"), s.literal("plan"), s.literal("ask")),
         model: s.string(),
         candidateCount: s.optional(s.number()),
@@ -2293,7 +2294,7 @@ export const ipcContract = {
       }),
     },
     "version:snapshot:list": {
-      request: s.object({ documentId: s.string() }),
+      request: s.object({ projectId: s.string(), documentId: s.string() }),
       response: s.object({
         items: s.array(
           s.object({
@@ -2302,13 +2303,14 @@ export const ipcContract = {
             reason: VERSION_SNAPSHOT_REASON_SCHEMA,
             contentHash: s.string(),
             wordCount: s.number(),
+            parentSnapshotId: s.union(s.string(), s.literal(null)),
             createdAt: s.number(),
           }),
         ),
       }),
     },
     "version:snapshot:read": {
-      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      request: s.object({ projectId: s.string(), documentId: s.string(), versionId: s.string() }),
       response: s.object({
         documentId: s.string(),
         projectId: s.string(),
@@ -2320,6 +2322,7 @@ export const ipcContract = {
         contentMd: s.string(),
         contentHash: s.string(),
         wordCount: s.number(),
+        parentSnapshotId: s.union(s.string(), s.literal(null)),
         createdAt: s.number(),
       }),
     },
@@ -2337,7 +2340,7 @@ export const ipcContract = {
       }),
     },
     "version:snapshot:rollback": {
-      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      request: s.object({ projectId: s.string(), documentId: s.string(), versionId: s.string() }),
       response: s.object({
         restored: s.literal(true),
         preRollbackVersionId: s.string(),
@@ -2345,7 +2348,7 @@ export const ipcContract = {
       }),
     },
     "version:snapshot:restore": {
-      request: s.object({ documentId: s.string(), versionId: s.string() }),
+      request: s.object({ projectId: s.string(), documentId: s.string(), versionId: s.string() }),
       response: s.object({ restored: s.literal(true) }),
     },
     "app:renderer:logerror": {
