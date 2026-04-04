@@ -3152,5 +3152,110 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("status")).toBeInTheDocument();
     expect(window.api?.version.restoreSnapshot).not.toHaveBeenCalled();
   });
+
+  it("calls rollbackSnapshot and reloads document when user clicks 安全回滚 and confirms", async () => {
+    const snapshotContent = JSON.stringify({ type: "doc", content: [] });
+    vi.mocked(window.api!.version.listSnapshots).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [{ versionId: "v1", actor: "user" as const, reason: "manual-save" as const, wordCount: 100, createdAt: 1_700_000_001_000, contentHash: "h1", parentSnapshotId: null }],
+      },
+    });
+    vi.mocked(window.api!.version.readSnapshot).mockResolvedValue({
+      ok: true,
+      data: {
+        versionId: "v1", documentId: "doc-1", projectId: "project-1",
+        actor: "user" as const, reason: "manual-save" as const, wordCount: 100,
+        createdAt: 1_700_000_001_000, contentHash: "h1",
+        contentJson: snapshotContent, contentMd: "", contentText: "",
+        parentSnapshotId: null,
+      },
+    });
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Enter preview mode
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    const previewButtons = await screen.findAllByRole("button", { name: /预览/i });
+    await act(async () => { fireEvent.click(previewButtons[0]); });
+
+    await screen.findByRole("status");
+
+    // Click the rollback button in the preview banner
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "安全回滚" }));
+    });
+
+    // Confirm dialog should open (labeled for rollback)
+    await screen.findByRole("dialog", { name: "确认安全回滚" });
+
+    // Confirm rollback
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "确认回滚" }));
+    });
+
+    await waitFor(() => {
+      expect(window.api?.version.rollbackSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({ versionId: "v1", documentId: "doc-1" }),
+      );
+    });
+
+    // restoreSnapshot must NOT have been called
+    expect(window.api?.version.restoreSnapshot).not.toHaveBeenCalled();
+
+    // After rollback: dialog and banner should be gone, editor re-enabled
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+    expect(bridgeMock.setReadOnly).toHaveBeenCalledWith(false);
+  });
+
+  it("does not call rollbackSnapshot and closes dialog when user cancels rollback confirmation", async () => {
+    const snapshotContent = JSON.stringify({ type: "doc", content: [] });
+    vi.mocked(window.api!.version.listSnapshots).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [{ versionId: "v1", actor: "user" as const, reason: "manual-save" as const, wordCount: 100, createdAt: 1_700_000_001_000, contentHash: "h1", parentSnapshotId: null }],
+      },
+    });
+    vi.mocked(window.api!.version.readSnapshot).mockResolvedValue({
+      ok: true,
+      data: {
+        versionId: "v1", documentId: "doc-1", projectId: "project-1",
+        actor: "user" as const, reason: "manual-save" as const, wordCount: 100,
+        createdAt: 1_700_000_001_000, contentHash: "h1",
+        contentJson: snapshotContent, contentMd: "", contentText: "",
+        parentSnapshotId: null,
+      },
+    });
+
+    render(<WorkbenchApp />);
+    await screen.findByRole("heading", { name: "第一章" });
+
+    // Enter preview mode
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    const previewButtons = await screen.findAllByRole("button", { name: /预览/i });
+    await act(async () => { fireEvent.click(previewButtons[0]); });
+
+    await screen.findByRole("status");
+
+    // Click rollback
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "安全回滚" }));
+    });
+    await screen.findByRole("dialog", { name: "确认安全回滚" });
+
+    // Cancel
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    });
+
+    // Dialog closed but preview banner still visible, no rollback call
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(window.api?.version.rollbackSnapshot).not.toHaveBeenCalled();
+  });
 });
 

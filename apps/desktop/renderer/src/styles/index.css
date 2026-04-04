@@ -826,7 +826,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--color-overlay-backdrop);
 }
 
 .version-restore-dialog {

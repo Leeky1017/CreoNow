@@ -88,9 +88,11 @@ type VersionPreviewSession = {
   snapshot: SnapshotDetail;
   /** The editor content that was active before entering preview mode. */
   originalContent: unknown;
-  /** Whether the restore-confirmation dialog is open. */
+  /** Whether the restore/rollback-confirmation dialog is open. */
   confirmOpen: boolean;
-  /** Whether the restore IPC call is in progress. */
+  /** Which action the confirm dialog is for: "restore" (restoreSnapshot) or "rollback" (rollbackSnapshot). */
+  confirmAction: "restore" | "rollback";
+  /** Whether the restore/rollback IPC call is in progress. */
   confirmBusy: boolean;
 };
 
@@ -909,6 +911,7 @@ function WorkbenchShell() {
       snapshot,
       originalContent,
       confirmOpen: false,
+      confirmAction: "restore",
       confirmBusy: false,
     });
   }, [editorBridge, runWithoutAutosave]);
@@ -930,13 +933,24 @@ function WorkbenchShell() {
 
   /**
    * Called by the preview banner "恢复到此版本" button.
-   * Opens the confirmation dialog.
+   * Opens the confirmation dialog for a full restore.
    */
   const handleRequestVersionRestore = useCallback(() => {
     if (versionPreviewSession === null) {
       return;
     }
-    setVersionPreviewSession({ ...versionPreviewSession, confirmOpen: true });
+    setVersionPreviewSession({ ...versionPreviewSession, confirmOpen: true, confirmAction: "restore" });
+  }, [versionPreviewSession]);
+
+  /**
+   * Called by the preview banner "安全回滚" button.
+   * Opens the confirmation dialog for a safe rollback (preserves a pre-rollback snapshot).
+   */
+  const handleRequestVersionRollback = useCallback(() => {
+    if (versionPreviewSession === null) {
+      return;
+    }
+    setVersionPreviewSession({ ...versionPreviewSession, confirmOpen: true, confirmAction: "rollback" });
   }, [versionPreviewSession]);
 
   /**
@@ -950,8 +964,9 @@ function WorkbenchShell() {
   }, [versionPreviewSession]);
 
   /**
-   * Called when user confirms the restore in the confirmation dialog.
-   * Calls restoreSnapshot IPC, reloads document, exits preview.
+   * Called when user confirms the action in the confirmation dialog.
+   * Dispatches to restoreSnapshot or rollbackSnapshot based on confirmAction,
+   * then reloads the document and exits preview mode.
    */
   const handleConfirmVersionRestore = useCallback(async () => {
     if (versionPreviewSession === null) {
@@ -965,18 +980,25 @@ function WorkbenchShell() {
 
     setVersionPreviewSession({ ...versionPreviewSession, confirmBusy: true });
 
-    const result = await api.version.restoreSnapshot({
-      documentId,
-      projectId,
-      versionId: versionPreviewSession.snapshot.versionId,
-    });
+    const isRollback = versionPreviewSession.confirmAction === "rollback";
+    const result = isRollback
+      ? await api.version.rollbackSnapshot({
+          documentId,
+          projectId,
+          versionId: versionPreviewSession.snapshot.versionId,
+        })
+      : await api.version.restoreSnapshot({
+          documentId,
+          projectId,
+          versionId: versionPreviewSession.snapshot.versionId,
+        });
 
     if (!result.ok) {
       setVersionPreviewSession({ ...versionPreviewSession, confirmBusy: false });
       return;
     }
 
-    // Restore succeeded — reload the document content and exit preview
+    // Restore/rollback succeeded — reload the document content and exit preview
     const readResult = await api.file.readDocument({ documentId, projectId });
     if (readResult.ok) {
       replaceEditorContextContent({
@@ -1474,6 +1496,14 @@ function WorkbenchShell() {
                 {t("versionHistory.backToCurrent")}
               </Button>
               <Button
+                tone="ghost"
+                className="version-preview-banner__action"
+                onClick={handleRequestVersionRollback}
+                disabled={versionPreviewSession.confirmBusy}
+              >
+                {t("versionHistory.rollback")}
+              </Button>
+              <Button
                 tone="primary"
                 className="version-preview-banner__action"
                 onClick={handleRequestVersionRestore}
@@ -1490,13 +1520,21 @@ function WorkbenchShell() {
             className="version-restore-dialog-overlay"
             role="dialog"
             aria-modal="true"
-            aria-label={t("versionHistory.confirmRestoreDialogLabel")}
+            aria-label={
+              versionPreviewSession.confirmAction === "rollback"
+                ? t("versionHistory.confirmRollbackDialogLabel")
+                : t("versionHistory.confirmRestoreDialogLabel")
+            }
           >
             <div className="version-restore-dialog">
               <p className="version-restore-dialog__message">
-                {t("versionHistory.confirmRestoreMessage", {
-                  time: formatTimestamp(versionPreviewSession.snapshot.createdAt),
-                })}
+                {versionPreviewSession.confirmAction === "rollback"
+                  ? t("versionHistory.confirmRollbackMessage", {
+                      time: formatTimestamp(versionPreviewSession.snapshot.createdAt),
+                    })
+                  : t("versionHistory.confirmRestoreMessage", {
+                      time: formatTimestamp(versionPreviewSession.snapshot.createdAt),
+                    })}
               </p>
               <div className="version-restore-dialog__actions">
                 <Button
@@ -1512,8 +1550,12 @@ function WorkbenchShell() {
                   disabled={versionPreviewSession.confirmBusy}
                 >
                   {versionPreviewSession.confirmBusy
-                    ? t("versionHistory.restoringSnapshot")
-                    : t("versionHistory.confirmRestoreAction")}
+                    ? versionPreviewSession.confirmAction === "rollback"
+                      ? t("versionHistory.rollingBackSnapshot")
+                      : t("versionHistory.restoringSnapshot")
+                    : versionPreviewSession.confirmAction === "rollback"
+                      ? t("versionHistory.confirmRollbackAction")
+                      : t("versionHistory.confirmRestoreAction")}
                 </Button>
               </div>
             </div>
