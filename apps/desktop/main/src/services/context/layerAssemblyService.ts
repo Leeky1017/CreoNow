@@ -925,6 +925,15 @@ function splitHistorySegments(text: string): string[] {
     .filter((segment) => segment.length > 0);
 }
 
+function formatConversationHistoryContent(
+  messages: ReadonlyArray<{ content: string }>,
+): string {
+  return messages
+    .map((message) => message.content)
+    .filter((content) => content.trim().length > 0)
+    .join("\n");
+}
+
 function createDeterministicCompressionEngine() {
   return createCompressionEngine(
     {
@@ -1025,8 +1034,13 @@ async function buildCompressedHistoryDetail(args: {
     historyMessages.length === 0 ||
     !shouldCompress
   ) {
+    const rawHistoryContent = formatConversationHistoryContent(sourceMessages);
     return {
-      compressedHistory: emptyCompressedHistory,
+      compressedHistory: {
+        ...emptyCompressedHistory,
+        content: rawHistoryContent,
+        tokenCount: estimateTokenCount(rawHistoryContent),
+      },
       immediate: args.immediate,
       compressionApplied: false,
     };
