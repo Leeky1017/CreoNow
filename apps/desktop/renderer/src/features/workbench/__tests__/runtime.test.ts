@@ -28,13 +28,13 @@ function createDeferred<TResult>() {
 
 function createPreview(overrides: Partial<AiPreview> = {}): AiPreview {
   return {
+    changeType: "replace",
     context: {
       documentId: "doc-1",
       projectId: "project-1",
       revision: 0,
     },
     executionId: "exec-1",
-    skill: "polish",
     originalText: "原文",
     suggestedText: "rewritten",
     runId: "run-1",
@@ -105,7 +105,7 @@ describe("workbench runtime helpers", () => {
     expect(workspace.activeDocument.documentId).toBe("doc-1");
   });
 
-  it("requests polish preview and confirms accept through the preview contract", async () => {
+  it("requests AI preview and confirms accept through the preview contract", async () => {
     const api = createApiMock();
     const bridge = {
       getContent: vi.fn(() => ({ type: "doc" })),
@@ -116,8 +116,8 @@ describe("workbench runtime helpers", () => {
     const preview = await requestAiPreview({
       api,
       context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
-      skill: "polish",
-      instruction: "润色",
+      skillId: "builtin:rewrite",
+      instruction: "改得更凝练",
       model: "gpt-4.1-mini",
       selection: {
         from: 1,
@@ -131,12 +131,11 @@ describe("workbench runtime helpers", () => {
     expect(preview.suggestedText).toBe("rewritten");
     expect(preview.executionId).toBe("exec-1");
     expect(preview.sourceUserEditRevision).toBe(0);
-    expect(preview.skill).toBe("polish");
     expect(api.ai.runSkill).toHaveBeenCalledWith(
       expect.objectContaining({
-        skillId: "builtin:polish",
+        skillId: "builtin:rewrite",
         hasSelection: true,
-        input: "原文",
+        input: "改得更凝练",
         selection: expect.objectContaining({
           from: 1,
           to: 3,
@@ -165,45 +164,70 @@ describe("workbench runtime helpers", () => {
     );
   });
 
-  it("requires rewrite instruction and keeps rewrite on the preview-confirm selection path", async () => {
-    const api = createApiMock();
-    const selection = {
-      from: 1,
-      to: 3,
-      text: "原文",
-      selectionTextHash: "hash",
-    };
 
-    await expect(requestAiPreview({
-      api,
-      context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
-      skill: "rewrite",
-      instruction: "   ",
-      model: "gpt-4.1-mini",
-      selection,
-      userEditRevision: 0,
-    })).rejects.toMatchObject({ message: "instruction-required" });
-    expect(api.ai.runSkill).not.toHaveBeenCalled();
+  it("routes polish through the shared selection preview contract without requiring instruction", async () => {
+    const api = createApiMock();
 
     await requestAiPreview({
       api,
       context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
-      skill: "rewrite",
-      instruction: "改成更忧伤的语气",
+      skillId: "builtin:polish",
+      instruction: "",
       model: "gpt-4.1-mini",
-      selection,
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: "hash",
+      },
       userEditRevision: 0,
     });
 
-    expect(api.ai.runSkill).toHaveBeenLastCalledWith(expect.objectContaining({
-      skillId: "builtin:rewrite",
+    expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+      skillId: "builtin:polish",
       hasSelection: true,
-      selection,
-      input: expect.stringContaining("改成更忧伤的语气"),
+      input: "",
+      selection: expect.objectContaining({
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: "hash",
+      }),
     }));
   });
 
-  it("requests continue preview without selection and accepts through authoritative readback", async () => {
+  it("routes continue through precedingText and cursorPosition without any selection", async () => {
+    const api = createApiMock();
+
+    const preview = await requestAiPreview({
+      api,
+      context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
+      skillId: "builtin:continue",
+      instruction: "",
+      model: "gpt-4.1-mini",
+      cursorPosition: 7,
+      precedingText: "夜幕降临，街灯次第亮起。",
+      userEditRevision: 0,
+    });
+
+    expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
+      skillId: "builtin:continue",
+      hasSelection: false,
+      input: "",
+      cursorPosition: 7,
+      precedingText: "夜幕降临，街灯次第亮起。",
+    }));
+    expect(preview.changeType).toBe("insert");
+    expect(preview.originalText).toBe("");
+    expect(preview.selection).toMatchObject({
+      from: 7,
+      to: 7,
+      text: "",
+    });
+    expect(preview.selection.selectionTextHash).toEqual(expect.any(String));
+  });
+
+  it("keeps continue preview insertion semantics aligned with zero-width writeback", async () => {
     const api = createApiMock();
     const bridge = {
       getContent: vi.fn(() => ({ type: "doc" })),
@@ -214,24 +238,17 @@ describe("workbench runtime helpers", () => {
     const preview = await requestAiPreview({
       api,
       context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
-      skill: "continue",
+      skillId: "builtin:continue",
       instruction: "",
       model: "gpt-4.1-mini",
-      cursorPosition: 9,
+      cursorPosition: 7,
       precedingText: "夜幕降临，街灯次第亮起。",
       userEditRevision: 0,
     });
 
-    expect(preview.skill).toBe("continue");
-    expect(preview.selection).toBeNull();
+    expect(preview.changeType).toBe("insert");
     expect(preview.originalText).toBe("");
-    expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
-      skillId: "builtin:continue",
-      hasSelection: false,
-      cursorPosition: 9,
-      precedingText: "夜幕降临，街灯次第亮起。",
-      input: "夜幕降临，街灯次第亮起。",
-    }));
+    expect(preview.selection).toMatchObject({ from: 7, to: 7, text: "" });
 
     await acceptAiPreview({
       api,
@@ -241,13 +258,7 @@ describe("workbench runtime helpers", () => {
       getEditorContextRevision: () => 0,
     });
 
-    expect(bridge.replaceSelection).not.toHaveBeenCalled();
-    expect(bridge.setContent).toHaveBeenCalledWith({ type: "doc", content: [{ type: "paragraph" }] });
-    expect(api.ai.confirmSkill).toHaveBeenCalledWith({
-      executionId: "exec-1",
-      action: "accept",
-      projectId: "project-1",
-    });
+    expect(bridge.replaceSelection).toHaveBeenCalledWith(preview.selection, "rewritten");
   });
 
   it("reads accept state back from the preview context instead of any caller-side active document", async () => {

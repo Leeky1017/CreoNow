@@ -111,7 +111,8 @@ button {
 .status-bar__action,
 .right-tab,
 .right-action,
-.reference-card__dismiss {
+.reference-card__dismiss,
+.skill-launcher__button {
   transition: background-color var(--duration-fast) var(--ease-default), color var(--duration-fast) var(--ease-default), border-color var(--duration-fast) var(--ease-default);
 }
 
@@ -369,6 +370,29 @@ button {
   padding: var(--space-panel-padding);
 }
 
+.skill-launcher {
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  padding: var(--space-3);
+}
+
+.skill-launcher__options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.skill-launcher__button.cn-button {
+  width: 100%;
+}
+
+.skill-launcher__button--active {
+  border-color: var(--color-separator-bold);
+  background: var(--color-bg-selected);
+  color: var(--color-fg-base);
+}
+
 .panel-section,
 .preview-stack {
   display: flex;
@@ -433,7 +457,7 @@ button {
   text-decoration: line-through;
 }
 
-.preview-body--insertion {
+.preview-body--anchor {
   color: var(--color-fg-muted);
   background: var(--color-bg-muted);
 }
@@ -454,27 +478,6 @@ button {
 
 .panel-actions {
   justify-content: flex-end;
-}
-
-.panel-actions--launcher {
-  flex-wrap: wrap;
-  justify-content: flex-start;
-}
-
-.launcher-action.cn-button {
-  min-width: 72px;
-}
-
-.launcher-action.cn-button:disabled {
-  cursor: not-allowed;
-}
-
-.launcher-action--selection-gated.cn-button:disabled {
-  border-style: dashed;
-  border-color: var(--color-separator);
-  background: var(--color-bg-muted);
-  color: var(--color-fg-muted);
-  opacity: 0.56;
 }
 
 .details-grid {
@@ -591,15 +594,6 @@ button {
 .cn-button--danger {
   background: var(--color-error-subtle);
   color: var(--color-error);
-}
-
-/* Disabled state: visually gate all cn-button elements per spec §disabled and
-   frontend-visual-quality §六. More-specific .launcher-action rules below can
-   override for the selection-gated case. */
-.cn-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
 }
 
 .cn-input,
