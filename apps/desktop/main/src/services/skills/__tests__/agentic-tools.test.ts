@@ -115,6 +115,42 @@ describe("agenticTools — V1 Read-Only Tools", () => {
     });
   });
 
+  it("search_versions 执行失败 → 返回错误", async () => {
+    const failingDeps = makeDeps({
+      versionSearcher: {
+        searchVersions: vi.fn().mockRejectedValue(new Error("db timeout")),
+      },
+    });
+    registerAgenticTools(registry, failingDeps);
+    const tool = registry.get("search_versions")!;
+
+    const result = await tool.execute(makeCtx({ args: { query: "chapter", limit: 5 } }));
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatchObject({
+      code: "SEARCH_VERSIONS_FAILED",
+      message: "db timeout",
+    });
+  });
+
+  it("get_word_count 执行失败 → 返回错误", async () => {
+    const failingDeps = makeDeps({
+      wordCounter: {
+        getWordCount: vi.fn().mockRejectedValue(new Error("document missing")),
+      },
+    });
+    registerAgenticTools(registry, failingDeps);
+    const tool = registry.get("get_word_count")!;
+
+    const result = await tool.execute(makeCtx());
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatchObject({
+      code: "WORD_COUNT_FAILED",
+      message: "document missing",
+    });
+  });
+
   // ── 阻止列表 ─────────────────────────────────────────────────
 
   it("isToolBlocked 拒绝 documentWrite", () => {

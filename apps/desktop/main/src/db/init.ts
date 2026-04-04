@@ -43,7 +43,6 @@ import chatHistoryPersistenceSql from "./migrations/0024_chat_history_persistenc
 import documentCoverImageSql from "./migrations/0025_document_cover_image.sql?raw";
 import versionParentSnapshotSql from "./migrations/0026_version_parent_snapshot_id.sql?raw";
 import versionParentSnapshotRowidOrderSql from "./migrations/0027_version_parent_snapshot_rowid_order.sql?raw";
-import costTrackingSql from "./migrations/0028_cost_tracking.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -171,11 +170,6 @@ const MIGRATIONS_BASE: readonly Migration[] = [
     version: 28,
     name: "0027_version_parent_snapshot_rowid_order",
     sql: versionParentSnapshotRowidOrderSql,
-  },
-  {
-    version: 29,
-    name: "0028_cost_tracking",
-    sql: costTrackingSql,
   },
 ];
 

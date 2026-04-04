@@ -9,7 +9,6 @@ import type { Logger } from "../logging/logger";
 import type {
   CostTracker,
   RequestCost,
-  SessionCostSummary,
 } from "../services/ai/costTracker";
 import { ipcError } from "../services/shared/ipcResult";
 
@@ -32,7 +31,14 @@ interface CostUsageSummaryRequest {
 }
 
 interface CostUsageSummaryResponse {
-  summary: SessionCostSummary;
+  totalCost: number;
+  totalRequests: number;
+  totalInputTokens: number;
+  totalOutputTokens: number;
+  totalCachedTokens: number;
+  costByModel: Record<string, { cost: number; requests: number }>;
+  costBySkill: Record<string, { cost: number; requests: number }>;
+  sessionStartedAt: number;
 }
 
 // ─── Registration ───────────────────────────────────────────────────
@@ -43,7 +49,7 @@ export function registerCostIpcHandlers(deps: {
   logger: Logger;
 }): void {
   deps.ipcMain.handle(
-    "ai:cost:list",
+    "cost:usage:list",
     async (
       _e,
       payload: CostUsageListRequest | undefined,
@@ -76,23 +82,69 @@ export function registerCostIpcHandlers(deps: {
           data: { records, totalCount: records.length },
         };
       } catch (err) {
-        deps.logger.error("ai:cost:list failed", { reason: String(err) });
+        deps.logger.error("cost:usage:list failed", { reason: String(err) });
         return ipcError("INTERNAL", "Failed to list cost records");
       }
     },
   );
 
   deps.ipcMain.handle(
-    "ai:cost:summary",
+    "cost:usage:summary",
     async (
       _e,
-      _payload: CostUsageSummaryRequest | undefined,
+      payload: CostUsageSummaryRequest | undefined,
     ): Promise<IpcResponse<CostUsageSummaryResponse>> => {
       try {
-        const summary = deps.tracker.getSessionCost();
-        return { ok: true, data: { summary } };
+        const fullSummary = deps.tracker.getSessionCost();
+
+        // Apply optional filters: if skillId or since is provided, recompute
+        // from matching records rather than returning the full session aggregate.
+        if (payload?.skillId !== undefined || payload?.since !== undefined) {
+          const matchingRecords = deps.tracker.listRecords({
+            skillId: payload?.skillId,
+            since: payload?.since,
+          });
+
+          let totalCost = 0;
+          let totalInputTokens = 0;
+          let totalOutputTokens = 0;
+          let totalCachedTokens = 0;
+          const costByModel: Record<string, { cost: number; requests: number }> = {};
+          const costBySkill: Record<string, { cost: number; requests: number }> = {};
+
+          for (const r of matchingRecords) {
+            totalCost += r.cost;
+            totalInputTokens += r.inputTokens;
+            totalOutputTokens += r.outputTokens;
+            totalCachedTokens += r.cachedTokens;
+
+            if (!costByModel[r.modelId]) costByModel[r.modelId] = { cost: 0, requests: 0 };
+            costByModel[r.modelId].cost += r.cost;
+            costByModel[r.modelId].requests += 1;
+
+            if (!costBySkill[r.skillId]) costBySkill[r.skillId] = { cost: 0, requests: 0 };
+            costBySkill[r.skillId].cost += r.cost;
+            costBySkill[r.skillId].requests += 1;
+          }
+
+          return {
+            ok: true,
+            data: {
+              totalCost,
+              totalRequests: matchingRecords.length,
+              totalInputTokens,
+              totalOutputTokens,
+              totalCachedTokens,
+              costByModel,
+              costBySkill,
+              sessionStartedAt: fullSummary.sessionStartedAt,
+            },
+          };
+        }
+
+        return { ok: true, data: fullSummary };
       } catch (err) {
-        deps.logger.error("ai:cost:summary failed", { reason: String(err) });
+        deps.logger.error("cost:usage:summary failed", { reason: String(err) });
         return ipcError("INTERNAL", "Failed to get cost summary");
       }
     },

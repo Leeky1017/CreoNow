@@ -2396,7 +2396,7 @@ export const ipcContract = {
         }),
       }),
     },
-    "ai:cost:list": {
+    "cost:usage:list": {
       request: s.object({
         skillId: s.optional(s.string()),
         since: s.optional(s.number()),
@@ -2419,7 +2419,7 @@ export const ipcContract = {
         totalCount: s.number(),
       }),
     },
-    "ai:cost:summary": {
+    "cost:usage:summary": {
       request: s.object({
         skillId: s.optional(s.string()),
         since: s.optional(s.number()),
@@ -2437,51 +2437,6 @@ export const ipcContract = {
           s.object({ cost: s.number(), requests: s.number() }),
         ),
         sessionStartedAt: s.number(),
-      }),
-    },
-    "ai:agentic:run": {
-      request: s.object({
-        skillId: s.string(),
-        input: s.string(),
-        userInstruction: s.optional(s.string()),
-        model: s.string(),
-        context: s.optional(
-          s.object({
-            projectId: s.optional(s.string()),
-            documentId: s.optional(s.string()),
-          }),
-        ),
-        selection: s.optional(
-          s.object({
-            from: s.number(),
-            to: s.number(),
-            text: s.string(),
-            selectionTextHash: s.string(),
-          }),
-        ),
-        maxToolRounds: s.optional(s.number()),
-        stream: s.boolean(),
-      }),
-      response: s.object({
-        executionId: s.string(),
-        runId: s.string(),
-        status: s.union(
-          s.literal("preview"),
-          s.literal("completed"),
-          s.literal("rejected"),
-        ),
-        previewId: s.optional(s.string()),
-        versionId: s.optional(s.string()),
-        outputText: s.optional(s.string()),
-        usage: s.optional(
-          s.object({
-            promptTokens: s.number(),
-            completionTokens: s.number(),
-            sessionTotalTokens: s.number(),
-            estimatedCostUsd: s.optional(s.number()),
-          }),
-        ),
-        toolRoundsUsed: s.optional(s.number()),
       }),
     },
   },

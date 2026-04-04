@@ -3,6 +3,12 @@
  *
  * Algorithm: find longest common prefix & suffix, then treat the
  * differing middle as a single change (insert / delete / replace).
+ *
+ * Limitation: this prefix/suffix approach produces at most one diff step.
+ * For multiple non-contiguous edits (e.g. "foo bar baz" → "FOO bar BAZ"),
+ * the entire span from the first change to the last is treated as a single
+ * replace. A more granular algorithm (e.g. Myers diff) would be needed to
+ * split these into separate steps.
  */
 
 import type {

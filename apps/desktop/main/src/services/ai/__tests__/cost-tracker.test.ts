@@ -976,4 +976,63 @@ describe("CostTracker — 费用追踪", () => {
       eventTracker.dispose();
     });
   });
+
+  // ── listRecords ─────────────────────────────────────────────────
+
+  describe("listRecords", () => {
+    it("无记录时返回空数组", () => {
+      const result = tracker.listRecords();
+      expect(result).toEqual([]);
+    });
+
+    it("按 skillId 过滤", () => {
+      tracker.recordUsage({ promptTokens: 100, completionTokens: 50 }, "gpt-4o", "req-1", "polish");
+      tracker.recordUsage({ promptTokens: 200, completionTokens: 60 }, "gpt-4o", "req-2", "expand");
+      tracker.recordUsage({ promptTokens: 150, completionTokens: 40 }, "gpt-4o", "req-3", "polish");
+
+      const polishRecords = tracker.listRecords({ skillId: "polish" });
+      expect(polishRecords).toHaveLength(2);
+      for (const r of polishRecords) {
+        expect(r.skillId).toBe("polish");
+      }
+
+      const expandRecords = tracker.listRecords({ skillId: "expand" });
+      expect(expandRecords).toHaveLength(1);
+      expect(expandRecords[0].skillId).toBe("expand");
+    });
+
+    it("按 since 时间过滤", () => {
+      const now = Date.now();
+      vi.spyOn(Date, "now")
+        .mockReturnValueOnce(now - 5000) // req-old
+        .mockReturnValueOnce(now - 5000) // internal
+        .mockReturnValueOnce(now)         // req-new
+        .mockReturnValueOnce(now);        // internal
+
+      tracker.recordUsage({ promptTokens: 100, completionTokens: 50 }, "gpt-4o", "req-old", "polish");
+      tracker.recordUsage({ promptTokens: 200, completionTokens: 60 }, "gpt-4o", "req-new", "polish");
+
+      const recentRecords = tracker.listRecords({ since: now - 1000 });
+      expect(recentRecords).toHaveLength(1);
+      expect(recentRecords[0].requestId).toBe("req-new");
+
+      vi.restoreAllMocks();
+    });
+
+    it("limit 截断", () => {
+      tracker.recordUsage({ promptTokens: 100, completionTokens: 50 }, "gpt-4o", "req-1", "polish");
+      tracker.recordUsage({ promptTokens: 200, completionTokens: 60 }, "gpt-4o", "req-2", "expand");
+      tracker.recordUsage({ promptTokens: 150, completionTokens: 40 }, "gpt-4o", "req-3", "polish");
+
+      const limited = tracker.listRecords({ limit: 2 });
+      expect(limited).toHaveLength(2);
+    });
+
+    it("无匹配 skillId 返回空数组", () => {
+      tracker.recordUsage({ promptTokens: 100, completionTokens: 50 }, "gpt-4o", "req-1", "polish");
+
+      const result = tracker.listRecords({ skillId: "nonexistent" });
+      expect(result).toEqual([]);
+    });
+  });
 });
