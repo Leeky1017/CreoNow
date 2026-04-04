@@ -1128,7 +1128,10 @@ function WorkbenchShell() {
     : liveSelection
       ? t("panel.ai.selectionLength", { count: liveSelection.text.length })
       : t("editor.selectionHint");
-  const cursorContext = activeSkill === "builtin:continue" ? editorBridge.getCursorContext() : null;
+  const cursorContext = useMemo(
+    () => activeSkill === "builtin:continue" ? editorBridge.getCursorContext() : null,
+    [activeSkill, liveSelection, editorBridge],
+  );
   const continueReady = (cursorContext?.precedingText.trim().length ?? 0) > 0;
   const instructionHint = activeSkill === "builtin:continue"
     ? continueReady

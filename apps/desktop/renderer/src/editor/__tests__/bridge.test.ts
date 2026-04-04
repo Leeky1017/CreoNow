@@ -109,6 +109,44 @@ describe("createEditorBridge", () => {
     });
   });
 
+  it("returns null for getCursorContext when no view is mounted", () => {
+    const bridge = createEditorBridge();
+    expect(bridge.getCursorContext()).toBeNull();
+  });
+
+  it("returns cursor context with correct position and preceding text", () => {
+    const bridge = createEditorBridge();
+    const container = document.createElement("div");
+    document.body.append(container);
+
+    bridge.mount(container, createDoc("hello world"));
+
+    const view = bridge.view;
+    if (view === null) {
+      throw new Error("EditorView missing");
+    }
+
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 6)));
+
+    const context = bridge.getCursorContext();
+    expect(context).not.toBeNull();
+    expect(context!.cursorPosition).toBe(6);
+    expect(context!.precedingText).toBe("hello");
+  });
+
+  it("returns empty preceding text for getCursorContext on an empty document", () => {
+    const bridge = createEditorBridge();
+    const container = document.createElement("div");
+    document.body.append(container);
+
+    bridge.mount(container);
+
+    const context = bridge.getCursorContext();
+    expect(context).not.toBeNull();
+    expect(context!.cursorPosition).toBeGreaterThanOrEqual(0);
+    expect(context!.precedingText).toBe("");
+  });
+
   it("replaces a selection with multi-paragraph text using block-aware structure", () => {
     const bridge = createEditorBridge();
     const container = document.createElement("div");
