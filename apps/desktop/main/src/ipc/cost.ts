@@ -97,6 +97,17 @@ export function registerCostIpcHandlers(deps: {
       try {
         const fullSummary = deps.tracker.getSessionCost();
 
+        if (payload?.skillId !== undefined) {
+          if (typeof payload.skillId !== "string") {
+            return ipcError("INVALID_ARGUMENT", "skillId must be a string");
+          }
+        }
+        if (payload?.since !== undefined) {
+          if (typeof payload.since !== "number" || !Number.isFinite(payload.since)) {
+            return ipcError("INVALID_ARGUMENT", "since must be a finite number");
+          }
+        }
+
         // Apply optional filters: if skillId or since is provided, recompute
         // from matching records rather than returning the full session aggregate.
         if (payload?.skillId !== undefined || payload?.since !== undefined) {

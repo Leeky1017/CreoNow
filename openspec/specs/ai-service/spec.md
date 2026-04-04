@@ -1515,20 +1515,20 @@ CostTracker 的数据通过以下 IPC 通道暴露给前端：
 
 | IPC 通道 | 通信模式 | 方向 | 用途 |
 |----------|---------|------|------|
-| `cost:session:get` | Request-Response | Renderer → Main | 获取当前会话费用汇总 |
-| `cost:request:get` | Request-Response | Renderer → Main | 获取指定请求的费用记录 |
+| `cost:usage:list` | Request-Response | Renderer → Main | 按条件查询费用记录列表（支持 `skillId`、`since`、`limit` 过滤） |
+| `cost:usage:summary` | Request-Response | Renderer → Main | 获取当前会话费用汇总（支持 `skillId`、`since` 过滤） |
 | `cost:budget:get` | Request-Response | Renderer → Main | 获取当前预算策略 |
 | `cost:budget:update` | Request-Response | Renderer → Main | 更新预算策略 |
 | `cost:pricing:get` | Request-Response | Renderer → Main | 获取当前定价表 |
 | `cost:pricing:update` | Request-Response | Renderer → Main | 更新定价表 |
 | `cost:alert` | Push Notification | Main → Renderer | 推送预算告警 |
 
-前端 AI 面板底部的统计信息（P1 Requirement "AI 使用统计"）通过 `cost:session:get` 获取数据。
+前端 AI 面板底部的统计信息（P1 Requirement "AI 使用统计"）通过 `cost:usage:summary` 获取数据。
 
 #### Scenario: 前端实时展示费用统计
 
 - **假设** 用户完成一次续写，AI 面板底部展示统计信息
-- **当** 前端调用 `cost:session:get`
+- **当** 前端调用 `cost:usage:summary`
 - **则** 返回 `SessionCostSummary`，包含 `totalInputTokens`, `totalOutputTokens`, `totalCost`
 - **并且** AI 面板底部显示 "Prompt: 2,100 tokens | 输出: 450 tokens | 费用: $0.01 | 本会话累计: $0.05"
 

@@ -127,6 +127,30 @@ describe("cost IPC handlers", () => {
       expect(result.data.totalRequests).toBe(2);
     });
 
+    it("非法 skillId 类型返回错误", async () => {
+      const harness = createHarness();
+
+      const result = await harness.invoke<{ ok: boolean; error: { code: string } }>(
+        "cost:usage:summary",
+        { skillId: 123 },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.error.code).toBe("INVALID_ARGUMENT");
+    });
+
+    it("非法 since 类型返回错误", async () => {
+      const harness = createHarness();
+
+      const result = await harness.invoke<{ ok: boolean; error: { code: string } }>(
+        "cost:usage:summary",
+        { since: "not-a-number" },
+      );
+
+      expect(result.ok).toBe(false);
+      expect(result.error.code).toBe("INVALID_ARGUMENT");
+    });
+
     it("带 skillId 过滤返回子集摘要", async () => {
       const mockRecords: RequestCost[] = [
         {
