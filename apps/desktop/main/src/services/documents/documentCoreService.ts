@@ -776,6 +776,7 @@ function createDocBranchHelpers(
               params.documentId,
               "user",
               "manual-save",
+              null,
               doc.contentJson,
               doc.contentText,
               doc.contentMd,
@@ -910,6 +911,7 @@ function createDocBranchHelpers(
             params.documentId,
             "user",
             "branch-merge",
+            targetBranch.headSnapshotId,
             encoded.data,
             derived.data.contentText,
             derived.data.contentMd,
@@ -1661,6 +1663,7 @@ function createDocLifecycleOps(
 
           const versionId = randomUUID();
           const wordCount = countWords(current.contentText);
+          const latestVersion = readLatestVersionRow({ db: args.db, documentId });
           args.db
             .prepare(
               "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -1671,6 +1674,7 @@ function createDocLifecycleOps(
               documentId,
               "user",
               "status-change",
+              latestVersion?.versionId ?? null,
               current.contentJson,
               current.contentText,
               current.contentMd,
