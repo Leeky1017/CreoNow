@@ -191,6 +191,25 @@ type RuntimeMessages = {
   }>;
 };
 
+function estimateRuntimePromptTokens(args: {
+  provider: ProviderConfig["provider"];
+  runtimeMessages: RuntimeMessages;
+}): number {
+  const parts =
+    args.provider === "anthropic"
+      ? [
+          args.runtimeMessages.systemText,
+          JSON.stringify(args.runtimeMessages.tools),
+          JSON.stringify(args.runtimeMessages.anthropicMessages),
+        ]
+      : [
+          args.runtimeMessages.systemText,
+          JSON.stringify(args.runtimeMessages.tools),
+          JSON.stringify(args.runtimeMessages.openAiMessages),
+        ];
+  return estimateTokenCount(parts.filter((part) => part.length > 0).join("\n"));
+}
+
 /**
  * Narrow an unknown value to a JSON object.
  */
@@ -655,25 +674,6 @@ function createAiSessionHelpers(state: AiInternalState) {
     };
   }
 
-  function estimateRuntimePromptTokens(args: {
-    provider: ProviderConfig["provider"];
-    runtimeMessages: RuntimeMessages;
-  }): number {
-    const parts =
-      args.provider === "anthropic"
-        ? [
-            args.runtimeMessages.systemText,
-            JSON.stringify(args.runtimeMessages.tools),
-            JSON.stringify(args.runtimeMessages.anthropicMessages),
-          ]
-        : [
-            args.runtimeMessages.systemText,
-            JSON.stringify(args.runtimeMessages.tools),
-            JSON.stringify(args.runtimeMessages.openAiMessages),
-          ];
-    return estimateTokenCount(parts.filter((part) => part.length > 0).join("\n"));
-  }
-
   function isProviderAvailabilityError(error: IpcError): boolean {
     return (
       error.code === "LLM_API_ERROR" ||
@@ -872,6 +872,17 @@ function createAiEmitHelpers(deps: AiServiceDeps, state: AiInternalState) {
       terminal: args.terminal,
       outputText: entry.outputText,
       ...(args.error ? { error: args.error } : {}),
+      result: {
+        success: args.terminal === "completed",
+        output: entry.outputText,
+        metadata: {
+          model: entry.model,
+          promptTokens: entry.promptTokens,
+          completionTokens: entry.completionTokens,
+        },
+        traceId: entry.traceId,
+        ...(args.error ? { error: args.error } : {}),
+      },
       ...(entry.finishReason !== undefined ? { finishReason: entry.finishReason ?? undefined } : {}),
       ...(entry.toolCalls !== undefined ? { toolCalls: entry.toolCalls as Array<{ id: string; name: string; arguments: Record<string, unknown> }> } : {}),
       ts: args.ts ?? Date.now(),
@@ -2239,7 +2250,10 @@ function createAiRunSkillOp(
           input: args.input,
           history,
         });
-    const promptTokens = estimateTokenCount(args.input);
+    const promptTokens = estimateRuntimePromptTokens({
+      provider: primaryCfg.provider,
+      runtimeMessages,
+    });
     const projectedTokens = promptTokens + DEFAULT_REQUEST_MAX_TOKENS_ESTIMATE;
     const hasExplicitEnvTimeout =
       (typeof deps.env.CN_AI_TIMEOUT_MS === "string" &&
