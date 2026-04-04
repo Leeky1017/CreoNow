@@ -139,11 +139,12 @@ describe("lineage insert — parent_version_id 参数对齐", () => {
       .get();
 
     expect(statusSnapshot).toBeDefined();
-    // parent_version_id 必须指向先前快照，不能是 content 字符串
+    // parent_version_id 必须指向先前快照；此断言防止因 parent_version_id 漏参
+    // 导致 lineage INSERT 绑定语义错误（下一个参数的值被绑定到本列）
     expect(statusSnapshot!.parent_version_id).toBe(firstVersionId);
-    // word_count 必须是数字，参数错位时 word_count 列会被写成字符串内容
+    // word_count 必须是数字；若 parent_version_id 漏参，绑定语义错误会使列值污染
     expect(typeof statusSnapshot!.word_count).toBe("number");
-    // content_text 不应该是 UUID（参数错位时 content_text 会被赋成 parent_version_id 的值）
+    // content_text 不应是 UUID；此断言防止 parent_version_id 漏参引起列值污染
     expect(statusSnapshot!.content_text).not.toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
@@ -204,11 +205,12 @@ describe("lineage insert — parent_version_id 参数对齐", () => {
     expect(snapshot).toBeDefined();
     // bootstrap 无父版本
     expect(snapshot!.parent_version_id).toBeNull();
-    // content_text 必须是实际文本，参数错位时会被赋成 contentJson 字符串
+    // content_text 必须是实际文本；此断言防止因 parent_version_id 漏参导致
+    // lineage INSERT 绑定语义错误，使列接收到错误的参数值（列值污染）
     expect(snapshot!.content_text).toBe(contentText);
     // word_count 必须是数字
     expect(typeof snapshot!.word_count).toBe("number");
-    // created_at 必须是数字（参数错位时会被赋成 "" 等字符串）
+    // created_at 必须是数字；此断言防止 parent_version_id 漏参引起列值污染
     expect(typeof snapshot!.created_at).toBe("number");
   });
 
@@ -250,7 +252,8 @@ describe("lineage insert — parent_version_id 参数对齐", () => {
       .get();
 
     expect(mergeSnapshot).toBeDefined();
-    // parent_version_id 必须指向合并前的 head，不能是 content（参数错位时会写成 encoded.data）
+    // parent_version_id 必须指向合并前的 head；此断言防止因 parent_version_id 漏参
+    // 导致 lineage INSERT 绑定语义错误/列值污染
     expect(mergeSnapshot!.parent_version_id).toBe(mainHeadBefore);
     // content_text 不应该是 UUID
     expect(mergeSnapshot!.content_text).not.toMatch(
