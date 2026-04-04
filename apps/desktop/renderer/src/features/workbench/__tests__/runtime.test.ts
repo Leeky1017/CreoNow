@@ -218,7 +218,7 @@ describe("workbench runtime helpers", () => {
     expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
       skillId: "builtin:continue",
       hasSelection: false,
-      input: "夜幕降临，街灯次第亮起。",
+      input: "",
       cursorPosition: 7,
       precedingText: "夜幕降临，街灯次第亮起。",
     }));
@@ -248,7 +248,7 @@ describe("workbench runtime helpers", () => {
 
     expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
       skillId: "builtin:continue",
-      input: "夜幕降临，街灯次第亮起。",
+      input: "",
       precedingText: "夜幕降临，街灯次第亮起。",
       userInstruction: "延续上一段的悬疑感",
     }));

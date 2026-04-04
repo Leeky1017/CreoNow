@@ -31,11 +31,15 @@ import {
   const manualSaveVersionId1 = db.seedVersion({
     documentId: "doc_1",
     reason: "manual-save-1",
+    createdAt: 1_739_030_500_000,
+    versionId: "seed-doc_1-b-older-created-first",
   });
   const manualSaveVersionId2 = db.seedVersion({
     documentId: "doc_1",
     reason: "manual-save-2",
     parentVersionId: manualSaveVersionId1,
+    createdAt: 1_739_030_500_000,
+    versionId: "seed-doc_1-a-newer-created-last",
   });
   const { ipcMain, handlers } = createIpcHarness();
 

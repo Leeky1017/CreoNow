@@ -4,6 +4,7 @@ import type Database from "better-sqlite3";
 import type { IpcMain } from "electron";
 
 import type { Logger } from "../../../main/src/logging/logger";
+import { SELECT_LATEST_DOCUMENT_VERSION_ID_SQL } from "../../../main/src/services/documents/latestVersionSql";
 
 export type Handler = (event: unknown, payload: unknown) => Promise<unknown>;
 
@@ -92,6 +93,8 @@ export function createReplaceDbStub(args: {
     actor?: "user" | "auto" | "ai";
     reason: string;
     parentVersionId?: string | null;
+    createdAt?: number;
+    versionId?: string;
   }) => string;
 } {
   const failSnapshotSet = new Set(args.failSnapshotForDocumentIds ?? []);
@@ -190,13 +193,14 @@ export function createReplaceDbStub(args: {
         };
       }
 
-      if (sql.startsWith("SELECT version_id as versionId FROM document_versions")) {
+      if (sql === SELECT_LATEST_DOCUMENT_VERSION_ID_SQL) {
         return {
           get: (documentId: string) => {
             const found = [...versions]
               .filter((item) => item.documentId === documentId)
-              .sort((left, right) => left.createdAt - right.createdAt || left.versionId.localeCompare(right.versionId))
-              .at(-1);
+              .map((item, index) => ({ item, index }))
+              .sort((left, right) => left.item.createdAt - right.item.createdAt || left.index - right.index)
+              .at(-1)?.item;
             return found ? { versionId: found.versionId } : undefined;
           },
         };
@@ -280,18 +284,27 @@ export function createReplaceDbStub(args: {
       actor?: "user" | "auto" | "ai";
       reason: string;
       parentVersionId?: string | null;
+      createdAt?: number;
+      versionId?: string;
     }) => string;
   };
 
   db.readDocument = (documentId: string) => documents.get(documentId);
   db.listVersions = (documentId: string) =>
     versions.filter((item) => item.documentId === documentId);
-  db.seedVersion = ({ documentId, actor = "user", reason, parentVersionId = null }) => {
+  db.seedVersion = ({
+    documentId,
+    actor = "user",
+    reason,
+    parentVersionId = null,
+    createdAt,
+    versionId: explicitVersionId,
+  }) => {
     const document = documents.get(documentId);
     if (!document) {
       throw new Error(`Unknown document for seedVersion: ${documentId}`);
     }
-    const versionId = `seed-${documentId}-${versions.length + 1}`;
+    const versionId = explicitVersionId ?? `seed-${documentId}-${versions.length + 1}`;
     versions.push({
       versionId,
       projectId: document.projectId,
@@ -306,7 +319,7 @@ export function createReplaceDbStub(args: {
       wordCount: document.contentText.trim().length === 0
         ? 0
         : document.contentText.trim().split(/\s+/u).length,
-      createdAt: now++,
+      createdAt: createdAt ?? now++,
     });
     return versionId;
   };

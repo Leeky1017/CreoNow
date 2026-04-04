@@ -7,7 +7,8 @@ import {
   resolveContinueValidationInput,
 } from "./contextPromptPolicy";
 import {
-  renderDocumentPromptInput,
+  renderDocumentWindowPromptInput,
+  renderSafeContextLayer,
   renderSafePromptTemplate,
   renderSelectionPromptInput,
 } from "./promptSafety";
@@ -527,11 +528,13 @@ function validateSkillRunOutput(args: {
 function resolveValidationInputText(args: {
   skillId: string;
   rawInputText: string;
+  rawContextText?: string;
   contextPrompt?: string;
 }): string {
   if (leafSkillId(args.skillId) === "continue") {
     return resolveContinueValidationInput({
       rawInputText: args.rawInputText,
+      rawContextText: args.rawContextText,
       contextPrompt: args.contextPrompt,
     });
   }
@@ -596,8 +599,9 @@ async function assembleContextPrompt(args: {
     cursorPosition: args.run.cursorPosition ?? 0,
     skillId: args.run.skillId,
     additionalInput: args.additionalInput,
-    // Selection-based skills must not have their selection text truncated at textOffset.
-    additionalInputIsSelection: args.inputType === "selection",
+    // Selection/document-window payloads already carry the exact slice that should
+    // become the immediate layer; re-slicing here would drop or duplicate context.
+    additionalInputIsSelection: args.inputType === "selection" || args.inputType === "document",
     provider: "ai-service",
     model: args.run.model,
   });
@@ -651,8 +655,7 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
       });
       const { inputForPrompt, contextInput } = inputValidation.data;
       const promptInput = resolvedInputType === "document"
-        ? renderDocumentPromptInput({
-            documentContext: inputForPrompt,
+        ? renderDocumentWindowPromptInput({
             userInstruction: args.userInstruction,
           })
         : renderSelectionPromptInput({
@@ -691,11 +694,22 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
             error: normalizeErrorMessage(error),
           });
         }
+        if (
+          contextPrompt === undefined &&
+          resolvedInputType === "document" &&
+          (contextInput ?? "").length > 0
+        ) {
+          contextPrompt = renderSafeContextLayer({
+            title: "Immediate",
+            content: contextInput as string,
+          });
+        }
       }
 
       const validationInputText = resolveValidationInputText({
         skillId: effectiveSkillId,
         rawInputText: args.input,
+        rawContextText: args.precedingText,
         contextPrompt,
       });
 

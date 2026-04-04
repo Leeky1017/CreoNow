@@ -22,8 +22,13 @@ export function normalizeAssembledContextPrompt(args: {
  */
 export function resolveContinueValidationInput(args: {
   rawInputText: string;
+  rawContextText?: string;
   contextPrompt?: string;
 }): string {
+  if ((args.rawContextText ?? "").length > 0) {
+    return args.rawContextText as string;
+  }
+
   if ((args.contextPrompt ?? "").length > 0) {
     return args.contextPrompt as string;
   }

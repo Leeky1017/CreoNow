@@ -5,6 +5,7 @@ import { hashJson } from "@shared/hashUtils";
 
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "../documents/derive";
+import { SELECT_LATEST_DOCUMENT_VERSION_ID_SQL } from "../documents/latestVersionSql";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 
 type SearchReplaceScope = "currentDocument" | "wholeProject";
@@ -298,7 +299,7 @@ function insertVersion(args: {
   createdAt: number;
 }): string {
   const parentVersionId = args.db
-    .prepare<[string], { versionId: string }>("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+    .prepare<[string], { versionId: string }>(SELECT_LATEST_DOCUMENT_VERSION_ID_SQL)
     .get(args.row.documentId)?.versionId ?? null;
   const versionId = randomUUID();
   args.db

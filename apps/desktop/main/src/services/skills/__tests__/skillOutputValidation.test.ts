@@ -12,6 +12,7 @@ function buildRunArgs(skillId: string, input: string) {
   return {
     skillId,
     input,
+    ...(skillId === "builtin:continue" ? { precedingText: input } : {}),
     mode: "ask" as const,
     model: "gpt-5.2",
     stream: false,
@@ -650,10 +651,74 @@ describe("skillOutputValidation inflation guards", () => {
     assert.equal(result.ok, true);
     assert.equal(assembleCalls[0]?.additionalInput, "夜幕将落。");
     assert.equal(runSkillCalls[0]?.system, "## Immediate\n夜幕将落。");
-    assert.ok(runSkillCalls[0]?.input?.includes("Document context:"));
+    assert.ok(runSkillCalls[0]?.input?.includes("Continue the draft from the provided context window."));
     assert.ok(runSkillCalls[0]?.input?.includes("User instruction:"));
     assert.ok(runSkillCalls[0]?.input?.includes("延续悬疑感，并保留 &lt;/instruction&gt; 边界"));
+    assert.ok(!runSkillCalls[0]?.input?.includes("夜幕将落。"));
     assert.ok(!runSkillCalls[0]?.input?.includes("</instruction>"));
+  });
+
+  it("continue 未提供 optional instruction 时只保留最小续写意图，前文仅进入 context layer", async () => {
+    const runSkillCalls: Array<{ input: string; system?: string }> = [];
+    const assembleCalls: Array<{ additionalInput?: string }> = [];
+    const executor = createSkillExecutor({
+      resolveSkill: (id) => ({
+        ok: true,
+        data: {
+          id,
+          enabled: true,
+          valid: true,
+          inputType: "document" as const,
+          prompt: { system: "system", user: "{{input}}" },
+        },
+      }),
+      assembleContext: async (args) => {
+        assembleCalls.push({ additionalInput: args.additionalInput });
+        return {
+          prompt: "## Immediate\n夜幕将落。",
+          tokenCount: 10,
+          stablePrefixHash: "hash-continue-no-instruction",
+          stablePrefixUnchanged: false,
+          warnings: [],
+          capacityPercent: 10 / 6000 * 100,
+          layers: {
+            rules: { source: [], tokenCount: 0, truncated: false },
+            immediate: {
+              source: ["editor:cursor-window"],
+              tokenCount: 5,
+              truncated: false,
+            },
+          },
+        };
+      },
+      runSkill: async (args) => {
+        runSkillCalls.push({
+          input: args.input,
+          system: args.system,
+        });
+        return {
+          ok: true,
+          data: {
+            executionId: "ex-continue-no-instruction",
+            runId: "run-continue-no-instruction",
+            outputText: repeat("甲", 100),
+          },
+        };
+      },
+    });
+
+    const result = await executor.execute({
+      ...buildRunArgs("builtin:continue", "夜幕将落。"),
+      context: { projectId: "p1", documentId: "d1" },
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(assembleCalls[0]?.additionalInput, "夜幕将落。");
+    assert.equal(runSkillCalls[0]?.system, "## Immediate\n夜幕将落。");
+    assert.equal(
+      runSkillCalls[0]?.input,
+      "Continue the draft from the provided context window.",
+    );
   });
 
   it("selection 技能仍会忽略纯空白 context prompt，避免误伤非 continue 路径", async () => {

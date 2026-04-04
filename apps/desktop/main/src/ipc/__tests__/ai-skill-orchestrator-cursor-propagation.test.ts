@@ -365,7 +365,7 @@ describe("ai:skill:run cursor propagation regression", () => {
     // textOffset may still be set but the immediate layer guard ensures it is ignored
   });
 
-  it("builtin:continue の context assembly 请求 additionalInputIsSelection 为 false 或 undefined", async () => {
+  it("builtin:continue 的 context assembly 请求会把 document-window additionalInput 标记为完整窗口", async () => {
     const harness = createHarness();
     opened.push(harness.db);
     const { projectId, documentId } = createProjectAndDocument({
@@ -384,9 +384,10 @@ describe("ai:skill:run cursor propagation regression", () => {
       stream: false,
     });
 
-    // Document-window skill: additionalInputIsSelection must be false (not true)
+    // Document-window payloads already carry the exact cursor window and must not
+    // be sliced again by cursorPosition/textOffset.
     const flags = assembleSpy.mock.calls.map(([request]) => request.additionalInputIsSelection);
-    expect(flags.every((f: unknown) => f !== true)).toBe(true);
+    expect(flags.every((f: unknown) => f === true)).toBe(true);
   });
 
   // RED TEST: P1 input-bridge blocker — when the IPC payload carries an explicit

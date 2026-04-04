@@ -316,7 +316,7 @@ export async function requestAiPreview(args: SelectionPreviewRequest | ContinueP
       : {
           selection: args.selection,
         }),
-    input: args.skillId === "builtin:continue" ? args.precedingText : args.selection.text,
+    input: args.skillId === "builtin:continue" ? "" : args.selection.text,
     ...(userInstruction.length > 0
       ? { userInstruction }
       : {}),

@@ -32,7 +32,8 @@ import { createSkillService } from "../services/skills/skillService";
 import { createSkillExecutor, type SkillExecutorRunArgs } from "../services/skills/skillExecutor";
 import { normalizeAssembledContextPrompt } from "../services/skills/contextPromptPolicy";
 import {
-  renderDocumentPromptInput,
+  renderDocumentWindowPromptInput,
+  renderSafeContextLayer,
   renderSafePromptTemplate,
   renderSelectionPromptInput,
 } from "../services/skills/promptSafety";
@@ -500,8 +501,7 @@ async function prepareWritingRequest(args: {
         selectedText: primaryInput,
         userInstruction,
       })
-    : renderDocumentPromptInput({
-        documentContext: primaryInput,
+    : renderDocumentWindowPromptInput({
         userInstruction,
       });
   if (inputType === "selection" && selectionInput.trim().length === 0) {
@@ -560,7 +560,8 @@ async function prepareWritingRequest(args: {
         ...(textOffset !== undefined ? { textOffset } : {}),
         skillId: args.payload.skillId,
         additionalInput: primaryInput,
-        additionalInputIsSelection: inputType === "selection",
+        // Selection/document-window payloads already provide the exact prompt slice.
+        additionalInputIsSelection: inputType === "selection" || inputType === "document",
         provider: "ai-service",
         model: args.payload.model,
       });
@@ -575,6 +576,12 @@ async function prepareWritingRequest(args: {
         message: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+  if (contextPrompt.length === 0 && inputType === "document" && primaryInput.length > 0) {
+    contextPrompt = renderSafeContextLayer({
+      title: "Immediate",
+      content: primaryInput,
+    });
   }
 
   const systemPrompt = resolvedData.skill.prompt?.system?.trim() ?? "";
@@ -793,13 +800,12 @@ function resolveWritingRequestPromptInput(request: {
   userInstruction?: string;
   input: { selectedText?: string; precedingText?: string };
 }): string {
-  const primaryInput = resolveWritingRequestInput(request);
   if (leafSkillId(request.skillId) === "continue") {
-    return renderDocumentPromptInput({
-      documentContext: primaryInput,
+    return renderDocumentWindowPromptInput({
       userInstruction: request.userInstruction,
     });
   }
+  const primaryInput = resolveWritingRequestInput(request);
   return renderSelectionPromptInput({
     selectedText: primaryInput,
     userInstruction: request.userInstruction,

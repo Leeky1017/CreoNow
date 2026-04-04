@@ -7,6 +7,10 @@ import { VERSION_HISTORY_RECENT_LIMIT } from "@shared/versionHistory";
 
 import type { Logger } from "../../logging/logger";
 import { deriveContent } from "./derive";
+import {
+  LATEST_DOCUMENT_VERSION_ORDER_BY,
+  SELECT_LATEST_DOCUMENT_VERSION_ID_SQL,
+} from "./latestVersionSql";
 import { buildUnifiedDiff } from "./documentDiffHelpers";
 import { applyConflictResolutions, runThreeWayMerge } from "./threeWayMerge";
 import type {
@@ -125,7 +129,7 @@ function readLatestVersionRow(args: {
     .prepare<
       [string],
       VersionParentRow
-    >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
+    >(SELECT_LATEST_DOCUMENT_VERSION_ID_SQL)
     .get(args.documentId) ?? null;
 }
 
@@ -759,7 +763,7 @@ function createDocBranchHelpers(
           .prepare<
             [string],
             { versionId: string }
-          >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
+          >(SELECT_LATEST_DOCUMENT_VERSION_ID_SQL)
           .get(params.documentId);
 
         let headSnapshotId = latest?.versionId ?? "";
@@ -1304,7 +1308,7 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
             .prepare<
               [string],
               LatestVersionRow
-            >("SELECT version_id as versionId, reason, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
+            >(`SELECT version_id as versionId, reason, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? ${LATEST_DOCUMENT_VERSION_ORDER_BY}`)
             .get(documentId);
 
           const shouldMergeAutosave =

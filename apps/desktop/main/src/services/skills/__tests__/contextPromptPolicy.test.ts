@@ -51,6 +51,18 @@ describe("contextPromptPolicy", () => {
     assert.equal(
       resolveContinueValidationInput({
         rawInputText: "",
+        rawContextText: "甲乙 ",
+        contextPrompt: "## Immediate\n甲乙 ",
+      }),
+      "甲乙 ",
+    );
+  });
+
+  it("continue validation input falls back to assembled context prompt when raw context is absent", () => {
+    assert.equal(
+      resolveContinueValidationInput({
+        rawInputText: "",
+        rawContextText: "",
         contextPrompt: "## Immediate\n甲乙 ",
       }),
       "## Immediate\n甲乙 ",
