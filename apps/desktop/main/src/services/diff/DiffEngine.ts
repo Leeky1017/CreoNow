@@ -215,19 +215,8 @@ function mergeNearbySteps(
     const beforeGap = next.from - current.to;
     const afterGap = next.afterFrom - current.afterTo;
     const canMergeContiguous = beforeGap === 0 && afterGap === 0;
-    const canMergeSingleAnchorChar =
-      beforeGap === 1 &&
-      afterGap === 1 &&
-      current.type === "replace" &&
-      next.type === "replace" &&
-      !(
-        current.to - current.from === 1 &&
-        (current.text?.length ?? 0) === 1 &&
-        next.to - next.from === 1 &&
-        (next.text?.length ?? 0) === 1
-      );
 
-    if (!canMergeContiguous && !canMergeSingleAnchorChar) {
+    if (!canMergeContiguous) {
       merged.push(current);
       current = { ...next };
       continue;

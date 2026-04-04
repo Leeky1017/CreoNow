@@ -953,6 +953,7 @@ type PendingPreviewSession = {
   generator: AsyncGenerator<WritingEvent>;
   outputText: string;
   usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  usageSummary?: SkillRunUsage;
   completion: Promise<IpcResponse<SkillRunConfirmResponse>>;
 };
 
@@ -1080,7 +1081,35 @@ function resolveUsageContextKey(context?: SkillRunPayload["context"]): string {
   return "global";
 }
 
-function buildSkillRunUsage(
+function buildSkillRunUsage(args: {
+  modelPricingByModel: Map<string, ModelPricing>;
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  sessionTotalTokens: number;
+}): SkillRunUsage {
+  const promptTokens = Math.max(0, args.promptTokens);
+  const completionTokens = Math.max(0, args.completionTokens);
+  const pricing = args.modelPricingByModel.get(args.model.trim());
+  const estimatedCostUsd =
+    pricing === undefined
+      ? undefined
+      : Number(
+          (
+            (promptTokens / 1000) * pricing.promptPer1kTokens
+            + (completionTokens / 1000) * pricing.completionPer1kTokens
+          ).toFixed(6),
+        );
+
+  return {
+    promptTokens,
+    completionTokens,
+    sessionTotalTokens: Math.max(0, args.sessionTotalTokens),
+    ...(typeof estimatedCostUsd === "number" ? { estimatedCostUsd } : {}),
+  };
+}
+
+function recordSkillRunUsage(
   ctx: AiIpcContext,
   args: {
     model: string;
@@ -1095,25 +1124,13 @@ function buildSkillRunUsage(
   const nextTotal = (ctx.sessionTokenTotalsByContext.get(key) ?? 0) + delta;
   ctx.sessionTokenTotalsByContext.set(key, nextTotal);
 
-  const pricing = ctx.modelPricingByModel.get(args.model.trim());
-  const estimatedCostUsd =
-    pricing === undefined
-      ? undefined
-      : Number(
-          (
-            (Math.max(0, args.promptTokens) / 1000) *
-              pricing.promptPer1kTokens +
-            (Math.max(0, args.completionTokens) / 1000) *
-              pricing.completionPer1kTokens
-          ).toFixed(6),
-        );
-
-  return {
-    promptTokens: Math.max(0, args.promptTokens),
-    completionTokens: Math.max(0, args.completionTokens),
+  return buildSkillRunUsage({
+    modelPricingByModel: ctx.modelPricingByModel,
+    model: args.model,
+    promptTokens: args.promptTokens,
+    completionTokens: args.completionTokens,
     sessionTotalTokens: nextTotal,
-    ...(typeof estimatedCostUsd === "number" ? { estimatedCostUsd } : {}),
-  };
+  });
 }
 
 /**
@@ -1675,12 +1692,20 @@ async function drainPreviewUntilPause(args: {
         completionTokens: number;
         totalTokens: number;
       }
-    | undefined;
+      | undefined;
   let versionId: string | undefined;
 
   while (true) {
     const next = await args.generator.next();
     if (next.done) {
+      const usageSummary = usage
+        ? recordSkillRunUsage(args.ctx, {
+            model: args.payload.model,
+            context: args.payload.context,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+          })
+        : undefined;
       emitOrchestratorDone({
         ctx: args.ctx,
         sender: args.sender,
@@ -1690,14 +1715,7 @@ async function drainPreviewUntilPause(args: {
         terminal: "completed",
         outputText,
         model: args.payload.model,
-        usage: usage
-          ? buildSkillRunUsage(args.ctx, {
-              model: args.payload.model,
-              context: args.payload.context,
-              promptTokens: usage.promptTokens,
-              completionTokens: usage.completionTokens,
-            })
-          : undefined,
+        usage: usageSummary,
       });
       return {
         ok: true,
@@ -1708,16 +1726,7 @@ async function drainPreviewUntilPause(args: {
           ...(versionId ? { versionId } : {}),
           outputText,
           candidates: buildPreviewCandidates({ runId: args.runId, outputText }),
-          ...(usage
-            ? {
-                usage: buildSkillRunUsage(args.ctx, {
-                  model: args.payload.model,
-                  context: args.payload.context,
-                  promptTokens: usage.promptTokens,
-                  completionTokens: usage.completionTokens,
-                }),
-              }
-            : {}),
+          ...(usageSummary ? { usage: usageSummary } : {}),
           ...(args.payload.promptDiagnostics
             ? { promptDiagnostics: args.payload.promptDiagnostics }
             : {}),
@@ -1751,6 +1760,14 @@ async function drainPreviewUntilPause(args: {
     }
 
     if (event.type === "permission-requested") {
+      const usageSummary = usage
+        ? recordSkillRunUsage(args.ctx, {
+            model: args.payload.model,
+            context: args.payload.context,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+          })
+        : undefined;
       const session = {
         executionId: args.executionId,
         runId: args.runId,
@@ -1760,6 +1777,7 @@ async function drainPreviewUntilPause(args: {
         generator: args.generator,
         outputText,
         usage,
+        usageSummary,
       } as PendingPreviewSession;
       session.completion = Promise.resolve()
         .then(() =>
@@ -1786,16 +1804,7 @@ async function drainPreviewUntilPause(args: {
           previewId: args.executionId,
           outputText,
           candidates: buildPreviewCandidates({ runId: args.runId, outputText }),
-          ...(usage
-            ? {
-                usage: buildSkillRunUsage(args.ctx, {
-                  model: args.payload.model,
-                  context: args.payload.context,
-                  promptTokens: usage.promptTokens,
-                  completionTokens: usage.completionTokens,
-                }),
-              }
-            : {}),
+          ...(usageSummary ? { usage: usageSummary } : {}),
           ...(args.payload.promptDiagnostics
             ? { promptDiagnostics: args.payload.promptDiagnostics }
             : {}),
@@ -1871,6 +1880,16 @@ async function continuePreviewSession(args: {
   while (true) {
     const next = await args.session.generator.next();
     if (next.done) {
+      const usageSummary =
+        args.session.usageSummary
+        ?? (args.session.usage
+          ? recordSkillRunUsage(args.ctx, {
+              model: args.session.payload.model,
+              context: args.session.payload.context,
+              promptTokens: args.session.usage.promptTokens,
+              completionTokens: args.session.usage.completionTokens,
+            })
+          : undefined);
       emitOrchestratorDone({
         ctx: args.ctx,
         sender: args.session.sender,
@@ -1880,14 +1899,7 @@ async function continuePreviewSession(args: {
         terminal: "completed",
         outputText: args.session.outputText,
         model: args.session.payload.model,
-        usage: args.session.usage
-          ? buildSkillRunUsage(args.ctx, {
-              model: args.session.payload.model,
-              context: args.session.payload.context,
-              promptTokens: args.session.usage.promptTokens,
-              completionTokens: args.session.usage.completionTokens,
-            })
-          : undefined,
+        usage: usageSummary,
       });
       args.ctx.previewSessions.delete(args.session.executionId);
       return {

@@ -245,4 +245,84 @@ describe("ai skill cost tracking integration", () => {
     expect(list.data.totalCount).toBe(1);
     expect(list.data.records[0]).toMatchObject({ modelId: "gpt-5.2" });
   });
+
+  it("preview → confirm → 下一次 run 只累计一次 sessionTotalTokens", async () => {
+    const harness = createHarness();
+    opened.push(harness.db);
+    const current = createProjectAndDocument({
+      db: harness.db,
+      title: "当前章节",
+      text: "夜幕降临，街灯次第亮起。",
+    });
+
+    globalThis.fetch = vi.fn(async () =>
+      openAiStopResponse("他先停步观察，再轻轻推门而入。"),
+    ) as typeof fetch;
+
+    const payload = {
+      skillId: "builtin:continue",
+      hasSelection: false,
+      input: "夜幕降临，街灯次第亮起。",
+      precedingText: "夜幕降临，街灯次第亮起。",
+      mode: "ask" as const,
+      model: "gpt-5.2",
+      context: current,
+      stream: true,
+    };
+
+    const firstRun = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        executionId: string;
+        status: "preview" | "completed" | "rejected";
+        usage?: {
+          promptTokens: number;
+          completionTokens: number;
+          sessionTotalTokens: number;
+          estimatedCostUsd?: number;
+        };
+      };
+    }>("ai:skill:run", payload);
+
+    expect(firstRun.ok).toBe(true);
+    expect(firstRun.data?.status).toBe("preview");
+    expect(firstRun.data?.usage).toBeDefined();
+    expect(firstRun.data?.usage?.sessionTotalTokens).toBe(
+      (firstRun.data?.usage?.promptTokens ?? 0)
+        + (firstRun.data?.usage?.completionTokens ?? 0),
+    );
+
+    const confirm = await harness.invoke<{
+      ok: boolean;
+      data?: { status: "completed" | "rejected" };
+    }>("ai:skill:confirm", {
+      executionId: firstRun.data?.executionId,
+      action: "accept",
+      projectId: current.projectId,
+    });
+
+    expect(confirm.ok).toBe(true);
+    expect(confirm.data?.status).toBe("completed");
+
+    const secondRun = await harness.invoke<{
+      ok: boolean;
+      data?: {
+        status: "preview" | "completed" | "rejected";
+        usage?: {
+          promptTokens: number;
+          completionTokens: number;
+          sessionTotalTokens: number;
+          estimatedCostUsd?: number;
+        };
+      };
+    }>("ai:skill:run", payload);
+
+    expect(secondRun.ok).toBe(true);
+    expect(secondRun.data?.status).toBe("preview");
+    expect(secondRun.data?.usage).toMatchObject({
+      promptTokens: firstRun.data?.usage?.promptTokens,
+      completionTokens: firstRun.data?.usage?.completionTokens,
+      sessionTotalTokens: (firstRun.data?.usage?.sessionTotalTokens ?? 0) * 2,
+    });
+  });
 });
