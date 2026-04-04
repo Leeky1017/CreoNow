@@ -125,6 +125,27 @@ describe("DiffEngine — computeTransaction", () => {
     expect(result.stats.totalChanges).toBe(2);
   });
 
+  it("两个修改之间隔着未改字符 → 保留为两个 replace step", () => {
+    const result = computeTransaction("abcde", "aXcYe");
+
+    expect(result.steps).toEqual([
+      {
+        type: "replace",
+        from: 1,
+        to: 2,
+        text: "X",
+      },
+      {
+        type: "replace",
+        from: 3,
+        to: 4,
+        text: "Y",
+      },
+    ]);
+    expect(result.stats.replacements).toBe(2);
+    expect(result.stats.totalChanges).toBe(2);
+  });
+
   it("首尾均不变、仅中间修改 → 精确 replace", () => {
     const result = computeTransaction("abc_XYZ_def", "abc_123_def");
 
