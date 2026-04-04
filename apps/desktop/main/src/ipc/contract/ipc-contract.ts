@@ -1005,6 +1005,7 @@ export const ipcContract = {
         hasSelection: s.optional(s.boolean()),
         cursorPosition: s.optional(s.number()),
         input: s.string(),
+        userInstruction: s.optional(s.string()),
         mode: s.union(s.literal("agent"), s.literal("plan"), s.literal("ask")),
         model: s.string(),
         candidateCount: s.optional(s.number()),
@@ -2282,6 +2283,7 @@ export const ipcContract = {
         versionId: s.string(),
         contentHash: s.string(),
         wordCount: s.number(),
+        parentSnapshotId: s.union(s.string(), s.literal(null)),
         createdAt: s.number(),
         compaction: s.optional(
           s.object({
@@ -2302,6 +2304,7 @@ export const ipcContract = {
             reason: VERSION_SNAPSHOT_REASON_SCHEMA,
             contentHash: s.string(),
             wordCount: s.number(),
+            parentSnapshotId: s.union(s.string(), s.literal(null)),
             createdAt: s.number(),
           }),
         ),
@@ -2320,6 +2323,7 @@ export const ipcContract = {
         contentMd: s.string(),
         contentHash: s.string(),
         wordCount: s.number(),
+        parentSnapshotId: s.union(s.string(), s.literal(null)),
         createdAt: s.number(),
       }),
     },

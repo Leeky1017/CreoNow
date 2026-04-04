@@ -109,6 +109,18 @@ function isReasonValidForActor(
   );
 }
 
+function readLatestVersionRow(args: {
+  db: Database.Database;
+  documentId: string;
+}): VersionParentRow | null {
+  return args.db
+    .prepare<
+      [string],
+      VersionParentRow
+    >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+    .get(args.documentId) ?? null;
+}
+
 function normalizePublicSnapshotReason(args: {
   actor: VersionSnapshotActor;
   reason: string;
@@ -235,12 +247,17 @@ type LatestVersionRow = {
   createdAt: number;
 };
 
+type VersionParentRow = {
+  versionId: string;
+};
+
 type VersionListRow = {
   versionId: string;
   actor: VersionSnapshotActor;
   reason: string;
   contentHash: string;
   wordCount: number;
+  parentSnapshotId: string | null;
   createdAt: number;
 };
 
@@ -572,10 +589,12 @@ function createDocUtilityHelpers(args: {
           throw new Error("NOT_FOUND");
         }
 
+        const latestVersion = readLatestVersionRow({ db: args.db, documentId: params.documentId });
+
         preRollbackVersionId = randomUUID();
         args.db
           .prepare(
-            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           )
           .run(
             preRollbackVersionId,
@@ -583,6 +602,7 @@ function createDocUtilityHelpers(args: {
             current.documentId,
             "user",
             "pre-rollback",
+            latestVersion?.versionId ?? null,
             current.contentJson,
             current.contentText,
             current.contentMd,
@@ -612,7 +632,7 @@ function createDocUtilityHelpers(args: {
         rollbackVersionId = randomUUID();
         args.db
           .prepare(
-            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           )
           .run(
             rollbackVersionId,
@@ -620,6 +640,7 @@ function createDocUtilityHelpers(args: {
             target.documentId,
             "user",
             "rollback",
+            preRollbackVersionId,
             target.contentJson,
             target.contentText,
             target.contentMd,
@@ -747,7 +768,7 @@ function createDocBranchHelpers(
           const bootstrapVersionId = randomUUID();
           args.db
             .prepare(
-              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .run(
               bootstrapVersionId,
@@ -881,7 +902,7 @@ function createDocBranchHelpers(
         mergeSnapshotId = randomUUID();
         args.db
           .prepare(
-            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           )
           .run(
             mergeSnapshotId,
@@ -1316,7 +1337,7 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
             const insertedVersionId = randomUUID();
             args.db
               .prepare(
-                "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
               )
               .run(
                 insertedVersionId,
@@ -1324,6 +1345,7 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
                 documentId,
                 actor,
                 reason,
+                latest?.versionId ?? null,
                 encoded.data,
                 derived.data.contentText,
                 derived.data.contentMd,
@@ -1641,7 +1663,7 @@ function createDocLifecycleOps(
           const wordCount = countWords(current.contentText);
           args.db
             .prepare(
-              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .run(
               versionId,
@@ -1773,7 +1795,7 @@ function createVersionOps(
           .prepare<
             [string],
             VersionListRow
-          >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
+          >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
           .all(documentId);
         return {
           ok: true,
@@ -1799,7 +1821,7 @@ function createVersionOps(
           .prepare<
             [string, string],
             VersionRead
-          >("SELECT document_id as documentId, project_id as projectId, version_id as versionId, actor, reason, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, created_at as createdAt FROM document_versions WHERE document_id = ? AND version_id = ?")
+          >("SELECT document_id as documentId, project_id as projectId, version_id as versionId, actor, reason, content_json as contentJson, content_text as contentText, content_md as contentMd, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? AND version_id = ?")
           .get(documentId, versionId);
         if (!row) {
           return documentError("NOT_FOUND", "Version not found");

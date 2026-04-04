@@ -66,6 +66,7 @@ type SkillRunPayload = {
   hasSelection?: boolean;
   cursorPosition?: number;
   input: string;
+  userInstruction?: string;
   /** Cursor-preceding text for document-window skills (e.g. continue). */
   precedingText?: string;
   mode: "agent" | "plan" | "ask";
@@ -81,6 +82,37 @@ type SkillRunPayload = {
   promptDiagnostics?: { stablePrefixHash: string; promptHash: string };
   stream: boolean;
 };
+
+function resolveSelectionPrimaryInput(payload: SkillRunPayload): string {
+  return payload.selection?.text ?? payload.input;
+}
+
+function resolveUserInstruction(payload: SkillRunPayload): string | undefined {
+  const normalized = payload.userInstruction?.trim();
+  return normalized && normalized.length > 0 ? normalized : undefined;
+}
+
+function renderSelectionSkillInput(payload: SkillRunPayload): string {
+  const selectedText = resolveSelectionPrimaryInput(payload);
+  if (leafSkillId(payload.skillId) !== "rewrite") {
+    return selectedText;
+  }
+
+  const userInstruction = resolveUserInstruction(payload);
+  if (!userInstruction) {
+    return selectedText;
+  }
+
+  return [
+    "<text>",
+    selectedText,
+    "</text>",
+    "",
+    "<instruction>",
+    userInstruction,
+    "</instruction>",
+  ].join("\n");
+}
 
 function resolveCursorPosition(payload: SkillRunPayload): number | undefined {
   if (payload.selection) {
@@ -454,9 +486,12 @@ async function prepareWritingRequest(args: {
     };
   }
 
-  const input = args.payload.input;
   const inputType = resolvedData.inputType ?? "selection";
-  if (inputType === "selection" && input.trim().length === 0) {
+  const selectionInput = resolveSelectionPrimaryInput(args.payload);
+  const promptInput = inputType === "selection"
+    ? renderSelectionSkillInput(args.payload)
+    : (args.payload.precedingText ?? args.payload.input);
+  if (inputType === "selection" && selectionInput.trim().length === 0) {
     return {
       ok: false,
       error: {
@@ -511,7 +546,7 @@ async function prepareWritingRequest(args: {
         cursorPosition: cursorPosition ?? 0,
         ...(textOffset !== undefined ? { textOffset } : {}),
         skillId: args.payload.skillId,
-        additionalInput: input,
+        additionalInput: inputType === "selection" ? selectionInput : promptInput,
         additionalInputIsSelection: inputType === "selection",
         provider: "ai-service",
         model: args.payload.model,
@@ -532,7 +567,7 @@ async function prepareWritingRequest(args: {
   const systemPrompt = resolvedData.skill.prompt?.system?.trim() ?? "";
   const userPrompt = renderSkillUserPrompt({
     template: resolvedData.skill.prompt?.user ?? "",
-    input,
+    input: promptInput,
   });
 
   const messages = [
@@ -2047,9 +2082,10 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
         requestId: executionId,
         skillId: normalizedPayload.skillId,
         input: {
-          selectedText: normalizedPayload.input,
+          selectedText: normalizedPayload.selection?.text ?? normalizedPayload.input,
           ...(normalizedPayload.precedingText !== undefined ? { precedingText: normalizedPayload.precedingText } : {}),
         },
+        ...(resolveUserInstruction(normalizedPayload) ? { userInstruction: resolveUserInstruction(normalizedPayload) } : {}),
         documentId,
         projectId: projectId.data,
         modelId: normalizedPayload.model,

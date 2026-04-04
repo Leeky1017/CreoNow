@@ -135,7 +135,8 @@ describe("workbench runtime helpers", () => {
       expect.objectContaining({
         skillId: "builtin:rewrite",
         hasSelection: true,
-        input: "改得更凝练",
+        input: "原文",
+        userInstruction: "改得更凝练",
         selection: expect.objectContaining({
           from: 1,
           to: 3,
@@ -186,13 +187,16 @@ describe("workbench runtime helpers", () => {
     expect(api.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
       skillId: "builtin:polish",
       hasSelection: true,
-      input: "",
+      input: "原文",
       selection: expect.objectContaining({
         from: 1,
         to: 3,
         text: "原文",
         selectionTextHash: "hash",
       }),
+    }));
+    expect(api.ai.runSkill).not.toHaveBeenCalledWith(expect.objectContaining({
+      userInstruction: expect.any(String),
     }));
   });
 

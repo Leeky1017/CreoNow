@@ -46,6 +46,7 @@ function createInMemoryDb(): Database.Database {
       document_id TEXT NOT NULL,
       actor TEXT NOT NULL,
       reason TEXT NOT NULL,
+      parent_version_id TEXT,
       content_json TEXT NOT NULL DEFAULT '{}',
       content_text TEXT NOT NULL DEFAULT '',
       content_md TEXT NOT NULL DEFAULT '',

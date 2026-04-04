@@ -37,6 +37,7 @@ import { AppToastProvider, useAppToast } from "@/lib/appToast";
 import { getHumanErrorMessage } from "@/lib/errorMessages";
 import { GlobalErrorToastBridge } from "@/lib/globalErrorToastBridge";
 import { getPreloadApi, type PreloadApi } from "@/lib/preloadApi";
+import type { IpcResponseData } from "@shared/types/ipc-generated";
 
 const DEFAULT_MODEL = "gpt-4.1-mini";
 const AUTOSAVE_DELAY_MS = 800;
@@ -93,6 +94,7 @@ type PendingAutosaveDraft = {
 };
 
 type SaveDocumentResult = Awaited<ReturnType<PreloadApi["file"]["saveDocument"]>>;
+type VersionHistoryItem = IpcResponseData<"version:snapshot:list">["items"][number];
 
 type InFlightAutosave = {
   context: WorkbenchContextToken;
@@ -163,6 +165,38 @@ function formatTimestamp(value: number | null): string {
     month: "2-digit",
     day: "2-digit",
   }).format(value);
+}
+
+function formatVersionReason(reason: VersionHistoryItem["reason"], t: ReturnType<typeof useTranslation>["t"]): string {
+  switch (reason) {
+    case "manual-save":
+      return t("sidebar.versionHistory.reason.manual-save");
+    case "autosave":
+      return t("sidebar.versionHistory.reason.autosave");
+    case "ai-accept":
+      return t("sidebar.versionHistory.reason.ai-accept");
+    case "ai-partial-accept":
+      return t("sidebar.versionHistory.reason.ai-partial-accept");
+    case "pre-write":
+      return t("sidebar.versionHistory.reason.pre-write");
+    case "pre-rollback":
+      return t("sidebar.versionHistory.reason.pre-rollback");
+    case "rollback":
+      return t("sidebar.versionHistory.reason.rollback");
+    case "status-change":
+      return t("sidebar.versionHistory.reason.status-change");
+  }
+}
+
+function formatVersionActor(actor: VersionHistoryItem["actor"], t: ReturnType<typeof useTranslation>["t"]): string {
+  switch (actor) {
+    case "user":
+      return t("sidebar.versionHistory.actor.user");
+    case "auto":
+      return t("sidebar.versionHistory.actor.auto");
+    case "ai":
+      return t("sidebar.versionHistory.actor.ai");
+  }
 }
 
 function isMeaningfulSelection(selection: SelectionRef | null): selection is SelectionRef {
@@ -431,6 +465,10 @@ function WorkbenchShell() {
     readStoredWidth(LAYOUT_STORAGE_KEYS.panelWidth, RIGHT_PANEL_BOUNDS),
   );
   const [dragState, setDragState] = useState<DragState>(null);
+  const [versionHistoryItems, setVersionHistoryItems] = useState<VersionHistoryItem[]>([]);
+  const [versionHistoryLoading, setVersionHistoryLoading] = useState(false);
+  const [versionHistoryError, setVersionHistoryError] = useState<string | null>(null);
+  const [rollbackInFlightVersionId, setRollbackInFlightVersionId] = useState<string | null>(null);
 
   const setSaveUiState = useCallback((nextState: SaveState, source: "autosave" | "accept" | null = null) => {
     saveErrorSourceRef.current = nextState === "error" ? source : null;
@@ -705,6 +743,45 @@ function WorkbenchShell() {
       editorBridge.setContent(JSON.parse(nextContext.contentJson));
     });
   }, [clearAcceptSaveFailure, clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
+
+  useEffect(() => {
+    if (activeLeftPanel !== "versionHistory" || activeDocument === null) {
+      if (activeLeftPanel !== "versionHistory") {
+        setVersionHistoryError(null);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    setVersionHistoryLoading(true);
+    setVersionHistoryError(null);
+    void api.version.listSnapshots({ documentId: activeDocument.documentId })
+      .then((result) => {
+        if (cancelled) {
+          return;
+        }
+        if (result.ok === false) {
+          throw result.error;
+        }
+        setVersionHistoryItems(result.data.items);
+      })
+      .catch((error) => {
+        if (cancelled) {
+          return;
+        }
+        setVersionHistoryItems([]);
+        setVersionHistoryError(getHumanErrorMessage(error as Error, t));
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setVersionHistoryLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDocument, activeLeftPanel, api.version, t]);
 
   useEffect(() => {
     if (containerRef.current === null) {
@@ -1145,6 +1222,86 @@ function WorkbenchShell() {
     "--right-resizer-width": rightPanelCollapsed ? "0px" : "8px",
   } as CSSProperties;
 
+  const handleRollbackSnapshot = useCallback(async (versionId: string) => {
+    if (activeDocument === null) {
+      return;
+    }
+
+    const busyOperationId = reserveBusyOperation();
+    const activeDocumentId = activeDocument.documentId;
+    const activeProjectId = activeDocument.projectId;
+
+    try {
+      setBusy(true);
+      setWorkbenchError(null, null);
+      setRollbackInFlightVersionId(versionId);
+      clearPendingAutosaveTimer();
+      pendingAutosaveDraftRef.current = null;
+      clearAutosaveController();
+      clearAcceptSaveFailure();
+
+      const rollbackResult = await queueSaveRequest(async () => {
+        const rollback = await api.version.rollbackSnapshot({
+          documentId: activeDocumentId,
+          versionId,
+        });
+        if (rollback.ok === false) {
+          throw rollback.error;
+        }
+
+        const readResult = await api.file.readDocument({
+          projectId: activeProjectId,
+          documentId: activeDocumentId,
+        });
+        if (readResult.ok === false) {
+          throw readResult.error;
+        }
+
+        return readResult.data;
+      });
+
+      replaceEditorContextContent({
+        contentJson: rollbackResult.contentJson,
+        documentId: rollbackResult.documentId,
+        projectId: rollbackResult.projectId,
+      });
+      setActiveDocument(rollbackResult);
+      setPreview(null);
+      setStickySelection(null);
+      setLiveSelection(null);
+      setLastSavedAt(rollbackResult.updatedAt);
+      setSaveUiState("idle");
+
+      const historyResult = await api.version.listSnapshots({ documentId: activeDocumentId });
+      if (historyResult.ok === false) {
+        throw historyResult.error;
+      }
+      setVersionHistoryItems(historyResult.data.items);
+    } catch (error) {
+      setVersionHistoryError(getHumanErrorMessage(error as Error, t));
+      setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
+    } finally {
+      setRollbackInFlightVersionId(null);
+      if (isLatestBusyOperation(busyOperationId)) {
+        setBusy(false);
+      }
+    }
+  }, [
+    activeDocument,
+    api.file,
+    api.version,
+    clearAcceptSaveFailure,
+    clearAutosaveController,
+    clearPendingAutosaveTimer,
+    isLatestBusyOperation,
+    queueSaveRequest,
+    replaceEditorContextContent,
+    reserveBusyOperation,
+    setSaveUiState,
+    setWorkbenchError,
+    t,
+  ]);
+
   const renderSidebarContent = () => {
     if (activeLeftPanel === "files") {
       return <>
@@ -1173,6 +1330,63 @@ function WorkbenchShell() {
     }
 
     const surfaceKey = `sidebar.${activeLeftPanel}`;
+    if (activeLeftPanel === "versionHistory") {
+      return <div className="sidebar-surface">
+        <div className="panel-section">
+          <h1 className="screen-title">{t(`${surfaceKey}.title`)}</h1>
+          <p className="panel-subtitle">{t(`${surfaceKey}.subtitle`)}</p>
+        </div>
+        <dl className="details-grid">
+          <div className="details-row">
+            <dt>{t("panel.info.document")}</dt>
+            <dd>{activeDocument?.title ?? t("document.defaultTitle")}</dd>
+          </div>
+          <div className="details-row">
+            <dt>{t("panel.info.wordCount")}</dt>
+            <dd>{t("status.wordCount", { count: wordCount })}</dd>
+          </div>
+          <div className="details-row">
+            <dt>{t("sidebar.surfaceState")}</dt>
+            <dd>{versionHistoryLoading ? t("sidebar.versionHistory.loading") : versionHistoryError ?? t(`${surfaceKey}.state`)}</dd>
+          </div>
+        </dl>
+        {versionHistoryItems.length === 0 ? <p className="panel-subtitle">{versionHistoryLoading ? t("sidebar.versionHistory.loading") : versionHistoryError ?? t(`${surfaceKey}.state`)}</p> : null}
+        <div className="panel-section">
+          {versionHistoryItems.map((item) => {
+            const reasonLabel = formatVersionReason(item.reason, t);
+            const actorLabel = formatVersionActor(item.actor, t);
+            const rollbackLabel = t("sidebar.versionHistory.rollbackLabel", { reason: reasonLabel });
+            return <div key={item.versionId} className="details-grid" aria-label={reasonLabel}>
+              <div className="details-row">
+                <dt>{reasonLabel}</dt>
+                <dd>{formatTimestamp(item.createdAt)}</dd>
+              </div>
+              <div className="details-row">
+                <dt>{t("sidebar.versionHistory.actorLabel")}</dt>
+                <dd>{actorLabel}</dd>
+              </div>
+              <div className="details-row">
+                <dt>{t("sidebar.versionHistory.parentLabel")}</dt>
+                <dd>{item.parentSnapshotId === null ? t("sidebar.versionHistory.root") : t("sidebar.versionHistory.parentValue", { parent: item.parentSnapshotId })}</dd>
+              </div>
+              <div className="details-row">
+                <dt>{t("panel.info.wordCount")}</dt>
+                <dd>{t("status.wordCount", { count: item.wordCount })}</dd>
+              </div>
+              <Button
+                tone="ghost"
+                aria-label={rollbackLabel}
+                disabled={rollbackInFlightVersionId !== null}
+                onClick={() => void handleRollbackSnapshot(item.versionId)}
+              >
+                {rollbackLabel}
+              </Button>
+            </div>;
+          })}
+        </div>
+      </div>;
+    }
+
     return <div className="sidebar-surface">
       <div className="panel-section">
         <h1 className="screen-title">{t(`${surfaceKey}.title`)}</h1>

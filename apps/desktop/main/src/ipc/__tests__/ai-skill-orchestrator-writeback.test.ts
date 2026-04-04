@@ -311,10 +311,22 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     expect(reasons).toContain("pre-write");
     expect(reasons).toContain("ai-accept");
 
-    const preWriteVersionId =
+    const preWriteVersion =
       versions.ok
-        ? versions.data.items.find((item) => item.reason === "pre-write")?.versionId
+        ? versions.data.items.find((item) => item.reason === "pre-write")
         : undefined;
+    const aiAcceptVersion =
+      versions.ok
+        ? versions.data.items.find((item) => item.reason === "ai-accept")
+        : undefined;
+    const manualSaveVersion =
+      versions.ok
+        ? versions.data.items.find((item) => item.reason === "manual-save")
+        : undefined;
+    expect(preWriteVersion?.parentSnapshotId).toBe(manualSaveVersion?.versionId ?? null);
+    expect(aiAcceptVersion?.parentSnapshotId).toBe(preWriteVersion?.versionId);
+
+    const preWriteVersionId = preWriteVersion?.versionId;
     expect(preWriteVersionId).toBeTruthy();
 
     const rollback = await harness.invoke<{
@@ -329,6 +341,29 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       versionId: preWriteVersionId!,
     });
     expect(rollback.ok).toBe(true);
+
+    const versionsAfterRollback = service.listVersions({ documentId });
+    expect(versionsAfterRollback.ok).toBe(true);
+    const rollbackVersion =
+      versionsAfterRollback.ok
+        ? versionsAfterRollback.data.items.find((item) => item.reason === "rollback")
+        : undefined;
+    const preRollbackVersion =
+      versionsAfterRollback.ok
+        ? versionsAfterRollback.data.items.find((item) => item.reason === "pre-rollback")
+        : undefined;
+    expect(preRollbackVersion?.parentSnapshotId).toBe(aiAcceptVersion?.versionId ?? null);
+    expect(rollbackVersion?.parentSnapshotId).toBe(preRollbackVersion?.versionId);
+
+    const rollbackRead = service.readVersion({
+      documentId,
+      versionId: rollbackVersion!.versionId,
+    });
+    expect(rollbackRead.ok).toBe(true);
+    if (!rollbackRead.ok) {
+      throw new Error("expected rollback version read to succeed");
+    }
+    expect(rollbackRead.data.parentSnapshotId).toBe(preRollbackVersion?.versionId ?? null);
 
     const readAfterRollback = service.read({ projectId, documentId });
     expect(readAfterRollback.ok).toBe(true);

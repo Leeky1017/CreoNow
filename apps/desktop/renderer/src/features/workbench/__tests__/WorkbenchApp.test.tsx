@@ -113,6 +113,31 @@ function createApiMock(): PreloadApi {
     },
     version: {
       listSnapshots: vi.fn(async () => ({ ok: true, data: { items: [] } })),
+      readSnapshot: vi.fn(async () => ({
+        ok: true,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          versionId: "version-1",
+          actor: "user",
+          reason: "manual-save",
+          parentSnapshotId: null,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "风从北方来",
+          contentMd: "",
+          contentHash: "hash",
+          wordCount: 5,
+          createdAt: 1,
+        },
+      })),
+      rollbackSnapshot: vi.fn(async () => ({
+        ok: true,
+        data: {
+          restored: true,
+          preRollbackVersionId: "version-pre-rollback",
+          rollbackVersionId: "version-rollback",
+        },
+      })),
     },
   } as PreloadApi;
 }
@@ -269,7 +294,7 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
-        input: expect.stringContaining("请直接润色"),
+        input: selection.text,
         selection,
       }));
     });
@@ -2805,6 +2830,56 @@ describe("WorkbenchApp", () => {
     });
 
     expect(await screen.findAllByText("工作台发生异常")).toHaveLength(1);
+  });
+
+  it("loads version history entries and allows rolling back from the sidebar", async () => {
+    window.api = createApiMock();
+    vi.mocked(window.api.version.listSnapshots).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          {
+            versionId: "version-ai-accept",
+            actor: "ai",
+            reason: "ai-accept",
+            parentSnapshotId: "version-pre-write",
+            contentHash: "hash-ai",
+            wordCount: 7,
+            createdAt: 2,
+          },
+          {
+            versionId: "version-pre-write",
+            actor: "auto",
+            reason: "pre-write",
+            parentSnapshotId: "version-manual",
+            contentHash: "hash-pre",
+            wordCount: 5,
+            createdAt: 1,
+          },
+        ],
+      },
+    });
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+
+    expect(await screen.findAllByRole("heading", { name: "历史版本" })).not.toHaveLength(0);
+    expect(await screen.findByText("AI 接受")).toBeInTheDocument();
+    expect(screen.getByText("前序：version-pre-write")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "回退到 AI 接受" }));
+
+    await waitFor(() => {
+      expect(window.api?.version.rollbackSnapshot).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        versionId: "version-ai-accept",
+      });
+    });
+    await waitFor(() => {
+      expect(window.api?.file.readDocument).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("implements the workbench shell icon order, sidebar toggle, right tabs, and panel collapse", async () => {

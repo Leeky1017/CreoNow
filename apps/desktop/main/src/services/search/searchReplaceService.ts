@@ -289,10 +289,13 @@ function insertVersion(args: {
   reason: string;
   createdAt: number;
 }): string {
+  const parentVersionId = args.db
+    .prepare<[string], { versionId: string }>("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+    .get(args.row.documentId)?.versionId ?? null;
   const versionId = randomUUID();
   args.db
     .prepare(
-      "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .run(
       versionId,
@@ -300,6 +303,7 @@ function insertVersion(args: {
       args.row.documentId,
       args.actor,
       args.reason,
+      parentVersionId,
       args.row.contentJson,
       args.row.contentText,
       args.row.contentMd,

@@ -69,23 +69,53 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
       </aside>
 
       {args.sidebarCollapsed ? null : <aside className="sidebar" aria-label={t("sidebar.title")}>
-        <div className="sidebar-header">
-          <div>
-            <h1 className="screen-title">{t("project.defaultName")}</h1>
-            <p className="panel-subtitle">{t("sidebar.files.subtitle")}</p>
+        {args.activeLeftPanel === "versionHistory" ? <div className="sidebar-surface">
+          <div className="panel-section">
+            <h1 className="screen-title">{t("sidebar.versionHistory.title")}</h1>
+            <p className="panel-subtitle">{t("sidebar.versionHistory.subtitle")}</p>
           </div>
-          <Button tone="ghost">{t("sidebar.newDocument")}</Button>
-        </div>
-        <div className="sidebar-list">
-          <Button tone="ghost" className="sidebar-item sidebar-item--active">
-            <span className="sidebar-item__title">{t("document.defaultTitle")}</span>
-            <span className="sidebar-item__meta">01/01 12:00</span>
-          </Button>
-          <Button tone="ghost" className="sidebar-item">
-            <span className="sidebar-item__title">{`${t("document.defaultTitle")} 2`}</span>
-            <span className="sidebar-item__meta">01/02 08:30</span>
-          </Button>
-        </div>
+          <dl className="details-grid">
+            <div className="details-row">
+              <dt>{t("panel.info.document")}</dt>
+              <dd>{t("document.defaultTitle")}</dd>
+            </div>
+            <div className="details-row">
+              <dt>{t("sidebar.versionHistory.parentLabel")}</dt>
+              <dd>{t("sidebar.versionHistory.parentValue", { parent: "version-pre-write" })}</dd>
+            </div>
+          </dl>
+          <div className="panel-section">
+            <div className="details-grid">
+              <div className="details-row">
+                <dt>{t("sidebar.versionHistory.reason.ai-accept")}</dt>
+                <dd>01/04 20:18</dd>
+              </div>
+              <div className="details-row">
+                <dt>{t("sidebar.versionHistory.actorLabel")}</dt>
+                <dd>{t("sidebar.versionHistory.actor.ai")}</dd>
+              </div>
+              <Button tone="ghost">{t("sidebar.versionHistory.rollbackLabel", { reason: t("sidebar.versionHistory.reason.ai-accept") })}</Button>
+            </div>
+          </div>
+        </div> : <>
+          <div className="sidebar-header">
+            <div>
+              <h1 className="screen-title">{t("project.defaultName")}</h1>
+              <p className="panel-subtitle">{t("sidebar.files.subtitle")}</p>
+            </div>
+            <Button tone="ghost">{t("sidebar.newDocument")}</Button>
+          </div>
+          <div className="sidebar-list">
+            <Button tone="ghost" className="sidebar-item sidebar-item--active">
+              <span className="sidebar-item__title">{t("document.defaultTitle")}</span>
+              <span className="sidebar-item__meta">01/01 12:00</span>
+            </Button>
+            <Button tone="ghost" className="sidebar-item">
+              <span className="sidebar-item__title">{`${t("document.defaultTitle")} 2`}</span>
+              <span className="sidebar-item__meta">01/02 08:30</span>
+            </Button>
+          </div>
+        </>}
       </aside>}
 
       {args.sidebarCollapsed ? null : <div className="panel-resizer" role="separator" aria-label={t("sidebar.resizeHandle")} aria-orientation="vertical" />}
@@ -211,5 +241,10 @@ export const ResizedPanels: Story = {
     activeRightPanel: "info",
     rightPanelWidth: 420,
     sidebarWidth: 320,
+  },
+};
+export const VersionHistoryPanel: Story = {
+  args: {
+    activeLeftPanel: "versionHistory",
   },
 };
