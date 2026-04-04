@@ -32,6 +32,10 @@ window.addEventListener("beforeunload", () => {
 });
 
 const api = {
+  app: {
+    logRendererError: (payload: Parameters<typeof creonowInvoke<"app:renderer:logerror">>[1]) =>
+      creonowInvoke("app:renderer:logerror", payload),
+  },
   project: {
     create: (payload: Parameters<typeof creonowInvoke<"project:project:create">>[1]) =>
       creonowInvoke("project:project:create", payload),
@@ -78,7 +82,6 @@ const api = {
 contextBridge.exposeInMainWorld("api", api);
 contextBridge.exposeInMainWorld("creonow", {
   api,
-  invoke: creonowInvoke,
   stream: {
     registerAiStreamConsumer: aiStreamBridge.registerAiStreamConsumer,
     releaseAiStreamConsumer: aiStreamBridge.releaseAiStreamConsumer,

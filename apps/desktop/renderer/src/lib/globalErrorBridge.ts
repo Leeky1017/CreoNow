@@ -1,4 +1,4 @@
-import type { IpcChannel, IpcInvokeResult, IpcRequest } from "@shared/types/ipc-generated";
+import { getPreloadApi } from "@/lib/preloadApi";
 
 export interface GlobalErrorEntry {
   message: string;
@@ -99,12 +99,7 @@ export function resetGlobalErrorToastStateForTests(): void {
 }
 
 async function invokeRendererLog(entry: GlobalErrorEntry): Promise<void> {
-  const invoke = window.creonow?.invoke as undefined | (<C extends IpcChannel>(channel: C, payload: IpcRequest<C>) => Promise<IpcInvokeResult<C>>);
-  if (!invoke) {
-    throw new Error("Legacy invoke bridge is unavailable");
-  }
-
-  const result = await invoke("app:renderer:logerror", entry);
+  const result = await getPreloadApi().app.logRendererError(entry);
   if (result.ok === false) {
     throw new Error(result.error.message);
   }

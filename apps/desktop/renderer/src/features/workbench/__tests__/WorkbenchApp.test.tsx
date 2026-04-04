@@ -9,7 +9,7 @@ import {
   installGlobalErrorHandlers,
   resetGlobalErrorToastStateForTests,
 } from "@/lib/globalErrorBridge";
-import type { LegacyCreonowBridge, PreloadApi } from "@/lib/preloadApi";
+import type { PreloadApi } from "@/lib/preloadApi";
 
 let bridgeOptions: EditorBridgeOptions | undefined;
 let globalErrorCleanup: (() => void) | null = null;
@@ -68,9 +68,12 @@ function formatWorkbenchTimestamp(value: number): string {
 }
 
 function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }))) {
+  if (!window.api) {
+    throw new Error("expected window.api to be installed before log bridge");
+  }
+  window.api.app.logRendererError = invoke as PreloadApi["app"]["logRendererError"];
   window.creonow = {
     api: window.api as PreloadApi,
-    invoke: invoke as LegacyCreonowBridge["invoke"],
     stream: {
       registerAiStreamConsumer: () => ({ ok: true, data: { subscriptionId: "sub-1" } }),
       releaseAiStreamConsumer: () => undefined,
@@ -82,6 +85,9 @@ function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const,
 
 function createApiMock(): PreloadApi {
   return {
+    app: {
+      logRendererError: vi.fn(async () => ({ ok: true, data: { logged: true } })),
+    },
     ai: {
       confirmSkill: vi.fn(async ({ executionId, action, projectId }) => ({
         ok: true,
@@ -133,6 +139,21 @@ function createApiMock(): PreloadApi {
       rollbackSnapshot: vi.fn(async () => ({
         ok: true,
         data: {
+          document: {
+            documentId: "doc-1",
+            projectId: "project-1",
+            title: "第一章",
+            type: "chapter",
+            status: "draft",
+            sortOrder: 0,
+            contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+            contentText: "风从北方来",
+            contentMd: "",
+            contentHash: "hash",
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          historyItems: [],
           restored: true,
           preRollbackVersionId: "version-pre-rollback",
           rollbackVersionId: "version-rollback",
@@ -2744,7 +2765,6 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith(
-        "app:renderer:logerror",
         expect.objectContaining({
           source: "error",
           message: "startup boom",
@@ -2772,7 +2792,6 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith(
-        "app:renderer:logerror",
         expect.objectContaining({
           source: "unhandledrejection",
           message: "startup rejection",
@@ -2800,7 +2819,6 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith(
-        "app:renderer:logerror",
         expect.objectContaining({
           source: "unhandledrejection",
           message: "preview exploded",
@@ -2866,23 +2884,6 @@ describe("WorkbenchApp", () => {
           createdAt: 1,
           updatedAt: 1,
         },
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        data: {
-          documentId: "doc-1",
-          projectId: "project-1",
-          title: "第一章",
-          type: "chapter",
-          status: "draft",
-          sortOrder: 0,
-          contentJson: JSON.stringify(rollbackContent),
-          contentText: "回退后的文稿",
-          contentMd: "",
-          contentHash: "hash-rollback",
-          createdAt: 1,
-          updatedAt: rollbackUpdatedAt,
-        },
       });
     vi.mocked(window.api.version.listSnapshots)
       .mockResolvedValueOnce({
@@ -2909,32 +2910,49 @@ describe("WorkbenchApp", () => {
             },
           ],
         },
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        data: {
-          items: [
-            {
-              versionId: "version-rollback",
-              actor: "user",
-              reason: "rollback",
-              parentSnapshotId: "version-pre-rollback",
-              contentHash: "hash-rollback",
-              wordCount: 4,
-              createdAt: rollbackUpdatedAt,
-            },
-            {
-              versionId: "version-pre-rollback",
-              actor: "user",
-              reason: "pre-rollback",
-              parentSnapshotId: "version-ai-accept",
-              contentHash: "hash-ai",
-              wordCount: 7,
-              createdAt: rollbackUpdatedAt - 1,
-            },
-          ],
-        },
       });
+    vi.mocked(window.api.version.rollbackSnapshot).mockResolvedValue({
+      ok: true,
+      data: {
+        document: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify(rollbackContent),
+          contentText: "回退后的文稿",
+          contentMd: "",
+          contentHash: "hash-rollback",
+          createdAt: 1,
+          updatedAt: rollbackUpdatedAt,
+        },
+        historyItems: [
+          {
+            versionId: "version-rollback",
+            actor: "user",
+            reason: "rollback",
+            parentSnapshotId: "version-pre-rollback",
+            contentHash: "hash-rollback",
+            wordCount: 4,
+            createdAt: rollbackUpdatedAt,
+          },
+          {
+            versionId: "version-pre-rollback",
+            actor: "user",
+            reason: "pre-rollback",
+            parentSnapshotId: "version-ai-accept",
+            contentHash: "hash-ai",
+            wordCount: 7,
+            createdAt: rollbackUpdatedAt - 1,
+          },
+        ],
+        restored: true,
+        preRollbackVersionId: "version-pre-rollback",
+        rollbackVersionId: "version-rollback",
+      },
+    });
 
     const { container } = render(<WorkbenchApp />);
 
@@ -2958,10 +2976,10 @@ describe("WorkbenchApp", () => {
       });
     });
     await waitFor(() => {
-      expect(window.api?.file.readDocument).toHaveBeenCalledTimes(2);
+      expect(window.api?.file.readDocument).toHaveBeenCalledTimes(1);
     });
     await waitFor(() => {
-      expect(window.api?.version.listSnapshots).toHaveBeenCalledTimes(2);
+      expect(window.api?.version.listSnapshots).toHaveBeenCalledTimes(1);
     });
     expect(currentTextContent).toBe("回退后的文稿");
     expect(await screen.findByText("回退完成")).toBeInTheDocument();
@@ -2969,6 +2987,90 @@ describe("WorkbenchApp", () => {
     const statusBar = container.querySelector(".status-bar");
     expect(statusBar).not.toBeNull();
     expect(within(statusBar as HTMLElement).getByText(formatWorkbenchTimestamp(rollbackUpdatedAt))).toBeInTheDocument();
+  });
+
+  it("shows rollback loading state and prevents duplicate confirmation while rollback is pending", async () => {
+    window.api = createApiMock();
+    const rollbackDeferred = createDeferred<Awaited<ReturnType<PreloadApi["version"]["rollbackSnapshot"]>>>();
+    vi.mocked(window.api.version.listSnapshots).mockResolvedValue({
+      ok: true,
+      data: {
+        items: [
+          {
+            versionId: "version-ai-accept",
+            actor: "ai",
+            reason: "ai-accept",
+            parentSnapshotId: "version-pre-write",
+            contentHash: "hash-ai",
+            wordCount: 7,
+            createdAt: 2,
+          },
+        ],
+      },
+    });
+    vi.mocked(window.api.version.rollbackSnapshot).mockReturnValue(rollbackDeferred.promise);
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    fireEvent.click(await screen.findByRole("button", { name: "回退到 AI 接受" }));
+
+    const confirmButton = await screen.findByRole("button", { name: "确认回退到 AI 接受" });
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(window.api?.version.rollbackSnapshot).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(document.body).toHaveTextContent("回退中");
+    });
+    expect(confirmButton).toBeDisabled();
+    expect(screen.getByRole("button", { name: "取消" })).toBeDisabled();
+    fireEvent.click(confirmButton);
+    expect(window.api?.version.rollbackSnapshot).toHaveBeenCalledTimes(1);
+
+    rollbackDeferred.resolve({
+      ok: true,
+      data: {
+        document: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify({
+            type: "doc",
+            content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的文稿" }] }],
+          }),
+          contentText: "回退后的文稿",
+          contentMd: "",
+          contentHash: "hash-rollback",
+          createdAt: 1,
+          updatedAt: Date.UTC(2024, 0, 4, 20, 32),
+        },
+        historyItems: [
+          {
+            versionId: "version-rollback",
+            actor: "user",
+            reason: "rollback",
+            parentSnapshotId: "version-pre-rollback",
+            contentHash: "hash-rollback",
+            wordCount: 4,
+            createdAt: Date.UTC(2024, 0, 4, 20, 32),
+          },
+        ],
+        restored: true,
+        preRollbackVersionId: "version-pre-rollback",
+        rollbackVersionId: "version-rollback",
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "确认回退到 AI 接受" })).not.toBeInTheDocument();
+    });
   });
 
   it("cancels rollback confirmation without invoking rollback IPC", async () => {

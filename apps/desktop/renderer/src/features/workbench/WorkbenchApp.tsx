@@ -789,8 +789,10 @@ function WorkbenchShell() {
     });
   }, [clearAcceptSaveFailure, clearAutosaveController, clearPendingAutosaveTimer, clearSavedStateDecayTimer, editorBridge, runWithoutAutosave]);
 
+  const activeVersionHistoryDocumentId = activeDocument?.documentId ?? null;
+
   useEffect(() => {
-    if (activeLeftPanel !== "versionHistory" || activeDocument === null) {
+    if (activeLeftPanel !== "versionHistory" || activeVersionHistoryDocumentId === null) {
       if (activeLeftPanel !== "versionHistory") {
         setVersionHistoryError(null);
       }
@@ -802,7 +804,7 @@ function WorkbenchShell() {
     setVersionHistoryError(null);
     setPendingRollbackVersionId(null);
     void api.version.listSnapshots({
-      documentId: activeDocument.documentId,
+      documentId: activeVersionHistoryDocumentId,
       limit: VERSION_HISTORY_VISIBLE_LIMIT,
     })
       .then((result) => {
@@ -830,7 +832,7 @@ function WorkbenchShell() {
     return () => {
       cancelled = true;
     };
-  }, [activeDocument, activeLeftPanel, api.version, t]);
+  }, [activeLeftPanel, activeVersionHistoryDocumentId, api.version, t]);
 
   useEffect(() => {
     if (containerRef.current === null) {
@@ -1301,12 +1303,9 @@ function WorkbenchShell() {
 
     const busyOperationId = reserveBusyOperation();
     const activeDocumentId = activeDocument.documentId;
-    const activeProjectId = activeDocument.projectId;
-
     try {
       setBusy(true);
       setWorkbenchError(null, null);
-      setPendingRollbackVersionId(null);
       setRollbackInFlightVersionId(versionId);
       clearPendingAutosaveTimer();
       pendingAutosaveDraftRef.current = null;
@@ -1321,33 +1320,26 @@ function WorkbenchShell() {
         if (rollback.ok === false) {
           throw rollback.error;
         }
-
-        const readResult = await api.file.readDocument({
-          projectId: activeProjectId,
-          documentId: activeDocumentId,
-        });
-        if (readResult.ok === false) {
-          throw readResult.error;
-        }
-
-        return readResult.data;
+        return rollback.data;
       });
 
       replaceEditorContextContent({
-        contentJson: rollbackResult.contentJson,
-        documentId: rollbackResult.documentId,
-        projectId: rollbackResult.projectId,
+        contentJson: rollbackResult.document.contentJson,
+        documentId: rollbackResult.document.documentId,
+        projectId: rollbackResult.document.projectId,
       });
-      setActiveDocument(rollbackResult);
+      setActiveDocument(rollbackResult.document);
+      setVersionHistoryItems(rollbackResult.historyItems);
       setPreview(null);
       setStickySelection(null);
       setLiveSelection(null);
-      setLastSavedAt(rollbackResult.updatedAt);
+      setLastSavedAt(rollbackResult.document.updatedAt);
       setSaveUiState("idle");
     } catch (error) {
       setVersionHistoryError(getHumanErrorMessage(error as Error, t));
       setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
     } finally {
+      setPendingRollbackVersionId(null);
       setRollbackInFlightVersionId(null);
       if (isLatestBusyOperation(busyOperationId)) {
         setBusy(false);
@@ -1355,7 +1347,6 @@ function WorkbenchShell() {
     }
   }, [
     activeDocument,
-    api.file,
     api.version,
     clearAcceptSaveFailure,
     clearAutosaveController,
@@ -1463,7 +1454,11 @@ function WorkbenchShell() {
               {isPendingRollback ? <div className="version-history-card__confirm">
                 <p className="panel-meta">{t("sidebar.versionHistory.rollbackConfirmBody", { reason: reasonLabel })}</p>
                 <div className="panel-actions">
-                  <Button tone="ghost" onClick={() => setPendingRollbackVersionId(null)}>
+                  <Button
+                    tone="ghost"
+                    disabled={rollbackInFlightVersionId !== null}
+                    onClick={() => setPendingRollbackVersionId(null)}
+                  >
                     {t("sidebar.versionHistory.rollbackCancel")}
                   </Button>
                   <Button

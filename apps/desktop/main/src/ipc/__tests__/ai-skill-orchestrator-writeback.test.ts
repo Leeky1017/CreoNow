@@ -228,10 +228,12 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     for (const db of opened.splice(0)) {
       db.close();
     }
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
   it("通过 orchestrator 进入 preview → accept → pre-write/ai-accept snapshot → rollback", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(new Date("2025-01-01T00:00:00Z").valueOf());
     const harness = createHarness();
     opened.push(harness.db);
     const { projectId, documentId } = createProjectAndDocument({
@@ -332,6 +334,37 @@ describe("ai:skill:run orchestrator writeback flow", () => {
     const rollback = await harness.invoke<{
       ok: boolean;
       data?: {
+        document: {
+          contentHash: string;
+          contentJson: string;
+          contentMd: string;
+          contentText: string;
+          createdAt: number;
+          documentId: string;
+          projectId: string;
+          sortOrder: number;
+          status: "draft" | "final";
+          title: string;
+          type: "chapter" | "note" | "setting" | "timeline" | "character";
+          updatedAt: number;
+        };
+        historyItems: Array<{
+          actor: "ai" | "auto" | "user";
+          contentHash: string;
+          createdAt: number;
+          parentSnapshotId: string | null;
+          reason:
+            | "ai-accept"
+            | "ai-partial-accept"
+            | "autosave"
+            | "manual-save"
+            | "pre-rollback"
+            | "pre-write"
+            | "rollback"
+            | "status-change";
+          versionId: string;
+          wordCount: number;
+        }>;
         restored: true;
         preRollbackVersionId: string;
         rollbackVersionId: string;
@@ -341,9 +374,14 @@ describe("ai:skill:run orchestrator writeback flow", () => {
       versionId: preWriteVersionId!,
     });
     expect(rollback.ok).toBe(true);
+    expect(rollback.data?.document.contentText).toBe("原文");
+    expect(rollback.data?.historyItems[0]?.reason).toBe("rollback");
+    expect(rollback.data?.historyItems[1]?.reason).toBe("pre-rollback");
 
     const versionsAfterRollback = service.listVersions({ documentId });
     expect(versionsAfterRollback.ok).toBe(true);
+    expect(versionsAfterRollback.ok && versionsAfterRollback.data.items[0]?.reason).toBe("rollback");
+    expect(versionsAfterRollback.ok && versionsAfterRollback.data.items[1]?.reason).toBe("pre-rollback");
     const rollbackVersion =
       versionsAfterRollback.ok
         ? versionsAfterRollback.data.items.find((item) => item.reason === "rollback")

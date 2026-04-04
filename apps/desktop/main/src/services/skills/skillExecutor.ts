@@ -6,6 +6,7 @@ import {
   normalizeAssembledContextPrompt,
   resolveContinueValidationInput,
 } from "./contextPromptPolicy";
+import { renderSafePromptTemplate } from "./promptSafety";
 import { ipcError, type ServiceResult } from "../shared/ipcResult";
 export type { ServiceResult };
 
@@ -166,19 +167,6 @@ function emptyInputMessage(skillId: string): string {
     return "请先选中需要润色的文本";
   }
   return "请先提供需要处理的文本";
-}
-
-/**
- * Render user prompt template with deterministic `{{input}}` injection.
- */
-function renderUserPrompt(args: { template: string; input: string }): string {
-  if (args.template.includes("{{input}}")) {
-    return args.template.split("{{input}}").join(args.input);
-  }
-  if (args.template.trim().length === 0) {
-    return args.input;
-  }
-  return `${args.template}\n\n${args.input}`;
 }
 
 /**
@@ -642,7 +630,7 @@ export function createSkillExecutor(deps: SkillExecutorDeps): SkillExecutor {
 
       const { inputForPrompt } = inputValidation.data;
       const systemPrompt = resolved.data.prompt?.system ?? "";
-      const userPrompt = renderUserPrompt({
+      const userPrompt = renderSafePromptTemplate({
         template: resolved.data.prompt?.user ?? "",
         input: inputForPrompt,
       });

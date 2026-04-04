@@ -51,6 +51,9 @@ function createPreview(overrides: Partial<AiPreview> = {}): AiPreview {
 
 function createApiMock(): PreloadApi {
   const api = {
+    app: {
+      logRendererError: vi.fn(async () => ({ ok: true, data: { logged: true } })),
+    },
     project: {
       create: vi.fn(async () => ({ ok: true, data: { projectId: "project-1", rootPath: "/tmp/project-1" } })),
       getCurrent: vi.fn(async () => ({ ok: false, error: { code: "NOT_FOUND", message: "missing", retryable: false } })),

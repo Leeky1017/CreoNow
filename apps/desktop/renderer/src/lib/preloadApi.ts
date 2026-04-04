@@ -15,6 +15,9 @@ export interface PreloadStreamApi {
 }
 
 export interface PreloadApi {
+  app: {
+    logRendererError: InvokeHandler<"app:renderer:logerror">;
+  };
   project: {
     create: InvokeHandler<"project:project:create">;
     getCurrent: () => Promise<IpcInvokeResult<"project:project:getcurrent">>;
@@ -44,7 +47,6 @@ export interface PreloadApi {
 
 export interface LegacyCreonowBridge {
   api: PreloadApi;
-  invoke: <C extends IpcChannel>(channel: C, payload: IpcRequest<C>) => Promise<IpcInvokeResult<C>>;
   stream: PreloadStreamApi;
 }
 
@@ -75,14 +77,4 @@ export function unwrapIpcResult<C extends IpcChannel>(result: IpcInvokeResult<C>
   }
 
   return result.data;
-}
-
-export async function invokeThroughBridge<C extends IpcChannel>(channel: C, payload: IpcRequest<C>): Promise<IpcResponseData<C>> {
-  const invoke = window.creonow?.invoke;
-  if (!invoke) {
-    throw new Error("Legacy invoke bridge is unavailable");
-  }
-
-  const result = await invoke(channel, payload);
-  return unwrapIpcResult(result);
 }

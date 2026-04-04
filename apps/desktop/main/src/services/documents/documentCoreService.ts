@@ -117,7 +117,7 @@ function readLatestVersionRow(args: {
     .prepare<
       [string],
       VersionParentRow
-    >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+    >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
     .get(args.documentId) ?? null;
 }
 
@@ -751,7 +751,7 @@ function createDocBranchHelpers(
           .prepare<
             [string],
             { versionId: string }
-          >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+          >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
           .get(params.documentId);
 
         let headSnapshotId = latest?.versionId ?? "";
@@ -1296,7 +1296,7 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
             .prepare<
               [string],
               LatestVersionRow
-            >("SELECT version_id as versionId, reason, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+            >("SELECT version_id as versionId, reason, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
             .get(documentId);
 
           const shouldMergeAutosave =
@@ -1804,13 +1804,13 @@ function createVersionOps(
               .prepare<
                 [string],
                 VersionListRow
-              >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
+              >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC")
               .all(documentId)
           : args.db
               .prepare<
                 [string, number],
                 VersionListRow
-              >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT ?")
+              >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?")
               .all(documentId, normalizedLimit);
         return {
           ok: true,

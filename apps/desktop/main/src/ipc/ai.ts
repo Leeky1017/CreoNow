@@ -31,6 +31,10 @@ import { createStatsService } from "../services/stats/statsService";
 import { createSkillService } from "../services/skills/skillService";
 import { createSkillExecutor, type SkillExecutorRunArgs } from "../services/skills/skillExecutor";
 import { normalizeAssembledContextPrompt } from "../services/skills/contextPromptPolicy";
+import {
+  renderSafePromptTemplate,
+  renderSelectionPromptInput,
+} from "../services/skills/promptSafety";
 import { createContextLayerAssemblyService } from "../services/context/layerAssemblyService";
 import { createKnowledgeGraphService } from "../services/kg/kgService";
 import { DegradationCounter } from "../services/shared/degradationCounter";
@@ -90,34 +94,6 @@ function resolveSelectionPrimaryInput(payload: SkillRunPayload): string {
 function resolveUserInstruction(payload: SkillRunPayload): string | undefined {
   const normalized = payload.userInstruction?.trim();
   return normalized && normalized.length > 0 ? normalized : undefined;
-}
-
-function escapePromptTagContent(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function renderSelectionPromptInput(args: {
-  selectedText: string;
-  userInstruction?: string;
-}): string {
-  const selectedText = escapePromptTagContent(args.selectedText);
-  const userInstruction = args.userInstruction?.trim();
-  if (!userInstruction) {
-    return selectedText;
-  }
-
-  return [
-    "Selected text:",
-    selectedText,
-    "",
-    "User instruction:",
-    escapePromptTagContent(userInstruction),
-  ].join("\n");
 }
 
 function renderSelectionSkillInput(payload: SkillRunPayload): string {
@@ -382,13 +358,7 @@ function renderSkillUserPrompt(args: {
   template: string;
   input: string;
 }): string {
-  if (args.template.includes("{{input}}")) {
-    return args.template.split("{{input}}").join(args.input);
-  }
-  if (args.template.trim().length === 0) {
-    return args.input;
-  }
-  return `${args.template}\n\n${args.input}`;
+  return renderSafePromptTemplate(args);
 }
 
 function resolveP1BuiltinSkill(skillId: string):

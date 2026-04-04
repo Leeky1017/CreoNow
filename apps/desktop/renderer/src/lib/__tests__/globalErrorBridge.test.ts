@@ -7,19 +7,22 @@ import {
   registerGlobalErrorToastConsumer,
   resetGlobalErrorToastStateForTests,
 } from "@/lib/globalErrorBridge";
-import type { LegacyCreonowBridge } from "@/lib/preloadApi";
+import type { PreloadApi } from "@/lib/preloadApi";
 
 afterEach(() => {
   resetGlobalErrorToastStateForTests();
+  delete window.api;
   delete window.creonow;
 });
 
 describe("installGlobalErrorHandlers", () => {
   it("logs renderer rejections and dispatches the cn:global-error-toast event", async () => {
-    const invoke = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }));
+    const logRendererError = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }));
+    window.api = {
+      app: { logRendererError },
+    } as unknown as PreloadApi;
     window.creonow = {
-      api: {} as never,
-      invoke: invoke as LegacyCreonowBridge["invoke"],
+      api: window.api,
       stream: {
         registerAiStreamConsumer: () => ({ ok: true, data: { subscriptionId: "sub-1" } }),
         releaseAiStreamConsumer: () => undefined,
@@ -38,8 +41,7 @@ describe("installGlobalErrorHandlers", () => {
     window.dispatchEvent(event);
     await Promise.resolve();
 
-    expect(invoke).toHaveBeenCalledWith(
-      "app:renderer:logerror",
+    expect(logRendererError).toHaveBeenCalledWith(
       expect.objectContaining({ source: "unhandledrejection", message: "preview exploded" }),
     );
     expect(received).toEqual(["preview exploded"]);
@@ -49,10 +51,12 @@ describe("installGlobalErrorHandlers", () => {
   });
 
   it("buffers pre-mount toasts until a consumer drains them and does not replay them forever", async () => {
-    const invoke = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }));
+    const logRendererError = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }));
+    window.api = {
+      app: { logRendererError },
+    } as unknown as PreloadApi;
     window.creonow = {
-      api: {} as never,
-      invoke: invoke as LegacyCreonowBridge["invoke"],
+      api: window.api,
       stream: {
         registerAiStreamConsumer: () => ({ ok: true, data: { subscriptionId: "sub-1" } }),
         releaseAiStreamConsumer: () => undefined,
@@ -63,8 +67,7 @@ describe("installGlobalErrorHandlers", () => {
     window.dispatchEvent(new ErrorEvent("error", { error: new Error("startup boom"), message: "startup boom" }));
     await Promise.resolve();
 
-    expect(invoke).toHaveBeenCalledWith(
-      "app:renderer:logerror",
+    expect(logRendererError).toHaveBeenCalledWith(
       expect.objectContaining({ source: "error", message: "startup boom" }),
     );
     expect(consumePendingGlobalErrorToasts().map((entry) => entry.message)).toEqual(["startup boom"]);
@@ -81,10 +84,12 @@ describe("installGlobalErrorHandlers", () => {
   });
 
   it("deduplicates toast dispatches within the 1000ms window but still logs every error", async () => {
-    const invoke = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }));
+    const logRendererError = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }));
+    window.api = {
+      app: { logRendererError },
+    } as unknown as PreloadApi;
     window.creonow = {
-      api: {} as never,
-      invoke: invoke as LegacyCreonowBridge["invoke"],
+      api: window.api,
       stream: {
         registerAiStreamConsumer: () => ({ ok: true, data: { subscriptionId: "sub-1" } }),
         releaseAiStreamConsumer: () => undefined,
@@ -104,7 +109,7 @@ describe("installGlobalErrorHandlers", () => {
     window.dispatchEvent(new ErrorEvent("error", { error: new Error("same boom"), message: "same boom" }));
     await Promise.resolve();
 
-    expect(invoke).toHaveBeenCalledTimes(2);
+    expect(logRendererError).toHaveBeenCalledTimes(2);
     expect(received).toEqual(["same boom"]);
 
     window.removeEventListener(GLOBAL_ERROR_TOAST_EVENT, listener);

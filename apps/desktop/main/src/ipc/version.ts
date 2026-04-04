@@ -6,8 +6,10 @@ import type { VersionDiffPayload } from "@shared/types/version-diff";
 import type { Logger } from "../logging/logger";
 import {
   createDocumentService,
+  type DocumentRead,
   type DocumentService,
   type SnapshotCompactionEvent,
+  type VersionListItem,
   type VersionSnapshotActor,
   type VersionSnapshotReason,
 } from "../services/documents/documentService";
@@ -24,6 +26,7 @@ const DEFAULT_IO_RETRY_MAX_ATTEMPTS = 3;
 const DEFAULT_IO_TIMEOUT_MS = 5_000;
 const DEFAULT_MAX_PARALLEL_DOCUMENT_OPS = 8;
 const DEFAULT_MAX_DIFF_PAYLOAD_BYTES = 2 * 1024 * 1024;
+const ROLLBACK_HISTORY_VISIBLE_LIMIT = 50;
 
 class IoTimeoutError extends Error {
   constructor(message: string) {
@@ -514,16 +517,17 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
           },
         };
       }
+      const lookupVersionProject = () =>
+        db
+          .prepare<[string, string], { projectId: string }>(
+            "SELECT project_id as projectId FROM document_versions WHERE document_id = ? AND version_id = ?",
+          )
+          .get(payload.documentId, payload.versionId);
       const access = guardVersionProjectAccess({
         db,
         event,
         projectSessionBinding,
-        lookup: () =>
-          db
-            .prepare<[string, string], { projectId: string }>(
-              "SELECT project_id as projectId FROM document_versions WHERE document_id = ? AND version_id = ?",
-            )
-            .get(payload.documentId, payload.versionId),
+        lookup: lookupVersionProject,
         notFoundMessage: "Version not found",
       });
       if (!access.ok) {
@@ -616,6 +620,8 @@ function registerVersionSnapshotLifecycleHandlers(
       payload: { documentId: string; versionId: string },
     ): Promise<
       IpcResponse<{
+        document: DocumentRead;
+        historyItems: VersionListItem[];
         restored: true;
         preRollbackVersionId: string;
         rollbackVersionId: string;
@@ -640,16 +646,17 @@ function registerVersionSnapshotLifecycleHandlers(
         };
       }
 
+      const lookupVersionProject = () =>
+        db
+          .prepare<[string, string], { projectId: string }>(
+            "SELECT project_id as projectId FROM document_versions WHERE document_id = ? AND version_id = ?",
+          )
+          .get(payload.documentId, payload.versionId);
       const access = guardVersionProjectAccess({
         db,
         event,
         projectSessionBinding,
-        lookup: () =>
-          db
-            .prepare<[string, string], { projectId: string }>(
-              "SELECT project_id as projectId FROM document_versions WHERE document_id = ? AND version_id = ?",
-            )
-            .get(payload.documentId, payload.versionId),
+        lookup: lookupVersionProject,
         notFoundMessage: "Version not found",
       });
       if (!access.ok) {
@@ -663,7 +670,13 @@ function registerVersionSnapshotLifecycleHandlers(
         payload.documentId,
         async () => {
           await sleep(simulateLatencyMs?.rollback);
-          return withIoRetry({
+          return withIoRetry<{
+            document: DocumentRead;
+            historyItems: VersionListItem[];
+            restored: true;
+            preRollbackVersionId: string;
+            rollbackVersionId: string;
+          }>({
             operation: "version:snapshot:rollback",
             documentId: payload.documentId,
             run: async () => {
@@ -672,9 +685,39 @@ function registerVersionSnapshotLifecycleHandlers(
                 documentId: payload.documentId,
                 versionId: payload.versionId,
               });
-              return res.ok
-                ? { ok: true, data: res.data }
-                : { ok: false, error: res.error };
+              if (!res.ok) {
+                return { ok: false, error: res.error };
+              }
+
+              const versionProject = lookupVersionProject();
+              if (!versionProject) {
+                return notFoundResponse("Version not found");
+              }
+
+              const document = svc.read({
+                projectId: versionProject.projectId,
+                documentId: payload.documentId,
+              });
+              if (!document.ok) {
+                return { ok: false, error: document.error };
+              }
+
+              const history = svc.listVersions({
+                documentId: payload.documentId,
+                limit: ROLLBACK_HISTORY_VISIBLE_LIMIT,
+              });
+              if (!history.ok) {
+                return { ok: false, error: history.error };
+              }
+
+              return {
+                ok: true,
+                data: {
+                  ...res.data,
+                  document: document.data,
+                  historyItems: history.data.items,
+                },
+              };
             },
           });
         },

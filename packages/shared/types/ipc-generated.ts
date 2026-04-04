@@ -3305,6 +3305,39 @@ export type IpcChannelSpec = {
       versionId: string;
     };
     response: {
+      document: {
+        contentHash: string;
+        contentJson: string;
+        contentMd: string;
+        contentText: string;
+        coverImageUrl?: string;
+        createdAt: number;
+        documentId: string;
+        parentId?: string;
+        projectId: string;
+        sortOrder: number;
+        status: "draft" | "final";
+        title: string;
+        type: "chapter" | "note" | "setting" | "timeline" | "character";
+        updatedAt: number;
+      };
+      historyItems: Array<{
+        actor: "user" | "auto" | "ai";
+        contentHash: string;
+        createdAt: number;
+        parentSnapshotId: string | null;
+        reason:
+          | "manual-save"
+          | "autosave"
+          | "ai-accept"
+          | "ai-partial-accept"
+          | "pre-write"
+          | "pre-rollback"
+          | "rollback"
+          | "status-change";
+        versionId: string;
+        wordCount: number;
+      }>;
       preRollbackVersionId: string;
       restored: true;
       rollbackVersionId: string;
