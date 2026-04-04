@@ -28,6 +28,8 @@ import { registerStatsIpcHandlers } from "./ipc/stats";
 import { registerDbDebugIpcHandlers } from "./ipc/debugChannelGate";
 import { createValidatedIpcMain } from "./ipc/runtime-validation";
 import { registerVersionIpcHandlers } from "./ipc/version";
+import { registerCostIpcHandlers } from "./ipc/cost";
+import { registerDiffIpcHandlers } from "./ipc/diff";
 import { registerWindowIpcHandlers } from "./ipc/window";
 import { registerRendererLogIpcHandlers } from "./ipc/rendererLog";
 import { createProjectSessionBindingRegistry } from "./ipc/projectSessionBinding";
@@ -41,6 +43,8 @@ import { createAdvancedCheckRunner } from "./services/ai/judgeAdvancedRunner";
 import { createAiProxySettingsService } from "./services/ai/aiProxySettingsService";
 import { createKgRecognitionRuntime } from "./services/kg/kgRecognitionRuntime";
 import { createStateExtractor } from "./services/kg/stateExtractor";
+import { createCostTracker } from "./services/ai/costTracker";
+import { estimateTokens } from "./services/context/tokenEstimation";
 import { createContextProjectScopedCache } from "./services/context/projectScopedCache";
 import { createCreonowWatchService } from "./services/context/watchService";
 import { createProjectLifecycle } from "./services/projects/projectLifecycle";
@@ -532,6 +536,23 @@ function registerIpcHandlers(deps: {
   registerVersionIpcHandlers({
     ipcMain: guardedIpcMain,
     db: deps.db,
+    logger: deps.logger,
+  });
+
+  const costTracker = createCostTracker({
+    pricingTable: { prices: {}, currency: "USD", lastUpdated: new Date().toISOString() },
+    budgetPolicy: { warningThreshold: Infinity, hardStopLimit: Infinity, enabled: false },
+    estimateTokens,
+  });
+
+  registerCostIpcHandlers({
+    ipcMain: guardedIpcMain,
+    tracker: costTracker,
+    logger: deps.logger,
+  });
+
+  registerDiffIpcHandlers({
+    ipcMain: guardedIpcMain,
     logger: deps.logger,
   });
 

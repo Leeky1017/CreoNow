@@ -120,6 +120,11 @@ export const IPC_ERROR_MESSAGE_KEYS = {
   VERSION_SNAPSHOT_FAILED: "errors.upstream",
   VERSION_SNAPSHOT_COMPACTED: "errors.conflict",
   WRITE_BACK_FAILED: "errors.upstream",
+  COST_BUDGET_EXCEEDED: "errors.upstream",
+  COST_MODEL_NOT_FOUND: "errors.upstream",
+  COST_PRICING_STALE: "errors.upstream",
+  DIFF_COMPUTE_FAILED: "errors.upstream",
+  DIFF_INPUT_TOO_LARGE: "errors.payloadTooLarge",
 } satisfies Record<IpcErrorCode, ErrorMessageKey>;
 
 function getIpcErrorMessageKey(code: unknown): ErrorMessageKey {
