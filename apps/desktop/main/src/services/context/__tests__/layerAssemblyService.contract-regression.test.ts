@@ -114,7 +114,7 @@ describe("createContextLayerAssemblyService contract regression", () => {
     expect(cyclePath, cyclePath?.join(" -> ")).toBeNull();
   });
 
-  it("keeps the public P1 contract phase-cut to rules + immediate even when later layers are populated", async () => {
+  it("P2 组装结果暴露 compressed-history 与 compressionApplied", async () => {
     const service = createContextLayerAssemblyService({
       rules: async () => ({
         chunks: [{ source: "rules:test", content: "Rule content" }],
@@ -141,18 +141,55 @@ describe("createContextLayerAssemblyService contract regression", () => {
     const second = await service.assemble(request);
 
     expect(first.prompt.includes("## Rules")).toBe(true);
-    expect(first.prompt.includes("## Settings")).toBe(false);
-    expect(first.prompt.includes("## Retrieved")).toBe(false);
+    expect(first.prompt.includes("## Compressed History")).toBe(true);
     expect(first.prompt.includes("## Immediate")).toBe(true);
     expect(first.layers.rules.source[0]).toBe("rules:test");
-    expect("settings" in first.layers).toBe(false);
-    expect("retrieved" in first.layers).toBe(false);
+    expect(first.layers.compressedHistory.source).toContain("compressed-history");
+    expect(first.layers.compressedHistory.compressed).toBe(false);
     expect(first.layers.immediate.source[0]).toBe("immediate:test");
+    expect(first.compressionApplied).toBe(false);
     expect(first.stablePrefixHash.length > 0).toBe(true);
     expect(first.stablePrefixUnchanged).toBe(false);
     expect(second.stablePrefixUnchanged).toBe(true);
     expect(first.tokenCount > 0).toBe(true);
     expect(first.capacityPercent).toBeCloseTo((first.tokenCount / 6000) * 100);
     expect(Array.isArray(first.warnings)).toBe(true);
+  });
+
+  it("超长上下文会在真实 assemble 路径生成 compressed-history", async () => {
+    const service = createContextLayerAssemblyService({
+      rules: async () => ({
+        chunks: [{ source: "rules:test", content: "Rule content" }],
+      }),
+      immediate: async () => ({
+        chunks: [
+          {
+            source: "editor:cursor-window",
+            content: Array.from({ length: 8 }, (_, index) =>
+              `第${index + 1}段：${"林远先观察门缝里的光，再听见门后的脚步声。".repeat(8)}`,
+            ).join("\n"),
+          },
+        ],
+      }),
+    });
+
+    const result = await service.assemble({
+      projectId: "proj-long",
+      documentId: "doc-long",
+      cursorPosition: 4096,
+      skillId: "continue-writing",
+      additionalInput: "林远先观察门缝里的光，再听见门后的脚步声。".repeat(8),
+      conversationMessages: Array.from({ length: 18 }, (_, index) => ({
+        role: index % 2 === 0 ? "user" : "assistant",
+        content: `第${index + 1}轮：${"林远先观察门缝里的光，再听见门后的脚步声。".repeat(6)}`,
+      })),
+    });
+
+    expect(result.compressionApplied).toBe(true);
+    expect(result.layers.compressedHistory.compressed).toBe(true);
+    expect(result.layers.compressedHistory.tokenCount).toBeGreaterThan(0);
+    expect(result.layers.compressedHistory.compressionRatio).toBeLessThan(1);
+    expect(result.prompt).toContain("## Compressed History");
+    expect(result.layers.compressedHistory.source).toContain("compressed-history");
   });
 });

@@ -239,6 +239,37 @@ function parsePositiveInteger(
   return parsed;
 }
 
+function buildDefaultPricingTable() {
+  return {
+    currency: "USD" as const,
+    lastUpdated: "2025-01-01T00:00:00.000Z",
+    prices: {
+      "gpt-5.2": {
+        modelId: "gpt-5.2",
+        displayName: "GPT-5.2",
+        inputPricePer1K: 0.0015,
+        outputPricePer1K: 0.003,
+        effectiveDate: "2025-01-01",
+      },
+      "claude-3-5-sonnet": {
+        modelId: "claude-3-5-sonnet",
+        displayName: "Claude 3.5 Sonnet",
+        inputPricePer1K: 0.003,
+        outputPricePer1K: 0.015,
+        effectiveDate: "2025-01-01",
+      },
+    },
+  };
+}
+
+function buildDefaultBudgetPolicy() {
+  return {
+    warningThreshold: 1,
+    hardStopLimit: 5,
+    enabled: true,
+  };
+}
+
 /**
  * Register all IPC handlers.
  *
@@ -403,6 +434,12 @@ function registerIpcHandlers(deps: {
     env: deps.env,
   });
 
+  const costTracker = createCostTracker({
+    pricingTable: buildDefaultPricingTable(),
+    budgetPolicy: buildDefaultBudgetPolicy(),
+    estimateTokens,
+  });
+
   registerAiIpcHandlers({
     ipcMain: guardedIpcMain,
     db: deps.db,
@@ -412,6 +449,7 @@ function registerIpcHandlers(deps: {
     env: deps.env,
     secretStorage,
     projectSessionBinding,
+    costTracker,
   });
 
   registerAiProxyIpcHandlers({
@@ -537,12 +575,6 @@ function registerIpcHandlers(deps: {
     ipcMain: guardedIpcMain,
     db: deps.db,
     logger: deps.logger,
-  });
-
-  const costTracker = createCostTracker({
-    pricingTable: { prices: {}, currency: "USD", lastUpdated: new Date().toISOString() },
-    budgetPolicy: { warningThreshold: Infinity, hardStopLimit: Infinity, enabled: false },
-    estimateTokens,
   });
 
   registerCostIpcHandlers({

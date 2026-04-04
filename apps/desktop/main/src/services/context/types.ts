@@ -20,6 +20,10 @@ export type ContextAssembleRequest = {
   provider?: string;
   model?: string;
   tokenizerVersion?: string;
+  conversationMessages?: Array<{
+    role: "system" | "user" | "assistant" | "tool";
+    content: string;
+  }>;
 };
 
 export type ContextInspectRequest = ContextAssembleRequest & {
@@ -80,8 +84,19 @@ export type ContextLayerDetail = ContextLayerSummary & {
   content: string;
 };
 
+export type ContextCompressedHistorySummary = ContextLayerSummary & {
+  compressed: boolean;
+  compressionRatio?: number;
+};
+
+export type ContextCompressedHistoryDetail = ContextLayerDetail & {
+  compressed: boolean;
+  compressionRatio?: number;
+};
+
 export type ContextAssembleLayers = {
   rules: ContextLayerSummary;
+  compressedHistory: ContextCompressedHistorySummary;
   immediate: ContextLayerSummary;
 };
 
@@ -93,10 +108,12 @@ export type ContextAssembleResult = {
   warnings: string[];
   capacityPercent: number;
   layers: ContextAssembleLayers;
+  compressionApplied?: boolean;
 };
 
 export type ContextInspectLayerDetails = {
   rules: ContextLayerDetail;
+  compressedHistory: ContextCompressedHistoryDetail;
   immediate: ContextLayerDetail;
 };
 

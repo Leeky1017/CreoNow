@@ -2,7 +2,13 @@ import { describe, it, expect, vi } from "vitest";
 import type { IpcMain } from "electron";
 
 import { registerCostIpcHandlers } from "../cost";
-import type { CostTracker, SessionCostSummary, RequestCost } from "../../services/ai/costTracker";
+import type {
+  BudgetPolicy,
+  CostTracker,
+  ModelPricingTable,
+  RequestCost,
+  SessionCostSummary,
+} from "../../services/ai/costTracker";
 
 type Handler = (event: unknown, payload?: unknown) => Promise<unknown>;
 
@@ -28,6 +34,16 @@ function createHarness(trackerOverrides: Partial<CostTracker> = {}) {
       sessionStartedAt: 1000,
     } satisfies SessionCostSummary),
     getRequestCost: vi.fn().mockReturnValue(null),
+    getPricingTable: vi.fn().mockReturnValue({
+      currency: "USD",
+      lastUpdated: "2025-01-01T00:00:00.000Z",
+      prices: {},
+    }),
+    getBudgetPolicy: vi.fn().mockReturnValue({
+      warningThreshold: 1,
+      hardStopLimit: 5,
+      enabled: true,
+    }),
     listRecords: vi.fn().mockReturnValue([]),
     checkBudget: vi.fn().mockReturnValue(null),
     estimateCost: vi.fn().mockReturnValue(0),
@@ -177,6 +193,111 @@ describe("cost IPC handlers", () => {
       expect(result.ok).toBe(true);
       expect(result.data.totalCost).toBe(0.01);
       expect(result.data.totalRequests).toBe(1);
+    });
+  });
+
+  describe("cost:budget:*", () => {
+    it("cost:budget:get 返回当前预算策略", async () => {
+      const budget = {
+        warningThreshold: 1,
+        hardStopLimit: 5,
+        enabled: true,
+      } satisfies BudgetPolicy;
+      const harness = createHarness({
+        getBudgetPolicy: vi.fn().mockReturnValue(budget),
+      } as never);
+
+      const result = await harness.invoke<{
+        ok: boolean;
+        data: BudgetPolicy;
+      }>("cost:budget:get");
+
+      expect(result.ok).toBe(true);
+      expect(result.data).toEqual(budget);
+    });
+
+    it("cost:budget:update 校验并更新预算策略", async () => {
+      const harness = createHarness({
+        getBudgetPolicy: vi.fn().mockReturnValue({
+          warningThreshold: 1,
+          hardStopLimit: 5,
+          enabled: true,
+        } satisfies BudgetPolicy),
+      } as never);
+
+      const result = await harness.invoke<{ ok: boolean }>("cost:budget:update", {
+        warningThreshold: 2,
+        hardStopLimit: 6,
+        enabled: true,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(harness.tracker.updateBudgetPolicy).toHaveBeenCalledWith({
+        warningThreshold: 2,
+        hardStopLimit: 6,
+        enabled: true,
+      });
+    });
+  });
+
+  describe("cost:pricing:*", () => {
+    it("cost:pricing:get 返回当前定价表", async () => {
+      const pricing = {
+        currency: "USD",
+        lastUpdated: "2025-01-01T00:00:00.000Z",
+        prices: {
+          "gpt-5.2": {
+            modelId: "gpt-5.2",
+            displayName: "GPT-5.2",
+            inputPricePer1K: 0.0015,
+            outputPricePer1K: 0.003,
+            effectiveDate: "2025-01-01",
+          },
+        },
+      } satisfies ModelPricingTable;
+      const harness = createHarness({
+        getPricingTable: vi.fn().mockReturnValue(pricing),
+      } as never);
+
+      const result = await harness.invoke<{
+        ok: boolean;
+        data: ModelPricingTable;
+      }>("cost:pricing:get");
+
+      expect(result.ok).toBe(true);
+      expect(result.data).toEqual(pricing);
+    });
+
+    it("cost:pricing:update 更新定价表", async () => {
+      const harness = createHarness({
+        getPricingTable: vi.fn().mockReturnValue({
+          currency: "USD",
+          lastUpdated: "2025-01-01T00:00:00.000Z",
+          prices: {},
+        } satisfies ModelPricingTable),
+      } as never);
+
+      const nextPricing = {
+        currency: "USD",
+        lastUpdated: "2025-01-02T00:00:00.000Z",
+        prices: {
+          "claude-3-5-sonnet": {
+            modelId: "claude-3-5-sonnet",
+            displayName: "Claude 3.5 Sonnet",
+            inputPricePer1K: 0.003,
+            outputPricePer1K: 0.015,
+            effectiveDate: "2025-01-02",
+          },
+        },
+      } satisfies ModelPricingTable;
+
+      const result = await harness.invoke<{ ok: boolean }>(
+        "cost:pricing:update",
+        nextPricing,
+      );
+
+      expect(result.ok).toBe(true);
+      expect(harness.tracker.updatePricingTable).toHaveBeenCalledWith(nextPricing);
     });
   });
 });

@@ -16,6 +16,14 @@ import type {
 } from "../orchestrator";
 import { createWritingOrchestrator } from "../orchestrator";
 import { createToolRegistry } from "../toolRegistry";
+import type {
+  BudgetAlert,
+  BudgetPolicy,
+  CostTracker,
+  ModelPricingTable,
+  RequestCost,
+  SessionCostSummary,
+} from "../../ai/costTracker";
 
 // ─── helpers ────────────────────────────────────────────────────────
 
@@ -113,6 +121,54 @@ function createMockHook(name: string) {
   };
 }
 
+function createMockCostTracker(
+  overrides: Partial<CostTracker> = {},
+): CostTracker {
+  return {
+    recordUsage: vi.fn().mockReturnValue({
+      requestId: "req-001",
+      modelId: "default",
+      inputTokens: 10,
+      outputTokens: 6,
+      cachedTokens: 0,
+      cost: 0.012,
+      skillId: "polish",
+      timestamp: Date.now(),
+    } satisfies RequestCost),
+    getSessionCost: vi.fn().mockReturnValue({
+      totalCost: 0.012,
+      totalRequests: 1,
+      totalInputTokens: 10,
+      totalOutputTokens: 6,
+      totalCachedTokens: 0,
+      costByModel: { default: { cost: 0.012, requests: 1 } },
+      costBySkill: { polish: { cost: 0.012, requests: 1 } },
+      sessionStartedAt: 1000,
+    } satisfies SessionCostSummary),
+    getRequestCost: vi.fn().mockReturnValue(null),
+    getPricingTable: vi.fn().mockReturnValue({
+      currency: "USD",
+      lastUpdated: "2025-01-01T00:00:00.000Z",
+      prices: {},
+    } satisfies ModelPricingTable),
+    getBudgetPolicy: vi.fn().mockReturnValue({
+      warningThreshold: 1,
+      hardStopLimit: 5,
+      enabled: true,
+    } satisfies BudgetPolicy),
+    listRecords: vi.fn().mockReturnValue([]),
+    checkBudget: vi.fn().mockReturnValue(null as BudgetAlert | null),
+    estimateCost: vi.fn().mockReturnValue(0.012),
+    onBudgetAlert: vi.fn().mockReturnValue(() => {}),
+    onCostRecorded: vi.fn().mockReturnValue(() => {}),
+    updatePricingTable: vi.fn().mockImplementation((_table: ModelPricingTable) => {}),
+    updateBudgetPolicy: vi.fn().mockImplementation((_policy: BudgetPolicy) => {}),
+    resetSession: vi.fn(),
+    dispose: vi.fn(),
+    ...overrides,
+  };
+}
+
 /** Build OrchestratorConfig with mocks */
 function buildConfig(
   overrides: Partial<OrchestratorConfig> = {},
@@ -144,6 +200,7 @@ function buildConfig(
     permissionGate: createMockPermissionGate(),
     postWritingHooks: [createMockHook("auto-save-version")],
     defaultTimeoutMs: 30_000,
+    costTracker: createMockCostTracker(),
     ...overrides,
   };
 }
@@ -181,6 +238,7 @@ describe("WritingOrchestrator", () => {
         "ai-chunk",
         "ai-chunk",
         "ai-done",
+        "cost-recorded",
         "permission-requested",
         "permission-granted",
         "write-back-done",
@@ -220,6 +278,28 @@ describe("WritingOrchestrator", () => {
         promptTokens: expect.any(Number),
         completionTokens: expect.any(Number),
         totalTokens: expect.any(Number),
+      });
+    });
+
+    it("ai-done 后记录费用并产出 cost-recorded", async () => {
+      const tracker = createMockCostTracker();
+      orchestrator = createWritingOrchestrator(
+        buildConfig({ costTracker: tracker }),
+      );
+
+      const events = await collectEvents(orchestrator.execute(makeRequest()));
+      const costEvent = events.find((event) => event.type === "cost-recorded");
+
+      expect(tracker.recordUsage).toHaveBeenCalledWith(
+        { promptTokens: 10, completionTokens: 6, totalTokens: 16 },
+        "default",
+        "req-001",
+        "polish",
+      );
+      expect(costEvent).toMatchObject({
+        type: "cost-recorded",
+        requestCost: 0.012,
+        sessionTotalCost: 0.012,
       });
     });
 
@@ -266,6 +346,30 @@ describe("WritingOrchestrator", () => {
           }),
         }),
       );
+    });
+
+    it("预算硬停时在 call-ai 前 fail-closed，并产出 budget-exceeded", async () => {
+      const tracker = createMockCostTracker({
+        checkBudget: vi.fn().mockReturnValue({
+          kind: "hard-stop",
+          currentCost: 5.01,
+          threshold: 5,
+          message: "budget exceeded",
+          timestamp: Date.now(),
+        } satisfies BudgetAlert),
+      });
+      const aiService = createMockAIService();
+      orchestrator = createWritingOrchestrator(
+        buildConfig({
+          aiService,
+          costTracker: tracker,
+        }),
+      );
+
+      const events = await collectEvents(orchestrator.execute(makeRequest()));
+      expect(eventTypes(events)).toContain("budget-exceeded");
+      expect(eventTypes(events)).toContain("error");
+      expect(aiService.streamChat).not.toHaveBeenCalled();
     });
 
     it("continue 无 selection 但有 cursorPosition 时，会把光标位置透传给 documentWrite", async () => {

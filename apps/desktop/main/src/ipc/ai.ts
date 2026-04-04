@@ -48,6 +48,7 @@ import { createToolUseHandler } from "../services/skills/toolUseHandler";
 import { estimateTokens } from "../services/context/tokenEstimation";
 import { createDocumentService } from "../services/documents/documentService";
 import { editorSchema } from "../services/editor/prosemirrorSchema";
+import type { CostTracker } from "../services/ai/costTracker";
 
 /**
  * Convert a ProseMirror document position to a plain-text character offset.
@@ -914,6 +915,7 @@ type AiIpcDeps = {
   env: NodeJS.ProcessEnv;
   secretStorage?: SecretStorageAdapter;
   projectSessionBinding?: ProjectSessionBindingRegistry;
+  costTracker?: CostTracker;
 };
 
 type AiIpcContext = {
@@ -1382,6 +1384,12 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
     permissionGate,
     postWritingHooks: [
       {
+        name: "cost-tracking",
+        async execute() {
+          deps.costTracker?.checkBudget();
+        },
+      },
+      {
         name: "auto-save-version",
         async execute() {
           return;
@@ -1389,6 +1397,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
       },
     ],
     defaultTimeoutMs: 30_000,
+    costTracker: deps.costTracker,
     prepareRequest: async (request) => {
       const prepared = await prepareWritingRequest({
         ctx: {

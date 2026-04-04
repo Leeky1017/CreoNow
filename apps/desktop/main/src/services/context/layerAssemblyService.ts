@@ -11,11 +11,13 @@ import {
   estimateUtf8TokenCount as estimateTokenCount,
   trimUtf8ToTokenBudget as trimTextToTokenBudget,
 } from "@shared/tokenBudget";
+import { createCompressionEngine } from "./compressionEngine";
 import type {
   ContextAssembleRequest,
   ContextBudgetLayerConfig,
   ContextBudgetProfile,
   ContextBudgetUpdateResult,
+  ContextCompressedHistoryDetail,
   ContextConstraintTrimLog,
   ContextLayerAssemblyService,
   ContextLayerChunk,
@@ -100,7 +102,11 @@ export const CONTEXT_CAPACITY_LIMITS = {
 const DEFAULT_TOTAL_BUDGET_TOKENS = 6000;
 const DEFAULT_TOKENIZER_ID = "cn-byte-estimator";
 const DEFAULT_TOKENIZER_VERSION = "1.0.0";
-const PUBLIC_CONTEXT_PROMPT_LAYERS = ["rules", "immediate"] as const;
+const PUBLIC_CONTEXT_PROMPT_LAYERS = [
+  "rules",
+  "compressedHistory",
+  "immediate",
+] as const;
 const NON_DETERMINISTIC_PREFIX_FIELDS = new Set([
   "timestamp",
   "requestId",
@@ -501,10 +507,13 @@ function keyForStablePrefix(args: {
  * inspection and downstream assertions.
  */
 function toLayerPrompt(args: {
-  layer: ContextLayerId;
+  layer: ContextLayerId | "compressedHistory";
   content: string;
 }): string {
-  const title = args.layer[0].toUpperCase() + args.layer.slice(1);
+  const title =
+    args.layer === "compressedHistory"
+      ? "Compressed History"
+      : args.layer[0].toUpperCase() + args.layer.slice(1);
   return `## ${title}\n${args.content.length > 0 ? args.content : "(none)"}`;
 }
 
@@ -740,9 +749,14 @@ function totalLayerTokens(
 
 function totalPublicLayerTokens(layers: {
   rules: ContextLayerDetail;
+  compressedHistory: ContextCompressedHistoryDetail;
   immediate: ContextLayerDetail;
 }): number {
-  return layers.rules.tokenCount + layers.immediate.tokenCount;
+  return (
+    layers.rules.tokenCount +
+    layers.compressedHistory.tokenCount +
+    layers.immediate.tokenCount
+  );
 }
 
 function calculateCapacityPercent(totalTokens: number, maxBudget: number): number {
@@ -871,21 +885,203 @@ function toPublicLayerDetail(
 
 function buildPublicAssembleLayers(layers: {
   rules: ContextLayerDetail;
+  compressedHistory: ContextCompressedHistoryDetail;
   immediate: ContextLayerDetail;
 }) {
   return {
     rules: layerSummary(layers.rules),
+    compressedHistory: {
+      ...layerSummary(layers.compressedHistory),
+      compressed: layers.compressedHistory.compressed,
+      ...(layers.compressedHistory.compressionRatio !== undefined
+        ? { compressionRatio: layers.compressedHistory.compressionRatio }
+        : {}),
+    },
     immediate: layerSummary(layers.immediate),
   };
 }
 
 function buildPublicInspectLayers(layers: {
   rules: ContextLayerDetail;
+  compressedHistory: ContextCompressedHistoryDetail;
   immediate: ContextLayerDetail;
 }) {
   return {
     rules: layers.rules,
+    compressedHistory: layers.compressedHistory,
     immediate: layers.immediate,
+  };
+}
+
+function splitHistorySegments(text: string): string[] {
+  return text
+    .split(/\n+/u)
+    .flatMap((block) =>
+      block
+        .split(/(?<=[。！？!?])/u)
+        .map((segment) => segment.trim())
+        .filter((segment) => segment.length > 0),
+    )
+    .filter((segment) => segment.length > 0);
+}
+
+function createDeterministicCompressionEngine() {
+  return createCompressionEngine(
+    {
+      complete: async (params) => {
+        const body = params.messages
+          .map((message) => String(message.content ?? ""))
+          .join("\n")
+          .replace(/\s+/gu, " ")
+          .trim();
+        const summary =
+          body.length <= 240
+            ? body
+            : `${body.slice(0, 120)} … ${body.slice(-100)}`;
+        return { content: summary };
+      },
+    },
+    {
+      circuitBreaker: {
+        failureThreshold: 3,
+        cooldownMs: 1_000,
+      },
+      timeoutMs: 1_000,
+      minTokenThreshold: 500,
+    },
+  );
+}
+
+async function buildCompressedHistoryDetail(args: {
+  request: ContextAssembleRequest;
+  rules: ContextLayerDetail;
+  immediate: ContextLayerDetail;
+  maxBudget: number;
+  compressionEngine: ReturnType<typeof createDeterministicCompressionEngine>;
+}): Promise<{
+  compressedHistory: ContextCompressedHistoryDetail;
+  immediate: ContextLayerDetail;
+  compressionApplied: boolean;
+}> {
+  const emptyCompressedHistory: ContextCompressedHistoryDetail = {
+    content: "",
+    source: ["compressed-history"],
+    tokenCount: 0,
+    truncated: false,
+    compressed: false,
+  };
+
+  const conversationMessages =
+    args.request.conversationMessages?.filter(
+      (message) => message.content.trim().length > 0,
+    ) ?? [];
+
+  const fallbackSegments = splitHistorySegments(args.immediate.content);
+  const sourceMessages =
+    conversationMessages.length > 0
+      ? conversationMessages
+      : fallbackSegments.map((content, index) => ({
+          role: (index % 2 === 0 ? "user" : "assistant") as
+            | "user"
+            | "assistant",
+          content,
+        }));
+  const currentTotal =
+    args.rules.tokenCount +
+    Math.max(
+      args.immediate.tokenCount,
+      estimateTokenCount(sourceMessages.map((message) => message.content).join("\n")),
+    );
+  const shouldCompress =
+    args.compressionEngine.shouldCompress(currentTotal, args.maxBudget) ||
+    conversationMessages.length > 6;
+
+  if (conversationMessages.length === 0 && !shouldCompress) {
+    return {
+      compressedHistory: emptyCompressedHistory,
+      immediate: args.immediate,
+      compressionApplied: false,
+    };
+  }
+
+  if (sourceMessages.length === 0) {
+    return {
+      compressedHistory: emptyCompressedHistory,
+      immediate: args.immediate,
+      compressionApplied: false,
+    };
+  }
+
+  const recentMessages =
+    conversationMessages.length > 0
+      ? sourceMessages.slice(-2)
+      : sourceMessages.slice(-Math.min(2, sourceMessages.length));
+  const historyMessages =
+    sourceMessages.length > recentMessages.length
+      ? sourceMessages.slice(0, sourceMessages.length - recentMessages.length)
+      : sourceMessages;
+
+  if (
+    historyMessages.length === 0 ||
+    !shouldCompress
+  ) {
+    return {
+      compressedHistory: emptyCompressedHistory,
+      immediate: args.immediate,
+      compressionApplied: false,
+    };
+  }
+
+  const compressionResult = await args.compressionEngine.compress({
+    messages: historyMessages.map((message) => ({
+      role: message.role,
+      content: message.content,
+    })),
+    targetTokens: Math.max(80, Math.floor(currentTotal * 0.3)),
+    narrativeContext: {
+      characterNames: [],
+      plotPoints: [],
+      toneMarkers: [],
+      foreshadowingClues: [],
+      timelineMarkers: [],
+      narrativePOV: undefined,
+    },
+    projectId: args.request.projectId,
+    documentId: args.request.documentId,
+  });
+
+  const compressedContent = compressionResult.compressedMessages
+    .map((message) => message.content.trim())
+    .filter((content) => content.length > 0)
+    .join("\n");
+
+  const recentContent =
+    conversationMessages.length > 0
+      ? args.immediate.content
+      : recentMessages
+          .map((message) => message.content.trim())
+          .filter((content) => content.length > 0)
+          .join("\n");
+
+  return {
+    compressedHistory: {
+      content: compressedContent,
+      source: ["compressed-history"],
+      tokenCount: estimateTokenCount(compressedContent),
+      truncated: compressionResult.compressedTokens < compressionResult.originalTokens,
+      compressed: true,
+      compressionRatio: compressionResult.compressionRatio,
+      ...(compressionResult.warnings.length > 0
+        ? { warnings: compressionResult.warnings }
+        : {}),
+    },
+    immediate: {
+      ...args.immediate,
+      content: recentContent,
+      tokenCount: estimateTokenCount(recentContent),
+      truncated: recentContent !== args.immediate.content || args.immediate.truncated,
+    },
+    compressionApplied: true,
   };
 }
 
@@ -912,6 +1108,8 @@ async function buildContextSnapshot(args: {
   onConstraintTrim?: (log: ContextConstraintTrimLog) => void;
 }): Promise<{
   layersDetail: Record<ContextLayerId, ContextLayerDetail>;
+  compressedHistory: ContextCompressedHistoryDetail;
+  compressionApplied: boolean;
   warnings: string[];
   prompt: string;
   tokenCount: number;
@@ -954,11 +1152,22 @@ async function buildContextSnapshot(args: {
     onConstraintTrim: args.onConstraintTrim,
   });
 
+  const compressionEngine = createDeterministicCompressionEngine();
+  const compressed = await buildCompressedHistoryDetail({
+    request: args.request,
+    rules: toPublicLayerDetail(budgetApplied.layers.rules),
+    immediate: toPublicLayerDetail(budgetApplied.layers.immediate),
+    maxBudget: args.budgetProfile.totalBudgetTokens,
+    compressionEngine,
+  });
+  compressionEngine.dispose();
+
   const warnings = uniqueNonEmpty([
     ...(budgetApplied.layers.rules.warnings ?? []),
     ...(budgetApplied.layers.settings.warnings ?? []),
     ...(budgetApplied.layers.retrieved.warnings ?? []),
     ...(budgetApplied.layers.immediate.warnings ?? []),
+    ...(compressed.compressedHistory.warnings ?? []),
     ...budgetApplied.warnings,
   ]);
 
@@ -966,24 +1175,32 @@ async function buildContextSnapshot(args: {
     rules: toPublicLayerDetail(budgetApplied.layers.rules),
     settings: toPublicLayerDetail(budgetApplied.layers.settings),
     retrieved: toPublicLayerDetail(budgetApplied.layers.retrieved),
-    immediate: toPublicLayerDetail(budgetApplied.layers.immediate),
+    immediate: compressed.immediate,
   };
   const prompt = PUBLIC_CONTEXT_PROMPT_LAYERS
     .map((layerId) =>
       toLayerPrompt({
         layer: layerId,
-        content: layersDetail[layerId].content,
+        content:
+          layerId === "compressedHistory"
+            ? compressed.compressedHistory.content
+            : (layerId === "immediate"
+                ? compressed.immediate.content
+                : layersDetail[layerId].content),
       }),
     )
     .join("\n\n");
 
   return {
     layersDetail,
+    compressedHistory: compressed.compressedHistory,
+    compressionApplied: compressed.compressionApplied,
     warnings,
     prompt,
     tokenCount: totalPublicLayerTokens({
       rules: layersDetail.rules,
-      immediate: layersDetail.immediate,
+      compressedHistory: compressed.compressedHistory,
+      immediate: compressed.immediate,
     }),
     stablePrefixHash: hashStablePrefix(budgetApplied.layers.rules.content),
   };
@@ -1107,12 +1324,14 @@ export function createContextLayerAssemblyService(
         stablePrefixHash: snapshot.stablePrefixHash,
         stablePrefixUnchanged,
         warnings: snapshot.warnings,
+        compressionApplied: snapshot.compressionApplied,
         capacityPercent: calculateCapacityPercent(
           snapshot.tokenCount,
           budgetProfile.totalBudgetTokens,
         ),
         layers: buildPublicAssembleLayers({
           rules: snapshot.layersDetail.rules,
+          compressedHistory: snapshot.compressedHistory,
           immediate: snapshot.layersDetail.immediate,
         }),
       };
@@ -1128,6 +1347,7 @@ export function createContextLayerAssemblyService(
       return {
         layersDetail: buildPublicInspectLayers({
           rules: snapshot.layersDetail.rules,
+          compressedHistory: snapshot.compressedHistory,
           immediate: snapshot.layersDetail.immediate,
         }),
         totals: {

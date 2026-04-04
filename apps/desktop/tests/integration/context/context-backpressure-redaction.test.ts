@@ -100,6 +100,12 @@ function createDeferred<T>(): Deferred<T> {
         capacityPercent: 0.2,
         layers: {
           rules: { source: ["kg:entities"], tokenCount: 3, truncated: false },
+          compressedHistory: {
+            source: ["compressed-history"],
+            tokenCount: 0,
+            truncated: false,
+            compressed: false,
+          },
           immediate: {
             source: ["editor:cursor-window"],
             tokenCount: 9,
@@ -117,6 +123,13 @@ function createDeferred<T>(): Deferred<T> {
           source: [],
           tokenCount: 0,
           truncated: false,
+        },
+        compressedHistory: {
+          content: "",
+          source: ["compressed-history"],
+          tokenCount: 0,
+          truncated: false,
+          compressed: false,
         },
         immediate: {
           content: "",

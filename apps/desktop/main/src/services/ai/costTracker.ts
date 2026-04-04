@@ -76,6 +76,8 @@ export interface CostTracker {
 
   getSessionCost(): SessionCostSummary;
   getRequestCost(requestId: string): RequestCost | null;
+  getPricingTable(): ModelPricingTable;
+  getBudgetPolicy(): BudgetPolicy;
   listRecords(filter?: {
     skillId?: string;
     since?: number;
@@ -302,6 +304,23 @@ export function createCostTracker(config: CostTrackerConfig): CostTracker {
 
     getRequestCost(requestId: string): RequestCost | null {
       return records.get(requestId) ?? null;
+    },
+
+    getPricingTable(): ModelPricingTable {
+      return {
+        currency: pricingTable.currency,
+        lastUpdated: pricingTable.lastUpdated,
+        prices: Object.fromEntries(
+          Object.entries(pricingTable.prices).map(([modelId, pricing]) => [
+            modelId,
+            { ...pricing },
+          ]),
+        ),
+      };
+    },
+
+    getBudgetPolicy(): BudgetPolicy {
+      return { ...budgetPolicy };
     },
 
     listRecords(filter?: {

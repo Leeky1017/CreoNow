@@ -104,19 +104,25 @@ describe("DiffEngine — computeTransaction", () => {
     });
   });
 
-  it("多段不连续修改 → 单个 replace（算法局限性）", () => {
-    // "foo bar baz" → "FOO bar BAZ" has two non-contiguous changes,
-    // but the prefix/suffix algorithm collapses them into one replace step.
+  it("多段不连续修改 → 拆分为逐段 replace", () => {
     const result = computeTransaction("foo bar baz", "FOO bar BAZ");
 
-    expect(result.steps).toHaveLength(1);
-    expect(result.steps[0].type).toBe("replace");
-    // The single replace covers the entire span from first diff to last
-    expect(result.steps[0].from).toBe(0);
-    expect(result.steps[0].to).toBe(11);
-    expect(result.steps[0].text).toBe("FOO bar BAZ");
-    expect(result.stats.replacements).toBe(1);
-    expect(result.stats.totalChanges).toBe(1);
+    expect(result.steps).toEqual([
+      {
+        type: "replace",
+        from: 0,
+        to: 3,
+        text: "FOO",
+      },
+      {
+        type: "replace",
+        from: 8,
+        to: 11,
+        text: "BAZ",
+      },
+    ]);
+    expect(result.stats.replacements).toBe(2);
+    expect(result.stats.totalChanges).toBe(2);
   });
 
   it("首尾均不变、仅中间修改 → 精确 replace", () => {
