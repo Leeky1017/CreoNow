@@ -242,6 +242,19 @@ Spec 不存在/矛盾、任务超出 spec 范围、上游依赖不一致 → 停
 
 完整审计协议（变更分类、检查项索引、评论模板、根因排查格式、必做白名单）详见 `docs/references/audit-protocol.md`。
 
+**评论汇总 Agent（Reviewer Agent）**：
+
+> 「兼听则明，偏信则暗。」——《资治通鉴》
+
+`creonow-reviewer` 是唯一拥有 PR Review Comment 发布权限的 Agent。它收集 4 个独立审计维度（架构一致性 / 测试覆盖 / 性能 & Bundle / 安全 & 依赖）的全部意见后，合并为一条结构化评论一次性发出，防止散落评论被遗漏。
+
+- 其他 Agent 不得直接向 PR 发布 Review Comment，必须通过本 Agent 统一发布
+- 必须等待全部 4 个维度的审计意见到齐后才可发布
+- 不修改、不删除、不降级任何审计 Sub 提交的 finding
+- 只有全部 4 维度均 zero findings 且均 `ACCEPT` 时，汇总结论才可为 `ACCEPT`
+
+详细定义见 `.github/agents/creonow-reviewer.agent.md`。
+
 ---
 
 ## 七、参考文档
