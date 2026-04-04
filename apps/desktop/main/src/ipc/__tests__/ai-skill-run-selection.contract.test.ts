@@ -130,7 +130,8 @@ describe("ai:skill:run selection contract", () => {
         skillId: "builtin:rewrite",
         hasSelection: true,
         selection,
-        input: "Selection context:\n原文片段\n\n润色",
+        input: "原文片段",
+        userInstruction: "润色",
         mode: "ask",
         model: "gpt-4.1-mini",
         stream: false,
@@ -166,8 +167,9 @@ describe("ai:skill:run selection contract", () => {
         documentId: "doc-1",
         projectId: "project-1",
         input: expect.objectContaining({
-          selectedText: "Selection context:\n原文片段\n\n润色",
+          selectedText: "原文片段",
         }),
+        userInstruction: "润色",
         selection,
       }),
     );
