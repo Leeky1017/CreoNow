@@ -41,6 +41,8 @@ const AUTOSAVE_COMPACT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_MAX_SNAPSHOTS_PER_DOCUMENT = 50_000;
 const DEFAULT_MAX_DIFF_PAYLOAD_BYTES = 2 * 1024 * 1024;
 const DEFAULT_BRANCH_MERGE_TIMEOUT_MS = 5_000;
+const DOCUMENT_VERSION_LATEST_ORDER = "created_at DESC, rowid DESC";
+const DOCUMENT_VERSION_OLDEST_ORDER = "created_at ASC, rowid ASC";
 type InternalVersionSnapshotReason = VersionSnapshotReason | "branch-merge";
 
 /** 文档最大字节体积（5 MB），IPC 层与 Service 层共用 */
@@ -87,7 +89,9 @@ function readLatestVersionId(
     .prepare<
       [string],
       { versionId: string }
-    >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+    >(
+      `SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER} LIMIT 1`,
+    )
     .get(documentId);
   return latest?.versionId ?? null;
 }
@@ -790,7 +794,9 @@ function createDocBranchHelpers(
           .prepare<
             [string],
             { versionId: string }
-          >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+          >(
+            `SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER} LIMIT 1`,
+          )
           .get(params.documentId);
 
         let headSnapshotId = latest?.versionId ?? "";
@@ -1326,7 +1332,9 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
             .prepare<
               [string],
               LatestVersionRow
-            >("SELECT version_id as versionId, reason, content_hash as contentHash, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+            >(
+              `SELECT version_id as versionId, reason, content_hash as contentHash, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER} LIMIT 1`,
+            )
             .get(documentId);
 
           const shouldMergeAutosave =
@@ -1408,7 +1416,9 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
                 .prepare<
                   [string, number, number],
                   { versionId: string; parentSnapshotId: string | null }
-                >("SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId FROM document_versions WHERE document_id = ? AND reason = 'autosave' AND created_at < ? ORDER BY created_at ASC, version_id ASC LIMIT ?")
+                >(
+                  `SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId FROM document_versions WHERE document_id = ? AND reason = 'autosave' AND created_at < ? ORDER BY ${DOCUMENT_VERSION_OLDEST_ORDER} LIMIT ?`,
+                )
                 .all(documentId, compactBeforeTs, overflowCount);
 
               if (candidates.length > 0) {
@@ -1842,7 +1852,9 @@ function createVersionOps(
           .prepare<
             [string],
             VersionListRow
-          >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
+          >(
+            `SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_snapshot_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY ${DOCUMENT_VERSION_LATEST_ORDER}`,
+          )
           .all(documentId);
         return {
           ok: true,

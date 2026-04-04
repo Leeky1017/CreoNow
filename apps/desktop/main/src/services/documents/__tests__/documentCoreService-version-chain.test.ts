@@ -12,6 +12,8 @@ const MIGRATIONS_DIR = path.resolve(
   "../../../db/migrations",
 );
 const VERSION_PARENT_SNAPSHOT_MIGRATION = "0026_version_parent_snapshot_id.sql";
+const VERSION_PARENT_SNAPSHOT_ROWID_FIX_MIGRATION =
+  "0027_version_parent_snapshot_rowid_order.sql";
 
 const fakeLogger = {
   info: () => {},
@@ -42,8 +44,32 @@ function applyAllMigrations(db: Database.Database): void {
 function applyMigrationsBeforeVersionParentSnapshot(db: Database.Database): void {
   applyMigrations(
     db,
-    (file) => file !== VERSION_PARENT_SNAPSHOT_MIGRATION,
+    (file) =>
+      file !== VERSION_PARENT_SNAPSHOT_MIGRATION &&
+      file !== VERSION_PARENT_SNAPSHOT_ROWID_FIX_MIGRATION,
   );
+}
+
+function readVersionChain(
+  db: Database.Database,
+  documentId: string,
+): Array<{
+  versionId: string;
+  parentSnapshotId: string | null;
+  reason: string;
+}> {
+  return db
+    .prepare<
+      [string],
+      {
+        versionId: string;
+        parentSnapshotId: string | null;
+        reason: string;
+      }
+    >(
+      "SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId, reason FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC",
+    )
+    .all(documentId);
 }
 
 function insertProject(db: Database.Database, projectId: string): void {
@@ -140,16 +166,7 @@ describe("documentCoreService 线性快照链", () => {
         db: legacyDb,
         projectId: "proj-legacy",
         documentId: "doc-legacy",
-        versionId: "legacy-z",
-        contentText: "二稿",
-        wordCount: 3,
-        createdAt: 2_000,
-      });
-      insertLegacyVersion({
-        db: legacyDb,
-        projectId: "proj-legacy",
-        documentId: "doc-legacy",
-        versionId: "legacy-a",
+        versionId: "aaa-old",
         contentText: "三稿",
         wordCount: 4,
         createdAt: 2_000,
@@ -158,31 +175,42 @@ describe("documentCoreService 线性快照链", () => {
         db: legacyDb,
         projectId: "proj-legacy",
         documentId: "doc-legacy",
+        versionId: "zzz-newer",
+        contentText: "四稿",
+        wordCount: 5,
+        createdAt: 2_000,
+      });
+      insertLegacyVersion({
+        db: legacyDb,
+        projectId: "proj-legacy",
+        documentId: "doc-legacy",
         versionId: "legacy-final",
         contentText: "终稿",
-        wordCount: 5,
+        wordCount: 6,
         createdAt: 3_000,
       });
 
-      legacyDb.exec(
-        fs.readFileSync(
-          path.join(MIGRATIONS_DIR, VERSION_PARENT_SNAPSHOT_MIGRATION),
-          "utf8",
-        ),
-      );
+      for (const migrationFile of [
+        VERSION_PARENT_SNAPSHOT_MIGRATION,
+        VERSION_PARENT_SNAPSHOT_ROWID_FIX_MIGRATION,
+      ]) {
+        legacyDb.exec(
+          fs.readFileSync(path.join(MIGRATIONS_DIR, migrationFile), "utf8"),
+        );
+      }
 
       const rows = legacyDb
         .prepare<
           [string],
           { versionId: string; parentSnapshotId: string | null }
         >(
-          "SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC",
+          "SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, rowid DESC",
         )
         .all("doc-legacy");
       expect(rows).toEqual([
-        { versionId: "legacy-final", parentSnapshotId: "legacy-a" },
-        { versionId: "legacy-a", parentSnapshotId: "legacy-z" },
-        { versionId: "legacy-z", parentSnapshotId: "legacy-1" },
+        { versionId: "legacy-final", parentSnapshotId: "zzz-newer" },
+        { versionId: "zzz-newer", parentSnapshotId: "aaa-old" },
+        { versionId: "aaa-old", parentSnapshotId: "legacy-1" },
         { versionId: "legacy-1", parentSnapshotId: null },
       ]);
 
@@ -197,13 +225,101 @@ describe("documentCoreService 线性快照链", () => {
       }
       expect(traversed).toEqual([
         "legacy-final",
-        "legacy-a",
-        "legacy-z",
+        "zzz-newer",
+        "aaa-old",
         "legacy-1",
       ]);
     } finally {
       legacyDb.close();
     }
+  });
+
+  it("同毫秒多次写入时仍把新快照挂到最后写入的 parent，并保持列表按真实写入顺序倒序展示", () => {
+    const service = createDocumentCoreService({
+      db,
+      logger: fakeLogger as never,
+    });
+    const projectId = "proj-same-ms";
+    insertProject(db, projectId);
+
+    const created = service.create({
+      projectId,
+      title: "同毫秒文稿",
+      type: "chapter",
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      return;
+    }
+
+    const documentId = created.data.documentId;
+    const save1 = service.save({
+      projectId,
+      documentId,
+      actor: "user",
+      reason: "manual-save",
+      contentJson: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "第一稿" }] }],
+      },
+    });
+    const save2 = service.save({
+      projectId,
+      documentId,
+      actor: "user",
+      reason: "manual-save",
+      contentJson: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "第二稿" }] }],
+      },
+    });
+    const save3 = service.save({
+      projectId,
+      documentId,
+      actor: "auto",
+      reason: "pre-write",
+      contentJson: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "第三稿" }] }],
+      },
+    });
+    expect(save1.ok).toBe(true);
+    expect(save2.ok).toBe(true);
+    expect(save3.ok).toBe(true);
+    if (
+      !save1.ok ||
+      !save1.data.versionId ||
+      !save2.ok ||
+      !save2.data.versionId ||
+      !save3.ok ||
+      !save3.data.versionId
+    ) {
+      return;
+    }
+
+    const chain = readVersionChain(db, documentId);
+    const byId = new Map(
+      chain.map((item) => [item.versionId, item.parentSnapshotId] as const),
+    );
+    expect(chain.slice(0, 4).map((item) => item.versionId)).toEqual([
+      save3.data.versionId,
+      save2.data.versionId,
+      save1.data.versionId,
+    ]);
+    expect(byId.get(save1.data.versionId)).toBeNull();
+    expect(byId.get(save2.data.versionId)).toBe(save1.data.versionId);
+    expect(byId.get(save3.data.versionId)).toBe(save2.data.versionId);
+
+    const listed = service.listVersions({ documentId });
+    expect(listed.ok).toBe(true);
+    if (!listed.ok) {
+      return;
+    }
+    expect(listed.data.items.slice(0, 3).map((item) => item.versionId)).toEqual([
+      save3.data.versionId,
+      save2.data.versionId,
+      save1.data.versionId,
+    ]);
   });
 
   it("保持 parentSnapshotId 线性连续，并在 rollback 后可追踪整条链", () => {
@@ -523,6 +639,118 @@ describe("documentCoreService 线性快照链", () => {
       autosave3.data.versionId,
       manualSave1.data.versionId,
       ...initialVersionIds,
+    ]);
+  });
+
+  it("同毫秒 autosave merge 与 rollback 仍保持单链，并指向最后写入的保留快照", () => {
+    const service = createDocumentCoreService({
+      db,
+      logger: fakeLogger as never,
+    });
+    const projectId = "proj-same-ms-merge";
+    insertProject(db, projectId);
+
+    const created = service.create({
+      projectId,
+      title: "同毫秒合并文稿",
+      type: "chapter",
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      return;
+    }
+
+    const documentId = created.data.documentId;
+    const manualSave = service.save({
+      projectId,
+      documentId,
+      actor: "user",
+      reason: "manual-save",
+      contentJson: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "基线稿" }] }],
+      },
+    });
+    const autosave1 = service.save({
+      projectId,
+      documentId,
+      actor: "auto",
+      reason: "autosave",
+      contentJson: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "自动稿 1" }] }],
+      },
+    });
+    const autosave2 = service.save({
+      projectId,
+      documentId,
+      actor: "auto",
+      reason: "autosave",
+      contentJson: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "自动稿 2（合并后）" }] }],
+      },
+    });
+    const manualSave2 = service.save({
+      projectId,
+      documentId,
+      actor: "user",
+      reason: "manual-save",
+      contentJson: {
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "终稿" }] }],
+      },
+    });
+    expect(manualSave.ok).toBe(true);
+    expect(autosave1.ok).toBe(true);
+    expect(autosave2.ok).toBe(true);
+    expect(manualSave2.ok).toBe(true);
+    if (
+      !manualSave.ok ||
+      !manualSave.data.versionId ||
+      !autosave1.ok ||
+      !autosave1.data.versionId ||
+      !autosave2.ok ||
+      !autosave2.data.versionId ||
+      !manualSave2.ok ||
+      !manualSave2.data.versionId
+    ) {
+      return;
+    }
+
+    expect(autosave2.data.versionId).toBe(autosave1.data.versionId);
+
+    const rollback = service.rollbackVersion({
+      documentId,
+      versionId: manualSave.data.versionId,
+    });
+    expect(rollback.ok).toBe(true);
+    if (!rollback.ok) {
+      return;
+    }
+
+    const chain = readVersionChain(db, documentId);
+    const byId = new Map(chain.map((item) => [item.versionId, item] as const));
+    expect(byId.get(manualSave.data.versionId)?.parentSnapshotId).toBeNull();
+    expect(byId.get(autosave1.data.versionId)?.parentSnapshotId).toBe(
+      manualSave.data.versionId,
+    );
+    expect(byId.get(manualSave2.data.versionId)?.parentSnapshotId).toBe(
+      autosave1.data.versionId,
+    );
+    expect(byId.get(rollback.data.preRollbackVersionId)?.parentSnapshotId).toBe(
+      manualSave2.data.versionId,
+    );
+    expect(byId.get(rollback.data.rollbackVersionId)?.parentSnapshotId).toBe(
+      rollback.data.preRollbackVersionId,
+    );
+
+    expect(chain.slice(0, 6).map((item) => item.versionId)).toEqual([
+      rollback.data.rollbackVersionId,
+      rollback.data.preRollbackVersionId,
+      manualSave2.data.versionId,
+      autosave1.data.versionId,
+      manualSave.data.versionId,
     ]);
   });
 });

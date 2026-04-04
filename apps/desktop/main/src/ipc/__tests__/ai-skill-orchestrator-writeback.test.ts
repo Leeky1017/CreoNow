@@ -233,7 +233,9 @@ function readSnapshotChain(
     .prepare<
       [string],
       { versionId: string; parentSnapshotId: string | null; reason: string }
-    >("SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId, reason FROM document_versions WHERE document_id = ? ORDER BY created_at ASC, version_id ASC")
+    >(
+      "SELECT version_id as versionId, parent_snapshot_id as parentSnapshotId, reason FROM document_versions WHERE document_id = ? ORDER BY created_at ASC, rowid ASC",
+    )
     .all(documentId);
 }
 
