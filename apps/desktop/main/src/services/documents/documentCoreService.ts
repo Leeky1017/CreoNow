@@ -296,6 +296,10 @@ type VersionContentRow = {
   contentHash: string;
 };
 
+type LatestVersionIdentityRow = {
+  versionId: string;
+};
+
 type MergeSessionRow = {
   mergeSessionId: string;
   sourceBranchName: string;
@@ -318,6 +322,87 @@ type MergeConflictRow = {
  */
 function getProjectSettingsScope(projectId: string): string {
   return `${SETTINGS_SCOPE_PREFIX}${projectId}`;
+}
+
+function readLatestVersionId(args: {
+  db: Database.Database;
+  documentId: string;
+}): string | null {
+  const latest = args.db
+    .prepare<
+      [string],
+      LatestVersionIdentityRow
+    >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY rowid DESC LIMIT 1")
+    .get(args.documentId);
+  return latest?.versionId ?? null;
+}
+
+function insertVersionSnapshot(args: {
+  db: Database.Database;
+  actor: VersionSnapshotActor;
+  reason: string;
+  projectId: string;
+  documentId: string;
+  contentJson: string;
+  contentText: string;
+  contentMd: string;
+  contentHash: string;
+  wordCount: number;
+  createdAt: number;
+  parentVersionId?: string | null;
+  versionId?: string;
+}): string {
+  const versionId = args.versionId ?? randomUUID();
+  const parentVersionId = args.parentVersionId === undefined
+    ? readLatestVersionId({
+        db: args.db,
+        documentId: args.documentId,
+      })
+    : args.parentVersionId;
+
+  args.db
+    .prepare(
+      "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )
+    .run(
+      versionId,
+      args.projectId,
+      args.documentId,
+      args.actor,
+      args.reason,
+      parentVersionId,
+      args.contentJson,
+      args.contentText,
+      args.contentMd,
+      args.contentHash,
+      args.wordCount,
+      "",
+      "",
+      args.createdAt,
+    );
+
+  return versionId;
+}
+
+function reparentVersionChildren(args: {
+  db: Database.Database;
+  versionId: string;
+}): void {
+  const row = args.db
+    .prepare<
+      [string],
+      { parentVersionId: string | null } | undefined
+    >("SELECT parent_version_id as parentVersionId FROM document_versions WHERE version_id = ?")
+    .get(args.versionId);
+  if (!row) {
+    return;
+  }
+
+  args.db
+    .prepare<
+      [string | null, string]
+    >("UPDATE document_versions SET parent_version_id = ? WHERE parent_version_id = ?")
+    .run(row.parentVersionId, args.versionId);
 }
 
 /**
@@ -572,26 +657,19 @@ function createDocUtilityHelpers(args: {
           throw new Error("NOT_FOUND");
         }
 
-        preRollbackVersionId = randomUUID();
-        args.db
-          .prepare(
-            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          )
-          .run(
-            preRollbackVersionId,
-            current.projectId,
-            current.documentId,
-            "user",
-            "pre-rollback",
-            current.contentJson,
-            current.contentText,
-            current.contentMd,
-            current.contentHash,
-            countWords(current.contentText),
-            "",
-            "",
-            ts,
-          );
+        preRollbackVersionId = insertVersionSnapshot({
+          db: args.db,
+          projectId: current.projectId,
+          documentId: current.documentId,
+          actor: "user",
+          reason: "pre-rollback",
+          contentJson: current.contentJson,
+          contentText: current.contentText,
+          contentMd: current.contentMd,
+          contentHash: current.contentHash,
+          wordCount: countWords(current.contentText),
+          createdAt: ts,
+        });
 
         const updated = args.db
           .prepare<
@@ -609,26 +687,20 @@ function createDocUtilityHelpers(args: {
           throw new Error("NOT_FOUND");
         }
 
-        rollbackVersionId = randomUUID();
-        args.db
-          .prepare(
-            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          )
-          .run(
-            rollbackVersionId,
-            target.projectId,
-            target.documentId,
-            "user",
-            "rollback",
-            target.contentJson,
-            target.contentText,
-            target.contentMd,
-            target.contentHash,
-            countWords(target.contentText),
-            "",
-            "",
-            ts,
-          );
+        rollbackVersionId = insertVersionSnapshot({
+          db: args.db,
+          projectId: target.projectId,
+          documentId: target.documentId,
+          actor: "user",
+          reason: "rollback",
+          contentJson: target.contentJson,
+          contentText: target.contentText,
+          contentMd: target.contentMd,
+          contentHash: target.contentHash,
+          wordCount: countWords(target.contentText),
+          createdAt: ts,
+          parentVersionId: preRollbackVersionId,
+        });
 
         args.logger.info("version_rollback_applied", {
           document_id: target.documentId,
@@ -729,8 +801,8 @@ function createDocBranchHelpers(
         const latest = args.db
           .prepare<
             [string],
-            { versionId: string }
-          >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+            LatestVersionIdentityRow
+          >("SELECT version_id as versionId FROM document_versions WHERE document_id = ? ORDER BY rowid DESC LIMIT 1")
           .get(params.documentId);
 
         let headSnapshotId = latest?.versionId ?? "";
@@ -744,26 +816,20 @@ function createDocBranchHelpers(
           if (!doc) {
             throw new Error("NOT_FOUND");
           }
-          const bootstrapVersionId = randomUUID();
-          args.db
-            .prepare(
-              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            )
-            .run(
-              bootstrapVersionId,
-              doc.projectId,
-              params.documentId,
-              "user",
-              "manual-save",
-              doc.contentJson,
-              doc.contentText,
-              doc.contentMd,
-              doc.contentHash,
-              countWords(doc.contentText),
-              "",
-              "",
-              ts,
-            );
+          const bootstrapVersionId = insertVersionSnapshot({
+            db: args.db,
+            projectId: doc.projectId,
+            documentId: params.documentId,
+            actor: "user",
+            reason: "manual-save",
+            contentJson: doc.contentJson,
+            contentText: doc.contentText,
+            contentMd: doc.contentMd,
+            contentHash: doc.contentHash,
+            wordCount: countWords(doc.contentText),
+            createdAt: ts,
+            parentVersionId: null,
+          });
           headSnapshotId = bootstrapVersionId;
         }
 
@@ -878,26 +944,19 @@ function createDocBranchHelpers(
           throw new Error("NOT_FOUND");
         }
 
-        mergeSnapshotId = randomUUID();
-        args.db
-          .prepare(
-            "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          )
-          .run(
-            mergeSnapshotId,
-            doc.projectId,
-            params.documentId,
-            "user",
-            "branch-merge",
-            encoded.data,
-            derived.data.contentText,
-            derived.data.contentMd,
-            contentHash,
-            countWords(derived.data.contentText),
-            "",
-            "",
-            ts,
-          );
+        mergeSnapshotId = insertVersionSnapshot({
+          db: args.db,
+          projectId: doc.projectId,
+          documentId: params.documentId,
+          actor: "user",
+          reason: "branch-merge",
+          contentJson: encoded.data,
+          contentText: derived.data.contentText,
+          contentMd: derived.data.contentMd,
+          contentHash,
+          wordCount: countWords(derived.data.contentText),
+          createdAt: ts,
+        });
 
         const branchUpdated = args.db
           .prepare<
@@ -1273,7 +1332,7 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
             .prepare<
               [string],
               LatestVersionRow
-            >("SELECT version_id as versionId, reason, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT 1")
+            >("SELECT version_id as versionId, reason, content_hash as contentHash, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY rowid DESC LIMIT 1")
             .get(documentId);
 
           const shouldMergeAutosave =
@@ -1313,26 +1372,19 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
               return;
             }
 
-            const insertedVersionId = randomUUID();
-            args.db
-              .prepare(
-                "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-              )
-              .run(
-                insertedVersionId,
-                projectId,
-                documentId,
-                actor,
-                reason,
-                encoded.data,
-                derived.data.contentText,
-                derived.data.contentMd,
-                contentHash,
-                wordCount,
-                "",
-                "",
-                ts,
-              );
+            const insertedVersionId = insertVersionSnapshot({
+              db: args.db,
+              projectId,
+              documentId,
+              actor,
+              reason,
+              contentJson: encoded.data,
+              contentText: derived.data.contentText,
+              contentMd: derived.data.contentMd,
+              contentHash,
+              wordCount,
+              createdAt: ts,
+            });
 
             args.logger.info("version_created", {
               version_id: insertedVersionId,
@@ -1367,6 +1419,10 @@ function createDocSaveOps(ctx: DocCoreCtx): Pick<DocumentService, "save"> {
                 "DELETE FROM document_versions WHERE version_id = ?",
               );
               for (const candidate of candidates) {
+                reparentVersionChildren({
+                  db: args.db,
+                  versionId: candidate.versionId,
+                });
                 deleteStmt.run(candidate.versionId);
               }
 
@@ -1637,27 +1693,20 @@ function createDocLifecycleOps(
             throw new Error("NOT_FOUND");
           }
 
-          const versionId = randomUUID();
           const wordCount = countWords(current.contentText);
-          args.db
-            .prepare(
-              "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            )
-            .run(
-              versionId,
-              projectId,
-              documentId,
-              "user",
-              "status-change",
-              current.contentJson,
-              current.contentText,
-              current.contentMd,
-              current.contentHash,
-              wordCount,
-              "",
-              "",
-              ts,
-            );
+          insertVersionSnapshot({
+            db: args.db,
+            projectId,
+            documentId,
+            actor: "user",
+            reason: "status-change",
+            contentJson: current.contentJson,
+            contentText: current.contentText,
+            contentMd: current.contentMd,
+            contentHash: current.contentHash,
+            wordCount,
+            createdAt: ts,
+          });
         })();
 
         return { ok: true, data: { updated: true, status: normalized.data } };
@@ -1773,7 +1822,7 @@ function createVersionOps(
           .prepare<
             [string],
             VersionListRow
-          >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
+          >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY rowid DESC")
           .all(documentId);
         return {
           ok: true,

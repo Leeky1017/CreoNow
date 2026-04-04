@@ -17,12 +17,15 @@ import { createEditorBridge } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import { AiPreviewSurface } from "@/features/workbench/components/AiPreviewSurface";
 import { InfoPanelSurface } from "@/features/workbench/components/InfoPanelSurface";
+import { VersionHistorySurface } from "@/features/workbench/components/VersionHistorySurface";
 import {
   SelectionChangedError,
   StaleAiPreviewError,
   acceptAiPreview,
+  applyVersionSnapshot,
   bootstrapWorkspace,
   createDocumentAndOpen,
+  listVersionSnapshots,
   openDocument,
   rejectAiPreview,
   requestAiPreview,
@@ -30,6 +33,7 @@ import {
   type DocumentListItem,
   type DocumentRead,
   type ProjectListItem,
+  type VersionSnapshotListItem,
   type WorkbenchContextToken,
   type WorkbenchSkillId,
 } from "@/features/workbench/runtime";
@@ -114,6 +118,11 @@ type AutosaveToastEvent = {
   eventId: number;
   errorMessage?: string;
   kind: "error" | "success";
+};
+
+type VersionHistoryBusyAction = {
+  mode: "restore" | "rollback";
+  versionId: string;
 };
 
 class BlockedAutosaveError extends Error {
@@ -431,6 +440,10 @@ function WorkbenchShell() {
     readStoredWidth(LAYOUT_STORAGE_KEYS.panelWidth, RIGHT_PANEL_BOUNDS),
   );
   const [dragState, setDragState] = useState<DragState>(null);
+  const [versionSnapshots, setVersionSnapshots] = useState<VersionSnapshotListItem[]>([]);
+  const [versionHistoryBusyAction, setVersionHistoryBusyAction] = useState<VersionHistoryBusyAction | null>(null);
+  const [versionHistoryError, setVersionHistoryError] = useState<string | null>(null);
+  const [versionHistoryLoading, setVersionHistoryLoading] = useState(false);
 
   const setSaveUiState = useCallback((nextState: SaveState, source: "autosave" | "accept" | null = null) => {
     saveErrorSourceRef.current = nextState === "error" ? source : null;
@@ -482,6 +495,29 @@ function WorkbenchShell() {
   useEffect(() => {
     writeLayoutValue(LAYOUT_STORAGE_KEYS.panelWidth, rightPanelWidth);
   }, [rightPanelWidth]);
+
+  const loadVersionHistory = useCallback(async (documentId: string) => {
+    setVersionHistoryLoading(true);
+    try {
+      const items = await listVersionSnapshots({
+        api,
+        documentId,
+      });
+      if (activeContextTokenRef.current?.documentId === documentId) {
+        setVersionSnapshots(items);
+        setVersionHistoryError(null);
+      }
+    } catch (error) {
+      if (activeContextTokenRef.current?.documentId === documentId) {
+        setVersionSnapshots([]);
+        setVersionHistoryError(getHumanErrorMessage(error as Error, t));
+      }
+    } finally {
+      if (activeContextTokenRef.current?.documentId === documentId) {
+        setVersionHistoryLoading(false);
+      }
+    }
+  }, [api, t]);
 
   useEffect(() => {
     if (dragState === null) {
@@ -781,6 +817,7 @@ function WorkbenchShell() {
         setPreview(null);
         setStickySelection(null);
         setLiveSelection(null);
+        void loadVersionHistory(workspace.activeDocument.documentId);
         setBootstrapStatus("ready");
       } catch (error) {
         if (disposed === false) {
@@ -821,6 +858,7 @@ function WorkbenchShell() {
       setPreview(null);
       setStickySelection(null);
       setLiveSelection(null);
+      void loadVersionHistory(result.activeDocument.documentId);
       setSaveUiState("idle");
       setLastSavedAt(result.activeDocument.updatedAt);
       setWorkbenchError(null, null);
@@ -864,6 +902,7 @@ function WorkbenchShell() {
       setPreview(null);
       setStickySelection(null);
       setLiveSelection(null);
+      void loadVersionHistory(readDocument.documentId);
       setWorkbenchError(null, null);
       setSaveUiState("idle");
       setLastSavedAt(readDocument.updatedAt);
@@ -981,6 +1020,7 @@ function WorkbenchShell() {
       if (isCurrentContextToken(acceptingPreview.context) && acceptPathStillActive) {
         setPreview((currentPreview) => currentPreview?.runId === acceptingPreview.runId ? null : currentPreview);
         setWorkbenchError(result.feedbackError ? getHumanErrorMessage(result.feedbackError, t) : null, result.feedbackError ? "general" : null);
+        void loadVersionHistory(acceptingPreview.context.documentId);
       }
       if (isLatestSaveRequest(saveRequestId) && acceptPathStillActive) {
         setSaveUiState("saved");
@@ -1084,6 +1124,59 @@ function WorkbenchShell() {
     setRightPanelCollapsed((current) => !current);
   };
 
+  const handleApplyVersionSnapshot = useCallback(async (mode: "restore" | "rollback", versionId: string) => {
+    if (activeDocument === null) {
+      return;
+    }
+
+    const busyOperationId = reserveBusyOperation();
+    try {
+      setBusy(true);
+      setVersionHistoryBusyAction({ mode, versionId });
+      await flushDirtyDraftBeforeContextSwitch();
+      const restoredDocument = await applyVersionSnapshot({
+        api,
+        documentId: activeDocument.documentId,
+        mode,
+        projectId: activeDocument.projectId,
+        versionId,
+      });
+      const documentsResult = await api.file.listDocuments({
+        projectId: activeDocument.projectId,
+      });
+      if (documentsResult.ok === false) {
+        throw documentsResult.error;
+      }
+
+      replaceEditorContextContent({
+        contentJson: restoredDocument.contentJson,
+        documentId: restoredDocument.documentId,
+        projectId: restoredDocument.projectId,
+      });
+      setDocuments(documentsResult.data.items);
+      setActiveDocument(restoredDocument);
+      setPreview(null);
+      setStickySelection(null);
+      setLiveSelection(null);
+      setVersionHistoryError(null);
+      setWorkbenchError(null, null);
+      setSaveUiState("idle");
+      setLastSavedAt(restoredDocument.updatedAt);
+      void loadVersionHistory(restoredDocument.documentId);
+      setActiveLeftPanel("versionHistory");
+      setSidebarCollapsed(false);
+    } catch (error) {
+      if (error instanceof BlockedAutosaveError === false) {
+        setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
+      }
+    } finally {
+      setVersionHistoryBusyAction(null);
+      if (isLatestBusyOperation(busyOperationId)) {
+        setBusy(false);
+      }
+    }
+  }, [activeDocument, api, flushDirtyDraftBeforeContextSwitch, isLatestBusyOperation, loadVersionHistory, replaceEditorContextContent, reserveBusyOperation, setSaveUiState, setWorkbenchError, t]);
+
   const startResize = (panel: "left" | "right") => (event: ReactMouseEvent<HTMLDivElement>) => {
     if (event.button !== 0) {
       return;
@@ -1170,6 +1263,22 @@ function WorkbenchShell() {
           ))}
         </div>
       </>;
+    }
+
+    if (activeLeftPanel === "versionHistory") {
+      return <VersionHistorySurface
+        activeDocumentId={activeDocument?.documentId ?? null}
+        busyAction={versionHistoryBusyAction}
+        errorMessage={versionHistoryError}
+        items={versionSnapshots}
+        loading={versionHistoryLoading}
+        onRestore={(versionId) => {
+          void handleApplyVersionSnapshot("restore", versionId);
+        }}
+        onRollback={(versionId) => {
+          void handleApplyVersionSnapshot("rollback", versionId);
+        }}
+      />;
     }
 
     const surfaceKey = `sidebar.${activeLeftPanel}`;

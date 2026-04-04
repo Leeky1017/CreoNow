@@ -554,6 +554,7 @@ export type IpcChannelSpec = {
       mode: "agent" | "plan" | "ask";
       model: string;
       precedingText?: string;
+      userInstruction?: string;
       promptDiagnostics?: {
         promptHash: string;
         stablePrefixHash: string;

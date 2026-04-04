@@ -7,6 +7,7 @@ import { RendererIpcError, type PreloadApi } from "@/lib/preloadApi";
 export type ProjectListItem = IpcResponseData<"project:project:list">["items"][number];
 export type DocumentListItem = IpcResponseData<"file:document:list">["items"][number];
 export type DocumentRead = IpcResponseData<"file:document:read">;
+export type VersionSnapshotListItem = IpcResponseData<"version:snapshot:list">["items"][number];
 
 export interface BootstrapLabels {
   defaultProjectName: string;
@@ -273,6 +274,51 @@ export async function openDocument(args: {
   return readResult.data;
 }
 
+export async function listVersionSnapshots(args: {
+  api: PreloadApi;
+  documentId: string;
+}): Promise<VersionSnapshotListItem[]> {
+  const result = await args.api.version.listSnapshots({
+    documentId: args.documentId,
+  });
+  if (result.ok === false) {
+    throw result.error;
+  }
+
+  return result.data.items;
+}
+
+export async function applyVersionSnapshot(args: {
+  api: PreloadApi;
+  documentId: string;
+  mode: "restore" | "rollback";
+  projectId: string;
+  versionId: string;
+}): Promise<DocumentRead> {
+  const result = args.mode === "rollback"
+    ? await args.api.version.rollbackSnapshot({
+        documentId: args.documentId,
+        versionId: args.versionId,
+      })
+    : await args.api.version.restoreSnapshot({
+        documentId: args.documentId,
+        versionId: args.versionId,
+      });
+  if (result.ok === false) {
+    throw result.error;
+  }
+
+  const readResult = await args.api.file.readDocument({
+    projectId: args.projectId,
+    documentId: args.documentId,
+  });
+  if (readResult.ok === false) {
+    throw readResult.error;
+  }
+
+  return readResult.data;
+}
+
 type SelectionPreviewRequest = {
   api: PreloadApi;
   context: WorkbenchContextToken;
@@ -304,6 +350,7 @@ function createInsertionSelection(cursorPosition: number): SelectionRef {
 }
 
 export async function requestAiPreview(args: SelectionPreviewRequest | ContinuePreviewRequest): Promise<AiPreview> {
+  const normalizedInstruction = args.instruction.trim();
   const result = await args.api.ai.runSkill({
     skillId: args.skillId,
     hasSelection: args.skillId !== "builtin:continue",
@@ -315,7 +362,10 @@ export async function requestAiPreview(args: SelectionPreviewRequest | ContinueP
       : {
           selection: args.selection,
         }),
-    input: args.instruction.trim(),
+    input: args.skillId === "builtin:continue" ? "" : args.selection.text,
+    ...(normalizedInstruction.length === 0
+      ? {}
+      : { userInstruction: normalizedInstruction }),
     mode: "ask",
     model: args.model,
     stream: false,

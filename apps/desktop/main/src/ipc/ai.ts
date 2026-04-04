@@ -68,6 +68,7 @@ type SkillRunPayload = {
   input: string;
   /** Cursor-preceding text for document-window skills (e.g. continue). */
   precedingText?: string;
+  userInstruction?: string;
   mode: "agent" | "plan" | "ask";
   model: string;
   candidateCount?: number;
@@ -336,14 +337,26 @@ function createPendingPermissionGate(): PendingPermissionGate {
 function renderSkillUserPrompt(args: {
   template: string;
   input: string;
+  userInstruction?: string;
 }): string {
+  const normalizedInstruction = args.userInstruction?.trim() ?? "";
   if (args.template.includes("{{input}}")) {
-    return args.template.split("{{input}}").join(args.input);
+    const basePrompt = args.template.split("{{input}}").join(args.input);
+    if (normalizedInstruction.length === 0) {
+      return basePrompt;
+    }
+    return `${basePrompt}\n\n<user_instruction>\n${normalizedInstruction}\n</user_instruction>`;
   }
   if (args.template.trim().length === 0) {
-    return args.input;
+    if (normalizedInstruction.length === 0) {
+      return args.input;
+    }
+    return `${args.input}\n\n${normalizedInstruction}`;
   }
-  return `${args.template}\n\n${args.input}`;
+  if (normalizedInstruction.length === 0) {
+    return `${args.template}\n\n${args.input}`;
+  }
+  return `${args.template}\n\n${args.input}\n\n${normalizedInstruction}`;
 }
 
 function resolveP1BuiltinSkill(skillId: string):
@@ -533,6 +546,7 @@ async function prepareWritingRequest(args: {
   const userPrompt = renderSkillUserPrompt({
     template: resolvedData.skill.prompt?.user ?? "",
     input,
+    userInstruction: args.payload.userInstruction,
   });
 
   const messages = [
@@ -1413,6 +1427,9 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           input: resolveWritingRequestInput(request),
           mode: "ask",
           model: request.modelId ?? "default",
+          ...(request.userInstruction === undefined
+            ? {}
+            : { userInstruction: request.userInstruction }),
           ...(request.cursorPosition === undefined
             ? {}
             : { cursorPosition: request.cursorPosition }),
@@ -2050,6 +2067,9 @@ function registerAiSkillRunHandler(ctx: AiIpcContext): void {
           selectedText: normalizedPayload.input,
           ...(normalizedPayload.precedingText !== undefined ? { precedingText: normalizedPayload.precedingText } : {}),
         },
+        ...(normalizedPayload.userInstruction === undefined
+          ? {}
+          : { userInstruction: normalizedPayload.userInstruction }),
         documentId,
         projectId: projectId.data,
         modelId: normalizedPayload.model,

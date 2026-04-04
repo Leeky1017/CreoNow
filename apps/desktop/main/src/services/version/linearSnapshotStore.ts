@@ -62,6 +62,10 @@ function countWords(content: Record<string, unknown>): number {
   return [...text].filter((c) => c.trim().length > 0).length;
 }
 
+function cloneContent<TContent extends Record<string, unknown>>(content: TContent): TContent {
+  return JSON.parse(JSON.stringify(content)) as TContent;
+}
+
 export function createLinearSnapshotStore(): LinearSnapshotStore {
   // Per-instance ID counter (E1: was global, now per-instance)
   let nextId = 1;
@@ -83,14 +87,14 @@ export function createLinearSnapshotStore(): LinearSnapshotStore {
     async createSnapshot(params: CreateSnapshotParams): Promise<LinearSnapshot> {
       const latest = getLatestSnapshot(params.documentId);
 
-      const snapshot: LinearSnapshot = {
-        id: generateId(),
-        documentId: params.documentId,
-        projectId: params.projectId,
-        content: params.content,
-        reason: params.reason,
-        createdAt: new Date().toISOString(),
-        actor: params.actor,
+        const snapshot: LinearSnapshot = {
+          id: generateId(),
+          documentId: params.documentId,
+          projectId: params.projectId,
+          content: cloneContent(params.content),
+          reason: params.reason,
+          createdAt: new Date().toISOString(),
+          actor: params.actor,
         wordCount: countWords(params.content),
         parentSnapshotId: latest?.id ?? null,
       };
@@ -107,7 +111,10 @@ export function createLinearSnapshotStore(): LinearSnapshotStore {
       const chain = snapshots.get(documentId);
       if (!chain) return [];
       // Reverse chronological order
-      return [...chain].reverse();
+      return [...chain].reverse().map((snapshot) => ({
+        ...snapshot,
+        content: cloneContent(snapshot.content),
+      }));
     },
 
     async rollbackTo(documentId: string, snapshotId: string): Promise<LinearSnapshot> {
@@ -124,12 +131,12 @@ export function createLinearSnapshotStore(): LinearSnapshotStore {
       const latest = chain[chain.length - 1];
 
       // Create pre-rollback snapshot with current content
-      const preRollback: LinearSnapshot = {
-        id: generateId(),
-        documentId,
-        projectId: latest.projectId,
-        content: latest.content,
-        reason: "pre-rollback",
+        const preRollback: LinearSnapshot = {
+          id: generateId(),
+          documentId,
+          projectId: latest.projectId,
+          content: cloneContent(latest.content),
+          reason: "pre-rollback",
         createdAt: new Date().toISOString(),
         actor: "user",
         wordCount: countWords(latest.content),
@@ -138,12 +145,12 @@ export function createLinearSnapshotStore(): LinearSnapshotStore {
       chain.push(preRollback);
 
       // Create rollback snapshot with target content
-      const rollbackSnap: LinearSnapshot = {
-        id: generateId(),
-        documentId,
-        projectId: target.projectId,
-        content: target.content,
-        reason: "rollback",
+        const rollbackSnap: LinearSnapshot = {
+          id: generateId(),
+          documentId,
+          projectId: target.projectId,
+          content: cloneContent(target.content),
+          reason: "rollback",
         createdAt: new Date().toISOString(),
         actor: "user",
         wordCount: countWords(target.content),

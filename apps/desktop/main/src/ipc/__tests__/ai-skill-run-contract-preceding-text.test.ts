@@ -1,5 +1,5 @@
 /**
- * RED → GREEN test: validates that `precedingText` is declared in the
+ * RED → GREEN test: validates that `precedingText` / `userInstruction` are declared in the
  * production IPC contract schema so that `wrapIpcRequestResponse` does NOT
  * reject a payload that carries it with VALIDATION_ERROR.
  *
@@ -47,6 +47,20 @@ describe("ai:skill:run IPC contract — precedingText", () => {
 
     const ptField = requestSchema.fields["precedingText"];
     expect(ptField.kind).toBe("optional");
+  });
+
+  it("contract schema must declare userInstruction as optional field", () => {
+    const contractSchema = ipcContract.channels["ai:skill:run"];
+    expect(contractSchema).toBeDefined();
+
+    const requestSchema = contractSchema.request;
+    expect(requestSchema.kind).toBe("object");
+
+    if (requestSchema.kind !== "object") return;
+    expect(requestSchema.fields).toHaveProperty("userInstruction");
+
+    const instructionField = requestSchema.fields["userInstruction"];
+    expect(instructionField.kind).toBe("optional");
   });
 
   it("wrapIpcRequestResponse must NOT return VALIDATION_ERROR when precedingText is present", async () => {
@@ -102,6 +116,40 @@ describe("ai:skill:run IPC contract — precedingText", () => {
       response.ok,
       `Payload without precedingText should pass — response: ${JSON.stringify(response)}`,
     ).toBe(true);
+    expect(handlerInvoked).toBe(true);
+  });
+
+  it("wrapIpcRequestResponse must NOT return VALIDATION_ERROR when userInstruction is present", async () => {
+    const contractSchema = ipcContract.channels["ai:skill:run"];
+    let handlerInvoked = false;
+
+    const wrapped = wrapIpcRequestResponse({
+      channel: "ai:skill:run",
+      requestSchema: contractSchema.request,
+      responseSchema: s.object({ result: s.string() }),
+      logger: { info: () => undefined, error: () => undefined },
+      timeoutMs: 5_000,
+      handler: async (_event, _payload) => {
+        handlerInvoked = true;
+        return { ok: true, data: { result: "ok" } };
+      },
+    });
+
+    const response = (await wrapped(makeEvent(), {
+      ...basePayload(),
+      skillId: "builtin:rewrite",
+      hasSelection: true,
+      selection: {
+        from: 1,
+        to: 3,
+        text: "原文",
+        selectionTextHash: "hash",
+      },
+      input: "原文",
+      userInstruction: "改得更凝练",
+    })) as { ok: boolean; error?: { code: string } };
+
+    expect(response.ok).toBe(true);
     expect(handlerInvoked).toBe(true);
   });
 });

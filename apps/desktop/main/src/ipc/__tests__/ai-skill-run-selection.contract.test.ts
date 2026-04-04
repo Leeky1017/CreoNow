@@ -2,8 +2,32 @@ import { describe, expect, it, vi } from "vitest";
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
-const { orchestratorExecuteSpy } = vi.hoisted(() => ({
+const { orchestratorExecuteSpy, capturedOrchestratorConfig } = vi.hoisted(() => ({
   orchestratorExecuteSpy: vi.fn(),
+  capturedOrchestratorConfig: {
+    current: null as
+      | {
+          prepareRequest?: (request: {
+            skillId: string;
+            input: { selectedText?: string; precedingText?: string };
+            documentId: string;
+            projectId?: string;
+            modelId?: string;
+            selection?: {
+              from: number;
+              to: number;
+              text: string;
+              selectionTextHash: string;
+            };
+            userInstruction?: string;
+          }) => Promise<{
+            messages: Array<{ role: string; content: string }>;
+            tokenCount: number;
+            modelId: string;
+          }>;
+        }
+      | null,
+  },
 }));
 
 vi.mock("../../services/skills/skillExecutor", () => ({
@@ -14,11 +38,14 @@ vi.mock("../../services/skills/skillExecutor", () => ({
 
 vi.mock("../../services/skills/orchestrator", () => ({
   AGENTIC_MAX_ROUNDS: 5,
-  createWritingOrchestrator: vi.fn(() => ({
-    execute: orchestratorExecuteSpy,
-    abort: vi.fn(),
-    dispose: vi.fn(),
-  })),
+  createWritingOrchestrator: vi.fn((config) => {
+    capturedOrchestratorConfig.current = config;
+    return {
+      execute: orchestratorExecuteSpy,
+      abort: vi.fn(),
+      dispose: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock("../../services/ai/aiService", () => ({
@@ -62,6 +89,7 @@ vi.mock("../../services/stats/statsService", () => ({
 import { registerAiIpcHandlers } from "../ai";
 
 type Handler = (event: { sender: { id: number; send: (channel: string, payload: unknown) => void } }, payload: unknown) => Promise<unknown>;
+type CapturedOrchestratorConfig = NonNullable<typeof capturedOrchestratorConfig.current>;
 
 function createLogger() {
   return {
@@ -74,6 +102,7 @@ function createLogger() {
 describe("ai:skill:run selection contract", () => {
   it("forwards full SelectionRef into the main-process execution seam", async () => {
     orchestratorExecuteSpy.mockReset();
+    capturedOrchestratorConfig.current = null;
     orchestratorExecuteSpy.mockImplementation(async function* () {
       yield {
         type: "ai-done",
@@ -130,7 +159,8 @@ describe("ai:skill:run selection contract", () => {
         skillId: "builtin:rewrite",
         hasSelection: true,
         selection,
-        input: "Selection context:\n原文片段\n\n润色",
+        input: "原文片段",
+        userInstruction: "润色",
         mode: "ask",
         model: "gpt-4.1-mini",
         stream: false,
@@ -166,10 +196,73 @@ describe("ai:skill:run selection contract", () => {
         documentId: "doc-1",
         projectId: "project-1",
         input: expect.objectContaining({
-          selectedText: "Selection context:\n原文片段\n\n润色",
+          selectedText: "原文片段",
         }),
+        userInstruction: "润色",
         selection,
       }),
     );
+  });
+
+  it("keeps selected text as primary input and appends userInstruction in the prepared prompt", async () => {
+    orchestratorExecuteSpy.mockReset();
+    capturedOrchestratorConfig.current = null;
+    orchestratorExecuteSpy.mockImplementation(async function* () {
+      yield {
+        type: "ai-done",
+        timestamp: Date.now(),
+        fullText: "rewritten",
+        usage: {
+          promptTokens: 8,
+          completionTokens: 2,
+          totalTokens: 10,
+        },
+      };
+      yield {
+        type: "permission-requested",
+        timestamp: Date.now(),
+        level: "preview-confirm",
+        description: "confirm writeback",
+      };
+    });
+
+    const handlers = new Map<string, Handler>();
+    const ipcMain = {
+      handle: (channel: string, listener: Handler) => {
+        handlers.set(channel, listener);
+      },
+    } as unknown as IpcMain;
+
+    registerAiIpcHandlers({
+      ipcMain,
+      db: {} as Database.Database,
+      userDataDir: "<test-user-data>",
+      builtinSkillsDir: "<test-skills>",
+      logger: createLogger(),
+      env: process.env,
+    });
+
+    const prepareRequest = (capturedOrchestratorConfig.current as CapturedOrchestratorConfig | null)?.prepareRequest;
+    expect(prepareRequest).toBeTypeOf("function");
+
+    const prepared = await prepareRequest!({
+      skillId: "builtin:rewrite",
+      input: {
+        selectedText: "原文片段",
+      },
+      userInstruction: "改得更凝练",
+      documentId: "doc-1",
+      projectId: "project-1",
+      modelId: "gpt-4.1-mini",
+      selection: {
+        from: 4,
+        to: 9,
+        text: "原文片段",
+        selectionTextHash: "abc123hash",
+      },
+    });
+
+    expect(prepared.messages[1]?.content).toContain("原文片段");
+    expect(prepared.messages[1]?.content).toContain("改得更凝练");
   });
 });

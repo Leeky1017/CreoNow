@@ -1023,6 +1023,7 @@ export const ipcContract = {
           }),
         ),
         precedingText: s.optional(s.string()),
+        userInstruction: s.optional(s.string()),
         promptDiagnostics: s.optional(AI_PROMPT_DIAGNOSTICS_SCHEMA),
         stream: s.boolean(),
       }),

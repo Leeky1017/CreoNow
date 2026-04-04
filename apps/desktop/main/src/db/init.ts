@@ -41,6 +41,7 @@ import kgTypeOtherToFactionSql from "./migrations/0023_kg_type_other_to_faction.
 import backupSnapshotsSql from "./migrations/0024_backup_snapshots.sql?raw";
 import chatHistoryPersistenceSql from "./migrations/0024_chat_history_persistence.sql?raw";
 import documentCoverImageSql from "./migrations/0025_document_cover_image.sql?raw";
+import versionSnapshotLineageSql from "./migrations/0026_version_snapshot_lineage.sql?raw";
 
 export type DbInitOk = {
   ok: true;
@@ -159,6 +160,11 @@ const MIGRATIONS_BASE: readonly Migration[] = [
     name: "0025_document_cover_image",
     sql: documentCoverImageSql,
   },
+  {
+    version: 27,
+    name: "0026_version_snapshot_lineage",
+    sql: versionSnapshotLineageSql,
+  },
 ];
 
 const SQLITE_VEC_MIGRATION: Migration = {
@@ -224,6 +230,17 @@ function setSchemaVersion(db: Database.Database, version: number): void {
   db.prepare("UPDATE schema_version SET version = ?").run(version);
 }
 
+function hasColumn(args: {
+  db: Database.Database;
+  table: string;
+  column: string;
+}): boolean {
+  const rows = args.db.prepare(`PRAGMA table_info(${args.table})`).all() as Array<{
+    name?: string;
+  }>;
+  return rows.some((row) => row.name === args.column);
+}
+
 /**
  * Open and migrate the application SQLite database.
  *
@@ -263,6 +280,22 @@ export function initDb(args: {
 
     conn.transaction(() => {
       for (const m of pending) {
+        if (
+          m.name === "0026_version_snapshot_lineage" &&
+          hasColumn({
+            db: conn,
+            table: "document_versions",
+            column: "parent_version_id",
+          })
+        ) {
+          conn.exec(
+            "CREATE INDEX IF NOT EXISTS idx_document_versions_parent_version ON document_versions (parent_version_id)",
+          );
+          setSchemaVersion(conn, m.version);
+          appliedVersions.push(m.version);
+          continue;
+        }
+
         conn.exec(m.sql);
         setSchemaVersion(conn, m.version);
         appliedVersions.push(m.version);

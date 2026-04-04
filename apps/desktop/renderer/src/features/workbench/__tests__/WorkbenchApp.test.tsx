@@ -113,6 +113,15 @@ function createApiMock(): PreloadApi {
     },
     version: {
       listSnapshots: vi.fn(async () => ({ ok: true, data: { items: [] } })),
+      restoreSnapshot: vi.fn(async () => ({ ok: true, data: { restored: true } })),
+      rollbackSnapshot: vi.fn(async () => ({
+        ok: true,
+        data: {
+          restored: true,
+          preRollbackVersionId: "version-pre-rollback",
+          rollbackVersionId: "version-rollback",
+        },
+      })),
     },
   } as PreloadApi;
 }
@@ -160,6 +169,7 @@ describe("WorkbenchApp", () => {
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
         skillId: "builtin:polish",
+        input: selection.text,
         selection,
       }));
     });
@@ -196,6 +206,94 @@ describe("WorkbenchApp", () => {
     const originalColumn = screen.getByRole("heading", { name: "写回方式" }).closest("article");
     expect(originalColumn).not.toBeNull();
     expect(within(originalColumn as HTMLElement).queryByText("风从北方来")).toBeNull();
+  });
+
+  it("renders version history snapshots and lets the renderer trigger rollback then restore", async () => {
+    const initialDocument = {
+      documentId: "doc-1",
+      projectId: "project-1",
+      title: "第一章",
+      type: "chapter" as const,
+      status: "draft" as const,
+      sortOrder: 0,
+      contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "风从北方来" }] }] }),
+      contentText: "风从北方来",
+      contentMd: "",
+      contentHash: "hash-initial",
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const rollbackDocument = {
+      ...initialDocument,
+      contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的文稿" }] }] }),
+      contentText: "回退后的文稿",
+      contentHash: "hash-rollback",
+      updatedAt: 11,
+    };
+    const restoreDocument = {
+      ...initialDocument,
+      contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "恢复后的文稿" }] }] }),
+      contentText: "恢复后的文稿",
+      contentHash: "hash-restore",
+      updatedAt: 12,
+    };
+
+    window.api = createApiMock();
+    window.api.version.listSnapshots = vi.fn(async () => ({
+      ok: true,
+      data: {
+        items: [
+          {
+            actor: "user",
+            contentHash: "hash-current",
+            createdAt: Date.parse("2025-01-02T10:00:00Z"),
+            reason: "rollback",
+            versionId: "version-current",
+            wordCount: 348,
+          },
+          {
+            actor: "auto",
+            contentHash: "hash-pre-write",
+            createdAt: Date.parse("2025-01-02T09:55:00Z"),
+            reason: "pre-write",
+            versionId: "version-pre-write",
+            wordCount: 332,
+          },
+        ],
+      },
+    })) as typeof window.api.version.listSnapshots;
+    window.api.file.readDocument = vi.fn()
+      .mockResolvedValueOnce({ ok: true, data: initialDocument })
+      .mockResolvedValueOnce({ ok: true, data: rollbackDocument })
+      .mockResolvedValueOnce({ ok: true, data: restoreDocument }) as typeof window.api.file.readDocument;
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+
+    expect(await screen.findByText("写回前快照")).toBeInTheDocument();
+    expect(screen.getAllByText("快照 ID")).toHaveLength(2);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "回退到此版本" })[0]!);
+
+    await waitFor(() => {
+      expect(window.api?.version.rollbackSnapshot).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        versionId: "version-current",
+      });
+    });
+    expect(bridgeMock.setContent).toHaveBeenCalledWith(JSON.parse(rollbackDocument.contentJson));
+
+    fireEvent.click(screen.getAllByRole("button", { name: "恢复此版本" })[1]!);
+
+    await waitFor(() => {
+      expect(window.api?.version.restoreSnapshot).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        versionId: "version-pre-write",
+      });
+    });
+    expect(bridgeMock.setContent).toHaveBeenCalledWith(JSON.parse(restoreDocument.contentJson));
   });
 
   it("keeps the AI reference sticky until clear, replacement, send, and new chat", async () => {
@@ -269,7 +367,8 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
-        input: expect.stringContaining("请直接润色"),
+        input: selection.text,
+        userInstruction: "请直接润色",
         selection,
       }));
     });

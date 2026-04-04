@@ -1,0 +1,67 @@
+<svg width="1280" height="860" viewBox="0 0 1280 860" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="860" rx="24" fill="#151718"/>
+  <rect x="48" y="48" width="1184" height="764" rx="20" fill="#111315" stroke="#232629"/>
+  <rect x="48" y="48" width="64" height="764" rx="20" fill="#17191B"/>
+  <rect x="136" y="48" width="344" height="764" rx="20" fill="#121416" stroke="#232629"/>
+  <rect x="96" y="108" width="32" height="32" rx="10" fill="#2B3137"/>
+  <rect x="96" y="156" width="32" height="32" rx="10" fill="#2B3137"/>
+  <rect x="96" y="204" width="32" height="32" rx="10" fill="#2B3137"/>
+  <rect x="96" y="252" width="32" height="32" rx="10" fill="#E7ECEF" fill-opacity="0.12" stroke="#CBD4DA" stroke-opacity="0.32"/>
+  <rect x="88" y="260" width="2" height="16" rx="1" fill="#E7ECEF"/>
+  <text x="168" y="110" fill="#F3F5F7" font-size="32" font-family="Inter, sans-serif" font-weight="600">历史版本</text>
+  <text x="168" y="146" fill="#8B949E" font-size="18" font-family="Inter, sans-serif">查看快照与关键改写节点。</text>
+
+  <rect x="168" y="196" width="280" height="184" rx="16" fill="#181B1E" stroke="#2A3036"/>
+  <rect x="188" y="216" width="88" height="28" rx="14" fill="#22272C"/>
+  <text x="212" y="235" fill="#F3F5F7" font-size="14" font-family="Inter, sans-serif">用户</text>
+  <rect x="284" y="216" width="116" height="28" rx="14" fill="#22272C"/>
+  <text x="308" y="235" fill="#AAB4BD" font-size="14" font-family="Inter, sans-serif">回退结果</text>
+  <rect x="188" y="254" width="84" height="28" rx="14" fill="#E7ECEF" fill-opacity="0.08" stroke="#E7ECEF" stroke-opacity="0.28"/>
+  <text x="204" y="273" fill="#F3F5F7" font-size="14" font-family="Inter, sans-serif">当前状态</text>
+  <text x="351" y="273" fill="#8B949E" font-size="14" font-family="Inter, sans-serif">01/02 18:00</text>
+  <text x="188" y="314" fill="#7D8791" font-size="14" font-family="Inter, sans-serif">字数</text>
+  <text x="392" y="314" fill="#F3F5F7" font-size="14" font-family="JetBrains Mono, monospace">348 字</text>
+  <text x="188" y="350" fill="#7D8791" font-size="14" font-family="Inter, sans-serif">快照 ID</text>
+  <text x="298" y="350" fill="#D7DEE3" font-size="14" font-family="JetBrains Mono, monospace">version-current</text>
+  <rect x="188" y="392" width="108" height="40" rx="12" fill="#1B2024" stroke="#2A3036"/>
+  <text x="214" y="417" fill="#E2E8EE" font-size="15" font-family="Inter, sans-serif">恢复此版本</text>
+  <rect x="308" y="392" width="140" height="40" rx="12" fill="#23191A" stroke="#473233"/>
+  <text x="332" y="417" fill="#FFB4B8" font-size="15" font-family="Inter, sans-serif">回退到此版本</text>
+
+  <rect x="168" y="400" width="280" height="184" rx="16" fill="#181B1E" stroke="#2A3036"/>
+  <rect x="188" y="420" width="88" height="28" rx="14" fill="#22272C"/>
+  <text x="212" y="439" fill="#F3F5F7" font-size="14" font-family="Inter, sans-serif">自动</text>
+  <rect x="284" y="420" width="116" height="28" rx="14" fill="#22272C"/>
+  <text x="302" y="439" fill="#AAB4BD" font-size="14" font-family="Inter, sans-serif">写回前快照</text>
+  <text x="351" y="477" fill="#8B949E" font-size="14" font-family="Inter, sans-serif">01/02 17:55</text>
+  <text x="188" y="518" fill="#7D8791" font-size="14" font-family="Inter, sans-serif">字数</text>
+  <text x="392" y="518" fill="#F3F5F7" font-size="14" font-family="JetBrains Mono, monospace">332 字</text>
+  <text x="188" y="554" fill="#7D8791" font-size="14" font-family="Inter, sans-serif">快照 ID</text>
+  <text x="298" y="554" fill="#D7DEE3" font-size="14" font-family="JetBrains Mono, monospace">version-pre-write</text>
+  <rect x="188" y="596" width="108" height="40" rx="12" fill="#1B2024" stroke="#2A3036"/>
+  <text x="214" y="621" fill="#E2E8EE" font-size="15" font-family="Inter, sans-serif">恢复此版本</text>
+  <rect x="308" y="596" width="140" height="40" rx="12" fill="#23191A" stroke="#473233"/>
+  <text x="332" y="621" fill="#FFB4B8" font-size="15" font-family="Inter, sans-serif">回退到此版本</text>
+
+  <rect x="504" y="48" width="452" height="764" rx="20" fill="#101214" stroke="#232629"/>
+  <text x="552" y="110" fill="#F3F5F7" font-size="30" font-family="Inter, sans-serif" font-weight="600">第一章</text>
+  <text x="552" y="146" fill="#8B949E" font-size="18" font-family="Inter, sans-serif">版本回退后，编辑器内容会立即恢复。</text>
+  <rect x="552" y="196" width="356" height="520" rx="18" fill="#17191B" stroke="#2A3036"/>
+  <text x="596" y="276" fill="#F1F5F8" font-size="28" font-family="Lora, serif">回退后的文稿</text>
+  <text x="596" y="336" fill="#B4BDC5" font-size="20" font-family="Lora, serif">风从北方来，门后的回声重新归于寂静。</text>
+  <text x="596" y="384" fill="#B4BDC5" font-size="20" font-family="Lora, serif">历史版本面板则在左侧保留“回退前快照”，</text>
+  <text x="596" y="432" fill="#B4BDC5" font-size="20" font-family="Lora, serif">使用户可以继续 restore / rollback 闭环往返。</text>
+
+  <rect x="980" y="48" width="252" height="764" rx="20" fill="#121416" stroke="#232629"/>
+  <text x="1024" y="110" fill="#F3F5F7" font-size="28" font-family="Inter, sans-serif" font-weight="600">信息</text>
+  <text x="1024" y="146" fill="#8B949E" font-size="16" font-family="Inter, sans-serif">当前文档与保存状态的即时摘要。</text>
+  <rect x="1024" y="196" width="164" height="1" fill="#2A3036"/>
+  <text x="1024" y="252" fill="#7D8791" font-size="14" font-family="Inter, sans-serif">项目</text>
+  <text x="1024" y="278" fill="#F3F5F7" font-size="18" font-family="Inter, sans-serif">默认项目</text>
+  <text x="1024" y="336" fill="#7D8791" font-size="14" font-family="Inter, sans-serif">文档</text>
+  <text x="1024" y="362" fill="#F3F5F7" font-size="18" font-family="Inter, sans-serif">第一章</text>
+  <text x="1024" y="420" fill="#7D8791" font-size="14" font-family="Inter, sans-serif">保存状态</text>
+  <text x="1024" y="446" fill="#F3F5F7" font-size="18" font-family="Inter, sans-serif">已保存</text>
+  <text x="1024" y="504" fill="#7D8791" font-size="14" font-family="Inter, sans-serif">字数</text>
+  <text x="1024" y="530" fill="#F3F5F7" font-size="18" font-family="Inter, sans-serif">348 字</text>
+</svg>

@@ -1,4 +1,5 @@
 -- Adds document/version fields required by P0-005.
+-- Snapshot lineage for pre-existing databases is backfilled in 0026_version_snapshot_lineage.sql.
 
 ALTER TABLE documents
   ADD COLUMN content_hash TEXT NOT NULL DEFAULT '';
@@ -20,4 +21,3 @@ CREATE INDEX IF NOT EXISTS idx_documents_project_updated
 
 CREATE INDEX IF NOT EXISTS idx_document_versions_document_created
   ON document_versions (document_id, created_at DESC, version_id ASC);
-

@@ -30,7 +30,7 @@ function createNoopLogger(): Logger {
 function createSnapshotDb(reason: string): Database.Database {
   return {
     prepare(sql: string) {
-      if (sql.includes("ORDER BY created_at DESC")) {
+      if (sql.includes("ORDER BY rowid DESC") || sql.includes("ORDER BY created_at DESC")) {
         return {
           all() {
             return [
