@@ -1793,14 +1793,25 @@ function createVersionOps(
   const args = ctx;
   const { maxDiffPayloadBytes, rollbackToVersion } = ctx;
   return {
-    listVersions: ({ documentId }) => {
+    listVersions: ({ documentId, limit }) => {
       try {
-        const rows = args.db
-          .prepare<
-            [string],
-            VersionListRow
-          >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
-          .all(documentId);
+        const normalizedLimit =
+          typeof limit === "number" && Number.isInteger(limit) && limit > 0
+            ? limit
+            : null;
+        const rows = normalizedLimit === null
+          ? args.db
+              .prepare<
+                [string],
+                VersionListRow
+              >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC")
+              .all(documentId)
+          : args.db
+              .prepare<
+                [string, number],
+                VersionListRow
+              >("SELECT version_id as versionId, actor, reason, content_hash as contentHash, COALESCE(word_count, 0) as wordCount, parent_version_id as parentSnapshotId, created_at as createdAt FROM document_versions WHERE document_id = ? ORDER BY created_at DESC, version_id ASC LIMIT ?")
+              .all(documentId, normalizedLimit);
         return {
           ok: true,
           data: {

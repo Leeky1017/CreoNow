@@ -11,7 +11,10 @@ import {
   type VersionSnapshotActor,
   type VersionSnapshotReason,
 } from "../services/documents/documentService";
-import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
+import {
+  guardAndNormalizeProjectAccess,
+  resolveBoundProjectIdForEvent,
+} from "./projectAccessGuard";
 import {
   getProjectSessionBindingRegistry,
   type ProjectSessionBindingRegistry,
@@ -72,6 +75,84 @@ function readNonEmptyStringField(payload: unknown, key: string): string | null {
     return null;
   }
   return value;
+}
+
+function readOptionalPositiveIntField(payload: unknown, key: string): number | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const value = (payload as Record<string, unknown>)[key];
+  if (value === undefined) {
+    return null;
+  }
+  if (
+    typeof value !== "number" ||
+    !Number.isInteger(value) ||
+    value <= 0
+  ) {
+    return Number.NaN;
+  }
+  return value;
+}
+
+function notFoundResponse(message: string): IpcResponse<never> {
+  return {
+    ok: false,
+    error: {
+      code: "NOT_FOUND",
+      message,
+    },
+  };
+}
+
+function guardVersionProjectAccess(args: {
+  db: Database.Database | null;
+  event: unknown;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
+  lookup: () => { projectId: string } | undefined;
+  notFoundMessage: string;
+}): { ok: true } | { ok: false; response: IpcResponse<never> } {
+  const bound = resolveBoundProjectIdForEvent({
+    event: args.event,
+    projectSessionBinding: args.projectSessionBinding,
+  });
+  if (!bound.ok) {
+    return bound;
+  }
+  if (bound.projectId === null) {
+    return { ok: true };
+  }
+  if (!args.db) {
+    return {
+      ok: false,
+      response: {
+        ok: false,
+        error: { code: "DB_ERROR", message: "Database not ready" },
+      },
+    };
+  }
+
+  const resolved = args.lookup();
+  if (!resolved) {
+    return {
+      ok: false,
+      response: notFoundResponse(args.notFoundMessage),
+    };
+  }
+  if (resolved.projectId !== bound.projectId) {
+    return {
+      ok: false,
+      response: {
+        ok: false,
+        error: {
+          code: "FORBIDDEN",
+          message: "projectId is not active for this renderer session",
+        },
+      },
+    };
+  }
+
+  return { ok: true };
 }
 
 async function withTimeout<T>(
@@ -330,8 +411,8 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
   ipcMain.handle(
     "version:snapshot:list",
     async (
-      _e,
-      payload: { documentId: string },
+      event,
+      payload: { documentId: string; limit?: number },
     ): Promise<
       IpcResponse<{
         items: Array<{
@@ -340,6 +421,7 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
           reason: VersionSnapshotReason;
           contentHash: string;
           wordCount: number;
+          parentSnapshotId: string | null;
           createdAt: number;
         }>;
       }>
@@ -359,9 +441,34 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
           },
         };
       }
+      const limit = readOptionalPositiveIntField(payload, "limit");
+      if (Number.isNaN(limit)) {
+        return {
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "limit must be a positive integer when provided",
+          },
+        };
+      }
+      const access = guardVersionProjectAccess({
+        db,
+        event,
+        projectSessionBinding,
+        lookup: () =>
+          db
+            .prepare<[string], { projectId: string }>(
+              "SELECT project_id as projectId FROM documents WHERE document_id = ?",
+            )
+            .get(payload.documentId),
+        notFoundMessage: "Document not found",
+      });
+      if (!access.ok) {
+        return access.response;
+      }
 
       const svc = createService();
-      const res = svc.listVersions({ documentId: payload.documentId });
+      const res = svc.listVersions({ documentId: payload.documentId, limit: limit ?? undefined });
       return res.ok
         ? { ok: true, data: res.data }
         : { ok: false, error: res.error };
@@ -371,7 +478,7 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
   ipcMain.handle(
     "version:snapshot:read",
     async (
-      _e,
+      event,
       payload: { documentId: string; versionId: string },
     ): Promise<
       IpcResponse<{
@@ -385,6 +492,7 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
         contentMd: string;
         contentHash: string;
         wordCount: number;
+        parentSnapshotId: string | null;
         createdAt: number;
       }>
     > => {
@@ -405,6 +513,21 @@ function registerVersionSnapshotHandlers(ctx: VersionHandlerContext): void {
             message: "documentId/versionId is required",
           },
         };
+      }
+      const access = guardVersionProjectAccess({
+        db,
+        event,
+        projectSessionBinding,
+        lookup: () =>
+          db
+            .prepare<[string, string], { projectId: string }>(
+              "SELECT project_id as projectId FROM document_versions WHERE document_id = ? AND version_id = ?",
+            )
+            .get(payload.documentId, payload.versionId),
+        notFoundMessage: "Version not found",
+      });
+      if (!access.ok) {
+        return access.response;
       }
 
       const svc = createService();
@@ -483,12 +606,13 @@ function registerVersionSnapshotLifecycleHandlers(
     rollbackConflict,
     withIoRetry,
     simulateLatencyMs,
+    projectSessionBinding,
   } = ctx;
 
   ipcMain.handle(
     "version:snapshot:rollback",
     async (
-      _e,
+      event,
       payload: { documentId: string; versionId: string },
     ): Promise<
       IpcResponse<{
@@ -516,6 +640,21 @@ function registerVersionSnapshotLifecycleHandlers(
         };
       }
 
+      const access = guardVersionProjectAccess({
+        db,
+        event,
+        projectSessionBinding,
+        lookup: () =>
+          db
+            .prepare<[string, string], { projectId: string }>(
+              "SELECT project_id as projectId FROM document_versions WHERE document_id = ? AND version_id = ?",
+            )
+            .get(payload.documentId, payload.versionId),
+        notFoundMessage: "Version not found",
+      });
+      if (!access.ok) {
+        return access.response;
+      }
       if (coordinator.isBusy(payload.documentId)) {
         return rollbackConflict(payload.documentId);
       }
@@ -546,7 +685,7 @@ function registerVersionSnapshotLifecycleHandlers(
   ipcMain.handle(
     "version:snapshot:restore",
     async (
-      _e,
+      event,
       payload: { documentId: string; versionId: string },
     ): Promise<IpcResponse<{ restored: true }>> => {
       if (!db) {
@@ -568,6 +707,21 @@ function registerVersionSnapshotLifecycleHandlers(
         };
       }
 
+      const access = guardVersionProjectAccess({
+        db,
+        event,
+        projectSessionBinding,
+        lookup: () =>
+          db
+            .prepare<[string, string], { projectId: string }>(
+              "SELECT project_id as projectId FROM document_versions WHERE document_id = ? AND version_id = ?",
+            )
+            .get(payload.documentId, payload.versionId),
+        notFoundMessage: "Version not found",
+      });
+      if (!access.ok) {
+        return access.response;
+      }
       if (coordinator.isBusy(payload.documentId)) {
         return rollbackConflict(payload.documentId);
       }

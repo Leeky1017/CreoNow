@@ -118,6 +118,14 @@ type ReplaceJsonResult = {
 
 type PreviewTokenStore = Map<string, StoredPreview>;
 
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return 0;
+  }
+  return trimmed.split(/\s+/u).length;
+}
+
 function normalizeProjectId(projectId: string): ServiceResult<string> {
   const trimmed = projectId.trim();
   if (trimmed.length === 0) {
@@ -295,7 +303,7 @@ function insertVersion(args: {
   const versionId = randomUUID();
   args.db
     .prepare(
-      "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO document_versions (version_id, project_id, document_id, actor, reason, parent_version_id, content_json, content_text, content_md, content_hash, word_count, diff_format, diff_text, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .run(
       versionId,
@@ -308,6 +316,7 @@ function insertVersion(args: {
       args.row.contentText,
       args.row.contentMd,
       args.row.contentHash,
+      countWords(args.row.contentText),
       "",
       "",
       args.createdAt,

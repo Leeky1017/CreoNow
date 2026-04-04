@@ -316,7 +316,7 @@ export async function requestAiPreview(args: SelectionPreviewRequest | ContinueP
           selection: args.selection,
         }),
     input: args.skillId === "builtin:continue" ? args.instruction.trim() : args.selection.text,
-    ...(args.skillId === "builtin:rewrite" && args.instruction.trim().length > 0
+    ...(args.skillId !== "builtin:continue" && args.instruction.trim().length > 0
       ? { userInstruction: args.instruction.trim() }
       : {}),
     mode: "ask",

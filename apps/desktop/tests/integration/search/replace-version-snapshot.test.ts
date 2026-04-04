@@ -104,4 +104,8 @@ import {
   assert.equal(doc1Versions.length, 2);
   assert.equal(doc1Versions[0]?.reason, "pre-search-replace");
   assert.equal(doc1Versions[1]?.reason, "search-replace");
+  assert.equal(doc1Versions[0]?.parentVersionId, null);
+  assert.equal(doc1Versions[1]?.parentVersionId, doc1Versions[0]?.versionId);
+  assert.equal(doc1Versions[0]?.wordCount, 3);
+  assert.equal(doc1Versions[1]?.wordCount, 3);
 }

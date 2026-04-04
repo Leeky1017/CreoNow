@@ -3240,6 +3240,7 @@ export type IpcChannelSpec = {
   "version:snapshot:list": {
     request: {
       documentId: string;
+      limit?: number;
     };
     response: {
       items: Array<{

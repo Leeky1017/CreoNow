@@ -166,14 +166,14 @@ describe("workbench runtime helpers", () => {
   });
 
 
-  it("routes polish through the shared selection preview contract without requiring instruction", async () => {
+  it("routes polish through the shared selection preview contract and forwards optional instruction when present", async () => {
     const api = createApiMock();
 
     await requestAiPreview({
       api,
       context: { documentId: "doc-1", projectId: "project-1", revision: 0 },
       skillId: "builtin:polish",
-      instruction: "",
+      instruction: "让句子更冷静",
       model: "gpt-4.1-mini",
       selection: {
         from: 1,
@@ -188,15 +188,13 @@ describe("workbench runtime helpers", () => {
       skillId: "builtin:polish",
       hasSelection: true,
       input: "原文",
+      userInstruction: "让句子更冷静",
       selection: expect.objectContaining({
         from: 1,
         to: 3,
         text: "原文",
         selectionTextHash: "hash",
       }),
-    }));
-    expect(api.ai.runSkill).not.toHaveBeenCalledWith(expect.objectContaining({
-      userInstruction: expect.any(String),
     }));
   });
 

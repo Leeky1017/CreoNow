@@ -35,6 +35,29 @@ function forbiddenProjectAccess(): { ok: false; response: IpcResponse<never> } {
   };
 }
 
+export function resolveBoundProjectIdForEvent(args: {
+  event: unknown;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
+}): { ok: true; projectId: string | null } | { ok: false; response: IpcResponse<never> } {
+  if (!args.projectSessionBinding) {
+    return { ok: true, projectId: null };
+  }
+
+  const webContentsId = senderWebContentsId(args.event);
+  if (!webContentsId) {
+    return forbiddenProjectAccess();
+  }
+
+  const boundProjectId = args.projectSessionBinding.resolveProjectId({
+    webContentsId,
+  });
+  if (!boundProjectId) {
+    return forbiddenProjectAccess();
+  }
+
+  return { ok: true, projectId: boundProjectId };
+}
+
 /**
  * Enforce renderer-session project binding for project-scoped IPC payloads.
  *
@@ -54,26 +77,22 @@ export function guardAndNormalizeProjectAccess(args: {
     return { ok: true };
   }
 
-  const webContentsId = senderWebContentsId(args.event);
-  if (!webContentsId) {
-    return forbiddenProjectAccess();
-  }
-
-  const boundProjectId = args.projectSessionBinding.resolveProjectId({
-    webContentsId,
+  const bound = resolveBoundProjectIdForEvent({
+    event: args.event,
+    projectSessionBinding: args.projectSessionBinding,
   });
-  if (!boundProjectId) {
-    return forbiddenProjectAccess();
+  if (!bound.ok) {
+    return bound;
   }
 
   const requestedProjectId =
     typeof payload.projectId === "string" ? payload.projectId.trim() : "";
   if (requestedProjectId.length === 0) {
-    payload.projectId = boundProjectId;
+    payload.projectId = bound.projectId;
     return { ok: true };
   }
 
-  if (requestedProjectId !== boundProjectId) {
+  if (requestedProjectId !== bound.projectId) {
     return forbiddenProjectAccess();
   }
 

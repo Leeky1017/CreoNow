@@ -34,6 +34,7 @@ type StoredVersion = {
   contentText: string;
   contentMd: string;
   contentHash: string;
+  wordCount: number;
   createdAt: number;
 };
 
@@ -204,23 +205,39 @@ export function createReplaceDbStub(args: {
               documentId,
               actor,
               reason,
-              maybeParentVersionId,
-              maybeContentJson,
-              maybeContentText,
-              maybeContentMd,
-              maybeContentHash,
-              maybeDiffFormat,
-              maybeDiffText,
-              maybeCreatedAt,
-            ] = params as [string, string, string, "user" | "auto" | "ai", string, unknown, unknown, unknown, unknown, unknown, unknown, unknown, unknown];
-            const hasParentVersionId = typeof maybeCreatedAt === "number";
-            const parentVersionId = hasParentVersionId ? (maybeParentVersionId as string | null) : null;
-            const contentJson = (hasParentVersionId ? maybeContentJson : maybeParentVersionId) as string;
-            const contentText = (hasParentVersionId ? maybeContentText : maybeContentJson) as string;
-            const contentMd = (hasParentVersionId ? maybeContentMd : maybeContentText) as string;
-            const contentHash = (hasParentVersionId ? maybeContentHash : maybeContentMd) as string;
-            const createdAt = (hasParentVersionId ? maybeCreatedAt : maybeDiffText) as number;
-            void maybeDiffFormat;
+              parentVersionId,
+              contentJson,
+              contentText,
+              contentMd,
+              contentHash,
+              wordCount,
+              diffFormat,
+              diffText,
+              createdAt,
+            ] = params as [
+              string,
+              string,
+              string,
+              "user" | "auto" | "ai",
+              string,
+              string | null,
+              string,
+              string,
+              string,
+              string,
+              number,
+              string,
+              string,
+              number,
+            ];
+            if (params.length !== 14) {
+              throw new Error(`Expected 14 params for document_versions insert, received ${params.length}`);
+            }
+            if (typeof wordCount !== "number" || typeof createdAt !== "number") {
+              throw new Error("document_versions insert requires numeric wordCount and createdAt");
+            }
+            void diffFormat;
+            void diffText;
             if (
               reason === "pre-search-replace" &&
               failSnapshotSet.has(documentId)
@@ -238,6 +255,7 @@ export function createReplaceDbStub(args: {
               contentText,
               contentMd,
               contentHash,
+              wordCount,
               createdAt,
             });
             return { changes: 1 };

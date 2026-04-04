@@ -182,7 +182,7 @@ export type DocumentService = {
     projectId: string;
     documentId: string;
   }) => ServiceResult<{ documentId: string }>;
-  listVersions: (args: { documentId: string }) => ServiceResult<{
+  listVersions: (args: { documentId: string; limit?: number }) => ServiceResult<{
     items: VersionListItem[];
   }>;
   readVersion: (args: {

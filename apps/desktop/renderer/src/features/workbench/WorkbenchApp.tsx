@@ -1,5 +1,7 @@
 import {
+  Bot,
   Brain,
+  Clock3,
   ChevronLeft,
   FolderTree,
   History,
@@ -7,6 +9,7 @@ import {
   Network,
   Search,
   Settings,
+  UserRound,
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
@@ -43,6 +46,7 @@ const DEFAULT_MODEL = "gpt-4.1-mini";
 const AUTOSAVE_DELAY_MS = 800;
 const SAVE_SUCCESS_DECAY_MS = 2000;
 const MAX_REFERENCE_LENGTH = 120;
+const VERSION_HISTORY_VISIBLE_LIMIT = 200;
 
 const LAYOUT_STORAGE_KEYS = {
   activeLeftPanel: "creonow.layout.activeLeftPanel",
@@ -197,6 +201,46 @@ function formatVersionActor(actor: VersionHistoryItem["actor"], t: ReturnType<ty
     case "ai":
       return t("sidebar.versionHistory.actor.ai");
   }
+}
+
+function describeVersionActor(actor: VersionHistoryItem["actor"], t: ReturnType<typeof useTranslation>["t"]): {
+  detail: string;
+  Icon: typeof UserRound;
+  label: string;
+} {
+  switch (actor) {
+    case "user":
+      return {
+        detail: t("sidebar.versionHistory.actor.userDetail"),
+        Icon: UserRound,
+        label: formatVersionActor(actor, t),
+      };
+    case "auto":
+      return {
+        detail: t("sidebar.versionHistory.actor.autoDetail"),
+        Icon: Clock3,
+        label: formatVersionActor(actor, t),
+      };
+    case "ai":
+      return {
+        detail: t("sidebar.versionHistory.actor.aiDetail"),
+        Icon: Bot,
+        label: formatVersionActor(actor, t),
+      };
+  }
+}
+
+function formatVersionWordDelta(delta: number | null, t: ReturnType<typeof useTranslation>["t"]): string {
+  if (delta === null) {
+    return t("sidebar.versionHistory.delta.unknown");
+  }
+  if (delta === 0) {
+    return t("sidebar.versionHistory.delta.zero");
+  }
+  if (delta > 0) {
+    return t("sidebar.versionHistory.delta.positive", { count: delta });
+  }
+  return t("sidebar.versionHistory.delta.negative", { count: Math.abs(delta) });
 }
 
 function isMeaningfulSelection(selection: SelectionRef | null): selection is SelectionRef {
@@ -468,6 +512,7 @@ function WorkbenchShell() {
   const [versionHistoryItems, setVersionHistoryItems] = useState<VersionHistoryItem[]>([]);
   const [versionHistoryLoading, setVersionHistoryLoading] = useState(false);
   const [versionHistoryError, setVersionHistoryError] = useState<string | null>(null);
+  const [pendingRollbackVersionId, setPendingRollbackVersionId] = useState<string | null>(null);
   const [rollbackInFlightVersionId, setRollbackInFlightVersionId] = useState<string | null>(null);
 
   const setSaveUiState = useCallback((nextState: SaveState, source: "autosave" | "accept" | null = null) => {
@@ -755,7 +800,11 @@ function WorkbenchShell() {
     let cancelled = false;
     setVersionHistoryLoading(true);
     setVersionHistoryError(null);
-    void api.version.listSnapshots({ documentId: activeDocument.documentId })
+    setPendingRollbackVersionId(null);
+    void api.version.listSnapshots({
+      documentId: activeDocument.documentId,
+      limit: VERSION_HISTORY_VISIBLE_LIMIT,
+    })
       .then((result) => {
         if (cancelled) {
           return;
@@ -1222,6 +1271,29 @@ function WorkbenchShell() {
     "--right-resizer-width": rightPanelCollapsed ? "0px" : "8px",
   } as CSSProperties;
 
+  const visibleVersionHistoryItems = useMemo(
+    () => versionHistoryItems.slice(0, VERSION_HISTORY_VISIBLE_LIMIT),
+    [versionHistoryItems],
+  );
+  const versionHistoryWordDeltaById = useMemo(() => {
+    const byId = new Map(
+      visibleVersionHistoryItems.map((item) => [item.versionId, item]),
+    );
+    return new Map(
+      visibleVersionHistoryItems.map((item, index) => {
+        const fallbackParent = visibleVersionHistoryItems[index + 1];
+        const parent =
+          item.parentSnapshotId === null
+            ? null
+            : byId.get(item.parentSnapshotId) ?? fallbackParent ?? null;
+        return [
+          item.versionId,
+          parent === null ? null : item.wordCount - parent.wordCount,
+        ] as const;
+      }),
+    );
+  }, [visibleVersionHistoryItems]);
+
   const handleRollbackSnapshot = useCallback(async (versionId: string) => {
     if (activeDocument === null) {
       return;
@@ -1234,6 +1306,7 @@ function WorkbenchShell() {
     try {
       setBusy(true);
       setWorkbenchError(null, null);
+      setPendingRollbackVersionId(null);
       setRollbackInFlightVersionId(versionId);
       clearPendingAutosaveTimer();
       pendingAutosaveDraftRef.current = null;
@@ -1271,12 +1344,6 @@ function WorkbenchShell() {
       setLiveSelection(null);
       setLastSavedAt(rollbackResult.updatedAt);
       setSaveUiState("idle");
-
-      const historyResult = await api.version.listSnapshots({ documentId: activeDocumentId });
-      if (historyResult.ok === false) {
-        throw historyResult.error;
-      }
-      setVersionHistoryItems(historyResult.data.items);
     } catch (error) {
       setVersionHistoryError(getHumanErrorMessage(error as Error, t));
       setWorkbenchError(getHumanErrorMessage(error as Error, t), "general");
@@ -1351,37 +1418,74 @@ function WorkbenchShell() {
           </div>
         </dl>
         {versionHistoryItems.length === 0 ? <p className="panel-subtitle">{versionHistoryLoading ? t("sidebar.versionHistory.loading") : versionHistoryError ?? t(`${surfaceKey}.state`)}</p> : null}
+        {versionHistoryItems.length > 0 ? <p className="panel-meta">{t("sidebar.versionHistory.recentLimit", { count: VERSION_HISTORY_VISIBLE_LIMIT })}</p> : null}
         <div className="panel-section">
-          {versionHistoryItems.map((item) => {
+          {visibleVersionHistoryItems.map((item) => {
             const reasonLabel = formatVersionReason(item.reason, t);
-            const actorLabel = formatVersionActor(item.actor, t);
+            const actor = describeVersionActor(item.actor, t);
             const rollbackLabel = t("sidebar.versionHistory.rollbackLabel", { reason: reasonLabel });
-            return <div key={item.versionId} className="details-grid" aria-label={reasonLabel}>
-              <div className="details-row">
-                <dt>{reasonLabel}</dt>
-                <dd>{formatTimestamp(item.createdAt)}</dd>
+            const wordDelta = versionHistoryWordDeltaById.get(item.versionId) ?? null;
+            const isPendingRollback = pendingRollbackVersionId === item.versionId;
+            const isRollbackBusy = rollbackInFlightVersionId === item.versionId;
+            return <section key={item.versionId} className="version-history-card details-grid" aria-label={reasonLabel}>
+              <div className="version-history-card__header">
+                <div>
+                  <h2 className="panel-title">{reasonLabel}</h2>
+                  <p className="panel-meta">{formatTimestamp(item.createdAt)}</p>
+                </div>
+                <span className="version-history-card__delta">{formatVersionWordDelta(wordDelta, t)}</span>
               </div>
               <div className="details-row">
                 <dt>{t("sidebar.versionHistory.actorLabel")}</dt>
-                <dd>{actorLabel}</dd>
+                <dd>
+                  <span className="version-history-actor">
+                    <actor.Icon size={14} />
+                    <span>{actor.label}</span>
+                  </span>
+                </dd>
+              </div>
+              <div className="details-row">
+                <dt>{t("sidebar.versionHistory.actorDescriptionLabel")}</dt>
+                <dd>{actor.detail}</dd>
               </div>
               <div className="details-row">
                 <dt>{t("sidebar.versionHistory.parentLabel")}</dt>
                 <dd>{item.parentSnapshotId === null ? t("sidebar.versionHistory.root") : t("sidebar.versionHistory.parentValue", { parent: item.parentSnapshotId })}</dd>
               </div>
               <div className="details-row">
+                <dt>{t("sidebar.versionHistory.deltaLabel")}</dt>
+                <dd>{formatVersionWordDelta(wordDelta, t)}</dd>
+              </div>
+              <div className="details-row">
                 <dt>{t("panel.info.wordCount")}</dt>
                 <dd>{t("status.wordCount", { count: item.wordCount })}</dd>
               </div>
-              <Button
-                tone="ghost"
-                aria-label={rollbackLabel}
-                disabled={rollbackInFlightVersionId !== null}
-                onClick={() => void handleRollbackSnapshot(item.versionId)}
-              >
-                {rollbackLabel}
-              </Button>
-            </div>;
+              {isPendingRollback ? <div className="version-history-card__confirm">
+                <p className="panel-meta">{t("sidebar.versionHistory.rollbackConfirmBody", { reason: reasonLabel })}</p>
+                <div className="panel-actions">
+                  <Button tone="ghost" onClick={() => setPendingRollbackVersionId(null)}>
+                    {t("sidebar.versionHistory.rollbackCancel")}
+                  </Button>
+                  <Button
+                    tone="danger"
+                    aria-label={t("sidebar.versionHistory.rollbackConfirm", { reason: reasonLabel })}
+                    disabled={rollbackInFlightVersionId !== null}
+                    onClick={() => void handleRollbackSnapshot(item.versionId)}
+                  >
+                    {isRollbackBusy
+                      ? t("sidebar.versionHistory.rollbackConfirmLoading")
+                      : t("sidebar.versionHistory.rollbackConfirmAction")}
+                  </Button>
+                </div>
+              </div> : <Button
+                  tone="ghost"
+                  aria-label={rollbackLabel}
+                  disabled={rollbackInFlightVersionId !== null}
+                  onClick={() => setPendingRollbackVersionId(item.versionId)}
+                >
+                  {rollbackLabel}
+                </Button>}
+            </section>;
           })}
         </div>
       </div>;

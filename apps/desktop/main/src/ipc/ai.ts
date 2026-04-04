@@ -92,26 +92,39 @@ function resolveUserInstruction(payload: SkillRunPayload): string | undefined {
   return normalized && normalized.length > 0 ? normalized : undefined;
 }
 
-function renderSelectionSkillInput(payload: SkillRunPayload): string {
-  const selectedText = resolveSelectionPrimaryInput(payload);
-  if (leafSkillId(payload.skillId) !== "rewrite") {
-    return selectedText;
-  }
+function escapePromptTagContent(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
-  const userInstruction = resolveUserInstruction(payload);
+function renderSelectionPromptInput(args: {
+  selectedText: string;
+  userInstruction?: string;
+}): string {
+  const selectedText = escapePromptTagContent(args.selectedText);
+  const userInstruction = args.userInstruction?.trim();
   if (!userInstruction) {
     return selectedText;
   }
 
   return [
-    "<text>",
+    "Selected text:",
     selectedText,
-    "</text>",
     "",
-    "<instruction>",
-    userInstruction,
-    "</instruction>",
+    "User instruction:",
+    escapePromptTagContent(userInstruction),
   ].join("\n");
+}
+
+function renderSelectionSkillInput(payload: SkillRunPayload): string {
+  return renderSelectionPromptInput({
+    selectedText: resolveSelectionPrimaryInput(payload),
+    userInstruction: resolveUserInstruction(payload),
+  });
 }
 
 function resolveCursorPosition(payload: SkillRunPayload): number | undefined {
@@ -767,12 +780,16 @@ function leafSkillId(skillId: string): string {
  */
 function resolveWritingRequestInput(request: {
   skillId: string;
+  userInstruction?: string;
   input: { selectedText?: string; precedingText?: string };
 }): string {
   if (leafSkillId(request.skillId) === "continue") {
     return request.input.precedingText ?? request.input.selectedText ?? "";
   }
-  return request.input.selectedText ?? "";
+  return renderSelectionPromptInput({
+    selectedText: request.input.selectedText ?? "",
+    userInstruction: request.userInstruction,
+  });
 }
 
 /**
@@ -1446,6 +1463,7 @@ export function registerAiIpcHandlers(deps: AiIpcDeps): void {
           skillId: request.skillId,
           hasSelection: Boolean(request.selection),
           input: resolveWritingRequestInput(request),
+          ...(request.userInstruction ? { userInstruction: request.userInstruction } : {}),
           mode: "ask",
           model: request.modelId ?? "default",
           ...(request.cursorPosition === undefined

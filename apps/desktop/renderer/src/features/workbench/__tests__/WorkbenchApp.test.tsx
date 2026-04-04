@@ -180,11 +180,13 @@ describe("WorkbenchApp", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("请输入改写指令。");
 
     fireEvent.click(screen.getByRole("button", { name: "润色" }));
+    fireEvent.change(screen.getByLabelText("指令"), { target: { value: "压缩语气" } });
     fireEvent.click(screen.getByRole("button", { name: "生成建议" }));
 
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
         skillId: "builtin:polish",
+        userInstruction: "压缩语气",
         selection,
       }));
     });
@@ -2832,7 +2834,144 @@ describe("WorkbenchApp", () => {
     expect(await screen.findAllByText("工作台发生异常")).toHaveLength(1);
   });
 
-  it("loads version history entries and allows rolling back from the sidebar", async () => {
+  it("loads version history entries, requires confirmation, and refreshes editor plus history after rollback", async () => {
+    window.api = createApiMock();
+    const rollbackUpdatedAt = Date.UTC(2024, 0, 4, 20, 32);
+    const rollbackContent = {
+      type: "doc",
+      content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的文稿" }] }],
+    };
+    let currentTextContent = "风从北方来";
+    vi.mocked(bridgeMock.getTextContent).mockImplementation(() => currentTextContent);
+    vi.mocked(bridgeMock.setContent).mockImplementation((content) => {
+      const nextText = (content as {
+        content?: Array<{ content?: Array<{ text?: string }> }>;
+      }).content?.[0]?.content?.[0]?.text;
+      currentTextContent = nextText ?? currentTextContent;
+    });
+    vi.mocked(window.api.file.readDocument)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "风从北方来",
+          contentMd: "",
+          contentHash: "hash",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter",
+          status: "draft",
+          sortOrder: 0,
+          contentJson: JSON.stringify(rollbackContent),
+          contentText: "回退后的文稿",
+          contentMd: "",
+          contentHash: "hash-rollback",
+          createdAt: 1,
+          updatedAt: rollbackUpdatedAt,
+        },
+      });
+    vi.mocked(window.api.version.listSnapshots)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          items: [
+            {
+              versionId: "version-ai-accept",
+              actor: "ai",
+              reason: "ai-accept",
+              parentSnapshotId: "version-pre-write",
+              contentHash: "hash-ai",
+              wordCount: 7,
+              createdAt: 2,
+            },
+            {
+              versionId: "version-pre-write",
+              actor: "auto",
+              reason: "pre-write",
+              parentSnapshotId: "version-manual",
+              contentHash: "hash-pre",
+              wordCount: 5,
+              createdAt: 1,
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          items: [
+            {
+              versionId: "version-rollback",
+              actor: "user",
+              reason: "rollback",
+              parentSnapshotId: "version-pre-rollback",
+              contentHash: "hash-rollback",
+              wordCount: 4,
+              createdAt: rollbackUpdatedAt,
+            },
+            {
+              versionId: "version-pre-rollback",
+              actor: "user",
+              reason: "pre-rollback",
+              parentSnapshotId: "version-ai-accept",
+              contentHash: "hash-ai",
+              wordCount: 7,
+              createdAt: rollbackUpdatedAt - 1,
+            },
+          ],
+        },
+      });
+
+    const { container } = render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+
+    expect(await screen.findAllByRole("heading", { name: "历史版本" })).not.toHaveLength(0);
+    expect(await screen.findByText("AI 接受")).toBeInTheDocument();
+    expect(screen.getByText("前序：version-pre-write")).toBeInTheDocument();
+    expect(screen.getByText("面板最多展示最近 200 条快照。")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "回退到 AI 接受" }));
+    expect(await screen.findByText("将先保存当前内容，再回退到「AI 接受」。取消则不会触发任何回退。")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "确认回退到 AI 接受" }));
+
+    await waitFor(() => {
+      expect(window.api?.version.rollbackSnapshot).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        versionId: "version-ai-accept",
+      });
+    });
+    await waitFor(() => {
+      expect(window.api?.file.readDocument).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(window.api?.version.listSnapshots).toHaveBeenCalledTimes(2);
+    });
+    expect(currentTextContent).toBe("回退后的文稿");
+    expect(await screen.findByText("回退完成")).toBeInTheDocument();
+
+    const statusBar = container.querySelector(".status-bar");
+    expect(statusBar).not.toBeNull();
+    expect(within(statusBar as HTMLElement).getByText(formatWorkbenchTimestamp(rollbackUpdatedAt))).toBeInTheDocument();
+  });
+
+  it("cancels rollback confirmation without invoking rollback IPC", async () => {
     window.api = createApiMock();
     vi.mocked(window.api.version.listSnapshots).mockResolvedValue({
       ok: true,
@@ -2847,15 +2986,6 @@ describe("WorkbenchApp", () => {
             wordCount: 7,
             createdAt: 2,
           },
-          {
-            versionId: "version-pre-write",
-            actor: "auto",
-            reason: "pre-write",
-            parentSnapshotId: "version-manual",
-            contentHash: "hash-pre",
-            wordCount: 5,
-            createdAt: 1,
-          },
         ],
       },
     });
@@ -2864,22 +2994,15 @@ describe("WorkbenchApp", () => {
 
     await screen.findByRole("heading", { name: "第一章" });
     fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    fireEvent.click(await screen.findByRole("button", { name: "回退到 AI 接受" }));
 
-    expect(await screen.findAllByRole("heading", { name: "历史版本" })).not.toHaveLength(0);
-    expect(await screen.findByText("AI 接受")).toBeInTheDocument();
-    expect(screen.getByText("前序：version-pre-write")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "回退到 AI 接受" }));
+    expect(await screen.findByRole("button", { name: "确认回退到 AI 接受" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
 
     await waitFor(() => {
-      expect(window.api?.version.rollbackSnapshot).toHaveBeenCalledWith({
-        documentId: "doc-1",
-        versionId: "version-ai-accept",
-      });
+      expect(screen.queryByRole("button", { name: "确认回退到 AI 接受" })).toBeNull();
     });
-    await waitFor(() => {
-      expect(window.api?.file.readDocument).toHaveBeenCalledTimes(2);
-    });
+    expect(window.api?.version.rollbackSnapshot).not.toHaveBeenCalled();
   });
 
   it("implements the workbench shell icon order, sidebar toggle, right tabs, and panel collapse", async () => {

@@ -496,6 +496,48 @@ button {
   text-align: right;
 }
 
+.version-history-card {
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  padding: var(--space-4);
+}
+
+.version-history-card__header,
+.version-history-actor,
+.version-history-card__confirm {
+  display: flex;
+}
+
+.version-history-card__header,
+.version-history-card__confirm {
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.version-history-card__header {
+  align-items: flex-start;
+}
+
+.version-history-card__delta {
+  color: var(--color-fg-muted);
+  font-size: var(--text-status-size);
+}
+
+.version-history-actor {
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.version-history-card .panel-actions {
+  width: 100%;
+}
+
+.version-history-card .panel-actions .cn-button {
+  min-width: 96px;
+}
+
 .panel-error {
   margin: 0;
   color: var(--color-error);

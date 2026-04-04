@@ -1,5 +1,7 @@
 import {
+  Bot,
   Brain,
+  Clock3,
   ChevronLeft,
   FolderTree,
   History,
@@ -7,6 +9,7 @@ import {
   Network,
   Search,
   Settings,
+  UserRound,
   Users,
 } from "lucide-react";
 import type { Meta, StoryObj } from "@storybook/react";
@@ -34,10 +37,50 @@ type WorkbenchShellStoryProps = {
   rightPanelWidth: number;
   sidebarCollapsed: boolean;
   sidebarWidth: number;
+  versionHistoryState: "default" | "single" | "loading" | "confirm";
 };
 
 function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
   const { t } = useTranslation();
+  const versionItems =
+    args.versionHistoryState === "single"
+      ? [
+          {
+            versionId: "version-root",
+            actor: "user" as const,
+            actorDetail: t("sidebar.versionHistory.actor.userDetail"),
+            delta: t("sidebar.versionHistory.delta.zero"),
+            icon: UserRound,
+            parentLabel: t("sidebar.versionHistory.root"),
+            reason: t("sidebar.versionHistory.reason.manual-save"),
+            timestamp: "01/04 20:18",
+            wordCount: t("status.wordCount", { count: 128 }),
+          },
+        ]
+      : [
+          {
+            versionId: "version-ai-accept",
+            actor: "ai" as const,
+            actorDetail: t("sidebar.versionHistory.actor.aiDetail"),
+            delta: t("sidebar.versionHistory.delta.positive", { count: 24 }),
+            icon: Bot,
+            parentLabel: t("sidebar.versionHistory.parentValue", { parent: "version-pre-write" }),
+            reason: t("sidebar.versionHistory.reason.ai-accept"),
+            timestamp: "01/04 20:18",
+            wordCount: t("status.wordCount", { count: 128 }),
+          },
+          {
+            versionId: "version-pre-write",
+            actor: "auto" as const,
+            actorDetail: t("sidebar.versionHistory.actor.autoDetail"),
+            delta: t("sidebar.versionHistory.delta.negative", { count: 24 }),
+            icon: Clock3,
+            parentLabel: t("sidebar.versionHistory.parentValue", { parent: "version-manual" }),
+            reason: t("sidebar.versionHistory.reason.pre-write"),
+            timestamp: "01/04 20:17",
+            wordCount: t("status.wordCount", { count: 104 }),
+          },
+        ];
 
   return <main className="workbench-shell">
     <div
@@ -85,17 +128,53 @@ function WorkbenchShellStory(args: WorkbenchShellStoryProps) {
             </div>
           </dl>
           <div className="panel-section">
-            <div className="details-grid">
-              <div className="details-row">
-                <dt>{t("sidebar.versionHistory.reason.ai-accept")}</dt>
-                <dd>01/04 20:18</dd>
-              </div>
-              <div className="details-row">
-                <dt>{t("sidebar.versionHistory.actorLabel")}</dt>
-                <dd>{t("sidebar.versionHistory.actor.ai")}</dd>
-              </div>
-              <Button tone="ghost">{t("sidebar.versionHistory.rollbackLabel", { reason: t("sidebar.versionHistory.reason.ai-accept") })}</Button>
-            </div>
+            {args.versionHistoryState === "loading" ? <p className="panel-subtitle">{t("sidebar.versionHistory.loading")}</p> : <>
+              <p className="panel-meta">{t("sidebar.versionHistory.recentLimit", { count: 200 })}</p>
+              {versionItems.map((item) => {
+                const Icon = item.icon;
+                return <section key={item.versionId} className="version-history-card details-grid" aria-label={item.reason}>
+                  <div className="version-history-card__header">
+                    <div>
+                      <h2 className="panel-title">{item.reason}</h2>
+                      <p className="panel-meta">{item.timestamp}</p>
+                    </div>
+                    <span className="version-history-card__delta">{item.delta}</span>
+                  </div>
+                  <div className="details-row">
+                    <dt>{t("sidebar.versionHistory.actorLabel")}</dt>
+                    <dd>
+                      <span className="version-history-actor">
+                        <Icon size={14} />
+                        <span>{t(`sidebar.versionHistory.actor.${item.actor}`)}</span>
+                      </span>
+                    </dd>
+                  </div>
+                  <div className="details-row">
+                    <dt>{t("sidebar.versionHistory.actorDescriptionLabel")}</dt>
+                    <dd>{item.actorDetail}</dd>
+                  </div>
+                  <div className="details-row">
+                    <dt>{t("sidebar.versionHistory.parentLabel")}</dt>
+                    <dd>{item.parentLabel}</dd>
+                  </div>
+                  <div className="details-row">
+                    <dt>{t("sidebar.versionHistory.deltaLabel")}</dt>
+                    <dd>{item.delta}</dd>
+                  </div>
+                  <div className="details-row">
+                    <dt>{t("panel.info.wordCount")}</dt>
+                    <dd>{item.wordCount}</dd>
+                  </div>
+                  {args.versionHistoryState === "confirm" && item.versionId === "version-ai-accept" ? <div className="version-history-card__confirm">
+                    <p className="panel-meta">{t("sidebar.versionHistory.rollbackConfirmBody", { reason: item.reason })}</p>
+                    <div className="panel-actions">
+                      <Button tone="ghost">{t("sidebar.versionHistory.rollbackCancel")}</Button>
+                      <Button tone="danger">{t("sidebar.versionHistory.rollbackConfirmAction")}</Button>
+                    </div>
+                  </div> : <Button tone="ghost">{t("sidebar.versionHistory.rollbackLabel", { reason: item.reason })}</Button>}
+                </section>;
+              })}
+            </>}
           </div>
         </div> : <>
           <div className="sidebar-header">
@@ -195,6 +274,7 @@ const meta = {
     rightPanelWidth: 320,
     sidebarCollapsed: false,
     sidebarWidth: 240,
+    versionHistoryState: "default",
   },
 } satisfies Meta<WorkbenchShellStoryProps>;
 
@@ -246,5 +326,26 @@ export const ResizedPanels: Story = {
 export const VersionHistoryPanel: Story = {
   args: {
     activeLeftPanel: "versionHistory",
+  },
+};
+
+export const VersionHistoryPanelSingle: Story = {
+  args: {
+    activeLeftPanel: "versionHistory",
+    versionHistoryState: "single",
+  },
+};
+
+export const VersionHistoryPanelLoading: Story = {
+  args: {
+    activeLeftPanel: "versionHistory",
+    versionHistoryState: "loading",
+  },
+};
+
+export const VersionHistoryPanelConfirm: Story = {
+  args: {
+    activeLeftPanel: "versionHistory",
+    versionHistoryState: "confirm",
   },
 };
