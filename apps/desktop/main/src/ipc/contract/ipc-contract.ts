@@ -2295,7 +2295,10 @@ export const ipcContract = {
       }),
     },
     "version:snapshot:list": {
-      request: s.object({ documentId: s.string() }),
+      request: s.object({
+        documentId: s.string(),
+        limit: s.optional(s.number()),
+      }),
       response: s.object({
         items: s.array(
           s.object({
