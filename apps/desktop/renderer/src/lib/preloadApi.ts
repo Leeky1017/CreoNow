@@ -37,6 +37,9 @@ export interface PreloadApi {
   };
   version: {
     listSnapshots: InvokeHandler<"version:snapshot:list">;
+    readSnapshot: InvokeHandler<"version:snapshot:read">;
+    rollbackSnapshot: InvokeHandler<"version:snapshot:rollback">;
+    restoreSnapshot: InvokeHandler<"version:snapshot:restore">;
   };
 }
 

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { EditorBridge, EditorBridgeOptions } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
+import type { VersionHistorySnapshotDetail, VersionHistorySnapshotSummary } from "@/features/version-history/types";
 import { WorkbenchApp } from "@/features/workbench/WorkbenchApp";
 import {
   GLOBAL_ERROR_TOAST_EVENT,
@@ -67,6 +68,37 @@ function formatWorkbenchTimestamp(value: number): string {
   }).format(value);
 }
 
+function createSnapshotSummary(overrides: Partial<VersionHistorySnapshotSummary> = {}) {
+  return {
+    versionId: "snapshot-1",
+    actor: "user" as const,
+    reason: "manual-save" as const,
+    contentHash: "snapshot-hash-1",
+    wordCount: 5,
+    parentSnapshotId: null,
+    createdAt: 1,
+    ...overrides,
+  };
+}
+
+function createSnapshotDetail(overrides: Partial<VersionHistorySnapshotDetail> = {}) {
+  return {
+    versionId: "snapshot-1",
+    documentId: "doc-1",
+    projectId: "project-1",
+    actor: "user" as const,
+    reason: "manual-save" as const,
+    contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "风从北方来" }] }] }),
+    contentText: "风从北方来",
+    contentMd: "风从北方来",
+    contentHash: "snapshot-hash-1",
+    wordCount: 5,
+    parentSnapshotId: null,
+    createdAt: 1,
+    ...overrides,
+  };
+}
+
 function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const, data: { logged: true as const } }))) {
   window.creonow = {
     api: window.api as PreloadApi,
@@ -113,6 +145,32 @@ function createApiMock(): PreloadApi {
     },
     version: {
       listSnapshots: vi.fn(async () => ({ ok: true, data: { items: [] } })),
+      readSnapshot: vi.fn(async () => ({
+        ok: true,
+        data: {
+          versionId: "snapshot-1",
+          documentId: "doc-1",
+          projectId: "project-1",
+          actor: "user",
+          reason: "manual-save",
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "风从北方来" }] }] }),
+          contentText: "风从北方来",
+          contentMd: "风从北方来",
+          contentHash: "snapshot-hash-1",
+          wordCount: 5,
+          parentSnapshotId: null,
+          createdAt: 1,
+        },
+      })),
+      rollbackSnapshot: vi.fn(async () => ({
+        ok: true,
+        data: {
+          restored: true,
+          preRollbackVersionId: "snapshot-current",
+          rollbackVersionId: "snapshot-rollback",
+        },
+      })),
+      restoreSnapshot: vi.fn(async () => ({ ok: true, data: { restored: true } })),
     },
   } as PreloadApi;
 }
@@ -198,6 +256,236 @@ describe("WorkbenchApp", () => {
     expect(within(originalColumn as HTMLElement).queryByText("风从北方来")).toBeNull();
   });
 
+  it("opens version history, renders the timeline, previews a snapshot, and rolls back through the renderer flow", async () => {
+    const listSnapshots = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          createSnapshotSummary({
+            versionId: "snapshot-2",
+            actor: "ai",
+            reason: "ai-accept",
+            wordCount: 8,
+            parentSnapshotId: "snapshot-1",
+            createdAt: 2,
+          }),
+          createSnapshotSummary(),
+        ],
+      },
+    }));
+    const readSnapshot = vi.fn(async ({ versionId }: { versionId: string }) => ({
+      ok: true as const,
+      data: versionId === "snapshot-2"
+        ? createSnapshotDetail({
+            versionId: "snapshot-2",
+            actor: "ai",
+            reason: "ai-accept",
+            contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "AI 改写版本" }] }] }),
+            contentText: "AI 改写版本",
+            contentMd: "AI 改写版本",
+            contentHash: "snapshot-hash-2",
+            wordCount: 8,
+            parentSnapshotId: "snapshot-1",
+            createdAt: 2,
+          })
+        : createSnapshotDetail(),
+    }));
+    const rollbackSnapshot = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        restored: true as const,
+        preRollbackVersionId: "snapshot-current",
+        rollbackVersionId: "snapshot-rollback",
+      },
+    }));
+    const readDocument = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true as const,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter" as const,
+          status: "draft" as const,
+          sortOrder: 0,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "风从北方来",
+          contentMd: "",
+          contentHash: "hash",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true as const,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter" as const,
+          status: "draft" as const,
+          sortOrder: 0,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "风从北方来" }] }] }),
+          contentText: "风从北方来",
+          contentMd: "",
+          contentHash: "hash-rollback",
+          createdAt: 1,
+          updatedAt: 9,
+        },
+      });
+
+    window.api = {
+      ...createApiMock(),
+      file: {
+        ...createApiMock().file,
+        readDocument: readDocument as PreloadApi["file"]["readDocument"],
+      },
+      version: {
+        ...createApiMock().version,
+        listSnapshots: listSnapshots as PreloadApi["version"]["listSnapshots"],
+        readSnapshot: readSnapshot as PreloadApi["version"]["readSnapshot"],
+        rollbackSnapshot: rollbackSnapshot as PreloadApi["version"]["rollbackSnapshot"],
+      },
+    };
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+
+    expect(await screen.findByText("AI 改写版本")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "回退到此版本" }));
+
+    await waitFor(() => {
+      expect(window.api?.version.rollbackSnapshot).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        projectId: "project-1",
+        versionId: "snapshot-2",
+      });
+    });
+    await waitFor(() => {
+      expect(window.api?.file.readDocument).toHaveBeenLastCalledWith({
+        documentId: "doc-1",
+        projectId: "project-1",
+      });
+    });
+    await waitFor(() => {
+      expect(bridgeMock.setContent).toHaveBeenCalledWith({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "风从北方来" }] }],
+      });
+    });
+  });
+
+  it("restores the selected snapshot from version history and reloads the document into the editor", async () => {
+    const listSnapshots = vi.fn(async () => ({
+      ok: true as const,
+      data: {
+        items: [
+          createSnapshotSummary({
+            versionId: "snapshot-2",
+            actor: "ai",
+            reason: "rollback",
+            wordCount: 8,
+            parentSnapshotId: "snapshot-1",
+            createdAt: 2,
+          }),
+          createSnapshotSummary(),
+        ],
+      },
+    }));
+    const readSnapshot = vi.fn(async ({ versionId }: { versionId: string }) => ({
+      ok: true as const,
+      data: versionId === "snapshot-2"
+        ? createSnapshotDetail({
+            versionId: "snapshot-2",
+            actor: "ai",
+            reason: "rollback",
+            contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的版本" }] }] }),
+            contentText: "回退后的版本",
+            contentMd: "回退后的版本",
+            contentHash: "snapshot-hash-2",
+            wordCount: 8,
+            parentSnapshotId: "snapshot-1",
+            createdAt: 2,
+          })
+        : createSnapshotDetail(),
+    }));
+    const restoreSnapshot = vi.fn(async () => ({ ok: true as const, data: { restored: true as const } }));
+    const readDocument = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true as const,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter" as const,
+          status: "draft" as const,
+          sortOrder: 0,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph" }] }),
+          contentText: "风从北方来",
+          contentMd: "",
+          contentHash: "hash",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true as const,
+        data: {
+          documentId: "doc-1",
+          projectId: "project-1",
+          title: "第一章",
+          type: "chapter" as const,
+          status: "draft" as const,
+          sortOrder: 0,
+          contentJson: JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的版本" }] }] }),
+          contentText: "回退后的版本",
+          contentMd: "",
+          contentHash: "hash-restore",
+          createdAt: 1,
+          updatedAt: 10,
+        },
+      });
+
+    window.api = {
+      ...createApiMock(),
+      file: {
+        ...createApiMock().file,
+        readDocument: readDocument as PreloadApi["file"]["readDocument"],
+      },
+      version: {
+        ...createApiMock().version,
+        listSnapshots: listSnapshots as PreloadApi["version"]["listSnapshots"],
+        readSnapshot: readSnapshot as PreloadApi["version"]["readSnapshot"],
+        restoreSnapshot: restoreSnapshot as PreloadApi["version"]["restoreSnapshot"],
+      },
+    };
+
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    fireEvent.click(screen.getByRole("button", { name: "历史版本" }));
+    expect(await screen.findByText("回退后的版本")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "恢复此快照" }));
+
+    await waitFor(() => {
+      expect(window.api?.version.restoreSnapshot).toHaveBeenCalledWith({
+        documentId: "doc-1",
+        projectId: "project-1",
+        versionId: "snapshot-2",
+      });
+    });
+    await waitFor(() => {
+      expect(bridgeMock.setContent).toHaveBeenCalledWith({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "回退后的版本" }] }],
+      });
+    });
+  });
+
   it("keeps the AI reference sticky until clear, replacement, send, and new chat", async () => {
     render(<WorkbenchApp />);
 
@@ -269,7 +557,8 @@ describe("WorkbenchApp", () => {
 
     await waitFor(() => {
       expect(window.api?.ai.runSkill).toHaveBeenCalledWith(expect.objectContaining({
-        input: expect.stringContaining("请直接润色"),
+        input: selection.text,
+        userInstruction: "请直接润色",
         selection,
       }));
     });
