@@ -102,6 +102,7 @@ export const CONTEXT_CAPACITY_LIMITS = {
 const DEFAULT_TOTAL_BUDGET_TOKENS = 6000;
 const DEFAULT_TOKENIZER_ID = "cn-byte-estimator";
 const DEFAULT_TOKENIZER_VERSION = "1.0.0";
+const DEFAULT_HISTORY_COMPACTION_KEEP_RECENT_ROUNDS = 3;
 const PUBLIC_CONTEXT_PROMPT_LAYERS = [
   "rules",
   "compressedHistory",
@@ -118,6 +119,8 @@ type InternalContextLayerDetail = ContextLayerDetail & {
   constraintItems?: ContextRuleConstraint[];
   rulesBaseContent?: string;
 };
+type ConversationSurfaceMessage =
+  NonNullable<ContextAssembleRequest["conversationMessages"]>[number];
 
 export type ContextAssemblyErrorCode = "CONTEXT_SCOPE_VIOLATION";
 
@@ -926,12 +929,75 @@ function splitHistorySegments(text: string): string[] {
 }
 
 function formatConversationHistoryContent(
-  messages: ReadonlyArray<{ content: string }>,
+  messages: ReadonlyArray<Pick<ConversationSurfaceMessage, "content">>,
 ): string {
   return messages
     .map((message) => message.content)
     .filter((content) => content.trim().length > 0)
     .join("\n");
+}
+
+function splitConversationByRecentRounds(
+  messages: ReadonlyArray<ConversationSurfaceMessage>,
+  keepRecentRounds: number,
+): {
+  historyMessages: ConversationSurfaceMessage[];
+  recentMessages: ConversationSurfaceMessage[];
+  recentRoundsKept: number;
+} {
+  if (messages.length === 0) {
+    return { historyMessages: [], recentMessages: [], recentRoundsKept: 0 };
+  }
+
+  if (keepRecentRounds <= 0) {
+    return {
+      historyMessages: [...messages],
+      recentMessages: [],
+      recentRoundsKept: 0,
+    };
+  }
+
+  const rounds: ConversationSurfaceMessage[][] = [];
+
+  for (const message of messages) {
+    const lastRound = rounds.at(-1);
+    if (message.role === "user" || lastRound === undefined) {
+      rounds.push([message]);
+      continue;
+    }
+
+    lastRound.push(message);
+  }
+
+  const recentRounds = rounds.slice(-keepRecentRounds);
+  const historyRounds = rounds.slice(0, Math.max(0, rounds.length - keepRecentRounds));
+
+  return {
+    historyMessages: historyRounds.flat(),
+    recentMessages: recentRounds.flat(),
+    recentRoundsKept: recentRounds.length,
+  };
+}
+
+function formatCompressedHistorySurface(args: {
+  compressedContent: string;
+  recentMessages: ReadonlyArray<ConversationSurfaceMessage>;
+  recentRoundsKept: number;
+}): string {
+  const sections: string[] = [];
+  const compressedContent = args.compressedContent.trim();
+  if (compressedContent.length > 0) {
+    sections.push(compressedContent);
+  }
+
+  const recentContent = formatConversationHistoryContent(args.recentMessages);
+  if (recentContent.length > 0) {
+    sections.push(
+      `[最近保留的 ${args.recentRoundsKept} 轮完整对话]\n${recentContent}`,
+    );
+  }
+
+  return sections.join("\n\n");
 }
 
 function createDeterministicCompressionEngine() {
@@ -1021,14 +1087,11 @@ async function buildCompressedHistoryDetail(args: {
     };
   }
 
-  const recentMessages =
-    conversationMessages.length > 0
-      ? sourceMessages.slice(-2)
-      : sourceMessages.slice(-Math.min(2, sourceMessages.length));
-  const historyMessages =
-    sourceMessages.length > recentMessages.length
-      ? sourceMessages.slice(0, sourceMessages.length - recentMessages.length)
-      : sourceMessages;
+  const { historyMessages, recentMessages, recentRoundsKept } =
+    splitConversationByRecentRounds(
+      sourceMessages,
+      DEFAULT_HISTORY_COMPACTION_KEEP_RECENT_ROUNDS,
+    );
 
   if (
     historyMessages.length === 0 ||
@@ -1069,19 +1132,21 @@ async function buildCompressedHistoryDetail(args: {
     .filter((content) => content.length > 0)
     .join("\n");
 
-  const recentContent =
+  const recentContent = formatConversationHistoryContent(recentMessages);
+  const compressedHistoryContent =
     conversationMessages.length > 0
-      ? args.immediate.content
-      : recentMessages
-          .map((message) => message.content.trim())
-          .filter((content) => content.length > 0)
-          .join("\n");
+      ? formatCompressedHistorySurface({
+          compressedContent,
+          recentMessages,
+          recentRoundsKept,
+        })
+      : compressedContent;
 
   return {
     compressedHistory: {
-      content: compressedContent,
+      content: compressedHistoryContent,
       source: ["compressed-history"],
-      tokenCount: estimateTokenCount(compressedContent),
+      tokenCount: estimateTokenCount(compressedHistoryContent),
       truncated: compressionResult.compressedTokens < compressionResult.originalTokens,
       compressed: true,
       compressionRatio: compressionResult.compressionRatio,
@@ -1089,12 +1154,15 @@ async function buildCompressedHistoryDetail(args: {
         ? { warnings: compressionResult.warnings }
         : {}),
     },
-    immediate: {
-      ...args.immediate,
-      content: recentContent,
-      tokenCount: estimateTokenCount(recentContent),
-      truncated: recentContent !== args.immediate.content || args.immediate.truncated,
-    },
+    immediate:
+      conversationMessages.length > 0
+        ? args.immediate
+        : {
+            ...args.immediate,
+            content: recentContent,
+            tokenCount: estimateTokenCount(recentContent),
+            truncated: recentContent !== args.immediate.content || args.immediate.truncated,
+          },
     compressionApplied: true,
   };
 }

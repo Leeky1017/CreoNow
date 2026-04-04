@@ -193,6 +193,74 @@ describe("createContextLayerAssemblyService contract regression", () => {
     expect(result.layers.compressedHistory.source).toContain("compressed-history");
   });
 
+  it("长对话压缩时仍保留最近 keepRecentRounds 轮原始对话", async () => {
+    const service = createContextLayerAssemblyService({
+      rules: async () => ({
+        chunks: [{ source: "rules:test", content: "Rule content" }],
+      }),
+      immediate: async () => ({
+        chunks: [
+          {
+            source: "editor:cursor-window",
+            content: "EDITOR_IMMEDIATE_UNCHANGED",
+          },
+        ],
+      }),
+    });
+
+    const conversationMessages = [
+      ...Array.from({ length: 8 }, (_, index) => ({
+        role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+        content: `早期历史第${index + 1}条：${"林远在旧楼里反复核对脚步声。".repeat(10)}`,
+      })),
+      { role: "user" as const, content: "UNIQUE_RECENT_USER_ROUND_1：别动门把，先记住走廊尽头的滴水声。" },
+      { role: "assistant" as const, content: "UNIQUE_RECENT_ASSISTANT_ROUND_1：我会保留滴水声与走廊方位。" },
+      { role: "user" as const, content: "UNIQUE_RECENT_USER_ROUND_2：把那枚铜钥匙藏进左侧口袋，不要写成右侧。" },
+      { role: "assistant" as const, content: "UNIQUE_RECENT_ASSISTANT_ROUND_2：铜钥匙在左侧口袋，这一细节不会丢。" },
+      { role: "user" as const, content: "UNIQUE_RECENT_USER_ROUND_3：最后一轮暂时没有助手回复，也必须原样保留。" },
+    ];
+
+    const request = {
+      projectId: "proj-recent-rounds",
+      documentId: "doc-recent-rounds",
+      cursorPosition: 2048,
+      skillId: "continue-writing",
+      additionalInput: "林远在门后听见了第二个人的呼吸。".repeat(6),
+      conversationMessages,
+    };
+
+    const assembled = await service.assemble(request);
+    const inspected = await service.inspect(request);
+
+    expect(assembled.compressionApplied).toBe(true);
+    expect(assembled.layers.compressedHistory.compressed).toBe(true);
+    expect(assembled.prompt).toContain("## Compressed History");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_USER_ROUND_1");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_ASSISTANT_ROUND_1");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_USER_ROUND_2");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_ASSISTANT_ROUND_2");
+    expect(assembled.prompt).toContain("UNIQUE_RECENT_USER_ROUND_3");
+    expect(assembled.prompt).toContain("EDITOR_IMMEDIATE_UNCHANGED");
+    expect(assembled.layers.immediate.source).toContain("editor:cursor-window");
+
+    expect(inspected.layersDetail.compressedHistory.compressed).toBe(true);
+    expect(inspected.layersDetail.compressedHistory.content).toContain(
+      "UNIQUE_RECENT_USER_ROUND_1",
+    );
+    expect(inspected.layersDetail.compressedHistory.content).toContain(
+      "UNIQUE_RECENT_ASSISTANT_ROUND_2",
+    );
+    expect(inspected.layersDetail.compressedHistory.content).toContain(
+      "UNIQUE_RECENT_USER_ROUND_3",
+    );
+    expect(inspected.layersDetail.immediate.content).toContain(
+      "EDITOR_IMMEDIATE_UNCHANGED",
+    );
+    expect(inspected.layersDetail.immediate.content).not.toContain(
+      "UNIQUE_RECENT_USER_ROUND_1",
+    );
+  });
+
   it("短对话在不压缩时仍以原文注入 compressed-history", async () => {
     const service = createContextLayerAssemblyService({
       rules: async () => ({

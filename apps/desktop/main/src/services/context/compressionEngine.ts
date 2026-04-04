@@ -68,6 +68,8 @@ interface CompressionError extends Error {
   code: string;
 }
 
+const HISTORY_COMPACTION_KEEP_RECENT_ROUNDS = 3;
+
 function makeError(code: string, message: string): CompressionError {
   const err = new Error(message) as CompressionError;
   err.code = code;
@@ -114,16 +116,48 @@ function microCompress(messages: CompressedMessage[]): CompressedMessage[] {
 
 // ─── History compaction: merge older user/assistant pairs ────────────
 
+function splitMessagesByRecentRounds(
+  messages: CompressedMessage[],
+  keepRecentRounds: number,
+): {
+  toCompact: CompressedMessage[];
+  toKeep: CompressedMessage[];
+} {
+  if (messages.length === 0 || keepRecentRounds <= 0) {
+    return { toCompact: [...messages], toKeep: [] };
+  }
+
+  const rounds: CompressedMessage[][] = [];
+
+  for (const message of messages) {
+    const lastRound = rounds.at(-1);
+    if (message.role === "user" || lastRound === undefined) {
+      rounds.push([message]);
+      continue;
+    }
+
+    lastRound.push(message);
+  }
+
+  return {
+    toCompact: rounds
+      .slice(0, Math.max(0, rounds.length - keepRecentRounds))
+      .flat(),
+    toKeep: rounds.slice(-keepRecentRounds).flat(),
+  };
+}
+
 function historyCompact(messages: CompressedMessage[]): CompressedMessage[] {
   if (messages.length <= 3) return messages;
 
   const systemMsgs = messages.filter((m) => m.role === "system");
   const nonSystemMsgs = messages.filter((m) => m.role !== "system");
 
-  if (nonSystemMsgs.length <= 2) return messages;
-
-  const toCompact = nonSystemMsgs.slice(0, -2);
-  const toKeep = nonSystemMsgs.slice(-2);
+  const { toCompact, toKeep } = splitMessagesByRecentRounds(
+    nonSystemMsgs,
+    HISTORY_COMPACTION_KEEP_RECENT_ROUNDS,
+  );
+  if (toCompact.length === 0) return messages;
 
   const compactedContent = toCompact
     .map((m) => `[${m.role}] ${m.content}`)
