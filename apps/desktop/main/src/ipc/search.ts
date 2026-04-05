@@ -13,9 +13,13 @@ import {
   type SemanticRetriever,
 } from "../services/search/hybridRankingService";
 import { createSearchReplaceService } from "../services/search/searchReplaceService";
+import { createProjectAccessHandler } from "./helpers";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type SearchReplaceService = ReturnType<typeof createSearchReplaceService>;
 type FtsService = ReturnType<typeof createFtsService>;
+
+type HandleWithProjectAccess = ReturnType<typeof createProjectAccessHandler>;
 
 type DocumentIndexRow = {
   documentId: string;
@@ -121,12 +125,12 @@ function hasProjectId(payload: unknown): payload is { projectId: string } {
 }
 
 function registerSearchReplaceHandlers(
-  ipcMain: IpcMain,
+  handleWithProjectAccess: HandleWithProjectAccess,
   db: Database.Database | null,
   logger: Logger,
   replaceService: SearchReplaceService | null,
 ): void {
-  ipcMain.handle(
+  handleWithProjectAccess(
     "search:replace:preview",
     async (_e, payload: Parameters<SearchReplaceService["preview"]>[0]) => {
       if (!db || !replaceService) {
@@ -155,7 +159,7 @@ function registerSearchReplaceHandlers(
     },
   );
 
-  ipcMain.handle(
+  handleWithProjectAccess(
     "search:replace:execute",
     async (_e, payload: Parameters<SearchReplaceService["execute"]>[0]) => {
       if (!db || !replaceService) {
@@ -186,14 +190,14 @@ function registerSearchReplaceHandlers(
 }
 
 function registerFtsHandlers(args: {
-  ipcMain: IpcMain;
+  handleWithProjectAccess: HandleWithProjectAccess;
   db: Database.Database | null;
   logger: Logger;
   ftsService: FtsService | null;
   readyIndexProjects: Set<string>;
 }): void {
-  const { ipcMain, db, logger, ftsService, readyIndexProjects } = args;
-  ipcMain.handle(
+  const { handleWithProjectAccess, db, logger, ftsService, readyIndexProjects } = args;
+  handleWithProjectAccess(
     "search:fts:query",
     async (
       _e,
@@ -295,7 +299,7 @@ function registerFtsHandlers(args: {
     },
   );
 
-  ipcMain.handle(
+  handleWithProjectAccess(
     "search:fts:reindex",
     async (
       _e,
@@ -353,7 +357,7 @@ function registerFtsHandlers(args: {
     },
   );
 
-  ipcMain.handle(
+  handleWithProjectAccess(
     "search:fts:indexstatus",
     async (
       _e,
@@ -389,13 +393,13 @@ function registerFtsHandlers(args: {
 }
 
 function registerRankingHandlers(args: {
-  ipcMain: IpcMain;
+  handleWithProjectAccess: HandleWithProjectAccess;
   db: Database.Database | null;
   logger: Logger;
   hybridRankingService: HybridRankingService | null;
 }): void {
-  const { ipcMain, db, logger, hybridRankingService } = args;
-  ipcMain.handle(
+  const { handleWithProjectAccess, db, logger, hybridRankingService } = args;
+  handleWithProjectAccess(
     "search:query:strategy",
     async (
       _e,
@@ -467,7 +471,7 @@ function registerRankingHandlers(args: {
     },
   );
 
-  ipcMain.handle(
+  handleWithProjectAccess(
     "search:rank:explain",
     async (
       _e,
@@ -549,6 +553,7 @@ export function registerSearchIpcHandlers(deps: {
   semanticRetriever?: SemanticRetriever;
   hybridRankingService?: HybridRankingService;
   projectLifecycle?: ProjectLifecycle;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
   const readyIndexProjects = new Set<string>();
   const ftsService = deps.db
@@ -574,21 +579,26 @@ export function registerSearchIpcHandlers(deps: {
         })
       : null);
 
-  registerFtsHandlers({
+  const handleWithProjectAccess = createProjectAccessHandler({
     ipcMain: deps.ipcMain,
+    projectSessionBinding: deps.projectSessionBinding,
+  });
+
+  registerFtsHandlers({
+    handleWithProjectAccess,
     db: deps.db,
     logger: deps.logger,
     ftsService,
     readyIndexProjects,
   });
   registerRankingHandlers({
-    ipcMain: deps.ipcMain,
+    handleWithProjectAccess,
     db: deps.db,
     logger: deps.logger,
     hybridRankingService,
   });
   registerSearchReplaceHandlers(
-    deps.ipcMain,
+    handleWithProjectAccess,
     deps.db,
     deps.logger,
     replaceService,

@@ -541,6 +541,7 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     semanticIndex,
     projectLifecycle,
+    projectSessionBinding,
   });
 
   registerRagIpcHandlers({
