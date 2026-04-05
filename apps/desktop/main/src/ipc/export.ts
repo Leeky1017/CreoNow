@@ -1,9 +1,18 @@
 import fs from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 
 import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
 import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
+import {
+  EXPORT_PROGRESS_CHANNEL,
+  type ExportCompletedEvent,
+  type ExportFailedEvent,
+  type ExportLifecycleEvent,
+  type ExportProgressEvent,
+  type ExportStartedEvent,
+} from "@shared/types/export";
 import type { Logger } from "../logging/logger";
 import { createDocumentService } from "../services/documents/documentService";
 import { createExportService } from "../services/export/exportService";
@@ -31,12 +40,7 @@ type LegacyDocumentExportPayload = {
   documentId?: string;
 };
 
-type ExportProgressPayload = {
-  exportId: string;
-  stage: "parsing" | "converting" | "writing";
-  progress: number;
-  currentDocument: string;
-};
+type ExportProgressPayload = ExportLifecycleEvent;
 
 type ProseMirrorExportOptionsPayload = {
   format: ExportFormat;
@@ -100,6 +104,13 @@ function toUnexpectedExportError(error: unknown): ExportPayloadError {
     message:
       error instanceof Error ? error.message : "Unexpected export IPC error",
   };
+}
+
+function createExportLifecycleId(): string {
+  if (typeof randomUUID === "function") {
+    return randomUUID();
+  }
+  return `export-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function parseLegacyDocumentExportPayload(
@@ -275,6 +286,95 @@ function tryGetSender(event: unknown): ExportProgressSender | null {
     return null;
   }
   return event.sender as ExportProgressSender;
+}
+
+function normalizeExportProgressPayload(
+  payload: Record<string, unknown>,
+  exportId: string,
+): ExportProgressEvent | null {
+  if (
+    payload.type !== "export-progress" ||
+    (payload.stage !== "parsing" &&
+      payload.stage !== "converting" &&
+      payload.stage !== "writing") ||
+    typeof payload.progress !== "number" ||
+    typeof payload.currentDocument !== "string"
+  ) {
+    return null;
+  }
+
+  return {
+    type: "export-progress",
+    exportId,
+    stage: payload.stage,
+    progress: payload.progress,
+    currentDocument: payload.currentDocument,
+  };
+}
+
+function sendExportLifecyclePayload(
+  sender: ExportProgressSender | null,
+  payload: ExportProgressPayload,
+): void {
+  sender?.send(EXPORT_PROGRESS_CHANNEL, payload);
+}
+
+function createExportStartedPayload(args: {
+  exportId: string;
+  projectId: string;
+  format: ExportFormat;
+  currentDocument: string;
+}): ExportStartedEvent {
+  return {
+    type: "export-started",
+    exportId: args.exportId,
+    projectId: args.projectId,
+    format: args.format,
+    currentDocument: args.currentDocument,
+    timestamp: Date.now(),
+  };
+}
+
+function createExportCompletedPayload(args: {
+  exportId: string;
+  projectId: string;
+  format: ExportFormat;
+  documentCount: number;
+}): ExportCompletedEvent {
+  return {
+    type: "export-completed",
+    exportId: args.exportId,
+    success: true,
+    projectId: args.projectId,
+    format: args.format,
+    documentCount: args.documentCount,
+    timestamp: Date.now(),
+  };
+}
+
+function createExportFailedPayload(args: {
+  exportId: string;
+  projectId: string;
+  format: ExportFormat;
+  currentDocument: string;
+  error: {
+    code: string;
+    message: string;
+  };
+}): ExportFailedEvent {
+  return {
+    type: "export-failed",
+    exportId: args.exportId,
+    success: false,
+    projectId: args.projectId,
+    format: args.format,
+    currentDocument: args.currentDocument,
+    error: {
+      code: args.error.code,
+      message: args.error.message,
+    },
+    timestamp: Date.now(),
+  };
 }
 
 function createProseMirrorDocumentSource(args: {
@@ -537,11 +637,27 @@ export function registerExportIpcHandlers(deps: {
         return { ok: false, error: parsed.error };
       }
 
+      const exportId = createExportLifecycleId();
       const sender = tryGetSender(event);
+      let currentDocument = parsed.data.documentId;
       const forwardProgress = (progressEvent: Record<string, unknown>): void => {
-        sender?.send("export:progress:update", progressEvent);
+        const normalized = normalizeExportProgressPayload(progressEvent, exportId);
+        if (!normalized) {
+          return;
+        }
+        currentDocument = normalized.currentDocument;
+        sendExportLifecyclePayload(sender, normalized);
       };
       eventBus.on("export-progress", forwardProgress);
+      sendExportLifecyclePayload(
+        sender,
+        createExportStartedPayload({
+          exportId,
+          projectId: parsed.data.projectId,
+          format: parsed.data.options.format,
+          currentDocument,
+        }),
+      );
 
       try {
         const exporter = createProseMirrorExporter({
@@ -554,15 +670,47 @@ export function registerExportIpcHandlers(deps: {
         });
         const result = await exporter.exportDocument(parsed.data);
         exporter.dispose();
-        return result.success
-          ? { ok: true, data: result.data }
-          : { ok: false, error: result.error as IpcError };
+        if (result.success) {
+          sendExportLifecyclePayload(
+            sender,
+            createExportCompletedPayload({
+              exportId,
+              projectId: parsed.data.projectId,
+              format: parsed.data.options.format,
+              documentCount: result.data.documentCount,
+            }),
+          );
+          return { ok: true, data: result.data };
+        }
+
+        sendExportLifecyclePayload(
+          sender,
+          createExportFailedPayload({
+            exportId,
+            projectId: parsed.data.projectId,
+            format: parsed.data.options.format,
+            currentDocument,
+            error: result.error,
+          }),
+        );
+        return { ok: false, error: result.error as IpcError };
       } catch (error) {
+        const exportError = toUnexpectedExportError(error);
+        sendExportLifecyclePayload(
+          sender,
+          createExportFailedPayload({
+            exportId,
+            projectId: parsed.data.projectId,
+            format: parsed.data.options.format,
+            currentDocument,
+            error: exportError,
+          }),
+        );
         deps.logger.error("ipc_export_prosemirror_error", {
           channel: "export:document:prosemirror",
           message: error instanceof Error ? error.message : String(error),
         });
-        return { ok: false, error: toUnexpectedExportError(error) };
+        return { ok: false, error: exportError };
       } finally {
         eventBus.off("export-progress", forwardProgress);
       }
@@ -596,11 +744,27 @@ export function registerExportIpcHandlers(deps: {
         return { ok: false, error: parsed.error };
       }
 
+      const exportId = createExportLifecycleId();
       const sender = tryGetSender(event);
+      let currentDocument = parsed.data.documentIds?.[0] ?? "";
       const forwardProgress = (progressEvent: Record<string, unknown>): void => {
-        sender?.send("export:progress:update", progressEvent);
+        const normalized = normalizeExportProgressPayload(progressEvent, exportId);
+        if (!normalized) {
+          return;
+        }
+        currentDocument = normalized.currentDocument;
+        sendExportLifecyclePayload(sender, normalized);
       };
       eventBus.on("export-progress", forwardProgress);
+      sendExportLifecyclePayload(
+        sender,
+        createExportStartedPayload({
+          exportId,
+          projectId: parsed.data.projectId,
+          format: parsed.data.options.format,
+          currentDocument,
+        }),
+      );
 
       try {
         const exporter = createProseMirrorExporter({
@@ -613,15 +777,47 @@ export function registerExportIpcHandlers(deps: {
         });
         const result = await exporter.exportProject(parsed.data);
         exporter.dispose();
-        return result.success
-          ? { ok: true, data: result.data }
-          : { ok: false, error: result.error as IpcError };
+        if (result.success) {
+          sendExportLifecyclePayload(
+            sender,
+            createExportCompletedPayload({
+              exportId,
+              projectId: parsed.data.projectId,
+              format: parsed.data.options.format,
+              documentCount: result.data.documentCount,
+            }),
+          );
+          return { ok: true, data: result.data };
+        }
+
+        sendExportLifecyclePayload(
+          sender,
+          createExportFailedPayload({
+            exportId,
+            projectId: parsed.data.projectId,
+            format: parsed.data.options.format,
+            currentDocument,
+            error: result.error,
+          }),
+        );
+        return { ok: false, error: result.error as IpcError };
       } catch (error) {
+        const exportError = toUnexpectedExportError(error);
+        sendExportLifecyclePayload(
+          sender,
+          createExportFailedPayload({
+            exportId,
+            projectId: parsed.data.projectId,
+            format: parsed.data.options.format,
+            currentDocument,
+            error: exportError,
+          }),
+        );
         deps.logger.error("ipc_export_prosemirror_error", {
           channel: "export:project:prosemirror",
           message: error instanceof Error ? error.message : String(error),
         });
-        return { ok: false, error: toUnexpectedExportError(error) };
+        return { ok: false, error: exportError };
       } finally {
         eventBus.off("export-progress", forwardProgress);
       }

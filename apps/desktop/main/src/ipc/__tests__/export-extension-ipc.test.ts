@@ -183,15 +183,97 @@ describe("export extension IPC handlers (P3)", () => {
       expect(result.data?.documentCount).toBe(1);
       expect(result.data?.outputPath).toContain("doc-1.md");
       expect(result.data?.format).toBe("markdown");
-      expect(harness.sender.send).toHaveBeenCalledWith(
-        "export:progress:update",
-        expect.objectContaining({
-          exportId: "exp-1",
-          stage: "writing",
-          progress: 100,
-          currentDocument: "doc-1",
-        }),
-      );
+      expect(harness.sender.send).toHaveBeenCalledTimes(3);
+
+      const startPayload = harness.sender.send.mock.calls[0]?.[1] as {
+        type: string;
+        exportId: string;
+        currentDocument: string;
+      };
+      const progressPayload = harness.sender.send.mock.calls[1]?.[1] as {
+        type: string;
+        exportId: string;
+        progress: number;
+      };
+      const completedPayload = harness.sender.send.mock.calls[2]?.[1] as {
+        type: string;
+        exportId: string;
+        documentCount: number;
+      };
+
+      expect(startPayload).toMatchObject({
+        type: "export-started",
+        projectId: "proj-1",
+        format: "markdown",
+        currentDocument: "doc-1",
+      });
+      expect(progressPayload).toMatchObject({
+        type: "export-progress",
+        stage: "writing",
+        progress: 100,
+        currentDocument: "doc-1",
+      });
+      expect(progressPayload.exportId).toBe(startPayload.exportId);
+      expect(completedPayload).toMatchObject({
+        type: "export-completed",
+        success: true,
+        projectId: "proj-1",
+        format: "markdown",
+        documentCount: 1,
+      });
+      expect(completedPayload.exportId).toBe(startPayload.exportId);
+      expect(mocks.exporterDisposeMock).toHaveBeenCalled();
+    });
+
+    it("导出失败时推送 export-failed 终态事件", async () => {
+      const harness = createHarness();
+      mocks.exportDocumentMock.mockResolvedValueOnce({
+        success: false,
+        error: {
+          code: "EXPORT_WRITE_ERROR",
+          message: "disk full",
+        },
+      });
+
+      const result = await harness.invoke<never>("export:document:prosemirror", {
+        projectId: "proj-1",
+        documentId: "doc-1",
+        outputPath: "workspace/exports/doc-1.md",
+        options: { format: "markdown" },
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("EXPORT_WRITE_ERROR");
+      expect(harness.sender.send).toHaveBeenCalledTimes(2);
+
+      const startPayload = harness.sender.send.mock.calls[0]?.[1] as {
+        type: string;
+        exportId: string;
+      };
+      const failedPayload = harness.sender.send.mock.calls[1]?.[1] as {
+        type: string;
+        exportId: string;
+        error: { code: string; message: string };
+      };
+
+      expect(startPayload).toMatchObject({
+        type: "export-started",
+        projectId: "proj-1",
+        format: "markdown",
+        currentDocument: "doc-1",
+      });
+      expect(failedPayload).toMatchObject({
+        type: "export-failed",
+        success: false,
+        projectId: "proj-1",
+        format: "markdown",
+        currentDocument: "doc-1",
+        error: {
+          code: "EXPORT_WRITE_ERROR",
+          message: "disk full",
+        },
+      });
+      expect(failedPayload.exportId).toBe(startPayload.exportId);
       expect(mocks.exporterDisposeMock).toHaveBeenCalled();
     });
   });

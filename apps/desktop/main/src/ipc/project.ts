@@ -225,34 +225,6 @@ function registerProjectCrudHandlers(deps: ProjectHandlerDeps): void {
     },
   );
 
-  deps.ipcMain.handle(
-    "project:project:archive",
-    async (
-      _e,
-      payload: { projectId: string; archived: boolean },
-    ): Promise<
-      IpcResponse<{ projectId: string; archived: boolean; archivedAt?: number }>
-    > => {
-      if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
-      }
-      const svc = createProjectService({
-        db: deps.db,
-        userDataDir: deps.userDataDir,
-        logger: deps.logger,
-      });
-      const res = svc.archive({
-        projectId: payload.projectId,
-        archived: payload.archived,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
-    },
-  );
 }
 
 function registerProjectSessionAndLifecycleHandlers(

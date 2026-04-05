@@ -290,7 +290,6 @@ export const IPC_CHANNELS = [
   "project:lifecycle:purge",
   "project:lifecycle:restore",
   "project:overview:get",
-  "project:project:archive",
   "project:project:create",
   "project:project:createaiassist",
   "project:project:delete",
@@ -3216,17 +3215,6 @@ export type IpcChannelSpec = {
       locationCount: number;
       projectId: string;
       totalWordCount: number;
-    };
-  };
-  "project:project:archive": {
-    request: {
-      archived: boolean;
-      projectId: string;
-    };
-    response: {
-      archived: boolean;
-      archivedAt?: number;
-      projectId: string;
     };
   };
   "project:project:create": {

@@ -8,7 +8,11 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EXPORT_PROGRESS_CHANNEL, type ExportProgressEvent } from "@shared/types/export";
+import {
+  EXPORT_PROGRESS_CHANNEL,
+  type ExportLifecycleEvent,
+  type ExportProgressEvent,
+} from "@shared/types/export";
 
 import { useExportProgress } from "../useExportProgress";
 
@@ -37,7 +41,13 @@ afterEach(() => {
 
 function dispatchProgressEvent(event: ExportProgressEvent): void {
   window.dispatchEvent(
-    new CustomEvent<ExportProgressEvent>(EXPORT_PROGRESS_CHANNEL, { detail: event }),
+    new CustomEvent<ExportLifecycleEvent>(EXPORT_PROGRESS_CHANNEL, { detail: event }),
+  );
+}
+
+function dispatchLifecycleEvent(event: ExportLifecycleEvent): void {
+  window.dispatchEvent(
+    new CustomEvent<ExportLifecycleEvent>(EXPORT_PROGRESS_CHANNEL, { detail: event }),
   );
 }
 
@@ -79,15 +89,100 @@ describe("useExportProgress", () => {
     expect(result.current.event).toEqual(progressEvent);
   });
 
+  it("marks export as busy after a start event and clears it after completion", () => {
+    const { result } = renderHook(() => useExportProgress());
+
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-started",
+        exportId: "exp-002",
+        projectId: "proj-1",
+        format: "markdown",
+        currentDocument: "Chapter 1",
+        timestamp: 1,
+      });
+    });
+
+    expect(result.current.isExporting).toBe(true);
+    expect(result.current.event?.type).toBe("export-started");
+
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-completed",
+        exportId: "exp-002",
+        success: true,
+        projectId: "proj-1",
+        format: "markdown",
+        documentCount: 1,
+        timestamp: 2,
+      });
+    });
+
+    expect(result.current.isExporting).toBe(false);
+    expect(result.current.event).toEqual({
+      type: "export-completed",
+      exportId: "exp-002",
+      success: true,
+      projectId: "proj-1",
+      format: "markdown",
+      documentCount: 1,
+      timestamp: 2,
+    });
+  });
+
+  it("clears busy state after a failed export event", () => {
+    const { result } = renderHook(() => useExportProgress());
+
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-started",
+        exportId: "exp-003",
+        projectId: "proj-1",
+        format: "pdf",
+        currentDocument: "Chapter 2",
+        timestamp: 3,
+      });
+      dispatchLifecycleEvent({
+        type: "export-failed",
+        exportId: "exp-003",
+        success: false,
+        projectId: "proj-1",
+        format: "pdf",
+        currentDocument: "Chapter 2",
+        error: {
+          code: "EXPORT_WRITE_ERROR",
+          message: "disk full",
+        },
+        timestamp: 4,
+      });
+    });
+
+    expect(result.current.isExporting).toBe(false);
+    expect(result.current.event).toEqual({
+      type: "export-failed",
+      exportId: "exp-003",
+      success: false,
+      projectId: "proj-1",
+      format: "pdf",
+      currentDocument: "Chapter 2",
+      error: {
+        code: "EXPORT_WRITE_ERROR",
+        message: "disk full",
+      },
+      timestamp: 4,
+    });
+  });
+
   it("reflects the latest event when multiple events arrive", () => {
     const { result } = renderHook(() => useExportProgress());
 
-    const first: ExportProgressEvent = {
-      type: "export-progress",
+    const first: ExportLifecycleEvent = {
+      type: "export-started",
       exportId: "exp-001",
-      stage: "parsing",
-      progress: 10,
+      projectId: "proj-1",
+      format: "markdown",
       currentDocument: "Chapter 1",
+      timestamp: 10,
     };
     const second: ExportProgressEvent = {
       type: "export-progress",
@@ -98,12 +193,17 @@ describe("useExportProgress", () => {
     };
 
     act(() => {
-      dispatchProgressEvent(first);
+      dispatchLifecycleEvent(first);
       dispatchProgressEvent(second);
     });
 
     expect(result.current.event).toEqual(second);
-    expect(result.current.event?.progress).toBe(80);
+    expect(result.current.event?.type).toBe("export-progress");
+    if (result.current.event?.type !== "export-progress") {
+      throw new Error("expected export-progress event");
+    }
+    expect(result.current.event.progress).toBe(80);
+    expect(result.current.isExporting).toBe(true);
   });
 
   it("stops listening after unmount — no state updates post-cleanup", () => {

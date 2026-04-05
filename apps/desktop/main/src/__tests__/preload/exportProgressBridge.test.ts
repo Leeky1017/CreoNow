@@ -63,6 +63,34 @@ describe("registerExportProgressBridge", () => {
     bridge.dispose();
   });
 
+  it("forwards validated export completion payloads after consumer registration", async () => {
+    const { registerExportProgressBridge } = await import(
+      "../../../../preload/src/exportProgressBridge"
+    );
+
+    const bridge = registerExportProgressBridge();
+    const registered = bridge.registerExportProgressConsumer();
+    expect(registered.ok).toBe(true);
+
+    const payload = {
+      type: "export-completed",
+      exportId: "exp-1",
+      success: true,
+      projectId: "proj-1",
+      format: "markdown",
+      documentCount: 1,
+      timestamp: 1,
+    };
+
+    listeners.get(EXPORT_PROGRESS_CHANNEL)?.({}, payload);
+
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchEvent.mock.calls[0]?.[0]?.type).toBe(EXPORT_PROGRESS_CHANNEL);
+    expect(dispatchEvent.mock.calls[0]?.[0]?.detail).toEqual(payload);
+
+    bridge.dispose();
+  });
+
   it("does not dispatch when no consumer is registered", async () => {
     const { registerExportProgressBridge } = await import(
       "../../../../preload/src/exportProgressBridge"

@@ -428,5 +428,10 @@ describe("project config IPC handlers (P3)", () => {
       const harness = createHarness();
       expect(harness.handlers.has("project:project:update")).toBe(false);
     });
+
+    it("project:project:archive 通道不再注册（已收口到 project:lifecycle:archive）", () => {
+      const harness = createHarness();
+      expect(harness.handlers.has("project:project:archive")).toBe(false);
+    });
   });
 });

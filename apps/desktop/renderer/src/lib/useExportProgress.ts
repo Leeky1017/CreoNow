@@ -1,8 +1,8 @@
 /**
  * useExportProgress — renderer-side consumer for the export:progress push channel.
  *
- * Registers with the preload bridge so the bridge forwards export-progress
- * CustomEvents from Main → Renderer.  Returns the latest ExportProgressEvent
+ * Registers with the preload bridge so the bridge forwards export lifecycle
+ * CustomEvents from Main → Renderer. Returns the latest ExportLifecycleEvent
  * (null when no export is in progress) and an `isExporting` flag.
  *
  * Main → (IPC push) → preload bridge → DOM CustomEvent → this hook.
@@ -10,12 +10,15 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { EXPORT_PROGRESS_CHANNEL, type ExportProgressEvent } from "@shared/types/export";
+import {
+  EXPORT_PROGRESS_CHANNEL,
+  type ExportLifecycleEvent,
+} from "@shared/types/export";
 
 import { getPreloadStreamApi } from "./preloadApi";
 
 export interface ExportProgressState {
-  event: ExportProgressEvent | null;
+  event: ExportLifecycleEvent | null;
   isExporting: boolean;
 }
 
@@ -31,8 +34,6 @@ export function useExportProgress(): ExportProgressState {
   const subscriptionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    let released = false;
-
     const streamApi = getPreloadStreamApi();
     const result = streamApi.registerExportProgressConsumer();
     if (result.ok) {
@@ -40,23 +41,23 @@ export function useExportProgress(): ExportProgressState {
     }
 
     const handleProgress = (domEvent: Event) => {
-      const progressEvent = (domEvent as CustomEvent<ExportProgressEvent>).detail;
-      setState({ event: progressEvent, isExporting: true });
+      const exportEvent = (domEvent as CustomEvent<ExportLifecycleEvent>).detail;
+      setState({
+        event: exportEvent,
+        isExporting:
+          exportEvent.type === "export-started" ||
+          exportEvent.type === "export-progress",
+      });
     };
 
     window.addEventListener(EXPORT_PROGRESS_CHANNEL, handleProgress);
 
     return () => {
-      released = true;
       window.removeEventListener(EXPORT_PROGRESS_CHANNEL, handleProgress);
       if (subscriptionIdRef.current !== null) {
         streamApi.releaseExportProgressConsumer(subscriptionIdRef.current);
         subscriptionIdRef.current = null;
       }
-      if (!released) {
-        return;
-      }
-      setState({ event: null, isExporting: false });
     };
   }, []);
 

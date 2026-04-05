@@ -2198,14 +2198,6 @@ export const ipcContract = {
         name: s.string(),
       }),
     },
-    "project:project:archive": {
-      request: s.object({ projectId: s.string(), archived: s.boolean() }),
-      response: s.object({
-        projectId: s.string(),
-        archived: s.boolean(),
-        archivedAt: s.optional(s.number()),
-      }),
-    },
     "project:project:getcurrent": {
       request: s.object({}),
       response: s.object({ projectId: s.string(), rootPath: s.string() }),

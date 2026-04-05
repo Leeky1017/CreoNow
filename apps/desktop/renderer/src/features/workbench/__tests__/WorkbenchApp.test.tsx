@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  EXPORT_PROGRESS_CHANNEL,
+  type ExportLifecycleEvent,
+} from "@shared/types/export";
 import type { EditorBridge, EditorBridgeOptions } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import type { VersionHistorySnapshotDetail, VersionHistorySnapshotSummary } from "@/features/version-history/types";
@@ -58,6 +62,14 @@ function createDeferred<TResult>() {
     reject: rejectPromise,
     resolve: resolvePromise,
   };
+}
+
+function dispatchExportLifecycleEvent(event: ExportLifecycleEvent): void {
+  window.dispatchEvent(
+    new CustomEvent<ExportLifecycleEvent>(EXPORT_PROGRESS_CHANNEL, {
+      detail: event,
+    }),
+  );
 }
 
 function formatWorkbenchTimestamp(value: number): string {
@@ -203,6 +215,43 @@ describe("WorkbenchApp", () => {
         releaseExportProgressConsumer: vi.fn(),
       },
     };
+  });
+
+  it("tracks export lifecycle activity on the workbench frame and clears it on completion", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    const frame = screen.getByTestId("workbench-frame");
+    expect(frame).not.toHaveAttribute("data-export-active");
+
+    act(() => {
+      dispatchExportLifecycleEvent({
+        type: "export-started",
+        exportId: "exp-1",
+        projectId: "project-1",
+        format: "markdown",
+        currentDocument: "doc-1",
+        timestamp: 1,
+      });
+    });
+
+    expect(frame).toHaveAttribute("data-export-active", "true");
+
+    act(() => {
+      dispatchExportLifecycleEvent({
+        type: "export-completed",
+        exportId: "exp-1",
+        success: true,
+        projectId: "project-1",
+        format: "markdown",
+        documentCount: 1,
+        timestamp: 2,
+      });
+    });
+
+    await waitFor(() => {
+      expect(frame).not.toHaveAttribute("data-export-active");
+    });
   });
 
 

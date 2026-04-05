@@ -638,6 +638,51 @@ interface ProseMirrorExporter {
 | `export:project:prosemirror` | Request-Response | Renderer → Main | 导出项目（ProseMirror 格式） |
 | `export:progress:update` | Push Notification | Main → Renderer | 导出进度推送 |
 
+#### 导出进度推送载荷
+
+```typescript
+type ExportLifecycleEvent =
+  | {
+      type: 'export-started'
+      exportId: string
+      projectId: string
+      format: ExportFormat
+      currentDocument: string
+      timestamp: number
+    }
+  | {
+      type: 'export-progress'
+      exportId: string
+      stage: 'parsing' | 'converting' | 'writing'
+      progress: number
+      currentDocument: string
+    }
+  | {
+      type: 'export-completed'
+      exportId: string
+      timestamp: number
+      projectId: string
+      format: ExportFormat
+      documentCount: number
+      success: true
+    }
+  | {
+      type: 'export-failed'
+      exportId: string
+      timestamp: number
+      projectId: string
+      format: ExportFormat
+      currentDocument: string
+      success: false
+      error: {
+        code: string
+        message: string
+      }
+    }
+```
+
+Renderer **必须**在收到 `export-completed` 或 `export-failed` 后清除导出中的 busy 状态，形成开始 → 进度 → 完成/失败的闭环。
+
 #### 错误处理
 
 | 错误场景 | code | 处理策略 |
@@ -655,11 +700,12 @@ interface ProseMirrorExporter {
 /** P3 新增 WritingEvent——导出完成 */
 type ExportCompletedEvent = {
   type: 'export-completed'
+  exportId: string
   timestamp: number
   projectId: string
   format: ExportFormat
   documentCount: number
-  success: boolean
+  success: true
 }
 ```
 
