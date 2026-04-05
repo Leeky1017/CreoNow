@@ -13,8 +13,7 @@
     "skill:stream:chunk",
     "skill:stream:done",
     "ai:skill:cancel",
-    "ai:chat:send",
-    "export:project:bundle"
+    "ai:chat:send"
   ],
   "expectedErrorCodes": [
     "KG_QUERY_TIMEOUT",

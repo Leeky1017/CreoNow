@@ -1,9 +1,27 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { IpcMain } from "electron";
+import type { Database } from "better-sqlite3";
 
 import { registerSearchIpcHandlers } from "../search";
 import type { ProjectLifecycleParticipant } from "../../services/projects/projectLifecycle";
+import { createFtsService } from "../../services/search/ftsService";
 
+// ---------------------------------------------------------------------------
+// Module-level mocks — keep tests isolated from real SQLite I/O.
+// vi.mock calls are hoisted by vitest so they run before any imports resolve.
+// ---------------------------------------------------------------------------
+vi.mock("../../services/search/ftsService");
+vi.mock("../../services/search/hybridRankingService", () => ({
+  createHybridRankingService: vi.fn(() => null),
+  createNoopSemanticRetriever: vi.fn(() => ({ search: vi.fn() })),
+}));
+vi.mock("../../services/search/searchReplaceService", () => ({
+  createSearchReplaceService: vi.fn(() => null),
+}));
+
+// ---------------------------------------------------------------------------
+// Harness
+// ---------------------------------------------------------------------------
 type Handler = (event: unknown, payload?: unknown) => Promise<unknown>;
 
 interface IpcResponse<T> {
@@ -55,6 +73,9 @@ function createHarness() {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
 describe("search IPC lifecycle", () => {
   describe("search participant registration", () => {
     it("registers a participant with id 'search' in projectLifecycle", () => {
@@ -131,21 +152,25 @@ describe("search IPC lifecycle", () => {
   });
 
   describe("bind triggers FTS reindex when db is available", () => {
-    it("bind warms index by calling ftsService.reindex", () => {
-      const harness = createHarness();
-      const reindexMock = vi.fn(() => ({ ok: true, data: { reindexed: 5, indexState: "ready" as const } }));
-
-      const mockFtsService = {
+    it("bind calls ftsService.reindex and marks project ready (full semantic loop)", async () => {
+      // Configure the mocked factory to return a controllable ftsService.
+      const reindexMock = vi.fn(() => ({
+        ok: true as const,
+        data: { reindexed: 5, indexState: "ready" as const },
+      }));
+      vi.mocked(createFtsService).mockReturnValue({
         search: vi.fn(),
         reindex: reindexMock,
-      };
+        searchFulltext: vi.fn(),
+      });
 
-      // We need a mock db to enable FTS service creation, but we'll pass a
-      // pre-built ftsService directly via the internal factory.
-      // Use vitest module mock to inject reindex behavior.
+      const harness = createHarness();
+      // A non-null db triggers ftsService creation inside registerSearchIpcHandlers.
+      const fakeDb = {} as Database;
+
       registerSearchIpcHandlers({
         ipcMain: harness.ipcMain,
-        db: null, // no db → ftsService will be null, bind is benign
+        db: fakeDb,
         logger: harness.logger as never,
         projectLifecycle: harness.projectLifecycle as never,
       });
@@ -153,7 +178,41 @@ describe("search IPC lifecycle", () => {
       const participant = harness.registeredParticipants[0];
       expect(participant).toBeDefined();
 
-      // bind with no ftsService (db=null) should not throw
+      // Trigger bind — should warm the FTS index for the project.
+      participant?.bind({
+        projectId: "proj-bind-test",
+        traceId: "trace-1",
+        signal: new AbortController().signal,
+      });
+
+      // Assert: reindex was called with the correct project-scoped argument.
+      expect(reindexMock).toHaveBeenCalledOnce();
+      expect(reindexMock).toHaveBeenCalledWith({ projectId: "proj-bind-test" });
+
+      // Assert full closed loop: indexstatus now returns "ready" without an
+      // explicit search:fts:reindex call from the renderer.
+      const statusResult = await harness.invoke<{ status: string }>(
+        "search:fts:indexstatus",
+        { projectId: "proj-bind-test" },
+      );
+      expect(statusResult.ok).toBe(true);
+      expect(statusResult.data?.status).toBe("ready");
+    });
+
+    it("bind with db=null (ftsService unavailable) does not throw and leaves project NOT ready", async () => {
+      const harness = createHarness();
+
+      registerSearchIpcHandlers({
+        ipcMain: harness.ipcMain,
+        db: null,
+        logger: harness.logger as never,
+        projectLifecycle: harness.projectLifecycle as never,
+      });
+
+      const participant = harness.registeredParticipants[0];
+      expect(participant).toBeDefined();
+
+      // bind must never throw even when ftsService is unavailable.
       expect(() =>
         participant?.bind({
           projectId: "proj-bind-test",
@@ -161,6 +220,14 @@ describe("search IPC lifecycle", () => {
           signal: new AbortController().signal,
         }),
       ).not.toThrow();
+
+      // With no db, indexstatus returns DB_ERROR — project is NOT ready.
+      const statusResult = await harness.invoke<{ status: string }>(
+        "search:fts:indexstatus",
+        { projectId: "proj-bind-test" },
+      );
+      expect(statusResult.ok).toBe(false);
+      expect(statusResult.error?.code).toBe("DB_ERROR");
     });
   });
 });
