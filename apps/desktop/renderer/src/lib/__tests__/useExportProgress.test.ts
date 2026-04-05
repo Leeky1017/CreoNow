@@ -227,4 +227,120 @@ describe("useExportProgress", () => {
     expect(result.current.isExporting).toBe(false);
     expect(result.current.event).toBeNull();
   });
+
+  it("并发导出：第一个完成后 isExporting 保持 true，直到最后一个完成才回落", () => {
+    const { result } = renderHook(() => useExportProgress());
+
+    // Start export A
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-started",
+        exportId: "exp-A",
+        projectId: "proj-1",
+        format: "markdown",
+        currentDocument: "Chapter 1",
+        timestamp: 1,
+      });
+    });
+
+    // Start export B while A is still running
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-started",
+        exportId: "exp-B",
+        projectId: "proj-2",
+        format: "docx",
+        currentDocument: "Chapter 1",
+        timestamp: 2,
+      });
+    });
+
+    expect(result.current.isExporting).toBe(true);
+
+    // Export A completes — B is still running, so isExporting MUST stay true
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-completed",
+        exportId: "exp-A",
+        success: true,
+        projectId: "proj-1",
+        format: "markdown",
+        documentCount: 1,
+        timestamp: 3,
+      });
+    });
+
+    expect(result.current.isExporting).toBe(true);
+
+    // Export B completes — now isExporting falls to false
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-completed",
+        exportId: "exp-B",
+        success: true,
+        projectId: "proj-2",
+        format: "docx",
+        documentCount: 2,
+        timestamp: 4,
+      });
+    });
+
+    expect(result.current.isExporting).toBe(false);
+  });
+
+  it("并发导出：其中一个失败不影响另一个的 busy 状态", () => {
+    const { result } = renderHook(() => useExportProgress());
+
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-started",
+        exportId: "exp-C",
+        projectId: "proj-3",
+        format: "pdf",
+        currentDocument: "Part 1",
+        timestamp: 10,
+      });
+      dispatchLifecycleEvent({
+        type: "export-started",
+        exportId: "exp-D",
+        projectId: "proj-4",
+        format: "txt",
+        currentDocument: "Part 1",
+        timestamp: 11,
+      });
+    });
+
+    expect(result.current.isExporting).toBe(true);
+
+    // Export C fails — D still running
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-failed",
+        exportId: "exp-C",
+        success: false,
+        projectId: "proj-3",
+        format: "pdf",
+        currentDocument: "Part 1",
+        error: { code: "EXPORT_WRITE_ERROR", message: "disk full" },
+        timestamp: 12,
+      });
+    });
+
+    expect(result.current.isExporting).toBe(true);
+
+    // Export D completes — now idle
+    act(() => {
+      dispatchLifecycleEvent({
+        type: "export-completed",
+        exportId: "exp-D",
+        success: true,
+        projectId: "proj-4",
+        format: "txt",
+        documentCount: 3,
+        timestamp: 13,
+      });
+    });
+
+    expect(result.current.isExporting).toBe(false);
+  });
 });

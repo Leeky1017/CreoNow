@@ -24,7 +24,6 @@ import {
 } from "../services/export/prosemirrorExporter";
 import {
   type EventBusLike,
-  NOOP_EVENT_BUS,
   isRecord,
 } from "./helpers";
 import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
@@ -111,6 +110,40 @@ function createExportLifecycleId(): string {
     return randomUUID();
   }
   return `export-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+/**
+ * Create an isolated per-invocation event bus.
+ *
+ * Each export handler invocation gets its own bus so that concurrent exports
+ * cannot cross-contaminate each other's progress streams.  The shared
+ * `deps.eventBus` is intentionally NOT used for progress forwarding; only this
+ * local bus is passed to the exporter instance.
+ */
+function createLocalEventBus(): EventBusLike {
+  const listeners = new Map<string, Set<(payload: Record<string, unknown>) => void>>();
+  return {
+    emit: (payload) => {
+      const eventName = typeof payload.type === "string" ? payload.type : "";
+      if (!eventName) return;
+      for (const listener of listeners.get(eventName) ?? []) {
+        listener(payload);
+      }
+    },
+    on: (eventName, handler) => {
+      const bucket = listeners.get(eventName) ?? new Set();
+      bucket.add(handler);
+      listeners.set(eventName, bucket);
+    },
+    off: (eventName, handler) => {
+      const bucket = listeners.get(eventName);
+      if (!bucket) return;
+      bucket.delete(handler);
+      if (bucket.size === 0) {
+        listeners.delete(eventName);
+      }
+    },
+  };
 }
 
 function parseLegacyDocumentExportPayload(
@@ -600,7 +633,6 @@ export function registerExportIpcHandlers(deps: {
     deps.projectSessionBinding ??
     getProjectSessionBindingRegistry() ??
     undefined;
-  const eventBus = deps.eventBus ?? NOOP_EVENT_BUS;
 
   registerLegacyExportHandlers({
     ipcMain: deps.ipcMain,
@@ -640,6 +672,7 @@ export function registerExportIpcHandlers(deps: {
       const exportId = createExportLifecycleId();
       const sender = tryGetSender(event);
       let currentDocument = parsed.data.documentId;
+      const localBus = createLocalEventBus();
       const forwardProgress = (progressEvent: Record<string, unknown>): void => {
         const normalized = normalizeExportProgressPayload(progressEvent, exportId);
         if (!normalized) {
@@ -648,7 +681,7 @@ export function registerExportIpcHandlers(deps: {
         currentDocument = normalized.currentDocument;
         sendExportLifecyclePayload(sender, normalized);
       };
-      eventBus.on("export-progress", forwardProgress);
+      localBus.on("export-progress", forwardProgress);
       sendExportLifecyclePayload(
         sender,
         createExportStartedPayload({
@@ -661,7 +694,7 @@ export function registerExportIpcHandlers(deps: {
 
       try {
         const exporter = createProseMirrorExporter({
-          eventBus,
+          eventBus: localBus,
           fs: exporterFs,
           documentSource: createProseMirrorDocumentSource({
             db: deps.db,
@@ -712,7 +745,7 @@ export function registerExportIpcHandlers(deps: {
         });
         return { ok: false, error: exportError };
       } finally {
-        eventBus.off("export-progress", forwardProgress);
+        localBus.off("export-progress", forwardProgress);
       }
     },
   );
@@ -747,6 +780,7 @@ export function registerExportIpcHandlers(deps: {
       const exportId = createExportLifecycleId();
       const sender = tryGetSender(event);
       let currentDocument = parsed.data.documentIds?.[0] ?? "";
+      const localBus = createLocalEventBus();
       const forwardProgress = (progressEvent: Record<string, unknown>): void => {
         const normalized = normalizeExportProgressPayload(progressEvent, exportId);
         if (!normalized) {
@@ -755,7 +789,7 @@ export function registerExportIpcHandlers(deps: {
         currentDocument = normalized.currentDocument;
         sendExportLifecyclePayload(sender, normalized);
       };
-      eventBus.on("export-progress", forwardProgress);
+      localBus.on("export-progress", forwardProgress);
       sendExportLifecyclePayload(
         sender,
         createExportStartedPayload({
@@ -768,7 +802,7 @@ export function registerExportIpcHandlers(deps: {
 
       try {
         const exporter = createProseMirrorExporter({
-          eventBus,
+          eventBus: localBus,
           fs: exporterFs,
           documentSource: createProseMirrorDocumentSource({
             db: deps.db,
@@ -819,7 +853,7 @@ export function registerExportIpcHandlers(deps: {
         });
         return { ok: false, error: exportError };
       } finally {
-        eventBus.off("export-progress", forwardProgress);
+        localBus.off("export-progress", forwardProgress);
       }
     },
   );

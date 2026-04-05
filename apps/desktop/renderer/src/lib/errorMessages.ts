@@ -154,6 +154,7 @@ export const IPC_ERROR_MESSAGE_KEYS = {
   EXPORT_FORMAT_UNSUPPORTED: "errors.unsupported",
   EXPORT_WRITE_ERROR: "errors.io",
   EXPORT_EMPTY_DOCUMENT: "errors.invalidArgument",
+  EXPORT_DOCUMENT_NOT_FOUND: "errors.notFound",
   EXPORT_UNSUPPORTED_NODE: "errors.unsupported",
   EXPORT_SIZE_EXCEEDED: "errors.payloadTooLarge",
   EXPORT_INTERRUPTED: "errors.canceled",

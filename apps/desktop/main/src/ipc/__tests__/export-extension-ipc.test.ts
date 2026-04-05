@@ -369,4 +369,105 @@ describe("export extension IPC handlers (P3)", () => {
       expect(harness.handlers.has("export:document:markdown")).toBe(true);
     });
   });
+
+  describe("并发导出隔离 (Blocking-1)", () => {
+    it("两个并发文档导出不互串：各自进度只发给对应 sender，exportId 不混淆", async () => {
+      const harness = createHarness();
+      const sender1 = { id: 1, send: vi.fn() };
+      const sender2 = { id: 2, send: vi.fn() };
+
+      let resolveExport1!: (v: unknown) => void;
+      let resolveExport2!: (v: unknown) => void;
+
+      mocks.exportDocumentMock
+        .mockImplementationOnce(() => new Promise((r) => { resolveExport1 = r; }))
+        .mockImplementationOnce(() => new Promise((r) => { resolveExport2 = r; }));
+
+      const docHandler = harness.handlers.get("export:document:prosemirror")!;
+      const payload1 = { projectId: "p1", documentId: "d1", outputPath: "out1.md", options: { format: "markdown" } };
+      const payload2 = { projectId: "p2", documentId: "d2", outputPath: "out2.md", options: { format: "markdown" } };
+
+      // Start both concurrently — no await, so both run up to their first `await`
+      const promise1 = docHandler({ sender: sender1 }, payload1);
+      const promise2 = docHandler({ sender: sender2 }, payload2);
+
+      // Both exporters created synchronously before the first await
+      expect(mocks.createProseMirrorExporterMock.mock.calls).toHaveLength(2);
+
+      const bus1 = mocks.createProseMirrorExporterMock.mock.calls[0]![0].eventBus as {
+        emit: (p: Record<string, unknown>) => void;
+      };
+      const bus2 = mocks.createProseMirrorExporterMock.mock.calls[1]![0].eventBus as {
+        emit: (p: Record<string, unknown>) => void;
+      };
+
+      // Emit progress through each isolated bus
+      bus1.emit({ type: "export-progress", stage: "writing", progress: 70, currentDocument: "d1" });
+      bus2.emit({ type: "export-progress", stage: "converting", progress: 40, currentDocument: "d2" });
+
+      // Complete both
+      resolveExport1({
+        success: true,
+        data: { documentCount: 1, outputPath: "out1.md", format: "markdown", totalWordCount: 100, durationMs: 10 },
+      });
+      resolveExport2({
+        success: true,
+        data: { documentCount: 1, outputPath: "out2.md", format: "markdown", totalWordCount: 100, durationMs: 12 },
+      });
+      await Promise.all([promise1, promise2]);
+
+      const exportId1 = (
+        sender1.send.mock.calls.find(([, p]) => (p as Record<string, unknown>)?.["type"] === "export-started")?.[1] as {
+          exportId: string;
+        }
+      )?.exportId;
+      const exportId2 = (
+        sender2.send.mock.calls.find(([, p]) => (p as Record<string, unknown>)?.["type"] === "export-started")?.[1] as {
+          exportId: string;
+        }
+      )?.exportId;
+
+      expect(exportId1).toBeTruthy();
+      expect(exportId2).toBeTruthy();
+      expect(exportId1).not.toBe(exportId2);
+
+      // All events sent to sender1 must carry exportId1 only
+      for (const [, payload] of sender1.send.mock.calls) {
+        expect((payload as Record<string, unknown>)?.["exportId"]).toBe(exportId1);
+      }
+
+      // All events sent to sender2 must carry exportId2 only
+      for (const [, payload] of sender2.send.mock.calls) {
+        expect((payload as Record<string, unknown>)?.["exportId"]).toBe(exportId2);
+      }
+    });
+  });
+
+  describe("EXPORT_DOCUMENT_NOT_FOUND contract (Blocking-2)", () => {
+    it("export:document:prosemirror 遇到缺失文档时返回 EXPORT_DOCUMENT_NOT_FOUND，不被洗成 INTERNAL_ERROR", async () => {
+      const harness = createHarness();
+      mocks.exportDocumentMock.mockResolvedValueOnce({
+        success: false,
+        error: { code: "EXPORT_DOCUMENT_NOT_FOUND", message: "文档不存在" },
+      });
+
+      const result = await harness.invoke<never>("export:document:prosemirror", {
+        projectId: "proj-1",
+        documentId: "doc-missing",
+        outputPath: "workspace/exports/out.md",
+        options: { format: "markdown" },
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("EXPORT_DOCUMENT_NOT_FOUND");
+      expect(result.error?.code).not.toBe("INTERNAL_ERROR");
+
+      // A "export-failed" terminal event must be pushed with the same code
+      const failedEvent = harness.sender.send.mock.calls.find(
+        ([, p]) => (p as Record<string, unknown>)?.["type"] === "export-failed",
+      )?.[1] as { type: string; error: { code: string } } | undefined;
+
+      expect(failedEvent?.error?.code).toBe("EXPORT_DOCUMENT_NOT_FOUND");
+    });
+  });
 });

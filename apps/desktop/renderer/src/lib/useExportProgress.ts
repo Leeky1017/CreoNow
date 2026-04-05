@@ -6,6 +6,10 @@
  * (null when no export is in progress) and an `isExporting` flag.
  *
  * Main → (IPC push) → preload bridge → DOM CustomEvent → this hook.
+ *
+ * Concurrent-safety: tracks active exportIds in a Set so that a completed
+ * export does not drop `isExporting` to false while another export is
+ * still in flight.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -32,6 +36,7 @@ export interface ExportProgressState {
 export function useExportProgress(): ExportProgressState {
   const [state, setState] = useState<ExportProgressState>({ event: null, isExporting: false });
   const subscriptionIdRef = useRef<string | null>(null);
+  const activeExportIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const streamApi = getPreloadStreamApi();
@@ -42,11 +47,19 @@ export function useExportProgress(): ExportProgressState {
 
     const handleProgress = (domEvent: Event) => {
       const exportEvent = (domEvent as CustomEvent<ExportLifecycleEvent>).detail;
+
+      if (exportEvent.type === "export-started" || exportEvent.type === "export-progress") {
+        activeExportIdsRef.current.add(exportEvent.exportId);
+      } else if (
+        exportEvent.type === "export-completed" ||
+        exportEvent.type === "export-failed"
+      ) {
+        activeExportIdsRef.current.delete(exportEvent.exportId);
+      }
+
       setState({
         event: exportEvent,
-        isExporting:
-          exportEvent.type === "export-started" ||
-          exportEvent.type === "export-progress",
+        isExporting: activeExportIdsRef.current.size > 0,
       });
     };
 
@@ -54,6 +67,7 @@ export function useExportProgress(): ExportProgressState {
 
     return () => {
       window.removeEventListener(EXPORT_PROGRESS_CHANNEL, handleProgress);
+      activeExportIdsRef.current.clear();
       if (subscriptionIdRef.current !== null) {
         streamApi.releaseExportProgressConsumer(subscriptionIdRef.current);
         subscriptionIdRef.current = null;
