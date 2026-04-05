@@ -126,7 +126,9 @@ export const IPC_ERROR_CODES = [
   "SEARCH_PROJECT_NOT_FOUND",
   "EXPORT_FORMAT_UNSUPPORTED",
   "EXPORT_WRITE_ERROR",
+  "EXPORT_PATH_FORBIDDEN",
   "EXPORT_EMPTY_DOCUMENT",
+  "EXPORT_DOCUMENT_NOT_FOUND",
   "EXPORT_UNSUPPORTED_NODE",
   "EXPORT_SIZE_EXCEEDED",
   "EXPORT_INTERRUPTED",
@@ -2806,7 +2808,7 @@ export const ipcContract = {
     },
     "memory:simple:clearproject": {
       request: s.object({
-        projectId: s.union(s.string(), s.literal(null)),
+        projectId: s.string(),
         confirmed: s.optional(s.boolean()),
       }),
       response: s.object({ cleared: s.literal(true) }),

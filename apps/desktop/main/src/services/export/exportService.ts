@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import { createWriteStream } from "node:fs";
+import os from "node:os";
 
 import type Database from "better-sqlite3";
 import PDFDocument from "pdfkit";
@@ -627,6 +628,7 @@ export function createExportService(deps: ExportDeps): ExportService {
             .filter((item): item is NonNullable<typeof item> => item !== null);
         },
       },
+      allowedRoots: [deps.userDataDir, os.homedir()],
     });
   }
 

@@ -13,6 +13,7 @@ import {
   type ProjectOverview,
   type ProjectStyleConfig,
 } from "../services/project/projectManager";
+import { attachP3LifecycleParticipant } from "../services/projects/p3LifecycleParticipants";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 import type { EventBusLike } from "./helpers";
 
@@ -25,6 +26,20 @@ type ProjectHandlerDeps = {
   projectLifecycle?: ProjectLifecycle;
   eventBus?: EventBusLike;
 };
+
+const projectConfigLifecycleBridge = {
+  bind: (): void => {},
+  unbind: (): void => {},
+};
+
+attachP3LifecycleParticipant("project-config", {
+  bind: () => {
+    projectConfigLifecycleBridge.bind();
+  },
+  unbind: () => {
+    projectConfigLifecycleBridge.unbind();
+  },
+});
 
 function registerProjectCrudHandlers(deps: ProjectHandlerDeps): void {
   deps.ipcMain.handle(
@@ -614,6 +629,14 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
     }
     return manager;
   }
+
+  projectConfigLifecycleBridge.bind = () => {
+    void getManager();
+  };
+  projectConfigLifecycleBridge.unbind = () => {
+    manager?.dispose();
+    manager = null;
+  };
 
   // ── project:config:get ──
 

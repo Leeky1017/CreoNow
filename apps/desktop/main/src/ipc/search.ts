@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
+import { attachP3LifecycleParticipant } from "../services/projects/p3LifecycleParticipants";
 import type { SemanticChunkIndexService } from "../services/embedding/semanticChunkIndexService";
 import { createFtsService } from "../services/search/ftsService";
 import {
@@ -21,6 +22,24 @@ type DocumentIndexRow = {
   contentText: string;
   updatedAt: number;
 };
+
+const searchLifecycleScope = {
+  activeProjectId: null as string | null,
+  generation: 0,
+};
+
+attachP3LifecycleParticipant("search", {
+  bind: ({ projectId }) => {
+    searchLifecycleScope.activeProjectId = projectId;
+    searchLifecycleScope.generation += 1;
+  },
+  unbind: ({ projectId }) => {
+    if (searchLifecycleScope.activeProjectId === projectId) {
+      searchLifecycleScope.activeProjectId = null;
+    }
+    searchLifecycleScope.generation += 1;
+  },
+});
 
 function listProjectDocuments(args: {
   db: Database.Database;

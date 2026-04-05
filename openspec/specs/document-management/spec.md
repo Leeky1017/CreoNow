@@ -643,8 +643,10 @@ interface ProseMirrorExporter {
 | 错误场景 | code | 处理策略 |
 |---------|------|---------|
 | 格式不支持 | `EXPORT_FORMAT_UNSUPPORTED` | 阻断导出 |
+| 导出路径越权 | `EXPORT_PATH_FORBIDDEN` | 阻断导出且不创建文件 |
 | 输出路径无权限 | `EXPORT_WRITE_ERROR` | 返回错误，提示检查权限 |
 | 文档内容为空 | `EXPORT_EMPTY_DOCUMENT` | 阻断导出并提示 |
+| 文档不存在 | `EXPORT_DOCUMENT_NOT_FOUND` | 阻断导出并提示刷新文档列表 |
 | 包含不支持的节点 | `EXPORT_UNSUPPORTED_NODE` | 阻断导出并列出不支持项 |
 | 项目导出体积超限 | `EXPORT_SIZE_EXCEEDED` | 提示分卷导出 |
 | 导出过程中断 | `EXPORT_INTERRUPTED` | 清理临时文件 |

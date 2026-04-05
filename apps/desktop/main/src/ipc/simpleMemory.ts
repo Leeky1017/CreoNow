@@ -18,6 +18,7 @@ import {
   NOOP_EVENT_BUS,
 } from "./helpers";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
+import { attachP3LifecycleParticipant } from "../services/projects/p3LifecycleParticipants";
 
 // ─── Payload types ──────────────────────────────────────────────────
 
@@ -65,6 +66,20 @@ const VALID_CATEGORIES = new Set([
 
 const VALID_SOURCES = new Set(["user", "system"]);
 
+const simpleMemoryLifecycleBridge = {
+  bind: (): void => {},
+  unbind: (): void => {},
+};
+
+attachP3LifecycleParticipant("simple-memory", {
+  bind: () => {
+    simpleMemoryLifecycleBridge.bind();
+  },
+  unbind: () => {
+    simpleMemoryLifecycleBridge.unbind();
+  },
+});
+
 /**
  * Register `memory:simple:*` IPC handlers (SimpleMemory key-value CRUD).
  *
@@ -100,6 +115,14 @@ export function registerSimpleMemoryIpcHandlers(deps: {
     }
     return service;
   }
+
+  simpleMemoryLifecycleBridge.bind = () => {
+    void getService();
+  };
+  simpleMemoryLifecycleBridge.unbind = () => {
+    service?.dispose();
+    service = null;
+  };
 
   void getService();
 
@@ -422,7 +445,7 @@ export function registerSimpleMemoryIpcHandlers(deps: {
 
   // ── memory:simple:clearproject ──
 
-  handleWithOptionalProjectAccess(
+  handleWithProjectAccess(
     "memory:simple:clearproject",
     async (
       _event,
@@ -439,17 +462,17 @@ export function registerSimpleMemoryIpcHandlers(deps: {
       if (!svc) return notReady<{ cleared: true }>();
 
       try {
-        if (payload.projectId === null) {
+        if (typeof payload.projectId !== "string" || payload.projectId.trim().length === 0) {
           return {
             ok: false,
             error: {
               code: "INVALID_ARGUMENT",
-              message: "projectId must be a non-null string",
+              message: "projectId must be a non-empty string",
             },
           };
         }
 
-        const res = await svc.clearProject(payload.projectId, {
+        const res = await svc.clearProject(payload.projectId.trim(), {
           confirmed: payload.confirmed,
         });
         if (res.success) {

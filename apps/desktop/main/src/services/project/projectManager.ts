@@ -126,6 +126,7 @@ interface Deps {
 
 const MAX_PROJECTS = 2000;
 const DEFAULT_SWITCH_TIMEOUT_MS = 1000;
+const PROJECT_CONFIG_SETTINGS_KEY = "creonow.project.config";
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -144,6 +145,21 @@ function cloneDocument(doc: ProjectDocument): ProjectDocument {
 function defaultPermissionProbe(outputPath: string): Promise<void> {
   const targetDir = path.dirname(outputPath);
   return access(targetDir, fsConstants.W_OK);
+}
+
+function countWordsFromText(text: string): number {
+  let count = 0;
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0;
+    if ((code >= 0x4E00 && code <= 0x9FFF) || (code >= 0x3400 && code <= 0x4DBF)) {
+      count += 1;
+    }
+  }
+  const asciiWords = text
+    .replace(/[\u4E00-\u9FFF\u3400-\u4DBF]/g, "")
+    .split(/\s+/u)
+    .filter((word) => word.length > 0);
+  return count + asciiWords.length;
 }
 
 async function withTimeout<T>(
@@ -190,7 +206,7 @@ export function createProjectManager(deps: Deps): ProjectManager {
 
   try {
     db.exec(
-      "CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT, type TEXT, description TEXT, stage TEXT, lifecycleStatus TEXT, style TEXT, goals TEXT, defaultSkillSetId TEXT, createdAt INTEGER, updatedAt INTEGER)",
+      "CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, name TEXT, type TEXT, description TEXT, stage TEXT, lifecycleStatus TEXT, style TEXT, goals TEXT, defaultSkillSetId TEXT, knowledgeGraphId TEXT, createdAt INTEGER, updatedAt INTEGER)",
     );
     db.exec(
       "CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, projectId TEXT, title TEXT, type TEXT, order_ INTEGER, parentId TEXT, status TEXT, wordCount INTEGER, createdAt INTEGER, updatedAt INTEGER)",
@@ -212,6 +228,243 @@ export function createProjectManager(deps: Deps): ProjectManager {
 
   function getMutableProject(id: string): ProjectConfig | undefined {
     return projects.get(id);
+  }
+
+  function readProjectSnapshot(projectId: string): Partial<ProjectConfig> | null {
+    try {
+      const row = db
+        .prepare(
+          "SELECT value_json as valueJson FROM settings WHERE scope = ? AND key = ?",
+        )
+        .get(`project:${projectId}`, PROJECT_CONFIG_SETTINGS_KEY);
+      if (!row || typeof row.valueJson !== "string") {
+        return null;
+      }
+      const parsed: unknown = JSON.parse(row.valueJson);
+      return typeof parsed === "object" && parsed !== null
+        ? (parsed as Partial<ProjectConfig>)
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function writeProjectSnapshot(project: ProjectConfig): void {
+    try {
+      db.prepare(
+        "INSERT INTO settings (scope, key, value_json, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(scope, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+      ).run(
+        `project:${project.id}`,
+        PROJECT_CONFIG_SETTINGS_KEY,
+        JSON.stringify(project),
+        project.updatedAt,
+      );
+    } catch {
+      // mock db / legacy schema
+    }
+  }
+
+  function rowToPersistentProjectConfig(
+    row: Record<string, unknown> | undefined,
+  ): ProjectConfig | null {
+    if (!row) {
+      return null;
+    }
+    const projectId =
+      typeof row.projectId === "string"
+        ? row.projectId
+        : typeof row.id === "string"
+          ? row.id
+          : null;
+    if (!projectId) {
+      return null;
+    }
+
+    const snapshot = readProjectSnapshot(projectId);
+    const lifecycleStatus =
+      typeof row.lifecycleStatus === "string"
+        ? (row.lifecycleStatus as ProjectConfig["lifecycleStatus"])
+        : row.archivedAt === null || row.archivedAt === undefined
+          ? "active"
+          : "archived";
+    const parsedStyle =
+      typeof row.style === "string"
+        ? (JSON.parse(row.style) as Partial<ProjectStyleConfig>)
+        : {};
+    const parsedGoals =
+      typeof row.goals === "string"
+        ? (JSON.parse(row.goals) as Partial<ProjectGoals>)
+        : {};
+
+    return {
+      id: projectId,
+      name: typeof row.name === "string" ? row.name : snapshot?.name ?? "",
+      type: typeof row.type === "string" ? row.type : snapshot?.type ?? "novel",
+      description:
+        typeof row.description === "string"
+          ? row.description
+          : snapshot?.description ?? "",
+      stage: typeof row.stage === "string" ? row.stage : snapshot?.stage ?? "draft",
+      lifecycleStatus:
+        (snapshot?.lifecycleStatus as ProjectConfig["lifecycleStatus"] | undefined) ??
+        lifecycleStatus,
+      style: {
+        narrativePerson:
+        (typeof row.narrativePerson === "string"
+            ? (row.narrativePerson as ProjectStyleConfig["narrativePerson"])
+            : parsedStyle.narrativePerson) ??
+          snapshot?.style?.narrativePerson ??
+          "first",
+        genre:
+          parsedStyle.genre ?? snapshot?.style?.genre ?? "",
+        languageStyle:
+          (typeof row.languageStyle === "string"
+            ? row.languageStyle
+            : parsedStyle.languageStyle) ??
+          snapshot?.style?.languageStyle ??
+          "",
+        tone:
+          parsedStyle.tone ?? snapshot?.style?.tone ?? "",
+        targetAudience:
+          (typeof row.targetAudience === "string"
+            ? row.targetAudience
+            : parsedStyle.targetAudience) ??
+          snapshot?.style?.targetAudience ??
+          "",
+      },
+      goals: {
+        targetWordCount:
+          (typeof row.targetWordCount === "number"
+            ? row.targetWordCount
+            : parsedGoals.targetWordCount) ??
+          snapshot?.goals?.targetWordCount ??
+          0,
+        targetChapterCount:
+          (typeof row.targetChapterCount === "number"
+            ? row.targetChapterCount
+            : parsedGoals.targetChapterCount) ??
+          snapshot?.goals?.targetChapterCount ??
+          0,
+      },
+      defaultSkillSetId:
+        (typeof row.defaultSkillSetId === "string" || row.defaultSkillSetId === null
+          ? (row.defaultSkillSetId as string | null)
+          : snapshot?.defaultSkillSetId) ?? null,
+      knowledgeGraphId:
+        (typeof row.knowledgeGraphId === "string" || row.knowledgeGraphId === null
+          ? (row.knowledgeGraphId as string | null)
+          : snapshot?.knowledgeGraphId) ?? null,
+      createdAt:
+        (typeof row.createdAt === "number" ? row.createdAt : snapshot?.createdAt) ?? 0,
+      updatedAt:
+        (typeof row.updatedAt === "number" ? row.updatedAt : snapshot?.updatedAt) ?? 0,
+    };
+  }
+
+  function loadProjectFromDb(id: string): ProjectConfig | null {
+    try {
+      const persistentRow = db
+        .prepare(
+          "SELECT project_id as projectId, name, type, description, stage, target_word_count as targetWordCount, target_chapter_count as targetChapterCount, narrative_person as narrativePerson, language_style as languageStyle, target_audience as targetAudience, default_skill_set_id as defaultSkillSetId, knowledge_graph_id as knowledgeGraphId, created_at as createdAt, updated_at as updatedAt, archived_at as archivedAt FROM projects WHERE project_id = ?",
+        )
+        .get(id);
+      const persistentProject = rowToPersistentProjectConfig(persistentRow);
+      if (persistentProject) {
+        return persistentProject;
+      }
+    } catch {
+      // fallback to legacy schema below
+    }
+
+    try {
+      const legacyRow = db
+        .prepare(
+          "SELECT id, name, type, description, stage, lifecycleStatus, style, goals, defaultSkillSetId, knowledgeGraphId, createdAt, updatedAt FROM projects WHERE id = ?",
+        )
+        .get(id);
+      return rowToPersistentProjectConfig(legacyRow);
+    } catch {
+      return null;
+    }
+  }
+
+  function ensureProjectLoaded(id: string): ProjectConfig | null {
+    const existing = getProjectOrNull(id);
+    if (existing) {
+      return existing;
+    }
+    const loaded = loadProjectFromDb(id);
+    if (loaded) {
+      projects.set(id, cloneProject(loaded));
+      return cloneProject(loaded);
+    }
+    return null;
+  }
+
+  function loadDocumentsFromDb(projectId: string): ProjectDocument[] {
+    try {
+      const rows = db
+        .prepare(
+          "SELECT document_id as id, project_id as projectId, title, content_text as contentText, created_at as createdAt, updated_at as updatedAt FROM documents WHERE project_id = ? ORDER BY updated_at DESC, document_id ASC",
+        )
+        .all(projectId);
+      if (rows.length > 0) {
+        return rows.map((row, index) => ({
+          id: String(row.id ?? ""),
+          projectId: String(row.projectId ?? projectId),
+          title: String(row.title ?? ""),
+          type: "chapter",
+          order: index + 1,
+          parentId: null,
+          status: "draft",
+          wordCount: countWordsFromText(
+            typeof row.contentText === "string" ? row.contentText : "",
+          ),
+          createdAt: typeof row.createdAt === "number" ? row.createdAt : 0,
+          updatedAt: typeof row.updatedAt === "number" ? row.updatedAt : 0,
+        }));
+      }
+    } catch {
+      // fallback to legacy schema below
+    }
+
+    try {
+      const rows = db
+        .prepare(
+          "SELECT id, projectId, title, type, order_ as orderValue, parentId, status, wordCount, createdAt, updatedAt FROM documents WHERE projectId = ? ORDER BY order_ ASC, id ASC",
+        )
+        .all(projectId);
+      return rows.map((row) => ({
+        id: String(row.id ?? ""),
+        projectId: String(row.projectId ?? projectId),
+        title: String(row.title ?? ""),
+        type: String(row.type ?? "chapter"),
+        order: typeof row.orderValue === "number" ? row.orderValue : 0,
+        parentId:
+          typeof row.parentId === "string" || row.parentId === null
+            ? (row.parentId as string | null)
+            : null,
+        status: String(row.status ?? "draft"),
+        wordCount: typeof row.wordCount === "number" ? row.wordCount : 0,
+        createdAt: typeof row.createdAt === "number" ? row.createdAt : 0,
+        updatedAt: typeof row.updatedAt === "number" ? row.updatedAt : 0,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  function ensureDocumentsLoaded(projectId: string): ProjectDocument[] {
+    const existing = documents.get(projectId);
+    if (existing && existing.length > 0) {
+      return sortDocuments(existing);
+    }
+    const loaded = loadDocumentsFromDb(projectId);
+    if (loaded.length > 0) {
+      documents.set(projectId, loaded.map(cloneDocument));
+      return sortDocuments(loaded);
+    }
+    return sortDocuments(existing ?? []);
   }
 
   function sortDocuments(list: ProjectDocument[]): ProjectDocument[] {
@@ -369,6 +622,7 @@ export function createProjectManager(deps: Deps): ProjectManager {
       } catch {
         // mock db
       }
+      writeProjectSnapshot(persisted);
 
       await createDefaultChapter(config.id);
 
@@ -383,7 +637,7 @@ export function createProjectManager(deps: Deps): ProjectManager {
     async getProject(id: string): Promise<Result<ProjectConfig>> {
       throwIfDisposed();
 
-      const project = getProjectOrNull(id);
+      const project = ensureProjectLoaded(id);
       if (!project) {
         return { success: false, error: { code: "PROJECT_NOT_FOUND", message: "项目不存在" } };
       }
@@ -394,7 +648,8 @@ export function createProjectManager(deps: Deps): ProjectManager {
     async updateProject(id: string, updates: Partial<ProjectConfig>): Promise<Result<ProjectConfig>> {
       throwIfDisposed();
 
-      const existing = getMutableProject(id);
+      const loaded = ensureProjectLoaded(id);
+      const existing = loaded ? getMutableProject(id) : undefined;
       if (!existing) {
         return { success: false, error: { code: "PROJECT_NOT_FOUND", message: "项目不存在" } };
       }
@@ -412,25 +667,52 @@ export function createProjectManager(deps: Deps): ProjectManager {
       };
       projects.set(id, updated);
 
+      let wrotePersistentSchema = false;
       try {
         db.prepare(
-          "UPDATE projects SET name=?, type=?, description=?, stage=?, lifecycleStatus=?, style=?, goals=?, defaultSkillSetId=?, knowledgeGraphId=?, updatedAt=? WHERE id=?",
+          "UPDATE projects SET name = ?, type = ?, description = ?, stage = ?, target_word_count = ?, target_chapter_count = ?, narrative_person = ?, language_style = ?, target_audience = ?, default_skill_set_id = ?, knowledge_graph_id = ?, archived_at = ?, updated_at = ? WHERE project_id = ?",
         ).run(
           updated.name,
           updated.type,
           updated.description,
           updated.stage,
-          updated.lifecycleStatus,
-          JSON.stringify(updated.style),
-          JSON.stringify(updated.goals),
+          updated.goals.targetWordCount,
+          updated.goals.targetChapterCount,
+          updated.style.narrativePerson,
+          updated.style.languageStyle,
+          updated.style.targetAudience,
           updated.defaultSkillSetId,
           updated.knowledgeGraphId,
+          updated.lifecycleStatus === "archived" ? updated.updatedAt : null,
           updated.updatedAt,
           id,
         );
+        wrotePersistentSchema = true;
       } catch {
-        // mock db
+        // fallback to legacy schema below
       }
+      if (!wrotePersistentSchema) {
+        try {
+          db.prepare(
+            "UPDATE projects SET name=?, type=?, description=?, stage=?, lifecycleStatus=?, style=?, goals=?, defaultSkillSetId=?, knowledgeGraphId=?, updatedAt=? WHERE id=?",
+          ).run(
+            updated.name,
+            updated.type,
+            updated.description,
+            updated.stage,
+            updated.lifecycleStatus,
+            JSON.stringify(updated.style),
+            JSON.stringify(updated.goals),
+            updated.defaultSkillSetId,
+            updated.knowledgeGraphId,
+            updated.updatedAt,
+            id,
+          );
+        } catch {
+          // mock db
+        }
+      }
+      writeProjectSnapshot(updated);
 
       emitProjectConfigUpdated(id, Object.keys(updates));
       return { success: true, data: cloneProject(updated) };
@@ -454,6 +736,10 @@ export function createProjectManager(deps: Deps): ProjectManager {
       try {
         const txn = db.transaction(() => {
           db.prepare("DELETE FROM settings WHERE projectId = ?").run(id);
+          db.prepare("DELETE FROM settings WHERE scope = ? AND key = ?").run(
+            `project:${id}`,
+            PROJECT_CONFIG_SETTINGS_KEY,
+          );
           db.prepare("DELETE FROM memory WHERE projectId = ?").run(id);
           db.prepare("DELETE FROM search_fts WHERE projectId = ?").run(id);
           db.prepare("DELETE FROM search_index WHERE projectId = ?").run(id);
@@ -676,14 +962,14 @@ export function createProjectManager(deps: Deps): ProjectManager {
     async listDocuments(projectId: string, filter?: { type?: string }): Promise<Result<ProjectDocument[]>> {
       throwIfDisposed();
 
-      if (!projects.has(projectId)) {
+      if (!ensureProjectLoaded(projectId)) {
         return {
           success: false,
           error: { code: "PROJECT_NOT_FOUND", message: "项目不存在" },
         };
       }
 
-      const list = sortDocuments(documents.get(projectId) ?? []);
+      const list = ensureDocumentsLoaded(projectId);
       const filtered = filter?.type ? list.filter((doc) => doc.type === filter.type) : list;
       return { success: true, data: filtered.map(cloneDocument) };
     },
@@ -733,7 +1019,7 @@ export function createProjectManager(deps: Deps): ProjectManager {
     async getStyleConfig(projectId: string): Promise<Result<ProjectStyleConfig>> {
       throwIfDisposed();
 
-      const project = getProjectOrNull(projectId);
+      const project = ensureProjectLoaded(projectId);
       if (!project) {
         return { success: false, error: { code: "PROJECT_NOT_FOUND", message: "项目不存在" } };
       }
@@ -744,14 +1030,14 @@ export function createProjectManager(deps: Deps): ProjectManager {
     async getOverview(projectId: string): Promise<Result<ProjectOverview>> {
       throwIfDisposed();
 
-      if (!projects.has(projectId)) {
+      if (!ensureProjectLoaded(projectId)) {
         return {
           success: false,
           error: { code: "PROJECT_NOT_FOUND", message: "项目不存在" },
         };
       }
 
-      const docs = documents.get(projectId) ?? [];
+      const docs = ensureDocumentsLoaded(projectId);
       let characterCount = 0;
       let locationCount = 0;
       try {
@@ -760,7 +1046,18 @@ export function createProjectManager(deps: Deps): ProjectManager {
         characterCount = typeof charRow?.count === "number" ? charRow.count : 0;
         locationCount = typeof locRow?.count === "number" ? locRow.count : 0;
       } catch {
-        // mock db
+        try {
+          const charRow = db.prepare(
+            "SELECT COUNT(*) as count FROM settings WHERE scope = ? AND key LIKE 'character:%'",
+          ).get(`project:${projectId}`);
+          const locRow = db.prepare(
+            "SELECT COUNT(*) as count FROM settings WHERE scope = ? AND key LIKE 'location:%'",
+          ).get(`project:${projectId}`);
+          characterCount = typeof charRow?.count === "number" ? charRow.count : 0;
+          locationCount = typeof locRow?.count === "number" ? locRow.count : 0;
+        } catch {
+          // mock db
+        }
       }
 
       return {

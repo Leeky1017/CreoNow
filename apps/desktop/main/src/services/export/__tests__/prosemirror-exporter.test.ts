@@ -203,6 +203,7 @@ describe("ProseMirrorExporter P3", () => {
       eventBus: eventBus as any,
       fs: fs as any,
       initialDocuments: makeSourceDocuments(),
+      allowedRoots: ["/output"],
     });
   });
 
@@ -558,13 +559,25 @@ describe("ProseMirrorExporter P3", () => {
       expect(result.error?.code).toBe("EXPORT_UNSUPPORTED_NODE");
     });
 
-    it("文件写入失败时返回 EXPORT_WRITE_ERROR", async () => {
+    it("越权路径时返回 EXPORT_PATH_FORBIDDEN", async () => {
+      const result = await exporter.exportDocument({
+        documentId: "doc-1",
+        options: makeExportOptions(),
+        outputPath: "/restricted/test.md",
+      } as ExportDocumentRequest);
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe("EXPORT_PATH_FORBIDDEN");
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it("白名单路径写入失败时返回 EXPORT_WRITE_ERROR", async () => {
       fs.writeFile.mockRejectedValueOnce(new Error("EACCES: permission denied"));
 
       const result = await exporter.exportDocument({
         documentId: "doc-1",
         options: makeExportOptions(),
-        outputPath: "/restricted/test.md",
+        outputPath: "/output/test.md",
       } as ExportDocumentRequest);
 
       expect(result.success).toBe(false);
@@ -591,6 +604,7 @@ describe("ProseMirrorExporter P3", () => {
         eventBus: eventBus as any,
         fs: fs as any,
         initialDocuments: [hugeDoc],
+        allowedRoots: ["/output"],
       });
       const result = await hugeExporter.exportProject({
         projectId: "proj-huge",

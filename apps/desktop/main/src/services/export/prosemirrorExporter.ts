@@ -3,6 +3,8 @@
  * Spec: openspec/specs/document-management/spec.md — P3
  */
 
+import os from "node:os";
+import path from "node:path";
 import { PassThrough } from "node:stream";
 
 import PDFDocument from "pdfkit";
@@ -108,6 +110,7 @@ interface Deps {
   fs: FsLike;
   documentSource?: ExportDocumentSource;
   initialDocuments?: ExportSourceDocument[];
+  allowedRoots?: string[];
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -131,6 +134,26 @@ const SUPPORTED_MARK_TYPES = ["bold", "italic", "code", "underline", "link"];
 const UNSUPPORTED_NODE_TYPES = ["mention"];
 const TXT_UNSUPPORTED_NODES = ["image"];
 const SIZE_LIMIT = 10 * 1024 * 1024;
+
+function normalizePathForComparison(inputPath: string): string {
+  const resolvedPath = path.resolve(inputPath);
+  const rootPath = path.parse(resolvedPath).root;
+  const trimmedPath = resolvedPath.replace(/[\\/]+$/u, "");
+  const normalizedPath = trimmedPath.length === 0 ? rootPath : trimmedPath;
+  return process.platform === "win32"
+    ? normalizedPath.toLowerCase()
+    : normalizedPath;
+}
+
+function isPathInsideDirectory(targetPath: string, directoryPath: string): boolean {
+  const normalizedTargetPath = normalizePathForComparison(targetPath);
+  const normalizedDirectoryPath = normalizePathForComparison(directoryPath);
+  const relativePath = path.relative(normalizedDirectoryPath, normalizedTargetPath);
+  return (
+    relativePath.length === 0 ||
+    (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
+  );
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -439,6 +462,9 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
         .sort((left, right) => left.sortOrder - right.sortOrder),
   };
   const documentSource = deps.documentSource ?? fallbackSource;
+  const allowedRoots = (
+    deps.allowedRoots?.filter((root) => root.trim().length > 0) ?? [os.homedir()]
+  ).map((root) => normalizePathForComparison(root));
 
   function assertNotDisposed(): void {
     if (disposed) {
@@ -458,6 +484,33 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
       projectId: req.projectId,
       documentIds: req.documentIds,
     });
+  }
+
+  function validateOutputPath(args: {
+    outputPath: string;
+    mode: "file" | "directory";
+  }): ExportResult | null {
+    const rawPath = args.outputPath.trim();
+    if (rawPath.length === 0 || !path.isAbsolute(rawPath)) {
+      return {
+        success: false,
+        error: { code: "EXPORT_PATH_FORBIDDEN", message: "导出路径不在白名单内" },
+      };
+    }
+
+    const targetPath =
+      args.mode === "directory" ? rawPath : path.dirname(rawPath);
+    const normalizedTargetPath = normalizePathForComparison(targetPath);
+    const isAllowed = allowedRoots.some((root) =>
+      isPathInsideDirectory(normalizedTargetPath, root),
+    );
+    if (!isAllowed) {
+      return {
+        success: false,
+        error: { code: "EXPORT_PATH_FORBIDDEN", message: "导出路径不在白名单内" },
+      };
+    }
+    return null;
   }
 
   async function buildStructuredOutput(args: {
@@ -546,6 +599,14 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
         };
       }
 
+      const pathValidation = validateOutputPath({
+        outputPath: req.outputPath,
+        mode: "file",
+      });
+      if (pathValidation) {
+        return pathValidation;
+      }
+
       const sourceDoc = await loadDocument(req);
       if (!sourceDoc) {
         return {
@@ -624,6 +685,14 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
           success: false,
           error: { code: "EXPORT_FORMAT_UNSUPPORTED", message: `不支持的格式: ${req.options.format}` },
         };
+      }
+
+      const pathValidation = validateOutputPath({
+        outputPath: req.outputPath,
+        mode: req.mergeIntoOne ? "file" : "directory",
+      });
+      if (pathValidation) {
+        return pathValidation;
       }
 
       const docs = await loadProjectDocuments(req);

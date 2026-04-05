@@ -41,9 +41,11 @@ export type IpcErrorCode =
   | "DOCUMENT_SIZE_EXCEEDED"
   | "EMBEDDING_PROVIDER_UNAVAILABLE"
   | "ENCODING_FAILED"
+  | "EXPORT_DOCUMENT_NOT_FOUND"
   | "EXPORT_EMPTY_DOCUMENT"
   | "EXPORT_FORMAT_UNSUPPORTED"
   | "EXPORT_INTERRUPTED"
+  | "EXPORT_PATH_FORBIDDEN"
   | "EXPORT_SIZE_EXCEEDED"
   | "EXPORT_UNSUPPORTED_NODE"
   | "EXPORT_WRITE_ERROR"
@@ -555,7 +557,9 @@ export type IpcChannelSpec = {
           | "SEARCH_PROJECT_NOT_FOUND"
           | "EXPORT_FORMAT_UNSUPPORTED"
           | "EXPORT_WRITE_ERROR"
+          | "EXPORT_PATH_FORBIDDEN"
           | "EXPORT_EMPTY_DOCUMENT"
+          | "EXPORT_DOCUMENT_NOT_FOUND"
           | "EXPORT_UNSUPPORTED_NODE"
           | "EXPORT_SIZE_EXCEEDED"
           | "EXPORT_INTERRUPTED";
@@ -1690,7 +1694,9 @@ export type IpcChannelSpec = {
                 | "SEARCH_PROJECT_NOT_FOUND"
                 | "EXPORT_FORMAT_UNSUPPORTED"
                 | "EXPORT_WRITE_ERROR"
+                | "EXPORT_PATH_FORBIDDEN"
                 | "EXPORT_EMPTY_DOCUMENT"
+                | "EXPORT_DOCUMENT_NOT_FOUND"
                 | "EXPORT_UNSUPPORTED_NODE"
                 | "EXPORT_SIZE_EXCEEDED"
                 | "EXPORT_INTERRUPTED";
@@ -1841,7 +1847,9 @@ export type IpcChannelSpec = {
                 | "SEARCH_PROJECT_NOT_FOUND"
                 | "EXPORT_FORMAT_UNSUPPORTED"
                 | "EXPORT_WRITE_ERROR"
+                | "EXPORT_PATH_FORBIDDEN"
                 | "EXPORT_EMPTY_DOCUMENT"
+                | "EXPORT_DOCUMENT_NOT_FOUND"
                 | "EXPORT_UNSUPPORTED_NODE"
                 | "EXPORT_SIZE_EXCEEDED"
                 | "EXPORT_INTERRUPTED";
@@ -2426,7 +2434,9 @@ export type IpcChannelSpec = {
         | "SEARCH_PROJECT_NOT_FOUND"
         | "EXPORT_FORMAT_UNSUPPORTED"
         | "EXPORT_WRITE_ERROR"
+        | "EXPORT_PATH_FORBIDDEN"
         | "EXPORT_EMPTY_DOCUMENT"
+        | "EXPORT_DOCUMENT_NOT_FOUND"
         | "EXPORT_UNSUPPORTED_NODE"
         | "EXPORT_SIZE_EXCEEDED"
         | "EXPORT_INTERRUPTED";
@@ -2570,7 +2580,9 @@ export type IpcChannelSpec = {
         | "SEARCH_PROJECT_NOT_FOUND"
         | "EXPORT_FORMAT_UNSUPPORTED"
         | "EXPORT_WRITE_ERROR"
+        | "EXPORT_PATH_FORBIDDEN"
         | "EXPORT_EMPTY_DOCUMENT"
+        | "EXPORT_DOCUMENT_NOT_FOUND"
         | "EXPORT_UNSUPPORTED_NODE"
         | "EXPORT_SIZE_EXCEEDED"
         | "EXPORT_INTERRUPTED";
@@ -2952,7 +2964,7 @@ export type IpcChannelSpec = {
   "memory:simple:clearproject": {
     request: {
       confirmed?: boolean;
-      projectId: string | null;
+      projectId: string;
     };
     response: {
       cleared: true;
@@ -3946,7 +3958,9 @@ export type IpcChannelSpec = {
           | "SEARCH_PROJECT_NOT_FOUND"
           | "EXPORT_FORMAT_UNSUPPORTED"
           | "EXPORT_WRITE_ERROR"
+          | "EXPORT_PATH_FORBIDDEN"
           | "EXPORT_EMPTY_DOCUMENT"
+          | "EXPORT_DOCUMENT_NOT_FOUND"
           | "EXPORT_UNSUPPORTED_NODE"
           | "EXPORT_SIZE_EXCEEDED"
           | "EXPORT_INTERRUPTED";

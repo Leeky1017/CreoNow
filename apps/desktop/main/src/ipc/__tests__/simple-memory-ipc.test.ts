@@ -360,6 +360,18 @@ describe("simple memory IPC handlers (P3)", () => {
 
       expect(result.ok).toBe(false);
     });
+
+    it("projectId 为 null 时返回 INVALID_ARGUMENT", async () => {
+      const harness = createHarness();
+
+      const result = await harness.invoke<never>("memory:simple:clearproject", {
+        projectId: null,
+        confirmed: true,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("INVALID_ARGUMENT");
+    });
   });
 
   // ── DB not ready ──

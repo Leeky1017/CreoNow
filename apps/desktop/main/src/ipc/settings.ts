@@ -18,6 +18,7 @@ import {
   NOOP_EVENT_BUS,
 } from "./helpers";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
+import { attachP3LifecycleParticipant } from "../services/projects/p3LifecycleParticipants";
 
 type CharacterCreatePayload = {
   projectId: string;
@@ -77,6 +78,20 @@ type LocationListPayload = {
   projectId: string;
 };
 
+const settingsLifecycleBridge = {
+  bind: (): void => {},
+  unbind: (): void => {},
+};
+
+attachP3LifecycleParticipant("settings", {
+  bind: () => {
+    settingsLifecycleBridge.bind();
+  },
+  unbind: () => {
+    settingsLifecycleBridge.unbind();
+  },
+});
+
 /**
  * Register `settings:*` IPC handlers (Character / Location CRUD).
  *
@@ -106,6 +121,14 @@ export function registerSettingsIpcHandlers(deps: {
     }
     return service;
   }
+
+  settingsLifecycleBridge.bind = () => {
+    void getService();
+  };
+  settingsLifecycleBridge.unbind = () => {
+    service?.dispose();
+    service = null;
+  };
 
   // ── Character CRUD ──
 
