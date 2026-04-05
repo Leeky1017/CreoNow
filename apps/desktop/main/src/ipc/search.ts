@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
+import type { ProjectLifecycle } from "../services/projects/projectLifecycle";
 import type { SemanticChunkIndexService } from "../services/embedding/semanticChunkIndexService";
 import { createFtsService } from "../services/search/ftsService";
 import {
@@ -189,8 +190,9 @@ function registerFtsHandlers(args: {
   db: Database.Database | null;
   logger: Logger;
   ftsService: FtsService | null;
+  readyIndexProjects: Set<string>;
 }): void {
-  const { ipcMain, db, logger, ftsService } = args;
+  const { ipcMain, db, logger, ftsService, readyIndexProjects } = args;
   ipcMain.handle(
     "search:fts:query",
     async (
@@ -339,6 +341,7 @@ function registerFtsHandlers(args: {
         logger.info("search_fts_reindex", {
           reindexed: res.data.reindexed,
         });
+        readyIndexProjects.add(safePayload.projectId.trim());
         return { ok: true, data: res.data };
       } catch (error) {
         return toInternalSearchError(
@@ -347,6 +350,40 @@ function registerFtsHandlers(args: {
           error,
         );
       }
+    },
+  );
+
+  ipcMain.handle(
+    "search:fts:indexstatus",
+    async (
+      _e,
+      payload: unknown,
+    ): Promise<IpcResponse<{ status: "ready" }>> => {
+      if (!db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (!hasProjectId(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
+
+      const projectId = payload.projectId.trim();
+      if (!readyIndexProjects.has(projectId)) {
+        return {
+          ok: false,
+          error: {
+            code: "SEARCH_INDEX_NOT_FOUND",
+            message: "Index status unavailable",
+          },
+        };
+      }
+
+      return { ok: true, data: { status: "ready" } };
     },
   );
 }
@@ -511,7 +548,9 @@ export function registerSearchIpcHandlers(deps: {
   semanticIndex?: SemanticChunkIndexService;
   semanticRetriever?: SemanticRetriever;
   hybridRankingService?: HybridRankingService;
+  projectLifecycle?: ProjectLifecycle;
 }): void {
+  const readyIndexProjects = new Set<string>();
   const ftsService = deps.db
     ? createFtsService({ db: deps.db, logger: deps.logger })
     : null;
@@ -540,6 +579,7 @@ export function registerSearchIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     ftsService,
+    readyIndexProjects,
   });
   registerRankingHandlers({
     ipcMain: deps.ipcMain,
@@ -553,4 +593,12 @@ export function registerSearchIpcHandlers(deps: {
     deps.logger,
     replaceService,
   );
+
+  deps.projectLifecycle?.register({
+    id: "search",
+    unbind: ({ projectId }) => {
+      readyIndexProjects.delete(projectId);
+    },
+    bind: () => {},
+  });
 }

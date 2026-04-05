@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
+import type { ProjectLifecycle } from "../services/projects/projectLifecycle";
 import {
   createSimpleMemoryService,
   type MemoryInjection,
@@ -22,7 +23,7 @@ import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 // ─── Payload types ──────────────────────────────────────────────────
 
 type WritePayload = {
-  projectId: string;
+  projectId: string | null;
   key: string;
   value: string;
   source?: string;
@@ -40,13 +41,13 @@ type DeletePayload = {
 };
 
 type ListPayload = {
-  projectId: string;
+  projectId: string | null;
   category?: string;
   keyPrefix?: string;
 };
 
 type InjectPayload = {
-  projectId: string;
+  projectId: string | null;
   documentText: string;
   tokenBudget?: number;
 };
@@ -76,9 +77,11 @@ export function registerSimpleMemoryIpcHandlers(deps: {
   db: Database.Database | null;
   logger: Logger;
   projectSessionBinding?: ProjectSessionBindingRegistry;
+  projectLifecycle?: ProjectLifecycle;
   eventBus?: EventBusLike;
 }): void {
   let service: SimpleMemoryService | null = null;
+  let lifecycleRegistered = false;
 
   const handleWithProjectAccess = createProjectAccessHandler({
     ipcMain: deps.ipcMain,
@@ -96,8 +99,24 @@ export function registerSimpleMemoryIpcHandlers(deps: {
     return service;
   }
 
-  // TODO [C-F8]: P3 阶段所有通道均要求 projectId 非空。
-  // 全局记忆（null projectId）暂不支持，spec 需在后续版本（P4/P5）明确。
+  function ensureLifecycleRegistered(): void {
+    if (lifecycleRegistered || !deps.projectLifecycle) {
+      return;
+    }
+    lifecycleRegistered = true;
+    deps.projectLifecycle.register({
+      id: "simple-memory",
+      unbind: () => {
+        service?.dispose();
+        service = null;
+      },
+      bind: () => {
+        getService();
+      },
+    });
+  }
+
+  ensureLifecycleRegistered();
 
   // ── memory:simple:write ──
 
@@ -187,6 +206,7 @@ export function registerSimpleMemoryIpcHandlers(deps: {
         };
       }
     },
+    { allowNullProjectId: true },
   );
 
   // ── memory:simple:read ──
@@ -244,6 +264,7 @@ export function registerSimpleMemoryIpcHandlers(deps: {
         };
       }
     },
+    { allowNullProjectId: true },
   );
 
   // ── memory:simple:delete ──
@@ -310,6 +331,7 @@ export function registerSimpleMemoryIpcHandlers(deps: {
         };
       }
     },
+    { allowNullProjectId: true },
   );
 
   // ── memory:simple:list ──
@@ -357,6 +379,7 @@ export function registerSimpleMemoryIpcHandlers(deps: {
         };
       }
     },
+    { allowNullProjectId: true },
   );
 
   // ── memory:simple:inject ──
@@ -411,6 +434,7 @@ export function registerSimpleMemoryIpcHandlers(deps: {
         };
       }
     },
+    { allowNullProjectId: true },
   );
 
   // ── memory:simple:clearproject ──

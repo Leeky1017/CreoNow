@@ -221,7 +221,7 @@ export const IPC_CHANNELS = [
   "export:document:pdf",
   "export:document:prosemirror",
   "export:document:txt",
-  "export:progress:get",
+  "export:progress:update",
   "export:project:bundle",
   "export:project:prosemirror",
   "file:document:create",
@@ -308,11 +308,9 @@ export const IPC_CHANNELS = [
   "rag:config:get",
   "rag:config:update",
   "rag:context:retrieve",
+  "search:fts:indexstatus",
   "search:fts:query",
   "search:fts:reindex",
-  "search:project:indexstatus",
-  "search:project:query",
-  "search:project:reindex",
   "search:query:strategy",
   "search:rank:explain",
   "search:replace:execute",
@@ -1355,11 +1353,22 @@ export type IpcChannelSpec = {
   "export:document:prosemirror": {
     request: {
       documentId: string;
+      options: {
+        fontSize?: number;
+        format: "markdown" | "docx" | "pdf" | "txt";
+        includeMetadata?: boolean;
+        includeTableOfContents?: boolean;
+        pageSize?: "a4" | "letter";
+      };
+      outputPath: string;
       projectId: string;
     };
     response: {
-      content: string;
-      documentId: string;
+      documentCount: number;
+      durationMs: number;
+      format: string;
+      outputPath: string;
+      totalWordCount: number;
     };
   };
   "export:document:txt": {
@@ -1372,15 +1381,18 @@ export type IpcChannelSpec = {
       relativePath: string;
     };
   };
-  "export:progress:get": {
+  "export:progress:update": {
     request: {
-      exportId?: string;
-      projectId: string;
-    };
-    response: {
+      currentDocument: string;
       exportId: string;
       progress: number;
-      status: string;
+      stage: "parsing" | "converting" | "writing";
+    };
+    response: {
+      currentDocument: string;
+      exportId: string;
+      progress: number;
+      stage: "parsing" | "converting" | "writing";
     };
   };
   "export:project:bundle": {
@@ -1394,14 +1406,24 @@ export type IpcChannelSpec = {
   };
   "export:project:prosemirror": {
     request: {
+      documentIds?: Array<string>;
+      mergeIntoOne?: boolean;
+      options: {
+        fontSize?: number;
+        format: "markdown" | "docx" | "pdf" | "txt";
+        includeMetadata?: boolean;
+        includeTableOfContents?: boolean;
+        pageSize?: "a4" | "letter";
+      };
+      outputPath: string;
       projectId: string;
     };
     response: {
-      items: Array<{
-        content: string;
-        documentId: string;
-        title: string;
-      }>;
+      documentCount: number;
+      durationMs: number;
+      format: string;
+      outputPath: string;
+      totalWordCount: number;
     };
   };
   "file:document:create": {
@@ -2953,7 +2975,7 @@ export type IpcChannelSpec = {
   "memory:simple:delete": {
     request: {
       id: string;
-      projectId: string;
+      projectId: string | null;
     };
     response: {
       deleted: true;
@@ -2962,7 +2984,7 @@ export type IpcChannelSpec = {
   "memory:simple:inject": {
     request: {
       documentText: string;
-      projectId: string;
+      projectId: string | null;
       tokenBudget?: number;
     };
     response: {
@@ -2973,7 +2995,7 @@ export type IpcChannelSpec = {
         createdAt: number;
         id: string;
         key: string;
-        projectId?: string;
+        projectId: string | null;
         source: string;
         updatedAt: number;
         value: string;
@@ -2985,7 +3007,7 @@ export type IpcChannelSpec = {
     request: {
       category?: string;
       keyPrefix?: string;
-      projectId: string;
+      projectId: string | null;
     };
     response: {
       items: Array<{
@@ -2993,7 +3015,7 @@ export type IpcChannelSpec = {
         createdAt: number;
         id: string;
         key: string;
-        projectId?: string;
+        projectId: string | null;
         source: string;
         updatedAt: number;
         value: string;
@@ -3003,14 +3025,14 @@ export type IpcChannelSpec = {
   "memory:simple:read": {
     request: {
       id: string;
-      projectId: string;
+      projectId: string | null;
     };
     response: {
       category: string;
       createdAt: number;
       id: string;
       key: string;
-      projectId?: string;
+      projectId: string | null;
       source: string;
       updatedAt: number;
       value: string;
@@ -3020,7 +3042,7 @@ export type IpcChannelSpec = {
     request: {
       category?: string;
       key: string;
-      projectId: string;
+      projectId: string | null;
       source?: string;
       value: string;
     };
@@ -3029,7 +3051,7 @@ export type IpcChannelSpec = {
       createdAt: number;
       id: string;
       key: string;
-      projectId?: string;
+      projectId: string | null;
       source: string;
       updatedAt: number;
       value: string;
@@ -3076,45 +3098,75 @@ export type IpcChannelSpec = {
       projectId: string;
     };
     response: {
-      autoSave: boolean;
+      createdAt: number;
+      defaultSkillSetId: string | null;
       description: string;
-      genre: string;
+      goals: {
+        targetChapterCount: number;
+        targetWordCount: number;
+      };
       id: string;
-      languageStyle: string;
+      knowledgeGraphId: string | null;
+      lifecycleStatus: "active" | "archived" | "deleted";
       name: string;
-      narrativePerson: string;
-      stage: string;
-      targetAudience: string;
-      type: string;
+      stage: "outline" | "draft" | "revision" | "final";
+      style: {
+        genre: string;
+        languageStyle: string;
+        narrativePerson: string;
+        targetAudience: string;
+        tone: string;
+      };
+      type: "novel" | "screenplay" | "media";
       updatedAt: number;
-      wordCountGoal?: number;
     };
   };
   "project:config:update": {
     request: {
       patch: {
-        autoSave?: boolean;
-        genre?: string;
-        languageStyle?: string;
-        narrativePerson?: string;
-        targetAudience?: string;
-        wordCountGoal?: number;
+        defaultSkillSetId?: string | null;
+        description?: string;
+        goals?: {
+          targetChapterCount?: number;
+          targetWordCount?: number;
+        };
+        knowledgeGraphId?: string | null;
+        lifecycleStatus?: "active" | "archived" | "deleted";
+        name?: string;
+        stage?: "outline" | "draft" | "revision" | "final";
+        style?: {
+          genre?: string;
+          languageStyle?: string;
+          narrativePerson?: string;
+          targetAudience?: string;
+          tone?: string;
+        };
+        type?: "novel" | "screenplay" | "media";
       };
       projectId: string;
     };
     response: {
-      autoSave: boolean;
+      createdAt: number;
+      defaultSkillSetId: string | null;
       description: string;
-      genre: string;
+      goals: {
+        targetChapterCount: number;
+        targetWordCount: number;
+      };
       id: string;
-      languageStyle: string;
+      knowledgeGraphId: string | null;
+      lifecycleStatus: "active" | "archived" | "deleted";
       name: string;
-      narrativePerson: string;
-      stage: string;
-      targetAudience: string;
-      type: string;
+      stage: "outline" | "draft" | "revision" | "final";
+      style: {
+        genre: string;
+        languageStyle: string;
+        narrativePerson: string;
+        targetAudience: string;
+        tone: string;
+      };
+      type: "novel" | "screenplay" | "media";
       updatedAt: number;
-      wordCountGoal?: number;
     };
   };
   "project:documents:list": {
@@ -3403,6 +3455,14 @@ export type IpcChannelSpec = {
       usedTokens: number;
     };
   };
+  "search:fts:indexstatus": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      status: "ready";
+    };
+  };
   "search:fts:query": {
     request: {
       limit?: number;
@@ -3441,51 +3501,6 @@ export type IpcChannelSpec = {
     response: {
       indexState: "ready";
       reindexed: number;
-    };
-  };
-  "search:project:indexstatus": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      status: string;
-    };
-  };
-  "search:project:query": {
-    request: {
-      limit?: number;
-      offset?: number;
-      projectId: string;
-      query: string;
-    };
-    response: {
-      hasMore: boolean;
-      indexState: string;
-      results: Array<{
-        anchor: {
-          end: number;
-          start: number;
-        };
-        documentId: string;
-        documentOffset: number;
-        documentTitle: string;
-        documentType: string;
-        highlights: Array<{
-          end: number;
-          start: number;
-        }>;
-        projectId: string;
-        snippet: string;
-      }>;
-      total: number;
-    };
-  };
-  "search:project:reindex": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      rebuilt: true;
     };
   };
   "search:query:strategy": {

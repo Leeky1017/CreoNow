@@ -91,6 +91,7 @@ function makeProjectConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfi
     style: makeStyleConfig(),
     goals: makeGoals(),
     defaultSkillSetId: null,
+    knowledgeGraphId: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     ...overrides,
@@ -260,6 +261,7 @@ describe("ProjectManager P3", () => {
       expect(result.data?.name).toBe("暗流");
       expect(result.data?.type).toBe("novel");
       expect(result.data?.lifecycleStatus).toBe("active");
+      expect(result.data?.knowledgeGraphId).toBeNull();
       expect(typeof result.data?.createdAt).toBe("number");
       expect(typeof result.data?.updatedAt).toBe("number");
     });
@@ -669,6 +671,22 @@ describe("ProjectManager P3", () => {
       expect(secondResult.success).toBe(true);
       expect(steps).toEqual(["unbind:proj-1", "bind:proj-2"]);
       serialManager.dispose();
+    });
+  });
+
+  describe("project existence gates", () => {
+    it("不存在的项目 documents:list 返回 PROJECT_NOT_FOUND", async () => {
+      const result = await manager.listDocuments("missing-project");
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
+    });
+
+    it("不存在的项目 overview:get 返回 PROJECT_NOT_FOUND", async () => {
+      const result = await manager.getOverview("missing-project");
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
     });
   });
 

@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
+import type { ProjectLifecycle } from "../services/projects/projectLifecycle";
 import {
   createSettingsService,
   type CharacterEntry,
@@ -90,9 +91,11 @@ export function registerSettingsIpcHandlers(deps: {
   db: Database.Database | null;
   logger: Logger;
   projectSessionBinding?: ProjectSessionBindingRegistry;
+  projectLifecycle?: ProjectLifecycle;
   eventBus?: EventBusLike;
 }): void {
   let service: SettingsService | null = null;
+  let lifecycleRegistered = false;
 
   const handleWithProjectAccess = createProjectAccessHandler({
     ipcMain: deps.ipcMain,
@@ -106,6 +109,25 @@ export function registerSettingsIpcHandlers(deps: {
     }
     return service;
   }
+
+  function ensureLifecycleRegistered(): void {
+    if (lifecycleRegistered || !deps.projectLifecycle) {
+      return;
+    }
+    lifecycleRegistered = true;
+    deps.projectLifecycle.register({
+      id: "settings",
+      unbind: () => {
+        service?.dispose();
+        service = null;
+      },
+      bind: () => {
+        getService();
+      },
+    });
+  }
+
+  ensureLifecycleRegistered();
 
   // ── Character CRUD ──
 

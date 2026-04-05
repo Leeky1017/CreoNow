@@ -636,7 +636,7 @@ interface ProseMirrorExporter {
 |----------|---------|------|------|
 | `export:document:prosemirror` | Request-Response | Renderer → Main | 导出单文档（ProseMirror 格式） |
 | `export:project:prosemirror` | Request-Response | Renderer → Main | 导出项目（ProseMirror 格式） |
-| `export:progress` | Push Notification | Main → Renderer | 导出进度推送 |
+| `export:progress:update` | Push Notification | Main → Renderer | 导出进度推送 |
 
 #### 错误处理
 
@@ -677,7 +677,7 @@ type ExportCompletedEvent = {
 - **当** 用户选择「导出项目 → DOCX」，勾选「合并为单文件」「包含目录」
 - **则** 系统按章节顺序合并所有文档
 - **并且** 生成带目录的 DOCX 文件
-- **并且** 导出进度通过 `export:progress` 实时推送
+- **并且** 导出进度通过 `export:progress:update` 实时推送
 - **并且** 完成后 Toast 通知成功
 
 #### Scenario: P3 将项目导出为 PDF 供投稿

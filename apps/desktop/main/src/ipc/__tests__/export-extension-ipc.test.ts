@@ -1,5 +1,35 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { IpcMain } from "electron";
+
+const mocks = vi.hoisted(() => {
+  const exportDocumentMock = vi.fn();
+  const exportProjectMock = vi.fn();
+  const exporterDisposeMock = vi.fn();
+  const createProseMirrorExporterMock = vi.fn(
+    (args: { eventBus: { emit: (payload: Record<string, unknown>) => void } }) => ({
+      exportDocument: exportDocumentMock,
+      exportProject: exportProjectMock,
+      dispose: exporterDisposeMock,
+      toMarkdown: vi.fn(),
+      toDocx: vi.fn(),
+      toPdf: vi.fn(),
+      toTxt: vi.fn(),
+      isNodeSupported: vi.fn(),
+      isMarkSupported: vi.fn(),
+      __emitProgress: (payload: Record<string, unknown>) => args.eventBus.emit(payload),
+    }),
+  );
+  return {
+    exportDocumentMock,
+    exportProjectMock,
+    exporterDisposeMock,
+    createProseMirrorExporterMock,
+  };
+});
+
+vi.mock("../../services/export/prosemirrorExporter", () => ({
+  createProseMirrorExporter: mocks.createProseMirrorExporterMock,
+}));
 
 import { registerExportIpcHandlers } from "../export";
 
@@ -13,6 +43,11 @@ interface IpcResponse<T> {
 
 function createHarness() {
   const handlers = new Map<string, Handler>();
+  const listeners = new Map<string, Set<(payload: Record<string, unknown>) => void>>();
+  const sender = {
+    id: 1,
+    send: vi.fn(),
+  };
 
   const ipcMain = {
     handle: (channel: string, listener: Handler) => {
@@ -27,17 +62,11 @@ function createHarness() {
     debug: vi.fn(),
   };
 
-  const stmtRun = vi.fn();
-  const stmtGet = vi.fn(
-    (..._args: unknown[]) => undefined as Record<string, unknown> | undefined,
-  );
-  const stmtAll = vi.fn((..._args: unknown[]): Record<string, unknown>[] => []);
-
   const db = {
     prepare: vi.fn(() => ({
-      run: stmtRun,
-      get: stmtGet,
-      all: stmtAll,
+      run: vi.fn(),
+      get: vi.fn(),
+      all: vi.fn(() => []),
     })),
     exec: vi.fn(),
     transaction: vi.fn((fn: () => void) => fn),
@@ -48,27 +77,54 @@ function createHarness() {
     db: db as never,
     logger: logger as never,
     userDataDir: "/mock/user-data",
+    eventBus: {
+      emit: (payload) => {
+        const eventName = typeof payload.type === "string" ? payload.type : "";
+        if (!eventName) {
+          return;
+        }
+        for (const listener of listeners.get(eventName) ?? []) {
+          listener(payload);
+        }
+      },
+      on: (eventName, handler) => {
+        const bucket = listeners.get(eventName) ?? new Set();
+        bucket.add(handler);
+        listeners.set(eventName, bucket);
+      },
+      off: (eventName, handler) => {
+        const bucket = listeners.get(eventName);
+        if (!bucket) {
+          return;
+        }
+        bucket.delete(handler);
+        if (bucket.size === 0) {
+          listeners.delete(eventName);
+        }
+      },
+    },
   });
 
   return {
+    handlers,
+    sender,
     invoke: async <T>(channel: string, payload?: unknown) => {
       const handler = handlers.get(channel);
-      if (!handler) throw new Error(`No handler for ${channel}`);
-      return (await handler(
-        { sender: { id: 1 } },
-        payload,
-      )) as IpcResponse<T>;
+      if (!handler) {
+        throw new Error(`No handler for ${channel}`);
+      }
+      return (await handler({ sender }, payload)) as IpcResponse<T>;
     },
-    handlers,
-    logger,
-    db,
-    stmtGet,
-    stmtAll,
   };
 }
 
 describe("export extension IPC handlers (P3)", () => {
-  // ── export:document:prosemirror ──
+  beforeEach(() => {
+    mocks.exportDocumentMock.mockReset();
+    mocks.exportProjectMock.mockReset();
+    mocks.exporterDisposeMock.mockReset();
+    mocks.createProseMirrorExporterMock.mockClear();
+  });
 
   describe("export:document:prosemirror", () => {
     it("通道已注册", () => {
@@ -76,61 +132,69 @@ describe("export extension IPC handlers (P3)", () => {
       expect(harness.handlers.has("export:document:prosemirror")).toBe(true);
     });
 
-    it("缺少 documentId 返回 INVALID_ARGUMENT", async () => {
+    it("缺少 outputPath 返回 INVALID_ARGUMENT", async () => {
       const harness = createHarness();
 
-      const result = await harness.invoke<never>(
-        "export:document:prosemirror",
-        { projectId: "proj-1" },
-      );
+      const result = await harness.invoke<never>("export:document:prosemirror", {
+        projectId: "proj-1",
+        documentId: "doc-1",
+        options: { format: "markdown" },
+      });
 
       expect(result.ok).toBe(false);
       expect(result.error?.code).toBe("INVALID_ARGUMENT");
     });
 
-    it("文档不存在返回 EXPORT_EMPTY_DOCUMENT", async () => {
+    it("执行真实导出契约并推送进度", async () => {
       const harness = createHarness();
-      harness.stmtGet.mockReturnValueOnce(undefined);
-
-      const result = await harness.invoke<never>(
-        "export:document:prosemirror",
-        { projectId: "proj-1", documentId: "doc-nonexistent" },
-      );
-
-      expect(result.ok).toBe(false);
-      expect(result.error?.code).toBe("EXPORT_EMPTY_DOCUMENT");
-    });
-
-    it("文档存在返回 ProseMirror JSON", async () => {
-      const harness = createHarness();
-      const mockContent = JSON.stringify({ type: "doc", content: [] });
-      harness.stmtGet.mockReturnValueOnce({ contentJson: mockContent });
+      mocks.exportDocumentMock.mockImplementationOnce(async (_payload: unknown) => {
+        const [exporterArgs] = mocks.createProseMirrorExporterMock.mock.calls.at(-1) ?? [];
+        exporterArgs?.eventBus.emit({
+          type: "export-progress",
+          exportId: "exp-1",
+          stage: "writing",
+          progress: 100,
+          currentDocument: "doc-1",
+        });
+        return {
+          success: true,
+          data: {
+            documentCount: 1,
+            outputPath: "workspace/exports/doc-1.md",
+            format: "markdown",
+            totalWordCount: 1200,
+            durationMs: 15,
+          },
+        };
+      });
 
       const result = await harness.invoke<{
-        documentId: string;
-        content: string;
+        documentCount: number;
+        outputPath: string;
+        format: string;
       }>("export:document:prosemirror", {
         projectId: "proj-1",
         documentId: "doc-1",
+        outputPath: "workspace/exports/doc-1.md",
+        options: { format: "markdown" },
       });
 
       expect(result.ok).toBe(true);
-      expect(result.data?.documentId).toBe("doc-1");
-      expect(result.data?.content).toBe(mockContent);
-    });
-
-    it("非 object payload 返回 INVALID_ARGUMENT", async () => {
-      const harness = createHarness();
-      const result = await harness.invoke<never>(
-        "export:document:prosemirror",
-        null,
+      expect(result.data?.documentCount).toBe(1);
+      expect(result.data?.outputPath).toContain("doc-1.md");
+      expect(result.data?.format).toBe("markdown");
+      expect(harness.sender.send).toHaveBeenCalledWith(
+        "export:progress:update",
+        expect.objectContaining({
+          exportId: "exp-1",
+          stage: "writing",
+          progress: 100,
+          currentDocument: "doc-1",
+        }),
       );
-      expect(result.ok).toBe(false);
-      expect(result.error?.code).toBe("INVALID_ARGUMENT");
+      expect(mocks.exporterDisposeMock).toHaveBeenCalled();
     });
   });
-
-  // ── export:project:prosemirror ──
 
   describe("export:project:prosemirror", () => {
     it("通道已注册", () => {
@@ -138,163 +202,42 @@ describe("export extension IPC handlers (P3)", () => {
       expect(harness.handlers.has("export:project:prosemirror")).toBe(true);
     });
 
-    it("空项目返回空 items", async () => {
+    it("执行项目导出契约", async () => {
       const harness = createHarness();
-      harness.stmtAll.mockReturnValueOnce([]);
-
-      const result = await harness.invoke<{
-        items: Array<{
-          documentId: string;
-          title: string;
-          content: string;
-        }>;
-      }>("export:project:prosemirror", { projectId: "proj-empty" });
-
-      expect(result.ok).toBe(true);
-      expect(result.data?.items).toEqual([]);
-    });
-
-    it("返回项目所有文档", async () => {
-      const harness = createHarness();
-      const docs = [
-        {
-          documentId: "doc-1",
-          title: "Chapter 1",
-          contentJson: '{"type":"doc"}',
+      mocks.exportProjectMock.mockResolvedValueOnce({
+        success: true,
+        data: {
+          documentCount: 12,
+          outputPath: "workspace/exports/project.docx",
+          format: "docx",
+          totalWordCount: 88000,
+          durationMs: 320,
         },
-        {
-          documentId: "doc-2",
-          title: "Chapter 2",
-          contentJson: '{"type":"doc","content":[]}',
-        },
-      ];
-      // list() uses all(), read() uses get() for each document
-      harness.stmtAll.mockReturnValueOnce(docs);
-      harness.stmtGet
-        .mockReturnValueOnce({ documentId: "doc-1", contentJson: '{"type":"doc"}' })
-        .mockReturnValueOnce({ documentId: "doc-2", contentJson: '{"type":"doc","content":[]}' });
+      });
 
       const result = await harness.invoke<{
-        items: Array<{
-          documentId: string;
-          title: string;
-          content: string;
-        }>;
-      }>("export:project:prosemirror", { projectId: "proj-1" });
-
-      expect(result.ok).toBe(true);
-      expect(result.data?.items.length).toBe(2);
-      expect(result.data?.items[0].documentId).toBe("doc-1");
-      expect(result.data?.items[0].content).toBe('{"type":"doc"}');
-    });
-
-    it("缺少 projectId 返回 INVALID_ARGUMENT", async () => {
-      const harness = createHarness();
-      const result = await harness.invoke<never>(
-        "export:project:prosemirror",
-        {},
-      );
-      expect(result.ok).toBe(false);
-      expect(result.error?.code).toBe("INVALID_ARGUMENT");
-    });
-  });
-
-  // ── export:progress:get ──
-
-  describe("export:progress:get", () => {
-    it("通道已注册", () => {
-      const harness = createHarness();
-      expect(harness.handlers.has("export:progress:get")).toBe(true);
-    });
-
-    it("返回 idle 状态（stub）", async () => {
-      const harness = createHarness();
-
-      const result = await harness.invoke<{
-        exportId: string;
-        status: string;
-        progress: number;
-      }>("export:progress:get", {
+        documentCount: number;
+        totalWordCount: number;
+      }>("export:project:prosemirror", {
         projectId: "proj-1",
+        outputPath: "workspace/exports/project.docx",
+        mergeIntoOne: true,
+        options: { format: "docx", includeTableOfContents: true },
       });
 
       expect(result.ok).toBe(true);
-      expect(result.data?.status).toBe("idle");
-      expect(result.data?.progress).toBe(0);
-    });
-
-    it("提供 exportId 时返回该 exportId", async () => {
-      const harness = createHarness();
-
-      const result = await harness.invoke<{
-        exportId: string;
-        status: string;
-        progress: number;
-      }>("export:progress:get", {
-        projectId: "proj-1",
-        exportId: "export-123",
-      });
-
-      expect(result.ok).toBe(true);
-      expect(result.data?.exportId).toBe("export-123");
-    });
-
-    it("非 object payload 返回 INVALID_ARGUMENT", async () => {
-      const harness = createHarness();
-
-      const result = await harness.invoke<never>("export:progress:get", null);
-      expect(result.ok).toBe(false);
-      expect(result.error?.code).toBe("INVALID_ARGUMENT");
+      expect(result.data?.documentCount).toBe(12);
+      expect(result.data?.totalWordCount).toBe(88000);
+      expect(mocks.exporterDisposeMock).toHaveBeenCalled();
     });
   });
 
-  // ── B-F08~F11: Export 错误码 ──
-
-  describe("export 错误路径", () => {
-    it("DB 报错时 prosemirror document 返回 EXPORT_WRITE_ERROR", async () => {
+  describe("push progress channel", () => {
+    it("不再注册 export:progress:get 轮询 stub", () => {
       const harness = createHarness();
-      harness.stmtGet.mockImplementationOnce(() => {
-        throw new Error("mock DB crash");
-      });
-
-      const result = await harness.invoke<never>(
-        "export:document:prosemirror",
-        { projectId: "proj-1", documentId: "doc-1" },
-      );
-
-      expect(result.ok).toBe(false);
-      expect(result.error?.code).toBe("EXPORT_WRITE_ERROR");
+      expect(harness.handlers.has("export:progress:get")).toBe(false);
     });
-
-    it("DB 报错时 prosemirror project 返回 EXPORT_WRITE_ERROR", async () => {
-      const harness = createHarness();
-      harness.stmtAll.mockImplementationOnce(() => {
-        throw new Error("mock DB crash");
-      });
-
-      const result = await harness.invoke<never>(
-        "export:project:prosemirror",
-        { projectId: "proj-1" },
-      );
-
-      expect(result.ok).toBe(false);
-      expect(result.error?.code).toBe("EXPORT_WRITE_ERROR");
-    });
-
-    // EXPORT_INTERRUPTED — 该错误码为预留，在当前同步 ProseMirror 导出中不会触发。
-    // 将在 P4/P5 实现流式导出时用于取消操作。
-
-    // TODO [B-F08]: EXPORT_FORMAT_UNSUPPORTED 为预留码，在 prosemirror 通道中格式固化于通道名，
-    // 此错误码将在通用 export 接口实现后触发。Service 层 prosemirror-exporter.test.ts 已覆盖。
-
-    // TODO [B-F10]: EXPORT_UNSUPPORTED_NODE 为预留码，当前 prosemirror 导出不做节点类型校验。
-    // 将在 P4/P5 实现结构化导出过滤时启用，届时不支持的节点类型将触发此码。
-
-    // TODO [B-F11]: EXPORT_SIZE_EXCEEDED 为预留码，当前导出无文件大小上限。
-    // 将在 P4/P5 实现大文件导出限制时启用，届时超出上限的导出将触发此码。
   });
-
-  // ── DB not ready ──
 
   describe("DB 未就绪", () => {
     it("prosemirror 通道在 DB 为 null 时返回 DB_ERROR", async () => {
@@ -317,25 +260,26 @@ describe("export extension IPC handlers (P3)", () => {
         userDataDir: "/mock",
       });
 
-      const prosemirrorChannels = [
+      for (const channel of [
         "export:document:prosemirror",
         "export:project:prosemirror",
-      ];
-
-      for (const channel of prosemirrorChannels) {
+      ]) {
         const handler = handlers.get(channel)!;
-        const result = (await handler({ sender: { id: 1 } }, {
-          projectId: "p",
-          documentId: "d",
-        })) as IpcResponse<never>;
+        const result = (await handler(
+          { sender: { id: 1, send: vi.fn() } },
+          {
+            projectId: "proj-1",
+            documentId: "doc-1",
+            outputPath: "workspace/export.out",
+            options: { format: "markdown" },
+          },
+        )) as IpcResponse<never>;
 
         expect(result.ok).toBe(false);
         expect(result.error?.code).toBe("DB_ERROR");
       }
     });
   });
-
-  // ── Existing export channels still work ──
 
   describe("已有导出通道兼容性", () => {
     it("export:document:markdown 仍然注册", () => {

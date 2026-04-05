@@ -137,6 +137,24 @@ describe("simple memory IPC handlers (P3)", () => {
       expect(result.ok).toBe(false);
       expect(result.error?.code).toBe("INVALID_ARGUMENT");
     });
+
+    it("允许写入全局偏好（projectId=null）", async () => {
+      const harness = createHarness();
+      harness.stmtGet.mockReturnValueOnce({ count: 0 });
+
+      const result = await harness.invoke<{ projectId: string | null; key: string }>(
+        "memory:simple:write",
+        {
+          projectId: null,
+          key: "pref:narrative-person",
+          value: "第一人称",
+        },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.data?.projectId).toBeNull();
+      expect(result.data?.key).toBe("pref:narrative-person");
+    });
   });
 
   // ── memory:simple:read ──
@@ -275,6 +293,32 @@ describe("simple memory IPC handlers (P3)", () => {
       expect(result.ok).toBe(true);
       expect(result.data?.items.length).toBeGreaterThanOrEqual(1);
       expect(result.data?.items.some((i) => i.key === "k1")).toBe(true);
+    });
+
+    it("projectId=null 时仅列出全局偏好", async () => {
+      const harness = createHarness();
+      harness.stmtGet.mockReturnValueOnce({ count: 0 });
+      await harness.invoke("memory:simple:write", {
+        projectId: null,
+        key: "pref:voice",
+        value: "冷静",
+      });
+
+      harness.stmtAll.mockImplementationOnce(() => {
+        throw new Error("mock: no real DB");
+      });
+
+      const result = await harness.invoke<{ items: Array<{ key: string; projectId: string | null }> }>(
+        "memory:simple:list",
+        { projectId: null },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.data?.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ key: "pref:voice", projectId: null }),
+        ]),
+      );
     });
   });
 
