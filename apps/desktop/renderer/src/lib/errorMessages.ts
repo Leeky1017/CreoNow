@@ -125,6 +125,18 @@ export const IPC_ERROR_MESSAGE_KEYS = {
   COST_PRICING_STALE: "errors.upstream",
   DIFF_COMPUTE_FAILED: "errors.upstream",
   DIFF_INPUT_TOO_LARGE: "errors.payloadTooLarge",
+  CHARACTER_NAME_REQUIRED: "errors.invalidArgument",
+  CHARACTER_NAME_DUPLICATE: "errors.conflict",
+  CHARACTER_NOT_FOUND: "errors.notFound",
+  CHARACTER_ATTR_KEY_TOO_LONG: "errors.invalidArgument",
+  CHARACTER_ATTR_LIMIT_EXCEEDED: "errors.capacityExceeded",
+  CHARACTER_CAPACITY_EXCEEDED: "errors.capacityExceeded",
+  LOCATION_NAME_REQUIRED: "errors.invalidArgument",
+  LOCATION_NAME_DUPLICATE: "errors.conflict",
+  LOCATION_NOT_FOUND: "errors.notFound",
+  LOCATION_ATTR_KEY_TOO_LONG: "errors.invalidArgument",
+  LOCATION_ATTR_LIMIT_EXCEEDED: "errors.capacityExceeded",
+  LOCATION_CAPACITY_EXCEEDED: "errors.capacityExceeded",
 } satisfies Record<IpcErrorCode, ErrorMessageKey>;
 
 function getIpcErrorMessageKey(code: unknown): ErrorMessageKey {
