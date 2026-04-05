@@ -89,17 +89,6 @@ async function main(): Promise<void> {
   assert.equal(invalidDocumentId.ok, false);
   assert.equal(invalidDocumentId.error?.code, "INVALID_ARGUMENT");
 
-  const invalidBundlePayload = (await dbReadyHarness.invoke(
-    "export:project:bundle",
-    { projectId: 7 },
-  )) as {
-    ok: boolean;
-    error?: { code?: string };
-  };
-
-  assert.equal(invalidBundlePayload.ok, false);
-  assert.equal(invalidBundlePayload.error?.code, "INVALID_ARGUMENT");
-
   const dbMissingHarness = createMockIpcMain();
   const dbMissingLogger = createLogger();
 
@@ -145,18 +134,6 @@ async function main(): Promise<void> {
 
   assert.equal(exportDenied.ok, false);
   assert.equal(exportDenied.error?.code, "FORBIDDEN");
-
-  const bundleDeniedWhenUnbound = (await guardHarness.invokeFrom(
-    999,
-    "export:project:bundle",
-    { projectId: "project-guess" },
-  )) as {
-    ok: boolean;
-    error?: { code?: string };
-  };
-
-  assert.equal(bundleDeniedWhenUnbound.ok, false);
-  assert.equal(bundleDeniedWhenUnbound.error?.code, "FORBIDDEN");
 }
 
 void main().catch((error) => {

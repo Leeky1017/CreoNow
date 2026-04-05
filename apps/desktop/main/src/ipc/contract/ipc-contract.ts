@@ -540,17 +540,6 @@ const EXPORT_PROSEMIRROR_RESULT_SCHEMA = s.object({
   durationMs: s.number(),
 });
 
-const EXPORT_PROGRESS_UPDATE_SCHEMA = s.object({
-  exportId: s.string(),
-  stage: s.union(
-    s.literal("parsing"),
-    s.literal("converting"),
-    s.literal("writing"),
-  ),
-  progress: s.number(),
-  currentDocument: s.string(),
-});
-
 const AI_PROMPT_DIAGNOSTICS_SCHEMA = s.object({
   stablePrefixHash: s.string(),
   promptHash: s.string(),
@@ -986,8 +975,8 @@ const PROJECT_CONFIG_SCHEMA = s.object({
     targetAudience: s.string(),
   }),
   goals: s.object({
-    targetWordCount: s.number(),
-    targetChapterCount: s.number(),
+    targetWordCount: s.union(s.number(), s.literal(null)),
+    targetChapterCount: s.union(s.number(), s.literal(null)),
   }),
   defaultSkillSetId: s.union(s.string(), s.literal(null)),
   knowledgeGraphId: s.union(s.string(), s.literal(null)),
@@ -1109,12 +1098,6 @@ export const ipcContract = {
       request: s.object({
         projectId: s.string(),
         documentId: s.optional(s.string()),
-      }),
-      response: EXPORT_RESULT_SCHEMA,
-    },
-    "export:project:bundle": {
-      request: s.object({
-        projectId: s.string(),
       }),
       response: EXPORT_RESULT_SCHEMA,
     },
@@ -2191,24 +2174,6 @@ export const ipcContract = {
         ),
       }),
     },
-    "project:project:update": {
-      request: s.object({
-        projectId: s.string(),
-        patch: s.object({
-          type: s.optional(s.string()),
-          description: s.optional(s.string()),
-          stage: s.optional(s.string()),
-          targetWordCount: s.optional(s.number()),
-          targetChapterCount: s.optional(s.number()),
-          narrativePerson: s.optional(s.string()),
-          languageStyle: s.optional(s.string()),
-          targetAudience: s.optional(s.string()),
-          defaultSkillSetId: s.optional(s.string()),
-          knowledgeGraphId: s.optional(s.string()),
-        }),
-      }),
-      response: s.object({ updated: s.literal(true) }),
-    },
     "project:project:stats": {
       request: s.object({}),
       response: s.object({
@@ -2768,8 +2733,8 @@ export const ipcContract = {
           ),
           goals: s.optional(
             s.object({
-              targetWordCount: s.optional(s.number()),
-              targetChapterCount: s.optional(s.number()),
+              targetWordCount: s.optional(s.union(s.number(), s.literal(null))),
+              targetChapterCount: s.optional(s.union(s.number(), s.literal(null))),
             }),
           ),
           defaultSkillSetId: s.optional(s.union(s.string(), s.literal(null))),
@@ -2896,10 +2861,6 @@ export const ipcContract = {
         }),
       }),
       response: EXPORT_PROSEMIRROR_RESULT_SCHEMA,
-    },
-    "export:progress:update": {
-      request: EXPORT_PROGRESS_UPDATE_SCHEMA,
-      response: EXPORT_PROGRESS_UPDATE_SCHEMA,
     },
   },
 } as const;

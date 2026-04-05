@@ -23,6 +23,8 @@ describe("installGlobalErrorHandlers", () => {
       stream: {
         registerAiStreamConsumer: () => ({ ok: true, data: { subscriptionId: "sub-1" } }),
         releaseAiStreamConsumer: () => undefined,
+        registerExportProgressConsumer: () => ({ ok: true, data: { subscriptionId: "sub-export-1" } }),
+        releaseExportProgressConsumer: () => undefined,
       },
     };
 
@@ -56,6 +58,8 @@ describe("installGlobalErrorHandlers", () => {
       stream: {
         registerAiStreamConsumer: () => ({ ok: true, data: { subscriptionId: "sub-1" } }),
         releaseAiStreamConsumer: () => undefined,
+        registerExportProgressConsumer: () => ({ ok: true, data: { subscriptionId: "sub-export-1" } }),
+        releaseExportProgressConsumer: () => undefined,
       },
     };
 
@@ -88,6 +92,8 @@ describe("installGlobalErrorHandlers", () => {
       stream: {
         registerAiStreamConsumer: () => ({ ok: true, data: { subscriptionId: "sub-1" } }),
         releaseAiStreamConsumer: () => undefined,
+        registerExportProgressConsumer: () => ({ ok: true, data: { subscriptionId: "sub-export-1" } }),
+        releaseExportProgressConsumer: () => undefined,
       },
     };
 

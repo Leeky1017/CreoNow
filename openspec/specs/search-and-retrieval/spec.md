@@ -477,6 +477,17 @@ interface SearchFtsQueryResponse {
     → 结果排序（BM25 相关度）
     → 片段高亮（FTS5 snippet 函数）
     → 返回 SearchFtsQueryResponse
+
+项目绑定（project lifecycle bind）
+  → ProjectLifecycle.bind({ projectId })
+    → search participant 触发 FTS 重建（search:fts:reindex 等效操作）
+    → 将 projectId 加入 readyIndexProjects 集合
+    → 后续 search:fts:indexstatus 即可返回 ready
+
+项目解绑（project lifecycle unbind）
+  → ProjectLifecycle.unbind({ projectId })
+    → search participant 从 readyIndexProjects 移除 projectId
+    → search:fts:indexstatus 恢复返回 SEARCH_INDEX_NOT_FOUND
 ```
 
 #### ProseMirror 文档的文本提取

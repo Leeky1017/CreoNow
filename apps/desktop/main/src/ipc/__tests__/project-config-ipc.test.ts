@@ -387,4 +387,46 @@ describe("project config IPC handlers (P3)", () => {
       expect(result.data?.tone).toBe("冷静");
     });
   });
+
+  describe("project:config:update nullable goals", () => {
+    it("通过 validated IPC 将 targetWordCount 更新为 null", async () => {
+      seedProjects = [SEED_PROJECT];
+      const harness = createHarness();
+
+      const result = await harness.invoke<{
+        goals: { targetWordCount: number | null; targetChapterCount: number | null };
+      }>("project:config:update", {
+        projectId: "proj-seed",
+        patch: {
+          goals: { targetWordCount: null },
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.data?.goals.targetWordCount).toBeNull();
+    });
+
+    it("通过 validated IPC 将 targetChapterCount 更新为 null", async () => {
+      seedProjects = [SEED_PROJECT];
+      const harness = createHarness();
+
+      const result = await harness.invoke<{
+        goals: { targetWordCount: number | null; targetChapterCount: number | null };
+      }>("project:config:update", {
+        projectId: "proj-seed",
+        patch: {
+          goals: { targetWordCount: 100000, targetChapterCount: null },
+        },
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.data?.goals.targetWordCount).toBe(100000);
+      expect(result.data?.goals.targetChapterCount).toBeNull();
+    });
+
+    it("project:project:update 通道不再注册（已收口到 project:config:update）", () => {
+      const harness = createHarness();
+      expect(harness.handlers.has("project:project:update")).toBe(false);
+    });
+  });
 });

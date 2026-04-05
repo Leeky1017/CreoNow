@@ -599,6 +599,20 @@ export function registerSearchIpcHandlers(deps: {
     unbind: ({ projectId }) => {
       readyIndexProjects.delete(projectId);
     },
-    bind: () => {},
+    bind: ({ projectId }) => {
+      // Warm the FTS index for the newly bound project so that
+      // `search:fts:indexstatus` returns "ready" without requiring an
+      // explicit `search:fts:reindex` call from the renderer.
+      if (ftsService) {
+        const res = ftsService.reindex({ projectId });
+        if (res?.ok) {
+          readyIndexProjects.add(projectId);
+          deps.logger.info("search_fts_bind_reindex", {
+            projectId,
+            reindexed: res.data.reindexed,
+          });
+        }
+      }
+    },
   });
 }

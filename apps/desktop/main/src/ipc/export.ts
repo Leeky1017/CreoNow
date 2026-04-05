@@ -124,23 +124,6 @@ function parseLegacyDocumentExportPayload(
   return { ok: true, data: { projectId, documentId } };
 }
 
-function parseProjectBundlePayload(
-  payload: unknown,
-):
-  | { ok: true; data: { projectId: string } }
-  | { ok: false; error: ExportPayloadError } {
-  if (!isRecord(payload)) {
-    return { ok: false, error: invalidPayload("payload must be an object") };
-  }
-
-  const projectId = payload.projectId;
-  if (typeof projectId !== "string") {
-    return { ok: false, error: invalidPayload("projectId must be a string") };
-  }
-
-  return { ok: true, data: { projectId } };
-}
-
 function parseExportOptions(
   payload: unknown,
 ):
@@ -495,52 +478,6 @@ function registerLegacyExportHandlers(args: {
       return invokeDocumentExport(event, "export:document:txt", payload, (exportArgs) =>
         service.exportTxt(exportArgs),
       );
-    },
-  );
-
-  args.ipcMain.handle(
-    "export:project:bundle",
-    async (
-      event,
-      payload: unknown,
-    ): Promise<IpcResponse<{ relativePath: string; bytesWritten: number }>> => {
-      const guarded = guardAndNormalizeProjectAccess({
-        event,
-        payload,
-        projectSessionBinding: args.projectSessionBinding,
-      });
-      if (!guarded.ok) {
-        return guarded.response;
-      }
-
-      if (!args.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
-      }
-
-      const parsed = parseProjectBundlePayload(payload);
-      if (!parsed.ok) {
-        return { ok: false, error: parsed.error };
-      }
-
-      const service = createExportService({
-        db: args.db,
-        logger: args.logger,
-        userDataDir: args.userDataDir,
-      });
-
-      try {
-        const result = await service.exportProjectBundle(parsed.data);
-        return resolveLegacyExportResponse(result);
-      } catch (error) {
-        args.logger.error("ipc_export_unexpected_error", {
-          channel: "export:project:bundle",
-          message: error instanceof Error ? error.message : String(error),
-        });
-        return { ok: false, error: toUnexpectedExportError(error) };
-      }
     },
   );
 }

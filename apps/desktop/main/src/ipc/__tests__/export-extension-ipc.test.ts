@@ -286,10 +286,5 @@ describe("export extension IPC handlers (P3)", () => {
       const harness = createHarness();
       expect(harness.handlers.has("export:document:markdown")).toBe(true);
     });
-
-    it("export:project:bundle 仍然注册", () => {
-      const harness = createHarness();
-      expect(harness.handlers.has("export:project:bundle")).toBe(true);
-    });
   });
 });

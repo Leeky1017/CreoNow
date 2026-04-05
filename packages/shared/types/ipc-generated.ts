@@ -221,8 +221,6 @@ export const IPC_CHANNELS = [
   "export:document:pdf",
   "export:document:prosemirror",
   "export:document:txt",
-  "export:progress:update",
-  "export:project:bundle",
   "export:project:prosemirror",
   "file:document:create",
   "file:document:delete",
@@ -303,7 +301,6 @@ export const IPC_CHANNELS = [
   "project:project:setcurrent",
   "project:project:stats",
   "project:project:switch",
-  "project:project:update",
   "project:style:get",
   "rag:config:get",
   "rag:config:update",
@@ -1374,29 +1371,6 @@ export type IpcChannelSpec = {
   "export:document:txt": {
     request: {
       documentId?: string;
-      projectId: string;
-    };
-    response: {
-      bytesWritten: number;
-      relativePath: string;
-    };
-  };
-  "export:progress:update": {
-    request: {
-      currentDocument: string;
-      exportId: string;
-      progress: number;
-      stage: "parsing" | "converting" | "writing";
-    };
-    response: {
-      currentDocument: string;
-      exportId: string;
-      progress: number;
-      stage: "parsing" | "converting" | "writing";
-    };
-  };
-  "export:project:bundle": {
-    request: {
       projectId: string;
     };
     response: {
@@ -3102,8 +3076,8 @@ export type IpcChannelSpec = {
       defaultSkillSetId: string | null;
       description: string;
       goals: {
-        targetChapterCount: number;
-        targetWordCount: number;
+        targetChapterCount: number | null;
+        targetWordCount: number | null;
       };
       id: string;
       knowledgeGraphId: string | null;
@@ -3127,8 +3101,8 @@ export type IpcChannelSpec = {
         defaultSkillSetId?: string | null;
         description?: string;
         goals?: {
-          targetChapterCount?: number;
-          targetWordCount?: number;
+          targetChapterCount?: number | null;
+          targetWordCount?: number | null;
         };
         knowledgeGraphId?: string | null;
         lifecycleStatus?: "active" | "archived" | "deleted";
@@ -3150,8 +3124,8 @@ export type IpcChannelSpec = {
       defaultSkillSetId: string | null;
       description: string;
       goals: {
-        targetChapterCount: number;
-        targetWordCount: number;
+        targetChapterCount: number | null;
+        targetWordCount: number | null;
       };
       id: string;
       knowledgeGraphId: string | null;
@@ -3372,26 +3346,6 @@ export type IpcChannelSpec = {
     response: {
       currentProjectId: string;
       switchedAt: string;
-    };
-  };
-  "project:project:update": {
-    request: {
-      patch: {
-        defaultSkillSetId?: string;
-        description?: string;
-        knowledgeGraphId?: string;
-        languageStyle?: string;
-        narrativePerson?: string;
-        stage?: string;
-        targetAudience?: string;
-        targetChapterCount?: number;
-        targetWordCount?: number;
-        type?: string;
-      };
-      projectId: string;
-    };
-    response: {
-      updated: true;
     };
   };
   "project:style:get": {

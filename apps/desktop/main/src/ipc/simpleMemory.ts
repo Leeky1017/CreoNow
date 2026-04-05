@@ -438,8 +438,8 @@ export function registerSimpleMemoryIpcHandlers(deps: {
   );
 
   // ── memory:simple:clearproject ──
-  // NOTE: Spec 中使用 kebab-case (clear-project)，但合约生成器要求 [a-z0-9] only。
-  // 保持 clearproject 以符合 RESOURCE_ACTION_SEGMENT_PATTERN。
+  // Channel name uses lowercase-only segments as required by
+  // RESOURCE_ACTION_SEGMENT_PATTERN; the spec uses the same name.
 
   handleWithProjectAccess(
     "memory:simple:clearproject",

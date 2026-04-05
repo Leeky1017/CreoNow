@@ -148,47 +148,6 @@ function registerProjectCrudHandlers(deps: ProjectHandlerDeps): void {
   );
 
   deps.ipcMain.handle(
-    "project:project:update",
-    async (
-      _e,
-      payload: {
-        projectId: string;
-        patch: {
-          type?: "novel" | "screenplay" | "media";
-          description?: string;
-          stage?: "outline" | "draft" | "revision" | "final";
-          targetWordCount?: number | null;
-          targetChapterCount?: number | null;
-          narrativePerson?: "first" | "third-limited" | "third-omniscient";
-          languageStyle?: string;
-          targetAudience?: string;
-          defaultSkillSetId?: string | null;
-          knowledgeGraphId?: string | null;
-        };
-      },
-    ): Promise<IpcResponse<{ updated: true }>> => {
-      if (!deps.db) {
-        return {
-          ok: false,
-          error: { code: "DB_ERROR", message: "Database not ready" },
-        };
-      }
-      const svc = createProjectService({
-        db: deps.db,
-        userDataDir: deps.userDataDir,
-        logger: deps.logger,
-      });
-      const res = svc.update({
-        projectId: payload.projectId,
-        patch: payload.patch,
-      });
-      return res.ok
-        ? { ok: true, data: res.data }
-        : { ok: false, error: res.error };
-    },
-  );
-
-  deps.ipcMain.handle(
     "project:project:stats",
     async (): Promise<
       IpcResponse<{ total: number; active: number; archived: number }>
