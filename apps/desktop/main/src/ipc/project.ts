@@ -711,7 +711,7 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
         if (typeof payload.patch.name !== "string" || payload.patch.name.trim().length === 0) {
           return {
             ok: false,
-            error: { code: "PROJECT_GENRE_REQUIRED", message: "genre cannot be empty" },
+            error: { code: "PROJECT_CONFIG_INVALID", message: "name cannot be empty" },
           };
         }
         updates.name = payload.patch.name;

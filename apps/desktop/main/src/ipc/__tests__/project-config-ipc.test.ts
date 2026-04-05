@@ -199,6 +199,19 @@ describe("project config IPC handlers (P3)", () => {
       expect(result.ok).toBe(false);
       expect(result.error?.code).toBe("PROJECT_GENRE_REQUIRED");
     });
+
+    it("空格 name 返回 PROJECT_CONFIG_INVALID", async () => {
+      const harness = createHarness();
+      const result = await harness.invoke<never>("project:config:update", {
+        projectId: "proj-1",
+        patch: { name: "   " },
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error).toEqual({
+        code: "PROJECT_CONFIG_INVALID",
+        message: "name cannot be empty",
+      });
+    });
   });
 
   // ── project:style:get ──
