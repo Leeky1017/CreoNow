@@ -9,7 +9,14 @@ import {
   type LocationEntry,
   type SettingsService,
 } from "../services/settings/settingsService";
-import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
+import {
+  type EventBusLike,
+  createProjectAccessHandler,
+  isRecord,
+  notReady,
+  validateNonEmptyString,
+  NOOP_EVENT_BUS,
+} from "./helpers";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type CharacterCreatePayload = {
@@ -70,36 +77,6 @@ type LocationListPayload = {
   projectId: string;
 };
 
-function notReady<T>(): IpcResponse<T> {
-  return {
-    ok: false,
-    error: { code: "DB_ERROR", message: "Database not ready" },
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function validateNonEmptyString(
-  value: unknown,
-  fieldName: string,
-): string | null {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    return `${fieldName} is required`;
-  }
-  return null;
-}
-
-interface EventBusLike {
-  emit(event: Record<string, unknown>): void;
-  on(event: string, handler: (payload: Record<string, unknown>) => void): void;
-  off(
-    event: string,
-    handler: (payload: Record<string, unknown>) => void,
-  ): void;
-}
-
 /**
  * Register `settings:*` IPC handlers (Character / Location CRUD).
  *
@@ -117,38 +94,17 @@ export function registerSettingsIpcHandlers(deps: {
 }): void {
   let service: SettingsService | null = null;
 
-  const noopEventBus: EventBusLike = {
-    emit: () => {},
-    on: () => {},
-    off: () => {},
-  };
+  const handleWithProjectAccess = createProjectAccessHandler({
+    ipcMain: deps.ipcMain,
+    projectSessionBinding: deps.projectSessionBinding,
+  });
 
   function getService(): SettingsService | null {
     if (!deps.db) return null;
     if (!service) {
-      service = createSettingsService({ db: deps.db, eventBus: deps.eventBus ?? noopEventBus });
+      service = createSettingsService({ db: deps.db, eventBus: deps.eventBus ?? NOOP_EVENT_BUS });
     }
     return service;
-  }
-
-  function handleWithProjectAccess<TPayload, TResponse>(
-    channel: string,
-    listener: (
-      event: unknown,
-      payload: TPayload,
-    ) => Promise<IpcResponse<TResponse>>,
-  ): void {
-    deps.ipcMain.handle(channel, async (event, payload) => {
-      const guarded = guardAndNormalizeProjectAccess({
-        event,
-        payload,
-        projectSessionBinding: deps.projectSessionBinding,
-      });
-      if (!guarded.ok) {
-        return guarded.response as IpcResponse<TResponse>;
-      }
-      return listener(event, payload as TPayload);
-    });
   }
 
   // ── Character CRUD ──

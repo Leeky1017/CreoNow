@@ -284,4 +284,170 @@ export function registerExportIpcHandlers(deps: {
       }
     },
   );
+
+  // ── P3: ProseMirror export handlers ──
+
+  deps.ipcMain.handle(
+    "export:document:prosemirror",
+    async (
+      event,
+      payload: unknown,
+    ): Promise<IpcResponse<{ documentId: string; content: string }>> => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response;
+      }
+
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      if (!payload || typeof payload !== "object") {
+        return {
+          ok: false,
+          error: invalidPayload("payload must be an object"),
+        };
+      }
+
+      const projectId = (payload as { projectId?: unknown }).projectId;
+      if (typeof projectId !== "string" || projectId.trim().length === 0) {
+        return {
+          ok: false,
+          error: invalidPayload("projectId is required"),
+        };
+      }
+
+      const documentId = (payload as { documentId?: unknown }).documentId;
+      if (typeof documentId !== "string" || documentId.trim().length === 0) {
+        return {
+          ok: false,
+          error: invalidPayload("documentId is required"),
+        };
+      }
+
+      try {
+        const svc = createExportService({
+          db: deps.db,
+          logger: deps.logger,
+          userDataDir: deps.userDataDir,
+        });
+        const result = svc.getDocumentProsemirror({ projectId, documentId });
+        return result.ok
+          ? { ok: true, data: result.data }
+          : { ok: false, error: result.error };
+      } catch (error) {
+        deps.logger.error("ipc_export_prosemirror_error", {
+          channel: "export:document:prosemirror",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "EXPORT_WRITE_ERROR", message: "Failed to read document content" },
+        };
+      }
+    },
+  );
+
+  deps.ipcMain.handle(
+    "export:project:prosemirror",
+    async (
+      event,
+      payload: unknown,
+    ): Promise<
+      IpcResponse<{
+        items: Array<{ documentId: string; title: string; content: string }>;
+      }>
+    > => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response;
+      }
+
+      if (!deps.db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+
+      const parsed = parseProjectBundlePayload(payload);
+      if (!parsed.ok) {
+        return { ok: false, error: parsed.error };
+      }
+
+      try {
+        const svc = createExportService({
+          db: deps.db,
+          logger: deps.logger,
+          userDataDir: deps.userDataDir,
+        });
+        const result = svc.getProjectProsemirror({ projectId: parsed.data.projectId });
+        return result.ok
+          ? { ok: true, data: result.data }
+          : { ok: false, error: result.error };
+      } catch (error) {
+        deps.logger.error("ipc_export_prosemirror_error", {
+          channel: "export:project:prosemirror",
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          ok: false,
+          error: { code: "EXPORT_WRITE_ERROR", message: "Failed to read project documents" },
+        };
+      }
+    },
+  );
+
+  // ── P3: Export progress (stub — TODO: push notification) ──
+  // TODO: P3 阶段为 stub，完整 Push Notification 实现在 P4/P5。
+  // 当前使用 Request-Response 轮询作为过渡方案。
+  // NOTE: Spec 定义为 Push Notification，但合约生成器要求 3 段 <domain>:<resource>:<action>，
+  // 故保持 export:progress:get。
+
+  deps.ipcMain.handle(
+    "export:progress:get",
+    async (
+      event,
+      payload: unknown,
+    ): Promise<
+      IpcResponse<{ exportId: string; status: string; progress: number }>
+    > => {
+      const guarded = guardAndNormalizeProjectAccess({
+        event,
+        payload,
+        projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response;
+      }
+
+      if (!payload || typeof payload !== "object") {
+        return {
+          ok: false,
+          error: invalidPayload("payload must be an object"),
+        };
+      }
+
+      // TODO: P3 阶段为 stub，完整 Push Notification 实现在 P4/P5。
+      // 当前使用 Request-Response 轮询作为过渡方案。
+      const p = payload as Record<string, unknown>;
+      const exportId =
+        typeof p.exportId === "string" ? p.exportId : "none";
+      return {
+        ok: true,
+        data: { exportId, status: "idle", progress: 0 },
+      };
+    },
+  );
 }

@@ -43,6 +43,15 @@ export type ExportService = {
     projectId: string;
     documentId?: string;
   }) => Promise<ServiceResult<ExportResult>>;
+  getDocumentProsemirror: (args: {
+    projectId: string;
+    documentId: string;
+  }) => ServiceResult<{ documentId: string; content: string }>;
+  getProjectProsemirror: (args: {
+    projectId: string;
+  }) => ServiceResult<{
+    items: Array<{ documentId: string; title: string; content: string }>;
+  }>;
 };
 
 const MAX_EXPORT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
@@ -622,9 +631,60 @@ export function createExportService(deps: ExportDeps): ExportService {
     }
   }
 
+  function getDocumentProsemirror(args: {
+    projectId: string;
+    documentId: string;
+  }): ServiceResult<{ documentId: string; content: string }> {
+    const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
+    const doc = docSvc.read({ projectId: args.projectId, documentId: args.documentId });
+
+    if (!doc.ok) {
+      if (doc.error.code === "DB_ERROR") {
+        return ipcError("EXPORT_WRITE_ERROR", doc.error.message);
+      }
+      return ipcError("EXPORT_EMPTY_DOCUMENT", "Document not found or empty");
+    }
+
+    const contentJson = doc.data.contentJson;
+    if (!contentJson) {
+      return ipcError("EXPORT_EMPTY_DOCUMENT", "Document not found or empty");
+    }
+
+    return { ok: true, data: { documentId: args.documentId, content: contentJson } };
+  }
+
+  function getProjectProsemirror(args: {
+    projectId: string;
+  }): ServiceResult<{
+    items: Array<{ documentId: string; title: string; content: string }>;
+  }> {
+    const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
+    const listResult = docSvc.list({ projectId: args.projectId });
+
+    if (!listResult.ok) {
+      if (listResult.error.code === "DB_ERROR") {
+        return ipcError("EXPORT_WRITE_ERROR", listResult.error.message);
+      }
+      return { ok: true, data: { items: [] } };
+    }
+
+    const items = listResult.data.items.map((item) => {
+      const doc = docSvc.read({ projectId: args.projectId, documentId: item.documentId });
+      return {
+        documentId: item.documentId,
+        title: item.title ?? "",
+        content: doc.ok ? (doc.data.contentJson ?? "{}") : "{}",
+      };
+    });
+
+    return { ok: true, data: { items } };
+  }
+
   return {
     ...createTextExportOps(deps, resolve),
     ...createBinaryExportOps(deps, resolve),
     exportProjectBundle,
+    getDocumentProsemirror,
+    getProjectProsemirror,
   };
 }
