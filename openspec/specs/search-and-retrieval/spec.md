@@ -408,7 +408,7 @@ type ProseMirrorDocument = ProseMirrorNode;
 
 /** P3 `search:fts:query` 请求——仅当前项目 */
 interface SearchFtsQueryRequest {
-  /** 项目 ID */
+  /** 项目 ID（必须等于当前 renderer session / lifecycle 绑定的项目） */
   projectId: string;
   /** 搜索关键词 */
   query: string;
@@ -526,6 +526,7 @@ interface TextDiff {
 | FTS 索引不存在          | `SEARCH_INDEX_NOT_FOUND`       | 非运行时主路径的 seam/status helper 可返回该错误                           |
 | FTS 索引损坏            | `ok: true` + `indexState=rebuilding` | 自动触发重建，提示稍后重试                                             |
 | 项目不存在              | `SEARCH_PROJECT_NOT_FOUND`     | 返回错误                                                                  |
+| renderer session / lifecycle 绑定项目与请求 projectId 不一致 | `SEARCH_PROJECT_FORBIDDEN` | 立即拒绝，不得继续查询或重建当前项目之外的索引                              |
 | 跨项目结果泄漏          | `SEARCH_PROJECT_FORBIDDEN`     | 立即拒绝，不得成功返回 foreign project 数据                                |
 | 搜索超时                | `SEARCH_TIMEOUT`               | 返回已有部分结果（若实现了超时降级）                                      |
 | 搜索反压                | `SEARCH_BACKPRESSURE`          | 超限请求排队，返回可重试信息                                              |
@@ -566,6 +567,14 @@ type SearchIndexUpdatedEvent = {
 - **则** IPC 校验立即拒绝该请求
 - **并且** FTS 查询仍必须带 `WHERE projectId = ?`
 - **并且** 若底层 DB / seam 意外回传 `projectId != requestedProjectId` 的行，系统必须返回 `SEARCH_PROJECT_FORBIDDEN`，而不是成功返回 foreign project 数据
+
+#### Scenario: P3 项目切换后 search 仅绑定到当前项目
+
+- **假设** Renderer session 当前已绑定项目 A，随后通过项目切换生命周期切到项目 B
+- **当** `search` participant 先对 A 执行 `unbind`，再对 B 执行 `bind`
+- **则** `search:fts:*` 在未完成 `bind(B)` 前必须拒绝请求
+- **并且** 重新绑定后仅允许 `projectId = B` 的请求继续执行
+- **并且** 不得继续信任切换前项目 A 的旧 `projectId`
 
 #### Scenario: P3 搜索无结果
 

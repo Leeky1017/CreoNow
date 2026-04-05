@@ -541,6 +541,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     semanticIndex,
+    projectSessionBinding,
   });
 
   registerRagIpcHandlers({

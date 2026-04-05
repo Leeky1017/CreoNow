@@ -13,6 +13,7 @@ import {
   type SemanticRetriever,
 } from "../services/search/hybridRankingService";
 import { createSearchReplaceService } from "../services/search/searchReplaceService";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type SearchReplaceService = ReturnType<typeof createSearchReplaceService>;
 type FtsService = ReturnType<typeof createFtsService>;
@@ -28,18 +29,32 @@ const searchLifecycleScope = {
   generation: 0,
 };
 
-attachP3LifecycleParticipant("search", {
-  bind: ({ projectId }) => {
+const searchLifecycleBridge = {
+  bind: ({ projectId }: { projectId: string }) => {
     searchLifecycleScope.activeProjectId = projectId;
     searchLifecycleScope.generation += 1;
   },
-  unbind: ({ projectId }) => {
+  unbind: ({ projectId }: { projectId: string }) => {
     if (searchLifecycleScope.activeProjectId === projectId) {
       searchLifecycleScope.activeProjectId = null;
     }
     searchLifecycleScope.generation += 1;
   },
+};
+
+attachP3LifecycleParticipant("search", {
+  bind: ({ projectId }) => {
+    searchLifecycleBridge.bind({ projectId });
+  },
+  unbind: ({ projectId }) => {
+    searchLifecycleBridge.unbind({ projectId });
+  },
 });
+
+export function resetSearchLifecycleScopeForTests(): void {
+  searchLifecycleScope.activeProjectId = null;
+  searchLifecycleScope.generation = 0;
+}
 
 function listProjectDocuments(args: {
   db: Database.Database;
@@ -138,6 +153,100 @@ function hasProjectId(payload: unknown): payload is { projectId: string } {
   return typeof projectId === "string" && projectId.trim().length > 0;
 }
 
+function senderWebContentsId(event: unknown): number | null {
+  if (!event || typeof event !== "object") {
+    return null;
+  }
+  const sender = (event as { sender?: unknown }).sender;
+  if (!sender || typeof sender !== "object") {
+    return null;
+  }
+  return typeof (sender as { id?: unknown }).id === "number"
+    ? ((sender as { id: number }).id ?? null)
+    : null;
+}
+
+function searchProjectForbidden(message: string): IpcResponse<never> {
+  return {
+    ok: false,
+    error: {
+      code: "SEARCH_PROJECT_FORBIDDEN",
+      message,
+    },
+  };
+}
+
+function guardSearchProjectAccess(args: {
+  event: unknown;
+  payload: { projectId: string };
+  projectSessionBinding?: ProjectSessionBindingRegistry;
+}): { ok: true } | { ok: false; response: IpcResponse<never> } {
+  const requestedProjectId = args.payload.projectId.trim();
+  if (requestedProjectId.length === 0) {
+    return {
+      ok: false,
+      response: {
+        ok: false,
+        error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+      },
+    };
+  }
+
+  if (args.projectSessionBinding) {
+    const webContentsId = senderWebContentsId(args.event);
+    if (!webContentsId) {
+      return {
+        ok: false,
+        response: searchProjectForbidden(
+          "search is not bound to an active renderer project",
+        ),
+      };
+    }
+
+    const boundProjectId = args.projectSessionBinding.resolveProjectId({
+      webContentsId,
+    });
+    if (!boundProjectId) {
+      return {
+        ok: false,
+        response: searchProjectForbidden(
+          "search is not bound to an active renderer project",
+        ),
+      };
+    }
+    if (boundProjectId !== requestedProjectId) {
+      return {
+        ok: false,
+        response: searchProjectForbidden(
+          "search projectId must match the active renderer project",
+        ),
+      };
+    }
+  }
+
+  if (searchLifecycleScope.generation > 0) {
+    if (!searchLifecycleScope.activeProjectId) {
+      return {
+        ok: false,
+        response: searchProjectForbidden(
+          "search is temporarily unbound during project switch",
+        ),
+      };
+    }
+    if (searchLifecycleScope.activeProjectId !== requestedProjectId) {
+      return {
+        ok: false,
+        response: searchProjectForbidden(
+          "search projectId must match the lifecycle-bound project",
+        ),
+      };
+    }
+  }
+
+  args.payload.projectId = requestedProjectId;
+  return { ok: true };
+}
+
 function registerSearchReplaceHandlers(
   ipcMain: IpcMain,
   db: Database.Database | null,
@@ -208,8 +317,9 @@ function registerFtsHandlers(args: {
   db: Database.Database | null;
   logger: Logger;
   ftsService: FtsService | null;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
-  const { ipcMain, db, logger, ftsService } = args;
+  const { ipcMain, db, logger, ftsService, projectSessionBinding } = args;
   ipcMain.handle(
     "search:fts:query",
     async (
@@ -262,6 +372,14 @@ function registerFtsHandlers(args: {
               "scope is not supported; search is limited to the current project",
           },
         };
+      }
+      const guarded = guardSearchProjectAccess({
+        event: _e,
+        payload: safePayload,
+        projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response;
       }
       const queryLength =
         typeof safePayload.query === "string"
@@ -338,6 +456,14 @@ function registerFtsHandlers(args: {
       }
 
       const safePayload = payload as { projectId: string };
+      const guarded = guardSearchProjectAccess({
+        event: _e,
+        payload: safePayload,
+        projectSessionBinding,
+      });
+      if (!guarded.ok) {
+        return guarded.response;
+      }
 
       try {
         const res = ftsService?.reindex({ projectId: safePayload.projectId });
@@ -530,6 +656,7 @@ export function registerSearchIpcHandlers(deps: {
   semanticIndex?: SemanticChunkIndexService;
   semanticRetriever?: SemanticRetriever;
   hybridRankingService?: HybridRankingService;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
   const ftsService = deps.db
     ? createFtsService({ db: deps.db, logger: deps.logger })
@@ -559,6 +686,7 @@ export function registerSearchIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     ftsService,
+    projectSessionBinding: deps.projectSessionBinding,
   });
   registerRankingHandlers({
     ipcMain: deps.ipcMain,
