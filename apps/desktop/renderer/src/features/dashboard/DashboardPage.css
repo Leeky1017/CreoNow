@@ -88,7 +88,7 @@
 
 /* ── Project Card ──────────────────────────── */
 
-.cn-dashboard__card {
+.cn-dashboard__card.cn-button {
   display: flex;
   align-items: flex-start;
   gap: var(--space-4);
@@ -104,12 +104,17 @@
               transform var(--duration-fast) var(--ease-default);
 }
 
-.cn-dashboard__card:hover {
+.cn-dashboard__card.cn-button:hover {
   background: var(--color-bg-hover);
 }
 
-.cn-dashboard__card:active {
+.cn-dashboard__card.cn-button:active {
   transform: scale(0.98);
+}
+
+.cn-dashboard__card.cn-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 .cn-dashboard__card-icon {

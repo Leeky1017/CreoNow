@@ -98,6 +98,15 @@
   background: var(--color-bg-hover);
 }
 
+.cn-project-view__doc-item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cn-project-view__doc-item:active {
+  background: var(--color-bg-selected);
+}
+
 .cn-project-view__doc-title-group {
   display: flex;
   align-items: center;
@@ -157,6 +166,15 @@
   border-color: var(--color-separator-bold);
 }
 
+.cn-project-view__char-card:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cn-project-view__char-card:active {
+  background: var(--color-bg-selected);
+}
+
 .cn-project-view__char-avatar {
   display: flex;
   align-items: center;
@@ -181,4 +199,12 @@
   margin: 0;
   font-size: var(--text-status-size);
   color: var(--color-fg-muted);
+}
+
+/* ── Add Button ────────────────────────────── */
+
+.cn-project-view__add-btn.cn-button {
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-body-size);
 }

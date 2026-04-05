@@ -13,7 +13,7 @@ export interface ProjectCharacter {
 export interface ProjectData {
   id: string;
   title: string;
-  type: string;
+  type: "novel" | "short-collection" | "screenplay";
   draftNumber: number;
   createdAt: string;
   totalWords: number;
@@ -27,9 +27,9 @@ export interface ProjectData {
 export const mockProject: ProjectData = {
   id: "proj-1",
   title: "风从北方来",
-  type: "长篇小说",
+  type: "novel",
   draftNumber: 3,
-  createdAt: "2024.12.01",
+  createdAt: "2024-12-01T00:00:00Z",
   totalWords: 32450,
   chapterCount: 8,
   characterCount: 12,

@@ -242,6 +242,9 @@ const resources = {
       "project.view.documents": "章节",
       "project.view.characters": "角色",
       "project.view.addCharacter": "添加",
+      "project.type.novel": "长篇小说",
+      "project.type.short-collection": "短篇集",
+      "project.type.screenplay": "剧本",
     },
   },
 } as const;

@@ -14,6 +14,8 @@ import { Button } from "@/components/primitives/Button";
 import { SectionHeader } from "@/components/composites/SectionHeader";
 import { StatPill } from "@/components/composites/StatPill";
 
+import { formatRelativeTime } from "@/lib/formatRelativeTime";
+
 import type { ProjectData } from "./mockData";
 import { mockProject } from "./mockData";
 
@@ -49,7 +51,7 @@ export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps)
           </div>
         </div>
         <p className="cn-project-view__subtitle">
-          {project.type} · {t("project.view.draft", { count: project.draftNumber })} · {t("project.view.createdAt", { date: project.createdAt })}
+          {t(`project.type.${project.type}`)} · {t("project.view.draft", { count: project.draftNumber })} · {t("project.view.createdAt", { date: formatRelativeTime(project.createdAt) })}
         </p>
       </header>
 
@@ -78,7 +80,7 @@ export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps)
         <SectionHeader label={t("project.view.documents")} />
         <div className="cn-project-view__doc-list">
           {project.documents.map((doc) => (
-            <div key={doc.id} className="cn-project-view__doc-item">
+            <div key={doc.id} className="cn-project-view__doc-item" tabIndex={0} role="button">
               <div className="cn-project-view__doc-title-group">
                 <span className="cn-project-view__doc-icon">
                   <FileText size={14} />
@@ -98,7 +100,7 @@ export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps)
         <SectionHeader
           label={t("project.view.characters")}
           action={
-            <Button tone="ghost" className="cn-settings__verify">
+            <Button tone="ghost" className="cn-project-view__add-btn">
               <Plus size={12} />
               {t("project.view.addCharacter")}
             </Button>
@@ -106,7 +108,7 @@ export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps)
         />
         <div className="cn-project-view__char-grid">
           {project.characters.map((char) => (
-            <div key={char.id} className="cn-project-view__char-card">
+            <div key={char.id} className="cn-project-view__char-card" tabIndex={0} role="button">
               <div className="cn-project-view__char-avatar">
                 {char.name.charAt(0)}
               </div>

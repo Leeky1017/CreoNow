@@ -6,6 +6,7 @@ import { Button } from "@/components/primitives/Button";
 import { EmptyState } from "@/components/composites/EmptyState";
 import { SearchBar } from "@/components/composites/SearchBar";
 import { cn } from "@/lib/cn";
+import { formatRelativeTime } from "@/lib/formatRelativeTime";
 
 import type { Project } from "./mockData";
 import { mockProjects } from "./mockData";
@@ -24,7 +25,7 @@ export function DashboardPage({ projects = mockProjects }: DashboardPageProps) {
   const [filter, setFilter] = useState<FilterType>("all");
 
   const filtered = projects.filter((p) => {
-    if (search && !p.title.includes(search) && !p.subtitle.includes(search)) {
+    if (search && !p.title.includes(search)) {
       return false;
     }
     if (filter === "novels") return p.type === "novel";
@@ -114,13 +115,13 @@ function ProjectCard({ project }: { project: Project }) {
   statParts.push(t("dashboard.stats.words", { count: project.wordCount }));
 
   return (
-    <button type="button" className="cn-dashboard__card">
+    <Button tone="ghost" className="cn-dashboard__card">
       <div className="cn-dashboard__card-icon">
         <FileText size={18} />
       </div>
       <div className="cn-dashboard__card-content">
         <div className="cn-dashboard__card-header">
-          <span className="cn-dashboard__card-type">{project.subtitle}</span>
+          <span className="cn-dashboard__card-type">{t(`project.type.${project.type}`)}</span>
           <span className="cn-dashboard__card-meta-dot" />
           <h2 className="cn-dashboard__card-title">{project.title}</h2>
         </div>
@@ -132,9 +133,9 @@ function ProjectCard({ project }: { project: Project }) {
             </span>
           ))}
           <span className="cn-dashboard__card-meta-dot" />
-          <span>{project.updatedAt}</span>
+          <span>{formatRelativeTime(project.updatedAt)}</span>
         </p>
       </div>
-    </button>
+    </Button>
   );
 }

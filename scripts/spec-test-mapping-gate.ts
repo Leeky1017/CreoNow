@@ -247,6 +247,37 @@ export function extractScenarios(rootDir: string = "."): ScenarioEntry[] {
 }
 
 /**
+ * Split a pure-CJK string into bigrams for fuzzy matching.
+ */
+function splitCjk(text: string): string[] {
+  const cjkChars = text.replace(/[^\u4e00-\u9fff]/g, "");
+  if (cjkChars.length < 2) return [text];
+  const grams: string[] = [];
+  for (let i = 0; i < cjkChars.length - 1; i++) {
+    grams.push(cjkChars.slice(i, i + 2));
+  }
+  return grams;
+}
+
+/**
+ * Extract keywords from a scenario title for fuzzy matching.
+ * Handles CJK-only titles by producing bigrams.
+ */
+function extractKeywords(title: string): string[] {
+  const tokens = title
+    .split(/[\s,;:—/（）()、，。]+/)
+    .filter((w) => w.length >= 2);
+
+  if (tokens.length >= 2) return tokens;
+
+  // Pure CJK fallback: split into bigrams
+  const cjkGrams = splitCjk(title);
+  if (cjkGrams.length >= 2) return cjkGrams;
+
+  return tokens;
+}
+
+/**
  * Search test files for Scenario ID references.
  */
 export function findTestMappings(
@@ -278,10 +309,8 @@ export function findTestMappings(
   return scenarios.map((scenario) => {
     const matchedFiles: string[] = [];
     // Build keyword list from the title for fuzzy matching
-    // Extract CJK + Latin tokens ≥ 2 chars
-    const keywords = scenario.title
-      .split(/[\s,;:—/（）()、，。]+/)
-      .filter((w) => w.length >= 2);
+    // Extract CJK + Latin tokens ≥ 2 chars, with CJK bigram fallback
+    const keywords = extractKeywords(scenario.title);
 
     for (const [filePath, content] of testFileContents) {
       // Exact ID match (works for both S-XXX-NN and prefix IDs like BE-SLA-S1)
