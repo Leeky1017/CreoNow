@@ -30,5 +30,4 @@
 .cn-search-bar .cn-input:focus-visible {
   background: var(--color-bg-surface);
   border-color: var(--color-separator-bold);
-  outline: none;
 }

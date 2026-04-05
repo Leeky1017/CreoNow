@@ -80,7 +80,7 @@ export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps)
         <SectionHeader label={t("project.view.documents")} />
         <div className="cn-project-view__doc-list">
           {project.documents.map((doc) => (
-            <div key={doc.id} className="cn-project-view__doc-item" tabIndex={0} role="button">
+            <div key={doc.id} className="cn-project-view__doc-item" tabIndex={0}>
               <div className="cn-project-view__doc-title-group">
                 <span className="cn-project-view__doc-icon">
                   <FileText size={14} />
@@ -108,7 +108,7 @@ export function ProjectViewPage({ project = mockProject }: ProjectViewPageProps)
         />
         <div className="cn-project-view__char-grid">
           {project.characters.map((char) => (
-            <div key={char.id} className="cn-project-view__char-card" tabIndex={0} role="button">
+            <div key={char.id} className="cn-project-view__char-card" tabIndex={0}>
               <div className="cn-project-view__char-avatar">
                 {char.name.charAt(0)}
               </div>
