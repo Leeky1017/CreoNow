@@ -947,27 +947,34 @@ const SETTINGS_LOCATION_SCHEMA = s.object({
   updatedAt: s.number(),
 });
 
-const PROJECT_CONFIG_SCHEMA = s.object({
-  id: s.string(),
-  name: s.string(),
-  type: s.string(),
-  description: s.string(),
-  stage: s.string(),
-  genre: s.string(),
-  wordCountGoal: s.optional(s.number()),
-  autoSave: s.boolean(),
-  narrativePerson: s.string(),
-  languageStyle: s.string(),
-  targetAudience: s.string(),
-  updatedAt: s.number(),
-});
-
 const PROJECT_STYLE_SCHEMA = s.object({
   narrativePerson: s.string(),
   genre: s.string(),
   languageStyle: s.string(),
   tone: s.string(),
   targetAudience: s.string(),
+});
+
+const PROJECT_CONFIG_SCHEMA = s.object({
+  id: s.string(),
+  name: s.string(),
+  type: s.string(),
+  description: s.string(),
+  stage: s.string(),
+  lifecycleStatus: s.union(
+    s.literal("active"),
+    s.literal("archived"),
+    s.literal("deleted"),
+  ),
+  style: PROJECT_STYLE_SCHEMA,
+  goals: s.object({
+    targetWordCount: s.union(s.number(), s.literal(null)),
+    targetChapterCount: s.union(s.number(), s.literal(null)),
+  }),
+  defaultSkillSetId: s.union(s.string(), s.literal(null)),
+  knowledgeGraphId: s.union(s.string(), s.literal(null)),
+  createdAt: s.number(),
+  updatedAt: s.number(),
 });
 
 const PROJECT_DOCUMENT_SCHEMA = s.object({
@@ -1011,22 +1018,6 @@ const MEMORY_INJECTION_SCHEMA = s.object({
   degraded: s.boolean(),
 });
 
-const SEARCH_HIGHLIGHT_SCHEMA = s.object({
-  start: s.number(),
-  end: s.number(),
-});
-
-const PROJECT_SEARCH_RESULT_SCHEMA = s.object({
-  projectId: s.string(),
-  documentId: s.string(),
-  documentTitle: s.string(),
-  documentType: s.string(),
-  snippet: s.string(),
-  highlights: s.array(SEARCH_HIGHLIGHT_SCHEMA),
-  anchor: SEARCH_HIGHLIGHT_SCHEMA,
-  documentOffset: s.number(),
-});
-
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -1067,37 +1058,28 @@ export const ipcContract = {
         summary: STATS_SUMMARY_SCHEMA,
       }),
     },
-    "export:document:markdown": {
+    "export:document:write": {
       request: s.object({
         projectId: s.string(),
         documentId: s.optional(s.string()),
+        format: s.union(
+          s.literal("markdown"),
+          s.literal("pdf"),
+          s.literal("docx"),
+          s.literal("txt"),
+        ),
       }),
       response: EXPORT_RESULT_SCHEMA,
     },
-    "export:document:pdf": {
+    "export:project:write": {
       request: s.object({
         projectId: s.string(),
-        documentId: s.optional(s.string()),
-      }),
-      response: EXPORT_RESULT_SCHEMA,
-    },
-    "export:document:docx": {
-      request: s.object({
-        projectId: s.string(),
-        documentId: s.optional(s.string()),
-      }),
-      response: EXPORT_RESULT_SCHEMA,
-    },
-    "export:document:txt": {
-      request: s.object({
-        projectId: s.string(),
-        documentId: s.optional(s.string()),
-      }),
-      response: EXPORT_RESULT_SCHEMA,
-    },
-    "export:project:bundle": {
-      request: s.object({
-        projectId: s.string(),
+        format: s.union(
+          s.literal("markdown"),
+          s.literal("pdf"),
+          s.literal("docx"),
+          s.literal("txt"),
+        ),
       }),
       response: EXPORT_RESULT_SCHEMA,
     },
@@ -2801,69 +2783,6 @@ export const ipcContract = {
         confirmed: s.optional(s.boolean()),
       }),
       response: s.object({ cleared: s.literal(true) }),
-    },
-    "search:project:query": {
-      request: s.object({
-        projectId: s.string(),
-        query: s.string(),
-        offset: s.optional(s.number()),
-        limit: s.optional(s.number()),
-      }),
-      response: s.object({
-        results: s.array(PROJECT_SEARCH_RESULT_SCHEMA),
-        total: s.number(),
-        hasMore: s.boolean(),
-        indexState: s.string(),
-      }),
-    },
-    "search:project:reindex": {
-      request: s.object({
-        projectId: s.string(),
-      }),
-      response: s.object({ rebuilt: s.literal(true) }),
-    },
-    "search:project:indexstatus": {
-      request: s.object({
-        projectId: s.string(),
-      }),
-      response: s.object({
-        status: s.string(),
-      }),
-    },
-    "export:document:prosemirror": {
-      request: s.object({
-        projectId: s.string(),
-        documentId: s.string(),
-      }),
-      response: s.object({
-        documentId: s.string(),
-        content: s.string(),
-      }),
-    },
-    "export:project:prosemirror": {
-      request: s.object({
-        projectId: s.string(),
-      }),
-      response: s.object({
-        items: s.array(
-          s.object({
-            documentId: s.string(),
-            title: s.string(),
-            content: s.string(),
-          }),
-        ),
-      }),
-    },
-    "export:progress:get": {
-      request: s.object({
-        projectId: s.string(),
-        exportId: s.optional(s.string()),
-      }),
-      response: s.object({
-        exportId: s.string(),
-        status: s.string(),
-        progress: s.number(),
-      }),
     },
   },
 } as const;

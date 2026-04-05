@@ -755,7 +755,7 @@ interface MemoryInjection {
 | `memory:simple:delete` | Request-Response | Renderer → Main | 删除记忆条目 |
 | `memory:simple:list` | Request-Response | Renderer → Main | 列出记忆条目 |
 | `memory:simple:inject` | Request-Response | Renderer → Main | 获取 AI 注入记忆 |
-| `memory:simple:clear-project` | Request-Response | Renderer → Main | 清除项目级记忆 |
+| `memory:simple:clearproject` | Request-Response | Renderer → Main | 清除项目级记忆 |
 
 #### 数据流
 
@@ -902,7 +902,7 @@ Settings Module 角色/地点 CRUD 操作
 
 - **假设** 用户想重置项目「实验小说」的所有记忆
 - **当** 用户点击「清除项目记忆」并确认
-- **则** 系统通过 `memory:simple:clear-project` 删除该项目的所有记忆条目
+- **则** 系统通过 `memory:simple:clearproject` 删除该项目的所有记忆条目
 - **并且** 全局记忆不受影响
 - **并且** Toast 通知「已清除项目记忆」
 

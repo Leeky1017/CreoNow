@@ -2,6 +2,7 @@ import { contextBridge } from "electron";
 
 import { creonowInvoke } from "./ipc";
 import { registerAiStreamBridge } from "./aiStreamBridge";
+import { registerExportProgressBridge } from "./exportProgressBridge";
 
 function isE2EEnabled(): boolean {
   if (typeof window.location?.href === "string") {
@@ -27,8 +28,10 @@ function isE2EEnabled(): boolean {
 }
 
 const aiStreamBridge = registerAiStreamBridge();
+const exportProgressBridge = registerExportProgressBridge();
 window.addEventListener("beforeunload", () => {
   aiStreamBridge.dispose();
+  exportProgressBridge.dispose();
 });
 
 const api = {

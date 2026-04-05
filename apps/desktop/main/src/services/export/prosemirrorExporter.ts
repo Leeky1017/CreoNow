@@ -28,6 +28,7 @@ export interface ExportOptions {
 }
 
 export interface ExportDocumentRequest {
+  exportId?: string;
   documentId: string;
   projectId?: string;
   options: ExportOptions;
@@ -35,6 +36,7 @@ export interface ExportDocumentRequest {
 }
 
 export interface ExportProjectRequest {
+  exportId?: string;
   projectId: string;
   options: ExportOptions;
   outputPath: string;
@@ -535,7 +537,7 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
     async exportDocument(req: ExportDocumentRequest): Promise<ExportResult> {
       assertNotDisposed();
       const startTime = Date.now();
-      const exportId = generateExportId();
+      const exportId = req.exportId ?? generateExportId();
 
       if (!SUPPORTED_FORMATS.includes(req.options.format)) {
         return {
@@ -615,7 +617,7 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
     async exportProject(req: ExportProjectRequest): Promise<ExportResult> {
       assertNotDisposed();
       const startTime = Date.now();
-      const exportId = generateExportId();
+      const exportId = req.exportId ?? generateExportId();
 
       if (!SUPPORTED_FORMATS.includes(req.options.format)) {
         return {

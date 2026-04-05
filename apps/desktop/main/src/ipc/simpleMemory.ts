@@ -78,7 +78,12 @@ export function registerSimpleMemoryIpcHandlers(deps: {
   projectSessionBinding?: ProjectSessionBindingRegistry;
   eventBus?: EventBusLike;
 }): void {
-  let service: SimpleMemoryService | null = null;
+  let service: SimpleMemoryService | null = deps.db
+    ? createSimpleMemoryService({
+        db: deps.db,
+        eventBus: deps.eventBus ?? NOOP_EVENT_BUS,
+      })
+    : null;
 
   const handleWithProjectAccess = createProjectAccessHandler({
     ipcMain: deps.ipcMain,
@@ -87,12 +92,6 @@ export function registerSimpleMemoryIpcHandlers(deps: {
 
   function getService(): SimpleMemoryService | null {
     if (!deps.db) return null;
-    if (!service) {
-      service = createSimpleMemoryService({
-        db: deps.db,
-        eventBus: deps.eventBus ?? NOOP_EVENT_BUS,
-      });
-    }
     return service;
   }
 

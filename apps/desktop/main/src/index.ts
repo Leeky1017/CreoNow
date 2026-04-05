@@ -34,8 +34,8 @@ import { registerWindowIpcHandlers } from "./ipc/window";
 import { registerRendererLogIpcHandlers } from "./ipc/rendererLog";
 import { registerSettingsIpcHandlers } from "./ipc/settings";
 import { registerSimpleMemoryIpcHandlers } from "./ipc/simpleMemory";
-import { registerProjectSearchIpcHandlers } from "./ipc/projectSearch";
 import { createProjectSessionBindingRegistry } from "./ipc/projectSessionBinding";
+import { createRuntimeEventBus } from "./ipc/runtimeEventBus";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
 import { createOnnxEmbeddingRuntime } from "./services/embedding/onnxRuntime";
@@ -50,6 +50,7 @@ import { createCostTracker } from "./services/ai/costTracker";
 import { estimateTokens } from "./services/context/tokenEstimation";
 import { createContextProjectScopedCache } from "./services/context/projectScopedCache";
 import { createCreonowWatchService } from "./services/context/watchService";
+import { createDefaultProjectLifecycleParticipants } from "./services/projects/defaultProjectLifecycleParticipants";
 import { createProjectLifecycle } from "./services/projects/projectLifecycle";
 import { createUtilityProcessFoundation } from "./services/utilityprocess/utilityProcessFoundation";
 import { resolvePreloadEntryPathFromBuildConfig } from "./runtimePathResolver";
@@ -312,25 +313,16 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     watchService,
   });
+  const runtimeEventBus = createRuntimeEventBus();
   const projectLifecycle = createProjectLifecycle({
     logger: deps.logger,
     timeoutMs: 5_000,
   });
-  projectLifecycle.register({
-    id: "context",
-    unbind: ({ projectId, traceId, signal }) => {
-      if (signal.aborted) {
-        return;
-      }
-      contextCache.unbindProject({ projectId, traceId });
-    },
-    bind: ({ projectId, traceId, signal }) => {
-      if (signal.aborted) {
-        return;
-      }
-      contextCache.bindProject({ projectId, traceId });
-    },
-  });
+  for (const participant of createDefaultProjectLifecycleParticipants({
+    contextCache,
+  })) {
+    projectLifecycle.register(participant);
+  }
   const embeddingService = createEmbeddingService({
     logger: deps.logger,
     onnxRuntime,
@@ -469,6 +461,7 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     projectSessionBinding,
     projectLifecycle,
+    eventBus: runtimeEventBus,
   });
 
   registerContextIpcHandlers({
@@ -509,6 +502,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     userDataDir: deps.userDataDir,
+    eventBus: runtimeEventBus,
   });
 
   registerBackupIpcHandlers({
@@ -579,6 +573,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     projectSessionBinding,
+    eventBus: runtimeEventBus,
   });
 
   registerSimpleMemoryIpcHandlers({
@@ -586,13 +581,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     projectSessionBinding,
-  });
-
-  registerProjectSearchIpcHandlers({
-    ipcMain: guardedIpcMain,
-    db: deps.db,
-    logger: deps.logger,
-    projectSessionBinding,
+    eventBus: runtimeEventBus,
   });
 
   registerVersionIpcHandlers({

@@ -216,14 +216,8 @@ export const IPC_CHANNELS = [
   "embedding:index:reindex",
   "embedding:semantic:search",
   "embedding:text:generate",
-  "export:document:docx",
-  "export:document:markdown",
-  "export:document:pdf",
-  "export:document:prosemirror",
-  "export:document:txt",
-  "export:progress:get",
-  "export:project:bundle",
-  "export:project:prosemirror",
+  "export:document:write",
+  "export:project:write",
   "file:document:create",
   "file:document:delete",
   "file:document:getcurrent",
@@ -310,9 +304,6 @@ export const IPC_CHANNELS = [
   "rag:context:retrieve",
   "search:fts:query",
   "search:fts:reindex",
-  "search:project:indexstatus",
-  "search:project:query",
-  "search:project:reindex",
   "search:query:strategy",
   "search:rank:explain",
   "search:replace:execute",
@@ -1322,9 +1313,10 @@ export type IpcChannelSpec = {
       vectors: Array<Array<number>>;
     };
   };
-  "export:document:docx": {
+  "export:document:write": {
     request: {
       documentId?: string;
+      format: "markdown" | "pdf" | "docx" | "txt";
       projectId: string;
     };
     response: {
@@ -1332,76 +1324,14 @@ export type IpcChannelSpec = {
       relativePath: string;
     };
   };
-  "export:document:markdown": {
+  "export:project:write": {
     request: {
-      documentId?: string;
+      format: "markdown" | "pdf" | "docx" | "txt";
       projectId: string;
     };
     response: {
       bytesWritten: number;
       relativePath: string;
-    };
-  };
-  "export:document:pdf": {
-    request: {
-      documentId?: string;
-      projectId: string;
-    };
-    response: {
-      bytesWritten: number;
-      relativePath: string;
-    };
-  };
-  "export:document:prosemirror": {
-    request: {
-      documentId: string;
-      projectId: string;
-    };
-    response: {
-      content: string;
-      documentId: string;
-    };
-  };
-  "export:document:txt": {
-    request: {
-      documentId?: string;
-      projectId: string;
-    };
-    response: {
-      bytesWritten: number;
-      relativePath: string;
-    };
-  };
-  "export:progress:get": {
-    request: {
-      exportId?: string;
-      projectId: string;
-    };
-    response: {
-      exportId: string;
-      progress: number;
-      status: string;
-    };
-  };
-  "export:project:bundle": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      bytesWritten: number;
-      relativePath: string;
-    };
-  };
-  "export:project:prosemirror": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      items: Array<{
-        content: string;
-        documentId: string;
-        title: string;
-      }>;
     };
   };
   "file:document:create": {
@@ -3076,18 +3006,27 @@ export type IpcChannelSpec = {
       projectId: string;
     };
     response: {
-      autoSave: boolean;
+      createdAt: number;
+      defaultSkillSetId: string | null;
       description: string;
-      genre: string;
+      goals: {
+        targetChapterCount: number | null;
+        targetWordCount: number | null;
+      };
       id: string;
-      languageStyle: string;
+      knowledgeGraphId: string | null;
+      lifecycleStatus: "active" | "archived" | "deleted";
       name: string;
-      narrativePerson: string;
       stage: string;
-      targetAudience: string;
+      style: {
+        genre: string;
+        languageStyle: string;
+        narrativePerson: string;
+        targetAudience: string;
+        tone: string;
+      };
       type: string;
       updatedAt: number;
-      wordCountGoal?: number;
     };
   };
   "project:config:update": {
@@ -3103,18 +3042,27 @@ export type IpcChannelSpec = {
       projectId: string;
     };
     response: {
-      autoSave: boolean;
+      createdAt: number;
+      defaultSkillSetId: string | null;
       description: string;
-      genre: string;
+      goals: {
+        targetChapterCount: number | null;
+        targetWordCount: number | null;
+      };
       id: string;
-      languageStyle: string;
+      knowledgeGraphId: string | null;
+      lifecycleStatus: "active" | "archived" | "deleted";
       name: string;
-      narrativePerson: string;
       stage: string;
-      targetAudience: string;
+      style: {
+        genre: string;
+        languageStyle: string;
+        narrativePerson: string;
+        targetAudience: string;
+        tone: string;
+      };
       type: string;
       updatedAt: number;
-      wordCountGoal?: number;
     };
   };
   "project:documents:list": {
@@ -3441,51 +3389,6 @@ export type IpcChannelSpec = {
     response: {
       indexState: "ready";
       reindexed: number;
-    };
-  };
-  "search:project:indexstatus": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      status: string;
-    };
-  };
-  "search:project:query": {
-    request: {
-      limit?: number;
-      offset?: number;
-      projectId: string;
-      query: string;
-    };
-    response: {
-      hasMore: boolean;
-      indexState: string;
-      results: Array<{
-        anchor: {
-          end: number;
-          start: number;
-        };
-        documentId: string;
-        documentOffset: number;
-        documentTitle: string;
-        documentType: string;
-        highlights: Array<{
-          end: number;
-          start: number;
-        }>;
-        projectId: string;
-        snippet: string;
-      }>;
-      total: number;
-    };
-  };
-  "search:project:reindex": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      rebuilt: true;
     };
   };
   "search:query:strategy": {

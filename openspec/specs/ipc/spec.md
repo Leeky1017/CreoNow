@@ -79,7 +79,7 @@ interface IPCChannelDefinition {
 | `constraints` | Context Engine  | `constraints:create`      |
 | `ai`          | AI Service      | `ai:config:get`           |
 | `judge`       | AI Service      | `judge:evaluate`          |
-| `export`      | Document Mgmt   | `export:document`         |
+| `export`      | Document Mgmt   | `export:document:write`   |
 
 通道名称**禁止**使用大写字母、空格或特殊字符（仅允许小写字母、数字和冒号分隔符）。
 

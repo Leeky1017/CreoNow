@@ -13,6 +13,7 @@ import {
   type ProjectOverview,
   type ProjectStyleConfig,
 } from "../services/project/projectManager";
+import type { EventBusLike } from "./helpers";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type ProjectHandlerDeps = {
@@ -22,6 +23,7 @@ type ProjectHandlerDeps = {
   logger: Logger;
   projectSessionBinding?: ProjectSessionBindingRegistry;
   projectLifecycle?: ProjectLifecycle;
+  eventBus?: EventBusLike;
 };
 
 function registerProjectCrudHandlers(deps: ProjectHandlerDeps): void {
@@ -576,22 +578,25 @@ type ProjectConfigResponse = {
   type: string;
   description: string;
   stage: string;
-  genre: string;
-  wordCountGoal?: number;
-  autoSave: boolean;
-  narrativePerson: string;
-  languageStyle: string;
-  targetAudience: string;
+  lifecycleStatus: "active" | "archived" | "deleted";
+  style: ProjectStyleConfig;
+  goals: ProjectConfig["goals"];
+  defaultSkillSetId: string | null;
+  knowledgeGraphId: string | null;
+  createdAt: number;
   updatedAt: number;
 };
 
 type ConfigUpdatePatch = {
-  genre?: string;
-  wordCountGoal?: number;
-  autoSave?: boolean;
-  narrativePerson?: string;
-  languageStyle?: string;
-  targetAudience?: string;
+  name?: string;
+  type?: string;
+  description?: string;
+  stage?: string;
+  lifecycleStatus?: ProjectConfig["lifecycleStatus"];
+  style?: Partial<ProjectStyleConfig>;
+  goals?: Partial<ProjectConfig["goals"]>;
+  defaultSkillSetId?: string | null;
+  knowledgeGraphId?: string | null;
 };
 
 // ─── Helpers ──
@@ -611,12 +616,12 @@ function projectConfigFromManager(config: ProjectConfig): ProjectConfigResponse 
     type: config.type,
     description: config.description,
     stage: config.stage,
-    genre: config.style.genre,
-    wordCountGoal: config.goals.targetWordCount,
-    autoSave: true,
-    narrativePerson: config.style.narrativePerson,
-    languageStyle: config.style.languageStyle,
-    targetAudience: config.style.targetAudience,
+    lifecycleStatus: config.lifecycleStatus,
+    style: { ...config.style },
+    goals: { ...config.goals },
+    defaultSkillSetId: config.defaultSkillSetId,
+    knowledgeGraphId: config.knowledgeGraphId,
+    createdAt: config.createdAt,
     updatedAt: config.updatedAt,
   };
 }
@@ -634,7 +639,7 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
     if (!manager) {
       manager = createProjectManager({
         db: deps.db,
-        eventBus: NOOP_EVENT_BUS,
+        eventBus: deps.eventBus ?? NOOP_EVENT_BUS,
       });
     }
     return manager;
@@ -709,31 +714,88 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
       }
 
       const updates: Partial<ProjectConfig> = {};
-      if (payload.patch.genre !== undefined) {
-        if (typeof payload.patch.genre === "string" && payload.patch.genre.trim().length === 0) {
+      if (payload.patch.name !== undefined) {
+        if (typeof payload.patch.name !== "string" || payload.patch.name.trim().length === 0) {
           return {
             ok: false,
-            error: { code: "PROJECT_GENRE_REQUIRED", message: "genre cannot be empty" },
+            error: { code: "PROJECT_CONFIG_INVALID", message: "name cannot be empty" },
           };
         }
-        updates.style = { ...updates.style } as ProjectStyleConfig;
-        updates.style.genre = payload.patch.genre;
+        updates.name = payload.patch.name;
       }
-      if (payload.patch.narrativePerson !== undefined) {
-        updates.style = { ...(updates.style ?? {}) } as ProjectStyleConfig;
-        updates.style.narrativePerson = payload.patch.narrativePerson as ProjectStyleConfig["narrativePerson"];
+      if (payload.patch.type !== undefined) {
+        updates.type = payload.patch.type;
       }
-      if (payload.patch.languageStyle !== undefined) {
-        updates.style = { ...(updates.style ?? {}) } as ProjectStyleConfig;
-        updates.style.languageStyle = payload.patch.languageStyle;
+      if (payload.patch.description !== undefined) {
+        updates.description = payload.patch.description;
       }
-      if (payload.patch.targetAudience !== undefined) {
-        updates.style = { ...(updates.style ?? {}) } as ProjectStyleConfig;
-        updates.style.targetAudience = payload.patch.targetAudience;
+      if (payload.patch.stage !== undefined) {
+        updates.stage = payload.patch.stage;
       }
-      if (payload.patch.wordCountGoal !== undefined) {
-        updates.goals = { ...(updates.goals ?? {}) } as ProjectConfig["goals"];
-        updates.goals.targetWordCount = payload.patch.wordCountGoal;
+      if (payload.patch.lifecycleStatus !== undefined) {
+        updates.lifecycleStatus = payload.patch.lifecycleStatus;
+      }
+      if (payload.patch.style !== undefined) {
+        if (!isRecord(payload.patch.style)) {
+          return {
+            ok: false,
+            error: {
+              code: "PROJECT_CONFIG_INVALID",
+              message: "style must be an object",
+            },
+          };
+        }
+        const nextStyle: Partial<ProjectStyleConfig> = {};
+        if (payload.patch.style.genre !== undefined) {
+          if (
+            typeof payload.patch.style.genre !== "string" ||
+            payload.patch.style.genre.trim().length === 0
+          ) {
+            return {
+              ok: false,
+              error: { code: "PROJECT_GENRE_REQUIRED", message: "genre cannot be empty" },
+            };
+          }
+          nextStyle.genre = payload.patch.style.genre;
+        }
+        if (payload.patch.style.narrativePerson !== undefined) {
+          nextStyle.narrativePerson = payload.patch.style.narrativePerson;
+        }
+        if (payload.patch.style.languageStyle !== undefined) {
+          nextStyle.languageStyle = payload.patch.style.languageStyle;
+        }
+        if (payload.patch.style.tone !== undefined) {
+          nextStyle.tone = payload.patch.style.tone;
+        }
+        if (payload.patch.style.targetAudience !== undefined) {
+          nextStyle.targetAudience = payload.patch.style.targetAudience;
+        }
+        updates.style = nextStyle as ProjectStyleConfig;
+      }
+      if (payload.patch.goals !== undefined) {
+        if (!isRecord(payload.patch.goals)) {
+          return {
+            ok: false,
+            error: {
+              code: "PROJECT_CONFIG_INVALID",
+              message: "goals must be an object",
+            },
+          };
+        }
+        updates.goals = {
+          ...(payload.patch.goals.targetWordCount !== undefined
+            ? { targetWordCount: payload.patch.goals.targetWordCount }
+            : {}),
+          ...(payload.patch.goals.targetChapterCount !== undefined
+            ? { targetChapterCount: payload.patch.goals.targetChapterCount }
+            : {}),
+        } as ProjectConfig["goals"];
+      }
+      if (payload.patch.defaultSkillSetId !== undefined) {
+        updates.defaultSkillSetId = payload.patch.defaultSkillSetId;
+      }
+      if (payload.patch.knowledgeGraphId !== undefined) {
+        updates.knowledgeGraphId = payload.patch.knowledgeGraphId;
       }
 
       try {
