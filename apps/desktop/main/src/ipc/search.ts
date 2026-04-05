@@ -21,6 +21,15 @@ type FtsService = ReturnType<typeof createFtsService>;
 
 type HandleWithProjectAccess = ReturnType<typeof createProjectAccessHandler>;
 
+type SearchReplacePreviewData = Extract<
+  ReturnType<SearchReplaceService["preview"]>,
+  { ok: true }
+>["data"];
+type SearchReplaceExecuteData = Extract<
+  ReturnType<SearchReplaceService["execute"]>,
+  { ok: true }
+>["data"];
+
 type DocumentIndexRow = {
   documentId: string;
   contentText: string;
@@ -99,11 +108,11 @@ function createSearchSemanticRetriever(args: {
   };
 }
 
-function toInternalSearchError(
+function toInternalSearchError<T = never>(
   logger: Logger,
   event: string,
   error: unknown,
-): IpcResponse<never> {
+): IpcResponse<T> {
   logger.error(event, {
     message: error instanceof Error ? error.message : String(error),
   });
@@ -132,7 +141,10 @@ function registerSearchReplaceHandlers(
 ): void {
   handleWithProjectAccess(
     "search:replace:preview",
-    async (_e, payload: Parameters<SearchReplaceService["preview"]>[0]) => {
+    async (
+      _e,
+      payload: Parameters<SearchReplaceService["preview"]>[0],
+    ): Promise<IpcResponse<SearchReplacePreviewData>> => {
       if (!db || !replaceService) {
         return {
           ok: false,
@@ -161,7 +173,10 @@ function registerSearchReplaceHandlers(
 
   handleWithProjectAccess(
     "search:replace:execute",
-    async (_e, payload: Parameters<SearchReplaceService["execute"]>[0]) => {
+    async (
+      _e,
+      payload: Parameters<SearchReplaceService["execute"]>[0],
+    ): Promise<IpcResponse<SearchReplaceExecuteData>> => {
       if (!db || !replaceService) {
         return {
           ok: false,
