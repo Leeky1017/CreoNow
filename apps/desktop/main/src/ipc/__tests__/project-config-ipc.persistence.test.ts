@@ -214,4 +214,38 @@ describe("project config IPC persistence path", () => {
       targetChapterCount: null,
     });
   });
+
+  it("project:project:update 允许用 null 清空 nullable 关联字段", async () => {
+    const harness = createHarness();
+    databases.push(harness.db);
+
+    const seeded = await harness.invoke<{ updated: true }>("project:project:update", {
+      projectId: "proj-real",
+      patch: {
+        defaultSkillSetId: "skill-real",
+        knowledgeGraphId: "kg-linked",
+      },
+    });
+    expect(seeded.ok).toBe(true);
+
+    const cleared = await harness.invoke<{ updated: true }>("project:project:update", {
+      projectId: "proj-real",
+      patch: {
+        defaultSkillSetId: null,
+        knowledgeGraphId: null,
+      },
+    });
+    expect(cleared.ok).toBe(true);
+    expect(cleared.data).toEqual({ updated: true });
+
+    const reloaded = await harness.invoke<{
+      defaultSkillSetId: string | null;
+      knowledgeGraphId: string | null;
+    }>("project:config:get", {
+      projectId: "proj-real",
+    });
+    expect(reloaded.ok).toBe(true);
+    expect(reloaded.data?.defaultSkillSetId).toBeNull();
+    expect(reloaded.data?.knowledgeGraphId).toBeNull();
+  });
 });

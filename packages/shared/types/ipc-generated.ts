@@ -3375,9 +3375,9 @@ export type IpcChannelSpec = {
   "project:project:update": {
     request: {
       patch: {
-        defaultSkillSetId?: string;
+        defaultSkillSetId?: string | null;
         description?: string;
-        knowledgeGraphId?: string;
+        knowledgeGraphId?: string | null;
         languageStyle?: string;
         narrativePerson?: string;
         stage?: string;

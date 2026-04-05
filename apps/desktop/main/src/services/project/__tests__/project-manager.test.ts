@@ -353,6 +353,22 @@ describe("ProjectManager P3", () => {
         targetChapterCount: null,
       });
     });
+
+    it("允许将 nullable 关联字段显式清空为 null", async () => {
+      await manager.updateProject("proj-1", {
+        defaultSkillSetId: "skill-default",
+        knowledgeGraphId: "kg-linked",
+      });
+
+      const result = await manager.updateProject("proj-1", {
+        defaultSkillSetId: null,
+        knowledgeGraphId: null,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data?.defaultSkillSetId).toBeNull();
+      expect(result.data?.knowledgeGraphId).toBeNull();
+    });
   });
 
   describe("delete project", () => {
