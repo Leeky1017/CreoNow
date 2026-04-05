@@ -105,24 +105,28 @@ interface EventBusLike {
  *
  * Why: Settings (character/location lists) are P3 project-scoped data exposed
  * through the same contract-first cross-process pattern as Knowledge Graph.
+ *
+ * `eventBus` is optional — P3 阶段为 optional stub，待 3C Memory 集成时注入真实实例。
  */
 export function registerSettingsIpcHandlers(deps: {
   ipcMain: IpcMain;
   db: Database.Database | null;
   logger: Logger;
   projectSessionBinding?: ProjectSessionBindingRegistry;
+  eventBus?: EventBusLike;
 }): void {
   let service: SettingsService | null = null;
+
+  const noopEventBus: EventBusLike = {
+    emit: () => {},
+    on: () => {},
+    off: () => {},
+  };
 
   function getService(): SettingsService | null {
     if (!deps.db) return null;
     if (!service) {
-      const eventBus: EventBusLike = {
-        emit: () => {},
-        on: () => {},
-        off: () => {},
-      };
-      service = createSettingsService({ db: deps.db, eventBus });
+      service = createSettingsService({ db: deps.db, eventBus: deps.eventBus ?? noopEventBus });
     }
     return service;
   }
@@ -219,6 +223,12 @@ export function registerSettingsIpcHandlers(deps: {
 
       const res = await svc.getCharacter(payload.id);
       if (res.success && res.data) {
+        if (res.data.projectId !== payload.projectId) {
+          return {
+            ok: false,
+            error: { code: "CHARACTER_NOT_FOUND" as const, message: "Character not found in this project" },
+          };
+        }
         return { ok: true, data: res.data };
       }
       return {
@@ -252,6 +262,21 @@ export function registerSettingsIpcHandlers(deps: {
         return {
           ok: false,
           error: { code: "INVALID_ARGUMENT", message: idErr },
+        };
+      }
+
+      // C2: verify projectId ownership before update
+      const existing = await svc.getCharacter(payload.id);
+      if (!existing.success || !existing.data) {
+        return {
+          ok: false,
+          error: { code: "CHARACTER_NOT_FOUND" as const, message: "Character not found" },
+        };
+      }
+      if (existing.data.projectId !== payload.projectId) {
+        return {
+          ok: false,
+          error: { code: "CHARACTER_NOT_FOUND" as const, message: "Character not found in this project" },
         };
       }
 
@@ -296,6 +321,21 @@ export function registerSettingsIpcHandlers(deps: {
         return {
           ok: false,
           error: { code: "INVALID_ARGUMENT", message: idErr },
+        };
+      }
+
+      // C2: verify projectId ownership before delete
+      const existing = await svc.getCharacter(payload.id);
+      if (!existing.success || !existing.data) {
+        return {
+          ok: false,
+          error: { code: "CHARACTER_NOT_FOUND" as const, message: "Character not found" },
+        };
+      }
+      if (existing.data.projectId !== payload.projectId) {
+        return {
+          ok: false,
+          error: { code: "CHARACTER_NOT_FOUND" as const, message: "Character not found in this project" },
         };
       }
 
@@ -415,6 +455,12 @@ export function registerSettingsIpcHandlers(deps: {
 
       const res = await svc.getLocation(payload.id);
       if (res.success && res.data) {
+        if (res.data.projectId !== payload.projectId) {
+          return {
+            ok: false,
+            error: { code: "LOCATION_NOT_FOUND" as const, message: "Location not found in this project" },
+          };
+        }
         return { ok: true, data: res.data };
       }
       return {
@@ -448,6 +494,21 @@ export function registerSettingsIpcHandlers(deps: {
         return {
           ok: false,
           error: { code: "INVALID_ARGUMENT", message: idErr },
+        };
+      }
+
+      // C2: verify projectId ownership before update
+      const existing = await svc.getLocation(payload.id);
+      if (!existing.success || !existing.data) {
+        return {
+          ok: false,
+          error: { code: "LOCATION_NOT_FOUND" as const, message: "Location not found" },
+        };
+      }
+      if (existing.data.projectId !== payload.projectId) {
+        return {
+          ok: false,
+          error: { code: "LOCATION_NOT_FOUND" as const, message: "Location not found in this project" },
         };
       }
 
@@ -492,6 +553,21 @@ export function registerSettingsIpcHandlers(deps: {
         return {
           ok: false,
           error: { code: "INVALID_ARGUMENT", message: idErr },
+        };
+      }
+
+      // C2: verify projectId ownership before delete
+      const existing = await svc.getLocation(payload.id);
+      if (!existing.success || !existing.data) {
+        return {
+          ok: false,
+          error: { code: "LOCATION_NOT_FOUND" as const, message: "Location not found" },
+        };
+      }
+      if (existing.data.projectId !== payload.projectId) {
+        return {
+          ok: false,
+          error: { code: "LOCATION_NOT_FOUND" as const, message: "Location not found in this project" },
         };
       }
 

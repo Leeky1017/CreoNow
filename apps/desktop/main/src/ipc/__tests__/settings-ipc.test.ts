@@ -215,6 +215,29 @@ describe("settings IPC handlers", () => {
       expect(result.ok).toBe(false);
       expect(result.error?.code).toBe("CHARACTER_NOT_FOUND");
     });
+
+    it("更新名称为已存在的名称返回 CHARACTER_NAME_DUPLICATE", async () => {
+      const harness = createHarness();
+
+      await harness.invoke("settings:character:create", {
+        projectId: "proj-1",
+        name: "Alice",
+      });
+
+      const res2 = await harness.invoke<{ id: string }>(
+        "settings:character:create",
+        { projectId: "proj-1", name: "Bob" },
+      );
+
+      const result = await harness.invoke<never>("settings:character:update", {
+        projectId: "proj-1",
+        id: res2.data!.id,
+        name: "Alice",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("CHARACTER_NAME_DUPLICATE");
+    });
   });
 
   describe("settings:character:delete", () => {
@@ -271,6 +294,112 @@ describe("settings IPC handlers", () => {
     });
   });
 
+  describe("projectId ownership guard", () => {
+    it("character:read 跨项目返回 CHARACTER_NOT_FOUND", async () => {
+      const harness = createHarness();
+
+      const created = await harness.invoke<{ id: string }>(
+        "settings:character:create",
+        { projectId: "proj-1", name: "林远" },
+      );
+
+      const result = await harness.invoke<never>("settings:character:read", {
+        projectId: "proj-other",
+        id: created.data!.id,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("CHARACTER_NOT_FOUND");
+    });
+
+    it("character:update 跨项目返回 CHARACTER_NOT_FOUND", async () => {
+      const harness = createHarness();
+
+      const created = await harness.invoke<{ id: string }>(
+        "settings:character:create",
+        { projectId: "proj-1", name: "林远" },
+      );
+
+      const result = await harness.invoke<never>("settings:character:update", {
+        projectId: "proj-other",
+        id: created.data!.id,
+        name: "新名字",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("CHARACTER_NOT_FOUND");
+    });
+
+    it("character:delete 跨项目返回 CHARACTER_NOT_FOUND", async () => {
+      const harness = createHarness();
+
+      const created = await harness.invoke<{ id: string }>(
+        "settings:character:create",
+        { projectId: "proj-1", name: "林远" },
+      );
+
+      const result = await harness.invoke<never>("settings:character:delete", {
+        projectId: "proj-other",
+        id: created.data!.id,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("CHARACTER_NOT_FOUND");
+    });
+
+    it("location:read 跨项目返回 LOCATION_NOT_FOUND", async () => {
+      const harness = createHarness();
+
+      const created = await harness.invoke<{ id: string }>(
+        "settings:location:create",
+        { projectId: "proj-1", name: "废弃仓库" },
+      );
+
+      const result = await harness.invoke<never>("settings:location:read", {
+        projectId: "proj-other",
+        id: created.data!.id,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("LOCATION_NOT_FOUND");
+    });
+
+    it("location:update 跨项目返回 LOCATION_NOT_FOUND", async () => {
+      const harness = createHarness();
+
+      const created = await harness.invoke<{ id: string }>(
+        "settings:location:create",
+        { projectId: "proj-1", name: "废弃仓库" },
+      );
+
+      const result = await harness.invoke<never>("settings:location:update", {
+        projectId: "proj-other",
+        id: created.data!.id,
+        name: "新地点",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("LOCATION_NOT_FOUND");
+    });
+
+    it("location:delete 跨项目返回 LOCATION_NOT_FOUND", async () => {
+      const harness = createHarness();
+
+      const created = await harness.invoke<{ id: string }>(
+        "settings:location:create",
+        { projectId: "proj-1", name: "废弃仓库" },
+      );
+
+      const result = await harness.invoke<never>("settings:location:delete", {
+        projectId: "proj-other",
+        id: created.data!.id,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("LOCATION_NOT_FOUND");
+    });
+  });
+
   describe("settings:location:create", () => {
     it("创建地点成功", async () => {
       const harness = createHarness();
@@ -296,6 +425,17 @@ describe("settings IPC handlers", () => {
       const result = await harness.invoke<never>("settings:location:create", {
         projectId: "proj-1",
         name: "",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("LOCATION_NAME_REQUIRED");
+    });
+
+    it("未提供名称返回 LOCATION_NAME_REQUIRED", async () => {
+      const harness = createHarness();
+
+      const result = await harness.invoke<never>("settings:location:create", {
+        projectId: "proj-1",
       });
 
       expect(result.ok).toBe(false);
@@ -349,6 +489,18 @@ describe("settings IPC handlers", () => {
       expect(result.ok).toBe(false);
       expect(result.error?.code).toBe("LOCATION_NOT_FOUND");
     });
+
+    it("空 ID 返回 INVALID_ARGUMENT", async () => {
+      const harness = createHarness();
+
+      const result = await harness.invoke<never>("settings:location:read", {
+        projectId: "proj-1",
+        id: "",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("INVALID_ARGUMENT");
+    });
   });
 
   describe("settings:location:update", () => {
@@ -384,6 +536,29 @@ describe("settings IPC handlers", () => {
 
       expect(result.ok).toBe(false);
       expect(result.error?.code).toBe("LOCATION_NOT_FOUND");
+    });
+
+    it("更新名称为已存在的名称返回 LOCATION_NAME_DUPLICATE", async () => {
+      const harness = createHarness();
+
+      await harness.invoke("settings:location:create", {
+        projectId: "proj-1",
+        name: "Forest",
+      });
+
+      const res2 = await harness.invoke<{ id: string }>(
+        "settings:location:create",
+        { projectId: "proj-1", name: "Castle" },
+      );
+
+      const result = await harness.invoke<never>("settings:location:update", {
+        projectId: "proj-1",
+        id: res2.data!.id,
+        name: "Forest",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("LOCATION_NAME_DUPLICATE");
     });
   });
 
