@@ -98,6 +98,18 @@ export const IPC_ERROR_CODES = [
   "COST_MODEL_NOT_FOUND",
   "COST_BUDGET_EXCEEDED",
   "COST_PRICING_STALE",
+  "CHARACTER_NAME_REQUIRED",
+  "CHARACTER_NAME_DUPLICATE",
+  "CHARACTER_NOT_FOUND",
+  "CHARACTER_ATTR_KEY_TOO_LONG",
+  "CHARACTER_ATTR_LIMIT_EXCEEDED",
+  "CHARACTER_CAPACITY_EXCEEDED",
+  "LOCATION_NAME_REQUIRED",
+  "LOCATION_NAME_DUPLICATE",
+  "LOCATION_NOT_FOUND",
+  "LOCATION_ATTR_KEY_TOO_LONG",
+  "LOCATION_ATTR_LIMIT_EXCEEDED",
+  "LOCATION_CAPACITY_EXCEEDED",
 ] as const;
 
 export type IpcErrorCode = (typeof IPC_ERROR_CODES)[number];
@@ -895,6 +907,26 @@ const BACKUP_SNAPSHOT_SCHEMA = s.object({
   label: s.optional(s.string()),
 });
 
+const SETTINGS_CHARACTER_SCHEMA = s.object({
+  id: s.string(),
+  projectId: s.string(),
+  name: s.string(),
+  description: s.string(),
+  attributes: s.record(s.string()),
+  createdAt: s.number(),
+  updatedAt: s.number(),
+});
+
+const SETTINGS_LOCATION_SCHEMA = s.object({
+  id: s.string(),
+  projectId: s.string(),
+  name: s.string(),
+  description: s.string(),
+  attributes: s.record(s.string()),
+  createdAt: s.number(),
+  updatedAt: s.number(),
+});
+
 export const ipcContract = {
   version: 1,
   errorCodes: IPC_ERROR_CODES,
@@ -994,6 +1026,88 @@ export const ipcContract = {
       }),
       response: s.object({
         deleted: s.boolean(),
+      }),
+    },
+    "settings:character:create": {
+      request: s.object({
+        projectId: s.string(),
+        name: s.string(),
+        description: s.optional(s.string()),
+        attributes: s.optional(s.record(s.string())),
+      }),
+      response: SETTINGS_CHARACTER_SCHEMA,
+    },
+    "settings:character:read": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: SETTINGS_CHARACTER_SCHEMA,
+    },
+    "settings:character:update": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+        name: s.optional(s.string()),
+        description: s.optional(s.string()),
+        attributes: s.optional(s.record(s.string())),
+      }),
+      response: SETTINGS_CHARACTER_SCHEMA,
+    },
+    "settings:character:delete": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: s.object({ deleted: s.literal(true) }),
+    },
+    "settings:character:list": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        items: s.array(SETTINGS_CHARACTER_SCHEMA),
+      }),
+    },
+    "settings:location:create": {
+      request: s.object({
+        projectId: s.string(),
+        name: s.string(),
+        description: s.optional(s.string()),
+        attributes: s.optional(s.record(s.string())),
+      }),
+      response: SETTINGS_LOCATION_SCHEMA,
+    },
+    "settings:location:read": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: SETTINGS_LOCATION_SCHEMA,
+    },
+    "settings:location:update": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+        name: s.optional(s.string()),
+        description: s.optional(s.string()),
+        attributes: s.optional(s.record(s.string())),
+      }),
+      response: SETTINGS_LOCATION_SCHEMA,
+    },
+    "settings:location:delete": {
+      request: s.object({
+        projectId: s.string(),
+        id: s.string(),
+      }),
+      response: s.object({ deleted: s.literal(true) }),
+    },
+    "settings:location:list": {
+      request: s.object({
+        projectId: s.string(),
+      }),
+      response: s.object({
+        items: s.array(SETTINGS_LOCATION_SCHEMA),
       }),
     },
     "ai:chat:send": {

@@ -59,7 +59,18 @@ export type WritingEventType =
   // P2 Agentic Loop events
   | "tool-use-started"
   | "tool-use-completed"
-  | "tool-use-failed";
+  | "tool-use-failed"
+  // P3 Settings / Memory / Search / Skill / Export events
+  | "character-updated"
+  | "location-created"
+  | "location-updated"
+  | "location-deleted"
+  | "memory-injected"
+  | "memory-updated"
+  | "search-index-updated"
+  | "consistency-check-completed"
+  | "export-completed"
+  | "project-config-updated";
 
 export type WritingEvent = {
   type: WritingEventType;

@@ -13,6 +13,12 @@ export type IpcErrorCode =
   | "AI_SESSION_TOKEN_BUDGET_EXCEEDED"
   | "ALREADY_EXISTS"
   | "CANCELED"
+  | "CHARACTER_ATTR_KEY_TOO_LONG"
+  | "CHARACTER_ATTR_LIMIT_EXCEEDED"
+  | "CHARACTER_CAPACITY_EXCEEDED"
+  | "CHARACTER_NAME_DUPLICATE"
+  | "CHARACTER_NAME_REQUIRED"
+  | "CHARACTER_NOT_FOUND"
   | "CONFLICT"
   | "CONSTRAINT_CONFLICT"
   | "CONSTRAINT_NOT_FOUND"
@@ -55,6 +61,12 @@ export type IpcErrorCode =
   | "KG_SCOPE_VIOLATION"
   | "KG_SUBGRAPH_K_EXCEEDED"
   | "LLM_API_ERROR"
+  | "LOCATION_ATTR_KEY_TOO_LONG"
+  | "LOCATION_ATTR_LIMIT_EXCEEDED"
+  | "LOCATION_CAPACITY_EXCEEDED"
+  | "LOCATION_NAME_DUPLICATE"
+  | "LOCATION_NAME_REQUIRED"
+  | "LOCATION_NOT_FOUND"
   | "MEMORY_BACKPRESSURE"
   | "MEMORY_CAPACITY_EXCEEDED"
   | "MEMORY_CLEAR_CONFIRM_REQUIRED"
@@ -268,6 +280,16 @@ export const IPC_CHANNELS = [
   "search:rank:explain",
   "search:replace:execute",
   "search:replace:preview",
+  "settings:character:create",
+  "settings:character:delete",
+  "settings:character:list",
+  "settings:character:read",
+  "settings:character:update",
+  "settings:location:create",
+  "settings:location:delete",
+  "settings:location:list",
+  "settings:location:read",
+  "settings:location:update",
   "skill:custom:create",
   "skill:custom:delete",
   "skill:custom:list",
@@ -471,7 +493,19 @@ export type IpcChannelSpec = {
           | "DIFF_COMPUTE_FAILED"
           | "COST_MODEL_NOT_FOUND"
           | "COST_BUDGET_EXCEEDED"
-          | "COST_PRICING_STALE";
+          | "COST_PRICING_STALE"
+          | "CHARACTER_NAME_REQUIRED"
+          | "CHARACTER_NAME_DUPLICATE"
+          | "CHARACTER_NOT_FOUND"
+          | "CHARACTER_ATTR_KEY_TOO_LONG"
+          | "CHARACTER_ATTR_LIMIT_EXCEEDED"
+          | "CHARACTER_CAPACITY_EXCEEDED"
+          | "LOCATION_NAME_REQUIRED"
+          | "LOCATION_NAME_DUPLICATE"
+          | "LOCATION_NOT_FOUND"
+          | "LOCATION_ATTR_KEY_TOO_LONG"
+          | "LOCATION_ATTR_LIMIT_EXCEEDED"
+          | "LOCATION_CAPACITY_EXCEEDED";
         message: string;
       };
       latencyMs: number;
@@ -1529,7 +1563,19 @@ export type IpcChannelSpec = {
                 | "DIFF_COMPUTE_FAILED"
                 | "COST_MODEL_NOT_FOUND"
                 | "COST_BUDGET_EXCEEDED"
-                | "COST_PRICING_STALE";
+                | "COST_PRICING_STALE"
+                | "CHARACTER_NAME_REQUIRED"
+                | "CHARACTER_NAME_DUPLICATE"
+                | "CHARACTER_NOT_FOUND"
+                | "CHARACTER_ATTR_KEY_TOO_LONG"
+                | "CHARACTER_ATTR_LIMIT_EXCEEDED"
+                | "CHARACTER_CAPACITY_EXCEEDED"
+                | "LOCATION_NAME_REQUIRED"
+                | "LOCATION_NAME_DUPLICATE"
+                | "LOCATION_NOT_FOUND"
+                | "LOCATION_ATTR_KEY_TOO_LONG"
+                | "LOCATION_ATTR_LIMIT_EXCEEDED"
+                | "LOCATION_CAPACITY_EXCEEDED";
               message: string;
             };
             status: "error";
@@ -1648,7 +1694,19 @@ export type IpcChannelSpec = {
                 | "DIFF_COMPUTE_FAILED"
                 | "COST_MODEL_NOT_FOUND"
                 | "COST_BUDGET_EXCEEDED"
-                | "COST_PRICING_STALE";
+                | "COST_PRICING_STALE"
+                | "CHARACTER_NAME_REQUIRED"
+                | "CHARACTER_NAME_DUPLICATE"
+                | "CHARACTER_NOT_FOUND"
+                | "CHARACTER_ATTR_KEY_TOO_LONG"
+                | "CHARACTER_ATTR_LIMIT_EXCEEDED"
+                | "CHARACTER_CAPACITY_EXCEEDED"
+                | "LOCATION_NAME_REQUIRED"
+                | "LOCATION_NAME_DUPLICATE"
+                | "LOCATION_NOT_FOUND"
+                | "LOCATION_ATTR_KEY_TOO_LONG"
+                | "LOCATION_ATTR_LIMIT_EXCEEDED"
+                | "LOCATION_CAPACITY_EXCEEDED";
               message: string;
             };
             status: "error";
@@ -2201,7 +2259,19 @@ export type IpcChannelSpec = {
         | "DIFF_COMPUTE_FAILED"
         | "COST_MODEL_NOT_FOUND"
         | "COST_BUDGET_EXCEEDED"
-        | "COST_PRICING_STALE";
+        | "COST_PRICING_STALE"
+        | "CHARACTER_NAME_REQUIRED"
+        | "CHARACTER_NAME_DUPLICATE"
+        | "CHARACTER_NOT_FOUND"
+        | "CHARACTER_ATTR_KEY_TOO_LONG"
+        | "CHARACTER_ATTR_LIMIT_EXCEEDED"
+        | "CHARACTER_CAPACITY_EXCEEDED"
+        | "LOCATION_NAME_REQUIRED"
+        | "LOCATION_NAME_DUPLICATE"
+        | "LOCATION_NOT_FOUND"
+        | "LOCATION_ATTR_KEY_TOO_LONG"
+        | "LOCATION_ATTR_LIMIT_EXCEEDED"
+        | "LOCATION_CAPACITY_EXCEEDED";
       message?: string;
       progress: number;
       projectId: string;
@@ -2313,7 +2383,19 @@ export type IpcChannelSpec = {
         | "DIFF_COMPUTE_FAILED"
         | "COST_MODEL_NOT_FOUND"
         | "COST_BUDGET_EXCEEDED"
-        | "COST_PRICING_STALE";
+        | "COST_PRICING_STALE"
+        | "CHARACTER_NAME_REQUIRED"
+        | "CHARACTER_NAME_DUPLICATE"
+        | "CHARACTER_NOT_FOUND"
+        | "CHARACTER_ATTR_KEY_TOO_LONG"
+        | "CHARACTER_ATTR_LIMIT_EXCEEDED"
+        | "CHARACTER_CAPACITY_EXCEEDED"
+        | "LOCATION_NAME_REQUIRED"
+        | "LOCATION_NAME_DUPLICATE"
+        | "LOCATION_NOT_FOUND"
+        | "LOCATION_ATTR_KEY_TOO_LONG"
+        | "LOCATION_ATTR_LIMIT_EXCEEDED"
+        | "LOCATION_CAPACITY_EXCEEDED";
       message?: string;
       progress: number;
       projectId: string;
@@ -3120,6 +3202,156 @@ export type IpcChannelSpec = {
       warnings: Array<string>;
     };
   };
+  "settings:character:create": {
+    request: {
+      attributes?: Record<string, string>;
+      description?: string;
+      name: string;
+      projectId: string;
+    };
+    response: {
+      attributes: Record<string, string>;
+      createdAt: number;
+      description: string;
+      id: string;
+      name: string;
+      projectId: string;
+      updatedAt: number;
+    };
+  };
+  "settings:character:delete": {
+    request: {
+      id: string;
+      projectId: string;
+    };
+    response: {
+      deleted: true;
+    };
+  };
+  "settings:character:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        attributes: Record<string, string>;
+        createdAt: number;
+        description: string;
+        id: string;
+        name: string;
+        projectId: string;
+        updatedAt: number;
+      }>;
+    };
+  };
+  "settings:character:read": {
+    request: {
+      id: string;
+      projectId: string;
+    };
+    response: {
+      attributes: Record<string, string>;
+      createdAt: number;
+      description: string;
+      id: string;
+      name: string;
+      projectId: string;
+      updatedAt: number;
+    };
+  };
+  "settings:character:update": {
+    request: {
+      attributes?: Record<string, string>;
+      description?: string;
+      id: string;
+      name?: string;
+      projectId: string;
+    };
+    response: {
+      attributes: Record<string, string>;
+      createdAt: number;
+      description: string;
+      id: string;
+      name: string;
+      projectId: string;
+      updatedAt: number;
+    };
+  };
+  "settings:location:create": {
+    request: {
+      attributes?: Record<string, string>;
+      description?: string;
+      name: string;
+      projectId: string;
+    };
+    response: {
+      attributes: Record<string, string>;
+      createdAt: number;
+      description: string;
+      id: string;
+      name: string;
+      projectId: string;
+      updatedAt: number;
+    };
+  };
+  "settings:location:delete": {
+    request: {
+      id: string;
+      projectId: string;
+    };
+    response: {
+      deleted: true;
+    };
+  };
+  "settings:location:list": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      items: Array<{
+        attributes: Record<string, string>;
+        createdAt: number;
+        description: string;
+        id: string;
+        name: string;
+        projectId: string;
+        updatedAt: number;
+      }>;
+    };
+  };
+  "settings:location:read": {
+    request: {
+      id: string;
+      projectId: string;
+    };
+    response: {
+      attributes: Record<string, string>;
+      createdAt: number;
+      description: string;
+      id: string;
+      name: string;
+      projectId: string;
+      updatedAt: number;
+    };
+  };
+  "settings:location:update": {
+    request: {
+      attributes?: Record<string, string>;
+      description?: string;
+      id: string;
+      name?: string;
+      projectId: string;
+    };
+    response: {
+      attributes: Record<string, string>;
+      createdAt: number;
+      description: string;
+      id: string;
+      name: string;
+      projectId: string;
+      updatedAt: number;
+    };
+  };
   "skill:custom:create": {
     request: {
       contextRules: Record<string, string | number | boolean>;
@@ -3291,7 +3523,19 @@ export type IpcChannelSpec = {
           | "DIFF_COMPUTE_FAILED"
           | "COST_MODEL_NOT_FOUND"
           | "COST_BUDGET_EXCEEDED"
-          | "COST_PRICING_STALE";
+          | "COST_PRICING_STALE"
+          | "CHARACTER_NAME_REQUIRED"
+          | "CHARACTER_NAME_DUPLICATE"
+          | "CHARACTER_NOT_FOUND"
+          | "CHARACTER_ATTR_KEY_TOO_LONG"
+          | "CHARACTER_ATTR_LIMIT_EXCEEDED"
+          | "CHARACTER_CAPACITY_EXCEEDED"
+          | "LOCATION_NAME_REQUIRED"
+          | "LOCATION_NAME_DUPLICATE"
+          | "LOCATION_NOT_FOUND"
+          | "LOCATION_ATTR_KEY_TOO_LONG"
+          | "LOCATION_ATTR_LIMIT_EXCEEDED"
+          | "LOCATION_CAPACITY_EXCEEDED";
         error_message?: string;
         id: string;
         name: string;

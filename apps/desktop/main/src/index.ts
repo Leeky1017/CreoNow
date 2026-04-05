@@ -32,6 +32,7 @@ import { registerCostIpcHandlers } from "./ipc/cost";
 import { registerDiffIpcHandlers } from "./ipc/diff";
 import { registerWindowIpcHandlers } from "./ipc/window";
 import { registerRendererLogIpcHandlers } from "./ipc/rendererLog";
+import { registerSettingsIpcHandlers } from "./ipc/settings";
 import { createProjectSessionBindingRegistry } from "./ipc/projectSessionBinding";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
@@ -568,6 +569,13 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     recognitionRuntime,
+    projectSessionBinding,
+  });
+
+  registerSettingsIpcHandlers({
+    ipcMain: guardedIpcMain,
+    db: deps.db,
+    logger: deps.logger,
     projectSessionBinding,
   });
 

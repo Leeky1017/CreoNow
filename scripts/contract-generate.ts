@@ -62,6 +62,7 @@ const DOMAIN_REGISTRY: Readonly<Record<string, string>> = {
   project: "Project Management",
   rag: "Search and Retrieval",
   search: "Search and Retrieval",
+  settings: "Knowledge Graph",
   skill: "Skill System",
   stats: "Workbench",
   version: "Version Control",
