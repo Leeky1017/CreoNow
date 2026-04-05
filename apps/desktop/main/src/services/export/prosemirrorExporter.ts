@@ -677,7 +677,14 @@ export function createProseMirrorExporter(deps: Deps): ProseMirrorExporter {
           };
         }
       } else {
-        await fs.mkdir(req.outputPath, { recursive: true });
+        try {
+          await fs.mkdir(req.outputPath, { recursive: true });
+        } catch (error) {
+          return {
+            success: false,
+            error: { code: "EXPORT_WRITE_ERROR", message: error instanceof Error ? error.message : String(error) },
+          };
+        }
         for (const [index, doc] of docs.entries()) {
           const output = await buildStructuredOutput({
             title: doc.title,

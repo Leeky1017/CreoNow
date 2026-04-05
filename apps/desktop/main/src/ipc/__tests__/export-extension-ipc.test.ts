@@ -470,4 +470,39 @@ describe("export extension IPC handlers (P3)", () => {
       expect(failedEvent?.error?.code).toBe("EXPORT_DOCUMENT_NOT_FOUND");
     });
   });
+
+  describe("EXPORT_WRITE_ERROR contract — mergeIntoOne=false mkdir failure (R14)", () => {
+    it("export:project:prosemirror mergeIntoOne=false 时 mkdir 失败通过 IPC 返回 EXPORT_WRITE_ERROR，不逃逸为 INTERNAL_ERROR", async () => {
+      const harness = createHarness();
+
+      // exportProject mock 返回 EXPORT_WRITE_ERROR（对应 prosemirrorExporter.ts 中 mkdir try-catch 的修复）
+      mocks.exportProjectMock.mockResolvedValueOnce({
+        success: false,
+        error: {
+          code: "EXPORT_WRITE_ERROR",
+          message: "EACCES: permission denied, mkdir '/restricted/chapters'",
+        },
+      });
+
+      const result = await harness.invoke<never>("export:project:prosemirror", {
+        projectId: "proj-1",
+        outputPath: "/restricted/chapters",
+        mergeIntoOne: false,
+        options: { format: "markdown" },
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("EXPORT_WRITE_ERROR");
+      expect(result.error?.code).not.toBe("INTERNAL_ERROR");
+
+      // export-failed 终态事件中的错误码必须也是 EXPORT_WRITE_ERROR
+      const failedEvent = harness.sender.send.mock.calls.find(
+        ([, p]) => (p as Record<string, unknown>)?.["type"] === "export-failed",
+      )?.[1] as { type: string; error: { code: string } } | undefined;
+
+      expect(failedEvent).toBeDefined();
+      expect(failedEvent?.error?.code).toBe("EXPORT_WRITE_ERROR");
+      expect(failedEvent?.error?.code).not.toBe("INTERNAL_ERROR");
+    });
+  });
 });
