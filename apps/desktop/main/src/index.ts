@@ -34,7 +34,6 @@ import { registerWindowIpcHandlers } from "./ipc/window";
 import { registerRendererLogIpcHandlers } from "./ipc/rendererLog";
 import { registerSettingsIpcHandlers } from "./ipc/settings";
 import { registerSimpleMemoryIpcHandlers } from "./ipc/simpleMemory";
-import { registerProjectSearchIpcHandlers } from "./ipc/projectSearch";
 import { createProjectSessionBindingRegistry } from "./ipc/projectSessionBinding";
 import { createMainLogger, type Logger } from "./logging/logger";
 import { createEmbeddingService } from "./services/embedding/embeddingService";
@@ -52,6 +51,7 @@ import { createContextProjectScopedCache } from "./services/context/projectScope
 import { createCreonowWatchService } from "./services/context/watchService";
 import { createProjectLifecycle } from "./services/projects/projectLifecycle";
 import { createUtilityProcessFoundation } from "./services/utilityprocess/utilityProcessFoundation";
+import { createMainEventBus } from "./services/shared/eventBus";
 import { resolvePreloadEntryPathFromBuildConfig } from "./runtimePathResolver";
 import { resolveRuntimeGovernanceFromEnv } from "./config/runtimeGovernance";
 import {
@@ -312,6 +312,7 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     watchService,
   });
+  const eventBus = createMainEventBus();
   const projectLifecycle = createProjectLifecycle({
     logger: deps.logger,
     timeoutMs: 5_000,
@@ -469,6 +470,7 @@ function registerIpcHandlers(deps: {
     logger: deps.logger,
     projectSessionBinding,
     projectLifecycle,
+    eventBus,
   });
 
   registerContextIpcHandlers({
@@ -509,6 +511,7 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     userDataDir: deps.userDataDir,
+    eventBus,
   });
 
   registerBackupIpcHandlers({
@@ -537,6 +540,8 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     semanticIndex,
+    projectLifecycle,
+    projectSessionBinding,
   });
 
   registerRagIpcHandlers({
@@ -579,6 +584,8 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     projectSessionBinding,
+    projectLifecycle,
+    eventBus,
   });
 
   registerSimpleMemoryIpcHandlers({
@@ -586,13 +593,8 @@ function registerIpcHandlers(deps: {
     db: deps.db,
     logger: deps.logger,
     projectSessionBinding,
-  });
-
-  registerProjectSearchIpcHandlers({
-    ipcMain: guardedIpcMain,
-    db: deps.db,
-    logger: deps.logger,
-    projectSessionBinding,
+    projectLifecycle,
+    eventBus,
   });
 
   registerVersionIpcHandlers({

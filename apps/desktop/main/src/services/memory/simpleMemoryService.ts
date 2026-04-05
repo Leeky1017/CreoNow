@@ -25,7 +25,7 @@ export interface WriteMemoryRequest {
 }
 
 export interface QueryMemoryRequest {
-  projectId: string;
+  projectId: string | null;
   category?: string;
   keyPrefix?: string;
 }
@@ -47,7 +47,7 @@ export interface SimpleMemoryService {
   read(id: string): Promise<Result<MemoryRecord>>;
   delete(id: string): Promise<Result<void>>;
   list(query: QueryMemoryRequest): Promise<Result<MemoryRecord[]>>;
-  inject(projectId: string, opts: { documentText: string; tokenBudget?: number }): Promise<Result<MemoryInjection>>;
+  inject(projectId: string | null, opts: { documentText: string; tokenBudget?: number }): Promise<Result<MemoryInjection>>;
   cleanup(projectId: string): Promise<Result<void>>;
   clearProject(projectId: string, opts?: { confirmed?: boolean }): Promise<Result<void>>;
   dispose(): void;
@@ -358,7 +358,19 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
 
       try {
         let rows: Record<string, unknown>[];
-        if (query.category) {
+        if (query.projectId === null) {
+          if (query.category) {
+            rows = db
+              .prepare("SELECT * FROM memory WHERE projectId IS NULL AND category = ?")
+              .all(query.category);
+          } else if (query.keyPrefix) {
+            rows = db
+              .prepare("SELECT * FROM memory WHERE projectId IS NULL AND key LIKE ?")
+              .all(`${query.keyPrefix}%`);
+          } else {
+            rows = db.prepare("SELECT * FROM memory WHERE projectId IS NULL").all();
+          }
+        } else if (query.category) {
           rows = db.prepare("SELECT * FROM memory WHERE projectId = ? AND category = ?")
             .all(query.projectId, query.category);
         } else if (query.keyPrefix) {
@@ -371,28 +383,32 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
         results = rows.map((r) => rowToMemoryRecord(r));
       } catch {
         for (const r of store.values()) {
-          if (r.projectId === query.projectId) {
-            if (query.category && r.category !== query.category) continue;
-            if (query.keyPrefix && !r.key.startsWith(query.keyPrefix)) continue;
-            results.push({ ...r });
-          }
-        }
-      }
+           if (r.projectId === query.projectId) {
+             if (query.category && r.category !== query.category) continue;
+             if (query.keyPrefix && !r.key.startsWith(query.keyPrefix)) continue;
+             results.push({ ...r });
+           }
+         }
+       }
 
-      return { success: true, data: results };
-    },
+       return { success: true, data: results };
+     },
 
-    async inject(projectId: string, opts: { documentText: string; tokenBudget?: number }): Promise<Result<MemoryInjection>> {
+     async inject(projectId: string | null, opts: { documentText: string; tokenBudget?: number }): Promise<Result<MemoryInjection>> {
       assertNotDisposed();
 
       const { documentText, tokenBudget } = opts;
       const maxTokens = tokenBudget != null ? Math.floor(tokenBudget * SETTINGS_TOKEN_BUDGET_RATIO) : Infinity;
 
-      let allRecords: MemoryRecord[];
-      let degraded = false;
-      try {
-        const rows = db.prepare("SELECT * FROM memory WHERE projectId = ? OR projectId IS NULL")
-          .all(projectId);
+       let allRecords: MemoryRecord[];
+       let degraded = false;
+       try {
+         const rows =
+           projectId === null
+             ? db.prepare("SELECT * FROM memory WHERE projectId IS NULL").all()
+             : db
+                 .prepare("SELECT * FROM memory WHERE projectId = ? OR projectId IS NULL")
+                 .all(projectId);
         allRecords = rows.map((r) => rowToMemoryRecord(r));
         // Also include in-memory records
         for (const r of store.values()) {

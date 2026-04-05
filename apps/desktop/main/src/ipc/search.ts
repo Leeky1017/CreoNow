@@ -3,6 +3,7 @@ import type Database from "better-sqlite3";
 
 import type { IpcResponse } from "@shared/types/ipc-generated";
 import type { Logger } from "../logging/logger";
+import type { ProjectLifecycle } from "../services/projects/projectLifecycle";
 import type { SemanticChunkIndexService } from "../services/embedding/semanticChunkIndexService";
 import { createFtsService } from "../services/search/ftsService";
 import {
@@ -12,9 +13,22 @@ import {
   type SemanticRetriever,
 } from "../services/search/hybridRankingService";
 import { createSearchReplaceService } from "../services/search/searchReplaceService";
+import { createProjectAccessHandler } from "./helpers";
+import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 
 type SearchReplaceService = ReturnType<typeof createSearchReplaceService>;
 type FtsService = ReturnType<typeof createFtsService>;
+
+type HandleWithProjectAccess = ReturnType<typeof createProjectAccessHandler>;
+
+type SearchReplacePreviewData = Extract<
+  ReturnType<SearchReplaceService["preview"]>,
+  { ok: true }
+>["data"];
+type SearchReplaceExecuteData = Extract<
+  ReturnType<SearchReplaceService["execute"]>,
+  { ok: true }
+>["data"];
 
 type DocumentIndexRow = {
   documentId: string;
@@ -94,11 +108,11 @@ function createSearchSemanticRetriever(args: {
   };
 }
 
-function toInternalSearchError(
+function toInternalSearchError<T = never>(
   logger: Logger,
   event: string,
   error: unknown,
-): IpcResponse<never> {
+): IpcResponse<T> {
   logger.error(event, {
     message: error instanceof Error ? error.message : String(error),
   });
@@ -120,14 +134,17 @@ function hasProjectId(payload: unknown): payload is { projectId: string } {
 }
 
 function registerSearchReplaceHandlers(
-  ipcMain: IpcMain,
+  handleWithProjectAccess: HandleWithProjectAccess,
   db: Database.Database | null,
   logger: Logger,
   replaceService: SearchReplaceService | null,
 ): void {
-  ipcMain.handle(
+  handleWithProjectAccess(
     "search:replace:preview",
-    async (_e, payload: Parameters<SearchReplaceService["preview"]>[0]) => {
+    async (
+      _e,
+      payload: Parameters<SearchReplaceService["preview"]>[0],
+    ): Promise<IpcResponse<SearchReplacePreviewData>> => {
       if (!db || !replaceService) {
         return {
           ok: false,
@@ -154,9 +171,12 @@ function registerSearchReplaceHandlers(
     },
   );
 
-  ipcMain.handle(
+  handleWithProjectAccess(
     "search:replace:execute",
-    async (_e, payload: Parameters<SearchReplaceService["execute"]>[0]) => {
+    async (
+      _e,
+      payload: Parameters<SearchReplaceService["execute"]>[0],
+    ): Promise<IpcResponse<SearchReplaceExecuteData>> => {
       if (!db || !replaceService) {
         return {
           ok: false,
@@ -185,13 +205,14 @@ function registerSearchReplaceHandlers(
 }
 
 function registerFtsHandlers(args: {
-  ipcMain: IpcMain;
+  handleWithProjectAccess: HandleWithProjectAccess;
   db: Database.Database | null;
   logger: Logger;
   ftsService: FtsService | null;
+  readyIndexProjects: Set<string>;
 }): void {
-  const { ipcMain, db, logger, ftsService } = args;
-  ipcMain.handle(
+  const { handleWithProjectAccess, db, logger, ftsService, readyIndexProjects } = args;
+  handleWithProjectAccess(
     "search:fts:query",
     async (
       _e,
@@ -293,7 +314,7 @@ function registerFtsHandlers(args: {
     },
   );
 
-  ipcMain.handle(
+  handleWithProjectAccess(
     "search:fts:reindex",
     async (
       _e,
@@ -339,6 +360,7 @@ function registerFtsHandlers(args: {
         logger.info("search_fts_reindex", {
           reindexed: res.data.reindexed,
         });
+        readyIndexProjects.add(safePayload.projectId.trim());
         return { ok: true, data: res.data };
       } catch (error) {
         return toInternalSearchError(
@@ -349,16 +371,50 @@ function registerFtsHandlers(args: {
       }
     },
   );
+
+  handleWithProjectAccess(
+    "search:fts:indexstatus",
+    async (
+      _e,
+      payload: unknown,
+    ): Promise<IpcResponse<{ status: "ready" }>> => {
+      if (!db) {
+        return {
+          ok: false,
+          error: { code: "DB_ERROR", message: "Database not ready" },
+        };
+      }
+      if (!hasProjectId(payload)) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: "projectId is required" },
+        };
+      }
+
+      const projectId = payload.projectId.trim();
+      if (!readyIndexProjects.has(projectId)) {
+        return {
+          ok: false,
+          error: {
+            code: "SEARCH_INDEX_NOT_FOUND",
+            message: "Index status unavailable",
+          },
+        };
+      }
+
+      return { ok: true, data: { status: "ready" } };
+    },
+  );
 }
 
 function registerRankingHandlers(args: {
-  ipcMain: IpcMain;
+  handleWithProjectAccess: HandleWithProjectAccess;
   db: Database.Database | null;
   logger: Logger;
   hybridRankingService: HybridRankingService | null;
 }): void {
-  const { ipcMain, db, logger, hybridRankingService } = args;
-  ipcMain.handle(
+  const { handleWithProjectAccess, db, logger, hybridRankingService } = args;
+  handleWithProjectAccess(
     "search:query:strategy",
     async (
       _e,
@@ -430,7 +486,7 @@ function registerRankingHandlers(args: {
     },
   );
 
-  ipcMain.handle(
+  handleWithProjectAccess(
     "search:rank:explain",
     async (
       _e,
@@ -511,7 +567,10 @@ export function registerSearchIpcHandlers(deps: {
   semanticIndex?: SemanticChunkIndexService;
   semanticRetriever?: SemanticRetriever;
   hybridRankingService?: HybridRankingService;
+  projectLifecycle?: ProjectLifecycle;
+  projectSessionBinding?: ProjectSessionBindingRegistry;
 }): void {
+  const readyIndexProjects = new Set<string>();
   const ftsService = deps.db
     ? createFtsService({ db: deps.db, logger: deps.logger })
     : null;
@@ -535,22 +594,50 @@ export function registerSearchIpcHandlers(deps: {
         })
       : null);
 
-  registerFtsHandlers({
+  const handleWithProjectAccess = createProjectAccessHandler({
     ipcMain: deps.ipcMain,
+    projectSessionBinding: deps.projectSessionBinding,
+  });
+
+  registerFtsHandlers({
+    handleWithProjectAccess,
     db: deps.db,
     logger: deps.logger,
     ftsService,
+    readyIndexProjects,
   });
   registerRankingHandlers({
-    ipcMain: deps.ipcMain,
+    handleWithProjectAccess,
     db: deps.db,
     logger: deps.logger,
     hybridRankingService,
   });
   registerSearchReplaceHandlers(
-    deps.ipcMain,
+    handleWithProjectAccess,
     deps.db,
     deps.logger,
     replaceService,
   );
+
+  deps.projectLifecycle?.register({
+    id: "search",
+    unbind: ({ projectId }) => {
+      readyIndexProjects.delete(projectId);
+    },
+    bind: ({ projectId }) => {
+      // Warm the FTS index for the newly bound project so that
+      // `search:fts:indexstatus` returns "ready" without requiring an
+      // explicit `search:fts:reindex` call from the renderer.
+      if (ftsService) {
+        const res = ftsService.reindex({ projectId });
+        if (res?.ok) {
+          readyIndexProjects.add(projectId);
+          deps.logger.info("search_fts_bind_reindex", {
+            projectId,
+            reindexed: res.data.reindexed,
+          });
+        }
+      }
+    },
+  });
 }

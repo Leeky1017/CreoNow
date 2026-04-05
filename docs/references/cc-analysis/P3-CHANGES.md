@@ -130,8 +130,8 @@
 |---------|------|------|
 | `main/src/ipc/settings.ts` | 3B | settings:character:* / settings:location:* |
 | `main/src/ipc/simpleMemory.ts` | 3C | memory:simple:* |
-| `main/src/ipc/projectSearch.ts` | 3E | search:project:* |
-| `main/src/ipc/export.ts` | 3F | export:document:* / export:project:* / export:progress |
+| `main/src/ipc/search.ts` | 3E | search:fts:* |
+| `main/src/ipc/export.ts` | 3F | export:document:* / export:project:* / export:progress:update |
 
 ### 技能定义（`main/skills/packages/`）
 
@@ -212,13 +212,13 @@
 | `memory:simple:delete` | 3C | Request-Response |
 | `memory:simple:list` | 3C | Request-Response |
 | `memory:simple:inject` | 3C | Request-Response |
-| `memory:simple:clear-project` | 3C | Request-Response |
-| `search:project:query` | 3E | Request-Response |
-| `search:project:reindex` | 3E | Request-Response |
-| `search:project:index-status` | 3E | Request-Response |
+| `memory:simple:clearproject` | 3C | Request-Response |
+| `search:fts:query` | 3E | Request-Response |
+| `search:fts:reindex` | 3E | Request-Response |
+| `search:fts:indexstatus` | 3E | Request-Response |
 | `export:document:prosemirror` | 3F | Request-Response |
 | `export:project:prosemirror` | 3F | Request-Response |
-| `export:progress` | 3F | Push Notification |
+| `export:progress:update` | 3F | Push Notification |
 
 ---
 

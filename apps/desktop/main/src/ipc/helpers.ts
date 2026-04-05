@@ -54,12 +54,16 @@ export function createProjectAccessHandler(deps: {
       event: unknown,
       payload: TPayload,
     ) => Promise<IpcResponse<TResponse>>,
+    options?: {
+      allowNullProjectId?: boolean;
+    },
   ): void {
     deps.ipcMain.handle(channel, async (event, payload) => {
       const guarded = guardAndNormalizeProjectAccess({
         event,
         payload,
         projectSessionBinding: deps.projectSessionBinding,
+        allowNullProjectId: options?.allowNullProjectId,
       });
       if (!guarded.ok) {
         return guarded.response as IpcResponse<TResponse>;

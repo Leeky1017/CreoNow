@@ -41,6 +41,7 @@ export type IpcErrorCode =
   | "DOCUMENT_SIZE_EXCEEDED"
   | "EMBEDDING_PROVIDER_UNAVAILABLE"
   | "ENCODING_FAILED"
+  | "EXPORT_DOCUMENT_NOT_FOUND"
   | "EXPORT_EMPTY_DOCUMENT"
   | "EXPORT_FORMAT_UNSUPPORTED"
   | "EXPORT_INTERRUPTED"
@@ -221,8 +222,6 @@ export const IPC_CHANNELS = [
   "export:document:pdf",
   "export:document:prosemirror",
   "export:document:txt",
-  "export:progress:get",
-  "export:project:bundle",
   "export:project:prosemirror",
   "file:document:create",
   "file:document:delete",
@@ -292,7 +291,6 @@ export const IPC_CHANNELS = [
   "project:lifecycle:purge",
   "project:lifecycle:restore",
   "project:overview:get",
-  "project:project:archive",
   "project:project:create",
   "project:project:createaiassist",
   "project:project:delete",
@@ -303,16 +301,13 @@ export const IPC_CHANNELS = [
   "project:project:setcurrent",
   "project:project:stats",
   "project:project:switch",
-  "project:project:update",
   "project:style:get",
   "rag:config:get",
   "rag:config:update",
   "rag:context:retrieve",
+  "search:fts:indexstatus",
   "search:fts:query",
   "search:fts:reindex",
-  "search:project:indexstatus",
-  "search:project:query",
-  "search:project:reindex",
   "search:query:strategy",
   "search:rank:explain",
   "search:replace:execute",
@@ -560,6 +555,7 @@ export type IpcChannelSpec = {
           | "EXPORT_FORMAT_UNSUPPORTED"
           | "EXPORT_WRITE_ERROR"
           | "EXPORT_EMPTY_DOCUMENT"
+          | "EXPORT_DOCUMENT_NOT_FOUND"
           | "EXPORT_UNSUPPORTED_NODE"
           | "EXPORT_SIZE_EXCEEDED"
           | "EXPORT_INTERRUPTED";
@@ -1355,11 +1351,22 @@ export type IpcChannelSpec = {
   "export:document:prosemirror": {
     request: {
       documentId: string;
+      options: {
+        fontSize?: number;
+        format: "markdown" | "docx" | "pdf" | "txt";
+        includeMetadata?: boolean;
+        includeTableOfContents?: boolean;
+        pageSize?: "a4" | "letter";
+      };
+      outputPath: string;
       projectId: string;
     };
     response: {
-      content: string;
-      documentId: string;
+      documentCount: number;
+      durationMs: number;
+      format: string;
+      outputPath: string;
+      totalWordCount: number;
     };
   };
   "export:document:txt": {
@@ -1372,36 +1379,26 @@ export type IpcChannelSpec = {
       relativePath: string;
     };
   };
-  "export:progress:get": {
-    request: {
-      exportId?: string;
-      projectId: string;
-    };
-    response: {
-      exportId: string;
-      progress: number;
-      status: string;
-    };
-  };
-  "export:project:bundle": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      bytesWritten: number;
-      relativePath: string;
-    };
-  };
   "export:project:prosemirror": {
     request: {
+      documentIds?: Array<string>;
+      mergeIntoOne?: boolean;
+      options: {
+        fontSize?: number;
+        format: "markdown" | "docx" | "pdf" | "txt";
+        includeMetadata?: boolean;
+        includeTableOfContents?: boolean;
+        pageSize?: "a4" | "letter";
+      };
+      outputPath: string;
       projectId: string;
     };
     response: {
-      items: Array<{
-        content: string;
-        documentId: string;
-        title: string;
-      }>;
+      documentCount: number;
+      durationMs: number;
+      format: string;
+      outputPath: string;
+      totalWordCount: number;
     };
   };
   "file:document:create": {
@@ -1683,6 +1680,7 @@ export type IpcChannelSpec = {
                 | "EXPORT_FORMAT_UNSUPPORTED"
                 | "EXPORT_WRITE_ERROR"
                 | "EXPORT_EMPTY_DOCUMENT"
+                | "EXPORT_DOCUMENT_NOT_FOUND"
                 | "EXPORT_UNSUPPORTED_NODE"
                 | "EXPORT_SIZE_EXCEEDED"
                 | "EXPORT_INTERRUPTED";
@@ -1834,6 +1832,7 @@ export type IpcChannelSpec = {
                 | "EXPORT_FORMAT_UNSUPPORTED"
                 | "EXPORT_WRITE_ERROR"
                 | "EXPORT_EMPTY_DOCUMENT"
+                | "EXPORT_DOCUMENT_NOT_FOUND"
                 | "EXPORT_UNSUPPORTED_NODE"
                 | "EXPORT_SIZE_EXCEEDED"
                 | "EXPORT_INTERRUPTED";
@@ -2419,6 +2418,7 @@ export type IpcChannelSpec = {
         | "EXPORT_FORMAT_UNSUPPORTED"
         | "EXPORT_WRITE_ERROR"
         | "EXPORT_EMPTY_DOCUMENT"
+        | "EXPORT_DOCUMENT_NOT_FOUND"
         | "EXPORT_UNSUPPORTED_NODE"
         | "EXPORT_SIZE_EXCEEDED"
         | "EXPORT_INTERRUPTED";
@@ -2563,6 +2563,7 @@ export type IpcChannelSpec = {
         | "EXPORT_FORMAT_UNSUPPORTED"
         | "EXPORT_WRITE_ERROR"
         | "EXPORT_EMPTY_DOCUMENT"
+        | "EXPORT_DOCUMENT_NOT_FOUND"
         | "EXPORT_UNSUPPORTED_NODE"
         | "EXPORT_SIZE_EXCEEDED"
         | "EXPORT_INTERRUPTED";
@@ -2953,7 +2954,7 @@ export type IpcChannelSpec = {
   "memory:simple:delete": {
     request: {
       id: string;
-      projectId: string;
+      projectId: string | null;
     };
     response: {
       deleted: true;
@@ -2962,7 +2963,7 @@ export type IpcChannelSpec = {
   "memory:simple:inject": {
     request: {
       documentText: string;
-      projectId: string;
+      projectId: string | null;
       tokenBudget?: number;
     };
     response: {
@@ -2973,7 +2974,7 @@ export type IpcChannelSpec = {
         createdAt: number;
         id: string;
         key: string;
-        projectId?: string;
+        projectId: string | null;
         source: string;
         updatedAt: number;
         value: string;
@@ -2985,7 +2986,7 @@ export type IpcChannelSpec = {
     request: {
       category?: string;
       keyPrefix?: string;
-      projectId: string;
+      projectId: string | null;
     };
     response: {
       items: Array<{
@@ -2993,7 +2994,7 @@ export type IpcChannelSpec = {
         createdAt: number;
         id: string;
         key: string;
-        projectId?: string;
+        projectId: string | null;
         source: string;
         updatedAt: number;
         value: string;
@@ -3003,14 +3004,14 @@ export type IpcChannelSpec = {
   "memory:simple:read": {
     request: {
       id: string;
-      projectId: string;
+      projectId: string | null;
     };
     response: {
       category: string;
       createdAt: number;
       id: string;
       key: string;
-      projectId?: string;
+      projectId: string | null;
       source: string;
       updatedAt: number;
       value: string;
@@ -3020,7 +3021,7 @@ export type IpcChannelSpec = {
     request: {
       category?: string;
       key: string;
-      projectId: string;
+      projectId: string | null;
       source?: string;
       value: string;
     };
@@ -3029,7 +3030,7 @@ export type IpcChannelSpec = {
       createdAt: number;
       id: string;
       key: string;
-      projectId?: string;
+      projectId: string | null;
       source: string;
       updatedAt: number;
       value: string;
@@ -3076,45 +3077,75 @@ export type IpcChannelSpec = {
       projectId: string;
     };
     response: {
-      autoSave: boolean;
+      createdAt: number;
+      defaultSkillSetId: string | null;
       description: string;
-      genre: string;
+      goals: {
+        targetChapterCount: number | null;
+        targetWordCount: number | null;
+      };
       id: string;
-      languageStyle: string;
+      knowledgeGraphId: string | null;
+      lifecycleStatus: "active" | "archived" | "deleted";
       name: string;
-      narrativePerson: string;
-      stage: string;
-      targetAudience: string;
-      type: string;
+      stage: "outline" | "draft" | "revision" | "final";
+      style: {
+        genre: string;
+        languageStyle: string;
+        narrativePerson: string;
+        targetAudience: string;
+        tone: string;
+      };
+      type: "novel" | "screenplay" | "media";
       updatedAt: number;
-      wordCountGoal?: number;
     };
   };
   "project:config:update": {
     request: {
       patch: {
-        autoSave?: boolean;
-        genre?: string;
-        languageStyle?: string;
-        narrativePerson?: string;
-        targetAudience?: string;
-        wordCountGoal?: number;
+        defaultSkillSetId?: string | null;
+        description?: string;
+        goals?: {
+          targetChapterCount?: number | null;
+          targetWordCount?: number | null;
+        };
+        knowledgeGraphId?: string | null;
+        lifecycleStatus?: "active" | "archived" | "deleted";
+        name?: string;
+        stage?: "outline" | "draft" | "revision" | "final";
+        style?: {
+          genre?: string;
+          languageStyle?: string;
+          narrativePerson?: string;
+          targetAudience?: string;
+          tone?: string;
+        };
+        type?: "novel" | "screenplay" | "media";
       };
       projectId: string;
     };
     response: {
-      autoSave: boolean;
+      createdAt: number;
+      defaultSkillSetId: string | null;
       description: string;
-      genre: string;
+      goals: {
+        targetChapterCount: number | null;
+        targetWordCount: number | null;
+      };
       id: string;
-      languageStyle: string;
+      knowledgeGraphId: string | null;
+      lifecycleStatus: "active" | "archived" | "deleted";
       name: string;
-      narrativePerson: string;
-      stage: string;
-      targetAudience: string;
-      type: string;
+      stage: "outline" | "draft" | "revision" | "final";
+      style: {
+        genre: string;
+        languageStyle: string;
+        narrativePerson: string;
+        targetAudience: string;
+        tone: string;
+      };
+      type: "novel" | "screenplay" | "media";
       updatedAt: number;
-      wordCountGoal?: number;
     };
   };
   "project:documents:list": {
@@ -3190,17 +3221,6 @@ export type IpcChannelSpec = {
       locationCount: number;
       projectId: string;
       totalWordCount: number;
-    };
-  };
-  "project:project:archive": {
-    request: {
-      archived: boolean;
-      projectId: string;
-    };
-    response: {
-      archived: boolean;
-      archivedAt?: number;
-      projectId: string;
     };
   };
   "project:project:create": {
@@ -3322,26 +3342,6 @@ export type IpcChannelSpec = {
       switchedAt: string;
     };
   };
-  "project:project:update": {
-    request: {
-      patch: {
-        defaultSkillSetId?: string;
-        description?: string;
-        knowledgeGraphId?: string;
-        languageStyle?: string;
-        narrativePerson?: string;
-        stage?: string;
-        targetAudience?: string;
-        targetChapterCount?: number;
-        targetWordCount?: number;
-        type?: string;
-      };
-      projectId: string;
-    };
-    response: {
-      updated: true;
-    };
-  };
   "project:style:get": {
     request: {
       projectId: string;
@@ -3403,6 +3403,14 @@ export type IpcChannelSpec = {
       usedTokens: number;
     };
   };
+  "search:fts:indexstatus": {
+    request: {
+      projectId: string;
+    };
+    response: {
+      status: "ready";
+    };
+  };
   "search:fts:query": {
     request: {
       limit?: number;
@@ -3441,51 +3449,6 @@ export type IpcChannelSpec = {
     response: {
       indexState: "ready";
       reindexed: number;
-    };
-  };
-  "search:project:indexstatus": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      status: string;
-    };
-  };
-  "search:project:query": {
-    request: {
-      limit?: number;
-      offset?: number;
-      projectId: string;
-      query: string;
-    };
-    response: {
-      hasMore: boolean;
-      indexState: string;
-      results: Array<{
-        anchor: {
-          end: number;
-          start: number;
-        };
-        documentId: string;
-        documentOffset: number;
-        documentTitle: string;
-        documentType: string;
-        highlights: Array<{
-          end: number;
-          start: number;
-        }>;
-        projectId: string;
-        snippet: string;
-      }>;
-      total: number;
-    };
-  };
-  "search:project:reindex": {
-    request: {
-      projectId: string;
-    };
-    response: {
-      rebuilt: true;
     };
   };
   "search:query:strategy": {
@@ -3954,6 +3917,7 @@ export type IpcChannelSpec = {
           | "EXPORT_FORMAT_UNSUPPORTED"
           | "EXPORT_WRITE_ERROR"
           | "EXPORT_EMPTY_DOCUMENT"
+          | "EXPORT_DOCUMENT_NOT_FOUND"
           | "EXPORT_UNSUPPORTED_NODE"
           | "EXPORT_SIZE_EXCEEDED"
           | "EXPORT_INTERRUPTED";

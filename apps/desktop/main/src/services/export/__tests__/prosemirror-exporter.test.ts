@@ -645,6 +645,43 @@ describe("ProseMirrorExporter P3", () => {
       expect(result.data?.documentCount).toBe(2);
     });
 
+    it("mergeIntoOne=false 时 mkdir 失败归一化为 EXPORT_WRITE_ERROR，不逃逸为 INTERNAL_ERROR", async () => {
+      // Arrange: mkdir 抛出 EACCES（无权限），writeFile 没有机会被调用
+      fs.mkdir.mockRejectedValueOnce(new Error("EACCES: permission denied, mkdir '/restricted/chapters'"));
+
+      // Act
+      const result = await exporter.exportProject({
+        projectId: "proj-1",
+        options: makeExportOptions({ format: "markdown" }),
+        outputPath: "/restricted/chapters",
+        documentIds: ["doc-1", "doc-2"],
+        mergeIntoOne: false,
+      } as ExportProjectRequest);
+
+      // Assert: 必须是业务错误码，不能是 INTERNAL_ERROR
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe("EXPORT_WRITE_ERROR");
+      expect(result.error?.code).not.toBe("INTERNAL_ERROR");
+      // writeFile 不应被调用，因为 mkdir 已失败
+      expect(fs.writeFile).not.toHaveBeenCalled();
+    });
+
+    it("mergeIntoOne=false 时 mkdir 失败的错误消息被保留", async () => {
+      const mkdirErrorMessage = "ENOENT: no such file or directory, mkdir '/deep/nonexistent/path'";
+      fs.mkdir.mockRejectedValueOnce(new Error(mkdirErrorMessage));
+
+      const result = await exporter.exportProject({
+        projectId: "proj-1",
+        options: makeExportOptions({ format: "markdown" }),
+        outputPath: "/deep/nonexistent/path",
+        mergeIntoOne: false,
+      } as ExportProjectRequest);
+
+      expect(result.success).toBe(false);
+      expect(result.error?.code).toBe("EXPORT_WRITE_ERROR");
+      expect(result.error?.message).toBe(mkdirErrorMessage);
+    });
+
     it("不指定 documentIds 时导出全部章节", async () => {
       const result = await exporter.exportProject({
         projectId: "proj-1",

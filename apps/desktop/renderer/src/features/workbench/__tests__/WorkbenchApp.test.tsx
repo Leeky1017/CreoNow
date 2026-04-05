@@ -1,6 +1,10 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  EXPORT_PROGRESS_CHANNEL,
+  type ExportLifecycleEvent,
+} from "@shared/types/export";
 import type { EditorBridge, EditorBridgeOptions } from "@/editor/bridge";
 import type { SelectionRef } from "@/editor/schema";
 import type { VersionHistorySnapshotDetail, VersionHistorySnapshotSummary } from "@/features/version-history/types";
@@ -60,6 +64,14 @@ function createDeferred<TResult>() {
   };
 }
 
+function dispatchExportLifecycleEvent(event: ExportLifecycleEvent): void {
+  window.dispatchEvent(
+    new CustomEvent<ExportLifecycleEvent>(EXPORT_PROGRESS_CHANNEL, {
+      detail: event,
+    }),
+  );
+}
+
 function formatWorkbenchTimestamp(value: number): string {
   return new Intl.DateTimeFormat("zh-CN", {
     hour: "2-digit",
@@ -107,6 +119,8 @@ function installLegacyLogBridge(invoke = vi.fn(async () => ({ ok: true as const,
     stream: {
       registerAiStreamConsumer: () => ({ ok: true, data: { subscriptionId: "sub-1" } }),
       releaseAiStreamConsumer: () => undefined,
+      registerExportProgressConsumer: () => ({ ok: true, data: { subscriptionId: "sub-export-1" } }),
+      releaseExportProgressConsumer: () => undefined,
     },
   };
 
@@ -191,6 +205,53 @@ describe("WorkbenchApp", () => {
     vi.mocked(bridgeMock.getCursorContext).mockReturnValue({ cursorPosition: 5, precedingText: "风从北方来" });
     window.localStorage.clear();
     window.api = createApiMock();
+    window.creonow = {
+      api: window.api,
+      invoke: vi.fn(async () => ({ ok: true as const, data: { logged: true as const } })),
+      stream: {
+        registerAiStreamConsumer: vi.fn(() => ({ ok: true as const, data: { subscriptionId: "sub-ai-1" } })),
+        releaseAiStreamConsumer: vi.fn(),
+        registerExportProgressConsumer: vi.fn(() => ({ ok: true as const, data: { subscriptionId: "sub-export-1" } })),
+        releaseExportProgressConsumer: vi.fn(),
+      },
+    };
+  });
+
+  it("tracks export lifecycle activity on the workbench frame and clears it on completion", async () => {
+    render(<WorkbenchApp />);
+
+    await screen.findByRole("heading", { name: "第一章" });
+    const frame = screen.getByTestId("workbench-frame");
+    expect(frame).not.toHaveAttribute("data-export-active");
+
+    act(() => {
+      dispatchExportLifecycleEvent({
+        type: "export-started",
+        exportId: "exp-1",
+        projectId: "project-1",
+        format: "markdown",
+        currentDocument: "doc-1",
+        timestamp: 1,
+      });
+    });
+
+    expect(frame).toHaveAttribute("data-export-active", "true");
+
+    act(() => {
+      dispatchExportLifecycleEvent({
+        type: "export-completed",
+        exportId: "exp-1",
+        success: true,
+        projectId: "project-1",
+        format: "markdown",
+        documentCount: 1,
+        timestamp: 2,
+      });
+    });
+
+    await waitFor(() => {
+      expect(frame).not.toHaveAttribute("data-export-active");
+    });
   });
 
 
