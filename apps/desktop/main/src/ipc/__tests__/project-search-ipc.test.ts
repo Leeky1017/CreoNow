@@ -316,8 +316,27 @@ describe("project search IPC handlers (P3)", () => {
     // SEARCH_INDEX_CORRUPTED — 该错误码为预留，当前 service 层未有触发路径。
     // 将在后续版本中当索引文件损坏时触发。
 
-    // SEARCH_TIMEOUT — 该错误码为预留，当前 service 层不支持查询超时。
-    // 将在后续版本引入查询超时机制时启用。
+    it("SEARCH_TIMEOUT 在搜索超时时返回", async () => {
+      const harness = createHarness();
+
+      // Rebuild index first so project is known
+      await harness.invoke("search:project:reindex", {
+        projectId: "proj-1",
+      });
+
+      // Mock DB to throw SEARCH_TIMEOUT on next all() call (search query)
+      harness.stmtAll.mockImplementationOnce(() => {
+        throw new Error("SEARCH_TIMEOUT");
+      });
+
+      const result = await harness.invoke<never>("search:project:query", {
+        projectId: "proj-1",
+        query: "test",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("SEARCH_TIMEOUT");
+    });
 
     it("SEARCH_INDEX_NOT_FOUND 在索引不存在时返回", async () => {
       const harness = createHarness();

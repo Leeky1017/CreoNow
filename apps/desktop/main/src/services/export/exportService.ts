@@ -635,15 +635,22 @@ export function createExportService(deps: ExportDeps): ExportService {
     projectId: string;
     documentId: string;
   }): ServiceResult<{ documentId: string; content: string }> {
-    const row = deps.db.prepare(
-      "SELECT content_json as contentJson FROM documents WHERE project_id = ? AND document_id = ?",
-    ).get(args.projectId, args.documentId) as { contentJson?: string } | undefined;
+    const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
+    const doc = docSvc.read({ projectId: args.projectId, documentId: args.documentId });
 
-    if (!row || !row.contentJson) {
+    if (!doc.ok) {
+      if (doc.error.code === "DB_ERROR") {
+        return ipcError("EXPORT_WRITE_ERROR", doc.error.message);
+      }
       return ipcError("EXPORT_EMPTY_DOCUMENT", "Document not found or empty");
     }
 
-    return { ok: true, data: { documentId: args.documentId, content: row.contentJson } };
+    const contentJson = doc.data.contentJson;
+    if (!contentJson) {
+      return ipcError("EXPORT_EMPTY_DOCUMENT", "Document not found or empty");
+    }
+
+    return { ok: true, data: { documentId: args.documentId, content: contentJson } };
   }
 
   function getProjectProsemirror(args: {
@@ -651,19 +658,24 @@ export function createExportService(deps: ExportDeps): ExportService {
   }): ServiceResult<{
     items: Array<{ documentId: string; title: string; content: string }>;
   }> {
-    const rows = deps.db.prepare(
-      "SELECT document_id as documentId, title, content_json as contentJson FROM documents WHERE project_id = ?",
-    ).all(args.projectId) as Array<{
-      documentId: string;
-      title: string;
-      contentJson: string;
-    }>;
+    const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
+    const listResult = docSvc.list({ projectId: args.projectId });
 
-    const items = rows.map((row) => ({
-      documentId: row.documentId,
-      title: row.title ?? "",
-      content: row.contentJson ?? "{}",
-    }));
+    if (!listResult.ok) {
+      if (listResult.error.code === "DB_ERROR") {
+        return ipcError("EXPORT_WRITE_ERROR", listResult.error.message);
+      }
+      return { ok: true, data: { items: [] } };
+    }
+
+    const items = listResult.data.items.map((item) => {
+      const doc = docSvc.read({ projectId: args.projectId, documentId: item.documentId });
+      return {
+        documentId: item.documentId,
+        title: item.title ?? "",
+        content: doc.ok ? (doc.data.contentJson ?? "{}") : "{}",
+      };
+    });
 
     return { ok: true, data: { items } };
   }

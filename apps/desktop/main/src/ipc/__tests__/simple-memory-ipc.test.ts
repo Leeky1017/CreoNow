@@ -508,7 +508,7 @@ describe("simple memory IPC handlers (P3)", () => {
       const harness = createHarness();
       harness.stmtGet.mockReturnValueOnce({ count: 0 });
 
-      const longKey = "k".repeat(1000);
+      const longKey = "k".repeat(201);
       const result = await harness.invoke<never>("memory:simple:write", {
         projectId: "proj-1",
         key: longKey,
@@ -516,19 +516,15 @@ describe("simple memory IPC handlers (P3)", () => {
         category: "preference",
       });
 
-      // Service layer may enforce key length limit
-      // If it doesn't, the write still succeeds (service-level concern)
-      expect(result).toBeDefined();
-      if (!result.ok) {
-        expect(["MEMORY_KEY_TOO_LONG", "INTERNAL_ERROR"]).toContain(result.error?.code);
-      }
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("MEMORY_KEY_TOO_LONG");
     });
 
     it("超长 value 返回 MEMORY_VALUE_TOO_LONG", async () => {
       const harness = createHarness();
       harness.stmtGet.mockReturnValueOnce({ count: 0 });
 
-      const longValue = "v".repeat(100_000);
+      const longValue = "v".repeat(2001);
       const result = await harness.invoke<never>("memory:simple:write", {
         projectId: "proj-1",
         key: "test",
@@ -536,12 +532,29 @@ describe("simple memory IPC handlers (P3)", () => {
         category: "preference",
       });
 
-      // Service layer may enforce value length limit
-      expect(result).toBeDefined();
-      if (!result.ok) {
-        expect(["MEMORY_VALUE_TOO_LONG", "INTERNAL_ERROR"]).toContain(result.error?.code);
-      }
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("MEMORY_VALUE_TOO_LONG");
     });
+
+    it("容量超限返回 MEMORY_CAPACITY_EXCEEDED", async () => {
+      const harness = createHarness();
+      // Mock capacity check to return MAX_RECORDS (10000)
+      harness.stmtGet.mockReturnValueOnce({ count: 10000 });
+
+      const result = await harness.invoke<never>("memory:simple:write", {
+        projectId: "proj-1",
+        key: "overflow",
+        value: "val",
+        category: "preference",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("MEMORY_CAPACITY_EXCEEDED");
+    });
+
+    // TODO [B-F04]: MEMORY_SERVICE_UNAVAILABLE 在 inject 通道中作为 fallback 错误码使用。
+    // 当前 service 层的 inject 方法在 DB 不可用时走降级路径仍返回 success: true，
+    // 因此无法在 IPC 层单独触发此码。Service 层 read() 可返回此码，已在 service 测试覆盖。
   });
 
   // ── B-F16: 跨项目隔离 ──

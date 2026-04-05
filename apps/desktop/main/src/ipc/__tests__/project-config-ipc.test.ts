@@ -1,7 +1,26 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { IpcMain } from "electron";
 
-import { registerProjectIpcHandlers } from "../project";
+import type { ProjectConfig } from "../../services/project/projectManager";
+
+let seedProjects: ProjectConfig[] = [];
+
+// Mock createProjectManager to inject seed projects when needed
+vi.mock("../../services/project/projectManager", async (importOriginal) => {
+  const mod = (await importOriginal()) as Record<string, unknown>;
+  return {
+    ...mod,
+    createProjectManager: (deps: Record<string, unknown>) => {
+      return (mod.createProjectManager as (deps: Record<string, unknown>) => unknown)({
+        ...deps,
+        initialProjects: seedProjects.length > 0 ? seedProjects : undefined,
+      });
+    },
+  };
+});
+
+// Import AFTER vi.mock so the mock takes effect
+const { registerProjectIpcHandlers } = await import("../project");
 
 type Handler = (event: unknown, payload?: unknown) => Promise<unknown>;
 
@@ -10,6 +29,26 @@ interface IpcResponse<T> {
   data?: T;
   error?: { code: string; message: string };
 }
+
+const SEED_PROJECT: ProjectConfig = {
+  id: "proj-seed",
+  name: "Seed Project",
+  type: "novel",
+  description: "测试用种子项目",
+  stage: "draft",
+  lifecycleStatus: "active",
+  style: {
+    narrativePerson: "first",
+    genre: "科幻",
+    languageStyle: "简洁",
+    tone: "冷静",
+    targetAudience: "成人",
+  },
+  goals: { targetWordCount: 50000, targetChapterCount: 10 },
+  defaultSkillSetId: null,
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+};
 
 function createHarness() {
   const handlers = new Map<string, Handler>();
@@ -68,6 +107,10 @@ function createHarness() {
 }
 
 describe("project config IPC handlers (P3)", () => {
+  beforeEach(() => {
+    seedProjects = [];
+  });
+
   // ── project:config:get ──
 
   describe("project:config:get", () => {
@@ -269,48 +312,63 @@ describe("project config IPC handlers (P3)", () => {
   // ── Happy-path tests (B-F13) ──
 
   describe("project:config:get happy-path", () => {
-    it("创建项目后读取返回完整 ProjectConfig", async () => {
+    it("已存在项目返回完整 ProjectConfig", async () => {
+      seedProjects = [SEED_PROJECT];
       const harness = createHarness();
 
-      // ProjectManager uses in-memory store; we need to create a project
-      // through the manager to get a config back.
-      // The harness mock DB doesn't persist, but projectManager stores in Map.
-      // We can test by checking that the handler returns PROJECT_NOT_FOUND
-      // for unknown projects.
-      const result = await harness.invoke<never>("project:config:get", {
-        projectId: "nonexistent-proj",
+      const result = await harness.invoke<{
+        id: string;
+        name: string;
+        genre: string;
+        narrativePerson: string;
+      }>("project:config:get", {
+        projectId: "proj-seed",
       });
 
-      expect(result.ok).toBe(false);
-      expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
+      expect(result.ok).toBe(true);
+      expect(result.data?.id).toBe("proj-seed");
+      expect(result.data?.name).toBe("Seed Project");
+      expect(result.data?.genre).toBe("科幻");
+      expect(result.data?.narrativePerson).toBe("first");
     });
   });
 
   describe("project:config:update happy-path", () => {
-    it("空 patch 对象不报错", async () => {
+    it("更新 genre 后返回更新后的 config", async () => {
+      seedProjects = [SEED_PROJECT];
       const harness = createHarness();
 
-      // Updating a non-existent project returns PROJECT_NOT_FOUND
-      const result = await harness.invoke<never>("project:config:update", {
-        projectId: "proj-1",
-        patch: {},
+      const result = await harness.invoke<{
+        id: string;
+        genre: string;
+      }>("project:config:update", {
+        projectId: "proj-seed",
+        patch: { genre: "奇幻" },
       });
 
-      expect(result.ok).toBe(false);
-      expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
+      expect(result.ok).toBe(true);
+      expect(result.data?.id).toBe("proj-seed");
+      expect(result.data?.genre).toBe("奇幻");
     });
   });
 
   describe("project:style:get happy-path", () => {
-    it("项目不存在返回 PROJECT_NOT_FOUND", async () => {
+    it("已存在项目返回风格配置", async () => {
+      seedProjects = [SEED_PROJECT];
       const harness = createHarness();
 
-      const result = await harness.invoke<never>("project:style:get", {
-        projectId: "proj-nonexistent",
+      const result = await harness.invoke<{
+        genre: string;
+        narrativePerson: string;
+        tone: string;
+      }>("project:style:get", {
+        projectId: "proj-seed",
       });
 
-      expect(result.ok).toBe(false);
-      expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
+      expect(result.ok).toBe(true);
+      expect(result.data?.genre).toBe("科幻");
+      expect(result.data?.narrativePerson).toBe("first");
+      expect(result.data?.tone).toBe("冷静");
     });
   });
 });

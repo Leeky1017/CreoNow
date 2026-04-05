@@ -168,7 +168,11 @@ describe("export extension IPC handlers (P3)", () => {
           contentJson: '{"type":"doc","content":[]}',
         },
       ];
+      // list() uses all(), read() uses get() for each document
       harness.stmtAll.mockReturnValueOnce(docs);
+      harness.stmtGet
+        .mockReturnValueOnce({ documentId: "doc-1", contentJson: '{"type":"doc"}' })
+        .mockReturnValueOnce({ documentId: "doc-2", contentJson: '{"type":"doc","content":[]}' });
 
       const result = await harness.invoke<{
         items: Array<{
@@ -279,6 +283,15 @@ describe("export extension IPC handlers (P3)", () => {
 
     // EXPORT_INTERRUPTED — 该错误码为预留，在当前同步 ProseMirror 导出中不会触发。
     // 将在 P4/P5 实现流式导出时用于取消操作。
+
+    // TODO [B-F08]: EXPORT_FORMAT_UNSUPPORTED 为预留码，在 prosemirror 通道中格式固化于通道名，
+    // 此错误码将在通用 export 接口实现后触发。Service 层 prosemirror-exporter.test.ts 已覆盖。
+
+    // TODO [B-F10]: EXPORT_UNSUPPORTED_NODE 为预留码，当前 prosemirror 导出不做节点类型校验。
+    // 将在 P4/P5 实现结构化导出过滤时启用，届时不支持的节点类型将触发此码。
+
+    // TODO [B-F11]: EXPORT_SIZE_EXCEEDED 为预留码，当前导出无文件大小上限。
+    // 将在 P4/P5 实现大文件导出限制时启用，届时超出上限的导出将触发此码。
   });
 
   // ── DB not ready ──

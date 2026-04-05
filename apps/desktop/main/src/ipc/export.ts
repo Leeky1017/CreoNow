@@ -441,8 +441,9 @@ export function registerExportIpcHandlers(deps: {
 
       // TODO: P3 阶段为 stub，完整 Push Notification 实现在 P4/P5。
       // 当前使用 Request-Response 轮询作为过渡方案。
+      const p = payload as Record<string, unknown>;
       const exportId =
-        (payload as { exportId?: string } | null)?.exportId ?? "none";
+        typeof p.exportId === "string" ? p.exportId : "none";
       return {
         ok: true,
         data: { exportId, status: "idle", progress: 0 },
