@@ -1,0 +1,109 @@
+.cn-settings {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: var(--space-8);
+  gap: var(--space-8);
+  font-family: var(--font-family-ui);
+}
+
+.cn-settings__title {
+  margin: 0;
+  font-size: var(--text-page-title-size);
+  font-weight: var(--text-page-title-weight);
+  line-height: var(--text-page-title-line-height);
+  color: var(--color-fg-base);
+}
+
+/* ── Section ───────────────────────────────── */
+
+.cn-settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cn-settings__group {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* ── Row ───────────────────────────────────── */
+
+.cn-settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  min-height: 44px;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.cn-settings__row:hover {
+  background: var(--color-bg-hover);
+}
+
+.cn-settings__row + .cn-settings__row {
+  border-top: 1px solid var(--color-separator);
+}
+
+.cn-settings__label {
+  margin: 0;
+  font-size: var(--text-body-size);
+  color: var(--color-fg-base);
+  flex-shrink: 0;
+}
+
+.cn-settings__value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-body-size);
+  color: var(--color-fg-muted);
+  min-width: 0;
+}
+
+/* ── Select ────────────────────────────────── */
+
+/* Select styling is now handled by the Select primitive (Select.css) */
+
+/* ── API Key Input ─────────────────────────── */
+
+.cn-settings__api-key-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cn-settings__api-key-group .cn-input {
+  max-width: 180px;
+  font-size: var(--text-body-size);
+  padding: var(--space-1) var(--space-3);
+}
+
+.cn-settings__verify.cn-button {
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-body-size);
+}
+
+/* ── Budget Input ──────────────────────────── */
+
+.cn-settings__budget-input.cn-input {
+  max-width: 80px;
+  text-align: right;
+}
+
+/* ── Static Value ──────────────────────────── */
+
+.cn-settings__static {
+  font-family: var(--font-family-mono);
+  font-size: var(--text-status-size);
+  color: var(--color-fg-muted);
+}

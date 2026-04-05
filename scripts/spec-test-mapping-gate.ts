@@ -91,6 +91,47 @@ const GATE_NAME = "SPEC_TEST_MAP";
 
 const SCENARIO_ID_RE = /###\s+Scenario\s+(S-[A-Z]+(?:-[A-Z]+)*-\d+)/g;
 
+/**
+ * Matches `#### Scenario: <title>` — the format actually used in all spec files.
+ * Captures the title text after the colon.
+ */
+const SCENARIO_TITLE_RE = /####\s+Scenario:\s+(.+)/;
+
+/**
+ * Matches prefixed IDs like `BE-SLA-S1`, `AUD-C1-S4`, `FE-xxx`, `IPC-xxx`, `P3`.
+ * These are extracted as the canonical scenario ID when present in the title.
+ */
+const PREFIXED_ID_RE = /^((?:BE|FE|AUD|IPC|P\d+)[-\w]*\s*)/;
+
+/**
+ * Generate a stable slug from a scenario title for use as an ID.
+ * For titles with a known prefix (BE-/FE-/AUD-/IPC-/P3), extract it.
+ * Otherwise, create a normalized slug from the Chinese/English title.
+ */
+function scenarioTitleToId(title: string, specFile: string): string {
+  const trimmed = title.trim();
+
+  // Extract prefixed ID if present (e.g. "BE-SLA-S1 项目切换..." → "BE-SLA-S1")
+  const prefixMatch = PREFIXED_ID_RE.exec(trimmed);
+  if (prefixMatch) {
+    return prefixMatch[1].trim();
+  }
+
+  // Derive module name from spec file path for namespacing
+  const parts = specFile.split("/");
+  const specIdx = parts.indexOf("specs");
+  const module = specIdx >= 0 && specIdx + 1 < parts.length ? parts[specIdx + 1] : "unknown";
+
+  // Create a slug: keep CJK chars, alphanumeric, replace spaces/punctuation with hyphens
+  const slug = trimmed
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/\s+/g, "-")
+    .toLowerCase()
+    .slice(0, 80);
+
+  return `${module}/${slug}`;
+}
+
 // ── Dimension Classification ───────────────────────────────────────
 
 const DIMENSION_RULES: Array<{
@@ -168,18 +209,33 @@ export function extractScenarios(rootDir: string = "."): ScenarioEntry[] {
       const content = readFileSync(filePath, "utf-8");
       const lines = content.split("\n");
 
+      const relPath = path.relative(rootDir, filePath);
+
       for (const line of lines) {
-        // Reset lastIndex for global regex
+        // Format 1: `### Scenario S-XXX-NN` (legacy, formal IDs)
         SCENARIO_ID_RE.lastIndex = 0;
         let match: RegExpExecArray | null;
         while ((match = SCENARIO_ID_RE.exec(line)) !== null) {
           const id = match[1];
-          const title = line;
-          const dimension = classifyDimension(title);
+          const dimension = classifyDimension(line);
           scenarios.push({
             id,
-            title: title.replace(/^###\s+Scenario\s+/, "").trim(),
-            specFile: path.relative(rootDir, filePath),
+            title: line.replace(/^###\s+Scenario\s+/, "").trim(),
+            specFile: relPath,
+            dimension,
+          });
+        }
+
+        // Format 2: `#### Scenario: <title>` (actual format used in all specs)
+        const titleMatch = SCENARIO_TITLE_RE.exec(line);
+        if (titleMatch) {
+          const rawTitle = titleMatch[1].trim();
+          const id = scenarioTitleToId(rawTitle, relPath);
+          const dimension = classifyDimension(rawTitle);
+          scenarios.push({
+            id,
+            title: rawTitle,
+            specFile: relPath,
             dimension,
           });
         }
@@ -188,6 +244,37 @@ export function extractScenarios(rootDir: string = "."): ScenarioEntry[] {
   }
 
   return scenarios;
+}
+
+/**
+ * Split a pure-CJK string into bigrams for fuzzy matching.
+ */
+function splitCjk(text: string): string[] {
+  const cjkChars = text.replace(/[^\u4e00-\u9fff]/g, "");
+  if (cjkChars.length < 2) return [text];
+  const grams: string[] = [];
+  for (let i = 0; i < cjkChars.length - 1; i++) {
+    grams.push(cjkChars.slice(i, i + 2));
+  }
+  return grams;
+}
+
+/**
+ * Extract keywords from a scenario title for fuzzy matching.
+ * Handles CJK-only titles by producing bigrams.
+ */
+function extractKeywords(title: string): string[] {
+  const tokens = title
+    .split(/[\s,;:—/（）()、，。]+/)
+    .filter((w) => w.length >= 2);
+
+  if (tokens.length >= 2) return tokens;
+
+  // Pure CJK fallback: split into bigrams
+  const cjkGrams = splitCjk(title);
+  if (cjkGrams.length >= 2) return cjkGrams;
+
+  return tokens;
 }
 
 /**
@@ -218,12 +305,26 @@ export function findTestMappings(
     testFileContents.set(tf, readFileSync(tf, "utf-8"));
   }
 
-  // Map each scenario
+  // Map each scenario — match by ID or by title keywords in test file contents
   return scenarios.map((scenario) => {
     const matchedFiles: string[] = [];
+    // Build keyword list from the title for fuzzy matching
+    // Extract CJK + Latin tokens ≥ 2 chars, with CJK bigram fallback
+    const keywords = extractKeywords(scenario.title);
+
     for (const [filePath, content] of testFileContents) {
+      // Exact ID match (works for both S-XXX-NN and prefix IDs like BE-SLA-S1)
       if (content.includes(scenario.id)) {
         matchedFiles.push(path.relative(rootDir, filePath));
+        continue;
+      }
+      // Title-based matching: if ≥50% of meaningful keywords from the title appear
+      // in the test file, consider it a match
+      if (keywords.length >= 2) {
+        const hits = keywords.filter((kw) => content.includes(kw)).length;
+        if (hits >= Math.ceil(keywords.length * 0.5)) {
+          matchedFiles.push(path.relative(rootDir, filePath));
+        }
       }
     }
     return {

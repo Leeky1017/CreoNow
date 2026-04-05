@@ -1,0 +1,210 @@
+.cn-project-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-8);
+  gap: var(--space-6);
+  font-family: var(--font-family-ui);
+}
+
+/* ── Header ────────────────────────────────── */
+
+.cn-project-view__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cn-project-view__header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.cn-project-view__title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.cn-project-view__icon {
+  display: flex;
+  align-items: center;
+  color: var(--color-fg-muted);
+}
+
+.cn-project-view__title {
+  margin: 0;
+  font-size: var(--text-page-title-size);
+  font-weight: var(--text-page-title-weight);
+  line-height: var(--text-page-title-line-height);
+  color: var(--color-fg-base);
+}
+
+.cn-project-view__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cn-project-view__subtitle {
+  margin: 0;
+  font-size: var(--text-body-size);
+  color: var(--color-fg-muted);
+  line-height: var(--text-body-line-height);
+}
+
+/* ── Stats Bar ─────────────────────────────── */
+
+.cn-project-view__stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-separator);
+  border-bottom: 1px solid var(--color-separator);
+}
+
+/* ── Document List ─────────────────────────── */
+
+.cn-project-view__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cn-project-view__doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cn-project-view__doc-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.cn-project-view__doc-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.cn-project-view__doc-item:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cn-project-view__doc-item:active {
+  background: var(--color-bg-selected);
+}
+
+.cn-project-view__doc-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.cn-project-view__doc-icon {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--color-fg-subtle);
+}
+
+.cn-project-view__doc-title {
+  margin: 0;
+  font-size: var(--text-body-size);
+  font-weight: 400;
+  color: var(--color-fg-base);
+  line-height: var(--text-body-line-height);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cn-project-view__doc-words {
+  margin: 0;
+  font-size: var(--text-status-size);
+  color: var(--color-fg-subtle);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Characters Grid ───────────────────────── */
+
+.cn-project-view__char-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-3);
+}
+
+.cn-project-view__char-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-surface);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default),
+              border-color var(--duration-fast) var(--ease-default);
+}
+
+.cn-project-view__char-card:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-separator-bold);
+}
+
+.cn-project-view__char-card:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.cn-project-view__char-card:active {
+  background: var(--color-bg-selected);
+}
+
+.cn-project-view__char-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  background: var(--color-bg-muted);
+  color: var(--color-fg-muted);
+  font-size: var(--text-body-size);
+  font-weight: 600;
+}
+
+.cn-project-view__char-name {
+  margin: 0;
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  color: var(--color-fg-base);
+}
+
+.cn-project-view__char-role {
+  margin: 0;
+  font-size: var(--text-status-size);
+  color: var(--color-fg-muted);
+}
+
+/* ── Add Button ────────────────────────────── */
+
+.cn-project-view__add-btn.cn-button {
+  min-height: 28px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-body-size);
+}
