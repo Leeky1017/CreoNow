@@ -18,8 +18,8 @@ export interface ProjectStyleConfig {
 }
 
 export interface ProjectGoals {
-  targetWordCount: number;
-  targetChapterCount: number;
+  targetWordCount: number | null;
+  targetChapterCount: number | null;
 }
 
 export interface ProjectConfig {
@@ -145,6 +145,15 @@ function cloneDocument(doc: ProjectDocument): ProjectDocument {
 function defaultPermissionProbe(outputPath: string): Promise<void> {
   const targetDir = path.dirname(outputPath);
   return access(targetDir, fsConstants.W_OK);
+}
+
+function readNullableNumber(...candidates: unknown[]): number | null {
+  for (const candidate of candidates) {
+    if (typeof candidate === "number" || candidate === null) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 function countWordsFromText(text: string): number {
@@ -333,18 +342,16 @@ export function createProjectManager(deps: Deps): ProjectManager {
           "",
       },
       goals: {
-        targetWordCount:
-          (typeof row.targetWordCount === "number"
-            ? row.targetWordCount
-            : parsedGoals.targetWordCount) ??
-          snapshot?.goals?.targetWordCount ??
-          0,
-        targetChapterCount:
-          (typeof row.targetChapterCount === "number"
-            ? row.targetChapterCount
-            : parsedGoals.targetChapterCount) ??
-          snapshot?.goals?.targetChapterCount ??
-          0,
+        targetWordCount: readNullableNumber(
+          row.targetWordCount,
+          parsedGoals.targetWordCount,
+          snapshot?.goals?.targetWordCount,
+        ),
+        targetChapterCount: readNullableNumber(
+          row.targetChapterCount,
+          parsedGoals.targetChapterCount,
+          snapshot?.goals?.targetChapterCount,
+        ),
       },
       defaultSkillSetId:
         (typeof row.defaultSkillSetId === "string" || row.defaultSkillSetId === null

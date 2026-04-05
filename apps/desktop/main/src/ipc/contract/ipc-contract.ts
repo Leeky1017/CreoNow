@@ -964,8 +964,8 @@ const PROJECT_CONFIG_SCHEMA = s.object({
     targetAudience: s.string(),
   }),
   goals: s.object({
-    targetWordCount: s.number(),
-    targetChapterCount: s.number(),
+    targetWordCount: s.union(s.number(), s.literal(null)),
+    targetChapterCount: s.union(s.number(), s.literal(null)),
   }),
   defaultSkillSetId: s.union(s.string(), s.literal(null)),
   knowledgeGraphId: s.union(s.string(), s.literal(null)),
@@ -2176,8 +2176,8 @@ export const ipcContract = {
           type: s.optional(s.string()),
           description: s.optional(s.string()),
           stage: s.optional(s.string()),
-          targetWordCount: s.optional(s.number()),
-          targetChapterCount: s.optional(s.number()),
+          targetWordCount: s.optional(s.union(s.number(), s.literal(null))),
+          targetChapterCount: s.optional(s.union(s.number(), s.literal(null))),
           narrativePerson: s.optional(s.string()),
           languageStyle: s.optional(s.string()),
           targetAudience: s.optional(s.string()),
@@ -2733,8 +2733,8 @@ export const ipcContract = {
           ),
           goals: s.optional(
             s.object({
-              targetWordCount: s.optional(s.number()),
-              targetChapterCount: s.optional(s.number()),
+              targetWordCount: s.optional(s.union(s.number(), s.literal(null))),
+              targetChapterCount: s.optional(s.union(s.number(), s.literal(null))),
             }),
           ),
           defaultSkillSetId: s.optional(s.union(s.string(), s.literal(null))),

@@ -271,6 +271,47 @@ describe("ProjectManager P3", () => {
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
     });
+
+    it("从持久化层读取 goals 的 NULL 时保持 nullable contract", async () => {
+      const get = vi
+        .fn()
+        .mockReturnValueOnce({
+          projectId: "proj-null-goals",
+          name: "空目标项目",
+          type: "novel",
+          description: "从 projects 表读取",
+          stage: "draft",
+          targetWordCount: null,
+          targetChapterCount: null,
+          narrativePerson: "third-limited",
+          languageStyle: "简洁",
+          targetAudience: "成人",
+          defaultSkillSetId: null,
+          knowledgeGraphId: "kg-null",
+          createdAt: 1,
+          updatedAt: 2,
+          archivedAt: null,
+        })
+        .mockReturnValue(undefined);
+      db.prepare.mockImplementation(() => ({
+        run: vi.fn(),
+        get,
+        all: vi.fn().mockReturnValue([]),
+      }));
+      manager.dispose();
+      manager = createProjectManager({
+        db: db as any,
+        eventBus: eventBus as any,
+      });
+
+      const result = await manager.getProject("proj-null-goals");
+
+      expect(result.success).toBe(true);
+      expect(result.data?.goals).toEqual({
+        targetWordCount: null,
+        targetChapterCount: null,
+      });
+    });
   });
 
   describe("update project", () => {
@@ -299,6 +340,18 @@ describe("ProjectManager P3", () => {
 
       expect(result.success).toBe(false);
       expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
+    });
+
+    it("允许将 goals 显式更新为 null 并保持 round-trip", async () => {
+      const result = await manager.updateProject("proj-1", {
+        goals: { targetWordCount: null, targetChapterCount: null },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data?.goals).toEqual({
+        targetWordCount: null,
+        targetChapterCount: null,
+      });
     });
   });
 

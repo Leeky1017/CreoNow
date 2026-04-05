@@ -3100,8 +3100,8 @@ export type IpcChannelSpec = {
       defaultSkillSetId: string | null;
       description: string;
       goals: {
-        targetChapterCount: number;
-        targetWordCount: number;
+        targetChapterCount: number | null;
+        targetWordCount: number | null;
       };
       id: string;
       knowledgeGraphId: string | null;
@@ -3125,8 +3125,8 @@ export type IpcChannelSpec = {
         defaultSkillSetId?: string | null;
         description?: string;
         goals?: {
-          targetChapterCount?: number;
-          targetWordCount?: number;
+          targetChapterCount?: number | null;
+          targetWordCount?: number | null;
         };
         knowledgeGraphId?: string | null;
         lifecycleStatus?: string;
@@ -3148,8 +3148,8 @@ export type IpcChannelSpec = {
       defaultSkillSetId: string | null;
       description: string;
       goals: {
-        targetChapterCount: number;
-        targetWordCount: number;
+        targetChapterCount: number | null;
+        targetWordCount: number | null;
       };
       id: string;
       knowledgeGraphId: string | null;
@@ -3382,8 +3382,8 @@ export type IpcChannelSpec = {
         narrativePerson?: string;
         stage?: string;
         targetAudience?: string;
-        targetChapterCount?: number;
-        targetWordCount?: number;
+        targetChapterCount?: number | null;
+        targetWordCount?: number | null;
         type?: string;
       };
       projectId: string;

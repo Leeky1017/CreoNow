@@ -330,7 +330,7 @@ describe("project config IPC handlers (P3)", () => {
         name: string;
         knowledgeGraphId: string | null;
         style: { genre: string; narrativePerson: string };
-        goals: { targetWordCount: number; targetChapterCount: number };
+        goals: { targetWordCount: number | null; targetChapterCount: number | null };
       }>("project:config:get", {
         projectId: "proj-seed",
       });
@@ -354,12 +354,12 @@ describe("project config IPC handlers (P3)", () => {
         id: string;
         knowledgeGraphId: string | null;
         style: { genre: string; tone: string };
-        goals: { targetWordCount: number; targetChapterCount: number };
+        goals: { targetWordCount: number | null; targetChapterCount: number | null };
       }>("project:config:update", {
         projectId: "proj-seed",
         patch: {
           style: { genre: "奇幻", tone: "克制" },
-          goals: { targetWordCount: 80000, targetChapterCount: 12 },
+          goals: { targetWordCount: null, targetChapterCount: 12 },
           knowledgeGraphId: "kg-updated",
         },
       });
@@ -368,7 +368,7 @@ describe("project config IPC handlers (P3)", () => {
       expect(result.data?.id).toBe("proj-seed");
       expect(result.data?.style.genre).toBe("奇幻");
       expect(result.data?.style.tone).toBe("克制");
-      expect(result.data?.goals.targetWordCount).toBe(80000);
+      expect(result.data?.goals.targetWordCount).toBeNull();
       expect(result.data?.goals.targetChapterCount).toBe(12);
       expect(result.data?.knowledgeGraphId).toBe("kg-updated");
     });

@@ -143,7 +143,7 @@ describe("project config IPC persistence path", () => {
       id: string;
       knowledgeGraphId: string | null;
       style: { narrativePerson: string; languageStyle: string; genre: string; tone: string };
-      goals: { targetWordCount: number; targetChapterCount: number };
+      goals: { targetWordCount: number | null; targetChapterCount: number | null };
     }>("project:config:get", {
       projectId: "proj-real",
     });
@@ -152,6 +152,7 @@ describe("project config IPC persistence path", () => {
     expect(config.data?.knowledgeGraphId).toBe("kg-real");
     expect(config.data?.style.narrativePerson).toBe("third-limited");
     expect(config.data?.style.languageStyle).toBe("冷静克制");
+    expect(config.data?.goals).toEqual({ targetWordCount: 80000, targetChapterCount: 12 });
 
     const documents = await harness.invoke<{ items: Array<{ id: string; title: string }> }>(
       "project:documents:list",
@@ -181,12 +182,12 @@ describe("project config IPC persistence path", () => {
     const updated = await harness.invoke<{
       knowledgeGraphId: string | null;
       style: { genre: string; tone: string };
-      goals: { targetWordCount: number; targetChapterCount: number };
+      goals: { targetWordCount: number | null; targetChapterCount: number | null };
     }>("project:config:update", {
       projectId: "proj-real",
       patch: {
         style: { genre: "悬疑", tone: "克制" },
-        goals: { targetWordCount: 90000, targetChapterCount: 15 },
+        goals: { targetWordCount: null, targetChapterCount: null },
         knowledgeGraphId: "kg-roundtrip",
       },
     });
@@ -194,12 +195,13 @@ describe("project config IPC persistence path", () => {
     expect(updated.data?.knowledgeGraphId).toBe("kg-roundtrip");
     expect(updated.data?.style.genre).toBe("悬疑");
     expect(updated.data?.style.tone).toBe("克制");
-    expect(updated.data?.goals.targetWordCount).toBe(90000);
+    expect(updated.data?.goals.targetWordCount).toBeNull();
+    expect(updated.data?.goals.targetChapterCount).toBeNull();
 
     const reloaded = await harness.invoke<{
       knowledgeGraphId: string | null;
       style: { genre: string; tone: string };
-      goals: { targetWordCount: number; targetChapterCount: number };
+      goals: { targetWordCount: number | null; targetChapterCount: number | null };
     }>("project:config:get", {
       projectId: "proj-real",
     });
@@ -207,6 +209,9 @@ describe("project config IPC persistence path", () => {
     expect(reloaded.data?.knowledgeGraphId).toBe("kg-roundtrip");
     expect(reloaded.data?.style.genre).toBe("悬疑");
     expect(reloaded.data?.style.tone).toBe("克制");
-    expect(reloaded.data?.goals.targetChapterCount).toBe(15);
+    expect(reloaded.data?.goals).toEqual({
+      targetWordCount: null,
+      targetChapterCount: null,
+    });
   });
 });
