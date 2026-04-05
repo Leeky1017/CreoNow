@@ -16,6 +16,12 @@ import {
   renderPdfPlan,
   renderStructuredMarkdownExport,
 } from "./exportRichText";
+import {
+  createProseMirrorExporter,
+  type ExportOptions,
+  type ExportProgressEvent,
+  type ExportSourceDocument,
+} from "./prosemirrorExporter";
 export type { ServiceResult };
 
 export type ExportResult = {
@@ -43,15 +49,39 @@ export type ExportService = {
     projectId: string;
     documentId?: string;
   }) => Promise<ServiceResult<ExportResult>>;
-  getDocumentProsemirror: (args: {
+  exportDocumentProsemirror: (args: {
     projectId: string;
     documentId: string;
-  }) => ServiceResult<{ documentId: string; content: string }>;
-  getProjectProsemirror: (args: {
+    outputPath: string;
+    options: ExportOptions;
+    onProgress?: (event: ExportProgressEvent) => void;
+  }) => Promise<
+    ServiceResult<{
+      exportId: string;
+      documentCount: number;
+      outputPath: string;
+      format: string;
+      totalWordCount: number;
+      durationMs: number;
+    }>
+  >;
+  exportProjectProsemirror: (args: {
     projectId: string;
-  }) => ServiceResult<{
-    items: Array<{ documentId: string; title: string; content: string }>;
-  }>;
+    outputPath: string;
+    options: ExportOptions;
+    documentIds?: string[];
+    mergeIntoOne?: boolean;
+    onProgress?: (event: ExportProgressEvent) => void;
+  }) => Promise<
+    ServiceResult<{
+      exportId: string;
+      documentCount: number;
+      outputPath: string;
+      format: string;
+      totalWordCount: number;
+      durationMs: number;
+    }>
+  >;
 };
 
 const MAX_EXPORT_FILE_SIZE_BYTES = 20 * 1024 * 1024;
@@ -529,6 +559,77 @@ function createBinaryExportOps(
 export function createExportService(deps: ExportDeps): ExportService {
   const resolve = resolveDocumentId(deps);
 
+  function createExporter(args?: {
+    onProgress?: (event: ExportProgressEvent) => void;
+  }) {
+    const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
+    return createProseMirrorExporter({
+      eventBus: {
+        emit(event) {
+          if (event.type !== "export-progress") {
+            return;
+          }
+          args?.onProgress?.(event as unknown as ExportProgressEvent);
+        },
+        on: () => {},
+        off: () => {},
+      },
+      fs: {
+        writeFile: async (targetPath, data) => {
+          await fs.mkdir(path.dirname(targetPath), { recursive: true });
+          await fs.writeFile(targetPath, data);
+        },
+        mkdir: async (targetPath, opts) => {
+          await fs.mkdir(targetPath, opts);
+        },
+      },
+      documentSource: {
+        async getDocument({ projectId, documentId }) {
+          if (!projectId || projectId.trim().length === 0) {
+            return null;
+          }
+          const read = docSvc.read({ projectId, documentId });
+          if (!read.ok) {
+            return null;
+          }
+            return {
+              id: read.data.documentId,
+              projectId: read.data.projectId,
+              title: read.data.title,
+              sortOrder: read.data.sortOrder,
+              content: JSON.parse(read.data.contentJson) as ExportSourceDocument["content"],
+            };
+        },
+        async listDocuments({ projectId, documentIds }) {
+          const listed = docSvc.list({ projectId });
+          if (!listed.ok) {
+            return [];
+          }
+          const items = listed.data.items
+            .filter((item) =>
+              documentIds === undefined ? true : documentIds.includes(item.documentId),
+            )
+            .sort((left, right) => left.sortOrder - right.sortOrder);
+          return items
+            .map((item) => {
+              const read = docSvc.read({ projectId, documentId: item.documentId });
+              if (!read.ok) {
+                return null;
+              }
+              return {
+                id: read.data.documentId,
+                projectId: read.data.projectId,
+                title: read.data.title,
+                sortOrder: read.data.sortOrder,
+                content: JSON.parse(read.data.contentJson) as ExportSourceDocument["content"],
+              };
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null);
+        },
+      },
+    });
+  }
+
   async function exportProjectBundle(args: {
     projectId: string;
   }): Promise<ServiceResult<ExportResult>> {
@@ -631,60 +732,87 @@ export function createExportService(deps: ExportDeps): ExportService {
     }
   }
 
-  function getDocumentProsemirror(args: {
+  async function exportDocumentProsemirror(args: {
     projectId: string;
     documentId: string;
-  }): ServiceResult<{ documentId: string; content: string }> {
-    const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
-    const doc = docSvc.read({ projectId: args.projectId, documentId: args.documentId });
-
-    if (!doc.ok) {
-      if (doc.error.code === "DB_ERROR") {
-        return ipcError("EXPORT_WRITE_ERROR", doc.error.message);
-      }
-      return ipcError("EXPORT_EMPTY_DOCUMENT", "Document not found or empty");
-    }
-
-    const contentJson = doc.data.contentJson;
-    if (!contentJson) {
-      return ipcError("EXPORT_EMPTY_DOCUMENT", "Document not found or empty");
-    }
-
-    return { ok: true, data: { documentId: args.documentId, content: contentJson } };
+    outputPath: string;
+    options: ExportOptions;
+    onProgress?: (event: ExportProgressEvent) => void;
+  }): Promise<
+    ServiceResult<{
+      exportId: string;
+      documentCount: number;
+      outputPath: string;
+      format: string;
+      totalWordCount: number;
+      durationMs: number;
+    }>
+  > {
+    const exporter = createExporter({ onProgress: args.onProgress });
+    const exportId = `export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return exporter
+      .exportDocument({
+        documentId: args.documentId,
+        exportId,
+        projectId: args.projectId,
+        options: args.options,
+        outputPath: args.outputPath,
+      })
+      .then((result) =>
+        result.success && result.data
+          ? { ok: true, data: { exportId, ...result.data } }
+          : ipcError(
+              (result.error?.code as Parameters<typeof ipcError>[0] | undefined) ??
+                "EXPORT_WRITE_ERROR",
+              result.error?.message ?? "Export failed",
+            ),
+      );
   }
 
-  function getProjectProsemirror(args: {
+  async function exportProjectProsemirror(args: {
     projectId: string;
-  }): ServiceResult<{
-    items: Array<{ documentId: string; title: string; content: string }>;
-  }> {
-    const docSvc = createDocumentService({ db: deps.db, logger: deps.logger });
-    const listResult = docSvc.list({ projectId: args.projectId });
-
-    if (!listResult.ok) {
-      if (listResult.error.code === "DB_ERROR") {
-        return ipcError("EXPORT_WRITE_ERROR", listResult.error.message);
-      }
-      return { ok: true, data: { items: [] } };
-    }
-
-    const items = listResult.data.items.map((item) => {
-      const doc = docSvc.read({ projectId: args.projectId, documentId: item.documentId });
-      return {
-        documentId: item.documentId,
-        title: item.title ?? "",
-        content: doc.ok ? (doc.data.contentJson ?? "{}") : "{}",
-      };
-    });
-
-    return { ok: true, data: { items } };
+    outputPath: string;
+    options: ExportOptions;
+    documentIds?: string[];
+    mergeIntoOne?: boolean;
+    onProgress?: (event: ExportProgressEvent) => void;
+  }): Promise<
+    ServiceResult<{
+      exportId: string;
+      documentCount: number;
+      outputPath: string;
+      format: string;
+      totalWordCount: number;
+      durationMs: number;
+    }>
+  > {
+    const exporter = createExporter({ onProgress: args.onProgress });
+    const exportId = `export-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return exporter
+      .exportProject({
+        exportId,
+        projectId: args.projectId,
+        options: args.options,
+        outputPath: args.outputPath,
+        documentIds: args.documentIds,
+        mergeIntoOne: args.mergeIntoOne,
+      })
+      .then((result) =>
+        result.success && result.data
+          ? { ok: true, data: { exportId, ...result.data } }
+          : ipcError(
+              (result.error?.code as Parameters<typeof ipcError>[0] | undefined) ??
+                "EXPORT_WRITE_ERROR",
+              result.error?.message ?? "Export failed",
+            ),
+      );
   }
 
   return {
     ...createTextExportOps(deps, resolve),
     ...createBinaryExportOps(deps, resolve),
     exportProjectBundle,
-    getDocumentProsemirror,
-    getProjectProsemirror,
+    exportDocumentProsemirror,
+    exportProjectProsemirror,
   };
 }

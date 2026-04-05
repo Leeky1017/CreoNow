@@ -551,6 +551,8 @@ type ProjectConfigUpdatedEvent = {
 | 清除权限不足 | `PROJECT_PURGE_PERMISSION_DENIED` | 返回错误，提示路径权限 |
 | 项目切换超时 | `PROJECT_SWITCH_TIMEOUT` | 返回错误，允许重试 |
 
+`project:documents:list` 与 `project:overview:get` **必须**先校验项目存在；对不存在的 `projectId` 返回 `PROJECT_NOT_FOUND`，禁止返回成功空数据。
+
 #### Scenario: P3 创建项目时设置风格配置
 
 - **假设** 用户在创建对话框中填写项目信息

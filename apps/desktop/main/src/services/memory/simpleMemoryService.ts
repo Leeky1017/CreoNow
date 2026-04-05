@@ -25,7 +25,7 @@ export interface WriteMemoryRequest {
 }
 
 export interface QueryMemoryRequest {
-  projectId: string;
+  projectId: string | null;
   category?: string;
   keyPrefix?: string;
 }
@@ -144,6 +144,41 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
   // M6: Typed function signature instead of `Function`
   const eventHandlers: Array<{ event: string; handler: (payload: Record<string, unknown>) => void }> = [];
 
+  function upsertSyncedRecord(args: {
+    id: string;
+    projectId: string;
+    key: string;
+    value: string;
+    category: "character-setting" | "location-setting";
+  }): void {
+    const now = Date.now();
+    const existing = store.get(args.id);
+    const record: MemoryRecord = {
+      id: args.id,
+      projectId: args.projectId,
+      key: args.key,
+      value: args.value,
+      source: "system",
+      category: args.category,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+    if (existing && existing.key !== record.key) {
+      keyIndex.delete(getKeyIndexKey(existing.projectId, existing.key));
+    }
+    store.set(record.id, record);
+    keyIndex.set(getKeyIndexKey(record.projectId, record.key), record.id);
+  }
+
+  function deleteSyncedRecord(projectId: string, key: string): void {
+    const recordId = keyIndex.get(getKeyIndexKey(projectId, key));
+    if (!recordId) {
+      return;
+    }
+    keyIndex.delete(getKeyIndexKey(projectId, key));
+    store.delete(recordId);
+  }
+
   // C3: Event handlers now store character NAME in key for injection matching
   function registerEventHandlers(): void {
     const characterHandler = async (event: Record<string, unknown>): Promise<void> => {
@@ -153,9 +188,17 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
         const characterDescription = (event.characterDescription as string) ?? "";
         const action = event.action as string;
         if (action === "created" || action === "updated") {
+          upsertSyncedRecord({
+            id: event.characterId as string,
+            projectId,
+            key: `char:${characterName}`,
+            value: characterDescription,
+            category: "character-setting",
+          });
           db.prepare("INSERT OR REPLACE INTO memory (id, projectId, key, value, source, category, createdAt, updatedAt) VALUES (?,?,?,?,?,?,?,?)")
             .run(event.characterId as string, projectId, `char:${characterName}`, characterDescription, "system", "character-setting", Date.now(), Date.now());
         } else if (action === "deleted") {
+          deleteSyncedRecord(projectId, `char:${characterName}`);
           db.prepare("DELETE FROM memory WHERE key = ? AND projectId = ?")
             .run(`char:${characterName}`, projectId);
         }
@@ -169,6 +212,13 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
         const projectId = event.projectId as string;
         const locationName = event.locationName as string;
         const locationDescription = (event.locationDescription as string) ?? "";
+        upsertSyncedRecord({
+          id: event.locationId as string,
+          projectId,
+          key: `loc:${locationName}`,
+          value: locationDescription,
+          category: "location-setting",
+        });
         db.prepare("INSERT OR REPLACE INTO memory (id, projectId, key, value, source, category, createdAt, updatedAt) VALUES (?,?,?,?,?,?,?,?)")
           .run(event.locationId as string, projectId, `loc:${locationName}`, locationDescription, "system", "location-setting", Date.now(), Date.now());
       } catch {
@@ -182,6 +232,13 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
         const locationId = event.locationId as string;
         const locationName = event.locationName as string;
         const locationDescription = (event.locationDescription as string) ?? "";
+        upsertSyncedRecord({
+          id: locationId,
+          projectId,
+          key: `loc:${locationName}`,
+          value: locationDescription,
+          category: "location-setting",
+        });
         db.prepare("INSERT OR REPLACE INTO memory (id, projectId, key, value, source, category, createdAt, updatedAt) VALUES (?,?,?,?,?,?,?,?)")
           .run(locationId, projectId, `loc:${locationName}`, locationDescription, "system", "location-setting", Date.now(), Date.now());
       } catch {
@@ -193,6 +250,7 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
       try {
         const projectId = event.projectId as string;
         const locationName = event.locationName as string;
+        deleteSyncedRecord(projectId, `loc:${locationName}`);
         db.prepare("DELETE FROM memory WHERE key = ? AND projectId = ?")
           .run(`loc:${locationName}`, projectId);
       } catch {
@@ -359,14 +417,32 @@ export function createSimpleMemoryService(deps: Deps): SimpleMemoryService {
       try {
         let rows: Record<string, unknown>[];
         if (query.category) {
-          rows = db.prepare("SELECT * FROM memory WHERE projectId = ? AND category = ?")
-            .all(query.projectId, query.category);
+          rows =
+            query.projectId === null
+              ? db.prepare(
+                  "SELECT * FROM memory WHERE projectId IS NULL AND category = ?",
+                ).all(query.category)
+              : db
+                  .prepare(
+                    "SELECT * FROM memory WHERE projectId = ? AND category = ?",
+                  )
+                  .all(query.projectId, query.category);
         } else if (query.keyPrefix) {
-          rows = db.prepare("SELECT * FROM memory WHERE projectId = ? AND key LIKE ?")
-            .all(query.projectId, `${query.keyPrefix}%`);
+          rows =
+            query.projectId === null
+              ? db.prepare(
+                  "SELECT * FROM memory WHERE projectId IS NULL AND key LIKE ?",
+                ).all(`${query.keyPrefix}%`)
+              : db
+                  .prepare(
+                    "SELECT * FROM memory WHERE projectId = ? AND key LIKE ?",
+                  )
+                  .all(query.projectId, `${query.keyPrefix}%`);
         } else {
-          rows = db.prepare("SELECT * FROM memory WHERE projectId = ?")
-            .all(query.projectId);
+          rows =
+            query.projectId === null
+              ? db.prepare("SELECT * FROM memory WHERE projectId IS NULL").all()
+              : db.prepare("SELECT * FROM memory WHERE projectId = ?").all(query.projectId);
         }
         results = rows.map((r) => rowToMemoryRecord(r));
       } catch {

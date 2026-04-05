@@ -32,6 +32,7 @@ export interface ProjectConfig {
   style: ProjectStyleConfig;
   goals: ProjectGoals;
   defaultSkillSetId: string | null;
+  knowledgeGraphId: string | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -350,7 +351,7 @@ export function createProjectManager(deps: Deps): ProjectManager {
 
       try {
         db.prepare(
-          "INSERT INTO projects (id, name, type, description, stage, lifecycleStatus, style, goals, defaultSkillSetId, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT INTO projects (id, name, type, description, stage, lifecycleStatus, style, goals, defaultSkillSetId, knowledgeGraphId, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         ).run(
           persisted.id,
           persisted.name,
@@ -361,6 +362,7 @@ export function createProjectManager(deps: Deps): ProjectManager {
           JSON.stringify(persisted.style),
           JSON.stringify(persisted.goals),
           persisted.defaultSkillSetId,
+          persisted.knowledgeGraphId,
           persisted.createdAt,
           persisted.updatedAt,
         );
@@ -400,15 +402,19 @@ export function createProjectManager(deps: Deps): ProjectManager {
       const updated: ProjectConfig = {
         ...existing,
         ...updates,
-        style: updates.style ? { ...updates.style } : { ...existing.style },
-        goals: updates.goals ? { ...updates.goals } : { ...existing.goals },
+        style: updates.style
+          ? { ...existing.style, ...updates.style }
+          : { ...existing.style },
+        goals: updates.goals
+          ? { ...existing.goals, ...updates.goals }
+          : { ...existing.goals },
         updatedAt: now(),
       };
       projects.set(id, updated);
 
       try {
         db.prepare(
-          "UPDATE projects SET name=?, type=?, description=?, stage=?, lifecycleStatus=?, style=?, goals=?, defaultSkillSetId=?, updatedAt=? WHERE id=?",
+          "UPDATE projects SET name=?, type=?, description=?, stage=?, lifecycleStatus=?, style=?, goals=?, defaultSkillSetId=?, knowledgeGraphId=?, updatedAt=? WHERE id=?",
         ).run(
           updated.name,
           updated.type,
@@ -418,6 +424,7 @@ export function createProjectManager(deps: Deps): ProjectManager {
           JSON.stringify(updated.style),
           JSON.stringify(updated.goals),
           updated.defaultSkillSetId,
+          updated.knowledgeGraphId,
           updated.updatedAt,
           id,
         );
@@ -669,6 +676,13 @@ export function createProjectManager(deps: Deps): ProjectManager {
     async listDocuments(projectId: string, filter?: { type?: string }): Promise<Result<ProjectDocument[]>> {
       throwIfDisposed();
 
+      if (!projects.has(projectId)) {
+        return {
+          success: false,
+          error: { code: "PROJECT_NOT_FOUND", message: "项目不存在" },
+        };
+      }
+
       const list = sortDocuments(documents.get(projectId) ?? []);
       const filtered = filter?.type ? list.filter((doc) => doc.type === filter.type) : list;
       return { success: true, data: filtered.map(cloneDocument) };
@@ -729,6 +743,13 @@ export function createProjectManager(deps: Deps): ProjectManager {
 
     async getOverview(projectId: string): Promise<Result<ProjectOverview>> {
       throwIfDisposed();
+
+      if (!projects.has(projectId)) {
+        return {
+          success: false,
+          error: { code: "PROJECT_NOT_FOUND", message: "项目不存在" },
+        };
+      }
 
       const docs = documents.get(projectId) ?? [];
       let characterCount = 0;

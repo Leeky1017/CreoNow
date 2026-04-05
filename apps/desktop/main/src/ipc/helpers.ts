@@ -44,9 +44,48 @@ export const NOOP_EVENT_BUS: EventBusLike = {
   off: () => {},
 };
 
+export function createEventBus(): EventBusLike {
+  const listeners = new Map<
+    string,
+    Set<(payload: Record<string, unknown>) => void>
+  >();
+
+  return {
+    emit(event) {
+      const type = typeof event.type === "string" ? event.type : "";
+      if (type.length === 0) {
+        return;
+      }
+      const handlers = listeners.get(type);
+      if (!handlers) {
+        return;
+      }
+      for (const handler of handlers) {
+        handler(event);
+      }
+    },
+    on(event, handler) {
+      const handlers = listeners.get(event) ?? new Set();
+      handlers.add(handler);
+      listeners.set(event, handlers);
+    },
+    off(event, handler) {
+      const handlers = listeners.get(event);
+      if (!handlers) {
+        return;
+      }
+      handlers.delete(handler);
+      if (handlers.size === 0) {
+        listeners.delete(event);
+      }
+    },
+  };
+}
+
 export function createProjectAccessHandler(deps: {
   ipcMain: IpcMain;
   projectSessionBinding?: ProjectSessionBindingRegistry;
+  allowNullProjectId?: boolean;
 }) {
   return function handleWithProjectAccess<TPayload, TResponse>(
     channel: string,
@@ -60,6 +99,7 @@ export function createProjectAccessHandler(deps: {
         event,
         payload,
         projectSessionBinding: deps.projectSessionBinding,
+        allowNullProjectId: deps.allowNullProjectId,
       });
       if (!guarded.ok) {
         return guarded.response as IpcResponse<TResponse>;

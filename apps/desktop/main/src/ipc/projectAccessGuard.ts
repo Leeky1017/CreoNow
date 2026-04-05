@@ -44,6 +44,7 @@ export function guardAndNormalizeProjectAccess(args: {
   event: unknown;
   payload: unknown;
   projectSessionBinding?: ProjectSessionBindingRegistry;
+  allowNullProjectId?: boolean;
 }): { ok: true } | { ok: false; response: IpcResponse<never> } {
   if (!args.projectSessionBinding || !isRecord(args.payload)) {
     return { ok: true };
@@ -68,6 +69,9 @@ export function guardAndNormalizeProjectAccess(args: {
 
   const requestedProjectId =
     typeof payload.projectId === "string" ? payload.projectId.trim() : "";
+  if (args.allowNullProjectId && payload.projectId === null) {
+    return { ok: true };
+  }
   if (requestedProjectId.length === 0) {
     payload.projectId = boundProjectId;
     return { ok: true };

@@ -91,6 +91,7 @@ function makeProjectConfig(overrides: Partial<ProjectConfig> = {}): ProjectConfi
     style: makeStyleConfig(),
     goals: makeGoals(),
     defaultSkillSetId: null,
+    knowledgeGraphId: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
     ...overrides,

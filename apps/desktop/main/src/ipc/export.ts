@@ -2,6 +2,7 @@ import type { IpcMain } from "electron";
 import type Database from "better-sqlite3";
 
 import type { IpcError, IpcResponse } from "@shared/types/ipc-generated";
+import { EXPORT_PROGRESS_CHANNEL, type ExportProgressEvent } from "@shared/types/export";
 import type { Logger } from "../logging/logger";
 import { createExportService } from "../services/export/exportService";
 import { guardAndNormalizeProjectAccess } from "./projectAccessGuard";
@@ -15,6 +16,38 @@ type ExportPayloadError = IpcError;
 type DocumentExportPayload = {
   projectId: string;
   documentId?: string;
+};
+
+type ProsemirrorExportOptions = {
+  format: "markdown" | "docx" | "pdf" | "txt";
+  includeMetadata?: boolean;
+  includeTableOfContents?: boolean;
+  pageSize?: "a4" | "letter";
+  fontSize?: number;
+};
+
+type ProsemirrorDocumentExportPayload = {
+  projectId: string;
+  documentId: string;
+  outputPath: string;
+  options: ProsemirrorExportOptions;
+};
+
+type ProsemirrorProjectExportPayload = {
+  projectId: string;
+  outputPath: string;
+  options: ProsemirrorExportOptions;
+  documentIds?: string[];
+  mergeIntoOne?: boolean;
+};
+
+type ProsemirrorExportResponse = {
+  exportId: string;
+  documentCount: number;
+  outputPath: string;
+  format: string;
+  totalWordCount: number;
+  durationMs: number;
 };
 
 function invalidPayload(message: string): ExportPayloadError {
@@ -58,6 +91,139 @@ function parseProjectBundlePayload(
   }
 
   return { ok: true, data: { projectId } };
+}
+
+function parseExportOptions(
+  raw: unknown,
+): ProsemirrorExportOptions | ExportPayloadError {
+  if (!raw || typeof raw !== "object") {
+    return invalidPayload("options must be an object");
+  }
+
+  const options = raw as Record<string, unknown>;
+  if (
+    options.format !== "markdown" &&
+    options.format !== "docx" &&
+    options.format !== "pdf" &&
+    options.format !== "txt"
+  ) {
+    return invalidPayload("options.format must be one of: markdown, docx, pdf, txt");
+  }
+
+  if (
+    options.pageSize !== undefined &&
+    options.pageSize !== "a4" &&
+    options.pageSize !== "letter"
+  ) {
+    return invalidPayload("options.pageSize must be a4 or letter");
+  }
+
+  if (
+    options.fontSize !== undefined &&
+    (typeof options.fontSize !== "number" || !Number.isFinite(options.fontSize))
+  ) {
+    return invalidPayload("options.fontSize must be a finite number");
+  }
+
+  return {
+    format: options.format,
+    includeMetadata:
+      typeof options.includeMetadata === "boolean"
+        ? options.includeMetadata
+        : undefined,
+    includeTableOfContents:
+      typeof options.includeTableOfContents === "boolean"
+        ? options.includeTableOfContents
+        : undefined,
+    pageSize:
+      options.pageSize === "a4" || options.pageSize === "letter"
+        ? options.pageSize
+        : undefined,
+    fontSize:
+      typeof options.fontSize === "number" ? options.fontSize : undefined,
+  };
+}
+
+function parseProsemirrorDocumentExportPayload(
+  payload: unknown,
+):
+  | { ok: true; data: ProsemirrorDocumentExportPayload }
+  | { ok: false; error: ExportPayloadError } {
+  if (!payload || typeof payload !== "object") {
+    return { ok: false, error: invalidPayload("payload must be an object") };
+  }
+
+  const raw = payload as Record<string, unknown>;
+  if (typeof raw.projectId !== "string" || raw.projectId.trim().length === 0) {
+    return { ok: false, error: invalidPayload("projectId is required") };
+  }
+  if (typeof raw.documentId !== "string" || raw.documentId.trim().length === 0) {
+    return { ok: false, error: invalidPayload("documentId is required") };
+  }
+  if (typeof raw.outputPath !== "string" || raw.outputPath.trim().length === 0) {
+    return { ok: false, error: invalidPayload("outputPath is required") };
+  }
+  const options = parseExportOptions(raw.options);
+  if ("code" in options) {
+    return { ok: false, error: options };
+  }
+
+  return {
+    ok: true,
+    data: {
+      projectId: raw.projectId,
+      documentId: raw.documentId,
+      outputPath: raw.outputPath,
+      options,
+    },
+  };
+}
+
+function parseProsemirrorProjectExportPayload(
+  payload: unknown,
+):
+  | { ok: true; data: ProsemirrorProjectExportPayload }
+  | { ok: false; error: ExportPayloadError } {
+  if (!payload || typeof payload !== "object") {
+    return { ok: false, error: invalidPayload("payload must be an object") };
+  }
+
+  const raw = payload as Record<string, unknown>;
+  if (typeof raw.projectId !== "string" || raw.projectId.trim().length === 0) {
+    return { ok: false, error: invalidPayload("projectId is required") };
+  }
+  if (typeof raw.outputPath !== "string" || raw.outputPath.trim().length === 0) {
+    return { ok: false, error: invalidPayload("outputPath is required") };
+  }
+  const options = parseExportOptions(raw.options);
+  if ("code" in options) {
+    return { ok: false, error: options };
+  }
+  if (
+    raw.documentIds !== undefined &&
+    (!Array.isArray(raw.documentIds) ||
+      raw.documentIds.some((documentId) => typeof documentId !== "string"))
+  ) {
+    return { ok: false, error: invalidPayload("documentIds must be an array of strings") };
+  }
+  if (
+    raw.mergeIntoOne !== undefined &&
+    typeof raw.mergeIntoOne !== "boolean"
+  ) {
+    return { ok: false, error: invalidPayload("mergeIntoOne must be a boolean") };
+  }
+
+  return {
+    ok: true,
+    data: {
+      projectId: raw.projectId,
+      outputPath: raw.outputPath,
+      options,
+      documentIds: raw.documentIds as string[] | undefined,
+      mergeIntoOne:
+        typeof raw.mergeIntoOne === "boolean" ? raw.mergeIntoOne : undefined,
+    },
+  };
 }
 
 function toUnexpectedExportError(error: unknown): ExportPayloadError {
@@ -292,7 +458,7 @@ export function registerExportIpcHandlers(deps: {
     async (
       event,
       payload: unknown,
-    ): Promise<IpcResponse<{ documentId: string; content: string }>> => {
+    ): Promise<IpcResponse<ProsemirrorExportResponse>> => {
       const guarded = guardAndNormalizeProjectAccess({
         event,
         payload,
@@ -309,39 +475,32 @@ export function registerExportIpcHandlers(deps: {
         };
       }
 
-      if (!payload || typeof payload !== "object") {
-        return {
-          ok: false,
-          error: invalidPayload("payload must be an object"),
-        };
-      }
-
-      const projectId = (payload as { projectId?: unknown }).projectId;
-      if (typeof projectId !== "string" || projectId.trim().length === 0) {
-        return {
-          ok: false,
-          error: invalidPayload("projectId is required"),
-        };
-      }
-
-      const documentId = (payload as { documentId?: unknown }).documentId;
-      if (typeof documentId !== "string" || documentId.trim().length === 0) {
-        return {
-          ok: false,
-          error: invalidPayload("documentId is required"),
-        };
+      const parsed = parseProsemirrorDocumentExportPayload(payload);
+      if (!parsed.ok) {
+        return { ok: false, error: parsed.error };
       }
 
       try {
+        const sender =
+          typeof event === "object" &&
+          event !== null &&
+          "sender" in event &&
+          typeof (event as { sender?: { send?: unknown } }).sender?.send ===
+            "function"
+            ? (event as { sender: { send: (channel: string, payload: unknown) => void } }).sender
+            : null;
         const svc = createExportService({
           db: deps.db,
           logger: deps.logger,
           userDataDir: deps.userDataDir,
         });
-        const result = svc.getDocumentProsemirror({ projectId, documentId });
-        return result.ok
-          ? { ok: true, data: result.data }
-          : { ok: false, error: result.error };
+        const result = await svc.exportDocumentProsemirror({
+          ...parsed.data,
+          onProgress: (progressEvent: ExportProgressEvent) => {
+            sender?.send(EXPORT_PROGRESS_CHANNEL, progressEvent);
+          },
+        });
+        return result.ok ? { ok: true, data: result.data } : { ok: false, error: result.error };
       } catch (error) {
         deps.logger.error("ipc_export_prosemirror_error", {
           channel: "export:document:prosemirror",
@@ -349,7 +508,7 @@ export function registerExportIpcHandlers(deps: {
         });
         return {
           ok: false,
-          error: { code: "EXPORT_WRITE_ERROR", message: "Failed to read document content" },
+          error: { code: "EXPORT_WRITE_ERROR", message: "Failed to export document" },
         };
       }
     },
@@ -360,11 +519,7 @@ export function registerExportIpcHandlers(deps: {
     async (
       event,
       payload: unknown,
-    ): Promise<
-      IpcResponse<{
-        items: Array<{ documentId: string; title: string; content: string }>;
-      }>
-    > => {
+    ): Promise<IpcResponse<ProsemirrorExportResponse>> => {
       const guarded = guardAndNormalizeProjectAccess({
         event,
         payload,
@@ -381,21 +536,32 @@ export function registerExportIpcHandlers(deps: {
         };
       }
 
-      const parsed = parseProjectBundlePayload(payload);
+      const parsed = parseProsemirrorProjectExportPayload(payload);
       if (!parsed.ok) {
         return { ok: false, error: parsed.error };
       }
 
       try {
+        const sender =
+          typeof event === "object" &&
+          event !== null &&
+          "sender" in event &&
+          typeof (event as { sender?: { send?: unknown } }).sender?.send ===
+            "function"
+            ? (event as { sender: { send: (channel: string, payload: unknown) => void } }).sender
+            : null;
         const svc = createExportService({
           db: deps.db,
           logger: deps.logger,
           userDataDir: deps.userDataDir,
         });
-        const result = svc.getProjectProsemirror({ projectId: parsed.data.projectId });
-        return result.ok
-          ? { ok: true, data: result.data }
-          : { ok: false, error: result.error };
+        const result = await svc.exportProjectProsemirror({
+          ...parsed.data,
+          onProgress: (progressEvent: ExportProgressEvent) => {
+            sender?.send(EXPORT_PROGRESS_CHANNEL, progressEvent);
+          },
+        });
+        return result.ok ? { ok: true, data: result.data } : { ok: false, error: result.error };
       } catch (error) {
         deps.logger.error("ipc_export_prosemirror_error", {
           channel: "export:project:prosemirror",
@@ -403,51 +569,9 @@ export function registerExportIpcHandlers(deps: {
         });
         return {
           ok: false,
-          error: { code: "EXPORT_WRITE_ERROR", message: "Failed to read project documents" },
+          error: { code: "EXPORT_WRITE_ERROR", message: "Failed to export project" },
         };
       }
-    },
-  );
-
-  // ── P3: Export progress (stub — TODO: push notification) ──
-  // TODO: P3 阶段为 stub，完整 Push Notification 实现在 P4/P5。
-  // 当前使用 Request-Response 轮询作为过渡方案。
-  // NOTE: Spec 定义为 Push Notification，但合约生成器要求 3 段 <domain>:<resource>:<action>，
-  // 故保持 export:progress:get。
-
-  deps.ipcMain.handle(
-    "export:progress:get",
-    async (
-      event,
-      payload: unknown,
-    ): Promise<
-      IpcResponse<{ exportId: string; status: string; progress: number }>
-    > => {
-      const guarded = guardAndNormalizeProjectAccess({
-        event,
-        payload,
-        projectSessionBinding,
-      });
-      if (!guarded.ok) {
-        return guarded.response;
-      }
-
-      if (!payload || typeof payload !== "object") {
-        return {
-          ok: false,
-          error: invalidPayload("payload must be an object"),
-        };
-      }
-
-      // TODO: P3 阶段为 stub，完整 Push Notification 实现在 P4/P5。
-      // 当前使用 Request-Response 轮询作为过渡方案。
-      const p = payload as Record<string, unknown>;
-      const exportId =
-        typeof p.exportId === "string" ? p.exportId : "none";
-      return {
-        ok: true,
-        data: { exportId, status: "idle", progress: 0 },
-      };
     },
   );
 }

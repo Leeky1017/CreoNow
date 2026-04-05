@@ -953,12 +953,21 @@ const PROJECT_CONFIG_SCHEMA = s.object({
   type: s.string(),
   description: s.string(),
   stage: s.string(),
-  genre: s.string(),
-  wordCountGoal: s.optional(s.number()),
-  autoSave: s.boolean(),
-  narrativePerson: s.string(),
-  languageStyle: s.string(),
-  targetAudience: s.string(),
+  lifecycleStatus: s.string(),
+  style: s.object({
+    narrativePerson: s.string(),
+    genre: s.string(),
+    languageStyle: s.string(),
+    tone: s.string(),
+    targetAudience: s.string(),
+  }),
+  goals: s.object({
+    targetWordCount: s.number(),
+    targetChapterCount: s.number(),
+  }),
+  defaultSkillSetId: s.union(s.string(), s.literal(null)),
+  knowledgeGraphId: s.union(s.string(), s.literal(null)),
+  createdAt: s.number(),
   updatedAt: s.number(),
 });
 
@@ -995,7 +1004,7 @@ const PROJECT_OVERVIEW_SCHEMA = s.object({
 
 const SIMPLE_MEMORY_RECORD_SCHEMA = s.object({
   id: s.string(),
-  projectId: s.optional(s.string()),
+  projectId: s.union(s.string(), s.literal(null)),
   key: s.string(),
   value: s.string(),
   source: s.string(),
@@ -1009,22 +1018,6 @@ const MEMORY_INJECTION_SCHEMA = s.object({
   injectedText: s.string(),
   tokenCount: s.number(),
   degraded: s.boolean(),
-});
-
-const SEARCH_HIGHLIGHT_SCHEMA = s.object({
-  start: s.number(),
-  end: s.number(),
-});
-
-const PROJECT_SEARCH_RESULT_SCHEMA = s.object({
-  projectId: s.string(),
-  documentId: s.string(),
-  documentTitle: s.string(),
-  documentType: s.string(),
-  snippet: s.string(),
-  highlights: s.array(SEARCH_HIGHLIGHT_SCHEMA),
-  anchor: SEARCH_HIGHLIGHT_SCHEMA,
-  documentOffset: s.number(),
 });
 
 export const ipcContract = {
@@ -2722,12 +2715,28 @@ export const ipcContract = {
       request: s.object({
         projectId: s.string(),
         patch: s.object({
-          genre: s.optional(s.string()),
-          wordCountGoal: s.optional(s.number()),
-          autoSave: s.optional(s.boolean()),
-          narrativePerson: s.optional(s.string()),
-          languageStyle: s.optional(s.string()),
-          targetAudience: s.optional(s.string()),
+          name: s.optional(s.string()),
+          type: s.optional(s.string()),
+          description: s.optional(s.string()),
+          stage: s.optional(s.string()),
+          lifecycleStatus: s.optional(s.string()),
+          style: s.optional(
+            s.object({
+              narrativePerson: s.optional(s.string()),
+              genre: s.optional(s.string()),
+              languageStyle: s.optional(s.string()),
+              tone: s.optional(s.string()),
+              targetAudience: s.optional(s.string()),
+            }),
+          ),
+          goals: s.optional(
+            s.object({
+              targetWordCount: s.optional(s.number()),
+              targetChapterCount: s.optional(s.number()),
+            }),
+          ),
+          defaultSkillSetId: s.optional(s.union(s.string(), s.literal(null))),
+          knowledgeGraphId: s.optional(s.union(s.string(), s.literal(null))),
         }),
       }),
       response: PROJECT_CONFIG_SCHEMA,
@@ -2755,7 +2764,7 @@ export const ipcContract = {
     },
     "memory:simple:write": {
       request: s.object({
-        projectId: s.string(),
+        projectId: s.union(s.string(), s.literal(null)),
         key: s.string(),
         value: s.string(),
         source: s.optional(s.string()),
@@ -2765,21 +2774,21 @@ export const ipcContract = {
     },
     "memory:simple:read": {
       request: s.object({
-        projectId: s.string(),
+        projectId: s.union(s.string(), s.literal(null)),
         id: s.string(),
       }),
       response: SIMPLE_MEMORY_RECORD_SCHEMA,
     },
     "memory:simple:delete": {
       request: s.object({
-        projectId: s.string(),
+        projectId: s.union(s.string(), s.literal(null)),
         id: s.string(),
       }),
       response: s.object({ deleted: s.literal(true) }),
     },
     "memory:simple:list": {
       request: s.object({
-        projectId: s.string(),
+        projectId: s.union(s.string(), s.literal(null)),
         category: s.optional(s.string()),
         keyPrefix: s.optional(s.string()),
       }),
@@ -2797,72 +2806,68 @@ export const ipcContract = {
     },
     "memory:simple:clearproject": {
       request: s.object({
-        projectId: s.string(),
+        projectId: s.union(s.string(), s.literal(null)),
         confirmed: s.optional(s.boolean()),
       }),
       response: s.object({ cleared: s.literal(true) }),
-    },
-    "search:project:query": {
-      request: s.object({
-        projectId: s.string(),
-        query: s.string(),
-        offset: s.optional(s.number()),
-        limit: s.optional(s.number()),
-      }),
-      response: s.object({
-        results: s.array(PROJECT_SEARCH_RESULT_SCHEMA),
-        total: s.number(),
-        hasMore: s.boolean(),
-        indexState: s.string(),
-      }),
-    },
-    "search:project:reindex": {
-      request: s.object({
-        projectId: s.string(),
-      }),
-      response: s.object({ rebuilt: s.literal(true) }),
-    },
-    "search:project:indexstatus": {
-      request: s.object({
-        projectId: s.string(),
-      }),
-      response: s.object({
-        status: s.string(),
-      }),
     },
     "export:document:prosemirror": {
       request: s.object({
         projectId: s.string(),
         documentId: s.string(),
+        outputPath: s.string(),
+        options: s.object({
+          format: s.union(
+            s.literal("markdown"),
+            s.literal("docx"),
+            s.literal("pdf"),
+            s.literal("txt"),
+          ),
+          includeMetadata: s.optional(s.boolean()),
+          includeTableOfContents: s.optional(s.boolean()),
+          pageSize: s.optional(
+            s.union(s.literal("a4"), s.literal("letter")),
+          ),
+          fontSize: s.optional(s.number()),
+        }),
       }),
       response: s.object({
-        documentId: s.string(),
-        content: s.string(),
+        exportId: s.string(),
+        documentCount: s.number(),
+        outputPath: s.string(),
+        format: s.string(),
+        totalWordCount: s.number(),
+        durationMs: s.number(),
       }),
     },
     "export:project:prosemirror": {
       request: s.object({
         projectId: s.string(),
-      }),
-      response: s.object({
-        items: s.array(
-          s.object({
-            documentId: s.string(),
-            title: s.string(),
-            content: s.string(),
-          }),
-        ),
-      }),
-    },
-    "export:progress:get": {
-      request: s.object({
-        projectId: s.string(),
-        exportId: s.optional(s.string()),
+        outputPath: s.string(),
+        options: s.object({
+          format: s.union(
+            s.literal("markdown"),
+            s.literal("docx"),
+            s.literal("pdf"),
+            s.literal("txt"),
+          ),
+          includeMetadata: s.optional(s.boolean()),
+          includeTableOfContents: s.optional(s.boolean()),
+          pageSize: s.optional(
+            s.union(s.literal("a4"), s.literal("letter")),
+          ),
+          fontSize: s.optional(s.number()),
+        }),
+        documentIds: s.optional(s.array(s.string())),
+        mergeIntoOne: s.optional(s.boolean()),
       }),
       response: s.object({
         exportId: s.string(),
-        status: s.string(),
-        progress: s.number(),
+        documentCount: s.number(),
+        outputPath: s.string(),
+        format: s.string(),
+        totalWordCount: s.number(),
+        durationMs: s.number(),
       }),
     },
   },

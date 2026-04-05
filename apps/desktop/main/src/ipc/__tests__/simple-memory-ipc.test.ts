@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import type { IpcMain } from "electron";
 
+import { createEventBus } from "../helpers";
+import { registerSettingsIpcHandlers } from "../settings";
 import { registerSimpleMemoryIpcHandlers } from "../simpleMemory";
 
 type Handler = (event: unknown, payload?: unknown) => Promise<unknown>;
@@ -136,6 +138,24 @@ describe("simple memory IPC handlers (P3)", () => {
       const result = await harness.invoke<never>("memory:simple:write", null);
       expect(result.ok).toBe(false);
       expect(result.error?.code).toBe("INVALID_ARGUMENT");
+    });
+
+    it("允许通过 IPC 写入全局偏好（projectId: null）", async () => {
+      const harness = createHarness();
+      harness.stmtGet.mockReturnValueOnce({ count: 0 });
+
+      const result = await harness.invoke<{
+        projectId: string | null;
+        key: string;
+      }>("memory:simple:write", {
+        projectId: null,
+        key: "pref:voice",
+        value: "冷静克制",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.data?.projectId).toBeNull();
+      expect(result.data?.key).toBe("pref:voice");
     });
   });
 
@@ -678,6 +698,77 @@ describe("simple memory IPC handlers (P3)", () => {
       });
       expect(readB.ok).toBe(true);
       expect(readB.data?.key).toBe("b-key");
+    });
+  });
+
+  describe("settings → simple memory 真实 IPC 链路", () => {
+    it("共享 eventBus 时，创建角色后 inject 能拿到自动同步的设定", async () => {
+      const handlers = new Map<string, Handler>();
+      const ipcMain = {
+        handle: (channel: string, listener: Handler) => {
+          handlers.set(channel, listener);
+        },
+      } as unknown as IpcMain;
+      const logger = {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      };
+      const stmtRun = vi.fn();
+      const stmtGet = vi.fn(
+        (..._args: unknown[]) => undefined as Record<string, unknown> | undefined,
+      );
+      const stmtAll = vi.fn((..._args: unknown[]): Record<string, unknown>[] => []);
+      const db = {
+        prepare: vi.fn(() => ({
+          run: stmtRun,
+          get: stmtGet,
+          all: stmtAll,
+        })),
+        exec: vi.fn(),
+        transaction: vi.fn((fn: () => void) => fn),
+      };
+      const eventBus = createEventBus();
+
+      registerSettingsIpcHandlers({
+        ipcMain,
+        db: db as never,
+        logger: logger as never,
+        eventBus,
+      });
+      registerSimpleMemoryIpcHandlers({
+        ipcMain,
+        db: db as never,
+        logger: logger as never,
+        eventBus,
+      });
+
+      const invoke = async <T>(channel: string, payload?: unknown) =>
+        (await handlers.get(channel)!(
+          { sender: { id: 1 } },
+          payload,
+        )) as IpcResponse<T>;
+
+      const created = await invoke<{ id: string }>("settings:character:create", {
+        projectId: "proj-1",
+        name: "林远",
+        description: "沉默的侦探",
+      });
+      expect(created.ok).toBe(true);
+
+      const injected = await invoke<{
+        records: Array<{ key: string; value: string }>;
+        injectedText: string;
+      }>("memory:simple:inject", {
+        projectId: "proj-1",
+        documentText: "林远走进仓库。",
+      });
+
+      expect(injected.ok).toBe(true);
+      expect(injected.data?.records.some((record) => record.key === "char:林远")).toBe(true);
+      expect(injected.data?.injectedText).toContain("林远");
+      expect(injected.data?.injectedText).toContain("沉默的侦探");
     });
   });
 });

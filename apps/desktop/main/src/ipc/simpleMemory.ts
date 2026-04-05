@@ -22,7 +22,7 @@ import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
 // ─── Payload types ──────────────────────────────────────────────────
 
 type WritePayload = {
-  projectId: string;
+  projectId: string | null;
   key: string;
   value: string;
   source?: string;
@@ -30,17 +30,17 @@ type WritePayload = {
 };
 
 type ReadPayload = {
-  projectId: string;
+  projectId: string | null;
   id: string;
 };
 
 type DeletePayload = {
-  projectId: string;
+  projectId: string | null;
   id: string;
 };
 
 type ListPayload = {
-  projectId: string;
+  projectId: string | null;
   category?: string;
   keyPrefix?: string;
 };
@@ -52,7 +52,7 @@ type InjectPayload = {
 };
 
 type ClearProjectPayload = {
-  projectId: string;
+  projectId: string | null;
   confirmed?: boolean;
 };
 
@@ -84,6 +84,11 @@ export function registerSimpleMemoryIpcHandlers(deps: {
     ipcMain: deps.ipcMain,
     projectSessionBinding: deps.projectSessionBinding,
   });
+  const handleWithOptionalProjectAccess = createProjectAccessHandler({
+    ipcMain: deps.ipcMain,
+    projectSessionBinding: deps.projectSessionBinding,
+    allowNullProjectId: true,
+  });
 
   function getService(): SimpleMemoryService | null {
     if (!deps.db) return null;
@@ -96,12 +101,14 @@ export function registerSimpleMemoryIpcHandlers(deps: {
     return service;
   }
 
+  void getService();
+
   // TODO [C-F8]: P3 阶段所有通道均要求 projectId 非空。
   // 全局记忆（null projectId）暂不支持，spec 需在后续版本（P4/P5）明确。
 
   // ── memory:simple:write ──
 
-  handleWithProjectAccess(
+  handleWithOptionalProjectAccess(
     "memory:simple:write",
     async (
       _event,
@@ -191,7 +198,7 @@ export function registerSimpleMemoryIpcHandlers(deps: {
 
   // ── memory:simple:read ──
 
-  handleWithProjectAccess(
+  handleWithOptionalProjectAccess(
     "memory:simple:read",
     async (
       _event,
@@ -248,7 +255,7 @@ export function registerSimpleMemoryIpcHandlers(deps: {
 
   // ── memory:simple:delete ──
 
-  handleWithProjectAccess(
+  handleWithOptionalProjectAccess(
     "memory:simple:delete",
     async (
       _event,
@@ -314,7 +321,7 @@ export function registerSimpleMemoryIpcHandlers(deps: {
 
   // ── memory:simple:list ──
 
-  handleWithProjectAccess(
+  handleWithOptionalProjectAccess(
     "memory:simple:list",
     async (
       _event,
@@ -414,10 +421,8 @@ export function registerSimpleMemoryIpcHandlers(deps: {
   );
 
   // ── memory:simple:clearproject ──
-  // NOTE: Spec 中使用 kebab-case (clear-project)，但合约生成器要求 [a-z0-9] only。
-  // 保持 clearproject 以符合 RESOURCE_ACTION_SEGMENT_PATTERN。
 
-  handleWithProjectAccess(
+  handleWithOptionalProjectAccess(
     "memory:simple:clearproject",
     async (
       _event,
@@ -434,6 +439,16 @@ export function registerSimpleMemoryIpcHandlers(deps: {
       if (!svc) return notReady<{ cleared: true }>();
 
       try {
+        if (payload.projectId === null) {
+          return {
+            ok: false,
+            error: {
+              code: "INVALID_ARGUMENT",
+              message: "projectId must be a non-null string",
+            },
+          };
+        }
+
         const res = await svc.clearProject(payload.projectId, {
           confirmed: payload.confirmed,
         });

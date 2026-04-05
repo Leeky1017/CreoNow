@@ -46,6 +46,7 @@ const SEED_PROJECT: ProjectConfig = {
   },
   goals: { targetWordCount: 50000, targetChapterCount: 10 },
   defaultSkillSetId: null,
+  knowledgeGraphId: "kg-seed",
   createdAt: Date.now(),
   updatedAt: Date.now(),
 };
@@ -183,7 +184,7 @@ describe("project config IPC handlers (P3)", () => {
       const harness = createHarness();
       const result = await harness.invoke<never>("project:config:update", {
         projectId: "proj-1",
-        patch: { genre: "" },
+        patch: { style: { genre: "" } },
       });
       expect(result.ok).toBe(false);
       expect(result.error?.code).toBe("PROJECT_GENRE_REQUIRED");
@@ -193,7 +194,7 @@ describe("project config IPC handlers (P3)", () => {
       const harness = createHarness();
       const result = await harness.invoke<never>("project:config:update", {
         projectId: "proj-1",
-        patch: { genre: "   " },
+        patch: { style: { genre: "   " } },
       });
       expect(result.ok).toBe(false);
       expect(result.error?.code).toBe("PROJECT_GENRE_REQUIRED");
@@ -226,15 +227,14 @@ describe("project config IPC handlers (P3)", () => {
       expect(harness.handlers.has("project:documents:list")).toBe(true);
     });
 
-    it("空项目返回空列表", async () => {
+    it("不存在项目返回 PROJECT_NOT_FOUND", async () => {
       const harness = createHarness();
       const result = await harness.invoke<{ items: unknown[] }>(
         "project:documents:list",
         { projectId: "proj-1" },
       );
-      // projectManager doesn't know proj-1, returns empty list
-      expect(result.ok).toBe(true);
-      expect(result.data?.items).toEqual([]);
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
     });
   });
 
@@ -255,17 +255,13 @@ describe("project config IPC handlers (P3)", () => {
       expect(result.error?.code).toBe("INVALID_ARGUMENT");
     });
 
-    it("返回概览数据", async () => {
+    it("不存在项目返回 PROJECT_NOT_FOUND", async () => {
       const harness = createHarness();
-      const result = await harness.invoke<{
-        projectId: string;
-        totalWordCount: number;
-        documentCount: number;
-      }>("project:overview:get", { projectId: "proj-1" });
-      expect(result.ok).toBe(true);
-      expect(result.data?.projectId).toBe("proj-1");
-      expect(result.data?.totalWordCount).toBe(0);
-      expect(result.data?.documentCount).toBe(0);
+      const result = await harness.invoke<never>("project:overview:get", {
+        projectId: "proj-1",
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error?.code).toBe("PROJECT_NOT_FOUND");
     });
   });
 
@@ -284,10 +280,10 @@ describe("project config IPC handlers (P3)", () => {
         { projectId: "proj-b" },
       );
 
-      expect(r1.ok).toBe(true);
-      expect(r2.ok).toBe(true);
-      expect(r1.data?.items).toEqual([]);
-      expect(r2.data?.items).toEqual([]);
+      expect(r1.ok).toBe(false);
+      expect(r2.ok).toBe(false);
+      expect(r1.error?.code).toBe("PROJECT_NOT_FOUND");
+      expect(r2.error?.code).toBe("PROJECT_NOT_FOUND");
     });
 
     it("项目 A 的配置不可被项目 B 读取", async () => {
@@ -319,8 +315,9 @@ describe("project config IPC handlers (P3)", () => {
       const result = await harness.invoke<{
         id: string;
         name: string;
-        genre: string;
-        narrativePerson: string;
+        knowledgeGraphId: string | null;
+        style: { genre: string; narrativePerson: string };
+        goals: { targetWordCount: number; targetChapterCount: number };
       }>("project:config:get", {
         projectId: "proj-seed",
       });
@@ -328,27 +325,39 @@ describe("project config IPC handlers (P3)", () => {
       expect(result.ok).toBe(true);
       expect(result.data?.id).toBe("proj-seed");
       expect(result.data?.name).toBe("Seed Project");
-      expect(result.data?.genre).toBe("科幻");
-      expect(result.data?.narrativePerson).toBe("first");
+      expect(result.data?.style.genre).toBe("科幻");
+      expect(result.data?.style.narrativePerson).toBe("first");
+      expect(result.data?.goals.targetChapterCount).toBe(10);
+      expect(result.data?.knowledgeGraphId).toBe("kg-seed");
     });
   });
 
   describe("project:config:update happy-path", () => {
-    it("更新 genre 后返回更新后的 config", async () => {
+    it("更新 style/goals/knowledgeGraph 后返回完整 round-trip config", async () => {
       seedProjects = [SEED_PROJECT];
       const harness = createHarness();
 
       const result = await harness.invoke<{
         id: string;
-        genre: string;
+        knowledgeGraphId: string | null;
+        style: { genre: string; tone: string };
+        goals: { targetWordCount: number; targetChapterCount: number };
       }>("project:config:update", {
         projectId: "proj-seed",
-        patch: { genre: "奇幻" },
+        patch: {
+          style: { genre: "奇幻", tone: "克制" },
+          goals: { targetWordCount: 80000, targetChapterCount: 12 },
+          knowledgeGraphId: "kg-updated",
+        },
       });
 
       expect(result.ok).toBe(true);
       expect(result.data?.id).toBe("proj-seed");
-      expect(result.data?.genre).toBe("奇幻");
+      expect(result.data?.style.genre).toBe("奇幻");
+      expect(result.data?.style.tone).toBe("克制");
+      expect(result.data?.goals.targetWordCount).toBe(80000);
+      expect(result.data?.goals.targetChapterCount).toBe(12);
+      expect(result.data?.knowledgeGraphId).toBe("kg-updated");
     });
   });
 

@@ -12,6 +12,8 @@ export type StreamSubscriptionResult = {
 export interface PreloadStreamApi {
   registerAiStreamConsumer: () => StreamSubscriptionResult;
   releaseAiStreamConsumer: (subscriptionId: string) => void;
+  registerExportProgressConsumer: () => StreamSubscriptionResult;
+  releaseExportProgressConsumer: (subscriptionId: string) => void;
 }
 
 export interface PreloadApi {

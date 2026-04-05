@@ -14,6 +14,7 @@ import {
   type ProjectStyleConfig,
 } from "../services/project/projectManager";
 import type { ProjectSessionBindingRegistry } from "./projectSessionBinding";
+import type { EventBusLike } from "./helpers";
 
 type ProjectHandlerDeps = {
   ipcMain: IpcMain;
@@ -22,6 +23,7 @@ type ProjectHandlerDeps = {
   logger: Logger;
   projectSessionBinding?: ProjectSessionBindingRegistry;
   projectLifecycle?: ProjectLifecycle;
+  eventBus?: EventBusLike;
 };
 
 function registerProjectCrudHandlers(deps: ProjectHandlerDeps): void {
@@ -570,28 +572,18 @@ function registerProjectSessionAndLifecycleHandlers(
 
 // ─── P3: Project Config IPC types ──
 
-type ProjectConfigResponse = {
-  id: string;
-  name: string;
-  type: string;
-  description: string;
-  stage: string;
-  genre: string;
-  wordCountGoal?: number;
-  autoSave: boolean;
-  narrativePerson: string;
-  languageStyle: string;
-  targetAudience: string;
-  updatedAt: number;
-};
+type ProjectConfigResponse = ProjectConfig;
 
 type ConfigUpdatePatch = {
-  genre?: string;
-  wordCountGoal?: number;
-  autoSave?: boolean;
-  narrativePerson?: string;
-  languageStyle?: string;
-  targetAudience?: string;
+  name?: string;
+  type?: string;
+  description?: string;
+  stage?: string;
+  lifecycleStatus?: "active" | "archived" | "deleted";
+  style?: Partial<ProjectConfig["style"]>;
+  goals?: Partial<ProjectConfig["goals"]>;
+  defaultSkillSetId?: string | null;
+  knowledgeGraphId?: string | null;
 };
 
 // ─── Helpers ──
@@ -603,23 +595,6 @@ import {
   validateNonEmptyString,
   NOOP_EVENT_BUS,
 } from "./helpers";
-
-function projectConfigFromManager(config: ProjectConfig): ProjectConfigResponse {
-  return {
-    id: config.id,
-    name: config.name,
-    type: config.type,
-    description: config.description,
-    stage: config.stage,
-    genre: config.style.genre,
-    wordCountGoal: config.goals.targetWordCount,
-    autoSave: true,
-    narrativePerson: config.style.narrativePerson,
-    languageStyle: config.style.languageStyle,
-    targetAudience: config.style.targetAudience,
-    updatedAt: config.updatedAt,
-  };
-}
 
 function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
   let manager: ProjectManager | null = null;
@@ -634,7 +609,7 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
     if (!manager) {
       manager = createProjectManager({
         db: deps.db,
-        eventBus: NOOP_EVENT_BUS,
+        eventBus: deps.eventBus ?? NOOP_EVENT_BUS,
       });
     }
     return manager;
@@ -661,7 +636,7 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
       try {
         const res = await mgr.getProject(payload.projectId);
         if (res.success && res.data) {
-          return { ok: true, data: projectConfigFromManager(res.data) };
+          return { ok: true, data: res.data };
         }
         return {
           ok: false,
@@ -709,37 +684,66 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
       }
 
       const updates: Partial<ProjectConfig> = {};
-      if (payload.patch.genre !== undefined) {
-        if (typeof payload.patch.genre === "string" && payload.patch.genre.trim().length === 0) {
+      if (payload.patch.name !== undefined) {
+        if (typeof payload.patch.name !== "string" || payload.patch.name.trim().length === 0) {
           return {
             ok: false,
             error: { code: "PROJECT_GENRE_REQUIRED", message: "genre cannot be empty" },
           };
         }
-        updates.style = { ...updates.style } as ProjectStyleConfig;
-        updates.style.genre = payload.patch.genre;
+        updates.name = payload.patch.name;
       }
-      if (payload.patch.narrativePerson !== undefined) {
-        updates.style = { ...(updates.style ?? {}) } as ProjectStyleConfig;
-        updates.style.narrativePerson = payload.patch.narrativePerson as ProjectStyleConfig["narrativePerson"];
+      if (payload.patch.type !== undefined) {
+        updates.type = payload.patch.type;
       }
-      if (payload.patch.languageStyle !== undefined) {
-        updates.style = { ...(updates.style ?? {}) } as ProjectStyleConfig;
-        updates.style.languageStyle = payload.patch.languageStyle;
+      if (payload.patch.description !== undefined) {
+        updates.description = payload.patch.description;
       }
-      if (payload.patch.targetAudience !== undefined) {
-        updates.style = { ...(updates.style ?? {}) } as ProjectStyleConfig;
-        updates.style.targetAudience = payload.patch.targetAudience;
+      if (payload.patch.stage !== undefined) {
+        updates.stage = payload.patch.stage;
       }
-      if (payload.patch.wordCountGoal !== undefined) {
-        updates.goals = { ...(updates.goals ?? {}) } as ProjectConfig["goals"];
-        updates.goals.targetWordCount = payload.patch.wordCountGoal;
+      if (payload.patch.lifecycleStatus !== undefined) {
+        updates.lifecycleStatus = payload.patch.lifecycleStatus;
+      }
+      if (payload.patch.style !== undefined) {
+        if (!isRecord(payload.patch.style)) {
+          return {
+            ok: false,
+            error: { code: "PROJECT_CONFIG_INVALID", message: "style must be an object" },
+          };
+        }
+        if (
+          payload.patch.style.genre !== undefined &&
+          (typeof payload.patch.style.genre !== "string" ||
+            payload.patch.style.genre.trim().length === 0)
+        ) {
+          return {
+            ok: false,
+            error: { code: "PROJECT_GENRE_REQUIRED", message: "genre cannot be empty" },
+          };
+        }
+        updates.style = payload.patch.style as Partial<ProjectConfig["style"]> as ProjectConfig["style"];
+      }
+      if (payload.patch.goals !== undefined) {
+        if (!isRecord(payload.patch.goals)) {
+          return {
+            ok: false,
+            error: { code: "PROJECT_CONFIG_INVALID", message: "goals must be an object" },
+          };
+        }
+        updates.goals = payload.patch.goals as Partial<ProjectConfig["goals"]> as ProjectConfig["goals"];
+      }
+      if (payload.patch.defaultSkillSetId !== undefined) {
+        updates.defaultSkillSetId = payload.patch.defaultSkillSetId;
+      }
+      if (payload.patch.knowledgeGraphId !== undefined) {
+        updates.knowledgeGraphId = payload.patch.knowledgeGraphId;
       }
 
       try {
         const res = await mgr.updateProject(payload.projectId, updates);
         if (res.success && res.data) {
-          return { ok: true, data: projectConfigFromManager(res.data) };
+          return { ok: true, data: res.data };
         }
         return {
           ok: false,
@@ -822,7 +826,26 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
       const mgr = getManager();
       if (!mgr) return notReady<{ items: ProjectDocument[] }>();
 
+      const projectIdErr = validateNonEmptyString(payload.projectId, "projectId");
+      if (projectIdErr) {
+        return {
+          ok: false,
+          error: { code: "INVALID_ARGUMENT", message: projectIdErr },
+        };
+      }
+
       try {
+        const project = await mgr.getProject(payload.projectId);
+        if (!project.success) {
+          return {
+            ok: false,
+            error: {
+              code: (project.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+              message: project.error?.message ?? "Project not found",
+            },
+          };
+        }
+
         const res = await mgr.listDocuments(payload.projectId, {
           type: payload.type,
         });
@@ -876,6 +899,17 @@ function registerProjectConfigHandlers(deps: ProjectHandlerDeps): void {
       }
 
       try {
+        const project = await mgr.getProject(payload.projectId);
+        if (!project.success) {
+          return {
+            ok: false,
+            error: {
+              code: (project.error?.code ?? "PROJECT_NOT_FOUND") as "PROJECT_NOT_FOUND",
+              message: project.error?.message ?? "Project not found",
+            },
+          };
+        }
+
         const res = await mgr.getOverview(payload.projectId);
         if (res.success && res.data) {
           return { ok: true, data: res.data };
