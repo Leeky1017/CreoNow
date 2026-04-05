@@ -549,8 +549,8 @@ interface ExportProjectRequest {
   outputPath: string
   /** 导出范围（默认全部章节） */
   documentIds?: string[]
-  /** 是否按章节顺序合并为单文件 */
-  mergeIntoOne: boolean
+  /** 可选；为 true 时按章节顺序合并为单文件，省略时默认分文件导出 */
+  mergeIntoOne?: boolean
 }
 
 /** 导出进度事件 */
@@ -561,8 +561,8 @@ interface ExportProgressEvent {
   stage: 'parsing' | 'converting' | 'writing'
   /** 完成百分比（0-100） */
   progress: number
-  /** 当前处理的文档标题 */
-  currentDocument?: string
+  /** 当前处理的文档 ID */
+  currentDocument: string
 }
 
 /** 导出结果 */

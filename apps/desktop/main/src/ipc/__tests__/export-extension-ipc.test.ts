@@ -150,6 +150,42 @@ describe("export extension IPC handlers", () => {
     });
   });
 
+  it("允许省略 mergeIntoOne，并按公开契约透传为 undefined", async () => {
+    const harness = createHarness();
+    exportProjectProsemirror.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        exportId: "exp-3",
+        documentCount: 2,
+        outputPath: "/exports/project-dir",
+        format: "markdown",
+        totalWordCount: 456,
+        durationMs: 90,
+      },
+    });
+
+    const result = await harness.invoke<{
+      exportId: string;
+      outputPath: string;
+    }>("export:project:prosemirror", {
+      projectId: "proj-1",
+      outputPath: "/exports/project-dir",
+      options: { format: "markdown" },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.data?.exportId).toBe("exp-3");
+    expect(exportProjectProsemirror).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: "proj-1",
+        outputPath: "/exports/project-dir",
+        mergeIntoOne: undefined,
+        options: { format: "markdown" },
+        onProgress: expect.any(Function),
+      }),
+    );
+  });
+
   it("缺少 outputPath 时返回 INVALID_ARGUMENT", async () => {
     const harness = createHarness();
     const result = await harness.invoke<never>("export:document:prosemirror", {

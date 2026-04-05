@@ -62,4 +62,24 @@ describe("registerExportProgressBridge", () => {
 
     bridge.dispose();
   });
+
+  it("ignores payloads missing required currentDocument", async () => {
+    const { registerExportProgressBridge } = await import(
+      "../../../../preload/src/exportProgressBridge"
+    );
+
+    const bridge = registerExportProgressBridge();
+    bridge.registerExportProgressConsumer();
+
+    listeners.get(EXPORT_PROGRESS_CHANNEL)?.({}, {
+      type: "export-progress",
+      exportId: "exp-2",
+      stage: "converting",
+      progress: 60,
+    });
+
+    expect(dispatchEvent).not.toHaveBeenCalled();
+
+    bridge.dispose();
+  });
 });
